@@ -210,7 +210,9 @@ describe('createWorld — initial state', () => {
     for (const p of world.players) {
       expect(p.status).toBe('alive');
       expect(p.troopsHeld).toBe(0);
-      expect(p.citiesOwned).toBe(0);
+      // citiesOwned is computed from board.cities at tick 0 (was hard-coded
+      // to 0 before Wave 2B-2); each player starts with their starting cities.
+      expect(p.citiesOwned).toBe(1);
     }
   });
 });

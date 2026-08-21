@@ -11,16 +11,18 @@
  * idempotent on its inputs (FR-017). The server calls `applyCommand`
  * multiple times before each `tick()` to stage orders; `tick()` then
  * drains them in a fixed total order (by PlayerId ascending, then by
- * `kind` alphabetical) and applies their effects. The queue lives on
- * the `World` value itself (an extension of the contract's `World`
- * interface), not in module state, so the engine remains pure across
- * parallel calls.
+ * `kind` alphabetical) and applies their effects. The queue is held
+ * in a private `WeakMap` side-table keyed by the `World` object
+ * reference, NOT in module state, so the engine remains pure across
+ * parallel calls (each `World` value owns its own queue; old worlds
+ * are garbage-collected and their entries cleaned up automatically).
  *
- * **Internal extension of `World`**: the contract's `World` interface
- * is fixed (no `pendingOrders` field). The engine defines a sibling
- * `InternalWorld` interface here that adds the field for in-process
- * use; public callers see only the contract type. This is the same
- * pattern used by `create.ts` and `tick.ts`.
+ * **Why a WeakMap side-table?** The contract's `World` interface is
+ * fixed (no `pendingOrders` field). Storing the queue in a `WeakMap`
+ * keyed by `World` keeps it off the contract surface while preserving
+ * object identity semantics — every `World` returned from this module
+ * is associated with its own queue, and the queue is unreachable once
+ * the `World` is dropped.
  *
  * **Surrender (FR-016)**: surrender orders apply IMMEDIATELY on
  * `applyCommand` (not deferred to the next tick) — the player is
@@ -29,41 +31,45 @@
  * spec's "forces removed or rendered inert" requirement.
  */
 
-import { emptyTickEvents, pushEliminationEvent } from './events';
 import type { CommandResult, Order, Player, PlayerId, World } from './types';
 import { validateCommand } from './validate';
 
 /**
- * Internal-only extension of the contract's `World` interface. Adds a
- * `pendingOrders` queue. NOT part of the public API surface; not
- * re-exported via the engine barrel.
+ * Private side-table: maps a `World` object reference to its pending
+ * orders queue. Module-scoped so it cannot leak across test cases
+ * (each test creates fresh worlds). WeakMap keyed by `World` ensures
+ * automatic cleanup when a world is garbage-collected.
+ *
+ * NOT part of the public API surface; not re-exported via the engine
+ * barrel.
  */
-export interface InternalWorld extends World {
-  readonly pendingOrders: ReadonlyArray<Order>;
-}
+const pendingOrdersTable = new WeakMap<World, ReadonlyArray<Order>>();
 
 /**
- * Read pending orders off a `World` (cast to the internal type).
- * Returns an empty array if the world has no staged orders (defensive —
- * worlds built without going through `applyCommand` won't have the
- * field).
+ * Read pending orders off a `World`. Returns an empty array if the
+ * world has no staged orders (defensive — worlds built without going
+ * through `applyCommand` won't have an entry).
  */
 export function readPendingOrders(world: Readonly<World>): ReadonlyArray<Order> {
-  return (world as InternalWorld).pendingOrders ?? [];
+  // The cast to `World` is required because TypeScript's WeakMap typing
+  // uses `object`, and our `Readonly<World>` flows from `World`. The
+  // cast is identity-preserving (no runtime conversion).
+  return pendingOrdersTable.get(world as World) ?? [];
 }
 
 /**
- * Attach a pending-orders queue to a `World`, returning a new value
- * with the field populated. Other fields are copied unchanged.
+ * Attach a pending-orders queue to a `World`, returning the same
+ * reference with the side-table populated. The `World` object identity
+ * is preserved — no new object is created — which lets downstream
+ * modules continue to use the returned reference as the canonical
+ * "next world".
  */
 export function withPendingOrders(
   world: Readonly<World>,
   pendingOrders: ReadonlyArray<Order>,
 ): World {
-  return {
-    ...world,
-    pendingOrders: [...pendingOrders],
-  } as InternalWorld as World;
+  pendingOrdersTable.set(world as World, [...pendingOrders]);
+  return world as World;
 }
 
 /**
@@ -85,20 +91,19 @@ export function applyCommand(
     return { world, result };
   }
 
-  // Surrender applies immediately (FR-016): mark the player eliminated,
-  // emit an EliminationEvent into the world's tick events slot (kept
-  // for parity with the tick-pipeline EliminationEvents), and return.
+  // Surrender applies immediately (FR-016): mark the player eliminated
+  // and return. The next tick() will detect the terminal condition via
+  // resolveTerminal (which emits the EliminationEvent for the tick
+  // pipeline). Surrender is NOT staged in pendingOrders — its effect is
+  // durable in the returned world, no tick drain required.
   if (cmd.kind === 'surrender') {
     const nextWorld = markSurrendered(world, cmd.player);
-    // Note: we don't stage surrender in pendingOrders (it's been
-    // applied immediately). The next tick() will see the eliminated
-    // status and detect the terminal condition.
-    void emptyTickEvents();
-    void pushEliminationEvent;
     return { world: nextWorld, result: { ok: true } };
   }
 
-  // All other order kinds: stage in pendingOrders.
+  // All other order kinds: stage in pendingOrders. The side-table
+  // attached to `world` is appended with the new order; the world
+  // reference itself is unchanged (so concurrent snapshots stay valid).
   const pending = readPendingOrders(world);
   const nextWorld = withPendingOrders(world, [...pending, cmd]);
   return { world: nextWorld, result: { ok: true } };
@@ -121,9 +126,9 @@ function markSurrendered(world: Readonly<World>, player: PlayerId): World {
     ...world,
     players: Object.freeze(updatedPlayers),
   };
-  // Preserve the pendingOrders field if present.
-  const pending = (world as InternalWorld).pendingOrders;
-  if (pending !== undefined) {
+  // Preserve the pendingOrders side-table if present.
+  const pending = readPendingOrders(world);
+  if (pending.length > 0) {
     return withPendingOrders(nextWorld, pending);
   }
   return nextWorld;

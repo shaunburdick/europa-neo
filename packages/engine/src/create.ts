@@ -20,7 +20,6 @@
  *   initialization (4 uint32s).
  */
 
-import { ENGINE_CONSTANTS } from './constants';
 import { hashSeed } from './rng';
 import type {
   Board,
@@ -160,6 +159,15 @@ export function createWorld(config: MatchConfig, board: Board): World {
   }
 
   // ---- Players ---------------------------------------------------------
+  // Initialize per-player `citiesOwned` from `board.cities` so the
+  // tick-0 Player snapshot is accurate. Without this, `citiesOwned`
+  // would be 0 until the first tick's resolveTerminal recomputed it —
+  // a stale-state bug. (`troopsHeld` stays 0 because troop placement
+  // happens in `tick()`'s production + flow phases.)
+  const citiesOwnedByPlayer = new Map<PlayerId, number>();
+  for (const city of board.cities) {
+    citiesOwnedByPlayer.set(city.owner, (citiesOwnedByPlayer.get(city.owner) ?? 0) + 1);
+  }
   const players: Player[] = [];
   for (let i = 0; i < config.playerCount; i++) {
     const id = (i + 1) as PlayerId;
@@ -167,7 +175,7 @@ export function createWorld(config: MatchConfig, board: Board): World {
       id,
       displayName: `Player ${String(id)}`,
       status: 'alive',
-      citiesOwned: 0,
+      citiesOwned: citiesOwnedByPlayer.get(id) ?? 0,
       troopsHeld: 0,
     });
   }
@@ -185,10 +193,6 @@ export function createWorld(config: MatchConfig, board: Board): World {
     rngSeed: config.seed >>> 0,
     rngState,
   };
-  // Silence unused-import warning; constants are imported by other
-  // modules and this re-asserts the contract that productionRate drives
-  // initial-state troop bootstrapping (kept as a future hook).
-  void ENGINE_CONSTANTS;
 
   return world;
 }

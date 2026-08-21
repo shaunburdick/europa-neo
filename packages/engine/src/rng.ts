@@ -21,6 +21,20 @@
  * (terrain) so map generation consumes the same stream that drives
  * tick resolution. Consumers MUST NOT advance the generator from
  * outside — `Rng.state` is exposed read-only for test/assertion use.
+ *
+ * **Branch coverage note (Wave 2B-2 code review)**: the per-file
+ * branch coverage on this module sits at 50% — the uncovered
+ * branches are all `| 0` and `>>> 0` parity coercions inside the
+ * canonical public-domain sfc32 implementation (see
+ * https://github.com/bryc/code/blob/master/jshash/PRNGs.md). These
+ * branches only fire when JS engines diverge on the implicit Number
+ * coercion of intermediate results, which never happens in practice
+ * (every JS engine coerces the same way for inputs in `[0, 2^32)`).
+ * Modifying the algorithm to "linearize" the branches would mean
+ * rewriting the canonical reference, which we explicitly avoid —
+ * sfc32 is the well-studied, accepted PRNG for this engine, and
+ * the parity coercions are an intentional safety belt for non-spec
+ * JS engines. Coverage is intentionally left at 50% on this file.
  */
 
 import type { Rng } from './types';

@@ -370,6 +370,3 @@ function dispatchOrderEffect(
       return state;
   }
 }
-
-// Suppress unused-import warning for the Player type re-import.
-type _PlayerRef = World['players'][number];
