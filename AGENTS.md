@@ -31,12 +31,14 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 ## Current state (update this section as work progresses!)
 
 - **Branch**: `001-europa-core` (never commit to `main`/`master`/`develop`)
-- **Completed**: Phases 1–3 — constitution ratified; six feature specs written and committed (`859a4f3`); spec 006 amended for visibility types + shareable links (`1ed3233`); spec 006 stamped v1.1 with inline Clarifications trail (`b55bfaf`); original archive trimmed to documentation subset with history purged (`79701f8`+)
-- **In progress**: Phases 4–5 — architecture plan (`plan.md`, `research.md`, `data-model.md`, `contracts/`) and task breakdown (`tasks.md`) per feature
-  - Suggested plan order (bottom-up by dependency): 001 engine → 003 terrain → 002 fog → 004 networking → 005 console → 006 matchmaking
-  - Dispatched one feature at a time to `modern-architect-engineer`; verify each artifact lands on disk before the next dispatch
-- **Then**: Phase 6 — implementation (size-based routing: small/medium → architect solo, large → orchestration skill)
-- Spec status lines: all six specs are `**Status**: Draft`; update to `Planned` once `plan.md` lands, `Implemented` after phase 6 merge
+- **Completed**:
+  - Phases 1–3 — constitution ratified; six feature specs written and committed (`859a4f3`); spec 006 amended for visibility types + shareable links (`1ed3233`); spec 006 stamped v1.1 with inline Clarifications trail (`b55bfaf`); original archive trimmed to documentation subset with history purged (`79701f8`+)
+  - Phases 4–5 — all six feature plans + tasks committed
+  - **001 engine: Implemented** (commits `d18f31c` → `4f60216`) — full US1-US5 + Polish: 280 tests passing, ≥80% coverage on every metric, byte-identical 10k-tick determinism (SC-001), median tick < 0.1ms on 32×32 board (SC-004), 3/4-player smoke (FR-019), CI workflow + README + contract-drift detector in place. All Wave 1 reviewer items addressed.
+- **Next**:
+  - Phase 6 implementation of features 003 (terrain), 002 (fog), 004 (networking), 005 (console), 006 (matchmaking)
+  - Suggested dispatch order (bottom-up by dependency): 003 terrain → 002 fog → 004 networking → 005 console → 006 matchmaking
+- Spec status lines: 001 = `**Status**: Implemented`; specs 002-006 still `**Status**: Draft` (flip to `Planned` once their `plan.md` lands, `Implemented` after phase 6 merge)
 
 ## Workflow rules
 

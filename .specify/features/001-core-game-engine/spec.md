@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Deterministic tick-based simulation of the original Europa gameplay: grid terrain with elevation and water, cities producing nanobot troops, pipes directing troop flow, attrition combat, decay, cell capacity with reserves, paratroopers, guns, and last-player-standing victory."
 
