@@ -15,6 +15,10 @@
  * (Biome `organizeImports` rule). The conceptual grouping lives in
  * the JSDoc above and in the source-of-truth contracts at
  * `.specify/features/001-core-game-engine/contracts/`.
+ *
+ * Custom error classes (`EngineVersionMismatchError`,
+ * `EngineFormatError`) are also re-exported so callers can match on
+ * them without reaching into the engine internals.
  */
 
 // ----------------------------------------------------------------------------
@@ -135,3 +139,15 @@ export {
   getPlayer,
   neighborsOf,
 } from './read';
+
+// ----------------------------------------------------------------------------
+// Serialization (Polish-phase T051)
+// ----------------------------------------------------------------------------
+
+export {
+  deserializeWorld,
+  EngineFormatError,
+  EngineVersionMismatchError,
+  hashWorld,
+  serializeWorld,
+} from './serialize';
