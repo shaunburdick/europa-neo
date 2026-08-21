@@ -4,6 +4,10 @@
 
 **Created**: 2026-08-21
 
+**Last Updated**: 2026-08-21 (v1.1 — clarified visibility types and shareable join links)
+
+**Version**: 1.1
+
 **Status**: Draft
 
 **Input**: User description: "Lobby-lite flow from arrival to battle: pick a display name, browse/create matches, auto-start when players are seated, play to conclusion, see results, rematch. No persistent accounts in v1."
@@ -141,3 +145,20 @@ As a player, I want abandoned matches to resolve sensibly — my opponent wins a
 - No persistence across server restarts: lobby and matches are memory-resident; accounts/ratings/chat are future features (the original's Rating system documented in `europa-source/.../rating.html` and `src/games/Rating/Rating.java` is the reference for the future ratings feature).
 - Display names are cosmetic and unmoderated in v1; self-hosted deployments may add moderation later.
 - The original's login/password character system is intentionally not reproduced (product decision: gameplay-first v1).
+
+## Clarifications
+
+### v1.1 (2026-08-21) — Visibility types and shareable join links
+
+Resolved ambiguities from the initial v1.0 draft around how players find matches and how private play is supported. See commit `1ed3233` for the full diff.
+
+- **Q1 — Lobby scope**: Is the lobby the only way to find a match?
+  - **Resolution**: No. Matches carry a visibility type (`public` or `private`) chosen at creation. Lobby lists public matches only; private matches are discoverable exclusively via their server-assigned match ID / shareable join URL. See US2, US3, FR-002, FR-003, FR-005, FR-006.
+- **Q2 — Private-match discovery**: Can a private match be enumerated by guessing IDs?
+  - **Resolution**: Unknown IDs are rejected with a generic `match not found` response; the server does not leak whether a private match exists. Link sharing is the only entry path; link rotation/revocation is out of scope for v1 (deferred to the future accounts feature). See edge cases "tries to join without ID" and "link shared beyond intended group", and FR-006.
+- **Q3 — Join URL shape**: Is there a shareable URL, or just an opaque ID?
+  - **Resolution**: Both. Every created match returns `match_id` and a `join_url` (the URL embeds the match ID) at creation time; the creator is responsible for distributing it. See FR-003, US3 AC-1.
+- **Q4 — Visibility mutability**: Can a creator flip a public match to private after the fact?
+  - **Resolution**: No in v1; visibility type is fixed at creation. Creators who want the other mode must recreate the match. See edge case "creator wanted privacy after all".
+- **Q5 — Lobby freshness**: How quickly must the lobby reflect lifecycle transitions?
+  - **Resolution**: Updates must propagate within one tick of the underlying event (SC-003). The lifecycle states observed by clients are `created → filling → running → finished → collected` (FR-012).
