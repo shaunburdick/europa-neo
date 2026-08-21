@@ -31,7 +31,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 ## Current state (update this section as work progresses!)
 
 - **Branch**: `001-europa-core` (never commit to `main`/`master`/`develop`)
-- **Completed**: Phases 1–3 — constitution ratified; six feature specs written and committed (`aedd040`, amendments in log)
+- **Completed**: Phases 1–3 — constitution ratified; six feature specs written and committed (`859a4f3`, amendments in log); original archive trimmed to documentation subset with history purged (`79701f8`+)
 - **Next**: Phases 4–5 — architecture plan (`plan.md`, `research.md`, `data-model.md`, `contracts/`) and task breakdown (`tasks.md`) per feature, via spec-kit `/speckit.plan` + `/speckit.tasks`
 - **Then**: Phase 6 — implementation
 - Spec status lines: all six specs are `**Status**: Draft`; update to `Planned`/`Implemented` as phases advance
@@ -42,7 +42,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 2. **Git safety**: work on feature branches only; conventional commits (`feat:`, `fix:`, `docs:`, …); never push without explicit instruction; never rewrite history.
 3. **Determinism discipline**: engine code must be pure (no wall-clock, no unseeded randomness, integer/fixed-point math); all tunable numbers live in one constants location.
 4. **Specs stay truthful**: changing behavior means updating the spec in the same change set. Stale specs are bugs.
-5. **Licensing hygiene**: never copy code from `europa-source/` (SOS license, © Alex Nicolaou). It is reference material only — reimplement from documented behavior.
+5. **Licensing hygiene**: never copy code from `europa-source/` (SOS license, © Alex Nicolaou). It is reference material only — reimplement from documented behavior. The archive is a trimmed documentation subset (`html/Europa/` only); never modify files under `europa-source/`.
 
 ## Environment notes (hard-won, verified this session)
 

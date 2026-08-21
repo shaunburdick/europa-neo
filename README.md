@@ -42,12 +42,11 @@ The governing principles are in `.specify/memory/constitution.md`.
 ## Repository layout
 
 ```
-europa-source/          Archived mirror of the original game site (reference material)
-  └── games.dangerous-minds.net/Europa/
-      ├── html/Europa/  Original rules/controls/strategy docs (authoritative gameplay reference)
-      ├── docs/         Original javadoc (architectural inspiration)
-      ├── src/          Surviving original Java sources (Rating system, utilities)
-      └── server/       Original server data (map tiles, player records)
+europa-source/          Trimmed documentation subset of the original game site (reference material)
+  └── games.dangerous-minds.net/Europa/html/Europa/
+      ├── rules.html    Original mechanics (authoritative gameplay reference)
+      ├── controls.html Original control scheme
+      └── …             Strategy, rating system, background docs + images
 .specify/               Spec-kit tooling: constitution, feature specs, templates, scripts
 ```
 
