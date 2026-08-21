@@ -4,15 +4,6 @@
  * Source of truth for every entity and value the engine exposes to other
  * features. Re-exported via `@europa/engine` (packages/engine/src/index.ts).
  *
- * **LOCAL COPY — DO NOT EDIT IN PLACE.** The canonical contract lives at
- * `.specify/features/001-core-game-engine/contracts/engine-types.ts`.
- * This file is a verbatim copy kept inside the engine package so the
- * TypeScript compiler can resolve the import without violating the
- * engine's `rootDir: "./src"` + `include: ["src/**"]` boundary (see
- * AGENTS.md and the Phase 2 PM handoff). When the spec contract
- * changes, copy the updated file here in the same change set. Drift
- * between this copy and the spec is a bug (constitution Principle IV).
- *
  * Consumers (downstream features):
  *   - 003 (terrain)        → produces a `Board` consumed by `createWorld`.
  *   - 002 (fog)            → reads `World`, produces `PlayerView` per player.
@@ -100,8 +91,8 @@ export interface Coord {
 export interface Cell {
   readonly x: number;
   readonly y: number;
-  readonly elevation: number; // integer, 0..255 (FR-001)
-  readonly terrain: Terrain; // FR-001, FR-002
+  readonly elevation: number;   // integer, 0..255 (FR-001)
+  readonly terrain: Terrain;     // FR-001, FR-002
 }
 
 /**
@@ -117,9 +108,9 @@ export interface CityPlacement {
  * consumed by feature 001's `createWorld`.
  */
 export interface Board {
-  readonly width: number; // square; FR-001
-  readonly height: number; // FR-001
-  readonly cells: ReadonlyArray<Cell>; // row-major: cells[y*w + x]
+  readonly width: number;                    // square; FR-001
+  readonly height: number;                   // FR-001
+  readonly cells: ReadonlyArray<Cell>;       // row-major: cells[y*w + x]
   readonly cities: ReadonlyArray<CityPlacement>;
 }
 
@@ -150,11 +141,11 @@ export interface MatchConfig {
  * exposed so feature 004 can serialize the world without copying.
  */
 export interface WorldState {
-  readonly troopCounts: Uint32Array; // w*h; integer ≥ 0
-  readonly troopOwners: Uint8Array; // w*h; 0=neutral, 1..4=PlayerId
-  readonly pipeMasks: Uint8Array; // w*h; N=0x01, E=0x02, S=0x04, W=0x08
-  readonly reservesPct: Uint8Array; // w*h; 0..9 (×10 at use-site)
-  readonly cityOwners: Uint8Array; // w*h; 0=no city; 1..4=PlayerId
+  readonly troopCounts: Uint32Array;   // w*h; integer ≥ 0
+  readonly troopOwners: Uint8Array;    // w*h; 0=neutral, 1..4=PlayerId
+  readonly pipeMasks: Uint8Array;      // w*h; N=0x01, E=0x02, S=0x04, W=0x08
+  readonly reservesPct: Uint8Array;    // w*h; 0..9 (×10 at use-site)
+  readonly cityOwners: Uint8Array;     // w*h; 0=no city; 1..4=PlayerId
 }
 
 // ----------------------------------------------------------------------------
@@ -291,14 +282,14 @@ export type Order =
 // ----------------------------------------------------------------------------
 
 export type ValidationError =
-  | { kind: 'out_of_bounds'; coord: Coord }
-  | { kind: 'water_target'; coord: Coord }
-  | { kind: 'not_owner'; coord: Coord }
-  | { kind: 'paratroop_range'; source: Coord; target: Coord; distance: number }
-  | { kind: 'no_source_troops'; coord: Coord }
+  | { kind: 'out_of_bounds';     coord: Coord }
+  | { kind: 'water_target';      coord: Coord }
+  | { kind: 'not_owner';         coord: Coord }
+  | { kind: 'paratroop_range';   source: Coord; target: Coord; distance: number }
+  | { kind: 'no_source_troops';  coord: Coord }
   | { kind: 'already_surrendered'; player: PlayerId }
-  | { kind: 'invalid_percent'; percent: number }
-  | { kind: 'unknown_player'; player: number }
+  | { kind: 'invalid_percent';   percent: number }
+  | { kind: 'unknown_player';    player: number }
   | { kind: 'match_terminal' };
 
 export type CommandResult =

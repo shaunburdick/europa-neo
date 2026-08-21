@@ -5,13 +5,6 @@
  * function with no I/O, no wall-clock reads, no unseeded randomness.
  * See `research.md` §7 for the rationale.
  *
- * **LOCAL COPY — DO NOT EDIT IN PLACE.** The canonical contract lives at
- * `.specify/features/001-core-game-engine/contracts/engine-api.ts`.
- * This file is a verbatim copy kept inside the engine package for the
- * same reason as `engine-types.ts` (see that file's header for details).
- * When the spec contract changes, copy the updated file here in the
- * same change set.
- *
  * Consumers:
  *   - 003 (terrain)        → calls `createWorld`.
  *   - 002 (fog)            → calls `getCell`, `tick`, `isTerminal`.
@@ -136,7 +129,10 @@ export declare function alivePlayers(world: Readonly<World>): ReadonlyArray<Play
  * client-side preflight (feature 005) and protocol-level checks
  * (feature 004).
  */
-export declare function validateCommand(world: Readonly<World>, cmd: Order): CommandResult;
+export declare function validateCommand(
+  world: Readonly<World>,
+  cmd: Order,
+): CommandResult;
 
 // ----------------------------------------------------------------------------
 // Serialization
