@@ -45,21 +45,29 @@ export const TERRAIN_API_VERSION = '0.1.0' as const;
 // ----------------------------------------------------------------------------
 
 // `import type` ensures these are erased at runtime; terrain does not
-// depend on the engine's compiled code.
+// depend on the engine's compiled code. Split into type-only imports
+// (erased) and a value import for `ENGINE_API_VERSION` (needed as a
+// runtime const re-exported on line 64; see the bug-fix comment below).
 import type {
   Board,
   Cell,
   CityPlacement,
   Coord,
   PlayerId,
-  ENGINE_API_VERSION as _ENGINE_API_VERSION_REF,
 } from '@europa/engine';
+import { ENGINE_API_VERSION as _ENGINE_API_VERSION_REF } from '@europa/engine';
 
 /**
  * The engine API version terrain was built against. If the engine
  * version pin in feature 001's contracts ever drifts, this re-export
  * lets a single `import { ENGINE_API_VERSION } from '@europa/terrain'`
  * catch the drift.
+ *
+ * Bug-fix note (PM-mediated, terrain Phase 2 implementation surfaced
+ * under `verbatimModuleSyntax: true`): `ENGINE_API_VERSION` is a
+ * runtime `const` in the engine, so the original `import type { ... }`
+ * stripped it at compile time, making `ENGINE_API_VERSION_REF`
+ * `undefined` at runtime. Fixed by splitting into a value import.
  */
 export const ENGINE_API_VERSION_REF = _ENGINE_API_VERSION_REF;
 
@@ -93,8 +101,16 @@ export type MapSeed = number;
  * The type lives in `engine-types.ts` so the dependency direction is
  * terrain → engine (one-way). If the engine ever changes `Rng`'s shape,
  * both packages update in the same change set.
+ *
+ * Bug-fix note (PM-mediated, terrain Phase 2 implementation surfaced
+ * under `verbatimModuleSyntax: true`): `Rng` is used locally in
+ * `TerrainGenerationRequest.rng: Rng` (line 222), so we need an
+ * `import type` for local use IN ADDITION to the `export type` for
+ * re-export. The original `export type { Rng } from '@europa/engine'`
+ * re-exports but doesn't import for local use, breaking compilation.
  */
-export type { Rng } from '@europa/engine';
+import type { Rng } from '@europa/engine';
+export type { Rng };
 
 // ----------------------------------------------------------------------------
 // GenerationSettings (FR-008: configurable with safe clamping)
