@@ -51,6 +51,31 @@ export type PlayerStatus = 'alive' | 'surrendered' | 'eliminated';
 /** Per-cell reserve percentage, stored ×10 (FR-012: 0–90% in 10% steps). */
 export type ReservesPct = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
+// ----------------------------------------------------------------------------
+// PRNG (the engine owns the deterministic PRNG; terrain consumes an
+// instance — see contracts/engine-to-terrain.ts)
+// ----------------------------------------------------------------------------
+
+/**
+ * Callable pseudorandom generator that returns a uint32 each call.
+ *
+ * The engine instantiates one `Rng` per match from the match's `seed`
+ * (sfc32, see `research.md` §5). The same `Rng` instance is passed to
+ * feature 003 (terrain) so map generation consumes the same PRNG stream
+ * that drives subsequent tick resolution — guaranteeing full-match
+ * determinism for replays.
+ *
+ * Consumers MUST NOT advance the generator from outside; it is
+ * engine-owned. The `state` field is exposed for test/assertion purposes
+ * only (SC-001 10k-tick determinism).
+ */
+export type Rng = {
+  /** Advance internal state and return the next uint32 in [0, 2^32). */
+  (): number;
+  /** Current state (4 × uint32, sfc32's internal order). Read-only by contract. */
+  readonly state: Uint32Array;
+};
+
 /**
  * Cell coordinate. `x` and `y` are non-negative integers in `[0, boardSize)`.
  */
