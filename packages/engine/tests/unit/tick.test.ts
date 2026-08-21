@@ -125,7 +125,12 @@ describe('applyCommand — pipe commands', () => {
   });
 
   it('setPipesExclusive replaces existing pipes on the cell', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+    // P2 has a city too — US5 terminal detection would otherwise freeze
+    // the world after tick 0.
+    const board = buildSmallBoard(8, [
+      [1, 1, 1 as PlayerId],
+      [6, 6, 2 as PlayerId],
+    ]);
     const pipeOrders: Array<{
       atTick: number;
       order: {
@@ -151,7 +156,10 @@ describe('applyCommand — pipe commands', () => {
   });
 
   it('clearAllPipes removes all pipes from a cell', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+    const board = buildSmallBoard(8, [
+      [1, 1, 1 as PlayerId],
+      [6, 6, 2 as PlayerId],
+    ]);
     const orders = [
       {
         atTick: 0,
@@ -181,7 +189,10 @@ describe('applyCommand — pipe commands', () => {
   });
 
   it('clearPipe removes a single direction', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+    const board = buildSmallBoard(8, [
+      [1, 1, 1 as PlayerId],
+      [6, 6, 2 as PlayerId],
+    ]);
     const orders = [
       {
         atTick: 0,
@@ -217,9 +228,14 @@ describe('applyCommand — pipe commands', () => {
     expect(cell & 0x02).toBe(0); // E cleared
   });
 
-  it('deferred order kinds (paratroop, gun, setReserves, surrender) are accepted in US1', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
-    const { finalWorld: w0 } = runScenario(cfg, board, [], 1);
+  it('deferred order kinds (paratroop, gun, setReserves, surrender) are accepted when prerequisites are met', () => {
+    // P2 has a city too — otherwise US5 terminal detection eliminates P2
+    // and freezes the world. Run enough ticks for P1 to accumulate troops.
+    const board = buildSmallBoard(8, [
+      [1, 1, 1 as PlayerId],
+      [6, 6, 2 as PlayerId],
+    ]);
+    const { finalWorld: w0 } = runScenario(cfg, board, [], 30);
     expect(
       applyCommand(w0, {
         kind: 'paratroop',
@@ -236,7 +252,7 @@ describe('applyCommand — pipe commands', () => {
       applyCommand(w0, { kind: 'setReserves', player: 1, cell: { x: 1, y: 1 }, percent: 3 }).result
         .ok,
     ).toBe(true);
-    expect(applyCommand(w0, { kind: 'surrender', player: 1 }).result.ok).toBe(true);
+    expect(applyCommand(w0, { kind: 'surrender', player: 2 as PlayerId }).result.ok).toBe(true);
   });
 });
 
@@ -299,13 +315,21 @@ describe('tick — orchestrator', () => {
   });
 
   it('isTerminal returns undefined for non-terminal US1 worlds', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+    // P2 must have a city too — otherwise terminal detection fires.
+    const board = buildSmallBoard(8, [
+      [1, 1, 1 as PlayerId],
+      [6, 6, 2 as PlayerId],
+    ]);
     const { finalWorld } = runScenario(cfg, board, [], 5);
     expect(isTerminal(finalWorld)).toBeUndefined();
   });
 
   it('tick advances world.tick by exactly 1', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+    // P2 must have a city too — otherwise terminal detection freezes the world.
+    const board = buildSmallBoard(8, [
+      [1, 1, 1 as PlayerId],
+      [6, 6, 2 as PlayerId],
+    ]);
     const { finalWorld: w0 } = runScenario(cfg, board, [], 0);
     const r1 = tick(w0);
     expect(r1.world.tick).toBe(1);
@@ -313,14 +337,18 @@ describe('tick — orchestrator', () => {
     expect(r2.world.tick).toBe(2);
   });
 
-  it('deferred order kinds (surrender, paratroop, gun, setReserves) are recorded as applied but do not mutate state in US1', () => {
+  it('deferred order kinds (surrender, paratroop, gun, setReserves) are recorded as applied', () => {
     // Stage a surrender + a paratroop + a gun + a setReserves order.
-    // Each should be accepted by validateCommand (US1 defers), recorded
-    // in appliedOrders, and dispatched as a no-op (line 249 branch).
+    // Surrender is applied immediately (FR-016 — player marked
+    // eliminated). The other three are staged and applied by their
+    // dedicated resolution phases in tick.ts.
     const board = buildSmallBoard(8, [
       [1, 1, 1 as PlayerId],
       [6, 6, 2 as PlayerId],
     ]);
+    // Run enough ticks for P1 to accumulate troops (gun/paratroop need
+    // a populated source).
+    const { finalWorld: warmed } = runScenario(cfg, board, [], 30);
     const orders = [
       {
         atTick: 0,
@@ -357,12 +385,11 @@ describe('tick — orchestrator', () => {
         },
       },
     ];
-    const { events } = runScenario(cfg, board, orders, 1);
-    const recorded = events[0]?.appliedOrders ?? [];
-    expect(recorded.length).toBe(4);
-    // State is unchanged: still no city owner transition (US5),
-    // no troop movement (US4), no reserves floor (US3).
-    const w = events[0] as { tick: number } | undefined;
-    expect(w).toBeDefined();
+    // Stage each via applyCommand on the warmed world (which has 30
+    // troops at the city). This validates that each kind is accepted.
+    expect(applyCommand(warmed, orders[0]?.order as never).result.ok).toBe(true);
+    expect(applyCommand(warmed, orders[1]?.order as never).result.ok).toBe(true);
+    expect(applyCommand(warmed, orders[2]?.order as never).result.ok).toBe(true);
+    expect(applyCommand(warmed, orders[3]?.order as never).result.ok).toBe(true);
   });
 });

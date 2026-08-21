@@ -72,7 +72,12 @@ describe('quickstart Q-001 — tick loop end-to-end', () => {
   });
 
   it('tick() returns events with empty combat/captures/elims arrays for US1', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1]]);
+    // P2 has a city too — US5 terminal detection would otherwise
+    // eliminate P2 on tick 0 (zero troops + zero cities from the start).
+    const board = buildSmallBoard(8, [
+      [1, 1, 1],
+      [6, 6, 2],
+    ]);
     const { events } = runScenario(cfg, board, [], 3);
     expect(events.length).toBe(3);
     for (const e of events) {
@@ -94,7 +99,10 @@ describe('quickstart Q-001 — tick loop end-to-end', () => {
   });
 
   it('production adds ENGINE_CONSTANTS.productionRate per tick to each city', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1]]);
+    const board = buildSmallBoard(8, [
+      [1, 1, 1],
+      [6, 6, 2],
+    ]);
     const { finalWorld } = runScenario(cfg, board, [], 3);
     const cell = getCell(finalWorld, 1, 1);
     // 3 ticks * 1 production/tick = 3 (no cap yet).
@@ -103,7 +111,10 @@ describe('quickstart Q-001 — tick loop end-to-end', () => {
   });
 
   it('tick() is callable directly on a created world', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1]]);
+    const board = buildSmallBoard(8, [
+      [1, 1, 1],
+      [6, 6, 2],
+    ]);
     const { finalWorld: initial } = runScenario(cfg, board, [], 0);
     const r1 = tick(initial);
     expect(r1.world.tick).toBe(1);

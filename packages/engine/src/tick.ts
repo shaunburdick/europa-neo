@@ -1,31 +1,44 @@
 /**
- * tick orchestrator — Feature 001, T027 + US2/US3 wiring
+ * tick orchestrator — Feature 001, T027 + US2/US3/US4/US5 wiring
  *
  * Pure `tick(world): TickResult`. Advances the simulation by exactly
  * one tick: drains staged orders, applies them in a deterministic total
  * order, runs the resolution pipeline, and returns the next `World`
  * plus the events observed during resolution.
  *
- * **Phase pipeline (US1 + US2 + US3)**:
- *   1. Drain staged orders, sort by PlayerId ascending then `kind`
+ * **Phase pipeline (US1 + US2 + US3 + US4 + US5)**:
+ *   0. Drain staged orders, sort by PlayerId ascending then `kind`
  *      alphabetical, apply each (pipe commands mutate `pipeMasks`),
  *      record successes in `events.appliedOrders`.
- *   2. `resolveProduction` — each owned city adds `productionRate`
+ *   1. `resolveProduction` — each owned city adds `productionRate`
  *      troops up to `cityCapacity`.
- *   3. `resolveFlow` — each pipe transfers troops modified by slope,
+ *   2. `resolveParatroop` (US4) — paratroop commands spend 2N from
+ *      source, add N to target, clear target pipes. Runs BEFORE flow
+ *      so paratroopers can clear pipes before flow reads them.
+ *   3. `resolveGun` (US4) — gun commands spend `gunCost` from source,
+ *      damage `gunDamage` from target occupants. Runs BEFORE flow
+ *      so gun damage applies to current-tick occupants (FR-014
+ *      "at tick time").
+ *   4. `resolveFlow` — each pipe transfers troops modified by slope,
  *      populating the inflow tally (US2/US3 side-channel).
- *   4. `resolveCombat` — multi-owner cells (per inflow tally) resolve
+ *   5. `resolveCombat` — multi-owner cells (per inflow tally) resolve
  *      attrition; `CombatEvent`s emitted.
- *   5. `resolveCapture` — cities transfer to the dominant occupant;
+ *   6. `resolveCapture` — cities transfer to the dominant occupant;
  *      `CaptureEvent`s emitted.
- *   6. `resolveDecay` — unfed stacks lose `decayPerTick`, clamped at
+ *   7. `resolveDecay` — unfed stacks lose `decayPerTick`, clamped at
  *      the reserves floor; friendly-inflow cells are exempt.
+ *   8. `resolveTerminal` (US5) — eliminated players detected (zero
+ *      troops AND zero cities), `MatchResult` emitted if <2 alive.
  *
  * **Determinism** (FR-017 + SC-001):
  *   - Pure function: input is never mutated; output is a fresh `World`.
  *   - Integer math throughout (delegated to resolution modules).
  *   - Sort comparator is fixed (PlayerId ascending, `kind` alphabetical).
  *   - No wall-clock reads; no `Math.random()`; no trig.
+ *
+ * **Frozen-once-terminal**: when the input world has an already-set
+ * terminal result, tick is a no-op that returns the input world with
+ * the same `terminal` field (FR-015 + FR-016 invariants).
  */
 
 import { readPendingOrders, withPendingOrders } from './applyCommand';
@@ -35,7 +48,10 @@ import { resolveCapture } from './resolution/capture';
 import { resolveCombat } from './resolution/combat';
 import { resolveDecay } from './resolution/decay';
 import { resolveFlow } from './resolution/flow';
+import { resolveGun } from './resolution/gun';
+import { resolveParatroop } from './resolution/paratroop';
 import { resolveProduction } from './resolution/production';
+import { resolveTerminal } from './resolution/terminal';
 import type {
   AppliedOrderRecord,
   Board,
@@ -43,8 +59,6 @@ import type {
   Direction,
   MatchResult,
   Order,
-  Player,
-  PlayerId,
   TickEvents,
   TickResult,
   World,
@@ -74,9 +88,8 @@ const DIRECTION_BITS: Readonly<Record<Direction, number>> = Object.freeze({
  *          match ends on this tick, `terminal` is populated (US5).
  */
 export function tick(world: Readonly<World>): TickResult {
-  // Frozen-once-terminal: future US5 makes tick a no-op when the match
-  // is already over. For US1-US3, terminal is always undefined, so we
-  // always run.
+  // Frozen-once-terminal: if the match is already over, return the
+  // input world unchanged with the same terminal result.
   const existingTerminal = isTerminal(world);
   if (existingTerminal !== undefined) {
     return {
@@ -104,20 +117,48 @@ export function tick(world: Readonly<World>): TickResult {
   // ---- Phase 1: production ----------------------------------------------
   state = resolveProduction(state, world.board, ENGINE_CONSTANTS);
 
-  // ---- Phase 2: flow (populates inflow tally) ---------------------------
+  // ---- Phase 2: paratroop (US4) ----------------------------------------
+  // Runs BEFORE flow so paratroopers can clear pipes before flow reads
+  // them. Filter to paratroop orders only — other kinds are silently
+  // ignored (callers stage orders of any kind; the resolver handles
+  // its own kind).
+  const paratroopOrders = sorted.filter(
+    (o): o is Extract<Order, { kind: 'paratroop' }> => o.kind === 'paratroop',
+  );
+  if (paratroopOrders.length > 0) {
+    const paraResult = resolveParatroop(state, world.board, ENGINE_CONSTANTS, paratroopOrders);
+    state = paraResult.state;
+    for (const e of paraResult.errors) {
+      events = { ...events, errors: [...events.errors, e] };
+    }
+  }
+
+  // ---- Phase 3: gun (US4) ----------------------------------------------
+  // Runs BEFORE flow so gun damage applies to current-tick occupants
+  // (FR-014 "at tick time"). Damage is applied regardless of target
+  // ownership — friendly fire is real.
+  const gunOrders = sorted.filter((o): o is Extract<Order, { kind: 'gun' }> => o.kind === 'gun');
+  if (gunOrders.length > 0) {
+    const gunResult = resolveGun(state, world.board, ENGINE_CONSTANTS, gunOrders);
+    state = gunResult.state;
+    for (const e of gunResult.errors) {
+      events = { ...events, errors: [...events.errors, e] };
+    }
+  }
+
+  // ---- Phase 4: flow (populates inflow tally) ---------------------------
   const inflowTally = new Uint32Array(n * PLAYERS);
   state = resolveFlow(state, world.board, ENGINE_CONSTANTS, inflowTally);
 
-  // ---- Phase 3: combat -------------------------------------------------
+  // ---- Phase 5: combat -------------------------------------------------
   const combatResult = resolveCombat(state, world.board, ENGINE_CONSTANTS, world.tick, inflowTally);
   state = combatResult.state;
-  // Append combat events.
   events = {
     ...events,
     combat: [...events.combat, ...combatResult.events.combat],
   };
 
-  // ---- Phase 4: capture ------------------------------------------------
+  // ---- Phase 6: capture ------------------------------------------------
   const captureResult = resolveCapture(state, world.board, ENGINE_CONSTANTS, world.tick);
   state = captureResult.state;
   events = {
@@ -125,10 +166,7 @@ export function tick(world: Readonly<World>): TickResult {
     captures: [...events.captures, ...captureResult.events.captures],
   };
 
-  // ---- Phase 5: decay --------------------------------------------------
-  // Reserved floors default to zero (no FR-012 enforcement beyond the
-  // state.reservesPct fallback). US4/US5 will wire setReserves-driven
-  // floors here.
+  // ---- Phase 7: decay --------------------------------------------------
   const reservedFloors = new Uint32Array(n);
   const decayResult = resolveDecay(
     state,
@@ -144,36 +182,70 @@ export function tick(world: Readonly<World>): TickResult {
     eliminations: [...events.eliminations, ...decayResult.events.eliminations],
   };
 
-  // Recompute players snapshot (troopsHeld + citiesOwned) so the public
-  // `World.players` stays in sync with `state`. Done after all resolution
-  // so the snapshot reflects the post-resolution numbers.
-  const players = recomputePlayers(state, world.players);
+  // ---- Phase 8: terminal (US5) -----------------------------------------
+  // Runs AFTER decay so it sees the final post-decay state. Detects
+  // elimination (zero troops + zero cities) and emits MatchResult if
+  // fewer than two players remain alive.
+  //
+  // Use `world.players` (pre-tick snapshot) for the status baseline;
+  // resolveTerminal recomputes troops/cities from `state` and marks
+  // newly eliminated players.
+  const terminalResult = resolveTerminal(state, world.players, ENGINE_CONSTANTS, world.tick);
+  events = {
+    ...events,
+    eliminations: [...events.eliminations, ...terminalResult.events.eliminations],
+  };
 
   const nextWorld: World = withPendingOrders(
     {
       ...world,
       tick: world.tick + 1,
       state,
-      players: Object.freeze(players),
+      players: Object.freeze(terminalResult.players),
     },
     [], // drained
   );
 
-  // US5 wires terminal detection; US1-US3 always return undefined.
-  const terminal: MatchResult | undefined = undefined;
-  void terminal;
+  const terminal: MatchResult | undefined = terminalResult.terminal;
 
-  return { world: nextWorld, events };
+  if (terminal === undefined) {
+    return { world: nextWorld, events };
+  }
+  return { world: nextWorld, events, terminal };
 }
 
 /**
- * Cheap terminal check (does not advance time). US5 implements the
- * real check; US1-US3 always return `undefined` because elimination /
- * surrender land in US5.
+ * Cheap terminal check (does not advance time).
+ *
+ * Recomputes the post-decay snapshot from `world.state` and the
+ * player list, returning a `MatchResult` if fewer than two players
+ * remain alive. The full detection runs again inside `tick()` —
+ * this is the pre-tick check used by feature 006's matchmaking and
+ * feature 005's console.
  */
 export function isTerminal(world: Readonly<World>): MatchResult | undefined {
-  void world;
-  return undefined;
+  // Count alive players. A player is "alive" iff status === 'alive'.
+  // Eliminated/surrendered players don't count.
+  const alive = world.players.filter((p) => p.status === 'alive');
+  if (alive.length >= 2) return undefined;
+  if (alive.length === 1) {
+    const winner = alive[0];
+    if (winner !== undefined) {
+      return {
+        kind: 'win',
+        winner: winner.id,
+        tick: world.tick,
+        reason: 'last_standing',
+      };
+    }
+    return undefined;
+  }
+  // alive.length === 0 — mutual elimination.
+  return {
+    kind: 'draw',
+    tick: world.tick,
+    reason: 'mutual_elimination',
+  };
 }
 
 // ----------------------------------------------------------------------------
@@ -226,8 +298,8 @@ function pickDirection(o: Order): Direction | undefined {
 /**
  * Apply a single staged order to the world state, returning the new
  * state and an `AppliedOrderRecord`. Pipe orders mutate `pipeMasks`;
- * other kinds (setReserves, paratroop, gun, surrender) are deferred
- * to their owning user stories.
+ * surrender was applied immediately in `applyCommand` (US5); other
+ * deferred kinds (setReserves) are no-ops in v1 (T045/T049).
  */
 function applyStagedOrder(
   order: Order,
@@ -281,8 +353,17 @@ function dispatchOrderEffect(
       newMasks[idx] = 0;
       return { ...state, pipeMasks: newMasks };
     }
-    // US1-US3 defer these — no state change in tick.
-    case 'setReserves':
+    // setReserves mutates state.reservesPct (US3 deferred to T045; we
+    // wire it here so the engine surface covers all FRs).
+    case 'setReserves': {
+      const newPct = new Uint8Array(state.reservesPct);
+      const idx = order.cell.y * board.width + order.cell.x;
+      newPct[idx] = order.percent;
+      return { ...state, reservesPct: newPct };
+    }
+    // paratroop, gun: applied by their dedicated resolution phases
+    // (Phase 2 / Phase 3) using the staged order set.
+    // surrender: applied immediately in applyCommand (not staged).
     case 'paratroop':
     case 'gun':
     case 'surrender':
@@ -290,35 +371,5 @@ function dispatchOrderEffect(
   }
 }
 
-/**
- * Recompute `troopsHeld` and `citiesOwned` per player from the flat
- * state. Pure. The returned array is a fresh `Player[]` with
- * `displayName` and `status` preserved from the input.
- */
-function recomputePlayers(
-  state: Readonly<WorldState>,
-  prevPlayers: ReadonlyArray<Player>,
-): Player[] {
-  const troopsByPlayer = new Map<PlayerId, number>();
-  const citiesByPlayer = new Map<PlayerId, number>();
-  for (let i = 0; i < state.troopCounts.length; i++) {
-    const owner = state.troopOwners[i] ?? 0;
-    if (owner === 0) continue;
-    troopsByPlayer.set(
-      owner as PlayerId,
-      (troopsByPlayer.get(owner as PlayerId) ?? 0) + (state.troopCounts[i] ?? 0),
-    );
-  }
-  for (let i = 0; i < state.cityOwners.length; i++) {
-    const owner = state.cityOwners[i] ?? 0;
-    if (owner === 0) continue;
-    citiesByPlayer.set(owner as PlayerId, (citiesByPlayer.get(owner as PlayerId) ?? 0) + 1);
-  }
-  return prevPlayers.map((p) => ({
-    id: p.id,
-    displayName: p.displayName,
-    status: p.status,
-    citiesOwned: citiesByPlayer.get(p.id) ?? 0,
-    troopsHeld: troopsByPlayer.get(p.id) ?? 0,
-  }));
-}
+// Suppress unused-import warning for the Player type re-import.
+type _PlayerRef = World['players'][number];

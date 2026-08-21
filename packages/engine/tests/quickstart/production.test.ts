@@ -24,7 +24,11 @@ const cfg: MatchConfig = {
 
 describe('quickstart Q-002 — production saturates', () => {
   it('after 10 ticks, city contains min(10 × rate, capacity) troops', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1]]);
+    // P2 has a city so the match doesn't immediately terminate (US5).
+    const board = buildSmallBoard(8, [
+      [1, 1, 1],
+      [6, 6, 2],
+    ]);
     const { finalWorld } = runScenario(cfg, board, [], 10);
     const cell = getCell(finalWorld, 1, 1);
     const expected = Math.min(10 * ENGINE_CONSTANTS.productionRate, ENGINE_CONSTANTS.cityCapacity);
@@ -33,13 +37,19 @@ describe('quickstart Q-002 — production saturates', () => {
   });
 
   it('after 1 tick, city contains productionRate troops', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1]]);
+    const board = buildSmallBoard(8, [
+      [1, 1, 1],
+      [6, 6, 2],
+    ]);
     const { finalWorld } = runScenario(cfg, board, [], 1);
     expect(getCell(finalWorld, 1, 1).troopCount).toBe(ENGINE_CONSTANTS.productionRate);
   });
 
   it('production saturates at cityCapacity and does not overflow', () => {
-    const board = buildSmallBoard(8, [[1, 1, 1]]);
+    const board = buildSmallBoard(8, [
+      [1, 1, 1],
+      [6, 6, 2],
+    ]);
     const overshoot = ENGINE_CONSTANTS.cityCapacity + 5;
     const { finalWorld } = runScenario(cfg, board, [], overshoot);
     expect(getCell(finalWorld, 1, 1).troopCount).toBe(ENGINE_CONSTANTS.cityCapacity);
@@ -49,6 +59,9 @@ describe('quickstart Q-002 — production saturates', () => {
     const board = buildSmallBoard(8, [
       [1, 1, 1],
       [6, 6, 1],
+      // P2 has a city too — without it, US5 terminal detection would
+      // freeze the world and break this test.
+      [4, 4, 2],
     ]);
     const { finalWorld } = runScenario(cfg, board, [], 4);
     expect(getCell(finalWorld, 1, 1).troopCount).toBe(4 * ENGINE_CONSTANTS.productionRate);
