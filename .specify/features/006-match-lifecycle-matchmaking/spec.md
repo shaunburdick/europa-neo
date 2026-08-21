@@ -26,22 +26,39 @@ As a player, I want to create or join a match and have the game start automatica
 
 ---
 
-### User Story 2 - Lobby Browser (Priority: P2)
+### User Story 2 - Lobby Browser for Public Matches (Priority: P2)
 
-As a player, I want to see open matches — player count, seats filled, map size — so that I can choose where to play instead of guessing.
+As a player, I want to see open public matches — player count, seats filled, map size — so that I can choose where to play instead of guessing.
 
 **Why this priority**: Mirrors the original's game-selection board; improves the multi-host experience but direct create+share works without it.
 
-**Independent Test**: Can be tested by creating several matches from scripted clients and asserting a third client's lobby listing reflects them accurately in near-real-time.
+**Independent Test**: Can be tested by creating several public matches from scripted clients and asserting a third client's lobby listing reflects them accurately in near-real-time.
 
 **Acceptance Scenarios**:
 
-1. **Given** three open matches in various fill states, **When** a client requests the lobby list, **Then** each match shows seat occupancy and settings accurately.
-2. **Given** a match that just started, **When** the lobby refreshes, **Then** it no longer appears as joinable.
+1. **Given** three open public matches in various fill states, **When** a client requests the lobby list, **Then** each match shows seat occupancy and settings accurately.
+2. **Given** a public match that just started, **When** the lobby refreshes, **Then** it no longer appears as joinable.
+3. **Given** a private match exists, **When** any client requests the lobby list, **Then** the private match does not appear.
 
 ---
 
-### User Story 3 - Game Over and Rematch (Priority: P2)
+### User Story 3 - Private Matches via Shareable Link (Priority: P2)
+
+As a player, I want to create a private match that is invisible in the lobby and joinable only through its generated ID/shareable link, so that I can play against invited friends while strangers play in public.
+
+**Why this priority**: Core to the social hosting model (play with your group); buildable immediately on top of match creation.
+
+**Independent Test**: Can be tested by creating a private match from one client, verifying it is absent from another client's lobby, then joining via the generated link and asserting successful seating.
+
+**Acceptance Scenarios**:
+
+1. **Given** a player creates a match marked private, **When** creation completes, **Then** the server returns a unique match ID and a shareable join URL containing it.
+2. **Given** a private match with open seats, **When** a client opens the shareable join URL, **Then** they take a seat like any other join flow.
+3. **Given** a private match with open seats, **When** a client attempts to join by browsing (without the ID), **Then** no path exists to discover or join it from the lobby.
+
+---
+
+### User Story 4 - Game Over and Rematch (Priority: P2)
 
 As a player, I want a clear results moment when a match ends — winner, duration, final board — and a one-click rematch offer, so that playing again with the same opponent is effortless.
 
@@ -56,7 +73,7 @@ As a player, I want a clear results moment when a match ends — winner, duratio
 
 ---
 
-### User Story 4 - Disconnect Forfeit Policy (Priority: P3)
+### User Story 5 - Disconnect Forfeit Policy (Priority: P3)
 
 As a player, I want abandoned matches to resolve sensibly — my opponent wins after a grace window rather than waiting forever — so that quitters don't hold games hostage.
 
@@ -77,27 +94,32 @@ As a player, I want abandoned matches to resolve sensibly — my opponent wins a
 - What happens when a player joins a match that fills in the same instant? → Seat assignment is atomic server-side; losers receive a clean "match full" response.
 - What happens when a rematch participant has left? → Rematch requires all original seats to accept within a window; otherwise it degrades to normal matchmaking.
 - What happens when someone reuses a display name currently in the lobby? → Allowed; disambiguation is by server-assigned id (no accounts in v1).
-- How are stale empty matches cleaned up? → Unstarted matches with no seated players are garbage-collected after a short TTL.
+- What happens when a client tries to join a private match without its ID? → No discovery path exists; join attempts by unknown ID fail with "match not found" (no existence leak).
+- What happens when a private link is shared beyond the intended group? → In v1 anyone holding the link may take a seat (no accounts); hosts control privacy by limiting link distribution. Link rotation/revocation is deferred to the future accounts feature.
+- What happens when a public match creator wanted privacy after all? → Visibility type is fixed at creation in v1; recreate the match.
+- How are stale empty matches cleaned up? → Unstarted matches with no seated players are garbage-collected after a short TTL (public and private alike).
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: Players MUST be able to set an ephemeral display name per session (no account, no password); the server assigns each session a unique id.
-- **FR-002**: The server MUST support creating matches with configurable player count (2 required for v1 launch; 3–4 supported by engine contract) and map settings.
-- **FR-003**: A created match MUST reserve its creator's seat immediately and become joinable until seats fill.
-- **FR-004**: When all seats fill, the server MUST atomically generate a map (feature 003), initialize the engine (feature 001), assign player ids/starting cities, and begin ticking.
-- **FR-005**: The server MUST expose a lobby listing of joinable matches (id, display info, seat occupancy, settings) updated in near-real-time.
-- **FR-006**: On match termination, the server MUST deliver results (winner, ticks elapsed, effective map seed) to all connected participants and spectators.
-- **FR-007**: The server MUST offer rematch coordination: all original participants must accept within a bounded window; acceptance creates a fresh match with identical settings and a newly generated seed.
-- **FR-008**: Disconnect-forfeit: if a seated player cannot be reconnected within the grace window (shared with feature 004 FR-007), the server MUST mark them forfeit; if one player remains, they win; if none remain, the match is destroyed.
-- **FR-009**: Empty unstarted matches MUST be garbage-collected after a short TTL; finished matches release resources after results delivery plus a grace period.
-- **FR-010**: All lifecycle transitions (created → filling → running → finished → collected) MUST be observable via protocol messages for client status displays.
+- **FR-002**: The server MUST support creating matches with configurable player count (2 required for v1 launch; 3–4 supported by engine contract), map settings, and visibility type (public or private).
+- **FR-003**: Every created match MUST receive a unique server-assigned ID and a corresponding shareable join URL; both MUST be returned to the creator at creation time.
+- **FR-004**: A created match MUST reserve its creator's seat immediately and become joinable until seats fill.
+- **FR-005**: The lobby listing MUST include public matches only (id, display info, seat occupancy, settings), updated in near-real-time.
+- **FR-006**: Private matches MUST be joinable exclusively via their match ID/shareable URL; they MUST NOT appear in the lobby listing, and unknown IDs MUST be rejected without revealing whether a private match exists.
+- **FR-007**: When all seats fill, the server MUST atomically generate a map (feature 003), initialize the engine (feature 001), assign player ids/starting cities, and begin ticking.
+- **FR-008**: On match termination, the server MUST deliver results (winner, ticks elapsed, effective map seed) to all connected participants and spectators.
+- **FR-009**: The server MUST offer rematch coordination: all original participants must accept within a bounded window; acceptance creates a fresh match with identical settings and visibility type, and a newly generated seed/ID/link.
+- **FR-010**: Disconnect-forfeit: if a seated player cannot be reconnected within the grace window (shared with feature 004 FR-007), the server MUST mark them forfeit; if one player remains, they win; if none remain, the match is destroyed.
+- **FR-011**: Empty unstarted matches MUST be garbage-collected after a short TTL; finished matches release resources after results delivery plus a grace period.
+- **FR-012**: All lifecycle transitions (created → filling → running → finished → collected) MUST be observable via protocol messages for client status displays.
 
 ### Key Entities *(include if feature involves data)*
 
 - **PlayerSession**: ephemeral identity { unique id, display name, connection }.
-- **Match**: id, settings (player count, map config), seats, state machine position, engine instance reference.
+- **Match**: id, shareable join URL, visibility type (public/private), settings (player count, map config), seats, state machine position, engine instance reference.
 - **Seat**: slot binding a PlayerSession to a player id for a match's lifetime.
 - **LobbyEntry**: projected public view of a joinable Match.
 - **RematchOffer**: pending invitation set + expiry.
@@ -108,9 +130,10 @@ As a player, I want abandoned matches to resolve sensibly — my opponent wins a
 
 - **SC-001**: Two browser clients complete the full journey — arrive, name, create/join, play a scripted short match, see results, rematch — with zero manual server intervention.
 - **SC-002**: Time from "second seat filled" to first tick received by both clients is under 2 seconds (map generation included).
-- **SC-003**: Lobby listing reflects match creation/start/collection events within 1 tick of occurrence.
+- **SC-003**: Lobby listing reflects match creation/start/collection events within 1 tick of occurrence, and contains zero private matches in every sampled listing.
 - **SC-004**: Forfeit policy triggers exactly at grace-window expiry in 10/10 scripted drop tests, with correct winner declaration.
 - **SC-005**: A soak test of 50 sequential create/play/finish cycles leaks no matches or sessions (all collected).
+- **SC-006**: Joining a private match via its shareable URL succeeds identically to public join; joining via an unknown ID returns "match not found" in 10/10 trials.
 
 ## Assumptions
 
