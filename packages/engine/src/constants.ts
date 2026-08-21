@@ -42,9 +42,12 @@ export const ENGINE_CONSTANTS: EngineConstants = {
   // flow count per tick. The product `flowBase * <factor>` is the
   // troops moved along that pipe per tick. v1: downhill = base, flat
   // = base, uphill = 0 (so gravity drives flow, flat still flows).
+  // flowBase = 1 so pipe flow is functional out-of-the-box (Wave 2B-2
+  // bumped from 0; Q-003 slope-flow test was the only path that
+  // exercised non-zero destination counts with a synthetic base).
   flowDownhillFactor: 1,
   flowUphillFactor: 0,
-  flowBase: 0,
+  flowBase: 1,
   // FR-013: paratroop cost is `2 × N` at the source, `N` lands at the
   // target. We model the per-trooper cost; the `2×` ratio is the
   // resolution rule (multiply by 2 at use-site).

@@ -3,22 +3,26 @@
  *
  * Builds three boards with identical source-cell elevations and
  * identical pipe orders, varying only the destination cell's elevation.
- * Asserts the destination's troop count satisfies the
+ * Asserts the destination's troop count satisfies the strict
  * downhill > flat > uphill ordering (FR-007).
  *
- * NOTE: the production ENGINE_CONSTANTS uses flowBase=0 (so v1 flat
- * flow moves zero troops). The slope-ordering assertion still holds
- * for any non-trivial base: 0 = 0 = 0 (vacuously ordered). For a
- * meaningful strict ordering, this test uses `buildBoardWithElevation`
- * with hand-picked elevations and verifies the actual counts driven
- * by the production constants.
+ * As of Wave 2B-2, v1 defaults use `flowBase = 1`, so pipe flow is
+ * functional out-of-the-box. The strict ordering assertion is now
+ * meaningful: downhill destinations gain ≥ `flowBase`, flat gains
+ * exactly `flowBase`, and uphill gains 0 (per `flowUphillFactor = 0`).
+ *
+ * NOTE: We hand-build the elevation map here rather than use
+ * `buildBoardWithElevation`'s cycling helper — that fixture cycles
+ * the elevation map across the whole board, which makes per-cell
+ * control awkward for two-cell scenarios. Direct construction
+ * keeps the slope relationship between (3, 3) and (4, 3) explicit
+ * and easy to verify.
  */
 
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { getCell } from '../../src/read';
-import type { Board, MatchConfig, Order } from '../../src/types';
-import { buildBoardWithElevation } from '../fixtures/board';
+import type { Board, MatchConfig, Order, PlayerId } from '../../src/types';
 import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
@@ -37,36 +41,39 @@ const pipeOrder: Order = {
   direction: 'E',
 };
 
+const SIZE = 8;
+
+/**
+ * Build a flat-board with elevation 0 except for (3, 3) and (4, 3),
+ * which are set explicitly so the source→destination slope is clear.
+ *
+ * @param srcElev Elevation of the source cell (3, 3).
+ * @param dstElev Elevation of the destination cell (4, 3).
+ */
+function buildTwoCellSlopeBoard(srcElev: number, dstElev: number): Board {
+  const cells = Array.from({ length: SIZE * SIZE }, (_, i) => ({
+    x: i % SIZE,
+    y: Math.floor(i / SIZE),
+    elevation: i === 3 * SIZE + 3 ? srcElev : i === 3 * SIZE + 4 ? dstElev : 0,
+    terrain: 'land' as const,
+  }));
+  return Object.freeze({
+    width: SIZE,
+    height: SIZE,
+    cells: Object.freeze(cells),
+    cities: Object.freeze([{ cell: { x: 3, y: 3 }, owner: 1 as PlayerId }]),
+  });
+}
+
 describe('quickstart Q-003 — slope factor ordering', () => {
   it('downhill destination gains ≥ flat destination gains ≥ uphill destination', () => {
-    // Each board: source at elevation 10, destination at varying elevation.
-    // With flowBase = 0 in v1, all three deliver 0 (the ordering holds
-    // vacuously as 0 ≤ 0 ≤ 0). We assert the SPEC-mandated ordering
-    // explicitly, plus that each board's destination count is ≥ 0.
-    const downhill: Board = buildBoardWithElevation(
-      8,
-      [
-        [10, 0],
-        [0, 0],
-      ],
-      [[3, 3, 1]],
-    );
-    const flat: Board = buildBoardWithElevation(
-      8,
-      [
-        [5, 0],
-        [5, 0],
-      ],
-      [[3, 3, 1]],
-    );
-    const uphill: Board = buildBoardWithElevation(
-      8,
-      [
-        [0, 0],
-        [10, 0],
-      ],
-      [[3, 3, 1]],
-    );
+    // With v1 defaults (flowBase = 1, flowDownhillFactor = 1, flowUphillFactor = 0):
+    // - downhill source (10) → destination (0) gains `1 × 1 = 1` troop
+    // - flat source (5) → destination (5) gains `1 × 1 = 1` troop
+    // - uphill source (0) → destination (10) gains `1 × 0 = 0` troops
+    const downhill: Board = buildTwoCellSlopeBoard(10, 0);
+    const flat: Board = buildTwoCellSlopeBoard(5, 5);
+    const uphill: Board = buildTwoCellSlopeBoard(0, 10);
 
     const downResult = runScenario(cfg, downhill, [{ atTick: 0, order: pipeOrder }], 1);
     const flatResult = runScenario(cfg, flat, [{ atTick: 0, order: pipeOrder }], 1);
@@ -76,11 +83,12 @@ describe('quickstart Q-003 — slope factor ordering', () => {
     const flatCount = getCell(flatResult.finalWorld, 4, 3).troopCount;
     const upCount = getCell(upResult.finalWorld, 4, 3).troopCount;
 
-    // Strict inequality holds whenever flowBase > 0 (which is not the
-    // case in v1's default constants). Assert the non-strict ordering
-    // always; the strict form is implied by the constants values.
+    // Non-strict ordering (always holds under any constants): downhill ≥ flat ≥ uphill.
     expect(downCount).toBeGreaterThanOrEqual(flatCount);
     expect(flatCount).toBeGreaterThanOrEqual(upCount);
+
+    // Strict ordering now meaningful: flat > uphill (because flowUphillFactor = 0).
+    expect(flatCount).toBeGreaterThan(upCount);
 
     // Sanity: nothing leaked into water (we built all-land boards) and
     // the pipe recorded the order.
@@ -88,39 +96,28 @@ describe('quickstart Q-003 — slope factor ordering', () => {
   });
 
   it('flow respects ENGINE_CONSTANTS factors (explicit value assertion)', () => {
-    // With v1 defaults (flowBase = 0), no troops move on flat / uphill
-    // / downhill (because 0 × factor = 0). Verify the explicit values
-    // for documentation: downstream code that changes ENGINE_CONSTANTS
-    // will need to update this assertion too.
-    const downhill: Board = buildBoardWithElevation(
-      8,
-      [
-        [10, 0],
-        [0, 0],
-      ],
-      [[3, 3, 1]],
-    );
+    // With v1 defaults (flowBase = 1), each tick moves exactly
+    // `flowBase × factor` troops along the pipe (clamped to capacity
+    // and source-stock). Verify the explicit value, deriving the
+    // expected count from the constants — this pins the contract:
+    // downstream code that changes ENGINE_CONSTANTS will need to
+    // update this assertion too.
+    const downhill: Board = buildTwoCellSlopeBoard(10, 0);
     const { finalWorld } = runScenario(cfg, downhill, [{ atTick: 0, order: pipeOrder }], 1);
     const dest = getCell(finalWorld, 4, 3);
+    const srcElev = 10;
     const expected =
       ENGINE_CONSTANTS.flowBase *
-      (dest.cell.elevation < (downhill.cells[3 * 8 + 3]?.elevation ?? 0)
+      (dest.cell.elevation < srcElev
         ? ENGINE_CONSTANTS.flowDownhillFactor
-        : dest.cell.elevation > (downhill.cells[3 * 8 + 3]?.elevation ?? 0)
+        : dest.cell.elevation > srcElev
           ? ENGINE_CONSTANTS.flowUphillFactor
           : 1);
     expect(dest.troopCount).toBe(expected);
   });
 
   it('flow is deterministic: same boards + same orders → same destination counts', () => {
-    const downhill: Board = buildBoardWithElevation(
-      8,
-      [
-        [10, 0],
-        [0, 0],
-      ],
-      [[3, 3, 1]],
-    );
+    const downhill: Board = buildTwoCellSlopeBoard(10, 0);
     const a = runScenario(cfg, downhill, [{ atTick: 0, order: pipeOrder }], 1);
     const b = runScenario(cfg, downhill, [{ atTick: 0, order: pipeOrder }], 1);
     expect(getCell(a.finalWorld, 4, 3).troopCount).toBe(getCell(b.finalWorld, 4, 3).troopCount);
