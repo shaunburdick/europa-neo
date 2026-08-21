@@ -1,23 +1,25 @@
 /**
- * tick orchestrator — Feature 001, T027
+ * tick orchestrator — Feature 001, T027 + US2/US3 wiring
  *
  * Pure `tick(world): TickResult`. Advances the simulation by exactly
- * one tick: drains staged orders (added by `applyCommand`), applies
- * them in a deterministic total order, runs the US1 resolution
- * pipeline (production → flow), and returns the next `World` plus the
- * events observed during resolution.
+ * one tick: drains staged orders, applies them in a deterministic total
+ * order, runs the resolution pipeline, and returns the next `World`
+ * plus the events observed during resolution.
  *
- * **Phase pipeline (US1)**:
+ * **Phase pipeline (US1 + US2 + US3)**:
  *   1. Drain staged orders, sort by PlayerId ascending then `kind`
  *      alphabetical, apply each (pipe commands mutate `pipeMasks`),
  *      record successes in `events.appliedOrders`.
  *   2. `resolveProduction` — each owned city adds `productionRate`
  *      troops up to `cityCapacity`.
- *   3. `resolveFlow` — each pipe transfers troops modified by slope.
- *
- * Future phases (combat, capture, decay, paratroop, gun, terminal)
- * slot in between (2) and (3) in later user stories. See plan.md
- * §"Tick pipeline" for the canonical order.
+ *   3. `resolveFlow` — each pipe transfers troops modified by slope,
+ *      populating the inflow tally (US2/US3 side-channel).
+ *   4. `resolveCombat` — multi-owner cells (per inflow tally) resolve
+ *      attrition; `CombatEvent`s emitted.
+ *   5. `resolveCapture` — cities transfer to the dominant occupant;
+ *      `CaptureEvent`s emitted.
+ *   6. `resolveDecay` — unfed stacks lose `decayPerTick`, clamped at
+ *      the reserves floor; friendly-inflow cells are exempt.
  *
  * **Determinism** (FR-017 + SC-001):
  *   - Pure function: input is never mutated; output is a fresh `World`.
@@ -29,6 +31,9 @@
 import { readPendingOrders, withPendingOrders } from './applyCommand';
 import { ENGINE_CONSTANTS } from './constants';
 import { emptyTickEvents, pushAppliedOrder } from './events';
+import { resolveCapture } from './resolution/capture';
+import { resolveCombat } from './resolution/combat';
+import { resolveDecay } from './resolution/decay';
 import { resolveFlow } from './resolution/flow';
 import { resolveProduction } from './resolution/production';
 import type {
@@ -45,6 +50,8 @@ import type {
   World,
   WorldState,
 } from './types';
+
+const PLAYERS = 4;
 
 // Pipe mask bits (must match flow.ts / read.ts).
 const N_BIT = 0x01;
@@ -63,13 +70,12 @@ const DIRECTION_BITS: Readonly<Record<Direction, number>> = Object.freeze({
  * Advance the world by one tick. Pure.
  *
  * @returns `{ world, events }` — the next world (with `pendingOrders`
- *          drained) and the events observed during resolution. For
- *          US1, `terminal` is always `undefined`; US5 wires terminal
- *          detection.
+ *          drained) and the events observed during resolution. If the
+ *          match ends on this tick, `terminal` is populated (US5).
  */
 export function tick(world: Readonly<World>): TickResult {
   // Frozen-once-terminal: future US5 makes tick a no-op when the match
-  // is already over. For US1, terminal is always undefined, so we
+  // is already over. For US1-US3, terminal is always undefined, so we
   // always run.
   const existingTerminal = isTerminal(world);
   if (existingTerminal !== undefined) {
@@ -93,15 +99,54 @@ export function tick(world: Readonly<World>): TickResult {
     state = record.nextState;
   }
 
+  const n = world.board.width * world.board.height;
+
   // ---- Phase 1: production ----------------------------------------------
   state = resolveProduction(state, world.board, ENGINE_CONSTANTS);
 
-  // ---- Phase 2: flow ----------------------------------------------------
-  state = resolveFlow(state, world.board, ENGINE_CONSTANTS);
+  // ---- Phase 2: flow (populates inflow tally) ---------------------------
+  const inflowTally = new Uint32Array(n * PLAYERS);
+  state = resolveFlow(state, world.board, ENGINE_CONSTANTS, inflowTally);
+
+  // ---- Phase 3: combat -------------------------------------------------
+  const combatResult = resolveCombat(state, world.board, ENGINE_CONSTANTS, world.tick, inflowTally);
+  state = combatResult.state;
+  // Append combat events.
+  events = {
+    ...events,
+    combat: [...events.combat, ...combatResult.events.combat],
+  };
+
+  // ---- Phase 4: capture ------------------------------------------------
+  const captureResult = resolveCapture(state, world.board, ENGINE_CONSTANTS, world.tick);
+  state = captureResult.state;
+  events = {
+    ...events,
+    captures: [...events.captures, ...captureResult.events.captures],
+  };
+
+  // ---- Phase 5: decay --------------------------------------------------
+  // Reserved floors default to zero (no FR-012 enforcement beyond the
+  // state.reservesPct fallback). US4/US5 will wire setReserves-driven
+  // floors here.
+  const reservedFloors = new Uint32Array(n);
+  const decayResult = resolveDecay(
+    state,
+    world.board,
+    ENGINE_CONSTANTS,
+    world.tick,
+    inflowTally,
+    reservedFloors,
+  );
+  state = decayResult.state;
+  events = {
+    ...events,
+    eliminations: [...events.eliminations, ...decayResult.events.eliminations],
+  };
 
   // Recompute players snapshot (troopsHeld + citiesOwned) so the public
-  // `World.players` stays in sync with `state`. Done after production +
-  // flow so the snapshot reflects the post-resolution numbers.
+  // `World.players` stays in sync with `state`. Done after all resolution
+  // so the snapshot reflects the post-resolution numbers.
   const players = recomputePlayers(state, world.players);
 
   const nextWorld: World = withPendingOrders(
@@ -114,7 +159,7 @@ export function tick(world: Readonly<World>): TickResult {
     [], // drained
   );
 
-  // US5 wires terminal detection; US1 always returns undefined.
+  // US5 wires terminal detection; US1-US3 always return undefined.
   const terminal: MatchResult | undefined = undefined;
   void terminal;
 
@@ -122,14 +167,11 @@ export function tick(world: Readonly<World>): TickResult {
 }
 
 /**
- * Cheap terminal check (does not advance time). US1 always returns
- * `undefined` because elimination / surrender are US5; US5 implements
- * the real check. The function exists so callers can use it before
- * driving the tick loop.
+ * Cheap terminal check (does not advance time). US5 implements the
+ * real check; US1-US3 always return `undefined` because elimination /
+ * surrender land in US5.
  */
 export function isTerminal(world: Readonly<World>): MatchResult | undefined {
-  // US1: no terminal conditions yet. US5 will replace this body.
-  // Keep `world` referenced to satisfy lint and document intent.
   void world;
   return undefined;
 }
@@ -183,9 +225,9 @@ function pickDirection(o: Order): Direction | undefined {
 
 /**
  * Apply a single staged order to the world state, returning the new
- * state and an `AppliedOrderRecord`. US1 implements pipe commands;
- * other order kinds are no-ops at this stage (their effect fires in
- * their owning user story's phase — see plan.md §"Tick pipeline").
+ * state and an `AppliedOrderRecord`. Pipe orders mutate `pipeMasks`;
+ * other kinds (setReserves, paratroop, gun, surrender) are deferred
+ * to their owning user stories.
  */
 function applyStagedOrder(
   order: Order,
@@ -203,10 +245,8 @@ function applyStagedOrder(
 }
 
 /**
- * Dispatch a single order to its US1 effect. Returns the new state
+ * Dispatch a single order to its effect. Returns the new state
  * (which may be unchanged for orders deferred to other stories).
- *
- * US1 implements pipe commands; US4/US5 add paratroop, gun, surrender.
  */
 function dispatchOrderEffect(
   order: Order,
@@ -241,7 +281,7 @@ function dispatchOrderEffect(
       newMasks[idx] = 0;
       return { ...state, pipeMasks: newMasks };
     }
-    // US1 defers these — no state change in tick.
+    // US1-US3 defer these — no state change in tick.
     case 'setReserves':
     case 'paratroop':
     case 'gun':

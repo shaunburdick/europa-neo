@@ -44,14 +44,22 @@ interface TransferParams {
   cap: number;
   newCounts: Uint32Array;
   newOwners: Uint8Array;
+  /** Optional inflow tally to populate (null when tally is not supplied). */
+  tally: Uint32Array | null;
 }
 
 /**
  * Resolve one tick of pipe flow.
  *
- * @param state     Current world state (NOT mutated).
- * @param board     Board with cell elevations and terrain.
- * @param constants Engine rule constants (flowBase, flow{Downhill,Uphill}Factor, cellCapacity).
+ * @param state        Current world state (NOT mutated).
+ * @param board        Board with cell elevations and terrain.
+ * @param constants    Engine rule constants (flowBase, flow{Downhill,Uphill}Factor, cellCapacity).
+ * @param inflowTally  Optional per-cell per-owner inflow tally. When
+ *                     supplied, slot `(cellIdx * 4) + (playerId - 1)` is
+ *                     incremented by the count of troops that player
+ *                     sent into that cell this tick. Consumed by
+ *                     resolveCombat (multi-owner detection) and
+ *                     resolveDecay (friendly-inflow exemption).
  * @returns A fresh `WorldState` with updated troopCounts/troopOwners on
  *          destination cells. Source cells retain their counts (US1 does
  *          not model source depletion here; US3 reserves/decay cover that).
@@ -60,6 +68,7 @@ export function resolveFlow(
   state: Readonly<WorldState>,
   board: Readonly<Board>,
   constants: EngineConstants,
+  inflowTally?: Uint32Array,
 ): WorldState {
   const w = board.width;
   const n = w * w;
@@ -74,6 +83,8 @@ export function resolveFlow(
   const downFactor = constants.flowDownhillFactor >>> 0;
   const upFactor = constants.flowUphillFactor >>> 0;
   const cap = constants.cellCapacity >>> 0;
+
+  const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * 4;
 
   for (let idx = 0; idx < n; idx++) {
     const mask = state.pipeMasks[idx] ?? 0;
@@ -97,6 +108,7 @@ export function resolveFlow(
       cap,
       newCounts,
       newOwners,
+      tally: tallyAvailable ? (inflowTally as Uint32Array) : null,
     };
 
     // Iterate directions in fixed order (N, E, S, W) for determinism.
@@ -136,8 +148,21 @@ export function resolveFlow(
  * if the destination is out of bounds, water, or already at capacity.
  */
 function transfer(params: TransferParams): void {
-  const { board, x, y, dx, dy, srcOwner, base, downFactor, upFactor, cap, newCounts, newOwners } =
-    params;
+  const {
+    board,
+    x,
+    y,
+    dx,
+    dy,
+    srcOwner,
+    base,
+    downFactor,
+    upFactor,
+    cap,
+    newCounts,
+    newOwners,
+    tally,
+  } = params;
   const nx = x + dx;
   const ny = y + dy;
   const w = board.width;
@@ -170,4 +195,8 @@ function transfer(params: TransferParams): void {
   const add = moved < headroom ? moved : headroom;
   newCounts[dstIdx] = current + add;
   newOwners[dstIdx] = srcOwner;
+  // Update inflow tally if supplied (US2 combat + US3 decay side-channel).
+  if (tally !== null && srcOwner >= 1 && srcOwner <= 4) {
+    tally[dstIdx * 4 + (srcOwner - 1)] = (tally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + add;
+  }
 }
