@@ -2,29 +2,14 @@
  * Public surface of the `@europa/engine` package.
  *
  * This barrel re-exports the engine's type contract, tunable constants,
- * deterministic PRNG, and event builders — every cross-cutting
- * concern from Phase 2 (Foundational). The resolution rules and
- * lifecycle functions (`createWorld`, `applyCommand`, `tick`, etc.)
- * are added in Phase 3 (US1) as their implementation tasks land.
+ * deterministic PRNG, event builders, and the US1 lifecycle functions
+ * (`createWorld`, `applyCommand`, `tick`, `isTerminal`) plus read
+ * helpers. Serialization (`serializeWorld`, `deserializeWorld`,
+ * `hashWorld`) lands in Polish phase.
  *
- * **What downstream packages can import right now (Phase 2):**
- *   - `types.ts` — every public type from `contracts/engine-types.ts`
- *   - `constants.ts` — `ENGINE_CONSTANTS`, `DEFAULT_TICK_INTERVAL_MS`
- *   - `rng.ts` — `createRng`, `hashSeed`, `createRngFromString`
- *   - `events.ts` — `emptyTickEvents`, `pushCombatEvent`,
- *     `pushCaptureEvent`, `pushEliminationEvent`, `pushAppliedOrder`,
- *     `pushError`
- *
- * **Coming in Phase 3 (US1 — T021–T027):**
- *   - `createWorld`, `applyCommand`, `tick`, `isTerminal`
- *   - `getCell`, `forEachCell`, `cellsInRange`, `neighborsOf`
- *   - `getPlayer`, `alivePlayers`, `validateCommand`
- *   - `serializeWorld`, `deserializeWorld`, `hashWorld`
- *
- * When Phase 3 lands, this file gains those re-exports. The barrel is
- * the only file a downstream package ever imports — the implementation
- * details (which `.ts` file each function lives in) are private to
- * the engine.
+ * The barrel is the only file a downstream package ever imports — the
+ * implementation details (which `.ts` file each function lives in) are
+ * private to the engine.
  *
  * The names in each `export { ... }` block are sorted alphabetically
  * (Biome `organizeImports` rule). The conceptual grouping lives in
@@ -128,3 +113,25 @@ export {
   pushEliminationEvent,
   pushError,
 } from './events';
+
+// ----------------------------------------------------------------------------
+// World lifecycle (US1)
+// ----------------------------------------------------------------------------
+
+export { applyCommand } from './applyCommand';
+export { createWorld } from './create';
+export { isTerminal, tick } from './tick';
+export { validateCommand } from './validate';
+
+// ----------------------------------------------------------------------------
+// Read helpers (US1)
+// ----------------------------------------------------------------------------
+
+export {
+  alivePlayers,
+  cellsInRange,
+  forEachCell,
+  getCell,
+  getPlayer,
+  neighborsOf,
+} from './read';
