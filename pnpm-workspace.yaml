@@ -1,0 +1,16 @@
+packages:
+  - "packages/*"
+
+allowBuilds:
+  esbuild: set this to true or false
+
+catalog:
+  tsup: ^8.3.5
+  vitest: ^4.1.0
+  "@biomejs/biome": ^2.0.0
+  typescript: ^5.6.0
+
+# pnpm 11 ignores package install scripts by default for supply-chain security.
+# Allow esbuild's native postinstall so tsup/vitest can bundle and run TS.
+onlyBuiltDependencies:
+  - esbuild
