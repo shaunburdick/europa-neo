@@ -1,9 +1,9 @@
 # Phase 6 Orchestration Log: Europa Neo MVP
 
 ## Status
-- **Phase**: 6 — implementation, not yet started
+- **Phase**: 6 — implementation, **Wave 1 complete, Wave 2 in progress**
 - **Branch**: `001-europa-core` (pushed to origin)
-- **Last Updated**: 2026-08-21
+- **Last Updated**: 2026-08-21 (Wave 1 close)
 - **Orchestrator**: Project Manager (this session; resumable from disk)
 
 ## Plan Summary
@@ -26,7 +26,22 @@ A monorepo (`@europa/{engine,terrain,fog,networking,matchmaking,console}` + `ser
 
 ## Phase 4-5 State (closed)
 
-All six feature specs (001 engine, 003 terrain, 002 fog, 004 networking, 005 console, 006 matchmaking) have committed plans and tasks on `001-europa-core`. **13 commits total**:
+All six feature specs (001 engine, 003 terrain, 002 fog, 004 networking, 005 console, 006 matchmaking) have committed plans and tasks on `001-europa-core`. **13 phase 4-5 commits** (then 4 phase 6 commits added in Wave 1):
+
+```
+b1426fd docs: phase 6 orchestration state + PM handoff
+98dc932 feat(engine): US1 tick simulation (MVP) — createWorld, tick, production, flow
+12bb878 feat(engine): foundational modules (types, constants, rng, events)
+d18f31c feat(engine): monorepo bootstrap + engine package skeleton
+b918a44 docs(006): phase 5 tasks — 70 tasks, MVP at US1
+c07fca1 docs(006): phase 4 plan — match lifecycle & matchmaking
+a509d40 docs(005): phase 5 tasks — 97 tasks, MVP at US1
+9708c6b docs(005): phase 4 plan — client console architecture
+8c94be1 docs(004): phase 5 tasks — 55 tasks, MVP at networking US1
+cc5f22d docs(004): phase 4 plan — multiplayer networking & transport
+5a1d4d6 docs(002): phase 5 tasks — 45 tasks, MVP at fog US1
+fa15d68 docs(002): phase 4 plan — fog of war & visibility architecture
+b81e1a4 docs(003): phase 5 tasks — 56 tasks, MVP at terrain US1
 
 ```
 b918a44 docs(006): phase 5 tasks — 70 tasks, MVP at US1
@@ -83,15 +98,34 @@ Total: ~381 tasks. Implementation is the longest phase by far.
 
 ## Wave Progress
 
-### Wave 1 — Monorepo bootstrap + engine Phase 1+2+3 — ⏳ Pending
-- (no progress yet)
+### Wave 1 — Monorepo bootstrap + engine Phase 1+2+3 (MVP at engine US1) — ✅ Complete
+- **Commits**: `d18f31c` (Phase 1 setup) + `12bb878` (Phase 2 foundational) + `98dc932` (Phase 3 US1 MVP)
+- **Pushed**: yes (origin/001-europa-core)
+- **Tests**: 132/132 passing
+- **Coverage**: 93.94% stmts / 80.45% branches / 100% funcs / 95.12% lines (≥80% on every metric)
+- **Verification**: typecheck ✓, lint ✓, build ✓, all quickstart Q-001/Q-002/Q-003 green
+- **Code-quality-reviewer**: PASS-WITH-WARNINGS
+- **Polish-phase items** flagged (carry into Wave 2's Polish sub-phase):
+  1. Drop `void ENGINE_CONSTANTS` (create.ts:191), `void terminal` (tick.ts:118-119, 133) — dead-code silencers
+  2. Fix `citiesOwned: 0` initial state in create.ts:170 — compute from `board.cities` at tick 0
+  3. Reconsider `flowBase: 0` in ENGINE_CONSTANTS (constants.ts:47) — currently makes pipe flow vacuous in v1 defaults
+  4. Lift per-file branch coverage: `tick.ts` at 74.19% (uncovered: 76, 170, 175-176, 181), `rng.ts` at 50% (parity branches in public-domain sfc32)
+  5. CI hook for contract drift detection (spec `.specify/.../contracts/` vs local `packages/engine/src/contracts/`)
+  6. Refactor `InternalWorld extends World` + double `as` cast in applyCommand.ts:34-60 → Symbol-keyed WeakMap side-table
 
-### Waves 2-12 — ⏳ Pending
+### Wave 2 — engine US2 (Combat) + US3 (Decay) — ⏳ Pending (next dispatch)
+- Tasks T031-T039 (9 tasks)
+- See PM note below — chunking decision
+
+### Waves 3-12 — ⏳ Pending
 
 ## Decisions & Rationale
 
 - **2026-08-21**: User chose Option 1 for phase 6 — self-orchestrate from this session via the orchestration skill, check in only on issues (not after every wave). Decision: do not create PR or merge directly; defer that to user.
-- **2026-08-21**: User directed "Well, you can compress context first" — context pressure acknowledged. Decision: write this durable state file, then suggest resuming in a fresh session for clean context rather than burning context on Wave 1 in this session.
+- **2026-08-21**: User directed "Well, you can compress context first" — context pressure acknowledged. Decision: write this durable state file, then dispatch Wave 1 in same session since user wanted momentum.
+- **2026-08-21**: User directed "Dispatch wave one" — Wave 1 split into 3 sequential sub-dispatches (Phase 1/2/3) to mitigate the silent-failure pattern observed in feature 004/006 tasks. Decision: same strategy for Wave 2 (chunk into 2 sub-dispatches: 2A = US2+US3 = 9 tasks; 2B = US4+US5+Polish = 19 tasks).
+- **2026-08-21**: Wave 1 deviated from spec contract path — `tsc` `rootDir: ./src` rejected imports from `.specify/.../contracts/`, so architect created local copies at `packages/engine/src/contracts/` (with "DO NOT EDIT" headers). Architectural debt — needs TypeScript project references or path aliases in a later refactor. Documented; not blocking.
+- **2026-08-21**: Wave 1 code-quality-reviewer verdict: PASS-WITH-WARNINGS. All constitution principles satisfied; 6 medium/low items deferred to Polish.
 
 ## Blockers & Escalations
 
@@ -99,11 +133,18 @@ None at session close. Subagent reliability mitigations documented above.
 
 ## New Tasks Discovered
 
-None at session close.
+- (from Wave 1 reviewer): contract drift CI hook (Polish-phase item)
+- (from Wave 1 reviewer): Symbol-keyed WeakMap side-table for applyCommand internal state (Polish-phase item)
+- (from Wave 1 reviewer): reconsider `flowBase: 0` default — either bump to ≥1 or update Q-003 to drive engine with synthetic constants
 
 ## Review Findings
 
-None at session close (phase 6 not started).
+### Wave 1 code-quality-reviewer
+- **Verdict**: PASS-WITH-WARNINGS (all 7 constitution principles satisfied; one warning on Principle V for dead `void` silencers)
+- **Coverage**: aggregate 80.45% branches passes 80% gate; per-file `tick.ts` 74.19% and `rng.ts` 50% below threshold — Polish-phase concern
+- **Determinism**: exemplary (self-enforcing grep test in rng.test.ts catches Math.random/Date.now/Math.sin/Math.cos)
+- **Contract drift**: 100% whitespace-only diff between local copies and spec; semantic identity confirmed
+- **No critical or high findings**; all 6 items are medium/low Polish-phase cleanups
 
 ## Resume Instructions
 
