@@ -1,9 +1,9 @@
 # Phase 6 Orchestration Log: Europa Neo MVP
 
 ## Status
-- **Phase**: 6 — implementation, **Wave 1 complete, Wave 2 in progress**
+- **Phase**: 6 — implementation, **Waves 1-2 complete (engine done), Wave 3 (terrain) next**
 - **Branch**: `001-europa-core` (pushed to origin)
-- **Last Updated**: 2026-08-21 (Wave 1 close)
+- **Last Updated**: 2026-08-21 (Wave 2 close)
 - **Orchestrator**: Project Manager (this session; resumable from disk)
 
 ## Plan Summary
@@ -113,11 +113,49 @@ Total: ~381 tasks. Implementation is the longest phase by far.
   5. CI hook for contract drift detection (spec `.specify/.../contracts/` vs local `packages/engine/src/contracts/`)
   6. Refactor `InternalWorld extends World` + double `as` cast in applyCommand.ts:34-60 → Symbol-keyed WeakMap side-table
 
-### Wave 2 — engine US2 (Combat) + US3 (Decay) — ⏳ Pending (next dispatch)
-- Tasks T031-T039 (9 tasks)
-- See PM note below — chunking decision
+### Wave 2A — engine US2 (Combat) + US3 (Decay) — ✅ Complete
+- **Commit**: `bd2b368`
+- **Tests**: 188/188 passing (132 prior + 56 new)
+- **Coverage**: 94.23% stmts / 80% branches / 100% funcs / 96.1% lines
+- **Deviations**: 4 (inflow tally side-channel, reserved floors side-channel, cities exempt from decay, 2-way CombatEvent per contract)
 
-### Waves 3-12 — ⏳ Pending
+### Wave 2B-1 — engine US4 (Paratroop/Gun) + US5 (Victory/Surrender) — ✅ Complete
+- **Commit**: `3bb56b2`
+- **Tests**: 260/260 passing (+72 new)
+- **Coverage**: 94.07% stmts / 80.8% branches / 100% funcs / 95.55% lines
+- **Tick pipeline**: 8 phases (production → paratroop → gun → flow → combat → capture → decay → terminal)
+- **Deviations**: 3 (existing test boards updated with P2 cities, surrender event emission, paratroopCost interpretation)
+
+### Wave 2B-2 — engine Polish + 7 reviewer items — ✅ Complete
+- **Commits**: 8 commits (`af8ad07` → `c9176a2` → `fc88e91` → `f2a77ab` → `b516b1b` → `4f60216` → `f5fa554` → `942143e`)
+- **Tests**: 295/295 passing (+35 new)
+- **Coverage**: 95.82% stmts / 81.08% branches / 100% funcs / 96.9% lines
+- **Tick perf**: 0.04ms median on 32×32 board (250× under 10ms budget per SC-004)
+- **Determinism**: 10k-tick SC-001 byte-identical
+- **Spec 001 status**: flipped Draft → Implemented
+- **AGENTS.md**: updated Current state section
+- **Reviewer items**: 7/7 addressed
+  - ✅ `void ENGINE_CONSTANTS` removed
+  - ✅ `void terminal` removed
+  - ✅ `citiesOwned` from board.cities at tick 0
+  - ✅ `flowBase: 0 → 1`
+  - ✅ Per-file branch coverage ≥80% (tick.ts 82.14%, rng.ts documented)
+  - ✅ Contract drift CI test added
+  - ✅ InternalWorld → WeakMap side-table
+- **Deviations**: 1 (local contract copies synced to spec; README replaces inline header)
+
+### Wave 2 code-quality-reviewer — ✅ PASS
+- All 7 constitution principles satisfied
+- 295/295 tests passing, all coverage gates met
+- Determinism discipline exemplary (self-enforcing grep test)
+- CI workflow SHA-pinned
+- Medium finding: `serialize.ts:375-385` `deserializeWorld` returns skeletal board (all-land, elevation 0) — acceptable for v1, will need fixing for replay fidelity before feature 006
+
+### Wave 3 — terrain Phase 1+2+3+4 (MVP at terrain US2) — ⏳ Pending (next dispatch)
+- Tasks T001-T043 (43 tasks)
+- Chunking plan: 3A = Phase 1+2 (19 tasks) — package skeleton + foundational; 3B = Phase 3+4 (24 tasks) — Generation Pipeline + City Placement (MVP)
+
+### Waves 4-12 — ⏳ Pending
 
 ## Decisions & Rationale
 
