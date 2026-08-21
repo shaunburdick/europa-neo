@@ -1,50 +1,49 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Europa Neo Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Type Safety First
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+TypeScript strict mode everywhere — `strict: true` in tsconfig, no `any` types without explicit documented justification, no lint-rule suppressions (`eslint-disable`, `@ts-ignore`, `@ts-nocheck`). If the compiler or linter complains, fix the code, never silence the tooling.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Server-Authoritative Deterministic Simulation
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+The server owns all game state; clients render and request actions only. The simulation runs on fixed ticks and must be deterministic: identical inputs in identical order always produce identical game state. No wall-clock reads, floating-point drift, or iteration-order dependence inside tick logic. Determinism enables replays, validation, testing, and future multiplayer trust.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Tested Game Logic (NON-NEGOTIABLE)
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Game logic modules maintain ≥80% test coverage. Tests target behavior, not implementation details: happy path plus edge cases (boundary ticks, invalid input, state transitions). Coverage on simulation code is a merge gate, not an aspiration.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Specs as Documentation
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Europa Neo is open source; specifications live in-repo under `specs/` and are treated as first-class documentation. Every feature starts with a spec that a new contributor could read and understand without tribal knowledge. Code comments explain *why*; specs explain *what* and *for whom*. Stale specs are bugs.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Simplicity Over Cleverness
+
+Start simple; apply YAGNI ruthlessly. Clever one-liners, premature abstraction, and speculative generality are rejected in review. Complexity must be justified in writing. The codebase should be readable by a motivated contributor on their first evening.
+
+### VI. Accessibility-Minded UI
+
+The interface targets WCAG 2.2 AA: keyboard navigability, screen-reader semantics, sufficient contrast, visible focus states. A space strategy game should not be playable only by people with perfect vision and a mouse.
+
+### VII. Self-Hostable by Default
+
+Every release must be runnable by an individual on their own hardware with plain instructions (single process, config via environment/files, no required cloud services). If a feature cannot be self-hosted, it does not ship as core.
+
+## Additional Constraints
+
+- **Open-source licensing friendliness**: All dependencies must use permissive licenses (MIT, BSD, Apache-2.0, ISC) or compatible copyleft that permits redistribution. No GPL-incompatible or source-available dependencies in the dependency tree. The project itself ships under an OSI-approved license.
+- **No vendor lock-in**: Core functionality must not depend on proprietary APIs, paid SaaS, or single-provider services. External integrations sit behind thin, swappable interfaces so contributors can replace them with local or self-hosted equivalents.
+
+## Development Workflow
+
+- **Spec-driven development**: Features follow the six-phase flow (constitution → specification → clarification → plan → tasks → implement). No implementation without an approved spec and plan.
+- **Feature branches only**: All code lands via branches named `NNN-feature-slug`; direct commits to `main` are forbidden.
+- **Conventional Commits**: Commit messages follow `type(scope): summary` (e.g., `feat(sim): add tick scheduler`). Types include feat, fix, docs, refactor, test, chore.
+- **Verification before commit**: Lint, typecheck, tests, and build must pass locally before every commit. "It should work" is not evidence.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other practices and documentation. Amendments require a written proposal, explicit approval, a version bump, and a migration note describing impact on existing code and specs. All pull requests and reviews verify compliance; complexity or exceptions must be justified against these principles in the PR description. Use `AGENTS.md` for runtime agent guidance.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-08-21
