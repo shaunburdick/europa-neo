@@ -1,15 +1,26 @@
 /**
- * Symmetry Helper Tests — Feature 003
+ * Symmetry Tests — Feature 003
  *
- * Verifies the round-trip and basic correctness of `rotate180` and
- * `rotate180Index`. The round-trip invariant
- * (`rotate180(rotate180(c)) === c`) is the foundation of FR-004's
- * 180° point-symmetry guarantee.
+ * Two layers of symmetry testing:
+ *
+ *   1. **Helper round-trip** — `rotate180` and `rotate180Index`
+ *      functions are pure: applying them twice returns the input
+ *      (the foundation of FR-004's 180° point-symmetry guarantee).
+ *
+ *   2. **Generated-board round-trip** (T052) — for every cell
+ *      `(x, y)` in any generated `Board`, the 180°-rotated
+ *      partner's `elevation` and `terrain` are byte-identical to
+ *      the original. Covers INV-5/6 at the test level, independent
+ *      of the `_enforcePointSymmetry` unit test which tests the
+ *      helper directly. 100 random seeds × full board scan.
  */
 
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';
+import { generateBoard } from '../../src/generate';
 import { rotate180, rotate180Index } from '../../src/symmetry';
+import { engineSfc32, goldenSeeds } from '../fixtures/seeds';
 
 describe('symmetry', () => {
   describe('rotate180', () => {
@@ -94,6 +105,38 @@ describe('symmetry', () => {
       const height = 16;
       for (let i = 0; i < width * height; i++) {
         expect(rotate180Index(i, width, height)).toBe(width * height - 1 - i);
+      }
+    });
+  });
+
+  describe('generated-board round-trip (T052, INV-5/6 end-to-end)', () => {
+    const TRIALS = 100;
+    it(`${String(TRIALS)} seeds × full board scan: every cell matches its 180°-rotated partner`, () => {
+      const seeds = goldenSeeds(TRIALS);
+      for (const seed of seeds) {
+        const req = {
+          boardSize: 32,
+          playerCount: 2 as const,
+          seed,
+          rng: engineSfc32(seed),
+          settings: DEFAULT_GENERATION_SETTINGS,
+        };
+        const result = generateBoard(req);
+        const board = result.board;
+        const SIZE = board.width;
+        for (let y = 0; y < SIZE; y++) {
+          for (let x = 0; x < SIZE; x++) {
+            const cell = board.cells[y * SIZE + x];
+            const partner = board.cells[(SIZE - 1 - y) * SIZE + (SIZE - 1 - x)];
+            if (!cell || !partner) {
+              throw new Error(
+                `seed=${String(seed)}: cell or partner missing at (${String(x)},${String(y)})`,
+              );
+            }
+            expect(cell.elevation).toBe(partner.elevation);
+            expect(cell.terrain).toBe(partner.terrain);
+          }
+        }
       }
     });
   });
