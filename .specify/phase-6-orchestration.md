@@ -1,9 +1,9 @@
 # Phase 6 Orchestration Log: Europa Neo MVP
 
 ## Status
-- **Phase**: 6 — implementation, **Waves 1-2 complete (engine done), Wave 3 (terrain) next**
+- **Phase**: 6 — implementation, **Waves 1-4 complete (engine + terrain done), Wave 5 (fog) next**
 - **Branch**: `001-europa-core` (pushed to origin)
-- **Last Updated**: 2026-08-21 (Wave 2 close)
+- **Last Updated**: 2026-08-21 (Wave 4 close)
 - **Orchestrator**: Project Manager (this session; resumable from disk)
 
 ## Plan Summary
@@ -151,11 +151,33 @@ Total: ~381 tasks. Implementation is the longest phase by far.
 - CI workflow SHA-pinned
 - Medium finding: `serialize.ts:375-385` `deserializeWorld` returns skeletal board (all-land, elevation 0) — acceptable for v1, will need fixing for replay fidelity before feature 006
 
-### Wave 3 — terrain Phase 1+2+3+4 (MVP at terrain US2) — ⏳ Pending (next dispatch)
-- Tasks T001-T043 (43 tasks)
-- Chunking plan: 3A = Phase 1+2 (19 tasks) — package skeleton + foundational; 3B = Phase 3+4 (24 tasks) — Generation Pipeline + City Placement (MVP)
+### Wave 3A — terrain Phase 1 (Setup) + Phase 2 (Foundational) — ✅ Complete
+- **Commit**: `30f3e11` (26 files, +2593 lines)
+- **Tests**: 71/71 passing (engine still 295/295; monorepo 366/366)
+- **Build**: tsup produces ESM (5.26 KB) + dts (27.67 KB)
+- **PM action**: spec contract fix committed separately (`4c23981`) — resolved two `verbatimModuleSyntax: true` import-style bugs in `terrain-types.ts` (ENGINE_API_VERSION used as value via `import type`; Rng used locally without `import type`)
 
-### Waves 4-12 — ⏳ Pending
+### Wave 3B — terrain Phase 3 (US1 Generation) + Phase 4 (US2 City Placement) — ✅ Complete
+- **Commit**: `f6fbc8b`
+- **Tests**: 166/166 terrain (71 prior + 95 new); engine still 295/295
+- **Coverage**: 92.08% stmts / 81.45% branches / 92.85% funcs / 94.28% lines
+- **MVP at US2**: balanced symmetric boards with cities placed, deterministic across 1000 trials
+- **Deviations**: 5 (water algorithm: pair-based symmetric marking; fBm base frequency 0.25; validator skips city invariants when cities=[]; city placement for primary players only; removed unused imports)
+
+### Wave 4 — terrain Phase 5 (US3 Clamping) + Phase 6 (Polish) — ✅ Complete
+- **Commits (4)**: `da9a722` (clamping) + `28c9acd` (perf/balance/determinism) + `3597bae` (CI+README+drift) + `8bb2d53` (spec flip)
+- **Tests**: 225/225 terrain (166 prior + 59 new); engine still 295/295; monorepo 520/520
+- **Coverage**: 93.17% stmts / 83.28% branches / 94.11% funcs / 95.31% lines (all ≥80%)
+- **Spec 003 status**: flipped Draft → Implemented
+- **AGENTS.md**: updated Current state (engine + terrain both Implemented)
+- **Deviations**: 4 (symmetry test pre-existing restored, contract sync strips LOCAL COPY prefix, integration test split moderate/extreme, terrain-to-engine.ts excluded from drift pair)
+- **PM action taken**: spec contract `effectiveSettings` field addition applied to BOTH local + spec (PM-approved additive change per Wave 3B report)
+
+### Wave 5 — fog all phases — ⏳ Pending (next dispatch)
+- Tasks T001-T045 (45 tasks)
+- Chunking plan: 5A = Phase 1+2 (20 tasks) — package skeleton + foundational; 5B = Phase 3-5 (25 tasks) — Visibility horizon + No memory + Spectator + Polish
+
+### Waves 6-12 — ⏳ Pending
 
 ## Decisions & Rationale
 
