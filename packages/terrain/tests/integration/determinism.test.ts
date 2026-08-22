@@ -39,7 +39,9 @@ describe('determinism (SC-001, FR-006, US2)', () => {
     }
   });
 
-  it('distinct seeds produce distinct Board hashes (US2 acceptance scenario 2)', { timeout: 60_000 }, () => {
+  it('distinct seeds produce distinct Board hashes (US2 acceptance scenario 2)', {
+    timeout: 60_000,
+  }, () => {
     const seeds = goldenSeeds(100);
     const hashes = new Set<string>();
     for (const seed of seeds) {
