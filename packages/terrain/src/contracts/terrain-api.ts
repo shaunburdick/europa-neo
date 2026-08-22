@@ -1,20 +1,5 @@
 /**
- * LOCAL COPY — Terrain Public API (Feature 003)
- *
- * Source of truth:
- *   `.specify/features/003-procedural-terrain-generation/contracts/terrain-api.ts`
- *
- * This file is a verbatim copy of the spec contract, mirrored at
- * `packages/terrain/src/contracts/terrain-api.ts` so the TypeScript
- * compiler can resolve imports inside the package's `rootDir: "./src"`
- * boundary. Drift between this local copy and the spec is a bug; copy
- * the authoritative file to the other side in the same change set.
- * The spec wins.
- *
- * Per AGENTS.md and the Wave 2B-2 PM handoff, this local-copy pattern
- * is the chosen mitigation for `tsc rootDir` violations when the source
- * package needs to import from the spec contracts. Same pattern is
- * used by `@europa/engine`.
+ * Terrain Public API — Feature 003
  *
  * The full surface other packages depend on. Everything here is a pure
  * function with no I/O, no wall-clock reads, no unseeded randomness.

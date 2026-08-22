@@ -1,23 +1,5 @@
 /**
- * LOCAL COPY — Terrain Package Type Contracts (Feature 003)
- *
- * Source of truth:
- *   `.specify/features/003-procedural-terrain-generation/contracts/terrain-types.ts`
- *
- * This file is a verbatim copy of the spec contract, mirrored at
- * `packages/terrain/src/contracts/terrain-types.ts` so the TypeScript
- * compiler can resolve imports inside the package's `rootDir: "./src"`
- * boundary. Drift between this local copy and the spec is a bug; the
- * engine's contract-drift test (and any future terrain equivalent) is
- * the safety net (see `packages/engine/tests/contracts-drift.test.ts`).
- *
- * If you edit one side, copy the authoritative file to the other side
- * in the same change set. The spec wins.
- *
- * Per AGENTS.md and the Wave 2B-2 PM handoff, this local-copy pattern
- * is the chosen mitigation for `tsc rootDir` violations when the source
- * package needs to import from the spec contracts. Same pattern is
- * used by `@europa/engine`.
+ * Terrain Package Type Contracts — Feature 003
  *
  * The public type surface of the `@europa/terrain` package. Re-exported
  * via `@europa/terrain` (packages/terrain/src/index.ts).
@@ -63,55 +45,29 @@ export const TERRAIN_API_VERSION = '0.1.0' as const;
 // ----------------------------------------------------------------------------
 
 // `import type` ensures these are erased at runtime; terrain does not
-// depend on the engine's compiled code.
-//
-// =============================================================================
-// LOCAL-COPY FIXES (vs spec contract)
-// =============================================================================
-// The spec contract at
-// `.specify/features/003-procedural-terrain-generation/contracts/terrain-types.ts`
-// has two latent issues that surface only under our strict TS settings
-// (`verbatimModuleSyntax: true`):
-//
-//   1. `ENGINE_API_VERSION` is imported as a `type` but used as a
-//      `const` re-export (`ENGINE_API_VERSION_REF = _ENGINE_API_VERSION_REF`).
-//      The engine exports `ENGINE_API_VERSION` as a runtime `const`, so
-//      `import type` strips it and the re-export fails to compile.
-//      LOCAL FIX: split into a value-import group for
-//      `ENGINE_API_VERSION` and a `type`-import group for the rest.
-//
-//   2. `Rng` is re-exported from `@europa/engine` further down this
-//      file but is also referenced as a local type on line
-//      `readonly rng: Rng;` inside `TerrainGenerationRequest`.
-//      A `export type { Rng } from '...'` re-export alone does NOT
-//      bring the symbol into the local type scope; you also need a
-//      local `import type { Rng } from '...'`. LOCAL FIX: add `Rng` to
-//      the type-import group below.
-//
-// Both fixes preserve the spec's *semantic* intent (the same names,
-// the same shapes, the same re-exports). They differ only in import
-// style. PM: please reconcile the spec contract so the local copy and
-// spec stay byte-for-byte identical (per `src/contracts/README.md`).
-// The cleanest single-edit fix is to split the spec's import group
-// into the same two groups shown here.
-// =============================================================================
-import {
-  ENGINE_API_VERSION as _ENGINE_API_VERSION_REF,
-} from '@europa/engine';
+// depend on the engine's compiled code. Split into type-only imports
+// (erased) and a value import for `ENGINE_API_VERSION` (needed as a
+// runtime const re-exported on line 64; see the bug-fix comment below).
 import type {
   Board,
   Cell,
   CityPlacement,
   Coord,
   PlayerId,
-  Rng,
 } from '@europa/engine';
+import { ENGINE_API_VERSION as _ENGINE_API_VERSION_REF } from '@europa/engine';
 
 /**
  * The engine API version terrain was built against. If the engine
  * version pin in feature 001's contracts ever drifts, this re-export
  * lets a single `import { ENGINE_API_VERSION } from '@europa/terrain'`
  * catch the drift.
+ *
+ * Bug-fix note (PM-mediated, terrain Phase 2 implementation surfaced
+ * under `verbatimModuleSyntax: true`): `ENGINE_API_VERSION` is a
+ * runtime `const` in the engine, so the original `import type { ... }`
+ * stripped it at compile time, making `ENGINE_API_VERSION_REF`
+ * `undefined` at runtime. Fixed by splitting into a value import.
  */
 export const ENGINE_API_VERSION_REF = _ENGINE_API_VERSION_REF;
 
@@ -145,8 +101,16 @@ export type MapSeed = number;
  * The type lives in `engine-types.ts` so the dependency direction is
  * terrain → engine (one-way). If the engine ever changes `Rng`'s shape,
  * both packages update in the same change set.
+ *
+ * Bug-fix note (PM-mediated, terrain Phase 2 implementation surfaced
+ * under `verbatimModuleSyntax: true`): `Rng` is used locally in
+ * `TerrainGenerationRequest.rng: Rng` (line 222), so we need an
+ * `import type` for local use IN ADDITION to the `export type` for
+ * re-export. The original `export type { Rng } from '@europa/engine'`
+ * re-exports but doesn't import for local use, breaking compilation.
  */
-export type { Rng } from '@europa/engine';
+import type { Rng } from '@europa/engine';
+export type { Rng };
 
 // ----------------------------------------------------------------------------
 // GenerationSettings (FR-008: configurable with safe clamping)

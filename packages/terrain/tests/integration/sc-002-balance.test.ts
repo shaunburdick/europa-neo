@@ -93,8 +93,7 @@ describe('SC-002 / SC-004 balance (1000 maps, every invariant must pass)', () =>
       }
 
       // (d) City count exactly `playerCount × citiesPerPlayer`.
-      const expectedCities =
-        req.playerCount * DEFAULT_GENERATION_SETTINGS.citiesPerPlayer;
+      const expectedCities = req.playerCount * DEFAULT_GENERATION_SETTINGS.citiesPerPlayer;
       if (board.cities.length !== expectedCities) {
         failures.push({
           seed,
@@ -168,7 +167,6 @@ describe('SC-002 / SC-004 balance (1000 maps, every invariant must pass)', () =>
       }
       if (!cityWaterOk) {
         failures.push({ seed, reason: 'cityWaterDist' });
-        continue;
       }
     }
 

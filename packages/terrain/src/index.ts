@@ -79,6 +79,14 @@ export { rotate180, rotate180Index } from './symmetry';
 export {
   CITIES_PER_PLAYER_MAX,
   CITIES_PER_PLAYER_MIN,
+  clampCitiesPerPlayer,
+  clampMaxRegenAttempts,
+  clampMinCityCityDistance,
+  clampMinCityWaterDistance,
+  clampOctaves,
+  clampRoughness,
+  clampSettings,
+  clampWaterRatio,
   MAX_REGEN_ATTEMPTS_MAX,
   MAX_REGEN_ATTEMPTS_MIN,
   MIN_CITY_CITY_DISTANCE_MAX,
@@ -91,14 +99,6 @@ export {
   ROUGHNESS_MIN,
   WATER_RATIO_MAX,
   WATER_RATIO_MIN,
-  clampCitiesPerPlayer,
-  clampMaxRegenAttempts,
-  clampMinCityCityDistance,
-  clampMinCityWaterDistance,
-  clampOctaves,
-  clampRoughness,
-  clampSettings,
-  clampWaterRatio,
 } from './clamp';
 
 // ----------------------------------------------------------------------------

@@ -19,6 +19,14 @@ import { describe, expect, it } from 'vitest';
 import {
   CITIES_PER_PLAYER_MAX,
   CITIES_PER_PLAYER_MIN,
+  clampCitiesPerPlayer,
+  clampMaxRegenAttempts,
+  clampMinCityCityDistance,
+  clampMinCityWaterDistance,
+  clampOctaves,
+  clampRoughness,
+  clampSettings,
+  clampWaterRatio,
   MAX_REGEN_ATTEMPTS_MAX,
   MAX_REGEN_ATTEMPTS_MIN,
   MIN_CITY_CITY_DISTANCE_MAX,
@@ -31,14 +39,6 @@ import {
   ROUGHNESS_MIN,
   WATER_RATIO_MAX,
   WATER_RATIO_MIN,
-  clampCitiesPerPlayer,
-  clampMaxRegenAttempts,
-  clampMinCityCityDistance,
-  clampMinCityWaterDistance,
-  clampOctaves,
-  clampRoughness,
-  clampSettings,
-  clampWaterRatio,
 } from '../../src/clamp';
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';
 import type { GenerationSettings } from '../../src/contracts/terrain-types';
@@ -46,7 +46,7 @@ import type { GenerationSettings } from '../../src/contracts/terrain-types';
 describe('clamp (US3 / FR-008)', () => {
   describe('clampWaterRatio', () => {
     it('returns the value unchanged when in range (mid)', () => {
-      expect(clampWaterRatio(0.10)).toBe(0.10);
+      expect(clampWaterRatio(0.1)).toBe(0.1);
     });
     it('returns the lower bound unchanged (inclusive end)', () => {
       expect(clampWaterRatio(WATER_RATIO_MIN)).toBe(WATER_RATIO_MIN);
@@ -161,14 +161,10 @@ describe('clamp (US3 / FR-008)', () => {
       expect(clampMinCityCityDistance(5)).toBe(5);
     });
     it('returns the lower bound unchanged (inclusive end)', () => {
-      expect(clampMinCityCityDistance(MIN_CITY_CITY_DISTANCE_MIN)).toBe(
-        MIN_CITY_CITY_DISTANCE_MIN,
-      );
+      expect(clampMinCityCityDistance(MIN_CITY_CITY_DISTANCE_MIN)).toBe(MIN_CITY_CITY_DISTANCE_MIN);
     });
     it('returns the upper bound unchanged (inclusive end)', () => {
-      expect(clampMinCityCityDistance(MIN_CITY_CITY_DISTANCE_MAX)).toBe(
-        MIN_CITY_CITY_DISTANCE_MAX,
-      );
+      expect(clampMinCityCityDistance(MIN_CITY_CITY_DISTANCE_MAX)).toBe(MIN_CITY_CITY_DISTANCE_MAX);
     });
     it('clamps below the lower bound up to the lower bound', () => {
       // minCityCityDistance lower bound is 2 (not 1) per data-model §2.

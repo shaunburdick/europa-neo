@@ -190,10 +190,7 @@ function elevationVariance(board: Board): number {
 /**
  * Build `MapStats` for the board.
  */
-function buildMapStats(
-  board: Board,
-  effectiveSettings: Readonly<GenerationSettings>,
-): MapStats {
+function buildMapStats(board: Board, effectiveSettings: Readonly<GenerationSettings>): MapStats {
   const { largestPool, numPools } = waterPoolStats(board);
   // City-pair stats.
   const cities = board.cities;

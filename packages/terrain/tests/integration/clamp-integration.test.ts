@@ -30,8 +30,6 @@
  */
 
 import { describe, expect, it } from 'vitest';
-
-import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';
 import {
   CITIES_PER_PLAYER_MAX,
   CITIES_PER_PLAYER_MIN,
@@ -42,6 +40,7 @@ import {
   ROUGHNESS_MIN,
   WATER_RATIO_MAX,
 } from '../../src/clamp';
+import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';
 import type { GenerationSettings } from '../../src/contracts/terrain-types';
 import { generateBoard } from '../../src/generate';
 import { validateBoard } from '../../src/validate';
@@ -274,9 +273,7 @@ describe('clamp integration (US3 / FR-008)', () => {
       // Clamped to 1.
       expect(result.effectiveSettings.citiesPerPlayer).toBe(CITIES_PER_PLAYER_MIN);
       // Board has exactly 1 city per player (2 players × 1 = 2).
-      expect(result.board.cities.length).toBe(
-        req.playerCount * CITIES_PER_PLAYER_MIN,
-      );
+      expect(result.board.cities.length).toBe(req.playerCount * CITIES_PER_PLAYER_MIN);
     });
   });
 });
