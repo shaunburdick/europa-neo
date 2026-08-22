@@ -284,6 +284,102 @@ export function buildWorldWithCities(
 }
 
 /**
+ * Build a `World` whose board is all land EXCEPT the given water
+ * cells (`terrain: 'water'`). Used by Q-F08's viewer-on-water edge
+ * case: vision is computed from troop positions only — water does
+ * NOT block Chebyshev range expansion (spec Assumptions).
+ *
+ * @param size        Square board dimension (≥ 8).
+ * @param waterCells  Coords to mark as water. Must be in-bounds;
+ *                    duplicates are rejected.
+ * @param troops      Optional troop placements
+ *                    (`[x, y, playerId, count][]`), applied after
+ *                    the board is built.
+ * @param playerCount Player count (2, 3, or 4). Defaults to 2.
+ * @param seed        PRNG seed. Defaults to 42.
+ * @returns A `World` with the water cells (and optional troops).
+ * @throws If `size < 8`, any coord is out of bounds or duplicated,
+ *         or any troop placement is invalid.
+ */
+export function buildWorldWithWater(
+  size: number,
+  waterCells: ReadonlyArray<Coord>,
+  troops: ReadonlyArray<readonly [x: number, y: number, player: PlayerId, count: number]> = [],
+  playerCount: 2 | 3 | 4 = 2,
+  seed = 42,
+): World {
+  if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
+    throw new Error(
+      `buildWorldWithWater: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`,
+    );
+  }
+  const seen = new Set<number>();
+  for (const coord of waterCells) {
+    if (coord.x < 0 || coord.x >= size || coord.y < 0 || coord.y >= size) {
+      throw new Error(
+        `buildWorldWithWater: water cell [${String(coord.x)}, ${String(coord.y)}] out of bounds for size ${size}`,
+      );
+    }
+    const key = coord.y * size + coord.x;
+    if (seen.has(key)) {
+      throw new Error(
+        `buildWorldWithWater: duplicate water cell [${String(coord.x)}, ${String(coord.y)}]`,
+      );
+    }
+    seen.add(key);
+  }
+
+  const config = buildMatchConfig(size, playerCount, seed);
+  const cells: Cell[] = new Array(size * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      cells[y * size + x] = seen.has(y * size + x)
+        ? { x, y, elevation: 0, terrain: 'water' }
+        : { x, y, elevation: 0, terrain: 'land' };
+    }
+  }
+  const board: Board = {
+    width: size,
+    height: size,
+    cells: Object.freeze(cells),
+    cities: Object.freeze([]),
+  };
+  const base = createWorld(config, board);
+  if (troops.length === 0) {
+    return base;
+  }
+  const newState = placeTroops(base.state, size, troops);
+  return { ...base, state: newState };
+}
+
+/**
+ * Return a copy of `world` whose match config declares the given
+ * visibility radius. Used by quickstart scenarios that pin a
+ * specific scenario radius (e.g., Q-F01's Chebyshev range 3) while
+ * the default fixture config carries the engine default (4).
+ *
+ * The input world is not mutated; `computePlayerView` /
+ * `computeVisibleSet` read the radius from `world.config`, so the
+ * returned copy drives both functions consistently.
+ *
+ * @param world  The source world.
+ * @param radius The visibility radius for the copy's config.
+ * @returns A new `World` with the overridden config.
+ */
+export function withVisibilityRadius(world: World, radius: number): World {
+  return {
+    ...world,
+    config: Object.freeze({
+      boardSize: world.config.boardSize,
+      playerCount: world.config.playerCount,
+      tickIntervalMs: world.config.tickIntervalMs,
+      seed: world.config.seed,
+      visibilityRadius: radius,
+    }),
+  };
+}
+
+/**
  * Re-export the engine's `Player`, `Coord`, and `Cell` types
  * for fixture consumers that need them. Centralizing the
  * re-exports here keeps the fixture file's import surface

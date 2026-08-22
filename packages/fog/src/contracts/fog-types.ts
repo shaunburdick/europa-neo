@@ -78,24 +78,21 @@ export const FOG_API_VERSION = '0.1.0' as const;
 // call engine runtime helpers — see `fog-api.ts` — but that's a normal
 // downstream-consumers relationship.)
 //
-// LOCAL COPY FIX: the spec's `import type { ..., ENGINE_API_VERSION
-// as _ENGINE_API_VERSION_REF, ... }` is a compile-time bug (TS1361:
-// "type-only import used as value"). The value export below requires
-// a *value* binding, not a type-only one. The local copy uses a
-// regular import for `ENGINE_API_VERSION` (it is a `const` declared
-// in the engine barrel, not a type). The spec should be updated to
-// match in a follow-up change set; until then, this deviation keeps
-// the package compiling. The two files MUST remain byte-identical
-// in the wave 5B Polish phase after the spec is corrected.
-import {
-  ENGINE_API_VERSION as _ENGINE_API_VERSION_REF,
-  type CellView,
-  type Coord,
-  type MatchConfig,
-  type PlayerId,
-  type TickEvents,
-  type World,
+// Bug-fix note (PM-mediated, fog Phase 2 implementation surfaced under
+// `verbatimModuleSyntax: true`): `ENGINE_API_VERSION` is a runtime
+// `const` in the engine, so the original `import type { ... }` stripped
+// it at compile time, making `ENGINE_API_VERSION_REF` `undefined` at
+// runtime. Fixed by splitting into a value import for ENGINE_API_VERSION
+// alongside the type-only imports for the rest.
+import type {
+  CellView,
+  Coord,
+  MatchConfig,
+  PlayerId,
+  TickEvents,
+  World,
 } from '@europa/engine';
+import { ENGINE_API_VERSION as _ENGINE_API_VERSION_REF } from '@europa/engine';
 
 /**
  * The engine API version fog was built against. If the engine version
@@ -191,9 +188,18 @@ export const FOG_MASK_UNKNOWN = 0 as const;
 export const FOG_MASK_VISIBLE = 1 as const;
 
 /**
- * Options bag for `computePlayerView`. Currently a single field;
- * structured as an object so future options can be added without a
- * signature break (Principle V: forward-compatible API shape).
+ * Options bag for `computePlayerView`. Structured as an object so
+ * future options can be added without a signature break (Principle V:
+ * forward-compatible API shape).
+ *
+ * Amendment (2026-08-22, fog Phase 3 implementation): added the
+ * optional `events` field. The engine's `World` does not carry
+ * `TickEvents` — they are produced alongside each world by `tick()`
+ * (`TickResult.events`, mirrored as `EngineTickOutput`). To keep
+ * `computePlayerView` pure (no hidden input channel), the caller
+ * supplies the current tick's events explicitly; when omitted the
+ * view carries empty events. Additive and backward-compatible with
+ * v0.1.0 consumers.
  */
 export interface ComputePlayerViewOptions {
   /**
@@ -206,6 +212,15 @@ export interface ComputePlayerViewOptions {
    * Default: `false` (horizon-filtered payload).
    */
   readonly spectator?: boolean;
+  /**
+   * The current tick's `TickEvents` (from `tick()`'s `TickResult` or
+   * the equivalent `EngineTickOutput`). Cell-level events outside the
+   * player's horizon are dropped in non-spectator views (FR-003);
+   * spectator views receive them unfiltered (FR-006).
+   *
+   * Default: empty events (pure state snapshot, nothing to filter).
+   */
+  readonly events?: Readonly<TickEvents>;
 }
 
 // ----------------------------------------------------------------------------

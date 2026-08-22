@@ -1,20 +1,15 @@
 /**
  * Public surface of the `@europa/fog` package.
  *
- * This is the **Phase 2 minimal barrel** — re-exports the full
- * type surface, the tunable constants, and the foundational
- * module helpers (mask + range). The runtime functions that
- * implement the spec (`computeVisibleSet`, `computePlayerView`,
- * `isVisible`, `visibleCellAt`, `hashPlayerView`,
- * `filterTickEvents`) are forward-declared but NOT YET
- * IMPLEMENTED. The Phase 2 minimal barrel compiles cleanly and
- * gives downstream packages a stable import surface for types +
- * constants + foundational helpers; the populated barrel lands
- * in Phase 3 (T045) after US1 implementation files exist.
+ * This is the **populated barrel** (Phase 3+ / T045) — re-exports the
+ * full type surface, the tunable constants, the foundational helpers
+ * (mask + range), and every runtime function that implements the
+ * spec (`computeVisibleSet`, `computePlayerView`, `isVisible`,
+ * `visibleCellAt`, `hashPlayerView`, `filterTickEvents`).
  *
  * Consumers:
  *   - 004 (networking)     → calls `computePlayerView` per player
- *                            per tick (lands in Phase 3).
+ *                            per tick.
  *   - 005 (console)        → reads `PlayerView`; renders the
  *                            visible cells.
  *   - 003 (terrain)        → unrelated; terrain doesn't import
@@ -86,18 +81,17 @@ export { FOG_CONSTANTS } from './constants';
 // ----------------------------------------------------------------------------
 //
 // The `FogMask` is the working scratch buffer used by
-// `computeVisibleSet` (lands in Phase 3) to record which cells
-// are in the player's horizon this tick. The mask is allocated
-// fresh every call (no-memory rule, spec FR-004). Re-exported
-// here for testability; downstream packages should not depend
-// on the internal representation.
+// `computeVisibleSet` to record which cells are in the player's
+// horizon this tick. The mask is allocated fresh every call
+// (no-memory rule, spec FR-004). Re-exported here for testability;
+// downstream packages should not depend on the internal
+// representation.
 
 export { createMask, isVisible as isCellMarked, markVisible, unionMasks } from './mask';
 // Re-export the query-named `isVisible` from mask.ts as
 // `isCellMarked` to avoid clashing with the `isVisible(view,
-// coord)` PlayerView query helper (lands in Phase 3, T014 per
-// the engine's tasks.md). The PlayerView query is a different
-// concept (CellView lookup), not a mask test.
+// coord)` PlayerView query helper below. The PlayerView query is a
+// different concept (CellView lookup), not a mask test.
 
 export type { FogMask } from './types';
 
@@ -108,92 +102,33 @@ export type { FogMask } from './types';
 export { chebyshevDisk, chebyshevDistance } from './range';
 
 // ----------------------------------------------------------------------------
-// Phase 3 forward declarations (DO NOT IMPLEMENT YET)
+// Runtime API (US1 visibility horizon + US2 redaction + US3 spectator)
 // ----------------------------------------------------------------------------
 //
-// The runtime functions below are the public API surface per
-// `contracts/fog-api.ts`. They are forward-declared here so
-// downstream type-checkers can resolve the names AND so the
-// barrel exports a real runtime symbol (so
-// `typeof fog.computeVisibleSet === 'function'` and the test
-// suite can detect any accidental removal). Each stub throws
-// at runtime if called — this is intentional; the real
-// implementations land in Phase 3 (US1, T027/T028).
-//
-// These stubs use a real `function` declaration (not
-// `export declare function`) so they have runtime presence.
-// `export declare function` would be erased by `tsc` and
-// the barrel would silently lose these exports.
+// The public functions per `contracts/fog-api.ts`. All are pure:
+// no I/O, no wall-clock reads, no unseeded randomness.
 
 /**
- * Phase 3 will implement — do not call in Phase 2.
- *
- * @throws Always (Phase 2 stub). The real implementation lands
- *         in `src/visibleSet.ts` (Phase 3 / US1, T027).
+ * Horizon event filter (FR-003). Exposed primarily for tests;
+ * feature 004 should use `computePlayerView` instead.
  */
-export function computeVisibleSet(
-  _world: Readonly<import('@europa/engine').World>,
-  _player: import('@europa/engine').PlayerId,
-  _visibilityRadius: number,
-): import('./types').VisibleSet {
-  throw new Error(
-    'computeVisibleSet: not yet implemented (Phase 3 / US1, T027). ' +
-      'See packages/fog/src/visibleSet.ts.',
-  );
-}
+export { filterTickEvents } from './eventsFilter';
 
 /**
- * Phase 3 will implement — do not call in Phase 2.
- *
- * @throws Always (Phase 2 stub). The real implementation lands
- *         in `src/playerView.ts` (Phase 3 / US1, T028).
+ * Full fog-filtered payload per player per tick; `{ spectator: true }`
+ * returns the full board (US1 + US2 + US3).
  */
-export function computePlayerView(
-  _world: Readonly<import('@europa/engine').World>,
-  _player: import('@europa/engine').PlayerId,
-  _options?: import('./types').ComputePlayerViewOptions,
-): import('./types').PlayerView {
-  throw new Error(
-    'computePlayerView: not yet implemented (Phase 3 / US1, T028). ' +
-      'See packages/fog/src/playerView.ts.',
-  );
-}
+export { computePlayerView } from './playerView';
 
 /**
- * Phase 3 will implement — do not call in Phase 2.
- *
- * Note: this is the `PlayerView`-level query (`isVisible(view, coord)`),
- * distinct from the mask-level `isCellMarked` (or `isVisible` in
- * `src/mask.ts`) — see the JSDoc in `mask.ts` for the difference.
- *
- * @throws Always (Phase 2 stub). The real implementation lands
- *         in `src/utils.ts` (Phase 3 / US1, T014 per the engine's
- *         `tasks.md` mapping; equivalent to the spec's US1 visibility
- *         queries).
+ * PlayerView queries for clients that already hold a payload
+ * (`isVisible(view, coord)`, `visibleCellAt(view, coord)`) plus the
+ * determinism-suite hash helper.
  */
-export function isVisible(
-  _view: Readonly<import('./types').PlayerView>,
-  _coord: import('@europa/engine').Coord,
-): boolean {
-  throw new Error(
-    'isVisible (PlayerView query): not yet implemented (Phase 3 / US1). ' +
-      'See packages/fog/src/utils.ts.',
-  );
-}
-
-/**
- * Phase 3 will implement — do not call in Phase 2.
- *
- * @throws Always (Phase 2 stub). The real implementation lands
- *         in `src/utils.ts` (Phase 3 / US1, T014 per the engine's
- *         `tasks.md` mapping; equivalent to the spec's US1 visibility
- *         queries).
- */
-export function visibleCellAt(
-  _view: Readonly<import('./types').PlayerView>,
-  _coord: import('@europa/engine').Coord,
-): import('@europa/engine').CellView | undefined {
-  throw new Error(
-    'visibleCellAt: not yet implemented (Phase 3 / US1). ' + 'See packages/fog/src/utils.ts.',
-  );
-}
+export {
+  hashPlayerView,
+  isVisible,
+  visibleCellAt,
+} from './utils';
+/** Visibility horizon: union of friendly stacks' Chebyshev disks (US1). */
+export { computeVisibleSet } from './visibleSet';
