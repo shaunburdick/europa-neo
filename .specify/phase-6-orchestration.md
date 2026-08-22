@@ -186,11 +186,19 @@ Four root causes found and fixed in sequence; both workflows now green:
 4. `4e8cb37` + `62ecd50` — determinism.test.ts timed out at Vitest default 5s on slow CI runners (sc-001 took 72.6s there): added repo-standard `{ timeout: 60_000 }` to both 1000-trial tests + biome format.
 **Lessons**: always verify lint/format locally before committing test edits; new packages depending on engine must include an engine-build step in their CI from day one (fog CI lands in Wave 5B).
 
-### Wave 5B — fog Phase 3-6 (US1 Visibility Horizon + US2 No Memory + US3 Spectator + Polish) — ⏳ Pending (next dispatch)
-- Remaining ~25 of T001-T045
-- Polish phase includes fog CI workflow (must build @europa/engine first per lesson above) + contract-drift test + spec status flip
+### Wave 5B — fog Phase 3-6 (US1 + US2 + US3 + Polish) — ✅ Complete
+- **Commits (4)**: `5e5fafb` (feat: US1 horizon + US2 no-memory redaction + US3 spectator) + `f32eb93` (ci: fog workflow + README + contract-drift detector) + `4c42b87` (docs: spec flip + AGENTS.md) + `d7deb31` (perf-gate hardening)
+- **Tests**: fog 110/110 in ~1s; engine 295 + terrain 225 untouched; monorepo 630/630
+- **Coverage**: 100% stmts / 94.25% branches / 100% funcs / 100% lines
+- **Spec 002 status**: flipped Draft → Implemented; AGENTS.md Current state updated
+- **PM-notable deviation**: optional `events` field on `computePlayerView` (additive contract change from Wave 5A; engine World carries no events — they arrive via tick()'s TickResult); spec + local copy updated same change set
+- **Perf-gate hardening (`d7deb31`)**: Fog CI's first run failed SC-004 — wall-clock p99 over 100 samples is dominated by shared-runner stalls (1.9–3.7ms tails vs 0.078ms median). Now: 50-call warmup, 200×3 rounds, assert median < 1ms + p99 < 10ms guard; spec SC-004 wording + new Clarifications trail updated same commit
+- **Known stale docs**: quickstart.md §Q-F07 + tasks.md T037 still describe old p99-only methodology — fold into next docs pass
 
-### Waves 6-12 — ⏳ Pending
+### Feature 002 COMPLETE — all three workflows green (Engine 25s / Terrain 50s / Fog 30s)
+
+### Waves 6-12 — ⏳ Pending (next dispatch: Wave 6, networking)
+- Suggested order per AGENTS.md: 004 networking → 006 matchmaking → 005 console
 
 ## Decisions & Rationale
 
