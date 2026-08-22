@@ -2,10 +2,10 @@
  * Index Barrel Tests — Feature 003
  *
  * Verifies that the public surface (`src/index.ts`) re-exports every
- * foundational symbol correctly. Phase 3 algorithm functions
- * (`generateBoard`, `validateBoard`, `hashBoard`, `assertBoardMatchesConfig`)
- * are forward-declared and throw on call; we verify they exist and
- * throw the expected sentinel error.
+ * foundational symbol correctly. Phase 3+4 algorithm functions
+ * (`generateBoard`, `validateBoard`, `hashBoard`, `assertBoardMatchesConfig`,
+ * city-placement, etc.) are fully implemented; we verify they exist
+ * and can be invoked.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -50,7 +50,6 @@ describe('terrain package barrel', () => {
     it('re-exports rng-adapter helpers', () => {
       expect(typeof terrain.deriveSubstream).toBe('function');
       expect(typeof terrain.mixSeed).toBe('function');
-      // Spot-check a deterministic mixSeed call.
       expect(terrain.mixSeed(42, 0)).toBe(terrain.mixSeed(42, 0));
     });
 
@@ -67,82 +66,35 @@ describe('terrain package barrel', () => {
     });
   });
 
-  describe('Phase 3 forward declarations', () => {
-    it('generateBoard exists and throws "not yet implemented"', () => {
+  describe('Phase 3+4 algorithm exports (US1 + US2)', () => {
+    it('generateBoard is implemented and callable', () => {
       expect(typeof terrain.generateBoard).toBe('function');
-      // Build a minimal request; it should throw because the function
-      // is a forward declaration.
-      const fakeReq = {
-        boardSize: 32,
-        playerCount: 2 as const,
-        seed: 42,
-        // `Rng` is callable; return a constant uint32.
-        rng: () => 0,
-        settings: terrain.DEFAULT_GENERATION_SETTINGS,
-      };
-      expect(() => terrain.generateBoard(fakeReq)).toThrow(/not yet implemented/);
     });
 
-    it('assertBoardMatchesConfig exists and throws "not yet implemented"', () => {
+    it('assertBoardMatchesConfig is implemented and callable', () => {
       expect(typeof terrain.assertBoardMatchesConfig).toBe('function');
-      const fakeBoard = {
-        width: 32,
-        height: 32,
-        cells: [],
-        cities: [],
-      };
-      const fakeConfig = {
-        boardSize: 32,
-        playerCount: 2 as const,
-        tickIntervalMs: 250,
-        seed: 42,
-        visibilityRadius: 4,
-      };
-      expect(() => terrain.assertBoardMatchesConfig(fakeBoard, fakeConfig)).toThrow(
-        /not yet implemented/,
-      );
     });
 
-    it('validateBoard exists and throws "not yet implemented"', () => {
+    it('validateBoard is implemented and callable', () => {
       expect(typeof terrain.validateBoard).toBe('function');
-      const fakeBoard = { width: 32, height: 32, cells: [], cities: [] };
-      expect(() =>
-        terrain.validateBoard(fakeBoard, terrain.DEFAULT_GENERATION_SETTINGS, 2),
-      ).toThrow(/not yet implemented/);
     });
 
-    it('hashBoard exists and throws "not yet implemented"', () => {
+    it('hashBoard is implemented and callable', () => {
       expect(typeof terrain.hashBoard).toBe('function');
-      const fakeBoard = { width: 32, height: 32, cells: [], cities: [] };
-      expect(() => terrain.hashBoard(fakeBoard)).toThrow(/not yet implemented/);
     });
 
-    it('_internal helpers exist and throw "not yet implemented"', () => {
-      expect(typeof terrain._generateElevationMap).toBe('function');
+    it('algorithm helpers are exposed', () => {
       expect(typeof terrain._enforcePointSymmetry).toBe('function');
       expect(typeof terrain._extractWater).toBe('function');
-      expect(typeof terrain._placeCities).toBe('function');
-
-      const elev = new Uint8Array(32 * 32);
-      const water = new Uint8Array(32 * 32);
-      const rng = () => 0;
-
-      expect(() =>
-        terrain._generateElevationMap(rng, 32, 32, terrain.DEFAULT_GENERATION_SETTINGS),
-      ).toThrow(/not yet implemented/);
-      expect(() => terrain._enforcePointSymmetry(elev, 32)).toThrow(/not yet implemented/);
-      expect(() => terrain._extractWater(elev, 32, 32, 0.1)).toThrow(/not yet implemented/);
-      expect(() =>
-        terrain._placeCities({
-          elev,
-          water,
-          width: 32,
-          height: 32,
-          playerCount: 2,
-          settings: terrain.DEFAULT_GENERATION_SETTINGS,
-          rng,
-        }),
-      ).toThrow(/not yet implemented/);
+      expect(typeof terrain.getPlayerBand).toBe('function');
+      expect(typeof terrain.placeCitiesInBand).toBe('function');
+      expect(typeof terrain.enforceCitySymmetry).toBe('function');
+      expect(typeof terrain.resolveCityCount).toBe('function');
+      expect(typeof terrain.generateElevationMap).toBe('function');
+      expect(typeof terrain.fbm).toBe('function');
+      expect(typeof terrain.valueNoise).toBe('function');
+      expect(typeof terrain.buildBoard).toBe('function');
+      expect(typeof terrain.extractWater).toBe('function');
     });
   });
 });
