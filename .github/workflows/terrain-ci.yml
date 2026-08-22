@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build @europa/engine (workspace dependency)
+        run: pnpm --filter @europa/engine build
+
       - name: Typecheck (terrain)
         run: pnpm --filter @europa/terrain typecheck
 
@@ -53,6 +56,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build @europa/engine (workspace dependency)
+        run: pnpm --filter @europa/engine build
+
       - name: Test (terrain)
         run: pnpm --filter @europa/terrain test
 
@@ -71,6 +77,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/engine (workspace dependency)
+        run: pnpm --filter @europa/engine build
 
       - name: Coverage (terrain)
         run: pnpm --filter @europa/terrain coverage
