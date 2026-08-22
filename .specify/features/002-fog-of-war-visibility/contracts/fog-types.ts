@@ -77,6 +77,13 @@ export const FOG_API_VERSION = '0.1.0' as const;
 // depend on the engine's compiled code for types. (The fog package does
 // call engine runtime helpers — see `fog-api.ts` — but that's a normal
 // downstream-consumers relationship.)
+//
+// Bug-fix note (PM-mediated, fog Phase 2 implementation surfaced under
+// `verbatimModuleSyntax: true`): `ENGINE_API_VERSION` is a runtime
+// `const` in the engine, so the original `import type { ... }` stripped
+// it at compile time, making `ENGINE_API_VERSION_REF` `undefined` at
+// runtime. Fixed by splitting into a value import for ENGINE_API_VERSION
+// alongside the type-only imports for the rest.
 import type {
   CellView,
   Coord,
@@ -84,8 +91,8 @@ import type {
   PlayerId,
   TickEvents,
   World,
-  ENGINE_API_VERSION as _ENGINE_API_VERSION_REF,
 } from '@europa/engine';
+import { ENGINE_API_VERSION as _ENGINE_API_VERSION_REF } from '@europa/engine';
 
 /**
  * The engine API version fog was built against. If the engine version
