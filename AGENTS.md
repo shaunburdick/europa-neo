@@ -35,10 +35,11 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - Phases 1–3 — constitution ratified; six feature specs written and committed (`859a4f3`); spec 006 amended for visibility types + shareable links (`1ed3233`); spec 006 stamped v1.1 with inline Clarifications trail (`b55bfaf`); original archive trimmed to documentation subset with history purged (`79701f8`+)
   - Phases 4–5 — all six feature plans + tasks committed
   - **001 engine: Implemented** (commits `d18f31c` → `4f60216`) — full US1-US5 + Polish: 280 tests passing, ≥80% coverage on every metric, byte-identical 10k-tick determinism (SC-001), median tick < 0.1ms on 32×32 board (SC-004), 3/4-player smoke (FR-019), CI workflow + README + contract-drift detector in place. All Wave 1 reviewer items addressed.
+  - **003 terrain: Implemented** (commits `30f3e11` → `3597bae`) — full US1-US3 + Polish: 225 tests passing, ≥80% coverage on every metric (93.17% statements / 83.28% branches / 94.11% functions / 95.31% lines), byte-identical 10k-seed determinism (SC-001), p99 < 1s for default map (SC-003), 1000-map balance suite (SC-002/SC-004), all 9 FRs + all 4 SCs green. PM-approved additive change: `effectiveSettings` field added to `MapStats` and `TerrainGenerationResult` for FR-008 caller visibility. CI workflow + README + contract-drift detector in place. Spec status flipped to Implemented.
 - **Next**:
-  - Phase 6 implementation of features 003 (terrain), 002 (fog), 004 (networking), 005 (console), 006 (matchmaking)
-  - Suggested dispatch order (bottom-up by dependency): 003 terrain → 002 fog → 004 networking → 005 console → 006 matchmaking
-- Spec status lines: 001 = `**Status**: Implemented`; specs 002-006 still `**Status**: Draft` (flip to `Planned` once their `plan.md` lands, `Implemented` after phase 6 merge)
+  - Phase 6 implementation of features 002 (fog), 004 (networking), 005 (console), 006 (matchmaking)
+  - Suggested dispatch order (bottom-up by dependency): 002 fog → 004 networking → 005 console → 006 matchmaking
+- Spec status lines: 001 = `**Status**: Implemented`; 003 = `**Status**: Implemented`; specs 002, 004, 005, 006 still `**Status**: Draft` (flip to `Planned` once their `plan.md` lands, `Implemented` after phase 6 merge)
 
 ## Workflow rules
 
