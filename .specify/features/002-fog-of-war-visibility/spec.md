@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Per-player visibility horizon derived from troop positions; no memory of previously seen terrain; unseen areas are unknown (black); server never reveals hidden information to clients."
 

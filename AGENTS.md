@@ -36,10 +36,11 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - Phases 4–5 — all six feature plans + tasks committed
   - **001 engine: Implemented** (commits `d18f31c` → `4f60216`) — full US1-US5 + Polish: 280 tests passing, ≥80% coverage on every metric, byte-identical 10k-tick determinism (SC-001), median tick < 0.1ms on 32×32 board (SC-004), 3/4-player smoke (FR-019), CI workflow + README + contract-drift detector in place. All Wave 1 reviewer items addressed.
   - **003 terrain: Implemented** (commits `30f3e11` → `3597bae`) — full US1-US3 + Polish: 225 tests passing, ≥80% coverage on every metric (93.17% statements / 83.28% branches / 94.11% functions / 95.31% lines), byte-identical 1k-seed determinism (SC-001), p99 < 1s for default map (SC-003), 200-map balance suite (SC-002/SC-004), all 9 FRs + all 4 SCs green. PM-approved additive change: `effectiveSettings` field added to `MapStats` and `TerrainGenerationResult` for FR-008 caller visibility. CI workflow + README + contract-drift detector in place. Spec status flipped to Implemented.
+  - **002 fog: Implemented** (Wave 5A `546747a` + Wave 5B) — full US1-US3 + Polish: 107 tests passing, ≥80% coverage on every metric (100% statements / 94.25% branches / 100% functions / 100% lines), Chebyshev horizon + structural redaction + spectator mode, byte-identical 100-trial view hashes (SC-001 micro), zero-leakage 500-tick scripted-match audit vs independent oracle (SC-001 protocol), p99 < 1ms on 32×32 best-of-3 rounds (SC-004), engine-conformance + contract-drift detectors, CI workflow + README in place. PM-notable additive change: optional `events` field added to `ComputePlayerViewOptions` (spec + local copy updated in same change set) because the engine's `World` carries no events — they arrive via `tick()`'s `TickResult`. Spec status flipped to Implemented.
 - **Next**:
-  - Phase 6 implementation of features 002 (fog), 004 (networking), 005 (console), 006 (matchmaking)
-  - Suggested dispatch order (bottom-up by dependency): 002 fog → 004 networking → 005 console → 006 matchmaking
-- Spec status lines: 001 = `**Status**: Implemented`; 003 = `**Status**: Implemented`; specs 002, 004, 005, 006 still `**Status**: Draft` (flip to `Planned` once their `plan.md` lands, `Implemented` after phase 6 merge)
+  - Phase 6 implementation of features 004 (networking), 006 (matchmaking), 005 (console)
+  - Suggested dispatch order (bottom-up by dependency): 004 networking → 006 matchmaking → 005 console
+- Spec status lines: 001 = `**Status**: Implemented`; 003 = `**Status**: Implemented`; 002 = `**Status**: Implemented`; specs 004, 005, 006 still `**Status**: Draft` (flip to `Planned` once their `plan.md` lands, `Implemented` after phase 6 merge)
 
 ## Workflow rules
 
