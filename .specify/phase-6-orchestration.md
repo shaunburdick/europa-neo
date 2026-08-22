@@ -173,9 +173,22 @@ Total: ~381 tasks. Implementation is the longest phase by far.
 - **Deviations**: 4 (symmetry test pre-existing restored, contract sync strips LOCAL COPY prefix, integration test split moderate/extreme, terrain-to-engine.ts excluded from drift pair)
 - **PM action taken**: spec contract `effectiveSettings` field addition applied to BOTH local + spec (PM-approved additive change per Wave 3B report)
 
-### Wave 5 — fog all phases — ⏳ Pending (next dispatch)
-- Tasks T001-T045 (45 tasks)
-- Chunking plan: 5A = Phase 1+2 (20 tasks) — package skeleton + foundational; 5B = Phase 3-5 (25 tasks) — Visibility horizon + No memory + Spectator + Polish
+### Wave 5A — fog Phase 1 (Setup) + Phase 2 (Foundational) — ✅ Complete
+- **Commit**: `546747a` — package skeleton + foundational modules (types/constants/mask/range/index barrel + fixtures); 39 fog tests; engine 295 + terrain 225 unchanged
+- **PM action**: spec contract fix committed separately (`60cd631`) — same `verbatimModuleSyntax` bug pattern as terrain: `ENGINE_API_VERSION` imported as type but used as value in `fog-types.ts`; split into value import
+- **Deviations**: 4 (spec bug fix above; PM-revised T011-T020 followed over tasks.md; `isCellMarked` barrel alias avoids collision with future Phase 3 `isVisible(view, coord)`; forward-declared stubs are throwing functions not `export declare`)
+
+### CI stabilization (2026-08-22, user-reported failures) — ✅ Complete
+Four root causes found and fixed in sequence; both workflows now green:
+1. `94a10e8` — `pnpm/action-setup` "Multiple versions of pnpm specified": workflows passed `version: 11` while `package.json` pins `packageManager: pnpm@11.22.0`. Dropped the input; packageManager field is single source of truth.
+2. `85b54f7` — `ERR_PNPM_IGNORED_BUILDS` (esbuild postinstall): pnpm 11 replaced `onlyBuiltDependencies` with an `allowBuilds` map; workspace file had placeholder junk (`esbuild: set this to true or false`) plus ignored legacy list. Set `allowBuilds: { esbuild: true }`.
+3. `36fdd0b` — terrain TS2307 / "Failed to resolve entry for @europa/engine": terrain resolves engine via its built `dist/` (`main` field); fresh CI checkouts never built it. Added `pnpm --filter @europa/engine build` step to all 3 terrain jobs.
+4. `4e8cb37` + `62ecd50` — determinism.test.ts timed out at Vitest default 5s on slow CI runners (sc-001 took 72.6s there): added repo-standard `{ timeout: 60_000 }` to both 1000-trial tests + biome format.
+**Lessons**: always verify lint/format locally before committing test edits; new packages depending on engine must include an engine-build step in their CI from day one (fog CI lands in Wave 5B).
+
+### Wave 5B — fog Phase 3-6 (US1 Visibility Horizon + US2 No Memory + US3 Spectator + Polish) — ⏳ Pending (next dispatch)
+- Remaining ~25 of T001-T045
+- Polish phase includes fog CI workflow (must build @europa/engine first per lesson above) + contract-drift test + spec status flip
 
 ### Waves 6-12 — ⏳ Pending
 
