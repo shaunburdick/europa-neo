@@ -190,7 +190,10 @@ function elevationVariance(board: Board): number {
 /**
  * Build `MapStats` for the board.
  */
-function buildMapStats(board: Board, _settings: Readonly<GenerationSettings>): MapStats {
+function buildMapStats(
+  board: Board,
+  effectiveSettings: Readonly<GenerationSettings>,
+): MapStats {
   const { largestPool, numPools } = waterPoolStats(board);
   // City-pair stats.
   const cities = board.cities;
@@ -221,6 +224,7 @@ function buildMapStats(board: Board, _settings: Readonly<GenerationSettings>): M
     numCities: cities.length,
     minCitySeparation,
     minCityWaterSeparation,
+    effectiveSettings,
   };
 }
 
@@ -229,10 +233,13 @@ function buildMapStats(board: Board, _settings: Readonly<GenerationSettings>): M
  * `ValidationReport` with the boolean result, any violations, and
  * statistics about the map. Pure: does not modify the input.
  *
- * @param board        The `Board` to validate.
- * @param settings     The generation settings used to produce the
- *                     board (for INV-10/11/13 bounds).
- * @param playerCount  Player count (2, 3, or 4). Used by INV-7.
+ * @param board             The `Board` to validate.
+ * @param settings          The generation settings used to produce the
+ *                          board (for INV-10/11/13 bounds). Should be
+ *                          the *clamped* settings (US3, T046) so the
+ *                          `stats.effectiveSettings` field reflects
+ *                          what actually drove generation.
+ * @param playerCount       Player count (2, 3, or 4). Used by INV-7.
  * @returns A `ValidationReport` describing the result.
  */
 export function validateBoard(

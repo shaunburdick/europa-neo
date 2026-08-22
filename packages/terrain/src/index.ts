@@ -73,7 +73,36 @@ export { resolveSettings, validateSettings } from './settings';
 export { rotate180, rotate180Index } from './symmetry';
 
 // ----------------------------------------------------------------------------
-// Public algorithm surface (US1 + US2 implementations)
+// Clamping helpers (US3 / FR-008)
+// ----------------------------------------------------------------------------
+
+export {
+  CITIES_PER_PLAYER_MAX,
+  CITIES_PER_PLAYER_MIN,
+  MAX_REGEN_ATTEMPTS_MAX,
+  MAX_REGEN_ATTEMPTS_MIN,
+  MIN_CITY_CITY_DISTANCE_MAX,
+  MIN_CITY_CITY_DISTANCE_MIN,
+  MIN_CITY_WATER_DISTANCE_MAX,
+  MIN_CITY_WATER_DISTANCE_MIN,
+  OCTAVES_MAX,
+  OCTAVES_MIN,
+  ROUGHNESS_MAX,
+  ROUGHNESS_MIN,
+  WATER_RATIO_MAX,
+  WATER_RATIO_MIN,
+  clampCitiesPerPlayer,
+  clampMaxRegenAttempts,
+  clampMinCityCityDistance,
+  clampMinCityWaterDistance,
+  clampOctaves,
+  clampRoughness,
+  clampSettings,
+  clampWaterRatio,
+} from './clamp';
+
+// ----------------------------------------------------------------------------
+// Public algorithm surface (US1 + US2 + US3 implementations)
 // ----------------------------------------------------------------------------
 
 export { assertBoardMatchesConfig, buildBoard } from './board';

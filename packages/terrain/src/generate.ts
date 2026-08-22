@@ -31,6 +31,7 @@ import { buildBoard } from './board';
 import { getPlayerBand } from './city-band';
 import { placeCitiesInBand } from './city-placement';
 import { enforceCitySymmetry } from './city-symmetry';
+import { clampSettings } from './clamp';
 import type {
   GenerationSettings,
   MapSeed,
@@ -108,7 +109,14 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
   // requires `req.settings` to be complete, so resolveSettings is
   // a no-op for the spec's contract; it remains available for the
   // future "partial input" use case.
-  const settings: GenerationSettings = resolveSettings(req.settings);
+  const resolved: GenerationSettings = resolveSettings(req.settings);
+  // US3 (T046): clamp every numeric field to its safe range
+  // (data-model.md §2, FR-008). Out-of-range values are NEVER
+  // rejected — the generator must always produce a Board. The
+  // clamped values drive the rest of the pipeline and are surfaced
+  // via `ValidationReport.stats.effectiveSettings` so callers can
+  // see what was actually used.
+  const settings: GenerationSettings = clampSettings(resolved);
 
   // Derive substreams so each phase (elevation, water, cities)
   // gets a deterministic, disjoint PRNG. The parent (engine sfc32)
@@ -212,6 +220,7 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         board: boardWithCities,
         effectiveSeed: attemptSeed,
         startingCitiesByPlayer,
+        effectiveSettings: settings,
       };
     }
     lastReport = report;

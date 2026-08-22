@@ -271,6 +271,19 @@ export interface TerrainGenerationResult {
   readonly startingCitiesByPlayer: Readonly<
     Record<PlayerId, ReadonlyArray<Coord>>
   >;
+  /**
+   * The `GenerationSettings` actually used by the generator after
+   * out-of-range fields were clamped to their safe ranges per FR-008.
+   * Callers can compare this against their input to detect when
+   * clamping changed a value. Always equal to the `effectiveSettings`
+   * inside the same generator's `ValidationReport.stats.effectiveSettings`.
+   *
+   * Added in T046 (PM-approved additive change, see tasks.md §"PM
+   * Handoff" item #2). Mirrors the `effectiveSeed` pattern — every
+   * result exposes what was *actually used* so callers (matchmaking,
+   * tests, ops logging) can verify their assumptions.
+   */
+  readonly effectiveSettings: GenerationSettings;
 }
 
 // ----------------------------------------------------------------------------
@@ -329,6 +342,18 @@ export interface MapStats {
   readonly minCitySeparation: number;
   /** Min Chebyshev distance from any city to any water cell, in cells. */
   readonly minCityWaterSeparation: number;
+  /**
+   * The `GenerationSettings` actually used by the generator after
+   * out-of-range fields were clamped to their safe ranges per FR-008.
+   * Callers can compare this against their input to detect when
+   * clamping changed a value (e.g., a server logs the difference for
+   * ops visibility). Always present (never `undefined`).
+   *
+   * Added in T046 (PM-approved additive change, see tasks.md §"PM
+   * Handoff" item #2). Without this field, FR-008's "callers can see
+   * what was actually used" requirement is unverifiable.
+   */
+  readonly effectiveSettings: GenerationSettings;
 }
 
 /**
