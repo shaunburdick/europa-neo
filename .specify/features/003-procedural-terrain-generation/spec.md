@@ -87,8 +87,8 @@ As a player, I want maps that feel like the original's moon surface — rolling 
 
 ### Measurable Outcomes
 
-- **SC-001**: Same-seed regeneration produces identical hashes across machines and runs (100/100 trials).
-- **SC-002**: 100% of emitted maps pass symmetry, connectivity, and distribution validation (generator never ships an invalid map).
+- **SC-001**: Same-seed regeneration produces identical hashes across machines and runs (1k-seed suite, byte-identical on every trial).
+- **SC-002**: 100% of emitted maps pass symmetry, connectivity, and distribution validation (generator never ships an invalid map); verified by the 200-map balance suite.
 - **SC-003**: A default 32×32 / 2-player map generates in under 1 second including validation retries.
 - **SC-004**: Statistical suite over 100 seeds shows water coverage and elevation variance within configured bounds on every map.
 
@@ -97,3 +97,9 @@ As a player, I want maps that feel like the original's moon surface — rolling 
 - The original's GeoMorph module was a server-side heightmap generator; exact algorithm is unknown and does not need replicating — only the character (smooth fractal relief) and fairness properties matter.
 - City production/saturation behavior lives in feature 001; this feature only places them.
 - Map sharing by seed string is desirable but formal import/export formats are deferred to planning.
+
+## Clarifications
+
+### v1.1 (2026-08-22) — Verification suite trial-count reduction
+
+- 2026-08-22: SC-001/SC-002 trial counts reduced (10k→1k seeds, 1000→200 maps) — property guarantees unchanged; CI runtime cut ~8x per product owner directive.

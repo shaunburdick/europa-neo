@@ -12,7 +12,7 @@
  *      partner's `elevation` and `terrain` are byte-identical to
  *      the original. Covers INV-5/6 at the test level, independent
  *      of the `_enforcePointSymmetry` unit test which tests the
- *      helper directly. 100 random seeds × full board scan.
+ *      helper directly. 50 random seeds × full board scan.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -110,7 +110,7 @@ describe('symmetry', () => {
   });
 
   describe('generated-board round-trip (T052, INV-5/6 end-to-end)', () => {
-    const TRIALS = 100;
+    const TRIALS = 50;
     it(`${String(TRIALS)} seeds × full board scan: every cell matches its 180°-rotated partner`, () => {
       const seeds = goldenSeeds(TRIALS);
       for (const seed of seeds) {

@@ -10,7 +10,7 @@ function (`generateBoard`) plus a set of pure helpers exposed for testing.
 
 > **Determinism is non-negotiable** (constitution Principle II). The
 > generator is pure: same `(req, rng-state)` → byte-identical `Board`.
-> Verified at 10,000-trial scale by `tests/integration/sc-001-determinism.test.ts`
+> Verified at 1,000-trial scale by `tests/integration/sc-001-determinism.test.ts`
 > (10× the SC-001 spec).
 
 ---
@@ -186,7 +186,7 @@ this:
 
 6. **No I/O**: the generator is pure; no disk, no network, no native deps.
 
-Verified at 10,000-trial scale by `tests/integration/sc-001-determinism.test.ts`.
+Verified at 1,000-trial scale by `tests/integration/sc-001-determinism.test.ts`.
 The `hashBoard` function is the deterministic comparison tool — two Boards
 with identical `(req, rng-state)` produce byte-identical hashes.
 

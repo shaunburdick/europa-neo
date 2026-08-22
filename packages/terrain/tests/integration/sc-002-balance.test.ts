@@ -1,7 +1,7 @@
 /**
  * SC-002 Balance Integration Test — Feature 003 (T050)
  *
- * 1000-map balance suite. For every generated Board, all of:
+ * 200-map balance suite. For every generated Board, all of:
  *
  *   - Water ratio within ±10% of target (US3 AC-1 / FR-008).
  *   - Elevation variance > 100 (US3 AC-2 / INV-14).
@@ -24,10 +24,10 @@ import { engineSfc32, goldenSeeds } from '../fixtures/seeds';
 const TARGET_WATER_RATIO = DEFAULT_GENERATION_SETTINGS.waterRatio;
 const WATER_RATIO_TOLERANCE = TARGET_WATER_RATIO * 0.1; // ±10% relative
 const MIN_ELEVATION_VARIANCE = 100;
-const TRIALS = 1000;
+const TRIALS = 200;
 
-describe('SC-002 / SC-004 balance (1000 maps, every invariant must pass)', () => {
-  it('all invariants hold on every trial', { timeout: 60_000 }, () => {
+describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => {
+  it('all invariants hold on every trial', { timeout: 20_000 }, () => {
     const seeds = goldenSeeds(TRIALS);
 
     const failures: Array<{ seed: number; reason: string }> = [];

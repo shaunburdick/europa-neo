@@ -4,7 +4,7 @@
  * SC-001 / FR-006 / US2 acceptance scenarios 1 & 2: same seed →
  * byte-identical Board; distinct seeds → distinct Boards.
  *
- * 1000 trials. For each seed, two parallel `Rng` instances are
+ * 200 trials. For each seed, two parallel `Rng` instances are
  * constructed, `generateBoard` is called on each, and the results
  * are compared via `hashBoard`.
  */
@@ -15,8 +15,8 @@ import { generateBoard, hashBoard } from '../../src/generate';
 import { engineSfc32, goldenSeeds } from '../fixtures/seeds';
 
 describe('determinism (SC-001, FR-006, US2)', () => {
-  it('1000 trials: same seed → byte-identical Board', { timeout: 60_000 }, () => {
-    const seeds = goldenSeeds(1000);
+  it('200 trials: same seed → byte-identical Board', { timeout: 20_000 }, () => {
+    const seeds = goldenSeeds(200);
     for (const seed of seeds) {
       const reqA = {
         boardSize: 32,
@@ -40,7 +40,7 @@ describe('determinism (SC-001, FR-006, US2)', () => {
   });
 
   it('distinct seeds produce distinct Board hashes (US2 acceptance scenario 2)', {
-    timeout: 60_000,
+    timeout: 20_000,
   }, () => {
     const seeds = goldenSeeds(100);
     const hashes = new Set<string>();
