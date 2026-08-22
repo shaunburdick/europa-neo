@@ -13,3 +13,11 @@ catalog:
   vitest: ^4.1.0
   "@biomejs/biome": ^2.0.0
   typescript: ^5.6.0
+  # Feature 004 (networking) transport-layer deps. Networking-only
+  # direct dependencies per plan.md §"Technical Context" — the ws
+  # server is the only runtime dep; the rest are type/build tooling.
+  ws: ^8.21.3
+  "@types/ws": ^8
+  # Node builtin typings (timers, crypto) needed by networking's
+  # scheduler + token generation modules.
+  "@types/node": ^22
