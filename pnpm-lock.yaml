@@ -48,6 +48,28 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@vitest/coverage-v8@4.1.11)(vite@8.2.2(esbuild@0.27.7))
 
+  packages/fog:
+    dependencies:
+      '@europa/engine':
+        specifier: workspace:*
+        version: link:../engine
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.5.9
+      '@vitest/coverage-v8':
+        specifier: ^4.1.11
+        version: 4.1.11(vitest@4.1.11)
+      tsup:
+        specifier: 'catalog:'
+        version: 8.5.1(postcss@8.5.26)(supports-color@7.2.0)(typescript@5.9.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@vitest/coverage-v8@4.1.11)(vite@8.2.2(esbuild@0.27.7))
+
   packages/terrain:
     dependencies:
       '@europa/engine':
