@@ -1,20 +1,32 @@
 /**
  * Public surface of the `@europa/console` package.
  *
- * Phase 2 barrel (T037): the pure state machine, network adapter
- * plumbing, a11y primitives, input math, and tunable constants. The
- * populated `createConsole` factory + `Console` handle land in Phase 8
- * after all user-story implementations exist.
+ * FINAL barrel (T088): the complete embedding surface. The host
+ * entry point is {@link createConsole} (T087) over the runtime
+ * (T086); everything else is the per-phase module surface — pure
+ * state machine, network adapter plumbing, input math/controllers,
+ * UI components, a11y primitives, and the US5 QoL layer — plus the
+ * tunable constants and the full type surface (contract mirrors +
+ * upstream re-exports).
  *
  * Types: everything flows through `./state/types`, which re-exports
  * the contract mirrors (byte-identical to
  * `.specify/features/005-client-console/contracts/`) plus the upstream
- * engine/fog/networking types via `import type`.
+ * engine/fog/networking types via `import type`. The embedding-facing
+ * contract types (`Console`, `ConsoleConfig`, …) re-export directly
+ * from `./contracts/console-api`.
  *
  * The names in each `export { ... }` block are sorted alphabetically
  * (Biome `organizeImports` rule), matching the other five packages'
  * barrels.
  */
+
+// ----------------------------------------------------------------------------
+// Embedding surface — factory + runtime (T086/T087)
+// ----------------------------------------------------------------------------
+
+export { createConsole } from './create-console';
+export { ConsoleRuntime } from './runtime';
 
 // ----------------------------------------------------------------------------
 // Runtime surface — state machine + order bridge
@@ -86,6 +98,88 @@ export {
 export { createConsoleClient } from './net/client';
 export { consoleStatusFromConnectionState } from './net/connection';
 export { netEventFromEnvelope } from './net/envelope-to-event';
+
+// ----------------------------------------------------------------------------
+// Input controllers + QoL layer (Phases 4–7, US2–US5)
+// ----------------------------------------------------------------------------
+
+export {
+  buildReservesAction,
+  type ReservesIgnoreReason,
+  type ReservesOutcome,
+  reservesDigitLabel,
+  resolveReservePercent,
+} from './input/order-reserves';
+export {
+  buildHotkeyTable,
+  findHotkeyCollisions,
+  HotkeyController,
+  type HotkeyControllerOptions,
+  type HotkeyId,
+  resolveInputMapping,
+} from './qol/hotkeys';
+export {
+  MINIMAP_SIZE_PX,
+  Minimap,
+  type MinimapCoord,
+  type MinimapGeometry,
+  type MinimapProps,
+  minimapScale,
+  viewportRect,
+} from './qol/minimap';
+export {
+  loadPreferences,
+  type PreferencesHost,
+  savePreferences,
+} from './qol/preferences';
+export {
+  filterEffectsForMotion,
+  type MotionAdjustedTtls,
+  motionAdjustedTtls,
+  prefersReducedMotion,
+  REDUCED_MOTION_QUERY,
+  subscribeReducedMotion,
+} from './qol/reduced-motion';
+export {
+  type BoardBounds,
+  clampCamera,
+  pannedCamera,
+  ZOOM_WHEEL_STEP,
+  ZoomPanController,
+  zoomedCamera,
+} from './qol/zoom';
+
+// ----------------------------------------------------------------------------
+// UI components (Phases 5–7) + error boundary
+// ----------------------------------------------------------------------------
+
+export { ErrorBoundary, type ErrorBoundaryProps } from './render/ErrorBoundary';
+export { SurrenderModal, type SurrenderModalProps } from './render/SurrenderModal';
+export { OrderBar, type OrderBarProps } from './ui/order-bar';
+export { ReservesPanel, type ReservesPanelProps } from './ui/reserves-panel';
+export {
+  aimingTarget,
+  formatTargetingLabel,
+  TargetingOverlay,
+  type TargetingOverlayProps,
+} from './ui/targeting-overlay';
+
+// ----------------------------------------------------------------------------
+// Embedding contract types (Console handle + config + seams)
+// ----------------------------------------------------------------------------
+
+export type {
+  Console,
+  ConsoleConfig,
+  ConsoleConstants,
+  ConsoleDeps,
+  ConsoleFeatureFlags,
+  ConsoleInput,
+  ConsoleRenderer,
+  ConsoleRuntime as ConsoleRuntimeContract,
+  ConsoleSoundPlayer,
+  ReplayTape,
+} from '../contracts/console-api';
 
 // ----------------------------------------------------------------------------
 // Tunable constants + defaults (single source of truth: contracts/)

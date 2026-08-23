@@ -99,6 +99,25 @@ function takePendingOrder(actionId: ActionId): Order | undefined {
   return order;
 }
 
+/**
+ * Allocate a globally-unique ActionId for orders issued OUTSIDE the
+ * reducer — the runtime's `Console.sendOrder(order)` wire path
+ * (T087). Shares the reducer's {@link lastActionId} counter so a
+ * host-issued id can never collide with a gesture-issued id in the
+ * seq→ActionId ack-correlation chain (T031/T056).
+ *
+ * Host-issued ids are deliberately NOT registered in
+ * {@link pendingOrders}: there is no PlayerAction feedback path for
+ * them, so their acks produce feedback messages only (the reducer's
+ * orderAck arm handles unknown ids gracefully — see FR-007).
+ *
+ * @returns A fresh, never-before-issued ActionId.
+ */
+export function allocateActionId(): ActionId {
+  lastActionId += 1;
+  return lastActionId as ActionId;
+}
+
 // ----------------------------------------------------------------------------
 // Initial state
 // ----------------------------------------------------------------------------

@@ -76,6 +76,14 @@ export interface AppProps {
    * delegates to the host instead of opening its built-in modal.
    */
   readonly onSurrenderRequest?: (() => void) | undefined;
+  /**
+   * Programmatic surrender-modal trigger (contract
+   * `Console.requestSurrender`, T087). The runtime bumps this epoch
+   * counter each time the host calls `requestSurrender()` without a
+   * host callback; an increment past 0 opens the built-in
+   * {@link SurrenderModal}. Static boots omit it (no runtime).
+   */
+  readonly surrenderRequestEpoch?: number;
 }
 
 /** Subscription shim for static boots (no store to subscribe to). */
@@ -94,7 +102,12 @@ interface CursorSample {
  * + reserves panel + minimap + live-region mount, driven by the
  * resolved ConsoleState.
  */
-export function App({ store, state, onSurrenderRequest }: AppProps): JSX.Element {
+export function App({
+  store,
+  state,
+  onSurrenderRequest,
+  surrenderRequestEpoch,
+}: AppProps): JSX.Element {
   const fallbackState = state ?? peekInjectedConsoleState() ?? INITIAL_CONSOLE_STATE;
   const resolvedState = useSyncExternalStore(
     store ? store.subscribe : noopSubscribe,
@@ -240,7 +253,14 @@ export function App({ store, state, onSurrenderRequest }: AppProps): JSX.Element
 
   // Surrender modal state (US5 T084): opened by the HUD button,
   // delegating to the host when `onSurrenderRequest` is provided.
+  // The runtime's programmatic `requestSurrender()` (T087) opens the
+  // same modal by bumping `surrenderRequestEpoch`.
   const [surrenderOpen, setSurrenderOpen] = useState(false);
+  useEffect(() => {
+    if ((surrenderRequestEpoch ?? 0) > 0) {
+      setSurrenderOpen(true);
+    }
+  }, [surrenderRequestEpoch]);
 
   const zoom = mapView?.camera.zoom ?? 32;
   const selection = resolvedState.selection;

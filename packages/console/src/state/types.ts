@@ -24,6 +24,11 @@
  * modules (`src/input/hit-test.ts`, `src/input/subcell.ts`,
  * `src/net/connection.ts`, `src/net/envelope-to-event.ts`) and
  * exported through the package barrel.
+ *
+ * Completeness rule (conformance-tested, T089): every TYPE and CONST
+ * name exported by any of the four contract mirrors must be reachable
+ * from this module or the package barrel, so `dist/index.d.ts`
+ * exposes the full contractual surface.
  */
 
 // ----------------------------------------------------------------------------
@@ -83,6 +88,7 @@ export type {
   ConsoleClientState,
   EnvelopeContext,
 } from '../../contracts/console-to-networking';
+export { DEFAULT_CONSOLE_CLIENT_CONFIG } from '../../contracts/console-to-networking';
 
 // ----------------------------------------------------------------------------
 // Engine types (type-only — NO runtime import of @europa/engine)
@@ -90,6 +96,7 @@ export type {
 
 export type {
   CellView,
+  CommandResult,
   Coord,
   Direction,
   MatchConfig,
@@ -122,11 +129,16 @@ export type { PlayerView } from '@europa/fog';
 // ----------------------------------------------------------------------------
 
 export type {
+  ConnectionId,
   ConnectionState,
   ErrorCode,
+  MatchClient,
   MatchId,
   NetworkPayload,
+  OrderAckPayload,
+  OrderSubmissionPayload,
   ProtocolEnvelope,
   SequenceNumber,
   SessionToken,
+  TickBroadcastPayload,
 } from '@europa/networking';
