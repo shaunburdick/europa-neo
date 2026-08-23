@@ -32,6 +32,23 @@ describe('encodeFrame', () => {
       payload: { protocolVersion: NETWORK_API_VERSION },
     });
   });
+
+  it('serializes Set values as sorted arrays (CellView.pipes wire form)', () => {
+    // Plain JSON.stringify flattens Sets to `{}`; the wire replacer
+    // must preserve the data as a sorted, deterministic array.
+    const envelope: ProtocolEnvelope<NetworkPayload> = {
+      type: 'ping',
+      version: NETWORK_API_VERSION,
+      seq: 1 as ProtocolEnvelope<NetworkPayload>['seq'],
+      payload: { clientTimeMs: 0 },
+    };
+    const carrier = {
+      ...envelope,
+      payload: new Set(['right', 'up', 'down']),
+    };
+    const text = encodeFrame(carrier as unknown as ProtocolEnvelope<NetworkPayload>);
+    expect(JSON.parse(text).payload).toEqual(['down', 'right', 'up']);
+  });
 });
 
 describe('decodeFrame', () => {

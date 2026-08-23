@@ -191,9 +191,11 @@ describe('validateVersion', () => {
     expect(validateVersion(NETWORK_API_VERSION)).toEqual({ ok: true });
   });
 
-  it('accepts minor drift within the same major (FR-004 graceful)', () => {
-    expect(validateVersion('0.2.0')).toEqual({ ok: true });
-    expect(validateVersion('0.99.99')).toEqual({ ok: true });
+  it('accepts patch drift within the same 0.x boundary (FR-004 graceful)', () => {
+    // Pre-1.0 semver: the MINOR component is the compatibility line,
+    // so 0.1.x variants interoperate (spec T047: "0.1.5" accepted).
+    expect(validateVersion('0.1.5')).toEqual({ ok: true });
+    expect(validateVersion('0.1.99')).toEqual({ ok: true });
   });
 
   it('rejects major drift with a version_mismatch NetworkError', () => {
@@ -206,6 +208,13 @@ describe('validateVersion', () => {
         received: '1.0.0',
       });
     }
+  });
+
+  it('rejects cross-minor 0.x drift as a breaking boundary (FR-004, spec T021/T047)', () => {
+    // "0.2.0" is MAJOR drift from "0.1.0" per the spec's own examples:
+    // pre-1.0 minors are the breaking boundary.
+    expect(validateVersion('0.2.0').ok).toBe(false);
+    expect(validateVersion('0.99.99').ok).toBe(false);
   });
 
   it('treats unparseable versions as mismatches, not crashes', () => {

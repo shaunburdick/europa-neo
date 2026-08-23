@@ -11,8 +11,14 @@
  * encode was constructed from readonly interfaces with a fixed field
  * declaration order (`type`, `version`, `seq`, `payload`), so two
  * servers applying the same match script emit byte-identical frames.
- * No replacer/reviver functions are used — they would be silent
- * determinism hazards.
+ *
+ * The ONE deliberate serialization transform is `Set` → sorted array
+ * (see {@link wireReplacer}): engine/fog view types carry
+ * `ReadonlySet<Direction>` fields (`CellView.pipes`), which plain
+ * `JSON.stringify` would silently flatten to `{}` — losing the data.
+ * Sorting keeps the encoding deterministic (SC-001) regardless of the
+ * Set's insertion order. Recipients (feature 005 console) rebuild
+ * Sets from the arrays.
  *
  * Pure module: no I/O, no clock reads, no randomness.
  */
@@ -23,13 +29,30 @@ import { isNetworkError, NetworkError } from './errors';
 import { validateEnvelope } from './validate';
 
 /**
+ * `JSON.stringify` replacer implementing the protocol's single
+ * serialization transform: `Set` instances become sorted arrays.
+ * Members must be mutually comparable (today: `Direction` strings);
+ * V8's default sort is deterministic for those.
+ *
+ * @param _key    Object key being visited (unused).
+ * @param value   Value being visited.
+ * @returns The value to serialize (sorted array for Sets, else as-is).
+ */
+function wireReplacer(_key: string, value: unknown): unknown {
+  if (value instanceof Set) {
+    return [...value].sort();
+  }
+  return value;
+}
+
+/**
  * Serialize an outbound envelope to its wire form.
  *
  * @param envelope A fully-formed envelope (type, version, seq, payload).
  * @returns The JSON text to hand to `ws.WebSocket.send`.
  */
 export function encodeFrame(envelope: ProtocolEnvelope<NetworkPayload>): string {
-  return JSON.stringify(envelope);
+  return JSON.stringify(envelope, wireReplacer);
 }
 
 /**

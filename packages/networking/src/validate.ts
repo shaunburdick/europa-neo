@@ -55,6 +55,21 @@ function isMessageKind(value: string): value is MessageKind {
 }
 
 /**
+ * Non-narrowing membership check for the closed `MessageKind` set.
+ * Exported for the connection layer's error classification: a frame
+ * whose `type` is a string outside this set is reported to the client
+ * as `unknown_message_kind` rather than generic `malformed_payload`
+ * (FR-008), so clients can distinguish "unsupported message" from
+ * "corrupt frame".
+ *
+ * @param value Any string.
+ * @returns `true` iff `value` is one of the twelve declared kinds.
+ */
+export function isKnownMessageKind(value: string): boolean {
+  return MESSAGE_KINDS.has(value);
+}
+
+/**
  * Cheap primitive checks for per-kind payload fields. `any` means
  * presence-only (used for fields that are legitimately nullable or
  * deeply validated elsewhere, e.g., `JoinAckPayload.playerId` which
@@ -215,15 +230,40 @@ export function validateEnvelope(
 }
 
 /**
+ * Extract the BREAKING-boundary component of a version string per
+ * FR-004 and standard pre-1.0 semver convention: for `0.x.y` versions
+ * the minor component carries the breaking boundary (`0.1.0` → `0.1`),
+ * because `0.x` ranges are incompatible across minors; for `M ≥ 1`
+ * versions the major component does (`1.2.3` → `1`). Unparseable input
+ * yields the empty string, which never matches a real boundary.
+ *
+ * @param version A (possibly malformed) version string.
+ * @returns The boundary component.
+ */
+function breakingBoundary(version: string): string {
+  const parts = version.split('.');
+  const major = parts[0] ?? '';
+  // Pre-1.0 semver convention: for 0.x.y versions the minor component
+  // carries the breaking boundary ("0.1" line ≠ "0.2" line). The
+  // "0." prefix keeps the boundary disjoint from post-1.0 majors.
+  if (major === '0') {
+    return `0.${parts[1] ?? ''}`;
+  }
+  return major;
+}
+
+/**
  * Compare a received protocol version against `NETWORK_API_VERSION`
- * by MAJOR component only (FR-004: minor drift is accepted
- * gracefully; major drift is rejected). Non-string input and
+ * by BREAKING BOUNDARY only (FR-004: drift within the same boundary is
+ * accepted gracefully — e.g., `0.1.5` after `0.1.0`; cross-boundary
+ * drift is rejected — e.g., `0.2.0` or `1.0.0` against `0.1.0`, since
+ * pre-1.0 minors are the compatibility line). Non-string input and
  * unparseable versions are treated as mismatches rather than thrown
  * exceptions so the caller can always respond with a polite
  * `version_mismatch` error frame.
  *
  * @param received The `protocolVersion` / `version` string the peer sent.
- * @returns `{ ok: true }` when the majors match, otherwise
+ * @returns `{ ok: true }` when boundaries match, otherwise
  *          `{ ok: false, error }` carrying a `version_mismatch`
  *          `NetworkError` whose detail records expected vs received.
  */
@@ -240,15 +280,15 @@ export function validateVersion(
     };
   }
 
-  const expectedMajor = NETWORK_API_VERSION.split('.')[0] ?? '';
-  const receivedMajor = received.split('.')[0] ?? '';
+  const expectedBoundary = breakingBoundary(NETWORK_API_VERSION);
+  const receivedBoundary = breakingBoundary(received);
 
-  if (receivedMajor !== expectedMajor) {
+  if (receivedBoundary !== expectedBoundary) {
     return {
       ok: false,
       error: new NetworkError(
         'version_mismatch',
-        `unsupported protocol major version (expected ${expectedMajor}.x, got ${received || 'nothing'})`,
+        `unsupported protocol version (expected ${NETWORK_API_VERSION}.x-compatible, got ${received || 'nothing'})`,
         { expected: NETWORK_API_VERSION, received },
       ),
     };
