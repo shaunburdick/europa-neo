@@ -5,10 +5,8 @@
  * `contracts/matchmaking-api.ts`: `createMatch` + `joinMatch` with the
  * atomic auto-start path (US1), the synchronous public-lobby
  * projection (US2 surface, wired here because Q-M01 exercises it),
- * stats, and graceful close. Rematch (US4) methods are documented
- * throwing stubs until their waves land; `leaveMatch` and the rematch
- * trio still gate unknown MatchIds through the FR-006 single
- * `match_not_found` code path before that stub throw (Wave 7C).
+ * stats, and graceful close. Rematch (US4) and forfeit (US5) are
+ * wired; Phase 8 adds the lazy empty-match GC sweep (FR-011).
  *
  * Auto-start sequence on the last seat fill (FR-007, all inside one
  * synchronous critical section — single-threaded event loop makes it
@@ -203,9 +201,10 @@ function resolveSettings(
 
 /**
  * Construct a `Matchmaker` instance (see `contracts/matchmaking-api.ts`
- * for the full contract doc and example). Timers are NOT started in
- * this wave: the empty-match sweep (FR-011) lands with Phase 8, so
- * `close()` only clears state.
+ * for the full contract doc and example). No timers are started:
+ * both lazy sweeps (rematch-window expiry, FR-009; empty-match GC,
+ * FR-011) run on read paths with the injected clock — real
+ * scheduling belongs to the host integration wave.
  *
  * @param config - Matchmaker-wide configuration; omitted knobs fall
  *   back to `MATCHMAKING_CONSTANTS`.
@@ -459,6 +458,64 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     return swept;
   }
 
+  /**
+   * Lazy empty-match GC sweep (FR-011 + Q-M06): collect every
+   * `'filling'` match idle past `emptyMatchTtlMs` — "empty" here means
+   * *unstarted* (no engine session), matching the executable quickstart
+   * scenario where a creator-seated match that never fills is GC'd.
+   * Before collecting, each seated player's ephemeral session is
+   * deleted from the store: a session bound to a collected match is
+   * unreachable garbage (joins always mint fresh sessions), and SC-005's
+   * no-leak invariant requires actual removal, not just unbinding.
+   *
+   * Invoked from read paths (`stats`, `listPublicMatches`) with the
+   * injected clock — NO timers inside matchmaking logic (same lazy,
+   * check-on-access pattern as {@linkcode sweepExpiredRematches}).
+   *
+   * @param atMs - Current injected-clock reading.
+   * @returns How many matches were collected by this sweep.
+   */
+  function sweepStaleEmptyMatches(atMs: number): number {
+    let swept = 0;
+    for (const m of store.listMatches()) {
+      if (m.status !== 'filling') {
+        continue;
+      }
+      if (atMs - m.lastActivityAtMs < resolved.emptyMatchTtlMs) {
+        continue;
+      }
+      // Release seated players' sessions before collecting: the seats
+      // die with the match. The identity guard skips any session that
+      // has already moved on to a different match (defensive; cannot
+      // happen while the seat holds the only binding).
+      for (const seat of m.seats.values()) {
+        const session = store.getSession(seat.playerSessionId);
+        if (session !== undefined && session.currentMatchId === m.matchId) {
+          store.deleteSession(seat.playerSessionId);
+        }
+      }
+      transitionToCollected(m, atMs, bus.emit);
+      totalCollected += 1;
+      swept += 1;
+      logger.info('matchmaker: empty-match TTL elapsed; match collected', {
+        matchId: m.matchId,
+      });
+    }
+    return swept;
+  }
+
+  /**
+   * Run both lazy sweeps against one clock reading. The single place
+   * read paths hook into GC so ordering stays fixed (rematch expiry
+   * first — it may resolve offers on matches the empty-match sweep
+   * would never touch — then empty-match collection).
+   */
+  function runLazySweeps(): void {
+    const atMs = now();
+    sweepExpiredRematches(atMs);
+    sweepStaleEmptyMatches(atMs);
+  }
+
   // -- Public surface --------------------------------------------------------
 
   const matchmaker: Matchmaker = {
@@ -629,8 +686,9 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
     listPublicMatches(): ListPublicMatchesResult {
       assertOpen();
-      // Read paths drive the lazy rematch-expiry sweep (no timers).
-      sweepExpiredRematches(now());
+      // Read paths drive the lazy sweeps (no timers): rematch-window
+      // expiry + empty-match GC (FR-009 / FR-011).
+      runLazySweeps();
       const entries: ReadonlyArray<LobbyEntry> = projectLobby(store.listMatches(), now());
       return { ok: true, matches: entries };
     },
@@ -828,10 +886,11 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     },
 
     stats(): MatchmakerStats {
-      // Read paths drive the lazy rematch-expiry sweep (no timers).
-      // No `assertOpen` here: stats stays readable after close()
-      // (pre-existing behavior pinned by earlier suites).
-      sweepExpiredRematches(now());
+      // Read paths drive the lazy sweeps (no timers): rematch-window
+      // expiry + empty-match GC (FR-009 / FR-011). No `assertOpen`
+      // here: stats stays readable after close() (pre-existing
+      // behavior pinned by earlier suites).
+      runLazySweeps();
       const matches = store.listMatches();
       const sessions = store.listSessions();
       let filling = 0;
