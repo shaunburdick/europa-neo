@@ -131,7 +131,7 @@ export function handleSeatExpired(
     ctx.logger.warn('forfeit: onSeatExpired for unknown match', { matchId: event.matchId });
     return null;
   }
-  let seat = undefined;
+  let seat;
   for (const candidate of match.seats.values()) {
     if (candidate.sessionToken === event.sessionToken) {
       seat = candidate;
