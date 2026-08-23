@@ -467,16 +467,34 @@ export interface CameraState {
 
 /**
  * Default camera state. Picked so a 32×32 board fits in a typical
- * 1024×768 viewport at the default zoom.
+ * 1024×768 viewport at the default zoom (data-model.md §4).
  */
-export const DEFAULT_CAMERA: CameraState;
+export const DEFAULT_CAMERA: CameraState = {
+  zoom: 32,
+  pan: { x: 0, y: 0 },
+  minZoom: 12,
+  maxZoom: 96,
+};
 
 /**
  * Default per-player color palette (Tailwind-ish hex strings, no CDN
- * required). Keys are `PlayerId`. Index `0` is unused but typed as
- * `PlayerId` for `Record<PlayerId, string>` ergonomics.
+ * required). Keys are `PlayerId` (1..4 — the engine supports 2–4
+ * players by contract). Chosen for hue + lightness separation so
+ * colorblind players can distinguish owners (research.md §6); the
+ * `ownerColorRing` QoL setting adds a redundant shape signal on top.
+ *
+ * Palette (Tailwind v3 hex, chosen by hand — no runtime dependency):
+ *   - Player 1: red-600    `#dc2626`
+ *   - Player 2: blue-600   `#2563eb`
+ *   - Player 3: emerald-600 `#059669`
+ *   - Player 4: amber-600  `#d97706`
  */
-export const DEFAULT_PLAYER_COLORS: Readonly<Record<PlayerId, string>>;
+export const DEFAULT_PLAYER_COLORS: Readonly<Record<PlayerId, string>> = {
+  1: '#dc2626',
+  2: '#2563eb',
+  3: '#059669',
+  4: '#d97706',
+};
 
 // ----------------------------------------------------------------------------
 // ConsoleState (the global, non-render state)
@@ -580,8 +598,18 @@ export interface QoLSettings {
   readonly ownerColorRing: boolean;
 }
 
-/** Default QoL settings. */
-export const DEFAULT_QOL_SETTINGS: QoLSettings;
+/**
+ * Default QoL settings (values per data-model.md §9: sound off per
+ * spec Assumptions, full animation, tooltips on, system theme,
+ * owner color ring on).
+ */
+export const DEFAULT_QOL_SETTINGS: QoLSettings = {
+  soundOn: false,
+  animation: 'full',
+  tooltips: true,
+  theme: 'system',
+  ownerColorRing: true,
+};
 
 /**
  * Console session metadata. Persisted across reconnects so the
@@ -644,7 +672,7 @@ export type PlayerAction =
  *
  * Keys are stable identifiers (NOT raw key codes), so locale /
  * keyboard-layout changes don't break the mapping. The default
- * table is exposed as `DEFAULT_INPUT_MAPPING` (see console-state.ts).
+ * table is exposed as `DEFAULT_INPUT_MAPPING` (below).
  *
  * The shape mirrors the original Europa control set (per
  * `europa-source/.../controls.html`) plus the additions required
@@ -688,8 +716,44 @@ export interface PointerBinding {
   readonly modifiers: ReadonlyArray<'alt' | 'ctrl' | 'meta' | 'shift'>;
 }
 
-/** Default input mapping. Matches the original Europa control set. */
-export const DEFAULT_INPUT_MAPPING: InputMapping;
+/**
+ * Default input mapping. Matches the original Europa control set
+ * (per `europa-source/.../controls.html`): i/j/k/l pipe keys,
+ * Space clears pipes, p/h paratroop, g/o gun, 0–9 reserves,
+ * Escape cancels, arrows move the selection. Pointer bindings:
+ * left button toggles a pipe; right button issues an exclusive
+ * pipe (Alt+primary is the keyboard-equivalent exclusive path via
+ * `pipeExclusiveKeys`).
+ */
+export const DEFAULT_INPUT_MAPPING: InputMapping = {
+  pipeToggle: { button: 'left', modifiers: [] },
+  pipeExclusive: { button: 'right', modifiers: [] },
+  pipeKeys: {
+    pipeNorth: 'i',
+    pipeWest: 'j',
+    pipeSouth: 'k',
+    pipeEast: 'l',
+  },
+  pipeExclusiveKeys: {
+    pipeNorth: 'Alt+i',
+    pipeWest: 'Alt+j',
+    pipeSouth: 'Alt+k',
+    pipeEast: 'Alt+l',
+  },
+  clearCellPipes: ' ',
+  paratroopPrimary: 'p',
+  paratroopAlt: 'h',
+  gunPrimary: 'g',
+  gunAlt: 'o',
+  reserveKeys: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+  cancel: 'Escape',
+  selectionMove: {
+    north: 'ArrowUp',
+    west: 'ArrowLeft',
+    south: 'ArrowDown',
+    east: 'ArrowRight',
+  },
+};
 
 // ----------------------------------------------------------------------------
 // Render feedback

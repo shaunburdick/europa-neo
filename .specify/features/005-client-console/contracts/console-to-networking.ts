@@ -68,12 +68,9 @@
  *    the current `ConnectionState` in the UI.
  */
 
-import type {
-  ActionId,
-  ConsoleConnectionStatus,
-  ConsoleState,
-  NetEvent as _NetEventFromState,
-} from './console-state';
+import type { ActionId, NetEvent as _NetEventFromState } from './console-state';
+
+import type { ConsoleConnectionStatus, ConsoleState } from './console-types';
 
 import type {
   ConnectionState,
@@ -189,8 +186,27 @@ export interface ConsoleClientConfig {
   readonly clientOrderRatePerSec?: number;
 }
 
-/** Default client config (no token, no match id — host must `joinMatch` explicitly). */
-export const DEFAULT_CONSOLE_CLIENT_CONFIG: ConsoleClientConfig;
+/**
+ * Default client config (no token, no match id — host must
+ * `joinMatch` explicitly). Documented value choices:
+ *   - `url: 'ws://localhost:8080'` — the dev default called out in
+ *     `ConsoleClientConfig.url`; production hosts override it
+ *     (constitution Principle VII: self-hostable by default).
+ *   - `displayName: ''` — cosmetic only; the host always supplies
+ *     the real player name (empty string keeps the default honest
+ *     rather than inventing a placeholder identity).
+ *   - `autoReconnect: true` — spec US5 AC-3.
+ *   - `verboseLogging: false` — quiet by default.
+ *   - `clientOrderRatePerSec: 10` — matches feature 004's default
+ *     order rate (and `CONSOLE_CONSTANTS.clientOrderRatePerSec`).
+ */
+export const DEFAULT_CONSOLE_CLIENT_CONFIG: ConsoleClientConfig = {
+  url: 'ws://localhost:8080',
+  displayName: '',
+  autoReconnect: true,
+  verboseLogging: false,
+  clientOrderRatePerSec: 10,
+};
 
 // ----------------------------------------------------------------------------
 // ConsoleClient (the adapter the runtime owns)

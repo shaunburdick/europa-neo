@@ -241,8 +241,17 @@ export interface ConsoleLogger {
   error(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
 }
 
-/** No-op logger. Default if `ConsoleConfig.logger` is omitted. */
-export const NULL_LOGGER: ConsoleLogger;
+/**
+ * No-op logger. Default if `ConsoleConfig.logger` is omitted.
+ * Every method is an empty function: calls are valid no-ops and
+ * cost nothing.
+ */
+export const NULL_LOGGER: ConsoleLogger = {
+  debug: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+};
 
 // ----------------------------------------------------------------------------
 // The Console handle
@@ -341,16 +350,31 @@ export interface Console {
    * tests and by the host's "reset view" button.
    */
   setCamera(camera: Partial<CameraState>): void;
-  /**
-   * Open the "demo mode" replay loader. The host provides a
-   * `ReplayTape`; the console renders the tape as a sequence
-   * of PlayerViews. Available only when `features.replay` is
-   * `true` and the host passes a `replaySource` via `deps`.
-   *
-   * Out of scope for v1 implementation but declared here for
-   * forward compatibility.
-   */
-  loadReplay?(tape: import('./console-replay').ReplayTape): Promise<void>;
+    /**
+     * Open the "demo mode" replay loader. The host provides a
+     * `ReplayTape`; the console renders the tape as a sequence
+     * of PlayerViews. Available only when `features.replay` is
+     * `true` and the host passes a `replaySource` via `deps`.
+     *
+     * Out of scope for v1 implementation but declared here for
+     * forward compatibility. The full replay contract
+     * (`console-replay.ts`) lands with the demo-mode feature; v1
+     * declares the minimal structural surface via the local
+     * `ReplayTape` placeholder below so this handle type-checks
+     * without a fifth contract file.
+     */
+    loadReplay?(tape: ReplayTape): Promise<void>;
+}
+
+/**
+ * Forward-compatibility placeholder for the replay tape type (see
+ * `Console.loadReplay`). The real tape shape is owned by the future
+ * replay feature; v1 pins only the structural minimum every tape
+ * will satisfy: an ordered sequence of opaque frame records.
+ */
+export interface ReplayTape {
+  /** Ordered, opaque frame records (engine ticks + input events). */
+  readonly frames: ReadonlyArray<unknown>;
 }
 
 // ----------------------------------------------------------------------------
@@ -534,8 +558,29 @@ export interface ConsoleConstants {
   readonly reconnectBackoffCapMs: number;
 }
 
-/** Default console constants. */
-export const CONSOLE_CONSTANTS: ConsoleConstants;
+/**
+ * Default console constants (values per data-model.md §15 and
+ * tasks.md T019). Single tunable-constants location for the
+ * console — mirror of the engine's `ENGINE_CONSTANTS` discipline.
+ */
+export const CONSOLE_CONSTANTS: ConsoleConstants = {
+  defaultCellPx: 32,
+  minCellPx: 12,
+  maxCellPx: 96,
+  feedbackTtlMs: 2000,
+  labelTtlMs: 1500,
+  effectTtlMs: 400,
+  maxFeedbackMessages: 5,
+  maxRejectedOrders: 10,
+  clientOrderRatePerSec: 10,
+  reconnectBackoffBaseMs: 500,
+  reconnectBackoffCapMs: 30000,
+};
 
-/** Console API version. */
-export const CONSOLE_API_VERSION: '0.1.0';
+/**
+ * Console API version. Kept as a standalone literal (not imported
+ * from console-types.ts) so this file stays dependency-free at
+ * runtime; a conformance test asserts the two literals match.
+ * Increment on any breaking change to the public surface.
+ */
+export const CONSOLE_API_VERSION = '0.1.0' as const;
