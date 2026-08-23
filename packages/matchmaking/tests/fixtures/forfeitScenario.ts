@@ -17,13 +17,13 @@ import type { Logger, SessionToken } from '@europa/networking';
 import type { MatchId, SeatIndex } from '../../contracts/match-types';
 import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import { buildEngineSession, buildMatchConfig } from '../../src/engineSession';
-import { createMatchRecord } from '../../src/internal/matchRecord';
 import type { MatchRecord } from '../../src/internal/matchRecord';
+import { createMatchRecord } from '../../src/internal/matchRecord';
 import { createPlayerSession } from '../../src/internal/playerSession';
 import type { SeatRecord } from '../../src/internal/seatRecord';
 import { createSeatRecord } from '../../src/internal/seatRecord';
-import { createStore } from '../../src/store';
 import type { MatchmakerStore } from '../../src/store';
+import { createStore } from '../../src/store';
 import { FakeServer } from './fakeServer';
 
 /** Flat all-land board with one home city per player (deterministic). */

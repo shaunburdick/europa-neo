@@ -31,9 +31,10 @@ import type { PlayerId } from '@europa/engine';
 import type { Logger, Server } from '@europa/networking';
 
 import type { MatchId, SessionToken } from '../contracts/match-types';
+import type { MatchRecord } from './internal/matchRecord';
+import type { SeatRecord } from './internal/seatRecord';
 import type { StatusEmitter } from './matchLifecycle';
 import { transitionToCollected } from './matchLifecycle';
-import type { MatchRecord } from './internal/matchRecord';
 import { buildMatchResultsRecord } from './results';
 import type { MatchmakerStore } from './store';
 
@@ -131,7 +132,7 @@ export function handleSeatExpired(
     ctx.logger.warn('forfeit: onSeatExpired for unknown match', { matchId: event.matchId });
     return null;
   }
-  let seat;
+  let seat: SeatRecord | undefined;
   for (const candidate of match.seats.values()) {
     if (candidate.sessionToken === event.sessionToken) {
       seat = candidate;

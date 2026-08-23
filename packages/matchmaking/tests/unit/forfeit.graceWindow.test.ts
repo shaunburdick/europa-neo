@@ -14,18 +14,13 @@
  * Test descriptions cite the requirement they pin.
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { PlayerId } from '@europa/engine';
-
-import { handleSeatExpired } from '../../src/forfeit';
+import { describe, expect, it } from 'vitest';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
+import { handleSeatExpired } from '../../src/forfeit';
 import { createMatchmaker } from '../../src/matchmaker';
-import {
-  SILENT_LOGGER,
-  makeRunningForfeitFixture,
-} from '../fixtures/forfeitScenario';
 import { FakeServer } from '../fixtures/fakeServer';
+import { makeRunningForfeitFixture, SILENT_LOGGER } from '../fixtures/forfeitScenario';
 
 describe('grace-window expiry triggers deterministically (SC-004 / T057)', () => {
   it('the forfeit stamp equals the injected clock reading — no skew', () => {

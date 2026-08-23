@@ -264,11 +264,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
      * filling-phase inline releases do not.
      */
     onSeatExpired: (event) => {
-      const result = handleSeatExpired(
-        event,
-        { store, server, logger, emit: bus.emit },
-        now(),
-      );
+      const result = handleSeatExpired(event, { store, server, logger, emit: bus.emit }, now());
       if (result === null) {
         return;
       }

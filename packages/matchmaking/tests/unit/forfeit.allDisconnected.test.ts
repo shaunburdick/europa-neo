@@ -12,18 +12,13 @@
  * Test descriptions cite the requirement they pin.
  */
 
-import { describe, expect, it } from 'vitest';
-
 import type { PlayerId } from '@europa/engine';
-
-import { handleSeatExpired } from '../../src/forfeit';
+import { describe, expect, it } from 'vitest';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
+import { handleSeatExpired } from '../../src/forfeit';
 import { createMatchmaker } from '../../src/matchmaker';
-import {
-  SILENT_LOGGER,
-  makeRunningForfeitFixture,
-} from '../fixtures/forfeitScenario';
 import { FakeServer } from '../fixtures/fakeServer';
+import { makeRunningForfeitFixture, SILENT_LOGGER } from '../fixtures/forfeitScenario';
 
 describe('all-disconnected teardown (US5 AC-2 / T056)', () => {
   it('US5 AC-1: with one survivor the match continues running — no teardown', () => {
