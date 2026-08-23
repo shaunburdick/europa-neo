@@ -34,8 +34,18 @@ catalog:
   vite: ^8.2.2
   "@vitejs/plugin-react": ^6.1.0
   "@vitest/browser": ^4.1.0
+  # Vitest 4 Browser Mode provider factory (the string "provider:
+  # playwright" form was removed in Vitest 4.1).
+  "@vitest/browser-playwright": ^4.1.0
   vitest-browser-react: ^2.2.0
   "@axe-core/playwright": ^4.13.0
+  # Standalone axe-core engine for Vitest Browser Mode a11y scans
+  # (tests/setup.ts expectNoDomA11yViolations): AxeBuilder from
+  # @axe-core/playwright needs a Playwright Page object, which does not
+  # exist inside browser-mode tests. Version-matched to the engine
+  # bundled by @axe-core/playwright so both layers enforce identical
+  # rules.
+  axe-core: ^4.13.0
   "@playwright/test": ^1.62.1
   happy-dom: ^20.11.6
   "@resvg/resvg-js": ^2.6.2

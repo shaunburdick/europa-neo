@@ -10,6 +10,13 @@ out/
 # Test coverage
 coverage/
 
+# Test runner artifacts (Playwright output, Vitest browser-mode
+# failure screenshots + attachments)
+test-results/
+playwright-report/
+.vitest-attachments/
+__screenshots__/
+
 # Logs
 logs/
 *.log

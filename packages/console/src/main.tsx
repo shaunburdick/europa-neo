@@ -1,30 +1,21 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createDemoPlayerView, createStubConsoleState } from './internal/test-state';
+import { App } from './render/App';
 
 import './styles/index.css';
 
 /**
- * SPA entry point. Mounts the console's root React tree into the
- * `#root` element declared by `index.html`.
+ * SPA entry point (T013, wired to the real App by T047). Mounts the
+ * console's root React tree into the `#root` element declared by
+ * `index.html`.
  *
- * Wave 8A placeholder — replaced by Phase 3 T034 App stub (which adds
- * the MapCanvas + GridOverlay composition) and wrapped in the Phase 8
- * T085 ErrorBoundary once it exists.
+ * MVP state source: a deterministic demo `PlayerView` (T048's
+ * `createStubConsoleState` + `createDemoPlayerView`) so the console
+ * boots standalone with no live server — the Phase 3 scope note.
+ * The Phase 8 runtime (`createConsole`, T086) replaces this stub
+ * with live store state.
  */
-
-/**
- * Wave 8A placeholder App — renders static text so the entry compiles
- * and boots standalone before Phase 3 lands the real root component.
- * The `<main id="main">` wrapper gives `index.html`'s skip link a
- * valid target from day one (WCAG 2.4.1 Bypass Blocks).
- */
-function App() {
-  return (
-    <main id="main">
-      <p>Europa Neo</p>
-    </main>
-  );
-}
 
 const rootElement = document.getElementById('root');
 
@@ -32,8 +23,10 @@ if (!rootElement) {
   throw new Error('Europa Neo console: #root element not found in document.');
 }
 
+const stubState = createStubConsoleState(createDemoPlayerView());
+
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <App state={stubState} />
   </StrictMode>,
 );

@@ -4,14 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Europa Neo Console</title>
+    <!-- Empty data-URI favicon: suppresses the browser's automatic
+         /favicon.ico request (keeps the E2E "no console errors"
+         assertion clean and adds no remote dependency). -->
+    <link rel="icon" href="data:," />
   </head>
   <body>
-    <!-- Skip link is the first focusable element (WCAG 2.4.1 Bypass Blocks).
-         Target `#main` is rendered by the App inside #root. -->
-    <a href="#main" class="skip-link">Skip to board</a>
-    <!-- Semantic <main> is the skip-link target host and React mount
-         point (WCAG 2.4.1 Bypass Blocks; landmark role implied). -->
-    <main id="root"></main>
+    <!-- React mount point. The App component renders the page's
+         single <main id="main"> landmark plus its own skip link as
+         the first Tab stop (WCAG 2.4.1 Bypass Blocks; Q-A04 order:
+         skip-link → map → hud). Keeping both inside the app root
+         avoids duplicate/nested landmarks and makes them testable
+         without loading index.html. -->
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

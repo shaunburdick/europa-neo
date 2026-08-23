@@ -1,3 +1,4 @@
+import { playwright } from '@vitest/browser-playwright';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -5,17 +6,18 @@ import { defineConfig } from 'vitest/config';
  * console's component tests (`vitest-browser-react`), axe-core a11y
  * acceptance tests, and render-perf tests.
  *
- * NOTE: `tests/setup.ts` (the AxeBuilder helper module) is created by
- * Phase 2 task T036; this config references it ahead of that landing.
- * Running `test:component` / `test:a11y` / `test:perf` before T036 will
- * fail on the missing setup file by design.
+ * Vitest 4.1 note: `browser.provider` takes the provider FACTORY from
+ * `@vitest/browser-playwright`, not the legacy `'playwright'` string.
  */
 export default defineConfig({
   test: {
     browser: {
       enabled: true,
-      provider: 'playwright',
+      provider: playwright(),
       headless: true,
+      // Vitest 4 requires explicit browser instances (single Chromium
+      // project in v1, matching playwright.config.ts).
+      instances: [{ browser: 'chromium' }],
     },
     include: [
       'tests/component/**/*.test.tsx',

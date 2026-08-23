@@ -1,8 +1,9 @@
 /*
- * Global styles: minimal reset + skip-link pattern.
+ * Global styles: reset, skip link, and the US1 board layout +
+ * cell/pipe/badge visual layer (Phase 3 T044/T045 support).
  *
- * Wave 8A scaffold — the full reset + CSS variables for cell size land
- * with Phase 3 (per data-model.md §4).
+ * Color values mirror src/render/palette.ts (kept as literals here;
+ * CSS custom properties are introduced with theming in US5).
  */
 
 *,
@@ -14,6 +15,8 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-color: #0b0f19;
+  color: #e5e7eb;
 }
 
 /*
@@ -34,4 +37,136 @@ body {
 
 .skip-link:focus {
   transform: none;
+}
+
+/* Root layout: board left/center, HUD right. */
+.europa-main {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.europa-board-area {
+  position: relative;
+}
+
+.europa-canvas {
+  display: block;
+  background-color: #05070d;
+}
+
+/* ARIA grid overlay — exactly covers the canvas. */
+.europa-grid {
+  position: absolute;
+  inset: 0;
+}
+
+.europa-grid:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* One visible cell (role="gridcell"). Geometry + terrain color are
+   inline styles; this block carries shared decoration only. */
+.europa-cell {
+  position: absolute;
+}
+
+/* Keyboard focus ring (WCAG 2.4.7 Focus Visible). */
+.europa-cell--focused {
+  z-index: 2;
+}
+
+/* Pipe indicators: CSS border triangles pinned to the cell edges.
+   The span itself is zero-size; its borders form the triangle. */
+.europa-pipe {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  --europa-pipe-tri: 6px;
+}
+
+.europa-pipe--N {
+  top: 0;
+  left: calc(50% - var(--europa-pipe-tri));
+  border-width: 0 var(--europa-pipe-tri) 8px var(--europa-pipe-tri);
+  border-color: transparent transparent #f59e0b transparent;
+}
+
+.europa-pipe--S {
+  bottom: 0;
+  left: calc(50% - var(--europa-pipe-tri));
+  border-width: 8px var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
+  border-color: #f59e0b transparent transparent transparent;
+}
+
+.europa-pipe--W {
+  left: 0;
+  top: calc(50% - var(--europa-pipe-tri));
+  border-width: var(--europa-pipe-tri) 8px var(--europa-pipe-tri) 0;
+  border-color: transparent #f59e0b transparent transparent;
+}
+
+.europa-pipe--E {
+  right: 0;
+  top: calc(50% - var(--europa-pipe-tri));
+  border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) 8px;
+  border-color: transparent transparent transparent #f59e0b;
+}
+
+/* City marker dot (redundant with the city outline inline style). */
+.europa-cell__city-dot {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #fbbf24;
+}
+
+/* Troop count chip: dark plate + white digits (≥ 4.5:1 contrast);
+   owner color rides the chip border, never the text. */
+.europa-cell__troops {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 55%;
+  padding: 1px 3px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* Reserves badge (bottom edge, small per data-model.md §3). */
+.europa-cell__reserves {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  padding: 0 3px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* HUD placeholder (US5 replaces it with the full status banner). */
+.europa-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 12rem;
+  padding: 0.75rem 1rem;
+  background-color: #111827;
+  color: #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.9rem;
 }

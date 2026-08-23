@@ -1,6 +1,16 @@
 {
+  "root": false,
   "extends": ["../../biome.json"],
   "files": {
     "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "!contracts"]
+  },
+  "linter": {
+    "rules": {
+      "a11y": {
+        "useSemanticElements": "off",
+        "useFocusableInteractive": "off",
+        "noNoninteractiveTabindex": "off"
+      }
+    }
   }
 }
