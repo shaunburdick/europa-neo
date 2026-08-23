@@ -47,6 +47,15 @@ export default defineConfig({
       {
         test: {
           name: 'browser',
+          // Host env does not reach browser-mode tests via `process`
+          // (no process global in Chromium); `test.env` is injected
+          // into `import.meta.env`. EUROPA_PERF_BUDGET_FACTOR
+          // multiplies ONLY the perf suite's paint budget (unset →
+          // '' → factor 1, the strict spec budget). See spec 005
+          // Clarifications v1.1.
+          env: {
+            EUROPA_PERF_BUDGET_FACTOR: process.env.EUROPA_PERF_BUDGET_FACTOR ?? '',
+          },
           browser: {
             enabled: true,
             provider: playwright(),

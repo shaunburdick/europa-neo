@@ -244,7 +244,10 @@ This is a Vitest suite (not Playwright) that runs in headless
 Chromium via Vitest Browser Mode. It measures:
 
 - `paintFrame(state)` (full Canvas 2D repaint of 1024 cells +
-  HUD overlay) under 8 ms.
+  HUD overlay) under 8 ms — pass criterion is the MIN of round
+  medians across ≥5 rounds; CI may set `EUROPA_PERF_BUDGET_FACTOR`
+  to loosen ONLY this budget (default 1.0; see spec Clarifications
+  v1.1).
 - `reduce(state, action)` under 1 ms (no DOM, pure JS).
 - Initial bundle (gzipped) under 150 KB.
 - 1000-tick deterministic replay produces byte-identical

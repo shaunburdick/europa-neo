@@ -143,8 +143,13 @@ jobs:
       - name: E2E tests (Playwright)
         run: pnpm --filter @europa/console test:e2e
 
+      # Shared runners throttle whole test windows (2026-08-23 incident:
+      # paint min-round-median 9.2ms vs 8ms budget, p99 225ms). 2×
+      # documented paint-budget headroom; local gates stay strict.
       - name: Perf budgets (SC-003, real Chromium)
         run: pnpm --filter @europa/console test:perf
+        env:
+          EUROPA_PERF_BUDGET_FACTOR: '2'
 
       - name: Determinism (SC-002 golden fixture)
         run: pnpm --filter @europa/console test:determinism
@@ -200,8 +205,13 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @europa/console exec playwright install --with-deps chromium
 
+      # 2× paint-budget headroom for the browser project's perf suite
+      # inside merged coverage (shared-runner throttling; see the
+      # console-test job's perf step + spec 005 Clarifications v1.1).
       - name: Coverage (console)
         run: pnpm --filter @europa/console coverage
+        env:
+          EUROPA_PERF_BUDGET_FACTOR: '2'
 
       - name: Upload coverage artifact
         if: always()

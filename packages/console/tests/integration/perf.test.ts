@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 /**
  * Performance integration suite — Feature 005 (T091, SC-003).
  *
@@ -6,20 +8,32 @@
  * quickstart.md §6 (Q-P01..Q-P03):
  *
  *   - Q-P01 `MapCanvas.paint` of a full 32×32 board (1,024 cells):
- *     best-round median < 8 ms — half of the 16.67 ms/60 fps frame,
+ *     min-of-round-medians < 8 ms — half of the 16.67 ms/60 fps frame,
  *     leaving headroom for React reconciliation + handlers.
- *   - Q-P02 `reduce(state, action)`: best-round median < 1 ms
+ *   - Q-P02 `reduce(state, action)`: min-of-round-medians < 1 ms
  *     (pure JS, no DOM).
- *   - Q-P04 `localPreflightOrder`: best-round median < 0.1 ms
+ *   - Q-P04 `localPreflightOrder`: min-of-round-medians < 0.1 ms
  *     (security-relevant gate on the input path).
  *   - Q-P03 initial bundle < 150 KB gzipped: enforced post-build by
  *     `scripts/test-selfhost.sh` (browser tests have no filesystem;
  *     deviation documented in spec Implementation Notes).
  *
- * Methodology (fog SC-004 jitter lesson): warmup first, then multiple
- * measurement rounds; the asserted statistic is the BEST round median,
- * and only sustained slowness fails the build. Single-shot wall-clock
- * asserts are never used. Observed p50/p99 are printed as a summary.
+ * Methodology (fog SC-004 jitter lesson, hardened after the
+ * 2026-08-23 CI-runner throttle incident): warmup first, then ≥5
+ * measurement rounds; the asserted statistic is the MIN of round
+ * medians — the most jitter-robust estimator for "can this machine
+ * hit the budget when not thrashed", because one clean round among
+ * throttled ones is enough to pass while sustained slowness still
+ * fails the build. Single-shot wall-clock asserts are never used.
+ * Observed p50/p99 are printed as a summary.
+ *
+ * Documented CI slack: shared runners sometimes throttle an ENTIRE
+ * test window (every round lands slow — min-of-medians cannot rescue
+ * that). `EUROPA_PERF_BUDGET_FACTOR` (read from `import.meta.env`;
+ * set via the vitest configs' `test.env`) multiplies ONLY the paint
+ * budget; client-ci.yml sets it to 2 where perf tests run. Local runs
+ * leave it unset → factor 1 → the spec budget stays strict. See spec
+ * 005 Clarifications v1.1.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -41,6 +55,25 @@ import type {
 /** Paint budget: half a 60 fps frame (16.67 ms), in milliseconds. */
 const PAINT_BUDGET_MS = 8;
 
+/** Env knob multiplying ONLY the paint budget (documented CI slack). */
+const PAINT_BUDGET_FACTOR_ENV = 'EUROPA_PERF_BUDGET_FACTOR';
+
+/**
+ * Read the paint-budget factor from `import.meta.env` (injected by
+ * the vitest configs' `test.env`; the browser has no `process`
+ * global — verified against Vitest 4.1). Defaults to 1; values below
+ * 1 are clamped so the knob can only loosen the gate, never tighten
+ * it past the spec budget.
+ */
+function readPaintBudgetFactor(): number {
+  const raw: unknown = import.meta.env[PAINT_BUDGET_FACTOR_ENV];
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    return 1;
+  }
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) && parsed > 1 ? parsed : 1;
+}
+
 /** Reducer budget per action, in milliseconds. */
 const REDUCE_BUDGET_MS = 1;
 
@@ -50,6 +83,12 @@ const PREFLIGHT_BUDGET_MS = 0.1;
 /** Board edge for the paint benchmark (32×32 = 1,024 cells). */
 const PERF_BOARD = 32;
 
+/**
+ * Minimum measurement rounds per benchmark. Fewer rounds cannot
+ * distinguish a throttled window from a genuinely slow machine.
+ */
+const MIN_ROUNDS = 5;
+
 /** Benchmark shape: warmup, then multi-round sampling. */
 interface BenchSpec {
   readonly name: string;
@@ -57,7 +96,10 @@ interface BenchSpec {
   readonly run: () => void;
   /** Untimed warmup calls before sampling. */
   readonly warmup: number;
-  /** Measurement rounds; the best round median is asserted. */
+  /**
+   * Measurement rounds (≥ {@link MIN_ROUNDS}); the asserted statistic
+   * is the MIN of the per-round medians.
+   */
   readonly rounds: number;
   /** Timed samples per round. */
   readonly samples: number;
@@ -65,8 +107,8 @@ interface BenchSpec {
 
 interface BenchResult {
   readonly name: string;
-  /** Best (minimum) round median ms per single operation. */
-  readonly bestRoundMedianMs: number;
+  /** Minimum of the per-round median ms (per single operation). */
+  readonly minRoundMedianMs: number;
   /** Overall p50 across every timed sample, ms per operation. */
   readonly p50Ms: number;
   /** Overall p99 across every timed sample, ms per operation. */
@@ -127,6 +169,12 @@ function percentile(samples: ReadonlyArray<number>, p: number): number {
  * Returns per-operation statistics.
  */
 function benchmark(spec: BenchSpec): BenchResult {
+  if (spec.rounds < MIN_ROUNDS) {
+    throw new Error(
+      `benchmark "${spec.name}": ${spec.rounds} rounds is below the ` +
+        `MIN_ROUNDS=${MIN_ROUNDS} jitter-resistance floor`,
+    );
+  }
   for (let i = 0; i < spec.warmup; i += 1) {
     spec.run();
   }
@@ -148,17 +196,17 @@ function benchmark(spec: BenchSpec): BenchResult {
   }
   return {
     name: `${spec.name} [batch=${batch}]`,
-    bestRoundMedianMs: Math.min(...roundMedians),
+    minRoundMedianMs: Math.min(...roundMedians),
     p50Ms: percentile(allSamples, 50),
     p99Ms: percentile(allSamples, 99),
   };
 }
 
-/** Assert a threshold against the best-round median with context. */
+/** Assert a threshold against the min-of-round-medians with context. */
 function expectUnderBudget(result: BenchResult, budgetMs: number): void {
   expect(
-    result.bestRoundMedianMs,
-    `${result.name}: best-round median ${result.bestRoundMedianMs.toFixed(4)}ms ` +
+    result.minRoundMedianMs,
+    `${result.name}: min-of-round-medians ${result.minRoundMedianMs.toFixed(4)}ms ` +
       `must stay under ${budgetMs}ms (p50 ${result.p50Ms.toFixed(4)}ms, ` +
       `p99 ${result.p99Ms.toFixed(4)}ms)`,
   ).toBeLessThan(budgetMs);
@@ -240,6 +288,9 @@ describe('perf budgets (T091 / SC-003)', () => {
       return;
     }
     const painter = new MapCanvas();
+    // Documented CI slack: the factor multiplies ONLY this budget
+    // (default 1 → spec budget unchanged locally).
+    const paintBudgetMs = PAINT_BUDGET_MS * readPaintBudgetFactor();
     const result = benchmark({
       name: 'paintFrame(32×32 full board)',
       run: () => painter.paint(mapView, ctx, { reducedMotion: true }),
@@ -248,10 +299,11 @@ describe('perf budgets (T091 / SC-003)', () => {
       samples: 40,
     });
     console.warn(
-      `[perf] ${result.name}: best-round-median ${result.bestRoundMedianMs.toFixed(3)}ms, ` +
-        `p50 ${result.p50Ms.toFixed(3)}ms, p99 ${result.p99Ms.toFixed(3)}ms (budget ${PAINT_BUDGET_MS}ms)`,
+      `[perf] ${result.name}: min-round-median ${result.minRoundMedianMs.toFixed(3)}ms, ` +
+        `p50 ${result.p50Ms.toFixed(3)}ms, p99 ${result.p99Ms.toFixed(3)}ms ` +
+        `(budget ${paintBudgetMs}ms)`,
     );
-    expectUnderBudget(result, PAINT_BUDGET_MS);
+    expectUnderBudget(result, paintBudgetMs);
   });
 
   it('Q-P02: reduce() stays under the 1 ms budget', { timeout: 120_000 }, () => {
@@ -271,7 +323,7 @@ describe('perf budgets (T091 / SC-003)', () => {
     });
     expect(sink).toBeGreaterThanOrEqual(0);
     console.warn(
-      `[perf] ${result.name}: best-round-median ${(result.bestRoundMedianMs * 1000).toFixed(1)}µs, ` +
+      `[perf] ${result.name}: min-round-median ${(result.minRoundMedianMs * 1000).toFixed(1)}µs, ` +
         `p50 ${(result.p50Ms * 1000).toFixed(1)}µs, p99 ${(result.p99Ms * 1000).toFixed(1)}µs ` +
         `(budget ${REDUCE_BUDGET_MS}ms)`,
     );
@@ -299,7 +351,7 @@ describe('perf budgets (T091 / SC-003)', () => {
     });
     expect(sink).toBeGreaterThanOrEqual(0);
     console.warn(
-      `[perf] ${result.name}: best-round-median ${(result.bestRoundMedianMs * 1000).toFixed(2)}µs, ` +
+      `[perf] ${result.name}: min-round-median ${(result.minRoundMedianMs * 1000).toFixed(2)}µs, ` +
         `p50 ${(result.p50Ms * 1000).toFixed(2)}µs, p99 ${(result.p99Ms * 1000).toFixed(2)}µs ` +
         `(budget ${PREFLIGHT_BUDGET_MS * 1000}µs)`,
     );
