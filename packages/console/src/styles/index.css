@@ -225,3 +225,27 @@ body {
   border-color: #f59e0b;
   box-shadow: inset 0 0 0 1px #f59e0b;
 }
+
+/*
+ * Targeting overlay (US3 T062). Ring grid drawn as two nested square
+ * outlines (ring-1 amber, ring-2 blue — matching the original's
+ * documented yellow/blue rings); the aim dot is inline-styled.
+ */
+.europa-targeting__rings {
+  outline: 1px dashed #f59e0b;
+  outline-offset: calc(-1 * var(--europa-ring-inset, 25%));
+}
+
+/* Visually hidden but screen-reader-visible (clip pattern, mirrors
+   the live-region styling for non-announcer status nodes). */
+.europa-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -26,6 +26,7 @@
  */
 
 import { localPreflightOrder } from '../state/local-preflight';
+import type { ConsoleStore } from '../state/store';
 import type {
   ConsoleState,
   Coord,
@@ -156,4 +157,40 @@ export function buildAbilityAction(args: AbilityArgs): TargetingOutcome {
  */
 export function isCursorFresh(cursorAgeMs: number | null): boolean {
   return cursorAgeMs !== null && cursorAgeMs <= CURSOR_STALE_MS;
+}
+
+/** Arguments for {@link fireAbility} (the keyboard-hook entry point). */
+export interface AbilityFireArgs {
+  /** Dispatch target + state source. */
+  readonly store: ConsoleStore;
+  /** Last-known cursor sample for the aim, or `null`. */
+  readonly cursor: CursorTarget | null;
+  /** Age of the cursor sample in ms (`null` = never moved). */
+  readonly cursorAgeMs: number | null;
+}
+
+/**
+ * Build AND dispatch one ability action against a live store
+ * (spec US3 AC-1/2). Shared implementation behind the thin
+ * `order-paratroop` / `order-gun` keyboard hooks (T063): `ok`
+ * outcomes are dispatched into the store (flowing to the order
+ * bridge as a `sendOrder` effect); every other outcome leaves the
+ * store untouched and is returned for caller-side feedback.
+ *
+ * @param kind  Which ability to fire.
+ * @param args  Store + cursor aim (see {@link AbilityFireArgs}).
+ */
+export function fireAbility(kind: AbilityKind, args: AbilityFireArgs): TargetingOutcome {
+  const state = args.store.getState();
+  const outcome = buildAbilityAction({
+    kind,
+    selection: state.selection,
+    cursor: args.cursor,
+    cursorAgeMs: args.cursorAgeMs,
+    state,
+  });
+  if (outcome.status === 'ok') {
+    args.store.dispatch(outcome.action);
+  }
+  return outcome;
 }

@@ -35,17 +35,19 @@
  */
 
 import type { JSX } from 'react';
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { OrderDraftController } from '../input/order-draft';
 import { RegionSelectController } from '../input/region-select';
+import { CURSOR_STALE_MS } from '../input/subcell-target';
 import { peekInjectedConsoleState } from '../internal/test-state';
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
-import type { ConsoleState, MapViewId } from '../state/types';
+import type { ConsoleState, CursorTarget, MapViewId } from '../state/types';
 import { OrderBar } from '../ui/order-bar';
+import { TargetingOverlay } from '../ui/targeting-overlay';
 import { MapCanvas } from './canvas';
 import { GridOverlay } from './grid-overlay';
 
@@ -67,6 +69,12 @@ export interface AppProps {
 /** Subscription shim for static boots (no store to subscribe to). */
 function noopSubscribe(): () => void {
   return () => undefined;
+}
+
+/** Last-known pointer sample kept in React state for aim display. */
+interface CursorSample {
+  readonly target: CursorTarget;
+  readonly atMs: number;
 }
 
 /**
@@ -123,25 +131,30 @@ export function App({ store, state }: AppProps): JSX.Element {
   }, [mapView]);
 
   // Hidden aria-live regions (WCAG 4.1.3 status messages). One
-  // announcer per mount; cleared on unmount.
+  // announcer per mount; cleared on unmount. Mirrored into state so
+  // the targeting overlay can share the announcement channel.
   const liveHostRef = useRef<HTMLDivElement | null>(null);
   const announcerRef = useRef<LiveRegionAnnouncer | null>(null);
+  const [announcer, setAnnouncer] = useState<LiveRegionAnnouncer | null>(null);
   useEffect(() => {
     const host = liveHostRef.current;
     if (host !== null && announcerRef.current === null) {
       announcerRef.current = new LiveRegionAnnouncer(host);
+      setAnnouncer(announcerRef.current);
     }
     return () => {
       announcerRef.current?.clear();
       announcerRef.current = null;
+      setAnnouncer(null);
     };
   }, []);
 
   // Interactive mode: pointer + keyboard input controllers. The draft
   // controller receives every cursor sample so keyboard paratroop/gun
-  // aims stay fresh (research.md §13 #3). (The US3 targeting overlay
-  // will subscribe to the same feed.)
+  // aims stay fresh (research.md §13 #3); the same feed drives the
+  // US3 targeting overlay's aim dot.
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
+  const [cursorSample, setCursorSample] = useState<CursorSample | null>(null);
   useEffect(() => {
     if (store === undefined) {
       return undefined;
@@ -154,6 +167,7 @@ export function App({ store, state }: AppProps): JSX.Element {
     const region = new RegionSelectController(boardArea, store, {
       onCursor: (target, atMs) => {
         draft.notePointer(target, atMs);
+        setCursorSample({ target, atMs });
       },
     });
     const regionHandle = region.attach();
@@ -166,6 +180,15 @@ export function App({ store, state }: AppProps): JSX.Element {
 
   const zoom = mapView?.camera.zoom ?? 32;
   const selection = resolvedState.selection;
+
+  // Aim display: the last-known cursor subcell while fresh, else the
+  // cell center ("no launch" posture). The age check reads the UI
+  // clock at render time — the sanctioned boundary (same as the
+  // store's dispatch default), never inside logic modules.
+  const aimSubcell =
+    cursorSample !== null && performance.now() - cursorSample.atMs <= CURSOR_STALE_MS
+      ? (cursorSample.target.subcell ?? { x: 0.5, y: 0.5 })
+      : { x: 0.5, y: 0.5 };
 
   return (
     <>
@@ -197,6 +220,15 @@ export function App({ store, state }: AppProps): JSX.Element {
                   ? undefined
                   : (coord) => store.dispatch({ kind: 'selectCell', cell: coord })
               }
+            />
+          ) : null}
+          {store !== undefined && mapView !== null && selection !== null ? (
+            <TargetingOverlay
+              cell={selection}
+              zoom={mapView.camera.zoom}
+              subcell={aimSubcell}
+              abilityLabel="Paratroop target"
+              announcer={announcer ?? undefined}
             />
           ) : null}
         </div>

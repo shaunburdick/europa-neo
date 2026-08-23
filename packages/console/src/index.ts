@@ -59,6 +59,8 @@ export {
   type TranslateKeyArgs,
   translateKey,
 } from './input/order-draft';
+export { fireGun } from './input/order-gun';
+export { fireParatroop } from './input/order-paratroop';
 export {
   decideRegionClick,
   type PointerButton,
@@ -72,9 +74,11 @@ export {
 export { subcellToTargetCoord, subcellToTargetOffset } from './input/subcell';
 export {
   type AbilityArgs,
+  type AbilityFireArgs,
   type AbilityKind,
   buildAbilityAction,
   CURSOR_STALE_MS,
+  fireAbility,
   isCursorFresh,
   type NoLaunchReason,
   type TargetingOutcome,
