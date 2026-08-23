@@ -44,6 +44,7 @@ import { peekInjectedConsoleState } from '../internal/test-state';
 import { HotkeyController } from '../qol/hotkeys';
 import { Minimap } from '../qol/minimap';
 import { subscribeReducedMotion } from '../qol/reduced-motion';
+import { useContainerSize } from '../qol/use-container-size';
 import { ZoomPanController } from '../qol/zoom';
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
@@ -265,6 +266,11 @@ export function App({
   const zoom = mapView?.camera.zoom ?? 32;
   const selection = resolvedState.selection;
 
+  // Real container sizing for the minimap's viewport rectangle
+  // (integration wave T-I3): without it the indicator defaults to the
+  // full board, which lies whenever the visible window is smaller.
+  const boardSize = useContainerSize(boardAreaRef);
+
   // Current reserves digit on the focused cell (drives the US4
   // panel's slider/pressed state). Unknown cells read as 0.
   const selectionReserves: ReservesPct =
@@ -342,6 +348,8 @@ export function App({
               boardHeight={mapView.height}
               camera={resolvedState.camera}
               cells={[...mapView.cells.values()]}
+              // exactOptionalPropertyTypes: only carry the size when measured.
+              {...(boardSize === null ? {} : { viewportSize: boardSize })}
               onSetCamera={(camera) => store.dispatch({ kind: 'setCamera', camera })}
             />
           ) : null}
