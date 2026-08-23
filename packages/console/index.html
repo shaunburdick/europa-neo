@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Europa Neo Console</title>
+  </head>
+  <body>
+    <!-- Skip link is the first focusable element (WCAG 2.4.1 Bypass Blocks).
+         Target `#main` is rendered by the App inside #root. -->
+    <a href="#main" class="skip-link">Skip to board</a>
+    <!-- Semantic <main> is the skip-link target host and React mount
+         point (WCAG 2.4.1 Bypass Blocks; landmark role implied). -->
+    <main id="root"></main>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

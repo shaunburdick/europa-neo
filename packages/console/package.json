@@ -1,0 +1,65 @@
+{
+  "name": "@europa/console",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Europa Neo client console — satellite-view board rendering, region-based pipe orders, subcell paratroop/gun targeting, reserves control, and modern QoL layer. React 19 SPA consuming @europa/engine, @europa/fog, @europa/terrain, and @europa/networking; server-authoritative (never simulates).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts/*": "./contracts/*.ts"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "contracts"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && tsx scripts/build-assets.ts",
+    "build:assets": "tsx scripts/build-assets.ts",
+    "test": "vitest",
+    "test:unit": "vitest run --config vitest.config.ts tests/unit",
+    "test:component": "vitest run --config vitest.config.browser.ts tests/component",
+    "test:a11y": "vitest run --config vitest.config.browser.ts tests/a11y",
+    "test:e2e": "playwright test",
+    "test:perf": "vitest run --config vitest.config.browser.ts tests/integration/perf.test.ts",
+    "test:determinism": "vitest run --config vitest.config.ts tests/integration/determinism.test.ts",
+    "test:selfhost": "bash scripts/test-selfhost.sh",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "typecheck": "tsc --noEmit",
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@europa/engine": "workspace:*",
+    "@europa/fog": "workspace:*",
+    "@europa/terrain": "workspace:*",
+    "@europa/networking": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "catalog:",
+    "@biomejs/biome": "catalog:",
+    "@playwright/test": "catalog:",
+    "@resvg/resvg-js": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/browser": "catalog:",
+    "@vitest/coverage-v8": "^4.1.11",
+    "happy-dom": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "vitest-browser-react": "catalog:"
+  }
+}

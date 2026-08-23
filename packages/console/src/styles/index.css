@@ -1,0 +1,37 @@
+/*
+ * Global styles: minimal reset + skip-link pattern.
+ *
+ * Wave 8A scaffold — the full reset + CSS variables for cell size land
+ * with Phase 3 (per data-model.md §4).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/*
+ * Visually hidden until focused (WCAG 2.4.1 Bypass Blocks): the skip
+ * link is the first focusable element on the page and becomes visible
+ * when it receives keyboard focus.
+ */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-200%);
+  padding: 0.5rem 1rem;
+  background-color: #111827;
+  color: #f9fafb;
+  z-index: 1000;
+}
+
+.skip-link:focus {
+  transform: none;
+}
