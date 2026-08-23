@@ -66,10 +66,19 @@ Programmatic surface (all on the returned handle): `subscribe`,
 source-of-truth contracts are `.specify/features/005-client-console/
 contracts/` (mirrored byte-identically under `contracts/`).
 
-### Injecting a network client
+### Network client (browser WebSocket, shipped)
 
-`@europa/networking` ships the `MatchClient` TYPE but no browser-side
-client runtime yet, so production hosts MUST inject a factory:
+The console ships a real browser client: `createWsMatchClient`
+(`src/net/ws-match-client.ts`) speaks feature 004's wire protocol over
+the native `WebSocket` API using networking's own frame codec (via the
+`@europa/networking/browser` subpath — a browser-safe export that never
+pulls in `ws`/`node:*`). It is the DEFAULT: `createConsoleClient` and
+`createConsole` connect to `client.url` with no injection required.
+Handshake (`hello`→`helloAck`), seat claim (`joinMatch`→`joinAck`),
+order acks correlated by true wire seq, heartbeat pings at half the
+server-advertised interval, and reconnect-token joins are all handled.
+
+Hosts can still swap the transport:
 
 ```ts
 createConsole(config, {
@@ -77,9 +86,21 @@ createConsole(config, {
 });
 ```
 
-Tests use the same seam with `FakeMatchClient` (`src/internal/`).
-Omitting the factory throws a descriptive construction-time error from
-the default adapter rather than failing silently on the wire.
+Tests use the same seam with `FakeMatchClient` (`src/internal/`). v1
+limitation: there is no automatic reconnection loop — a transport loss
+surfaces as the `reconnecting` status; present `reconnectToken` to
+reclaim a seat.
+
+### Full-stack proof
+
+`tests/e2e/full-stack.spec.ts` boots a real `createMatchServer` bound
+to a real `createMatchmaker` (the host-wiring recipe lives in that
+spec's `buildStack`: the server takes its matchmaker bridge via
+`ServerDeps.matchmaker`; the matchmaker hands its handlers over through
+an optional `bindMatchmaker` on the server), fills a public 2-player
+match programmatically, then drives TWO Chromium consoles through the
+real wire — ticks, orders from both seats, authoritative acks, and
+per-seat fog-filtered views.
 
 ## Architecture notes
 
@@ -103,8 +124,9 @@ the default adapter rather than failing silently on the wire.
   `orderAck` failures and get reducer feedback.
 - **Player colors**: `DEFAULT_PLAYER_COLORS` p1/p2 = red/blue-600,
   p3/p4 = emerald/amber-600 (data-model had none).
-- **Minimap**: `viewportSize` defaults to the full board until real
-  container sizing is wired.
+- **Minimap**: the viewport rectangle uses the real board-area size
+  (`useContainerSize`, ResizeObserver-driven); it falls back to the
+  full-board default only when no non-degenerate measurement exists.
 
 ## Accessibility
 
