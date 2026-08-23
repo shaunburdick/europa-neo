@@ -32,36 +32,44 @@ function recordingLogger(): Logger & { lines: string[] } {
 }
 
 describe('matchmaker — throwing stubs (later waves)', () => {
-  it('leaveMatch throws until its wave lands', () => {
+  // Wave 7C (T042): unknown MatchIds now return the uniform
+  // `match_not_found` RESULT on every operation (FR-006 single code
+  // path — see `singleCodePath.test.ts`); only a KNOWN matchId reaches
+  // the wave-tagged invariant throw pinned below.
+  it('leaveMatch throws for a known match until its wave lands', () => {
     const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server: new FakeServer() });
+    const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
+    if (!created.ok) throw new Error('fixture create failed');
     expect(() =>
       mm.leaveMatch({
-        matchId: '00000000-0000-4000-8000-000000000000' as MatchId,
+        matchId: created.data.matchId,
         sessionToken: '00000000-0000-4000-8000-000000000001' as never,
       }),
     ).toThrow(/not implemented/);
     mm.close();
   });
 
-  it('requestRematch / acceptRematch / declineRematch throw until US4', () => {
+  it('requestRematch / acceptRematch / declineRematch throw for a known match until US4', () => {
     const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server: new FakeServer() });
+    const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
+    if (!created.ok) throw new Error('fixture create failed');
     const token = '00000000-0000-4000-8000-000000000002' as never;
     expect(() =>
       mm.requestRematch({
-        matchId: '00000000-0000-4000-8000-000000000000' as MatchId,
+        matchId: created.data.matchId,
         sessionToken: token,
       }),
     ).toThrow(/not implemented/);
     expect(() =>
       mm.acceptRematch({
-        matchId: '00000000-0000-4000-8000-000000000000' as MatchId,
+        matchId: created.data.matchId,
         rematchOfferId: '00000000-0000-4000-8000-000000000003' as MatchId,
         sessionToken: token,
       }),
     ).toThrow(/not implemented/);
     expect(() =>
       mm.declineRematch({
-        matchId: '00000000-0000-4000-8000-000000000000' as MatchId,
+        matchId: created.data.matchId,
         rematchOfferId: '00000000-0000-4000-8000-000000000003' as MatchId,
         sessionToken: token,
       }),

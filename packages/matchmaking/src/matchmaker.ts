@@ -5,8 +5,10 @@
  * `contracts/matchmaking-api.ts`: `createMatch` + `joinMatch` with the
  * atomic auto-start path (US1), the synchronous public-lobby
  * projection (US2 surface, wired here because Q-M01 exercises it),
- * stats, and graceful close. Rematch (US4) and forfeit (US5) methods
- * are documented throwing stubs until their waves land.
+ * stats, and graceful close. Rematch (US4) methods are documented
+ * throwing stubs until their waves land; `leaveMatch` and the rematch
+ * trio still gate unknown MatchIds through the FR-006 single
+ * `match_not_found` code path before that stub throw (Wave 7C).
  *
  * Auto-start sequence on the last seat fill (FR-007, all inside one
  * synchronous critical section — single-threaded event loop makes it
@@ -42,6 +44,7 @@ import type {
   JoinMatchResult,
   ListPublicMatchesResult,
   LobbyEntry,
+  MatchmakerError,
   MatchmakerStats,
   MatchSettings,
   SeatAssignedResult,
@@ -332,6 +335,17 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     transitionFillingToRunning(match, engineSession, now(), bus.emit);
   }
 
+  /**
+   * The FR-006 single existence code path, shared by every operation
+   * that takes a `matchId`: an unknown id yields this exact non-leaking
+   * failure payload — never a throw, and a message that mentions
+   * neither privacy nor existence (`research.md` §2). Callers check
+   * `store.getMatch(...)` first and return this when it misses.
+   */
+  function notFoundResult(): { readonly ok: false; readonly error: MatchmakerError } {
+    return { ok: false, error: makeError('match_not_found') };
+  }
+
   // -- Public surface --------------------------------------------------------
 
   const matchmaker: Matchmaker = {
@@ -484,8 +498,17 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
       return { ok: true, data: result };
     },
 
-    leaveMatch(_req: LeaveMatchRequest): LeaveMatchResult {
-      // US1 AC-3 (seat release) lands with the lifecycle-completion wave;
+    leaveMatch(req: LeaveMatchRequest): LeaveMatchResult {
+      assertOpen();
+      // Single existence code path (FR-006 + Q2; research.md §2): an
+      // unknown MatchId gets the same non-leaking `match_not_found`
+      // RESULT as every other operation — checked BEFORE the wave gate
+      // below so the no-leak invariant holds uniformly across the whole
+      // surface, stubbed or not.
+      if (store.getMatch(req.matchId) === undefined) {
+        return notFoundResult();
+      }
+      // US3 AC-3 (seat release) lands with the lifecycle-completion wave;
       // calling it before then is an invariant violation, not an expected
       // failure — so it throws rather than returning an error result.
       throw new Error('matchmaker: leaveMatch is not implemented until the US3+ wave');
@@ -497,17 +520,34 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
       return { ok: true, matches: entries };
     },
 
-    requestRematch(_req: RequestRematchRequest): RequestRematchResult {
+    requestRematch(req: RequestRematchRequest): RequestRematchResult {
+      assertOpen();
+      // Single existence code path (FR-006 + Q2), as in `leaveMatch`.
+      if (store.getMatch(req.matchId) === undefined) {
+        return notFoundResult();
+      }
       // Phase 6 (US4 / FR-009).
       throw new Error('matchmaker: requestRematch is not implemented until the US4 wave');
     },
 
-    acceptRematch(_req: AcceptRematchRequest): AcceptRematchResult {
+    acceptRematch(req: AcceptRematchRequest): AcceptRematchResult {
+      assertOpen();
+      // Single existence code path (FR-006 + Q2), as in `leaveMatch`;
+      // only the match's existence gates here — offer validation lands
+      // with the US4 body.
+      if (store.getMatch(req.matchId) === undefined) {
+        return notFoundResult();
+      }
       // Phase 6 (US4 / FR-009).
       throw new Error('matchmaker: acceptRematch is not implemented until the US4 wave');
     },
 
-    declineRematch(_req: DeclineRematchRequest): DeclineRematchResult {
+    declineRematch(req: DeclineRematchRequest): DeclineRematchResult {
+      assertOpen();
+      // Single existence code path (FR-006 + Q2), as in `leaveMatch`.
+      if (store.getMatch(req.matchId) === undefined) {
+        return notFoundResult();
+      }
       // Phase 6 (US4 / FR-009).
       throw new Error('matchmaker: declineRematch is not implemented until the US4 wave');
     },
