@@ -14,8 +14,9 @@
  *     `noServer: true`, bound to a per-instance `http.Server` so
  *     tests can `listen({ port: 0 })`),
  *   - `MatchmakerBridge` callback dispatch (onSeatClaimed on join,
- *     onSeatDisconnected on ws close, onMatchTerminal on engine
- *     terminal; onSeatReconnected/onSeatExpired arrive in US2).
+ *     onSeatDisconnected + registry registration on ws close,
+ *     onSeatReconnected on grace-window reclaim, onSeatExpired on the
+ *     scheduler's grace sweep, onMatchTerminal on engine terminal).
  *
  * The public surface matches the contract's `Server` interface
  * (`contracts/network-api.ts`) exactly, plus an `__injectSocketForTest`
@@ -65,10 +66,13 @@ import type {
   SequenceNumber,
   SessionToken,
   TerminalPayload,
+  TickBroadcastPayload,
 } from './contracts/network-types';
 import { generateSessionToken } from './ids';
 import { MatchChannel } from './match-channel';
 import { acceptOrder, applyOrdersAtTickBoundary } from './orders';
+import { ReconnectRegistry, type ReconnectBinding } from './reconnect';
+import { ResyncBuffer } from './resync';
 import { StatsCounter } from './stats';
 import { validateVersion } from './validate';
 
@@ -172,6 +176,38 @@ export function createMatchServer(
 
   const statsCounter = new StatsCounter(Date.now());
 
+  // US2 reconnect machinery: one token→binding registry per server
+  // (tokens are globally unique), and per-channel/per-seat replay
+  // buffers. Buffers are keyed by SEAT, not connection: a seat
+  // survives disconnects, so its buffer keeps recording while no
+  // connection is attached and the reconnecting client sees exactly
+  // the stream its seat produced (fog views are seat-specific —
+  // sharing one ring across seats would leak another player's view,
+  // violating FR-005 / SC-004).
+  const reconnectRegistry = new ReconnectRegistry(config.reconnectGraceMs);
+  const resyncBuffers = new Map<MatchId, Map<PlayerId, ResyncBuffer>>();
+
+  /**
+   * Get-or-create the resync buffer for one seat.
+   *
+   * @param matchId  Owning match channel.
+   * @param playerId Seat whose boundary views are retained.
+   * @returns The seat's ring buffer.
+   */
+  function seatBuffer(matchId: MatchId, playerId: PlayerId): ResyncBuffer {
+    let perChannel = resyncBuffers.get(matchId);
+    if (!perChannel) {
+      perChannel = new Map<PlayerId, ResyncBuffer>();
+      resyncBuffers.set(matchId, perChannel);
+    }
+    let buffer = perChannel.get(playerId);
+    if (!buffer) {
+      buffer = new ResyncBuffer();
+      perChannel.set(playerId, buffer);
+    }
+    return buffer;
+  }
+
   // ------------------------------------------------------------------
   // Live gauges for stats snapshots
   // ------------------------------------------------------------------
@@ -240,6 +276,25 @@ export function createMatchServer(
         statsCounter.recordFrameSent('tick');
       }
 
+      // 3.5 Retain each seat's boundary view for reconnect resync
+      // (US2 AC-1). Seats without a live connection keep recording —
+      // their buffer must bridge the absence window on reconnect.
+      // Skipped connections (byte-identical view) recompute the same
+      // content so their ring stays dense.
+      const world = channel.engineSession.world();
+      for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
+        const seat = channel.seats.get(playerId);
+        if (!seat) {
+          continue;
+        }
+        const payload = seat.connection ? broadcast.get(seat.connection.id) : undefined;
+        const view =
+          payload && payload !== 'skip'
+            ? payload.view
+            : deps.fog.computePlayerView({ world, playerId, spectator: false });
+        seatBuffer(channel.matchId, playerId).push(channel.tickCounter, view);
+      }
+
       // 4. Terminal check (cheap post-tick status read).
       const terminal = channel.engineSession.status();
       if (terminal && !channel.terminalSent) {
@@ -255,6 +310,10 @@ export function createMatchServer(
           result: terminal,
           tick: channel.tickCounter,
         });
+        // No reconnect after terminal: drop the retained replay.
+        for (const buffer of resyncBuffers.get(channel.matchId)?.values() ?? []) {
+          buffer.clear();
+        }
       }
 
       // Heartbeat sweep: advance lastSeenAtMs for connections that
@@ -262,6 +321,24 @@ export function createMatchServer(
       for (const connection of liveConnections) {
         connection.sweep(nowMs);
       }
+    }
+
+    // Grace sweep (US2 AC-2): expire lapsed reconnect bindings, fire
+    // onSeatExpired per binding (matchmaking applies its forfeit
+    // policy), and detach the seat per the disconnect policy. Runs
+    // outside the channel loop so expiry is enforced even when every
+    // channel is already terminal.
+    for (const expired of reconnectRegistry.expireOld(nowMs)) {
+      const expiredChannel = channels.get(expired.matchId);
+      if (expiredChannel) {
+        expiredChannel.detachSeat(expired.playerId);
+        resyncBuffers.get(expired.matchId)?.get(expired.playerId)?.clear();
+      }
+      deps.matchmaker.onSeatExpired?.({
+        matchId: expired.matchId,
+        sessionToken: expired.sessionToken,
+        playerId: expired.playerId,
+      });
     }
 
     statsCounter.recordTick(Date.now() - startedAtMs);
@@ -338,6 +415,27 @@ export function createMatchServer(
     // Resolve the target seat: explicit token > requested seat > first open.
     let target: { playerId: PlayerId; token: SessionToken } | undefined;
     if (payload.reconnectToken !== undefined) {
+      // US2 reconnect path: the registry is the source of truth for
+      // seats whose connection dropped mid-match.
+      const consumed = reconnectRegistry.consume(payload.reconnectToken, Date.now());
+      if (consumed !== null) {
+        if ('expired' in consumed) {
+          connection.sendError('token_expired', 'reconnect grace window elapsed');
+          return;
+        }
+        if (consumed.matchId !== payload.matchId) {
+          // NOTE: the contract's `JoinMatchPayload` doc names
+          // `token_mismatch`, but that code is absent from the closed
+          // `ErrorCode` union — `token_invalid` is the in-contract code.
+          connection.sendError('token_invalid', 'session token belongs to a different match');
+          return;
+        }
+        restoreReconnectedSeat(connection, consumed);
+        return;
+      }
+      // Unknown to the registry → fall through to the US1 seat scan
+      // (covers tokens for seats that never disconnected, surfacing
+      // `seat_taken` for a live holder rather than a bogus miss).
       for (const seat of channel.seats.values()) {
         if (seat.sessionToken === payload.reconnectToken) {
           target = { playerId: seat.playerId, token: seat.sessionToken };
@@ -386,6 +484,74 @@ export function createMatchServer(
       sessionToken: target.token,
       playerId: target.playerId,
       role: 'player',
+    });
+  }
+
+  /**
+   * Restore a disconnected seat for a reconnecting client (US2 AC-1):
+   * re-bind the seat, transition the fresh connection to `rejoined`,
+   * send a `snapshot` envelope with the current fog-filtered
+   * PlayerView, then stream the seat's retained replay window as
+   * `tick` envelopes so the client's stream bridges the ticks its
+   * dropped connection never saw.
+   *
+   * Wire note: the contract's declared `SnapshotPayload` body is
+   * `{ world }` — shipping a raw World would leak every other seat's
+   * fog-hidden state (FR-005 / SC-004 violation). Per T039's explicit
+   * wording ("snapshot envelope with the current PlayerView") and the
+   * `JoinAckPayload.view` precedent, the snapshot envelope carries the
+   * seat's full PlayerView (TickBroadcastPayload shape). Flagged for
+   * contract clarification.
+   *
+   * @param connection The reconnecting client's fresh connection.
+   * @param binding    The consumed registry binding (seat to restore).
+   */
+  function restoreReconnectedSeat(connection: Connection, binding: ReconnectBinding): void {
+    const channel = channels.get(binding.matchId);
+    if (!channel) {
+      connection.sendError('match_not_found', `unknown match ${binding.matchId}`);
+      return;
+    }
+    const seat = channel.seats.get(binding.playerId);
+    if (!seat) {
+      connection.sendError('token_invalid', 'seat is no longer bound');
+      return;
+    }
+    if (seat.connection && seat.connection !== connection) {
+      connection.sendError('seat_taken', 'another connection holds this seat');
+      return;
+    }
+
+    channel.attachSeat(binding.playerId, binding.sessionToken, connection);
+    seat.disconnectedAtMs = null;
+    connection.markReconnected(binding.sessionToken, binding.playerId, binding.matchId);
+
+    // Snapshot first: the full current view for the restored seat.
+    const view = deps.fog.computePlayerView({
+      world: channel.engineSession.world(),
+      playerId: binding.playerId,
+      spectator: false,
+    });
+    const snapshotPayload: TickBroadcastPayload = { tick: channel.tickCounter, view };
+    connection.send(envelopeOf('snapshot', snapshotPayload));
+    statsCounter.recordFrameSent('snapshot');
+
+    // Then the retained window as tick envelopes. Every payload is a
+    // self-contained full view stamped with its own tick, so replaying
+    // history after the snapshot leaves the client consistent at the
+    // newest tick. The server cannot know the client's exact last-seen
+    // tick (`JoinMatchPayload` carries no cursor), so the whole
+    // retained window — bounded by `replayRingBufferTicks` — streams.
+    const buffer = resyncBuffers.get(binding.matchId)?.get(binding.playerId);
+    for (const entry of buffer?.getSince(0) ?? []) {
+      connection.send(envelopeOf('tick', { tick: entry.tick, view: entry.view }));
+      statsCounter.recordFrameSent('tick');
+    }
+
+    deps.matchmaker.onSeatReconnected?.({
+      matchId: binding.matchId,
+      connectionId: connection.id,
+      sessionToken: binding.sessionToken,
     });
   }
 
@@ -477,8 +643,11 @@ export function createMatchServer(
 
   /**
    * Transport-close handler: release the connection from its seat /
-   * spectator list and notify matchmaking (US2 adds grace-window
-   * reclaim on top of this).
+   * spectator list and notify matchmaking. For a seat that was live
+   * (`joined`/`rejoined`), US2 adds: stamp the disconnect time on the
+   * seat and register the token with the reconnect registry so the
+   * client can reclaim within `reconnectGraceMs` (US2 AC-1); the
+   * scheduler's grace sweep handles expiry (AC-2).
    *
    * @param connection The closed connection.
    */
@@ -492,18 +661,33 @@ export function createMatchServer(
     if (!channel || connection.sessionToken === null) {
       return;
     }
+    // Only a live seated session enters the reconnect lifecycle:
+    // `markDisconnected` transitions just `joined`/`rejoined` →
+    // `disconnected` (transport losses; server-initiated closes and
+    // post-terminal sockets are already `closed`/`terminal`).
     connection.markDisconnected();
+    const reclaimsSeat = connection.state() === 'disconnected';
+    const nowMs = Date.now(); // socket-event boundary read (sanctioned)
     const playerId = connection.playerId;
     if (playerId !== null) {
       const seat = channel.seats.get(playerId);
       if (seat && seat.connection === connection) {
         seat.connection = null;
-        seat.disconnectedAtMs = null; // grace-window stamping lands in US2
-        deps.matchmaker.onSeatDisconnected?.({
-          matchId,
-          connectionId: connection.id,
-          sessionToken: connection.sessionToken,
-        });
+        seat.disconnectedAtMs = nowMs;
+        if (reclaimsSeat) {
+          reconnectRegistry.register(
+            connection.sessionToken,
+            connection.id,
+            playerId,
+            matchId,
+            nowMs,
+          );
+          deps.matchmaker.onSeatDisconnected?.({
+            matchId,
+            connectionId: connection.id,
+            sessionToken: connection.sessionToken,
+          });
+        }
       }
     }
     if (connection.role === 'spectator') {
@@ -621,6 +805,7 @@ export function createMatchServer(
         connection.close(1001, 'match unregistered');
       }
       channels.delete(matchId);
+      resyncBuffers.delete(matchId);
     },
 
     attachPlayer(req: AttachPlayerRequest): void {
@@ -666,6 +851,7 @@ export function createMatchServer(
       }
       channels.clear();
       connections.clear();
+      resyncBuffers.clear();
       wss.close();
       await new Promise<void>((resolve) => {
         if (!httpServer || !listening) {

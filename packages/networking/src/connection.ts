@@ -285,6 +285,28 @@ export class Connection {
     }
   }
 
+  /**
+   * `greeted → rejoined`: bind seat identity on the FRESH transport a
+   * reconnecting client opens after its previous socket dropped (US2).
+   * The replacement connection arrives here through the normal hello
+   * handshake (`greeted`), so the pre-existing {@link markRejoined} —
+   * which serves a still-tracked `disconnected` record — does not
+   * apply. Ends in the same `rejoined` state the state machine
+   * reserves for post-reconnect sessions.
+   *
+   * @param token    Reclaimed seat's session token.
+   * @param playerId Restored seat.
+   * @param matchId  Match the seat belongs to.
+   */
+  markReconnected(token: SessionToken, playerId: PlayerId | null, matchId: MatchId): void {
+    if (this.st === 'greeted') {
+      this.st = 'rejoined';
+      this.sessionTokenValue = token;
+      this.playerIdValue = playerId;
+      this.matchIdValue = matchId;
+    }
+  }
+
   /** Any state → `terminal` after the match-end payload is delivered. */
   markTerminal(): void {
     if (this.st !== 'closed') {
@@ -413,7 +435,14 @@ export class Connection {
       return;
     }
     this.closed = true;
-    this.st = 'closed';
+    // A live seated session enters the reconnect lifecycle — its token
+    // stays valid until the grace window lapses (US2; wire-contract
+    // state machine: "ws disconnect → disconnected (token still
+    // valid)"). Every other state closes outright.
+    this.markDisconnected();
+    if (this.st !== 'disconnected') {
+      this.st = 'closed';
+    }
     this.onCloseFn?.(this);
   }
 
