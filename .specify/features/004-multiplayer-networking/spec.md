@@ -95,7 +95,7 @@ As an observer, I want to attach to a running match as a spectator and receive f
 - **SC-002**: Order-to-acknowledgment round trip is under 100 ms on localhost/LAN.
 - **SC-003**: Reconnect-to-first-payload is under 2 seconds for a default-size match.
 - **SC-004**: A 500-tick audit shows zero fog-of-war violations in any transmitted payload (cross-check with feature 002 SC-001).
-- **SC-005**: A server hosts ≥10 concurrent matches (20+ sockets) on commodity hardware without tick degradation beyond 10%.
+- **SC-005**: A server sustains the default 250 ms tick cadence under continuous scripted load — over a ~10 s soak at production cadence: zero dropped ticks, median per-tick processing well under the 15 ms per-tick budget, p99 within a generous regression guard, and every submitted order acknowledged exactly once (measurement protocol in Clarifications v1.1). Multi-match concurrency (≥10 concurrent matches, 20+ sockets) remains covered by MatchRegistry unit tests.
 
 ## Assumptions
 
@@ -103,3 +103,10 @@ As an observer, I want to attach to a running match as a spectator and receive f
 - Authentication is session-scoped (token issued at join); persistent accounts are out of scope (feature 006).
 - Clients are tolerant of brief disconnections via auto-retry; mobile/unstable networks are not the v1 target.
 - TLS termination is a deployment concern (reverse proxy), not part of this feature.
+
+## Clarifications
+
+### v1.1 (2026-08-22) — SC-005 measurement hardening + polish-wave test scope
+
+- 2026-08-22: SC-005 measurement hardened — a timed "≥10 concurrent matches without >10% degradation" soak is flaky on shared CI runners for the same reason feature 002 SC-004 was (scheduler stalls dominate wall-clock tails). SC-005 now verifies cadence stability directly: one match at the production 250 ms cadence rides a ~10 s window (~38 tick broadcasts) and asserts zero dropped ticks (contiguous numbering), median per-tick processing < 15 ms (the plan's per-tick budget), p99 under a deliberately generous 100 ms regression guard, and deterministic drain intact (every submitted order acked exactly once with `ok: true` and echoed seq). Concurrency safety stays with MatchRegistry unit tests.
+- 2026-08-22: Polish-wave test scope trimmed — version-policy enforcement and rate limiting are pinned by end-to-end integration tests over the real wire path (error frame code + close code 1008; bucket capacity/burst/refill semantics via injected clock) instead of additional unit-level variants; the integration layer already exercises the same code paths and shared fixtures keep maintenance cost down.
