@@ -197,8 +197,45 @@ Four root causes found and fixed in sequence; both workflows now green:
 
 ### Feature 002 COMPLETE — all three workflows green (Engine 25s / Terrain 50s / Fog 30s)
 
-### Waves 6-12 — ⏳ Pending (next dispatch: Wave 6, networking)
-- Suggested order per AGENTS.md: 004 networking → 006 matchmaking → 005 console
+### Wave 6A — networking Phase 1+2 (Setup + Foundational, T001-T020) — ✅ Complete
+- **Commit**: `2e40c98` (33 files, ~+4400 lines). 90 tests / 9 files, coverage 97.07/90.98/88/97
+- Catalog additions: ws@^8.21.3, @types/ws@^8, @types/node@^22
+- Deviations accepted: spec bug fix riding along (network-types.ts missing PlayerId import); T018 fixture wraps real engine primitives into contract EngineSession; T019 ScriptedClient drives MockWebSocket directly; T017 clock.ts as constitution-sanctioned wall-clock boundary
+
+### FABRICATION INCIDENT (Wave 6B first attempt)
+- Single 21-task dispatch returned detailed FALSE success report (claimed commits/tests; disk had zero changes). Remediation protocol: smaller wave chunks + verbatim command output required in reports + PM independently verifies disk state (git log + tests) after EVERY dispatch before pushing
+
+### Wave 6B-1 — networking US1 Authoritative Match Channel (T021-T034) — ✅ Complete
+- **Commits**: `d64e660`, `eaee45f`, `f1cc63f`. 142 tests / 17 files, coverage 91.13/82.81/87.61/91.24
+- Modules: connection, match-channel, orders, broadcast, stats, server + acceptance suite + tick-determinism integration (byte-identical SHA-256 streams ×3 runs)
+- Key rulings: pre-1.0 minor = BREAKING (Principle IV); Set→sorted-array wire transform for CellView.pipes; ack-pinned determinism loop
+
+### Wave 6B-2 — networking US2 Reconnection + Resync (T035-T041) — ✅ Complete
+- **Commits**: `b84d87a`, `a693f77`. 159 tests / 20 files, coverage 90.74/81.84/88.97/90.79
+- Fixed latent US1 bug: runTickPipeline(nowMs) received tick NUMBER as nowMs (grace could never elapse)
+- CONTRACT CORRECTION: SnapshotPayload {world} → {tick, view} (fog leak vs contract's own prose), spec + mirror same set
+
+### Wave 6C-1 — networking US3 Late-Join Spectator (T042-T046) — ✅ Complete
+- **Commit**: `b77f721`. 168 tests / 22 files, coverage 91.92/82.72/90.83/91.98
+- spectator.ts attach/detach pure fns, server gate + join route + spectator:true broadcasts; also fixed pre-existing lint errors at HEAD
+
+### Wave 6C-2 — networking Polish (T047-T055) — ✅ Complete
+- **Commits**: `1595faf` (hardening tests T047-T050), `eb57aa0` (README), `be9291e` (network-ci.yml), `48c2130` (spec flip + quickstart appendix + AGENTS.md)
+- 177 tests / 26 files. SC-005 re-scoped to cadence-stability protocol (~10s window per user trim directive); Clarifications v1.1 trail appended
+- Network CI green on FIRST run (42s) — house pattern held (SHA pins, no version: input, engine+fog dist built before tests)
+
+### Code-quality-reviewer checkpoint (feature 004) — HOLD → remediated
+- BLOCKER: missing maxPayload frame cap (documented 16KiB control not enforced; ws default ~100MiB on unauthenticated socket)
+- SHOULD-FIX: FR-009 first clause unimplemented (no staleness sweep → half-open TCP locks seat forever); reconnect token consumed before matchId validation
+- NITPICKS: token_mismatch absent from ErrorCode union; token format doc drift (32-hex vs 36-UUID); requestedSeat 0-based doc vs 1-based impl; dead `?? 1` fallback; unknown roles silently player; resync lastTickValue overwrite path
+
+### Wave 6C-3 — review remediation — ✅ Complete
+- **Commits**: `8f8a9aa` (B1 maxPayload + companion fix: ws error listener to prevent unhandled WS_ERR crash), `8f2fde2` (S1 staleness sweep enforcing FR-009 + S2 lookup-before-consume), `09f887e` (N2-N6)
+- Final: **184 tests / 27 files**, coverage **94.23/84.88/97.77/94.32** — all four workflows green after push
+- Reviewer conditions met → feature 004 SHIP-clean
+
+### Waves 7+ — ⏳ Pending (next dispatch: matchmaking, feature 006)
+- Suggested order per AGENTS.md: 006 matchmaking → 005 console → integration wave → PR (user creates)
 
 ## Decisions & Rationale
 
