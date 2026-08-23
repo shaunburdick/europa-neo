@@ -93,7 +93,7 @@ describe('single match_not_found code path on stubbed operations (FR-006 / T042)
 });
 
 describe('stub boundary stays pinned (feature bodies land in later waves)', () => {
-  it('US3+/US4: a KNOWN matchId still hits the wave-tagged invariant throw', () => {
+  it('US3+: a KNOWN matchId still hits the leaveMatch invariant throw', () => {
     const { matchmaker, knownId } = makeFixture();
 
     // The existence gate passes for the known id; the unimplemented
@@ -101,23 +101,34 @@ describe('stub boundary stays pinned (feature bodies land in later waves)', () =
     expect(() => matchmaker.leaveMatch({ matchId: knownId, sessionToken: ANY_TOKEN })).toThrow(
       /leaveMatch is not implemented/,
     );
-    expect(() => matchmaker.requestRematch({ matchId: knownId, sessionToken: ANY_TOKEN })).toThrow(
-      /requestRematch is not implemented/,
-    );
-    expect(() =>
-      matchmaker.acceptRematch({
-        matchId: knownId,
-        rematchOfferId: knownId,
-        sessionToken: ANY_TOKEN,
-      }),
-    ).toThrow(/acceptRematch is not implemented/);
-    expect(() =>
-      matchmaker.declineRematch({
-        matchId: knownId,
-        rematchOfferId: knownId,
-        sessionToken: ANY_TOKEN,
-      }),
-    ).toThrow(/declineRematch is not implemented/);
+    matchmaker.close();
+  });
+
+  it('US4: the rematch trio no longer throws — a known filling match returns rematch_not_offered', () => {
+    // Wave 7D replaced the trio's throwing stubs with real bodies; on
+    // a known match that is still `filling` (no terminal event), every
+    // member returns the RESULT-level `rematch_not_offered`.
+    const { matchmaker, knownId } = makeFixture();
+
+    const requested = matchmaker.requestRematch({ matchId: knownId, sessionToken: ANY_TOKEN });
+    expect(requested.ok).toBe(false);
+    if (!requested.ok) expect(requested.error.code).toBe('rematch_not_offered');
+
+    const accepted = matchmaker.acceptRematch({
+      matchId: knownId,
+      rematchOfferId: knownId,
+      sessionToken: ANY_TOKEN,
+    });
+    expect(accepted.ok).toBe(false);
+    if (!accepted.ok) expect(accepted.error.code).toBe('rematch_not_offered');
+
+    const declined = matchmaker.declineRematch({
+      matchId: knownId,
+      rematchOfferId: knownId,
+      sessionToken: ANY_TOKEN,
+    });
+    expect(declined.ok).toBe(false);
+    if (!declined.ok) expect(declined.error.code).toBe('rematch_not_offered');
     matchmaker.close();
   });
 });

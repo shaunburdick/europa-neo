@@ -37,6 +37,7 @@ import type {
 } from '../contracts/match-types';
 import type { MatchStatusChangedEvent } from './eventBus';
 import { createStatusBus } from './eventBus';
+import { newMatchSeed } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
 import { createMatchRecord } from './internal/matchRecord';
 import type { PlayerSession } from './internal/playerSession';
@@ -261,6 +262,9 @@ export function transitionRunningToFinished(
  * @param match - The match being torn down.
  * @param atMs - Epoch ms of the teardown.
  * @param emit - Optional event sink (FR-012).
+ * @param results - Optional terminal results to stamp before
+ *   collecting — the US5 all-forfeited teardown records a
+ *   `kind: 'cancelled'` result per data-model §4/§10.
  * @returns The same record, now `'collected'`.
  * @throws When the match is already `'collected'` (double-teardown).
  */
@@ -268,6 +272,7 @@ export function transitionToCollected(
   match: MatchRecord,
   atMs: number,
   emit?: StatusEmitter,
+  results?: MatchResultsRecord,
 ): MatchRecord {
   if (match.status === 'collected') {
     throw new Error(
@@ -276,9 +281,92 @@ export function transitionToCollected(
   }
 
   const from = match.status;
+  if (results !== undefined) {
+    match.results = results;
+  }
   match.status = 'collected';
   match.lastActivityAtMs = atMs;
 
   notify(emit, match.matchId, from, 'collected', atMs);
   return match;
+}
+
+// ----------------------------------------------------------------------------
+// Rematch creation path (T050/T052) — shares the create/fill primitives
+// ----------------------------------------------------------------------------
+
+/** One auto-seated original participant for {@linkcode createRematchMatchRecord}. */
+export interface RematchParticipant {
+  /** The participant's live ephemeral session (rebound to the new match). */
+  readonly session: PlayerSession;
+  /** Their prior seat index, preserved verbatim (US4 AC-2). */
+  readonly seatIndex: SeatIndex;
+}
+
+/** Arguments for {@linkcode createRematchMatchRecord}. */
+export interface CreateRematchMatchRecordArgs {
+  /** The resolved original match (visibility + settings are copied). */
+  readonly original: MatchRecord;
+  /** Original participants in seat order. */
+  readonly participants: ReadonlyArray<RematchParticipant>;
+  /** Epoch ms of creation. */
+  readonly nowMs: number;
+  /** Injected UUID v4 generator for the new match id (deterministic in tests). */
+  readonly randomId: () => string;
+}
+
+/**
+ * Create the rematch `MatchRecord` once every original participant
+ * accepted (FR-009 "fresh map generation once all accept" + research.md
+ * §5). Shares the exact record/seat factories of the normal create/fill
+ * path (`createMatchRecord` + `createSeatRecord`) so validation and
+ * invariants live in one place:
+ *
+ *   - new UUID v4 `MatchId` via the injected generator → fresh
+ *     `/join/<matchId>` share path (FR-009 "newly generated seed/ID/link")
+ *   - visibility + settings copied from the original (immutable)
+ *   - a fresh uint32 seed minted NOW and stored as `initialSeed`
+ *     (FR-007/FR-009): the rematch match stays in `'filling'` until its
+ *     players reconnect, so the seed cannot be minted at a later
+ *     auto-start the way first-run matches do
+ *   - each participant re-seated at their prior `seatIndex` with a NEW
+ *     session token; their session is rebound to the new match
+ *
+ * @param args - Original record, ordered participants, clock, ids.
+ * @returns The stored-shape record plus its freshly created seats.
+ */
+export function createRematchMatchRecord(args: CreateRematchMatchRecordArgs): {
+  match: MatchRecord;
+  seats: SeatRecord[];
+} {
+  const { nowMs, original, participants, randomId } = args;
+  const match = createMatchRecord({
+    matchId: randomId() as MatchId,
+    visibility: original.visibility,
+    settings: original.settings,
+    createdAtMs: nowMs,
+  });
+  match.initialSeed = newMatchSeed();
+
+  const seats: SeatRecord[] = [];
+  for (const participant of participants) {
+    const sessionToken = newSessionToken();
+    const seat = createSeatRecord({
+      seatIndex: participant.seatIndex,
+      playerSessionId: participant.session.playerSessionId,
+      displayName: participant.session.displayName,
+      sessionToken,
+      playerId: null, // finalized at the filling → running transition
+      connectedAtMs: nowMs,
+    });
+    match.seats.set(seat.seatIndex, seat);
+    seats.push(seat);
+
+    // Rebind the participant's ephemeral session to the new match.
+    participant.session.currentMatchId = match.matchId;
+    participant.session.currentSeatIndex = seat.seatIndex;
+    participant.session.currentSessionToken = sessionToken;
+  }
+
+  return { match, seats };
 }

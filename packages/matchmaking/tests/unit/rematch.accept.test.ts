@@ -119,7 +119,7 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
     scenario.matchmaker.close();
   });
 
-  it('contract: accepting after declining returns rematch_already_voted', () => {
+  it('contract: accepting after a decline is rejected — the decline resolved the offer', () => {
     const scenario = makeFinished2pScenario();
     const offerId = openOffer(scenario);
     const declined = scenario.matchmaker.declineRematch({
@@ -129,6 +129,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
     });
     expect(declined.ok).toBe(true);
 
+    // T052: a decline IMMEDIATELY transitions the original match to
+    // collected, so the later accept hits the status gate — the offer
+    // no longer exists to vote on.
     const accepted = scenario.matchmaker.acceptRematch({
       matchId: scenario.matchId,
       rematchOfferId: offerId,
@@ -136,7 +139,7 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
     });
     expect(accepted.ok).toBe(false);
     if (accepted.ok) return;
-    expect(accepted.error.code).toBe('rematch_already_voted');
+    expect(accepted.error.code).toBe('rematch_not_offered');
     scenario.matchmaker.close();
   });
 
@@ -170,7 +173,7 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
     // Custom settings prove settings parity flows through to the lobby
     // projection of the new (public, filling) match.
     const server = new FakeServer();
-    let clockMs = 5_000_000;
+    const clockMs = 5_000_000;
     const now = (): number => clockMs;
     const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server, now });
     const created = matchmaker.createMatch({

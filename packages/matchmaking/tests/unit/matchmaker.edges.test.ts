@@ -49,31 +49,35 @@ describe('matchmaker — throwing stubs (later waves)', () => {
     mm.close();
   });
 
-  it('requestRematch / acceptRematch / declineRematch throw for a known match until US4', () => {
+  it('rematch trio returns rematch_not_offered for a known filling match (US4 landed)', () => {
+    // Wave 7D (T052): the rematch bodies replaced their throwing
+    // stubs. A known match that is still `filling` carries no offer,
+    // so every trio member returns the RESULT-level
+    // `rematch_not_offered` (never a throw).
     const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server: new FakeServer() });
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
     if (!created.ok) throw new Error('fixture create failed');
-    const token = '00000000-0000-4000-8000-000000000002' as never;
-    expect(() =>
-      mm.requestRematch({
-        matchId: created.data.matchId,
-        sessionToken: token,
-      }),
-    ).toThrow(/not implemented/);
-    expect(() =>
-      mm.acceptRematch({
-        matchId: created.data.matchId,
-        rematchOfferId: '00000000-0000-4000-8000-000000000003' as MatchId,
-        sessionToken: token,
-      }),
-    ).toThrow(/not implemented/);
-    expect(() =>
-      mm.declineRematch({
-        matchId: created.data.matchId,
-        rematchOfferId: '00000000-0000-4000-8000-000000000003' as MatchId,
-        sessionToken: token,
-      }),
-    ).toThrow(/not implemented/);
+    const token = created.data.seatAssignment.sessionToken;
+    const requested = mm.requestRematch({ matchId: created.data.matchId, sessionToken: token });
+    expect(requested.ok).toBe(false);
+    if (requested.ok) return;
+    expect(requested.error.code).toBe('rematch_not_offered');
+    const accepted = mm.acceptRematch({
+      matchId: created.data.matchId,
+      rematchOfferId: '00000000-0000-4000-8000-000000000003' as MatchId,
+      sessionToken: token,
+    });
+    expect(accepted.ok).toBe(false);
+    if (accepted.ok) return;
+    expect(accepted.error.code).toBe('rematch_not_offered');
+    const declined = mm.declineRematch({
+      matchId: created.data.matchId,
+      rematchOfferId: '00000000-0000-4000-8000-000000000003' as MatchId,
+      sessionToken: token,
+    });
+    expect(declined.ok).toBe(false);
+    if (declined.ok) return;
+    expect(declined.error.code).toBe('rematch_not_offered');
     mm.close();
   });
 });

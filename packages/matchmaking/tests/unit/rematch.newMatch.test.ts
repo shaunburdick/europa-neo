@@ -19,20 +19,16 @@
  * Test descriptions cite the requirement they pin.
  */
 
-import type { MatchId, PlayerSessionId, SessionToken } from '../../contracts/match-types';
-import type { PlayerSession } from '../../src/internal/playerSession';
+import type { PlayerId } from '@europa/engine';
 import { DEFAULT_GENERATION_SETTINGS } from '@europa/terrain';
 import { describe, expect, it } from 'vitest';
+import type { MatchId, PlayerSessionId, SessionToken } from '../../contracts/match-types';
 
-import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { createMatchRecord } from '../../src/internal/matchRecord';
-import type { PlayerId } from '@europa/engine';
-import {
-  createRematchMatchRecord,
-  transitionRunningToFinished,
-} from '../../src/matchLifecycle';
-import { makeFinished2pScenario } from '../fixtures/rematchScenario';
+import type { PlayerSession } from '../../src/internal/playerSession';
 import { createSeatRecord } from '../../src/internal/seatRecord';
+import { createRematchMatchRecord, transitionRunningToFinished } from '../../src/matchLifecycle';
+import { makeFinished2pScenario } from '../fixtures/rematchScenario';
 
 const ORIGINAL_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' as MatchId;
 const ORIGINAL_SEED = 123456789;
@@ -112,6 +108,9 @@ function makeOriginalFixture(nowMs: number): {
       connectedAtMs: nowMs - 1000,
     }),
   );
+  // White-box: place the record in `running` so the legal
+  // running → finished transition can stamp the finish fields.
+  record.status = 'running';
   transitionRunningToFinished(record, RESULTS_STUB, nowMs);
   return { record, alice, bob };
 }

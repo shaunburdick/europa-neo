@@ -20,11 +20,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { MatchId, SessionToken } from '../../contracts/match-types';
+import type { SessionToken } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
+import { createMatchmaker } from '../../src/matchmaker';
+import { FakeServer } from '../fixtures/fakeServer';
 import { makeFinished2pScenario } from '../fixtures/rematchScenario';
 
-const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000' as MatchId;
 const FOREIGN_TOKEN = '22222222-2222-4222-8222-222222222222' as SessionToken;
 
 describe('requestRematch opens the window on a finished match (FR-008 / FR-009 / T047)', () => {

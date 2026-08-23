@@ -16,9 +16,9 @@
 import { describe, expect, it } from 'vitest';
 
 import type { MatchId, SeatAssignment } from '../../contracts/match-types';
+import type { Matchmaker } from '../../contracts/matchmaking-api';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { createMatchmaker } from '../../src/matchmaker';
-import type { Matchmaker } from '../../contracts/matchmaking-api';
 import { FakeServer } from '../fixtures/fakeServer';
 import { makeFinished2pScenario } from '../fixtures/rematchScenario';
 
@@ -33,7 +33,7 @@ interface RunningScenario {
 
 /** Build a running 1v1 fixture with a controllable fake clock. */
 function makeRunning2pFixture(): RunningScenario {
-  let clockMs = 2_000_000;
+  const clockMs = 2_000_000;
   const now = (): number => clockMs;
   const server = new FakeServer({ now });
   const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server, now });

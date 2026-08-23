@@ -89,6 +89,14 @@ export interface MatchRecord {
   rematch: RematchOffer | null;
   /** Live engine session; non-null iff `running` or `finished`. */
   engineSession: EngineSession | null;
+  /**
+   * Seed minted for this match. `null` for normal creates until
+   * auto-start mints one; set at creation time for rematch matches
+   * (FR-009 "fresh map generation once all accept" — the rematch
+   * match sits in `filling`, so its seed cannot ride a later
+   * `registerMatch` call). Additive internal field (US4).
+   */
+  initialSeed: number | null;
   /** Epoch ms of the last state-changing op; drives empty-match TTL. */
   lastActivityAtMs: number;
   /** Stable shareable path `/join/<matchId>`; immutable. */
@@ -132,6 +140,7 @@ export function createMatchRecord(args: CreateMatchRecordArgs): MatchRecord {
     results: null,
     rematch: null,
     engineSession: null,
+    initialSeed: null,
     lastActivityAtMs: createdAtMs,
     joinPath: `/join/${matchId}`,
   };

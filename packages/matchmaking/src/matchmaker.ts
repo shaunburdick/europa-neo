@@ -33,10 +33,10 @@
 
 import { randomUUID } from 'node:crypto';
 
+import type { MatchResult } from '@europa/engine';
 import { createRng } from '@europa/engine';
 import type { Logger, MatchmakerBridge, Server, SessionToken } from '@europa/networking';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
-
 import type {
   CreateMatchRequest,
   CreateMatchResult,
@@ -44,6 +44,7 @@ import type {
   JoinMatchResult,
   ListPublicMatchesResult,
   LobbyEntry,
+  MatchId,
   MatchmakerError,
   MatchmakerStats,
   MatchSettings,
@@ -76,10 +77,21 @@ import { listPublicMatches as projectLobby } from './lobby';
 import {
   addSeatToFillingMatch,
   createMatchRecordWithCreator,
+  createRematchMatchRecord,
   createStatusBus,
   toPlayerId,
   transitionFillingToRunning,
+  transitionRunningToFinished,
+  transitionToCollected,
 } from './matchLifecycle';
+import {
+  castAcceptVote,
+  castDeclineVote,
+  classifyVoterEligibility,
+  isWindowClosed,
+  openRematchWindow,
+} from './rematch';
+import { buildMatchResultsRecord } from './results';
 import type { MatchmakerStore } from './store';
 import { createStore } from './store';
 
@@ -214,6 +226,11 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
   let closed = false;
   let totalCreated = 0;
+  let totalFinished = 0; // US4 terminal handler
+  let totalCollected = 0; // decline / expiry sweep / all-accept / forfeit teardown
+  let totalRematchAccepted = 0; // accept votes cast (US4)
+  let totalRematchDeclined = 0; // decline votes cast (US4)
+  const totalForfeits = 0; // seats forfeited via onSeatExpired (US5)
 
   /** Invariant guard: the matchmaker is unusable after `close()`. */
   function assertOpen(): void {
@@ -240,8 +257,8 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     onSeatReconnected: () => {},
     /** Applies the forfeit policy in Phase 7 (US5 / FR-010). */
     onSeatExpired: () => {},
-    /** Drives running → finished + rematch window in Phase 6 (US4). */
-    onMatchTerminal: () => {},
+    /** Records results + transitions running → finished (US4 / FR-008). */
+    onMatchTerminal: handleMatchTerminal,
   };
 
   /**
@@ -294,10 +311,14 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
   /**
    * The US1 auto-start critical section (FR-007). Runs synchronously
    * inside `joinMatch` once the last seat is taken; see the module
-   * doc for the exact call order.
+   * doc for the exact call order. Rematch-created matches carry a
+   * pre-minted `initialSeed` (FR-009); normal creates mint theirs
+   * here — both store it back on the record so a match has exactly
+   * one seed for its lifetime.
    */
   function autoStart(match: MatchRecord): void {
-    const seed = newMatchSeed();
+    const seed = match.initialSeed ?? newMatchSeed();
+    match.initialSeed = seed;
     const engineConfig = buildMatchConfig(match.settings, seed);
     const rng = rngFactory(seed);
 
@@ -344,6 +365,79 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
    */
   function notFoundResult(): { readonly ok: false; readonly error: MatchmakerError } {
     return { ok: false, error: makeError('match_not_found') };
+  }
+
+  /**
+   * Find the seat bound to a session token within one match, or
+   * `undefined` when the token matches nothing (the caller decides
+   * which non-leaking error that becomes).
+   */
+  function findSeatByToken(match: MatchRecord, token: SessionToken) {
+    for (const seat of match.seats.values()) {
+      if (seat.sessionToken === token) {
+        return seat;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * The US4 terminal handler (FR-008): transition `running → finished`
+   * and store the engine-reported result as the match's
+   * `MatchResultsRecord`. The rematch window itself opens lazily on
+   * the first `requestRematch`, but its deadline is anchored at this
+   * transition's `finishedAtMs` (T047).
+   */
+  function handleMatchTerminal(event: {
+    matchId: MatchId;
+    result: MatchResult;
+    tick: number;
+  }): void {
+    const match = store.getMatch(event.matchId);
+    if (match === undefined || match.status !== 'running' || match.engineSession === null) {
+      // Defensive: terminal events only make sense for running matches.
+      logger.warn('matchmaker: ignoring onMatchTerminal for non-running match', {
+        matchId: event.matchId,
+      });
+      return;
+    }
+    const results = buildMatchResultsRecord({
+      matchId: event.matchId,
+      world: match.engineSession.world(),
+      result: event.result,
+      seats: match.seats,
+    });
+    transitionRunningToFinished(match, results, now(), bus.emit);
+    totalFinished += 1;
+    logger.info('matchmaker: match finished', { matchId: event.matchId });
+  }
+
+  /**
+   * Lazy expiry sweep (FR-009 + dispatch ruling 1): collect every
+   * `finished` match whose open rematch window lapsed unresolved.
+   * Invoked from read paths (`stats`, `listPublicMatches`) with the
+   * injected clock — NO timers inside matchmaking logic; real
+   * scheduling belongs to the host integration wave. Mutators handle
+   * their own inline window checks so they can still return
+   * `rematch_window_closed` before a sweep would erase the offer.
+   *
+   * @param atMs - Current injected-clock reading.
+   * @returns How many matches were collected by this sweep.
+   */
+  function sweepExpiredRematches(atMs: number): number {
+    let swept = 0;
+    for (const m of store.listMatches()) {
+      const offer = m.rematch;
+      if (m.status === 'finished' && offer !== null && isWindowClosed(offer, atMs)) {
+        transitionToCollected(m, atMs, bus.emit);
+        totalCollected += 1;
+        swept += 1;
+        logger.info('matchmaker: rematch window expired; match collected', {
+          matchId: m.matchId,
+        });
+      }
+    }
+    return swept;
   }
 
   // -- Public surface --------------------------------------------------------
@@ -516,6 +610,8 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
     listPublicMatches(): ListPublicMatchesResult {
       assertOpen();
+      // Read paths drive the lazy rematch-expiry sweep (no timers).
+      sweepExpiredRematches(now());
       const entries: ReadonlyArray<LobbyEntry> = projectLobby(store.listMatches(), now());
       return { ok: true, matches: entries };
     },
@@ -523,36 +619,200 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     requestRematch(req: RequestRematchRequest): RequestRematchResult {
       assertOpen();
       // Single existence code path (FR-006 + Q2), as in `leaveMatch`.
-      if (store.getMatch(req.matchId) === undefined) {
+      const match = store.getMatch(req.matchId);
+      if (match === undefined) {
         return notFoundResult();
       }
-      // Phase 6 (US4 / FR-009).
-      throw new Error('matchmaker: requestRematch is not implemented until the US4 wave');
+      // US4 AC-1: only a finished match carries a rematch offer.
+      if (match.status !== 'finished') {
+        return { ok: false, error: makeError('rematch_not_offered') };
+      }
+      const seat = findSeatByToken(match, req.sessionToken);
+      if (seat === undefined) {
+        return { ok: false, error: makeError('session_invalid') };
+      }
+
+      const existing = match.rematch;
+      if (existing !== null) {
+        // Contract idempotency: an unvoted repeat request returns the
+        // existing offer; a voted one is rejected (rematch_already_voted).
+        const eligibility = classifyVoterEligibility(existing, seat.playerSessionId);
+        if (eligibility === 'already_voted') {
+          return { ok: false, error: makeError('rematch_already_voted') };
+        }
+        if (isWindowClosed(existing, now())) {
+          return { ok: false, error: makeError('rematch_window_closed') };
+        }
+        return { ok: true, rematchOfferId: existing.offerId };
+      }
+
+      // First request opens the window; the deadline anchors at the
+      // finish time (T047), so a late first caller can still find the
+      // window already closed.
+      const offer = openRematchWindow(
+        match,
+        randomId() as MatchId,
+        now(),
+        resolved.rematchWindowMs,
+      );
+      if (isWindowClosed(offer, now())) {
+        return { ok: false, error: makeError('rematch_window_closed') };
+      }
+      match.rematch = offer;
+      logger.info('matchmaker: rematch window opened', { matchId: req.matchId });
+      return { ok: true, rematchOfferId: offer.offerId };
     },
 
     acceptRematch(req: AcceptRematchRequest): AcceptRematchResult {
       assertOpen();
-      // Single existence code path (FR-006 + Q2), as in `leaveMatch`;
-      // only the match's existence gates here — offer validation lands
-      // with the US4 body.
-      if (store.getMatch(req.matchId) === undefined) {
+      // Single existence code path (FR-006 + Q2), as in `leaveMatch`.
+      const match = store.getMatch(req.matchId);
+      if (match === undefined) {
         return notFoundResult();
       }
-      // Phase 6 (US4 / FR-009).
-      throw new Error('matchmaker: acceptRematch is not implemented until the US4 wave');
+      // A swept/collected or running match offers nothing to accept.
+      if (match.status !== 'finished') {
+        return { ok: false, error: makeError('rematch_not_offered') };
+      }
+      const offer = match.rematch;
+      if (offer === null || req.rematchOfferId !== offer.offerId) {
+        return { ok: false, error: makeError('rematch_not_offered') };
+      }
+      const seat = findSeatByToken(match, req.sessionToken);
+      if (seat === undefined) {
+        return { ok: false, error: makeError('session_invalid') };
+      }
+      // T053 — forfeited-participant exclusion (spec edge case "What
+      // happens when a rematch participant has left?"): a forfeited
+      // seat's holder, or one whose session was GC'd, cannot vote.
+      if (seat.forfeitedAtMs !== null || store.getSession(seat.playerSessionId) === undefined) {
+        return { ok: false, error: makeError('session_invalid') };
+      }
+      const voterId = seat.playerSessionId;
+      const eligibility = classifyVoterEligibility(offer, voterId);
+      if (eligibility === 'not_in_match') {
+        return { ok: false, error: makeError('player_not_in_match') };
+      }
+      if (eligibility === 'already_voted') {
+        return { ok: false, error: makeError('rematch_already_voted') };
+      }
+      if (isWindowClosed(offer, now())) {
+        return { ok: false, error: makeError('rematch_window_closed') };
+      }
+
+      const { allAccepted } = castAcceptVote(offer, voterId);
+      totalRematchAccepted += 1;
+      if (!allAccepted) {
+        return { ok: true, allAccepted: false };
+      }
+
+      // US4 AC-2 resolution: every original participant accepted.
+      // Create the new match via the shared record factory (PM ruling
+      // 2): same visibility + settings, fresh MatchId + seed + tokens,
+      // participants auto-seated at their prior seatIndex. The new
+      // match stays in `filling` until its players reconnect (Q-M05);
+      // auto-start ownership belongs to the host integration wave.
+      const participants = [...match.seats.values()]
+        .sort((a, b) => a.seatIndex - b.seatIndex)
+        .map((s) => {
+          const session = store.getSession(s.playerSessionId);
+          if (session === undefined) {
+            throw new Error(
+              `matchmaker: original session ${s.playerSessionId} missing at rematch resolution`,
+            );
+          }
+          return { session, seatIndex: s.seatIndex };
+        });
+      const atMs = now();
+      const { match: newMatch, seats: newSeats } = createRematchMatchRecord({
+        original: match,
+        participants,
+        nowMs: atMs,
+        randomId,
+      });
+      store.putMatch(newMatch);
+      totalCreated += 1;
+      bus.emit({ matchId: newMatch.matchId, from: null, to: 'filling', atMs });
+
+      offer.newMatchRecord = newMatch;
+
+      // The original match is resolved → collected (data-model §4:
+      // finished → collected on "rematch resolved").
+      transitionToCollected(match, atMs, bus.emit);
+      totalCollected += 1;
+
+      // The completing voter receives their fresh seat assignment.
+      const callerSeat = newSeats.find((s) => s.seatIndex === seat.seatIndex);
+      if (callerSeat === undefined) {
+        throw new Error('matchmaker: caller seat missing in rematch match');
+      }
+      logger.info('matchmaker: rematch accepted; new match created', {
+        matchId: req.matchId,
+        newMatchId: newMatch.matchId,
+      });
+      return {
+        ok: true,
+        allAccepted: true,
+        newMatchId: newMatch.matchId,
+        newSeatAssignment: seatAssignmentFor(
+          callerSeat.seatIndex,
+          callerSeat.playerSessionId,
+          callerSeat.sessionToken as SessionToken,
+          callerSeat.displayName,
+        ),
+      };
     },
 
     declineRematch(req: DeclineRematchRequest): DeclineRematchResult {
       assertOpen();
       // Single existence code path (FR-006 + Q2), as in `leaveMatch`.
-      if (store.getMatch(req.matchId) === undefined) {
+      const match = store.getMatch(req.matchId);
+      if (match === undefined) {
         return notFoundResult();
       }
-      // Phase 6 (US4 / FR-009).
-      throw new Error('matchmaker: declineRematch is not implemented until the US4 wave');
+      if (match.status !== 'finished') {
+        return { ok: false, error: makeError('rematch_not_offered') };
+      }
+      const offer = match.rematch;
+      if (offer === null || req.rematchOfferId !== offer.offerId) {
+        return { ok: false, error: makeError('rematch_not_offered') };
+      }
+      const seat = findSeatByToken(match, req.sessionToken);
+      if (seat === undefined) {
+        return { ok: false, error: makeError('session_invalid') };
+      }
+      if (seat.forfeitedAtMs !== null || store.getSession(seat.playerSessionId) === undefined) {
+        return { ok: false, error: makeError('session_invalid') };
+      }
+      const voterId = seat.playerSessionId;
+      const eligibility = classifyVoterEligibility(offer, voterId);
+      if (eligibility === 'not_in_match') {
+        return { ok: false, error: makeError('player_not_in_match') };
+      }
+      if (eligibility === 'already_voted') {
+        return { ok: false, error: makeError('rematch_already_voted') };
+      }
+      if (isWindowClosed(offer, now())) {
+        return { ok: false, error: makeError('rematch_window_closed') };
+      }
+
+      castDeclineVote(offer, voterId);
+      totalRematchDeclined += 1;
+      // Any decline resolves the offer immediately (US4 AC-2): the
+      // original match transitions to collected; no new match.
+      transitionToCollected(match, now(), bus.emit);
+      totalCollected += 1;
+      logger.info('matchmaker: rematch declined; match collected', {
+        matchId: req.matchId,
+      });
+      return { ok: true };
     },
 
     stats(): MatchmakerStats {
+      // Read paths drive the lazy rematch-expiry sweep (no timers).
+      // No `assertOpen` here: stats stays readable after close()
+      // (pre-existing behavior pinned by earlier suites).
+      sweepExpiredRematches(now());
       const matches = store.listMatches();
       const sessions = store.listSessions();
       let filling = 0;
@@ -586,11 +846,11 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         publicJoinableMatches: publicJoinable,
         activePlayerSessions: sessions.filter((s) => s.currentMatchId !== null).length,
         totalCreated,
-        totalFinished: 0, // incremented by the US4 terminal handler
-        totalCollected: 0, // incremented by the sweep/teardown wave
-        totalForfeits: 0, // incremented by the US5 forfeit handler
-        totalRematchAccepted: 0, // US4
-        totalRematchDeclined: 0, // US4
+        totalFinished,
+        totalCollected,
+        totalForfeits,
+        totalRematchAccepted,
+        totalRematchDeclined,
         uptimeMs: now() - constructedAtMs,
       });
     },
