@@ -37,15 +37,9 @@
 
 import { type FocusDirection, KeyboardNavigator } from '../a11y/keyboard';
 import type { ConsoleStore } from '../state/store';
-import type {
-  ConsoleState,
-  Coord,
-  CursorTarget,
-  Direction,
-  PlayerAction,
-  ReservesPct,
-} from '../state/types';
+import type { ConsoleState, Coord, CursorTarget, Direction, PlayerAction } from '../state/types';
 import { DEFAULT_INPUT_MAPPING } from '../state/types';
+import { buildReservesAction, type ReservesOutcome } from './order-reserves';
 import { pipePresentInDirection } from './region-select';
 import { type AbilityKind, buildAbilityAction, type TargetingOutcome } from './subcell-target';
 
@@ -157,19 +151,11 @@ export function translateKey(args: TranslateKeyArgs): DraftOutcome {
     return outcomeToDraft(outcome);
   }
 
-  // --- Reserves digits 0-9 (10×digit percent) ---
-  const reservePercent = lookupReservePercent(normalized);
-  if (reservePercent !== null) {
-    if (!state.inputEnabled) {
-      return { kind: 'ignore', reason: 'not-live' };
-    }
-    if (state.selection === null) {
-      return { kind: 'ignore', reason: 'no-selection' };
-    }
-    return {
-      kind: 'action',
-      action: { kind: 'setReserves', cell: state.selection, percent: reservePercent },
-    };
+  // --- Reserves digits 0-9 (10×digit percent) — delegated to the
+  // --- dedicated US4 module (T070); `null` = not a reserve key.
+  const reservesOutcome = buildReservesAction(state, normalized);
+  if (reservesOutcome !== null) {
+    return outcomeToDraft(reservesOutcome);
   }
 
   // --- Escape cancels: clear the selection (local-only) ---
@@ -195,15 +181,29 @@ export function translateKey(args: TranslateKeyArgs): DraftOutcome {
   return { kind: 'ignore', reason: 'unbound-key' };
 }
 
-/** Convert a targeting outcome into a draft outcome (no information loss). */
-function outcomeToDraft(outcome: TargetingOutcome): DraftOutcome {
-  switch (outcome.status) {
-    case 'ok':
+/**
+ * Convert a targeting or reserves outcome into a draft outcome (no
+ * information loss). The two unions use different discriminants
+ * (`status` vs `kind`), so they are narrowed structurally first.
+ */
+function outcomeToDraft(outcome: TargetingOutcome | ReservesOutcome): DraftOutcome {
+  if ('status' in outcome) {
+    switch (outcome.status) {
+      case 'ok':
+        return { kind: 'action', action: outcome.action };
+      case 'no_launch':
+        return { kind: 'ignore', reason: 'no-launch' };
+      case 'rejected':
+        return { kind: 'ignore', reason: 'preflight-rejected', detail: outcome.reason };
+      default:
+        return outcome satisfies never;
+    }
+  }
+  switch (outcome.kind) {
+    case 'action':
       return { kind: 'action', action: outcome.action };
-    case 'no_launch':
-      return { kind: 'ignore', reason: 'no-launch' };
-    case 'rejected':
-      return { kind: 'ignore', reason: 'preflight-rejected', detail: outcome.reason };
+    case 'ignore':
+      return { kind: 'ignore', reason: outcome.reason };
     default:
       return outcome satisfies never;
   }
@@ -248,18 +248,6 @@ function lookupAbility(key: string): AbilityKind | null {
     return 'gun';
   }
   return null;
-}
-
-/**
- * Resolve a digit to its reserves percent (10×digit, engine
- * `ReservesPct` domain 0..9). Returns `null` for non-digits. Pure.
- */
-function lookupReservePercent(key: string): ReservesPct | null {
-  const index = DEFAULT_INPUT_MAPPING.reserveKeys.indexOf(key);
-  if (index < 0) {
-    return null;
-  }
-  return index as ReservesPct;
 }
 
 /** Arrow-key → focus-direction mapping (KeyboardNavigator alphabet). */

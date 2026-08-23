@@ -2,7 +2,15 @@
   "root": false,
   "extends": ["../../biome.json"],
   "files": {
-    "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "!contracts"]
+    "includes": [
+      "src/**",
+      "tests/**",
+      "scripts/**",
+      "*.ts",
+      "*.json",
+      "!contracts",
+      "!test-results"
+    ]
   },
   "linter": {
     "rules": {

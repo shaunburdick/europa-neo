@@ -22,7 +22,8 @@
  * §2 (Canvas 2D decision).
  */
 
-import type { CellRenderInfo, MapEffect, MapLabel, MapView } from '../state/types';
+import type { CellRenderInfo, MapEffect, MapView } from '../state/types';
+import { drawMapLabels } from './label-overlay';
 import {
   CAPTURE_EFFECT_COLOR,
   CHIP_BACKGROUND,
@@ -92,10 +93,10 @@ export class MapCanvas {
       this.drawEffect(ctx, effect, zoom);
     }
 
-    // Pass 5: transient labels ("70%" reserve confirmations).
-    for (const label of mapView.labels) {
-      this.drawLabel(ctx, label, zoom);
-    }
+    // Pass 5: transient labels ("70%" reserve confirmations) — the
+    // chip painter lives in label-overlay.ts (T071) so US5's
+    // transient-feedback surfaces reuse the identical style.
+    drawMapLabels(ctx, mapView.labels, zoom);
 
     // Pass 6: hover highlight + selection focus ring on top so they
     // never disappear under units/pipes (WCAG 2.4.7 visual target).
@@ -220,23 +221,6 @@ export class MapCanvas {
       ctx.fillRect(effect.cell.x * zoom, effect.cell.y * zoom, zoom, zoom);
     }
     ctx.restore();
-  }
-
-  /** Draw a transient text label with a dark chip backing. */
-  private drawLabel(ctx: CanvasRenderingContext2D, label: MapLabel, zoom: number): void {
-    const fontSize = Math.max(10, Math.round(zoom * 0.3));
-    ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const metrics = ctx.measureText(label.text);
-    const chipWidth = metrics.width + fontSize * 0.6;
-    const chipHeight = fontSize * 1.3;
-    const chipX = label.cell.x * zoom + zoom / 2 - chipWidth / 2;
-    const chipY = label.cell.y * zoom;
-    ctx.fillStyle = CHIP_BACKGROUND;
-    ctx.fillRect(chipX, chipY, chipWidth, chipHeight);
-    ctx.fillStyle = CHIP_TEXT;
-    ctx.fillText(label.text, label.cell.x * zoom + zoom / 2, chipY + chipHeight / 2);
   }
 
   /** Stroke a rectangle around a cell (hover/focus indicators). */

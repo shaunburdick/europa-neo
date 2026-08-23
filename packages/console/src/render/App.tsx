@@ -45,11 +45,13 @@ import { peekInjectedConsoleState } from '../internal/test-state';
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
-import type { ConsoleState, CursorTarget, MapViewId } from '../state/types';
+import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
 import { OrderBar } from '../ui/order-bar';
+import { ReservesPanel } from '../ui/reserves-panel';
 import { TargetingOverlay } from '../ui/targeting-overlay';
 import { MapCanvas } from './canvas';
 import { GridOverlay } from './grid-overlay';
+import { liveLabels, nextLabelExpiryMs } from './label-overlay';
 
 /** Props for {@link App}. */
 export interface AppProps {
@@ -88,9 +90,15 @@ export function App({ store, state }: AppProps): JSX.Element {
     store ? store.getState : (): ConsoleState => fallbackState,
   );
 
-  // Derive the per-frame snapshot (data-model.md §2). nowMs is pinned
-  // to 0 because transient TTL expiry is enforced by the reducer/runtime
-  // (Phase 8); the MVP paints whatever the current snapshot carries.
+  // Derive the per-frame snapshot (data-model.md §2). The previous
+  // committed snapshot feeds `prevView` so the diff machinery
+  // (changedThisTick) and the transient "%" labels (US4) activate on
+  // real changes; the ref is updated post-commit (never during
+  // render) so StrictMode double-invocations stay consistent. nowMs
+  // is read at this UI boundary (sanctioned clock, same as the
+  // store's dispatch default); expiry enforcement happens in the
+  // paint path via liveLabels.
+  const lastMapViewRef = useRef<MapView | null>(null);
   const mapView = useMemo(() => {
     const view = resolvedState.latestView;
     if (view === null) {
@@ -103,10 +111,32 @@ export function App({ store, state }: AppProps): JSX.Element {
       hover: resolvedState.hover,
       selection: resolvedState.selection,
       exclusiveMode: resolvedState.exclusiveMode,
-      prevView: null,
-      nowMs: 0,
+      prevView: lastMapViewRef.current,
+      nowMs: performance.now(),
     });
   }, [resolvedState]);
+  useEffect(() => {
+    lastMapViewRef.current = mapView;
+  }, [mapView]);
+
+  // Label expiry scheduler (T071): when a label is live, schedule a
+  // repaint at its deadline so the chip disappears on time even with
+  // no further state changes. Re-armed whenever the label set changes.
+  const [labelEpoch, setLabelEpoch] = useState(0);
+  const labels = mapView?.labels ?? [];
+  useEffect(() => {
+    const expiryMs = nextLabelExpiryMs(labels, performance.now());
+    if (expiryMs === null) {
+      return undefined;
+    }
+    const remaining = Math.max(0, expiryMs - performance.now());
+    const timer = window.setTimeout(() => {
+      setLabelEpoch((epoch) => epoch + 1);
+    }, remaining + 1);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [labels]);
 
   // Canvas visual layer: size the bitmap to the board and paint the
   // current snapshot synchronously on change (rAF loop = Phase 8).
@@ -127,8 +157,13 @@ export function App({ store, state }: AppProps): JSX.Element {
     if (ctx === null) {
       return;
     }
-    mapCanvasRef.current?.paint(mapView, ctx);
-  }, [mapView]);
+    // Expired labels never reach the pixels (T071 lifecycle).
+    const frame: MapView = {
+      ...mapView,
+      labels: liveLabels(mapView.labels, performance.now()),
+    };
+    mapCanvasRef.current?.paint(frame, ctx);
+  }, [mapView, labelEpoch]);
 
   // Hidden aria-live regions (WCAG 4.1.3 status messages). One
   // announcer per mount; cleared on unmount. Mirrored into state so
@@ -180,6 +215,15 @@ export function App({ store, state }: AppProps): JSX.Element {
 
   const zoom = mapView?.camera.zoom ?? 32;
   const selection = resolvedState.selection;
+
+  // Current reserves digit on the focused cell (drives the US4
+  // panel's slider/pressed state). Unknown cells read as 0.
+  const selectionReserves: ReservesPct =
+    (selection !== null && resolvedState.latestView !== null
+      ? resolvedState.latestView.visibleCells.find(
+          (c) => c.coord.x === selection.x && c.coord.y === selection.y,
+        )?.reservesPercent
+      : undefined) ?? 0;
 
   // Aim display: the last-known cursor subcell while fresh, else the
   // cell center ("no launch" posture). The age check reads the UI
@@ -254,6 +298,40 @@ export function App({ store, state }: AppProps): JSX.Element {
               : () => store.dispatch({ kind: 'clearAllPipes', cell: selection })
           }
         />
+        {store !== undefined && selection !== null ? (
+          <ReservesPanel
+            cell={selection}
+            currentPercent={selectionReserves}
+            disabled={!resolvedState.inputEnabled}
+            onSetReserves={(percent) =>
+              store.dispatch({ kind: 'setReserves', cell: selection, percent })
+            }
+          />
+        ) : null}
+        {/* FR-007 feedback surface: the reducer's confirmation queue
+            rendered as transient toasts. The polite live region makes
+            every confirmation audible without moving focus (Q-A05). */}
+        <section id="feedback" aria-label="Order feedback" className="europa-feedback">
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            data-europa-live="polite"
+            className="europa-visually-hidden"
+          >
+            {resolvedState.feedback.map((message) => message.text).join('. ')}
+          </div>
+          <ul className="europa-feedback__list">
+            {resolvedState.feedback.map((message) => (
+              <li
+                key={message.id}
+                className={`europa-feedback__item europa-feedback__item--${message.kind}`}
+              >
+                {message.text}
+              </li>
+            ))}
+          </ul>
+        </section>
       </main>
       <div ref={liveHostRef} />
     </>
