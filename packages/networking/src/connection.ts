@@ -57,6 +57,13 @@ export interface ConnectionSocket {
   on(event: 'message', handler: (data: string) => void): unknown;
   /** Subscribe to transport close. */
   on(event: 'close', handler: (code: number, reason: string) => void): unknown;
+  /**
+   * Subscribe to transport-level errors (connection reset, oversized-
+   * frame rejection, protocol violations surfaced by the underlying
+   * WebSocket implementation). Subscribers MUST observe every error:
+   * an unhandled `'error'` event on a WebSocket crashes the process.
+   */
+  on(event: 'error', handler: (error: Error) => void): unknown;
 }
 
 /** Rate-limit construction parameters (see `NETWORK_CONSTANTS`). */

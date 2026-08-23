@@ -45,7 +45,7 @@ import { WebSocketServer, type WebSocket as WsWebSocket } from 'ws';
 import { buildTickBroadcast, sendTickBroadcast } from './broadcast';
 import { createTickClock } from './clock';
 import { Connection, type ConnectionSocket } from './connection';
-import { NETWORK_API_VERSION } from './constants';
+import { NETWORK_API_VERSION, NETWORK_CONSTANTS } from './constants';
 import type {
   AttachPlayerRequest,
   DetachRequest,
@@ -116,9 +116,13 @@ class WsSocketAdapter implements ConnectionSocket {
   /** Subscribe to text frames / transport close (ws semantics). */
   on(event: 'message', handler: (data: string) => void): unknown;
   on(event: 'close', handler: (code: number, reason: string) => void): unknown;
+  on(event: 'error', handler: (error: Error) => void): unknown;
   on(
-    event: 'message' | 'close',
-    handler: ((data: string) => void) | ((code: number, reason: string) => void),
+    event: 'message' | 'close' | 'error',
+    handler:
+      | ((data: string) => void)
+      | ((code: number, reason: string) => void)
+      | ((error: Error) => void),
   ): unknown {
     if (event === 'message') {
       // Safe: the overload contract guarantees a message handler here.
@@ -128,12 +132,16 @@ class WsSocketAdapter implements ConnectionSocket {
           onMessage(data.toString());
         }
       });
-    } else {
+    } else if (event === 'close') {
       // Safe: the overload contract guarantees a close handler here.
       const onClose = handler as (code: number, reason: string) => void;
       this.socket.on('close', (code) => {
         onClose(code, '');
       });
+    } else {
+      // Safe: the overload contract guarantees an error handler here.
+      const onError = handler as (error: Error) => void;
+      this.socket.on('error', onError);
     }
     return this.socket;
   }
@@ -175,6 +183,12 @@ export function createMatchServer(
 ): Server & {
   /** Test seam: attach a mock socket without opening a port. @internal */
   readonly __injectSocketForTest: (socket: ConnectionSocket) => Connection;
+  /**
+   * Test seam: the actual bound TCP port after {@link Server.listen}
+   * (undefined before listen / after close). Lets integration tests
+   * drive REAL sockets against the ephemeral port. @internal
+   */
+  readonly __boundPortForTest: () => number | undefined;
 } {
   const channels = new Map<MatchId, MatchChannel>();
   const connections = new Map<ConnectionId, Connection>();
@@ -747,6 +761,13 @@ export function createMatchServer(
     perMessageDeflate: false,
     clientTracking: true,
     noServer: true,
+    // B1 (review): cap inbound frames at the documented 16 KiB limit.
+    // Without `maxPayload`, `ws` buffers up to ~100 MiB per frame on
+    // unauthenticated sockets before any JSON.parse — a trivial
+    // memory-exhaustion DoS. Oversized frames are rejected by the
+    // transport itself (close 1009) and never reach the protocol
+    // layer. See NETWORK_CONSTANTS.defaultMaxFrameBytes.
+    maxPayload: NETWORK_CONSTANTS.defaultMaxFrameBytes,
   });
 
   wss.on('connection', (socket: WsWebSocket) => {
@@ -771,6 +792,18 @@ export function createMatchServer(
       },
       onEnvelope: handleEnvelope,
       onClose: handleDisconnect,
+    });
+    // Transport-error observer (review B1 companion): oversized-frame
+    // rejections, resets, and protocol violations surface here. ws
+    // tears the socket down itself and the 'close' event then drives
+    // the normal lifecycle — this handler exists so the event is
+    // never left unhandled (an unhandled 'error' on a WebSocket
+    // crashes the process) and so the failure is observable.
+    socket.on('error', (error: Error) => {
+      deps.logger.warn('socket transport error', {
+        connectionId: connection.id,
+        message: error.message,
+      });
     });
     connections.set(connection.id, connection);
     return connection;
@@ -915,5 +948,10 @@ export function createMatchServer(
     },
 
     __injectSocketForTest: (socket: ConnectionSocket) => attachConnection(socket),
+
+    __boundPortForTest: () => {
+      const address = httpServer?.address();
+      return typeof address === 'object' && address !== null ? address.port : undefined;
+    },
   };
 }

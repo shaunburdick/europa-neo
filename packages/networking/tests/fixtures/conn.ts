@@ -74,6 +74,8 @@ export class MockWebSocket {
   readonly sentFrames: Array<ProtocolEnvelope<NetworkPayload>> = [];
   /** Recorded close calls (at most one entry — close is idempotent). */
   readonly closes: CloseRecord[] = [];
+  /** Recorded transport errors (emitted only when a test drives them). */
+  readonly errors: Error[] = [];
   /** Whether the socket is open. Flips false on first `close()`. */
   isOpen = true;
 
@@ -116,6 +118,7 @@ export class MockWebSocket {
    *
    * @overload on(event: 'message', handler: MessageHandler): this
    * @overload on(event: 'close', handler: CloseHandler): this
+   * @overload on(event: 'error', handler: (error: Error) => void): this
    *
    * @param event   Event name.
    * @param handler Callback.
@@ -123,6 +126,7 @@ export class MockWebSocket {
    */
   on(event: 'message', handler: MessageHandler): this;
   on(event: 'close', handler: CloseHandler): this;
+  on(event: 'error', handler: (error: Error) => void): this;
   on(event: string, handler: (...args: unknown[]) => void): this {
     this.events.on(event, handler);
     return this;
