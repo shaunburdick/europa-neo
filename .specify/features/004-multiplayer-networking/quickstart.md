@@ -542,8 +542,11 @@ describe('Q-N10 — schema versioning', () => {
 
 **Pass criteria**:
 - Major-version mismatch → `error.code = 'version_mismatch'`, ws close 1008.
-- Minor/patch drift → accepted; server responds with its current
-  `NETWORK_API_VERSION` in `helloAck`.
+- Pre-1.0 minor drift (e.g., `0.1.0` client ↔ `0.2.0` server) → also
+  rejected: pre-1.0 minors are the breaking boundary (Clarifications
+  v1.1 ruling, implemented in Wave 6B-1).
+- Patch drift within a minor (`0.1.x` ↔ `0.1.y`) → accepted; server
+  responds with its current `NETWORK_API_VERSION` in `helloAck`.
 
 ---
 
@@ -566,3 +569,46 @@ All scenarios run under `pnpm -F @europa/networking test quickstart/`.
 The full suite (unit + fixtures + quickstart + determinism +
 conformance + perf) must pass with coverage ≥80% before phase 6
 completes.
+
+---
+
+## Validation results (Phase 6 polish, 2026-08-22)
+
+The scenario files referenced above (`tests/quickstart/Q-N*.test.ts`)
+were written as **illustrative pseudo-code** during planning; the
+shipped suite covers every scenario by meaning, organized by test
+layer instead of one-file-per-scenario (see deviations below). Final
+mapping of each Q-N item to its covering suites:
+
+| Scenario | Covered by |
+|----------|------------|
+| Q-N01 two-player match | `tests/integration/us1-acceptance.test.ts` — real server, both players hello/join/order, tick broadcasts with per-player fog views |
+| Q-N02 disconnect mid-match | `tests/unit/server.test.ts` ("transport close releases the seat and fires onSeatDisconnected") + `tests/integration/us2-acceptance.test.ts` (match continues; survivor keeps ticking) |
+| Q-N03 reconnect within grace | `tests/integration/us2-acceptance.test.ts` — token reclaim inside the grace window, resync snapshot + replay, expiry path |
+| Q-N04 terminal match | `tests/unit/server.test.ts` ("terminal results fan out once per connection and fire onMatchTerminal exactly once") |
+| Q-N05 determinism (SC-001) | `tests/integration/tick-determinism.test.ts` — scripted match replayed byte-for-byte |
+| Q-N06 invalid order rejected | `tests/unit/orders.test.ts` (validation + spectator_readonly) + `tests/unit/server.test.ts` (protocol sequence errors) |
+| Q-N07 rate limit | `tests/integration/rate-limit.test.ts` (wire-level burst: capacity, rejects, canonical drain) + `tests/unit/orders.test.ts` (bucket refill semantics) |
+| Q-N08 spectator join + read-only | `tests/integration/us3-acceptance.test.ts` (+ `tests/unit/spectator.test.ts`, gate tests in `unit/server.test.ts`) |
+| Q-N09 concurrent matches (SC-005) | `tests/unit/server.test.ts` (registry caps) + `tests/integration/perf.test.ts` sustained-cadence soak — measurement protocol per spec Clarifications v1.1 |
+| Q-N10 version policy | `tests/integration/version-mismatch.test.ts` (+ unit coverage in `unit/validate.test.ts`, `unit/server.test.ts`) |
+
+Plus cross-cutting enforcement not in the original table:
+`tests/contracts-conformance.test.ts` (byte-identity of contract
+mirrors, engine/fog type conformance, union exhaustiveness).
+
+**Deviations from this document as planned**:
+
+1. The per-scenario quickstart files were never created; coverage is
+   by meaning across unit/integration layers (rationale in spec
+   Clarifications v1.1). The fixture APIs shown in the snippets above
+   (`tests/fixtures/clients.ts`, `matchmakerSpy.ts`) are illustrative;
+   the real equivalents are `tests/fixtures/conn.ts`,
+   `tests/fixtures/match.ts`, and `tests/integration/harness.ts`.
+2. Q-N10's original pass criteria accepted minor drift; the shipped
+   policy (PM ruling, Wave 6B-1) treats pre-1.0 minors as breaking.
+   Corrected in place above.
+3. Q-N09's timed "≥10 concurrent matches without >10% degradation"
+   soak was replaced by the SC-005 sustained-cadence protocol (flaky
+   on shared CI runners); concurrency safety stays with registry unit
+   tests. See spec Clarifications v1.1.
