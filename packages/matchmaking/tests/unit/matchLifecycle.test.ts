@@ -8,31 +8,27 @@
  *
  * Test descriptions cite the requirement they pin.
  */
-
 import type { EngineSession, MatchId } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_MATCH_SETTINGS, type MatchResultsRecord } from '../../../contracts/match-types';
-import type { PlayerSessionId, SeatIndex, SessionToken } from '../../../contracts/match-types';
+import { DEFAULT_MATCH_SETTINGS, type MatchResultsRecord } from '../../contracts/match-types';
+import { createPlayerSession } from '../../src/internal/playerSession';
 import {
   addSeatToFillingMatch,
   createMatchRecordWithCreator,
   createStatusBus,
+  type MatchStatusChangedEvent,
+  toPlayerId,
   transitionFillingToRunning,
   transitionRunningToFinished,
   transitionToCollected,
-  type MatchStatusChangedEvent,
 } from '../../src/matchLifecycle';
-import { createPlayerSession } from '../../src/internal/playerSession';
 
-/** Deterministic id/token/clock fixtures — no CSPRNG, no wall clock. */
+/** Deterministic id/clock fixtures — no CSPRNG, no wall clock. */
 let seq = 0;
 function fakeRandomId(): string {
   seq += 1;
   return `00000000-0000-4000-8000-${String(seq).padStart(12, '0')}`;
-}
-function fakeToken(): SessionToken {
-  return fakeRandomId() as SessionToken;
 }
 
 /** Opaque session handle: lifecycle code stores it but never calls it. */
@@ -55,19 +51,24 @@ function stubEngineSession(): EngineSession {
 }
 
 /** A filling match with a seated creator (via the real T027 factory). */
-function makeFillingMatch() {
+function makeFillingMatch(): {
+  match: ReturnType<typeof createMatchRecordWithCreator>['match'];
+  creatorSeat: ReturnType<typeof createMatchRecordWithCreator>['creatorSeat'];
+  creator: ReturnType<typeof createPlayerSession>;
+} {
   const creator = createPlayerSession({
     displayName: 'Alice',
     randomId: fakeRandomId,
     now: () => 1_000,
   });
-  return createMatchRecordWithCreator({
+  const created = createMatchRecordWithCreator({
     settings: DEFAULT_MATCH_SETTINGS,
     visibility: 'public',
     creator,
     nowMs: 1_000,
     randomId: fakeRandomId,
   });
+  return { match: created.match, creatorSeat: created.creatorSeat, creator };
 }
 
 describe('createStatusBus', () => {
@@ -92,11 +93,37 @@ describe('createStatusBus', () => {
 
     expect(seen).toHaveLength(0);
   });
+
+  it('FR-012: unsubscribing twice is a safe no-op', () => {
+    const bus = createStatusBus();
+    const seen: MatchStatusChangedEvent[] = [];
+    const stop = bus.subscribe((event) => seen.push(event));
+
+    stop();
+    stop(); // second call must not throw or double-splice
+
+    bus.emit({ matchId: 'm1' as MatchId, from: null, to: 'filling', atMs: 5 });
+    expect(seen).toHaveLength(0);
+  });
+});
+
+describe('toPlayerId', () => {
+  it('accepts every valid engine player id', () => {
+    expect(toPlayerId(1)).toBe(1);
+    expect(toPlayerId(2)).toBe(2);
+    expect(toPlayerId(3)).toBe(3);
+    expect(toPlayerId(4)).toBe(4);
+  });
+
+  it('throws on values outside the 1..4 engine contract', () => {
+    expect(() => toPlayerId(0)).toThrow(/outside 1\.\.4/);
+    expect(() => toPlayerId(5)).toThrow(/outside 1\.\.4/);
+  });
 });
 
 describe('createMatchRecordWithCreator', () => {
   it('FR-002/FR-004: creates a filling record with the creator in seat 0', () => {
-    const { match, creatorSeat } = makeFillingMatch();
+    const { match, creatorSeat, creator } = makeFillingMatch();
 
     expect(match.status).toBe('filling');
     expect(match.visibility).toBe('public');
@@ -264,7 +291,10 @@ describe('transitionRunningToFinished', () => {
       bus.emit,
     );
 
-    expect(seen.map((e) => `${e.from}->${e.to}`)).toEqual(['filling->running', 'running->finished']);
+    expect(seen.map((e) => `${e.from}->${e.to}`)).toEqual([
+      'filling->running',
+      'running->finished',
+    ]);
   });
 
   it('data-model §4: throws when skipping running (filling → finished is illegal)', () => {

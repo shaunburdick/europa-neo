@@ -19,7 +19,7 @@
  * Pure module apart from the CSPRNG call: no I/O, no clock reads.
  */
 
-import { randomUUID } from 'node:crypto';
+import { getRandomValues, randomUUID } from 'node:crypto';
 
 import type { MatchId } from '@europa/networking';
 
@@ -80,4 +80,36 @@ export function newPlayerSessionId(): PlayerSessionId {
  */
 export function isValidMatchId(s: string): boolean {
   return UUID_V4_REGEX.test(s);
+}
+
+/**
+ * Extract the seed from a filled uint32 buffer. Split out from
+ * {@linkcode newMatchSeed} so the defensive empty-buffer fallback is a
+ * pure, deterministically testable function (an in-range TypedArray
+ * index can never be `undefined` at runtime, so the fallback branch
+ * is unreachable through the CSPRNG path alone).
+ *
+ * @param values - Buffer to read from.
+ * @returns The first element, or `0` for an empty buffer.
+ */
+export function matchSeedFrom(values: Uint32Array): number {
+  return values[0] ?? 0;
+}
+
+/**
+ * Mint a fresh uint32 match seed (research.md §9): the entropy input
+ * for terrain board generation and the engine's sfc32 PRNG (FR-007:
+ * the map is generated when the last seat fills; FR-009: rematches
+ * get a fresh seed).
+ *
+ * Determinism discipline (constitution Principle II): this is a
+ * sanctioned entropy boundary, exactly like `randomUUID` above — the
+ * seed is an identity-grade input minted once per match. Everything
+ * downstream of it (board generation, ticks) is fully deterministic
+ * given the seed, which is what SC-001 requires.
+ *
+ * @returns An unsigned 32-bit integer in `[0, 2^32)`.
+ */
+export function newMatchSeed(): number {
+  return matchSeedFrom(getRandomValues(new Uint32Array(1)));
 }

@@ -96,8 +96,11 @@ export {
 
 export { makeError } from './errors';
 
-export { isValidMatchId, newMatchId, newPlayerSessionId } from './idGen';
-
+export { isValidMatchId, newMatchId, newMatchSeed, newPlayerSessionId } from './idGen';
+/**
+ * Phase 3 (US1): the runtime matchmaker. Re-exported here so the host
+ * binary has one import path, per the Phase 2 barrel plan (T019).
+ */
+export { createMatchmaker } from './matchmaker';
 export { isValidSessionToken, newSessionToken } from './sessionToken';
-
 export { createStore } from './store';

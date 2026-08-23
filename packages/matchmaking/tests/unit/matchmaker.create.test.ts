@@ -12,10 +12,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-
-import { createMatchmaker } from '../../src/matchmaker';
+import type { MatchVisibility } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
-import type { MatchVisibility } from '../../../contracts/match-types';
+import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
 
 describe('createMatch — happy path', () => {

@@ -11,9 +11,13 @@
 
 import type { MatchId } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
-
-import { DEFAULT_MATCH_SETTINGS } from '../../../contracts/match-types';
-import type { MatchVisibility, PlayerSessionId, SeatIndex, SessionToken } from '../../../contracts/match-types';
+import type {
+  MatchVisibility,
+  PlayerSessionId,
+  SeatIndex,
+  SessionToken,
+} from '../../contracts/match-types';
+import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import { createMatchRecord, type MatchRecord } from '../../src/internal/matchRecord';
 import { createSeatRecord } from '../../src/internal/seatRecord';
 import { listPublicMatches, projectLobbyEntry } from '../../src/lobby';
@@ -87,6 +91,13 @@ describe('projectLobbyEntry', () => {
     collected.status = 'collected';
     expect(projectLobbyEntry(finished, 2_000)).toBeNull();
     expect(projectLobbyEntry(collected, 2_000)).toBeNull();
+  });
+
+  it('FR-005: refuses to project a public filling match with no host seat', () => {
+    // Defensive path: seat 0 is populated atomically at creation, so a
+    // hostless record can only exist through external corruption.
+    const match = makeMatch('public', 0);
+    expect(projectLobbyEntry(match, 2_000)).toBeNull();
   });
 });
 

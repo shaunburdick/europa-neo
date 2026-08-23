@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MATCHMAKING_CONSTANTS, MATCHMAKING_DEFAULT_CONFIG } from '../../src/constants';
 import { makeError } from '../../src/errors';
-import { isValidMatchId, newMatchId, newPlayerSessionId } from '../../src/idGen';
+import { isValidMatchId, matchSeedFrom, newMatchId, newPlayerSessionId } from '../../src/idGen';
 import * as publicApi from '../../src/index';
 import { createMatchRecord } from '../../src/internal/matchRecord';
 import { createPlayerSession } from '../../src/internal/playerSession';
@@ -220,6 +220,18 @@ describe('internal record factories', () => {
     expect(seat.connectedAtMs).toBe(7_000);
     expect(seat.disconnectedAtMs).toBeNull();
     expect(seat.forfeitedAtMs).toBeNull();
+  });
+});
+
+describe('matchSeedFrom', () => {
+  it('reads the first uint32 of a filled buffer', () => {
+    const buffer = new Uint32Array(1);
+    buffer[0] = 42;
+    expect(matchSeedFrom(buffer)).toBe(42);
+  });
+
+  it('falls back to 0 for an empty buffer (defensive)', () => {
+    expect(matchSeedFrom(new Uint32Array(0))).toBe(0);
   });
 });
 
