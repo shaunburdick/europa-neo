@@ -72,8 +72,12 @@ export function newPlayerSessionId(): PlayerSessionId {
 
 /**
  * Check whether a string has the UUID v4 shape required of every
- * `MatchId`. Used to reject malformed ids at the boundary with the
- * single `match_not_found` code path (no existence leak, FR-006).
+ * `MatchId` (public validation utility, exported for hosts and tooling
+ * that want to short-circuit malformed ids before hitting the
+ * matchmaker). The matchmaker itself treats ids as opaque — unknown
+ * ids (malformed or merely unknown) all resolve through the single
+ * non-leaking `match_not_found` code path (FR-006), so nothing in this
+ * package calls this today.
  *
  * @param s - The candidate string.
  * @returns `true` iff `s` is a well-formed hyphenated v4 UUID.

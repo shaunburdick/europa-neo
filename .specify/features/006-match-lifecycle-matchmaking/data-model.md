@@ -212,13 +212,12 @@ export type SeatIndex = number; // 0..(playerCount - 1); integer
 | `sessionToken`    | `SessionToken`                        | UUID v4                           | Networking-bound (FR-003 of feature 004 boundary) |
 | `playerId`        | `PlayerId \| null`                    | non-null iff `status === 'running'` | Engine PlayerId (1..playerCount) |
 | `connectedAtMs`   | `number`                              | epoch ms                          | Set at attachPlayer |
-| `disconnectedAtMs`| `number \| null`                      | epoch ms; set on `onSeatDisconnected`; cleared on reconnect | For grace window |
 | `forfeitedAtMs`   | `number \| null`                      | epoch ms; set on `onSeatExpired`  | Terminal for the seat |
 
 ### Validation rules
 
 - `playerId` is assigned when the match transitions to `running` (atomic with `server.attachPlayer`).
-- `disconnectedAtMs` is set by the matchmaker on `onSeatDisconnected`; the actual grace timer is in networking (the matchmaker just records the timestamp for `MatchResultsRecord` consistency).
+- Disconnect/reconnect state is NOT recorded on `SeatRecord`: networking owns the grace window on its own seat records and reports only the expiry (`onSeatExpired`) across the bridge; `onSeatDisconnected`/`onSeatReconnected` are deliberate no-ops in the matchmaker.
 - `forfeitedAtMs` is set by the matchmaker on `onSeatExpired` (see `forfeit.ts`); the seat is surrendered to the engine via `OrderSurrender`.
 
 ### Relationships

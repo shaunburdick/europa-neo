@@ -6,7 +6,9 @@
  * atomic auto-start path (US1), the synchronous public-lobby
  * projection (US2 surface, wired here because Q-M01 exercises it),
  * stats, and graceful close. Rematch (US4) and forfeit (US5) are
- * wired; Phase 8 adds the lazy empty-match GC sweep (FR-011).
+ * wired; Phase 8 adds the lazy empty-match GC sweep (FR-011); review
+ * remediation adds the results-TTL sweep for finished matches (FR-011
+ * second clause).
  *
  * Auto-start sequence on the last seat fill (FR-007, all inside one
  * synchronous critical section — single-threaded event loop makes it
@@ -202,9 +204,9 @@ function resolveSettings(
 /**
  * Construct a `Matchmaker` instance (see `contracts/matchmaking-api.ts`
  * for the full contract doc and example). No timers are started:
- * both lazy sweeps (rematch-window expiry, FR-009; empty-match GC,
- * FR-011) run on read paths with the injected clock — real
- * scheduling belongs to the host integration wave.
+ * all lazy sweeps (rematch-window expiry FR-009; results-TTL and
+ * empty-match GC FR-011) run on read paths with the injected clock —
+ * real scheduling belongs to the host integration wave.
  *
  * @param config - Matchmaker-wide configuration; omitted knobs fall
  *   back to `MATCHMAKING_CONSTANTS`.
@@ -249,11 +251,23 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
   /** Handlers the matchmaker owns; networking invokes them. */
   const bridgeHandlers: MatchmakerBridge = {
-    /** Wired with forfeit handling in Phase 7 (US5). */
+    /**
+     * No matchmaking state changes on a seat claim — networking owns
+     * connection lifecycle. Kept as an explicit hook for future waves.
+     */
     onSeatClaimed: () => {},
-    /** Recorded for reconnect-grace bookkeeping in Phase 7 (US5). */
+    /**
+     * Intentionally a no-op: the reconnect grace window lives entirely
+     * in networking (its own seat records time the disconnect). The
+     * matchmaker learns of trouble only when networking reports the
+     * grace expiry via {@linkcode bridgeHandlers.onSeatExpired}.
+     */
     onSeatDisconnected: () => {},
-    /** Cancels pending forfeit state in Phase 7 (US5). */
+    /**
+     * Intentionally a no-op: a reconnect cancels the grace timer
+     * inside networking, so there is nothing for the matchmaker to
+     * undo (no pending forfeit state exists on this side).
+     */
     onSeatReconnected: () => {},
     /**
      * Applies the forfeit policy (US5 / FR-010) via `forfeit.ts`
@@ -392,6 +406,9 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
    */
   function findSeatByToken(match: MatchRecord, token: SessionToken) {
     for (const seat of match.seats.values()) {
+      // Plain `===` is fine here (documented accepted risk, mirroring
+      // networking's ids.ts): tokens are 122-bit CSPRNG v4 outputs, so
+      // a timing oracle leaks nothing an attacker doesn't already hold.
       if (seat.sessionToken === token) {
         return seat;
       }
@@ -505,14 +522,68 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
   }
 
   /**
-   * Run both lazy sweeps against one clock reading. The single place
-   * read paths hook into GC so ordering stays fixed (rematch expiry
-   * first — it may resolve offers on matches the empty-match sweep
-   * would never touch — then empty-match collection).
+   * Lazy results-TTL sweep (FR-011 second clause, data-model §4):
+   * collect every `finished` match whose `resultsTtlMs` grace period
+   * has elapsed since `finishedAtMs` — regardless of whether a rematch
+   * offer is attached. This is the no-leak backstop for matches that
+   * finished with NO `requestRematch`: without it they would stay
+   * `'finished'` forever and each would hold a slot against
+   * `maxConcurrentMatches` until restart. Before collecting, each
+   * seated player's ephemeral session is deleted (same discipline as
+   * {@linkcode sweepStaleEmptyMatches}: identity-guarded, actual
+   * removal per SC-005).
+   *
+   * Runs AFTER {@linkcode sweepExpiredRematches} so an open rematch
+   * window that lapses unresolved is resolved by the more specific
+   * sweep first; by then this sweep's TTL condition is equally true
+   * (both anchor at `finishedAtMs`, default TTLs coincide), so
+   * behavior for offered matches is unchanged.
+   *
+   * Invoked from read paths with the injected clock — NO timers inside
+   * matchmaking logic (same lazy pattern as the sibling sweeps).
+   *
+   * @param atMs - Current injected-clock reading.
+   * @returns How many matches were collected by this sweep.
+   */
+  function sweepFinishedResultsTtl(atMs: number): number {
+    let swept = 0;
+    for (const m of store.listMatches()) {
+      if (m.status !== 'finished' || m.finishedAtMs === null) {
+        continue;
+      }
+      if (atMs - m.finishedAtMs < resolved.resultsTtlMs) {
+        continue;
+      }
+      // Release participants' sessions before collecting: the seats
+      // die with the match. The identity guard skips any session that
+      // has already moved on to a different match (defensive).
+      for (const seat of m.seats.values()) {
+        const session = store.getSession(seat.playerSessionId);
+        if (session !== undefined && session.currentMatchId === m.matchId) {
+          store.deleteSession(seat.playerSessionId);
+        }
+      }
+      transitionToCollected(m, atMs, bus.emit);
+      totalCollected += 1;
+      swept += 1;
+      logger.info('matchmaker: results TTL elapsed; match collected', {
+        matchId: m.matchId,
+      });
+    }
+    return swept;
+  }
+
+  /**
+   * Run all lazy sweeps against one clock reading. The single place
+   * read paths hook into GC so ordering stays fixed: rematch-window
+   * expiry first (it may resolve offers on matches the other sweeps
+   * would never touch), then results-TTL collection, then empty-match
+   * collection.
    */
   function runLazySweeps(): void {
     const atMs = now();
     sweepExpiredRematches(atMs);
+    sweepFinishedResultsTtl(atMs);
     sweepStaleEmptyMatches(atMs);
   }
 
@@ -612,6 +683,9 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
       // non-leaking `match_not_found`; known token → the seat is bound.
       if (req.reconnectToken !== undefined) {
         for (const seat of match.seats.values()) {
+          // Plain `===` is fine here (documented accepted risk, as in
+          // `findSeatByToken`): 122-bit CSPRNG v4 tokens make a timing
+          // oracle worthless.
           if (seat.sessionToken === req.reconnectToken) {
             return { ok: false, error: makeError('seat_taken') };
           }

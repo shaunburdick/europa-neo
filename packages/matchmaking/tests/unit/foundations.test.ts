@@ -206,7 +206,7 @@ describe('internal record factories', () => {
     expect(session.lastSeenAtMs).toBe(10);
   });
 
-  it('creates a seat record with clean disconnect/forfeit state', () => {
+  it('creates a seat record with clean forfeit state', () => {
     const seat = createSeatRecord({
       seatIndex: 1,
       playerSessionId: newPlayerSessionId(),
@@ -218,7 +218,6 @@ describe('internal record factories', () => {
     expect(seat.seatIndex).toBe(1);
     expect(seat.playerId).toBeNull();
     expect(seat.connectedAtMs).toBe(7_000);
-    expect(seat.disconnectedAtMs).toBeNull();
     expect(seat.forfeitedAtMs).toBeNull();
   });
 });

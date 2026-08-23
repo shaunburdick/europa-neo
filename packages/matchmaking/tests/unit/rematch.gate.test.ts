@@ -108,16 +108,44 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
     scenario.matchmaker.close();
   });
 
-  it('FR-009: the sweep only touches matches with OPEN offers', () => {
-    const scenario = makeFinished2pScenario();
+  it('FR-009/FR-011: the rematch sweep skips offer-less matches; results TTL collects them', () => {
+    // Distinct TTLs isolate the two sweeps: the rematch-window expiry
+    // sweep only touches matches with OPEN offers; an offer-less
+    // finished match is the results-TTL sweep's job (FR-011 second
+    // clause) once `resultsTtlMs` elapses past `finishedAtMs`.
+    let clockMs = 3_000_000;
+    const now = (): number => clockMs;
+    const server = new FakeServer({ now });
+    const config = {
+      ...MATCHMAKING_CONSTANTS,
+      rematchWindowMs: 1_000,
+      resultsTtlMs: 5_000,
+    };
+    const mm = createMatchmaker(config, { server, now });
+    const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
+    if (!created.ok) throw new Error('fixture create failed');
+    const joined = mm.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
+    if (!joined.ok) throw new Error('fixture join failed');
+    server.fireOnMatchTerminal({
+      matchId: created.data.matchId,
+      result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
+      tick: 42,
+    });
 
-    scenario.advanceMs(MATCHMAKING_CONSTANTS.rematchWindowMs + 1);
-    // Nobody ever requested — no offer exists, so nothing is swept; the
-    // finished match holds until its own resolution path lands.
-    const stats = scenario.matchmaker.stats();
-    expect(stats.finishedMatches).toBe(1);
-    expect(stats.collectedMatches).toBe(0);
-    scenario.matchmaker.close();
+    // Past the (short) rematch window with NO offer ever opened: the
+    // rematch sweep has nothing to touch, and the results TTL has not
+    // elapsed yet — the match is still finished.
+    clockMs += config.rematchWindowMs + 1;
+    const midStats = mm.stats();
+    expect(midStats.finishedMatches).toBe(1);
+    expect(midStats.collectedMatches).toBe(0);
+
+    // At the results TTL the backstop sweep collects it.
+    clockMs += config.resultsTtlMs - config.rematchWindowMs - 1;
+    const swept = mm.stats();
+    expect(swept.finishedMatches).toBe(0);
+    expect(swept.collectedMatches).toBe(1);
+    mm.close();
   });
 
   it('spec edge case: a forfeited participant cannot accept — session_invalid', () => {

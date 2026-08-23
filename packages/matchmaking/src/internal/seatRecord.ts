@@ -3,8 +3,10 @@
  *
  * Per `data-model.md` §7. One occupied seat inside a `MatchRecord`:
  * carries the matchmaking-issued credentials (`playerSessionId`,
- * `sessionToken`) plus the lifecycle timestamps networking events
- * stamp (disconnect, forfeit).
+ * `sessionToken`) plus the lifecycle timestamps the matchmaker stamps
+ * (claim, forfeit). Disconnect/reconnect state is NOT tracked here —
+ * networking owns the grace window on its own seat records and
+ * reports only the expiry (`onSeatExpired`) across the bridge.
  *
  * @internal Exported for testability only; not part of the public
  * surface re-exported through the package barrel.
@@ -37,8 +39,6 @@ export interface SeatRecord {
   playerId: PlayerId | null;
   /** Epoch ms the seat was claimed. */
   readonly connectedAtMs: number;
-  /** Epoch ms of disconnect (`onSeatDisconnected`); cleared on reconnect. */
-  disconnectedAtMs: number | null;
   /** Epoch ms of forfeit (`onSeatExpired`); terminal for the seat. */
   forfeitedAtMs: number | null;
 }
@@ -65,12 +65,11 @@ export interface CreateSeatRecordArgs {
 }
 
 /**
- * Create a seat record with clean disconnect/forfeit state.
+ * Create a seat record with clean forfeit state.
  *
  * @param args - Seat position, credentials, optional provisional
  *   `playerId`, and the claim timestamp.
- * @returns A fresh `SeatRecord` with `disconnectedAtMs` /
- *   `forfeitedAtMs` unset.
+ * @returns A fresh `SeatRecord` with `forfeitedAtMs` unset.
  */
 export function createSeatRecord(args: CreateSeatRecordArgs): SeatRecord {
   const { connectedAtMs, displayName, playerId, playerSessionId, seatIndex, sessionToken } = args;
@@ -81,7 +80,6 @@ export function createSeatRecord(args: CreateSeatRecordArgs): SeatRecord {
     sessionToken,
     playerId,
     connectedAtMs,
-    disconnectedAtMs: null,
     forfeitedAtMs: null,
   };
 }

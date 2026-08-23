@@ -179,14 +179,19 @@ Contracts were updated in the same change set wherever behavior changed.
   their seed at creation (they sit in `filling` until players
   reconnect, so no auto-start exists to mint it); normal creates mint
   at auto-start. Stored as `MatchRecord.initialSeed`.
-- **Lazy sweeps, no timers (FR-009/FR-011)**: both GC sweeps
-  (rematch-window expiry, empty-match TTL) run on read paths
-  (`stats()`, `listPublicMatches()`) against the injected clock;
-  `sweepIntervalMs` remains a host scheduling hint. The empty-match
-  sweep also deletes seated players' ephemeral sessions (SC-005
-  no-leak invariant). "Empty" means *unstarted* — per the executable
-  Q-M06 scenario, a creator-seated filling match that never fills is
-  collected after the TTL.
+- **Lazy sweeps, no timers (FR-009/FR-011)**: all GC sweeps
+  (rematch-window expiry, results-TTL collection, empty-match TTL) run
+  on read paths (`stats()`, `listPublicMatches()`) against the injected
+  clock; `sweepIntervalMs` remains a host scheduling hint. The
+  empty-match and results-TTL sweeps also delete seated players'
+  ephemeral sessions (SC-005 no-leak invariant). "Empty" means
+  *unstarted* — per the executable Q-M06 scenario, a creator-seated
+  filling match that never fills is collected after the TTL. The
+  results-TTL sweep collects every `finished` match past
+  `resultsTtlMs` — including matches that finished with no rematch
+  offer, which would otherwise hold a `maxConcurrentMatches` slot
+  forever; it runs after rematch-window expiry so an open window that
+  lapses is resolved by the more specific sweep first.
 - **Conformance-clause rewrite (Phase 8)**: T061's prose referenced an
   engine `createMatchSession` / `MatchInitRequest` contract that was
   never shipped; the conformance test asserts the drift-catching intent

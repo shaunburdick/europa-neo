@@ -134,6 +134,9 @@ export function handleSeatExpired(
   }
   let seat: SeatRecord | undefined;
   for (const candidate of match.seats.values()) {
+    // Plain `===` is fine here (documented accepted risk, mirroring
+    // networking's ids.ts): 122-bit CSPRNG v4 tokens make a timing
+    // oracle worthless.
     if (candidate.sessionToken === event.sessionToken) {
       seat = candidate;
       break;

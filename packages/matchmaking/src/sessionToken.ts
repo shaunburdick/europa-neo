@@ -55,8 +55,10 @@ export function newSessionToken(): SessionToken {
 
 /**
  * Check whether a string has the UUID v4 shape required of every
- * `SessionToken` (feature 004 boundary rule). Used to short-circuit
- * malformed tokens before any store lookup.
+ * `SessionToken` (feature 004 boundary rule). Public validation
+ * utility, exported for hosts and tooling; the matchmaker itself
+ * compares tokens opaquely (equality against seated values), so
+ * nothing in this package calls this today.
  *
  * @param s - The candidate string.
  * @returns `true` iff `s` is a well-formed hyphenated v4 UUID.
