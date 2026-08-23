@@ -1,7 +1,8 @@
 /**
  * Public surface of the `@europa/networking` package.
  *
- * This is the **US1-populated barrel** (T010 + T020 + T034) — re-exports
+ * This is the **US1+US2-populated barrel** (T010 + T020 + T034 + T041) —
+ * re-exports
  * the full type surface (wire protocol, server API, matchmaking
  * boundary), the tunable constants, the Phase 2 runtime utilities
  * (JSON framing, envelope validation, the protocol error hierarchy,
@@ -174,3 +175,12 @@ export type { AcceptOrderResult, AppliedOrderOutcome } from './orders';
 export { acceptOrder, applyOrdersAtTickBoundary } from './orders';
 export { createMatchServer } from './server';
 export { StatsCounter } from './stats';
+
+// ----------------------------------------------------------------------------
+// US2 runtime: reconnect registry + per-seat resync buffers (T041)
+// ----------------------------------------------------------------------------
+
+export type { ExpiredBinding, ReconnectBinding, ReconnectLookupResult } from './reconnect';
+export { ReconnectRegistry } from './reconnect';
+export type { ResyncEntry } from './resync';
+export { ResyncBuffer } from './resync';

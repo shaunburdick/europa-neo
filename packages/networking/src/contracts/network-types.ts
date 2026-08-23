@@ -433,15 +433,22 @@ export type TickBroadcastPayload = {
 };
 
 /**
- * Full PlayerView snapshot. Engine declares this shape in
- * `engine-to-networking.ts`. Sent on join (`JoinAckPayload.view`) and
- * on resync (standalone `snapshot` envelope).
+ * Full PlayerView snapshot. Sent on resync (standalone `snapshot`
+ * envelope) when a reconnecting client reclaims its seat (US2).
  *
  * Spec FR-006: deltas are the default; full snapshots occur only on
- * join/resync.
+ * join/resync. The join-time snapshot rides `JoinAckPayload.view`.
+ *
+ * **US2 correction (T039)**: this payload was originally declared as
+ * `{ world }` — but shipping a raw World to one player would leak every
+ * other seat's fog-hidden state (FR-005 / SC-004 violation), and the
+ * prose here already called it a "Full PlayerView snapshot". The body
+ * now mirrors the per-tick broadcast shape: the boundary the snapshot
+ * was taken at, plus the seat's fog-filtered PlayerView.
  */
 export type SnapshotPayload = {
-  readonly world: import('@europa/engine').World;
+  readonly tick: number;
+  readonly view: import('@europa/fog').PlayerView;
 };
 
 /**

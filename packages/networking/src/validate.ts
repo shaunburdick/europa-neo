@@ -111,7 +111,9 @@ const PAYLOAD_FIELDS: Readonly<Record<MessageKind, readonly FieldSpec[]>> = {
     field('tick', 'number'),
     field('players', 'array'),
   ],
-  snapshot: [field('world', 'object')],
+  // US2: snapshot carries the seat's fog-filtered view + boundary tick
+  // (a raw `world` body would leak fog-hidden state — FR-005/SC-004).
+  snapshot: [field('tick', 'number'), field('view', 'object')],
   tick: [field('tick', 'number'), field('view', 'object')],
   orderAck: [field('seq', 'number'), field('result', 'object')],
   terminal: [field('result', 'object')],

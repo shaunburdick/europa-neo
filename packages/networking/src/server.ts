@@ -65,6 +65,7 @@ import type {
   ProtocolEnvelope,
   SequenceNumber,
   SessionToken,
+  SnapshotPayload,
   TerminalPayload,
   TickBroadcastPayload,
 } from './contracts/network-types';
@@ -237,11 +238,22 @@ export function createMatchServer(
   /**
    * One scheduler fire: run every non-terminal channel through
    * orders → advance → broadcast → terminal check, then sweep
-   * heartbeats. Duration measurement is the only direct clock read.
+   * heartbeats and reconnect-binding grace windows. Duration
+   * measurement is the only direct clock read.
    *
-   * @param nowMs Scheduler-provided timestamp.
+   * Bound directly as the clock's `onTick`, so the parameter order
+   * must match `createTickClock`'s `(tickNumber, nowMs)` callback
+   * signature — the epoch timestamp is the SECOND argument. (US2 fix:
+   * binding a single-`(nowMs)` function here silently received the
+   * tick number instead, which made every `Date.now()`-stamped value
+   * compared against it — reconnect grace expiry — unreachably stale.
+   * The heartbeat sweep never noticed because both sides of that
+   * comparison shared the same misbound domain.)
+   *
+   * @param _tickNumber Scheduler fire count (unused here).
+   * @param nowMs Scheduler-provided epoch ms (from the clock).
    */
-  function runTickPipeline(nowMs: number): void {
+  function runTickPipeline(_tickNumber: number, nowMs: number): void {
     const startedAtMs = Date.now(); // duration measurement only
 
     for (const channel of channels.values()) {
@@ -495,13 +507,13 @@ export function createMatchServer(
    * `tick` envelopes so the client's stream bridges the ticks its
    * dropped connection never saw.
    *
-   * Wire note: the contract's declared `SnapshotPayload` body is
-   * `{ world }` — shipping a raw World would leak every other seat's
-   * fog-hidden state (FR-005 / SC-004 violation). Per T039's explicit
-   * wording ("snapshot envelope with the current PlayerView") and the
-   * `JoinAckPayload.view` precedent, the snapshot envelope carries the
-   * seat's full PlayerView (TickBroadcastPayload shape). Flagged for
-   * contract clarification.
+   * Wire note: the snapshot envelope carries the seat's fog-filtered
+   * PlayerView plus the boundary it was taken at (`SnapshotPayload`).
+   * The contract originally declared that payload as `{ world }`, but
+   * shipping a raw World would leak every other seat's fog-hidden
+   * state (FR-005 / SC-004) while the contract's own prose called it a
+   * "Full PlayerView snapshot" — the contract was corrected to the
+   * `{ tick, view }` body in this change set (specs stay truthful).
    *
    * @param connection The reconnecting client's fresh connection.
    * @param binding    The consumed registry binding (seat to restore).
@@ -532,7 +544,7 @@ export function createMatchServer(
       playerId: binding.playerId,
       spectator: false,
     });
-    const snapshotPayload: TickBroadcastPayload = { tick: channel.tickCounter, view };
+    const snapshotPayload: SnapshotPayload = { tick: channel.tickCounter, view };
     connection.send(envelopeOf('snapshot', snapshotPayload));
     statsCounter.recordFrameSent('snapshot');
 
