@@ -168,14 +168,26 @@ describe('Q-M02: private match + shareable join URL', () => {
 
 **Maps to**: spec FR-006; Q2 clarification ("unknown IDs are rejected with a generic `match not found` response; the server does not leak whether a private match exists").
 
+> **Correction (Wave 7C)**: an earlier draft of this scenario asserted that probing the **real** private `MatchId` also returns `match_not_found`. That contradicted US3 AC-2 ("a client opens the shareable join URL → they take a seat like any other join flow"), the edge case "shared beyond intended group", Q-M02, and this section's own parenthetical ("knowing the matchId == being invited"). The single-code-path invariant concerns **error indistinguishability for unknown IDs**; a holder of the real ID joins through the same seat-fill path as any public join.
+
 ```ts
 // tests/quickstart/Q-M03-private-id-miss-no-leak.test.ts
-import { describe, it, expect } from 'vitest';
-import { createMatchmaker, MATCHMAKING_CONSTANTS } from '@europa/matchmaking';
+import { randomUUID } from 'node:crypto';
+import { describe, expect, it } from 'vitest';
+import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 
+/** An id guaranteed unknown to this server (never equal to `exclude`). */
+function unknownId(exclude) {
+  let candidate = randomUUID();
+  while (candidate === exclude) {
+    candidate = randomUUID();
+  }
+  return candidate;
+}
+
 describe('Q-M03: unknown match ID returns match_not_found', () => {
-  it('does not leak whether a private match exists', () => {
+  it('does not leak whether a private match exists', async () => {
     const server = new FakeServer();
     const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
 
@@ -188,11 +200,17 @@ describe('Q-M03: unknown match ID returns match_not_found', () => {
     if (!create.ok) return;
 
     const realMatchId = create.data.matchId;
-    // We do NOT share this id with the attacker.
+    // The id circulates only via Alice's shareable link (FR-003/Q3).
 
-    // Step 2: Attacker probes 100 random UUIDs (none are the real one)
+    // The lobby never lists it (SC-003 zero-private clause).
+    const lobby = matchmaker.listPublicMatches();
+    expect(lobby.ok).toBe(true);
+    if (!lobby.ok) return;
+    expect(lobby.matches).toHaveLength(0);
+
+    // Step 2: Attacker probes 100 unknown UUIDs (none are the real one)
     for (let i = 0; i < 100; i++) {
-      const guessedId = `${i}`.padStart(8, '0') as unknown as typeof realMatchId;
+      const guessedId = unknownId(realMatchId);
       const result = matchmaker.joinMatch({
         matchId: guessedId,
         displayName: 'Mallory',
@@ -205,32 +223,45 @@ describe('Q-M03: unknown match ID returns match_not_found', () => {
       expect(result.error.message.toLowerCase()).not.toContain('exists');
     }
 
-    // Step 3: Attacker probes the real matchId WITHOUT being invited.
-    // Since this is a private match and the attacker doesn't have the
-    // session token, the response is STILL 'match_not_found' — the same
-    // as for a completely unknown id. (Knowing the matchId == being
-    // invited, per Q3 + spec edge case "shared beyond intended group".)
-    const realResult = matchmaker.joinMatch({
-      matchId: realMatchId,
-      displayName: 'Mallory',
-    });
-    expect(realResult.ok).toBe(false);
-    if (realResult.ok) return;
-    expect(realResult.error.code).toBe('match_not_found');
-
-    // SC-006: 10/10 trials — runs the probe 10 times for the spec's
-    // success criterion.
+    // SC-006: joining via an UNKNOWN id returns "match not found" in
+    // 10/10 trials — fresh ids, same uniform rejection.
     for (let i = 0; i < 10; i++) {
-      const r = matchmaker.joinMatch({ matchId: realMatchId, displayName: 'Mallory' });
+      const r = matchmaker.joinMatch({ matchId: unknownId(realMatchId), displayName: 'Mallory' });
       expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error.code).toBe('match_not_found');
     }
 
-    matchmaker.close();
+    // Step 3 (cross-session): Bob — a different player session on the
+    // same server — receives Alice's shareable URL. Holding the link IS
+    // the invitation (US3 AC-2 + edge case "shared beyond intended
+    // group"), so his join succeeds through the SAME code path as any
+    // public join; no visibility-specific branch exists.
+    const bobJoin = matchmaker.joinMatch({
+      matchId: realMatchId,
+      displayName: 'Bob',
+    });
+    expect(bobJoin.ok).toBe(true);
+    if (!bobJoin.ok) return;
+    expect(bobJoin.data.seatAssignment.seatIndex).toBe(1);
+
+    // Post-start: unknown probes STILL get the identical non-leaking
+    // rejection — starting the match changed nothing about the guard.
+    const afterStart = matchmaker.joinMatch({
+      matchId: unknownId(realMatchId),
+      displayName: 'Mallory',
+    });
+    expect(afterStart.ok).toBe(false);
+    if (!afterStart.ok) return;
+    expect(afterStart.error.code).toBe('match_not_found');
+
+    await matchmaker.close();
   });
 });
 ```
 
-**Expected**: passes. All unknown IDs return `match_not_found` with no existence-leaking information.
+**Expected**: passes. All unknown IDs return `match_not_found` with no existence-leaking information; the invited holder of the shareable link joins identically to a public join.
+
 
 ---
 
