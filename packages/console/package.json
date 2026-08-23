@@ -19,7 +19,8 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && tsx scripts/build-assets.ts",
+    "build": "tsc --noEmit && vite build && tsx scripts/build-assets.ts && tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\"",
+    "build:lib": "tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\"",
     "build:assets": "tsx scripts/build-assets.ts",
     "test": "vitest",
     "test:unit": "vitest run --config vitest.config.ts tests/unit",

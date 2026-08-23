@@ -4,6 +4,7 @@
     "outDir": "./dist",
     "rootDir": ".",
     "noEmit": false,
+    "declaration": true,
     "composite": false,
     "jsx": "react-jsx",
     "jsxImportSource": "react",
@@ -11,5 +12,5 @@
     "types": ["vite/client"]
   },
   "include": ["src/**/*"],
-  "exclude": ["tests/**/*", "contracts/**/*", "scripts/**/*", "dist", "node_modules", "coverage"]
+  "exclude": ["tests/**/*", "scripts/**/*", "dist", "node_modules", "coverage"]
 }
