@@ -105,14 +105,17 @@ jobs:
       - name: Unit tests (reducer + input math + QoL)
         run: pnpm --filter @europa/console test:unit
 
+      # Must precede EVERY browser-launching step below (component,
+      # a11y, e2e, perf all boot Chromium); vitest browser mode fails
+      # with "Executable doesn't exist" without it.
+      - name: Install Playwright Chromium
+        run: pnpm --filter @europa/console exec playwright install --with-deps chromium
+
       - name: Component tests (browser mode)
         run: pnpm --filter @europa/console test:component
 
       - name: Accessibility acceptance tests (axe-core)
         run: pnpm --filter @europa/console test:a11y
-
-      - name: Install Playwright Chromium
-        run: pnpm --filter @europa/console exec playwright install --with-deps chromium
 
       # Includes the selfhost smoke spec, which production-builds the
       # console, scans dist/ for remote URLs, and enforces the Q-P03
@@ -163,12 +166,19 @@ jobs:
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
 
-      # Node-mode coverage run (unit + integration incl. conformance,
-      # which reads dist/) — thresholds (80% lines/functions/branches/
-      # statements) are enforced by vitest.config.ts; the command exits
-      # non-zero if any threshold is below 80% (constitution III gate).
+      # Merged node+browser coverage (vitest.config.coverage.ts) —
+      # thresholds (80% lines/functions/branches/statements) live in
+      # that config; the command exits non-zero if any threshold is
+      # below 80% (constitution III gate).
       - name: Library emit (conformance coverage suite reads dist/)
         run: pnpm --filter @europa/console build:lib
+
+      # The merged-coverage config (vitest.config.coverage.ts) runs a
+      # browser project that launches real Chromium; without the
+      # browser install it contributes 0% and merged totals drop
+      # below the 80% constitution gate.
+      - name: Install Playwright Chromium
+        run: pnpm --filter @europa/console exec playwright install --with-deps chromium
 
       - name: Coverage (console)
         run: pnpm --filter @europa/console coverage

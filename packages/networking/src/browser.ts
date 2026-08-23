@@ -19,10 +19,9 @@
  * reachable from this module must bundle cleanly in a browser.
  */
 
-export { NETWORK_API_VERSION } from './contracts/network-types';
-
 export type { NetworkConstants } from './constants';
 export { NETWORK_CONSTANTS } from './constants';
+export { NETWORK_API_VERSION } from './contracts/network-types';
 
 export type { NetworkErrorDetail } from './errors';
 export { isNetworkError, NetworkError } from './errors';
