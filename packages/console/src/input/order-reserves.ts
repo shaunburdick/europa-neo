@@ -26,19 +26,24 @@
  * JSDoc references: spec US4 AC-1/2 + FR-004.
  */
 
-import type { ConsoleState, PlayerAction, ReservesPct } from '../state/types';
+import type { ConsoleState, InputMapping, PlayerAction, ReservesPct } from '../state/types';
 import { DEFAULT_INPUT_MAPPING } from '../state/types';
 
 /**
  * Resolve a raw key string to its reserves percent digit (engine
  * `ReservesPct` domain 0..9; the issued order means `10 × digit`
- * percent). Keys come from `DEFAULT_INPUT_MAPPING.reserveKeys` —
- * never hard-coded. Returns `null` for non-reserve keys. Pure.
+ * percent). Keys come from `mapping.reserveKeys` (default:
+ * `DEFAULT_INPUT_MAPPING.reserveKeys`) — never hard-coded. Returns
+ * `null` for non-reserve keys. Pure.
  *
- * @param key Normalized `KeyboardEvent.key` value (single character).
+ * @param key     Normalized `KeyboardEvent.key` value (single character).
+ * @param mapping Control table; defaults to the original mapping.
  */
-export function resolveReservePercent(key: string): ReservesPct | null {
-  const index = DEFAULT_INPUT_MAPPING.reserveKeys.indexOf(key);
+export function resolveReservePercent(
+  key: string,
+  mapping: InputMapping = DEFAULT_INPUT_MAPPING,
+): ReservesPct | null {
+  const index = mapping.reserveKeys.indexOf(key);
   if (index < 0) {
     return null;
   }
@@ -61,11 +66,16 @@ export type ReservesOutcome =
  * it produced nothing. Returns `null` when `key` is not a reserve key
  * at all (caller falls through to other bindings). Pure.
  *
- * @param state Console snapshot (input gate + focused cell).
- * @param key   Raw key value (normalized by the caller).
+ * @param state   Console snapshot (input gate + focused cell).
+ * @param key     Raw key value (normalized by the caller).
+ * @param mapping Control table; defaults to the original mapping.
  */
-export function buildReservesAction(state: ConsoleState, key: string): ReservesOutcome | null {
-  const percent = resolveReservePercent(key);
+export function buildReservesAction(
+  state: ConsoleState,
+  key: string,
+  mapping: InputMapping = DEFAULT_INPUT_MAPPING,
+): ReservesOutcome | null {
+  const percent = resolveReservePercent(key, mapping);
   if (percent === null) {
     return null;
   }

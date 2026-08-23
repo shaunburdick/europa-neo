@@ -39,12 +39,16 @@ body {
   transform: none;
 }
 
-/* Root layout: board left/center, HUD right. */
+/* Root layout: board left/center, HUD right. Wraps (rather than
+   overflowing) when the QoL-era sidebar stack exceeds the viewport,
+   so the board never lands at negative screen coordinates. */
 .europa-main {
   min-height: 100vh;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: center;
+  align-content: flex-start;
   gap: 1rem;
   padding: 1rem;
 }
@@ -169,6 +173,134 @@ body {
   color: #e5e7eb;
   border-radius: 6px;
   font-size: 0.9rem;
+}
+
+/* Surrender trigger (US5 T084) + minimap host (US5 T081). */
+.europa-hud__surrender {
+  margin-top: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  background-color: #1f2937;
+  color: #f9fafb;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.europa-hud__surrender:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.europa-minimap {
+  margin-top: 0.5rem;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+/*
+ * Reconnecting banner (US5 AC-3 / FR-008). Assertive live region —
+ * high-contrast amber on dark, pinned above the board.
+ */
+.europa-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  padding: 0.5rem 1rem;
+  background-color: #d97706;
+  color: #111827;
+  font-weight: 700;
+  text-align: center;
+}
+
+/*
+ * Surrender modal (US5 T084). Backdrop dims the board; the dialog
+ * is a dark plate matching the chrome.
+ */
+.europa-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(5, 7, 13, 0.75);
+}
+
+.europa-modal {
+  max-width: 24rem;
+  padding: 1.25rem 1.5rem;
+  background-color: #111827;
+  color: #e5e7eb;
+  border: 1px solid #374151;
+  border-radius: 8px;
+}
+
+.europa-modal__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.europa-modal__body {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.europa-modal__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.europa-modal__button {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  background-color: #1f2937;
+  color: #f9fafb;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.europa-modal__button--danger {
+  border-color: #dc2626;
+}
+
+/*
+ * Error boundary fallback (US5 T085 / Q-B08).
+ */
+.europa-error-boundary {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.europa-error-boundary__title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.europa-error-boundary__body {
+  margin: 0;
+  color: #9ca3af;
+}
+
+.europa-error-boundary__reload {
+  padding: 0.5rem 1rem;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  background-color: #1f2937;
+  color: #f9fafb;
+  cursor: pointer;
 }
 
 /*
@@ -352,4 +484,12 @@ body {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/*
+ * Surrender trigger section (US5 T084). Sits after the order palette
+ * in DOM/Tab order; visually matches the sidebar chrome.
+ */
+.europa-surrender {
+  min-width: 12rem;
 }

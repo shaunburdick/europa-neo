@@ -37,7 +37,14 @@
 
 import { type FocusDirection, KeyboardNavigator } from '../a11y/keyboard';
 import type { ConsoleStore } from '../state/store';
-import type { ConsoleState, Coord, CursorTarget, Direction, PlayerAction } from '../state/types';
+import type {
+  ConsoleState,
+  Coord,
+  CursorTarget,
+  Direction,
+  InputMapping,
+  PlayerAction,
+} from '../state/types';
 import { DEFAULT_INPUT_MAPPING } from '../state/types';
 import { buildReservesAction, type ReservesOutcome } from './order-reserves';
 import { pipePresentInDirection } from './region-select';
@@ -81,6 +88,13 @@ export interface TranslateKeyArgs {
   readonly cursor: CursorTarget | null;
   /** Age of the cursor sample in ms (`null` = never moved). */
   readonly cursorAgeMs: number | null;
+  /**
+   * Control table to translate against. Defaults to
+   * `DEFAULT_INPUT_MAPPING`; the US5 hotkey layer (T079) passes the
+   * host-overridden table so configurable bindings flow through the
+   * exact same semantics.
+   */
+  readonly mapping?: InputMapping;
 }
 
 /**
@@ -91,6 +105,7 @@ export interface TranslateKeyArgs {
  */
 export function translateKey(args: TranslateKeyArgs): DraftOutcome {
   const { key, altKey, ctrlKey, metaKey, state, cursor, cursorAgeMs } = args;
+  const mapping = args.mapping ?? DEFAULT_INPUT_MAPPING;
 
   // Browser chords win — never fight the host shortcuts.
   if (ctrlKey || metaKey) {
@@ -100,7 +115,7 @@ export function translateKey(args: TranslateKeyArgs): DraftOutcome {
   const normalized = key.length === 1 ? key.toLowerCase() : key;
 
   // --- Pipe keys (i/j/k/l, Alt = exclusive) — US2 AC-3 ---
-  const pipeDirection = lookupPipeDirection(normalized);
+  const pipeDirection = lookupPipeDirection(normalized, altKey, mapping);
   if (pipeDirection !== null) {
     if (!state.inputEnabled) {
       return { kind: 'ignore', reason: 'not-live' };
@@ -125,7 +140,7 @@ export function translateKey(args: TranslateKeyArgs): DraftOutcome {
   }
 
   // --- Space clears all pipes on the focused cell — US2 AC-4 ---
-  if (normalized === DEFAULT_INPUT_MAPPING.clearCellPipes) {
+  if (normalized === mapping.clearCellPipes) {
     if (!state.inputEnabled) {
       return { kind: 'ignore', reason: 'not-live' };
     }
@@ -136,7 +151,7 @@ export function translateKey(args: TranslateKeyArgs): DraftOutcome {
   }
 
   // --- Paratroop / gun via the subcell targeting core — US3 AC-1/2/3 ---
-  const ability = lookupAbility(normalized);
+  const ability = lookupAbility(normalized, mapping);
   if (ability !== null) {
     if (!state.inputEnabled) {
       return { kind: 'ignore', reason: 'not-live' };
@@ -153,18 +168,18 @@ export function translateKey(args: TranslateKeyArgs): DraftOutcome {
 
   // --- Reserves digits 0-9 (10×digit percent) — delegated to the
   // --- dedicated US4 module (T070); `null` = not a reserve key.
-  const reservesOutcome = buildReservesAction(state, normalized);
+  const reservesOutcome = buildReservesAction(state, normalized, mapping);
   if (reservesOutcome !== null) {
     return outcomeToDraft(reservesOutcome);
   }
 
   // --- Escape cancels: clear the selection (local-only) ---
-  if (key === DEFAULT_INPUT_MAPPING.cancel) {
+  if (key === mapping.cancel) {
     return { kind: 'action', action: { kind: 'selectCell', cell: null } };
   }
 
   // --- Arrows move the keyboard anchor (local-only) ---
-  const arrowDirection = lookupArrowDirection(key);
+  const arrowDirection = lookupArrowDirection(key, mapping);
   if (arrowDirection !== null) {
     if (state.latestView === null) {
       return { kind: 'ignore', reason: 'no-view' };
@@ -210,14 +225,35 @@ function outcomeToDraft(outcome: TargetingOutcome | ReservesOutcome): DraftOutco
 }
 
 /**
- * Resolve i/j/k/l to their pipe direction from
- * `DEFAULT_INPUT_MAPPING.pipeKeys`. The Alt variants
- * (`pipeExclusiveKeys`) carry the same base letters — Alt only flips
- * the issued action, handled by the caller — so one table serves both.
+ * Resolve a keydown to its pipe direction under `mapping`. Without
+ * Alt the base `pipeKeys` table decides; with Alt the chord must
+ * match a `pipeExclusiveKeys` entry (`Alt+<key>`), so custom tables
+ * can bind exclusive variants to different letters than the toggles.
  * Returns `null` for non-pipe keys. Pure.
  */
-function lookupPipeDirection(key: string): Direction | null {
-  const table = DEFAULT_INPUT_MAPPING.pipeKeys;
+function lookupPipeDirection(
+  key: string,
+  altKey: boolean,
+  mapping: InputMapping,
+): Direction | null {
+  if (altKey) {
+    const chord = `alt+${key}`;
+    const exclusive = mapping.pipeExclusiveKeys;
+    if (chord === exclusive.pipeNorth.toLowerCase()) {
+      return 'N';
+    }
+    if (chord === exclusive.pipeWest.toLowerCase()) {
+      return 'W';
+    }
+    if (chord === exclusive.pipeSouth.toLowerCase()) {
+      return 'S';
+    }
+    if (chord === exclusive.pipeEast.toLowerCase()) {
+      return 'E';
+    }
+    return null;
+  }
+  const table = mapping.pipeKeys;
   if (key === table.pipeNorth.toLowerCase()) {
     return 'N';
   }
@@ -234,32 +270,29 @@ function lookupPipeDirection(key: string): Direction | null {
 }
 
 /**
- * Resolve p/h/g/o to their ability kind from `DEFAULT_INPUT_MAPPING`.
- * Returns `null` for other keys. Pure.
+ * Resolve p/h/g/o to their ability kind from `mapping`. Returns
+ * `null` for other keys. Pure.
  */
-function lookupAbility(key: string): AbilityKind | null {
-  if (
-    key === DEFAULT_INPUT_MAPPING.paratroopPrimary ||
-    key === DEFAULT_INPUT_MAPPING.paratroopAlt
-  ) {
+function lookupAbility(key: string, mapping: InputMapping): AbilityKind | null {
+  if (key === mapping.paratroopPrimary || key === mapping.paratroopAlt) {
     return 'paratroop';
   }
-  if (key === DEFAULT_INPUT_MAPPING.gunPrimary || key === DEFAULT_INPUT_MAPPING.gunAlt) {
+  if (key === mapping.gunPrimary || key === mapping.gunAlt) {
     return 'gun';
   }
   return null;
 }
 
 /** Arrow-key → focus-direction mapping (KeyboardNavigator alphabet). */
-function lookupArrowDirection(key: string): FocusDirection | null {
+function lookupArrowDirection(key: string, mapping: InputMapping): FocusDirection | null {
   switch (key) {
-    case DEFAULT_INPUT_MAPPING.selectionMove.north:
+    case mapping.selectionMove.north:
       return 'N';
-    case DEFAULT_INPUT_MAPPING.selectionMove.west:
+    case mapping.selectionMove.west:
       return 'W';
-    case DEFAULT_INPUT_MAPPING.selectionMove.south:
+    case mapping.selectionMove.south:
       return 'S';
-    case DEFAULT_INPUT_MAPPING.selectionMove.east:
+    case mapping.selectionMove.east:
       return 'E';
     default:
       return null;
@@ -270,6 +303,32 @@ function lookupArrowDirection(key: string): FocusDirection | null {
 interface CursorSample {
   readonly target: CursorTarget;
   readonly atMs: number;
+}
+
+/**
+ * Whether a keydown should be ignored before translation: repeats,
+ * already-handled events, and events targeting interactive chrome
+ * (palette buttons, modals, inputs — Space on a focused button must
+ * activate the button, never clear pipes on the board). Shared by
+ * {@link OrderDraftController} and the US5 hotkey layer (T079) so
+ * both controllers gate identically.
+ */
+export function shouldIgnoreKeyEvent(event: {
+  readonly defaultPrevented: boolean;
+  readonly repeat: boolean;
+  readonly target: EventTarget | null;
+}): boolean {
+  if (event.defaultPrevented || event.repeat) {
+    return true;
+  }
+  const target = event.target;
+  if (
+    target instanceof Element &&
+    target.closest('button, a, input, textarea, select, [role="toolbar"]') !== null
+  ) {
+    return true;
+  }
+  return target instanceof HTMLElement && target.isContentEditable;
 }
 
 /**
@@ -325,20 +384,7 @@ export class OrderDraftController {
 
   /** Translate + dispatch one keydown; ignores repeats and edits. */
   private handleKeyDown(event: KeyboardEvent): void {
-    if (event.defaultPrevented || event.repeat) {
-      return;
-    }
-    const target = event.target;
-    // Interactive chrome (palette buttons, future modals/inputs) owns
-    // its own keys — Space on a focused button must activate the
-    // button, never clear pipes on the board.
-    if (
-      target instanceof Element &&
-      target.closest('button, a, input, textarea, select, [role="toolbar"]') !== null
-    ) {
-      return;
-    }
-    if (target instanceof HTMLElement && target.isContentEditable) {
+    if (shouldIgnoreKeyEvent(event)) {
       return;
     }
     const nowMs = performance.now();

@@ -2,13 +2,15 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createDemoPlayerView, createStubConsoleState } from './internal/test-state';
 import { App } from './render/App';
+import { ErrorBoundary } from './render/ErrorBoundary';
 
 import './styles/index.css';
 
 /**
  * SPA entry point (T013, wired to the real App by T047; E2E harness
- * branch added by T052). Mounts the console's root React tree into
- * the `#root` element declared by `index.html`.
+ * branch added by T052; error boundary added by T085). Mounts the
+ * console's root React tree into the `#root` element declared by
+ * `index.html`.
  *
  * Boot modes:
  *   - `?e2e` present: the interactive demo runtime (store + input
@@ -19,6 +21,10 @@ import './styles/index.css';
  *     console boots standalone with no live server — the Phase 3
  *     scope note. The Phase 8 runtime (`createConsole`, T086)
  *     replaces this stub with live store state.
+ *
+ * Both modes wrap the root in {@link ErrorBoundary} (Q-B08): an
+ * uncaught render error surfaces as an accessible fallback with a
+ * Reload action instead of a blank page.
  */
 
 const rootElement = document.getElementById('root');
@@ -37,7 +43,9 @@ if (isE2E) {
   const stubState = createStubConsoleState(createDemoPlayerView());
   createRoot(rootElement).render(
     <StrictMode>
-      <App state={stubState} />
+      <ErrorBoundary>
+        <App state={stubState} />
+      </ErrorBoundary>
     </StrictMode>,
   );
 }

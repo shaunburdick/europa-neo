@@ -22,6 +22,7 @@
  * §2 (Canvas 2D decision).
  */
 
+import { filterEffectsForMotion } from '../qol/reduced-motion';
 import type { CellRenderInfo, MapEffect, MapView } from '../state/types';
 import { drawMapLabels } from './label-overlay';
 import {
@@ -46,6 +47,15 @@ const PIPE_SIZE_RATIO = 0.16;
 /** Inset fraction for the city outline square. */
 const CITY_INSET_RATIO = 0.12;
 
+/** Options modifying one paint pass. */
+export interface PaintOptions {
+  /**
+   * Honor `prefers-reduced-motion` (Q-A07 / WCAG 2.3.3): skip the
+   * flashing combat/capture effect markers entirely. Default `false`.
+   */
+  readonly reducedMotion?: boolean;
+}
+
 /**
  * Canvas 2D painter for the satellite grid. Stateless: one instance
  * may serve any number of canvases and frames.
@@ -63,8 +73,10 @@ export class MapCanvas {
    * @param mapView The immutable snapshot to paint.
    * @param ctx Target 2D context (its current transform is treated
    *            as identity over the board's pixel space).
+   * @param options Optional paint modifiers (reduced motion).
    */
-  paint(mapView: MapView, ctx: CanvasRenderingContext2D): void {
+  paint(mapView: MapView, ctx: CanvasRenderingContext2D, options?: PaintOptions): void {
+    const reducedMotion = options?.reducedMotion === true;
     const zoom = mapView.camera.zoom;
     const pixelWidth = mapView.width * zoom;
     const pixelHeight = mapView.height * zoom;
@@ -88,8 +100,10 @@ export class MapCanvas {
       this.drawPipes(ctx, info, zoom);
     }
 
-    // Pass 4: transient effects (combat flashes, capture rings).
-    for (const effect of mapView.effects) {
+    // Pass 4: transient effects (combat flashes, capture rings) —
+    // flashing kinds are skipped under reduced motion (T083).
+    const effects = filterEffectsForMotion(mapView.effects, reducedMotion);
+    for (const effect of effects) {
       this.drawEffect(ctx, effect, zoom);
     }
 

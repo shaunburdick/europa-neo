@@ -38,10 +38,13 @@ import type { JSX } from 'react';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { LiveRegionAnnouncer } from '../a11y/live-region';
-import { OrderDraftController } from '../input/order-draft';
 import { RegionSelectController } from '../input/region-select';
 import { CURSOR_STALE_MS } from '../input/subcell-target';
 import { peekInjectedConsoleState } from '../internal/test-state';
+import { HotkeyController } from '../qol/hotkeys';
+import { Minimap } from '../qol/minimap';
+import { subscribeReducedMotion } from '../qol/reduced-motion';
+import { ZoomPanController } from '../qol/zoom';
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
@@ -52,12 +55,13 @@ import { TargetingOverlay } from '../ui/targeting-overlay';
 import { MapCanvas } from './canvas';
 import { GridOverlay } from './grid-overlay';
 import { liveLabels, nextLabelExpiryMs } from './label-overlay';
+import { SurrenderModal } from './SurrenderModal';
 
 /** Props for {@link App}. */
 export interface AppProps {
   /**
    * Live console store. When provided, the app subscribes to it and
-   * attaches the US2 input controllers (pointer + keyboard orders).
+   * attaches the input controllers (pointer + keyboard orders).
    */
   readonly store?: ConsoleStore;
   /**
@@ -66,6 +70,12 @@ export interface AppProps {
    * inject via `setConsoleStateForTesting` instead (T048).
    */
   readonly state?: ConsoleState;
+  /**
+   * Host-owned surrender confirmation (contract
+   * `ConsoleConfig.onSurrenderRequest`). When provided, the console
+   * delegates to the host instead of opening its built-in modal.
+   */
+  readonly onSurrenderRequest?: (() => void) | undefined;
 }
 
 /** Subscription shim for static boots (no store to subscribe to). */
@@ -81,9 +91,10 @@ interface CursorSample {
 
 /**
  * The console root component: canvas + ARIA overlay + HUD + order bar
- * + live-region mount, driven by the resolved ConsoleState.
+ * + reserves panel + minimap + live-region mount, driven by the
+ * resolved ConsoleState.
  */
-export function App({ store, state }: AppProps): JSX.Element {
+export function App({ store, state, onSurrenderRequest }: AppProps): JSX.Element {
   const fallbackState = state ?? peekInjectedConsoleState() ?? INITIAL_CONSOLE_STATE;
   const resolvedState = useSyncExternalStore(
     store ? store.subscribe : noopSubscribe,
@@ -145,6 +156,10 @@ export function App({ store, state }: AppProps): JSX.Element {
   if (mapCanvasRef.current === null) {
     mapCanvasRef.current = new MapCanvas();
   }
+  // Reduced-motion preference (US5 T083): live subscription to the
+  // OS flag; feeds the painter's effect filter.
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => subscribeReducedMotion(setReducedMotion), []);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas === null || mapView === null) {
@@ -157,13 +172,14 @@ export function App({ store, state }: AppProps): JSX.Element {
     if (ctx === null) {
       return;
     }
-    // Expired labels never reach the pixels (T071 lifecycle).
+    // Expired labels never reach the pixels (T071 lifecycle); the
+    // flashing effect kinds are skipped under reduced motion (T083).
     const frame: MapView = {
       ...mapView,
       labels: liveLabels(mapView.labels, performance.now()),
     };
-    mapCanvasRef.current?.paint(frame, ctx);
-  }, [mapView, labelEpoch]);
+    mapCanvasRef.current?.paint(frame, ctx, { reducedMotion });
+  }, [mapView, labelEpoch, reducedMotion]);
 
   // Hidden aria-live regions (WCAG 4.1.3 status messages). One
   // announcer per mount; cleared on unmount. Mirrored into state so
@@ -184,10 +200,14 @@ export function App({ store, state }: AppProps): JSX.Element {
     };
   }, []);
 
-  // Interactive mode: pointer + keyboard input controllers. The draft
-  // controller receives every cursor sample so keyboard paratroop/gun
-  // aims stay fresh (research.md §13 #3); the same feed drives the
-  // US3 targeting overlay's aim dot.
+  // Interactive mode: pointer + keyboard + camera controllers. The
+  // hotkey controller (US5 T079, configurable mapping) receives every
+  // cursor sample so keyboard paratroop/gun aims stay fresh
+  // (research.md §13 #3); the same feed drives the US3 targeting
+  // overlay's aim dot. The zoom/pan controller binds the canvas so
+  // wheel zooms toward the cursor and middle-drag pans (US5 AC-1);
+  // it stops propagation on pan start so region-select never sees a
+  // pan gesture as an exclusive-pipe click.
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
   const [cursorSample, setCursorSample] = useState<CursorSample | null>(null);
   useEffect(() => {
@@ -198,20 +218,29 @@ export function App({ store, state }: AppProps): JSX.Element {
     if (boardArea === null) {
       return undefined;
     }
-    const draft = new OrderDraftController(store);
+    // Zoom/pan attaches FIRST (same element as region-select) so its
+    // stopImmediatePropagation on middle-button pan start shields the
+    // later-registered pipe handlers from the pan gesture.
+    const zoomPan = new ZoomPanController(boardArea, store).attach();
+    const hotkeys = new HotkeyController(store);
     const region = new RegionSelectController(boardArea, store, {
       onCursor: (target, atMs) => {
-        draft.notePointer(target, atMs);
+        hotkeys.notePointer(target, atMs);
         setCursorSample({ target, atMs });
       },
     });
     const regionHandle = region.attach();
-    draft.attach();
+    hotkeys.attach();
     return () => {
       regionHandle.dispose();
-      draft.dispose();
+      hotkeys.dispose();
+      zoomPan.dispose();
     };
   }, [store]);
+
+  // Surrender modal state (US5 T084): opened by the HUD button,
+  // delegating to the host when `onSurrenderRequest` is provided.
+  const [surrenderOpen, setSurrenderOpen] = useState(false);
 
   const zoom = mapView?.camera.zoom ?? 32;
   const selection = resolvedState.selection;
@@ -242,6 +271,14 @@ export function App({ store, state }: AppProps): JSX.Element {
       <a id="skip-link" className="skip-link" href="#main">
         Skip to main content
       </a>
+      {/* Reconnecting banner (US5 AC-3, FR-008): an assertive live
+          region so the status change interrupts; input is disabled
+          by the reducer's inputEnabled invariant while offline. */}
+      {resolvedState.status === 'reconnecting' ? (
+        <div role="alert" className="europa-banner">
+          Reconnecting to match…
+        </div>
+      ) : null}
       <main id="main" className="europa-main">
         <div ref={boardAreaRef} className="europa-board-area">
           <canvas
@@ -279,6 +316,15 @@ export function App({ store, state }: AppProps): JSX.Element {
         <section id="hud" aria-label="Status bar" tabIndex={0} className="europa-hud">
           <span className="europa-hud__item">Status: {resolvedState.status}</span>
           <span className="europa-hud__item">Tick: {mapView?.tick ?? '—'}</span>
+          {store !== undefined && mapView !== null ? (
+            <Minimap
+              boardWidth={mapView.width}
+              boardHeight={mapView.height}
+              camera={resolvedState.camera}
+              cells={[...mapView.cells.values()]}
+              onSetCamera={(camera) => store.dispatch({ kind: 'setCamera', camera })}
+            />
+          ) : null}
         </section>
         <OrderBar
           exclusiveMode={resolvedState.exclusiveMode}
@@ -298,6 +344,29 @@ export function App({ store, state }: AppProps): JSX.Element {
               : () => store.dispatch({ kind: 'clearAllPipes', cell: selection })
           }
         />
+        {/* Surrender trigger (US5 AC-2 / FR-009). Placed AFTER the
+            order palette so the contractual Q-A04 head sequence
+            (skip-link → map → hud → order-bar) is unchanged; the
+            confirm gate lives in SurrenderModal (or the host's
+            onSurrenderRequest delegate). */}
+        {store !== undefined ? (
+          <section id="surrender" aria-label="Surrender controls" className="europa-surrender">
+            <button
+              type="button"
+              className="europa-hud__surrender europa-focus-ring"
+              disabled={!resolvedState.inputEnabled}
+              onClick={() => {
+                if (onSurrenderRequest !== undefined) {
+                  onSurrenderRequest();
+                  return;
+                }
+                setSurrenderOpen(true);
+              }}
+            >
+              Surrender…
+            </button>
+          </section>
+        ) : null}
         {store !== undefined && selection !== null ? (
           <ReservesPanel
             cell={selection}
@@ -333,6 +402,18 @@ export function App({ store, state }: AppProps): JSX.Element {
           </ul>
         </section>
       </main>
+      {store !== undefined ? (
+        <SurrenderModal
+          open={surrenderOpen}
+          onCancel={() => {
+            setSurrenderOpen(false);
+          }}
+          onConfirm={() => {
+            setSurrenderOpen(false);
+            store.dispatch({ kind: 'surrender' });
+          }}
+        />
+      ) : null}
       <div ref={liveHostRef} />
     </>
   );
