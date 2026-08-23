@@ -30,7 +30,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 ## Current state (update this section as work progresses!)
 
-- **Branch**: `001-europa-core` (never commit to `main`/`master`/`develop`)
+- **Branch**: `001-europa-core` (never commit to `main`/`master`/`develop`) — PR #1 (`001-europa-core` → `main`) is OPEN with all checks green, awaiting product-owner merge
 - **Completed**:
   - Phases 1–3 — constitution ratified; six feature specs written and committed (`859a4f3`); spec 006 amended for visibility types + shareable links (`1ed3233`); spec 006 stamped v1.1 with inline Clarifications trail (`b55bfaf`); original archive trimmed to documentation subset with history purged (`79701f8`+)
   - Phases 4–5 — all six feature plans + tasks committed
@@ -48,8 +48,12 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
     - Review follow-ups closed: formatRejection table test (all 9 variants + confirmation messages; format.ts 54.5% → 95.45% stmts) and minimap real container sizing (`useContainerSize` ResizeObserver hook wired into App; component tests assert non-degenerate measurement + live resize).
     - Cross-feature findings fixed (no spec semantics changed): (1) adapter↔wire seq mismatch — `ConsoleClientImpl` assumed order-only numbering but the wire counter covers hello/join too, so every `orderAck` mis-correlated; adapter now consults the inner client's true `lastOrderSeq()` (fallback counter kept for legacy fakes). (2) Client heartbeat added after observing the server's FR-002 idle sweep close receive-only connections. (3) Terrain placement constraints require the default 32 board for matchmaking-generated matches (16×16 exhausts regeneration attempts) — E2E uses the shipped default.
     - Console totals now: unit 227 · component 28 · a11y 19 · e2e 8 · perf 3 · determinism 3 · parity 2 · conformance 9 (= 299); merged coverage 89.72% stmts / 81.83% branches / 88.92% functions / 89.67% lines; bundle budget 80,791 B gz < 150 KB (live-runtime chunk lazy, 3.8 KB gz). client-ci.yml builds `@europa/matchmaking` before the Playwright step (E2E imports its runtime Node-side).
-- **Next**:
-  - Optional follow-ups surfaced during Phase 8: repo-wide test-typechecking gap (tests excluded from every package tsconfig; do NOT fix casually — every package's tsconfig excludes tests/ by design, and CI compensates with dedicated strict programs)
+  - **History join** (`1150f2a`): merged the starter `main` into the branch with `--allow-unrelated-histories` (conflicts resolved ours), enabling PR #1.
+  - **CI trigger scoping** (`2835e64`): all six workflows path-gated to their package + spec dirs + shared roots; push/pull_request branches = `[main]` only (no `001-europa-core` refs); live-validated on PR #1 (18 checks green).
+- **Next** (post-merge follow-ups):
+  - 3-player auto-start GenerationError (terrain package, pre-existing)
+  - Repo-wide test-typechecking gap (documented; do NOT fix casually — every package's tsconfig excludes tests/ by design, and CI compensates with dedicated strict programs)
+  - Optional: add upstream package paths to downstream workflows' watch lists (network/matchmaking/client build against upstream deps but don't watch upstream dirs)
 - Spec status lines: 001 = `**Status**: Implemented`; 003 = `**Status**: Implemented`; 002 = `**Status**: Implemented`; 004 = `**Status**: Implemented`; 006 = `**Status**: Implemented`; 005 = `**Status**: Implemented (2026-08-23)`
 - Monorepo test totals: engine 295 · terrain 225 · fog 110 · networking 184 · matchmaking 170 · console 299 (= 1,283 tests)
 

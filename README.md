@@ -20,24 +20,22 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 
 ## Project status
 
-**Specification phase complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit:
+**v1 implementation complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit: all six features are specified, planned, implemented, integrated, and reviewed.
 
-| Phase                                   | Status |
-| --------------------------------------- | ------ |
-| 1–3. Constitution + feature specs       | ✅ Done |
-| 4–5. Architecture plan + task breakdown | ⬜ Next |
-| 6. Implementation                       | ⬜ Pending |
+| Feature                                  | Package               | Status          |
+| ---------------------------------------- | --------------------- | --------------- |
+| 001 core game engine                     | `@europa/engine`      | ✅ Implemented |
+| 002 fog of war & visibility              | `@europa/fog`         | ✅ Implemented |
+| 003 procedural terrain generation        | `@europa/terrain`     | ✅ Implemented |
+| 004 multiplayer networking               | `@europa/networking`  | ✅ Implemented |
+| 005 client console                       | `@europa/console`     | ✅ Implemented |
+| 006 match lifecycle & matchmaking        | `@europa/matchmaking` | ✅ Implemented |
 
-Feature specifications live in `.specify/features/`:
+An integration wave proved the full production path end-to-end: console UI ⇄ browser WebSocket client ⇄ match server ⇄ matchmaking-bound engine + terrain + fog, with two seats playing through the real wire protocol.
 
-1. `001-core-game-engine` — deterministic tick simulation: terrain, cities, pipes, combat, decay, reserves, paratroopers, guns, victory
-2. `002-fog-of-war-visibility` — per-player sensor horizons with strict no-memory rule
-3. `003-procedural-terrain-generation` — GeoMorph-inspired symmetric, seed-reproducible maps
-4. `004-multiplayer-networking` — authoritative WebSocket protocol, delta sync, reconnection
-5. `005-client-console` — satellite-view renderer with original control scheme parity + modern QoL
-6. `006-match-lifecycle-matchmaking` — lobby (public), shareable-link private matches, rematch, forfeit policy
+Across the monorepo: **1,283 tests**, six per-package CI workflows, and ≥80% coverage gates on every metric in every package.
 
-The governing principles are in `.specify/memory/constitution.md`.
+Feature specifications live in `.specify/features/`; the governing principles are in `.specify/memory/constitution.md`.
 
 ## Repository layout
 
@@ -48,22 +46,53 @@ europa-source/          Trimmed documentation subset of the original game site (
       ├── controls.html Original control scheme
       └── …             Strategy, rating system, background docs + images
 .specify/               Spec-kit tooling: constitution, feature specs, templates, scripts
+packages/               pnpm workspace — all first-party code
+  ├── engine/           @europa/engine      Deterministic tick simulation: cities, pipes, combat, decay, paratroopers, guns, victory
+  ├── terrain/          @europa/terrain     Seed-reproducible, point-symmetric procedural map generation
+  ├── fog/              @europa/fog         Per-player sensor horizons with strict no-memory redaction
+  ├── networking/       @europa/networking  Authoritative WebSocket protocol, tick scheduling, reconnection, spectating
+  ├── matchmaking/      @europa/matchmaking Sessions, public/private matches, lobby, rematch, forfeit policy
+  └── console/          @europa/console     React satellite-view client console (renderer + original control scheme + QoL)
 ```
 
 ## Development
 
 This project is developed agent-first but human-governed: AI agents do the heavy lifting under a constitution (`AGENTS.md` at the repo root defines the working rules). Humans review at every phase gate.
 
+pnpm 11 workspace on Node ≥ 20:
+
 ```bash
-# After implementation begins:
-npm install
-npm test
-npm run dev
+pnpm install
+pnpm build        # all six packages in dependency order:
+                  #   engine → terrain → fog → networking → matchmaking → console (vite bundle)
+pnpm test         # every package's suite
 ```
 
-(Tooling specifics will be recorded here as phases 4–5 establish them.)
+Workspace-wide `lint`, `typecheck`, and `coverage` scripts exist too; any single package can be driven directly, e.g.:
+
+```bash
+pnpm --filter @europa/engine test
+pnpm --filter @europa/console coverage
+```
+
+Console extras:
+
+- The Playwright E2E suites need Chromium once: from `packages/console`, run `pnpm exec playwright install chromium`.
+- The production bundle carries a gzip budget (~80 KB observed against a hard 150 KB limit), enforced by the self-host check: `pnpm --filter @europa/console test:selfhost`.
+
+## Quick start
+
+The minimal path today is developer-grade — there is no packaged binary yet:
+
+```bash
+pnpm install
+pnpm build
+pnpm --filter @europa/console dev    # vite dev server on :5173
+```
+
+Opened bare, the console boots a deterministic stub board — no server needed, enough to see the renderer and drive the controls. To play a real match, run a local match server wired to engine + terrain + fog + matchmaking and open the console's `?live` runtime (`?ws`, `?match`, `?name`, optional `?token`). The full host-wiring recipe lives in [`packages/console/README.md`](packages/console/README.md) and is exercised end-to-end by `packages/console/tests/e2e/full-stack.spec.ts`.
 
 ## Credits & licensing
 
 - The original **Europa** was created by **Alex Nicolaou** and **Jay Steele** (University of Waterloo, ~1999), whose design this project celebrates. The archived source in `europa-source/` remains © Alex Nicolaou under the SOS Simple Open Source License v1.03 — it is included unmodified as reference material.
-- Europa Neo's new code is an independent reimplementation from documented behavior, not a derivative of the original Java code. A license for the new code will be chosen before first release.
+- Europa Neo's new code is an independent reimplementation from documented behavior, not a derivative of the original Java code. License selection for the new code is in progress.
