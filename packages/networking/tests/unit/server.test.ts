@@ -10,6 +10,7 @@
 import { computePlayerView } from '@europa/fog';
 import type {
   EngineSession,
+  JoinAckPayload,
   MatchId,
   MatchmakerBridge,
   PlayerId,
@@ -19,10 +20,10 @@ import { describe, expect, it } from 'vitest';
 
 import { NETWORK_API_VERSION } from '../../src/constants';
 import { NETWORK_DEFAULT_CONFIG } from '../../src/contracts/network-api';
+import { generateSessionToken, toBranded } from '../../src/ids';
 import { createMatchServer } from '../../src/server';
 import type { ProtocolEnvelope, Server, ServerDeps } from '../../src/types';
 import { NULL_LOGGER } from '../../src/types';
-import { generateSessionToken, toBranded } from '../../src/ids';
 import { MockWebSocket, ScriptedClient } from '../fixtures/conn';
 import { attachPlayersForMatch, scriptedMatch } from '../fixtures/match';
 
@@ -319,7 +320,7 @@ describe('createMatchServer — management ops', () => {
     ).not.toThrow();
   });
 
-  it('enableSpectators/disableSpectators flip the gate; spectator attach stays rejected in US1', async () => {
+  it('enableSpectators/disableSpectators flip the gate: closed gates refuse spectator attach, open gates admit it (US3)', async () => {
     const server = createMatchServer(testServerConfig(), realDeps());
     const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
     server.registerMatch({
@@ -329,24 +330,32 @@ describe('createMatchServer — management ops', () => {
     });
     attachPlayersForMatch(server, match);
 
-    const spectator = connectMockClient(server);
-    spectator.hello();
-    await spectator.nextMessage('helloAck');
-
     // Gate closed by default.
-    spectator.joinMatch(match.matchId, 'spectator');
-    let err = await spectator.nextMessage('error');
+    const closedGate = connectMockClient(server);
+    closedGate.hello();
+    await closedGate.nextMessage('helloAck');
+    closedGate.joinMatch(match.matchId, 'spectator');
+    let err = await closedGate.nextMessage('error');
     expect(err.payload.code).toBe('match_not_joinable');
 
-    // Gate open — US1 still rejects attach (full path ships in US3).
+    // Gate open — US3 attach succeeds: null seat + full-board view.
     server.enableSpectators(match.matchId);
-    spectator.joinMatch(match.matchId, 'spectator');
-    err = await spectator.nextMessage('error');
-    expect(err.payload.code).toBe('match_not_joinable');
+    const watcher = connectMockClient(server);
+    watcher.hello();
+    await watcher.nextMessage('helloAck');
+    watcher.joinMatch(match.matchId, 'spectator');
+    const joinAck = await watcher.nextMessage('joinAck');
+    const ack = joinAck.payload as unknown as JoinAckPayload;
+    expect(ack.playerId).toBeNull();
+    expect(ack.view.visibleCells).toHaveLength(8 * 8);
 
+    // Gate closed again — further attaches are refused.
     server.disableSpectators(match.matchId);
-    spectator.joinMatch(match.matchId, 'spectator');
-    err = await spectator.nextMessage('error');
+    const latecomer = connectMockClient(server);
+    latecomer.hello();
+    await latecomer.nextMessage('helloAck');
+    latecomer.joinMatch(match.matchId, 'spectator');
+    err = await latecomer.nextMessage('error');
     expect(err.payload.code).toBe('match_not_joinable');
 
     await server.close();
@@ -358,12 +367,6 @@ describe('createMatchServer — management ops', () => {
 // ----------------------------------------------------------------------------
 
 describe('createMatchServer — protocol edges', () => {
-  /** Joined harness variant with recorder hooks on the bridge. */
-  interface RecordedBridge {
-    readonly claimed: Array<{ playerId: number; connectionId: string }>;
-    readonly disconnected: number;
-  }
-
   it('version mismatch replies with version_mismatch and closes 1008 (FR-004)', async () => {
     const server = createMatchServer(testServerConfig(), realDeps());
     const client = connectMockClient(server);
@@ -454,7 +457,7 @@ describe('createMatchServer — protocol edges', () => {
     expect(invalid.payload.code).toBe('token_invalid');
 
     // The valid token DOES claim its seat from a fresh connection.
-    thirdJoin: {
+    {
       const third = connectMockClient(server);
       third.hello();
       await third.nextMessage('helloAck');

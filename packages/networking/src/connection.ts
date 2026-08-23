@@ -144,14 +144,13 @@ function toWireText(data: unknown): string {
 export class Connection {
   /** Unique transport handle (branded UUID). */
   readonly id: ConnectionId;
-  /** Role bound at construction (`player` until joined as such). */
-  readonly role: ConnectionRole;
 
   private readonly socket: ConnectionSocket;
   private readonly onEnvelopeFn?: ConnectionOptions['onEnvelope'];
   private readonly onCloseFn?: ConnectionOptions['onClose'];
 
   private st: ConnectionState = 'pending';
+  private roleValue: ConnectionRole;
   private sessionTokenValue: SessionToken | null = null;
   private playerIdValue: PlayerId | null = null;
   private matchIdValue: MatchId | null = null;
@@ -176,7 +175,7 @@ export class Connection {
    */
   constructor(options: ConnectionOptions) {
     this.id = options.id ?? generateConnectionId();
-    this.role = options.role;
+    this.roleValue = options.role;
     this.socket = options.socket;
     this.onEnvelopeFn = options.onEnvelope;
     this.onCloseFn = options.onClose;
@@ -207,6 +206,16 @@ export class Connection {
   /** Current lifecycle state. */
   state(): ConnectionState {
     return this.st;
+  }
+
+  /**
+   * Bound role: `player` from construction; flips to `spectator`
+   * only via {@link markSpectatorJoined} (US3). Read by the order
+   * pipeline (`spectator_readonly`) and the broadcast builder
+   * (full-board views).
+   */
+  get role(): ConnectionRole {
+    return this.roleValue;
   }
 
   /** Epoch ms of the last inbound activity (advanced by `sweep`). */
@@ -260,6 +269,27 @@ export class Connection {
       this.st = 'joined';
       this.sessionTokenValue = token;
       this.playerIdValue = playerId;
+      this.matchIdValue = matchId;
+    }
+  }
+
+  /**
+   * `greeted/pending → joined` as a spectator (US3): bind per-
+   * connection spectator identity — token + match, seat `null`, role
+   * `spectator`. Spectators hold no seat: the token authorizes no
+   * reclaim, and the role flip is what makes the order pipeline
+   * reject their orders (`spectator_readonly`) and the broadcast
+   * builder compute full-board views for them.
+   *
+   * @param token   Per-connection spectator token.
+   * @param matchId Match being observed.
+   */
+  markSpectatorJoined(token: SessionToken, matchId: MatchId): void {
+    if (this.st === 'pending' || this.st === 'greeted') {
+      this.roleValue = 'spectator';
+      this.st = 'joined';
+      this.sessionTokenValue = token;
+      this.playerIdValue = null;
       this.matchIdValue = matchId;
     }
   }

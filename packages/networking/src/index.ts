@@ -1,14 +1,15 @@
 /**
  * Public surface of the `@europa/networking` package.
  *
- * This is the **US1+US2-populated barrel** (T010 + T020 + T034 + T041) —
- * re-exports
+ * This is the **US1+US2+US3-populated barrel** (T010 + T020 + T034 +
+ * T041 + T046) — re-exports
  * the full type surface (wire protocol, server API, matchmaking
  * boundary), the tunable constants, the Phase 2 runtime utilities
  * (JSON framing, envelope validation, the protocol error hierarchy,
- * branded identity generation, the tick clock), and the US1 runtime:
+ * branded identity generation, the tick clock), the US1 runtime:
  * `createMatchServer` plus its composable parts (`Connection`,
- * `MatchChannel`, order pipeline, broadcast pipeline, stats).
+ * `MatchChannel`, order pipeline, broadcast pipeline, stats), the
+ * US2 reconnect machinery, and the US3 spectator pipeline.
  *
  * This is the final US1 deliverable: the public surface is now usable
  * by feature 005 (console) and feature 006 (matchmaking).
@@ -174,6 +175,13 @@ export { MatchChannel } from './match-channel';
 export type { AcceptOrderResult, AppliedOrderOutcome } from './orders';
 export { acceptOrder, applyOrdersAtTickBoundary } from './orders';
 export { createMatchServer } from './server';
+
+// ----------------------------------------------------------------------------
+// US3 runtime: late-join spectator attach/detach (T046)
+// ----------------------------------------------------------------------------
+
+export type { AttachSpectatorResult, SpectatorDeps } from './spectator';
+export { attachSpectator, detachSpectator, SPECTATOR_VIEW_SEAT } from './spectator';
 export { StatsCounter } from './stats';
 
 // ----------------------------------------------------------------------------

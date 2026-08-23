@@ -13,10 +13,17 @@
  *     plan.md "Risk & Open Questions" §"Zlib memory fragmentation";
  *     `noServer: true`, bound to a per-instance `http.Server` so
  *     tests can `listen({ port: 0 })`),
- *   - `MatchmakerBridge` callback dispatch (onSeatClaimed on join,
- *     onSeatDisconnected + registry registration on ws close,
- *     onSeatReconnected on grace-window reclaim, onSeatExpired on the
- *     scheduler's grace sweep, onMatchTerminal on engine terminal).
+ *   - `MatchmakerBridge` callback dispatch (onSeatClaimed on join —
+ *     players and spectators alike, spectators carrying
+ *     `playerId: null` per US3 —, onSeatDisconnected + registry
+ *     registration on ws close, onSeatReconnected on grace-window
+ *     reclaim, onSeatExpired on the scheduler's grace sweep,
+ *     onMatchTerminal on engine terminal),
+ *   - the US3 spectator path (`enableSpectators` /
+ *     `disableSpectators` gate; role-dispatched `joinMatch` via
+ *     `attachSpectator`; full-board tick views through fog's
+ *     `{ spectator: true }` branch; read-only orders enforced in
+ *     `orders.ts`).
  *
  * The public surface matches the contract's `Server` interface
  * (`contracts/network-api.ts`) exactly, plus an `__injectSocketForTest`
@@ -67,13 +74,13 @@ import type {
   SessionToken,
   SnapshotPayload,
   TerminalPayload,
-  TickBroadcastPayload,
 } from './contracts/network-types';
 import { generateSessionToken } from './ids';
 import { MatchChannel } from './match-channel';
 import { acceptOrder, applyOrdersAtTickBoundary } from './orders';
-import { ReconnectRegistry, type ReconnectBinding } from './reconnect';
+import { type ReconnectBinding, ReconnectRegistry } from './reconnect';
 import { ResyncBuffer } from './resync';
+import { attachSpectator, detachSpectator } from './spectator';
 import { StatsCounter } from './stats';
 import { validateVersion } from './validate';
 
@@ -418,9 +425,25 @@ export function createMatchServer(
     }
 
     if (payload.role === 'spectator') {
-      // Full spectator attach ships in US3; US1 honors the gate flag
-      // being observable while attach stays rejected.
-      connection.sendError('match_not_joinable', 'spectator attach is not available in this build');
+      // US3 late-join: gate-checked attach. Spectators bypass seat
+      // allocation entirely — no seat scan, no capacity check, no
+      // reconnect registry. `attachSpectator` binds the connection
+      // (role flip + spectator map) and fires `onSeatClaimed` with
+      // `playerId: null`; on rejection it has already sent the
+      // `match_not_joinable` error frame.
+      const attached = attachSpectator(channel, connection, deps, Date.now());
+      if (!attached.ok) {
+        return;
+      }
+      const ackPayload: JoinAckPayload = {
+        sessionToken: attached.sessionToken,
+        playerId: null,
+        view: attached.snapshot.view,
+        tick: attached.snapshot.tick,
+        players: channel.engineSession.world().players,
+      };
+      connection.send(envelopeOf('joinAck', ackPayload));
+      statsCounter.recordFrameSent('joinAck');
       return;
     }
 
@@ -670,7 +693,19 @@ export function createMatchServer(
       return;
     }
     const channel = channels.get(matchId);
-    if (!channel || connection.sessionToken === null) {
+    if (!channel) {
+      return;
+    }
+    // Spectators hold no seat: no reconnect lifecycle, no registry.
+    // Their departure rides the same bridge event players use,
+    // carrying the per-connection spectator token (`detachSpectator`
+    // is idempotent, so an explicit detach followed by the socket
+    // close fires `onSeatDisconnected` exactly once).
+    if (connection.role === 'spectator') {
+      detachSpectator(channel, connection.id, deps);
+      return;
+    }
+    if (connection.sessionToken === null) {
       return;
     }
     // Only a live seated session enters the reconnect lifecycle:
@@ -701,9 +736,6 @@ export function createMatchServer(
           });
         }
       }
-    }
-    if (connection.role === 'spectator') {
-      channel.removeSpectator(connection.id);
     }
   }
 

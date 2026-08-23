@@ -34,6 +34,7 @@ import type {
   TickBroadcastPayload,
 } from './contracts/network-types';
 import type { MatchChannel } from './match-channel';
+import { SPECTATOR_VIEW_SEAT } from './spectator';
 
 // ----------------------------------------------------------------------------
 // buildTickBroadcast
@@ -67,7 +68,11 @@ export function buildTickBroadcast(
 
   for (const connection of channel.connections()) {
     const spectator = connection.role === 'spectator';
-    const playerId: PlayerId = connection.playerId ?? 1;
+    // Null seat ⇒ spectator: stamp the no-seat sentinel (0) so the
+    // view can never be misread as a real player's — same sentinel
+    // the join-time snapshot carries (`SPECTATOR_VIEW_SEAT`). Fog's
+    // spectator branch ignores the seat either way.
+    const playerId: PlayerId = connection.playerId ?? SPECTATOR_VIEW_SEAT;
     const view = deps.fog.computePlayerView({ world, playerId, spectator });
 
     const previous = channel.lastSentView.get(connection.id);

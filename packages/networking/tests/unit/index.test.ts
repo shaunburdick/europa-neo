@@ -9,8 +9,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  attachSpectator,
   createTickClock,
   decodeFrame,
+  detachSpectator,
   encodeFrame,
   generateConnectionId,
   generateSessionToken,
@@ -20,6 +22,7 @@ import {
   NETWORK_DEFAULT_CONFIG,
   NetworkError,
   NULL_LOGGER,
+  SPECTATOR_VIEW_SEAT,
   toBranded,
   tryDecodeFrame,
   validateEnvelope,
@@ -57,5 +60,11 @@ describe('barrel runtime surface', () => {
     const clock = createTickClock(60_000, () => {});
     expect(clock.tickCount()).toBe(0);
     clock.stop();
+  });
+
+  it('exposes the spectator pipeline (US3)', () => {
+    expect(typeof attachSpectator).toBe('function');
+    expect(typeof detachSpectator).toBe('function');
+    expect(SPECTATOR_VIEW_SEAT).toBe(0);
   });
 });

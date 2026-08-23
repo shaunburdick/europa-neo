@@ -12,8 +12,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { NETWORK_CONSTANTS } from '../../src/constants';
-import type { PlayerView } from '../../src/types';
 import { ResyncBuffer } from '../../src/resync';
+import type { PlayerView } from '../../src/types';
 
 /** Minimal deterministic view stand-in (only identity matters here). */
 function view(marker: number): PlayerView {
