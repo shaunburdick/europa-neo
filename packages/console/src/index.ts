@@ -17,7 +17,7 @@
  */
 
 // ----------------------------------------------------------------------------
-// Runtime surface — state machine
+// Runtime surface — state machine + order bridge
 // ----------------------------------------------------------------------------
 
 export { actionToOrder } from './state/action-to-order';
@@ -31,11 +31,17 @@ export {
 export { diffCellChanges } from './state/diff';
 export { formatActionConfirmation, formatRejection } from './state/format';
 export { localPreflightOrder } from './state/local-preflight';
+export {
+  createOrderBridge,
+  type OrderBridge,
+  type OrderBridgeArgs,
+  type OrderBridgeClient,
+} from './state/order-actions';
 export { appendFeedback, appendRejection, INITIAL_CONSOLE_STATE, reduce } from './state/reducer';
 export { createConsoleStore } from './state/store';
 
 // ----------------------------------------------------------------------------
-// Runtime surface — network adapter + a11y + input math
+// Runtime surface — network adapter + a11y + input layer
 // ----------------------------------------------------------------------------
 
 export { KeyboardNavigator } from './a11y/keyboard';
@@ -46,7 +52,33 @@ export {
   regionFromDirection,
   regionFromSubcell,
 } from './input/hit-test';
+export {
+  type DraftIgnoreReason,
+  type DraftOutcome,
+  OrderDraftController,
+  type TranslateKeyArgs,
+  translateKey,
+} from './input/order-draft';
+export {
+  decideRegionClick,
+  type PointerButton,
+  pipePresentInDirection,
+  type RegionClickArgs,
+  type RegionClickDecision,
+  type RegionSelectCallbacks,
+  RegionSelectController,
+  type RegionSelectHandle,
+} from './input/region-select';
 export { subcellToTargetCoord, subcellToTargetOffset } from './input/subcell';
+export {
+  type AbilityArgs,
+  type AbilityKind,
+  buildAbilityAction,
+  CURSOR_STALE_MS,
+  isCursorFresh,
+  type NoLaunchReason,
+  type TargetingOutcome,
+} from './input/subcell-target';
 export { createConsoleClient } from './net/client';
 export { consoleStatusFromConnectionState } from './net/connection';
 export { netEventFromEnvelope } from './net/envelope-to-event';

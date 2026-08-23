@@ -118,6 +118,24 @@ export interface ScriptedTickResult {
 }
 
 /**
+ * Seed a live console state around `view` (status 'live', input
+ * enabled, seated as the view's owner) without dispatching anything.
+ * The US2/US3 input suites start from this shape so gesture handlers
+ * see an issuable match. Pure.
+ *
+ * @param view The fog-filtered view the console should hold.
+ */
+export function createLiveConsoleState(view: PlayerView): ConsoleState {
+  return {
+    ...INITIAL_CONSOLE_STATE,
+    status: 'live',
+    inputEnabled: true,
+    latestView: view,
+    session: { ...INITIAL_CONSOLE_STATE.session, playerId: view.player },
+  };
+}
+
+/**
  * Apply a scripted action to a scripted view: seeds a live console
  * state (status 'live', seated as the view's owner) with `view` as
  * the latest applied view, dispatches `action` at `nowMs`, and

@@ -25,7 +25,7 @@
  */
 
 import type { JSX } from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { KeyboardNavigator } from '../a11y/keyboard';
 import { coordKey } from '../state/build-map-view';
@@ -39,21 +39,35 @@ export interface GridOverlayProps {
   /**
    * Click activation on a visible cell (pointer or Enter key).
    * The order pipeline consumes this from Phase 4 onward; optional
-   * so the US1 MVP can mount without input wiring.
+   * so the US1 MVP can mount without input wiring. `| undefined` so
+   * callers may pass through optional values under
+   * `exactOptionalPropertyTypes` (same pattern as CellViewProps).
    */
-  readonly onCellClick?: (info: CellRenderInfo) => void;
+  readonly onCellClick?: ((info: CellRenderInfo) => void) | undefined;
   /**
    * Hover tracking; called with the entered cell's coord, or `null`
    * when the pointer leaves the grid.
    */
-  readonly onCellHover?: (coord: Coord | null) => void;
+  readonly onCellHover?: ((coord: Coord | null) => void) | undefined;
+  /**
+   * Roving-focus notification (US2): fired whenever the grid's focus
+   * coordinate MOVES (arrow keys / focus entry — never on blur
+   * clearing). Interactive hosts mirror it into `state.selection` so
+   * keyboard pipe/ability keys act on the ring's cell.
+   */
+  readonly onFocusedCoordChange?: ((coord: Coord | null) => void) | undefined;
 }
 
 /**
  * The ARIA grid overlay component. Renders the sparse row/cell DOM
  * over the canvas and owns the roving-focus keyboard behavior.
  */
-export function GridOverlay({ mapView, onCellClick, onCellHover }: GridOverlayProps): JSX.Element {
+export function GridOverlay({
+  mapView,
+  onCellClick,
+  onCellHover,
+  onFocusedCoordChange,
+}: GridOverlayProps): JSX.Element {
   const keyboardNavigatorRef = useRef<KeyboardNavigator | null>(null);
   if (keyboardNavigatorRef.current === null) {
     keyboardNavigatorRef.current = new KeyboardNavigator();
@@ -63,6 +77,25 @@ export function GridOverlay({ mapView, onCellClick, onCellHover }: GridOverlayPr
   // Roving focus coordinate: null until the grid receives focus,
   // then initialized at the board center (KeyboardNavigator contract).
   const [focusedCoord, setFocusedCoord] = useState<Coord | null>(null);
+
+  // Keep the visual ring glued to programmatic selection changes
+  // (click-to-select, Phase 8 runtime seeding). Same-reference writes
+  // bail out of React rendering, so this cannot loop with the
+  // notification below.
+  useEffect(() => {
+    if (mapView.selection !== null) {
+      setFocusedCoord(mapView.selection);
+    }
+  }, [mapView.selection]);
+
+  /**
+   * Move the ring AND notify the host (selection mirroring). Blur
+   * clearing bypasses this — losing focus must not drop the anchor.
+   */
+  function moveRovingFocus(coord: Coord | null): void {
+    setFocusedCoord(coord);
+    onFocusedCoordChange?.(coord);
+  }
 
   // Group visible cells into rows keyed by y, each sorted by x.
   const rows = new Map<number, CellRenderInfo[]>();
@@ -88,7 +121,7 @@ export function GridOverlay({ mapView, onCellClick, onCellHover }: GridOverlayPr
       event.preventDefault();
       const current =
         focusedCoord ?? keyboardNavigator.getInitialFocus(mapView.width, mapView.height);
-      setFocusedCoord(keyboardNavigator.moveFocus(current, direction, mapView));
+      moveRovingFocus(keyboardNavigator.moveFocus(current, direction, mapView));
       return;
     }
     if ((event.key === 'Enter' || event.key === ' ') && onCellClick !== undefined) {
@@ -113,7 +146,12 @@ export function GridOverlay({ mapView, onCellClick, onCellHover }: GridOverlayPr
       onKeyDown={handleKeyDown}
       onFocus={() => {
         if (focusedCoord === null) {
-          setFocusedCoord(keyboardNavigator.getInitialFocus(mapView.width, mapView.height));
+          // Resume at the existing selection when there is one (e.g.,
+          // the player clicked a cell, then Tabbed in); otherwise the
+          // board center per KeyboardNavigator's contract.
+          moveRovingFocus(
+            mapView.selection ?? keyboardNavigator.getInitialFocus(mapView.width, mapView.height),
+          );
         }
       }}
       onBlur={() => setFocusedCoord(null)}
