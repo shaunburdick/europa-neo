@@ -84,15 +84,17 @@ Console extras:
 
 ## Quick start
 
-The minimal path today is developer-grade — there is no packaged binary yet:
-
 ```bash
 pnpm install
 pnpm build
-pnpm --filter @europa/console dev    # vite dev server on :5173
+pnpm --filter @europa/console host
 ```
 
-Opened bare, the console boots a deterministic stub board — no server needed, enough to see the renderer and drive the controls. To play a real match, run a local match server wired to engine + terrain + fog + matchmaking and open the console's `?live` runtime (`?ws`, `?match`, `?name`, optional `?token`). The full host-wiring recipe lives in [`packages/console/README.md`](packages/console/README.md) and is exercised end-to-end by `packages/console/tests/e2e/full-stack.spec.ts`.
+`pnpm host` starts the match server (`ws://localhost:8080`) and serves
+the console (`http://localhost:5173`), auto-creates a public 2-player
+match, and prints two clickable join URLs — open them in two tabs and
+play. (Without a server, opening the console bare boots a deterministic
+stub board — enough to see the renderer and drive the controls.)
 
 ## Credits & licensing
 

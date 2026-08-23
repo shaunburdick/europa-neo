@@ -91,6 +91,40 @@ limitation: there is no automatic reconnection loop — a transport loss
 surfaces as the `reconnecting` status; present `reconnectToken` to
 reclaim a seat.
 
+### Run a local match (`pnpm host`)
+
+One command boots the whole stack — matchmaker + match server on
+`:8080`, the built console served from `dist/` on `:5173` — creates a
+public 2-player match, and prints two clickable join URLs:
+
+```bash
+pnpm build                        # once; host serves dist/
+pnpm --filter @europa/console host
+```
+
+```text
+Europa Neo — local match host
+─────────────────────────────
+
+  Match server : ws://localhost:8080
+  Console UI   : http://localhost:5173
+  Match id     : e787e339-e9ea-4fd9-821b-451a2d19ba0d
+
+  Open in two browser tabs:
+
+  Player 1 → http://localhost:5173/?live&ws=ws://localhost:8080&match=e787e339-…&name=P1&token=abd16a59-…
+  Player 2 → http://localhost:5173/?live&ws=ws://localhost:8080&match=e787e339-…&name=P2&token=5ac960be-…
+
+  Ctrl-C to stop.
+```
+
+Open the two URLs in two tabs and play. Each URL carries its seat's
+session token so an accidental refresh reclaims the same seat within
+the reconnect grace window. Port overrides: `--port N` /
+`--static-port N` (or `HOST_PORT` / `HOST_STATIC_PORT`). The script is
+dependency-free glue over node:* builtins; it mirrors the host-wiring
+recipe exercised by `tests/e2e/full-stack.spec.ts`.
+
 ### Full-stack proof
 
 `tests/e2e/full-stack.spec.ts` boots a real `createMatchServer` bound
