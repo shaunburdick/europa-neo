@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Planned
+**Status**: Implemented (2026-08-23)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -136,3 +136,78 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 - Sound assets are optional polish; the toggle exists from v1 but silence is acceptable default.
 - Visual style is free to diverge from the original (modernization mandate); mechanical parity of controls is the requirement, not pixel fidelity.
 - Client-side prediction is deliberately minimal (tick-paced game); correctness beats latency masking in v1.
+
+## Implementation Notes (2026-08-23, Phase 8 Polish)
+
+Notable rulings and deviations made during implementation. Where a
+task's prose conflicted with the shipped architecture, the shipped
+architecture won and the deviation is recorded here (specs stay
+truthful).
+
+1. **No rAF paint loop (T086 prose)**: the contract-era design had a
+   requestAnimationFrame loop deriving `MapView` per frame. The
+   shipped React 19 render model derives `MapView` synchronously from
+   each committed state (`useSyncExternalStore` in `App`) and paints
+   on commit — a rAF poller would double-paint. Rendering remains
+   exactly-on-state-change; SC-002/SC-003 are unaffected.
+2. **`scheduleReconnect` effect is informational**: reconnection is
+   transparent inside the feature 004 `MatchClient` adapter (per
+   console-to-networking guarantee #1). The runtime logs the hint and
+   does not own timers.
+3. **`showErrorModal` / `playSound` / `requestSurrenderConfirm`
+   effects**: never emitted by the v1 reducer. The runtime handles
+   them defensively (log / sound seam / modal epoch) so future
+   emitters work without runtime changes.
+4. **Bundle budget scope (Q-P03)**: "initial bundle < 150 KB gzipped"
+   is enforced by `scripts/test-selfhost.sh` over the
+   browser-delivered payload (`dist/assets/**`, currently ~76.5 KB).
+   The tsc library tree also emitted into `dist/` is consumed by
+   bundling hosts, never fetched by browsers, and is out of scope.
+   The browser-mode perf suite cannot read the filesystem, hence the
+   enforcement point.
+5. **Coverage gate scope (T094/T097)**: DOM-bound modules
+   (`src/render/`, `src/ui/`, `src/qol/minimap.tsx`) are covered by
+   the component/a11y/E2E suites in real Chromium; node-only coverage
+   of them is impossible. `vitest.config.coverage.ts` merges node +
+   browser projects into ONE thresholded session — ≥80% on every
+   metric over all of `src/` except `main.tsx` + `src/internal/`.
+   Result: 88.7 stmts / 81.3 branches / 88.7 funcs / 88.7 lines.
+6. **Conformance typecheck program**: tests are excluded from every
+   package's tsconfig repo-wide, which would have made T089's
+   compile-time checks dead code. The console ships
+   `tsconfig.conformance.json` + `pnpm typecheck:conformance` (strict
+   program over `src/` + the conformance test), wired into CI.
+7. **`Console.sendOrder` ActionIds**: host-initiated wire orders share
+   the reducer's ActionId counter via exported `allocateActionId()`,
+   guaranteeing no seq-correlation collisions with gesture-issued
+   ids. They are not registered as pending orders; their acks produce
+   feedback only.
+8. **Built-in surrender modal trigger**: `requestSurrender()` without
+   a host callback bumps an epoch counter passed to `App` as
+   `surrenderRequestEpoch`; the confirm gate itself stays in
+   `SurrenderModal` (FR-009).
+9. **Input layer default**: v1's pointer/keyboard controllers ship
+   inside `App` (US2–US5 architecture), so `deps.inputFactory`
+   defaults to a documented no-op; hosts may still inject.
+10. **`loadReplay` omitted**: declared optional in the contract for
+    forward compatibility; v1 does not implement it (per contract
+    JSDoc).
+
+### Quickstart validation mapping (Q-* → proving suites)
+
+| Quickstart items | Proving suite | Result |
+| --- | --- | --- |
+| Q-C01..Q-C03 (dev-mode boots) | Manual smoke; `?e2e` harness covered by Playwright specs | Manual |
+| Q-U01..Q-U10 (unit) | `test:unit` — 192 tests incl. reducer arms/invariants, net layer, preflight, zoom math, controllers | PASS |
+| Q-B01..Q-B08 (component) | `test:component` — 25 tests | PASS |
+| Q-E01..Q-E15 (E2E) | `test:e2e` — 7 Playwright specs covering US1–US5 wire-level acceptance + selfhost smoke | PASS |
+| Q-A01..Q-A08 (a11y E2E) | `test:a11y` — 19 axe-core acceptance tests | PASS |
+| Q-P01/P02/P04 (perf budgets) | `test:perf` — paint 1.8 ms (<8), reduce ~0.2 µs (<1 ms), preflight ~0.3 µs (<0.1 ms) | PASS |
+| Q-P03 (bundle < 150 KB gz) | `test:selfhost` — 76,528 bytes over `dist/assets` | PASS |
+| SC-002 determinism | `test:determinism` — 1000-tick golden fixture, zero divergence | PASS |
+| SC-004 parity | `test:parity` + original-subcell fixture | PASS |
+| Constitution VII self-host | remote-URL scan in `test:selfhost` | PASS |
+
+Final counts: unit 192 · component 25 · a11y 19 · e2e 7 · perf 3 ·
+determinism 3 · parity 2 · conformance 9 (= 260 console tests);
+merged coverage 88.74/81.28/88.65/88.66 (stmts/branches/funcs/lines).

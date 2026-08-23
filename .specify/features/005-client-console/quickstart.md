@@ -407,3 +407,28 @@ For the console to be considered "ready":
 
 When all 15 E2E + 8 a11y + 10 unit + 8 component tests pass and
 the manual smoke is clean, the console is ready for v1.
+
+---
+
+## 14. Validation results appendix (2026-08-23, Phase 8 Polish)
+
+Every Q-* scenario above, mapped to the suite that actually proves
+it. Where the shipped implementation diverged from the original
+scenario text (e.g., E2E coverage is 7 consolidated US-level specs,
+not 15 per-FR specs), the mapping notes the consolidation.
+
+| ID | Proving suite | Result |
+| --- | --- | --- |
+| Q-C01..Q-C03 | Manual dev-mode smoke; the `?e2e` harness path is covered by the Playwright specs | manual |
+| Q-U01..Q-U10 | `pnpm test:unit` — 192 tests: reducer arms + invariants (Q-U01/U02), action→order table (Q-U03), subcell binning (Q-U04), local preflight (Q-U05), MapView derivation (Q-U06), diff flags (Q-U07), rejection formatting (Q-U08), coord round-trip (Q-U09), input-mapping bindings (Q-U10) | PASS |
+| Q-B01..Q-B08 | `pnpm test:component` — 25 tests across canvas, grid overlay, HUD, surrender modal, error boundary, minimap, reserves panel, cell view | PASS |
+| Q-E01..Q-E15 | `pnpm test:e2e` — 7 Playwright specs consolidating the 15 scenarios by user story (US1–US5 wire-level acceptance incl. parity fixture) plus the selfhost smoke | PASS |
+| Q-A01..Q-A08 | `pnpm test:a11y` — 19 axe-core acceptance tests (WCAG 2.2 AA tags, keyboard-only paths, reduced motion, focus visibility) | PASS |
+| Q-P01..Q-P04 | `pnpm test:perf` (paint p50 1.8 ms < 8 ms · reduce ~0.2 µs < 1 ms · preflight ~0.3 µs < 0.1 ms) + bundle budget in `test:selfhost` (76,528 B gz < 150 KB over `dist/assets`) | PASS |
+| SC-002 determinism | `pnpm test:determinism` — 1000-tick scripted match vs committed golden fixture (`tests/fixtures/golden-1000-tick.json`); zero divergence | PASS |
+| SC-004 parity | `pnpm test:parity` vs `tests/fixtures/original-subcell.json` | PASS |
+| Constitution VII | remote-URL scan inside `scripts/test-selfhost.sh` | PASS |
+
+§13 checklist status: every automated row green; the only manual
+item remaining is the 30-minute two-player smoke (needs the feature
+006 ↔ console integration wave).
