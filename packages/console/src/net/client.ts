@@ -5,21 +5,17 @@
  * `ConsoleClient` surface (contracts/console-to-networking.ts): the
  * console never touches WebSocket frames directly.
  *
- * ⚠️ ADAPTED TO SHIPPED FEATURE 004 REALITY (PM directive: verify real
- * export names before importing). `@europa/networking` exports the
- * `MatchClient` / `ClientState` TYPES (factory declared in its
- * contract as `createMatchClient`) but ships NO runtime client
- * implementation yet — feature 004's delivered surface is the server
- * (`createMatchServer`). Therefore:
+ * Integration-wave update: feature 005 now ships a real browser
+ * client — {@link createWsMatchClient} (`src/net/ws-match-client.ts`),
+ * which speaks networking's wire codec over the native WebSocket API.
+ * It is the DEFAULT `matchClientFactory`:
  *
- *   - `deps.matchClientFactory` is effectively REQUIRED at runtime:
- *     omitting it throws a descriptive construction-time error rather
- *     than silently importing a non-existent function. When feature
- *     004 lands its browser-side client, the default factory wires to
- *     `createMatchClient` from '@europa/networking' (runtime import
- *     of networking is allowed only in this file).
- *   - The produced client is validated structurally at construction
- *     (fail-fast, no `any`) via {@link isMatchClientLike}.
+ *   - omitting `deps.matchClientFactory` constructs a live WebSocket
+ *     client wired to `config.url` (the contract's documented default:
+ *     "Defaults to createMatchClient from @europa/networking");
+ *   - hosts and tests may still inject a factory — injected factories
+ *     are validated structurally at construction (fail-fast, no `any`)
+ *     via {@link isMatchClientLike}.
  *
  * Order-ack correlation: each `sendOrder` assigns a monotonically
  * increasing `SequenceNumber` and records `seq → actionId`; incoming
@@ -42,6 +38,7 @@ import type {
   SessionToken,
 } from '../state/types';
 import { consoleStatusFromConnectionState } from './connection';
+import { createWsMatchClient } from './ws-match-client';
 
 // ----------------------------------------------------------------------------
 // Structural view of feature 004's MatchClient (no runtime import)
@@ -71,6 +68,18 @@ interface MatchClientLike {
     readonly lastTick: number;
     readonly lastSeenServerSeq: number;
   };
+  /**
+   * Integration-wave addition (optional so test doubles from before
+   * the browser client existed keep working): the wire seq the client
+   * assigned to its most recent `sendOrder`. The wire counter covers
+   * EVERY outbound frame — hello, joinMatch, orders — so a real
+   * client's first order is seq 3+, NOT 1. Adapters that assume
+   * order-only numbering mis-correlate every `orderAck` (found by the
+   * full-stack E2E). When absent, the adapter falls back to its own
+   * order-only counter, which stays self-consistent for fakes that
+   * also echo that counter's values.
+   */
+  lastOrderSeq?(): SequenceNumber | null;
 }
 
 /**
@@ -93,9 +102,11 @@ function isMatchClientLike(value: unknown): value is MatchClientLike {
 }
 
 /**
- * Monotonic SequenceNumber source for outbound orders. The adapter
- * owns wire numbering (console ActionIds stay internal); acks are
- * correlated back through {@link ConsoleClientImpl.seqToActionId}.
+ * Monotonic SequenceNumber source for outbound orders — the FALLBACK
+ * for inner clients without `lastOrderSeq()` (test doubles). The real
+ * browser client reports its true wire seq, which also counts hello /
+ * joinMatch frames. Acks are correlated back through
+ * {@link ConsoleClientImpl.seqToActionId}.
  */
 let nextWireSeq = 0;
 
@@ -104,23 +115,21 @@ let nextWireSeq = 0;
  * `connect()` then `joinMatch()` first (contract lifecycle).
  *
  * @param config Client config (URL, display name, optional token/match).
- * @param deps Test seam. Production hosts MUST provide
- *             `matchClientFactory` until feature 004 ships its
- *             browser client; tests inject fakes here too.
+ * @param deps Optional test seam. When `matchClientFactory` is
+ *             omitted, the adapter defaults to the shipped browser
+ *             WebSocket client ({@link createWsMatchClient}); tests
+ *             inject fakes here instead.
  * @returns The adapter handle.
  */
 export function createConsoleClient(
   config: ConsoleClientConfig,
   deps?: ConsoleClientDeps,
 ): ConsoleClient {
-  if (deps?.matchClientFactory === undefined) {
-    throw new Error(
-      'createConsoleClient: no matchClientFactory provided. Feature 004 has not shipped a ' +
-        'browser-side client runtime yet; inject one via deps.matchClientFactory ' +
-        '(tests use a fake). See packages/console/src/net/client.ts header.',
-    );
-  }
-  const produced: unknown = deps.matchClientFactory({
+  const factory =
+    deps?.matchClientFactory ??
+    ((opts: { readonly autoReconnect?: boolean; readonly verboseLogging?: boolean }) =>
+      createWsMatchClient(opts));
+  const produced: unknown = factory({
     autoReconnect: config.autoReconnect ?? true,
     verboseLogging: config.verboseLogging ?? false,
   });
@@ -131,7 +140,7 @@ export function createConsoleClient(
         'onMessage/state).',
     );
   }
-  return new ConsoleClientImpl(config, produced, deps.logger);
+  return new ConsoleClientImpl(config, produced, deps?.logger);
 }
 
 /**
@@ -188,16 +197,25 @@ class ConsoleClientImpl implements ConsoleClient {
   }
 
   /**
-   * Submit an order stamped with the given console ActionId. Assigns
-   * the next wire SequenceNumber and records the correlation so the
-   * matching `orderAck` resolves back to `actionId`.
+   * Submit an order stamped with the given console ActionId. Records
+   * the correlation so the matching `orderAck` resolves back to
+   * `actionId`: the key is the inner client's TRUE wire seq when it
+   * reports one ({@link MatchClientLike.lastOrderSeq}), else the
+   * adapter's own fallback counter.
    */
   sendOrder(actionId: ActionId, order: Order): Promise<void> {
-    nextWireSeq += 1;
-    const seq = nextWireSeq as SequenceNumber;
-    this.seqToActionId.set(seq, actionId);
-    this.log('debug', 'sendOrder', { seq, actionId });
-    return this.client.sendOrder(order).then(() => undefined);
+    const sent = this.client.sendOrder(order);
+    const reported = this.client.lastOrderSeq?.() ?? null;
+    if (reported !== null) {
+      this.seqToActionId.set(reported, actionId);
+      this.log('debug', 'sendOrder', { seq: reported, actionId });
+    } else {
+      nextWireSeq += 1;
+      const seq = nextWireSeq as SequenceNumber;
+      this.seqToActionId.set(seq, actionId);
+      this.log('debug', 'sendOrder', { seq, actionId });
+    }
+    return sent.then(() => undefined);
   }
 
   /**

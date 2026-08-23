@@ -1,7 +1,10 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  // Two entries: the full server-side barrel, and the browser-safe
+  // wire-codec subpath (`@europa/networking/browser`) consumed by
+  // feature 005's WebSocket client — see src/browser.ts.
+  entry: ['src/index.ts', 'src/browser.ts'],
   format: ['esm'],
   dts: true,
   clean: true,

@@ -96,6 +96,12 @@ jobs:
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
 
+      # Integration wave: the full-stack E2E spec boots a real
+      # matchmaker + match server in-process (Node side), so
+      # @europa/matchmaking's dist must exist before Playwright runs.
+      - name: Build @europa/matchmaking (workspace dependency)
+        run: pnpm --filter @europa/matchmaking build
+
       - name: Unit tests (reducer + input math + QoL)
         run: pnpm --filter @europa/console test:unit
 

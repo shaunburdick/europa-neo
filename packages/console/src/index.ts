@@ -98,6 +98,14 @@ export {
 export { createConsoleClient } from './net/client';
 export { consoleStatusFromConnectionState } from './net/connection';
 export { netEventFromEnvelope } from './net/envelope-to-event';
+export {
+  createWsMatchClient,
+  type WsClientLogger,
+  type WsClientState,
+  type WsMatchClient,
+  type WsMatchClientContract,
+  type WsMatchClientOptions,
+} from './net/ws-match-client';
 
 // ----------------------------------------------------------------------------
 // Input controllers + QoL layer (Phases 4–7, US2–US5)

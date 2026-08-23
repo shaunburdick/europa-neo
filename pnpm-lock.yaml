@@ -98,6 +98,9 @@ importers:
       '@europa/fog':
         specifier: workspace:*
         version: link:../fog
+      '@europa/matchmaking':
+        specifier: workspace:*
+        version: link:../matchmaking
       '@europa/networking':
         specifier: workspace:*
         version: link:../networking

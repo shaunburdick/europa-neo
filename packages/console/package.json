@@ -41,6 +41,7 @@
   "dependencies": {
     "@europa/engine": "workspace:*",
     "@europa/fog": "workspace:*",
+    "@europa/matchmaking": "workspace:*",
     "@europa/terrain": "workspace:*",
     "@europa/networking": "workspace:*",
     "react": "catalog:",

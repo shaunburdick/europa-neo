@@ -194,8 +194,18 @@ describe('createConsoleClient (T029)', () => {
     matchId: 'm-1' as never,
   };
 
-  it('throws a descriptive error when no matchClientFactory is provided', () => {
-    expect(() => createConsoleClient(CONFIG)).toThrow(/matchClientFactory/);
+  it('defaults to the shipped browser WebSocket client when no factory is injected', () => {
+    // Integration wave: the documented evolution of the T029 adapter —
+    // the default factory now wires to createWsMatchClient (real
+    // browser client). Construction must succeed and produce a
+    // MatchClient-shaped adapter in the pre-connect 'pending' state,
+    // with no socket opened until connect().
+    const client = createConsoleClient(CONFIG);
+    const snapshot = client.state();
+    expect(snapshot.connection).toBe('pending');
+    expect(snapshot.consoleStatus).toBe('connecting');
+    expect(client.sessionToken()).toBeNull();
+    expect(client.playerId()).toBeNull();
   });
 
   it('rejects factories producing non-client shapes (fail-fast)', () => {

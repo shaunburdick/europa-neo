@@ -191,8 +191,8 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
     });
 
     // Network adapter (factory seam defaults to the real adapter,
-    // which requires deps.matchClientFactory until feature 004 ships
-    // its browser client — see src/net/client.ts).
+    // which now defaults to the shipped browser WebSocket client —
+    // see src/net/client.ts and src/net/ws-match-client.ts).
     const clientFactory =
       this.deps.clientFactory ??
       ((config: ConsoleConfig['client']) => createConsoleClient(config, { logger: this.logger }));
