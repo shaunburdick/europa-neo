@@ -9,7 +9,8 @@
       "*.ts",
       "*.json",
       "!contracts",
-      "!test-results"
+      "!test-results",
+      "!tests/fixtures/golden-1000-tick.json"
     ]
   },
   "linter": {

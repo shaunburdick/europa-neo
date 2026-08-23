@@ -35,7 +35,8 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "typecheck": "tsc --noEmit",
-    "coverage": "vitest run --coverage"
+    "typecheck:conformance": "tsc -p tsconfig.conformance.json",
+    "coverage": "vitest run --config vitest.config.coverage.ts --coverage"
   },
   "dependencies": {
     "@europa/engine": "workspace:*",

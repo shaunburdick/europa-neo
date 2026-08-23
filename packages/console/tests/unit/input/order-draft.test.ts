@@ -17,7 +17,7 @@ import { describe, expect, test } from 'vitest';
 
 import { DEFAULT_CAMERA, DEFAULT_INPUT_MAPPING } from '../../../src/config';
 import { hitTest } from '../../../src/input/hit-test';
-import { translateKey } from '../../../src/input/order-draft';
+import { shouldIgnoreKeyEvent, translateKey } from '../../../src/input/order-draft';
 import type { CursorTarget, Direction, PlayerView } from '../../../src/state/types';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
 
@@ -231,5 +231,42 @@ describe('reserves digits + navigation keys', () => {
       kind: 'ignore',
       reason: 'unbound-key',
     });
+  });
+});
+
+describe('shouldIgnoreKeyEvent (typing-surface + chord guards)', () => {
+  test('ignores default-prevented and auto-repeat events', () => {
+    expect(shouldIgnoreKeyEvent({ defaultPrevented: true, repeat: false, target: null })).toBe(
+      true,
+    );
+    expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: true, target: null })).toBe(
+      true,
+    );
+  });
+
+  test('ignores keys typed into interactive elements', () => {
+    const button = document.createElement('button');
+    expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: button })).toBe(
+      true,
+    );
+    const input = document.createElement('input');
+    expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: input })).toBe(
+      true,
+    );
+  });
+
+  test('ignores contentEditable hosts; plain containers pass', () => {
+    const editable = document.createElement('div');
+    editable.contentEditable = 'true';
+    expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: editable })).toBe(
+      true,
+    );
+    const plain = document.createElement('div');
+    expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: plain })).toBe(
+      false,
+    );
+    expect(shouldIgnoreKeyEvent({ defaultPrevented: false, repeat: false, target: null })).toBe(
+      false,
+    );
   });
 });
