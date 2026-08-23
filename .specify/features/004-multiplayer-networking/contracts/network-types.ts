@@ -48,8 +48,9 @@ export const NETWORK_API_VERSION = '0.1.0' as const;
  * Opaque session token issued at `joinMatch` time. Used to reclaim a
  * seat on reconnect (feature 004 FR-007).
  *
- * 32-char hex string (16 random bytes → 32 hex chars). Branded as a
- * nominal type so it cannot be confused with arbitrary strings.
+ * 36-character v4 UUID string (minted by the platform CSPRNG via
+ * `crypto.randomUUID()`). Branded as a nominal type so it cannot be
+ * confused with arbitrary strings.
  */
 export type SessionToken = string & { readonly __brand: 'SessionToken' };
 
@@ -353,9 +354,10 @@ export interface JoinMatchPayload {
   /** Opaque token from a prior `JoinAckPayload`. Absent for new sessions. */
   readonly reconnectToken?: SessionToken;
   /**
-   * Requested seat index (0..playerCount-1). Only honored for new
-   * player sessions; matchmaking may assign differently. Server picks
-   * the lowest open seat if omitted.
+   * Requested seat (1..playerCount — the engine's 1-based `PlayerId`
+   * domain, which is also the server's seat-key domain). Only honored
+   * for new player sessions; matchmaking may assign differently. The
+   * server picks the lowest open seat if omitted.
    */
   readonly requestedSeat?: number;
   /** Cosmetic display name for the session (matchmaking spec FR-001). */

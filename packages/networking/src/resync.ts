@@ -60,7 +60,8 @@ export class ResyncBuffer {
   /**
    * Append one boundary. Pushing past {@link ResyncBuffer.depth}
    * evicts the entry at `firstTick`. Re-pushing an existing tick
-   * overwrites in place (cursors unchanged).
+   * overwrites in place (the eviction cursor is unchanged; the
+   * high-water cursor still refreshes — see below).
    *
    * @param tick The boundary just broadcast (monotonic).
    * @param view The seat's fog-filtered view at that boundary.
@@ -81,8 +82,14 @@ export class ResyncBuffer {
           this.firstTickValue += 1;
         }
       }
-      this.lastTickValue = Math.max(this.lastTickValue, tick);
     }
+    // Review N6: refresh the high-water cursor on EVERY push —
+    // including overwrite-repushes — so latestTick()/getSince() can
+    // never lag the newest content regardless of caller push
+    // discipline. (Under strictly monotonic pushes an existing entry
+    // always satisfies tick ≤ lastTickValue; the unconditional max
+    // makes that invariant explicit instead of load-bearing.)
+    this.lastTickValue = Math.max(this.lastTickValue, tick);
     this.entries.set(tick as SequenceNumber, { tick, view });
   }
 

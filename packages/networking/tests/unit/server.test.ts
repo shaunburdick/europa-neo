@@ -499,6 +499,44 @@ describe('createMatchServer — protocol edges', () => {
     await server.close();
   });
 
+  it('an out-of-union joinMatch role is rejected as malformed_payload and claims nothing (review N5)', async () => {
+    const server = createMatchServer(testServerConfig(), realDeps());
+    const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+    server.registerMatch({
+      matchId: match.matchId,
+      engineSession: match.engineSession,
+      matchConfig: match.matchConfig,
+    });
+    attachPlayersForMatch(server, match);
+
+    const one = connectMockClient(server);
+    one.hello();
+    await one.nextMessage('helloAck');
+
+    // Wire-level validation only checks that `role` is a string, so an
+    // arbitrary value reaches the dispatcher (ScriptedClient cannot
+    // type this — raw frame injection is the point).
+    injectRawFrame(one.socket, {
+      type: 'joinMatch',
+      version: NETWORK_API_VERSION,
+      seq: 2,
+      payload: { matchId: match.matchId, role: 'wizard', displayName: 'Wizard' },
+    });
+
+    const err = await one.nextMessage('error');
+    expect(err.payload.code).toBe('malformed_payload');
+    expect(err.payload.message).toContain('role');
+    // The malformed attempt claimed no seat…
+    expect(server.stats().activeConnections).toBe(0);
+
+    // …and the connection is unpoisoned: a valid join still works.
+    one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+    const ack = await one.nextMessage('joinAck');
+    expect(ack.payload.playerId).toBe(1);
+
+    await server.close();
+  });
+
   it('terminal results fan out once per connection and fire onMatchTerminal exactly once', async () => {
     const terminalAtTick = 3;
     const inner = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });

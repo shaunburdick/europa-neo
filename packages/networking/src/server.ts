@@ -80,7 +80,7 @@ import { MatchChannel } from './match-channel';
 import { acceptOrder, applyOrdersAtTickBoundary } from './orders';
 import { type ReconnectBinding, ReconnectRegistry } from './reconnect';
 import { ResyncBuffer } from './resync';
-import { attachSpectator, detachSpectator } from './spectator';
+import { attachSpectator, detachSpectator, SPECTATOR_VIEW_SEAT } from './spectator';
 import { StatsCounter } from './stats';
 import { validateVersion } from './validate';
 
@@ -414,7 +414,9 @@ export function createMatchServer(
   ): void {
     const view = deps.fog.computePlayerView({
       world: channel.engineSession.world(),
-      playerId: playerId ?? 1,
+      // Null seat (spectator) uses the out-of-domain sentinel, same as
+      // buildTickBroadcast's fallback — never a fabricated real seat.
+      playerId: playerId ?? SPECTATOR_VIEW_SEAT,
       spectator,
     });
     const payload: JoinAckPayload = {
@@ -442,6 +444,18 @@ export function createMatchServer(
       connection.sendError(
         'protocol_sequence_error',
         `joinMatch requires a greeted connection (state: ${state})`,
+      );
+      return;
+    }
+
+    // Review N5: wire-level schema validation only checks that `role`
+    // is a string — an out-of-union value would otherwise fall through
+    // to the player path and silently claim a seat. Reject it like any
+    // other malformed payload.
+    if (payload.role !== 'player' && payload.role !== 'spectator') {
+      connection.sendError(
+        'malformed_payload',
+        `joinMatch.role must be "player" or "spectator" (got "${String(payload.role)}")`,
       );
       return;
     }
