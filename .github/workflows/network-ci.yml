@@ -12,6 +12,8 @@ on:
       - 'package.json'
       - 'tsconfig.base.json'
       - 'biome.json'
+      - 'packages/engine/**'
+      - 'packages/fog/**'
   pull_request:
     branches: [main]
     paths:
@@ -23,6 +25,8 @@ on:
       - 'package.json'
       - 'tsconfig.base.json'
       - 'biome.json'
+      - 'packages/engine/**'
+      - 'packages/fog/**'
 
 # Minimal permissions: contents:read is enough for typecheck/lint/test/build.
 # No jobs need write access; we don't push artifacts or publish.

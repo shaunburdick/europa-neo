@@ -2,6 +2,8 @@
 
 A modern, open-source, self-hostable reimplementation of **Europa** — the groundbreaking 1990s Java applet game of real-time nanobot warfare on Jupiter's icy moon.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ## What is this?
 
 In the late 1990s, [Europa](https://web.archive.org/web/1999*/games.dangerous-minds.net) let two players wage real-time war across the surface of Europa from their browsers — years before "browser game" meant anything. Players commanded colonies of self-replicating nanobots: cities produced troops, pipes directed their flow across a hostile landscape, and paratroopers and artillery broke stalemates. Fog of war meant you only ever saw what your nanobots could sense.
@@ -95,4 +97,4 @@ Opened bare, the console boots a deterministic stub board — no server needed, 
 ## Credits & licensing
 
 - The original **Europa** was created by **Alex Nicolaou** and **Jay Steele** (University of Waterloo, ~1999), whose design this project celebrates. The archived source in `europa-source/` remains © Alex Nicolaou under the SOS Simple Open Source License v1.03 — it is included unmodified as reference material.
-- Europa Neo's new code is an independent reimplementation from documented behavior, not a derivative of the original Java code. License selection for the new code is in progress.
+- Europa Neo's new code is an independent reimplementation from documented behavior, not a derivative of the original Java code. It is released under the [MIT License](LICENSE), while `europa-source/` remains © Alex Nicolaou under the SOS Simple Open Source License v1.03 as unmodified reference material.

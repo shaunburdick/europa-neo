@@ -78,5 +78,5 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 1. `git branch --show-current` → expect `001-europa-core`; read `git log --oneline -10`.
 2. Read this file, the constitution, and skim all six specs.
-3. Determine phase: constitution ✅ → specs ✅ → **plan/tasks next** → then implement.
+3. Determine phase: constitution ✅ → specs ✅ → plans/tasks ✅ → implementation complete; post-merge state = PR #1 open (awaiting product-owner merge).
 4. Continue from "Current state" above. When state changes, update the Current state section and commit.
