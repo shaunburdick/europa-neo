@@ -11,7 +11,15 @@ import { describe, expect, it } from 'vitest';
 import { Connection } from '../../src/connection';
 import { NETWORK_API_VERSION } from '../../src/constants';
 import { encodeFrame } from '../../src/frame';
-import type { NetworkPayload, ProtocolEnvelope, SequenceNumber } from '../../src/types';
+import { toBranded } from '../../src/ids';
+import type {
+  MatchId,
+  NetworkPayload,
+  PlayerId,
+  ProtocolEnvelope,
+  SequenceNumber,
+  SessionToken,
+} from '../../src/types';
 import { MockWebSocket } from '../fixtures/conn';
 
 /** Build a well-formed outbound envelope with a placeholder seq. */
@@ -168,5 +176,40 @@ describe('Connection', () => {
     expect(conn.lastSeenAtMs).toBe(0);
     conn.sweep(1_500);
     expect(conn.lastSeenAtMs).toBe(1_500);
+  });
+
+  it('closeIdleTimeout mirrors transport-loss lifecycle: joined → disconnected, greeted → closed (review S1)', () => {
+    // A JOINED session enters the reconnect lifecycle — the seat's
+    // token must stay reclaimable after an idle reap.
+    const joinedSocket = new MockWebSocket();
+    let joinedClosed = 0;
+    const joined = new Connection({
+      socket: joinedSocket,
+      role: 'player',
+      nowMs: 0,
+      onClose: () => {
+        joinedClosed += 1;
+      },
+    });
+    joined.markJoined(toBranded<SessionToken>('token'), 1 as PlayerId, toBranded<MatchId>('match'));
+
+    joined.closeIdleTimeout();
+
+    expect(joinedSocket.closes).toEqual([{ code: 1013, reason: 'idle timeout' }]);
+    expect(joinedClosed).toBe(1);
+    expect(joined.state()).toBe('disconnected');
+
+    // Idempotent: a second reap is a no-op.
+    joined.closeIdleTimeout();
+    expect(joinedSocket.closes).toHaveLength(1);
+    expect(joinedClosed).toBe(1);
+
+    // A GREETED (unseated) session terminates outright.
+    const greetedSocket = new MockWebSocket();
+    const greeted = new Connection({ socket: greetedSocket, role: 'player', nowMs: 0 });
+    greeted.markGreeted();
+    greeted.closeIdleTimeout();
+    expect(greeted.state()).toBe('closed');
+    expect(greetedSocket.closes).toEqual([{ code: 1013, reason: 'idle timeout' }]);
   });
 });

@@ -499,6 +499,13 @@ export interface ErrorPayload {
  * Stable error codes. Closed union so clients can switch on `code`
  * without stringly-typed comparisons. Adding a code = minor version
  * bump of `NETWORK_API_VERSION` (additive but documented).
+ *
+ * Addition trail (review 6C-3): `token_mismatch` added while the
+ * protocol is still pre-release `0.x` — the server already emitted
+ * this condition and the `JoinMatchPayload` doc cited the code, so
+ * the union now names it. No version bump: under pre-1.0 semver a
+ * minor bump is wire-breaking, and additive error codes are safely
+ * ignored by clients' default error branches.
  */
 export type ErrorCode =
   | 'version_mismatch' // FR-004
@@ -510,6 +517,7 @@ export type ErrorCode =
   | 'match_not_joinable' // already running without open seats
   | 'token_invalid' // reconnect token unknown
   | 'token_expired' // reconnect window elapsed
+  | 'token_mismatch' // reconnect token valid but bound to a different match
   | 'seat_taken' // another connection claimed this seat first
   | 'rate_limited' // FR-010
   | 'spectator_readonly' // spectator tried to submit an order

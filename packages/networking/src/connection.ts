@@ -466,21 +466,53 @@ export class Connection {
     this.onCloseFn?.(this);
   }
 
+  /**
+   * Server-initiated staleness close (FR-009 first clause): the client
+   * sent nothing for longer than the idle timeout (`2 ×
+   * heartbeatIntervalMs` by default). Lifecycle-wise this mirrors a
+   * transport loss EXACTLY — a live seated session enters the
+   * reconnect lifecycle (its token stays valid until the grace window
+   * lapses) so the disconnect → grace-expiry wiring engages; every
+   * other state closes outright. Idempotent like {@link close}.
+   */
+  closeIdleTimeout(): void {
+    if (this.closed) {
+      return;
+    }
+    // 1013 "Try Again Later": accurate for a seat whose reconnect
+    // window is still open — the client may retry and reclaim.
+    this.terminateWithLifecycle(1013, 'idle timeout');
+  }
+
+  /**
+   * Shared teardown for peer-lost and server-reaped closes: a live
+   * seated session transitions to `disconnected` (reclaimable via the
+   * reconnect registry — wire-contract state machine: "ws disconnect →
+   * disconnected (token still valid)"); every other state terminates
+   * outright. Notifies `onClose` exactly once.
+   *
+   * @param code   WebSocket close code.
+   * @param reason Human-readable reason.
+   */
+  private terminateWithLifecycle(code: number, reason: string): void {
+    this.closed = true;
+    this.markDisconnected();
+    if (this.st !== 'disconnected') {
+      this.st = 'closed';
+    }
+    this.socket.close(code, reason);
+    this.onCloseFn?.(this);
+  }
+
   /** Transport-initiated close (peer went away). */
   private handleTransportClose(): void {
     if (this.closed) {
       return;
     }
-    this.closed = true;
-    // A live seated session enters the reconnect lifecycle — its token
-    // stays valid until the grace window lapses (US2; wire-contract
-    // state machine: "ws disconnect → disconnected (token still
-    // valid)"). Every other state closes outright.
-    this.markDisconnected();
-    if (this.st !== 'disconnected') {
-      this.st = 'closed';
-    }
-    this.onCloseFn?.(this);
+    // 1006 is the reserved "abnormal closure" sentinel; it never
+    // reaches the wire here (the peer already went away — the socket
+    // close call below is a no-op on a dying/dead transport).
+    this.terminateWithLifecycle(1006, 'transport lost');
   }
 
   // ---------------------------------------------------------------------------

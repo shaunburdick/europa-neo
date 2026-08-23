@@ -142,6 +142,61 @@ describe('US2 acceptance (reconnection with state resync)', () => {
     }
   });
 
+  it('Given a reconnect token presented against the wrong match, When that join is rejected and the correct retry follows, Then the binding survives and the retry resyncs with snapshot + replay', {
+    timeout: 10_000,
+  }, async () => {
+    const { events, deps } = recordingBridge();
+    const h = await startJoinedMatch(deps);
+    try {
+      await h.clients[0].nextMessage('tick');
+
+      // Drop mid-match: seat 1's token enters the reconnect registry.
+      h.clients[0].socket.close(1001, 'network blip');
+      await waitForCondition(() => events.disconnected.length === 1);
+
+      // A second REGISTERED match gives the wrong-match attempt a real
+      // target channel (an unknown matchId would fail earlier with
+      // match_not_found and never reach token validation).
+      const other = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+      h.server.registerMatch({
+        matchId: other.matchId,
+        engineSession: other.engineSession,
+        matchConfig: other.matchConfig,
+      });
+
+      // Wrong-match join carrying match A's perfectly valid token:
+      // rejected with the contract's dedicated code…
+      const wrong = connectMockClient(h.server);
+      wrong.hello();
+      await wrong.nextMessage('helloAck');
+      wrong.joinMatch(other.matchId, 'player', {
+        reconnectToken: h.tokens[0] as SessionToken,
+      });
+      const rejection = await wrong.nextMessage('error');
+      expect(rejection.payload.code).toBe('token_mismatch');
+
+      // …and the binding SURVIVED the failed attempt (review S2): the
+      // corrected retry gets the full US2 resync — snapshot first —
+      // not a seat-scan joinAck.
+      const returning = connectMockClient(h.server);
+      returning.hello();
+      await returning.nextMessage('helloAck');
+      returning.joinMatch(h.match.matchId, 'player', {
+        reconnectToken: h.tokens[0] as SessionToken,
+      });
+      const snapshot = await returning.nextMessage('snapshot');
+      expect(snapshot.type).toBe('snapshot');
+      expect((snapshot.payload as unknown as { view: { player: number } }).view.player).toBe(1);
+
+      // Matchmaking saw exactly one reclaim.
+      await waitForCondition(() => events.reconnected.length === 1);
+      expect(events.reconnected).toEqual([h.tokens[0]]);
+      expect(events.expired).toEqual([]);
+    } finally {
+      await h.server.close();
+    }
+  });
+
   it('Given a disconnected player whose timeout expires, When the timeout elapses, Then their forces are handled per the disconnect policy and the match continues for remaining players', {
     timeout: 10_000,
   }, async () => {

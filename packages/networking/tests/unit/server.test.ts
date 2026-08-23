@@ -16,7 +16,7 @@ import type {
   PlayerId,
   SessionToken,
 } from '@europa/networking';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { NETWORK_API_VERSION } from '../../src/constants';
 import { NETWORK_DEFAULT_CONFIG } from '../../src/contracts/network-api';
@@ -619,5 +619,112 @@ describe('createMatchServer — protocol edges', () => {
     expect(stats.totalTicks).toBeGreaterThan(0);
 
     await server.close();
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Idle-client staleness sweep (FR-009 first clause — review S1)
+// ----------------------------------------------------------------------------
+
+describe('createMatchServer — idle-client staleness (FR-009)', () => {
+  /**
+   * Boot a ticking server under FAKE timers: the scheduler interval
+   * and `Date.now()` are both injected, so the idle-threshold math is
+   * exercised deterministically with zero wall-clock waits. Every
+   * awaited frame below is already in the mock's outbound buffer when
+   * `nextMessage` runs (inbound handling is synchronous), so the fake
+   * timer never starves the test's own polling.
+   */
+  async function startIdleSweepServer(bridge: Partial<MatchmakerBridge>): Promise<{
+    server: ReturnType<typeof createMatchServer>;
+    match: ReturnType<typeof scriptedMatch>;
+    tokens: ReadonlyArray<SessionToken>;
+  }> {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    const deps = withBridge(realDeps(), bridge);
+    // Idle window 30 ms at a 10 ms cadence: the first fire after a
+    // client's inbound burst re-anchors its lastSeenAtMs, so a silent
+    // client is reaped on the third subsequent fire (diff ≥ 30 ms).
+    const server = createMatchServer(
+      { ...NETWORK_DEFAULT_CONFIG, tickRateMs: TEST_TICK_MS, port: 0, wsIdleTimeoutMs: 30 },
+      deps,
+    );
+    await server.listen();
+    const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+    server.registerMatch({
+      matchId: match.matchId,
+      engineSession: match.engineSession,
+      matchConfig: match.matchConfig,
+    });
+    const tokens = attachPlayersForMatch(server, match);
+    return { server, match, tokens };
+  }
+
+  it('a client silent past wsIdleTimeoutMs is force-closed through the reconnect lifecycle (review S1)', async () => {
+    const disconnected: SessionToken[] = [];
+    const { server, match, tokens } = await startIdleSweepServer({
+      onSeatDisconnected: (event) => {
+        disconnected.push(event.sessionToken);
+      },
+    });
+    try {
+      const one = connectMockClient(server);
+      one.hello();
+      await one.nextMessage('helloAck');
+      one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+      await one.nextMessage('joinAck');
+
+      // Sweep-anchor semantics: the FIRST sweep after inbound traffic
+      // re-anchors lastSeenAtMs (hello + join landed since the previous
+      // fire), so the staleness clock effectively starts at t+10.
+      // Fires @t+20/t+30 see diffs of 10/20 ms — still alive.
+      vi.advanceTimersByTime(TEST_TICK_MS * 3);
+      expect(one.socket.closes).toHaveLength(0);
+
+      // Fire @t+40 crosses the 30 ms threshold: force-closed with the
+      // idle-timeout code.
+      vi.advanceTimersByTime(TEST_TICK_MS);
+      expect(one.socket.closes).toEqual([{ code: 1013, reason: 'idle timeout' }]);
+
+      // The close rode the TRANSPORT-LOSS lifecycle: matchmaking heard
+      // onSeatDisconnected…
+      expect(disconnected).toEqual([tokens[0]]);
+
+      // …and the token entered the reconnect registry — a fresh client
+      // presenting it gets the full US2 resync (snapshot), proving the
+      // disconnect → grace-expiry wiring engaged.
+      const returning = connectMockClient(server);
+      returning.hello();
+      await returning.nextMessage('helloAck');
+      returning.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
+      const snapshot = await returning.nextMessage('snapshot');
+      expect(snapshot.type).toBe('snapshot');
+    } finally {
+      vi.useRealTimers();
+      await server.close();
+    }
+  });
+
+  it('a client sending heartbeats within the idle window is not reaped (review S1 control)', async () => {
+    const { server, match } = await startIdleSweepServer({});
+    try {
+      const one = connectMockClient(server);
+      one.hello();
+      await one.nextMessage('helloAck');
+      one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+      await one.nextMessage('joinAck');
+
+      // Ping every fire: each inbound frame marks the connection live,
+      // so the sweep keeps advancing lastSeenAtMs and the threshold is
+      // never crossed — even well past the window (60 ms elapsed).
+      for (let i = 0; i < 6; i++) {
+        one.ping(i);
+        vi.advanceTimersByTime(TEST_TICK_MS);
+      }
+      expect(one.socket.closes).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+      await server.close();
+    }
   });
 });

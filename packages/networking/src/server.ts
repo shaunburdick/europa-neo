@@ -348,11 +348,25 @@ export function createMatchServer(
           buffer.clear();
         }
       }
+    }
 
-      // Heartbeat sweep: advance lastSeenAtMs for connections that
-      // received frames since the previous fire.
-      for (const connection of liveConnections) {
-        connection.sweep(nowMs);
+    // Heartbeat + staleness sweep (FR-002 / FR-009 first clause).
+    // Runs over EVERY tracked connection — not just channel members —
+    // so unjoined sockets cannot leak either. `sweep` advances
+    // `lastSeenAtMs` for connections that received frames since the
+    // previous fire; a client silent past the idle timeout is then
+    // force-closed through the same lifecycle path as a transport
+    // loss, which is what engages disconnect → grace-expiry wiring
+    // (a half-open TCP death would otherwise hold a seat until
+    // restart). The timeout honors ServerConfig.wsIdleTimeoutMs
+    // (default NETWORK_CONSTANTS.defaultWsIdleTimeoutMs = 2 ×
+    // heartbeatIntervalMs). Deleting from `connections` during
+    // iteration is safe: Map iteration tolerates concurrent deletes,
+    // and closeIdleTimeout is idempotent.
+    for (const connection of connections.values()) {
+      connection.sweep(nowMs);
+      if (nowMs - connection.lastSeenAtMs >= config.wsIdleTimeoutMs) {
+        connection.closeIdleTimeout();
       }
     }
 
@@ -465,18 +479,30 @@ export function createMatchServer(
     let target: { playerId: PlayerId; token: SessionToken } | undefined;
     if (payload.reconnectToken !== undefined) {
       // US2 reconnect path: the registry is the source of truth for
-      // seats whose connection dropped mid-match.
-      const consumed = reconnectRegistry.consume(payload.reconnectToken, Date.now());
-      if (consumed !== null) {
-        if ('expired' in consumed) {
+      // seats whose connection dropped mid-match. Review S2: LOOKUP
+      // first and validate BEFORE consuming — a join aimed at the
+      // wrong match must not burn the binding (the corrected retry
+      // must still resync with snapshot + replay).
+      const nowMs = Date.now();
+      const looked = reconnectRegistry.lookup(payload.reconnectToken, nowMs);
+      if (looked !== null) {
+        if ('expired' in looked) {
+          // Expired bindings are consumed too so stale entries never
+          // linger (mirrors the registry's own consume semantics).
+          reconnectRegistry.consume(payload.reconnectToken, nowMs);
           connection.sendError('token_expired', 'reconnect grace window elapsed');
           return;
         }
-        if (consumed.matchId !== payload.matchId) {
-          // NOTE: the contract's `JoinMatchPayload` doc names
-          // `token_mismatch`, but that code is absent from the closed
-          // `ErrorCode` union — `token_invalid` is the in-contract code.
-          connection.sendError('token_invalid', 'session token belongs to a different match');
+        if (looked.matchId !== payload.matchId) {
+          connection.sendError('token_mismatch', 'session token belongs to a different match');
+          return;
+        }
+        // Single-threaded dispatch: the binding validated above cannot
+        // vanish between lookup and consume; the guard keeps the
+        // narrowing honest for `restoreReconnectedSeat`.
+        const consumed = reconnectRegistry.consume(payload.reconnectToken, nowMs);
+        if (consumed === null || 'expired' in consumed) {
+          connection.sendError('internal_error', 'reconnect binding vanished mid-validation');
           return;
         }
         restoreReconnectedSeat(connection, consumed);
