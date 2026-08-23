@@ -8,7 +8,7 @@
 
 **Version**: 1.1
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Lobby-lite flow from arrival to battle: pick a display name, browse/create matches, auto-start when players are seated, play to conclusion, see results, rematch. No persistent accounts in v1."
 
@@ -162,3 +162,39 @@ Resolved ambiguities from the initial v1.0 draft around how players find matches
   - **Resolution**: No in v1; visibility type is fixed at creation. Creators who want the other mode must recreate the match. See edge case "creator wanted privacy after all".
 - **Q5 — Lobby freshness**: How quickly must the lobby reflect lifecycle transitions?
   - **Resolution**: Updates must propagate within one tick of the underlying event (SC-003). The lifecycle states observed by clients are `created → filling → running → finished → collected` (FR-012).
+
+## Implementation Notes
+
+Shipped deviations and rulings recorded during Phases 3–8 (implementation
+is faithful to the FRs; each item below documents where the code
+deliberately differs from earlier task prose or planning contracts).
+Contracts were updated in the same change set wherever behavior changed.
+
+- **Double-request idempotency (US4)**: a repeat `requestRematch` on an
+  open window returns the existing offer id; if the caller already
+  voted, it returns `rematch_already_voted`. Anchored the window
+  deadline at `finishedAtMs` so a late first caller can find the window
+  already closed.
+- **`initialSeed` additive field (US4)**: rematch-created matches mint
+  their seed at creation (they sit in `filling` until players
+  reconnect, so no auto-start exists to mint it); normal creates mint
+  at auto-start. Stored as `MatchRecord.initialSeed`.
+- **Lazy sweeps, no timers (FR-009/FR-011)**: both GC sweeps
+  (rematch-window expiry, empty-match TTL) run on read paths
+  (`stats()`, `listPublicMatches()`) against the injected clock;
+  `sweepIntervalMs` remains a host scheduling hint. The empty-match
+  sweep also deletes seated players' ephemeral sessions (SC-005
+  no-leak invariant). "Empty" means *unstarted* — per the executable
+  Q-M06 scenario, a creator-seated filling match that never fills is
+  collected after the TTL.
+- **Conformance-clause rewrite (Phase 8)**: T061's prose referenced an
+  engine `createMatchSession` / `MatchInitRequest` contract that was
+  never shipped; the conformance test asserts the drift-catching intent
+  against the real surfaces instead (engine primitive lifecycle wrapped
+  by `engineSession.ts`; networking's canonical request shapes; bridge
+  assignability). Networking's shipped `DetachRequest` carries no
+  `reason` field — the `'forfeit_timeout'` reason exists only in the
+  planning contract.
+- **Filling-forfeit inline release (US5)**: forfeiting a seat on a
+  `filling` match performs the minimal inline release (seat removed +
+  session unbound + detach), not full `leaveMatch` semantics.
