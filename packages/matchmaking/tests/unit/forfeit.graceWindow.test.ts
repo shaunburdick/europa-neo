@@ -55,7 +55,7 @@ describe('grace-window expiry triggers deterministically (SC-004 / T057)', () =>
       // Every single drop must trigger — 10/10 (SC-004).
       expect(result?.outcome).toBe('surrendered');
       const world = fx.match.engineSession?.world();
-      expect(world?.players[0]?.status).toBe('surrendered');
+      expect(world?.players[0]?.status).toBe('eliminated');
       expect(fx.server.detachPlayerCalls).toHaveLength(1);
     }
   });
@@ -75,7 +75,7 @@ describe('grace-window expiry triggers deterministically (SC-004 / T057)', () =>
         playerId: created.data.seatAssignment.playerId,
       });
 
-      expect(server.lastEngineSession?.world().players[0]?.status).toBe('surrendered');
+      expect(server.lastEngineSession?.world().players[0]?.status).toBe('eliminated');
       expect(server.detachPlayerCalls).toHaveLength(1);
       void joined;
       matchmaker.close();

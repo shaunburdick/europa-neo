@@ -51,9 +51,10 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
     expect(result).not.toBeNull();
     if (result === null) return;
     expect(result.outcome).toBe('surrendered');
-    // The engine applied the order: Alice is surrendered in the world.
+    // The engine applied the order: Alice is eliminated in the world
+    // (FR-016 — surrender marks the player eliminated immediately).
     const world = fx.match.engineSession?.world();
-    expect(world?.players[0]?.status).toBe('surrendered');
+    expect(world?.players[0]?.status).toBe('eliminated');
     // One player (Bob) remains alive.
     expect(result.remainingPlayers).toBe(1);
   });
@@ -161,7 +162,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
     });
 
     const world = engineSession?.world();
-    expect(world?.players[0]?.status).toBe('surrendered');
+    expect(world?.players[0]?.status).toBe('eliminated');
     expect(server.detachPlayerCalls).toHaveLength(1);
     expect(server.detachPlayerCalls[0]?.sessionToken).toBe(created.data.seatAssignment.sessionToken);
     void joined;

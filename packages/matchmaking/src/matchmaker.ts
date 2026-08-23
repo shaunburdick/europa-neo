@@ -70,6 +70,7 @@ import { MATCHMAKING_CONSTANTS } from './constants';
 import { buildEngineSession, buildMatchConfig } from './engineSession';
 import { makeError } from './errors';
 import type { StatusEventBus } from './eventBus';
+import { handleSeatExpired } from './forfeit';
 import { newMatchSeed } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
 import { createPlayerSession } from './internal/playerSession';
@@ -230,7 +231,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
   let totalCollected = 0; // decline / expiry sweep / all-accept / forfeit teardown
   let totalRematchAccepted = 0; // accept votes cast (US4)
   let totalRematchDeclined = 0; // decline votes cast (US4)
-  const totalForfeits = 0; // seats forfeited via onSeatExpired (US5)
+  let totalForfeits = 0; // seats forfeited via onSeatExpired (US5)
 
   /** Invariant guard: the matchmaker is unusable after `close()`. */
   function assertOpen(): void {
@@ -255,8 +256,30 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     onSeatDisconnected: () => {},
     /** Cancels pending forfeit state in Phase 7 (US5). */
     onSeatReconnected: () => {},
-    /** Applies the forfeit policy in Phase 7 (US5 / FR-010). */
-    onSeatExpired: () => {},
+    /**
+     * Applies the forfeit policy (US5 / FR-010) via `forfeit.ts`
+     * (T058/T059). Boundary rule 4: networking only reports the
+     * expiry; the matchmaker decides the forfeit. Engine-level
+     * forfeits (`surrendered` / `torn_down`) bump `totalForfeits`;
+     * filling-phase inline releases do not.
+     */
+    onSeatExpired: (event) => {
+      const result = handleSeatExpired(
+        event,
+        { store, server, logger, emit: bus.emit },
+        now(),
+      );
+      if (result === null) {
+        return;
+      }
+      if (result.outcome === 'released') {
+        return;
+      }
+      totalForfeits += 1;
+      if (result.outcome === 'torn_down') {
+        totalCollected += 1;
+      }
+    },
     /** Records results + transitions running → finished (US4 / FR-008). */
     onMatchTerminal: handleMatchTerminal,
   };
