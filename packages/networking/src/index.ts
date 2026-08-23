@@ -1,16 +1,16 @@
 /**
  * Public surface of the `@europa/networking` package.
  *
- * This is the **Phase 2 populated barrel** (T010 + T020) — re-exports
+ * This is the **US1-populated barrel** (T010 + T020 + T034) — re-exports
  * the full type surface (wire protocol, server API, matchmaking
- * boundary), the tunable constants, and the Phase 2 runtime
- * utilities: JSON framing, envelope validation, the protocol error
- * hierarchy, branded identity generation, and the tick clock.
+ * boundary), the tunable constants, the Phase 2 runtime utilities
+ * (JSON framing, envelope validation, the protocol error hierarchy,
+ * branded identity generation, the tick clock), and the US1 runtime:
+ * `createMatchServer` plus its composable parts (`Connection`,
+ * `MatchChannel`, order pipeline, broadcast pipeline, stats).
  *
- * The `Server` factory (`createMatchServer`) and the per-module
- * algorithm re-exports land in Phase 3 after US1 ships (Wave 6B);
- * this intermediate barrel lets downstream packages import the wire
- * utilities without waiting for the orchestrator.
+ * This is the final US1 deliverable: the public surface is now usable
+ * by feature 005 (console) and feature 006 (matchmaking).
  *
  * Consumers:
  *   - 006 (matchmaking)  → calls `createMatchServer` (US1+) and the
@@ -148,3 +148,29 @@ export { validateEnvelope, validateVersion } from './validate';
 
 export type { TickClock } from './clock';
 export { createTickClock } from './clock';
+
+// ----------------------------------------------------------------------------
+// US1 runtime: connection lifecycle, match channel, order + broadcast
+// pipelines, stats, and the server orchestrator (T034)
+// ----------------------------------------------------------------------------
+
+export type { BroadcastDeps } from './broadcast';
+export { buildTickBroadcast, sendTickBroadcast } from './broadcast';
+export type {
+  ConnectionOptions,
+  ConnectionSocket,
+  MutableRateBucket,
+  RateLimitSettings,
+} from './connection';
+export { Connection } from './connection';
+export type {
+  AttachSeatResult,
+  MatchChannelInit,
+  PendingOrder,
+  SeatBinding,
+} from './match-channel';
+export { MatchChannel } from './match-channel';
+export type { AcceptOrderResult, AppliedOrderOutcome } from './orders';
+export { acceptOrder, applyOrdersAtTickBoundary } from './orders';
+export { createMatchServer } from './server';
+export { StatsCounter } from './stats';
