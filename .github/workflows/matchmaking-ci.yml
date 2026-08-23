@@ -2,17 +2,27 @@ name: Matchmaking CI
 
 on:
   push:
-    branches: [001-europa-core, main]
+    branches: [main]
     paths:
       - 'packages/matchmaking/**'
       - '.github/workflows/matchmaking-ci.yml'
       - '.specify/features/006-match-lifecycle-matchmaking/**'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - 'biome.json'
   pull_request:
-    branches: [001-europa-core, main]
+    branches: [main]
     paths:
       - 'packages/matchmaking/**'
       - '.github/workflows/matchmaking-ci.yml'
       - '.specify/features/006-match-lifecycle-matchmaking/**'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - 'biome.json'
 
 # Minimal permissions: contents:read is enough for typecheck/lint/test/build.
 # No jobs need write access; we don't push artifacts or publish.
