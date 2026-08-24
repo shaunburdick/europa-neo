@@ -113,7 +113,9 @@ describe('quickstart Q-008 — paratroop validation rejections', () => {
       target: { x: 7, y: 7 }, // Chebyshev distance = 6
     });
     expect(r.result.ok).toBe(false);
-    if (!r.result.ok) expect(r.result.reason.kind).toBe('paratroop_range');
+    if (!r.result.ok) {
+      expect(r.result.reason.kind).toBe('paratroop_range');
+    }
   });
 
   it('into-water paratroop: applyCommand rejects with water_target', () => {
@@ -147,7 +149,9 @@ describe('quickstart Q-008 — paratroop validation rejections', () => {
       target: { x: 3, y: 3 },
     });
     expect(r.result.ok).toBe(false);
-    if (!r.result.ok) expect(r.result.reason.kind).toBe('water_target');
+    if (!r.result.ok) {
+      expect(r.result.reason.kind).toBe('water_target');
+    }
   });
 });
 

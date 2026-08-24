@@ -84,7 +84,9 @@ describe('createWorld — FR-002 cities on land', () => {
     }));
     // Mark (0,0) as water.
     const firstCell = cells[0];
-    if (firstCell === undefined) throw new Error('test setup: cells[0] missing');
+    if (firstCell === undefined) {
+      throw new Error('test setup: cells[0] missing');
+    }
     cells[0] = { ...firstCell, terrain: 'water' };
     const board: Board = Object.freeze({
       width: w,
@@ -161,8 +163,12 @@ describe('createWorld — initial state', () => {
     // Non-city cells should be 0.
     let nonCityZeroes = 0;
     for (let i = 0; i < world.state.cityOwners.length; i++) {
-      if (i === idx1 || i === idx2) continue;
-      if (world.state.cityOwners[i] === 0) nonCityZeroes++;
+      if (i === idx1 || i === idx2) {
+        continue;
+      }
+      if (world.state.cityOwners[i] === 0) {
+        nonCityZeroes++;
+      }
     }
     expect(nonCityZeroes).toBe(8 * 8 - 2);
   });
@@ -174,7 +180,9 @@ describe('createWorld — initial state', () => {
     ]);
     const world = createWorld(baseConfig, board);
     for (let i = 0; i < world.state.troopCounts.length; i++) {
-      if (i === 1 * 8 + 1 || i === 6 * 8 + 6) continue;
+      if (i === 1 * 8 + 1 || i === 6 * 8 + 6) {
+        continue;
+      }
       expect(world.state.troopCounts[i]).toBe(0);
       expect(world.state.troopOwners[i]).toBe(0);
     }

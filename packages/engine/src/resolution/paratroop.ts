@@ -69,7 +69,7 @@ export function resolveParatroop(
   state: Readonly<WorldState>,
   board: Readonly<Board>,
   constants: EngineConstants,
-  orders: ReadonlyArray<Order>,
+  orders: readonly Order[],
 ): {
   state: WorldState;
   events: TickEvents;
@@ -94,7 +94,9 @@ export function resolveParatroop(
   const sourceSpend = Math.imul(paratroopN, 2) >>> 0;
 
   for (const order of orders) {
-    if (order.kind !== 'paratroop') continue; // ignore non-paratroop orders
+    if (order.kind !== 'paratroop') {
+      continue; // ignore non-paratroop orders
+    }
 
     const targetCoord = order.target;
     const sourceCoord = order.source;
@@ -146,9 +148,15 @@ export function resolveParatroop(
     }
 
     // Lazily allocate fresh arrays on the first valid order.
-    if (newCounts === null) newCounts = new Uint32Array(state.troopCounts);
-    if (newOwners === null) newOwners = new Uint8Array(state.troopOwners);
-    if (newPipes === null) newPipes = new Uint8Array(state.pipeMasks);
+    if (newCounts === null) {
+      newCounts = new Uint32Array(state.troopCounts);
+    }
+    if (newOwners === null) {
+      newOwners = new Uint8Array(state.troopOwners);
+    }
+    if (newPipes === null) {
+      newPipes = new Uint8Array(state.pipeMasks);
+    }
 
     // Ownership check: source must be owned by player (troopOwners).
     const sourceOwner = newOwners[sourceIdx] ?? 0;
@@ -212,9 +220,15 @@ export function resolveParatroop(
  * Edge cases: count ≤ 0 → 0; reserves ≤ 0 → 0; reserves ≥ 10 → count.
  */
 function computeReservesFloor(count: number, reserves: number): number {
-  if (count <= 0) return 0;
-  if (reserves <= 0) return 0;
-  if (reserves >= 10) return count;
+  if (count <= 0) {
+    return 0;
+  }
+  if (reserves <= 0) {
+    return 0;
+  }
+  if (reserves >= 10) {
+    return count;
+  }
   const flowable = Math.floor((count * (10 - reserves)) / 10);
   return count - flowable;
 }

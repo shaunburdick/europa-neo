@@ -189,9 +189,9 @@ function decodeVersionHeader(bytes: Uint8Array): { version: string; versionLen: 
 // ----------------------------------------------------------------------------
 
 function encodePayload(world: Readonly<World>): Uint8Array {
-  const w = world.board.width;
+  const { board } = world;
+  const w = board.width;
   const n = w * w;
-  const board = world.board;
 
   // Compute payload size.
   const headerLen =

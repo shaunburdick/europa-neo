@@ -100,7 +100,9 @@ function validateSetPipe(
   player: PlayerId,
 ): CommandResult {
   const sourceCheck = validateSourceOwnership(world, cell, player);
-  if (!sourceCheck.ok) return sourceCheck;
+  if (!sourceCheck.ok) {
+    return sourceCheck;
+  }
 
   const offset = DIRECTION_OFFSETS[direction];
   const dst: Coord = { x: cell.x + (offset[0] ?? 0), y: cell.y + (offset[1] ?? 0) };
@@ -158,7 +160,9 @@ function validateParatroop(
 ): CommandResult {
   // Source in-bounds + ownership.
   const sourceCheck = validateSourceOwnership(world, source, player);
-  if (!sourceCheck.ok) return sourceCheck;
+  if (!sourceCheck.ok) {
+    return sourceCheck;
+  }
 
   const w = world.board.width;
   const h = world.board.height;
@@ -212,7 +216,9 @@ function validateGun(
 ): CommandResult {
   // Source in-bounds + ownership.
   const sourceCheck = validateSourceOwnership(world, source, player);
-  if (!sourceCheck.ok) return sourceCheck;
+  if (!sourceCheck.ok) {
+    return sourceCheck;
+  }
 
   const w = world.board.width;
   const h = world.board.height;
@@ -295,9 +301,15 @@ function fail(reason: ValidationError): CommandResult {
  * fallback semantics).
  */
 function computeReservesFloor(count: number, reserves: number): number {
-  if (count <= 0) return 0;
-  if (reserves <= 0) return 0;
-  if (reserves >= 10) return count;
+  if (count <= 0) {
+    return 0;
+  }
+  if (reserves <= 0) {
+    return 0;
+  }
+  if (reserves >= 10) {
+    return count;
+  }
   const flowable = Math.floor((count * (10 - reserves)) / 10);
   return count - flowable;
 }

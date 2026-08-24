@@ -425,7 +425,9 @@ describe('validateCommand — OrderParatroop validation', () => {
       target: { x: 99, y: 99 },
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason.kind).toBe('out_of_bounds');
+    if (!r.ok) {
+      expect(r.reason.kind).toBe('out_of_bounds');
+    }
   });
 
   it('water target → water_target error', () => {
@@ -456,7 +458,9 @@ describe('validateCommand — OrderParatroop validation', () => {
       target: { x: 3, y: 4 },
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason.kind).toBe('water_target');
+    if (!r.ok) {
+      expect(r.reason.kind).toBe('water_target');
+    }
   });
 
   it('source not owned → not_owner error', () => {
@@ -472,7 +476,9 @@ describe('validateCommand — OrderParatroop validation', () => {
       target: { x: 3, y: 4 },
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason.kind).toBe('not_owner');
+    if (!r.ok) {
+      expect(r.reason.kind).toBe('not_owner');
+    }
   });
 
   it('source insufficient troops → no_source_troops error', () => {
@@ -488,7 +494,9 @@ describe('validateCommand — OrderParatroop validation', () => {
       target: { x: 3, y: 4 },
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason.kind).toBe('no_source_troops');
+    if (!r.ok) {
+      expect(r.reason.kind).toBe('no_source_troops');
+    }
   });
 
   it('Chebyshev distance > 2 → paratroop_range error', () => {
@@ -504,7 +512,9 @@ describe('validateCommand — OrderParatroop validation', () => {
       target: { x: 6, y: 6 },
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason.kind).toBe('paratroop_range');
+    if (!r.ok) {
+      expect(r.reason.kind).toBe('paratroop_range');
+    }
   });
 
   it('valid range + owned + has troops → ok', () => {

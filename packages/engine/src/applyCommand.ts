@@ -43,14 +43,14 @@ import { validateCommand } from './validate';
  * NOT part of the public API surface; not re-exported via the engine
  * barrel.
  */
-const pendingOrdersTable = new WeakMap<World, ReadonlyArray<Order>>();
+const pendingOrdersTable = new WeakMap<World, readonly Order[]>();
 
 /**
  * Read pending orders off a `World`. Returns an empty array if the
  * world has no staged orders (defensive — worlds built without going
  * through `applyCommand` won't have an entry).
  */
-export function readPendingOrders(world: Readonly<World>): ReadonlyArray<Order> {
+export function readPendingOrders(world: Readonly<World>): readonly Order[] {
   // The cast to `World` is required because TypeScript's WeakMap typing
   // uses `object`, and our `Readonly<World>` flows from `World`. The
   // cast is identity-preserving (no runtime conversion).
@@ -64,10 +64,7 @@ export function readPendingOrders(world: Readonly<World>): ReadonlyArray<Order> 
  * modules continue to use the returned reference as the canonical
  * "next world".
  */
-export function withPendingOrders(
-  world: Readonly<World>,
-  pendingOrders: ReadonlyArray<Order>,
-): World {
+export function withPendingOrders(world: Readonly<World>, pendingOrders: readonly Order[]): World {
   pendingOrdersTable.set(world as World, [...pendingOrders]);
   return world as World;
 }

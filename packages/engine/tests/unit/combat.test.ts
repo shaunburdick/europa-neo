@@ -121,7 +121,9 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
     expect(out.events.combat.length).toBe(1);
     const ev = out.events.combat[0];
     expect(ev).toBeDefined();
-    if (ev === undefined) return;
+    if (ev === undefined) {
+      return;
+    }
     expect(ev.attackerLoss).toBe(100);
     expect(ev.defenderLoss).toBe(100);
     expect(ev.winner).toBe('tie');
@@ -156,7 +158,9 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
     expect(out.events.combat.length).toBe(1);
     const ev = out.events.combat[0];
     expect(ev).toBeDefined();
-    if (ev === undefined) return;
+    if (ev === undefined) {
+      return;
+    }
     expect(ev.attackerLoss).toBe(50);
     expect(ev.defenderLoss).toBe(50);
     expect(ev.winner).toBe(1);
@@ -175,7 +179,9 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
     const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
     const ev = out.events.combat[0];
     expect(ev).toBeDefined();
-    if (ev === undefined) return;
+    if (ev === undefined) {
+      return;
+    }
     const a = ev.attackerLoss;
     const d = ev.defenderLoss;
     // At 1:1 attrition with equal forces, losses are exactly equal.

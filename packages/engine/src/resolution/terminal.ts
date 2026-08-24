@@ -38,7 +38,7 @@ import type {
 } from '../types';
 
 interface TerminalResolutionResult {
-  players: ReadonlyArray<Player>;
+  players: readonly Player[];
   events: TickEvents;
   terminal?: MatchResult | undefined;
 }
@@ -59,7 +59,7 @@ interface TerminalResolutionResult {
  */
 export function resolveTerminal(
   state: Readonly<WorldState>,
-  prevPlayers: ReadonlyArray<Player>,
+  prevPlayers: readonly Player[],
   constants: EngineConstants,
   tickNumber: number,
 ): TerminalResolutionResult {
@@ -71,13 +71,17 @@ export function resolveTerminal(
   const citiesByPlayer = new Map<PlayerId, number>();
   for (let i = 0; i < state.troopCounts.length; i++) {
     const owner = state.troopOwners[i] ?? 0;
-    if (owner === 0) continue;
+    if (owner === 0) {
+      continue;
+    }
     const prev = troopsByPlayer.get(owner as PlayerId) ?? 0;
     troopsByPlayer.set(owner as PlayerId, prev + (state.troopCounts[i] ?? 0));
   }
   for (let i = 0; i < state.cityOwners.length; i++) {
     const owner = state.cityOwners[i] ?? 0;
-    if (owner === 0) continue;
+    if (owner === 0) {
+      continue;
+    }
     const prev = citiesByPlayer.get(owner as PlayerId) ?? 0;
     citiesByPlayer.set(owner as PlayerId, prev + 1);
   }
@@ -137,7 +141,7 @@ export function resolveTerminal(
   if (alive.length === 0) {
     terminal = { kind: 'draw', tick: tickNumber, reason: 'mutual_elimination' };
   } else if (alive.length === 1) {
-    const winner = alive[0];
+    const [winner] = alive;
     if (winner !== undefined) {
       terminal = {
         kind: 'win',

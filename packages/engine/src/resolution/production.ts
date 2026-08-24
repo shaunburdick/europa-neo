@@ -45,9 +45,13 @@ export function resolveProduction(
 
   for (let i = 0; i < n; i++) {
     const owner = state.cityOwners[i] ?? 0;
-    if (owner === 0) continue; // no city here
+    if (owner === 0) {
+      continue; // no city here
+    }
     const current = newCounts[i] ?? 0;
-    if (current >= cap) continue; // already saturated; no overflow
+    if (current >= cap) {
+      continue; // already saturated; no overflow
+    }
     const headroom = cap - current;
     const add = rate < headroom ? rate : headroom;
     newCounts[i] = current + add;

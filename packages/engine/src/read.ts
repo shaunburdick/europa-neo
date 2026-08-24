@@ -45,10 +45,18 @@ export function getCell(world: Readonly<World>, x: number, y: number): CellView 
   }
   const mask = world.state.pipeMasks[idx] ?? 0;
   const pipes = new Set<Direction>();
-  if ((mask & N_BIT) !== 0) pipes.add('N');
-  if ((mask & E_BIT) !== 0) pipes.add('E');
-  if ((mask & S_BIT) !== 0) pipes.add('S');
-  if ((mask & W_BIT) !== 0) pipes.add('W');
+  if ((mask & N_BIT) !== 0) {
+    pipes.add('N');
+  }
+  if ((mask & E_BIT) !== 0) {
+    pipes.add('E');
+  }
+  if ((mask & S_BIT) !== 0) {
+    pipes.add('S');
+  }
+  if ((mask & W_BIT) !== 0) {
+    pipes.add('W');
+  }
 
   const ownerByte = world.state.troopOwners[idx] ?? 0;
   const cityByte = world.state.cityOwners[idx] ?? 0;
@@ -79,7 +87,9 @@ export function forEachCell(
     for (let x = 0; x < w; x++) {
       const view = getCell(world, x, y);
       const result = visit(view);
-      if (result === false) return;
+      if (result === false) {
+        return;
+      }
     }
   }
 }
@@ -89,11 +99,7 @@ export function forEachCell(
  * cells are omitted; the returned array preserves a stable row-major
  * order so consumers can iterate deterministically.
  */
-export function cellsInRange(
-  world: Readonly<World>,
-  center: Coord,
-  r: number,
-): ReadonlyArray<Coord> {
+export function cellsInRange(world: Readonly<World>, center: Coord, r: number): readonly Coord[] {
   const w = world.board.width;
   const h = world.board.height;
   const radius = Math.max(0, r | 0);
@@ -124,7 +130,9 @@ export function neighborsOf(
   for (const [dir, dx, dy] of DIRECTIONS) {
     const nx = coord.x + dx;
     const ny = coord.y + dy;
-    if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+    if (nx < 0 || nx >= w || ny < 0 || ny >= h) {
+      continue;
+    }
     out.push({ direction: dir, coord: { x: nx, y: ny } });
   }
   return out;
@@ -145,10 +153,12 @@ export function getPlayer(world: Readonly<World>, id: PlayerId): Player {
 /**
  * PlayerIds whose status is `'alive'`. Order matches `world.players`.
  */
-export function alivePlayers(world: Readonly<World>): ReadonlyArray<PlayerId> {
+export function alivePlayers(world: Readonly<World>): readonly PlayerId[] {
   const ids: PlayerId[] = [];
   for (const p of world.players) {
-    if (p.status === 'alive') ids.push(p.id);
+    if (p.status === 'alive') {
+      ids.push(p.id);
+    }
   }
   return ids;
 }

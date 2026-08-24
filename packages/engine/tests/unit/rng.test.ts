@@ -40,7 +40,9 @@ describe('createRng — determinism (FR-006 / SC-001)', () => {
     const b = createRng(2);
     let diffs = 0;
     for (let i = 0; i < 1000; i++) {
-      if (a() !== b()) diffs++;
+      if (a() !== b()) {
+        diffs++;
+      }
     }
     // Statistical sanity: with 32-bit output and random seeds, the
     // expected number of differences is ~1000 (all 1000). Allow

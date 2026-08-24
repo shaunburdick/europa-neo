@@ -74,7 +74,9 @@ describe('applyCommand — pipe commands', () => {
       terrain: 'land' as const,
     }));
     const waterCell = cells[0 * size + 3];
-    if (waterCell === undefined) throw new Error('test setup');
+    if (waterCell === undefined) {
+      throw new Error('test setup');
+    }
     cells[3] = { ...waterCell, terrain: 'water' };
     const board = Object.freeze({
       width: size,

@@ -239,7 +239,9 @@ describe('resolveFlow — water-target rejection', () => {
       terrain: 'land' as const,
     }));
     const targetCell = cells[1];
-    if (targetCell === undefined) throw new Error('test setup: cells[1] missing');
+    if (targetCell === undefined) {
+      throw new Error('test setup: cells[1] missing');
+    }
     cells[1] = { ...targetCell, terrain: 'water' };
     const board: Board = Object.freeze({
       width: size,
@@ -268,8 +270,12 @@ describe('resolveFlow — water-target rejection', () => {
     // source cell from the count (it had 30 to start).
     let nonZeroOffSource = 0;
     for (let i = 0; i < out.troopCounts.length; i++) {
-      if (i === srcIdx) continue;
-      if ((out.troopCounts[i] ?? 0) > 0) nonZeroOffSource++;
+      if (i === srcIdx) {
+        continue;
+      }
+      if ((out.troopCounts[i] ?? 0) > 0) {
+        nonZeroOffSource++;
+      }
     }
     expect(nonZeroOffSource).toBe(0);
     // Source cell itself still has its original count (no decrement).

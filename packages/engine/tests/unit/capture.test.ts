@@ -99,7 +99,9 @@ describe('resolveCapture — FR-005 city capture', () => {
     expect(out.events.captures.length).toBe(1);
     const ev = out.events.captures[0];
     expect(ev).toBeDefined();
-    if (ev === undefined) return;
+    if (ev === undefined) {
+      return;
+    }
     expect(ev.tick).toBe(TICK);
     expect(ev.cell).toEqual({ x: 3, y: 3 });
     expect(ev.fromOwner).toBe(1);

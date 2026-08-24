@@ -69,3 +69,26 @@ git diff --check
 The package's published installation contract is documented in its npm README:
 install it alongside Biome and extend `biome-config-shaunburdick` from the
 project config. This repository uses the equivalent pnpm catalog entry.
+
+## Engine Phase 2 exceptions
+
+The engine package's `biome.json` contains narrow, package-local,
+rule-level exceptions for patterns that are part of its existing deterministic
+contract:
+
+- `src/**` retains `noBitwiseOperators` because unsigned coercion, masks, and
+  fixed-point arithmetic are deliberate simulation primitives.
+- `src/rng.ts` and `src/serialize.ts` retain `noMagicNumbers` for PRNG/hash
+  constants and binary wire-layout widths; these are protocol/algorithm
+  constants rather than tunable gameplay values.
+- `tests/**` retains `noMagicNumbers` and `noBitwiseOperators` for fixtures,
+  protocol vectors, and determinism assertions.
+- The direction-key table in `src/validate.ts` and existing phase-local names
+  in `src/tick.ts` retain `useNamingConvention`; these names mirror the public
+  direction vocabulary and established resolution terminology.
+- The engine package retains `useDestructuring` for focused test assertions
+  and benchmark state transitions, where indexed access makes the asserted
+  element or reassigned result clearer.
+
+These exceptions do not suppress diagnostics inline or disable a broad rule
+family repository-wide.

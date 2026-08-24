@@ -58,7 +58,7 @@ export function resolveGun(
   state: Readonly<WorldState>,
   board: Readonly<Board>,
   constants: EngineConstants,
-  orders: ReadonlyArray<Order>,
+  orders: readonly Order[],
 ): GunResolutionResult {
   // Lazy allocation: only allocate fresh typed arrays when an order
   // actually modifies state. This preserves input `state` reference
@@ -74,7 +74,9 @@ export function resolveGun(
   const gunDamage = constants.gunDamage >>> 0;
 
   for (const order of orders) {
-    if (order.kind !== 'gun') continue; // ignore non-gun orders
+    if (order.kind !== 'gun') {
+      continue; // ignore non-gun orders
+    }
 
     const sourceCoord = order.source;
     const targetCoord = order.target;
@@ -126,8 +128,12 @@ export function resolveGun(
     }
 
     // Lazily allocate fresh arrays on the first valid order.
-    if (newCounts === null) newCounts = new Uint32Array(state.troopCounts);
-    if (newOwners === null) newOwners = new Uint8Array(state.troopOwners);
+    if (newCounts === null) {
+      newCounts = new Uint32Array(state.troopCounts);
+    }
+    if (newOwners === null) {
+      newOwners = new Uint8Array(state.troopOwners);
+    }
 
     // Apply: subtract gunCost from source, subtract gunDamage from target.
     const newSourceCount = sourceCount - gunCost;
@@ -174,9 +180,15 @@ export function resolveGun(
  * fallback). See resolveDecay.ts for full documentation.
  */
 function computeReservesFloor(count: number, reserves: number): number {
-  if (count <= 0) return 0;
-  if (reserves <= 0) return 0;
-  if (reserves >= 10) return count;
+  if (count <= 0) {
+    return 0;
+  }
+  if (reserves <= 0) {
+    return 0;
+  }
+  if (reserves >= 10) {
+    return count;
+  }
   const flowable = Math.floor((count * (10 - reserves)) / 10);
   return count - flowable;
 }

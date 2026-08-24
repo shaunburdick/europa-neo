@@ -59,7 +59,9 @@ export function runScenario(
   // so callers don't need to know tickCount in advance.
   const byTick = new Map<number, Order[]>();
   for (const { atTick, order } of orders) {
-    if (atTick < 0 || atTick >= totalTicks) continue;
+    if (atTick < 0 || atTick >= totalTicks) {
+      continue;
+    }
     const bucket = byTick.get(atTick);
     if (bucket) {
       bucket.push(order);

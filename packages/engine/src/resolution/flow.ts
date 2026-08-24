@@ -88,10 +88,14 @@ export function resolveFlow(
 
   for (let idx = 0; idx < n; idx++) {
     const mask = state.pipeMasks[idx] ?? 0;
-    if (mask === 0) continue;
+    if (mask === 0) {
+      continue;
+    }
     const srcCount = state.troopCounts[idx] ?? 0;
     const srcOwner = state.troopOwners[idx] ?? 0;
-    if (srcCount === 0 || srcOwner === 0) continue;
+    if (srcCount === 0 || srcOwner === 0) {
+      continue;
+    }
 
     const x = idx % w;
     const y = Math.floor(idx / w);
@@ -166,15 +170,23 @@ function transfer(params: TransferParams): void {
   const nx = x + dx;
   const ny = y + dy;
   const w = board.width;
-  if (nx < 0 || nx >= w || ny < 0 || ny >= w) return; // OOB → no-op
+  if (nx < 0 || nx >= w || ny < 0 || ny >= w) {
+    return; // OOB → no-op
+  }
   const dstIdx = ny * w + nx;
   const dstCell = board.cells[dstIdx];
-  if (dstCell === undefined) return; // defensive
-  if (dstCell.terrain !== 'land') return; // water impassable (FR-002)
+  if (dstCell === undefined) {
+    return; // defensive
+  }
+  if (dstCell.terrain !== 'land') {
+    return; // water impassable (FR-002)
+  }
 
   // Compute slope factor.
   const srcCell = board.cells[y * w + x];
-  if (srcCell === undefined) return;
+  if (srcCell === undefined) {
+    return;
+  }
   const elevDelta = dstCell.elevation - srcCell.elevation;
   let factor: number;
   if (elevDelta < 0) {
@@ -186,11 +198,15 @@ function transfer(params: TransferParams): void {
   }
   // Integer multiply via imul for safety.
   const moved = Math.imul(base, factor) >>> 0;
-  if (moved === 0) return;
+  if (moved === 0) {
+    return;
+  }
 
   // Clamp destination to capacity (FR-011).
   const current = newCounts[dstIdx] ?? 0;
-  if (current >= cap) return;
+  if (current >= cap) {
+    return;
+  }
   const headroom = cap - current;
   const add = moved < headroom ? moved : headroom;
   newCounts[dstIdx] = current + add;

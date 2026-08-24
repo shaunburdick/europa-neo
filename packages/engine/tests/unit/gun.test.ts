@@ -224,7 +224,9 @@ describe('resolveGun — validation', () => {
       target: { x: 99, y: 99 },
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason.kind).toBe('out_of_bounds');
+    if (!r.ok) {
+      expect(r.reason.kind).toBe('out_of_bounds');
+    }
   });
 
   it('source not owned → not_owner', () => {
@@ -240,7 +242,9 @@ describe('resolveGun — validation', () => {
       target: { x: 5, y: 3 },
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason.kind).toBe('not_owner');
+    if (!r.ok) {
+      expect(r.reason.kind).toBe('not_owner');
+    }
   });
 
   it('source insufficient → no_source_troops', () => {
@@ -256,7 +260,9 @@ describe('resolveGun — validation', () => {
       target: { x: 5, y: 3 },
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason.kind).toBe('no_source_troops');
+    if (!r.ok) {
+      expect(r.reason.kind).toBe('no_source_troops');
+    }
   });
 
   it('valid gun order → ok', () => {

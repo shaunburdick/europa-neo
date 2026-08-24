@@ -127,7 +127,7 @@ export function tick(world: Readonly<World>): TickResult {
   );
   if (paratroopOrders.length > 0) {
     const paraResult = resolveParatroop(state, world.board, ENGINE_CONSTANTS, paratroopOrders);
-    state = paraResult.state;
+    ({ state } = paraResult);
     for (const e of paraResult.errors) {
       events = { ...events, errors: [...events.errors, e] };
     }
@@ -140,7 +140,7 @@ export function tick(world: Readonly<World>): TickResult {
   const gunOrders = sorted.filter((o): o is Extract<Order, { kind: 'gun' }> => o.kind === 'gun');
   if (gunOrders.length > 0) {
     const gunResult = resolveGun(state, world.board, ENGINE_CONSTANTS, gunOrders);
-    state = gunResult.state;
+    ({ state } = gunResult);
     for (const e of gunResult.errors) {
       events = { ...events, errors: [...events.errors, e] };
     }
@@ -152,7 +152,7 @@ export function tick(world: Readonly<World>): TickResult {
 
   // ---- Phase 5: combat -------------------------------------------------
   const combatResult = resolveCombat(state, world.board, ENGINE_CONSTANTS, world.tick, inflowTally);
-  state = combatResult.state;
+  ({ state } = combatResult);
   events = {
     ...events,
     combat: [...events.combat, ...combatResult.events.combat],
@@ -160,7 +160,7 @@ export function tick(world: Readonly<World>): TickResult {
 
   // ---- Phase 6: capture ------------------------------------------------
   const captureResult = resolveCapture(state, world.board, ENGINE_CONSTANTS, world.tick);
-  state = captureResult.state;
+  ({ state } = captureResult);
   events = {
     ...events,
     captures: [...events.captures, ...captureResult.events.captures],
@@ -176,7 +176,7 @@ export function tick(world: Readonly<World>): TickResult {
     inflowTally,
     reservedFloors,
   );
-  state = decayResult.state;
+  ({ state } = decayResult);
   events = {
     ...events,
     eliminations: [...events.eliminations, ...decayResult.events.eliminations],
@@ -227,9 +227,11 @@ export function isTerminal(world: Readonly<World>): MatchResult | undefined {
   // Count alive players. A player is "alive" iff status === 'alive'.
   // Eliminated/surrendered players don't count.
   const alive = world.players.filter((p) => p.status === 'alive');
-  if (alive.length >= 2) return undefined;
+  if (alive.length >= 2) {
+    return undefined;
+  }
   if (alive.length === 1) {
-    const winner = alive[0];
+    const [winner] = alive;
     if (winner !== undefined) {
       return {
         kind: 'win',
@@ -258,11 +260,15 @@ export function isTerminal(world: Readonly<World>): MatchResult | undefined {
  * then a stable secondary on the rest of the payload (cell, then
  * direction).
  */
-function sortOrdersDeterministic(orders: ReadonlyArray<Order>): ReadonlyArray<Order> {
+function sortOrdersDeterministic(orders: readonly Order[]): readonly Order[] {
   const copy = [...orders];
   copy.sort((a, b) => {
-    if (a.player !== b.player) return a.player - b.player;
-    if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1;
+    if (a.player !== b.player) {
+      return a.player - b.player;
+    }
+    if (a.kind !== b.kind) {
+      return a.kind < b.kind ? -1 : 1;
+    }
     return tieBreak(a, b);
   });
   return copy;
@@ -272,26 +278,40 @@ function tieBreak(a: Order, b: Order): number {
   const ac = pickCoord(a);
   const bc = pickCoord(b);
   if (ac !== undefined && bc !== undefined) {
-    if (ac.x !== bc.x) return ac.x - bc.x;
-    if (ac.y !== bc.y) return ac.y - bc.y;
+    if (ac.x !== bc.x) {
+      return ac.x - bc.x;
+    }
+    if (ac.y !== bc.y) {
+      return ac.y - bc.y;
+    }
   }
   const ad = pickDirection(a);
   const bd = pickDirection(b);
   if (ad !== undefined && bd !== undefined) {
-    if (ad < bd) return -1;
-    if (ad > bd) return 1;
+    if (ad < bd) {
+      return -1;
+    }
+    if (ad > bd) {
+      return 1;
+    }
   }
   return 0;
 }
 
 function pickCoord(o: Order): Coord | undefined {
-  if ('cell' in o) return o.cell;
-  if ('source' in o) return o.source;
+  if ('cell' in o) {
+    return o.cell;
+  }
+  if ('source' in o) {
+    return o.source;
+  }
   return undefined;
 }
 
 function pickDirection(o: Order): Direction | undefined {
-  if ('direction' in o && typeof o.direction === 'string') return o.direction;
+  if ('direction' in o && typeof o.direction === 'string') {
+    return o.direction;
+  }
   return undefined;
 }
 

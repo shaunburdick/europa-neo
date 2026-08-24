@@ -64,11 +64,17 @@ export function resolveCapture(
 
   for (let idx = 0; idx < n; idx++) {
     const cityOwner = newCityOwners[idx] ?? 0;
-    if (cityOwner === 0) continue; // no city here → no capture possible
+    if (cityOwner === 0) {
+      continue; // no city here → no capture possible
+    }
 
     const occupant = state.troopOwners[idx] ?? 0;
-    if (occupant === 0) continue; // neutral cell never captures
-    if (occupant === cityOwner) continue; // friendly already — no event
+    if (occupant === 0) {
+      continue; // neutral cell never captures
+    }
+    if (occupant === cityOwner) {
+      continue; // friendly already — no event
+    }
 
     // Occupant differs from city owner → capture transfers the city.
     newCityOwners[idx] = occupant;

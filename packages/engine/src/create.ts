@@ -35,6 +35,9 @@ import type {
 
 /** Minimum board dimension the engine accepts (per data-model.md §1). */
 export const MIN_BOARD_SIZE = 8;
+const MIN_PLAYERS = 2;
+const MAX_PLAYERS = 4;
+const MAX_ELEVATION = 255;
 
 /**
  * Construct the initial `World` for a match.
@@ -73,7 +76,7 @@ export function createWorld(config: MatchConfig, board: Board): World {
   }
 
   // ---- Player count (FR-019) -------------------------------------------
-  if (config.playerCount !== 2 && config.playerCount !== 3 && config.playerCount !== 4) {
+  if (config.playerCount < MIN_PLAYERS || config.playerCount > MAX_PLAYERS) {
     throw new Error(
       `createWorld: config.playerCount must be 2, 3, or 4 (got ${String(config.playerCount)})`,
     );
@@ -85,7 +88,7 @@ export function createWorld(config: MatchConfig, board: Board): World {
     if (cell === undefined) {
       throw new Error(`createWorld: missing cell at index ${String(i)}`);
     }
-    if (!Number.isInteger(cell.elevation) || cell.elevation < 0 || cell.elevation > 255) {
+    if (!Number.isInteger(cell.elevation) || cell.elevation < 0 || cell.elevation > MAX_ELEVATION) {
       throw new Error(
         `createWorld: cell [${String(cell.x)},${String(cell.y)}] elevation must be an integer in [0, 255] (got ${String(cell.elevation)})`,
       );
@@ -119,7 +122,7 @@ export function createWorld(config: MatchConfig, board: Board): World {
         `createWorld: city at [${String(cx)},${String(cy)}] is out of bounds for ${String(board.width)}×${String(board.height)}`,
       );
     }
-    if (city.owner !== 1 && city.owner !== 2 && city.owner !== 3 && city.owner !== 4) {
+    if (city.owner < 1 || city.owner > MAX_PLAYERS) {
       throw new Error(
         `createWorld: city at [${String(cx)},${String(cy)}] owner must be 1..4 (got ${String(city.owner)})`,
       );

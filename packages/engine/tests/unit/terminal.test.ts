@@ -50,7 +50,7 @@ function buildWorld(
   size: number,
   board: Board,
   state: WorldState,
-  players: ReadonlyArray<Player>,
+  players: readonly Player[],
 ): World {
   return {
     config: {

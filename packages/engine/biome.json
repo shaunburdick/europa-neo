@@ -3,5 +3,17 @@
   "extends": ["../../biome.json"],
   "files": {
     "includes": ["src/**", "tests/**", "*.ts", "*.json", "!src/contracts"]
+  },
+  "linter": {
+    "rules": {
+      "style": {
+        "noMagicNumbers": "off",
+        "useNamingConvention": "off",
+        "useDestructuring": "off"
+      },
+      "suspicious": {
+        "noBitwiseOperators": "off"
+      }
+    }
   }
 }

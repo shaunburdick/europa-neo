@@ -144,7 +144,9 @@ describe('resolveProduction — FR-004 city production', () => {
     const out = resolveProduction(state, board, ENGINE_CONSTANTS);
     // Sample some non-city cells.
     for (const idx of [0, 5, 10, 20, 63]) {
-      if (idx === 1 * size + 1) continue;
+      if (idx === 1 * size + 1) {
+        continue;
+      }
       expect(out.troopCounts[idx]).toBe(0);
       expect(out.troopOwners[idx]).toBe(0);
     }

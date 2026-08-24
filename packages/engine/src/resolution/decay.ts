@@ -94,22 +94,30 @@ export function resolveDecay(
 
   for (let idx = 0; idx < n; idx++) {
     const count = newCounts[idx] ?? 0;
-    if (count === 0) continue;
+    if (count === 0) {
+      continue;
+    }
 
     const owner = newOwners[idx] ?? 0;
-    if (owner === 0) continue; // neutral cell — nothing to decay
+    if (owner === 0) {
+      continue; // neutral cell — nothing to decay
+    }
 
     // City cells are self-feeding (the city produces troops each tick;
     // they're their own supply). Skip them — the production phase keeps
     // them topped up to city capacity, and decay would zero them out
     // every tick otherwise.
-    if ((state.cityOwners[idx] ?? 0) !== 0) continue;
+    if ((state.cityOwners[idx] ?? 0) !== 0) {
+      continue;
+    }
 
     // Friendly-inflow check.
     if (tallyAvailable) {
       const tally = inflowTally as Uint32Array;
       const inflowFromOwner = tally[idx * PLAYERS + (owner - 1)] ?? 0;
-      if (inflowFromOwner > 0) continue;
+      if (inflowFromOwner > 0) {
+        continue;
+      }
     }
 
     // Determine the floor for this cell. Two modes:
@@ -125,7 +133,9 @@ export function resolveDecay(
     }
 
     // If already at or below the floor, no decay this tick.
-    if (count <= floor) continue;
+    if (count <= floor) {
+      continue;
+    }
 
     // Subtract decayPerTick (integer); clamp to floor.
     const next = (count - decayPerTick) >>> 0;
@@ -159,9 +169,15 @@ export function resolveDecay(
  * count, holding all troops.
  */
 function computeReservesFloor(count: number, reserves: number): number {
-  if (count <= 0) return 0;
-  if (reserves <= 0) return 0;
-  if (reserves >= 10) return count;
+  if (count <= 0) {
+    return 0;
+  }
+  if (reserves <= 0) {
+    return 0;
+  }
+  if (reserves >= 10) {
+    return count;
+  }
   const flowable = Math.floor((count * (10 - reserves)) / 10);
   return count - flowable;
 }

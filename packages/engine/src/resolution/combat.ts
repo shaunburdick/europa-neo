@@ -90,9 +90,13 @@ export function resolveCombat(
       const ownersAtCell: Array<{ owner: PlayerId; count: number }> = [];
       for (let p = 1; p <= PLAYERS; p++) {
         const c = tally[idx * PLAYERS + (p - 1)] ?? 0;
-        if (c > 0) ownersAtCell.push({ owner: p as PlayerId, count: c });
+        if (c > 0) {
+          ownersAtCell.push({ owner: p as PlayerId, count: c });
+        }
       }
-      if (ownersAtCell.length <= 1) continue; // single-owner cell: no combat
+      if (ownersAtCell.length <= 1) {
+        continue; // single-owner cell: no combat
+      }
 
       // Sort by PlayerId ascending (deterministic).
       ownersAtCell.sort((a, b) => a.owner - b.owner);
@@ -102,18 +106,24 @@ export function resolveCombat(
       for (let i = 1; i < ownersAtCell.length; i++) {
         const a = ownersAtCell[i];
         const b = ownersAtCell[dominantIdx];
-        if (a === undefined || b === undefined) continue;
+        if (a === undefined || b === undefined) {
+          continue;
+        }
         if (a.count > b.count || (a.count === b.count && a.owner < b.owner)) {
           dominantIdx = i;
         }
       }
 
       const dom = ownersAtCell[dominantIdx];
-      if (dom === undefined) continue; // defensive
+      if (dom === undefined) {
+        continue; // defensive
+      }
 
       if (ownersAtCell.length === 2) {
         const other = ownersAtCell[dominantIdx === 0 ? 1 : 0];
-        if (other === undefined) continue;
+        if (other === undefined) {
+          continue;
+        }
         // 1:1 attrition: damage = min(dom.count, other.count).
         const damage = Math.min(dom.count, other.count);
         // Attacker = lower PlayerId (deterministic symmetry).
@@ -155,7 +165,9 @@ export function resolveCombat(
         newCounts[idx] = dom.count;
         newOwners[idx] = dom.owner;
         for (const o of ownersAtCell) {
-          if (o.owner === dom.owner) continue;
+          if (o.owner === dom.owner) {
+            continue;
+          }
           const ev: CombatEvent = {
             tick: tickNumber,
             cell: idxToCoord(idx, board.width),
