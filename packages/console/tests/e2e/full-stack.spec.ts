@@ -227,7 +227,7 @@ test('two consoles drive one live match end-to-end over the real stack', async (
     if (!created.ok) {
       return;
     }
-    const matchId = created.data.matchId;
+    const { matchId } = created.data;
     expect(created.data.seatAssignment.playerId).toBe(1);
 
     const filled = matchmaker.joinMatch({ matchId, displayName: 'Bob' });

@@ -51,7 +51,7 @@ test('US1 MVP boots standalone and paints the demo board', async ({ page }) => {
   const view = createDemoPlayerView();
   const expectedVisible = view.visibleCells.length;
   const voidRgb = hexToRgb(VOID_COLOR);
-  const zoom = DEFAULT_CAMERA.zoom;
+  const { zoom } = DEFAULT_CAMERA;
 
   const counted = await page.evaluate(
     ({ size, cellPx, voidColor }) => {

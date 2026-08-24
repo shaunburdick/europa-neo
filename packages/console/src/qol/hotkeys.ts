@@ -115,7 +115,7 @@ export function buildHotkeyTable(mapping: InputMapping): ReadonlyMap<string, Hot
  *
  * @param mapping Control table to inspect.
  */
-export function findHotkeyCollisions(mapping: InputMapping): ReadonlyArray<string> {
+export function findHotkeyCollisions(mapping: InputMapping): readonly string[] {
   const seen = new Map<string, number>();
   const count = (key: string): void => {
     const normalized = normalizeKey(key);

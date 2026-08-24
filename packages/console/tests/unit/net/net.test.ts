@@ -145,7 +145,7 @@ describe('createConsoleClient (T029)', () => {
     const handlers = new Set<(envelope: ProtocolEnvelope<NetworkPayload>) => void>();
     return {
       connectCalls: 0,
-      joinRequests: [] as Array<Record<string, unknown>>,
+      joinRequests: [] as Record<string, unknown>[],
       sentOrders: [] as unknown[],
       closed: false,
       async connect(url: string): Promise<void> {
@@ -188,7 +188,7 @@ describe('createConsoleClient (T029)', () => {
     };
   }
 
-  const CONFIG = {
+  const Config = {
     url: 'ws://localhost:8080',
     displayName: 'Alice',
     matchId: 'm-1' as never,
@@ -200,7 +200,7 @@ describe('createConsoleClient (T029)', () => {
     // browser client). Construction must succeed and produce a
     // MatchClient-shaped adapter in the pre-connect 'pending' state,
     // with no socket opened until connect().
-    const client = createConsoleClient(CONFIG);
+    const client = createConsoleClient(Config);
     const snapshot = client.state();
     expect(snapshot.connection).toBe('pending');
     expect(snapshot.consoleStatus).toBe('connecting');
@@ -209,14 +209,14 @@ describe('createConsoleClient (T029)', () => {
   });
 
   it('rejects factories producing non-client shapes (fail-fast)', () => {
-    expect(() => createConsoleClient(CONFIG, { matchClientFactory: () => ({}) })).toThrow(
+    expect(() => createConsoleClient(Config, { matchClientFactory: () => ({}) })).toThrow(
       /does not implement the MatchClient surface/,
     );
   });
 
   it('delegates handshake and presents reconnectToken when configured', async () => {
     const inner = makeInner();
-    const client = createConsoleClient(CONFIG, { matchClientFactory: () => inner });
+    const client = createConsoleClient(Config, { matchClientFactory: () => inner });
     await client.connect();
     await client.joinMatch();
     expect(inner.connectCalls).toBe(1);
@@ -227,7 +227,7 @@ describe('createConsoleClient (T029)', () => {
     });
 
     const withToken = createConsoleClient(
-      { ...CONFIG, reconnectToken: 'r-1' as never },
+      { ...Config, reconnectToken: 'r-1' as never },
       { matchClientFactory: () => inner },
     );
     await withToken.joinMatch();
@@ -244,7 +244,7 @@ describe('createConsoleClient (T029)', () => {
 
   it('sendOrder assigns monotonic wire seqs correlated to ActionIds', async () => {
     const inner = makeInner();
-    const client = createConsoleClient(CONFIG, { matchClientFactory: () => inner });
+    const client = createConsoleClient(Config, { matchClientFactory: () => inner });
     await client.sendOrder(10, { kind: 'surrender', player: 1 });
     await client.sendOrder(11, { kind: 'surrender', player: 1 });
     expect(client.seqToActionId.size).toBe(2);
@@ -258,7 +258,7 @@ describe('createConsoleClient (T029)', () => {
 
   it('onEnvelope subscribes through to the inner client', () => {
     const inner = makeInner();
-    const client = createConsoleClient(CONFIG, { matchClientFactory: () => inner });
+    const client = createConsoleClient(Config, { matchClientFactory: () => inner });
     const received: ProtocolEnvelope<NetworkPayload>[] = [];
     const unsubscribe = client.onEnvelope((env) => {
       received.push(env);
@@ -271,7 +271,7 @@ describe('createConsoleClient (T029)', () => {
   });
 
   it('state() snapshots the inner client plus the UI status', () => {
-    const client = createConsoleClient(CONFIG, { matchClientFactory: () => makeInner() });
+    const client = createConsoleClient(Config, { matchClientFactory: () => makeInner() });
     const snapshot = client.state();
     expect(snapshot).toMatchObject({
       connection: 'joined',

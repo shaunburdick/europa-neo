@@ -40,7 +40,7 @@ export const SCENARIO_TICKS = 1000;
 export const SCENARIO_TICK_MS = 250;
 
 /** Pipe directions cycled by the scripted pipe action. */
-const PIPE_DIRECTIONS: ReadonlyArray<Direction> = ['N', 'E', 'S', 'W'];
+const PIPE_DIRECTIONS: readonly Direction[] = ['N', 'E', 'S', 'W'];
 
 /**
  * The visible fog cluster: P1-owned cells first (pipe/reserves
@@ -178,7 +178,7 @@ export interface SerializedMapView {
     readonly owner: number | null;
     readonly isCity: boolean;
     readonly cityOwner: number | null;
-    readonly pipes: ReadonlyArray<string>;
+    readonly pipes: readonly string[];
     readonly reservesPct: number;
     readonly changedThisTick: boolean;
   }>;
@@ -216,7 +216,7 @@ export interface SerializedConsoleState {
     readonly sessionToken: string | null;
     readonly playerId: number | null;
     readonly displayName: string;
-    readonly opponents: ReadonlyArray<string>;
+    readonly opponents: readonly string[];
   };
   readonly feedbackCount: number;
   readonly rejectedOrders: ReadonlyArray<{
@@ -300,7 +300,7 @@ export function serializeConsoleState(state: ConsoleState): SerializedConsoleSta
 
 /** Full run result: one serialized frame per tick plus final state. */
 export interface ScenarioRun {
-  readonly frames: ReadonlyArray<SerializedMapView>;
+  readonly frames: readonly SerializedMapView[];
   readonly finalState: SerializedConsoleState;
 }
 
@@ -329,14 +329,14 @@ export function runDeterminismScenario(): ScenarioRun {
 
     // 1. Authoritative view arrives (wire → NetEvent → reducer).
     const tickStep = reduce(state, { kind: 'tick', view: buildScenarioView(tick) }, { nowMs });
-    state = tickStep.state;
+    ({ state } = tickStep);
 
     // 2. The scripted player gesture (input → PlayerAction → reducer).
     const actionStep = reduce(state, buildScenarioAction(tick), { nowMs });
-    state = actionStep.state;
+    ({ state } = actionStep);
 
     // 3. Render derivation (state → MapView), chained for diffs.
-    const latestView = state.latestView;
+    const { latestView } = state;
     if (latestView === null) {
       throw new Error(`determinism scenario: latestView missing at tick ${tick}`);
     }

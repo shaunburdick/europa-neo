@@ -98,9 +98,9 @@ export function motionAdjustedTtls(reduced: boolean): MotionAdjustedTtls {
  * @param reduced The reduce-motion flag.
  */
 export function filterEffectsForMotion(
-  effects: ReadonlyArray<MapEffect>,
+  effects: readonly MapEffect[],
   reduced: boolean,
-): ReadonlyArray<MapEffect> {
+): readonly MapEffect[] {
   if (!reduced) {
     return effects;
   }

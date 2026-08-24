@@ -50,7 +50,7 @@ describe('App first paint (Q-B01)', () => {
 
     const canvas = screen.container.querySelector('canvas');
     expect(canvas).not.toBeNull();
-    const zoom = DEFAULT_CAMERA.zoom;
+    const { zoom } = DEFAULT_CAMERA;
     expect(canvas?.width).toBe(view.config.boardSize * zoom);
     expect(canvas?.height).toBe(view.config.boardSize * zoom);
 

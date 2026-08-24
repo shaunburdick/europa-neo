@@ -50,7 +50,7 @@ function installMatchMedia(): void {
   window.matchMedia = matchMediaMock as unknown as typeof window.matchMedia;
 }
 
-const EFFECTS: ReadonlyArray<MapEffect> = [
+const EFFECTS: readonly MapEffect[] = [
   { kind: 'combat', cell: { x: 1, y: 1 }, expiresAtMs: 100 },
   { kind: 'capture', cell: { x: 2, y: 2 }, expiresAtMs: 100 },
   { kind: 'paratroop_launch', cell: { x: 3, y: 3 }, otherCell: { x: 4, y: 4 }, expiresAtMs: 100 },
@@ -75,7 +75,7 @@ describe('prefersReducedMotion', () => {
 describe('subscribeReducedMotion', () => {
   test('fires immediately and on change; unsubscribes cleanly', () => {
     installMatchMedia();
-    const seen: Array<boolean> = [];
+    const seen: boolean[] = [];
     const unsubscribe = subscribeReducedMotion((value) => seen.push(value));
     expect(seen).toEqual([false]);
 

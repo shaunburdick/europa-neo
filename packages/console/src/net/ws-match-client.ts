@@ -176,7 +176,7 @@ export interface WsMatchClient extends WsMatchClientContract {
  * @returns A client satisfying feature 004's `MatchClient` contract.
  */
 export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatchClient {
-  const logger = options.logger;
+  const { logger } = options;
   const newSocket =
     options.webSocketFactory ??
     ((url: string) => {
@@ -366,7 +366,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
         >;
         const version = validateVersion(payload.protocolVersion);
         if (!version.ok) {
-          const error = version.error;
+          const { error } = version;
           log('error', 'helloAck version mismatch', { received: payload.protocolVersion });
           setState('closed');
           if (rejectConnect !== null) {
@@ -378,7 +378,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
           return;
         }
         setState('greeted');
-        heartbeatIntervalMs = payload.heartbeatIntervalMs;
+        ({ heartbeatIntervalMs } = payload);
         startHeartbeat();
         if (pendingConnect !== null) {
           pendingConnect();
@@ -393,8 +393,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
           NetworkPayload,
           { sessionToken: SessionToken; playerId: PlayerId | null; tick: number }
         >;
-        sessionToken = payload.sessionToken;
-        playerId = payload.playerId;
+        ({ sessionToken, playerId } = payload);
         matchId = lastJoinRequest?.matchId ?? matchId;
         setState('joined');
         if (pendingJoin !== null) {
@@ -412,7 +411,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
         // knew (v1 limitation, documented in the module header).
         if (pendingJoin !== null && lastJoinRequest?.reconnectToken !== undefined) {
           sessionToken = lastJoinRequest.reconnectToken;
-          matchId = lastJoinRequest.matchId;
+          ({ matchId } = lastJoinRequest);
           setState('rejoined');
           pendingJoin();
           pendingJoin = null;

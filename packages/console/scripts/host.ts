@@ -176,9 +176,14 @@ export function resolveConfig(
         complain(`host: ${flag} contains invalid characters`);
         return null;
       }
-      if (flag === '--bind-host') bindHost = value;
-      else publicHost = value;
-      if (inline === undefined) i += 1;
+      if (flag === '--bind-host') {
+        bindHost = value;
+      } else {
+        publicHost = value;
+      }
+      if (inline === undefined) {
+        i += 1;
+      }
       continue;
     }
     const parsed = parsePort(inline ?? args[i + 1], flag);
@@ -198,7 +203,9 @@ export function resolveConfig(
       i += 1;
     }
   }
-  if (wsPort === undefined || staticPort === undefined) return null;
+  if (wsPort === undefined || staticPort === undefined) {
+    return null;
+  }
   if (isWildcardHost(bindHost) && publicHost === undefined) {
     complain('host: --public-host or HOST_PUBLIC_HOST is required when binding a wildcard address');
     return null;
@@ -227,7 +234,8 @@ export function resolveConfig(
 async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
   // decodeURIComponent throws on malformed escapes (%zz); a hostile or
   // broken client must never crash the launcher, so treat those as 404.
-  let urlPath = (req.url ?? '/').split('?')[0];
+  const [initialUrlPath] = (req.url ?? '/').split('?');
+  let urlPath = initialUrlPath ?? '/';
   try {
     urlPath = decodeURIComponent(urlPath);
   } catch {

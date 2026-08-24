@@ -34,7 +34,7 @@ function withStatusView(
 
 describe('isAwaitingMatchStart (waiting-for-opponent derivation)', () => {
   test('non-live statuses never await — even with no view at all', () => {
-    const statuses: ReadonlyArray<ConsoleState['status']> = [
+    const statuses: readonly ConsoleState['status'][] = [
       'idle',
       'connecting',
       'reconnecting',

@@ -239,7 +239,7 @@ describe('quiet-but-alive clients survive the idle sweep (Bug 2 guard)', () => {
     expect(ticks.length).toBeGreaterThan(0);
 
     // Still fully alive after the window: an order round-trips.
-    const playerId = client.state().playerId;
+    const { playerId } = client.state();
     expect(playerId).not.toBeNull();
     const ack = await client.sendOrder({
       kind: 'setReserves',

@@ -85,7 +85,7 @@ export interface MinimapProps {
   /** Current camera (drives the viewport rectangle). */
   readonly camera: CameraState;
   /** Visible cells to thumbnail (owner-colored dots). */
-  readonly cells: ReadonlyArray<CellRenderInfo>;
+  readonly cells: readonly CellRenderInfo[];
   /** Visible container size in CSS pixels (viewport rect accuracy). */
   readonly viewportSize?: { readonly width: number; readonly height: number };
   /** Dispatch sink — receives the centered `setCamera` action. */
@@ -170,7 +170,7 @@ function paintMinimap(
   ctx: CanvasRenderingContext2D,
   boardWidth: number,
   boardHeight: number,
-  cells: ReadonlyArray<CellRenderInfo>,
+  cells: readonly CellRenderInfo[],
   camera: CameraState,
   viewportSize: { readonly width: number; readonly height: number } | undefined,
 ): void {

@@ -157,7 +157,7 @@ function calibrateBatch(run: () => void): number {
  * Percentile of a sample list (nearest-rank). Samples are per-
  * operation milliseconds (batch already divided out).
  */
-function percentile(samples: ReadonlyArray<number>, p: number): number {
+function percentile(samples: readonly number[], p: number): number {
   const sorted = [...samples].sort((a, b) => a - b);
   const idx = Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1);
   return sorted[Math.max(0, idx)] ?? Number.POSITIVE_INFINITY;

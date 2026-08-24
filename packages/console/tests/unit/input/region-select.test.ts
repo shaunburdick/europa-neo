@@ -54,7 +54,7 @@ function acceptanceView(): PlayerView {
 
 /** Hit-test helper: screen point at fraction `(fx, fy)` inside cell (cx, cy). */
 function targetInCell(cx: number, cy: number, fx: number, fy: number): CursorTarget {
-  const zoom = DEFAULT_CAMERA.zoom;
+  const { zoom } = DEFAULT_CAMERA;
   return hitTest({ x: (cx + fx) * zoom, y: (cy + fy) * zoom }, DEFAULT_CAMERA);
 }
 
@@ -84,7 +84,7 @@ describe('decideRegionClick (US2 AC-1/2)', () => {
   });
 
   test('each half of the cell maps to its direction (N/E/S/W)', () => {
-    const cases: Array<[number, number, Direction]> = [
+    const cases: [number, number, Direction][] = [
       [0.5, 0.25, 'N'],
       [0.75, 0.5, 'E'],
       [0.5, 0.75, 'S'],

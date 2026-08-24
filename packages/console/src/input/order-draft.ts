@@ -321,7 +321,7 @@ export function shouldIgnoreKeyEvent(event: {
   if (event.defaultPrevented || event.repeat) {
     return true;
   }
-  const target = event.target;
+  const { target } = event;
   if (
     target instanceof Element &&
     target.closest('button, a, input, textarea, select, [role="toolbar"]') !== null

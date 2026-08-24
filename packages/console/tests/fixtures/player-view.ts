@@ -72,7 +72,7 @@ export interface BuildPlayerViewArgs {
   /** Board height in cells (defensive; engine boards are square). */
   readonly height?: number;
   /** Visible cells (the fog-filtered set). Default empty. */
-  readonly visibleCells?: ReadonlyArray<CellView>;
+  readonly visibleCells?: readonly CellView[];
   /** View tick. Default 0. */
   readonly tick?: number;
   /** Owning player of this view. Default 1. */
@@ -114,7 +114,7 @@ export function buildPlayerView(args: BuildPlayerViewArgs): PlayerView {
 export interface ScriptedTickResult {
   readonly view: PlayerView;
   readonly state: ConsoleState;
-  readonly effects: ReadonlyArray<ReducerEffect>;
+  readonly effects: readonly ReducerEffect[];
 }
 
 /**

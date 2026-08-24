@@ -201,7 +201,7 @@ const DIST_TYPE_WITNESS = {
 };
 
 /** Runtime keys of the compile-time witness table. */
-const TYPE_ONLY_WITNESSES: ReadonlyArray<string> = Object.keys(DIST_TYPE_WITNESS);
+const TYPE_ONLY_WITNESSES: readonly string[] = Object.keys(DIST_TYPE_WITNESS);
 
 /**
  * The barrel exports the contract's `ConsoleRuntime` INTERFACE under
@@ -237,14 +237,14 @@ function extractPublicNames(source: string): Set<string> {
   const names = new Set<string>();
   const declaration = /^export\s+(?:declare\s+)?(?:type|interface|const|enum)\s+([A-Za-z0-9_]+)/gm;
   for (const match of source.matchAll(declaration)) {
-    const name = match[1];
+    const [, name] = match;
     if (name !== undefined) {
       names.add(name);
     }
   }
   const block = /export\s+(?:type\s+)?\{([^}]*)\}/g;
   for (const match of source.matchAll(block)) {
-    const body = match[1];
+    const [, body] = match;
     if (body === undefined) {
       continue;
     }

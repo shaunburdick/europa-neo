@@ -26,7 +26,7 @@ import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fi
 
 describe('subcellToTargetOffset: the 5-bin threshold rule', () => {
   test('bins each axis per the documented thresholds', () => {
-    const cases: Array<[number, number]> = [
+    const cases: [number, number][] = [
       // [x value, expected dx]
       [0.0, -2],
       [0.19, -2],

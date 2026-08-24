@@ -30,7 +30,7 @@ import { DEFAULT_INPUT_MAPPING } from '../../../src/state/types';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
 
 /** Every key string the default mapping binds (single chars + chords). */
-function defaultBoundKeys(): ReadonlyArray<string> {
+function defaultBoundKeys(): readonly string[] {
   const m = DEFAULT_INPUT_MAPPING;
   return [
     m.pipeKeys.pipeNorth,

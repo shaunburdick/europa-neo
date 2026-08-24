@@ -37,7 +37,7 @@ import { CHIP_BACKGROUND, CHIP_TEXT } from './palette';
  */
 export function drawMapLabels(
   ctx: CanvasRenderingContext2D,
-  labels: ReadonlyArray<MapLabel>,
+  labels: readonly MapLabel[],
   zoom: number,
 ): void {
   for (const label of labels) {
@@ -53,10 +53,7 @@ export function drawMapLabels(
  * @param labels Candidate labels (any order).
  * @param nowMs  Monotonic clock reading.
  */
-export function liveLabels(
-  labels: ReadonlyArray<MapLabel>,
-  nowMs: number,
-): ReadonlyArray<MapLabel> {
+export function liveLabels(labels: readonly MapLabel[], nowMs: number): readonly MapLabel[] {
   return labels.filter((label) => nowMs <= label.expiresAtMs);
 }
 
@@ -68,7 +65,7 @@ export function liveLabels(
  * @param labels Candidate labels.
  * @param nowMs  Monotonic clock reading.
  */
-export function nextLabelExpiryMs(labels: ReadonlyArray<MapLabel>, nowMs: number): number | null {
+export function nextLabelExpiryMs(labels: readonly MapLabel[], nowMs: number): number | null {
   let earliest: number | null = null;
   for (const label of labels) {
     if (label.expiresAtMs > nowMs && (earliest === null || label.expiresAtMs < earliest)) {

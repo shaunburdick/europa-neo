@@ -84,7 +84,7 @@ export class FakeMatchClient {
   }
 
   /** Snapshot of recorded orders (assertion convenience). */
-  get orders(): ReadonlyArray<RecordedOrder> {
+  get orders(): readonly RecordedOrder[] {
     return this.sent;
   }
 }

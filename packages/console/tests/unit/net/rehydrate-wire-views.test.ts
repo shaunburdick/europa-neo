@@ -63,10 +63,7 @@ function cellWithPipes(
 }
 
 /** Wrap cells into a minimal PlayerView-shaped record. */
-function viewOf(
-  tick: number,
-  cells: ReadonlyArray<Record<string, unknown>>,
-): Record<string, unknown> {
+function viewOf(tick: number, cells: readonly Record<string, unknown>[]): Record<string, unknown> {
   return {
     player: 1,
     tick,
@@ -128,7 +125,7 @@ describe('rehydrateEnvelopeViews — wire arrays become real Sets', () => {
       const payload = repaired.payload as unknown as {
         view: { visibleCells: Array<{ pipes: unknown }> };
       };
-      const first = payload.view.visibleCells[0];
+      const [first] = payload.view.visibleCells;
       expect(first).toBeDefined();
       const pipes = first?.pipes;
       expect(pipes).toBeInstanceOf(Set);

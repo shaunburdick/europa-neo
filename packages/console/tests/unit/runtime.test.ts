@@ -35,7 +35,7 @@ class FakeMatchClientLike {
   private readonly orderLog: Order[] = [];
 
   /** Every submitted order, in send order. */
-  get sent(): ReadonlyArray<Order> {
+  get sent(): readonly Order[] {
     return this.orderLog;
   }
 

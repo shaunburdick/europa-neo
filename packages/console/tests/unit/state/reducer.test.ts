@@ -75,7 +75,7 @@ describe('reducer: PlayerAction arms (Q-U01)', () => {
     { kind: 'paratroop', source: { x: 1, y: 2 }, target: { x: 3, y: 2 } },
     { kind: 'gun', source: { x: 1, y: 2 }, target: { x: 3, y: 4 } },
     { kind: 'surrender' },
-  ] as ReadonlyArray<PlayerAction>)('%s produces sendOrder + announce + confirmation', (action) => {
+  ] as readonly PlayerAction[])('%s produces sendOrder + announce + confirmation', (action) => {
     const { state, effects } = step(live(), action);
     expect(effects).toHaveLength(2);
     expect(effects[0]?.kind).toBe('sendOrder');
@@ -217,7 +217,7 @@ describe('reducer invariants (data-model §17)', () => {
       { kind: 'pong', clientTimeMs: 1, serverTimeMs: 2 },
       { kind: 'terminal', result: { winner: 1, reason: 'conquest' as never } },
     ] as const) {
-      state = step(state, event).state;
+      ({ state } = step(state, event));
       expect(state.inputEnabled).toBe(state.status === 'live');
     }
   });

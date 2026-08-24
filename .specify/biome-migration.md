@@ -143,3 +143,22 @@ Those files intentionally use wire close codes, sequence/tick boundaries,
 frame limits, timing values, board coordinates, and deterministic test vectors
 to assert the published protocol behavior. Runtime networking sources retain
 the rule; protocol constants used by runtime code live in `src/constants.ts`.
+
+## Console Phase 2 exceptions
+
+Console's `noMagicNumbers` exceptions are exact-file overrides. Runtime
+exceptions are limited to rendering geometry/pixel math, palette and input
+domain boundaries, the deterministic demo fixture, and transport/host limits;
+ordinary application logic remains checked. The test override covers the
+package's acceptance, conformance, performance, determinism, parity, and unit
+fixtures, whose numeric literals are explicit UI behavior vectors, protocol
+values, timing budgets, coordinates, or test data. It is not a package-wide
+disable.
+
+The naming exception covers external vocabulary that cannot be camel-cased
+without changing behavior: direction keys, environment-variable keys, the
+wire-contract conformance fixture, and Playwright/Vitest configuration keys.
+The a11y grid's direction-key exceptions remain package-local and do not alter
+the three existing ARIA-grid rule exceptions above. The contrast-ratio test
+keeps its integer channel extraction exception because it is a test-only color
+math vector.

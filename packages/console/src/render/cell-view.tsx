@@ -71,7 +71,7 @@ export function formatCellAriaLabel(info: CellRenderInfo): string {
 }
 
 /** Canonical pipe listing order in accessible names. */
-const DIRECTION_ORDER: ReadonlyArray<Direction> = ['N', 'E', 'S', 'W'];
+const DIRECTION_ORDER: readonly Direction[] = ['N', 'E', 'S', 'W'];
 
 /**
  * Stable DOM id for a cell's gridcell node — the target of the
@@ -93,7 +93,7 @@ export function CellView({
   onClick,
   onPointerEnter,
 }: CellViewProps): JSX.Element {
-  const zoom = camera.zoom;
+  const { zoom } = camera;
   const classes = ['europa-cell'];
   if (focused) {
     classes.push('europa-cell--focused');

@@ -54,7 +54,7 @@ function flashView(): MapView {
     playerColors: { 1: '#dc2626' },
     effects: [
       { kind: 'combat', cell: { x: 0, y: 0 }, expiresAtMs: Number.MAX_SAFE_INTEGER },
-    ] satisfies ReadonlyArray<MapEffect>,
+    ] satisfies readonly MapEffect[],
     labels: [],
     camera: { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 12, maxZoom: 96 },
     hover: null,
@@ -74,7 +74,7 @@ function paintAndSample(view: MapView, reducedMotion: boolean): [number, number,
     throw new Error('no 2d context');
   }
   new MapCanvas().paint(view, ctx, { reducedMotion });
-  const data = ctx.getImageData(16, 16, 1, 1).data;
+  const { data } = ctx.getImageData(16, 16, 1, 1);
   return [data[0], data[1], data[2]];
 }
 

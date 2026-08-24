@@ -100,7 +100,7 @@ function createLiveNode(politeness: LivePoliteness): HTMLElement {
  * so the styling lives in exactly one place.
  */
 function applyVisuallyHiddenStyles(node: HTMLElement): void {
-  const style = node.style;
+  const { style } = node;
   style.position = 'absolute';
   style.width = '1px';
   style.height = '1px';

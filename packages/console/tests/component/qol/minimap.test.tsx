@@ -24,7 +24,7 @@ afterEach(() => {
 const CAMERA: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 12, maxZoom: 96 };
 
 /** Two owned cells on a 16×16 board. */
-const CELLS: ReadonlyArray<CellRenderInfo> = [
+const CELLS: readonly CellRenderInfo[] = [
   {
     coord: { x: 2, y: 3 },
     elevation: 40,

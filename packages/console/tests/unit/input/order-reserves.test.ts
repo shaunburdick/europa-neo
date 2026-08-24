@@ -214,7 +214,7 @@ describe('US4 AC-1: the transient "70%" label', () => {
     });
 
     expect(after.labels).toHaveLength(1);
-    const label = after.labels[0];
+    const [label] = after.labels;
     expect(label?.cell).toEqual(CELL);
     expect(label?.text).toBe('70%');
     expect(label?.expiresAtMs).toBe(nowMs + CONSOLE_CONSTANTS.labelTtlMs);
@@ -243,7 +243,7 @@ describe('US4 AC-1: the transient "70%" label', () => {
       prevView: before,
       nowMs,
     });
-    const label = mapView.labels[0];
+    const [label] = mapView.labels;
     expect(label).toBeDefined();
     if (label === undefined) {
       return;

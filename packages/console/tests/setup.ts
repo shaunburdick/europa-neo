@@ -25,7 +25,7 @@ import type { Page } from '@playwright/test';
 import axe from 'axe-core';
 
 /** Axe rule tags enforced on every scan (WCAG 2.2 AA target). */
-const AXE_TAGS: ReadonlyArray<string> = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+const AXE_TAGS: readonly string[] = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /**
  * Run an axe scan against `page` with the console's WCAG tag set and
@@ -66,7 +66,7 @@ function throwOnViolations(
     readonly id: string;
     readonly impact: string | null | undefined;
     readonly help: string;
-    readonly nodes: ReadonlyArray<{ readonly target: ReadonlyArray<unknown> }>;
+    readonly nodes: ReadonlyArray<{ readonly target: readonly unknown[] }>;
   }>,
 ): void {
   if (violations.length === 0) {

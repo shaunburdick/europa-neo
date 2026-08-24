@@ -21,5 +21,92 @@
         "noNoninteractiveTabindex": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "scripts/build-assets.ts",
+        "scripts/host.ts",
+        "src/input/hit-test.ts",
+        "src/input/subcell-target.ts",
+        "src/input/subcell.ts",
+        "src/internal/test-state.ts",
+        "src/net/ws-match-client.ts",
+        "src/qol/minimap.tsx",
+        "src/render/App.tsx",
+        "src/render/canvas.ts",
+        "src/render/label-overlay.ts",
+        "src/render/palette.ts",
+        "src/state/local-preflight.ts",
+        "src/ui/reserves-panel.tsx",
+        "src/ui/targeting-overlay.tsx",
+        "tests/a11y/us2-acceptance.test.ts",
+        "tests/a11y/us3-acceptance.test.ts",
+        "tests/a11y/us5-acceptance.test.ts",
+        "tests/component/qol/minimap.test.tsx",
+        "tests/component/render/app-wire-view.test.tsx",
+        "tests/component/render/cell-view.test.tsx",
+        "tests/component/render/grid-overlay.test.tsx",
+        "tests/component/render/map-canvas.test.tsx",
+        "tests/component/ui/reserves-panel.test.tsx",
+        "tests/e2e/full-stack.spec.ts",
+        "tests/e2e/selfhost.spec.ts",
+        "tests/e2e/us1-acceptance.spec.ts",
+        "tests/e2e/us2-acceptance.spec.ts",
+        "tests/e2e/us3-acceptance.spec.ts",
+        "tests/e2e/us4-acceptance.spec.ts",
+        "tests/e2e/us5-acceptance.spec.ts",
+        "tests/e2e/waiting-overlay.spec.ts",
+        "tests/fixtures/determinism-scenario.ts",
+        "tests/integration/contract-conformance.test.ts",
+        "tests/integration/perf.test.ts",
+        "tests/integration/quiet-client-keepalive.test.ts",
+        "tests/integration/subcell-parity.test.ts",
+        "tests/unit/input/order-draft-controller.test.ts",
+        "tests/unit/input/order-draft.test.ts",
+        "tests/unit/input/order-gun.test.ts",
+        "tests/unit/input/order-paratroop.test.ts",
+        "tests/unit/input/order-reserves.test.ts",
+        "tests/unit/input/region-select.test.ts",
+        "tests/unit/input/subcell-target.test.ts",
+        "tests/unit/net/net.test.ts",
+        "tests/unit/net/rehydrate-wire-views.test.ts",
+        "tests/unit/net/ws-match-client.test.ts",
+        "tests/unit/qol/controllers.test.ts",
+        "tests/unit/qol/hotkeys.test.ts",
+        "tests/unit/qol/reduced-motion.test.ts",
+        "tests/unit/qol/zoom-math.test.ts",
+        "tests/unit/qol/zoom.test.ts",
+        "tests/unit/render/palette.test.ts",
+        "tests/unit/render/visibility-filter.test.ts",
+        "tests/unit/runtime.test.ts",
+        "tests/unit/state/awaiting-start.test.ts",
+        "tests/unit/state/format.test.ts",
+        "tests/unit/state/local-preflight.test.ts",
+        "tests/unit/state/order-bridge.test.ts",
+        "tests/unit/state/reducer.test.ts"
+      ],
+      "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
+    },
+    {
+      "includes": [
+        "playwright.config.ts",
+        "src/a11y/keyboard.ts",
+        "src/internal/demo-runtime.tsx",
+        "src/render/grid-overlay.tsx",
+        "tests/component/render/app-wire-view.test.tsx",
+        "tests/e2e/selfhost.spec.ts",
+        "tests/integration/contract-conformance.test.ts",
+        "tests/unit/net/net.test.ts",
+        "tests/unit/qol/zoom-math.test.ts",
+        "vitest.config.browser.ts",
+        "vitest.config.coverage.ts"
+      ],
+      "linter": { "rules": { "style": { "useNamingConvention": "off" } } }
+    },
+    {
+      "includes": ["tests/a11y/us2-acceptance.test.ts"],
+      "linter": { "rules": { "suspicious": { "noBitwiseOperators": "off" } } }
+    }
+  ]
 }

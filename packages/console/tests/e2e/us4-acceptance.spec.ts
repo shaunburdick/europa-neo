@@ -45,7 +45,7 @@ async function pixelAt(page: Page, x: number, y: number): Promise<[number, numbe
       if (ctx === null) {
         throw new Error('no 2d context');
       }
-      const data = ctx.getImageData(px, py, 1, 1).data;
+      const { data } = ctx.getImageData(px, py, 1, 1);
       return [data[0], data[1], data[2]];
     },
     [x, y],

@@ -181,7 +181,7 @@ export function App({
     if (canvas === null || mapView === null) {
       return;
     }
-    const zoom = mapView.camera.zoom;
+    const { zoom } = mapView.camera;
     canvas.width = mapView.width * zoom;
     canvas.height = mapView.height * zoom;
     const ctx = canvas.getContext('2d');
@@ -266,7 +266,7 @@ export function App({
   }, [surrenderRequestEpoch]);
 
   const zoom = mapView?.camera.zoom ?? 32;
-  const selection = resolvedState.selection;
+  const { selection } = resolvedState;
 
   // Waiting-for-opponent overlay (post-playtest fix): joined but the
   // match has not yet delivered its first tick broadcast (still

@@ -285,7 +285,7 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
 
     // Handshake. The bridge subscribed at construction, so helloAck /
     // joinAck flowing back are dispatched without further wiring.
-    const matchId = this.config.client.matchId;
+    const { matchId } = this.config.client;
     if (matchId !== undefined) {
       this.store.dispatch({ kind: 'connecting', matchId }, { nowMs: this.nowMs() });
     }

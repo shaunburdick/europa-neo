@@ -82,13 +82,13 @@ export class KeyboardNavigator {
    *               entries — e.g., hiding the order palette while a
    *               modal is open; v1 list is static).
    */
-  getTabbableRegions(_state: ConsoleState): ReadonlyArray<TabbableRegion> {
+  getTabbableRegions(_state: ConsoleState): readonly TabbableRegion[] {
     return TAB_ORDER;
   }
 }
 
 /** Fixed v1 Tab order (WCAG 2.4.11: few, predictable focus stops). */
-const TAB_ORDER: ReadonlyArray<TabbableRegion> = [
+const TAB_ORDER: readonly TabbableRegion[] = [
   { id: 'skip-link', label: 'Skip to main content', focusable: true },
   { id: 'map', label: 'Game board', focusable: true },
   { id: 'hud', label: 'Status bar', focusable: true },

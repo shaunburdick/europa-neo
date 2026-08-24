@@ -77,7 +77,7 @@ export class MapCanvas {
    */
   paint(mapView: MapView, ctx: CanvasRenderingContext2D, options?: PaintOptions): void {
     const reducedMotion = options?.reducedMotion === true;
-    const zoom = mapView.camera.zoom;
+    const { zoom } = mapView.camera;
     const pixelWidth = mapView.width * zoom;
     const pixelHeight = mapView.height * zoom;
 

@@ -264,7 +264,7 @@ test('first console sees the waiting room while filling; auto-start clears it', 
     if (!created.ok) {
       return;
     }
-    const matchId = created.data.matchId;
+    const { matchId } = created.data;
     // Matchmaking minted seat 1's token at create time; the harness
     // binds the SAME token on the wire so auto-start's attachPlayer is
     // an idempotent re-bind (never a seat theft) and Alice's URL can

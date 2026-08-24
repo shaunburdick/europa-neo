@@ -36,7 +36,7 @@ import type { Coord, ReservesPct } from '../state/types';
 const SLIDER_MIN_PCT = 0;
 const SLIDER_MAX_PCT = 90;
 /** Digit buttons 0..9 (index === engine reserves digit). */
-const DIGITS: ReadonlyArray<ReservesPct> = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const DIGITS: readonly ReservesPct[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 /** Props for {@link ReservesPanel}. */
 export interface ReservesPanelProps {

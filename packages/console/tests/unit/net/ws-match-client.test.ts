@@ -414,7 +414,7 @@ describe('WsMatchClient wire-view rehydration (live-wire defect fix)', () => {
   }
 
   /** Minimal PlayerView shape as it looks ON THE WIRE (array pipes). */
-  function wireView(tick: number, cells: Array<Record<string, unknown>>): Record<string, unknown> {
+  function wireView(tick: number, cells: Record<string, unknown>[]): Record<string, unknown> {
     return {
       player: 1,
       tick,

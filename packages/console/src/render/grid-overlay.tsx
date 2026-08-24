@@ -112,7 +112,7 @@ export function GridOverlay({
     row.sort((a, b) => a.coord.x - b.coord.x);
   }
 
-  const zoom = mapView.camera.zoom;
+  const { zoom } = mapView.camera;
 
   /** Move the roving focus one step in the pressed arrow direction. */
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {

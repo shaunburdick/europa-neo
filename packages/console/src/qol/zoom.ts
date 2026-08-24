@@ -53,8 +53,7 @@ export interface BoardBounds {
  * @param board  Board dimensions in cells.
  */
 export function clampCamera(camera: CameraState, board: BoardBounds): CameraState {
-  const minZoom = camera.minZoom;
-  const maxZoom = camera.maxZoom;
+  const { minZoom, maxZoom } = camera;
   const zoom = Math.min(maxZoom, Math.max(minZoom, camera.zoom));
   const minX = -(maxZoom * 2);
   const maxX = board.width * zoom;

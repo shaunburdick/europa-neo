@@ -106,8 +106,10 @@ export function buildAbilityAction(args: AbilityArgs): TargetingOutcome {
   if (selection === null) {
     return { status: 'no_launch', reason: 'no-selection' };
   }
-  const view = state.latestView;
-  const playerId = state.session.playerId;
+  const {
+    latestView: view,
+    session: { playerId },
+  } = state;
   if (view === null || playerId === null) {
     // No authoritative board / no seat: fail closed (FR-006).
     return { status: 'rejected', reason: { kind: 'out_of_bounds', coord: selection } };

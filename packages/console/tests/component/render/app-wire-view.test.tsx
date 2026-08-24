@@ -94,7 +94,7 @@ function wireCell(x: number, y: number, pipes: string[]): Record<string, unknown
 }
 
 /** Minimal PlayerView as serialized on the wire (array pipes inside). */
-function wireView(tick: number, cells: Array<Record<string, unknown>>): Record<string, unknown> {
+function wireView(tick: number, cells: Record<string, unknown>[]): Record<string, unknown> {
   return {
     player: 1,
     tick,

@@ -162,10 +162,10 @@ export const INITIAL_CONSOLE_STATE: ConsoleState = {
  * @param nowMs Monotonic clock reading.
  */
 export function appendFeedback(
-  current: ReadonlyArray<FeedbackMessage>,
+  current: readonly FeedbackMessage[],
   message: Omit<FeedbackMessage, 'id' | 'createdAtMs'>,
   nowMs: number,
-): ReadonlyArray<FeedbackMessage> {
+): readonly FeedbackMessage[] {
   const live = current.filter((m) => nowMs - m.createdAtMs <= m.ttlMs);
   const appended: FeedbackMessage = {
     ...message,
@@ -186,10 +186,10 @@ export function appendFeedback(
  * @param nowMs Monotonic clock reading.
  */
 export function appendRejection(
-  current: ReadonlyArray<RejectedOrder>,
+  current: readonly RejectedOrder[],
   rejection: Omit<RejectedOrder, 'atMs'>,
   nowMs: number,
-): ReadonlyArray<RejectedOrder> {
+): readonly RejectedOrder[] {
   const next = [...current, { ...rejection, atMs: nowMs }];
   return next.slice(-CONSOLE_CONSTANTS.maxRejectedOrders);
 }
@@ -260,7 +260,7 @@ export function reduce(
   state: ConsoleState,
   action: ConsoleAction,
   options: ReduceOptions,
-): { readonly state: ConsoleState; readonly effects: ReadonlyArray<ReducerEffect> } {
+): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
   const { nowMs } = options;
 
   // Lazy TTL cleanup first: expired feedback disappears on the next
@@ -297,7 +297,7 @@ function reducePlayerAction(
   state: ConsoleState,
   action: PlayerAction,
   nowMs: number,
-): { readonly state: ConsoleState; readonly effects: ReadonlyArray<ReducerEffect> } {
+): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
   switch (action.kind) {
     // --- Order-producing gestures (FR-002..FR-006) ---
     case 'setPipe':
@@ -311,7 +311,7 @@ function reducePlayerAction(
       if (state.status !== 'live') {
         return { state, effects: [] };
       }
-      const playerId = state.session.playerId;
+      const { playerId } = state.session;
       if (playerId === null) {
         return { state, effects: [] };
       }
@@ -395,7 +395,7 @@ function reduceNetEvent(
   state: ConsoleState,
   event: NetEvent,
   nowMs: number,
-): { readonly state: ConsoleState; readonly effects: ReadonlyArray<ReducerEffect> } {
+): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
   switch (event.kind) {
     case 'connecting':
       return {
@@ -463,7 +463,7 @@ function reduceNetEvent(
         };
       }
       const rejectedOrder = takePendingOrder(event.actionId);
-      const reason = event.result.reason;
+      const { reason } = event.result;
       const text = formatRejection(reason);
       const withRejection: ConsoleState =
         rejectedOrder === undefined
