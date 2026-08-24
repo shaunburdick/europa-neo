@@ -23,7 +23,7 @@
 
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
-
+import { VOID_COLOR } from '../render/palette';
 import type { CameraState, CellRenderInfo, Coord } from '../state/types';
 import { clampCamera } from './zoom';
 
@@ -175,7 +175,7 @@ function paintMinimap(
   viewportSize: { readonly width: number; readonly height: number } | undefined,
 ): void {
   const scale = minimapScale({ width: boardWidth, height: boardHeight });
-  ctx.fillStyle = '#05070d';
+  ctx.fillStyle = VOID_COLOR;
   ctx.fillRect(0, 0, MINIMAP_SIZE_PX, MINIMAP_SIZE_PX);
 
   // Land/water thumbnails (elevation-shaded land reads as texture).

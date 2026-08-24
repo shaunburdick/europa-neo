@@ -243,6 +243,23 @@ truthful).
     (schema-valid), and the server counts every inbound frame as
     activity; both halves keep a quiet seat alive past 2× heartbeat
     (now pinned end-to-end by `test:keepalive`).
+13. **Fog/void + land-floor palette contrast (post-playtest fix,
+    2026-08-24)**: product-owner playtesting found the board reading
+    as broken "bands" — low-elevation land (`hsl(120 12% 18%)` ≈
+    `#293329`) was nearly indistinguishable from the near-black void
+    (`#05070d`), which was itself nearly identical to the page
+    background (`#0b0f19`). Paint-only constants adjusted:
+    `VOID_COLOR` → `#1a2233` (dark slate, visibly "board space",
+    darker than any land tile, never equal to the page background —
+    now exported as `PAGE_BACKGROUND_COLOR` so the invariant is
+    testable) and `LAND_MIN_LIGHTNESS_PCT` 18 → 26 (darkest land
+    clearly lighter than void; hue/sat/max unchanged so "renderer
+    shades terrain by elevation" still holds). Canvas letterbox,
+    minimap backdrop, and the translucent modal/waiting veils were
+    synced to the same value. Fog cells remain structurally absent
+    from views (FR-002/FR-005 no-leak untouched — existing suites
+    still pin this); no acceptance criteria changed; no contract
+    surface touched.
 
 ### Quickstart validation mapping (Q-* → proving suites)
 

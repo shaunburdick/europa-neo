@@ -14,21 +14,39 @@
  * VI "no reliance on color alone").
  */
 
-/** Void (out-of-horizon) background — near-black space per fog FR-002. */
-export const VOID_COLOR = '#05070d';
+/**
+ * Void (out-of-horizon fog) background — dark slate per fog FR-002.
+ *
+ * Playtest ruling (2026-08-24): the old near-black void read as
+ * "broken board" against the page chrome. This value is deliberately
+ * visible as "board space" yet unmistakably darker/flatter than any
+ * land tile. Zero terrain information: fog cells are structurally
+ * absent from views (FR-002/FR-005 no-leak), so this is paint-only.
+ * Must never equal {@link PAGE_BACKGROUND_COLOR}.
+ */
+export const VOID_COLOR = '#1a2233';
+
+/**
+ * Page chrome background (mirrors `body` in styles/index.css; CSS
+ * stays the styling source of truth). Kept here so the void-vs-page
+ * distinctness invariant is testable — see palette.test.ts.
+ */
+export const PAGE_BACKGROUND_COLOR = '#0b0f19';
 
 /** Water fill — Tailwind blue-700; reads unambiguously as blue. */
 export const WATER_COLOR = '#1d4ed8';
 
 /**
  * Land shading range by elevation (data-model.md §3: elevation 0..255
- * shades terrain). HSL lightness interpolates from 18% (sea level,
+ * shades terrain). HSL lightness interpolates from 26% (sea level,
  * dark) to 62% (peaks, bright); hue/saturation fixed so elevation is
- * the only variable.
+ * the only variable. The 26% floor (playtest 2026-08-24) keeps the
+ * darkest land clearly lighter than {@link VOID_COLOR} so low
+ * elevation never reads as fog.
  */
 export const LAND_HUE = 120;
 export const LAND_SATURATION_PCT = 12;
-export const LAND_MIN_LIGHTNESS_PCT = 18;
+export const LAND_MIN_LIGHTNESS_PCT = 26;
 export const LAND_MAX_LIGHTNESS_PCT = 62;
 
 /** City outline + pipe indicator color — amber-400 family. */

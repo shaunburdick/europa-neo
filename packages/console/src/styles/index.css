@@ -59,7 +59,9 @@ body {
 
 .europa-canvas {
   display: block;
-  background-color: #05070d;
+  /* Mirrors VOID_COLOR in src/render/palette.ts (playtest 2026-08-24:
+     dark slate, distinct from the page background, darker than land). */
+  background-color: #1a2233;
 }
 
 /* ARIA grid overlay — exactly covers the canvas. */
@@ -227,7 +229,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(5, 7, 13, 0.75);
+  background-color: rgba(26, 34, 51, 0.75);
 }
 
 .europa-modal {
@@ -510,7 +512,7 @@ body {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  background-color: rgba(5, 7, 13, 0.6);
+  background-color: rgba(26, 34, 51, 0.6);
 }
 
 .europa-waiting__plate {
