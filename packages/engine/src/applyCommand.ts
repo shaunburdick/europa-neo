@@ -51,10 +51,10 @@ const pendingOrdersTable = new WeakMap<World, readonly Order[]>();
  * through `applyCommand` won't have an entry).
  */
 export function readPendingOrders(world: Readonly<World>): readonly Order[] {
-  // The cast to `World` is required because TypeScript's WeakMap typing
-  // uses `object`, and our `Readonly<World>` flows from `World`. The
-  // cast is identity-preserving (no runtime conversion).
-  return pendingOrdersTable.get(world as World) ?? [];
+    // The cast to `World` is required because TypeScript's WeakMap typing
+    // uses `object`, and our `Readonly<World>` flows from `World`. The
+    // cast is identity-preserving (no runtime conversion).
+    return pendingOrdersTable.get(world as World) ?? [];
 }
 
 /**
@@ -65,8 +65,8 @@ export function readPendingOrders(world: Readonly<World>): readonly Order[] {
  * "next world".
  */
 export function withPendingOrders(world: Readonly<World>, pendingOrders: readonly Order[]): World {
-  pendingOrdersTable.set(world as World, [...pendingOrders]);
-  return world as World;
+    pendingOrdersTable.set(world as World, [...pendingOrders]);
+    return world as World;
 }
 
 /**
@@ -80,30 +80,30 @@ export function withPendingOrders(world: Readonly<World>, pendingOrders: readonl
  *          On failure, the returned world is the input unchanged.
  */
 export function applyCommand(
-  world: Readonly<World>,
-  cmd: Order,
+    world: Readonly<World>,
+    cmd: Order,
 ): { readonly world: World; readonly result: CommandResult } {
-  const result = validateCommand(world, cmd);
-  if (!result.ok) {
-    return { world, result };
-  }
+    const result = validateCommand(world, cmd);
+    if (!result.ok) {
+        return { world, result };
+    }
 
-  // Surrender applies immediately (FR-016): mark the player eliminated
-  // and return. The next tick() will detect the terminal condition via
-  // resolveTerminal (which emits the EliminationEvent for the tick
-  // pipeline). Surrender is NOT staged in pendingOrders — its effect is
-  // durable in the returned world, no tick drain required.
-  if (cmd.kind === 'surrender') {
-    const nextWorld = markSurrendered(world, cmd.player);
+    // Surrender applies immediately (FR-016): mark the player eliminated
+    // and return. The next tick() will detect the terminal condition via
+    // resolveTerminal (which emits the EliminationEvent for the tick
+    // pipeline). Surrender is NOT staged in pendingOrders — its effect is
+    // durable in the returned world, no tick drain required.
+    if (cmd.kind === 'surrender') {
+        const nextWorld = markSurrendered(world, cmd.player);
+        return { world: nextWorld, result: { ok: true } };
+    }
+
+    // All other order kinds: stage in pendingOrders. The side-table
+    // attached to `world` is appended with the new order; the world
+    // reference itself is unchanged (so concurrent snapshots stay valid).
+    const pending = readPendingOrders(world);
+    const nextWorld = withPendingOrders(world, [...pending, cmd]);
     return { world: nextWorld, result: { ok: true } };
-  }
-
-  // All other order kinds: stage in pendingOrders. The side-table
-  // attached to `world` is appended with the new order; the world
-  // reference itself is unchanged (so concurrent snapshots stay valid).
-  const pending = readPendingOrders(world);
-  const nextWorld = withPendingOrders(world, [...pending, cmd]);
-  return { world: nextWorld, result: { ok: true } };
 }
 
 /**
@@ -116,17 +116,17 @@ export function applyCommand(
  * player exists).
  */
 function markSurrendered(world: Readonly<World>, player: PlayerId): World {
-  const updatedPlayers: Player[] = world.players.map((p) =>
-    p.id === player ? { ...p, status: 'eliminated' as const } : p,
-  );
-  const nextWorld: World = {
-    ...world,
-    players: Object.freeze(updatedPlayers),
-  };
-  // Preserve the pendingOrders side-table if present.
-  const pending = readPendingOrders(world);
-  if (pending.length > 0) {
-    return withPendingOrders(nextWorld, pending);
-  }
-  return nextWorld;
+    const updatedPlayers: Player[] = world.players.map((p) =>
+        p.id === player ? { ...p, status: 'eliminated' as const } : p,
+    );
+    const nextWorld: World = {
+        ...world,
+        players: Object.freeze(updatedPlayers),
+    };
+    // Preserve the pendingOrders side-table if present.
+    const pending = readPendingOrders(world);
+    if (pending.length > 0) {
+        return withPendingOrders(nextWorld, pending);
+    }
+    return nextWorld;
 }

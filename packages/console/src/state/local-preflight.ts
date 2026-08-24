@@ -31,33 +31,29 @@ import type { Coord, Order, PlayerId, PlayerView, ValidationError } from './type
  * @param view     The latest fog-filtered player view.
  * @param playerId The seated player id issuing the order.
  */
-export function localPreflightOrder(
-  order: Order,
-  view: PlayerView,
-  playerId: PlayerId,
-): ValidationError | null {
-  switch (order.kind) {
-    case 'paratroop':
-    case 'gun':
-      return preflightAttack(order.source, order.target, view);
-    case 'setPipe':
-    case 'clearPipe':
-    case 'setPipesExclusive':
-      return preflightPipe(order.cell, view, playerId);
-    case 'clearAllPipes':
-      return preflightPipe(order.cell, view, playerId);
-    case 'setReserves':
-      return preflightReserves(order.percent);
-    case 'surrender':
-      // Always legal to request; the server decides surrender validity
-      // (already-surrendered / terminal states are server-side facts).
-      return null;
-    default: {
-      // Exhaustiveness guard: unknown order kinds fail closed.
-      const exhaustive: never = order;
-      return rejectUnknown(exhaustive);
+export function localPreflightOrder(order: Order, view: PlayerView, playerId: PlayerId): ValidationError | null {
+    switch (order.kind) {
+        case 'paratroop':
+        case 'gun':
+            return preflightAttack(order.source, order.target, view);
+        case 'setPipe':
+        case 'clearPipe':
+        case 'setPipesExclusive':
+            return preflightPipe(order.cell, view, playerId);
+        case 'clearAllPipes':
+            return preflightPipe(order.cell, view, playerId);
+        case 'setReserves':
+            return preflightReserves(order.percent);
+        case 'surrender':
+            // Always legal to request; the server decides surrender validity
+            // (already-surrendered / terminal states are server-side facts).
+            return null;
+        default: {
+            // Exhaustiveness guard: unknown order kinds fail closed.
+            const exhaustive: never = order;
+            return rejectUnknown(exhaustive);
+        }
     }
-  }
 }
 
 /**
@@ -67,7 +63,7 @@ export function localPreflightOrder(
  * with a bounds-shaped rejection.
  */
 function rejectUnknown(order: never): ValidationError {
-  return { kind: 'out_of_bounds', coord: order };
+    return { kind: 'out_of_bounds', coord: order };
 }
 
 /**
@@ -75,20 +71,20 @@ function rejectUnknown(order: never): ValidationError {
  * target. Pure.
  */
 function preflightAttack(source: Coord, target: Coord, view: PlayerView): ValidationError | null {
-  const distance = chebyshevDistance(source, target);
-  if (distance > SUBCELL_RANGE) {
-    return { kind: 'paratroop_range', source, target, distance };
-  }
-  const targetCell = cellAt(view, target);
-  if (targetCell === undefined) {
-    // Target outside the visibility horizon: cannot confirm it is a
-    // legal destination → fail closed rather than leak a guess.
-    return { kind: 'out_of_bounds', coord: target };
-  }
-  if (targetCell.cell.terrain === 'water') {
-    return { kind: 'water_target', coord: target };
-  }
-  return null;
+    const distance = chebyshevDistance(source, target);
+    if (distance > SUBCELL_RANGE) {
+        return { kind: 'paratroop_range', source, target, distance };
+    }
+    const targetCell = cellAt(view, target);
+    if (targetCell === undefined) {
+        // Target outside the visibility horizon: cannot confirm it is a
+        // legal destination → fail closed rather than leak a guess.
+        return { kind: 'out_of_bounds', coord: target };
+    }
+    if (targetCell.cell.terrain === 'water') {
+        return { kind: 'water_target', coord: target };
+    }
+    return null;
 }
 
 /**
@@ -96,34 +92,34 @@ function preflightAttack(source: Coord, target: Coord, view: PlayerView): Valida
  * the issuing player. Pure.
  */
 function preflightPipe(cell: Coord, view: PlayerView, playerId: PlayerId): ValidationError | null {
-  const sourceCell = cellAt(view, cell);
-  if (sourceCell === undefined) {
-    return { kind: 'out_of_bounds', coord: cell };
-  }
-  if (sourceCell.cell.terrain === 'water') {
-    return { kind: 'water_target', coord: cell };
-  }
-  if (sourceCell.troopOwner !== playerId) {
-    return { kind: 'not_owner', coord: cell };
-  }
-  return null;
+    const sourceCell = cellAt(view, cell);
+    if (sourceCell === undefined) {
+        return { kind: 'out_of_bounds', coord: cell };
+    }
+    if (sourceCell.cell.terrain === 'water') {
+        return { kind: 'water_target', coord: cell };
+    }
+    if (sourceCell.troopOwner !== playerId) {
+        return { kind: 'not_owner', coord: cell };
+    }
+    return null;
 }
 
 /**
  * Reserves percent domain check (engine `ReservesPct` = 0..9). Pure.
  */
 function preflightReserves(percent: number): ValidationError | null {
-  if (!Number.isInteger(percent) || percent < 0 || percent > 9) {
-    return { kind: 'invalid_percent', percent };
-  }
-  return null;
+    if (!Number.isInteger(percent) || percent < 0 || percent > 9) {
+        return { kind: 'invalid_percent', percent };
+    }
+    return null;
 }
 
 /**
  * Chebyshev distance between two coords (max of axis deltas). Pure.
  */
 function chebyshevDistance(a: Coord, b: Coord): number {
-  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
 /**
@@ -131,5 +127,5 @@ function chebyshevDistance(a: Coord, b: Coord): number {
  * `undefined` when the cell is outside the visibility horizon. Pure.
  */
 function cellAt(view: PlayerView, coord: Coord): (typeof view)['visibleCells'][number] | undefined {
-  return view.visibleCells.find((c) => c.coord.x === coord.x && c.coord.y === coord.y);
+    return view.visibleCells.find((c) => c.coord.x === coord.x && c.coord.y === coord.y);
 }

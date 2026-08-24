@@ -1,46 +1,46 @@
 {
-  "name": "@europa/networking",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Europa Neo real-time multiplayer networking & transport — server-authoritative WebSocket channel, tick scheduler, fog-filtered broadcasts, reconnection with state resync, and late-join spectating. Consumes @europa/engine and @europa/fog.",
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "name": "@europa/networking",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Europa Neo real-time multiplayer networking & transport — server-authoritative WebSocket channel, tick scheduler, fog-filtered broadcasts, reconnection with state resync, and late-join spectating. Consumes @europa/engine and @europa/fog.",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./browser": {
+            "types": "./dist/browser.d.ts",
+            "import": "./dist/browser.js"
+        }
     },
-    "./browser": {
-      "types": "./dist/browser.d.ts",
-      "import": "./dist/browser.js"
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "lint": "biome check .",
+        "format": "biome format --write .",
+        "format:check": "biome format .",
+        "typecheck": "tsc --noEmit",
+        "coverage": "vitest run --coverage"
+    },
+    "dependencies": {
+        "@europa/engine": "workspace:*",
+        "@europa/fog": "workspace:*",
+        "ws": "catalog:"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "catalog:",
+        "@types/node": "catalog:",
+        "@types/ws": "catalog:",
+        "@vitest/coverage-v8": "^4.1.11",
+        "tsup": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
     }
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsup",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "biome check .",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
-    "typecheck": "tsc --noEmit",
-    "coverage": "vitest run --coverage"
-  },
-  "dependencies": {
-    "@europa/engine": "workspace:*",
-    "@europa/fog": "workspace:*",
-    "ws": "catalog:"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "catalog:",
-    "@types/node": "catalog:",
-    "@types/ws": "catalog:",
-    "@vitest/coverage-v8": "^4.1.11",
-    "tsup": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
-  }
 }

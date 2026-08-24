@@ -39,10 +39,10 @@ import { validateEnvelope } from './validate';
  * @returns The value to serialize (sorted array for Sets, else as-is).
  */
 function wireReplacer(_key: string, value: unknown): unknown {
-  if (value instanceof Set) {
-    return [...value].sort();
-  }
-  return value;
+    if (value instanceof Set) {
+        return [...value].sort();
+    }
+    return value;
 }
 
 /**
@@ -52,7 +52,7 @@ function wireReplacer(_key: string, value: unknown): unknown {
  * @returns The JSON text to hand to `ws.WebSocket.send`.
  */
 export function encodeFrame(envelope: ProtocolEnvelope<NetworkPayload>): string {
-  return JSON.stringify(envelope, wireReplacer);
+    return JSON.stringify(envelope, wireReplacer);
 }
 
 /**
@@ -67,14 +67,14 @@ export function encodeFrame(envelope: ProtocolEnvelope<NetworkPayload>): string 
  *         (`validateEnvelope`).
  */
 export function decodeFrame(raw: string): ProtocolEnvelope<NetworkPayload> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new NetworkError('malformed_payload', 'frame is not valid JSON');
-  }
-  validateEnvelope(parsed);
-  return parsed;
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch {
+        throw new NetworkError('malformed_payload', 'frame is not valid JSON');
+    }
+    validateEnvelope(parsed);
+    return parsed;
 }
 
 /**
@@ -88,19 +88,19 @@ export function decodeFrame(raw: string): ProtocolEnvelope<NetworkPayload> {
  * @returns Discriminated result; never throws.
  */
 export function tryDecodeFrame(
-  raw: string,
+    raw: string,
 ): { ok: true; envelope: ProtocolEnvelope<NetworkPayload> } | { ok: false; error: NetworkError } {
-  try {
-    return { ok: true, envelope: decodeFrame(raw) };
-  } catch (error) {
-    if (isNetworkError(error)) {
-      return { ok: false, error };
+    try {
+        return { ok: true, envelope: decodeFrame(raw) };
+    } catch (error) {
+        if (isNetworkError(error)) {
+            return { ok: false, error };
+        }
+        // Defensive: decodeFrame only throws NetworkError today, but the
+        // handler boundary must stay total. No `any`, no suppression.
+        return {
+            ok: false,
+            error: new NetworkError('internal_error', 'unexpected frame decoding failure'),
+        };
     }
-    // Defensive: decodeFrame only throws NetworkError today, but the
-    // handler boundary must stay total. No `any`, no suppression.
-    return {
-      ok: false,
-      error: new NetworkError('internal_error', 'unexpected frame decoding failure'),
-    };
-  }
 }

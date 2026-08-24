@@ -34,40 +34,40 @@
 // contracts for grouped documentation and FR references.
 
 export type {
-  // Engine re-exported types
-  Cell,
-  // From fog-types
-  CellView,
-  // Options bag for computePlayerView
-  ComputePlayerViewOptions,
-  // Coordinates (engine)
-  Coord,
-  // Match config (engine)
-  MatchConfig,
-  // Engine player
-  Player,
-  // Branded primitive
-  PlayerId,
-  // Player view (re-declared from engine-to-fog.ts)
-  PlayerView,
-  // Engine PRNG callable type
-  Rng,
-  // Engine events
-  TickEvents,
-  // Visible set (re-declared from engine-to-fog.ts)
-  VisibleSet,
-  // Engine world
-  World,
+    // Engine re-exported types
+    Cell,
+    // From fog-types
+    CellView,
+    // Options bag for computePlayerView
+    ComputePlayerViewOptions,
+    // Coordinates (engine)
+    Coord,
+    // Match config (engine)
+    MatchConfig,
+    // Engine player
+    Player,
+    // Branded primitive
+    PlayerId,
+    // Player view (re-declared from engine-to-fog.ts)
+    PlayerView,
+    // Engine PRNG callable type
+    Rng,
+    // Engine events
+    TickEvents,
+    // Visible set (re-declared from engine-to-fog.ts)
+    VisibleSet,
+    // Engine world
+    World,
 } from './types';
 
 // Single value re-exports: fog API version, engine API version
 // pin, mask-state sentinels. Bumped on any breaking change to
 // the public surface (constitution Principle IV).
 export {
-  ENGINE_API_VERSION_REF,
-  FOG_API_VERSION,
-  FOG_MASK_UNKNOWN,
-  FOG_MASK_VISIBLE,
+    ENGINE_API_VERSION_REF,
+    FOG_API_VERSION,
+    FOG_MASK_UNKNOWN,
+    FOG_MASK_VISIBLE,
 } from './types';
 
 // ----------------------------------------------------------------------------
@@ -126,9 +126,9 @@ export { computePlayerView } from './playerView';
  * determinism-suite hash helper.
  */
 export {
-  hashPlayerView,
-  isVisible,
-  visibleCellAt,
+    hashPlayerView,
+    isVisible,
+    visibleCellAt,
 } from './utils';
 /** Visibility horizon: union of friendly stacks' Chebyshev disks (US1). */
 export { computeVisibleSet } from './visibleSet';

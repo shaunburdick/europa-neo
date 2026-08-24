@@ -56,41 +56,41 @@ export type { FogConstants } from './contracts/fog-api';
 // the same `@internal` discipline (callers that need to type their
 // own masks can use `Uint8Array` directly).
 export type {
-  // Cell decoded view (from @europa/engine)
-  CellView,
-  // Options bag for computePlayerView
-  ComputePlayerViewOptions,
-  // Engine types (re-declared from @europa/engine for convenience)
-  Coord,
-  FogMask,
-  // Match config (from @europa/engine)
-  MatchConfig,
-  // Branded primitive
-  PlayerId,
-  // Player view payload (re-declared from engine-to-fog.ts)
-  PlayerView,
-  // Tick events (from @europa/engine)
-  TickEvents,
-  // Visible set payload (re-declared from engine-to-fog.ts)
-  VisibleSet,
-  // World (from @europa/engine)
-  World,
+    // Cell decoded view (from @europa/engine)
+    CellView,
+    // Options bag for computePlayerView
+    ComputePlayerViewOptions,
+    // Engine types (re-declared from @europa/engine for convenience)
+    Coord,
+    FogMask,
+    // Match config (from @europa/engine)
+    MatchConfig,
+    // Branded primitive
+    PlayerId,
+    // Player view payload (re-declared from engine-to-fog.ts)
+    PlayerView,
+    // Tick events (from @europa/engine)
+    TickEvents,
+    // Visible set payload (re-declared from engine-to-fog.ts)
+    VisibleSet,
+    // World (from @europa/engine)
+    World,
 } from './contracts/fog-types';
 // Single value exports from the contract: the fog API version
 // (constant), the mask-state sentinels, and the cross-package
 // engine version pin. All are runtime artifacts; the rest of this
 // file is types-only.
 export {
-  // Cross-package version pin (fog was built against this engine
-  // API version). Drift between this and the engine's
-  // `ENGINE_API_VERSION` indicates the engine was bumped without
-  // rebuilding fog.
-  ENGINE_API_VERSION_REF,
-  // Fog API version constant. Bumped on any breaking change to the
-  // public surface.
-  FOG_API_VERSION,
-  // Mask state sentinels
-  FOG_MASK_UNKNOWN,
-  // Mask state sentinels
-  FOG_MASK_VISIBLE,
+    // Cross-package version pin (fog was built against this engine
+    // API version). Drift between this and the engine's
+    // `ENGINE_API_VERSION` indicates the engine was bumped without
+    // rebuilding fog.
+    ENGINE_API_VERSION_REF,
+    // Fog API version constant. Bumped on any breaking change to the
+    // public surface.
+    FOG_API_VERSION,
+    // Mask state sentinels
+    FOG_MASK_UNKNOWN,
+    // Mask state sentinels
+    FOG_MASK_VISIBLE,
 } from './contracts/fog-types';

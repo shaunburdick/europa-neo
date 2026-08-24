@@ -15,8 +15,8 @@ import { type RefObject, useEffect, useState } from 'react';
 
 /** A measured content-box size in CSS pixels. */
 export interface ContainerSize {
-  readonly width: number;
-  readonly height: number;
+    readonly width: number;
+    readonly height: number;
 }
 
 /**
@@ -28,39 +28,37 @@ export interface ContainerSize {
  * @returns The latest non-degenerate size, or `null`.
  */
 export function useContainerSize(ref: RefObject<HTMLElement | null>): ContainerSize | null {
-  const [size, setSize] = useState<ContainerSize | null>(null);
+    const [size, setSize] = useState<ContainerSize | null>(null);
 
-  useEffect(() => {
-    const element = ref.current;
-    if (element === null) {
-      return undefined;
-    }
+    useEffect(() => {
+        const element = ref.current;
+        if (element === null) {
+            return undefined;
+        }
 
-    /**
-     * Read the element's box; zero-sized boxes (display:none, detached)
-     * are reported as `null` rather than poisoning the viewport math.
-     */
-    const measure = (): void => {
-      const rect = element.getBoundingClientRect();
-      setSize(
-        rect.width > 0 && rect.height > 0 ? { width: rect.width, height: rect.height } : null,
-      );
-    };
+        /**
+         * Read the element's box; zero-sized boxes (display:none, detached)
+         * are reported as `null` rather than poisoning the viewport math.
+         */
+        const measure = (): void => {
+            const rect = element.getBoundingClientRect();
+            setSize(rect.width > 0 && rect.height > 0 ? { width: rect.width, height: rect.height } : null);
+        };
 
-    // Synchronous first read: avoids one paint with the fallback
-    // viewport before the observer's initial callback lands.
-    measure();
+        // Synchronous first read: avoids one paint with the fallback
+        // viewport before the observer's initial callback lands.
+        measure();
 
-    if (typeof ResizeObserver === 'undefined') {
-      // Environments without ResizeObserver keep the initial measure.
-      return undefined;
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-    };
-  }, [ref]);
+        if (typeof ResizeObserver === 'undefined') {
+            // Environments without ResizeObserver keep the initial measure.
+            return undefined;
+        }
+        const observer = new ResizeObserver(measure);
+        observer.observe(element);
+        return () => {
+            observer.disconnect();
+        };
+    }, [ref]);
 
-  return size;
+    return size;
 }

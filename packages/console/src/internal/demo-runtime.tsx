@@ -24,28 +24,22 @@ import { createRoot } from 'react-dom/client';
 import { App } from '../render/App';
 import { createOrderBridge } from '../state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
-import type {
-  NetworkPayload,
-  PlayerView,
-  ProtocolEnvelope,
-  ReducerEffect,
-  SequenceNumber,
-} from '../state/types';
+import type { NetworkPayload, PlayerView, ProtocolEnvelope, ReducerEffect, SequenceNumber } from '../state/types';
 import { FakeMatchClient } from './fake-match-client';
 import { createDemoPlayerView, createStubConsoleState } from './test-state';
 
 /** The window-global handle Playwright specs read. */
 export interface EuropaE2EHandle {
-  /** Orders captured by the fake client, in send order. */
-  readonly orders: FakeMatchClient['sent'];
-  /** The live store (for state assertions). */
-  readonly store: ConsoleStore;
+    /** Orders captured by the fake client, in send order. */
+    readonly orders: FakeMatchClient['sent'];
+    /** The live store (for state assertions). */
+    readonly store: ConsoleStore;
 }
 
 declare global {
-  interface Window {
-    __europaE2E?: EuropaE2EHandle;
-  }
+    interface Window {
+        __europaE2E?: EuropaE2EHandle;
+    }
 }
 
 /**
@@ -59,61 +53,58 @@ declare global {
  * @internal Test scaffolding only (mirrors demo-runtime's constraints).
  */
 class ReservesServerEcho {
-  private readonly client: FakeMatchClient;
+    private readonly client: FakeMatchClient;
 
-  private outboundSeq = 0;
+    private outboundSeq = 0;
 
-  constructor(client: FakeMatchClient) {
-    this.client = client;
-  }
-
-  /** Apply one reducer effect; echoes only reserves orders. */
-  handleEffect(effect: ReducerEffect): void {
-    if (effect.kind !== 'sendOrder' || effect.order.kind !== 'setReserves') {
-      return;
+    constructor(client: FakeMatchClient) {
+        this.client = client;
     }
-    const seq = this.findSeqFor(effect.actionId);
-    if (seq === null) {
-      return;
-    }
-    this.emit({ type: 'orderAck', payload: { seq, result: { ok: true } } });
-    const view = applyReserves(
-      this.storeRef?.getState().latestView ?? null,
-      effect.order.cell,
-      effect.order.percent,
-    );
-    if (view !== null) {
-      this.emit({ type: 'tick', payload: { tick: view.tick, view } });
-    }
-  }
 
-  /** The store is injected post-construction (circular wiring). */
-  storeRef: ConsoleStore | null = null;
-
-  /** Find the wire seq the fake adapter assigned to an ActionId. */
-  private findSeqFor(actionId: number): SequenceNumber | null {
-    for (const [seq, id] of this.client.seqToActionId) {
-      if (id === actionId) {
-        return seq;
-      }
+    /** Apply one reducer effect; echoes only reserves orders. */
+    handleEffect(effect: ReducerEffect): void {
+        if (effect.kind !== 'sendOrder' || effect.order.kind !== 'setReserves') {
+            return;
+        }
+        const seq = this.findSeqFor(effect.actionId);
+        if (seq === null) {
+            return;
+        }
+        this.emit({ type: 'orderAck', payload: { seq, result: { ok: true } } });
+        const view = applyReserves(
+            this.storeRef?.getState().latestView ?? null,
+            effect.order.cell,
+            effect.order.percent,
+        );
+        if (view !== null) {
+            this.emit({ type: 'tick', payload: { tick: view.tick, view } });
+        }
     }
-    return null;
-  }
 
-  /** Stamp + broadcast one envelope through the fake client. */
-  private emit(payloadShape: {
-    readonly type: 'orderAck' | 'tick';
-    readonly payload: NetworkPayload;
-  }): void {
-    this.outboundSeq += 1;
-    const envelope: ProtocolEnvelope<NetworkPayload> = {
-      type: payloadShape.type,
-      version: '',
-      seq: this.outboundSeq as SequenceNumber,
-      payload: payloadShape.payload,
-    };
-    this.client.emit(envelope);
-  }
+    /** The store is injected post-construction (circular wiring). */
+    storeRef: ConsoleStore | null = null;
+
+    /** Find the wire seq the fake adapter assigned to an ActionId. */
+    private findSeqFor(actionId: number): SequenceNumber | null {
+        for (const [seq, id] of this.client.seqToActionId) {
+            if (id === actionId) {
+                return seq;
+            }
+        }
+        return null;
+    }
+
+    /** Stamp + broadcast one envelope through the fake client. */
+    private emit(payloadShape: { readonly type: 'orderAck' | 'tick'; readonly payload: NetworkPayload }): void {
+        this.outboundSeq += 1;
+        const envelope: ProtocolEnvelope<NetworkPayload> = {
+            type: payloadShape.type,
+            version: '',
+            seq: this.outboundSeq as SequenceNumber,
+            payload: payloadShape.payload,
+        };
+        this.client.emit(envelope);
+    }
 }
 
 /**
@@ -122,33 +113,33 @@ class ReservesServerEcho {
  * `null` when there is no view yet or the cell is unseen. Pure.
  */
 function applyReserves(
-  view: PlayerView | null,
-  cell: { readonly x: number; readonly y: number },
-  percent: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9,
+    view: PlayerView | null,
+    cell: { readonly x: number; readonly y: number },
+    percent: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9,
 ): PlayerView | null {
-  if (view === null) {
-    return null;
-  }
-  let touched = false;
-  const visibleCells = view.visibleCells.map((cellView) => {
-    if (cellView.coord.x === cell.x && cellView.coord.y === cell.y) {
-      touched = true;
-      return { ...cellView, reservesPercent: percent };
+    if (view === null) {
+        return null;
     }
-    return cellView;
-  });
-  if (!touched) {
-    return null;
-  }
-  return { ...view, tick: view.tick + 1, visibleCells };
+    let touched = false;
+    const visibleCells = view.visibleCells.map((cellView) => {
+        if (cellView.coord.x === cell.x && cellView.coord.y === cell.y) {
+            touched = true;
+            return { ...cellView, reservesPercent: percent };
+        }
+        return cellView;
+    });
+    if (!touched) {
+        return null;
+    }
+    return { ...view, tick: view.tick + 1, visibleCells };
 }
 
 /**
  * Root component binding the live store to {@link App}.
  */
 function StoreApp({ store }: { readonly store: ConsoleStore }): JSX.Element {
-  const state = useSyncExternalStore(store.subscribe, store.getState);
-  return <App store={store} state={state} />;
+    const state = useSyncExternalStore(store.subscribe, store.getState);
+    return <App store={store} state={state} />;
 }
 
 /**
@@ -163,25 +154,25 @@ function StoreApp({ store }: { readonly store: ConsoleStore }): JSX.Element {
  * @param root The DOM mount node (index.html's `#root`).
  */
 export function mountDemoRuntime(root: HTMLElement): void {
-  const client = new FakeMatchClient();
-  const echo = new ReservesServerEcho(client);
-  let forward: ((effect: ReducerEffect) => void) | null = null;
-  const view = createDemoPlayerView();
-  const store = createConsoleStore(createStubConsoleState(view), (effect) => {
-    forward?.(effect);
-  });
-  const bridge = createOrderBridge({ client, store });
-  echo.storeRef = store;
-  forward = (effect) => {
-    bridge.handleEffect(effect);
-    echo.handleEffect(effect);
-  };
+    const client = new FakeMatchClient();
+    const echo = new ReservesServerEcho(client);
+    let forward: ((effect: ReducerEffect) => void) | null = null;
+    const view = createDemoPlayerView();
+    const store = createConsoleStore(createStubConsoleState(view), (effect) => {
+        forward?.(effect);
+    });
+    const bridge = createOrderBridge({ client, store });
+    echo.storeRef = store;
+    forward = (effect) => {
+        bridge.handleEffect(effect);
+        echo.handleEffect(effect);
+    };
 
-  window.__europaE2E = { orders: client.sent, store };
+    window.__europaE2E = { orders: client.sent, store };
 
-  createRoot(root).render(
-    <StrictMode>
-      <StoreApp store={store} />
-    </StrictMode>,
-  );
+    createRoot(root).render(
+        <StrictMode>
+            <StoreApp store={store} />
+        </StrictMode>,
+    );
 }

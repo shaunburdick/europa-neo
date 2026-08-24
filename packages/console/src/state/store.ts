@@ -29,14 +29,14 @@ import type { ConsoleAction, ConsoleState, ReduceOptions, ReducerEffect } from '
  * fields keeps the stored value exactly the contractual shape.)
  */
 export type ConsoleStore = UseBoundStore<StoreApi<ConsoleState>> & {
-  /**
-   * Apply an action through the pure reducer and publish the result.
-   *
-   * @param action Player gesture or network event.
-   * @param options Partial reduce options; `nowMs` defaults to
-   *                `performance.now()` (sanctioned UI boundary).
-   */
-  dispatch(action: ConsoleAction, options?: Partial<ReduceOptions>): void;
+    /**
+     * Apply an action through the pure reducer and publish the result.
+     *
+     * @param action Player gesture or network event.
+     * @param options Partial reduce options; `nowMs` defaults to
+     *                `performance.now()` (sanctioned UI boundary).
+     */
+    dispatch(action: ConsoleAction, options?: Partial<ReduceOptions>): void;
 };
 
 /**
@@ -50,26 +50,26 @@ export type ConsoleStore = UseBoundStore<StoreApi<ConsoleState>> & {
  * @returns The bound store with an attached {@link ConsoleStore.dispatch}.
  */
 export function createConsoleStore(
-  initial: ConsoleState = INITIAL_CONSOLE_STATE,
-  onEffect: (effect: ReducerEffect) => void = () => undefined,
+    initial: ConsoleState = INITIAL_CONSOLE_STATE,
+    onEffect: (effect: ReducerEffect) => void = () => undefined,
 ): ConsoleStore {
-  const store: UseBoundStore<StoreApi<ConsoleState>> = create<ConsoleState>()(() => initial);
+    const store: UseBoundStore<StoreApi<ConsoleState>> = create<ConsoleState>()(() => initial);
 
-  /**
-   * Dispatch implementation shared by all stores created here.
-   * Pure-reducer application + publication + effect hand-off.
-   */
-  const dispatch = (action: ConsoleAction, options?: Partial<ReduceOptions>): void => {
-    const nowMs = options?.nowMs ?? performance.now();
-    // exactOptionalPropertyTypes: only carry rngSeed when provided.
-    const resolvedOptions: ReduceOptions =
-      options?.rngSeed === undefined ? { nowMs } : { nowMs, rngSeed: options.rngSeed };
-    const { state: nextState, effects } = reduce(store.getState(), action, resolvedOptions);
-    store.setState(nextState);
-    for (const effect of effects) {
-      onEffect(effect);
-    }
-  };
+    /**
+     * Dispatch implementation shared by all stores created here.
+     * Pure-reducer application + publication + effect hand-off.
+     */
+    const dispatch = (action: ConsoleAction, options?: Partial<ReduceOptions>): void => {
+        const nowMs = options?.nowMs ?? performance.now();
+        // exactOptionalPropertyTypes: only carry rngSeed when provided.
+        const resolvedOptions: ReduceOptions =
+            options?.rngSeed === undefined ? { nowMs } : { nowMs, rngSeed: options.rngSeed };
+        const { state: nextState, effects } = reduce(store.getState(), action, resolvedOptions);
+        store.setState(nextState);
+        for (const effect of effects) {
+            onEffect(effect);
+        }
+    };
 
-  return Object.assign(store, { dispatch });
+    return Object.assign(store, { dispatch });
 }

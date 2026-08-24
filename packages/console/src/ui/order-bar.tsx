@@ -28,98 +28,93 @@ import { useRef } from 'react';
 
 /** Props for {@link OrderBar}. */
 export interface OrderBarProps {
-  /** Whether exclusive-pipe mode is currently engaged. */
-  readonly exclusiveMode: boolean;
-  /** Whether orders may be issued right now (drives button disabled state). */
-  readonly inputEnabled: boolean;
-  /** Toggle exclusive mode; omitted in static (store-less) boots. */
-  readonly onToggleExclusive?: (() => void) | undefined;
-  /**
-   * Clear all pipes on the focused cell; omitted in static boots.
-   * Callers guard the null-selection case.
-   */
-  readonly onClearPipes?: (() => void) | undefined;
+    /** Whether exclusive-pipe mode is currently engaged. */
+    readonly exclusiveMode: boolean;
+    /** Whether orders may be issued right now (drives button disabled state). */
+    readonly inputEnabled: boolean;
+    /** Toggle exclusive mode; omitted in static (store-less) boots. */
+    readonly onToggleExclusive?: (() => void) | undefined;
+    /**
+     * Clear all pipes on the focused cell; omitted in static boots.
+     * Callers guard the null-selection case.
+     */
+    readonly onClearPipes?: (() => void) | undefined;
 }
 
 /**
  * The order palette strip: mode badge + Exclusive toggle + Clear pipes.
  */
-export function OrderBar({
-  exclusiveMode,
-  inputEnabled,
-  onToggleExclusive,
-  onClearPipes,
-}: OrderBarProps): JSX.Element {
-  const buttonsRef = useRef<Array<HTMLButtonElement | null>>([]);
+export function OrderBar({ exclusiveMode, inputEnabled, onToggleExclusive, onClearPipes }: OrderBarProps): JSX.Element {
+    const buttonsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
-  /** Roving arrow-key focus across the palette's buttons (toolbar pattern). */
-  function handleToolbarKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
-    const buttons = buttonsRef.current.filter((b) => b !== null && !b.disabled);
-    if (buttons.length === 0) {
-      return;
+    /** Roving arrow-key focus across the palette's buttons (toolbar pattern). */
+    function handleToolbarKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+        const buttons = buttonsRef.current.filter((b) => b !== null && !b.disabled);
+        if (buttons.length === 0) {
+            return;
+        }
+        const currentIndex = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        let nextIndex: number;
+        switch (event.key) {
+            case 'ArrowRight':
+            case 'ArrowDown':
+                nextIndex = (currentIndex + 1 + buttons.length) % buttons.length;
+                break;
+            case 'ArrowLeft':
+            case 'ArrowUp':
+                nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+                break;
+            case 'Home':
+                nextIndex = 0;
+                break;
+            case 'End':
+                nextIndex = buttons.length - 1;
+                break;
+            default:
+                return;
+        }
+        event.preventDefault();
+        // Wrap-around from an unfocused toolbar starts at the first button.
+        const target = buttons[nextIndex] ?? buttons[0];
+        target?.focus();
     }
-    const currentIndex = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    let nextIndex: number;
-    switch (event.key) {
-      case 'ArrowRight':
-      case 'ArrowDown':
-        nextIndex = (currentIndex + 1 + buttons.length) % buttons.length;
-        break;
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
-        break;
-      case 'Home':
-        nextIndex = 0;
-        break;
-      case 'End':
-        nextIndex = buttons.length - 1;
-        break;
-      default:
-        return;
-    }
-    event.preventDefault();
-    // Wrap-around from an unfocused toolbar starts at the first button.
-    const target = buttons[nextIndex] ?? buttons[0];
-    target?.focus();
-  }
 
-  return (
-    <section id="order-bar" aria-label="Order palette" tabIndex={0} className="europa-order-bar">
-      <span className="europa-order-bar__mode" role="status">
-        Mode: {exclusiveMode ? 'Exclusive pipes' : 'Toggle pipes'}
-      </span>
-      <div
-        className="europa-order-bar__buttons"
-        role="toolbar"
-        aria-label="Order commands"
-        aria-orientation="horizontal"
-        onKeyDown={handleToolbarKeyDown}
-      >
-        <button
-          type="button"
-          ref={(node) => {
-            buttonsRef.current[0] = node;
-          }}
-          className="europa-order-bar__button"
-          aria-pressed={exclusiveMode}
-          disabled={!inputEnabled}
-          onClick={onToggleExclusive}
-        >
-          Exclusive pipes
-        </button>
-        <button
-          type="button"
-          ref={(node) => {
-            buttonsRef.current[1] = node;
-          }}
-          className="europa-order-bar__button"
-          disabled={!inputEnabled}
-          onClick={onClearPipes}
-        >
-          Clear pipes
-        </button>
-      </div>
-    </section>
-  );
+    return (
+        <section id="order-bar" aria-label="Order palette" tabIndex={0} className="europa-order-bar">
+            <span className="europa-order-bar__mode" role="status">
+                Mode: {exclusiveMode ? 'Exclusive pipes' : 'Toggle pipes'}
+            </span>
+            <div
+                className="europa-order-bar__buttons"
+                role="toolbar"
+                aria-label="Order commands"
+                aria-orientation="horizontal"
+                onKeyDown={handleToolbarKeyDown}
+            >
+                <button
+                    type="button"
+                    ref={(node) => {
+                        buttonsRef.current[0] = node;
+                    }}
+                    className="europa-order-bar__button"
+                    aria-pressed={exclusiveMode}
+                    disabled={!inputEnabled}
+                    onClick={onToggleExclusive}
+                >
+                    Exclusive pipes
+                </button>
+                <button
+                    type="button"
+                    ref={(node) => {
+                        buttonsRef.current[1] = node;
+                    }}
+                    className="europa-order-bar__button"
+                    disabled={!inputEnabled}
+                    onClick={onClearPipes}
+                >
+                    Clear pipes
+                </button>
+            </div>
+        </section>
+    );
 }

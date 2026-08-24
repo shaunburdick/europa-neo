@@ -26,13 +26,13 @@ import { FOURTH_PLAYER_ID, THIRD_PLAYER_ID, THREE_PLAYER_COUNT } from './constan
 import type { Coord, PlayerId } from './contracts/terrain-types';
 
 interface InputCity {
-  readonly cell: Coord;
-  readonly owner: PlayerId;
+    readonly cell: Coord;
+    readonly owner: PlayerId;
 }
 
 interface OutputCity {
-  readonly cell: Coord;
-  readonly owner: PlayerId;
+    readonly cell: Coord;
+    readonly owner: PlayerId;
 }
 
 /**
@@ -42,29 +42,29 @@ interface OutputCity {
  *   - 3p: P1 ↔ P3, P2 ↔ P2 (self).
  */
 function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
-  if (playerCount === 2) {
-    return p === 1 ? 2 : 1;
-  }
-  if (playerCount === THREE_PLAYER_COUNT) {
+    if (playerCount === 2) {
+        return p === 1 ? 2 : 1;
+    }
+    if (playerCount === THREE_PLAYER_COUNT) {
+        if (p === 1) {
+            return THIRD_PLAYER_ID as PlayerId;
+        }
+        if (p === THIRD_PLAYER_ID) {
+            return 1;
+        }
+        return 2; // P2 is self-symmetric
+    }
+    // playerCount === 4
     if (p === 1) {
-      return THIRD_PLAYER_ID as PlayerId;
+        return FOURTH_PLAYER_ID as PlayerId;
+    }
+    if (p === 2) {
+        return THIRD_PLAYER_ID as PlayerId;
     }
     if (p === THIRD_PLAYER_ID) {
-      return 1;
+        return 2;
     }
-    return 2; // P2 is self-symmetric
-  }
-  // playerCount === 4
-  if (p === 1) {
-    return FOURTH_PLAYER_ID as PlayerId;
-  }
-  if (p === 2) {
-    return THIRD_PLAYER_ID as PlayerId;
-  }
-  if (p === THIRD_PLAYER_ID) {
-    return 2;
-  }
-  return 1;
+    return 1;
 }
 
 /**
@@ -84,39 +84,38 @@ function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
  *          symmetric.
  */
 export function enforceCitySymmetry(
-  placed: readonly InputCity[],
-  width: number,
-  height: number,
-  playerCount: 2 | 3 | 4,
+    placed: readonly InputCity[],
+    width: number,
+    height: number,
+    playerCount: 2 | 3 | 4,
 ): readonly OutputCity[] {
-  // Build a lookup for dedup: if the input already contains a city
-  // at the partner coord with the partner owner, we don't add a
-  // duplicate. This handles the case where the caller placed
-  // cities for multiple players and the partners are already there.
-  const lookupKey = (cell: Coord, owner: PlayerId): string =>
-    `${String(cell.x)},${String(cell.y)},${String(owner)}`;
-  const existing = new Set<string>();
-  for (const city of placed) {
-    existing.add(lookupKey(city.cell, city.owner));
-  }
-  const out: OutputCity[] = [...placed];
-  for (const city of placed) {
-    // Compute the partner coord and owner.
-    const partnerX = width - 1 - city.cell.x;
-    const partnerY = height - 1 - city.cell.y;
-    const partnerOwner = partnerPlayer(city.owner, playerCount);
-    // If the partner is the same cell and same owner (e.g., center
-    // cell of an odd-sized board for a self-symmetric player),
-    // skip the duplicate to avoid double-counting.
-    if (partnerX === city.cell.x && partnerY === city.cell.y && partnerOwner === city.owner) {
-      continue;
+    // Build a lookup for dedup: if the input already contains a city
+    // at the partner coord with the partner owner, we don't add a
+    // duplicate. This handles the case where the caller placed
+    // cities for multiple players and the partners are already there.
+    const lookupKey = (cell: Coord, owner: PlayerId): string => `${String(cell.x)},${String(cell.y)},${String(owner)}`;
+    const existing = new Set<string>();
+    for (const city of placed) {
+        existing.add(lookupKey(city.cell, city.owner));
     }
-    // If the partner is already in the input (with the correct
-    // owner), skip — no need to add a duplicate.
-    if (existing.has(lookupKey({ x: partnerX, y: partnerY }, partnerOwner))) {
-      continue;
+    const out: OutputCity[] = [...placed];
+    for (const city of placed) {
+        // Compute the partner coord and owner.
+        const partnerX = width - 1 - city.cell.x;
+        const partnerY = height - 1 - city.cell.y;
+        const partnerOwner = partnerPlayer(city.owner, playerCount);
+        // If the partner is the same cell and same owner (e.g., center
+        // cell of an odd-sized board for a self-symmetric player),
+        // skip the duplicate to avoid double-counting.
+        if (partnerX === city.cell.x && partnerY === city.cell.y && partnerOwner === city.owner) {
+            continue;
+        }
+        // If the partner is already in the input (with the correct
+        // owner), skip — no need to add a duplicate.
+        if (existing.has(lookupKey({ x: partnerX, y: partnerY }, partnerOwner))) {
+            continue;
+        }
+        out.push({ cell: { x: partnerX, y: partnerY }, owner: partnerOwner });
     }
-    out.push({ cell: { x: partnerX, y: partnerY }, owner: partnerOwner });
-  }
-  return out;
+    return out;
 }

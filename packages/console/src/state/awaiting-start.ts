@@ -45,5 +45,5 @@ import type { ConsoleState } from './types';
  * @param state Current console state (store-derived; never mutated).
  */
 export function isAwaitingMatchStart(state: ConsoleState): boolean {
-  return state.status === 'live' && (state.latestView === null || state.latestView.tick === 0);
+    return state.status === 'live' && (state.latestView === null || state.latestView.tick === 0);
 }

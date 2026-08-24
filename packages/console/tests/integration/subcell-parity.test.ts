@@ -21,19 +21,19 @@ import { subcellToTargetCoord } from '../../src/input/subcell';
 import parityPairs from '../fixtures/original-subcell.json' with { type: 'json' };
 
 describe('subcell parity vs the original (T064)', () => {
-  test('every fixture pair matches subcellToTargetCoord', () => {
-    expect(parityPairs.length).toBeGreaterThanOrEqual(20);
-    for (const pair of parityPairs) {
-      const target = subcellToTargetCoord(pair.source, pair.cursorPx);
-      expect(`${target.x},${target.y}`, `fixture pair ${JSON.stringify(pair)} diverged`).toBe(
-        `${pair.expectedTarget.x},${pair.expectedTarget.y}`,
-      );
-    }
-  });
+    test('every fixture pair matches subcellToTargetCoord', () => {
+        expect(parityPairs.length).toBeGreaterThanOrEqual(20);
+        for (const pair of parityPairs) {
+            const target = subcellToTargetCoord(pair.source, pair.cursorPx);
+            expect(`${target.x},${target.y}`, `fixture pair ${JSON.stringify(pair)} diverged`).toBe(
+                `${pair.expectedTarget.x},${pair.expectedTarget.y}`,
+            );
+        }
+    });
 
-  test('the documented NE ring-2 example is present and exact', () => {
-    // controls.html: red subcell toward top-right → 2 north, 2 east.
-    const target = subcellToTargetCoord({ x: 10, y: 10 }, { x: 0.85, y: 0.15 });
-    expect(target).toEqual({ x: 12, y: 8 });
-  });
+    test('the documented NE ring-2 example is present and exact', () => {
+        // controls.html: red subcell toward top-right → 2 north, 2 east.
+        const target = subcellToTargetCoord({ x: 10, y: 10 }, { x: 0.85, y: 0.15 });
+        expect(target).toEqual({ x: 12, y: 8 });
+    });
 });

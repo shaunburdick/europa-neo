@@ -49,9 +49,9 @@ const SIGNED_32_MODULUS = 2 ** 32;
  * @returns The signed 32-bit integer represented by `value`.
  */
 function toSigned32(value: number): number {
-  const truncated = Math.trunc(value);
-  const unsigned = ((truncated % SIGNED_32_MODULUS) + SIGNED_32_MODULUS) % SIGNED_32_MODULUS;
-  return unsigned >= SIGNED_32_HALF_RANGE ? unsigned - SIGNED_32_MODULUS : unsigned;
+    const truncated = Math.trunc(value);
+    const unsigned = ((truncated % SIGNED_32_MODULUS) + SIGNED_32_MODULUS) % SIGNED_32_MODULUS;
+    return unsigned >= SIGNED_32_HALF_RANGE ? unsigned - SIGNED_32_MODULUS : unsigned;
 }
 
 /**
@@ -72,11 +72,10 @@ function toSigned32(value: number): number {
  * @returns A non-negative integer radius.
  */
 function resolveRadius(visibilityRadius: number | undefined, world: Readonly<World>): number {
-  const raw =
-    visibilityRadius ?? world.config.visibilityRadius ?? FOG_CONSTANTS.defaultRadiusFallback;
-  // Keep this conversion equivalent to cellsInRange's `r | 0` without
-  // duplicating a bitwise operation that the fog package's lint rejects.
-  return Math.max(0, Number.isFinite(raw) ? toSigned32(raw) : 0);
+    const raw = visibilityRadius ?? world.config.visibilityRadius ?? FOG_CONSTANTS.defaultRadiusFallback;
+    // Keep this conversion equivalent to cellsInRange's `r | 0` without
+    // duplicating a bitwise operation that the fog package's lint rejects.
+    return Math.max(0, Number.isFinite(raw) ? toSigned32(raw) : 0);
 }
 
 /**
@@ -102,47 +101,43 @@ function resolveRadius(visibilityRadius: number | undefined, world: Readonly<Wor
  * @returns A `VisibleSet` containing every cell visible to `player`
  *         this tick, row-major, no duplicates.
  */
-export function computeVisibleSet(
-  world: Readonly<World>,
-  player: PlayerId,
-  visibilityRadius?: number,
-): VisibleSet {
-  const { width, height } = world.board;
-  const radius = resolveRadius(visibilityRadius, world);
+export function computeVisibleSet(world: Readonly<World>, player: PlayerId, visibilityRadius?: number): VisibleSet {
+    const { width, height } = world.board;
+    const radius = resolveRadius(visibilityRadius, world);
 
-  // Fresh zero-init mask per call — the structural no-memory rule
-  // (FR-004): there is no recall state anywhere in the pipeline.
-  const mask = createMask(width, height);
-  const { troopCounts, troopOwners } = world.state;
+    // Fresh zero-init mask per call — the structural no-memory rule
+    // (FR-004): there is no recall state anywhere in the pipeline.
+    const mask = createMask(width, height);
+    const { troopCounts, troopOwners } = world.state;
 
-  // Pass 1 — mark horizons. Row-major scan over owners; each viewer
-  // stamps its bounds-clipped Chebyshev disk into the shared mask.
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      if ((troopOwners[idx] ?? 0) !== player) {
-        continue;
-      }
-      if ((troopCounts[idx] ?? 0) <= 0) {
-        continue;
-      }
-      const cells = cellsInRange(world, { x, y }, radius);
-      for (const cell of cells) {
-        mask.data[cell.y * width + cell.x] = FOG_CONSTANTS.maskVisible;
-      }
+    // Pass 1 — mark horizons. Row-major scan over owners; each viewer
+    // stamps its bounds-clipped Chebyshev disk into the shared mask.
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if ((troopOwners[idx] ?? 0) !== player) {
+                continue;
+            }
+            if ((troopCounts[idx] ?? 0) <= 0) {
+                continue;
+            }
+            const cells = cellsInRange(world, { x, y }, radius);
+            for (const cell of cells) {
+                mask.data[cell.y * width + cell.x] = FOG_CONSTANTS.maskVisible;
+            }
+        }
     }
-  }
 
-  // Pass 2 — collect marks row-major. Duplicate-free by
-  // construction (each flat index is visited exactly once).
-  const visibleCells: Coord[] = [];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (isCellMarked(mask, x, y)) {
-        visibleCells.push({ x, y });
-      }
+    // Pass 2 — collect marks row-major. Duplicate-free by
+    // construction (each flat index is visited exactly once).
+    const visibleCells: Coord[] = [];
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (isCellMarked(mask, x, y)) {
+                visibleCells.push({ x, y });
+            }
+        }
     }
-  }
 
-  return { player, tick: world.tick, visibleCells };
+    return { player, tick: world.tick, visibleCells };
 }

@@ -40,7 +40,7 @@ import type { NetworkPayload, ProtocolEnvelope } from '../state/types';
  * @returns True when safe to spread/index as a record.
  */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -53,14 +53,14 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * @returns The same record, or a shallow copy with `pipes` as a Set.
  */
 function rehydrateCell(cell: unknown): unknown {
-  if (!isPlainObject(cell)) {
-    return cell;
-  }
-  const { pipes } = cell;
-  if (!Array.isArray(pipes)) {
-    return cell;
-  }
-  return { ...cell, pipes: new Set(pipes) };
+    if (!isPlainObject(cell)) {
+        return cell;
+    }
+    const { pipes } = cell;
+    if (!Array.isArray(pipes)) {
+        return cell;
+    }
+    return { ...cell, pipes: new Set(pipes) };
 }
 
 /**
@@ -73,22 +73,22 @@ function rehydrateCell(cell: unknown): unknown {
  * @returns The same view, or a copy whose cells carry real Sets.
  */
 function rehydrateWireView(view: unknown): unknown {
-  if (!isPlainObject(view)) {
-    return view;
-  }
-  const { visibleCells } = view;
-  if (!Array.isArray(visibleCells)) {
-    return view;
-  }
-  let changed = false;
-  const cells = visibleCells.map((cell) => {
-    const next = rehydrateCell(cell);
-    if (next !== cell) {
-      changed = true;
+    if (!isPlainObject(view)) {
+        return view;
     }
-    return next;
-  });
-  return changed ? { ...view, visibleCells: cells } : view;
+    const { visibleCells } = view;
+    if (!Array.isArray(visibleCells)) {
+        return view;
+    }
+    let changed = false;
+    const cells = visibleCells.map((cell) => {
+        const next = rehydrateCell(cell);
+        if (next !== cell) {
+            changed = true;
+        }
+        return next;
+    });
+    return changed ? { ...view, visibleCells: cells } : view;
 }
 
 /**
@@ -110,25 +110,23 @@ function rehydrateWireView(view: unknown): unknown {
  * @returns An envelope whose views honor the contract's ReadonlySet
  *          fields; often the input itself.
  */
-export function rehydrateEnvelopeViews(
-  envelope: ProtocolEnvelope<NetworkPayload>,
-): ProtocolEnvelope<NetworkPayload> {
-  if (envelope.type !== 'joinAck' && envelope.type !== 'snapshot' && envelope.type !== 'tick') {
-    return envelope;
-  }
-  const payload: unknown = envelope.payload;
-  if (!isPlainObject(payload)) {
-    return envelope;
-  }
-  // Destructure (not dot/bracket access): satisfies both
-  // `noPropertyAccessFromIndexSignature` and Biome's useLiteralKeys.
-  const { view } = payload;
-  const rehydrated = rehydrateWireView(view);
-  if (rehydrated === view) {
-    return envelope;
-  }
-  return {
-    ...envelope,
-    payload: { ...payload, view: rehydrated },
-  } as ProtocolEnvelope<NetworkPayload>;
+export function rehydrateEnvelopeViews(envelope: ProtocolEnvelope<NetworkPayload>): ProtocolEnvelope<NetworkPayload> {
+    if (envelope.type !== 'joinAck' && envelope.type !== 'snapshot' && envelope.type !== 'tick') {
+        return envelope;
+    }
+    const payload: unknown = envelope.payload;
+    if (!isPlainObject(payload)) {
+        return envelope;
+    }
+    // Destructure (not dot/bracket access): satisfies both
+    // `noPropertyAccessFromIndexSignature` and Biome's useLiteralKeys.
+    const { view } = payload;
+    const rehydrated = rehydrateWireView(view);
+    if (rehydrated === view) {
+        return envelope;
+    }
+    return {
+        ...envelope,
+        payload: { ...payload, view: rehydrated },
+    } as ProtocolEnvelope<NetworkPayload>;
 }

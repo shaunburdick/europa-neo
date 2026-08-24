@@ -46,61 +46,61 @@ import type { Board, CaptureEvent, PlayerId, TickEvents, WorldState } from '../t
  *          CaptureEvents in deterministic row-major order.
  */
 export function resolveCapture(
-  state: Readonly<WorldState>,
-  board: Readonly<Board>,
-  constants: EngineConstants,
-  tickNumber: number,
+    state: Readonly<WorldState>,
+    board: Readonly<Board>,
+    constants: EngineConstants,
+    tickNumber: number,
 ): { state: WorldState; events: TickEvents } {
-  // `constants` is reserved for future tunables; silence unused-arg lint.
-  void constants;
+    // `constants` is reserved for future tunables; silence unused-arg lint.
+    void constants;
 
-  const n = board.width * board.height;
+    const n = board.width * board.height;
 
-  // Allocate fresh typed arrays (immutable update). Only `cityOwners`
-  // is potentially modified.
-  const newCityOwners = new Uint8Array(state.cityOwners);
+    // Allocate fresh typed arrays (immutable update). Only `cityOwners`
+    // is potentially modified.
+    const newCityOwners = new Uint8Array(state.cityOwners);
 
-  let events: TickEvents = emptyTickEvents();
+    let events: TickEvents = emptyTickEvents();
 
-  for (let idx = 0; idx < n; idx++) {
-    const cityOwner = newCityOwners[idx] ?? 0;
-    if (cityOwner === 0) {
-      continue; // no city here → no capture possible
+    for (let idx = 0; idx < n; idx++) {
+        const cityOwner = newCityOwners[idx] ?? 0;
+        if (cityOwner === 0) {
+            continue; // no city here → no capture possible
+        }
+
+        const occupant = state.troopOwners[idx] ?? 0;
+        if (occupant === 0) {
+            continue; // neutral cell never captures
+        }
+        if (occupant === cityOwner) {
+            continue; // friendly already — no event
+        }
+
+        // Occupant differs from city owner → capture transfers the city.
+        newCityOwners[idx] = occupant;
+        const ev: CaptureEvent = {
+            tick: tickNumber,
+            cell: idxToCoord(idx, board.width),
+            fromOwner: cityOwner as PlayerId,
+            toOwner: occupant as PlayerId,
+            isCity: true,
+        };
+        events = pushCaptureEvent(events, ev);
     }
 
-    const occupant = state.troopOwners[idx] ?? 0;
-    if (occupant === 0) {
-      continue; // neutral cell never captures
-    }
-    if (occupant === cityOwner) {
-      continue; // friendly already — no event
-    }
-
-    // Occupant differs from city owner → capture transfers the city.
-    newCityOwners[idx] = occupant;
-    const ev: CaptureEvent = {
-      tick: tickNumber,
-      cell: idxToCoord(idx, board.width),
-      fromOwner: cityOwner as PlayerId,
-      toOwner: occupant as PlayerId,
-      isCity: true,
+    return {
+        state: {
+            troopCounts: new Uint32Array(state.troopCounts),
+            troopOwners: new Uint8Array(state.troopOwners),
+            pipeMasks: new Uint8Array(state.pipeMasks),
+            reservesPct: new Uint8Array(state.reservesPct),
+            cityOwners: newCityOwners,
+        },
+        events,
     };
-    events = pushCaptureEvent(events, ev);
-  }
-
-  return {
-    state: {
-      troopCounts: new Uint32Array(state.troopCounts),
-      troopOwners: new Uint8Array(state.troopOwners),
-      pipeMasks: new Uint8Array(state.pipeMasks),
-      reservesPct: new Uint8Array(state.reservesPct),
-      cityOwners: newCityOwners,
-    },
-    events,
-  };
 }
 
 /** Convert a flat cell index to a `{x, y}` Coord. */
 function idxToCoord(idx: number, width: number): { x: number; y: number } {
-  return { x: idx % width, y: Math.floor(idx / width) };
+    return { x: idx % width, y: Math.floor(idx / width) };
 }

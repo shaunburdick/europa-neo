@@ -1,16 +1,16 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": ".",
-    "noEmit": false,
-    "declaration": true,
-    "composite": false,
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"]
-  },
-  "include": ["src/**/*"],
-  "exclude": ["tests/**/*", "scripts/**/*", "dist", "node_modules", "coverage"]
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "./dist",
+        "rootDir": ".",
+        "noEmit": false,
+        "declaration": true,
+        "composite": false,
+        "jsx": "react-jsx",
+        "jsxImportSource": "react",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "types": ["vite/client"]
+    },
+    "include": ["src/**/*"],
+    "exclude": ["tests/**/*", "scripts/**/*", "dist", "node_modules", "coverage"]
 }

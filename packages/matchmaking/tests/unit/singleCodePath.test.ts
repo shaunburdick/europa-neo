@@ -26,119 +26,119 @@ const ANY_TOKEN = '11111111-1111-4111-8111-111111111111' as SessionToken;
 
 /** Fresh matchmaker holding one known public filling match. */
 function makeFixture() {
-  const server = new FakeServer();
-  const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
-  const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-  if (!created.ok) {
-    throw new Error('fixture create failed');
-  }
-  return { matchmaker, knownId: created.data.matchId };
+    const server = new FakeServer();
+    const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+    const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+    if (!created.ok) {
+        throw new Error('fixture create failed');
+    }
+    return { matchmaker, knownId: created.data.matchId };
 }
 
 /** Shared assertions: failed RESULT with the non-leaking code + message. */
 function expectNotFound(result: {
-  readonly ok: boolean;
-  readonly error?: { readonly code: string; readonly message: string };
+    readonly ok: boolean;
+    readonly error?: { readonly code: string; readonly message: string };
 }): void {
-  expect(result.ok).toBe(false);
-  if (result.ok) {
-    return;
-  }
-  expect(result.error?.code).toBe('match_not_found');
-  const message = result.error?.message.toLowerCase() ?? '';
-  expect(message).not.toContain('private');
-  expect(message).not.toContain('exists');
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+        return;
+    }
+    expect(result.error?.code).toBe('match_not_found');
+    const message = result.error?.message.toLowerCase() ?? '';
+    expect(message).not.toContain('private');
+    expect(message).not.toContain('exists');
 }
 
 describe('single match_not_found code path on stubbed operations (FR-006 / T042)', () => {
-  it('FR-006: leaveMatch with an unknown matchId returns match_not_found', () => {
-    const { matchmaker } = makeFixture();
+    it('FR-006: leaveMatch with an unknown matchId returns match_not_found', () => {
+        const { matchmaker } = makeFixture();
 
-    const result = matchmaker.leaveMatch({ matchId: UNKNOWN_ID, sessionToken: ANY_TOKEN });
+        const result = matchmaker.leaveMatch({ matchId: UNKNOWN_ID, sessionToken: ANY_TOKEN });
 
-    expectNotFound(result);
-    matchmaker.close();
-  });
-
-  it('FR-006: requestRematch with an unknown matchId returns match_not_found', () => {
-    const { matchmaker } = makeFixture();
-
-    const result = matchmaker.requestRematch({ matchId: UNKNOWN_ID, sessionToken: ANY_TOKEN });
-
-    expectNotFound(result);
-    matchmaker.close();
-  });
-
-  it('FR-006: acceptRematch with an unknown matchId returns match_not_found', () => {
-    const { matchmaker } = makeFixture();
-
-    const result = matchmaker.acceptRematch({
-      matchId: UNKNOWN_ID,
-      rematchOfferId: UNKNOWN_ID,
-      sessionToken: ANY_TOKEN,
+        expectNotFound(result);
+        matchmaker.close();
     });
 
-    expectNotFound(result);
-    matchmaker.close();
-  });
+    it('FR-006: requestRematch with an unknown matchId returns match_not_found', () => {
+        const { matchmaker } = makeFixture();
 
-  it('FR-006: declineRematch with an unknown matchId returns match_not_found', () => {
-    const { matchmaker } = makeFixture();
+        const result = matchmaker.requestRematch({ matchId: UNKNOWN_ID, sessionToken: ANY_TOKEN });
 
-    const result = matchmaker.declineRematch({
-      matchId: UNKNOWN_ID,
-      rematchOfferId: UNKNOWN_ID,
-      sessionToken: ANY_TOKEN,
+        expectNotFound(result);
+        matchmaker.close();
     });
 
-    expectNotFound(result);
-    matchmaker.close();
-  });
+    it('FR-006: acceptRematch with an unknown matchId returns match_not_found', () => {
+        const { matchmaker } = makeFixture();
+
+        const result = matchmaker.acceptRematch({
+            matchId: UNKNOWN_ID,
+            rematchOfferId: UNKNOWN_ID,
+            sessionToken: ANY_TOKEN,
+        });
+
+        expectNotFound(result);
+        matchmaker.close();
+    });
+
+    it('FR-006: declineRematch with an unknown matchId returns match_not_found', () => {
+        const { matchmaker } = makeFixture();
+
+        const result = matchmaker.declineRematch({
+            matchId: UNKNOWN_ID,
+            rematchOfferId: UNKNOWN_ID,
+            sessionToken: ANY_TOKEN,
+        });
+
+        expectNotFound(result);
+        matchmaker.close();
+    });
 });
 
 describe('stub boundary stays pinned (feature bodies land in later waves)', () => {
-  it('US3+: a KNOWN matchId still hits the leaveMatch invariant throw', () => {
-    const { matchmaker, knownId } = makeFixture();
+    it('US3+: a KNOWN matchId still hits the leaveMatch invariant throw', () => {
+        const { matchmaker, knownId } = makeFixture();
 
-    // The existence gate passes for the known id; the unimplemented
-    // feature body then throws its invariant violation as before.
-    expect(() => matchmaker.leaveMatch({ matchId: knownId, sessionToken: ANY_TOKEN })).toThrow(
-      /leaveMatch is not implemented/,
-    );
-    matchmaker.close();
-  });
-
-  it('US4: the rematch trio no longer throws — a known filling match returns rematch_not_offered', () => {
-    // Wave 7D replaced the trio's throwing stubs with real bodies; on
-    // a known match that is still `filling` (no terminal event), every
-    // member returns the RESULT-level `rematch_not_offered`.
-    const { matchmaker, knownId } = makeFixture();
-
-    const requested = matchmaker.requestRematch({ matchId: knownId, sessionToken: ANY_TOKEN });
-    expect(requested.ok).toBe(false);
-    if (!requested.ok) {
-      expect(requested.error.code).toBe('rematch_not_offered');
-    }
-
-    const accepted = matchmaker.acceptRematch({
-      matchId: knownId,
-      rematchOfferId: knownId,
-      sessionToken: ANY_TOKEN,
+        // The existence gate passes for the known id; the unimplemented
+        // feature body then throws its invariant violation as before.
+        expect(() => matchmaker.leaveMatch({ matchId: knownId, sessionToken: ANY_TOKEN })).toThrow(
+            /leaveMatch is not implemented/,
+        );
+        matchmaker.close();
     });
-    expect(accepted.ok).toBe(false);
-    if (!accepted.ok) {
-      expect(accepted.error.code).toBe('rematch_not_offered');
-    }
 
-    const declined = matchmaker.declineRematch({
-      matchId: knownId,
-      rematchOfferId: knownId,
-      sessionToken: ANY_TOKEN,
+    it('US4: the rematch trio no longer throws — a known filling match returns rematch_not_offered', () => {
+        // Wave 7D replaced the trio's throwing stubs with real bodies; on
+        // a known match that is still `filling` (no terminal event), every
+        // member returns the RESULT-level `rematch_not_offered`.
+        const { matchmaker, knownId } = makeFixture();
+
+        const requested = matchmaker.requestRematch({ matchId: knownId, sessionToken: ANY_TOKEN });
+        expect(requested.ok).toBe(false);
+        if (!requested.ok) {
+            expect(requested.error.code).toBe('rematch_not_offered');
+        }
+
+        const accepted = matchmaker.acceptRematch({
+            matchId: knownId,
+            rematchOfferId: knownId,
+            sessionToken: ANY_TOKEN,
+        });
+        expect(accepted.ok).toBe(false);
+        if (!accepted.ok) {
+            expect(accepted.error.code).toBe('rematch_not_offered');
+        }
+
+        const declined = matchmaker.declineRematch({
+            matchId: knownId,
+            rematchOfferId: knownId,
+            sessionToken: ANY_TOKEN,
+        });
+        expect(declined.ok).toBe(false);
+        if (!declined.ok) {
+            expect(declined.error.code).toBe('rematch_not_offered');
+        }
+        matchmaker.close();
     });
-    expect(declined.ok).toBe(false);
-    if (!declined.ok) {
-      expect(declined.error.code).toBe('rematch_not_offered');
-    }
-    matchmaker.close();
-  });
 });

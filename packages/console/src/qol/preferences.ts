@@ -26,10 +26,10 @@ import type { QoLSettings } from '../state/types';
  * so tests and callers can pass any object carrying these fields.
  */
 export interface PreferencesHost {
-  /** Previously-persisted settings, or `undefined` for defaults. */
-  readonly qolSettings?: QoLSettings | undefined;
-  /** Host write callback, or `undefined` (changes stay in-memory). */
-  readonly persist?: ((settings: QoLSettings) => void) | undefined;
+    /** Previously-persisted settings, or `undefined` for defaults. */
+    readonly qolSettings?: QoLSettings | undefined;
+    /** Host write callback, or `undefined` (changes stay in-memory). */
+    readonly persist?: ((settings: QoLSettings) => void) | undefined;
 }
 
 /**
@@ -39,7 +39,7 @@ export interface PreferencesHost {
  * @param host Config bag (see {@link PreferencesHost}).
  */
 export function loadPreferences(host: PreferencesHost): QoLSettings {
-  return host.qolSettings ?? DEFAULT_QOL_SETTINGS;
+    return host.qolSettings ?? DEFAULT_QOL_SETTINGS;
 }
 
 /**
@@ -51,5 +51,5 @@ export function loadPreferences(host: PreferencesHost): QoLSettings {
  * @param host     Config bag (see {@link PreferencesHost}).
  */
 export function savePreferences(settings: QoLSettings, host: PreferencesHost): void {
-  host.persist?.(settings);
+    host.persist?.(settings);
 }

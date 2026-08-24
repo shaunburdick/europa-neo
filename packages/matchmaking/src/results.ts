@@ -37,26 +37,26 @@ const FNV_PRIME = 0x01000193;
  * @returns The hash as an 8-char lowercase hex string.
  */
 function fnv1aHex(...arrays: readonly ArrayLike<number>[]): string {
-  let hash = FNV_OFFSET;
-  for (const array of arrays) {
-    for (let index = 0; index < array.length; index++) {
-      hash ^= (array[index] ?? 0) & 0xff;
-      hash = Math.imul(hash, FNV_PRIME) >>> 0;
+    let hash = FNV_OFFSET;
+    for (const array of arrays) {
+        for (let index = 0; index < array.length; index++) {
+            hash ^= (array[index] ?? 0) & 0xff;
+            hash = Math.imul(hash, FNV_PRIME) >>> 0;
+        }
     }
-  }
-  return hash.toString(16).padStart(8, '0');
+    return hash.toString(16).padStart(8, '0');
 }
 
 /** Args for {@linkcode buildMatchResultsRecord}. */
 export interface BuildResultsArgs {
-  /** The finished match's id. */
-  readonly matchId: MatchId;
-  /** The final engine world snapshot. */
-  readonly world: World;
-  /** Engine terminal result, or the matchmaker's cancelled marker. */
-  readonly result: MatchResultsRecord['result'];
-  /** Seat records in the match (for display-name resolution). */
-  readonly seats: ReadonlyMap<number, SeatRecord>;
+    /** The finished match's id. */
+    readonly matchId: MatchId;
+    /** The final engine world snapshot. */
+    readonly world: World;
+    /** Engine terminal result, or the matchmaker's cancelled marker. */
+    readonly result: MatchResultsRecord['result'];
+    /** Seat records in the match (for display-name resolution). */
+    readonly seats: ReadonlyMap<number, SeatRecord>;
 }
 
 /**
@@ -69,27 +69,27 @@ export interface BuildResultsArgs {
  * @returns The frozen-shape results record ready to store.
  */
 export function buildMatchResultsRecord(args: BuildResultsArgs): MatchResultsRecord {
-  const { matchId, result, seats, world } = args;
+    const { matchId, result, seats, world } = args;
 
-  const finalPlayers = [...seats.values()]
-    .sort((a, b) => a.seatIndex - b.seatIndex)
-    .map((seat) => {
-      const player = world.players[seat.seatIndex];
-      return {
-        id: (seat.playerId ?? ((seat.seatIndex + 1) as PlayerId)) as PlayerId,
-        displayName: seat.displayName,
-        status: player?.status ?? 'eliminated',
-        finalTroops: player?.troopsHeld ?? 0,
-        finalCities: player?.citiesOwned ?? 0,
-      };
-    });
+    const finalPlayers = [...seats.values()]
+        .sort((a, b) => a.seatIndex - b.seatIndex)
+        .map((seat) => {
+            const player = world.players[seat.seatIndex];
+            return {
+                id: (seat.playerId ?? ((seat.seatIndex + 1) as PlayerId)) as PlayerId,
+                displayName: seat.displayName,
+                status: player?.status ?? 'eliminated',
+                finalTroops: player?.troopsHeld ?? 0,
+                finalCities: player?.citiesOwned ?? 0,
+            };
+        });
 
-  return {
-    matchId,
-    tick: world.tick,
-    effectiveSeed: world.rngSeed,
-    result,
-    finalBoardHash: fnv1aHex(world.state.troopCounts, world.state.cityOwners),
-    finalPlayers,
-  };
+    return {
+        matchId,
+        tick: world.tick,
+        effectiveSeed: world.rngSeed,
+        result,
+        finalBoardHash: fnv1aHex(world.state.troopCounts, world.state.cityOwners),
+        finalPlayers,
+    };
 }

@@ -37,13 +37,8 @@
  * @param height Board height.
  * @returns The 180°-rotated coord `{ x: width - 1 - x, y: height - 1 - y }`.
  */
-export function rotate180(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): { x: number; y: number } {
-  return { x: width - 1 - x, y: height - 1 - y };
+export function rotate180(x: number, y: number, width: number, height: number): { x: number; y: number } {
+    return { x: width - 1 - x, y: height - 1 - y };
 }
 
 /**
@@ -63,9 +58,9 @@ export function rotate180(
  * @returns The linear index of the 180°-rotated cell.
  */
 export function rotate180Index(index: number, width: number, height: number): number {
-  const y = Math.floor(index / width);
-  const x = index % width;
-  // For a square board (the only kind terrain generates) `width ===
-  // height`, but we keep the asymmetry for defensive correctness.
-  return (height - 1 - y) * width + (width - 1 - x);
+    const y = Math.floor(index / width);
+    const x = index % width;
+    // For a square board (the only kind terrain generates) `width ===
+    // height`, but we keep the asymmetry for defensive correctness.
+    return (height - 1 - y) * width + (width - 1 - x);
 }

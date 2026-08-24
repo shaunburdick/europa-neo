@@ -48,13 +48,13 @@ import { computeVisibleSet } from './visibleSet';
  * @returns A structurally identical `MatchConfig` snapshot.
  */
 function snapshotConfig(config: Readonly<MatchConfig>): MatchConfig {
-  return {
-    boardSize: config.boardSize,
-    playerCount: config.playerCount,
-    tickIntervalMs: config.tickIntervalMs,
-    seed: config.seed,
-    visibilityRadius: config.visibilityRadius,
-  };
+    return {
+        boardSize: config.boardSize,
+        playerCount: config.playerCount,
+        tickIntervalMs: config.tickIntervalMs,
+        seed: config.seed,
+        visibilityRadius: config.visibilityRadius,
+    };
 }
 
 /**
@@ -90,55 +90,55 @@ function snapshotConfig(config: Readonly<MatchConfig>): MatchConfig {
  * @returns        A `PlayerView` ready for serialization.
  */
 export function computePlayerView(
-  world: Readonly<World>,
-  player: PlayerId,
-  options?: ComputePlayerViewOptions,
+    world: Readonly<World>,
+    player: PlayerId,
+    options?: ComputePlayerViewOptions,
 ): PlayerView {
-  const config = snapshotConfig(world.config);
-  const tickEvents: Readonly<TickEvents> = options?.events ?? {
-    combat: [],
-    captures: [],
-    eliminations: [],
-    appliedOrders: [],
-    errors: [],
-  };
-
-  // ------------------------------------------------------------------
-  // Spectator path (US3 / FR-006): full board, unfiltered events.
-  // Function-level dispatch only — the PlayerView type is unchanged.
-  // ------------------------------------------------------------------
-  if (options?.spectator === true) {
-    const visibleCells: CellView[] = [];
-    forEachCell(world, (view) => {
-      visibleCells.push(view);
-      return undefined;
-    });
-    return {
-      player,
-      tick: world.tick,
-      visibleCells,
-      // Spectator filter is a no-op by contract; calling through
-      // `filterTickEvents` keeps a single code path for the rule.
-      events: filterTickEvents(world, [], tickEvents, true),
-      config,
+    const config = snapshotConfig(world.config);
+    const tickEvents: Readonly<TickEvents> = options?.events ?? {
+        combat: [],
+        captures: [],
+        eliminations: [],
+        appliedOrders: [],
+        errors: [],
     };
-  }
 
-  // ------------------------------------------------------------------
-  // Horizon path (US1): structural redaction.
-  // ------------------------------------------------------------------
-  const visible = computeVisibleSet(world, player);
+    // ------------------------------------------------------------------
+    // Spectator path (US3 / FR-006): full board, unfiltered events.
+    // Function-level dispatch only — the PlayerView type is unchanged.
+    // ------------------------------------------------------------------
+    if (options?.spectator === true) {
+        const visibleCells: CellView[] = [];
+        forEachCell(world, (view) => {
+            visibleCells.push(view);
+            return undefined;
+        });
+        return {
+            player,
+            tick: world.tick,
+            visibleCells,
+            // Spectator filter is a no-op by contract; calling through
+            // `filterTickEvents` keeps a single code path for the rule.
+            events: filterTickEvents(world, [], tickEvents, true),
+            config,
+        };
+    }
 
-  const visibleCells: CellView[] = [];
-  for (const coord of visible.visibleCells) {
-    visibleCells.push(getCell(world, coord.x, coord.y));
-  }
+    // ------------------------------------------------------------------
+    // Horizon path (US1): structural redaction.
+    // ------------------------------------------------------------------
+    const visible = computeVisibleSet(world, player);
 
-  return {
-    player,
-    tick: world.tick,
-    visibleCells,
-    events: filterTickEvents(world, visible.visibleCells, tickEvents, false),
-    config,
-  };
+    const visibleCells: CellView[] = [];
+    for (const coord of visible.visibleCells) {
+        visibleCells.push(getCell(world, coord.x, coord.y));
+    }
+
+    return {
+        player,
+        tick: world.tick,
+        visibleCells,
+        events: filterTickEvents(world, visible.visibleCells, tickEvents, false),
+        config,
+    };
 }

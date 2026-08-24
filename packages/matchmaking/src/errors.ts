@@ -24,19 +24,19 @@ import type { MatchmakerError, MatchmakerErrorCode } from '../contracts/match-ty
  * closed union stays closed end-to-end.
  */
 const DEFAULT_MESSAGES: Readonly<Record<MatchmakerErrorCode, string>> = {
-  invalid_request: 'Invalid request',
-  match_not_found: 'Match not found',
-  match_full: 'Match is full',
-  match_not_joinable: 'Match is not joinable',
-  seat_taken: 'Seat already taken',
-  session_invalid: 'Session token is invalid',
-  session_expired: 'Session has expired',
-  player_not_in_match: 'Player is not in this match',
-  rematch_window_closed: 'Rematch window has closed',
-  rematch_not_offered: 'No rematch is offered for this match',
-  rematch_already_voted: 'Rematch vote already cast',
-  rate_limited: 'Too many requests',
-  internal_error: 'Internal error',
+    invalid_request: 'Invalid request',
+    match_not_found: 'Match not found',
+    match_full: 'Match is full',
+    match_not_joinable: 'Match is not joinable',
+    seat_taken: 'Seat already taken',
+    session_invalid: 'Session token is invalid',
+    session_expired: 'Session has expired',
+    player_not_in_match: 'Player is not in this match',
+    rematch_window_closed: 'Rematch window has closed',
+    rematch_not_offered: 'No rematch is offered for this match',
+    rematch_already_voted: 'Rematch vote already cast',
+    rate_limited: 'Too many requests',
+    internal_error: 'Internal error',
 } as const;
 
 /**
@@ -53,16 +53,16 @@ const DEFAULT_MESSAGES: Readonly<Record<MatchmakerErrorCode, string>> = {
  * @returns A frozen `MatchmakerError` payload.
  */
 export function makeError(
-  code: MatchmakerErrorCode,
-  message?: string,
-  detail?: Readonly<Record<string, string | number | boolean>>,
+    code: MatchmakerErrorCode,
+    message?: string,
+    detail?: Readonly<Record<string, string | number | boolean>>,
 ): MatchmakerError {
-  const error: MatchmakerError = {
-    code,
-    message: message ?? DEFAULT_MESSAGES[code],
-  };
-  if (detail !== undefined) {
-    return Object.freeze({ ...error, detail });
-  }
-  return Object.freeze(error);
+    const error: MatchmakerError = {
+        code,
+        message: message ?? DEFAULT_MESSAGES[code],
+    };
+    if (detail !== undefined) {
+        return Object.freeze({ ...error, detail });
+    }
+    return Object.freeze(error);
 }

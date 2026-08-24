@@ -49,33 +49,33 @@ export type NetworkErrorDetail = Readonly<Record<string, string | number | boole
  * ```
  */
 export class NetworkError extends Error {
-  /** Machine-readable rejection code (closed union, see `ErrorCode`). */
-  readonly code: NetworkErrorCode;
+    /** Machine-readable rejection code (closed union, see `ErrorCode`). */
+    readonly code: NetworkErrorCode;
 
-  /**
-   * Optional machine-readable detail (e.g., expected vs actual
-   * protocol version). Declared `declare` so no runtime property is
-   * emitted for the common case — the field exists on an instance
-   * only when provided, keeping serialized payloads minimal.
-   */
-  declare readonly detail?: NetworkErrorDetail;
+    /**
+     * Optional machine-readable detail (e.g., expected vs actual
+     * protocol version). Declared `declare` so no runtime property is
+     * emitted for the common case — the field exists on an instance
+     * only when provided, keeping serialized payloads minimal.
+     */
+    declare readonly detail?: NetworkErrorDetail;
 
-  /**
-   * @param code    Stable error code from the closed `ErrorCode` union.
-   * @param message Human-readable description (safe to log; never
-   *                include secrets — there are none at this layer).
-   * @param detail  Optional structured context for clients and logs.
-   */
-  constructor(code: NetworkErrorCode, message: string, detail?: NetworkErrorDetail) {
-    super(message);
-    this.name = 'NetworkError';
-    this.code = code;
-    // With `exactOptionalPropertyTypes`, assigning `undefined` to an
-    // optional property is a type error — assign only when present.
-    if (detail !== undefined) {
-      this.detail = detail;
+    /**
+     * @param code    Stable error code from the closed `ErrorCode` union.
+     * @param message Human-readable description (safe to log; never
+     *                include secrets — there are none at this layer).
+     * @param detail  Optional structured context for clients and logs.
+     */
+    constructor(code: NetworkErrorCode, message: string, detail?: NetworkErrorDetail) {
+        super(message);
+        this.name = 'NetworkError';
+        this.code = code;
+        // With `exactOptionalPropertyTypes`, assigning `undefined` to an
+        // optional property is a type error — assign only when present.
+        if (detail !== undefined) {
+            this.detail = detail;
+        }
     }
-  }
 }
 
 /**
@@ -86,5 +86,5 @@ export class NetworkError extends Error {
  * @returns `true` iff `value` is a `NetworkError` instance.
  */
 export function isNetworkError(value: unknown): value is NetworkError {
-  return value instanceof NetworkError;
+    return value instanceof NetworkError;
 }

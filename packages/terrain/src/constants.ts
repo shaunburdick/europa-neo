@@ -48,17 +48,17 @@ export const WATER_RATIO_EPSILON = 1e-9;
  * and JSDoc per field.
  */
 export const TERRAIN_CONSTANTS: TerrainConstants = {
-  // FR-001: elevation stored as uint8 (`Uint8Array`).
-  minElevation: 0,
-  maxElevation: 255,
-  // spec Assumptions / data-model.md §1: playable boards are 16..64.
-  // Generation accepts `[8, 128]` per data-model §2; tests use 16 and
-  // 32, default play is 32.
-  minBoardSize: MIN_GENERATION_BOARD_SIZE,
-  maxBoardSize: MAX_GENERATION_BOARD_SIZE,
-  // Mirrors `DEFAULT_GENERATION_SETTINGS` from `contracts/terrain-types.ts`.
-  // The interface uses the same reference so consumers can compare.
-  defaultSettings: DEFAULT_GENERATION_SETTINGS,
+    // FR-001: elevation stored as uint8 (`Uint8Array`).
+    minElevation: 0,
+    maxElevation: 255,
+    // spec Assumptions / data-model.md §1: playable boards are 16..64.
+    // Generation accepts `[8, 128]` per data-model §2; tests use 16 and
+    // 32, default play is 32.
+    minBoardSize: MIN_GENERATION_BOARD_SIZE,
+    maxBoardSize: MAX_GENERATION_BOARD_SIZE,
+    // Mirrors `DEFAULT_GENERATION_SETTINGS` from `contracts/terrain-types.ts`.
+    // The interface uses the same reference so consumers can compare.
+    defaultSettings: DEFAULT_GENERATION_SETTINGS,
 };
 
 // Re-export the terrain API version from the single source-of-truth

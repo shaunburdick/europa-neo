@@ -19,49 +19,49 @@ import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 
 describe('Q-M02: private match + shareable join URL', () => {
-  it('hides from lobby and is joinable via URL', async () => {
-    const server = new FakeServer();
-    const matchmaker = createMatchmaker(
-      { ...MATCHMAKING_CONSTANTS, publicBaseUrl: 'https://europa.example.com' },
-      { server },
-    );
+    it('hides from lobby and is joinable via URL', async () => {
+        const server = new FakeServer();
+        const matchmaker = createMatchmaker(
+            { ...MATCHMAKING_CONSTANTS, publicBaseUrl: 'https://europa.example.com' },
+            { server },
+        );
 
-    // Step 1: Alice creates a private match
-    const create = matchmaker.createMatch({
-      visibility: 'private',
-      displayName: 'Alice',
+        // Step 1: Alice creates a private match
+        const create = matchmaker.createMatch({
+            visibility: 'private',
+            displayName: 'Alice',
+        });
+        expect(create.ok).toBe(true);
+        if (!create.ok) {
+            return;
+        }
+
+        const { matchId, joinPath, joinUrl, seatAssignment: aliceSeat } = create.data;
+        expect(aliceSeat.seatIndex).toBe(0);
+
+        // joinPath is the relative path; joinUrl is the full URL
+        expect(joinPath).toBe(`/join/${matchId}`);
+        expect(joinUrl).toBe(`https://europa.example.com/join/${matchId}`);
+
+        // Step 2: Lobby does NOT contain the private match
+        const lobby = matchmaker.listPublicMatches();
+        expect(lobby.ok).toBe(true);
+        if (!lobby.ok) {
+            return;
+        }
+        expect(lobby.matches).toHaveLength(0);
+
+        // Step 3: Bob joins via the URL (has the matchId)
+        const join = matchmaker.joinMatch({
+            matchId,
+            displayName: 'Bob',
+        });
+        expect(join.ok).toBe(true);
+        if (!join.ok) {
+            return;
+        }
+        expect(join.data.seatAssignment.seatIndex).toBe(1);
+
+        await matchmaker.close();
     });
-    expect(create.ok).toBe(true);
-    if (!create.ok) {
-      return;
-    }
-
-    const { matchId, joinPath, joinUrl, seatAssignment: aliceSeat } = create.data;
-    expect(aliceSeat.seatIndex).toBe(0);
-
-    // joinPath is the relative path; joinUrl is the full URL
-    expect(joinPath).toBe(`/join/${matchId}`);
-    expect(joinUrl).toBe(`https://europa.example.com/join/${matchId}`);
-
-    // Step 2: Lobby does NOT contain the private match
-    const lobby = matchmaker.listPublicMatches();
-    expect(lobby.ok).toBe(true);
-    if (!lobby.ok) {
-      return;
-    }
-    expect(lobby.matches).toHaveLength(0);
-
-    // Step 3: Bob joins via the URL (has the matchId)
-    const join = matchmaker.joinMatch({
-      matchId,
-      displayName: 'Bob',
-    });
-    expect(join.ok).toBe(true);
-    if (!join.ok) {
-      return;
-    }
-    expect(join.data.seatAssignment.seatIndex).toBe(1);
-
-    await matchmaker.close();
-  });
 });

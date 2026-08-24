@@ -30,12 +30,12 @@ export const TEST_TICK_MS = 10;
  * reject decisions depend on scheduler jitter and break the SC-001
  * byte-identical-stream guarantee the determinism suite asserts. */
 export function testServerConfig(): ServerConfig {
-  return {
-    ...NETWORK_DEFAULT_CONFIG,
-    tickRateMs: TEST_TICK_MS,
-    port: 0,
-    ordersPerSecond: 1000,
-  };
+    return {
+        ...NETWORK_DEFAULT_CONFIG,
+        tickRateMs: TEST_TICK_MS,
+        port: 0,
+        ordersPerSecond: 1000,
+    };
 }
 
 /**
@@ -43,19 +43,18 @@ export function testServerConfig(): ServerConfig {
  * The engine factory throws — sessions come pre-built from fixtures.
  */
 export function realDeps(): ServerDeps {
-  return {
-    engine: {
-      createMatchSession: () => {
-        throw new Error('engine factory not used by fixtures (sessions are pre-built)');
-      },
-    },
-    fog: {
-      computePlayerView: ({ world, playerId, spectator }) =>
-        computePlayerView(world, playerId, { spectator }),
-    },
-    matchmaker: {},
-    logger: NULL_LOGGER,
-  };
+    return {
+        engine: {
+            createMatchSession: () => {
+                throw new Error('engine factory not used by fixtures (sessions are pre-built)');
+            },
+        },
+        fog: {
+            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
+        },
+        matchmaker: {},
+        logger: NULL_LOGGER,
+    };
 }
 
 /**
@@ -71,32 +70,32 @@ export function realDeps(): ServerDeps {
  * mocks for exactly this kind of protocol testing.
  */
 export function stubFogDeps(): ServerDeps {
-  return {
-    engine: {
-      createMatchSession: () => {
-        throw new Error('engine factory not used by fixtures (sessions are pre-built)');
-      },
-    },
-    fog: {
-      computePlayerView: ({ world, playerId }) => ({
-        player: playerId,
-        tick: world.tick,
-        visibleCells: [
-          {
-            coord: { x: 0, y: 0 },
-            cell: { x: 0, y: 0, elevation: 0, terrain: 'land' },
-            troopCount: world.tick * 10 + playerId,
-            troopOwner: playerId,
-            pipes: new Set(),
-            reservesPercent: 0,
-            cityOwner: null,
-          },
-        ],
-      }),
-    },
-    matchmaker: {},
-    logger: NULL_LOGGER,
-  };
+    return {
+        engine: {
+            createMatchSession: () => {
+                throw new Error('engine factory not used by fixtures (sessions are pre-built)');
+            },
+        },
+        fog: {
+            computePlayerView: ({ world, playerId }) => ({
+                player: playerId,
+                tick: world.tick,
+                visibleCells: [
+                    {
+                        coord: { x: 0, y: 0 },
+                        cell: { x: 0, y: 0, elevation: 0, terrain: 'land' },
+                        troopCount: world.tick * 10 + playerId,
+                        troopOwner: playerId,
+                        pipes: new Set(),
+                        reservesPercent: 0,
+                        cityOwner: null,
+                    },
+                ],
+            }),
+        },
+        matchmaker: {},
+        logger: NULL_LOGGER,
+    };
 }
 
 /**
@@ -108,15 +107,15 @@ export function stubFogDeps(): ServerDeps {
  * @param socket Mock socket to attach.
  */
 export function injectSocket(server: Server, socket: MockWebSocket): void {
-  const seam = (
-    server as unknown as {
-      __injectSocketForTest?: (s: MockWebSocket) => void;
+    const seam = (
+        server as unknown as {
+            __injectSocketForTest?: (s: MockWebSocket) => void;
+        }
+    ).__injectSocketForTest;
+    if (!seam) {
+        throw new Error('server does not expose __injectSocketForTest');
     }
-  ).__injectSocketForTest;
-  if (!seam) {
-    throw new Error('server does not expose __injectSocketForTest');
-  }
-  seam(socket);
+    seam(socket);
 }
 
 /**
@@ -127,19 +126,19 @@ export function injectSocket(server: Server, socket: MockWebSocket): void {
  * @returns The client driver.
  */
 export function connectMockClient(server: Server): ScriptedClient {
-  const socket = new MockWebSocket();
-  injectSocket(server, socket);
-  return new ScriptedClient(socket);
+    const socket = new MockWebSocket();
+    injectSocket(server, socket);
+    return new ScriptedClient(socket);
 }
 
 /** A fully-joined two-player match ready to tick. */
 export interface JoinedHarness {
-  readonly server: ReturnType<typeof createMatchServer>;
-  readonly match: ScriptedMatch;
-  /** Session tokens by seat order (index = playerId − 1). */
-  readonly tokens: readonly string[];
-  /** Joined player clients, index 0 = seat 1. */
-  readonly clients: [ScriptedClient, ScriptedClient];
+    readonly server: ReturnType<typeof createMatchServer>;
+    readonly match: ScriptedMatch;
+    /** Session tokens by seat order (index = playerId − 1). */
+    readonly tokens: readonly string[];
+    /** Joined player clients, index 0 = seat 1. */
+    readonly clients: [ScriptedClient, ScriptedClient];
 }
 
 /**
@@ -152,36 +151,36 @@ export interface JoinedHarness {
  * @returns The harness (callers must `await h.server.close()`).
  */
 export async function startJoinedMatch(deps: ServerDeps = realDeps()): Promise<JoinedHarness> {
-  const server = createMatchServer(testServerConfig(), deps);
-  // listen() starts the tick scheduler; port 0 binds an ephemeral
-  // port we never use (clients ride the mock injection seam).
-  await server.listen();
+    const server = createMatchServer(testServerConfig(), deps);
+    // listen() starts the tick scheduler; port 0 binds an ephemeral
+    // port we never use (clients ride the mock injection seam).
+    await server.listen();
 
-  const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
-  server.registerMatch({
-    matchId: match.matchId,
-    engineSession: match.engineSession,
-    matchConfig: match.matchConfig,
-  });
-  const tokens = attachPlayersForMatch(server, match);
+    const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+    server.registerMatch({
+        matchId: match.matchId,
+        engineSession: match.engineSession,
+        matchConfig: match.matchConfig,
+    });
+    const tokens = attachPlayersForMatch(server, match);
 
-  const client1 = connectMockClient(server);
-  const client2 = connectMockClient(server);
-  client1.hello();
-  client2.hello();
-  await client1.nextMessage('helloAck');
-  await client2.nextMessage('helloAck');
-  client1.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
-  client2.joinMatch(match.matchId, 'player', { requestedSeat: 2 });
-  await client1.nextMessage('joinAck');
-  await client2.nextMessage('joinAck');
+    const client1 = connectMockClient(server);
+    const client2 = connectMockClient(server);
+    client1.hello();
+    client2.hello();
+    await client1.nextMessage('helloAck');
+    await client2.nextMessage('helloAck');
+    client1.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+    client2.joinMatch(match.matchId, 'player', { requestedSeat: 2 });
+    await client1.nextMessage('joinAck');
+    await client2.nextMessage('joinAck');
 
-  return {
-    server,
-    match,
-    tokens,
-    clients: [client1, client2],
-  };
+    return {
+        server,
+        match,
+        tokens,
+        clients: [client1, client2],
+    };
 }
 
 /**
@@ -193,7 +192,7 @@ export async function startJoinedMatch(deps: ServerDeps = realDeps()): Promise<J
  * @returns The plain-object wire shape.
  */
 export function wireShape(value: unknown): unknown {
-  return JSON.parse(JSON.stringify(value, (_key, v) => (v instanceof Set ? [...v].sort() : v)));
+    return JSON.parse(JSON.stringify(value, (_key, v) => (v instanceof Set ? [...v].sort() : v)));
 }
 
 /**
@@ -209,19 +208,19 @@ export function wireShape(value: unknown): unknown {
  * @returns An engine-valid pipe order anchored at that seat's city.
  */
 export function scriptedPipeOrder(
-  seat: 1 | 2,
-  index: number,
+    seat: 1 | 2,
+    index: number,
 ): {
-  kind: 'setPipe' | 'clearPipe';
-  player: PlayerId;
-  cell: { x: number; y: number };
-  direction: 'N' | 'E' | 'S' | 'W';
+    kind: 'setPipe' | 'clearPipe';
+    player: PlayerId;
+    cell: { x: number; y: number };
+    direction: 'N' | 'E' | 'S' | 'W';
 } {
-  const directions = ['N', 'E', 'S', 'W'] as const;
-  const direction = directions[index % directions.length] as 'N' | 'E' | 'S' | 'W';
-  const kind = index % 2 === 0 ? 'setPipe' : 'clearPipe';
-  // Seat cities on the 8×8 board: P1 (1,1), P2 (6,6). City cells are
-  // permanently owned sources; their neighbors are flat land.
-  const cell = seat === 1 ? { x: 1, y: 1 } : { x: 6, y: 6 };
-  return { kind, player: seat as PlayerId, cell, direction };
+    const directions = ['N', 'E', 'S', 'W'] as const;
+    const direction = directions[index % directions.length] as 'N' | 'E' | 'S' | 'W';
+    const kind = index % 2 === 0 ? 'setPipe' : 'clearPipe';
+    // Seat cities on the 8×8 board: P1 (1,1), P2 (6,6). City cells are
+    // permanently owned sources; their neighbors are flat land.
+    const cell = seat === 1 ? { x: 1, y: 1 } : { x: 6, y: 6 };
+    return { kind, player: seat as PlayerId, cell, direction };
 }

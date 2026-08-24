@@ -36,26 +36,26 @@ import type { ConsoleClient, MatchId, ReducerEffect, SessionToken } from '../sta
 
 /** The window-global handle Playwright full-stack specs read. */
 export interface EuropaLiveHandle {
-  /** The live store (state assertions + programmatic order dispatch). */
-  readonly store: ConsoleStore;
-  /** The network adapter (transport diagnostics). */
-  readonly client: ConsoleClient;
-  /** Set when boot failed (bad params / connect / join rejection). */
-  bootError: string | null;
+    /** The live store (state assertions + programmatic order dispatch). */
+    readonly store: ConsoleStore;
+    /** The network adapter (transport diagnostics). */
+    readonly client: ConsoleClient;
+    /** Set when boot failed (bad params / connect / join rejection). */
+    bootError: string | null;
 }
 
 declare global {
-  interface Window {
-    __europaLive?: EuropaLiveHandle;
-  }
+    interface Window {
+        __europaLive?: EuropaLiveHandle;
+    }
 }
 
 /**
  * Root component binding the live store to {@link App}.
  */
 function StoreApp({ store }: { readonly store: ConsoleStore }): JSX.Element {
-  const state = useSyncExternalStore(store.subscribe, store.getState);
-  return <App store={store} state={state} />;
+    const state = useSyncExternalStore(store.subscribe, store.getState);
+    return <App store={store} state={state} />;
 }
 
 /**
@@ -68,80 +68,77 @@ function StoreApp({ store }: { readonly store: ConsoleStore }): JSX.Element {
  * @param root The DOM mount node (index.html's `#root`).
  */
 export function mountLiveRuntime(root: HTMLElement): void {
-  const params = new URLSearchParams(window.location.search);
-  const url = params.get('ws');
-  const matchId = params.get('match');
-  const displayName = params.get('name') ?? '';
-  const token = params.get('token');
+    const params = new URLSearchParams(window.location.search);
+    const url = params.get('ws');
+    const matchId = params.get('match');
+    const displayName = params.get('name') ?? '';
+    const token = params.get('token');
 
-  if (url === null || matchId === null) {
-    // No store to surface feedback through yet; expose the reason on
-    // the handle so drivers fail with a diagnostic instead of hanging.
-    window.__europaLive = {
-      store: undefined as unknown as ConsoleStore,
-      client: undefined as unknown as ConsoleClient,
-      bootError: 'live runtime requires ?ws=<url>&match=<id> query parameters',
+    if (url === null || matchId === null) {
+        // No store to surface feedback through yet; expose the reason on
+        // the handle so drivers fail with a diagnostic instead of hanging.
+        window.__europaLive = {
+            store: undefined as unknown as ConsoleStore,
+            client: undefined as unknown as ConsoleClient,
+            bootError: 'live runtime requires ?ws=<url>&match=<id> query parameters',
+        };
+        return;
+    }
+
+    // Circular wiring (store ↔ bridge) resolved with a forwarding slot,
+    // same pattern as demo-runtime: effects cannot fire before the first
+    // dispatch, which happens after both exist.
+    let forward: ((effect: ReducerEffect) => void) | null = null;
+    const store = createConsoleStore(INITIAL_CONSOLE_STATE, (effect) => {
+        forward?.(effect);
+    });
+    store.dispatch({ kind: 'connecting', matchId: matchId as MatchId });
+
+    // Build the real browser client up front and inject it as the
+    // adapter's factory so the runtime can observe transport-loss
+    // transitions (the wire has no "socket closed" envelope; the
+    // reducer's socketClosed branch drives the reconnecting banner).
+    const wsClient = createWsMatchClient({ verboseLogging: false });
+    const client = createConsoleClient(
+        {
+            url,
+            displayName,
+            matchId: matchId as MatchId,
+            ...(token === null ? {} : { reconnectToken: token as SessionToken }),
+        },
+        { matchClientFactory: () => wsClient },
+    );
+    const bridge = createOrderBridge({ client, store });
+    forward = (effect) => {
+        bridge.handleEffect(effect);
     };
-    return;
-  }
 
-  // Circular wiring (store ↔ bridge) resolved with a forwarding slot,
-  // same pattern as demo-runtime: effects cannot fire before the first
-  // dispatch, which happens after both exist.
-  let forward: ((effect: ReducerEffect) => void) | null = null;
-  const store = createConsoleStore(INITIAL_CONSOLE_STATE, (effect) => {
-    forward?.(effect);
-  });
-  store.dispatch({ kind: 'connecting', matchId: matchId as MatchId });
+    let lastConnection = wsClient.state().connection;
+    wsClient.onConnectionChanged((current) => {
+        if (current === 'disconnected' && (lastConnection === 'joined' || lastConnection === 'rejoined')) {
+            store.dispatch({ kind: 'socketClosed', code: 1006, reason: 'transport lost' });
+        }
+        lastConnection = current;
+    });
 
-  // Build the real browser client up front and inject it as the
-  // adapter's factory so the runtime can observe transport-loss
-  // transitions (the wire has no "socket closed" envelope; the
-  // reducer's socketClosed branch drives the reconnecting banner).
-  const wsClient = createWsMatchClient({ verboseLogging: false });
-  const client = createConsoleClient(
-    {
-      url,
-      displayName,
-      matchId: matchId as MatchId,
-      ...(token === null ? {} : { reconnectToken: token as SessionToken }),
-    },
-    { matchClientFactory: () => wsClient },
-  );
-  const bridge = createOrderBridge({ client, store });
-  forward = (effect) => {
-    bridge.handleEffect(effect);
-  };
+    window.__europaLive = { store, client, bootError: null };
 
-  let lastConnection = wsClient.state().connection;
-  wsClient.onConnectionChanged((current) => {
-    if (
-      current === 'disconnected' &&
-      (lastConnection === 'joined' || lastConnection === 'rejoined')
-    ) {
-      store.dispatch({ kind: 'socketClosed', code: 1006, reason: 'transport lost' });
-    }
-    lastConnection = current;
-  });
+    const boot = async (): Promise<void> => {
+        try {
+            await client.connect();
+            await client.joinMatch();
+        } catch (error: unknown) {
+            const handle = window.__europaLive;
+            if (handle !== undefined) {
+                handle.bootError = error instanceof Error ? error.message : String(error);
+            }
+        }
+    };
+    void boot();
 
-  window.__europaLive = { store, client, bootError: null };
-
-  const boot = async (): Promise<void> => {
-    try {
-      await client.connect();
-      await client.joinMatch();
-    } catch (error: unknown) {
-      const handle = window.__europaLive;
-      if (handle !== undefined) {
-        handle.bootError = error instanceof Error ? error.message : String(error);
-      }
-    }
-  };
-  void boot();
-
-  createRoot(root).render(
-    <StrictMode>
-      <StoreApp store={store} />
-    </StrictMode>,
-  );
+    createRoot(root).render(
+        <StrictMode>
+            <StoreApp store={store} />
+        </StrictMode>,
+    );
 }

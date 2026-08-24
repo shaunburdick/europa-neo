@@ -16,14 +16,7 @@
  * Spec reference: US2 AC-1 (region-based pipe targeting).
  */
 
-import type {
-  CameraState,
-  CellRegion,
-  Coord,
-  CursorTarget,
-  Direction,
-  ScreenPoint,
-} from '../state/types';
+import type { CameraState, CellRegion, Coord, CursorTarget, Direction, ScreenPoint } from '../state/types';
 
 /**
  * Resolve a cell-local position `(subcellX, subcellY)` in `[0, 1)`
@@ -36,14 +29,14 @@ import type {
  * @param subcellY 0..1 across the cell height (0 = north edge).
  */
 export function regionFromSubcell(subcellX: number, subcellY: number): CellRegion {
-  if (subcellX < 0.5) {
-    return 'W';
-  }
-  if (subcellX > 0.5) {
-    return 'E';
-  }
-  // X exactly on the centerline: Y decides; upper half wins ties.
-  return subcellY <= 0.5 ? 'N' : 'S';
+    if (subcellX < 0.5) {
+        return 'W';
+    }
+    if (subcellX > 0.5) {
+        return 'E';
+    }
+    // X exactly on the centerline: Y decides; upper half wins ties.
+    return subcellY <= 0.5 ? 'N' : 'S';
 }
 
 /**
@@ -52,7 +45,7 @@ export function regionFromSubcell(subcellX: number, subcellY: number): CellRegio
  * geometry. Pure.
  */
 export function directionFromRegion(region: CellRegion): Direction {
-  return region;
+    return region;
 }
 
 /**
@@ -60,7 +53,7 @@ export function directionFromRegion(region: CellRegion): Direction {
  * {@link directionFromRegion}. Pure.
  */
 export function regionFromDirection(direction: Direction): CellRegion {
-  return direction;
+    return direction;
 }
 
 /**
@@ -77,23 +70,23 @@ export function regionFromDirection(direction: Direction): CellRegion {
  * @param camera Current camera (zoom = px per cell, pan = board offset).
  */
 export function hitTest(screen: ScreenPoint, camera: CameraState): CursorTarget {
-  const boardX = (screen.x - camera.pan.x) / camera.zoom;
-  const boardY = (screen.y - camera.pan.y) / camera.zoom;
+    const boardX = (screen.x - camera.pan.x) / camera.zoom;
+    const boardY = (screen.y - camera.pan.y) / camera.zoom;
 
-  const cellX = Math.floor(boardX);
-  const cellY = Math.floor(boardY);
+    const cellX = Math.floor(boardX);
+    const cellY = Math.floor(boardY);
 
-  if (cellX < 0 || cellY < 0 || !Number.isFinite(cellX) || !Number.isFinite(cellY)) {
-    return { screen, cell: null, region: null, subcell: null };
-  }
+    if (cellX < 0 || cellY < 0 || !Number.isFinite(cellX) || !Number.isFinite(cellY)) {
+        return { screen, cell: null, region: null, subcell: null };
+    }
 
-  const cell: Coord = { x: cellX, y: cellY };
-  const subcell = { x: boardX - cellX, y: boardY - cellY };
+    const cell: Coord = { x: cellX, y: cellY };
+    const subcell = { x: boardX - cellX, y: boardY - cellY };
 
-  return {
-    screen,
-    cell,
-    region: regionFromSubcell(subcell.x, subcell.y),
-    subcell,
-  };
+    return {
+        screen,
+        cell,
+        region: regionFromSubcell(subcell.x, subcell.y),
+        subcell,
+    };
 }

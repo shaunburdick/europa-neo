@@ -20,28 +20,28 @@ import { FakeServer } from './fakeServer';
 
 /** Everything a rematch test needs to drive the handshake. */
 export interface RematchScenario {
-  /** Recording server stub (bridge triggers + call logs). */
-  readonly server: FakeServer;
-  /** The matchmaker under test. */
-  readonly matchmaker: Matchmaker;
-  /** The finished match's id. */
-  readonly matchId: MatchId;
-  /** Alice's original seat assignment (seat 0, creator). */
-  readonly alice: SeatAssignment;
-  /** Bob's original seat assignment (seat 1, joiner). */
-  readonly bob: SeatAssignment;
-  /** Advance the fake clock by `ms` milliseconds. */
-  advanceMs(ms: number): void;
-  /** Current fake-clock reading (epoch ms). */
-  nowMs(): number;
+    /** Recording server stub (bridge triggers + call logs). */
+    readonly server: FakeServer;
+    /** The matchmaker under test. */
+    readonly matchmaker: Matchmaker;
+    /** The finished match's id. */
+    readonly matchId: MatchId;
+    /** Alice's original seat assignment (seat 0, creator). */
+    readonly alice: SeatAssignment;
+    /** Bob's original seat assignment (seat 1, joiner). */
+    readonly bob: SeatAssignment;
+    /** Advance the fake clock by `ms` milliseconds. */
+    advanceMs(ms: number): void;
+    /** Current fake-clock reading (epoch ms). */
+    nowMs(): number;
 }
 
 /** Args for {@linkcode makeFinished2pScenario}. */
 export interface FinishedScenarioArgs {
-  /** Original match visibility; defaults to `'public'`. */
-  readonly visibility?: MatchVisibility;
-  /** Tick recorded on the terminal event; defaults to 42. */
-  readonly tick?: number;
+    /** Original match visibility; defaults to `'public'`. */
+    readonly visibility?: MatchVisibility;
+    /** Tick recorded on the terminal event; defaults to 42. */
+    readonly tick?: number;
 }
 
 /**
@@ -53,44 +53,44 @@ export interface FinishedScenarioArgs {
  *   opened — offers materialize on the first `requestRematch`).
  */
 export function makeFinished2pScenario(args?: FinishedScenarioArgs): RematchScenario {
-  const visibility = args?.visibility ?? 'public';
-  const tick = args?.tick ?? 42;
+    const visibility = args?.visibility ?? 'public';
+    const tick = args?.tick ?? 42;
 
-  let clockMs = 1_000_000;
-  const now = (): number => clockMs;
-  const server = new FakeServer({ now });
-  const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server, now });
+    let clockMs = 1_000_000;
+    const now = (): number => clockMs;
+    const server = new FakeServer({ now });
+    const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server, now });
 
-  const created = matchmaker.createMatch({ visibility, displayName: 'Alice' });
-  if (!created.ok) {
-    throw new Error('scenario: createMatch failed');
-  }
-  const joined = matchmaker.joinMatch({
-    matchId: created.data.matchId,
-    displayName: 'Bob',
-  });
-  if (!joined.ok) {
-    throw new Error('scenario: joinMatch failed');
-  }
+    const created = matchmaker.createMatch({ visibility, displayName: 'Alice' });
+    if (!created.ok) {
+        throw new Error('scenario: createMatch failed');
+    }
+    const joined = matchmaker.joinMatch({
+        matchId: created.data.matchId,
+        displayName: 'Bob',
+    });
+    if (!joined.ok) {
+        throw new Error('scenario: joinMatch failed');
+    }
 
-  const { matchId } = created.data;
-  server.fireOnMatchTerminal({
-    matchId,
-    result: { kind: 'win', winner: 1, tick, reason: 'last_standing' },
-    tick,
-  });
+    const { matchId } = created.data;
+    server.fireOnMatchTerminal({
+        matchId,
+        result: { kind: 'win', winner: 1, tick, reason: 'last_standing' },
+        tick,
+    });
 
-  return {
-    server,
-    matchmaker,
-    matchId,
-    alice: created.data.seatAssignment,
-    bob: joined.data.seatAssignment,
-    advanceMs(ms: number): void {
-      clockMs += ms;
-    },
-    nowMs(): number {
-      return clockMs;
-    },
-  };
+    return {
+        server,
+        matchmaker,
+        matchId,
+        alice: created.data.seatAssignment,
+        bob: joined.data.seatAssignment,
+        advanceMs(ms: number): void {
+            clockMs += ms;
+        },
+        nowMs(): number {
+            return clockMs;
+        },
+    };
 }

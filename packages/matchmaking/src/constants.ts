@@ -26,23 +26,23 @@ import type { MatchmakerConfig } from '../contracts/matchmaking-api';
  * window, display names 1..32 chars, 30-second sweep interval.
  */
 export const MATCHMAKING_CONSTANTS: MatchmakerConstants = {
-  maxConcurrentMatches: 64,
-  emptyMatchTtlMs: 5 * 60 * 1000,
-  resultsTtlMs: 60 * 1000,
-  rematchWindowMs: 60 * 1000,
-  maxDisplayNameLength: 32,
-  minDisplayNameLength: 1,
-  sweepIntervalMs: 30 * 1000,
+    maxConcurrentMatches: 64,
+    emptyMatchTtlMs: 5 * 60 * 1000,
+    resultsTtlMs: 60 * 1000,
+    rematchWindowMs: 60 * 1000,
+    maxDisplayNameLength: 32,
+    minDisplayNameLength: 1,
+    sweepIntervalMs: 30 * 1000,
 } as const;
 
 const {
-  emptyMatchTtlMs,
-  maxConcurrentMatches,
-  maxDisplayNameLength,
-  minDisplayNameLength,
-  rematchWindowMs,
-  resultsTtlMs,
-  sweepIntervalMs,
+    emptyMatchTtlMs,
+    maxConcurrentMatches,
+    maxDisplayNameLength,
+    minDisplayNameLength,
+    rematchWindowMs,
+    resultsTtlMs,
+    sweepIntervalMs,
 } = MATCHMAKING_CONSTANTS;
 
 /**
@@ -52,11 +52,11 @@ const {
  * host binary's configuration.
  */
 export const MATCHMAKING_DEFAULT_CONFIG: MatchmakerConfig = {
-  emptyMatchTtlMs,
-  maxConcurrentMatches,
-  maxDisplayNameLength,
-  minDisplayNameLength,
-  rematchWindowMs,
-  resultsTtlMs,
-  sweepIntervalMs,
+    emptyMatchTtlMs,
+    maxConcurrentMatches,
+    maxDisplayNameLength,
+    minDisplayNameLength,
+    rematchWindowMs,
+    resultsTtlMs,
+    sweepIntervalMs,
 } as const;

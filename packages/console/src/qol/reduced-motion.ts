@@ -38,10 +38,10 @@ export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
  * the API is unavailable or the query does not match.
  */
 export function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
-  }
-  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        return false;
+    }
+    return window.matchMedia(REDUCED_MOTION_QUERY).matches;
 }
 
 /**
@@ -52,27 +52,27 @@ export function prefersReducedMotion(): boolean {
  * @param callback Receives the current flag on each change.
  */
 export function subscribeReducedMotion(callback: (reduced: boolean) => void): () => void {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    callback(prefersReducedMotion());
-    return () => undefined;
-  }
-  const query = window.matchMedia(REDUCED_MOTION_QUERY);
-  const listener = (event: MediaQueryListEvent): void => {
-    callback(event.matches);
-  };
-  callback(query.matches);
-  query.addEventListener('change', listener);
-  return () => {
-    query.removeEventListener('change', listener);
-  };
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        callback(prefersReducedMotion());
+        return () => undefined;
+    }
+    const query = window.matchMedia(REDUCED_MOTION_QUERY);
+    const listener = (event: MediaQueryListEvent): void => {
+        callback(event.matches);
+    };
+    callback(query.matches);
+    query.addEventListener('change', listener);
+    return () => {
+        query.removeEventListener('change', listener);
+    };
 }
 
 /** Transient TTLs adjusted for the motion preference. */
 export interface MotionAdjustedTtls {
-  /** Effect flash budget: `0` under reduced motion. */
-  readonly effectTtlMs: number;
-  /** Label TTL budget: `0` under reduced motion. */
-  readonly labelTtlMs: number;
+    /** Effect flash budget: `0` under reduced motion. */
+    readonly effectTtlMs: number;
+    /** Label TTL budget: `0` under reduced motion. */
+    readonly labelTtlMs: number;
 }
 
 /**
@@ -83,12 +83,12 @@ export interface MotionAdjustedTtls {
  * @param reduced The reduce-motion flag.
  */
 export function motionAdjustedTtls(reduced: boolean): MotionAdjustedTtls {
-  return reduced
-    ? { effectTtlMs: 0, labelTtlMs: 0 }
-    : {
-        effectTtlMs: CONSOLE_CONSTANTS.effectTtlMs,
-        labelTtlMs: CONSOLE_CONSTANTS.labelTtlMs,
-      };
+    return reduced
+        ? { effectTtlMs: 0, labelTtlMs: 0 }
+        : {
+              effectTtlMs: CONSOLE_CONSTANTS.effectTtlMs,
+              labelTtlMs: CONSOLE_CONSTANTS.labelTtlMs,
+          };
 }
 
 /**
@@ -97,12 +97,9 @@ export function motionAdjustedTtls(reduced: boolean): MotionAdjustedTtls {
  * @param effects Candidate effects.
  * @param reduced The reduce-motion flag.
  */
-export function filterEffectsForMotion(
-  effects: readonly MapEffect[],
-  reduced: boolean,
-): readonly MapEffect[] {
-  if (!reduced) {
-    return effects;
-  }
-  return effects.filter((effect) => effect.kind !== 'combat' && effect.kind !== 'capture');
+export function filterEffectsForMotion(effects: readonly MapEffect[], reduced: boolean): readonly MapEffect[] {
+    if (!reduced) {
+        return effects;
+    }
+    return effects.filter((effect) => effect.kind !== 'combat' && effect.kind !== 'capture');
 }

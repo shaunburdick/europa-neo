@@ -9,14 +9,14 @@
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background-color: #0b0f19;
-  color: #e5e7eb;
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background-color: #0b0f19;
+    color: #e5e7eb;
 }
 
 /*
@@ -25,180 +25,180 @@ body {
  * when it receives keyboard focus.
  */
 .skip-link {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform: translateY(-200%);
-  padding: 0.5rem 1rem;
-  background-color: #111827;
-  color: #f9fafb;
-  z-index: 1000;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translateY(-200%);
+    padding: 0.5rem 1rem;
+    background-color: #111827;
+    color: #f9fafb;
+    z-index: 1000;
 }
 
 .skip-link:focus {
-  transform: none;
+    transform: none;
 }
 
 /* Root layout: board left/center, HUD right. Wraps (rather than
    overflowing) when the QoL-era sidebar stack exceeds the viewport,
    so the board never lands at negative screen coordinates. */
 .europa-main {
-  min-height: 100vh;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: center;
-  align-content: flex-start;
-  gap: 1rem;
-  padding: 1rem;
+    min-height: 100vh;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    align-content: flex-start;
+    gap: 1rem;
+    padding: 1rem;
 }
 
 .europa-board-area {
-  position: relative;
+    position: relative;
 }
 
 .europa-canvas {
-  display: block;
-  /* Mirrors VOID_COLOR in src/render/palette.ts (playtest 2026-08-24:
+    display: block;
+    /* Mirrors VOID_COLOR in src/render/palette.ts (playtest 2026-08-24:
      dark slate, distinct from the page background, darker than land). */
-  background-color: #1a2233;
+    background-color: #1a2233;
 }
 
 /* ARIA grid overlay — exactly covers the canvas. */
 .europa-grid {
-  position: absolute;
-  inset: 0;
+    position: absolute;
+    inset: 0;
 }
 
 .europa-grid:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
 }
 
 /* One visible cell (role="gridcell"). Geometry + terrain color are
    inline styles; this block carries shared decoration only. */
 .europa-cell {
-  position: absolute;
+    position: absolute;
 }
 
 /* Keyboard focus ring (WCAG 2.4.7 Focus Visible). */
 .europa-cell--focused {
-  z-index: 2;
+    z-index: 2;
 }
 
 /* Pipe indicators: CSS border triangles pinned to the cell edges.
    The span itself is zero-size; its borders form the triangle. */
 .europa-pipe {
-  position: absolute;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  --europa-pipe-tri: 6px;
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    --europa-pipe-tri: 6px;
 }
 
 .europa-pipe--N {
-  top: 0;
-  left: calc(50% - var(--europa-pipe-tri));
-  border-width: 0 var(--europa-pipe-tri) 8px var(--europa-pipe-tri);
-  border-color: transparent transparent #f59e0b transparent;
+    top: 0;
+    left: calc(50% - var(--europa-pipe-tri));
+    border-width: 0 var(--europa-pipe-tri) 8px var(--europa-pipe-tri);
+    border-color: transparent transparent #f59e0b transparent;
 }
 
 .europa-pipe--S {
-  bottom: 0;
-  left: calc(50% - var(--europa-pipe-tri));
-  border-width: 8px var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
-  border-color: #f59e0b transparent transparent transparent;
+    bottom: 0;
+    left: calc(50% - var(--europa-pipe-tri));
+    border-width: 8px var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
+    border-color: #f59e0b transparent transparent transparent;
 }
 
 .europa-pipe--W {
-  left: 0;
-  top: calc(50% - var(--europa-pipe-tri));
-  border-width: var(--europa-pipe-tri) 8px var(--europa-pipe-tri) 0;
-  border-color: transparent #f59e0b transparent transparent;
+    left: 0;
+    top: calc(50% - var(--europa-pipe-tri));
+    border-width: var(--europa-pipe-tri) 8px var(--europa-pipe-tri) 0;
+    border-color: transparent #f59e0b transparent transparent;
 }
 
 .europa-pipe--E {
-  right: 0;
-  top: calc(50% - var(--europa-pipe-tri));
-  border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) 8px;
-  border-color: transparent transparent transparent #f59e0b;
+    right: 0;
+    top: calc(50% - var(--europa-pipe-tri));
+    border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) 8px;
+    border-color: transparent transparent transparent #f59e0b;
 }
 
 /* City marker dot (redundant with the city outline inline style). */
 .europa-cell__city-dot {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #fbbf24;
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #fbbf24;
 }
 
 /* Troop count chip: dark plate + white digits (≥ 4.5:1 contrast);
    owner color rides the chip border, never the text. */
 .europa-cell__troops {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  min-width: 55%;
-  padding: 1px 3px;
-  border: 2px solid transparent;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-align: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 55%;
+    padding: 1px 3px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
 }
 
 /* Reserves badge (bottom edge, small per data-model.md §3). */
 .europa-cell__reserves {
-  position: absolute;
-  bottom: 1px;
-  right: 1px;
-  padding: 0 3px;
-  border-radius: 3px;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1.4;
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    padding: 0 3px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.4;
 }
 
 /* HUD placeholder (US5 replaces it with the full status banner). */
 .europa-hud {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 12rem;
-  padding: 0.75rem 1rem;
-  background-color: #111827;
-  color: #e5e7eb;
-  border-radius: 6px;
-  font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 12rem;
+    padding: 0.75rem 1rem;
+    background-color: #111827;
+    color: #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.9rem;
 }
 
 /* Surrender trigger (US5 T084) + minimap host (US5 T081). */
 .europa-hud__surrender {
-  margin-top: 0.25rem;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid #374151;
-  border-radius: 4px;
-  background-color: #1f2937;
-  color: #f9fafb;
-  font-size: 0.85rem;
-  cursor: pointer;
+    margin-top: 0.25rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    background-color: #1f2937;
+    color: #f9fafb;
+    font-size: 0.85rem;
+    cursor: pointer;
 }
 
 .europa-hud__surrender:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .europa-minimap {
-  margin-top: 0.5rem;
-  border: 1px solid #374151;
-  border-radius: 4px;
-  image-rendering: pixelated;
+    margin-top: 0.5rem;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    image-rendering: pixelated;
 }
 
 /*
@@ -206,16 +206,16 @@ body {
  * high-contrast amber on dark, pinned above the board.
  */
 .europa-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 900;
-  padding: 0.5rem 1rem;
-  background-color: #d97706;
-  color: #111827;
-  font-weight: 700;
-  text-align: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 900;
+    padding: 0.5rem 1rem;
+    background-color: #d97706;
+    color: #111827;
+    font-weight: 700;
+    text-align: center;
 }
 
 /*
@@ -223,86 +223,86 @@ body {
  * is a dark plate matching the chrome.
  */
 .europa-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(26, 34, 51, 0.75);
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(26, 34, 51, 0.75);
 }
 
 .europa-modal {
-  max-width: 24rem;
-  padding: 1.25rem 1.5rem;
-  background-color: #111827;
-  color: #e5e7eb;
-  border: 1px solid #374151;
-  border-radius: 8px;
+    max-width: 24rem;
+    padding: 1.25rem 1.5rem;
+    background-color: #111827;
+    color: #e5e7eb;
+    border: 1px solid #374151;
+    border-radius: 8px;
 }
 
 .europa-modal__title {
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
 }
 
 .europa-modal__body {
-  margin: 0 0 1rem;
-  font-size: 0.9rem;
-  line-height: 1.4;
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
 }
 
 .europa-modal__actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
 }
 
 .europa-modal__button {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid #374151;
-  border-radius: 4px;
-  background-color: #1f2937;
-  color: #f9fafb;
-  font-size: 0.85rem;
-  cursor: pointer;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    background-color: #1f2937;
+    color: #f9fafb;
+    font-size: 0.85rem;
+    cursor: pointer;
 }
 
 .europa-modal__button--danger {
-  border-color: #dc2626;
+    border-color: #dc2626;
 }
 
 /*
  * Error boundary fallback (US5 T085 / Q-B08).
  */
 .europa-error-boundary {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 2rem;
-  text-align: center;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    text-align: center;
 }
 
 .europa-error-boundary__title {
-  margin: 0;
-  font-size: 1.2rem;
+    margin: 0;
+    font-size: 1.2rem;
 }
 
 .europa-error-boundary__body {
-  margin: 0;
-  color: #9ca3af;
+    margin: 0;
+    color: #9ca3af;
 }
 
 .europa-error-boundary__reload {
-  padding: 0.5rem 1rem;
-  border: 1px solid #374151;
-  border-radius: 4px;
-  background-color: #1f2937;
-  color: #f9fafb;
-  cursor: pointer;
+    padding: 0.5rem 1rem;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    background-color: #1f2937;
+    color: #f9fafb;
+    cursor: pointer;
 }
 
 /*
@@ -310,54 +310,54 @@ body {
  * Focus ring is #ffffff on #111827 (contrast ≈ 16:1, WCAG 2.4.7 ≥ 3:1).
  */
 .europa-order-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 12rem;
-  padding: 0.75rem 1rem;
-  background-color: #111827;
-  color: #e5e7eb;
-  border-radius: 6px;
-  font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 12rem;
+    padding: 0.75rem 1rem;
+    background-color: #111827;
+    color: #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.9rem;
 }
 
 .europa-order-bar:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
 }
 
 .europa-order-bar__mode {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 .europa-order-bar__buttons {
-  display: flex;
-  gap: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
 }
 
 .europa-order-bar__button {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid #374151;
-  border-radius: 4px;
-  background-color: #1f2937;
-  color: #f9fafb;
-  font-size: 0.85rem;
-  cursor: pointer;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    background-color: #1f2937;
+    color: #f9fafb;
+    font-size: 0.85rem;
+    cursor: pointer;
 }
 
 /* Visible focus indicator for palette buttons (WCAG 2.4.7). Uses
    :focus rather than :focus-visible so the ring never disappears
    regardless of how focus arrived (keyboard, programmatic, pointer). */
 .europa-order-bar__button:focus {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
 }
 
 /* Engaged exclusive-mode state (redundant with the mode badge text
    and aria-pressed — never color alone, constitution Principle VI). */
 .europa-order-bar__button[aria-pressed="true"] {
-  border-color: #f59e0b;
-  box-shadow: inset 0 0 0 1px #f59e0b;
+    border-color: #f59e0b;
+    box-shadow: inset 0 0 0 1px #f59e0b;
 }
 
 /*
@@ -366,8 +366,8 @@ body {
  * documented yellow/blue rings); the aim dot is inline-styled.
  */
 .europa-targeting__rings {
-  outline: 1px dashed #f59e0b;
-  outline-offset: calc(-1 * var(--europa-ring-inset, 25%));
+    outline: 1px dashed #f59e0b;
+    outline-offset: calc(-1 * var(--europa-ring-inset, 25%));
 }
 
 /*
@@ -377,8 +377,8 @@ body {
  * `.europa-focus-ring` class on QoL-era controls.
  */
 .europa-focus-ring:focus {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
 }
 
 /*
@@ -386,50 +386,50 @@ body {
  * buttons meet the WCAG 2.5.8 target-size minimum (24×24 CSS px).
  */
 .europa-reserves {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 12rem;
-  padding: 0.75rem 1rem;
-  background-color: #111827;
-  color: #e5e7eb;
-  border-radius: 6px;
-  font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 12rem;
+    padding: 0.75rem 1rem;
+    background-color: #111827;
+    color: #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.9rem;
 }
 
 .europa-reserves__label {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 .europa-reserves__slider {
-  width: 100%;
-  accent-color: #f59e0b;
+    width: 100%;
+    accent-color: #f59e0b;
 }
 
 .europa-reserves__digits {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.25rem;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.25rem;
 }
 
 /* Target size with sub-pixel safety margin above the WCAG 2.5.8
    24×24 minimum (26px nominal keeps rendered width ≥ 24 even after
    fractional layout rounding). */
 .europa-reserves__digit {
-  min-width: 26px;
-  min-height: 26px;
-  padding: 0.25rem 0;
-  border: 1px solid #374151;
-  border-radius: 4px;
-  background-color: #1f2937;
-  color: #f9fafb;
-  font-size: 0.85rem;
-  cursor: pointer;
+    min-width: 26px;
+    min-height: 26px;
+    padding: 0.25rem 0;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    background-color: #1f2937;
+    color: #f9fafb;
+    font-size: 0.85rem;
+    cursor: pointer;
 }
 
 .europa-reserves__digit[aria-pressed="true"] {
-  border-color: #f59e0b;
-  box-shadow: inset 0 0 0 1px #f59e0b;
+    border-color: #f59e0b;
+    box-shadow: inset 0 0 0 1px #f59e0b;
 }
 
 /*
@@ -438,54 +438,54 @@ body {
  * text for screen readers.
  */
 .europa-feedback {
-  min-width: 12rem;
+    min-width: 12rem;
 }
 
 .europa-feedback__list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .europa-feedback__item {
-  padding: 0.375rem 0.625rem;
-  border-radius: 4px;
-  background-color: #111827;
-  color: #f9fafb;
-  font-size: 0.85rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: 4px;
+    background-color: #111827;
+    color: #f9fafb;
+    font-size: 0.85rem;
 }
 
 .europa-feedback__item--success {
-  border-left: 3px solid #059669;
+    border-left: 3px solid #059669;
 }
 
 .europa-feedback__item--warning {
-  border-left: 3px solid #d97706;
+    border-left: 3px solid #d97706;
 }
 
 .europa-feedback__item--error {
-  border-left: 3px solid #dc2626;
+    border-left: 3px solid #dc2626;
 }
 
 .europa-feedback__item--info {
-  border-left: 3px solid #2563eb;
+    border-left: 3px solid #2563eb;
 }
 
 /* Visually hidden but screen-reader-visible (clip pattern, mirrors
    the live-region styling for non-announcer status nodes). */
 .europa-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
 /*
@@ -493,7 +493,7 @@ body {
  * in DOM/Tab order; visually matches the sidebar chrome.
  */
 .europa-surrender {
-  min-width: 12rem;
+    min-width: 12rem;
 }
 
 /*
@@ -505,60 +505,60 @@ body {
  * modal backdrop (1000) — those own their states exclusively.
  */
 .europa-waiting {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  background-color: rgba(26, 34, 51, 0.6);
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background-color: rgba(26, 34, 51, 0.6);
 }
 
 .europa-waiting__plate {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  background-color: #111827;
-  color: #f9fafb;
-  border: 1px solid #374151;
-  border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background-color: #111827;
+    color: #f9fafb;
+    border: 1px solid #374151;
+    border-radius: 8px;
 }
 
 /* Subtle spinner ring (decorative; aria-hidden in the component). */
 .europa-waiting__pulse {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 3px solid #374151;
-  border-top-color: #f59e0b;
-  animation: europa-spin 1.2s linear infinite;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 3px solid #374151;
+    border-top-color: #f59e0b;
+    animation: europa-spin 1.2s linear infinite;
 }
 
 @keyframes europa-spin {
-  to {
-    transform: rotate(360deg);
-  }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Reduced motion, path 1 of 2: the App-owned preference subscription
    flips this modifier class live (Q-A07 / WCAG 2.3.3). */
 .europa-waiting--reduced .europa-waiting__pulse {
-  animation: none;
+    animation: none;
 }
 
 /* Reduced motion, path 2 of 2: stylesheet-level guard so the ring
    stands still even when only the OS flag is observable. */
 @media (prefers-reduced-motion: reduce) {
-  .europa-waiting__pulse {
-    animation: none;
-  }
+    .europa-waiting__pulse {
+        animation: none;
+    }
 }
 
 .europa-waiting__text {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
 }

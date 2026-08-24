@@ -39,15 +39,12 @@ import { DEFAULT_INPUT_MAPPING } from '../state/types';
  * @param key     Normalized `KeyboardEvent.key` value (single character).
  * @param mapping Control table; defaults to the original mapping.
  */
-export function resolveReservePercent(
-  key: string,
-  mapping: InputMapping = DEFAULT_INPUT_MAPPING,
-): ReservesPct | null {
-  const index = mapping.reserveKeys.indexOf(key);
-  if (index < 0) {
-    return null;
-  }
-  return index as ReservesPct;
+export function resolveReservePercent(key: string, mapping: InputMapping = DEFAULT_INPUT_MAPPING): ReservesPct | null {
+    const index = mapping.reserveKeys.indexOf(key);
+    if (index < 0) {
+        return null;
+    }
+    return index as ReservesPct;
 }
 
 /** Why a reserve keypress produced no action. */
@@ -58,8 +55,8 @@ export type ReservesIgnoreReason = 'not-live' | 'no-selection';
  * `'action'` carries the ready-to-dispatch `PlayerAction`.
  */
 export type ReservesOutcome =
-  | { readonly kind: 'action'; readonly action: PlayerAction }
-  | { readonly kind: 'ignore'; readonly reason: ReservesIgnoreReason };
+    | { readonly kind: 'action'; readonly action: PlayerAction }
+    | { readonly kind: 'ignore'; readonly reason: ReservesIgnoreReason };
 
 /**
  * Translate a keydown into a reserves `PlayerAction`, or explain why
@@ -71,24 +68,24 @@ export type ReservesOutcome =
  * @param mapping Control table; defaults to the original mapping.
  */
 export function buildReservesAction(
-  state: ConsoleState,
-  key: string,
-  mapping: InputMapping = DEFAULT_INPUT_MAPPING,
+    state: ConsoleState,
+    key: string,
+    mapping: InputMapping = DEFAULT_INPUT_MAPPING,
 ): ReservesOutcome | null {
-  const percent = resolveReservePercent(key, mapping);
-  if (percent === null) {
-    return null;
-  }
-  if (!state.inputEnabled) {
-    return { kind: 'ignore', reason: 'not-live' };
-  }
-  if (state.selection === null) {
-    return { kind: 'ignore', reason: 'no-selection' };
-  }
-  return {
-    kind: 'action',
-    action: { kind: 'setReserves', cell: state.selection, percent },
-  };
+    const percent = resolveReservePercent(key, mapping);
+    if (percent === null) {
+        return null;
+    }
+    if (!state.inputEnabled) {
+        return { kind: 'ignore', reason: 'not-live' };
+    }
+    if (state.selection === null) {
+        return { kind: 'ignore', reason: 'no-selection' };
+    }
+    return {
+        kind: 'action',
+        action: { kind: 'setReserves', cell: state.selection, percent },
+    };
 }
 
 /**
@@ -99,5 +96,5 @@ export function buildReservesAction(
  * @param percent Engine reserves digit (0..9).
  */
 export function reservesDigitLabel(percent: ReservesPct): string {
-  return `Set reserves to ${percent * 10}%`;
+    return `Set reserves to ${percent * 10}%`;
 }

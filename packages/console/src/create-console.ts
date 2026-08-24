@@ -21,15 +21,15 @@
 import type { Console, ConsoleConfig, ConsoleDeps } from '../contracts/console-api';
 import { ConsoleRuntime } from './runtime';
 import type {
-  ActionId,
-  CameraState,
-  ConsoleAction,
-  ConsoleConnectionStatus,
-  ConsoleState,
-  Order,
-  PlayerId,
-  QoLSettings,
-  SessionToken,
+    ActionId,
+    CameraState,
+    ConsoleAction,
+    ConsoleConnectionStatus,
+    ConsoleState,
+    Order,
+    PlayerId,
+    QoLSettings,
+    SessionToken,
 } from './state/types';
 
 /**
@@ -55,27 +55,27 @@ import type {
  * ```
  */
 export function createConsole(config: ConsoleConfig, deps?: ConsoleDeps): Console {
-  const runtime = new ConsoleRuntime({ config, deps });
+    const runtime = new ConsoleRuntime({ config, deps });
 
-  return {
-    mount: (container: HTMLElement) => runtime.mountInto(container),
-    unmount: () => runtime.teardown(),
-    subscribe: (handler: (state: ConsoleState) => void) => runtime.subscribe(handler),
-    getState: (): ConsoleState => runtime.getState(),
-    dispatch: (action: ConsoleAction): void => runtime.apply(action),
-    sendOrder: (order: Order): ActionId => runtime.sendWireOrder(order),
-    getSessionToken: (): SessionToken | null => runtime.getState().session.sessionToken,
-    getPlayerId: (): PlayerId | null => runtime.getState().session.playerId,
-    getConnectionStatus: (): ConsoleConnectionStatus => runtime.getState().status,
-    requestSurrender: () => runtime.requestSurrender(),
-    setQolSettings: (patch: Partial<QoLSettings>): void => {
-      runtime.apply({ kind: 'setQol', patch });
-    },
-    setCamera: (camera: Partial<CameraState>): void => {
-      // Partial-camera semantics: merge over the current camera so
-      // hosts can nudge zoom or pan independently ("reset view"
-      // buttons pass the full default instead).
-      runtime.apply({ kind: 'setCamera', camera: { ...runtime.getState().camera, ...camera } });
-    },
-  };
+    return {
+        mount: (container: HTMLElement) => runtime.mountInto(container),
+        unmount: () => runtime.teardown(),
+        subscribe: (handler: (state: ConsoleState) => void) => runtime.subscribe(handler),
+        getState: (): ConsoleState => runtime.getState(),
+        dispatch: (action: ConsoleAction): void => runtime.apply(action),
+        sendOrder: (order: Order): ActionId => runtime.sendWireOrder(order),
+        getSessionToken: (): SessionToken | null => runtime.getState().session.sessionToken,
+        getPlayerId: (): PlayerId | null => runtime.getState().session.playerId,
+        getConnectionStatus: (): ConsoleConnectionStatus => runtime.getState().status,
+        requestSurrender: () => runtime.requestSurrender(),
+        setQolSettings: (patch: Partial<QoLSettings>): void => {
+            runtime.apply({ kind: 'setQol', patch });
+        },
+        setCamera: (camera: Partial<CameraState>): void => {
+            // Partial-camera semantics: merge over the current camera so
+            // hosts can nudge zoom or pan independently ("reset view"
+            // buttons pass the full default instead).
+            runtime.apply({ kind: 'setCamera', camera: { ...runtime.getState().camera, ...camera } });
+        },
+    };
 }

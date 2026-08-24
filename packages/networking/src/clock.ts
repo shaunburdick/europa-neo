@@ -22,23 +22,23 @@
  * The scheduler handle returned by `createTickClock`.
  */
 export interface TickClock {
-  /**
-   * Begin firing `onTick` every `intervalMs`. Idempotent: calling
-   * while already running is a no-op (the interval is not reset).
-   */
-  start(): void;
-  /**
-   * Stop firing. Idempotent. The accumulated tick count is retained;
-   * a subsequent `start()` resumes from it.
-   */
-  stop(): void;
-  /** Number of fires since creation (starts at 0). */
-  tickCount(): number;
-  /**
-   * Wall-clock epoch ms of the most recent fire, or 0 if the clock
-   * has never fired.
-   */
-  lastTickAtMs(): number;
+    /**
+     * Begin firing `onTick` every `intervalMs`. Idempotent: calling
+     * while already running is a no-op (the interval is not reset).
+     */
+    start(): void;
+    /**
+     * Stop firing. Idempotent. The accumulated tick count is retained;
+     * a subsequent `start()` resumes from it.
+     */
+    stop(): void;
+    /** Number of fires since creation (starts at 0). */
+    tickCount(): number;
+    /**
+     * Wall-clock epoch ms of the most recent fire, or 0 if the clock
+     * has never fired.
+     */
+    lastTickAtMs(): number;
 }
 
 /**
@@ -54,45 +54,42 @@ export interface TickClock {
  * @returns A `TickClock` handle in the stopped state.
  * @throws RangeError when `intervalMs` is not a finite positive number.
  */
-export function createTickClock(
-  intervalMs: number,
-  onTick: (tickNumber: number, nowMs: number) => void,
-): TickClock {
-  if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
-    throw new RangeError(
-      `createTickClock: intervalMs must be a finite positive number (got ${String(intervalMs)})`,
-    );
-  }
+export function createTickClock(intervalMs: number, onTick: (tickNumber: number, nowMs: number) => void): TickClock {
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+        throw new RangeError(
+            `createTickClock: intervalMs must be a finite positive number (got ${String(intervalMs)})`,
+        );
+    }
 
-  let timer: ReturnType<typeof setInterval> | undefined;
-  let count = 0;
-  let lastAtMs = 0;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let count = 0;
+    let lastAtMs = 0;
 
-  return {
-    start(): void {
-      // Idempotent start: never stack a second interval on top of a
-      // running one (that would double the effective tick rate).
-      if (timer !== undefined) {
-        return;
-      }
-      timer = setInterval(() => {
-        count += 1;
-        const nowMs = Date.now();
-        lastAtMs = nowMs;
-        onTick(count, nowMs);
-      }, intervalMs);
-    },
-    stop(): void {
-      if (timer !== undefined) {
-        clearInterval(timer);
-        timer = undefined;
-      }
-    },
-    tickCount(): number {
-      return count;
-    },
-    lastTickAtMs(): number {
-      return lastAtMs;
-    },
-  };
+    return {
+        start(): void {
+            // Idempotent start: never stack a second interval on top of a
+            // running one (that would double the effective tick rate).
+            if (timer !== undefined) {
+                return;
+            }
+            timer = setInterval(() => {
+                count += 1;
+                const nowMs = Date.now();
+                lastAtMs = nowMs;
+                onTick(count, nowMs);
+            }, intervalMs);
+        },
+        stop(): void {
+            if (timer !== undefined) {
+                clearInterval(timer);
+                timer = undefined;
+            }
+        },
+        tickCount(): number {
+            return count;
+        },
+        lastTickAtMs(): number {
+            return lastAtMs;
+        },
+    };
 }

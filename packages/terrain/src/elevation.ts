@@ -55,18 +55,18 @@ import { fbm } from './fbm';
  * @returns The same `Uint8Array` reference (for chaining).
  */
 export function _enforcePointSymmetry(elev: Uint8Array, width: number): Uint8Array {
-  const height = width; // terrain only generates square boards
-  for (let y = 0; y < height; y++) {
-    const yRow = y * width;
-    const partnerY = height - 1 - y;
-    const partnerRow = partnerY * width;
-    for (let x = 0; x < width; x++) {
-      const partnerX = width - 1 - x;
-      const value = elev[yRow + x] ?? 0;
-      elev[partnerRow + partnerX] = value;
+    const height = width; // terrain only generates square boards
+    for (let y = 0; y < height; y++) {
+        const yRow = y * width;
+        const partnerY = height - 1 - y;
+        const partnerRow = partnerY * width;
+        for (let x = 0; x < width; x++) {
+            const partnerX = width - 1 - x;
+            const value = elev[yRow + x] ?? 0;
+            elev[partnerRow + partnerX] = value;
+        }
     }
-  }
-  return elev;
+    return elev;
 }
 
 /**
@@ -88,24 +88,24 @@ export function _enforcePointSymmetry(elev: Uint8Array, width: number): Uint8Arr
  *          180° point-symmetric integer values in `[0, 255]`.
  */
 export function generateElevationMap(
-  rng: Rng,
-  width: number,
-  height: number,
-  settings: Readonly<GenerationSettings>,
+    rng: Rng,
+    width: number,
+    height: number,
+    settings: Readonly<GenerationSettings>,
 ): Uint8Array {
-  // Derive a substream for elevation. The parent's first uint32
-  // becomes the seed for the elevation-phase fBm. This advances
-  // the parent exactly once (per the rng-adapter contract).
-  const noiseSeed = rng();
-  // Use the lower 32 bits as a uint32 seed (already uint32 but
-  // explicit for clarity).
-  const seed = noiseSeed >>> 0;
-  const elev = new Uint8Array(width * height);
-  for (let y = 0; y < height; y++) {
-    const row = y * width;
-    for (let x = 0; x < width; x++) {
-      elev[row + x] = fbm(x, y, seed, settings.octaves, settings.roughness);
+    // Derive a substream for elevation. The parent's first uint32
+    // becomes the seed for the elevation-phase fBm. This advances
+    // the parent exactly once (per the rng-adapter contract).
+    const noiseSeed = rng();
+    // Use the lower 32 bits as a uint32 seed (already uint32 but
+    // explicit for clarity).
+    const seed = noiseSeed >>> 0;
+    const elev = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) {
+        const row = y * width;
+        for (let x = 0; x < width; x++) {
+            elev[row + x] = fbm(x, y, seed, settings.octaves, settings.roughness);
+        }
     }
-  }
-  return _enforcePointSymmetry(elev, width);
+    return _enforcePointSymmetry(elev, width);
 }

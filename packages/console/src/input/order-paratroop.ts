@@ -21,5 +21,5 @@ import { type AbilityFireArgs, fireAbility, type TargetingOutcome } from './subc
  * @param args Store + cursor aim (see {@link AbilityFireArgs}).
  */
 export function fireParatroop(args: AbilityFireArgs): TargetingOutcome {
-  return fireAbility('paratroop', args);
+    return fireAbility('paratroop', args);
 }

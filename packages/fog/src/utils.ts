@@ -37,12 +37,12 @@ import type { CellView, Coord, PlayerView } from './types';
  * @returns `true` iff `coord` appears in `view.visibleCells`.
  */
 export function isVisible(view: Readonly<PlayerView>, coord: Coord): boolean {
-  for (const cell of view.visibleCells) {
-    if (cell.coord.x === coord.x && cell.coord.y === coord.y) {
-      return true;
+    for (const cell of view.visibleCells) {
+        if (cell.coord.x === coord.x && cell.coord.y === coord.y) {
+            return true;
+        }
     }
-  }
-  return false;
+    return false;
 }
 
 /**
@@ -58,12 +58,12 @@ export function isVisible(view: Readonly<PlayerView>, coord: Coord): boolean {
  * @returns The `CellView` for `coord`, or `undefined` if not visible.
  */
 export function visibleCellAt(view: Readonly<PlayerView>, coord: Coord): CellView | undefined {
-  for (const cell of view.visibleCells) {
-    if (cell.coord.x === coord.x && cell.coord.y === coord.y) {
-      return cell;
+    for (const cell of view.visibleCells) {
+        if (cell.coord.x === coord.x && cell.coord.y === coord.y) {
+            return cell;
+        }
     }
-  }
-  return undefined;
+    return undefined;
 }
 
 /**
@@ -94,52 +94,52 @@ const HASH_WORD_HEX_LENGTH = 8;
  * @returns A 16-char lowercase hex string.
  */
 export function hashPlayerView(view: Readonly<PlayerView>): string {
-  // JSON.stringify with a fixed key order (the type declares the
-  // field order; object literals preserve insertion order) yields a
-  // stable byte string for identical views. Pipes serialize as an
-  // array via JSON.stringify(Set) → "[]" — Sets stringify as `{}`,
-  // so we normalize pipes to sorted arrays first to keep the hash
-  // sensitive to pipe changes.
-  const normalized = {
-    player: view.player,
-    tick: view.tick,
-    visibleCells: view.visibleCells.map((cell) => ({
-      coord: cell.coord,
-      terrain: cell.cell.terrain,
-      elevation: cell.cell.elevation,
-      troopCount: cell.troopCount,
-      troopOwner: cell.troopOwner,
-      pipes: [...cell.pipes].sort(),
-      reservesPercent: cell.reservesPercent,
-      cityOwner: cell.cityOwner,
-    })),
-    events: {
-      combat: view.events.combat,
-      captures: view.events.captures,
-      eliminations: view.events.eliminations,
-      appliedOrders: view.events.appliedOrders,
-      errors: view.events.errors,
-    },
-    config: view.config,
-  };
-  const json = JSON.stringify(normalized);
+    // JSON.stringify with a fixed key order (the type declares the
+    // field order; object literals preserve insertion order) yields a
+    // stable byte string for identical views. Pipes serialize as an
+    // array via JSON.stringify(Set) → "[]" — Sets stringify as `{}`,
+    // so we normalize pipes to sorted arrays first to keep the hash
+    // sensitive to pipe changes.
+    const normalized = {
+        player: view.player,
+        tick: view.tick,
+        visibleCells: view.visibleCells.map((cell) => ({
+            coord: cell.coord,
+            terrain: cell.cell.terrain,
+            elevation: cell.cell.elevation,
+            troopCount: cell.troopCount,
+            troopOwner: cell.troopOwner,
+            pipes: [...cell.pipes].sort(),
+            reservesPercent: cell.reservesPercent,
+            cityOwner: cell.cityOwner,
+        })),
+        events: {
+            combat: view.events.combat,
+            captures: view.events.captures,
+            eliminations: view.events.eliminations,
+            appliedOrders: view.events.appliedOrders,
+            errors: view.events.errors,
+        },
+        config: view.config,
+    };
+    const json = JSON.stringify(normalized);
 
-  // Two independent FNV-1a lanes over the UTF-16 code units.
-  let h1 = FNV_OFFSET;
-  let h2 = FNV_PRIME;
-  for (let i = 0; i < json.length; i++) {
-    const code = json.charCodeAt(i);
-    h1 = Math.imul(h1 ^ code, FNV_PRIME) >>> 0;
-    h2 = Math.imul(h2 ^ (code + i), FNV_OFFSET) >>> 0;
-  }
+    // Two independent FNV-1a lanes over the UTF-16 code units.
+    let h1 = FNV_OFFSET;
+    let h2 = FNV_PRIME;
+    for (let i = 0; i < json.length; i++) {
+        const code = json.charCodeAt(i);
+        h1 = Math.imul(h1 ^ code, FNV_PRIME) >>> 0;
+        h2 = Math.imul(h2 ^ (code + i), FNV_OFFSET) >>> 0;
+    }
 
-  // Fold both lanes into a 64-bit hex digest (16 chars). The second
-  // lane is rotated by 7 bits before emission so single-bit input
-  // differences avalanche into both halves.
-  const hi = (h1 ^ Math.imul(h2, HASH_MIX_HIGH)) >>> 0;
-  const lo = (h2 ^ Math.imul(h1, HASH_MIX_LOW)) >>> 0;
-  return (
-    hi.toString(HASH_HEX_RADIX).padStart(HASH_WORD_HEX_LENGTH, '0') +
-    lo.toString(HASH_HEX_RADIX).padStart(HASH_WORD_HEX_LENGTH, '0')
-  );
+    // Fold both lanes into a 64-bit hex digest (16 chars). The second
+    // lane is rotated by 7 bits before emission so single-bit input
+    // differences avalanche into both halves.
+    const hi = (h1 ^ Math.imul(h2, HASH_MIX_HIGH)) >>> 0;
+    const lo = (h2 ^ Math.imul(h1, HASH_MIX_LOW)) >>> 0;
+    return (
+        hi.toString(HASH_HEX_RADIX).padStart(HASH_WORD_HEX_LENGTH, '0') +
+        lo.toString(HASH_HEX_RADIX).padStart(HASH_WORD_HEX_LENGTH, '0')
+    );
 }

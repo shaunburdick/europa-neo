@@ -32,20 +32,20 @@ const S_BIT = 0x04;
 const W_BIT = 0x08;
 
 interface TransferParams {
-  board: Readonly<Board>;
-  x: number;
-  y: number;
-  dx: number;
-  dy: number;
-  srcOwner: number;
-  base: number;
-  downFactor: number;
-  upFactor: number;
-  cap: number;
-  newCounts: Uint32Array;
-  newOwners: Uint8Array;
-  /** Optional inflow tally to populate (null when tally is not supplied). */
-  tally: Uint32Array | null;
+    board: Readonly<Board>;
+    x: number;
+    y: number;
+    dx: number;
+    dy: number;
+    srcOwner: number;
+    base: number;
+    downFactor: number;
+    upFactor: number;
+    cap: number;
+    newCounts: Uint32Array;
+    newOwners: Uint8Array;
+    /** Optional inflow tally to populate (null when tally is not supplied). */
+    tally: Uint32Array | null;
 }
 
 /**
@@ -65,86 +65,86 @@ interface TransferParams {
  *          not model source depletion here; US3 reserves/decay cover that).
  */
 export function resolveFlow(
-  state: Readonly<WorldState>,
-  board: Readonly<Board>,
-  constants: EngineConstants,
-  inflowTally?: Uint32Array,
+    state: Readonly<WorldState>,
+    board: Readonly<Board>,
+    constants: EngineConstants,
+    inflowTally?: Uint32Array,
 ): WorldState {
-  const w = board.width;
-  const n = w * w;
+    const w = board.width;
+    const n = w * w;
 
-  // Start with copies; we'll only modify destination cells in this
-  // phase. Source counts are not decremented (US1 simplification —
-  // US3 decay/reserves govern source losses).
-  const newCounts = new Uint32Array(state.troopCounts);
-  const newOwners = new Uint8Array(state.troopOwners);
+    // Start with copies; we'll only modify destination cells in this
+    // phase. Source counts are not decremented (US1 simplification —
+    // US3 decay/reserves govern source losses).
+    const newCounts = new Uint32Array(state.troopCounts);
+    const newOwners = new Uint8Array(state.troopOwners);
 
-  const base = constants.flowBase >>> 0;
-  const downFactor = constants.flowDownhillFactor >>> 0;
-  const upFactor = constants.flowUphillFactor >>> 0;
-  const cap = constants.cellCapacity >>> 0;
+    const base = constants.flowBase >>> 0;
+    const downFactor = constants.flowDownhillFactor >>> 0;
+    const upFactor = constants.flowUphillFactor >>> 0;
+    const cap = constants.cellCapacity >>> 0;
 
-  const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * 4;
+    const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * 4;
 
-  for (let idx = 0; idx < n; idx++) {
-    const mask = state.pipeMasks[idx] ?? 0;
-    if (mask === 0) {
-      continue;
+    for (let idx = 0; idx < n; idx++) {
+        const mask = state.pipeMasks[idx] ?? 0;
+        if (mask === 0) {
+            continue;
+        }
+        const srcCount = state.troopCounts[idx] ?? 0;
+        const srcOwner = state.troopOwners[idx] ?? 0;
+        if (srcCount === 0 || srcOwner === 0) {
+            continue;
+        }
+
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        const params: TransferParams = {
+            board,
+            x,
+            y,
+            dx: 0,
+            dy: 0,
+            srcOwner,
+            base,
+            downFactor,
+            upFactor,
+            cap,
+            newCounts,
+            newOwners,
+            tally: tallyAvailable ? (inflowTally as Uint32Array) : null,
+        };
+
+        // Iterate directions in fixed order (N, E, S, W) for determinism.
+        if ((mask & N_BIT) !== 0) {
+            params.dx = 0;
+            params.dy = -1;
+            transfer(params);
+        }
+        if ((mask & E_BIT) !== 0) {
+            params.dx = 1;
+            params.dy = 0;
+            transfer(params);
+        }
+        if ((mask & S_BIT) !== 0) {
+            params.dx = 0;
+            params.dy = 1;
+            transfer(params);
+        }
+        if ((mask & W_BIT) !== 0) {
+            params.dx = -1;
+            params.dy = 0;
+            transfer(params);
+        }
     }
-    const srcCount = state.troopCounts[idx] ?? 0;
-    const srcOwner = state.troopOwners[idx] ?? 0;
-    if (srcCount === 0 || srcOwner === 0) {
-      continue;
-    }
 
-    const x = idx % w;
-    const y = Math.floor(idx / w);
-    const params: TransferParams = {
-      board,
-      x,
-      y,
-      dx: 0,
-      dy: 0,
-      srcOwner,
-      base,
-      downFactor,
-      upFactor,
-      cap,
-      newCounts,
-      newOwners,
-      tally: tallyAvailable ? (inflowTally as Uint32Array) : null,
+    return {
+        troopCounts: newCounts,
+        troopOwners: newOwners,
+        pipeMasks: new Uint8Array(state.pipeMasks),
+        reservesPct: new Uint8Array(state.reservesPct),
+        cityOwners: new Uint8Array(state.cityOwners),
     };
-
-    // Iterate directions in fixed order (N, E, S, W) for determinism.
-    if ((mask & N_BIT) !== 0) {
-      params.dx = 0;
-      params.dy = -1;
-      transfer(params);
-    }
-    if ((mask & E_BIT) !== 0) {
-      params.dx = 1;
-      params.dy = 0;
-      transfer(params);
-    }
-    if ((mask & S_BIT) !== 0) {
-      params.dx = 0;
-      params.dy = 1;
-      transfer(params);
-    }
-    if ((mask & W_BIT) !== 0) {
-      params.dx = -1;
-      params.dy = 0;
-      transfer(params);
-    }
-  }
-
-  return {
-    troopCounts: newCounts,
-    troopOwners: newOwners,
-    pipeMasks: new Uint8Array(state.pipeMasks),
-    reservesPct: new Uint8Array(state.reservesPct),
-    cityOwners: new Uint8Array(state.cityOwners),
-  };
 }
 
 /**
@@ -152,67 +152,53 @@ export function resolveFlow(
  * if the destination is out of bounds, water, or already at capacity.
  */
 function transfer(params: TransferParams): void {
-  const {
-    board,
-    x,
-    y,
-    dx,
-    dy,
-    srcOwner,
-    base,
-    downFactor,
-    upFactor,
-    cap,
-    newCounts,
-    newOwners,
-    tally,
-  } = params;
-  const nx = x + dx;
-  const ny = y + dy;
-  const w = board.width;
-  if (nx < 0 || nx >= w || ny < 0 || ny >= w) {
-    return; // OOB → no-op
-  }
-  const dstIdx = ny * w + nx;
-  const dstCell = board.cells[dstIdx];
-  if (dstCell === undefined) {
-    return; // defensive
-  }
-  if (dstCell.terrain !== 'land') {
-    return; // water impassable (FR-002)
-  }
+    const { board, x, y, dx, dy, srcOwner, base, downFactor, upFactor, cap, newCounts, newOwners, tally } = params;
+    const nx = x + dx;
+    const ny = y + dy;
+    const w = board.width;
+    if (nx < 0 || nx >= w || ny < 0 || ny >= w) {
+        return; // OOB → no-op
+    }
+    const dstIdx = ny * w + nx;
+    const dstCell = board.cells[dstIdx];
+    if (dstCell === undefined) {
+        return; // defensive
+    }
+    if (dstCell.terrain !== 'land') {
+        return; // water impassable (FR-002)
+    }
 
-  // Compute slope factor.
-  const srcCell = board.cells[y * w + x];
-  if (srcCell === undefined) {
-    return;
-  }
-  const elevDelta = dstCell.elevation - srcCell.elevation;
-  let factor: number;
-  if (elevDelta < 0) {
-    factor = downFactor;
-  } else if (elevDelta > 0) {
-    factor = upFactor;
-  } else {
-    factor = 1; // flat = base * 1
-  }
-  // Integer multiply via imul for safety.
-  const moved = Math.imul(base, factor) >>> 0;
-  if (moved === 0) {
-    return;
-  }
+    // Compute slope factor.
+    const srcCell = board.cells[y * w + x];
+    if (srcCell === undefined) {
+        return;
+    }
+    const elevDelta = dstCell.elevation - srcCell.elevation;
+    let factor: number;
+    if (elevDelta < 0) {
+        factor = downFactor;
+    } else if (elevDelta > 0) {
+        factor = upFactor;
+    } else {
+        factor = 1; // flat = base * 1
+    }
+    // Integer multiply via imul for safety.
+    const moved = Math.imul(base, factor) >>> 0;
+    if (moved === 0) {
+        return;
+    }
 
-  // Clamp destination to capacity (FR-011).
-  const current = newCounts[dstIdx] ?? 0;
-  if (current >= cap) {
-    return;
-  }
-  const headroom = cap - current;
-  const add = moved < headroom ? moved : headroom;
-  newCounts[dstIdx] = current + add;
-  newOwners[dstIdx] = srcOwner;
-  // Update inflow tally if supplied (US2 combat + US3 decay side-channel).
-  if (tally !== null && srcOwner >= 1 && srcOwner <= 4) {
-    tally[dstIdx * 4 + (srcOwner - 1)] = (tally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + add;
-  }
+    // Clamp destination to capacity (FR-011).
+    const current = newCounts[dstIdx] ?? 0;
+    if (current >= cap) {
+        return;
+    }
+    const headroom = cap - current;
+    const add = moved < headroom ? moved : headroom;
+    newCounts[dstIdx] = current + add;
+    newOwners[dstIdx] = srcOwner;
+    // Update inflow tally if supplied (US2 combat + US3 decay side-channel).
+    if (tally !== null && srcOwner >= 1 && srcOwner <= 4) {
+        tally[dstIdx * 4 + (srcOwner - 1)] = (tally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + add;
+    }
 }

@@ -32,52 +32,52 @@
 // `constants.ts`; only the type lives here.)
 export type { EngineConstants } from './contracts/engine-api';
 export type {
-  AppliedOrderRecord,
-  Board,
-  CaptureEvent,
-  Cell,
-  // Read view
-  CellView,
-  // Board
-  CityPlacement,
-  // Events
-  CombatEvent,
-  CommandResult,
-  // Coordinates + cells
-  Coord,
-  Direction,
-  EliminationEvent,
-  // Match config
-  MatchConfig,
-  // Terminal
-  MatchResult,
-  Order,
-  OrderClearAllPipes,
-  OrderClearPipe,
-  OrderGun,
-  OrderParatroop,
-  // Orders
-  OrderSetPipe,
-  OrderSetPipesExclusive,
-  OrderSetReserves,
-  OrderSurrender,
-  // Players
-  Player,
-  // Branded primitives
-  PlayerId,
-  PlayerStatus,
-  ReservesPct,
-  // PRNG
-  Rng,
-  Terrain,
-  TickEvents,
-  TickResult,
-  // Results
-  ValidationError,
-  // World
-  World,
-  // Runtime state
-  WorldState,
+    AppliedOrderRecord,
+    Board,
+    CaptureEvent,
+    Cell,
+    // Read view
+    CellView,
+    // Board
+    CityPlacement,
+    // Events
+    CombatEvent,
+    CommandResult,
+    // Coordinates + cells
+    Coord,
+    Direction,
+    EliminationEvent,
+    // Match config
+    MatchConfig,
+    // Terminal
+    MatchResult,
+    Order,
+    OrderClearAllPipes,
+    OrderClearPipe,
+    OrderGun,
+    OrderParatroop,
+    // Orders
+    OrderSetPipe,
+    OrderSetPipesExclusive,
+    OrderSetReserves,
+    OrderSurrender,
+    // Players
+    Player,
+    // Branded primitives
+    PlayerId,
+    PlayerStatus,
+    ReservesPct,
+    // PRNG
+    Rng,
+    Terrain,
+    TickEvents,
+    TickResult,
+    // Results
+    ValidationError,
+    // World
+    World,
+    // Runtime state
+    WorldState,
 } from './contracts/engine-types';
 // The single value export from the contract: the engine API version.
 // Bumped on any breaking change to the public surface (constitution

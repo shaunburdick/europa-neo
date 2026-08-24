@@ -38,21 +38,21 @@ const MIN_BOARD_SIZE = 8;
  * @throws If `size < 8` or `size` is not an integer.
  */
 export function buildEmptyBoard(size: number): Board {
-  if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
-    throw new Error(`buildEmptyBoard: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
-  }
-  const cells: Cell[] = new Array(size * size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      cells[y * size + x] = { x, y, elevation: 0, terrain: 'land' };
+    if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
+        throw new Error(`buildEmptyBoard: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
     }
-  }
-  return Object.freeze({
-    width: size,
-    height: size,
-    cells: Object.freeze(cells),
-    cities: Object.freeze([]),
-  });
+    const cells: Cell[] = new Array(size * size);
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            cells[y * size + x] = { x, y, elevation: 0, terrain: 'land' };
+        }
+    }
+    return Object.freeze({
+        width: size,
+        height: size,
+        cells: Object.freeze(cells),
+        cities: Object.freeze([]),
+    });
 }
 
 /**
@@ -66,19 +66,15 @@ export function buildEmptyBoard(size: number): Board {
  *         an integer in `[0, 255]`.
  */
 export function buildFlatElevation(size: number, value: number): Uint8Array {
-  if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
-    throw new Error(
-      `buildFlatElevation: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`,
-    );
-  }
-  if (!Number.isInteger(value) || value < 0 || value > 255) {
-    throw new Error(
-      `buildFlatElevation: value must be an integer in [0, 255] (got ${String(value)})`,
-    );
-  }
-  const out = new Uint8Array(size * size);
-  out.fill(value);
-  return out;
+    if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
+        throw new Error(`buildFlatElevation: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
+    }
+    if (!Number.isInteger(value) || value < 0 || value > 255) {
+        throw new Error(`buildFlatElevation: value must be an integer in [0, 255] (got ${String(value)})`);
+    }
+    const out = new Uint8Array(size * size);
+    out.fill(value);
+    return out;
 }
 
 /**
@@ -97,29 +93,29 @@ export function buildFlatElevation(size: number, value: number): Uint8Array {
  *         `Uint8Array`, or any elevation is outside `[0, 255]`.
  */
 export function buildCellsFromElevation(elev: Uint8Array, waterMask: Uint8Array): Cell[] {
-  if (!(elev instanceof Uint8Array) || !(waterMask instanceof Uint8Array)) {
-    throw new Error('buildCellsFromElevation: both arguments must be Uint8Array');
-  }
-  if (elev.length !== waterMask.length) {
-    throw new Error(
-      `buildCellsFromElevation: length mismatch (elev=${String(elev.length)}, water=${String(waterMask.length)})`,
-    );
-  }
-  const { length } = elev;
-  // Square board: width === height === sqrt(length).
-  const size = Math.sqrt(length);
-  if (!Number.isInteger(size)) {
-    throw new Error(`buildCellsFromElevation: length ${String(length)} is not a perfect square`);
-  }
-  const cells: Cell[] = new Array(length);
-  for (let i = 0; i < length; i++) {
-    const elevation = elev[i] ?? 0;
-    const terrain: 'land' | 'water' = (waterMask[i] ?? 0) === 1 ? 'water' : 'land';
-    const y = Math.floor(i / size);
-    const x = i - y * size;
-    cells[i] = { x, y, elevation, terrain };
-  }
-  return cells;
+    if (!(elev instanceof Uint8Array) || !(waterMask instanceof Uint8Array)) {
+        throw new Error('buildCellsFromElevation: both arguments must be Uint8Array');
+    }
+    if (elev.length !== waterMask.length) {
+        throw new Error(
+            `buildCellsFromElevation: length mismatch (elev=${String(elev.length)}, water=${String(waterMask.length)})`,
+        );
+    }
+    const { length } = elev;
+    // Square board: width === height === sqrt(length).
+    const size = Math.sqrt(length);
+    if (!Number.isInteger(size)) {
+        throw new Error(`buildCellsFromElevation: length ${String(length)} is not a perfect square`);
+    }
+    const cells: Cell[] = new Array(length);
+    for (let i = 0; i < length; i++) {
+        const elevation = elev[i] ?? 0;
+        const terrain: 'land' | 'water' = (waterMask[i] ?? 0) === 1 ? 'water' : 'land';
+        const y = Math.floor(i / size);
+        const x = i - y * size;
+        cells[i] = { x, y, elevation, terrain };
+    }
+    return cells;
 }
 
 /**
@@ -131,22 +127,20 @@ export function buildCellsFromElevation(elev: Uint8Array, waterMask: Uint8Array)
  * @throws If `size` is invalid, or `cells.length !== size * size`.
  */
 export function buildBoardFromCells(cells: readonly Cell[], size: number): Board {
-  if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
-    throw new Error(
-      `buildBoardFromCells: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`,
-    );
-  }
-  if (!Array.isArray(cells) || cells.length !== size * size) {
-    throw new Error(
-      `buildBoardFromCells: cells.length (${String(cells.length)}) must equal size² (${String(size * size)})`,
-    );
-  }
-  return Object.freeze({
-    width: size,
-    height: size,
-    cells: Object.freeze([...cells]),
-    cities: Object.freeze([]),
-  });
+    if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
+        throw new Error(`buildBoardFromCells: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
+    }
+    if (!Array.isArray(cells) || cells.length !== size * size) {
+        throw new Error(
+            `buildBoardFromCells: cells.length (${String(cells.length)}) must equal size² (${String(size * size)})`,
+        );
+    }
+    return Object.freeze({
+        width: size,
+        height: size,
+        cells: Object.freeze([...cells]),
+        cities: Object.freeze([]),
+    });
 }
 
 // Re-export `Coord` so test files can `import type { Coord }` from the

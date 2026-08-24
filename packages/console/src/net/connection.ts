@@ -46,22 +46,22 @@ import type { ConnectionState, ConsoleConnectionStatus } from '../state/types';
  * @returns The console-facing status.
  */
 export function consoleStatusFromConnectionState(state: ConnectionState): ConsoleConnectionStatus {
-  switch (state) {
-    case 'pending':
-    case 'greeted':
-      return 'connecting';
-    case 'joined':
-    case 'rejoined':
-      return 'live';
-    case 'disconnected':
-      return 'reconnecting';
-    case 'expired':
-      return 'expired';
-    case 'terminal':
-      return 'game_over';
-    case 'closed':
-      return 'closed';
-    default:
-      return state;
-  }
+    switch (state) {
+        case 'pending':
+        case 'greeted':
+            return 'connecting';
+        case 'joined':
+        case 'rejoined':
+            return 'live';
+        case 'disconnected':
+            return 'reconnecting';
+        case 'expired':
+            return 'expired';
+        case 'terminal':
+            return 'game_over';
+        case 'closed':
+            return 'closed';
+        default:
+            return state;
+    }
 }

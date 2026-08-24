@@ -32,27 +32,27 @@ import type { MatchRecord } from './internal/matchRecord';
  *   is populated atomically at creation).
  */
 export function projectLobbyEntry(match: MatchRecord, nowMs: number): LobbyEntry | null {
-  if (match.visibility !== 'public' || match.status !== 'filling') {
-    return null;
-  }
-  const host = match.seats.get(0);
-  if (host === undefined) {
-    // Unreachable via the create path (the creator occupies seat 0
-    // before the record is stored); refuse to project a hostless match.
-    return null;
-  }
+    if (match.visibility !== 'public' || match.status !== 'filling') {
+        return null;
+    }
+    const host = match.seats.get(0);
+    if (host === undefined) {
+        // Unreachable via the create path (the creator occupies seat 0
+        // before the record is stored); refuse to project a hostless match.
+        return null;
+    }
 
-  const entry: LobbyEntry = {
-    matchId: match.matchId,
-    hostDisplayName: host.displayName,
-    playerCount: match.settings.playerCount,
-    seatsFilled: match.seats.size,
-    boardSize: match.settings.boardSize,
-    visibility: 'public',
-    createdAtMs: match.createdAtMs,
-    ageSeconds: (nowMs - match.createdAtMs) / 1000,
-  };
-  return entry;
+    const entry: LobbyEntry = {
+        matchId: match.matchId,
+        hostDisplayName: host.displayName,
+        playerCount: match.settings.playerCount,
+        seatsFilled: match.seats.size,
+        boardSize: match.settings.boardSize,
+        visibility: 'public',
+        createdAtMs: match.createdAtMs,
+        ageSeconds: (nowMs - match.createdAtMs) / 1000,
+    };
+    return entry;
 }
 
 /**
@@ -66,16 +66,13 @@ export function projectLobbyEntry(match: MatchRecord, nowMs: number): LobbyEntry
  * @param nowMs - Current epoch ms.
  * @returns Fresh `LobbyEntry` array; empty when nothing is joinable.
  */
-export function listPublicMatches(
-  matches: readonly MatchRecord[],
-  nowMs: number,
-): readonly LobbyEntry[] {
-  const entries: LobbyEntry[] = [];
-  for (const match of matches) {
-    const entry = projectLobbyEntry(match, nowMs);
-    if (entry !== null) {
-      entries.push(entry);
+export function listPublicMatches(matches: readonly MatchRecord[], nowMs: number): readonly LobbyEntry[] {
+    const entries: LobbyEntry[] = [];
+    for (const match of matches) {
+        const entry = projectLobbyEntry(match, nowMs);
+        if (entry !== null) {
+            entries.push(entry);
+        }
     }
-  }
-  return entries;
+    return entries;
 }

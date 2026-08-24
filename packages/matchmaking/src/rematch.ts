@@ -61,20 +61,20 @@ export type VoterEligibility = 'eligible' | 'already_voted' | 'not_in_match';
  * @returns The new offer, ready to store on `MatchRecord.rematch`.
  */
 export function openRematchWindow(
-  finishedMatch: MatchRecord,
-  offerId: MatchId,
-  nowMs: number,
-  rematchWindowMs: number,
+    finishedMatch: MatchRecord,
+    offerId: MatchId,
+    nowMs: number,
+    rematchWindowMs: number,
 ): RematchOffer {
-  const finishedAtMs = finishedMatch.finishedAtMs ?? nowMs;
-  return {
-    offerId,
-    windowExpiresAtMs: finishedAtMs + rematchWindowMs,
-    acceptedBy: new Set<PlayerSessionId>(),
-    declinedBy: new Set<PlayerSessionId>(),
-    allOriginalPlayerIds: [...finishedMatch.seats.values()].map((seat) => seat.playerSessionId),
-    newMatchRecord: null,
-  };
+    const finishedAtMs = finishedMatch.finishedAtMs ?? nowMs;
+    return {
+        offerId,
+        windowExpiresAtMs: finishedAtMs + rematchWindowMs,
+        acceptedBy: new Set<PlayerSessionId>(),
+        declinedBy: new Set<PlayerSessionId>(),
+        allOriginalPlayerIds: [...finishedMatch.seats.values()].map((seat) => seat.playerSessionId),
+        newMatchRecord: null,
+    };
 }
 
 /**
@@ -88,17 +88,14 @@ export function openRematchWindow(
  * @param voterId - The seated participant's session id.
  * @returns The eligibility verdict (see {@linkcode VoterEligibility}).
  */
-export function classifyVoterEligibility(
-  offer: RematchOffer,
-  voterId: PlayerSessionId,
-): VoterEligibility {
-  if (offer.acceptedBy.has(voterId) || offer.declinedBy.has(voterId)) {
-    return 'already_voted';
-  }
-  if (!offer.allOriginalPlayerIds.includes(voterId)) {
-    return 'not_in_match';
-  }
-  return 'eligible';
+export function classifyVoterEligibility(offer: RematchOffer, voterId: PlayerSessionId): VoterEligibility {
+    if (offer.acceptedBy.has(voterId) || offer.declinedBy.has(voterId)) {
+        return 'already_voted';
+    }
+    if (!offer.allOriginalPlayerIds.includes(voterId)) {
+        return 'not_in_match';
+    }
+    return 'eligible';
 }
 
 /**
@@ -114,12 +111,12 @@ export function classifyVoterEligibility(
  *   (every original participant has accepted).
  */
 export function castAcceptVote(
-  offer: RematchOffer,
-  voterId: PlayerSessionId,
+    offer: RematchOffer,
+    voterId: PlayerSessionId,
 ): { offer: RematchOffer; allAccepted: boolean } {
-  offer.acceptedBy.add(voterId);
-  const allAccepted = offer.acceptedBy.size === offer.allOriginalPlayerIds.length;
-  return { offer, allAccepted };
+    offer.acceptedBy.add(voterId);
+    const allAccepted = offer.acceptedBy.size === offer.allOriginalPlayerIds.length;
+    return { offer, allAccepted };
 }
 
 /**
@@ -132,13 +129,13 @@ export function castAcceptVote(
  * @returns The same offer.
  */
 export function castDeclineVote(
-  offer: RematchOffer,
-  voterId: PlayerSessionId,
+    offer: RematchOffer,
+    voterId: PlayerSessionId,
 ): {
-  offer: RematchOffer;
+    offer: RematchOffer;
 } {
-  offer.declinedBy.add(voterId);
-  return { offer };
+    offer.declinedBy.add(voterId);
+    return { offer };
 }
 
 /**
@@ -150,7 +147,7 @@ export function castDeclineVote(
  * @returns `true` iff `nowMs` is past `windowExpiresAtMs`.
  */
 export function isWindowClosed(offer: RematchOffer, nowMs: number): boolean {
-  return nowMs > offer.windowExpiresAtMs;
+    return nowMs > offer.windowExpiresAtMs;
 }
 
 /**
@@ -164,5 +161,5 @@ export function isWindowClosed(offer: RematchOffer, nowMs: number): boolean {
  * @returns `true` iff the offer can no longer accept useful votes.
  */
 export function isOfferExpired(offer: RematchOffer, nowMs: number): boolean {
-  return isWindowClosed(offer, nowMs) || offer.newMatchRecord !== null;
+    return isWindowClosed(offer, nowMs) || offer.newMatchRecord !== null;
 }

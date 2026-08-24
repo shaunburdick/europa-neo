@@ -21,5 +21,5 @@ import { type AbilityFireArgs, fireAbility, type TargetingOutcome } from './subc
  * @param args Store + cursor aim (see {@link AbilityFireArgs}).
  */
 export function fireGun(args: AbilityFireArgs): TargetingOutcome {
-  return fireAbility('gun', args);
+    return fireAbility('gun', args);
 }

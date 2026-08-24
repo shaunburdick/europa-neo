@@ -31,7 +31,7 @@ import './styles/index.css';
 const rootElement = document.getElementById('root');
 
 if (!rootElement) {
-  throw new Error('Europa Neo console: #root element not found in document.');
+    throw new Error('Europa Neo console: #root element not found in document.');
 }
 
 const bootParams = new URLSearchParams(window.location.search);
@@ -39,20 +39,20 @@ const isE2E = bootParams.has('e2e');
 const isLive = bootParams.has('live');
 
 if (isE2E) {
-  // Dynamic import keeps the harness (and its fake client) in a
-  // separate chunk that production boots never fetch.
-  void import('./internal/demo-runtime').then((module) => module.mountDemoRuntime(rootElement));
+    // Dynamic import keeps the harness (and its fake client) in a
+    // separate chunk that production boots never fetch.
+    void import('./internal/demo-runtime').then((module) => module.mountDemoRuntime(rootElement));
 } else if (isLive) {
-  // Same chunking discipline: the live harness rides its own lazy
-  // chunk (which pulls in the real WebSocket client).
-  void import('./internal/live-runtime').then((module) => module.mountLiveRuntime(rootElement));
+    // Same chunking discipline: the live harness rides its own lazy
+    // chunk (which pulls in the real WebSocket client).
+    void import('./internal/live-runtime').then((module) => module.mountLiveRuntime(rootElement));
 } else {
-  const stubState = createStubConsoleState(createDemoPlayerView());
-  createRoot(rootElement).render(
-    <StrictMode>
-      <ErrorBoundary>
-        <App state={stubState} />
-      </ErrorBoundary>
-    </StrictMode>,
-  );
+    const stubState = createStubConsoleState(createDemoPlayerView());
+    createRoot(rootElement).render(
+        <StrictMode>
+            <ErrorBoundary>
+                <App state={stubState} />
+            </ErrorBoundary>
+        </StrictMode>,
+    );
 }

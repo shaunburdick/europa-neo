@@ -18,38 +18,38 @@ import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 
 describe('Q-M07: seat-fill race is atomic', () => {
-  it('only one joiner wins the last seat', async () => {
-    const server = new FakeServer();
-    const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+    it('only one joiner wins the last seat', async () => {
+        const server = new FakeServer();
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
 
-    const aliceCreate = matchmaker.createMatch({
-      visibility: 'public',
-      displayName: 'Alice',
+        const aliceCreate = matchmaker.createMatch({
+            visibility: 'public',
+            displayName: 'Alice',
+        });
+        if (!aliceCreate.ok) {
+            throw new Error('create failed');
+        }
+        const { matchId } = aliceCreate.data;
+
+        // Simulate 5 concurrent joiners competing for the last seat
+        const joiners = ['Bob', 'Carol', 'Dave', 'Eve', 'Frank'].map((name) =>
+            matchmaker.joinMatch({ matchId, displayName: name }),
+        );
+
+        const successes = joiners.filter((r) => r.ok);
+        const failures = joiners.filter((r) => !r.ok);
+
+        expect(successes).toHaveLength(1); // only one wins
+        expect(failures).toHaveLength(4);
+
+        // All failures are 'match_full'
+        for (const f of failures) {
+            if (f.ok) {
+                continue;
+            }
+            expect(f.error.code).toBe('match_full');
+        }
+
+        await matchmaker.close();
     });
-    if (!aliceCreate.ok) {
-      throw new Error('create failed');
-    }
-    const { matchId } = aliceCreate.data;
-
-    // Simulate 5 concurrent joiners competing for the last seat
-    const joiners = ['Bob', 'Carol', 'Dave', 'Eve', 'Frank'].map((name) =>
-      matchmaker.joinMatch({ matchId, displayName: name }),
-    );
-
-    const successes = joiners.filter((r) => r.ok);
-    const failures = joiners.filter((r) => !r.ok);
-
-    expect(successes).toHaveLength(1); // only one wins
-    expect(failures).toHaveLength(4);
-
-    // All failures are 'match_full'
-    for (const f of failures) {
-      if (f.ok) {
-        continue;
-      }
-      expect(f.error.code).toBe('match_full');
-    }
-
-    await matchmaker.close();
-  });
 });

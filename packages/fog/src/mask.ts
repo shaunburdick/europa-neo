@@ -49,17 +49,17 @@ import type { FogMask } from './contracts/fog-types';
  * @throws If `width` or `height` is not a positive integer.
  */
 export function createMask(width: number, height: number): FogMask {
-  if (!Number.isInteger(width) || width <= 0) {
-    throw new Error(`createMask: width must be a positive integer (got ${String(width)})`);
-  }
-  if (!Number.isInteger(height) || height <= 0) {
-    throw new Error(`createMask: height must be a positive integer (got ${String(height)})`);
-  }
-  return {
-    data: new Uint8Array(width * height),
-    width,
-    height,
-  };
+    if (!Number.isInteger(width) || width <= 0) {
+        throw new Error(`createMask: width must be a positive integer (got ${String(width)})`);
+    }
+    if (!Number.isInteger(height) || height <= 0) {
+        throw new Error(`createMask: height must be a positive integer (got ${String(height)})`);
+    }
+    return {
+        data: new Uint8Array(width * height),
+        width,
+        height,
+    };
 }
 
 /**
@@ -77,11 +77,11 @@ export function createMask(width: number, height: number): FogMask {
  * @param y     Cell y-coordinate. Out-of-bounds values are ignored.
  */
 export function markVisible(mask: FogMask, x: number, y: number): void {
-  const { data, width, height } = mask;
-  if (x < 0 || x >= width || y < 0 || y >= height) {
-    return;
-  }
-  data[y * width + x] = FOG_CONSTANTS.maskVisible;
+    const { data, width, height } = mask;
+    if (x < 0 || x >= width || y < 0 || y >= height) {
+        return;
+    }
+    data[y * width + x] = FOG_CONSTANTS.maskVisible;
 }
 
 /**
@@ -100,11 +100,11 @@ export function markVisible(mask: FogMask, x: number, y: number): void {
  * @returns     `true` iff `data[y * width + x] === 1`.
  */
 export function isVisible(mask: FogMask, x: number, y: number): boolean {
-  const { data, width, height } = mask;
-  if (x < 0 || x >= width || y < 0 || y >= height) {
-    return false;
-  }
-  return data[y * width + x] === FOG_CONSTANTS.maskVisible;
+    const { data, width, height } = mask;
+    if (x < 0 || x >= width || y < 0 || y >= height) {
+        return false;
+    }
+    return data[y * width + x] === FOG_CONSTANTS.maskVisible;
 }
 
 /**
@@ -131,20 +131,20 @@ export function isVisible(mask: FogMask, x: number, y: number): boolean {
  *         `target.height !== source.height`.
  */
 export function unionMasks(target: FogMask, source: FogMask): void {
-  if (target.width !== source.width || target.height !== source.height) {
-    throw new Error(
-      `unionMasks: dimension mismatch (target=${target.width}x${target.height}, ` +
-        `source=${source.width}x${source.height})`,
-    );
-  }
-  const t = target.data;
-  const s = source.data;
-  const visible = FOG_CONSTANTS.maskVisible;
-  for (let i = 0; i < t.length; i++) {
-    // Branchless OR: `s[i]` is 0 or 1, so addition suffices.
-    // After OR, the cell is `1` if either was `1`; clamping to 1
-    // is a defense against a non-canonical source value.
-    const sum = (t[i] ?? 0) + (s[i] ?? 0);
-    t[i] = sum > 0 ? visible : 0;
-  }
+    if (target.width !== source.width || target.height !== source.height) {
+        throw new Error(
+            `unionMasks: dimension mismatch (target=${target.width}x${target.height}, ` +
+                `source=${source.width}x${source.height})`,
+        );
+    }
+    const t = target.data;
+    const s = source.data;
+    const visible = FOG_CONSTANTS.maskVisible;
+    for (let i = 0; i < t.length; i++) {
+        // Branchless OR: `s[i]` is 0 or 1, so addition suffices.
+        // After OR, the cell is `1` if either was `1`; clamping to 1
+        // is a defense against a non-canonical source value.
+        const sum = (t[i] ?? 0) + (s[i] ?? 0);
+        t[i] = sum > 0 ? visible : 0;
+    }
 }

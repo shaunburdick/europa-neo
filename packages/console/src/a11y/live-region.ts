@@ -26,59 +26,59 @@ const DEBOUNCE_MS = 500;
  * Hidden live-region announcer bound to a host container element.
  */
 export class LiveRegionAnnouncer {
-  /** The two mounted live nodes, keyed by politeness. */
-  private readonly politenessNodes: Readonly<Record<LivePoliteness, HTMLElement>>;
+    /** The two mounted live nodes, keyed by politeness. */
+    private readonly politenessNodes: Readonly<Record<LivePoliteness, HTMLElement>>;
 
-  /** Last announcement text + monotonic timestamp for debouncing. */
-  private lastAnnouncement: { readonly text: string; readonly atMs: number } | null = null;
+    /** Last announcement text + monotonic timestamp for debouncing. */
+    private lastAnnouncement: { readonly text: string; readonly atMs: number } | null = null;
 
-  /**
-   * Mount the hidden live regions inside `container`. The nodes use
-   * the clip pattern (1px, clipped) rather than `display: none` —
-   * assistive tech ignores elements removed from the accessibility
-   * tree.
-   *
-   * @param container Host element (the console root).
-   */
-  constructor(container: HTMLElement) {
-    const polite = createLiveNode('polite');
-    const assertive = createLiveNode('assertive');
-    container.append(polite, assertive);
-    this.politenessNodes = { polite, assertive };
-  }
-
-  /**
-   * Announce a message at the given politeness level. Identical text
-   * within {@link DEBOUNCE_MS} of the previous announcement is
-   * suppressed (WCAG 4.1.3 anti-spam).
-   *
-   * @param text Message to announce.
-   * @param politeness `'polite'` (default) queues behind current
-   *                   speech; `'assertive'` interrupts — reserve it
-   *                   for errors and connection failures.
-   */
-  announce(text: string, politeness: LivePoliteness = 'polite'): void {
-    const nowMs = performance.now();
-    if (
-      this.lastAnnouncement !== null &&
-      this.lastAnnouncement.text === text &&
-      nowMs - this.lastAnnouncement.atMs < DEBOUNCE_MS
-    ) {
-      return;
+    /**
+     * Mount the hidden live regions inside `container`. The nodes use
+     * the clip pattern (1px, clipped) rather than `display: none` —
+     * assistive tech ignores elements removed from the accessibility
+     * tree.
+     *
+     * @param container Host element (the console root).
+     */
+    constructor(container: HTMLElement) {
+        const polite = createLiveNode('polite');
+        const assertive = createLiveNode('assertive');
+        container.append(polite, assertive);
+        this.politenessNodes = { polite, assertive };
     }
-    this.politenessNodes[politeness].textContent = text;
-    this.lastAnnouncement = { text, atMs: nowMs };
-  }
 
-  /**
-   * Clear both live regions (e.g., on unmount or after a modal
-   * takes over narration).
-   */
-  clear(): void {
-    this.politenessNodes.polite.textContent = '';
-    this.politenessNodes.assertive.textContent = '';
-    this.lastAnnouncement = null;
-  }
+    /**
+     * Announce a message at the given politeness level. Identical text
+     * within {@link DEBOUNCE_MS} of the previous announcement is
+     * suppressed (WCAG 4.1.3 anti-spam).
+     *
+     * @param text Message to announce.
+     * @param politeness `'polite'` (default) queues behind current
+     *                   speech; `'assertive'` interrupts — reserve it
+     *                   for errors and connection failures.
+     */
+    announce(text: string, politeness: LivePoliteness = 'polite'): void {
+        const nowMs = performance.now();
+        if (
+            this.lastAnnouncement !== null &&
+            this.lastAnnouncement.text === text &&
+            nowMs - this.lastAnnouncement.atMs < DEBOUNCE_MS
+        ) {
+            return;
+        }
+        this.politenessNodes[politeness].textContent = text;
+        this.lastAnnouncement = { text, atMs: nowMs };
+    }
+
+    /**
+     * Clear both live regions (e.g., on unmount or after a modal
+     * takes over narration).
+     */
+    clear(): void {
+        this.politenessNodes.polite.textContent = '';
+        this.politenessNodes.assertive.textContent = '';
+        this.lastAnnouncement = null;
+    }
 }
 
 /**
@@ -87,12 +87,12 @@ export class LiveRegionAnnouncer {
  * dependency) implementing the standard visually-hidden clip pattern.
  */
 function createLiveNode(politeness: LivePoliteness): HTMLElement {
-  const node = document.createElement('div');
-  node.setAttribute('aria-live', politeness);
-  node.setAttribute('aria-atomic', 'true');
-  node.setAttribute('data-europa-live', politeness);
-  applyVisuallyHiddenStyles(node);
-  return node;
+    const node = document.createElement('div');
+    node.setAttribute('aria-live', politeness);
+    node.setAttribute('aria-atomic', 'true');
+    node.setAttribute('data-europa-live', politeness);
+    applyVisuallyHiddenStyles(node);
+    return node;
 }
 
 /**
@@ -100,14 +100,14 @@ function createLiveNode(politeness: LivePoliteness): HTMLElement {
  * so the styling lives in exactly one place.
  */
 function applyVisuallyHiddenStyles(node: HTMLElement): void {
-  const { style } = node;
-  style.position = 'absolute';
-  style.width = '1px';
-  style.height = '1px';
-  style.margin = '-1px';
-  style.padding = '0';
-  style.border = '0';
-  style.overflow = 'hidden';
-  style.clipPath = 'inset(50%)';
-  style.whiteSpace = 'nowrap';
+    const { style } = node;
+    style.position = 'absolute';
+    style.width = '1px';
+    style.height = '1px';
+    style.margin = '-1px';
+    style.padding = '0';
+    style.border = '0';
+    style.overflow = 'hidden';
+    style.clipPath = 'inset(50%)';
+    style.whiteSpace = 'nowrap';
 }

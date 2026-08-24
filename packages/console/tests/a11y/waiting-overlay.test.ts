@@ -28,7 +28,7 @@ import { buildCellView, buildPlayerView } from '../fixtures/player-view';
 import { expectNoDomA11yViolations } from '../setup';
 
 afterEach(() => {
-  cleanup();
+    cleanup();
 });
 
 /**
@@ -38,74 +38,72 @@ afterEach(() => {
  * the standard 10×10 acceptance board so the ARIA grid mounts.
  */
 async function bootAwaitingConsole(): Promise<void> {
-  const state: ConsoleState = {
-    ...INITIAL_CONSOLE_STATE,
-    status: 'live',
-    inputEnabled: true,
-    latestView: buildPlayerView({
-      width: 10,
-      height: 10,
-      tick: 0,
-      playerId: 1,
-      visibleCells: [
-        buildCellView({
-          coord: { x: 5, y: 5 },
-          elevation: 60,
-          troops: 12,
-          owner: 1,
-          isCity: true,
-          reservesPct: 5,
+    const state: ConsoleState = {
+        ...INITIAL_CONSOLE_STATE,
+        status: 'live',
+        inputEnabled: true,
+        latestView: buildPlayerView({
+            width: 10,
+            height: 10,
+            tick: 0,
+            playerId: 1,
+            visibleCells: [
+                buildCellView({
+                    coord: { x: 5, y: 5 },
+                    elevation: 60,
+                    troops: 12,
+                    owner: 1,
+                    isCity: true,
+                    reservesPct: 5,
+                }),
+                buildCellView({ coord: { x: 5, y: 6 }, elevation: 45, troops: 3, owner: 1 }),
+            ],
         }),
-        buildCellView({ coord: { x: 5, y: 6 }, elevation: 45, troops: 3, owner: 1 }),
-      ],
-    }),
-    session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1 },
-  };
-  await render(createElement(App, { store: createConsoleStore(state) }));
+        session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1 },
+    };
+    await render(createElement(App, { store: createConsoleStore(state) }));
 }
 
 describe('waiting-for-opponent overlay a11y acceptance', () => {
-  test('(a) zero axe violations with the overlay up', async () => {
-    await bootAwaitingConsole();
-    await expectNoDomA11yViolations(document);
-  });
-
-  test('(b) appearance is announced once on a polite live region', async () => {
-    await bootAwaitingConsole();
-
-    // Two effect cycles mount the announcer before the announcement
-    // lands — poll until one polite node carries exactly the message.
-    const carriers = (): number =>
-      [...document.querySelectorAll('[data-europa-live="polite"]')].filter(
-        (node) => node.textContent === WAITING_FOR_OPPONENT_MESSAGE,
-      ).length;
-    await vi.waitFor(() => {
-      expect(carriers()).toBe(1);
+    test('(a) zero axe violations with the overlay up', async () => {
+        await bootAwaitingConsole();
+        await expectNoDomA11yViolations(document);
     });
-  });
 
-  test('(c) overlay stays out of the Tab order (skip link first)', async () => {
-    await bootAwaitingConsole();
-    const user = userEvent.setup();
+    test('(b) appearance is announced once on a polite live region', async () => {
+        await bootAwaitingConsole();
 
-    await user.keyboard('{Tab}');
-    expect(document.activeElement?.id).toBe('skip-link');
+        // Two effect cycles mount the announcer before the announcement
+        // lands — poll until one polite node carries exactly the message.
+        const carriers = (): number =>
+            [...document.querySelectorAll('[data-europa-live="polite"]')].filter(
+                (node) => node.textContent === WAITING_FOR_OPPONENT_MESSAGE,
+            ).length;
+        await vi.waitFor(() => {
+            expect(carriers()).toBe(1);
+        });
+    });
 
-    // Nothing inside the overlay is focusable; the next stop is the
-    // board grid (the contractual Q-A04 head sequence), proving the
-    // overlay introduced no tab stops of its own.
-    await user.keyboard('{Tab}');
-    expect(document.activeElement?.id).toBe('map');
-  });
+    test('(c) overlay stays out of the Tab order (skip link first)', async () => {
+        await bootAwaitingConsole();
+        const user = userEvent.setup();
 
-  test('(d) the spinner is decorative (aria-hidden), text carries meaning', async () => {
-    await bootAwaitingConsole();
+        await user.keyboard('{Tab}');
+        expect(document.activeElement?.id).toBe('skip-link');
 
-    const pulse = document.querySelector('.europa-waiting__pulse');
-    expect(pulse).not.toBeNull();
-    expect(pulse?.getAttribute('aria-hidden')).toBe('true');
-    expect(document.querySelector('.europa-waiting__text')?.textContent).toBe(
-      WAITING_FOR_OPPONENT_MESSAGE,
-    );
-  });
+        // Nothing inside the overlay is focusable; the next stop is the
+        // board grid (the contractual Q-A04 head sequence), proving the
+        // overlay introduced no tab stops of its own.
+        await user.keyboard('{Tab}');
+        expect(document.activeElement?.id).toBe('map');
+    });
+
+    test('(d) the spinner is decorative (aria-hidden), text carries meaning', async () => {
+        await bootAwaitingConsole();
+
+        const pulse = document.querySelector('.europa-waiting__pulse');
+        expect(pulse).not.toBeNull();
+        expect(pulse?.getAttribute('aria-hidden')).toBe('true');
+        expect(document.querySelector('.europa-waiting__text')?.textContent).toBe(WAITING_FOR_OPPONENT_MESSAGE);
+    });
 });

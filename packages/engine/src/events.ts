@@ -21,13 +21,13 @@
  */
 
 import type {
-  AppliedOrderRecord,
-  CaptureEvent,
-  CombatEvent,
-  EliminationEvent,
-  Order,
-  TickEvents,
-  ValidationError,
+    AppliedOrderRecord,
+    CaptureEvent,
+    CombatEvent,
+    EliminationEvent,
+    Order,
+    TickEvents,
+    ValidationError,
 } from './types';
 
 // ----------------------------------------------------------------------------
@@ -41,13 +41,13 @@ import type {
  * other's events.
  */
 export function emptyTickEvents(): TickEvents {
-  return {
-    combat: [],
-    captures: [],
-    eliminations: [],
-    appliedOrders: [],
-    errors: [],
-  };
+    return {
+        combat: [],
+        captures: [],
+        eliminations: [],
+        appliedOrders: [],
+        errors: [],
+    };
 }
 
 // ----------------------------------------------------------------------------
@@ -58,21 +58,21 @@ export function emptyTickEvents(): TickEvents {
  * Append a combat resolution event.
  */
 export function pushCombatEvent(events: TickEvents, e: CombatEvent): TickEvents {
-  return { ...events, combat: [...events.combat, e] };
+    return { ...events, combat: [...events.combat, e] };
 }
 
 /**
  * Append a cell/city capture event.
  */
 export function pushCaptureEvent(events: TickEvents, e: CaptureEvent): TickEvents {
-  return { ...events, captures: [...events.captures, e] };
+    return { ...events, captures: [...events.captures, e] };
 }
 
 /**
  * Append a player elimination event.
  */
 export function pushEliminationEvent(events: TickEvents, e: EliminationEvent): TickEvents {
-  return { ...events, eliminations: [...events.eliminations, e] };
+    return { ...events, eliminations: [...events.eliminations, e] };
 }
 
 /**
@@ -80,7 +80,7 @@ export function pushEliminationEvent(events: TickEvents, e: EliminationEvent): T
  * records where the same field carries both — see `AppliedOrderRecord`).
  */
 export function pushAppliedOrder(events: TickEvents, r: AppliedOrderRecord): TickEvents {
-  return { ...events, appliedOrders: [...events.appliedOrders, r] };
+    return { ...events, appliedOrders: [...events.appliedOrders, r] };
 }
 
 /**
@@ -88,9 +88,6 @@ export function pushAppliedOrder(events: TickEvents, r: AppliedOrderRecord): Tic
  * catch-all for FR-018 validation rejections that don't fall into the
  * combat/capture/elimination categories.
  */
-export function pushError(
-  events: TickEvents,
-  e: { order: Order; reason: ValidationError },
-): TickEvents {
-  return { ...events, errors: [...events.errors, e] };
+export function pushError(events: TickEvents, e: { order: Order; reason: ValidationError }): TickEvents {
+    return { ...events, errors: [...events.errors, e] };
 }

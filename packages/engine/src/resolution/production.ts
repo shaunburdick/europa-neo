@@ -31,38 +31,38 @@ import type { Board, WorldState } from '../types';
  *          on city cells.
  */
 export function resolveProduction(
-  state: Readonly<WorldState>,
-  board: Readonly<Board>,
-  constants: EngineConstants,
+    state: Readonly<WorldState>,
+    board: Readonly<Board>,
+    constants: EngineConstants,
 ): WorldState {
-  const n = board.width * board.height;
-  // Allocate fresh typed arrays (immutable update).
-  const newCounts = new Uint32Array(state.troopCounts);
-  const newOwners = new Uint8Array(state.troopOwners);
+    const n = board.width * board.height;
+    // Allocate fresh typed arrays (immutable update).
+    const newCounts = new Uint32Array(state.troopCounts);
+    const newOwners = new Uint8Array(state.troopOwners);
 
-  const rate = constants.productionRate >>> 0;
-  const cap = constants.cityCapacity >>> 0;
+    const rate = constants.productionRate >>> 0;
+    const cap = constants.cityCapacity >>> 0;
 
-  for (let i = 0; i < n; i++) {
-    const owner = state.cityOwners[i] ?? 0;
-    if (owner === 0) {
-      continue; // no city here
+    for (let i = 0; i < n; i++) {
+        const owner = state.cityOwners[i] ?? 0;
+        if (owner === 0) {
+            continue; // no city here
+        }
+        const current = newCounts[i] ?? 0;
+        if (current >= cap) {
+            continue; // already saturated; no overflow
+        }
+        const headroom = cap - current;
+        const add = rate < headroom ? rate : headroom;
+        newCounts[i] = current + add;
+        newOwners[i] = owner;
     }
-    const current = newCounts[i] ?? 0;
-    if (current >= cap) {
-      continue; // already saturated; no overflow
-    }
-    const headroom = cap - current;
-    const add = rate < headroom ? rate : headroom;
-    newCounts[i] = current + add;
-    newOwners[i] = owner;
-  }
 
-  return {
-    troopCounts: newCounts,
-    troopOwners: newOwners,
-    pipeMasks: new Uint8Array(state.pipeMasks),
-    reservesPct: new Uint8Array(state.reservesPct),
-    cityOwners: new Uint8Array(state.cityOwners),
-  };
+    return {
+        troopCounts: newCounts,
+        troopOwners: newOwners,
+        pipeMasks: new Uint8Array(state.pipeMasks),
+        reservesPct: new Uint8Array(state.reservesPct),
+        cityOwners: new Uint8Array(state.cityOwners),
+    };
 }

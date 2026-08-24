@@ -34,8 +34,8 @@ const CYCLES = 50;
 
 /** Deterministic id factory: `id-0`, `id-1`, … (never repeats). */
 function deterministicRandomId(): () => string {
-  let n = 0;
-  return () => `id-${String(n++).padStart(4, '0')}`;
+    let n = 0;
+    return () => `id-${String(n++).padStart(4, '0')}`;
 }
 
 /**
@@ -44,115 +44,115 @@ function deterministicRandomId(): () => string {
  * reproducibility matters here, not statistical quality.
  */
 function deterministicRngFactory(seed: number): Rng {
-  const s0 = seed >>> 0;
-  const state = new Uint32Array([
-    s0,
-    (seed ^ 0x85eb_ca6b) >>> 0,
-    (seed ^ 0xc2b2_ae35) >>> 0,
-    (seed ^ 0x27d4_eb2f) >>> 0,
-  ]);
-  let s = s0;
-  const rng = (): number => {
-    s = (s + 0x6d2b_79f5) >>> 0;
-    return s;
-  };
-  return Object.assign(rng, { state });
+    const s0 = seed >>> 0;
+    const state = new Uint32Array([
+        s0,
+        (seed ^ 0x85eb_ca6b) >>> 0,
+        (seed ^ 0xc2b2_ae35) >>> 0,
+        (seed ^ 0x27d4_eb2f) >>> 0,
+    ]);
+    let s = s0;
+    const rng = (): number => {
+        s = (s + 0x6d2b_79f5) >>> 0;
+        return s;
+    };
+    return Object.assign(rng, { state });
 }
 
 describe('SC-005: 50 sequential cycles, no leaks', () => {
-  it('maintains zero leaks after 50 create/play/finish/rematch cycles', () => {
-    const server = new FakeServer();
-    const clock = { value: 1_000 };
-    const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, {
-      server,
-      randomId: deterministicRandomId(),
-      rngFactory: deterministicRngFactory,
-      now: () => clock.value,
+    it('maintains zero leaks after 50 create/play/finish/rematch cycles', () => {
+        const server = new FakeServer();
+        const clock = { value: 1_000 };
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, {
+            server,
+            randomId: deterministicRandomId(),
+            rngFactory: deterministicRngFactory,
+            now: () => clock.value,
+        });
+
+        for (let i = 0; i < CYCLES; i++) {
+            // -- 1. create ----------------------------------------------------
+            const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+            if (!created.ok) {
+                throw new Error(`cycle ${i}: create failed`);
+            }
+            const { matchId, seatAssignment: aliceSeat } = created.data;
+
+            // -- 2. join (auto-start) ------------------------------------------
+            const joined = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
+            if (!joined.ok) {
+                throw new Error(`cycle ${i}: join failed`);
+            }
+            const bobSeat = joined.data.seatAssignment;
+            expect(matchmaker.stats().runningMatches).toBe(1);
+
+            // -- 3. terminal ---------------------------------------------------
+            server.fireOnMatchTerminal({
+                matchId,
+                result: { kind: 'win', winner: aliceSeat.playerId, tick: i, reason: 'last_standing' },
+                tick: i,
+            });
+            expect(matchmaker.stats().finishedMatches).toBe(1);
+
+            // -- 4. rematch all-accept ------------------------------------------
+            const requested = matchmaker.requestRematch({
+                matchId,
+                sessionToken: aliceSeat.sessionToken,
+            });
+            if (!requested.ok) {
+                throw new Error(`cycle ${i}: requestRematch failed`);
+            }
+            expect(
+                matchmaker.acceptRematch({
+                    matchId,
+                    rematchOfferId: requested.rematchOfferId,
+                    sessionToken: aliceSeat.sessionToken,
+                }),
+            ).toMatchObject({ ok: true, allAccepted: false });
+            const bobAccept = matchmaker.acceptRematch({
+                matchId,
+                rematchOfferId: requested.rematchOfferId,
+                sessionToken: bobSeat.sessionToken,
+            });
+            if (!bobAccept.ok || !bobAccept.allAccepted) {
+                throw new Error(`cycle ${i}: rematch did not resolve`);
+            }
+
+            // The resolution left exactly one leftover: the fresh rematch
+            // match, still `filling`, holding both rebound sessions.
+            const midStats = matchmaker.stats();
+            expect(midStats.fillingMatches).toBe(1);
+            expect(midStats.activeMatches).toBe(1);
+            expect(midStats.activePlayerSessions).toBe(2);
+            // Cumulative: i prior originals + i−1 prior GC'd rematch matches
+            // + this cycle's freshly resolved original.
+            expect(midStats.collectedMatches).toBe(2 * i + 1);
+
+            // -- 5. GC the abandoned rematch match ------------------------------
+            clock.value += MATCHMAKING_CONSTANTS.emptyMatchTtlMs + 1;
+            const swept = matchmaker.stats();
+            expect(swept.fillingMatches).toBe(0);
+            expect(swept.activeMatches).toBe(0);
+            expect(swept.activePlayerSessions).toBe(0);
+            expect(swept.collectedMatches).toBe(2 * i + 2);
+
+            clock.value += 1; // separate cycles never share a timestamp
+        }
+
+        // Final ledger after the loop: nothing active, everything accounted.
+        const stats = matchmaker.stats();
+        expect(stats.activeMatches).toBe(0);
+        expect(stats.activePlayerSessions).toBe(0);
+        expect(stats.fillingMatches).toBe(0);
+        expect(stats.runningMatches).toBe(0);
+        expect(stats.finishedMatches).toBe(0);
+        expect(stats.collectedMatches).toBe(CYCLES * 2);
+        expect(stats.totalCreated).toBe(CYCLES * 2);
+        expect(stats.totalFinished).toBe(CYCLES);
+        expect(stats.totalCollected).toBe(CYCLES * 2);
+        expect(stats.totalRematchAccepted).toBe(CYCLES * 2);
+        expect(stats.totalForfeits).toBe(0);
+
+        matchmaker.close();
     });
-
-    for (let i = 0; i < CYCLES; i++) {
-      // -- 1. create ----------------------------------------------------
-      const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-      if (!created.ok) {
-        throw new Error(`cycle ${i}: create failed`);
-      }
-      const { matchId, seatAssignment: aliceSeat } = created.data;
-
-      // -- 2. join (auto-start) ------------------------------------------
-      const joined = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
-      if (!joined.ok) {
-        throw new Error(`cycle ${i}: join failed`);
-      }
-      const bobSeat = joined.data.seatAssignment;
-      expect(matchmaker.stats().runningMatches).toBe(1);
-
-      // -- 3. terminal ---------------------------------------------------
-      server.fireOnMatchTerminal({
-        matchId,
-        result: { kind: 'win', winner: aliceSeat.playerId, tick: i, reason: 'last_standing' },
-        tick: i,
-      });
-      expect(matchmaker.stats().finishedMatches).toBe(1);
-
-      // -- 4. rematch all-accept ------------------------------------------
-      const requested = matchmaker.requestRematch({
-        matchId,
-        sessionToken: aliceSeat.sessionToken,
-      });
-      if (!requested.ok) {
-        throw new Error(`cycle ${i}: requestRematch failed`);
-      }
-      expect(
-        matchmaker.acceptRematch({
-          matchId,
-          rematchOfferId: requested.rematchOfferId,
-          sessionToken: aliceSeat.sessionToken,
-        }),
-      ).toMatchObject({ ok: true, allAccepted: false });
-      const bobAccept = matchmaker.acceptRematch({
-        matchId,
-        rematchOfferId: requested.rematchOfferId,
-        sessionToken: bobSeat.sessionToken,
-      });
-      if (!bobAccept.ok || !bobAccept.allAccepted) {
-        throw new Error(`cycle ${i}: rematch did not resolve`);
-      }
-
-      // The resolution left exactly one leftover: the fresh rematch
-      // match, still `filling`, holding both rebound sessions.
-      const midStats = matchmaker.stats();
-      expect(midStats.fillingMatches).toBe(1);
-      expect(midStats.activeMatches).toBe(1);
-      expect(midStats.activePlayerSessions).toBe(2);
-      // Cumulative: i prior originals + i−1 prior GC'd rematch matches
-      // + this cycle's freshly resolved original.
-      expect(midStats.collectedMatches).toBe(2 * i + 1);
-
-      // -- 5. GC the abandoned rematch match ------------------------------
-      clock.value += MATCHMAKING_CONSTANTS.emptyMatchTtlMs + 1;
-      const swept = matchmaker.stats();
-      expect(swept.fillingMatches).toBe(0);
-      expect(swept.activeMatches).toBe(0);
-      expect(swept.activePlayerSessions).toBe(0);
-      expect(swept.collectedMatches).toBe(2 * i + 2);
-
-      clock.value += 1; // separate cycles never share a timestamp
-    }
-
-    // Final ledger after the loop: nothing active, everything accounted.
-    const stats = matchmaker.stats();
-    expect(stats.activeMatches).toBe(0);
-    expect(stats.activePlayerSessions).toBe(0);
-    expect(stats.fillingMatches).toBe(0);
-    expect(stats.runningMatches).toBe(0);
-    expect(stats.finishedMatches).toBe(0);
-    expect(stats.collectedMatches).toBe(CYCLES * 2);
-    expect(stats.totalCreated).toBe(CYCLES * 2);
-    expect(stats.totalFinished).toBe(CYCLES);
-    expect(stats.totalCollected).toBe(CYCLES * 2);
-    expect(stats.totalRematchAccepted).toBe(CYCLES * 2);
-    expect(stats.totalForfeits).toBe(0);
-
-    matchmaker.close();
-  });
 });

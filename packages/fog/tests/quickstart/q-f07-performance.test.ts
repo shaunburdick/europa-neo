@@ -50,47 +50,47 @@ const MEDIAN_BUDGET_MS = 1.0;
 const P99_GUARD_MS = 10.0;
 
 describe('Q-F07 — visibility performance (SC-004)', () => {
-  it(`median of ${TRIALS} computePlayerView calls on 32×32 stays under ${MEDIAN_BUDGET_MS} ms (p99 < ${P99_GUARD_MS} ms guard)`, () => {
-    const world = withVisibilityRadius(
-      buildWorldWithTroops(
-        32,
-        [
-          [8, 8, 1, 5],
-          [20, 20, 2, 7],
-        ],
-        2,
-      ),
-      4, // engine default radius on the default-size board
-    );
+    it(`median of ${TRIALS} computePlayerView calls on 32×32 stays under ${MEDIAN_BUDGET_MS} ms (p99 < ${P99_GUARD_MS} ms guard)`, () => {
+        const world = withVisibilityRadius(
+            buildWorldWithTroops(
+                32,
+                [
+                    [8, 8, 1, 5],
+                    [20, 20, 2, 7],
+                ],
+                2,
+            ),
+            4, // engine default radius on the default-size board
+        );
 
-    // Warm-up (JIT + allocator steady state) — not counted.
-    for (let i = 0; i < WARMUP_CALLS; i++) {
-      computePlayerView(world, 1);
-    }
+        // Warm-up (JIT + allocator steady state) — not counted.
+        for (let i = 0; i < WARMUP_CALLS; i++) {
+            computePlayerView(world, 1);
+        }
 
-    const roundMedians: number[] = [];
-    const roundP99s: number[] = [];
-    const summaries: string[] = [];
-    for (let round = 0; round < ROUNDS; round++) {
-      const samples: number[] = new Array(TRIALS);
-      for (let i = 0; i < TRIALS; i++) {
-        const start = performance.now();
-        computePlayerView(world, 1);
-        samples[i] = performance.now() - start;
-      }
-      samples.sort((a, b) => a - b);
-      const min = samples[0] ?? 0;
-      const median = samples[Math.floor(TRIALS / 2)] ?? 0;
-      const p99 = samples[Math.min(TRIALS - 1, Math.floor(TRIALS * 0.99))] ?? 0;
-      roundMedians.push(median);
-      roundP99s.push(p99);
-      summaries.push(
-        `round ${String(round)}: min=${min.toFixed(3)}ms median=${median.toFixed(3)}ms p99=${p99.toFixed(3)}ms`,
-      );
-    }
+        const roundMedians: number[] = [];
+        const roundP99s: number[] = [];
+        const summaries: string[] = [];
+        for (let round = 0; round < ROUNDS; round++) {
+            const samples: number[] = new Array(TRIALS);
+            for (let i = 0; i < TRIALS; i++) {
+                const start = performance.now();
+                computePlayerView(world, 1);
+                samples[i] = performance.now() - start;
+            }
+            samples.sort((a, b) => a - b);
+            const min = samples[0] ?? 0;
+            const median = samples[Math.floor(TRIALS / 2)] ?? 0;
+            const p99 = samples[Math.min(TRIALS - 1, Math.floor(TRIALS * 0.99))] ?? 0;
+            roundMedians.push(median);
+            roundP99s.push(p99);
+            summaries.push(
+                `round ${String(round)}: min=${min.toFixed(3)}ms median=${median.toFixed(3)}ms p99=${p99.toFixed(3)}ms`,
+            );
+        }
 
-    const summary = summaries.join(' | ');
-    expect(Math.min(...roundMedians), summary).toBeLessThan(MEDIAN_BUDGET_MS);
-    expect(Math.min(...roundP99s), summary).toBeLessThan(P99_GUARD_MS);
-  });
+        const summary = summaries.join(' | ');
+        expect(Math.min(...roundMedians), summary).toBeLessThan(MEDIAN_BUDGET_MS);
+        expect(Math.min(...roundP99s), summary).toBeLessThan(P99_GUARD_MS);
+    });
 });

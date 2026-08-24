@@ -24,102 +24,96 @@ import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fi
 
 /** Board around anchor (10, 10): land NE ring 2, water SE, enemy E. */
 function makeStore(): { readonly store: ConsoleStore; readonly client: FakeMatchClient } {
-  const view = buildPlayerView({
-    width: 16,
-    height: 16,
-    playerId: 1,
-    visibleCells: [
-      buildCellView({
-        coord: { x: 10, y: 10 },
-        elevation: 50,
-        troops: 20,
-        owner: 1,
-        pipes: new Set<Direction>(['N']),
-      }),
-      buildCellView({ coord: { x: 12, y: 8 }, elevation: 20 }),
-      buildCellView({ coord: { x: 11, y: 12 }, terrain: 'water' }),
-      buildCellView({ coord: { x: 12, y: 10 }, elevation: 30, troops: 5, owner: 2 }),
-    ],
-  });
-  const client = new FakeMatchClient();
-  let forward: ((effect: ReducerEffect) => void) | null = null;
-  const store = createConsoleStore(
-    { ...createLiveConsoleState(view), selection: { x: 10, y: 10 } },
-    (effect) => {
-      forward?.(effect);
-    },
-  );
-  const bridge = createOrderBridge({ client, store });
-  forward = (effect) => bridge.handleEffect(effect);
-  return { store, client };
+    const view = buildPlayerView({
+        width: 16,
+        height: 16,
+        playerId: 1,
+        visibleCells: [
+            buildCellView({
+                coord: { x: 10, y: 10 },
+                elevation: 50,
+                troops: 20,
+                owner: 1,
+                pipes: new Set<Direction>(['N']),
+            }),
+            buildCellView({ coord: { x: 12, y: 8 }, elevation: 20 }),
+            buildCellView({ coord: { x: 11, y: 12 }, terrain: 'water' }),
+            buildCellView({ coord: { x: 12, y: 10 }, elevation: 30, troops: 5, owner: 2 }),
+        ],
+    });
+    const client = new FakeMatchClient();
+    let forward: ((effect: ReducerEffect) => void) | null = null;
+    const store = createConsoleStore({ ...createLiveConsoleState(view), selection: { x: 10, y: 10 } }, (effect) => {
+        forward?.(effect);
+    });
+    const bridge = createOrderBridge({ client, store });
+    forward = (effect) => bridge.handleEffect(effect);
+    return { store, client };
 }
 
 function cursorIn(fx: number, fy: number): CursorTarget {
-  return hitTest(
-    { x: (10 + fx) * DEFAULT_CAMERA.zoom, y: (10 + fy) * DEFAULT_CAMERA.zoom },
-    DEFAULT_CAMERA,
-  );
+    return hitTest({ x: (10 + fx) * DEFAULT_CAMERA.zoom, y: (10 + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA);
 }
 
 describe('fireParatroop (p / h chain)', () => {
-  test('fresh NE aim dispatches and sends OrderParatroop to (12, 8)', async () => {
-    const { store, client } = makeStore();
-    const outcome = fireParatroop({
-      store,
-      cursor: cursorIn(0.85, 0.15),
-      cursorAgeMs: 10,
+    test('fresh NE aim dispatches and sends OrderParatroop to (12, 8)', async () => {
+        const { store, client } = makeStore();
+        const outcome = fireParatroop({
+            store,
+            cursor: cursorIn(0.85, 0.15),
+            cursorAgeMs: 10,
+        });
+        expect(outcome.status).toBe('ok');
+        await Promise.resolve();
+        expect(client.orders).toHaveLength(1);
+        expect(client.orders[0]?.order).toEqual({
+            kind: 'paratroop',
+            player: 1,
+            source: { x: 10, y: 10 },
+            target: { x: 12, y: 8 },
+        });
     });
-    expect(outcome.status).toBe('ok');
-    await Promise.resolve();
-    expect(client.orders).toHaveLength(1);
-    expect(client.orders[0]?.order).toEqual({
-      kind: 'paratroop',
-      player: 1,
-      source: { x: 10, y: 10 },
-      target: { x: 12, y: 8 },
-    });
-  });
 
-  test('out-of-range-equivalent posture (water target) rejects BEFORE sendOrder', async () => {
-    const { store, client } = makeStore();
-    const before = store.getState();
-    const outcome = fireParatroop({
-      store,
-      cursor: cursorIn(0.65, 0.85), // → water (11, 12)
-      cursorAgeMs: 10,
+    test('out-of-range-equivalent posture (water target) rejects BEFORE sendOrder', async () => {
+        const { store, client } = makeStore();
+        const before = store.getState();
+        const outcome = fireParatroop({
+            store,
+            cursor: cursorIn(0.65, 0.85), // → water (11, 12)
+            cursorAgeMs: 10,
+        });
+        expect(outcome).toEqual({
+            status: 'rejected',
+            reason: { kind: 'water_target', coord: { x: 11, y: 12 } },
+        });
+        await Promise.resolve();
+        // No feedback appended, no rejection recorded, no wire message.
+        expect(client.orders).toHaveLength(0);
+        expect(store.getState().feedback).toEqual(before.feedback);
+        expect(store.getState().rejectedOrders).toEqual(before.rejectedOrders);
     });
-    expect(outcome).toEqual({
-      status: 'rejected',
-      reason: { kind: 'water_target', coord: { x: 11, y: 12 } },
-    });
-    await Promise.resolve();
-    // No feedback appended, no rejection recorded, no wire message.
-    expect(client.orders).toHaveLength(0);
-    expect(store.getState().feedback).toEqual(before.feedback);
-    expect(store.getState().rejectedOrders).toEqual(before.rejectedOrders);
-  });
 
-  test('enemy target passes preflight and reaches the wire', async () => {
-    const { store, client } = makeStore();
-    const outcome = fireParatroop({
-      store,
-      cursor: cursorIn(0.85, 0.5), // → enemy (12, 10)
-      cursorAgeMs: 10,
+    test('enemy target passes preflight and reaches the wire', async () => {
+        const { store, client } = makeStore();
+        const outcome = fireParatroop({
+            store,
+            cursor: cursorIn(0.85, 0.5), // → enemy (12, 10)
+            cursorAgeMs: 10,
+        });
+        expect(outcome.status).toBe('ok');
+        await Promise.resolve();
+        expect(client.orders[0]?.order).toMatchObject({ kind: 'paratroop', target: { x: 12, y: 10 } });
     });
-    expect(outcome.status).toBe('ok');
-    await Promise.resolve();
-    expect(client.orders[0]?.order).toMatchObject({ kind: 'paratroop', target: { x: 12, y: 10 } });
-  });
 
-  test('stale aim produces no_launch and no wire message', async () => {
-    const { store, client } = makeStore();
-    const outcome = fireParatroop({
-      store,
-      cursor: cursorIn(0.85, 0.15),
-      cursorAgeMs: 5000,
+    test('stale aim produces no_launch and no wire message', async () => {
+        const { store, client } = makeStore();
+        const outcome = fireParatroop({
+            store,
+            cursor: cursorIn(0.85, 0.15),
+            cursorAgeMs: 5000,
+        });
+        expect(outcome).toEqual({ status: 'no_launch', reason: 'stale-cursor' });
+        await Promise.resolve();
+        expect(client.orders).toHaveLength(0);
     });
-    expect(outcome).toEqual({ status: 'no_launch', reason: 'stale-cursor' });
-    await Promise.resolve();
-    expect(client.orders).toHaveLength(0);
-  });
 });

@@ -26,12 +26,12 @@ import type { Connection } from './connection';
 import { NETWORK_API_VERSION } from './constants';
 import type { FogFactory } from './contracts/network-api';
 import type {
-  ConnectionId,
-  NetworkPayload,
-  PlayerId,
-  PlayerView,
-  ProtocolEnvelope,
-  TickBroadcastPayload,
+    ConnectionId,
+    NetworkPayload,
+    PlayerId,
+    PlayerView,
+    ProtocolEnvelope,
+    TickBroadcastPayload,
 } from './contracts/network-types';
 import type { MatchChannel } from './match-channel';
 import { SPECTATOR_VIEW_SEAT } from './spectator';
@@ -42,8 +42,8 @@ import { SPECTATOR_VIEW_SEAT } from './spectator';
 
 /** Dependencies for {@link buildTickBroadcast}. */
 export interface BroadcastDeps {
-  /** Fog factory (real `@europa/fog` in production; stub in tests). */
-  readonly fog: FogFactory;
+    /** Fog factory (real `@europa/fog` in production; stub in tests). */
+    readonly fog: FogFactory;
 }
 
 /**
@@ -59,31 +59,31 @@ export interface BroadcastDeps {
  * @returns Map of connection id → payload to send, or `'skip'`.
  */
 export function buildTickBroadcast(
-  channel: MatchChannel,
-  deps: BroadcastDeps,
-  _nowMs?: number,
+    channel: MatchChannel,
+    deps: BroadcastDeps,
+    _nowMs?: number,
 ): Map<ConnectionId, TickBroadcastPayload | 'skip'> {
-  const world = channel.engineSession.world();
-  const result = new Map<ConnectionId, TickBroadcastPayload | 'skip'>();
+    const world = channel.engineSession.world();
+    const result = new Map<ConnectionId, TickBroadcastPayload | 'skip'>();
 
-  for (const connection of channel.connections()) {
-    const spectator = connection.role === 'spectator';
-    // Null seat ⇒ spectator: stamp the no-seat sentinel (0) so the
-    // view can never be misread as a real player's — same sentinel
-    // the join-time snapshot carries (`SPECTATOR_VIEW_SEAT`). Fog's
-    // spectator branch ignores the seat either way.
-    const playerId: PlayerId = connection.playerId ?? SPECTATOR_VIEW_SEAT;
-    const view = deps.fog.computePlayerView({ world, playerId, spectator });
+    for (const connection of channel.connections()) {
+        const spectator = connection.role === 'spectator';
+        // Null seat ⇒ spectator: stamp the no-seat sentinel (0) so the
+        // view can never be misread as a real player's — same sentinel
+        // the join-time snapshot carries (`SPECTATOR_VIEW_SEAT`). Fog's
+        // spectator branch ignores the seat either way.
+        const playerId: PlayerId = connection.playerId ?? SPECTATOR_VIEW_SEAT;
+        const view = deps.fog.computePlayerView({ world, playerId, spectator });
 
-    const previous = channel.lastSentView.get(connection.id);
-    if (previous !== undefined && fingerprint(previous) === fingerprint(view)) {
-      result.set(connection.id, 'skip');
-      continue;
+        const previous = channel.lastSentView.get(connection.id);
+        if (previous !== undefined && fingerprint(previous) === fingerprint(view)) {
+            result.set(connection.id, 'skip');
+            continue;
+        }
+        result.set(connection.id, { tick: channel.tickCounter, view });
     }
-    result.set(connection.id, { tick: channel.tickCounter, view });
-  }
 
-  return result;
+    return result;
 }
 
 // ----------------------------------------------------------------------------
@@ -102,28 +102,28 @@ export function buildTickBroadcast(
  * @returns Number of envelopes actually sent (for stats).
  */
 export function sendTickBroadcast(
-  channel: MatchChannel,
-  connections: Iterable<Connection>,
-  broadcast: Map<ConnectionId, TickBroadcastPayload | 'skip'>,
-  nowMs?: number,
+    channel: MatchChannel,
+    connections: Iterable<Connection>,
+    broadcast: Map<ConnectionId, TickBroadcastPayload | 'skip'>,
+    nowMs?: number,
 ): number {
-  let sent = 0;
-  for (const connection of connections) {
-    const payload = broadcast.get(connection.id);
-    if (payload === undefined || payload === 'skip') {
-      continue;
+    let sent = 0;
+    for (const connection of connections) {
+        const payload = broadcast.get(connection.id);
+        if (payload === undefined || payload === 'skip') {
+            continue;
+        }
+        const envelope: ProtocolEnvelope<NetworkPayload> = {
+            type: 'tick',
+            version: NETWORK_API_VERSION,
+            seq: 0 as never,
+            payload,
+        };
+        connection.send(envelope, nowMs);
+        channel.lastSentView.set(connection.id, payload.view);
+        sent += 1;
     }
-    const envelope: ProtocolEnvelope<NetworkPayload> = {
-      type: 'tick',
-      version: NETWORK_API_VERSION,
-      seq: 0 as never,
-      payload,
-    };
-    connection.send(envelope, nowMs);
-    channel.lastSentView.set(connection.id, payload.view);
-    sent += 1;
-  }
-  return sent;
+    return sent;
 }
 
 // ----------------------------------------------------------------------------
@@ -141,7 +141,7 @@ export function sendTickBroadcast(
  * @returns Deterministic JSON text.
  */
 function stableStringify(value: unknown): string {
-  return JSON.stringify(value, (_key, v) => (v instanceof Set ? [...v].sort() : v));
+    return JSON.stringify(value, (_key, v) => (v instanceof Set ? [...v].sort() : v));
 }
 
 /**
@@ -154,10 +154,10 @@ function stableStringify(value: unknown): string {
  * @returns Deterministic string fingerprint.
  */
 function fingerprint(view: PlayerView): string {
-  return stableStringify({
-    player: view.player,
-    visibleCells: view.visibleCells,
-    events: view.events,
-    config: view.config,
-  });
+    return stableStringify({
+        player: view.player,
+        visibleCells: view.visibleCells,
+        events: view.events,
+        config: view.config,
+    });
 }

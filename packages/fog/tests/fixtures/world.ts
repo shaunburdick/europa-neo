@@ -33,17 +33,17 @@
  */
 
 import {
-  type Board,
-  type Cell,
-  type CityPlacement,
-  type Coord,
-  createWorld,
-  ENGINE_CONSTANTS,
-  type MatchConfig,
-  type Player,
-  type PlayerId,
-  type World,
-  type WorldState,
+    type Board,
+    type Cell,
+    type CityPlacement,
+    type Coord,
+    createWorld,
+    ENGINE_CONSTANTS,
+    type MatchConfig,
+    type Player,
+    type PlayerId,
+    type World,
+    type WorldState,
 } from '@europa/engine';
 
 /** Minimum board size used across the fog's quickstart tests. */
@@ -65,52 +65,47 @@ const MIN_BOARD_SIZE = 8;
  *         is not a valid `PlayerId`, or two cities share a
  *         cell.
  */
-function buildFlatBoard(
-  size: number,
-  cities: ReadonlyArray<readonly [x: number, y: number, owner: PlayerId]>,
-): Board {
-  if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
-    throw new Error(`buildFlatBoard: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
-  }
+function buildFlatBoard(size: number, cities: ReadonlyArray<readonly [x: number, y: number, owner: PlayerId]>): Board {
+    if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
+        throw new Error(`buildFlatBoard: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
+    }
 
-  const cellToCity = new Map<number, readonly [number, number, number]>();
-  for (const [cx, cy, owner] of cities) {
-    if (!Number.isInteger(cx) || !Number.isInteger(cy)) {
-      throw new Error(
-        `buildFlatBoard: city coords must be integers (got [${String(cx)}, ${String(cy)}])`,
-      );
+    const cellToCity = new Map<number, readonly [number, number, number]>();
+    for (const [cx, cy, owner] of cities) {
+        if (!Number.isInteger(cx) || !Number.isInteger(cy)) {
+            throw new Error(`buildFlatBoard: city coords must be integers (got [${String(cx)}, ${String(cy)}])`);
+        }
+        if (cx < 0 || cx >= size || cy < 0 || cy >= size) {
+            throw new Error(`buildFlatBoard: city [${cx}, ${cy}] out of bounds for size ${size}`);
+        }
+        if (owner !== 1 && owner !== 2 && owner !== 3 && owner !== 4) {
+            throw new Error(`buildFlatBoard: city owner must be 1..4 (got ${String(owner)})`);
+        }
+        const key = cy * size + cx;
+        if (cellToCity.has(key)) {
+            throw new Error(`buildFlatBoard: duplicate city at [${cx}, ${cy}] (cell index ${key})`);
+        }
+        cellToCity.set(key, [cx, cy, owner]);
     }
-    if (cx < 0 || cx >= size || cy < 0 || cy >= size) {
-      throw new Error(`buildFlatBoard: city [${cx}, ${cy}] out of bounds for size ${size}`);
-    }
-    if (owner !== 1 && owner !== 2 && owner !== 3 && owner !== 4) {
-      throw new Error(`buildFlatBoard: city owner must be 1..4 (got ${String(owner)})`);
-    }
-    const key = cy * size + cx;
-    if (cellToCity.has(key)) {
-      throw new Error(`buildFlatBoard: duplicate city at [${cx}, ${cy}] (cell index ${key})`);
-    }
-    cellToCity.set(key, [cx, cy, owner]);
-  }
 
-  const cells: Cell[] = new Array(size * size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      cells[y * size + x] = { x, y, elevation: 0, terrain: 'land' };
+    const cells: Cell[] = new Array(size * size);
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            cells[y * size + x] = { x, y, elevation: 0, terrain: 'land' };
+        }
     }
-  }
 
-  const cityPlacements: CityPlacement[] = cities.map(([x, y, owner]) => ({
-    cell: { x, y },
-    owner,
-  }));
+    const cityPlacements: CityPlacement[] = cities.map(([x, y, owner]) => ({
+        cell: { x, y },
+        owner,
+    }));
 
-  return {
-    width: size,
-    height: size,
-    cells: Object.freeze(cells),
-    cities: Object.freeze(cityPlacements),
-  };
+    return {
+        width: size,
+        height: size,
+        cells: Object.freeze(cells),
+        cities: Object.freeze(cityPlacements),
+    };
 }
 
 /**
@@ -128,13 +123,13 @@ function buildFlatBoard(
  * @returns Frozen `MatchConfig` ready to pass to `createWorld`.
  */
 function buildMatchConfig(size: number, playerCount: 2 | 3 | 4, seed = 42): MatchConfig {
-  return Object.freeze({
-    boardSize: size,
-    playerCount,
-    tickIntervalMs: 250,
-    seed,
-    visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
-  });
+    return Object.freeze({
+        boardSize: size,
+        playerCount,
+        tickIntervalMs: 250,
+        seed,
+        visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
+    });
 }
 
 /**
@@ -155,42 +150,40 @@ function buildMatchConfig(size: number, playerCount: 2 | 3 | 4, seed = 42): Matc
  *         reflect the placements.
  */
 function placeTroops(
-  state: WorldState,
-  size: number,
-  troops: ReadonlyArray<readonly [x: number, y: number, player: PlayerId, count: number]>,
+    state: WorldState,
+    size: number,
+    troops: ReadonlyArray<readonly [x: number, y: number, player: PlayerId, count: number]>,
 ): WorldState {
-  const newCounts = new Uint32Array(state.troopCounts);
-  const newOwners = new Uint8Array(state.troopOwners);
+    const newCounts = new Uint32Array(state.troopCounts);
+    const newOwners = new Uint8Array(state.troopOwners);
 
-  for (const [tx, ty, player, count] of troops) {
-    if (!Number.isInteger(tx) || !Number.isInteger(ty)) {
-      throw new Error(
-        `placeTroops: troop coords must be integers (got [${String(tx)}, ${String(ty)}])`,
-      );
+    for (const [tx, ty, player, count] of troops) {
+        if (!Number.isInteger(tx) || !Number.isInteger(ty)) {
+            throw new Error(`placeTroops: troop coords must be integers (got [${String(tx)}, ${String(ty)}])`);
+        }
+        if (tx < 0 || tx >= size || ty < 0 || ty >= size) {
+            throw new Error(`placeTroops: troop [${tx}, ${ty}] out of bounds for size ${size}`);
+        }
+        if (player !== 1 && player !== 2 && player !== 3 && player !== 4) {
+            throw new Error(`placeTroops: troop player must be 1..4 (got ${String(player)})`);
+        }
+        if (!Number.isInteger(count) || count <= 0) {
+            throw new Error(
+                `placeTroops: troop count must be a positive integer (got ${String(count)} at [${tx}, ${ty}])`,
+            );
+        }
+        const idx = ty * size + tx;
+        newCounts[idx] = count;
+        newOwners[idx] = player;
     }
-    if (tx < 0 || tx >= size || ty < 0 || ty >= size) {
-      throw new Error(`placeTroops: troop [${tx}, ${ty}] out of bounds for size ${size}`);
-    }
-    if (player !== 1 && player !== 2 && player !== 3 && player !== 4) {
-      throw new Error(`placeTroops: troop player must be 1..4 (got ${String(player)})`);
-    }
-    if (!Number.isInteger(count) || count <= 0) {
-      throw new Error(
-        `placeTroops: troop count must be a positive integer (got ${String(count)} at [${tx}, ${ty}])`,
-      );
-    }
-    const idx = ty * size + tx;
-    newCounts[idx] = count;
-    newOwners[idx] = player;
-  }
 
-  return {
-    troopCounts: newCounts,
-    troopOwners: newOwners,
-    pipeMasks: new Uint8Array(state.pipeMasks),
-    reservesPct: new Uint8Array(state.reservesPct),
-    cityOwners: new Uint8Array(state.cityOwners),
-  };
+    return {
+        troopCounts: newCounts,
+        troopOwners: newOwners,
+        pipeMasks: new Uint8Array(state.pipeMasks),
+        reservesPct: new Uint8Array(state.reservesPct),
+        cityOwners: new Uint8Array(state.cityOwners),
+    };
 }
 
 /**
@@ -208,9 +201,9 @@ function placeTroops(
  * @returns Frozen-ish `World` with empty state.
  */
 export function buildSmallWorld(size: number, playerCount: 2 | 3 | 4, seed = 42): World {
-  const config = buildMatchConfig(size, playerCount, seed);
-  const board = buildFlatBoard(size, []);
-  return createWorld(config, board);
+    const config = buildMatchConfig(size, playerCount, seed);
+    const board = buildFlatBoard(size, []);
+    return createWorld(config, board);
 }
 
 /**
@@ -238,17 +231,17 @@ export function buildSmallWorld(size: number, playerCount: 2 | 3 | 4, seed = 42)
  *         playerId is invalid, or any count is ≤ 0.
  */
 export function buildWorldWithTroops(
-  size: number,
-  troops: ReadonlyArray<readonly [x: number, y: number, player: PlayerId, count: number]>,
-  playerCount: 2 | 3 | 4 = 2,
-  seed = 42,
+    size: number,
+    troops: ReadonlyArray<readonly [x: number, y: number, player: PlayerId, count: number]>,
+    playerCount: 2 | 3 | 4 = 2,
+    seed = 42,
 ): World {
-  const base = buildSmallWorld(size, playerCount, seed);
-  const newState = placeTroops(base.state, size, troops);
-  return {
-    ...base,
-    state: newState,
-  };
+    const base = buildSmallWorld(size, playerCount, seed);
+    const newState = placeTroops(base.state, size, troops);
+    return {
+        ...base,
+        state: newState,
+    };
 }
 
 /**
@@ -273,14 +266,14 @@ export function buildWorldWithTroops(
  *         playerId is invalid.
  */
 export function buildWorldWithCities(
-  size: number,
-  cities: ReadonlyArray<readonly [x: number, y: number, player: PlayerId]>,
-  playerCount: 2 | 3 | 4 = 2,
-  seed = 42,
+    size: number,
+    cities: ReadonlyArray<readonly [x: number, y: number, player: PlayerId]>,
+    playerCount: 2 | 3 | 4 = 2,
+    seed = 42,
 ): World {
-  const config = buildMatchConfig(size, playerCount, seed);
-  const board = buildFlatBoard(size, cities);
-  return createWorld(config, board);
+    const config = buildMatchConfig(size, playerCount, seed);
+    const board = buildFlatBoard(size, cities);
+    return createWorld(config, board);
 }
 
 /**
@@ -302,54 +295,50 @@ export function buildWorldWithCities(
  *         or any troop placement is invalid.
  */
 export function buildWorldWithWater(
-  size: number,
-  waterCells: readonly Coord[],
-  troops: readonly (readonly [x: number, y: number, player: PlayerId, count: number])[] = [],
-  playerCount: 2 | 3 | 4 = 2,
-  seed = 42,
+    size: number,
+    waterCells: readonly Coord[],
+    troops: readonly (readonly [x: number, y: number, player: PlayerId, count: number])[] = [],
+    playerCount: 2 | 3 | 4 = 2,
+    seed = 42,
 ): World {
-  if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
-    throw new Error(
-      `buildWorldWithWater: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`,
-    );
-  }
-  const seen = new Set<number>();
-  for (const coord of waterCells) {
-    if (coord.x < 0 || coord.x >= size || coord.y < 0 || coord.y >= size) {
-      throw new Error(
-        `buildWorldWithWater: water cell [${String(coord.x)}, ${String(coord.y)}] out of bounds for size ${size}`,
-      );
+    if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
+        throw new Error(`buildWorldWithWater: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
     }
-    const key = coord.y * size + coord.x;
-    if (seen.has(key)) {
-      throw new Error(
-        `buildWorldWithWater: duplicate water cell [${String(coord.x)}, ${String(coord.y)}]`,
-      );
+    const seen = new Set<number>();
+    for (const coord of waterCells) {
+        if (coord.x < 0 || coord.x >= size || coord.y < 0 || coord.y >= size) {
+            throw new Error(
+                `buildWorldWithWater: water cell [${String(coord.x)}, ${String(coord.y)}] out of bounds for size ${size}`,
+            );
+        }
+        const key = coord.y * size + coord.x;
+        if (seen.has(key)) {
+            throw new Error(`buildWorldWithWater: duplicate water cell [${String(coord.x)}, ${String(coord.y)}]`);
+        }
+        seen.add(key);
     }
-    seen.add(key);
-  }
 
-  const config = buildMatchConfig(size, playerCount, seed);
-  const cells: Cell[] = new Array(size * size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      cells[y * size + x] = seen.has(y * size + x)
-        ? { x, y, elevation: 0, terrain: 'water' }
-        : { x, y, elevation: 0, terrain: 'land' };
+    const config = buildMatchConfig(size, playerCount, seed);
+    const cells: Cell[] = new Array(size * size);
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            cells[y * size + x] = seen.has(y * size + x)
+                ? { x, y, elevation: 0, terrain: 'water' }
+                : { x, y, elevation: 0, terrain: 'land' };
+        }
     }
-  }
-  const board: Board = {
-    width: size,
-    height: size,
-    cells: Object.freeze(cells),
-    cities: Object.freeze([]),
-  };
-  const base = createWorld(config, board);
-  if (troops.length === 0) {
-    return base;
-  }
-  const newState = placeTroops(base.state, size, troops);
-  return { ...base, state: newState };
+    const board: Board = {
+        width: size,
+        height: size,
+        cells: Object.freeze(cells),
+        cities: Object.freeze([]),
+    };
+    const base = createWorld(config, board);
+    if (troops.length === 0) {
+        return base;
+    }
+    const newState = placeTroops(base.state, size, troops);
+    return { ...base, state: newState };
 }
 
 /**
@@ -367,16 +356,16 @@ export function buildWorldWithWater(
  * @returns A new `World` with the overridden config.
  */
 export function withVisibilityRadius(world: World, radius: number): World {
-  return {
-    ...world,
-    config: Object.freeze({
-      boardSize: world.config.boardSize,
-      playerCount: world.config.playerCount,
-      tickIntervalMs: world.config.tickIntervalMs,
-      seed: world.config.seed,
-      visibilityRadius: radius,
-    }),
-  };
+    return {
+        ...world,
+        config: Object.freeze({
+            boardSize: world.config.boardSize,
+            playerCount: world.config.playerCount,
+            tickIntervalMs: world.config.tickIntervalMs,
+            seed: world.config.seed,
+            visibilityRadius: radius,
+        }),
+    };
 }
 
 /**

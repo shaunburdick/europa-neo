@@ -89,13 +89,13 @@ export const MAX_REGEN_ATTEMPTS_MAX = 10;
  * are the public surface; this one is a building block.
  */
 function clampInt(value: number, min: number, max: number): number {
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return Math.floor(value);
+    if (value < min) {
+        return min;
+    }
+    if (value > max) {
+        return max;
+    }
+    return Math.floor(value);
 }
 
 // ----------------------------------------------------------------------------
@@ -109,13 +109,13 @@ function clampInt(value: number, min: number, max: number): number {
  * @returns The clamped value, guaranteed to be in `[WATER_RATIO_MIN, WATER_RATIO_MAX]`.
  */
 export function clampWaterRatio(v: number): number {
-  if (v < WATER_RATIO_MIN) {
-    return WATER_RATIO_MIN;
-  }
-  if (v > WATER_RATIO_MAX) {
-    return WATER_RATIO_MAX;
-  }
-  return v;
+    if (v < WATER_RATIO_MIN) {
+        return WATER_RATIO_MIN;
+    }
+    if (v > WATER_RATIO_MAX) {
+        return WATER_RATIO_MAX;
+    }
+    return v;
 }
 
 /**
@@ -125,13 +125,13 @@ export function clampWaterRatio(v: number): number {
  * @returns The clamped value, guaranteed to be in `[ROUGHNESS_MIN, ROUGHNESS_MAX]`.
  */
 export function clampRoughness(v: number): number {
-  if (v < ROUGHNESS_MIN) {
-    return ROUGHNESS_MIN;
-  }
-  if (v > ROUGHNESS_MAX) {
-    return ROUGHNESS_MAX;
-  }
-  return v;
+    if (v < ROUGHNESS_MIN) {
+        return ROUGHNESS_MIN;
+    }
+    if (v > ROUGHNESS_MAX) {
+        return ROUGHNESS_MAX;
+    }
+    return v;
 }
 
 /**
@@ -142,7 +142,7 @@ export function clampRoughness(v: number): number {
  * @returns An integer in `[OCTAVES_MIN, OCTAVES_MAX]`.
  */
 export function clampOctaves(v: number): number {
-  return clampInt(v, OCTAVES_MIN, OCTAVES_MAX);
+    return clampInt(v, OCTAVES_MIN, OCTAVES_MAX);
 }
 
 /**
@@ -153,7 +153,7 @@ export function clampOctaves(v: number): number {
  * @returns An integer in `[CITIES_PER_PLAYER_MIN, CITIES_PER_PLAYER_MAX]`.
  */
 export function clampCitiesPerPlayer(v: number): number {
-  return clampInt(v, CITIES_PER_PLAYER_MIN, CITIES_PER_PLAYER_MAX);
+    return clampInt(v, CITIES_PER_PLAYER_MIN, CITIES_PER_PLAYER_MAX);
 }
 
 /**
@@ -164,7 +164,7 @@ export function clampCitiesPerPlayer(v: number): number {
  * @returns An integer in `[MIN_CITY_WATER_DISTANCE_MIN, MIN_CITY_WATER_DISTANCE_MAX]`.
  */
 export function clampMinCityWaterDistance(v: number): number {
-  return clampInt(v, MIN_CITY_WATER_DISTANCE_MIN, MIN_CITY_WATER_DISTANCE_MAX);
+    return clampInt(v, MIN_CITY_WATER_DISTANCE_MIN, MIN_CITY_WATER_DISTANCE_MAX);
 }
 
 /**
@@ -175,7 +175,7 @@ export function clampMinCityWaterDistance(v: number): number {
  * @returns An integer in `[MIN_CITY_CITY_DISTANCE_MIN, MIN_CITY_CITY_DISTANCE_MAX]`.
  */
 export function clampMinCityCityDistance(v: number): number {
-  return clampInt(v, MIN_CITY_CITY_DISTANCE_MIN, MIN_CITY_CITY_DISTANCE_MAX);
+    return clampInt(v, MIN_CITY_CITY_DISTANCE_MIN, MIN_CITY_CITY_DISTANCE_MAX);
 }
 
 /**
@@ -190,7 +190,7 @@ export function clampMinCityCityDistance(v: number): number {
  * @returns An integer in `[MAX_REGEN_ATTEMPTS_MIN, MAX_REGEN_ATTEMPTS_MAX]`.
  */
 export function clampMaxRegenAttempts(v: number): number {
-  return clampInt(v, MAX_REGEN_ATTEMPTS_MIN, MAX_REGEN_ATTEMPTS_MAX);
+    return clampInt(v, MAX_REGEN_ATTEMPTS_MIN, MAX_REGEN_ATTEMPTS_MAX);
 }
 
 // ----------------------------------------------------------------------------
@@ -218,14 +218,14 @@ export function clampMaxRegenAttempts(v: number): number {
  * @returns A new `GenerationSettings` with every numeric field clamped.
  */
 export function clampSettings(s: Readonly<GenerationSettings>): GenerationSettings {
-  return {
-    waterRatio: clampWaterRatio(s.waterRatio),
-    roughness: clampRoughness(s.roughness),
-    octaves: clampOctaves(s.octaves),
-    citiesPerPlayer: clampCitiesPerPlayer(s.citiesPerPlayer),
-    symmetryStrategy: s.symmetryStrategy,
-    minCityWaterDistance: clampMinCityWaterDistance(s.minCityWaterDistance),
-    minCityCityDistance: clampMinCityCityDistance(s.minCityCityDistance),
-    maxRegenAttempts: clampMaxRegenAttempts(s.maxRegenAttempts),
-  };
+    return {
+        waterRatio: clampWaterRatio(s.waterRatio),
+        roughness: clampRoughness(s.roughness),
+        octaves: clampOctaves(s.octaves),
+        citiesPerPlayer: clampCitiesPerPlayer(s.citiesPerPlayer),
+        symmetryStrategy: s.symmetryStrategy,
+        minCityWaterDistance: clampMinCityWaterDistance(s.minCityWaterDistance),
+        minCityCityDistance: clampMinCityCityDistance(s.minCityCityDistance),
+        maxRegenAttempts: clampMaxRegenAttempts(s.maxRegenAttempts),
+    };
 }

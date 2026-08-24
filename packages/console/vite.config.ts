@@ -10,26 +10,26 @@ import { defineConfig } from 'vitest/config';
  * matching the engine/fog/terrain/networking/matchmaking precedent.
  */
 export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 5173,
-  },
-  build: {
-    target: 'es2022',
-    outDir: 'dist',
-    rollupOptions: {
-      output: {
-        // Split vendor (React + Zustand) from console core so the
-        // <150 KB gzipped initial-budget check (plan.md "Performance
-        // Goals") can attribute bytes per chunk. Lazy sound chunks are
-        // introduced with the audio runtime in a later phase.
-        manualChunks: (id: string) => {
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-          return undefined;
-        },
-      },
+    plugins: [react()],
+    server: {
+        port: 5173,
     },
-  },
+    build: {
+        target: 'es2022',
+        outDir: 'dist',
+        rollupOptions: {
+            output: {
+                // Split vendor (React + Zustand) from console core so the
+                // <150 KB gzipped initial-budget check (plan.md "Performance
+                // Goals") can attribute bytes per chunk. Lazy sound chunks are
+                // introduced with the audio runtime in a later phase.
+                manualChunks: (id: string) => {
+                    if (id.includes('node_modules')) {
+                        return 'vendor';
+                    }
+                    return undefined;
+                },
+            },
+        },
+    },
 });

@@ -22,18 +22,18 @@ export type FocusDirection = 'N' | 'W' | 'S' | 'E';
 
 /** Board bounds in cells. */
 interface BoardBounds {
-  readonly width: number;
-  readonly height: number;
+    readonly width: number;
+    readonly height: number;
 }
 
 /** One Tab-stop descriptor the renderer turns into a focusable node. */
 export interface TabbableRegion {
-  /** Stable DOM id of the region. */
-  readonly id: string;
-  /** Accessible name announced for the region. */
-  readonly label: string;
-  /** Whether the region participates in Tab order. */
-  readonly focusable: boolean;
+    /** Stable DOM id of the region. */
+    readonly id: string;
+    /** Accessible name announced for the region. */
+    readonly label: string;
+    /** Whether the region participates in Tab order. */
+    readonly focusable: boolean;
 }
 
 /**
@@ -42,71 +42,69 @@ export interface TabbableRegion {
  * boards / mounts.
  */
 export class KeyboardNavigator {
-  /**
-   * Compute the next focused cell moving one cell in `direction`,
-   * clamped to the board: movement that would leave the board returns
-   * the same coordinate (focus "sticks" at edges — no wrap-around,
-   * matching the original game's console behavior).
-   *
-   * A `null` current focus starts from {@link getInitialFocus}.
-   * Pure.
-   *
-   * @param current   Currently focused cell, or `null` before first focus.
-   * @param direction Movement direction (N = row-1, W = col-1, …).
-   * @param bounds    Board size in cells.
-   */
-  moveFocus(current: Coord | null, direction: FocusDirection, bounds: BoardBounds): Coord {
-    if (current === null) {
-      return this.getInitialFocus(bounds.width, bounds.height);
+    /**
+     * Compute the next focused cell moving one cell in `direction`,
+     * clamped to the board: movement that would leave the board returns
+     * the same coordinate (focus "sticks" at edges — no wrap-around,
+     * matching the original game's console behavior).
+     *
+     * A `null` current focus starts from {@link getInitialFocus}.
+     * Pure.
+     *
+     * @param current   Currently focused cell, or `null` before first focus.
+     * @param direction Movement direction (N = row-1, W = col-1, …).
+     * @param bounds    Board size in cells.
+     */
+    moveFocus(current: Coord | null, direction: FocusDirection, bounds: BoardBounds): Coord {
+        if (current === null) {
+            return this.getInitialFocus(bounds.width, bounds.height);
+        }
+        const delta = DIRECTION_DELTAS[direction];
+        const nextX = clamp(current.x + delta.dx, 0, bounds.width - 1);
+        const nextY = clamp(current.y + delta.dy, 0, bounds.height - 1);
+        return { x: nextX, y: nextY };
     }
-    const delta = DIRECTION_DELTAS[direction];
-    const nextX = clamp(current.x + delta.dx, 0, bounds.width - 1);
-    const nextY = clamp(current.y + delta.dy, 0, bounds.height - 1);
-    return { x: nextX, y: nextY };
-  }
 
-  /**
-   * The cell focused when the board first receives keyboard focus:
-   * the center cell `(floor(width/2), floor(height/2))`. Pure.
-   */
-  getInitialFocus(width: number, height: number): Coord {
-    return { x: Math.floor(width / 2), y: Math.floor(height / 2) };
-  }
+    /**
+     * The cell focused when the board first receives keyboard focus:
+     * the center cell `(floor(width/2), floor(height/2))`. Pure.
+     */
+    getInitialFocus(width: number, height: number): Coord {
+        return { x: Math.floor(width / 2), y: Math.floor(height / 2) };
+    }
 
-  /**
-   * The regions a Tab keypress visits, in order (Q-A04 Tab order:
-   * skip-link → map → HUD → order-bar; reserves panel is reachable
-   * via its own shortcut, not Tab, to keep the stop count small).
-   *
-   * @param _state Current console state (reserved for future dynamic
-   *               entries — e.g., hiding the order palette while a
-   *               modal is open; v1 list is static).
-   */
-  getTabbableRegions(_state: ConsoleState): readonly TabbableRegion[] {
-    return TAB_ORDER;
-  }
+    /**
+     * The regions a Tab keypress visits, in order (Q-A04 Tab order:
+     * skip-link → map → HUD → order-bar; reserves panel is reachable
+     * via its own shortcut, not Tab, to keep the stop count small).
+     *
+     * @param _state Current console state (reserved for future dynamic
+     *               entries — e.g., hiding the order palette while a
+     *               modal is open; v1 list is static).
+     */
+    getTabbableRegions(_state: ConsoleState): readonly TabbableRegion[] {
+        return TAB_ORDER;
+    }
 }
 
 /** Fixed v1 Tab order (WCAG 2.4.11: few, predictable focus stops). */
 const TAB_ORDER: readonly TabbableRegion[] = [
-  { id: 'skip-link', label: 'Skip to main content', focusable: true },
-  { id: 'map', label: 'Game board', focusable: true },
-  { id: 'hud', label: 'Status bar', focusable: true },
-  { id: 'order-bar', label: 'Order palette', focusable: true },
-  { id: 'reserves', label: 'Reserves panel', focusable: false },
+    { id: 'skip-link', label: 'Skip to main content', focusable: true },
+    { id: 'map', label: 'Game board', focusable: true },
+    { id: 'hud', label: 'Status bar', focusable: true },
+    { id: 'order-bar', label: 'Order palette', focusable: true },
+    { id: 'reserves', label: 'Reserves panel', focusable: false },
 ];
 
 /** Unit deltas per {@link FocusDirection}. */
-const DIRECTION_DELTAS: Readonly<
-  Record<FocusDirection, { readonly dx: number; readonly dy: number }>
-> = {
-  N: { dx: 0, dy: -1 },
-  W: { dx: -1, dy: 0 },
-  S: { dx: 0, dy: 1 },
-  E: { dx: 1, dy: 0 },
+const DIRECTION_DELTAS: Readonly<Record<FocusDirection, { readonly dx: number; readonly dy: number }>> = {
+    N: { dx: 0, dy: -1 },
+    W: { dx: -1, dy: 0 },
+    S: { dx: 0, dy: 1 },
+    E: { dx: 1, dy: 0 },
 };
 
 /** Clamp an integer into `[min, max]`. */
 function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
+    return Math.max(min, Math.min(max, value));
 }

@@ -1,73 +1,73 @@
 {
-  "name": "@europa/console",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Europa Neo client console — satellite-view board rendering, region-based pipe orders, subcell paratroop/gun targeting, reserves control, and modern QoL layer. React 19 SPA consuming @europa/engine, @europa/fog, @europa/terrain, and @europa/networking; server-authoritative (never simulates).",
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "name": "@europa/console",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Europa Neo client console — satellite-view board rendering, region-based pipe orders, subcell paratroop/gun targeting, reserves control, and modern QoL layer. React 19 SPA consuming @europa/engine, @europa/fog, @europa/terrain, and @europa/networking; server-authoritative (never simulates).",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./contracts/*": "./contracts/*.ts"
     },
-    "./contracts/*": "./contracts/*.ts"
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "contracts"
-  ],
-  "scripts": {
-    "dev": "vite",
-    "host": "tsx scripts/host.ts",
-    "build": "tsc --noEmit && vite build && tsx scripts/build-assets.ts && tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\"",
-    "build:lib": "tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\"",
-    "build:assets": "tsx scripts/build-assets.ts",
-    "test": "vitest",
-    "test:unit": "vitest run --config vitest.config.ts tests/unit",
-    "test:component": "vitest run --config vitest.config.browser.ts tests/component",
-    "test:a11y": "vitest run --config vitest.config.browser.ts tests/a11y",
-    "test:e2e": "playwright test",
-    "test:perf": "vitest run --config vitest.config.browser.ts tests/integration/perf.test.ts",
-    "test:determinism": "vitest run --config vitest.config.ts tests/integration/determinism.test.ts",
-    "test:parity": "vitest run --config vitest.config.ts tests/integration/subcell-parity.test.ts",
-    "test:keepalive": "vitest run --config vitest.config.ts tests/integration/quiet-client-keepalive.test.ts",
-    "test:selfhost": "bash scripts/test-selfhost.sh",
-    "lint": "biome check .",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
-    "typecheck": "tsc --noEmit",
-    "typecheck:conformance": "tsc -p tsconfig.conformance.json",
-    "coverage": "vitest run --config vitest.config.coverage.ts --coverage"
-  },
-  "dependencies": {
-    "@europa/engine": "workspace:*",
-    "@europa/fog": "workspace:*",
-    "@europa/matchmaking": "workspace:*",
-    "@europa/terrain": "workspace:*",
-    "@europa/networking": "workspace:*",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "zustand": "catalog:"
-  },
-  "devDependencies": {
-    "@axe-core/playwright": "catalog:",
-    "@biomejs/biome": "catalog:",
-    "axe-core": "catalog:",
-    "@playwright/test": "catalog:",
-    "@resvg/resvg-js": "catalog:",
-    "@types/node": "catalog:",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
-    "@vitest/browser": "catalog:",
-    "@vitest/browser-playwright": "catalog:",
-    "@vitest/coverage-v8": "^4.1.11",
-    "happy-dom": "catalog:",
-    "tsx": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:",
-    "vitest": "catalog:",
-    "vitest-browser-react": "catalog:"
-  }
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "contracts"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "host": "tsx scripts/host.ts",
+        "build": "tsc --noEmit && vite build && tsx scripts/build-assets.ts && tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\"",
+        "build:lib": "tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\"",
+        "build:assets": "tsx scripts/build-assets.ts",
+        "test": "vitest",
+        "test:unit": "vitest run --config vitest.config.ts tests/unit",
+        "test:component": "vitest run --config vitest.config.browser.ts tests/component",
+        "test:a11y": "vitest run --config vitest.config.browser.ts tests/a11y",
+        "test:e2e": "playwright test",
+        "test:perf": "vitest run --config vitest.config.browser.ts tests/integration/perf.test.ts",
+        "test:determinism": "vitest run --config vitest.config.ts tests/integration/determinism.test.ts",
+        "test:parity": "vitest run --config vitest.config.ts tests/integration/subcell-parity.test.ts",
+        "test:keepalive": "vitest run --config vitest.config.ts tests/integration/quiet-client-keepalive.test.ts",
+        "test:selfhost": "bash scripts/test-selfhost.sh",
+        "lint": "biome check .",
+        "format": "biome format --write .",
+        "format:check": "biome format .",
+        "typecheck": "tsc --noEmit",
+        "typecheck:conformance": "tsc -p tsconfig.conformance.json",
+        "coverage": "vitest run --config vitest.config.coverage.ts --coverage"
+    },
+    "dependencies": {
+        "@europa/engine": "workspace:*",
+        "@europa/fog": "workspace:*",
+        "@europa/matchmaking": "workspace:*",
+        "@europa/terrain": "workspace:*",
+        "@europa/networking": "workspace:*",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "zustand": "catalog:"
+    },
+    "devDependencies": {
+        "@axe-core/playwright": "catalog:",
+        "@biomejs/biome": "catalog:",
+        "axe-core": "catalog:",
+        "@playwright/test": "catalog:",
+        "@resvg/resvg-js": "catalog:",
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@vitejs/plugin-react": "catalog:",
+        "@vitest/browser": "catalog:",
+        "@vitest/browser-playwright": "catalog:",
+        "@vitest/coverage-v8": "^4.1.11",
+        "happy-dom": "catalog:",
+        "tsx": "catalog:",
+        "typescript": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:",
+        "vitest-browser-react": "catalog:"
+    }
 }

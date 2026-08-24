@@ -19,19 +19,12 @@ import { CITIES_PER_PLAYER_MAX, CITIES_PER_PLAYER_MIN } from './clamp';
  * @returns The clamped `citiesPerPlayer` (in `[1, 4]`) times
  *          `playerCount`.
  */
-export function resolveCityCount(
-  settings: { readonly citiesPerPlayer: number },
-  playerCount: 2 | 3 | 4,
-): number {
-  // Inline clamp (the US3 clamp module is not yet implemented; we
-  // duplicate the math here for now and centralize in clamp.ts in
-  // a later wave). Range [1, 4] per data-model.md §2.
-  const cpp = settings.citiesPerPlayer;
-  const clamped =
-    cpp < CITIES_PER_PLAYER_MIN
-      ? CITIES_PER_PLAYER_MIN
-      : cpp > CITIES_PER_PLAYER_MAX
-        ? CITIES_PER_PLAYER_MAX
-        : cpp;
-  return clamped * playerCount;
+export function resolveCityCount(settings: { readonly citiesPerPlayer: number }, playerCount: 2 | 3 | 4): number {
+    // Inline clamp (the US3 clamp module is not yet implemented; we
+    // duplicate the math here for now and centralize in clamp.ts in
+    // a later wave). Range [1, 4] per data-model.md §2.
+    const cpp = settings.citiesPerPlayer;
+    const clamped =
+        cpp < CITIES_PER_PLAYER_MIN ? CITIES_PER_PLAYER_MIN : cpp > CITIES_PER_PLAYER_MAX ? CITIES_PER_PLAYER_MAX : cpp;
+    return clamped * playerCount;
 }

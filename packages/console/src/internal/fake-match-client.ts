@@ -16,19 +16,12 @@
  * @internal Test scaffolding; never part of the production boot path.
  */
 
-import type {
-  ActionId,
-  ConsoleClient,
-  NetworkPayload,
-  Order,
-  ProtocolEnvelope,
-  SequenceNumber,
-} from '../state/types';
+import type { ActionId, ConsoleClient, NetworkPayload, Order, ProtocolEnvelope, SequenceNumber } from '../state/types';
 
 /** One recorded outbound order. */
 export interface RecordedOrder {
-  readonly actionId: ActionId;
-  readonly order: Order;
+    readonly actionId: ActionId;
+    readonly order: Order;
 }
 
 /**
@@ -37,54 +30,54 @@ export interface RecordedOrder {
  * {@link ConsoleClient} that `createOrderBridge` consumes.
  */
 export class FakeMatchClient {
-  /** Every order submitted through {@link sendOrder}, in send order. */
-  readonly sent: RecordedOrder[] = [];
+    /** Every order submitted through {@link sendOrder}, in send order. */
+    readonly sent: RecordedOrder[] = [];
 
-  /**
-   * Wire seq → ActionId map (mirrors `ConsoleClientImpl.seqToActionId`)
-   * so envelope-driven ack correlation can be tested.
-   */
-  readonly seqToActionId = new Map<SequenceNumber, ActionId>();
+    /**
+     * Wire seq → ActionId map (mirrors `ConsoleClientImpl.seqToActionId`)
+     * so envelope-driven ack correlation can be tested.
+     */
+    readonly seqToActionId = new Map<SequenceNumber, ActionId>();
 
-  private nextSeq = 0;
+    private nextSeq = 0;
 
-  private readonly handlers = new Set<(envelope: ProtocolEnvelope<NetworkPayload>) => void>();
+    private readonly handlers = new Set<(envelope: ProtocolEnvelope<NetworkPayload>) => void>();
 
-  /**
-   * Record the order and assign the next wire seq (correlation map
-   * kept in sync exactly like the real adapter). Resolves immediately.
-   */
-  sendOrder(actionId: ActionId, order: Order): Promise<void> {
-    this.nextSeq += 1;
-    const seq = this.nextSeq as SequenceNumber;
-    this.seqToActionId.set(seq, actionId);
-    this.sent.push({ actionId, order });
-    return Promise.resolve();
-  }
-
-  /**
-   * Subscribe to inbound envelopes. Returns the unsubscribe function
-   * (mirrors feature 004's `onMessage` pattern).
-   */
-  onEnvelope(handler: (envelope: ProtocolEnvelope<NetworkPayload>) => void): () => void {
-    this.handlers.add(handler);
-    return () => {
-      this.handlers.delete(handler);
-    };
-  }
-
-  /**
-   * Deliver an inbound envelope to every subscriber (test driver for
-   * ack/tick flows through the bridge).
-   */
-  emit(envelope: ProtocolEnvelope<NetworkPayload>): void {
-    for (const handler of this.handlers) {
-      handler(envelope);
+    /**
+     * Record the order and assign the next wire seq (correlation map
+     * kept in sync exactly like the real adapter). Resolves immediately.
+     */
+    sendOrder(actionId: ActionId, order: Order): Promise<void> {
+        this.nextSeq += 1;
+        const seq = this.nextSeq as SequenceNumber;
+        this.seqToActionId.set(seq, actionId);
+        this.sent.push({ actionId, order });
+        return Promise.resolve();
     }
-  }
 
-  /** Snapshot of recorded orders (assertion convenience). */
-  get orders(): readonly RecordedOrder[] {
-    return this.sent;
-  }
+    /**
+     * Subscribe to inbound envelopes. Returns the unsubscribe function
+     * (mirrors feature 004's `onMessage` pattern).
+     */
+    onEnvelope(handler: (envelope: ProtocolEnvelope<NetworkPayload>) => void): () => void {
+        this.handlers.add(handler);
+        return () => {
+            this.handlers.delete(handler);
+        };
+    }
+
+    /**
+     * Deliver an inbound envelope to every subscriber (test driver for
+     * ack/tick flows through the bridge).
+     */
+    emit(envelope: ProtocolEnvelope<NetworkPayload>): void {
+        for (const handler of this.handlers) {
+            handler(envelope);
+        }
+    }
+
+    /** Snapshot of recorded orders (assertion convenience). */
+    get orders(): readonly RecordedOrder[] {
+        return this.sent;
+    }
 }

@@ -47,23 +47,23 @@ import { DEFAULT_INPUT_MAPPING } from '../state/types';
  * from the `InputMapping` fields (plus the per-digit reserve keys).
  */
 export type HotkeyId =
-  | 'pipeNorth'
-  | 'pipeWest'
-  | 'pipeSouth'
-  | 'pipeEast'
-  | 'pipeNorthExclusive'
-  | 'pipeWestExclusive'
-  | 'pipeSouthExclusive'
-  | 'pipeEastExclusive'
-  | 'clearCellPipes'
-  | 'paratroop'
-  | 'gun'
-  | `reserve${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
-  | 'cancel'
-  | 'moveNorth'
-  | 'moveWest'
-  | 'moveSouth'
-  | 'moveEast';
+    | 'pipeNorth'
+    | 'pipeWest'
+    | 'pipeSouth'
+    | 'pipeEast'
+    | 'pipeNorthExclusive'
+    | 'pipeWestExclusive'
+    | 'pipeSouthExclusive'
+    | 'pipeEastExclusive'
+    | 'clearCellPipes'
+    | 'paratroop'
+    | 'gun'
+    | `reserve${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
+    | 'cancel'
+    | 'moveNorth'
+    | 'moveWest'
+    | 'moveSouth'
+    | 'moveEast';
 
 /**
  * Project an `InputMapping` into the `key → HotkeyId` routing table.
@@ -74,39 +74,39 @@ export type HotkeyId =
  * @param mapping Control table to project.
  */
 export function buildHotkeyTable(mapping: InputMapping): ReadonlyMap<string, HotkeyId> {
-  const collisions = findHotkeyCollisions(mapping);
-  if (collisions.length > 0) {
-    throw new Error(`InputMapping has duplicate key bindings: ${collisions.join(', ')}`);
-  }
-  const table = new Map<string, HotkeyId>();
-  const bind = (key: string, id: HotkeyId): void => {
-    table.set(normalizeKey(key), id);
-  };
+    const collisions = findHotkeyCollisions(mapping);
+    if (collisions.length > 0) {
+        throw new Error(`InputMapping has duplicate key bindings: ${collisions.join(', ')}`);
+    }
+    const table = new Map<string, HotkeyId>();
+    const bind = (key: string, id: HotkeyId): void => {
+        table.set(normalizeKey(key), id);
+    };
 
-  bind(mapping.pipeKeys.pipeNorth, 'pipeNorth');
-  bind(mapping.pipeKeys.pipeWest, 'pipeWest');
-  bind(mapping.pipeKeys.pipeSouth, 'pipeSouth');
-  bind(mapping.pipeKeys.pipeEast, 'pipeEast');
-  // Exclusive chords are DISTINCT bindings (`Alt+i` ≠ `i`) and are
-  // stored under their full chord string.
-  bind(mapping.pipeExclusiveKeys.pipeNorth, 'pipeNorthExclusive');
-  bind(mapping.pipeExclusiveKeys.pipeWest, 'pipeWestExclusive');
-  bind(mapping.pipeExclusiveKeys.pipeSouth, 'pipeSouthExclusive');
-  bind(mapping.pipeExclusiveKeys.pipeEast, 'pipeEastExclusive');
-  bind(mapping.clearCellPipes, 'clearCellPipes');
-  bind(mapping.paratroopPrimary, 'paratroop');
-  bind(mapping.paratroopAlt, 'paratroop');
-  bind(mapping.gunPrimary, 'gun');
-  bind(mapping.gunAlt, 'gun');
-  mapping.reserveKeys.forEach((key, digit) => {
-    bind(key, `reserve${digit as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}` as HotkeyId);
-  });
-  bind(mapping.cancel, 'cancel');
-  bind(mapping.selectionMove.north, 'moveNorth');
-  bind(mapping.selectionMove.west, 'moveWest');
-  bind(mapping.selectionMove.south, 'moveSouth');
-  bind(mapping.selectionMove.east, 'moveEast');
-  return table;
+    bind(mapping.pipeKeys.pipeNorth, 'pipeNorth');
+    bind(mapping.pipeKeys.pipeWest, 'pipeWest');
+    bind(mapping.pipeKeys.pipeSouth, 'pipeSouth');
+    bind(mapping.pipeKeys.pipeEast, 'pipeEast');
+    // Exclusive chords are DISTINCT bindings (`Alt+i` ≠ `i`) and are
+    // stored under their full chord string.
+    bind(mapping.pipeExclusiveKeys.pipeNorth, 'pipeNorthExclusive');
+    bind(mapping.pipeExclusiveKeys.pipeWest, 'pipeWestExclusive');
+    bind(mapping.pipeExclusiveKeys.pipeSouth, 'pipeSouthExclusive');
+    bind(mapping.pipeExclusiveKeys.pipeEast, 'pipeEastExclusive');
+    bind(mapping.clearCellPipes, 'clearCellPipes');
+    bind(mapping.paratroopPrimary, 'paratroop');
+    bind(mapping.paratroopAlt, 'paratroop');
+    bind(mapping.gunPrimary, 'gun');
+    bind(mapping.gunAlt, 'gun');
+    mapping.reserveKeys.forEach((key, digit) => {
+        bind(key, `reserve${digit as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}` as HotkeyId);
+    });
+    bind(mapping.cancel, 'cancel');
+    bind(mapping.selectionMove.north, 'moveNorth');
+    bind(mapping.selectionMove.west, 'moveWest');
+    bind(mapping.selectionMove.south, 'moveSouth');
+    bind(mapping.selectionMove.east, 'moveEast');
+    return table;
 }
 
 /**
@@ -116,33 +116,33 @@ export function buildHotkeyTable(mapping: InputMapping): ReadonlyMap<string, Hot
  * @param mapping Control table to inspect.
  */
 export function findHotkeyCollisions(mapping: InputMapping): readonly string[] {
-  const seen = new Map<string, number>();
-  const count = (key: string): void => {
-    const normalized = normalizeKey(key);
-    seen.set(normalized, (seen.get(normalized) ?? 0) + 1);
-  };
-  count(mapping.pipeKeys.pipeNorth);
-  count(mapping.pipeKeys.pipeWest);
-  count(mapping.pipeKeys.pipeSouth);
-  count(mapping.pipeKeys.pipeEast);
-  // Exclusive chords count as their own key strings (`Alt+i` ≠ `i`).
-  for (const chord of Object.values(mapping.pipeExclusiveKeys)) {
-    count(chord);
-  }
-  count(mapping.clearCellPipes);
-  count(mapping.paratroopPrimary);
-  count(mapping.paratroopAlt);
-  count(mapping.gunPrimary);
-  count(mapping.gunAlt);
-  for (const key of mapping.reserveKeys) {
-    count(key);
-  }
-  count(mapping.cancel);
-  count(mapping.selectionMove.north);
-  count(mapping.selectionMove.west);
-  count(mapping.selectionMove.south);
-  count(mapping.selectionMove.east);
-  return [...seen.entries()].filter(([, times]) => times > 1).map(([key]) => key);
+    const seen = new Map<string, number>();
+    const count = (key: string): void => {
+        const normalized = normalizeKey(key);
+        seen.set(normalized, (seen.get(normalized) ?? 0) + 1);
+    };
+    count(mapping.pipeKeys.pipeNorth);
+    count(mapping.pipeKeys.pipeWest);
+    count(mapping.pipeKeys.pipeSouth);
+    count(mapping.pipeKeys.pipeEast);
+    // Exclusive chords count as their own key strings (`Alt+i` ≠ `i`).
+    for (const chord of Object.values(mapping.pipeExclusiveKeys)) {
+        count(chord);
+    }
+    count(mapping.clearCellPipes);
+    count(mapping.paratroopPrimary);
+    count(mapping.paratroopAlt);
+    count(mapping.gunPrimary);
+    count(mapping.gunAlt);
+    for (const key of mapping.reserveKeys) {
+        count(key);
+    }
+    count(mapping.cancel);
+    count(mapping.selectionMove.north);
+    count(mapping.selectionMove.west);
+    count(mapping.selectionMove.south);
+    count(mapping.selectionMove.east);
+    return [...seen.entries()].filter(([, times]) => times > 1).map(([key]) => key);
 }
 
 /**
@@ -153,24 +153,24 @@ export function findHotkeyCollisions(mapping: InputMapping): readonly string[] {
  * @param override Host-supplied table, or `undefined`.
  */
 export function resolveInputMapping(override?: InputMapping | undefined): InputMapping {
-  return override ?? DEFAULT_INPUT_MAPPING;
+    return override ?? DEFAULT_INPUT_MAPPING;
 }
 
 /** Normalize a key string exactly like the translator does. */
 function normalizeKey(key: string): string {
-  return key.length === 1 ? key.toLowerCase() : key;
+    return key.length === 1 ? key.toLowerCase() : key;
 }
 
 /** Cursor sample bookkeeping shared with the pointer layer. */
 interface CursorSample {
-  readonly target: CursorTarget;
-  readonly atMs: number;
+    readonly target: CursorTarget;
+    readonly atMs: number;
 }
 
 /** Options for {@link HotkeyController}. */
 export interface HotkeyControllerOptions {
-  /** Replacement control table; defaults to the original mapping. */
-  readonly mapping?: InputMapping | undefined;
+    /** Replacement control table; defaults to the original mapping. */
+    readonly mapping?: InputMapping | undefined;
 }
 
 /**
@@ -181,74 +181,74 @@ export interface HotkeyControllerOptions {
  * per-host configurability.
  */
 export class HotkeyController {
-  private readonly store: ConsoleStore;
+    private readonly store: ConsoleStore;
 
-  private readonly mapping: InputMapping;
+    private readonly mapping: InputMapping;
 
-  private sample: CursorSample | null = null;
+    private sample: CursorSample | null = null;
 
-  private handler: ((event: KeyboardEvent) => void) | null = null;
+    private handler: ((event: KeyboardEvent) => void) | null = null;
 
-  /**
-   * @param store   Dispatch target + state source.
-   * @param options Optional mapping override (see {@link HotkeyControllerOptions}).
-   */
-  constructor(store: ConsoleStore, options?: HotkeyControllerOptions) {
-    this.store = store;
-    this.mapping = resolveInputMapping(options?.mapping);
-  }
-
-  /**
-   * Record a fresh cursor sample (call from the pointer layer's move
-   * path) so subcell aims stay fresh for paratroop/gun.
-   *
-   * @param target Hit-test result for the current pointer position.
-   * @param atMs   Monotonic sample timestamp.
-   */
-  notePointer(target: CursorTarget, atMs: number): void {
-    this.sample = { target, atMs };
-  }
-
-  /** Attach the document keydown listener. Idempotent per attach cycle. */
-  attach(): void {
-    if (this.handler !== null) {
-      return;
+    /**
+     * @param store   Dispatch target + state source.
+     * @param options Optional mapping override (see {@link HotkeyControllerOptions}).
+     */
+    constructor(store: ConsoleStore, options?: HotkeyControllerOptions) {
+        this.store = store;
+        this.mapping = resolveInputMapping(options?.mapping);
     }
-    this.handler = (event: KeyboardEvent) => {
-      this.handleKeyDown(event);
-    };
-    document.addEventListener('keydown', this.handler);
-  }
 
-  /** Remove the listener and drop the cursor sample. */
-  dispose(): void {
-    if (this.handler !== null) {
-      document.removeEventListener('keydown', this.handler);
-      this.handler = null;
+    /**
+     * Record a fresh cursor sample (call from the pointer layer's move
+     * path) so subcell aims stay fresh for paratroop/gun.
+     *
+     * @param target Hit-test result for the current pointer position.
+     * @param atMs   Monotonic sample timestamp.
+     */
+    notePointer(target: CursorTarget, atMs: number): void {
+        this.sample = { target, atMs };
     }
-    this.sample = null;
-  }
 
-  /** Translate + dispatch one keydown through the configured table. */
-  private handleKeyDown(event: KeyboardEvent): void {
-    if (shouldIgnoreKeyEvent(event)) {
-      return;
+    /** Attach the document keydown listener. Idempotent per attach cycle. */
+    attach(): void {
+        if (this.handler !== null) {
+            return;
+        }
+        this.handler = (event: KeyboardEvent) => {
+            this.handleKeyDown(event);
+        };
+        document.addEventListener('keydown', this.handler);
     }
-    const nowMs = performance.now();
-    const ageMs = this.sample === null ? null : nowMs - this.sample.atMs;
-    const outcome = translateKey({
-      key: event.key,
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      metaKey: event.metaKey,
-      state: this.store.getState(),
-      cursor: this.sample?.target ?? null,
-      cursorAgeMs: ageMs,
-      mapping: this.mapping,
-    });
-    if (outcome.kind === 'action') {
-      event.preventDefault();
-      this.store.dispatch(outcome.action);
+
+    /** Remove the listener and drop the cursor sample. */
+    dispose(): void {
+        if (this.handler !== null) {
+            document.removeEventListener('keydown', this.handler);
+            this.handler = null;
+        }
+        this.sample = null;
     }
-  }
+
+    /** Translate + dispatch one keydown through the configured table. */
+    private handleKeyDown(event: KeyboardEvent): void {
+        if (shouldIgnoreKeyEvent(event)) {
+            return;
+        }
+        const nowMs = performance.now();
+        const ageMs = this.sample === null ? null : nowMs - this.sample.atMs;
+        const outcome = translateKey({
+            key: event.key,
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            state: this.store.getState(),
+            cursor: this.sample?.target ?? null,
+            cursorAgeMs: ageMs,
+            mapping: this.mapping,
+        });
+        if (outcome.kind === 'action') {
+            event.preventDefault();
+            this.store.dispatch(outcome.action);
+        }
+    }
 }

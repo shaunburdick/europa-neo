@@ -76,13 +76,11 @@ export const GENERIC_EFFECT_COLOR = 'rgba(148, 163, 184, 0.45)';
  * @param elevation Elevation 0..255.
  */
 export function terrainColor(terrain: 'land' | 'water', elevation: number): string {
-  if (terrain === 'water') {
-    return WATER_COLOR;
-  }
-  const clamped = Math.max(0, Math.min(255, elevation));
-  const t = clamped / 255;
-  const lightness = Math.round(
-    LAND_MIN_LIGHTNESS_PCT + t * (LAND_MAX_LIGHTNESS_PCT - LAND_MIN_LIGHTNESS_PCT),
-  );
-  return `hsl(${LAND_HUE} ${LAND_SATURATION_PCT}% ${lightness}%)`;
+    if (terrain === 'water') {
+        return WATER_COLOR;
+    }
+    const clamped = Math.max(0, Math.min(255, elevation));
+    const t = clamped / 255;
+    const lightness = Math.round(LAND_MIN_LIGHTNESS_PCT + t * (LAND_MAX_LIGHTNESS_PCT - LAND_MIN_LIGHTNESS_PCT));
+    return `hsl(${LAND_HUE} ${LAND_SATURATION_PCT}% ${lightness}%)`;
 }

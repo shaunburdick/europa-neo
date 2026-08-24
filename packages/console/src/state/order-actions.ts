@@ -28,14 +28,7 @@
 import { NULL_LOGGER } from '../../contracts/console-api';
 import { netEventFromEnvelope } from '../net/envelope-to-event';
 import type { ConsoleStore } from './store';
-import type {
-  ActionId,
-  ConsoleClient,
-  ConsoleLogger,
-  Order,
-  ReducerEffect,
-  SequenceNumber,
-} from './types';
+import type { ActionId, ConsoleClient, ConsoleLogger, Order, ReducerEffect, SequenceNumber } from './types';
 
 /**
  * The client surface the bridge needs. Structural subset of
@@ -43,34 +36,34 @@ import type {
  * on the shipped adapter; optional so test doubles can omit it).
  */
 export type OrderBridgeClient = Pick<ConsoleClient, 'sendOrder' | 'onEnvelope'> & {
-  /**
-   * Wire seq → console ActionId correlation. Read LIVE per envelope
-   * so reconnect-time map clears are observed.
-   */
-  readonly seqToActionId?: ReadonlyMap<SequenceNumber, ActionId> | undefined;
+    /**
+     * Wire seq → console ActionId correlation. Read LIVE per envelope
+     * so reconnect-time map clears are observed.
+     */
+    readonly seqToActionId?: ReadonlyMap<SequenceNumber, ActionId> | undefined;
 };
 
 /** Arguments for {@link createOrderBridge}. */
 export interface OrderBridgeArgs {
-  /** The console store (dispatch target for inbound NetEvents). */
-  readonly store: ConsoleStore;
-  /** The network adapter (structural subset — see {@link OrderBridgeClient}). */
-  readonly client: OrderBridgeClient;
-  /** Injected logger; defaults to the no-op logger. */
-  readonly logger?: ConsoleLogger;
+    /** The console store (dispatch target for inbound NetEvents). */
+    readonly store: ConsoleStore;
+    /** The network adapter (structural subset — see {@link OrderBridgeClient}). */
+    readonly client: OrderBridgeClient;
+    /** Injected logger; defaults to the no-op logger. */
+    readonly logger?: ConsoleLogger;
 }
 
 /** Handle returned by {@link createOrderBridge}. */
 export interface OrderBridge {
-  /**
-   * Apply one reducer effect. Wire as the store's `onEffect` sink:
-   * `createConsoleStore(initial, (effect) => bridge.handleEffect(effect))`.
-   * Only `sendOrder` produces I/O; every other kind is a runtime
-   * concern and is logged + ignored.
-   */
-  handleEffect(effect: ReducerEffect): void;
-  /** Unsubscribe from envelopes. Idempotent. */
-  dispose(): void;
+    /**
+     * Apply one reducer effect. Wire as the store's `onEffect` sink:
+     * `createConsoleStore(initial, (effect) => bridge.handleEffect(effect))`.
+     * Only `sendOrder` produces I/O; every other kind is a runtime
+     * concern and is logged + ignored.
+     */
+    handleEffect(effect: ReducerEffect): void;
+    /** Unsubscribe from envelopes. Idempotent. */
+    dispose(): void;
 }
 
 /**
@@ -80,47 +73,47 @@ export interface OrderBridge {
  * @param args Store + client + optional logger (see {@link OrderBridgeArgs}).
  */
 export function createOrderBridge(args: OrderBridgeArgs): OrderBridge {
-  const { store, client } = args;
-  const logger = args.logger ?? NULL_LOGGER;
-  // Monotonic connection timestamp for the envelope context (the
-  // sanctioned UI clock; duration math is a Phase 8 runtime concern).
-  const connectedAtMs = performance.now();
+    const { store, client } = args;
+    const logger = args.logger ?? NULL_LOGGER;
+    // Monotonic connection timestamp for the envelope context (the
+    // sanctioned UI clock; duration math is a Phase 8 runtime concern).
+    const connectedAtMs = performance.now();
 
-  const unsubscribe = client.onEnvelope((envelope) => {
-    const event = netEventFromEnvelope(envelope, {
-      seqToActionId: client.seqToActionId ?? new Map(),
-      connectedAtMs,
-      lastAppliedTick: store.getState().latestView?.tick ?? 0,
-    });
-    if (event !== null) {
-      store.dispatch(event);
-    }
-  });
-
-  return {
-    handleEffect(effect: ReducerEffect): void {
-      switch (effect.kind) {
-        case 'sendOrder': {
-          const actionId: ActionId = effect.actionId;
-          const order: Order = effect.order;
-          client.sendOrder(actionId, order).catch((error: unknown) => {
-            // No ack will arrive for this action; log and move on.
-            logger.warn('order-actions: sendOrder failed', {
-              actionId,
-              orderKind: order.kind,
-              error,
-            });
-          });
-          return;
+    const unsubscribe = client.onEnvelope((envelope) => {
+        const event = netEventFromEnvelope(envelope, {
+            seqToActionId: client.seqToActionId ?? new Map(),
+            connectedAtMs,
+            lastAppliedTick: store.getState().latestView?.tick ?? 0,
+        });
+        if (event !== null) {
+            store.dispatch(event);
         }
-        // announce / playSound / persistQol / requestSurrenderConfirm /
-        // showErrorModal / scheduleReconnect are Phase 8 runtime concerns.
-        default:
-          return;
-      }
-    },
-    dispose(): void {
-      unsubscribe();
-    },
-  };
+    });
+
+    return {
+        handleEffect(effect: ReducerEffect): void {
+            switch (effect.kind) {
+                case 'sendOrder': {
+                    const actionId: ActionId = effect.actionId;
+                    const order: Order = effect.order;
+                    client.sendOrder(actionId, order).catch((error: unknown) => {
+                        // No ack will arrive for this action; log and move on.
+                        logger.warn('order-actions: sendOrder failed', {
+                            actionId,
+                            orderKind: order.kind,
+                            error,
+                        });
+                    });
+                    return;
+                }
+                // announce / playSound / persistQol / requestSurrenderConfirm /
+                // showErrorModal / scheduleReconnect are Phase 8 runtime concerns.
+                default:
+                    return;
+            }
+        },
+        dispose(): void {
+            unsubscribe();
+        },
+    };
 }

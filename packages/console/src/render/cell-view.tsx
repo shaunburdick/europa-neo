@@ -27,25 +27,25 @@ import { CHIP_BACKGROUND, CHIP_TEXT, CITY_COLOR, FOCUS_RING_COLOR, terrainColor 
 
 /** Props for {@link CellView}. */
 export interface CellViewProps {
-  /** The pure render data for this cell (data-model.md §3). */
-  readonly info: CellRenderInfo;
-  /** Active camera — supplies the cell size (zoom) in CSS pixels. */
-  readonly camera: CameraState;
-  /** Per-player cosmetic colors (MapView.playerColors). */
-  readonly playerColors: Readonly<Record<PlayerId, string>>;
-  /**
-   * Whether this cell currently holds the keyboard focus ring
-   * (roving focus via `aria-activedescendant` on the grid).
-   */
-  readonly focused?: boolean;
-  /**
-   * Click handler (wired to order dispatch from Phase 4 onward).
-   * `| undefined` so callers may pass through optional values under
-   * `exactOptionalPropertyTypes`.
-   */
-  readonly onClick?: ((info: CellRenderInfo) => void) | undefined;
-  /** Pointer-enter handler (hover highlight). */
-  readonly onPointerEnter?: ((info: CellRenderInfo) => void) | undefined;
+    /** The pure render data for this cell (data-model.md §3). */
+    readonly info: CellRenderInfo;
+    /** Active camera — supplies the cell size (zoom) in CSS pixels. */
+    readonly camera: CameraState;
+    /** Per-player cosmetic colors (MapView.playerColors). */
+    readonly playerColors: Readonly<Record<PlayerId, string>>;
+    /**
+     * Whether this cell currently holds the keyboard focus ring
+     * (roving focus via `aria-activedescendant` on the grid).
+     */
+    readonly focused?: boolean;
+    /**
+     * Click handler (wired to order dispatch from Phase 4 onward).
+     * `| undefined` so callers may pass through optional values under
+     * `exactOptionalPropertyTypes`.
+     */
+    readonly onClick?: ((info: CellRenderInfo) => void) | undefined;
+    /** Pointer-enter handler (hover highlight). */
+    readonly onPointerEnter?: ((info: CellRenderInfo) => void) | undefined;
 }
 
 /**
@@ -58,16 +58,16 @@ export interface CellViewProps {
  * Pure.
  */
 export function formatCellAriaLabel(info: CellRenderInfo): string {
-  const parts: string[] = [`Cell (${info.coord.x}, ${info.coord.y})`, `${info.troops} troops`];
-  parts.push(info.owner !== null ? `Player ${info.owner}` : 'unowned');
-  if (info.isCity) {
-    parts.push('city');
-  }
-  if (info.pipes.size > 0) {
-    const ordered = DIRECTION_ORDER.filter((direction) => info.pipes.has(direction));
-    parts.push(`pipes: ${ordered.join(', ')}`);
-  }
-  return parts.join(', ');
+    const parts: string[] = [`Cell (${info.coord.x}, ${info.coord.y})`, `${info.troops} troops`];
+    parts.push(info.owner !== null ? `Player ${info.owner}` : 'unowned');
+    if (info.isCity) {
+        parts.push('city');
+    }
+    if (info.pipes.size > 0) {
+        const ordered = DIRECTION_ORDER.filter((direction) => info.pipes.has(direction));
+        parts.push(`pipes: ${ordered.join(', ')}`);
+    }
+    return parts.join(', ');
 }
 
 /** Canonical pipe listing order in accessible names. */
@@ -78,7 +78,7 @@ const DIRECTION_ORDER: readonly Direction[] = ['N', 'E', 'S', 'W'];
  * grid container's `aria-activedescendant`. Pure.
  */
 export function cellElementId(coord: { readonly x: number; readonly y: number }): string {
-  return `europa-cell-${coord.x}-${coord.y}`;
+    return `europa-cell-${coord.x}-${coord.y}`;
 }
 
 /**
@@ -86,84 +86,80 @@ export function cellElementId(coord: { readonly x: number; readonly y: number })
  * Presentational only: all state arrives via props.
  */
 export function CellView({
-  info,
-  camera,
-  playerColors,
-  focused = false,
-  onClick,
-  onPointerEnter,
+    info,
+    camera,
+    playerColors,
+    focused = false,
+    onClick,
+    onPointerEnter,
 }: CellViewProps): JSX.Element {
-  const { zoom } = camera;
-  const classes = ['europa-cell'];
-  if (focused) {
-    classes.push('europa-cell--focused');
-  }
+    const { zoom } = camera;
+    const classes = ['europa-cell'];
+    if (focused) {
+        classes.push('europa-cell--focused');
+    }
 
-  return (
-    <div
-      role="gridcell"
-      id={cellElementId(info.coord)}
-      aria-rowindex={info.coord.y + 1}
-      aria-colindex={info.coord.x + 1}
-      aria-label={formatCellAriaLabel(info)}
-      className={classes.join(' ')}
-      style={{
-        left: info.coord.x * zoom,
-        top: info.coord.y * zoom,
-        width: zoom,
-        height: zoom,
-        backgroundColor: terrainColor(info.terrain, info.elevation),
-        ...(info.isCity ? { outline: `2px solid ${CITY_COLOR}`, outlineOffset: -2 } : {}),
-        ...(focused ? { outline: `3px solid ${FOCUS_RING_COLOR}`, outlineOffset: -3 } : {}),
-      }}
-      onClick={onClick === undefined ? undefined : () => onClick(info)}
-      onPointerEnter={onPointerEnter === undefined ? undefined : () => onPointerEnter(info)}
-      onKeyDown={
-        onClick === undefined
-          ? undefined
-          : (event) => {
-              // Keyboard activation parity for the click handler
-              // (WCAG 2.1.1). Under the roving-focus model DOM focus
-              // rests on the grid container — whose own keydown
-              // dispatches Enter/Space — so this only fires if a
-              // cell ever gains direct DOM focus.
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                onClick(info);
-              }
+    return (
+        <div
+            role="gridcell"
+            id={cellElementId(info.coord)}
+            aria-rowindex={info.coord.y + 1}
+            aria-colindex={info.coord.x + 1}
+            aria-label={formatCellAriaLabel(info)}
+            className={classes.join(' ')}
+            style={{
+                left: info.coord.x * zoom,
+                top: info.coord.y * zoom,
+                width: zoom,
+                height: zoom,
+                backgroundColor: terrainColor(info.terrain, info.elevation),
+                ...(info.isCity ? { outline: `2px solid ${CITY_COLOR}`, outlineOffset: -2 } : {}),
+                ...(focused ? { outline: `3px solid ${FOCUS_RING_COLOR}`, outlineOffset: -3 } : {}),
+            }}
+            onClick={onClick === undefined ? undefined : () => onClick(info)}
+            onPointerEnter={onPointerEnter === undefined ? undefined : () => onPointerEnter(info)}
+            onKeyDown={
+                onClick === undefined
+                    ? undefined
+                    : (event) => {
+                          // Keyboard activation parity for the click handler
+                          // (WCAG 2.1.1). Under the roving-focus model DOM focus
+                          // rests on the grid container — whose own keydown
+                          // dispatches Enter/Space — so this only fires if a
+                          // cell ever gains direct DOM focus.
+                          if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              onClick(info);
+                          }
+                      }
             }
-      }
-    >
-      {[...info.pipes].map((direction) => (
-        <span
-          key={direction}
-          aria-hidden="true"
-          className={`europa-pipe europa-pipe--${direction}`}
-        />
-      ))}
-      {info.isCity ? <span aria-hidden="true" className="europa-cell__city-dot" /> : null}
-      {info.troops > 0 && info.owner !== null ? (
-        <span
-          aria-hidden="true"
-          className="europa-cell__troops"
-          style={{
-            backgroundColor: CHIP_BACKGROUND,
-            color: CHIP_TEXT,
-            borderColor: playerColors[info.owner] ?? CHIP_TEXT,
-          }}
         >
-          {info.troops}
-        </span>
-      ) : null}
-      {info.reservesPct > 0 ? (
-        <span
-          aria-hidden="true"
-          className="europa-cell__reserves"
-          style={{ backgroundColor: CHIP_BACKGROUND, color: CHIP_TEXT }}
-        >
-          {info.reservesPct * 10}%
-        </span>
-      ) : null}
-    </div>
-  );
+            {[...info.pipes].map((direction) => (
+                <span key={direction} aria-hidden="true" className={`europa-pipe europa-pipe--${direction}`} />
+            ))}
+            {info.isCity ? <span aria-hidden="true" className="europa-cell__city-dot" /> : null}
+            {info.troops > 0 && info.owner !== null ? (
+                <span
+                    aria-hidden="true"
+                    className="europa-cell__troops"
+                    style={{
+                        backgroundColor: CHIP_BACKGROUND,
+                        color: CHIP_TEXT,
+                        borderColor: playerColors[info.owner] ?? CHIP_TEXT,
+                    }}
+                >
+                    {info.troops}
+                </span>
+            ) : null}
+            {info.reservesPct > 0 ? (
+                <span
+                    aria-hidden="true"
+                    className="europa-cell__reserves"
+                    style={{ backgroundColor: CHIP_BACKGROUND, color: CHIP_TEXT }}
+                >
+                    {info.reservesPct * 10}%
+                </span>
+            ) : null}
+        </div>
+    );
 }

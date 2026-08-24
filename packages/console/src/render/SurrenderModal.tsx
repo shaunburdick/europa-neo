@@ -32,99 +32,95 @@ import { useEffect, useRef } from 'react';
 
 /** Props for {@link SurrenderModal}. */
 export interface SurrenderModalProps {
-  /** Whether the modal is open. Renders nothing when `false`. */
-  readonly open: boolean;
-  /** Confirm handler — dispatches the surrender action. */
-  readonly onConfirm: () => void;
-  /** Cancel handler — closes the modal with no order sent. */
-  readonly onCancel: () => void;
+    /** Whether the modal is open. Renders nothing when `false`. */
+    readonly open: boolean;
+    /** Confirm handler — dispatches the surrender action. */
+    readonly onConfirm: () => void;
+    /** Cancel handler — closes the modal with no order sent. */
+    readonly onCancel: () => void;
 }
 
 /**
  * The surrender confirmation dialog. Focus-trapped while open.
  */
-export function SurrenderModal({
-  open,
-  onConfirm,
-  onCancel,
-}: SurrenderModalProps): JSX.Element | null {
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
-  const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
+export function SurrenderModal({ open, onConfirm, onCancel }: SurrenderModalProps): JSX.Element | null {
+    const dialogRef = useRef<HTMLDivElement | null>(null);
+    const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+    const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Move focus into the dialog when it opens (WCAG 2.4.3).
-  useEffect(() => {
-    if (open) {
-      cancelButtonRef.current?.focus();
+    // Move focus into the dialog when it opens (WCAG 2.4.3).
+    useEffect(() => {
+        if (open) {
+            cancelButtonRef.current?.focus();
+        }
+    }, [open]);
+
+    if (!open) {
+        return null;
     }
-  }, [open]);
 
-  if (!open) {
-    return null;
-  }
-
-  /**
-   * Keyboard contract: Tab / Shift+Tab cycle between the two buttons;
-   * Escape cancels. Enter/Space activate natively (real buttons).
-   */
-  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      onCancel();
-      return;
+    /**
+     * Keyboard contract: Tab / Shift+Tab cycle between the two buttons;
+     * Escape cancels. Enter/Space activate natively (real buttons).
+     */
+    function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            onCancel();
+            return;
+        }
+        if (event.key !== 'Tab') {
+            return;
+        }
+        event.preventDefault();
+        const active = document.activeElement;
+        const onConfirmButton = active === confirmButtonRef.current;
+        const next = event.shiftKey
+            ? onConfirmButton
+                ? cancelButtonRef.current
+                : confirmButtonRef.current
+            : active === cancelButtonRef.current
+              ? confirmButtonRef.current
+              : cancelButtonRef.current;
+        next?.focus();
     }
-    if (event.key !== 'Tab') {
-      return;
-    }
-    event.preventDefault();
-    const active = document.activeElement;
-    const onConfirmButton = active === confirmButtonRef.current;
-    const next = event.shiftKey
-      ? onConfirmButton
-        ? cancelButtonRef.current
-        : confirmButtonRef.current
-      : active === cancelButtonRef.current
-        ? confirmButtonRef.current
-        : cancelButtonRef.current;
-    next?.focus();
-  }
 
-  return (
-    <div className="europa-modal-backdrop">
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="surrender-title"
-        aria-describedby="surrender-body"
-        className="europa-modal europa-focus-ring"
-        onKeyDown={handleKeyDown}
-      >
-        <h2 id="surrender-title" className="europa-modal__title">
-          Surrender?
-        </h2>
-        <p id="surrender-body" className="europa-modal__body">
-          Your cities fall under enemy control and you join as a spectator. This cannot be undone.
-        </p>
-        <div className="europa-modal__actions">
-          <button
-            type="button"
-            ref={cancelButtonRef}
-            className="europa-modal__button europa-focus-ring"
-            onClick={onCancel}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            ref={confirmButtonRef}
-            className="europa-modal__button europa-modal__button--danger europa-focus-ring"
-            onClick={onConfirm}
-          >
-            Confirm surrender
-          </button>
+    return (
+        <div className="europa-modal-backdrop">
+            <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="surrender-title"
+                aria-describedby="surrender-body"
+                className="europa-modal europa-focus-ring"
+                onKeyDown={handleKeyDown}
+            >
+                <h2 id="surrender-title" className="europa-modal__title">
+                    Surrender?
+                </h2>
+                <p id="surrender-body" className="europa-modal__body">
+                    Your cities fall under enemy control and you join as a spectator. This cannot be undone.
+                </p>
+                <div className="europa-modal__actions">
+                    <button
+                        type="button"
+                        ref={cancelButtonRef}
+                        className="europa-modal__button europa-focus-ring"
+                        onClick={onCancel}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        ref={confirmButtonRef}
+                        className="europa-modal__button europa-modal__button--danger europa-focus-ring"
+                        onClick={onConfirm}
+                    >
+                        Confirm surrender
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

@@ -40,43 +40,43 @@ import type { MatchmakerStore } from './store';
 
 /** The bridge event that triggers the policy (networking's shape). */
 export interface SeatExpiredEvent {
-  /** The match whose seat expired. */
-  readonly matchId: MatchId;
-  /** Bearer token identifying the expired seat. */
-  readonly sessionToken: SessionToken;
-  /** Engine player id, or `null` when networking could not bind one. */
-  readonly playerId: PlayerId | null;
+    /** The match whose seat expired. */
+    readonly matchId: MatchId;
+    /** Bearer token identifying the expired seat. */
+    readonly sessionToken: SessionToken;
+    /** Engine player id, or `null` when networking could not bind one. */
+    readonly playerId: PlayerId | null;
 }
 
 /** Everything the policy needs but does not own (injected). */
 export interface ForfeitContext {
-  /** The matchmaker's store (match + session lookup). */
-  readonly store: MatchmakerStore;
-  /** The networking server (detach / unregister calls). */
-  readonly server: Server;
-  /** Logger seam. */
-  readonly logger: Logger;
-  /** Optional lifecycle-event sink (FR-012). */
-  readonly emit?: StatusEmitter;
+    /** The matchmaker's store (match + session lookup). */
+    readonly store: MatchmakerStore;
+    /** The networking server (detach / unregister calls). */
+    readonly server: Server;
+    /** Logger seam. */
+    readonly logger: Logger;
+    /** Optional lifecycle-event sink (FR-012). */
+    readonly emit?: StatusEmitter;
 }
 
 /** What the policy decided for an expired seat. */
 export type ForfeitOutcome =
-  /** Surrender submitted to a running match's engine session. */
-  | 'surrendered'
-  /** Filling-phase inline seat release (no engine session existed). */
-  | 'released'
-  /** Final surrender tore the all-forfeited match down. */
-  | 'torn_down';
+    /** Surrender submitted to a running match's engine session. */
+    | 'surrendered'
+    /** Filling-phase inline seat release (no engine session existed). */
+    | 'released'
+    /** Final surrender tore the all-forfeited match down. */
+    | 'torn_down';
 
 /** Success payload of {@linkcode handleSeatExpired}. */
 export interface SeatExpiredResult {
-  /** The (possibly torn-down) match record. */
-  readonly match: MatchRecord;
-  /** Alive players in the engine world after the surrender. */
-  readonly remainingPlayers: number;
-  /** Which policy branch fired. */
-  readonly outcome: ForfeitOutcome;
+    /** The (possibly torn-down) match record. */
+    readonly match: MatchRecord;
+    /** Alive players in the engine world after the surrender. */
+    readonly remainingPlayers: number;
+    /** Which policy branch fired. */
+    readonly outcome: ForfeitOutcome;
 }
 
 /**
@@ -88,27 +88,23 @@ export interface SeatExpiredResult {
  * @param ctx - Injected store/server/logger/emit context.
  * @param nowMs - Epoch ms of the teardown.
  */
-export function handleAllPlayersForfeited(
-  match: MatchRecord,
-  ctx: ForfeitContext,
-  nowMs: number,
-): void {
-  const world = match.engineSession?.world();
-  if (world !== undefined) {
-    const cancelled = buildMatchResultsRecord({
-      matchId: match.matchId,
-      world,
-      result: { kind: 'cancelled', reason: 'all_players_forfeited' },
-      seats: match.seats,
-    });
+export function handleAllPlayersForfeited(match: MatchRecord, ctx: ForfeitContext, nowMs: number): void {
+    const world = match.engineSession?.world();
+    if (world !== undefined) {
+        const cancelled = buildMatchResultsRecord({
+            matchId: match.matchId,
+            world,
+            result: { kind: 'cancelled', reason: 'all_players_forfeited' },
+            seats: match.seats,
+        });
+        ctx.server.unregisterMatch(match.matchId);
+        transitionToCollected(match, nowMs, ctx.emit, cancelled);
+        return;
+    }
+    // Defensive: no engine session (should not happen for a running
+    // match) — still release the networking registration and collect.
     ctx.server.unregisterMatch(match.matchId);
-    transitionToCollected(match, nowMs, ctx.emit, cancelled);
-    return;
-  }
-  // Defensive: no engine session (should not happen for a running
-  // match) — still release the networking registration and collect.
-  ctx.server.unregisterMatch(match.matchId);
-  transitionToCollected(match, nowMs, ctx.emit);
+    transitionToCollected(match, nowMs, ctx.emit);
 }
 
 /**
@@ -123,115 +119,115 @@ export function handleAllPlayersForfeited(
  * @returns What happened, or `null` for a no-op.
  */
 export function handleSeatExpired(
-  event: SeatExpiredEvent,
-  ctx: ForfeitContext,
-  nowMs: number,
+    event: SeatExpiredEvent,
+    ctx: ForfeitContext,
+    nowMs: number,
 ): SeatExpiredResult | null {
-  const match = ctx.store.getMatch(event.matchId);
-  if (match === undefined) {
-    ctx.logger.warn('forfeit: onSeatExpired for unknown match', { matchId: event.matchId });
-    return null;
-  }
-  let seat: SeatRecord | undefined;
-  for (const candidate of match.seats.values()) {
-    // Plain `===` is fine here (documented accepted risk, mirroring
-    // networking's ids.ts): 122-bit CSPRNG v4 tokens make a timing
-    // oracle worthless.
-    if (candidate.sessionToken === event.sessionToken) {
-      seat = candidate;
-      break;
+    const match = ctx.store.getMatch(event.matchId);
+    if (match === undefined) {
+        ctx.logger.warn('forfeit: onSeatExpired for unknown match', { matchId: event.matchId });
+        return null;
     }
-  }
-  if (seat === undefined) {
-    ctx.logger.warn('forfeit: onSeatExpired token matches no seat', {
-      matchId: event.matchId,
-    });
-    return null;
-  }
-  if (seat.forfeitedAtMs !== null) {
-    // Idempotency: this seat already forfeited; nothing to do.
-    return null;
-  }
-
-  const playerId = seat.playerId ?? event.playerId;
-
-  if (match.status === 'filling') {
-    // Inline seat release (dispatch ruling 3): no engine session yet,
-    // so releasing is removing the seat + unbinding the session.
-    match.seats.delete(seat.seatIndex);
-    const session = ctx.store.getSession(seat.playerSessionId);
-    if (session !== undefined) {
-      session.currentMatchId = null;
-      session.currentSeatIndex = null;
-      session.currentSessionToken = null;
+    let seat: SeatRecord | undefined;
+    for (const candidate of match.seats.values()) {
+        // Plain `===` is fine here (documented accepted risk, mirroring
+        // networking's ids.ts): 122-bit CSPRNG v4 tokens make a timing
+        // oracle worthless.
+        if (candidate.sessionToken === event.sessionToken) {
+            seat = candidate;
+            break;
+        }
     }
-    ctx.server.detachPlayer({
-      matchId: match.matchId,
-      playerId,
-      sessionToken: event.sessionToken,
-    });
-    ctx.logger.info('forfeit: filling seat released', { matchId: match.matchId });
-    return { match, remainingPlayers: match.seats.size, outcome: 'released' };
-  }
+    if (seat === undefined) {
+        ctx.logger.warn('forfeit: onSeatExpired token matches no seat', {
+            matchId: event.matchId,
+        });
+        return null;
+    }
+    if (seat.forfeitedAtMs !== null) {
+        // Idempotency: this seat already forfeited; nothing to do.
+        return null;
+    }
 
-  if (match.status !== 'running' || match.engineSession === null) {
-    // finished/collected matches have nothing to surrender.
-    ctx.logger.warn('forfeit: onSeatExpired for non-running match ignored', {
-      matchId: event.matchId,
-    });
-    return null;
-  }
+    const playerId = seat.playerId ?? event.playerId;
 
-  if (playerId === null) {
-    // Seated players always carry a playerId once running; a null here
-    // means networking could not bind one — mark + detach without an
-    // engine order (nothing to surrender for an unbound connection).
+    if (match.status === 'filling') {
+        // Inline seat release (dispatch ruling 3): no engine session yet,
+        // so releasing is removing the seat + unbinding the session.
+        match.seats.delete(seat.seatIndex);
+        const session = ctx.store.getSession(seat.playerSessionId);
+        if (session !== undefined) {
+            session.currentMatchId = null;
+            session.currentSeatIndex = null;
+            session.currentSessionToken = null;
+        }
+        ctx.server.detachPlayer({
+            matchId: match.matchId,
+            playerId,
+            sessionToken: event.sessionToken,
+        });
+        ctx.logger.info('forfeit: filling seat released', { matchId: match.matchId });
+        return { match, remainingPlayers: match.seats.size, outcome: 'released' };
+    }
+
+    if (match.status !== 'running' || match.engineSession === null) {
+        // finished/collected matches have nothing to surrender.
+        ctx.logger.warn('forfeit: onSeatExpired for non-running match ignored', {
+            matchId: event.matchId,
+        });
+        return null;
+    }
+
+    if (playerId === null) {
+        // Seated players always carry a playerId once running; a null here
+        // means networking could not bind one — mark + detach without an
+        // engine order (nothing to surrender for an unbound connection).
+        seat.forfeitedAtMs = nowMs;
+        ctx.server.detachPlayer({
+            matchId: match.matchId,
+            playerId: null,
+            sessionToken: event.sessionToken,
+        });
+        ctx.logger.warn('forfeit: expired seat had no bound playerId', {
+            matchId: match.matchId,
+        });
+        return { match, remainingPlayers: countAlive(match), outcome: 'surrendered' };
+    }
+
+    // The engine is the single source of truth for elimination (FR-016):
+    // inject its own OrderSurrender rather than inventing a forfeit path.
+    const applied = match.engineSession.submit({ kind: 'surrender', player: playerId });
+    if (!applied.ok) {
+        // e.g., already_surrendered / match_terminal — log and proceed with
+        // the bookkeeping; the engine's state remains authoritative.
+        ctx.logger.debug('forfeit: engine rejected surrender order', {
+            matchId: match.matchId,
+            reason: applied.reason.kind,
+        });
+    }
+
     seat.forfeitedAtMs = nowMs;
+
     ctx.server.detachPlayer({
-      matchId: match.matchId,
-      playerId: null,
-      sessionToken: event.sessionToken,
+        matchId: match.matchId,
+        playerId,
+        sessionToken: event.sessionToken,
     });
-    ctx.logger.warn('forfeit: expired seat had no bound playerId', {
-      matchId: match.matchId,
+
+    const remainingPlayers = countAlive(match);
+    if (remainingPlayers === 0) {
+        handleAllPlayersForfeited(match, ctx, nowMs);
+        ctx.logger.info('forfeit: all players forfeited; match torn down', {
+            matchId: match.matchId,
+        });
+        return { match, remainingPlayers: 0, outcome: 'torn_down' };
+    }
+
+    ctx.logger.info('forfeit: seat forfeited; match continues', {
+        matchId: match.matchId,
+        remainingPlayers,
     });
-    return { match, remainingPlayers: countAlive(match), outcome: 'surrendered' };
-  }
-
-  // The engine is the single source of truth for elimination (FR-016):
-  // inject its own OrderSurrender rather than inventing a forfeit path.
-  const applied = match.engineSession.submit({ kind: 'surrender', player: playerId });
-  if (!applied.ok) {
-    // e.g., already_surrendered / match_terminal — log and proceed with
-    // the bookkeeping; the engine's state remains authoritative.
-    ctx.logger.debug('forfeit: engine rejected surrender order', {
-      matchId: match.matchId,
-      reason: applied.reason.kind,
-    });
-  }
-
-  seat.forfeitedAtMs = nowMs;
-
-  ctx.server.detachPlayer({
-    matchId: match.matchId,
-    playerId,
-    sessionToken: event.sessionToken,
-  });
-
-  const remainingPlayers = countAlive(match);
-  if (remainingPlayers === 0) {
-    handleAllPlayersForfeited(match, ctx, nowMs);
-    ctx.logger.info('forfeit: all players forfeited; match torn down', {
-      matchId: match.matchId,
-    });
-    return { match, remainingPlayers: 0, outcome: 'torn_down' };
-  }
-
-  ctx.logger.info('forfeit: seat forfeited; match continues', {
-    matchId: match.matchId,
-    remainingPlayers,
-  });
-  return { match, remainingPlayers, outcome: 'surrendered' };
+    return { match, remainingPlayers, outcome: 'surrendered' };
 }
 
 /**
@@ -242,9 +238,9 @@ export function handleSeatExpired(
  * @returns The number of players still alive.
  */
 function countAlive(match: MatchRecord): number {
-  const world = match.engineSession?.world();
-  if (world === undefined) {
-    return 0;
-  }
-  return world.players.filter((player) => player.status === 'alive').length;
+    const world = match.engineSession?.world();
+    if (world === undefined) {
+        return 0;
+    }
+    return world.players.filter((player) => player.status === 'alive').length;
 }

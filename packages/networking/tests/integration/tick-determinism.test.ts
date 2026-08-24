@@ -37,47 +37,47 @@ const TICKS = 100;
  * @returns Player 1's received `tick` envelopes as canonical JSON text.
  */
 async function runTickStream(): Promise<string[]> {
-  const h = await startJoinedMatch(stubFogDeps());
-  try {
-    for (let i = 0; i < TICKS; i++) {
-      const order1 = scriptedPipeOrder(1, i);
-      const order2 = scriptedPipeOrder(2, i);
+    const h = await startJoinedMatch(stubFogDeps());
+    try {
+        for (let i = 0; i < TICKS; i++) {
+            const order1 = scriptedPipeOrder(1, i);
+            const order2 = scriptedPipeOrder(2, i);
 
-      // Submit both orders, pinning each to its ack by sequence number.
-      const submitted1 = h.clients[0].order(order1);
-      const submitted2 = h.clients[1].order(order2);
-      const ack1 = await h.clients[0].nextMessage('orderAck');
-      const ack2 = await h.clients[1].nextMessage('orderAck');
-      expect((ack1.payload as OrderAckPayload).seq).toBe(submitted1.seq);
-      expect((ack2.payload as OrderAckPayload).seq).toBe(submitted2.seq);
+            // Submit both orders, pinning each to its ack by sequence number.
+            const submitted1 = h.clients[0].order(order1);
+            const submitted2 = h.clients[1].order(order2);
+            const ack1 = await h.clients[0].nextMessage('orderAck');
+            const ack2 = await h.clients[1].nextMessage('orderAck');
+            expect((ack1.payload as OrderAckPayload).seq).toBe(submitted1.seq);
+            expect((ack2.payload as OrderAckPayload).seq).toBe(submitted2.seq);
 
-      // Same synchronous boundary: both ticks are already queued.
-      await h.clients[0].nextMessage('tick');
-      await h.clients[1].nextMessage('tick');
+            // Same synchronous boundary: both ticks are already queued.
+            await h.clients[0].nextMessage('tick');
+            await h.clients[1].nextMessage('tick');
+        }
+
+        return h.clients[0].socket.sentFrames
+            .filter((frame) => frame.type === 'tick')
+            .map((frame) => JSON.stringify(frame));
+    } finally {
+        await h.server.close();
     }
-
-    return h.clients[0].socket.sentFrames
-      .filter((frame) => frame.type === 'tick')
-      .map((frame) => JSON.stringify(frame));
-  } finally {
-    await h.server.close();
-  }
 }
 
 describe('SC-001 protocol-level tick determinism', () => {
-  it('two identical server runs emit byte-identical tick streams over 100 order-then-tick cycles', async () => {
-    const runA = await runTickStream();
-    const runB = await runTickStream();
+    it('two identical server runs emit byte-identical tick streams over 100 order-then-tick cycles', async () => {
+        const runA = await runTickStream();
+        const runB = await runTickStream();
 
-    expect(runA.length).toBe(TICKS);
-    expect(runB.length).toBe(TICKS);
+        expect(runA.length).toBe(TICKS);
+        expect(runB.length).toBe(TICKS);
 
-    const hashA = createHash('sha256').update(runA.join('')).digest('hex');
-    const hashB = createHash('sha256').update(runB.join('')).digest('hex');
+        const hashA = createHash('sha256').update(runA.join('')).digest('hex');
+        const hashB = createHash('sha256').update(runB.join('')).digest('hex');
 
-    expect(`${String(runA.length)} frames compared: 0 divergence`).toBe(
-      `${String(runB.length)} frames compared: 0 divergence`,
-    );
-    expect(hashA).toBe(hashB);
-  });
+        expect(`${String(runA.length)} frames compared: 0 divergence`).toBe(
+            `${String(runB.length)} frames compared: 0 divergence`,
+        );
+        expect(hashA).toBe(hashB);
+    });
 });

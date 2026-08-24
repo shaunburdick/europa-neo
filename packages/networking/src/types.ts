@@ -33,39 +33,39 @@
 // interfaces. Names alphabetical.
 
 export type {
-  // Branded primitives
-  ConnectionId,
-  // Connection role + state machine
-  ConnectionRole,
-  ConnectionState,
-  // Error codes (closed union)
-  ErrorCode,
-  // Transport-layer payloads
-  ErrorPayload,
-  HelloAckPayload,
-  HelloPayload,
-  JoinAckPayload,
-  JoinMatchPayload,
-  // Branded primitive
-  MatchId,
-  // Wire envelope discriminator
-  MessageKind,
-  // The full payload union
-  NetworkPayload,
-  // Engine-mirrored payloads
-  OrderAckPayload,
-  OrderSubmissionPayload,
-  PingPayload,
-  PongPayload,
-  // The universal frame
-  ProtocolEnvelope,
-  RateLimitBucket,
-  SequenceNumber,
-  ServerConnection,
-  SessionToken,
-  SnapshotPayload,
-  TerminalPayload,
-  TickBroadcastPayload,
+    // Branded primitives
+    ConnectionId,
+    // Connection role + state machine
+    ConnectionRole,
+    ConnectionState,
+    // Error codes (closed union)
+    ErrorCode,
+    // Transport-layer payloads
+    ErrorPayload,
+    HelloAckPayload,
+    HelloPayload,
+    JoinAckPayload,
+    JoinMatchPayload,
+    // Branded primitive
+    MatchId,
+    // Wire envelope discriminator
+    MessageKind,
+    // The full payload union
+    NetworkPayload,
+    // Engine-mirrored payloads
+    OrderAckPayload,
+    OrderSubmissionPayload,
+    PingPayload,
+    PongPayload,
+    // The universal frame
+    ProtocolEnvelope,
+    RateLimitBucket,
+    SequenceNumber,
+    ServerConnection,
+    SessionToken,
+    SnapshotPayload,
+    TerminalPayload,
+    TickBroadcastPayload,
 } from './contracts/network-types';
 
 // The wire-protocol version constant — the single runtime artifact in
@@ -89,24 +89,24 @@ export { NETWORK_API_VERSION } from './contracts/network-types';
 //   in the contract's re-export block and are imported directly.
 
 export type {
-  Board,
-  CommandResult,
-  MatchConfig,
-  MatchResult,
-  Player,
+    Board,
+    CommandResult,
+    MatchConfig,
+    MatchResult,
+    Player,
 } from '@europa/engine';
 
 export type { PlayerView, VisibleSet } from '@europa/fog';
 export type {
-  CellView,
-  Coord,
-  Direction,
-  Order,
-  PlayerId,
-  ReservesPct,
-  TickEvents,
-  ValidationError,
-  World,
+    CellView,
+    Coord,
+    Direction,
+    Order,
+    PlayerId,
+    ReservesPct,
+    TickEvents,
+    ValidationError,
+    World,
 } from './contracts/network-types';
 
 // ----------------------------------------------------------------------------
@@ -120,24 +120,24 @@ export type {
 // as values.
 
 export type {
-  AttachPlayerRequest,
-  ClientState,
-  ConnectionRecord,
-  DetachRequest,
-  EngineFactory,
-  EngineSession,
-  EngineSessionInit,
-  FogFactory,
-  Logger,
-  MatchClient,
-  MatchmakerBridge,
-  MatchTransport,
-  RegisterMatchRequest,
-  SeatRecord,
-  Server,
-  ServerConfig,
-  ServerDeps,
-  ServerStats,
+    AttachPlayerRequest,
+    ClientState,
+    ConnectionRecord,
+    DetachRequest,
+    EngineFactory,
+    EngineSession,
+    EngineSessionInit,
+    FogFactory,
+    Logger,
+    MatchClient,
+    MatchmakerBridge,
+    MatchTransport,
+    RegisterMatchRequest,
+    SeatRecord,
+    Server,
+    ServerConfig,
+    ServerDeps,
+    ServerStats,
 } from './contracts/network-api';
 export { NETWORK_DEFAULT_CONFIG, NULL_LOGGER } from './contracts/network-api';
 
@@ -147,14 +147,14 @@ export { NETWORK_DEFAULT_CONFIG, NULL_LOGGER } from './contracts/network-api';
 // ----------------------------------------------------------------------------
 
 export type {
-  MatchmakingAttachPlayer,
-  MatchmakingDetach,
-  MatchmakingRegisterMatch,
-  MatchmakingToNetworking,
-  NetworkingMatchTerminal,
-  NetworkingSeatClaimed,
-  NetworkingSeatDisconnected,
-  NetworkingSeatExpired,
-  NetworkingSeatReconnected,
-  NetworkingToMatchmaking,
+    MatchmakingAttachPlayer,
+    MatchmakingDetach,
+    MatchmakingRegisterMatch,
+    MatchmakingToNetworking,
+    NetworkingMatchTerminal,
+    NetworkingSeatClaimed,
+    NetworkingSeatDisconnected,
+    NetworkingSeatExpired,
+    NetworkingSeatReconnected,
+    NetworkingToMatchmaking,
 } from './contracts/matchmaking-to-networking';

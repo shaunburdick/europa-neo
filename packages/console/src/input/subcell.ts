@@ -21,8 +21,8 @@ import type { Coord } from '../state/types';
 
 /** A cell-local normalized position in `[0, 1) × [0, 1)`. */
 interface Subcell {
-  readonly x: number;
-  readonly y: number;
+    readonly x: number;
+    readonly y: number;
 }
 
 /**
@@ -30,19 +30,19 @@ interface Subcell {
  * threshold rule. Pure.
  */
 function axisOffset(value: number): number {
-  if (value < 0.2) {
-    return -2;
-  }
-  if (value < 0.4) {
-    return -1;
-  }
-  if (value < 0.6) {
-    return 0;
-  }
-  if (value < 0.8) {
-    return 1;
-  }
-  return 2;
+    if (value < 0.2) {
+        return -2;
+    }
+    if (value < 0.4) {
+        return -1;
+    }
+    if (value < 0.6) {
+        return 0;
+    }
+    if (value < 0.8) {
+        return 1;
+    }
+    return 2;
 }
 
 /**
@@ -54,17 +54,17 @@ function axisOffset(value: number): number {
  * @param subcell Cell-local position (`x`: west→east, `y`: north→south).
  */
 export function subcellToTargetOffset(subcell: Subcell): {
-  readonly dx: number;
-  readonly dy: number;
+    readonly dx: number;
+    readonly dy: number;
 } {
-  return { dx: clampToRange(axisOffset(subcell.x)), dy: clampToRange(axisOffset(subcell.y)) };
+    return { dx: clampToRange(axisOffset(subcell.x)), dy: clampToRange(axisOffset(subcell.y)) };
 }
 
 /**
  * Clamp an axis offset to the Chebyshev targeting ring (`±SUBCELL_RANGE`).
  */
 function clampToRange(value: number): number {
-  return Math.max(-SUBCELL_RANGE, Math.min(SUBCELL_RANGE, value));
+    return Math.max(-SUBCELL_RANGE, Math.min(SUBCELL_RANGE, value));
 }
 
 /**
@@ -81,10 +81,10 @@ function clampToRange(value: number): number {
  * @param subcell Cursor position within the source cell.
  */
 export function subcellToTargetCoord(source: Coord, subcell: Subcell): Coord {
-  const { dx, dy } = subcellToTargetOffset(subcell);
-  const target: Coord = { x: source.x + dx, y: source.y + dy };
-  if (target.x < 0 || target.y < 0) {
-    return source;
-  }
-  return target;
+    const { dx, dy } = subcellToTargetOffset(subcell);
+    const target: Coord = { x: source.x + dx, y: source.y + dy };
+    if (target.x < 0 || target.y < 0) {
+        return source;
+    }
+    return target;
 }

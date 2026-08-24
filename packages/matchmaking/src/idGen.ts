@@ -37,7 +37,7 @@ import type { PlayerSessionId } from '../contracts/match-types';
  * @returns The same string, typed as `T`.
  */
 function toBranded<T extends string>(value: string): T {
-  return value as T;
+    return value as T;
 }
 
 /**
@@ -55,7 +55,7 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
  * @returns A new branded match id.
  */
 export function newMatchId(): MatchId {
-  return toBranded<MatchId>(randomUUID());
+    return toBranded<MatchId>(randomUUID());
 }
 
 /**
@@ -67,7 +67,7 @@ export function newMatchId(): MatchId {
  * @returns A new branded player-session id.
  */
 export function newPlayerSessionId(): PlayerSessionId {
-  return toBranded<PlayerSessionId>(randomUUID());
+    return toBranded<PlayerSessionId>(randomUUID());
 }
 
 /**
@@ -83,7 +83,7 @@ export function newPlayerSessionId(): PlayerSessionId {
  * @returns `true` iff `s` is a well-formed hyphenated v4 UUID.
  */
 export function isValidMatchId(s: string): boolean {
-  return UUID_V4_REGEX.test(s);
+    return UUID_V4_REGEX.test(s);
 }
 
 /**
@@ -97,7 +97,7 @@ export function isValidMatchId(s: string): boolean {
  * @returns The first element, or `0` for an empty buffer.
  */
 export function matchSeedFrom(values: Uint32Array): number {
-  return values[0] ?? 0;
+    return values[0] ?? 0;
 }
 
 /**
@@ -115,5 +115,5 @@ export function matchSeedFrom(values: Uint32Array): number {
  * @returns An unsigned 32-bit integer in `[0, 2^32)`.
  */
 export function newMatchSeed(): number {
-  return matchSeedFrom(getRandomValues(new Uint32Array(1)));
+    return matchSeedFrom(getRandomValues(new Uint32Array(1)));
 }

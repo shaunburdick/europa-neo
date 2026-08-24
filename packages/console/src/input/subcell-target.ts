@@ -27,13 +27,7 @@
 
 import { localPreflightOrder } from '../state/local-preflight';
 import type { ConsoleStore } from '../state/store';
-import type {
-  ConsoleState,
-  Coord,
-  CursorTarget,
-  PlayerAction,
-  ValidationError,
-} from '../state/types';
+import type { ConsoleState, Coord, CursorTarget, PlayerAction, ValidationError } from '../state/types';
 import { subcellToTargetCoord } from './subcell';
 
 /** The two special abilities sharing the subcell targeting scheme. */
@@ -50,12 +44,7 @@ export const CURSOR_STALE_MS = 500;
  * documented silent cases (research.md §13 #3); the others are
  * missing-anchor guards.
  */
-export type NoLaunchReason =
-  | 'no-selection'
-  | 'no-cursor'
-  | 'stale-cursor'
-  | 'center-subcell'
-  | 'self-target';
+export type NoLaunchReason = 'no-selection' | 'no-cursor' | 'stale-cursor' | 'center-subcell' | 'self-target';
 
 /**
  * The outcome of a targeting request:
@@ -67,28 +56,28 @@ export type NoLaunchReason =
  *     error for feedback formatting.
  */
 export type TargetingOutcome =
-  | {
-      readonly status: 'ok';
-      readonly action: Extract<PlayerAction, { readonly kind: AbilityKind }>;
-    }
-  | { readonly status: 'no_launch'; readonly reason: NoLaunchReason }
-  | { readonly status: 'rejected'; readonly reason: ValidationError };
+    | {
+          readonly status: 'ok';
+          readonly action: Extract<PlayerAction, { readonly kind: AbilityKind }>;
+      }
+    | { readonly status: 'no_launch'; readonly reason: NoLaunchReason }
+    | { readonly status: 'rejected'; readonly reason: ValidationError };
 
 /** Arguments for {@link buildAbilityAction}. */
 export interface AbilityArgs {
-  /** Which ability to fire. */
-  readonly kind: AbilityKind;
-  /** The focused cell (`state.selection`) — the launch/origin source. */
-  readonly selection: Coord | null;
-  /** Last-known cursor hit-test result (aim provider), or `null`. */
-  readonly cursor: CursorTarget | null;
-  /**
-   * Age of the cursor sample in ms (`null` = never moved). Ages above
-   * {@link CURSOR_STALE_MS} count as centered (research.md §13 #3).
-   */
-  readonly cursorAgeMs: number | null;
-  /** Fully resolved console snapshot (view + seat are read from it). */
-  readonly state: ConsoleState;
+    /** Which ability to fire. */
+    readonly kind: AbilityKind;
+    /** The focused cell (`state.selection`) — the launch/origin source. */
+    readonly selection: Coord | null;
+    /** Last-known cursor hit-test result (aim provider), or `null`. */
+    readonly cursor: CursorTarget | null;
+    /**
+     * Age of the cursor sample in ms (`null` = never moved). Ages above
+     * {@link CURSOR_STALE_MS} count as centered (research.md §13 #3).
+     */
+    readonly cursorAgeMs: number | null;
+    /** Fully resolved console snapshot (view + seat are read from it). */
+    readonly state: ConsoleState;
 }
 
 /**
@@ -101,54 +90,54 @@ export interface AbilityArgs {
  * @param args Targeting inputs (see {@link AbilityArgs}).
  */
 export function buildAbilityAction(args: AbilityArgs): TargetingOutcome {
-  const { kind, selection, cursor, cursorAgeMs, state } = args;
+    const { kind, selection, cursor, cursorAgeMs, state } = args;
 
-  if (selection === null) {
-    return { status: 'no_launch', reason: 'no-selection' };
-  }
-  const {
-    latestView: view,
-    session: { playerId },
-  } = state;
-  if (view === null || playerId === null) {
-    // No authoritative board / no seat: fail closed (FR-006).
-    return { status: 'rejected', reason: { kind: 'out_of_bounds', coord: selection } };
-  }
+    if (selection === null) {
+        return { status: 'no_launch', reason: 'no-selection' };
+    }
+    const {
+        latestView: view,
+        session: { playerId },
+    } = state;
+    if (view === null || playerId === null) {
+        // No authoritative board / no seat: fail closed (FR-006).
+        return { status: 'rejected', reason: { kind: 'out_of_bounds', coord: selection } };
+    }
 
-  const subcell =
-    cursor === null || cursor.subcell === null
-      ? null
-      : cursorAgeMs !== null && cursorAgeMs > CURSOR_STALE_MS
-        ? null
-        : cursor.subcell;
+    const subcell =
+        cursor === null || cursor.subcell === null
+            ? null
+            : cursorAgeMs !== null && cursorAgeMs > CURSOR_STALE_MS
+              ? null
+              : cursor.subcell;
 
-  if (cursor === null || cursor.subcell === null) {
-    return { status: 'no_launch', reason: 'no-cursor' };
-  }
-  if (subcell === null) {
-    return { status: 'no_launch', reason: 'stale-cursor' };
-  }
+    if (cursor === null || cursor.subcell === null) {
+        return { status: 'no_launch', reason: 'no-cursor' };
+    }
+    if (subcell === null) {
+        return { status: 'no_launch', reason: 'stale-cursor' };
+    }
 
-  const target = subcellToTargetCoord(selection, subcell);
-  if (target.x === selection.x && target.y === selection.y) {
-    // Center bin (or off-board fail-safe in subcell.ts): self-target
-    // ⇒ no launch (contracts/console-types.ts §"Subcell targeting").
-    const centered = subcell.x >= 0.4 && subcell.x < 0.6 && subcell.y >= 0.4 && subcell.y < 0.6;
+    const target = subcellToTargetCoord(selection, subcell);
+    if (target.x === selection.x && target.y === selection.y) {
+        // Center bin (or off-board fail-safe in subcell.ts): self-target
+        // ⇒ no launch (contracts/console-types.ts §"Subcell targeting").
+        const centered = subcell.x >= 0.4 && subcell.x < 0.6 && subcell.y >= 0.4 && subcell.y < 0.6;
+        return {
+            status: 'no_launch',
+            reason: centered ? 'center-subcell' : 'self-target',
+        };
+    }
+
+    const provisional = { kind, player: playerId, source: selection, target } as const;
+    const rejection = localPreflightOrder(provisional, view, playerId);
+    if (rejection !== null) {
+        return { status: 'rejected', reason: rejection };
+    }
     return {
-      status: 'no_launch',
-      reason: centered ? 'center-subcell' : 'self-target',
+        status: 'ok',
+        action: { kind, source: selection, target },
     };
-  }
-
-  const provisional = { kind, player: playerId, source: selection, target } as const;
-  const rejection = localPreflightOrder(provisional, view, playerId);
-  if (rejection !== null) {
-    return { status: 'rejected', reason: rejection };
-  }
-  return {
-    status: 'ok',
-    action: { kind, source: selection, target },
-  };
 }
 
 /**
@@ -158,17 +147,17 @@ export function buildAbilityAction(args: AbilityArgs): TargetingOutcome {
  * @param cursorAgeMs Age in ms, or `null` when the cursor never moved.
  */
 export function isCursorFresh(cursorAgeMs: number | null): boolean {
-  return cursorAgeMs !== null && cursorAgeMs <= CURSOR_STALE_MS;
+    return cursorAgeMs !== null && cursorAgeMs <= CURSOR_STALE_MS;
 }
 
 /** Arguments for {@link fireAbility} (the keyboard-hook entry point). */
 export interface AbilityFireArgs {
-  /** Dispatch target + state source. */
-  readonly store: ConsoleStore;
-  /** Last-known cursor sample for the aim, or `null`. */
-  readonly cursor: CursorTarget | null;
-  /** Age of the cursor sample in ms (`null` = never moved). */
-  readonly cursorAgeMs: number | null;
+    /** Dispatch target + state source. */
+    readonly store: ConsoleStore;
+    /** Last-known cursor sample for the aim, or `null`. */
+    readonly cursor: CursorTarget | null;
+    /** Age of the cursor sample in ms (`null` = never moved). */
+    readonly cursorAgeMs: number | null;
 }
 
 /**
@@ -183,16 +172,16 @@ export interface AbilityFireArgs {
  * @param args  Store + cursor aim (see {@link AbilityFireArgs}).
  */
 export function fireAbility(kind: AbilityKind, args: AbilityFireArgs): TargetingOutcome {
-  const state = args.store.getState();
-  const outcome = buildAbilityAction({
-    kind,
-    selection: state.selection,
-    cursor: args.cursor,
-    cursorAgeMs: args.cursorAgeMs,
-    state,
-  });
-  if (outcome.status === 'ok') {
-    args.store.dispatch(outcome.action);
-  }
-  return outcome;
+    const state = args.store.getState();
+    const outcome = buildAbilityAction({
+        kind,
+        selection: state.selection,
+        cursor: args.cursor,
+        cursorAgeMs: args.cursorAgeMs,
+        state,
+    });
+    if (outcome.status === 'ok') {
+        args.store.dispatch(outcome.action);
+    }
+    return outcome;
 }

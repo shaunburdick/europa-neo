@@ -21,36 +21,36 @@ import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 
 describe('Q-M08: server restart wipes match state', () => {
-  it('match state is gone after close()', async () => {
-    const server1 = new FakeServer();
-    const matchmaker1 = createMatchmaker(MATCHMAKING_CONSTANTS, { server: server1 });
+    it('match state is gone after close()', async () => {
+        const server1 = new FakeServer();
+        const matchmaker1 = createMatchmaker(MATCHMAKING_CONSTANTS, { server: server1 });
 
-    const create = matchmaker1.createMatch({
-      visibility: 'public',
-      displayName: 'Alice',
+        const create = matchmaker1.createMatch({
+            visibility: 'public',
+            displayName: 'Alice',
+        });
+        if (!create.ok) {
+            throw new Error('create failed');
+        }
+        const { matchId } = create.data;
+
+        expect(matchmaker1.listPublicMatches().ok && matchmaker1.stats().activeMatches).toBe(1);
+
+        // Simulate server restart
+        await matchmaker1.close();
+
+        // New matchmaker, same FakeServer (or a new one — state is gone either way)
+        const server2 = new FakeServer();
+        const matchmaker2 = createMatchmaker(MATCHMAKING_CONSTANTS, { server: server2 });
+
+        // Old matchId is unknown to the new matchmaker
+        const joinResult = matchmaker2.joinMatch({ matchId, displayName: 'Bob' });
+        expect(joinResult.ok).toBe(false);
+        if (joinResult.ok) {
+            return;
+        }
+        expect(joinResult.error.code).toBe('match_not_found');
+
+        await matchmaker2.close();
     });
-    if (!create.ok) {
-      throw new Error('create failed');
-    }
-    const { matchId } = create.data;
-
-    expect(matchmaker1.listPublicMatches().ok && matchmaker1.stats().activeMatches).toBe(1);
-
-    // Simulate server restart
-    await matchmaker1.close();
-
-    // New matchmaker, same FakeServer (or a new one — state is gone either way)
-    const server2 = new FakeServer();
-    const matchmaker2 = createMatchmaker(MATCHMAKING_CONSTANTS, { server: server2 });
-
-    // Old matchId is unknown to the new matchmaker
-    const joinResult = matchmaker2.joinMatch({ matchId, displayName: 'Bob' });
-    expect(joinResult.ok).toBe(false);
-    if (joinResult.ok) {
-      return;
-    }
-    expect(joinResult.error.code).toBe('match_not_found');
-
-    await matchmaker2.close();
-  });
 });

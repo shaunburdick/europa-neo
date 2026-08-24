@@ -70,34 +70,28 @@ const BASE_FREQUENCY = 0.25;
  *                    default 0.5).
  * @returns Integer in `[0, 255]`.
  */
-export function fbm(
-  x: number,
-  y: number,
-  seed: number,
-  octaves: number,
-  persistence: number,
-): number {
-  // Octave loop. `frequency` doubles each step; `amplitude` decays
-  // by `persistence`. The first octave uses a sub-unity frequency
-  // so the base noise is smooth (see `BASE_FREQUENCY`).
-  let frequency = BASE_FREQUENCY;
-  let amplitude = 1;
-  let sum = 0;
-  // Max possible sum (geometric series) is used for normalization.
-  // We compute it inline to keep the function pure and self-contained.
-  let maxSum = 0;
-  for (let i = 0; i < octaves; i++) {
-    const contribution = valueNoise(x * frequency, y * frequency, seed) * amplitude;
-    sum += contribution;
-    maxSum += 255 * amplitude;
-    frequency = frequency * DEFAULT_LACUNARITY;
-    amplitude *= persistence;
-  }
-  // Normalize: if maxSum is 0 (octaves=0, which we don't allow
-  // per the shape contract, but be defensive), return 0.
-  if (maxSum <= 0) {
-    return 0;
-  }
-  // Scale to [0, 255] via ratio. `| 0` floors to int32.
-  return ((sum / maxSum) * 255) | 0;
+export function fbm(x: number, y: number, seed: number, octaves: number, persistence: number): number {
+    // Octave loop. `frequency` doubles each step; `amplitude` decays
+    // by `persistence`. The first octave uses a sub-unity frequency
+    // so the base noise is smooth (see `BASE_FREQUENCY`).
+    let frequency = BASE_FREQUENCY;
+    let amplitude = 1;
+    let sum = 0;
+    // Max possible sum (geometric series) is used for normalization.
+    // We compute it inline to keep the function pure and self-contained.
+    let maxSum = 0;
+    for (let i = 0; i < octaves; i++) {
+        const contribution = valueNoise(x * frequency, y * frequency, seed) * amplitude;
+        sum += contribution;
+        maxSum += 255 * amplitude;
+        frequency = frequency * DEFAULT_LACUNARITY;
+        amplitude *= persistence;
+    }
+    // Normalize: if maxSum is 0 (octaves=0, which we don't allow
+    // per the shape contract, but be defensive), return 0.
+    if (maxSum <= 0) {
+        return 0;
+    }
+    // Scale to [0, 255] via ratio. `| 0` floors to int32.
+    return ((sum / maxSum) * 255) | 0;
 }

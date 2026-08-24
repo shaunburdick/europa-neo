@@ -28,13 +28,7 @@
 
 import type { EngineSession, MatchId } from '@europa/networking';
 
-import type {
-  MatchResultsRecord,
-  MatchSettings,
-  MatchVisibility,
-  PlayerId,
-  SeatIndex,
-} from '../contracts/match-types';
+import type { MatchResultsRecord, MatchSettings, MatchVisibility, PlayerId, SeatIndex } from '../contracts/match-types';
 import type { MatchStatusChangedEvent } from './eventBus';
 import { createStatusBus } from './eventBus';
 import { newMatchSeed } from './idGen';
@@ -60,10 +54,10 @@ export { createStatusBus };
  * Shared with `matchmaker.ts` so the guard exists exactly once.
  */
 export function toPlayerId(value: number): PlayerId {
-  if (value === 1 || value === 2 || value === 3 || value === 4) {
-    return value;
-  }
-  throw new Error(`matchLifecycle: computed playerId ${String(value)} is outside 1..4`);
+    if (value === 1 || value === 2 || value === 3 || value === 4) {
+        return value;
+    }
+    throw new Error(`matchLifecycle: computed playerId ${String(value)} is outside 1..4`);
 }
 
 /**
@@ -71,16 +65,16 @@ export function toPlayerId(value: number): PlayerId {
  * transition body free of `if (emit)` noise.
  */
 function notify(
-  emit: StatusEmitter | undefined,
-  matchId: MatchId,
-  from: MatchRecord['status'] | null,
-  to: MatchRecord['status'],
-  atMs: number,
+    emit: StatusEmitter | undefined,
+    matchId: MatchId,
+    from: MatchRecord['status'] | null,
+    to: MatchRecord['status'],
+    atMs: number,
 ): void {
-  if (emit === undefined) {
-    return;
-  }
-  emit({ matchId, from, to, atMs });
+    if (emit === undefined) {
+        return;
+    }
+    emit({ matchId, from, to, atMs });
 }
 
 // ----------------------------------------------------------------------------
@@ -89,16 +83,16 @@ function notify(
 
 /** Arguments for {@linkcode createMatchRecordWithCreator}. */
 export interface CreateMatchRecordWithCreatorArgs {
-  /** Validated, defaults-applied settings (FR-002). */
-  readonly settings: MatchSettings;
-  /** Lobby visibility; fixed for the match's lifetime (FR-002). */
-  readonly visibility: MatchVisibility;
-  /** The creator's freshly created player session. */
-  readonly creator: PlayerSession;
-  /** Epoch ms of creation. */
-  readonly nowMs: number;
-  /** Injected UUID v4 generator for the match id (deterministic in tests). */
-  readonly randomId: () => string;
+    /** Validated, defaults-applied settings (FR-002). */
+    readonly settings: MatchSettings;
+    /** Lobby visibility; fixed for the match's lifetime (FR-002). */
+    readonly visibility: MatchVisibility;
+    /** The creator's freshly created player session. */
+    readonly creator: PlayerSession;
+    /** Epoch ms of creation. */
+    readonly nowMs: number;
+    /** Injected UUID v4 generator for the match id (deterministic in tests). */
+    readonly randomId: () => string;
 }
 
 /**
@@ -111,34 +105,34 @@ export interface CreateMatchRecordWithCreatorArgs {
  * @returns The stored-shape record plus the creator's `SeatRecord`.
  */
 export function createMatchRecordWithCreator(args: CreateMatchRecordWithCreatorArgs): {
-  match: MatchRecord;
-  creatorSeat: SeatRecord;
+    match: MatchRecord;
+    creatorSeat: SeatRecord;
 } {
-  const { creator, nowMs, randomId, settings, visibility } = args;
-  const match = createMatchRecord({
-    matchId: randomId() as MatchId,
-    visibility,
-    settings,
-    createdAtMs: nowMs,
-  });
+    const { creator, nowMs, randomId, settings, visibility } = args;
+    const match = createMatchRecord({
+        matchId: randomId() as MatchId,
+        visibility,
+        settings,
+        createdAtMs: nowMs,
+    });
 
-  const sessionToken = newSessionToken();
-  const creatorSeat = createSeatRecord({
-    seatIndex: 0 as SeatIndex,
-    playerSessionId: creator.playerSessionId,
-    displayName: creator.displayName,
-    sessionToken,
-    playerId: null, // finalized at the filling → running transition
-    connectedAtMs: nowMs,
-  });
-  match.seats.set(creatorSeat.seatIndex, creatorSeat);
+    const sessionToken = newSessionToken();
+    const creatorSeat = createSeatRecord({
+        seatIndex: 0 as SeatIndex,
+        playerSessionId: creator.playerSessionId,
+        displayName: creator.displayName,
+        sessionToken,
+        playerId: null, // finalized at the filling → running transition
+        connectedAtMs: nowMs,
+    });
+    match.seats.set(creatorSeat.seatIndex, creatorSeat);
 
-  // Bind the creator's ephemeral session to this seat.
-  creator.currentMatchId = match.matchId;
-  creator.currentSeatIndex = creatorSeat.seatIndex;
-  creator.currentSessionToken = sessionToken;
+    // Bind the creator's ephemeral session to this seat.
+    creator.currentMatchId = match.matchId;
+    creator.currentSeatIndex = creatorSeat.seatIndex;
+    creator.currentSessionToken = sessionToken;
 
-  return { match, creatorSeat };
+    return { match, creatorSeat };
 }
 
 /**
@@ -154,28 +148,28 @@ export function createMatchRecordWithCreator(args: CreateMatchRecordWithCreatorA
  * @returns The same record (mutated) plus the new `SeatRecord`.
  */
 export function addSeatToFillingMatch(
-  match: MatchRecord,
-  joiner: PlayerSession,
-  seatIndex: SeatIndex,
-  nowMs: number,
+    match: MatchRecord,
+    joiner: PlayerSession,
+    seatIndex: SeatIndex,
+    nowMs: number,
 ): { match: MatchRecord; seat: SeatRecord } {
-  const sessionToken = newSessionToken();
-  const seat = createSeatRecord({
-    seatIndex,
-    playerSessionId: joiner.playerSessionId,
-    displayName: joiner.displayName,
-    sessionToken,
-    playerId: null, // finalized at the filling → running transition
-    connectedAtMs: nowMs,
-  });
-  match.seats.set(seatIndex, seat);
-  match.lastActivityAtMs = nowMs;
+    const sessionToken = newSessionToken();
+    const seat = createSeatRecord({
+        seatIndex,
+        playerSessionId: joiner.playerSessionId,
+        displayName: joiner.displayName,
+        sessionToken,
+        playerId: null, // finalized at the filling → running transition
+        connectedAtMs: nowMs,
+    });
+    match.seats.set(seatIndex, seat);
+    match.lastActivityAtMs = nowMs;
 
-  joiner.currentMatchId = match.matchId;
-  joiner.currentSeatIndex = seatIndex;
-  joiner.currentSessionToken = sessionToken;
+    joiner.currentMatchId = match.matchId;
+    joiner.currentSeatIndex = seatIndex;
+    joiner.currentSessionToken = sessionToken;
 
-  return { match, seat };
+    return { match, seat };
 }
 
 // ----------------------------------------------------------------------------
@@ -197,27 +191,25 @@ export function addSeatToFillingMatch(
  * @throws When the match is not `'filling'` (illegal transition).
  */
 export function transitionFillingToRunning(
-  match: MatchRecord,
-  engineSession: EngineSession,
-  startedAtMs: number,
-  emit?: StatusEmitter,
+    match: MatchRecord,
+    engineSession: EngineSession,
+    startedAtMs: number,
+    emit?: StatusEmitter,
 ): MatchRecord {
-  if (match.status !== 'filling') {
-    throw new Error(
-      `matchLifecycle: illegal transition ${match.status} → running for match ${match.matchId}`,
-    );
-  }
+    if (match.status !== 'filling') {
+        throw new Error(`matchLifecycle: illegal transition ${match.status} → running for match ${match.matchId}`);
+    }
 
-  for (const seat of match.seats.values()) {
-    seat.playerId = toPlayerId(seat.seatIndex + 1);
-  }
-  match.engineSession = engineSession;
-  match.startedAtMs = startedAtMs;
-  match.status = 'running';
-  match.lastActivityAtMs = startedAtMs;
+    for (const seat of match.seats.values()) {
+        seat.playerId = toPlayerId(seat.seatIndex + 1);
+    }
+    match.engineSession = engineSession;
+    match.startedAtMs = startedAtMs;
+    match.status = 'running';
+    match.lastActivityAtMs = startedAtMs;
 
-  notify(emit, match.matchId, 'filling', 'running', startedAtMs);
-  return match;
+    notify(emit, match.matchId, 'filling', 'running', startedAtMs);
+    return match;
 }
 
 /**
@@ -234,25 +226,23 @@ export function transitionFillingToRunning(
  *   running state entirely — data-model §4 forbids `filling → finished`).
  */
 export function transitionRunningToFinished(
-  match: MatchRecord,
-  results: MatchResultsRecord,
-  finishedAtMs: number,
-  emit?: StatusEmitter,
+    match: MatchRecord,
+    results: MatchResultsRecord,
+    finishedAtMs: number,
+    emit?: StatusEmitter,
 ): MatchRecord {
-  if (match.status !== 'running') {
-    throw new Error(
-      `matchLifecycle: illegal transition ${match.status} → finished for match ${match.matchId}`,
-    );
-  }
+    if (match.status !== 'running') {
+        throw new Error(`matchLifecycle: illegal transition ${match.status} → finished for match ${match.matchId}`);
+    }
 
-  match.results = results;
-  match.finishedAtMs = finishedAtMs;
-  match.rematch = null;
-  match.status = 'finished';
-  match.lastActivityAtMs = finishedAtMs;
+    match.results = results;
+    match.finishedAtMs = finishedAtMs;
+    match.rematch = null;
+    match.status = 'finished';
+    match.lastActivityAtMs = finishedAtMs;
 
-  notify(emit, match.matchId, 'running', 'finished', finishedAtMs);
-  return match;
+    notify(emit, match.matchId, 'running', 'finished', finishedAtMs);
+    return match;
 }
 
 /**
@@ -271,26 +261,24 @@ export function transitionRunningToFinished(
  * @throws When the match is already `'collected'` (double-teardown).
  */
 export function transitionToCollected(
-  match: MatchRecord,
-  atMs: number,
-  emit?: StatusEmitter,
-  results?: MatchResultsRecord,
+    match: MatchRecord,
+    atMs: number,
+    emit?: StatusEmitter,
+    results?: MatchResultsRecord,
 ): MatchRecord {
-  if (match.status === 'collected') {
-    throw new Error(
-      `matchLifecycle: illegal transition collected → collected for match ${match.matchId}`,
-    );
-  }
+    if (match.status === 'collected') {
+        throw new Error(`matchLifecycle: illegal transition collected → collected for match ${match.matchId}`);
+    }
 
-  const from = match.status;
-  if (results !== undefined) {
-    match.results = results;
-  }
-  match.status = 'collected';
-  match.lastActivityAtMs = atMs;
+    const from = match.status;
+    if (results !== undefined) {
+        match.results = results;
+    }
+    match.status = 'collected';
+    match.lastActivityAtMs = atMs;
 
-  notify(emit, match.matchId, from, 'collected', atMs);
-  return match;
+    notify(emit, match.matchId, from, 'collected', atMs);
+    return match;
 }
 
 // ----------------------------------------------------------------------------
@@ -299,22 +287,22 @@ export function transitionToCollected(
 
 /** One auto-seated original participant for {@linkcode createRematchMatchRecord}. */
 export interface RematchParticipant {
-  /** The participant's live ephemeral session (rebound to the new match). */
-  readonly session: PlayerSession;
-  /** Their prior seat index, preserved verbatim (US4 AC-2). */
-  readonly seatIndex: SeatIndex;
+    /** The participant's live ephemeral session (rebound to the new match). */
+    readonly session: PlayerSession;
+    /** Their prior seat index, preserved verbatim (US4 AC-2). */
+    readonly seatIndex: SeatIndex;
 }
 
 /** Arguments for {@linkcode createRematchMatchRecord}. */
 export interface CreateRematchMatchRecordArgs {
-  /** The resolved original match (visibility + settings are copied). */
-  readonly original: MatchRecord;
-  /** Original participants in seat order. */
-  readonly participants: readonly RematchParticipant[];
-  /** Epoch ms of creation. */
-  readonly nowMs: number;
-  /** Injected UUID v4 generator for the new match id (deterministic in tests). */
-  readonly randomId: () => string;
+    /** The resolved original match (visibility + settings are copied). */
+    readonly original: MatchRecord;
+    /** Original participants in seat order. */
+    readonly participants: readonly RematchParticipant[];
+    /** Epoch ms of creation. */
+    readonly nowMs: number;
+    /** Injected UUID v4 generator for the new match id (deterministic in tests). */
+    readonly randomId: () => string;
 }
 
 /**
@@ -338,37 +326,37 @@ export interface CreateRematchMatchRecordArgs {
  * @returns The stored-shape record plus its freshly created seats.
  */
 export function createRematchMatchRecord(args: CreateRematchMatchRecordArgs): {
-  match: MatchRecord;
-  seats: SeatRecord[];
+    match: MatchRecord;
+    seats: SeatRecord[];
 } {
-  const { nowMs, original, participants, randomId } = args;
-  const match = createMatchRecord({
-    matchId: randomId() as MatchId,
-    visibility: original.visibility,
-    settings: original.settings,
-    createdAtMs: nowMs,
-  });
-  match.initialSeed = newMatchSeed();
-
-  const seats: SeatRecord[] = [];
-  for (const participant of participants) {
-    const sessionToken = newSessionToken();
-    const seat = createSeatRecord({
-      seatIndex: participant.seatIndex,
-      playerSessionId: participant.session.playerSessionId,
-      displayName: participant.session.displayName,
-      sessionToken,
-      playerId: null, // finalized at the filling → running transition
-      connectedAtMs: nowMs,
+    const { nowMs, original, participants, randomId } = args;
+    const match = createMatchRecord({
+        matchId: randomId() as MatchId,
+        visibility: original.visibility,
+        settings: original.settings,
+        createdAtMs: nowMs,
     });
-    match.seats.set(seat.seatIndex, seat);
-    seats.push(seat);
+    match.initialSeed = newMatchSeed();
 
-    // Rebind the participant's ephemeral session to the new match.
-    participant.session.currentMatchId = match.matchId;
-    participant.session.currentSeatIndex = seat.seatIndex;
-    participant.session.currentSessionToken = sessionToken;
-  }
+    const seats: SeatRecord[] = [];
+    for (const participant of participants) {
+        const sessionToken = newSessionToken();
+        const seat = createSeatRecord({
+            seatIndex: participant.seatIndex,
+            playerSessionId: participant.session.playerSessionId,
+            displayName: participant.session.displayName,
+            sessionToken,
+            playerId: null, // finalized at the filling → running transition
+            connectedAtMs: nowMs,
+        });
+        match.seats.set(seat.seatIndex, seat);
+        seats.push(seat);
 
-  return { match, seats };
+        // Rebind the participant's ephemeral session to the new match.
+        participant.session.currentMatchId = match.matchId;
+        participant.session.currentSeatIndex = seat.seatIndex;
+        participant.session.currentSessionToken = sessionToken;
+    }
+
+    return { match, seats };
 }

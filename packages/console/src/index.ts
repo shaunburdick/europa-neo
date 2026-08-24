@@ -34,20 +34,20 @@ export { ConsoleRuntime } from './runtime';
 
 export { actionToOrder } from './state/action-to-order';
 export {
-  buildMapView,
-  cellViewToRenderInfo,
-  coordKey,
-  eventToEffect,
-  keyToCoord,
+    buildMapView,
+    cellViewToRenderInfo,
+    coordKey,
+    eventToEffect,
+    keyToCoord,
 } from './state/build-map-view';
 export { diffCellChanges } from './state/diff';
 export { formatActionConfirmation, formatRejection } from './state/format';
 export { localPreflightOrder } from './state/local-preflight';
 export {
-  createOrderBridge,
-  type OrderBridge,
-  type OrderBridgeArgs,
-  type OrderBridgeClient,
+    createOrderBridge,
+    type OrderBridge,
+    type OrderBridgeArgs,
+    type OrderBridgeClient,
 } from './state/order-actions';
 export { appendFeedback, appendRejection, INITIAL_CONSOLE_STATE, reduce } from './state/reducer';
 export { createConsoleStore } from './state/store';
@@ -59,53 +59,53 @@ export { createConsoleStore } from './state/store';
 export { KeyboardNavigator } from './a11y/keyboard';
 export { LiveRegionAnnouncer } from './a11y/live-region';
 export {
-  directionFromRegion,
-  hitTest,
-  regionFromDirection,
-  regionFromSubcell,
+    directionFromRegion,
+    hitTest,
+    regionFromDirection,
+    regionFromSubcell,
 } from './input/hit-test';
 export {
-  type DraftIgnoreReason,
-  type DraftOutcome,
-  OrderDraftController,
-  type TranslateKeyArgs,
-  translateKey,
+    type DraftIgnoreReason,
+    type DraftOutcome,
+    OrderDraftController,
+    type TranslateKeyArgs,
+    translateKey,
 } from './input/order-draft';
 export { fireGun } from './input/order-gun';
 export { fireParatroop } from './input/order-paratroop';
 export {
-  decideRegionClick,
-  type PointerButton,
-  pipePresentInDirection,
-  type RegionClickArgs,
-  type RegionClickDecision,
-  type RegionSelectCallbacks,
-  RegionSelectController,
-  type RegionSelectHandle,
+    decideRegionClick,
+    type PointerButton,
+    pipePresentInDirection,
+    type RegionClickArgs,
+    type RegionClickDecision,
+    type RegionSelectCallbacks,
+    RegionSelectController,
+    type RegionSelectHandle,
 } from './input/region-select';
 export { subcellToTargetCoord, subcellToTargetOffset } from './input/subcell';
 export {
-  type AbilityArgs,
-  type AbilityFireArgs,
-  type AbilityKind,
-  buildAbilityAction,
-  CURSOR_STALE_MS,
-  fireAbility,
-  isCursorFresh,
-  type NoLaunchReason,
-  type TargetingOutcome,
+    type AbilityArgs,
+    type AbilityFireArgs,
+    type AbilityKind,
+    buildAbilityAction,
+    CURSOR_STALE_MS,
+    fireAbility,
+    isCursorFresh,
+    type NoLaunchReason,
+    type TargetingOutcome,
 } from './input/subcell-target';
 export { createConsoleClient } from './net/client';
 export { consoleStatusFromConnectionState } from './net/connection';
 export { netEventFromEnvelope } from './net/envelope-to-event';
 export { rehydrateEnvelopeViews } from './net/rehydrate-wire-views';
 export {
-  createWsMatchClient,
-  type WsClientLogger,
-  type WsClientState,
-  type WsMatchClient,
-  type WsMatchClientContract,
-  type WsMatchClientOptions,
+    createWsMatchClient,
+    type WsClientLogger,
+    type WsClientState,
+    type WsMatchClient,
+    type WsMatchClientContract,
+    type WsMatchClientOptions,
 } from './net/ws-match-client';
 
 // ----------------------------------------------------------------------------
@@ -113,49 +113,49 @@ export {
 // ----------------------------------------------------------------------------
 
 export {
-  buildReservesAction,
-  type ReservesIgnoreReason,
-  type ReservesOutcome,
-  reservesDigitLabel,
-  resolveReservePercent,
+    buildReservesAction,
+    type ReservesIgnoreReason,
+    type ReservesOutcome,
+    reservesDigitLabel,
+    resolveReservePercent,
 } from './input/order-reserves';
 export {
-  buildHotkeyTable,
-  findHotkeyCollisions,
-  HotkeyController,
-  type HotkeyControllerOptions,
-  type HotkeyId,
-  resolveInputMapping,
+    buildHotkeyTable,
+    findHotkeyCollisions,
+    HotkeyController,
+    type HotkeyControllerOptions,
+    type HotkeyId,
+    resolveInputMapping,
 } from './qol/hotkeys';
 export {
-  MINIMAP_SIZE_PX,
-  Minimap,
-  type MinimapCoord,
-  type MinimapGeometry,
-  type MinimapProps,
-  minimapScale,
-  viewportRect,
+    MINIMAP_SIZE_PX,
+    Minimap,
+    type MinimapCoord,
+    type MinimapGeometry,
+    type MinimapProps,
+    minimapScale,
+    viewportRect,
 } from './qol/minimap';
 export {
-  loadPreferences,
-  type PreferencesHost,
-  savePreferences,
+    loadPreferences,
+    type PreferencesHost,
+    savePreferences,
 } from './qol/preferences';
 export {
-  filterEffectsForMotion,
-  type MotionAdjustedTtls,
-  motionAdjustedTtls,
-  prefersReducedMotion,
-  REDUCED_MOTION_QUERY,
-  subscribeReducedMotion,
+    filterEffectsForMotion,
+    type MotionAdjustedTtls,
+    motionAdjustedTtls,
+    prefersReducedMotion,
+    REDUCED_MOTION_QUERY,
+    subscribeReducedMotion,
 } from './qol/reduced-motion';
 export {
-  type BoardBounds,
-  clampCamera,
-  pannedCamera,
-  ZOOM_WHEEL_STEP,
-  ZoomPanController,
-  zoomedCamera,
+    type BoardBounds,
+    clampCamera,
+    pannedCamera,
+    ZOOM_WHEEL_STEP,
+    ZoomPanController,
+    zoomedCamera,
 } from './qol/zoom';
 
 // ----------------------------------------------------------------------------
@@ -167,10 +167,10 @@ export { SurrenderModal, type SurrenderModalProps } from './render/SurrenderModa
 export { OrderBar, type OrderBarProps } from './ui/order-bar';
 export { ReservesPanel, type ReservesPanelProps } from './ui/reserves-panel';
 export {
-  aimingTarget,
-  formatTargetingLabel,
-  TargetingOverlay,
-  type TargetingOverlayProps,
+    aimingTarget,
+    formatTargetingLabel,
+    TargetingOverlay,
+    type TargetingOverlayProps,
 } from './ui/targeting-overlay';
 
 // ----------------------------------------------------------------------------
@@ -178,16 +178,16 @@ export {
 // ----------------------------------------------------------------------------
 
 export type {
-  Console,
-  ConsoleConfig,
-  ConsoleConstants,
-  ConsoleDeps,
-  ConsoleFeatureFlags,
-  ConsoleInput,
-  ConsoleRenderer,
-  ConsoleRuntime as ConsoleRuntimeContract,
-  ConsoleSoundPlayer,
-  ReplayTape,
+    Console,
+    ConsoleConfig,
+    ConsoleConstants,
+    ConsoleDeps,
+    ConsoleFeatureFlags,
+    ConsoleInput,
+    ConsoleRenderer,
+    ConsoleRuntime as ConsoleRuntimeContract,
+    ConsoleSoundPlayer,
+    ReplayTape,
 } from '../contracts/console-api';
 
 // ----------------------------------------------------------------------------
@@ -195,13 +195,13 @@ export type {
 // ----------------------------------------------------------------------------
 
 export {
-  CONSOLE_API_VERSION,
-  CONSOLE_CONSTANTS,
-  DEFAULT_CAMERA,
-  DEFAULT_INPUT_MAPPING,
-  DEFAULT_PLAYER_COLORS,
-  DEFAULT_QOL_SETTINGS,
-  SUBCELL_RANGE,
+    CONSOLE_API_VERSION,
+    CONSOLE_CONSTANTS,
+    DEFAULT_CAMERA,
+    DEFAULT_INPUT_MAPPING,
+    DEFAULT_PLAYER_COLORS,
+    DEFAULT_QOL_SETTINGS,
+    SUBCELL_RANGE,
 } from './config';
 
 // ----------------------------------------------------------------------------

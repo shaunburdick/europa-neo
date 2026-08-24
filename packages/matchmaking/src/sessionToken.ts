@@ -33,7 +33,7 @@ import type { SessionToken } from '@europa/networking';
  * @returns The same string, typed as `T`.
  */
 function toBranded<T extends string>(value: string): T {
-  return value as T;
+    return value as T;
 }
 
 /**
@@ -50,7 +50,7 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
  * @returns A new branded session token.
  */
 export function newSessionToken(): SessionToken {
-  return toBranded<SessionToken>(randomUUID());
+    return toBranded<SessionToken>(randomUUID());
 }
 
 /**
@@ -64,5 +64,5 @@ export function newSessionToken(): SessionToken {
  * @returns `true` iff `s` is a well-formed hyphenated v4 UUID.
  */
 export function isValidSessionToken(s: string): boolean {
-  return UUID_V4_REGEX.test(s);
+    return UUID_V4_REGEX.test(s);
 }

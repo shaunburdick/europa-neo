@@ -27,41 +27,41 @@ import type { PlayerSessionId, SeatIndex } from '../../contracts/match-types';
  * `SeatAssignment.playerId` in the contract.
  */
 export interface SeatRecord {
-  /** Position in seat order, `0 <= seatIndex < playerCount`. */
-  readonly seatIndex: SeatIndex;
-  /** Ephemeral identity of the seated player (FR-001). */
-  readonly playerSessionId: PlayerSessionId;
-  /** Cosmetic name chosen by the seated player. */
-  readonly displayName: string;
-  /** Bearer token for reconnect; UUID v4 (feature 004 boundary). */
-  readonly sessionToken: SessionToken;
-  /** Engine PlayerId; non-null once the match is `running`. */
-  playerId: PlayerId | null;
-  /** Epoch ms the seat was claimed. */
-  readonly connectedAtMs: number;
-  /** Epoch ms of forfeit (`onSeatExpired`); terminal for the seat. */
-  forfeitedAtMs: number | null;
+    /** Position in seat order, `0 <= seatIndex < playerCount`. */
+    readonly seatIndex: SeatIndex;
+    /** Ephemeral identity of the seated player (FR-001). */
+    readonly playerSessionId: PlayerSessionId;
+    /** Cosmetic name chosen by the seated player. */
+    readonly displayName: string;
+    /** Bearer token for reconnect; UUID v4 (feature 004 boundary). */
+    readonly sessionToken: SessionToken;
+    /** Engine PlayerId; non-null once the match is `running`. */
+    playerId: PlayerId | null;
+    /** Epoch ms the seat was claimed. */
+    readonly connectedAtMs: number;
+    /** Epoch ms of forfeit (`onSeatExpired`); terminal for the seat. */
+    forfeitedAtMs: number | null;
 }
 
 /**
  * Arguments for {@linkcode createSeatRecord}.
  */
 export interface CreateSeatRecordArgs {
-  /** Position in seat order. */
-  readonly seatIndex: SeatIndex;
-  /** Ephemeral identity of the seated player. */
-  readonly playerSessionId: PlayerSessionId;
-  /** Cosmetic name chosen by the seated player. */
-  readonly displayName: string;
-  /** Bearer token issued for this seat. */
-  readonly sessionToken: SessionToken;
-  /**
-   * Engine PlayerId, or `null` while the match is still `'filling'`
-   * (assigned at the atomic `filling → running` transition, FR-004).
-   */
-  readonly playerId: PlayerId | null;
-  /** Epoch ms the seat is being claimed. */
-  readonly connectedAtMs: number;
+    /** Position in seat order. */
+    readonly seatIndex: SeatIndex;
+    /** Ephemeral identity of the seated player. */
+    readonly playerSessionId: PlayerSessionId;
+    /** Cosmetic name chosen by the seated player. */
+    readonly displayName: string;
+    /** Bearer token issued for this seat. */
+    readonly sessionToken: SessionToken;
+    /**
+     * Engine PlayerId, or `null` while the match is still `'filling'`
+     * (assigned at the atomic `filling → running` transition, FR-004).
+     */
+    readonly playerId: PlayerId | null;
+    /** Epoch ms the seat is being claimed. */
+    readonly connectedAtMs: number;
 }
 
 /**
@@ -72,14 +72,14 @@ export interface CreateSeatRecordArgs {
  * @returns A fresh `SeatRecord` with `forfeitedAtMs` unset.
  */
 export function createSeatRecord(args: CreateSeatRecordArgs): SeatRecord {
-  const { connectedAtMs, displayName, playerId, playerSessionId, seatIndex, sessionToken } = args;
-  return {
-    seatIndex,
-    playerSessionId,
-    displayName,
-    sessionToken,
-    playerId,
-    connectedAtMs,
-    forfeitedAtMs: null,
-  };
+    const { connectedAtMs, displayName, playerId, playerSessionId, seatIndex, sessionToken } = args;
+    return {
+        seatIndex,
+        playerSessionId,
+        displayName,
+        sessionToken,
+        playerId,
+        connectedAtMs,
+        forfeitedAtMs: null,
+    };
 }

@@ -24,53 +24,53 @@ import type { CellRenderInfo } from './types';
  * @returns Coord keys (`coordKey` format) whose cells changed.
  */
 export function diffCellChanges(
-  prev: ReadonlyMap<string, CellRenderInfo>,
-  next: ReadonlyMap<string, CellRenderInfo>,
+    prev: ReadonlyMap<string, CellRenderInfo>,
+    next: ReadonlyMap<string, CellRenderInfo>,
 ): ReadonlySet<string> {
-  const changed = new Set<string>();
+    const changed = new Set<string>();
 
-  for (const [key, nextInfo] of next) {
-    const prevInfo = prev.get(key);
-    if (prevInfo === undefined || cellDiffers(prevInfo, nextInfo)) {
-      changed.add(key);
+    for (const [key, nextInfo] of next) {
+        const prevInfo = prev.get(key);
+        if (prevInfo === undefined || cellDiffers(prevInfo, nextInfo)) {
+            changed.add(key);
+        }
     }
-  }
 
-  // Cells that vanished from view (left the horizon) are changes too.
-  for (const key of prev.keys()) {
-    if (!next.has(key)) {
-      changed.add(key);
+    // Cells that vanished from view (left the horizon) are changes too.
+    for (const key of prev.keys()) {
+        if (!next.has(key)) {
+            changed.add(key);
+        }
     }
-  }
 
-  return changed;
+    return changed;
 }
 
 /**
  * Field-wise comparison of two render infos. Pure predicate.
  */
 function cellDiffers(a: CellRenderInfo, b: CellRenderInfo): boolean {
-  return (
-    a.troops !== b.troops ||
-    a.owner !== b.owner ||
-    a.reservesPct !== b.reservesPct ||
-    a.isCity !== b.isCity ||
-    a.cityOwner !== b.cityOwner ||
-    !pipesEqual(a.pipes, b.pipes)
-  );
+    return (
+        a.troops !== b.troops ||
+        a.owner !== b.owner ||
+        a.reservesPct !== b.reservesPct ||
+        a.isCity !== b.isCity ||
+        a.cityOwner !== b.cityOwner ||
+        !pipesEqual(a.pipes, b.pipes)
+    );
 }
 
 /**
  * Set equality for pipe directions (size check + membership probe).
  */
 function pipesEqual(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
-  if (a.size !== b.size) {
-    return false;
-  }
-  for (const direction of a) {
-    if (!b.has(direction)) {
-      return false;
+    if (a.size !== b.size) {
+        return false;
     }
-  }
-  return true;
+    for (const direction of a) {
+        if (!b.has(direction)) {
+            return false;
+        }
+    }
+    return true;
 }

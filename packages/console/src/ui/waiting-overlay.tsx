@@ -43,16 +43,16 @@ export const WAITING_FOR_OPPONENT_MESSAGE = 'Waiting for opponent to join…';
 
 /** Props for {@link WaitingOverlay}. */
 export interface WaitingOverlayProps {
-  /**
-   * Optional shared announcer (App-owned LiveRegionAnnouncer); when
-   * provided, the overlay's appearance is announced once, politely.
-   */
-  readonly announcer?: LiveRegionAnnouncer | undefined;
-  /**
-   * Current reduced-motion preference (App-owned subscription). When
-   * true the spinner animation is disabled via a modifier class.
-   */
-  readonly reducedMotion?: boolean | undefined;
+    /**
+     * Optional shared announcer (App-owned LiveRegionAnnouncer); when
+     * provided, the overlay's appearance is announced once, politely.
+     */
+    readonly announcer?: LiveRegionAnnouncer | undefined;
+    /**
+     * Current reduced-motion preference (App-owned subscription). When
+     * true the spinner animation is disabled via a modifier class.
+     */
+    readonly reducedMotion?: boolean | undefined;
 }
 
 /**
@@ -61,30 +61,28 @@ export interface WaitingOverlayProps {
  * (App) from the store-derived awaiting-start predicate.
  */
 export function WaitingOverlay({ announcer, reducedMotion }: WaitingOverlayProps): JSX.Element {
-  // Announce once per appearance through the shared channel. The ref
-  // guard mirrors TargetingOverlay: StrictMode double-invocation and
-  // ordinary re-renders must not repeat the announcement.
-  const lastAnnouncedRef = useRef(false);
-  useEffect(() => {
-    if (announcer !== undefined && !lastAnnouncedRef.current) {
-      announcer.announce(WAITING_FOR_OPPONENT_MESSAGE, 'polite');
-      lastAnnouncedRef.current = true;
-    }
-  }, [announcer]);
+    // Announce once per appearance through the shared channel. The ref
+    // guard mirrors TargetingOverlay: StrictMode double-invocation and
+    // ordinary re-renders must not repeat the announcement.
+    const lastAnnouncedRef = useRef(false);
+    useEffect(() => {
+        if (announcer !== undefined && !lastAnnouncedRef.current) {
+            announcer.announce(WAITING_FOR_OPPONENT_MESSAGE, 'polite');
+            lastAnnouncedRef.current = true;
+        }
+    }, [announcer]);
 
-  return (
-    <div
-      className={
-        reducedMotion === true ? 'europa-waiting europa-waiting--reduced' : 'europa-waiting'
-      }
-      data-europa-waiting="true"
-    >
-      <div className="europa-waiting__plate">
-        {/* Decorative spinner — hidden from AT; the text below is the
+    return (
+        <div
+            className={reducedMotion === true ? 'europa-waiting europa-waiting--reduced' : 'europa-waiting'}
+            data-europa-waiting="true"
+        >
+            <div className="europa-waiting__plate">
+                {/* Decorative spinner — hidden from AT; the text below is the
             information carrier (WCAG 1.1.1). */}
-        <div aria-hidden="true" className="europa-waiting__pulse" />
-        <p className="europa-waiting__text">{WAITING_FOR_OPPONENT_MESSAGE}</p>
-      </div>
-    </div>
-  );
+                <div aria-hidden="true" className="europa-waiting__pulse" />
+                <p className="europa-waiting__text">{WAITING_FOR_OPPONENT_MESSAGE}</p>
+            </div>
+        </div>
+    );
 }

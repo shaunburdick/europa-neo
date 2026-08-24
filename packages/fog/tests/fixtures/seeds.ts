@@ -53,12 +53,12 @@ const GOLDEN_RATIO_UINT32 = 0x9e3779b1;
  * @throws If `trials` is negative or not an integer.
  */
 export function goldenSeeds(trials: number): number[] {
-  if (!Number.isInteger(trials) || trials < 0) {
-    throw new Error(`goldenSeeds: trials must be a non-negative integer (got ${String(trials)})`);
-  }
-  const out: number[] = new Array(trials);
-  for (let i = 0; i < trials; i++) {
-    out[i] = Math.imul(i, GOLDEN_RATIO_UINT32) >>> 0;
-  }
-  return out;
+    if (!Number.isInteger(trials) || trials < 0) {
+        throw new Error(`goldenSeeds: trials must be a non-negative integer (got ${String(trials)})`);
+    }
+    const out: number[] = new Array(trials);
+    for (let i = 0; i < trials; i++) {
+        out[i] = Math.imul(i, GOLDEN_RATIO_UINT32) >>> 0;
+    }
+    return out;
 }

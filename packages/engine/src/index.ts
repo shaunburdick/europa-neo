@@ -32,61 +32,61 @@
 
 // Branded primitives (PlayerId, Direction, Terrain, PlayerStatus, ReservesPct)
 export type {
-  AppliedOrderRecord,
-  Board,
-  CaptureEvent,
-  Cell,
-  // Read view
-  CellView,
-  // Board
-  CityPlacement,
-  // Events
-  CombatEvent,
-  // Results
-  CommandResult,
-  // Coordinates + cells
-  Coord,
-  // Branded primitives
-  Direction,
-  // Events
-  EliminationEvent,
-  // Engine API constants type
-  EngineConstants,
-  // Match config
-  MatchConfig,
-  // Terminal
-  MatchResult,
-  // Orders
-  Order,
-  OrderClearAllPipes,
-  OrderClearPipe,
-  OrderGun,
-  OrderParatroop,
-  OrderSetPipe,
-  OrderSetPipesExclusive,
-  OrderSetReserves,
-  OrderSurrender,
-  // Players
-  Player,
-  // Branded primitives
-  PlayerId,
-  PlayerStatus,
-  // Branded primitives
-  ReservesPct,
-  // PRNG
-  Rng,
-  // Branded primitives
-  Terrain,
-  // Events
-  TickEvents,
-  // Terminal
-  TickResult,
-  // Results
-  ValidationError,
-  // World
-  World,
-  // Runtime state
-  WorldState,
+    AppliedOrderRecord,
+    Board,
+    CaptureEvent,
+    Cell,
+    // Read view
+    CellView,
+    // Board
+    CityPlacement,
+    // Events
+    CombatEvent,
+    // Results
+    CommandResult,
+    // Coordinates + cells
+    Coord,
+    // Branded primitives
+    Direction,
+    // Events
+    EliminationEvent,
+    // Engine API constants type
+    EngineConstants,
+    // Match config
+    MatchConfig,
+    // Terminal
+    MatchResult,
+    // Orders
+    Order,
+    OrderClearAllPipes,
+    OrderClearPipe,
+    OrderGun,
+    OrderParatroop,
+    OrderSetPipe,
+    OrderSetPipesExclusive,
+    OrderSetReserves,
+    OrderSurrender,
+    // Players
+    Player,
+    // Branded primitives
+    PlayerId,
+    PlayerStatus,
+    // Branded primitives
+    ReservesPct,
+    // PRNG
+    Rng,
+    // Branded primitives
+    Terrain,
+    // Events
+    TickEvents,
+    // Terminal
+    TickResult,
+    // Results
+    ValidationError,
+    // World
+    World,
+    // Runtime state
+    WorldState,
 } from './types';
 
 // Single value re-export: the engine API version constant. Bumped on
@@ -110,12 +110,12 @@ export { createRng, createRngFromString, hashSeed } from './rng';
 // ----------------------------------------------------------------------------
 
 export {
-  emptyTickEvents,
-  pushAppliedOrder,
-  pushCaptureEvent,
-  pushCombatEvent,
-  pushEliminationEvent,
-  pushError,
+    emptyTickEvents,
+    pushAppliedOrder,
+    pushCaptureEvent,
+    pushCombatEvent,
+    pushEliminationEvent,
+    pushError,
 } from './events';
 
 // ----------------------------------------------------------------------------
@@ -132,12 +132,12 @@ export { validateCommand } from './validate';
 // ----------------------------------------------------------------------------
 
 export {
-  alivePlayers,
-  cellsInRange,
-  forEachCell,
-  getCell,
-  getPlayer,
-  neighborsOf,
+    alivePlayers,
+    cellsInRange,
+    forEachCell,
+    getCell,
+    getPlayer,
+    neighborsOf,
 } from './read';
 
 // ----------------------------------------------------------------------------
@@ -145,9 +145,9 @@ export {
 // ----------------------------------------------------------------------------
 
 export {
-  deserializeWorld,
-  EngineFormatError,
-  EngineVersionMismatchError,
-  hashWorld,
-  serializeWorld,
+    deserializeWorld,
+    EngineFormatError,
+    EngineVersionMismatchError,
+    hashWorld,
+    serializeWorld,
 } from './serialize';

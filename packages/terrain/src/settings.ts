@@ -18,11 +18,7 @@
  * is not perturbed by a failed call).
  */
 
-import {
-  DEFAULT_GENERATION_SETTINGS,
-  GenerationError,
-  type GenerationSettings,
-} from './contracts/terrain-types';
+import { DEFAULT_GENERATION_SETTINGS, GenerationError, type GenerationSettings } from './contracts/terrain-types';
 
 /**
  * Resolve a partial settings object into a complete `GenerationSettings`
@@ -41,18 +37,16 @@ import {
  *          stable.
  */
 export function resolveSettings(partial: Partial<GenerationSettings>): GenerationSettings {
-  return {
-    waterRatio: partial.waterRatio ?? DEFAULT_GENERATION_SETTINGS.waterRatio,
-    roughness: partial.roughness ?? DEFAULT_GENERATION_SETTINGS.roughness,
-    octaves: partial.octaves ?? DEFAULT_GENERATION_SETTINGS.octaves,
-    citiesPerPlayer: partial.citiesPerPlayer ?? DEFAULT_GENERATION_SETTINGS.citiesPerPlayer,
-    symmetryStrategy: partial.symmetryStrategy ?? DEFAULT_GENERATION_SETTINGS.symmetryStrategy,
-    minCityWaterDistance:
-      partial.minCityWaterDistance ?? DEFAULT_GENERATION_SETTINGS.minCityWaterDistance,
-    minCityCityDistance:
-      partial.minCityCityDistance ?? DEFAULT_GENERATION_SETTINGS.minCityCityDistance,
-    maxRegenAttempts: partial.maxRegenAttempts ?? DEFAULT_GENERATION_SETTINGS.maxRegenAttempts,
-  };
+    return {
+        waterRatio: partial.waterRatio ?? DEFAULT_GENERATION_SETTINGS.waterRatio,
+        roughness: partial.roughness ?? DEFAULT_GENERATION_SETTINGS.roughness,
+        octaves: partial.octaves ?? DEFAULT_GENERATION_SETTINGS.octaves,
+        citiesPerPlayer: partial.citiesPerPlayer ?? DEFAULT_GENERATION_SETTINGS.citiesPerPlayer,
+        symmetryStrategy: partial.symmetryStrategy ?? DEFAULT_GENERATION_SETTINGS.symmetryStrategy,
+        minCityWaterDistance: partial.minCityWaterDistance ?? DEFAULT_GENERATION_SETTINGS.minCityWaterDistance,
+        minCityCityDistance: partial.minCityCityDistance ?? DEFAULT_GENERATION_SETTINGS.minCityCityDistance,
+        maxRegenAttempts: partial.maxRegenAttempts ?? DEFAULT_GENERATION_SETTINGS.maxRegenAttempts,
+    };
 }
 
 /**
@@ -76,46 +70,49 @@ export function resolveSettings(partial: Partial<GenerationSettings>): Generatio
  * @throws `GenerationError` on any shape violation.
  */
 export function validateSettings(s: GenerationSettings): void {
-  const integerFields: ReadonlyArray<keyof GenerationSettings> = [
-    'octaves',
-    'citiesPerPlayer',
-    'minCityWaterDistance',
-    'minCityCityDistance',
-    'maxRegenAttempts',
-  ];
+    const integerFields: ReadonlyArray<keyof GenerationSettings> = [
+        'octaves',
+        'citiesPerPlayer',
+        'minCityWaterDistance',
+        'minCityCityDistance',
+        'maxRegenAttempts',
+    ];
 
-  for (const field of integerFields) {
-    const v = s[field];
-    if (typeof v !== 'number' || !Number.isFinite(v)) {
-      throw new GenerationError(
-        `validateSettings: '${field}' must be a finite number (got ${String(v)})`,
-        { kind: 'invalid_request', attempts: 0, lastReport: null },
-      );
+    for (const field of integerFields) {
+        const v = s[field];
+        if (typeof v !== 'number' || !Number.isFinite(v)) {
+            throw new GenerationError(`validateSettings: '${field}' must be a finite number (got ${String(v)})`, {
+                kind: 'invalid_request',
+                attempts: 0,
+                lastReport: null,
+            });
+        }
+        if (!Number.isInteger(v)) {
+            throw new GenerationError(`validateSettings: '${field}' must be an integer (got ${String(v)})`, {
+                kind: 'invalid_request',
+                attempts: 0,
+                lastReport: null,
+            });
+        }
     }
-    if (!Number.isInteger(v)) {
-      throw new GenerationError(
-        `validateSettings: '${field}' must be an integer (got ${String(v)})`,
-        { kind: 'invalid_request', attempts: 0, lastReport: null },
-      );
-    }
-  }
 
-  // Float fields: finiteness only.
-  for (const field of ['waterRatio', 'roughness'] as const) {
-    const v = s[field];
-    if (typeof v !== 'number' || !Number.isFinite(v)) {
-      throw new GenerationError(
-        `validateSettings: '${field}' must be a finite number (got ${String(v)})`,
-        { kind: 'invalid_request', attempts: 0, lastReport: null },
-      );
+    // Float fields: finiteness only.
+    for (const field of ['waterRatio', 'roughness'] as const) {
+        const v = s[field];
+        if (typeof v !== 'number' || !Number.isFinite(v)) {
+            throw new GenerationError(`validateSettings: '${field}' must be a finite number (got ${String(v)})`, {
+                kind: 'invalid_request',
+                attempts: 0,
+                lastReport: null,
+            });
+        }
     }
-  }
 
-  // Closed-union check for symmetryStrategy.
-  if (s.symmetryStrategy !== 'point') {
-    throw new GenerationError(
-      `validateSettings: symmetryStrategy must be 'point' in v1 (got '${String(s.symmetryStrategy)}')`,
-      { kind: 'invalid_request', attempts: 0, lastReport: null },
-    );
-  }
+    // Closed-union check for symmetryStrategy.
+    if (s.symmetryStrategy !== 'point') {
+        throw new GenerationError(
+            `validateSettings: symmetryStrategy must be 'point' in v1 (got '${String(s.symmetryStrategy)}')`,
+            { kind: 'invalid_request', attempts: 0, lastReport: null },
+        );
+    }
 }

@@ -35,7 +35,7 @@ import type { ConnectionId, SessionToken } from './contracts/network-types';
  * @returns The same string, typed as `T`.
  */
 export function toBranded<T extends string>(value: string): T {
-  return value as T;
+    return value as T;
 }
 
 /**
@@ -47,7 +47,7 @@ export function toBranded<T extends string>(value: string): T {
  * @returns A new branded session token.
  */
 export function generateSessionToken(): SessionToken {
-  return toBranded<SessionToken>(crypto.randomUUID());
+    return toBranded<SessionToken>(crypto.randomUUID());
 }
 
 /**
@@ -60,5 +60,5 @@ export function generateSessionToken(): SessionToken {
  * @returns A new branded connection id.
  */
 export function generateConnectionId(): ConnectionId {
-  return toBranded<ConnectionId>(crypto.randomUUID());
+    return toBranded<ConnectionId>(crypto.randomUUID());
 }

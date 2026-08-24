@@ -39,11 +39,11 @@ import type { Coord } from '@europa/engine';
  * @returns Non-negative integer Chebyshev distance.
  */
 export function chebyshevDistance(x1: number, y1: number, x2: number, y2: number): number {
-  // `Math.abs` is safe here — coords are non-negative, but
-  // differences may be negative. Trivially deterministic.
-  const dx = Math.abs(x2 - x1);
-  const dy = Math.abs(y2 - y1);
-  return dx > dy ? dx : dy;
+    // `Math.abs` is safe here — coords are non-negative, but
+    // differences may be negative. Trivially deterministic.
+    const dx = Math.abs(x2 - x1);
+    const dy = Math.abs(y2 - y1);
+    return dx > dy ? dx : dy;
 }
 
 /**
@@ -75,33 +75,33 @@ export function chebyshevDistance(x1: number, y1: number, x2: number, y2: number
  * @throws If `r`, `width`, or `height` is negative.
  */
 export function chebyshevDisk(center: Coord, r: number, width: number, height: number): Coord[] {
-  if (!Number.isInteger(r) || r < 0) {
-    throw new Error(`chebyshevDisk: r must be a non-negative integer (got ${String(r)})`);
-  }
-  if (!Number.isInteger(width) || width <= 0) {
-    throw new Error(`chebyshevDisk: width must be a positive integer (got ${String(width)})`);
-  }
-  if (!Number.isInteger(height) || height <= 0) {
-    throw new Error(`chebyshevDisk: height must be a positive integer (got ${String(height)})`);
-  }
-  // Compute the rectangular sweep: [xMin..xMax] × [yMin..yMax],
-  // then clip to [0..width) × [0..height). Each cell in the
-  // clipped rectangle is automatically within Chebyshev distance
-  // `r` of the center (by construction).
-  const xMinRaw = center.x - r;
-  const yMinRaw = center.y - r;
-  const xMaxRaw = center.x + r;
-  const yMaxRaw = center.y + r;
-  const xMin = xMinRaw < 0 ? 0 : xMinRaw;
-  const yMin = yMinRaw < 0 ? 0 : yMinRaw;
-  const xMax = xMaxRaw >= width ? width - 1 : xMaxRaw;
-  const yMax = yMaxRaw >= height ? height - 1 : yMaxRaw;
-
-  const out: Coord[] = [];
-  for (let y = yMin; y <= yMax; y++) {
-    for (let x = xMin; x <= xMax; x++) {
-      out.push({ x, y });
+    if (!Number.isInteger(r) || r < 0) {
+        throw new Error(`chebyshevDisk: r must be a non-negative integer (got ${String(r)})`);
     }
-  }
-  return out;
+    if (!Number.isInteger(width) || width <= 0) {
+        throw new Error(`chebyshevDisk: width must be a positive integer (got ${String(width)})`);
+    }
+    if (!Number.isInteger(height) || height <= 0) {
+        throw new Error(`chebyshevDisk: height must be a positive integer (got ${String(height)})`);
+    }
+    // Compute the rectangular sweep: [xMin..xMax] × [yMin..yMax],
+    // then clip to [0..width) × [0..height). Each cell in the
+    // clipped rectangle is automatically within Chebyshev distance
+    // `r` of the center (by construction).
+    const xMinRaw = center.x - r;
+    const yMinRaw = center.y - r;
+    const xMaxRaw = center.x + r;
+    const yMaxRaw = center.y + r;
+    const xMin = xMinRaw < 0 ? 0 : xMinRaw;
+    const yMin = yMinRaw < 0 ? 0 : yMinRaw;
+    const xMax = xMaxRaw >= width ? width - 1 : xMaxRaw;
+    const yMax = yMaxRaw >= height ? height - 1 : yMaxRaw;
+
+    const out: Coord[] = [];
+    for (let y = yMin; y <= yMax; y++) {
+        for (let x = xMin; x <= xMax; x++) {
+            out.push({ x, y });
+        }
+    }
+    return out;
 }

@@ -36,8 +36,8 @@ const AXE_TAGS: readonly string[] = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa',
  *         node selectors) when the scan is not clean.
  */
 export async function expectNoA11yViolations(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags([...AXE_TAGS]).analyze();
-  throwOnViolations(results.violations);
+    const results = await new AxeBuilder({ page }).withTags([...AXE_TAGS]).analyze();
+    throwOnViolations(results.violations);
 }
 
 /**
@@ -51,10 +51,10 @@ export async function expectNoA11yViolations(page: Page): Promise<void> {
  *         node selectors) when the scan is not clean.
  */
 export async function expectNoDomA11yViolations(context: ParentNode = document): Promise<void> {
-  const results = await axe.run(context, {
-    runOnly: { type: 'tag', values: [...AXE_TAGS] },
-  });
-  throwOnViolations(results.violations);
+    const results = await axe.run(context, {
+        runOnly: { type: 'tag', values: [...AXE_TAGS] },
+    });
+    throwOnViolations(results.violations);
 }
 
 /**
@@ -62,21 +62,21 @@ export async function expectNoDomA11yViolations(context: ParentNode = document):
  * format for both helpers).
  */
 function throwOnViolations(
-  violations: ReadonlyArray<{
-    readonly id: string;
-    readonly impact: string | null | undefined;
-    readonly help: string;
-    readonly nodes: ReadonlyArray<{ readonly target: readonly unknown[] }>;
-  }>,
+    violations: ReadonlyArray<{
+        readonly id: string;
+        readonly impact: string | null | undefined;
+        readonly help: string;
+        readonly nodes: ReadonlyArray<{ readonly target: readonly unknown[] }>;
+    }>,
 ): void {
-  if (violations.length === 0) {
-    return;
-  }
-  const report = violations
-    .map((violation) => {
-      const nodes = violation.nodes.map((node) => node.target.map(String).join(' ')).join('; ');
-      return `[${violation.impact ?? 'unknown'}] ${violation.id}: ${violation.help} — ${nodes}`;
-    })
-    .join('\n');
-  throw new Error(`axe-core found ${violations.length} WCAG violation(s):\n${report}`);
+    if (violations.length === 0) {
+        return;
+    }
+    const report = violations
+        .map((violation) => {
+            const nodes = violation.nodes.map((node) => node.target.map(String).join(' ')).join('; ');
+            return `[${violation.impact ?? 'unknown'}] ${violation.id}: ${violation.help} — ${nodes}`;
+        })
+        .join('\n');
+    throw new Error(`axe-core found ${violations.length} WCAG violation(s):\n${report}`);
 }

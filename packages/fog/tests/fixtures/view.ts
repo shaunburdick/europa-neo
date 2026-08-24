@@ -51,13 +51,8 @@ import type { PlayerView, VisibleSet } from '../../src/types';
  * @returns Row-major `Coord[]` of all in-bounds cells within
  *         Chebyshev distance `r` of `center`.
  */
-export function expectedChebyshevDisk(
-  center: Coord,
-  r: number,
-  width: number,
-  height: number,
-): Coord[] {
-  return chebyshevDisk(center, r, width, height);
+export function expectedChebyshevDisk(center: Coord, r: number, width: number, height: number): Coord[] {
+    return chebyshevDisk(center, r, width, height);
 }
 
 /**
@@ -77,16 +72,16 @@ export function expectedChebyshevDisk(
  *         the test setup, not a fog-package bug).
  */
 export function disjointDisks(disk1: readonly Coord[], disk2: readonly Coord[]): boolean {
-  const set1 = new Set<number>();
-  for (const c of disk1) {
-    set1.add(c.y * 1_000_000 + c.x);
-  }
-  for (const c of disk2) {
-    if (set1.has(c.y * 1_000_000 + c.x)) {
-      throw new Error(`disjointDisks: disks overlap at [${c.x}, ${c.y}] — test setup error`);
+    const set1 = new Set<number>();
+    for (const c of disk1) {
+        set1.add(c.y * 1_000_000 + c.x);
     }
-  }
-  return true;
+    for (const c of disk2) {
+        if (set1.has(c.y * 1_000_000 + c.x)) {
+            throw new Error(`disjointDisks: disks overlap at [${c.x}, ${c.y}] — test setup error`);
+        }
+    }
+    return true;
 }
 
 /**
@@ -103,16 +98,16 @@ export function disjointDisks(disk1: readonly Coord[], disk2: readonly Coord[]):
  *         order.
  */
 export function expectedSingleStackView(
-  world: Readonly<World>,
-  player: PlayerId,
-  center: Coord,
-  r: number,
+    world: Readonly<World>,
+    player: PlayerId,
+    center: Coord,
+    r: number,
 ): VisibleSet {
-  return {
-    player,
-    tick: world.tick,
-    visibleCells: expectedChebyshevDisk(center, r, world.board.width, world.board.height),
-  };
+    return {
+        player,
+        tick: world.tick,
+        visibleCells: expectedChebyshevDisk(center, r, world.board.width, world.board.height),
+    };
 }
 
 /**
@@ -139,25 +134,25 @@ export function expectedSingleStackView(
  *         comparison.
  */
 export function buildExpectedPlayerView(
-  player: PlayerId,
-  tick: number,
-  visibleCells: readonly CellView[],
-  config: Readonly<MatchConfig>,
-  events?: Readonly<TickEvents>,
+    player: PlayerId,
+    tick: number,
+    visibleCells: readonly CellView[],
+    config: Readonly<MatchConfig>,
+    events?: Readonly<TickEvents>,
 ): PlayerView {
-  return {
-    player,
-    tick,
-    visibleCells,
-    events: events ?? {
-      combat: [],
-      captures: [],
-      eliminations: [],
-      appliedOrders: [],
-      errors: [],
-    },
-    config,
-  };
+    return {
+        player,
+        tick,
+        visibleCells,
+        events: events ?? {
+            combat: [],
+            captures: [],
+            eliminations: [],
+            appliedOrders: [],
+            errors: [],
+        },
+        config,
+    };
 }
 
 /**

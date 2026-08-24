@@ -42,22 +42,13 @@
  */
 
 import { ENGINE_CONSTANTS } from './constants';
-import type {
-  CellView,
-  CommandResult,
-  Coord,
-  Direction,
-  Order,
-  PlayerId,
-  ValidationError,
-  World,
-} from './types';
+import type { CellView, CommandResult, Coord, Direction, Order, PlayerId, ValidationError, World } from './types';
 
 const DIRECTION_OFFSETS: Readonly<Record<Direction, readonly [number, number]>> = {
-  N: [0, -1],
-  E: [1, 0],
-  S: [0, 1],
-  W: [-1, 0],
+    N: [0, -1],
+    E: [1, 0],
+    S: [0, 1],
+    W: [-1, 0],
 };
 
 const PARATROOP_MAX_RANGE = 2;
@@ -69,56 +60,51 @@ const PARATROOP_MAX_RANGE = 2;
  *          `{ ok: false, reason }` with a typed `ValidationError`.
  */
 export function validateCommand(world: Readonly<World>, cmd: Order): CommandResult {
-  switch (cmd.kind) {
-    case 'setPipe':
-      return validateSetPipe(world, cmd.cell, cmd.direction, cmd.player);
-    case 'clearPipe':
-      return validateClearPipe(world, cmd.cell, cmd.player);
-    case 'setPipesExclusive':
-      return validateSourceOwnership(world, cmd.cell, cmd.player);
-    case 'clearAllPipes':
-      return validateSourceOwnership(world, cmd.cell, cmd.player);
-    case 'setReserves':
-      return validateSetReserves(world, cmd.cell, cmd.percent, cmd.player);
-    case 'paratroop':
-      return validateParatroop(world, cmd.source, cmd.target, cmd.player);
-    case 'gun':
-      return validateGun(world, cmd.source, cmd.target, cmd.player);
-    case 'surrender':
-      return validateSurrender(world, cmd.player);
-  }
+    switch (cmd.kind) {
+        case 'setPipe':
+            return validateSetPipe(world, cmd.cell, cmd.direction, cmd.player);
+        case 'clearPipe':
+            return validateClearPipe(world, cmd.cell, cmd.player);
+        case 'setPipesExclusive':
+            return validateSourceOwnership(world, cmd.cell, cmd.player);
+        case 'clearAllPipes':
+            return validateSourceOwnership(world, cmd.cell, cmd.player);
+        case 'setReserves':
+            return validateSetReserves(world, cmd.cell, cmd.percent, cmd.player);
+        case 'paratroop':
+            return validateParatroop(world, cmd.source, cmd.target, cmd.player);
+        case 'gun':
+            return validateGun(world, cmd.source, cmd.target, cmd.player);
+        case 'surrender':
+            return validateSurrender(world, cmd.player);
+    }
 }
 
 /**
  * Validate `setPipe`: source in-bounds + owned by player;
  * destination in-bounds + land.
  */
-function validateSetPipe(
-  world: Readonly<World>,
-  cell: Coord,
-  direction: Direction,
-  player: PlayerId,
-): CommandResult {
-  const sourceCheck = validateSourceOwnership(world, cell, player);
-  if (!sourceCheck.ok) {
-    return sourceCheck;
-  }
+function validateSetPipe(world: Readonly<World>, cell: Coord, direction: Direction, player: PlayerId): CommandResult {
+    const sourceCheck = validateSourceOwnership(world, cell, player);
+    if (!sourceCheck.ok) {
+        return sourceCheck;
+    }
 
-  const offset = DIRECTION_OFFSETS[direction];
-  const dst: Coord = { x: cell.x + (offset[0] ?? 0), y: cell.y + (offset[1] ?? 0) };
-  const w = world.board.width;
-  const h = world.board.height;
-  if (dst.x < 0 || dst.x >= w || dst.y < 0 || dst.y >= h) {
-    return fail({ kind: 'out_of_bounds', coord: dst });
-  }
-  const dstCell = world.board.cells[dst.y * w + dst.x];
-  if (dstCell === undefined) {
-    return fail({ kind: 'out_of_bounds', coord: dst });
-  }
-  if (dstCell.terrain !== 'land') {
-    return fail({ kind: 'water_target', coord: dst });
-  }
-  return { ok: true };
+    const offset = DIRECTION_OFFSETS[direction];
+    const dst: Coord = { x: cell.x + (offset[0] ?? 0), y: cell.y + (offset[1] ?? 0) };
+    const w = world.board.width;
+    const h = world.board.height;
+    if (dst.x < 0 || dst.x >= w || dst.y < 0 || dst.y >= h) {
+        return fail({ kind: 'out_of_bounds', coord: dst });
+    }
+    const dstCell = world.board.cells[dst.y * w + dst.x];
+    if (dstCell === undefined) {
+        return fail({ kind: 'out_of_bounds', coord: dst });
+    }
+    if (dstCell.terrain !== 'land') {
+        return fail({ kind: 'water_target', coord: dst });
+    }
+    return { ok: true };
 }
 
 /**
@@ -127,22 +113,17 @@ function validateSetPipe(
  * non-existent pipe is harmless).
  */
 function validateClearPipe(world: Readonly<World>, cell: Coord, player: PlayerId): CommandResult {
-  return validateSourceOwnership(world, cell, player);
+    return validateSourceOwnership(world, cell, player);
 }
 
 /**
  * Validate `setReserves`: source owned by player + percent ∈ 0..9.
  */
-function validateSetReserves(
-  world: Readonly<World>,
-  cell: Coord,
-  percent: number,
-  player: PlayerId,
-): CommandResult {
-  if (!Number.isInteger(percent) || percent < 0 || percent > 9) {
-    return fail({ kind: 'invalid_percent', percent });
-  }
-  return validateSourceOwnership(world, cell, player);
+function validateSetReserves(world: Readonly<World>, cell: Coord, percent: number, player: PlayerId): CommandResult {
+    if (!Number.isInteger(percent) || percent < 0 || percent > 9) {
+        return fail({ kind: 'invalid_percent', percent });
+    }
+    return validateSourceOwnership(world, cell, player);
 }
 
 /**
@@ -152,54 +133,49 @@ function validateSetReserves(
  *   - Chebyshev distance ≤ 2
  *   - source has ≥ 2 × `paratroopCost` troops ABOVE its reserves floor
  */
-function validateParatroop(
-  world: Readonly<World>,
-  source: Coord,
-  target: Coord,
-  player: PlayerId,
-): CommandResult {
-  // Source in-bounds + ownership.
-  const sourceCheck = validateSourceOwnership(world, source, player);
-  if (!sourceCheck.ok) {
-    return sourceCheck;
-  }
+function validateParatroop(world: Readonly<World>, source: Coord, target: Coord, player: PlayerId): CommandResult {
+    // Source in-bounds + ownership.
+    const sourceCheck = validateSourceOwnership(world, source, player);
+    if (!sourceCheck.ok) {
+        return sourceCheck;
+    }
 
-  const w = world.board.width;
-  const h = world.board.height;
-  // Target in-bounds.
-  if (
-    !Number.isInteger(target.x) ||
-    !Number.isInteger(target.y) ||
-    target.x < 0 ||
-    target.x >= w ||
-    target.y < 0 ||
-    target.y >= h
-  ) {
-    return fail({ kind: 'out_of_bounds', coord: target });
-  }
-  // Target not water.
-  const targetCell = world.board.cells[target.y * w + target.x];
-  if (targetCell === undefined || targetCell.terrain !== 'land') {
-    return fail({ kind: 'water_target', coord: target });
-  }
-  // Range check (Chebyshev ≤ 2).
-  const dx = Math.abs(target.x - source.x);
-  const dy = Math.abs(target.y - source.y);
-  const distance = dx > dy ? dx : dy;
-  if (distance > PARATROOP_MAX_RANGE) {
-    return fail({ kind: 'paratroop_range', source, target, distance });
-  }
-  // Source troop check (above reserves floor).
-  const sourceIdx = source.y * w + source.x;
-  const sourceCount = world.state.troopCounts[sourceIdx] ?? 0;
-  const reservesPct = (world.state.reservesPct[sourceIdx] ?? 0) >>> 0;
-  const floor = computeReservesFloor(sourceCount, reservesPct);
-  const sourceSpend = Math.imul(ENGINE_CONSTANTS.paratroopCost, 2) >>> 0;
-  const usableAboveFloor = (sourceCount - floor) >>> 0;
-  if (usableAboveFloor < sourceSpend) {
-    return fail({ kind: 'no_source_troops', coord: source });
-  }
-  return { ok: true };
+    const w = world.board.width;
+    const h = world.board.height;
+    // Target in-bounds.
+    if (
+        !Number.isInteger(target.x) ||
+        !Number.isInteger(target.y) ||
+        target.x < 0 ||
+        target.x >= w ||
+        target.y < 0 ||
+        target.y >= h
+    ) {
+        return fail({ kind: 'out_of_bounds', coord: target });
+    }
+    // Target not water.
+    const targetCell = world.board.cells[target.y * w + target.x];
+    if (targetCell === undefined || targetCell.terrain !== 'land') {
+        return fail({ kind: 'water_target', coord: target });
+    }
+    // Range check (Chebyshev ≤ 2).
+    const dx = Math.abs(target.x - source.x);
+    const dy = Math.abs(target.y - source.y);
+    const distance = dx > dy ? dx : dy;
+    if (distance > PARATROOP_MAX_RANGE) {
+        return fail({ kind: 'paratroop_range', source, target, distance });
+    }
+    // Source troop check (above reserves floor).
+    const sourceIdx = source.y * w + source.x;
+    const sourceCount = world.state.troopCounts[sourceIdx] ?? 0;
+    const reservesPct = (world.state.reservesPct[sourceIdx] ?? 0) >>> 0;
+    const floor = computeReservesFloor(sourceCount, reservesPct);
+    const sourceSpend = Math.imul(ENGINE_CONSTANTS.paratroopCost, 2) >>> 0;
+    const usableAboveFloor = (sourceCount - floor) >>> 0;
+    if (usableAboveFloor < sourceSpend) {
+        return fail({ kind: 'no_source_troops', coord: source });
+    }
+    return { ok: true };
 }
 
 /**
@@ -208,41 +184,36 @@ function validateParatroop(
  *   - target in-bounds
  *   - source has ≥ `gunCost` troops ABOVE its reserves floor
  */
-function validateGun(
-  world: Readonly<World>,
-  source: Coord,
-  target: Coord,
-  player: PlayerId,
-): CommandResult {
-  // Source in-bounds + ownership.
-  const sourceCheck = validateSourceOwnership(world, source, player);
-  if (!sourceCheck.ok) {
-    return sourceCheck;
-  }
+function validateGun(world: Readonly<World>, source: Coord, target: Coord, player: PlayerId): CommandResult {
+    // Source in-bounds + ownership.
+    const sourceCheck = validateSourceOwnership(world, source, player);
+    if (!sourceCheck.ok) {
+        return sourceCheck;
+    }
 
-  const w = world.board.width;
-  const h = world.board.height;
-  // Target in-bounds.
-  if (
-    !Number.isInteger(target.x) ||
-    !Number.isInteger(target.y) ||
-    target.x < 0 ||
-    target.x >= w ||
-    target.y < 0 ||
-    target.y >= h
-  ) {
-    return fail({ kind: 'out_of_bounds', coord: target });
-  }
-  // Source troop check (above reserves floor).
-  const sourceIdx = source.y * w + source.x;
-  const sourceCount = world.state.troopCounts[sourceIdx] ?? 0;
-  const reservesPct = (world.state.reservesPct[sourceIdx] ?? 0) >>> 0;
-  const floor = computeReservesFloor(sourceCount, reservesPct);
-  const usableAboveFloor = (sourceCount - floor) >>> 0;
-  if (usableAboveFloor < ENGINE_CONSTANTS.gunCost) {
-    return fail({ kind: 'no_source_troops', coord: source });
-  }
-  return { ok: true };
+    const w = world.board.width;
+    const h = world.board.height;
+    // Target in-bounds.
+    if (
+        !Number.isInteger(target.x) ||
+        !Number.isInteger(target.y) ||
+        target.x < 0 ||
+        target.x >= w ||
+        target.y < 0 ||
+        target.y >= h
+    ) {
+        return fail({ kind: 'out_of_bounds', coord: target });
+    }
+    // Source troop check (above reserves floor).
+    const sourceIdx = source.y * w + source.x;
+    const sourceCount = world.state.troopCounts[sourceIdx] ?? 0;
+    const reservesPct = (world.state.reservesPct[sourceIdx] ?? 0) >>> 0;
+    const floor = computeReservesFloor(sourceCount, reservesPct);
+    const usableAboveFloor = (sourceCount - floor) >>> 0;
+    if (usableAboveFloor < ENGINE_CONSTANTS.gunCost) {
+        return fail({ kind: 'no_source_troops', coord: source });
+    }
+    return { ok: true };
 }
 
 /**
@@ -250,14 +221,14 @@ function validateGun(
  *   - player exists and isn't already eliminated/surrendered.
  */
 function validateSurrender(world: Readonly<World>, player: PlayerId): CommandResult {
-  const found = world.players.find((p) => p.id === player);
-  if (found === undefined) {
-    return fail({ kind: 'unknown_player', player });
-  }
-  if (found.status === 'eliminated' || found.status === 'surrendered') {
-    return fail({ kind: 'already_surrendered', player });
-  }
-  return { ok: true };
+    const found = world.players.find((p) => p.id === player);
+    if (found === undefined) {
+        return fail({ kind: 'unknown_player', player });
+    }
+    if (found.status === 'eliminated' || found.status === 'surrendered') {
+        return fail({ kind: 'already_surrendered', player });
+    }
+    return { ok: true };
 }
 
 /**
@@ -269,30 +240,26 @@ function validateSurrender(world: Readonly<World>, player: PlayerId): CommandRes
  * pipe orders — the city owner IS the cell owner until an opponent's
  * troops capture it (US2's capture phase).
  */
-function validateSourceOwnership(
-  world: Readonly<World>,
-  cell: Coord,
-  player: PlayerId,
-): CommandResult {
-  const w = world.board.width;
-  const h = world.board.height;
-  if (!Number.isInteger(cell.x) || !Number.isInteger(cell.y)) {
-    return fail({ kind: 'out_of_bounds', coord: cell });
-  }
-  if (cell.x < 0 || cell.x >= w || cell.y < 0 || cell.y >= h) {
-    return fail({ kind: 'out_of_bounds', coord: cell });
-  }
-  const idx = cell.y * w + cell.x;
-  const troopOwner = world.state.troopOwners[idx] ?? 0;
-  const cityOwner = world.state.cityOwners[idx] ?? 0;
-  if (troopOwner !== player && cityOwner !== player) {
-    return fail({ kind: 'not_owner', coord: cell });
-  }
-  return { ok: true };
+function validateSourceOwnership(world: Readonly<World>, cell: Coord, player: PlayerId): CommandResult {
+    const w = world.board.width;
+    const h = world.board.height;
+    if (!Number.isInteger(cell.x) || !Number.isInteger(cell.y)) {
+        return fail({ kind: 'out_of_bounds', coord: cell });
+    }
+    if (cell.x < 0 || cell.x >= w || cell.y < 0 || cell.y >= h) {
+        return fail({ kind: 'out_of_bounds', coord: cell });
+    }
+    const idx = cell.y * w + cell.x;
+    const troopOwner = world.state.troopOwners[idx] ?? 0;
+    const cityOwner = world.state.cityOwners[idx] ?? 0;
+    if (troopOwner !== player && cityOwner !== player) {
+        return fail({ kind: 'not_owner', coord: cell });
+    }
+    return { ok: true };
 }
 
 function fail(reason: ValidationError): CommandResult {
-  return { ok: false, reason };
+    return { ok: false, reason };
 }
 
 /**
@@ -301,17 +268,17 @@ function fail(reason: ValidationError): CommandResult {
  * fallback semantics).
  */
 function computeReservesFloor(count: number, reserves: number): number {
-  if (count <= 0) {
-    return 0;
-  }
-  if (reserves <= 0) {
-    return 0;
-  }
-  if (reserves >= 10) {
-    return count;
-  }
-  const flowable = Math.floor((count * (10 - reserves)) / 10);
-  return count - flowable;
+    if (count <= 0) {
+        return 0;
+    }
+    if (reserves <= 0) {
+        return 0;
+    }
+    if (reserves >= 10) {
+        return count;
+    }
+    const flowable = Math.floor((count * (10 - reserves)) / 10);
+    return count - flowable;
 }
 
 // Re-export CellView so consumers don't need to also import `types.ts`

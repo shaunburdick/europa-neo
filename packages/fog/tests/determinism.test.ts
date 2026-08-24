@@ -19,50 +19,50 @@ import { buildWorldWithTroops, withVisibilityRadius } from './fixtures/world';
 const TRIALS = 100;
 
 describe('fog determinism (FR-007, SC-001)', () => {
-  it('hashes are byte-identical across 100 runs on a 32×32 three-stack world', () => {
-    const world = withVisibilityRadius(
-      buildWorldWithTroops(
-        32,
-        [
-          [8, 8, 1, 5],
-          [16, 16, 1, 3],
-          [24, 24, 2, 7],
-        ],
-        2,
-        SEED_C0FFEE,
-      ),
-      4,
-    );
+    it('hashes are byte-identical across 100 runs on a 32×32 three-stack world', () => {
+        const world = withVisibilityRadius(
+            buildWorldWithTroops(
+                32,
+                [
+                    [8, 8, 1, 5],
+                    [16, 16, 1, 3],
+                    [24, 24, 2, 7],
+                ],
+                2,
+                SEED_C0FFEE,
+            ),
+            4,
+        );
 
-    const baseline = hashPlayerView(computePlayerView(world, 1));
-    expect(baseline).toMatch(/^[0-9a-f]{16}$/);
-    for (let i = 0; i < TRIALS; i++) {
-      const hash = hashPlayerView(computePlayerView(world, 1));
-      expect(hash, `run ${String(i)} diverged`).toBe(baseline);
-    }
-  });
+        const baseline = hashPlayerView(computePlayerView(world, 1));
+        expect(baseline).toMatch(/^[0-9a-f]{16}$/);
+        for (let i = 0; i < TRIALS; i++) {
+            const hash = hashPlayerView(computePlayerView(world, 1));
+            expect(hash, `run ${String(i)} diverged`).toBe(baseline);
+        }
+    });
 
-  it('cross-player determinism: stable per player, distinct between players', () => {
-    const world = withVisibilityRadius(
-      buildWorldWithTroops(
-        32,
-        [
-          [8, 8, 1, 5],
-          [24, 24, 2, 7],
-        ],
-        2,
-        SEED_C0FFEE,
-      ),
-      4,
-    );
+    it('cross-player determinism: stable per player, distinct between players', () => {
+        const world = withVisibilityRadius(
+            buildWorldWithTroops(
+                32,
+                [
+                    [8, 8, 1, 5],
+                    [24, 24, 2, 7],
+                ],
+                2,
+                SEED_C0FFEE,
+            ),
+            4,
+        );
 
-    const p1Baseline = hashPlayerView(computePlayerView(world, 1));
-    const p2Baseline = hashPlayerView(computePlayerView(world, 2));
-    expect(p1Baseline).not.toBe(p2Baseline);
+        const p1Baseline = hashPlayerView(computePlayerView(world, 1));
+        const p2Baseline = hashPlayerView(computePlayerView(world, 2));
+        expect(p1Baseline).not.toBe(p2Baseline);
 
-    for (let i = 0; i < TRIALS; i++) {
-      expect(hashPlayerView(computePlayerView(world, 1))).toBe(p1Baseline);
-      expect(hashPlayerView(computePlayerView(world, 2))).toBe(p2Baseline);
-    }
-  });
+        for (let i = 0; i < TRIALS; i++) {
+            expect(hashPlayerView(computePlayerView(world, 1))).toBe(p1Baseline);
+            expect(hashPlayerView(computePlayerView(world, 2))).toBe(p2Baseline);
+        }
+    });
 });

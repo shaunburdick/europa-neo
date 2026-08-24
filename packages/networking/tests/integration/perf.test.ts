@@ -59,92 +59,92 @@ const ORDER_EVERY_N_TICKS = 5;
 
 /** Percentile helper over a sample array (must be pre-sorted). */
 function percentile(sorted: readonly number[], p: number): number {
-  const index = Math.min(sorted.length - 1, Math.floor(sorted.length * p));
-  return sorted[index] ?? 0;
+    const index = Math.min(sorted.length - 1, Math.floor(sorted.length * p));
+    return sorted[index] ?? 0;
 }
 
 describe('SC-005 sustained-cadence soak (T049)', () => {
-  it(`${String(TARGET_TICKS)} ticks at ${String(TICK_MS)} ms cadence: zero drops, median < ${String(MEDIAN_BUDGET_MS)} ms, p99 < ${String(P99_GUARD_MS)} ms guard, drain intact`, {
-    timeout: 25_000,
-  }, async () => {
-    const server = createMatchServer(
-      // Default cadence; rate limit raised out of the picture (it is
-      // T048's subject) so the soak measures the tick pipeline only.
-      { ...testServerConfig(), tickRateMs: TICK_MS },
-      realDeps(),
-    );
-    await server.listen();
-    try {
-      const match = scriptedMatch({ boardSize: 16, tickRateMs: TICK_MS });
-      server.registerMatch({
-        matchId: match.matchId,
-        engineSession: match.engineSession,
-        matchConfig: match.matchConfig,
-      });
-      attachPlayersForMatch(server, match);
+    it(`${String(TARGET_TICKS)} ticks at ${String(TICK_MS)} ms cadence: zero drops, median < ${String(MEDIAN_BUDGET_MS)} ms, p99 < ${String(P99_GUARD_MS)} ms guard, drain intact`, {
+        timeout: 25_000,
+    }, async () => {
+        const server = createMatchServer(
+            // Default cadence; rate limit raised out of the picture (it is
+            // T048's subject) so the soak measures the tick pipeline only.
+            { ...testServerConfig(), tickRateMs: TICK_MS },
+            realDeps(),
+        );
+        await server.listen();
+        try {
+            const match = scriptedMatch({ boardSize: 16, tickRateMs: TICK_MS });
+            server.registerMatch({
+                matchId: match.matchId,
+                engineSession: match.engineSession,
+                matchConfig: match.matchConfig,
+            });
+            attachPlayersForMatch(server, match);
 
-      const client = connectMockClient(server);
-      client.hello();
-      await client.nextMessage('helloAck');
-      client.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
-      await client.nextMessage('joinAck');
+            const client = connectMockClient(server);
+            client.hello();
+            await client.nextMessage('helloAck');
+            client.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+            await client.nextMessage('joinAck');
 
-      const tickNumbers: number[] = [];
-      const durationsMs: number[] = [];
-      // Client seq ledger: hello=1, joinMatch=2, orders continue.
-      let nextOrderSeq = 2;
-      const submittedSeqs: number[] = [];
+            const tickNumbers: number[] = [];
+            const durationsMs: number[] = [];
+            // Client seq ledger: hello=1, joinMatch=2, orders continue.
+            let nextOrderSeq = 2;
+            const submittedSeqs: number[] = [];
 
-      for (let i = 0; i < TARGET_TICKS; i += 1) {
-        const frame = await client.nextMessage('tick', 5_000);
-        const tickNumber = (frame.payload as { tick: number }).tick;
-        tickNumbers.push(tickNumber);
-        durationsMs.push(server.stats().lastTickDurationMs);
+            for (let i = 0; i < TARGET_TICKS; i += 1) {
+                const frame = await client.nextMessage('tick', 5_000);
+                const tickNumber = (frame.payload as { tick: number }).tick;
+                tickNumbers.push(tickNumber);
+                durationsMs.push(server.stats().lastTickDurationMs);
 
-        // Scripted load: one order every 5th tick, stopped early
-        // enough that its ack lands inside the collection window.
-        if (tickNumber % ORDER_EVERY_N_TICKS === 0 && tickNumber <= 35) {
-          client.order(scriptedPipeOrder(1, submittedSeqs.length));
-          nextOrderSeq += 1;
-          submittedSeqs.push(nextOrderSeq);
+                // Scripted load: one order every 5th tick, stopped early
+                // enough that its ack lands inside the collection window.
+                if (tickNumber % ORDER_EVERY_N_TICKS === 0 && tickNumber <= 35) {
+                    client.order(scriptedPipeOrder(1, submittedSeqs.length));
+                    nextOrderSeq += 1;
+                    submittedSeqs.push(nextOrderSeq);
+                }
+            }
+
+            // (a) Zero dropped ticks: strictly contiguous numbering.
+            for (let i = 1; i < tickNumbers.length; i += 1) {
+                expect(tickNumbers[i]).toBe((tickNumbers[i - 1] ?? 0) + 1);
+            }
+
+            // (b)/(c) Timing gates + summary via assertion message (fog
+            // Q-F07 pattern: stats ride the message, not console). Peak is
+            // reported for telemetry but carries no gate — a single
+            // runner-stall outlier must not fail an otherwise healthy
+            // distribution (same rationale as the p99 guard).
+            const sorted = [...durationsMs].sort((a, b) => a - b);
+            const median = percentile(sorted, 0.5);
+            const p99 = percentile(sorted, 0.99);
+            const peak = server.stats().peakTickDurationMs;
+            const summary =
+                `${String(tickNumbers.length)} ticks | median=${median.toFixed(3)}ms ` +
+                `p99=${p99.toFixed(3)}ms peak=${peak.toFixed(3)}ms`;
+            expect(median, summary).toBeLessThan(MEDIAN_BUDGET_MS);
+            expect(p99, summary).toBeLessThan(P99_GUARD_MS);
+
+            // (e) Deterministic drain intact: every submitted order was
+            // applied exactly once with the echoed client seq (the ack
+            // payload's `seq` correlates to the submission envelope).
+            // All acks for submissions up to tick 35 are emitted by the
+            // tick-36 boundary, safely inside the collected window.
+            const ackFrames = client.socket.sentFrames.filter((f) => f.type === 'orderAck');
+            expect(ackFrames.map((f) => (f.payload as OrderAckPayload).seq)).toEqual(submittedSeqs);
+            for (const frame of ackFrames) {
+                expect((frame.payload as OrderAckPayload).result.ok).toBe(true);
+            }
+
+            // No protocol errors slipped into the soak window.
+            expect(client.socket.sentFrames.filter((f) => f.type === 'error')).toHaveLength(0);
+        } finally {
+            await server.close();
         }
-      }
-
-      // (a) Zero dropped ticks: strictly contiguous numbering.
-      for (let i = 1; i < tickNumbers.length; i += 1) {
-        expect(tickNumbers[i]).toBe((tickNumbers[i - 1] ?? 0) + 1);
-      }
-
-      // (b)/(c) Timing gates + summary via assertion message (fog
-      // Q-F07 pattern: stats ride the message, not console). Peak is
-      // reported for telemetry but carries no gate — a single
-      // runner-stall outlier must not fail an otherwise healthy
-      // distribution (same rationale as the p99 guard).
-      const sorted = [...durationsMs].sort((a, b) => a - b);
-      const median = percentile(sorted, 0.5);
-      const p99 = percentile(sorted, 0.99);
-      const peak = server.stats().peakTickDurationMs;
-      const summary =
-        `${String(tickNumbers.length)} ticks | median=${median.toFixed(3)}ms ` +
-        `p99=${p99.toFixed(3)}ms peak=${peak.toFixed(3)}ms`;
-      expect(median, summary).toBeLessThan(MEDIAN_BUDGET_MS);
-      expect(p99, summary).toBeLessThan(P99_GUARD_MS);
-
-      // (e) Deterministic drain intact: every submitted order was
-      // applied exactly once with the echoed client seq (the ack
-      // payload's `seq` correlates to the submission envelope).
-      // All acks for submissions up to tick 35 are emitted by the
-      // tick-36 boundary, safely inside the collected window.
-      const ackFrames = client.socket.sentFrames.filter((f) => f.type === 'orderAck');
-      expect(ackFrames.map((f) => (f.payload as OrderAckPayload).seq)).toEqual(submittedSeqs);
-      for (const frame of ackFrames) {
-        expect((frame.payload as OrderAckPayload).result.ok).toBe(true);
-      }
-
-      // No protocol errors slipped into the soak window.
-      expect(client.socket.sentFrames.filter((f) => f.type === 'error')).toHaveLength(0);
-    } finally {
-      await server.close();
-    }
-  });
+    });
 });

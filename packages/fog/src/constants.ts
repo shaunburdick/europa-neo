@@ -40,23 +40,23 @@ import { FOG_API_VERSION } from './contracts/fog-types';
  * that may not populate it.
  */
 export const FOG_CONSTANTS: FogConstants = {
-  // Sentinel for "cell not visible" in the FogMask (Uint8Array value).
-  // Mirrors `FOG_MASK_UNKNOWN` in `contracts/fog-types.ts`.
-  maskUnknown: 0,
-  // Sentinel for "cell visible" in the FogMask (Uint8Array value).
-  // Mirrors `FOG_MASK_VISIBLE` in `contracts/fog-types.ts`.
-  maskVisible: 1,
-  // Defensive fallback for `visibilityRadius` if
-  // `world.config.visibilityRadius` is missing. The engine
-  // guarantees this field; this is a safety net for test fixtures
-  // that may not populate it. Matches the engine's
-  // `ENGINE_CONSTANTS.visibilityRadiusDefault` (4 cells).
-  defaultRadiusFallback: ENGINE_CONSTANTS.visibilityRadiusDefault,
-  // Default sensor radius used by quickstart scenarios and tests
-  // where the engine's default is not the value under test.
-  // Matches the original Europa's radius (a few cells in each
-  // direction). Documented in spec SC-004 / quickstart Q-F01.
-  testRadius: 4,
+    // Sentinel for "cell not visible" in the FogMask (Uint8Array value).
+    // Mirrors `FOG_MASK_UNKNOWN` in `contracts/fog-types.ts`.
+    maskUnknown: 0,
+    // Sentinel for "cell visible" in the FogMask (Uint8Array value).
+    // Mirrors `FOG_MASK_VISIBLE` in `contracts/fog-types.ts`.
+    maskVisible: 1,
+    // Defensive fallback for `visibilityRadius` if
+    // `world.config.visibilityRadius` is missing. The engine
+    // guarantees this field; this is a safety net for test fixtures
+    // that may not populate it. Matches the engine's
+    // `ENGINE_CONSTANTS.visibilityRadiusDefault` (4 cells).
+    defaultRadiusFallback: ENGINE_CONSTANTS.visibilityRadiusDefault,
+    // Default sensor radius used by quickstart scenarios and tests
+    // where the engine's default is not the value under test.
+    // Matches the original Europa's radius (a few cells in each
+    // direction). Documented in spec SC-004 / quickstart Q-F01.
+    testRadius: 4,
 };
 
 // Re-export the fog API version from the single source-of-truth

@@ -55,20 +55,20 @@ import type { Rng } from './types';
  * @returns A closure that returns a uint32 on each call. Call 4× to seed sfc32.
  */
 function xmur3(str: string): () => number {
-  // Initial seed: 0x6c078965 XOR length. (Standard xmur3 initial value.)
-  let h = (0x6c078965 ^ str.length) >>> 0;
-  // Pre-mix: 32-bit avalanche per character.
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(h ^ (str.charCodeAt(i) ?? 0), 0xcc9e2d51) >>> 0;
-    h = ((h << 13) | (h >>> 19)) >>> 0;
-  }
-  // Output mix: 3 rounds of avalanche producing a single uint32 word.
-  return function next(): number {
-    h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
-    h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
-    h = (h ^ (h >>> 16)) >>> 0;
-    return h;
-  };
+    // Initial seed: 0x6c078965 XOR length. (Standard xmur3 initial value.)
+    let h = (0x6c078965 ^ str.length) >>> 0;
+    // Pre-mix: 32-bit avalanche per character.
+    for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ (str.charCodeAt(i) ?? 0), 0xcc9e2d51) >>> 0;
+        h = ((h << 13) | (h >>> 19)) >>> 0;
+    }
+    // Output mix: 3 rounds of avalanche producing a single uint32 word.
+    return function next(): number {
+        h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+        h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+        h = (h ^ (h >>> 16)) >>> 0;
+        return h;
+    };
 }
 
 // ----------------------------------------------------------------------------
@@ -87,50 +87,50 @@ function xmur3(str: string): () => number {
  * @returns Callable matching the `Rng` type from `./types`.
  */
 function createRngFromState(state: Uint32Array): Rng {
-  // Read the four state words on every call (instead of holding them
-  // in closure variables) so the live `state` Uint32Array is the
-  // single source of truth and reflects the most recent mix.
-  function rng(): number {
-    let a = state[0] ?? 0;
-    let b = state[1] ?? 0;
-    let c = state[2] ?? 0;
-    let d = state[3] ?? 0;
+    // Read the four state words on every call (instead of holding them
+    // in closure variables) so the live `state` Uint32Array is the
+    // single source of truth and reflects the most recent mix.
+    function rng(): number {
+        let a = state[0] ?? 0;
+        let b = state[1] ?? 0;
+        let c = state[2] ?? 0;
+        let d = state[3] ?? 0;
 
-    // sfc32 mix: integer-only ops, force to uint32 at every step.
-    a >>>= 0;
-    b >>>= 0;
-    c >>>= 0;
-    d >>>= 0;
-    let t = (a + b) | 0;
-    t = t >>> 0;
-    a = (b ^ (b >>> 9)) >>> 0;
-    b = (c + (c << 3)) | 0;
-    c = (c << 21) | (c >>> 11);
-    d = (d + 1) | 0;
-    t = (t + d) | 0;
-    c = (c + t) | 0;
+        // sfc32 mix: integer-only ops, force to uint32 at every step.
+        a >>>= 0;
+        b >>>= 0;
+        c >>>= 0;
+        d >>>= 0;
+        let t = (a + b) | 0;
+        t = t >>> 0;
+        a = (b ^ (b >>> 9)) >>> 0;
+        b = (c + (c << 3)) | 0;
+        c = (c << 21) | (c >>> 11);
+        d = (d + 1) | 0;
+        t = (t + d) | 0;
+        c = (c + t) | 0;
 
-    // Persist updated state so `.state` reflects the post-mix values.
-    state[0] = a;
-    state[1] = b;
-    state[2] = c;
-    state[3] = d;
+        // Persist updated state so `.state` reflects the post-mix values.
+        state[0] = a;
+        state[1] = b;
+        state[2] = c;
+        state[3] = d;
 
-    // Return uint32 in [0, 2^32), matching the contract's documented
-    // return type. (Standard sfc32 reference divides by 2^32 for a
-    // [0, 1) float; bits are equivalent, scale differs.)
-    return t;
-  }
+        // Return uint32 in [0, 2^32), matching the contract's documented
+        // return type. (Standard sfc32 reference divides by 2^32 for a
+        // [0, 1) float; bits are equivalent, scale differs.)
+        return t;
+    }
 
-  // Attach the live `state` property. `Object.defineProperty` keeps the
-  // callable as a plain function; the getter returns the same array
-  // reference that the closure mutates.
-  Object.defineProperty(rng, 'state', {
-    get: () => state,
-    enumerable: true,
-  });
+    // Attach the live `state` property. `Object.defineProperty` keeps the
+    // callable as a plain function; the getter returns the same array
+    // reference that the closure mutates.
+    Object.defineProperty(rng, 'state', {
+        get: () => state,
+        enumerable: true,
+    });
 
-  return rng as Rng;
+    return rng as Rng;
 }
 
 // ----------------------------------------------------------------------------
@@ -146,15 +146,15 @@ function createRngFromState(state: Uint32Array): Rng {
  * @returns Freshly allocated 4-word Uint32Array.
  */
 export function hashSeed(seed: number): Uint32Array {
-  // Convert to string so the xmur3 chain sees a deterministic,
-  // platform-independent byte sequence. `String(num)` is
-  // ECMA-262-specified and stable across V8/SpiderMonkey/JavaScriptCore.
-  const hash = xmur3(String(seed));
-  const result = new Uint32Array(4);
-  for (let i = 0; i < 4; i++) {
-    result[i] = hash();
-  }
-  return result;
+    // Convert to string so the xmur3 chain sees a deterministic,
+    // platform-independent byte sequence. `String(num)` is
+    // ECMA-262-specified and stable across V8/SpiderMonkey/JavaScriptCore.
+    const hash = xmur3(String(seed));
+    const result = new Uint32Array(4);
+    for (let i = 0; i < 4; i++) {
+        result[i] = hash();
+    }
+    return result;
 }
 
 /**
@@ -167,7 +167,7 @@ export function hashSeed(seed: number): Uint32Array {
  * @returns Callable `Rng` (see `./types`).
  */
 export function createRng(seed: number): Rng {
-  return createRngFromState(hashSeed(seed));
+    return createRngFromState(hashSeed(seed));
 }
 
 /**
@@ -179,10 +179,10 @@ export function createRng(seed: number): Rng {
  * @returns Callable `Rng`.
  */
 export function createRngFromString(str: string): Rng {
-  const hash = xmur3(str);
-  const state = new Uint32Array(4);
-  for (let i = 0; i < 4; i++) {
-    state[i] = hash();
-  }
-  return createRngFromState(state);
+    const hash = xmur3(str);
+    const state = new Uint32Array(4);
+    for (let i = 0; i < 4; i++) {
+        state[i] = hash();
+    }
+    return createRngFromState(state);
 }

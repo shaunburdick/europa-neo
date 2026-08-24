@@ -64,141 +64,141 @@ const PLAYERS = 4;
  *          defender).
  */
 export function resolveCombat(
-  state: Readonly<WorldState>,
-  board: Readonly<Board>,
-  constants: EngineConstants,
-  tickNumber: number,
-  inflowTally?: Readonly<Uint32Array>,
+    state: Readonly<WorldState>,
+    board: Readonly<Board>,
+    constants: EngineConstants,
+    tickNumber: number,
+    inflowTally?: Readonly<Uint32Array>,
 ): { state: WorldState; events: TickEvents } {
-  // `constants` is reserved for future tunables; silence unused-arg lint.
-  void constants;
+    // `constants` is reserved for future tunables; silence unused-arg lint.
+    void constants;
 
-  const n = board.width * board.height;
+    const n = board.width * board.height;
 
-  // Allocate fresh typed arrays (immutable update).
-  const newCounts = new Uint32Array(state.troopCounts);
-  const newOwners = new Uint8Array(state.troopOwners);
+    // Allocate fresh typed arrays (immutable update).
+    const newCounts = new Uint32Array(state.troopCounts);
+    const newOwners = new Uint8Array(state.troopOwners);
 
-  let events: TickEvents = emptyTickEvents();
+    let events: TickEvents = emptyTickEvents();
 
-  const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * PLAYERS;
+    const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * PLAYERS;
 
-  for (let idx = 0; idx < n; idx++) {
-    if (tallyAvailable) {
-      // Multi-owner conflict detection from the inflow tally.
-      const tally = inflowTally as Uint32Array; // narrowed above
-      const ownersAtCell: Array<{ owner: PlayerId; count: number }> = [];
-      for (let p = 1; p <= PLAYERS; p++) {
-        const c = tally[idx * PLAYERS + (p - 1)] ?? 0;
-        if (c > 0) {
-          ownersAtCell.push({ owner: p as PlayerId, count: c });
+    for (let idx = 0; idx < n; idx++) {
+        if (tallyAvailable) {
+            // Multi-owner conflict detection from the inflow tally.
+            const tally = inflowTally as Uint32Array; // narrowed above
+            const ownersAtCell: Array<{ owner: PlayerId; count: number }> = [];
+            for (let p = 1; p <= PLAYERS; p++) {
+                const c = tally[idx * PLAYERS + (p - 1)] ?? 0;
+                if (c > 0) {
+                    ownersAtCell.push({ owner: p as PlayerId, count: c });
+                }
+            }
+            if (ownersAtCell.length <= 1) {
+                continue; // single-owner cell: no combat
+            }
+
+            // Sort by PlayerId ascending (deterministic).
+            ownersAtCell.sort((a, b) => a.owner - b.owner);
+
+            // Dominant owner: highest count, ascending PlayerId as tiebreak.
+            let dominantIdx = 0;
+            for (let i = 1; i < ownersAtCell.length; i++) {
+                const a = ownersAtCell[i];
+                const b = ownersAtCell[dominantIdx];
+                if (a === undefined || b === undefined) {
+                    continue;
+                }
+                if (a.count > b.count || (a.count === b.count && a.owner < b.owner)) {
+                    dominantIdx = i;
+                }
+            }
+
+            const dom = ownersAtCell[dominantIdx];
+            if (dom === undefined) {
+                continue; // defensive
+            }
+
+            if (ownersAtCell.length === 2) {
+                const other = ownersAtCell[dominantIdx === 0 ? 1 : 0];
+                if (other === undefined) {
+                    continue;
+                }
+                // 1:1 attrition: damage = min(dom.count, other.count).
+                const damage = Math.min(dom.count, other.count);
+                // Attacker = lower PlayerId (deterministic symmetry).
+                const attacker: PlayerId = dom.owner < other.owner ? dom.owner : other.owner;
+                const defender: PlayerId = dom.owner < other.owner ? other.owner : dom.owner;
+                const winner: PlayerId | 'tie' = dom.count > other.count ? dom.owner : 'tie';
+
+                // The cell's new owner is the surviving side (or 0 if both 0).
+                // Attacker loses `damage`; defender loses `damage`. Remaining:
+                // attacker retains max(0, attackerCount - damage); same for defender.
+                const attackerCount = attacker === dom.owner ? dom.count : other.count;
+                const defenderCount = defender === dom.owner ? dom.count : other.count;
+                const attackerRemaining = (attackerCount - damage) >>> 0;
+                const defenderRemaining = (defenderCount - damage) >>> 0;
+                if (attackerRemaining > defenderRemaining) {
+                    newCounts[idx] = attackerRemaining;
+                    newOwners[idx] = attacker;
+                } else if (defenderRemaining > attackerRemaining) {
+                    newCounts[idx] = defenderRemaining;
+                    newOwners[idx] = defender;
+                } else {
+                    // Equal remnants (typically both 0) → tie.
+                    newCounts[idx] = 0;
+                    newOwners[idx] = 0;
+                }
+
+                const ev: CombatEvent = {
+                    tick: tickNumber,
+                    cell: idxToCoord(idx, board.width),
+                    attacker,
+                    defender,
+                    attackerLoss: damage,
+                    defenderLoss: damage,
+                    winner,
+                };
+                events = pushCombatEvent(events, ev);
+            } else {
+                // 3-way or more: dominant keeps their count, losers eliminated.
+                newCounts[idx] = dom.count;
+                newOwners[idx] = dom.owner;
+                for (const o of ownersAtCell) {
+                    if (o.owner === dom.owner) {
+                        continue;
+                    }
+                    const ev: CombatEvent = {
+                        tick: tickNumber,
+                        cell: idxToCoord(idx, board.width),
+                        attacker: dom.owner,
+                        defender: o.owner,
+                        attackerLoss: 0, // dominant retains all in 3-way+
+                        defenderLoss: o.count,
+                        winner: dom.owner,
+                    };
+                    events = pushCombatEvent(events, ev);
+                }
+            }
         }
-      }
-      if (ownersAtCell.length <= 1) {
-        continue; // single-owner cell: no combat
-      }
-
-      // Sort by PlayerId ascending (deterministic).
-      ownersAtCell.sort((a, b) => a.owner - b.owner);
-
-      // Dominant owner: highest count, ascending PlayerId as tiebreak.
-      let dominantIdx = 0;
-      for (let i = 1; i < ownersAtCell.length; i++) {
-        const a = ownersAtCell[i];
-        const b = ownersAtCell[dominantIdx];
-        if (a === undefined || b === undefined) {
-          continue;
-        }
-        if (a.count > b.count || (a.count === b.count && a.owner < b.owner)) {
-          dominantIdx = i;
-        }
-      }
-
-      const dom = ownersAtCell[dominantIdx];
-      if (dom === undefined) {
-        continue; // defensive
-      }
-
-      if (ownersAtCell.length === 2) {
-        const other = ownersAtCell[dominantIdx === 0 ? 1 : 0];
-        if (other === undefined) {
-          continue;
-        }
-        // 1:1 attrition: damage = min(dom.count, other.count).
-        const damage = Math.min(dom.count, other.count);
-        // Attacker = lower PlayerId (deterministic symmetry).
-        const attacker: PlayerId = dom.owner < other.owner ? dom.owner : other.owner;
-        const defender: PlayerId = dom.owner < other.owner ? other.owner : dom.owner;
-        const winner: PlayerId | 'tie' = dom.count > other.count ? dom.owner : 'tie';
-
-        // The cell's new owner is the surviving side (or 0 if both 0).
-        // Attacker loses `damage`; defender loses `damage`. Remaining:
-        // attacker retains max(0, attackerCount - damage); same for defender.
-        const attackerCount = attacker === dom.owner ? dom.count : other.count;
-        const defenderCount = defender === dom.owner ? dom.count : other.count;
-        const attackerRemaining = (attackerCount - damage) >>> 0;
-        const defenderRemaining = (defenderCount - damage) >>> 0;
-        if (attackerRemaining > defenderRemaining) {
-          newCounts[idx] = attackerRemaining;
-          newOwners[idx] = attacker;
-        } else if (defenderRemaining > attackerRemaining) {
-          newCounts[idx] = defenderRemaining;
-          newOwners[idx] = defender;
-        } else {
-          // Equal remnants (typically both 0) → tie.
-          newCounts[idx] = 0;
-          newOwners[idx] = 0;
-        }
-
-        const ev: CombatEvent = {
-          tick: tickNumber,
-          cell: idxToCoord(idx, board.width),
-          attacker,
-          defender,
-          attackerLoss: damage,
-          defenderLoss: damage,
-          winner,
-        };
-        events = pushCombatEvent(events, ev);
-      } else {
-        // 3-way or more: dominant keeps their count, losers eliminated.
-        newCounts[idx] = dom.count;
-        newOwners[idx] = dom.owner;
-        for (const o of ownersAtCell) {
-          if (o.owner === dom.owner) {
-            continue;
-          }
-          const ev: CombatEvent = {
-            tick: tickNumber,
-            cell: idxToCoord(idx, board.width),
-            attacker: dom.owner,
-            defender: o.owner,
-            attackerLoss: 0, // dominant retains all in 3-way+
-            defenderLoss: o.count,
-            winner: dom.owner,
-          };
-          events = pushCombatEvent(events, ev);
-        }
-      }
+        // When no tally is provided, we treat the cell as single-owner.
+        // The state may still contain a multi-owner encoding from upstream
+        // (not in the current model), so we don't try to detect it here.
     }
-    // When no tally is provided, we treat the cell as single-owner.
-    // The state may still contain a multi-owner encoding from upstream
-    // (not in the current model), so we don't try to detect it here.
-  }
 
-  return {
-    state: {
-      troopCounts: newCounts,
-      troopOwners: newOwners,
-      pipeMasks: new Uint8Array(state.pipeMasks),
-      reservesPct: new Uint8Array(state.reservesPct),
-      cityOwners: new Uint8Array(state.cityOwners),
-    },
-    events,
-  };
+    return {
+        state: {
+            troopCounts: newCounts,
+            troopOwners: newOwners,
+            pipeMasks: new Uint8Array(state.pipeMasks),
+            reservesPct: new Uint8Array(state.reservesPct),
+            cityOwners: new Uint8Array(state.cityOwners),
+        },
+        events,
+    };
 }
 
 /** Convert a flat cell index to a `{x, y}` Coord. */
 function idxToCoord(idx: number, width: number): { x: number; y: number } {
-  return { x: idx % width, y: Math.floor(idx / width) };
+    return { x: idx % width, y: Math.floor(idx / width) };
 }

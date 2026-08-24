@@ -35,15 +35,7 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents } from '../events';
-import type {
-  Board,
-  Coord,
-  Order,
-  PlayerId,
-  TickEvents,
-  ValidationError,
-  WorldState,
-} from '../types';
+import type { Board, Coord, Order, PlayerId, TickEvents, ValidationError, WorldState } from '../types';
 import { validateCommand } from '../validate';
 
 const PARATROOP_MAX_RANGE = 2;
@@ -66,150 +58,150 @@ const PARATROOP_MAX_RANGE = 2;
  *          empty (no paratroop-specific events in v1).
  */
 export function resolveParatroop(
-  state: Readonly<WorldState>,
-  board: Readonly<Board>,
-  constants: EngineConstants,
-  orders: readonly Order[],
+    state: Readonly<WorldState>,
+    board: Readonly<Board>,
+    constants: EngineConstants,
+    orders: readonly Order[],
 ): {
-  state: WorldState;
-  events: TickEvents;
-  errors: ReadonlyArray<{ order: Order; reason: ValidationError }>;
+    state: WorldState;
+    events: TickEvents;
+    errors: ReadonlyArray<{ order: Order; reason: ValidationError }>;
 } {
-  // Lazy allocation: only allocate fresh typed arrays when an order
-  // actually modifies state. This preserves the input `state`
-  // reference when no paratroop orders apply (and for white-box tests
-  // that check identity).
-  let newCounts: Uint32Array | null = null;
-  let newOwners: Uint8Array | null = null;
-  let newPipes: Uint8Array | null = null;
+    // Lazy allocation: only allocate fresh typed arrays when an order
+    // actually modifies state. This preserves the input `state`
+    // reference when no paratroop orders apply (and for white-box tests
+    // that check identity).
+    let newCounts: Uint32Array | null = null;
+    let newOwners: Uint8Array | null = null;
+    let newPipes: Uint8Array | null = null;
 
-  const errors: Array<{ order: Order; reason: ValidationError }> = [];
+    const errors: Array<{ order: Order; reason: ValidationError }> = [];
 
-  const w = board.width;
-  void board.height; // height = width for square boards; explicit read for parity
+    const w = board.width;
+    void board.height; // height = width for square boards; explicit read for parity
 
-  // N = paratroopCount per order (= constants.paratroopCost).
-  // Source spends 2N, target gains N.
-  const paratroopN = constants.paratroopCost >>> 0;
-  const sourceSpend = Math.imul(paratroopN, 2) >>> 0;
+    // N = paratroopCount per order (= constants.paratroopCost).
+    // Source spends 2N, target gains N.
+    const paratroopN = constants.paratroopCost >>> 0;
+    const sourceSpend = Math.imul(paratroopN, 2) >>> 0;
 
-  for (const order of orders) {
-    if (order.kind !== 'paratroop') {
-      continue; // ignore non-paratroop orders
+    for (const order of orders) {
+        if (order.kind !== 'paratroop') {
+            continue; // ignore non-paratroop orders
+        }
+
+        const targetCoord = order.target;
+        const sourceCoord = order.source;
+
+        // In-bounds checks.
+        if (
+            !Number.isInteger(sourceCoord.x) ||
+            !Number.isInteger(sourceCoord.y) ||
+            sourceCoord.x < 0 ||
+            sourceCoord.x >= w ||
+            sourceCoord.y < 0 ||
+            sourceCoord.y >= board.height
+        ) {
+            errors.push({ order, reason: { kind: 'out_of_bounds', coord: sourceCoord } });
+            continue;
+        }
+        if (
+            !Number.isInteger(targetCoord.x) ||
+            !Number.isInteger(targetCoord.y) ||
+            targetCoord.x < 0 ||
+            targetCoord.x >= w ||
+            targetCoord.y < 0 ||
+            targetCoord.y >= board.height
+        ) {
+            errors.push({ order, reason: { kind: 'out_of_bounds', coord: targetCoord } });
+            continue;
+        }
+
+        const sourceIdx = sourceCoord.y * w + sourceCoord.x;
+        const targetIdx = targetCoord.y * w + targetCoord.x;
+
+        // Water check.
+        const targetCell = board.cells[targetIdx];
+        if (targetCell === undefined || targetCell.terrain !== 'land') {
+            errors.push({ order, reason: { kind: 'water_target', coord: targetCoord } });
+            continue;
+        }
+
+        // Range check (Chebyshev distance ≤ 2).
+        const dx = Math.abs(targetCoord.x - sourceCoord.x);
+        const dy = Math.abs(targetCoord.y - sourceCoord.y);
+        const distance = dx > dy ? dx : dy;
+        if (distance > PARATROOP_MAX_RANGE) {
+            errors.push({
+                order,
+                reason: { kind: 'paratroop_range', source: sourceCoord, target: targetCoord, distance },
+            });
+            continue;
+        }
+
+        // Lazily allocate fresh arrays on the first valid order.
+        if (newCounts === null) {
+            newCounts = new Uint32Array(state.troopCounts);
+        }
+        if (newOwners === null) {
+            newOwners = new Uint8Array(state.troopOwners);
+        }
+        if (newPipes === null) {
+            newPipes = new Uint8Array(state.pipeMasks);
+        }
+
+        // Ownership check: source must be owned by player (troopOwners).
+        const sourceOwner = newOwners[sourceIdx] ?? 0;
+        if (sourceOwner !== order.player) {
+            errors.push({ order, reason: { kind: 'not_owner', coord: sourceCoord } });
+            continue;
+        }
+
+        // Reserves floor: source must have ≥ 2N troops ABOVE the floor.
+        const sourceCount = newCounts[sourceIdx] ?? 0;
+        const reservesPct = (state.reservesPct[sourceIdx] ?? 0) >>> 0;
+        const floor = computeReservesFloor(sourceCount, reservesPct);
+        const usableAboveFloor = (sourceCount - floor) >>> 0;
+        if (usableAboveFloor < sourceSpend) {
+            errors.push({ order, reason: { kind: 'no_source_troops', coord: sourceCoord } });
+            continue;
+        }
+
+        // Apply: subtract 2N from source, add N to target, clear target pipes.
+        const newSourceCount = sourceCount - sourceSpend;
+        newCounts[sourceIdx] = newSourceCount;
+        if (newSourceCount === 0) {
+            newOwners[sourceIdx] = 0;
+        }
+
+        const targetCount = newCounts[targetIdx] ?? 0;
+        const newTargetCount = targetCount + paratroopN;
+        const cap = constants.cellCapacity >>> 0;
+        const finalTargetCount = newTargetCount > cap ? cap : newTargetCount;
+        newCounts[targetIdx] = finalTargetCount;
+        newOwners[targetIdx] = order.player as PlayerId;
+
+        // Clear destination pipes (FR-013).
+        newPipes[targetIdx] = 0;
     }
 
-    const targetCoord = order.target;
-    const sourceCoord = order.source;
-
-    // In-bounds checks.
-    if (
-      !Number.isInteger(sourceCoord.x) ||
-      !Number.isInteger(sourceCoord.y) ||
-      sourceCoord.x < 0 ||
-      sourceCoord.x >= w ||
-      sourceCoord.y < 0 ||
-      sourceCoord.y >= board.height
-    ) {
-      errors.push({ order, reason: { kind: 'out_of_bounds', coord: sourceCoord } });
-      continue;
-    }
-    if (
-      !Number.isInteger(targetCoord.x) ||
-      !Number.isInteger(targetCoord.y) ||
-      targetCoord.x < 0 ||
-      targetCoord.x >= w ||
-      targetCoord.y < 0 ||
-      targetCoord.y >= board.height
-    ) {
-      errors.push({ order, reason: { kind: 'out_of_bounds', coord: targetCoord } });
-      continue;
-    }
-
-    const sourceIdx = sourceCoord.y * w + sourceCoord.x;
-    const targetIdx = targetCoord.y * w + targetCoord.x;
-
-    // Water check.
-    const targetCell = board.cells[targetIdx];
-    if (targetCell === undefined || targetCell.terrain !== 'land') {
-      errors.push({ order, reason: { kind: 'water_target', coord: targetCoord } });
-      continue;
-    }
-
-    // Range check (Chebyshev distance ≤ 2).
-    const dx = Math.abs(targetCoord.x - sourceCoord.x);
-    const dy = Math.abs(targetCoord.y - sourceCoord.y);
-    const distance = dx > dy ? dx : dy;
-    if (distance > PARATROOP_MAX_RANGE) {
-      errors.push({
-        order,
-        reason: { kind: 'paratroop_range', source: sourceCoord, target: targetCoord, distance },
-      });
-      continue;
-    }
-
-    // Lazily allocate fresh arrays on the first valid order.
+    // If we made no changes, return the input state unchanged so
+    // reference identity is preserved for callers that check no-op.
     if (newCounts === null) {
-      newCounts = new Uint32Array(state.troopCounts);
-    }
-    if (newOwners === null) {
-      newOwners = new Uint8Array(state.troopOwners);
-    }
-    if (newPipes === null) {
-      newPipes = new Uint8Array(state.pipeMasks);
+        return { state, events: emptyTickEvents(), errors };
     }
 
-    // Ownership check: source must be owned by player (troopOwners).
-    const sourceOwner = newOwners[sourceIdx] ?? 0;
-    if (sourceOwner !== order.player) {
-      errors.push({ order, reason: { kind: 'not_owner', coord: sourceCoord } });
-      continue;
-    }
-
-    // Reserves floor: source must have ≥ 2N troops ABOVE the floor.
-    const sourceCount = newCounts[sourceIdx] ?? 0;
-    const reservesPct = (state.reservesPct[sourceIdx] ?? 0) >>> 0;
-    const floor = computeReservesFloor(sourceCount, reservesPct);
-    const usableAboveFloor = (sourceCount - floor) >>> 0;
-    if (usableAboveFloor < sourceSpend) {
-      errors.push({ order, reason: { kind: 'no_source_troops', coord: sourceCoord } });
-      continue;
-    }
-
-    // Apply: subtract 2N from source, add N to target, clear target pipes.
-    const newSourceCount = sourceCount - sourceSpend;
-    newCounts[sourceIdx] = newSourceCount;
-    if (newSourceCount === 0) {
-      newOwners[sourceIdx] = 0;
-    }
-
-    const targetCount = newCounts[targetIdx] ?? 0;
-    const newTargetCount = targetCount + paratroopN;
-    const cap = constants.cellCapacity >>> 0;
-    const finalTargetCount = newTargetCount > cap ? cap : newTargetCount;
-    newCounts[targetIdx] = finalTargetCount;
-    newOwners[targetIdx] = order.player as PlayerId;
-
-    // Clear destination pipes (FR-013).
-    newPipes[targetIdx] = 0;
-  }
-
-  // If we made no changes, return the input state unchanged so
-  // reference identity is preserved for callers that check no-op.
-  if (newCounts === null) {
-    return { state, events: emptyTickEvents(), errors };
-  }
-
-  return {
-    state: {
-      troopCounts: newCounts,
-      troopOwners: newOwners as Uint8Array,
-      pipeMasks: newPipes as Uint8Array,
-      reservesPct: new Uint8Array(state.reservesPct),
-      cityOwners: new Uint8Array(state.cityOwners),
-    },
-    events: emptyTickEvents(),
-    errors,
-  };
+    return {
+        state: {
+            troopCounts: newCounts,
+            troopOwners: newOwners as Uint8Array,
+            pipeMasks: newPipes as Uint8Array,
+            reservesPct: new Uint8Array(state.reservesPct),
+            cityOwners: new Uint8Array(state.cityOwners),
+        },
+        events: emptyTickEvents(),
+        errors,
+    };
 }
 
 /**
@@ -220,17 +212,17 @@ export function resolveParatroop(
  * Edge cases: count ≤ 0 → 0; reserves ≤ 0 → 0; reserves ≥ 10 → count.
  */
 function computeReservesFloor(count: number, reserves: number): number {
-  if (count <= 0) {
-    return 0;
-  }
-  if (reserves <= 0) {
-    return 0;
-  }
-  if (reserves >= 10) {
-    return count;
-  }
-  const flowable = Math.floor((count * (10 - reserves)) / 10);
-  return count - flowable;
+    if (count <= 0) {
+        return 0;
+    }
+    if (reserves <= 0) {
+        return 0;
+    }
+    if (reserves >= 10) {
+        return count;
+    }
+    const flowable = Math.floor((count * (10 - reserves)) / 10);
+    return count - flowable;
 }
 
 // Reference the Coord type so the import isn't flagged unused.

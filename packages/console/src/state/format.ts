@@ -19,31 +19,31 @@ import type { Coord, PlayerAction, ValidationError } from './types';
  *               no cell).
  */
 export function formatActionConfirmation(action: PlayerAction, cell: Coord): string {
-  const at = `(${cell.x}, ${cell.y})`;
-  switch (action.kind) {
-    case 'setPipe':
-      return `Pipe ${action.direction} at ${at}`;
-    case 'clearPipe':
-      return `Clear pipe ${action.direction} at ${at}`;
-    case 'setPipesExclusive':
-      return `Exclusive pipe ${action.direction} at ${at}`;
-    case 'clearAllPipes':
-      return `Cleared all pipes at ${at}`;
-    case 'setReserves':
-      return `Reserved ${action.percent * 10}% at ${at}`;
-    case 'paratroop':
-      return `Paratroop (${action.source.x}, ${action.source.y}) → (${action.target.x}, ${action.target.y})`;
-    case 'gun':
-      return `Gun fire (${action.source.x}, ${action.source.y}) → (${action.target.x}, ${action.target.y})`;
-    case 'surrender':
-      return 'Surrender requested';
-    case 'selectCell':
-    case 'hoverCell':
-    case 'setCamera':
-    case 'setQol':
-    case 'setExclusiveMode':
-      return '';
-  }
+    const at = `(${cell.x}, ${cell.y})`;
+    switch (action.kind) {
+        case 'setPipe':
+            return `Pipe ${action.direction} at ${at}`;
+        case 'clearPipe':
+            return `Clear pipe ${action.direction} at ${at}`;
+        case 'setPipesExclusive':
+            return `Exclusive pipe ${action.direction} at ${at}`;
+        case 'clearAllPipes':
+            return `Cleared all pipes at ${at}`;
+        case 'setReserves':
+            return `Reserved ${action.percent * 10}% at ${at}`;
+        case 'paratroop':
+            return `Paratroop (${action.source.x}, ${action.source.y}) → (${action.target.x}, ${action.target.y})`;
+        case 'gun':
+            return `Gun fire (${action.source.x}, ${action.source.y}) → (${action.target.x}, ${action.target.y})`;
+        case 'surrender':
+            return 'Surrender requested';
+        case 'selectCell':
+        case 'hoverCell':
+        case 'setCamera':
+        case 'setQol':
+        case 'setExclusiveMode':
+            return '';
+    }
 }
 
 /**
@@ -53,26 +53,26 @@ export function formatActionConfirmation(action: PlayerAction, cell: Coord): str
  * Pure.
  */
 export function formatRejection(reason: ValidationError): string {
-  switch (reason.kind) {
-    case 'out_of_bounds':
-      return 'Target cell is off the board';
-    case 'water_target':
-      return "Can't target a water cell";
-    case 'not_owner':
-      return "You don't own that cell";
-    case 'paratroop_range':
-      return 'Target is out of range (max 2 cells)';
-    case 'no_source_troops':
-      return 'Source cell has no troops';
-    case 'already_surrendered':
-      return 'You have already surrendered';
-    case 'invalid_percent':
-      return 'Reserves must be between 0% and 90%';
-    case 'unknown_player':
-      return 'Unknown player';
-    case 'match_terminal':
-      return 'The match is already over';
-    default:
-      return reason;
-  }
+    switch (reason.kind) {
+        case 'out_of_bounds':
+            return 'Target cell is off the board';
+        case 'water_target':
+            return "Can't target a water cell";
+        case 'not_owner':
+            return "You don't own that cell";
+        case 'paratroop_range':
+            return 'Target is out of range (max 2 cells)';
+        case 'no_source_troops':
+            return 'Source cell has no troops';
+        case 'already_surrendered':
+            return 'You have already surrendered';
+        case 'invalid_percent':
+            return 'Reserves must be between 0% and 90%';
+        case 'unknown_player':
+            return 'Unknown player';
+        case 'match_terminal':
+            return 'The match is already over';
+        default:
+            return reason;
+    }
 }

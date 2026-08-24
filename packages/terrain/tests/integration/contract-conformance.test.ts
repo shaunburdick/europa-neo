@@ -22,26 +22,26 @@ import { generateBoard } from '../../src/generate';
 import { engineSfc32, goldenSeeds } from '../fixtures/seeds';
 
 describe('contract conformance (Q-T08, engine ↔ terrain gate)', () => {
-  it('1000 generated Boards all pass assertBoardMatchesConfig', () => {
-    const seeds = goldenSeeds(1000);
-    for (const seed of seeds) {
-      const req = {
-        boardSize: 32,
-        playerCount: 2 as const,
-        seed,
-        rng: engineSfc32(seed),
-        settings: DEFAULT_GENERATION_SETTINGS,
-      };
-      const result = generateBoard(req);
-      const config: MatchConfig = {
-        boardSize: 32,
-        playerCount: 2,
-        tickIntervalMs: 250,
-        seed,
-        visibilityRadius: 2,
-      };
-      // Throws on failure; the expect never fires if it succeeds.
-      expect(() => assertBoardMatchesConfig(result.board, config)).not.toThrow();
-    }
-  });
+    it('1000 generated Boards all pass assertBoardMatchesConfig', () => {
+        const seeds = goldenSeeds(1000);
+        for (const seed of seeds) {
+            const req = {
+                boardSize: 32,
+                playerCount: 2 as const,
+                seed,
+                rng: engineSfc32(seed),
+                settings: DEFAULT_GENERATION_SETTINGS,
+            };
+            const result = generateBoard(req);
+            const config: MatchConfig = {
+                boardSize: 32,
+                playerCount: 2,
+                tickIntervalMs: 250,
+                seed,
+                visibilityRadius: 2,
+            };
+            // Throws on failure; the expect never fires if it succeeds.
+            expect(() => assertBoardMatchesConfig(result.board, config)).not.toThrow();
+        }
+    });
 });

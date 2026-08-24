@@ -40,69 +40,64 @@ const DIGITS: readonly ReservesPct[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 /** Props for {@link ReservesPanel}. */
 export interface ReservesPanelProps {
-  /** The focused cell the panel controls. */
-  readonly cell: Coord;
-  /** Current reserves digit on that cell (0..9). */
-  readonly currentPercent: ReservesPct;
-  /** Whether orders may be issued right now (drives disabled state). */
-  readonly disabled: boolean;
-  /** Dispatch sink — issues `{ kind: 'setReserves', cell, percent }`. */
-  readonly onSetReserves: (percent: ReservesPct) => void;
+    /** The focused cell the panel controls. */
+    readonly cell: Coord;
+    /** Current reserves digit on that cell (0..9). */
+    readonly currentPercent: ReservesPct;
+    /** Whether orders may be issued right now (drives disabled state). */
+    readonly disabled: boolean;
+    /** Dispatch sink — issues `{ kind: 'setReserves', cell, percent }`. */
+    readonly onSetReserves: (percent: ReservesPct) => void;
 }
 
 /**
  * The reserves panel: slider + 0–9 digit buttons for the focused
  * cell. Render nothing meaningful without a cell — callers guard.
  */
-export function ReservesPanel({
-  cell,
-  currentPercent,
-  disabled,
-  onSetReserves,
-}: ReservesPanelProps): JSX.Element {
-  const currentPct = currentPercent * 10;
+export function ReservesPanel({ cell, currentPercent, disabled, onSetReserves }: ReservesPanelProps): JSX.Element {
+    const currentPct = currentPercent * 10;
 
-  return (
-    <section id="reserves-panel" aria-label="Reserves control" className="europa-reserves">
-      <label className="europa-reserves__label" htmlFor="reserves-slider">
-        Reserves at ({cell.x}, {cell.y}): {currentPct}%
-      </label>
-      <input
-        id="reserves-slider"
-        className="europa-reserves__slider europa-focus-ring"
-        type="range"
-        min={SLIDER_MIN_PCT}
-        max={SLIDER_MAX_PCT}
-        step={10}
-        value={currentPct}
-        disabled={disabled}
-        aria-label={`Reserves for cell (${cell.x}, ${cell.y})`}
-        aria-valuemin={SLIDER_MIN_PCT}
-        aria-valuemax={SLIDER_MAX_PCT}
-        aria-valuenow={currentPct}
-        aria-valuetext={`${currentPct}%`}
-        onChange={(event) => {
-          const pct = Number.parseInt(event.currentTarget.value, 10);
-          onSetReserves((pct / 10) as ReservesPct);
-        }}
-      />
-      <div className="europa-reserves__digits" role="group" aria-label="Reserve presets">
-        {DIGITS.map((digit) => (
-          <button
-            key={digit}
-            type="button"
-            className="europa-reserves__digit europa-focus-ring"
-            aria-label={reservesDigitLabel(digit)}
-            aria-pressed={digit === currentPercent}
-            disabled={disabled}
-            onClick={() => {
-              onSetReserves(digit);
-            }}
-          >
-            {digit}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
+    return (
+        <section id="reserves-panel" aria-label="Reserves control" className="europa-reserves">
+            <label className="europa-reserves__label" htmlFor="reserves-slider">
+                Reserves at ({cell.x}, {cell.y}): {currentPct}%
+            </label>
+            <input
+                id="reserves-slider"
+                className="europa-reserves__slider europa-focus-ring"
+                type="range"
+                min={SLIDER_MIN_PCT}
+                max={SLIDER_MAX_PCT}
+                step={10}
+                value={currentPct}
+                disabled={disabled}
+                aria-label={`Reserves for cell (${cell.x}, ${cell.y})`}
+                aria-valuemin={SLIDER_MIN_PCT}
+                aria-valuemax={SLIDER_MAX_PCT}
+                aria-valuenow={currentPct}
+                aria-valuetext={`${currentPct}%`}
+                onChange={(event) => {
+                    const pct = Number.parseInt(event.currentTarget.value, 10);
+                    onSetReserves((pct / 10) as ReservesPct);
+                }}
+            />
+            <div className="europa-reserves__digits" role="group" aria-label="Reserve presets">
+                {DIGITS.map((digit) => (
+                    <button
+                        key={digit}
+                        type="button"
+                        className="europa-reserves__digit europa-focus-ring"
+                        aria-label={reservesDigitLabel(digit)}
+                        aria-pressed={digit === currentPercent}
+                        disabled={disabled}
+                        onClick={() => {
+                            onSetReserves(digit);
+                        }}
+                    >
+                        {digit}
+                    </button>
+                ))}
+            </div>
+        </section>
+    );
 }

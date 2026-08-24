@@ -34,8 +34,8 @@ import { describe, expect, it } from 'vitest';
 
 /** Resolve a path relative to the monorepo root, not the test file. */
 function repoPath(relativePath: string): string {
-  // packages/engine/tests/contracts-drift.test.ts → 3 levels up = repo root
-  return resolve(__dirname, '..', '..', '..', relativePath);
+    // packages/engine/tests/contracts-drift.test.ts → 3 levels up = repo root
+    return resolve(__dirname, '..', '..', '..', relativePath);
 }
 
 /**
@@ -50,67 +50,67 @@ function repoPath(relativePath: string): string {
  * Semantic understanding of TypeScript isn't required for that.
  */
 function normalize(source: string): string {
-  return source.replace(/\s+/g, ' ').trim();
+    return source.replace(/\s+/g, ' ').trim();
 }
 
 const CONTRACT_PAIRS: ReadonlyArray<{
-  readonly local: string;
-  readonly spec: string;
+    readonly local: string;
+    readonly spec: string;
 }> = [
-  {
-    local: 'packages/engine/src/contracts/engine-types.ts',
-    spec: '.specify/features/001-core-game-engine/contracts/engine-types.ts',
-  },
-  {
-    local: 'packages/engine/src/contracts/engine-api.ts',
-    spec: '.specify/features/001-core-game-engine/contracts/engine-api.ts',
-  },
+    {
+        local: 'packages/engine/src/contracts/engine-types.ts',
+        spec: '.specify/features/001-core-game-engine/contracts/engine-types.ts',
+    },
+    {
+        local: 'packages/engine/src/contracts/engine-api.ts',
+        spec: '.specify/features/001-core-game-engine/contracts/engine-api.ts',
+    },
 ];
 
 describe('contract drift detection (src/contracts vs spec contracts)', () => {
-  for (const { local, spec } of CONTRACT_PAIRS) {
-    it(`local '${local}' matches spec '${spec}' semantically`, async () => {
-      const [localContent, specContent] = await Promise.all([
-        readFile(repoPath(local), 'utf-8'),
-        readFile(repoPath(spec), 'utf-8'),
-      ]);
-      const localNorm = normalize(localContent);
-      const specNorm = normalize(specContent);
+    for (const { local, spec } of CONTRACT_PAIRS) {
+        it(`local '${local}' matches spec '${spec}' semantically`, async () => {
+            const [localContent, specContent] = await Promise.all([
+                readFile(repoPath(local), 'utf-8'),
+                readFile(repoPath(spec), 'utf-8'),
+            ]);
+            const localNorm = normalize(localContent);
+            const specNorm = normalize(specContent);
 
-      if (localNorm !== specNorm) {
-        // Build a tiny diff preview to help debug. We don't pull in
-        // a diff library — just show the first ~200 characters where
-        // they diverge so a maintainer can `diff` the files manually.
-        const minLen = Math.min(localNorm.length, specNorm.length);
-        let firstDiff = -1;
-        for (let i = 0; i < minLen; i++) {
-          if (localNorm.charCodeAt(i) !== specNorm.charCodeAt(i)) {
-            firstDiff = i;
-            break;
-          }
-        }
-        if (firstDiff === -1) {
-          firstDiff = minLen;
-        }
+            if (localNorm !== specNorm) {
+                // Build a tiny diff preview to help debug. We don't pull in
+                // a diff library — just show the first ~200 characters where
+                // they diverge so a maintainer can `diff` the files manually.
+                const minLen = Math.min(localNorm.length, specNorm.length);
+                let firstDiff = -1;
+                for (let i = 0; i < minLen; i++) {
+                    if (localNorm.charCodeAt(i) !== specNorm.charCodeAt(i)) {
+                        firstDiff = i;
+                        break;
+                    }
+                }
+                if (firstDiff === -1) {
+                    firstDiff = minLen;
+                }
 
-        const ctxStart = Math.max(0, firstDiff - 80);
-        const ctxEnd = Math.min(localNorm.length, firstDiff + 80);
-        const specCtxEnd = Math.min(specNorm.length, firstDiff + 80);
+                const ctxStart = Math.max(0, firstDiff - 80);
+                const ctxEnd = Math.min(localNorm.length, firstDiff + 80);
+                const specCtxEnd = Math.min(specNorm.length, firstDiff + 80);
 
-        const msg = [
-          `Contract drift detected between '${local}' and '${spec}'.`,
-          `First divergence at offset ${String(firstDiff)}.`,
-          `Local [${String(ctxStart)}..${String(ctxEnd)}]:`,
-          `  ${localNorm.slice(ctxStart, ctxEnd)}`,
-          `Spec  [${String(ctxStart)}..${String(specCtxEnd)}]:`,
-          `  ${specNorm.slice(ctxStart, specCtxEnd)}`,
-          '',
-          'To fix: copy the authoritative file to the other side.',
-          'The spec contract is the source of truth — copy the spec to',
-          'the local copy if the spec changed.',
-        ].join('\n');
-        expect.fail(msg);
-      }
-    });
-  }
+                const msg = [
+                    `Contract drift detected between '${local}' and '${spec}'.`,
+                    `First divergence at offset ${String(firstDiff)}.`,
+                    `Local [${String(ctxStart)}..${String(ctxEnd)}]:`,
+                    `  ${localNorm.slice(ctxStart, ctxEnd)}`,
+                    `Spec  [${String(ctxStart)}..${String(specCtxEnd)}]:`,
+                    `  ${specNorm.slice(ctxStart, specCtxEnd)}`,
+                    '',
+                    'To fix: copy the authoritative file to the other side.',
+                    'The spec contract is the source of truth — copy the spec to',
+                    'the local copy if the spec changed.',
+                ].join('\n');
+                expect.fail(msg);
+            }
+        });
+    }
 });

@@ -25,68 +25,68 @@ import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 
 describe('Q-M04: disconnect forfeit', () => {
-  it('marks player forfeit when grace window expires', async () => {
-    const server = new FakeServer();
-    const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+    it('marks player forfeit when grace window expires', async () => {
+        const server = new FakeServer();
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
 
-    // Set up a running match: Alice vs Bob
-    const aliceCreate = matchmaker.createMatch({
-      visibility: 'public',
-      displayName: 'Alice',
+        // Set up a running match: Alice vs Bob
+        const aliceCreate = matchmaker.createMatch({
+            visibility: 'public',
+            displayName: 'Alice',
+        });
+        expect(aliceCreate.ok).toBe(true);
+        if (!aliceCreate.ok) {
+            return;
+        }
+        const { matchId, seatAssignment: aliceSeat } = aliceCreate.data;
+
+        const bobJoin = matchmaker.joinMatch({
+            matchId,
+            displayName: 'Bob',
+        });
+        expect(bobJoin.ok).toBe(true);
+        if (!bobJoin.ok) {
+            return;
+        }
+        const bobSeat = bobJoin.data.seatAssignment;
+
+        // Engine is now running. FakeServer has recorded the engine session.
+        const engineSession = server.lastEngineSession;
+        expect(engineSession).toBeDefined();
+
+        // Step 1: Alice's WebSocket drops, grace window expires.
+        // Networking fires onSeatExpired (we simulate it).
+        server.fireOnSeatExpired({
+            matchId,
+            sessionToken: aliceSeat.sessionToken,
+            playerId: aliceSeat.playerId,
+        });
+
+        // Step 2: Matchmaker should have called engineSession.submit
+        // with an OrderSurrender for Alice — observable as Alice's
+        // immediate elimination in the engine world (FR-016).
+        const world = engineSession?.world();
+        expect(world?.players[0]?.status).toBe('eliminated');
+
+        // Step 3: Matchmaker called server.detachPlayer for Alice.
+        expect(server.detachPlayerCalls).toHaveLength(1);
+        const [detach] = server.detachPlayerCalls;
+        expect(detach?.sessionToken).toBe(aliceSeat.sessionToken);
+        expect(detach?.playerId).toBe(aliceSeat.playerId);
+        expect(detach?.matchId).toBe(matchId);
+
+        // SC-004: 10/10 scripted drops
+        const { sessionToken, playerId } = bobSeat;
+        for (let i = 0; i < 10; i++) {
+            server.fireOnSeatExpired({
+                matchId,
+                sessionToken,
+                playerId,
+            });
+            // After Bob also disconnects, the match is torn down
+            expect(server.unregisterMatchCalls.includes(matchId)).toBe(true);
+        }
+
+        await matchmaker.close();
     });
-    expect(aliceCreate.ok).toBe(true);
-    if (!aliceCreate.ok) {
-      return;
-    }
-    const { matchId, seatAssignment: aliceSeat } = aliceCreate.data;
-
-    const bobJoin = matchmaker.joinMatch({
-      matchId,
-      displayName: 'Bob',
-    });
-    expect(bobJoin.ok).toBe(true);
-    if (!bobJoin.ok) {
-      return;
-    }
-    const bobSeat = bobJoin.data.seatAssignment;
-
-    // Engine is now running. FakeServer has recorded the engine session.
-    const engineSession = server.lastEngineSession;
-    expect(engineSession).toBeDefined();
-
-    // Step 1: Alice's WebSocket drops, grace window expires.
-    // Networking fires onSeatExpired (we simulate it).
-    server.fireOnSeatExpired({
-      matchId,
-      sessionToken: aliceSeat.sessionToken,
-      playerId: aliceSeat.playerId,
-    });
-
-    // Step 2: Matchmaker should have called engineSession.submit
-    // with an OrderSurrender for Alice — observable as Alice's
-    // immediate elimination in the engine world (FR-016).
-    const world = engineSession?.world();
-    expect(world?.players[0]?.status).toBe('eliminated');
-
-    // Step 3: Matchmaker called server.detachPlayer for Alice.
-    expect(server.detachPlayerCalls).toHaveLength(1);
-    const [detach] = server.detachPlayerCalls;
-    expect(detach?.sessionToken).toBe(aliceSeat.sessionToken);
-    expect(detach?.playerId).toBe(aliceSeat.playerId);
-    expect(detach?.matchId).toBe(matchId);
-
-    // SC-004: 10/10 scripted drops
-    const { sessionToken, playerId } = bobSeat;
-    for (let i = 0; i < 10; i++) {
-      server.fireOnSeatExpired({
-        matchId,
-        sessionToken,
-        playerId,
-      });
-      // After Bob also disconnects, the match is torn down
-      expect(server.unregisterMatchCalls.includes(matchId)).toBe(true);
-    }
-
-    await matchmaker.close();
-  });
 });

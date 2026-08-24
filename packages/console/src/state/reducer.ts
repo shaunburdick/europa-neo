@@ -34,15 +34,15 @@ import { CONSOLE_CONSTANTS, DEFAULT_CAMERA, DEFAULT_QOL_SETTINGS } from '../conf
 import { actionToOrder } from './action-to-order';
 import { formatActionConfirmation, formatRejection } from './format';
 import type {
-  ActionId,
-  ConsoleAction,
-  ConsoleState,
-  FeedbackMessage,
-  Order,
-  PlayerAction,
-  ReduceOptions,
-  ReducerEffect,
-  RejectedOrder,
+    ActionId,
+    ConsoleAction,
+    ConsoleState,
+    FeedbackMessage,
+    Order,
+    PlayerAction,
+    ReduceOptions,
+    ReducerEffect,
+    RejectedOrder,
 } from './types';
 
 // ----------------------------------------------------------------------------
@@ -76,27 +76,27 @@ const PENDING_ORDERS_CAP = 64;
  * correlation. Module-internal; not part of the public surface.
  */
 function stampOrder(order: Order): { readonly actionId: ActionId; readonly order: Order } {
-  lastActionId += 1;
-  const actionId = lastActionId as ActionId;
-  pendingOrders.set(actionId, order);
-  // Bound the table: drop the oldest entries beyond the cap.
-  while (pendingOrders.size > PENDING_ORDERS_CAP) {
-    const oldest = pendingOrders.keys().next();
-    if (oldest.done === true) {
-      break;
+    lastActionId += 1;
+    const actionId = lastActionId as ActionId;
+    pendingOrders.set(actionId, order);
+    // Bound the table: drop the oldest entries beyond the cap.
+    while (pendingOrders.size > PENDING_ORDERS_CAP) {
+        const oldest = pendingOrders.keys().next();
+        if (oldest.done === true) {
+            break;
+        }
+        pendingOrders.delete(oldest.value);
     }
-    pendingOrders.delete(oldest.value);
-  }
-  return { actionId, order };
+    return { actionId, order };
 }
 
 /**
  * Take a pending order out of the correlation table (ack received).
  */
 function takePendingOrder(actionId: ActionId): Order | undefined {
-  const order = pendingOrders.get(actionId);
-  pendingOrders.delete(actionId);
-  return order;
+    const order = pendingOrders.get(actionId);
+    pendingOrders.delete(actionId);
+    return order;
 }
 
 /**
@@ -114,8 +114,8 @@ function takePendingOrder(actionId: ActionId): Order | undefined {
  * @returns A fresh, never-before-issued ActionId.
  */
 export function allocateActionId(): ActionId {
-  lastActionId += 1;
-  return lastActionId as ActionId;
+    lastActionId += 1;
+    return lastActionId as ActionId;
 }
 
 // ----------------------------------------------------------------------------
@@ -127,25 +127,25 @@ export function allocateActionId(): ActionId {
  * before the first `reduce` call; exposed so tests can compare.
  */
 export const INITIAL_CONSOLE_STATE: ConsoleState = {
-  status: 'idle',
-  latestView: null,
-  initialWorld: null,
-  camera: DEFAULT_CAMERA,
-  hover: null,
-  selection: null,
-  lastCursorScreen: null,
-  feedback: [],
-  rejectedOrders: [],
-  qol: DEFAULT_QOL_SETTINGS,
-  session: {
-    matchId: null,
-    sessionToken: null,
-    playerId: null,
-    displayName: '',
-    opponents: [],
-  },
-  inputEnabled: false,
-  exclusiveMode: false,
+    status: 'idle',
+    latestView: null,
+    initialWorld: null,
+    camera: DEFAULT_CAMERA,
+    hover: null,
+    selection: null,
+    lastCursorScreen: null,
+    feedback: [],
+    rejectedOrders: [],
+    qol: DEFAULT_QOL_SETTINGS,
+    session: {
+        matchId: null,
+        sessionToken: null,
+        playerId: null,
+        displayName: '',
+        opponents: [],
+    },
+    inputEnabled: false,
+    exclusiveMode: false,
 };
 
 // ----------------------------------------------------------------------------
@@ -162,18 +162,18 @@ export const INITIAL_CONSOLE_STATE: ConsoleState = {
  * @param nowMs Monotonic clock reading.
  */
 export function appendFeedback(
-  current: readonly FeedbackMessage[],
-  message: Omit<FeedbackMessage, 'id' | 'createdAtMs'>,
-  nowMs: number,
+    current: readonly FeedbackMessage[],
+    message: Omit<FeedbackMessage, 'id' | 'createdAtMs'>,
+    nowMs: number,
 ): readonly FeedbackMessage[] {
-  const live = current.filter((m) => nowMs - m.createdAtMs <= m.ttlMs);
-  const appended: FeedbackMessage = {
-    ...message,
-    id: `fb-${nowMs}-${live.length}-${message.text.length}`,
-    createdAtMs: nowMs,
-  };
-  const next = [...live, appended];
-  return next.slice(-CONSOLE_CONSTANTS.maxFeedbackMessages);
+    const live = current.filter((m) => nowMs - m.createdAtMs <= m.ttlMs);
+    const appended: FeedbackMessage = {
+        ...message,
+        id: `fb-${nowMs}-${live.length}-${message.text.length}`,
+        createdAtMs: nowMs,
+    };
+    const next = [...live, appended];
+    return next.slice(-CONSOLE_CONSTANTS.maxFeedbackMessages);
 }
 
 /**
@@ -186,12 +186,12 @@ export function appendFeedback(
  * @param nowMs Monotonic clock reading.
  */
 export function appendRejection(
-  current: readonly RejectedOrder[],
-  rejection: Omit<RejectedOrder, 'atMs'>,
-  nowMs: number,
+    current: readonly RejectedOrder[],
+    rejection: Omit<RejectedOrder, 'atMs'>,
+    nowMs: number,
 ): readonly RejectedOrder[] {
-  const next = [...current, { ...rejection, atMs: nowMs }];
-  return next.slice(-CONSOLE_CONSTANTS.maxRejectedOrders);
+    const next = [...current, { ...rejection, atMs: nowMs }];
+    return next.slice(-CONSOLE_CONSTANTS.maxRejectedOrders);
 }
 
 // ----------------------------------------------------------------------------
@@ -205,31 +205,31 @@ export function appendRejection(
  * the reducer's switch (exhaustiveness guard).
  */
 type NetEventKind =
-  | 'connecting'
-  | 'helloAck'
-  | 'joined'
-  | 'reconnected'
-  | 'tick'
-  | 'orderAck'
-  | 'terminal'
-  | 'pong'
-  | 'error'
-  | 'socketClosed'
-  | 'reconnecting';
+    | 'connecting'
+    | 'helloAck'
+    | 'joined'
+    | 'reconnected'
+    | 'tick'
+    | 'orderAck'
+    | 'terminal'
+    | 'pong'
+    | 'error'
+    | 'socketClosed'
+    | 'reconnecting';
 
 /** Runtime discriminant set mirroring {@link NetEventKind}. */
 const NET_EVENT_KINDS: ReadonlySet<NetEventKind> = new Set([
-  'connecting',
-  'helloAck',
-  'joined',
-  'reconnected',
-  'tick',
-  'orderAck',
-  'terminal',
-  'pong',
-  'error',
-  'socketClosed',
-  'reconnecting',
+    'connecting',
+    'helloAck',
+    'joined',
+    'reconnected',
+    'tick',
+    'orderAck',
+    'terminal',
+    'pong',
+    'error',
+    'socketClosed',
+    'reconnecting',
 ]);
 
 /** The NetEvent side of the ConsoleAction union. */
@@ -241,7 +241,7 @@ type NetEvent = Extract<ConsoleAction, { readonly kind: NetEventKind }>;
  * values that no PlayerAction uses, so the discriminant set is exact.
  */
 function isNetEvent(action: ConsoleAction): action is NetEvent {
-  return NET_EVENT_KINDS.has(action.kind as NetEventKind);
+    return NET_EVENT_KINDS.has(action.kind as NetEventKind);
 }
 
 // ----------------------------------------------------------------------------
@@ -257,30 +257,30 @@ function isNetEvent(action: ConsoleAction): action is NetEvent {
  * @returns The next state plus side effects for the runtime.
  */
 export function reduce(
-  state: ConsoleState,
-  action: ConsoleAction,
-  options: ReduceOptions,
+    state: ConsoleState,
+    action: ConsoleAction,
+    options: ReduceOptions,
 ): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
-  const { nowMs } = options;
+    const { nowMs } = options;
 
-  // Lazy TTL cleanup first: expired feedback disappears on the next
-  // dispatch after its ttl elapses (data-model.md §7 lifecycle).
-  const baseState: ConsoleState = {
-    ...state,
-    feedback: state.feedback.filter((m) => nowMs - m.createdAtMs <= m.ttlMs),
-  };
+    // Lazy TTL cleanup first: expired feedback disappears on the next
+    // dispatch after its ttl elapses (data-model.md §7 lifecycle).
+    const baseState: ConsoleState = {
+        ...state,
+        feedback: state.feedback.filter((m) => nowMs - m.createdAtMs <= m.ttlMs),
+    };
 
-  const partial = isNetEvent(action)
-    ? reduceNetEvent(baseState, action, nowMs)
-    : reducePlayerAction(baseState, action, nowMs);
+    const partial = isNetEvent(action)
+        ? reduceNetEvent(baseState, action, nowMs)
+        : reducePlayerAction(baseState, action, nowMs);
 
-  // Invariant (data-model.md §17): inputEnabled ⟺ status === 'live'.
-  const nextState: ConsoleState = {
-    ...partial.state,
-    inputEnabled: partial.state.status === 'live',
-  };
+    // Invariant (data-model.md §17): inputEnabled ⟺ status === 'live'.
+    const nextState: ConsoleState = {
+        ...partial.state,
+        inputEnabled: partial.state.status === 'live',
+    };
 
-  return { state: nextState, effects: partial.effects };
+    return { state: nextState, effects: partial.effects };
 }
 
 // ----------------------------------------------------------------------------
@@ -294,71 +294,71 @@ export function reduce(
  * are always legal.
  */
 function reducePlayerAction(
-  state: ConsoleState,
-  action: PlayerAction,
-  nowMs: number,
+    state: ConsoleState,
+    action: PlayerAction,
+    nowMs: number,
 ): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
-  switch (action.kind) {
-    // --- Order-producing gestures (FR-002..FR-006) ---
-    case 'setPipe':
-    case 'clearPipe':
-    case 'setPipesExclusive':
-    case 'clearAllPipes':
-    case 'setReserves':
-    case 'paratroop':
-    case 'gun':
-    case 'surrender': {
-      if (state.status !== 'live') {
-        return { state, effects: [] };
-      }
-      const { playerId } = state.session;
-      if (playerId === null) {
-        return { state, effects: [] };
-      }
-      const order = actionToOrder(action, playerId, state.session);
-      if (order === null) {
-        return { state, effects: [] };
-      }
-      const stamped = stampOrder(order);
-      const text = formatActionConfirmation(action, orderCellOf(action));
-      return {
-        state: {
-          ...state,
-          feedback: appendFeedback(
-            state.feedback,
-            { text, kind: 'info', ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs },
-            nowMs,
-          ),
-        },
-        effects: [
-          { kind: 'sendOrder', actionId: stamped.actionId, order: stamped.order },
-          { kind: 'announce', text, politeness: 'polite' },
-        ],
-      };
-    }
+    switch (action.kind) {
+        // --- Order-producing gestures (FR-002..FR-006) ---
+        case 'setPipe':
+        case 'clearPipe':
+        case 'setPipesExclusive':
+        case 'clearAllPipes':
+        case 'setReserves':
+        case 'paratroop':
+        case 'gun':
+        case 'surrender': {
+            if (state.status !== 'live') {
+                return { state, effects: [] };
+            }
+            const { playerId } = state.session;
+            if (playerId === null) {
+                return { state, effects: [] };
+            }
+            const order = actionToOrder(action, playerId, state.session);
+            if (order === null) {
+                return { state, effects: [] };
+            }
+            const stamped = stampOrder(order);
+            const text = formatActionConfirmation(action, orderCellOf(action));
+            return {
+                state: {
+                    ...state,
+                    feedback: appendFeedback(
+                        state.feedback,
+                        { text, kind: 'info', ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs },
+                        nowMs,
+                    ),
+                },
+                effects: [
+                    { kind: 'sendOrder', actionId: stamped.actionId, order: stamped.order },
+                    { kind: 'announce', text, politeness: 'polite' },
+                ],
+            };
+        }
 
-    // --- Local-only gestures ---
-    case 'selectCell':
-      return { state: { ...state, selection: action.cell }, effects: [] };
-    case 'hoverCell':
-      return { state: { ...state, hover: action.cell }, effects: [] };
-    case 'setCamera':
-      return { state: { ...state, camera: action.camera }, effects: [] };
-    case 'setQol': {
-      const qol = { ...state.qol, ...action.patch };
-      return {
-        state: { ...state, qol },
-        effects: [{ kind: 'persistQol', settings: qol }],
-      };
-    }
-    case 'setExclusiveMode':
-      return { state: { ...state, exclusiveMode: action.enabled }, effects: [] };
+        // --- Local-only gestures ---
+        case 'selectCell':
+            return { state: { ...state, selection: action.cell }, effects: [] };
+        case 'hoverCell':
+            return { state: { ...state, hover: action.cell }, effects: [] };
+        case 'setCamera':
+            return { state: { ...state, camera: action.camera }, effects: [] };
+        case 'setQol': {
+            const qol = { ...state.qol, ...action.patch };
+            return {
+                state: { ...state, qol },
+                effects: [{ kind: 'persistQol', settings: qol }],
+            };
+        }
+        case 'setExclusiveMode':
+            return { state: { ...state, exclusiveMode: action.enabled }, effects: [] };
 
-    // Exhaustiveness guard: an unhandled PlayerAction variant fails
-    // to compile here (never is assignable to the return type).
-    default:
-      return action;
-  }
+        // Exhaustiveness guard: an unhandled PlayerAction variant fails
+        // to compile here (never is assignable to the return type).
+        default:
+            return action;
+    }
 }
 
 /**
@@ -367,20 +367,20 @@ function reducePlayerAction(
  * Pure.
  */
 function orderCellOf(action: PlayerAction): import('@europa/engine').Coord {
-  switch (action.kind) {
-    case 'paratroop':
-    case 'gun':
-      return action.source;
-    case 'surrender':
-    case 'selectCell':
-    case 'hoverCell':
-    case 'setCamera':
-    case 'setQol':
-    case 'setExclusiveMode':
-      return { x: 0, y: 0 };
-    default:
-      return action.cell;
-  }
+    switch (action.kind) {
+        case 'paratroop':
+        case 'gun':
+            return action.source;
+        case 'surrender':
+        case 'selectCell':
+        case 'hoverCell':
+        case 'setCamera':
+        case 'setQol':
+        case 'setExclusiveMode':
+            return { x: 0, y: 0 };
+        default:
+            return action.cell;
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -392,145 +392,143 @@ function orderCellOf(action: PlayerAction): import('@europa/engine').Coord {
  * mapping in data-model.md §12.
  */
 function reduceNetEvent(
-  state: ConsoleState,
-  event: NetEvent,
-  nowMs: number,
+    state: ConsoleState,
+    event: NetEvent,
+    nowMs: number,
 ): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
-  switch (event.kind) {
-    case 'connecting':
-      return {
-        state: {
-          ...state,
-          status: 'connecting',
-          session: { ...state.session, matchId: event.matchId },
-        },
-        effects: [],
-      };
-
-    case 'helloAck':
-      // Handshake done; still awaiting join → stays 'connecting'.
-      return { state, effects: [] };
-
-    case 'joined':
-      return {
-        state: {
-          ...state,
-          status: 'live',
-          latestView: event.view,
-          session: {
-            ...state.session,
-            sessionToken: event.sessionToken,
-            playerId: event.playerId,
-            opponents: event.players
-              .filter((p) => p.id !== event.playerId)
-              .map((p) => p.displayName),
-          },
-        },
-        effects: [],
-      };
-
-    case 'reconnected':
-      return {
-        state: { ...state, status: 'live', latestView: event.view },
-        effects: [{ kind: 'announce', text: 'Reconnected to match', politeness: 'polite' }],
-      };
-
-    case 'tick': {
-      // Monotonic non-decreasing guard: drop out-of-order ticks.
-      if (state.latestView !== null && event.view.tick < state.latestView.tick) {
-        return { state, effects: [] };
-      }
-      return { state: { ...state, latestView: event.view }, effects: [] };
-    }
-
-    case 'orderAck': {
-      if (event.result.ok) {
-        takePendingOrder(event.actionId);
-        return {
-          state: {
-            ...state,
-            feedback: appendFeedback(
-              state.feedback,
-              {
-                text: 'Order acknowledged',
-                kind: 'success',
-                ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs,
-              },
-              nowMs,
-            ),
-          },
-          effects: [],
-        };
-      }
-      const rejectedOrder = takePendingOrder(event.actionId);
-      const { reason } = event.result;
-      const text = formatRejection(reason);
-      const withRejection: ConsoleState =
-        rejectedOrder === undefined
-          ? state
-          : {
-              ...state,
-              rejectedOrders: appendRejection(
-                state.rejectedOrders,
-                {
-                  actionId: event.actionId,
-                  order: rejectedOrder,
-                  reason,
-                  atTick: state.latestView?.tick ?? 0,
+    switch (event.kind) {
+        case 'connecting':
+            return {
+                state: {
+                    ...state,
+                    status: 'connecting',
+                    session: { ...state.session, matchId: event.matchId },
                 },
-                nowMs,
-              ),
+                effects: [],
             };
-      return {
-        state: {
-          ...withRejection,
-          feedback: appendFeedback(
-            withRejection.feedback,
-            { text, kind: 'warning', ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs },
-            nowMs,
-          ),
-        },
-        effects: [{ kind: 'announce', text, politeness: 'assertive' }],
-      };
+
+        case 'helloAck':
+            // Handshake done; still awaiting join → stays 'connecting'.
+            return { state, effects: [] };
+
+        case 'joined':
+            return {
+                state: {
+                    ...state,
+                    status: 'live',
+                    latestView: event.view,
+                    session: {
+                        ...state.session,
+                        sessionToken: event.sessionToken,
+                        playerId: event.playerId,
+                        opponents: event.players.filter((p) => p.id !== event.playerId).map((p) => p.displayName),
+                    },
+                },
+                effects: [],
+            };
+
+        case 'reconnected':
+            return {
+                state: { ...state, status: 'live', latestView: event.view },
+                effects: [{ kind: 'announce', text: 'Reconnected to match', politeness: 'polite' }],
+            };
+
+        case 'tick': {
+            // Monotonic non-decreasing guard: drop out-of-order ticks.
+            if (state.latestView !== null && event.view.tick < state.latestView.tick) {
+                return { state, effects: [] };
+            }
+            return { state: { ...state, latestView: event.view }, effects: [] };
+        }
+
+        case 'orderAck': {
+            if (event.result.ok) {
+                takePendingOrder(event.actionId);
+                return {
+                    state: {
+                        ...state,
+                        feedback: appendFeedback(
+                            state.feedback,
+                            {
+                                text: 'Order acknowledged',
+                                kind: 'success',
+                                ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs,
+                            },
+                            nowMs,
+                        ),
+                    },
+                    effects: [],
+                };
+            }
+            const rejectedOrder = takePendingOrder(event.actionId);
+            const { reason } = event.result;
+            const text = formatRejection(reason);
+            const withRejection: ConsoleState =
+                rejectedOrder === undefined
+                    ? state
+                    : {
+                          ...state,
+                          rejectedOrders: appendRejection(
+                              state.rejectedOrders,
+                              {
+                                  actionId: event.actionId,
+                                  order: rejectedOrder,
+                                  reason,
+                                  atTick: state.latestView?.tick ?? 0,
+                              },
+                              nowMs,
+                          ),
+                      };
+            return {
+                state: {
+                    ...withRejection,
+                    feedback: appendFeedback(
+                        withRejection.feedback,
+                        { text, kind: 'warning', ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs },
+                        nowMs,
+                    ),
+                },
+                effects: [{ kind: 'announce', text, politeness: 'assertive' }],
+            };
+        }
+
+        case 'terminal':
+            return {
+                state: { ...state, status: 'game_over' },
+                effects: [{ kind: 'announce', text: 'Match over', politeness: 'assertive' }],
+            };
+
+        case 'pong':
+            // Heartbeat echo carries no UI state change.
+            return { state, effects: [] };
+
+        case 'error': {
+            const text = `Connection error (${event.code}): ${event.message}`;
+            return {
+                state: {
+                    ...state,
+                    feedback: appendFeedback(
+                        state.feedback,
+                        { text, kind: 'error', ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs },
+                        nowMs,
+                    ),
+                },
+                effects: [{ kind: 'announce', text, politeness: 'assertive' }],
+            };
+        }
+
+        case 'socketClosed':
+            // Auto-reconnect is on by default (US5 AC-3); surface the gap.
+            return { state: { ...state, status: 'reconnecting' }, effects: [] };
+
+        case 'reconnecting':
+            return {
+                state: { ...state, status: 'reconnecting' },
+                effects: [{ kind: 'scheduleReconnect', delayMs: event.nextRetryMs }],
+            };
+
+        // Exhaustiveness guard over the NetEvent union.
+        default:
+            return event;
     }
-
-    case 'terminal':
-      return {
-        state: { ...state, status: 'game_over' },
-        effects: [{ kind: 'announce', text: 'Match over', politeness: 'assertive' }],
-      };
-
-    case 'pong':
-      // Heartbeat echo carries no UI state change.
-      return { state, effects: [] };
-
-    case 'error': {
-      const text = `Connection error (${event.code}): ${event.message}`;
-      return {
-        state: {
-          ...state,
-          feedback: appendFeedback(
-            state.feedback,
-            { text, kind: 'error', ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs },
-            nowMs,
-          ),
-        },
-        effects: [{ kind: 'announce', text, politeness: 'assertive' }],
-      };
-    }
-
-    case 'socketClosed':
-      // Auto-reconnect is on by default (US5 AC-3); surface the gap.
-      return { state: { ...state, status: 'reconnecting' }, effects: [] };
-
-    case 'reconnecting':
-      return {
-        state: { ...state, status: 'reconnecting' },
-        effects: [{ kind: 'scheduleReconnect', delayMs: event.nextRetryMs }],
-      };
-
-    // Exhaustiveness guard over the NetEvent union.
-    default:
-      return event;
-  }
 }

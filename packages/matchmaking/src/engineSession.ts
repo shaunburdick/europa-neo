@@ -45,13 +45,13 @@ import type { EngineSession, MatchSettings } from '../contracts/match-types';
  *   `registerMatch`.
  */
 export function buildMatchConfig(settings: MatchSettings, seed: number): MatchConfig {
-  return Object.freeze({
-    boardSize: settings.boardSize,
-    playerCount: settings.playerCount,
-    tickIntervalMs: settings.tickIntervalMs,
-    seed,
-    visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
-  });
+    return Object.freeze({
+        boardSize: settings.boardSize,
+        playerCount: settings.playerCount,
+        tickIntervalMs: settings.tickIntervalMs,
+        seed,
+        visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
+    });
 }
 
 /**
@@ -70,32 +70,32 @@ export function buildMatchConfig(settings: MatchSettings, seed: number): MatchCo
  * @returns The session handle handed to `server.registerMatch`.
  */
 export function buildEngineSession(config: MatchConfig, board: Board): EngineSession {
-  let current: World = createWorld(config, board);
+    let current: World = createWorld(config, board);
 
-  return {
-    world(): World {
-      return current;
-    },
-    submit(order: Order) {
-      const applied = applyCommand(current, order);
-      current = applied.world;
-      return applied.result;
-    },
-    advance() {
-      const result = tick(current);
-      current = result.world;
-      // exactOptionalPropertyTypes: omit `terminal` rather than pass
-      // an explicit undefined.
-      if (result.terminal === undefined) {
-        return { world: current, events: result.events };
-      }
-      return { world: current, events: result.events, terminal: result.terminal };
-    },
-    status() {
-      return isTerminal(current);
-    },
-    close(): void {
-      // In-memory session holds no external resources to release.
-    },
-  };
+    return {
+        world(): World {
+            return current;
+        },
+        submit(order: Order) {
+            const applied = applyCommand(current, order);
+            current = applied.world;
+            return applied.result;
+        },
+        advance() {
+            const result = tick(current);
+            current = result.world;
+            // exactOptionalPropertyTypes: omit `terminal` rather than pass
+            // an explicit undefined.
+            if (result.terminal === undefined) {
+                return { world: current, events: result.events };
+            }
+            return { world: current, events: result.events, terminal: result.terminal };
+        },
+        status() {
+            return isTerminal(current);
+        },
+        close(): void {
+            // In-memory session holds no external resources to release.
+        },
+    };
 }

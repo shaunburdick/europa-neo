@@ -32,57 +32,53 @@ import type { ConsoleSession, Order, PlayerAction, PlayerId } from './types';
  * @param session  Current console session (source of truth for seating).
  * @returns The engine `Order`, or `null` when no order should be sent.
  */
-export function actionToOrder(
-  action: PlayerAction,
-  playerId: PlayerId,
-  session: ConsoleSession,
-): Order | null {
-  // Spectators and pre-join sessions cannot produce orders (spec US3:
-  // input suppressed outside 'live'; FR-006 server is final authority).
-  if (session.playerId === null || session.playerId !== playerId) {
-    return null;
-  }
+export function actionToOrder(action: PlayerAction, playerId: PlayerId, session: ConsoleSession): Order | null {
+    // Spectators and pre-join sessions cannot produce orders (spec US3:
+    // input suppressed outside 'live'; FR-006 server is final authority).
+    if (session.playerId === null || session.playerId !== playerId) {
+        return null;
+    }
 
-  switch (action.kind) {
-    // --- Order-producing gestures (data-model.md §11 mapping table) ---
-    case 'setPipe':
-      return { kind: 'setPipe', player: playerId, cell: action.cell, direction: action.direction };
-    case 'clearPipe':
-      return {
-        kind: 'clearPipe',
-        player: playerId,
-        cell: action.cell,
-        direction: action.direction,
-      };
-    case 'setPipesExclusive':
-      return {
-        kind: 'setPipesExclusive',
-        player: playerId,
-        cell: action.cell,
-        direction: action.direction,
-      };
-    case 'clearAllPipes':
-      return { kind: 'clearAllPipes', player: playerId, cell: action.cell };
-    case 'setReserves':
-      return { kind: 'setReserves', player: playerId, cell: action.cell, percent: action.percent };
-    case 'paratroop':
-      return { kind: 'paratroop', player: playerId, source: action.source, target: action.target };
-    case 'gun':
-      return { kind: 'gun', player: playerId, source: action.source, target: action.target };
-    case 'surrender':
-      return { kind: 'surrender', player: playerId };
+    switch (action.kind) {
+        // --- Order-producing gestures (data-model.md §11 mapping table) ---
+        case 'setPipe':
+            return { kind: 'setPipe', player: playerId, cell: action.cell, direction: action.direction };
+        case 'clearPipe':
+            return {
+                kind: 'clearPipe',
+                player: playerId,
+                cell: action.cell,
+                direction: action.direction,
+            };
+        case 'setPipesExclusive':
+            return {
+                kind: 'setPipesExclusive',
+                player: playerId,
+                cell: action.cell,
+                direction: action.direction,
+            };
+        case 'clearAllPipes':
+            return { kind: 'clearAllPipes', player: playerId, cell: action.cell };
+        case 'setReserves':
+            return { kind: 'setReserves', player: playerId, cell: action.cell, percent: action.percent };
+        case 'paratroop':
+            return { kind: 'paratroop', player: playerId, source: action.source, target: action.target };
+        case 'gun':
+            return { kind: 'gun', player: playerId, source: action.source, target: action.target };
+        case 'surrender':
+            return { kind: 'surrender', player: playerId };
 
-    // --- Local-only gestures (no wire equivalent) ---
-    case 'selectCell':
-    case 'hoverCell':
-    case 'setCamera':
-    case 'setQol':
-    case 'setExclusiveMode':
-      return null;
+        // --- Local-only gestures (no wire equivalent) ---
+        case 'selectCell':
+        case 'hoverCell':
+        case 'setCamera':
+        case 'setQol':
+        case 'setExclusiveMode':
+            return null;
 
-    // Exhaustiveness guard: adding a PlayerAction variant without a
-    // case above is a compile error, not a silent drop.
-    default:
-      return action;
-  }
+        // Exhaustiveness guard: adding a PlayerAction variant without a
+        // case above is a compile error, not a silent drop.
+        default:
+            return action;
+    }
 }

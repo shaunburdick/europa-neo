@@ -46,72 +46,72 @@ import type { Board, CommandResult, MatchConfig, Order, TickEvents, World } from
  *          `TickEvents` per tick, in tick order).
  */
 export function runScenario(
-  cfg: MatchConfig,
-  board: Board,
-  orders: ReadonlyArray<{ atTick: number; order: Order }>,
-  tickCount?: number,
+    cfg: MatchConfig,
+    board: Board,
+    orders: ReadonlyArray<{ atTick: number; order: Order }>,
+    tickCount?: number,
 ): { finalWorld: World; events: TickEvents[] } {
-  // Determine tick count: enough to include the latest staged order.
-  const maxAtTick = orders.reduce((m, o) => Math.max(m, o.atTick), -1);
-  const totalTicks = tickCount ?? Math.max(1, maxAtTick + 1);
+    // Determine tick count: enough to include the latest staged order.
+    const maxAtTick = orders.reduce((m, o) => Math.max(m, o.atTick), -1);
+    const totalTicks = tickCount ?? Math.max(1, maxAtTick + 1);
 
-  // Group orders by their target tick. Skip out-of-range atTick values
-  // so callers don't need to know tickCount in advance.
-  const byTick = new Map<number, Order[]>();
-  for (const { atTick, order } of orders) {
-    if (atTick < 0 || atTick >= totalTicks) {
-      continue;
-    }
-    const bucket = byTick.get(atTick);
-    if (bucket) {
-      bucket.push(order);
-    } else {
-      byTick.set(atTick, [order]);
-    }
-  }
-
-  let world: World = createWorld(cfg, board);
-  const allEvents: TickEvents[] = [];
-
-  for (let t = 0; t < totalTicks; t++) {
-    // Stage every order for this tick. `applyCommand` validates; failed
-    // orders don't advance the world but the rejection doesn't stop the
-    // tick loop. We accumulate any rejections for diagnostic visibility
-    // but don't surface them through `runScenario` (the engine's
-    // `TickEvents.errors` channel is the proper home — it gets
-    // populated by `tick` itself for in-tick rejections).
-    const rejected: { order: Order; result: CommandResult }[] = [];
-    const pending = byTick.get(t) ?? [];
-    for (const order of pending) {
-      const result = applyCommand(world, order);
-      if (result.result.ok) {
-        world = result.world;
-      } else {
-        rejected.push({ order, result: result.result });
-      }
+    // Group orders by their target tick. Skip out-of-range atTick values
+    // so callers don't need to know tickCount in advance.
+    const byTick = new Map<number, Order[]>();
+    for (const { atTick, order } of orders) {
+        if (atTick < 0 || atTick >= totalTicks) {
+            continue;
+        }
+        const bucket = byTick.get(atTick);
+        if (bucket) {
+            bucket.push(order);
+        } else {
+            byTick.set(atTick, [order]);
+        }
     }
 
-    // Tick once. `tick` drains `pendingOrders`, applies them, and
-    // runs the resolution pipeline (production + flow for US1).
-    const tickResult = tick(world);
-    world = tickResult.world;
-    // Fold any pre-tick rejections into the per-tick events so callers
-    // see them. US1 doesn't currently emit these on the events.errors
-    // channel itself (that's a deferred-error channel), but surfacing
-    // them here keeps the runner's behavior backward-compatible with
-    // the Phase 2 fixture's expectation that "rejected orders are
-    // visible somewhere".
-    let eventsForTick: TickEvents = tickResult.events;
-    for (const r of rejected) {
-      if (!r.result.ok) {
-        eventsForTick = {
-          ...eventsForTick,
-          errors: [...eventsForTick.errors, { order: r.order, reason: r.result.reason }],
-        };
-      }
-    }
-    allEvents.push(eventsForTick);
-  }
+    let world: World = createWorld(cfg, board);
+    const allEvents: TickEvents[] = [];
 
-  return { finalWorld: world, events: allEvents };
+    for (let t = 0; t < totalTicks; t++) {
+        // Stage every order for this tick. `applyCommand` validates; failed
+        // orders don't advance the world but the rejection doesn't stop the
+        // tick loop. We accumulate any rejections for diagnostic visibility
+        // but don't surface them through `runScenario` (the engine's
+        // `TickEvents.errors` channel is the proper home — it gets
+        // populated by `tick` itself for in-tick rejections).
+        const rejected: { order: Order; result: CommandResult }[] = [];
+        const pending = byTick.get(t) ?? [];
+        for (const order of pending) {
+            const result = applyCommand(world, order);
+            if (result.result.ok) {
+                world = result.world;
+            } else {
+                rejected.push({ order, result: result.result });
+            }
+        }
+
+        // Tick once. `tick` drains `pendingOrders`, applies them, and
+        // runs the resolution pipeline (production + flow for US1).
+        const tickResult = tick(world);
+        world = tickResult.world;
+        // Fold any pre-tick rejections into the per-tick events so callers
+        // see them. US1 doesn't currently emit these on the events.errors
+        // channel itself (that's a deferred-error channel), but surfacing
+        // them here keeps the runner's behavior backward-compatible with
+        // the Phase 2 fixture's expectation that "rejected orders are
+        // visible somewhere".
+        let eventsForTick: TickEvents = tickResult.events;
+        for (const r of rejected) {
+            if (!r.result.ok) {
+                eventsForTick = {
+                    ...eventsForTick,
+                    errors: [...eventsForTick.errors, { order: r.order, reason: r.result.reason }],
+                };
+            }
+        }
+        allEvents.push(eventsForTick);
+    }
+
+    return { finalWorld: world, events: allEvents };
 }

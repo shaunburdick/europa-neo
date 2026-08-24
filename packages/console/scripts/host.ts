@@ -28,30 +28,20 @@
 
 import { existsSync } from 'node:fs';
 import { readFile, realpath } from 'node:fs/promises';
-import {
-  createServer as createHttpServer,
-  type IncomingMessage,
-  type Server,
-  type ServerResponse,
-} from 'node:http';
+import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { computePlayerView } from '@europa/fog';
 import { createMatchmaker } from '@europa/matchmaking';
 import {
-  createMatchServer,
-  type Logger,
-  type MatchmakerBridge,
-  NETWORK_DEFAULT_CONFIG,
-  NULL_LOGGER,
-  type ServerDeps,
+    createMatchServer,
+    type Logger,
+    type MatchmakerBridge,
+    NETWORK_DEFAULT_CONFIG,
+    NULL_LOGGER,
+    type ServerDeps,
 } from '@europa/networking';
-import {
-  type HostConfig,
-  isPathInside,
-  isWildcardHost,
-  STATIC_SECURITY_HEADERS,
-} from './host-config';
+import { type HostConfig, isPathInside, isWildcardHost, STATIC_SECURITY_HEADERS } from './host-config';
 
 /** Package root (this script lives in `<root>/scripts/`). */
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
@@ -83,17 +73,17 @@ const SEAT_NAMES = ['P1', 'P2'] as const;
 
 /** MIME types for the static server (covers everything vite emits). */
 const MIME_TYPES: Readonly<Record<string, string>> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.json': 'application/json; charset=utf-8',
-  '.map': 'application/json; charset=utf-8',
-  '.ogg': 'audio/ogg',
-  '.ico': 'image/x-icon',
-  '.txt': 'text/plain; charset=utf-8',
-  '.wasm': 'application/wasm',
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.json': 'application/json; charset=utf-8',
+    '.map': 'application/json; charset=utf-8',
+    '.ogg': 'audio/ogg',
+    '.ico': 'image/x-icon',
+    '.txt': 'text/plain; charset=utf-8',
+    '.wasm': 'application/wasm',
 };
 
 // ---------------------------------------------------------------------------
@@ -102,12 +92,12 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
 
 /** Write a line to stdout. */
 function say(line: string): void {
-  process.stdout.write(`${line}\n`);
+    process.stdout.write(`${line}\n`);
 }
 
 /** Write a line to stderr. */
 function complain(line: string): void {
-  process.stderr.write(`${line}\n`);
+    process.stderr.write(`${line}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -123,15 +113,15 @@ function complain(line: string): void {
  *          (the error message has already been printed).
  */
 function parsePort(raw: string | undefined, label: string): number | null | undefined {
-  if (raw === undefined || raw === '') {
-    return null;
-  }
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isInteger(value) || value < 1 || value > 65_535) {
-    complain(`host: ${label} must be an integer between 1 and 65535 (got "${raw}")`);
-    return undefined;
-  }
-  return value;
+    if (raw === undefined || raw === '') {
+        return null;
+    }
+    const value = Number.parseInt(raw, 10);
+    if (!Number.isInteger(value) || value < 1 || value > 65_535) {
+        complain(`host: ${label} must be an integer between 1 and 65535 (got "${raw}")`);
+        return undefined;
+    }
+    return value;
 }
 
 /**
@@ -143,79 +133,74 @@ function parsePort(raw: string | undefined, label: string): number | null | unde
  *          (its error has already been printed).
  */
 export function resolveConfig(
-  args: readonly string[],
-  environment: NodeJS.ProcessEnv = process.env,
+    args: readonly string[],
+    environment: NodeJS.ProcessEnv = process.env,
 ): HostConfig | null {
-  let wsPort = parsePort(environment.HOST_PORT, 'HOST_PORT');
-  let staticPort = parsePort(environment.HOST_STATIC_PORT, 'HOST_STATIC_PORT');
-  let bindHost = environment.HOST_BIND_HOST ?? '127.0.0.1';
-  let publicHost = environment.HOST_PUBLIC_HOST;
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    const eq = arg.indexOf('=');
-    const flag = eq === -1 ? arg : arg.slice(0, eq);
-    const inline = eq === -1 ? undefined : arg.slice(eq + 1);
-    if (
-      flag !== '--port' &&
-      flag !== '--static-port' &&
-      flag !== '--bind-host' &&
-      flag !== '--public-host'
-    ) {
-      complain(
-        `host: unknown argument "${arg}" (supported: --port N, --static-port N, --bind-host HOST, --public-host HOST)`,
-      );
-      return null;
+    let wsPort = parsePort(environment.HOST_PORT, 'HOST_PORT');
+    let staticPort = parsePort(environment.HOST_STATIC_PORT, 'HOST_STATIC_PORT');
+    let bindHost = environment.HOST_BIND_HOST ?? '127.0.0.1';
+    let publicHost = environment.HOST_PUBLIC_HOST;
+    for (let i = 0; i < args.length; i += 1) {
+        const arg = args[i];
+        const eq = arg.indexOf('=');
+        const flag = eq === -1 ? arg : arg.slice(0, eq);
+        const inline = eq === -1 ? undefined : arg.slice(eq + 1);
+        if (flag !== '--port' && flag !== '--static-port' && flag !== '--bind-host' && flag !== '--public-host') {
+            complain(
+                `host: unknown argument "${arg}" (supported: --port N, --static-port N, --bind-host HOST, --public-host HOST)`,
+            );
+            return null;
+        }
+        if (flag === '--bind-host' || flag === '--public-host') {
+            const value = inline ?? args[i + 1];
+            if (value === undefined || value === '') {
+                complain(`host: ${flag} requires a value`);
+                return null;
+            }
+            if (/[^\w.:[\]-]/u.test(value)) {
+                complain(`host: ${flag} contains invalid characters`);
+                return null;
+            }
+            if (flag === '--bind-host') {
+                bindHost = value;
+            } else {
+                publicHost = value;
+            }
+            if (inline === undefined) {
+                i += 1;
+            }
+            continue;
+        }
+        const parsed = parsePort(inline ?? args[i + 1], flag);
+        if (parsed === undefined) {
+            return null;
+        }
+        if (parsed === null) {
+            complain(`host: ${flag} requires a value`);
+            return null;
+        }
+        if (flag === '--port') {
+            wsPort = parsed;
+        } else {
+            staticPort = parsed;
+        }
+        if (inline === undefined) {
+            i += 1;
+        }
     }
-    if (flag === '--bind-host' || flag === '--public-host') {
-      const value = inline ?? args[i + 1];
-      if (value === undefined || value === '') {
-        complain(`host: ${flag} requires a value`);
+    if (wsPort === undefined || staticPort === undefined) {
         return null;
-      }
-      if (/[^\w.:[\]-]/u.test(value)) {
-        complain(`host: ${flag} contains invalid characters`);
+    }
+    if (isWildcardHost(bindHost) && publicHost === undefined) {
+        complain('host: --public-host or HOST_PUBLIC_HOST is required when binding a wildcard address');
         return null;
-      }
-      if (flag === '--bind-host') {
-        bindHost = value;
-      } else {
-        publicHost = value;
-      }
-      if (inline === undefined) {
-        i += 1;
-      }
-      continue;
     }
-    const parsed = parsePort(inline ?? args[i + 1], flag);
-    if (parsed === undefined) {
-      return null;
-    }
-    if (parsed === null) {
-      complain(`host: ${flag} requires a value`);
-      return null;
-    }
-    if (flag === '--port') {
-      wsPort = parsed;
-    } else {
-      staticPort = parsed;
-    }
-    if (inline === undefined) {
-      i += 1;
-    }
-  }
-  if (wsPort === undefined || staticPort === undefined) {
-    return null;
-  }
-  if (isWildcardHost(bindHost) && publicHost === undefined) {
-    complain('host: --public-host or HOST_PUBLIC_HOST is required when binding a wildcard address');
-    return null;
-  }
-  return {
-    bindHost,
-    publicHost: publicHost ?? (bindHost === '127.0.0.1' ? 'localhost' : bindHost),
-    wsPort: wsPort ?? DEFAULT_WS_PORT,
-    staticPort: staticPort ?? DEFAULT_STATIC_PORT,
-  };
+    return {
+        bindHost,
+        publicHost: publicHost ?? (bindHost === '127.0.0.1' ? 'localhost' : bindHost),
+        wsPort: wsPort ?? DEFAULT_WS_PORT,
+        staticPort: staticPort ?? DEFAULT_STATIC_PORT,
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -232,50 +217,45 @@ export function resolveConfig(
  * @param res Response to fill.
  */
 async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  // decodeURIComponent throws on malformed escapes (%zz); a hostile or
-  // broken client must never crash the launcher, so treat those as 404.
-  const [initialUrlPath] = (req.url ?? '/').split('?');
-  let urlPath = initialUrlPath ?? '/';
-  try {
-    urlPath = decodeURIComponent(urlPath);
-  } catch {
-    writeStaticHead(res, 404).end('bad request path');
-    return;
-  }
-  const requested =
-    urlPath === '/' ? path.join(DIST_DIR, 'index.html') : path.resolve(DIST_DIR, `.${urlPath}`);
-  if (!isPathInside(DIST_DIR, requested)) {
-    writeStaticHead(res, 403).end('forbidden');
-    return;
-  }
-  const target = existsSync(requested) ? requested : path.join(DIST_DIR, 'index.html');
-  let canonicalTarget: string;
-  try {
-    canonicalTarget = await realpath(target);
-  } catch {
-    writeStaticHead(res, 404).end('not found — did you run `pnpm build`?');
-    return;
-  }
-  if (!isPathInside(await realpath(DIST_DIR), canonicalTarget)) {
-    writeStaticHead(res, 403).end('forbidden');
-    return;
-  }
-  try {
-    const body = await readFile(canonicalTarget);
-    const type = MIME_TYPES[path.extname(canonicalTarget)] ?? 'application/octet-stream';
-    writeStaticHead(res, 200, { 'content-type': type }).end(body);
-  } catch {
-    writeStaticHead(res, 404).end('not found — did you run `pnpm build`?');
-  }
+    // decodeURIComponent throws on malformed escapes (%zz); a hostile or
+    // broken client must never crash the launcher, so treat those as 404.
+    const [initialUrlPath] = (req.url ?? '/').split('?');
+    let urlPath = initialUrlPath ?? '/';
+    try {
+        urlPath = decodeURIComponent(urlPath);
+    } catch {
+        writeStaticHead(res, 404).end('bad request path');
+        return;
+    }
+    const requested = urlPath === '/' ? path.join(DIST_DIR, 'index.html') : path.resolve(DIST_DIR, `.${urlPath}`);
+    if (!isPathInside(DIST_DIR, requested)) {
+        writeStaticHead(res, 403).end('forbidden');
+        return;
+    }
+    const target = existsSync(requested) ? requested : path.join(DIST_DIR, 'index.html');
+    let canonicalTarget: string;
+    try {
+        canonicalTarget = await realpath(target);
+    } catch {
+        writeStaticHead(res, 404).end('not found — did you run `pnpm build`?');
+        return;
+    }
+    if (!isPathInside(await realpath(DIST_DIR), canonicalTarget)) {
+        writeStaticHead(res, 403).end('forbidden');
+        return;
+    }
+    try {
+        const body = await readFile(canonicalTarget);
+        const type = MIME_TYPES[path.extname(canonicalTarget)] ?? 'application/octet-stream';
+        writeStaticHead(res, 200, { 'content-type': type }).end(body);
+    } catch {
+        writeStaticHead(res, 404).end('not found — did you run `pnpm build`?');
+    }
 }
 
 /** Write common security headers alongside optional response headers. */
-function writeStaticHead(
-  res: ServerResponse,
-  status: number,
-  headers: Record<string, string> = {},
-): ServerResponse {
-  return res.writeHead(status, { ...STATIC_SECURITY_HEADERS, ...headers });
+function writeStaticHead(res: ServerResponse, status: number, headers: Record<string, string> = {}): ServerResponse {
+    return res.writeHead(status, { ...STATIC_SECURITY_HEADERS, ...headers });
 }
 
 /**
@@ -285,20 +265,20 @@ function writeStaticHead(
  * @returns The node http server (closed again on shutdown).
  */
 function startStaticServer(port: number, bindHost: string): Server {
-  const server = createHttpServer((req, res) => {
-    void serveStatic(req, res);
-  });
-  server.on('error', (error: NodeJS.ErrnoException) => {
-    complain(
-      error.code === 'EADDRINUSE'
-        ? `host: port ${String(port)} is already in use — try --static-port <other>`
-        : `host: static server error: ${error.message}`,
-    );
-    process.exitCode = 1;
-    void shutdown();
-  });
-  server.listen(port, bindHost);
-  return server;
+    const server = createHttpServer((req, res) => {
+        void serveStatic(req, res);
+    });
+    server.on('error', (error: NodeJS.ErrnoException) => {
+        complain(
+            error.code === 'EADDRINUSE'
+                ? `host: port ${String(port)} is already in use — try --static-port <other>`
+                : `host: static server error: ${error.message}`,
+        );
+        process.exitCode = 1;
+        void shutdown();
+    });
+    server.listen(port, bindHost);
+    return server;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,10 +288,10 @@ function startStaticServer(port: number, bindHost: string): Server {
 
 /** What {@link buildStack} hands back: the running pieces to shut down. */
 interface Stack {
-  /** The live match server (already listening). */
-  readonly server: ReturnType<typeof createMatchServer>;
-  /** The matchmaker bound to that server. */
-  readonly matchmaker: ReturnType<typeof createMatchmaker>;
+    /** The live match server (already listening). */
+    readonly server: ReturnType<typeof createMatchServer>;
+    /** The matchmaker bound to that server. */
+    readonly matchmaker: ReturnType<typeof createMatchmaker>;
 }
 
 /**
@@ -326,71 +306,68 @@ interface Stack {
  * @returns The bound server + matchmaker (not yet listening).
  */
 function buildStack(wsPort: number, bindHost: string): Stack {
-  let bound: MatchmakerBridge = {};
-  /**
-   * Human label for a seat (P1/P2); falls back to the raw number for
-   * any seat beyond the v1 two-seater.
-   */
-  const seatLabel = (playerId: number): string =>
-    playerId >= 1 && playerId <= SEAT_NAMES.length
-      ? SEAT_NAMES[playerId - 1]
-      : `player ${String(playerId)}`;
+    let bound: MatchmakerBridge = {};
+    /**
+     * Human label for a seat (P1/P2); falls back to the raw number for
+     * any seat beyond the v1 two-seater.
+     */
+    const seatLabel = (playerId: number): string =>
+        playerId >= 1 && playerId <= SEAT_NAMES.length ? SEAT_NAMES[playerId - 1] : `player ${String(playerId)}`;
 
-  const forwardingBridge: MatchmakerBridge = {
-    onSeatClaimed: (event) => {
-      if (event.role === 'player' && event.playerId !== null) {
-        say(`▶ ${seatLabel(event.playerId)} joined (seat ${String(event.playerId)})`);
-      }
-      bound.onSeatClaimed?.(event);
-    },
-    onSeatDisconnected: (event) => {
-      bound.onSeatDisconnected?.(event);
-    },
-    onSeatReconnected: (event) => {
-      bound.onSeatReconnected?.(event);
-    },
-    onSeatExpired: (event) => {
-      bound.onSeatExpired?.(event);
-    },
-    onMatchTerminal: (event) => {
-      const outcome =
-        event.result.kind === 'win'
-          ? `${seatLabel(event.result.winner)} wins (${event.result.reason})`
-          : `draw (${event.result.reason})`;
-      say(`■ Match finished at tick ${String(event.tick)}: ${outcome}`);
-      bound.onMatchTerminal?.(event);
-    },
-  };
+    const forwardingBridge: MatchmakerBridge = {
+        onSeatClaimed: (event) => {
+            if (event.role === 'player' && event.playerId !== null) {
+                say(`▶ ${seatLabel(event.playerId)} joined (seat ${String(event.playerId)})`);
+            }
+            bound.onSeatClaimed?.(event);
+        },
+        onSeatDisconnected: (event) => {
+            bound.onSeatDisconnected?.(event);
+        },
+        onSeatReconnected: (event) => {
+            bound.onSeatReconnected?.(event);
+        },
+        onSeatExpired: (event) => {
+            bound.onSeatExpired?.(event);
+        },
+        onMatchTerminal: (event) => {
+            const outcome =
+                event.result.kind === 'win'
+                    ? `${seatLabel(event.result.winner)} wins (${event.result.reason})`
+                    : `draw (${event.result.reason})`;
+            say(`■ Match finished at tick ${String(event.tick)}: ${outcome}`);
+            bound.onMatchTerminal?.(event);
+        },
+    };
 
-  const deps: ServerDeps = {
-    engine: {
-      // Real sessions arrive pre-built from the matchmaker's auto-start
-      // (engineSession.ts); the factory stays unused, exactly as in E2E.
-      createMatchSession: () => {
-        throw new Error('engine factory not used (matchmaker pre-builds sessions)');
-      },
-    },
-    fog: {
-      computePlayerView: ({ world, playerId, spectator }) =>
-        computePlayerView(world, playerId, { spectator }),
-    },
-    matchmaker: forwardingBridge,
-    logger: NULL_LOGGER as Logger,
-  };
+    const deps: ServerDeps = {
+        engine: {
+            // Real sessions arrive pre-built from the matchmaker's auto-start
+            // (engineSession.ts); the factory stays unused, exactly as in E2E.
+            createMatchSession: () => {
+                throw new Error('engine factory not used (matchmaker pre-builds sessions)');
+            },
+        },
+        fog: {
+            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
+        },
+        matchmaker: forwardingBridge,
+        logger: NULL_LOGGER as Logger,
+    };
 
-  const server = createMatchServer(
-    { ...NETWORK_DEFAULT_CONFIG, host: bindHost, port: wsPort, tickRateMs: TICK_MS },
-    deps,
-  );
+    const server = createMatchServer(
+        { ...NETWORK_DEFAULT_CONFIG, host: bindHost, port: wsPort, tickRateMs: TICK_MS },
+        deps,
+    );
 
-  // Soft-binding seam (contracts/matchmaking-api.ts): the matchmaker
-  // detects this optional method and hands its bridge handlers over.
-  const bindable = Object.assign(server, {
-    bindMatchmaker(bridge: MatchmakerBridge): void {
-      bound = { ...bound, ...bridge };
-    },
-  });
-  return { server, matchmaker: createMatchmaker({}, { server: bindable }) };
+    // Soft-binding seam (contracts/matchmaking-api.ts): the matchmaker
+    // detects this optional method and hands its bridge handlers over.
+    const bindable = Object.assign(server, {
+        bindMatchmaker(bridge: MatchmakerBridge): void {
+            bound = { ...bound, ...bridge };
+        },
+    });
+    return { server, matchmaker: createMatchmaker({}, { server: bindable }) };
 }
 
 // ---------------------------------------------------------------------------
@@ -399,10 +376,10 @@ function buildStack(wsPort: number, bindHost: string): Stack {
 
 /** The pre-filled match plus each seat's credentials for the join URLs. */
 interface PreparedMatch {
-  /** Matchmaking-issued match id (UUID). */
-  readonly matchId: string;
-  /** Per-seat session tokens, index = seat - 1 (UUIDs). */
-  readonly seatTokens: readonly [string, string];
+    /** Matchmaking-issued match id (UUID). */
+    readonly matchId: string;
+    /** Per-seat session tokens, index = seat - 1 (UUIDs). */
+    readonly seatTokens: readonly [string, string];
 }
 
 /**
@@ -416,27 +393,27 @@ interface PreparedMatch {
  *          a step (reason already printed).
  */
 function prepareMatch(matchmaker: Stack['matchmaker']): PreparedMatch | null {
-  const created = matchmaker.createMatch({
-    visibility: 'public',
-    displayName: SEAT_NAMES[0],
-    settings: { playerCount: 2, boardSize: BOARD_SIZE, tickIntervalMs: TICK_MS },
-  });
-  if (!created.ok) {
-    complain(`host: creating the match failed: ${created.error.message}`);
-    return null;
-  }
-  const filled = matchmaker.joinMatch({
-    matchId: created.data.matchId,
-    displayName: SEAT_NAMES[1],
-  });
-  if (!filled.ok) {
-    complain(`host: filling the match failed: ${filled.error.message}`);
-    return null;
-  }
-  return {
-    matchId: created.data.matchId,
-    seatTokens: [created.data.seatAssignment.sessionToken, filled.data.seatAssignment.sessionToken],
-  };
+    const created = matchmaker.createMatch({
+        visibility: 'public',
+        displayName: SEAT_NAMES[0],
+        settings: { playerCount: 2, boardSize: BOARD_SIZE, tickIntervalMs: TICK_MS },
+    });
+    if (!created.ok) {
+        complain(`host: creating the match failed: ${created.error.message}`);
+        return null;
+    }
+    const filled = matchmaker.joinMatch({
+        matchId: created.data.matchId,
+        displayName: SEAT_NAMES[1],
+    });
+    if (!filled.ok) {
+        complain(`host: filling the match failed: ${filled.error.message}`);
+        return null;
+    }
+    return {
+        matchId: created.data.matchId,
+        seatTokens: [created.data.seatAssignment.sessionToken, filled.data.seatAssignment.sessionToken],
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -452,29 +429,23 @@ function prepareMatch(matchmaker: Stack['matchmaker']): PreparedMatch | null {
  * @param publicHost Host reachable by players.
  * @param match      The prepared match.
  */
-function printBanner(
-  staticPort: number,
-  boundPort: number,
-  publicHost: string,
-  match: PreparedMatch,
-): void {
-  const urlHost =
-    publicHost.includes(':') && !publicHost.startsWith('[') ? `[${publicHost}]` : publicHost;
-  const wsUrl = `ws://${urlHost}:${String(boundPort)}`;
-  const joinUrl = (name: string, token: string): string =>
-    `http://${urlHost}:${String(staticPort)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
-  say('');
-  say(`  Match server : ${wsUrl}`);
-  say(`  Console UI   : http://${urlHost}:${String(staticPort)}`);
-  say(`  Match id     : ${match.matchId}`);
-  say('');
-  say('  Open in two browser tabs:');
-  say('');
-  say(`  Player 1 → ${joinUrl(SEAT_NAMES[0], match.seatTokens[0])}`);
-  say(`  Player 2 → ${joinUrl(SEAT_NAMES[1], match.seatTokens[1])}`);
-  say('');
-  say('  Ctrl-C to stop.');
-  say('');
+function printBanner(staticPort: number, boundPort: number, publicHost: string, match: PreparedMatch): void {
+    const urlHost = publicHost.includes(':') && !publicHost.startsWith('[') ? `[${publicHost}]` : publicHost;
+    const wsUrl = `ws://${urlHost}:${String(boundPort)}`;
+    const joinUrl = (name: string, token: string): string =>
+        `http://${urlHost}:${String(staticPort)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
+    say('');
+    say(`  Match server : ${wsUrl}`);
+    say(`  Console UI   : http://${urlHost}:${String(staticPort)}`);
+    say(`  Match id     : ${match.matchId}`);
+    say('');
+    say('  Open in two browser tabs:');
+    say('');
+    say(`  Player 1 → ${joinUrl(SEAT_NAMES[0], match.seatTokens[0])}`);
+    say(`  Player 2 → ${joinUrl(SEAT_NAMES[1], match.seatTokens[1])}`);
+    say('');
+    say('  Ctrl-C to stop.');
+    say('');
 }
 
 // ---------------------------------------------------------------------------
@@ -493,11 +464,11 @@ let shuttingDown = false;
  * @returns Resolves when all listeners and timers are down.
  */
 async function shutdown(): Promise<void> {
-  if (shuttingDown) {
-    return;
-  }
-  shuttingDown = true;
-  await teardown?.();
+    if (shuttingDown) {
+        return;
+    }
+    shuttingDown = true;
+    await teardown?.();
 }
 
 /**
@@ -505,72 +476,72 @@ async function shutdown(): Promise<void> {
  * print banner → wait for Ctrl-C.
  */
 async function main(): Promise<void> {
-  const config = resolveConfig(process.argv.slice(2));
-  if (config === null) {
-    process.exitCode = 1;
-    return;
-  }
+    const config = resolveConfig(process.argv.slice(2));
+    if (config === null) {
+        process.exitCode = 1;
+        return;
+    }
 
-  if (!existsSync(path.join(DIST_DIR, 'index.html'))) {
-    complain('host: packages/console/dist/index.html not found.');
-    complain('host: Build the console first, then retry:');
-    complain('host:   pnpm install && pnpm build');
-    process.exitCode = 1;
-    return;
-  }
+    if (!existsSync(path.join(DIST_DIR, 'index.html'))) {
+        complain('host: packages/console/dist/index.html not found.');
+        complain('host: Build the console first, then retry:');
+        complain('host:   pnpm install && pnpm build');
+        process.exitCode = 1;
+        return;
+    }
 
-  const stack = buildStack(config.wsPort, config.bindHost);
+    const stack = buildStack(config.wsPort, config.bindHost);
 
-  try {
-    await stack.server.listen();
-  } catch (error: unknown) {
-    const code = (error as NodeJS.ErrnoException | null)?.code;
-    complain(
-      code === 'EADDRINUSE'
-        ? `host: port ${String(config.wsPort)} is already in use — try --port <other>`
-        : `host: match server failed to start: ${String(error)}`,
-    );
-    process.exitCode = 1;
-    return;
-  }
+    try {
+        await stack.server.listen();
+    } catch (error: unknown) {
+        const code = (error as NodeJS.ErrnoException | null)?.code;
+        complain(
+            code === 'EADDRINUSE'
+                ? `host: port ${String(config.wsPort)} is already in use — try --port <other>`
+                : `host: match server failed to start: ${String(error)}`,
+        );
+        process.exitCode = 1;
+        return;
+    }
 
-  const staticServer = startStaticServer(config.staticPort, config.bindHost);
+    const staticServer = startStaticServer(config.staticPort, config.bindHost);
 
-  teardown = async () => {
-    await stack.server.close();
-    await stack.matchmaker.close();
-    await new Promise<void>((resolve) => {
-      staticServer.close(() => {
-        resolve();
-      });
-    });
-  };
+    teardown = async () => {
+        await stack.server.close();
+        await stack.matchmaker.close();
+        await new Promise<void>((resolve) => {
+            staticServer.close(() => {
+                resolve();
+            });
+        });
+    };
 
-  const match = prepareMatch(stack.matchmaker);
-  if (match === null) {
-    await shutdown();
-    process.exitCode = 1;
-    return;
-  }
+    const match = prepareMatch(stack.matchmaker);
+    if (match === null) {
+        await shutdown();
+        process.exitCode = 1;
+        return;
+    }
 
-  const boundPort = stack.server.__boundPortForTest() ?? config.wsPort;
-  printBanner(config.staticPort, boundPort, config.publicHost, match);
+    const boundPort = stack.server.__boundPortForTest() ?? config.wsPort;
+    printBanner(config.staticPort, boundPort, config.publicHost, match);
 }
 
 process.on('SIGINT', () => {
-  void shutdown().then(() => {
-    process.exit(0);
-  });
+    void shutdown().then(() => {
+        process.exit(0);
+    });
 });
 process.on('SIGTERM', () => {
-  void shutdown().then(() => {
-    process.exit(0);
-  });
+    void shutdown().then(() => {
+        process.exit(0);
+    });
 });
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error: unknown) => {
-    process.exitCode = 1;
-    complain(`host failed: ${String(error)}`);
-  });
+    main().catch((error: unknown) => {
+        process.exitCode = 1;
+        complain(`host failed: ${String(error)}`);
+    });
 }

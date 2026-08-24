@@ -64,11 +64,11 @@ import type { Rng } from './contracts/terrain-types';
  * @returns A fresh `Rng` independent of `parent`.
  */
 export function deriveSubstream(parent: Rng): Rng {
-  // One uint32 from the parent; this is the seed for the sub-stream.
-  // The parent is the engine's live sfc32 — `Rng` is callable and
-  // returns a uint32 per the engine-types contract.
-  const seed = parent();
-  return createRng(seed >>> 0);
+    // One uint32 from the parent; this is the seed for the sub-stream.
+    // The parent is the engine's live sfc32 — `Rng` is callable and
+    // returns a uint32 per the engine-types contract.
+    const seed = parent();
+    return createRng(seed >>> 0);
 }
 
 /**
@@ -100,14 +100,14 @@ export function deriveSubstream(parent: Rng): Rng {
  * @returns A deterministic uint32 in `[0, 2^32)`.
  */
 export function mixSeed(seed: number, attempt: number): number {
-  // Fold both inputs to uint32. The full uint32 range is preserved
-  // for `attempt` so attempts > 255 still produce distinct outputs
-  // (a 256-cap would collide for typical retry counts ≤ 5 if the
-  // caller ever changed the cap). The avalanche step below
-  // distributes the bits uniformly across `[0, 2^32)`.
-  const s = seed >>> 0;
-  const a = attempt >>> 0;
-  // Single avalanche round: xor-fold attempt into seed, then mix via
-  // imul with a prime. Output forced to uint32 by `>>> 0`.
-  return Math.imul(s ^ Math.imul(a, 0x9e3779b1), 0x85ebca6b) >>> 0;
+    // Fold both inputs to uint32. The full uint32 range is preserved
+    // for `attempt` so attempts > 255 still produce distinct outputs
+    // (a 256-cap would collide for typical retry counts ≤ 5 if the
+    // caller ever changed the cap). The avalanche step below
+    // distributes the bits uniformly across `[0, 2^32)`.
+    const s = seed >>> 0;
+    const a = attempt >>> 0;
+    // Single avalanche round: xor-fold attempt into seed, then mix via
+    // imul with a prime. Output forced to uint32 by `>>> 0`.
+    return Math.imul(s ^ Math.imul(a, 0x9e3779b1), 0x85ebca6b) >>> 0;
 }

@@ -22,50 +22,50 @@ import { engineSfc32, goldenSeeds } from '../fixtures/seeds';
 const SC_001_TRIALS = 1_000;
 
 describe('SC-001 determinism at 1k seeds (10x spec)', () => {
-  it(`${String(SC_001_TRIALS)} trials: same seed + same PRNG state → byte-identical Board`, {
-    timeout: 20_000,
-  }, () => {
-    const seeds = goldenSeeds(SC_001_TRIALS);
-    for (const seed of seeds) {
-      const reqA = {
-        boardSize: 32,
-        playerCount: 2 as const,
-        seed,
-        rng: engineSfc32(seed),
-        settings: DEFAULT_GENERATION_SETTINGS,
-      };
-      const reqB = {
-        boardSize: 32,
-        playerCount: 2 as const,
-        seed,
-        rng: engineSfc32(seed),
-        settings: DEFAULT_GENERATION_SETTINGS,
-      };
-      const a = generateBoard(reqA);
-      const b = generateBoard(reqB);
-      expect(hashBoard(a.board)).toBe(hashBoard(b.board));
-      expect(a.effectiveSeed).toBe(b.effectiveSeed);
-    }
-  });
+    it(`${String(SC_001_TRIALS)} trials: same seed + same PRNG state → byte-identical Board`, {
+        timeout: 20_000,
+    }, () => {
+        const seeds = goldenSeeds(SC_001_TRIALS);
+        for (const seed of seeds) {
+            const reqA = {
+                boardSize: 32,
+                playerCount: 2 as const,
+                seed,
+                rng: engineSfc32(seed),
+                settings: DEFAULT_GENERATION_SETTINGS,
+            };
+            const reqB = {
+                boardSize: 32,
+                playerCount: 2 as const,
+                seed,
+                rng: engineSfc32(seed),
+                settings: DEFAULT_GENERATION_SETTINGS,
+            };
+            const a = generateBoard(reqA);
+            const b = generateBoard(reqB);
+            expect(hashBoard(a.board)).toBe(hashBoard(b.board));
+            expect(a.effectiveSeed).toBe(b.effectiveSeed);
+        }
+    });
 
-  it(`${String(SC_001_TRIALS)} trials: distinct seeds produce distinct Board hashes (US2 acceptance scenario 2)`, {
-    timeout: 20_000,
-  }, () => {
-    const seeds = goldenSeeds(SC_001_TRIALS);
-    const hashes = new Set<string>();
-    for (const seed of seeds) {
-      const req = {
-        boardSize: 32,
-        playerCount: 2 as const,
-        seed,
-        rng: engineSfc32(seed),
-        settings: DEFAULT_GENERATION_SETTINGS,
-      };
-      const result = generateBoard(req);
-      hashes.add(hashBoard(result.board));
-    }
-    // We expect 100% distinct hashes (no 64-bit FNV-1a collisions at
-    // this scale — ~2^-64 collision probability per pair).
-    expect(hashes.size).toBe(SC_001_TRIALS);
-  });
+    it(`${String(SC_001_TRIALS)} trials: distinct seeds produce distinct Board hashes (US2 acceptance scenario 2)`, {
+        timeout: 20_000,
+    }, () => {
+        const seeds = goldenSeeds(SC_001_TRIALS);
+        const hashes = new Set<string>();
+        for (const seed of seeds) {
+            const req = {
+                boardSize: 32,
+                playerCount: 2 as const,
+                seed,
+                rng: engineSfc32(seed),
+                settings: DEFAULT_GENERATION_SETTINGS,
+            };
+            const result = generateBoard(req);
+            hashes.add(hashBoard(result.board));
+        }
+        // We expect 100% distinct hashes (no 64-bit FNV-1a collisions at
+        // this scale — ~2^-64 collision probability per pair).
+        expect(hashes.size).toBe(SC_001_TRIALS);
+    });
 });

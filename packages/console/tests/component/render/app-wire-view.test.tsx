@@ -27,12 +27,7 @@ import { App } from '../../../src/render/App';
 import { createOrderBridge } from '../../../src/state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../../../src/state/reducer';
 import { type ConsoleStore, createConsoleStore } from '../../../src/state/store';
-import type {
-  NetworkPayload,
-  ProtocolEnvelope,
-  ReducerEffect,
-  SequenceNumber,
-} from '../../../src/state/types';
+import type { NetworkPayload, ProtocolEnvelope, ReducerEffect, SequenceNumber } from '../../../src/state/types';
 
 // ---------------------------------------------------------------------------
 // Scripted server: emits REAL wire JSON (Set-typed fields as arrays)
@@ -47,33 +42,33 @@ let serverSeq = 0;
  * project stays self-contained).
  */
 class WireWebSocket {
-  readonly sent: string[] = [];
-  onopen: (() => void) | null = null;
-  onmessage: ((event: { data: string }) => void) | null = null;
-  onclose: ((event: { code: number }) => void) | null = null;
-  onerror: (() => void) | null = null;
+    readonly sent: string[] = [];
+    onopen: (() => void) | null = null;
+    onmessage: ((event: { data: string }) => void) | null = null;
+    onclose: ((event: { code: number }) => void) | null = null;
+    onerror: (() => void) | null = null;
 
-  constructor(readonly url: string) {}
+    constructor(readonly url: string) {}
 
-  send(data: string): void {
-    this.sent.push(data);
-  }
+    send(data: string): void {
+        this.sent.push(data);
+    }
 
-  close(code?: number): void {
-    this.onclose?.({ code: code ?? 1005 });
-  }
+    close(code?: number): void {
+        this.onclose?.({ code: code ?? 1005 });
+    }
 
-  /** Deliver one fabricated server envelope as wire JSON. */
-  deliver(type: string, payload: Record<string, unknown>): void {
-    serverSeq += 1;
-    const envelope = {
-      type,
-      version: '0.1.0',
-      seq: serverSeq as SequenceNumber,
-      payload,
-    } as unknown as ProtocolEnvelope<NetworkPayload>;
-    this.onmessage?.({ data: JSON.stringify(envelope) });
-  }
+    /** Deliver one fabricated server envelope as wire JSON. */
+    deliver(type: string, payload: Record<string, unknown>): void {
+        serverSeq += 1;
+        const envelope = {
+            type,
+            version: '0.1.0',
+            seq: serverSeq as SequenceNumber,
+            payload,
+        } as unknown as ProtocolEnvelope<NetworkPayload>;
+        this.onmessage?.({ data: JSON.stringify(envelope) });
+    }
 }
 
 /**
@@ -82,26 +77,26 @@ class WireWebSocket {
  * unrepaired before the fix.
  */
 function wireCell(x: number, y: number, pipes: string[]): Record<string, unknown> {
-  return {
-    coord: { x, y },
-    cell: { x, y, elevation: 60, terrain: 'land' },
-    troopCount: 12,
-    troopOwner: 1,
-    pipes,
-    reservesPercent: 0,
-    cityOwner: null,
-  };
+    return {
+        coord: { x, y },
+        cell: { x, y, elevation: 60, terrain: 'land' },
+        troopCount: 12,
+        troopOwner: 1,
+        pipes,
+        reservesPercent: 0,
+        cityOwner: null,
+    };
 }
 
 /** Minimal PlayerView as serialized on the wire (array pipes inside). */
 function wireView(tick: number, cells: Record<string, unknown>[]): Record<string, unknown> {
-  return {
-    player: 1,
-    tick,
-    visibleCells: cells,
-    events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
-    config: { boardSize: 32, playerCount: 2, tickIntervalMs: 250, seed: 0, visibilityRadius: 2 },
-  };
+    return {
+        player: 1,
+        tick,
+        visibleCells: cells,
+        events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
+        config: { boardSize: 32, playerCount: 2, tickIntervalMs: 250, seed: 0, visibilityRadius: 2 },
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -109,8 +104,8 @@ function wireView(tick: number, cells: Record<string, unknown>[]): Record<string
 // ---------------------------------------------------------------------------
 
 interface Boot {
-  readonly socket: WireWebSocket;
-  readonly store: ConsoleStore;
+    readonly socket: WireWebSocket;
+    readonly store: ConsoleStore;
 }
 
 /**
@@ -119,134 +114,129 @@ interface Boot {
  * Mirrors `internal/live-runtime.tsx` wiring exactly.
  */
 async function bootLiveConsole(): Promise<Boot> {
-  const socket = new WireWebSocket('ws://wire-component');
-  const wsClient = createWsMatchClient({ webSocketFactory: () => socket });
-  const client = createConsoleClient(
-    { url: 'ws://wire-component', displayName: 'Alice', matchId: 'm-1' as never },
-    { matchClientFactory: () => wsClient },
-  );
-  let forward: ((effect: ReducerEffect) => void) | null = null;
-  const store = createConsoleStore(INITIAL_CONSOLE_STATE, (effect) => {
-    forward?.(effect);
-  });
-  const bridge = createOrderBridge({ client, store });
-  forward = (effect) => {
-    bridge.handleEffect(effect);
-  };
+    const socket = new WireWebSocket('ws://wire-component');
+    const wsClient = createWsMatchClient({ webSocketFactory: () => socket });
+    const client = createConsoleClient(
+        { url: 'ws://wire-component', displayName: 'Alice', matchId: 'm-1' as never },
+        { matchClientFactory: () => wsClient },
+    );
+    let forward: ((effect: ReducerEffect) => void) | null = null;
+    const store = createConsoleStore(INITIAL_CONSOLE_STATE, (effect) => {
+        forward?.(effect);
+    });
+    const bridge = createOrderBridge({ client, store });
+    forward = (effect) => {
+        bridge.handleEffect(effect);
+    };
 
-  await render(<App store={store} />);
+    await render(<App store={store} />);
 
-  const connecting = client.connect();
-  socket.onopen?.();
-  socket.deliver('helloAck', {
-    protocolVersion: '0.1.0',
-    connectionId: 'c-1',
-    heartbeatIntervalMs: 5000,
-  });
-  await connecting;
+    const connecting = client.connect();
+    socket.onopen?.();
+    socket.deliver('helloAck', {
+        protocolVersion: '0.1.0',
+        connectionId: 'c-1',
+        heartbeatIntervalMs: 5000,
+    });
+    await connecting;
 
-  const joining = client.joinMatch();
-  // Join snapshot WITH a pipe-bearing cell, wire-shaped (array!).
-  socket.deliver('joinAck', {
-    sessionToken: 'tok-1',
-    playerId: 1,
-    view: wireView(1, [wireCell(5, 5, ['E'])]),
-    tick: 1,
-    players: [],
-  });
-  await joining;
-  return { socket, store };
+    const joining = client.joinMatch();
+    // Join snapshot WITH a pipe-bearing cell, wire-shaped (array!).
+    socket.deliver('joinAck', {
+        sessionToken: 'tok-1',
+        playerId: 1,
+        view: wireView(1, [wireCell(5, 5, ['E'])]),
+        tick: 1,
+        players: [],
+    });
+    await joining;
+    return { socket, store };
 }
 
 /** Stub the board area's rect so hit-test coordinates are exact. */
 function pinBoardGeometry(): HTMLElement {
-  const board = document.querySelector('.europa-board-area');
-  if (!(board instanceof HTMLElement)) {
-    throw new Error('board area not mounted');
-  }
-  Object.defineProperty(board, 'getBoundingClientRect', {
-    value: () => ({
-      left: 0,
-      top: 0,
-      right: 512,
-      bottom: 512,
-      width: 512,
-      height: 512,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    }),
-    configurable: true,
-  });
-  return board;
+    const board = document.querySelector('.europa-board-area');
+    if (!(board instanceof HTMLElement)) {
+        throw new Error('board area not mounted');
+    }
+    Object.defineProperty(board, 'getBoundingClientRect', {
+        value: () => ({
+            left: 0,
+            top: 0,
+            right: 512,
+            bottom: 512,
+            width: 512,
+            height: 512,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        }),
+        configurable: true,
+    });
+    return board;
 }
 
 /** Screen point at fraction `(fx, fy)` inside cell (cx, cy) at zoom 32. */
-function pointInCell(
-  cx: number,
-  cy: number,
-  fx: number,
-  fy: number,
-): { clientX: number; clientY: number } {
-  const zoom = 32;
-  return { clientX: Math.round((cx + fx) * zoom), clientY: Math.round((cy + fy) * zoom) };
+function pointInCell(cx: number, cy: number, fx: number, fy: number): { clientX: number; clientY: number } {
+    const zoom = 32;
+    return { clientX: Math.round((cx + fx) * zoom), clientY: Math.round((cy + fy) * zoom) };
 }
 
 afterEach(() => {
-  cleanup();
+    cleanup();
 });
 
 describe('live wire views drive the mounted console (rehydration regression)', () => {
-  test('pointerdown on a wire-decoded cell issues the toggle order without crashing', async () => {
-    const { socket } = await bootLiveConsole();
-    const board = pinBoardGeometry();
+    test('pointerdown on a wire-decoded cell issues the toggle order without crashing', async () => {
+        const { socket } = await bootLiveConsole();
+        const board = pinBoardGeometry();
 
-    // East half of (5,5): the join snapshot carried pipes ["E"] as an
-    // ARRAY. Pre-fix this very line threw `pipes.has is not a function`
-    // inside handleDown. Toggle semantics need the rehydrated Set.
-    board.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        ...pointInCell(5, 5, 0.75, 0.5),
-        button: 0,
-        bubbles: true,
-      }),
-    );
-    await vi.waitFor(() => {
-      const orderFrame = socket.sent.find((frame) => frame.includes('"clearPipe"'));
-      expect(orderFrame).toBeDefined();
-    });
-  });
-
-  test('consecutive ticks with pipe-bearing cells keep the app alive (freeze regression)', async () => {
-    const { socket } = await bootLiveConsole();
-    const board = pinBoardGeometry();
-
-    // Tick 2 then tick 3, same pipe-bearing cell, unchanged scalars —
-    // the exact conditions under which the pre-fix render diff reached
-    // pipesEqual with raw arrays and threw DURING RENDER, unmounting
-    // the tree (the "ticks freeze until refresh" report).
-    socket.deliver('tick', {
-      tick: 2,
-      view: wireView(2, [wireCell(5, 5, ['E'])]),
-    });
-    socket.deliver('tick', {
-      tick: 3,
-      view: wireView(3, [wireCell(5, 5, ['E'])]),
+        // East half of (5,5): the join snapshot carried pipes ["E"] as an
+        // ARRAY. Pre-fix this very line threw `pipes.has is not a function`
+        // inside handleDown. Toggle semantics need the rehydrated Set.
+        board.dispatchEvent(
+            new PointerEvent('pointerdown', {
+                ...pointInCell(5, 5, 0.75, 0.5),
+                button: 0,
+                bubbles: true,
+            }),
+        );
+        await vi.waitFor(() => {
+            const orderFrame = socket.sent.find((frame) => frame.includes('"clearPipe"'));
+            expect(orderFrame).toBeDefined();
+        });
     });
 
-    // The tree survived: board still mounted AND interactive — a fresh
-    // click on a pipe-free region still issues an order.
-    board.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        ...pointInCell(5, 5, 0.25, 0.5),
-        button: 0,
-        bubbles: true,
-      }),
-    );
-    await vi.waitFor(() => {
-      const orderFrame = socket.sent.find((frame) => frame.includes('"setPipe"'));
-      expect(orderFrame).toBeDefined();
+    test('consecutive ticks with pipe-bearing cells keep the app alive (freeze regression)', async () => {
+        const { socket } = await bootLiveConsole();
+        const board = pinBoardGeometry();
+
+        // Tick 2 then tick 3, same pipe-bearing cell, unchanged scalars —
+        // the exact conditions under which the pre-fix render diff reached
+        // pipesEqual with raw arrays and threw DURING RENDER, unmounting
+        // the tree (the "ticks freeze until refresh" report).
+        socket.deliver('tick', {
+            tick: 2,
+            view: wireView(2, [wireCell(5, 5, ['E'])]),
+        });
+        socket.deliver('tick', {
+            tick: 3,
+            view: wireView(3, [wireCell(5, 5, ['E'])]),
+        });
+
+        // The tree survived: board still mounted AND interactive — a fresh
+        // click on a pipe-free region still issues an order.
+        board.dispatchEvent(
+            new PointerEvent('pointerdown', {
+                ...pointInCell(5, 5, 0.25, 0.5),
+                button: 0,
+                bubbles: true,
+            }),
+        );
+        await vi.waitFor(() => {
+            const orderFrame = socket.sent.find((frame) => frame.includes('"setPipe"'));
+            expect(orderFrame).toBeDefined();
+        });
+        expect(document.querySelector('.europa-board-area')).not.toBeNull();
     });
-    expect(document.querySelector('.europa-board-area')).not.toBeNull();
-  });
 });

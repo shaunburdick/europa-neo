@@ -44,16 +44,16 @@ const SOUNDS_OUT_DIR = path.join(PACKAGE_ROOT, 'public', 'sounds');
  * @param name - Output base filename (without extension).
  */
 async function renderSprite(svgPath: string, name: string): Promise<void> {
-  const svg = await readFile(svgPath);
+    const svg = await readFile(svgPath);
 
-  for (const scale of SPRITE_SCALES) {
-    const resvg = new Resvg(svg, {
-      fitTo: { mode: 'zoom', value: scale },
-      font: { loadSystemFonts: false },
-    });
-    const png = resvg.render().asPng();
-    await writeFile(path.join(SPRITES_OUT_DIR, `${name}@${scale}x.png`), png);
-  }
+    for (const scale of SPRITE_SCALES) {
+        const resvg = new Resvg(svg, {
+            fitTo: { mode: 'zoom', value: scale },
+            font: { loadSystemFonts: false },
+        });
+        const png = resvg.render().asPng();
+        await writeFile(path.join(SPRITES_OUT_DIR, `${name}@${scale}x.png`), png);
+    }
 }
 
 /**
@@ -61,28 +61,25 @@ async function renderSprite(svgPath: string, name: string): Promise<void> {
  * directories are a silent no-op so the scaffold build stays green.
  */
 async function main(): Promise<void> {
-  if (existsSync(SPRITES_SRC_DIR)) {
-    await mkdir(SPRITES_OUT_DIR, { recursive: true });
-    const sprites = (await readdir(SPRITES_SRC_DIR)).filter((f) => f.endsWith('.svg')).sort();
-    for (const file of sprites) {
-      await renderSprite(path.join(SPRITES_SRC_DIR, file), path.basename(file, '.svg'));
+    if (existsSync(SPRITES_SRC_DIR)) {
+        await mkdir(SPRITES_OUT_DIR, { recursive: true });
+        const sprites = (await readdir(SPRITES_SRC_DIR)).filter((f) => f.endsWith('.svg')).sort();
+        for (const file of sprites) {
+            await renderSprite(path.join(SPRITES_SRC_DIR, file), path.basename(file, '.svg'));
+        }
     }
-  }
 
-  if (existsSync(SOUNDS_SRC_DIR)) {
-    await mkdir(SOUNDS_OUT_DIR, { recursive: true });
-    const sounds = (await readdir(SOUNDS_SRC_DIR)).filter((f) => f.endsWith('.ogg')).sort();
-    for (const file of sounds) {
-      // No-op re-encode for v1: copy the OGG through unchanged.
-      await writeFile(
-        path.join(SOUNDS_OUT_DIR, file),
-        await readFile(path.join(SOUNDS_SRC_DIR, file)),
-      );
+    if (existsSync(SOUNDS_SRC_DIR)) {
+        await mkdir(SOUNDS_OUT_DIR, { recursive: true });
+        const sounds = (await readdir(SOUNDS_SRC_DIR)).filter((f) => f.endsWith('.ogg')).sort();
+        for (const file of sounds) {
+            // No-op re-encode for v1: copy the OGG through unchanged.
+            await writeFile(path.join(SOUNDS_OUT_DIR, file), await readFile(path.join(SOUNDS_SRC_DIR, file)));
+        }
     }
-  }
 }
 
 main().catch((error: unknown) => {
-  process.exitCode = 1;
-  process.stderr.write(`build-assets failed: ${String(error)}\n`);
+    process.exitCode = 1;
+    process.stderr.write(`build-assets failed: ${String(error)}\n`);
 });

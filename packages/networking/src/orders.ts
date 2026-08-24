@@ -34,8 +34,8 @@ import type { MatchChannel } from './match-channel';
 
 /** Result of {@link acceptOrder}. */
 export type AcceptOrderResult =
-  | { readonly ok: true; readonly pendingRef: ProtocolEnvelope<NetworkPayload> }
-  | { readonly ok: false; readonly error: NetworkError };
+    | { readonly ok: true; readonly pendingRef: ProtocolEnvelope<NetworkPayload> }
+    | { readonly ok: false; readonly error: NetworkError };
 
 /**
  * Gate one client order into the channel's pending queue.
@@ -58,55 +58,52 @@ export type AcceptOrderResult =
  * @returns Success with the pending reference, or the rejection.
  */
 export function acceptOrder(
-  channel: MatchChannel,
-  connection: Connection,
-  order: Order,
-  nowMs: number,
+    channel: MatchChannel,
+    connection: Connection,
+    order: Order,
+    nowMs: number,
 ): AcceptOrderResult {
-  const reject = (error: NetworkError): AcceptOrderResult => {
-    // Protocol-level rejections ride an `error` frame back to the
-    // client immediately (distinct from engine-level `orderAck`s,
-    // which are emitted at tick boundaries).
-    connection.sendError(error.code, error.message, error.detail, nowMs);
-    return { ok: false, error };
-  };
+    const reject = (error: NetworkError): AcceptOrderResult => {
+        // Protocol-level rejections ride an `error` frame back to the
+        // client immediately (distinct from engine-level `orderAck`s,
+        // which are emitted at tick boundaries).
+        connection.sendError(error.code, error.message, error.detail, nowMs);
+        return { ok: false, error };
+    };
 
-  if (connection.role === 'spectator') {
-    return reject(new NetworkError('spectator_readonly', 'spectators cannot submit orders'));
-  }
+    if (connection.role === 'spectator') {
+        return reject(new NetworkError('spectator_readonly', 'spectators cannot submit orders'));
+    }
 
-  const state = connection.state();
-  if (state !== 'joined' && state !== 'rejoined') {
-    return reject(
-      new NetworkError(
-        'protocol_sequence_error',
-        `orders require a joined connection (state: ${state})`,
-      ),
-    );
-  }
+    const state = connection.state();
+    if (state !== 'joined' && state !== 'rejoined') {
+        return reject(
+            new NetworkError('protocol_sequence_error', `orders require a joined connection (state: ${state})`),
+        );
+    }
 
-  if (!connection.takeToken(nowMs)) {
-    return reject(new NetworkError('rate_limited', 'order rate limit exceeded'));
-  }
+    if (!connection.takeToken(nowMs)) {
+        return reject(new NetworkError('rate_limited', 'order rate limit exceeded'));
+    }
 
-  const { playerId } = connection;
-  if (playerId === null) {
-    // Defensive: a joined player connection always carries its seat.
-    return reject(new NetworkError('internal_error', 'joined connection has no seat binding'));
-  }
+    const { playerId } = connection;
+    if (playerId === null) {
+        // Defensive: a joined player connection always carries its seat.
+        return reject(new NetworkError('internal_error', 'joined connection has no seat binding'));
+    }
 
-  const submittedAtSeq = connection.lastClientSeq;
-  channel.enqueueOrder(playerId, order, submittedAtSeq);
+    const submittedAtSeq = connection.lastClientSeq;
+    channel.enqueueOrder(playerId, order, submittedAtSeq);
 
-  // The pending reference mirrors the queued record shape; it lets
-  // callers correlate without reaching into channel internals.
-  const pendingRef: ProtocolEnvelope<NetworkPayload> = {
-    type: 'order',
-    version: '',
-    seq: submittedAtSeq,
-    payload: { order },
-  };
-  return { ok: true, pendingRef };
+    // The pending reference mirrors the queued record shape; it lets
+    // callers correlate without reaching into channel internals.
+    const pendingRef: ProtocolEnvelope<NetworkPayload> = {
+        type: 'order',
+        version: '',
+        seq: submittedAtSeq,
+        payload: { order },
+    };
+    return { ok: true, pendingRef };
 }
 
 // ----------------------------------------------------------------------------
@@ -115,10 +112,10 @@ export function acceptOrder(
 
 /** One applied order's outcome, keyed for ack routing. */
 export interface AppliedOrderOutcome {
-  readonly playerId: PlayerId;
-  readonly result: CommandResult;
-  /** Inbound envelope seq at submission (orderAck.seq correlation). */
-  readonly submittedAtSeq: number;
+    readonly playerId: PlayerId;
+    readonly result: CommandResult;
+    /** Inbound envelope seq at submission (orderAck.seq correlation). */
+    readonly submittedAtSeq: number;
 }
 
 /**
@@ -131,15 +128,15 @@ export interface AppliedOrderOutcome {
  * @returns Per-order outcomes in submission-drain order.
  */
 export function applyOrdersAtTickBoundary(channel: MatchChannel): AppliedOrderOutcome[] {
-  const drained = channel.drainOrdersForTick();
-  const outcomes: AppliedOrderOutcome[] = [];
-  for (const entry of drained) {
-    const result = channel.engineSession.submit(entry.order);
-    outcomes.push({
-      playerId: entry.playerId,
-      result,
-      submittedAtSeq: entry.submittedAtSeq,
-    });
-  }
-  return outcomes;
+    const drained = channel.drainOrdersForTick();
+    const outcomes: AppliedOrderOutcome[] = [];
+    for (const entry of drained) {
+        const result = channel.engineSession.submit(entry.order);
+        outcomes.push({
+            playerId: entry.playerId,
+            result,
+            submittedAtSeq: entry.submittedAtSeq,
+        });
+    }
+    return outcomes;
 }

@@ -71,92 +71,92 @@ const PLAYERS = 4;
  *          plus a `TickEvents` value (empty — decay doesn't emit).
  */
 export function resolveDecay(
-  state: Readonly<WorldState>,
-  board: Readonly<Board>,
-  constants: EngineConstants,
-  tickNumber: number,
-  inflowTally?: Readonly<Uint32Array>,
-  reservedFloors?: Readonly<Uint32Array>,
+    state: Readonly<WorldState>,
+    board: Readonly<Board>,
+    constants: EngineConstants,
+    tickNumber: number,
+    inflowTally?: Readonly<Uint32Array>,
+    reservedFloors?: Readonly<Uint32Array>,
 ): { state: WorldState; events: TickEvents } {
-  // `tickNumber` is reserved for future event emission.
-  void tickNumber;
+    // `tickNumber` is reserved for future event emission.
+    void tickNumber;
 
-  const n = board.width * board.height;
-  const decayPerTick = constants.decayPerTick >>> 0;
+    const n = board.width * board.height;
+    const decayPerTick = constants.decayPerTick >>> 0;
 
-  // We allocate fresh typed arrays and write into them; the input
-  // `state` arrays are never mutated.
-  const newCounts: Uint32Array = new Uint32Array(state.troopCounts);
-  const newOwners: Uint8Array = new Uint8Array(state.troopOwners);
+    // We allocate fresh typed arrays and write into them; the input
+    // `state` arrays are never mutated.
+    const newCounts: Uint32Array = new Uint32Array(state.troopCounts);
+    const newOwners: Uint8Array = new Uint8Array(state.troopOwners);
 
-  const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * PLAYERS;
-  const floorsAvailable = reservedFloors !== undefined && reservedFloors.length >= n;
+    const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * PLAYERS;
+    const floorsAvailable = reservedFloors !== undefined && reservedFloors.length >= n;
 
-  for (let idx = 0; idx < n; idx++) {
-    const count = newCounts[idx] ?? 0;
-    if (count === 0) {
-      continue;
+    for (let idx = 0; idx < n; idx++) {
+        const count = newCounts[idx] ?? 0;
+        if (count === 0) {
+            continue;
+        }
+
+        const owner = newOwners[idx] ?? 0;
+        if (owner === 0) {
+            continue; // neutral cell — nothing to decay
+        }
+
+        // City cells are self-feeding (the city produces troops each tick;
+        // they're their own supply). Skip them — the production phase keeps
+        // them topped up to city capacity, and decay would zero them out
+        // every tick otherwise.
+        if ((state.cityOwners[idx] ?? 0) !== 0) {
+            continue;
+        }
+
+        // Friendly-inflow check.
+        if (tallyAvailable) {
+            const tally = inflowTally as Uint32Array;
+            const inflowFromOwner = tally[idx * PLAYERS + (owner - 1)] ?? 0;
+            if (inflowFromOwner > 0) {
+                continue;
+            }
+        }
+
+        // Determine the floor for this cell. Two modes:
+        //   - Explicit fixed floor (FR-012 strict): the count below which
+        //     decay cannot go. Set when `setReserves` is applied.
+        //   - Fallback: derive from current count × reserves percent.
+        let floor: number;
+        if (floorsAvailable) {
+            floor = (reservedFloors as Uint32Array)[idx] ?? 0;
+        } else {
+            const reservesPct = (state.reservesPct[idx] ?? 0) >>> 0;
+            floor = computeReservesFloor(count, reservesPct);
+        }
+
+        // If already at or below the floor, no decay this tick.
+        if (count <= floor) {
+            continue;
+        }
+
+        // Subtract decayPerTick (integer); clamp to floor.
+        const next = (count - decayPerTick) >>> 0;
+        const clamped = next < floor ? floor : next;
+        newCounts[idx] = clamped;
+        // If count reached 0, owner becomes 0 (null).
+        if (clamped === 0) {
+            newOwners[idx] = 0;
+        }
     }
 
-    const owner = newOwners[idx] ?? 0;
-    if (owner === 0) {
-      continue; // neutral cell — nothing to decay
-    }
-
-    // City cells are self-feeding (the city produces troops each tick;
-    // they're their own supply). Skip them — the production phase keeps
-    // them topped up to city capacity, and decay would zero them out
-    // every tick otherwise.
-    if ((state.cityOwners[idx] ?? 0) !== 0) {
-      continue;
-    }
-
-    // Friendly-inflow check.
-    if (tallyAvailable) {
-      const tally = inflowTally as Uint32Array;
-      const inflowFromOwner = tally[idx * PLAYERS + (owner - 1)] ?? 0;
-      if (inflowFromOwner > 0) {
-        continue;
-      }
-    }
-
-    // Determine the floor for this cell. Two modes:
-    //   - Explicit fixed floor (FR-012 strict): the count below which
-    //     decay cannot go. Set when `setReserves` is applied.
-    //   - Fallback: derive from current count × reserves percent.
-    let floor: number;
-    if (floorsAvailable) {
-      floor = (reservedFloors as Uint32Array)[idx] ?? 0;
-    } else {
-      const reservesPct = (state.reservesPct[idx] ?? 0) >>> 0;
-      floor = computeReservesFloor(count, reservesPct);
-    }
-
-    // If already at or below the floor, no decay this tick.
-    if (count <= floor) {
-      continue;
-    }
-
-    // Subtract decayPerTick (integer); clamp to floor.
-    const next = (count - decayPerTick) >>> 0;
-    const clamped = next < floor ? floor : next;
-    newCounts[idx] = clamped;
-    // If count reached 0, owner becomes 0 (null).
-    if (clamped === 0) {
-      newOwners[idx] = 0;
-    }
-  }
-
-  return {
-    state: {
-      troopCounts: newCounts,
-      troopOwners: newOwners,
-      pipeMasks: new Uint8Array(state.pipeMasks),
-      reservesPct: new Uint8Array(state.reservesPct),
-      cityOwners: new Uint8Array(state.cityOwners),
-    },
-    events: emptyTickEvents(),
-  };
+    return {
+        state: {
+            troopCounts: newCounts,
+            troopOwners: newOwners,
+            pipeMasks: new Uint8Array(state.pipeMasks),
+            reservesPct: new Uint8Array(state.reservesPct),
+            cityOwners: new Uint8Array(state.cityOwners),
+        },
+        events: emptyTickEvents(),
+    };
 }
 
 /**
@@ -169,15 +169,15 @@ export function resolveDecay(
  * count, holding all troops.
  */
 function computeReservesFloor(count: number, reserves: number): number {
-  if (count <= 0) {
-    return 0;
-  }
-  if (reserves <= 0) {
-    return 0;
-  }
-  if (reserves >= 10) {
-    return count;
-  }
-  const flowable = Math.floor((count * (10 - reserves)) / 10);
-  return count - flowable;
+    if (count <= 0) {
+        return 0;
+    }
+    if (reserves <= 0) {
+        return 0;
+    }
+    if (reserves >= 10) {
+        return count;
+    }
+    const flowable = Math.floor((count * (10 - reserves)) / 10);
+    return count - flowable;
 }

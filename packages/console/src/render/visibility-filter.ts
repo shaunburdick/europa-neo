@@ -33,9 +33,9 @@ import type { CellRenderInfo, PlayerView } from '../state/types';
  * @returns Coord-keyed render info for every visible cell.
  */
 export function filterVisibleCells(view: PlayerView): ReadonlyMap<string, CellRenderInfo> {
-  const cells = new Map<string, CellRenderInfo>();
-  for (const cellView of view.visibleCells) {
-    cells.set(coordKey(cellView.coord), cellViewToRenderInfo(cellView));
-  }
-  return cells;
+    const cells = new Map<string, CellRenderInfo>();
+    for (const cellView of view.visibleCells) {
+        cells.set(coordKey(cellView.coord), cellViewToRenderInfo(cellView));
+    }
+    return cells;
 }

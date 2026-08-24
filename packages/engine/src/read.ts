@@ -27,71 +27,68 @@ const S_BIT = 0x04;
 const W_BIT = 0x08;
 
 const DIRECTIONS: ReadonlyArray<readonly [Direction, number, number]> = [
-  ['N', 0, -1],
-  ['E', 1, 0],
-  ['S', 0, 1],
-  ['W', -1, 0],
+    ['N', 0, -1],
+    ['E', 1, 0],
+    ['S', 0, 1],
+    ['W', -1, 0],
 ];
 
 /**
  * Decode a single cell into a `CellView`. O(1).
  */
 export function getCell(world: Readonly<World>, x: number, y: number): CellView {
-  const w = world.board.width;
-  const idx = y * w + x;
-  const cell = world.board.cells[idx];
-  if (cell === undefined) {
-    throw new Error(`getCell: cell [${String(x)},${String(y)}] not found`);
-  }
-  const mask = world.state.pipeMasks[idx] ?? 0;
-  const pipes = new Set<Direction>();
-  if ((mask & N_BIT) !== 0) {
-    pipes.add('N');
-  }
-  if ((mask & E_BIT) !== 0) {
-    pipes.add('E');
-  }
-  if ((mask & S_BIT) !== 0) {
-    pipes.add('S');
-  }
-  if ((mask & W_BIT) !== 0) {
-    pipes.add('W');
-  }
+    const w = world.board.width;
+    const idx = y * w + x;
+    const cell = world.board.cells[idx];
+    if (cell === undefined) {
+        throw new Error(`getCell: cell [${String(x)},${String(y)}] not found`);
+    }
+    const mask = world.state.pipeMasks[idx] ?? 0;
+    const pipes = new Set<Direction>();
+    if ((mask & N_BIT) !== 0) {
+        pipes.add('N');
+    }
+    if ((mask & E_BIT) !== 0) {
+        pipes.add('E');
+    }
+    if ((mask & S_BIT) !== 0) {
+        pipes.add('S');
+    }
+    if ((mask & W_BIT) !== 0) {
+        pipes.add('W');
+    }
 
-  const ownerByte = world.state.troopOwners[idx] ?? 0;
-  const cityByte = world.state.cityOwners[idx] ?? 0;
-  const reservesByte = world.state.reservesPct[idx] ?? 0;
+    const ownerByte = world.state.troopOwners[idx] ?? 0;
+    const cityByte = world.state.cityOwners[idx] ?? 0;
+    const reservesByte = world.state.reservesPct[idx] ?? 0;
 
-  return {
-    coord: { x, y },
-    cell,
-    troopCount: world.state.troopCounts[idx] ?? 0,
-    troopOwner: ownerByte === 0 ? null : (ownerByte as PlayerId),
-    pipes,
-    reservesPercent: reservesByte as ReservesPct,
-    cityOwner: cityByte === 0 ? null : (cityByte as PlayerId),
-  };
+    return {
+        coord: { x, y },
+        cell,
+        troopCount: world.state.troopCounts[idx] ?? 0,
+        troopOwner: ownerByte === 0 ? null : (ownerByte as PlayerId),
+        pipes,
+        reservesPercent: reservesByte as ReservesPct,
+        cityOwner: cityByte === 0 ? null : (cityByte as PlayerId),
+    };
 }
 
 /**
  * Iterate every cell in row-major order. The callback receives each
  * `CellView`; returning `false` stops iteration early.
  */
-export function forEachCell(
-  world: Readonly<World>,
-  visit: (view: CellView) => boolean | undefined,
-): void {
-  const w = world.board.width;
-  const h = world.board.height;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const view = getCell(world, x, y);
-      const result = visit(view);
-      if (result === false) {
-        return;
-      }
+export function forEachCell(world: Readonly<World>, visit: (view: CellView) => boolean | undefined): void {
+    const w = world.board.width;
+    const h = world.board.height;
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const view = getCell(world, x, y);
+            const result = visit(view);
+            if (result === false) {
+                return;
+            }
+        }
     }
-  }
 }
 
 /**
@@ -100,20 +97,20 @@ export function forEachCell(
  * order so consumers can iterate deterministically.
  */
 export function cellsInRange(world: Readonly<World>, center: Coord, r: number): readonly Coord[] {
-  const w = world.board.width;
-  const h = world.board.height;
-  const radius = Math.max(0, r | 0);
-  const minX = Math.max(0, center.x - radius);
-  const maxX = Math.min(w - 1, center.x + radius);
-  const minY = Math.max(0, center.y - radius);
-  const maxY = Math.min(h - 1, center.y + radius);
-  const out: Coord[] = [];
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      out.push({ x, y });
+    const w = world.board.width;
+    const h = world.board.height;
+    const radius = Math.max(0, r | 0);
+    const minX = Math.max(0, center.x - radius);
+    const maxX = Math.min(w - 1, center.x + radius);
+    const minY = Math.max(0, center.y - radius);
+    const maxY = Math.min(h - 1, center.y + radius);
+    const out: Coord[] = [];
+    for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+            out.push({ x, y });
+        }
     }
-  }
-  return out;
+    return out;
 }
 
 /**
@@ -121,44 +118,44 @@ export function cellsInRange(world: Readonly<World>, center: Coord, r: number): 
  * the neighbor sits in relative to `coord`. Order: N, E, S, W.
  */
 export function neighborsOf(
-  world: Readonly<World>,
-  coord: Coord,
+    world: Readonly<World>,
+    coord: Coord,
 ): ReadonlyArray<{ readonly direction: Direction; readonly coord: Coord }> {
-  const w = world.board.width;
-  const h = world.board.height;
-  const out: { direction: Direction; coord: Coord }[] = [];
-  for (const [dir, dx, dy] of DIRECTIONS) {
-    const nx = coord.x + dx;
-    const ny = coord.y + dy;
-    if (nx < 0 || nx >= w || ny < 0 || ny >= h) {
-      continue;
+    const w = world.board.width;
+    const h = world.board.height;
+    const out: { direction: Direction; coord: Coord }[] = [];
+    for (const [dir, dx, dy] of DIRECTIONS) {
+        const nx = coord.x + dx;
+        const ny = coord.y + dy;
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h) {
+            continue;
+        }
+        out.push({ direction: dir, coord: { x: nx, y: ny } });
     }
-    out.push({ direction: dir, coord: { x: nx, y: ny } });
-  }
-  return out;
+    return out;
 }
 
 /**
  * Player lookup by `PlayerId` (1-indexed; `players[id - 1]`).
  */
 export function getPlayer(world: Readonly<World>, id: PlayerId): Player {
-  const idx = id - 1;
-  const player = world.players[idx];
-  if (player === undefined) {
-    throw new Error(`getPlayer: no player with id ${String(id)}`);
-  }
-  return player;
+    const idx = id - 1;
+    const player = world.players[idx];
+    if (player === undefined) {
+        throw new Error(`getPlayer: no player with id ${String(id)}`);
+    }
+    return player;
 }
 
 /**
  * PlayerIds whose status is `'alive'`. Order matches `world.players`.
  */
 export function alivePlayers(world: Readonly<World>): readonly PlayerId[] {
-  const ids: PlayerId[] = [];
-  for (const p of world.players) {
-    if (p.status === 'alive') {
-      ids.push(p.id);
+    const ids: PlayerId[] = [];
+    for (const p of world.players) {
+        if (p.status === 'alive') {
+            ids.push(p.id);
+        }
     }
-  }
-  return ids;
+    return ids;
 }

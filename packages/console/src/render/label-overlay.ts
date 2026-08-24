@@ -35,14 +35,10 @@ import { CHIP_BACKGROUND, CHIP_TEXT } from './palette';
  * @param labels Labels to draw (pre-filtered with {@link liveLabels}).
  * @param zoom  Cell size in CSS pixels (camera zoom).
  */
-export function drawMapLabels(
-  ctx: CanvasRenderingContext2D,
-  labels: readonly MapLabel[],
-  zoom: number,
-): void {
-  for (const label of labels) {
-    drawLabelChip(ctx, label, zoom);
-  }
+export function drawMapLabels(ctx: CanvasRenderingContext2D, labels: readonly MapLabel[], zoom: number): void {
+    for (const label of labels) {
+        drawLabelChip(ctx, label, zoom);
+    }
 }
 
 /**
@@ -54,7 +50,7 @@ export function drawMapLabels(
  * @param nowMs  Monotonic clock reading.
  */
 export function liveLabels(labels: readonly MapLabel[], nowMs: number): readonly MapLabel[] {
-  return labels.filter((label) => nowMs <= label.expiresAtMs);
+    return labels.filter((label) => nowMs <= label.expiresAtMs);
 }
 
 /**
@@ -66,28 +62,28 @@ export function liveLabels(labels: readonly MapLabel[], nowMs: number): readonly
  * @param nowMs  Monotonic clock reading.
  */
 export function nextLabelExpiryMs(labels: readonly MapLabel[], nowMs: number): number | null {
-  let earliest: number | null = null;
-  for (const label of labels) {
-    if (label.expiresAtMs > nowMs && (earliest === null || label.expiresAtMs < earliest)) {
-      earliest = label.expiresAtMs;
+    let earliest: number | null = null;
+    for (const label of labels) {
+        if (label.expiresAtMs > nowMs && (earliest === null || label.expiresAtMs < earliest)) {
+            earliest = label.expiresAtMs;
+        }
     }
-  }
-  return earliest;
+    return earliest;
 }
 
 /** Draw one label chip (dark plate + white bold text). */
 function drawLabelChip(ctx: CanvasRenderingContext2D, label: MapLabel, zoom: number): void {
-  const fontSize = Math.max(10, Math.round(zoom * 0.3));
-  ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const metrics = ctx.measureText(label.text);
-  const chipWidth = metrics.width + fontSize * 0.6;
-  const chipHeight = fontSize * 1.3;
-  const chipX = label.cell.x * zoom + zoom / 2 - chipWidth / 2;
-  const chipY = label.cell.y * zoom;
-  ctx.fillStyle = CHIP_BACKGROUND;
-  ctx.fillRect(chipX, chipY, chipWidth, chipHeight);
-  ctx.fillStyle = CHIP_TEXT;
-  ctx.fillText(label.text, label.cell.x * zoom + zoom / 2, chipY + chipHeight / 2);
+    const fontSize = Math.max(10, Math.round(zoom * 0.3));
+    ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const metrics = ctx.measureText(label.text);
+    const chipWidth = metrics.width + fontSize * 0.6;
+    const chipHeight = fontSize * 1.3;
+    const chipX = label.cell.x * zoom + zoom / 2 - chipWidth / 2;
+    const chipY = label.cell.y * zoom;
+    ctx.fillStyle = CHIP_BACKGROUND;
+    ctx.fillRect(chipX, chipY, chipWidth, chipHeight);
+    ctx.fillStyle = CHIP_TEXT;
+    ctx.fillText(label.text, label.cell.x * zoom + zoom / 2, chipY + chipHeight / 2);
 }

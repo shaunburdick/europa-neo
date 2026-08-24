@@ -24,14 +24,14 @@ import type { MatchStatus } from '../contracts/match-types';
  * for the synthetic creation transition into `'filling'`.
  */
 export interface MatchStatusChangedEvent {
-  /** The match whose status changed. */
-  readonly matchId: MatchId;
-  /** Previous status, or `null` for creation. */
-  readonly from: MatchStatus | null;
-  /** New status. */
-  readonly to: MatchStatus;
-  /** Epoch ms of the transition (caller-supplied; never clock-read). */
-  readonly atMs: number;
+    /** The match whose status changed. */
+    readonly matchId: MatchId;
+    /** Previous status, or `null` for creation. */
+    readonly from: MatchStatus | null;
+    /** New status. */
+    readonly to: MatchStatus;
+    /** Epoch ms of the transition (caller-supplied; never clock-read). */
+    readonly atMs: number;
 }
 
 /** Listener signature for {@linkcode StatusEventBus.subscribe}. */
@@ -43,10 +43,10 @@ export type MatchStatusListener = (event: MatchStatusChangedEvent) => void;
  * cheap no-op.
  */
 export interface StatusEventBus {
-  /** Publish an event to every current listener. */
-  emit(event: MatchStatusChangedEvent): void;
-  /** Register a listener; returns its unsubscribe function. */
-  subscribe(listener: MatchStatusListener): () => void;
+    /** Publish an event to every current listener. */
+    emit(event: MatchStatusChangedEvent): void;
+    /** Register a listener; returns its unsubscribe function. */
+    subscribe(listener: MatchStatusListener): () => void;
 }
 
 /**
@@ -55,27 +55,27 @@ export interface StatusEventBus {
  * @returns A frozen {@linkcode StatusEventBus}.
  */
 export function createStatusBus(): StatusEventBus {
-  const listeners: MatchStatusListener[] = [];
+    const listeners: MatchStatusListener[] = [];
 
-  return Object.freeze({
-    emit(event: MatchStatusChangedEvent): void {
-      for (const listener of listeners) {
-        listener(event);
-      }
-    },
-    subscribe(listener: MatchStatusListener): () => void {
-      listeners.push(listener);
-      let active = true;
-      return () => {
-        if (!active) {
-          return;
-        }
-        active = false;
-        const index = listeners.indexOf(listener);
-        if (index >= 0) {
-          listeners.splice(index, 1);
-        }
-      };
-    },
-  });
+    return Object.freeze({
+        emit(event: MatchStatusChangedEvent): void {
+            for (const listener of listeners) {
+                listener(event);
+            }
+        },
+        subscribe(listener: MatchStatusListener): () => void {
+            listeners.push(listener);
+            let active = true;
+            return () => {
+                if (!active) {
+                    return;
+                }
+                active = false;
+                const index = listeners.indexOf(listener);
+                if (index >= 0) {
+                    listeners.splice(index, 1);
+                }
+            };
+        },
+    });
 }

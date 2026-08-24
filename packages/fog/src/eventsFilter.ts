@@ -38,11 +38,11 @@ import { emptyTickEvents } from '@europa/engine';
  * @returns A `Set` of flat-index keys for O(1) membership tests.
  */
 function buildVisibleIndex(visibleCells: readonly Coord[], width: number): Set<number> {
-  const keys = new Set<number>();
-  for (const coord of visibleCells) {
-    keys.add(coord.y * width + coord.x);
-  }
-  return keys;
+    const keys = new Set<number>();
+    for (const coord of visibleCells) {
+        keys.add(coord.y * width + coord.x);
+    }
+    return keys;
 }
 
 /**
@@ -69,46 +69,42 @@ function buildVisibleIndex(visibleCells: readonly Coord[], width: number): Set<n
  *         spectating).
  */
 export function filterTickEvents(
-  world: Readonly<World>,
-  visibleCells: readonly Coord[],
-  events: Readonly<TickEvents>,
-  spectator: boolean,
+    world: Readonly<World>,
+    visibleCells: readonly Coord[],
+    events: Readonly<TickEvents>,
+    spectator: boolean,
 ): Readonly<TickEvents> {
-  if (spectator) {
-    return events;
-  }
+    if (spectator) {
+        return events;
+    }
 
-  // Fast path: nothing to hide if there are no cell-level events at
-  // all — return the input untouched (preserves identity for callers
-  // that compare references).
-  if (events.combat.length === 0 && events.captures.length === 0) {
-    return events;
-  }
+    // Fast path: nothing to hide if there are no cell-level events at
+    // all — return the input untouched (preserves identity for callers
+    // that compare references).
+    if (events.combat.length === 0 && events.captures.length === 0) {
+        return events;
+    }
 
-  const visible = buildVisibleIndex(visibleCells, world.board.width);
+    const visible = buildVisibleIndex(visibleCells, world.board.width);
 
-  // Filter each cell-level category independently, preserving
-  // emission order. Player-level categories pass through as-is.
-  const combat = events.combat.filter((event) =>
-    visible.has(event.cell.y * world.board.width + event.cell.x),
-  );
-  const captures = events.captures.filter((event) =>
-    visible.has(event.cell.y * world.board.width + event.cell.x),
-  );
+    // Filter each cell-level category independently, preserving
+    // emission order. Player-level categories pass through as-is.
+    const combat = events.combat.filter((event) => visible.has(event.cell.y * world.board.width + event.cell.x));
+    const captures = events.captures.filter((event) => visible.has(event.cell.y * world.board.width + event.cell.x));
 
-  if (combat.length === events.combat.length && captures.length === events.captures.length) {
-    // Nothing was dropped — return the original reference so callers
-    // can rely on identity when the horizon hid nothing.
-    return events;
-  }
+    if (combat.length === events.combat.length && captures.length === events.captures.length) {
+        // Nothing was dropped — return the original reference so callers
+        // can rely on identity when the horizon hid nothing.
+        return events;
+    }
 
-  return {
-    combat,
-    captures,
-    eliminations: events.eliminations,
-    appliedOrders: events.appliedOrders,
-    errors: events.errors,
-  };
+    return {
+        combat,
+        captures,
+        eliminations: events.eliminations,
+        appliedOrders: events.appliedOrders,
+        errors: events.errors,
+    };
 }
 
 /**

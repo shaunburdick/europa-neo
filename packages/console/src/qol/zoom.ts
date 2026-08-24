@@ -41,8 +41,8 @@ export const ZOOM_WHEEL_STEP = 1.15;
 
 /** Board dimensions the pan clamp needs (cells). */
 export interface BoardBounds {
-  readonly width: number;
-  readonly height: number;
+    readonly width: number;
+    readonly height: number;
 }
 
 /**
@@ -53,20 +53,20 @@ export interface BoardBounds {
  * @param board  Board dimensions in cells.
  */
 export function clampCamera(camera: CameraState, board: BoardBounds): CameraState {
-  const { minZoom, maxZoom } = camera;
-  const zoom = Math.min(maxZoom, Math.max(minZoom, camera.zoom));
-  const minX = -(maxZoom * 2);
-  const maxX = board.width * zoom;
-  const minY = -(maxZoom * 2);
-  const maxY = board.height * zoom;
-  return {
-    ...camera,
-    zoom,
-    pan: {
-      x: Math.min(maxX, Math.max(minX, camera.pan.x)),
-      y: Math.min(maxY, Math.max(minY, camera.pan.y)),
-    },
-  };
+    const { minZoom, maxZoom } = camera;
+    const zoom = Math.min(maxZoom, Math.max(minZoom, camera.zoom));
+    const minX = -(maxZoom * 2);
+    const maxX = board.width * zoom;
+    const minY = -(maxZoom * 2);
+    const maxY = board.height * zoom;
+    return {
+        ...camera,
+        zoom,
+        pan: {
+            x: Math.min(maxX, Math.max(minX, camera.pan.x)),
+            y: Math.min(maxY, Math.max(minY, camera.pan.y)),
+        },
+    };
 }
 
 /**
@@ -80,25 +80,25 @@ export function clampCamera(camera: CameraState, board: BoardBounds): CameraStat
  * @param board   Board dimensions in cells.
  */
 export function zoomedCamera(
-  camera: CameraState,
-  deltaY: number,
-  cursor: ScreenPoint,
-  board: BoardBounds,
+    camera: CameraState,
+    deltaY: number,
+    cursor: ScreenPoint,
+    board: BoardBounds,
 ): CameraState {
-  const factor = deltaY < 0 ? ZOOM_WHEEL_STEP : 1 / ZOOM_WHEEL_STEP;
-  const rawZoom = camera.zoom * factor;
-  const zoom = Math.min(camera.maxZoom, Math.max(camera.minZoom, rawZoom));
-  // Hold the board point under the cursor stationary.
-  const boardX = (cursor.x - camera.pan.x) / camera.zoom;
-  const boardY = (cursor.y - camera.pan.y) / camera.zoom;
-  return clampCamera(
-    {
-      ...camera,
-      zoom,
-      pan: { x: cursor.x - boardX * zoom, y: cursor.y - boardY * zoom },
-    },
-    board,
-  );
+    const factor = deltaY < 0 ? ZOOM_WHEEL_STEP : 1 / ZOOM_WHEEL_STEP;
+    const rawZoom = camera.zoom * factor;
+    const zoom = Math.min(camera.maxZoom, Math.max(camera.minZoom, rawZoom));
+    // Hold the board point under the cursor stationary.
+    const boardX = (cursor.x - camera.pan.x) / camera.zoom;
+    const boardY = (cursor.y - camera.pan.y) / camera.zoom;
+    return clampCamera(
+        {
+            ...camera,
+            zoom,
+            pan: { x: cursor.x - boardX * zoom, y: cursor.y - boardY * zoom },
+        },
+        board,
+    );
 }
 
 /**
@@ -110,13 +110,8 @@ export function zoomedCamera(
  * @param dy     Vertical drag delta.
  * @param board  Board dimensions in cells.
  */
-export function pannedCamera(
-  camera: CameraState,
-  dx: number,
-  dy: number,
-  board: BoardBounds,
-): CameraState {
-  return clampCamera({ ...camera, pan: { x: camera.pan.x + dx, y: camera.pan.y + dy } }, board);
+export function pannedCamera(camera: CameraState, dx: number, dy: number, board: BoardBounds): CameraState {
+    return clampCamera({ ...camera, pan: { x: camera.pan.x + dx, y: camera.pan.y + dy } }, board);
 }
 
 /**
@@ -137,102 +132,102 @@ export function pannedCamera(
  * events on the overlay bubble through it.
  */
 export class ZoomPanController {
-  private readonly element: HTMLElement;
+    private readonly element: HTMLElement;
 
-  private readonly store: ConsoleStore;
+    private readonly store: ConsoleStore;
 
-  private readonly listeners: Array<() => void> = [];
+    private readonly listeners: Array<() => void> = [];
 
-  private lastPanPoint: ScreenPoint | null = null;
+    private lastPanPoint: ScreenPoint | null = null;
 
-  /**
-   * @param element The board-surface element events bind to (the area
-   *                covering the canvas, shared with region-select).
-   * @param store   Dispatch target + state source.
-   */
-  constructor(element: HTMLElement, store: ConsoleStore) {
-    this.element = element;
-    this.store = store;
-  }
+    /**
+     * @param element The board-surface element events bind to (the area
+     *                covering the canvas, shared with region-select).
+     * @param store   Dispatch target + state source.
+     */
+    constructor(element: HTMLElement, store: ConsoleStore) {
+        this.element = element;
+        this.store = store;
+    }
 
-  /** Attach all listeners. Returns a disposer. */
-  attach(): { readonly dispose: () => void } {
-    const wheelHandler = (event: WheelEvent): void => {
-      event.preventDefault();
-      const state = this.store.getState();
-      if (state.latestView === null) {
-        return;
-      }
-      const size = state.latestView.config.boardSize;
-      const next = zoomedCamera(state.camera, event.deltaY, this.relativePoint(event), {
-        width: size,
-        height: size,
-      });
-      this.store.dispatch({ kind: 'setCamera', camera: next });
-    };
+    /** Attach all listeners. Returns a disposer. */
+    attach(): { readonly dispose: () => void } {
+        const wheelHandler = (event: WheelEvent): void => {
+            event.preventDefault();
+            const state = this.store.getState();
+            if (state.latestView === null) {
+                return;
+            }
+            const size = state.latestView.config.boardSize;
+            const next = zoomedCamera(state.camera, event.deltaY, this.relativePoint(event), {
+                width: size,
+                height: size,
+            });
+            this.store.dispatch({ kind: 'setCamera', camera: next });
+        };
 
-    const downHandler = (event: PointerEvent): void => {
-      // Only the middle button pans (left = pipe toggle, right =
-      // exclusive pipe). Halt the gesture for every later listener on
-      // this element so region-select never turns a pan start into an
-      // exclusive-pipe click.
-      if (event.button !== 1) {
-        return;
-      }
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      this.lastPanPoint = this.relativePoint(event);
-      this.element.setPointerCapture(event.pointerId);
+        const downHandler = (event: PointerEvent): void => {
+            // Only the middle button pans (left = pipe toggle, right =
+            // exclusive pipe). Halt the gesture for every later listener on
+            // this element so region-select never turns a pan start into an
+            // exclusive-pipe click.
+            if (event.button !== 1) {
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.lastPanPoint = this.relativePoint(event);
+            this.element.setPointerCapture(event.pointerId);
 
-      const moveHandler = (moveEvent: PointerEvent): void => {
-        if (this.lastPanPoint === null) {
-          return;
-        }
-        const point = this.relativePoint(moveEvent);
-        const dx = point.x - this.lastPanPoint.x;
-        const dy = point.y - this.lastPanPoint.y;
-        this.lastPanPoint = point;
-        const state = this.store.getState();
-        if (state.latestView === null || (dx === 0 && dy === 0)) {
-          return;
-        }
-        const size = state.latestView.config.boardSize;
-        this.store.dispatch({
-          kind: 'setCamera',
-          camera: pannedCamera(state.camera, dx, dy, { width: size, height: size }),
-        });
-      };
-      const upHandler = (): void => {
-        this.lastPanPoint = null;
-        this.element.removeEventListener('pointermove', moveHandler);
-        this.element.removeEventListener('pointerup', upHandler);
-        this.element.removeEventListener('pointercancel', upHandler);
-      };
-      this.element.addEventListener('pointermove', moveHandler);
-      this.element.addEventListener('pointerup', upHandler);
-      this.element.addEventListener('pointercancel', upHandler);
-    };
+            const moveHandler = (moveEvent: PointerEvent): void => {
+                if (this.lastPanPoint === null) {
+                    return;
+                }
+                const point = this.relativePoint(moveEvent);
+                const dx = point.x - this.lastPanPoint.x;
+                const dy = point.y - this.lastPanPoint.y;
+                this.lastPanPoint = point;
+                const state = this.store.getState();
+                if (state.latestView === null || (dx === 0 && dy === 0)) {
+                    return;
+                }
+                const size = state.latestView.config.boardSize;
+                this.store.dispatch({
+                    kind: 'setCamera',
+                    camera: pannedCamera(state.camera, dx, dy, { width: size, height: size }),
+                });
+            };
+            const upHandler = (): void => {
+                this.lastPanPoint = null;
+                this.element.removeEventListener('pointermove', moveHandler);
+                this.element.removeEventListener('pointerup', upHandler);
+                this.element.removeEventListener('pointercancel', upHandler);
+            };
+            this.element.addEventListener('pointermove', moveHandler);
+            this.element.addEventListener('pointerup', upHandler);
+            this.element.addEventListener('pointercancel', upHandler);
+        };
 
-    this.element.addEventListener('wheel', wheelHandler, { passive: false });
-    this.element.addEventListener('pointerdown', downHandler);
-    this.listeners.push(
-      () => this.element.removeEventListener('wheel', wheelHandler),
-      () => this.element.removeEventListener('pointerdown', downHandler),
-    );
-    return {
-      dispose: () => {
-        for (const off of this.listeners) {
-          off();
-        }
-        this.listeners.length = 0;
-        this.lastPanPoint = null;
-      },
-    };
-  }
+        this.element.addEventListener('wheel', wheelHandler, { passive: false });
+        this.element.addEventListener('pointerdown', downHandler);
+        this.listeners.push(
+            () => this.element.removeEventListener('wheel', wheelHandler),
+            () => this.element.removeEventListener('pointerdown', downHandler),
+        );
+        return {
+            dispose: () => {
+                for (const off of this.listeners) {
+                    off();
+                }
+                this.listeners.length = 0;
+                this.lastPanPoint = null;
+            },
+        };
+    }
 
-  /** Translate a client-space event to an element-relative point. */
-  private relativePoint(event: WheelEvent | PointerEvent): ScreenPoint {
-    const rect = this.element.getBoundingClientRect();
-    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
-  }
+    /** Translate a client-space event to an element-relative point. */
+    private relativePoint(event: WheelEvent | PointerEvent): ScreenPoint {
+        const rect = this.element.getBoundingClientRect();
+        return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    }
 }

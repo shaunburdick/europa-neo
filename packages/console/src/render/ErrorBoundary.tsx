@@ -20,57 +20,57 @@ import { Component, type ErrorInfo, type JSX } from 'react';
 
 /** Props for {@link ErrorBoundary}. */
 export interface ErrorBoundaryProps {
-  /** The guarded subtree (the console root). */
-  readonly children: React.ReactNode;
-  /** Optional host hook invoked with every caught error. */
-  readonly onError?: ((error: Error, info: ErrorInfo) => void) | undefined;
+    /** The guarded subtree (the console root). */
+    readonly children: React.ReactNode;
+    /** Optional host hook invoked with every caught error. */
+    readonly onError?: ((error: Error, info: ErrorInfo) => void) | undefined;
 }
 
 /** Boundary state: the caught error, or `null` while healthy. */
 interface ErrorBoundaryState {
-  readonly error: Error | null;
+    readonly error: Error | null;
 }
 
 /**
  * Class-based React error boundary with an accessible fallback.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  override state: ErrorBoundaryState = { error: null };
+    override state: ErrorBoundaryState = { error: null };
 
-  /** React lifecycle: derive fallback state from a render error. */
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { error };
-  }
-
-  /** React lifecycle: report to the host hook (never `console.*`). */
-  override componentDidCatch(error: Error, info: ErrorInfo): void {
-    this.props.onError?.(error, info);
-  }
-
-  override render(): JSX.Element {
-    const { error } = this.state;
-    if (error !== null) {
-      return (
-        <div role="alert" className="europa-error-boundary">
-          <div aria-live="assertive" aria-atomic="true" className="europa-visually-hidden">
-            The console encountered an unexpected error and stopped rendering.
-          </div>
-          <h2 className="europa-error-boundary__title">Something went wrong</h2>
-          <p className="europa-error-boundary__body">
-            The console hit an unexpected error and cannot continue rendering this match.
-          </p>
-          <button
-            type="button"
-            className="europa-error-boundary__reload europa-focus-ring"
-            onClick={() => {
-              window.location.reload();
-            }}
-          >
-            Reload
-          </button>
-        </div>
-      );
+    /** React lifecycle: derive fallback state from a render error. */
+    static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+        return { error };
     }
-    return this.props.children as JSX.Element;
-  }
+
+    /** React lifecycle: report to the host hook (never `console.*`). */
+    override componentDidCatch(error: Error, info: ErrorInfo): void {
+        this.props.onError?.(error, info);
+    }
+
+    override render(): JSX.Element {
+        const { error } = this.state;
+        if (error !== null) {
+            return (
+                <div role="alert" className="europa-error-boundary">
+                    <div aria-live="assertive" aria-atomic="true" className="europa-visually-hidden">
+                        The console encountered an unexpected error and stopped rendering.
+                    </div>
+                    <h2 className="europa-error-boundary__title">Something went wrong</h2>
+                    <p className="europa-error-boundary__body">
+                        The console hit an unexpected error and cannot continue rendering this match.
+                    </p>
+                    <button
+                        type="button"
+                        className="europa-error-boundary__reload europa-focus-ring"
+                        onClick={() => {
+                            window.location.reload();
+                        }}
+                    >
+                        Reload
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children as JSX.Element;
+    }
 }

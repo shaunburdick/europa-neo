@@ -28,19 +28,12 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushEliminationEvent } from '../events';
-import type {
-  EliminationEvent,
-  MatchResult,
-  Player,
-  PlayerId,
-  TickEvents,
-  WorldState,
-} from '../types';
+import type { EliminationEvent, MatchResult, Player, PlayerId, TickEvents, WorldState } from '../types';
 
 interface TerminalResolutionResult {
-  players: readonly Player[];
-  events: TickEvents;
-  terminal?: MatchResult | undefined;
+    players: readonly Player[];
+    events: TickEvents;
+    terminal?: MatchResult | undefined;
 }
 
 /**
@@ -58,99 +51,99 @@ interface TerminalResolutionResult {
  * @returns `{ players, events, terminal? }`.
  */
 export function resolveTerminal(
-  state: Readonly<WorldState>,
-  prevPlayers: readonly Player[],
-  constants: EngineConstants,
-  tickNumber: number,
+    state: Readonly<WorldState>,
+    prevPlayers: readonly Player[],
+    constants: EngineConstants,
+    tickNumber: number,
 ): TerminalResolutionResult {
-  void constants;
+    void constants;
 
-  // Recompute troopsHeld + citiesOwned per player from `state` (the
-  // post-decay snapshot).
-  const troopsByPlayer = new Map<PlayerId, number>();
-  const citiesByPlayer = new Map<PlayerId, number>();
-  for (let i = 0; i < state.troopCounts.length; i++) {
-    const owner = state.troopOwners[i] ?? 0;
-    if (owner === 0) {
-      continue;
+    // Recompute troopsHeld + citiesOwned per player from `state` (the
+    // post-decay snapshot).
+    const troopsByPlayer = new Map<PlayerId, number>();
+    const citiesByPlayer = new Map<PlayerId, number>();
+    for (let i = 0; i < state.troopCounts.length; i++) {
+        const owner = state.troopOwners[i] ?? 0;
+        if (owner === 0) {
+            continue;
+        }
+        const prev = troopsByPlayer.get(owner as PlayerId) ?? 0;
+        troopsByPlayer.set(owner as PlayerId, prev + (state.troopCounts[i] ?? 0));
     }
-    const prev = troopsByPlayer.get(owner as PlayerId) ?? 0;
-    troopsByPlayer.set(owner as PlayerId, prev + (state.troopCounts[i] ?? 0));
-  }
-  for (let i = 0; i < state.cityOwners.length; i++) {
-    const owner = state.cityOwners[i] ?? 0;
-    if (owner === 0) {
-      continue;
-    }
-    const prev = citiesByPlayer.get(owner as PlayerId) ?? 0;
-    citiesByPlayer.set(owner as PlayerId, prev + 1);
-  }
-
-  let events: TickEvents = emptyTickEvents();
-  const updatedPlayers: Player[] = [];
-
-  for (const prev of prevPlayers) {
-    const troops = troopsByPlayer.get(prev.id) ?? 0;
-    const cities = citiesByPlayer.get(prev.id) ?? 0;
-
-    // Already out — preserve status, don't re-emit.
-    if (prev.status === 'eliminated' || prev.status === 'surrendered') {
-      updatedPlayers.push({
-        id: prev.id,
-        displayName: prev.displayName,
-        status: prev.status,
-        citiesOwned: cities,
-        troopsHeld: troops,
-      });
-      continue;
+    for (let i = 0; i < state.cityOwners.length; i++) {
+        const owner = state.cityOwners[i] ?? 0;
+        if (owner === 0) {
+            continue;
+        }
+        const prev = citiesByPlayer.get(owner as PlayerId) ?? 0;
+        citiesByPlayer.set(owner as PlayerId, prev + 1);
     }
 
-    // FR-015: zero troops AND zero cities → eliminated.
-    if (troops === 0 && cities === 0) {
-      const ev: EliminationEvent = {
-        tick: tickNumber,
-        player: prev.id,
-        reason: 'no_troops_no_cities',
-      };
-      events = pushEliminationEvent(events, ev);
-      updatedPlayers.push({
-        id: prev.id,
-        displayName: prev.displayName,
-        status: 'eliminated',
-        citiesOwned: cities,
-        troopsHeld: troops,
-      });
-      continue;
+    let events: TickEvents = emptyTickEvents();
+    const updatedPlayers: Player[] = [];
+
+    for (const prev of prevPlayers) {
+        const troops = troopsByPlayer.get(prev.id) ?? 0;
+        const cities = citiesByPlayer.get(prev.id) ?? 0;
+
+        // Already out — preserve status, don't re-emit.
+        if (prev.status === 'eliminated' || prev.status === 'surrendered') {
+            updatedPlayers.push({
+                id: prev.id,
+                displayName: prev.displayName,
+                status: prev.status,
+                citiesOwned: cities,
+                troopsHeld: troops,
+            });
+            continue;
+        }
+
+        // FR-015: zero troops AND zero cities → eliminated.
+        if (troops === 0 && cities === 0) {
+            const ev: EliminationEvent = {
+                tick: tickNumber,
+                player: prev.id,
+                reason: 'no_troops_no_cities',
+            };
+            events = pushEliminationEvent(events, ev);
+            updatedPlayers.push({
+                id: prev.id,
+                displayName: prev.displayName,
+                status: 'eliminated',
+                citiesOwned: cities,
+                troopsHeld: troops,
+            });
+            continue;
+        }
+
+        // Still alive (either has troops/cities now, or never had any).
+        updatedPlayers.push({
+            id: prev.id,
+            displayName: prev.displayName,
+            status: 'alive',
+            citiesOwned: cities,
+            troopsHeld: troops,
+        });
     }
 
-    // Still alive (either has troops/cities now, or never had any).
-    updatedPlayers.push({
-      id: prev.id,
-      displayName: prev.displayName,
-      status: 'alive',
-      citiesOwned: cities,
-      troopsHeld: troops,
-    });
-  }
+    // Count alive players in ascending PlayerId order (deterministic).
+    const alive = updatedPlayers.filter((p) => p.status === 'alive');
+    alive.sort((a, b) => a.id - b.id);
 
-  // Count alive players in ascending PlayerId order (deterministic).
-  const alive = updatedPlayers.filter((p) => p.status === 'alive');
-  alive.sort((a, b) => a.id - b.id);
-
-  let terminal: MatchResult | undefined;
-  if (alive.length === 0) {
-    terminal = { kind: 'draw', tick: tickNumber, reason: 'mutual_elimination' };
-  } else if (alive.length === 1) {
-    const [winner] = alive;
-    if (winner !== undefined) {
-      terminal = {
-        kind: 'win',
-        winner: winner.id,
-        tick: tickNumber,
-        reason: 'last_standing',
-      };
+    let terminal: MatchResult | undefined;
+    if (alive.length === 0) {
+        terminal = { kind: 'draw', tick: tickNumber, reason: 'mutual_elimination' };
+    } else if (alive.length === 1) {
+        const [winner] = alive;
+        if (winner !== undefined) {
+            terminal = {
+                kind: 'win',
+                winner: winner.id,
+                tick: tickNumber,
+                reason: 'last_standing',
+            };
+        }
     }
-  }
 
-  return { players: updatedPlayers, events, terminal };
+    return { players: updatedPlayers, events, terminal };
 }

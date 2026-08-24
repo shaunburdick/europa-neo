@@ -24,18 +24,18 @@
  */
 
 import type {
-  AttachPlayerRequest,
-  ConnectionId,
-  ConnectionRole,
-  DetachRequest,
-  EngineSession,
-  Logger,
-  MatchId,
-  MatchmakerBridge,
-  MatchResult,
-  RegisterMatchRequest,
-  ServerStats,
-  SessionToken,
+    AttachPlayerRequest,
+    ConnectionId,
+    ConnectionRole,
+    DetachRequest,
+    EngineSession,
+    Logger,
+    MatchId,
+    MatchmakerBridge,
+    MatchResult,
+    RegisterMatchRequest,
+    ServerStats,
+    SessionToken,
 } from '@europa/networking';
 
 /**
@@ -43,177 +43,165 @@ import type {
  * `Server`; the extra recording/binding surface is test-only.
  */
 export class FakeServer {
-  /** Every `registerMatch` request, in call order. */
-  readonly registerMatchCalls: RegisterMatchRequest[] = [];
-  /** Every `attachPlayer` request, in call order. */
-  readonly attachPlayerCalls: AttachPlayerRequest[] = [];
-  /** Every `detachPlayer` request, in call order. */
-  readonly detachPlayerCalls: DetachRequest[] = [];
-  /** Every unregistered match id, in call order. */
-  readonly unregisterMatchCalls: MatchId[] = [];
-  /** Every match id spectators were enabled for, in call order. */
-  readonly enableSpectatorsCalls: MatchId[] = [];
-  /** Every match id spectators were disabled for, in call order. */
-  readonly disableSpectatorsCalls: MatchId[] = [];
+    /** Every `registerMatch` request, in call order. */
+    readonly registerMatchCalls: RegisterMatchRequest[] = [];
+    /** Every `attachPlayer` request, in call order. */
+    readonly attachPlayerCalls: AttachPlayerRequest[] = [];
+    /** Every `detachPlayer` request, in call order. */
+    readonly detachPlayerCalls: DetachRequest[] = [];
+    /** Every unregistered match id, in call order. */
+    readonly unregisterMatchCalls: MatchId[] = [];
+    /** Every match id spectators were enabled for, in call order. */
+    readonly enableSpectatorsCalls: MatchId[] = [];
+    /** Every match id spectators were disabled for, in call order. */
+    readonly disableSpectatorsCalls: MatchId[] = [];
 
-  /** Injected wall clock (defaults to a fixed 0). */
-  private readonly nowFn: () => number;
-  /** Injected id factory (unused internally; symmetry with deps). */
-  private readonly randomIdFn: () => string;
-  /** Captured matchmaker handlers, merged across `bindMatchmaker` calls. */
-  private handlers: Partial<MatchmakerBridge> = {};
-  /** No-op logger handed to whoever asks. */
-  private readonly nullLogger: Logger = {
-    debug: () => {},
-    info: () => {},
-    warn: () => {},
-    error: () => {},
-  };
-
-  constructor(overrides?: { now?: () => number; randomId?: () => string }) {
-    this.nowFn = overrides?.now ?? (() => 0);
-    this.randomIdFn = overrides?.randomId ?? (() => 'fake-server-id');
-  }
-
-  // -- Server interface (inert) ---------------------------------------------
-
-  /** No-op: the fake never opens sockets. */
-  listen(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  /** No-op: the fake never holds resources. */
-  close(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  /** Zeroed snapshot: the fake drives no ticks or frames. */
-  stats(): ServerStats {
-    return {
-      uptimeMs: 0,
-      activeMatches: this.registerMatchCalls.length - this.unregisterMatchCalls.length,
-      activeConnections: 0,
-      totalTicks: 0,
-      totalFramesSent: 0,
-      totalFramesReceived: 0,
-      totalOrdersAccepted: 0,
-      totalOrdersRejected: 0,
-      totalRateLimitDrops: 0,
-      lastTickDurationMs: 0,
-      peakTickDurationMs: 0,
+    /** Injected wall clock (defaults to a fixed 0). */
+    private readonly nowFn: () => number;
+    /** Injected id factory (unused internally; symmetry with deps). */
+    private readonly randomIdFn: () => string;
+    /** Captured matchmaker handlers, merged across `bindMatchmaker` calls. */
+    private handlers: Partial<MatchmakerBridge> = {};
+    /** No-op logger handed to whoever asks. */
+    private readonly nullLogger: Logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
     };
-  }
 
-  /** Logger for tests that need to hand one onward. */
-  get logger(): Logger {
-    return this.nullLogger;
-  }
+    constructor(overrides?: { now?: () => number; randomId?: () => string }) {
+        this.nowFn = overrides?.now ?? (() => 0);
+        this.randomIdFn = overrides?.randomId ?? (() => 'fake-server-id');
+    }
 
-  // -- Recording implementations ----------------------------------------------
+    // -- Server interface (inert) ---------------------------------------------
 
-  /** Record a registration (matchmaking → networking). */
-  registerMatch(req: RegisterMatchRequest): void {
-    this.registerMatchCalls.push(req);
-  }
+    /** No-op: the fake never opens sockets. */
+    listen(): Promise<void> {
+        return Promise.resolve();
+    }
 
-  /** Record an unregister teardown (matchmaking → networking). */
-  unregisterMatch(matchId: MatchId): void {
-    this.unregisterMatchCalls.push(matchId);
-  }
+    /** No-op: the fake never holds resources. */
+    close(): Promise<void> {
+        return Promise.resolve();
+    }
 
-  /** Record a seat binding (matchmaking → networking). */
-  attachPlayer(req: AttachPlayerRequest): void {
-    this.attachPlayerCalls.push(req);
-  }
+    /** Zeroed snapshot: the fake drives no ticks or frames. */
+    stats(): ServerStats {
+        return {
+            uptimeMs: 0,
+            activeMatches: this.registerMatchCalls.length - this.unregisterMatchCalls.length,
+            activeConnections: 0,
+            totalTicks: 0,
+            totalFramesSent: 0,
+            totalFramesReceived: 0,
+            totalOrdersAccepted: 0,
+            totalOrdersRejected: 0,
+            totalRateLimitDrops: 0,
+            lastTickDurationMs: 0,
+            peakTickDurationMs: 0,
+        };
+    }
 
-  /** Record a seat detachment (matchmaking → networking, US5). */
-  detachPlayer(req: DetachRequest): void {
-    this.detachPlayerCalls.push(req);
-  }
+    /** Logger for tests that need to hand one onward. */
+    get logger(): Logger {
+        return this.nullLogger;
+    }
 
-  /** Record a spectator enablement (matchmaking → networking). */
-  enableSpectators(matchId: MatchId): void {
-    this.enableSpectatorsCalls.push(matchId);
-  }
+    // -- Recording implementations ----------------------------------------------
 
-  /** Record a spectator disablement (matchmaking → networking). */
-  disableSpectators(matchId: MatchId): void {
-    this.disableSpectatorsCalls.push(matchId);
-  }
+    /** Record a registration (matchmaking → networking). */
+    registerMatch(req: RegisterMatchRequest): void {
+        this.registerMatchCalls.push(req);
+    }
 
-  // -- Bridge plumbing ---------------------------------------------------------
+    /** Record an unregister teardown (matchmaking → networking). */
+    unregisterMatch(matchId: MatchId): void {
+        this.unregisterMatchCalls.push(matchId);
+    }
 
-  /**
-   * Capture the matchmaker's bridge handlers (the optional
-   * `bindMatchmaker` path from `contracts/matchmaking-api.ts`). Later
-   * calls merge over earlier ones.
-   */
-  bindMatchmaker(bridge: MatchmakerBridge): void {
-    this.handlers = { ...this.handlers, ...bridge };
-  }
+    /** Record a seat binding (matchmaking → networking). */
+    attachPlayer(req: AttachPlayerRequest): void {
+        this.attachPlayerCalls.push(req);
+    }
 
-  /**
-   * The engine session from the most recent `registerMatch`, if any.
-   * Held for forfeit tests that submit surrender orders into it.
-   */
-  get lastEngineSession(): EngineSession | undefined {
-    return this.registerMatchCalls[this.registerMatchCalls.length - 1]?.engineSession;
-  }
+    /** Record a seat detachment (matchmaking → networking, US5). */
+    detachPlayer(req: DetachRequest): void {
+        this.detachPlayerCalls.push(req);
+    }
 
-  // -- fireOn* triggers (tests invoke these) -----------------------------------
+    /** Record a spectator enablement (matchmaking → networking). */
+    enableSpectators(matchId: MatchId): void {
+        this.enableSpectatorsCalls.push(matchId);
+    }
 
-  /** Fire `onSeatClaimed` with the given payload. */
-  fireOnSeatClaimed(args: {
-    matchId: MatchId;
-    connectionId: ConnectionId;
-    sessionToken: SessionToken;
-    playerId: 1 | 2 | 3 | 4 | null;
-    role: ConnectionRole;
-  }): void {
-    this.handlers.onSeatClaimed?.(args);
-  }
+    /** Record a spectator disablement (matchmaking → networking). */
+    disableSpectators(matchId: MatchId): void {
+        this.disableSpectatorsCalls.push(matchId);
+    }
 
-  /** Fire `onSeatDisconnected` with the given payload. */
-  fireOnSeatDisconnected(args: {
-    matchId: MatchId;
-    connectionId: ConnectionId;
-    sessionToken: SessionToken;
-  }): void {
-    this.handlers.onSeatDisconnected?.(args);
-  }
+    // -- Bridge plumbing ---------------------------------------------------------
 
-  /** Fire `onSeatReconnected` with the given payload. */
-  fireOnSeatReconnected(args: {
-    matchId: MatchId;
-    connectionId: ConnectionId;
-    sessionToken: SessionToken;
-  }): void {
-    this.handlers.onSeatReconnected?.(args);
-  }
+    /**
+     * Capture the matchmaker's bridge handlers (the optional
+     * `bindMatchmaker` path from `contracts/matchmaking-api.ts`). Later
+     * calls merge over earlier ones.
+     */
+    bindMatchmaker(bridge: MatchmakerBridge): void {
+        this.handlers = { ...this.handlers, ...bridge };
+    }
 
-  /** Fire `onSeatExpired` with the given payload. */
-  fireOnSeatExpired(args: {
-    matchId: MatchId;
-    sessionToken: SessionToken;
-    playerId: 1 | 2 | 3 | 4 | null;
-  }): void {
-    this.handlers.onSeatExpired?.(args);
-  }
+    /**
+     * The engine session from the most recent `registerMatch`, if any.
+     * Held for forfeit tests that submit surrender orders into it.
+     */
+    get lastEngineSession(): EngineSession | undefined {
+        return this.registerMatchCalls[this.registerMatchCalls.length - 1]?.engineSession;
+    }
 
-  /** Fire `onMatchTerminal` with the given payload. */
-  fireOnMatchTerminal(args: { matchId: MatchId; result: MatchResult; tick: number }): void {
-    this.handlers.onMatchTerminal?.(args);
-  }
+    // -- fireOn* triggers (tests invoke these) -----------------------------------
 
-  // -- Unused-injection accessors ------------------------------------------------
+    /** Fire `onSeatClaimed` with the given payload. */
+    fireOnSeatClaimed(args: {
+        matchId: MatchId;
+        connectionId: ConnectionId;
+        sessionToken: SessionToken;
+        playerId: 1 | 2 | 3 | 4 | null;
+        role: ConnectionRole;
+    }): void {
+        this.handlers.onSeatClaimed?.(args);
+    }
 
-  /** Injected id factory (exposed for fixture symmetry/debugging). */
-  get randomId(): () => string {
-    return this.randomIdFn;
-  }
+    /** Fire `onSeatDisconnected` with the given payload. */
+    fireOnSeatDisconnected(args: { matchId: MatchId; connectionId: ConnectionId; sessionToken: SessionToken }): void {
+        this.handlers.onSeatDisconnected?.(args);
+    }
 
-  /** Injected clock (exposed for fixture symmetry/debugging). */
-  get now(): () => number {
-    return this.nowFn;
-  }
+    /** Fire `onSeatReconnected` with the given payload. */
+    fireOnSeatReconnected(args: { matchId: MatchId; connectionId: ConnectionId; sessionToken: SessionToken }): void {
+        this.handlers.onSeatReconnected?.(args);
+    }
+
+    /** Fire `onSeatExpired` with the given payload. */
+    fireOnSeatExpired(args: { matchId: MatchId; sessionToken: SessionToken; playerId: 1 | 2 | 3 | 4 | null }): void {
+        this.handlers.onSeatExpired?.(args);
+    }
+
+    /** Fire `onMatchTerminal` with the given payload. */
+    fireOnMatchTerminal(args: { matchId: MatchId; result: MatchResult; tick: number }): void {
+        this.handlers.onMatchTerminal?.(args);
+    }
+
+    // -- Unused-injection accessors ------------------------------------------------
+
+    /** Injected id factory (exposed for fixture symmetry/debugging). */
+    get randomId(): () => string {
+        return this.randomIdFn;
+    }
+
+    /** Injected clock (exposed for fixture symmetry/debugging). */
+    get now(): () => number {
+        return this.nowFn;
+    }
 }

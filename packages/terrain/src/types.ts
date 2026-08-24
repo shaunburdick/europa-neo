@@ -33,11 +33,11 @@
 // compiled code at runtime. This is the engine ↔ terrain boundary
 // rule from `engine-to-terrain.ts` line 7.
 export type {
-  Board,
-  Cell,
-  CityPlacement,
-  Coord,
-  PlayerId,
+    Board,
+    Cell,
+    CityPlacement,
+    Coord,
+    PlayerId,
 } from '@europa/engine';
 // Re-export the `TerrainConstants` interface from the API contract so
 // downstream packages can do `import type { TerrainConstants } from
@@ -50,22 +50,22 @@ export type { TerrainConstants } from './contracts/terrain-api';
 // downstream packages can do `import type { ... } from
 // '@europa/terrain'`. Names are alphabetical.
 export type {
-  // Settings
-  GenerationSettings,
-  // Inputs
-  MapSeed,
-  // Stats
-  MapStats,
-  // Output
-  Rng,
-  // Symmetry
-  SymmetryStrategy,
-  // Request + Result
-  TerrainGenerationRequest,
-  TerrainGenerationResult,
-  // Validation
-  ValidationReport,
-  Violation,
+    // Settings
+    GenerationSettings,
+    // Inputs
+    MapSeed,
+    // Stats
+    MapStats,
+    // Output
+    Rng,
+    // Symmetry
+    SymmetryStrategy,
+    // Request + Result
+    TerrainGenerationRequest,
+    TerrainGenerationResult,
+    // Validation
+    ValidationReport,
+    Violation,
 } from './contracts/terrain-types';
 
 // Single value exports from the contract: the terrain API version
@@ -73,12 +73,12 @@ export type {
 // for tests). Both are runtime artifacts; the rest of this file is
 // types-only.
 export {
-  DEFAULT_GENERATION_SETTINGS,
-  // Cross-package version pin (terrain was built against this engine
-  // API version). Drift between this and the engine's
-  // `ENGINE_API_VERSION` indicates the engine was bumped without
-  // rebuilding terrain — see `engine/contracts-drift.test.ts` for the
-  // engine-side equivalent.
-  ENGINE_API_VERSION_REF,
-  TERRAIN_API_VERSION,
+    DEFAULT_GENERATION_SETTINGS,
+    // Cross-package version pin (terrain was built against this engine
+    // API version). Drift between this and the engine's
+    // `ENGINE_API_VERSION` indicates the engine was bumped without
+    // rebuilding terrain — see `engine/contracts-drift.test.ts` for the
+    // engine-side equivalent.
+    ENGINE_API_VERSION_REF,
+    TERRAIN_API_VERSION,
 } from './contracts/terrain-types';
