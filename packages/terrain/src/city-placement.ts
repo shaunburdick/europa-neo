@@ -77,7 +77,7 @@ export function placeCitiesInBand(
   settings: Readonly<GenerationSettings>,
   rng: Rng,
   owner: PlayerId,
-): ReadonlyArray<CityPlacementLocal> {
+): readonly CityPlacementLocal[] {
   // Compute the band center (floating-point; we use it for sorting).
   const centerX = (band.xMin + band.xMax) / 2;
   const centerY = (band.yMin + band.yMax) / 2;
@@ -90,7 +90,9 @@ export function placeCitiesInBand(
     for (let x = band.xMin; x <= band.xMax; x++) {
       const idx = row + x;
       // Skip water cells (INV-8).
-      if ((water[idx] ?? 0) === 1) continue;
+      if ((water[idx] ?? 0) === 1) {
+        continue;
+      }
       const dx = Math.abs(x - centerX);
       const dy = Math.abs(y - centerY);
       const d = dx > dy ? dx : dy;
@@ -105,7 +107,9 @@ export function placeCitiesInBand(
   const K = settings.citiesPerPlayer;
   const picked: Candidate[] = [];
   for (const c of candidates) {
-    if (picked.length >= K) break;
+    if (picked.length >= K) {
+      break;
+    }
     // INV-10: min distance to water.
     if (!satisfiesMinWaterDistance(c, water, width, height, settings.minCityWaterDistance)) {
       continue;
@@ -119,7 +123,9 @@ export function placeCitiesInBand(
         break;
       }
     }
-    if (!satisfies) continue;
+    if (!satisfies) {
+      continue;
+    }
     // Tie-break: if multiple candidates have the same distance,
     // we use the rng to pick (consume one uint32 per tie). For
     // simplicity, we just consume one uint32 per pick (the
@@ -133,8 +139,12 @@ export function placeCitiesInBand(
   // placement; the validator will catch it).
   if (picked.length < K) {
     for (const c of candidates) {
-      if (picked.length >= K) break;
-      if (picked.some((p) => p.idx === c.idx)) continue;
+      if (picked.length >= K) {
+        break;
+      }
+      if (picked.some((p) => p.idx === c.idx)) {
+        continue;
+      }
       rng();
       picked.push(c);
     }
@@ -159,7 +169,9 @@ function satisfiesMinWaterDistance(
   height: number,
   minDist: number,
 ): boolean {
-  if (minDist <= 0) return true;
+  if (minDist <= 0) {
+    return true;
+  }
   // BFS up to `minDist` cells around the candidate. If we find a
   // water cell within `minDist`, fail.
   const visited = new Set<number>();
@@ -169,8 +181,12 @@ function satisfiesMinWaterDistance(
   visited.add(candidate.y * width + candidate.x);
   while (queue.length > 0) {
     const cur = queue.shift();
-    if (!cur) break;
-    if (cur.d >= minDist) continue;
+    if (!cur) {
+      break;
+    }
+    if (cur.d >= minDist) {
+      continue;
+    }
     const neighbors: ReadonlyArray<readonly [number, number]> = [
       [cur.x, cur.y - 1],
       [cur.x, cur.y + 1],
@@ -178,11 +194,17 @@ function satisfiesMinWaterDistance(
       [cur.x + 1, cur.y],
     ];
     for (const [nx, ny] of neighbors) {
-      if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+        continue;
+      }
       const ni = ny * width + nx;
-      if (visited.has(ni)) continue;
+      if (visited.has(ni)) {
+        continue;
+      }
       visited.add(ni);
-      if ((water[ni] ?? 0) === 1) return false; // water within minDist
+      if ((water[ni] ?? 0) === 1) {
+        return false; // water within minDist
+      }
       queue.push({ x: nx, y: ny, d: cur.d + 1 });
     }
   }

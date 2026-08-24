@@ -105,7 +105,7 @@ export function buildCellsFromElevation(elev: Uint8Array, waterMask: Uint8Array)
       `buildCellsFromElevation: length mismatch (elev=${String(elev.length)}, water=${String(waterMask.length)})`,
     );
   }
-  const length = elev.length;
+  const { length } = elev;
   // Square board: width === height === sqrt(length).
   const size = Math.sqrt(length);
   if (!Number.isInteger(size)) {
@@ -130,7 +130,7 @@ export function buildCellsFromElevation(elev: Uint8Array, waterMask: Uint8Array)
  * @returns Frozen `Board` with `cities: []`.
  * @throws If `size` is invalid, or `cells.length !== size * size`.
  */
-export function buildBoardFromCells(cells: ReadonlyArray<Cell>, size: number): Board {
+export function buildBoardFromCells(cells: readonly Cell[], size: number): Board {
   if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
     throw new Error(
       `buildBoardFromCells: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`,

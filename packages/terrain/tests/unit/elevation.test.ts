@@ -114,7 +114,9 @@ describe('elevation', () => {
       // At least 1% of cells must differ.
       let differences = 0;
       for (let i = 0; i < elev1.length; i++) {
-        if (elev1[i] !== elev2[i]) differences++;
+        if (elev1[i] !== elev2[i]) {
+          differences++;
+        }
       }
       expect(differences).toBeGreaterThan(elev1.length * 0.01);
     });
@@ -124,8 +126,12 @@ describe('elevation', () => {
       let min = 255;
       let max = 0;
       for (let i = 0; i < elev.length; i++) {
-        if (elev[i] < min) min = elev[i];
-        if (elev[i] > max) max = elev[i];
+        if (elev[i] < min) {
+          min = elev[i];
+        }
+        if (elev[i] > max) {
+          max = elev[i];
+        }
       }
       // With 4 octaves of fBm noise, the range is typically 100+.
       expect(max - min).toBeGreaterThan(50);

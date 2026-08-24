@@ -154,7 +154,9 @@ describe('value-noise', () => {
         for (let ix = 0; ix < 8; ix++) {
           const left = valueNoise(ix, iy, seed);
           const right = valueNoise(ix + 1, iy, seed);
-          if (left === right) continue;
+          if (left === right) {
+            continue;
+          }
           const mid = valueNoise(ix + 0.5, iy, seed);
           // Mid should be in [min, max], and the integer values are
           // always the corner samples themselves (so the mid is

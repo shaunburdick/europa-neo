@@ -59,11 +59,11 @@ export function _enforcePointSymmetry(elev: Uint8Array, width: number): Uint8Arr
   for (let y = 0; y < height; y++) {
     const yRow = y * width;
     const partnerY = height - 1 - y;
-    const partnerYRow = partnerY * width;
+    const partnerRow = partnerY * width;
     for (let x = 0; x < width; x++) {
       const partnerX = width - 1 - x;
       const value = elev[yRow + x] ?? 0;
-      elev[partnerYRow + partnerX] = value;
+      elev[partnerRow + partnerX] = value;
     }
   }
   return elev;

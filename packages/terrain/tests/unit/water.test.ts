@@ -147,7 +147,9 @@ describe('water', () => {
         for (let y = 0; y < size; y++) {
           for (let x = 0; x < size; x++) {
             const i = y * size + x;
-            if (water[i] !== 1 || visited[i] === 1) continue;
+            if (water[i] !== 1 || visited[i] === 1) {
+              continue;
+            }
             poolCount++;
             // BFS this pool.
             let poolSize = 0;
@@ -155,7 +157,9 @@ describe('water', () => {
             visited[i] = 1;
             while (queue.length > 0) {
               const idx = queue.shift();
-              if (idx === undefined) break;
+              if (idx === undefined) {
+                break;
+              }
               poolSize++;
               const cy = (idx - (idx % size)) / size;
               const cx = idx - cy * size;
@@ -166,7 +170,9 @@ describe('water', () => {
                 [cx + 1, cy],
               ];
               for (const [nx, ny] of neighbors) {
-                if (nx < 0 || nx >= size || ny < 0 || ny >= size) continue;
+                if (nx < 0 || nx >= size || ny < 0 || ny >= size) {
+                  continue;
+                }
                 const ni = ny * size + nx;
                 if (water[ni] === 1 && visited[ni] === 0) {
                   visited[ni] = 1;
@@ -174,7 +180,9 @@ describe('water', () => {
                 }
               }
             }
-            if (poolSize > largestPool) largestPool = poolSize;
+            if (poolSize > largestPool) {
+              largestPool = poolSize;
+            }
           }
         }
         // At least one pool of size ≥ 4 is required (INV-15).

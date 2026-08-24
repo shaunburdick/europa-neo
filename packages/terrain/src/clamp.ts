@@ -89,8 +89,12 @@ export const MAX_REGEN_ATTEMPTS_MAX = 10;
  * are the public surface; this one is a building block.
  */
 function clampInt(value: number, min: number, max: number): number {
-  if (value < min) return min;
-  if (value > max) return max;
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
   return Math.floor(value);
 }
 
@@ -105,8 +109,12 @@ function clampInt(value: number, min: number, max: number): number {
  * @returns The clamped value, guaranteed to be in `[WATER_RATIO_MIN, WATER_RATIO_MAX]`.
  */
 export function clampWaterRatio(v: number): number {
-  if (v < WATER_RATIO_MIN) return WATER_RATIO_MIN;
-  if (v > WATER_RATIO_MAX) return WATER_RATIO_MAX;
+  if (v < WATER_RATIO_MIN) {
+    return WATER_RATIO_MIN;
+  }
+  if (v > WATER_RATIO_MAX) {
+    return WATER_RATIO_MAX;
+  }
   return v;
 }
 
@@ -117,8 +125,12 @@ export function clampWaterRatio(v: number): number {
  * @returns The clamped value, guaranteed to be in `[ROUGHNESS_MIN, ROUGHNESS_MAX]`.
  */
 export function clampRoughness(v: number): number {
-  if (v < ROUGHNESS_MIN) return ROUGHNESS_MIN;
-  if (v > ROUGHNESS_MAX) return ROUGHNESS_MAX;
+  if (v < ROUGHNESS_MIN) {
+    return ROUGHNESS_MIN;
+  }
+  if (v > ROUGHNESS_MAX) {
+    return ROUGHNESS_MAX;
+  }
   return v;
 }
 

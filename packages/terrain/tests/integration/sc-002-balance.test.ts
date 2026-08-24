@@ -40,13 +40,14 @@ describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => 
         rng: engineSfc32(seed),
         settings: DEFAULT_GENERATION_SETTINGS,
       };
-      const result = generateBoard(req);
-      const board = result.board;
-      const SIZE = board.width;
+      const { board } = generateBoard(req);
+      const Size = board.width;
 
       // (a) Elevation variance > 100.
       let elevSum = 0;
-      for (const cell of board.cells) elevSum += cell.elevation;
+      for (const cell of board.cells) {
+        elevSum += cell.elevation;
+      }
       const elevMean = elevSum / board.cells.length;
       let elevSqSum = 0;
       for (const cell of board.cells) {
@@ -62,7 +63,9 @@ describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => 
       // (b) Water ratio within ±10% of target.
       let waterCount = 0;
       for (const cell of board.cells) {
-        if (cell.terrain === 'water') waterCount++;
+        if (cell.terrain === 'water') {
+          waterCount++;
+        }
       }
       const waterRatio = waterCount / board.cells.length;
       if (Math.abs(waterRatio - TARGET_WATER_RATIO) > WATER_RATIO_TOLERANCE) {
@@ -72,10 +75,10 @@ describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => 
 
       // (c) 180° symmetry on every cell (elevation + terrain).
       let symmetric = true;
-      for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
-          const cell = board.cells[y * SIZE + x];
-          const partner = board.cells[(SIZE - 1 - y) * SIZE + (SIZE - 1 - x)];
+      for (let y = 0; y < Size; y++) {
+        for (let x = 0; x < Size; x++) {
+          const cell = board.cells[y * Size + x];
+          const partner = board.cells[(Size - 1 - y) * Size + (Size - 1 - x)];
           if (!cell || !partner) {
             symmetric = false;
             break;
@@ -85,7 +88,9 @@ describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => 
             break;
           }
         }
-        if (!symmetric) break;
+        if (!symmetric) {
+          break;
+        }
       }
       if (!symmetric) {
         failures.push({ seed, reason: 'asymmetry' });
@@ -108,14 +113,18 @@ describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => 
         for (let j = i + 1; j < board.cities.length; j++) {
           const a = board.cities[i];
           const b = board.cities[j];
-          if (!a || !b) continue;
+          if (!a || !b) {
+            continue;
+          }
           const d = Math.max(Math.abs(a.cell.x - b.cell.x), Math.abs(a.cell.y - b.cell.y));
           if (d < DEFAULT_GENERATION_SETTINGS.minCityCityDistance) {
             citySpacingOk = false;
             break;
           }
         }
-        if (!citySpacingOk) break;
+        if (!citySpacingOk) {
+          break;
+        }
       }
       if (!citySpacingOk) {
         failures.push({ seed, reason: 'citySpacing' });
@@ -141,8 +150,12 @@ describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => 
         ];
         while (queue.length > 0) {
           const cur = queue.shift();
-          if (!cur) break;
-          if (cur.d >= minD) continue;
+          if (!cur) {
+            break;
+          }
+          if (cur.d >= minD) {
+            continue;
+          }
           for (const [dx, dy] of [
             [0, 1],
             [0, -1],
@@ -151,9 +164,13 @@ describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => 
           ] as const) {
             const nx = cur.x + dx;
             const ny = cur.y + dy;
-            if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE) continue;
+            if (nx < 0 || nx >= Size || ny < 0 || ny >= Size) {
+              continue;
+            }
             const key = `${String(nx)},${String(ny)}`;
-            if (visited.has(key)) continue;
+            if (visited.has(key)) {
+              continue;
+            }
             visited.add(key);
             if (waterSet.has(key)) {
               cityWaterOk = false;
@@ -161,9 +178,13 @@ describe('SC-002 / SC-004 balance (200 maps, every invariant must pass)', () => 
             }
             queue.push({ x: nx, y: ny, d: cur.d + 1 });
           }
-          if (!cityWaterOk) break;
+          if (!cityWaterOk) {
+            break;
+          }
         }
-        if (!cityWaterOk) break;
+        if (!cityWaterOk) {
+          break;
+        }
       }
       if (!cityWaterOk) {
         failures.push({ seed, reason: 'cityWaterDist' });

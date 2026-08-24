@@ -85,7 +85,9 @@ describe('placeCitiesInBand (US2 / FR-005)', () => {
         let bestD = Number.POSITIVE_INFINITY;
         for (const w of waterSet) {
           const d = Math.max(Math.abs(city.cell.x - w.x), Math.abs(city.cell.y - w.y));
-          if (d < bestD) bestD = d;
+          if (d < bestD) {
+            bestD = d;
+          }
         }
         expect(bestD).toBeGreaterThanOrEqual(settings.minCityWaterDistance);
       }
@@ -103,7 +105,9 @@ describe('placeCitiesInBand (US2 / FR-005)', () => {
         for (let j = i + 1; j < cities.length; j++) {
           const a = cities[i];
           const b = cities[j];
-          if (!a || !b) continue;
+          if (!a || !b) {
+            continue;
+          }
           const d = Math.max(Math.abs(a.cell.x - b.cell.x), Math.abs(a.cell.y - b.cell.y));
           expect(d).toBeGreaterThanOrEqual(settings.minCityCityDistance);
         }

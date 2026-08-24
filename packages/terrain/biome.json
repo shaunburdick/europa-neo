@@ -3,5 +3,59 @@
   "extends": ["../../biome.json"],
   "files": {
     "includes": ["src/**", "tests/**", "*.ts", "*.json", "!src/contracts"]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["tests/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noMagicNumbers": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/elevation.ts",
+        "src/fbm.ts",
+        "src/generate.ts",
+        "src/rng-adapter.ts",
+        "src/value-noise.ts",
+        "tests/fixtures/seeds.ts",
+        "tests/unit/elevation.test.ts",
+        "tests/unit/rng-adapter.test.ts",
+        "tests/unit/seed-fixtures.test.ts",
+        "tests/unit/value-noise.test.ts",
+        "tests/unit/validate.test.ts",
+        "tests/unit/water.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noBitwiseOperators": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/board.ts",
+        "src/city-band.ts",
+        "src/city-count.ts",
+        "src/city-symmetry.ts",
+        "src/fbm.ts",
+        "src/generate.ts",
+        "src/rng-adapter.ts",
+        "src/validate.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noMagicNumbers": "off"
+          }
+        }
+      }
+    }
+  ]
 }

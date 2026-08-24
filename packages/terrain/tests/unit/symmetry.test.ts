@@ -110,9 +110,9 @@ describe('symmetry', () => {
   });
 
   describe('generated-board round-trip (T052, INV-5/6 end-to-end)', () => {
-    const TRIALS = 50;
-    it(`${String(TRIALS)} seeds × full board scan: every cell matches its 180°-rotated partner`, () => {
-      const seeds = goldenSeeds(TRIALS);
+    const Trials = 50;
+    it(`${String(Trials)} seeds × full board scan: every cell matches its 180°-rotated partner`, () => {
+      const seeds = goldenSeeds(Trials);
       for (const seed of seeds) {
         const req = {
           boardSize: 32,
@@ -121,13 +121,12 @@ describe('symmetry', () => {
           rng: engineSfc32(seed),
           settings: DEFAULT_GENERATION_SETTINGS,
         };
-        const result = generateBoard(req);
-        const board = result.board;
-        const SIZE = board.width;
-        for (let y = 0; y < SIZE; y++) {
-          for (let x = 0; x < SIZE; x++) {
-            const cell = board.cells[y * SIZE + x];
-            const partner = board.cells[(SIZE - 1 - y) * SIZE + (SIZE - 1 - x)];
+        const { board } = generateBoard(req);
+        const Size = board.width;
+        for (let y = 0; y < Size; y++) {
+          for (let x = 0; x < Size; x++) {
+            const cell = board.cells[y * Size + x];
+            const partner = board.cells[(Size - 1 - y) * Size + (Size - 1 - x)];
             if (!cell || !partner) {
               throw new Error(
                 `seed=${String(seed)}: cell or partner missing at (${String(x)},${String(y)})`,

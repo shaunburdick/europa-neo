@@ -45,14 +45,24 @@ function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
     return p === 1 ? 2 : 1;
   }
   if (playerCount === 3) {
-    if (p === 1) return 3;
-    if (p === 3) return 1;
+    if (p === 1) {
+      return 3;
+    }
+    if (p === 3) {
+      return 1;
+    }
     return 2; // P2 is self-symmetric
   }
   // playerCount === 4
-  if (p === 1) return 4;
-  if (p === 2) return 3;
-  if (p === 3) return 2;
+  if (p === 1) {
+    return 4;
+  }
+  if (p === 2) {
+    return 3;
+  }
+  if (p === 3) {
+    return 2;
+  }
   return 1;
 }
 
@@ -73,11 +83,11 @@ function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
  *          symmetric.
  */
 export function enforceCitySymmetry(
-  placed: ReadonlyArray<InputCity>,
+  placed: readonly InputCity[],
   width: number,
   height: number,
   playerCount: 2 | 3 | 4,
-): ReadonlyArray<OutputCity> {
+): readonly OutputCity[] {
   // Build a lookup for dedup: if the input already contains a city
   // at the partner coord with the partner owner, we don't add a
   // duplicate. This handles the case where the caller placed

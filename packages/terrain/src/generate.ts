@@ -159,9 +159,13 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
     //   - 2p: P1 (partner is P2)
     //   - 3p: P1 (partner is P3), P2 (self-symmetric)
     //   - 4p: P1 (partner is P4), P2 (partner is P3)
-    const primaryPlayers: ReadonlyArray<PlayerId> = (() => {
-      if (req.playerCount === 2) return [1 as PlayerId];
-      if (req.playerCount === 3) return [1 as PlayerId, 2 as PlayerId];
+    const primaryPlayers: readonly PlayerId[] = (() => {
+      if (req.playerCount === 2) {
+        return [1 as PlayerId];
+      }
+      if (req.playerCount === 3) {
+        return [1 as PlayerId, 2 as PlayerId];
+      }
       return [1 as PlayerId, 2 as PlayerId]; // 4p
     })();
     const placedCities: Array<{ cell: { x: number; y: number }; owner: PlayerId }> = [];
@@ -249,12 +253,12 @@ export function hashBoard(board: Readonly<Board>): string {
   // FNV-1a 64-bit hash. We keep two 32-bit accumulators (`lo` and
   // `hi`) to simulate 64-bit ops using 32-bit int math. Constants
   // from the public-domain FNV reference.
-  const FNV_OFFSET_LO = 0xcbf29ce4;
-  const FNV_OFFSET_HI = 0x84222325;
-  const FNV_PRIME_LO = 0x01000193;
-  const FNV_PRIME_HI = 0x000001b3;
-  let lo = FNV_OFFSET_LO >>> 0;
-  let hi = FNV_OFFSET_HI >>> 0;
+  const FnvOffsetLo = 0xcbf29ce4;
+  const FnvOffsetHi = 0x84222325;
+  const FnvPrimeLo = 0x01000193;
+  const FnvPrimeHi = 0x000001b3;
+  let lo = FnvOffsetLo >>> 0;
+  let hi = FnvOffsetHi >>> 0;
   // Helper: FNV-1a step on (lo, hi) with a uint8 byte.
   const step = (b: number): void => {
     lo ^= b & 0xff;
@@ -262,17 +266,19 @@ export function hashBoard(board: Readonly<Board>): string {
     // We compute (lo*PRIME) mod 2^32 as the new lo, and the carry
     // (plus hi*PRIME) mod 2^32 as the new hi. The carry is
     // floor(lo * PRIME / 2^32) plus any overflow from hi*PRIME.
-    const loTimesPrime = Math.imul(lo, FNV_PRIME_LO);
-    const carry = Math.floor((lo * FNV_PRIME_LO) / 0x100000000);
+    const loTimesPrime = Math.imul(lo, FnvPrimeLo);
+    const carry = Math.floor((lo * FnvPrimeLo) / 0x100000000);
     lo = (loTimesPrime >>> 0) & 0xffffffff;
-    const hiTimesPrime = Math.imul(hi, FNV_PRIME_LO) >>> 0;
-    const hiPlus = Math.imul(lo, FNV_PRIME_HI) >>> 0;
+    const hiTimesPrime = Math.imul(hi, FnvPrimeLo) >>> 0;
+    const hiPlus = Math.imul(lo, FnvPrimeHi) >>> 0;
     hi = ((hiTimesPrime + hiPlus + carry) >>> 0) & 0xffffffff;
   };
   // Hash cells (row-major): for each cell, hash x, y, elevation, terrain.
   for (let i = 0; i < board.cells.length; i++) {
     const cell = board.cells[i];
-    if (!cell) continue;
+    if (!cell) {
+      continue;
+    }
     step(cell.x);
     step(cell.y);
     step(cell.elevation);

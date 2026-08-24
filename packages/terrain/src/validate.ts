@@ -66,13 +66,17 @@ function buildWaterSet(board: Board): Set<number> {
  * Returns `Infinity` if there are no water cells.
  */
 function distanceToNearestWater(coord: Coord, waterSet: Set<number>, width: number): number {
-  if (waterSet.size === 0) return Number.POSITIVE_INFINITY;
+  if (waterSet.size === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
   let best = Number.POSITIVE_INFINITY;
   for (const idx of waterSet) {
     const wy = Math.floor(idx / width);
     const wx = idx - wy * width;
     const d = chebyshev(coord, { x: wx, y: wy });
-    if (d < best) best = d;
+    if (d < best) {
+      best = d;
+    }
   }
   return best;
 }
@@ -88,7 +92,9 @@ function bfsLandReachable(board: Board, start: Coord): Set<number> {
   reachable.add(queue[0] as number);
   while (queue.length > 0) {
     const idx = queue.shift();
-    if (idx === undefined) break;
+    if (idx === undefined) {
+      break;
+    }
     const y = Math.floor(idx / width);
     const x = idx - y * width;
     const neighbors: ReadonlyArray<readonly [number, number]> = [
@@ -98,11 +104,17 @@ function bfsLandReachable(board: Board, start: Coord): Set<number> {
       [x + 1, y],
     ];
     for (const [nx, ny] of neighbors) {
-      if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+        continue;
+      }
       const ni = ny * width + nx;
-      if (reachable.has(ni)) continue;
+      if (reachable.has(ni)) {
+        continue;
+      }
       const cell = board.cells[ni];
-      if (cell?.terrain !== 'land') continue;
+      if (cell?.terrain !== 'land') {
+        continue;
+      }
       reachable.add(ni);
       queue.push(ni);
     }
@@ -123,14 +135,18 @@ function waterPoolStats(board: Board): { largestPool: number; numPools: number }
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
       const cell = board.cells[i];
-      if (cell?.terrain !== 'water' || visited[i] === 1) continue;
+      if (cell?.terrain !== 'water' || visited[i] === 1) {
+        continue;
+      }
       numPools++;
       let poolSize = 0;
       const queue: number[] = [i];
       visited[i] = 1;
       while (queue.length > 0) {
         const idx = queue.shift();
-        if (idx === undefined) break;
+        if (idx === undefined) {
+          break;
+        }
         poolSize++;
         const cy = Math.floor(idx / width);
         const cx = idx - cy * width;
@@ -141,7 +157,9 @@ function waterPoolStats(board: Board): { largestPool: number; numPools: number }
           [cx + 1, cy],
         ];
         for (const [nx, ny] of neighbors) {
-          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+            continue;
+          }
           const ni = ny * width + nx;
           const ncell = board.cells[ni];
           if (ncell?.terrain === 'water' && visited[ni] === 0) {
@@ -150,7 +168,9 @@ function waterPoolStats(board: Board): { largestPool: number; numPools: number }
           }
         }
       }
-      if (poolSize > largestPool) largestPool = poolSize;
+      if (poolSize > largestPool) {
+        largestPool = poolSize;
+      }
     }
   }
   return { largestPool, numPools };
@@ -160,10 +180,14 @@ function waterPoolStats(board: Board): { largestPool: number; numPools: number }
  * Compute the actual water ratio (water cells / total cells).
  */
 function waterRatio(board: Board): number {
-  if (board.cells.length === 0) return 0;
+  if (board.cells.length === 0) {
+    return 0;
+  }
   let count = 0;
   for (const cell of board.cells) {
-    if (cell?.terrain === 'water') count++;
+    if (cell?.terrain === 'water') {
+      count++;
+    }
   }
   return count / board.cells.length;
 }
@@ -173,7 +197,9 @@ function waterRatio(board: Board): number {
  */
 function elevationVariance(board: Board): number {
   const n = board.cells.length;
-  if (n === 0) return 0;
+  if (n === 0) {
+    return 0;
+  }
   let sum = 0;
   for (const cell of board.cells) {
     sum += cell?.elevation ?? 0;
@@ -193,26 +219,36 @@ function elevationVariance(board: Board): number {
 function buildMapStats(board: Board, effectiveSettings: Readonly<GenerationSettings>): MapStats {
   const { largestPool, numPools } = waterPoolStats(board);
   // City-pair stats.
-  const cities = board.cities;
+  const { cities } = board;
   let minCitySeparation = Number.POSITIVE_INFINITY;
   for (let i = 0; i < cities.length; i++) {
     for (let j = i + 1; j < cities.length; j++) {
       const a = cities[i];
       const b = cities[j];
-      if (!a || !b) continue;
+      if (!a || !b) {
+        continue;
+      }
       const d = chebyshev(a.cell, b.cell);
-      if (d < minCitySeparation) minCitySeparation = d;
+      if (d < minCitySeparation) {
+        minCitySeparation = d;
+      }
     }
   }
-  if (!Number.isFinite(minCitySeparation)) minCitySeparation = -1;
+  if (!Number.isFinite(minCitySeparation)) {
+    minCitySeparation = -1;
+  }
   // City-to-water stats.
   const waterSet = buildWaterSet(board);
   let minCityWaterSeparation = Number.POSITIVE_INFINITY;
   for (const city of cities) {
     const d = distanceToNearestWater(city.cell, waterSet, board.width);
-    if (d < minCityWaterSeparation) minCityWaterSeparation = d;
+    if (d < minCityWaterSeparation) {
+      minCityWaterSeparation = d;
+    }
   }
-  if (!Number.isFinite(minCityWaterSeparation)) minCityWaterSeparation = -1;
+  if (!Number.isFinite(minCityWaterSeparation)) {
+    minCityWaterSeparation = -1;
+  }
   return {
     waterRatio: waterRatio(board),
     elevationVariance: elevationVariance(board),
@@ -290,7 +326,9 @@ export function validateBoard(
       // INV-5, INV-6: 180° symmetry.
       const partnerIdx = (height - 1 - y) * width + (width - 1 - x);
       const partner = board.cells[partnerIdx];
-      if (!partner) continue;
+      if (!partner) {
+        continue;
+      }
       if (cell.terrain !== partner.terrain) {
         violations.push({
           kind: 'asymmetry',
@@ -387,7 +425,9 @@ export function validateBoard(
       for (let j = i + 1; j < board.cities.length; j++) {
         const a = board.cities[i];
         const b = board.cities[j];
-        if (!a || !b) continue;
+        if (!a || !b) {
+          continue;
+        }
         const d = chebyshev(a.cell, b.cell);
         if (d < settings.minCityCityDistance) {
           violations.push({
@@ -403,7 +443,7 @@ export function validateBoard(
 
   // INV-12: BFS connectivity (every city reaches every other city).
   if (hasCities) {
-    const first = board.cities[0];
+    const [first] = board.cities;
     if (first) {
       const reachable = bfsLandReachable(board, first.cell);
       for (const city of board.cities) {

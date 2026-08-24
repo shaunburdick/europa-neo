@@ -49,13 +49,17 @@ function buildValidBoard(): Board {
   // Find a land cell far from water for the P1 city.
   const waterSet = new Set<number>();
   for (let i = 0; i < board.cells.length; i++) {
-    if (board.cells[i]?.terrain === 'water') waterSet.add(i);
+    if (board.cells[i]?.terrain === 'water') {
+      waterSet.add(i);
+    }
   }
   // Pick a corner that's land and not adjacent to water.
   let p1Cell: Coord | null = null;
   for (let y = 0; y < SIZE && p1Cell === null; y++) {
     for (let x = 0; x < SIZE && p1Cell === null; x++) {
-      if (board.cells[y * SIZE + x]?.terrain !== 'land') continue;
+      if (board.cells[y * SIZE + x]?.terrain !== 'land') {
+        continue;
+      }
       let nearWater = false;
       const neighbors: ReadonlyArray<readonly [number, number]> = [
         [x, y - 1],
@@ -64,7 +68,9 @@ function buildValidBoard(): Board {
         [x + 1, y],
       ];
       for (const [nx, ny] of neighbors) {
-        if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE) continue;
+        if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE) {
+          continue;
+        }
         if (waterSet.has(ny * SIZE + nx)) {
           nearWater = true;
           break;
@@ -175,7 +181,9 @@ describe('validate (15 invariants per data-model.md §11)', () => {
       const partnerIdx = 31 * 32 + 31;
       const c0 = cells[idx];
       const c1 = cells[partnerIdx];
-      if (!c0 || !c1) throw new Error('test setup');
+      if (!c0 || !c1) {
+        throw new Error('test setup');
+      }
       cells[idx] = { ...c0, terrain: c0.terrain === 'land' ? 'water' : 'land' };
       const mutated: Board = { ...board, cells };
       const report = validateBoard(mutated, PASSING_SETTINGS, 2);
@@ -190,7 +198,9 @@ describe('validate (15 invariants per data-model.md §11)', () => {
       const cells = [...board.cells];
       const idx = 0;
       const c0 = cells[idx];
-      if (!c0) throw new Error('test setup');
+      if (!c0) {
+        throw new Error('test setup');
+      }
       cells[idx] = { ...c0, elevation: (c0.elevation + 1) & 0xff };
       const mutated: Board = { ...board, cells };
       const report = validateBoard(mutated, PASSING_SETTINGS, 2);

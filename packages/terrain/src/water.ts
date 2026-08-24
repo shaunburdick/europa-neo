@@ -115,7 +115,9 @@ export function extractWater(
   const markedPairs = Math.min(halfCount, pairs.length);
   for (let i = 0; i < markedPairs; i++) {
     const pair = pairs[i];
-    if (!pair) continue;
+    if (!pair) {
+      continue;
+    }
     water[pair.a] = 1;
     if (pair.b !== pair.a) {
       water[pair.b] = 1;

@@ -92,7 +92,9 @@ describe('contract drift detection (src/contracts vs spec contracts)', () => {
             break;
           }
         }
-        if (firstDiff === -1) firstDiff = minLen;
+        if (firstDiff === -1) {
+          firstDiff = minLen;
+        }
 
         const ctxStart = Math.max(0, firstDiff - 80);
         const ctxEnd = Math.min(localNorm.length, firstDiff + 80);

@@ -143,7 +143,9 @@ describe('fbm', () => {
         const y = i * 1.3;
         const low = fbm(x, y, seed, 4, 0.1);
         const high = fbm(x, y, seed, 4, 0.9);
-        if (low !== high) differences++;
+        if (low !== high) {
+          differences++;
+        }
       }
       // At least 12 of 16 should differ (a generous threshold for
       // a hash-based fBm — even equal-collisions on individual
