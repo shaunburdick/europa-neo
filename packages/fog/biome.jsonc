@@ -47,6 +47,19 @@
           }
         }
       }
+    },
+    {
+      // The file's 2 ** 31 and 2 ** 32 literals are the mathematical
+      // signed-32-bit normalization boundaries required to match engine `r | 0`;
+      // they are not arbitrary numeric literals.
+      "includes": ["src/visibleSet.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noMagicNumbers": "off"
+          }
+        }
+      }
     }
   ]
 }
