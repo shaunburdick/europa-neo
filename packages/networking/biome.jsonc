@@ -1,0 +1,60 @@
+{
+    "root": false,
+    "extends": ["../../biome.jsonc"],
+    "files": {
+        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc", "!src/contracts"]
+    },
+    "overrides": [
+        {
+            // Protocol fixtures use literal wire limits, codes, coordinates, and sequence vectors.
+            "includes": [
+                "tests/contracts-conformance.test.ts",
+                "tests/fixtures/conn.ts",
+                "tests/fixtures/match.ts",
+                "tests/integration/frame-cap.test.ts",
+                "tests/integration/perf.test.ts",
+                "tests/integration/rate-limit.test.ts",
+                "tests/integration/us1-acceptance.test.ts",
+                "tests/integration/us2-acceptance.test.ts",
+                "tests/integration/us3-acceptance.test.ts",
+                "tests/unit/broadcast.test.ts",
+                "tests/unit/clock.test.ts",
+                "tests/unit/connection.test.ts",
+                "tests/unit/constants.test.ts",
+                "tests/unit/fixtures.conn.test.ts",
+                "tests/unit/fixtures.match.test.ts",
+                "tests/unit/frame.test.ts",
+                "tests/unit/ids.test.ts",
+                "tests/unit/index.test.ts",
+                "tests/unit/matchChannel.test.ts",
+                "tests/unit/orders.test.ts",
+                "tests/unit/reconnect.test.ts",
+                "tests/unit/resync.test.ts",
+                "tests/unit/server.test.ts",
+                "tests/unit/spectator.test.ts",
+                "tests/unit/stats.test.ts",
+                "tests/unit/validate.test.ts"
+            ],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noMagicNumbers": "off"
+                    }
+                }
+            },
+            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+        },
+        {
+            // Contract mirror formatting is protected by byte-identity tests.
+            "includes": ["src/contracts/**"],
+            "formatter": { "enabled": false },
+            "linter": {
+                "rules": {
+                    "correctness": { "noUnusedImports": "off" },
+                    "style": { "useConsistentArrayType": "off" },
+                    "suspicious": { "noConfusingVoidType": "off" }
+                }
+            }
+        }
+    ]
+}

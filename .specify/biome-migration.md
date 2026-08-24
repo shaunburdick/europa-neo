@@ -10,35 +10,22 @@
 The root `biome.json` extends the published package. The repository's existing
 package configs continue to extend the root config; `root: false` makes that
 relationship explicit for Biome 2 when configurations are validated together.
-The repository keeps its established formatter settings (two-space indentation,
-100-column lines, single quotes, semicolons) for this staged migration. The
-published preset's four-space/120-column formatter is therefore not applied yet.
+The repository adopts the published formatter settings: four-space indentation,
+120-column lines, LF endings, single quotes, semicolons, trailing commas, and
+organize-imports assist actions.
 
 The root excludes dependencies, build and coverage output, TypeScript build
-metadata, the immutable `europa-source/` archive, the lockfile, contract mirrors,
-and the committed determinism golden artifact. Contract and golden files are
-validated by their dedicated byte-identity tests instead of a formatter.
+metadata, the immutable `europa-source/` archive, the lockfile, feature-spec
+contract text, and the committed determinism golden artifact. Package contract
+mirrors remain source-controlled API artifacts and are linted where package
+configuration permits; formatting and import organization are disabled for
+those exact mirrors to preserve byte identity.
 
 ## Enforcement stages
 
-All rules from the published preset are enabled; no broad rule group is disabled.
-The following high-volume findings are warning-level during Phase 1 so local and
-CI checks report migration work without making an unsafe repository-wide rewrite
-the merge gate:
-
-- `style/noMagicNumbers`
-- `style/useBlockStatements`
-- `style/useConsistentArrayType`
-- `style/useConsistentMemberAccessibility`
-- `style/useDestructuring`
-- `style/useNamingConvention`
-- `suspicious/noBitwiseOperators`
-- `correctness/noUndeclaredDependencies`
-
-The existing recommended rules, `noExplicitAny`, `noDebugger`, and the remaining
-published rules stay error-level. Formatting remains report-only against the
-current repository style; no bulk formatting is permitted in Phase 1. Warnings
-must be reduced package-by-package in later phases, then promoted to errors.
+All rules from the published preset are enabled at error severity; no warning-only
+migration categories remain. `noConsole` is strict. Exact test/performance paths
+that intentionally emit benchmark diagnostics retain a package-local exception.
 Inline suppressions are not an approved migration mechanism.
 
 ## Package order and exit criteria
@@ -49,11 +36,9 @@ exceptions (`useSemanticElements`, `useFocusableInteractive`, and
 `noNoninteractiveTabindex`) because the ARIA grid overlay deliberately uses
 custom keyboard semantics; the exceptions are scoped only to that package.
 
-Phase 1 exits when the adopted config resolves, all config files parse, the
-existing test/typecheck/build gates remain green, and a warning baseline is
-recorded. The migration exits when the staged categories have zero diagnostics,
-formatting has been consciously migrated or retained by a documented decision,
-and the warning overrides can be removed without broad suppressions.
+The migration exits when the adopted config resolves, all config files parse, the
+existing test/typecheck/build gates remain green, formatting has been consciously
+migrated, and all diagnostics are clean without broad suppressions.
 
 ## Required validation
 

@@ -1,65 +1,78 @@
 {
-  "root": false,
-  "extends": ["../../biome.json"],
-  "files": {
-    "includes": ["src/**", "tests/**", "*.ts", "*.json", "!src/contracts"]
-  },
-  "overrides": [
-    {
-      "includes": ["src/utils.ts", "tests/fixtures/seeds.ts"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noBitwiseOperators": "off"
-          }
-        }
-      }
+    "root": false,
+    "extends": ["../../biome.jsonc"],
+    "files": {
+        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc", "!src/contracts"]
     },
-    {
-      "includes": [
-        "tests/acceptance/us1-acceptance.test.ts",
-        "tests/acceptance/us2-acceptance.test.ts",
-        "tests/acceptance/us3-acceptance.test.ts",
-        "tests/determinism.test.ts",
-        "tests/fixtures/view.ts",
-        "tests/fixtures/world.ts",
-        "tests/quickstart/q-f01-lone-stack.test.ts",
-        "tests/quickstart/q-f02-enemy-visibility.test.ts",
-        "tests/quickstart/q-f03-no-memory.test.ts",
-        "tests/quickstart/q-f04-opponent-city.test.ts",
-        "tests/quickstart/q-f05-spectator.test.ts",
-        "tests/quickstart/q-f06-determinism.test.ts",
-        "tests/quickstart/q-f07-performance.test.ts",
-        "tests/quickstart/q-f08-edge-cases.test.ts",
-        "tests/redaction.test.ts",
-        "tests/unit/eventsFilter.test.ts",
-        "tests/unit/index.test.ts",
-        "tests/unit/mask.test.ts",
-        "tests/unit/playerView.test.ts",
-        "tests/unit/range.test.ts",
-        "tests/unit/utils.test.ts",
-        "tests/unit/visibleSet.test.ts"
-      ],
-      "linter": {
-        "rules": {
-          "style": {
-            "noMagicNumbers": "off"
-          }
+    "overrides": [
+        {
+            "includes": ["src/utils.ts", "tests/fixtures/seeds.ts"],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noBitwiseOperators": "off"
+                    }
+                }
+            },
+            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+        },
+        {
+            "includes": [
+                "tests/acceptance/us1-acceptance.test.ts",
+                "tests/acceptance/us2-acceptance.test.ts",
+                "tests/acceptance/us3-acceptance.test.ts",
+                "tests/determinism.test.ts",
+                "tests/fixtures/view.ts",
+                "tests/fixtures/world.ts",
+                "tests/quickstart/q-f01-lone-stack.test.ts",
+                "tests/quickstart/q-f02-enemy-visibility.test.ts",
+                "tests/quickstart/q-f03-no-memory.test.ts",
+                "tests/quickstart/q-f04-opponent-city.test.ts",
+                "tests/quickstart/q-f05-spectator.test.ts",
+                "tests/quickstart/q-f06-determinism.test.ts",
+                "tests/quickstart/q-f07-performance.test.ts",
+                "tests/quickstart/q-f08-edge-cases.test.ts",
+                "tests/redaction.test.ts",
+                "tests/unit/eventsFilter.test.ts",
+                "tests/unit/index.test.ts",
+                "tests/unit/mask.test.ts",
+                "tests/unit/playerView.test.ts",
+                "tests/unit/range.test.ts",
+                "tests/unit/utils.test.ts",
+                "tests/unit/visibleSet.test.ts"
+            ],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noMagicNumbers": "off"
+                    }
+                }
+            }
+        },
+        {
+            // The file's 2 ** 31 and 2 ** 32 literals are the mathematical
+            // signed-32-bit normalization boundaries required to match engine `r | 0`;
+            // they are not arbitrary numeric literals.
+            "includes": ["src/visibleSet.ts"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noMagicNumbers": "off"
+                    }
+                }
+            }
+        },
+        {
+            // Contract mirror formatting is protected by byte-identity tests.
+            "includes": ["src/contracts/**"],
+            "formatter": { "enabled": false },
+            "linter": {
+                "rules": {
+                    "correctness": { "noUnusedImports": "off" },
+                    "style": { "useConsistentArrayType": "off" },
+                    "suspicious": { "noConfusingVoidType": "off" }
+                }
+            }
         }
-      }
-    },
-    {
-      // The file's 2 ** 31 and 2 ** 32 literals are the mathematical
-      // signed-32-bit normalization boundaries required to match engine `r | 0`;
-      // they are not arbitrary numeric literals.
-      "includes": ["src/visibleSet.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noMagicNumbers": "off"
-          }
-        }
-      }
-    }
-  ]
+    ]
 }

@@ -1,0 +1,96 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2/biome.schema.json",
+    "extends": ["biome-config-shaunburdick"],
+    "files": {
+        "includes": [
+            "**",
+            "!**/node_modules",
+            "!**/dist",
+            "!**/coverage",
+            "!**/*.tsbuildinfo",
+            "!europa-source",
+            "!**/pnpm-lock.yaml",
+            "!.specify/features/*/contracts/**",
+            "!**/tests/fixtures/golden-1000-tick.json"
+        ]
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "correctness": {
+                "noUndeclaredDependencies": "error"
+            },
+            "style": {
+                "noMagicNumbers": "error",
+                "useBlockStatements": "error",
+                "useConsistentArrayType": "error",
+                "useConsistentMemberAccessibility": "error",
+                "useDestructuring": "error",
+                "useNamingConvention": "error"
+            },
+            "suspicious": {
+                "noExplicitAny": "error",
+                "noDebugger": "error",
+                "noBitwiseOperators": "error",
+                "noConsole": "error"
+            }
+        }
+    },
+    "overrides": [
+        {
+            // Contract mirrors are linted, but formatting is disabled to preserve byte identity.
+            "includes": ["packages/*/src/contracts/**/*.ts", "packages/console/contracts/**/*.ts"],
+            "formatter": {
+                "enabled": false
+            },
+            "linter": {
+                "rules": {
+                    "correctness": {
+                        "noUnusedImports": "off"
+                    },
+                    "style": {
+                        "useConsistentArrayType": "off"
+                    },
+                    "suspicious": {
+                        "noConfusingVoidType": "off"
+                    }
+                }
+            },
+            "assist": {
+                "actions": {
+                    "source": {
+                        "organizeImports": "off"
+                    }
+                }
+            }
+        }
+    ],
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 120,
+        "lineEnding": "lf"
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "single",
+            "semicolons": "always",
+            "trailingCommas": "all",
+            "arrowParentheses": "always"
+        }
+    },
+    "json": {
+        "formatter": {
+            "indentWidth": 4,
+            "trailingCommas": "none"
+        }
+    },
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    }
+}
