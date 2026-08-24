@@ -31,6 +31,7 @@
     "test:perf": "vitest run --config vitest.config.browser.ts tests/integration/perf.test.ts",
     "test:determinism": "vitest run --config vitest.config.ts tests/integration/determinism.test.ts",
     "test:parity": "vitest run --config vitest.config.ts tests/integration/subcell-parity.test.ts",
+    "test:keepalive": "vitest run --config vitest.config.ts tests/integration/quiet-client-keepalive.test.ts",
     "test:selfhost": "bash scripts/test-selfhost.sh",
     "lint": "biome check .",
     "format": "biome format --write .",

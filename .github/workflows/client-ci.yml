@@ -157,6 +157,11 @@ jobs:
       - name: Subcell parity vs original
         run: pnpm --filter @europa/console test:parity
 
+      # Quiet-client keepalive vs the idle sweep (Bug 2 regression
+      # guard): real sockets + real timers, ~8 s wall time.
+      - name: Quiet-client keepalive (idle-sweep guard)
+        run: pnpm --filter @europa/console test:keepalive
+
       # Contract byte-identity + surface completeness (reads dist/).
       - name: Library emit + contract conformance
         run: |

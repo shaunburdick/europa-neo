@@ -390,6 +390,152 @@ describe('adapter ↔ wire-seq correlation (integration-wave regression)', () =>
   });
 });
 
+describe('WsMatchClient wire-view rehydration (live-wire defect fix)', () => {
+  /**
+   * The wire codec serializes `CellView.pipes` as a sorted array; the
+   * contract promises a ReadonlySet. These tests drive REAL wire-shaped
+   * JSON frames (arrays) through the client's onmessage handler and
+   * assert subscribers receive contract-true views. Before the fix the
+   * arrays reached consumers raw — crashing `.has()` readers (pointer
+   * input) and the render diff (frozen UI).
+   */
+
+  /** Wire-shaped cell: pipes as the codec's sorted array, not a Set. */
+  function wireCell(x: number, y: number, pipes: string[]): Record<string, unknown> {
+    return {
+      coord: { x, y },
+      cell: { x, y, elevation: 60, terrain: 'land' },
+      troopCount: 12,
+      troopOwner: 1,
+      pipes,
+      reservesPercent: 0,
+      cityOwner: null,
+    };
+  }
+
+  /** Minimal PlayerView shape as it looks ON THE WIRE (array pipes). */
+  function wireView(tick: number, cells: Array<Record<string, unknown>>): Record<string, unknown> {
+    return {
+      player: 1,
+      tick,
+      visibleCells: cells,
+      events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
+      config: { boardSize: 32, playerCount: 2, tickIntervalMs: 250, seed: 0, visibilityRadius: 2 },
+    };
+  }
+
+  it('rehydrates tick views: subscribers see Sets with working has()', async () => {
+    const { client, socket } = await joinedClient();
+    let received: ProtocolEnvelope<NetworkPayload> | null = null;
+    client.onMessage((envelope) => {
+      if (envelope.type === 'tick') {
+        received = envelope;
+      }
+    });
+    socket.deliver('tick', {
+      tick: 4,
+      view: wireView(4, [wireCell(5, 5, ['E', 'N'])]),
+    } as unknown as NetworkPayload);
+    expect(received).not.toBeNull();
+    const payload = (received as ProtocolEnvelope<NetworkPayload>).payload as unknown as {
+      view: { visibleCells: Array<{ pipes: unknown }> };
+    };
+    const pipes = payload.view.visibleCells[0]?.pipes;
+    expect(pipes).toBeInstanceOf(Set);
+    expect((pipes as Set<string>).has('N')).toBe(true);
+    expect((pipes as Set<string>).has('E')).toBe(true);
+  });
+
+  it('rehydrates joinAck snapshot views', async () => {
+    FakeWebSocket.reset();
+    const socket = new FakeWebSocket('ws://rehydrate-join');
+    const client = createWsMatchClient({ webSocketFactory: () => socket });
+    void client.connect('ws://rehydrate-join');
+    socket.open();
+    socket.deliver('helloAck', {
+      protocolVersion: '0.1.0',
+      connectionId: 'c-rh',
+      heartbeatIntervalMs: 5000,
+    });
+    const joining = client.joinMatch({
+      matchId: 'm-rh' as never,
+      role: 'player',
+      displayName: 'Alice',
+    });
+    let joinView: unknown = null;
+    client.onMessage((envelope) => {
+      if (envelope.type === 'joinAck') {
+        joinView = (
+          envelope.payload as unknown as { view: { visibleCells: Array<{ pipes: unknown }> } }
+        ).view;
+      }
+    });
+    socket.deliver('joinAck', {
+      sessionToken: 'tok-rh' as never,
+      playerId: 1 as never,
+      view: wireView(2, [wireCell(3, 4, ['S'])]),
+      tick: 2,
+      players: [],
+    } as unknown as NetworkPayload);
+    await joining;
+    const pipes = (joinView as { visibleCells: Array<{ pipes: unknown }> } | null)?.visibleCells[0]
+      ?.pipes;
+    expect(pipes).toBeInstanceOf(Set);
+    expect((pipes as Set<string>).has('S')).toBe(true);
+  });
+
+  it('rehydrates the reconnect snapshot + replay window (US2 resync path)', async () => {
+    FakeWebSocket.reset();
+    const socket = new FakeWebSocket('ws://rehydrate-rejoin');
+    const client = createWsMatchClient({ webSocketFactory: () => socket });
+    void client.connect('ws://rehydrate-rejoin');
+    socket.open();
+    socket.deliver('helloAck', {
+      protocolVersion: '0.1.0',
+      connectionId: 'c-rh2',
+      heartbeatIntervalMs: 5000,
+    });
+    const rejoining = client.joinMatch({
+      matchId: 'm-rh2' as never,
+      role: 'player',
+      reconnectToken: 'tok-old' as never,
+      displayName: 'Alice',
+    });
+    const seenPipes: unknown[] = [];
+    client.onMessage((envelope) => {
+      // The resync arrives as one snapshot FOLLOWED by replayed tick
+      // envelopes; every view must arrive contract-true.
+      if (envelope.type === 'snapshot' || envelope.type === 'tick') {
+        seenPipes.push(
+          (envelope.payload as unknown as { view: { visibleCells: Array<{ pipes: unknown }> } })
+            .view.visibleCells[0]?.pipes,
+        );
+      }
+    });
+    socket.deliver('snapshot', {
+      tick: 12,
+      view: wireView(12, [wireCell(1, 1, ['W'])]),
+    } as unknown as NetworkPayload);
+    // Replay window: older ticks streamed after the snapshot.
+    socket.deliver('tick', {
+      tick: 10,
+      view: wireView(10, [wireCell(1, 1, [])]),
+    } as unknown as NetworkPayload);
+    socket.deliver('tick', {
+      tick: 11,
+      view: wireView(11, [wireCell(1, 1, ['N'])]),
+    } as unknown as NetworkPayload);
+    await rejoining;
+    expect(client.state().connection).toBe('rejoined');
+    expect(seenPipes).toHaveLength(3);
+    for (const pipes of seenPipes) {
+      expect(pipes).toBeInstanceOf(Set);
+    }
+    expect((seenPipes[0] as Set<string>).has('W')).toBe(true);
+    expect((seenPipes[2] as Set<string>).has('N')).toBe(true);
+  });
+});
+
 describe('WsMatchClient lifecycle end states', () => {
   afterEach(() => {
     vi.useRealTimers();

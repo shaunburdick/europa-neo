@@ -98,6 +98,7 @@ export {
 export { createConsoleClient } from './net/client';
 export { consoleStatusFromConnectionState } from './net/connection';
 export { netEventFromEnvelope } from './net/envelope-to-event';
+export { rehydrateEnvelopeViews } from './net/rehydrate-wire-views';
 export {
   createWsMatchClient,
   type WsClientLogger,

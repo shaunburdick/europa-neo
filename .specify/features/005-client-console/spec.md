@@ -218,6 +218,31 @@ truthful).
     so it never stacks with the reconnecting banner or game-over
     surfaces; HUD/status-chip behavior is unchanged. No acceptance
     criteria changed; no contract surface touched.
+12. **Wire-view rehydration at the browser decode boundary
+    (2026-08-24, live-wire defect fix)**: feature 004's frame codec
+    serializes Set-typed view fields (`CellView.pipes`) as sorted
+    arrays on the wire (`frame.ts` §wireReplacer), while this spec's
+    contracts — and every console consumer — promise
+    `ReadonlySet<Direction>`. The Node-side fixtures rehydrated, but
+    the shipped browser client (`ws-match-client.ts`) passed decoded
+    payloads through unrepaired: live matches crashed on every board
+    click (`pipes.has is not a function` in region-select) and froze
+    the UI after pipes-bearing ticks (the `buildMapView` render diff
+    threw inside `useMemo`, unmounting React while the socket stayed
+    open — "ticks stop until refresh"). The demo runtime never saw it
+    because `FakeMatchClient` supplies in-memory Sets. Fix: one shared
+    helper (`src/net/rehydrate-wire-views.ts`) runs in the client's
+    onmessage handler before any consumer sees an envelope, covering
+    live ticks, join snapshots, AND the reconnect snapshot + replay
+    window by construction. This is conformance repair against the
+    existing contract (which already declared ReadonlySet), not a
+    semantic change — no contract text amended. Full sweep confirmed
+    `CellView.pipes` is the only Set/Map-typed field in any
+    server→client payload. The idle-sweep suspicion voiced during
+    triage was disproven: the client's heartbeat is app-level `ping`
+    (schema-valid), and the server counts every inbound frame as
+    activity; both halves keep a quiet seat alive past 2× heartbeat
+    (now pinned end-to-end by `test:keepalive`).
 
 ### Quickstart validation mapping (Q-* → proving suites)
 

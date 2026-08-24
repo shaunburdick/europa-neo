@@ -23,6 +23,11 @@
  *      feature 004's contract declares; every frame is decoded and
  *      schema-validated with the server's own codec
  *      (`@europa/networking/browser`) so the two ends cannot drift.
+ *      Decoded views are then rehydrated
+ *      (`rehydrate-wire-views.ts`): the wire carries Set-typed fields
+ *      (`CellView.pipes`) as sorted arrays, and the contract's
+ *      `ReadonlySet` shape is restored before any consumer — reducer,
+ *      renderer, input layer — sees the envelope.
  *
  * v1 scope notes (honest limitations, not hidden behavior):
  *   - `autoReconnect` is accepted for signature compatibility with the
@@ -62,6 +67,7 @@ import type {
   SequenceNumber,
   SessionToken,
 } from '../state/types';
+import { rehydrateEnvelopeViews } from './rehydrate-wire-views';
 
 // ----------------------------------------------------------------------------
 // Structural contract view (mirrors networking's MatchClient / ClientState)
@@ -471,8 +477,15 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
         log('warn', 'inbound frame failed validation', { detail: decoded.error.message });
         return;
       }
-      handleEnvelope(decoded.envelope);
-      dispatchInbound(decoded.envelope);
+      // Decode-boundary rehydration: the wire codec serializes Set-typed
+      // view fields (CellView.pipes) as sorted arrays; the contract
+      // types (and every downstream consumer) expect ReadonlySet. Every
+      // inbound path — live ticks, join snapshots, and the reconnect
+      // snapshot + replay window — funnels through this one handler, so
+      // rehydrating here covers them all by construction.
+      const envelope = rehydrateEnvelopeViews(decoded.envelope);
+      handleEnvelope(envelope);
+      dispatchInbound(envelope);
     };
     socketToAttach.onclose = (event: CloseEvent) => {
       socket = null;
