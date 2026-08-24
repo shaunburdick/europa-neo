@@ -1,4 +1,5 @@
 {
+  "root": false,
   "extends": ["../../biome.json"],
   "files": {
     "includes": ["src/**", "tests/**", "*.ts", "*.json", "!src/contracts"]

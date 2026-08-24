@@ -1,5 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/2/biome.schema.json",
+  "extends": ["biome-config-shaunburdick"],
   "files": {
     "includes": [
       "**",
@@ -8,16 +9,30 @@
       "!**/coverage",
       "!**/*.tsbuildinfo",
       "!europa-source",
-      "!**/pnpm-lock.yaml"
+      "!**/pnpm-lock.yaml",
+      "!**/contracts",
+      "!**/tests/fixtures/golden-1000-tick.json"
     ]
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
+      "correctness": {
+        "noUndeclaredDependencies": "warn"
+      },
+      "style": {
+        "noMagicNumbers": "warn",
+        "useBlockStatements": "warn",
+        "useConsistentArrayType": "warn",
+        "useConsistentMemberAccessibility": "warn",
+        "useDestructuring": "warn",
+        "useNamingConvention": "warn"
+      },
       "suspicious": {
         "noExplicitAny": "error",
         "noDebugger": "error",
+        "noBitwiseOperators": "warn",
         "noConsole": {
           "level": "warn",
           "options": {

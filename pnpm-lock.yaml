@@ -42,6 +42,9 @@ catalogs:
     axe-core:
       specifier: ^4.13.0
       version: 4.13.0
+    biome-config-shaunburdick:
+      specifier: ^1.0.0
+      version: 1.0.0
     happy-dom:
       specifier: ^20.11.6
       version: 20.11.6
@@ -86,6 +89,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.11
         version: 4.1.11(@vitest/browser@4.1.11)(vitest@4.1.11)
+      biome-config-shaunburdick:
+        specifier: 'catalog:'
+        version: 1.0.0(@biomejs/biome@2.5.9)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -1156,6 +1162,12 @@ packages:
   axe-core@4.13.0:
     resolution: {integrity: sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A==}
     engines: {node: '>=4'}
+
+  biome-config-shaunburdick@1.0.0:
+    resolution: {integrity: sha512-B60aDjMMc9QsgoV805zl3nAfWjcHfA8ovXvK6IoQxJXVuyfdcbreFZRgZPn38EV5MR0nLbOPyoNlHMAk0rVc3w==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@biomejs/biome': '>=2.5.0 <3'
 
   buffer-image-size@0.6.4:
     resolution: {integrity: sha512-nEh+kZOPY1w+gcCMobZ6ETUp9WfibndnosbpwB1iJk/8Gt5ZF2bhS6+B6bPYz424KtwsR6Rflc3tCz1/ghX2dQ==}
@@ -2319,6 +2331,10 @@ snapshots:
       js-tokens: 10.0.0
 
   axe-core@4.13.0: {}
+
+  biome-config-shaunburdick@1.0.0(@biomejs/biome@2.5.9):
+    dependencies:
+      '@biomejs/biome': 2.5.9
 
   buffer-image-size@0.6.4:
     dependencies:
