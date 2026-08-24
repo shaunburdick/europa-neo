@@ -35,14 +35,18 @@ function createPublic(
     displayName: name,
     settings: { playerCount },
   });
-  if (!created.ok) throw new Error('fixture create failed');
+  if (!created.ok) {
+    throw new Error('fixture create failed');
+  }
   return created.data.matchId;
 }
 
 /** Lobby ids + occupancy in insertion order; fixture failures explode. */
-function snapshot(matchmaker: ReturnType<typeof makeMatchmaker>): Array<[MatchId, number, number]> {
+function snapshot(matchmaker: ReturnType<typeof makeMatchmaker>): [MatchId, number, number][] {
   const lobby = matchmaker.listPublicMatches();
-  if (!lobby.ok) throw new Error('fixture lobby failed');
+  if (!lobby.ok) {
+    throw new Error('fixture lobby failed');
+  }
   return lobby.matches.map(
     (e) => [e.matchId, e.seatsFilled, e.playerCount] as [MatchId, number, number],
   );

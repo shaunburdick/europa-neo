@@ -62,14 +62,18 @@ export function makeFinished2pScenario(args?: FinishedScenarioArgs): RematchScen
   const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server, now });
 
   const created = matchmaker.createMatch({ visibility, displayName: 'Alice' });
-  if (!created.ok) throw new Error('scenario: createMatch failed');
+  if (!created.ok) {
+    throw new Error('scenario: createMatch failed');
+  }
   const joined = matchmaker.joinMatch({
     matchId: created.data.matchId,
     displayName: 'Bob',
   });
-  if (!joined.ok) throw new Error('scenario: joinMatch failed');
+  if (!joined.ok) {
+    throw new Error('scenario: joinMatch failed');
+  }
 
-  const matchId = created.data.matchId;
+  const { matchId } = created.data;
   server.fireOnMatchTerminal({
     matchId,
     result: { kind: 'win', winner: 1, tick, reason: 'last_standing' },

@@ -26,7 +26,9 @@ describe('Q-M07: seat-fill race is atomic', () => {
       visibility: 'public',
       displayName: 'Alice',
     });
-    if (!aliceCreate.ok) throw new Error('create failed');
+    if (!aliceCreate.ok) {
+      throw new Error('create failed');
+    }
     const { matchId } = aliceCreate.data;
 
     // Simulate 5 concurrent joiners competing for the last seat
@@ -42,7 +44,9 @@ describe('Q-M07: seat-fill race is atomic', () => {
 
     // All failures are 'match_full'
     for (const f of failures) {
-      if (f.ok) continue;
+      if (f.ok) {
+        continue;
+      }
       expect(f.error.code).toBe('match_full');
     }
 

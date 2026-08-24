@@ -61,9 +61,13 @@ class BridgeCapturingServer extends FakeServer {
 function startTwoPlayerMatch(server: FakeServer) {
   const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
   const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-  if (!created.ok) throw new Error('fixture create failed');
+  if (!created.ok) {
+    throw new Error('fixture create failed');
+  }
   const joined = matchmaker.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
-  if (!joined.ok) throw new Error('fixture join failed');
+  if (!joined.ok) {
+    throw new Error('fixture join failed');
+  }
   return {
     matchmaker,
     matchId: created.data.matchId,
@@ -104,7 +108,9 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
     const { matchmaker, matchId, aliceToken } = startTwoPlayerMatch(server);
 
     const session = server.lastEngineSession;
-    if (session === undefined) throw new Error('fixture: no engine session recorded');
+    if (session === undefined) {
+      throw new Error('fixture: no engine session recorded');
+    }
 
     // Capture at the submit boundary (the exact drift-catch point:
     // if the engine renames the order kind or reshapes PlayerId, the
@@ -138,15 +144,16 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
     // array element type IS networking's canonical RegisterMatchRequest
     // (FakeServer pins it), so this binding is the compile-time check.
     expect(server.registerMatchCalls).toHaveLength(1);
-    const registration = server.registerMatchCalls[0];
-    if (registration === undefined) throw new Error('fixture: no registerMatch call recorded');
+    const [registration] = server.registerMatchCalls;
+    if (registration === undefined) {
+      throw new Error('fixture: no registerMatch call recorded');
+    }
     expect(Object.keys(registration).sort()).toEqual(['engineSession', 'matchConfig', 'matchId']);
     expect(registration.matchId).toBe(matchId);
 
     // (d) one attach per seat, in seat order, playerId = seatIndex + 1.
     expect(server.attachPlayerCalls).toHaveLength(2);
-    const firstAttach = server.attachPlayerCalls[0];
-    const secondAttach = server.attachPlayerCalls[1];
+    const [firstAttach, secondAttach] = server.attachPlayerCalls;
     if (firstAttach === undefined || secondAttach === undefined) {
       throw new Error('fixture: missing attachPlayer calls');
     }
@@ -172,8 +179,10 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
     // { matchId, playerId?, sessionToken }. The task prose expected a
     // `reason: 'forfeit_timeout'` field that networking never shipped
     // (see the module doc, clause e).
-    const detach = server.detachPlayerCalls[0];
-    if (detach === undefined) throw new Error('fixture: no detachPlayer call recorded');
+    const [detach] = server.detachPlayerCalls;
+    if (detach === undefined) {
+      throw new Error('fixture: no detachPlayer call recorded');
+    }
     expect(detach.matchId).toBe(matchId);
     expect(detach.sessionToken).toBe(aliceToken);
     expect(detach.playerId).toBe(1);
@@ -206,12 +215,16 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
     // Functional spot-checks through the CAPTURED bridge: expiry
     // surrenders + detaches; terminal transitions running → finished.
     const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Cara' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const joined = matchmaker.joinMatch({
       matchId: created.data.matchId,
       displayName: 'Dave',
     });
-    if (!joined.ok) throw new Error('fixture join failed');
+    if (!joined.ok) {
+      throw new Error('fixture join failed');
+    }
 
     bridge?.onSeatExpired?.({
       matchId: created.data.matchId,

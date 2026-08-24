@@ -67,9 +67,9 @@ export function projectLobbyEntry(match: MatchRecord, nowMs: number): LobbyEntry
  * @returns Fresh `LobbyEntry` array; empty when nothing is joinable.
  */
 export function listPublicMatches(
-  matches: ReadonlyArray<MatchRecord>,
+  matches: readonly MatchRecord[],
   nowMs: number,
-): ReadonlyArray<LobbyEntry> {
+): readonly LobbyEntry[] {
   const entries: LobbyEntry[] = [];
   for (const match of matches) {
     const entry = projectLobbyEntry(match, nowMs);

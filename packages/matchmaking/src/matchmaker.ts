@@ -216,7 +216,7 @@ function resolveSettings(
  */
 export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps): Matchmaker {
   const resolved = resolveConfig(config);
-  const server = deps.server;
+  const { server } = deps;
   const logger = deps.logger ?? NULL_LOGGER;
   const randomId = deps.randomId ?? (() => randomUUID());
   const rngFactory = deps.rngFactory ?? createRng;
@@ -763,7 +763,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
       // Read paths drive the lazy sweeps (no timers): rematch-window
       // expiry + empty-match GC (FR-009 / FR-011).
       runLazySweeps();
-      const entries: ReadonlyArray<LobbyEntry> = projectLobby(store.listMatches(), now());
+      const entries: readonly LobbyEntry[] = projectLobby(store.listMatches(), now());
       return { ok: true, matches: entries };
     },
 
@@ -976,7 +976,9 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         switch (m.status) {
           case 'filling':
             filling += 1;
-            if (m.visibility === 'public') publicJoinable += 1;
+            if (m.visibility === 'public') {
+              publicJoinable += 1;
+            }
             break;
           case 'running':
             running += 1;

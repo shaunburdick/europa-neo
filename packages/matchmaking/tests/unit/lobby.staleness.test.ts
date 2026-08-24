@@ -47,7 +47,9 @@ function createPublic(
     displayName,
     ...(playerCount === undefined ? {} : { settings: { playerCount } }),
   });
-  if (!created.ok) throw new Error('fixture create failed');
+  if (!created.ok) {
+    throw new Error('fixture create failed');
+  }
   return created.data.matchId;
 }
 
@@ -60,7 +62,9 @@ describe('listPublicMatches — staleness (SC-003 / FR-012)', () => {
 
     const before = matchmaker.listPublicMatches();
     expect(before.ok).toBe(true);
-    if (!before.ok) return;
+    if (!before.ok) {
+      return;
+    }
     expect(before.matches.map((e) => e.matchId)).toEqual([a, b, c]);
 
     // No tick pump, no await — the synchronous mutation is already
@@ -69,7 +73,9 @@ describe('listPublicMatches — staleness (SC-003 / FR-012)', () => {
 
     const after = matchmaker.listPublicMatches();
     expect(after.ok).toBe(true);
-    if (!after.ok) return;
+    if (!after.ok) {
+      return;
+    }
     expect(after.matches.map((e) => e.matchId)).toEqual([a, b, c, d]);
     matchmaker.close();
   });
@@ -84,7 +90,9 @@ describe('listPublicMatches — staleness (SC-003 / FR-012)', () => {
 
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     // The filled match transitioned filling → running and dropped out;
     // the still-open match remains with accurate occupancy.
     expect(lobby.matches.map((e) => e.matchId)).toEqual([staying]);
@@ -102,7 +110,9 @@ describe('listPublicMatches — staleness (SC-003 / FR-012)', () => {
     const second = matchmaker.listPublicMatches();
 
     expect(first.ok && second.ok).toBe(true);
-    if (!first.ok || !second.ok) return;
+    if (!first.ok || !second.ok) {
+      return;
+    }
     expect(first.matches).not.toBe(second.matches); // rebuilt per call…
     expect(first.matches[0]?.ageSeconds).toBe(0); // …from live records:
     expect(second.matches[0]?.ageSeconds).toBe(30); // age moved with the clock

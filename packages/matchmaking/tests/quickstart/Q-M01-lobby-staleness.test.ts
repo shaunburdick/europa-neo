@@ -27,14 +27,18 @@ describe('Q-M01 staleness: lobby reflects mutations within one tick (SC-003)', (
     // Step 1: Alice creates a public match…
     const create = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
     expect(create.ok).toBe(true);
-    if (!create.ok) return;
+    if (!create.ok) {
+      return;
+    }
     const { matchId } = create.data;
 
     // …and the IMMEDIATELY following call already lists it (length 1,
     // zero async gap — synchronous rebuild per FR-005).
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(1);
     expect(lobby.matches[0]?.matchId).toBe(matchId);
 
@@ -45,7 +49,9 @@ describe('Q-M01 staleness: lobby reflects mutations within one tick (SC-003)', (
     // Step 3: the next call reflects the transition — length 0.
     const lobby2 = matchmaker.listPublicMatches();
     expect(lobby2.ok).toBe(true);
-    if (!lobby2.ok) return;
+    if (!lobby2.ok) {
+      return;
+    }
     expect(lobby2.matches).toHaveLength(0);
 
     // SC-003 wall-clock guard: creation → projection → transition →

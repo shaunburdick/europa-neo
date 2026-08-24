@@ -36,7 +36,7 @@ const FNV_PRIME = 0x01000193;
  * @param arrays - Typed arrays to fold, in order.
  * @returns The hash as an 8-char lowercase hex string.
  */
-function fnv1aHex(...arrays: ReadonlyArray<ArrayLike<number>>): string {
+function fnv1aHex(...arrays: readonly ArrayLike<number>[]): string {
   let hash = FNV_OFFSET;
   for (const array of arrays) {
     for (let index = 0; index < array.length; index++) {

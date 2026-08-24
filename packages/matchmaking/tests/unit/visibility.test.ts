@@ -30,7 +30,9 @@ describe('createMatch — visibility handling (FR-002 / US3 AC-1)', () => {
     const created = matchmaker.createMatch({ visibility: 'private', displayName: 'Alice' });
 
     expect(created.ok).toBe(true);
-    if (!created.ok) return;
+    if (!created.ok) {
+      return;
+    }
     expect(created.data.seatAssignment.seatIndex).toBe(0);
     expect(created.data.seatAssignment.displayName).toBe('Alice');
     matchmaker.close();
@@ -39,12 +41,16 @@ describe('createMatch — visibility handling (FR-002 / US3 AC-1)', () => {
   it('FR-005 / Q1: a private match is NEVER projected by listPublicMatches', () => {
     const matchmaker = makeMatchmaker();
     const created = matchmaker.createMatch({ visibility: 'private', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
 
     const lobby = matchmaker.listPublicMatches();
 
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(0);
     // Stats corroborate: filling but not publicly joinable.
     expect(matchmaker.stats().fillingMatches).toBe(1);
@@ -55,12 +61,16 @@ describe('createMatch — visibility handling (FR-002 / US3 AC-1)', () => {
   it('FR-005: a public match created the same way IS projected (contrast)', () => {
     const matchmaker = makeMatchmaker();
     const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
 
     const lobby = matchmaker.listPublicMatches();
 
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches.map((e) => e.matchId)).toEqual([created.data.matchId]);
     expect(matchmaker.stats().publicJoinableMatches).toBe(1);
     matchmaker.close();
@@ -75,7 +85,9 @@ describe('createMatch — visibility handling (FR-002 / US3 AC-1)', () => {
     const result = matchmaker.createMatch({ visibility: bogus, displayName: 'Alice' });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('invalid_request');
     matchmaker.close();
   });
@@ -96,14 +108,18 @@ describe('visibility immutability (US3 / Q4)', () => {
       displayName: 'Alice',
       settings: { playerCount: 3 },
     });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const { matchId } = created.data;
 
     expect(matchmaker.joinMatch({ matchId, displayName: 'Bob' }).ok).toBe(true);
 
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(0);
     matchmaker.close();
   });

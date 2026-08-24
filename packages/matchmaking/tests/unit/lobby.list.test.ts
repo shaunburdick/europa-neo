@@ -69,7 +69,7 @@ function makeMatch(visibility: MatchVisibility, status: MatchStatus): MatchRecor
 
 describe('listPublicMatches — status × visibility matrix (US2 AC-1/AC-2)', () => {
   it('FR-005: projects ONLY public filling matches out of a full 4×2 mix', () => {
-    const mix: ReadonlyArray<MatchRecord> = ALL_STATUSES.flatMap((status) => [
+    const mix: readonly MatchRecord[] = ALL_STATUSES.flatMap((status) => [
       makeMatch('public', status),
       makeMatch('private', status),
     ]);

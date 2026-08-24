@@ -29,7 +29,9 @@ describe('Q-M08: server restart wipes match state', () => {
       visibility: 'public',
       displayName: 'Alice',
     });
-    if (!create.ok) throw new Error('create failed');
+    if (!create.ok) {
+      throw new Error('create failed');
+    }
     const { matchId } = create.data;
 
     expect(matchmaker1.listPublicMatches().ok && matchmaker1.stats().activeMatches).toBe(1);
@@ -44,7 +46,9 @@ describe('Q-M08: server restart wipes match state', () => {
     // Old matchId is unknown to the new matchmaker
     const joinResult = matchmaker2.joinMatch({ matchId, displayName: 'Bob' });
     expect(joinResult.ok).toBe(false);
-    if (joinResult.ok) return;
+    if (joinResult.ok) {
+      return;
+    }
     expect(joinResult.error.code).toBe('match_not_found');
 
     await matchmaker2.close();

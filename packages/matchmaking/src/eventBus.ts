@@ -67,7 +67,9 @@ export function createStatusBus(): StatusEventBus {
       listeners.push(listener);
       let active = true;
       return () => {
-        if (!active) return;
+        if (!active) {
+          return;
+        }
         active = false;
         const index = listeners.indexOf(listener);
         if (index >= 0) {

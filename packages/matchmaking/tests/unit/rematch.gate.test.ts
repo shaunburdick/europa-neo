@@ -38,12 +38,16 @@ function makeRunning2pFixture(): RunningScenario {
   const server = new FakeServer({ now });
   const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server, now });
   const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-  if (!created.ok) throw new Error('fixture create failed');
+  if (!created.ok) {
+    throw new Error('fixture create failed');
+  }
   const joined = matchmaker.joinMatch({
     matchId: created.data.matchId,
     displayName: 'Bob',
   });
-  if (!joined.ok) throw new Error('fixture join failed');
+  if (!joined.ok) {
+    throw new Error('fixture join failed');
+  }
   return {
     server,
     matchmaker,
@@ -60,14 +64,18 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
       matchId: scenario.matchId,
       sessionToken: scenario.alice.sessionToken,
     });
-    if (!requested.ok) throw new Error('fixture request failed');
+    if (!requested.ok) {
+      throw new Error('fixture request failed');
+    }
     const accepted = scenario.matchmaker.acceptRematch({
       matchId: scenario.matchId,
       rematchOfferId: requested.rematchOfferId,
       sessionToken: scenario.alice.sessionToken,
     });
     expect(accepted.ok).toBe(true);
-    if (!accepted.ok) return;
+    if (!accepted.ok) {
+      return;
+    }
     expect(accepted.allAccepted).toBe(false);
 
     const stats = scenario.matchmaker.stats();
@@ -82,13 +90,17 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
       matchId: scenario.matchId,
       sessionToken: scenario.alice.sessionToken,
     });
-    if (!requested.ok) throw new Error('fixture request failed');
+    if (!requested.ok) {
+      throw new Error('fixture request failed');
+    }
     const accepted = scenario.matchmaker.acceptRematch({
       matchId: scenario.matchId,
       rematchOfferId: requested.rematchOfferId,
       sessionToken: scenario.alice.sessionToken,
     });
-    if (!accepted.ok) throw new Error('fixture accept failed');
+    if (!accepted.ok) {
+      throw new Error('fixture accept failed');
+    }
 
     scenario.advanceMs(MATCHMAKING_CONSTANTS.rematchWindowMs + 1);
 
@@ -103,7 +115,9 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
     // The lobby carries no rematch product either.
     const lobby = scenario.matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(0);
     scenario.matchmaker.close();
   });
@@ -123,9 +137,13 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
     };
     const mm = createMatchmaker(config, { server, now });
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const joined = mm.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
-    if (!joined.ok) throw new Error('fixture join failed');
+    if (!joined.ok) {
+      throw new Error('fixture join failed');
+    }
     server.fireOnMatchTerminal({
       matchId: created.data.matchId,
       result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
@@ -167,7 +185,9 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
       matchId: running.matchId,
       sessionToken: running.bob.sessionToken,
     });
-    if (!requested.ok) throw new Error('fixture request failed');
+    if (!requested.ok) {
+      throw new Error('fixture request failed');
+    }
 
     const forfeitedAccept = running.matchmaker.acceptRematch({
       matchId: running.matchId,
@@ -175,7 +195,9 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
       sessionToken: running.alice.sessionToken,
     });
     expect(forfeitedAccept.ok).toBe(false);
-    if (forfeitedAccept.ok) return;
+    if (forfeitedAccept.ok) {
+      return;
+    }
     expect(forfeitedAccept.error.code).toBe('session_invalid');
 
     // The survivor's vote cannot complete the set: ALL original
@@ -187,7 +209,9 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
       sessionToken: running.bob.sessionToken,
     });
     expect(survivorAccept.ok).toBe(true);
-    if (!survivorAccept.ok) return;
+    if (!survivorAccept.ok) {
+      return;
+    }
     expect(survivorAccept.allAccepted).toBe(false);
     running.matchmaker.close();
   });

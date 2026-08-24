@@ -125,13 +125,17 @@ describe('all-accept creates a genuinely fresh match (FR-009 / T050)', () => {
       matchId: scenario.matchId,
       sessionToken: scenario.alice.sessionToken,
     });
-    if (!requested.ok) throw new Error('fixture request failed');
+    if (!requested.ok) {
+      throw new Error('fixture request failed');
+    }
     const aliceAccept = scenario.matchmaker.acceptRematch({
       matchId: scenario.matchId,
       rematchOfferId: requested.rematchOfferId,
       sessionToken: scenario.alice.sessionToken,
     });
-    if (!aliceAccept.ok) throw new Error('fixture alice accept failed');
+    if (!aliceAccept.ok) {
+      throw new Error('fixture alice accept failed');
+    }
     const bobAccept = scenario.matchmaker.acceptRematch({
       matchId: scenario.matchId,
       rematchOfferId: requested.rematchOfferId,
@@ -158,7 +162,9 @@ describe('all-accept creates a genuinely fresh match (FR-009 / T050)', () => {
       matchId: scenario.matchId,
       sessionToken: scenario.alice.sessionToken,
     });
-    if (!requested.ok) throw new Error('fixture request failed');
+    if (!requested.ok) {
+      throw new Error('fixture request failed');
+    }
     void scenario.matchmaker.acceptRematch({
       matchId: scenario.matchId,
       rematchOfferId: requested.rematchOfferId,
@@ -170,10 +176,14 @@ describe('all-accept creates a genuinely fresh match (FR-009 / T050)', () => {
       sessionToken: scenario.bob.sessionToken,
     });
     expect(bobAccept.ok).toBe(true);
-    if (!bobAccept.ok) return;
+    if (!bobAccept.ok) {
+      return;
+    }
     const seat = bobAccept.newSeatAssignment;
     expect(seat).toBeDefined();
-    if (seat === undefined) return;
+    if (seat === undefined) {
+      return;
+    }
     // Bob keeps his seat (1) and provisional playerId (2)…
     expect(seat.seatIndex).toBe(scenario.bob.seatIndex);
     expect(seat.playerId).toBe(scenario.bob.playerId);
@@ -194,7 +204,9 @@ describe('all-accept creates a genuinely fresh match (FR-009 / T050)', () => {
     // A public original yields a public, lobby-visible new match.
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches.some((m) => m.matchId === newMatchId)).toBe(true);
     matchmaker.close();
   });
@@ -205,7 +217,9 @@ describe('all-accept creates a genuinely fresh match (FR-009 / T050)', () => {
       matchId: scenario.matchId,
       sessionToken: scenario.alice.sessionToken,
     });
-    if (!requested.ok) throw new Error('fixture request failed');
+    if (!requested.ok) {
+      throw new Error('fixture request failed');
+    }
     void scenario.matchmaker.acceptRematch({
       matchId: scenario.matchId,
       rematchOfferId: requested.rematchOfferId,
@@ -223,7 +237,9 @@ describe('all-accept creates a genuinely fresh match (FR-009 / T050)', () => {
 
     const lobby = scenario.matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches.some((m) => m.matchId === bobAccept.newMatchId)).toBe(false);
     scenario.matchmaker.close();
   });

@@ -25,7 +25,9 @@ describe('createMatch — happy path', () => {
     const result = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
 
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    if (!result.ok) {
+      return;
+    }
     const { data } = result;
     // UUID v4 shape (FR-003: server-assigned identity).
     expect(data.matchId).toMatch(
@@ -53,7 +55,9 @@ describe('createMatch — happy path', () => {
     const result = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
 
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    if (!result.ok) {
+      return;
+    }
     expect(result.data.joinUrl).toBe(`https://europa.example.com/join/${result.data.matchId}`);
     matchmaker.close();
   });
@@ -67,7 +71,9 @@ describe('createMatch — happy path', () => {
 
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(1);
     expect(lobby.matches[0]?.seatsFilled).toBe(1);
     expect(lobby.matches[0]?.hostDisplayName).toBe('Alice');
@@ -99,7 +105,9 @@ describe('createMatch — validation (FR-001/FR-002)', () => {
     const result = matchmaker.createMatch({ visibility: 'public', displayName: '' });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('invalid_request');
     matchmaker.close();
   });
@@ -111,7 +119,9 @@ describe('createMatch — validation (FR-001/FR-002)', () => {
     const result = matchmaker.createMatch({ visibility: 'public', displayName: '   ' });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('invalid_request');
     matchmaker.close();
   });
@@ -126,7 +136,9 @@ describe('createMatch — validation (FR-001/FR-002)', () => {
     });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('invalid_request');
     matchmaker.close();
   });
@@ -140,7 +152,9 @@ describe('createMatch — validation (FR-001/FR-002)', () => {
     const result = matchmaker.createMatch({ visibility: bogus, displayName: 'Alice' });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('invalid_request');
     matchmaker.close();
   });
@@ -157,7 +171,9 @@ describe('createMatch — validation (FR-001/FR-002)', () => {
     });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('invalid_request');
     matchmaker.close();
   });
@@ -176,7 +192,9 @@ describe('createMatch — capacity (maxConcurrentMatches)', () => {
 
     const second = matchmaker.createMatch({ visibility: 'public', displayName: 'Bob' });
     expect(second.ok).toBe(false);
-    if (second.ok) return;
+    if (second.ok) {
+      return;
+    }
     expect(second.error.code).toBe('rate_limited');
     matchmaker.close();
   });

@@ -54,7 +54,7 @@ export interface RematchOffer {
   /** Original participants who voted decline. */
   readonly declinedBy: Set<PlayerSessionId>;
   /** Snapshot of every original seated player's session id. */
-  readonly allOriginalPlayerIds: ReadonlyArray<PlayerSessionId>;
+  readonly allOriginalPlayerIds: readonly PlayerSessionId[];
   /** The new match once all votes accept; `null` until resolved. */
   newMatchRecord: MatchRecord | null;
 }

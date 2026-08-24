@@ -28,14 +28,18 @@ describe('Q-M05: game over → rematch handshake', () => {
       visibility: 'public',
       displayName: 'Alice',
     });
-    if (!aliceCreate.ok) throw new Error('create failed');
+    if (!aliceCreate.ok) {
+      throw new Error('create failed');
+    }
     const { matchId, seatAssignment: aliceSeat } = aliceCreate.data;
 
     const bobJoin = matchmaker.joinMatch({
       matchId,
       displayName: 'Bob',
     });
-    if (!bobJoin.ok) throw new Error('join failed');
+    if (!bobJoin.ok) {
+      throw new Error('join failed');
+    }
     const bobSeat = bobJoin.data.seatAssignment;
 
     // Engine reports terminal
@@ -61,8 +65,10 @@ describe('Q-M05: game over → rematch handshake', () => {
       sessionToken: aliceSeat.sessionToken,
     });
     expect(aliceRematch.ok).toBe(true);
-    if (!aliceRematch.ok) return;
-    const rematchOfferId = aliceRematch.rematchOfferId;
+    if (!aliceRematch.ok) {
+      return;
+    }
+    const { rematchOfferId } = aliceRematch;
     expect(rematchOfferId).not.toBe(matchId);
 
     // Alice accepts
@@ -72,8 +78,11 @@ describe('Q-M05: game over → rematch handshake', () => {
       sessionToken: aliceSeat.sessionToken,
     });
     expect(aliceAccept.ok).toBe(true);
-    if (!aliceAccept.ok) return;
-    expect(aliceAccept.allAccepted).toBe(false); // Bob hasn't accepted yet
+    if (!aliceAccept.ok) {
+      return;
+    }
+    const { allAccepted: aliceAccepted } = aliceAccept;
+    expect(aliceAccepted).toBe(false); // Bob hasn't accepted yet
 
     // Bob accepts
     const bobAccept = matchmaker.acceptRematch({
@@ -82,18 +91,24 @@ describe('Q-M05: game over → rematch handshake', () => {
       sessionToken: bobSeat.sessionToken,
     });
     expect(bobAccept.ok).toBe(true);
-    if (!bobAccept.ok) return;
-    expect(bobAccept.allAccepted).toBe(true); // last vote
-    expect(bobAccept.newMatchId).toBeDefined();
-    expect(bobAccept.newSeatAssignment).toBeDefined();
+    if (!bobAccept.ok) {
+      return;
+    }
+    const { allAccepted: bobAccepted, newMatchId, newSeatAssignment } = bobAccept;
+    expect(bobAccepted).toBe(true); // last vote
+    expect(newMatchId).toBeDefined();
+    expect(newSeatAssignment).toBeDefined();
 
     // The new match should be in 'filling' state with both players
     // auto-seated.
-    const newMatchId = bobAccept.newMatchId;
-    if (newMatchId === undefined) throw new Error('newMatchId missing');
+    if (newMatchId === undefined) {
+      throw new Error('newMatchId missing');
+    }
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     // Visibility was 'public', so new match is also public and in lobby
     expect(lobby.matches.some((m) => m.matchId === newMatchId)).toBe(true);
 

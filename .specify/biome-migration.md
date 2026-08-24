@@ -66,6 +66,23 @@ pnpm test
 git diff --check
 ```
 
+## Matchmaking Phase 2 exceptions
+
+Matchmaking's exact-file `noMagicNumbers` exceptions cover the central
+`src/constants.ts` defaults, fixed domain bounds in `src/lobby.ts`,
+`src/matchLifecycle.ts`, and `src/matchmaker.ts`, and the FNV-1a algorithm in
+`src/results.ts`. The remaining listed files are scenario, conformance, and
+soak fixtures whose numeric values are test vectors for TTLs, seat/player
+counts, board settings, and lifecycle boundaries. No ordinary runtime
+validation file is hidden by a package-wide override.
+
+`src/errors.ts` retains its wire-contract snake_case keys via an exact-file
+`useNamingConvention` exception; renaming those keys would change the closed
+public error-code union. `src/results.ts` and `tests/soak.test.ts` retain
+`noBitwiseOperators` only for the deterministic FNV-1a fold and deterministic
+seed derivation respectively. These are algorithm/test-vector exceptions, not
+general application code exemptions.
+
 The package's published installation contract is documented in its npm README:
 install it alongside Biome and extend `biome-config-shaunburdick` from the
 project config. This repository uses the equivalent pnpm catalog entry.

@@ -32,7 +32,9 @@ describe('Q-M02: private match + shareable join URL', () => {
       displayName: 'Alice',
     });
     expect(create.ok).toBe(true);
-    if (!create.ok) return;
+    if (!create.ok) {
+      return;
+    }
 
     const { matchId, joinPath, joinUrl, seatAssignment: aliceSeat } = create.data;
     expect(aliceSeat.seatIndex).toBe(0);
@@ -44,7 +46,9 @@ describe('Q-M02: private match + shareable join URL', () => {
     // Step 2: Lobby does NOT contain the private match
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(0);
 
     // Step 3: Bob joins via the URL (has the matchId)
@@ -53,7 +57,9 @@ describe('Q-M02: private match + shareable join URL', () => {
       displayName: 'Bob',
     });
     expect(join.ok).toBe(true);
-    if (!join.ok) return;
+    if (!join.ok) {
+      return;
+    }
     expect(join.data.seatAssignment.seatIndex).toBe(1);
 
     await matchmaker.close();

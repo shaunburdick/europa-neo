@@ -32,7 +32,9 @@ describe('createMatch — shareable link pair (FR-003 / Q3)', () => {
     const created = matchmaker.createMatch({ visibility: 'private', displayName: 'Alice' });
 
     expect(created.ok).toBe(true);
-    if (!created.ok) return;
+    if (!created.ok) {
+      return;
+    }
     const { matchId, joinPath, joinUrl } = created.data;
     expect(matchId).toMatch(UUID_V4_PATTERN);
     expect(joinPath).toBe(`/join/${matchId}`);
@@ -48,7 +50,9 @@ describe('createMatch — shareable link pair (FR-003 / Q3)', () => {
     const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
 
     expect(created.ok).toBe(true);
-    if (!created.ok) return;
+    if (!created.ok) {
+      return;
+    }
     const { matchId, joinPath, joinUrl } = created.data;
     expect(joinPath).toBe(`/join/${matchId}`);
     expect(joinPath).toMatch(JOIN_PATH_PATTERN);
@@ -66,7 +70,9 @@ describe('createMatch — shareable link pair (FR-003 / Q3)', () => {
     const first = matchmaker.createMatch({ visibility: 'public', displayName: 'A' });
     const second = matchmaker.createMatch({ visibility: 'public', displayName: 'B' });
     expect(first.ok && second.ok).toBe(true);
-    if (!first.ok || !second.ok) return;
+    if (!first.ok || !second.ok) {
+      return;
+    }
 
     expect(first.data.joinPath).not.toBe(second.data.joinPath);
     expect(first.data.joinUrl).not.toBe(second.data.joinUrl);
@@ -82,13 +88,17 @@ describe('joinMatch — shareable link pair (JoinUrlResult contract)', () => {
       { server },
     );
     const created = matchmaker.createMatch({ visibility: 'private', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const { matchId, joinPath, joinUrl } = created.data;
 
     const joined = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
 
     expect(joined.ok).toBe(true);
-    if (!joined.ok) return;
+    if (!joined.ok) {
+      return;
+    }
     expect(joined.data.joinPath).toBe(joinPath);
     expect(joined.data.joinUrl).toBe(joinUrl);
     matchmaker.close();

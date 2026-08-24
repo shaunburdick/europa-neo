@@ -73,12 +73,16 @@ describe('SC-005: 50 sequential cycles, no leaks', () => {
     for (let i = 0; i < CYCLES; i++) {
       // -- 1. create ----------------------------------------------------
       const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-      if (!created.ok) throw new Error(`cycle ${i}: create failed`);
+      if (!created.ok) {
+        throw new Error(`cycle ${i}: create failed`);
+      }
       const { matchId, seatAssignment: aliceSeat } = created.data;
 
       // -- 2. join (auto-start) ------------------------------------------
       const joined = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
-      if (!joined.ok) throw new Error(`cycle ${i}: join failed`);
+      if (!joined.ok) {
+        throw new Error(`cycle ${i}: join failed`);
+      }
       const bobSeat = joined.data.seatAssignment;
       expect(matchmaker.stats().runningMatches).toBe(1);
 
@@ -95,7 +99,9 @@ describe('SC-005: 50 sequential cycles, no leaks', () => {
         matchId,
         sessionToken: aliceSeat.sessionToken,
       });
-      if (!requested.ok) throw new Error(`cycle ${i}: requestRematch failed`);
+      if (!requested.ok) {
+        throw new Error(`cycle ${i}: requestRematch failed`);
+      }
       expect(
         matchmaker.acceptRematch({
           matchId,

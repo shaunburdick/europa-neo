@@ -35,7 +35,9 @@ describe('Q-M04: disconnect forfeit', () => {
       displayName: 'Alice',
     });
     expect(aliceCreate.ok).toBe(true);
-    if (!aliceCreate.ok) return;
+    if (!aliceCreate.ok) {
+      return;
+    }
     const { matchId, seatAssignment: aliceSeat } = aliceCreate.data;
 
     const bobJoin = matchmaker.joinMatch({
@@ -43,7 +45,9 @@ describe('Q-M04: disconnect forfeit', () => {
       displayName: 'Bob',
     });
     expect(bobJoin.ok).toBe(true);
-    if (!bobJoin.ok) return;
+    if (!bobJoin.ok) {
+      return;
+    }
     const bobSeat = bobJoin.data.seatAssignment;
 
     // Engine is now running. FakeServer has recorded the engine session.
@@ -66,17 +70,18 @@ describe('Q-M04: disconnect forfeit', () => {
 
     // Step 3: Matchmaker called server.detachPlayer for Alice.
     expect(server.detachPlayerCalls).toHaveLength(1);
-    expect(server.detachPlayerCalls[0]?.sessionToken).toBe(aliceSeat.sessionToken);
-    expect(server.detachPlayerCalls[0]?.playerId).toBe(aliceSeat.playerId);
-    expect(server.detachPlayerCalls[0]?.matchId).toBe(matchId);
+    const [detach] = server.detachPlayerCalls;
+    expect(detach?.sessionToken).toBe(aliceSeat.sessionToken);
+    expect(detach?.playerId).toBe(aliceSeat.playerId);
+    expect(detach?.matchId).toBe(matchId);
 
     // SC-004: 10/10 scripted drops
+    const { sessionToken, playerId } = bobSeat;
     for (let i = 0; i < 10; i++) {
-      const sessionToken = bobSeat.sessionToken;
       server.fireOnSeatExpired({
         matchId,
         sessionToken,
-        playerId: bobSeat.playerId,
+        playerId,
       });
       // After Bob also disconnects, the match is torn down
       expect(server.unregisterMatchCalls.includes(matchId)).toBe(true);

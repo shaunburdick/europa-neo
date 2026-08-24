@@ -39,14 +39,18 @@ describe('joinMatch — private match via shareable id (US3 AC-2)', () => {
   it('FR-006: a holder of the private MatchId takes a seat like any public join', () => {
     const { server, matchmaker } = makeMatchmaker();
     const created = matchmaker.createMatch({ visibility: 'private', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const { matchId } = created.data;
 
     // No lobby consultation — Bob arrives straight from the shareable link.
     const joined = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
 
     expect(joined.ok).toBe(true);
-    if (!joined.ok) return;
+    if (!joined.ok) {
+      return;
+    }
     expect(joined.data.matchId).toBe(matchId);
     expect(joined.data.seatAssignment.seatIndex).toBe(1);
     expect(joined.data.seatAssignment.playerId).toBe(2);
@@ -70,7 +74,9 @@ describe('joinMatch — private match via shareable id (US3 AC-2)', () => {
       displayName: 'Alice',
       settings: { playerCount: 3 },
     });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const { matchId } = created.data;
 
     expect(matchmaker.joinMatch({ matchId, displayName: 'Bob' }).ok).toBe(true);
@@ -88,14 +94,18 @@ describe('joinMatch — private match via shareable id (US3 AC-2)', () => {
       displayName: 'Alice',
       settings: { playerCount: 3 },
     });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const { matchId } = created.data;
 
     expect(matchmaker.joinMatch({ matchId, displayName: 'Bob' }).ok).toBe(true);
 
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(0);
     matchmaker.close();
   });
@@ -103,13 +113,17 @@ describe('joinMatch — private match via shareable id (US3 AC-2)', () => {
   it('FR-006 / Q2: probes of unknown ids return match_not_found with no leak', () => {
     const { matchmaker } = makeMatchmaker();
     const created = matchmaker.createMatch({ visibility: 'private', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const { matchId } = created.data;
 
     for (let i = 0; i < 25; i++) {
       const result = matchmaker.joinMatch({ matchId: unknownId(matchId), displayName: 'Mallory' });
       expect(result.ok).toBe(false);
-      if (result.ok) return;
+      if (result.ok) {
+        return;
+      }
       expect(result.error.code).toBe('match_not_found');
       const message = result.error.message.toLowerCase();
       expect(message).not.toContain('private');

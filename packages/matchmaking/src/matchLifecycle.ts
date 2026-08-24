@@ -77,7 +77,9 @@ function notify(
   to: MatchRecord['status'],
   atMs: number,
 ): void {
-  if (emit === undefined) return;
+  if (emit === undefined) {
+    return;
+  }
   emit({ matchId, from, to, atMs });
 }
 
@@ -308,7 +310,7 @@ export interface CreateRematchMatchRecordArgs {
   /** The resolved original match (visibility + settings are copied). */
   readonly original: MatchRecord;
   /** Original participants in seat order. */
-  readonly participants: ReadonlyArray<RematchParticipant>;
+  readonly participants: readonly RematchParticipant[];
   /** Epoch ms of creation. */
   readonly nowMs: number;
   /** Injected UUID v4 generator for the new match id (deterministic in tests). */

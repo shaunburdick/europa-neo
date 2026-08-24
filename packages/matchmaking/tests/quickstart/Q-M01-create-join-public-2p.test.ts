@@ -27,7 +27,9 @@ describe('Q-M01: create + join public 2-player match', () => {
       displayName: 'Alice',
     });
     expect(create.ok).toBe(true);
-    if (!create.ok) return;
+    if (!create.ok) {
+      return;
+    }
 
     const { matchId, seatAssignment: aliceSeat } = create.data;
     expect(aliceSeat.seatIndex).toBe(0);
@@ -37,7 +39,9 @@ describe('Q-M01: create + join public 2-player match', () => {
     // Step 2: Lobby contains the new match
     const lobby1 = matchmaker.listPublicMatches();
     expect(lobby1.ok).toBe(true);
-    if (!lobby1.ok) return;
+    if (!lobby1.ok) {
+      return;
+    }
     expect(lobby1.matches).toHaveLength(1);
     expect(lobby1.matches[0]?.matchId).toBe(matchId);
     expect(lobby1.matches[0]?.hostDisplayName).toBe('Alice');
@@ -50,7 +54,9 @@ describe('Q-M01: create + join public 2-player match', () => {
       displayName: 'Bob',
     });
     expect(join.ok).toBe(true);
-    if (!join.ok) return;
+    if (!join.ok) {
+      return;
+    }
 
     const { seatAssignment: bobSeat } = join.data;
     expect(bobSeat.seatIndex).toBe(1);
@@ -64,7 +70,9 @@ describe('Q-M01: create + join public 2-player match', () => {
     // Step 5: Lobby no longer lists the match (it's running now)
     const lobby2 = matchmaker.listPublicMatches();
     expect(lobby2.ok).toBe(true);
-    if (!lobby2.ok) return;
+    if (!lobby2.ok) {
+      return;
+    }
     expect(lobby2.matches).toHaveLength(0);
 
     await matchmaker.close();

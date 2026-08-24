@@ -34,7 +34,9 @@ describe('Q-M06: empty unstarted match GC', () => {
       visibility: 'public',
       displayName: 'Alice',
     });
-    if (!create.ok) throw new Error('create failed');
+    if (!create.ok) {
+      throw new Error('create failed');
+    }
 
     const stats1 = matchmaker.stats();
     expect(stats1.fillingMatches).toBe(1);

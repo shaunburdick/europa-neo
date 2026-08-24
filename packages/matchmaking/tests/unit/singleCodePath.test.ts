@@ -29,7 +29,9 @@ function makeFixture() {
   const server = new FakeServer();
   const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
   const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-  if (!created.ok) throw new Error('fixture create failed');
+  if (!created.ok) {
+    throw new Error('fixture create failed');
+  }
   return { matchmaker, knownId: created.data.matchId };
 }
 
@@ -39,7 +41,9 @@ function expectNotFound(result: {
   readonly error?: { readonly code: string; readonly message: string };
 }): void {
   expect(result.ok).toBe(false);
-  if (result.ok) return;
+  if (result.ok) {
+    return;
+  }
   expect(result.error?.code).toBe('match_not_found');
   const message = result.error?.message.toLowerCase() ?? '';
   expect(message).not.toContain('private');
@@ -112,7 +116,9 @@ describe('stub boundary stays pinned (feature bodies land in later waves)', () =
 
     const requested = matchmaker.requestRematch({ matchId: knownId, sessionToken: ANY_TOKEN });
     expect(requested.ok).toBe(false);
-    if (!requested.ok) expect(requested.error.code).toBe('rematch_not_offered');
+    if (!requested.ok) {
+      expect(requested.error.code).toBe('rematch_not_offered');
+    }
 
     const accepted = matchmaker.acceptRematch({
       matchId: knownId,
@@ -120,7 +126,9 @@ describe('stub boundary stays pinned (feature bodies land in later waves)', () =
       sessionToken: ANY_TOKEN,
     });
     expect(accepted.ok).toBe(false);
-    if (!accepted.ok) expect(accepted.error.code).toBe('rematch_not_offered');
+    if (!accepted.ok) {
+      expect(accepted.error.code).toBe('rematch_not_offered');
+    }
 
     const declined = matchmaker.declineRematch({
       matchId: knownId,
@@ -128,7 +136,9 @@ describe('stub boundary stays pinned (feature bodies land in later waves)', () =
       sessionToken: ANY_TOKEN,
     });
     expect(declined.ok).toBe(false);
-    if (!declined.ok) expect(declined.error.code).toBe('rematch_not_offered');
+    if (!declined.ok) {
+      expect(declined.error.code).toBe('rematch_not_offered');
+    }
     matchmaker.close();
   });
 });

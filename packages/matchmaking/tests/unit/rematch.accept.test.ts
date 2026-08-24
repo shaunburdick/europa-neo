@@ -29,7 +29,9 @@ function openOffer(scenario: ReturnType<typeof makeFinished2pScenario>): MatchId
     matchId: scenario.matchId,
     sessionToken: scenario.alice.sessionToken,
   });
-  if (!requested.ok) throw new Error('fixture: requestRematch failed');
+  if (!requested.ok) {
+    throw new Error('fixture: requestRematch failed');
+  }
   return requested.rematchOfferId;
 }
 
@@ -45,7 +47,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
     });
 
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    if (!result.ok) {
+      return;
+    }
     expect(result.allAccepted).toBe(false);
     expect(result.newMatchId).toBeUndefined();
     expect(result.newSeatAssignment).toBeUndefined();
@@ -64,7 +68,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       sessionToken: scenario.bob.sessionToken,
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('rematch_not_offered');
     scenario.matchmaker.close();
   });
@@ -78,7 +84,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       sessionToken: scenario.alice.sessionToken,
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('rematch_not_offered');
     scenario.matchmaker.close();
   });
@@ -93,7 +101,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       sessionToken: FOREIGN_TOKEN,
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('session_invalid');
     scenario.matchmaker.close();
   });
@@ -114,7 +124,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       sessionToken: scenario.alice.sessionToken,
     });
     expect(second.ok).toBe(false);
-    if (second.ok) return;
+    if (second.ok) {
+      return;
+    }
     expect(second.error.code).toBe('rematch_already_voted');
     scenario.matchmaker.close();
   });
@@ -138,7 +150,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       sessionToken: scenario.alice.sessionToken,
     });
     expect(accepted.ok).toBe(false);
-    if (accepted.ok) return;
+    if (accepted.ok) {
+      return;
+    }
     expect(accepted.error.code).toBe('rematch_not_offered');
     scenario.matchmaker.close();
   });
@@ -152,7 +166,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       sessionToken: scenario.alice.sessionToken,
     });
     expect(aliceAccept.ok).toBe(true);
-    if (!aliceAccept.ok) return;
+    if (!aliceAccept.ok) {
+      return;
+    }
     expect(aliceAccept.allAccepted).toBe(false);
 
     const bobAccept = scenario.matchmaker.acceptRematch({
@@ -161,7 +177,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       sessionToken: scenario.bob.sessionToken,
     });
     expect(bobAccept.ok).toBe(true);
-    if (!bobAccept.ok) return;
+    if (!bobAccept.ok) {
+      return;
+    }
     expect(bobAccept.allAccepted).toBe(true);
     expect(bobAccept.newMatchId).toBeDefined();
     expect(bobAccept.newMatchId).not.toBe(scenario.matchId);
@@ -181,12 +199,16 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       displayName: 'Alice',
       settings: { boardSize: 20 },
     });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const joined = matchmaker.joinMatch({
       matchId: created.data.matchId,
       displayName: 'Bob',
     });
-    if (!joined.ok) throw new Error('fixture join failed');
+    if (!joined.ok) {
+      throw new Error('fixture join failed');
+    }
     server.fireOnMatchTerminal({
       matchId: created.data.matchId,
       result: { kind: 'win', winner: 1, tick: 7, reason: 'last_standing' },
@@ -197,13 +219,17 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
       matchId: created.data.matchId,
       sessionToken: created.data.seatAssignment.sessionToken,
     });
-    if (!requested.ok) throw new Error('fixture request failed');
+    if (!requested.ok) {
+      throw new Error('fixture request failed');
+    }
     const aliceAccept = matchmaker.acceptRematch({
       matchId: created.data.matchId,
       rematchOfferId: requested.rematchOfferId,
       sessionToken: created.data.seatAssignment.sessionToken,
     });
-    if (!aliceAccept.ok) throw new Error('fixture alice accept failed');
+    if (!aliceAccept.ok) {
+      throw new Error('fixture alice accept failed');
+    }
     const bobAccept = matchmaker.acceptRematch({
       matchId: created.data.matchId,
       rematchOfferId: requested.rematchOfferId,
@@ -219,7 +245,9 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
 
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     const entry = lobby.matches.find((m) => m.matchId === bobAccept.newMatchId);
     expect(entry).toBeDefined();
     expect(entry?.boardSize).toBe(20);

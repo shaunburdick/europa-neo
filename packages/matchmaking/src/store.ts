@@ -33,7 +33,7 @@ export interface MatchmakerStore {
   /** Remove a match; returns the removed record, or `undefined`. */
   deleteMatch(id: MatchId): MatchRecord | undefined;
   /** Snapshot of every stored match (insertion order). */
-  listMatches(): ReadonlyArray<MatchRecord>;
+  listMatches(): readonly MatchRecord[];
   /** Look up a player session by id. */
   getSession(id: PlayerSessionId): PlayerSession | undefined;
   /** Insert or replace a player session. */
@@ -41,7 +41,7 @@ export interface MatchmakerStore {
   /** Remove a session; returns the removed session, or `undefined`. */
   deleteSession(id: PlayerSessionId): PlayerSession | undefined;
   /** Snapshot of every stored session (insertion order). */
-  listSessions(): ReadonlyArray<PlayerSession>;
+  listSessions(): readonly PlayerSession[];
 }
 
 /**
@@ -68,7 +68,7 @@ export function createStore(): MatchmakerStore {
       }
       return removed;
     },
-    listMatches(): ReadonlyArray<MatchRecord> {
+    listMatches(): readonly MatchRecord[] {
       return [...matches.values()];
     },
     getSession(id: PlayerSessionId): PlayerSession | undefined {
@@ -84,7 +84,7 @@ export function createStore(): MatchmakerStore {
       }
       return removed;
     },
-    listSessions(): ReadonlyArray<PlayerSession> {
+    listSessions(): readonly PlayerSession[] {
       return [...sessions.values()];
     },
   });

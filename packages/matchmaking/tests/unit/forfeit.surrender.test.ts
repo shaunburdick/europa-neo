@@ -47,7 +47,9 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
     );
 
     expect(result).not.toBeNull();
-    if (result === null) return;
+    if (result === null) {
+      return;
+    }
     expect(result.outcome).toBe('surrendered');
     // The engine applied the order: Alice is eliminated in the world
     // (FR-016 — surrender marks the player eliminated immediately).
@@ -81,7 +83,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
     );
 
     expect(fx.server.detachPlayerCalls).toHaveLength(1);
-    const detach = fx.server.detachPlayerCalls[0];
+    const [detach] = fx.server.detachPlayerCalls;
     expect(detach?.matchId).toBe(fx.match.matchId);
     expect(detach?.sessionToken).toBe(fx.aliceToken);
     expect(detach?.playerId).toBe(1);
@@ -156,9 +158,13 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
     const server = new FakeServer();
     const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
     const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const joined = matchmaker.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
-    if (!joined.ok) throw new Error('fixture join failed');
+    if (!joined.ok) {
+      throw new Error('fixture join failed');
+    }
     const engineSession = server.lastEngineSession;
 
     server.fireOnSeatExpired({

@@ -32,7 +32,9 @@ function scriptedBoard(size: number, playerCount: 2 | 3 | 4): Board {
   ];
   for (let seat = 1; seat <= playerCount; seat++) {
     const home = homes[seat - 1];
-    if (home === undefined) throw new Error('fixture home missing');
+    if (home === undefined) {
+      throw new Error('fixture home missing');
+    }
     cities.push({ cell: { x: home[0], y: home[1] }, owner: seat });
   }
   return { width: size, height: size, cells: Object.freeze(cells), cities: Object.freeze(cities) };

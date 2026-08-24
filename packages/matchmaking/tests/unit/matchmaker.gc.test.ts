@@ -34,7 +34,9 @@ describe('matchmaker — empty-match GC sweep (FR-011)', () => {
     const mm = createMatchmaker(GC_CONFIG, { server, now: () => clock.value });
 
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
 
     // Before the TTL elapses the match survives.
     const early = mm.stats();
@@ -62,7 +64,9 @@ describe('matchmaker — empty-match GC sweep (FR-011)', () => {
     const mm = createMatchmaker(GC_CONFIG, { server, now: () => clock.value });
 
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     // Creator's seat expires while still filling → inline release
     // empties the match (US5 dispatch ruling 3).
     server.fireOnSeatExpired({
@@ -88,7 +92,9 @@ describe('matchmaker — empty-match GC sweep (FR-011)', () => {
     const mm = createMatchmaker(GC_CONFIG, { server, now: () => clock.value });
 
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     expect(mm.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' }).ok).toBe(true);
 
     clock.value += GC_CONFIG.emptyMatchTtlMs * 10;
@@ -105,7 +111,9 @@ describe('matchmaker — empty-match GC sweep (FR-011)', () => {
     const mm = createMatchmaker(GC_CONFIG, { server, now: () => clock.value });
 
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
 
     // Age almost to the TTL…
     clock.value += GC_CONFIG.emptyMatchTtlMs - 1;
@@ -128,13 +136,17 @@ describe('matchmaker — empty-match GC sweep (FR-011)', () => {
     const mm = createMatchmaker(GC_CONFIG, { server, now: () => clock.value });
 
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     expect(mm.listPublicMatches().matches).toHaveLength(1);
 
     clock.value += GC_CONFIG.emptyMatchTtlMs + 1;
     const lobby = mm.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(0);
     expect(mm.stats().collectedMatches).toBe(1);
     mm.close();
@@ -181,9 +193,13 @@ describe('matchmaker — results-TTL sweep (FR-011 second clause)', () => {
     /** Create, fill, and finish one match (no rematch offer). */
     const finishOne = (name: string): void => {
       const created = mm.createMatch({ visibility: 'public', displayName: name });
-      if (!created.ok) throw new Error('fixture create failed');
+      if (!created.ok) {
+        throw new Error('fixture create failed');
+      }
       const joined = mm.joinMatch({ matchId: created.data.matchId, displayName: `${name} II` });
-      if (!joined.ok) throw new Error('fixture join failed');
+      if (!joined.ok) {
+        throw new Error('fixture join failed');
+      }
       server.fireOnMatchTerminal({
         matchId: created.data.matchId,
         result: { kind: 'win', winner: 1, tick: 10, reason: 'last_standing' },

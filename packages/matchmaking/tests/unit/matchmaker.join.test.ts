@@ -23,7 +23,9 @@ function makeOpenMatch() {
   const server = new FakeServer();
   const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
   const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-  if (!created.ok) throw new Error('fixture create failed');
+  if (!created.ok) {
+    throw new Error('fixture create failed');
+  }
   return { server, matchmaker, matchId: created.data.matchId };
 }
 
@@ -34,7 +36,9 @@ describe('joinMatch — last seat fills (US1 AC-2)', () => {
     const join = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
 
     expect(join.ok).toBe(true);
-    if (!join.ok) return;
+    if (!join.ok) {
+      return;
+    }
     expect(join.data.seatAssignment.seatIndex).toBe(1);
     expect(join.data.seatAssignment.playerId).toBe(2);
     expect(join.data.seatAssignment.displayName).toBe('Bob');
@@ -51,7 +55,7 @@ describe('joinMatch — last seat fills (US1 AC-2)', () => {
 
     // One registerMatch carrying a real engine session + frozen config.
     expect(server.registerMatchCalls).toHaveLength(1);
-    const registration = server.registerMatchCalls[0];
+    const [registration] = server.registerMatchCalls;
     expect(registration?.matchId).toBe(matchId);
     expect(registration?.engineSession).toBeTruthy();
     expect(typeof registration?.engineSession.world()).toBe('object');
@@ -95,7 +99,9 @@ describe('joinMatch — rejections', () => {
     const late = matchmaker.joinMatch({ matchId, displayName: 'Carol' });
 
     expect(late.ok).toBe(false);
-    if (late.ok) return;
+    if (late.ok) {
+      return;
+    }
     expect(late.error.code).toBe('match_full');
     matchmaker.close();
   });
@@ -109,7 +115,9 @@ describe('joinMatch — rejections', () => {
     });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('match_not_found');
     expect(result.error.message).not.toContain('private');
     matchmaker.close();
@@ -121,7 +129,9 @@ describe('joinMatch — rejections', () => {
     const result = matchmaker.joinMatch({ matchId, displayName: '' });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('invalid_request');
     matchmaker.close();
   });
@@ -136,7 +146,9 @@ describe('joinMatch — rejections', () => {
     });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('match_not_found');
     matchmaker.close();
   });
@@ -145,7 +157,9 @@ describe('joinMatch — rejections', () => {
     const server = new FakeServer();
     const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
     const alice = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!alice.ok) throw new Error('fixture create failed');
+    if (!alice.ok) {
+      throw new Error('fixture create failed');
+    }
     const token = alice.data.seatAssignment.sessionToken;
 
     const result = matchmaker.joinMatch({
@@ -155,7 +169,9 @@ describe('joinMatch — rejections', () => {
     });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('seat_taken');
     matchmaker.close();
   });

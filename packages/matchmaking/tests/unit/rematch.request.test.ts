@@ -44,7 +44,9 @@ describe('requestRematch opens the window on a finished match (FR-008 / FR-009 /
     const result = matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
 
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    if (!result.ok) {
+      return;
+    }
     expect(result.rematchOfferId).not.toBe(matchId);
     matchmaker.close();
   });
@@ -63,11 +65,15 @@ describe('requestRematch opens the window on a finished match (FR-008 / FR-009 /
 
     const first = matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
     expect(first.ok).toBe(true);
-    if (!first.ok) return;
+    if (!first.ok) {
+      return;
+    }
 
     const second = matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
     expect(second.ok).toBe(true);
-    if (!second.ok) return;
+    if (!second.ok) {
+      return;
+    }
     expect(second.rematchOfferId).toBe(first.rematchOfferId);
     matchmaker.close();
   });
@@ -79,7 +85,9 @@ describe('requestRematch opens the window on a finished match (FR-008 / FR-009 /
 
     const result = matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('rematch_window_closed');
     matchmaker.close();
   });
@@ -98,12 +106,16 @@ describe('requestRematch opens the window on a finished match (FR-008 / FR-009 /
     const server = new FakeServer();
     const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
     const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const joined = matchmaker.joinMatch({
       matchId: created.data.matchId,
       displayName: 'Bob',
     });
-    if (!joined.ok) throw new Error('fixture join failed');
+    if (!joined.ok) {
+      throw new Error('fixture join failed');
+    }
 
     // Match auto-started and is running; no terminal event has fired.
     const result = matchmaker.requestRematch({
@@ -111,7 +123,9 @@ describe('requestRematch opens the window on a finished match (FR-008 / FR-009 /
       sessionToken: created.data.seatAssignment.sessionToken,
     });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('rematch_not_offered');
     matchmaker.close();
   });
@@ -121,7 +135,9 @@ describe('requestRematch opens the window on a finished match (FR-008 / FR-009 /
 
     const result = matchmaker.requestRematch({ matchId, sessionToken: FOREIGN_TOKEN });
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok) {
+      return;
+    }
     expect(result.error.code).toBe('session_invalid');
     matchmaker.close();
   });

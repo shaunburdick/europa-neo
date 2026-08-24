@@ -3,5 +3,48 @@
   "extends": ["../../biome.json"],
   "files": {
     "includes": ["src/**", "tests/**", "*.ts", "*.json", "!contracts"]
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/constants.ts",
+        "src/lobby.ts",
+        "src/matchLifecycle.ts",
+        "src/matchmaker.ts",
+        "src/results.ts",
+        "tests/fixtures/forfeitScenario.ts",
+        "tests/fixtures/rematchScenario.ts",
+        "tests/quickstart/Q-M01-lobby-staleness.test.ts",
+        "tests/quickstart/Q-M03-private-id-miss-no-leak.test.ts",
+        "tests/quickstart/Q-M06-empty-match-gc.test.ts",
+        "tests/quickstart/Q-M07-seat-fill-race.test.ts",
+        "tests/soak.test.ts",
+        "tests/unit/engineSession.test.ts",
+        "tests/unit/forfeit.allDisconnected.test.ts",
+        "tests/unit/forfeit.graceWindow.test.ts",
+        "tests/unit/forfeit.surrender.test.ts",
+        "tests/unit/foundations.test.ts",
+        "tests/unit/lobby.list.test.ts",
+        "tests/unit/lobby.multi.test.ts",
+        "tests/unit/lobby.staleness.test.ts",
+        "tests/unit/lobby.test.ts",
+        "tests/unit/matchLifecycle.test.ts",
+        "tests/unit/matchmaker.edges.test.ts",
+        "tests/unit/matchmaker.gc.test.ts",
+        "tests/unit/matchmaker.join.test.ts",
+        "tests/unit/privateJoin.test.ts",
+        "tests/unit/rematch.accept.test.ts",
+        "tests/unit/rematch.newMatch.test.ts"
+      ],
+      "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
+    },
+    {
+      "includes": ["src/errors.ts"],
+      "linter": { "rules": { "style": { "useNamingConvention": "off" } } }
+    },
+    {
+      "includes": ["src/results.ts", "tests/soak.test.ts"],
+      "linter": { "rules": { "suspicious": { "noBitwiseOperators": "off" } } }
+    }
+  ]
 }

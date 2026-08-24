@@ -39,7 +39,9 @@ describe('matchmaker — throwing stubs (later waves)', () => {
   it('leaveMatch throws for a known match until its wave lands', () => {
     const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server: new FakeServer() });
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     expect(() =>
       mm.leaveMatch({
         matchId: created.data.matchId,
@@ -56,11 +58,15 @@ describe('matchmaker — throwing stubs (later waves)', () => {
     // `rematch_not_offered` (never a throw).
     const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server: new FakeServer() });
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     const token = created.data.seatAssignment.sessionToken;
     const requested = mm.requestRematch({ matchId: created.data.matchId, sessionToken: token });
     expect(requested.ok).toBe(false);
-    if (requested.ok) return;
+    if (requested.ok) {
+      return;
+    }
     expect(requested.error.code).toBe('rematch_not_offered');
     const accepted = mm.acceptRematch({
       matchId: created.data.matchId,
@@ -68,7 +74,9 @@ describe('matchmaker — throwing stubs (later waves)', () => {
       sessionToken: token,
     });
     expect(accepted.ok).toBe(false);
-    if (accepted.ok) return;
+    if (accepted.ok) {
+      return;
+    }
     expect(accepted.error.code).toBe('rematch_not_offered');
     const declined = mm.declineRematch({
       matchId: created.data.matchId,
@@ -76,7 +84,9 @@ describe('matchmaker — throwing stubs (later waves)', () => {
       sessionToken: token,
     });
     expect(declined.ok).toBe(false);
-    if (declined.ok) return;
+    if (declined.ok) {
+      return;
+    }
     expect(declined.error.code).toBe('rematch_not_offered');
     mm.close();
   });
@@ -87,7 +97,9 @@ describe('matchmaker — close()', () => {
     const server = new FakeServer();
     const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
 
     await mm.close();
 
@@ -127,7 +139,9 @@ describe('matchmaker — stats()', () => {
     expect(before.totalCreated).toBe(0);
 
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     expect(mm.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' }).ok).toBe(true);
 
     const stats = mm.stats();
@@ -167,7 +181,9 @@ describe('matchmaker — deterministic deps', () => {
     });
 
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     expect(created.data.matchId).toBe('aaaaaaaa-0000-4000-8000-000000000002');
     expect(created.data.seatAssignment.playerSessionId).toBe(
       'aaaaaaaa-0000-4000-8000-000000000001',
@@ -186,7 +202,9 @@ describe('matchmaker — deterministic deps', () => {
     const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server, logger });
 
     const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
-    if (!created.ok) throw new Error('fixture create failed');
+    if (!created.ok) {
+      throw new Error('fixture create failed');
+    }
     expect(mm.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' }).ok).toBe(true);
 
     expect(logger.lines.some((l) => l.startsWith('info:matchmaker: match created'))).toBe(true);
@@ -217,7 +235,9 @@ describe('matchmaker — settings resolution edges', () => {
     expect(huge.ok).toBe(true);
 
     const lobby = mm.listPublicMatches();
-    if (!lobby.ok) throw new Error('lobby failed');
+    if (!lobby.ok) {
+      throw new Error('lobby failed');
+    }
     const sizes = lobby.matches.map((m) => m.boardSize).sort((a, b) => a - b);
     expect(sizes).toEqual([8, 128]);
     mm.close();
@@ -233,7 +253,9 @@ describe('matchmaker — settings resolution edges', () => {
       settings: { boardSize: Number.NaN },
     });
     expect(nanBoard.ok).toBe(false);
-    if (!nanBoard.ok) expect(nanBoard.error.code).toBe('invalid_request');
+    if (!nanBoard.ok) {
+      expect(nanBoard.error.code).toBe('invalid_request');
+    }
 
     const badTick = mm.createMatch({
       visibility: 'public',
@@ -241,7 +263,9 @@ describe('matchmaker — settings resolution edges', () => {
       settings: { tickIntervalMs: 0 },
     });
     expect(badTick.ok).toBe(false);
-    if (!badTick.ok) expect(badTick.error.code).toBe('invalid_request');
+    if (!badTick.ok) {
+      expect(badTick.error.code).toBe('invalid_request');
+    }
     mm.close();
   });
 

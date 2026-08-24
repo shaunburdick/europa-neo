@@ -46,7 +46,9 @@ describe('Q-M03: unknown match ID returns match_not_found', () => {
       displayName: 'Alice',
     });
     expect(create.ok).toBe(true);
-    if (!create.ok) return;
+    if (!create.ok) {
+      return;
+    }
 
     const realMatchId = create.data.matchId;
     // The id circulates only via Alice's shareable link (FR-003/Q3).
@@ -54,7 +56,9 @@ describe('Q-M03: unknown match ID returns match_not_found', () => {
     // The lobby never lists it (SC-003 zero-private clause).
     const lobby = matchmaker.listPublicMatches();
     expect(lobby.ok).toBe(true);
-    if (!lobby.ok) return;
+    if (!lobby.ok) {
+      return;
+    }
     expect(lobby.matches).toHaveLength(0);
 
     // Step 2: Attacker probes 100 unknown UUIDs (none are the real one)
@@ -65,7 +69,9 @@ describe('Q-M03: unknown match ID returns match_not_found', () => {
         displayName: 'Mallory',
       });
       expect(result.ok).toBe(false);
-      if (result.ok) return;
+      if (result.ok) {
+        return;
+      }
       expect(result.error.code).toBe('match_not_found');
       // The error message must NOT mention "private" or "exists"
       expect(result.error.message.toLowerCase()).not.toContain('private');
@@ -77,7 +83,9 @@ describe('Q-M03: unknown match ID returns match_not_found', () => {
     for (let i = 0; i < 10; i++) {
       const r = matchmaker.joinMatch({ matchId: unknownId(realMatchId), displayName: 'Mallory' });
       expect(r.ok).toBe(false);
-      if (r.ok) return;
+      if (r.ok) {
+        return;
+      }
       expect(r.error.code).toBe('match_not_found');
     }
 
@@ -91,7 +99,9 @@ describe('Q-M03: unknown match ID returns match_not_found', () => {
       displayName: 'Bob',
     });
     expect(bobJoin.ok).toBe(true);
-    if (!bobJoin.ok) return;
+    if (!bobJoin.ok) {
+      return;
+    }
     expect(bobJoin.data.seatAssignment.seatIndex).toBe(1);
 
     // Post-start: unknown probes STILL get the identical non-leaking
@@ -101,7 +111,9 @@ describe('Q-M03: unknown match ID returns match_not_found', () => {
       displayName: 'Mallory',
     });
     expect(afterStart.ok).toBe(false);
-    if (!afterStart.ok) return;
+    if (!afterStart.ok) {
+      return;
+    }
     expect(afterStart.error.code).toBe('match_not_found');
 
     await matchmaker.close();
