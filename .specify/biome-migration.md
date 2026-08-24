@@ -1,8 +1,8 @@
 # Biome migration policy
 
-**Baseline date:** 2026-08-24  
-**Config:** `biome-config-shaunburdick@1.0.0`  
-**Biome:** `@biomejs/biome@2.5.9` (peer-compatible with the published config)  
+**Baseline date:** 2026-08-24
+**Config:** `biome-config-shaunburdick@1.0.0`
+**Biome:** `@biomejs/biome@2.5.9` (peer-compatible with the published config)
 **Runtime:** Node.js >= 22 (required by the adopted config and CI)
 
 ## Adopted configuration
