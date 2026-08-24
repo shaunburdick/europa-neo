@@ -42,27 +42,5 @@
                 }
             }
         }
-    ],
-    // These settings must remain at the repository layer: package configs extend this file
-    // and otherwise fall back to Biome's defaults instead of forwarding the published preset.
-    "formatter": {
-        "indentStyle": "space",
-        "indentWidth": 4,
-        "lineWidth": 120,
-        "lineEnding": "lf"
-    },
-    "javascript": {
-        "formatter": {
-            "quoteStyle": "single",
-            "semicolons": "always",
-            "trailingCommas": "all",
-            "arrowParentheses": "always"
-        }
-    },
-    "json": {
-        "formatter": {
-            "indentWidth": 4,
-            "trailingCommas": "none"
-        }
-    }
+    ]
 }
