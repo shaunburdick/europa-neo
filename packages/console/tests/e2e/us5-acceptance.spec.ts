@@ -65,13 +65,14 @@ test('US5 zoom, reconnect status, and gated surrender', async ({ page }) => {
 
     // Input targeting stays accurate at the new zoom: clicking a cell
     // still issues a pipe order for the cell under the cursor. The
-    // probe fraction (0.25, 0.25) sits safely inside the W/N region
-    // tie-break margins so sub-pixel click rounding cannot flip it.
+    // probe fraction (0.25, 0.5) sits firmly inside the W region under
+    // nearest-edge classification (horizontal distance 0.25 vs vertical
+    // 0), so sub-pixel click rounding cannot flip it.
     const zoomNow = await page.evaluate(() => window.__europaE2E?.store.getState().camera.zoom ?? DEFAULT_CAMERA.zoom);
     const panNow = await page.evaluate(() => window.__europaE2E?.store.getState().camera.pan ?? { x: 0, y: 0 });
-    // Cell (3, 10) at fraction (0.25, 0.25) in screen space.
+    // Cell (3, 10) at fraction (0.25, 0.5) in screen space.
     const screenX = panNow.x + 3.25 * zoomNow;
-    const screenY = panNow.y + 10.25 * zoomNow;
+    const screenY = panNow.y + 10.5 * zoomNow;
     const boardBox = await page.locator('.europa-board-area').boundingBox();
     if (boardBox === null) {
         throw new Error('board area has no bounding box');
