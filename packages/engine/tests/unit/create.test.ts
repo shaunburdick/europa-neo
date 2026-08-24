@@ -147,6 +147,25 @@ describe('createWorld — FR-019 player count', () => {
     expect(() => createWorld({ ...baseConfig, playerCount: 1 as 2 }, board)).toThrow(/playerCount/);
     expect(() => createWorld({ ...baseConfig, playerCount: 5 as 4 }, board)).toThrow(/playerCount/);
   });
+
+  it('rejects fractional playerCount values', () => {
+    const board = buildSmallBoard(8, []);
+    const fractionalPlayerCount = 2.5 as unknown as MatchConfig['playerCount'];
+    expect(() => createWorld({ ...baseConfig, playerCount: fractionalPlayerCount }, board)).toThrow(
+      /playerCount/,
+    );
+  });
+
+  it('rejects fractional city owner values', () => {
+    const board = buildSmallBoard(8, []);
+    const fractionalOwner = 1.5 as unknown as PlayerId;
+    const boardWithFractionalOwner: Board = Object.freeze({
+      ...board,
+      cities: Object.freeze([{ cell: { x: 1, y: 1 }, owner: fractionalOwner }]),
+    });
+
+    expect(() => createWorld(baseConfig, boardWithFractionalOwner)).toThrow(/owner/);
+  });
 });
 
 describe('createWorld — initial state', () => {

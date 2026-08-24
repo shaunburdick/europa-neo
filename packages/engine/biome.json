@@ -4,16 +4,82 @@
   "files": {
     "includes": ["src/**", "tests/**", "*.ts", "*.json", "!src/contracts"]
   },
-  "linter": {
-    "rules": {
-      "style": {
-        "noMagicNumbers": "off",
-        "useNamingConvention": "off",
-        "useDestructuring": "off"
-      },
-      "suspicious": {
-        "noBitwiseOperators": "off"
+  "overrides": [
+    {
+      "includes": [
+        "src/create.ts",
+        "src/read.ts",
+        "src/resolution/combat.ts",
+        "src/resolution/decay.ts",
+        "src/resolution/flow.ts",
+        "src/resolution/gun.ts",
+        "src/resolution/paratroop.ts",
+        "src/resolution/production.ts",
+        "src/rng.ts",
+        "src/serialize.ts",
+        "src/tick.ts",
+        "src/validate.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noBitwiseOperators": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/rng.ts",
+        "src/serialize.ts",
+        "src/resolution/flow.ts",
+        "src/validate.ts",
+        "tests/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noMagicNumbers": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/tick.ts", "src/validate.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useNamingConvention": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "tests/fixtures/scenarios.ts",
+        "tests/perf/tick-perf.bench.ts",
+        "tests/unit/capture.test.ts",
+        "tests/unit/combat.test.ts",
+        "tests/unit/create.test.ts",
+        "tests/unit/flow.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "useDestructuring": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["tests/unit/flow.test.ts", "tests/unit/rng.test.ts", "tests/unit/tick.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noBitwiseOperators": "off"
+          }
+        }
       }
     }
-  }
+  ]
 }

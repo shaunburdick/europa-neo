@@ -76,7 +76,11 @@ export function createWorld(config: MatchConfig, board: Board): World {
   }
 
   // ---- Player count (FR-019) -------------------------------------------
-  if (config.playerCount < MIN_PLAYERS || config.playerCount > MAX_PLAYERS) {
+  if (
+    !Number.isInteger(config.playerCount) ||
+    config.playerCount < MIN_PLAYERS ||
+    config.playerCount > MAX_PLAYERS
+  ) {
     throw new Error(
       `createWorld: config.playerCount must be 2, 3, or 4 (got ${String(config.playerCount)})`,
     );
@@ -122,7 +126,7 @@ export function createWorld(config: MatchConfig, board: Board): World {
         `createWorld: city at [${String(cx)},${String(cy)}] is out of bounds for ${String(board.width)}×${String(board.height)}`,
       );
     }
-    if (city.owner < 1 || city.owner > MAX_PLAYERS) {
+    if (!Number.isInteger(city.owner) || city.owner < 1 || city.owner > MAX_PLAYERS) {
       throw new Error(
         `createWorld: city at [${String(cx)},${String(cy)}] owner must be 1..4 (got ${String(city.owner)})`,
       );
