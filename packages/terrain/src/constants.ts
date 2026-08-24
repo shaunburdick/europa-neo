@@ -23,6 +23,25 @@
 import type { TerrainConstants } from './contracts/terrain-api';
 import { DEFAULT_GENERATION_SETTINGS } from './contracts/terrain-types';
 
+/** Minimum and maximum supported player counts. */
+export const MIN_PLAYER_COUNT = 2;
+
+/** Player count and identifier used by the three-player layout. */
+export const THREE_PLAYER_COUNT = 3;
+export const THIRD_PLAYER_ID = 3;
+
+/** Player identifiers used by the four-player layout. */
+export const FOUR_PLAYER_COUNT = 4;
+export const FOURTH_PLAYER_ID = 4;
+
+/** Generation and validation bounds that are part of the terrain contract. */
+export const MIN_GENERATION_BOARD_SIZE = 8;
+export const MAX_GENERATION_BOARD_SIZE = 128;
+export const MIN_WATER_POOL_SIZE = 4;
+export const WATER_RATIO_MIN = 0.02;
+export const WATER_RATIO_MAX = 0.25;
+export const WATER_RATIO_EPSILON = 1e-9;
+
 /**
  * Terrain rule constants. Imported by every generator module. See
  * `contracts/terrain-api.ts` `TerrainConstants` for the type contract
@@ -35,8 +54,8 @@ export const TERRAIN_CONSTANTS: TerrainConstants = {
   // spec Assumptions / data-model.md §1: playable boards are 16..64.
   // Generation accepts `[8, 128]` per data-model §2; tests use 16 and
   // 32, default play is 32.
-  minBoardSize: 8,
-  maxBoardSize: 128,
+  minBoardSize: MIN_GENERATION_BOARD_SIZE,
+  maxBoardSize: MAX_GENERATION_BOARD_SIZE,
   // Mirrors `DEFAULT_GENERATION_SETTINGS` from `contracts/terrain-types.ts`.
   // The interface uses the same reference so consumers can compare.
   defaultSettings: DEFAULT_GENERATION_SETTINGS,

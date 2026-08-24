@@ -24,6 +24,12 @@
  * valid coords). The implementation is pure and integer-only.
  */
 
+import {
+  FOUR_PLAYER_COUNT,
+  MIN_PLAYER_COUNT,
+  THIRD_PLAYER_ID,
+  THREE_PLAYER_COUNT,
+} from './constants';
 import type { PlayerId } from './contracts/terrain-types';
 
 /**
@@ -52,7 +58,7 @@ export function getPlayerBand(
   width: number,
   height: number,
 ): Band {
-  if (playerCount === 2) {
+  if (playerCount === MIN_PLAYER_COUNT) {
     // Two horizontal bands.
     const halfH = Math.floor(height / 2);
     if (playerId === 1) {
@@ -61,18 +67,18 @@ export function getPlayerBand(
     // playerId === 2
     return { xMin: 0, xMax: width - 1, yMin: halfH, yMax: height - 1 };
   }
-  if (playerCount === 4) {
+  if (playerCount === FOUR_PLAYER_COUNT) {
     // Four quadrants.
     const halfW = Math.floor(width / 2);
     const halfH = Math.floor(height / 2);
     switch (playerId) {
       case 1:
         return { xMin: 0, xMax: halfW - 1, yMin: 0, yMax: halfH - 1 };
-      case 2:
+      case MIN_PLAYER_COUNT:
         return { xMin: halfW, xMax: width - 1, yMin: 0, yMax: halfH - 1 };
-      case 3:
+      case THREE_PLAYER_COUNT:
         return { xMin: 0, xMax: halfW - 1, yMin: halfH, yMax: height - 1 };
-      case 4:
+      case FOUR_PLAYER_COUNT:
         return { xMin: halfW, xMax: width - 1, yMin: halfH, yMax: height - 1 };
       default:
         // Unreachable (PlayerId is 1..4).
@@ -80,11 +86,11 @@ export function getPlayerBand(
     }
   }
   // playerCount === 3: three horizontal bands.
-  const thirdH = Math.floor(height / 3);
+  const thirdH = Math.floor(height / THREE_PLAYER_COUNT);
   if (playerId === 1) {
     return { xMin: 0, xMax: width - 1, yMin: 0, yMax: thirdH - 1 };
   }
-  if (playerId === 3) {
+  if (playerId === THIRD_PLAYER_ID) {
     return { xMin: 0, xMax: width - 1, yMin: height - thirdH, yMax: height - 1 };
   }
   // playerId === 2 (middle band).

@@ -33,6 +33,13 @@
 
 import type { Board, CityPlacement, Coord, PlayerId } from '@europa/engine';
 
+import {
+  MIN_WATER_POOL_SIZE,
+  TERRAIN_CONSTANTS,
+  WATER_RATIO_EPSILON,
+  WATER_RATIO_MAX,
+  WATER_RATIO_MIN,
+} from './constants';
 import type {
   GenerationSettings,
   MapStats,
@@ -308,7 +315,11 @@ export function validateBoard(
         continue;
       }
       // INV-3: elevation range.
-      if (!Number.isInteger(cell.elevation) || cell.elevation < 0 || cell.elevation > 255) {
+      if (
+        !Number.isInteger(cell.elevation) ||
+        cell.elevation < TERRAIN_CONSTANTS.minElevation ||
+        cell.elevation > TERRAIN_CONSTANTS.maxElevation
+      ) {
         violations.push({
           kind: 'asymmetry',
           cellA: { x, y },
@@ -458,9 +469,9 @@ export function validateBoard(
 
   // INV-13: water ratio bounds.
   const actualRatio = waterRatio(board);
-  const lower = 0.02;
-  const upper = 0.25;
-  if (actualRatio < lower - 1e-9 || actualRatio > upper + 1e-9) {
+  const lower = WATER_RATIO_MIN;
+  const upper = WATER_RATIO_MAX;
+  if (actualRatio < lower - WATER_RATIO_EPSILON || actualRatio > upper + WATER_RATIO_EPSILON) {
     violations.push({
       kind: 'water_out_of_bounds',
       waterRatio: actualRatio,
@@ -481,11 +492,16 @@ export function validateBoard(
 
   // INV-15: water pool contiguity.
   const { largestPool } = waterPoolStats(board);
-  if (largestPool > 0 && largestPool < 4) {
+  if (largestPool > 0 && largestPool < MIN_WATER_POOL_SIZE) {
     // Also covered by INV-13 if the water ratio is too small. We
     // record as 'water_out_of_bounds' to keep the violation set
     // stable. (No specific kind for "pool too small" exists yet.)
-    violations.push({ kind: 'water_out_of_bounds', waterRatio: actualRatio, min: 0.02, max: 0.25 });
+    violations.push({
+      kind: 'water_out_of_bounds',
+      waterRatio: actualRatio,
+      min: lower,
+      max: upper,
+    });
   }
 
   const stats = buildMapStats(board, settings);

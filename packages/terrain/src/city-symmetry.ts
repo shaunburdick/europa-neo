@@ -22,6 +22,7 @@
  * verification is needed.
  */
 
+import { FOURTH_PLAYER_ID, THIRD_PLAYER_ID, THREE_PLAYER_COUNT } from './constants';
 import type { Coord, PlayerId } from './contracts/terrain-types';
 
 interface InputCity {
@@ -44,23 +45,23 @@ function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
   if (playerCount === 2) {
     return p === 1 ? 2 : 1;
   }
-  if (playerCount === 3) {
+  if (playerCount === THREE_PLAYER_COUNT) {
     if (p === 1) {
-      return 3;
+      return THIRD_PLAYER_ID as PlayerId;
     }
-    if (p === 3) {
+    if (p === THIRD_PLAYER_ID) {
       return 1;
     }
     return 2; // P2 is self-symmetric
   }
   // playerCount === 4
   if (p === 1) {
-    return 4;
+    return FOURTH_PLAYER_ID as PlayerId;
   }
   if (p === 2) {
-    return 3;
+    return THIRD_PLAYER_ID as PlayerId;
   }
-  if (p === 3) {
+  if (p === THIRD_PLAYER_ID) {
     return 2;
   }
   return 1;

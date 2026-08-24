@@ -64,6 +64,33 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "tests/contracts-drift.test.ts",
+        "tests/unit/clamp.test.ts",
+        "tests/unit/generate.test.ts",
+        "tests/unit/index.test.ts",
+        "tests/unit/settings.test.ts",
+        "tests/unit/validate.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noMagicNumbers": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["tests/unit/validate.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noBitwiseOperators": "off"
+          }
+        }
+      }
     }
   ]
 }

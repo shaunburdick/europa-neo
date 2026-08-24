@@ -9,6 +9,8 @@
  * placement pipeline.
  */
 
+import { CITIES_PER_PLAYER_MAX, CITIES_PER_PLAYER_MIN } from './clamp';
+
 /**
  * Resolve the total number of cities to place on the board.
  *
@@ -25,6 +27,11 @@ export function resolveCityCount(
   // duplicate the math here for now and centralize in clamp.ts in
   // a later wave). Range [1, 4] per data-model.md §2.
   const cpp = settings.citiesPerPlayer;
-  const clamped = cpp < 1 ? 1 : cpp > 4 ? 4 : cpp;
+  const clamped =
+    cpp < CITIES_PER_PLAYER_MIN
+      ? CITIES_PER_PLAYER_MIN
+      : cpp > CITIES_PER_PLAYER_MAX
+        ? CITIES_PER_PLAYER_MAX
+        : cpp;
   return clamped * playerCount;
 }

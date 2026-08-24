@@ -19,6 +19,7 @@
  */
 
 import type { Board, Cell, MatchConfig } from '@europa/engine';
+import { TERRAIN_CONSTANTS } from './constants';
 
 /**
  * Build a `Board` from the two flat intermediates produced by the
@@ -116,7 +117,11 @@ export function assertBoardMatchesConfig(
         `assertBoardMatchesConfig: cell at (${String(cell.x)},${String(cell.y)}) has invalid terrain '${String(cell.terrain)}'`,
       );
     }
-    if (!Number.isInteger(cell.elevation) || cell.elevation < 0 || cell.elevation > 255) {
+    if (
+      !Number.isInteger(cell.elevation) ||
+      cell.elevation < TERRAIN_CONSTANTS.minElevation ||
+      cell.elevation > TERRAIN_CONSTANTS.maxElevation
+    ) {
       throw new Error(
         `assertBoardMatchesConfig: cell at (${String(cell.x)},${String(cell.y)}) has invalid elevation ${String(cell.elevation)}`,
       );

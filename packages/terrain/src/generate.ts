@@ -32,6 +32,13 @@ import { getPlayerBand } from './city-band';
 import { placeCitiesInBand } from './city-placement';
 import { enforceCitySymmetry } from './city-symmetry';
 import { clampSettings } from './clamp';
+import {
+  FOUR_PLAYER_COUNT,
+  MAX_GENERATION_BOARD_SIZE,
+  MIN_GENERATION_BOARD_SIZE,
+  MIN_PLAYER_COUNT,
+  THREE_PLAYER_COUNT,
+} from './constants';
 import type {
   GenerationSettings,
   MapSeed,
@@ -55,20 +62,24 @@ export { hashBoard } from './hash';
  */
 function validateRequest(req: Readonly<TerrainGenerationRequest>): void {
   const { boardSize, playerCount, seed, settings } = req;
-  if (!Number.isInteger(boardSize) || boardSize < 8) {
+  if (!Number.isInteger(boardSize) || boardSize < MIN_GENERATION_BOARD_SIZE) {
     throw new GenerationError(
       `generateBoard: boardSize must be an integer ≥ 8 (got ${String(boardSize)})`,
       { kind: 'invalid_request', attempts: 0, lastReport: null },
     );
   }
-  if (boardSize > 128) {
+  if (boardSize > MAX_GENERATION_BOARD_SIZE) {
     throw new GenerationError(`generateBoard: boardSize must be ≤ 128 (got ${String(boardSize)})`, {
       kind: 'invalid_request',
       attempts: 0,
       lastReport: null,
     });
   }
-  if (playerCount !== 2 && playerCount !== 3 && playerCount !== 4) {
+  if (
+    playerCount !== MIN_PLAYER_COUNT &&
+    playerCount !== THREE_PLAYER_COUNT &&
+    playerCount !== FOUR_PLAYER_COUNT
+  ) {
     throw new GenerationError(
       `generateBoard: playerCount must be 2, 3, or 4 (got ${String(playerCount)})`,
       { kind: 'invalid_request', attempts: 0, lastReport: null },
@@ -165,7 +176,7 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
       if (req.playerCount === 2) {
         return [1 as PlayerId];
       }
-      if (req.playerCount === 3) {
+      if (req.playerCount === THREE_PLAYER_COUNT) {
         return [1 as PlayerId, 2 as PlayerId];
       }
       return [1 as PlayerId, 2 as PlayerId]; // 4p

@@ -124,6 +124,17 @@ Validation, placement, symmetry, and unrelated test files therefore continue
 to report the staged warnings rather than being hidden by package-wide
 overrides.
 
+The remaining terrain test-vector exceptions are exact-file overrides for
+`tests/contracts-drift.test.ts`, `tests/unit/clamp.test.ts`,
+`tests/unit/generate.test.ts`, `tests/unit/index.test.ts`,
+`tests/unit/settings.test.ts`, and `tests/unit/validate.test.ts`. These tests
+deliberately spell out contract bounds, representative settings, board
+dimensions, coordinates, seeds, and expected hash widths; naming each value
+would obscure the behavior being asserted. `validate.test.ts` additionally
+uses a bitwise uint8 wrap in a mutation vector, so its exact-file exception
+also covers `noBitwiseOperators`. No production validation or placement code
+is exempted.
+
 ## Fog Phase 2 exceptions
 
 Fog keeps `noBitwiseOperators` off only for `src/utils.ts` (the two-lane
