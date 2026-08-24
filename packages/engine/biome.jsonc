@@ -2,7 +2,7 @@
     "root": false,
     "extends": ["../../biome.jsonc"],
     "files": {
-        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc", "!src/contracts"]
+        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc"]
     },
     "overrides": [
         {
@@ -27,11 +27,44 @@
                         "noBitwiseOperators": "off"
                     }
                 }
-            },
-            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+            }
         },
         {
-            "includes": ["src/rng.ts", "src/serialize.ts", "src/resolution/flow.ts", "src/validate.ts", "tests/**"],
+            // Tests assert fixed board vectors, wire values, and deterministic tick outcomes.
+            "includes": [
+                "src/rng.ts",
+                "src/serialize.ts",
+                "src/resolution/flow.ts",
+                "src/validate.ts",
+                "tests/contracts-drift.test.ts",
+                "tests/determinism.test.ts",
+                "tests/fixtures/board.test.ts",
+                "tests/fixtures/board.ts",
+                "tests/perf/tick-perf.bench.ts",
+                "tests/quickstart/combat.test.ts",
+                "tests/quickstart/decay-capacity-reserves.test.ts",
+                "tests/quickstart/multi-player.test.ts",
+                "tests/quickstart/paratroop-gun.test.ts",
+                "tests/quickstart/production.test.ts",
+                "tests/quickstart/slope-flow.test.ts",
+                "tests/quickstart/terminal.test.ts",
+                "tests/quickstart/tick-to-terminal.test.ts",
+                "tests/unit/capture.test.ts",
+                "tests/unit/combat.test.ts",
+                "tests/unit/create.test.ts",
+                "tests/unit/decay.test.ts",
+                "tests/unit/events.test.ts",
+                "tests/unit/flow.test.ts",
+                "tests/unit/gun.test.ts",
+                "tests/unit/paratroop.test.ts",
+                "tests/unit/production.test.ts",
+                "tests/unit/read.test.ts",
+                "tests/unit/rng.test.ts",
+                "tests/unit/scenarios.test.ts",
+                "tests/unit/serialize.test.ts",
+                "tests/unit/terminal.test.ts",
+                "tests/unit/tick.test.ts"
+            ],
             "linter": {
                 "rules": {
                     "style": {
@@ -86,10 +119,18 @@
             // Contract mirror formatting is protected by byte-identity tests.
             "includes": ["src/contracts/**"],
             "formatter": { "enabled": false },
+            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+        },
+        {
+            // Contract mirrors retain upstream array, import, and void-type shapes verbatim.
+            "includes": ["src/contracts/engine-api.ts", "src/contracts/engine-types.ts"],
+            "linter": { "rules": { "style": { "useConsistentArrayType": "off" } } }
+        },
+        {
+            "includes": ["src/contracts/engine-api.ts"],
             "linter": {
                 "rules": {
                     "correctness": { "noUnusedImports": "off" },
-                    "style": { "useConsistentArrayType": "off" },
                     "suspicious": { "noConfusingVoidType": "off" }
                 }
             }

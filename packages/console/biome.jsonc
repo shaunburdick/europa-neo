@@ -9,25 +9,40 @@
             "*.ts",
             "*.json",
             "*.jsonc",
-            "!contracts",
             "!scripts/generate-determinism-golden.ts",
             "!test-results",
             "!tests/fixtures/original-subcell.json",
             "!tests/fixtures/golden-1000-tick.json"
         ]
     },
-    "linter": {
-        "rules": {
-            "a11y": {
-                "useSemanticElements": "off",
-                "useFocusableInteractive": "off",
-                "noNoninteractiveTabindex": "off"
-            }
-        }
-    },
     "overrides": [
         {
-            // The ARIA grid intentionally implements keyboard semantics unavailable to native elements.
+            // These controls and the ARIA grid intentionally implement keyboard semantics unavailable to native elements.
+            "includes": [
+                "src/render/grid-overlay.tsx",
+                "src/render/App.tsx",
+                "src/render/cell-view.tsx",
+                "src/ui/order-bar.tsx",
+                "src/ui/reserves-panel.tsx",
+                "tests/component/render/cell-view.test.tsx"
+            ],
+            "linter": {
+                "rules": {
+                    "a11y": {
+                        "useSemanticElements": "off",
+                        "useFocusableInteractive": "off",
+                        "noNoninteractiveTabindex": "off"
+                    }
+                }
+            }
+        },
+        {
+            // The grid fixture uses literal cell dimensions as an explicit geometry vector.
+            "includes": ["tests/component/render/grid-overlay.test.tsx"],
+            "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
+        },
+        {
+            // UI geometry, protocol values, and explicit test vectors use meaningful literals in context.
             "includes": [
                 "scripts/build-assets.ts",
                 "scripts/host.ts",
@@ -50,7 +65,6 @@
                 "tests/component/qol/minimap.test.tsx",
                 "tests/component/render/app-wire-view.test.tsx",
                 "tests/component/render/cell-view.test.tsx",
-                "tests/component/render/grid-overlay.test.tsx",
                 "tests/component/render/map-canvas.test.tsx",
                 "tests/component/ui/reserves-panel.test.tsx",
                 "tests/e2e/full-stack.spec.ts",
@@ -121,14 +135,33 @@
             // Contract mirror formatting is protected by byte-identity tests.
             "includes": ["contracts/**"],
             "formatter": { "enabled": false },
+            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+        },
+        {
+            // QoLSettings preserves the public contract's established acronym spelling.
+            "includes": ["contracts/console-types.ts"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useNamingConvention": "off",
+                        "useConsistentArrayType": "off"
+                    }
+                }
+            }
+        },
+        {
+            // Contract mirrors retain upstream array and import shapes verbatim.
+            "includes": [
+                "contracts/console-api.ts",
+                "contracts/console-state.ts",
+                "contracts/console-to-networking.ts"
+            ],
             "linter": {
                 "rules": {
                     "correctness": { "noUnusedImports": "off" },
-                    "style": { "useConsistentArrayType": "off" },
-                    "suspicious": { "noConfusingVoidType": "off" }
+                    "style": { "useConsistentArrayType": "off" }
                 }
-            },
-            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+            }
         }
     ]
 }

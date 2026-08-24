@@ -2,7 +2,7 @@
     "root": false,
     "extends": ["../../biome.jsonc"],
     "files": {
-        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc", "!contracts"]
+        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc"]
     },
     "overrides": [
         {
@@ -51,14 +51,22 @@
             // Contract mirror formatting is protected by byte-identity tests.
             "includes": ["contracts/**"],
             "formatter": { "enabled": false },
+            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+        },
+        {
+            // Published defaults are protocol constants and must remain byte-identical.
+            "includes": ["contracts/match-types.ts"],
+            "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
+        },
+        {
+            // Contract mirrors retain upstream array and import shapes verbatim.
+            "includes": ["contracts/match-types.ts", "contracts/matchmaking-api.ts"],
             "linter": {
                 "rules": {
                     "correctness": { "noUnusedImports": "off" },
-                    "style": { "useConsistentArrayType": "off" },
-                    "suspicious": { "noConfusingVoidType": "off" }
+                    "style": { "useConsistentArrayType": "off" }
                 }
-            },
-            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+            }
         }
     ]
 }

@@ -2,7 +2,7 @@
     "root": false,
     "extends": ["../../biome.jsonc"],
     "files": {
-        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc", "!src/contracts"]
+        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc"]
     },
     "overrides": [
         {
@@ -13,8 +13,7 @@
                         "noBitwiseOperators": "off"
                     }
                 }
-            },
-            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+            }
         },
         {
             "includes": [
@@ -66,13 +65,17 @@
             // Contract mirror formatting is protected by byte-identity tests.
             "includes": ["src/contracts/**"],
             "formatter": { "enabled": false },
-            "linter": {
-                "rules": {
-                    "correctness": { "noUnusedImports": "off" },
-                    "style": { "useConsistentArrayType": "off" },
-                    "suspicious": { "noConfusingVoidType": "off" }
-                }
-            }
+            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+        },
+        {
+            // Contract mirrors retain upstream array shapes verbatim.
+            "includes": [
+                "src/contracts/engine-to-fog.ts",
+                "src/contracts/fog-api.ts",
+                "src/contracts/fog-to-networking.ts",
+                "src/contracts/fog-types.ts"
+            ],
+            "linter": { "rules": { "style": { "useConsistentArrayType": "off" } } }
         }
     ]
 }
