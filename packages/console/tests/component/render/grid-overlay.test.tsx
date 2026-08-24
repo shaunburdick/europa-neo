@@ -126,6 +126,42 @@ describe('GridOverlay (T039 / Q-B03, Q-B04, Q-A01)', () => {
         expect(label).not.toContain('city');
     });
 
+    test('cells sit at board-absolute pixel offsets from the grid top-left', async () => {
+        // Regression guard for the double-vertical-offset defect: rows
+        // used to be positioned containers, so a cell's board-absolute
+        // `top: y*zoom` was applied INSIDE a row already offset by
+        // `y*zoom` — effective y = 2·y·zoom. Row 0 aligned; every later
+        // row drifted below the canvas as horizontal "bands". Rows are
+        // now non-positioned ARIA pass-throughs, so each cell must sit
+        // exactly y*zoom below / x*zoom right of the grid's top-left.
+        const view = buildPlayerView({
+            width: 10,
+            height: 10,
+            visibleCells: [buildCellView({ coord: { x: 0, y: 2 } }), buildCellView({ coord: { x: 4, y: 7 } })],
+        });
+        const screen = await render(<GridOverlay mapView={mapViewFrom(view)} />);
+
+        const grid = screen.container.querySelector('[role="grid"]');
+        expect(grid).not.toBeNull();
+        const gridRect = (grid as HTMLElement).getBoundingClientRect();
+
+        /** Assert the cell sits within ±1px of an expected grid offset. */
+        function expectOffsetAt(cellId: string, expectedX: number, expectedY: number): void {
+            const cell = screen.container.querySelector(`#${cellId}`);
+            expect(cell).not.toBeNull();
+            const rect = (cell as HTMLElement).getBoundingClientRect();
+            expect(Math.abs(rect.top - gridRect.top - expectedY)).toBeLessThanOrEqual(1);
+            expect(Math.abs(rect.left - gridRect.left - expectedX)).toBeLessThanOrEqual(1);
+        }
+
+        const { zoom } = DEFAULT_CAMERA;
+        // The reported defect's shape: cell (0,2) at zoom 32 must sit
+        // ~64px from the grid top — NOT ~128px.
+        expectOffsetAt('europa-cell-0-2', 0 * zoom, 2 * zoom);
+        // A second row plus the horizontal axis for one cell.
+        expectOffsetAt('europa-cell-4-7', 4 * zoom, 7 * zoom);
+    });
+
     test('axe finds zero WCAG 2.2 A/AA violations on the overlay (Q-A01)', async () => {
         const view = buildPlayerView({
             width: 10,

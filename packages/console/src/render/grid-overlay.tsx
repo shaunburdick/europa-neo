@@ -155,20 +155,19 @@ export function GridOverlay({
             onBlur={() => setFocusedCoord(null)}
             onPointerLeave={onCellHover === undefined ? undefined : () => onCellHover(null)}
         >
+            {/*
+                Rows are NON-positioned ARIA pass-throughs: they exist to
+                satisfy the grid → row → gridcell structure (axe-core
+                aria-required-children) and carry aria-rowindex. They must
+                NOT be positioned containers — CellView positions itself
+                at board-absolute (x·zoom, y·zoom) against .europa-grid
+                (position:absolute in styles/index.css). A positioned row
+                would add its own y·zoom on top of every cell's
+                board-absolute top, doubling the vertical offset (live
+                defect: rows drifted below the canvas as "bands").
+            */}
             {sortedRows.map(([y, cells]) => (
-                <div
-                    key={y}
-                    role="row"
-                    aria-rowindex={y + 1}
-                    className="europa-grid__row"
-                    style={{
-                        position: 'absolute',
-                        top: y * zoom,
-                        left: 0,
-                        width: mapView.width * zoom,
-                        height: zoom,
-                    }}
-                >
+                <div key={y} role="row" aria-rowindex={y + 1} className="europa-grid__row">
                     {cells.map((info) => (
                         <CellView
                             key={cellElementId(info.coord)}
