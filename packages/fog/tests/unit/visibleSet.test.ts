@@ -135,4 +135,20 @@ describe('computeVisibleSet (US1)', () => {
     const defaulted = computeVisibleSet(world, 1);
     expect(defaulted).toEqual(explicit);
   });
+
+  it('matches engine signed 32-bit normalization at the upper boundary', () => {
+    const world = buildWorldWithTroops(16, [[8, 8, 1, 5]]);
+
+    expect(computeVisibleSet(world, 1, 2_147_483_647).visibleCells).toHaveLength(256);
+    expect(computeVisibleSet(world, 1, 2_147_483_648).visibleCells).toEqual([{ x: 8, y: 8 }]);
+  });
+
+  it('matches engine normalization for negative and fractional radii', () => {
+    const world = buildWorldWithTroops(16, [[8, 8, 1, 5]]);
+
+    expect(computeVisibleSet(world, 1, -1).visibleCells).toEqual([{ x: 8, y: 8 }]);
+    expect(computeVisibleSet(world, 1, 1.9).visibleCells).toHaveLength(9);
+    // Values below signed 32-bit range wrap before the engine's clamp.
+    expect(computeVisibleSet(world, 1, -2_147_483_649).visibleCells).toHaveLength(256);
+  });
 });

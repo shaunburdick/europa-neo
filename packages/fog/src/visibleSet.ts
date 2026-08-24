@@ -38,14 +38,33 @@ import { FOG_CONSTANTS } from './constants';
 import { createMask, isVisible as isCellMarked } from './mask';
 import type { VisibleSet } from './types';
 
+const SIGNED_32_HALF_RANGE = 2 ** 31;
+const SIGNED_32_MODULUS = 2 ** 32;
+
+/**
+ * Convert a finite number using the same ToInt32 semantics as JavaScript's
+ * `value | 0`, without introducing a bitwise-lint exception in this package.
+ *
+ * @param value The radius to normalize.
+ * @returns The signed 32-bit integer represented by `value`.
+ */
+function toSigned32(value: number): number {
+  const truncated = Math.trunc(value);
+  const unsigned = ((truncated % SIGNED_32_MODULUS) + SIGNED_32_MODULUS) % SIGNED_32_MODULUS;
+  return unsigned >= SIGNED_32_HALF_RANGE ? unsigned - SIGNED_32_MODULUS : unsigned;
+}
+
 /**
  * Resolve the effective sensor radius for a world snapshot.
  *
  * Prefers the explicit argument, then the match config's
  * `visibilityRadius` (the engine guarantees it is populated), then
- * the defensive `FOG_CONSTANTS.defaultRadiusFallback`. Non-integer
- * inputs are truncated toward zero to mirror the engine's integer
- * normalization; non-finite values normalize to zero.
+ * the defensive `FOG_CONSTANTS.defaultRadiusFallback`. Radius normalization
+ * deliberately uses JavaScript's signed 32-bit conversion (`| 0`), exactly as
+ * the engine's `cellsInRange` does. This matters at the signed 32-bit
+ * boundaries: for example, `2 ** 31` becomes zero, while values below
+ * `-2 ** 31` wrap before the non-negative clamp. Non-finite values convert to
+ * zero.
  *
  * @param visibilityRadius Explicit radius from the caller, if any.
  * @param world            The world snapshot (source of the config
@@ -55,9 +74,9 @@ import type { VisibleSet } from './types';
 function resolveRadius(visibilityRadius: number | undefined, world: Readonly<World>): number {
   const raw =
     visibilityRadius ?? world.config.visibilityRadius ?? FOG_CONSTANTS.defaultRadiusFallback;
-  // Truncate + clamp to mirror the engine's `cellsInRange` handling
-  // while preserving its zero result for non-finite numeric inputs.
-  return Math.max(0, Number.isFinite(raw) ? Math.trunc(raw) : 0);
+  // Keep this conversion equivalent to cellsInRange's `r | 0` without
+  // duplicating a bitwise operation that the fog package's lint rejects.
+  return Math.max(0, Number.isFinite(raw) ? toSigned32(raw) : 0);
 }
 
 /**
