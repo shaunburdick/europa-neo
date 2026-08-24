@@ -18,8 +18,8 @@
  * the reconnect grace window instead of failing seat allocation.
  *
  * CLI:
- *   pnpm host [--port N] [--static-port N]
- *   HOST_PORT / HOST_STATIC_PORT environment variables are honored.
+ *   pnpm host [--port N] [--static-port N] [--bind-host HOST] [--public-host HOST]
+ *   HOST_PORT / HOST_STATIC_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST are honored.
  *
  * Zero new dependencies: node:* builtins only. Wall-clock reads live
  * only at transport/hosting boundaries — no simulation logic here
@@ -27,7 +27,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import {
   createServer as createHttpServer,
   type IncomingMessage,
@@ -35,6 +35,7 @@ import {
   type ServerResponse,
 } from 'node:http';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { computePlayerView } from '@europa/fog';
 import { createMatchmaker } from '@europa/matchmaking';
 import {
@@ -45,6 +46,12 @@ import {
   NULL_LOGGER,
   type ServerDeps,
 } from '@europa/networking';
+import {
+  type HostConfig,
+  isPathInside,
+  isWildcardHost,
+  STATIC_SECURITY_HEADERS,
+} from './host-config';
 
 /** Package root (this script lives in `<root>/scripts/`). */
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
@@ -128,25 +135,51 @@ function parsePort(raw: string | undefined, label: string): number | null | unde
 }
 
 /**
- * Resolve the two listen ports from argv (`--port`, `--static-port`,
- * each accepting `N` or `=N`) with HOST_PORT / HOST_STATIC_PORT as
- * fallbacks, then the shipped defaults.
+ * Resolve listen hosts and ports from argv and environment, applying the
+ * loopback-safe defaults and requiring an advertisement for wildcard binds.
  *
  * @param args Raw argv slice after the script path.
- * @returns The resolved ports, or null when an argument was invalid
+ * @returns The resolved host/port settings, or null when an argument was invalid
  *          (its error has already been printed).
  */
-function resolvePorts(args: readonly string[]): { wsPort: number; staticPort: number } | null {
-  let wsPort = parsePort(process.env.HOST_PORT, 'HOST_PORT');
-  let staticPort = parsePort(process.env.HOST_STATIC_PORT, 'HOST_STATIC_PORT');
+export function resolveConfig(
+  args: readonly string[],
+  environment: NodeJS.ProcessEnv = process.env,
+): HostConfig | null {
+  let wsPort = parsePort(environment.HOST_PORT, 'HOST_PORT');
+  let staticPort = parsePort(environment.HOST_STATIC_PORT, 'HOST_STATIC_PORT');
+  let bindHost = environment.HOST_BIND_HOST ?? '127.0.0.1';
+  let publicHost = environment.HOST_PUBLIC_HOST;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     const eq = arg.indexOf('=');
     const flag = eq === -1 ? arg : arg.slice(0, eq);
     const inline = eq === -1 ? undefined : arg.slice(eq + 1);
-    if (flag !== '--port' && flag !== '--static-port') {
-      complain(`host: unknown argument "${arg}" (supported: --port N, --static-port N)`);
+    if (
+      flag !== '--port' &&
+      flag !== '--static-port' &&
+      flag !== '--bind-host' &&
+      flag !== '--public-host'
+    ) {
+      complain(
+        `host: unknown argument "${arg}" (supported: --port N, --static-port N, --bind-host HOST, --public-host HOST)`,
+      );
       return null;
+    }
+    if (flag === '--bind-host' || flag === '--public-host') {
+      const value = inline ?? args[i + 1];
+      if (value === undefined || value === '') {
+        complain(`host: ${flag} requires a value`);
+        return null;
+      }
+      if (/[^\w.:[\]-]/u.test(value)) {
+        complain(`host: ${flag} contains invalid characters`);
+        return null;
+      }
+      if (flag === '--bind-host') bindHost = value;
+      else publicHost = value;
+      if (inline === undefined) i += 1;
+      continue;
     }
     const parsed = parsePort(inline ?? args[i + 1], flag);
     if (parsed === undefined) {
@@ -165,7 +198,17 @@ function resolvePorts(args: readonly string[]): { wsPort: number; staticPort: nu
       i += 1;
     }
   }
-  return { wsPort: wsPort ?? DEFAULT_WS_PORT, staticPort: staticPort ?? DEFAULT_STATIC_PORT };
+  if (wsPort === undefined || staticPort === undefined) return null;
+  if (isWildcardHost(bindHost) && publicHost === undefined) {
+    complain('host: --public-host or HOST_PUBLIC_HOST is required when binding a wildcard address');
+    return null;
+  }
+  return {
+    bindHost,
+    publicHost: publicHost ?? (bindHost === '127.0.0.1' ? 'localhost' : bindHost),
+    wsPort: wsPort ?? DEFAULT_WS_PORT,
+    staticPort: staticPort ?? DEFAULT_STATIC_PORT,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -188,32 +231,52 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
   try {
     urlPath = decodeURIComponent(urlPath);
   } catch {
-    res.writeHead(404).end('bad request path');
+    writeStaticHead(res, 404).end('bad request path');
     return;
   }
   const requested =
     urlPath === '/' ? path.join(DIST_DIR, 'index.html') : path.resolve(DIST_DIR, `.${urlPath}`);
+  if (!isPathInside(DIST_DIR, requested)) {
+    writeStaticHead(res, 403).end('forbidden');
+    return;
+  }
   const target = existsSync(requested) ? requested : path.join(DIST_DIR, 'index.html');
-  if (!target.startsWith(DIST_DIR)) {
-    res.writeHead(403).end('forbidden');
+  let canonicalTarget: string;
+  try {
+    canonicalTarget = await realpath(target);
+  } catch {
+    writeStaticHead(res, 404).end('not found — did you run `pnpm build`?');
+    return;
+  }
+  if (!isPathInside(await realpath(DIST_DIR), canonicalTarget)) {
+    writeStaticHead(res, 403).end('forbidden');
     return;
   }
   try {
-    const body = await readFile(target);
-    const type = MIME_TYPES[path.extname(target)] ?? 'application/octet-stream';
-    res.writeHead(200, { 'content-type': type }).end(body);
+    const body = await readFile(canonicalTarget);
+    const type = MIME_TYPES[path.extname(canonicalTarget)] ?? 'application/octet-stream';
+    writeStaticHead(res, 200, { 'content-type': type }).end(body);
   } catch {
-    res.writeHead(404).end('not found — did you run `pnpm build`?');
+    writeStaticHead(res, 404).end('not found — did you run `pnpm build`?');
   }
 }
 
+/** Write common security headers alongside optional response headers. */
+function writeStaticHead(
+  res: ServerResponse,
+  status: number,
+  headers: Record<string, string> = {},
+): ServerResponse {
+  return res.writeHead(status, { ...STATIC_SECURITY_HEADERS, ...headers });
+}
+
 /**
- * Bind the static console server on localhost.
+ * Bind the static console server on the configured interface.
  *
  * @param port Port to listen on.
  * @returns The node http server (closed again on shutdown).
  */
-function startStaticServer(port: number): Server {
+function startStaticServer(port: number, bindHost: string): Server {
   const server = createHttpServer((req, res) => {
     void serveStatic(req, res);
   });
@@ -226,7 +289,7 @@ function startStaticServer(port: number): Server {
     process.exitCode = 1;
     void shutdown();
   });
-  server.listen(port, '127.0.0.1');
+  server.listen(port, bindHost);
   return server;
 }
 
@@ -251,9 +314,10 @@ interface Stack {
  * result lines are tapped in the forwarders before delegation.
  *
  * @param wsPort Port for the match server's WebSocket listener.
+ * @param bindHost Interface for the WebSocket listener.
  * @returns The bound server + matchmaker (not yet listening).
  */
-function buildStack(wsPort: number): Stack {
+function buildStack(wsPort: number, bindHost: string): Stack {
   let bound: MatchmakerBridge = {};
   /**
    * Human label for a seat (P1/P2); falls back to the raw number for
@@ -307,7 +371,7 @@ function buildStack(wsPort: number): Stack {
   };
 
   const server = createMatchServer(
-    { ...NETWORK_DEFAULT_CONFIG, host: '127.0.0.1', port: wsPort, tickRateMs: TICK_MS },
+    { ...NETWORK_DEFAULT_CONFIG, host: bindHost, port: wsPort, tickRateMs: TICK_MS },
     deps,
   );
 
@@ -377,15 +441,23 @@ function prepareMatch(matchmaker: Stack['matchmaker']): PreparedMatch | null {
  *
  * @param staticPort Port the console UI is served on.
  * @param boundPort  The port the match server ACTUALLY bound.
+ * @param publicHost Host reachable by players.
  * @param match      The prepared match.
  */
-function printBanner(staticPort: number, boundPort: number, match: PreparedMatch): void {
-  const wsUrl = `ws://localhost:${String(boundPort)}`;
+function printBanner(
+  staticPort: number,
+  boundPort: number,
+  publicHost: string,
+  match: PreparedMatch,
+): void {
+  const urlHost =
+    publicHost.includes(':') && !publicHost.startsWith('[') ? `[${publicHost}]` : publicHost;
+  const wsUrl = `ws://${urlHost}:${String(boundPort)}`;
   const joinUrl = (name: string, token: string): string =>
-    `http://localhost:${String(staticPort)}/?live&ws=${wsUrl}&match=${match.matchId}&name=${name}&token=${token}`;
+    `http://${urlHost}:${String(staticPort)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
   say('');
   say(`  Match server : ${wsUrl}`);
-  say(`  Console UI   : http://localhost:${String(staticPort)}`);
+  say(`  Console UI   : http://${urlHost}:${String(staticPort)}`);
   say(`  Match id     : ${match.matchId}`);
   say('');
   say('  Open in two browser tabs:');
@@ -425,8 +497,8 @@ async function shutdown(): Promise<void> {
  * print banner → wait for Ctrl-C.
  */
 async function main(): Promise<void> {
-  const ports = resolvePorts(process.argv.slice(2));
-  if (ports === null) {
+  const config = resolveConfig(process.argv.slice(2));
+  if (config === null) {
     process.exitCode = 1;
     return;
   }
@@ -439,7 +511,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const stack = buildStack(ports.wsPort);
+  const stack = buildStack(config.wsPort, config.bindHost);
 
   try {
     await stack.server.listen();
@@ -447,14 +519,14 @@ async function main(): Promise<void> {
     const code = (error as NodeJS.ErrnoException | null)?.code;
     complain(
       code === 'EADDRINUSE'
-        ? `host: port ${String(ports.wsPort)} is already in use — try --port <other>`
+        ? `host: port ${String(config.wsPort)} is already in use — try --port <other>`
         : `host: match server failed to start: ${String(error)}`,
     );
     process.exitCode = 1;
     return;
   }
 
-  const staticServer = startStaticServer(ports.staticPort);
+  const staticServer = startStaticServer(config.staticPort, config.bindHost);
 
   teardown = async () => {
     await stack.server.close();
@@ -473,8 +545,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  const boundPort = stack.server.__boundPortForTest() ?? ports.wsPort;
-  printBanner(ports.staticPort, boundPort, match);
+  const boundPort = stack.server.__boundPortForTest() ?? config.wsPort;
+  printBanner(config.staticPort, boundPort, config.publicHost, match);
 }
 
 process.on('SIGINT', () => {
@@ -488,7 +560,9 @@ process.on('SIGTERM', () => {
   });
 });
 
-main().catch((error: unknown) => {
-  process.exitCode = 1;
-  complain(`host failed: ${String(error)}`);
-});
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error: unknown) => {
+    process.exitCode = 1;
+    complain(`host failed: ${String(error)}`);
+  });
+}

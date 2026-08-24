@@ -35,7 +35,7 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 
 An integration wave proved the full production path end-to-end: console UI ⇄ browser WebSocket client ⇄ match server ⇄ matchmaking-bound engine + terrain + fog, with two seats playing through the real wire protocol.
 
-Across the monorepo: **1,283 tests**, six per-package CI workflows, and ≥80% coverage gates on every metric in every package.
+Across the monorepo: **more than 1,200 automated tests** (the exact count varies by selected package/configuration), six per-package CI workflows, and ≥80% coverage gates on every metric in every package.
 
 Feature specifications live in `.specify/features/`; the governing principles are in `.specify/memory/constitution.md`.
 
@@ -64,7 +64,7 @@ This project is developed agent-first but human-governed: AI agents do the heavy
 pnpm 11 workspace on Node ≥ 20:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build        # all six packages in dependency order:
                   #   engine → terrain → fog → networking → matchmaking → console (vite bundle)
 pnpm test         # every package's suite
@@ -85,7 +85,7 @@ Console extras:
 ## Quick start
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build
 pnpm --filter @europa/console host
 ```
@@ -95,6 +95,19 @@ the console (`http://localhost:5173`), auto-creates a public 2-player
 match, and prints two clickable join URLs — open them in two tabs and
 play. (Without a server, opening the console bare boots a deterministic
 stub board — enough to see the renderer and drive the controls.)
+
+The host is loopback-safe by default. For a local-area network match, bind
+explicitly and advertise the address players can reach:
+
+```bash
+HOST_BIND_HOST=0.0.0.0 HOST_PUBLIC_HOST=192.168.1.20 pnpm --filter @europa/console host
+```
+
+The equivalent flags are `--bind-host HOST` and `--public-host HOST` (ports
+remain configurable with `--port`, `--static-port`, `HOST_PORT`, and
+`HOST_STATIC_PORT`). Direct internet exposure is not supported yet. A public
+deployment still requires a TLS-terminating reverse proxy, rate limiting, and
+origin controls; these remain Option 2 follow-ups.
 
 ## Credits & licensing
 

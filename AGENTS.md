@@ -58,7 +58,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - Repo-wide test-typechecking gap (documented; do NOT fix casually — every package's tsconfig excludes tests/ by design, and CI compensates with dedicated strict programs)
   - Optional: add upstream package paths to downstream workflows' watch lists (network/matchmaking/client build against upstream deps but don't watch upstream dirs)
 - Spec status lines: 001 = `**Status**: Implemented`; 003 = `**Status**: Implemented`; 002 = `**Status**: Implemented`; 004 = `**Status**: Implemented`; 006 = `**Status**: Implemented`; 005 = `**Status**: Implemented (2026-08-23)`
-- Monorepo test totals: engine 295 · terrain 225 · fog 110 · networking 184 · matchmaking 170 · console 312 (= 1,296 tests)
+- Monorepo test totals: more than 1,200 automated tests across the six package suites; exact totals vary by package, project, and selected Vitest/Playwright configuration.
 
 ## Workflow rules
 

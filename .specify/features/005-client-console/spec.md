@@ -260,6 +260,14 @@ truthful).
     from views (FR-002/FR-005 no-leak untouched — existing suites
     still pin this); no acceptance criteria changed; no contract
     surface touched.
+14. **Local/LAN host hardening (2026-08-24)**: the `pnpm host` launcher
+     remains loopback-safe by default, while `HOST_BIND_HOST` /
+     `HOST_PUBLIC_HOST` (or the equivalent CLI flags) explicitly opt into
+     LAN binding and reachable printed URLs. Its development static server
+     uses canonical path containment (including symlink resolution) and
+     baseline security headers. Direct internet exposure remains out of
+     scope: TLS, rate limiting, origin controls, and admission/token redesign
+     are explicitly deferred to Option 2.
 
 ### Quickstart validation mapping (Q-* → proving suites)
 
@@ -276,6 +284,6 @@ truthful).
 | SC-004 parity | `test:parity` + original-subcell fixture | PASS |
 | Constitution VII self-host | remote-URL scan in `test:selfhost` | PASS |
 
-Final counts: unit 192 · component 25 · a11y 19 · e2e 7 · perf 3 ·
-determinism 3 · parity 2 · conformance 9 (= 260 console tests);
-merged coverage 88.74/81.28/88.65/88.66 (stmts/branches/funcs/lines).
+Historical validation counts are configuration-specific and intentionally
+not a current total; run the package commands above for the authoritative
+suite result. Coverage remains gated at ≥80% on every metric.

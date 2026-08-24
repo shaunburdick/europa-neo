@@ -358,8 +358,8 @@ export interface MapView {
   readonly effects: ReadonlyArray<MapEffect>;
   /**
    * Transient text labels (e.g., "70%" flash on reserve change).
-   * Cleared on a 1-second timer in the renderer; the console layer
-   * sets a `ttlMs` and forgets.
+   * Cleared when the renderer's TTL expires; the console layer sets a
+   * `ttlMs` and forgets.
    */
   readonly labels: ReadonlyArray<MapLabel>;
   /**

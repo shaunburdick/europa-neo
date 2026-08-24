@@ -15,7 +15,7 @@
     "lint": "pnpm -r --filter './packages/*' lint",
     "format": "pnpm -r --filter './packages/*' format",
     "format:check": "pnpm -r --filter './packages/*' format:check",
-    "typecheck": "pnpm -r --filter './packages/*' typecheck",
+    "typecheck": "pnpm build && pnpm -r --filter './packages/*' typecheck",
     "coverage": "pnpm -r --filter './packages/*' coverage"
   },
   "devDependencies": {

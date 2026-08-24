@@ -46,8 +46,8 @@
  *     state.
  *
  * Determinism discipline: no wall-clock reads, no randomness — the
- * only timers are none; all sequencing is event-driven off socket
- * callbacks. Pure state machine over the wire.
+ * heartbeat timer is transport-only; all sequencing is event-driven off
+ * socket callbacks. Pure state machine over the wire.
  */
 
 import {

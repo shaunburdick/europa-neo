@@ -121,8 +121,11 @@ Europa Neo — local match host
 Open the two URLs in two tabs and play. Each URL carries its seat's
 session token so an accidental refresh reclaims the same seat within
 the reconnect grace window. Port overrides: `--port N` /
-`--static-port N` (or `HOST_PORT` / `HOST_STATIC_PORT`). The script is
-dependency-free glue over node:* builtins; it mirrors the host-wiring
+`--static-port N` (or `HOST_PORT` / `HOST_STATIC_PORT`). The default bind is
+loopback-safe (`127.0.0.1`). For LAN play, use `--bind-host 0.0.0.0
+--public-host 192.168.1.20` or `HOST_BIND_HOST` / `HOST_PUBLIC_HOST`; a
+wildcard bind requires an explicit public host so printed links are reachable.
+The script is dependency-free glue over node:* builtins; it mirrors the host-wiring
 recipe exercised by `tests/e2e/full-stack.spec.ts`.
 
 ### Full-stack proof
@@ -213,6 +216,11 @@ builds for production, fails on any `http(s)` URL in the browser
 payload (SVG namespaces and React error-message prose excepted), and
 enforces the gzipped-bundle budget. Serve `dist/` behind any static
 file server plus a feature 004 match server.
+
+The bundled `pnpm host` is intended for localhost/LAN use only. Direct
+internet exposure is not supported yet: public deployment needs a
+TLS-terminating reverse proxy, rate limiting, and origin controls. Origin,
+admission, and token redesign remain Option 2 follow-ups.
 
 ## Conformance
 
