@@ -14,28 +14,6 @@
             "!**/tests/fixtures/golden-1000-tick.json"
         ]
     },
-    "linter": {
-        "enabled": true,
-        "rules": {
-            "correctness": {
-                "noUndeclaredDependencies": "error"
-            },
-            "style": {
-                "noMagicNumbers": "error",
-                "useBlockStatements": "error",
-                "useConsistentArrayType": "error",
-                "useConsistentMemberAccessibility": "error",
-                "useDestructuring": "error",
-                "useNamingConvention": "error"
-            },
-            "suspicious": {
-                "noExplicitAny": "error",
-                "noDebugger": "error",
-                "noBitwiseOperators": "error",
-                "noConsole": "error"
-            }
-        }
-    },
     "overrides": [
         {
             // Contract mirrors are linted, but formatting is disabled to preserve byte identity.
@@ -65,8 +43,9 @@
             }
         }
     ],
+    // These settings must remain at the repository layer: package configs extend this file
+    // and otherwise fall back to Biome's defaults instead of forwarding the published preset.
     "formatter": {
-        "enabled": true,
         "indentStyle": "space",
         "indentWidth": 4,
         "lineWidth": 120,
@@ -84,13 +63,6 @@
         "formatter": {
             "indentWidth": 4,
             "trailingCommas": "none"
-        }
-    },
-    "assist": {
-        "actions": {
-            "source": {
-                "organizeImports": "on"
-            }
         }
     }
 }
