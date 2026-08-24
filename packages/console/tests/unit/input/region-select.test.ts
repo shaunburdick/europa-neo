@@ -15,7 +15,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { DEFAULT_CAMERA } from '../../../src/config';
-import { hitTest } from '../../../src/input/hit-test';
+import { hitTest, regionFromSubcell } from '../../../src/input/hit-test';
 import { decideRegionClick, pipePresentInDirection, RegionSelectController } from '../../../src/input/region-select';
 import { FakeMatchClient } from '../../../src/internal/fake-match-client';
 import { createOrderBridge } from '../../../src/state/order-actions';
@@ -55,6 +55,24 @@ function targetInCell(cx: number, cy: number, fx: number, fy: number): CursorTar
 }
 
 describe('decideRegionClick (US2 AC-1/2)', () => {
+    test.each([
+        [0.4, 0.1, 'N'],
+        [0.9, 0.6, 'E'],
+        [0.6, 0.9, 'S'],
+        [0.1, 0.4, 'W'],
+    ] as const)('targets the nearest cardinal edge at (%s, %s)', (fx, fy, direction) => {
+        expect(regionFromSubcell(fx, fy)).toBe(direction);
+        const decision = decideRegionClick({
+            target: targetInCell(6, 5, fx, fy),
+            button: 'left',
+            altKey: false,
+            shiftKey: false,
+            exclusiveMode: false,
+            hasExistingPipe: false,
+        });
+        expect(decision).toEqual({ kind: 'setPipe', cell: { x: 6, y: 5 }, direction });
+    });
+
     test('primary click over a region without a pipe issues setPipe', () => {
         const decision = decideRegionClick({
             target: targetInCell(6, 5, 0.75, 0.5), // eastern half of (6,5)
@@ -204,6 +222,32 @@ function makePipeline(): {
 }
 
 describe('region click → wire order pipeline (T049 seam)', () => {
+    test.each([
+        [0.4, 0.1, 'N'],
+        [0.9, 0.6, 'E'],
+        [0.6, 0.9, 'S'],
+        [0.1, 0.4, 'W'],
+    ] as const)('applies a pointer request for the %s pipe', async (fx, fy, direction) => {
+        const { store, client } = makePipeline();
+        store.dispatch(
+            decideRegionClick({
+                target: targetInCell(6, 5, fx, fy),
+                button: 'left',
+                altKey: false,
+                shiftKey: false,
+                exclusiveMode: false,
+                hasExistingPipe: false,
+            }),
+        );
+        await Promise.resolve();
+        expect(client.orders[0]?.order).toMatchObject({
+            kind: 'setPipe',
+            player: 1,
+            cell: { x: 6, y: 5 },
+            direction,
+        });
+    });
+
     test('enemy-cell clicks emit the order anyway (engine rejects per FR-006)', async () => {
         const { store, client } = makePipeline();
         const decision = decideRegionClick({

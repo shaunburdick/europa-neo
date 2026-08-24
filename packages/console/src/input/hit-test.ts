@@ -6,12 +6,10 @@
  * research.md §7). No DOM access; the input layer calls this on every
  * `pointermove` and dispatches the result.
  *
- * Region classification implements the contract's tie-break
- * (contracts/console-types.ts §"Cell region"): X axis first (W vs E),
- * then Y axis (N vs S); a cursor exactly on the center (0.5, 0.5)
- * maps to `'N'` — rounding upward into the upper half so a centered
- * cursor selects the "primary" direction the keyboard `i` would have
- * selected.
+ * Region classification assigns the cursor to its nearest cell edge. This
+ * gives each cardinal direction a usable area instead of making N/S a
+ * zero-width centerline. Equal-distance corners use the contract tie-break:
+ * horizontal edges win, and the exact center maps to N.
  *
  * Spec reference: US2 AC-1 (region-based pipe targeting).
  */
@@ -22,20 +20,22 @@ import type { CameraState, CellRegion, Coord, CursorTarget, Direction, ScreenPoi
  * Resolve a cell-local position `(subcellX, subcellY)` in `[0, 1)`
  * to the `CellRegion` a pipe click targets. Pure.
  *
- * Tie-break: X axis tested first (W vs E), then Y (N vs S); the exact
- * center maps to `'N'` (upper half wins ties per contract).
+ * The nearest edge wins. Equal-distance points use the horizontal edge
+ * first (W/E), while the exact center maps to N (upper half wins ties).
  *
  * @param subcellX 0..1 across the cell width (0 = west edge).
  * @param subcellY 0..1 across the cell height (0 = north edge).
  */
 export function regionFromSubcell(subcellX: number, subcellY: number): CellRegion {
-    if (subcellX < 0.5) {
-        return 'W';
+    const horizontalDistance = Math.abs(subcellX - 0.5);
+    const verticalDistance = Math.abs(subcellY - 0.5);
+
+    if (horizontalDistance === 0 && verticalDistance === 0) {
+        return 'N';
     }
-    if (subcellX > 0.5) {
-        return 'E';
+    if (horizontalDistance >= verticalDistance) {
+        return subcellX < 0.5 ? 'W' : 'E';
     }
-    // X exactly on the centerline: Y decides; upper half wins ties.
     return subcellY <= 0.5 ? 'N' : 'S';
 }
 
