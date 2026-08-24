@@ -1,6 +1,27 @@
 {
     "$schema": "https://biomejs.dev/schemas/2/biome.schema.json",
     "extends": ["biome-config-shaunburdick"],
+    // Compatibility settings: root:false package configs do not inherit published formatter behavior.
+    "formatter": {
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 120,
+        "lineEnding": "lf"
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "single",
+            "semicolons": "always",
+            "trailingCommas": "all",
+            "arrowParentheses": "always"
+        }
+    },
+    "json": {
+        "formatter": {
+            "indentWidth": 4,
+            "trailingCommas": "none"
+        }
+    },
     "files": {
         "includes": [
             "**",
