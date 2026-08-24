@@ -210,6 +210,10 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @europa/console exec playwright install --with-deps chromium
 
+      # The keepalive integration suite imports the matchmaking runtime.
+      - name: Build @europa/matchmaking (workspace dependency)
+        run: pnpm --filter @europa/matchmaking build
+
       # 2× paint-budget headroom for the browser project's perf suite
       # inside merged coverage (shared-runner throttling; see the
       # console-test job's perf step + spec 005 Clarifications v1.1).
