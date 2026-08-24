@@ -57,6 +57,18 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - 3-player auto-start GenerationError (terrain package, pre-existing)
   - Repo-wide test-typechecking gap (documented; do NOT fix casually — every package's tsconfig excludes tests/ by design, and CI compensates with dedicated strict programs)
   - Optional: add upstream package paths to downstream workflows' watch lists (network/matchmaking/client build against upstream deps but don't watch upstream dirs)
+
+- **Biome migration (Phase 1, 2026-08-24)**: the root configuration now layers
+  the published `biome-config-shaunburdick@1.0.0` package over the existing
+  repository style. It requires Biome `>=2.5.0 <3` and Node `>=22`; the root
+  engine declaration and contributor instructions therefore use Node 22.
+  Existing package configs remain layered children (`root: false`), and the
+  console's three ARIA-grid accessibility exceptions remain package-scoped.
+  Phase 1 keeps two-space/100-column formatting and reports the high-volume
+  migration categories as warnings; it does not mass-format or use inline
+  suppressions. Full policy, exclusions, remediation order, and exit criteria
+  live in `.specify/biome-migration.md`. Required checks are `pnpm typecheck`,
+  `pnpm lint`, `pnpm format:check`, and targeted/full tests as appropriate.
 - Spec status lines: 001 = `**Status**: Implemented`; 003 = `**Status**: Implemented`; 002 = `**Status**: Implemented`; 004 = `**Status**: Implemented`; 006 = `**Status**: Implemented`; 005 = `**Status**: Implemented (2026-08-23)`
 - Monorepo test totals: more than 1,200 automated tests across the six package suites; exact totals vary by package, project, and selected Vitest/Playwright configuration.
 

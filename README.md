@@ -61,7 +61,7 @@ packages/               pnpm workspace — all first-party code
 
 This project is developed agent-first but human-governed: AI agents do the heavy lifting under a constitution (`AGENTS.md` at the repo root defines the working rules). Humans review at every phase gate.
 
-pnpm 11 workspace on Node ≥ 20:
+pnpm 11 workspace on Node ≥ 22 (the adopted Biome configuration requires Node 22):
 
 ```bash
 pnpm install --frozen-lockfile
@@ -76,6 +76,16 @@ Workspace-wide `lint`, `typecheck`, and `coverage` scripts exist too; any single
 pnpm --filter @europa/engine test
 pnpm --filter @europa/console coverage
 ```
+
+### Lint and formatting
+
+The repository adopts the published [`biome-config-shaunburdick`](https://www.npmjs.com/package/biome-config-shaunburdick)
+configuration through the root `biome.json`; package configs inherit it. Run
+`pnpm lint` for the staged lint baseline and `pnpm format:check` to check the
+existing two-space/100-column repository style. Phase 1 reports high-volume
+migration categories as warnings and does not permit bulk autofixes. See
+[`.specify/biome-migration.md`](.specify/biome-migration.md) for the policy,
+package order, and exit criteria.
 
 Console extras:
 

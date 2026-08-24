@@ -36,6 +36,12 @@ pnpm install
 | `typecheck:conformance` | Strict tsc program over `src/` + the conformance test              |
 | `coverage`            | Vitest v8 coverage (80% thresholds — constitution III)               |
 
+The console inherits the root `biome-config-shaunburdick` baseline. Its
+package config intentionally keeps three scoped accessibility exceptions:
+`useSemanticElements`, `useFocusableInteractive`, and
+`noNoninteractiveTabindex`. The ARIA grid overlay uses custom keyboard
+semantics for cell navigation; the exceptions do not apply to other packages.
+
 ## Usage
 
 The console is an embeddable library. Hosts call `createConsole`,

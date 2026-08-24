@@ -16,7 +16,9 @@ A monorepo (`@europa/{engine,terrain,fog,networking,matchmaking,console}` + `ser
 - **Build (libs)**: tsup 8 (esbuild + dts)
 - **Build (console SPA)**: Vite 8 (only deviation from tsup; justified in feature 005 research)
 - **Test**: Vitest 4.1, v8 coverage, ≥80% gate (constitution Principle III)
-- **Lint/format**: Biome 2 (monorepo `extends: ["//"]`)
+- **Lint/format**: Biome 2 with published `biome-config-shaunburdick@1.0.0`
+  layered at the root; package configs remain explicit `root: false` children.
+  Phase 1 migration policy is recorded in `.specify/biome-migration.md`.
 - **PRNG**: sfc32 128-bit, owned by engine, seeded from match seed; one instance per match (constitution Principle II determinism)
 - **Numeric**: integer-only in tick logic (`Math.imul`/`Math.floor`)
 - **Transport**: `ws@^8.21.3` (native RFC 6455, zero deps)
@@ -236,6 +238,21 @@ Four root causes found and fixed in sequence; both workflows now green:
 
 ### Waves 7+ — ⏳ Pending (next dispatch: matchmaking, feature 006)
 - Suggested order per AGENTS.md: 006 matchmaking → 005 console → integration wave → PR (user creates)
+
+### Biome migration — Phase 1 ✅ Complete (2026-08-24)
+
+- Adopted the published `biome-config-shaunburdick@1.0.0` package with the
+  existing pnpm catalog convention and Biome 2.5.9 peer.
+- Raised the repository's declared Node minimum from 20 to 22 to match the
+  published config's engine requirement and CI's supported runtime.
+- Preserved package layering, console accessibility exceptions, immutable
+  archive/contract/golden exclusions, and the established formatter style.
+- Staged high-volume categories as warnings; remaining published/recommended
+  rules are enforced as errors. No bulk remediation or WebSocket security work
+  was included.
+- Remaining work: remediate warning categories engine → terrain → fog →
+  networking → matchmaking → console, then promote them and decide whether to
+  migrate formatting to the published four-space/120-column style.
 
 ## Decisions & Rationale
 
