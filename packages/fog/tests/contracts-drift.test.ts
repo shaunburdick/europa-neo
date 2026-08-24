@@ -102,11 +102,14 @@ describe('contract drift detection (src/contracts vs spec contracts)', () => {
             break;
           }
         }
-        if (firstDiff === -1) firstDiff = minLen;
+        if (firstDiff === -1) {
+          firstDiff = minLen;
+        }
 
-        const ctxStart = Math.max(0, firstDiff - 80);
-        const ctxEnd = Math.min(localNorm.length, firstDiff + 80);
-        const specCtxEnd = Math.min(specNorm.length, firstDiff + 80);
+        const contextRadius = 80;
+        const ctxStart = Math.max(0, firstDiff - contextRadius);
+        const ctxEnd = Math.min(localNorm.length, firstDiff + contextRadius);
+        const specCtxEnd = Math.min(specNorm.length, firstDiff + contextRadius);
 
         const msg = [
           `Contract drift detected between '${local}' and '${spec}'.`,

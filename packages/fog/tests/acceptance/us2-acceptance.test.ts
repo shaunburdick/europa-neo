@@ -60,18 +60,18 @@ describe('US2 — No Memory of Previously Seen Terrain', () => {
     counts[8 * 16 + 8] = 0;
     owners[15 * 16 + 15] = 1;
     counts[15 * 16 + 15] = 5;
-    const atTickTPlus1 = {
+    const atTickAfterMove = {
       ...atTickT,
       tick: atTickT.tick + 1,
       state: { ...atTickT.state, troopOwners: owners, troopCounts: counts },
     };
 
-    const viewTPlus1 = computePlayerView(atTickTPlus1, 1);
+    const viewAfterMove = computePlayerView(atTickAfterMove, 1);
     // The old region reverted to unknown…
-    expect(isVisible(viewTPlus1, { x: 5, y: 5 })).toBe(false);
-    expect(isVisible(viewTPlus1, { x: 8, y: 8 })).toBe(false);
+    expect(isVisible(viewAfterMove, { x: 5, y: 5 })).toBe(false);
+    expect(isVisible(viewAfterMove, { x: 8, y: 8 })).toBe(false);
     // …and the new position projects its own horizon.
-    expect(isVisible(viewTPlus1, { x: 15, y: 15 })).toBe(true);
-    expect(isVisible(viewTPlus1, { x: 12, y: 12 })).toBe(true);
+    expect(isVisible(viewAfterMove, { x: 15, y: 15 })).toBe(true);
+    expect(isVisible(viewAfterMove, { x: 12, y: 12 })).toBe(true);
   });
 });

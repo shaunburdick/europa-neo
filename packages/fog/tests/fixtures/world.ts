@@ -303,8 +303,8 @@ export function buildWorldWithCities(
  */
 export function buildWorldWithWater(
   size: number,
-  waterCells: ReadonlyArray<Coord>,
-  troops: ReadonlyArray<readonly [x: number, y: number, player: PlayerId, count: number]> = [],
+  waterCells: readonly Coord[],
+  troops: readonly (readonly [x: number, y: number, player: PlayerId, count: number])[] = [],
   playerCount: 2 | 3 | 4 = 2,
   seed = 42,
 ): World {

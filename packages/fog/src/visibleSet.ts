@@ -44,8 +44,8 @@ import type { VisibleSet } from './types';
  * Prefers the explicit argument, then the match config's
  * `visibilityRadius` (the engine guarantees it is populated), then
  * the defensive `FOG_CONSTANTS.defaultRadiusFallback`. Non-integer
- * inputs are floored via bitwise truncation to mirror the engine's
- * `cellsInRange` normalization (`r | 0`).
+ * inputs are truncated toward zero to mirror the engine's integer
+ * normalization; non-finite values normalize to zero.
  *
  * @param visibilityRadius Explicit radius from the caller, if any.
  * @param world            The world snapshot (source of the config
@@ -56,9 +56,8 @@ function resolveRadius(visibilityRadius: number | undefined, world: Readonly<Wor
   const raw =
     visibilityRadius ?? world.config.visibilityRadius ?? FOG_CONSTANTS.defaultRadiusFallback;
   // Truncate + clamp to mirror the engine's `cellsInRange` handling
-  // (`Math.max(0, r | 0)`); keeps fog's horizon identical to the
-  // engine's range helper for any numeric input.
-  return Math.max(0, raw | 0);
+  // while preserving its zero result for non-finite numeric inputs.
+  return Math.max(0, Number.isFinite(raw) ? Math.trunc(raw) : 0);
 }
 
 /**
@@ -89,8 +88,7 @@ export function computeVisibleSet(
   player: PlayerId,
   visibilityRadius?: number,
 ): VisibleSet {
-  const width = world.board.width;
-  const height = world.board.height;
+  const { width, height } = world.board;
   const radius = resolveRadius(visibilityRadius, world);
 
   // Fresh zero-init mask per call — the structural no-memory rule
@@ -103,8 +101,12 @@ export function computeVisibleSet(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
-      if ((troopOwners[idx] ?? 0) !== player) continue;
-      if ((troopCounts[idx] ?? 0) <= 0) continue;
+      if ((troopOwners[idx] ?? 0) !== player) {
+        continue;
+      }
+      if ((troopCounts[idx] ?? 0) <= 0) {
+        continue;
+      }
       const cells = cellsInRange(world, { x, y }, radius);
       for (const cell of cells) {
         mask.data[cell.y * width + cell.x] = FOG_CONSTANTS.maskVisible;

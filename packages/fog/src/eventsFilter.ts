@@ -37,7 +37,7 @@ import { emptyTickEvents } from '@europa/engine';
  * @param width        Board width in cells.
  * @returns A `Set` of flat-index keys for O(1) membership tests.
  */
-function buildVisibleIndex(visibleCells: ReadonlyArray<Coord>, width: number): Set<number> {
+function buildVisibleIndex(visibleCells: readonly Coord[], width: number): Set<number> {
   const keys = new Set<number>();
   for (const coord of visibleCells) {
     keys.add(coord.y * width + coord.x);
@@ -70,7 +70,7 @@ function buildVisibleIndex(visibleCells: ReadonlyArray<Coord>, width: number): S
  */
 export function filterTickEvents(
   world: Readonly<World>,
-  visibleCells: ReadonlyArray<Coord>,
+  visibleCells: readonly Coord[],
   events: Readonly<TickEvents>,
   spectator: boolean,
 ): Readonly<TickEvents> {

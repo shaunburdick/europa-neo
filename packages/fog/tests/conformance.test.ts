@@ -65,7 +65,9 @@ function normalizeImportPaths(source: string): string {
 function verbatimSection(source: string): string {
   const begin = source.indexOf('Begin verbatim mirror');
   const end = source.indexOf('End verbatim mirror');
-  if (begin === -1 || end === -1) return source;
+  if (begin === -1 || end === -1) {
+    return source;
+  }
   const contentStart = source.indexOf('\n', begin);
   return source.slice(contentStart === -1 ? begin : contentStart + 1, end);
 }

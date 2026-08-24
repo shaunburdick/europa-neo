@@ -76,7 +76,7 @@ export function expectedChebyshevDisk(
  * @throws If the disks share any cell (a programmer error in
  *         the test setup, not a fog-package bug).
  */
-export function disjointDisks(disk1: ReadonlyArray<Coord>, disk2: ReadonlyArray<Coord>): boolean {
+export function disjointDisks(disk1: readonly Coord[], disk2: readonly Coord[]): boolean {
   const set1 = new Set<number>();
   for (const c of disk1) {
     set1.add(c.y * 1_000_000 + c.x);
@@ -141,7 +141,7 @@ export function expectedSingleStackView(
 export function buildExpectedPlayerView(
   player: PlayerId,
   tick: number,
-  visibleCells: ReadonlyArray<CellView>,
+  visibleCells: readonly CellView[],
   config: Readonly<MatchConfig>,
   events?: Readonly<TickEvents>,
 ): PlayerView {

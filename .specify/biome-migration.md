@@ -106,3 +106,14 @@ exceptions are limited to those same integer-math sources plus
 Validation, placement, symmetry, and unrelated test files therefore continue
 to report the staged warnings rather than being hidden by package-wide
 overrides.
+
+## Fog Phase 2 exceptions
+
+Fog keeps `noBitwiseOperators` off only for `src/utils.ts` (the two-lane
+FNV-1a integer hash) and `tests/fixtures/seeds.ts` (seed-vector unsigned
+normalization). These are deterministic integer primitives, not general
+application logic. Fog's test scenario files have explicit, file-by-file
+`noMagicNumbers` overrides in `packages/fog/biome.json`: their numeric
+arguments and expected coordinates are behavior fixtures for the documented
+visibility protocol. No source rule family is disabled broadly, and all
+structural, naming, accessibility, and formatting diagnostics remain active.

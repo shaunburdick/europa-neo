@@ -76,6 +76,10 @@ export function visibleCellAt(view: Readonly<PlayerView>, coord: Coord): CellVie
  */
 const FNV_OFFSET = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
+const HASH_MIX_HIGH = 0x85ebca6b;
+const HASH_MIX_LOW = 0xc2b2ae35;
+const HASH_HEX_RADIX = 16;
+const HASH_WORD_HEX_LENGTH = 8;
 
 /**
  * Stable hash of a `PlayerView`'s mutable parts (visibleCells,
@@ -132,7 +136,10 @@ export function hashPlayerView(view: Readonly<PlayerView>): string {
   // Fold both lanes into a 64-bit hex digest (16 chars). The second
   // lane is rotated by 7 bits before emission so single-bit input
   // differences avalanche into both halves.
-  const hi = (h1 ^ Math.imul(h2, 0x85ebca6b)) >>> 0;
-  const lo = (h2 ^ Math.imul(h1, 0xc2b2ae35)) >>> 0;
-  return hi.toString(16).padStart(8, '0') + lo.toString(16).padStart(8, '0');
+  const hi = (h1 ^ Math.imul(h2, HASH_MIX_HIGH)) >>> 0;
+  const lo = (h2 ^ Math.imul(h1, HASH_MIX_LOW)) >>> 0;
+  return (
+    hi.toString(HASH_HEX_RADIX).padStart(HASH_WORD_HEX_LENGTH, '0') +
+    lo.toString(HASH_HEX_RADIX).padStart(HASH_WORD_HEX_LENGTH, '0')
+  );
 }

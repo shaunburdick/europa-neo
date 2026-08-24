@@ -47,7 +47,7 @@ type Placement = readonly [number, number, PlayerId, number];
  * @param placements Full placement list for BOTH players.
  * @returns A new `World` with exactly these troops.
  */
-function applyPlacements(world: Readonly<World>, placements: ReadonlyArray<Placement>): World {
+function applyPlacements(world: Readonly<World>, placements: readonly Placement[]): World {
   const size = world.board.width;
   const owners = new Uint8Array(size * size);
   const counts = new Uint32Array(size * size);
@@ -75,8 +75,12 @@ function expectedVisibleCoords(world: Readonly<World>): Coord[] {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
-      if ((troopOwners[idx] ?? 0) !== 1) continue;
-      if ((troopCounts[idx] ?? 0) <= 0) continue;
+      if ((troopOwners[idx] ?? 0) !== 1) {
+        continue;
+      }
+      if ((troopCounts[idx] ?? 0) <= 0) {
+        continue;
+      }
       for (const coord of chebyshevDisk({ x, y }, RADIUS, width, height)) {
         const key = coord.y * width + coord.x;
         if (!seen.has(key)) {
@@ -96,7 +100,7 @@ describe('SC-001 protocol-level redaction over a 500-tick scripted match', () =>
     // Script cycles: stacks appear → move → split → one destroyed →
     // respawn elsewhere. Both players always keep ≥ 1 stack so the
     // engine never eliminates anyone mid-run.
-    const scripts: ReadonlyArray<ReadonlyArray<Placement>> = [
+    const scripts: readonly (readonly Placement[])[] = [
       [
         [8, 8, 1, 4],
         [3, 3, 2, 2],
@@ -138,14 +142,14 @@ describe('SC-001 protocol-level redaction over a 500-tick scripted match', () =>
       }
 
       // Advance with the REAL engine tick (PRNG, production, combat).
-      const result = tick(world);
-      world = result.world;
+      const { world: nextWorld, events } = tick(world);
+      world = nextWorld;
 
       // Per-tick independent oracle (knows nothing about other ticks).
       const expected = expectedVisibleCoords(world);
       const expectedKeys = new Set(expected.map((c) => c.y * world.board.width + c.x));
 
-      const view = computePlayerView(world, 1, { events: result.events });
+      const view = computePlayerView(world, 1, { events });
 
       // (a) Zero leakage — exact set equality against the oracle.
       expect(view.visibleCells).toHaveLength(expected.length);
