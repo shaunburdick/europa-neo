@@ -45,7 +45,7 @@ import { WebSocketServer, type WebSocket as WsWebSocket } from 'ws';
 import { buildTickBroadcast, sendTickBroadcast } from './broadcast';
 import { createTickClock } from './clock';
 import { Connection, type ConnectionSocket } from './connection';
-import { NETWORK_API_VERSION, NETWORK_CONSTANTS } from './constants';
+import { NETWORK_API_VERSION, NETWORK_CONSTANTS, NETWORK_TRANSPORT_CONSTANTS } from './constants';
 import type {
   AttachPlayerRequest,
   DetachRequest,
@@ -110,7 +110,7 @@ class WsSocketAdapter implements ConnectionSocket {
 
   /** Close with code + reason. */
   close(code?: number, reason?: string): void {
-    this.socket.close(code ?? 1000, reason ?? '');
+    this.socket.close(code ?? NETWORK_TRANSPORT_CONSTANTS.normalCloseCode, reason ?? '');
   }
 
   /** Subscribe to text frames / transport close (ws semantics). */
@@ -653,7 +653,7 @@ export function createMatchServer(
    * @param order      The engine order from the envelope payload.
    */
   function handleOrder(connection: Connection, order: Order): void {
-    const matchId = connection.matchId;
+    const { matchId } = connection;
     const channel = matchId ? channels.get(matchId) : undefined;
     if (!channel) {
       connection.sendError('protocol_sequence_error', 'order before joinMatch');
@@ -691,7 +691,10 @@ export function createMatchServer(
         const version = validateVersion(hello.protocolVersion);
         if (!version.ok) {
           connection.sendError(version.error.code, version.error.message, version.error.detail);
-          connection.close(1008, 'policy violation');
+          connection.close(
+            NETWORK_TRANSPORT_CONSTANTS.policyViolationCloseCode,
+            'policy violation',
+          );
           return;
         }
         connection.markGreeted();
@@ -742,7 +745,7 @@ export function createMatchServer(
    */
   function handleDisconnect(connection: Connection): void {
     connections.delete(connection.id);
-    const matchId = connection.matchId;
+    const { matchId } = connection;
     if (!matchId) {
       return;
     }
@@ -769,7 +772,7 @@ export function createMatchServer(
     connection.markDisconnected();
     const reclaimsSeat = connection.state() === 'disconnected';
     const nowMs = Date.now(); // socket-event boundary read (sanctioned)
-    const playerId = connection.playerId;
+    const { playerId } = connection;
     if (playerId !== null) {
       const seat = channel.seats.get(playerId);
       if (seat && seat.connection === connection) {
@@ -919,7 +922,7 @@ export function createMatchServer(
         return;
       }
       for (const connection of channel.connections()) {
-        connection.close(1001, 'match unregistered');
+        connection.close(NETWORK_TRANSPORT_CONSTANTS.goingAwayCloseCode, 'match unregistered');
       }
       channels.delete(matchId);
       resyncBuffers.delete(matchId);
@@ -963,7 +966,7 @@ export function createMatchServer(
       clock.stop();
       for (const channel of channels.values()) {
         for (const connection of channel.connections()) {
-          connection.close(1001, 'server going away');
+          connection.close(NETWORK_TRANSPORT_CONSTANTS.goingAwayCloseCode, 'server going away');
         }
       }
       channels.clear();

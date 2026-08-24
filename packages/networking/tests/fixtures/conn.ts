@@ -71,7 +71,7 @@ export class MockWebSocket {
   /** Raw outbound frames in send order. */
   readonly sentRaw: string[] = [];
   /** Decoded outbound envelopes in send order (valid frames only). */
-  readonly sentFrames: Array<ProtocolEnvelope<NetworkPayload>> = [];
+  readonly sentFrames: ProtocolEnvelope<NetworkPayload>[] = [];
   /** Recorded close calls (at most one entry — close is idempotent). */
   readonly closes: CloseRecord[] = [];
   /** Recorded transport errors (emitted only when a test drives them). */

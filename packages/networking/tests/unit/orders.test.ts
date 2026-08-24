@@ -58,7 +58,7 @@ describe('acceptOrder', () => {
     expect(result.ok).toBe(true);
     expect(connection.rateBucket.tokens).toBe(before - 1);
     expect(channel.pendingOrders).toHaveLength(1);
-    const pending = channel.pendingOrders[0];
+    const [pending] = channel.pendingOrders;
     expect(pending?.playerId).toBe(1);
     expect(pending?.order).toEqual(order);
     expect(pending?.submittedAtSeq).toBe(4);

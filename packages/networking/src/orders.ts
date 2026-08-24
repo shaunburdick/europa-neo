@@ -89,7 +89,7 @@ export function acceptOrder(
     return reject(new NetworkError('rate_limited', 'order rate limit exceeded'));
   }
 
-  const playerId = connection.playerId;
+  const { playerId } = connection;
   if (playerId === null) {
     // Defensive: a joined player connection always carries its seat.
     return reject(new NetworkError('internal_error', 'joined connection has no seat binding'));

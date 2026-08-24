@@ -137,7 +137,7 @@ export interface JoinedHarness {
   readonly server: ReturnType<typeof createMatchServer>;
   readonly match: ScriptedMatch;
   /** Session tokens by seat order (index = playerId − 1). */
-  readonly tokens: ReadonlyArray<string>;
+  readonly tokens: readonly string[];
   /** Joined player clients, index 0 = seat 1. */
   readonly clients: [ScriptedClient, ScriptedClient];
 }

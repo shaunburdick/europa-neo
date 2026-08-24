@@ -111,7 +111,7 @@ describe('validateEnvelope — envelope shape', () => {
 });
 
 describe('validateEnvelope — per-kind required fields', () => {
-  const cases: Array<[MessageKind, string]> = [
+  const cases: [MessageKind, string][] = [
     ['hello', 'protocolVersion'],
     ['joinMatch', 'displayName'],
     ['order', 'order'],

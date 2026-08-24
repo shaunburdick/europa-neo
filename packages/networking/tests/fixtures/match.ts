@@ -44,7 +44,7 @@ import type { EngineSession, MatchId, Server, SessionToken } from '../../src/typ
 const MIN_BOARD_SIZE = 8;
 
 /** Default display names, indexed by seat order. */
-const DEFAULT_DISPLAY_NAMES: ReadonlyArray<string> = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
+const DEFAULT_DISPLAY_NAMES: readonly string[] = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
 
 /** Home coordinates per player seat (deterministic corner placements). */
 const HOME_COORDS: ReadonlyArray<readonly [x: number, y: number]> = [
@@ -178,7 +178,7 @@ export interface ScriptedMatchOptions {
   /** PRNG seed. Default `42` (the repo's conventional magic seed). */
   readonly seed?: number;
   /** Display names per seat; defaults to Alpha/Bravo/Charlie/Delta. */
-  readonly displayNames?: ReadonlyArray<string>;
+  readonly displayNames?: readonly string[];
 }
 
 /** The four-tuple `registerMatch` + `attachPlayer` consume. */
@@ -186,7 +186,7 @@ export interface ScriptedMatch {
   readonly matchId: MatchId;
   readonly engineSession: EngineSession;
   readonly matchConfig: MatchConfig;
-  readonly displayNames: ReadonlyArray<string>;
+  readonly displayNames: readonly string[];
 }
 
 let scriptedMatchCounter = 0;
@@ -260,8 +260,8 @@ export function scriptedMatch(options: ScriptedMatchOptions = {}): ScriptedMatch
 export function attachPlayersForMatch(
   server: Server,
   match: ScriptedMatch,
-  tokens?: ReadonlyArray<SessionToken>,
-): ReadonlyArray<SessionToken> {
+  tokens?: readonly SessionToken[],
+): readonly SessionToken[] {
   const used: SessionToken[] = [];
   for (let i = 0; i < match.matchConfig.playerCount; i++) {
     const provided = tokens?.[i];

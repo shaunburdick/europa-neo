@@ -157,7 +157,7 @@ export class ReconnectRegistry {
    * @param nowMs Caller-provided epoch ms (from the tick scheduler).
    * @returns The swept bindings (empty when nothing expired).
    */
-  expireOld(nowMs: number): ReadonlyArray<ExpiredBinding> {
+  expireOld(nowMs: number): readonly ExpiredBinding[] {
     const expired: ExpiredBinding[] = [];
     for (const [sessionToken, binding] of this.bindings) {
       if (nowMs - binding.registeredAtMs >= this.graceMs) {

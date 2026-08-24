@@ -676,7 +676,7 @@ describe('createMatchServer — idle-client staleness (FR-009)', () => {
   async function startIdleSweepServer(bridge: Partial<MatchmakerBridge>): Promise<{
     server: ReturnType<typeof createMatchServer>;
     match: ReturnType<typeof scriptedMatch>;
-    tokens: ReadonlyArray<SessionToken>;
+    tokens: readonly SessionToken[];
   }> {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
     const deps = withBridge(realDeps(), bridge);

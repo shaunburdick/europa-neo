@@ -19,7 +19,7 @@
  * class is transport plumbing; it never touches simulation state.
  */
 
-import { NETWORK_API_VERSION } from './constants';
+import { NETWORK_API_VERSION, NETWORK_CONSTANTS, NETWORK_TRANSPORT_CONSTANTS } from './constants';
 import type {
   ConnectionId,
   ConnectionRole,
@@ -189,8 +189,10 @@ export class Connection {
     this.lastSeenAtMsValue = options.nowMs;
     this.lastSentAtMsValue = options.nowMs;
 
-    const perSecond = options.rateLimit?.ordersPerSecond ?? 10;
-    const burstFactor = options.rateLimit?.burstFactor ?? 2.0;
+    const perSecond =
+      options.rateLimit?.ordersPerSecond ?? NETWORK_CONSTANTS.defaultOrdersPerSecond;
+    const burstFactor =
+      options.rateLimit?.burstFactor ?? NETWORK_CONSTANTS.defaultRateLimitBurstFactor;
     this.rateBucket = {
       capacity: Math.floor(perSecond * burstFactor),
       refillPerSec: perSecond,
@@ -435,7 +437,10 @@ export class Connection {
    */
   takeToken(nowMs: number): boolean {
     const bucket = this.rateBucket;
-    const elapsedSec = Math.max(0, (nowMs - bucket.lastRefillAtMs) / 1000);
+    const elapsedSec = Math.max(
+      0,
+      (nowMs - bucket.lastRefillAtMs) / NETWORK_TRANSPORT_CONSTANTS.millisecondsPerSecond,
+    );
     bucket.tokens = Math.min(bucket.capacity, bucket.tokens + elapsedSec * bucket.refillPerSec);
     bucket.lastRefillAtMs = nowMs;
     if (bucket.tokens < 1) {
@@ -481,7 +486,7 @@ export class Connection {
     }
     // 1013 "Try Again Later": accurate for a seat whose reconnect
     // window is still open — the client may retry and reclaim.
-    this.terminateWithLifecycle(1013, 'idle timeout');
+    this.terminateWithLifecycle(NETWORK_TRANSPORT_CONSTANTS.tryAgainLaterCloseCode, 'idle timeout');
   }
 
   /**
@@ -512,7 +517,7 @@ export class Connection {
     // 1006 is the reserved "abnormal closure" sentinel; it never
     // reaches the wire here (the peer already went away — the socket
     // close call below is a no-op on a dying/dead transport).
-    this.terminateWithLifecycle(1006, 'transport lost');
+    this.terminateWithLifecycle(NETWORK_TRANSPORT_CONSTANTS.abnormalClosureCode, 'transport lost');
   }
 
   // ---------------------------------------------------------------------------
@@ -538,13 +543,13 @@ export class Connection {
       return;
     }
 
-    const envelope = decoded.envelope;
+    const { envelope } = decoded;
     this.clientSeqSeen = envelope.seq;
 
     const version = validateVersion(envelope.version);
     if (!version.ok) {
       this.sendError(version.error.code, version.error.message, version.error.detail);
-      this.close(1008, 'policy violation');
+      this.close(NETWORK_TRANSPORT_CONSTANTS.policyViolationCloseCode, 'policy violation');
       return;
     }
 
@@ -564,8 +569,7 @@ export class Connection {
     let code: ErrorCode = 'malformed_payload';
     let message = 'frame rejected';
     if (isNetworkError(error)) {
-      code = error.code;
-      message = error.message;
+      ({ code, message } = error);
       if (code === 'malformed_payload' && hasUnknownMessageKind(text)) {
         code = 'unknown_message_kind';
         message = 'envelope.type is not a known MessageKind';

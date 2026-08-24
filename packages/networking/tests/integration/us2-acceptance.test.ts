@@ -119,7 +119,7 @@ describe('US2 acceptance (reconnection with state resync)', () => {
       let liveSeen = 0;
       for (let i = 0; i < 48 && liveSeen < 3; i++) {
         const frame = await returning.nextMessage('tick');
-        const tick = (frame.payload as { tick: number }).tick;
+        const { tick } = frame.payload as { tick: number };
         if (tick <= snap.tick) {
           // Replayed history: strictly ascending, no repeats.
           expect(tick).toBeGreaterThan(lastReplayTick);

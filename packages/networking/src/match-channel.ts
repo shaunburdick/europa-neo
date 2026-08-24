@@ -15,6 +15,7 @@
 
 import type { MatchConfig } from '@europa/engine';
 import type { Connection } from './connection';
+import { NETWORK_TRANSPORT_CONSTANTS } from './constants';
 import type { EngineSession } from './contracts/network-api';
 import type {
   ConnectionId,
@@ -149,7 +150,10 @@ export class MatchChannel {
       // Token theft: close the old socket so the stale client stops
       // receiving ticks for a seat it no longer holds.
       if (existing.connection) {
-        existing.connection.close(1000, 'seat claimed elsewhere');
+        existing.connection.close(
+          NETWORK_TRANSPORT_CONSTANTS.normalCloseCode,
+          'seat claimed elsewhere',
+        );
         displaced = { token: existing.sessionToken, connection: existing.connection };
       }
     }
@@ -176,7 +180,7 @@ export class MatchChannel {
       return;
     }
     if (binding.connection) {
-      binding.connection.close(1000, 'seat detached');
+      binding.connection.close(NETWORK_TRANSPORT_CONSTANTS.normalCloseCode, 'seat detached');
       binding.connection = null;
     }
     this.seats.delete(playerId);

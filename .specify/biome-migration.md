@@ -117,3 +117,12 @@ application logic. Fog's test scenario files have explicit, file-by-file
 arguments and expected coordinates are behavior fixtures for the documented
 visibility protocol. No source rule family is disabled broadly, and all
 structural, naming, accessibility, and formatting diagnostics remain active.
+
+## Networking Phase 2 exceptions
+
+Networking keeps `noMagicNumbers` disabled only in the explicitly enumerated
+test fixtures and protocol test files in `packages/networking/biome.json`.
+Those files intentionally use wire close codes, sequence/tick boundaries,
+frame limits, timing values, board coordinates, and deterministic test vectors
+to assert the published protocol behavior. Runtime networking sources retain
+the rule; protocol constants used by runtime code live in `src/constants.ts`.

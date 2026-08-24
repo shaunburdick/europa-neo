@@ -86,7 +86,9 @@ describe('scriptedMatch', () => {
     // Opening stacks sit adjacent to each home city.
     let stackCells = 0;
     for (let i = 0; i < world.state.troopCounts.length; i++) {
-      if ((world.state.troopCounts[i] ?? 0) > 0) stackCells += 1;
+      if ((world.state.troopCounts[i] ?? 0) > 0) {
+        stackCells += 1;
+      }
     }
     expect(stackCells).toBe(2);
   });

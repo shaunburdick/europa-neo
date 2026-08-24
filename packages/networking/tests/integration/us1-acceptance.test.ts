@@ -37,7 +37,7 @@ describe('US1 acceptance (authoritative match channel)', () => {
       // player 1's stack cell (2,1) now shows the southbound pipe.
       const tick = await h.clients[0].nextMessage('tick');
       expect(tick.type).toBe('tick');
-      const view = (tick.payload as TickBroadcastPayload).view;
+      const { view } = tick.payload as TickBroadcastPayload;
       const stackCell = view.visibleCells.find((c) => c.coord.x === 2 && c.coord.y === 1);
       expect(stackCell).toBeDefined();
       expect(stackCell?.pipes).toContain('S');
@@ -49,13 +49,13 @@ describe('US1 acceptance (authoritative match channel)', () => {
   it('Given a running match, When ticks elapse, Then each client receives exactly one state update per tick, filtered to its fog-of-war view', async () => {
     const h = await startJoinedMatch();
     try {
-      const TICKS = 10;
+      const ticks = 10;
       const seen1: number[] = [];
       const seen2: number[] = [];
       let lastTick1: unknown;
       let lastTick2: unknown;
 
-      for (let i = 1; i <= TICKS; i++) {
+      for (let i = 1; i <= ticks; i++) {
         const t1 = await h.clients[0].nextMessage('tick');
         const t2 = await h.clients[1].nextMessage('tick');
         seen1.push((t1.payload as { tick: number }).tick);

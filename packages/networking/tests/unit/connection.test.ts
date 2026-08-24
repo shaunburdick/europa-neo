@@ -132,7 +132,7 @@ describe('Connection', () => {
 
   it('close() is idempotent and emits a single close event', () => {
     const socket = new MockWebSocket();
-    const closeEvents: Array<[number, string]> = [];
+    const closeEvents: [number, string][] = [];
     const conn = new Connection({
       socket,
       role: 'player',
@@ -152,7 +152,7 @@ describe('Connection', () => {
 
   it('routes valid inbound envelopes to the registered handler and stamps lastSeenAtMs via sweep', () => {
     const socket = new MockWebSocket();
-    const seen: Array<ProtocolEnvelope<NetworkPayload>> = [];
+    const seen: ProtocolEnvelope<NetworkPayload>[] = [];
     const conn = new Connection({
       socket,
       role: 'player',

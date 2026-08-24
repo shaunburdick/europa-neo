@@ -100,7 +100,7 @@ export class ResyncBuffer {
    * @param tick The caller's last-seen boundary (exclusive lower bound).
    * @returns Ascending `{ tick, view }` entries (empty when none).
    */
-  getSince(tick: number): ReadonlyArray<ResyncEntry> {
+  getSince(tick: number): readonly ResyncEntry[] {
     const result: ResyncEntry[] = [];
     for (const entry of this.entries.values()) {
       if (entry.tick > tick) {

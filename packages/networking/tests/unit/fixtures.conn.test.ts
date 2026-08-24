@@ -52,7 +52,7 @@ describe('MockWebSocket', () => {
 
   it('close records once, emits close, and blocks further sends', () => {
     const socket = new MockWebSocket();
-    const closeEvents: Array<[number, string]> = [];
+    const closeEvents: [number, string][] = [];
     socket.on('close', (code, reason) => {
       closeEvents.push([code, reason]);
     });

@@ -102,7 +102,7 @@ type PayloadsConform = AssertMutuallyAssignable<KindToPayload[MessageKind], Netw
 const PAYLOADS_CONFORM: PayloadsConform = true;
 
 /** All twelve documented message kinds (client→server first, mirroring the contract). */
-const ALL_KINDS: ReadonlyArray<MessageKind> = [
+const ALL_KINDS: readonly MessageKind[] = [
   'hello',
   'joinMatch',
   'order',
@@ -162,13 +162,13 @@ function kindLabel(kind: MessageKind): string {
 
 describe('contract conformance (T050)', () => {
   describe('(a) byte-identity of local contract mirrors vs spec source-of-truth', () => {
-    const CONTRACT_FILES = [
+    const contractFiles = [
       'network-types.ts',
       'network-api.ts',
       'matchmaking-to-networking.ts',
     ] as const;
 
-    for (const file of CONTRACT_FILES) {
+    for (const file of contractFiles) {
       it(`src/contracts/${file} is byte-identical to the spec copy`, async () => {
         const [local, spec] = await Promise.all([
           readFile(repoPath(`packages/networking/src/contracts/${file}`), 'utf-8'),

@@ -35,7 +35,7 @@ describe('createTickClock', () => {
 
   it('fires onTick with 1-based tick numbers and current time', () => {
     vi.setSystemTime(1000);
-    const seen: Array<[number, number]> = [];
+    const seen: [number, number][] = [];
     const clock = createTickClock(50, (tickNumber, nowMs) => {
       seen.push([tickNumber, nowMs]);
     });

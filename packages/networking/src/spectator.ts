@@ -167,7 +167,7 @@ export function detachSpectator(
   channel.removeSpectator(connectionId);
   channel.lastSentView.delete(connectionId);
 
-  const sessionToken = connection.sessionToken;
+  const { sessionToken } = connection;
   if (sessionToken !== null) {
     deps.matchmaker.onSeatDisconnected?.({
       matchId: channel.matchId,

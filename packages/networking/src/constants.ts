@@ -95,6 +95,16 @@ export const NETWORK_CONSTANTS: NetworkConstants = {
   replayRingBufferTicks: 16,
 } as const;
 
+/** Internal WebSocket lifecycle and time-conversion constants. */
+export const NETWORK_TRANSPORT_CONSTANTS = {
+  normalCloseCode: 1000,
+  goingAwayCloseCode: 1001,
+  policyViolationCloseCode: 1008,
+  tryAgainLaterCloseCode: 1013,
+  abnormalClosureCode: 1006,
+  millisecondsPerSecond: 1000,
+} as const;
+
 // Re-export the wire-protocol version from its source-of-truth
 // location (the contract). Importing the version through the
 // constants file lets consumers do
