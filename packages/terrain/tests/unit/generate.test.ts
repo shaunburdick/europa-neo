@@ -8,9 +8,20 @@
 
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';
+import type { TerrainGenerationRequest } from '../../src/contracts/terrain-types';
 import { GenerationError } from '../../src/contracts/terrain-types';
 import { generateBoard, hashBoard } from '../../src/generate';
 import { engineSfc32, SEED_42, SEED_C0FFEE } from '../fixtures/seeds';
+
+function invalidPlayerCountRequest(playerCount: number): TerrainGenerationRequest {
+  return {
+    boardSize: 16,
+    playerCount,
+    seed: SEED_42,
+    rng: engineSfc32(SEED_42),
+    settings: DEFAULT_GENERATION_SETTINGS,
+  } as unknown as TerrainGenerationRequest;
+}
 
 describe('generateBoard', () => {
   describe('happy path', () => {
@@ -77,14 +88,7 @@ describe('generateBoard', () => {
     });
 
     it('throws GenerationError for zero playerCount', () => {
-      const req = {
-        boardSize: 16,
-        // biome-ignore lint/suspicious/noExplicitAny: testing boundary
-        playerCount: 0 as any,
-        seed: SEED_42,
-        rng: engineSfc32(SEED_42),
-        settings: DEFAULT_GENERATION_SETTINGS,
-      };
+      const req = invalidPlayerCountRequest(0);
       expect(() => generateBoard(req)).toThrow(GenerationError);
     });
 

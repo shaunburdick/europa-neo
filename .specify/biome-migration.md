@@ -92,3 +92,17 @@ contract:
 
 These exceptions do not suppress diagnostics inline or disable a broad rule
 family repository-wide.
+
+## Terrain Phase 2 exceptions
+
+Terrain keeps `noMagicNumbers` only in `src/fbm.ts`, `src/hash.ts`,
+`src/rng-adapter.ts`, and `src/value-noise.ts`, plus the explicitly listed
+terrain algorithm/vector fixtures and tests in `packages/terrain/biome.json`,
+where literals are PRNG, hash, noise, or fixed-width integer-math constants.
+Its `noBitwiseOperators`
+exceptions are limited to those same integer-math sources plus
+`src/elevation.ts`, and to the exact seed/algorithm vector tests
+`tests/fixtures/seeds.ts`, `tests/unit/{elevation,fbm,rng-adapter,seed-fixtures,value-noise,water}.test.ts`.
+Validation, placement, symmetry, and unrelated test files therefore continue
+to report the staged warnings rather than being hidden by package-wide
+overrides.
