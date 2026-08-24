@@ -46,6 +46,7 @@ import { Minimap } from '../qol/minimap';
 import { subscribeReducedMotion } from '../qol/reduced-motion';
 import { useContainerSize } from '../qol/use-container-size';
 import { ZoomPanController } from '../qol/zoom';
+import { isAwaitingMatchStart } from '../state/awaiting-start';
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
@@ -53,6 +54,7 @@ import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from
 import { OrderBar } from '../ui/order-bar';
 import { ReservesPanel } from '../ui/reserves-panel';
 import { TargetingOverlay } from '../ui/targeting-overlay';
+import { WaitingOverlay } from '../ui/waiting-overlay';
 import { MapCanvas } from './canvas';
 import { GridOverlay } from './grid-overlay';
 import { liveLabels, nextLabelExpiryMs } from './label-overlay';
@@ -266,6 +268,15 @@ export function App({
   const zoom = mapView?.camera.zoom ?? 32;
   const selection = resolvedState.selection;
 
+  // Waiting-for-opponent overlay (post-playtest fix): joined but the
+  // match has not yet delivered its first tick broadcast (still
+  // filling). Store-derived predicate — no timers; it drops by itself
+  // on the first real tick or any status change, so it can never
+  // stack with the reconnecting banner or game-over surfaces.
+  // Interactive mode only: static boots render snapshots, not
+  // connection lifecycles.
+  const awaitingStart = store !== undefined && isAwaitingMatchStart(resolvedState);
+
   // Real container sizing for the minimap's viewport rectangle
   // (integration wave T-I3): without it the indicator defaults to the
   // full board, which lies whenever the visible window is smaller.
@@ -337,6 +348,9 @@ export function App({
               abilityLabel="Paratroop target"
               announcer={announcer ?? undefined}
             />
+          ) : null}
+          {awaitingStart ? (
+            <WaitingOverlay announcer={announcer ?? undefined} reducedMotion={reducedMotion} />
           ) : null}
         </div>
         <section id="hud" aria-label="Status bar" tabIndex={0} className="europa-hud">

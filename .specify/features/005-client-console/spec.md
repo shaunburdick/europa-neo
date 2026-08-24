@@ -198,6 +198,26 @@ truthful).
 10. **`loadReplay` omitted**: declared optional in the contract for
     forward compatibility; v1 does not implement it (per contract
     JSDoc).
+11. **Waiting-for-opponent overlay (post-playtest fix, 2026-08-23)**:
+    product-owner playtesting found that a console joining a match
+    that is still filling reaches status `live` but receives no tick
+    broadcast until matchmaking's auto-start fires with the final
+    seat — rendering as a silent black grid indistinguishable from a
+    broken client. The console now derives "awaiting match start"
+    purely from existing state (`isAwaitingMatchStart` in
+    `src/state/awaiting-start.ts`: status `live` AND
+    (`latestView === null` OR `latestView.tick === 0`) — worlds are
+    created at tick 0 and every server broadcast happens after
+    `advance()`, so tick 0 is exactly the unstarted join-snapshot
+    fingerprint). While awaiting, `App` renders a pointer-transparent
+    `WaitingOverlay` over the board area ("Waiting for opponent to
+    join…" + decorative spinner, `prefers-reduced-motion` honored via
+    both an App-subscription modifier class and a stylesheet media
+    query), announced once through the polite live region. The
+    overlay hides itself on the first real tick or any status change,
+    so it never stacks with the reconnecting banner or game-over
+    surfaces; HUD/status-chip behavior is unchanged. No acceptance
+    criteria changed; no contract surface touched.
 
 ### Quickstart validation mapping (Q-* → proving suites)
 

@@ -493,3 +493,70 @@ body {
 .europa-surrender {
   min-width: 12rem;
 }
+
+/*
+ * Waiting-for-opponent overlay (post-playtest fix, 2026-08-23).
+ * Covers the board area while the console is joined but the match is
+ * still filling (no tick broadcast yet). Pointer-transparent so it
+ * never intercepts input or focus; z-index sits above the board
+ * layers (targeting = 3) but below the reconnecting banner (900) and
+ * modal backdrop (1000) — those own their states exclusively.
+ */
+.europa-waiting {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background-color: rgba(5, 7, 13, 0.6);
+}
+
+.europa-waiting__plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background-color: #111827;
+  color: #f9fafb;
+  border: 1px solid #374151;
+  border-radius: 8px;
+}
+
+/* Subtle spinner ring (decorative; aria-hidden in the component). */
+.europa-waiting__pulse {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid #374151;
+  border-top-color: #f59e0b;
+  animation: europa-spin 1.2s linear infinite;
+}
+
+@keyframes europa-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reduced motion, path 1 of 2: the App-owned preference subscription
+   flips this modifier class live (Q-A07 / WCAG 2.3.3). */
+.europa-waiting--reduced .europa-waiting__pulse {
+  animation: none;
+}
+
+/* Reduced motion, path 2 of 2: stylesheet-level guard so the ring
+   stands still even when only the OS flag is observable. */
+@media (prefers-reduced-motion: reduce) {
+  .europa-waiting__pulse {
+    animation: none;
+  }
+}
+
+.europa-waiting__text {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
