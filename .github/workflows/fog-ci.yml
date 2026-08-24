@@ -11,7 +11,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'package.json'
       - 'tsconfig.base.json'
-      - 'biome.json'
+      - 'biome.jsonc'
       - 'packages/engine/**'
   pull_request:
     branches: [main]
@@ -23,7 +23,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'package.json'
       - 'tsconfig.base.json'
-      - 'biome.json'
+      - 'biome.jsonc'
       - 'packages/engine/**'
 
 # Minimal permissions: contents:read is enough for typecheck/lint/test/build.

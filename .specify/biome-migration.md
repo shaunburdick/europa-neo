@@ -7,7 +7,7 @@
 
 ## Adopted configuration
 
-The root `biome.json` extends the published package. The repository's existing
+The root `biome.jsonc` extends the published package. The repository's existing
 package configs continue to extend the root config; `root: false` makes that
 relationship explicit for Biome 2 when configurations are validated together.
 The repository adopts the published formatter settings: four-space indentation,
@@ -44,7 +44,7 @@ migrated, and all diagnostics are clean without broad suppressions.
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm exec biome check biome.json packages/*/biome.json
+pnpm exec biome check biome.jsonc packages/*/biome.jsonc
 pnpm typecheck
 pnpm lint
 pnpm test
@@ -74,7 +74,7 @@ project config. This repository uses the equivalent pnpm catalog entry.
 
 ## Engine Phase 2 exceptions
 
-The engine package's `biome.json` contains narrow, package-local,
+The engine package's `biome.jsonc` contains narrow, package-local,
 rule-level exceptions for patterns that are part of its existing deterministic
 contract:
 
@@ -83,8 +83,9 @@ contract:
 - `src/rng.ts` and `src/serialize.ts` retain `noMagicNumbers` for PRNG/hash
   constants and binary wire-layout widths; these are protocol/algorithm
   constants rather than tunable gameplay values.
-- `tests/**` retains `noMagicNumbers` and `noBitwiseOperators` for fixtures,
-  protocol vectors, and determinism assertions.
+- Exact deterministic-vector and protocol fixture files retain `noMagicNumbers`
+  and `noBitwiseOperators`; ordinary engine tests remain checked. These files
+  are listed in `packages/engine/biome.jsonc` with adjacent rationale comments.
 - The direction-key table in `src/validate.ts` and existing phase-local names
   in `src/tick.ts` retain `useNamingConvention`; these names mirror the public
   direction vocabulary and established resolution terminology.
@@ -99,7 +100,7 @@ family repository-wide.
 
 Terrain keeps `noMagicNumbers` only in `src/fbm.ts`, `src/hash.ts`,
 `src/rng-adapter.ts`, and `src/value-noise.ts`, plus the explicitly listed
-terrain algorithm/vector fixtures and tests in `packages/terrain/biome.json`,
+terrain algorithm/vector fixtures and tests in `packages/terrain/biome.jsonc`,
 where literals are PRNG, hash, noise, or fixed-width integer-math constants.
 Its `noBitwiseOperators`
 exceptions are limited to those same integer-math sources plus
@@ -126,7 +127,7 @@ Fog keeps `noBitwiseOperators` off only for `src/utils.ts` (the two-lane
 FNV-1a integer hash) and `tests/fixtures/seeds.ts` (seed-vector unsigned
 normalization). These are deterministic integer primitives, not general
 application logic. Fog's test scenario files have explicit, file-by-file
-`noMagicNumbers` overrides in `packages/fog/biome.json`: their numeric
+`noMagicNumbers` overrides in `packages/fog/biome.jsonc`: their numeric
 arguments and expected coordinates are behavior fixtures for the documented
 visibility protocol. No source rule family is disabled broadly, and all
 structural, naming, accessibility, and formatting diagnostics remain active.
@@ -134,7 +135,7 @@ structural, naming, accessibility, and formatting diagnostics remain active.
 ## Networking Phase 2 exceptions
 
 Networking keeps `noMagicNumbers` disabled only in the explicitly enumerated
-test fixtures and protocol test files in `packages/networking/biome.json`.
+test fixtures and protocol test files in `packages/networking/biome.jsonc`.
 Those files intentionally use wire close codes, sequence/tick boundaries,
 frame limits, timing values, board coordinates, and deterministic test vectors
 to assert the published protocol behavior. Runtime networking sources retain

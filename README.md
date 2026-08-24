@@ -80,10 +80,10 @@ pnpm --filter @europa/console coverage
 ### Lint and formatting
 
 The repository adopts the published [`biome-config-shaunburdick`](https://www.npmjs.com/package/biome-config-shaunburdick)
-configuration through the root `biome.json`; package configs inherit it. Run
-`pnpm lint` for the staged lint baseline and `pnpm format:check` to check the
-existing two-space/100-column repository style. Phase 1 reports high-volume
-migration categories as warnings and does not permit bulk autofixes. See
+configuration through the root `biome.jsonc`; package configs inherit it. Run
+`pnpm lint` for the lint baseline and `pnpm format:check` to check the adopted
+four-space/120-column repository style. Bulk autofixes are intentionally not
+used for the migration. See
 [`.specify/biome-migration.md`](.specify/biome-migration.md) for the policy,
 package order, and exit criteria.
 

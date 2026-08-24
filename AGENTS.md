@@ -64,9 +64,8 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   engine declaration and contributor instructions therefore use Node 22.
   Existing package configs remain layered children (`root: false`), and the
   console's three ARIA-grid accessibility exceptions remain package-scoped.
-  Phase 1 keeps two-space/100-column formatting and reports the high-volume
-  migration categories as warnings; it does not mass-format or use inline
-  suppressions. Full policy, exclusions, remediation order, and exit criteria
+  adopted four-space/120-column formatting is enforced without mass-formatting
+  the existing source. Full policy, exclusions, remediation order, and exit criteria
   live in `.specify/biome-migration.md`. Required checks are `pnpm typecheck`,
   `pnpm lint`, `pnpm format:check`, and targeted/full tests as appropriate.
 - Spec status lines: 001 = `**Status**: Implemented`; 003 = `**Status**: Implemented`; 002 = `**Status**: Implemented`; 004 = `**Status**: Implemented`; 006 = `**Status**: Implemented`; 005 = `**Status**: Implemented (2026-08-23)`
