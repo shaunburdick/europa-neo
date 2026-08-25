@@ -1,0 +1,43 @@
+{
+    "name": "@europa/terrain",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Europa Neo procedural terrain generation — deterministic, point-symmetric, integer-only map generator producing engine-ready Boards for feature 001.",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "lint": "biome check .",
+        "format": "biome format --write .",
+        "format:check": "biome format .",
+        "typecheck": "tsc --noEmit",
+        "coverage": "vitest run --coverage"
+    },
+    "peerDependencies": {
+        "@europa/engine": "workspace:*"
+    },
+    "peerDependenciesMeta": {
+        "@europa/engine": {
+            "optional": false
+        }
+    },
+    "devDependencies": {
+        "@biomejs/biome": "catalog:",
+        "@vitest/coverage-v8": "^4.1.11",
+        "tsup": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    }
+}

@@ -1,0 +1,57 @@
+packages:
+  - "packages/*"
+
+# pnpm 11 blocks dependency lifecycle scripts by default (supply-chain
+# security). Approve esbuild's native postinstall so tsup/vitest can
+# bundle and run TS. (v11 syntax: allowBuilds map replaces the v10
+# onlyBuiltDependencies list.)
+allowBuilds:
+  esbuild: true
+
+catalog:
+  tsup: ^8.3.5
+  vitest: ^4.1.0
+  "@biomejs/biome": ^2.0.0
+  biome-config-shaunburdick: ^1.0.0
+  typescript: ^5.6.0
+  # Feature 004 (networking) transport-layer deps. Networking-only
+  # direct dependencies per plan.md §"Technical Context" — the ws
+  # server is the only runtime dep; the rest are type/build tooling.
+  ws: ^8.21.3
+  "@types/ws": ^8
+  # Node builtin typings (timers, crypto) needed by networking's
+  # scheduler + token generation modules.
+  "@types/node": ^22
+  # Feature 005 (client console) deps per plan.md §"Technical Context".
+  # Versions resolved from the registry at scaffolding time (Wave 8A);
+  # plan's `@vitejs/plugin-react@^4.x` was stale — Vite 8 requires the
+  # 6.x line; `vitest-browser-react` latest major is 2.x; happy-dom
+  # latest stable is 20.x.
+  react: ^19.2.0
+  react-dom: ^19.2.0
+  "@types/react": ^19.2.0
+  "@types/react-dom": ^19.2.0
+  zustand: ^5.0.0
+  vite: ^8.2.2
+  "@vitejs/plugin-react": ^6.1.0
+  "@vitest/browser": ^4.1.0
+  # Vitest 4 Browser Mode provider factory (the string "provider:
+  # playwright" form was removed in Vitest 4.1).
+  "@vitest/browser-playwright": ^4.1.0
+  vitest-browser-react: ^2.2.0
+  "@axe-core/playwright": ^4.13.0
+  # Standalone axe-core engine for Vitest Browser Mode a11y scans
+  # (tests/setup.ts expectNoDomA11yViolations): AxeBuilder from
+  # @axe-core/playwright needs a Playwright Page object, which does not
+  # exist inside browser-mode tests. Version-matched to the engine
+  # bundled by @axe-core/playwright so both layers enforce identical
+  # rules.
+  axe-core: ^4.13.0
+  "@playwright/test": ^1.62.1
+  happy-dom: ^20.11.6
+  "@resvg/resvg-js": ^2.6.2
+  # tsx runner for packages/console/scripts/*.ts (build-assets).
+  tsx: ^4.23.12
+
+minimumReleaseAgeExclude:
+  - biome-config-shaunburdick@1.0.0

@@ -1,0 +1,47 @@
+{
+    "name": "@europa/matchmaking",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Europa Neo match lifecycle & matchmaking — ephemeral player sessions, public/private match creation with atomic seat assignment, lobby projection, engine auto-start, rematch coordination, and disconnect forfeit. Consumes @europa/engine, @europa/terrain, and @europa/networking type-only (zero runtime deps).",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./contracts/*": "./contracts/*.ts"
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "contracts"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:unit": "vitest run tests/unit",
+        "test:quickstart": "vitest run tests/quickstart",
+        "test:soak": "vitest run tests/soak.test.ts",
+        "test:conformance": "vitest run tests/conformance.test.ts",
+        "test:coverage": "vitest run --coverage",
+        "lint": "biome check .",
+        "format": "biome format --write .",
+        "format:check": "biome format .",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@europa/engine": "workspace:*",
+        "@europa/networking": "workspace:*",
+        "@europa/terrain": "workspace:*"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "catalog:",
+        "@types/node": "catalog:",
+        "@vitest/coverage-v8": "^4.1.11",
+        "tsup": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    }
+}

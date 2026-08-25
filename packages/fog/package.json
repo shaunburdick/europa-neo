@@ -1,0 +1,43 @@
+{
+    "name": "@europa/fog",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Europa Neo fog of war & visibility — server-authoritative per-player horizon filter (Chebyshev range expansion, binary mask, no recall). Sits between @europa/engine and the network layer.",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "lint": "biome check .",
+        "format": "biome format --write .",
+        "format:check": "biome format .",
+        "typecheck": "tsc --noEmit",
+        "coverage": "vitest run --coverage"
+    },
+    "peerDependencies": {
+        "@europa/engine": "workspace:*"
+    },
+    "peerDependenciesMeta": {
+        "@europa/engine": {
+            "optional": false
+        }
+    },
+    "devDependencies": {
+        "@biomejs/biome": "catalog:",
+        "@vitest/coverage-v8": "^4.1.11",
+        "tsup": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    }
+}

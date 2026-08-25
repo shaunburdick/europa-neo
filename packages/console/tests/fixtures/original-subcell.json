@@ -1,0 +1,122 @@
+[
+  {
+    "note": "controls.html documented example: cursor in the red subcell toward the top-right throws paratroopers two units north and two units east",
+    "cursorPx": { "x": 0.85, "y": 0.15 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 12, "y": 8 }
+  },
+  {
+    "note": "ring-2 N (top-center bin)",
+    "cursorPx": { "x": 0.5, "y": 0.1 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 10, "y": 8 }
+  },
+  {
+    "note": "ring-2 S (bottom-center bin)",
+    "cursorPx": { "x": 0.5, "y": 0.9 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 10, "y": 12 }
+  },
+  {
+    "note": "ring-2 W (mid-left bin)",
+    "cursorPx": { "x": 0.05, "y": 0.5 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 8, "y": 10 }
+  },
+  {
+    "note": "ring-2 E (mid-right bin)",
+    "cursorPx": { "x": 0.95, "y": 0.5 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 12, "y": 10 }
+  },
+  {
+    "note": "ring-2 NW corner",
+    "cursorPx": { "x": 0.1, "y": 0.1 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 8, "y": 8 }
+  },
+  {
+    "note": "ring-2 NE corner",
+    "cursorPx": { "x": 0.9, "y": 0.1 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 12, "y": 8 }
+  },
+  {
+    "note": "ring-2 SW corner",
+    "cursorPx": { "x": 0.1, "y": 0.9 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 8, "y": 12 }
+  },
+  {
+    "note": "ring-2 SE corner",
+    "cursorPx": { "x": 0.9, "y": 0.9 },
+    "source": { "x": 10, "y": 10 },
+    "expectedTarget": { "x": 12, "y": 12 }
+  },
+  {
+    "note": "ring-1 N (inner upper bin)",
+    "cursorPx": { "x": 0.5, "y": 0.3 },
+    "source": { "x": 4, "y": 7 },
+    "expectedTarget": { "x": 4, "y": 6 }
+  },
+  {
+    "note": "ring-1 W (inner left bin)",
+    "cursorPx": { "x": 0.3, "y": 0.5 },
+    "source": { "x": 4, "y": 7 },
+    "expectedTarget": { "x": 3, "y": 7 }
+  },
+  {
+    "note": "ring-1 E (inner right bin)",
+    "cursorPx": { "x": 0.7, "y": 0.5 },
+    "source": { "x": 4, "y": 7 },
+    "expectedTarget": { "x": 5, "y": 7 }
+  },
+  {
+    "note": "ring-1 SE diagonal",
+    "cursorPx": { "x": 0.7, "y": 0.7 },
+    "source": { "x": 4, "y": 7 },
+    "expectedTarget": { "x": 5, "y": 8 }
+  },
+  {
+    "note": "center bin means self: no launch (handler rejects source === target)",
+    "cursorPx": { "x": 0.5, "y": 0.5 },
+    "source": { "x": 6, "y": 6 },
+    "expectedTarget": { "x": 6, "y": 6 }
+  },
+  {
+    "note": "threshold boundary: x = 0.20 exactly bins -1 (0.20 <= x < 0.40)",
+    "cursorPx": { "x": 0.2, "y": 0.5 },
+    "source": { "x": 9, "y": 9 },
+    "expectedTarget": { "x": 8, "y": 9 }
+  },
+  {
+    "note": "threshold boundary: x = 0.40 exactly bins 0",
+    "cursorPx": { "x": 0.4, "y": 0.5 },
+    "source": { "x": 9, "y": 9 },
+    "expectedTarget": { "x": 9, "y": 9 }
+  },
+  {
+    "note": "threshold boundary: x = 0.60 exactly bins +1",
+    "cursorPx": { "x": 0.6, "y": 0.5 },
+    "source": { "x": 9, "y": 9 },
+    "expectedTarget": { "x": 10, "y": 9 }
+  },
+  {
+    "note": "threshold boundary: x = 0.80 exactly bins +2",
+    "cursorPx": { "x": 0.8, "y": 0.5 },
+    "source": { "x": 9, "y": 9 },
+    "expectedTarget": { "x": 11, "y": 9 }
+  },
+  {
+    "note": "threshold boundary: y = 0.20 exactly bins -1 (north is negative)",
+    "cursorPx": { "x": 0.5, "y": 0.2 },
+    "source": { "x": 9, "y": 9 },
+    "expectedTarget": { "x": 9, "y": 8 }
+  },
+  {
+    "note": "threshold boundary: y = 0.80 exactly bins +2",
+    "cursorPx": { "x": 0.5, "y": 0.8 },
+    "source": { "x": 9, "y": 9 },
+    "expectedTarget": { "x": 9, "y": 11 }
+  }
+]

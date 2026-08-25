@@ -1,0 +1,167 @@
+{
+    "root": false,
+    "extends": ["../../biome.jsonc"],
+    "files": {
+        "includes": [
+            "src/**",
+            "tests/**",
+            "scripts/**",
+            "*.ts",
+            "*.json",
+            "*.jsonc",
+            "!scripts/generate-determinism-golden.ts",
+            "!test-results",
+            "!tests/fixtures/original-subcell.json",
+            "!tests/fixtures/golden-1000-tick.json"
+        ]
+    },
+    "overrides": [
+        {
+            // These controls and the ARIA grid intentionally implement keyboard semantics unavailable to native elements.
+            "includes": [
+                "src/render/grid-overlay.tsx",
+                "src/render/App.tsx",
+                "src/render/cell-view.tsx",
+                "src/ui/order-bar.tsx",
+                "src/ui/reserves-panel.tsx",
+                "tests/component/render/cell-view.test.tsx"
+            ],
+            "linter": {
+                "rules": {
+                    "a11y": {
+                        "useSemanticElements": "off",
+                        "useFocusableInteractive": "off",
+                        "noNoninteractiveTabindex": "off"
+                    }
+                }
+            }
+        },
+        {
+            // The grid fixture uses literal cell dimensions as an explicit geometry vector.
+            "includes": ["tests/component/render/grid-overlay.test.tsx"],
+            "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
+        },
+        {
+            // UI geometry, protocol values, and explicit test vectors use meaningful literals in context.
+            "includes": [
+                "scripts/build-assets.ts",
+                "scripts/host.ts",
+                "src/input/hit-test.ts",
+                "src/input/subcell-target.ts",
+                "src/input/subcell.ts",
+                "src/internal/test-state.ts",
+                "src/net/ws-match-client.ts",
+                "src/qol/minimap.tsx",
+                "src/render/App.tsx",
+                "src/render/canvas.ts",
+                "src/render/label-overlay.ts",
+                "src/render/palette.ts",
+                "src/state/local-preflight.ts",
+                "src/ui/reserves-panel.tsx",
+                "src/ui/targeting-overlay.tsx",
+                "tests/a11y/us2-acceptance.test.ts",
+                "tests/a11y/us3-acceptance.test.ts",
+                "tests/a11y/us5-acceptance.test.ts",
+                "tests/component/qol/minimap.test.tsx",
+                "tests/component/render/app-wire-view.test.tsx",
+                "tests/component/render/cell-view.test.tsx",
+                "tests/component/render/map-canvas.test.tsx",
+                "tests/component/ui/reserves-panel.test.tsx",
+                "tests/e2e/full-stack.spec.ts",
+                "tests/e2e/selfhost.spec.ts",
+                "tests/e2e/us1-acceptance.spec.ts",
+                "tests/e2e/us2-acceptance.spec.ts",
+                "tests/e2e/us3-acceptance.spec.ts",
+                "tests/e2e/us4-acceptance.spec.ts",
+                "tests/e2e/us5-acceptance.spec.ts",
+                "tests/e2e/waiting-overlay.spec.ts",
+                "tests/fixtures/determinism-scenario.ts",
+                "tests/integration/contract-conformance.test.ts",
+                "tests/integration/perf.test.ts",
+                "tests/integration/quiet-client-keepalive.test.ts",
+                "tests/integration/subcell-parity.test.ts",
+                "tests/unit/input/order-draft-controller.test.ts",
+                "tests/unit/input/order-draft.test.ts",
+                "tests/unit/input/order-gun.test.ts",
+                "tests/unit/input/order-paratroop.test.ts",
+                "tests/unit/input/order-reserves.test.ts",
+                "tests/unit/input/region-select.test.ts",
+                "tests/unit/input/subcell-target.test.ts",
+                "tests/unit/net/net.test.ts",
+                "tests/unit/net/rehydrate-wire-views.test.ts",
+                "tests/unit/net/ws-match-client.test.ts",
+                "tests/unit/qol/controllers.test.ts",
+                "tests/unit/qol/hotkeys.test.ts",
+                "tests/unit/qol/reduced-motion.test.ts",
+                "tests/unit/qol/zoom-math.test.ts",
+                "tests/unit/qol/zoom.test.ts",
+                "tests/unit/render/palette.test.ts",
+                "tests/unit/render/visibility-filter.test.ts",
+                "tests/unit/runtime.test.ts",
+                "tests/unit/state/awaiting-start.test.ts",
+                "tests/unit/state/format.test.ts",
+                "tests/unit/state/local-preflight.test.ts",
+                "tests/unit/state/order-bridge.test.ts",
+                "tests/unit/state/reducer.test.ts"
+            ],
+            "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
+        },
+        {
+            "includes": [
+                "playwright.config.ts",
+                "src/a11y/keyboard.ts",
+                "src/internal/demo-runtime.tsx",
+                "src/render/grid-overlay.tsx",
+                "tests/component/render/app-wire-view.test.tsx",
+                "tests/e2e/selfhost.spec.ts",
+                "tests/integration/contract-conformance.test.ts",
+                "tests/unit/net/net.test.ts",
+                "tests/unit/qol/zoom-math.test.ts",
+                "vitest.config.browser.ts",
+                "vitest.config.coverage.ts"
+            ],
+            "linter": { "rules": { "style": { "useNamingConvention": "off" } } }
+        },
+        {
+            // Performance benchmark warnings are intentionally emitted for CI diagnostics.
+            "includes": ["tests/integration/perf.test.ts"],
+            "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+        },
+        {
+            "includes": ["tests/a11y/us2-acceptance.test.ts"],
+            "linter": { "rules": { "suspicious": { "noBitwiseOperators": "off" } } }
+        },
+        {
+            // Contract mirror formatting is protected by byte-identity tests.
+            "includes": ["contracts/**"],
+            "formatter": { "enabled": false },
+            "assist": { "actions": { "source": { "organizeImports": "off" } } }
+        },
+        {
+            // QoLSettings preserves the public contract's established acronym spelling.
+            "includes": ["contracts/console-types.ts"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useNamingConvention": "off",
+                        "useConsistentArrayType": "off"
+                    }
+                }
+            }
+        },
+        {
+            // Contract mirrors retain upstream array and import shapes verbatim.
+            "includes": [
+                "contracts/console-api.ts",
+                "contracts/console-state.ts",
+                "contracts/console-to-networking.ts"
+            ],
+            "linter": {
+                "rules": {
+                    "correctness": { "noUnusedImports": "off" },
+                    "style": { "useConsistentArrayType": "off" }
+                }
+            }
+        }
+    ]
+}

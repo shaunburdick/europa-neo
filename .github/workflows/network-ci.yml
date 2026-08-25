@@ -1,0 +1,128 @@
+name: Network CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/networking/**'
+      - '.github/workflows/network-ci.yml'
+      - '.specify/features/004-multiplayer-networking/**'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - 'biome.jsonc'
+      - 'packages/engine/**'
+      - 'packages/fog/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/networking/**'
+      - '.github/workflows/network-ci.yml'
+      - '.specify/features/004-multiplayer-networking/**'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - 'biome.jsonc'
+      - 'packages/engine/**'
+      - 'packages/fog/**'
+
+# Minimal permissions: contents:read is enough for typecheck/lint/test/build.
+# No jobs need write access; we don't push artifacts or publish.
+permissions:
+  contents: read
+
+jobs:
+  network-lint:
+    name: Lint (networking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/engine (workspace dependency)
+        run: pnpm --filter @europa/engine build
+
+      - name: Build @europa/fog (workspace dependency)
+        run: pnpm --filter @europa/fog build
+
+      - name: Typecheck (networking)
+        run: pnpm --filter @europa/networking typecheck
+
+      - name: Lint (networking)
+        run: pnpm --filter @europa/networking lint
+
+      - name: Format check (networking)
+        run: pnpm --filter @europa/networking format:check
+
+  network-test:
+    name: Test (networking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/engine (workspace dependency)
+        run: pnpm --filter @europa/engine build
+
+      - name: Build @europa/fog (workspace dependency)
+        run: pnpm --filter @europa/fog build
+
+      - name: Test (networking)
+        run: pnpm --filter @europa/networking test
+
+  network-coverage:
+    name: Coverage gate (networking ≥ 80%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/engine (workspace dependency)
+        run: pnpm --filter @europa/engine build
+
+      - name: Build @europa/fog (workspace dependency)
+        run: pnpm --filter @europa/fog build
+
+      - name: Coverage (networking)
+        run: pnpm --filter @europa/networking coverage
+
+      # Coverage thresholds (80% lines/functions/branches/statements) are
+      # enforced by vitest config at packages/networking/vitest.config.ts.
+      # The command exits non-zero if any threshold is below 80%.
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: network-coverage
+          path: packages/networking/coverage/
+          retention-days: 14
