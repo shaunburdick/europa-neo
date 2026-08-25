@@ -32,6 +32,7 @@
     "dependencies": {
         "@europa/engine": "workspace:*",
         "@europa/fog": "workspace:*",
+        "@europa/version": "workspace:*",
         "ws": "catalog:"
     },
     "devDependencies": {

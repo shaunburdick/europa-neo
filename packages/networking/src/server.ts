@@ -40,6 +40,7 @@
 
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 
+import { APP_VERSION } from '@europa/version';
 import { WebSocketServer, type WebSocket as WsWebSocket } from 'ws';
 
 import { buildTickBroadcast, sendTickBroadcast } from './broadcast';
@@ -693,6 +694,9 @@ export function createMatchServer(
                     protocolVersion: NETWORK_API_VERSION,
                     connectionId: connection.id,
                     heartbeatIntervalMs: config.heartbeatIntervalMs,
+                    // Feature 009 FR-003: additive release identity. Distinct
+                    // from `protocolVersion` (FR-004) — never derived from it.
+                    appVersion: APP_VERSION,
                 };
                 connection.send(envelopeOf('helloAck', payload));
                 statsCounter.recordFrameSent('helloAck');

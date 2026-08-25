@@ -254,6 +254,9 @@ importers:
       '@europa/fog':
         specifier: workspace:*
         version: link:../fog
+      '@europa/version':
+        specifier: workspace:*
+        version: link:../version
       ws:
         specifier: 'catalog:'
         version: 8.21.3

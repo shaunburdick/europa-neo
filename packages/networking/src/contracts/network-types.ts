@@ -329,6 +329,12 @@ export interface HelloAckPayload {
   readonly connectionId: ConnectionId;
   /** Heartbeat interval the server expects (ms). Tunable; see `ServerConfig`. */
   readonly heartbeatIntervalMs: number;
+  /**
+   * Additive release identity (feature 009): presence = server of
+   * feature-009 generation or later; clients MUST tolerate absence.
+   * Never derived from or related to `protocolVersion`.
+   */
+  readonly appVersion?: string;
 }
 
 /**
