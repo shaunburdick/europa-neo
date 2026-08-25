@@ -20,7 +20,7 @@ This file governs any AI agent (primary or subagent) doing work in this reposito
 | ----------------------------------------------- | ----------------------------------------------------------- |
 | `AGENTS.md` (this file)                          | Agent working rules + project state                         |
 | `.specify/memory/constitution.md`                | Non-negotiable engineering principles                       |
-| `.specify/features/001…006/spec.md`              | Feature specifications (the source of truth for behavior)   |
+| `.specify/features/001…007/spec.md`              | Feature specifications (the source of truth for behavior)   |
 | `europa-source/games.dangerous-minds.net/Europa/html/Europa/rules.html` | Original mechanics — authoritative when specs are ambiguous |
 | `europa-source/.../controls.html`                | Original control scheme (client console must match its capabilities) |
 
@@ -32,6 +32,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 - **Branch**: `001-europa-core` (never commit to `main`/`master`/`develop`) — PR #1 (`001-europa-core` → `main`) is OPEN with all checks green, awaiting product-owner merge
 - **Completed**:
+  - Spec 007 player manual (`docs(spec)` this session) — end-user instruction book + GitHub Pages publishing spec written at `.specify/features/007-player-manual/spec.md` (v1.0, Draft, zero clarification markers); folded into PR #1 by product-owner decision (no `007-*` branch). Content sourced from implemented specs 001–006 + shipped code (verified against `DEFAULT_INPUT_MAPPING`, `ENGINE_CONSTANTS`, HUD components, live-runtime join flow); publishing = official actions Pages pattern over plain Markdown in `docs/manual/`. Awaiting plan/tasks (phases 4–5).
   - Phases 1–3 — constitution ratified; six feature specs written and committed (`859a4f3`); spec 006 amended for visibility types + shareable links (`1ed3233`); spec 006 stamped v1.1 with inline Clarifications trail (`b55bfaf`); original archive trimmed to documentation subset with history purged (`79701f8`+)
   - Phases 4–5 — all six feature plans + tasks committed
   - **001 engine: Implemented** (commits `d18f31c` → `4f60216`) — full US1-US5 + Polish: 280 tests passing, ≥80% coverage on every metric, byte-identical 10k-tick determinism (SC-001), median tick < 0.1ms on 32×32 board (SC-004), 3/4-player smoke (FR-019), CI workflow + README + contract-drift detector in place. All Wave 1 reviewer items addressed.
