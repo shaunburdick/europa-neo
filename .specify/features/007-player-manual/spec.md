@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-24
 
-**Last Updated**: 2026-08-24
+**Last Updated**: 2026-08-25
 
-**Version**: 1.0
+**Version**: 1.1
 
 **Status**: Implemented (2026-08-24)
 
@@ -136,6 +136,7 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 - **FR-010**: The manual MUST include a numbers appendix table listing every player-facing tunable exactly as shipped (engine constants, tick cadence of 250 ms ≈ 4 ticks/second, default board size, vision radius, per-player colors, camera zoom bounds), each traceable to `ENGINE_CONSTANTS` / shipped defaults.
 - **FR-011**: The manual itself MUST be accessible: semantic Markdown rendered to semantic HTML (one h1 per page, hierarchical headings, tables with header rows, alt text on any image, descriptive link text), readable and navigable without JavaScript.
 - **FR-012**: Any change set that alters gameplay behavior documented by the manual MUST update the manual in the same change set (constitution IV "specs stay truthful," extended to player-facing docs).
+- **FR-017**: The manual index page (`docs/manual/index.md`) MUST close with a footer line stating the application version the manual documents (e.g., "*This manual documents Europa Neo v0.0.1.*"); the version string MUST stay in lockstep with the shipped `APP_VERSION` (enforced by feature 009-shared-app-versioning's drift check), and version-bearing updates ride in the same change set as the change that moves them (FR-012 discipline).
 
 **Publishing**
 
@@ -187,7 +188,7 @@ The manual consists of these pages under `docs/manual/` (one-line purpose each):
 
 | # | Page | Purpose |
 | --- | --- | --- |
-| 1 | `index.md` | Welcome, 60-second game concept, table of contents linking every page |
+| 1 | `index.md` | Welcome, 60-second game concept, table of contents linking every page, version footer |
 | 2 | `quick-start.md` | From link to first orders: opening a join URL, display name, waiting overlay, first safe things to try |
 | 3 | `objective.md` | How to win, how players are eliminated, surrendering, draws |
 | 4 | `the-board.md` | Grid, elevation shading, impassable water, fair symmetric maps |
@@ -222,3 +223,13 @@ Decisions recorded here for cheap veto:
 - **Language/screenshots/theme**: English-only, no screenshots in v1, default
   Jekyll styling — simplest thing that satisfies the owner's "simple
   instruction book"; Assumptions and Out of Scope.
+
+### v1.1 (2026-08-25) — Index-page version footer (feature 009-shared-app-versioning)
+
+- **FR-017 (index footer)**: one content requirement added after
+  implementation by feature 009 — the manual index closes with a
+  footer line naming the application version the text documents.
+  The string is drift-checked against the shipped `APP_VERSION`
+  (feature 009 FR-009), so the footer stays mechanically honest
+  instead of vigilance-maintained; FR-012's same-change-set rule
+  governs every future bump that moves it.

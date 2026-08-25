@@ -1,8 +1,8 @@
 {
-    "name": "@europa/engine",
+    "name": "@europa/version",
     "version": "0.0.1",
     "private": true,
-    "description": "Europa Neo core game engine — deterministic, pure, server-authoritative tick simulation (cities, pipes, fog, combat, decay, paratroopers, guns, victory).",
+    "description": "Europa Neo shared application version — owns the single-source APP_VERSION constant (feature 009) so every guarded surface projects one release identity.",
     "type": "module",
     "exports": {
         ".": {
@@ -23,11 +23,14 @@
         "format": "biome format --write .",
         "format:check": "biome format .",
         "typecheck": "tsc --noEmit",
-        "coverage": "vitest run --coverage"
+        "coverage": "vitest run --coverage",
+        "version:check": "tsx scripts/check-version-drift.ts"
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
+        "@vitest/coverage-v8": "^4.1.11",
         "tsup": "catalog:",
+        "tsx": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:"
     }

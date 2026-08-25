@@ -40,6 +40,7 @@
 
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 
+import { APP_VERSION } from '@europa/version';
 import { WebSocketServer, type WebSocket as WsWebSocket } from 'ws';
 
 import { buildTickBroadcast, sendTickBroadcast } from './broadcast';
@@ -564,6 +565,14 @@ export function createMatchServer(
         channel.attachSeat(target.playerId, target.token, connection);
         connection.markJoined(target.token, target.playerId, payload.matchId);
         sendJoinAck(connection, channel, target.playerId, false);
+        // Feature 009 FR-005: every successful seat claim logs the release
+        // identity with the seat/connection detail ("at each seat join").
+        deps.logger.info('seat joined', {
+            appVersion: APP_VERSION,
+            matchId: channel.matchId,
+            playerId: target.playerId,
+            connectionId: connection.id,
+        });
         deps.matchmaker.onSeatClaimed?.({
             matchId: channel.matchId,
             connectionId: connection.id,
@@ -693,6 +702,9 @@ export function createMatchServer(
                     protocolVersion: NETWORK_API_VERSION,
                     connectionId: connection.id,
                     heartbeatIntervalMs: config.heartbeatIntervalMs,
+                    // Feature 009 FR-003: additive release identity. Distinct
+                    // from `protocolVersion` (FR-004) — never derived from it.
+                    appVersion: APP_VERSION,
                 };
                 connection.send(envelopeOf('helloAck', payload));
                 statsCounter.recordFrameSent('helloAck');
@@ -870,6 +882,15 @@ export function createMatchServer(
                 httpServer?.listen({ host: config.host, port: config.port }, () => {
                     resolve();
                 });
+            });
+            // Feature 009 FR-005: the boot log carries the release identity
+            // alongside the listener detail. Production defaults to a no-op
+            // logger; hosts injecting a real one get the version at startup.
+            deps.logger.info('match server listening', {
+                appVersion: APP_VERSION,
+                host: config.host,
+                port: config.port,
+                tickRateMs: config.tickRateMs,
             });
             clock.start();
         },

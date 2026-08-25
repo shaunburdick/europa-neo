@@ -8,7 +8,8 @@
  *   - the ARIA grid overlay ({@link GridOverlay} — a11y source of
  *     truth, WCAG 1.3.1 / 4.1.2),
  *   - a HUD section (status + tick; FR-008's full banner arrives with
- *     US5),
+ *     US5) carrying the bundled app-version footer (feature 009
+ *     FR-007 — real DOM text, all connection states),
  *   - the order palette ({@link OrderBar}, T055) after the HUD in Tab
  *     order (Q-A04),
  *   - the hidden `aria-live` announcer mount ({@link LiveRegionAnnouncer}
@@ -34,6 +35,7 @@
  * failure, which is acceptable for the MVP demo surface.
  */
 
+import { APP_VERSION } from '@europa/version';
 import type { JSX } from 'react';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -350,6 +352,13 @@ export function App({ store, state, onSurrenderRequest, surrenderRequestEpoch }:
                 <section id="hud" aria-label="Status bar" tabIndex={0} className="europa-hud">
                     <span className="europa-hud__item">Status: {resolvedState.status}</span>
                     <span className="europa-hud__item">Tick: {mapView?.tick ?? '—'}</span>
+                    {/* Version footer (feature 009 FR-007): the BUNDLED
+              constant, v-prefixed per the Clarifications presentation
+              ruling — never the server's hello-ack field (AD-5: a stale
+              tab must not display a version it is not running). Renders
+              in every connection state because it depends on no state
+              at all; plain span = no pointer/keyboard interception. */}
+                    <span className="europa-hud__item europa-hud__version">v{APP_VERSION}</span>
                     {store !== undefined && mapView !== null ? (
                         <Minimap
                             boardWidth={mapView.width}

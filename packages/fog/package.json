@@ -1,6 +1,6 @@
 {
     "name": "@europa/fog",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "private": true,
     "description": "Europa Neo fog of war & visibility — server-authoritative per-player horizon filter (Chebyshev range expansion, binary mask, no recall). Sits between @europa/engine and the network layer.",
     "type": "module",

@@ -1,0 +1,10 @@
+{
+    // Package-scoped Biome policy: extends the root configuration (which
+    // itself layers biome-config-shaunburdick). No overrides — this
+    // package has no contract mirrors or domain-constant literals.
+    "root": false,
+    "extends": ["../../biome.jsonc"],
+    "files": {
+        "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "*.jsonc"]
+    }
+}

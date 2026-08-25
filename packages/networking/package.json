@@ -1,6 +1,6 @@
 {
     "name": "@europa/networking",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "private": true,
     "description": "Europa Neo real-time multiplayer networking & transport — server-authoritative WebSocket channel, tick scheduler, fog-filtered broadcasts, reconnection with state resync, and late-join spectating. Consumes @europa/engine and @europa/fog.",
     "type": "module",
@@ -32,6 +32,7 @@
     "dependencies": {
         "@europa/engine": "workspace:*",
         "@europa/fog": "workspace:*",
+        "@europa/version": "workspace:*",
         "ws": "catalog:"
     },
     "devDependencies": {

@@ -1,6 +1,6 @@
 {
     "name": "@europa/root",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "private": true,
     "description": "Europa Neo monorepo root — pnpm workspaces hosting the server-authoritative game engine, server, client console, and shared types.",
     "type": "module",
@@ -16,7 +16,8 @@
         "format": "pnpm -r --filter './packages/*' format",
         "format:check": "pnpm -r --filter './packages/*' format:check",
         "typecheck": "pnpm build && pnpm -r --filter './packages/*' typecheck",
-        "coverage": "pnpm -r --filter './packages/*' coverage"
+        "coverage": "pnpm -r --filter './packages/*' coverage",
+        "version:check": "pnpm --filter @europa/version version:check"
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",

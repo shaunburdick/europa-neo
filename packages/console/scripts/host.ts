@@ -41,7 +41,9 @@ import {
     NULL_LOGGER,
     type ServerDeps,
 } from '@europa/networking';
+import { APP_VERSION } from '@europa/version';
 import { type HostConfig, isPathInside, isWildcardHost, STATIC_SECURITY_HEADERS } from './host-config';
+import { handleVersionRoute } from './version-route';
 
 /** Package root (this script lives in `<root>/scripts/`). */
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
@@ -227,6 +229,12 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
         writeStaticHead(res, 404).end('bad request path');
         return;
     }
+    // Feature 009 FR-006: `/version` answers at the top of the surface,
+    // before any dist lookup or the SPA fallback could swallow it;
+    // `true` means fully handled.
+    if (handleVersionRoute(req, res, urlPath)) {
+        return;
+    }
     const requested = urlPath === '/' ? path.join(DIST_DIR, 'index.html') : path.resolve(DIST_DIR, `.${urlPath}`);
     if (!isPathInside(DIST_DIR, requested)) {
         writeStaticHead(res, 403).end('forbidden');
@@ -317,7 +325,10 @@ function buildStack(wsPort: number, bindHost: string): Stack {
     const forwardingBridge: MatchmakerBridge = {
         onSeatClaimed: (event) => {
             if (event.role === 'player' && event.playerId !== null) {
-                say(`▶ ${seatLabel(event.playerId)} joined (seat ${String(event.playerId)})`);
+                // Feature 009 FR-005: production runs NULL_LOGGER, so this
+                // launcher line IS the operator-visible seat-join log — it
+                // carries the release identity like the server's own tap.
+                say(`▶ ${seatLabel(event.playerId)} joined (seat ${String(event.playerId)}, v${APP_VERSION})`);
             }
             bound.onSeatClaimed?.(event);
         },
@@ -421,8 +432,9 @@ function prepareMatch(matchmaker: Stack['matchmaker']): PreparedMatch | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Print the startup banner: endpoints, match id, and one clickable URL
- * per seat. Tokens ride along so a refreshed tab reclaims its own seat.
+ * Print the startup banner: release version, endpoints, match id, and
+ * one clickable URL per seat. Tokens ride along so a refreshed tab
+ * reclaims its own seat.
  *
  * @param staticPort Port the console UI is served on.
  * @param boundPort  The port the match server ACTUALLY bound.
@@ -435,6 +447,7 @@ function printBanner(staticPort: number, boundPort: number, publicHost: string, 
     const joinUrl = (name: string, token: string): string =>
         `http://${urlHost}:${String(staticPort)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
     say('');
+    say(`  Version      : v${APP_VERSION}`);
     say(`  Match server : ${wsUrl}`);
     say(`  Console UI   : http://${urlHost}:${String(staticPort)}`);
     say(`  Match id     : ${match.matchId}`);

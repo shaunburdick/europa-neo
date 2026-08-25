@@ -60,6 +60,9 @@ jobs:
       # Matchmaking runtime-imports @europa/engine + @europa/terrain and
       # type-imports @europa/networking; build every workspace dep's dist
       # before touching the package.
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -96,6 +99,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
@@ -135,6 +141,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build

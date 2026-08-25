@@ -113,6 +113,9 @@ importers:
       '@europa/terrain':
         specifier: workspace:*
         version: link:../terrain
+      '@europa/version':
+        specifier: workspace:*
+        version: link:../version
       react:
         specifier: 'catalog:'
         version: 19.2.8
@@ -254,6 +257,9 @@ importers:
       '@europa/fog':
         specifier: workspace:*
         version: link:../fog
+      '@europa/version':
+        specifier: workspace:*
+        version: link:../version
       ws:
         specifier: 'catalog:'
         version: 8.21.3
@@ -295,6 +301,27 @@ importers:
       tsup:
         specifier: 'catalog:'
         version: 8.5.1(postcss@8.5.26)(supports-color@7.2.0)(tsx@4.23.12)(typescript@5.9.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@22.20.1)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(happy-dom@20.11.6)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12))
+
+  packages/version:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.5.9
+      '@vitest/coverage-v8':
+        specifier: ^4.1.11
+        version: 4.1.11(@vitest/browser@4.1.11)(vitest@4.1.11)
+      tsup:
+        specifier: 'catalog:'
+        version: 8.5.1(postcss@8.5.26)(supports-color@7.2.0)(tsx@4.23.12)(typescript@5.9.3)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.12
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

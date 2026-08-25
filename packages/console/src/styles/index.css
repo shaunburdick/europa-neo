@@ -177,6 +177,20 @@ body {
     font-size: 0.9rem;
 }
 
+/*
+ * Version footer (feature 009 FR-007): muted release identity rendered
+ * as real DOM text in every connection state. #9ca3af on this section's
+ * #111827 background ≈ 6.99:1 — above the WCAG 2.2 AA minimum (4.5:1)
+ * while staying visually subordinate to the #e5e7eb status items
+ * (≈ 14.3:1). Deliberately non-interactive by construction: a plain
+ * span with no handlers, tabindex, or role — it never intercepts
+ * pointer or keyboard interaction (and stays text-selectable so
+ * players can copy it into bug reports).
+ */
+.europa-hud__version {
+    color: #9ca3af;
+}
+
 /* Surrender trigger (US5 T084) + minimap host (US5 T081). */
 .europa-hud__surrender {
     margin-top: 0.25rem;
