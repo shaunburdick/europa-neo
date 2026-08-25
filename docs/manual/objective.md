@@ -1,0 +1,53 @@
+# Objective
+
+A Europa Neo match ends in one of exactly three ways: a victory, a surrender, or a draw. This page explains each one and what you control on the way there.
+
+## What you command
+
+You have three levers, and every strategy uses some combination of them:
+
+- **Cities** — your production engine. Each city you own produces troops every tick until the cell saturates. Cities can be captured by the enemy (see [Cities and troops](./cities-and-troops.md)).
+- **Troops** — your army and your currency. Troops garrison cells, flow through pipes, capture cities, and pay for special weapons.
+- **Pipes** — your supply lines. Pipes carry troops from cell to cell; without incoming pipe flow, an unfed stack slowly decays away (see [Pipes](./pipes.md)).
+
+## Victory: last commander standing
+
+You win when your opponent is **eliminated** while you are still alive.
+
+A player is eliminated at the moment they hold **zero troops AND zero cities**. Both conditions must be true at once:
+
+- A player with troops but no cities is still in the fight — their remaining stacks can recapture cities.
+- A player with cities but no troops is still in the fight — their cities keep producing.
+
+Only when both counts hit zero does the game call it. There is no score, no timer, and no territory threshold: reduce your opponent to nothing, and the match announces you the winner.
+
+## Losing your last city is not losing
+
+When an enemy troop enters a city cell you own, the city changes hands immediately — but you keep playing as long as you hold anything anywhere. Conversely, capturing an enemy's last city usually finishes them only if they have no troops left in the field.
+
+## Surrender
+
+You can give up at any time during a live match:
+
+1. Click the **Surrender…** button below the order bar.
+2. A confirmation dialog appears ("Surrender? Your cities fall under enemy control and you join as a spectator. This cannot be undone.").
+3. Click **Confirm surrender** to end your participation, or **Cancel** (or press Escape) to back out with no order sent.
+
+Surrendering takes effect immediately: your forces are put out of action and you flip from commander to spectator — you can keep watching the board, but you can issue no further orders. With you out of the fight, your opponent is declared the last commander standing and the match wraps up with the end-of-match announcement. The confirmation step is deliberate: a stray click cannot eliminate you.
+
+## Draw by mutual elimination
+
+If both players are reduced to zero troops AND zero cities — even on the same tick — neither side wins. The match ends in a draw. Mutual annihilation is rare but real: two evenly matched armies meeting in a single cell destroy each other down to nothing, and if that was everything both players had, the game calls it even.
+
+## Quick reference
+
+| Outcome | When it happens |
+| --- | --- |
+| You win | Your opponent holds zero troops AND zero cities while you hold either |
+| You lose | You hold zero troops AND zero cities while your opponent holds either |
+| Draw | Both players hit zero troops AND zero cities |
+| Surrender | You confirm the surrender dialog; you are eliminated on the spot and spectate |
+
+## Where to next
+
+Learn how armies are built and lost: [Cities and troops](./cities-and-troops.md), [Pipes](./pipes.md), and [Combat](./combat.md). Or jump straight into a match with the [Quick start](./quick-start.md).
