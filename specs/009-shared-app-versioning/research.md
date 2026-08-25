@@ -37,14 +37,14 @@ The wire change (additive optional `appVersion`) touches a known, fully-mirrored
 
 | File | Role | Update |
 | --- | --- | --- |
-| `.specify/features/004-multiplayer-networking/contracts/network-types.ts` (~line 327) | Canonical spec contract (source of truth) | Add `readonly appVersion?: string` + JSDoc |
+| `specs/004-multiplayer-networking/contracts/network-types.ts` (~line 327) | Canonical spec contract (source of truth) | Add `readonly appVersion?: string` + JSDoc |
 | `packages/networking/src/contracts/network-types.ts` | Local copy imported by the server | Same edit — kept in semantic sync by test (below) |
 | `packages/networking/src/server.ts` (~line 692, `handleEnvelope` case `'hello'`) | Sole construction site of `HelloAckPayload` | Populate `appVersion: APP_VERSION` |
 | `packages/console/contracts/*.ts` | Console-side contract mirrors (byte-identity-tested per feature 005 conformance suite) | Update only if they restate `HelloAckPayload` fields; `src/net/envelope-to-event.ts` derives its view via `Extract<NetworkPayload, { connectionId: string }>`, so the field flows through type-wise without structural edits |
 
 **Drift guards already in place** (why both contract copies must change in one commit):
 
-- `packages/networking/tests/contracts-conformance.test.ts` reads the `.specify/features/004…/contracts/` files and compares them semantically (whitespace-normalized) against the local copies — divergence fails the suite.
+- `packages/networking/tests/contracts-conformance.test.ts` reads the `specs/004…/contracts/` files and compares them semantically (whitespace-normalized) against the local copies — divergence fails the suite.
 - The engine/terrain/fog packages run the same pattern as `tests/contracts-drift.test.ts` ("NEVER edit only one side" is documented in the test header).
 
 Additive-optional is safe for every existing guard: validators enforce *required* fields only (spec 004), JSON parsing ignores unknown fields for older clients, and `exactOptionalPropertyTypes` means console consumers must narrow `appVersion` presence before use — pinned by test.

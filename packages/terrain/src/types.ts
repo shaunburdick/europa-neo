@@ -4,7 +4,7 @@
  * Thin re-export module. The contracts in
  * `packages/terrain/src/contracts/terrain-types.ts` are local copies of
  * the canonical spec contracts at
- * `.specify/features/003-procedural-terrain-generation/contracts/terrain-types.ts`.
+ * `specs/003-procedural-terrain-generation/contracts/terrain-types.ts`.
  * The local copies exist because `tsc`'s `rootDir: ./src` rejects
  * imports from outside the package; see `src/contracts/README.md` for
  * the full rationale and the engine-side precedent.

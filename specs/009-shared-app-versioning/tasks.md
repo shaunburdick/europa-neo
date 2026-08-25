@@ -33,7 +33,7 @@ Wave execution order: **W1 → W2 → W3 → W4 → W5**. Within a wave, `[P]` t
 ## Wave 2 — Consumers (all depend only on T-001; T-004–T-006 parallel)
 
 - [x] **T-003: Additive `appVersion` on `HelloAckPayload` (wire change)**
-    - Edit BOTH contract copies identically (same commit — conformance semantic-diff guards them): `.specify/features/004-multiplayer-networking/contracts/network-types.ts` and `packages/networking/src/contracts/network-types.ts` — `HelloAckPayload` gains `readonly appVersion?: string;` with JSDoc ("additive release identity; presence = server of feature-009 generation or later; clients MUST tolerate absence; never derived from or related to `protocolVersion`").
+    - Edit BOTH contract copies identically (same commit — conformance semantic-diff guards them): `specs/004-multiplayer-networking/contracts/network-types.ts` and `packages/networking/src/contracts/network-types.ts` — `HelloAckPayload` gains `readonly appVersion?: string;` with JSDoc ("additive release identity; presence = server of feature-009 generation or later; clients MUST tolerate absence; never derived from or related to `protocolVersion`").
     - `packages/networking/package.json`: add `"@europa/version": "workspace:*"` to dependencies; `pnpm install`.
     - `packages/networking/src/server.ts` (`handleEnvelope`, case `'hello'`, ~line 692): populate `appVersion: APP_VERSION` (import from `@europa/version`). Touch nothing else in the hello path — `validateVersion`/`NETWORK_API_VERSION` semantics untouched (FR-004).
     - Update console contract mirrors ONLY if they restate `HelloAckPayload` fields verbatim (check `packages/console/contracts/console-to-networking.ts`; `envelope-to-event.ts` derives via `Extract` and should need no edit).
@@ -81,9 +81,9 @@ Wave execution order: **W1 → W2 → W3 → W4 → W5**. Within a wave, `[P]` t
     - **Proves**: FR-005; US1 AC-3.
 
 - [x] **[P] T-009: Companion spec amendments (FR-011 — same change set as implementation)**
-    - `.specify/features/004-multiplayer-networking/spec.md`: document `HelloAckPayload.appVersion` (additive optional, tolerance rule) wherever the payload shape is enumerated; add the app-vs-protocol distinction note next to FR-004 ("app version = release identity (feature 009); protocol version = compatibility contract; neither implies the other").
-    - `.specify/features/005-client-console/spec.md`: HUD version-footer requirement in the status-display area (FR-008 neighborhood) — real DOM text, all connection states, AA contrast, shows bundled `v`-prefixed constant.
-    - `.specify/features/007-player-manual/spec.md`: manual index footer requirement (consistent with FR-012's same-change-set rule).
+    - `specs/004-multiplayer-networking/spec.md`: document `HelloAckPayload.appVersion` (additive optional, tolerance rule) wherever the payload shape is enumerated; add the app-vs-protocol distinction note next to FR-004 ("app version = release identity (feature 009); protocol version = compatibility contract; neither implies the other").
+    - `specs/005-client-console/spec.md`: HUD version-footer requirement in the status-display area (FR-008 neighborhood) — real DOM text, all connection states, AA contrast, shows bundled `v`-prefixed constant.
+    - `specs/007-player-manual/spec.md`: manual index footer requirement (consistent with FR-012's same-change-set rule).
     - Cross-check each amendment against the actual code landed in T-003/T-005/T-006 — specs stay truthful, no aspirational wording.
     - **Accepts**: the three specs read as implemented; no contradictions with their Clarifications sections; markdown lint/format conventions of sibling specs matched.
     - **Proves**: FR-011; constitution IV.

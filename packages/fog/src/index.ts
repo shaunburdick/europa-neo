@@ -21,7 +21,7 @@
  * The names in each `export { ... }` block are sorted
  * alphabetically (Biome `organizeImports` rule). The conceptual
  * grouping lives in the JSDoc above and in the source-of-truth
- * contracts at `.specify/features/002-fog-of-war-visibility/contracts/`.
+ * contracts at `specs/002-fog-of-war-visibility/contracts/`.
  */
 
 // ----------------------------------------------------------------------------

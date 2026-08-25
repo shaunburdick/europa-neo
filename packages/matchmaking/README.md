@@ -117,7 +117,7 @@ Everything below is re-exported from `src/index.ts` (see
 `dist/index.d.ts` after build); the source-of-truth contracts live at
 `contracts/match-types.ts` and `contracts/matchmaking-api.ts` —
 byte-identical mirrors of
-`.specify/features/006-match-lifecycle-matchmaking/contracts/`, with
+`specs/006-match-lifecycle-matchmaking/contracts/`, with
 drift caught by `tests/conformance.test.ts`.
 
 ### Factory & lifecycle

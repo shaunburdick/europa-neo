@@ -2,7 +2,7 @@
 
 This directory contains **local copies** of the fog package's public
 type contracts. The spec-side source of truth lives at
-`.specify/features/002-fog-of-war-visibility/contracts/`.
+`specs/002-fog-of-war-visibility/contracts/`.
 
 ## Why local copies?
 
@@ -21,10 +21,10 @@ directory.
 
 | File                       | Spec counterpart                                                          |
 | -------------------------- | ------------------------------------------------------------------------- |
-| `fog-types.ts`             | `.specify/features/002-fog-of-war-visibility/contracts/fog-types.ts`     |
-| `fog-api.ts`               | `.specify/features/002-fog-of-war-visibility/contracts/fog-api.ts`       |
-| `engine-to-fog.ts`         | `.specify/features/002-fog-of-war-visibility/contracts/engine-to-fog.ts` |
-| `fog-to-networking.ts`     | `.specify/features/002-fog-of-war-visibility/contracts/fog-to-networking.ts` |
+| `fog-types.ts`             | `specs/002-fog-of-war-visibility/contracts/fog-types.ts`     |
+| `fog-api.ts`               | `specs/002-fog-of-war-visibility/contracts/fog-api.ts`       |
+| `engine-to-fog.ts`         | `specs/002-fog-of-war-visibility/contracts/engine-to-fog.ts` |
+| `fog-to-networking.ts`     | `specs/002-fog-of-war-visibility/contracts/fog-to-networking.ts` |
 
 The `engine-to-fog.ts` local copy **MUST** remain byte-identical to
 the engine's `packages/engine/contracts/engine-to-fog.ts`. The

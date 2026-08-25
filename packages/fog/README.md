@@ -109,7 +109,7 @@ const specView = computePlayerView(result.world, playerId, {
 
 The full type surface is documented in `dist/index.d.ts` after build;
 the source-of-truth contracts live at
-`.specify/features/002-fog-of-war-visibility/contracts/`.
+`specs/002-fog-of-war-visibility/contracts/`.
 
 ### Runtime functions
 
@@ -179,7 +179,7 @@ Drift is caught by:
   `VisibleSet` / `PlayerView`, and signature conformance of
   `computeVisibleSet`.
 - `tests/contracts-drift.test.ts` — semantic comparison of all four
-  local contract copies against `.specify/features/002-fog-of-war-visibility/contracts/`.
+  local contract copies against `specs/002-fog-of-war-visibility/contracts/`.
 
 ---
 

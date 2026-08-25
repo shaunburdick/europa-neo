@@ -156,9 +156,9 @@ The implementation change set MUST include the amendments listed in FR-011. Summ
 
 | Target | Amendment |
 | --- | --- |
-| `.specify/features/004-multiplayer-networking/spec.md` | `HelloAckPayload.appVersion` + app-vs-protocol note at FR-004 |
-| `.specify/features/005-client-console/spec.md` | HUD version footer (status-display area, FR-008 neighborhood) |
-| `.specify/features/007-player-manual/spec.md` | Manual index footer requirement |
+| `specs/004-multiplayer-networking/spec.md` | `HelloAckPayload.appVersion` + app-vs-protocol note at FR-004 |
+| `specs/005-client-console/spec.md` | HUD version footer (status-display area, FR-008 neighborhood) |
+| `specs/007-player-manual/spec.md` | Manual index footer requirement |
 | `README.md` | Header shows current version |
 | `docs/manual/index.md` | Footer shows documented version |
 | `AGENTS.md` | "Next" section scrub: drop stale "spec-driven feature 008" wording on the issue #6 line |

@@ -2,7 +2,7 @@
  * Contract Drift Test — Feature 001, Polish-phase
  *
  * The engine's `src/contracts/` directory contains LOCAL COPIES of the
- * canonical spec contracts at `.specify/features/001-core-game-engine/contracts/`.
+ * canonical spec contracts at `specs/001-core-game-engine/contracts/`.
  * The local copies exist because `tsc`'s `rootDir: ./src` rejects
  * imports from outside the package (see AGENTS.md "Local copies"
  * note + Phase 2 PM handoff). The risk: an edit to one file but
@@ -12,7 +12,7 @@
  * diff exists between any local copy and its spec counterpart.
  *
  * Per Wave 2B-2 code-quality-reviewer: "spec contracts at
- * `.specify/features/001-core-game-engine/contracts/` are the source
+ * `specs/001-core-game-engine/contracts/` are the source
  * of truth; local copies at `packages/engine/src/contracts/` could
  * silently drift. This test compares the two semantically (whitespace
  * ignored) and fails on any divergence, catching drift early."
@@ -59,11 +59,11 @@ const CONTRACT_PAIRS: ReadonlyArray<{
 }> = [
     {
         local: 'packages/engine/src/contracts/engine-types.ts',
-        spec: '.specify/features/001-core-game-engine/contracts/engine-types.ts',
+        spec: 'specs/001-core-game-engine/contracts/engine-types.ts',
     },
     {
         local: 'packages/engine/src/contracts/engine-api.ts',
-        spec: '.specify/features/001-core-game-engine/contracts/engine-api.ts',
+        spec: 'specs/001-core-game-engine/contracts/engine-api.ts',
     },
 ];
 

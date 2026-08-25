@@ -3,7 +3,7 @@
  *
  * Thin re-export module. The contracts in `src/contracts/` are local
  * copies of the canonical spec contracts at
- * `.specify/features/004-multiplayer-networking/contracts/`. The local
+ * `specs/004-multiplayer-networking/contracts/`. The local
  * copies exist because `tsc`'s `rootDir: ./src` rejects imports from
  * outside the package (see fog's `src/types.ts` for the precedent and
  * rationale). The copies are byte-identical to the spec files from

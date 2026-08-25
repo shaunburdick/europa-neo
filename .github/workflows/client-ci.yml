@@ -6,7 +6,7 @@ on:
     paths:
       - 'packages/console/**'
       - '.github/workflows/client-ci.yml'
-      - '.specify/features/005-client-console/**'
+      - 'specs/005-client-console/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
@@ -22,7 +22,7 @@ on:
     paths:
       - 'packages/console/**'
       - '.github/workflows/client-ci.yml'
-      - '.specify/features/005-client-console/**'
+      - 'specs/005-client-console/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'

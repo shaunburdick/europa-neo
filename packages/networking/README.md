@@ -119,7 +119,7 @@ server.attachPlayer({ matchId, playerId: 1, sessionToken: generateSessionToken()
 Clients speak a small JSON envelope protocol over one WebSocket per
 connection (`{ v, seq, kind, payload }`, monotonically increasing
 `seq`). The full message catalog lives in
-`.specify/features/004-multiplayer-networking/contracts/network-types.ts`.
+`specs/004-multiplayer-networking/contracts/network-types.ts`.
 
 ---
 
@@ -127,7 +127,7 @@ connection (`{ v, seq, kind, payload }`, monotonically increasing
 
 The full type surface is documented in `dist/index.d.ts` after build;
 the source-of-truth contracts live at
-`.specify/features/004-multiplayer-networking/contracts/`.
+`specs/004-multiplayer-networking/contracts/`.
 
 ### Server lifecycle
 
@@ -222,7 +222,7 @@ window at production cadence, median per-tick processing under budget).
 ## Conformance
 
 The files in `src/contracts/` are byte-identical mirrors of the spec
-contracts under `.specify/features/004-multiplayer-networking/contracts/`
+contracts under `specs/004-multiplayer-networking/contracts/`
 (local copies exist because `tsc`'s `rootDir` rejects imports from
 outside the package). Drift between mirror and source-of-truth is a
 bug caught by `tests/contracts-conformance.test.ts`, which also pins:

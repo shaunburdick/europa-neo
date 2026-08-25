@@ -6,7 +6,7 @@ on:
     paths:
       - 'packages/engine/**'
       - '.github/workflows/engine-ci.yml'
-      - '.specify/features/001-core-game-engine/**'
+      - 'specs/001-core-game-engine/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
@@ -17,7 +17,7 @@ on:
     paths:
       - 'packages/engine/**'
       - '.github/workflows/engine-ci.yml'
-      - '.specify/features/001-core-game-engine/**'
+      - 'specs/001-core-game-engine/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'

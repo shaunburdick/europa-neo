@@ -6,7 +6,7 @@ on:
     paths:
       - 'packages/fog/**'
       - '.github/workflows/fog-ci.yml'
-      - '.specify/features/002-fog-of-war-visibility/**'
+      - 'specs/002-fog-of-war-visibility/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
@@ -18,7 +18,7 @@ on:
     paths:
       - 'packages/fog/**'
       - '.github/workflows/fog-ci.yml'
-      - '.specify/features/002-fog-of-war-visibility/**'
+      - 'specs/002-fog-of-war-visibility/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'

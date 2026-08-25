@@ -3,7 +3,7 @@
  *
  * The terrain package's `src/contracts/` directory contains LOCAL
  * COPIES of the canonical spec contracts at
- * `.specify/features/003-procedural-terrain-generation/contracts/`.
+ * `specs/003-procedural-terrain-generation/contracts/`.
  * The local copies exist because `tsc`'s `rootDir: ./src` rejects
  * imports from outside the package (see AGENTS.md "Local copies"
  * note + the engine's `src/contracts/README.md` precedent). The
@@ -14,7 +14,7 @@
  * diff exists between any local copy and its spec counterpart.
  *
  * Per Wave 2B-2 code-quality-reviewer (engine-side mirror): "spec
- * contracts at `.specify/features/.../contracts/` are the source of
+ * contracts at `specs/.../contracts/` are the source of
  * truth; local copies at `packages/<pkg>/src/contracts/` could
  * silently drift. This test compares the two semantically
  * (whitespace ignored) and fails on any divergence, catching drift
@@ -62,11 +62,11 @@ const CONTRACT_PAIRS: ReadonlyArray<{
 }> = [
     {
         local: 'packages/terrain/src/contracts/terrain-types.ts',
-        spec: '.specify/features/003-procedural-terrain-generation/contracts/terrain-types.ts',
+        spec: 'specs/003-procedural-terrain-generation/contracts/terrain-types.ts',
     },
     {
         local: 'packages/terrain/src/contracts/terrain-api.ts',
-        spec: '.specify/features/003-procedural-terrain-generation/contracts/terrain-api.ts',
+        spec: 'specs/003-procedural-terrain-generation/contracts/terrain-api.ts',
     },
 ];
 

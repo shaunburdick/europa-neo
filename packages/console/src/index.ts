@@ -11,7 +11,7 @@
  *
  * Types: everything flows through `./state/types`, which re-exports
  * the contract mirrors (byte-identical to
- * `.specify/features/005-client-console/contracts/`) plus the upstream
+ * `specs/005-client-console/contracts/`) plus the upstream
  * engine/fog/networking types via `import type`. The embedding-facing
  * contract types (`Console`, `ConsoleConfig`, …) re-export directly
  * from `./contracts/console-api`.
