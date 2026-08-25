@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keep SHA-pinned GitHub Actions current. Dependabot opens PRs with
+  # updated commit SHAs + version comments; humans review and merge.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      github-actions:
+        patterns:
+          - "*" # Group all action updates into one PR to reduce noise
