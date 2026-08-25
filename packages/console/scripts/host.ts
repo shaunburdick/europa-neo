@@ -42,6 +42,7 @@ import {
     type ServerDeps,
 } from '@europa/networking';
 import { type HostConfig, isPathInside, isWildcardHost, STATIC_SECURITY_HEADERS } from './host-config';
+import { handleVersionRoute } from './version-route';
 
 /** Package root (this script lives in `<root>/scripts/`). */
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
@@ -225,6 +226,12 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
         urlPath = decodeURIComponent(urlPath);
     } catch {
         writeStaticHead(res, 404).end('bad request path');
+        return;
+    }
+    // Feature 009 FR-006: `/version` answers at the top of the surface,
+    // before any dist lookup or the SPA fallback could swallow it;
+    // `true` means fully handled.
+    if (handleVersionRoute(req, res, urlPath)) {
         return;
     }
     const requested = urlPath === '/' ? path.join(DIST_DIR, 'index.html') : path.resolve(DIST_DIR, `.${urlPath}`);

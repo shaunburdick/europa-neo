@@ -113,6 +113,9 @@ importers:
       '@europa/terrain':
         specifier: workspace:*
         version: link:../terrain
+      '@europa/version':
+        specifier: workspace:*
+        version: link:../version
       react:
         specifier: 'catalog:'
         version: 19.2.8

@@ -46,6 +46,7 @@
         "@europa/matchmaking": "workspace:*",
         "@europa/terrain": "workspace:*",
         "@europa/networking": "workspace:*",
+        "@europa/version": "workspace:*",
         "react": "catalog:",
         "react-dom": "catalog:",
         "zustand": "catalog:"
