@@ -1,0 +1,58 @@
+name: Version Drift
+
+# FR-009 CI half: guards every shared app-version surface. The paths
+# filter IS the correctness argument — if none of these changed, drift
+# among them is impossible; if any changes, the check runs.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'packages/**/package.json'
+      - 'packages/version/**'
+      - 'README.md'
+      - 'docs/manual/index.md'
+      - '.github/workflows/version-drift.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'packages/**/package.json'
+      - 'packages/version/**'
+      - 'README.md'
+      - 'docs/manual/index.md'
+      - '.github/workflows/version-drift.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+# Minimal permissions: contents:read is enough for the drift check.
+# No jobs need write access; we don't push artifacts or publish.
+permissions:
+  contents: read
+
+jobs:
+  version-drift:
+    name: Shared app version drift check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Exits non-zero and names EVERY disagreeing file when APP_VERSION,
+      # any workspace package.json version, or the README header / manual
+      # index footer version strings drift apart (FR-009). Reads
+      # packages/version/src directly via tsx — no workspace builds needed.
+      - name: Version drift check (FR-009)
+        run: pnpm version:check
