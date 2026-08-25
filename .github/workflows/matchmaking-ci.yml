@@ -6,7 +6,7 @@ on:
     paths:
       - 'packages/matchmaking/**'
       - '.github/workflows/matchmaking-ci.yml'
-      - '.specify/features/006-match-lifecycle-matchmaking/**'
+      - 'specs/006-match-lifecycle-matchmaking/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
@@ -20,7 +20,7 @@ on:
     paths:
       - 'packages/matchmaking/**'
       - '.github/workflows/matchmaking-ci.yml'
-      - '.specify/features/006-match-lifecycle-matchmaking/**'
+      - 'specs/006-match-lifecycle-matchmaking/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'

@@ -31,7 +31,7 @@
             "!**/*.tsbuildinfo",
             "!europa-source",
             "!**/pnpm-lock.yaml",
-            "!.specify/features/*/contracts/**",
+            "!specs/*/contracts/**",
             "!**/tests/fixtures/golden-1000-tick.json"
         ]
     },

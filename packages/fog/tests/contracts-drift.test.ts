@@ -3,7 +3,7 @@
  *
  * The fog package's `src/contracts/` directory contains LOCAL COPIES
  * of the canonical spec contracts at
- * `.specify/features/002-fog-of-war-visibility/contracts/`. The local
+ * `specs/002-fog-of-war-visibility/contracts/`. The local
  * copies exist because `tsc`'s `rootDir: ./src` rejects imports from
  * outside the package (see `src/contracts/README.md` + the engine's
  * precedent). The risk: an edit to one file but not the other
@@ -16,7 +16,7 @@
  * still catching code drift.
  *
  * Per Wave 5A code-quality-reviewer (terrain-side precedent): "spec
- * contracts at `.specify/features/.../contracts/` are the source of
+ * contracts at `specs/.../contracts/` are the source of
  * truth; local copies at `packages/<pkg>/src/contracts/` could
  * silently drift. This test compares the two semantically
  * (whitespace ignored) and fails on any divergence, catching drift
@@ -64,19 +64,19 @@ const CONTRACT_PAIRS: ReadonlyArray<{
 }> = [
     {
         local: 'packages/fog/src/contracts/fog-types.ts',
-        spec: '.specify/features/002-fog-of-war-visibility/contracts/fog-types.ts',
+        spec: 'specs/002-fog-of-war-visibility/contracts/fog-types.ts',
     },
     {
         local: 'packages/fog/src/contracts/fog-api.ts',
-        spec: '.specify/features/002-fog-of-war-visibility/contracts/fog-api.ts',
+        spec: 'specs/002-fog-of-war-visibility/contracts/fog-api.ts',
     },
     {
         local: 'packages/fog/src/contracts/engine-to-fog.ts',
-        spec: '.specify/features/002-fog-of-war-visibility/contracts/engine-to-fog.ts',
+        spec: 'specs/002-fog-of-war-visibility/contracts/engine-to-fog.ts',
     },
     {
         local: 'packages/fog/src/contracts/fog-to-networking.ts',
-        spec: '.specify/features/002-fog-of-war-visibility/contracts/fog-to-networking.ts',
+        spec: 'specs/002-fog-of-war-visibility/contracts/fog-to-networking.ts',
     },
 ];
 

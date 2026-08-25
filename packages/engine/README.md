@@ -2,7 +2,7 @@
 
 Europa Neo's core game engine — deterministic, pure, server-authoritative tick simulation (cities, pipes, fog, combat, decay, paratroopers, guns, victory).
 
-This is the `@europa/engine` workspace package. It implements Feature 001 of the Europa Neo monorepo (see [`.specify/features/001-core-game-engine/spec.md`](../../.specify/features/001-core-game-engine/spec.md)).
+This is the `@europa/engine` workspace package. It implements Feature 001 of the Europa Neo monorepo (see [`specs/001-core-game-engine/spec.md`](../../specs/001-core-game-engine/spec.md)).
 
 ## Install
 
@@ -101,7 +101,7 @@ console.log('tick:', result.world.tick);
 console.log('troops at (2, 1):', result.world.state.troopCounts[1 * 8 + 2]);
 ```
 
-For the full feature surface (orders, validation, serialization, terminal detection), see the API documentation in [`dist/index.d.ts`](./dist/index.d.ts) and the spec at [`.specify/features/001-core-game-engine/spec.md`](../../.specify/features/001-core-game-engine/spec.md).
+For the full feature surface (orders, validation, serialization, terminal detection), see the API documentation in [`dist/index.d.ts`](./dist/index.d.ts) and the spec at [`specs/001-core-game-engine/spec.md`](../../specs/001-core-game-engine/spec.md).
 
 ## Determinism
 

@@ -5,7 +5,7 @@ pipe orders, subcell paratroop/gun targeting, reserves control, and the
 modern QoL layer. React 19 SPA; server-authoritative (never simulates).
 
 **Status**: Implemented (feature 005, all five user stories + Phase 8
-polish). See `.specify/features/005-client-console/spec.md`.
+polish). See `specs/005-client-console/spec.md`.
 
 ## Install
 
@@ -69,7 +69,7 @@ Programmatic surface (all on the returned handle): `subscribe`,
 `getState`, `dispatch`, `sendOrder`, `getSessionToken`, `getPlayerId`,
 `getConnectionStatus`, `requestSurrender`, `setQolSettings`,
 `setCamera`. The full type surface lives in `dist/index.d.ts`; the
-source-of-truth contracts are `.specify/features/005-client-console/
+source-of-truth contracts are `specs/005-client-console/
 contracts/` (mirrored byte-identically under `contracts/`).
 
 ### Network client (browser WebSocket, shipped)
@@ -235,7 +235,7 @@ and adds nothing upstream (spec boundary rule). Enforced by
 `tests/integration/contract-conformance.test.ts`:
 
 - byte-identity of the four contract mirrors vs
-  `.specify/features/005-client-console/contracts/`;
+  `specs/005-client-console/contracts/`;
 - mutual assignability of the engine `Order` (8 variants), `World`,
   fog `PlayerView`, and networking `ConnectionState`/`MatchClient`
   with their canonical declarations;

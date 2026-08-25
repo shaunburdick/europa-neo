@@ -88,7 +88,7 @@ describe('engine ↔ fog conformance (T039)', () => {
     it('(a) local engine-to-fog.ts mirror is byte-identical to the spec copy', async () => {
         const [local, spec] = await Promise.all([
             readFile(repoPath('packages/fog/src/contracts/engine-to-fog.ts'), 'utf-8'),
-            readFile(repoPath('.specify/features/002-fog-of-war-visibility/contracts/engine-to-fog.ts'), 'utf-8'),
+            readFile(repoPath('specs/002-fog-of-war-visibility/contracts/engine-to-fog.ts'), 'utf-8'),
         ]);
         expect(local).toBe(spec);
     });
@@ -96,7 +96,7 @@ describe('engine ↔ fog conformance (T039)', () => {
     it('(a2) the verbatim-mirror section matches feature 001\u2019s canonical contract semantically', async () => {
         const [mirror, canonical] = await Promise.all([
             readFile(repoPath('packages/fog/src/contracts/engine-to-fog.ts'), 'utf-8'),
-            readFile(repoPath('.specify/features/001-core-game-engine/contracts/engine-to-fog.ts'), 'utf-8'),
+            readFile(repoPath('specs/001-core-game-engine/contracts/engine-to-fog.ts'), 'utf-8'),
         ]);
         const mirrorNorm = normalizeImportPaths(normalize(verbatimSection(mirror)));
         const canonicalNorm = normalizeImportPaths(normalize(verbatimSection(canonical)));

@@ -5,7 +5,7 @@
  *
  *   (a) **Byte-identity** — every local contract copy under
  *       `src/contracts/` is BYTE-identical to its source-of-truth at
- *       `.specify/features/004-multiplayer-networking/contracts/`
+ *       `specs/004-multiplayer-networking/contracts/`
  *       (stricter than the engine's semantic compare: for feature 004
  *       the mirrors were cut verbatim, so even a whitespace drift is
  *       a bug). Local copies exist because `tsc`'s `rootDir: ./src`
@@ -168,7 +168,7 @@ describe('contract conformance (T050)', () => {
             it(`src/contracts/${file} is byte-identical to the spec copy`, async () => {
                 const [local, spec] = await Promise.all([
                     readFile(repoPath(`packages/networking/src/contracts/${file}`), 'utf-8'),
-                    readFile(repoPath(`.specify/features/004-multiplayer-networking/contracts/${file}`), 'utf-8'),
+                    readFile(repoPath(`specs/004-multiplayer-networking/contracts/${file}`), 'utf-8'),
                 ]);
                 expect(local).toBe(spec);
             });

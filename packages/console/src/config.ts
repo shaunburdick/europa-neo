@@ -6,7 +6,7 @@
  * mirrors (`contracts/console-api.ts` §"Constants" and
  * `contracts/console-types.ts`), which are byte-identical to the
  * source-of-truth spec contracts under
- * `.specify/features/005-client-console/contracts/`. This module
+ * `specs/005-client-console/contracts/`. This module
  * re-exports them instead of redeclaring, so there is exactly one
  * place a constant can drift: the contract itself.
  *

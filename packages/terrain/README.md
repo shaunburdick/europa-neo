@@ -106,7 +106,7 @@ cities: 2
 
 The full type surface is documented in `dist/index.d.ts` after build;
 the source-of-truth contract lives at
-`.specify/features/003-procedural-terrain-generation/contracts/terrain-types.ts`.
+`specs/003-procedural-terrain-generation/contracts/terrain-types.ts`.
 
 ### Primary entry point
 

@@ -6,7 +6,7 @@ on:
     paths:
       - 'packages/networking/**'
       - '.github/workflows/network-ci.yml'
-      - '.specify/features/004-multiplayer-networking/**'
+      - 'specs/004-multiplayer-networking/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
@@ -19,7 +19,7 @@ on:
     paths:
       - 'packages/networking/**'
       - '.github/workflows/network-ci.yml'
-      - '.specify/features/004-multiplayer-networking/**'
+      - 'specs/004-multiplayer-networking/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'

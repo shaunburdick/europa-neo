@@ -25,7 +25,7 @@
  * The names in each `export { ... }` block are sorted alphabetically
  * (Biome `organizeImports` rule). The conceptual grouping lives in
  * the JSDoc above and in the source-of-truth contracts at
- * `.specify/features/004-multiplayer-networking/contracts/`.
+ * `specs/004-multiplayer-networking/contracts/`.
  */
 
 // ----------------------------------------------------------------------------

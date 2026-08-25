@@ -39,7 +39,7 @@ An integration wave proved the full production path end-to-end: console UI ⇄ b
 
 Across the monorepo: **more than 1,200 automated tests** (the exact count varies by selected package/configuration), six per-package CI workflows, and ≥80% coverage gates on every metric in every package.
 
-Feature specifications live in `.specify/features/`; the governing principles are in `.specify/memory/constitution.md`.
+Feature specifications live in `specs/`; the governing principles are in `.specify/memory/constitution.md`.
 
 ## Repository layout
 

@@ -2,7 +2,7 @@
 
 This directory contains LOCAL COPIES of the engine's type contracts. The
 canonical source of truth lives at
-`.specify/features/001-core-game-engine/contracts/`.
+`specs/001-core-game-engine/contracts/`.
 
 ## Why local copies exist
 
@@ -24,11 +24,11 @@ fails the test suite if they diverge.
 
 **If the test fails:**
 
-1. Run `diff -u .specify/features/001-core-game-engine/contracts/<file>.ts packages/engine/src/contracts/<file>.ts` to see the divergence.
+1. Run `diff -u specs/001-core-game-engine/contracts/<file>.ts packages/engine/src/contracts/<file>.ts` to see the divergence.
 2. **The spec is the source of truth.** If the spec was updated
    intentionally, copy the spec file into the local copy:
    ```sh
-   cp .specify/features/001-core-game-engine/contracts/engine-types.ts packages/engine/src/contracts/engine-types.ts
+   cp specs/001-core-game-engine/contracts/engine-types.ts packages/engine/src/contracts/engine-types.ts
    ```
 3. If only the local copy was updated (accidental edit), revert the
    local copy to match the spec.
@@ -38,5 +38,5 @@ fails the test suite if they diverge.
 
 | File                          | Spec counterpart                                          |
 | ----------------------------- | --------------------------------------------------------- |
-| `engine-types.ts`             | `.specify/features/001-core-game-engine/contracts/engine-types.ts` |
-| `engine-api.ts`               | `.specify/features/001-core-game-engine/contracts/engine-api.ts`   |
+| `engine-types.ts`             | `specs/001-core-game-engine/contracts/engine-types.ts` |
+| `engine-api.ts`               | `specs/001-core-game-engine/contracts/engine-api.ts`   |

@@ -55,7 +55,7 @@ packages/version/
 
 ### 2. Wire change — additive optional field
 
-- `.specify/features/004-multiplayer-networking/contracts/network-types.ts` + local copy `packages/networking/src/contracts/network-types.ts`: `HelloAckPayload` gains `readonly appVersion?: string` (JSDoc: presence = server of this generation or later; clients MUST tolerate absence).
+- `specs/004-multiplayer-networking/contracts/network-types.ts` + local copy `packages/networking/src/contracts/network-types.ts`: `HelloAckPayload` gains `readonly appVersion?: string` (JSDoc: presence = server of this generation or later; clients MUST tolerate absence).
 - `packages/networking/package.json`: add `"@europa/version": "workspace:*"` dependency.
 - `packages/networking/src/server.ts` (`handleEnvelope`, case `'hello'`): populate `appVersion: APP_VERSION` at the sole construction site.
 - Both contract copies change in the same commit — networking's conformance test semantic-diffs them (research §3).
@@ -126,7 +126,7 @@ One task flips **all eight** files — root `package.json` + seven workspace `pa
 | `packages/{engine,terrain,fog,networking,matchmaking,console}/package.json` | Version bump to `0.0.1` |
 | `packages/networking/package.json` | + `@europa/version` workspace dep |
 | `packages/networking/src/contracts/network-types.ts` | `HelloAckPayload.appVersion?` |
-| `.specify/features/004-multiplayer-networking/contracts/network-types.ts` | Same (canonical copy) |
+| `specs/004-multiplayer-networking/contracts/network-types.ts` | Same (canonical copy) |
 | `packages/networking/src/server.ts` | Populate field; boot/join logger lines |
 | `packages/console/package.json` | + `@europa/version` dep; version bump |
 | `packages/console/scripts/host.ts` | Route interception; banner/tap version lines |

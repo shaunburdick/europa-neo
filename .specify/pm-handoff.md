@@ -19,10 +19,10 @@ Phase 4-5 complete and pushed to origin. **Phase 6 (implementation) is ready but
 1. `AGENTS.md` — working charter for AI agents
 2. `.specify/memory/constitution.md` — engineering principles (TypeScript strict, server-auth deterministic, ≥80% coverage, etc.)
 3. `.specify/phase-6-orchestration.md` — durable phase 6 state (THIS file's sibling); has full wave plan + decisions + mediations
-4. `.specify/features/001-006/spec.md` — feature specs (source of truth for behavior)
-5. `.specify/features/001-006/plan.md` — per-feature architecture
-6. `.specify/features/001-006/tasks.md` — per-feature task lists (381 tasks total)
-7. `.specify/features/001-006/contracts/*.ts` — TypeScript cross-package boundaries
+4. `specs/001-006/spec.md` — feature specs (source of truth for behavior)
+5. `specs/001-006/plan.md` — per-feature architecture
+6. `specs/001-006/tasks.md` — per-feature task lists (381 tasks total)
+7. `specs/001-006/contracts/*.ts` — TypeScript cross-package boundaries
 
 ## Per-Feature Snapshot
 

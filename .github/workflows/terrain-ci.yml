@@ -6,7 +6,7 @@ on:
     paths:
       - 'packages/terrain/**'
       - '.github/workflows/terrain-ci.yml'
-      - '.specify/features/003-procedural-terrain-generation/**'
+      - 'specs/003-procedural-terrain-generation/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
@@ -18,7 +18,7 @@ on:
     paths:
       - 'packages/terrain/**'
       - '.github/workflows/terrain-ci.yml'
-      - '.specify/features/003-procedural-terrain-generation/**'
+      - 'specs/003-procedural-terrain-generation/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'

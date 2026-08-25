@@ -2,7 +2,7 @@
  * Engine Public Type Surface — Feature 001
  *
  * Thin re-export module. The contract in
- * `.specify/features/001-core-game-engine/contracts/engine-types.ts` is the
+ * `specs/001-core-game-engine/contracts/engine-types.ts` is the
  * source of truth for every public type; this module re-exports them so
  * downstream packages can import from `@europa/engine` and so the engine
  * package's own source can import from a local path (avoids a runtime

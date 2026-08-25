@@ -7,7 +7,7 @@
  *
  *   (a) **Byte-identity** — every contract mirror under `contracts/`
  *       is BYTE-identical to its source of truth at
- *       `.specify/features/005-client-console/contracts/`. The mirrors
+ *       `specs/005-client-console/contracts/`. The mirrors
  *       were cut verbatim; even a whitespace drift is a bug (same
  *       strictness as feature 004's conformance suite).
  *
@@ -278,7 +278,7 @@ describe('contract conformance (T089)', () => {
         for (const file of CONTRACT_FILES) {
             it(`contracts/${file} is byte-identical to the spec copy`, () => {
                 const local = readFileSync(packagePath(`contracts/${file}`), 'utf-8');
-                const spec = readFileSync(repoPath(`.specify/features/005-client-console/contracts/${file}`), 'utf-8');
+                const spec = readFileSync(repoPath(`specs/005-client-console/contracts/${file}`), 'utf-8');
                 expect(local).toBe(spec);
             });
         }

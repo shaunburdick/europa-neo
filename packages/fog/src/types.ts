@@ -4,7 +4,7 @@
  * Thin re-export module. The contracts in
  * `packages/fog/src/contracts/fog-types.ts` are local copies of the
  * canonical spec contracts at
- * `.specify/features/002-fog-of-war-visibility/contracts/fog-types.ts`.
+ * `specs/002-fog-of-war-visibility/contracts/fog-types.ts`.
  * The local copies exist because `tsc`'s `rootDir: ./src` rejects
  * imports from outside the package; see `src/contracts/README.md` for
  * the full rationale and the engine-side precedent.

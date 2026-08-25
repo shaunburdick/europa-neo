@@ -2,7 +2,7 @@
 
 This directory contains **local copies** of the terrain package's public
 type contracts. The spec-side source of truth lives at
-`.specify/features/003-procedural-terrain-generation/contracts/`.
+`specs/003-procedural-terrain-generation/contracts/`.
 
 ## Why local copies?
 
