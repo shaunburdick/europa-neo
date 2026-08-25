@@ -17,7 +17,8 @@
         "format:check": "pnpm -r --filter './packages/*' format:check",
         "typecheck": "pnpm build && pnpm -r --filter './packages/*' typecheck",
         "coverage": "pnpm -r --filter './packages/*' coverage",
-        "version:check": "pnpm --filter @europa/version version:check"
+        "version:check": "pnpm --filter @europa/version version:check",
+        "host": "pnpm --filter @europa/console host"
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
