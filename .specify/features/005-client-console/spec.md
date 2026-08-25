@@ -112,6 +112,7 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 - **FR-009**: The console MUST provide surrender (with confirm) transitioning to read-only full-visibility spectation.
 - **FR-010**: The console MUST be usable at common desktop resolutions with zoom/pan; all interactive elements reachable by mouse and keyboard alone (accessibility-minded per constitution).
 - **FR-011**: Rendering technology is free within TypeScript/browser standards; the console MUST consume only protocol messages from feature 004 (no direct engine access).
+- **FR-012**: The console MUST render the application version in the HUD status-display area (FR-008's neighborhood) as real DOM text (not canvas): the bundled build constant, `v`-prefixed, visible in all connection states, meeting WCAG 2.2 AA contrast (constitution VI), never intercepting pointer or keyboard interaction, and never displaying a server-supplied value (feature 009-shared-app-versioning).
 
 ### Key Entities *(include if feature involves data)*
 
@@ -268,6 +269,21 @@ truthful).
      baseline security headers. Direct internet exposure remains out of
      scope: TLS, rate limiting, origin controls, and admission/token redesign
      are explicitly deferred to Option 2.
+15. **HUD version footer (2026-08-25, feature 009-shared-app-versioning)**:
+    FR-012 lands via feature 009's change set. `App` renders a plain,
+    non-interactive `<span>` (classes `europa-hud__item
+    europa-hud__version`) inside the `#hud` status bar carrying
+    `v{APP_VERSION}` — the BUNDLED `@europa/version` constant, never
+    the hello ack's `appVersion` (a stale tab must not display a
+    version it is not running), so the footer renders identically in
+    every connection state and on the serverless `/` demo. No
+    handlers, tabindex, or role; `#9ca3af` on the HUD's `#111827`
+    background ≈ 6.99:1 contrast (AA). Old-server tolerance is pinned
+    (`hello-app-version-tolerance.test.ts`: a helloAck without
+    `appVersion` derives a clean NetEvent and the field is never
+    propagated into state); component tests assert the real DOM text
+    via the imported constant across idle/live/reconnecting states
+    (`hud-version.test.tsx`).
 
 ### Quickstart validation mapping (Q-* → proving suites)
 

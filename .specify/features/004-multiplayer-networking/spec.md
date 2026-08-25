@@ -70,7 +70,7 @@ As an observer, I want to attach to a running match as a spectator and receive f
 - **FR-001**: All client-server communication MUST run over WebSocket with JSON text frames carrying typed protocol messages.
 - **FR-002**: The server MUST be fully authoritative: clients render state and submit orders only; no client message may directly mutate state outside validation.
 - **FR-003**: The protocol MUST include: hello/authenticate, join-match, order submission (typed per feature 001's order set), per-tick state delta, full snapshot, error/acknowledgment, and match-terminal messages.
-- **FR-004**: Every protocol message MUST carry a schema version field; servers MUST reject mismatched major versions gracefully.
+- **FR-004**: Every protocol message MUST carry a schema version field; servers MUST reject mismatched major versions gracefully. This protocol version is the wire compatibility contract only — it is distinct from the application version (the release identity carried additively by `HelloAckPayload.appVersion`, feature 009-shared-app-versioning): neither implies the other, and no code path may derive one from the other (see Clarifications v1.2).
 - **FR-005**: Per-tick broadcasts MUST be filtered through each recipient's fog-of-war view before transmission (server-side enforcement).
 - **FR-006**: Tick payloads MUST be deltas (changed cells/events only) relative to the recipient's last known state; recipients MUST be able to request or be given a full snapshot on desync.
 - **FR-007**: Sessions MUST be identified by an opaque token issued at join; reconnection MUST present the token to reclaim a seat within the timeout window.
@@ -83,6 +83,7 @@ As an observer, I want to attach to a running match as a spectator and receive f
 
 - **Session**: authenticated connection bound to at most one player seat or spectator role; token + expiry.
 - **ProtocolMessage**: versioned envelope { type, version, seq, payload }.
+- **HelloAckPayload**: server→client greeting response { protocolVersion, connectionId, heartbeatIntervalMs, appVersion? }; the additive optional `appVersion` string (feature 009-shared-app-versioning) carries the server's release identity — presence indicates a feature-009-generation server, clients MUST tolerate its absence, and it is never derived from or related to `protocolVersion`.
 - **OrderMessage**: validated wire form of engine orders.
 - **TickDelta**: changed-cell list + events, already fog-filtered per recipient.
 - **Snapshot**: complete PlayerView (or full board for spectators) for join/resync.
@@ -110,3 +111,7 @@ As an observer, I want to attach to a running match as a spectator and receive f
 
 - 2026-08-22: SC-005 measurement hardened — a timed "≥10 concurrent matches without >10% degradation" soak is flaky on shared CI runners for the same reason feature 002 SC-004 was (scheduler stalls dominate wall-clock tails). SC-005 now verifies cadence stability directly: one match at the production 250 ms cadence rides a ~10 s window (~38 tick broadcasts) and asserts zero dropped ticks (contiguous numbering), median per-tick processing < 15 ms (the plan's per-tick budget), p99 under a deliberately generous 100 ms regression guard, and deterministic drain intact (every submitted order acked exactly once with `ok: true` and echoed seq). Concurrency safety stays with MatchRegistry unit tests.
 - 2026-08-22: Polish-wave test scope trimmed — version-policy enforcement and rate limiting are pinned by end-to-end integration tests over the real wire path (error frame code + close code 1008; bucket capacity/burst/refill semantics via injected clock) instead of additional unit-level variants; the integration layer already exercises the same code paths and shared fixtures keep maintenance cost down.
+
+### v1.2 (2026-08-25) — Additive `appVersion` on `HelloAckPayload` (feature 009-shared-app-versioning)
+
+- 2026-08-25: The server→client hello acknowledgment gains an additive optional `appVersion: string`, populated at the sole helloAck construction site from the shared `APP_VERSION` constant (`@europa/version`). Presence indicates a server of feature-009 generation or later; clients MUST tolerate its absence, and pre-feature clients ignore the unknown field (additive compatibility — no major bump of `NETWORK_API_VERSION`). It is release identity only: never derived from or compared against `protocolVersion`, and FR-004's `validateVersion` semantics are untouched. Pinned by integration test: the ack carries `APP_VERSION`; `appVersion` and `protocolVersion` hold independent values simultaneously; a raw old client completes the handshake and claims a seat; the envelope is otherwise byte-stable (contract key order + decode→encode round trip).
