@@ -7,9 +7,12 @@
  *
  *   - (a) A scripted WebSocket handshake acknowledgment carries
  *     `appVersion === APP_VERSION` (SC-003 first half).
- *   - (b) `appVersion` and `protocolVersion` are both present and hold
- *     independent values — release identity vs compatibility contract,
- *     sourced from two unrelated constants (SC-003 second half).
+ *   - (b) `appVersion` and `protocolVersion` are both present and are
+ *     independent surfaces — release identity vs compatibility
+ *     contract, each projecting its own separately-declared constant
+ *     (SC-003 second half). The VALUES may legitimately coincide (they
+ *     do at v0.1.0), so independence is proven structurally, not by
+ *     string inequality.
  *   - (c) An old client — a raw peer that hand-builds its frames and
  *     reads only the three pre-feature-009 fields — completes the full
  *     handshake and claims a seat (additive compatibility, spec Edge
@@ -21,6 +24,10 @@
  *     insertion order, and a decode→encode round trip reproducing the
  *     identical wire bytes.
  */
+
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { APP_VERSION } from '@europa/version';
 import { describe, expect, it } from 'vitest';
@@ -92,7 +99,7 @@ describe('hello-ack appVersion (feature 009 T-003, FR-003/FR-004, SC-003)', () =
         }
     });
 
-    it('(b) appVersion and protocolVersion are both present with independent values', async () => {
+    it('(b) appVersion and protocolVersion are both present, each projecting its own constant', async () => {
         const server = createMatchServer(testServerConfig(), realDeps());
         await server.listen();
         try {
@@ -102,18 +109,33 @@ describe('hello-ack appVersion (feature 009 T-003, FR-003/FR-004, SC-003)', () =
             const ack = await client.nextMessage('helloAck');
             const payload = ack.payload as HelloAckPayload;
 
-            // Both surfaces present on every ack of this generation.
+            // Both surfaces present on every ack of this generation, and
+            // each wire field projects its OWN canonical constant.
             expect(typeof payload.protocolVersion).toBe('string');
             expect(typeof payload.appVersion).toBe('string');
+            expect(payload.appVersion).toBe(APP_VERSION);
+            expect(payload.protocolVersion).toBe(NETWORK_API_VERSION);
 
-            // Independence (SC-003 second half): distinct constants,
-            // distinct lifecycles — release identity ('0.0.x' line) vs
-            // compatibility contract ('0.1.x' line). They differ today;
-            // if a future change makes them coincide, treat that as a
-            // signal to re-prove FR-004's separation, not to delete
-            // this assertion blindly.
-            expect(APP_VERSION).not.toBe(NETWORK_API_VERSION);
-            expect(payload.appVersion).not.toBe(payload.protocolVersion);
+            // Independence (SC-003 second half), re-proven structurally
+            // per FR-004's operative clause ("no code path may derive one
+            // from the other"): each constant is grounded as a
+            // self-contained string literal in its own module — neither
+            // declaration references the other symbol. The v0.0.1-era
+            // value-inequality tripwire could only fire while the two
+            // lifecycles happened to hold different strings; at v0.1.0
+            // they legitimately coincide (release identity and wire
+            // contract both read '0.1.0'), which FR-004 permits: distinct
+            // semantics, equal values.
+            const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
+            const appVersionSource = await readFile(path.join(repoRoot, 'packages/version/src/app-version.ts'), 'utf8');
+            const networkApiSource = await readFile(
+                path.join(repoRoot, 'packages/networking/src/contracts/network-types.ts'),
+                'utf8',
+            );
+            expect(/export const APP_VERSION = '([^']+)';/.exec(appVersionSource)?.[1]).toBe(APP_VERSION);
+            expect(/export const NETWORK_API_VERSION = '([^']+)' as const;/.exec(networkApiSource)?.[1]).toBe(
+                NETWORK_API_VERSION,
+            );
         } finally {
             await server.close();
         }
