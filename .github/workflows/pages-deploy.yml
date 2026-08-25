@@ -1,0 +1,78 @@
+# Pages Deploy — publishes the player manual (docs/manual/) to GitHub Pages.
+#
+# ONE-TIME PREREQUISITE (FR-016): a repository admin must set
+#   Settings → Pages → Build and deployment → Source = "GitHub Actions"
+# once, before the first run. The default GITHUB_TOKEN cannot flip this
+# setting programmatically. Until it is set, runs FAIL VISIBLY here in
+# the Actions tab with a Pages-related error — that failure is the
+# signal to flip the setting; no code change is needed. After the one-
+# time flip, deployments succeed without further intervention.
+#
+# Scope guarantees:
+#   - Path filter: only pushes touching docs/manual/** or this workflow
+#     file trigger a deployment (FR-013).
+#   - Artifact scope: jekyll-build-pages' source is scoped to
+#     ./docs/manual, so the uploaded artifact contains only rendered
+#     manual HTML — never package source, specs, or workflows (FR-015).
+#   - Permissions: least privilege — contents:read at the top level;
+#     only the deploy job elevates to pages:write + id-token:write,
+#     which the OIDC-verified Pages deployment requires (FR-014).
+name: Pages Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/manual/**'
+      - '.github/workflows/pages-deploy.yml'
+  workflow_dispatch:
+
+# Minimal by default; the deploy job elevates only what Pages needs.
+permissions:
+  contents: read
+
+# Serialize deployments: a rapid merge sequence must not interleave
+# deploys. Never cancel an in-flight deployment.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build manual site (Jekyll)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      # Official Jekyll rendering with defaults (no _config.yml, no
+      # theme). Source is scoped so ONLY the manual directory is
+      # rendered into ./_site (FR-015 artifact scope).
+      - name: Build manual with Jekyll
+        uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
+        with:
+          source: ./docs/manual
+          destination: ./_site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ./_site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
