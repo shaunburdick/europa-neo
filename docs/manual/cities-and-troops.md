@@ -17,7 +17,7 @@ Open (non-city) land cells hold at most **30 troops** as well, so a big stack ar
 Troops are not just fighters:
 
 - They garrison cells and capture cities.
-- They flow through pipes to wherever you need them.
+- They are delivered through pipes to wherever you need them — flow adds troops at the destination without draining the source (see [Pipes](./pipes.md)).
 - Special weapons consume them: a paratroop order spends troops from the source cell, and so does every gun shot.
 - Unfed troops decay away (see [Pipes](./pipes.md)) — troops you cannot supply are troops you will lose.
 

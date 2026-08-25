@@ -8,7 +8,7 @@ You have three levers, and every strategy uses some combination of them:
 
 - **Cities** — your production engine. Each city you own produces troops every tick until the cell saturates. Cities can be captured by the enemy (see [Cities and troops](./cities-and-troops.md)).
 - **Troops** — your army and your currency. Troops garrison cells, flow through pipes, capture cities, and pay for special weapons.
-- **Pipes** — your supply lines. Pipes carry troops from cell to cell; without incoming pipe flow, an unfed stack slowly decays away (see [Pipes](./pipes.md)).
+- **Pipes** — your supply lines. Pipes deliver fresh troops into neighboring cells; without incoming pipe flow, an unfed stack slowly decays away (see [Pipes](./pipes.md)).
 
 ## Victory: last commander standing
 

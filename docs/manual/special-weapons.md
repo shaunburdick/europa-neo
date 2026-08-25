@@ -23,7 +23,7 @@ Whatever pipes existed in the landing cell — enemy supply lines, your own, eit
 ### How to fire one
 
 1. Click a cell you own with enough troops to select it.
-2. Aim the cursor at the target cell (within 2 cells).
+2. Keep the cursor inside the selected cell and slide it toward the target — its position within the cell picks the landing spot, up to 2 cells away (see [Controls](./controls.md)).
 3. Press p (or h).
 
 ## Guns
@@ -47,7 +47,7 @@ Shots land at resolution time each tick; a target cell emptied by someone else f
 ### How to fire one
 
 1. Click a cell you own with at least 5 troops to select it.
-2. Aim the cursor at the target cell (within 2 cells).
+2. Keep the cursor inside the selected cell and slide it toward the target — its position within the cell picks the shell's destination, up to 2 cells away (see [Controls](./controls.md)).
 3. Press g (or o).
 
-Rejected orders — out of range, water target, not enough troops — come back as a short message above the order bar (see [Reading the screen](./reading-the-screen.md)).
+Rejected orders — a water target, or not enough troops to pay — come back as a short message above the order bar (see [Reading the screen](./reading-the-screen.md)).

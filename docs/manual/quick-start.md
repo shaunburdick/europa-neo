@@ -33,7 +33,7 @@ If the match still needs another player, you will see a **"Waiting for opponent 
 Once ticks start flowing (the HUD shows a running tick counter), you are commanding. Safe first things to try:
 
 - **Click a cell** to select it — a targeting highlight shows where you are aiming.
-- **Click near an edge of the selected cell** (or press i/j/k/l) to lay pipes toward that region. Pipes carry troops to neighboring cells; see [Pipes](./pipes.md).
+- **Click near an edge of the selected cell** (or press i/j/k/l) to lay pipes toward that region. Pipes deliver troops into neighboring cells; see [Pipes](./pipes.md).
 - **Press a digit key** (0–9) to set reserves on the selected cell; press 0 to clear reserves again. See [Reserves](./reserves.md).
 
 When you are ready for offense, read [Special weapons](./special-weapons.md) for paratroopers and guns, and keep the [Controls](./controls.md) reference open nearby.

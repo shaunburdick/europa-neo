@@ -11,8 +11,7 @@ Most commands act on your **selected cell** — the one highlighted by your last
 | Left-click near an edge of a cell | Toggle a pipe from that cell toward the clicked region (north/east/south/west). Clicking again removes the pipe. |
 | Right-click near an edge of a cell | Lay an **exclusive pipe** toward the clicked region — it replaces all pipes in that cell instead of adding to them. |
 | Alt+click near an edge of a cell | Same as right-click: an exclusive pipe toward the clicked region. |
-| Mouse wheel | Zoom toward the cursor position. |
-| Middle-button drag | Pan the camera across the board. |
+| Mouse wheel / middle-button drag | Camera control — see [Camera](#camera) below. |
 
 ## Keyboard
 
@@ -24,21 +23,21 @@ Most commands act on your **selected cell** — the one highlighted by your last
 | l | Pipe east from the selected cell |
 | Alt+i / Alt+j / Alt+k / Alt+l | Exclusive pipe north/west/south/east (replaces all pipes in the cell) |
 | Space | Clear all pipes in the selected cell |
-| p (or h) | Paratroop: drop troops from the selected cell onto the cell under your cursor |
-| g (or o) | Gun: shell the cell under your cursor from the selected cell |
+| p (or h) | Paratroop: launch from the selected cell to the target picked by your cursor's position inside that cell (see [Aiming](#aiming-paratroopers-and-guns)) |
+| g (or o) | Gun: shell the target picked by your cursor's position inside the selected cell |
 | 0–9 | Set reserves on the selected cell (0 = none, 9 = hold back 90%) |
 | Escape | Cancel the current selection |
 | Arrow keys | Move the selection one cell up/left/down/right |
 
 ### Aiming paratroopers and guns
 
-Pressing p/h or g/o fires from the **selected cell** toward wherever your **cursor** is pointing:
+Pressing p/h or g/o fires from the **selected cell**, and the target is picked without your cursor ever leaving that cell. While a cell is selected, the cursor's position *inside* it acts as a miniature map of everything within 2 cells:
 
 1. Click a cell you own to select it.
-2. Move your cursor over the target cell (at most 2 cells away in any direction).
+2. Keep the cursor inside the selected cell and slide it toward where you want to fire — up for north, lower-right for south-east, and so on. The farther from the center, the longer the throw: halfway to an edge aims about 1 cell out; the edge or a corner aims the full 2.
 3. Press p (or h) for paratroop, g (or o) for gun.
 
-If the cursor sits on the selected cell itself, nothing launches. Invalid targets — out of range, water for paratroops, no troops to pay with — are rejected with a short message above the order bar (see [Reading the screen](./reading-the-screen.md)).
+A red aim dot drawn on the selected cell shows exactly where you are pointing, and each new target cell is announced to screen readers as it changes. Cursor near the center of the cell means nothing launches — slide it off-center toward your target first (the same happens if the cursor has been still for a moment). Invalid targets — water for paratroops, cells outside your vision, no troops to pay with — are rejected with a short message above the order bar (see [Reading the screen](./reading-the-screen.md)).
 
 ## Camera
 

@@ -14,13 +14,15 @@ See [Controls](./controls.md) for the full command tables.
 
 ## How flow works
 
-Every tick, each pipe moves **1 troop** from its cell into the neighboring cell it points at — subject to slope:
+Every tick, each pipe delivers **1 troop** into the neighboring cell it points at — subject to slope:
 
 | Slope | Flow per tick |
 | --- | --- |
 | Downhill (target lower) | 1 troop |
 | Flat (equal elevation) | 1 troop |
 | Uphill (target higher) | **0 — uphill pipes move nothing at v1 tuning** |
+
+Flow never drains the source: the sending cell keeps its troops, and only the destination gains them.
 
 Uphill pipes are the classic new-player trap: they can be laid, and they show on the board, but gravity wins and no troops ever travel through them. When a push stalls for no apparent reason, check whether you asked troops to walk uphill.
 
@@ -45,6 +47,6 @@ Reserves interact with decay too: reserved troops cannot be eaten by decay. See 
 
 ## Pipes as tactics
 
-- **Arteries**: long chains of downhill/flat pipes move troops from safe cities to the front.
+- **Arteries**: long chains of downhill/flat pipes stream fresh troops from safe cities toward the front.
 - **Severing**: paratroopers clear every pipe in the cell they land on — enemy supply lines are targets (see [Special weapons](./special-weapons.md)).
 - **Stalemates**: two mutually-fed fronts can outlast anything thrown at them; breaking one usually means cutting the other's feed with paratroopers or guns.
