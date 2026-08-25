@@ -1,0 +1,174 @@
+# Feature Specification: Public Lobby & Match Browser
+
+**Feature Branch**: `010-public-lobby-match-browser`
+**Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
+**Created**: 2026-08-25
+**Last Updated**: 2026-08-25 (v1.0)
+**Version**: 1.0
+**Status**: Draft — phases 1–3 complete
+**Input**: Approved product request to replace the one-match startup flow with a public landing page for anonymous identity, handle selection, match creation, browsing, joining, and spectating.
+
+## Problem Statement
+
+Europa Neo currently starts one automatically created public match, so a player cannot choose a game or host multiple games from one server. Players need a single accessible entry point that establishes an ephemeral identity, lets them choose a unique handle, and exposes the currently available public matches. The feature generalizes the existing matchmaking and live-browser flow without changing gameplay mechanics, while retaining an intentionally in-memory implementation suitable for future persistence and self-hosting.
+
+## User Scenarios & Testing
+
+### User Story 1 - Establish an Anonymous Player Identity (Priority: P1)
+
+As a new visitor, I want to receive an anonymous identity and choose a handle so that I can identify myself in the lobby and in a match without creating an account.
+
+**Why this priority**: Every lobby action needs a stable session identity, but v1 must remain account-free.
+
+**Independent Test**: Open the landing page in a new browser profile, choose a valid handle, reload, and verify that the same anonymous identity and handle are restored while a second profile receives a different identity.
+
+**Acceptance Scenarios**:
+
+1. **Given** a browser without an existing lobby identity, **When** the landing page loads, **Then** the service assigns an opaque anonymous identifier, stores it in browser storage, and keeps it available to the active application session.
+2. **Given** an anonymous visitor, **When** they submit a valid handle, **Then** the handle is associated with that active identity and is shown in the lobby.
+3. **Given** a returning browser within the existing reconnect grace period, **When** it reconnects, **Then** it retains the same identity and handle rather than creating a duplicate active user.
+4. **Given** an active user changes their handle, **When** the new handle passes validation and is not already in use, **Then** the new handle replaces the old one for that identity in the lobby and any subsequently joined match.
+
+---
+
+### User Story 2 - Browse Public Games from One Landing Page (Priority: P1)
+
+As a player, I want one landing page showing public games and their current status so that I can decide whether to join, spectate, or create a game.
+
+**Why this priority**: Browsing is the direct replacement for the current single-game startup and is the main discovery path.
+
+**Independent Test**: Create public matches in waiting and running states with multiple clients, then verify a fresh client sees accurate entries and action availability without seeing private or finished matches.
+
+**Acceptance Scenarios**:
+
+1. **Given** the visitor has a valid handle, **When** the landing page is displayed, **Then** it shows the visitor identity, a create-game action, and a public match list.
+2. **Given** public matches exist, **When** the list is loaded or refreshed, **Then** each eligible entry shows a stable match identifier, player occupancy/capacity, and a human-readable status; waiting matches offer Join and in-progress matches offer Spectate.
+3. **Given** a public match starts or is collected, **When** the next lobby update is received, **Then** its entry changes or disappears so that Join is never offered for a running match and finished matches do not remain in history.
+4. **Given** no eligible public matches exist, **When** the landing page is displayed, **Then** it shows an explicit empty state and a prominent create-game action.
+
+---
+
+### User Story 3 - Create and Start a Public Game (Priority: P1)
+
+As a player, I want to create a public game with supported settings and enter it when another player joins so that I can host a battle from the landing page.
+
+**Why this priority**: Creating and starting a match is the core path to gameplay.
+
+**Independent Test**: Use two browser clients: create a public two-player game in one, join it from the other, and verify that both enter the existing console with authoritative ticks.
+
+**Acceptance Scenarios**:
+
+1. **Given** a player with a valid handle on the landing page, **When** they submit a valid public-game configuration, **Then** the server creates a uniquely identified waiting match, reserves the creator's seat, and returns the player to a match waiting view.
+2. **Given** a waiting public match with an open seat, **When** another player selects Join, **Then** the server assigns the seat atomically and both players enter the existing live console when the match starts.
+3. **Given** the creator cancels or leaves before the match starts, **When** no players remain, **Then** the waiting match is eligible for the existing empty-match cleanup and disappears from the public list.
+4. **Given** invalid or unsupported settings, **When** the player submits the create form, **Then** creation is rejected with field-specific feedback and no match is created.
+
+---
+
+### User Story 4 - Join or Spectate a Public Game (Priority: P2)
+
+As a player or observer, I want to join an open game or spectate a running public game so that I can participate when possible and watch when it is already underway.
+
+**Why this priority**: It makes the public browser useful beyond the creator's own match and reuses the existing spectator capability.
+
+**Independent Test**: Join an open match from a listing, then attempt to join a running match and verify the UI offers read-only spectation instead.
+
+**Acceptance Scenarios**:
+
+1. **Given** a listed waiting public match with an open seat, **When** the player activates Join, **Then** they are assigned one seat at most and enter the existing pre-start/live flow.
+2. **Given** a listed running public match, **When** the player activates Spectate, **Then** they receive the existing full-visibility spectator view and no player seat or order permissions.
+3. **Given** a player attempts to join a match after its last open seat was claimed, **When** the server processes the request, **Then** it rejects the request cleanly and the lobby refreshes the entry.
+4. **Given** a player is already seated in or spectating a match, **When** they return to the landing page, **Then** they can see their active-match status and cannot accidentally claim a second seat with the same active identity.
+
+### Edge Cases
+
+- Handle comparison is trimmed and case-insensitive; `" Nova "`, `"nova"`, and `"NOVA"` conflict while the displayed handle preserves the user's accepted casing.
+- An empty, whitespace-only, overlong, control-character-containing, or otherwise invalid handle is rejected with an actionable validation message; a valid handle is 1–24 Unicode characters after trimming and contains at least one non-whitespace character.
+- A requested handle that conflicts with another active session is rejected without displacing that user; the requester may choose another handle.
+- A handle becomes available only after the owning active session is released by normal disconnect cleanup or the existing reconnect grace period expires.
+- Simultaneous create/join requests are resolved by the server's authoritative ordering; at most one request receives the final seat.
+- A match can disappear between list display and action. The client shows a non-fatal "match no longer available" message and refreshes the list.
+- A spectator disconnects and reconnects using existing networking behavior; spectator status is read-only and does not become a player seat.
+- A server restart loses anonymous identities, handles, lobby entries, and matches because this feature has no persistent storage; the landing page starts a fresh session.
+- Finished matches are collected and are never shown as browseable history.
+
+## Requirements
+
+### Functional Requirements
+
+- **FR-001**: The service MUST provide one landing/lobby interface as the default entry point instead of automatically creating or selecting one match at startup.
+- **FR-002**: The server MUST assign each new visitor an opaque unique anonymous identifier and MUST keep the active identity available to the application for lobby and match actions.
+- **FR-003**: The browser MUST store the anonymous identifier and selected handle locally so a reload can restore the active identity; this storage MUST NOT be treated as an account or durable server record.
+- **FR-004**: Users MUST be able to set and rename a handle without authentication; a valid handle MUST contain 1–24 Unicode characters after trimming, contain at least one non-whitespace character, and contain no control characters. Uniqueness MUST be enforced among active users/sessions.
+- **FR-005**: Handle uniqueness MUST compare trimmed, case-insensitive values; the displayed value MAY preserve accepted casing, and the existing reconnect grace period MUST preserve the original user's handle.
+- **FR-006**: The lobby MUST list public matches only and MUST expose each listing's match identifier, occupancy/capacity, supported settings summary, and lifecycle status.
+- **FR-007**: The lobby MUST distinguish at least waiting-for-players and in-progress public matches, offering Join only for open waiting matches and Spectate only for in-progress matches.
+- **FR-008**: Users MUST be able to create public matches through the landing interface using the existing matchmaking-supported player-count and map-setting constraints; private matches are not part of this feature.
+- **FR-009**: Creating a match MUST reserve the creator's seat and make the match visible as a public waiting entry until it starts or is collected.
+- **FR-010**: Joining MUST be an atomic server-authoritative operation that assigns no more than one seat to a request and returns a clear error when the match is full, unavailable, or the identity is already committed elsewhere.
+- **FR-011**: A public match MUST start automatically when its required seats fill; v1 MUST NOT require a separate manual start action. At start, the feature MUST hand off to the existing matchmaking, networking, terrain, fog-of-war, engine, and console contracts without changing gameplay mechanics or visibility rules.
+- **FR-012**: The feature MUST allow a user to spectate an in-progress public match through the existing spectator mode, with no seat assignment and no ability to issue player orders.
+- **FR-013**: The lobby MUST update when public matches are created, filled, started, or collected; stale entries MUST be removed or marked unavailable before offering an invalid action.
+- **FR-014**: Finished matches MUST be cleaned up using the existing match lifecycle policy and MUST NOT be displayed in a history list.
+- **FR-015**: The feature MUST retain all lobby, identity, and match state in memory only; no accounts, authentication, database/persistent storage, chat, ratings, invitations, private matches, or match history may be introduced.
+- **FR-016**: The interface MUST provide accessible keyboard navigation, semantic names and statuses for controls and match rows, visible focus, sufficient contrast, and announcements for identity errors, empty/loading states, and action failures in line with WCAG 2.2 AA goals.
+- **FR-017**: The default self-hosted launch MUST serve the landing interface without a pre-created match, while preserving an explicit path for a user to create one; gameplay remains server-authoritative and fixed-tick deterministic.
+- **FR-018**: The feature MUST surface recoverable failures (identity setup, duplicate handle, unavailable match, full match, lost connection, and server restart) without trapping the user on a blank or silent screen, and MUST provide a retry, correction, or return-to-lobby action where applicable.
+
+### Key Entities
+
+- **AnonymousIdentity**: Ephemeral server-recognized visitor identity containing an opaque identifier, current handle, active-session status, and reconnect association.
+- **Handle**: User-facing name associated with one active AnonymousIdentity; validated, trimmed for comparison, and unique case-insensitively among active identities.
+- **PublicMatch**: In-memory public match projection with a unique identifier, supported settings summary, capacity, occupancy, and lifecycle status.
+- **LobbyEntry**: Safe public projection of a PublicMatch used to decide whether Join or Spectate is available; it contains no private or hidden match data.
+- **Seat**: Existing matchmaking binding between an AnonymousIdentity and a player position; a spectator has no Seat.
+
+## Non-Functional Requirements
+
+- **NFR-001 (Responsiveness)**: Under normal self-hosted conditions, the landing interface MUST show the initial identity/lobby state within 2 seconds of page readiness and MUST reflect a successful create, join, or leave action within 1 second of the authoritative response.
+- **NFR-002 (Concurrency)**: The server MUST preserve unique active handles and atomic seat assignment when concurrent requests target the same handle or final open seat; acceptance tests MUST cover at least 10 simultaneous conflicting requests.
+- **NFR-003 (Privacy)**: Public listings MUST contain only public-match data needed for discovery; anonymous identifiers MUST NOT be exposed as substitutes for handles, and no authentication or personal data collection is required.
+- **NFR-004 (Compatibility)**: Existing gameplay, wire-version, reconnect-grace, fog-of-war, spectator, and match-terminal contracts MUST remain behaviorally compatible for clients entering a match through the lobby.
+- **NFR-005 (Operations)**: A self-hosted operator MUST be able to run the feature with the existing single-process launch instructions and no cloud service or persistent database.
+
+## Success Criteria
+
+### Measurable Outcomes
+
+- **SC-001**: In 10/10 fresh-browser trials, a visitor receives an anonymous identity, sets a valid handle, and reaches the lobby without account creation or manual server intervention.
+- **SC-002**: Two browser clients complete create → join → first authoritative tick through the landing interface in under 2 seconds after the second seat is accepted, including existing map generation.
+- **SC-003**: In a 50-cycle concurrent conflict test, no two active sessions hold the same normalized handle and no match receives more seats than its configured capacity.
+- **SC-004**: In 10/10 trials, the lobby shows Join for an open public match, changes the entry on start, shows Spectate for an in-progress public match, and shows neither the finished match nor a history entry after collection.
+- **SC-005**: A spectator can enter 10/10 sampled in-progress public matches, receives full-visibility read-only views, and produces zero accepted player orders.
+- **SC-006**: A keyboard-only accessibility pass can complete identity setup, create or join a match, spectate an in-progress match, and return to the lobby; all failure and empty states are announced and actionable.
+- **SC-007**: A 50-match sequential create/join/finish/collect soak leaves zero active matches, seats, or anonymous sessions that should have expired under the existing lifecycle policy.
+
+## Out of Scope
+
+- Private matches, shareable invitations, or hidden-match links.
+- Accounts, passwords, authentication, cross-device identity, or durable profiles.
+- Database or file persistence, match history, replays, ratings, leaderboards, chat, moderation, or invitations.
+- Changes to city, pipe, combat, fog-of-war, tick, victory, spectator, reconnect, or order mechanics.
+- End-to-end expansion of 3–4 player browser flows; the existing v1 contract remains 2-player end-to-end while engine/matchmaking support is retained.
+
+## Assumptions
+
+- The existing feature 004 reconnect grace period is authoritative for preserving an active identity and handle during temporary disconnects.
+- Browser storage is available and may be cleared by the user or browser; clearing it creates a fresh anonymous identity and does not recover the old handle.
+- The existing feature 006 validation, lifecycle, cleanup, match settings, and public-match semantics are reused rather than redefined.
+- The host's normal launch serves the lobby; operators may run multiple independent self-hosted instances, each with its own in-memory lobby.
+- User-facing text may be localized later; v1 requires clear English labels and status announcements.
+
+## Clarifications
+
+### Session 2026-08-25 — Approved product decisions
+
+No interactive clarification questions were required. The approved decisions resolve the material scope, identity, privacy, lifecycle, and persistence ambiguities:
+
+- Handles are renameable, but normalized trimmed and case-insensitive uniqueness is enforced server-side for active users/sessions only.
+- Handles use the v1 validation default of 1–24 Unicode characters after trimming, at least one non-whitespace character, and no control characters; this avoids an otherwise unresolved client/server validation boundary while leaving richer naming policy for a future moderation feature.
+- The existing reconnect grace period reserves the original user's handle; after expiry and cleanup, another active user may claim it.
+- Finished matches are cleaned up and never displayed in history.
+- This feature supports public matches only; private matches are explicitly deferred.
+- Accounts/authentication, persistent storage, chat, ratings, invitations, and match history are excluded.
+- Existing server-authoritative, deterministic, accessibility-minded, self-hostable, and current engine/networking/matchmaking/console constraints remain binding.
