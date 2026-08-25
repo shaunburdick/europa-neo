@@ -64,7 +64,7 @@ User-tunable knobs for the generator. All fields have safe defaults
 | `waterRatio` | `number` | `0.10` | `[0.02, 0.25]` | Fraction of cells classified as water. Default 10% (spec US3 AC-1: "5–15%"). |
 | `roughness` | `number` | `0.5` | `[0.1, 0.9]` | Persistence of fBm. Lower = smoother; higher = more dramatic. |
 | `octaves` | `number` (int) | `4` | `[1, 6]` | Number of fBm octaves. |
-| `citiesPerPlayer` | `number` (int) | `1` | `[1, 4]` | Per-player starting city count (spec US1 AC-2: "same number of starting cities"). |
+| `citiesPerPlayer` | `number` (int) | `1` | `[1, 4]` | Per-player starting city count (spec US1 AC-2: "same number of starting cities"). For 3-player games the value is normalized UP to the next even number (see "3-player parity rule" below) so point symmetry can hold; the normalized value is what `effectiveSettings.citiesPerPlayer` reports. |
 | `symmetryStrategy` | `SymmetryStrategy` | `'point'` | `'point'` (only) | v1 only supports 180° rotational. Field is here for forward compatibility. |
 | `minCityWaterDistance` | `number` (int) | `3` | `[1, 6]` | Min Chebyshev distance from a city to any water cell (FR-005). |
 | `minCityCityDistance` | `number` (int) | `5` | `[2, 10]` | Min Chebyshev distance between any two cities (FR-005). |
@@ -91,6 +91,16 @@ contract validator rejects anything else with a `GenerationError`.
   suffers; 6 is the practical upper bound for 32×32.
 - `citiesPerPlayer`: clamped to `[1, 4]`. Outside this range, symmetry
   is hard to maintain (4 is the max players).
+- `citiesPerPlayer` (3-player parity rule): after clamping, a 3-player
+  request normalizes the value UP to the next even number (1→2, 3→4).
+  Reason: FR-004 point symmetry maps every city to a distinct partner
+  cell on an even-sized board, and the 3-player middle band is
+  self-symmetric (its player partners with itself), so that player's
+  city count must be even — and FR-005 requires every player's count
+  to be equal. An odd per-player count is therefore unsatisfiable for
+  3p; rounding up preserves FR-005 equality and stays inside US3's
+  clamp-don't-reject philosophy. The normalized value drives placement,
+  validation, and `effectiveSettings` (2p/4p requests are unaffected).
 - `minCityWaterDistance`, `minCityCityDistance`: clamped to safe ranges.
 - `maxRegenAttempts`: clamped to `[1, 10]`. Higher = wasteful retries.
 - Out-of-range values are **clamped, not rejected**. The generator emits
@@ -151,7 +161,7 @@ A 32×32 board with `waterRatio: 0.10`, `roughness: 0.5`, `octaves: 4`,
 
 - `board.width === board.height === req.boardSize`.
 - `board.cells.length === req.boardSize²`.
-- `board.cities` has exactly `req.playerCount × req.settings.citiesPerPlayer` entries.
+- `board.cities` has exactly `req.playerCount × effectiveSettings.citiesPerPlayer` entries (the 3-player parity rule may raise `citiesPerPlayer`; see §2).
 - Every city is on a `land` cell.
 - Every city has min spacing from water (per `minCityWaterDistance`).
 - Every pair of cities has min spacing (per `minCityCityDistance`).
@@ -380,9 +390,9 @@ its own output. They map 1:1 to the spec's user stories and FRs.
 | INV-4 | Every `Cell.terrain` is `'land' \| 'water'` | FR-001 | unit |
 | INV-5 | For all `(x,y)`: `cells[y*w+x].terrain === cells[(h-1-y)*w+(w-1-x)].terrain` | FR-004, US1 AC-1 | unit (symmetry) |
 | INV-6 | For all `(x,y)`: `cells[y*w+x].elevation === cells[(h-1-y)*w+(w-1-x)].elevation` | FR-004 | unit (symmetry) |
-| INV-7 | `board.cities.length === req.playerCount × req.settings.citiesPerPlayer` | FR-005 | unit (cities) |
+| INV-7 | `board.cities.length === req.playerCount × effectiveSettings.citiesPerPlayer` (3p parity rule may raise the per-player count; see §2) | FR-005 | unit (cities) |
 | INV-8 | For all cities `c`: `c.cell.terrain === 'land'` | FR-005, engine pre-condition | unit (cities) |
-| INV-9 | For all cities `c`: 180°-rotated coord is also a city of the opposite player (point symmetry on cities) | FR-004, FR-005 | unit (symmetry) |
+| INV-9 | For all cities `c`: the 180°-rotated coord is also a city owned by `partnerPlayer(c.owner, playerCount)` — the *opposite* player for 2p/4p pairings, and the *same* player when a player's band is self-symmetric under rotation (3p middle player; also the board-center cell on odd-sized boards) | FR-004, FR-005 | unit (symmetry) |
 | INV-10 | For all cities `c`: Chebyshev distance to nearest water cell `≥ minCityWaterDistance` | FR-005 | unit (cities) |
 | INV-11 | For all pairs of cities `c1, c2`: Chebyshev distance `≥ minCityCityDistance` | FR-005 | unit (cities) |
 | INV-12 | BFS over land cells from any city reaches every other city (no isolated city) | US1 AC-3 | unit (validate) |

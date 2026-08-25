@@ -93,6 +93,19 @@ function buildValidBoard(): Board {
     return { ...board, cities };
 }
 
+/**
+ * Build a Board from the real generation pipeline (elevation +
+ * water, no cities) at an arbitrary size. Used by INV-9 tests that
+ * assemble their own city sets: real elevation keeps INV-14
+ * (variance > 0) quiet, unlike flat synthetic boards.
+ */
+function buildGeneratedBoard(size: number): Board {
+    const rng = engineSfc32(42);
+    const elev = generateElevationMap(rng, size, size, PASSING_SETTINGS);
+    const water = extractWater(elev, size, size, PASSING_SETTINGS.waterRatio);
+    return buildBoard(elev, water, size, size);
+}
+
 describe('validate (15 invariants per data-model.md §11)', () => {
     describe('valid baseline', () => {
         it('a real generated Board passes all 15 invariants', () => {
@@ -261,6 +274,53 @@ describe('validate (15 invariants per data-model.md §11)', () => {
             const report = validateBoard(mutated, PASSING_SETTINGS, 2);
             expect(report.valid).toBe(false);
             expect(report.violations.some((v) => v.kind === 'asymmetry')).toBe(true);
+        });
+
+        // Issue #2 regression: the 3-player middle-band player (P2) is
+        // its own 180° partner, so its mirrored city legitimately has
+        // the SAME owner. The old `partner.owner === city.owner`
+        // rejection flagged every valid 3p board.
+        it('accepts same-owner mirror pairs for the self-symmetric 3p middle player', () => {
+            const board = buildGeneratedBoard(SIZE);
+            // P1 ↔ P3 pairs (opposite owners) + one self-symmetric P2
+            // pair (same owner on both ends).
+            const cities: CityPlacement[] = [
+                { cell: { x: 2, y: 2 }, owner: 1 as PlayerId },
+                { cell: { x: SIZE - 3, y: SIZE - 3 }, owner: 3 as PlayerId },
+                { cell: { x: 10, y: 5 }, owner: 1 as PlayerId },
+                { cell: { x: SIZE - 11, y: SIZE - 6 }, owner: 3 as PlayerId },
+                { cell: { x: 5, y: 15 }, owner: 2 as PlayerId },
+                { cell: { x: SIZE - 6, y: SIZE - 16 }, owner: 2 as PlayerId },
+            ];
+            const withCities: Board = { ...board, cities };
+            const report = validateBoard(withCities, { ...PASSING_SETTINGS, citiesPerPlayer: 2 }, 3);
+            expect(report.violations.some((v) => v.kind === 'asymmetry')).toBe(false);
+        });
+
+        it('still rejects a wrong-owner partner for a non-self player in a 3p board', () => {
+            const board = buildGeneratedBoard(SIZE);
+            // P1's partner must be owned by P3 in a 3-player layout;
+            // owner 2 here is wrong and must be flagged.
+            const cities: CityPlacement[] = [
+                { cell: { x: 2, y: 2 }, owner: 1 as PlayerId },
+                { cell: { x: SIZE - 3, y: SIZE - 3 }, owner: 2 as PlayerId },
+            ];
+            const withCities: Board = { ...board, cities };
+            const report = validateBoard(withCities, PASSING_SETTINGS, 3);
+            expect(report.violations.some((v) => v.kind === 'asymmetry')).toBe(true);
+        });
+
+        it('accepts a center-cell city owned by the self-symmetric player on an odd board', () => {
+            // On a 33×33 board the exact center (16, 16) is its own
+            // 180° partner. For the self-symmetric 3p middle player
+            // this is a legal (if unlikely) placement.
+            const size = 33;
+            const board = buildGeneratedBoard(size);
+            const center = (size - 1) / 2;
+            const cities: CityPlacement[] = [{ cell: { x: center, y: center }, owner: 2 as PlayerId }];
+            const withCities: Board = { ...board, cities };
+            const report = validateBoard(withCities, PASSING_SETTINGS, 3);
+            expect(report.violations.some((v) => v.kind === 'asymmetry')).toBe(false);
         });
     });
 
