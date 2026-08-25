@@ -58,7 +58,7 @@ As a player, I want a subtle version indicator in the console HUD footer, so tha
 
 **Acceptance Scenarios**:
 
-1. **Given** a mounted console in any connection state, **When** the HUD renders, **Then** the footer displays the application version string (e.g., `v0.1.0`) as real DOM text.
+1. **Given** a mounted console in any connection state, **When** the HUD renders, **Then** the footer displays the application version string (e.g., `v0.0.1`) as real DOM text.
 2. **Given** a screen reader user, **When** the footer renders, **Then** the version is announced as ordinary page content (it is not hidden from assistive technology and does not hijack focus).
 
 ---
@@ -101,7 +101,7 @@ As a prospective player or contributor reading the README or the published playe
 - **FR-007**: The console MUST render the application version in a subtle HUD footer as real DOM text (not canvas), visible in all connection states, styled to meet WCAG 2.2 AA contrast (constitution VI), and never intercepting pointer or keyboard interaction.
 - **FR-008**: The README header MUST display the current application version, and the player-manual index (`docs/manual/index.md`) MUST display it in a footer. Both updates ride in the same change set as the code that changes them (spec 007 FR-012 discipline).
 - **FR-009**: A drift check (CI + local script) MUST assert `APP_VERSION` === root `package.json` version === every workspace `package.json` version === the version strings shown in the README header and manual index footer. On failure it MUST exit non-zero and name every disagreeing file.
-- **FR-010**: The first lockstep version value MUST be `0.1.0`, landing in this feature's own change set (see Clarifications). Subsequent bumps happen in one dedicated `chore(release): vX.Y.Z` commit per release that touches every version location FR-009 guards.
+- **FR-010**: The first lockstep version value MUST be `0.0.1`, landing in this feature's own change set (see Clarifications v1.1). The `0.1.0` bump is deferred to the release flow: issue #4 applies it as one dedicated `chore(release): v0.1.0` bump-then-tag commit that touches every version location FR-009 guards. Subsequent releases repeat that one-commit-per-release convention.
 - **FR-011**: The following companion edits MUST land in the same change set as the implementation (specs stay truthful, constitution IV):
     - Amend spec 004-multiplayer-networking: `HelloAckPayload` gains `appVersion`; note the app-vs-protocol distinction next to FR-004.
     - Amend spec 005-client-console: HUD footer requirement (extends the status-display area around FR-008).
@@ -124,7 +124,7 @@ As a prospective player or contributor reading the README or the published playe
 - **SC-004**: A mounted-console component test asserts the HUD footer's visible text equals the `APP_VERSION` string; the accessibility suite stays green (footer is real text content with AA contrast).
 - **SC-005**: Automated assertions find the current `APP_VERSION` string in the README header and the manual index footer (part of the drift check).
 - **SC-006**: New testable logic — the drift checker and the `/version` handler — meets ≥80% coverage on every metric (constitution III merge gate).
-- **SC-007**: After this feature's change set, the root `package.json`, all six workspace `package.json` files, and the exported `APP_VERSION` all report `0.1.0`.
+- **SC-007**: After this feature's change set, the root `package.json`, every workspace `package.json` (the six shipped packages plus the new `@europa/version`), and the exported `APP_VERSION` all report `0.0.1`.
 
 ## Assumptions
 
@@ -132,13 +132,13 @@ As a prospective player or contributor reading the README or the published playe
 - The matchmaker service does not gain a version surface in this feature (not in the approved design); its nodes log through the same server boot path where applicable.
 - TLS termination remains a reverse-proxy concern; `/version` sits behind whatever origin serves the console.
 - Docker packaging (issue #5) inherits `/version` and the bundled constant automatically; no container work belongs to this feature.
-- Version presentation is a `v`-prefixed string (e.g., `v0.1.0`) on all human-facing surfaces; the raw semver string is what the constant, the wire field, and the JSON body carry.
+- Version presentation is a `v`-prefixed string (e.g., `v0.0.1`) on all human-facing surfaces; the raw semver string is what the constant, the wire field, and the JSON body carry.
 
 ## Out of Scope
 
 - Publishing `@europa/version` or any package to a registry (all packages stay private).
 - git-describe-derived versions, changesets tooling, Vite-define-only injection, runtime root-`package.json` reads — all rejected in the approved design (issue #11).
-- Release automation (tagging, changelog generation) — issue #4 cuts the v0.1.0 release using this machinery; automation beyond the bump-commit convention is not specified here.
+- Release automation (tagging, changelog generation) — issue #4 cuts the v0.1.0 release (bump-then-tag, per Clarifications v1.1) using this machinery; automation beyond the bump-commit convention is not specified here.
 - Per-package independent versioning or semantic-import ranges between workspace packages.
 - Docker packaging (#5) and 3–4 player support (#6) — separate efforts.
 
@@ -160,7 +160,11 @@ The implementation change set MUST include the amendments listed in FR-011. Summ
 ### v1.0 (2026-08-25) — Planner-resolved decisions (no unresolved questions remain)
 
 - 2026-08-25: `/version` is **unauthenticated** (ruled; issue #11 silent on auth). Rationale: the wire hello already discloses `appVersion` to every connecting client before any authentication, so gating the HTTP surface adds no confidentiality; open health/version probes are standard operational practice for self-hostable software and directly serve constitution VII. No constitutional counterargument exists — the disclosure reveals a release string, not secrets, configuration, or user data.
-- 2026-08-25: The **initial `0.1.0` bump rides this feature's own change set** (ruled interpretation of issue #11's acceptance criterion "first lockstep bump lands as 0.1.0"). Reading: the criterion is listed as an acceptance criterion *of this feature*, so it must be verifiable at this PR's merge; shipping `v0.1.0` on every surface while files say `0.0.0` would fail the feature's own drift check. The `chore(release): vX.Y.Z` commit convention governs subsequent releases; issue #4 then cuts the tagged v0.1.0 release from this state. Product owner may override by deferring the bump to #4 — a one-line spec edit.
+- 2026-08-25: The **initial `0.1.0` bump rides this feature's own change set** (ruled interpretation of issue #11's acceptance criterion "first lockstep bump lands as 0.1.0"). Reading: the criterion is listed as an acceptance criterion *of this feature*, so it must be verifiable at this PR's merge; shipping `v0.1.0` on every surface while files say `0.0.0` would fail the feature's own drift check. The `chore(release): vX.Y.Z` commit convention governs subsequent releases; issue #4 then cuts the tagged v0.1.0 release from this state. Product owner may override by deferring the bump to #4 — a one-line spec edit. **SUPERSEDED by Clarifications v1.1 (2026-08-25): the product owner exercised exactly this override — the initial bump is `0.0.1`; `0.1.0` moves to issue #4's release flow.**
 - 2026-08-25: **Drift-check scope includes the two doc surfaces** (README header line, manual index footer) in addition to the issue's minimum (constant + all `package.json` files). Ruled as the technical implementation of "visible everywhere it matters": without it, doc strings go stale silently, violating the spirit of FR-012/constitution IV. Scope extension is additive and cheap (two more equality assertions in the same script).
 - 2026-08-25: **`appVersion` placement is server→client only** (hello acknowledgment). The client→server hello already carries optional `clientInfo.version` for client identification; duplicating a top-level client field would add a second telemetry path for no requirement in the approved design. Old-server/new-client tolerance and new-server/old-client tolerance are both pinned by test (Edge Cases).
 - 2026-08-25: **Presentation format** ruled as `v`-prefixed display strings on human surfaces (HUD, README, manual) with raw unprefixed semver in the constant, wire field, and JSON body — consistent with common convention and unambiguous to parse.
+
+### v1.1 (2026-08-25) — Product-owner override: initial bump `0.0.1`, `0.1.0` deferred to release (#11)
+
+One-line trail: the product owner overruled Clarifications v1.0 ruling #2 — this feature's change set locks step at **`0.0.1`**; the `0.1.0` bump happens inside release issue #4 (bump-then-tag), not here. FR-010 and SC-007 updated accordingly; the superseded v1.0 bullet is marked in place. No other rulings change.
