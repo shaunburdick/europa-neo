@@ -92,6 +92,18 @@ Console extras:
 - The Playwright E2E suites need Chromium once: from `packages/console`, run `pnpm exec playwright install chromium`.
 - The production bundle carries a gzip budget (~80 KB observed against a hard 150 KB limit), enforced by the self-host check: `pnpm --filter @europa/console test:selfhost`.
 
+## Player manual
+
+New to the game? The [player manual](https://shaunburdick.github.io/europa-neo/)
+teaches everything: getting into a match, the objective, mechanics with the real
+numbers, and a complete controls reference. It is plain Markdown in-repo at
+[`docs/manual/index.md`](docs/manual/index.md) — readable on the published site
+or straight from a checkout.
+
+Fork owners: publishing uses GitHub Actions; enable it once via
+Settings → Pages → Source = "GitHub Actions" (see
+`.github/workflows/pages-deploy.yml`).
+
 ## Quick start
 
 ```bash
