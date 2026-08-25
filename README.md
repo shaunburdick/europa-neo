@@ -4,7 +4,7 @@ A modern, open-source, self-hostable reimplementation of **Europa** — the grou
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Current release: **v0.0.0**
+Current release: **v0.0.1**
 
 ## What is this?
 

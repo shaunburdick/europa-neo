@@ -19,7 +19,7 @@ The HUD's status line tells you where you stand in the match lifecycle. It shows
 
 While anything other than `live`, all order controls are disabled — the buttons gray out rather than silently swallowing clicks.
 
-The status bar also shows a small version indicator — the app version your console was built from (for example, v0.0.0) — which stays visible whatever state the match is in.
+The status bar also shows a small version indicator — the app version your console was built from (for example, v0.0.1) — which stays visible whatever state the match is in.
 
 ## The tick counter
 

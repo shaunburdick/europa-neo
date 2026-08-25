@@ -36,4 +36,4 @@ You see only what your troops can sense: a band of surrounding cells moves with 
 
 New players should read [Quick start](./quick-start.md) and [Objective](./objective.md) first; keep [Controls](./controls.md) open in a second tab during your first match.
 
-*This manual documents Europa Neo v0.0.0.*
+*This manual documents Europa Neo v0.0.1.*

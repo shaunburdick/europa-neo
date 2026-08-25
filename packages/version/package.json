@@ -1,6 +1,6 @@
 {
     "name": "@europa/version",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "private": true,
     "description": "Europa Neo shared application version — owns the single-source APP_VERSION constant (feature 009) so every guarded surface projects one release identity.",
     "type": "module",
