@@ -42,7 +42,8 @@ const VERSION_BODY = JSON.stringify({
  *   owns those.
  * - `GET /version` (query-string tolerant: `/version?x=1` matches)
  *   answers `200` with `content-type: application/json; charset=utf-8`,
- *   the shared {@link STATIC_SECURITY_HEADERS}, and the exact body
+ *   `cache-control: no-store`, the shared {@link STATIC_SECURITY_HEADERS},
+ *   and the exact body
  *   `{"appVersion":"<APP_VERSION>","protocolVersion":"<NETWORK_API_VERSION>"}`.
  * - Any other method on `/version` (POST, PUT, DELETE, HEAD, …) is
  *   rejected with `405` plus an `Allow: GET` header and NO body —
@@ -75,6 +76,10 @@ export function handleVersionRoute(req: IncomingMessage, res: ServerResponse, ur
         ...STATIC_SECURITY_HEADERS,
         'content-type': 'application/json; charset=utf-8',
         'content-length': Buffer.byteLength(VERSION_BODY).toString(),
+        // Uncacheable by decree (security-review follow-up): a proxy that
+        // served a stale identity would defeat SC-002's deploy check right
+        // after an upgrade — exactly when the answer must be fresh.
+        'cache-control': 'no-store',
     }).end(VERSION_BODY);
     return true;
 }

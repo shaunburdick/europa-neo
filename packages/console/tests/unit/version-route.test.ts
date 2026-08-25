@@ -77,6 +77,9 @@ describe('GET /version on the host static surface (feature 009 FR-006)', () => {
             protocolVersion: NETWORK_API_VERSION,
         });
         expect(recorded.headers['content-type']).toBe('application/json; charset=utf-8');
+        // Uncacheable (security-review follow-up): a proxy serving a stale
+        // identity would defeat SC-002's deploy check after an upgrade.
+        expect(recorded.headers['cache-control']).toBe('no-store');
         // SC-002's "no credentials supplied": the request carries nothing
         // but a method + path, proving no auth gate exists.
     });
