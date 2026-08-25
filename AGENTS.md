@@ -61,7 +61,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - #3 `ci`: downstream workflows watch upstream package paths — milestone v0.1.0
   - #4 `chore`: cut v0.1.0 stabilization release (depends on #2 + #3) — milestone v0.1.0
   - #5 `enhancement`: Docker one-command self-host packaging
-  - #6 `enhancement`: 3–4 player support end-to-end (spec-driven feature 008; blocked by #2)
+  - #6 `enhancement`: 3–4 player support end-to-end
   - Repo-wide test-typechecking gap remains a documented tradeoff (do NOT fix casually — every package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs). Deliberately NOT ticketed to avoid casual pickup.
 
 - **Biome migration (Phase 1, 2026-08-24)**: the root configuration now layers

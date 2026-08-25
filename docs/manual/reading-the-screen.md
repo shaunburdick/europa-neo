@@ -19,6 +19,8 @@ The HUD's status line tells you where you stand in the match lifecycle. It shows
 
 While anything other than `live`, all order controls are disabled — the buttons gray out rather than silently swallowing clicks.
 
+The status bar also shows a small version indicator — the app version your console was built from (for example, v0.0.0) — which stays visible whatever state the match is in.
+
 ## The tick counter
 
 Next to the status chip, **Tick** counts game heartbeats since the match started at four per second. It is the game's clock: production, pipe flow, combat, and decay all resolve once per tick (see [Cities and troops](./cities-and-troops.md)). A running counter means the match is alive; a frozen one means nobody is seated or the connection stalled.
