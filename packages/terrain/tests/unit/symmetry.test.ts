@@ -111,7 +111,11 @@ describe('symmetry', () => {
 
     describe('generated-board round-trip (T052, INV-5/6 end-to-end)', () => {
         const Trials = 50;
-        it(`${String(Trials)} seeds × full board scan: every cell matches its 180°-rotated partner`, () => {
+        // 50 full generations + O(cells) scans per board can exceed the
+        // default 5s timeout under coverage instrumentation on CI.
+        it(`${String(Trials)} seeds × full board scan: every cell matches its 180°-rotated partner`, {
+            timeout: 30_000,
+        }, () => {
             const seeds = goldenSeeds(Trials);
             for (const seed of seeds) {
                 const req = {

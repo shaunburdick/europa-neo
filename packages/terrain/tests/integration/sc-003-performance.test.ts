@@ -20,7 +20,10 @@ const SC_003_P99_BUDGET_MS = 1000;
 const SC_003_TRIALS = 100;
 
 describe('SC-003 performance (p99 < 1000 ms over 100 trials)', () => {
-    it('32x32 / 2-player / DEFAULT_GENERATION_SETTINGS generation completes within budget', () => {
+    // 100 timed generations under coverage instrumentation on a loaded
+    // runner can push total wall time past the default 5s timeout even
+    // when the per-sample p99 budget holds.
+    it('32x32 / 2-player / DEFAULT_GENERATION_SETTINGS generation completes within budget', { timeout: 30_000 }, () => {
         const seeds = goldenSeeds(SC_003_TRIALS);
         const samples: number[] = [];
         for (const seed of seeds) {

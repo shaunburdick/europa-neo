@@ -22,7 +22,9 @@ import { generateBoard } from '../../src/generate';
 import { engineSfc32, goldenSeeds } from '../fixtures/seeds';
 
 describe('contract conformance (Q-T08, engine ↔ terrain gate)', () => {
-    it('1000 generated Boards all pass assertBoardMatchesConfig', () => {
+    // 1000-board loop exceeds the default 5s timeout under coverage
+    // instrumentation on loaded CI runners (~2.3s locally, uncapped headroom).
+    it('1000 generated Boards all pass assertBoardMatchesConfig', { timeout: 60_000 }, () => {
         const seeds = goldenSeeds(1000);
         for (const seed of seeds) {
             const req = {

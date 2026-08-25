@@ -75,7 +75,11 @@ function assertValid3pResult(result: ReturnType<typeof generateBoard>, boardSize
 }
 
 describe('generateBoard: 3-player full pipeline (issue #2 regression)', () => {
-    it(`succeeds across ${String(SEED_COUNT)} seeds × boards ${BOARD_SIZES.join('/')} with default settings`, () => {
+    // 120 full 3p generations (60 seeds × 2 board sizes) can exceed the
+    // default 5s timeout under coverage instrumentation on loaded CI runners.
+    it(`succeeds across ${String(SEED_COUNT)} seeds × boards ${BOARD_SIZES.join('/')} with default settings`, {
+        timeout: 30_000,
+    }, () => {
         for (const size of BOARD_SIZES) {
             for (let seed = 1; seed <= SEED_COUNT; seed++) {
                 const result = generateBoard({
