@@ -1,0 +1,40 @@
+# Combat
+
+Combat in Europa Neo is **attrition** — no dice, no bonuses, no counters. When opposing troops meet in a cell, arithmetic decides. This page tells you exactly how, and when attacking is worth it.
+
+## The attrition rule
+
+When troops of both players end up in the same cell:
+
+- Each side loses troops equal to the **smaller** force.
+- The larger side survives and keeps the **difference**.
+
+Worked examples:
+
+| Your troops | Enemy troops | Result |
+| --- | --- | --- |
+| 20 | 20 | Both destroyed — mutual annihilation |
+| 25 | 10 | Enemy wiped out; you keep 15 |
+| 10 | 25 | You are wiped out; enemy keeps 15 |
+
+Equal forces trade equally and annihilate each other completely. Because combat resolves every tick, a 21-vs-20 fight leaves 1 troop standing — then decay or the next wave settles it.
+
+## What this means for attacking
+
+- Attack with **more troops than the defender**, always. Attacking at parity trades your whole stack for their whole stack — sometimes worth it, usually not.
+- The winner keeps only the difference: a 30-vs-5 attack nets you 25 troops. Every casualty on either side is permanent; there is no healing.
+- Feed your attacks: a stream of 1-troop-per-tick reinforcements arriving through pipes can tip an otherwise even fight over several ticks.
+
+## Capturing cities through combat
+
+A defended city is captured by winning the engagement in its cell — survivors occupy the city and it transfers on the spot (see [Cities and troops](./cities-and-troops.md)). An undefended city needs just one troop to walk in.
+
+## Stalemates
+
+Attrition makes even fights self-canceling, and mutual feeding (see [Pipes](./pipes.md)) makes fronts unkillable by decay. The result is the classic Europa stalemate: two mutually-fed lines glaring across no-man's-land, where every attack at parity is pure waste.
+
+Breaking a stalemate means changing the arithmetic:
+
+- **Paratroopers** land behind the line and sever the pipes that feed it (see [Special weapons](./special-weapons.md)).
+- **Guns** shave fixed damage off a cell every shot, softening a defender before your next push.
+- **Patience** works too: out-produce, accumulate, and attack with overwhelming numbers.
