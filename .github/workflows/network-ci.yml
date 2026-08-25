@@ -55,6 +55,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -86,6 +89,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -110,6 +116,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build

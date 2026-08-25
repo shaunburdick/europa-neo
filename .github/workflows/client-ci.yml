@@ -64,6 +64,9 @@ jobs:
       # The console consumes engine/fog/networking TYPES (and the
       # networking seam is runtime-typed); every workspace dep's dist
       # must exist before the console's tsc programs run.
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -108,6 +111,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
@@ -188,6 +194,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
