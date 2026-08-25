@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-25
 
-**Status**: Draft
+**Status**: Implemented (2026-08-25)
 
 **GitHub Issue**: #11 (milestone v0.1.0)
 
@@ -168,3 +168,16 @@ The implementation change set MUST include the amendments listed in FR-011. Summ
 ### v1.1 (2026-08-25) — Product-owner override: initial bump `0.0.1`, `0.1.0` deferred to release (#11)
 
 One-line trail: the product owner overruled Clarifications v1.0 ruling #2 — this feature's change set locks step at **`0.0.1`**; the `0.1.0` bump happens inside release issue #4 (bump-then-tag), not here. FR-010 and SC-007 updated accordingly; the superseded v1.0 bullet is marked in place. No other rulings change.
+
+## Implementation Notes (2026-08-25)
+
+Notable rulings and deviations made during implementation (T-001..T-012).
+Where task prose conflicted with the shipped architecture, the shipped
+architecture won and the deviation is recorded here (specs stay
+truthful).
+
+1. **Coverage-gate scope for `scripts/version-route.ts`**: the route module sits outside the console coverage gate by house convention (`scripts/` is excluded from coverage includes, same as `host.ts`); it measured 100% on every metric at implementation time via its dedicated unit suite, but no threshold enforces that (wave-2 review Minor-2). Documented decision, not an oversight.
+2. **FR-005 logging scope**: version taps cover the boot and seat CLAIM paths only; spectators and reconnects are not version-logged (reconnect visibility rides the existing `onSeatReconnected` callback). Simplicity ruling — no requirement demanded per-reconnect log lines.
+3. **Lockstep bumps do not change `pnpm-lock.yaml`**: the lockfile records `workspace:*` specifiers, not workspace versions, so a version-only bump leaves it untouched — verified at T-010.
+4. **Commit attribution (T-004/T-005)**: T-004's `host.ts` wiring hunk rode T-005's commit (shared-worktree staging race between parallel tasks); both commit messages document it. End-state verified correct; no history rewrite per charter.
+5. **`tsx` devDependency remediation**: the initial clean-slate gate run caught a missing `tsx` devDependency in `@europa/version` (a phantom stale binary had masked it during development); fixed in-branch (`11b27f6`) before completion. Lesson recorded: final gates must always run post-wipe.
