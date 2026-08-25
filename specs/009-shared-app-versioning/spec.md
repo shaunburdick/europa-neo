@@ -107,6 +107,14 @@ As a prospective player or contributor reading the README or the published playe
     - Amend spec 005-client-console: HUD footer requirement (extends the status-display area around FR-008).
     - Amend spec 007-player-manual: index footer requirement (consistent with FR-012's same-change-set rule).
     - Update README header and AGENTS.md "Next" section (removing the stale "spec-driven feature 008" wording from issue #6's line — feature numbers are minted at spec time, never reserved in tickets).
+- **FR-013**: Release automation MUST create a tagged GitHub Release whenever the canonical application version changes on `main`, implemented by `.github/workflows/release.yml` (scope admitted by Clarifications v1.2):
+    - **Trigger**: push to `main`, path-filtered to the FR-009 lockstep version surfaces (root `package.json`, any `packages/**/package.json`, `packages/version/src/app-version.ts`), plus manual `workflow_dispatch`.
+    - **Single source of truth**: the workflow extracts `APP_VERSION` from `packages/version/src/app-version.ts` and MUST fail loudly (non-zero exit with an actionable error annotation) when the constant is missing or not in `X.Y.Z` form.
+    - **Dispatch guard**: `workflow_dispatch` requires typing a `confirm_version` input that MUST equal the extracted canonical version; a mismatch aborts before anything is minted. Push events skip this check entirely.
+    - **Idempotency**: when tag `v<version>` already exists on the remote, the run MUST skip gracefully (successful exit with a notice); an unexpected `git ls-remote` failure (auth, network) MUST abort rather than guess whether the tag exists.
+    - **Minting**: creates tag `v<version>` plus a GitHub Release pinned to the triggering commit SHA (`--target`); the body comes from `release-notes/v<version>.md` at the repo root when present, else falls back to GitHub-generated notes.
+    - **Least privilege & serialization**: top-level permission is `contents: write` (the minimum needed to create tags and releases via the API); a single workflow-level concurrency group serializes release runs globally and never cancels an in-flight mint (`cancel-in-progress: false`).
+    - **Self-exclusion ruling**: the workflow file itself MUST stay out of its own paths filter (unlike every sibling workflow in this repo): self-inclusion would fire the automation on its own landing push before any version bump exists, minting a spurious release for the then-current pre-release version. The path filter IS the correctness argument — a real version bump always touches the watched surfaces.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -138,7 +146,7 @@ As a prospective player or contributor reading the README or the published playe
 
 - Publishing `@europa/version` or any package to a registry (all packages stay private).
 - git-describe-derived versions, changesets tooling, Vite-define-only injection, runtime root-`package.json` reads — all rejected in the approved design (issue #11).
-- Release automation (tagging, changelog generation) — issue #4 cuts the v0.1.0 release (bump-then-tag, per Clarifications v1.1) using this machinery; automation beyond the bump-commit convention is not specified here.
+- Release automation beyond automated tag+Release creation: FR-013 covers exactly firing on version-surface changes, minting tag `v<version>`, and publishing the GitHub Release (curated or generated notes) — nothing more. Changelog generation tooling, publish-to-registry automation, and multi-registry pushes remain out of scope; npm publishing is permanently out of scope per product ruling (Clarifications v1.2: every package stays `"private": true` forever). Issue #4 still cuts the v0.1.0 release via the bump-then-tag convention (FR-010).
 - Per-package independent versioning or semantic-import ranges between workspace packages.
 - Docker packaging (#5) and 3–4 player support (#6) — separate efforts.
 
@@ -169,6 +177,14 @@ The implementation change set MUST include the amendments listed in FR-011. Summ
 
 One-line trail: the product owner overruled Clarifications v1.0 ruling #2 — this feature's change set locks step at **`0.0.1`**; the `0.1.0` bump happens inside release issue #4 (bump-then-tag), not here. FR-010 and SC-007 updated accordingly; the superseded v1.0 bullet is marked in place. No other rulings change.
 
+### v1.2 (2026-08-25) — Product-owner rulings: permanent registry privacy; release automation enters scope via issue #4
+
+Two rulings made on issue #4's stabilization-release branch:
+
+- 2026-08-25: **All packages stay private permanently** (product owner). No package in this repository will ever be published to npm or any other registry; every `package.json` keeps `"private": true` for the life of the project. Distribution is self-hosted only (constitution VII). This makes explicit what the original Out-of-Scope bullet left implicit.
+- 2026-08-25: **Release automation enters scope** via issue #4's flow, superseding the prior Out-of-Scope wording ("automation beyond the bump-commit convention is not specified here"). The admitted contract is FR-013 as implemented by `.github/workflows/release.yml`: automated tag + GitHub Release creation whenever the canonical version changes on `main`. Anything beyond that contract (changelog generation tooling, registry publishing, multi-registry pushes) remains out of scope.
+- 2026-08-25: **Numbering note**: the new requirement's identifier is **FR-013**, assigned by the issue #4 directive and kept stable for cross-references from AGENTS.md and the workflow. This specification has no FR-012 — numbering continues from FR-011 with the gap documented here rather than renumbering already-cited references.
+
 ## Implementation Notes (2026-08-25)
 
 Notable rulings and deviations made during implementation (T-001..T-012).
@@ -181,3 +197,4 @@ truthful).
 3. **Lockstep bumps do not change `pnpm-lock.yaml`**: the lockfile records `workspace:*` specifiers, not workspace versions, so a version-only bump leaves it untouched — verified at T-010.
 4. **Commit attribution (T-004/T-005)**: T-004's `host.ts` wiring hunk rode T-005's commit (shared-worktree staging race between parallel tasks); both commit messages document it. End-state verified correct; no history rewrite per charter.
 5. **`tsx` devDependency remediation**: the initial clean-slate gate run caught a missing `tsx` devDependency in `@europa/version` (a phantom stale binary had masked it during development); fixed in-branch (`11b27f6`) before completion. Lesson recorded: final gates must always run post-wipe.
+6. **Release workflow rides issue #4's bump change set** (branch `issue-4-stabilization-release`, 2026-08-25): `.github/workflows/release.yml` implements FR-013 and shares this branch with issue #4's dedicated bump commit. Design ruling (mirrored from the workflow's own header comment): the paths filter deliberately omits the workflow file itself — unlike every sibling workflow — because self-inclusion would fire the automation on its own landing push and mint a spurious release for the then-current pre-release version; the path filter is the correctness argument, since a real version bump always touches the watched lockstep surfaces. FR-010's one-dedicated-`chore(release)`-commit convention is upheld: upon squash-style merge (house style), `main` receives exactly one `chore(release): v0.1.0` commit touching every FR-009-guarded location — precisely the push event that triggers the first automated release.

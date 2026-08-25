@@ -1,6 +1,6 @@
 {
     "name": "@europa/matchmaking",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "private": true,
     "description": "Europa Neo match lifecycle & matchmaking — ephemeral player sessions, public/private match creation with atomic seat assignment, lobby projection, engine auto-start, rematch coordination, and disconnect forfeit. Consumes @europa/engine, @europa/terrain, and @europa/networking type-only (zero runtime deps).",
     "type": "module",

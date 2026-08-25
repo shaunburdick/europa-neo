@@ -24,7 +24,9 @@ const TARGET_WATER_RATIO = DEFAULT_GENERATION_SETTINGS.waterRatio;
 const TOLERANCE = 0.1; // ±10% of target (US3 AC-1)
 
 describe('balance (SC-002 / SC-004)', () => {
-    it('100 trials: every generated Board satisfies the balance invariants', () => {
+    // 100 generations + per-board symmetry scan and BFS flood fill can
+    // exceed the default 5s timeout under coverage instrumentation on CI.
+    it('100 trials: every generated Board satisfies the balance invariants', { timeout: 30_000 }, () => {
         const seeds = goldenSeeds(100);
         let elevationVarianceFailures = 0;
         let waterRatioFailures = 0;

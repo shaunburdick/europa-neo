@@ -1,0 +1,134 @@
+name: Release
+
+# Creates a tagged GitHub Release whenever the canonical app version
+# changes on main. The watched paths are the FR-009 lockstep surfaces:
+# when any of them moves, the shared APP_VERSION moved with it (lockstep
+# agreement enforced by `pnpm version:check`, spec 009 FR-009), so the
+# value extracted below is safe to mint as tag + release v<version>.
+#
+# Idempotent by construction: if tag v<version> already exists the run
+# emits a notice and exits successfully, so re-runs, replayed pushes,
+# and unrelated package.json churn are safe no-ops.
+#
+# Deliberately NOT listing this file in its own paths filter (unlike
+# version-drift.yml): self-inclusion would fire the workflow on its own
+# landing push before any version bump exists, minting a spurious
+# release for the current pre-release version. The path filter IS the
+# correctness argument — a real version bump always touches these files.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'packages/**/package.json'
+      - 'packages/version/src/app-version.ts'
+  workflow_dispatch:
+    inputs:
+      confirm_version:
+        description: 'Type the exact APP_VERSION to release, e.g. 0.1.0'
+        type: string
+        required: true
+
+# One release pipeline at a time, globally — and never cancel an
+# in-flight release mid-mint.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+# contents:write is the minimum needed to create tags and releases via
+# the API (gh release create). Nothing else is required: no packages,
+# no deployments, no pull-request writes.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Tag and publish release for canonical APP_VERSION
+    runs-on: ubuntu-latest
+    steps:
+      # Default shallow fetch-depth is sufficient: the idempotency guard
+      # queries remote tags with `git ls-remote`, which reads remote refs
+      # directly and never touches local history.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Read the canonical version straight from source. No pnpm/node
+      # setup needed — this keeps the release lane dependency-light and
+      # fast. Fails loudly if the constant is missing or malformed.
+      - name: Read canonical APP_VERSION
+        id: version
+        run: |
+          version="$(sed -nE "s/^[[:space:]]*export const APP_VERSION = '([^']+)';/\1/p" packages/version/src/app-version.ts | head -n1)"
+          if [ -z "$version" ]; then
+            echo "::error::Could not extract APP_VERSION from packages/version/src/app-version.ts"
+            exit 1
+          fi
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Extracted APP_VERSION '$version' is not in X.Y.Z form"
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "Canonical APP_VERSION: **$version**" >> "$GITHUB_STEP_SUMMARY"
+
+      # Manual dispatches must type the exact version being released; a
+      # mismatch aborts before anything is minted. Push events skip this
+      # check entirely.
+      - name: Verify dispatch confirmation matches canonical version
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRMED_VERSION: ${{ inputs.confirm_version }}
+          CANONICAL_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if [ "$CONFIRMED_VERSION" != "$CANONICAL_VERSION" ]; then
+            echo "::error::confirm_version ('$CONFIRMED_VERSION') does not match canonical APP_VERSION ('$CANONICAL_VERSION'). Re-run and type the exact APP_VERSION to release."
+            exit 1
+          fi
+
+      # Idempotency guard: ls-remote exit code 0 => tag exists (skip
+      # gracefully), exit code 2 => no such tag (proceed). Anything else
+      # is an unexpected failure (auth, network) we refuse to paper over.
+      # ubuntu-latest runners have the `gh` CLI preinstalled.
+      - name: Skip if tag already exists (idempotency guard)
+        id: tag-check
+        env:
+          CANONICAL_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          rc=0
+          git ls-remote --exit-code --tags origin "refs/tags/v$CANONICAL_VERSION" >/dev/null 2>&1 || rc=$?
+          case "$rc" in
+            0)
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::release v$CANONICAL_VERSION already exists; skipping"
+              echo "Release **v$CANONICAL_VERSION** already exists — nothing to do." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              echo "Tag v$CANONICAL_VERSION does not exist yet; proceeding."
+              ;;
+            *)
+              echo "::error::git ls-remote failed unexpectedly (exit $rc); refusing to guess whether the tag exists."
+              exit "$rc"
+              ;;
+          esac
+
+      # Mint the release. Curated notes win when release-notes/vX.Y.Z.md
+      # exists at the repo root; otherwise fall back to GitHub-generated
+      # notes. --target pins the release to the exact triggering commit.
+      - name: Create tagged GitHub release
+        id: create-release
+        if: steps.tag-check.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANONICAL_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          notes_file="release-notes/v$CANONICAL_VERSION.md"
+          notes_args=()
+          if [ -f "$notes_file" ]; then
+            echo "Using curated release notes from $notes_file"
+            notes_args=(--notes-file "$notes_file")
+          else
+            echo "No $notes_file found; falling back to generated notes"
+            notes_args=(--generate-notes)
+          fi
+          url="$(gh release create "v$CANONICAL_VERSION" --title "v$CANONICAL_VERSION" --target "$GITHUB_SHA" "${notes_args[@]}")"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Created release: [$url]($url)" >> "$GITHUB_STEP_SUMMARY"
