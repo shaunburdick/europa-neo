@@ -44,7 +44,10 @@ Private zero-dep `@europa/version` workspace package exporting `APP_VERSION`; ad
 - [x] T-012 retry — `05e4ffa` gates green (repo total 1,331: engine 297 · terrain 242 · fog 112 · networking 191 · matchmaking 171 · console 282 · version 36); suppression scan zero; Implementation Notes ×5; tasks 12/12 ticked; AGENTS.md entry + #13 line + status list; spec → Implemented (2026-08-25)
 - Final review: code-quality-reviewer **PASS / merge-ready** (one nit: gatherer regex newline-permissive — carry-forward, no ticket); security-auditor **CLEAR** (zero required; recommended no-store → shipped as `dc54797` with live curl proof; timeout-minutes gap → routed to issue #3 by comment)
 
-## Status: PR OPEN → see final entry
+## Status: PR OPEN — https://github.com/shaunburdick/europa-neo/pull/14 — ALL 19 CHECKS GREEN (2026-08-25)
+- First CI run red on 3 downstream workflows (TS2307 @europa/version): T-003/T-005 gave networking/console their first version-dep edge; those workflows predate the package and build upstreams explicitly. Local green was an artifact of root typecheck's build-first chain.
+- Fixed `055ae71`: `Build @europa/version` step added to all 9 affected jobs across network/matchmaking/client-ci (leaf-first ordering); proven by wiped-dist simulation incl. negative control reproducing the defect; watch-path extension deliberately left to issue #3.
+- Merging = PO decision. Post-merge: workflow_dispatch live proof of Version Drift; Pages republish automatic.
 
 ## Decisions & Rationale
 - (2026-08-25) Doc surfaces land at v0.0.0 (T-006) and flip with everything else at T-010 so the tree never fails its own checker mid-series.
