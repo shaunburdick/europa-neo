@@ -18,6 +18,7 @@
  * is not perturbed by a failed call).
  */
 
+import { THREE_PLAYER_COUNT } from './constants';
 import { DEFAULT_GENERATION_SETTINGS, GenerationError, type GenerationSettings } from './contracts/terrain-types';
 
 /**
@@ -46,6 +47,61 @@ export function resolveSettings(partial: Partial<GenerationSettings>): Generatio
         minCityWaterDistance: partial.minCityWaterDistance ?? DEFAULT_GENERATION_SETTINGS.minCityWaterDistance,
         minCityCityDistance: partial.minCityCityDistance ?? DEFAULT_GENERATION_SETTINGS.minCityCityDistance,
         maxRegenAttempts: partial.maxRegenAttempts ?? DEFAULT_GENERATION_SETTINGS.maxRegenAttempts,
+    };
+}
+
+/**
+ * Effective `citiesPerPlayer` after applying the 3-player parity rule.
+ *
+ * **3-player parity rule** (issue #2): with point symmetry the
+ * 3-player middle band belongs to itself (P2 ↔ P2 under 180°
+ * rotation), so each player's city count must be EVEN for the
+ * mirrored total to equal `playerCount × citiesPerPlayer` exactly
+ * (INV-7 / FR-005). Odd values are therefore rounded UP to the next
+ * even number for `playerCount === 3`; all other player counts pass
+ * the value through unchanged.
+ *
+ * This scalar helper is the single source of truth for the rule —
+ * `normalizeSettingsForPlayerCount` (whole-settings view) and
+ * `resolveCityCount` (total-count view) both delegate here.
+ *
+ * @param citiesPerPlayer Range-clamped `citiesPerPlayer` value.
+ * @param playerCount     The match's player count (2, 3, or 4).
+ * @returns The even (for 3p) effective value.
+ */
+export function normalizedCitiesPerPlayer(citiesPerPlayer: number, playerCount: 2 | 3 | 4): number {
+    if (playerCount === THREE_PLAYER_COUNT && Math.trunc(citiesPerPlayer) % 2 !== 0) {
+        return citiesPerPlayer + 1;
+    }
+    return citiesPerPlayer;
+}
+
+/**
+ * Normalize generation settings for a specific player count.
+ *
+ * Applies the 3-player parity rule (see `normalizedCitiesPerPlayer`)
+ * to `citiesPerPlayer`, uniformly for ALL players so per-player
+ * equality (FR-005) is preserved. The normalized value is surfaced
+ * to callers via `TerrainGenerationResult.effectiveSettings` /
+ * `MapStats.effectiveSettings`.
+ *
+ * 2p and 4p layouts have no self-symmetric band; their settings are
+ * returned unchanged (copied field-for-field).
+ *
+ * @param settings    Settings to normalize. Expected to already be
+ *                    range-clamped (`clampSettings`) so the rounded
+ *                    value stays within the declared [1, 4] range.
+ * @param playerCount The match's player count (2, 3, or 4).
+ * @returns Settings whose `citiesPerPlayer` satisfies the parity
+ *          rule for the given player count.
+ */
+export function normalizeSettingsForPlayerCount(
+    settings: Readonly<GenerationSettings>,
+    playerCount: 2 | 3 | 4,
+): GenerationSettings {
+    return {
+        ...settings,
+        citiesPerPlayer: normalizedCitiesPerPlayer(settings.citiesPerPlayer, playerCount),
     };
 }
 

@@ -359,6 +359,7 @@ Each phase is a pure function called sequentially from `generate.ts`. Each is un
 | City placement | Per-player spawn band + max-distance-from-center | Trivially fair; trivially symmetric; see `research.md` §4 |
 | Library needs | **None** | No TS/JS map-gen library does what we need; see `research.md` §5 |
 | Output shape | `Board` (engine's type) + `effectiveSeed` + per-player city list | The `Board` type from `engine-types.ts` already fits |
+| 3p city-count parity *(issue #2 amendment, 2026-08-25)* | Normalize `citiesPerPlayer` UP to the next even number for 3-player requests; INV-9 checks the rotated partner's owner against `partnerPlayer(owner)` | Point symmetry is fixed-point-free on even boards and the 3p middle band is self-symmetric, so an odd per-player count can never satisfy FR-004+FR-005 simultaneously — every 3p auto-start exhausted retries. Round-up preserves FR-005 equality inside US3's clamp-don't-reject philosophy; normalized value surfaces via `effectiveSettings`. Spec Clarifications v1.2 has the full ruling. |
 
 ---
 

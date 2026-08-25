@@ -17,7 +17,9 @@
  *   INV-6  180° elevation symmetry
  *   INV-7  City count = playerCount × citiesPerPlayer
  *   INV-8  Every city on a land cell
- *   INV-9  180° city symmetry (P1 city ↔ opposite-player city at rotated coord)
+ *   INV-9  180° city symmetry (each city's rotated partner exists and
+ *          is owned by the partner player — which is the player
+ *          itself for the self-symmetric 3p middle band)
  *   INV-10 City-to-water Chebyshev distance ≥ minCityWaterDistance
  *   INV-11 City-to-city Chebyshev distance ≥ minCityCityDistance
  *   INV-12 BFS over land from any city reaches every other city
@@ -33,6 +35,7 @@
 
 import type { Board, CityPlacement, Coord, PlayerId } from '@europa/engine';
 
+import { partnerPlayer } from './city-symmetry';
 import {
     MIN_WATER_POOL_SIZE,
     TERRAIN_CONSTANTS,
@@ -387,7 +390,14 @@ export function validateBoard(
         for (const city of board.cities) {
             const partnerCoord: Coord = { x: width - 1 - city.cell.x, y: height - 1 - city.cell.y };
             const partner = cityLookup.get(`${String(partnerCoord.x)},${String(partnerCoord.y)}`);
-            if (!partner || partner.owner === city.owner) {
+            // The partner must exist AND be owned by the city's 180°
+            // partner player. For the 3-player layout the middle-band
+            // player (P2) is its own partner, so a same-owner partner
+            // is CORRECT there — issue #2: the previous
+            // `partner.owner === city.owner` rejection flagged every
+            // valid 3p board and exhausted all regeneration attempts.
+            const expectedOwner = partnerPlayer(city.owner, playerCount);
+            if (!partner || partner.owner !== expectedOwner) {
                 violations.push({
                     kind: 'asymmetry',
                     cellA: city.cell,

@@ -40,8 +40,13 @@ interface OutputCity {
  *   - 2p: P1 ↔ P2.
  *   - 4p: P1 ↔ P4, P2 ↔ P3.
  *   - 3p: P1 ↔ P3, P2 ↔ P2 (self).
+ *
+ * Exported so `validate.ts` (INV-9) shares the exact same mapping —
+ * the validator must accept precisely what symmetry-by-construction
+ * produces (issue #2: a private copy drifted and rejected every
+ * valid 3-player board).
  */
-function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
+export function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
     if (playerCount === 2) {
         return p === 1 ? 2 : 1;
     }

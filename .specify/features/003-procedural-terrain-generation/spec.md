@@ -70,7 +70,7 @@ As a player, I want maps that feel like the original's moon surface — rolling 
 - **FR-002**: Elevation MUST be generated via a fractal/midpoint-displacement family algorithm (GeoMorph-inspired), producing smooth hills and valleys rather than white noise.
 - **FR-003**: Water MUST be placed in contiguous pools determined by elevation thresholds (e.g., lowest basins flood), not scattered single cells.
 - **FR-004**: Maps MUST be point-symmetric (180° rotational symmetry) across all layers: elevation, water, and cities.
-- **FR-005**: The generator MUST place an equal number of starting cities per player at symmetric positions, with minimum spacing from water and from each other.
+- **FR-005**: The generator MUST place an equal number of starting cities per player at symmetric positions, with minimum spacing from water and from each other. For 3-player games, `citiesPerPlayer` is normalized UP to the next even number before placement (see Clarifications v1.2) so point symmetry remains satisfiable; the normalized value is reported via `effectiveSettings`.
 - **FR-006**: Generation MUST be deterministic given (seed, board size, player count, settings): no use of unseeded randomness or wall-clock time.
 - **FR-007**: The generator MUST validate output (symmetry, city connectivity, water bounds) and retry with derived seeds up to a bounded attempt count before failing loudly.
 - **FR-008**: Water density, elevation roughness, and city count MUST be configurable with safe clamping.
@@ -103,3 +103,9 @@ As a player, I want maps that feel like the original's moon surface — rolling 
 ### v1.1 (2026-08-22) — Verification suite trial-count reduction
 
 - 2026-08-22: SC-001/SC-002 trial counts reduced (10k→1k seeds, 1000→200 maps) — property guarantees unchanged; CI runtime cut ~8x per product owner directive.
+
+### v1.2 (2026-08-25) — 3-player city-count parity + INV-9 partner-owner semantics (issue #2)
+
+- **FR-005 clarification (3-player parity rule)**: FR-004 point symmetry maps every city to a distinct partner cell on an even-sized board, and the 3-player middle band is self-symmetric (its player is its own symmetry partner), so the middle player's city count must be even. Combined with FR-005's equal-count requirement, an odd `citiesPerPlayer` is unsatisfiable for 3 players. Ruling: for `playerCount === 3`, the generator normalizes `citiesPerPlayer` UP to the next even number (1→2, 3→4), uniformly for all players, after clamping. The normalized value drives placement, validation, and `effectiveSettings`/`MapStats.effectiveSettings`; 2p/4p requests are unaffected.
+- **INV-9 clarification (partner-owner semantics)**: "opposite player" in the city-symmetry invariant means the city at the 180°-rotated coordinate must be owned by that owner's symmetry partner (`partnerPlayer(owner, playerCount)`): the opposing member of the pairing for 2p/4p, and the *same* player when its band is self-symmetric (the 3p middle player), which also covers the board-center cell on odd-sized boards. Same-owner mirror cities for a self-symmetric player are conforming, not violations.
+- Trigger: issue #2 — every 3-player matchmaker auto-start threw `GenerationError('attempts_exhausted')` because INV-9 as originally worded flagged the middle player's legitimate same-owner mirrors, and the odd per-player count made INV-7 unsatisfiable. Regression coverage: terrain unit + integration suites (`generate-3p.test.ts`) and a matchmaking integration test (`matchmaker.autostart-3p.test.ts`, proven failing pre-fix).

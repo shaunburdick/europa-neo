@@ -49,7 +49,7 @@ import type {
 import { GenerationError } from './contracts/terrain-types';
 import { generateElevationMap } from './elevation';
 import { deriveSubstream, mixSeed } from './rng-adapter';
-import { resolveSettings, validateSettings } from './settings';
+import { normalizeSettingsForPlayerCount, resolveSettings, validateSettings } from './settings';
 import { validateBoard } from './validate';
 import { extractWater } from './water';
 
@@ -129,7 +129,13 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
     // clamped values drive the rest of the pipeline and are surfaced
     // via `ValidationReport.stats.effectiveSettings` so callers can
     // see what was actually used.
-    const settings: GenerationSettings = clampSettings(resolved);
+    const clamped: GenerationSettings = clampSettings(resolved);
+    // 3-player parity (issue #2): the middle band is its own 180°
+    // partner, so an odd `citiesPerPlayer` can never satisfy INV-7
+    // for playerCount 3. Round up to the next even value, uniformly
+    // for all players; the effective value is surfaced via
+    // `effectiveSettings`. 2p/4p pass through unchanged.
+    const settings: GenerationSettings = normalizeSettingsForPlayerCount(clamped, req.playerCount);
 
     // Derive substreams so each phase (elevation, water, cities)
     // gets a deterministic, disjoint PRNG. The parent (engine sfc32)
@@ -185,6 +191,14 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         for (const pid of primaryPlayers) {
             const band = getPlayerBand(pid, req.playerCount, req.boardSize, req.boardSize);
             const attemptCitiesRng = deriveSubstream(citiesRng);
+            // 3-player parity (issue #2): the middle-band player (P2)
+            // is its own 180° partner, so it seeds HALF the normalized
+            // even count — `enforceCitySymmetry` supplies the mirror
+            // partners, which stay inside the band because the band
+            // maps onto itself. Every other primary player seeds the
+            // full count and mirrors onto its opposite player.
+            const isSelfSymmetric = req.playerCount === THREE_PLAYER_COUNT && pid === 2;
+            const seedCount = isSelfSymmetric ? settings.citiesPerPlayer / 2 : settings.citiesPerPlayer;
             const playerCities = placeCitiesInBand(
                 elev,
                 water,
@@ -194,6 +208,14 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
                 settings,
                 attemptCitiesRng,
                 pid,
+                seedCount,
+                // Spacing must also hold against cities already
+                // placed for other players (issue #2: adjacent-band
+                // boundary collisions).
+                placedCities.map((c) => c.cell),
+                // Self-symmetric picks must also space against their
+                // own mirrors (issue #2: post-mirror spacing).
+                isSelfSymmetric,
             );
             for (const c of playerCities) {
                 placedCities.push({ cell: c.cell, owner: c.owner });
