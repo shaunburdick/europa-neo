@@ -2,6 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-08-25
+**Last Updated**: 2026-08-25 (spec v1.1)
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -13,7 +14,7 @@
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain
+- [x] No unresolved clarification markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic
@@ -21,10 +22,16 @@
 - [x] Edge cases are identified
 - [x] Scope is clearly bounded
 - [x] Dependencies and assumptions identified
+- [x] Anonymous identity and accepted handle propagation into match/session/seat records is explicit
+- [x] Player-facing participant identification and accessibility expectations are explicit
+- [x] Server-authoritative order, reconnect, and player/spectator view association is explicit
+- [x] Opaque identifier privacy boundary is explicit and testable
+- [x] Same-change-set user/manual and developer/operator/API/README/self-hosting documentation updates are required
 
 ## Feature Readiness
 
 - [x] All functional requirements have clear acceptance criteria
+- [x] Identity propagation, privacy, and documentation requirements have measurable success criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification

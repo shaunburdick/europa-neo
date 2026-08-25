@@ -3,8 +3,8 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-25 (v1.0)
-**Version**: 1.0
+**Last Updated**: 2026-08-25 (v1.1)
+**Version**: 1.1
 **Status**: Draft — phases 1–3 complete
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for anonymous identity, handle selection, match creation, browsing, joining, and spectating.
 
@@ -28,6 +28,7 @@ As a new visitor, I want to receive an anonymous identity and choose a handle so
 2. **Given** an anonymous visitor, **When** they submit a valid handle, **Then** the handle is associated with that active identity and is shown in the lobby.
 3. **Given** a returning browser within the existing reconnect grace period, **When** it reconnects, **Then** it retains the same identity and handle rather than creating a duplicate active user.
 4. **Given** an active user changes their handle, **When** the new handle passes validation and is not already in use, **Then** the new handle replaces the old one for that identity in the lobby and any subsequently joined match.
+5. **Given** a player has selected a handle, **When** they create or join a match, **Then** the match waiting/live view identifies that player by the accepted handle and preserves the association with their anonymous identity.
 
 ---
 
@@ -79,6 +80,7 @@ As a player or observer, I want to join an open game or spectate a running publi
 2. **Given** a listed running public match, **When** the player activates Spectate, **Then** they receive the existing full-visibility spectator view and no player seat or order permissions.
 3. **Given** a player attempts to join a match after its last open seat was claimed, **When** the server processes the request, **Then** it rejects the request cleanly and the lobby refreshes the entry.
 4. **Given** a player is already seated in or spectating a match, **When** they return to the landing page, **Then** they can see their active-match status and cannot accidentally claim a second seat with the same active identity.
+5. **Given** a match contains players, **When** a participant views the match waiting/live UI, **Then** each occupied player seat is labeled with that player's accepted handle, including the viewer's own seat, and no participant is labeled with an opaque anonymous identifier.
 
 ### Edge Cases
 
@@ -91,6 +93,12 @@ As a player or observer, I want to join an open game or spectate a running publi
 - A spectator disconnects and reconnects using existing networking behavior; spectator status is read-only and does not become a player seat.
 - A server restart loses anonymous identities, handles, lobby entries, and matches because this feature has no persistent storage; the landing page starts a fresh session.
 - Finished matches are collected and are never shown as browseable history.
+- A player's accepted handle and anonymous identity remain associated when the player transitions from lobby to match, including the waiting session, player seat, reconnect state, order attribution, and server-generated player/spectator view.
+- Reconnecting with the existing reconnect credential restores the same player association and displayed handle; presenting another player's credential or an unknown credential cannot attach orders or views to that player.
+- The server is the sole authority for identity-to-seat association and handle changes. Client-provided seat numbers, handles, or anonymous identifiers are advisory input only and cannot override the server record.
+- Opaque anonymous identifiers are implementation/session identifiers, not display names: they are not rendered in lobby or match UI, public lobby projections, or spectator/player views, and are not accepted as a user-selectable participant identity.
+- The implementation change that adds this feature MUST update applicable user-facing documentation, including the player manual, to explain anonymous identity, handle selection, and how participant names appear in matches.
+- The same implementation change MUST update applicable developer/operator/API documentation, including README and self-hosting/launch guidance, to document identity and handle propagation, the relevant wire/session behavior, and the in-memory privacy/lifecycle boundary.
 
 ## Requirements
 
@@ -114,6 +122,15 @@ As a player or observer, I want to join an open game or spectate a running publi
 - **FR-016**: The interface MUST provide accessible keyboard navigation, semantic names and statuses for controls and match rows, visible focus, sufficient contrast, and announcements for identity errors, empty/loading states, and action failures in line with WCAG 2.2 AA goals.
 - **FR-017**: The default self-hosted launch MUST serve the landing interface without a pre-created match, while preserving an explicit path for a user to create one; gameplay remains server-authoritative and fixed-tick deterministic.
 - **FR-018**: The feature MUST surface recoverable failures (identity setup, duplicate handle, unavailable match, full match, lost connection, and server restart) without trapping the user on a blank or silent screen, and MUST provide a retry, correction, or return-to-lobby action where applicable.
+- **FR-019**: When a player creates or joins a match, the server MUST propagate the active AnonymousIdentity reference and its accepted handle into the authoritative match/session and seat records. The association MUST remain available through waiting, start, gameplay, terminal, and existing reconnect-grace states; a handle rename MUST update future match projections for that identity without changing the identity reference.
+- **FR-020**: The match waiting/live interface MUST identify every occupied player seat with the server-authoritative accepted handle, including the local player's own seat and other participants visible to that player. The UI MUST provide a distinct, accessible label for each player and MUST NOT display an opaque anonymous identifier as a participant name.
+- **FR-021**: The server MUST attribute every accepted order to the server-resolved player seat and AnonymousIdentity associated with the connection/session, regardless of any client-supplied handle, anonymous identifier, or seat claim. An order claiming a different player MUST be rejected without changing world state, and the rejection MUST be observable to the requesting client.
+- **FR-022**: Existing reconnect handling MUST restore the same identity, handle, seat, and participant label when a reconnect credential is valid and within the existing grace period. Invalid, expired, mismatched, or already-consumed reconnect credentials MUST NOT attach the connection to another player's seat, orders, or view and MUST follow the existing recoverable reconnect failure behavior.
+- **FR-023**: Player and spectator views MUST be generated from server-authoritative seat/identity associations. Player views MAY expose the handles needed to identify visible participants, while spectator views MAY expose all match participant handles; neither view may allow a client to rewrite identity, seat ownership, or order authority.
+- **FR-024**: Anonymous identifiers MUST be opaque, unique among active identities, non-semantic, and unsuitable as user-facing names. They MUST NOT appear in public lobby entries, participant labels, player views, spectator views, URLs, or documentation examples; transport/session records MAY retain them only as needed for server-authoritative association and reconnect handling.
+- **FR-025**: The feature's identity propagation behavior MUST have acceptance coverage proving that two players' handles follow them from lobby into match/session records and UI, that orders are attributed to the correct server-side seat, that reconnect restores the same association, and that player/spectator views do not leak opaque identifiers.
+- **FR-026**: The same implementation change set MUST update applicable user-facing documentation and the player manual with the anonymous identity lifecycle, handle validation/rename behavior, and match participant identification. Documentation acceptance MUST verify that the manual describes what players see and how they are identified without exposing opaque IDs.
+- **FR-027**: The same implementation change set MUST update applicable developer/operator/API documentation, including the README and self-hosting/launch documentation, with the identity/handle propagation contract, server-authoritative association rules, reconnect/order/view implications, and the fact that identity, handles, sessions, and matches are in-memory and lost on restart. These documents MUST not present anonymous IDs as stable accounts or public identifiers.
 
 ### Key Entities
 
@@ -127,7 +144,7 @@ As a player or observer, I want to join an open game or spectate a running publi
 
 - **NFR-001 (Responsiveness)**: Under normal self-hosted conditions, the landing interface MUST show the initial identity/lobby state within 2 seconds of page readiness and MUST reflect a successful create, join, or leave action within 1 second of the authoritative response.
 - **NFR-002 (Concurrency)**: The server MUST preserve unique active handles and atomic seat assignment when concurrent requests target the same handle or final open seat; acceptance tests MUST cover at least 10 simultaneous conflicting requests.
-- **NFR-003 (Privacy)**: Public listings MUST contain only public-match data needed for discovery; anonymous identifiers MUST NOT be exposed as substitutes for handles, and no authentication or personal data collection is required.
+- **NFR-003 (Privacy)**: Public listings MUST contain only public-match data needed for discovery; opaque anonymous identifiers MUST remain server-side/session-scoped and MUST NOT be exposed in public listings, URLs, UI labels, player/spectator views, or documentation examples. Handles are the only participant identity shown to users, subject to the feature's anonymous, in-memory lifecycle; no authentication or personal data collection is required.
 - **NFR-004 (Compatibility)**: Existing gameplay, wire-version, reconnect-grace, fog-of-war, spectator, and match-terminal contracts MUST remain behaviorally compatible for clients entering a match through the lobby.
 - **NFR-005 (Operations)**: A self-hosted operator MUST be able to run the feature with the existing single-process launch instructions and no cloud service or persistent database.
 
@@ -142,6 +159,10 @@ As a player or observer, I want to join an open game or spectate a running publi
 - **SC-005**: A spectator can enter 10/10 sampled in-progress public matches, receives full-visibility read-only views, and produces zero accepted player orders.
 - **SC-006**: A keyboard-only accessibility pass can complete identity setup, create or join a match, spectate an in-progress match, and return to the lobby; all failure and empty states are announced and actionable.
 - **SC-007**: A 50-match sequential create/join/finish/collect soak leaves zero active matches, seats, or anonymous sessions that should have expired under the existing lifecycle policy.
+- **SC-008**: In 10/10 two-client trials, each player's accepted handle appears on the correct waiting/live seat and remains correct after the first authoritative tick; neither client sees either opaque anonymous identifier in lobby, match UI, or received player/spectator view data.
+- **SC-009**: In a test with two seated players, 100 orders (including forged alternate handle, ID, and seat fields) result in every accepted order being attributed to the connection's server-authoritative seat, with all forged cross-player claims rejected and no unauthorized world-state change.
+- **SC-010**: In 10/10 reconnect trials within the existing grace period, each player resumes the original seat, handle, and view association; invalid or cross-player reconnect credentials produce no seat, order, or view reassignment.
+- **SC-011**: A documentation diff in the implementation change set updates the applicable player manual/user guidance and developer/operator/API/README/self-hosting guidance, and an automated or review checklist confirms that each describes handle visibility, authoritative identity association, and the opaque in-memory ID boundary without documenting opaque IDs as public identifiers.
 
 ## Out of Scope
 
@@ -161,7 +182,7 @@ As a player or observer, I want to join an open game or spectate a running publi
 
 ## Clarifications
 
-### Session 2026-08-25 — Approved product decisions
+### Session 2026-08-25 — Approved product decisions (v1.0)
 
 No interactive clarification questions were required. The approved decisions resolve the material scope, identity, privacy, lifecycle, and persistence ambiguities:
 
@@ -172,3 +193,11 @@ No interactive clarification questions were required. The approved decisions res
 - This feature supports public matches only; private matches are explicitly deferred.
 - Accounts/authentication, persistent storage, chat, ratings, invitations, and match history are excluded.
 - Existing server-authoritative, deterministic, accessibility-minded, self-hostable, and current engine/networking/matchmaking/console constraints remain binding.
+
+### Session 2026-08-25 — Product-owner identity propagation amendment (v1.1)
+
+- Anonymous identities and accepted handles follow players from the lobby into authoritative match/session and seat records and remain associated through orders, reconnects, terminal state, and player/spectator views.
+- Match UI identifies occupied seats with accepted handles, including the local player; opaque anonymous IDs are never participant labels.
+- Identity, seat, order, reconnect, and view association is server-authoritative. Client-supplied identity, handle, or seat claims cannot reassign authority.
+- Opaque IDs remain private, non-semantic, session-scoped implementation identifiers. They are not exposed in lobby projections, URLs, UI labels, player/spectator views, or documentation examples.
+- Documentation updates are part of the same implementation change set: applicable player-facing/manual content and applicable developer/operator/API/README/self-hosting content must describe the behavior and its in-memory privacy/lifecycle boundary.
