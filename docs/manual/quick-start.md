@@ -51,3 +51,7 @@ The 60-second grace window is measured from the moment your connection dropped.
 ## Unstarted matches do not wait forever
 
 A match that never fills its second seat is cleaned up by the host after about five minutes. If your waiting overlay never goes away, ask whoever created the match for a fresh link.
+
+---
+
+[Back to contents](./index.md)

@@ -51,3 +51,7 @@ Shots land at resolution time each tick; a target cell emptied by someone else f
 3. Press g (or o).
 
 Rejected orders — a water target, or not enough troops to pay — come back as a short message above the order bar (see [Reading the screen](./reading-the-screen.md)).
+
+---
+
+[Back to contents](./index.md)

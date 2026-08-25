@@ -4,7 +4,7 @@ Welcome, commander. Europa Neo is a real-time strategy game for two players: riv
 
 ## The 60-second version
 
-You land on Europa with a handful of **cities**. Every city produces troops each tick until it saturates. You move troops around by laying **pipes** between cells — gravity does the work, so downhill pipes flow while uphill pipes sit idle. Troops cut off from supply slowly **decay**, so keeping your pipeline network fed matters.
+You land on Europa with a handful of **cities**. Every city produces troops each tick (the game heartbeat, four per second) until it saturates. You move troops around by laying **pipes** between cells — gravity does the work, so downhill pipes flow while uphill pipes sit idle. Troops cut off from supply slowly **decay**, so keeping your pipeline network fed matters.
 
 Where your troops meet enemy troops in a cell, they fight by **attrition**: equal forces wipe each other out, and the larger side wins and keeps the difference. Two special weapons break stalemates: **paratroopers** hop over the pipe network (costing twice what lands) and sever any pipes at their landing site, and **guns** shell every troop in a target cell — friend or foe.
 

@@ -58,3 +58,7 @@ They fade after a couple of seconds. A rejection always means nothing was sent �
 ## End of match
 
 When a match ends — victory, defeat, or draw — the console announces **"Match over"** and switches to `game_over`. The final board stays on display so you can survey the wreckage. If you finished playing but the match is somehow still running (for example, you surrendered), you spectate with a full-board view and no orders until it wraps up.
+
+---
+
+[Back to contents](./index.md)

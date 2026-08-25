@@ -31,3 +31,7 @@ Maps are generated fresh for each match, but fairness is built in:
 - **Guaranteed land routes**: there is always a land path between the starting positions — no player is ever walled off by water.
 
 No pre-made maps, no map voting, no home-field advantage: both commanders face the same terrain.
+
+---
+
+[Back to contents](./index.md)

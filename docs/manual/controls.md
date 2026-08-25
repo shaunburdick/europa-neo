@@ -13,6 +13,8 @@ Most commands act on your **selected cell** — the one highlighted by your last
 | Alt+click near an edge of a cell | Same as right-click: an exclusive pipe toward the clicked region. |
 | Mouse wheel / middle-button drag | Camera control — see [Camera](#camera) below. |
 
+> Shift+click currently behaves exactly like a plain left-click; the modifier is reserved for a future multi-select feature.
+
 ## Keyboard
 
 | Key | Effect |
@@ -62,3 +64,7 @@ The console's clickable controls mirror the keyboard commands, so mouse-only pla
 | **Surrender…** | Below the order bar | Opens the confirmation dialog. Confirming eliminates you on the spot (see [Objective](./objective.md)); Cancel or Escape backs out. |
 
 All order buttons disable themselves when orders cannot be sent — while connecting, reconnecting, spectating, or after the match ends.
+
+---
+
+[Back to contents](./index.md)

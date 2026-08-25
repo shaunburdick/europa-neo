@@ -31,10 +31,14 @@ A defended city is captured by winning the engagement in its cell — survivors 
 
 ## Stalemates
 
-Attrition makes even fights self-canceling, and mutual feeding (see [Pipes](./pipes.md)) makes fronts unkillable by decay. The result is the classic Europa stalemate: two mutually-fed lines glaring across no-man's-land, where every attack at parity is pure waste.
+Attrition makes even fights self-canceling, and mutual feeding (see [Pipes](./pipes.md)) makes fronts unkillable by decay, while reserves pin a defensive core in place that no supply cut can rot away (see [Reserves](./reserves.md)). The result is the classic Europa stalemate: two mutually-fed lines glaring across no-man's-land, where every attack at parity is pure waste.
 
 Breaking a stalemate means changing the arithmetic:
 
 - **Paratroopers** land behind the line and sever the pipes that feed it (see [Special weapons](./special-weapons.md)).
 - **Guns** shave fixed damage off a cell every shot, softening a defender before your next push.
 - **Patience** works too: out-produce, accumulate, and attack with overwhelming numbers.
+
+---
+
+[Back to contents](./index.md)

@@ -34,3 +34,7 @@ Because elimination requires losing all troops AND all cities (see [Objective](.
 ## The opening loop
 
 A typical opening: let your starting cities build up, lay pipes toward the middle of the board, and stream fresh troops forward while keeping your home cells topped up. Production is free — forgetting to spend it is the only waste.
+
+---
+
+[Back to contents](./index.md)

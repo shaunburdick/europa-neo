@@ -35,7 +35,7 @@ Two more limits:
 
 Troops cut off from supply do not wait politely — they die:
 
-- A stack in an open cell with **no incoming pipe flow loses 1 troop per tick** to decay.
+- A **stack** (all the troops sitting in one cell) in an open cell with **no incoming pipe flow loses 1 troop per tick** to decay.
 - City cells never decay: their own production feeds them every tick.
 - Any friendly inflow counts as feeding, even 1 troop per tick — a trickle keeps a forward garrison alive.
 
@@ -50,3 +50,7 @@ Reserves interact with decay too: reserved troops cannot be eaten by decay. See 
 - **Arteries**: long chains of downhill/flat pipes stream fresh troops from safe cities toward the front.
 - **Severing**: paratroopers clear every pipe in the cell they land on — enemy supply lines are targets (see [Special weapons](./special-weapons.md)).
 - **Stalemates**: two mutually-fed fronts can outlast anything thrown at them; breaking one usually means cutting the other's feed with paratroopers or guns.
+
+---
+
+[Back to contents](./index.md)

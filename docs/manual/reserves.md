@@ -45,3 +45,7 @@ Reserving changes the picture for cells you intend to hold:
 ## The rule of thumb
 
 Reserve what you cannot afford to lose; leave the rest free to work. Set reserves before you extend a fragile supply line, clear them when you want everything moving again.
+
+---
+
+[Back to contents](./index.md)

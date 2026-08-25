@@ -51,3 +51,7 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Player 4 color | Orange-gold `#d97706` | `DEFAULT_PLAYER_COLORS[4]` |
 
 The v1 palette is fixed — these four colors are what ships. Owner identity is never conveyed by color alone: the interface also labels players by name and number.
+
+---
+
+[Back to contents](./index.md)

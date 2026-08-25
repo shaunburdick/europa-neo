@@ -51,3 +51,7 @@ If both players are reduced to zero troops AND zero cities — even on the same 
 ## Where to next
 
 Learn how armies are built and lost: [Cities and troops](./cities-and-troops.md), [Pipes](./pipes.md), and [Combat](./combat.md). Or jump straight into a match with the [Quick start](./quick-start.md).
+
+---
+
+[Back to contents](./index.md)

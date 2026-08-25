@@ -39,3 +39,7 @@ A spectator — someone watching without a seat, including you after surrenderin
 | Memory | None — abandoned ground goes dark |
 
 Every player-facing number lives in one auditable table: see [Numbers](./numbers.md).
+
+---
+
+[Back to contents](./index.md)

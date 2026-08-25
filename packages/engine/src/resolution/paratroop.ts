@@ -10,9 +10,9 @@
  *   - Clears the destination cell's `pipeMasks` (FR-013 — paratroopers
  *     break enemy pipes).
  *   - Range ≤ 2 Chebyshev (validated via `validateCommand`).
- *   - Target must be land, in-bounds, and owned by the source's player
- *     (paratroops can't drop into water or cells owned by an enemy
- *     beyond the pipe-clear rule — see validate.ts).
+ *   - Target must be land and in-bounds; enemy-held targets are valid
+ *     (validate.ts checks terrain, range, source ownership, and the
+ *     source's reserves floor — never target ownership).
  *
  * **Reserves invariant**: the source cell must have ≥ `2 × N` troops
  * ABOVE its reserves floor. Spending 2 × N troops that would push the
