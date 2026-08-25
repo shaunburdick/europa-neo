@@ -43,6 +43,26 @@ lockstep value, `0.0.1`, lands inside feature 009's own change set per
 the spec's Clarifications v1.1.) After bumping, run `pnpm version:check`
 — it must exit 0 before the commit lands.
 
+## Drift check (`version:check`)
+
+`pnpm version:check` (from the repo root) runs this package's CLI, which
+asserts FR-009's lockstep invariant:
+
+```
+APP_VERSION === root package.json === every packages/*/package.json
+            === README release line === manual index footer
+```
+
+- **Clean** → exit `0`, silent.
+- **Drift** → exit `1`, one `mismatch: <file> expected <v> but found <v>`
+  line per offending file on stderr (every offender, never first-fail).
+- **Usage error** → exit `2`.
+
+`--root <dir>` points the surface gathering at another tree (used by the
+integration tests' temp fixtures); the expected value is always the
+compiled-in `APP_VERSION` — see `scripts/gather-version-sources.ts`.
+After any bump commit, run the check before landing it.
+
 ## Usage
 
 ```ts
@@ -67,10 +87,14 @@ pnpm --filter @europa/version typecheck  # tsc --noEmit
 
 ```
 packages/version/
+├── scripts/
+│   ├── check-version-drift.ts    # CLI entry: parse args → gather → check → exit code
+│   └── gather-version-sources.ts # filesystem extraction of guarded surfaces
 ├── src/
-│   ├── app-version.ts      # APP_VERSION — the single-source constant
-│   └── index.ts            # public barrel
-└── tests/                  # vitest suites (unit + integration)
+│   ├── app-version.ts           # APP_VERSION — the single-source constant
+│   ├── check-version-drift.ts   # pure comparison logic (sources → report)
+│   └── index.ts                 # public barrel
+└── tests/                       # vitest suites (unit + integration)
 ```
 
 ---
