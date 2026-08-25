@@ -8,7 +8,7 @@
 
 **Version**: 1.0
 
-**Status**: Draft
+**Status**: Implemented (2026-08-24)
 
 **Input**: User description: "Before I merge the PR, let's write a simple instruction book for players. This can be a new spec, as this is end-user documentation. I'm thinking this could be its own part of the repo that can be published to the github repo pages using a git action."
 
