@@ -45,7 +45,7 @@ jobs:
   release:
     name: Tag and publish release for canonical APP_VERSION
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 2
     steps:
       # Default shallow fetch-depth is sufficient: the idempotency guard
       # queries remote tags with `git ls-remote`, which reads remote refs
