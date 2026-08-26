@@ -1,9 +1,21 @@
 /**
- * PlayerSession — server-internal record shape (Feature 006, T016)
+ * PlayerSession — server-internal record shape (Feature 006, T016;
+ * feature 010 T-006 adds the guest-identity association)
  *
  * Per `data-model.md` §11. An ephemeral matchmaking identity: created
  * on the player's first `createMatch` / `joinMatch`, never persisted
  * across restarts (in-memory only, spec Assumptions).
+ *
+ * Feature 010 (spec FR-019): a session created on behalf of a lobby
+ * identity additionally carries the authoritative
+ * {@linkcode GuestPlayerId} association plus a snapshot of the
+ * accepted display handle. The registry (feature 010) remains the
+ * AUTHORITY for identity + handle; these fields are the matchmaker's
+ * server-resolved reference and display snapshot — they are set once
+ * at creation from server state (never from client claims) and have
+ * no public mutator, so a forged association cannot be expressed.
+ * The opaque id is internal-only: it must never reach any public
+ * payload (`SeatAssignment`, `LobbyEntry`, results, views).
  *
  * @internal Exported for testability only; not part of the public
  * surface re-exported through the package barrel.
@@ -14,6 +26,7 @@
 
 import type { MatchId, SessionToken } from '@europa/networking';
 import type { PlayerSessionId, SeatIndex } from '../../contracts/match-types';
+import type { GuestPlayerId } from '../contracts/lobby-types';
 
 /**
  * Ephemeral per-player matchmaking state. A session is in at most one
@@ -29,6 +42,28 @@ export interface PlayerSession {
      * "someone reuses a display name currently in the lobby" → allowed).
      */
     readonly displayName: string;
+    /**
+     * Authoritative association to the lobby's `GuestPlayerIdentity`
+     * (feature 010 FR-019), or `null` for sessions created outside the
+     * lobby flow (direct feature-006 matchmaker use). Server-resolved
+     * at creation; immutable for the session's lifetime — the lobby
+     * facade passes the registry's value, never a client claim.
+     *
+     * PRIVACY (FR-003/FR-024): internal association only. Never
+     * serialize into public payloads, projections, or views.
+     */
+    readonly guestPlayerId: GuestPlayerId | null;
+    /**
+     * Snapshot of the identity's ACCEPTED display handle at session
+     * creation (feature 010 US1 AC-5), or `null` when unnamed/legacy.
+     * Distinct from {@linkcode displayName}: this is the validated,
+     * uniqueness-enforced lobby value. Mutable ONLY via
+     * `matchLifecycle.propagateHandleRename` (an accepted rename
+     * sweeps in-flight snapshots); subsequent sessions naturally carry
+     * the fresh value. Authority stays with the identity registry
+     * (data-model §2).
+     */
+    acceptedHandle: string | null;
     /** The match the player is currently in, or `null`. */
     currentMatchId: MatchId | null;
     /** Seat index inside {@linkcode currentMatchId}, or `null`. */
@@ -51,12 +86,24 @@ export interface CreatePlayerSessionArgs {
     readonly randomId: () => string;
     /** Injected wall-clock provider in epoch ms. */
     readonly now: () => number;
+    /**
+     * Server-resolved lobby identity to associate (feature 010 FR-019).
+     * Omit for legacy feature-006 flows; stored as `null`. MUST come
+     * from the server's identity registry — never from client input.
+     */
+    readonly guestPlayerId?: GuestPlayerId;
+    /**
+     * The identity's accepted display handle snapshot (US1 AC-5).
+     * Omit when unnamed or legacy; stored as `null`.
+     */
+    readonly acceptedHandle?: string;
 }
 
 /**
  * Create a new ephemeral player session with no match binding.
  *
- * @param args - Display name plus injected `randomId` / `now`.
+ * @param args - Display name plus injected `randomId` / `now`, and the
+ *   optional lobby-identity association (feature 010).
  * @returns A fresh `PlayerSession` with all match fields `null`.
  */
 export function createPlayerSession(args: CreatePlayerSessionArgs): PlayerSession {
@@ -65,6 +112,8 @@ export function createPlayerSession(args: CreatePlayerSessionArgs): PlayerSessio
     return {
         playerSessionId: randomId() as PlayerSessionId,
         displayName,
+        guestPlayerId: args.guestPlayerId ?? null,
+        acceptedHandle: args.acceptedHandle ?? null,
         currentMatchId: null,
         currentSeatIndex: null,
         currentSessionToken: null,
