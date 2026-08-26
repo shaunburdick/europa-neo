@@ -206,6 +206,13 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
 
     // -- View gate -----------------------------------------------------
 
+    // Hidden host for the shared live-region announcer — must be
+    // rendered (not just ref-attached) so liveHostRef.current is
+    // non-null and the useEffect can construct the instance.
+    const announcerHost = (
+        <div ref={liveHostRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
+    );
+
     if (state.viewMode === 'match') {
         const intent = legIntentRef.current ?? { matchId: state.activeMatchId, role: 'player' as const };
         const matchId = intent.matchId ?? state.activeMatchId;
@@ -219,39 +226,45 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
                 : null;
         const matchStarted = entry?.status === 'in_progress';
         return (
-            <MatchLegHost
-                key={matchId ?? 'pending'}
-                wsUrl={wsUrl}
-                matchId={matchId}
-                role={intent.role}
-                displayName={state.handle ?? 'Player'}
-                handle={state.handle}
-                occupancy={entry !== null ? { seatsFilled: entry.seatsFilled, capacity: entry.capacity } : null}
-                matchStarted={matchStarted}
-                announcer={announcer ?? undefined}
-                leaveError={state.actions.leaveMatch.error}
-                leaving={state.actions.leaveMatch.phase === 'loading'}
-                onLeave={leaveMatch}
-            />
+            <>
+                {announcerHost}
+                <MatchLegHost
+                    key={matchId ?? 'pending'}
+                    wsUrl={wsUrl}
+                    matchId={matchId}
+                    role={intent.role}
+                    displayName={state.handle ?? 'Player'}
+                    handle={state.handle}
+                    occupancy={entry !== null ? { seatsFilled: entry.seatsFilled, capacity: entry.capacity } : null}
+                    matchStarted={matchStarted}
+                    announcer={announcer ?? undefined}
+                    leaveError={state.actions.leaveMatch.error}
+                    leaving={state.actions.leaveMatch.phase === 'loading'}
+                    onLeave={leaveMatch}
+                />
+            </>
         );
     }
 
     return (
-        <LobbyLanding
-            state={state}
-            announcer={announcer ?? undefined}
-            focusHeading={viewSwitches > 0}
-            onSubmitHandle={submitHandle}
-            onCreate={createMatch}
-            onJoin={joinMatch}
-            onSpectate={spectateMatch}
-            onRetry={() => {
-                void controller.retry();
-            }}
-            onAcknowledgeSuperseded={() => {
-                controller.acknowledgeSuperseded();
-            }}
-        />
+        <>
+            {announcerHost}
+            <LobbyLanding
+                state={state}
+                announcer={announcer ?? undefined}
+                focusHeading={viewSwitches > 0}
+                onSubmitHandle={submitHandle}
+                onCreate={createMatch}
+                onJoin={joinMatch}
+                onSpectate={spectateMatch}
+                onRetry={() => {
+                    void controller.retry();
+                }}
+                onAcknowledgeSuperseded={() => {
+                    controller.acknowledgeSuperseded();
+                }}
+            />
+        </>
     );
 }
 
