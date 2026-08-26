@@ -311,6 +311,10 @@ type DocLobbyEvent =
           readonly actionId?: DocLobbyActionId;
           readonly code: DocLobbyErrorCode;
           readonly message: string;
+          // Optional machine-readable detail (field name → message/value),
+          // mirroring matchmaking's `LobbyError.detail` so clients can
+          // render field-specific actionable text from code + detail.
+          readonly detail?: Readonly<Record<string, string | number | boolean>>;
       };
 
 /** Transcription of lobby-wire.md's eight payload shapes. */
@@ -429,7 +433,14 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
                 snapshot: { revision: 7 as LobbyRevision, entries: [], activeMatchId: null },
             },
             { kind: 'actionAccepted', actionId: 3 as LobbyActionId, transition: 'waiting' },
-            { kind: 'error', code: 'handle_taken', message: 'handle already in use' },
+            {
+                kind: 'error',
+                code: 'handle_taken',
+                message: 'handle already in use',
+                // The optional detail record must be admitted on wire
+                // error events (field-specific feedback, spec US3 AC-4).
+                detail: { handle: 'Nova' },
+            },
         ];
         const labels = samples.map((event) => lobbyEventKindLabel(event));
         expect(labels).toEqual([...LOBBY_EVENT_KINDS]);

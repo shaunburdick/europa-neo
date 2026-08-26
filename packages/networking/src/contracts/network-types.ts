@@ -723,6 +723,11 @@ export type LobbyErrorCode =
  * ignore unrecognized kinds per the unknown-message policy above);
  * changing or removing an existing variant is an incompatible edit
  * requiring the version policy above.
+ *
+ * Error events are actionable: clients render user-facing text from
+ * `code` plus the optional machine-readable `detail` record on the
+ * `'error'` variant (field-specific feedback), and MUST tolerate
+ * `detail` being absent.
  */
 export type LobbyEvent =
   | { readonly kind: 'identity'; readonly identity: IdentityState }
@@ -737,6 +742,14 @@ export type LobbyEvent =
       readonly actionId?: LobbyActionId;
       readonly code: LobbyErrorCode;
       readonly message: string;
+      /**
+       * Optional machine-readable detail mirroring matchmaking's
+       * `LobbyError.detail` (field name → message/value). Lets clients
+       * render field-specific, actionable text (e.g., naming the
+       * rejected create-form settings fields); absent when the code
+       * needs no specifics or an older server sent none.
+       */
+      readonly detail?: Readonly<Record<string, string | number | boolean>>;
     };
 
 /**

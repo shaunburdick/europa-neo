@@ -3,8 +3,8 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-25 (v1.2)
-**Version**: 1.2
+**Last Updated**: 2026-08-25 (v1.3)
+**Version**: 1.3
 **Status**: Draft — phases 1–3 complete
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
@@ -206,3 +206,7 @@ No interactive clarification questions were required. The approved decisions res
 
 - The feature uses `GuestPlayerIdentity`/guest player identity consistently. A GuestPlayerIdentity is a guest player identity, not an authenticated account: it has a unique server-recognized opaque guest player ID and handle, is backed by browser/server memory, and is lost when browser storage is cleared or the server restarts.
 - The opaque guest player ID is not a public display name and MUST NOT be exposed in UI, public listings, URLs, views, or documentation examples. Handles remain the only participant identity shown to users.
+
+### Session 2026-08-25 — Wire error detail field ruling (v1.3)
+
+- US3 AC-4 ("rejected with field-specific feedback") and FR-018's actionable-failure requirement cannot be delivered by code-only wire errors: a browser can only render field-specific guidance when the server tells it which fields failed. PM ruling (2026-08-25): the wire `error` `LobbyEvent` variant gains an additive optional `detail` record mirroring matchmaking's `LobbyError.detail` (`Readonly<Record<string, string | number | boolean>>`, field name → message/value). Servers populate it wherever actionable specifics exist (e.g., the rejected create-form settings fields); clients render actionable text from `code` plus `detail` and MUST tolerate its absence (older servers, or codes needing no specifics). Additive-only — unknown-field tolerance already covers older clients, so `NETWORK_API_VERSION` is NOT bumped. Contract surfaces updated in the same change set: both canonical networking contract copies, `contracts/lobby-wire.md`, and networking conformance coverage for the changed payload.
