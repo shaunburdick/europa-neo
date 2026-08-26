@@ -3,8 +3,8 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-25 (v1.4)
-**Version**: 1.4
+**Last Updated**: 2026-08-25 (v1.5)
+**Version**: 1.5
 **Status**: Draft — phases 1–3 complete
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
@@ -217,3 +217,11 @@ No interactive clarification questions were required. The approved decisions res
 - What folds: case-based default mappings only — e.g. `Å→å`, `Ö→ö`, and multi-character expansions such as `İ` (U+0130) → `i` + combining dot above (two code points). What does NOT fold: `ß` is never expanded to `SS` (so `Straße` and `STRASSE` remain distinct handles), and locale-specific conventions (e.g., Turkish dotless-i rules) are deliberately not applied.
 - The accepted display handle is the trimmed submission with casing preserved verbatim (FR-005); the uniqueness key is derived from it and never displayed or projected.
 - Uniqueness keys are held for ACTIVE identities and for identities retained by the reconnect grace window; keys are freed when grace expires or the identity is explicitly released (edge case: handle availability).
+
+### Session 2026-08-25 — Handle validation hardening + local mirror pin ruling (v1.5)
+
+- Wave-2 security audit findings LOW-6 (bidirectional-text spoofing) and LOW-7 (lone-surrogate corruption) are resolved at the validation source. FR-004's rejection set gains two classes, enforced inside `validateHandle` before any handle reaches a seat label, lobby row, or log line:
+  - Bidirectional formatting controls U+202A–U+202E (LRE/RLE/PDF/LRO/RLO overrides) and U+2066–U+2069 (LRI/RLI/FSI/PDI isolates) — nine code points in total — are REJECTED. Rationale: participant labels are identity (FR-020); these invisible characters visually reorder how a handle renders for OTHER players while appearing benign to the submitter, so a submitter could spoof or impersonate another participant's label rendering. Rejections return `handle_invalid` with machine-readable `detail.reason: 'bidi_control'`.
+  - Handles containing lone (unpaired) surrogate code points (Unicode category Cs, U+D800–U+DFFF without a partner) are REJECTED. Rationale: lone surrogates mutate to U+FFFD replacement characters on UTF-8 encoding, corrupting server logs and downstream storage. Rejections return `handle_invalid` with `detail.reason: 'lone_surrogate'`. Detection operates per CODE POINT after code-point iteration, so well-formed surrogate pairs are unaffected.
+- Scope of the reclassification: only the nine bidi controls above and unpaired surrogates change status. Other format-category (Cf) characters — notably zero-width spaces such as U+200B and the soft hyphen U+00AD — REMAIN valid content, and well-formed surrogate pairs (e.g., astral emoji) remain single valid characters under FR-004's code-point counting. Rejection precedence over previously-shipped inputs is unchanged (`empty` → `too_long` → `control_character` → `bidi_control` → `lone_surrogate`).
+- Local contract mirror repair + cross-package pin: matchmaking's local `LobbyEvent` declaration had lagged networking's canonical wire copy since Clarifications v1.3 — the wire `error` variant's optional `detail` record was missing locally, undetected because mutual assignability cannot see a missing OPTIONAL field. Ruling: the local copy is repaired field-for-field (identical JSDoc normative wording), and matchmaking's locally declared lobby-domain types (`LobbyEvent`, `IdentityState`, `PublicLobbyEntry`) are pinned mutually assignable to networking's canonical wire declarations by the feature-010 conformance program, plus an indexed-access witness that fails compilation while either side lacks or retypes the optional `detail` record. Networking's public barrel re-exports the three names (as it already did the two settings mirrors) so the pins import the built package surface like every other cross-package witness.

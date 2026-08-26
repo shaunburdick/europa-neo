@@ -275,10 +275,25 @@ export type LobbyEvent =
      * Recoverable failure (FR-018). `actionId` is present when the
      * event correlates to a specific client action and absent for
      * unsolicited failures (e.g., `server_restarted` mid-session).
+     *
+     * Local mirror of networking's canonical wire declaration (spec
+     * Clarifications v1.3 made the wire copy authoritative; v1.5 pins
+     * the mirror via `tests/lobby-conformance.test.ts`). Field-for-field
+     * identical — including the optional `detail` record below, whose
+     * absence here went unnoticed because mutual assignability cannot
+     * see a missing OPTIONAL field.
      */
     | {
           readonly kind: 'error';
           readonly actionId?: LobbyActionId;
           readonly code: LobbyErrorCode;
           readonly message: string;
+          /**
+           * Optional machine-readable detail mirroring matchmaking's
+           * `LobbyError.detail` (field name → message/value). Lets clients
+           * render field-specific, actionable text (e.g., naming the
+           * rejected create-form settings fields); absent when the code
+           * needs no specifics or an older server sent none.
+           */
+          readonly detail?: Readonly<Record<string, string | number | boolean>>;
       };

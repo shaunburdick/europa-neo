@@ -9,7 +9,9 @@
  *     never hand-roll branded literals.
  *   - {@link VALID_HANDLES} / {@link INVALID_HANDLES} — table-driven
  *     corpora where every entry names the FR-004/FR-005 clause it
- *     exercises, ready for Wave-2 validation table tests (T-005).
+ *     exercises (including the Clarifications v1.5 bidi-control and
+ *     lone-surrogate rejections), ready for Wave-2 validation table
+ *     tests (T-005).
  *   - {@link HANDLE_CONFLICT_GROUPS} — variant groups that MUST collide
  *     under trimmed, case-insensitive uniqueness (FR-005).
  *   - {@link DISCRETIONARY_HANDLES} — Unicode case-folding edge cases
@@ -113,13 +115,22 @@ export interface InvalidHandleCase extends HandleCase {
  * POINTS, not UTF-16 units: 24 astral emoji are 24 characters (valid)
  * while measuring 48 under a naive `.length` check — this corpus pins
  * code-point semantics for T-005's implementation.
+ *
+ * v1.5 note: the astral entries double as the well-formed-surrogate-
+ * pair guarantee — Clarifications v1.5 rejects LONE surrogates only,
+ * so paired emoji remain single valid characters. Likewise the U+200B
+ * entry pins that ordinary Cf format characters REMAIN valid; only
+ * the nine bidi controls changed status.
  */
 export const VALID_HANDLES: readonly HandleCase[] = [
     { handle: 'Nova', rule: 'FR-004 baseline: plain ASCII, well within 1–24' },
     { handle: 'x', rule: 'FR-004 minimum length: exactly 1 character' },
     { handle: 'Ångström', rule: 'FR-004: precomposed Latin letters beyond ASCII are valid' },
     { handle: '玩家一号', rule: 'FR-004: CJK text is valid Unicode content' },
-    { handle: '🚀🚀🚀', rule: 'FR-004: astral-plane code points (surrogate pairs) are single characters' },
+    {
+        handle: '🚀🚀🚀',
+        rule: 'FR-004 + v1.5: astral emoji are well-formed surrogate pairs — single valid characters, NOT lone surrogates',
+    },
     {
         handle: '🚀'.repeat(24),
         rule: 'FR-004 boundary: exactly 24 code points (48 UTF-16 units) is valid — counts code points',
@@ -129,7 +140,7 @@ export const VALID_HANDLES: readonly HandleCase[] = [
     { handle: '\tnova\r\n', rule: 'FR-004: line/tab whitespace at the edges is trimmed away' },
     {
         handle: '\u200Bzerowidth',
-        rule: 'FR-004 letter: U+200B is format category Cf, not a control char (Cc) and not ECMAScript whitespace',
+        rule: 'FR-004 letter (v1.5): U+200B is ordinary category Cf and REMAINS valid — only bidi controls (U+202A–U+202E/U+2066–U+2069) and lone surrogates were reclassified',
     },
     {
         handle: 'so\u00A0far',
@@ -141,6 +152,15 @@ export const VALID_HANDLES: readonly HandleCase[] = [
  * Handles that MUST fail FR-004 validation. Every entry expects the
  * `handle_invalid` error code; suites drive the production validator
  * with this table and assert `expectedCode` verbatim.
+ *
+ * v1.5 additions (Wave-2 audit LOW-6/LOW-7): bidirectional formatting
+ * controls (U+202A–U+202E overrides, U+2066–U+2069 isolates — label-
+ * spoofing defense, participant labels are identity per FR-020) and
+ * lone surrogate code points (mutate to U+FFFD on encode, corrupting
+ * logs). The representative entries below cover both ENDS of both
+ * bidi ranges; the unit suite additionally sweeps all ten code
+ * points exhaustively. Well-formed pairs stay valid (see
+ * `VALID_HANDLES`).
  */
 export const INVALID_HANDLES: readonly InvalidHandleCase[] = [
     { handle: '', rule: 'FR-004: empty string has no characters', expectedCode: 'handle_invalid' },
@@ -195,6 +215,53 @@ export const INVALID_HANDLES: readonly InvalidHandleCase[] = [
     {
         handle: '\u0080\u0081x',
         rule: 'FR-004: C1 range (U+0080–U+009F) are control characters',
+        expectedCode: 'handle_invalid',
+    },
+    // --- v1.5: bidirectional formatting controls (audit LOW-6) -------
+    {
+        handle: 'bad\u202Aname',
+        rule: 'v1.5: U+202A LRE — first of the bidi override range (U+202A–U+202E) — is rejected',
+        expectedCode: 'handle_invalid',
+    },
+    {
+        handle: 'user\u202Edlrow',
+        rule: 'v1.5: U+202E RLO — last of the override range; visually reverses the rest of the label',
+        expectedCode: 'handle_invalid',
+    },
+    {
+        handle: '\u2066hidden',
+        rule: 'v1.5: U+2066 LRI — first of the isolate range (U+2066–U+2069) — is rejected like the overrides',
+        expectedCode: 'handle_invalid',
+    },
+    {
+        handle: 'no\u2069pe',
+        rule: 'v1.5: U+2069 PDI — last of the isolate range — is rejected',
+        expectedCode: 'handle_invalid',
+    },
+    {
+        handle: '\u202B\u202Cboth',
+        rule: 'v1.5: multiple bidi controls (RLE + PDF) in one submission reject together',
+        expectedCode: 'handle_invalid',
+    },
+    // --- v1.5: lone surrogates (audit LOW-7) -------------------------
+    {
+        handle: '\uD800nova',
+        rule: 'v1.5: leading lone HIGH surrogate (first Cs code point) mutates to U+FFFD on encode',
+        expectedCode: 'handle_invalid',
+    },
+    {
+        handle: 'nova\uDC00',
+        rule: 'v1.5: trailing lone LOW surrogate (first of the low half) mutates to U+FFFD on encode',
+        expectedCode: 'handle_invalid',
+    },
+    {
+        handle: '\uD83D\uD83Dx',
+        rule: 'v1.5: two adjacent HIGH surrogates never form a pair — the first is lone',
+        expectedCode: 'handle_invalid',
+    },
+    {
+        handle: '🚀\uDEAD',
+        rule: 'v1.5: a low surrogate AFTER a complete pair is still lone — pairing is by code point, not adjacency',
         expectedCode: 'handle_invalid',
     },
 ];

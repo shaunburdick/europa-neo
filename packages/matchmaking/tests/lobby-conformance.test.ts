@@ -37,7 +37,13 @@
  *       `LobbyTerrainSettings`, networking-owned) are additionally
  *       pinned mutually assignable to their authoritative declarations
  *       — matchmaking's `MatchSettings` and terrain's
- *       `GenerationSettings` — so mirror drift fails here.
+ *       `GenerationSettings` — so mirror drift fails here. R-007 adds
+ *       the same pin for the three lobby-domain types matchmaking
+ *       declares locally (`LobbyEvent`, `IdentityState`,
+ *       `PublicLobbyEntry`) against networking's canonical wire
+ *       declarations — the local copies exist only because the facade
+ *       is type-only toward upstream at runtime; structurally they are
+ *       mirrors and drift between them is a bug.
  *   (e) Privacy envelope — no public projection or spectator target
  *       can grow an opaque guest id, seat, or token field without
  *       failing this program (spec FR-003/FR-024/NFR-003).
@@ -54,7 +60,15 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { ConnectionId, LobbyMatchSettings, LobbyTerrainSettings, MatchId } from '@europa/networking';
+import type {
+    ConnectionId,
+    LobbyMatchSettings,
+    LobbyTerrainSettings,
+    MatchId,
+    IdentityState as WireIdentityState,
+    LobbyEvent as WireLobbyEvent,
+    PublicLobbyEntry as WirePublicLobbyEntry,
+} from '@europa/networking';
 // Terrain's authoritative generation settings — the declaration the
 // feature-010 wire mirror must stay identical to (see (d) below).
 import type { GenerationSettings } from '@europa/terrain';
@@ -288,6 +302,36 @@ type LobbyTerrainMirrorConforms = AssertMutuallyAssignable<LobbyTerrainSettings,
 type LobbyMatchSettingsMirrorConforms = AssertMutuallyAssignable<LobbyMatchSettings, MatchSettings>;
 const LOBBY_TERRAIN_MIRROR_CONFORMS: LobbyTerrainMirrorConforms = true;
 const LOBBY_MATCH_SETTINGS_MIRROR_CONFORMS: LobbyMatchSettingsMirrorConforms = true;
+
+// Cross-package lobby-mirror conformance (R-007): matchmaking declares
+// the lobby-domain types locally (`src/contracts/lobby-types.ts`) so
+// the facade stays type-only toward upstream at runtime, but
+// structurally they are MIRRORS of networking's canonical wire
+// declarations (spec Clarifications v1.3 made the wire copy canonical;
+// v1.5 pins this conformance). All fields are optional-or-required
+// identically on both sides, so drift in EITHER direction — a field
+// added, removed, or retyped on either side (e.g. the `error`
+// variant's optional `detail` record that v1.3 added to the wire and
+// R-007 mirrored locally) — fails this program. Imports resolve
+// against networking's BUILT barrel (`dist/index.d.ts`), exactly like
+// the settings-mirror pins above.
+type WireLobbyEventMirrorConforms = AssertMutuallyAssignable<LobbyTypes.LobbyEvent, WireLobbyEvent>;
+type WireIdentityStateMirrorConforms = AssertMutuallyAssignable<LobbyTypes.IdentityState, WireIdentityState>;
+type WirePublicLobbyEntryMirrorConforms = AssertMutuallyAssignable<LobbyTypes.PublicLobbyEntry, WirePublicLobbyEntry>;
+const WIRE_LOBBY_EVENT_MIRROR_CONFORMS: WireLobbyEventMirrorConforms = true;
+const WIRE_IDENTITY_STATE_MIRROR_CONFORMS: WireIdentityStateMirrorConforms = true;
+const WIRE_PUBLIC_LOBBY_ENTRY_MIRROR_CONFORMS: WirePublicLobbyEntryMirrorConforms = true;
+
+// Sharp edge (R-007): plain mutual assignability CANNOT see a missing
+// OPTIONAL field — `{code; message}` assigns cleanly to
+// `{code; message; detail?}` in both directions — which is exactly how
+// the v1.3 wire `detail` record went missing from the local mirror
+// unnoticed. This indexed-access witness fails the program
+// (TS2339) while either side lacks or retypes the field.
+type WireErrorVariant = Extract<WireLobbyEvent, { kind: 'error' }>;
+type LocalErrorVariant = Extract<LobbyTypes.LobbyEvent, { kind: 'error' }>;
+type ErrorVariantDetailMirrors = AssertMutuallyAssignable<LocalErrorVariant['detail'], WireErrorVariant['detail']>;
+const ERROR_VARIANT_DETAIL_MIRRORS: ErrorVariantDetailMirrors = true;
 
 // ---------------------------------------------------------------------------
 // (e) Privacy envelope (no opaque ids / seats / tokens in projections)
@@ -533,6 +577,10 @@ describe('feature 010 lobby contract witnesses (T-001)', () => {
         expect(JOIN_TARGET_SEAT_IS_CANONICAL).toBe(true);
         expect(LOBBY_TERRAIN_MIRROR_CONFORMS).toBe(true);
         expect(LOBBY_MATCH_SETTINGS_MIRROR_CONFORMS).toBe(true);
+        expect(WIRE_LOBBY_EVENT_MIRROR_CONFORMS).toBe(true);
+        expect(WIRE_IDENTITY_STATE_MIRROR_CONFORMS).toBe(true);
+        expect(WIRE_PUBLIC_LOBBY_ENTRY_MIRROR_CONFORMS).toBe(true);
+        expect(ERROR_VARIANT_DETAIL_MIRRORS).toBe(true);
         expect(ENTRY_HAS_NO_GUEST_ID).toBe(true);
         expect(SNAPSHOT_HAS_NO_GUEST_ID).toBe(true);
         expect(IDENTITY_STATE_HAS_NO_GUEST_ID).toBe(true);

@@ -8,7 +8,10 @@
  * collision claim from `HANDLE_CONFLICT_GROUPS`, and the discretionary
  * case-folding pins from `DISCRETIONARY_HANDLES`. This suite never
  * re-declares handle cases; it only states what the production
- * validator must do with each corpus entry.
+ * validator must do with each corpus entry. ONE deliberate exception:
+ * the v1.5 closed-set sweeps below enumerate ALL nine bidi control
+ * code points and the four surrogate range boundaries — exhaustive
+ * coverage of a closed set, not mirrored logic.
  *
  * Expected outputs are hard-coded literals (test-reviewer Rule 1): the
  * accepted-value table below STATES what each valid entry trims to
@@ -17,7 +20,10 @@
  *
  * The discretionary pairs pin the v1.4 spec ruling: uniqueness keys use
  * locale-independent `String.prototype.toLowerCase()`, so `ß`/`SS` and
- * `İ`/`i` variants remain DISTINCT handles.
+ * `İ`/`i` variants remain DISTINCT handles. The v1.5 sweeps pin the
+ * validation-hardening ruling: bidi formatting controls and lone
+ * surrogates are rejected with distinct machine-readable reasons while
+ * well-formed surrogate pairs and ordinary Cf characters stay valid.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -112,6 +118,105 @@ describe('validateHandle — machine-readable detail (v1.3 detail ruling)', () =
             ok: false,
             error: { code: 'handle_invalid', message: expect.any(String), detail: { reason: 'control_character' } },
         });
+    });
+});
+
+// ----------------------------------------------------------------------------
+// Validation hardening (spec Clarifications v1.5 — audit LOW-6/LOW-7)
+// ----------------------------------------------------------------------------
+
+/** The five bidi override controls, U+202A–U+202E (LRE/RLE/PDF/LRO/RLO). */
+const BIDI_OVERRIDE_RANGE = [0x202a, 0x202b, 0x202c, 0x202d, 0x202e] as const;
+
+/** The four bidi isolate controls, U+2066–U+2069 (LRI/RLI/FSI/PDI). */
+const BIDI_ISOLATE_RANGE = [0x2066, 0x2067, 0x2068, 0x2069] as const;
+
+/** All NINE bidi formatting controls covered by the v1.5 ruling. */
+const ALL_BIDI_CONTROLS: readonly number[] = [...BIDI_OVERRIDE_RANGE, ...BIDI_ISOLATE_RANGE];
+
+/** The four corners of the surrogate space (category Cs, U+D800–U+DFFF). */
+const SURROGATE_BOUNDARIES = [0xd800, 0xdbff, 0xdc00, 0xdfff] as const;
+
+describe('validateHandle — v1.5 bidi-control rejection (audit LOW-6)', () => {
+    it('rejects EVERY bidi control code point with reason bidi_control (closed-set sweep)', () => {
+        expect(ALL_BIDI_CONTROLS).toHaveLength(9);
+        for (const codePoint of ALL_BIDI_CONTROLS) {
+            const handle = `x${String.fromCodePoint(codePoint)}y`;
+            const result = validateHandle(handle);
+            expect(result, `U+${codePoint.toString(16).toUpperCase()}`).toEqual({
+                ok: false,
+                error: { code: 'handle_invalid', message: expect.any(String), detail: { reason: 'bidi_control' } },
+            });
+        }
+    });
+
+    it('rejects the corpus bidi entries with reason bidi_control', () => {
+        for (const entry of INVALID_HANDLES) {
+            if (!ALL_BIDI_CONTROLS.some((cp) => entry.handle.includes(String.fromCodePoint(cp)))) {
+                continue;
+            }
+            const result = validateHandle(entry.handle);
+            expect(result.ok, entry.rule).toBe(false);
+            if (!result.ok) {
+                expect(result.error.detail, entry.rule).toEqual({ reason: 'bidi_control' });
+            }
+        }
+    });
+
+    it('still accepts ordinary Cf format characters — only bidi controls were reclassified', () => {
+        // U+200B zero-width space and U+00AD soft hyphen are Cf but NOT
+        // bidi controls; they remain valid content per the v1.5 letter.
+        expect(validateHandle('\u200Bzerowidth')).toEqual({ ok: true, data: '\u200Bzerowidth' });
+        expect(validateHandle('soft\u00ADhyphen')).toEqual({ ok: true, data: 'soft\u00ADhyphen' });
+    });
+});
+
+describe('validateHandle — v1.5 lone-surrogate rejection (audit LOW-7)', () => {
+    it('rejects every surrogate range boundary when unpaired, with reason lone_surrogate', () => {
+        for (const codeUnit of SURROGATE_BOUNDARIES) {
+            const handle = `a${String.fromCharCode(codeUnit)}b`;
+            const result = validateHandle(handle);
+            expect(result, `U+${codeUnit.toString(16).toUpperCase()}`).toEqual({
+                ok: false,
+                error: { code: 'handle_invalid', message: expect.any(String), detail: { reason: 'lone_surrogate' } },
+            });
+        }
+    });
+
+    it('rejects broken-pair arrangements where a surrogate hides next to complete pairs', () => {
+        // Two adjacent HIGH surrogates never pair; a LOW surrogate after
+        // a COMPLETE pair is still lone. Pairing is by code point, not
+        // adjacency — naive "high must be followed by low" checks miss
+        // both shapes.
+        for (const handle of ['\uD83D\uD83Dx', '🚀\uDEAD']) {
+            const result = validateHandle(handle);
+            expect(result, JSON.stringify(handle)).toEqual({
+                ok: false,
+                error: { code: 'handle_invalid', message: expect.any(String), detail: { reason: 'lone_surrogate' } },
+            });
+        }
+    });
+
+    it('keeps well-formed surrogate pairs valid — astral emoji count as single characters', () => {
+        expect(validateHandle('🚀ok')).toEqual({ ok: true, data: '🚀ok' });
+        expect(validateHandle('🚀'.repeat(HANDLE_MAX_CHARS))).toEqual({
+            ok: true,
+            data: '🚀'.repeat(HANDLE_MAX_CHARS),
+        });
+    });
+
+    it('rejects the corpus lone-surrogate entries with reason lone_surrogate', () => {
+        for (const entry of INVALID_HANDLES) {
+            const hasLoneSurrogate = Array.from(entry.handle).some((codePoint) => /[\uD800-\uDFFF]/u.test(codePoint));
+            if (!hasLoneSurrogate) {
+                continue;
+            }
+            const result = validateHandle(entry.handle);
+            expect(result.ok, entry.rule).toBe(false);
+            if (!result.ok) {
+                expect(result.error.detail, entry.rule).toEqual({ reason: 'lone_surrogate' });
+            }
+        }
     });
 });
 
