@@ -177,6 +177,12 @@ jobs:
       - name: Quiet-client keepalive (idle-sweep guard)
         run: pnpm --filter @europa/console test:keepalive
 
+      # Lobby transport over the real stack (R-010 regression guard):
+      # real sockets against the real matchmaking + networking stacks,
+      # ~6 s wall time.
+      - name: Lobby transport integration (real stack)
+        run: pnpm --filter @europa/console test:lobby-integration
+
       # Contract byte-identity + surface completeness (reads dist/).
       - name: Library emit + contract conformance
         run: |
