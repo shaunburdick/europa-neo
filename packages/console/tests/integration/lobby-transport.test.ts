@@ -1135,13 +1135,14 @@ describe('lobby transport integration (feature 010 T-013)', () => {
         expect(revisionBeforeRestart ?? 0).toBeGreaterThanOrEqual(2);
 
         // -- Kill the whole stack (in-memory lobby state dies with it) -----
-        // NOTE: the client disconnects FIRST, deliberately. The server's
-        // close() currently terminates only MATCH-channel connections —
-        // lobby-only sockets are cleared from its map without a close
-        // frame (defect reported), so a lobby client cannot detect the
-        // outage transport-wise. A real browser reaches the same state
-        // through its own failure handling; the semantics under test here
-        // are the persisted claim versus a wiped registry.
+        // NOTE: the client disconnects FIRST as scenario hygiene only.
+        // Since 7c3e8cd the server's close() drains ALL tracked
+        // connections with a 1001 'going away' frame — lobby-only sockets
+        // included — so this ordering is no longer load-bearing for
+        // detecting the outage; networking's server-close.test.ts pins
+        // that drain behavior directly. A real browser reaches the same
+        // state through its own failure handling; the semantics under
+        // test here are the persisted claim versus a wiped registry.
         phoenix.client.disconnect();
         await stack.server.close();
         await stack.matchmaker.close();
