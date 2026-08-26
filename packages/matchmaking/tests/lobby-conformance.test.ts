@@ -1,5 +1,5 @@
 /**
- * Compile-time contract witnesses — Feature 010 (T-001).
+ * Compile-time contract witnesses — Feature 010 (T-001 + T-003).
  *
  * Proves the exported surface of the feature-010 lobby contracts
  * (`src/contracts/lobby-types.ts` + `src/contracts/lobby-api.ts`)
@@ -36,12 +36,26 @@
  *   (e) Privacy envelope — no public projection or spectator target
  *       can grow an opaque guest id, seat, or token field without
  *       failing this program (spec FR-003/FR-024/NFR-003).
+ *   (f) Public barrel surface (T-003) — every feature-010 contract
+ *       name is reachable from the BUILT package root
+ *       (`dist/index.d.ts` — what consumers actually import as
+ *       `@europa/matchmaking`) and each barrel export IS the src
+ *       contract declaration (mutual assignability, not a lookalike).
+ *       Like the console precedent this half reads the built emit, so
+ *       `pnpm typecheck:conformance` requires `pnpm build` first; the
+ *       dist import is type-only (erased at runtime), so vitest never
+ *       touches `dist/`.
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { ConnectionId, MatchId } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 // Feature-006 canonical shapes the lobby contracts build on.
 import type { MatchSettings, SeatAssignment } from '../contracts/match-types';
+// Type-only namespace over the BUILT package root (erased at runtime;
+// resolved against dist/index.d.ts by the tsc conformance program).
+import type * as LobbyBarrel from '../dist/index';
 // Type-only namespace imports (erased at runtime; checked by the tsc program).
 import type * as LobbyApi from '../src/contracts/lobby-api';
 import type * as LobbyTypes from '../src/contracts/lobby-types';
@@ -273,6 +287,179 @@ const SPECTATOR_TARGET_HAS_NO_SEAT: SpectatorTargetHasNoSeat = true;
 const SPECTATOR_TARGET_HAS_NO_PLAYER_ID: SpectatorTargetHasNoPlayerId = true;
 
 // ---------------------------------------------------------------------------
+// (f) Public barrel surface (T-003) — what consumers actually import
+// ---------------------------------------------------------------------------
+
+/**
+ * Compile-time witness table over the BUILT package root
+ * (`dist/index.d.ts`, i.e. the `@europa/matchmaking` entry point).
+ * Property access on the namespace type fails
+ * `pnpm typecheck:conformance` when a name is missing or misspelled
+ * from the barrel (bracket-indexed access cannot see re-export
+ * members; property access can). Same pattern as the console
+ * precedent's `DIST_TYPE_WITNESS`. Requires `pnpm build` first.
+ *
+ * The KEYS are cross-checked against the contract modules at runtime
+ * below, so the table can neither lag the contracts nor invent names.
+ * Value exports need no witnessing — and feature 010's artifacts are
+ * type-only by design (the barrel re-exports no contract values).
+ *
+ * `Result` is witnessed instantiated with its documented identity/error
+ * parameters (a bare generic alias reference cannot be used as a
+ * type), which additionally proves the generic is concretely usable
+ * through the barrel.
+ */
+const BARREL_TYPE_WITNESS = {
+    GuestIdentityClaim: null as unknown as LobbyBarrel.GuestIdentityClaim,
+    GuestPlayerId: null as unknown as LobbyBarrel.GuestPlayerId,
+    IdentityState: null as unknown as LobbyBarrel.IdentityState,
+    LobbyActionId: null as unknown as LobbyBarrel.LobbyActionId,
+    LobbyError: null as unknown as LobbyBarrel.LobbyError,
+    LobbyErrorCode: null as unknown as LobbyBarrel.LobbyErrorCode,
+    LobbyEvent: null as unknown as LobbyBarrel.LobbyEvent,
+    LobbyRevision: null as unknown as LobbyBarrel.LobbyRevision,
+    LobbySnapshot: null as unknown as LobbyBarrel.LobbySnapshot,
+    LobbyService: null as unknown as LobbyBarrel.LobbyService,
+    LobbyStatus: null as unknown as LobbyBarrel.LobbyStatus,
+    MatchJoinTarget: null as unknown as LobbyBarrel.MatchJoinTarget,
+    PublicLobbyEntry: null as unknown as LobbyBarrel.PublicLobbyEntry,
+    Result: null as unknown as LobbyBarrel.Result<LobbyTypes.IdentityState, LobbyTypes.LobbyError>,
+    SpectatorTarget: null as unknown as LobbyBarrel.SpectatorTarget,
+};
+
+/**
+ * Barrel-vs-src identity witnesses: each entry proves the barrel name
+ * is MUTUALLY ASSIGNABLE with the src contract declaration — i.e. the
+ * barrel wires the actual contract types through to consumers, not
+ * structurally-drifted lookalikes (`typeof` reads the exact type the
+ * table pinned above).
+ */
+type BarrelGuestIdentityClaimIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.GuestIdentityClaim,
+    typeof BARREL_TYPE_WITNESS.GuestIdentityClaim
+>;
+type BarrelGuestPlayerIdIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.GuestPlayerId,
+    typeof BARREL_TYPE_WITNESS.GuestPlayerId
+>;
+type BarrelIdentityStateIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.IdentityState,
+    typeof BARREL_TYPE_WITNESS.IdentityState
+>;
+type BarrelLobbyActionIdIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.LobbyActionId,
+    typeof BARREL_TYPE_WITNESS.LobbyActionId
+>;
+type BarrelLobbyErrorIsSrc = AssertMutuallyAssignable<LobbyTypes.LobbyError, typeof BARREL_TYPE_WITNESS.LobbyError>;
+type BarrelLobbyErrorCodeIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.LobbyErrorCode,
+    typeof BARREL_TYPE_WITNESS.LobbyErrorCode
+>;
+type BarrelLobbyEventIsSrc = AssertMutuallyAssignable<LobbyTypes.LobbyEvent, typeof BARREL_TYPE_WITNESS.LobbyEvent>;
+type BarrelLobbyRevisionIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.LobbyRevision,
+    typeof BARREL_TYPE_WITNESS.LobbyRevision
+>;
+type BarrelLobbySnapshotIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.LobbySnapshot,
+    typeof BARREL_TYPE_WITNESS.LobbySnapshot
+>;
+type BarrelLobbyServiceIsSrc = AssertMutuallyAssignable<LobbyApi.LobbyService, typeof BARREL_TYPE_WITNESS.LobbyService>;
+type BarrelLobbyStatusIsSrc = AssertMutuallyAssignable<LobbyTypes.LobbyStatus, typeof BARREL_TYPE_WITNESS.LobbyStatus>;
+type BarrelMatchJoinTargetIsSrc = AssertMutuallyAssignable<
+    LobbyApi.MatchJoinTarget,
+    typeof BARREL_TYPE_WITNESS.MatchJoinTarget
+>;
+type BarrelPublicLobbyEntryIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.PublicLobbyEntry,
+    typeof BARREL_TYPE_WITNESS.PublicLobbyEntry
+>;
+type BarrelResultIsSrc = AssertMutuallyAssignable<
+    LobbyApi.Result<LobbyTypes.IdentityState, LobbyTypes.LobbyError>,
+    typeof BARREL_TYPE_WITNESS.Result
+>;
+type BarrelSpectatorTargetIsSrc = AssertMutuallyAssignable<
+    LobbyApi.SpectatorTarget,
+    typeof BARREL_TYPE_WITNESS.SpectatorTarget
+>;
+
+const BARREL_GUEST_IDENTITY_CLAIM_IS_SRC: BarrelGuestIdentityClaimIsSrc = true;
+const BARREL_GUEST_PLAYER_ID_IS_SRC: BarrelGuestPlayerIdIsSrc = true;
+const BARREL_IDENTITY_STATE_IS_SRC: BarrelIdentityStateIsSrc = true;
+const BARREL_LOBBY_ACTION_ID_IS_SRC: BarrelLobbyActionIdIsSrc = true;
+const BARREL_LOBBY_ERROR_IS_SRC: BarrelLobbyErrorIsSrc = true;
+const BARREL_LOBBY_ERROR_CODE_IS_SRC: BarrelLobbyErrorCodeIsSrc = true;
+const BARREL_LOBBY_EVENT_IS_SRC: BarrelLobbyEventIsSrc = true;
+const BARREL_LOBBY_REVISION_IS_SRC: BarrelLobbyRevisionIsSrc = true;
+const BARREL_LOBBY_SNAPSHOT_IS_SRC: BarrelLobbySnapshotIsSrc = true;
+const BARREL_LOBBY_SERVICE_IS_SRC: BarrelLobbyServiceIsSrc = true;
+const BARREL_LOBBY_STATUS_IS_SRC: BarrelLobbyStatusIsSrc = true;
+const BARREL_MATCH_JOIN_TARGET_IS_SRC: BarrelMatchJoinTargetIsSrc = true;
+const BARREL_PUBLIC_LOBBY_ENTRY_IS_SRC: BarrelPublicLobbyEntryIsSrc = true;
+const BARREL_RESULT_IS_SRC: BarrelResultIsSrc = true;
+const BARREL_SPECTATOR_TARGET_IS_SRC: BarrelSpectatorTargetIsSrc = true;
+
+/**
+ * The two feature-010 contract modules backing the barrel exports.
+ * Every public name they declare must be reachable from the package
+ * root (runtime cross-check against `BARREL_TYPE_WITNESS` below).
+ */
+const LOBBY_CONTRACT_FILES = ['lobby-types.ts', 'lobby-api.ts'] as const;
+
+/** Resolve a path relative to the matchmaking package root. */
+function packagePath(relativePath: string): string {
+    return resolve(__dirname, '..', relativePath);
+}
+
+/**
+ * Extract every top-level TYPE / INTERFACE / CONST / ENUM name declared
+ * in a contract module, plus every name in any `export { … }`
+ * re-export block (same mechanical transcription as the console
+ * precedent's `extractPublicNames`; neither lobby module currently
+ * uses export blocks, but the witness must survive one being added).
+ */
+function extractPublicNames(source: string): Set<string> {
+    const names = new Set<string>();
+    const declaration = /^export\s+(?:declare\s+)?(?:type|interface|const|enum)\s+([A-Za-z0-9_]+)/gm;
+    for (const match of source.matchAll(declaration)) {
+        const [, name] = match;
+        if (name !== undefined) {
+            names.add(name);
+        }
+    }
+    const block = /export\s+(?:type\s+)?\{([^}]*)\}/g;
+    for (const match of source.matchAll(block)) {
+        const [, body] = match;
+        if (body === undefined) {
+            continue;
+        }
+        for (const raw of body.split(',')) {
+            const name = raw
+                .trim()
+                .replace(/^type\s+/, '')
+                .split(/\s+as\s+/)
+                .pop()
+                ?.trim();
+            if (name !== undefined && name.length > 0) {
+                names.add(name);
+            }
+        }
+    }
+    return names;
+}
+
+/** Every public name across both feature-010 contract modules. */
+function expectedLobbyContractNames(): Set<string> {
+    const all = new Set<string>();
+    for (const file of LOBBY_CONTRACT_FILES) {
+        for (const name of extractPublicNames(readFileSync(packagePath(`src/contracts/${file}`), 'utf-8'))) {
+            all.add(name);
+        }
+    }
+    return all;
+}
+
+// ---------------------------------------------------------------------------
 // Runtime assertions (keep the witnesses "used"; deterministic)
 // ---------------------------------------------------------------------------
 
@@ -342,5 +529,38 @@ describe('feature 010 lobby contract witnesses (T-001)', () => {
             'accepted:1:waiting',
             'error:match_full',
         ]);
+    });
+});
+
+describe('feature 010 public barrel surface witnesses (T-003)', () => {
+    it('all compile-time barrel witnesses hold', () => {
+        expect(BARREL_GUEST_IDENTITY_CLAIM_IS_SRC).toBe(true);
+        expect(BARREL_GUEST_PLAYER_ID_IS_SRC).toBe(true);
+        expect(BARREL_IDENTITY_STATE_IS_SRC).toBe(true);
+        expect(BARREL_LOBBY_ACTION_ID_IS_SRC).toBe(true);
+        expect(BARREL_LOBBY_ERROR_IS_SRC).toBe(true);
+        expect(BARREL_LOBBY_ERROR_CODE_IS_SRC).toBe(true);
+        expect(BARREL_LOBBY_EVENT_IS_SRC).toBe(true);
+        expect(BARREL_LOBBY_REVISION_IS_SRC).toBe(true);
+        expect(BARREL_LOBBY_SNAPSHOT_IS_SRC).toBe(true);
+        expect(BARREL_LOBBY_SERVICE_IS_SRC).toBe(true);
+        expect(BARREL_LOBBY_STATUS_IS_SRC).toBe(true);
+        expect(BARREL_MATCH_JOIN_TARGET_IS_SRC).toBe(true);
+        expect(BARREL_PUBLIC_LOBBY_ENTRY_IS_SRC).toBe(true);
+        expect(BARREL_RESULT_IS_SRC).toBe(true);
+        expect(BARREL_SPECTATOR_TARGET_IS_SRC).toBe(true);
+    });
+
+    it('every feature-010 contract name is exported from the package root', () => {
+        const expected = expectedLobbyContractNames();
+        const witnessed = new Set<string>(Object.keys(BARREL_TYPE_WITNESS));
+        const missing = [...expected].filter((name) => !witnessed.has(name));
+        expect(missing, 'feature-010 contract names missing from the barrel witness table').toEqual([]);
+    });
+
+    it('the barrel witness table contains no invented names', () => {
+        const expected = expectedLobbyContractNames();
+        const invented = Object.keys(BARREL_TYPE_WITNESS).filter((name) => !expected.has(name));
+        expect(invented, 'witness names not declared by either feature-010 contract module').toEqual([]);
     });
 });

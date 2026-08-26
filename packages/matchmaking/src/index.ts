@@ -1,11 +1,21 @@
 /**
- * Public surface of the `@europa/matchmaking` package (feature 006).
+ * Public surface of the `@europa/matchmaking` package (feature 006;
+ * feature 010 contract artifacts since T-003).
  *
  * **Phase 2 (Foundational) barrel** — exposes the tunable constants,
  * the error factory, the identity generators/validators, the in-memory
  * store, and the full public type surface (re-exported from the
  * byte-identical contract mirror at `../contracts/match-types.ts`, so
  * the host binary has one import path).
+ *
+ * Feature 010 (Public Lobby & Match Browser) adds its server API/event
+ * contract artifacts under the same type-only discipline: the lobby
+ * identity/projection/error/event shapes
+ * (`src/contracts/lobby-types.ts`) and the `LobbyService` facade with
+ * its `Result` union and hand-off targets
+ * (`src/contracts/lobby-api.ts`). The lobby RUNTIME (identity registry,
+ * facade implementation, transport wiring) lands with later tasks and
+ * will be exported here when it exists.
  *
  * `createMatchmaker` and the `Matchmaker` runtime land in Phase 3
  * (US1 Quick Match); this intermediate barrel compiles standalone.
@@ -93,6 +103,43 @@ export {
     MATCHMAKING_CONSTANTS,
     MATCHMAKING_DEFAULT_CONFIG,
 } from './constants';
+
+/**
+ * Feature 010 (Public Lobby & Match Browser): the server API/event
+ * contract artifacts, exported from `src/contracts/` per plan.md §1
+ * (the package-root `contracts/` directory remains the feature-006
+ * spec-mirror surface exposed via the
+ * `@europa/matchmaking/contracts/*` export path). Type-only like every
+ * contract re-export above — the barrel deliberately re-exports no
+ * *values* from contract modules, keeping the compiled bundle free of
+ * runtime upstream imports (research.md §9: zero runtime deps). The
+ * lobby shapes mirror
+ * `specs/010-public-lobby-match-browser/contracts/` shape-for-shape;
+ * networking's wire mirrors are structurally compatible by design, but
+ * THESE declarations are the server-side source of truth consumers
+ * should import. The lobby RUNTIME (identity registry, facade
+ * implementation, transport wiring) lands with later tasks and will be
+ * exported here when it exists.
+ */
+export type {
+    LobbyService,
+    MatchJoinTarget,
+    Result,
+    SpectatorTarget,
+} from './contracts/lobby-api';
+export type {
+    GuestIdentityClaim,
+    GuestPlayerId,
+    IdentityState,
+    LobbyActionId,
+    LobbyError,
+    LobbyErrorCode,
+    LobbyEvent,
+    LobbyRevision,
+    LobbySnapshot,
+    LobbyStatus,
+    PublicLobbyEntry,
+} from './contracts/lobby-types';
 
 export { makeError } from './errors';
 
