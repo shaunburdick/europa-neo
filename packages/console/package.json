@@ -32,6 +32,7 @@
         "test:determinism": "vitest run --config vitest.config.ts tests/integration/determinism.test.ts",
         "test:parity": "vitest run --config vitest.config.ts tests/integration/subcell-parity.test.ts",
         "test:keepalive": "vitest run --config vitest.config.ts tests/integration/quiet-client-keepalive.test.ts",
+        "test:lobby-integration": "vitest run --config vitest.config.ts tests/integration/lobby-transport.test.ts",
         "test:selfhost": "bash scripts/test-selfhost.sh",
         "lint": "biome check .",
         "format": "biome format --write .",
