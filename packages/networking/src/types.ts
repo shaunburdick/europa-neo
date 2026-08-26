@@ -29,8 +29,9 @@
 //
 // Every transport-layer type: branded primitives, connection role +
 // state machine, server-side records, rate limiting, the wire
-// envelope, message kinds, the payload union, and all twelve payload
-// interfaces. Names alphabetical.
+// envelope, message kinds, the payload union, and all twenty payload
+// interfaces (twelve gameplay + feature 010's additive lobby family).
+// Names alphabetical.
 
 export type {
     // Branded primitives
@@ -42,10 +43,30 @@ export type {
     ErrorCode,
     // Transport-layer payloads
     ErrorPayload,
+    // Feature 010 lobby family (branded + domain + payload shapes)
+    GuestIdentityClaim,
+    GuestPlayerId,
     HelloAckPayload,
     HelloPayload,
+    IdentityState,
     JoinAckPayload,
     JoinMatchPayload,
+    LobbyActionId,
+    LobbyCreatePayload,
+    LobbyErrorCode,
+    LobbyEvent,
+    LobbyEventPayload,
+    LobbyIdentityPayload,
+    LobbyJoinPayload,
+    LobbyLeavePayload,
+    LobbyMatchSettings,
+    LobbyRevision,
+    LobbySetHandlePayload,
+    LobbySnapshot,
+    LobbySpectatePayload,
+    LobbyStatus,
+    LobbySubscribePayload,
+    LobbyTerrainSettings,
     // Branded primitive
     MatchId,
     // Wire envelope discriminator
@@ -57,8 +78,8 @@ export type {
     OrderSubmissionPayload,
     PingPayload,
     PongPayload,
-    // The universal frame
     ProtocolEnvelope,
+    PublicLobbyEntry,
     RateLimitBucket,
     SequenceNumber,
     ServerConnection,

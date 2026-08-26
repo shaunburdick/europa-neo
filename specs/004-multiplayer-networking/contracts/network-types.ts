@@ -14,6 +14,11 @@
  *   - No `any`. Use `unknown` + narrowing where shape is dynamic.
  *   - Integer-only numeric fields (sequence numbers, timestamps in ms).
  *   - Every message on the wire is one of these envelopes, never a bare object.
+ *
+ * Feature 010 (public lobby & match browser) extends this file with an
+ * ADDITIVE `lobby*` message family; see the feature-010 section below.
+ * Its design source of truth is
+ * `specs/010-public-lobby-match-browser/contracts/lobby-wire.md`.
  */
 
 // Engine type used directly by this module's declarations
@@ -245,6 +250,13 @@ export interface ProtocolEnvelope<TPayload extends NetworkPayload> {
  * kind = additive change; bumping the protocol version is required only
  * when an existing kind's payload shape changes.
  *
+ * Feature 010 adds the closed `lobby*` family additively (no version
+ * bump — see the feature-010 section below). Recipients MUST ignore
+ * unrecognized kinds instead of failing: `type` is a string discriminator
+ * precisely so new kinds stay non-breaking for old clients that ignore
+ * them, and the server delivers lobby frames only to lobby-subscribed
+ * connections so gameplay-only peers never observe them.
+ *
  * Discriminator for `ProtocolEnvelope<TPayload>['type']`. Server
  * narrows `NetworkPayload` on this.
  */
@@ -254,6 +266,13 @@ export type MessageKind =
   | 'joinMatch' // request seat (new) or claim existing seat (with token)
   | 'order' // submit Order (wraps engine Order)
   | 'ping' // heartbeat (client-driven)
+  | 'lobbyIdentity' // feature 010: establish/restore this connection's guest identity
+  | 'lobbySetHandle' // feature 010: claim or rename the identity's public handle
+  | 'lobbySubscribe' // feature 010: request the LobbySnapshot and lobby updates
+  | 'lobbyCreate' // feature 010: create a public match; creator's seat reserved
+  | 'lobbyJoin' // feature 010: join a listed public match by id
+  | 'lobbySpectate' // feature 010: attach read-only to a running public match
+  | 'lobbyLeave' // feature 010: release the match association / return to lobby
   // Server → Client
   | 'helloAck' // hello accepted, connection established at protocol layer
   | 'joinAck' // seat claimed / matched; carries session token + PlayerView snapshot
@@ -262,7 +281,8 @@ export type MessageKind =
   | 'orderAck' // result of an order submission (engine's CommandResult)
   | 'terminal' // match ended (engine's MatchResult)
   | 'pong' // heartbeat ack
-  | 'error'; // protocol-level rejection (version mismatch, auth fail, rate limit, etc.)
+  | 'error' // protocol-level rejection (version mismatch, auth fail, rate limit, etc.)
+  | 'lobbyEvent'; // feature 010: identity/snapshot/action/error events for subscribers
 
 /**
  * The discriminated union of all payload bodies that ride inside a
@@ -292,7 +312,16 @@ export type NetworkPayload =
   | OrderSubmissionPayload
   | OrderAckPayload
   | TerminalPayload
-  | ErrorPayload;
+  | ErrorPayload
+  // --- Feature 010 lobby payloads (additive; see the lobby section) ---
+  | LobbyIdentityPayload
+  | LobbySetHandlePayload
+  | LobbySubscribePayload
+  | LobbyCreatePayload
+  | LobbyJoinPayload
+  | LobbySpectatePayload
+  | LobbyLeavePayload
+  | LobbyEventPayload;
 
 // ----------------------------------------------------------------------------
 // Transport-layer payloads (networking-owned; not in engine contract)
@@ -530,6 +559,315 @@ export type ErrorCode =
   | 'rate_limited' // FR-010
   | 'spectator_readonly' // spectator tried to submit an order
   | 'internal_error'; // catch-all; logged on the server
+
+// ----------------------------------------------------------------------------
+// Feature 010 — Public lobby & match browser (additive wire family)
+// ----------------------------------------------------------------------------
+//
+// Design source of truth:
+//   - specs/010-public-lobby-match-browser/contracts/lobby-wire.md
+//     (message kinds + payload shapes — mirrored verbatim below)
+//   - specs/010-public-lobby-match-browser/contracts/lobby-types.md
+//     (domain shapes — wire-mirrored below)
+//
+// The lobby family rides the existing `ProtocolEnvelope` and extends the
+// closed unions above. It is ADDITIVE: every gameplay payload declared
+// earlier in this file is untouched. The domain shapes are restated here
+// instead of imported from `@europa/matchmaking` because matchmaking
+// depends on networking — importing would invert the dependency arrow.
+// Matchmaking's implementation contracts (feature 010) MUST remain
+// mutually assignable with these declarations; drift in either direction
+// is a conformance bug (pinned by tests/contracts-conformance.test.ts).
+//
+// Version policy (normative):
+//   - Introducing this family does NOT bump `NETWORK_API_VERSION`.
+//     Additive message kinds never change an existing kind's payload
+//     shape, so the FR-004 breaking boundary does not move and old
+//     gameplay clients keep interoperating with the match endpoint
+//     unchanged (feature 010 plan, "Compatibility and migration").
+//   - Incompatible edits — changing or removing any shape declared in
+//     this file — DO require the FR-004 version policy (graceful
+//     rejection across the breaking boundary) plus conformance fixture
+//     updates in BOTH canonical copies of this file in the same change
+//     set.
+//
+// Unknown-message behavior (normative):
+//   - Recipients MUST ignore envelopes whose `type` they do not
+//     recognize rather than treat them as fatal. A lobby frame reaching
+//     a peer without lobby support is answered with a graceful,
+//     actionable error (the existing `unknown_message_kind` /
+//     protocol-sequence rejections) while the connection stays open —
+//     errors never close a healthy connection unless existing policy
+//     (version drift, transport failure) requires it.
+//   - Clients additionally ignore unrecognized additive variants inside
+//     `LobbyEvent`, so newer servers may introduce event kinds an older
+//     client has never seen.
+//   - The server delivers `lobbyEvent` frames ONLY to connections that
+//     opted in via `lobbySubscribe`; gameplay-only clients therefore
+//     never observe lobby traffic.
+
+/**
+ * Opaque guest player identifier (feature 010). Server-issued, unique
+ * among active identities, non-semantic, and NEVER a display name: it
+ * must not appear in public lobby entries, participant labels, player/
+ * spectator views, URLs, or documentation examples (spec FR-024). The
+ * browser may store it locally and present it back as a
+ * `GuestIdentityClaim`; the server honors that claim only while its own
+ * registry still holds the identity.
+ *
+ * Wire form: plain string (brands are compile-time only).
+ */
+export type GuestPlayerId = string & { readonly __brand: 'GuestPlayerId' };
+
+/**
+ * Monotonic lobby-snapshot revision (feature 010). Strictly increasing
+ * per server process; clients apply a snapshot only when its revision is
+ * newer than the last one they applied.
+ *
+ * Wire form: plain number.
+ */
+export type LobbyRevision = number & { readonly __brand: 'LobbyRevision' };
+
+/**
+ * Client-generated correlation id for one lobby action (feature 010).
+ * Stamped on every lobby request; the server echoes it on the matching
+ * `actionAccepted` / `error` lobby event so outcomes can be correlated
+ * (mirrors the order seq ↔ orderAck correlation discipline).
+ *
+ * Wire form: plain number.
+ */
+export type LobbyActionId = number & { readonly __brand: 'LobbyActionId' };
+
+/**
+ * Lifecycle status of a public match entry as projected to the lobby
+ * (feature 010 FR-007): `'waiting'` entries offer Join while capacity
+ * remains; `'in_progress'` entries offer Spectate only.
+ */
+export type LobbyStatus = 'waiting' | 'in_progress';
+
+/**
+ * Client-presentable identity claim (feature 010). The browser stores
+ * the opaque id + handle locally and MAY present them via
+ * `LobbyIdentityPayload` to restore a previous session's identity. The
+ * server accepts the claim only when its registry still holds that
+ * identity; otherwise it issues a fresh one. Purely advisory input —
+ * never authority (spec FR-002/FR-021).
+ */
+export interface GuestIdentityClaim {
+  readonly guestPlayerId?: GuestPlayerId;
+  readonly handle?: string;
+}
+
+/**
+ * Server-confirmed identity projection (feature 010). `handle` is null
+ * until the player submits a valid handle; `hasIdentity` is always true
+ * on a wire-delivered identity event. Contains NO opaque guest id — the
+ * identifier never leaves the server (spec FR-024).
+ */
+export interface IdentityState {
+  readonly handle: string | null;
+  readonly hasIdentity: true;
+}
+
+/**
+ * Safe public projection of one listed match (feature 010 FR-006).
+ * Carries discovery data only: no participant list, no seat tokens, no
+ * opaque guest ids, and never a private or finished match.
+ */
+export interface PublicLobbyEntry {
+  readonly matchId: MatchId;
+  /** Seats currently claimed (players only; spectators excluded). */
+  readonly seatsFilled: number;
+  /** Configured capacity (engine contract: 2–4 players). */
+  readonly capacity: 2 | 3 | 4;
+  readonly status: LobbyStatus;
+  /** Settings summary shown in the browse list (spec FR-006). */
+  readonly boardSize: number;
+  readonly tickIntervalMs: number;
+}
+
+/**
+ * Complete lobby state sent on subscribe and after every mutation or
+ * lifecycle event (feature 010). Full snapshots (not row patches) keep
+ * stale rows impossible; clients apply a snapshot only when `revision`
+ * is strictly newer than the last applied one.
+ */
+export interface LobbySnapshot {
+  readonly revision: LobbyRevision;
+  readonly entries: ReadonlyArray<PublicLobbyEntry>;
+  /** The identity's current match, if any (drives return-to-match UI). */
+  readonly activeMatchId: MatchId | null;
+}
+
+/**
+ * Lobby-scoped error codes (feature 010). Delivered as an actionable
+ * `LobbyEvent` of kind `'error'` — distinct from the transport-level
+ * `ErrorCode` union above, which keeps meaning gameplay/protocol
+ * failures. Receiving one never closes the connection.
+ */
+export type LobbyErrorCode =
+  | 'identity_invalid'
+  | 'handle_invalid'
+  | 'handle_taken'
+  | 'match_not_found'
+  | 'match_full'
+  | 'match_not_joinable'
+  | 'identity_in_match'
+  | 'identity_expired'
+  | 'server_restarted'
+  | 'internal_error';
+
+/**
+ * Server → client lobby events (feature 010). Closed discriminated
+ * union on `kind`. Additive variants may be introduced (clients MUST
+ * ignore unrecognized kinds per the unknown-message policy above);
+ * changing or removing an existing variant is an incompatible edit
+ * requiring the version policy above.
+ */
+export type LobbyEvent =
+  | { readonly kind: 'identity'; readonly identity: IdentityState }
+  | { readonly kind: 'snapshot'; readonly snapshot: LobbySnapshot }
+  | {
+      readonly kind: 'actionAccepted';
+      readonly actionId: LobbyActionId;
+      readonly transition: 'waiting' | 'match';
+    }
+  | {
+      readonly kind: 'error';
+      readonly actionId?: LobbyActionId;
+      readonly code: LobbyErrorCode;
+      readonly message: string;
+    };
+
+/**
+ * Wire mirror of `@europa/terrain`'s `GenerationSettings` (feature 010):
+ * the terrain knobs a lobby create request MAY preset. Structural mirror
+ * only — terrain owns the authoritative declaration and clamps
+ * out-of-range values at generation time; matchmaking (feature 006)
+ * validates what the lobby passes through (spec FR-008).
+ */
+export interface LobbyTerrainSettings {
+  /** Fraction of cells classified as water. Default 0.10; range [0.02, 0.25]. */
+  readonly waterRatio: number;
+  /** fBm noise persistence. Default 0.5; range [0.1, 0.9]. */
+  readonly roughness: number;
+  /** fBm octave count. Default 4; range [1, 6]. */
+  readonly octaves: number;
+  /** Per-player starting city count. Default 1; range [1, 4]. */
+  readonly citiesPerPlayer: number;
+  /** Symmetry strategy. v1 supports point symmetry only (terrain contract). */
+  readonly symmetryStrategy: 'point';
+  /** Minimum Chebyshev distance from a city to any water cell. Default 3. */
+  readonly minCityWaterDistance: number;
+  /** Minimum Chebyshev distance between any two cities. Default 5. */
+  readonly minCityCityDistance: number;
+  /** Maximum regeneration attempts on validation failure. Default 5. */
+  readonly maxRegenAttempts: number;
+}
+
+/**
+ * Wire mirror of `@europa/matchmaking`'s `MatchSettings` (feature 010):
+ * the supported settings a `lobbyCreate` request MAY preset. Structurally
+ * identical to the matchmaking declaration; omitted fields are merged
+ * with matchmaking defaults and validated there (spec FR-008) — the wire
+ * layer neither defaults nor clamps them.
+ */
+export interface LobbyMatchSettings {
+  /** Player count (engine FR-019: 2..4). v1 ships 2 end-to-end. */
+  readonly playerCount: 2 | 3 | 4;
+  /** Square board dimension. Clamped to `[8, 128]`. */
+  readonly boardSize: number;
+  /** Tick interval in ms (engine default 250). */
+  readonly tickIntervalMs: number;
+  readonly terrainSettings: LobbyTerrainSettings;
+}
+
+/**
+ * Client → Server: establish or restore the connection's guest identity.
+ * Sent after hello, before any mutating lobby action (identity is
+ * established first per lobby-wire.md). The optional claim is advisory:
+ * the server resolves the active identity from connection/session state
+ * and honors the stored claim only while its registry still holds it.
+ */
+export interface LobbyIdentityPayload {
+  readonly claim?: GuestIdentityClaim;
+}
+
+/**
+ * Client → Server: claim or rename the identity's public handle.
+ * Validation (1–24 Unicode code points after trimming, no control
+ * characters) and trimmed case-insensitive uniqueness among active
+ * identities are server-side (spec FR-004/FR-005); rejection arrives as
+ * an actionable `handle_invalid` / `handle_taken` lobby error without
+ * displacing the incumbent holder.
+ */
+export interface LobbySetHandlePayload {
+  readonly handle: string;
+  readonly actionId: LobbyActionId;
+}
+
+/**
+ * Client → Server: opt this connection into lobby updates. The server
+ * answers with a complete `snapshot` lobby event and keeps sending a
+ * fresh one after every mutation/lifecycle event until unsubscribe/
+ * disconnect (feature 010 FR-013).
+ */
+export interface LobbySubscribePayload {
+  readonly actionId: LobbyActionId;
+}
+
+/**
+ * Client → Server: create a public match and reserve the creator's seat
+ * (feature 010 FR-008/FR-009). Settings are optional presets merged and
+ * validated by matchmaking; success returns the existing session
+ * assignment through the existing match join flow (`actionAccepted`
+ * with transition `'match'`), never a client-selected seat.
+ */
+export interface LobbyCreatePayload {
+  readonly actionId: LobbyActionId;
+  readonly settings?: Partial<LobbyMatchSettings>;
+}
+
+/**
+ * Client → Server: join a listed public waiting match by id (feature
+ * 010 FR-010). Atomic and server-authoritative: at most one request
+ * wins the final seat; losers receive an actionable lobby error
+ * (`match_full` / `match_not_joinable` / `match_not_found`) and the
+ * lobby refreshes the entry.
+ */
+export interface LobbyJoinPayload {
+  readonly actionId: LobbyActionId;
+  readonly matchId: MatchId;
+}
+
+/**
+ * Client → Server: attach read-only to a running public match (feature
+ * 010 FR-012). Uses the existing spectator path: no seat, no token, no
+ * order permissions — the full-visibility spectator view only.
+ */
+export interface LobbySpectatePayload {
+  readonly actionId: LobbyActionId;
+  readonly matchId: MatchId;
+}
+
+/**
+ * Client → Server: release this identity's match association and return
+ * to the lobby (feature 010). Releases only the requesting identity's
+ * association; cleanup policy stays with the existing lifecycle rules.
+ */
+export interface LobbyLeavePayload {
+  readonly actionId: LobbyActionId;
+}
+
+/**
+ * Server → Client: one lobby event for subscribed connections (feature
+ * 010). Carries identity confirmations, complete snapshots, action
+ * outcomes, and actionable errors. See `LobbyEvent` for the variant set
+ * and the unknown-variant tolerance rule.
+ */
+export interface LobbyEventPayload {
+  readonly event: LobbyEvent;
+}
 
 // ----------------------------------------------------------------------------
 // Re-exports for convenience
