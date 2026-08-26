@@ -4,7 +4,7 @@
  * Proves the spec's authority model (spec v1.1 amendment; edge case
  * "client-provided … claims are advisory input only"; FR-010/FR-021/
  * FR-022; NFR-002; SC-009) against the REAL facade + identity registry
- * + publication modules driven exclusively through their public APIs:
+ * driven exclusively through their public APIs:
  *
  *   - **Identity claims**: unknown/expired/forged `guestPlayerId`
  *     claims never restore another guest's state — they silently mint
@@ -27,8 +27,9 @@
  *     handle strings (JSON-injection text, zero-width format chars,
  *     ANSI escapes) never smuggle opaque guest ids, session tokens, or
  *     seat credentials into any event, snapshot, or target payload.
- *   - **Publication authority** (T-008 bridge): private/terminal
- *     records never project under event pressure and revisions stay
+ *   - **Projection authority** (R-006 single projection path):
+ *     out-of-band/duplicate lifecycle events never project under
+ *     pressure, terminal rows drop exactly once, and revisions stay
  *     strictly monotonic under conflicting interleaved events.
  *
  * Threat-model boundary documented by these tests: the opaque
@@ -56,7 +57,7 @@
  * correlation will rely on.
  *
  * Determinism: injected manual clock + sequential id generators; the
- * facade/registry/publication are synchronous, so "concurrent"
+ * facade/registry are synchronous, so "concurrent"
  * requests are issued back-to-back with no awaits — precisely the
  * event-loop serialization the concurrency model documents
  * (constitution Principle II; no fake timers).
@@ -65,8 +66,7 @@
 import type { ConnectionId, MatchId } from '@europa/networking';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { JoinPath, PlayerId, SeatIndex, SessionToken } from '../../contracts/match-types';
-import { DEFAULT_MATCH_SETTINGS, type MatchSettings, type MatchVisibility } from '../../contracts/match-types';
+import type { JoinPath, PlayerId, SeatIndex } from '../../contracts/match-types';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type {
     GuestIdentityClaim,
@@ -78,11 +78,7 @@ import type {
 } from '../../src/contracts/lobby-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { createIdentityRegistry, type IdentityRegistry } from '../../src/internal/identityRegistry';
-import { createLobbyPublication, type LobbyPublication } from '../../src/internal/lobbyPublication';
 import { createLobbyService } from '../../src/internal/lobbyService';
-import type { MatchRecord } from '../../src/internal/matchRecord';
-import { createPlayerSession } from '../../src/internal/playerSession';
-import { addSeatToFillingMatch, createMatchRecordWithCreator } from '../../src/matchLifecycle';
 import {
     FakeMatchmakerBridge,
     matchTerminalEvent,
@@ -93,7 +89,7 @@ import {
     seatReconnectedEvent,
 } from '../fixtures/fakeMatchmakerBridge';
 import { FakeServer } from '../fixtures/fakeServer';
-import { HANDLE_CONFLICT_GROUPS, nextGuestPlayerId } from '../fixtures/lobbyIdentities';
+import { HANDLE_CONFLICT_GROUPS } from '../fixtures/lobbyIdentities';
 import { buildSeatAssignment } from '../fixtures/lobbySnapshots';
 
 // ----------------------------------------------------------------------------
@@ -1141,162 +1137,113 @@ describe('projection privacy under attack (NFR-003/FR-024)', () => {
 });
 
 // ----------------------------------------------------------------------------
-// Publication authority under adversarial pressure (T-008 bridge)
+// Projection authority under adversarial pressure (R-006 single path)
 // ----------------------------------------------------------------------------
 
-/** Fixed epoch reading for publication fixtures. */
-const PUB_CLOCK = 9_000_000;
+describe('projection authority under adversarial pressure (R-006 single path)', () => {
+    it('out-of-band events for unknown matches never project, whatever the pressure', () => {
+        const { service, bridge, delivered } = buildHarness();
+        const viewer = namedConnection(service, 'Nova');
+        expectOk(service.subscribe(viewer.connectionId));
 
-let pubSeq = 0;
-
-/** Sequential fake UUID generator for publication records. */
-function pubRandomId(): string {
-    pubSeq += 1;
-    return `00000000-0000-4000-8000-${String(pubSeq).padStart(12, '0')}`;
-}
-
-interface PubHarness {
-    readonly records: Map<MatchId, MatchRecord>;
-    readonly publication: LobbyPublication;
-    /** Snapshot events published to the default sink, in order. */
-    readonly events: LobbyEvent[];
-}
-
-/** Wire a publication against an in-memory record map (the store seam). */
-function makePubHarness(): PubHarness {
-    const records = new Map<MatchId, MatchRecord>();
-    const publication = createLobbyPublication({ getMatch: (matchId) => records.get(matchId) });
-    const events: LobbyEvent[] = [];
-    publication.subscribe((event) => events.push(event));
-    return { records, publication, events };
-}
-
-/** Options for {@linkcode putRecord}; omitted fields keep benign defaults. */
-interface PubRecordOptions {
-    readonly visibility?: MatchVisibility;
-    readonly displayName?: string;
-    readonly handle?: string;
-}
-
-/**
- * Insert one record via the REAL creation primitive, carrying genuine
- * private values (opaque guest id, handle, display name) so envelope
- * assertions hunt live data.
- */
-function putRecord(harness: PubHarness, options: PubRecordOptions = {}): MatchRecord {
-    const session = createPlayerSession({
-        displayName: options.displayName ?? 'Host',
-        randomId: pubRandomId,
-        now: () => PUB_CLOCK,
-        guestPlayerId: nextGuestPlayerId(),
-        acceptedHandle: options.handle ?? 'Nova',
-    });
-    const settings: MatchSettings = { ...DEFAULT_MATCH_SETTINGS, boardSize: 8 };
-    const { match } = createMatchRecordWithCreator({
-        settings,
-        visibility: options.visibility ?? 'public',
-        creator: session,
-        nowMs: PUB_CLOCK,
-        randomId: pubRandomId,
-    });
-    harness.records.set(match.matchId, match);
-    return match;
-}
-
-describe('publication authority under adversarial pressure (T-008)', () => {
-    it('private records never project regardless of event pressure', () => {
-        const harness = makePubHarness();
-        const match = putRecord(harness, { visibility: 'private' });
-
-        harness.publication.onStatusChanged({ matchId: match.matchId, from: null, to: 'filling', atMs: PUB_CLOCK });
+        // A ghost match id nobody issued: every bridge trigger fires at the
+        // facade repeatedly — claims, disconnects, reconnects, expiries,
+        // terminals — and none of it may fabricate a row, deliver a
+        // snapshot, or move the revision.
         for (let attempt = 0; attempt < 10; attempt++) {
-            harness.publication.bridge.onSeatClaimed?.(seatClaimedEvent({ matchId: match.matchId, playerId: null }));
-            harness.publication.bridge.onSeatDisconnected?.(seatDisconnectedEvent({ matchId: match.matchId }));
-            harness.publication.bridge.onSeatReconnected?.(seatReconnectedEvent({ matchId: match.matchId }));
+            bridge.fireOnSeatClaimed(seatClaimedEvent({ matchId: 'match-ghost' as MatchId, playerId: null }));
+            bridge.fireOnSeatDisconnected(seatDisconnectedEvent({ matchId: 'match-ghost' as MatchId }));
+            bridge.fireOnSeatReconnected(seatReconnectedEvent({ matchId: 'match-ghost' as MatchId }));
+            bridge.fireOnSeatExpired(seatExpiredEvent({ matchId: 'match-ghost' as MatchId }));
+            bridge.fireOnMatchTerminal(matchTerminalEvent({ matchId: 'match-ghost' as MatchId }));
         }
 
-        // Zero publications: revision untouched, projection empty.
-        expect(harness.publication.currentRevision()).toBe(0);
-        expect(harness.events).toHaveLength(0);
-        expect(harness.publication.snapshotFor().entries).toEqual([]);
+        // Zero publications: the only snapshot ever seen is the subscribe
+        // baseline (returned, not pushed), empty, at the initial revision.
+        const baseline = expectOk(service.subscribe(viewer.connectionId));
+        expect(baseline.revision).toBe(1);
+        expect(baseline.entries).toEqual([]);
+        expect(delivered.filter((d) => d.event.kind === 'snapshot')).toHaveLength(0);
+        assertNothingPrivate(delivered, [baseline]);
     });
 
     it('terminal transitions drop rows exactly once and revisions stay strictly monotonic', () => {
-        const harness = makePubHarness();
-        const r1 = putRecord(harness, { displayName: '<script>alert("xss")</script>', handle: 'g-"leak"' });
-        const r2 = putRecord(harness, { displayName: 'Benign', handle: 'Rowan' });
+        const { service, bridge, delivered } = buildHarness();
+        const host = namedConnection(service, 'Nova');
+        const filler = namedConnection(service, 'Rowan');
+        const joiner = namedConnection(service, 'Joiner');
+        expectOk(service.subscribe(host.connectionId));
 
-        // Create, create, fill R1, start R1 — four visible changes.
-        harness.publication.onStatusChanged({ matchId: r1.matchId, from: null, to: 'filling', atMs: PUB_CLOCK });
-        harness.publication.onStatusChanged({ matchId: r2.matchId, from: null, to: 'filling', atMs: PUB_CLOCK });
-        addSeatToFillingMatch(
-            r1,
-            createPlayerSession({
-                displayName: 'Joiner',
-                randomId: pubRandomId,
-                now: () => PUB_CLOCK,
-                guestPlayerId: nextGuestPlayerId(),
-                acceptedHandle: 'Joiner',
-            }),
-            r1.seats.size,
-            PUB_CLOCK,
-        );
-        harness.publication.bridge.onSeatClaimed?.(seatClaimedEvent({ matchId: r1.matchId, playerId: null }));
+        // Two issued matches; R1 filled to in_progress through the
+        // delegated seat assignment.
+        const r1 = expectOk(service.create(host.connectionId, undefined));
+        const r2 = expectOk(service.create(filler.connectionId, undefined));
+        bridge.queueJoinResult({
+            ok: true,
+            data: {
+                matchId: r1.matchId,
+                joinPath: `/join/${r1.matchId}` as JoinPath,
+                joinUrl: null,
+                seatAssignment: buildSeatAssignment({ seatIndex: 1 as SeatIndex, playerId: 2 as PlayerId }),
+            },
+        });
+        expectOk(service.join(joiner.connectionId, r1.matchId));
 
         // No-op pressure interleaved: duplicate claims/disconnects/reconnects
-        // and expiry must NOT bump revisions (exactly-once discipline).
+        // and expiry reports must NOT bump revisions (exactly-once discipline
+        // of the diff-gated single pass).
+        const revisionAfterFills = expectOk(service.subscribe(host.connectionId)).revision;
         for (let round = 0; round < 5; round++) {
-            harness.publication.bridge.onSeatClaimed?.(seatClaimedEvent({ matchId: r1.matchId, playerId: null }));
-            harness.publication.bridge.onSeatDisconnected?.(seatDisconnectedEvent({ matchId: r1.matchId }));
-            harness.publication.bridge.onSeatReconnected?.(seatReconnectedEvent({ matchId: r1.matchId }));
-            harness.publication.bridge.onSeatExpired?.(seatExpiredEvent({ matchId: r1.matchId }));
+            bridge.fireOnSeatClaimed(seatClaimedEvent({ matchId: r1.matchId, playerId: null }));
+            bridge.fireOnSeatDisconnected(seatDisconnectedEvent({ matchId: r1.matchId }));
+            bridge.fireOnSeatReconnected(seatReconnectedEvent({ matchId: r1.matchId }));
+            bridge.fireOnSeatExpired(seatExpiredEvent({ matchId: r1.matchId }));
         }
-        const revisionAfterNoise = harness.publication.currentRevision();
-        expect(revisionAfterNoise).toBe(3); // create+create+fill only
+        expect(expectOk(service.subscribe(host.connectionId)).revision).toBe(revisionAfterFills);
 
-        // Finish R2 → drops; finish R1 → drops; terminal reports → no-ops.
-        r2.status = 'finished';
-        harness.publication.onStatusChanged({ matchId: r2.matchId, from: 'filling', to: 'finished', atMs: PUB_CLOCK });
-        r1.status = 'finished';
-        harness.publication.onStatusChanged({ matchId: r1.matchId, from: 'running', to: 'finished', atMs: PUB_CLOCK });
-        const revisionAfterDrops = harness.publication.currentRevision();
-        expect(revisionAfterDrops).toBe(revisionAfterNoise + 2);
-        harness.publication.bridge.onMatchTerminal?.(matchTerminalEvent({ matchId: r1.matchId }));
-        harness.publication.bridge.onMatchTerminal?.(matchTerminalEvent({ matchId: r2.matchId }));
-        expect(harness.publication.currentRevision()).toBe(revisionAfterDrops); // no further bumps
+        // Finish R2 → drops; finish R1 → drops; DUPLICATE terminal reports
+        // for already-dropped rows are absorbed without another bump.
+        bridge.fireOnMatchTerminal(matchTerminalEvent({ matchId: r2.matchId }));
+        bridge.fireOnMatchTerminal(matchTerminalEvent({ matchId: r1.matchId }));
+        const revisionAfterDrops = expectOk(service.subscribe(host.connectionId)).revision;
+        expect(revisionAfterDrops).toBe(revisionAfterFills + 2);
+        bridge.fireOnMatchTerminal(matchTerminalEvent({ matchId: r1.matchId }));
+        bridge.fireOnMatchTerminal(matchTerminalEvent({ matchId: r2.matchId }));
+        expect(expectOk(service.subscribe(host.connectionId)).revision).toBe(revisionAfterDrops);
 
-        // Monotonicity across everything ever published.
-        const revisions = harness.events.map((e) => (e.kind === 'snapshot' ? e.snapshot.revision : -1));
-        expect(revisions.every((r) => r > 0)).toBe(true);
+        // Monotonicity across everything ever published (one subscriber ⇒
+        // one delivery per visible change, strictly increasing revisions).
+        const revisions = delivered
+            .filter((d) => d.event.kind === 'snapshot')
+            .map((d) => (d.event.kind === 'snapshot' ? d.event.snapshot.revision : -1));
+        expect(revisions.length).toBeGreaterThanOrEqual(4);
         for (let i = 1; i < revisions.length; i++) {
             const previous = revisions[i - 1];
             const current = revisions[i];
             expect(current).toBeGreaterThan(previous ?? 0);
         }
         // Truth at the end: nothing projects; finished matches leave no history.
-        expect(harness.publication.snapshotFor().entries).toEqual([]);
+        const final = expectOk(service.subscribe(host.connectionId));
+        expect(final.entries).toEqual([]);
+        assertNothingPrivate(delivered, [final]);
     });
 
-    it('the six-field entry envelope holds for records carrying hostile private strings', () => {
-        const harness = makePubHarness();
-        const hostileDisplayName = '<script>alert("xss")</script>';
-        const hostileHandle = 'g-"leak"\u200Bme';
-        const match = putRecord(harness, { displayName: hostileDisplayName, handle: hostileHandle });
-        addSeatToFillingMatch(
-            match,
-            createPlayerSession({
-                displayName: hostileDisplayName,
-                randomId: pubRandomId,
-                now: () => PUB_CLOCK,
-                guestPlayerId: nextGuestPlayerId(),
-                acceptedHandle: hostileHandle,
-            }),
-            match.seats.size,
-            PUB_CLOCK,
-        );
-        harness.publication.bridge.onSeatClaimed?.(seatClaimedEvent({ matchId: match.matchId, playerId: null }));
+    it('the six-field entry envelope holds against hostile identity strings', () => {
+        const { service, delivered } = buildHarness();
+        // Hostile-but-VALID handles (the only participant-controlled string
+        // this surface accepts — there is no separate display-name input):
+        // markup, quote/JSON-injection text, zero-width format characters.
+        const hostileHandles = ['<script>', 'g-"leak"', 'zero\u200Bwidth'];
+        const primaryHostile = hostileHandles[0];
+        if (primaryHostile === undefined) {
+            throw new Error('unreachable: fixture list is non-empty');
+        }
+        const actor = namedConnection(service, primaryHostile);
+        expectOk(service.subscribe(actor.connectionId));
+        expectOk(service.create(actor.connectionId, { tickIntervalMs: 200 }));
 
-        const entry = harness.publication.snapshotFor().entries[0];
+        const snapshot = expectOk(service.subscribe(actor.connectionId));
+        const entry = snapshot.entries[0];
         expect(entry).toBeDefined();
         if (entry === undefined) {
             throw new Error('unreachable: entry asserted above');
@@ -1310,10 +1257,15 @@ describe('publication authority under adversarial pressure (T-008)', () => {
             'boardSize',
             'tickIntervalMs',
         ]);
-        const serialized = JSON.stringify(harness.publication.snapshotFor());
-        expect(serialized).not.toContain(hostileDisplayName);
-        expect(serialized).not.toContain(hostileHandle);
-        expect(serialized).not.toContain('g-"leak"');
-        assertNoPrivateKeys(harness.publication.snapshotFor());
+        // The PROJECTION carries none of the hostile strings. (The identity
+        // event legitimately echoes a connection its OWN accepted handle —
+        // FR-020 display data — so the scan targets entries, not deliveries.)
+        const serializedEntries = JSON.stringify(snapshot.entries);
+        for (const hostile of hostileHandles) {
+            expect(serializedEntries).not.toContain(hostile);
+        }
+        assertNoPrivateKeys(snapshot);
+        // No delivery ever carries opaque ids, tokens, or session ids.
+        assertNothingPrivate(delivered, [snapshot]);
     });
 });

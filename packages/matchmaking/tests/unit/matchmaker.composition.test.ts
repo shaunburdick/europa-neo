@@ -1,9 +1,14 @@
 /**
  * Unit tests for the composition seams — feature 010 remediation
  * R-005 seam (c): `subscribeStatus` (FR-012 status-bus access) and
- * `getMatch` (authoritative store lookup), plus the documented T-008
- * production recipe end-to-end (`createLobbyPublication` composed over
- * BOTH seams).
+ * `getMatch` (authoritative store lookup).
+ *
+ * The T-008 "publication over both seams" recipe that used to close
+ * this file was superseded by remediation R-006: the lobby facade
+ * ABSORBED the publication algorithm (single projection path — one
+ * revision counter, one ledger), so the end-to-end composed-stack
+ * coverage now lives in `lobby.integration.test.ts`, which drives
+ * `createLobbyService` over these same seams on the REAL matchmaker.
  *
  * Determinism: injected sequential ids + fixed clock. Auto-start generates
  * the shipped default board (the only size terrain reliably generates
@@ -14,7 +19,6 @@ import { describe, expect, it } from 'vitest';
 
 import type { MatchId } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
-import { createLobbyPublication } from '../../src/internal/lobbyPublication';
 import type { MatchmakerCompositionSeam } from '../../src/matchmaker';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
@@ -145,63 +149,5 @@ describe('getMatch — authoritative store lookup', () => {
         // Store emptied by close(): quiet undefined, not a throw — composed
         // projections prune during teardown instead of crashing.
         expect(h.seam.getMatch(matchId)).toBeUndefined();
-    });
-});
-
-// ----------------------------------------------------------------------------
-// The documented T-008 production recipe, end-to-end
-// ----------------------------------------------------------------------------
-
-describe('composition recipe — lobbyPublication over both seams', () => {
-    it('publication revisions advance as matches are created, started, and collected', () => {
-        const h = makeHarness();
-
-        // The exact wiring recipe from MatchmakerCompositionSeam's JSDoc:
-        const publication = createLobbyPublication({ getMatch: (id) => h.seam.getMatch(id) });
-        h.seam.subscribeStatus(publication.onStatusChanged);
-
-        const received: number[] = [];
-        publication.subscribe((event) => {
-            if (event.kind === 'snapshot') {
-                received.push(event.snapshot.revision);
-            }
-        });
-
-        // Create → first visible change (revision 1).
-        const created = h.matchmaker.createMatch({
-            visibility: 'public',
-            displayName: 'Alice',
-        });
-        if (!created.ok) {
-            throw new Error('fixture create failed');
-        }
-        expect(publication.currentRevision()).toBe(1);
-
-        // Fill/start: ONE status event (`filling → running`) — occupancy
-        // deltas ride the BRIDGE listener seam, not the bus — so the
-        // rebuild publishes exactly one more revision with the row
-        // flipped to `in_progress`.
-        expect(h.matchmaker.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' }).ok).toBe(true);
-        expect(publication.currentRevision()).toBe(2);
-        expect(publication.snapshotFor(null).entries[0]?.status).toBe('in_progress');
-
-        // Terminal strips the row (FR-014 no history) → revision 3.
-        h.server.fireOnMatchTerminal({
-            matchId: created.data.matchId,
-            result: { kind: 'win', winner: 1, tick: 7, reason: 'last_standing' },
-            tick: 7,
-        });
-        expect(publication.currentRevision()).toBe(3);
-
-        // The collection sweep changes nothing visible (row already gone)
-        // → NO bump (exactly-once revisions, per the publication contract).
-        clockMs += MATCHMAKING_CONSTANTS.resultsTtlMs + 1;
-        h.matchmaker.listPublicMatches();
-        expect(publication.currentRevision()).toBe(3);
-
-        const snapshot = publication.snapshotFor(null);
-        expect(snapshot.entries).toHaveLength(0);
-        expect(received.every((revision, index) => revision === index + 1)).toBe(true);
-        h.matchmaker.close();
     });
 });

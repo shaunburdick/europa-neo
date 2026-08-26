@@ -162,7 +162,14 @@ export type {
  * hosting seam (host wiring + tests), not a client API.
  */
 export { createIdentityRegistry, IDENTITY_GRACE_MS_DEFAULT } from './internal/identityRegistry';
-export type { LobbyServiceDeps } from './internal/lobbyService';
+/**
+ * Transport-facing teardown surface returned by {@linkcode createLobbyService}
+ * alongside `LobbyService` (feature 010 remediation R-006): the networking
+ * dispatcher MUST call `connectionClosed(connectionId)` when a socket closes,
+ * or a lost connection keeps its identity active forever, squatting the
+ * reserved handle.
+ */
+export type { LobbyConnectionTeardown, LobbyServiceDeps } from './internal/lobbyService';
 /**
  * Feature 010 runtime, part 2 of 2 (T-007): the server lobby facade —
  * identity setup, subscription + revisioned snapshot delivery, the

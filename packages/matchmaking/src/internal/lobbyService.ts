@@ -1,12 +1,13 @@
 /**
- * Server lobby facade — Feature 010 (T-007)
+ * Server lobby facade — Feature 010 (T-007; recomposed by remediation R-006)
  *
  * Implements the `LobbyService` contract
  * (`src/contracts/lobby-api.ts`) on top of the T-005 identity
  * registry and feature 006's real matchmaker: identity setup
  * (claim/restore/rename), subscription with revisioned snapshot
  * delivery, the privacy-safe public projection, create/join/spectate/
- * leave orchestration, and recoverable error mapping.
+ * leave orchestration, recoverable error mapping, and the transport
+ * teardown hook (`connectionClosed`).
  *
  * DELEGATION BOUNDARY (lobby-api.md; task T-007): settings validation,
  * capacity limits, auto-start, and cleanup are feature-006 behavior —
@@ -15,6 +16,39 @@
  * The facade owns exactly three things the matchmaker does not:
  * connection→identity binding, handle uniqueness (via the registry),
  * and the public projection ledger.
+ *
+ * SINGLE PROJECTION PATH (remediation R-006, resolving review F-3):
+ * there is exactly ONE revision counter and ONE projection ledger in
+ * this process, and both live here. Every trigger funnels into
+ * {@linkcode recomputeAndPublish} — facade mutations (create / join /
+ * leave / proven-dead drops), the matchmaking lifecycle bridge events
+ * (registered via the structural listener seam when the matchmaker
+ * supports it), and — when the R-005 composition seam exposes it — the
+ * matchmaker's FR-012 status bus (`null → filling`, `filling →
+ * running`, `running → finished`, `* → collected`). The pass rebuilds
+ * the entry list from the ledger (after refreshing waiting rows from
+ * the delegated listing) and publishes IF AND ONLY IF the rebuilt list
+ * differs from the last published one, so:
+ *
+ *   - revisions are strictly monotonic and bump EXACTLY ONCE per
+ *     visible change, no matter how many triggers report the same
+ *     transition or in which order they arrive (the real matchmaker
+ *     fires BOTH a status-bus event and a bridge event for a terminal;
+ *     the second is a diff no-op);
+ *   - subscribers never receive no-op snapshot storms;
+ *   - ghost waiting rows die PROMPTLY: collection sweeps upstream emit
+ *     `* → collected` status events, which drop the row (and every
+ *     participant's association) without waiting for an action to
+ *     prove the row dead — the delegated listing itself drives those
+ *     sweeps lazily, so every recompute doubles as a reap pass.
+ *
+ * This module ABSORBED the T-008 `lobbyPublication` algorithm (its
+ * diff-gated rebuild and exactly-once revision discipline); that
+ * standalone module was removed in the same change set so exactly one
+ * implementation of the discipline exists. Hosts wire the facade, not
+ * a publication sidecar: `registerLifecycleListener` + `subscribeStatus`
+ * feed this module directly (see `tests/unit/lobby.integration.test.ts`
+ * for the proven recipe over the REAL matchmaker).
  *
  * Projection ledger: feature 006's `listPublicMatches` projects only
  * `'filling'` public matches, while FR-007 requires the lobby to also
@@ -25,18 +59,28 @@
  * flipped to `'in_progress'` by fill detection: matchmaking auto-starts
  * deterministically when the last seat is taken (FR-011), so a seat
  * assignment at index `capacity - 1` IS a started match. Rows die on
- * the terminal bridge event or when an action proves them dead.
+ * terminal/collect events (both seams), when an action proves them
+ * dead, or on the next recompute after an upstream sweep collected
+ * them.
  *
- * Lifecycle events: if the injected matchmaker exposes
- * `registerLifecycleListener` (the same structural seam
- * `matchmaker.ts` uses for servers exposing `bindMatchmaker`), the
- * facade registers handlers that keep identity state aligned with the
- * reconnect grace window (`onSeatDisconnected` / `onSeatReconnected`
- * / `onSeatExpired`) and drop finished matches from the projection
- * (`onMatchTerminal`, FR-014: no history). Revision publication for
- * create/fill/start/collect transitions arriving from OTHER paths is
- * T-008's publication module; this facade broadcasts after its own
- * mutations.
+ * Connection teardown (`connectionClosed`, remediation R-006 resolving
+ * review F-7 / security HIGH-2): the transport dispatcher MUST call it
+ * when a socket closes. It unbinds the connection, drops its
+ * subscription, starts the identity's reconnect grace window in the
+ * registry (handle stays reserved; expiry frees it lazily), and —
+ * because spectators hold no seat to reclaim — releases SPECTATOR
+ * match presence immediately. PLAYER presence survives grace (FR-022:
+ * the same identity may reclaim its seat); it dies later via the
+ * expiry/terminal funnels. The hook is self-sufficient regardless of
+ * ordering against the bridge's `onSeatDisconnected` (the registry's
+ * disconnect restarts the anchor idempotently), tolerates unknown
+ * connection ids, and is idempotent.
+ *
+ * Identity overwrite (review F-8): establishing identity B on a
+ * connection already bound to A first releases A exactly as
+ * {@linkcode LobbyConnectionTeardown.connectionClosed} would — A never
+ * lingers active-and-squatting forever. Re-establishing A itself (the
+ * refresh-with-claim flow) does NOT start a spurious grace window.
  *
  * ERROR-MAPPING TABLE (recoverable failures are values, FR-018;
  * mirrors upstream's "surfaced to clients as 'internal_error'"
@@ -67,7 +111,19 @@
  * US3 AC-4's field-specific feedback for rejected create settings
  * rides on the v1.3 `detail` record (clients render from code PLUS
  * detail); `internal_error` + preserved message + `upstreamCode`
- * detail is the lossless fallback for those client-bug shapes.
+ * detail is the lossless fallback for those client-bug shapes. The
+ * R-005 `{field, reason}` rejection detail flows through this mapping
+ * verbatim inside `detail`.
+ *
+ * Rename propagation limit (R-006 item 4, documented honestly):
+ * feature-006's `propagateHandleRename` sweep needs the matchmaker
+ * STORE, which no exposed seam reaches (R-005 exposes only per-id
+ * `getMatch`). Accepted renames therefore reach FUTURE matches through
+ * delegation pass-through — create/join always submit the fresh
+ * accepted handle (FR-019) — while in-flight session/seat display
+ * snapshots keep the handle captured at join time until matchmaking
+ * core grows a store-level rename seam. This facade deliberately does
+ * NOT hack around the ownership boundary.
  *
  * Throwing policy (same split as the registry and matchmaker):
  * expected failures return `Result` err values; only invariant
@@ -76,6 +132,10 @@
  * Concurrency model (plan.md §2): every method runs synchronously
  * through its critical section on the Node event loop and rechecks
  * current state immediately before assignment; no locks, no timers.
+ * The publish pass is reentrancy-safe by construction: a nested
+ * trigger (e.g., the delegated listing driving an upstream GC sweep
+ * whose status event re-enters this module) completes its own diff
+ * pass first, and the outer pass then finds nothing changed to publish.
  *
  * Privacy envelope (NFR-003, FR-024): nothing projected through
  * `IdentityState`, `PublicLobbyEntry`, or `LobbySnapshot` contains the
@@ -87,7 +147,7 @@
  * via `deps.now` / the registry's `randomId` (constitution Principle II).
  */
 
-import type { ConnectionId, Logger, MatchId, MatchmakerBridge, SessionToken } from '@europa/networking';
+import type { ConnectionId, Logger, MatchId, MatchmakerBridge } from '@europa/networking';
 import type { MatchmakerError, MatchSettings, SeatAssignment } from '../../contracts/match-types';
 import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
@@ -103,6 +163,8 @@ import type {
     LobbyStatus,
     PublicLobbyEntry,
 } from '../contracts/lobby-types';
+import type { MatchStatusChangedEvent } from '../eventBus';
+import type { MatchmakerCompositionSeam } from '../matchmaker';
 import { makeLobbyError } from './handleValidation';
 import type { IdentityRegistry } from './identityRegistry';
 import { createIdentityRegistry } from './identityRegistry';
@@ -145,7 +207,8 @@ interface MatchPresence {
  * Facade-side projection ledger row for one issued match. Feature-006
  * records stay authoritative for lifecycle/cleanup; this row holds ONLY
  * what the public projection needs and the delegated listing cannot
- * fully express (`status`, `tickIntervalMs`).
+ * fully express (`status`, `tickIntervalMs`). THE ledger of the single
+ * projection path — see the module header.
  */
 interface TrackedMatch {
     /** Total seats (from the submitted, matchmaker-validated settings). */
@@ -162,6 +225,44 @@ interface TrackedMatch {
 
 /** Internal guard outcome: a resolved value or a recoverable error. */
 type Guard<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: LobbyError };
+
+// ----------------------------------------------------------------------------
+// Teardown surface (feature 010 remediation R-006)
+// ----------------------------------------------------------------------------
+
+/**
+ * Transport-facing connection teardown, returned alongside
+ * {@linkcode LobbyService} by {@linkcode createLobbyService} (additive
+ * to the mirrored contract — same evolution ruling as R-005's
+ * `MatchmakerCompositionSeam`; the contract file gains the method when
+ * feature 010's wire wave lands).
+ *
+ * The networking dispatcher MUST call {@linkcode connectionClosed} for
+ * every socket close (Wave-3 dispatch invariant #1): without it a lost
+ * connection would keep its identity active forever, squatting the
+ * reserved handle (security HIGH-2).
+ */
+export interface LobbyConnectionTeardown {
+    /**
+     * Tear down everything this facade holds for one transport
+     * connection: the connection→identity binding, the snapshot
+     * subscription, and — via the registry — the identity's ACTIVE
+     * status (the reconnect grace window starts; the handle stays
+     * reserved until the same claimant returns or grace expires).
+     * Spectator match presence is released IMMEDIATELY (no seat exists
+     * to reclaim); player presence intentionally SURVIVES grace so a
+     * valid reconnect credential restores the seated identity (FR-022),
+     * dying later via the expiry/terminal funnels.
+     *
+     * Tolerant by design: an unknown (never-established) connection id
+     * is a no-op, and a double call is idempotent — transports race
+     * their own close paths. Expected-failure-free (returns `void`);
+     * only the house invariant throws (calling after `close()`).
+     *
+     * @param connectionId - The transport connection that closed.
+     */
+    connectionClosed(connectionId: ConnectionId): void;
+}
 
 // ----------------------------------------------------------------------------
 // Dependencies & factory
@@ -207,9 +308,10 @@ export interface LobbyServiceDeps {
  *
  * @param deps - Required matchmaker; optional registry/clock/sink/logger
  *   overrides (see {@linkcode LobbyServiceDeps}).
- * @returns The frozen-shape `LobbyService` ready for transport wiring.
+ * @returns The frozen-shape facade: the mirrored `LobbyService` plus
+ *   the transport teardown hook ({@linkcode LobbyConnectionTeardown}).
  */
-export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
+export function createLobbyService(deps: LobbyServiceDeps): LobbyService & LobbyConnectionTeardown {
     const { matchmaker } = deps;
     const now = deps.now ?? Date.now;
     const logger = deps.logger ?? NULL_LOGGER;
@@ -224,15 +326,27 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
     const subscriptions = new Set<ConnectionId>();
     /** Guest identity → its single active-match association. */
     const presence = new Map<GuestPlayerId, MatchPresence>();
-    /** Projection ledger of matches this facade issued, in creation order. */
+    /** THE projection ledger of matches this facade issued, in creation order. */
     const ledger = new Map<MatchId, TrackedMatch>();
 
     /**
-     * Current list revision. Starts at 1 (lobby-types.md: "Starts at 1")
-     * and is incremented by every entry-changing mutation before the
-     * resulting snapshots are delivered.
+     * THE list revision (single projection path — module header). Starts
+     * at 1 (lobby-types.md: "Starts at 1"); every PUBLISHED change adds
+     * exactly 1. Diff-gated mutations never touch it directly — they
+     * funnel through {@linkcode recomputeAndPublish}.
      */
     let revisionCounter = 1;
+
+    /**
+     * Entries of the last published snapshot (frozen). Both the pull
+     * baseline and every pushed event read THIS list, so a missed
+     * recompute could only ever show staled-by-one-step data — never a
+     * revision/content mismatch.
+     */
+    let publishedEntries: readonly PublicLobbyEntry[] = Object.freeze([]);
+
+    /** Unsubscribe for the status-bus seam, when the matchmaker exposes it. */
+    let unsubscribeStatus: (() => void) | null = null;
 
     let closed = false;
 
@@ -277,6 +391,33 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
             }
         }
         connections.set(connectionId, guestId);
+    }
+
+    /**
+     * Release EVERYTHING the facade holds for one connection (shared by
+     * {@linkcode LobbyConnectionTeardown.connectionClosed} and the
+     * re-establishment-overwrite path, review F-8): unbind, unsubscribe,
+     * start the identity's registry grace window, and release spectator
+     * presence immediately (players keep theirs through grace — see the
+     * teardown interface docs). Idempotent; unknown ids are a no-op.
+     */
+    function releaseConnection(connectionId: ConnectionId): void {
+        const guestId = connections.get(connectionId);
+        connections.delete(connectionId);
+        subscriptions.delete(connectionId);
+        if (guestId === undefined) {
+            return;
+        }
+        const attached = presence.get(guestId);
+        if (attached !== undefined && attached.role === 'spectator') {
+            // Spectators hold no seat: there is nothing to reconnect to,
+            // so their match presence ends with the connection.
+            presence.delete(guestId);
+        }
+        // Players AND lobby visitors: the identity drops to grace (handle
+        // reserved until reclaim or lazy expiry). Safe to repeat — the
+        // registry restarts the anchor (documented idempotent semantics).
+        registry.disconnect(guestId);
     }
 
     /** Resolve the connection's established identity, if any. */
@@ -329,7 +470,7 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
         return { ok: true, value: null };
     }
 
-    // -- Projection -------------------------------------------------------------
+    // -- Projection (THE single path — see module header) ------------------------
 
     /** Freeze one ledger row into its safe public shape (six fields, no more). */
     function projectRow(matchId: MatchId, tracked: TrackedMatch): PublicLobbyEntry {
@@ -353,14 +494,43 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
     }
 
     /**
-     * Build the complete snapshot for one receiving identity. Entries are
-     * shared knowledge; `activeMatchId` is personal (US4 AC-4), so
-     * broadcasts build one snapshot per subscriber.
+     * Field-wise comparison of two projections (absorbed from the T-008
+     * publication module). Structural equality — fresh object identity
+     * must not defeat the no-op detection.
+     */
+    function entriesEqual(a: readonly PublicLobbyEntry[], b: readonly PublicLobbyEntry[]): boolean {
+        if (a.length !== b.length) {
+            return false;
+        }
+        for (let index = 0; index < a.length; index++) {
+            const x = a[index];
+            const y = b[index];
+            if (
+                x === undefined ||
+                y === undefined ||
+                x.matchId !== y.matchId ||
+                x.seatsFilled !== y.seatsFilled ||
+                x.capacity !== y.capacity ||
+                x.status !== y.status ||
+                x.boardSize !== y.boardSize ||
+                x.tickIntervalMs !== y.tickIntervalMs
+            ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Build the complete snapshot for one receiving identity from the
+     * LAST PUBLISHED state. Entries are shared knowledge;
+     * `activeMatchId` is personal (US4 AC-4), so broadcasts build one
+     * snapshot per subscriber.
      */
     function snapshotFor(guestId: GuestPlayerId | undefined): LobbySnapshot {
         return Object.freeze({
             revision: revisionCounter as LobbyRevision,
-            entries: publicEntries(),
+            entries: publishedEntries,
             activeMatchId: guestId === undefined ? null : (presence.get(guestId)?.matchId ?? null),
         });
     }
@@ -383,10 +553,13 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
      * (authoritative `seatsFilled` / clamped `boardSize`). In-progress
      * rows are never listed upstream (feature 006 lists filling matches
      * only), so they are left untouched. A waiting row that vanished is
-     * deliberately KEPT until an action proves it dead: an absent listing
-     * cannot distinguish auto-start (keep — spectatable) from collection
-     * (dead), and FR-013's staleness bound is enforced lazily when the
-     * next join against the dead row returns `match_not_found` (US4 AC-3).
+     * deliberately KEPT here — an absent listing cannot distinguish
+     * auto-start (keep — spectatable) from collection (dead); prompt
+     * death comes from the EVENT funnels instead (status `* → collected`,
+     * terminal reports, proven-dead actions), which is precisely what
+     * makes ghost rows impossible on the composed stack. FR-013's
+     * staleness bound stays enforced by those events plus the lazy
+     * join-time proof (US4 AC-3).
      */
     function reconcileFromMatchmaker(): void {
         const listed = matchmaker.listPublicMatches();
@@ -428,6 +601,33 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
         };
     }
 
+    /**
+     * THE mutation path of the single projection pipeline: refresh
+     * waiting rows from the delegated listing, rebuild the entry list
+     * from the ledger, and — only when the rebuilt list differs from the
+     * last published one — bump THE revision counter and broadcast
+     * personalized snapshots. Every trigger funnel ends here, which is
+     * what makes bumps exactly-once, composition-order independent, and
+     * duplicate-event proof (review F-3 / MEDIUM-4). Reentrancy-safe:
+     * nested triggers complete their own pass first and the outer pass
+     * then diffs clean (module header).
+     */
+    function recomputeAndPublish(): void {
+        if (closed) {
+            // Stray lifecycle events during teardown are absorbed quietly —
+            // a passive observer must never corrupt the shutdown sweep.
+            return;
+        }
+        reconcileFromMatchmaker();
+        const nextEntries = publicEntries();
+        if (entriesEqual(nextEntries, publishedEntries)) {
+            return;
+        }
+        publishedEntries = Object.freeze(nextEntries);
+        revisionCounter += 1;
+        broadcastSnapshots();
+    }
+
     // -- Error mapping ----------------------------------------------------------
 
     /**
@@ -435,7 +635,8 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
      * in the module header). Direct semantic matches keep the upstream
      * message and detail verbatim; codes with no faithful lobby meaning
      * collapse to `internal_error` with the original message preserved
-     * and `detail.upstreamCode` recording the truth.
+     * and `detail.upstreamCode` recording the truth. The R-005 settings
+     * rejection detail (`{field, reason}`) rides along verbatim.
      */
     function mapUpstreamError(error: MatchmakerError): LobbyError {
         switch (error.code) {
@@ -461,7 +662,7 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
         }
     }
 
-    // -- Lifecycle bridge (identity grace + terminal drops) ----------------------
+    // -- Lifecycle funnels (identity grace + terminal/collect drops) --------------
 
     /**
      * Drop every identity's association with a match (terminal/expiry
@@ -479,31 +680,63 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
     }
 
     /**
+     * Status-bus listener (subscribed below when the R-005 seam exists).
+     * Terminal/collect transitions drop the row AND every participant's
+     * association immediately — this is the prompt ghost-row reap
+     * (review MEDIUM-5): upstream GC collections always emit these
+     * events, so a dead match cannot linger as a Joinable row. Start/
+     * create transitions merely funnel into the shared pass (the diff
+     * gate makes a no-op free). Duplicate delivery across BOTH seams
+     * (the real matchmaker emits `running → finished` on the bus AND
+     * fans `onMatchTerminal` out to listeners) collapses to one bump.
+     */
+    const onStatusChanged = (event: MatchStatusChangedEvent): void => {
+        if (closed) {
+            return;
+        }
+        if (event.to === 'finished' || event.to === 'collected') {
+            clearPresenceForMatch(event.matchId);
+            ledger.delete(event.matchId);
+        }
+        recomputeAndPublish();
+    };
+
+    /**
      * Handlers the facade contributes to the matchmaking lifecycle seam.
      * Registered below when the injected matchmaker supports listener
-     * registration; the host can also compose this object into networking's
-     * `ServerDeps.matchmaker` chain manually (T-008's publication module
-     * layers alongside these — multiple listeners are supported).
+     * registration; every handler funnels into the shared publish pass
+     * (single projection path — module header).
      */
     const bridgeHandlers: MatchmakerBridge = {
         /**
-         * No lobby state change on a seat claim: the facade recorded the
-         * association itself at create/join time, and out-of-band claims
-         * (private links) involve no lobby-projected state.
+         * Seat fills normally arrive through the facade's own `join`
+         * (which recomputes); out-of-band claims on facade-issued public
+         * matches do not exist in v1. Funnelled anyway as a uniform
+         * safety net — the diff gate makes a redundant pass free.
          */
-        onSeatClaimed: () => {},
+        onSeatClaimed: () => {
+            if (closed) {
+                return;
+            }
+            recomputeAndPublish();
+        },
         /**
          * A match-bound connection dropped: start the identity's reconnect
          * grace window (handle stays reserved, spec Clarifications v1.0).
          * Registry release happens later — either the claimant restores
          * via `establishIdentity`, or the registry's lazy expiry sweep
-         * frees the identity and handle.
+         * frees the identity and handle. Projection unchanged (grace
+         * keeps the row); funnelled for uniformity.
          */
         onSeatDisconnected: (event) => {
+            if (closed) {
+                return;
+            }
             const guestId = guestOf(event.connectionId);
             if (guestId !== undefined) {
                 registry.disconnect(guestId);
             }
+            recomputeAndPublish();
         },
         /**
          * The same claimant reclaimed its seat within grace: reactivate the
@@ -511,10 +744,14 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
          * live player's handle mid-match.
          */
         onSeatReconnected: (event) => {
+            if (closed) {
+                return;
+            }
             const guestId = guestOf(event.connectionId);
             if (guestId !== undefined) {
                 registry.restoreIdentity({ guestPlayerId: guestId });
             }
+            recomputeAndPublish();
         },
         /**
          * Networking's reconnect grace lapsed: the seat is forfeited
@@ -524,56 +761,75 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
          * would free the handle on a different clock than the registry's.
          */
         onSeatExpired: (event) => {
+            if (closed) {
+                return;
+            }
             for (const [connectionId, guestId] of connections) {
                 const attached = presence.get(guestId);
                 if (
                     attached !== undefined &&
                     attached.matchId === event.matchId &&
-                    attached.seatAssignment?.sessionToken === (event.sessionToken as SessionToken)
+                    attached.seatAssignment?.sessionToken === event.sessionToken
                 ) {
                     presence.delete(guestId);
                     connections.delete(connectionId);
                     subscriptions.delete(connectionId);
                 }
             }
+            recomputeAndPublish();
         },
         /**
          * The engine reported a terminal result: finished matches are never
          * displayed (FR-014 no history) and every participant's association
-         * ends so they can browse/create again. Entry removal bumps the
-         * revision and refreshes subscribers.
+         * ends so they can browse/create again. Row removal flows through
+         * the diff gate, so a terminal for an already-dropped row (e.g.,
+         * the status funnel got there first) bumps nothing.
          */
         onMatchTerminal: (event) => {
-            const tracked = ledger.get(event.matchId);
-            clearPresenceForMatch(event.matchId);
-            if (tracked !== undefined) {
-                ledger.delete(event.matchId);
-                revisionCounter += 1;
-                broadcastSnapshots();
+            if (closed) {
+                return;
             }
+            clearPresenceForMatch(event.matchId);
+            ledger.delete(event.matchId);
+            recomputeAndPublish();
         },
     };
 
     /**
-     * Servers/matchmakers that optionally accept direct lifecycle-listener
-     * registration (structural intersection — same pattern as
-     * `matchmaker.ts`'s `BindableServer`; no cast beyond the narrowing
-     * intersection, and the check keeps non-binding implementations safe).
+     * Composition seams on the injected matchmaker, discovered
+     * STRUCTURALLY (same pattern as R-005's `BindableServer`; the real
+     * matchmaker carries all three, the test fakes carry only the
+     * lifecycle listener — the optional checks keep both safe):
+     *
+     *   - `registerLifecycleListener` feeds bridge events into the
+     *     funnels above;
+     *   - `subscribeStatus` feeds FR-012 transitions (create/start/
+     *     finish/collect) into {@linkcode onStatusChanged}, which is
+     *     what reaps ghost rows promptly on the real stack.
      */
-    interface LifecycleBindable {
-        registerLifecycleListener?(listener: MatchmakerBridge): void;
-    }
-    const bindable = matchmaker as Matchmaker & LifecycleBindable;
-    if (typeof bindable.registerLifecycleListener === 'function') {
+    const bindable = matchmaker as Matchmaker & Partial<MatchmakerCompositionSeam>;
+    if (bindable.registerLifecycleListener !== undefined) {
         bindable.registerLifecycleListener(bridgeHandlers);
+    }
+    if (bindable.subscribeStatus !== undefined) {
+        unsubscribeStatus = bindable.subscribeStatus(onStatusChanged);
     }
 
     // -- Public surface -----------------------------------------------------------
 
-    const service: LobbyService = {
+    const service: LobbyService & LobbyConnectionTeardown = {
         establishIdentity(claim: GuestIdentityClaim | undefined, connectionId: ConnectionId): IdentityState {
             assertOpen();
             const { identity } = registry.restoreIdentity(claim);
+            // Re-establishment overwrite (review F-8): a connection bound to
+            // a DIFFERENT guest releases that guest exactly as a transport
+            // close would (grace + immediate spectator release) instead of
+            // orphaning it active forever. Restoring the SAME identity is
+            // the ordinary refresh flow and starts no spurious grace.
+            const previous = connections.get(connectionId);
+            if (previous !== undefined && previous !== identity.id) {
+                releaseConnection(connectionId);
+            }
             bindConnection(connectionId, identity.id);
             const projected = registry.projectIdentity(identity.id);
             const state: IdentityState = projected ?? Object.freeze({ handle: null, hasIdentity: true });
@@ -581,6 +837,14 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
             return state;
         },
 
+        /**
+         * Reserve a handle (FR-004/FR-005). Rename propagation note (R-006
+         * item 4): the accepted handle reaches FUTURE matches through the
+         * create/join pass-through below; sweeping in-flight session/seat
+         * display snapshots needs feature-006's store-level
+         * `propagateHandleRename`, unreachable from this facade (no seam
+         * exposes the store). Documented limitation — not hacked around.
+         */
         setHandle(connectionId: ConnectionId, handle: string): Result<IdentityState, LobbyError> {
             assertOpen();
             const guest = guardGuest(connectionId);
@@ -611,7 +875,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
                 return guest;
             }
             subscriptions.add(connectionId);
-            reconcileFromMatchmaker();
+            // The shared pass (not a bare reconcile): if upstream drifted
+            // since the last publish, subscribers learn NOW at a bumped
+            // revision instead of receiving a mis-versioned baseline.
+            recomputeAndPublish();
             return { ok: true, data: snapshotFor(guest.value) };
         },
 
@@ -632,6 +899,11 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
             const result = matchmaker.createMatch({
                 visibility: 'public',
                 displayName: named.value,
+                // FR-019 identity pass-through (R-005 request fields): the
+                // server-resolved guest reference and ACCEPTED handle ride
+                // into the session/seat records.
+                guestPlayerId: guest.value,
+                acceptedHandle: named.value,
                 ...(settings === undefined ? {} : { settings }),
             });
             if (!result.ok) {
@@ -642,14 +914,12 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
                 seatAssignment: result.data.seatAssignment,
             });
             ledger.set(result.data.matchId, seedTracked(settings));
-            reconcileFromMatchmaker();
             presence.set(guest.value, {
                 matchId: result.data.matchId,
                 role: 'player',
                 seatAssignment: result.data.seatAssignment,
             });
-            revisionCounter += 1;
-            broadcastSnapshots();
+            recomputeAndPublish();
             return { ok: true, data: target };
         },
 
@@ -683,32 +953,35 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
                     error: makeLobbyError('match_not_joinable', 'That match is already in progress. Spectate instead.'),
                 };
             }
-            const result = matchmaker.joinMatch({ matchId, displayName: named.value });
+            const result = matchmaker.joinMatch({
+                matchId,
+                displayName: named.value,
+                // FR-019 identity pass-through, same as `create`.
+                guestPlayerId: guest.value,
+                acceptedHandle: named.value,
+            });
             if (!result.ok) {
                 if (result.error.code === 'match_not_found') {
                     // Proven-dead stale row (collected upstream between
                     // listing and action): drop it so the next revision
                     // stops offering Join (US4 AC-3 / FR-013).
                     ledger.delete(matchId);
-                    revisionCounter += 1;
-                    broadcastSnapshots();
+                    recomputeAndPublish();
                 }
                 return { ok: false, error: mapUpstreamError(result.error) };
             }
-            // Reconcile BEFORE applying the local delta so the delegated
-            // listing's authoritative occupancy lands first and the delta
-            // (this seat) can only raise it.
-            reconcileFromMatchmaker();
+            // The shared pass reconciles BEFORE rebuilding, so the delegated
+            // listing's authoritative occupancy lands first and the local
+            // delta below can only raise it.
             const seat = result.data.seatAssignment;
             tracked.seatsFilled = Math.max(tracked.seatsFilled, seat.seatIndex + 1);
             if (tracked.seatsFilled >= tracked.capacity) {
                 // Deterministic feature-006 auto-start (FR-011): taking the
-                // last seat starts the match inside the delegated call.
+                // last seat started the match inside the delegated call.
                 tracked.status = 'in_progress';
             }
             presence.set(guest.value, { matchId: result.data.matchId, role: 'player', seatAssignment: seat });
-            revisionCounter += 1;
-            broadcastSnapshots();
+            recomputeAndPublish();
             return { ok: true, data: Object.freeze({ matchId: result.data.matchId, seatAssignment: seat }) };
         },
 
@@ -738,6 +1011,12 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
                     ),
                 };
             }
+            // Ledger trust is ACCEPTED here (security review LOW-9): the
+            // status/terminal funnels drop rows synchronously in the same
+            // stack that collects a match upstream, so by the time this
+            // runs, a stale row is already gone. Spectators detach at the
+            // transport layer anyway — worst case, the read-only attach
+            // fails safely there and costs nobody a seat.
             presence.set(guest.value, { matchId, role: 'spectator', seatAssignment: null });
             // No revision bump: entries are unchanged and other subscribers'
             // snapshots are unaffected; the actor's own association is
@@ -769,9 +1048,11 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
                 if (!result.ok) {
                     return { ok: false, error: mapUpstreamError(result.error) };
                 }
-                reconcileFromMatchmaker();
-                revisionCounter += 1;
-                broadcastSnapshots();
+                // Shared pass: the delegated listing reflects the released
+                // seat (and, when the leaver was the final seat, the upstream
+                // collection has already emitted the status event that
+                // dropped the row — the diff gate dedups either way).
+                recomputeAndPublish();
                 return { ok: true };
             }
             // Spectator detach: no seat exists upstream (the read-only view
@@ -780,15 +1061,28 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService {
             return { ok: true };
         },
 
+        connectionClosed(connectionId: ConnectionId): void {
+            assertOpen();
+            releaseConnection(connectionId);
+            // No publish: entries are unchanged (rows belong to matches, not
+            // connections) and the closing viewer's stream ends with its
+            // subscription. Player presence intentionally survives grace.
+        },
+
         close(): Promise<void> {
             if (closed) {
                 return Promise.resolve();
             }
             closed = true;
+            if (unsubscribeStatus !== null) {
+                unsubscribeStatus();
+                unsubscribeStatus = null;
+            }
             connections.clear();
             subscriptions.clear();
             presence.clear();
             ledger.clear();
+            publishedEntries = Object.freeze([]);
             registry.close();
             return matchmaker.close();
         },

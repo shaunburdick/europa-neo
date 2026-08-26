@@ -13,6 +13,9 @@
  *     personalized `activeMatchId`, monotonic revisions, fill
  *     detection, terminal/stale row drops);
  *   - lifecycle bridge hooks (grace/reconnect/expiry/terminal);
+ *   - the single projection path (R-006): diff-gated, exactly-once
+ *     revisions under duplicate and no-op event pressure;
+ *   - the transport teardown hook `connectionClosed` (R-006);
  *   - close semantics.
  *
  * Deliberately NOT re-tested here (already pinned elsewhere): handle
@@ -38,11 +41,12 @@ import type {
 } from '../../src/contracts/lobby-types';
 import { makeError } from '../../src/errors';
 import { createIdentityRegistry } from '../../src/internal/identityRegistry';
-import { createLobbyService } from '../../src/internal/lobbyService';
+import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';
 import {
     FakeMatchmakerBridge,
     matchTerminalEvent,
     nextConnectionId,
+    seatClaimedEvent,
     seatDisconnectedEvent,
     seatExpiredEvent,
     seatReconnectedEvent,
@@ -84,7 +88,7 @@ interface Delivery {
 
 interface Harness {
     readonly bridge: FakeMatchmakerBridge;
-    readonly service: LobbyService;
+    readonly service: LobbyService & LobbyConnectionTeardown;
     readonly delivered: Delivery[];
 }
 
@@ -223,6 +227,71 @@ describe('establishIdentity', () => {
         expect(rebind).toEqual({ handle: null, hasIdentity: true });
         // The old connection no longer resolves to anything actionable.
         expectErr(service.setHandle(first.connectionId, 'Nova'), 'identity_invalid');
+    });
+
+    it('re-establishing a DIFFERENT identity on a connection releases the old one to grace (F-8)', () => {
+        const { service } = buildHarness({ graceMs: 1_000 });
+        const conn = freshConnection(service);
+        expectOk(service.setHandle(conn.connectionId, 'Nova'));
+
+        // Overwrite: the same connection now belongs to a brand-new guest.
+        // The abandoned guest must not linger ACTIVE forever, squatting its
+        // reserved handle (review F-8 / security HIGH-2).
+        service.establishIdentity(undefined, conn.connectionId);
+
+        // The OLD identity's handle stays reserved through its grace window…
+        const challenger = freshConnection(service);
+        expectErr(service.setHandle(challenger.connectionId, 'nova'), 'handle_taken');
+
+        // …and frees once grace lapses (manual clock; lazy sweep).
+        tickClock(1_000);
+        expectOk(service.setHandle(freshConnection(service).connectionId, 'NOVA'));
+    });
+
+    it('re-establishing the SAME identity starts no spurious grace window', () => {
+        const { service } = buildHarness({ graceMs: 1_000 });
+        const first = freshConnection(service);
+        expectOk(service.setHandle(first.connectionId, 'Nova'));
+
+        // The ordinary refresh flow: same claim, same connection.
+        const rebound = service.establishIdentity({ guestPlayerId: first.guestId }, first.connectionId);
+        expect(rebound).toEqual({ handle: 'Nova', hasIdentity: true });
+
+        tickClock(5_000); // far past any wrongly-started grace anchor
+        const bystander = freshConnection(service);
+        expectOk(service.setHandle(bystander.connectionId, 'Rowan'));
+        const thief = freshConnection(service);
+        expectErr(service.setHandle(thief.connectionId, 'NOVA'), 'handle_taken');
+    });
+
+    it("overwriting a connection releases the prior identity's SPECTATOR presence immediately", () => {
+        const { service, bridge } = buildHarness();
+        const host = namedConnection(service, 'Host');
+        const filler = namedConnection(service, 'Filler');
+        const watcher = namedConnection(service, 'Watcher');
+        const created = expectOk(service.create(host.connectionId, undefined));
+        bridge.queueJoinResult({
+            ok: true,
+            data: {
+                matchId: created.matchId,
+                joinPath: `/join/${created.matchId}` as JoinPath,
+                joinUrl: null,
+                seatAssignment: buildSeatAssignment({ seatIndex: 1 as SeatIndex }),
+            },
+        });
+        expectOk(service.join(filler.connectionId, created.matchId));
+        expectOk(service.spectate(watcher.connectionId, created.matchId));
+
+        // The watcher's connection switches to a fresh identity: the
+        // spectator association has no seat to preserve, so it ends NOW.
+        service.establishIdentity(undefined, watcher.connectionId);
+
+        // Restoring the WATCHER's claim elsewhere (within grace) proves it:
+        // the identity survives, but its match presence is already gone.
+        const elsewhereConn = nextConnectionId();
+        const restored = service.establishIdentity({ guestPlayerId: watcher.guestId }, elsewhereConn);
+        expect(restored).toEqual({ handle: 'Watcher', hasIdentity: true });
+        expect(expectOk(service.subscribe(elsewhereConn)).activeMatchId).toBeNull();
     });
 });
 
@@ -477,7 +546,15 @@ describe('create', () => {
         expectOk(service.create(actor.connectionId, settings));
 
         expect(bridge.createCalls).toHaveLength(1);
-        expect(bridge.createCalls[0]).toEqual({ visibility: 'public', displayName: 'Nova', settings });
+        // FR-019 identity pass-through (R-006): the server-resolved guest
+        // reference and ACCEPTED handle ride into the session/seat records.
+        expect(bridge.createCalls[0]).toEqual({
+            visibility: 'public',
+            displayName: 'Nova',
+            guestPlayerId: actor.guestId,
+            acceptedHandle: 'Nova',
+            settings,
+        });
     });
 
     it('returns the server-issued assignment untouched and records the association', () => {
@@ -546,7 +623,13 @@ describe('join', () => {
         const target = expectOk(service.join(joiner.connectionId, created.matchId));
 
         expect(bridge.joinCalls).toHaveLength(1);
-        expect(bridge.joinCalls[0]).toEqual({ matchId: created.matchId, displayName: 'Rowan' });
+        // FR-019 identity pass-through, same as `create`.
+        expect(bridge.joinCalls[0]).toEqual({
+            matchId: created.matchId,
+            displayName: 'Rowan',
+            guestPlayerId: joiner.guestId,
+            acceptedHandle: 'Rowan',
+        });
         expect(target.matchId).toBe(created.matchId);
         expect(target.seatAssignment.playerId).toBeDefined();
         const snapshot = expectOk(service.subscribe(joiner.connectionId));
@@ -834,6 +917,176 @@ describe('lifecycle bridge hooks', () => {
 });
 
 // ----------------------------------------------------------------------------
+// Single projection path (R-006)
+// ----------------------------------------------------------------------------
+
+describe('single projection path (R-006)', () => {
+    it('duplicate terminal reports bump the revision exactly once', () => {
+        const { service, bridge, delivered } = buildHarness();
+        const host = namedConnection(service, 'Nova');
+        expectOk(service.subscribe(host.connectionId));
+        const created = expectOk(service.create(host.connectionId, undefined));
+
+        // The real matchmaker reports a terminal on BOTH event seams; the
+        // diff-gated single pass must collapse every duplicate into one bump.
+        bridge.fireOnMatchTerminal(matchTerminalEvent({ matchId: created.matchId }));
+        bridge.fireOnMatchTerminal(matchTerminalEvent({ matchId: created.matchId }));
+        bridge.fireOnSeatClaimed(seatClaimedEvent({ matchId: created.matchId }));
+
+        expect(deliveredSnapshots(delivered).map((s) => s.revision)).toEqual([2, 3]);
+    });
+
+    it('disconnect/reconnect/expiry pressure never bumps revisions (grace keeps rows)', () => {
+        const { service, bridge, delivered } = buildHarness();
+        const host = namedConnection(service, 'Nova');
+        expectOk(service.subscribe(host.connectionId));
+        const created = expectOk(service.create(host.connectionId, undefined));
+
+        for (let round = 0; round < 5; round++) {
+            bridge.fireOnSeatClaimed(seatClaimedEvent({ matchId: created.matchId }));
+            bridge.fireOnSeatDisconnected(seatDisconnectedEvent({ matchId: created.matchId }));
+            bridge.fireOnSeatReconnected(seatReconnectedEvent({ matchId: created.matchId }));
+            bridge.fireOnSeatExpired(seatExpiredEvent({ matchId: created.matchId }));
+        }
+
+        // Only the create ever published: grace-phase events change no
+        // projected field, so the shared pass publishes nothing.
+        expect(deliveredSnapshots(delivered).map((s) => s.revision)).toEqual([2]);
+    });
+
+    it('subscribe returns a baseline consistent with the last published revision', () => {
+        const { service, bridge, delivered } = buildHarness();
+        const host = namedConnection(service, 'Nova');
+        const watcher = namedConnection(service, 'Rowan');
+        expectOk(service.subscribe(host.connectionId));
+        const created = expectOk(service.create(host.connectionId, undefined));
+        bridge.fireOnMatchTerminal(matchTerminalEvent({ matchId: created.matchId }));
+
+        // The pull baseline reads the SAME published state the pushes did —
+        // one stream, never a divergent rebuild.
+        const baseline = expectOk(service.subscribe(watcher.connectionId));
+        expect(baseline.revision).toBe(3);
+        expect(baseline.entries).toEqual([]);
+        expect(deliveredSnapshots(delivered).map((s) => s.revision)).toEqual([2, 3]);
+    });
+
+    it('absorbs stray lifecycle events racing the shutdown without corrupting teardown', async () => {
+        const { service, bridge } = buildHarness();
+        const host = namedConnection(service, 'Nova');
+        expectOk(service.create(host.connectionId, undefined));
+        await service.close();
+
+        // The matchmaker has no listener-unregister seam, so late bridge
+        // events CAN arrive after the facade closed; every funnel must
+        // absorb them quietly instead of touching cleared state.
+        expect(() => {
+            bridge.fireOnSeatClaimed(seatClaimedEvent());
+            bridge.fireOnSeatDisconnected(seatDisconnectedEvent());
+            bridge.fireOnSeatReconnected(seatReconnectedEvent());
+            bridge.fireOnSeatExpired(seatExpiredEvent());
+            bridge.fireOnMatchTerminal(matchTerminalEvent());
+        }).not.toThrow();
+    });
+});
+
+// ----------------------------------------------------------------------------
+// Connection teardown (R-006 transport seam)
+// ----------------------------------------------------------------------------
+
+describe('connectionClosed (R-006 transport teardown)', () => {
+    it('is a silent no-op for a connection that never established an identity', () => {
+        const { service } = buildHarness();
+        expect(() => service.connectionClosed(nextConnectionId())).not.toThrow();
+    });
+
+    it('unbinds and unsubscribes: the closed connection is gone and hears nothing more', () => {
+        const { service, delivered } = buildHarness({ graceMs: 1_000 });
+        const visitor = namedConnection(service, 'Visitor');
+        expectOk(service.subscribe(visitor.connectionId));
+        const deliveriesBefore = delivered.length;
+
+        service.connectionClosed(visitor.connectionId);
+
+        // Unbound: every connection-keyed action now fails as unestablished,
+        // and no further event is delivered to the dead socket.
+        expectErr(service.setHandle(visitor.connectionId, 'Renamed'), 'identity_invalid');
+        expectErr(service.subscribe(visitor.connectionId), 'identity_invalid');
+        expect(delivered).toHaveLength(deliveriesBefore);
+
+        // The IDENTITY survives under the registry's grace window.
+        const restored = service.establishIdentity({ guestPlayerId: visitor.guestId }, nextConnectionId());
+        expect(restored).toEqual({ handle: 'Visitor', hasIdentity: true });
+    });
+
+    it('keeps PLAYER presence through grace so a reclaim restores the seated identity', () => {
+        const { service } = buildHarness({ graceMs: 1_000 });
+        const host = namedConnection(service, 'Host');
+        const created = expectOk(service.create(host.connectionId, undefined));
+
+        service.connectionClosed(host.connectionId);
+
+        // FR-022: within grace the same claimant reclaims everything.
+        const reclaimConn = nextConnectionId();
+        const reclaimed = service.establishIdentity({ guestPlayerId: host.guestId }, reclaimConn);
+        expect(reclaimed).toEqual({ handle: 'Host', hasIdentity: true });
+        expect(expectOk(service.subscribe(reclaimConn)).activeMatchId).toBe(created.matchId);
+    });
+
+    it('releases SPECTATOR presence immediately (no seat exists to reclaim)', () => {
+        const { service, bridge } = buildHarness({ graceMs: 1_000 });
+        const host = namedConnection(service, 'Host');
+        const filler = namedConnection(service, 'Filler');
+        const watcher = namedConnection(service, 'Watcher');
+        const created = expectOk(service.create(host.connectionId, undefined));
+        bridge.queueJoinResult({
+            ok: true,
+            data: {
+                matchId: created.matchId,
+                joinPath: `/join/${created.matchId}` as JoinPath,
+                joinUrl: null,
+                seatAssignment: buildSeatAssignment({ seatIndex: 1 as SeatIndex }),
+            },
+        });
+        expectOk(service.join(filler.connectionId, created.matchId));
+        expectOk(service.spectate(watcher.connectionId, created.matchId));
+
+        service.connectionClosed(watcher.connectionId);
+
+        const backConn = nextConnectionId();
+        const restored = service.establishIdentity({ guestPlayerId: watcher.guestId }, backConn);
+        expect(restored).toEqual({ handle: 'Watcher', hasIdentity: true });
+        expect(expectOk(service.subscribe(backConn)).activeMatchId).toBeNull();
+    });
+
+    it('frees the handle once grace expires after the close (manual clock)', () => {
+        const { service } = buildHarness({ graceMs: 1_000 });
+        const visitor = namedConnection(service, 'Visitor');
+        service.connectionClosed(visitor.connectionId);
+
+        tickClock(1_000); // grace boundary uses >= (networking convention)
+        const successor = freshConnection(service);
+        expectOk(service.setHandle(successor.connectionId, 'VISITOR'));
+
+        // The expired claimant is gone entirely: a stale claim mints fresh.
+        const late = service.establishIdentity({ guestPlayerId: visitor.guestId }, nextConnectionId());
+        expect(late).toEqual({ handle: null, hasIdentity: true });
+    });
+
+    it('is idempotent for an already-closed connection', () => {
+        const { service } = buildHarness();
+        const visitor = namedConnection(service, 'Visitor');
+        service.connectionClosed(visitor.connectionId);
+        expect(() => service.connectionClosed(visitor.connectionId)).not.toThrow();
+    });
+
+    it('throws after close() like every other method (invariant breach)', async () => {
+        const { service } = buildHarness();
+        await service.close();
+        expect(() => service.connectionClosed(nextConnectionId())).toThrow(/lobbyService: instance is closed/);
+    });
+});
+
+// ----------------------------------------------------------------------------
 // Close
 // ----------------------------------------------------------------------------
 
@@ -861,6 +1114,7 @@ describe('close', () => {
             () => service.join(connectionId, 'match-x' as MatchId),
             () => service.spectate(connectionId, 'match-x' as MatchId),
             () => service.leave(connectionId),
+            () => service.connectionClosed(nextConnectionId()),
         ];
         for (const attempt of attempts) {
             expect(attempt).toThrow(/lobbyService: instance is closed/);
