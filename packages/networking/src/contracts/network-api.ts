@@ -684,6 +684,18 @@ export interface RegisterMatchRequest {
   readonly engineSession: EngineSession;
   /** Config snapshot for the match (used for version checks + telemetry). */
   readonly matchConfig: import('@europa/engine').MatchConfig;
+  /**
+   * Optional per-seat display names, indexed by `PlayerId - 1`. When
+   * present, networking overlays these onto the `JoinAckPayload.players`
+   * roster's `displayName` fields WITHOUT touching the engine world
+   * (feature 010 FR-020/SC-008: authoritative seat labels travel at the
+   * registration boundary; engine state stays byte-deterministic and
+   * ASCII-by-convention). Length SHOULD equal
+   * `matchConfig.playerCount`; indices without a name keep the engine's
+   * own value. Omitted (legacy feature-006 callers) → the engine world's
+   * placeholders are sent verbatim.
+   */
+  readonly displayNames?: ReadonlyArray<string>;
 }
 
 /**

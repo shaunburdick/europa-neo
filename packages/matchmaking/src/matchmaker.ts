@@ -19,7 +19,10 @@
  *   3. generate the board via terrain's real `generateBoard`
  *   4. construct the engine session (see `engineSession.ts` for the
  *      documented deviation from T028's `createMatchSession` prose)
- *   5. `server.registerMatch({ matchId, engineSession, matchConfig })`
+ *   5. `server.registerMatch({ matchId, engineSession, matchConfig,
+ *      displayNames })` — displayNames are the per-seat accepted-handle
+ *      snapshots (cosmetic-name fallback) so networking's joinAck roster
+ *      carries authoritative seat labels (feature 010 FR-020/SC-008)
  *   6. `server.attachPlayer({ matchId, playerId, sessionToken })` × N
  *   7. `server.enableSpectators(matchId)`
  *   8. transition `filling → running` (emits FR-012 event)
@@ -96,6 +99,7 @@ import { handleSeatExpired } from './forfeit';
 import { newMatchSeed } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
 import { createPlayerSession } from './internal/playerSession';
+import type { SeatRecord } from './internal/seatRecord';
 import { listPublicMatches as projectLobby } from './lobby';
 import {
     addSeatToFillingMatch,
@@ -537,14 +541,36 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
         const engineSession = buildEngineSession(engineConfig, generation.board);
 
-        server.registerMatch({ matchId: match.matchId, engineSession, matchConfig: engineConfig });
-
-        // Attach in seat order so playerId n maps to seatIndex n - 1.
+        // Resolve seats once, in seat order, for both the display-name
+        // snapshot below and the attach loop (the same seat-missing guard
+        // the loop always carried).
+        const orderedSeats: SeatRecord[] = [];
         for (let index = 0; index < match.settings.playerCount; index++) {
             const seat = match.seats.get(index as SeatIndex);
             if (seat === undefined) {
                 throw new Error(`matchmaker: seat ${String(index)} missing at auto-start`);
             }
+            orderedSeats.push(seat);
+        }
+
+        // Feature 010 FR-020/SC-008: hand networking each seat's
+        // authoritative label — the accepted-handle snapshot, falling back
+        // to the cosmetic name for legacy/unnamed seats — so joinAck
+        // players carry real handles. The names travel at the REGISTRATION
+        // boundary only: they are never pushed into the engine world
+        // (engine displayNames are ASCII-by-convention and pinned by
+        // determinism fixtures; arbitrary Unicode handles are valid per
+        // FR-004). Rename propagation to in-flight registrations remains a
+        // documented limitation — the snapshot is taken as-is at start.
+        server.registerMatch({
+            matchId: match.matchId,
+            engineSession,
+            matchConfig: engineConfig,
+            displayNames: orderedSeats.map((seat) => seat.handle ?? seat.displayName),
+        });
+
+        // Attach in seat order so playerId n maps to seatIndex n - 1.
+        for (const [index, seat] of orderedSeats.entries()) {
             server.attachPlayer({
                 matchId: match.matchId,
                 playerId: toPlayerId(index + 1),

@@ -838,7 +838,10 @@ export function createMatchServer(
             playerId,
             view,
             tick: channel.tickCounter,
-            players: channel.engineSession.world().players,
+            // Feature 010 FR-020/SC-008: registration-time authoritative
+            // seat labels overlaid onto the engine roster (engine world
+            // untouched — see MatchChannel.joinAckPlayers).
+            players: channel.joinAckPlayers(),
         };
         connection.send(envelopeOf('joinAck', payload));
         statsCounter.recordFrameSent('joinAck');
@@ -896,7 +899,9 @@ export function createMatchServer(
                 playerId: null,
                 view: attached.snapshot.view,
                 tick: attached.snapshot.tick,
-                players: channel.engineSession.world().players,
+                // Same overlay as the seated path (FR-023: spectator views
+                // MAY expose all participant handles).
+                players: channel.joinAckPlayers(),
             };
             connection.send(envelopeOf('joinAck', ackPayload));
             statsCounter.recordFrameSent('joinAck');
@@ -1396,6 +1401,11 @@ export function createMatchServer(
                     matchId: req.matchId,
                     engineSession: req.engineSession,
                     matchConfig: req.matchConfig,
+                    // Feature 010 FR-020/SC-008: the registration-time seat
+                    // labels ride into the channel for joinAck overlaying
+                    // (conditional spread honors exactOptionalPropertyTypes;
+                    // absent → legacy engine-placeholder behavior).
+                    ...(req.displayNames === undefined ? {} : { displayNames: req.displayNames }),
                 }),
             );
         },
