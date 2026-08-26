@@ -60,3 +60,12 @@ The server sends a complete `LobbySnapshot` on subscribe and after each
 mutation/lifecycle event. Clients apply only snapshots with a newer revision.
 Unknown additive lobby events are ignored by older clients; incompatible edits
 require the existing version policy and conformance updates.
+
+Handshake gating: lobby frames are exempt from the greeted-state gate — every
+`LobbyMessageKind` is valid before the `hello`/`helloAck` handshake, so a
+freshly opened connection can establish identity immediately. Identity
+bootstrap necessarily precedes the gameplay handshake, and no credentials
+are at risk before a match seat exists. Per-frame envelope version
+validation still applies to every lobby frame: cross-boundary version drift
+is rejected with `version_mismatch` exactly as for any other frame.
+`joinMatch` alone remains greeted-gated.
