@@ -602,9 +602,13 @@ export type ErrorCode =
 //   - Clients additionally ignore unrecognized additive variants inside
 //     `LobbyEvent`, so newer servers may introduce event kinds an older
 //     client has never seen.
-//   - The server delivers `lobbyEvent` frames ONLY to connections that
-//     opted in via `lobbySubscribe`; gameplay-only clients therefore
-//     never observe lobby traffic.
+//   - `lobbyEvent` delivery audience (feature-010 dispatcher
+//     clarification): snapshot BROADCASTS reach only connections that
+//     opted in via `lobbySubscribe`, while DIRECTED events — identity
+//     confirmations and action outcomes — are addressed to the acting
+//     connection regardless of subscription (identity establishment
+//     precedes and does not require subscribing). Gameplay-only peers
+//     are never addressed, so they never observe lobby traffic.
 
 /**
  * Opaque guest player identifier (feature 010). Server-issued, unique

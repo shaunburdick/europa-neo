@@ -76,6 +76,23 @@ export interface NetworkConstants {
      * on reconnect resync (US2 AC-1; FR-006).
      */
     readonly replayRingBufferTicks: number;
+    /**
+     * Per-connection lobby message rate limit (messages/second,
+     * feature 010 dispatcher). Every inbound `lobby*` frame consumes
+     * one token from a dedicated bucket (separate from the order
+     * bucket so lobby floods can never starve gameplay orders and
+     * vice versa). Burst capacity reuses
+     * `defaultRateLimitBurstFactor`. Excess frames are dropped with a
+     * `'rate_limited'` error and the connection stays open.
+     *
+     * Tuned above `defaultOrdersPerSecond` because lobby traffic is
+     * human UI cadence (subscribe/rename/create/join), while the
+     * denial-of-service surface is real: each `lobbyIdentity` with an
+     * unknown claim mints a fresh registry identity server-side, and
+     * each `lobbySetHandle` runs uniqueness scans (Wave-2 security
+     * audit mandatory item 7).
+     */
+    readonly defaultLobbyMessagesPerSecond: number;
 }
 
 /**
@@ -93,6 +110,7 @@ export const NETWORK_CONSTANTS: NetworkConstants = {
     defaultWsIdleTimeoutMs: 30_000,
     defaultMaxFrameBytes: 16_384,
     replayRingBufferTicks: 16,
+    defaultLobbyMessagesPerSecond: 20,
 } as const;
 
 /** Internal WebSocket lifecycle and time-conversion constants. */

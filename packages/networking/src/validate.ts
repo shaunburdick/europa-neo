@@ -41,10 +41,9 @@ const MESSAGE_KINDS: ReadonlySet<string> = new Set<string>([
     'order',
     'ping',
     // Feature 010 lobby family (additive; see contracts/network-types.ts).
-    // Schema admission is live as of the contract extension; action
-    // ROUTING lands with the feature-010 dispatcher wave — until then
-    // schema-valid lobby frames reach the dispatcher's polite default
-    // arm and are answered without closing the connection.
+    // Schema admission and dispatcher ROUTING are both live: schema-valid
+    // lobby frames are rate-gated and routed to the injected lobby facade
+    // (server.ts), never answered by the polite default arm.
     'lobbyIdentity',
     'lobbySetHandle',
     'lobbySubscribe',

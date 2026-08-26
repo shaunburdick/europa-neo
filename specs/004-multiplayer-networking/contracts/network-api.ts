@@ -191,6 +191,33 @@ export interface ServerDeps {
    */
   readonly matchmaker: MatchmakerBridge;
   /**
+   * Optional lobby composition source (feature 010). When present,
+   * the dispatcher routes the additive `lobby*` message family to the
+   * facade it builds, hands it the event sink, and calls
+   * `connectionClosed` on every socket close. When absent, lobby
+   * frames receive a graceful `internal_error` reply and gameplay
+   * behavior is completely unaffected.
+   *
+   * Host recipe (the factory is invoked lazily at the first lobby
+   * frame, so forward references are safe):
+   *
+   * ```ts
+   * let matchmaker: Matchmaker; // assigned right after server creation
+   * const server = createMatchServer(config, {
+   *   // ...
+   *   lobby: {
+   *     create: (sink) =>
+   *       createLobbyService({ matchmaker, deliver: sink.deliver }),
+   *   },
+   * });
+   * matchmaker = createMatchmaker({}, { server });
+   * ```
+   *
+   * The host owns facade shutdown (`facade.close()`); the server never
+   * closes it — matchmaking's facade cascades into `matchmaker.close()`.
+   */
+  readonly lobby?: LobbyServiceSource;
+  /**
    * Logger. Default is a no-op (`() => {}`). Pass `console.log` in
    * dev, pino/winston in production.
    */
@@ -337,6 +364,202 @@ export interface MatchmakerBridge {
     readonly result: import('@europa/engine').MatchResult;
     readonly tick: number;
   }): void;
+}
+
+// ----------------------------------------------------------------------------
+// Lobby service composition (feature 010)
+// ----------------------------------------------------------------------------
+
+/**
+ * Opaque matchmaking session id (feature 010 structural mirror).
+ * Mirrors `@europa/matchmaking`'s branded `PlayerSessionId` — the brand
+ * name is identical so the types stay mutually assignable (networking
+ * cannot import matchmaking: the dependency arrow points the other
+ * way; drift is caught by cross-package conformance witnesses).
+ */
+export type LobbyPlayerSessionId = string & { readonly __brand: 'PlayerSessionId' };
+
+/**
+ * Structural mirror of matchmaking's `LobbyError` (feature 010): the
+ * error payload of every failed lobby action. Field-for-field identical
+ * to the matchmaking declaration and to the wire `error` `LobbyEvent`
+ * variant's payload fields (`code` + `message` + optional `detail`).
+ */
+export interface LobbyFailure {
+  /** Machine-readable code from the closed lobby error union. */
+  readonly code: import('./network-types').LobbyErrorCode;
+  /** Human-readable English; safe to show (never contains secrets). */
+  readonly message: string;
+  /**
+   * Optional machine-readable detail (field name → message/value),
+   * e.g. the rejected create-form settings fields (spec Clarifications
+   * v1.3 field-specific feedback ruling).
+   */
+  readonly detail?: Readonly<Record<string, string | number | boolean>>;
+}
+
+/**
+ * Explicit success/error union for fallible lobby facade calls —
+ * networking's mirror of matchmaking's `Result<T, LobbyError>` with the
+ * error fixed to {@link LobbyFailure}. Same bare-arm conditional as the
+ * matchmaking declaration: `LobbyResult<void>` collapses to `{ ok:
+ * true }` alone (a required `data: void` field would force meaningless
+ * `{ ok: true, data: undefined }` literals).
+ */
+export type LobbyResult<TSuccess> = [undefined] extends [TSuccess]
+  ? { readonly ok: true } | { readonly ok: false; readonly error: LobbyFailure }
+  :
+      | { readonly ok: true; readonly data: TSuccess }
+      | { readonly ok: false; readonly error: LobbyFailure };
+
+/**
+ * Structural mirror of matchmaking's `SeatAssignment` (feature 010):
+ * the server-issued credential bundle a successful create/join yields.
+ * Produced by the server, never accepted from the client. The
+ * dispatcher does not forward this to the wire — the browser obtains
+ * its session token through the EXISTING match join flow (`JoinAck`),
+ * per lobby-wire.md ("returns the existing session assignment through
+ * the existing match join flow").
+ */
+export interface LobbySeatAssignment {
+  /** Matchmaking-owned session identity. */
+  readonly playerSessionId: LobbyPlayerSessionId;
+  /** Position in seat order (0..playerCount-1). */
+  readonly seatIndex: number;
+  /** Engine seat (1..playerCount); `seatIndex + 1` while filling. */
+  readonly playerId: import('@europa/engine').PlayerId;
+  /** Networking-bound token for reconnect (feature 004 boundary). */
+  readonly sessionToken: SessionToken;
+  /** Cosmetic name the seat-holder chose at create/join time. */
+  readonly displayName: string;
+}
+
+/**
+ * What a successful lobby create/join returns (mirror of matchmaking's
+ * `MatchJoinTarget`): the entered match plus the server-issued seat
+ * credentials. Server-side bookkeeping only — none of it except the
+ * match id is projected to the wire (privacy envelope, spec FR-024).
+ */
+export interface LobbyMatchTarget {
+  /** The match entered (also reflected in later snapshots' `activeMatchId`). */
+  readonly matchId: MatchId;
+  /** Server-issued seat/session credentials. */
+  readonly seatAssignment: LobbySeatAssignment;
+}
+
+/**
+ * What a successful lobby spectate returns (mirror of matchmaking's
+ * `SpectatorTarget`): identification of the match now attached through
+ * the existing read-only spectator path. No seat, no token.
+ */
+export interface LobbySpectateTarget {
+  /** The match being spectated. */
+  readonly matchId: MatchId;
+}
+
+/**
+ * The event-delivery sink the server hands to a lobby facade. THE one
+ * projection path onto the wire (feature 010 Wave-2 audit item 2):
+ * the dispatcher never synthesizes snapshots or identity events
+ * itself — every outbound `lobbyEvent` frame originates from a facade
+ * push through this sink or from a facade RETURN VALUE framed verbatim
+ * (e.g., subscribe's baseline snapshot).
+ */
+export interface LobbyEventSink {
+  /**
+   * Deliver one lobby event to one connection as a `lobbyEvent` frame.
+   *
+   * Directed events (identity confirmations, action outcomes) MUST be
+   * deliverable regardless of lobby subscription — the facade decides
+   * the audience; the sink only resolves connection → socket. Unknown
+   * or already-closed connection ids are silently dropped (the
+   * recipient is gone; nothing to acknowledge).
+   *
+   * @param connectionId Recipient transport connection.
+   * @param event        The facade-produced event (sent verbatim).
+   */
+  deliver(connectionId: ConnectionId, event: import('./network-types').LobbyEvent): void;
+}
+
+/**
+ * Networking's structural view of the server lobby facade (feature
+ * 010). Mirrors `@europa/matchmaking`'s `createLobbyService` return
+ * (`LobbyService & LobbyConnectionTeardown`) method-for-method; the
+ * real instance is assignable because every shape involved is pinned
+ * mutually assignable by conformance witnesses. See
+ * `specs/010-public-lobby-match-browser/contracts/lobby-api.md` for
+ * the normative semantics of each method.
+ */
+export interface LobbyServiceFacade {
+  /** Resolve or mint the caller's ephemeral guest identity (FR-002). */
+  establishIdentity(
+    claim: import('./network-types').GuestIdentityClaim | undefined,
+    connectionId: ConnectionId,
+  ): import('./network-types').IdentityState;
+
+  /** Validate + atomically reserve a handle (FR-004/FR-005). */
+  setHandle(connectionId: ConnectionId, handle: string): LobbyResult<import('./network-types').IdentityState>;
+
+  /** Subscribe to revisions; returns the baseline snapshot (FR-013). */
+  subscribe(connectionId: ConnectionId): LobbyResult<import('./network-types').LobbySnapshot>;
+
+  /** Create a public match; reserves the creator's seat (FR-008/FR-009). */
+  create(connectionId: ConnectionId, settings?: Partial<import('./network-types').LobbyMatchSettings>): LobbyResult<LobbyMatchTarget>;
+
+  /** Atomically assign at most one seat in a listed match (FR-010). */
+  join(connectionId: ConnectionId, matchId: MatchId): LobbyResult<LobbyMatchTarget>;
+
+  /** Attach read-only to an in-progress match (FR-012). */
+  spectate(connectionId: ConnectionId, matchId: MatchId): LobbyResult<LobbySpectateTarget>;
+
+  /** Release this identity's match association / return to lobby. */
+  leave(connectionId: ConnectionId): LobbyResult<void>;
+
+  /**
+   * Transport teardown hook (Wave-2 audit item 1): the dispatcher MUST
+   * invoke this for EVERY socket close — it unbinds the connection's
+   * identity, drops its subscription, starts the reconnect grace
+   * window, and releases spectator presence. Without it a lost
+   * connection would squat its reserved handle forever.
+   */
+  connectionClosed(connectionId: ConnectionId): void;
+
+  /** Shut the facade down (clears all lobby state). Host-owned: the
+   *  server never calls this — matchmaking's facade cascades into
+   *  `matchmaker.close()`, which is the host's lifecycle decision. */
+  close(): Promise<void>;
+}
+
+/**
+ * Optional composition source for the lobby facade (feature 010). The
+ * server invokes {@linkcode create} LAZILY — at the first inbound
+ * lobby frame — memoizing the result for the process lifetime. Lazy
+ * invocation breaks the host boot-order knot (the facade needs the
+ * matchmaker; the matchmaker needs the server), mirroring how the
+ * bridge forwarding proxy defers matchmaker binding. By the time any
+ * client can send a lobby frame the host has finished wiring, so no
+ * facade lifecycle event can be missed.
+ *
+ * LIFECYCLE FAN-OUT NOTE (Wave-2 audit item 4): a facade built with
+ * matchmaking's `createLobbyService({ matchmaker, deliver })`
+ * registers its own bridge handlers via the matchmaker's
+ * `registerLifecycleListener` seam and subscribes to the status bus
+ * internally — no extra host wiring. Hosts supplying a CUSTOM facade
+ * implementation MUST attach their bridge handlers to
+ * `ServerDeps.matchmaker` themselves (or via the matchmaker's
+ * `registerLifecycleListener`), or lobby projections will never see
+ * fill/start/collect transitions.
+ */
+export interface LobbyServiceSource {
+  /**
+   * Build the lobby facade, receiving the server's event sink.
+   *
+   * @param sink The ONE projection path onto the wire (see
+   *             {@link LobbyEventSink}). Pass it straight through as
+   *             matchmaking's `LobbyServiceDeps.deliver`.
+   * @returns The live facade (called once per server; result memoized).
+   */
+  create(sink: LobbyEventSink): LobbyServiceFacade;
 }
 
 // ----------------------------------------------------------------------------

@@ -23,7 +23,17 @@
  *     `disableSpectators` gate; role-dispatched `joinMatch` via
  *     `attachSpectator`; full-board tick views through fog's
  *     `{ spectator: true }` branch; read-only orders enforced in
- *     `orders.ts`).
+ *     `orders.ts`),
+ *   - the feature-010 lobby dispatcher (T-010): the additive
+ *     `lobby*` message family routes to an optionally injected
+ *     {@link LobbyServiceSource} facade — identity, handle,
+ *     subscribe, create, join, spectate, leave — with per-connection
+ *     lobby rate limiting, actionId-correlated replies, directed
+ *     event delivery through THE one projection sink, and
+ *     `connectionClosed` teardown on every close path. Heartbeat,
+ *     reconnect, spectator, and gameplay behavior are untouched;
+ *     without `deps.lobby` the lobby family answers gracefully and
+ *     nothing else changes.
  *
  * The public surface matches the contract's `Server` interface
  * (`contracts/network-api.ts`) exactly, plus an `__injectSocketForTest`
@@ -45,11 +55,13 @@ import { WebSocketServer, type WebSocket as WsWebSocket } from 'ws';
 
 import { buildTickBroadcast, sendTickBroadcast } from './broadcast';
 import { createTickClock } from './clock';
-import { Connection, type ConnectionSocket } from './connection';
+import { Connection, type ConnectionSocket, type MutableRateBucket } from './connection';
 import { NETWORK_API_VERSION, NETWORK_CONSTANTS, NETWORK_TRANSPORT_CONSTANTS } from './constants';
 import type {
     AttachPlayerRequest,
     DetachRequest,
+    LobbyFailure,
+    LobbyServiceFacade,
     RegisterMatchRequest,
     Server,
     ServerConfig,
@@ -58,10 +70,22 @@ import type {
 } from './contracts/network-api';
 import type {
     ConnectionId,
+    GuestIdentityClaim,
     HelloAckPayload,
     HelloPayload,
     JoinAckPayload,
     JoinMatchPayload,
+    LobbyActionId,
+    LobbyCreatePayload,
+    LobbyEvent,
+    LobbyEventPayload,
+    LobbyIdentityPayload,
+    LobbyJoinPayload,
+    LobbyLeavePayload,
+    LobbySetHandlePayload,
+    LobbySnapshot,
+    LobbySpectatePayload,
+    LobbySubscribePayload,
     MatchId,
     MessageKind,
     NetworkPayload,
@@ -161,6 +185,31 @@ class WsSocketAdapter implements ConnectionSocket {
 function envelopeOf(type: MessageKind, payload: NetworkPayload): ProtocolEnvelope<NetworkPayload> {
     return { type, version: NETWORK_API_VERSION, seq: 0 as SequenceNumber, payload };
 }
+
+/**
+ * The client→server message kinds, used by the dispatcher's default
+ * arm for DIRECTION-AWARE diagnostics (feature 010 Wave-2 audit item
+ * 9, fixing review defect F-4): a client→server kind that reaches the
+ * default arm is an unrouted inbound request and gets a diagnostic
+ * that says so; a server→client kind keeps the historical "is a
+ * server-to-client message" wording. Every kind listed here has its
+ * own dispatch arm, so hitting the default with one of these means a
+ * routing gap — the message text makes that diagnosable instead of
+ * gaslighting the client about frame direction.
+ */
+const CLIENT_TO_SERVER_KINDS: ReadonlySet<MessageKind> = new Set<MessageKind>([
+    'hello',
+    'joinMatch',
+    'order',
+    'ping',
+    'lobbyIdentity',
+    'lobbySetHandle',
+    'lobbySubscribe',
+    'lobbyCreate',
+    'lobbyJoin',
+    'lobbySpectate',
+    'lobbyLeave',
+]);
 
 // ----------------------------------------------------------------------------
 // createMatchServer
@@ -390,6 +439,371 @@ export function createMatchServer(
     }
 
     const clock = createTickClock(config.tickRateMs, runTickPipeline);
+
+    // ------------------------------------------------------------------
+    // Feature 010 lobby composition + dispatch
+    // ------------------------------------------------------------------
+
+    /**
+     * The memoized lobby facade built from `deps.lobby` (undefined →
+     * null forever: no lobby wired). The factory runs LAZILY at the
+     * first lobby frame so hosts can forward-reference their
+     * matchmaker (see `ServerDeps.lobby` for the recipe); by then the
+     * host wiring is complete and no facade lifecycle event can be
+     * missed. A factory that throws is logged and retried on the next
+     * frame — a transient host boot bug must not poison the server.
+     */
+    let lobbyInstance: LobbyServiceFacade | null = null;
+
+    /**
+     * Per-connection lobby rate-limit buckets (Wave-2 audit item 7).
+     * Deliberately SEPARATE from the order bucket on {@link Connection}
+     * so a lobby flood can never starve gameplay orders and vice
+     * versa; same token-bucket math, refilled lazily per check.
+     */
+    const lobbyBuckets = new Map<ConnectionId, MutableRateBucket>();
+
+    /**
+     * Dispatch-local snapshot peek (single-projection discipline,
+     * audit item 2): while a mutating facade call runs, the sink
+     * records any snapshot event it delivers to the ACTING connection.
+     * Facade methods are synchronous and dispatch is single-threaded,
+     * so this state is dead again by the time the handler reads it —
+     * no persistent dispatcher-side projection state exists. Held as
+     * an object (not bare lets) so cross-closure writes stay visible
+     * without control-flow narrowing lies.
+     */
+    const peek = {
+        /** Connection whose snapshot deliveries are being observed. */
+        connectionId: null as ConnectionId | null,
+        /** Latest snapshot delivered to that connection, if any. */
+        snapshot: null as LobbySnapshot | null,
+    };
+
+    /**
+     * Read the peeked post-action status of one match row, if the
+     * acting connection's snapshot stream carried it.
+     *
+     * @param matchId The acted-on match.
+     * @returns The row's status, or undefined when nothing was peeked.
+     */
+    function peekedRowStatus(matchId: MatchId): import('./contracts/network-types').LobbyStatus | undefined {
+        const snapshot: LobbySnapshot | null = peek.snapshot;
+        if (snapshot === null) {
+            return undefined;
+        }
+        return snapshot.entries.find((entry) => entry.matchId === matchId)?.status;
+    }
+
+    /**
+     * Resolve the lobby facade, invoking (and memoizing) the injected
+     * factory on first use. Returns null when no source is configured
+     * or the factory throws (logged; retried next frame).
+     *
+     * @returns The live facade, or null when lobby is unavailable.
+     */
+    function lobbyFacadeOrNull(): LobbyServiceFacade | null {
+        const source = deps.lobby;
+        if (source === undefined) {
+            return null;
+        }
+        if (lobbyInstance !== null) {
+            return lobbyInstance;
+        }
+        try {
+            lobbyInstance = source.create({ deliver: deliverLobbyEvent });
+        } catch (error) {
+            deps.logger.warn('lobby service factory threw; lobby unavailable', { error: String(error) });
+            return null;
+        }
+        return lobbyInstance;
+    }
+
+    /**
+     * THE projection sink handed to the lobby facade: frames one
+     * facade-produced event to one connection. Audience decisions are
+     * entirely the facade's — directed identity/action events reach
+     * their connection regardless of lobby subscription (audit item
+     * 8); snapshot broadcasts reach only subscribers because only they
+     * are addressed. Unknown/closed ids are dropped silently.
+     *
+     * @param connectionId Recipient transport connection.
+     * @param event        Facade-produced event (sent verbatim).
+     */
+    function deliverLobbyEvent(connectionId: ConnectionId, event: LobbyEvent): void {
+        if (peek.connectionId !== null && connectionId === peek.connectionId && event.kind === 'snapshot') {
+            peek.snapshot = event.snapshot;
+        }
+        const target = connections.get(connectionId);
+        if (target === undefined) {
+            return;
+        }
+        target.send(envelopeOf('lobbyEvent', { event }));
+        statsCounter.recordFrameSent('lobbyEvent');
+    }
+
+    /**
+     * Frame one facade-produced event to one connection directly (the
+     * dispatcher half of the projection path — used for facade RETURN
+     * values the facade does not push itself, e.g. subscribe's
+     * baseline snapshot). Never synthesizes content: the event object
+     * originates from the facade verbatim.
+     *
+     * @param connection Recipient.
+     * @param event      Facade-produced event.
+     */
+    function sendLobbyEvent(connection: Connection, event: LobbyEvent): void {
+        connection.send(envelopeOf('lobbyEvent', { event }));
+        statsCounter.recordFrameSent('lobbyEvent');
+    }
+
+    /**
+     * Build the actionId-correlated error event for a failed lobby
+     * action (audit item 6: the correlation id is echoed ONLY here —
+     * on the response to the request that carried it — never broadcast
+     * or persisted). `detail` passes through verbatim when present.
+     *
+     * @param actionId The requesting frame's correlation id.
+     * @param failure  The facade's mapped failure.
+     * @returns The wire payload for a `lobbyEvent` frame.
+     */
+    function lobbyErrorPayload(actionId: LobbyActionId, failure: LobbyFailure): LobbyEventPayload {
+        const base: LobbyEvent = {
+            kind: 'error',
+            actionId,
+            code: failure.code,
+            message: failure.message,
+        };
+        // exactOptionalPropertyTypes: attach detail only when present.
+        const event: LobbyEvent = failure.detail === undefined ? base : { ...base, detail: failure.detail };
+        return { event };
+    }
+
+    /**
+     * Lazy refill + consume on the connection's dedicated lobby bucket
+     * (same token-bucket math as `Connection.takeToken`; duplicated
+     * here because that method is bound to the orders bucket and this
+     * file owns the lobby bucket). First lobby message allocates.
+     *
+     * @param connection Requesting connection.
+     * @returns True when the message may proceed; false after sending
+     *          the `'rate_limited'` rejection (connection stays open).
+     */
+    function allowLobbyMessage(connection: Connection): boolean {
+        const nowMs = Date.now(); // socket-event boundary read (sanctioned)
+        let bucket = lobbyBuckets.get(connection.id);
+        if (bucket === undefined) {
+            const capacity = Math.floor(
+                NETWORK_CONSTANTS.defaultLobbyMessagesPerSecond * NETWORK_CONSTANTS.defaultRateLimitBurstFactor,
+            );
+            bucket = {
+                capacity,
+                refillPerSec: NETWORK_CONSTANTS.defaultLobbyMessagesPerSecond,
+                tokens: capacity,
+                lastRefillAtMs: nowMs,
+            };
+            lobbyBuckets.set(connection.id, bucket);
+        }
+        const elapsedSec = Math.max(
+            0,
+            (nowMs - bucket.lastRefillAtMs) / NETWORK_TRANSPORT_CONSTANTS.millisecondsPerSecond,
+        );
+        bucket.tokens = Math.min(bucket.capacity, bucket.tokens + elapsedSec * bucket.refillPerSec);
+        bucket.lastRefillAtMs = nowMs;
+        if (bucket.tokens < 1) {
+            // Secrecy note (audit item 5): the rejection names no kind,
+            // handle, or claim content — just the policy violation.
+            connection.sendError('rate_limited', 'lobby message rate limit exceeded');
+            return false;
+        }
+        bucket.tokens -= 1;
+        return true;
+    }
+
+    /**
+     * Run one lobby handler against the facade with uniform guard
+     * rails: unavailable lobby → polite transport-level error; thrown
+     * facade errors (invariant breaches, closed facade) → logged +
+     * `internal_error`, connection stays open. Payload contents are
+     * NEVER included in messages or logs (audit item 5: the identity
+     * claim carries the bearer-secret guest id).
+     *
+     * @param connection Requesting connection.
+     * @param handler    Synchronous facade call + reply logic.
+     */
+    function withLobbyFacade(connection: Connection, handler: (facade: LobbyServiceFacade) => void): void {
+        const facade = lobbyFacadeOrNull();
+        if (facade === null) {
+            connection.sendError('internal_error', 'no lobby service is available on this server');
+            return;
+        }
+        try {
+            handler(facade);
+        } catch (error) {
+            deps.logger.warn('lobby action threw', { connectionId: connection.id, error: String(error) });
+            connection.sendError('internal_error', 'lobby action failed');
+        }
+    }
+
+    /**
+     * Handle `lobbyIdentity`: establish or restore the connection's
+     * guest identity. No actionId exists on this payload — the
+     * facade's DIRECTED `identity` event (pushed through the sink
+     * regardless of subscription, audit item 8) IS the confirmation.
+     * Establishment cannot fail recoverably (stale/forged claims
+     * silently mint a fresh identity), so there is no error arm.
+     *
+     * @param connection Requesting connection.
+     * @param payload    Advisory resume claim (input only — the opaque
+     *                   guest id never echoes back out).
+     */
+    function handleLobbyIdentity(connection: Connection, payload: LobbyIdentityPayload): void {
+        withLobbyFacade(connection, (facade) => {
+            const claim: GuestIdentityClaim | undefined = payload.claim;
+            facade.establishIdentity(claim, connection.id);
+        });
+    }
+
+    /**
+     * Handle `lobbySetHandle`: claim/rename the identity's public
+     * handle. Success confirms via the facade's directed `identity`
+     * event (no `actionAccepted` — the closed transition union has no
+     * arm for data-only updates); failure replies with an `error`
+     * event echoing the request's actionId plus code/message/detail.
+     *
+     * @param connection Requesting connection.
+     * @param payload    Handle + correlation id.
+     */
+    function handleLobbySetHandle(connection: Connection, payload: LobbySetHandlePayload): void {
+        withLobbyFacade(connection, (facade) => {
+            const result = facade.setHandle(connection.id, payload.handle);
+            if (!result.ok) {
+                sendLobbyEvent(connection, lobbyErrorPayload(payload.actionId, result.error).event);
+            }
+        });
+    }
+
+    /**
+     * Handle `lobbySubscribe`: opt into revision broadcasts. The
+     * facade returns the baseline snapshot without pushing it — the
+     * dispatcher frames THAT returned value verbatim as the directed
+     * reply (a fresh client learns the current list even before any
+     * mutation broadcasts).
+     *
+     * @param connection Requesting connection.
+     * @param payload    Correlation id.
+     */
+    function handleLobbySubscribe(connection: Connection, payload: LobbySubscribePayload): void {
+        withLobbyFacade(connection, (facade) => {
+            const result = facade.subscribe(connection.id);
+            if (!result.ok) {
+                sendLobbyEvent(connection, lobbyErrorPayload(payload.actionId, result.error).event);
+                return;
+            }
+            sendLobbyEvent(connection, { kind: 'snapshot', snapshot: result.data });
+        });
+    }
+
+    /**
+     * Handle `lobbyCreate`: create a public match, creator's seat
+     * reserved. Success always leaves the creator in a filling match
+     * (auto-start needs ≥2 seats), so the transition hint is constant
+     * `'waiting'`.
+     *
+     * @param connection Requesting connection.
+     * @param payload    Optional settings presets + correlation id.
+     */
+    function handleLobbyCreate(connection: Connection, payload: LobbyCreatePayload): void {
+        withLobbyFacade(connection, (facade) => {
+            const settings = payload.settings;
+            const result =
+                settings === undefined ? facade.create(connection.id) : facade.create(connection.id, settings);
+            if (!result.ok) {
+                sendLobbyEvent(connection, lobbyErrorPayload(payload.actionId, result.error).event);
+                return;
+            }
+            sendLobbyEvent(connection, { kind: 'actionAccepted', actionId: payload.actionId, transition: 'waiting' });
+        });
+    }
+
+    /**
+     * Handle `lobbyJoin`: join a listed waiting match. Atomic
+     * matchmaking-side; losers get the mapped error. The transition
+     * hint distinguishes auto-start (feature 006 starts deterministically
+     * when the final seat fills): the peeked snapshot — delivered to
+     * this connection by the facade DURING the join call, when
+     * subscribed — shows the row's post-join status. Unsubscribed
+     * actors (and rows absent from the peek) get `'waiting'`, which
+     * stays truthful because such a client also misses the broadcast
+     * that would have told it to enter live play.
+     *
+     * @param connection Requesting connection.
+     * @param payload    Target match + correlation id.
+     */
+    function handleLobbyJoin(connection: Connection, payload: LobbyJoinPayload): void {
+        withLobbyFacade(connection, (facade) => {
+            peek.connectionId = connection.id;
+            peek.snapshot = null;
+            try {
+                const result = facade.join(connection.id, payload.matchId);
+                if (!result.ok) {
+                    sendLobbyEvent(connection, lobbyErrorPayload(payload.actionId, result.error).event);
+                    return;
+                }
+                sendLobbyEvent(connection, {
+                    kind: 'actionAccepted',
+                    actionId: payload.actionId,
+                    transition: peekedRowStatus(result.data.matchId) === 'in_progress' ? 'match' : 'waiting',
+                });
+            } finally {
+                peek.connectionId = null;
+                peek.snapshot = null;
+            }
+        });
+    }
+
+    /**
+     * Handle `lobbySpectate`: attach read-only to an in-progress
+     * match through the existing spectator path (no seat, no token,
+     * no order rights). Success hands the browser to the live
+     * read-only view (`'match'`).
+     *
+     * @param connection Requesting connection.
+     * @param payload    Target match + correlation id.
+     */
+    function handleLobbySpectate(connection: Connection, payload: LobbySpectatePayload): void {
+        withLobbyFacade(connection, (facade) => {
+            const result = facade.spectate(connection.id, payload.matchId);
+            if (!result.ok) {
+                sendLobbyEvent(connection, lobbyErrorPayload(payload.actionId, result.error).event);
+                return;
+            }
+            sendLobbyEvent(connection, { kind: 'actionAccepted', actionId: payload.actionId, transition: 'match' });
+        });
+    }
+
+    /**
+     * Handle `lobbyLeave`: release the identity's match association
+     * and return to the lobby. Mapping ruling (documented honestly):
+     * the closed `transition` union has no "back to lobby" arm, so the
+     * confirmation carries the neutral `'waiting'` value — clients
+     * correlate by actionId and know a leave returns them to the
+     * lobby view; the authoritative post-leave state arrives via the
+     * next snapshot (activeMatchId null).
+     *
+     * @param connection Requesting connection.
+     * @param payload    Correlation id.
+     */
+    function handleLobbyLeave(connection: Connection, payload: LobbyLeavePayload): void {
+        withLobbyFacade(connection, (facade) => {
+            const result = facade.leave(connection.id);
+            if (!result.ok) {
+                sendLobbyEvent(connection, lobbyErrorPayload(payload.actionId, result.error).event);
+                return;
+            }
+            sendLobbyEvent(connection, { kind: 'actionAccepted', actionId: payload.actionId, transition: 'waiting' });
+        });
+    }
 
     // ------------------------------------------------------------------
     // Inbound protocol dispatch
@@ -727,9 +1141,58 @@ export function createMatchServer(
                 statsCounter.recordFrameSent('pong');
                 return;
             }
+            // Feature 010 lobby family: rate-gated, then routed to the
+            // injected facade (see the lobby composition section). The
+            // gate precedes routing so a flood cannot reach the facade
+            // (each unknown identity claim would mint a registry entry).
+            case 'lobbyIdentity':
+                if (allowLobbyMessage(connection)) {
+                    handleLobbyIdentity(connection, envelope.payload as LobbyIdentityPayload);
+                }
+                return;
+            case 'lobbySetHandle':
+                if (allowLobbyMessage(connection)) {
+                    handleLobbySetHandle(connection, envelope.payload as LobbySetHandlePayload);
+                }
+                return;
+            case 'lobbySubscribe':
+                if (allowLobbyMessage(connection)) {
+                    handleLobbySubscribe(connection, envelope.payload as LobbySubscribePayload);
+                }
+                return;
+            case 'lobbyCreate':
+                if (allowLobbyMessage(connection)) {
+                    handleLobbyCreate(connection, envelope.payload as LobbyCreatePayload);
+                }
+                return;
+            case 'lobbyJoin':
+                if (allowLobbyMessage(connection)) {
+                    handleLobbyJoin(connection, envelope.payload as LobbyJoinPayload);
+                }
+                return;
+            case 'lobbySpectate':
+                if (allowLobbyMessage(connection)) {
+                    handleLobbySpectate(connection, envelope.payload as LobbySpectatePayload);
+                }
+                return;
+            case 'lobbyLeave':
+                if (allowLobbyMessage(connection)) {
+                    handleLobbyLeave(connection, envelope.payload as LobbyLeavePayload);
+                }
+                return;
             default:
-                // Server→client kinds arriving inbound are sequence errors.
-                connection.sendError('protocol_sequence_error', `${envelope.type} is a server-to-client message`);
+                // Direction-aware diagnostics (F-4 fix): every inbound
+                // kind has an arm above, so landing here means either a
+                // server→client frame sent upstream (historical case —
+                // keep that wording) or a client→server kind that
+                // somehow escaped routing (say THAT, so the gap is
+                // diagnosable instead of misdescribed).
+                connection.sendError(
+                    'protocol_sequence_error',
+                    CLIENT_TO_SERVER_KINDS.has(envelope.type)
+                        ? `${envelope.type} is a client-to-server message but was not routed by this server`
+                        : `${envelope.type} is a server-to-client message`,
+                );
         }
     }
 
@@ -741,10 +1204,28 @@ export function createMatchServer(
      * client can reclaim within `reconnectGraceMs` (US2 AC-1); the
      * scheduler's grace sweep handles expiry (AC-2).
      *
+     * Feature 010 (Wave-2 audit item 1): EVERY close path funnels
+     * through here — clean close, transport loss, idle-timeout reap —
+     * so this is the one place the lobby teardown hook fires. It runs
+     * BEFORE any match-id early return: a lobby-only connection has no
+     * matchId, and skipping its teardown would let the identity squat
+     * its reserved handle forever. Only an ALREADY-BUILT facade is
+     * notified (teardown must not lazily construct one), and the call
+     * is guarded because the facade throws only on its own closed
+     * invariant (host shut the lobby down first).
+     *
      * @param connection The closed connection.
      */
     function handleDisconnect(connection: Connection): void {
         connections.delete(connection.id);
+        lobbyBuckets.delete(connection.id);
+        if (lobbyInstance !== null) {
+            try {
+                lobbyInstance.connectionClosed(connection.id);
+            } catch (error) {
+                deps.logger.warn('lobby connectionClosed threw', { connectionId: connection.id, error: String(error) });
+            }
+        }
         const { matchId } = connection;
         if (!matchId) {
             return;
@@ -973,6 +1454,11 @@ export function createMatchServer(
             channels.clear();
             connections.clear();
             resyncBuffers.clear();
+            // Lobby buckets die with the server. The FACADE is
+            // deliberately NOT closed here: matchmaking's facade cascades
+            // `close()` into `matchmaker.close()`, which is the host's
+            // lifecycle decision (see ServerDeps.lobby).
+            lobbyBuckets.clear();
             wss.close();
             await new Promise<void>((resolve) => {
                 if (!httpServer || !listening) {
