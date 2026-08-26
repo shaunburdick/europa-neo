@@ -576,3 +576,279 @@ body {
     font-size: 0.95rem;
     font-weight: 600;
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Public lobby landing (feature 010 T-015). Same chrome language as the
+ * match view: #111827 plates on #0b0f19, #374151 borders, #f9fafb text,
+ * shared .europa-focus-ring indicators. Focus ring contrast on plates is
+ * ≈16:1 (WCAG 2.4.7 ≥ 3:1); body text ≈14:1; muted lines use #9ca3af
+ * (≈7:1 on plates) — all above AA.
+ * ---------------------------------------------------------------------------
+ */
+
+/* Page column: centered single-column layout, comfortable measure. */
+.europa-lobby {
+    max-width: 60rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem 1rem 3rem;
+}
+
+/* The h1 doubles as the return-to-lobby focus target (tabIndex=-1);
+   the shared focus-ring class gives it a visible indicator when focused
+   programmatically (WCAG 2.4.7). */
+.europa-lobby__title {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.europa-lobby__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+/* Cards: identity + create sit in the grid; the match list spans wide. */
+.europa-lobby__card {
+    padding: 1rem 1.25rem;
+    background-color: #111827;
+    border: 1px solid #374151;
+    border-radius: 8px;
+}
+
+.europa-lobby__card--wide {
+    grid-column: 1 / -1;
+}
+
+.europa-lobby__card-title {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+}
+
+/* Status lines: muted but ≥ AA on the plate background. */
+.europa-lobby__status-line {
+    margin: 0 0 0.5rem;
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+
+/* Accepted handle emphasis: inherits surrounding color; <bdi> supplies
+   the directional isolation (hostile-but-valid content rule). */
+.europa-lobby__handle {
+    font-weight: 700;
+    color: #e5e7eb;
+}
+
+.europa-lobby__form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.europa-lobby__fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.europa-lobby__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.europa-lobby__field-label,
+.europa-lobby__fieldset legend {
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0;
+}
+
+.europa-lobby__radio-row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* Radio labels: hit area above the WCAG 2.5.8 24px minimum. */
+.europa-lobby__radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 24px;
+    font-size: 0.9rem;
+}
+
+.europa-lobby__input {
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    background-color: #1f2937;
+    color: #f9fafb;
+    font-size: 0.9rem;
+}
+
+/* Shared button style for lobby controls (mirrors the modal buttons). */
+.europa-lobby__button {
+    align-self: flex-start;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    background-color: #1f2937;
+    color: #f9fafb;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.europa-lobby__button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Inline field/form errors: role="alert" announces them; the left
+   border echoes the match view's error toasts (never color alone —
+   the text carries the message). */
+.europa-lobby__error {
+    margin: 0;
+    padding: 0.25rem 0.5rem;
+    border-left: 3px solid #dc2626;
+    color: #fca5a5;
+    font-size: 0.85rem;
+}
+
+/* Match rows: stable per-match blocks inside a semantic list. */
+.europa-lobby__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.europa-lobby__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    background-color: #1a2233;
+}
+
+.europa-lobby__row-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.europa-lobby__row-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    color: #e5e7eb;
+}
+
+/* "Your match" badge (US4 AC-4): text badge + amber edge — never color
+   alone (constitution Principle VI). */
+.europa-lobby__row-badge {
+    padding: 0 0.4rem;
+    border: 1px solid #f59e0b;
+    border-radius: 999px;
+    color: #fbbf24;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.europa-lobby__row-meta {
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+
+.europa-lobby__row-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.europa-lobby__row-full {
+    color: #9ca3af;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* Empty state (US2 AC-4): explicit, quiet, actionable via the create
+   card beside it. */
+.europa-lobby__empty {
+    margin: 0;
+    padding: 0.75rem;
+    border: 1px dashed #374151;
+    border-radius: 6px;
+    color: #9ca3af;
+}
+
+/* Superseded notice (session moved elsewhere): assertive plate with an
+   explicit acknowledge control; receives focus when it appears. */
+.europa-lobby__superseded {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d97706;
+    border-radius: 8px;
+    background-color: #111827;
+}
+
+.europa-lobby__superseded p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* Active-match note (US4 AC-4 visibility of the association). */
+.europa-lobby__active-note {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid #2563eb;
+    background-color: #111827;
+    border-radius: 4px;
+    color: #e5e7eb;
+    font-size: 0.85rem;
+}
+
+/*
+ * Match-context chrome (entered from the lobby): a slim bar above the
+ * unchanged game UI carrying the leave control.
+ */
+.europa-lobby-match {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.europa-lobby-match__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background-color: #111827;
+    border-bottom: 1px solid #374151;
+}
+
+.europa-lobby-match__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.europa-lobby-match__placeholder {
+    align-items: center;
+    justify-content: center;
+}
