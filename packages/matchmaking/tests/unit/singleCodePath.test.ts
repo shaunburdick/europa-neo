@@ -97,14 +97,18 @@ describe('single match_not_found code path on stubbed operations (FR-006 / T042)
 });
 
 describe('stub boundary stays pinned (feature bodies land in later waves)', () => {
-    it('US3+: a KNOWN matchId still hits the leaveMatch invariant throw', () => {
+    it('US3+ (R-005): a KNOWN matchId with an unknown token returns session_invalid — no throw', () => {
         const { matchmaker, knownId } = makeFixture();
 
-        // The existence gate passes for the known id; the unimplemented
-        // feature body then throws its invariant violation as before.
-        expect(() => matchmaker.leaveMatch({ matchId: knownId, sessionToken: ANY_TOKEN })).toThrow(
-            /leaveMatch is not implemented/,
-        );
+        // Remediation R-005 replaced the throwing stub with the real
+        // leaveMatch body: the existence gate passes for the known id,
+        // then credential validation rejects the unknown token with the
+        // RESULT-level `session_invalid` (mirroring the rematch flows).
+        const result = matchmaker.leaveMatch({ matchId: knownId, sessionToken: ANY_TOKEN });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('session_invalid');
+        }
         matchmaker.close();
     });
 

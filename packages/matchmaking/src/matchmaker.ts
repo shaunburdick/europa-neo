@@ -29,6 +29,28 @@
  * are runtime imports confined to `engineSession.ts` and the board
  * generation below — they are declared workspace dependencies and
  * stay external in the bundle.
+ *
+ * Feature 010 composition seams (remediation R-005): three additive,
+ * STRUCTURALLY-discovered surfaces on the returned object (the same
+ * pattern as servers' optional `bindMatchmaker`; deliberately NOT part
+ * of the `Matchmaker` interface so legacy consumers and test fakes stay
+ * untouched — see {@linkcode MatchmakerCompositionSeam}):
+ *
+ *   1. `registerLifecycleListener(listener)` — fans every networking
+ *      bridge trigger the matchmaker processes (`onSeatClaimed`,
+ *      `onSeatDisconnected`, `onSeatReconnected`, `onSeatExpired`,
+ *      `onMatchTerminal`) out to registered listeners AFTER the
+ *      matchmaker's own handling, in registration order. This is the
+ *      runtime twin of the test fixture's `FakeMatchmakerBridge`.
+ *   2. `subscribeStatus(listener)` — subscription access to the FR-012
+ *      status bus (create/fill/start/finish/collect transitions).
+ *   3. `getMatch(matchId)` — authoritative store lookup for composition
+ *      modules that rebuild projections from records (T-008).
+ *
+ * `leaveMatch` is implemented (US3 AC-3): filling-phase seat release
+ * reuses the forfeit path's inline-release machinery; running-phase
+ * leave delegates to the same forfeit policy as grace expiry; see the
+ * method's JSDoc and spec 006 Implementation Notes for the phase table.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -69,7 +91,7 @@ import type {
 import { MATCHMAKING_CONSTANTS } from './constants';
 import { buildEngineSession, buildMatchConfig } from './engineSession';
 import { makeError } from './errors';
-import type { StatusEventBus } from './eventBus';
+import type { MatchStatusListener, StatusEventBus } from './eventBus';
 import { handleSeatExpired } from './forfeit';
 import { newMatchSeed } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
@@ -157,28 +179,58 @@ function validateDisplayName(name: string, min: number, max: number): string | n
 }
 
 /**
+ * One rejected settings field (feature 010 US3 AC-4, remediation R-005):
+ * the dotted field path a client create-form can target plus a short
+ * human-readable reason. Values are credential-free by construction —
+ * field names and validation text only (no tokens, ids, or names).
+ */
+interface SettingsRejection {
+    /** Dotted path of the rejected knob (e.g., `settings.playerCount`). */
+    readonly field: 'settings.playerCount' | 'settings.boardSize' | 'settings.tickIntervalMs';
+    /** Short human-readable rejection reason (safe to forward to clients). */
+    readonly reason: string;
+}
+
+/**
  * Merge partial player settings over `DEFAULT_MATCH_SETTINGS`
  * (contract: "missing fields merged with DEFAULT_MATCH_SETTINGS").
  * Board size is clamped to `[8, 128]` per `MatchSettings.boardSize`;
- * everything else out-of-contract is rejected.
+ * everything else out-of-contract is rejected WITH FIELD SPECIFICITY
+ * (US3 AC-4): the caller turns {@linkcode SettingsRejection} into
+ * `MatchmakerError.detail` so the facade can forward actionable
+ * specifics instead of a generic failure.
  *
- * @returns Resolved settings, or `null` when a field is invalid.
+ * @returns The resolved settings, or which field was rejected and why.
  */
-function resolveSettings(partial: CreateMatchRequest['settings'], boardSizeDefault: number): MatchSettings | null {
+function resolveSettings(
+    partial: CreateMatchRequest['settings'],
+    boardSizeDefault: number,
+):
+    | { readonly ok: true; readonly settings: MatchSettings }
+    | { readonly ok: false; readonly rejection: SettingsRejection } {
     const playerCount = partial?.playerCount ?? DEFAULT_MATCH_SETTINGS.playerCount;
     if (playerCount !== 2 && playerCount !== 3 && playerCount !== 4) {
-        return null;
+        return {
+            ok: false,
+            rejection: { field: 'settings.playerCount', reason: 'must be 2, 3, or 4' },
+        };
     }
 
     const rawBoardSize = partial?.boardSize ?? boardSizeDefault;
     if (!Number.isFinite(rawBoardSize)) {
-        return null;
+        return {
+            ok: false,
+            rejection: { field: 'settings.boardSize', reason: 'must be a finite number' },
+        };
     }
     const boardSize = Math.min(MAX_BOARD_SIZE, Math.max(MIN_BOARD_SIZE, Math.trunc(rawBoardSize)));
 
     const tickIntervalMs = partial?.tickIntervalMs ?? DEFAULT_MATCH_SETTINGS.tickIntervalMs;
     if (!Number.isInteger(tickIntervalMs) || tickIntervalMs <= 0) {
-        return null;
+        return {
+            ok: false,
+            rejection: { field: 'settings.tickIntervalMs', reason: 'must be a positive whole number of ms' },
+        };
     }
 
     const terrainSettings = {
@@ -187,11 +239,91 @@ function resolveSettings(partial: CreateMatchRequest['settings'], boardSizeDefau
     };
 
     return {
-        playerCount,
-        boardSize,
-        tickIntervalMs,
-        terrainSettings,
+        ok: true,
+        settings: {
+            playerCount,
+            boardSize,
+            tickIntervalMs,
+            terrainSettings,
+        },
     };
+}
+
+// ----------------------------------------------------------------------------
+// Composition seam (feature 010, remediation R-005)
+// ----------------------------------------------------------------------------
+
+/**
+ * Additive composition surface on the REAL matchmaker object (feature
+ * 010 remediation R-005) — the three seams lobby wiring needs,
+ * discovered structurally by consumers:
+ *
+ * ```ts
+ * const matchmaker = createMatchmaker(config, deps);
+ * // Narrow structurally — the same pattern as servers' bindMatchmaker:
+ * const seam = matchmaker as Matchmaker & MatchmakerCompositionSeam;
+ *
+ * // T-008 publication recipe (see lobbyPublication.ts):
+ * const publication = createLobbyPublication({
+ *     getMatch: (id) => seam.getMatch(id),
+ * });
+ * seam.subscribeStatus(publication.onStatusChanged);
+ * seam.registerLifecycleListener(facadeBridgeHandlers);
+ * ```
+ *
+ * Deliberately NOT part of the `Matchmaker` interface (additive-only
+ * evolution; legacy consumers and fakes stay untouched). The listener
+ * fan-out mirrors `tests/fixtures/fakeMatchmakerBridge.ts` so suites
+ * written against the fake transfer to the real object unchanged.
+ */
+export interface MatchmakerCompositionSeam {
+    /**
+     * Register a lifecycle listener that receives every networking
+     * bridge trigger the matchmaker processes — `onSeatClaimed`,
+     * `onSeatDisconnected`, `onSeatReconnected`, `onSeatExpired`, and
+     * `onMatchTerminal` — AFTER the matchmaker's own policy has been
+     * applied, in registration order. Multiple listeners are supported
+     * (the facade and the publication module each register their own).
+     *
+     * Listeners observe NETWORKING-originated dispatches verbatim; the
+     * matchmaker does not synthesize extra events for internally
+     * decided actions (e.g., a voluntary `leaveMatch` forfeit) — those
+     * reach listeners through their status consequences on the
+     * {@linkcode subscribeStatus} bus instead. A throwing listener is a
+     * programming error and is NOT isolated (house event-bus
+     * convention, mirroring `createStatusBus`).
+     *
+     * @param listener - The handler set to register (networking's
+     *   canonical `MatchmakerBridge`; all handlers optional).
+     */
+    registerLifecycleListener(listener: MatchmakerBridge): void;
+    /**
+     * Subscribe to the FR-012 status bus: one `MatchStatusChangedEvent`
+     * per lifecycle transition (`null → filling` on create, `filling →
+     * running` on auto-start, `running → finished` on terminal, and
+     * `* → collected` on teardown/GC/leave-collect).
+     *
+     * @param listener - Transition receiver.
+     * @returns Idempotent unsubscribe function.
+     * @throws When the matchmaker is closed (a subscription on a dead
+     *   instance could never deliver; loud failure beats silence).
+     */
+    subscribeStatus(listener: MatchStatusListener): () => void;
+    /**
+     * Authoritative record lookup — the store's `getMatch`, exposed for
+     * composition modules that rebuild projections from live records
+     * (T-008's `LobbyPublicationDeps.getMatch`). Read-only by
+     * convention: callers must not mutate the returned record (lifecycle
+     * transitions are the only sanctioned writers).
+     *
+     * Returns `undefined` for unknown ids AND after `close()` (the store
+     * is emptied), which makes composed projections prune quietly during
+     * teardown instead of crashing.
+     *
+     * @param matchId - The match to resolve.
+     * @returns The live record, or `undefined`.
+     */
+    getMatch(matchId: MatchId): MatchRecord | undefined;
 }
 
 // ----------------------------------------------------------------------------
@@ -221,6 +353,12 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
     const store: MatchmakerStore = createStore();
     const bus: StatusEventBus = createStatusBus();
+    /**
+     * Registered lifecycle listeners (feature 010 R-005 seam). Fan-out
+     * happens inline at the bridge entry points below; registration
+     * order is delivery order; no error isolation (house convention).
+     */
+    const lifecycleListeners: MatchmakerBridge[] = [];
     const constructedAtMs = now();
 
     let closed = false;
@@ -243,41 +381,70 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     // Per contracts/matchmaking-api.ts implementation note: the host wires
     // these handlers into networking's ServerDeps; when the server exposes
     // an optional `bindMatchmaker`, the matchmaker hands them over itself.
-    // US1 implements no bridge behavior yet — each handler documents the
-    // wave that fills it in.
+    // Each handler applies its policy first, then fans the event out to
+    // registered lifecycle listeners (feature 010 R-005 seam).
+
+    /**
+     * Fan one bridge event out to every registered lifecycle listener
+     * (feature 010 R-005 seam), in registration order. Called AFTER the
+     * matchmaker's own handling so listeners observe post-policy state.
+     * A throwing listener is a programming error and is NOT isolated —
+     * the same convention as `createStatusBus` and the publication
+     * module's sinks.
+     *
+     * @param deliver - Per-listener delivery (invokes the optional
+     *   handler for one listener with the captured event).
+     */
+    function fanOutLifecycle(deliver: (listener: MatchmakerBridge) => void): void {
+        for (const listener of lifecycleListeners) {
+            deliver(listener);
+        }
+    }
 
     /** Handlers the matchmaker owns; networking invokes them. */
     const bridgeHandlers: MatchmakerBridge = {
         /**
          * No matchmaking state changes on a seat claim — networking owns
-         * connection lifecycle. Kept as an explicit hook for future waves.
+         * connection lifecycle. Fanned out verbatim so composition
+         * consumers (lobby facade, publication) observe fills.
          */
-        onSeatClaimed: () => {},
+        onSeatClaimed: (event) => {
+            fanOutLifecycle((listener) => listener.onSeatClaimed?.(event));
+        },
         /**
-         * Intentionally a no-op: the reconnect grace window lives entirely
-         * in networking (its own seat records time the disconnect). The
-         * matchmaker learns of trouble only when networking reports the
-         * grace expiry via {@linkcode bridgeHandlers.onSeatExpired}.
+         * Intentionally a no-op internally: the reconnect grace window
+         * lives entirely in networking (its own seat records time the
+         * disconnect). The matchmaker learns of trouble only when
+         * networking reports the grace expiry via
+         * {@linkcode bridgeHandlers.onSeatExpired}. Fanned out verbatim
+         * so the lobby facade can start its identity grace bookkeeping.
          */
-        onSeatDisconnected: () => {},
+        onSeatDisconnected: (event) => {
+            fanOutLifecycle((listener) => listener.onSeatDisconnected?.(event));
+        },
         /**
-         * Intentionally a no-op: a reconnect cancels the grace timer
-         * inside networking, so there is nothing for the matchmaker to
-         * undo (no pending forfeit state exists on this side).
+         * Intentionally a no-op internally: a reconnect cancels the grace
+         * timer inside networking, so there is nothing for the matchmaker
+         * to undo (no pending forfeit state exists on this side). Fanned
+         * out verbatim for the facade's registry restoration.
          */
-        onSeatReconnected: () => {},
+        onSeatReconnected: (event) => {
+            fanOutLifecycle((listener) => listener.onSeatReconnected?.(event));
+        },
         /**
          * Applies the forfeit policy (US5 / FR-010) via `forfeit.ts`
          * (T058/T059). Boundary rule 4: networking only reports the
          * expiry; the matchmaker decides the forfeit. Engine-level
          * forfeits (`surrendered` / `torn_down`) bump `totalForfeits`;
-         * filling-phase inline releases do not.
+         * filling-phase inline releases do not. The raw event is fanned
+         * out after the policy resolves so listeners see settled state.
          */
         onSeatExpired: (event) => {
             const result = handleSeatExpired(event, { store, server, logger, emit: bus.emit }, now());
             if (result === null) {
                 return;
             }
+            fanOutLifecycle((listener) => listener.onSeatExpired?.(event));
             if (result.outcome === 'released') {
                 return;
             }
@@ -287,7 +454,10 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
         },
         /** Records results + transitions running → finished (US4 / FR-008). */
-        onMatchTerminal: handleMatchTerminal,
+        onMatchTerminal: (event) => {
+            handleMatchTerminal(event);
+            fanOutLifecycle((listener) => listener.onMatchTerminal?.(event));
+        },
     };
 
     /**
@@ -582,7 +752,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
     // -- Public surface --------------------------------------------------------
 
-    const matchmaker: Matchmaker = {
+    const matchmaker: Matchmaker & MatchmakerCompositionSeam = {
         createMatch(req: CreateMatchRequest): CreateMatchResult {
             assertOpen();
 
@@ -600,10 +770,21 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                     error: makeError('invalid_request', 'displayName must be 1..32 characters'),
                 };
             }
-            const settings = resolveSettings(req.settings, DEFAULT_MATCH_SETTINGS.boardSize);
-            if (settings === null) {
-                return { ok: false, error: makeError('invalid_request', 'Invalid match settings') };
+            const resolvedSettings = resolveSettings(req.settings, DEFAULT_MATCH_SETTINGS.boardSize);
+            if (!resolvedSettings.ok) {
+                // US3 AC-4 chain: the rejected field travels in `detail`
+                // (credential-free field path + reason) so the lobby
+                // facade can forward actionable specifics to the client.
+                const { field, reason } = resolvedSettings.rejection;
+                return {
+                    ok: false,
+                    error: makeError('invalid_request', `Invalid match settings: ${field} ${reason}`, {
+                        field,
+                        reason,
+                    }),
+                };
             }
+            const settings = resolvedSettings.settings;
 
             const activeMatches = store.listMatches().filter((m) => m.status !== 'collected').length;
             if (activeMatches >= resolved.maxConcurrentMatches) {
@@ -614,7 +795,17 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
 
             const atMs = now();
-            const session = createPlayerSession({ displayName, randomId, now });
+            const session = createPlayerSession({
+                displayName,
+                randomId,
+                now,
+                // Feature 010 FR-019 (R-005): the server-resolved registry
+                // values ride into the session; absent fields store null
+                // (legacy flows). Conditional spreads honor
+                // exactOptionalPropertyTypes.
+                ...(req.guestPlayerId === undefined ? {} : { guestPlayerId: req.guestPlayerId }),
+                ...(req.acceptedHandle === undefined ? {} : { acceptedHandle: req.acceptedHandle }),
+            });
             store.putSession(session);
 
             const { match } = createMatchRecordWithCreator({
@@ -706,7 +897,15 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
 
             const atMs = now();
-            const session = createPlayerSession({ displayName, randomId, now });
+            const session = createPlayerSession({
+                displayName,
+                randomId,
+                now,
+                // Feature 010 FR-019 (R-005): same server-resolved
+                // identity pass-through as `createMatch` (absent → null).
+                ...(req.guestPlayerId === undefined ? {} : { guestPlayerId: req.guestPlayerId }),
+                ...(req.acceptedHandle === undefined ? {} : { acceptedHandle: req.acceptedHandle }),
+            });
             store.putSession(session);
 
             addSeatToFillingMatch(match, session, freeSeat, atMs);
@@ -739,16 +938,106 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             assertOpen();
             // Single existence code path (FR-006 + Q2; research.md §2): an
             // unknown MatchId gets the same non-leaking `match_not_found`
-            // RESULT as every other operation — checked BEFORE the wave gate
-            // below so the no-leak invariant holds uniformly across the whole
-            // surface, stubbed or not.
-            if (store.getMatch(req.matchId) === undefined) {
+            // RESULT as every other operation — checked BEFORE token
+            // validation so the no-leak invariant holds uniformly across
+            // the whole surface.
+            const match = store.getMatch(req.matchId);
+            if (match === undefined) {
                 return notFoundResult();
             }
-            // US3 AC-3 (seat release) lands with the lifecycle-completion wave;
-            // calling it before then is an invariant violation, not an expected
-            // failure — so it throws rather than returning an error result.
-            throw new Error('matchmaker: leaveMatch is not implemented until the US3+ wave');
+            const seat = findSeatByToken(match, req.sessionToken);
+            if (seat === undefined) {
+                // Same credential-miss semantics as the rematch flows.
+                return { ok: false, error: makeError('session_invalid') };
+            }
+            if (seat.forfeitedAtMs !== null) {
+                // Idempotency: this seat was already released (grace expiry
+                // or a prior leave). There is nothing left to release, so
+                // the leave succeeds trivially rather than punishing a
+                // double-click (spec 006 Implementation Notes ruling).
+                return { ok: true };
+            }
+            const atMs = now();
+
+            if (match.status === 'filling') {
+                // US3 AC-3 (remediation R-005): reuse the EXACT inline-
+                // release machinery of the filling-forfeit path (forfeit.ts
+                // dispatch ruling 3) — seat removed, session's MATCH binding
+                // cleared (the guestPlayerId/acceptedHandle association
+                // persists; the lobby identity outlives any one match),
+                // networking detach. No engine session exists yet.
+                const result = handleSeatExpired(
+                    { matchId: req.matchId, sessionToken: req.sessionToken, playerId: null },
+                    { store, server, logger, emit: bus.emit },
+                    atMs,
+                );
+                if (result === null || result.outcome !== 'released') {
+                    // Unreachable: the seat exists, is unforfeited, and the
+                    // match is filling — crash loudly rather than invent state.
+                    throw new Error('matchmaker: filling-phase leaveMatch did not release the seat');
+                }
+                if (match.seats.size === 0) {
+                    // Contract: a filling match with NO other seated players
+                    // transitions to 'collected' immediately — the creator-
+                    // cancelled case leaves the public projection at once
+                    // instead of waiting out the empty-match TTL. The just-
+                    // unbound session is unreachable garbage at this point
+                    // (its seat died with the match); delete it per the GC
+                    // sweeps' SC-005 no-leak discipline.
+                    store.deleteSession(seat.playerSessionId);
+                    transitionToCollected(match, atMs, bus.emit);
+                    totalCollected += 1;
+                    logger.info('matchmaker: filling match collected after final seat released', {
+                        matchId: req.matchId,
+                    });
+                } else {
+                    // A leave is activity: refresh the TTL anchor so the
+                    // still-filling match gets a full empty-match window.
+                    match.lastActivityAtMs = atMs;
+                    logger.info('matchmaker: filling seat released; match stays joinable', {
+                        matchId: req.matchId,
+                        seatsFilled: match.seats.size,
+                    });
+                }
+                return { ok: true };
+            }
+
+            if (match.status === 'running') {
+                // Voluntary leave of a live match = immediate forfeit
+                // (contract: "no grace window — they explicitly chose to
+                // leave"), delegated to the SAME forfeit policy as grace
+                // expiry: engine surrender (FR-016 single elimination
+                // authority), forfeit stamp, detach, and the all-forfeited
+                // teardown when the leaver was the last player standing.
+                const result = handleSeatExpired(
+                    { matchId: req.matchId, sessionToken: req.sessionToken, playerId: null },
+                    { store, server, logger, emit: bus.emit },
+                    atMs,
+                );
+                if (result === null) {
+                    // Unreachable for a validated unforfeited seat on a
+                    // running match (see handleSeatExpired's null cases).
+                    throw new Error('matchmaker: running-phase leaveMatch forfeit returned no outcome');
+                }
+                // Counter discipline: `totalForfeits` stays US5 disconnect-
+                // forfeit telemetry (a voluntary leave is not a disconnect);
+                // a teardown still counts as a collection like every site.
+                if (result.outcome === 'torn_down') {
+                    totalCollected += 1;
+                }
+                logger.info('matchmaker: player left running match; forfeit applied', {
+                    matchId: req.matchId,
+                    outcome: result.outcome,
+                });
+                return { ok: true };
+            }
+
+            // finished/collected: nothing live to release — the results-TTL
+            // / rematch policy owns the record's remaining lifetime, and the
+            // forfeit path itself treats terminal matches as no-ops. An
+            // acknowledged no-op success (spec 006 Implementation Notes
+            // ruling); the lobby facade clears its own presence regardless.
+            return { ok: true };
         },
 
         listPublicMatches(): ListPublicMatchesResult {
@@ -1006,6 +1295,30 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 store.deleteSession(s.playerSessionId);
             }
             return Promise.resolve();
+        },
+
+        // -- Feature 010 composition seams (R-005) ------------------------------
+
+        /**
+         * @inheritdoc {@linkcode MatchmakerCompositionSeam.registerLifecycleListener}
+         */
+        registerLifecycleListener(listener: MatchmakerBridge): void {
+            lifecycleListeners.push(listener);
+        },
+
+        /**
+         * @inheritdoc {@linkcode MatchmakerCompositionSeam.subscribeStatus}
+         */
+        subscribeStatus(listener: MatchStatusListener): () => void {
+            assertOpen();
+            return bus.subscribe(listener);
+        },
+
+        /**
+         * @inheritdoc {@linkcode MatchmakerCompositionSeam.getMatch}
+         */
+        getMatch(matchId: MatchId): MatchRecord | undefined {
+            return store.getMatch(matchId);
         },
     };
 
