@@ -32,7 +32,12 @@
  *   (d) API-surface conformance — every `LobbyService` method returns
  *       exactly the documented `Result<_, LobbyError>` shape, takes
  *       the documented parameters, and uses networking's canonical
- *       `MatchId`/`ConnectionId` brands (no local re-branding).
+ *       `MatchId`/`ConnectionId` brands (no local re-branding). The
+ *       feature-010 wire settings mirrors (`LobbyMatchSettings` /
+ *       `LobbyTerrainSettings`, networking-owned) are additionally
+ *       pinned mutually assignable to their authoritative declarations
+ *       — matchmaking's `MatchSettings` and terrain's
+ *       `GenerationSettings` — so mirror drift fails here.
  *   (e) Privacy envelope — no public projection or spectator target
  *       can grow an opaque guest id, seat, or token field without
  *       failing this program (spec FR-003/FR-024/NFR-003).
@@ -49,7 +54,10 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { ConnectionId, MatchId } from '@europa/networking';
+import type { ConnectionId, LobbyMatchSettings, LobbyTerrainSettings, MatchId } from '@europa/networking';
+// Terrain's authoritative generation settings — the declaration the
+// feature-010 wire mirror must stay identical to (see (d) below).
+import type { GenerationSettings } from '@europa/terrain';
 import { describe, expect, it } from 'vitest';
 // Feature-006 canonical shapes the lobby contracts build on.
 import type { MatchSettings, SeatAssignment } from '../contracts/match-types';
@@ -267,6 +275,19 @@ const CONNECTION_PARAMS_ARE_NETWORKING_BRAND: ConnectionParamsAreNetworkingBrand
 // server-issued SeatAssignment verbatim.
 type JoinTargetSeatIsCanonical = AssertMutuallyAssignable<LobbyApi.MatchJoinTarget['seatAssignment'], SeatAssignment>;
 const JOIN_TARGET_SEAT_IS_CANONICAL: JoinTargetSeatIsCanonical = true;
+
+// Settings-mirror conformance: networking's feature-010 wire mirrors
+// must stay field-for-field identical to the authoritative declarations
+// they mirror — matchmaking's own `MatchSettings` and terrain's
+// `GenerationSettings`. All fields are required on both sides, so drift
+// in EITHER direction (a field added, removed, or retyped on either
+// side) fails this program. `MatchSettings.terrainSettings` is itself a
+// `GenerationSettings`, so the terrain witness below is what makes the
+// match-settings witness exact rather than merely compatible.
+type LobbyTerrainMirrorConforms = AssertMutuallyAssignable<LobbyTerrainSettings, GenerationSettings>;
+type LobbyMatchSettingsMirrorConforms = AssertMutuallyAssignable<LobbyMatchSettings, MatchSettings>;
+const LOBBY_TERRAIN_MIRROR_CONFORMS: LobbyTerrainMirrorConforms = true;
+const LOBBY_MATCH_SETTINGS_MIRROR_CONFORMS: LobbyMatchSettingsMirrorConforms = true;
 
 // ---------------------------------------------------------------------------
 // (e) Privacy envelope (no opaque ids / seats / tokens in projections)
@@ -510,6 +531,8 @@ describe('feature 010 lobby contract witnesses (T-001)', () => {
         expect(JOIN_MATCH_ID_PARAM_IS_NETWORKING_BRAND).toBe(true);
         expect(CONNECTION_PARAMS_ARE_NETWORKING_BRAND).toBe(true);
         expect(JOIN_TARGET_SEAT_IS_CANONICAL).toBe(true);
+        expect(LOBBY_TERRAIN_MIRROR_CONFORMS).toBe(true);
+        expect(LOBBY_MATCH_SETTINGS_MIRROR_CONFORMS).toBe(true);
         expect(ENTRY_HAS_NO_GUEST_ID).toBe(true);
         expect(SNAPSHOT_HAS_NO_GUEST_ID).toBe(true);
         expect(IDENTITY_STATE_HAS_NO_GUEST_ID).toBe(true);

@@ -59,6 +59,8 @@ export type {
     HelloPayload,
     JoinAckPayload,
     JoinMatchPayload,
+    LobbyMatchSettings,
+    LobbyTerrainSettings,
     Logger,
     MatchClient,
     MatchConfig,
