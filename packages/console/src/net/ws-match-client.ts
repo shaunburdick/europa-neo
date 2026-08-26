@@ -463,6 +463,15 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             dispatchInbound(envelope);
         };
         socketToAttach.onclose = (event: CloseEvent) => {
+            // Guard: only tear down state if this close event belongs to the
+            // CURRENT socket. A replaced socket (e.g. React StrictMode
+            // double-effect: dispose → re-connect) may queue a close event
+            // that arrives after the new socket is already attached. Letting
+            // a stale close clobber `socket = null` would break the new
+            // connection's `onopen` → `sendEnvelope(hello)`.
+            if (socket !== socketToAttach) {
+                return;
+            }
             socket = null;
             stopHeartbeat();
             const wasJoined = connection === 'joined' || connection === 'rejoined';

@@ -58,6 +58,7 @@ import { App } from '../render/App';
 import { ErrorBoundary } from '../render/ErrorBoundary';
 import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
+import type { LobbyStore } from '../state/lobby-store';
 import { resolveLobbyServerUrl } from '../state/lobby-view';
 import { createOrderBridge } from '../state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
@@ -73,6 +74,22 @@ import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-cre
 import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
+
+// ----------------------------------------------------------------------------
+// Test handle — exposed for Playwright lobby E2E assertions
+// ----------------------------------------------------------------------------
+
+/** Window-global handle for lobby E2E tests (mirrors live-runtime's `__europaLive`). */
+interface EuropaLobbyHandle {
+    /** The lobby store (state assertions). */
+    readonly store: LobbyStore;
+}
+
+declare global {
+    interface Window {
+        __europaLobby?: EuropaLobbyHandle;
+    }
+}
 
 // ----------------------------------------------------------------------------
 // Mount entry
@@ -92,6 +109,12 @@ export function mountLobbyRuntime(root: HTMLElement): void {
     const wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
     const transport = createWsLobbyClient({});
     const controller = createLobbyController({ transport, url: wsUrl });
+
+    // Expose the store for Playwright lobby E2E assertions (mirrors
+    // live-runtime's `window.__europaLive` pattern). Test-only surface;
+    // production code never reads this.
+    window.__europaLobby = { store: controller.store };
+
     void controller.connect();
     createRoot(root).render(
         <StrictMode>

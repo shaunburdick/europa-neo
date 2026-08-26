@@ -346,7 +346,7 @@ describe('LobbyRoot view gate (smoke)', () => {
         // so the waiting-room plate shows instead of the console.
         await controller.joinMatch(MATCH_A);
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
-        await expect.element(screen.getByText(WAITING_FOR_OPPONENT_MESSAGE)).toBeVisible();
+        await expect.element(screen.getByRole('main').getByText(WAITING_FOR_OPPONENT_MESSAGE)).toBeVisible();
 
         // Auto-start: the lobby snapshot flips the row to in_progress…
         controller.store.dispatch({
