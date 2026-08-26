@@ -256,19 +256,19 @@ function resolveSettings(
 /**
  * Additive composition surface on the REAL matchmaker object (feature
  * 010 remediation R-005) — the three seams lobby wiring needs,
- * discovered structurally by consumers:
+ * discovered structurally by consumers. Lifecycle listeners
+ * (`registerLifecycleListener`) and status subscriptions
+ * (`subscribeStatus`) expose the matchmaker's observable behavior,
+ * while `getMatch` provides read-only authoritative record lookup.
+ *
+ * Projection/publication is owned INTERNALLY by the lobby facade
+ * (`src/internal/lobbyService.ts`), which consumes this seam itself —
+ * hosts wire the facade, never a publication sidecar:
  *
  * ```ts
  * const matchmaker = createMatchmaker(config, deps);
- * // Narrow structurally — the same pattern as servers' bindMatchmaker:
- * const seam = matchmaker as Matchmaker & MatchmakerCompositionSeam;
- *
- * // T-008 publication recipe (see lobbyPublication.ts):
- * const publication = createLobbyPublication({
- *     getMatch: (id) => seam.getMatch(id),
- * });
- * seam.subscribeStatus(publication.onStatusChanged);
- * seam.registerLifecycleListener(facadeBridgeHandlers);
+ * // The facade registers its own bridge handlers + status subscription:
+ * const lobby = createLobbyService({ matchmaker });
  * ```
  *
  * Deliberately NOT part of the `Matchmaker` interface (additive-only
