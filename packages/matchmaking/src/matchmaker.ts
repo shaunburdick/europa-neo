@@ -283,7 +283,8 @@ export interface MatchmakerCompositionSeam {
      * `onSeatDisconnected`, `onSeatReconnected`, `onSeatExpired`, and
      * `onMatchTerminal` — AFTER the matchmaker's own policy has been
      * applied, in registration order. Multiple listeners are supported
-     * (the facade and the publication module each register their own).
+     * (the feature-010 lobby facade registers its own; hosts may
+     * register additional listeners alongside it).
      *
      * Listeners observe NETWORKING-originated dispatches verbatim; the
      * matchmaker does not synthesize extra events for internally
@@ -310,11 +311,12 @@ export interface MatchmakerCompositionSeam {
      */
     subscribeStatus(listener: MatchStatusListener): () => void;
     /**
-     * Authoritative record lookup — the store's `getMatch`, exposed for
-     * composition modules that rebuild projections from live records
-     * (T-008's `LobbyPublicationDeps.getMatch`). Read-only by
-     * convention: callers must not mutate the returned record (lifecycle
-     * transitions are the only sanctioned writers).
+     * Authoritative record lookup — the store's `getMatch`, a general
+     * read-only record lookup consumed by the feature-010 lobby facade
+     * (and available to any composition module that rebuilds
+     * projections from live records). Read-only by convention: callers
+     * must not mutate the returned record (lifecycle transitions are
+     * the only sanctioned writers).
      *
      * Returns `undefined` for unknown ids AND after `close()` (the store
      * is emptied), which makes composed projections prune quietly during
