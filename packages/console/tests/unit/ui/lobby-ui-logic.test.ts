@@ -237,18 +237,18 @@ describe('resolveLobbyServerUrl', () => {
         );
     });
 
-    it('honors an explicit ?ws= override verbatim', () => {
-        expect(resolveLobbyServerUrl('?ws=wss://host.example:9999', { protocol: 'http:', hostname: 'localhost' })).toBe(
-            'wss://host.example:9999',
+    it('honors a same-host ?ws= override verbatim', () => {
+        expect(resolveLobbyServerUrl('?ws=wss://localhost:9999', { protocol: 'http:', hostname: 'localhost' })).toBe(
+            'wss://localhost:9999',
         );
     });
 
     it('normalizes http(s) and bare-host overrides to ws schemes', () => {
-        expect(
-            resolveLobbyServerUrl('?ws=http://host.example:9090', { protocol: 'http:', hostname: 'localhost' }),
-        ).toBe('ws://host.example:9090');
-        expect(resolveLobbyServerUrl('?ws=host.example%3A9090', { protocol: 'http:', hostname: 'localhost' })).toBe(
-            'ws://host.example:9090',
+        expect(resolveLobbyServerUrl('?ws=http://localhost:9090', { protocol: 'http:', hostname: 'localhost' })).toBe(
+            'ws://localhost:9090',
+        );
+        expect(resolveLobbyServerUrl('?ws=localhost%3A9090', { protocol: 'http:', hostname: 'localhost' })).toBe(
+            'ws://localhost:9090',
         );
     });
 

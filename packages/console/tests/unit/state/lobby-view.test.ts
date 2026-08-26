@@ -10,7 +10,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { hasDirectMatchRoute, resolveInitialViewMode } from '../../../src/state/lobby-view';
+import {
+    hasDirectMatchRoute,
+    LobbyServerUrlError,
+    resolveInitialViewMode,
+    resolveLobbyServerUrl,
+} from '../../../src/state/lobby-view';
 
 describe('hasDirectMatchRoute', () => {
     it('recognizes the canonical live-test route shape', () => {
@@ -52,5 +57,25 @@ describe('resolveInitialViewMode', () => {
         for (const search of ['', '?', '?e2e', '?live', '?live&ws=ws://h:8080']) {
             expect(resolveInitialViewMode(search)).toBe('lobby');
         }
+    });
+});
+
+describe('resolveLobbyServerUrl security policy', () => {
+    const page = { protocol: 'https:', hostname: 'game.example', port: '443' };
+
+    it('accepts same-host ws and wss overrides, including separate server ports', () => {
+        expect(resolveLobbyServerUrl('?ws=ws://game.example:8080', page)).toBe('ws://game.example:8080');
+        expect(resolveLobbyServerUrl('?ws=wss://game.example:9443/path', page)).toBe('wss://game.example:9443/path');
+    });
+
+    it('rejects external overrides before they can be used by a client', () => {
+        expect(() => resolveLobbyServerUrl('?ws=wss://attacker.example/collect', page)).toThrow(LobbyServerUrlError);
+    });
+
+    it('rejects malformed and credential-bearing overrides deterministically', () => {
+        expect(() => resolveLobbyServerUrl('?ws=not%20a%20websocket%20url', page)).toThrow(LobbyServerUrlError);
+        expect(() => resolveLobbyServerUrl('?ws=wss://user:secret@game.example:9443', page)).toThrow(
+            LobbyServerUrlError,
+        );
     });
 });

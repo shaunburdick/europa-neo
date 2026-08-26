@@ -29,6 +29,7 @@ import { createRoot } from 'react-dom/client';
 import { createConsoleClient } from '../net/client';
 import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
+import { LobbyServerUrlError, resolveLobbyServerUrl } from '../state/lobby-view';
 import { createOrderBridge } from '../state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
@@ -85,6 +86,22 @@ export function mountLiveRuntime(root: HTMLElement): void {
         return;
     }
 
+    let safeUrl: string;
+    try {
+        // Direct live routes are compatibility-only, but still carry the
+        // same identity-bearing join handshake and must obey the lobby's
+        // same-host URL policy before a client is constructed.
+        safeUrl = resolveLobbyServerUrl(window.location.search, window.location);
+    } catch (error: unknown) {
+        const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
+        window.__europaLive = {
+            store: undefined as unknown as ConsoleStore,
+            client: undefined as unknown as ConsoleClient,
+            bootError: message,
+        };
+        return;
+    }
+
     // Circular wiring (store ↔ bridge) resolved with a forwarding slot,
     // same pattern as demo-runtime: effects cannot fire before the first
     // dispatch, which happens after both exist.
@@ -101,7 +118,7 @@ export function mountLiveRuntime(root: HTMLElement): void {
     const wsClient = createWsMatchClient({ verboseLogging: false });
     const client = createConsoleClient(
         {
-            url,
+            url: safeUrl,
             displayName,
             matchId: matchId as MatchId,
             ...(token === null ? {} : { reconnectToken: token as SessionToken }),

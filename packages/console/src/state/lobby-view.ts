@@ -76,6 +76,16 @@ export interface PageLocator {
     readonly protocol: string;
     /** Page hostname, e.g. `'localhost'` (empty for `file://`). */
     readonly hostname: string;
+    /** Page port, including `''` when the scheme's default port is used. */
+    readonly port?: string;
+}
+
+/** Typed failure for an unsafe or malformed URL supplied by the page URL. */
+export class LobbyServerUrlError extends Error {
+    public constructor(message: string) {
+        super(message);
+        this.name = 'LobbyServerUrlError';
+    }
 }
 
 /**
@@ -86,16 +96,58 @@ export interface PageLocator {
  * @param value The raw override value (e.g. a `?ws=` parameter).
  */
 function normalizeWsUrl(value: string): string {
-    if (value.startsWith('ws://') || value.startsWith('wss://')) {
+    const lowerValue = value.toLowerCase();
+    if (lowerValue.startsWith('ws://') || lowerValue.startsWith('wss://')) {
         return value;
     }
-    if (value.startsWith('http://')) {
+    if (lowerValue.startsWith('http://')) {
         return `ws://${value.slice('http://'.length)}`;
     }
-    if (value.startsWith('https://')) {
+    if (lowerValue.startsWith('https://')) {
         return `wss://${value.slice('https://'.length)}`;
     }
     return `ws://${value}`;
+}
+
+/**
+ * Validate a URL override without opening a connection.
+ *
+ * The host intentionally owns two HTTP services in the self-hosted launch:
+ * the static SPA and the WebSocket server. Therefore a same-host override
+ * may use a different port (including an ephemeral test port), but it may
+ * never select a different hostname. The two equivalent IPv4 loopback
+ * spellings, localhost and 127.0.0.1, are accepted together for local test
+ * and self-host routes. This preserves the documented
+ * `?ws=` operator/test setting while preventing bearer identity material
+ * from being sent cross-host. Both ws/wss are accepted for same-host routes;
+ * the browser remains responsible for mixed-content enforcement.
+ */
+export function validateLobbyServerUrl(value: string, locator: PageLocator): string {
+    const normalized = normalizeWsUrl(value.trim());
+    let candidate: URL;
+    try {
+        candidate = new URL(normalized);
+    } catch {
+        throw new LobbyServerUrlError('The WebSocket server URL is malformed. Remove the ws override and try again.');
+    }
+    if (candidate.protocol !== 'ws:' && candidate.protocol !== 'wss:') {
+        throw new LobbyServerUrlError('The WebSocket server URL must use ws:// or wss://.');
+    }
+    const pageHostname = locator.hostname.length > 0 ? locator.hostname : 'localhost';
+    const candidateHostname = candidate.hostname.toLowerCase();
+    const normalizedPageHostname = pageHostname.toLowerCase();
+    const isLoopbackAlias =
+        (candidateHostname === 'localhost' || candidateHostname === '127.0.0.1') &&
+        (normalizedPageHostname === 'localhost' || normalizedPageHostname === '127.0.0.1');
+    if (candidateHostname !== normalizedPageHostname && !isLoopbackAlias) {
+        throw new LobbyServerUrlError('The WebSocket server URL must use the same host as this page.');
+    }
+    if (candidate.username !== '' || candidate.password !== '') {
+        throw new LobbyServerUrlError('The WebSocket server URL cannot contain credentials.');
+    }
+    // Keep the operator's path/query spelling intact; URL is used only for
+    // parsing and policy checks, not as a redirect or credential transport.
+    return normalized;
 }
 
 /**
@@ -118,7 +170,7 @@ function normalizeWsUrl(value: string): string {
 export function resolveLobbyServerUrl(search: string, locator: PageLocator): string {
     const override = new URLSearchParams(search).get('ws');
     if (override !== null && override.trim().length > 0) {
-        return normalizeWsUrl(override.trim());
+        return validateLobbyServerUrl(override, locator);
     }
     const scheme = locator.protocol === 'https:' ? 'wss' : 'ws';
     const host = locator.hostname.length > 0 ? locator.hostname : 'localhost';

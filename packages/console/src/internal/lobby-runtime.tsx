@@ -59,7 +59,7 @@ import { ErrorBoundary } from '../render/ErrorBoundary';
 import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
 import type { LobbyStore } from '../state/lobby-store';
-import { resolveLobbyServerUrl } from '../state/lobby-view';
+import { LobbyServerUrlError, resolveLobbyServerUrl } from '../state/lobby-view';
 import { createOrderBridge } from '../state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import {
@@ -106,7 +106,14 @@ declare global {
  * @param root The DOM mount node (index.html's `#root`).
  */
 export function mountLobbyRuntime(root: HTMLElement): void {
-    const wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
+    let wsUrl: string;
+    try {
+        wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
+    } catch (error: unknown) {
+        const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
+        createRoot(root).render(<LobbyConfigurationError message={message} />);
+        return;
+    }
     const transport = createWsLobbyClient({});
     const controller = createLobbyController({ transport, url: wsUrl });
 
@@ -122,6 +129,17 @@ export function mountLobbyRuntime(root: HTMLElement): void {
                 <LobbyRoot controller={controller} wsUrl={wsUrl} />
             </ErrorBoundary>
         </StrictMode>,
+    );
+}
+
+/** User-visible failure rendered before any identity-bearing lobby connection. */
+function LobbyConfigurationError({ message }: { readonly message: string }): JSX.Element {
+    return (
+        <main id="main" className="europa-lobby" role="alert">
+            <h1>Lobby unavailable</h1>
+            <p>{message}</p>
+            <p>Use this page's host for the WebSocket server, or remove the ws override.</p>
+        </main>
     );
 }
 
