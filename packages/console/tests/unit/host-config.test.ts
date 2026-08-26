@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveConfig } from '../../scripts/host';
-import { isPathInside, isWildcardHost, STATIC_SECURITY_HEADERS } from '../../scripts/host-config';
+import { isPathInside, isWildcardHost, STATIC_SECURITY_HEADERS, sanitizeLogText } from '../../scripts/host-config';
 
 describe('host configuration security helpers', () => {
     it('does not confuse a sibling directory with a child path', () => {
@@ -27,10 +27,43 @@ describe('host configuration security helpers', () => {
         });
     });
 
+    it('defaults to lobby mode (no pre-created match) per FR-017', () => {
+        expect(resolveConfig([], {})?.createMatch).toBe(false);
+    });
+
+    it('accepts --create as a bare flag in any position', () => {
+        expect(resolveConfig(['--create'], {})?.createMatch).toBe(true);
+        expect(resolveConfig(['--port', '9000', '--create'], {})).toMatchObject({
+            createMatch: true,
+            wsPort: 9000,
+        });
+        expect(resolveConfig(['--create', '--static-port', '6000'], {})).toMatchObject({
+            createMatch: true,
+            staticPort: 6000,
+        });
+    });
+
+    it('rejects values glued to --create instead of treating them as truthy', () => {
+        expect(resolveConfig(['--create=1'], {})).toBeNull();
+        expect(resolveConfig(['--create='], {})).toBeNull();
+    });
+
     it('defines the static server security headers', () => {
         expect(STATIC_SECURITY_HEADERS).toEqual({
             'X-Content-Type-Options': 'nosniff',
             'Referrer-Policy': 'no-referrer',
         });
+    });
+
+    it('strips control characters so wire-derived text cannot forge log lines', () => {
+        expect(sanitizeLogText('ok\nINJECTED line')).toBe('ok INJECTED line');
+        expect(sanitizeLogText('\u001b[31mred\u0000')).toBe('[31mred');
+        expect(sanitizeLogText('  padded\ttext  ')).toBe('padded text');
+    });
+
+    it('caps sanitized text length so one huge field cannot flood the log', () => {
+        const flooded = sanitizeLogText('x'.repeat(500));
+        expect(flooded.length).toBeLessThanOrEqual(200);
+        expect(flooded.endsWith('…')).toBe(true);
     });
 });
