@@ -852,3 +852,33 @@ body {
     align-items: center;
     justify-content: center;
 }
+
+/*
+ * Participant strip (feature 010 T-016, FR-020): per-seat
+ * authoritative labels inside the HUD. Muted like the version footer —
+ * #9ca3af on the HUD's #111827 ≈ 6.99:1 (AA) — with the local seat
+ * highlighted in the HUD's own foreground (#e5e7eb ≈ 14.3:1). The list
+ * is non-interactive by construction (no handlers, plain text nodes).
+ */
+.europa-participants {
+    margin-top: 0.25rem;
+}
+
+.europa-participants__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    font-size: 0.85rem;
+}
+
+.europa-participants__seat {
+    color: #9ca3af;
+}
+
+.europa-participants__seat--local {
+    color: #e5e7eb;
+    font-weight: 600;
+}

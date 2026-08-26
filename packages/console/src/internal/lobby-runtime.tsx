@@ -22,15 +22,18 @@
  * connection). Leaving (`lobbyLeave`) flips the view back and tears
  * the leg down; the identity survives for the next round.
  *
- * Spectator legs (v1 scope note): the console has no spectator
- * rendering yet — the adapter hardcodes `role: 'player'` (feature-005
- * contract) and the reducer has no spectator event (documented in
- * `net/envelope-to-event.ts`). T-015 therefore renders a READ-ONLY
- * plate for spectators (no board, no order surface of any kind) —
- * honest and safe (zero order paths, FR-012/SC-005) rather than a
- * mislabeled player board. The full-visibility spectator board lands
- * with the seat-label / E2E waves (T-016/T-019), which own
- * player/spectator UI.
+ * Spectator legs (feature 010 T-016, US4 AC-2 / FR-012 / SC-005): a
+ * lobby-initiated spectate attaches through the EXISTING feature-004
+ * spectator path — same wire, `joinMatch.role: 'spectator'`, no seat,
+ * server-computed full-visibility views (fog's `{ spectator: true }`
+ * branch). The leg deliberately does NOT use the player store/reducer
+ * chain: {@link ../state/spectator-session} folds envelopes into a
+ * ConsoleState-shaped snapshot rendered by the existing App STATICALLY
+ * (no store ⇒ no input controllers, no order bridge, no sendOrder sink
+ * — read-only by construction), and the adapter refuses spectator
+ * orders outright (`net/client.ts`). Order controls are therefore inert
+ * at every layer, and fog visibility is exactly the server-generated
+ * spectator view — nothing is filtered or re-derived client-side.
  *
  * PRIVACY (binding): this module handles only sanitized
  * {@link LobbyState} plus the display handle it deliberately copies
@@ -58,9 +61,16 @@ import type { LobbyActionError } from '../state/lobby-state';
 import { resolveLobbyServerUrl } from '../state/lobby-view';
 import { createOrderBridge } from '../state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
+import {
+    applySpectatorEnvelope,
+    applySpectatorTransportLoss,
+    initialSpectatorState,
+    withNotice,
+} from '../state/spectator-session';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
-import type { MatchId, ReducerEffect } from '../state/types';
+import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
+import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
 
@@ -203,11 +213,11 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
         // single source of truth for "registered with the wire server"
         // (see MatchLegHost's JSDoc). A missing row reads as not
         // started — the plate + Leave escape hatch cover the edge.
-        const matchStarted =
-            matchId !== null &&
-            (state.snapshot?.entries ?? []).some(
-                (entry) => entry.matchId === matchId && entry.status === 'in_progress',
-            );
+        const entry =
+            matchId !== null
+                ? ((state.snapshot?.entries ?? []).find((candidate) => candidate.matchId === matchId) ?? null)
+                : null;
+        const matchStarted = entry?.status === 'in_progress';
         return (
             <MatchLegHost
                 key={matchId ?? 'pending'}
@@ -215,6 +225,8 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
                 matchId={matchId}
                 role={intent.role}
                 displayName={state.handle ?? 'Player'}
+                handle={state.handle}
+                occupancy={entry !== null ? { seatsFilled: entry.seatsFilled, capacity: entry.capacity } : null}
                 matchStarted={matchStarted}
                 announcer={announcer ?? undefined}
                 leaveError={state.actions.leaveMatch.error}
@@ -330,12 +342,24 @@ interface MatchLegHostProps {
      */
     readonly matchId: MatchId | null;
     readonly role: 'player' | 'spectator';
-    /** Accepted handle — the seat claim's display name (FR-019). */
+    /** Display name for the seat/spectator join — the accepted handle (FR-019). */
     readonly displayName: string;
+    /**
+     * The visitor's accepted handle verbatim (`null` while unnamed) —
+     * the waiting plate's "seated as" label (FR-020 waiting half).
+     * Kept separate from {@link displayName} so the plate never shows
+     * a fabricated fallback name.
+     */
+    readonly handle: string | null;
+    /**
+     * Occupancy of the target match per the latest lobby snapshot
+     * (`null` before the first snapshot pins the row).
+     */
+    readonly occupancy: { readonly seatsFilled: number; readonly capacity: number } | null;
     /**
      * Whether the lobby snapshot reports the target row `'in_progress'`
      * — i.e. the matchmaker has auto-started and REGISTERED the match
-     * with the wire server, so a player leg can claim its seat.
+     * with the wire server, so a leg can attach.
      */
     readonly matchStarted: boolean;
     /** Shared runtime announcer (survives view swaps). */
@@ -356,17 +380,32 @@ interface MatchLegHostProps {
  * suite): the matchmaker registers a match with the networking server
  * only at AUTO-START (`registerMatch` inside `autoStart`), so a
  * WAITING match has no wire channel — an early join fails with
- * `match_not_found`. A player leg therefore attaches only once
+ * `match_not_found`. A PLAYER leg therefore attaches only once
  * {@link MatchLegHostProps.matchStarted} flips true; until then the
  * visitor sits in the accessible waiting-room plate (US3 AC-1). The
  * `transition: 'match'` classification (join filled the final seat)
- * arrives together with that flip, so one predicate covers both.
+ * arrives together with that flip, so one predicate covers both. A
+ * SPECTATOR leg attaches under the same predicate (spectate targets
+ * in-progress rows, which are registered by definition); pre-flip it
+ * sees the read-only spectator plate.
+ *
+ * Auto-start announcement (T-016): when `matchStarted` TRANSITIONS
+ * false → true for a leg that was already mounted (the creator/joinee
+ * waiting-room case), the shared live region announces the start once
+ * — the plate swaps for the board in the same commit, so the
+ * announcement is the audible thread of the transition (SC-008's
+ * clean label hand-off). Legs mounting WITH the flag already set
+ * (join-filled-final-seat, spectate of a running match) stay silent
+ * here; their entry was announced by the command wrappers / the
+ * spectator attach path instead.
  */
 function MatchLegHost({
     wsUrl,
     matchId,
     role,
     displayName,
+    handle,
+    occupancy,
     matchStarted,
     announcer,
     leaveError,
@@ -380,6 +419,17 @@ function MatchLegHost({
     useEffect(() => {
         headingRef.current?.focus();
     }, []);
+
+    // Auto-start transition announcement — see the JSDoc above. The
+    // ref distinguishes a LIVE flip from an entry that simply started
+    // out attached (those never announce here).
+    const wasStartedRef = useRef(matchStarted);
+    useEffect(() => {
+        if (matchStarted && !wasStartedRef.current && announcer !== undefined) {
+            announcer.announce('Match started — entering the game.', 'polite');
+        }
+        wasStartedRef.current = matchStarted;
+    }, [matchStarted, announcer]);
 
     // One PLAYER leg per mount, built only when the match is actually
     // registered (see the JSDoc); keyed by matchId upstream so
@@ -425,16 +475,23 @@ function MatchLegHost({
                 ) : null}
             </section>
             {leg !== null ? (
+                // Player board: App owns the page's single
+                // <main id="main"> landmark (skip-link target).
                 <App store={leg.store} />
+            ) : role === 'spectator' && matchId !== null && matchStarted ? (
+                // Live read-only spectator surface — also App-rendered,
+                // so it likewise owns its own <main>.
+                <SpectatorMatchLeg wsUrl={wsUrl} matchId={matchId} displayName={displayName} announcer={announcer} />
             ) : (
                 <main id="main" className="europa-lobby europa-lobby-match__placeholder">
-                    {/* Pre-start window (players) or v1 spectator scope:
-            informational plates — no board, no order surface. Each
-            announces once politely through the shared channel. */}
+                    {/* Plate windows (no wire channel yet): the waiting
+            room for players, the pre-attach notice for spectators.
+            Informational only — no board, no order surface; announces
+            once politely through the shared channel. */}
                     {role === 'spectator' ? (
                         <SpectatorPlate matchId={matchId} announcer={announcer} />
                     ) : (
-                        <PreStartPlate matchId={matchId} announcer={announcer} />
+                        <PreStartPlate matchId={matchId} handle={handle} occupancy={occupancy} announcer={announcer} />
                     )}
                 </main>
             )}
@@ -449,8 +506,11 @@ interface SpectatorPlateProps {
 }
 
 /**
- * The read-only spectator plate (v1 scope — module note). Announces
- * once per appearance (WaitingOverlay's guarded-effect pattern).
+ * The pre-attach spectator plate — shown only in the brief window
+ * before the target row reads `'in_progress'` (a race the lobby's
+ * Spectate gating makes rare: rows offer Spectate only once running).
+ * Announces once per appearance (WaitingOverlay's guarded-effect
+ * pattern). The full read-only board lives in {@link SpectatorMatchLeg}.
  */
 function SpectatorPlate({ matchId, announcer }: SpectatorPlateProps): JSX.Element {
     const lastAnnouncedRef = useRef(false);
@@ -467,23 +527,193 @@ function SpectatorPlate({ matchId, announcer }: SpectatorPlateProps): JSX.Elemen
                     ? 'Attaching to the match…'
                     : `Read-only spectator view of match ${matchId.slice(0, 8)}…`}
             </p>
-            <p className="europa-lobby__status-line">The full spectator board arrives with the seat-label wave.</p>
+            <p className="europa-lobby__status-line">Attaching to the live view…</p>
         </div>
     );
+}
+
+// ----------------------------------------------------------------------------
+// Spectator leg: real wire attach, static read-only render
+// ----------------------------------------------------------------------------
+
+/** One attached SPECTATOR leg: real wire client, no order path. */
+interface SpectatorLeg {
+    /** Connect + run the spectator join handshake (async). */
+    boot(): Promise<void>;
+    /** Tear the wire connection down (idempotent). */
+    dispose(): void;
+}
+
+/** Arguments for {@link createSpectatorLeg}. */
+interface SpectatorLegArgs {
+    /** WebSocket URL of the match server. */
+    readonly wsUrl: string;
+    readonly matchId: MatchId;
+    /** Cosmetic join name — the accepted handle (FR-019). */
+    readonly displayName: string;
+    /** Snapshot sink (the component's React state setter). */
+    readonly onSnapshot: (next: ConsoleState) => void;
+}
+
+/**
+ * Build one SPECTATOR wire leg (feature 010 T-016). Mirrors the
+ * player leg's production wiring (`createWsMatchClient` → adapter →
+ * subscriptions) with three deliberate differences:
+ *
+ *   1. the adapter joins with `role: 'spectator'` — feature 004's
+ *      existing spectator semantics: no seat, server-computed
+ *      full-visibility views (fog `{ spectator: true }`), and the
+ *      server's own `spectator_readonly` gate behind everything;
+ *   2. envelopes fold through {@link applySpectatorEnvelope} into a
+ *      ConsoleState-shaped snapshot instead of the player store —
+ *      there is NO store, bridge, or effect sink, so no code path
+ *      from this leg can submit an order (SC-005 by construction);
+ *   3. transport loss after attach maps to the snapshot's
+ *      `reconnecting` status so the App's existing banner explains
+ *      the gap (v1 spectators do not auto-rejoin).
+ *
+ * Construction does no I/O; boot/dispose ride the component effect.
+ * Subscriptions live for the leg object's lifetime (page-lifetime
+ * discipline, same as {@link createMatchLeg}) — dispose closes the
+ * socket; the whole leg is garbage with its handlers when the host
+ * unmounts.
+ */
+function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
+    // The fold is sequential and single-owner: one mutable cell, each
+    // envelope producing the next immutable snapshot.
+    let current = initialSpectatorState(args.matchId);
+    const apply = (next: ConsoleState): void => {
+        current = next;
+        args.onSnapshot(next);
+    };
+
+    const wsClient = createWsMatchClient({ verboseLogging: false });
+    const client = createConsoleClient(
+        {
+            url: args.wsUrl,
+            displayName: args.displayName,
+            matchId: args.matchId,
+            role: 'spectator',
+        },
+        { matchClientFactory: () => wsClient },
+    );
+
+    client.onEnvelope((envelope) => {
+        apply(applySpectatorEnvelope(current, envelope, performance.now()));
+    });
+
+    let lastConnection = wsClient.state().connection;
+    wsClient.onConnectionChanged((connection) => {
+        if (connection === 'disconnected' && (lastConnection === 'joined' || lastConnection === 'rejoined')) {
+            apply(applySpectatorTransportLoss(current, 1006));
+        }
+        lastConnection = connection;
+    });
+
+    return {
+        async boot(): Promise<void> {
+            try {
+                await client.connect();
+                await client.joinMatch();
+            } catch {
+                // Attach failures (match ended between list and attach,
+                // spectator gate closed) surface as a fixed, id-free
+                // notice on the App's feedback surface; Leave remains
+                // the way back. Never throw into React.
+                apply(
+                    withNotice(
+                        current,
+                        'Could not attach to the match — it may have ended. Use Leave to return to the lobby.',
+                        performance.now(),
+                    ),
+                );
+            }
+        },
+        dispose(): void {
+            client.close();
+        },
+    };
+}
+
+/** Props for {@link SpectatorMatchLeg}. */
+interface SpectatorMatchLegProps {
+    /** WebSocket URL of the match server. */
+    readonly wsUrl: string;
+    readonly matchId: MatchId;
+    /** Cosmetic join name — the accepted handle (FR-019). */
+    readonly displayName: string;
+    /** Shared runtime announcer (survives view swaps). */
+    readonly announcer?: LiveRegionAnnouncer | undefined;
+}
+
+/**
+ * The live read-only spectator surface (US4 AC-2 / SC-005): owns one
+ * {@link SpectatorLeg}, folds its envelopes into React state, and
+ * renders the EXISTING App statically (`state` prop, no store) — the
+ * same board/grid/HUD components players see, with every interactive
+ * layer structurally absent (no store ⇒ no controllers, no targeting,
+ * no surrender/reserves wiring; palette buttons render disabled with
+ * no handlers). Fog visibility is untouched: the view IS the server's
+ * spectator payload.
+ *
+ * Announces the attach once through the shared runtime channel.
+ */
+function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer }: SpectatorMatchLegProps): JSX.Element {
+    const [snapshot, setSnapshot] = useState<ConsoleState>(() => initialSpectatorState(matchId));
+
+    // One leg per mount (render-phase ref construction, no I/O — the
+    // App's MapCanvas pattern); keyed by matchId upstream.
+    const legRef = useRef<SpectatorLeg | null>(null);
+    if (legRef.current === null) {
+        legRef.current = createSpectatorLeg({ wsUrl, matchId, displayName, onSnapshot: setSnapshot });
+    }
+    const leg = legRef.current;
+    useEffect(() => {
+        void leg.boot();
+        return () => {
+            leg.dispose();
+        };
+    }, [leg]);
+
+    // Attach announcement (guarded once — WaitingOverlay's pattern):
+    // fires when the fold first reaches 'spectating'.
+    const announcedAttachRef = useRef(false);
+    useEffect(() => {
+        if (announcer !== undefined && snapshot.status === 'spectating' && !announcedAttachRef.current) {
+            announcer.announce('Spectating — live view attached.', 'polite');
+            announcedAttachRef.current = true;
+        }
+    }, [announcer, snapshot.status]);
+
+    return <App state={snapshot} />;
 }
 
 /** Props for {@link PreStartPlate}. */
 interface PreStartPlateProps {
     readonly matchId: MatchId | null;
+    /**
+     * The visitor's accepted handle verbatim (`null` while unnamed) —
+     * rendered inside `<bdi>` (hostile-but-valid, orchestration
+     * invariant #2).
+     */
+    readonly handle: string | null;
+    /**
+     * Occupancy of the target match per the latest lobby snapshot
+     * (`null` before the first snapshot pins the row).
+     */
+    readonly occupancy: { readonly seatsFilled: number; readonly capacity: number } | null;
     readonly announcer?: LiveRegionAnnouncer | undefined;
 }
 
 /**
- * The waiting-room plate between a seat grant and auto-start. Reuses
- * the shipped waiting-room message (the same words the match-view
- * overlay shows) so waiting feels identical wherever it happens.
+ * The waiting-room plate between a seat grant and auto-start (FR-020's
+ * waiting half + US4 AC-5): shows the visitor's OWN accepted handle
+ * (bidi-isolated — it is hostile-but-valid user content) and the
+ * match's live occupancy, reusing the shipped waiting-room message so
+ * waiting feels identical wherever it happens. All fragments are plain
+ * text nodes/spans — the handle never enters an HTML-ish context.
  */
-function PreStartPlate({ matchId, announcer }: PreStartPlateProps): JSX.Element {
+function PreStartPlate({ handle, occupancy, announcer }: PreStartPlateProps): JSX.Element {
     const lastAnnouncedRef = useRef(false);
     useEffect(() => {
         if (announcer !== undefined && !lastAnnouncedRef.current) {
@@ -494,10 +724,18 @@ function PreStartPlate({ matchId, announcer }: PreStartPlateProps): JSX.Element 
     return (
         <div className="europa-waiting__plate" data-europa-prestart-plate="true">
             <p className="europa-waiting__text">{WAITING_FOR_OPPONENT_MESSAGE}</p>
-            <p className="europa-lobby__status-line">
-                {matchId === null
-                    ? 'Reserving your seat…'
-                    : `Seated in match ${matchId.slice(0, 8)}… — starting when full.`}
+            <p className="europa-lobby__status-line" data-europa-prestart-seat="true">
+                {handle !== null ? (
+                    <span>
+                        Seated as <bdi>{handle}</bdi>
+                    </span>
+                ) : (
+                    <span>Reserving your seat…</span>
+                )}
+                {occupancy !== null ? (
+                    <span> · {formatOccupancy(occupancy.seatsFilled, occupancy.capacity)}</span>
+                ) : null}
+                <span> · starting when full</span>
             </p>
         </div>
     );
