@@ -53,6 +53,36 @@ export { appendFeedback, appendRejection, INITIAL_CONSOLE_STATE, reduce } from '
 export { createConsoleStore } from './state/store';
 
 // ----------------------------------------------------------------------------
+// Lobby state layer — feature 010 (T-014): reducer/store/controller beside
+// the match store + direct-live-route compatibility derivation
+// ----------------------------------------------------------------------------
+
+export {
+    createLobbyController,
+    type LobbyCommandFailure,
+    type LobbyCommandResult,
+    type LobbyCommandSuccess,
+    type LobbyController,
+    type LobbyControllerArgs,
+    type LobbyTransport,
+} from './state/lobby-controller';
+export { INITIAL_LOBBY_STATE, reduceLobby } from './state/lobby-reducer';
+export type {
+    LobbyAction,
+    LobbyActionError,
+    LobbyActionErrorCode,
+    LobbyActionKind,
+    LobbyActionStatus,
+    LobbyFailure,
+    LobbyFailureCode,
+    LobbyIdentityStatus,
+    LobbyState,
+    LobbyViewMode,
+} from './state/lobby-state';
+export { createLobbyStore, type LobbyStore } from './state/lobby-store';
+export { hasDirectMatchRoute, resolveInitialViewMode } from './state/lobby-view';
+
+// ----------------------------------------------------------------------------
 // Runtime surface — network adapter + a11y + input layer
 // ----------------------------------------------------------------------------
 
