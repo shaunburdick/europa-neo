@@ -86,7 +86,17 @@ function repoPath(relativePath: string): string {
 // side drifts, these aliases fail to typecheck.
 // ---------------------------------------------------------------------------
 
-type AssertMutuallyAssignable<A extends B, B extends A> = true;
+/**
+ * Mutual-assignability witness: `true` exactly when A and B are
+ * mutually assignable (set equality for unions, field-for-field
+ * equality for objects). The nested conditional form avoids the
+ * circular-constraint error (TS2313) a two-parameter `extends` pair
+ * raises under a strict tsc program — vitest strips types so the
+ * defect only surfaces in dedicated compile checks; this is the same
+ * known-good shape as matchmaking's `tests/lobby-conformance.test.ts`
+ * witness.
+ */
+type AssertMutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
 
 type OrderConforms = AssertMutuallyAssignable<Order, OrderReexport>;
 type MatchResultConforms = AssertMutuallyAssignable<MatchResult, MatchResultReexport>;
@@ -455,7 +465,10 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
                     hasIdentity: true,
                     // The v1.6 sanctioned delivery field must be admitted
                     // on the wire identity event (directed delivery only).
-                    guestPlayerId: 'guest-directed' as IdentityState['guestPlayerId'],
+                    // NonNullable narrows the OPTIONAL field's type so the
+                    // literal stays exactOptionalPropertyTypes-clean while
+                    // proving the branded value is admitted.
+                    guestPlayerId: 'guest-directed' as NonNullable<IdentityState['guestPlayerId']>,
                 },
             },
             {
