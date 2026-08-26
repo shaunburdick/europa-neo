@@ -14,6 +14,10 @@
  *     resume),
  *   - action correlation by exact LobbyActionId echo (impostor echoes
  *     ignored; timeouts fire; typed rejections carry code + detail),
+ *     with the setHandle exception: a rename settles on the DIRECTED
+ *     identity event ALONE — never on an accepted echo, never on
+ *     another visitor's identity projection, and it still times out
+ *     when no confirmation arrives,
  *   - snapshot revision gating (stale/equal discarded; baseline reset
  *     on re-establish adopts post-restart low revisions),
  *   - disconnect/retry state machine ('reconnecting' transient vs
@@ -686,7 +690,7 @@ describe('server-issued identity adoption (feature 010 Clarifications v1.6)', ()
 });
 
 describe('action correlation', () => {
-    it('resolves setHandle only after BOTH the echo and the confirming identity arrive', async () => {
+    it('resolves setHandle on the directed identity event ALONE (no echo required)', async () => {
         const { client, socket } = await readyHarness();
 
         const setting = client.setHandle('Nova');
@@ -695,8 +699,11 @@ describe('action correlation', () => {
         expect(frame.payload.handle).toBe('Nova');
         const actionId = frame.payload.actionId as number;
 
-        // Impostor echo first: must be ignored.
-        socket.deliverLobby(acceptedEvent(actionId + 41));
+        // Even a forged actionAccepted echo carrying OUR exact action
+        // id must NOT settle the rename: the wire sends no success
+        // frame for data-only updates, so the directed identity event
+        // is the only confirmation (PM ruling, 2026-08-26).
+        socket.deliverLobby(acceptedEvent(actionId));
         let settled = false;
         void setting.then(
             () => {
@@ -709,26 +716,64 @@ describe('action correlation', () => {
         await settlePromises();
         expect(settled).toBe(false);
 
-        // Correct echo alone still holds (awaiting the authoritative
-        // identity confirmation).
-        socket.deliverLobby(acceptedEvent(actionId));
-        await settlePromises();
-        expect(settled).toBe(false);
-
-        // The confirming identity event completes the rename.
+        // The directed identity event alone completes the rename.
         socket.deliverLobby(identityEvent('Nova'));
         await expect(setting).resolves.toEqual({ handle: 'Nova', hasIdentity: true });
     });
 
-    it('resolves setHandle when the identity confirmation precedes the echo', async () => {
+    it("does not settle a pending setHandle with another visitor's identity event", async () => {
+        const FOREIGN_ID = 'srv-foreign-001' as GuestPlayerId;
         const { client, socket } = await readyHarness();
         const setting = client.setHandle('Nova');
-        const actionId = sentEnvelope(socket, 3).payload.actionId as number;
+        sentEnvelope(socket, 3);
 
-        socket.deliverLobby(identityEvent('Nova'));
+        // Directed routing makes cross-visitor delivery unlikely, but a
+        // broken/hostile server projecting SOMEONE ELSE'S identity
+        // (different guestPlayerId) onto our socket must never confirm
+        // OUR rename.
+        socket.deliverLobby(identityEvent('Nova', FOREIGN_ID));
+        let settled = false;
+        void setting.then(
+            () => {
+                settled = true;
+            },
+            () => {
+                settled = true;
+            },
+        );
         await settlePromises();
-        socket.deliverLobby(acceptedEvent(actionId));
+        expect(settled).toBe(false);
+        expect(client.state().handle).toBe('Nova');
+
+        // Our own (id-less, older-server shape) identity event settles.
+        socket.deliverLobby(identityEvent('Nova'));
         await expect(setting).resolves.toEqual({ handle: 'Nova', hasIdentity: true });
+    });
+
+    it('still times out a setHandle whose confirming identity event never arrives', async () => {
+        const scheduler = new ManualScheduler();
+        const storage = new MemoryStorage();
+        const client = createWsLobbyClient({
+            webSocketFactory: (url: string) => new FakeWebSocket(url) as unknown as WebSocket,
+            storage,
+            scheduler,
+            actionTimeoutMs: 50,
+            claimIdFactory: sequentialClaimFactory(),
+        });
+        const connecting = client.connect('ws://lobby');
+        const socket = FakeWebSocket.instances[0];
+        socket.open();
+        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliverLobby(identityEvent(null));
+        await settlePromises();
+        socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
+        await connecting;
+
+        // No identity event follows the request: the timeout safety net
+        // must reject it (the server may have died before confirming).
+        const renaming = client.setHandle('Nova');
+        scheduler.advance(51);
+        await expect(renaming).rejects.toBeInstanceOf(LobbyTimeoutError);
     });
 
     it('rejects with typed code + detail on a correlated error echo', async () => {

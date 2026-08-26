@@ -39,8 +39,13 @@
  *     adopted instead of being starved forever.
  *   - **Action correlation** — every mutating request carries a
  *     client-generated monotonic `LobbyActionId`; its promise settles
- *     ONLY on the `actionAccepted`/`error` event echoing that exact id.
- *     Impostor/stale echoes are ignored; unanswered actions time out.
+ *     on the `actionAccepted`/`error` event echoing that exact id —
+ *     EXCEPT `setHandle`, which settles on the directed `identity`
+ *     event ALONE (the wire sends no success frame for data-only
+ *     updates; the event is addressed solely to the owning connection
+ *     and carries the resulting handle, making it a sufficient,
+ *     authoritative confirmation). Impostor/stale echoes are ignored;
+ *     unanswered actions time out.
  *   - **Disconnect/retry** — transport loss flushes pending actions,
  *     emits a state transition, and (by default) enters an exponential
  *     backoff re-establish loop that re-presents the persisted claim
@@ -344,14 +349,14 @@ interface PendingAction {
     readonly description: string;
     readonly timerHandle: unknown;
     /**
-     * Handle renames settle only when BOTH the accepted echo AND the
-     * confirming `identity` event have arrived (the echo carries no
-     * handle; the identity event is the authority). All other actions
-     * settle on the echo alone.
+     * Handle renames settle on the DIRECTED `identity` event alone
+     * (PM ruling, 2026-08-26): the event is addressed solely to the
+     * owning connection and carries the resulting handle, making it a
+     * sufficient, authoritative confirmation — the wire sends no
+     * `actionAccepted` for data-only updates. All other actions settle
+     * on their echoed actionId.
      */
-    awaitIdentity: boolean;
-    echoSeen: boolean;
-    identitySeen: boolean;
+    settlesOnIdentity: boolean;
     settle(outcome: ActionOutcome): void;
 }
 
@@ -695,7 +700,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         kind: LobbyRequestKind,
         buildPayload: (actionId: LobbyActionId) => NetworkPayload,
         description: string,
-        opts: { readonly requireReady?: boolean; readonly awaitIdentity?: boolean } = {},
+        opts: { readonly requireReady?: boolean; readonly settlesOnIdentity?: boolean } = {},
     ): Promise<T> {
         if ((opts.requireReady ?? true) && connection !== 'ready') {
             return Promise.reject(
@@ -719,9 +724,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         pendingActions.set(actionId, {
             description,
             timerHandle,
-            awaitIdentity: opts.awaitIdentity ?? false,
-            echoSeen: false,
-            identitySeen: false,
+            settlesOnIdentity: opts.settlesOnIdentity ?? false,
             settle: (outcome) => {
                 scheduler.clearTimeout(timerHandle);
                 if (outcome.ok) {
@@ -962,6 +965,17 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     function applyIdentity(identity: IdentityState): void {
         const hadHandle = confirmedHandle !== null;
         confirmedHandle = identity.handle;
+        // Ownership is judged BEFORE adoption runs: a directed identity
+        // event naming a DIFFERENT guest id is another visitor's
+        // projection (directed routing makes this unlikely; defend
+        // anyway) and must never settle OUR pending rename — even
+        // though the R-009 adoption below still records the delivered
+        // id. An id-less event (older-server shape) cannot prove
+        // foreignness and is tolerated, matching the adoption rules.
+        const deliveredOwnsOurPendingRenames =
+            identity.guestPlayerId === undefined ||
+            currentClaim === null ||
+            identity.guestPlayerId === currentClaim.guestPlayerId;
         // FR-003 delivery channel: server-delivered id replaces the
         // local mint and is persisted immediately.
         const superseded = adoptServerGuestId(identity.guestPlayerId);
@@ -976,12 +990,16 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         for (const handler of identityHandlers) {
             handler(identity);
         }
-        // Release any rename whose echo already arrived and was only
-        // waiting for this confirmation.
-        for (const [actionId, pending] of pendingActions) {
-            if (pending.awaitIdentity && !pending.identitySeen) {
-                pending.identitySeen = true;
-                trySettleIdentityConfirmed(pending, actionId);
+        // Release pending renames: the directed identity event ALONE is
+        // the authoritative confirmation (see PendingAction). Resolve
+        // with the just-applied confirmed handle; a rare double-issued
+        // rename resolves every pending entry with that same value.
+        if (deliveredOwnsOurPendingRenames) {
+            for (const [actionId, pending] of pendingActions) {
+                if (pending.settlesOnIdentity) {
+                    pendingActions.delete(actionId);
+                    pending.settle({ ok: true, value: { handle: confirmedHandle, hasIdentity: true } });
+                }
             }
         }
         if (phase === 'identity') {
@@ -1083,28 +1101,15 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             log('debug', 'ignoring echo without matching action', { actionId });
             return;
         }
-        if (outcome.ok && pending.awaitIdentity) {
-            // Rename flow: hold settlement until the confirming identity
-            // event arrives (see PendingAction.awaitIdentity).
-            pending.echoSeen = true;
-            trySettleIdentityConfirmed(pending, actionId);
+        if (outcome.ok && pending.settlesOnIdentity) {
+            // Rename flow: an accepted echo plays no role in settlement
+            // (the wire sends none for data-only updates anyway); the
+            // action stays pending for its directed identity event.
+            log('debug', 'ignoring accepted echo for an identity-settled action', { actionId });
             return;
         }
         pendingActions.delete(actionId);
         pending.settle(outcome);
-    }
-
-    /**
-     * Settle an identity-awaiting action once BOTH its echo and a
-     * confirming identity event have been observed; resolves with the
-     * then-current confirmed handle.
-     */
-    function trySettleIdentityConfirmed(pending: PendingAction, actionId: LobbyActionId): void {
-        if (!pending.echoSeen || !pending.identitySeen) {
-            return;
-        }
-        pendingActions.delete(actionId);
-        pending.settle({ ok: true, value: { handle: confirmedHandle, hasIdentity: true } });
     }
 
     /** Settle the first pending action matching a description (subscribe-by-shape fallback). */
@@ -1163,13 +1168,16 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         },
 
         setHandle(handle: string): Promise<IdentityState> {
-            // Settles only after BOTH the accepted echo AND the
-            // confirming `identity` event arrive (see PendingAction).
+            // Settles on the directed `identity` event ALONE (see
+            // PendingAction.settlesOnIdentity): the wire sends no
+            // success frame for data-only updates. A correlated `error`
+            // event still rejects, and the timeout remains the safety
+            // net for a lost confirmation.
             return sendCorrelatedAction<IdentityState>(
                 'lobbySetHandle',
                 (actionId) => ({ handle, actionId }),
                 'setHandle',
-                { awaitIdentity: true },
+                { settlesOnIdentity: true },
             );
         },
 

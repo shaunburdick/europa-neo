@@ -17,21 +17,25 @@
  * `ws-match-client`, mirroring how the console runtime mounts both
  * clients side by side.
  *
- * KNOWN DEFECT (found by this suite, 2026-08-26 — see the regression
- * pin at the bottom): `WsLobbyClient.setHandle()` can NEVER settle
- * against the real stack. T-012's client settles a rename only after
- * BOTH an `actionAccepted` echo AND a confirming identity event, but
- * T-010's dispatcher confirms renames via the directed identity event
- * ALONE (its JSDoc rules out `actionAccepted`: "no arm for data-only
- * updates") — wire-verified: a real round trip emits `identity` only.
- * Every successful rename therefore rejects with LobbyTimeoutError
- * after actionTimeoutMs while the handle WAS accepted server-side.
- * Until that is reconciled, this suite names clients through the
- * contract-true US1 AC-3 claim-restore flow instead: a raw bootstrap
- * connection reserves the handle, then the REAL client connects
- * presenting that claim — exactly what a browser reload does — which
- * exercises MORE of the identity path than a first-session rename
- * would.
+ * RENAME SETTLEMENT (defect found by this suite, 2026-08-26 — see the
+ * regression proof at the bottom): T-012's client originally settled a
+ * rename only after BOTH an `actionAccepted` echo AND a confirming
+ * identity event, but T-010's dispatcher confirms renames via the
+ * directed identity event ALONE (its JSDoc rules out `actionAccepted`:
+ * "no arm for data-only updates") — wire-verified: a real round trip
+ * emits `identity` only. Every rename therefore hung until
+ * LobbyTimeoutError even though the server accepted the handle. Fixed
+ * client-side per PM ruling (2026-08-26): the directed identity event
+ * alone settles a pending setHandle — it is addressed solely to the
+ * owning connection and carries the resulting handle, making it a
+ * sufficient, authoritative confirmation; no wire/server change. The
+ * bottom test proves a REAL round-trip rename settles end-to-end.
+ *
+ * Clients in the scenarios below are named through the contract-true
+ * US1 AC-3 claim-restore flow (a raw bootstrap connection reserves the
+ * handle; the REAL client connects presenting that claim — exactly
+ * what a browser reload does) because it exercises MORE of the
+ * identity path than a first-session rename would.
  *
  * Scenario map (task T-013):
  *
@@ -91,12 +95,7 @@ import {
     loadStoredClaim,
     type StoredLobbyClaim,
 } from '../../src/net/lobby-storage';
-import {
-    createWsLobbyClient,
-    LobbyActionRejectedError,
-    LobbyTimeoutError,
-    type WsLobbyClient,
-} from '../../src/net/ws-lobby-client';
+import { createWsLobbyClient, LobbyActionRejectedError, type WsLobbyClient } from '../../src/net/ws-lobby-client';
 import { createWsMatchClient, type WsMatchClient } from '../../src/net/ws-match-client';
 import type { Coord, Order, PlayerId, PlayerView } from '../../src/state/types';
 
@@ -604,9 +603,9 @@ async function connectLobbyClient(
  * event carrying the accepted handle arrives DURING the establish
  * cycle, so resolution here is a full synchronization point.
  *
- * (Direct `client.setHandle()` is blocked by the known T-010/T-012
- * confirmation mismatch — see the module header and the regression
- * pin at the bottom of this suite.)
+ * (This flow is preferred over a first-session `client.setHandle()`
+ * because it exercises MORE of the identity path: raw reservation,
+ * grace-window restore, and claim presentation in one setup.)
  */
 async function establishNamedClient(
     url: string,
@@ -1175,8 +1174,7 @@ describe('lobby transport integration (feature 010 T-013)', () => {
 
         // Liveness after adoption: a freshly named visitor acts end-to-end
         // on the rebooted server, and the revision bumps from its match
-        // flow through phoenix's re-adopted baseline (naming phoenix's
-        // own fresh identity needs the broken setHandle — see the pin).
+        // flow through phoenix's re-adopted baseline.
         const regrown = await establishNamedClient(stack.url, 'PhoenixII');
         const createdAfterRestart = await regrown.client.createMatch({
             playerCount: 2,
@@ -1334,36 +1332,43 @@ describe('lobby transport integration (feature 010 T-013)', () => {
     }, 60_000);
 
     // -------------------------------------------------------------------------
-    // Known-defect regression pin (see the module header)
+    // Rename settlement regression (defect found by this suite; see the
+    // module header)
     // -------------------------------------------------------------------------
     //
-    // `test.fails` inverts the outcome: this test PASSES while the defect
-    // exists (setHandle rejects) and starts FAILING the moment either side
-    // is reconciled — forcing the flip to a positive end-to-end rename
-    // assertion instead of letting the pin rot.
-    test.fails('KNOWN DEFECT: client.setHandle awaits an actionAccepted echo the dispatcher never sends', async () => {
+    // Formerly a `test.fails` pin: while the two-phase settlement bug
+    // existed, this scenario passed INVERTED (setHandle rejecting with
+    // LobbyTimeoutError) and started failing the moment either side was
+    // reconciled — forcing this flip into a positive end-to-end proof.
+    test('a real round-trip rename settles on the directed identity event alone', async () => {
         const stack = await bootLobbyStack();
         trackTeardown(stack);
 
+        const storage = new MemoryClaimStorage();
         const client = createWsLobbyClient({
-            storage: new MemoryClaimStorage(),
+            storage,
             webSocketFactory: (socketUrl: string) => new TapSocket(socketUrl),
             actionTimeoutMs: 750,
         });
+        trackCloser(() => {
+            client.disconnect();
+        });
         await client.connect(stack.url);
 
-        // The rename SUCCEEDS server-side (the facade reserves the
-        // handle and pushes the confirming identity event — wire-
-        // verified: `identity` arrives, no `actionAccepted` follows).
-        // The client's two-flag settlement (echo + identity) can never
-        // complete, so this line rejects with LobbyTimeoutError even
-        // though the server accepted the handle.
-        try {
-            await client.setHandle('Pinned');
-        } catch (error) {
-            expect(error).toBeInstanceOf(LobbyTimeoutError);
-            throw error;
-        }
-        client.disconnect();
+        // Wire-verified: the dispatcher confirms a rename with the
+        // directed identity event ALONE (no `actionAccepted` follows —
+        // the closed transition union has no arm for data-only updates).
+        // The client must resolve on exactly that event.
+        await expect(client.setHandle('Pinned')).resolves.toEqual({ handle: 'Pinned', hasIdentity: true });
+        expect(client.state().connection).toBe('ready');
+        expect(client.state().handle).toBe('Pinned');
+
+        // A true RENAME (second round trip on an already-named identity)
+        // settles the same way…
+        await expect(client.setHandle('Renamed')).resolves.toEqual({ handle: 'Renamed', hasIdentity: true });
+        expect(client.state().handle).toBe('Renamed');
+
+        // …and the accepted handle persisted for reload-restore.
+        expect(storage.current()?.handle).toBe('Renamed');
     }, 30_000);
 });
