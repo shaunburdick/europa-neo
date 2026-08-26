@@ -27,7 +27,7 @@ export default defineConfig({
             // project in v1, matching playwright.config.ts).
             instances: [{ browser: 'chromium' }],
         },
-        include: ['tests/component/**/*.test.tsx', 'tests/a11y/**/*.test.ts', 'tests/integration/perf.test.ts'],
+        include: ['tests/component/**/*.test.tsx', 'tests/a11y/**/*.test.{ts,tsx}', 'tests/integration/perf.test.ts'],
         setupFiles: ['./tests/setup.ts'],
         passWithNoTests: true,
         coverage: {
