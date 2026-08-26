@@ -169,6 +169,7 @@ export function LobbyLanding({
     const rowActionsDisabled = !connected || seatActionBusy;
     const listActionError = state.actions.joinMatch.error ?? state.actions.spectateMatch.error;
 
+    const snapshotLoaded = state.snapshot !== null;
     const entries = state.snapshot?.entries ?? [];
 
     return (
@@ -246,6 +247,7 @@ export function LobbyLanding({
                     />
                     <LobbyMatchList
                         entries={entries}
+                        loading={!snapshotLoaded}
                         activeMatchId={state.activeMatchId}
                         busy={rowActionsDisabled}
                         actionError={listActionError}

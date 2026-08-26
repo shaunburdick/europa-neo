@@ -124,6 +124,10 @@ describe('LobbyLanding (smoke)', () => {
         await expect
             .element(screen.getByRole('button', { name: /Join match — Waiting for players, 1 of 2 seats filled/ }))
             .toBeVisible();
+        expect(screen.container.querySelector('[data-europa-lobby-loading]')).toBeNull();
+        expect(
+            screen.getByRole('heading', { name: 'Public matches' }).element().parentElement?.getAttribute('aria-busy'),
+        ).toBe('false');
         // Full waiting match: no seat to advertise (FR-007).
         await expect.element(screen.getByText('Full')).toBeVisible();
     });
@@ -185,6 +189,45 @@ describe('LobbyLanding (smoke)', () => {
         });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
         await expect.element(screen.getByText(/No public matches right now/)).toBeVisible();
+        expect(screen.container.querySelector('[data-europa-lobby-loading]')).toBeNull();
+    });
+
+    test('pre-baseline list renders a loading status instead of the empty state', async () => {
+        const state = stateOf({
+            connection: 'ready',
+            identityStatus: 'named',
+            handle: 'Nova',
+            snapshot: null,
+        });
+        const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+
+        const loadingStatus = screen.getByText('Loading public matches…');
+        await expect.element(loadingStatus).toBeVisible();
+        expect(loadingStatus.element().getAttribute('role')).toBe('status');
+        expect(screen.container.querySelector('[data-europa-lobby-empty]')).toBeNull();
+    });
+
+    test('a loaded empty list appears only after the baseline arrives', async () => {
+        const loadingState = stateOf({
+            connection: 'ready',
+            identityStatus: 'named',
+            handle: 'Nova',
+            snapshot: null,
+        });
+        const screen = await render(<LobbyLanding state={loadingState} focusHeading={false} {...noopCallbacks} />);
+
+        await expect.element(screen.getByText('Loading public matches…')).toBeVisible();
+
+        const loadedState = stateOf({
+            connection: 'ready',
+            identityStatus: 'named',
+            handle: 'Nova',
+            snapshot: snapshotOf([]),
+        });
+        await screen.rerender(<LobbyLanding state={loadedState} focusHeading={false} {...noopCallbacks} />);
+
+        await expect.element(screen.getByText(/No public matches right now/)).toBeVisible();
+        expect(screen.container.querySelector('[data-europa-lobby-loading]')).toBeNull();
     });
 
     test('terminal failure renders the banner and wires Retry', async () => {

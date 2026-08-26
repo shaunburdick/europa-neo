@@ -17,6 +17,10 @@
  * create form remains the prominent path (it sits beside this list on
  * the landing page).
  *
+ * Before the first server snapshot, the list is loading rather than empty.
+ * This distinction prevents a transient transport state from being announced
+ * as a definitive empty lobby (FR-016).
+ *
  * Accessibility contract: semantic `<ul>` list; row actions carry
  * composed accessible names (`rowActionLabel`) so rows are
  * distinguishable by ear; the shared join/spectate failure line uses
@@ -40,6 +44,8 @@ import {
 export interface LobbyMatchListProps {
     /** Current public entries, server order (constitution Principle II). */
     readonly entries: ReadonlyArray<PublicLobbyEntry>;
+    /** Whether the first authoritative lobby snapshot has arrived. */
+    readonly loading: boolean;
     /**
      * The viewer's active match per the server snapshot (`null` when
      * lobby-bound); that row loses its action buttons and gains a
@@ -131,6 +137,7 @@ function MatchRow({
  */
 export function LobbyMatchList({
     entries,
+    loading,
     activeMatchId,
     busy,
     actionError,
@@ -140,7 +147,11 @@ export function LobbyMatchList({
     const headingId = 'europa-lobby-matches-heading';
     const errorId = 'europa-lobby-matches-error';
     return (
-        <section className="europa-lobby__card europa-lobby__card--wide" aria-labelledby={headingId}>
+        <section
+            className="europa-lobby__card europa-lobby__card--wide"
+            aria-labelledby={headingId}
+            aria-busy={loading || busy}
+        >
             <h2 id={headingId} className="europa-lobby__card-title">
                 Public matches
             </h2>
@@ -149,12 +160,21 @@ export function LobbyMatchList({
                     {describeActionError(actionError)}
                 </p>
             ) : null}
-            {entries.length === 0 ? (
+            {loading ? (
+                <p
+                    className="europa-lobby__status-line"
+                    data-europa-lobby-loading="true"
+                    role="status"
+                    aria-live="polite"
+                >
+                    Loading public matches…
+                </p>
+            ) : entries.length === 0 ? (
                 <p className="europa-lobby__empty" data-europa-lobby-empty="true">
                     No public matches right now — create one to get started.
                 </p>
             ) : (
-                <ul className="europa-lobby__rows" aria-busy={busy}>
+                <ul className="europa-lobby__rows" aria-busy={loading || busy}>
                     {entries.map((entry) => (
                         <MatchRow
                             key={entry.matchId}

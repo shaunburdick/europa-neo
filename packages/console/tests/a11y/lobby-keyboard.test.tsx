@@ -303,6 +303,23 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         controller.disconnect();
     });
 
+    test('pre-baseline match list announces loading and reports busy state', async () => {
+        const transport = new FakeTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+
+        const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
+        const loadingStatus = screen.getByText('Loading public matches…');
+        await expect.element(loadingStatus).toBeVisible();
+
+        const listCard = screen.getByRole('heading', { name: 'Public matches' }).element().parentElement;
+        expect(listCard?.getAttribute('aria-busy')).toBe('true');
+        expect(loadingStatus.element().getAttribute('role')).toBe('status');
+        expect(loadingStatus.element().getAttribute('aria-live')).toBe('polite');
+        expect(screen.container.querySelector('[data-europa-lobby-empty]')).toBeNull();
+        controller.disconnect();
+    });
+
     test('full keyboard lifecycle: name → create → leave → lobby, zero axe violations', async () => {
         const transport = new FakeTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
