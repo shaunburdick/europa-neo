@@ -39,9 +39,7 @@ describe('deriveSeatLabels (FR-020)', () => {
     });
 
     it('reconstructs a middle seat correctly for three players', () => {
-        const labels = deriveSeatLabels(
-            sessionOf({ playerId: 2, displayName: 'Mid', opponents: ['First', 'Third'] }),
-        );
+        const labels = deriveSeatLabels(sessionOf({ playerId: 2, displayName: 'Mid', opponents: ['First', 'Third'] }));
         expect(labels).toEqual([
             { seat: 1, name: 'First', isLocal: false },
             { seat: 2, name: 'Mid', isLocal: true },

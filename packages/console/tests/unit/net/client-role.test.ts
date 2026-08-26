@@ -30,7 +30,10 @@ function fakeInner() {
             sentOrders.push(order);
             return Promise.resolve({ ok: true } as CommandResult);
         }),
-        onMessage: vi.fn((_handler: (envelope: ProtocolEnvelope<import('../../../src/state/types').NetworkPayload>) => void) => () => undefined),
+        onMessage: vi.fn(
+            (_handler: (envelope: ProtocolEnvelope<import('../../../src/state/types').NetworkPayload>) => void) => () =>
+                undefined,
+        ),
         state: vi.fn(() => ({
             connection: 'greeted' as const,
             sessionToken: null,

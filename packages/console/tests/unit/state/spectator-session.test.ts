@@ -11,15 +11,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-
-import type { PlayerView } from '../../../src/state/types';
-import type { NetworkPayload, ProtocolEnvelope } from '../../../src/state/types';
 import {
     applySpectatorEnvelope,
     applySpectatorTransportLoss,
     initialSpectatorState,
     withNotice,
 } from '../../../src/state/spectator-session';
+import type { NetworkPayload, PlayerView, ProtocolEnvelope } from '../../../src/state/types';
 
 const NOW = 5_000;
 const MATCH = 'm-1' as import('../../../src/state/types').MatchId;

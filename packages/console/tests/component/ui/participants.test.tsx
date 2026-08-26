@@ -11,8 +11,8 @@
  *     appears in the rendered HTML.
  */
 
-import { cleanup, render } from 'vitest-browser-react';
 import { afterEach, describe, expect, test } from 'vitest';
+import { cleanup, render } from 'vitest-browser-react';
 
 import { INITIAL_CONSOLE_STATE } from '../../../src/state/reducer';
 import type { ConsoleSession } from '../../../src/state/types';
