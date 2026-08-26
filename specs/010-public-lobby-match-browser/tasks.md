@@ -5,18 +5,18 @@ means the task is safe to perform in parallel with other tasks in its block.
 
 ## Contracts and foundations
 
-- [ ] T-001: Add typed identity, public projection, error, and lobby event contracts in `packages/matchmaking/src/contracts/`, preserving branded-ID and readonly conventions; add compile-time contract witnesses.
-- [ ] T-002: Add the additive lobby wire message contracts to both canonical networking contract copies, document version/unknown-message behavior, and extend networking conformance fixtures without changing gameplay payloads.
-- [ ] T-003: [P] Add the feature-010 server API/event contract artifacts to the package barrels and verify exports with strict typecheck programs.
-- [ ] T-004: [P] Add focused test fixtures/builders for identities, handles, lobby snapshots, and fake matchmaker/network bridges; do not weaken existing test tsconfig policy.
+- [x] T-001: Add typed identity, public projection, error, and lobby event contracts in `packages/matchmaking/src/contracts/`, preserving branded-ID and readonly conventions; add compile-time contract witnesses.
+- [x] T-002: Add the additive lobby wire message contracts to both canonical networking contract copies, document version/unknown-message behavior, and extend networking conformance fixtures without changing gameplay payloads.
+- [x] T-003: [P] Add the feature-010 server API/event contract artifacts to the package barrels and verify exports with strict typecheck programs.
+- [x] T-004: [P] Add focused test fixtures/builders for identities, handles, lobby snapshots, and fake matchmaker/network bridges; do not weaken existing test tsconfig policy.
 
 ## Server identity and matchmaking integration
 
-- [ ] T-005: Implement Unicode-aware handle validation/normalization and an in-memory identity registry with atomic create, rename, claim, disconnect, grace release, and close behavior; unit-test all validation and duplicate races.
-- [ ] T-006: Extend matchmaking records/associations so the authoritative identity and accepted handle follow `PlayerSession`, `SeatRecord`, waiting/start/terminal/reconnect transitions without exposing the opaque ID.
-- [ ] T-007: Implement the server lobby facade for identity setup, subscribe, public projection, create, join, spectate, leave, and recoverable error mapping; delegate settings/capacity/start/cleanup to feature 006.
-- [ ] T-008: [P] Add matchmaker lifecycle bridge publication for create, fill, start, collect, disconnect, reconnect, and expiry; assert monotonic revisions and no stale/finished lobby entries.
-- [ ] T-009: Add server-authority tests proving forged identity/handle/seat/order claims cannot reassign authority, including 100 orders and at least 10 concurrent conflicting handle/final-seat requests.
+- [x] T-005: Implement Unicode-aware handle validation/normalization and an in-memory identity registry with atomic create, rename, claim, disconnect, grace release, and close behavior; unit-test all validation and duplicate races.
+- [x] T-006: Extend matchmaking records/associations so the authoritative identity and accepted handle follow `PlayerSession`, `SeatRecord`, waiting/start/terminal/reconnect transitions without exposing the opaque ID.
+- [x] T-007: Implement the server lobby facade for identity setup, subscribe, public projection, create, join, spectate, leave, and recoverable error mapping; delegate settings/capacity/start/cleanup to feature 006.
+- [x] T-008: [P] Add matchmaker lifecycle bridge publication for create, fill, start, collect, disconnect, reconnect, and expiry; assert monotonic revisions and no stale/finished lobby entries.
+- [x] T-009: Add server-authority tests proving forged identity/handle/seat/order claims cannot reassign authority, including 100 orders and at least 10 concurrent conflicting handle/final-seat requests.
 
 ## Networking transport and browser client
 
@@ -39,6 +39,18 @@ means the task is safe to perform in parallel with other tasks in its block.
 - [ ] T-020: [P] Update README and developer/operator/self-hosting/API guidance for the lobby default, guest identity/handle contract, authoritative association, reconnect/order/view behavior, and in-memory reset boundary; never document opaque IDs.
 - [ ] T-021: [P] Update the player manual (index/quick-start/reading-the-screen plus a lobby page if needed) for handle setup, rename/validation, create/join/spectate, participant labels, reconnect, and failure states; update Pages path gates only when necessary.
 - [ ] T-022: Add documentation and privacy-boundary validation (grep/checklist or test) proving required surfaces describe handles and do not expose opaque guest IDs; update specs/implementation notes if behavior clarifies an existing contract.
+
+## Wave 1 review remediation (code-quality-reviewer, 2026-08-25)
+
+- [x] R-001: Correct `LobbyActionId` normative ownership comments in `packages/matchmaking/src/contracts/lobby-types.ts` and `tests/fixtures/lobbySnapshots.ts` to client-generated/server-echoed (review F-1); also fix the fixture JSDoc `undefined`-override recipe that fails under `exactOptionalPropertyTypes` (review F-5).
+- [x] R-002: Add mutual-assignability pins `LobbyMatchSettings ≡ MatchSettings` and `LobbyTerrainSettings ≡ GenerationSettings` to matchmaking's conformance program (review F-2).
+- [x] R-003: Add optional `detail` to the wire `error` LobbyEvent variant in BOTH canonical networking contract copies (byte-identical) + conformance coverage; amend `specs/010…/contracts/lobby-wire.md` and spec.md Clarifications in the same change set — required by US3 AC-4 field-specific feedback (review F-3; PM ruling 2026-08-25).
+
+## Discovered during Wave 2b
+
+- [ ] R-004: Expose a minimal matchmaker-side seam so handle renames propagate to in-flight session/seat snapshots (`propagateHandleRename(store, …)` is unreachable from outside `matchmaker.ts`; facade renames currently reach only the registry + future sessions). Small additive export/wiring in matchmaking; spec 006 semantics unchanged. (T-007 flag)
+- [ ] T-023 note: amend matchmaking `vitest.config.ts` coverage exclusion of `src/internal/**` so the facade + publication modules count toward the ≥80% gate.
+- [ ] T-024 note: wire `tests/lobby-conformance.test.ts` runtime witnesses into a script/CI step (build lib → targeted vitest run, console precedent).
 
 ## Final verification
 
