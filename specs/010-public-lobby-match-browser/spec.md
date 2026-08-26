@@ -3,8 +3,8 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-25 (v1.3)
-**Version**: 1.3
+**Last Updated**: 2026-08-25 (v1.4)
+**Version**: 1.4
 **Status**: Draft — phases 1–3 complete
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
@@ -210,3 +210,10 @@ No interactive clarification questions were required. The approved decisions res
 ### Session 2026-08-25 — Wire error detail field ruling (v1.3)
 
 - US3 AC-4 ("rejected with field-specific feedback") and FR-018's actionable-failure requirement cannot be delivered by code-only wire errors: a browser can only render field-specific guidance when the server tells it which fields failed. PM ruling (2026-08-25): the wire `error` `LobbyEvent` variant gains an additive optional `detail` record mirroring matchmaking's `LobbyError.detail` (`Readonly<Record<string, string | number | boolean>>`, field name → message/value). Servers populate it wherever actionable specifics exist (e.g., the rejected create-form settings fields); clients render actionable text from `code` plus `detail` and MUST tolerate its absence (older servers, or codes needing no specifics). Additive-only — unknown-field tolerance already covers older clients, so `NETWORK_API_VERSION` is NOT bumped. Contract surfaces updated in the same change set: both canonical networking contract copies, `contracts/lobby-wire.md`, and networking conformance coverage for the changed payload.
+
+### Session 2026-08-25 — Handle case-folding normalization ruling (v1.4)
+
+- FR-005's "case-insensitive" uniqueness comparison is implemented with JavaScript's locale-independent built-in case conversion: the uniqueness key is the trimmed handle lowercased with `String.prototype.toLowerCase()` (default Unicode case mappings; no locale overrides; no full case folding, which ECMAScript does not provide). Rationale: determinism across runtimes and self-hosted instances (constitution Principle II) and simplicity (Principle V) — richer folding policies are deferred to a future moderation feature.
+- What folds: case-based default mappings only — e.g. `Å→å`, `Ö→ö`, and multi-character expansions such as `İ` (U+0130) → `i` + combining dot above (two code points). What does NOT fold: `ß` is never expanded to `SS` (so `Straße` and `STRASSE` remain distinct handles), and locale-specific conventions (e.g., Turkish dotless-i rules) are deliberately not applied.
+- The accepted display handle is the trimmed submission with casing preserved verbatim (FR-005); the uniqueness key is derived from it and never displayed or projected.
+- Uniqueness keys are held for ACTIVE identities and for identities retained by the reconnect grace window; keys are freed when grace expires or the identity is explicitly released (edge case: handle availability).
