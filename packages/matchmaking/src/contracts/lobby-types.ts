@@ -62,10 +62,10 @@ export type GuestPlayerId = string & { readonly __brand: 'GuestPlayerId' };
 export type LobbyRevision = number & { readonly __brand: 'LobbyRevision' };
 
 /**
- * Correlation id for one client-initiated lobby action. Echoed by the
- * `actionAccepted` and `error` lobby events so the initiating browser
- * tab can match a response to its request (and ignore impostor
- * responses). Server-minted per action; integer.
+ * Client-generated correlation id for one lobby action. Stamped on
+ * every lobby request; echoed by the `actionAccepted` and `error`
+ * lobby events so the initiating browser tab can match a response to
+ * its request (and ignore impostor responses). Integer.
  */
 export type LobbyActionId = number & { readonly __brand: 'LobbyActionId' };
 

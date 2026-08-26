@@ -77,7 +77,7 @@ export function nextLobbyRevision(): LobbyRevision {
     return revisionCounter as LobbyRevision;
 }
 
-/** Mint the next server-side `LobbyActionId` correlation id. */
+/** Mint the next client-side `LobbyActionId` correlation id. */
 export function nextLobbyActionId(): LobbyActionId {
     actionIdCounter += 1;
     return actionIdCounter as LobbyActionId;

@@ -55,8 +55,15 @@ export type IdentityClaimOverrides = Partial<GuestIdentityClaim>;
 
 /**
  * Build a `GuestIdentityClaim` (client-presented resume INPUT). Default
- * carries both fields — the "returning browser" shape; delete fields
- * via an explicit `undefined` override for first-visit shapes.
+ * carries both fields — the "returning browser" shape. For first-visit
+ * shapes, OMIT keys via rest destructuring instead of `undefined`
+ * overrides (`exactOptionalPropertyTypes` rejects the latter):
+ *
+ *   const { guestPlayerId: _strippedId, ...firstVisit } =
+ *       buildIdentityClaim();
+ *
+ * `_strippedId` captures the removed field; `firstVisit` holds only the
+ * remaining keys and stays assignable to `GuestIdentityClaim`.
  */
 export function buildIdentityClaim(overrides: IdentityClaimOverrides = {}): GuestIdentityClaim {
     return Object.freeze({

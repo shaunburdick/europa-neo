@@ -97,8 +97,15 @@ export type WireIdentityClaimOverrides = Partial<GuestIdentityClaim>;
 
 /**
  * Build a wire `GuestIdentityClaim` (advisory resume INPUT). Default
- * carries both fields; pass explicit `undefined` overrides to strip
- * them for first-visit shapes.
+ * carries both fields. For first-visit shapes, OMIT keys via rest
+ * destructuring instead of `undefined` overrides
+ * (`exactOptionalPropertyTypes` rejects the latter):
+ *
+ *   const { guestPlayerId: _strippedId, ...firstVisit } =
+ *       buildIdentityClaim();
+ *
+ * `_strippedId` captures the removed field; `firstVisit` holds only the
+ * remaining keys and stays assignable to `GuestIdentityClaim`.
  */
 export function buildIdentityClaim(overrides: WireIdentityClaimOverrides = {}): GuestIdentityClaim {
     return Object.freeze({
