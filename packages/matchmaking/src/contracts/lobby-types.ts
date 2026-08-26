@@ -17,9 +17,14 @@
  *   - Integer-only numeric fields (revisions, action ids, capacities).
  *   - Branded primitives prevent confusion with networking's tokens and
  *     matchmaking's session ids.
- *   - NO public projection carries the opaque `GuestPlayerId` — the
- *     claim is input only (spec FR-003/FR-024; enforced by the
- *     compile-time witnesses in `tests/lobby-conformance.test.ts`).
+ *   - Public projections (entries, snapshots, action targets) NEVER
+ *     carry the opaque `GuestPlayerId` — the claim is input only
+ *     (spec FR-003/FR-024). The ONE sanctioned appearance is the
+ *     optional `IdentityState.guestPlayerId` on the DIRECTED
+ *     `identity` event to its owning connection (spec Clarifications
+ *     v1.6 — the FR-003 delivery channel), enforced by the compile-
+ *     time witnesses in `tests/lobby-conformance.test.ts` and the
+ *     runtime privacy scans in `tests/unit/lobby.serverAuthority.test.ts`.
  *
  * Versioning: additive changes keep the wire tolerant (unknown-message
  * and unknown-error-code clients default their branches, mirroring
@@ -101,7 +106,12 @@ export type LobbyStatus = 'waiting' | 'in_progress';
  * amendment; edge case "client-provided … claims are advisory input").
  */
 export interface GuestIdentityClaim {
-    /** Opaque id previously issued to this browser (absent on first visit). */
+    /**
+     * Opaque id previously issued to this browser (absent on first
+     * visit). Issued means DELIVERED: the server hands the id to the
+     * browser via the directed `identity` event's `guestPlayerId`
+     * (see {@linkcode IdentityState} — spec Clarifications v1.6).
+     */
     readonly guestPlayerId?: GuestPlayerId;
     /** Last locally-known handle; restored only if the server still holds it. */
     readonly handle?: string;
@@ -117,14 +127,29 @@ export interface GuestIdentityClaim {
  * only once an identity has been established) so client narrowing can
  * discriminate it from pre-establishment states without a null check.
  *
- * Carries NO opaque id: the guest player id never leaves the server
- * (FR-003/FR-024). The browser persists its own stored copy locally.
+ * `guestPlayerId` (spec Clarifications v1.6) is the SANCTIONED
+ * FR-003 delivery channel for the opaque id: the facade populates it
+ * only when projecting identity state for the directed `identity`
+ * event, which the transport delivers exclusively to the connection
+ * that owns the identity. The browser persists that delivered id as
+ * its resume claim so a reload restores the active identity within
+ * the reconnect grace window. It MUST NOT appear anywhere else — not
+ * in `PublicLobbyEntry`, `LobbySnapshot`, join/spectate targets, UI,
+ * URLs, or logs (NFR-003/FR-024) — and clients MUST tolerate its
+ * absence (older servers, non-delivery projections).
  */
 export interface IdentityState {
     /** Accepted handle, or `null` while the visitor has not chosen one. */
     readonly handle: string | null;
     /** Literal `true`: this state is only produced for established identities. */
     readonly hasIdentity: true;
+    /**
+     * Opaque id of the identity this state describes. Present ONLY on
+     * the directed `identity` event to its OWNING connection (spec
+     * Clarifications v1.6); absent from every other projection of
+     * this shape and from every listing/snapshot/target (NFR-003).
+     */
+    readonly guestPlayerId?: GuestPlayerId;
 }
 
 // ----------------------------------------------------------------------------

@@ -15,11 +15,15 @@
  *   - RATE LIMITING: dedicated per-connection lobby bucket trips on
  *     floods while normal cadence flows (audit item 7);
  *   - DIRECTED DELIVERY: identity events reach unsubscribed
- *     connections through THE one projection sink (audit item 8);
+ *     connections through THE one projection sink (audit item 8),
+ *     including the v1.6 `guestPlayerId` delivery channel — routed to
+ *     EXACTLY the owning connection and nobody else;
  *   - F-4 REGRESSION: the default arm's diagnostics are
  *     direction-aware;
- *   - SECRECY: the bearer-secret guest id never appears in any
- *     outbound frame (audit item 5);
+ *   - SECRECY: the bearer-secret guest id presented as INPUT is never
+ *     echoed into any other frame; its ONE lawful appearance is the
+ *     owning connection's directed identity event (feature 010
+ *     Clarifications v1.6, pinned by the routing suite below);
  *   - PRESERVATION: heartbeat and protocol behavior are untouched.
  *
  * Uses the recording facade fixture (`fakeLobbyService.ts`) and the
@@ -52,6 +56,7 @@ import {
 } from '../fixtures/fakeLobbyService';
 import {
     buildIdentityClaim,
+    buildIdentityState,
     buildLobbyEntry,
     buildLobbyEnvelope,
     buildLobbySnapshot,
@@ -465,6 +470,37 @@ describe('lobby teardown + directed delivery (audit items 1, 8)', () => {
         expect((required(events[1], 'directed identity event').identity as IdentityState).handle).toBe('Renamed');
     });
 
+    it('routes an identity event carrying guestPlayerId to EXACTLY the owning connection', () => {
+        // Feature 010 Clarifications v1.6: IdentityState.guestPlayerId is
+        // the sanctioned FR-003 delivery channel — lawful ONLY on the
+        // directed identity event to its OWNING connection. The
+        // dispatcher must forward it verbatim to that one socket and to
+        // no other.
+        const fake = new FakeLobbyService();
+        const server = lobbyServer(fake);
+        const owner = connectClient(server);
+        const bystander = connectClient(server);
+
+        // One lobby frame materializes the (lazy) facade + sink hand-off;
+        // its scripted identity state carries no id.
+        sendLobby(owner.socket, 'lobbyIdentity', lobbyIdentityPayload());
+        expect(lobbyEvents(owner.socket)).toHaveLength(1);
+
+        const owned = buildIdentityState({ guestPlayerId: BEARER_GUEST_ID });
+        fake.push(owner.connectionId as never, { kind: 'identity', identity: owned });
+
+        const ownerEvents = lobbyEvents(owner.socket);
+        expect(ownerEvents).toHaveLength(2);
+        const delivered = required(ownerEvents[1], 'directed identity event').identity as IdentityState;
+        expect(delivered.handle).toBe('Nova');
+        expect(delivered.guestPlayerId).toBe(BEARER_GUEST_ID);
+
+        // The bystander's stream carries NOTHING — no identity frame, and
+        // the owner's opaque id appears nowhere in its raw bytes.
+        expect(lobbyEvents(bystander.socket)).toHaveLength(0);
+        expect(bystander.socket.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
+    });
+
     it('drops sink deliveries addressed to unknown or closed connections without throwing', () => {
         const fake = new FakeLobbyService();
         const server = lobbyServer(fake);
@@ -552,7 +588,12 @@ describe('dispatcher default arm direction diagnostics (F-4)', () => {
 // ---------------------------------------------------------------------------
 
 describe('guest id secrecy', () => {
-    it('never echoes the bearer-secret guest id in any outbound frame', () => {
+    it('never echoes a claim-presented guest id outside the sanctioned directed identity event', () => {
+        // The recorder's scripted identity state carries NO id, so the
+        // bearer secret presented as INPUT must appear in zero outbound
+        // frames. (The ONE lawful appearance — the owning connection's
+        // directed identity event carrying ITS OWN v1.6 field — is
+        // pinned by the routing test above.)
         const fake = new FakeLobbyService();
         fake.setHandleOutcome = { ok: false, error: lobbyFailure('handle_invalid', 'bad handle') };
         const server = lobbyServer(fake);
@@ -570,7 +611,7 @@ describe('guest id secrecy', () => {
         const outbound = socket.sentRaw.join('\n');
         expect(outbound).not.toContain(BEARER_GUEST_ID);
         // Input direction reached the facade intact (the ONLY place the
-        // id may travel).
+        // id may travel as input).
         expect(fake.identityCalls[0]?.claim?.guestPlayerId).toBe(BEARER_GUEST_ID);
     });
 });

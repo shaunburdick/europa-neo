@@ -43,6 +43,7 @@ import type {
     ErrorPayload,
     HelloAckPayload,
     HelloPayload,
+    IdentityState,
     JoinAckPayload,
     JoinMatchPayload,
     LobbyActionId,
@@ -273,6 +274,11 @@ interface DocGuestIdentityClaim {
 interface DocIdentityState {
     readonly handle: string | null;
     readonly hasIdentity: true;
+    // Sanctioned FR-003 delivery channel (feature 010 Clarifications
+    // v1.6): the opaque id rides ONLY on the directed identity event to
+    // its owning connection; optional so recipients tolerate older
+    // servers, and absent from every listing/snapshot/target (NFR-003).
+    readonly guestPlayerId?: DocGuestPlayerId;
 }
 
 interface DocPublicLobbyEntry {
@@ -375,6 +381,20 @@ const LOBBY_WIRE_CONFORMS: LobbyWireConforms = {
     lobbyEvent: true,
 };
 
+/**
+ * Sharp-edge pin for the v1.6 OPTIONAL delivery field (feature 010
+ * Clarifications v1.6): plain mutual assignability cannot see a missing
+ * or retyped OPTIONAL field, so this indexed-access witness fails to
+ * typecheck while the contract's `IdentityState.guestPlayerId` and the
+ * doc transcription disagree in existence, optionality, or brand.
+ */
+type IdentityStateGuestIdConforms = AssertMutuallyAssignable<
+    IdentityState['guestPlayerId'],
+    DocIdentityState['guestPlayerId']
+>;
+
+const IDENTITY_STATE_GUEST_ID_CONFORMS: IdentityStateGuestIdConforms = true;
+
 /** The four documented `LobbyEvent` variant kinds. */
 const LOBBY_EVENT_KINDS = ['identity', 'snapshot', 'actionAccepted', 'error'] as const;
 
@@ -405,8 +425,8 @@ function lobbyEventKindLabel(event: LobbyEvent): string {
 
 describe('feature 010 lobby wire conformance (T-002)', () => {
     it('the contract lobby payloads conform to the lobby-wire.md/lobby-types.md transcription', () => {
-        // Compile-time proof lives in the LobbyWireConforms aliases; this
-        // runtime assertion keeps them "used" so linters stay quiet.
+        // Compile-time proof lives in the LobbyWireConforms aliases; these
+        // runtime assertions keep them "used" so linters stay quiet.
         expect(LOBBY_WIRE_CONFORMS).toEqual({
             lobbyIdentity: true,
             lobbySetHandle: true,
@@ -417,6 +437,7 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
             lobbyLeave: true,
             lobbyEvent: true,
         });
+        expect(IDENTITY_STATE_GUEST_ID_CONFORMS).toBe(true);
     });
 
     it('every lobby message kind is declared exactly once in the protocol union', () => {
@@ -427,7 +448,16 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
 
     it('the LobbyEvent union is exhaustively classified over its four variants', () => {
         const samples: ReadonlyArray<LobbyEvent> = [
-            { kind: 'identity', identity: { handle: null, hasIdentity: true } },
+            {
+                kind: 'identity',
+                identity: {
+                    handle: null,
+                    hasIdentity: true,
+                    // The v1.6 sanctioned delivery field must be admitted
+                    // on the wire identity event (directed delivery only).
+                    guestPlayerId: 'guest-directed' as IdentityState['guestPlayerId'],
+                },
+            },
             {
                 kind: 'snapshot',
                 snapshot: { revision: 7 as LobbyRevision, entries: [], activeMatchId: null },
@@ -447,11 +477,14 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
         expect(new Set(labels).size).toBe(LOBBY_EVENT_KINDS.length);
     });
 
-    it('declares no opaque guest player id anywhere in the public projections', () => {
-        // Privacy boundary spot-check (spec FR-024 / NFR-003): the wire
-        // projection types carry match discovery data and handles only.
-        // The ONLY field typed with GuestPlayerId across the whole lobby
-        // surface is the advisory GuestIdentityClaim input.
+    it('declares the opaque guest player id only on the claim input and the directed identity state', () => {
+        // Privacy boundary spot-check (spec FR-024 / NFR-003, scoped by
+        // feature 010 Clarifications v1.6): the wire projection types
+        // carry match discovery data and handles only. The guest id is
+        // typed in exactly TWO places: the advisory GuestIdentityClaim
+        // INPUT, and IdentityState.guestPlayerId — the sanctioned FR-003
+        // delivery channel on the DIRECTED identity event to its owning
+        // connection. Entries/snapshots/targets stay strictly id-free.
         const entryKeys: ReadonlyArray<string> = [
             'matchId',
             'seatsFilled',
@@ -461,7 +494,9 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
             'tickIntervalMs',
         ];
         const claimKeys: ReadonlyArray<string> = ['guestPlayerId', 'handle'];
+        const identityStateKeys: ReadonlyArray<string> = ['handle', 'hasIdentity', 'guestPlayerId'];
         expect(entryKeys).not.toContain('guestPlayerId');
         expect(claimKeys).toContain('guestPlayerId');
+        expect(identityStateKeys).toContain('guestPlayerId');
     });
 });

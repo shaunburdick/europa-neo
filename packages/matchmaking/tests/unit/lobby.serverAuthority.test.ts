@@ -27,6 +27,11 @@
  *     handle strings (JSON-injection text, zero-width format chars,
  *     ANSI escapes) never smuggle opaque guest ids, session tokens, or
  *     seat credentials into any event, snapshot, or target payload.
+ *     Sanctioned exception (spec Clarifications v1.6): the DIRECTED
+ *     identity event carries its OWN recipient's opaque id (the FR-003
+ *     delivery channel) — the scans below hold everything else
+ *     id-free and pin that no second connection ever receives another
+ *     identity's guestPlayerId.
  *   - **Projection authority** (R-006 single projection path):
  *     out-of-band/duplicate lifecycle events never project under
  *     pressure, terminal rows drop exactly once, and revisions stay
@@ -231,17 +236,27 @@ function expectRecoverable(result: Result<unknown, LobbyError>, code?: LobbyErro
 }
 
 /**
- * Privacy scan: serialize every recorded delivery plus the given pull
- * snapshots and assert none carries any minted opaque guest id,
- * fixture-shaped session token (`token-NNNN`), player-session id
- * (`psn-NNNN`), or one of the supplied hostile literal strings.
+ * Privacy scan (spec Clarifications v1.6 envelope): serialize every
+ * recorded delivery plus the given pull snapshots and assert none
+ * carries any minted opaque guest id, fixture-shaped session token
+ * (`token-NNNN`), player-session id (`psn-NNNN`), or one of the
+ * supplied hostile literal strings.
+ *
+ * Sanctioned exception (v1.6): the DIRECTED identity event legitimately
+ * carries its recipient's OWN opaque id to the actor, so identity
+ * deliveries are excluded from the blanket value scan and audited by
+ * {@linkcode assertDirectedIdentitiesPrivate} instead — which this
+ * function invokes so one call covers the whole envelope. Entries,
+ * snapshots, action outcomes, and every other connection's traffic
+ * remain scanned strictly id-free.
  */
 function assertNothingPrivate(
     delivered: readonly Delivery[],
     snapshots: readonly LobbySnapshot[],
     hostileStrings: readonly string[] = [],
 ): void {
-    const blobs = delivered.map((d) => JSON.stringify(d.event)).concat(snapshots.map((s) => JSON.stringify(s)));
+    const publicDeliveries = delivered.filter((d) => d.event.kind !== 'identity');
+    const blobs = publicDeliveries.map((d) => JSON.stringify(d.event)).concat(snapshots.map((s) => JSON.stringify(s)));
     const scanned = blobs.join('\n');
     for (let n = 1; n <= idSeq; n++) {
         expect(scanned).not.toContain(opaqueIdAt(n));
@@ -250,6 +265,37 @@ function assertNothingPrivate(
     expect(scanned).not.toMatch(/psn-\d{4}/);
     for (const hostile of hostileStrings) {
         expect(scanned).not.toContain(hostile);
+    }
+    assertDirectedIdentitiesPrivate(delivered);
+}
+
+/** Every minted opaque-id VALUE serialized inside `blob` (order of minting). */
+function mintedIdsIn(blob: string): string[] {
+    const found: string[] = [];
+    for (let n = 1; n <= idSeq; n++) {
+        if (blob.includes(opaqueIdAt(n))) {
+            found.push(opaqueIdAt(n));
+        }
+    }
+    return found;
+}
+
+/**
+ * Directed-delivery audit (spec Clarifications v1.6): every identity
+ * event may carry AT MOST ONE minted opaque id — its own subject — and
+ * that subject must be a real registry id (never forged input). This is
+ * the structural half of the envelope; the ownership half (a second
+ * connection never receives ANOTHER identity's id) is pinned exactly,
+ * with full knowledge of who established what, by the dedicated tests
+ * in the "directed identity delivery" suite below.
+ */
+function assertDirectedIdentitiesPrivate(delivered: readonly Delivery[]): void {
+    for (const d of delivered) {
+        if (d.event.kind !== 'identity') {
+            continue;
+        }
+        const ids = mintedIdsIn(JSON.stringify(d.event));
+        expect(ids, `identity event to ${d.connectionId} carries at most one opaque id`).toHaveLength(1);
     }
 }
 
@@ -993,10 +1039,125 @@ describe('unestablished and unnamed identities are rejected before anything appl
 });
 
 // ----------------------------------------------------------------------------
+// Directed identity delivery — the FR-003 channel (spec Clarifications v1.6)
+// ----------------------------------------------------------------------------
+
+/** The single minted opaque id carried by one identity event (its subject). */
+function subjectOf(event: LobbyEvent): string {
+    expect(event.kind).toBe('identity');
+    const ids = mintedIdsIn(JSON.stringify(event));
+    expect(ids).toHaveLength(1);
+    return ids[0] ?? 'unreachable: length asserted above';
+}
+
+describe('directed identity delivery — the FR-003 channel (spec Clarifications v1.6)', () => {
+    it('establishIdentity delivers the fresh identity’s OWN opaque id to its connection', () => {
+        const { service, delivered } = buildHarness();
+        const connectionId = nextConnectionId();
+
+        service.establishIdentity(undefined, connectionId);
+
+        const identityDeliveries = delivered.filter((d) => d.connectionId === connectionId);
+        expect(identityDeliveries).toHaveLength(1);
+        const event = identityDeliveries[0]?.event;
+        if (event === undefined || event.kind !== 'identity') {
+            throw new Error('unreachable: one identity delivery asserted above');
+        }
+        // The full sanctioned envelope: safe state PLUS the owner's id,
+        // minted by THIS establishment (opaque-0001 is the first mint).
+        expect(event.identity).toEqual({ handle: null, hasIdentity: true, guestPlayerId: guest(1) });
+        expect(subjectOf(event)).toBe(opaqueIdAt(1));
+    });
+
+    it('setHandle delivers the owner’s opaque id on the confirming identity event', () => {
+        const { service, delivered } = buildHarness();
+        const conn = freshConnection(service);
+        delivered.length = 0;
+
+        expectOk(service.setHandle(conn.connectionId, 'Nova'));
+
+        const event = delivered[0]?.event;
+        if (event === undefined || event.kind !== 'identity') {
+            throw new Error('unreachable: rename must confirm via one identity event');
+        }
+        expect(event.identity.handle).toBe('Nova');
+        expect(subjectOf(event)).toBe(conn.guestId);
+    });
+
+    it('a restored claim delivers the SAME identity’s id to the restoring connection', () => {
+        const { service, delivered } = buildHarness();
+        const original = namedConnection(service, 'Nova');
+        const restoreConnection = nextConnectionId();
+        delivered.length = 0;
+
+        const state = service.establishIdentity({ guestPlayerId: original.guestId }, restoreConnection);
+
+        // Return value stays the SAFE projection (id-free) — the event
+        // is THE delivery channel.
+        expect(state).toEqual({ handle: 'Nova', hasIdentity: true });
+        const event = delivered[0]?.event;
+        if (event === undefined || event.kind !== 'identity') {
+            throw new Error('unreachable: restore must confirm via one identity event');
+        }
+        expect(event.identity).toEqual({ handle: 'Nova', hasIdentity: true, guestPlayerId: original.guestId });
+    });
+
+    it('a second connection NEVER receives another identity’s guestPlayerId', () => {
+        const { service, delivered } = buildHarness();
+        const alpha = namedConnection(service, 'Alpha');
+        const bravo = namedConnection(service, 'Bravo');
+
+        const streamOf = (connectionId: ConnectionId): string =>
+            JSON.stringify(delivered.filter((d) => d.connectionId === connectionId).map((d) => d.event));
+
+        // Each connection's COMPLETE traffic names only its own identity.
+        expect(mintedIdsIn(streamOf(alpha.connectionId))).toEqual([alpha.guestId]);
+        expect(mintedIdsIn(streamOf(bravo.connectionId))).toEqual([bravo.guestId]);
+
+        // Alpha is restored onto a THIRD connection (legitimate successor):
+        // the successor learns Alpha's id; Bravo STILL never does.
+        const alphaSuccessor = nextConnectionId();
+        service.establishIdentity({ guestPlayerId: alpha.guestId }, alphaSuccessor);
+        expect(mintedIdsIn(streamOf(alphaSuccessor))).toEqual([alpha.guestId]);
+        expect(streamOf(bravo.connectionId)).not.toContain(alpha.guestId);
+    });
+
+    it('snapshots and entries stay strictly id-free while identity events carry ids', () => {
+        const { service, bridge, delivered } = buildHarness();
+        const host = namedConnection(service, 'Host');
+        const created = expectOk(service.create(host.connectionId, undefined));
+        bridge.queueJoinResult({
+            ok: true,
+            data: {
+                matchId: created.matchId,
+                joinPath: `/join/${created.matchId}` as JoinPath,
+                joinUrl: null,
+                seatAssignment: buildSeatAssignment({ seatIndex: 1 as SeatIndex, playerId: 2 as PlayerId }),
+            },
+        });
+        const filler = namedConnection(service, 'Filler');
+        expectOk(service.join(filler.connectionId, created.matchId));
+
+        // Every snapshot ever PUSHED plus pulled ones: zero opaque ids.
+        const pulls = [host.connectionId, filler.connectionId].map((connectionId) =>
+            expectOk(service.subscribe(connectionId)),
+        );
+        assertNothingPrivate(delivered, pulls);
+    });
+});
+
+// ----------------------------------------------------------------------------
 // Projection privacy under attack (NFR-003 / FR-024)
 // ----------------------------------------------------------------------------
 
-/** Keys that must NEVER appear anywhere in any outbound lobby payload. */
+/**
+ * Keys that must NEVER appear outside the sanctioned directed-identity
+ * envelope (spec Clarifications v1.6): entries, snapshots, targets, and
+ * every non-identity event are scanned against this list verbatim.
+ * Identity events get their own structural pin (see
+ * {@linkcode assertIdentityEventEnvelope}) because their ONE sanctioned
+ * secret is the recipient's own `guestPlayerId`.
+ */
 const FORBIDDEN_PAYLOAD_KEYS: readonly string[] = [
     'guestPlayerId',
     'sessionToken',
@@ -1022,6 +1183,15 @@ function assertNoPrivateKeys(value: unknown): void {
     }
 }
 
+/**
+ * Structural pin on a DIRECTED identity event (spec Clarifications
+ * v1.6): exactly the contracted keys, with `guestPlayerId` present as
+ * the one sanctioned field — and nothing else private anywhere inside.
+ */
+function assertIdentityEventEnvelope(event: Extract<LobbyEvent, { kind: 'identity' }>): void {
+    expect(Object.keys(event.identity)).toEqual(['handle', 'hasIdentity', 'guestPlayerId']);
+}
+
 describe('projection privacy under attack (NFR-003/FR-024)', () => {
     /** Hostile-but-valid handles attempting injection through display data. */
     const HOSTILE_HANDLES: readonly string[] = [
@@ -1042,10 +1212,13 @@ describe('projection privacy under attack (NFR-003/FR-024)', () => {
             const accepted = expectOk(service.setHandle(conn.connectionId, handle));
             expect(accepted.handle).toBe(handle); // stored verbatim, nothing rewritten
 
-            // The identity event carries EXACTLY the contracted keys…
+            // The identity event carries EXACTLY the contracted keys —
+            // including its OWN sanctioned guestPlayerId (v1.6)…
             const identityDelivery = delivered.at(-1);
             expect(identityDelivery?.event.kind).toBe('identity');
-            assertNoPrivateKeys(identityDelivery?.event);
+            if (identityDelivery?.event.kind === 'identity') {
+                assertIdentityEventEnvelope(identityDelivery.event);
+            }
         });
 
         // …and a full create/join/spectate lifecycle over hostile names
@@ -1075,10 +1248,12 @@ describe('projection privacy under attack (NFR-003/FR-024)', () => {
 
         // Structural envelope pins on EVERY observable shape:
         for (const delivery of delivered) {
-            assertNoPrivateKeys(delivery.event);
             if (delivery.event.kind === 'identity') {
-                expect(Object.keys(delivery.event.identity)).toEqual(['handle', 'hasIdentity']);
+                // Sanctioned v1.6 envelope: own id present, key set exact.
+                assertIdentityEventEnvelope(delivery.event);
+                continue;
             }
+            assertNoPrivateKeys(delivery.event);
             if (delivery.event.kind === 'snapshot') {
                 expect(Object.keys(delivery.event.snapshot)).toEqual(['revision', 'entries', 'activeMatchId']);
                 delivery.event.snapshot.entries.forEach((entry) => {

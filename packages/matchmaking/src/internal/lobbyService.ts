@@ -138,10 +138,16 @@
  * pass first, and the outer pass then finds nothing changed to publish.
  *
  * Privacy envelope (NFR-003, FR-024): nothing projected through
- * `IdentityState`, `PublicLobbyEntry`, or `LobbySnapshot` contains the
- * opaque guest id, session tokens, seats, or participant names — the
- * compile-time witnesses in `tests/lobby-conformance.test.ts` pin the
- * shapes and this module never widens them.
+ * `PublicLobbyEntry` or `LobbySnapshot`, and no action target, contains
+ * the opaque guest id, session tokens, seats, or participant names. The
+ * ONE sanctioned exception is `IdentityState.guestPlayerId` on the
+ * DIRECTED `identity` event (spec Clarifications v1.6 — the FR-003
+ * resume-claim delivery channel): {@linkcode withOwnerId} attaches the
+ * authenticated owner's id at this delivery seam and the sink routes
+ * that event to the owner's connection ONLY — a second connection never
+ * receives another identity's id. The compile-time witnesses in
+ * `tests/lobby-conformance.test.ts` pin the shapes and this module
+ * never widens them.
  *
  * Pure apart from injected dependencies: clock and randomness arrive
  * via `deps.now` / the registry's `randomId` (constitution Principle II).
@@ -468,6 +474,26 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             };
         }
         return { ok: true, value: null };
+    }
+
+    /**
+     * Attach the AUTHENTICATED owner's opaque id to a safe registry
+     * projection — THE FR-003 delivery enrichment (spec Clarifications
+     * v1.6). SEAM RULING: the enrichment lives HERE at the facade's
+     * event-delivery seam, not in the registry — the registry's
+     * `projectIdentity` stays unconditionally id-free for every caller,
+     * and the one sanctioned exception is visible at the exact place
+     * directed identity events are born. The result is lawful ONLY as
+     * the payload of the `identity` event delivered to `owner`'s own
+     * connection: the transport sink resolves that single recipient, so
+     * the bearer secret reaches its rightful browser (which persists it
+     * for reload-restore) and nothing else. Listings, snapshots, and
+     * action targets are built from structurally id-free shapes and can
+     * never pick this up; method RETURN values deliberately stay
+     * un-enriched (the directed event is the one channel).
+     */
+    function withOwnerId(safe: IdentityState, owner: GuestPlayerId): IdentityState {
+        return Object.freeze({ handle: safe.handle, hasIdentity: true, guestPlayerId: owner });
     }
 
     // -- Projection (THE single path — see module header) ------------------------
@@ -833,7 +859,14 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             bindConnection(connectionId, identity.id);
             const projected = registry.projectIdentity(identity.id);
             const state: IdentityState = projected ?? Object.freeze({ handle: null, hasIdentity: true });
-            deliverEvent(connectionId, { kind: 'identity', identity: state });
+            deliverEvent(connectionId, {
+                kind: 'identity',
+                // FR-003 delivery channel (spec Clarifications v1.6): the
+                // directed event alone carries the owner's opaque id, and
+                // the sink routes it to THIS connection only. The return
+                // value above stays the safe id-free projection.
+                identity: projected === undefined ? state : withOwnerId(projected, identity.id),
+            });
             return state;
         },
 
@@ -864,7 +897,12 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                     error: makeLobbyError('internal_error', 'Identity vanished during handle reservation.'),
                 };
             }
-            deliverEvent(connectionId, { kind: 'identity', identity: projected });
+            deliverEvent(connectionId, {
+                kind: 'identity',
+                // Same FR-003 channel as `establishIdentity` (spec
+                // Clarifications v1.6): owner's id, directed delivery only.
+                identity: withOwnerId(projected, guest.value),
+            });
             return { ok: true, data: projected };
         },
 

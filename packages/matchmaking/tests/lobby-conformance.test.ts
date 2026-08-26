@@ -46,7 +46,12 @@
  *       mirrors and drift between them is a bug.
  *   (e) Privacy envelope — no public projection or spectator target
  *       can grow an opaque guest id, seat, or token field without
- *       failing this program (spec FR-003/FR-024/NFR-003).
+ *       failing this program (spec FR-003/FR-024/NFR-003). Per spec
+ *       Clarifications v1.6, `IdentityState.guestPlayerId` is the ONE
+ *       sanctioned exception: optional, brand-typed, delivered only by
+ *       the directed identity event to its owning connection — so the
+ *       witnesses pin its OPTIONALLY and brand (not its absence) while
+ *       entries/snapshots/targets stay strictly id-free.
  *   (f) Public barrel surface (T-003) — every feature-010 contract
  *       name is reachable from the BUILT package root
  *       (`dist/index.d.ts` — what consumers actually import as
@@ -333,20 +338,40 @@ type LocalErrorVariant = Extract<LobbyTypes.LobbyEvent, { kind: 'error' }>;
 type ErrorVariantDetailMirrors = AssertMutuallyAssignable<LocalErrorVariant['detail'], WireErrorVariant['detail']>;
 const ERROR_VARIANT_DETAIL_MIRRORS: ErrorVariantDetailMirrors = true;
 
+// Same sharp edge, v1.6 field (spec Clarifications v1.6): the OPTIONAL
+// `IdentityState.guestPlayerId` delivery channel must exist with the
+// exact same optionality and brand on BOTH sides of the mirror — plain
+// mutual assignability cannot see a missing optional field, so this
+// indexed-access witness fails the program while either side lacks or
+// retypes it.
+type IdentityStateGuestIdMirrors = AssertMutuallyAssignable<
+    LobbyTypes.IdentityState['guestPlayerId'],
+    WireIdentityState['guestPlayerId']
+>;
+const IDENTITY_STATE_GUEST_ID_MIRRORS: IdentityStateGuestIdMirrors = true;
+
 // ---------------------------------------------------------------------------
 // (e) Privacy envelope (no opaque ids / seats / tokens in projections)
 // ---------------------------------------------------------------------------
 
 type EntryHasNoGuestId = AssertKeyAbsent<'guestPlayerId', LobbyTypes.PublicLobbyEntry>;
 type SnapshotHasNoGuestId = AssertKeyAbsent<'guestPlayerId', LobbyTypes.LobbySnapshot>;
-type IdentityStateHasNoGuestId = AssertKeyAbsent<'guestPlayerId', LobbyTypes.IdentityState>;
+// Sanctioned exception (spec Clarifications v1.6): the DIRECTED identity
+// state carries the owner's opaque id — OPTIONAL (absent from every
+// other projection of the shape) and typed exactly as the brand. These
+// witnesses fail if the field becomes required, retypes, or drifts from
+// `GuestPlayerId`.
+type IdentityGuestIdIsOptional = AssertMutuallyAssignable<
+    LobbyTypes.IdentityState['guestPlayerId'],
+    LobbyTypes.GuestPlayerId | undefined
+>;
 type SpectatorTargetHasNoToken = AssertKeyAbsent<'sessionToken', LobbyApi.SpectatorTarget>;
 type SpectatorTargetHasNoSeat = AssertKeyAbsent<'seatIndex', LobbyApi.SpectatorTarget>;
 type SpectatorTargetHasNoPlayerId = AssertKeyAbsent<'playerId', LobbyApi.SpectatorTarget>;
 
 const ENTRY_HAS_NO_GUEST_ID: EntryHasNoGuestId = true;
 const SNAPSHOT_HAS_NO_GUEST_ID: SnapshotHasNoGuestId = true;
-const IDENTITY_STATE_HAS_NO_GUEST_ID: IdentityStateHasNoGuestId = true;
+const IDENTITY_GUEST_ID_IS_OPTIONAL: IdentityGuestIdIsOptional = true;
 const SPECTATOR_TARGET_HAS_NO_TOKEN: SpectatorTargetHasNoToken = true;
 const SPECTATOR_TARGET_HAS_NO_SEAT: SpectatorTargetHasNoSeat = true;
 const SPECTATOR_TARGET_HAS_NO_PLAYER_ID: SpectatorTargetHasNoPlayerId = true;
@@ -581,9 +606,10 @@ describe('feature 010 lobby contract witnesses (T-001)', () => {
         expect(WIRE_IDENTITY_STATE_MIRROR_CONFORMS).toBe(true);
         expect(WIRE_PUBLIC_LOBBY_ENTRY_MIRROR_CONFORMS).toBe(true);
         expect(ERROR_VARIANT_DETAIL_MIRRORS).toBe(true);
+        expect(IDENTITY_STATE_GUEST_ID_MIRRORS).toBe(true);
         expect(ENTRY_HAS_NO_GUEST_ID).toBe(true);
         expect(SNAPSHOT_HAS_NO_GUEST_ID).toBe(true);
-        expect(IDENTITY_STATE_HAS_NO_GUEST_ID).toBe(true);
+        expect(IDENTITY_GUEST_ID_IS_OPTIONAL).toBe(true);
         expect(SPECTATOR_TARGET_HAS_NO_TOKEN).toBe(true);
         expect(SPECTATOR_TARGET_HAS_NO_SEAT).toBe(true);
         expect(SPECTATOR_TARGET_HAS_NO_PLAYER_ID).toBe(true);

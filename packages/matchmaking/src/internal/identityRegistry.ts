@@ -158,8 +158,12 @@ export interface IdentityRegistry {
     releaseExpired(): number;
 
     /**
-     * Project an identity into the safe wire shape (`IdentityState`:
+     * Project an identity into the SAFE wire shape (`IdentityState`:
      * accepted handle + literal `hasIdentity`; NO opaque id, FR-024).
+     * This projection is unconditionally id-free for every caller —
+     * the facade attaches the authenticated owner's id DOWNSTREAM, at
+     * its directed-event delivery seam only (spec Clarifications
+     * v1.6), so no registry consumer can leak the secret by accident.
      *
      * @returns The frozen projection, or `undefined` for unknown ids.
      * @throws When the registry is closed.

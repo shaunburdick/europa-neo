@@ -118,7 +118,13 @@ export function buildIdentityClaim(overrides: WireIdentityClaimOverrides = {}): 
 /** Overrides for {@link buildIdentityState}; omitted fields keep defaults. */
 export type WireIdentityStateOverrides = Partial<IdentityState>;
 
-/** Build a wire `IdentityState` (safe server projection; no opaque id). */
+/**
+ * Build a wire `IdentityState`. The default omits `guestPlayerId` (the
+ * older-server shape every client must tolerate); pass
+ * `{ guestPlayerId: nextGuestPlayerId() }` to model the sanctioned
+ * v1.6 directed-delivery envelope — that field is lawful ONLY on the
+ * identity event routed to its owning connection. Frozen.
+ */
 export function buildIdentityState(overrides: WireIdentityStateOverrides = {}): IdentityState {
     return Object.freeze({
         handle: 'Nova',

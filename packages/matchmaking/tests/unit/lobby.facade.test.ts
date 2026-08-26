@@ -177,8 +177,14 @@ describe('establishIdentity', () => {
 
         const identityEvents = delivered.filter((d) => d.connectionId === connectionId && d.event.kind === 'identity');
         expect(identityEvents).toHaveLength(1);
-        // Privacy: the delivery carries no trace of the opaque id value.
-        expect(JSON.stringify(identityEvents)).not.toContain(guest(1));
+        // Privacy envelope (spec Clarifications v1.6): the DIRECTED
+        // delivery carries exactly this connection's OWN opaque id (the
+        // FR-003 resume-claim channel) — and no OTHER identity's id.
+        const first = identityEvents[0];
+        if (first === undefined || first.event.kind !== 'identity') {
+            throw new Error('unreachable: one identity delivery asserted above');
+        }
+        expect(first.event.identity).toEqual({ handle: null, hasIdentity: true, guestPlayerId: guest(1) });
     });
 
     it('restores the same identity and handle for a matching claim within grace', () => {
@@ -418,14 +424,28 @@ describe('public projection', () => {
 
         // Everything the receiving side can observe: pushed events + snapshots.
         // Handles ("Nova") are LEGITIMATE display data (FR-020); opaque ids,
-        // session tokens, and player-session ids are not — anywhere.
-        const serialized = delivered
+        // session tokens, and player-session ids are not — anywhere except
+        // the ONE sanctioned channel (spec Clarifications v1.6): the
+        // DIRECTED identity event to its own owner. Entries, snapshots,
+        // action outcomes, and every non-identity frame stay strictly
+        // id-free.
+        const publicDeliveries = delivered.filter((d) => d.event.kind !== 'identity');
+        const serialized = publicDeliveries
             .map((d) => JSON.stringify(d.event))
             .concat([JSON.stringify(expectOk(service.subscribe(actor.connectionId)))]);
         for (const blob of serialized) {
             expect(blob).not.toContain('g-');
             expect(blob).not.toContain('token-');
             expect(blob).not.toContain('psn-');
+        }
+        // The identity deliveries carry exactly the owner's own id — this
+        // test mints one identity (the actor, `g-1`), so every directed
+        // event must name THAT identity and nothing else.
+        for (const d of delivered) {
+            if (d.event.kind !== 'identity') {
+                continue;
+            }
+            expect(d.event.identity.guestPlayerId).toBe(guest(1));
         }
         // Snapshot entries specifically carry no participant names at all
         // (the privacy envelope: discovery data only).

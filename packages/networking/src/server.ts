@@ -654,8 +654,10 @@ export function createMatchServer(
      * silently mint a fresh identity), so there is no error arm.
      *
      * @param connection Requesting connection.
-     * @param payload    Advisory resume claim (input only — the opaque
-     *                   guest id never echoes back out).
+     * @param payload    Advisory resume claim (input only — the server-
+     *                   resolved opaque id is delivered back ONLY on this
+     *                   connection's directed `identity` event, feature
+     *                   010 Clarifications v1.6).
      */
     function handleLobbyIdentity(connection: Connection, payload: LobbyIdentityPayload): void {
         withLobbyFacade(connection, (facade) => {

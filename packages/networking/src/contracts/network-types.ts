@@ -665,12 +665,25 @@ export interface GuestIdentityClaim {
 /**
  * Server-confirmed identity projection (feature 010). `handle` is null
  * until the player submits a valid handle; `hasIdentity` is always true
- * on a wire-delivered identity event. Contains NO opaque guest id — the
- * identifier never leaves the server (spec FR-024).
+ * on a wire-delivered identity event.
+ *
+ * `guestPlayerId` (feature 010 Clarifications v1.6) is the sanctioned
+ * FR-003 delivery channel for the opaque id: it rides ONLY on the
+ * directed `identity` lobby event, which the server delivers solely to
+ * the connection that owns the identity, so the browser can persist it
+ * as its resume claim and restore the active identity on reload within
+ * the reconnect grace window. It MUST NOT appear in lobby listings,
+ * snapshots, join/spectate targets, UI, URLs, or logs (NFR-003/
+ * FR-024), and recipients MUST tolerate its absence (older servers).
  */
 export interface IdentityState {
   readonly handle: string | null;
   readonly hasIdentity: true;
+  /**
+   * Opaque id of the identity this state describes — THIS connection's
+   * own only (directed delivery, feature 010 Clarifications v1.6).
+   */
+  readonly guestPlayerId?: GuestPlayerId;
 }
 
 /**
