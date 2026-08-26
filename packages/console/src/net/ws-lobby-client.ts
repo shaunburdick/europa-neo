@@ -23,11 +23,16 @@
  *
  *   - **Claim/handle persistence** — the opaque guest player ID +
  *     last accepted handle live in local storage (`lobby-storage.ts`)
- *     and are presented on every establish cycle. Storage failures
- *     degrade to an in-memory-only session. `forgetIdentity()` is the
- *     explicit leave; `lobbyLeave` deliberately does NOT clear the
- *     claim (the wire semantic is "return to the lobby", which still
- *     needs the identity).
+ *     and are presented on every establish cycle. The LOCAL mint is
+ *     first-frame bootstrap only: the server's directed `identity`
+ *     event carries the AUTHORITATIVE id (feature 010 Clarifications
+ *     v1.6 — the FR-003 delivery channel), and this client adopts it,
+ *     replacing any locally minted value, so a reload restores the
+ *     ACTIVE identity within the reconnect grace window. Storage
+ *     failures degrade to an in-memory-only session.
+ *     `forgetIdentity()` is the explicit leave; `lobbyLeave`
+ *     deliberately does NOT clear the claim (the wire semantic is
+ *     "return to the lobby", which still needs the identity).
  *   - **Snapshot revisions** — snapshots apply only when strictly
  *     newer than the last applied one (FR-013). The baseline resets
  *     every establish cycle, so a restarted server's low revisions are
@@ -47,10 +52,13 @@
  *   - **Privacy (binding)** — the guest player ID is a bearer secret:
  *     it NEVER appears in URLs (this client appends nothing to the
  *     caller's URL), logs, or error messages. Every log line and every
- *     constructed error passes through {@link redact}, which scrubs the
- *     live claim id as defense-in-depth even against server-authored
- *     text echoing it back. The public API surface exposes no accessor
- *     returning the id, so consumers cannot leak what they cannot read.
+ *     constructed error passes through {@link redact}, which scrubs
+ *     EVERY secret value this session has held — the local bootstrap
+ *     mint AND every server-delivered id — as defense-in-depth even
+ *     against server-authored text echoing one back; error `detail`
+ *     records get the same scrub. The public API surface exposes no
+ *     accessor returning the id, so consumers cannot leak what they
+ *     cannot read.
  *
  * Determinism discipline: pure state machine over socket callbacks;
  * timers are transport infrastructure (heartbeat, action timeouts,
@@ -417,16 +425,28 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     // -- Logging + privacy choke point ------------------------------------------
 
     /**
-     * Scrub every occurrence of the live claim id out of `text`.
-     * Defense-in-depth: our own messages never contain the secret, and
-     * this catches server-authored text echoing it back.
+     * Every opaque claim id this session has held: bootstrap mints,
+     * values restored from storage, and server-delivered replacements
+     * (feature 010 Clarifications v1.6). At the adoption moment two
+     * live values exist — the stale local mint and the server-issued
+     * successor — and log lines or server text from either era must
+     * come out clean, so {@link redact} scrubs them ALL.
+     */
+    const knownSecrets = new Set<string>();
+
+    /**
+     * Scrub every occurrence of ANY known secret value out of `text`.
+     * Defense-in-depth: our own messages never contain a secret, and
+     * this catches server-authored text echoing one back.
      */
     function redact(text: string): string {
-        const secret = currentClaim?.guestPlayerId;
-        if (secret === undefined || secret.length === 0) {
-            return text;
+        let safe = text;
+        for (const secret of knownSecrets) {
+            if (secret.length > 0) {
+                safe = safe.split(secret).join(REDACTION_MARKER);
+            }
         }
-        return text.split(secret).join(REDACTION_MARKER);
+        return safe;
     }
 
     /** Shallow-scrub string values in a log context (call sites stay flat). */
@@ -434,6 +454,21 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         const safe: Record<string, unknown> = {};
         for (const key of Object.keys(ctx)) {
             const value = ctx[key];
+            safe[key] = typeof value === 'string' ? redact(value) : value;
+        }
+        return safe;
+    }
+
+    /**
+     * Redact every STRING value of an error `detail` record — same
+     * choke point rigor as log contexts, so a hostile server cannot
+     * smuggle an echoed secret through field-specific feedback data.
+     */
+    function redactDetail(
+        detail: Readonly<Record<string, string | number | boolean>>,
+    ): Record<string, string | number | boolean> {
+        const safe: Record<string, string | number | boolean> = {};
+        for (const [key, value] of Object.entries(detail)) {
             safe[key] = typeof value === 'string' ? redact(value) : value;
         }
         return safe;
@@ -459,6 +494,8 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      * Guarantee an in-memory claim, restoring from storage or minting
      * fresh as needed. Called at the top of every establish cycle so a
      * forgotten/expired claim self-heals before the next presentation.
+     * Every value that passes through is registered with
+     * {@link knownSecrets} for the redaction choke point.
      */
     function ensureClaim(): StoredLobbyClaim {
         if (currentClaim !== null) {
@@ -466,11 +503,13 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         }
         const restored = loadStoredClaim(storage);
         if (restored !== null) {
+            knownSecrets.add(restored.guestPlayerId);
             currentClaim = restored;
             confirmedHandle = restored.handle;
             return restored;
         }
         const fresh: StoredLobbyClaim = { guestPlayerId: mintClaimId(), handle: null };
+        knownSecrets.add(fresh.guestPlayerId);
         if (!saveStoredClaim(fresh, storage) && storage !== null) {
             log('warn', 'claim persistence failed (storage unavailable or full)', {});
         }
@@ -501,6 +540,40 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         currentClaim = null;
         confirmedHandle = null;
         log('info', 'lobby claim invalidated', { reason });
+    }
+
+    /**
+     * Adopt a server-issued opaque id (feature 010 Clarifications
+     * v1.6): the directed `identity` event is THE FR-003 delivery
+     * channel, so the id the SERVER resolved always wins over the
+     * local bootstrap mint. When it differs, our presented claim was
+     * unknown server-side (expired, forged, or post-restart) and the
+     * delivered value is the living successor — adopting and
+     * persisting it (instead of wiping it) is what makes reload-
+     * restore work end-to-end. Also self-heals a claim-less client
+     * (e.g., storage was cleared mid-session) from the delivered id.
+     *
+     * @returns `true` when the claim's id CHANGED because of this
+     *   delivery (the presented claim did not match the server's).
+     */
+    function adoptServerGuestId(delivered: GuestPlayerId | undefined): boolean {
+        if (delivered === undefined) {
+            return false;
+        }
+        knownSecrets.add(delivered);
+        if (currentClaim === null) {
+            const adopted: StoredLobbyClaim = { guestPlayerId: delivered, handle: confirmedHandle };
+            currentClaim = adopted;
+            persistClaim();
+            return true;
+        }
+        if (currentClaim.guestPlayerId === delivered) {
+            return false;
+        }
+        const successor: StoredLobbyClaim = { guestPlayerId: delivered, handle: currentClaim.handle };
+        currentClaim = successor;
+        persistClaim();
+        return true;
     }
 
     /** Build the advisory wire claim (exactOptionalPropertyTypes: omit null handle). */
@@ -876,20 +949,27 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
 
     /**
      * Record a server-confirmed identity. While ESTABLISHING, this is
-     * the handshake gate (advance to subscribe). A handle dropping to
-     * `null` after having been set means the server forgot us (fresh
-     * identity after a restart): the stale claim is invalidated so the
-     * next cycle presents a fresh one ("landing page starts a fresh
-     * session" — spec edge case).
+     * the handshake gate (advance to subscribe). A server-delivered
+     * `guestPlayerId` (feature 010 Clarifications v1.6) is adopted as
+     * the resume claim FIRST — the server's id always wins over the
+     * local bootstrap mint. A handle dropping to `null` after having
+     * been set means the server forgot us: the stale claim is
+     * invalidated so the next cycle presents a fresh one ("landing
+     * page starts a fresh session" — spec edge case) — UNLESS the
+     * delivery itself just handed us a successor id, which IS the
+     * fresh session and must survive for reload-restore.
      */
     function applyIdentity(identity: IdentityState): void {
         const hadHandle = confirmedHandle !== null;
         confirmedHandle = identity.handle;
+        // FR-003 delivery channel: server-delivered id replaces the
+        // local mint and is persisted immediately.
+        const superseded = adoptServerGuestId(identity.guestPlayerId);
         if (currentClaim !== null && currentClaim.handle !== identity.handle) {
             currentClaim = { guestPlayerId: currentClaim.guestPlayerId, handle: identity.handle };
             persistClaim();
         }
-        if (hadHandle && identity.handle === null) {
+        if (hadHandle && identity.handle === null && !superseded) {
             invalidateClaim('server identity no longer knows our handle');
         }
         log('debug', 'identity updated', { hasHandle: identity.handle !== null });
@@ -963,7 +1043,9 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      */
     function handleLobbyError(event: Extract<LobbyEvent, { kind: 'error' }>): void {
         const sanitizedMessage = redact(event.message);
-        const detail = event.detail ?? null;
+        // Detail values get the same scrub (defense-in-depth against a
+        // hostile server echoing a secret through field-specific data).
+        const detail = event.detail === undefined ? null : redactDetail(event.detail);
         if (event.actionId !== undefined) {
             const pending = pendingActions.get(event.actionId);
             if (pending !== undefined) {

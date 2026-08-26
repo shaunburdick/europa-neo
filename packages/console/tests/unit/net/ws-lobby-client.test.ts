@@ -236,8 +236,21 @@ function snapshot(revision: number, matchId: string | null = null): LobbySnapsho
     };
 }
 
-function identityEvent(handle: string | null): Extract<LobbyEvent, { kind: 'identity' }> {
-    return { kind: 'identity', identity: { handle, hasIdentity: true } satisfies IdentityState };
+/**
+ * Build a directed `identity` lobby event. `guestPlayerId` models the
+ * v1.6 server-delivered resume claim (absent = older-server shape).
+ */
+function identityEvent(
+    handle: string | null,
+    guestPlayerId?: GuestPlayerId,
+): Extract<LobbyEvent, { kind: 'identity' }> {
+    return {
+        kind: 'identity',
+        identity:
+            guestPlayerId === undefined
+                ? ({ handle, hasIdentity: true } satisfies IdentityState)
+                : ({ handle, hasIdentity: true, guestPlayerId } satisfies IdentityState),
+    };
 }
 
 function acceptedEvent(actionId: number): Extract<LobbyEvent, { kind: 'actionAccepted' }> {
@@ -555,6 +568,120 @@ describe('claim persistence', () => {
         await settlePromises();
         expect(harness.storage.read()).toBeNull();
         expect(harness.client.state().hasClaim).toBe(false);
+    });
+});
+
+describe('server-issued identity adoption (feature 010 Clarifications v1.6)', () => {
+    it('replaces the local bootstrap mint with the server-delivered id and persists it', async () => {
+        const SERVER_ID = 'srv-issued-777' as GuestPlayerId;
+        const { scheduler, storage, socket } = await readyHarness();
+        // The establish cycle above used identityEvent(null) — no id —
+        // so the local mint (CLAIM_A) is still the claim. Now the server
+        // delivers ITS authoritative id.
+        socket.deliverLobby(identityEvent(null, SERVER_ID));
+        await settlePromises();
+
+        const stored = JSON.parse(storage.read() ?? '') as StoredLobbyClaim;
+        expect(stored.guestPlayerId).toBe(SERVER_ID);
+        expect(stored.guestPlayerId).not.toBe(CLAIM_A);
+        expect(storage.read()).toContain(SERVER_ID);
+
+        // The adopted id is presented on the NEXT establish cycle
+        // (reload-restore, FR-003 end-to-end).
+        socket.transportClose(1006);
+        scheduler.advance(500); // first backoff delay
+        const nextSocket = FakeWebSocket.instances[FakeWebSocket.instances.length - 1];
+        if (!(nextSocket instanceof FakeWebSocket)) {
+            throw new Error('no retry socket created');
+        }
+        nextSocket.open();
+        nextSocket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c2', heartbeatIntervalMs: 60_000 });
+        const claimFrame = sentEnvelope(nextSocket, 1);
+        const claim = claimFrame.payload.claim as Record<string, unknown>;
+        expect(claim.guestPlayerId).toBe(SERVER_ID);
+    });
+
+    it('keeps a server-delivered successor id when the presented claim was unknown (no wipe on handle drop)', async () => {
+        const SERVER_ID = 'srv-successor-888' as GuestPlayerId;
+        const harness = createHarness();
+        const connecting = harness.client.connect('ws://lobby');
+        const socket = FakeWebSocket.instances[0];
+        socket.open();
+        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        // Named session established WITHOUT any delivered id…
+        socket.deliverLobby(identityEvent('Nova'));
+        await settlePromises();
+        socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
+        await connecting;
+        expect(JSON.parse(harness.storage.read() ?? '') as StoredLobbyClaim).toMatchObject({ handle: 'Nova' });
+
+        // …then the server restarts: fresh identity, delivered id, null
+        // handle. The delivery IS the fresh start — the successor id must
+        // SURVIVE (not be invalidated by the handle-drop heuristic).
+        socket.deliverLobby(identityEvent(null, SERVER_ID));
+        await settlePromises();
+
+        const stored = JSON.parse(harness.storage.read() ?? '') as StoredLobbyClaim;
+        expect(stored.guestPlayerId).toBe(SERVER_ID);
+        expect(stored.handle).toBeNull();
+        expect(harness.client.state().hasClaim).toBe(true);
+    });
+
+    it('tolerates identity events without an id (older servers): the local mint stands', async () => {
+        const { client, storage } = await readyHarness();
+        expect(client.state().hasClaim).toBe(true);
+        const stored = JSON.parse(storage.read() ?? '') as StoredLobbyClaim;
+        expect(stored.guestPlayerId).toBe(CLAIM_A);
+    });
+
+    it('redacts the server-delivered id out of logs, messages, and error detail values', async () => {
+        const SERVER_ID = 'srv-secret-999' as GuestPlayerId;
+        const logs: LogEntry[] = [];
+        const clientErrors: LobbyErrorReport[] = [];
+        const scheduler = new ManualScheduler();
+        const storage = new MemoryStorage();
+        const client = createWsLobbyClient({
+            webSocketFactory: (url: string) => new FakeWebSocket(url) as unknown as WebSocket,
+            storage,
+            scheduler,
+            verboseLogging: true,
+            logger: capturingLogger(logs),
+            claimIdFactory: sequentialClaimFactory(),
+        });
+        client.onError((report) => {
+            clientErrors.push(report);
+        });
+        const connecting = client.connect('ws://lobby');
+        const socket = FakeWebSocket.instances[0];
+        socket.open();
+        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliverLobby(identityEvent(null, SERVER_ID));
+        await settlePromises();
+        socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
+        await connecting;
+
+        // Hostile-server drill with BOTH secrets in play: the stale local
+        // mint (CLAIM_A) and the adopted server id (SERVER_ID).
+        socket.deliverLobby({
+            kind: 'error',
+            code: 'internal_error',
+            message: `registry exploded for ${SERVER_ID} (was ${CLAIM_A}?)`,
+            detail: { hint: `token=${SERVER_ID}`, attempts: 2 },
+        });
+        await settlePromises();
+
+        const flattened = logs.map((entry) => `${entry.msg} ${JSON.stringify(entry.ctx)}`).join('\n');
+        expect(flattened).not.toContain(SERVER_ID);
+        expect(flattened).not.toContain(CLAIM_A);
+
+        const reports = clientErrors
+            .map((report) => `${report.message} ${JSON.stringify(report.detail ?? {})}`)
+            .join('\n');
+        expect(reports).not.toContain(SERVER_ID);
+        expect(reports).toContain('[redacted]');
+        // Non-string detail values pass through untouched.
+        const report = clientErrors[0];
+        expect(report?.detail?.attempts).toBe(2);
     });
 });
 
