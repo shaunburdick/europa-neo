@@ -1448,10 +1448,25 @@ export function createMatchServer(
             }
             closed = true;
             clock.stop();
-            for (const channel of channels.values()) {
-                for (const connection of channel.connections()) {
-                    connection.close(NETWORK_TRANSPORT_CONSTANTS.goingAwayCloseCode, 'server going away');
-                }
+            // Contract lifecycle step 4 (network-api `Server` doc): close()
+            // closes ALL connections with 1001 "going away" — match-bound
+            // AND lobby-only. Every live connection is tracked in
+            // `connections` (attachConnection is the sole creation path),
+            // so this single pass covers seated players, spectators, and
+            // lobby-only clients alike; Connection.close() is idempotent
+            // and synchronously drives handleDisconnect, so each
+            // connection's normal-close teardown (lobby connectionClosed,
+            // seat release) fires exactly as on any other close path.
+            // Snapshot first: the teardown deletes from this very map
+            // while we iterate. Draining every socket here is also what
+            // lets the httpServer.close() await below complete: an
+            // upgraded WebSocket stays in the HTTP server's connection
+            // count until its closing handshake finishes, so any socket
+            // left open would hold the callback open forever (the
+            // zombie-socket defect: a lobby client sat 'ready' on a dead
+            // server through a kill+reboot).
+            for (const connection of [...connections.values()]) {
+                connection.close(NETWORK_TRANSPORT_CONSTANTS.goingAwayCloseCode, 'server going away');
             }
             channels.clear();
             connections.clear();
