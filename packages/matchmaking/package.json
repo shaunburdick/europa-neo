@@ -29,7 +29,8 @@
         "lint": "biome check .",
         "format": "biome format --write .",
         "format:check": "biome format .",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "typecheck:conformance": "tsc -p tsconfig.conformance.json"
     },
     "dependencies": {
         "@europa/engine": "workspace:*",
