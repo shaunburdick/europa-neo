@@ -13,9 +13,10 @@
  * identity/projection/error/event shapes
  * (`src/contracts/lobby-types.ts`) and the `LobbyService` facade with
  * its `Result` union and hand-off targets
- * (`src/contracts/lobby-api.ts`). The lobby RUNTIME (identity registry,
- * facade implementation, transport wiring) lands with later tasks and
- * will be exported here when it exists.
+ * (`src/contracts/lobby-api.ts`). The lobby RUNTIME ships in two
+ * halves: T-005's guest-identity registry and T-007's
+ * `createLobbyService` facade are exported below; transport wiring
+ * (networking dispatcher, browser client) lands with later tasks.
  *
  * `createMatchmaker` and the `Matchmaker` runtime land in Phase 3
  * (US1 Quick Match); this intermediate barrel compiles standalone.
@@ -144,6 +145,33 @@ export type {
 export { makeError } from './errors';
 
 export { isValidMatchId, newMatchId, newMatchSeed, newPlayerSessionId } from './idGen';
+export type {
+    IdentityRegistry,
+    IdentityRegistryDeps,
+    IdentityRegistryStats,
+    IdentityRestoreOutcome,
+} from './internal/identityRegistry';
+/**
+ * Feature 010 runtime, part 1 of 2 (T-005): the in-memory guest-identity
+ * registry behind the lobby facade — atomic identity mint/restore,
+ * FR-004/FR-005 handle reservation with grace-window semantics, and
+ * `close()` teardown. The re-export was flagged as outstanding by the
+ * T-003 barrel work ("the lobby RUNTIME … will be exported here when it
+ * exists"); the registry itself stays `@internal`-documented in
+ * `src/internal/`, so consumers should treat this surface as the server
+ * hosting seam (host wiring + tests), not a client API.
+ */
+export { createIdentityRegistry, IDENTITY_GRACE_MS_DEFAULT } from './internal/identityRegistry';
+export type { LobbyServiceDeps } from './internal/lobbyService';
+/**
+ * Feature 010 runtime, part 2 of 2 (T-007): the server lobby facade —
+ * identity setup, subscription + revisioned snapshot delivery, the
+ * privacy-safe public projection, and create/join/spectate/leave
+ * orchestration delegating settings/capacity/start/cleanup to feature
+ * 006's matchmaker (see `src/internal/lobbyService.ts` for the full
+ * error-mapping table and delegation boundary).
+ */
+export { createLobbyService } from './internal/lobbyService';
 /**
  * Phase 3 (US1): the runtime matchmaker. Re-exported here so the host
  * binary has one import path, per the Phase 2 barrel plan (T019).
