@@ -20,9 +20,9 @@ means the task is safe to perform in parallel with other tasks in its block.
 
 ## Networking transport and browser client
 
-- [ ] T-010: Extend the networking server state machine/dispatcher with lobby identity, handle, subscription, create, join, spectate, leave, and lobby-event messages; preserve heartbeat, reconnect, spectator, and gameplay behavior.
+- [x] T-010: Extend the networking server state machine/dispatcher with lobby identity, handle, subscription, create, join, spectate, leave, and lobby-event messages; preserve heartbeat, reconnect, spectator, and gameplay behavior.
 - [ ] T-011: Add lobby protocol validation/error tests, old gameplay-client compatibility tests, malformed/unknown message tests, revision ordering tests, and reconnect credential mismatch tests.
-- [ ] T-012: Implement the browser lobby transport client with local-storage claim/handle persistence, snapshot revision handling, action correlation, disconnect/retry behavior, and no identity leakage in URLs or logs.
+- [x] T-012: Implement the browser lobby transport client with local-storage claim/handle persistence, snapshot revision handling, action correlation, disconnect/retry behavior, and no identity leakage in URLs or logs.
 - [ ] T-013: [P] Add transport integration tests for create/join/spectate transitions, stale action races, full/unavailable matches, server restart, and spectator zero-order behavior.
 
 ## Console and host flow
@@ -48,8 +48,10 @@ means the task is safe to perform in parallel with other tasks in its block.
 
 ## Discovered during Wave 2b
 
-- [ ] R-004: Expose a minimal matchmaker-side seam so handle renames propagate to in-flight session/seat snapshots (`propagateHandleRename(store, …)` is unreachable from outside `matchmaker.ts`; facade renames currently reach only the registry + future sessions). Small additive export/wiring in matchmaking; spec 006 semantics unchanged. (T-007 flag)
-- [ ] T-023 note: amend matchmaking `vitest.config.ts` coverage exclusion of `src/internal/**` so the facade + publication modules count toward the ≥80% gate.
+- [x] R-005 (W2 review, blocking): matchmaking core seams — (a) implement filling-phase `leaveMatch` seat release in `matchmaker.ts` (feature-006 US3 AC-3 debt; the stub throws today, so facade `leave()` crashes — amend spec 006 Implementation Notes same change set); (b) additive `registerLifecycleListener` on the real matchmaker (exists only in the test fake); (c) expose a composition seam for lobby wiring (status-bus subscription + store match lookup accessor); (d) re-scoped R-004: additive optional `guestPlayerId`/`acceptedHandle` on `CreateMatchRequest`/`JoinMatchRequest` + session-creation pass-through so identity actually reaches records (FR-019); (e) per-field settings-rejection `detail` enrichment (US3 AC-4 chain). Spec 006 amendments in same change set.
+- [x] R-006 (W2 review, after R-005): facade recomposition — single projection path (absorb/compose `createLobbyPublication`: ONE revision counter, ONE ledger; reap ghost waiting rows via terminal events), new `connectionClosed(connectionId)` teardown API (unbind + unsubscribe + registry disconnect/grace + spectator presence release), pass identity through create/join delegations, wire rename → `propagateHandleRename`, release prior identity on re-establishment overwrites, drop redundant brand cast (`lobbyService.ts:532`), fix stale composition JSDoc, spectate() ledger-trust comment, real-matchmaker integration tests (leave, lifecycle fan-out fill→finish clears presence/drops row).
+- [x] R-007 (W2 review, parallel-safe): handle-validation hardening + mirror pin — reject bidi controls (U+202A–U+202E, U+2066–U+2069) and lone surrogates in `handleValidation.ts`; update fixture corpora/tests; spec 010 Clarifications v1.5 same change set; add missing `detail?` to local `LobbyEvent` error variant in `src/contracts/lobby-types.ts` (match networking's canonical copy per v1.3) + cross-package witness pinning matchmaking LobbyEvent/IdentityState/PublicLobbyEntry ↔ networking wire declarations.
+- [x] R-008 (W2 review, blocking gate item): narrow matchmaking `vitest.config.ts` coverage exclusion of `src/internal/**` to pure record-shape files so validation/registry/facade/publication count toward the ≥80% constitution gate.
 - [ ] T-024 note: wire `tests/lobby-conformance.test.ts` runtime witnesses into a script/CI step (build lib → targeted vitest run, console precedent).
 
 ## Final verification
@@ -57,3 +59,10 @@ means the task is safe to perform in parallel with other tasks in its block.
 - [ ] T-023: Run focused package coverage and ensure all new game/lifecycle logic meets ≥80% statements, branches, functions, and lines without lint/type suppressions.
 - [ ] T-024: Run `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, complete package tests, E2E, build, bundle/self-host smoke, 50-cycle cleanup soak, 10 reconnect/spectator trials, and record results in the feature quickstart/implementation notes.
 - [ ] T-025: Review the diff against FR-001..FR-027, NFR-001..NFR-005, SC-001..SC-011, out-of-scope exclusions, constitution, and AGENTS.md; verify no application implementation begins before this plan/tasks approval gate.
+
+## Discovered during Wave 3a
+
+- [x] R-009 (W3a, PM ruling — claim-provenance gap): the wire contract has NO server→client channel carrying the server-minted `guestPlayerId` (`IdentityState` = `{handle, hasIdentity}` only), so FR-002 (server assigns) + FR-003 (browser stores for reload-restore) are mutually unsatisfiable end-to-end. Fix: additive optional `guestPlayerId` on `IdentityState` in BOTH canonical contract copies (byte-identical, cmp-verified); facade/registry populates it on establish/setHandle projections; update compile-time privacy witnesses (identity-state now MAY carry the owner's id as a directed-to-owner channel; entries/snapshots/targets still MUST NOT); networking conformance transcription + fixtures updated; console client prefers server-delivered id and re-persists (local mint stays bootstrap-only), redact() covers the new field; matchmaking privacy scans adjusted (identity event legitimately carries it to the actor only — directed-delivery pinned by test); spec 010 Clarifications v1.6 (+ spec 004 note if its text claims identity-state never carries ids). Fold in: two remaining stale JSDoc comments in matchmaker.ts (~286 registerLifecycleListener doc, ~313–315 getMatch doc citing deleted lobbyPublication module).
+- [x] R-010 (W3 review): wire `test:lobby-integration` into client-ci.yml (keepalive-precedent step; suite caught both W3 defects). Commit 5f8af91.
+- [x] R-011 (W3 review): stale close()-defect comment in lobby-transport.test.ts corrected post-7c3e8cd. Commit 5e9cd75.
+- [x] R-012 (W3 review, PM ruling): lobby-frame exemption from greeted-state gate documented normatively in lobby-wire.md (no security impact; bootstrap-before-hello is by design; joinMatch stays gated). Commit 8f7e75c.
