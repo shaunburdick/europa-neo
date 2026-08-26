@@ -67,7 +67,9 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - #4 `chore`: cut v0.1.0 stabilization release (depends on #2 + #3) — milestone v0.1.0 — **in flight on branch `issue-4-stabilization-release`** (keep this line until merge)
   - #5 `enhancement`: Docker one-command self-host packaging
   - #6 `enhancement`: 3–4 player support end-to-end
-  - #13 `docs`: root `pnpm host` script missing / README quickstart falls through to system host(1)
+  - #12 `chore`: migrate legacy feature specs to `specs/` — **done via branch `issue-12-specs-migration` (PR #19)**
+  - #13 `docs`: root `pnpm host` script missing / README quickstart falls through to system host(1) — **done via branch `issue-13-host-script` (PR #20)**
+  - #15 `ci`: hardening follow-ups from feature 009 — downstream watch of `packages/version/**` + job `timeout-minutes` — **in flight on branch `issue-15-ci-hardening`**
   - Repo-wide test-typechecking gap remains a documented tradeoff (do NOT fix casually — every package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs). Deliberately NOT ticketed to avoid casual pickup.
 
 - **Biome migration (Phase 1, 2026-08-24)**: the root configuration now layers

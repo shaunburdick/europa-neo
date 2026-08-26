@@ -15,6 +15,7 @@ on:
       - 'packages/engine/**'
       - 'packages/terrain/**'
       - 'packages/networking/**'
+      - 'packages/version/**'
   pull_request:
     branches: [main]
     paths:
@@ -29,6 +30,7 @@ on:
       - 'packages/engine/**'
       - 'packages/terrain/**'
       - 'packages/networking/**'
+      - 'packages/version/**'
   workflow_dispatch:
 
 concurrency:
@@ -44,6 +46,7 @@ jobs:
   matchmaking-lint:
     name: Lint (matchmaking)
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -87,6 +90,7 @@ jobs:
   matchmaking-test:
     name: Test (matchmaking)
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -129,6 +133,7 @@ jobs:
   matchmaking-coverage:
     name: Coverage gate (matchmaking ≥ 80%)
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
