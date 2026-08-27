@@ -18,6 +18,16 @@
  * and appends seats append-only: existing `SeatRecord`s are never
  * touched after insertion.
  *
+ * Feature 010 (T-006, spec FR-019): every seat-creation site copies
+ * the seated session's authoritative `guestPlayerId` association and
+ * accepted-handle snapshot into the new `SeatRecord`, so identity and
+ * handle follow players through filling → running → finished →
+ * collected, reconnect grace, forfeit, and rematch transitions.
+ * {@linkcode propagateHandleRename} sweeps an accepted-handle rename
+ * across a guest's in-flight records (US1 AC-4); subsequent matches
+ * pick the fresh handle up automatically via the same snapshot copy.
+ * The opaque id stays internal — no public payload gains it.
+ *
  * Records are mutated in place and returned for fluent use — the
  * store holds live references, so there is exactly one copy of the
  * truth (constitution Principle V). Timestamps and ids always arrive
@@ -27,8 +37,8 @@
  */
 
 import type { EngineSession, MatchId } from '@europa/networking';
-
 import type { MatchResultsRecord, MatchSettings, MatchVisibility, PlayerId, SeatIndex } from '../contracts/match-types';
+import type { GuestPlayerId } from './contracts/lobby-types';
 import type { MatchStatusChangedEvent } from './eventBus';
 import { createStatusBus } from './eventBus';
 import { newMatchSeed } from './idGen';
@@ -38,6 +48,7 @@ import type { PlayerSession } from './internal/playerSession';
 import type { SeatRecord } from './internal/seatRecord';
 import { createSeatRecord } from './internal/seatRecord';
 import { newSessionToken } from './sessionToken';
+import type { MatchmakerStore } from './store';
 
 /** Optional event sink handed to transitions by the matchmaker/tests. */
 export type StatusEmitter = (event: MatchStatusChangedEvent) => void;
@@ -120,6 +131,10 @@ export function createMatchRecordWithCreator(args: CreateMatchRecordWithCreatorA
     const creatorSeat = createSeatRecord({
         seatIndex: 0 as SeatIndex,
         playerSessionId: creator.playerSessionId,
+        // Feature 010 FR-019: the authoritative identity association and
+        // accepted-handle snapshot follow the creator into their seat.
+        guestPlayerId: creator.guestPlayerId,
+        handle: creator.acceptedHandle,
         displayName: creator.displayName,
         sessionToken,
         playerId: null, // finalized at the filling → running transition
@@ -157,6 +172,10 @@ export function addSeatToFillingMatch(
     const seat = createSeatRecord({
         seatIndex,
         playerSessionId: joiner.playerSessionId,
+        // Feature 010 FR-019: the joiner's identity association and
+        // accepted-handle snapshot follow them into their seat.
+        guestPlayerId: joiner.guestPlayerId,
+        handle: joiner.acceptedHandle,
         displayName: joiner.displayName,
         sessionToken,
         playerId: null, // finalized at the filling → running transition
@@ -344,6 +363,12 @@ export function createRematchMatchRecord(args: CreateRematchMatchRecordArgs): {
         const seat = createSeatRecord({
             seatIndex: participant.seatIndex,
             playerSessionId: participant.session.playerSessionId,
+            // Feature 010 FR-019 + US1 AC-4: the fresh snapshot reads the
+            // session's CURRENT accepted handle, so a rename since the
+            // original match propagates into the rematch seats while the
+            // identity reference itself is unchanged.
+            guestPlayerId: participant.session.guestPlayerId,
+            handle: participant.session.acceptedHandle,
             displayName: participant.session.displayName,
             sessionToken,
             playerId: null, // finalized at the filling → running transition
@@ -359,4 +384,75 @@ export function createRematchMatchRecord(args: CreateRematchMatchRecordArgs): {
     }
 
     return { match, seats };
+}
+
+// ----------------------------------------------------------------------------
+// Identity handle rename propagation (feature 010, T-006)
+// ----------------------------------------------------------------------------
+
+/** What {@linkcode propagateHandleRename} updated. */
+export interface HandleRenameResult {
+    /** Player sessions whose `acceptedHandle` snapshot was refreshed. */
+    readonly sessions: number;
+    /** Seat records whose `handle` snapshot was refreshed. */
+    readonly seats: number;
+}
+
+/**
+ * Sweep an accepted-handle rename across one guest's in-flight
+ * matchmaking records (feature 010 FR-019 / US1 AC-4: "the new handle
+ * replaces the old one … in any subsequently joined match" — and this
+ * keeps already-joined waiting/running projections consistent too).
+ *
+ * The identity REGISTRY (feature 010) stays the sole authority for the
+ * handle; this transition only refreshes the display snapshots the
+ * matchmaker holds, keyed by the server-resolved `guestPlayerId` —
+ * never by a client-supplied value. Sessions are matched directly;
+ * seats are matched across every non-`'collected'` match (collected
+ * matches are dead records that no projection can ever reach).
+ *
+ * Forge-safety groundwork (full adversarial suite is T-009): an
+ * unknown or foreign `guestPlayerId` matches nothing and returns zero
+ * counts — there is no way to re-target another player's records, and
+ * the association fields themselves are immutable everywhere else.
+ *
+ * Pure apart from the in-place snapshot mutation: no clock reads, no
+ * randomness (constitution Principle II).
+ *
+ * @param store - The matchmaker store holding sessions + matches.
+ * @param guestPlayerId - The registry-verified guest identity whose
+ *   handle changed.
+ * @param acceptedHandle - The newly ACCEPTED display handle (already
+ *   validated + uniqueness-reserved by the registry).
+ * @returns How many session snapshots and seat snapshots were
+ *   refreshed (zero for an unknown id).
+ */
+export function propagateHandleRename(
+    store: MatchmakerStore,
+    guestPlayerId: GuestPlayerId,
+    acceptedHandle: string,
+): HandleRenameResult {
+    let sessions = 0;
+    let seats = 0;
+
+    for (const session of store.listSessions()) {
+        if (session.guestPlayerId === guestPlayerId && session.acceptedHandle !== acceptedHandle) {
+            session.acceptedHandle = acceptedHandle;
+            sessions += 1;
+        }
+    }
+
+    for (const match of store.listMatches()) {
+        if (match.status === 'collected') {
+            continue;
+        }
+        for (const seat of match.seats.values()) {
+            if (seat.guestPlayerId === guestPlayerId && seat.handle !== acceptedHandle) {
+                seat.handle = acceptedHandle;
+                seats += 1;
+            }
+        }
+    }
+
+    return { sessions, seats };
 }

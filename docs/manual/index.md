@@ -1,6 +1,8 @@
 # Europa Neo — Player Manual
 
-Welcome, commander. Europa Neo is a real-time strategy game for two players: rival colonies of nanobots waging war across the icy surface of Jupiter's moon Europa. This manual teaches you everything you need to play — from opening your first join link to reading the battlefield like a veteran.
+Welcome, commander. Europa Neo is a real-time strategy game: rival colonies of nanobots wage war across the icy surface of Jupiter's moon Europa. This manual teaches you everything you need to play — from choosing a name in the public lobby to reading the battlefield like a veteran.
+
+Before you play, choose a temporary guest handle in the [public lobby](./lobby.md). You can rename it later; other players see this handle instead of private system details, and no account is required.
 
 ## The 60-second version
 
@@ -16,24 +18,25 @@ You see only what your troops can sense: a band of surrounding cells moves with 
 
 - Desktop browsers with a mouse and keyboard (touch screens are not supported).
 - English only.
-- Two-player matches, joined through shareable links — there is no lobby screen in v1.
+- Public matches discovered and entered through the landing lobby. The browser flow is currently shipped end-to-end for two players.
 - A fixed four-color player palette (red, blue, green, orange-gold).
 
 ## Table of contents
 
-1. [Quick start — from join link to first orders](./quick-start.md)
-2. [Objective — how matches are won, lost, surrendered, and drawn](./objective.md)
-3. [The board — grid, elevation, water, and fair maps](./the-board.md)
-4. [Cities and troops — production, saturation, capture](./cities-and-troops.md)
-5. [Pipes — directing troop flow, slope, feeding, and decay](./pipes.md)
-6. [Combat — attrition in plain language](./combat.md)
-7. [Special weapons — paratroopers and guns](./special-weapons.md)
-8. [Reserves — holding troops back](./reserves.md)
-9. [Fog of war — what you can and cannot see](./fog-of-war.md)
-10. [Controls — complete pointer and keyboard reference](./controls.md)
-11. [Reading the screen — HUD tour and status meanings](./reading-the-screen.md)
-12. [Numbers — every shipped tunable in one auditable table](./numbers.md)
+1. [Lobby — choose a name, create or find a match, and spectate](./lobby.md)
+2. [Quick start — from the lobby to first orders](./quick-start.md)
+3. [Objective — how matches are won, lost, surrendered, and drawn](./objective.md)
+4. [The board — grid, elevation, water, and fair maps](./the-board.md)
+5. [Cities and troops — production, saturation, capture](./cities-and-troops.md)
+6. [Pipes — directing troop flow, slope, feeding, and decay](./pipes.md)
+7. [Combat — attrition in plain language](./combat.md)
+8. [Special weapons — paratroopers and guns](./special-weapons.md)
+9. [Reserves — holding troops back](./reserves.md)
+10. [Fog of war — what you can and cannot see](./fog-of-war.md)
+11. [Controls — complete pointer and keyboard reference](./controls.md)
+12. [Reading the screen — lobby, match HUD, and status meanings](./reading-the-screen.md)
+13. [Numbers — every shipped tunable in one auditable table](./numbers.md)
 
-New players should read [Quick start](./quick-start.md) and [Objective](./objective.md) first; keep [Controls](./controls.md) open in a second tab during your first match.
+New players should read [Lobby](./lobby.md), [Quick start](./quick-start.md), and [Objective](./objective.md) first; keep [Controls](./controls.md) open in a second tab during your first match.
 
 *This manual documents Europa Neo v0.1.0.*

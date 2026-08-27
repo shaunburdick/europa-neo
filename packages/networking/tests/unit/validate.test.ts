@@ -1,8 +1,9 @@
 /**
  * Envelope Validation Smoke Tests — Feature 004 (Phase 2)
  *
- * Exercises the schema guard across all twelve message kinds (happy
- * path), the per-kind required-field rejections, and the
+ * Exercises the schema guard across all twenty message kinds (the
+ * twelve gameplay kinds plus feature 010's additive lobby family —
+ * happy path), the per-kind required-field rejections, and the
  * `validateVersion` major/minor comparison rules (FR-003, FR-004).
  */
 
@@ -18,6 +19,14 @@ const VALID_PAYLOADS: Readonly<Record<MessageKind, Record<string, unknown>>> = {
     joinMatch: { matchId: 'match-1', role: 'player', displayName: 'Player' },
     order: { order: { kind: 'surrender', player: 1 } },
     ping: { clientTimeMs: 0 },
+    // Feature 010 lobby family (additive; shapes per contracts/network-types.ts).
+    lobbyIdentity: {},
+    lobbySetHandle: { handle: 'Nova', actionId: 1 },
+    lobbySubscribe: { actionId: 2 },
+    lobbyCreate: { actionId: 3 },
+    lobbyJoin: { actionId: 4, matchId: 'match-1' },
+    lobbySpectate: { actionId: 5, matchId: 'match-1' },
+    lobbyLeave: { actionId: 6 },
     helloAck: {
         protocolVersion: NETWORK_API_VERSION,
         connectionId: 'conn-1',
@@ -36,6 +45,7 @@ const VALID_PAYLOADS: Readonly<Record<MessageKind, Record<string, unknown>>> = {
     terminal: { result: { kind: 'draw', tick: 10, reason: 'mutual_elimination' } },
     pong: { clientTimeMs: 5, serverTimeMs: 6 },
     error: { code: 'rate_limited', message: 'slow down' },
+    lobbyEvent: { event: { kind: 'identity', identity: { handle: null, hasIdentity: true } } },
 };
 
 function envelopeOf(type: MessageKind, seq = 1): unknown {
@@ -112,6 +122,14 @@ describe('validateEnvelope — per-kind required fields', () => {
         ['joinMatch', 'displayName'],
         ['order', 'order'],
         ['ping', 'clientTimeMs'],
+        // Feature 010 lobby family (lobbyIdentity declares no required
+        // fields — its only field is optional — so it has no case here).
+        ['lobbySetHandle', 'handle'],
+        ['lobbySubscribe', 'actionId'],
+        ['lobbyCreate', 'actionId'],
+        ['lobbyJoin', 'matchId'],
+        ['lobbySpectate', 'matchId'],
+        ['lobbyLeave', 'actionId'],
         ['helloAck', 'heartbeatIntervalMs'],
         ['joinAck', 'sessionToken'],
         ['snapshot', 'tick'],
@@ -120,6 +138,7 @@ describe('validateEnvelope — per-kind required fields', () => {
         ['terminal', 'result'],
         ['pong', 'serverTimeMs'],
         ['error', 'code'],
+        ['lobbyEvent', 'event'],
     ];
 
     for (const [kind, fieldKey] of cases) {

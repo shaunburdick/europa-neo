@@ -27,12 +27,15 @@ export default defineConfig({
             // project in v1, matching playwright.config.ts).
             instances: [{ browser: 'chromium' }],
         },
-        include: ['tests/component/**/*.test.tsx', 'tests/a11y/**/*.test.ts', 'tests/integration/perf.test.ts'],
+        include: ['tests/component/**/*.test.tsx', 'tests/a11y/**/*.test.{ts,tsx}', 'tests/integration/perf.test.ts'],
         setupFiles: ['./tests/setup.ts'],
         passWithNoTests: true,
         coverage: {
             provider: 'v8',
             include: ['src/**/*'],
+            // src/internal/**: DOM-bound entry points (live-runtime.tsx,
+            // lobby-runtime.tsx) covered by real-socket integration and
+            // E2E suites, not in-browser vitest coverage programs.
             exclude: ['src/main.tsx', 'src/internal/**', '**/*.d.ts'],
             thresholds: {
                 lines: 80,

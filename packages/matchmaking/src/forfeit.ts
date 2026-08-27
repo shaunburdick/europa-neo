@@ -154,6 +154,10 @@ export function handleSeatExpired(
     if (match.status === 'filling') {
         // Inline seat release (dispatch ruling 3): no engine session yet,
         // so releasing is removing the seat + unbinding the session.
+        // Feature 010: only the MATCH binding is cleared — the session's
+        // guestPlayerId/acceptedHandle association persists (the lobby
+        // identity outlives any one match; its release after grace expiry
+        // is the identity registry's decision, not this policy's).
         match.seats.delete(seat.seatIndex);
         const session = ctx.store.getSession(seat.playerSessionId);
         if (session !== undefined) {

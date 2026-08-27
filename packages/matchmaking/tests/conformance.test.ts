@@ -143,12 +143,16 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
         // (c) exactly one registration with the documented fields. The
         // array element type IS networking's canonical RegisterMatchRequest
         // (FakeServer pins it), so this binding is the compile-time check.
+        // Feature 010 R-013 adds the per-seat displayNames snapshot; for
+        // this legacy (handle-less) fixture the values are the cosmetic
+        // names in seat order.
         expect(server.registerMatchCalls).toHaveLength(1);
         const [registration] = server.registerMatchCalls;
         if (registration === undefined) {
             throw new Error('fixture: no registerMatch call recorded');
         }
-        expect(Object.keys(registration).sort()).toEqual(['engineSession', 'matchConfig', 'matchId']);
+        expect(Object.keys(registration).sort()).toEqual(['displayNames', 'engineSession', 'matchConfig', 'matchId']);
+        expect(registration.displayNames).toEqual(['Alice', 'Bob']);
         expect(registration.matchId).toBe(matchId);
 
         // (d) one attach per seat, in seat order, playerId = seatIndex + 1.

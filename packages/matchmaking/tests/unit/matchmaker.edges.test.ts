@@ -14,7 +14,7 @@
 import type { Logger } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
-import type { MatchId } from '../../contracts/match-types';
+import type { MatchId, SessionToken } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
@@ -32,22 +32,25 @@ function recordingLogger(): Logger & { lines: string[] } {
 }
 
 describe('matchmaker — throwing stubs (later waves)', () => {
-    // Wave 7C (T042): unknown MatchIds now return the uniform
-    // `match_not_found` RESULT on every operation (FR-006 single code
-    // path — see `singleCodePath.test.ts`); only a KNOWN matchId reaches
-    // the wave-tagged invariant throw pinned below.
-    it('leaveMatch throws for a known match until its wave lands', () => {
+    // Remediation R-005 (feature 010) replaced the leaveMatch throwing
+    // stub with the real body; the full phase table is pinned in
+    // `matchmaker.leave.test.ts`. Here we keep THIS suite's original
+    // shape: a known match plus a bogus token is a RESULT-level
+    // `session_invalid`, never a throw.
+    it('leaveMatch rejects an unknown session token with session_invalid (R-005 body)', () => {
         const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server: new FakeServer() });
         const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
         if (!created.ok) {
             throw new Error('fixture create failed');
         }
-        expect(() =>
-            mm.leaveMatch({
-                matchId: created.data.matchId,
-                sessionToken: '00000000-0000-4000-8000-000000000001' as never,
-            }),
-        ).toThrow(/not implemented/);
+        const result = mm.leaveMatch({
+            matchId: created.data.matchId,
+            sessionToken: '00000000-0000-4000-8000-000000000001' as SessionToken,
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('session_invalid');
+        }
         mm.close();
     });
 

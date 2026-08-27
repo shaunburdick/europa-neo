@@ -1,6 +1,14 @@
 # Reading the screen
 
-The console is deliberately minimal. This page tours everything it can show you, so no status or message is ever cryptic.
+The lobby and console are deliberately minimal. This page tours the status, participant, and recovery information they can show you.
+
+## The lobby
+
+The default landing page is **Europa Neo lobby**. Its cards show **Your name**, **Create a match**, and **Public matches**. The lobby connection and identity status are separate: **Connected** means the lobby transport is ready, while **Ready to play** means a valid handle has been accepted.
+
+Public-match rows show **Waiting for players** or **In progress**, seat occupancy, capacity, board size, and tick interval. Open waiting rows have **Join**; in-progress rows have **Spectate**; full waiting rows say **Full**. The list may announce that a match was added, updated, started, or left the list.
+
+The lobby can also show **Loading public matches…**, **No public matches right now — create one to get started**, an inline validation error, or a recoverable action error. See [The public lobby](./lobby.md) for the actions and recovery steps.
 
 ## The status chip
 
@@ -8,16 +16,18 @@ The HUD's status line tells you where you stand in the match lifecycle. It shows
 
 | Status | What it means | What to do |
 | --- | --- | --- |
-| `idle` | Not connected to any match yet (for example, the console opened without a join link) | Open a join link to start |
-| `connecting` | Handshake with the match server is in progress after opening a join link | Wait a moment |
+| `idle` | Not connected to a match | Wait for the lobby or choose a match |
+| `connecting` | Handshake with the match server is in progress after choosing a lobby action | Wait a moment |
 | `live` | You are seated and receiving ticks; your orders are accepted | Play! |
 | `reconnecting` | The connection dropped; automatic reconnection is under way and a banner shows above the board | Keep the tab open |
-| `expired` | The 60-second grace window elapsed while you were away — your seat is forfeited | Rejoin via a fresh link or a new match (see [Quick start](./quick-start.md)) |
-| `spectating` | You are watching without a seat — after surrendering/elimination, or joining a full match as an observer | Watch freely; orders are not available |
+| `expired` | The 60-second grace window elapsed while you were away — your seat is forfeited | Return to the lobby and choose a match or create one (see [Quick start](./quick-start.md)) |
+| `spectating` | You are watching without a seat | Watch freely; orders are not available |
 | `game_over` | The match's final result has been delivered; the end-of-match announcement is shown | Review the board, then start a new match for another game |
-| `closed` | The console session was explicitly closed | Reload your join link to return |
+| `closed` | The console session was explicitly closed | Return to the lobby and choose another match |
 
 While anything other than `live`, all order controls are disabled — the buttons gray out rather than silently swallowing clicks.
+
+In the match header, **In match** identifies a player view and **Spectating** identifies a read-only spectator view. **Leave to lobby** returns to the landing page. Every occupied player seat is labeled with its accepted handle, including your own. Names are displayed as isolated participant labels so mixed writing directions cannot rearrange nearby interface text.
 
 The status bar also shows a small version indicator — the app version your console was built from (for example, v0.1.0) — which stays visible whatever state the match is in.
 
@@ -49,17 +59,24 @@ Short messages appear near the bottom of the screen after your actions:
 
 They fade after a couple of seconds. A rejection always means nothing was sent — fix the cause and try again.
 
-## Overlays you will meet
+## Overlays and recovery messages you will meet
 
 | Overlay | When | Meaning |
 | --- | --- | --- |
 | "Waiting for opponent to join…" | You are seated but the match has not started | The match auto-starts when both seats fill; the overlay hides itself at the first tick |
 | "Reconnecting to match…" banner | Connection lost mid-match | Auto-reconnect is trying; stay in the tab (see [Quick start](./quick-start.md)) |
 | Surrender dialog | After clicking **Surrender…** | Explicit confirm step — Cancel/Escape backs out, confirming eliminates you on the spot (see [Objective](./objective.md)) |
+| "This session moved somewhere else" | Another browser took over the guest session | Acknowledge it and set a new name |
+| "The server restarted — the lobby was reset" | The in-memory server state was lost | Reload, set a name, and choose or create a match |
+| "That match is no longer available" / "That match just filled up" | The listing changed before your action completed | Return to the refreshed list and choose another action |
 
 ## End of match
 
-When a match ends — victory, defeat, or draw — the console announces **"Match over"** and switches to `game_over`. The final board stays on display so you can survey the wreckage. If you finished playing but the match is somehow still running (for example, you surrendered), you spectate with a full-board view and no orders until it wraps up.
+When a match ends — victory, defeat, or draw — the console announces **"Match over"** and switches to `game_over`. The final board stays on display so you can survey the wreckage. If you finished playing but the match is somehow still running (for example, you surrendered), you spectate with a full-board view and no orders until it wraps up. Choose **Leave to lobby** when you are ready for another match.
+
+## Keyboard and accessibility cues
+
+The first Tab stop is **Skip to main content**. Native buttons, form fields, radio buttons, and selects are keyboard-operable with Tab, Shift+Tab, arrow keys, Enter, and Space. Focus is visible. Loading, empty, connection, identity, and action failures are announced without requiring a mouse; returning to the lobby moves focus to its heading. Reduced-motion preferences are honored by waiting and transition indicators.
 
 ---
 

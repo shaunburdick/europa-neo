@@ -411,7 +411,13 @@ function reduceNetEvent(
             // Handshake done; still awaiting join → stays 'connecting'.
             return { state, effects: [] };
 
-        case 'joined':
+        case 'joined': {
+            // Feature 010 (T-016, FR-020): the local seat's label is the
+            // SERVER's own echo of this player's accepted handle (the
+            // players array entry at our assigned seat) — never a
+            // client-side assertion. Falls back to the prior value when
+            // the server omits the entry.
+            const ownName = event.players.find((player) => player.id === event.playerId)?.displayName;
             return {
                 state: {
                     ...state,
@@ -421,11 +427,13 @@ function reduceNetEvent(
                         ...state.session,
                         sessionToken: event.sessionToken,
                         playerId: event.playerId,
+                        displayName: ownName ?? state.session.displayName,
                         opponents: event.players.filter((p) => p.id !== event.playerId).map((p) => p.displayName),
                     },
                 },
                 effects: [],
             };
+        }
 
         case 'reconnected':
             return {

@@ -78,7 +78,6 @@ players, and serves ticks:
 import { computePlayerView } from '@europa/fog';
 import {
   createMatchServer,
-  generateSessionToken,
   NETWORK_DEFAULT_CONFIG,
   NULL_LOGGER,
 } from '@europa/networking';
@@ -112,13 +111,15 @@ await server.listen();
 // Matchmaker hands over a filled match (session already constructed):
 server.registerMatch({ matchId, engineSession, matchConfig });
 
-// …and seats players; clients then hello + joinMatch with the token.
-server.attachPlayer({ matchId, playerId: 1, sessionToken: generateSessionToken() });
+// …and seats players. The matchmaking integration supplies the seat
+// credentials; clients then complete hello + joinMatch through the lobby.
 ```
 
 Clients speak a small JSON envelope protocol over one WebSocket per
 connection (`{ v, seq, kind, payload }`, monotonically increasing
-`seq`). The full message catalog lives in
+`seq`). The additive lobby message family establishes identity, sets a handle,
+subscribes to public listings, and requests create, join, spectate, leave, or
+return-to-lobby actions. The full message catalog lives in
 `specs/004-multiplayer-networking/contracts/network-types.ts`.
 
 ---
@@ -162,6 +163,38 @@ the source-of-truth contracts live at
 | `NetworkError` / `isNetworkError` | Protocol-level rejection hierarchy with stable error codes. |
 | `generateSessionToken` / `generateConnectionId` / `toBranded` | Branded identity generation. |
 | `createTickClock` | The sanctioned wall-clock boundary (`nowMs` injected into handlers). |
+
+### Lobby transport behavior
+
+Lobby frames establish a guest identity before gameplay's greeted-state gate;
+the server resolves the active identity from connection state. Client-supplied
+handles, seat numbers, roles, or identity claims are advisory and cannot
+override the server record. Every action receives an authoritative acceptance
+or an actionable error, and lobby snapshots are applied only when their
+revision is newer than the last applied revision. Handle validation requires
+1–24 Unicode code points after trimming, at least one non-whitespace character,
+no control characters, no bidirectional formatting controls, and no unpaired
+surrogates; well-formed emoji counts as one code point and uniqueness compares
+trimmed, case-insensitively.
+
+The accepted handle follows the server-owned identity into the matchmaking
+session, seat, waiting view, gameplay orders, reconnect state, and participant
+labels, overlaid at the networking boundary without mutating engine simulation
+state. Orders are always checked against the resolved seat. Player broadcasts
+remain fog-filtered; spectator broadcasts are full-visibility and read-only.
+The lobby distinguishes an initial loading state from a successfully loaded
+empty state. The browser client sends heartbeat traffic and automatically
+re-establishes a lobby connection when configured to do so. A reconnect within
+`reconnectGraceMs` (60 seconds by default) restores the original association;
+an invalid, expired, or mismatched credential cannot attach another player's
+seat, orders, or view. The opaque guest identifier is delivered only in the
+directed identity event to its owner; public listings, other connections,
+URLs, views, and logs remain free of it.
+
+Guest identities and handles are ephemeral process state, not authentication
+or persistence. A server restart clears them and all lobby/match state.
+Networking diagnostics must not log bearer credentials or opaque identity
+identifiers.
 
 ### Constants & config
 

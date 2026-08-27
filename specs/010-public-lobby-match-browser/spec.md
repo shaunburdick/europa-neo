@@ -3,9 +3,9 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-25 (v1.2)
-**Version**: 1.2
-**Status**: Draft — phases 1–3 complete
+**Last Updated**: 2026-08-26 (v1.6)
+**Version**: 1.6
+**Status**: Implemented (2026-08-26)
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -206,3 +206,64 @@ No interactive clarification questions were required. The approved decisions res
 
 - The feature uses `GuestPlayerIdentity`/guest player identity consistently. A GuestPlayerIdentity is a guest player identity, not an authenticated account: it has a unique server-recognized opaque guest player ID and handle, is backed by browser/server memory, and is lost when browser storage is cleared or the server restarts.
 - The opaque guest player ID is not a public display name and MUST NOT be exposed in UI, public listings, URLs, views, or documentation examples. Handles remain the only participant identity shown to users.
+
+### Session 2026-08-25 — Wire error detail field ruling (v1.3)
+
+- US3 AC-4 ("rejected with field-specific feedback") and FR-018's actionable-failure requirement cannot be delivered by code-only wire errors: a browser can only render field-specific guidance when the server tells it which fields failed. PM ruling (2026-08-25): the wire `error` `LobbyEvent` variant gains an additive optional `detail` record mirroring matchmaking's `LobbyError.detail` (`Readonly<Record<string, string | number | boolean>>`, field name → message/value). Servers populate it wherever actionable specifics exist (e.g., the rejected create-form settings fields); clients render actionable text from `code` plus `detail` and MUST tolerate its absence (older servers, or codes needing no specifics). Additive-only — unknown-field tolerance already covers older clients, so `NETWORK_API_VERSION` is NOT bumped. Contract surfaces updated in the same change set: both canonical networking contract copies, `contracts/lobby-wire.md`, and networking conformance coverage for the changed payload.
+
+### Session 2026-08-25 — Handle case-folding normalization ruling (v1.4)
+
+- FR-005's "case-insensitive" uniqueness comparison is implemented with JavaScript's locale-independent built-in case conversion: the uniqueness key is the trimmed handle lowercased with `String.prototype.toLowerCase()` (default Unicode case mappings; no locale overrides; no full case folding, which ECMAScript does not provide). Rationale: determinism across runtimes and self-hosted instances (constitution Principle II) and simplicity (Principle V) — richer folding policies are deferred to a future moderation feature.
+- What folds: case-based default mappings only — e.g. `Å→å`, `Ö→ö`, and multi-character expansions such as `İ` (U+0130) → `i` + combining dot above (two code points). What does NOT fold: `ß` is never expanded to `SS` (so `Straße` and `STRASSE` remain distinct handles), and locale-specific conventions (e.g., Turkish dotless-i rules) are deliberately not applied.
+- The accepted display handle is the trimmed submission with casing preserved verbatim (FR-005); the uniqueness key is derived from it and never displayed or projected.
+- Uniqueness keys are held for ACTIVE identities and for identities retained by the reconnect grace window; keys are freed when grace expires or the identity is explicitly released (edge case: handle availability).
+
+### Session 2026-08-25 — Handle validation hardening + local mirror pin ruling (v1.5)
+
+- Wave-2 security audit findings LOW-6 (bidirectional-text spoofing) and LOW-7 (lone-surrogate corruption) are resolved at the validation source. FR-004's rejection set gains two classes, enforced inside `validateHandle` before any handle reaches a seat label, lobby row, or log line:
+  - Bidirectional formatting controls U+202A–U+202E (LRE/RLE/PDF/LRO/RLO overrides) and U+2066–U+2069 (LRI/RLI/FSI/PDI isolates) — nine code points in total — are REJECTED. Rationale: participant labels are identity (FR-020); these invisible characters visually reorder how a handle renders for OTHER players while appearing benign to the submitter, so a submitter could spoof or impersonate another participant's label rendering. Rejections return `handle_invalid` with machine-readable `detail.reason: 'bidi_control'`.
+  - Handles containing lone (unpaired) surrogate code points (Unicode category Cs, U+D800–U+DFFF without a partner) are REJECTED. Rationale: lone surrogates mutate to U+FFFD replacement characters on UTF-8 encoding, corrupting server logs and downstream storage. Rejections return `handle_invalid` with `detail.reason: 'lone_surrogate'`. Detection operates per CODE POINT after code-point iteration, so well-formed surrogate pairs are unaffected.
+- Scope of the reclassification: only the nine bidi controls above and unpaired surrogates change status. Other format-category (Cf) characters — notably zero-width spaces such as U+200B and the soft hyphen U+00AD — REMAIN valid content, and well-formed surrogate pairs (e.g., astral emoji) remain single valid characters under FR-004's code-point counting. Rejection precedence over previously-shipped inputs is unchanged (`empty` → `too_long` → `control_character` → `bidi_control` → `lone_surrogate`).
+- Local contract mirror repair + cross-package pin: matchmaking's local `LobbyEvent` declaration had lagged networking's canonical wire copy since Clarifications v1.3 — the wire `error` variant's optional `detail` record was missing locally, undetected because mutual assignability cannot see a missing OPTIONAL field. Ruling: the local copy is repaired field-for-field (identical JSDoc normative wording), and matchmaking's locally declared lobby-domain types (`LobbyEvent`, `IdentityState`, `PublicLobbyEntry`) are pinned mutually assignable to networking's canonical wire declarations by the feature-010 conformance program, plus an indexed-access witness that fails compilation while either side lacks or retypes the optional `detail` record. Networking's public barrel re-exports the three names (as it already did the two settings mirrors) so the pins import the built package surface like every other cross-package witness.
+
+### Session 2026-08-26 — Claim provenance / identity-event delivery channel (v1.6)
+
+- **The gap (verified)**: FR-002 has the server assign each visitor an opaque GuestPlayerId and FR-003 has the browser store it locally so a reload restores the active identity within the reconnect grace window — but NO server→client channel carried that id. `IdentityState` was id-free in both canonical contract copies, `GuestIdentityClaim.guestPlayerId` was documented as "previously issued to this browser", and nothing ever issued/delivered it: on claim-miss the registry minted a server-side UUID that never reached the browser, so reload-restore could never work end-to-end.
+- **PM ruling (2026-08-26, final)**: `IdentityState` gains an ADDITIVE OPTIONAL `guestPlayerId?: GuestPlayerId` in BOTH canonical contract copies (matchmaking's `lobby-types.ts` and networking's wire mirror; no `NETWORK_API_VERSION` bump — same additive ruling pattern as v1.3's `detail`). The directed `identity` `LobbyEvent` becomes THE FR-003 delivery channel: the lobby facade populates the AUTHENTICATED owner's id when projecting identity state for that event (`establishIdentity`, `setHandle`, and every restore path), and the dispatcher forwards it verbatim — directed delivery to exactly ONE connection, the owner's. This mirrors feature-004's sessionToken delivery precedent.
+- **Witness-envelope change**: the compile-time privacy witnesses are re-scoped — `PublicLobbyEntry`, `LobbySnapshot`, and every action target still MUST NOT carry the id (unchanged), while the directed identity state is the ONE sanctioned exception, pinned for optionality + brand on both sides of the mirror (indexed-access witnesses, since plain mutual assignability cannot see a missing optional field). Runtime privacy scans stay truthful: entries, snapshots, action outcomes, and OTHER connections' deliveries remain scanned strictly id-free, and a dedicated pin proves a second connection NEVER receives another identity's guestPlayerId. Public listings/snapshots/targets/UI/URLs/logs remain strictly id-free (NFR-003/FR-024 unchanged).
+- **Client contract**: browsers persist the server-delivered id (replacing any local bootstrap mint — the local mint remains first-frame bootstrap only) so reload-restore works end-to-end; clients MUST tolerate the field's absence (older servers).
+
+## Implementation Notes and Validation
+
+The shipped implementation resolves the following integration details without
+changing the normative requirements or the v1.6 clarifications above:
+
+- `pnpm host` starts in lobby mode with no pre-created match. The explicit
+  `pnpm host --create` mode remains available for the two-seat quick flow.
+- The lobby derives its WebSocket endpoint from the page host. A `?ws=`
+  override is accepted only for the same host (including supported local
+  loopback cases); cross-host and credential-bearing overrides are rejected
+  before identity setup.
+- Accepted handles are overlaid onto match registration and view/player-list
+  payloads at the networking boundary. This preserves the engine's immutable
+  simulation data and does not mutate engine state.
+- Spectators use the existing full-visibility, read-only path: they receive no
+  player seat and cannot issue orders.
+- The lobby distinguishes an initial loading state from a successfully loaded
+  empty state, so an empty match list is not mistaken for a failed request.
+- The server-delivered identity claim is sent only in the directed identity
+  event to its owner. Public projections, other connections, UI labels, URLs,
+  logs, and player/spectator views remain free of opaque identity identifiers;
+  handles are the only participant names shown to users.
+- Identity, handle, lobby, session, and match state is in memory. A server
+  restart resets the lobby and browser resume assumptions; the next visit
+  establishes a fresh guest session.
+
+The durable documentation/privacy check is
+`node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs`.
+It verifies handle/lobby coverage across the README, player manual, package
+documentation, and feature artifacts; rejects opaque identity or credential
+names and credential-bearing examples from player-facing surfaces; and rejects
+credential-bearing example values in the implementation/spec surfaces. It
+fails nonzero and reports each offending file and rule, so adding a forbidden
+identifier or example cannot silently pass review.

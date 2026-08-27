@@ -54,6 +54,7 @@ import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
 import { OrderBar } from '../ui/order-bar';
+import { ParticipantStrip } from '../ui/participants';
 import { ReservesPanel } from '../ui/reserves-panel';
 import { TargetingOverlay } from '../ui/targeting-overlay';
 import { WaitingOverlay } from '../ui/waiting-overlay';
@@ -359,6 +360,11 @@ export function App({ store, state, onSurrenderRequest, surrenderRequestEpoch }:
               in every connection state because it depends on no state
               at all; plain span = no pointer/keyboard interception. */}
                     <span className="europa-hud__item europa-hud__version">v{APP_VERSION}</span>
+                    {/* Participant strip (feature 010 T-016, FR-020): per-seat
+              authoritative labels from the session. Session-derived, so
+              it is tick-stable (SC-008) and renders for spectators too
+              (static boots — FR-023 allows all handles there). */}
+                    <ParticipantStrip session={resolvedState.session} />
                     {store !== undefined && mapView !== null ? (
                         <Minimap
                             boardWidth={mapView.width}

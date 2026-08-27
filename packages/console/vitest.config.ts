@@ -21,7 +21,10 @@ export default defineConfig({
             // browser suites). DOM-bound modules (render/, ui/,
             // qol/minimap) are exercised by test:component / test:a11y /
             // test:e2e in real Chromium and are excluded here — see spec
-            // Implementation Notes.
+            // Implementation Notes. The internal/ modules (live-runtime.tsx,
+            // lobby-runtime.tsx) are likewise DOM-bound and are covered by
+            // real-socket integration and E2E suites, not by happy-dom unit
+            // or browser-mode vitest runs.
             include: [
                 'src/state/**',
                 'src/input/**',
@@ -35,6 +38,9 @@ export default defineConfig({
                 'src/create-console.ts',
                 'src/config.ts',
             ],
+            // src/internal/**: DOM-bound entry points (live-runtime.tsx,
+            // lobby-runtime.tsx) covered by integration/E2E suites, not
+            // happy-dom unit tests.
             exclude: ['src/main.tsx', 'src/internal/**', '**/*.d.ts'],
             thresholds: {
                 lines: 80,

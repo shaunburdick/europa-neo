@@ -1,15 +1,26 @@
 /**
- * One-command local match launcher — the `pnpm host` experience.
+ * One-command local host launcher — the `pnpm host` experience.
  *
  * Boots the full production stack in one process (mirroring the
- * host-wiring recipe proven by `tests/e2e/full-stack.spec.ts`
- * `buildStack()`), auto-creates and fills a public 2-player match
- * (which auto-starts it), serves the built console SPA from `dist/`,
- * and prints two clickable join URLs:
+ * host-wiring recipes proven by `tests/e2e/full-stack.spec.ts`
+ * `buildStack()` and `tests/integration/lobby-transport.test.ts`
+ * `bootLobbyStack()`), serves the built console SPA from `dist/`, and
+ * exposes the feature-010 public lobby:
  *
  *   matchmaker ⇄ match server  →  ws://localhost:8080
  *   static file server         →  http://localhost:5173 (packages/console/dist)
- *   Player 1 / Player 2 URLs   →  the console's `?live` runtime
+ *   Lobby (DEFAULT)            →  http://localhost:5173/
+ *
+ * By default the launcher pre-creates NOTHING (spec 010 FR-017): the
+ * landing page IS the lobby, where visitors establish a guest identity,
+ * set a handle, and create/join/spectate public matches in the browser.
+ * The lobby facade (`createLobbyService`) is wired lazily via
+ * `ServerDeps.lobby` and builds itself at the first lobby frame, after
+ * the matchmaker exists.
+ *
+ * `--create` retains the pre-lobby quick-test experience: auto-create +
+ * fill a public 2-player match (which auto-starts it) and print two
+ * clickable join URLs.
  *
  * Seat claiming needs nothing beyond name + matchId: a tokenless wire
  * `joinMatch` claims the first open seat in ascending playerId order.
@@ -17,13 +28,19 @@
  * (`?token=`) so an accidental refresh reclaims the SAME seat within
  * the reconnect grace window instead of failing seat allocation.
  *
+ * Privacy boundary (spec 010 NFR-003/FR-024): host diagnostics NEVER
+ * echo guestPlayerIds, session tokens, or reconnect tokens; free-form
+ * wire-derived text is sanitized through `sanitizeLogText` before it
+ * reaches a log line. The only tokens ever printed are the deliberate
+ * `--create` seat URLs themselves (the product of that mode).
+ *
  * CLI:
- *   pnpm host [--port N] [--static-port N] [--bind-host HOST] [--public-host HOST]
+ *   pnpm host [--create] [--port N] [--static-port N] [--bind-host HOST] [--public-host HOST]
  *   HOST_PORT / HOST_STATIC_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST are honored.
  *
- * Zero new dependencies: node:* builtins only. Wall-clock reads live
- * only at transport/hosting boundaries — no simulation logic here
- * (constitution Principle II).
+ * Zero new dependencies: node:* builtins + workspace @europa/* only.
+ * Wall-clock reads live only at transport/hosting boundaries — no
+ * simulation logic here (constitution Principle II).
  */
 
 import { existsSync } from 'node:fs';
@@ -32,7 +49,7 @@ import { createServer as createHttpServer, type IncomingMessage, type Server, ty
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { computePlayerView } from '@europa/fog';
-import { createMatchmaker } from '@europa/matchmaking';
+import { createLobbyService, createMatchmaker, type Matchmaker } from '@europa/matchmaking';
 import {
     createMatchServer,
     type Logger,
@@ -42,7 +59,7 @@ import {
     type ServerDeps,
 } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
-import { type HostConfig, isPathInside, isWildcardHost, STATIC_SECURITY_HEADERS } from './host-config';
+import { type HostConfig, isPathInside, isWildcardHost, STATIC_SECURITY_HEADERS, sanitizeLogText } from './host-config';
 import { handleVersionRoute } from './version-route';
 
 /** Package root (this script lives in `<root>/scripts/`). */
@@ -127,31 +144,64 @@ function parsePort(raw: string | undefined, label: string): number | null | unde
 }
 
 /**
- * Resolve listen hosts and ports from argv and environment, applying the
- * loopback-safe defaults and requiring an advertisement for wildcard binds.
+ * Fully resolved launcher configuration: the network surface plus the
+ * launch mode (spec 010 FR-017).
+ */
+export interface HostLaunchConfig extends HostConfig {
+    /**
+     * True when `--create` requested the explicit create flow
+     * (auto-create + fill a public 2P match and print two seat URLs).
+     * False — the DEFAULT — serves an empty lobby visitors use to
+     * create/join matches themselves.
+     */
+    readonly createMatch: boolean;
+}
+
+/**
+ * Resolve listen hosts, ports, and launch mode from argv and
+ * environment, applying the loopback-safe defaults and requiring an
+ * advertisement for wildcard binds.
  *
  * @param args Raw argv slice after the script path.
- * @returns The resolved host/port settings, or null when an argument was invalid
+ * @param environment Process environment (overridable for tests).
+ * @returns The resolved settings, or null when an argument was invalid
  *          (its error has already been printed).
  */
 export function resolveConfig(
     args: readonly string[],
     environment: NodeJS.ProcessEnv = process.env,
-): HostConfig | null {
+): HostLaunchConfig | null {
     let wsPort = parsePort(environment.HOST_PORT, 'HOST_PORT');
     let staticPort = parsePort(environment.HOST_STATIC_PORT, 'HOST_STATIC_PORT');
     let bindHost = environment.HOST_BIND_HOST ?? '127.0.0.1';
     let publicHost = environment.HOST_PUBLIC_HOST;
+    let createMatch = false;
     for (let i = 0; i < args.length; i += 1) {
         const arg = args[i];
         const eq = arg.indexOf('=');
         const flag = eq === -1 ? arg : arg.slice(0, eq);
         const inline = eq === -1 ? undefined : arg.slice(eq + 1);
-        if (flag !== '--port' && flag !== '--static-port' && flag !== '--bind-host' && flag !== '--public-host') {
+        if (
+            flag !== '--create' &&
+            flag !== '--port' &&
+            flag !== '--static-port' &&
+            flag !== '--bind-host' &&
+            flag !== '--public-host'
+        ) {
             complain(
-                `host: unknown argument "${arg}" (supported: --port N, --static-port N, --bind-host HOST, --public-host HOST)`,
+                `host: unknown argument "${arg}" (supported: --create, --port N, --static-port N, --bind-host HOST, --public-host HOST)`,
             );
             return null;
+        }
+        if (flag === '--create') {
+            // Bare flag only: any glued value (--create / --create=x) is
+            // a usage error, not silently-truthy input.
+            if (inline !== undefined) {
+                complain('host: --create does not take a value');
+                return null;
+            }
+            createMatch = true;
+            continue;
         }
         if (flag === '--bind-host' || flag === '--public-host') {
             const value = inline ?? args[i + 1];
@@ -202,6 +252,7 @@ export function resolveConfig(
         publicHost: publicHost ?? (bindHost === '127.0.0.1' ? 'localhost' : bindHost),
         wsPort: wsPort ?? DEFAULT_WS_PORT,
         staticPort: staticPort ?? DEFAULT_STATIC_PORT,
+        createMatch,
     };
 }
 
@@ -280,7 +331,7 @@ function startStaticServer(port: number, bindHost: string): Server {
         complain(
             error.code === 'EADDRINUSE'
                 ? `host: port ${String(port)} is already in use — try --static-port <other>`
-                : `host: static server error: ${error.message}`,
+                : `host: static server error: ${sanitizeLogText(error.message)}`,
         );
         process.exitCode = 1;
         void shutdown();
@@ -294,27 +345,46 @@ function startStaticServer(port: number, bindHost: string): Server {
 // plus human-facing log taps on the forwarding bridge.
 // ---------------------------------------------------------------------------
 
+/** The lobby facade built by `createLobbyService` (mirrored contract plus teardown hook). */
+type LobbyFacade = ReturnType<typeof createLobbyService>;
+
 /** What {@link buildStack} hands back: the running pieces to shut down. */
 interface Stack {
     /** The live match server (already listening). */
     readonly server: ReturnType<typeof createMatchServer>;
     /** The matchmaker bound to that server. */
     readonly matchmaker: ReturnType<typeof createMatchmaker>;
+    /**
+     * Read the memoized lobby facade once the first lobby frame has
+     * built it; null until then (the `ServerDeps.lobby` factory is lazy
+     * by contract, so a boot with no lobby visitors never builds one).
+     */
+    readonly lobbyFacade: () => LobbyFacade | null;
 }
 
 /**
- * Wire matchmaker ⇄ match server per the documented recipe: the server
- * takes a stable forwarding bridge at construction time (before any
- * matchmaker exists); the matchmaker later hands its real handlers over
- * through the optional `bindMatchmaker` seam. Human-readable join /
- * result lines are tapped in the forwarders before delegation.
+ * Wire matchmaker ⇄ match server ⇄ lobby facade per the documented
+ * recipes: the server takes a stable forwarding bridge at construction
+ * time (before any matchmaker exists); the matchmaker later hands its
+ * real handlers over through the optional `bindMatchmaker` seam; and
+ * the lobby facade builds itself lazily at the FIRST lobby frame via
+ * `ServerDeps.lobby`, closing over a forward-reference slot. Human-
+ * readable join / result lines are tapped in the forwarders before
+ * delegation.
  *
  * @param wsPort Port for the match server's WebSocket listener.
  * @param bindHost Interface for the WebSocket listener.
- * @returns The bound server + matchmaker (not yet listening).
+ * @returns The bound server + matchmaker (not yet listening) and the
+ *          lobby-facade accessor for shutdown.
  */
 function buildStack(wsPort: number, bindHost: string): Stack {
     let bound: MatchmakerBridge = {};
+    /**
+     * Forward-reference slots filled right after server construction:
+     * the lobby factory runs at the first lobby frame, by which time
+     * the matchmaker exists (the documented ServerDeps.lobby recipe).
+     */
+    const wiring: { matchmaker: Matchmaker | null; lobby: LobbyFacade | null } = { matchmaker: null, lobby: null };
     /**
      * Human label for a seat (P1/P2); falls back to the raw number for
      * any seat beyond the v1 two-seater.
@@ -328,6 +398,8 @@ function buildStack(wsPort: number, bindHost: string): Stack {
                 // Feature 009 FR-005: production runs NULL_LOGGER, so this
                 // launcher line IS the operator-visible seat-join log — it
                 // carries the release identity like the server's own tap.
+                // Structural facts only: never the session token, never a
+                // guest id, never a wire-supplied handle.
                 say(`▶ ${seatLabel(event.playerId)} joined (seat ${String(event.playerId)}, v${APP_VERSION})`);
             }
             bound.onSeatClaimed?.(event);
@@ -364,6 +436,22 @@ function buildStack(wsPort: number, bindHost: string): Stack {
         },
         matchmaker: forwardingBridge,
         logger: NULL_LOGGER as Logger,
+        lobby: {
+            create: (sink) => {
+                const matchmaker = wiring.matchmaker;
+                if (matchmaker === null) {
+                    throw new Error('host wiring bug: lobby frame arrived before the matchmaker was bound');
+                }
+                // One facade per process (plan.md §1). Capture it so
+                // shutdown can drop registry/ledger state even though the
+                // server memoizes its own reference internally — a boot
+                // where nobody ever opens the lobby leaves this null and
+                // needs no facade shutdown at all.
+                const facade = createLobbyService({ matchmaker, deliver: sink.deliver });
+                wiring.lobby = facade;
+                return facade;
+            },
+        },
     };
 
     const server = createMatchServer(
@@ -378,7 +466,9 @@ function buildStack(wsPort: number, bindHost: string): Stack {
             bound = { ...bound, ...bridge };
         },
     });
-    return { server, matchmaker: createMatchmaker({}, { server: bindable }) };
+    const matchmaker = createMatchmaker({}, { server: bindable });
+    wiring.matchmaker = matchmaker;
+    return { server, matchmaker, lobbyFacade: () => wiring.lobby };
 }
 
 // ---------------------------------------------------------------------------
@@ -410,7 +500,7 @@ function prepareMatch(matchmaker: Stack['matchmaker']): PreparedMatch | null {
         settings: { playerCount: 2, boardSize: BOARD_SIZE, tickIntervalMs: TICK_MS },
     });
     if (!created.ok) {
-        complain(`host: creating the match failed: ${created.error.message}`);
+        complain(`host: creating the match failed: ${sanitizeLogText(created.error.message)}`);
         return null;
     }
     const filled = matchmaker.joinMatch({
@@ -418,7 +508,7 @@ function prepareMatch(matchmaker: Stack['matchmaker']): PreparedMatch | null {
         displayName: SEAT_NAMES[1],
     });
     if (!filled.ok) {
-        complain(`host: filling the match failed: ${filled.error.message}`);
+        complain(`host: filling the match failed: ${sanitizeLogText(filled.error.message)}`);
         return null;
     }
     return {
@@ -432,24 +522,65 @@ function prepareMatch(matchmaker: Stack['matchmaker']): PreparedMatch | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Print the startup banner: release version, endpoints, match id, and
- * one clickable URL per seat. Tokens ride along so a refreshed tab
- * reclaims its own seat.
+ * Bracket an IPv6 literal host for URL embedding; any other host value
+ * passes through untouched (values are regex-validated at parse time).
+ *
+ * @param publicHost The operator-advertised reachable host.
+ * @returns The URL-safe host form.
+ */
+function urlHostOf(publicHost: string): string {
+    return publicHost.includes(':') && !publicHost.startsWith('[') ? `[${publicHost}]` : publicHost;
+}
+
+/**
+ * Print the DEFAULT (lobby-mode) startup banner: release version,
+ * launch mode, endpoints, and ONE clickable lobby URL. No match id,
+ * seat, token, or identity appears anywhere (spec 010 plan: normal
+ * host output contains no pre-created match).
+ *
+ * @param staticPort Port the console UI is served on.
+ * @param boundPort  The port the match server ACTUALLY bound.
+ * @param publicHost Host reachable by players.
+ */
+function printLobbyBanner(staticPort: number, boundPort: number, publicHost: string): void {
+    const host = urlHostOf(publicHost);
+    say('');
+    say(`  Version      : v${APP_VERSION}`);
+    say('  Mode         : lobby (visitors create/join matches in the browser)');
+    say(`  Match server : ws://${host}:${String(boundPort)}`);
+    say(`  Console UI   : http://${host}:${String(staticPort)}`);
+    say('');
+    say('  Open the lobby in a browser:');
+    say('');
+    say(`  → http://${host}:${String(staticPort)}/`);
+    say('');
+    say('  Matches and guest identities are in-memory only — restarting resets the lobby.');
+    say('  Ctrl-C to stop.');
+    say('');
+}
+
+/**
+ * Print the `--create` startup banner: release version, launch mode,
+ * endpoints, match id, and one clickable URL per seat. Tokens ride
+ * along so a refreshed tab reclaims its own seat. This mode retains
+ * the pre-lobby two-seat quick-test experience.
  *
  * @param staticPort Port the console UI is served on.
  * @param boundPort  The port the match server ACTUALLY bound.
  * @param publicHost Host reachable by players.
  * @param match      The prepared match.
  */
-function printBanner(staticPort: number, boundPort: number, publicHost: string, match: PreparedMatch): void {
-    const urlHost = publicHost.includes(':') && !publicHost.startsWith('[') ? `[${publicHost}]` : publicHost;
-    const wsUrl = `ws://${urlHost}:${String(boundPort)}`;
+function printCreateBanner(staticPort: number, boundPort: number, publicHost: string, match: PreparedMatch): void {
+    const host = urlHostOf(publicHost);
+    const wsUrl = `ws://${host}:${String(boundPort)}`;
     const joinUrl = (name: string, token: string): string =>
-        `http://${urlHost}:${String(staticPort)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
+        `http://${host}:${String(staticPort)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
     say('');
     say(`  Version      : v${APP_VERSION}`);
+    say('  Mode         : explicit-create (--create) — pre-created public 2P match');
     say(`  Match server : ${wsUrl}`);
-    say(`  Console UI   : http://${urlHost}:${String(staticPort)}`);
+    say(`  Console UI   : http://${host}:${String(staticPort)}`);
+    say(`  Lobby        : http://${host}:${String(staticPort)}/`);
     say(`  Match id     : ${match.matchId}`);
     say('');
     say('  Open in two browser tabs:');
@@ -485,8 +616,9 @@ async function shutdown(): Promise<void> {
 }
 
 /**
- * Entry point: boot stack → serve dist → create+fill public match →
- * print banner → wait for Ctrl-C.
+ * Entry point: boot stack (with the lazy lobby facade wired) → serve
+ * dist → either print the lobby banner (DEFAULT, no match created) or
+ * run the explicit `--create` flow → wait for Ctrl-C.
  */
 async function main(): Promise<void> {
     const config = resolveConfig(process.argv.slice(2));
@@ -512,7 +644,7 @@ async function main(): Promise<void> {
         complain(
             code === 'EADDRINUSE'
                 ? `host: port ${String(config.wsPort)} is already in use — try --port <other>`
-                : `host: match server failed to start: ${String(error)}`,
+                : `host: match server failed to start: ${sanitizeLogText(String(error))}`,
         );
         process.exitCode = 1;
         return;
@@ -521,7 +653,17 @@ async function main(): Promise<void> {
     const staticServer = startStaticServer(config.staticPort, config.bindHost);
 
     teardown = async () => {
+        // Order matters. Networking's close() drains EVERY tracked
+        // connection — lobby-only sockets included — with a 1001 "going
+        // away" frame (feature 010), which drives each connection's
+        // lobby teardown while the facade is still open. Only then is
+        // lobby state dropped: facade.close() clears identities,
+        // subscriptions, and the ledger and cascades into
+        // matchmaker.close(); the explicit matchmaker.close() after it
+        // is the safety net for boots where no lobby frame ever arrived
+        // (facade never built). Both closes are idempotent.
         await stack.server.close();
+        await stack.lobbyFacade()?.close();
         await stack.matchmaker.close();
         await new Promise<void>((resolve) => {
             staticServer.close(() => {
@@ -530,15 +672,22 @@ async function main(): Promise<void> {
         });
     };
 
-    const match = prepareMatch(stack.matchmaker);
-    if (match === null) {
-        await shutdown();
-        process.exitCode = 1;
+    const boundPort = stack.server.__boundPortForTest() ?? config.wsPort;
+
+    // FR-017: the DEFAULT launch serves an EMPTY lobby — no match is
+    // pre-created; visitors create/join through the browser UI.
+    // `--create` retains the two-seat quick-test flow.
+    if (config.createMatch) {
+        const match = prepareMatch(stack.matchmaker);
+        if (match === null) {
+            await shutdown();
+            process.exitCode = 1;
+            return;
+        }
+        printCreateBanner(config.staticPort, boundPort, config.publicHost, match);
         return;
     }
-
-    const boundPort = stack.server.__boundPortForTest() ?? config.wsPort;
-    printBanner(config.staticPort, boundPort, config.publicHost, match);
+    printLobbyBanner(config.staticPort, boundPort, config.publicHost);
 }
 
 process.on('SIGINT', () => {
@@ -555,6 +704,6 @@ process.on('SIGTERM', () => {
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
     main().catch((error: unknown) => {
         process.exitCode = 1;
-        complain(`host failed: ${String(error)}`);
+        complain(`host failed: ${sanitizeLogText(String(error))}`);
     });
 }

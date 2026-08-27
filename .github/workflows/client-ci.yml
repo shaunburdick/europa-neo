@@ -82,6 +82,9 @@ jobs:
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
 
+      - name: Build @europa/matchmaking (workspace dependency)
+        run: pnpm --filter @europa/matchmaking build
+
       - name: Typecheck (console src)
         run: pnpm --filter @europa/console typecheck
 
@@ -177,6 +180,12 @@ jobs:
       - name: Quiet-client keepalive (idle-sweep guard)
         run: pnpm --filter @europa/console test:keepalive
 
+      # Lobby transport over the real stack (R-010 regression guard):
+      # real sockets against the real matchmaking + networking stacks,
+      # ~6 s wall time.
+      - name: Lobby transport integration (real stack)
+        run: pnpm --filter @europa/console test:lobby-integration
+
       # Contract byte-identity + surface completeness (reads dist/).
       - name: Library emit + contract conformance
         run: |
@@ -215,6 +224,10 @@ jobs:
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
 
+      # The keepalive integration suite imports the matchmaking runtime.
+      - name: Build @europa/matchmaking (workspace dependency)
+        run: pnpm --filter @europa/matchmaking build
+
       # Merged node+browser coverage (vitest.config.coverage.ts) —
       # thresholds (80% lines/functions/branches/statements) live in
       # that config; the command exits non-zero if any threshold is
@@ -228,10 +241,6 @@ jobs:
       # below the 80% constitution gate.
       - name: Install Playwright Chromium
         run: pnpm --filter @europa/console exec playwright install --with-deps chromium
-
-      # The keepalive integration suite imports the matchmaking runtime.
-      - name: Build @europa/matchmaking (workspace dependency)
-        run: pnpm --filter @europa/matchmaking build
 
       # 2× paint-budget headroom for the browser project's perf suite
       # inside merged coverage (shared-runner throttling; see the

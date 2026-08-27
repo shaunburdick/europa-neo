@@ -14,7 +14,7 @@ In the late 1990s, [Europa](https://web.archive.org/web/1999*/games.dangerous-mi
 
 - **TypeScript everywhere** — Node.js server, browser client
 - **Server-authoritative deterministic simulation** — replayable, testable, fair
-- **Real-time multiplayer over WebSockets** — public matches in a lobby, private matches via shareable links
+- **Real-time multiplayer over WebSockets** — discoverable public matches in a lobby
 - **Faithful core loop, modernized UX** — cities, pipes, fog of war, paratroopers, guns; none of the 1990s friction
 - **Self-hostable** — run your own server for your friends
 
@@ -24,16 +24,17 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 
 ## Project status
 
-**v1 implementation complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit: all six features are specified, planned, implemented, integrated, and reviewed.
+**v1 implementation complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit: all features are specified, planned, implemented, integrated, and reviewed.
 
-| Feature                                  | Package               | Status          |
-| ---------------------------------------- | --------------------- | --------------- |
-| 001 core game engine                     | `@europa/engine`      | ✅ Implemented |
-| 002 fog of war & visibility              | `@europa/fog`         | ✅ Implemented |
-| 003 procedural terrain generation        | `@europa/terrain`     | ✅ Implemented |
-| 004 multiplayer networking               | `@europa/networking`  | ✅ Implemented |
-| 005 client console                       | `@europa/console`     | ✅ Implemented |
-| 006 match lifecycle & matchmaking        | `@europa/matchmaking` | ✅ Implemented |
+| Feature                                  | Package                                    | Status          |
+| ---------------------------------------- | ------------------------------------------ | --------------- |
+| 001 core game engine                     | `@europa/engine`                           | ✅ Implemented |
+| 002 fog of war & visibility              | `@europa/fog`                              | ✅ Implemented |
+| 003 procedural terrain generation        | `@europa/terrain`                          | ✅ Implemented |
+| 004 multiplayer networking               | `@europa/networking`                       | ✅ Implemented |
+| 005 client console                       | `@europa/console`                          | ✅ Implemented |
+| 006 match lifecycle & matchmaking        | `@europa/matchmaking`                      | ✅ Implemented |
+| 010 public lobby & match browser         | `@europa/matchmaking`/`@europa/networking`/`@europa/console` | ✅ Implemented |
 
 An integration wave proved the full production path end-to-end: console UI ⇄ browser WebSocket client ⇄ match server ⇄ matchmaking-bound engine + terrain + fog, with two seats playing through the real wire protocol.
 
@@ -111,27 +112,75 @@ Settings → Pages → Source = "GitHub Actions" (see
 ```bash
 pnpm install --frozen-lockfile
 pnpm build
-pnpm --filter @europa/console host
+pnpm host
 ```
 
-`pnpm host` starts the match server (`ws://localhost:8080`) and serves
-the console (`http://localhost:5173`), auto-creates a public 2-player
-match, and prints two clickable join URLs — open them in two tabs and
-play. (Without a server, opening the console bare boots a deterministic
-stub board — enough to see the renderer and drive the controls.)
+`pnpm host` starts the match server (`ws://localhost:8080`) and serves the
+console (`http://localhost:5173`). The default is an empty public lobby at
+`/`: choose a guest handle, create a game, or browse and join/spectate an
+available public match. It does not create a match at startup. Use
+`pnpm host --create` for the explicit two-seat quick flow. The console also
+has a deterministic stub board when opened without a server, for renderer work
+only.
 
 The host is loopback-safe by default. For a local-area network match, bind
 explicitly and advertise the address players can reach:
 
 ```bash
-HOST_BIND_HOST=0.0.0.0 HOST_PUBLIC_HOST=192.168.1.20 pnpm --filter @europa/console host
+HOST_BIND_HOST=0.0.0.0 HOST_PUBLIC_HOST=192.168.1.20 pnpm host
 ```
 
 The equivalent flags are `--bind-host HOST` and `--public-host HOST` (ports
 remain configurable with `--port`, `--static-port`, `HOST_PORT`, and
-`HOST_STATIC_PORT`). Direct internet exposure is not supported yet. A public
-deployment still requires a TLS-terminating reverse proxy, rate limiting, and
-origin controls; these remain Option 2 follow-ups.
+`HOST_STATIC_PORT`). A wildcard bind requires an explicit public host. Direct
+internet exposure is not supported: a public deployment still needs a
+TLS-terminating reverse proxy, rate limiting, and origin controls.
+
+### Lobby, identity, and recovery
+
+The lobby gives each browser an ephemeral guest identity and asks for a
+user-facing handle. Handles are trimmed for comparison, unique among active
+sessions case-insensitively, and limited to 1–24 Unicode code points after
+trimming with at least one non-whitespace character. Accepted handles contain
+no control characters, no bidirectional formatting controls, and no unpaired
+surrogates; well-formed emoji counts as one code point. Accepted casing is
+shown in the lobby and on occupied match seats; handles can be renamed while
+the identity remains active and the server propagates the new label into
+future match, seat, waiting view, order attribution, and participant labels
+without changing the underlying identity association. Handles are overlaid at
+the networking boundary and do not mutate engine simulation state. This
+is not an account system: browser storage and the server process hold the
+state in memory only. Clearing browser storage or restarting the host starts a
+fresh identity, handle set, lobby, and match set.
+
+The server is authoritative for identity-to-seat association. Client input
+cannot choose another player's seat or attribute orders to another player.
+Player views remain fog-filtered; spectators receive full-visibility,
+read-only views and have no seat or order permissions. The lobby distinguishes
+**Loading public matches…** from **No public matches right now — create one
+to get started**, and public waiting matches offer **Join** while running
+matches offer **Spectate**; collected matches are not history.
+
+Temporary disconnects use the existing reconnect grace window. A valid
+reconnect credential within that window restores the original seat, handle,
+view, and order authority. Expired, unknown, or mismatched credentials do not
+reassign a connection. The opaque guest identifier is delivered only in the
+directed identity event to its owner; public listings, other connections,
+URLs, views, and logs remain free of it. Host diagnostics deliberately omit
+bearer credentials and opaque identity identifiers.
+
+`GET /version` on the console origin returns application and protocol versions:
+
+```bash
+curl http://localhost:5173/version
+```
+
+The normal lobby derives its WebSocket endpoint from the page host. For a
+different port or test harness, `?ws=` may override it, but only a same-host
+WebSocket URL is accepted; URLs with embedded credentials or another hostname
+are rejected. The direct `?live&ws=&match=&name=` route remains available for
+development and test integrations. Normal host output uses the lobby and does
+not place identity or credential material in the URL.
 
 ## Credits & licensing
 

@@ -475,6 +475,30 @@ export interface CreateMatchRequest {
   readonly visibility: MatchVisibility;
   /** FR-001: 1..32 chars; validated by the matchmaker. */
   readonly displayName: string;
+  /**
+   * Feature 010 (FR-019, remediation R-005): the server-resolved opaque
+   * guest-player id to associate with the created session. Supplied by
+   * the LOBBY FACADE from the identity registry — never by a client
+   * (the public wire has no such field; a forged association cannot be
+   * expressed). Optional for backward compatibility: when omitted the
+   * session/seat records store `null` (legacy feature-006 flows).
+   *
+   * Structurally the same branded string as `src/contracts/lobby-types.ts`'s
+   * `GuestPlayerId` (declared inline so this contract mirror stays
+   * self-contained; mutual assignability is pinned by the lobby
+   * conformance witnesses and enforced transitively at the pass-through
+   * site in `matchmaker.ts`). PRIVACY (FR-003/FR-024): internal
+   * association only — never serialized into any public payload.
+   */
+  readonly guestPlayerId?: string & { readonly __brand: 'GuestPlayerId' };
+  /**
+   * Feature 010 (US1 AC-5, remediation R-005): the identity's ACCEPTED
+   * display-handle snapshot, resolved and uniqueness-enforced by the
+   * identity registry and passed by the lobby facade. Distinct from
+   * `displayName` (the cosmetic, unvalidated name). Optional for
+   * backward compatibility: omitted stores `null`.
+   */
+  readonly acceptedHandle?: string;
   /** Partial — missing fields merged with `DEFAULT_MATCH_SETTINGS`. */
   readonly settings?: Partial<Omit<MatchSettings, 'terrainSettings'>> & {
     readonly terrainSettings?: Partial<GenerationSettings>;
@@ -486,6 +510,18 @@ export interface JoinMatchRequest {
   readonly displayName: string;
   /** Absent for new joins; present for reconnects. */
   readonly reconnectToken?: SessionToken;
+  /**
+   * Feature 010 (FR-019, remediation R-005): server-resolved opaque
+   * guest-player id for the joined seat's session — same contract as
+   * {@linkcode CreateMatchRequest.guestPlayerId}. Omitted stores `null`.
+   */
+  readonly guestPlayerId?: string & { readonly __brand: 'GuestPlayerId' };
+  /**
+   * Feature 010 (US1 AC-5, remediation R-005): accepted-handle snapshot
+   * for the joined seat's session — same contract as
+   * {@linkcode CreateMatchRequest.acceptedHandle}. Omitted stores `null`.
+   */
+  readonly acceptedHandle?: string;
 }
 
 export interface LeaveMatchRequest {

@@ -18,11 +18,19 @@
  *       anywhere along the re-export chain fails `pnpm typecheck`.
  *
  *   (c) **Union exhaustiveness** — the `NetworkPayload` union covers
- *       exactly the twelve documented payload interfaces (one per
+ *       exactly the twenty documented payload interfaces (one per
  *       `MessageKind`, no extras), and every kind-to-payload mapping
  *       stays exhaustive under future edits (the `never` guard in the
  *       runtime classifier fails to compile when a kind is added
  *       without updating the map).
+ *
+ *   (d) **Feature 010 lobby wire conformance** — the additive `lobby*`
+ *       family declared in `network-types.ts` stays structurally
+ *       conformant to its design source of truth
+ *       (`specs/010-public-lobby-match-browser/contracts/lobby-wire.md`
+ *       + `lobby-types.md`) via an independent transcription pinned by
+ *       mutual-assignability aliases, and the `LobbyEvent` variant set
+ *       stays exhaustively classified.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -35,8 +43,21 @@ import type {
     ErrorPayload,
     HelloAckPayload,
     HelloPayload,
+    IdentityState,
     JoinAckPayload,
     JoinMatchPayload,
+    LobbyActionId,
+    LobbyCreatePayload,
+    LobbyEvent,
+    LobbyEventPayload,
+    LobbyIdentityPayload,
+    LobbyJoinPayload,
+    LobbyLeavePayload,
+    LobbyRevision,
+    LobbySetHandlePayload,
+    LobbySpectatePayload,
+    LobbySubscribePayload,
+    MatchId,
     MessageKind,
     NetworkPayload,
     OrderAckPayload,
@@ -65,7 +86,17 @@ function repoPath(relativePath: string): string {
 // side drifts, these aliases fail to typecheck.
 // ---------------------------------------------------------------------------
 
-type AssertMutuallyAssignable<A extends B, B extends A> = true;
+/**
+ * Mutual-assignability witness: `true` exactly when A and B are
+ * mutually assignable (set equality for unions, field-for-field
+ * equality for objects). The nested conditional form avoids the
+ * circular-constraint error (TS2313) a two-parameter `extends` pair
+ * raises under a strict tsc program — vitest strips types so the
+ * defect only surfaces in dedicated compile checks; this is the same
+ * known-good shape as matchmaking's `tests/lobby-conformance.test.ts`
+ * witness.
+ */
+type AssertMutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
 
 type OrderConforms = AssertMutuallyAssignable<Order, OrderReexport>;
 type MatchResultConforms = AssertMutuallyAssignable<MatchResult, MatchResultReexport>;
@@ -89,6 +120,15 @@ interface KindToPayload {
     joinAck: JoinAckPayload;
     ping: PingPayload;
     pong: PongPayload;
+    // Feature 010 lobby family (additive)
+    lobbyIdentity: LobbyIdentityPayload;
+    lobbySetHandle: LobbySetHandlePayload;
+    lobbySubscribe: LobbySubscribePayload;
+    lobbyCreate: LobbyCreatePayload;
+    lobbyJoin: LobbyJoinPayload;
+    lobbySpectate: LobbySpectatePayload;
+    lobbyLeave: LobbyLeavePayload;
+    lobbyEvent: LobbyEventPayload;
     tick: TickBroadcastPayload;
     snapshot: SnapshotPayload;
     order: OrderSubmissionPayload;
@@ -101,12 +141,19 @@ type PayloadsConform = AssertMutuallyAssignable<KindToPayload[MessageKind], Netw
 
 const PAYLOADS_CONFORM: PayloadsConform = true;
 
-/** All twelve documented message kinds (client→server first, mirroring the contract). */
+/** All twenty documented message kinds (client→server first, mirroring the contract). */
 const ALL_KINDS: readonly MessageKind[] = [
     'hello',
     'joinMatch',
     'order',
     'ping',
+    'lobbyIdentity',
+    'lobbySetHandle',
+    'lobbySubscribe',
+    'lobbyCreate',
+    'lobbyJoin',
+    'lobbySpectate',
+    'lobbyLeave',
     'helloAck',
     'joinAck',
     'snapshot',
@@ -115,6 +162,7 @@ const ALL_KINDS: readonly MessageKind[] = [
     'terminal',
     'pong',
     'error',
+    'lobbyEvent',
 ];
 
 /**
@@ -139,6 +187,22 @@ function kindLabel(kind: MessageKind): string {
             return 'ping';
         case 'pong':
             return 'pong';
+        case 'lobbyIdentity':
+            return 'lobbyIdentity';
+        case 'lobbySetHandle':
+            return 'lobbySetHandle';
+        case 'lobbySubscribe':
+            return 'lobbySubscribe';
+        case 'lobbyCreate':
+            return 'lobbyCreate';
+        case 'lobbyJoin':
+            return 'lobbyJoin';
+        case 'lobbySpectate':
+            return 'lobbySpectate';
+        case 'lobbyLeave':
+            return 'lobbyLeave';
+        case 'lobbyEvent':
+            return 'lobbyEvent';
         case 'tick':
             return 'tick';
         case 'snapshot':
@@ -183,7 +247,7 @@ describe('contract conformance (T050)', () => {
         expect(PLAYER_VIEW_CONFORMS).toBe(true);
     });
 
-    it('(c) the NetworkPayload union is exactly the twelve documented payloads', () => {
+    it('(c) the NetworkPayload union is exactly the twenty documented payloads', () => {
         // Compile-time proof: KindToPayload[MessageKind] ≡ NetworkPayload.
         expect(PAYLOADS_CONFORM).toBe(true);
 
@@ -192,7 +256,260 @@ describe('contract conformance (T050)', () => {
         // typecheck via the `never` guard), and the labels are unique —
         // one payload body per kind, no aliases.
         const labels = ALL_KINDS.map((kind) => kindLabel(kind));
-        expect(labels).toHaveLength(12);
-        expect(new Set(labels).size).toBe(12);
+        expect(labels).toHaveLength(20);
+        expect(new Set(labels).size).toBe(20);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// (d) Feature 010 lobby wire conformance. The contract's lobby family is
+// pinned against an INDEPENDENT transcription of its design docs
+// (lobby-wire.md payload shapes + lobby-types.md domain shapes): if either
+// side drifts, these aliases fail to typecheck. Brands are re-declared in
+// the transcription — structurally identical brands stay mutually
+// assignable, so only real shape drift trips the guard.
+// ---------------------------------------------------------------------------
+
+/** Transcription of lobby-types.md's branded primitives. */
+type DocGuestPlayerId = string & { readonly __brand: 'GuestPlayerId' };
+type DocLobbyRevision = number & { readonly __brand: 'LobbyRevision' };
+type DocLobbyActionId = number & { readonly __brand: 'LobbyActionId' };
+
+/** Transcription of lobby-types.md's domain shapes. */
+interface DocGuestIdentityClaim {
+    readonly guestPlayerId?: DocGuestPlayerId;
+    readonly handle?: string;
+}
+
+interface DocIdentityState {
+    readonly handle: string | null;
+    readonly hasIdentity: true;
+    // Sanctioned FR-003 delivery channel (feature 010 Clarifications
+    // v1.6): the opaque id rides ONLY on the directed identity event to
+    // its owning connection; optional so recipients tolerate older
+    // servers, and absent from every listing/snapshot/target (NFR-003).
+    readonly guestPlayerId?: DocGuestPlayerId;
+}
+
+interface DocPublicLobbyEntry {
+    readonly matchId: MatchId;
+    readonly seatsFilled: number;
+    readonly capacity: 2 | 3 | 4;
+    readonly status: 'waiting' | 'in_progress';
+    readonly boardSize: number;
+    readonly tickIntervalMs: number;
+}
+
+interface DocLobbySnapshot {
+    readonly revision: DocLobbyRevision;
+    readonly entries: ReadonlyArray<DocPublicLobbyEntry>;
+    readonly activeMatchId: MatchId | null;
+}
+
+type DocLobbyErrorCode =
+    | 'identity_invalid'
+    | 'handle_invalid'
+    | 'handle_taken'
+    | 'match_not_found'
+    | 'match_full'
+    | 'match_not_joinable'
+    | 'identity_in_match'
+    | 'identity_expired'
+    | 'server_restarted'
+    | 'internal_error';
+
+type DocLobbyEvent =
+    | { readonly kind: 'identity'; readonly identity: DocIdentityState }
+    | { readonly kind: 'snapshot'; readonly snapshot: DocLobbySnapshot }
+    | { readonly kind: 'actionAccepted'; readonly actionId: DocLobbyActionId; readonly transition: 'waiting' | 'match' }
+    | {
+          readonly kind: 'error';
+          readonly actionId?: DocLobbyActionId;
+          readonly code: DocLobbyErrorCode;
+          readonly message: string;
+          // Optional machine-readable detail (field name → message/value),
+          // mirroring matchmaking's `LobbyError.detail` so clients can
+          // render field-specific actionable text from code + detail.
+          readonly detail?: Readonly<Record<string, string | number | boolean>>;
+      };
+
+/** Transcription of lobby-wire.md's eight payload shapes. */
+interface DocLobbyWireShapes {
+    lobbyIdentity: { readonly claim?: DocGuestIdentityClaim };
+    lobbySetHandle: { readonly handle: string; readonly actionId: DocLobbyActionId };
+    lobbySubscribe: { readonly actionId: DocLobbyActionId };
+    lobbyCreate: {
+        readonly actionId: DocLobbyActionId;
+        // Transcribes `Partial<MatchSettings>`: top-level fields optional,
+        // `terrainSettings` complete when present (mirrors matchmaking's
+        // MatchSettings/GenerationSettings structure exactly).
+        readonly settings?: {
+            readonly playerCount?: 2 | 3 | 4;
+            readonly boardSize?: number;
+            readonly tickIntervalMs?: number;
+            readonly terrainSettings?: {
+                readonly waterRatio: number;
+                readonly roughness: number;
+                readonly octaves: number;
+                readonly citiesPerPlayer: number;
+                readonly symmetryStrategy: 'point';
+                readonly minCityWaterDistance: number;
+                readonly minCityCityDistance: number;
+                readonly maxRegenAttempts: number;
+            };
+        };
+    };
+    lobbyJoin: { readonly actionId: DocLobbyActionId; readonly matchId: MatchId };
+    lobbySpectate: { readonly actionId: DocLobbyActionId; readonly matchId: MatchId };
+    lobbyLeave: { readonly actionId: DocLobbyActionId };
+    lobbyEvent: { readonly event: DocLobbyEvent };
+}
+
+/**
+ * Per-kind mutual assignability between the contract's lobby payloads and
+ * the doc transcription. NOTE on precision: structural assignability pins
+ * required fields, field types, and union variants; it cannot detect a
+ * newly added OPTIONAL field on one side (a TypeScript exactness limit).
+ * Byte-identity between the two contract copies plus review against the
+ * design docs covers that residual gap.
+ */
+type LobbyWireConforms = {
+    readonly [K in keyof KindToPayload & keyof DocLobbyWireShapes]: AssertMutuallyAssignable<
+        KindToPayload[K],
+        DocLobbyWireShapes[K]
+    >;
+};
+
+const LOBBY_WIRE_CONFORMS: LobbyWireConforms = {
+    lobbyIdentity: true,
+    lobbySetHandle: true,
+    lobbySubscribe: true,
+    lobbyCreate: true,
+    lobbyJoin: true,
+    lobbySpectate: true,
+    lobbyLeave: true,
+    lobbyEvent: true,
+};
+
+/**
+ * Sharp-edge pin for the v1.6 OPTIONAL delivery field (feature 010
+ * Clarifications v1.6): plain mutual assignability cannot see a missing
+ * or retyped OPTIONAL field, so this indexed-access witness fails to
+ * typecheck while the contract's `IdentityState.guestPlayerId` and the
+ * doc transcription disagree in existence, optionality, or brand.
+ */
+type IdentityStateGuestIdConforms = AssertMutuallyAssignable<
+    IdentityState['guestPlayerId'],
+    DocIdentityState['guestPlayerId']
+>;
+
+const IDENTITY_STATE_GUEST_ID_CONFORMS: IdentityStateGuestIdConforms = true;
+
+/** The four documented `LobbyEvent` variant kinds. */
+const LOBBY_EVENT_KINDS = ['identity', 'snapshot', 'actionAccepted', 'error'] as const;
+
+/**
+ * Compile-time exhaustiveness guard over `LobbyEvent` variants: adding a
+ * variant without a case here fails `pnpm typecheck` via the `never`
+ * branch.
+ *
+ * @param event Any lobby event.
+ * @returns The event's `kind` label.
+ */
+function lobbyEventKindLabel(event: LobbyEvent): string {
+    switch (event.kind) {
+        case 'identity':
+            return 'identity';
+        case 'snapshot':
+            return 'snapshot';
+        case 'actionAccepted':
+            return 'actionAccepted';
+        case 'error':
+            return 'error';
+        default: {
+            const unreachable: never = event;
+            return unreachable;
+        }
+    }
+}
+
+describe('feature 010 lobby wire conformance (T-002)', () => {
+    it('the contract lobby payloads conform to the lobby-wire.md/lobby-types.md transcription', () => {
+        // Compile-time proof lives in the LobbyWireConforms aliases; these
+        // runtime assertions keep them "used" so linters stay quiet.
+        expect(LOBBY_WIRE_CONFORMS).toEqual({
+            lobbyIdentity: true,
+            lobbySetHandle: true,
+            lobbySubscribe: true,
+            lobbyCreate: true,
+            lobbyJoin: true,
+            lobbySpectate: true,
+            lobbyLeave: true,
+            lobbyEvent: true,
+        });
+        expect(IDENTITY_STATE_GUEST_ID_CONFORMS).toBe(true);
+    });
+
+    it('every lobby message kind is declared exactly once in the protocol union', () => {
+        const lobbyKinds = ALL_KINDS.filter((kind) => kind.startsWith('lobby'));
+        expect(lobbyKinds).toHaveLength(8);
+        expect(new Set(lobbyKinds).size).toBe(8);
+    });
+
+    it('the LobbyEvent union is exhaustively classified over its four variants', () => {
+        const samples: ReadonlyArray<LobbyEvent> = [
+            {
+                kind: 'identity',
+                identity: {
+                    handle: null,
+                    hasIdentity: true,
+                    // The v1.6 sanctioned delivery field must be admitted
+                    // on the wire identity event (directed delivery only).
+                    // NonNullable narrows the OPTIONAL field's type so the
+                    // literal stays exactOptionalPropertyTypes-clean while
+                    // proving the branded value is admitted.
+                    guestPlayerId: 'guest-directed' as NonNullable<IdentityState['guestPlayerId']>,
+                },
+            },
+            {
+                kind: 'snapshot',
+                snapshot: { revision: 7 as LobbyRevision, entries: [], activeMatchId: null },
+            },
+            { kind: 'actionAccepted', actionId: 3 as LobbyActionId, transition: 'waiting' },
+            {
+                kind: 'error',
+                code: 'handle_taken',
+                message: 'handle already in use',
+                // The optional detail record must be admitted on wire
+                // error events (field-specific feedback, spec US3 AC-4).
+                detail: { handle: 'Nova' },
+            },
+        ];
+        const labels = samples.map((event) => lobbyEventKindLabel(event));
+        expect(labels).toEqual([...LOBBY_EVENT_KINDS]);
+        expect(new Set(labels).size).toBe(LOBBY_EVENT_KINDS.length);
+    });
+
+    it('declares the opaque guest player id only on the claim input and the directed identity state', () => {
+        // Privacy boundary spot-check (spec FR-024 / NFR-003, scoped by
+        // feature 010 Clarifications v1.6): the wire projection types
+        // carry match discovery data and handles only. The guest id is
+        // typed in exactly TWO places: the advisory GuestIdentityClaim
+        // INPUT, and IdentityState.guestPlayerId — the sanctioned FR-003
+        // delivery channel on the DIRECTED identity event to its owning
+        // connection. Entries/snapshots/targets stay strictly id-free.
+        const entryKeys: ReadonlyArray<string> = [
+            'matchId',
+            'seatsFilled',
+            'capacity',
+            'status',
+            'boardSize',
+            'tickIntervalMs',
+        ];
+        const claimKeys: ReadonlyArray<string> = ['guestPlayerId', 'handle'];
+        const identityStateKeys: ReadonlyArray<string> = ['handle', 'hasIdentity', 'guestPlayerId'];
+        expect(entryKeys).not.toContain('guestPlayerId');
+        expect(claimKeys).toContain('guestPlayerId');
+        expect(identityStateKeys).toContain('guestPlayerId');
     });
 });

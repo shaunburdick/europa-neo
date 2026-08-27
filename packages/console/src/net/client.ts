@@ -111,17 +111,39 @@ function isMatchClientLike(value: unknown): value is MatchClientLike {
 let nextWireSeq = 0;
 
 /**
+ * Join-role selection for lobby-initiated legs (feature 010 T-016).
+ *
+ * Structural EXTENSION of the contract config — the contract mirror
+ * itself is untouched (byte-identity conformance): `role` is optional,
+ * defaults to `'player'`, and every plain `ConsoleClientConfig` remains
+ * a valid argument (widening an implementation's accepted input set is
+ * assignability-safe). Spectator legs join through feature 004's
+ * existing wire semantics (`joinMatch.role: 'spectator'` — full-board
+ * fog views, no seat, server-side `spectator_readonly` order gate);
+ * this adapter additionally refuses outbound orders locally so a
+ * spectator leg has no working order path at any layer.
+ *
+ * @see ConsoleClientImpl.joinMatch
+ * @see ConsoleClientImpl.sendOrder
+ */
+export interface ConsoleClientConfigWithRole extends ConsoleClientConfig {
+    /** Wire join role. Default `'player'`. */
+    readonly role?: 'player' | 'spectator';
+}
+
+/**
  * Construct the console's network adapter. Does NOT connect — call
  * `connect()` then `joinMatch()` first (contract lifecycle).
  *
- * @param config Client config (URL, display name, optional token/match).
+ * @param config Client config (URL, display name, optional token/match,
+ *               optional join role — see {@link ConsoleClientConfigWithRole}).
  * @param deps Optional test seam. When `matchClientFactory` is
  *             omitted, the adapter defaults to the shipped browser
  *             WebSocket client ({@link createWsMatchClient}); tests
  *             inject fakes here instead.
  * @returns The adapter handle.
  */
-export function createConsoleClient(config: ConsoleClientConfig, deps?: ConsoleClientDeps): ConsoleClient {
+export function createConsoleClient(config: ConsoleClientConfigWithRole, deps?: ConsoleClientDeps): ConsoleClient {
     const factory =
         deps?.matchClientFactory ??
         ((opts: { readonly autoReconnect?: boolean; readonly verboseLogging?: boolean }) => createWsMatchClient(opts));
@@ -146,17 +168,25 @@ export function createConsoleClient(config: ConsoleClientConfig, deps?: ConsoleC
 class ConsoleClientImpl implements ConsoleClient {
     private readonly client: MatchClientLike;
 
-    private readonly config: ConsoleClientConfig;
+    private readonly config: ConsoleClientConfigWithRole;
 
     private readonly logger: ConsoleLoggerLike | undefined;
+
+    /**
+     * Resolved join role (feature 010 T-016): `'player'` unless the
+     * config explicitly requested `'spectator'`. Gates BOTH the wire
+     * join role and local order submission.
+     */
+    private readonly role: 'player' | 'spectator';
 
     /** Wire seq → console ActionId correlation for order acks (T031 ctx). */
     readonly seqToActionId = new Map<SequenceNumber, ActionId>();
 
-    constructor(config: ConsoleClientConfig, client: MatchClientLike, logger?: ConsoleLoggerLike) {
+    constructor(config: ConsoleClientConfigWithRole, client: MatchClientLike, logger?: ConsoleLoggerLike) {
         this.config = config;
         this.client = client;
         this.logger = logger;
+        this.role = config.role ?? 'player';
     }
 
     /** Open the WebSocket and complete the hello handshake. */
@@ -182,7 +212,7 @@ class ConsoleClientImpl implements ConsoleClient {
             this.config.reconnectToken === undefined ? {} : { reconnectToken: this.config.reconnectToken };
         return this.client.joinMatch({
             matchId: this.config.matchId,
-            role: 'player',
+            role: this.role,
             ...reconnectToken,
             displayName: this.config.displayName,
         });
@@ -194,8 +224,17 @@ class ConsoleClientImpl implements ConsoleClient {
      * `actionId`: the key is the inner client's TRUE wire seq when it
      * reports one ({@link MatchClientLike.lastOrderSeq}), else the
      * adapter's own fallback counter.
+     *
+     * Spectator legs (feature 010 T-016) reject BEFORE any wire I/O:
+     * read-only is enforced at every layer, so even a miswired host
+     * cannot push an order through a spectator connection (SC-005).
      */
     sendOrder(actionId: ActionId, order: Order): Promise<void> {
+        if (this.role === 'spectator') {
+            return Promise.reject(
+                new Error('ConsoleClient.sendOrder: spectator connections are read-only; orders are not accepted.'),
+            );
+        }
         const sent = this.client.sendOrder(order);
         const reported = this.client.lastOrderSeq?.() ?? null;
         if (reported !== null) {

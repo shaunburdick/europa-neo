@@ -2,7 +2,8 @@
  * Envelope Schema Validation — Feature 004
  *
  * The runtime schema guard for every inbound frame (FR-003: the wire
- * carries exactly the twelve declared message kinds; FR-004: every
+ * carries exactly the declared message kinds — the twelve gameplay
+ * kinds plus feature 010's additive lobby family; FR-004: every
  * envelope carries a schema `version` and major-version mismatch is
  * rejected gracefully).
  *
@@ -39,6 +40,17 @@ const MESSAGE_KINDS: ReadonlySet<string> = new Set<string>([
     'joinMatch',
     'order',
     'ping',
+    // Feature 010 lobby family (additive; see contracts/network-types.ts).
+    // Schema admission and dispatcher ROUTING are both live: schema-valid
+    // lobby frames are rate-gated and routed to the injected lobby facade
+    // (server.ts), never answered by the polite default arm.
+    'lobbyIdentity',
+    'lobbySetHandle',
+    'lobbySubscribe',
+    'lobbyCreate',
+    'lobbyJoin',
+    'lobbySpectate',
+    'lobbyLeave',
     'helloAck',
     'joinAck',
     'snapshot',
@@ -47,6 +59,7 @@ const MESSAGE_KINDS: ReadonlySet<string> = new Set<string>([
     'terminal',
     'pong',
     'error',
+    'lobbyEvent',
 ]);
 
 /** Type guard narrowing a string to the closed `MessageKind` union. */
@@ -63,7 +76,7 @@ function isMessageKind(value: string): value is MessageKind {
  * "corrupt frame".
  *
  * @param value Any string.
- * @returns `true` iff `value` is one of the twelve declared kinds.
+ * @returns `true` iff `value` is one of the declared protocol kinds.
  */
 export function isKnownMessageKind(value: string): boolean {
     return MESSAGE_KINDS.has(value);
@@ -89,7 +102,8 @@ function field(key: string, kind: FieldKind): FieldSpec {
 /**
  * Required fields per message kind, transcribed from the payload
  * interfaces in `contracts/network-types.ts`. Optional fields
- * (`reconnectToken`, `requestedSeat`, `clientInfo`, `detail`) are
+ * (`reconnectToken`, `requestedSeat`, `clientInfo`, `detail`,
+ * `LobbyIdentityPayload.claim`, `LobbyCreatePayload.settings`) are
  * intentionally absent — their absence never invalidates a frame.
  */
 const PAYLOAD_FIELDS: Readonly<Record<MessageKind, readonly FieldSpec[]>> = {
@@ -98,6 +112,14 @@ const PAYLOAD_FIELDS: Readonly<Record<MessageKind, readonly FieldSpec[]>> = {
     joinMatch: [field('matchId', 'string'), field('role', 'string'), field('displayName', 'string')],
     order: [field('order', 'object')],
     ping: [field('clientTimeMs', 'number')],
+    // Feature 010 lobby family (additive; contract is the source of truth).
+    lobbyIdentity: [],
+    lobbySetHandle: [field('handle', 'string'), field('actionId', 'number')],
+    lobbySubscribe: [field('actionId', 'number')],
+    lobbyCreate: [field('actionId', 'number')],
+    lobbyJoin: [field('actionId', 'number'), field('matchId', 'string')],
+    lobbySpectate: [field('actionId', 'number'), field('matchId', 'string')],
+    lobbyLeave: [field('actionId', 'number')],
     // Server → Client
     helloAck: [
         field('protocolVersion', 'string'),
@@ -119,6 +141,7 @@ const PAYLOAD_FIELDS: Readonly<Record<MessageKind, readonly FieldSpec[]>> = {
     terminal: [field('result', 'object')],
     pong: [field('clientTimeMs', 'number'), field('serverTimeMs', 'number')],
     error: [field('code', 'string'), field('message', 'string')],
+    lobbyEvent: [field('event', 'object')],
 };
 
 // ----------------------------------------------------------------------------
@@ -157,7 +180,7 @@ function malformed(problem: string, detail?: Record<string, string>): NetworkErr
  *
  * Checks performed:
  *   - `value` is a plain object
- *   - `type` is one of the twelve declared `MessageKind`s
+ *   - `type` is one of the declared `MessageKind`s
  *   - `version` is a non-empty string (semantic comparison against
  *     `NETWORK_API_VERSION` is `validateVersion`'s job)
  *   - `seq` is a positive integer within the uint32 range (replay

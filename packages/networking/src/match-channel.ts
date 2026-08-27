@@ -13,7 +13,7 @@
  * and drains orders.
  */
 
-import type { MatchConfig } from '@europa/engine';
+import type { MatchConfig, Player } from '@europa/engine';
 import type { Connection } from './connection';
 import { NETWORK_TRANSPORT_CONSTANTS } from './constants';
 import type { EngineSession } from './contracts/network-api';
@@ -66,6 +66,14 @@ export interface MatchChannelInit {
     readonly matchId: MatchId;
     readonly engineSession: EngineSession;
     readonly matchConfig: MatchConfig;
+    /**
+     * Optional per-seat display names (index = PlayerId - 1) from the
+     * registration request (feature 010 FR-020/SC-008). Absent for
+     * legacy feature-006 registrations → stored empty, and
+     * {@link MatchChannel.joinAckPlayers} passes the engine roster
+     * through verbatim.
+     */
+    readonly displayNames?: ReadonlyArray<string>;
 }
 
 // ----------------------------------------------------------------------------
@@ -84,6 +92,15 @@ export class MatchChannel {
     readonly engineSession: EngineSession;
     /** Frozen config snapshot (tick-rate check + telemetry). */
     readonly matchConfig: MatchConfig;
+    /**
+     * Registration-time seat-label snapshot (feature 010 FR-020/SC-008),
+     * indexed by PlayerId - 1. Empty for legacy registrations. Held as a
+     * channel-level snapshot — NOT written into the engine world — so
+     * engine state stays byte-deterministic under its ASCII-only
+     * serialize convention while arbitrary (Unicode) handles still reach
+     * the wire roster.
+     */
+    readonly displayNames: ReadonlyArray<string>;
 
     /** Seat bindings by player id. */
     readonly seats = new Map<PlayerId, SeatBinding>();
@@ -108,11 +125,41 @@ export class MatchChannel {
         this.matchId = init.matchId;
         this.engineSession = init.engineSession;
         this.matchConfig = init.matchConfig;
+        this.displayNames = init.displayNames ?? [];
     }
 
     // ---------------------------------------------------------------------------
     // Seats (FR-007)
     // ---------------------------------------------------------------------------
+
+    /**
+     * The player roster a `joinAck` carries (feature 010 FR-020/SC-008):
+     * the engine world's players with the registration-time display-name
+     * snapshot overlaid per seat. Pure projection — the engine world is
+     * never mutated (its `displayName`s stay the ASCII-by-convention
+     * placeholders pinned by determinism fixtures), and each overlaid
+     * entry is a shallow copy so wire encoding can never alias engine
+     * state.
+     *
+     * Overlay rule: seat `i` (PlayerId - 1) takes {@link MatchChannel.displayNames}[i]
+     * when present; indices beyond either array's end keep the engine's
+     * own value. Legacy channels (no names registered) return the engine
+     * roster verbatim — byte-for-byte the pre-feature-010 behavior.
+     *
+     * @returns The roster for `JoinAckPayload.players`.
+     */
+    joinAckPlayers(): ReadonlyArray<Player> {
+        const worldPlayers = this.engineSession.world().players;
+        if (this.displayNames.length === 0) {
+            return worldPlayers;
+        }
+        return worldPlayers.map((player, index) => {
+            const name = this.displayNames[index];
+            // exactOptionalPropertyTypes: pass the engine entry through
+            // rather than build a copy with an explicit undefined name.
+            return name === undefined ? player : { ...player, displayName: name };
+        });
+    }
 
     /**
      * Bind a seat to a session token. Idempotent on the same

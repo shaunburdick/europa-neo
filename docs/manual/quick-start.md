@@ -1,34 +1,28 @@
 # Quick start
 
-Europa Neo has no lobby screen. Matches are reached through **join links** — this page walks you from clicking a link to issuing your first orders.
+Europa Neo opens at the **public lobby**. This page walks you from choosing a handle to issuing your first orders. See [The public lobby](./lobby.md) for the complete browser guide.
 
-## Step 1: Open your join link
+## Step 1: Choose a handle
 
-A join link looks like this:
+In **Your name**, enter a display name and choose **Set name**. Use 1–24 Unicode characters after trimming, with at least one non-whitespace character. Do not use control characters, invisible direction markers, or malformed Unicode; well-formed emoji counts as one character. If the name is already in use, choose another; comparison ignores case and surrounding whitespace.
 
-```
-http://HOST:5173/?live&ws=ws%3A%2F%2FHOST%3A8080&match=MATCH-ID&name=YOUR-NAME&token=SEAT-TOKEN
-```
+You can rename yourself later with **Change name** and **Update name**. Your accepted handle is the name shown in the lobby, waiting room, and match participant labels.
 
-Whoever starts the match (for example, a friend running the game's local host command) sends you one link per player. Each link contains:
+## Step 2: Create or find a match
 
-| Part | Meaning |
-| --- | --- |
-| `?live` | Tells the console to connect to a real match server |
-| `ws=` | The match server's address (encoded) |
-| `match=` | The match id — which match you are joining |
-| `name=` | Your display name, shown to the other player |
-| `token=` | Optional. Your personal seat token |
+- To host, choose **Players**, **Board size**, and **Cities per player** in **Create a match**, then choose **Create match**.
+- To play in someone else's waiting game, choose **Join**.
+- To watch a running game, choose **Spectate**. Spectating is full-visibility and read-only: it has no seat and cannot send player orders.
 
-The seat token matters: it identifies *you* as the owner of your seat. Keep your own link to yourself — anyone with it can reclaim your seat.
+The lobby list shows loading and empty states explicitly. It updates as games fill, start, and finish. A match that disappears before your action is accepted produces a recoverable message and a refreshed list.
 
-## Step 2: Get seated
+## Step 3: Wait for the game to start
 
-Open the link in a desktop browser. The console connects, shakes hands with the match server, and claims your seat. You will see the status chip move from `connecting` to `live` (see [Reading the screen](./reading-the-screen.md)).
+After creating or joining, you may see **Waiting for opponent to join…** with your handle and the seat count. The game starts automatically when all required seats are filled. You do not need to refresh or press Start. On the first tick, the waiting view changes to the board.
 
-If the match still needs another player, you will see a **"Waiting for opponent to join…"** overlay with a spinner instead of a ticking board. This is normal: the match starts automatically once both seats are filled, and the overlay hides itself at the first tick — you do not need to click anything or refresh.
+If you return to the lobby, your active match is marked **Your match** and cannot be claimed again by the same guest session.
 
-## Step 3: Play
+## Step 4: Play
 
 Once ticks start flowing (the HUD shows a running tick counter), you are commanding. Safe first things to try:
 
@@ -42,15 +36,17 @@ When you are ready for offense, read [Special weapons](./special-weapons.md) for
 
 Life happens: tabs get refreshed, laptops sleep, Wi-Fi drops.
 
-- **Refresh or reopen your own join link within 60 seconds** and your seat is reclaimed automatically — the match continues as if you never left.
-- **Stay away longer than 60 seconds** and your seat expires: you forfeit the match and the console reports `expired`. Rejoining requires a fresh link or a new match.
+- **Refresh within 60 seconds** and the existing guest session can reclaim the same seat and accepted handle — the match continues as if you never left.
+- **Stay away longer than 60 seconds** and your seat expires: you forfeit the match. Choose another lobby match or create a new one.
 - If the connection drops mid-match but you stay put, the console shows a **"Reconnecting to match…"** banner and tries to restore your session on its own — keep the tab open.
 
 The 60-second grace window is measured from the moment your connection dropped.
 
 ## Unstarted matches do not wait forever
 
-A match that never fills its second seat is cleaned up by the host after about five minutes. If your waiting overlay never goes away, ask whoever created the match for a fresh link.
+A waiting match that never fills is eventually cleaned up by the host after about five minutes. If the waiting overlay never goes away, return to the lobby and choose another match or create a new one.
+
+If the server restarts, its in-memory lobby and guest sessions reset. Reload, choose a handle again, and create or join a new match.
 
 ---
 

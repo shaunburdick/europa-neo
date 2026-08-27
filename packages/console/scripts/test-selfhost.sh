@@ -6,9 +6,12 @@
 # require internet access at runtime, and enforces the Q-P03
 # gzipped-bundle budget (SC-003: initial bundle < 150 KB gzipped).
 #
-# Allowed URL occurrences (filtered by line context):
+# Allowed URL occurrences (judged per extracted URL token):
+#   - Bare `http://` / `https://` schemes — no host, never a fetch
+#     target. These are the scheme-detection/translation literals the
+#     lobby emits to UPGRADE caller-supplied URLs to ws/wss (feature
+#     010 T-015); they are strings about schemes, not remote references.
 #   - XML/SVG namespace URIs (www.w3.org) — identifiers, never fetched.
-#   - License header comment lines (@license / /*! banners / copyright).
 #   - React's minified error-message URLs (react.dev/errors/…) — prose
 #     embedded in thrown Error strings, not a resource fetch.
 #
@@ -29,15 +32,38 @@ echo "[test-selfhost] building console..."
 pnpm build
 
 echo "[test-selfhost] scanning dist/ for remote URLs..."
-violations="$(grep -REn 'https?://' dist --include='*.js' --include='*.css' \
-  | grep -v 'www\.w3\.org' \
-  | grep -vE 'react\.dev/errors|reactjs\.org/docs/error-decoder' \
-  | grep -viE '@license|/\*!|copyright' \
-  || true)"
+# Judge individual URL TOKENS, not source lines: minified bundles pack an
+# entire chunk onto one physical line, so line-level filtering would
+# silently forgive co-located violations (and over-report benign ones).
+# The token pattern runs from the scheme through URL-safe characters
+# only — string and template delimiters terminate a token, so the
+# scheme-translation literals extract as the bare schemes allowlisted
+# below instead of dragging surrounding code into the verdict.
+url_tokens="$(grep -REoh 'https?://[A-Za-z0-9._~:/?#@!$&*+,;=%-]+' dist --include='*.js' --include='*.css' | sort -u || true)"
+
+violations=""
+for url in ${url_tokens}; do
+  case "${url}" in
+    # Bare schemes carry no host (scheme detection/translation literals).
+    http:// | https://) ;;
+    # XML/SVG namespace identifiers — never fetched.
+    *www.w3.org*) ;;
+    # React error-decoder prose inside thrown Error strings.
+    *react.dev/errors* | *reactjs.org/docs/error-decoder*) ;;
+    *)
+      violations="${violations}${url}
+"
+      ;;
+  esac
+done
 
 if [ -n "${violations}" ]; then
   echo "[test-selfhost] FAIL: remote URLs found in built output:"
-  echo "${violations}"
+  while IFS= read -r url; do
+    [ -n "${url}" ] || continue
+    # Re-locate each offending token for file:line context.
+    grep -rnF -- "${url}" dist --include='*.js' --include='*.css' || true
+  done <<<"${violations}"
   exit 1
 fi
 

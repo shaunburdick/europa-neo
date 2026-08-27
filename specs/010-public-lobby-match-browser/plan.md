@@ -1,7 +1,7 @@
 # Implementation Plan: Public Lobby & Match Browser
 
 **Branch**: `010-public-lobby-match-browser`  
-**Spec**: [spec.md](./spec.md) (approved v1.2)  
+**Spec**: [spec.md](./spec.md) (approved v1.6)
 **Dependencies**: 004 networking, 005 console, 006 matchmaking
 
 ## Summary
@@ -22,7 +22,8 @@ and retain an explicit create action rather than preparing a match.
 - No new runtime dependency, database, account system, timer-driven simulation,
   or cloud service.
 - Lobby state is process memory. Browser `localStorage` contains only the
-  opaque identity handle needed to resume a guest session; it is not auth.
+  opaque identity claim and selected handle needed to resume a guest session;
+  it is not auth.
 - Existing 2-player end-to-end behavior remains the shipped path. API settings
   retain the existing 2–4 player contract.
 

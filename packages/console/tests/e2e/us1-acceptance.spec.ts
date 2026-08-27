@@ -8,6 +8,12 @@
  * the canvas is visible, zero console errors, and the first paint
  * shows exactly the demo view's visible cells (pixel sampling).
  * A screenshot is captured for the review record.
+ *
+ * Feature 010 note: the bare `/` route is now the PUBLIC LOBBY
+ * landing (FR-001/FR-017), so this spec targets `/?e2e` — the demo
+ * runtime that provides exactly the deterministic stub board this
+ * acceptance measures. The lobby's own E2E coverage lands with its
+ * feature's tasks.
  */
 
 import { expect, test } from '@playwright/test';
@@ -37,13 +43,15 @@ test('US1 MVP boots standalone and paints the demo board', async ({ page }) => {
 
     // Warm-up navigation: Vite transforms modules on first request;
     // the < 1 s budget applies to a steady-state load (Q-C01).
-    await page.goto('/');
+    await page.goto('/?e2e');
     await expect(page.locator('[role="grid"]')).toBeVisible();
 
-    // Measured load.
+    // Measured load. The board canvas is targeted specifically — the
+    // demo runtime attaches a store, so the HUD minimap's own <canvas>
+    // is present too (strict-mode would flag a bare 'canvas' locator).
     const startedAt = Date.now();
     await page.reload();
-    await expect(page.locator('canvas')).toBeVisible();
+    await expect(page.locator('canvas.europa-canvas')).toBeVisible();
     const elapsedMs = Date.now() - startedAt;
     expect(elapsedMs).toBeLessThan(1000);
 

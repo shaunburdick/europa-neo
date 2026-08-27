@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Last Updated**: 2026-08-21 (v1.1 — clarified visibility types and shareable join links)
+**Last Updated**: 2026-08-25 (Implementation Notes: `leaveMatch` implemented + feature-010 composition seams, remediation R-005)
 
 **Version**: 1.1
 
@@ -203,3 +203,58 @@ Contracts were updated in the same change set wherever behavior changed.
 - **Filling-forfeit inline release (US5)**: forfeiting a seat on a
   `filling` match performs the minimal inline release (seat removed +
   session unbound + detach), not full `leaveMatch` semantics.
+- **`leaveMatch` implemented (US3 AC-3, feature-010 remediation R-005,
+  2026-08-25)**: the throwing stub is replaced by the real body, with
+  this phase table (the contract's method doc already specified the
+  filling/running semantics; the rulings below cover what it left
+  open):
+  - *filling*: the seat is released via the SAME inline-release
+    machinery as the filling-forfeit path above (seat removed,
+    session's match binding cleared — its identity association fields
+    persist — networking detach). The match stays `'filling'` and
+    fillable; `lastActivityAtMs` is refreshed (a leave is activity).
+    Releasing the FINAL seat collects the match immediately (the
+    contract's "no other seated players → collected" clause) instead
+    of waiting out the empty-match TTL, and deletes the just-unbound
+    leaver session per the GC sweeps' SC-005 no-leak discipline.
+  - *running*: a voluntary leave is an immediate forfeit with no grace
+    window, delegated to the same forfeit policy as grace expiry
+    (engine surrender per FR-016, forfeit stamp, detach, all-forfeited
+    teardown). Counter discipline: `totalForfeits` remains US5
+    disconnect-forfeit telemetry and is NOT bumped for voluntary
+    leaves; a teardown still counts in `totalCollected`.
+  - *finished / collected*: acknowledged no-op success — nothing live
+    to release; the results-TTL / rematch policy owns the record's
+    remaining lifetime.
+  - Credentials: unknown id → `match_not_found` (unchanged single code
+    path); token matching no seat → `session_invalid`; an
+    already-forfeited (stamped) seat → idempotent `{ ok: true }`. A
+    RELEASED filling seat was removed rather than stamped, so its
+    stale token yields `session_invalid` on a repeat leave.
+- **Feature-010 composition seams (remediation R-005, 2026-08-25)**:
+  three additive surfaces live on the REAL matchmaker object, discovered
+  STRUCTURALLY by consumers (same pattern as servers' optional
+  `bindMatchmaker`; deliberately not part of the `Matchmaker`
+  interface so legacy consumers and fakes stay untouched):
+  `registerLifecycleListener(listener)` fans every networking bridge
+  trigger the matchmaker processes out to registered listeners AFTER
+  its own policy resolves, in registration order, without event
+  synthesis for internally decided actions such as voluntary leaves
+  (their consequences travel on the status bus);
+  `subscribeStatus(listener)` exposes the FR-012 status bus;
+  `getMatch(matchId)` exposes the authoritative store lookup. The
+  runtime listener mirrors `tests/fixtures/fakeMatchmakerBridge.ts`.
+- **Identity pass-through on create/join (feature-010 FR-019 via R-005,
+  2026-08-25)**: `CreateMatchRequest`/`JoinMatchRequest` gain OPTIONAL
+  `guestPlayerId` (structurally the lobby's branded opaque id) and
+  `acceptedHandle` fields. They are supplied ONLY by the server-side
+  lobby facade from the identity registry — never by clients — and
+  flow into the player session and seat snapshot records; omitted
+  fields store `null` (fully backward compatible). The public
+  `SeatAssignment` payload is unchanged (privacy envelope FR-003/FR-024).
+- **Settings-rejection detail (US3 AC-4 via R-005, 2026-08-25)**:
+  invalid `createMatch` settings fail with `invalid_request` carrying
+  a credential-free `detail` of `{ field, reason }` (e.g.,
+  `settings.playerCount` / "must be 2, 3, or 4") so downstream
+  consumers can render field-specific feedback; finite out-of-range
+  board sizes remain CLAMPED, not rejected.

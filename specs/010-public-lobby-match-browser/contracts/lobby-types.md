@@ -16,6 +16,14 @@ export interface GuestIdentityClaim {
 export interface IdentityState {
     readonly handle: string | null;
     readonly hasIdentity: true;
+    /**
+     * Opaque id of the identity this state describes. Present ONLY on
+     * the directed `identity` event to its OWNING connection (spec
+     * Clarifications v1.6 — the FR-003 delivery channel); absent from
+     * every listing/snapshot/target/UI/URL/log (NFR-003). Clients MUST
+     * tolerate its absence.
+     */
+    readonly guestPlayerId?: GuestPlayerId;
 }
 export interface PublicLobbyEntry {
     readonly matchId: MatchId;
@@ -46,8 +54,20 @@ export type LobbyEvent =
     | { readonly kind: 'identity'; readonly identity: IdentityState }
     | { readonly kind: 'snapshot'; readonly snapshot: LobbySnapshot }
     | { readonly kind: 'actionAccepted'; readonly actionId: LobbyActionId; readonly transition: 'waiting' | 'match' }
-    | { readonly kind: 'error'; readonly actionId?: LobbyActionId; readonly code: LobbyErrorCode; readonly message: string };
+    | {
+          readonly kind: 'error';
+          readonly actionId?: LobbyActionId;
+          readonly code: LobbyErrorCode;
+          readonly message: string;
+          // Optional machine-readable detail (field name → message/value)
+          // mirroring matchmaking's `LobbyError.detail` (spec Clarifications
+          // v1.3); clients MUST tolerate its absence.
+          readonly detail?: Readonly<Record<string, string | number | boolean>>;
+      };
 ```
 
-`MatchId` is imported from networking/matchmaking. No shape in this document
-contains a guest ID in a public projection; the claim is input only.
+`MatchId` is imported from networking/matchmaking. No PUBLIC PROJECTION in this
+document contains a guest ID: entries, snapshots, and action targets are
+strictly id-free, and the claim is input only. The one sanctioned appearance of
+the opaque id is `IdentityState.guestPlayerId`, delivered only by the directed
+`identity` event to its owning connection (spec Clarifications v1.6).

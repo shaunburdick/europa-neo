@@ -65,10 +65,10 @@ await europa.mount(document.getElementById('root')!);
 await europa.unmount();
 ```
 
-Programmatic surface (all on the returned handle): `subscribe`,
-`getState`, `dispatch`, `sendOrder`, `getSessionToken`, `getPlayerId`,
-`getConnectionStatus`, `requestSurrender`, `setQolSettings`,
-`setCamera`. The full type surface lives in `dist/index.d.ts`; the
+Programmatic surface (all on the returned handle): `subscribe`, `getState`,
+`dispatch`, `sendOrder`, `getConnectionStatus`, `requestSurrender`,
+`setQolSettings`, and `setCamera`. The full type surface lives in
+`dist/index.d.ts`; the
 source-of-truth contracts are `specs/005-client-console/
 contracts/` (mirrored byte-identically under `contracts/`).
 
@@ -93,46 +93,59 @@ createConsole(config, {
 ```
 
 Tests use the same seam with `FakeMatchClient` (`src/internal/`). v1
-limitation: there is no automatic reconnection loop — a transport loss
-surfaces as the `reconnecting` status; present `reconnectToken` to
-reclaim a seat.
+limitation: there is no automatic reconnection loop for the embeddable match
+client — a transport loss surfaces as the `reconnecting` status. The host or
+integrator must reconnect with the credential supplied for that seat to reclaim
+it within the grace window.
 
-### Run a local match (`pnpm host`)
+### Run the local lobby (`pnpm host`)
 
-One command boots the whole stack — matchmaker + match server on
-`:8080`, the built console served from `dist/` on `:5173` — creates a
-public 2-player match, and prints two clickable join URLs:
+One command boots the whole stack — matchmaker + match server on `:8080` and
+the built console served from `dist/` on `:5173` — with an empty public lobby:
 
 ```bash
 pnpm build                        # once; host serves dist/
 pnpm --filter @europa/console host
 ```
 
-```text
-Europa Neo — local match host
-─────────────────────────────
-
-  Match server : ws://localhost:8080
-  Console UI   : http://localhost:5173
-  Match id     : e787e339-e9ea-4fd9-821b-451a2d19ba0d
-
-  Open in two browser tabs:
-
-  Player 1 → http://localhost:5173/?live&ws=ws://localhost:8080&match=e787e339-…&name=P1&token=abd16a59-…
-  Player 2 → http://localhost:5173/?live&ws=ws://localhost:8080&match=e787e339-…&name=P2&token=5ac960be-…
-
-  Ctrl-C to stop.
-```
-
-Open the two URLs in two tabs and play. Each URL carries its seat's
-session token so an accidental refresh reclaims the same seat within
-the reconnect grace window. Port overrides: `--port N` /
+Open `http://localhost:5173/`, choose a handle, and create or browse a public
+game. **Join** is available only for open waiting matches; **Spectate** is
+available only for running matches and is full-visibility but read-only. Port
+overrides: `--port N` /
 `--static-port N` (or `HOST_PORT` / `HOST_STATIC_PORT`). The default bind is
 loopback-safe (`127.0.0.1`). For LAN play, use `--bind-host 0.0.0.0
 --public-host 192.168.1.20` or `HOST_BIND_HOST` / `HOST_PUBLIC_HOST`; a
 wildcard bind requires an explicit public host so printed links are reachable.
 The script is dependency-free glue over node:* builtins; it mirrors the host-wiring
 recipe exercised by `tests/e2e/full-stack.spec.ts`.
+
+Pass `--create` for the explicit quick-test mode: it creates and fills a public
+two-player match. The default mode never pre-creates a match.
+
+Guest identities and accepted handles are ephemeral, in-memory state. Handles
+are validated to 1–24 Unicode code points after trimming, at least one
+non-whitespace character, no control characters, no bidirectional formatting
+controls, and no unpaired surrogates; uniqueness is case-insensitive on the
+trimmed value and well-formed emoji counts as one code point. A reload
+can restore the browser's active identity during the reconnect grace window;
+clearing browser storage or restarting the server cannot. The server resolves
+the identity, handle, seat, order authority, and view, overlaying accepted
+handles at the networking boundary without mutating engine simulation state.
+A reconnect within the grace window restores that association; an invalid or
+mismatched reconnect credential cannot claim it. Player views stay
+fog-filtered, while spectators have no seat and cannot issue orders. The lobby
+distinguishes an initial loading state from a successfully loaded empty state
+and shows distinct empty guidance. The opaque guest identifier is delivered
+only in the directed identity event to its owner; public listings, other
+connections, URLs, views, and logs remain free of it. Host diagnostics never
+log bearer credentials or opaque identity identifiers.
+
+The lobby normally connects to the WebSocket service on the same host as the
+page. `?ws=` is retained for non-default ports and tests, but the client rejects
+cross-host URLs and URLs containing credentials. The direct
+`?live&ws=&match=&name=` route remains a development/test compatibility path,
+not the normal self-host entry point. `/version` is served from the static
+console origin and can be queried without credentials.
 
 ### Full-stack proof
 
@@ -220,13 +233,15 @@ Zero external service dependencies (constitution Principle VII):
 no CDN assets, no analytics, no remote fonts. `pnpm test:selfhost`
 builds for production, fails on any `http(s)` URL in the browser
 payload (SVG namespaces and React error-message prose excepted), and
-enforces the gzipped-bundle budget. Serve `dist/` behind any static
-file server plus a feature 004 match server.
+enforces the gzipped-bundle budget. For a complete self-hosted lobby,
+use `pnpm host`, which serves `dist/`, the lobby, and the feature 004
+match server in one process.
 
 The bundled `pnpm host` is intended for localhost/LAN use only. Direct
 internet exposure is not supported yet: public deployment needs a
-TLS-terminating reverse proxy, rate limiting, and origin controls. Origin,
-admission, and token redesign remain Option 2 follow-ups.
+TLS-terminating reverse proxy, rate limiting, and origin controls. The
+static console origin also provides unauthenticated `GET /version` for
+operator diagnostics.
 
 ## Conformance
 
