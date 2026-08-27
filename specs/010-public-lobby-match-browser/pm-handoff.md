@@ -1,8 +1,8 @@
 # PM Handoff: Public Lobby & Match Browser (Issue #16 / Feature 010)
 
-**Date**: 2026-08-25
+**Date**: 2026-08-26
 **Branch**: `issue-16-public-lobby` (worktree, based on current `main`)
-**Status**: Phase 6 starting — phases 1–5 complete and approved
+**Status**: Phase 6 complete — all waves implemented, reviewed, and verified; PR ready
 
 ## Feature summary
 
@@ -15,14 +15,15 @@ chat/ratings/history. Private matches explicitly deferred.
 
 ## Artifact paths (all exist, verified)
 
-- Spec (v1.2, approved): `specs/010-public-lobby-match-browser/spec.md`
-- Plan (approved): `specs/010-public-lobby-match-browser/plan.md`
+- Spec (v1.6, Implemented): `specs/010-public-lobby-match-browser/spec.md`
+- Plan (approved v1.6): `specs/010-public-lobby-match-browser/plan.md`
 - Research: `specs/010-public-lobby-match-browser/research.md`
 - Data model: `specs/010-public-lobby-match-browser/data-model.md`
 - Contracts: `specs/010-public-lobby-match-browser/contracts/`
 - Tasks (25, T-001→T-025): `specs/010-public-lobby-match-browser/tasks.md`
 - Quickstart: `specs/010-public-lobby-match-browser/quickstart.md`
 - Orchestration log: `specs/010-public-lobby-match-browser/orchestration.md`
+- Privacy validator: `specs/010-public-lobby-match-browser/check-documentation-privacy.mjs`
 
 ## Key architecture decisions (from plan.md)
 
@@ -56,3 +57,12 @@ chat/ratings/history. Private matches explicitly deferred.
 - Tests are excluded from every package tsconfig by design; CI compensates
   with dedicated strict programs. Do not "fix" casually.
 - Terrain placement requires default 32 board for generated matches.
+
+## Final verification results (2026-08-26)
+
+- **Tests**: matchmaking 375 · networking 281 · console 468 (unit) + 63 (component) + 28 (a11y) · lobby-integration 9/9 · E2E 15/15 · keepalive 2/2
+- **Gates**: typecheck ✅ · lint ✅ · format ✅ · version:check ✅ · build ✅ · coverage ≥80% all metrics ✅ · privacy validator ✅
+- **Bundle**: 94,316 bytes gzipped < 150KB budget ✅
+- **Self-host**: test-selfhost.sh PASS (no remote URLs, bundle within budget) ✅
+- **Spec status**: Implemented (2026-08-26) ✅
+- **Tasks**: T-001..T-024 checked, T-025 complete (this review)
