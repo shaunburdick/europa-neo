@@ -2,8 +2,8 @@
 
 Europa Neo match lifecycle & matchmaking — the ephemeral-session layer
 that turns "who is playing whom" into a running simulation. It owns
-player sessions, public/private match creation with atomic seat
-assignment, the synchronous lobby projection, shareable join links,
+player sessions, public-match creation with atomic seat assignment, and
+the synchronous lobby projection,
 the engine auto-start path (board generation → engine session →
 networking registration), the rematch handshake for finished matches,
 and the disconnect-forfeit policy. It consumes `@europa/engine`,
@@ -125,13 +125,36 @@ drift caught by `tests/conformance.test.ts`.
 | Symbol | Purpose |
 |--------|---------|
 | `createMatchmaker(config, deps)` | Construct the `Matchmaker`. No timers start — GC sweeps are lazy on read paths. |
-| `matchmaker.createMatch(req)` | Create a public/private match; creator seated at index 0 (FR-002/FR-004). |
+| `matchmaker.createMatch(req)` | Create a public match; creator seated at index 0 (FR-002/FR-004). |
 | `matchmaker.joinMatch(req)` | New join or reconnect; last fill atomically auto-starts the match (FR-007). |
-| `matchmaker.leaveMatch(req)` | Uniform `match_not_found` gate today; full release semantics land with the host wave. |
-| `matchmaker.listPublicMatches()` | Synchronous lobby projection — public + filling only (FR-005). |
+| `matchmaker.leaveMatch(req)` | Release a pre-start seat and apply the existing lifecycle cleanup policy. |
+| `matchmaker.listPublicMatches()` | Synchronous lobby projection — public waiting entries only (FR-005). |
 | `matchmaker.requestRematch(req)` / `acceptRematch(req)` / `declineRematch(req)` | US4 rematch window anchored at finish time (FR-009). |
 | `matchmaker.stats()` | Cheap `MatchmakerStats` snapshot for `/health`, metrics, soak tests. |
-| `matchmaker.close()` | Graceful shutdown; clears all in-memory state; instance unusable after. |
+| `matchmaker.close()` | Graceful shutdown; clears all in-memory identities, handles, sessions, and matches; instance unusable after. |
+
+### Public lobby identity contract
+
+Feature 010 adds an in-memory lobby facade around this lifecycle. A visitor
+receives an ephemeral `GuestPlayerIdentity` and selects a handle; the handle is
+the only participant identity shown to users. Handles are 1–24 Unicode
+characters after trimming, contain at least one non-whitespace character, and
+contain no control characters. Active handles compare case-insensitively and
+can be renamed without changing the server-owned identity association.
+
+The facade, not the browser, resolves identity, handle, seat, and role. Create
+reserves the creator's seat; join atomically claims at most one open seat;
+spectate attaches a read-only full-visibility spectator with no seat. Accepted
+orders are attributed to the server-resolved seat, and player views are built
+from that association. Reconnect within the configured grace period restores
+the same association; invalid, expired, or mismatched credentials cannot
+reassign a seat or view.
+
+All lobby identity, handle, session, and match state is process memory. Browser
+storage is only a resume aid, not an account or durable record. Clearing it or
+restarting the server begins a fresh lobby. Public projections contain only
+discovery data; diagnostics and public API examples must not expose bearer
+credentials or opaque identity identifiers.
 
 ### Runtime building blocks
 

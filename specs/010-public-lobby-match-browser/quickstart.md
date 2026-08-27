@@ -44,6 +44,7 @@ pnpm --filter @europa/networking test -- --coverage
 pnpm --filter @europa/console test -- --coverage
 pnpm --filter @europa/console test:e2e
 pnpm build
+node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
 ```
 
 Acceptance suites must include 10+ simultaneous handle/seat conflicts, 50

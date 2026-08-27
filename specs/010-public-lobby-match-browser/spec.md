@@ -5,7 +5,7 @@
 **Created**: 2026-08-25
 **Last Updated**: 2026-08-26 (v1.6)
 **Version**: 1.6
-**Status**: Draft — phases 1–3 complete
+**Status**: Implemented (2026-08-26)
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -232,3 +232,38 @@ No interactive clarification questions were required. The approved decisions res
 - **PM ruling (2026-08-26, final)**: `IdentityState` gains an ADDITIVE OPTIONAL `guestPlayerId?: GuestPlayerId` in BOTH canonical contract copies (matchmaking's `lobby-types.ts` and networking's wire mirror; no `NETWORK_API_VERSION` bump — same additive ruling pattern as v1.3's `detail`). The directed `identity` `LobbyEvent` becomes THE FR-003 delivery channel: the lobby facade populates the AUTHENTICATED owner's id when projecting identity state for that event (`establishIdentity`, `setHandle`, and every restore path), and the dispatcher forwards it verbatim — directed delivery to exactly ONE connection, the owner's. This mirrors feature-004's sessionToken delivery precedent.
 - **Witness-envelope change**: the compile-time privacy witnesses are re-scoped — `PublicLobbyEntry`, `LobbySnapshot`, and every action target still MUST NOT carry the id (unchanged), while the directed identity state is the ONE sanctioned exception, pinned for optionality + brand on both sides of the mirror (indexed-access witnesses, since plain mutual assignability cannot see a missing optional field). Runtime privacy scans stay truthful: entries, snapshots, action outcomes, and OTHER connections' deliveries remain scanned strictly id-free, and a dedicated pin proves a second connection NEVER receives another identity's guestPlayerId. Public listings/snapshots/targets/UI/URLs/logs remain strictly id-free (NFR-003/FR-024 unchanged).
 - **Client contract**: browsers persist the server-delivered id (replacing any local bootstrap mint — the local mint remains first-frame bootstrap only) so reload-restore works end-to-end; clients MUST tolerate the field's absence (older servers).
+
+## Implementation Notes and Validation
+
+The shipped implementation resolves the following integration details without
+changing the normative requirements or the v1.6 clarifications above:
+
+- `pnpm host` starts in lobby mode with no pre-created match. The explicit
+  `pnpm host --create` mode remains available for the two-seat quick flow.
+- The lobby derives its WebSocket endpoint from the page host. A `?ws=`
+  override is accepted only for the same host (including supported local
+  loopback cases); cross-host and credential-bearing overrides are rejected
+  before identity setup.
+- Accepted handles are overlaid onto match registration and view/player-list
+  payloads at the networking boundary. This preserves the engine's immutable
+  simulation data and does not mutate engine state.
+- Spectators use the existing full-visibility, read-only path: they receive no
+  player seat and cannot issue orders.
+- The lobby distinguishes an initial loading state from a successfully loaded
+  empty state, so an empty match list is not mistaken for a failed request.
+- The server-delivered identity claim is sent only in the directed identity
+  event to its owner. Public projections, other connections, UI labels, URLs,
+  logs, and player/spectator views remain free of opaque identity identifiers;
+  handles are the only participant names shown to users.
+- Identity, handle, lobby, session, and match state is in memory. A server
+  restart resets the lobby and browser resume assumptions; the next visit
+  establishes a fresh guest session.
+
+The durable documentation/privacy check is
+`node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs`.
+It verifies handle/lobby coverage across the README, player manual, package
+documentation, and feature artifacts; rejects opaque identity or credential
+names and credential-bearing examples from player-facing surfaces; and rejects
+credential-bearing example values in the implementation/spec surfaces. It
+fails nonzero and reports each offending file and rule, so adding a forbidden
+identifier or example cannot silently pass review.
