@@ -127,6 +127,17 @@ jobs:
       - name: Conformance (upstream shape drift catch)
         run: pnpm --filter @europa/matchmaking test:conformance
 
+      # Feature 010 lobby contract witnesses (runtime half; type half is
+      # `pnpm typecheck:conformance` over tsconfig.conformance.json).
+      # Follows the console conformance precedent: build the library
+      # first, then run the targeted vitest suite so barrel reads from
+      # `dist/` and a missing/renamed file fails loudly.
+      - name: Build @europa/matchmaking (lobby contract barrel)
+        run: pnpm --filter @europa/matchmaking build
+
+      - name: Lobby conformance (feature 010 contract witnesses)
+        run: pnpm --filter @europa/matchmaking test:lobby-conformance
+
       - name: 'Soak (SC-005: 50 cycles, no leaks)'
         run: pnpm --filter @europa/matchmaking test:soak
 

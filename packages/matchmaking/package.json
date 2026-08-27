@@ -25,6 +25,7 @@
         "test:quickstart": "vitest run tests/quickstart",
         "test:soak": "vitest run tests/soak.test.ts",
         "test:conformance": "vitest run tests/conformance.test.ts",
+        "test:lobby-conformance": "vitest run tests/lobby-conformance.test.ts",
         "test:coverage": "vitest run --coverage",
         "lint": "biome check .",
         "format": "biome format --write .",

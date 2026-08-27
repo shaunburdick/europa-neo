@@ -24,6 +24,7 @@ export default defineConfig({
             'tests/quickstart/**/*.test.ts',
             'tests/conformance.test.ts',
             'tests/soak.test.ts',
+            'tests/lobby-conformance.test.ts',
         ],
         globals: false,
         passWithNoTests: true,

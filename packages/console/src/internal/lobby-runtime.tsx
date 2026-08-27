@@ -46,10 +46,10 @@
  * focus steal; every subsequent swap takes it, WCAG 2.4.3).
  */
 
+import type { PublicLobbyEntry } from '@europa/matchmaking';
 import type { JSX } from 'react';
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { createConsoleClient } from '../net/client';
 import { createWsLobbyClient } from '../net/ws-lobby-client';
@@ -263,7 +263,9 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
         // started — the plate + Leave escape hatch cover the edge.
         const entry =
             matchId !== null
-                ? ((state.snapshot?.entries ?? []).find((candidate) => candidate.matchId === matchId) ?? null)
+                ? ((state.snapshot?.entries ?? []).find(
+                      (candidate: PublicLobbyEntry) => candidate.matchId === matchId,
+                  ) ?? null)
                 : null;
         const matchStarted = entry?.status === 'in_progress';
         return (
