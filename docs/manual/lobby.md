@@ -14,7 +14,7 @@ Handles must:
 
 Well-formed emoji count as one character. Unpaired or malformed Unicode characters are rejected. If the name is invalid, the field shows an explanation; correct it and submit again. A name can also be rejected because another active visitor is already using the same name, ignoring case and surrounding whitespace. Choose a different name in that case.
 
-The accepted spelling and casing are shown to other players. To rename yourself, enter a new value in **Change name** and choose **Update name**. Renaming does not create a second player. A name remains reserved while a temporary connection is within its reconnect grace period.
+The accepted spelling and casing are shown to other players. To rename yourself, enter a new value in **Change name** and choose **Update name**. Renaming does not create a second player. Your updated name takes effect in the lobby list and for future matches; while you are in an ongoing match, other participants continue to see the name that was active when you joined. A name remains reserved while a temporary connection is within its reconnect grace period.
 
 > **Tip:** Handles are temporary guest names, not accounts. Clearing browser storage or restarting the server starts a fresh guest session; it does not recover the old name.
 

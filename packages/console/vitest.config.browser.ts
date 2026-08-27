@@ -33,6 +33,9 @@ export default defineConfig({
         coverage: {
             provider: 'v8',
             include: ['src/**/*'],
+            // src/internal/**: DOM-bound entry points (live-runtime.tsx,
+            // lobby-runtime.tsx) covered by real-socket integration and
+            // E2E suites, not in-browser vitest coverage programs.
             exclude: ['src/main.tsx', 'src/internal/**', '**/*.d.ts'],
             thresholds: {
                 lines: 80,
