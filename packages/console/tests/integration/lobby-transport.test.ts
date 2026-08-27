@@ -391,7 +391,17 @@ class RawSeat {
                 );
             });
             if (delivered !== null) {
-                return delivered;
+                // Guard: the waiter fires with the next raw frame, which
+                // may not match the caller's predicate (e.g. a tick frame
+                // arriving while waiting for an error).  Non-matching
+                // frames are pushed back into the queue so the loop
+                // retries — otherwise they would be silently dropped or,
+                // worse, misdelivered as a false positive.
+                if (matcher === null || matcher(delivered)) {
+                    return delivered;
+                }
+                this.queue.push(delivered);
+                continue;
             }
         }
     }
