@@ -137,24 +137,31 @@ drift caught by `tests/conformance.test.ts`.
 
 Feature 010 adds an in-memory lobby facade around this lifecycle. A visitor
 receives an ephemeral `GuestPlayerIdentity` and selects a handle; the handle is
-the only participant identity shown to users. Handles are 1–24 Unicode
-characters after trimming, contain at least one non-whitespace character, and
-contain no control characters. Active handles compare case-insensitively and
-can be renamed without changing the server-owned identity association.
+the only participant identity shown to users. Handles are 1–24 Unicode code
+points after trimming, contain at least one non-whitespace character, and
+contain no control characters, no bidirectional formatting controls, and no
+unpaired surrogates; well-formed emoji counts as one code point. Active handles
+compare trimmed, case-insensitively via locale-independent lowercasing and
+can be renamed without changing the server-owned identity association. Handles
+are overlaid at the networking boundary and do not mutate engine simulation
+state.
 
 The facade, not the browser, resolves identity, handle, seat, and role. Create
 reserves the creator's seat; join atomically claims at most one open seat;
-spectate attaches a read-only full-visibility spectator with no seat. Accepted
-orders are attributed to the server-resolved seat, and player views are built
-from that association. Reconnect within the configured grace period restores
-the same association; invalid, expired, or mismatched credentials cannot
-reassign a seat or view.
+spectate attaches a read-only full-visibility spectator with no seat. The lobby
+distinguishes an initial loading state from a successfully loaded empty state.
+Accepted orders are attributed to the server-resolved seat, and player views are
+built from that association. Reconnect within the configured grace period
+restores the same association; invalid, expired, or mismatched credentials
+cannot reassign a seat or view.
 
 All lobby identity, handle, session, and match state is process memory. Browser
 storage is only a resume aid, not an account or durable record. Clearing it or
-restarting the server begins a fresh lobby. Public projections contain only
-discovery data; diagnostics and public API examples must not expose bearer
-credentials or opaque identity identifiers.
+restarting the server begins a fresh lobby. The opaque guest identifier is
+delivered only in the directed identity event to its owner; public projections,
+other connections, URLs, views, and logs remain free of it. Public projections
+contain only discovery data; diagnostics and public API examples must not expose
+bearer credentials or opaque identity identifiers.
 
 ### Runtime building blocks
 

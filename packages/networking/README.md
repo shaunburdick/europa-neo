@@ -171,17 +171,25 @@ the server resolves the active identity from connection state. Client-supplied
 handles, seat numbers, roles, or identity claims are advisory and cannot
 override the server record. Every action receives an authoritative acceptance
 or an actionable error, and lobby snapshots are applied only when their
-revision is newer than the last applied revision.
+revision is newer than the last applied revision. Handle validation requires
+1–24 Unicode code points after trimming, at least one non-whitespace character,
+no control characters, no bidirectional formatting controls, and no unpaired
+surrogates; well-formed emoji counts as one code point and uniqueness compares
+trimmed, case-insensitively.
 
 The accepted handle follows the server-owned identity into the matchmaking
 session, seat, waiting view, gameplay orders, reconnect state, and participant
-labels. Orders are always checked against the resolved seat. Player broadcasts
+labels, overlaid at the networking boundary without mutating engine simulation
+state. Orders are always checked against the resolved seat. Player broadcasts
 remain fog-filtered; spectator broadcasts are full-visibility and read-only.
-The browser client sends heartbeat traffic and automatically re-establishes a
-lobby connection when configured to do so. A reconnect within
+The lobby distinguishes an initial loading state from a successfully loaded
+empty state. The browser client sends heartbeat traffic and automatically
+re-establishes a lobby connection when configured to do so. A reconnect within
 `reconnectGraceMs` (60 seconds by default) restores the original association;
 an invalid, expired, or mismatched credential cannot attach another player's
-seat, orders, or view.
+seat, orders, or view. The opaque guest identifier is delivered only in the
+directed identity event to its owner; public listings, other connections,
+URLs, views, and logs remain free of it.
 
 Guest identities and handles are ephemeral process state, not authentication
 or persistence. A server restart clears them and all lobby/match state.

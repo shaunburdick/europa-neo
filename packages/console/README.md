@@ -122,14 +122,23 @@ recipe exercised by `tests/e2e/full-stack.spec.ts`.
 Pass `--create` for the explicit quick-test mode: it creates and fills a public
 two-player match. The default mode never pre-creates a match.
 
-Guest identities and accepted handles are ephemeral, in-memory state. A reload
+Guest identities and accepted handles are ephemeral, in-memory state. Handles
+are validated to 1–24 Unicode code points after trimming, at least one
+non-whitespace character, no control characters, no bidirectional formatting
+controls, and no unpaired surrogates; uniqueness is case-insensitive on the
+trimmed value and well-formed emoji counts as one code point. A reload
 can restore the browser's active identity during the reconnect grace window;
 clearing browser storage or restarting the server cannot. The server resolves
-the identity, handle, seat, order authority, and view. A reconnect within the
-grace window restores that association; an invalid or mismatched reconnect
-credential cannot claim it. Player views stay fog-filtered, while spectators
-have no seat and cannot issue orders. Host diagnostics never log bearer
-credentials or opaque identity identifiers.
+the identity, handle, seat, order authority, and view, overlaying accepted
+handles at the networking boundary without mutating engine simulation state.
+A reconnect within the grace window restores that association; an invalid or
+mismatched reconnect credential cannot claim it. Player views stay
+fog-filtered, while spectators have no seat and cannot issue orders. The lobby
+distinguishes an initial loading state from a successfully loaded empty state
+and shows distinct empty guidance. The opaque guest identifier is delivered
+only in the directed identity event to its owner; public listings, other
+connections, URLs, views, and logs remain free of it. Host diagnostics never
+log bearer credentials or opaque identity identifiers.
 
 The lobby normally connects to the WebSocket service on the same host as the
 page. `?ws=` is retained for non-default ports and tests, but the client rejects

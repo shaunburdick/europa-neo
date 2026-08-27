@@ -4,7 +4,7 @@ Europa Neo opens at the **public lobby**. This page walks you from choosing a ha
 
 ## Step 1: Choose a handle
 
-In **Your name**, enter a display name and choose **Set name**. Use 1–24 Unicode characters after trimming, with at least one non-whitespace character. Do not use control characters or invisible direction markers. If the name is already in use, choose another; comparison ignores case and surrounding whitespace.
+In **Your name**, enter a display name and choose **Set name**. Use 1–24 Unicode characters after trimming, with at least one non-whitespace character. Do not use control characters, invisible direction markers, or malformed Unicode; well-formed emoji counts as one character. If the name is already in use, choose another; comparison ignores case and surrounding whitespace.
 
 You can rename yourself later with **Change name** and **Update name**. Your accepted handle is the name shown in the lobby, waiting room, and match participant labels.
 

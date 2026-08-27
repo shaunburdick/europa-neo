@@ -24,16 +24,17 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 
 ## Project status
 
-**v1 implementation complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit: all six features are specified, planned, implemented, integrated, and reviewed.
+**v1 implementation complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit: all features are specified, planned, implemented, integrated, and reviewed.
 
-| Feature                                  | Package               | Status          |
-| ---------------------------------------- | --------------------- | --------------- |
-| 001 core game engine                     | `@europa/engine`      | ✅ Implemented |
-| 002 fog of war & visibility              | `@europa/fog`         | ✅ Implemented |
-| 003 procedural terrain generation        | `@europa/terrain`     | ✅ Implemented |
-| 004 multiplayer networking               | `@europa/networking`  | ✅ Implemented |
-| 005 client console                       | `@europa/console`     | ✅ Implemented |
-| 006 match lifecycle & matchmaking        | `@europa/matchmaking` | ✅ Implemented |
+| Feature                                  | Package                                    | Status          |
+| ---------------------------------------- | ------------------------------------------ | --------------- |
+| 001 core game engine                     | `@europa/engine`                           | ✅ Implemented |
+| 002 fog of war & visibility              | `@europa/fog`                              | ✅ Implemented |
+| 003 procedural terrain generation        | `@europa/terrain`                          | ✅ Implemented |
+| 004 multiplayer networking               | `@europa/networking`                       | ✅ Implemented |
+| 005 client console                       | `@europa/console`                          | ✅ Implemented |
+| 006 match lifecycle & matchmaking        | `@europa/matchmaking`                      | ✅ Implemented |
+| 010 public lobby & match browser         | `@europa/matchmaking`/`@europa/networking`/`@europa/console` | ✅ Implemented |
 
 An integration wave proved the full production path end-to-end: console UI ⇄ browser WebSocket client ⇄ match server ⇄ matchmaking-bound engine + terrain + fog, with two seats playing through the real wire protocol.
 
@@ -139,9 +140,15 @@ TLS-terminating reverse proxy, rate limiting, and origin controls.
 
 The lobby gives each browser an ephemeral guest identity and asks for a
 user-facing handle. Handles are trimmed for comparison, unique among active
-sessions case-insensitively, and limited to 1–24 Unicode characters with no
-control characters. Accepted casing is shown in the lobby and on occupied
-match seats; handles can be renamed while the identity remains active. This
+sessions case-insensitively, and limited to 1–24 Unicode code points after
+trimming with at least one non-whitespace character. Accepted handles contain
+no control characters, no bidirectional formatting controls, and no unpaired
+surrogates; well-formed emoji counts as one code point. Accepted casing is
+shown in the lobby and on occupied match seats; handles can be renamed while
+the identity remains active and the server propagates the new label into
+future match, seat, waiting view, order attribution, and participant labels
+without changing the underlying identity association. Handles are overlaid at
+the networking boundary and do not mutate engine simulation state. This
 is not an account system: browser storage and the server process hold the
 state in memory only. Clearing browser storage or restarting the host starts a
 fresh identity, handle set, lobby, and match set.
@@ -149,15 +156,18 @@ fresh identity, handle set, lobby, and match set.
 The server is authoritative for identity-to-seat association. Client input
 cannot choose another player's seat or attribute orders to another player.
 Player views remain fog-filtered; spectators receive full-visibility,
-read-only views and have no seat or order permissions. Public waiting matches
-offer **Join**; running matches offer **Spectate**; collected matches are not
-history.
+read-only views and have no seat or order permissions. The lobby distinguishes
+**Loading public matches…** from **No public matches right now — create one
+to get started**, and public waiting matches offer **Join** while running
+matches offer **Spectate**; collected matches are not history.
 
 Temporary disconnects use the existing reconnect grace window. A valid
 reconnect credential within that window restores the original seat, handle,
 view, and order authority. Expired, unknown, or mismatched credentials do not
-reassign a connection. Host diagnostics deliberately omit bearer credentials
-and opaque identity identifiers.
+reassign a connection. The opaque guest identifier is delivered only in the
+directed identity event to its owner; public listings, other connections,
+URLs, views, and logs remain free of it. Host diagnostics deliberately omit
+bearer credentials and opaque identity identifiers.
 
 `GET /version` on the console origin returns application and protocol versions:
 
