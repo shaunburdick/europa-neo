@@ -17,9 +17,11 @@ describe('host configuration security helpers', () => {
         expect(resolveConfig([], {})).toMatchObject({
             bindHost: '127.0.0.1',
             publicHost: 'localhost',
+            port: 8080,
             wsPort: 8080,
-            staticPort: 5173,
         });
+        // staticPort no longer exists — single port only
+        expect((resolveConfig([], {}) as unknown as Record<string, unknown>).staticPort).toBeUndefined();
         expect(resolveConfig(['--bind-host', '0.0.0.0'], {})).toBeNull();
         expect(resolveConfig(['--bind-host', '0.0.0.0', '--public-host', '192.168.1.20'], {})).toMatchObject({
             bindHost: '0.0.0.0',
@@ -35,11 +37,13 @@ describe('host configuration security helpers', () => {
         expect(resolveConfig(['--create'], {})?.createMatch).toBe(true);
         expect(resolveConfig(['--port', '9000', '--create'], {})).toMatchObject({
             createMatch: true,
+            port: 9000,
             wsPort: 9000,
         });
-        expect(resolveConfig(['--create', '--static-port', '6000'], {})).toMatchObject({
+        expect(resolveConfig(['--create', '--port', '6000'], {})).toMatchObject({
             createMatch: true,
-            staticPort: 6000,
+            port: 6000,
+            wsPort: 6000,
         });
     });
 
