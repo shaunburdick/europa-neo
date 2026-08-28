@@ -47,7 +47,7 @@ Collapse two-port self-host to one `http.Server` on `HOST_PORT` (8080) serving H
 - T027 compose header docs FR-017 wording — ⏳
 
 ### Wave 4 — GHCR publish — ⏳ Pending (after T019..T021)
-- T028 docker-publish.yml triggers/permissions/concurrency — ⏳
+- T028 docker.yml triggers/permissions/concurrency — ⏳
 - T029 SHA-pinned actions + metadata + amd64-only (no arm64) — ⏳
 - T030 post-build verification curl /version inside workflow — ⏳
 - T031 smoke GHCR edge after main push (dry-run if fork-blocked) — ⏳

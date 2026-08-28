@@ -100,6 +100,6 @@ The spec's "single http.Server port:0 + __boundPortForTest()" requires that `__b
 - `packages/console/scripts/host.ts` — two-port launcher (`DEFAULT_WS_PORT 8080`, `DEFAULT_STATIC_PORT 5173`, `startStaticServer`, banner showing both ports).
 - `packages/console/src/state/lobby-view.ts` — `LOBBY_DEFAULT_SERVER_PORT = 8080`, `resolveLobbyServerUrl` hardcoded default path (to be collapsed to `location.host`).
 - `packages/console/src/internal/live-runtime.tsx` — second occurrence of `resolveLobbyServerUrl` consumption.
-- `specs/009-shared-app-versioning/spec.md` FR-013 — release workflow self-exclusion ruling reused for `docker-publish.yml`.
-- `.github/workflows/release.yml` — SHA-pinned, least-privilege, concurrency, workflow_dispatch guard pattern reused for `docker-publish.yml`.
+- `specs/009-shared-app-versioning/spec.md` FR-013 — release workflow self-exclusion ruling reused for `docker.yml`.
+- `.github/workflows/release.yml` — SHA-pinned, least-privilege, concurrency, workflow_dispatch guard pattern reused for `docker.yml`.
 - `biome-config-shaunburdick@1.0.0` — requires `Node >=22`; Node 24 satisfies.

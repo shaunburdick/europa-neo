@@ -146,7 +146,7 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 
 #### GHCR Publish
 
-- **FR-014**: The repository MUST include `.github/workflows/docker-publish.yml` (or equivalent name) building and publishing to GHCR (`ghcr.io/shaunburdick/europa-neo`):
+- **FR-014**: The repository MUST include `.github/workflows/docker.yml` (or equivalent name) building and publishing to GHCR (`ghcr.io/shaunburdick/europa-neo`):
   - **Image name**: `ghcr.io/shaunburdick/europa-neo`.
   - **Triggers**: `push` of tags matching `v*` → tagged release image (e.g. `v0.1.0` → `ghcr.io/shaunburdick/europa-neo:0.1.0` plus `v0.1.0` tag form when appropriate), and `push` to `main` → `:edge` tag. The workflow MUST NOT publish from forks or non-canonical refs.
   - **Build**: Multi-platform minimum `linux/amd64`; `linux/arm64` is a documented stretch goal. Dockerfile target is the single-port image; the tag is derived from the triggering ref or from `APP_VERSION` when a main-push edge is built (edge tag does not encode a semver).
@@ -245,7 +245,7 @@ No interactive clarification loop was required — the product owner asserted th
 | 010 public lobby & match browser | Preserved | Lobby wires through the same `ServerDeps.lobby` seam. Two-seat `prepareMatch`/`bootLobbyStack` fixtures now target the single server; lobby list/wait/Join/Spectate behavior unchanged. |
 | 009 shared app versioning | Preserved | `/version` stays on the same `http.Server`. `APP_VERSION` inside the image equals the workspace lockstep; no new version surfaces. |
 | 007 player manual | Trigger check only | No gameplay numbers or controls change; FR-012 check runs but no page rewrite expected. |
-| 008 CI workflows | Extended | New `docker-publish.yml` path-gated (`Dockerfile`, `docker-compose.yml`, `.dockerignore`, relevant source + workflow file). Existing per-package CIs unchanged except their test fixtures now use the single-server fixture. |
+| 008 CI workflows | Extended | New `docker.yml` path-gated (`Dockerfile`, `docker-compose.yml`, `.dockerignore`, relevant source + workflow file). Existing per-package CIs unchanged except their test fixtures now use the single-server fixture. |
 
 Constitution alignment: Principle VII (self-hostable by default — single process, config via env, no cloud service) is the direct justification; Principles I/III (type safety + tested game logic — shared frame codec / lobby鏡像 invariants) constrain the seam to ownership-transfer only; Principle V (simplicity over cleverness — one port, one image, one command) rejects a two-mode matrix.
 

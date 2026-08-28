@@ -107,22 +107,22 @@ Validates: FR-014 published artifact behaves identically to local build; feature
 
 ```bash
 # Push to main with a Dockerfile-touching change → :edge
-git push origin issue-5-docker-support  # merge to main triggers docker-publish.yml
-gh run watch $(gh run list --workflow docker-publish.yml --json databaseId --jq '.[0].databaseId') --exit-status
+git push origin issue-5-docker-support  # merge to main triggers docker.yml
+gh run watch $(gh run list --workflow docker.yml --json databaseId --jq '.[0].databaseId') --exit-status
 # Expect: SHA-pinned actions in log, least-privilege permissions in workflow header, ghcr login with GITHUB_TOKEN, tag :edge pushed.
 
 # Push v* tag (via release automation or manual tag):
 git tag v0.1.0 && git push origin v0.1.0
-gh run watch $(gh run list --workflow docker-publish.yml --json databaseId --jq '.[0].databaseId') --exit-status
+gh run watch $(gh run list --workflow docker.yml --json databaseId --jq '.[0].databaseId') --exit-status
 # Expect: versioned ghcr.io/shaunburdick/europa-neo:0.1.0 (+ :v0.1.0 mirror via metadata-action) pushed.
 # Pullable check:
 docker pull ghcr.io/shaunburdick/europa-neo:0.1.0 && docker pull ghcr.io/shaunburdick/europa-neo:edge
 docker run --rm ghcr.io/shaunburdick/europa-neo:edge cat /etc/os-release | grep PRETTY_NAME  # sanity
 
 # Permissions/fork check in workflow file:
-grep -q "packages: write" .github/workflows/docker-publish.yml && echo "least-privilege ok"
-grep -q "if:.*github.repository" .github/workflows/docker-publish.yml && echo "fork guard ok"
-grep -E "uses:.*@[^#]+# v" .github/workflows/docker-publish.yml && echo "SHA-pinned with version comments"
+grep -q "packages: write" .github/workflows/docker.yml && echo "least-privilege ok"
+grep -q "if:.*github.repository" .github/workflows/docker.yml && echo "fork guard ok"
+grep -E "uses:.*@[^#]+# v" .github/workflows/docker.yml && echo "SHA-pinned with version comments"
 ```
 
 Validates: FR-014 (triggers, image name, GHCR auth, SHA-pin, least-privilege, platform policy), SC-006.

@@ -1,6 +1,6 @@
 # Contract: GHCR Publish Workflow
 
-**Artifact**: `.github/workflows/docker-publish.yml`  
+**Artifact**: `.github/workflows/docker.yml`  
 **Applicable FR**: FR-014  
 **Spec**: [../spec.md](../spec.md) | **Research**: [../research.md](../research.md) Finding 4
 
@@ -15,7 +15,7 @@ on:
       - 'Dockerfile'
       - 'docker-compose.yml'
       - '.dockerignore'
-      - '.github/workflows/docker-publish.yml'
+      - '.github/workflows/docker.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'packages/**'
@@ -65,7 +65,7 @@ on:
 
 ```yaml
 concurrency:
-  group: docker-publish-${{ github.ref }}
+  group: docker-${{ github.ref }}
   cancel-in-progress: false  # releases MUST NOT cancel an in-flight push (FR-014 parity with release.yml)
 ```
 
@@ -85,4 +85,4 @@ Build job `timeout-minutes: 30` (QEMU+multi-arch can be slow).
 
 ## Self-exclusion note
 
-Unlike `release.yml`'s deliberate self-exclusion (pushing `release.yml` itself before any version bump would mint a spurious release), `docker-publish.yml` SHOULD include itself in its `paths:` filter — Dockerfile/compose changes there ARE deployable and never spurious. Document the divergence from `release.yml`'s ruling in the workflow header to avoid a cargo-cult "exclude self" copy-paste.
+Unlike `release.yml`'s deliberate self-exclusion (pushing `release.yml` itself before any version bump would mint a spurious release), `docker.yml` SHOULD include itself in its `paths:` filter — Dockerfile/compose changes there ARE deployable and never spurious. Document the divergence from `release.yml`'s ruling in the workflow header to avoid a cargo-cult "exclude self" copy-paste.

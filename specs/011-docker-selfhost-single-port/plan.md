@@ -197,9 +197,9 @@ services:
 
 Default compose bind is `0.0.0.0:8080` (wide because docker's port mapping is the ingress; host native default remains `127.0.0.1`). `HOST_PUBLIC_HOST` passthrough lets LAN/reverse-proxy deployments advertise the correct host without rebuilding.
 
-### 7. GHCR publish (`docker-publish.yml`)
+### 7. GHCR publish (`docker.yml`)
 
-`.github/workflows/docker-publish.yml` (or `docker-publish.yml`):
+`.github/workflows/docker.yml` (or `docker.yml`):
 
 - **Triggers**: `push` to `main` (path-filtered to `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `packages/**`, `package.json`, `pnpm-lock.yaml`, workflow itself optional — follow [research.md](./research.md) Finding 4's self-exclusion note) → `:edge`; `push` tag `v*` → versioned `:X.Y.Z` (and optionally `:vX.Y.Z` mirror). Guard: workflow runs only on `github.repository == 'shaunburdick/europa-neo'` (skip forks) via `if:` at job level.
 - **Actions SHA-pinned**: `actions/checkout`, `docker/setup-qemu-action`, `docker/setup-buildx-action`, `docker/login-action`, `docker/build-push-action`, `docker/metadata-action` — each with version comment.
@@ -208,7 +208,7 @@ Default compose bind is `0.0.0.0:8080` (wide because docker's port mapping is th
 - **Tags**: `type=edge,branch=main` + `type=semver,pattern={{version}}` + `type=semver,pattern=v{{version}}` as appropriate; metadata-action derives from ref.
 - **Platforms**: `linux/amd64` mandatory; `linux/arm64` non-blocking: build matrix `fail-fast: false` with `continue-on-error: true` on the arm64 leg OR separate jobs where arm64 failure doesn't block amd64 push; header comment documents the ruling per [research.md Finding 4](./research.md). The pushed manifest always includes the `amd64` image even when arm64 leg fails.
 - **Build args**: provenance/attestation optional; cache via `gha` is permissible but not required.
-- **Concurrency**: `group: docker-publish-${{ github.ref }}` `cancel-in-progress: true` (successive `main` pushes don't pile).
+- **Concurrency**: `group: docker-${{ github.ref }}` `cancel-in-progress: true` (successive `main` pushes don't pile).
 - **Timeout**: `timeout-minutes: 30` on the build job.
 - **Version check inside image**: post-build step `curl -s http://localhost:$HOST_PORT/version` or `docker run --rm image node -e "console.log(APP_VERSION)"` proving `/version` matches `APP_VERSION`.
 - **Self-exclusion**: The workflow file itself SHOULD be included in its `paths:` filter (unlike `release.yml`'s self-exclusion ruling — here self changes are deployable and never spurious; FR-014 path list is not exclusive).
@@ -247,7 +247,7 @@ Coverage: ≥80% on every metric for new host/config/client logic (constitution 
 Dockerfile                         # FR-010 (node:24-slim, corepack pnpm, multi-stage)
 .dockerignore                      # FR-012
 docker-compose.yml                 # FR-011 (single port, 3-env passthrough)
-.github/workflows/docker-publish.yml # FR-014 (edge + v* tags, SHA-pinned, least-privilege)
+.github/workflows/docker.yml # FR-014 (edge + v* tags, SHA-pinned, least-privilege)
 packages/networking/src/server.ts  # FR-002 seam (+ contracts/network-api.ts docs)
 packages/networking/src/contracts/network-api.ts # ServerDeps.httpServer? JSDoc
 packages/console/scripts/host.ts   # FR-001/003/004/005 single http.Server + error message

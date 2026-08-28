@@ -27,7 +27,7 @@ Medium-large (35 tasks) — PM drives Phase 6 orchestration directly (orchestrat
 - Client: `packages/console/src/state/lobby-view.ts` + `packages/console/src/internal/live-runtime.tsx`
 - Fixtures: `packages/console/tests/e2e/full-stack.spec.ts` + `packages/console/tests/integration/lobby-transport.test.ts` + `packages/console/scripts/test-selfhost.sh`
 - Docker: `Dockerfile`, `.dockerignore`, `docker-compose.yml` (repo root)
-- GHCR: `.github/workflows/docker-publish.yml`
+- GHCR: `.github/workflows/docker.yml`
 - README.md, `docs/manual/**`
 
 ## Gate adjustments since plan
