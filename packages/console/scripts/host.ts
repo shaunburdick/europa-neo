@@ -36,7 +36,6 @@
  * CLI:
  *   pnpm host [--create] [--port N] [--bind-host HOST] [--public-host HOST]
  *   HOST_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST are honored.
- *   HOST_STATIC_PORT / --static-port no longer supported — the server uses a single port (HOST_PORT / --port); see README.
  *
  * Zero new dependencies: node:* builtins + workspace @europa/* only.
  * Wall-clock reads live only at transport/hosting boundaries — no
@@ -169,23 +168,6 @@ export function resolveConfig(
     args: readonly string[],
     environment: NodeJS.ProcessEnv = process.env,
 ): HostLaunchConfig | null {
-    // FR-004: two-port config removed — hard error with actionable hint.
-    if (environment.HOST_STATIC_PORT !== undefined) {
-        complain(
-            'host: --static-port / HOST_STATIC_PORT no longer supported — the server uses a single port (HOST_PORT / --port); see README',
-        );
-        return null;
-    }
-    for (const arg of args) {
-        const flag = arg.includes('=') ? arg.slice(0, arg.indexOf('=')) : arg;
-        if (flag === '--static-port') {
-            complain(
-                'host: --static-port / HOST_STATIC_PORT no longer supported — the server uses a single port (HOST_PORT / --port); see README',
-            );
-            return null;
-        }
-    }
-
     let port = parsePort(environment.HOST_PORT, 'HOST_PORT');
     let bindHost = environment.HOST_BIND_HOST ?? '127.0.0.1';
     let publicHost = environment.HOST_PUBLIC_HOST;
@@ -239,7 +221,7 @@ export function resolveConfig(
             complain(`host: ${flag} requires a value`);
             return null;
         }
-        // Only --port remains; static-port already rejected above
+        // Only --port remains
         port = parsed;
         if (inline === undefined) {
             i += 1;

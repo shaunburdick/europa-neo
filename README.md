@@ -133,9 +133,8 @@ HOST_BIND_HOST=0.0.0.0 HOST_PUBLIC_HOST=192.168.1.20 pnpm host
 ```
 
 The equivalent flags are `--bind-host HOST` and `--public-host HOST` (port
-remains configurable with `--port` / `HOST_PORT`; `HOST_STATIC_PORT` /
-`--static-port` no longer exist — passing either fails with an actionable
-error). A wildcard bind requires an explicit public host. Direct internet
+remains configurable with `--port` / `HOST_PORT`). A wildcard bind requires
+an explicit public host. Direct internet
 exposure is not supported: a public deployment still needs a TLS-terminating
 reverse proxy, rate limiting, and origin controls.
 
@@ -166,9 +165,7 @@ HOST_PORT=9090 docker compose up --build          # HTTP+WS on 9090
 HOST_PUBLIC_HOST=example.com docker compose up    # advertise example.com behind a reverse proxy
 ```
 
-`HOST_STATIC_PORT` no longer exists (removed in the single-port collapse) —
-setting it or passing `--static-port` fails fast with "no longer supported";
-use `HOST_PORT` / `--port` instead. `docker compose down` resets the
+`docker compose down` resets the
 in-memory lobby and matches; restarting gives a fresh lobby.
 
 Published images (no local build): `ghcr.io/shaunburdick/europa-neo:edge`

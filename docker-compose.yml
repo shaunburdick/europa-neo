@@ -1,6 +1,6 @@
 # Single-port topology: one http.Server on HOST_PORT serving static UI + /version + WS upgrades.
 # One EXPOSE, one port mapping, same-origin WS (FR-017: one http.Server, one EXPOSE, one port mapping, same-origin WS).
-# Env overrides: HOST_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST — no HOST_STATIC_PORT (removed).
+# Env overrides: HOST_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST.
 services:
   europa:
     build: .

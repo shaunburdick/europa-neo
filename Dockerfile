@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Single-port topology: one http.Server on HOST_PORT (default 8080) serving
 # static console UI (packages/console/dist) + GET /version + WebSocket
-# upgrades. No second listener, no HOST_STATIC_PORT (removed).
+# upgrades. No second listener — single http.Server on HOST_PORT.
 # FR-017: one http.Server, one EXPOSE, one port mapping, same-origin WS.
 #
 # Node 24 LTS gate: node:24-slim is latest LTS Aug 2026 (Active LTS
