@@ -10,9 +10,13 @@
  *   WsMatchClient (native WebSocket, networking's wire codec) →
  *   live createMatchServer → matchmaking-bound engine/terrain/fog
  *
- * Query parameters (all required except `token`):
- *   - `ws`    WebSocket URL of the match server (e.g. ws://host:port)
- *   - `match` MatchId to join
+ * Query parameters:
+ *   - `ws`    Optional WebSocket URL override (e.g. ws://host:port). When
+ *             absent, same-origin fallback `${protocol==='https:'?'wss':'ws'}://${location.host}`
+ *             is used (011 single-port FR-006). Explicit overrides still
+ *             validated same-host/loopback/no-credentials via
+ *             {@link resolveLobbyServerUrl}.
+ *   - `match` MatchId to join (required)
  *   - `name`  Display name for the seat claim
  *   - `token` Optional reconnect token (rejoin path)
  *
@@ -70,27 +74,27 @@ function StoreApp({ store }: { readonly store: ConsoleStore }): JSX.Element {
  */
 export function mountLiveRuntime(root: HTMLElement): void {
     const params = new URLSearchParams(window.location.search);
-    const url = params.get('ws');
     const matchId = params.get('match');
     const displayName = params.get('name') ?? '';
     const token = params.get('token');
 
-    if (url === null || matchId === null) {
+    if (matchId === null) {
         // No store to surface feedback through yet; expose the reason on
         // the handle so drivers fail with a diagnostic instead of hanging.
+        // 011 single-port: ?ws= is now optional (same-origin fallback), only ?match is required.
         window.__europaLive = {
             store: undefined as unknown as ConsoleStore,
             client: undefined as unknown as ConsoleClient,
-            bootError: 'live runtime requires ?ws=<url>&match=<id> query parameters',
+            bootError: 'live runtime requires ?match=<id> query parameter',
         };
         return;
     }
 
     let safeUrl: string;
     try {
-        // Direct live routes are compatibility-only, but still carry the
-        // same identity-bearing join handshake and must obey the lobby's
-        // same-host URL policy before a client is constructed.
+        // Single-port (011): same-origin fallback when ?ws= absent — same path as lobby-view.
+        // Keeps ?live&ws= compatibility for Playwright fixtures; cross-host/credential overrides
+        // still hard-error before client construction (FR-007).
         safeUrl = resolveLobbyServerUrl(window.location.search, window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
