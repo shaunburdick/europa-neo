@@ -222,6 +222,23 @@ export interface ServerDeps {
    * dev, pino/winston in production.
    */
   readonly logger: Logger;
+  /**
+   * Optional externally-owned HTTP server for single-port deployment
+   * (feature 011 FR-002). When supplied, the networking server uses
+   * `noServer: true` and attaches its WebSocket `upgrade` listener to
+   * this server instead of creating its own.
+   *
+   * Ownership contract:
+   * - `listen()` does NOT call `httpServer.listen` and does NOT create
+   *   a second server — the host owns the listen lifecycle.
+   * - `close()` does NOT close the external server (ownership stays
+   *   with the host) — it only closes the WebSocket layer and removes
+   *   the upgrade listener.
+   * - `__boundPortForTest()` reads the external server's bound port via
+   *   `httpServer.address()` when present, matching the single-port
+   *   ephemeral-port (`port: 0`) pattern.
+   */
+  readonly httpServer?: import('node:http').Server;
 }
 
 // ----------------------------------------------------------------------------

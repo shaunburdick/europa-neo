@@ -1,9 +1,16 @@
 /**
- * Lobby route/view-mode derivation — feature 010 (T-014).
+ * Lobby route/view-mode derivation — features 010 (T-014) + 011 single-port (FR-006..FR-008).
  *
  * Answers exactly one question for the app shell: given the boot URL's
  * query string, does this page load start in the LOBBY view or drop
  * straight into a MATCH view?
+ *
+ * Single-port topology (011): the console UI and the WebSocket match/lobby server
+ * share ONE http.Server on HOST_PORT (default 8080). The browser's same-origin
+ * `location.host` (hostname + port as the browser sees it) is therefore the
+ * canonical WebSocket fallback — no second port, no hardcoded non-same-origin
+ * default as primary path. An explicit `?ws=` override remains validated
+ * (same-host + loopback alias + no credentials) via {@link validateLobbyServerUrl}.
  *
  * COMPATIBILITY CONTRACT (binding): the direct live-test routes used by
  * the integration-wave harness and Playwright drivers —
@@ -59,14 +66,14 @@ export function resolveInitialViewMode(search: string): LobbyViewMode {
 // ----------------------------------------------------------------------------
 
 /**
- * Default TCP port of the host's match/lobby WebSocket server.
- * DOCUMENTED MIRROR of `packages/console/scripts/host.ts`
- * `DEFAULT_WS_PORT` (the host script is Node-side and cannot be
- * imported into the browser bundle). The SPA serves from its own
- * static origin, so the lobby client cannot discover the server port
- * at runtime — it defaults to this and operators override via the
- * `ws` query parameter (or share `?ws=` URLs when running
- * `pnpm host --port <other>`).
+ * Default HOST_PORT (single-port canonical, 8080) — fallback only for
+ * non-browser/test contexts where `location.host === ''` (e.g. `file://`
+ * or unit tests without a PageLocator host). It is NOT a second listener.
+ * Value aliases the host's `HOST_PORT` default; the shipped console's
+ * primary path is same-origin `location.host` (FR-006/FR-008), not this
+ * constant. DOCUMENTED MIRROR of `packages/console/scripts/host.ts`
+ * `DEFAULT_WS_PORT` (aliased as `HOST_PORT` after the 011 single-port
+ * collapse).
  */
 export const LOBBY_DEFAULT_SERVER_PORT = 8080;
 
@@ -74,9 +81,11 @@ export const LOBBY_DEFAULT_SERVER_PORT = 8080;
 export interface PageLocator {
     /** Page protocol, e.g. `'http:'` / `'https:'` (drives ws vs wss). */
     readonly protocol: string;
-    /** Page hostname, e.g. `'localhost'` (empty for `file://`). */
-    readonly hostname: string;
-    /** Page port, including `''` when the scheme's default port is used. */
+    /** Page host as the browser sees it — `location.host` (hostname + port). Preferred same-origin source (011). */
+    readonly host?: string;
+    /** Page hostname, e.g. `'localhost'` (empty for `file://`). Kept for backwards compat and validation; prefer `host`. */
+    readonly hostname?: string;
+    /** Page port, including `''` when the scheme's default port is used. Kept for backwards compat; prefer `host`. */
     readonly port?: string;
 }
 
@@ -133,7 +142,18 @@ export function validateLobbyServerUrl(value: string, locator: PageLocator): str
     if (candidate.protocol !== 'ws:' && candidate.protocol !== 'wss:') {
         throw new LobbyServerUrlError('The WebSocket server URL must use ws:// or wss://.');
     }
-    const pageHostname = locator.hostname.length > 0 ? locator.hostname : 'localhost';
+    // Derive page hostname from `hostname` (preferred for same-host check) or fallback to `host`'s
+    // hostname part (e.g. when only `location.host` is supplied). Keeps validateLobbyServerUrl
+    // semantics exactly (same-host + loopback alias + no credentials) per FR-007.
+    const hostnameValue = (locator as { hostname?: string }).hostname;
+    const hostValue = (locator as { host?: string }).host;
+    const rawHostname =
+        typeof hostnameValue === 'string' && hostnameValue.length > 0
+            ? hostnameValue
+            : typeof hostValue === 'string' && hostValue.length > 0
+              ? (hostValue.split(':')[0] ?? '')
+              : '';
+    const pageHostname = rawHostname.length > 0 ? rawHostname : 'localhost';
     const candidateHostname = candidate.hostname.toLowerCase();
     const normalizedPageHostname = pageHostname.toLowerCase();
     const isLoopbackAlias =
@@ -151,21 +171,23 @@ export function validateLobbyServerUrl(value: string, locator: PageLocator): str
 }
 
 /**
- * Resolve the lobby/match server URL for this page load (T-015):
+ * Resolve the lobby/match server URL for this page load (011 single-port FR-006/FR-007):
  *
  *   1. an explicit `ws` query parameter wins (operators on non-default
  *      ports; test harnesses) — scheme-normalized by
- *      {@link normalizeWsUrl};
- *   2. otherwise the documented default: same hostname as the page,
- *      {@link LOBBY_DEFAULT_SERVER_PORT}, scheme upgraded to `wss`
- *      when the page itself is HTTPS (mixed-content browsers block
- *      plain ws:// from https:// pages).
+ *      {@link normalizeWsUrl} and validated by {@link validateLobbyServerUrl};
+ *   2. otherwise same-origin fallback: `${protocol==='https:'?'wss':'ws'}://${location.host}`
+ *      (FR-006). When `location.host` is empty (`file://` or unit test without
+ *      a host), falls back to `localhost:${LOBBY_DEFAULT_SERVER_PORT}` where
+ *      {@link LOBBY_DEFAULT_SERVER_PORT} is the default HOST_PORT, not a second
+ *      listener (FR-008). Backwards-compat: if `host` is absent but `hostname`
+ *      is present, derives host from `hostname` + `port` (old call sites).
  *
  * PRIVACY: reads ONLY the `ws` parameter — identifiers never ride
  * URLs into this layer, and nothing here writes to the URL.
  *
  * @param search The query string (e.g. `window.location.search`).
- * @param locator The page-location facts (protocol + hostname).
+ * @param locator The page-location facts (protocol + host).
  */
 export function resolveLobbyServerUrl(search: string, locator: PageLocator): string {
     const override = new URLSearchParams(search).get('ws');
@@ -173,6 +195,23 @@ export function resolveLobbyServerUrl(search: string, locator: PageLocator): str
         return validateLobbyServerUrl(override, locator);
     }
     const scheme = locator.protocol === 'https:' ? 'wss' : 'ws';
-    const host = locator.hostname.length > 0 ? locator.hostname : 'localhost';
-    return `${scheme}://${host}:${String(LOBBY_DEFAULT_SERVER_PORT)}`;
+    const hostForResolve = (locator as { host?: string }).host;
+    const hostRaw = typeof hostForResolve === 'string' ? hostForResolve.trim() : '';
+    if (hostRaw.length > 0) {
+        return `${scheme}://${hostRaw}`;
+    }
+    // Backwards-compat: derive from hostname+port when host is absent (old tests/call sites).
+    const hostnameValueForResolve = (locator as { hostname?: string }).hostname;
+    const hostname = typeof hostnameValueForResolve === 'string' ? hostnameValueForResolve.trim() : '';
+    if (hostname.length > 0) {
+        const portValueForResolve = (locator as { port?: string }).port;
+        const portRaw = typeof portValueForResolve === 'string' ? portValueForResolve.trim() : '';
+        if (portRaw.length > 0) {
+            return `${scheme}://${hostname}:${portRaw}`;
+        }
+        // Legacy hostname-only callers expected the default HOST_PORT appended. Keep that for
+        // backwards compat when host is missing; new same-origin callers always supply host.
+        return `${scheme}://${hostname}:${String(LOBBY_DEFAULT_SERVER_PORT)}`;
+    }
+    return `${scheme}://localhost:${String(LOBBY_DEFAULT_SERVER_PORT)}`;
 }

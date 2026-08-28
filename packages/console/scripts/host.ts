@@ -5,11 +5,10 @@
  * host-wiring recipes proven by `tests/e2e/full-stack.spec.ts`
  * `buildStack()` and `tests/integration/lobby-transport.test.ts`
  * `bootLobbyStack()`), serves the built console SPA from `dist/`, and
- * exposes the feature-010 public lobby:
+ * exposes the feature-010 public lobby on a SINGLE http.Server:
  *
- *   matchmaker ⇄ match server  →  ws://localhost:8080
- *   static file server         →  http://localhost:5173 (packages/console/dist)
- *   Lobby (DEFAULT)            →  http://localhost:5173/
+ *   single http.Server on HOST_PORT → ws://localhost:8080 + http://localhost:8080 (packages/console/dist)
+ *   Lobby (DEFAULT)                 → http://localhost:8080/
  *
  * By default the launcher pre-creates NOTHING (spec 010 FR-017): the
  * landing page IS the lobby, where visitors establish a guest identity,
@@ -35,8 +34,8 @@
  * `--create` seat URLs themselves (the product of that mode).
  *
  * CLI:
- *   pnpm host [--create] [--port N] [--static-port N] [--bind-host HOST] [--public-host HOST]
- *   HOST_PORT / HOST_STATIC_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST are honored.
+ *   pnpm host [--create] [--port N] [--bind-host HOST] [--public-host HOST]
+ *   HOST_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST are honored.
  *
  * Zero new dependencies: node:* builtins + workspace @europa/* only.
  * Wall-clock reads live only at transport/hosting boundaries — no
@@ -45,7 +44,7 @@
 
 import { existsSync } from 'node:fs';
 import { readFile, realpath } from 'node:fs/promises';
-import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { computePlayerView } from '@europa/fog';
@@ -68,11 +67,9 @@ const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
 /** Built console SPA served to players' browsers. */
 const DIST_DIR = path.join(PACKAGE_ROOT, 'dist');
 
-/** Default WebSocket port for the match server. */
+/** Default single port for both HTTP + WS (HOST_PORT). */
 const DEFAULT_WS_PORT = 8080;
-
-/** Default port for the static console server. */
-const DEFAULT_STATIC_PORT = 5173;
+const DEFAULT_PORT = DEFAULT_WS_PORT;
 
 /**
  * Production tick cadence. MUST equal the match's `tickIntervalMs`
@@ -171,8 +168,7 @@ export function resolveConfig(
     args: readonly string[],
     environment: NodeJS.ProcessEnv = process.env,
 ): HostLaunchConfig | null {
-    let wsPort = parsePort(environment.HOST_PORT, 'HOST_PORT');
-    let staticPort = parsePort(environment.HOST_STATIC_PORT, 'HOST_STATIC_PORT');
+    let port = parsePort(environment.HOST_PORT, 'HOST_PORT');
     let bindHost = environment.HOST_BIND_HOST ?? '127.0.0.1';
     let publicHost = environment.HOST_PUBLIC_HOST;
     let createMatch = false;
@@ -181,15 +177,9 @@ export function resolveConfig(
         const eq = arg.indexOf('=');
         const flag = eq === -1 ? arg : arg.slice(0, eq);
         const inline = eq === -1 ? undefined : arg.slice(eq + 1);
-        if (
-            flag !== '--create' &&
-            flag !== '--port' &&
-            flag !== '--static-port' &&
-            flag !== '--bind-host' &&
-            flag !== '--public-host'
-        ) {
+        if (flag !== '--create' && flag !== '--port' && flag !== '--bind-host' && flag !== '--public-host') {
             complain(
-                `host: unknown argument "${arg}" (supported: --create, --port N, --static-port N, --bind-host HOST, --public-host HOST)`,
+                `host: unknown argument "${arg}" (supported: --create, --port N, --bind-host HOST, --public-host HOST)`,
             );
             return null;
         }
@@ -231,27 +221,25 @@ export function resolveConfig(
             complain(`host: ${flag} requires a value`);
             return null;
         }
-        if (flag === '--port') {
-            wsPort = parsed;
-        } else {
-            staticPort = parsed;
-        }
+        // Only --port remains
+        port = parsed;
         if (inline === undefined) {
             i += 1;
         }
     }
-    if (wsPort === undefined || staticPort === undefined) {
+    if (port === undefined) {
         return null;
     }
     if (isWildcardHost(bindHost) && publicHost === undefined) {
         complain('host: --public-host or HOST_PUBLIC_HOST is required when binding a wildcard address');
         return null;
     }
+    const resolvedPort = port ?? DEFAULT_PORT;
     return {
         bindHost,
         publicHost: publicHost ?? (bindHost === '127.0.0.1' ? 'localhost' : bindHost),
-        wsPort: wsPort ?? DEFAULT_WS_PORT,
-        staticPort: staticPort ?? DEFAULT_STATIC_PORT,
+        port: resolvedPort,
+        wsPort: resolvedPort,
         createMatch,
     };
 }
@@ -317,29 +305,6 @@ function writeStaticHead(res: ServerResponse, status: number, headers: Record<st
     return res.writeHead(status, { ...STATIC_SECURITY_HEADERS, ...headers });
 }
 
-/**
- * Bind the static console server on the configured interface.
- *
- * @param port Port to listen on.
- * @returns The node http server (closed again on shutdown).
- */
-function startStaticServer(port: number, bindHost: string): Server {
-    const server = createHttpServer((req, res) => {
-        void serveStatic(req, res);
-    });
-    server.on('error', (error: NodeJS.ErrnoException) => {
-        complain(
-            error.code === 'EADDRINUSE'
-                ? `host: port ${String(port)} is already in use — try --static-port <other>`
-                : `host: static server error: ${sanitizeLogText(error.message)}`,
-        );
-        process.exitCode = 1;
-        void shutdown();
-    });
-    server.listen(port, bindHost);
-    return server;
-}
-
 // ---------------------------------------------------------------------------
 // Stack wiring — mirrors tests/e2e/full-stack.spec.ts buildStack() exactly,
 // plus human-facing log taps on the forwarding bridge.
@@ -372,12 +337,13 @@ interface Stack {
  * readable join / result lines are tapped in the forwarders before
  * delegation.
  *
- * @param wsPort Port for the match server's WebSocket listener.
+ * @param wsPort Port for the single http.Server (HOST_PORT).
  * @param bindHost Interface for the WebSocket listener.
+ * @param httpServer The single http.Server that will also handle WS upgrades.
  * @returns The bound server + matchmaker (not yet listening) and the
  *          lobby-facade accessor for shutdown.
  */
-function buildStack(wsPort: number, bindHost: string): Stack {
+function buildStack(wsPort: number, bindHost: string, httpServer: import('node:http').Server): Stack {
     let bound: MatchmakerBridge = {};
     /**
      * Forward-reference slots filled right after server construction:
@@ -436,6 +402,7 @@ function buildStack(wsPort: number, bindHost: string): Stack {
         },
         matchmaker: forwardingBridge,
         logger: NULL_LOGGER as Logger,
+        httpServer,
         lobby: {
             create: (sink) => {
                 const matchmaker = wiring.matchmaker;
@@ -538,21 +505,22 @@ function urlHostOf(publicHost: string): string {
  * seat, token, or identity appears anywhere (spec 010 plan: normal
  * host output contains no pre-created match).
  *
- * @param staticPort Port the console UI is served on.
- * @param boundPort  The port the match server ACTUALLY bound.
+ * Single-port: both Match server and Console UI share the same HOST_PORT.
+ *
+ * @param port       Single port the server is bound on (HOST_PORT).
  * @param publicHost Host reachable by players.
  */
-function printLobbyBanner(staticPort: number, boundPort: number, publicHost: string): void {
+export function printLobbyBanner(port: number, publicHost: string): void {
     const host = urlHostOf(publicHost);
     say('');
     say(`  Version      : v${APP_VERSION}`);
     say('  Mode         : lobby (visitors create/join matches in the browser)');
-    say(`  Match server : ws://${host}:${String(boundPort)}`);
-    say(`  Console UI   : http://${host}:${String(staticPort)}`);
+    say(`  Match server : ws://${host}:${String(port)}`);
+    say(`  Console UI   : http://${host}:${String(port)}`);
     say('');
     say('  Open the lobby in a browser:');
     say('');
-    say(`  → http://${host}:${String(staticPort)}/`);
+    say(`  → http://${host}:${String(port)}/`);
     say('');
     say('  Matches and guest identities are in-memory only — restarting resets the lobby.');
     say('  Ctrl-C to stop.');
@@ -565,22 +533,23 @@ function printLobbyBanner(staticPort: number, boundPort: number, publicHost: str
  * along so a refreshed tab reclaims its own seat. This mode retains
  * the pre-lobby two-seat quick-test experience.
  *
- * @param staticPort Port the console UI is served on.
- * @param boundPort  The port the match server ACTUALLY bound.
+ * Single-port: both ws and http share the same HOST_PORT.
+ *
+ * @param port       Single port the server is bound on (HOST_PORT).
  * @param publicHost Host reachable by players.
  * @param match      The prepared match.
  */
-function printCreateBanner(staticPort: number, boundPort: number, publicHost: string, match: PreparedMatch): void {
+export function printCreateBanner(port: number, publicHost: string, match: PreparedMatch): void {
     const host = urlHostOf(publicHost);
-    const wsUrl = `ws://${host}:${String(boundPort)}`;
+    const wsUrl = `ws://${host}:${String(port)}`;
     const joinUrl = (name: string, token: string): string =>
-        `http://${host}:${String(staticPort)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
+        `http://${host}:${String(port)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
     say('');
     say(`  Version      : v${APP_VERSION}`);
     say('  Mode         : explicit-create (--create) — pre-created public 2P match');
     say(`  Match server : ${wsUrl}`);
-    say(`  Console UI   : http://${host}:${String(staticPort)}`);
-    say(`  Lobby        : http://${host}:${String(staticPort)}/`);
+    say(`  Console UI   : http://${host}:${String(port)}`);
+    say(`  Lobby        : http://${host}:${String(port)}/`);
     say(`  Match id     : ${match.matchId}`);
     say('');
     say('  Open in two browser tabs:');
@@ -635,22 +604,48 @@ async function main(): Promise<void> {
         return;
     }
 
-    const stack = buildStack(config.wsPort, config.bindHost);
+    // Single http.Server serving HTTP (dist + /version + SPA fallback)
+    // and WebSocket upgrades on the same HOST_PORT (011 FR-001/FR-002).
+    const httpServer = createHttpServer(async (req, res) => {
+        void serveStatic(req, res);
+    });
+    httpServer.on('error', (error: NodeJS.ErrnoException) => {
+        complain(
+            error.code === 'EADDRINUSE'
+                ? `host: port ${String(config.port)} is already in use — try --port <other>`
+                : `host: server error: ${sanitizeLogText(error.message)}`,
+        );
+        process.exitCode = 1;
+        void shutdown();
+    });
+
+    // 011 T010 / plan D3+D4: single-port seam — host owns the http.Server and
+    // hands it to networking via ServerDeps.httpServer; networking attaches
+    // its `upgrade` handler on server.listen() and never creates a second
+    // listener. This collapses the former ws:8080 + http:5173 pair onto
+    // one origin (one http.Server, one EXPOSE, one port mapping, same-origin WS).
+    const stack = buildStack(config.port, config.bindHost, httpServer);
 
     try {
-        await stack.server.listen();
+        await new Promise<void>((resolve, reject) => {
+            httpServer.once('error', reject);
+            httpServer.listen(config.port, config.bindHost, () => resolve());
+        });
     } catch (error: unknown) {
         const code = (error as NodeJS.ErrnoException | null)?.code;
         complain(
             code === 'EADDRINUSE'
-                ? `host: port ${String(config.wsPort)} is already in use — try --port <other>`
-                : `host: match server failed to start: ${sanitizeLogText(String(error))}`,
+                ? `host: port ${String(config.port)} is already in use — try --port <other>`
+                : `host: server failed to start: ${sanitizeLogText(String(error))}`,
         );
         process.exitCode = 1;
         return;
     }
 
-    const staticServer = startStaticServer(config.staticPort, config.bindHost);
+    // Networking's listen() for the external-server path only attaches the
+    // `upgrade` delegation to httpServer and starts the tick clock — it
+    // does NOT call httpServer.listen (host already owns it).
+    await stack.server.listen();
 
     teardown = async () => {
         // Order matters. Networking's close() drains EVERY tracked
@@ -661,18 +656,21 @@ async function main(): Promise<void> {
         // subscriptions, and the ledger and cascades into
         // matchmaker.close(); the explicit matchmaker.close() after it
         // is the safety net for boots where no lobby frame ever arrived
-        // (facade never built). Both closes are idempotent.
+        // (facade never built). Both closes are idempotent. Single-port
+        // seam (011 T010): server.close() does NOT close the externally
+        // owned httpServer — host closes it last.
         await stack.server.close();
         await stack.lobbyFacade()?.close();
         await stack.matchmaker.close();
         await new Promise<void>((resolve) => {
-            staticServer.close(() => {
+            httpServer.close(() => {
                 resolve();
             });
         });
     };
 
-    const boundPort = stack.server.__boundPortForTest() ?? config.wsPort;
+    const address = httpServer.address() as { port: number } | null;
+    const boundPort = address?.port ?? config.port;
 
     // FR-017: the DEFAULT launch serves an EMPTY lobby — no match is
     // pre-created; visitors create/join through the browser UI.
@@ -684,10 +682,10 @@ async function main(): Promise<void> {
             process.exitCode = 1;
             return;
         }
-        printCreateBanner(config.staticPort, boundPort, config.publicHost, match);
+        printCreateBanner(boundPort, config.publicHost, match);
         return;
     }
-    printLobbyBanner(config.staticPort, boundPort, config.publicHost);
+    printLobbyBanner(boundPort, config.publicHost);
 }
 
 process.on('SIGINT', () => {

@@ -2,12 +2,16 @@
 
 import { isAbsolute, relative } from 'node:path';
 
-/** Resolved host and port settings used by the launcher. */
+/** Resolved host and port settings used by the launcher (single-port: HOST_PORT). */
 export interface HostConfig {
     readonly bindHost: string;
     readonly publicHost: string;
+    /** Single port for both HTTP + WS — default HOST_PORT 8080. */
+    readonly port: number;
+    /**
+     * @deprecated Alias for `port` — the server uses a single port (HOST_PORT / --port). Prefer `port`.
+     */
     readonly wsPort: number;
-    readonly staticPort: number;
 }
 
 /** Return true for an address that listens on all interfaces. */
