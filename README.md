@@ -115,11 +115,13 @@ pnpm build
 pnpm host
 ```
 
-`pnpm host` starts the match server (`ws://localhost:8080`) and serves the
-console (`http://localhost:5173`). The default is an empty public lobby at
-`/`: choose a guest handle, create a game, or browse and join/spectate an
-available public match. It does not create a match at startup. Use
-`pnpm host --create` for the explicit two-seat quick flow. The console also
+`pnpm host` starts a single `http.Server` on `HOST_PORT` (default `8080`) serving
+both the console UI and the WebSocket match server on the same origin
+(`http://localhost:8080/` + `ws://localhost:8080`, FR-017: one `http.Server`,
+one `EXPOSE`, one port mapping, same-origin WS). The default is an empty
+public lobby at `/`: choose a guest handle, create a game, or browse and
+join/spectate an available public match. It does not create a match at startup.
+Use `pnpm host --create` for the explicit two-seat quick flow. The console also
 has a deterministic stub board when opened without a server, for renderer work
 only.
 
@@ -130,11 +132,48 @@ explicitly and advertise the address players can reach:
 HOST_BIND_HOST=0.0.0.0 HOST_PUBLIC_HOST=192.168.1.20 pnpm host
 ```
 
-The equivalent flags are `--bind-host HOST` and `--public-host HOST` (ports
-remain configurable with `--port`, `--static-port`, `HOST_PORT`, and
-`HOST_STATIC_PORT`). A wildcard bind requires an explicit public host. Direct
-internet exposure is not supported: a public deployment still needs a
-TLS-terminating reverse proxy, rate limiting, and origin controls.
+The equivalent flags are `--bind-host HOST` and `--public-host HOST` (port
+remains configurable with `--port` / `HOST_PORT`; `HOST_STATIC_PORT` /
+`--static-port` no longer exist — passing either fails with an actionable
+error). A wildcard bind requires an explicit public host. Direct internet
+exposure is not supported: a public deployment still needs a TLS-terminating
+reverse proxy, rate limiting, and origin controls.
+
+### Docker quick start (single port)
+
+No Node toolchain required — just Docker Engine + Compose v2. From a fresh
+clone:
+
+```bash
+docker compose up --build   # first run builds the image; later `docker compose up` suffices
+# lobby at http://localhost:8080/  — single http.Server on HOST_PORT: static UI + /version + WS
+```
+
+One firewall/ingress rule is enough: the container exposes a single port
+(`EXPOSE 8080`, mapped as `${HOST_PORT:-8080}:${HOST_PORT:-8080}`) and the
+browser connects same-origin with no `?ws=` override needed.
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `HOST_PORT` | `8080` | Single `http.Server` port for HTTP + WebSocket (one knob controls both). |
+| `HOST_BIND_HOST` | `0.0.0.0` (compose) / `127.0.0.1` (native) | Interface to bind. Compose defaults wide because Docker's `ports:` is the ingress. |
+| `HOST_PUBLIC_HOST` | `localhost` (when loopback) else `bindHost` | Advertised host for banner and join URLs. Required when `HOST_BIND_HOST` is wildcard. |
+
+Examples:
+
+```bash
+HOST_PORT=9090 docker compose up --build          # HTTP+WS on 9090
+HOST_PUBLIC_HOST=example.com docker compose up    # advertise example.com behind a reverse proxy
+```
+
+`HOST_STATIC_PORT` no longer exists (removed in the single-port collapse) —
+setting it or passing `--static-port` fails fast with "no longer supported";
+use `HOST_PORT` / `--port` instead. `docker compose down` resets the
+in-memory lobby and matches; restarting gives a fresh lobby.
+
+Published images (no local build): `ghcr.io/shaunburdick/europa-neo:edge`
+(`main`) and `ghcr.io/shaunburdick/europa-neo:vX.Y.Z` (release tags) are
+built by CI and pullable with `docker compose pull`.
 
 ### Lobby, identity, and recovery
 
@@ -169,10 +208,10 @@ directed identity event to its owner; public listings, other connections,
 URLs, views, and logs remain free of it. Host diagnostics deliberately omit
 bearer credentials and opaque identity identifiers.
 
-`GET /version` on the console origin returns application and protocol versions:
+`GET /version` on the single-port origin returns application and protocol versions:
 
 ```bash
-curl http://localhost:5173/version
+curl http://localhost:8080/version
 ```
 
 The normal lobby derives its WebSocket endpoint from the page host. For a

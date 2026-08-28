@@ -2,6 +2,7 @@
 # Single-port topology: one http.Server on HOST_PORT (default 8080) serving
 # static console UI (packages/console/dist) + GET /version + WebSocket
 # upgrades. No second listener, no HOST_STATIC_PORT (removed).
+# FR-017: one http.Server, one EXPOSE, one port mapping, same-origin WS.
 #
 # Node 24 LTS gate: node:24-slim is latest LTS Aug 2026 (Active LTS
 # 2025-10-28 → 2028-04-30 per research Finding 1). Re-validate the base

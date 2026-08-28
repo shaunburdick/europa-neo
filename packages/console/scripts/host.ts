@@ -637,11 +637,11 @@ async function main(): Promise<void> {
         void shutdown();
     });
 
-    // 011 T010: single-port seam — host owns the http.Server and hands it
-    // to networking via ServerDeps.httpServer; networking attaches its
-    // `upgrade` handler on server.listen() and never creates a second
+    // 011 T010 / plan D3+D4: single-port seam — host owns the http.Server and
+    // hands it to networking via ServerDeps.httpServer; networking attaches
+    // its `upgrade` handler on server.listen() and never creates a second
     // listener. This collapses the former ws:8080 + http:5173 pair onto
-    // one origin.
+    // one origin (one http.Server, one EXPOSE, one port mapping, same-origin WS).
     const stack = buildStack(config.port, config.bindHost, httpServer);
 
     try {

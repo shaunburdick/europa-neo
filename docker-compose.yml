@@ -1,15 +1,15 @@
 # Single-port topology: one http.Server on HOST_PORT serving static UI + /version + WS upgrades.
-# One EXPOSE, one port mapping, same-origin WebSocket (FR-017: one http.Server, one EXPOSE, one port mapping, same-origin WS).
-# Env overrides: HOST_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST.
+# One EXPOSE, one port mapping, same-origin WS (FR-017: one http.Server, one EXPOSE, one port mapping, same-origin WS).
+# Env overrides: HOST_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST — no HOST_STATIC_PORT (removed).
 services:
   europa:
     build: .
     image: ghcr.io/shaunburdick/europa-neo
     ports:
-      - "${HOST_PORT:-8080}:${HOST_PORT:-8080}"
+      - "${HOST_PORT:-8080}:${HOST_PORT:-8080}" # single port mapping onto the single http.Server
     environment:
-      HOST_PORT: ${HOST_PORT:-8080}
-      HOST_BIND_HOST: ${HOST_BIND_HOST:-0.0.0.0}
-      HOST_PUBLIC_HOST: ${HOST_PUBLIC_HOST:-localhost}
+      HOST_PORT: ${HOST_PORT:-8080} # single knob for HTTP+WS (default 8080)
+      HOST_BIND_HOST: ${HOST_BIND_HOST:-0.0.0.0} # compose wide default; native default is 127.0.0.1
+      HOST_PUBLIC_HOST: ${HOST_PUBLIC_HOST:-localhost} # advertised host; required when bind is wildcard
     expose:
-      - "${HOST_PORT:-8080}"
+      - "${HOST_PORT:-8080}" # single EXPOSE — matches the single http.Server port
