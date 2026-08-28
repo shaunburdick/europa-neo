@@ -355,12 +355,13 @@ interface Stack {
  * readable join / result lines are tapped in the forwarders before
  * delegation.
  *
- * @param wsPort Port for the match server's WebSocket listener.
+ * @param wsPort Port for the single http.Server (HOST_PORT).
  * @param bindHost Interface for the WebSocket listener.
+ * @param httpServer The single http.Server that will also handle WS upgrades.
  * @returns The bound server + matchmaker (not yet listening) and the
  *          lobby-facade accessor for shutdown.
  */
-function buildStack(wsPort: number, bindHost: string): Stack {
+function buildStack(wsPort: number, bindHost: string, httpServer: import('node:http').Server): Stack {
     let bound: MatchmakerBridge = {};
     /**
      * Forward-reference slots filled right after server construction:
@@ -419,6 +420,7 @@ function buildStack(wsPort: number, bindHost: string): Stack {
         },
         matchmaker: forwardingBridge,
         logger: NULL_LOGGER as Logger,
+        httpServer,
         lobby: {
             create: (sink) => {
                 const matchmaker = wiring.matchmaker;
@@ -620,9 +622,8 @@ async function main(): Promise<void> {
         return;
     }
 
-    // Single http.Server serving HTTP (dist + /version + SPA fallback) on HOST_PORT.
-    // Networking WS upgrade delegation will be wired via ServerDeps.httpServer seam (T010).
-    // TODO T010: pass httpServer to buildStack and wire httpServer.on('upgrade', (req, socket, head) => wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req)))
+    // Single http.Server serving HTTP (dist + /version + SPA fallback)
+    // and WebSocket upgrades on the same HOST_PORT (011 FR-001/FR-002).
     const httpServer = createHttpServer(async (req, res) => {
         void serveStatic(req, res);
     });
@@ -636,7 +637,12 @@ async function main(): Promise<void> {
         void shutdown();
     });
 
-    const stack = buildStack(config.port, config.bindHost);
+    // 011 T010: single-port seam — host owns the http.Server and hands it
+    // to networking via ServerDeps.httpServer; networking attaches its
+    // `upgrade` handler on server.listen() and never creates a second
+    // listener. This collapses the former ws:8080 + http:5173 pair onto
+    // one origin.
+    const stack = buildStack(config.port, config.bindHost, httpServer);
 
     try {
         await new Promise<void>((resolve, reject) => {
@@ -654,13 +660,10 @@ async function main(): Promise<void> {
         return;
     }
 
-    // TODO T010: single-port seam — after networking exposes ServerDeps.httpServer,
-    // pass httpServer to buildStack and wire upgrade:
-    //   httpServer.on('upgrade', (req, socket, head) => wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req)))
-    // For now (Wave 1a interim) networking still owns its own httpServer, but we
-    // do NOT start it here to avoid EADDRINUSE on the single HOST_PORT.
-    // The second listen will be collapsed to the shared httpServer once the seam lands.
-    // Intentionally NOT calling stack.server.listen() in this interim Wave 1a host.
+    // Networking's listen() for the external-server path only attaches the
+    // `upgrade` delegation to httpServer and starts the tick clock — it
+    // does NOT call httpServer.listen (host already owns it).
+    await stack.server.listen();
 
     teardown = async () => {
         // Order matters. Networking's close() drains EVERY tracked
@@ -671,8 +674,9 @@ async function main(): Promise<void> {
         // subscriptions, and the ledger and cascades into
         // matchmaker.close(); the explicit matchmaker.close() after it
         // is the safety net for boots where no lobby frame ever arrived
-        // (facade never built). Both closes are idempotent.
-        // Interim Wave 1a: stack.server was never listening, but close() is safe (no-op if not listening).
+        // (facade never built). Both closes are idempotent. Single-port
+        // seam (011 T010): server.close() does NOT close the externally
+        // owned httpServer — host closes it last.
         await stack.server.close();
         await stack.lobbyFacade()?.close();
         await stack.matchmaker.close();

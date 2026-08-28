@@ -236,12 +236,22 @@ export function createMatchServer(
      * drive REAL sockets against the ephemeral port. @internal
      */
     readonly __boundPortForTest: () => number | undefined;
+    /** Test seam: the underlying `ws` server (always `noServer:true`). @internal */
+    readonly __wssForTest: WebSocketServer;
+    /** Test seam: accessor variant for the same `ws` server. @internal */
+    readonly __getWss: () => WebSocketServer;
 } {
     const channels = new Map<MatchId, MatchChannel>();
     const connections = new Map<ConnectionId, Connection>();
     let closed = false;
     let listening = false;
-    let httpServer: HttpServer | undefined;
+    /** Externally owned server for single-port deployment (011 FR-002); never created or closed here. */
+    const externalHttpServer = deps.httpServer;
+    let internalHttpServer: HttpServer | undefined;
+    /** Upgrade handler bound to the owning http.Server; removed on close. */
+    let upgradeHandler:
+        | ((request: import('node:http').IncomingMessage, socket: import('node:net').Socket, head: Buffer) => void)
+        | undefined;
 
     const statsCounter = new StatsCounter(Date.now());
 
@@ -1359,15 +1369,39 @@ export function createMatchServer(
                 return;
             }
             listening = true;
-            httpServer = createHttpServer();
-            httpServer.on('upgrade', (request, socket, head) => {
+            // Single-port seam (011 FR-002): when the host supplies its own
+            // http.Server, use it and do NOT create or listen a second one.
+            // The host owns the listen lifecycle; we only attach the
+            // `upgrade` delegation that bridges `ws` onto it.
+            if (externalHttpServer) {
+                upgradeHandler = (request, socket, head) => {
+                    wss.handleUpgrade(request, socket, head, (ws) => {
+                        wss.emit('connection', ws, request);
+                    });
+                };
+                externalHttpServer.on('upgrade', upgradeHandler);
+                // Host owns listen — do not call externalHttpServer.listen().
+                // If the server is not yet listening that is the host's
+                // responsibility; we remain idempotent and start the clock.
+                deps.logger.info('match server listening', {
+                    appVersion: APP_VERSION,
+                    host: config.host,
+                    port: config.port,
+                    tickRateMs: config.tickRateMs,
+                });
+                clock.start();
+                return;
+            }
+            internalHttpServer = createHttpServer();
+            upgradeHandler = (request, socket, head) => {
                 wss.handleUpgrade(request, socket, head, (ws) => {
                     wss.emit('connection', ws, request);
                 });
-            });
+            };
+            internalHttpServer.on('upgrade', upgradeHandler);
             await new Promise<void>((resolve, reject) => {
-                httpServer?.once('error', reject);
-                httpServer?.listen({ host: config.host, port: config.port }, () => {
+                internalHttpServer?.once('error', reject);
+                internalHttpServer?.listen({ host: config.host, port: config.port }, () => {
                     resolve();
                 });
             });
@@ -1487,16 +1521,31 @@ export function createMatchServer(
             // lifecycle decision (see ServerDeps.lobby).
             lobbyBuckets.clear();
             wss.close();
+            if (externalHttpServer) {
+                // Single-port seam (011 FR-002): do NOT close the
+                // externally owned server — ownership stays with the host.
+                // Only remove the upgrade listener we attached.
+                if (upgradeHandler) {
+                    externalHttpServer.removeListener('upgrade', upgradeHandler);
+                    upgradeHandler = undefined;
+                }
+                listening = false;
+                return;
+            }
+            if (upgradeHandler && internalHttpServer) {
+                internalHttpServer.removeListener('upgrade', upgradeHandler);
+                upgradeHandler = undefined;
+            }
             await new Promise<void>((resolve) => {
-                if (!httpServer || !listening) {
+                if (!internalHttpServer || !listening) {
                     resolve();
                     return;
                 }
-                httpServer.close(() => {
+                internalHttpServer.close(() => {
                     resolve();
                 });
             });
-            httpServer = undefined;
+            internalHttpServer = undefined;
             listening = false;
         },
 
@@ -1507,8 +1556,18 @@ export function createMatchServer(
         __injectSocketForTest: (socket: ConnectionSocket) => attachConnection(socket),
 
         __boundPortForTest: () => {
-            const address = httpServer?.address();
-            return typeof address === 'object' && address !== null ? address.port : undefined;
+            // Single-port seam (011 FR-002): when an external server is
+            // present, its bound port IS the networking port (single-port
+            // ephemeral-port contract); otherwise read the internal server.
+            const target = externalHttpServer ?? internalHttpServer;
+            const address = target?.address();
+            return typeof address === 'object' && address !== null ? (address as { port: number }).port : undefined;
         },
+
+        /** Test/host seam: the underlying `ws` server (always `noServer:true`). @internal */
+        __wssForTest: wss,
+
+        /** Test/host seam: accessor variant for the same `ws` server. @internal */
+        __getWss: () => wss,
     };
 }
