@@ -21,30 +21,33 @@ describe('host single-port collapse — TDD (T007)', () => {
         expect((config as HostConfig).wsPort).toBe(8080);
     });
 
-    it('HOST_STATIC_PORT env triggers actionable error containing "no longer supported"', () => {
+    it('HOST_STATIC_PORT env is ignored (never released)', () => {
         const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
         const result = resolveConfig([], { HOST_STATIC_PORT: '5173' });
-        expect(result).toBeNull();
+        expect(result).not.toBeNull();
+        expect((result as HostConfig).port).toBe(8080);
         const output = errSpy.mock.calls.map((c) => String(c[0])).join('');
-        expect(output).toMatch(/no longer supported/);
-        expect(output).toMatch(/HOST_PORT.*--port|--port.*HOST_PORT/);
+        expect(output).not.toMatch(/no longer supported/);
         errSpy.mockRestore();
     });
 
-    it('--static-port flag triggers actionable error containing "no longer supported"', () => {
+    it('--static-port flag triggers generic unknown argument error', () => {
         const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
         const result = resolveConfig(['--static-port', '5173'], {});
         expect(result).toBeNull();
         const output = errSpy.mock.calls.map((c) => String(c[0])).join('');
-        expect(output).toMatch(/no longer supported/);
+        expect(output).toMatch(/unknown argument/);
+        expect(output).toMatch(/--static-port/);
         errSpy.mockRestore();
     });
 
-    it('--static-port=5173 inline form also hard-errors', () => {
+    it('--static-port=5173 inline form also triggers generic unknown argument error', () => {
         const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
         const result = resolveConfig(['--static-port=5173'], {});
         expect(result).toBeNull();
-        expect(errSpy.mock.calls.map((c) => String(c[0])).join('')).toMatch(/no longer supported/);
+        const output = errSpy.mock.calls.map((c) => String(c[0])).join('');
+        expect(output).toMatch(/unknown argument/);
+        expect(output).toMatch(/--static-port/);
         errSpy.mockRestore();
     });
 

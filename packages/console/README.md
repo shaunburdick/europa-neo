@@ -101,18 +101,17 @@ it within the grace window.
 ### Run the local lobby (`pnpm host`)
 
 One command boots the whole stack — matchmaker + match server on `:8080` and
-the built console served from `dist/` on `:5173` — with an empty public lobby:
+the built console served from `dist/` on the single HOST_PORT (default `:8080`) — with an empty public lobby:
 
 ```bash
 pnpm build                        # once; host serves dist/
 pnpm --filter @europa/console host
 ```
 
-Open `http://localhost:5173/`, choose a handle, and create or browse a public
+Open `http://localhost:8080/`, choose a handle, and create or browse a public
 game. **Join** is available only for open waiting matches; **Spectate** is
 available only for running matches and is full-visibility but read-only. Port
-overrides: `--port N` /
-`--static-port N` (or `HOST_PORT` / `HOST_STATIC_PORT`). The default bind is
+overrides: `--port N` (or `HOST_PORT`). The default bind is
 loopback-safe (`127.0.0.1`). For LAN play, use `--bind-host 0.0.0.0
 --public-host 192.168.1.20` or `HOST_BIND_HOST` / `HOST_PUBLIC_HOST`; a
 wildcard bind requires an explicit public host so printed links are reachable.
