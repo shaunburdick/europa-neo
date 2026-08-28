@@ -23,6 +23,8 @@
  * gestures aimed at each seat's own city.
  */
 
+import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
+
 import { computePlayerView } from '@europa/fog';
 import { createMatchmaker } from '@europa/matchmaking';
 import {
@@ -60,8 +62,16 @@ const BOARD_SIZE = 32;
  * stable proxy whose calls land on whatever handlers the matchmaker
  * later binds. This is the exact recipe a production host binary
  * repeats; keeping it here documents it where it is exercised.
+ *
+ * Single-port (011 FR-009): one externally owned http.Server on 127.0.0.1:0
+ * shared for HTTP + WS (via ServerDeps.httpServer). The ephemeral port
+ * is the single bound port for both surfaces; __boundPortForTest reads it.
  */
-function buildStack(): { server: Server; matchmaker: ReturnType<typeof createMatchmaker> } {
+function buildStack(): {
+    httpServer: HttpServer;
+    server: Server;
+    matchmaker: ReturnType<typeof createMatchmaker>;
+} {
     let bound: MatchmakerBridge = {};
     const forwardingBridge: MatchmakerBridge = {
         onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
@@ -70,6 +80,8 @@ function buildStack(): { server: Server; matchmaker: ReturnType<typeof createMat
         onSeatExpired: (event) => bound.onSeatExpired?.(event),
         onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
     };
+
+    const httpServer: HttpServer = createHttpServer();
 
     const deps: ServerDeps = {
         engine: {
@@ -84,6 +96,7 @@ function buildStack(): { server: Server; matchmaker: ReturnType<typeof createMat
         },
         matchmaker: forwardingBridge,
         logger: NULL_LOGGER as Logger,
+        httpServer,
     };
 
     const server = createMatchServer(
@@ -103,7 +116,7 @@ function buildStack(): { server: Server; matchmaker: ReturnType<typeof createMat
         },
     });
     const matchmaker = createMatchmaker({}, { server: bindable });
-    return { server, matchmaker };
+    return { httpServer, server, matchmaker };
 }
 
 // ---------------------------------------------------------------------------
@@ -208,10 +221,17 @@ async function waitUntil(
 test('two consoles drive one live match end-to-end over the real stack', async ({ browser }) => {
     test.setTimeout(90_000);
 
-    const { server, matchmaker } = buildStack();
+    const { httpServer, server, matchmaker } = buildStack();
+    await new Promise<void>((resolve, reject) => {
+        httpServer.once('error', reject);
+        httpServer.listen(0, '127.0.0.1', () => resolve());
+    });
     await server.listen();
     const port = server.__boundPortForTest();
     expect(port).toBeDefined();
+    // Single-port proof: same http.Server answers both HTTP + WS.
+    const httpPort = (httpServer.address() as { port: number } | null)?.port;
+    expect(httpPort).toBe(port);
 
     try {
         // -- Matchmaking: public create + fill ⇒ auto-start -------------------
@@ -373,6 +393,9 @@ test('two consoles drive one live match end-to-end over the real stack', async (
         await bob.context().close();
     } finally {
         await server.close();
+        await new Promise<void>((resolve) => {
+            httpServer.close(() => resolve());
+        });
         await matchmaker.close();
     }
 });

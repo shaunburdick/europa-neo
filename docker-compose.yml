@@ -1,0 +1,15 @@
+# Single-port topology: one http.Server on HOST_PORT serving static UI + /version + WS upgrades.
+# One EXPOSE, one port mapping, same-origin WebSocket (FR-017: one http.Server, one EXPOSE, one port mapping, same-origin WS).
+# Env overrides: HOST_PORT / HOST_BIND_HOST / HOST_PUBLIC_HOST.
+services:
+  europa:
+    build: .
+    image: ghcr.io/shaunburdick/europa-neo
+    ports:
+      - "${HOST_PORT:-8080}:${HOST_PORT:-8080}"
+    environment:
+      HOST_PORT: ${HOST_PORT:-8080}
+      HOST_BIND_HOST: ${HOST_BIND_HOST:-0.0.0.0}
+      HOST_PUBLIC_HOST: ${HOST_PUBLIC_HOST:-localhost}
+    expose:
+      - "${HOST_PORT:-8080}"

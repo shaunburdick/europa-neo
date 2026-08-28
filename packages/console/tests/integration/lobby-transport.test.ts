@@ -69,6 +69,8 @@
  * test). Generous-but-bounded timeouts throughout for CI safety.
  */
 
+import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
+
 import { computePlayerView } from '@europa/fog';
 import type { GuestPlayerId, LobbyEvent, MatchId } from '@europa/matchmaking';
 import {
@@ -401,7 +403,6 @@ class RawSeat {
                     return delivered;
                 }
                 this.queue.push(delivered);
-                continue;
             }
         }
     }
@@ -445,8 +446,9 @@ interface StackOptions {
     readonly graceMs?: number;
 }
 
-/** A booted production stack on an ephemeral (or pinned) port. */
+/** A booted production stack on an ephemeral (or pinned) port — single-port (011): one http.Server for HTTP + WS. */
 interface LobbyStack {
+    readonly httpServer: HttpServer;
     readonly server: Server;
     readonly matchmaker: Matchmaker;
     readonly url: string;
@@ -460,6 +462,11 @@ interface LobbyStack {
  * that closes over a mutable wiring slot, the matchmaker binds itself
  * via the optional `bindMatchmaker` seam right after creation, and the
  * first lobby frame builds the facade against the now-known matchmaker.
+ *
+ * Single-port (011 FR-009): one externally owned http.Server on 127.0.0.1:0
+ * (or a pinned port for reboot) — HTTP and WS share the same listener.
+ * The networking server's `httpServer` seam owns the upgrade delegation;
+ * `__boundPortForTest()` reads the external server's bound port.
  */
 async function bootLobbyStack(options: StackOptions = {}, port = 0): Promise<LobbyStack> {
     let bound: MatchmakerBridge = {};
@@ -471,6 +478,9 @@ async function bootLobbyStack(options: StackOptions = {}, port = 0): Promise<Lob
         onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
     };
     const wiring: { matchmaker: Matchmaker | null } = { matchmaker: null };
+
+    // Single-port seam (011 FR-002): host owns the http.Server.
+    const httpServer: HttpServer = createHttpServer();
 
     const deps: ServerDeps = {
         engine: {
@@ -484,6 +494,7 @@ async function bootLobbyStack(options: StackOptions = {}, port = 0): Promise<Lob
         },
         matchmaker: forwardingBridge,
         logger: NULL_LOGGER as Logger,
+        httpServer,
         lobby: {
             create: (sink) => {
                 const matchmaker = wiring.matchmaker;
@@ -517,7 +528,14 @@ async function bootLobbyStack(options: StackOptions = {}, port = 0): Promise<Lob
         },
     });
 
+    const listenHttp = async (targetPort: number): Promise<void> =>
+        new Promise<void>((resolve, reject) => {
+            httpServer.once('error', reject);
+            httpServer.listen(targetPort, '127.0.0.1', () => resolve());
+        });
+
     if (port === 0) {
+        await listenHttp(0);
         await server.listen();
     } else {
         // Reboot on a pinned port: the previous holder just closed, but
@@ -525,12 +543,17 @@ async function bootLobbyStack(options: StackOptions = {}, port = 0): Promise<Lob
         const deadline = Date.now() + REBIND_TIMEOUT_MS;
         for (;;) {
             try {
+                await listenHttp(port);
                 await server.listen();
                 break;
             } catch (error) {
                 if (Date.now() >= deadline) {
                     throw error;
                 }
+                // Clear a half-bound listener before retrying.
+                await new Promise<void>((resolve) => {
+                    httpServer.close(() => resolve());
+                });
                 await delay(REBIND_RETRY_MS);
             }
         }
@@ -541,7 +564,18 @@ async function bootLobbyStack(options: StackOptions = {}, port = 0): Promise<Lob
     if (boundPort === undefined) {
         throw new Error('server did not report a bound port');
     }
-    return { server, matchmaker: wiring.matchmaker, url: `ws://127.0.0.1:${String(boundPort)}`, port: boundPort };
+    // Single-port proof: same http.Server answers both HTTP + WS.
+    const httpPort = (httpServer.address() as { port: number } | null)?.port;
+    if (httpPort !== undefined && httpPort !== boundPort) {
+        throw new Error(`single-port invariant violated: http ${String(httpPort)} !== ws ${String(boundPort)}`);
+    }
+    return {
+        httpServer,
+        server,
+        matchmaker: wiring.matchmaker,
+        url: `ws://127.0.0.1:${String(boundPort)}`,
+        port: boundPort,
+    };
 }
 
 // ----------------------------------------------------------------------------
@@ -775,10 +809,13 @@ afterEach(async () => {
     }
 }, 30_000);
 
-/** Register a stack for automatic afterEach teardown. */
+/** Register a stack for automatic afterEach teardown — single-port: WS `close()` does NOT close the externally owned httpServer. */
 function trackTeardown(stack: LobbyStack): void {
     teardownStacks.push(async () => {
         await stack.server.close();
+        await new Promise<void>((resolve) => {
+            stack.httpServer.close(() => resolve());
+        });
         await stack.matchmaker.close();
     });
 }
@@ -1155,6 +1192,9 @@ describe('lobby transport integration (feature 010 T-013)', () => {
         // test here are the persisted claim versus a wiped registry.
         phoenix.client.disconnect();
         await stack.server.close();
+        await new Promise<void>((resolve) => {
+            stack.httpServer.close(() => resolve());
+        });
         await stack.matchmaker.close();
 
         // -- Reboot on the SAME port; the reload flow re-establishes ------

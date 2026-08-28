@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+.playwright
+packages/*/dist
+packages/*/coverage
+docs
+.git
+.gitignore
+.github
+specs
+.muse
+.opencode
+*.tsbuildinfo
