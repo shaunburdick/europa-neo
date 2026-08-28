@@ -5,7 +5,7 @@
 **Created**: 2026-08-26
 **Last Updated**: 2026-08-26 (v1.0)
 **Version**: 1.0
-**Status**: Draft
+**Status**: Implemented (2026-08-27)
 **GitHub Issue**: #5
 **Input**: Product-owner request — "Binding decision: self-hostable by default. Today that means Node ≥22 + pnpm + pnpm build + pnpm host. Provide a container path so self-hosters don't need a toolchain." Single-port topology per 2026-08-26 decision.
 
