@@ -48,7 +48,7 @@ import { Minimap } from '../qol/minimap';
 import { subscribeReducedMotion } from '../qol/reduced-motion';
 import { useContainerSize } from '../qol/use-container-size';
 import { ZoomPanController } from '../qol/zoom';
-import { isAwaitingMatchStart } from '../state/awaiting-start';
+import { formatWaitingMessage, isAwaitingMatchStart } from '../state/awaiting-start';
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
@@ -90,6 +90,18 @@ export interface AppProps {
      * {@link SurrenderModal}. Static boots omit it (no runtime).
      */
     readonly surrenderRequestEpoch?: number;
+    /**
+     * Seats currently filled in the active match, for the N-aware
+     * waiting overlay copy (FR-005). Supplied by the host/runtime from
+     * the authoritative lobby entry when available.
+     */
+    readonly waitingSeatsFilled?: number;
+    /**
+     * Total seat capacity of the active match (N), for the N-aware
+     * waiting overlay copy (FR-005). Supplied by the host/runtime from
+     * the authoritative lobby entry when available.
+     */
+    readonly waitingCapacity?: number;
 }
 
 /** Subscription shim for static boots (no store to subscribe to). */
@@ -108,7 +120,14 @@ interface CursorSample {
  * + reserves panel + minimap + live-region mount, driven by the
  * resolved ConsoleState.
  */
-export function App({ store, state, onSurrenderRequest, surrenderRequestEpoch }: AppProps): JSX.Element {
+export function App({
+    store,
+    state,
+    onSurrenderRequest,
+    surrenderRequestEpoch,
+    waitingSeatsFilled,
+    waitingCapacity,
+}: AppProps): JSX.Element {
     const fallbackState = state ?? peekInjectedConsoleState() ?? INITIAL_CONSOLE_STATE;
     const resolvedState = useSyncExternalStore(
         store ? store.subscribe : noopSubscribe,
@@ -275,6 +294,18 @@ export function App({ store, state, onSurrenderRequest, surrenderRequestEpoch }:
     // connection lifecycles.
     const awaitingStart = store !== undefined && isAwaitingMatchStart(resolvedState);
 
+    // N-aware waiting copy (FR-005): prefer the authoritative lobby
+    // entry when the runtime supplies it; otherwise fall back to the
+    // join-assignment (session.opponents.length + 1 = total players,
+    // local seat = 1 filled). Capacity is never read from the tick
+    // payload — research §2.
+    const waitingCapacityResolved = waitingCapacity ?? resolvedState.session.opponents.length + 1;
+    const waitingSeatsFilledResolved = waitingSeatsFilled ?? 1;
+    const waitingChrome =
+        awaitingStart && waitingCapacityResolved > 0
+            ? formatWaitingMessage(waitingSeatsFilledResolved, waitingCapacityResolved)
+            : undefined;
+
     // Real container sizing for the minimap's viewport rectangle
     // (integration wave T-I3): without it the indicator defaults to the
     // full board, which lies whenever the visible window is smaller.
@@ -347,7 +378,11 @@ export function App({ store, state, onSurrenderRequest, surrenderRequestEpoch }:
                         />
                     ) : null}
                     {awaitingStart ? (
-                        <WaitingOverlay announcer={announcer ?? undefined} reducedMotion={reducedMotion} />
+                        <WaitingOverlay
+                            announcer={announcer ?? undefined}
+                            reducedMotion={reducedMotion}
+                            message={waitingChrome}
+                        />
                     ) : null}
                 </div>
                 <section id="hud" aria-label="Status bar" tabIndex={0} className="europa-hud">
