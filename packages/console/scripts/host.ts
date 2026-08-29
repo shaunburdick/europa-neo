@@ -58,7 +58,14 @@ import {
     type ServerDeps,
 } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
-import { type HostConfig, isPathInside, isWildcardHost, STATIC_SECURITY_HEADERS, sanitizeLogText } from './host-config';
+import { formatWaitingMessage } from '../src/state/awaiting-start';
+import {
+    isPathInside,
+    type NPlayerHostConfig,
+    resolveConfig as resolveNPlayerConfig,
+    STATIC_SECURITY_HEADERS,
+    sanitizeLogText,
+} from './host-config';
 import { handleVersionRoute } from './version-route';
 
 /** Package root (this script lives in `<root>/scripts/`). */
@@ -67,25 +74,26 @@ const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
 /** Built console SPA served to players' browsers. */
 const DIST_DIR = path.join(PACKAGE_ROOT, 'dist');
 
-/** Default single port for both HTTP + WS (HOST_PORT). */
-const DEFAULT_WS_PORT = 8080;
-const DEFAULT_PORT = DEFAULT_WS_PORT;
-
 /**
  * Production tick cadence. MUST equal the match's `tickIntervalMs`
  * (`registerMatch` enforces it); both use the shipped default.
  */
 const TICK_MS = 250;
 
-/**
- * Board edge. The terrain generator's placement constraints are tuned
- * for the shipped default (32); smaller boards can exhaust its
- * regeneration attempts (see full-stack.spec.ts BOARD_SIZE note).
- */
-const BOARD_SIZE = 32;
+/** Cosmetic seat labels (matchmaking FR-001). Extended to the four-seat maximum. */
+const SEAT_NAMES = ['P1', 'P2', 'P3', 'P4'] as const;
 
-/** Display names for the two seats (cosmetic; matchmaking FR-001). */
-const SEAT_NAMES = ['P1', 'P2'] as const;
+/**
+ * Cosmetic seat label for a join-URL `name=` param and seat-join logs.
+ * Returns `P1`..`P4` for the supported player counts and falls back to a
+ * generic label for any seat beyond the v1 four-seater.
+ *
+ * @param playerId 1-based seat number.
+ * @returns The display label for that seat.
+ */
+function seatName(playerId: number): string {
+    return playerId >= 1 && playerId <= SEAT_NAMES.length ? SEAT_NAMES[playerId - 1] : `Player ${String(playerId)}`;
+}
 
 /** MIME types for the static server (covers everything vite emits). */
 const MIME_TYPES: Readonly<Record<string, string>> = {
@@ -121,30 +129,10 @@ function complain(line: string): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse a port value from CLI or environment.
- *
- * @param raw   Raw value (already trimmed), or undefined when absent.
- * @param label Option name used in error messages.
- * @returns The parsed port; null when absent; undefined when invalid
- *          (the error message has already been printed).
- */
-function parsePort(raw: string | undefined, label: string): number | null | undefined {
-    if (raw === undefined || raw === '') {
-        return null;
-    }
-    const value = Number.parseInt(raw, 10);
-    if (!Number.isInteger(value) || value < 1 || value > 65_535) {
-        complain(`host: ${label} must be an integer between 1 and 65535 (got "${raw}")`);
-        return undefined;
-    }
-    return value;
-}
-
-/**
  * Fully resolved launcher configuration: the network surface plus the
  * launch mode (spec 010 FR-017).
  */
-export interface HostLaunchConfig extends HostConfig {
+export interface HostLaunchConfig extends NPlayerHostConfig {
     /**
      * True when `--create` requested the explicit create flow
      * (auto-create + fill a public 2P match and print two seat URLs).
@@ -155,9 +143,16 @@ export interface HostLaunchConfig extends HostConfig {
 }
 
 /**
- * Resolve listen hosts, ports, and launch mode from argv and
- * environment, applying the loopback-safe defaults and requiring an
- * advertisement for wildcard binds.
+ * Resolve launcher configuration from argv + environment, layering the
+ * `--create` launch-mode flag on top of the N-player host config resolved
+ * by {@link resolveNPlayerConfig} (012 FR-011/FR-012). The N-player
+ * resolver owns port/bind/board/player-count parsing and the single-port
+ * invariant; this wrapper only adds the create-mode bit.
+ *
+ * FR-012: `HOST_STATIC_PORT` is unsupported. The launcher is lenient and
+ * ignores it (the single-port model uses `HOST_PORT` only); the N-player
+ * resolver would reject it, so it is dropped before delegating to preserve
+ * the established launcher behavior.
  *
  * @param args Raw argv slice after the script path.
  * @param environment Process environment (overridable for tests).
@@ -168,80 +163,26 @@ export function resolveConfig(
     args: readonly string[],
     environment: NodeJS.ProcessEnv = process.env,
 ): HostLaunchConfig | null {
-    let port = parsePort(environment.HOST_PORT, 'HOST_PORT');
-    let bindHost = environment.HOST_BIND_HOST ?? '127.0.0.1';
-    let publicHost = environment.HOST_PUBLIC_HOST;
+    // FR-012: drop the unsupported HOST_STATIC_PORT so the strict N-player
+    // resolver does not reject it — the launcher stays lenient here.
+    const envWithoutStatic: NodeJS.ProcessEnv = { ...environment };
+    delete envWithoutStatic.HOST_STATIC_PORT;
+    const base = resolveNPlayerConfig(args, envWithoutStatic);
+    if (base === null) {
+        return null;
+    }
+    // `--create` is validated (and ignored) by the N-player resolver; detect
+    // the bare flag here to set the launch mode. Glued forms (--create=x)
+    // were already rejected upstream, so only bare `--create` reaches here.
     let createMatch = false;
-    for (let i = 0; i < args.length; i += 1) {
-        const arg = args[i];
-        const eq = arg.indexOf('=');
-        const flag = eq === -1 ? arg : arg.slice(0, eq);
-        const inline = eq === -1 ? undefined : arg.slice(eq + 1);
-        if (flag !== '--create' && flag !== '--port' && flag !== '--bind-host' && flag !== '--public-host') {
-            complain(
-                `host: unknown argument "${arg}" (supported: --create, --port N, --bind-host HOST, --public-host HOST)`,
-            );
-            return null;
-        }
+    for (const arg of args) {
+        const flag = arg.includes('=') ? arg.slice(0, arg.indexOf('=')) : arg;
         if (flag === '--create') {
-            // Bare flag only: any glued value (--create / --create=x) is
-            // a usage error, not silently-truthy input.
-            if (inline !== undefined) {
-                complain('host: --create does not take a value');
-                return null;
-            }
             createMatch = true;
-            continue;
-        }
-        if (flag === '--bind-host' || flag === '--public-host') {
-            const value = inline ?? args[i + 1];
-            if (value === undefined || value === '') {
-                complain(`host: ${flag} requires a value`);
-                return null;
-            }
-            if (/[^\w.:[\]-]/u.test(value)) {
-                complain(`host: ${flag} contains invalid characters`);
-                return null;
-            }
-            if (flag === '--bind-host') {
-                bindHost = value;
-            } else {
-                publicHost = value;
-            }
-            if (inline === undefined) {
-                i += 1;
-            }
-            continue;
-        }
-        const parsed = parsePort(inline ?? args[i + 1], flag);
-        if (parsed === undefined) {
-            return null;
-        }
-        if (parsed === null) {
-            complain(`host: ${flag} requires a value`);
-            return null;
-        }
-        // Only --port remains
-        port = parsed;
-        if (inline === undefined) {
-            i += 1;
+            break;
         }
     }
-    if (port === undefined) {
-        return null;
-    }
-    if (isWildcardHost(bindHost) && publicHost === undefined) {
-        complain('host: --public-host or HOST_PUBLIC_HOST is required when binding a wildcard address');
-        return null;
-    }
-    const resolvedPort = port ?? DEFAULT_PORT;
-    return {
-        bindHost,
-        publicHost: publicHost ?? (bindHost === '127.0.0.1' ? 'localhost' : bindHost),
-        port: resolvedPort,
-        wsPort: resolvedPort,
-        createMatch,
-    };
+    return { ...base, createMatch };
 }
 
 // ---------------------------------------------------------------------------
@@ -446,41 +387,66 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
 interface PreparedMatch {
     /** Matchmaking-issued match id (UUID). */
     readonly matchId: string;
-    /** Per-seat session tokens, index = seat - 1 (UUIDs). */
-    readonly seatTokens: readonly [string, string];
+    /** Per-seat session tokens, index = seat - 1 (UUIDs); length === playerCount. */
+    readonly seatTokens: readonly string[];
+    /** Requested player count — drives the banner's N and the URL count. */
+    readonly playerCount: number;
+    /** Requested board edge — echoed in the banner. */
+    readonly boardSize: number;
 }
 
 /**
- * Create a public 2-player match and fill it so the matchmaker's
- * auto-start builds the engine session and registers it with the live
- * server (the exact flow exercised by full-stack.spec.ts). Seat names
- * P1/P2 keep matchmaking records consistent with the printed URLs.
+ * Create a public `playerCount`-player match and fill every seat so the
+ * matchmaker's auto-start builds the engine session and registers it with
+ * the live server (the exact flow exercised by full-stack.spec.ts, now
+ * parameterized over N). Seat labels `P1`..`PN` keep matchmaking records
+ * consistent with the printed URLs. As each seat is claimed, a waiting
+ * progress line is printed so the operator sees the fill proceed.
  *
  * @param matchmaker The bound matchmaker.
- * @returns Match id + seat tokens, or null when matchmaking rejected
- *          a step (reason already printed).
+ * @param options    Requested player count and board edge.
+ * @returns Match id + per-seat tokens + counts, or null when matchmaking
+ *          rejected a step (reason already printed).
  */
-function prepareMatch(matchmaker: Stack['matchmaker']): PreparedMatch | null {
+export function prepareMatch(
+    matchmaker: Stack['matchmaker'],
+    options: { readonly playerCount: 2 | 3 | 4; readonly boardSize: 32 | 48 | 64 },
+): PreparedMatch | null {
+    const { playerCount, boardSize } = options;
     const created = matchmaker.createMatch({
         visibility: 'public',
-        displayName: SEAT_NAMES[0],
-        settings: { playerCount: 2, boardSize: BOARD_SIZE, tickIntervalMs: TICK_MS },
+        displayName: seatName(1),
+        settings: { playerCount, boardSize, tickIntervalMs: TICK_MS },
     });
     if (!created.ok) {
         complain(`host: creating the match failed: ${sanitizeLogText(created.error.message)}`);
         return null;
     }
-    const filled = matchmaker.joinMatch({
-        matchId: created.data.matchId,
-        displayName: SEAT_NAMES[1],
-    });
-    if (!filled.ok) {
-        complain(`host: filling the match failed: ${sanitizeLogText(filled.error.message)}`);
-        return null;
+    const seatTokens: string[] = [created.data.seatAssignment.sessionToken];
+    // Seat 1 is filled by createMatch; announce progress while N-1 remain.
+    if (playerCount > 1) {
+        say(formatWaitingMessage(1, playerCount));
+    }
+    for (let seat = 2; seat <= playerCount; seat += 1) {
+        const filled = matchmaker.joinMatch({
+            matchId: created.data.matchId,
+            displayName: seatName(seat),
+        });
+        if (!filled.ok) {
+            complain(`host: filling seat ${String(seat)} failed: ${sanitizeLogText(filled.error.message)}`);
+            return null;
+        }
+        seatTokens.push(filled.data.seatAssignment.sessionToken);
+        // Announce remaining seats until the match is full.
+        if (seat < playerCount) {
+            say(formatWaitingMessage(seat, playerCount));
+        }
     }
     return {
         matchId: created.data.matchId,
-        seatTokens: [created.data.seatAssignment.sessionToken, filled.data.seatAssignment.sessionToken],
+        seatTokens,
+        playerCount,
+        boardSize,
     };
 }
 
@@ -546,16 +512,21 @@ export function printCreateBanner(port: number, publicHost: string, match: Prepa
         `http://${host}:${String(port)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
     say('');
     say(`  Version      : v${APP_VERSION}`);
-    say('  Mode         : explicit-create (--create) — pre-created public 2P match');
+    say(
+        `  Mode         : explicit-create (--create) — pre-created public ${String(match.playerCount)}P match (board ${String(match.boardSize)})`,
+    );
     say(`  Match server : ${wsUrl}`);
     say(`  Console UI   : http://${host}:${String(port)}`);
     say(`  Lobby        : http://${host}:${String(port)}/`);
     say(`  Match id     : ${match.matchId}`);
     say('');
-    say('  Open in two browser tabs:');
+    say(`  Open in ${String(match.playerCount)} browser tabs:`);
     say('');
-    say(`  Player 1 → ${joinUrl(SEAT_NAMES[0], match.seatTokens[0])}`);
-    say(`  Player 2 → ${joinUrl(SEAT_NAMES[1], match.seatTokens[1])}`);
+    for (let i = 0; i < match.seatTokens.length; i += 1) {
+        const seat = i + 1;
+        const name = seatName(seat);
+        say(`  Player ${String(seat)} (${name}) → ${joinUrl(name, match.seatTokens[i])}`);
+    }
     say('');
     say('  Ctrl-C to stop.');
     say('');
@@ -676,7 +647,10 @@ async function main(): Promise<void> {
     // pre-created; visitors create/join through the browser UI.
     // `--create` retains the two-seat quick-test flow.
     if (config.createMatch) {
-        const match = prepareMatch(stack.matchmaker);
+        const match = prepareMatch(stack.matchmaker, {
+            playerCount: config.playerCount,
+            boardSize: config.boardSize,
+        });
         if (match === null) {
             await shutdown();
             process.exitCode = 1;

@@ -31,22 +31,22 @@ describe('host single-port collapse — TDD (T007)', () => {
         errSpy.mockRestore();
     });
 
-    it('--static-port flag triggers generic unknown argument error', () => {
+    it('--static-port flag is rejected as unsupported (FR-012)', () => {
         const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
         const result = resolveConfig(['--static-port', '5173'], {});
         expect(result).toBeNull();
         const output = errSpy.mock.calls.map((c) => String(c[0])).join('');
-        expect(output).toMatch(/unknown argument/);
+        expect(output).toMatch(/no longer supported/);
         expect(output).toMatch(/--static-port/);
         errSpy.mockRestore();
     });
 
-    it('--static-port=5173 inline form also triggers generic unknown argument error', () => {
+    it('--static-port=5173 inline form is also rejected as unsupported (FR-012)', () => {
         const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
         const result = resolveConfig(['--static-port=5173'], {});
         expect(result).toBeNull();
         const output = errSpy.mock.calls.map((c) => String(c[0])).join('');
-        expect(output).toMatch(/unknown argument/);
+        expect(output).toMatch(/no longer supported/);
         expect(output).toMatch(/--static-port/);
         errSpy.mockRestore();
     });
