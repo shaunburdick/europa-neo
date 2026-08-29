@@ -34,12 +34,24 @@
  *       interface — non-conforming handlers fail `pnpm typecheck`).
  */
 
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
 import type { Order, PlayerId } from '@europa/engine';
+import { ENGINE_API_VERSION } from '@europa/engine';
 import type { EngineSession, MatchmakerBridge } from '@europa/networking';
+import { NETWORK_API_VERSION } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
+import { BOARD_SIZE_DEFAULTS as mirrorBoardSizeDefaults } from '../../../specs/012-3-4-player-support/contracts/board-size-defaults';
+import { MATCHMAKING_API_VERSION } from '../contracts/match-types';
+import { BOARD_SIZE_DEFAULTS as shippedBoardSizeDefaults } from '../src/constants';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../src/index';
 import { FakeServer } from './fixtures/fakeServer';
+
+function repoPath(relativePath: string): string {
+    return resolve(__dirname, '..', '..', '..', relativePath);
+}
 
 /**
  * A FakeServer that captures the bridge under the CANONICAL
@@ -243,5 +255,48 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
         expect(matchmaker.stats().finishedMatches).toBe(1);
 
         matchmaker.close();
+    });
+});
+
+describe('conformance: feature 012 board-size defaults mirror + no wire version bump (T006)', () => {
+    it('BOARD_SIZE_DEFAULTS mirror at specs/012-3-4-player-support/contracts/board-size-defaults.ts is byte-identical to shipped constant', async () => {
+        // Runtime value byte-identity: JSON serialization proves key order and
+        // literal values are identical across the informational spec mirror
+        // and the shipped single source. Prevents drift between docs and
+        // product (spec Out of Scope: no wire bump — map is internal only).
+        const expectedJson = JSON.stringify({ 2: 32, 3: 48, 4: 48 });
+        expect(JSON.stringify(shippedBoardSizeDefaults)).toBe(expectedJson);
+        expect(JSON.stringify(mirrorBoardSizeDefaults)).toBe(expectedJson);
+        expect(JSON.stringify(mirrorBoardSizeDefaults)).toBe(JSON.stringify(shippedBoardSizeDefaults));
+
+        // Deep equality corroboration.
+        expect(mirrorBoardSizeDefaults).toEqual(shippedBoardSizeDefaults);
+
+        // File-level byte-identity guard: the exported map literal must appear
+        // verbatim in both the spec mirror and the shipped source (catches
+        // whitespace/order/comment drift that deepEqual would miss).
+        const shippedLiteral =
+            'export const BOARD_SIZE_DEFAULTS: BoardSizeDefault = {\n    2: 32,\n    3: 48,\n    4: 48,\n} as const;';
+        const [mirrorSource, shippedSource] = await Promise.all([
+            readFile(repoPath('specs/012-3-4-player-support/contracts/board-size-defaults.ts'), 'utf-8'),
+            readFile(repoPath('packages/matchmaking/src/constants.ts'), 'utf-8'),
+        ]);
+        expect(mirrorSource).toContain(shippedLiteral);
+        expect(shippedSource).toContain(shippedLiteral);
+
+        // Contract copy in packages/matchmaking/contracts/match-types.ts must
+        // carry the same literal (the single-source discipline: both contract
+        // and constant declare the map; drift between them is a bug).
+        const contractSource = await readFile(repoPath('packages/matchmaking/contracts/match-types.ts'), 'utf-8');
+        expect(contractSource).toContain(shippedLiteral);
+    });
+
+    it('no wire/API version bump — MATCHMAKING_API_VERSION, NETWORK_API_VERSION, ENGINE_API_VERSION remain 0.1.0', () => {
+        // Feature 012 is explicitly out-of-scope for any wire/protocol bump.
+        // A silent bump would force unnecessary client updates. Pin the three
+        // versions that MUST stay unchanged (verified vs main: all 0.1.0).
+        expect(MATCHMAKING_API_VERSION).toBe('0.1.0');
+        expect(NETWORK_API_VERSION).toBe('0.1.0');
+        expect(ENGINE_API_VERSION).toBe('0.1.0');
     });
 });
