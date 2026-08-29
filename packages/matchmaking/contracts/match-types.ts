@@ -577,6 +577,33 @@ export interface MatchmakerStats {
 }
 
 // ----------------------------------------------------------------------------
+// Board size defaults (feature 012 — FR-001)
+// ----------------------------------------------------------------------------
+
+/** Product-approved default board edge per player count (FR-001). */
+export type PlayerCount = 2 | 3 | 4;
+
+/** Board sizes offered by the lobby/host UI (presentation set; server clamp is [8,128]). */
+export type UiBoardSize = 32 | 48 | 64;
+
+/** Single source map — the only place defaults are defined. */
+export type BoardSizeDefault = Readonly<Record<PlayerCount, UiBoardSize>>;
+
+/**
+ * Canonical defaults — byte-identical to the informational mirror at
+ * `specs/012-3-4-player-support/contracts/board-size-defaults.ts`.
+ *
+ * Single source for FR-001: used by lobby create form (FR-002) and host
+ * CLI implied size (FR-011). `DEFAULT_MATCH_SETTINGS.boardSize` stays
+ * `32` for backward API compatibility — this map is additive.
+ */
+export const BOARD_SIZE_DEFAULTS: BoardSizeDefault = {
+    2: 32,
+    3: 48,
+    4: 48,
+} as const;
+
+// ----------------------------------------------------------------------------
 // Constants
 // ----------------------------------------------------------------------------
 
