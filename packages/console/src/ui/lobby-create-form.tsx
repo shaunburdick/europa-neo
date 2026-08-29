@@ -30,9 +30,10 @@
  * disables submission while the create action is in flight.
  */
 
+import { BOARD_SIZE_DEFAULTS } from '@europa/matchmaking';
 import type { LobbyMatchSettings, LobbyTerrainSettings } from '@europa/networking';
 import type { JSX } from 'react';
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useId, useRef, useState } from 'react';
 
 import type { LobbyActionStatus } from '../state/lobby-state';
 import { describeActionError } from './lobby-labels';
@@ -135,6 +136,7 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
     const [playerCount, setPlayerCount] = useState<2 | 3 | 4>(2);
     const [boardSize, setBoardSize] = useState<number>(32);
     const [citiesPerPlayer, setCitiesPerPlayer] = useState<number>(1);
+    const previousPlayerCountRef = useRef<2 | 3 | 4>(2);
 
     const headingId = useId();
     const countFieldName = useId();
@@ -174,6 +176,18 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                                     value={count}
                                     checked={playerCount === count}
                                     onChange={() => {
+                                        const previousCount = previousPlayerCountRef.current;
+                                        const previousDefault = BOARD_SIZE_DEFAULTS[previousCount];
+                                        const nextDefault = BOARD_SIZE_DEFAULTS[count];
+                                        const currentSize = boardSize as unknown as number | null | undefined;
+                                        const isUnset =
+                                            currentSize === null ||
+                                            currentSize === undefined ||
+                                            (typeof currentSize === 'number' && Number.isNaN(currentSize));
+                                        if (isUnset || currentSize === previousDefault) {
+                                            setBoardSize(nextDefault);
+                                        }
+                                        previousPlayerCountRef.current = count;
                                         setPlayerCount(count);
                                     }}
                                 />
