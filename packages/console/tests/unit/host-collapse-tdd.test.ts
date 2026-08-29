@@ -21,13 +21,13 @@ describe('host single-port collapse — TDD (T007)', () => {
         expect((config as HostConfig).wsPort).toBe(8080);
     });
 
-    it('HOST_STATIC_PORT env is ignored (never released)', () => {
+    it('HOST_STATIC_PORT env is rejected as unsupported (FR-012)', () => {
         const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
         const result = resolveConfig([], { HOST_STATIC_PORT: '5173' });
-        expect(result).not.toBeNull();
-        expect((result as HostConfig).port).toBe(8080);
+        expect(result).toBeNull();
         const output = errSpy.mock.calls.map((c) => String(c[0])).join('');
-        expect(output).not.toMatch(/no longer supported/);
+        expect(output).toMatch(/no longer supported/);
+        expect(output).toMatch(/HOST_STATIC_PORT/);
         errSpy.mockRestore();
     });
 

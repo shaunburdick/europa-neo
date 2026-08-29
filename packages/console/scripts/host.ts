@@ -149,10 +149,11 @@ export interface HostLaunchConfig extends NPlayerHostConfig {
  * resolver owns port/bind/board/player-count parsing and the single-port
  * invariant; this wrapper only adds the create-mode bit.
  *
- * FR-012: `HOST_STATIC_PORT` is unsupported. The launcher is lenient and
- * ignores it (the single-port model uses `HOST_PORT` only); the N-player
- * resolver would reject it, so it is dropped before delegating to preserve
- * the established launcher behavior.
+ * FR-012: `HOST_STATIC_PORT` is unsupported and is REJECTED (not silently
+ * ignored) — the strict N-player resolver rejects it with a clear "no longer
+ * supported" error, and this wrapper passes the environment through unchanged
+ * so that rejection fires. The single-port model uses `HOST_PORT` only; there
+ * is no second listener.
  *
  * @param args Raw argv slice after the script path.
  * @param environment Process environment (overridable for tests).
@@ -163,11 +164,10 @@ export function resolveConfig(
     args: readonly string[],
     environment: NodeJS.ProcessEnv = process.env,
 ): HostLaunchConfig | null {
-    // FR-012: drop the unsupported HOST_STATIC_PORT so the strict N-player
-    // resolver does not reject it — the launcher stays lenient here.
-    const envWithoutStatic: NodeJS.ProcessEnv = { ...environment };
-    delete envWithoutStatic.HOST_STATIC_PORT;
-    const base = resolveNPlayerConfig(args, envWithoutStatic);
+    // FR-012: pass the environment through unchanged so the strict N-player
+    // resolver rejects HOST_STATIC_PORT with a clear "no longer supported"
+    // error (the launcher must not silently ignore it).
+    const base = resolveNPlayerConfig(args, environment);
     if (base === null) {
         return null;
     }
