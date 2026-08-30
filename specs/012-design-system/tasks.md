@@ -257,6 +257,19 @@
 
 ---
 
+## Phase 8: Manual Catalog Adoption (PO option 1, post-trim)
+
+**Purpose**: fulfill spec 012 User Story 2 fully — the player manual must share the *component* vocabulary, not just the theme. Adopt `europa-*` catalog classes in `docs/manual` so docs and console use the same components. Added after the initial trim per product-owner direction ("start with option 1").
+
+- [ ] **T-030 — Adopt `europa-*` catalog classes in the player manual**
+  - **Description**: (1) Extend `packages/design/src/styles/catalog.css` with a documentation-prose section **scoped under `.europa-page`** that styles markdown-rendered elements (`h1`–`h3`, `p`, `ul`/`ol`/`li`, `table`/`th`/`td`, `code`, `pre`, `blockquote`, `a`, `hr`) using `--europa-*` tokens, so every manual page automatically shares the console's design language. (2) Add explicit `europa-*` component usages in `docs/manual/*.md` via Kramdown/HTML class hooks: `europa-card` for callouts, `europa-chip` for status pills, `europa-typography--muted`/`--meta` for captions, `europa-table` on tables. (3) Rebuild `dist/design.css` and re-vendor to `docs/manual/assets/design.css`; verify byte-identity (G-05).
+  - **Acceptance**: `docs/manual/*.md` contains `europa-` class hooks; `check:vendor-identity` passes (byte-identical); `check:no-literals` passes (no hex/rgba literals in manual); manual renders dark-slate with shared card/chip/typography components; console unaffected (prose rules scoped under `.europa-page`, which the console does not use as a wrapper).
+  - **Files**: `packages/design/src/styles/catalog.css`, `packages/design/dist/design.css` (generated), `docs/manual/assets/design.css` (generated/vendored), `docs/manual/*.md` (annotations).
+  - **Depends on**: T-007, T-016.
+  - **Traces**: FR-006, FR-012, FR-013, SC-004.
+
+---
+
 ## Dependencies & Parallelization Summary
 
 ```
@@ -279,6 +292,7 @@ T-010 ── T-023 (extension guidance coverage)
 T-006+T-016 ── T-024 (build ordering) — lane with T-025/T-026/T-027 [P]
 T-013 ── T-028 [P] budget
 T-012..T-028 ── T-029 (E2E replay) — last
+T-007+T-016 ── T-030 (manual catalog adoption, PO option 1) — post-trim addition
 ```
 
 **Wave model for the orchestrator** (max parallelism):

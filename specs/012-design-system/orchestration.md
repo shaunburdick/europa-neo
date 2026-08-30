@@ -1,7 +1,7 @@
 # Orchestration Log: 012-design-system (issue #25) — Shareable Design System
 
 ## Status
-- **Current Wave**: Complete — PR Open
+- **Current Wave**: Post-PR — T-030 manual catalog adoption (PO option 1)
 - **Branch**: `issue-25-design-system`
 - **PR**: https://github.com/shaunburdick/europa-neo/pull/31
 - **Last Updated**: 2026-08-30
@@ -57,6 +57,9 @@ Single private package `@europa/design` (`packages/design`) — TS token table `
 
 ### Wave 8 — Final Verification — ✅ Complete
 - T-029 End-to-end SC checklist + quickstart replay — ✅ done (ebb8776; full verification green, PR #31 open)
+
+### Wave 9 — Manual Catalog Adoption (PO option 1, post-trim) — 🔄 In Progress
+- T-030 Adopt `europa-*` catalog classes in the player manual — ⏳ pending (dispatch)
 
 ## Decisions & Rationale
 - 2026-08-30: Large effort (29 tasks) — PM drives orchestration directly (not architect solo) per orchestration skill; architect cannot spawn sub-agents.
