@@ -407,8 +407,31 @@
     line-height: var(--europa-typography-line-height-normal);
 }
 
-/* ── 11. Focus / motion helpers (inherent; full a11y gates in T-008) ───── */
+/* ── 11. Focus / motion a11y gates (FR-016, G-07) ──────────────────────── */
+*:focus-visible,
+.europa-focus-ring {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-color-focus-ring);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
 .europa-focus-ring:focus-visible {
     outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
     outline-offset: var(--europa-focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+.europa-waiting--reduced,
+.europa-waiting--reduced *,
+.europa-waiting--reduced *::before,
+.europa-waiting--reduced *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
 }
