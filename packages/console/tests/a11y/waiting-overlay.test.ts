@@ -19,10 +19,10 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { App } from '../../src/render/App';
+import { formatWaitingMessage } from '../../src/state/awaiting-start';
 import { INITIAL_CONSOLE_STATE } from '../../src/state/reducer';
 import { createConsoleStore } from '../../src/state/store';
 import type { ConsoleState } from '../../src/state/types';
-import { WAITING_FOR_OPPONENT_MESSAGE } from '../../src/ui/waiting-overlay';
 import '../../src/styles/index.css';
 import { buildCellView, buildPlayerView } from '../fixtures/player-view';
 import { expectNoDomA11yViolations } from '../setup';
@@ -59,7 +59,9 @@ async function bootAwaitingConsole(): Promise<void> {
                 buildCellView({ coord: { x: 5, y: 6 }, elevation: 45, troops: 3, owner: 1 }),
             ],
         }),
-        session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1 },
+        // A 2-player context: one opponent means capacity = 2, so the
+        // N-aware headline resolves to "Waiting for 1 more player… (1/2)".
+        session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1, opponents: ['Opponent'] },
     };
     await render(createElement(App, { store: createConsoleStore(state) }));
 }
@@ -77,7 +79,7 @@ describe('waiting-for-opponent overlay a11y acceptance', () => {
         // lands — poll until one polite node carries exactly the message.
         const carriers = (): number =>
             [...document.querySelectorAll('[data-europa-live="polite"]')].filter(
-                (node) => node.textContent === WAITING_FOR_OPPONENT_MESSAGE,
+                (node) => node.textContent === formatWaitingMessage(1, 2),
             ).length;
         await vi.waitFor(() => {
             expect(carriers()).toBe(1);
@@ -104,6 +106,6 @@ describe('waiting-for-opponent overlay a11y acceptance', () => {
         const pulse = document.querySelector('.europa-waiting__pulse');
         expect(pulse).not.toBeNull();
         expect(pulse?.getAttribute('aria-hidden')).toBe('true');
-        expect(document.querySelector('.europa-waiting__text')?.textContent).toBe(WAITING_FOR_OPPONENT_MESSAGE);
+        expect(document.querySelector('.europa-waiting__text')?.textContent).toBe(formatWaitingMessage(1, 2));
     });
 });
