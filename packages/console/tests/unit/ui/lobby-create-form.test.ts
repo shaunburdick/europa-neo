@@ -30,6 +30,7 @@ import { BOARD_SIZE_DEFAULTS, type PlayerCount } from '@europa/matchmaking';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';
+import type { LobbyActionStatus } from '../../../src/state/lobby-state';
 import {
     buildCreateSettings,
     LobbyCreateForm,
@@ -256,6 +257,139 @@ describe('LobbyCreateForm wiring (FR-002 end-to-end)', () => {
             });
             expect(submitted).toHaveLength(1);
             expect(submitted[0]).toEqual({ playerCount: 3, boardSize: BOARD_SIZE_DEFAULTS[3], citiesPerPlayer: 4 });
+        } finally {
+            unmount();
+        }
+    });
+});
+
+// ----------------------------------------------------------------------------
+// Rejection rendering (US3 AC-4 / FR-002 invalid-size rejection surfaced via
+// `actionStatus.error.detail`). These exercise the `rejectedSettingsField`
+// helper's branches (null error, null detail, empty detail, settings.* key,
+// non-settings key) and the field-specific vs form-level error rendering plus
+// the busy-label ternary — the branches the coverage gate flagged at <80%.
+// ----------------------------------------------------------------------------
+
+/** Mount the form with an explicit action status (error/loading states). */
+function mountFormWithStatus(
+    actionStatus: LobbyActionStatus,
+    onCreate: (values: LobbyCreateFormValues) => void = () => undefined,
+): { container: HTMLElement; unmount: () => void } {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => {
+        root.render(
+            createElement(LobbyCreateForm, {
+                disabled: false,
+                actionStatus,
+                onCreate,
+            }),
+        );
+    });
+    return {
+        container,
+        unmount: () => {
+            act(() => {
+                root.unmount();
+            });
+            container.remove();
+        },
+    };
+}
+
+/** Text of every role="alert" error line currently rendered. */
+function errorLines(container: HTMLElement): string[] {
+    return Array.from(container.querySelectorAll<HTMLElement>('.europa-lobby__error')).map(
+        (el) => el.textContent?.trim() ?? '',
+    );
+}
+
+/** Build an error action status carrying the given `detail` record. */
+function errorStatus(
+    detail: Readonly<Record<string, string | number | boolean>> | null,
+    message = 'The server rejected the request.',
+): LobbyActionStatus {
+    return { phase: 'error', error: { code: 'internal_error', message, detail } };
+}
+
+describe('LobbyCreateForm rejection rendering (US3 AC-4 / FR-002)', () => {
+    it('shows a form-level error when the action failed with no detail', () => {
+        const { container, unmount } = mountFormWithStatus(errorStatus(null));
+        try {
+            const lines = errorLines(container);
+            expect(lines).toHaveLength(1);
+            expect(lines[0]).toBe('The server rejected the request.');
+        } finally {
+            unmount();
+        }
+    });
+
+    it('shows a form-level error when detail names no settings.* field', () => {
+        const { container, unmount } = mountFormWithStatus(errorStatus({ someOtherKey: 'x' }));
+        try {
+            const lines = errorLines(container);
+            expect(lines).toHaveLength(1);
+            expect(lines[0]).toBe('The server rejected the request.');
+        } finally {
+            unmount();
+        }
+    });
+
+    it('shows a form-level error when detail is an empty record (loop not entered)', () => {
+        const { container, unmount } = mountFormWithStatus(errorStatus({}));
+        try {
+            const lines = errorLines(container);
+            expect(lines).toHaveLength(1);
+            expect(lines[0]).toBe('The server rejected the request.');
+        } finally {
+            unmount();
+        }
+    });
+
+    it('renders a playerCount field-specific error when detail names settings.playerCount', () => {
+        const { container, unmount } = mountFormWithStatus(
+            errorStatus({ 'settings.playerCount': 'must be 2-4' }, 'Player count rejected.'),
+        );
+        try {
+            const lines = errorLines(container);
+            expect(lines).toHaveLength(1);
+            expect(lines[0]).toBe('Player count rejected.');
+        } finally {
+            unmount();
+        }
+    });
+
+    it('renders a boardSize field-specific error when detail names settings.boardSize (invalid-size rejection)', () => {
+        const { container, unmount } = mountFormWithStatus(
+            errorStatus({ 'settings.boardSize': 'not in allowed set' }, 'Board size rejected.'),
+        );
+        try {
+            const lines = errorLines(container);
+            expect(lines).toHaveLength(1);
+            expect(lines[0]).toBe('Board size rejected.');
+        } finally {
+            unmount();
+        }
+    });
+
+    it('renders no error line when the action is idle with no error', () => {
+        const { container, unmount } = mountFormWithStatus({ phase: 'idle', error: null });
+        try {
+            expect(errorLines(container)).toHaveLength(0);
+        } finally {
+            unmount();
+        }
+    });
+
+    it('shows the busy "Creating…" label while the create action is loading', () => {
+        const { container, unmount } = mountFormWithStatus({ phase: 'loading', error: null });
+        try {
+            const button = container.querySelector('button[type="submit"]');
+            expect(button).not.toBeNull();
+            expect(button?.textContent?.trim()).toBe('Creating…');
+            expect(button?.hasAttribute('disabled')).toBe(true);
         } finally {
             unmount();
         }
