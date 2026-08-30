@@ -95,7 +95,7 @@ Expected output (numbers vary by seed):
 ```
 hash: <16-char hex>
 effectiveSeed: 1
-effectiveSettings: { waterRatio: 0.1, roughness: 0.5, octaves: 4, ... }
+effectiveSettings: { waterRatio: 0.1, roughness: 0.5, octaves: 4, terrainSmoothing: 4, ... }
 board: 32 x 32
 cities: 2
 ```
@@ -132,6 +132,7 @@ the source-of-truth contract lives at
 | `clampMinCityWaterDistance(v)` | integer `[1, 6]` |
 | `clampMinCityCityDistance(v)` | integer `[2, 10]` |
 | `clampMaxRegenAttempts(v)` | integer `[1, 10]` |
+| `clampTerrainSmoothing(v)` | integer `[0, 8]` (default 4; `0` = no smoothing) |
 | `WATER_RATIO_MIN` / `WATER_RATIO_MAX` | float range bounds |
 | (and similar `*_MIN` / `*_MAX` exports for every clamped field) |
 
@@ -142,6 +143,7 @@ the source-of-truth contract lives at
 | `valueNoise(x, y, seed)` | FR-002 / US1 |
 | `fbm(x, y, seed, octaves, persistence)` | FR-002 / US1 |
 | `generateElevationMap(rng, w, h, settings)` | US1 |
+| `smoothElevation(elev, size, passes)` | FR-010 / US4 (post-process pass; `passes` = `terrainSmoothing`) |
 | `extractWater(elev, w, h, waterRatio)` | FR-003 / US1 |
 | `buildBoard(elev, water, w, h)` | US1 |
 | `getPlayerBand(pid, playerCount, w, h)` | US2 |
@@ -225,6 +227,7 @@ packages/terrain/
 │   ├── index.ts            # public barrel
 │   ├── rng-adapter.ts      # deriveSubstream, mixSeed
 │   ├── settings.ts         # resolveSettings, validateSettings
+│   ├── smoothing.ts        # smoothElevation (FR-010 post-process pass)
 │   ├── symmetry.ts         # rotate180, rotate180Index
 │   ├── types.ts            # public type re-exports
 │   ├── validate.ts         # validateBoard (15 invariants)

@@ -64,6 +64,10 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `overlay-soft` | `--europa-color-overlay-soft` | `TOKENS.color.overlaySoft` | `rgba(26, 34, 51, 0.6)` | Translucent veil over board/plates — non-text; text drawn above it uses `text-primary`/`text-secondary` on the composited surface |
 | `overlay-strong` | `--europa-color-overlay-strong` | `TOKENS.color.overlayStrong` | `rgba(26, 34, 51, 0.75)` | Modal backdrop veil (`.europa-modal-backdrop`) — non-text; dialog contents sit on `surface` |
 | `page-bg` | `--europa-color-page-bg` | `TOKENS.color.pageBg` | `#0b0f19` | `text-secondary` `#e5e7eb` on this bg ≈ 15.47:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-muted` ≈ 7.54:1; `text-primary` ≈ 18.33:1 |
+| `pipe-downhill` | `--europa-color-pipe-downhill` | `TOKENS.color.pipeDownhill` | `#059669` | Reuses `green`. Downhill pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 4.22:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs the darkest land tile `#3a4a3a` ≈ 2.51:1 — below target, see § 3 note N-4 |
+| `pipe-flat` | `--europa-color-pipe-flat` | `TOKENS.color.pipeFlat` | `#f59e0b` | Reuses `accent`. Flat pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 7.40:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs the darkest land tile `#3a4a3a` ≈ 4.40:1 — meets |
+| `pipe-stalled` | `--europa-color-pipe-stalled` | `TOKENS.color.pipeStalled` | `#9ca3af` | Reuses `text-muted`. Stalled pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 6.26:1 (per § 3) — AA 1.4.11 non-text (≥ 3:1): meets; vs the darkest land tile `#3a4a3a` ≈ 3.73:1 — meets |
+| `pipe-uphill` | `--europa-color-pipe-uphill` | `TOKENS.color.pipeUphill` | `#dc2626` | Reuses `red`. Uphill pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 3.29:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs the darkest land tile `#3a4a3a` ≈ 1.96:1 — below target, see § 3 note N-4 |
 | `red` | `--europa-color-red` | `TOKENS.color.red` | `#dc2626` | On `surface`: ≈ 3.67:1 — AA 1.4.3 large (≥ 3:1) / 1.4.11 non-text (≥ 3:1): meets; normal-size text: does NOT meet, use `error-text` |
 | `surface` | `--europa-color-surface` | `TOKENS.color.surface` | `#111827` | `text-primary` `#f9fafb` on this fill ≈ 16.98:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-secondary` ≈ 14.33:1; `text-muted` ≈ 6.99:1 |
 | `surface-raised` | `--europa-color-surface-raised` | `TOKENS.color.surfaceRaised` | `#1f2937` | `text-primary` `#f9fafb` on this fill ≈ 14.05:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
@@ -214,6 +218,7 @@ not a comment. Every row below is at or above its stated target.
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.pageBg` `#0b0f19` | ≈ 19.15:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — outline on the page column |
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.voidBg` `#1a2233` | ≈ 15.90:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — outline on the board / `.europa-lobby__row` |
 | Land band ceiling `hsl(120 12% 62%)` `#92aa92` — from `TOKENS.color.landMaxLightnessPct` | `TOKENS.color.voidBg` `#1a2233` | ≈ 6.35:1 | AA 1.4.11 non-text ≥ 3:1 | G-07 non-text pair — land tiles against fog void; the elevation band is the identification cue |
+| Pipe slope fills — downhill `#059669` / flat `#f59e0b` / uphill `#dc2626` / stalled `#9ca3af` (reuse of `TOKENS.color.green` / `TOKENS.color.accent` / `TOKENS.color.red` / `TOKENS.color.textMuted`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 4.22:1 / 7.40:1 / 3.29:1 / 6.26:1 | AA 1.4.11 non-text ≥ 3:1 | G-07 non-text pair — pipe slope indicators over fog void (005 FR-013); darkest-land-tile worst case in note N-4 |
 
 **Measured, not estimated.** These values supersede the planning-time approximations carried in
 spec 012 and its contract (`≈ 15:1`, `≈ 13.5:1`, `≈ 6.6:1`, `≈ 16:1`). The deltas are
@@ -239,6 +244,15 @@ terrain identity is redundantly encoded: the elevation band itself spans ≈ 3.7
 tiles are further identified by troop chips, city markers, and the minimap. This is the inherited
 console rendering codified as tokens, not a new decision (spec Assumptions); a future contrast pass on
 terrain would change values only, never names (§ 6).
+
+**N-4 — Pipe slope fills on the board.** Pipe indicators render on terrain tiles, so the darkest land
+tile (`#3a4a3a`, the land band floor) is the worst-case background: downhill `#059669` measures
+≈ 2.51:1 and uphill `#dc2626` ≈ 1.96:1 there, both below the 3:1 non-text target. Against the fog void
+(`#1a2233`) all four fills meet ≥ 3:1 (downhill ≈ 4.22:1, flat ≈ 7.40:1, uphill ≈ 3.29:1, stalled
+≈ 6.26:1). The fixed three-color slope scheme is spec 005 FR-013's decision (no intensity scaling); the
+stalled state is redundantly encoded by a hollow-triangle shape distinct from the filled flowing
+triangles. The land band spans ≈ 3.78:1 floor-to-ceiling, so most land tiles are lighter than the floor.
+A future contrast pass on terrain would change values only, never names (§ 6).
 
 **Motion (WCAG 2.3.3).** Decorative animation is gated twice: the stylesheet's
 `@media (prefers-reduced-motion: reduce)` block collapses animation and transition durations globally,

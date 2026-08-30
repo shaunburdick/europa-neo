@@ -113,6 +113,7 @@ export { enforceCitySymmetry } from './city-symmetry';
 export { generateElevationMap } from './elevation';
 export { fbm } from './fbm';
 export { generateBoard, hashBoard } from './generate';
+export { smoothElevation } from './smoothing';
 export { validateBoard } from './validate';
 export { valueNoise } from './value-noise';
 export { _extractWater, extractWater } from './water';

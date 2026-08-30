@@ -397,31 +397,57 @@ export interface MapView {
   readonly exclusiveMode: boolean;
 }
 
+/**
+ * Slope classification for one pipe direction (005 FR-013).
+ *
+ * - `'downhill'` — destination elevation < source (green).
+ * - `'flat'`     — equal elevation, or destination outside the
+ *                  visibility horizon (fog fallback — no slope claim).
+ * - `'uphill'`   — destination elevation > source (red).
+ * - `'stalled'`  — uphill with flow rate 0 under feature 001 FR-007's
+ *                  formula (hollow/outline-only triangle in the
+ *                  stalled color).
+ *
+ * Module-local (not exported): the console's public surface exposes
+ * the classification structurally through `CellRenderInfo.pipeSlopes`;
+ * the renderer's own union lives in `src/render/pipe-slope.ts`.
+ */
+type PipeSlope = 'downhill' | 'flat' | 'uphill' | 'stalled';
+
 /** Per-cell render info. Pure data, no DOM. */
 export interface CellRenderInfo {
-  readonly coord: Coord;
-  /** Elevation (0..255 integer). Used by the renderer to shade terrain. */
-  readonly elevation: number;
-  /** Terrain classification. Water cells render as blue; land as shaded. */
-  readonly terrain: 'land' | 'water';
-  /** Troop count. `0` means empty (renderer may draw a fainter dot). */
-  readonly troops: number;
-  /** Owner of the troops. `null` for empty / neutral. */
-  readonly owner: PlayerId | null;
-  /** Whether the cell is a city. City cells get a distinct border + icon. */
-  readonly isCity: boolean;
-  /** City owner (may differ from `owner` during a capture in flight). */
-  readonly cityOwner: PlayerId | null;
-  /** Set of directions with active pipes. Renderer draws pipe triangles. */
-  readonly pipes: ReadonlySet<Direction>;
-  /** Reserves percentage (0..9 → 0%..90% in steps of 10). */
-  readonly reservesPct: ReservesPct;
-  /**
-   * Set when the cell changed during the last tick. The renderer
-   * draws a brief "flash" highlight (~200ms) on changed cells. The
-   * flag is reset after the next render.
-   */
-  readonly changedThisTick: boolean;
+    readonly coord: Coord;
+    /** Elevation (0..255 integer). Used by the renderer to shade terrain. */
+    readonly elevation: number;
+    /** Terrain classification. Water cells render as blue; land as shaded. */
+    readonly terrain: 'land' | 'water';
+    /** Troop count. `0` means empty (renderer may draw a fainter dot). */
+    readonly troops: number;
+    /** Owner of the troops. `null` for empty / neutral. */
+    readonly owner: PlayerId | null;
+    /** Whether the cell is a city. City cells get a distinct border + icon. */
+    readonly isCity: boolean;
+    /** City owner (may differ from `owner` during a capture in flight). */
+    readonly cityOwner: PlayerId | null;
+    /** Set of directions with active pipes. Renderer draws pipe triangles. */
+    readonly pipes: ReadonlySet<Direction>;
+    /**
+     * Per-direction slope classification for rendering (005 FR-013).
+     * One entry per direction in `pipes`, computed by `buildMapView`
+     * from the source/destination elevation delta (feature 001
+     * FR-007); a destination outside the visibility horizon classifies
+     * as `'flat'` (fog fallback). Additive field — consumers that do
+     * not color-code pipes may ignore it.
+     */
+    readonly pipeSlopes: ReadonlyMap<Direction, PipeSlope>;
+    /** Reserves percentage (0..9 → 0%..90% in steps of 10). */
+    readonly reservesPct: ReservesPct;
+    /**
+     * Set when the cell changed during the last tick. The renderer
+     * draws a brief "flash" highlight (~200ms) on changed cells. The
+     * flag is reset after the next render.
+     */
+    readonly changedThisTick: boolean;
 }
 
 /**

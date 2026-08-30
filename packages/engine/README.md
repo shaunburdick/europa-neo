@@ -94,8 +94,11 @@ if (!staged.result.ok) {
 }
 world = staged.world;
 
-// 4. Tick once. Cities gain `productionRate` (1) troop; pipe moves
-//    `flowBase × factor` (1 × 1 = 1) troops east.
+// 4. Tick once. Cities gain `productionRate` (1) troop; the flat pipe
+//    moves `flowRateForDelta(0, ENGINE_CONSTANTS)` = `flowBase` = 7
+//    troops east (FR-007 elevation-gradient model: downhill pipes gain
+//    up to `flowSlopeStep × flowSlopeDeltaCap` extra, uphill pipes lose
+//    `flowSlopeStep` per unit of climb and stall at Δ ≥ 7).
 const result = tick(world);
 console.log('tick:', result.world.tick);
 console.log('troops at (2, 1):', result.world.state.troopCounts[1 * 8 + 2]);

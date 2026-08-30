@@ -16,11 +16,16 @@ Every match is fought on a square grid of cells. This page covers what the board
 
 Land cells are shaded by elevation, from dark green at the lowest ground to bright green at the peaks. Elevation is not decoration — it drives pipe flow:
 
-- **Downhill** pipes (toward lower cells) flow.
-- **Flat** pipes (equal elevation) flow.
-- **Uphill** pipes (toward higher cells) move nothing at v1 tuning.
+- **Downhill** pipes (toward lower cells) get a bonus: the steeper the drop, the faster the flow.
+- **Flat** pipes (equal elevation) flow steadily at the base rate.
+- **Uphill** pipes (toward higher cells) pay a handicap: the steeper the climb, the slower the flow.
+- **Steep uphill** pipes (a climb of 7 or more elevation steps) **stall** — they move nothing, and render as hollow triangles on the board.
 
-Reading elevation well is a real skill: a ridge between your cities and the front can force long detours, because troops cannot be pumped uphill. See [Pipes](./pipes.md) for the flow rules.
+Reading elevation well is a real skill: a ridge between your cities and the front can force long detours, because steep uphill pipes stall entirely. See [Pipes](./pipes.md) for the exact flow rates.
+
+### Terrain smoothing
+
+Maps are generated fresh for each match, and the host can tune how rugged the terrain is with the **terrain smoothing** setting: each smoothing pass evens out adjacent-cell elevation differences, so more passes mean gentler hills and more viable cross-map routes for your pipe network. The default is **4 passes**; the setting accepts **0–8**, and **0 means no smoothing at all** — the rawest terrain. Hosts adjust it when creating a match.
 
 ## Water pools
 

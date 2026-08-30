@@ -44,11 +44,22 @@ describe('settings', () => {
                 minCityWaterDistance: 1,
                 minCityCityDistance: 2,
                 maxRegenAttempts: 10,
+                terrainSmoothing: 2,
             };
             // `resolveSettings` accepts `Partial<GenerationSettings>`, so a
             // fully-populated value passes the type check.
             const result = resolveSettings(full);
             expect(result).toEqual(full);
+        });
+
+        it('falls back to the default terrainSmoothing when omitted', () => {
+            const result = resolveSettings({ waterRatio: 0.2 });
+            expect(result.terrainSmoothing).toBe(DEFAULT_GENERATION_SETTINGS.terrainSmoothing);
+        });
+
+        it('overrides terrainSmoothing when supplied', () => {
+            const result = resolveSettings({ terrainSmoothing: 0 });
+            expect(result.terrainSmoothing).toBe(0);
         });
 
         it('treats explicit undefined as "use the default"', () => {
@@ -88,6 +99,28 @@ describe('settings', () => {
                 citiesPerPlayer: 1.5,
             };
             expect(() => validateSettings(bad)).toThrow(GenerationError);
+        });
+
+        it('throws on non-integer terrainSmoothing', () => {
+            const bad: GenerationSettings = {
+                ...DEFAULT_GENERATION_SETTINGS,
+                terrainSmoothing: 2.5,
+            };
+            expect(() => validateSettings(bad)).toThrow(GenerationError);
+            try {
+                validateSettings(bad);
+            } catch (err) {
+                expect(err).toBeInstanceOf(GenerationError);
+                if (err instanceof GenerationError) {
+                    expect(err.kind).toBe('invalid_request');
+                    expect(err.message).toMatch(/terrainSmoothing/);
+                }
+            }
+        });
+
+        it('accepts in-range integer terrainSmoothing values (0 and 8)', () => {
+            expect(() => validateSettings({ ...DEFAULT_GENERATION_SETTINGS, terrainSmoothing: 0 })).not.toThrow();
+            expect(() => validateSettings({ ...DEFAULT_GENERATION_SETTINGS, terrainSmoothing: 8 })).not.toThrow();
         });
 
         it('throws on NaN waterRatio', () => {

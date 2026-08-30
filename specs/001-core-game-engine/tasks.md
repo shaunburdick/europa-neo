@@ -1,332 +1,246 @@
-# Tasks: Core Game Engine
+# Tasks: Elevation-Gradient Pipe Flow + Terrain Smoothing + Slope Color-Coding (issue #30)
 
-**Input**: Design documents from `specs/001-core-game-engine/`
-**Prerequisites**: `plan.md` (required), `spec.md` (required), `research.md`, `data-model.md`, `contracts/`, `quickstart.md`
-**Branch**: `001-europa-core`
-**Spec**: [spec.md](./spec.md) — 5 user stories (P1×2, P2×2, P3×1) and 19 functional requirements
+**Input**: Design documents from `specs/001-core-game-engine/` — `spec.md` v1.2 (FR-007 gradient, US1 AC-4/AC-5), `plan.md`, `research.md`, `data-model.md`, `contracts/` (updated canonical + informational mirrors), plus the amended specs 003 v1.3 (FR-010, US4), 005 v1.2 (FR-013), 006 (Implementation Notes), 007 v1.3 (FR-006/FR-008/FR-010/FR-012), 012-design-system (companion).
 
-**Tests**: REQUIRED. Constitution Principle III mandates ≥80% coverage on game logic as a merge gate, and `research.md` §10 specifies "each resolution rule in its own module + its own test file". Tests are interleaved with implementation tasks per the spec-kit template (tests first, then impl, then quickstart).
+**Branch**: `issue-30-pipe-flow-rate` (stay on this branch; never commit to `main` directly — `git-safety` skill)
 
-**Organization**: Tasks are grouped by user story (P1 → P2 → P3) so each story can be implemented, tested, and validated independently. Foundation phase contains cross-cutting infrastructure that blocks all stories. Polish phase handles serialization, determinism, perf, and CI.
+**Tests**: Every task with a test artifact must land the test FIRST (or alongside) and the test must FAIL before the implementation. Mark `[P]` only when tasks touch disjoint files with no dependency.
 
-## Format: `[ID] [P?] [Story] Description`
+**✅ R-1 RESOLVED (PM ruling 2026-08-30, user-approved)**: **asymmetric cap** — `flowSlopeDeltaCap` bounds the downhill bonus only (`flowBase + flowSlopeStep × min(|Δ|, cap)`); the uphill handicap is UNCAPPED (`max(0, flowBase − flowSlopeStep × |Δ|)`). Stall at Δ ≥ `flowBase/flowSlopeStep` = 7. This matches every rate listed in spec 001 v1.2 and the empirical 31.5%-stall figure. The FR-007 formula text correction rides in the implementation change set (specs stay truthful). All expected-value tasks (T007, T009, T030, T031, T034, T035) use this formula.
 
-- **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
-- **[Story]**: Which user story this task belongs to (`[US1]`–`[US5]`); REQUIRED for user story phases only
-- Include exact file paths in descriptions — every task targets a specific file under the future monorepo
+**Version bump**: No task in this file may bump `ENGINE_API_VERSION`, `TERRAIN_API_VERSION`, `CONSOLE_API_VERSION`, `NETWORK_API_VERSION`, or `MATCHMAKING_API_VERSION` — all changes are additive or internal-to-package (plan D10). Conformance suites re-run green.
 
-## Path Conventions
-
-Monorepo paths per `plan.md` §"Project Structure". The engine package lives at `packages/engine/`. All file paths below are the actual future locations in the monorepo root.
+**Organization**: Phase 1 = setup; Phase 2 = engine flow gradient; Phase 3 = terrain smoothing (parallel-safe with Phase 2); Phase 4 = design tokens (blocks console); Phase 5 = console slope color-coding; Phase 6 = matchmaking verification; Phase 7 = manual (lands with behavior per FR-012); Phase 8 = final gates.
 
 ---
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Bootstrap the pnpm monorepo skeleton and the `@europa/engine` package scaffolding. No business logic yet.
+**Purpose**: Verify branch/environment, spec amendments, and baseline before any code.
 
-- [ ] T001 Create `pnpm-workspace.yaml` at repo root with `packages: ["packages/*"]`
-- [ ] T002 [P] Create root `package.json` with workspace scripts (`build`, `test`, `lint`, `format`, `typecheck`, `coverage`) and `packageManager: pnpm@11.x` pinned via `packageManager` field
-- [ ] T003 [P] Create root `tsconfig.base.json` with `strict: true`, `noUncheckedIndexedAccess: true`, `target: ES2022`, `module: ESNext`, `moduleResolution: bundler`
-- [ ] T004 [P] Create root `biome.json` with `noExplicitAny: error`, formatter + linter config; extendable via `extends: ["//"]`
-- [ ] T005 [P] Create `packages/engine/package.json` with `name: "@europa/engine"`, `type: "module"`, `exports` map, devDependencies on `tsup@^8`, `vitest@^4.1`, `@biomejs/biome@^2`, `typescript@^5.6` (all pinned via pnpm catalog)
-- [ ] T006 [P] Create `packages/engine/tsconfig.json` extending `../../tsconfig.base.json` with `outDir: "./dist"`, `rootDir: "./src"`, `noEmit: false`
-- [ ] T007 [P] Create `packages/engine/vitest.config.ts` with v8 coverage provider, `thresholds.lines/functions/branches/statements: 80`, include `tests/**/*.test.ts`
-- [ ] T008 [P] Create `packages/engine/tsup.config.ts` with `entry: ["src/index.ts"]`, `format: ["esm"]`, `dts: true`, `clean: true`
-- [ ] T009 [P] Create `packages/engine/biome.json` with `extends: ["//"]`
-- [ ] T010 [P] Create `packages/engine/src/` and `packages/engine/tests/{unit,fixtures,quickstart,perf}/` directories
+- [x] T001 Verify branch is `issue-30-pipe-flow-rate` and the spec amendments are present (`git branch --show-current`; `grep -c "v1.2" specs/001-core-game-engine/spec.md` ≥ 1, `grep -c "v1.3" specs/003-procedural-terrain-generation/spec.md` ≥ 1, `grep -c "FR-013" specs/005-client-console/spec.md` ≥ 1) — then run `SPECIFY_FEATURE=001-core-game-engine SPECIFY_FEATURE_DIRECTORY=specs/001-core-game-engine bash .specify/scripts/bash/setup-plan.sh --json` idempotently; confirm `plan.md` / `research.md` / `data-model.md` / `contracts/` / `tasks.md` exist on disk.
+- [x] T002 [P] Baseline audit — `grep -rn "flowDownhillFactor\|flowUphillFactor" --include="*.ts" --include="*.md" .` (excluding `node_modules`, `dist`, `.git`) and record every file that must change: `packages/engine/src/{constants.ts, contracts/engine-api.ts, resolution/flow.ts}`, `packages/engine/tests/unit/{flow,capture,combat,decay}.test.ts`, `packages/engine/tests/quickstart/slope-flow.test.ts`, `packages/engine/README.md`, `specs/001-core-game-engine/{contracts/engine-api.ts, quickstart.md}`, `docs/manual/numbers.md`, `specs/007-player-manual/{plan.md,research.md}` (historical references — leave as-is, note in PR). Evidence is a checklist comment in the PR.
 
-**Checkpoint**: `pnpm install` runs cleanly; `pnpm --filter @europa/engine build` produces `dist/` (empty); `pnpm --filter @europa/engine test` runs (zero tests, exits 0).
+**Checkpoint**: `ls specs/001-core-game-engine/{plan.md,research.md,data-model.md,tasks.md} contracts/*.ts` all exist; spec amendments confirmed; baseline audit recorded.
 
 ---
 
-## Phase 2: Foundational (Blocking Prerequisites)
+## Phase 2: Engine — Flow Gradient (BLOCKS console drift test + terrain reachable-land suite)
 
-**Purpose**: Cross-cutting infrastructure that EVERY user story depends on — types, constants, PRNG, event builders, fixtures, and the public surface. **No user story work can begin until this phase is complete.**
+**Purpose**: Replace the multiplicative-factor slope model with the elevation-gradient model (spec 001 FR-007, Clarifications v1.1/v1.2). The formula lives in one exported function; `resolveFlow` consumes it.
 
-**⚠️ CRITICAL**: This phase produces the static types, the central tunable-constants location (SC-005), and the deterministic PRNG (FR-017). Every resolution rule imports from `constants.ts`; every consumer package imports types from `@europa/engine`.
+**⚠️ R-1**: T007's expected values depend on the PM-confirmed formula (asymmetric cap working assumption). Write the tests against the confirmed formula; if the PM chooses the symmetric-cap alternative, only `flowRateForDelta` + the expected-value tables change.
 
-- [ ] T011 [P] Create `packages/engine/src/types.ts` re-exporting the full surface of `contracts/engine-types.ts` (every interface, type alias, and `ENGINE_API_VERSION` constant)
-- [ ] T012 [P] Create `packages/engine/src/constants.ts` exporting `ENGINE_CONSTANTS` with every numeric rule per `research.md` §9 + `engine-api.ts` `EngineConstants` interface (productionRate, cityCapacity, cellCapacity, decayPerTick, flowDownhillFactor, flowUphillFactor, flowBase, paratroopCost, gunCost, gunDamage, visibilityRadiusDefault, plus `DEFAULT_TICK_INTERVAL_MS = 250`)
-- [ ] T013 [P] Create `packages/engine/src/rng.ts` implementing sfc32 (128-bit PRNG, integer-only ops) plus `xmur3` string-seed helper; exports `createRng(seed: number): () => number` and `hashSeed(seed: number): Uint32Array` (length 4)
-- [ ] T014 [P] Create `packages/engine/src/events.ts` with pure builder helpers: `emptyTickEvents(): TickEvents`, `pushCombatEvent`, `pushCaptureEvent`, `pushEliminationEvent`, `pushAppliedOrder` — all immutable, returning new arrays (no shared mutation)
-- [ ] T015 [P] Create `packages/engine/tests/fixtures/board.ts` exporting `buildSmallBoard(size, cities)` (flat board, elevation 0, all land, cities at given `[x, y, owner]` triples) and `buildBoardWithElevation(size, elevationMap, cities)` for slope-flow tests
-- [ ] T016 [P] Create `packages/engine/tests/fixtures/scenarios.ts` exporting `runScenario(cfg, board, orders[])`: creates world, applies each order batch per tick, ticks N times, returns final world; consumed by determinism and combat quickstart tests
-- [ ] T017 Create `packages/engine/src/index.ts` re-exporting the full public surface: types from `./types`, constants (`ENGINE_CONSTANTS`, `EngineConstants` type), RNG helpers, event helpers, plus the API functions declared in `contracts/engine-api.ts`
+- [x] T003 Update BOTH `EngineConstants` contract mirrors in the SAME commit — `packages/engine/src/contracts/engine-api.ts` and `specs/001-core-game-engine/contracts/engine-api.ts`: remove `flowDownhillFactor`/`flowUphillFactor`, add `flowSlopeStep`/`flowSlopeDeltaCap` (JSDoc: "Troops added/subtracted per unit of elevation change" / "Caps the downhill bonus"; FR-007). Keep `flowBase`. The engine's `contracts-drift.test.ts` (semantic diff) fails until both are in sync — run it after this task.
+  - Acceptance: `pnpm --filter @europa/engine test -- contracts-drift` green; both files semantically identical.
+- [x] T004 Update `packages/engine/src/constants.ts` `ENGINE_CONSTANTS` — `flowBase: 7`, `flowSlopeStep: 1`, `flowSlopeDeltaCap: 5`; delete the two factor fields; rewrite the FR-007 comment block to describe the gradient model (downhill `base + step×min(|Δ|,cap)`, flat `base`, uphill `max(0, base − step×|Δ|)` — asymmetric cap per R-1; stall at Δ ≥ `flowBase/flowSlopeStep`).
+  - Acceptance: `ENGINE_CONSTANTS.flowBase === 7 && flowSlopeStep === 1 && flowSlopeDeltaCap === 5`; no `flowDownhillFactor`/`flowUphillFactor` references remain in `src/`.
+- [x] T005 Add `packages/engine/src/flow-rate.ts` — pure `flowRateForDelta(delta: number, constants: EngineConstants): number` implementing the FR-007 formula (integer arithmetic; doc comment citing FR-007 + R-1 working assumption). Export from `packages/engine/src/index.ts` (alphabetical position in the value-export block).
+  - Acceptance: `import { flowRateForDelta } from '@europa/engine'` compiles; `flowRateForDelta(-5, ENGINE_CONSTANTS) === 12`, `(0) === 7`, `(1) === 6`, `(6) === 1`, `(7) === 0` (asymmetric working assumption).
+- [x] T006 Rewrite `packages/engine/src/resolution/flow.ts` — `TransferParams` drops `downFactor`/`upFactor`, gains `step`/`cap`; `transfer` computes `elevDelta = dstCell.elevation − srcCell.elevation` and `moved = flowRateForDelta(elevDelta, constants)` (import from `../flow-rate`); keep the capacity clamp, water rejection, OOB no-op, inflow tally, and N→E→S→W iteration order (FR-017 determinism). Update the file header comment.
+  - Acceptance: `pnpm --filter @europa/engine test -- flow` green after T007 lands; determinism test (same input × 1000) still green.
+- [x] T007 [P] Rewrite `packages/engine/tests/unit/flow.test.ts` for the gradient model (write AFTER T003 so it compiles, BEFORE T005/T006 so it FAILS): `TEST_CONSTANTS` uses the new shape (`flowBase: 7, flowSlopeStep: 1, flowSlopeDeltaCap: 5`); slope tests assert exact rates — downhill Δ=1 → 8, Δ=5 → 12, Δ=10 → 12 (cap); flat → 7; uphill Δ=1 → 6, Δ=6 → 1, Δ=7 → 0 (stall, pipe remains laid and legal — US1 AC-5); ordering downhill > flat > uphill; capacity clamp; water rejection; determinism. **Expected values per the PM-confirmed formula (R-1).**
+  - Acceptance: tests FAIL before T005/T006 (proven failing), green after; `pnpm --filter @europa/engine test -- flow` green.
+- [x] T008 [P] Mechanical update of `packages/engine/tests/unit/{capture,combat,decay}.test.ts` — replace `flowDownhillFactor: 1, flowUphillFactor: 0, flowBase: 0` with `flowBase: 0, flowSlopeStep: 1, flowSlopeDeltaCap: 5` in each `CONSTANTS`/`TEST_CONSTANTS` literal (these suites don't exercise flow; values are placeholders satisfying the type).
+  - Acceptance: all three suites compile and pass unchanged.
+- [x] T009 [P] Rewrite `packages/engine/tests/quickstart/slope-flow.test.ts` (quickstart Q-003) — derive expected values from `ENGINE_CONSTANTS` via `flowRateForDelta` (import from `../../src/flow-rate`): downhill Δ=10 → `flowRateForDelta(-10, ENGINE_CONSTANTS)`, flat → 7, uphill Δ=10 → 0 (stall); keep the strict ordering assertion (downhill > flat > uphill) and the determinism assertion. Update the header comment (drop the "flowUphillFactor = 0" prose). Also update `specs/001-core-game-engine/quickstart.md` Q-003 section (comment `flow{Downhill,Base,Uphill}Factor` → gradient constants + `flowRateForDelta`).
+  - Acceptance: `pnpm --filter @europa/engine test -- slope-flow` green; quickstart.md Q-003 text matches the shipped model.
+- [x] T010 [P] Update `packages/engine/README.md` flow example (line ~98: "pipe moves `flowBase × factor` (1 × 1 = 1) troops east") — rewrite for the gradient model (e.g., flat pipe moves `flowBase` = 7 troops; cite `flowRateForDelta`).
+  - Acceptance: README example matches shipped behavior; no `flowDownhillFactor`/`flowUphillFactor` references remain in `packages/engine/README.md`.
 
-**Checkpoint**: `pnpm --filter @europa/engine build` succeeds and `dist/index.d.ts` matches `contracts/engine-types.ts` shape; `pnpm --filter @europa/engine test` still passes (fixtures don't run as tests yet but typecheck cleanly).
-
----
-
-## Phase 3: User Story 1 - Tick Simulation Drives Production and Flow (Priority: P1) 🎯 MVP
-
-**Goal**: Deliver the core simulation loop. `createWorld` builds an initial `World` from a `Board`; `applyCommand` validates and stages orders; `tick(world)` advances one tick deterministically with city production adding troops each tick and pipes transferring troops between cells (slope-modified). Includes all public read helpers.
-
-**Independent Test**: Build an 8×8 board with two cities, issue `setPipe` orders, call `tick(world)` N times headlessly, and assert exact troop counts per cell. Same input + same order batch → byte-identical `hashWorld` (SC-001 micro-check at small N; full 10k tick check lives in Polish phase).
-
-### Tests for User Story 1
-
-> Write these FIRST; each should FAIL until its corresponding implementation task lands.
-
-- [ ] T018 [P] [US1] Write failing unit tests for `createWorld` in `packages/engine/tests/unit/create.test.ts` — covers FR-001 (square grid), FR-002 (water rejection on city placement), FR-019 (playerCount 2/3/4), board/cell-length invariants
-- [ ] T019 [P] [US1] Write failing unit tests for `production` resolution in `packages/engine/tests/unit/production.test.ts` — covers FR-004 (city adds `productionRate` per tick until `cityCapacity`), edge case: pre-saturated city adds zero
-- [ ] T020 [P] [US1] Write failing unit tests for `flow` resolution in `packages/engine/tests/unit/flow.test.ts` — covers FR-007 (slope factors: downhill > flat > uphill), FR-006 (4-way pipe support, exclusive mode), and water-target rejection
-
-### Implementation for User Story 1
-
-- [ ] T021 [US1] Implement `createWorld(config, board)` in `packages/engine/src/create.ts` — validate board invariants (square, dimensions match `config.boardSize`, cities on land), allocate flat `Uint32Array`/`Uint8Array` state per `data-model.md` §9, populate `cityOwners` from `board.cities`, initialize sfc32 with `config.seed`, return `Readonly<World>` (depends on T011, T012, T013)
-- [ ] T022 [US1] Implement production phase in `packages/engine/src/resolution/production.ts` — pure `resolveProduction(state, board, constants): WorldState` adding `productionRate` troops per tick to each city cell up to `cityCapacity`, no allocation on the hot path beyond reading (depends on T011, T012)
-- [ ] T023 [US1] Implement flow phase in `packages/engine/src/resolution/flow.ts` — pure `resolveFlow(state, board, constants): WorldState`; for each cell iterate its pipe mask, compute elevation delta, apply slope factor (`downhill > base > uphill`), clamp to destination capacity, integer math only (depends on T011, T012, T021)
-- [ ] T024 [US1] Implement `validateCommand(world, cmd)` in `packages/engine/src/validate.ts` — exhaustive validation per FR-018; returns `{ ok: true } | { ok: false; reason: ValidationError }`; covers pipe commands (out-of-bounds, water target, not-owner) — additional rule validations land with their owning user stories (depends on T011, T021)
-- [ ] T025 [US1] Implement `applyCommand(world, cmd)` in `packages/engine/src/applyCommand.ts` — pure; delegates to `validateCommand`, on success stages the order into an internal `pendingOrders` queue (preserved on the returned `world` clone); on failure returns world unchanged with the rejection reason in `result` (depends on T021, T024)
-- [ ] T026 [US1] Implement read helpers in `packages/engine/src/read.ts` — `getCell`, `forEachCell`, `cellsInRange` (Chebyshev), `neighborsOf`, `getPlayer`, `alivePlayers`; decode `WorldState` flat arrays into friendly `CellView` (depends on T021)
-- [ ] T027 [US1] Implement `tick(world)` orchestrator in `packages/engine/src/tick.ts` — applies staged orders in deterministic order (sort by `PlayerId` ascending then `kind` alphabetical), runs the phase pipeline (production → flow → …), returns `{ world, events, terminal? }`; for US1 only `production` and `flow` phases are wired (combat/capture/decay/para/gun/terminal phases added in later phases) (depends on T022, T023, T025, T026, T014)
-- [ ] T028 [P] [US1] Quickstart Q-001 in `packages/engine/tests/quickstart/tick-to-terminal.test.ts` — proves end-to-end tick loop runs and `hashWorld` is stable across two same-input runs (depends on T027)
-- [ ] T029 [P] [US1] Quickstart Q-002 in `packages/engine/tests/quickstart/production.test.ts` — asserts city saturates to `min(N × productionRate, cityCapacity)` after N ticks (depends on T027)
-- [ ] T030 [P] [US1] Quickstart Q-003 in `packages/engine/tests/quickstart/slope-flow.test.ts` — three boards (downhill/flat/uphill), identical pipe orders, asserts destination counts satisfy the slope-factor ordering (depends on T027)
-
-**Checkpoint**: User Story 1 is fully functional and independently testable. `pnpm --filter @europa/engine test` runs all Q-001/Q-002/Q-003 + unit tests green; production and flow resolve deterministically.
+**Checkpoint**: Engine flow is gradient-based; `flowRateForDelta` exported; both contract mirrors in sync; all engine suites green; quickstart Q-003 updated.
 
 ---
 
-## Phase 4: User Story 2 - Attrition Combat Between Opposing Troops (Priority: P1)
+## Phase 3: Terrain — Smoothing + Settings Plumbing (parallel-safe with Phase 2)
 
-**Goal**: When troops of opposing owners meet in a cell after the flow phase, resolve combat as attrition (1:1 equal losses, majority overwhelms minority). Capture transfers majority-owner forces to the cell and transfers city ownership.
+**Purpose**: Add the deterministic smoothing pass and the `terrainSmoothing` setting (spec 003 FR-010, Clarifications v1.3). Independent of Phase 2 except the reachable-land suite (T019) reads `ENGINE_CONSTANTS`/`flowRateForDelta` — schedule T019 after Phase 2 lands.
 
-**Independent Test**: Seed two adjacent cells with known opposing troop counts, open pipes in opposing directions, tick once, assert exact loss ratios and post-tick cell ownership. With overwhelming force, assert minority force is eliminated and majority retains the difference.
+- [x] T011 Update BOTH `GenerationSettings` contract mirrors in the SAME commit — `packages/terrain/src/contracts/terrain-types.ts` and `specs/003-procedural-terrain-generation/contracts/terrain-types.ts`: add `readonly terrainSmoothing: number` (JSDoc: integer, default 4, safe range [0,8], 0 = no smoothing, FR-010) and `DEFAULT_GENERATION_SETTINGS.terrainSmoothing = 4`. The terrain `contracts-drift.test.ts` fails until both are in sync — run it after this task.
+  - Acceptance: `pnpm --filter @europa/terrain test -- contracts-drift` green; both files semantically identical.
+- [x] T012 Update `packages/terrain/src/settings.ts` — `resolveSettings` gains `terrainSmoothing: partial.terrainSmoothing ?? DEFAULT_GENERATION_SETTINGS.terrainSmoothing`; `validateSettings` adds `'terrainSmoothing'` to `integerFields`.
+  - Acceptance: `pnpm --filter @europa/terrain test -- settings` green (extend `settings.test.ts` in T018).
+- [x] T013 Update `packages/terrain/src/clamp.ts` — add `TERRAIN_SMOOTHING_MIN = 0`, `TERRAIN_SMOOTHING_MAX = 8`, `clampTerrainSmoothing(v)` (via the existing `clampInt`), and one line in `clampSettings`.
+  - Acceptance: `clampTerrainSmoothing(-3) === 0`, `(4) === 4`, `(99) === 8`, `(2.7) === 2`; `clampSettings` includes the field.
+- [x] T014 Add `packages/terrain/src/smoothing.ts` — pure `smoothElevation(elev: Uint8Array, size: number, passes: number): Uint8Array`: for each pass, each cell's elevation = `Math.floor((sum + 4) / 9)` over its 3×3 neighborhood with coordinates clamped to `[0, size-1]`; `passes === 0` returns a copy of the input unchanged; never mutates the input; doc comment citing FR-010 + kernel rationale (spec 003 v1.3 reference kernel). Export from `packages/terrain/src/index.ts` (alphabetical).
+  - Acceptance: pure function; no RNG/wall-clock; output stays in [0,255]; `smoothElevation(elev, size, 0)` deep-equals `elev`.
+- [x] T015 Wire smoothing into `packages/terrain/src/generate.ts` — after `const elev = generateElevationMap(...)` and before `extractWater(...)`: `const smoothed = smoothElevation(elev, req.boardSize, settings.terrainSmoothing)` and pass `smoothed` to `extractWater`/`buildBoard`. No RNG consumption (the pass is pure). Update the pipeline doc comment.
+  - Acceptance: `generateBoard` at default settings produces the smoothed field; `terrainSmoothing: 0` output byte-identical to pre-change output for the same seed (pinned in T020).
+- [x] T016 [P] Unit tests `packages/terrain/tests/unit/smoothing.test.ts` — (a) k=0 identity (deep-equals input); (b) determinism (same input × 100 runs → identical output); (c) symmetry preservation (180°-symmetric input → symmetric output at k=1,2,4,8); (d) value bounds (output ⊆ [0,255]); (e) edge clamping (corner cell mean uses clamped neighborhood — hand-computed expected value); (f) monotone smoothing (max adjacent |Δ| non-increasing with passes on a crafted ridge).
+  - Acceptance: all green; tests FAIL before T014 (proven failing).
+- [x] T017 [P] Extend `packages/terrain/tests/unit/settings.test.ts` + `clamp.test.ts` — `resolveSettings` fallback for `terrainSmoothing`; `validateSettings` rejects non-integer `terrainSmoothing` (e.g., 2.5) and accepts 0..8; `clampSettings` clamps out-of-range values and surfaces them.
+  - Acceptance: green; FR-008 clamping semantics pinned.
+- [x] T018 [P] Integration suite `packages/terrain/tests/integration/determinism-smoothing.test.ts` (US4 AC-3/AC-4) — for k ∈ {0,1,2,3,4,5,8} × 10 sampled seeds × 32×32: same-seed regen byte-identical (`hashBoard`); k=0 output byte-identical to a pre-smoothing reference (generate with `terrainSmoothing: 0` and compare against the same seed generated with the smoothing pass disabled — assert equality); `effectiveSettings.terrainSmoothing` reports the clamped value.
+  - Acceptance: US4 AC-3/AC-4 green; determinism across the range.
+- [x] T019 [P] Integration suite `packages/terrain/tests/integration/reachable-land.test.ts` (US4 AC-1) — over the 200-map balance suite at default settings (reuse the `sc-002-balance.test.ts` harness pattern): for each map, BFS from each starting city over land cells using flow-viable edges (`flowRateForDelta(delta, ENGINE_CONSTANTS) > 0` — import from `@europa/engine`; runtime import is fine in tests), compute the reachable-land fraction, assert the mean over the suite ≥ 0.50 (empirically 53.6%). Also assert the stall threshold is read from `ENGINE_CONSTANTS` (a comment + the import make the coupling explicit).
+  - Acceptance: US4 AC-1 green; a future retune of `flowBase`/`flowSlopeStep` fails this suite loudly.
+- [x] T020 [P] Update `packages/terrain/README.md` — add `terrainSmoothing` to the settings documentation (default 4, range [0,8]) and a `smoothElevation` row in the public API table.
+  - Acceptance: README matches shipped surface; no stale settings table.
 
-### Tests for User Story 2
-
-- [ ] T031 [P] [US2] Write failing unit tests for combat resolution in `packages/engine/tests/unit/combat.test.ts` — covers FR-008 (attrition: 100v100 ≈ equal losses; 200v50 overwhelms with attacker retaining majority; symmetric regardless of order-issuing player per Edge Case)
-- [ ] T032 [P] [US2] Write failing unit tests for capture in `packages/engine/tests/unit/capture.test.ts` — covers FR-005 (city ownership transfers when enemy troops occupy city cell); new owner inherits saturation state per Edge Case "city captured mid-production"
-
-### Implementation for User Story 2
-
-- [ ] T033 [US2] Implement combat resolution in `packages/engine/src/resolution/combat.ts` — pure `resolveCombat(state, board, constants): { state, events }`; per-cell tally of inflows by owner, deterministic owner-collision order (ascending PlayerId), emit `CombatEvent` per FR-008; majority force eliminates minority, ties resolved symmetrically (depends on T011, T012)
-- [ ] T034 [US2] Implement capture in `packages/engine/src/resolution/capture.ts` — pure `resolveCapture(state, board, constants): { state, events }`; after combat settles, transfer city ownership to the now-dominant owner of that cell; emit `CaptureEvent` with `isCity` flag (depends on T033)
-- [ ] T035 [US2] Wire combat and capture phases into `tick` in `packages/engine/src/tick.ts` — append them to the phase pipeline after `flow` and before any future decay phase; ensure events are appended in order (depends on T033, T034)
-- [ ] T036 [P] [US2] Quickstart Q-006 in `packages/engine/tests/quickstart/combat.test.ts` — `100v100` trade; `200v50` overwhelm; assertion of `CombatEvent` payloads in returned `TickEvents` (depends on T035)
-
-**Checkpoint**: User Stories 1 AND 2 work together. Pipes flow, opposing forces collide, attrition plays out, cells and cities transfer to the surviving owner. `hashWorld` still byte-stable across identical inputs (combat is deterministic).
-
----
-
-## Phase 5: User Story 3 - Decay, Capacity, and Reserves (Priority: P2)
-
-**Goal**: Unfed troops lose 1 per tick (decay); cells cap at `cellCapacity` (FR-011); `reserves` 0–90% in 10% steps retain that fraction of the stack before any outward flow (FR-012). Two cells piping into each other sustain indefinitely without city supply (FR-010 mutual-feeding exemption).
-
-**Independent Test**: Single cell, no pipes, 50 troops → after 5 ticks the count is exactly 45. Two cells piping into each other, both stacks unchanged after 50 ticks. Reserves 30% on a 100-troop cell piping east → destination receives at most 70 over the tick.
-
-### Tests for User Story 3
-
-- [ ] T037 [P] [US3] Write failing unit tests for decay + capacity + reserves in `packages/engine/tests/unit/decay.test.ts` — covers FR-009 (1 troop/tick loss when no friendly inflow), FR-010 (mutual feeding exempts both cells), FR-011 (cap enforced on transfers), FR-012 (reserves 0–9 in 10% steps; reserves > count holds all troops per Edge Case)
-
-### Implementation for User Story 3
-
-- [ ] T038 [US3] Implement decay phase in `packages/engine/src/resolution/decay.ts` — pure `resolveDecay(state, board, constants): { state, events }`; compute per-cell "has friendly inflow" mask from the flow phase result, then for cells with no friendly inflow AND with troops: subtract `decayPerTick`; respect reserves (never drop below reserves floor); zero-troop cells set owner to `null`; mutual-feeding case exempted via the per-cell inflow mask (depends on T011, T012, T023)
-- [ ] T039 [US3] Wire decay phase into `tick` in `packages/engine/src/tick.ts` — append after capture (depends on T038)
-- [ ] T040 [P] [US3] Quickstart Q-007 in `packages/engine/tests/quickstart/decay-capacity-reserves.test.ts` — four tests: single-cell decay (-1/tick), mutual-feeding sustain, reserves 30% hold, capacity cap (depends on T039)
-
-**Checkpoint**: User Stories 1, 2, and 3 work together. Cities produce, pipes flow with slope, combat resolves, cells cap, decay drains unfed stacks, reserves hold. Determinism preserved (all phases are pure + integer).
+**Checkpoint**: Terrain smoothing + settings plumbing complete; US4 AC-1/AC-3/AC-4 green; k=0 byte-identity pinned.
 
 ---
 
-## Phase 6: User Story 4 - Paratroopers and Guns (Priority: P2)
+## Phase 4: Design — Four Pipe Tokens (BLOCKS console rendering; G-04 depends on tokens existing)
 
-**Goal**: Paratroopers (`2:1` cost ratio, range ≤ 2 Chebyshev, clears destination pipes on landing) and guns (cost troops, damage target occupants at tick time regardless of owner) extend tactical options beyond pipes.
+**Purpose**: Additive color tokens + `DESIGN.md` sync (012 FR-018) + spec 012 companion note (005 v1.2).
 
-**Independent Test**: Script a board with a paratrooper source 2 cells away from an enemy city with active pipes; issue a paratroop order; assert source loses `2 × N`, destination gains `N`, destination's `pipeMasks` is zero, and the `AppliedOrderRecord` reflects a successful command. Separately, fire a gun into a friendly-occupied cell and assert the friendly stack loses `gunDamage`.
+- [x] T021 Add four tokens to `packages/design/src/tokens.ts` `color` group (alphabetical position): `pipeDownhill: '#059669'`, `pipeFlat: '#f59e0b'`, `pipeUphill: '#dc2626'`, `pipeStalled: '#9ca3af'` — each reusing an existing canonical value (green/accent/red/textMuted; zero new hex literals). Doc comment citing 005 FR-013.
+  - Acceptance: `TOKENS.color.pipeDownhill === TOKENS.color.green` (and the other three equivalences); `pnpm --filter @europa/design build` regenerates `dist/design.css` with the four `--europa-color-pipe-*` variables.
+- [x] T022 Update `DESIGN.md` in the SAME commit as T021 (FR-018) — §1.1 Colors gains four rows (token name, CSS variable `--europa-color-pipe-*`, TS constant, canonical value, pairing + measured ratio + WCAG target — non-text 1.4.11 ≥ 3:1 against the darkest land tile / void, reusing the §3 measurements for the underlying values); §3 Accessibility pairing table gains the four rows (or a grouped row noting the reuse). Keep the §1.1 "only lines that carry a token-variable identifier" rule intact.
+  - Acceptance: `DESIGN.md` token rows match `tokens.ts` exactly; no new hex values beyond the four canonical ones.
+- [x] T023 Add the companion note to `specs/012-design-system/spec.md` — a Clarifications v1.1 entry: "Pipe slope color tokens (issue #30 companion)" recording the four additive tokens, the FR-018 same-change-set obligation, and that the change is additive (minor) per DESIGN.md §6.
+  - Acceptance: spec 012 carries the companion note; no FR text altered.
+- [x] T024 [P] Add `packages/design/tests/tokens.test.ts` — assert the four pipe tokens exist and equal their canonical source values (green/accent/red/textMuted); assert the token table is still sorted alphabetically within the color group (the emitter's determinism invariant). Runs under the existing `pnpm --filter @europa/design test` (default vitest node env; add a minimal `vitest.config.ts` only if the default discovery fails).
+  - Acceptance: `pnpm --filter @europa/design test` green; tokens pinned.
 
-### Tests for User Story 4
-
-- [ ] T041 [P] [US4] Write failing unit tests for paratroop resolution in `packages/engine/tests/unit/paratroop.test.ts` — covers FR-013 (2:1 cost, range ≤ 2 Chebyshev, clears destination pipes), Edge Case "paratroop into water fails validation", Edge Case "reserves > count holds all" stays invariant
-- [ ] T042 [P] [US4] Write failing unit tests for gun resolution in `packages/engine/tests/unit/gun.test.ts` — covers FR-014 (cost troops, damages target occupants at tick time regardless of owner, no troop movement to destination), Edge Case "gun at empty cell only spends source troops"
-
-### Implementation for User Story 4
-
-- [ ] T043 [US4] Implement paratroop resolution in `packages/engine/src/resolution/paratroop.ts` — pure `resolveParatroop(state, board, constants, orders): { state, events, errors }`; for each paratroop order: validate range ≤ 2 + non-water target (delegate to `validateCommand` extensions in `validate.ts`); on resolution, subtract `2 × N` from source, add `N` to target, zero the destination's `pipeMasks`, emit events (depends on T011, T012, T024)
-- [ ] T044 [US4] Implement gun resolution in `packages/engine/src/resolution/gun.ts` — pure `resolveGun(state, board, constants, orders): { state, events, errors }`; for each gun order: subtract `gunCost` from source (error if insufficient); damage `gunDamage` from target occupants at tick time (regardless of owner); no troops move (depends on T011, T012, T024)
-- [ ] T045 [US4] Wire paratroop and gun phases into `tick` in `packages/engine/src/tick.ts` — append after production (so source has the troops to spend) and before flow/combat (so paratroopers can clear pipes before flow reads them); gun damage applied to current-tick occupants (depends on T043, T044)
-- [ ] T046 [P] [US4] Quickstart Q-008 in `packages/engine/tests/quickstart/paratroop-gun.test.ts` — paratroop 2:1 + pipe clear; out-of-range rejection; into-water rejection; gun friendly-fire; gun at empty cell (depends on T045)
-
-**Checkpoint**: User Stories 1–4 work together. Production, flow, combat, decay, reserves, paratroops, guns all resolve deterministically. Order validation rejects the FR-018 cases (out-of-range, into-water, not-owner).
+**Checkpoint**: Tokens exist, `DESIGN.md` truthful, spec 012 noted, G-04 guard can now pass once the console consumes the tokens.
 
 ---
 
-## Phase 7: User Story 5 - Victory and Surrender (Priority: P3)
+## Phase 5: Console — Slope Color-Coding (depends on Phase 2 engine + Phase 4 tokens)
 
-**Goal**: Detect terminal conditions (FR-015) — a player is eliminated when they hold zero troops AND zero cities; the match ends when fewer than two players remain with status `'alive'`. Surrender (FR-016) immediately marks a player eliminated; subsequent `tick()` calls declare the survivor the winner.
+**Purpose**: Pipes render slope color-coded with a hollow stalled treatment (spec 005 FR-013); fog fallback to flat; drift test pins the mirror.
 
-**Independent Test**: Script a board where one player has no cities and a small troop stack; have the opposing player pipe into it; tick until the stack is gone; assert `isTerminal(world)` returns `{ kind: 'win', winner: <opponent>, reason: 'last_standing' }`. Separately: apply `surrender` to player 1, tick once, assert player 2 wins.
+- [x] T025 Add `packages/console/src/render/pipe-slope.ts` — `PipeSlope` union, `PipeSlopeConstants` interface, `PIPE_SLOPE_CONSTANTS` (mirror of `flowBase: 7, flowSlopeStep: 1, flowSlopeDeltaCap: 5`), `pipeFlowRate(delta, constants)` (formula mirror), `classifyPipeSlope(srcElev, dstElev | null, constants)` (null → 'flat' fog fallback; uphill with `pipeFlowRate === 0` → 'stalled'). Doc comments citing 005 FR-013 + the drift-pin obligation. **Formula per the PM-confirmed resolution (R-1).**
+  - Acceptance: pure module; no `@europa/engine` import (src-boundary rule).
+- [x] T026 Update BOTH `CellRenderInfo` contract mirrors in the SAME commit — `packages/console/contracts/console-types.ts` and `specs/005-client-console/contracts/console-types.ts`: add `readonly pipeSlopes: ReadonlyMap<Direction, PipeSlope>` (JSDoc: per-direction slope classification for rendering, 005 FR-013; additive). The console `contract-conformance.test.ts` (byte-identity) fails until both are in sync — run it after this task.
+  - Acceptance: `pnpm --filter console test -- contract-conformance` green; both files byte-identical.
+- [x] T027 Update `packages/console/src/state/build-map-view.ts` — after building `rawCells`, compute `pipeSlopes` for every cell with pipes: for each direction, look up the destination cell in `rawCells` (absent → `null` → 'flat'); call `classifyPipeSlope(info.elevation, dstElev, PIPE_SLOPE_CONSTANTS)`; attach via `{ ...info, pipeSlopes }`. `cellViewToRenderInfo` sets `pipeSlopes: new Map()` as the default (filled by buildMapView). `diffCellChanges` unchanged (derived field).
+  - Acceptance: `buildMapView` output carries per-pipe slopes; fog-unknown destinations classified 'flat'.
+- [x] T028 Update `packages/console/src/render/palette.ts` — add `PIPE_DOWNHILL_COLOR = TOKENS.color.pipeDownhill`, `PIPE_FLAT_COLOR`, `PIPE_UPHILL_COLOR`, `PIPE_STALLED_COLOR` (thin re-exports per FR-009).
+  - Acceptance: no hex literals; `check:no-literals` still green.
+- [x] T029 Update `packages/console/src/render/canvas.ts` `drawPipes` — read `info.pipeSlopes`; per direction: filled triangle in the slope color (downhill/flat/uphill); `'stalled'` → outline-only triangle (stroke in `PIPE_STALLED_COLOR`, no fill — hollow treatment distinct from filled flowing pipes). Keep the existing geometry and pass order.
+  - Acceptance: canvas paints slope colors; stalled pipes hollow; no new literals (colors via palette).
+- [x] T030 [P] Unit tests `packages/console/tests/unit/render/pipe-slope.test.ts` — exhaustive classification table: downhill (Δ<0), flat (Δ=0), uphill flowing (Δ=1..6), stalled (Δ≥7), fog fallback (`dstElev: null` → 'flat'); `pipeFlowRate` exact values (8/9/10/11/12, 7, 6/5/4/3/2/1, 0); `PIPE_SLOPE_CONSTANTS` shape. **Expected values per the PM-confirmed formula (R-1).**
+  - Acceptance: tests FAIL before T025 (proven failing), green after.
+- [x] T031 [P] Drift test `packages/console/tests/unit/render/slope-drift.test.ts` — import `ENGINE_CONSTANTS` + `flowRateForDelta` from `@europa/engine` (runtime import in tests is sanctioned by 005 v1.2): assert `PIPE_SLOPE_CONSTANTS.flowBase === ENGINE_CONSTANTS.flowBase` (and step/cap); assert `pipeFlowRate(Δ, PIPE_SLOPE_CONSTANTS) === flowRateForDelta(Δ, ENGINE_CONSTANTS)` for Δ ∈ {−10..10} (includes the stall boundary).
+  - Acceptance: drift test green; a future engine retune fails this suite loudly.
+- [x] T032 [P] Component test `packages/console/tests/component/render/pipe-slope.spec.tsx` (browser mode, mirroring `map-canvas.test.tsx`) — mount `App` with a scripted view containing downhill/flat/uphill/stalled pipes; assert the canvas paints the four slope colors (pixel readback) and the stalled pipe renders hollow (outline-only — assert stroke present, fill absent at the triangle centroid); a fog-unknown destination pipe renders flat. Include an axe a11y check (no violations).
+  - Acceptance: FR-013 rendering green; a11y suite stays green.
 
-### Tests for User Story 5
-
-- [ ] T047 [P] [US5] Write failing unit tests for terminal resolution in `packages/engine/tests/unit/terminal.test.ts` — covers FR-015 (elimination when `troopsHeld === 0 && citiesOwned === 0`), FR-016 (surrender sets status immediately, forces inert thereafter), `isTerminal` returns `undefined` for non-terminal states, returns `MatchResult` once applicable, terminal-once-frozen (further `tick()` is a no-op returning same result)
-
-### Implementation for User Story 5
-
-- [ ] T048 [US5] Implement terminal resolution in `packages/engine/src/resolution/terminal.ts` — pure `resolveTerminal(state, players, constants): { players, events, terminal? }`; per FR-015 detect eliminated players (zero troops AND zero cities), emit `EliminationEvent` with `reason: 'no_troops_no_cities'`; if `<2` alive remain, emit `MatchResult` (depends on T011, T012)
-- [ ] T049 [US5] Implement `isTerminal(world)` in `packages/engine/src/tick.ts` — cheap pre-tick check returning `MatchResult | undefined` (does NOT advance time); surrender handling in `applyCommand` for the `surrender` order kind: mark player `'eliminated'` immediately and emit `EliminationEvent` with `reason: 'surrendered'`; frozen-once-terminal behavior in `tick` (returns input world with same `terminal` if already terminal) (depends on T048, T025)
-- [ ] T050 [P] [US5] Quickstart Q-005 in `packages/engine/tests/quickstart/terminal.test.ts` — last-standing win; surrender immediately marks eliminated and triggers opponent win on next tick; mutual elimination → `draw` (depends on T049)
-
-**Checkpoint**: All five user stories are independently functional. A scripted 2-player match runs from `createWorld` through to a `MatchResult` via deterministic ticks. `hashWorld` remains stable; byte-identical re-runs of the entire scripted scenario produce the same final state.
+**Checkpoint**: Console renders slope color-coding; drift test pins the mirror; fog fallback verified; G-04 no-literals green.
 
 ---
 
-## Phase 8: Polish & Cross-Cutting Concerns
+## Phase 6: Matchmaking — Verification Only (no code change)
 
-**Purpose**: Cross-cutting deliverables that don't belong to a single user story: serialization, the SC-001 10k-tick determinism test, multi-player supplementary coverage, the SC-004 perf benchmark, CI, and final integration.
+**Purpose**: Prove `terrainSmoothing` flows through `MatchSettings.terrainSettings` (006 Implementation Notes).
 
-- [ ] T051 [P] Implement `serializeWorld`, `deserializeWorld`, `hashWorld` in `packages/engine/src/serialize.ts` — versioned binary format with `ENGINE_API_VERSION` header (1 byte ASCII length + bytes), reject mismatches in `deserializeWorld` with a typed error; `hashWorld` produces a stable hex string (e.g., FNV-1a over the serialized bytes) for byte-identical assertions (depends on T011, T017)
-- [ ] T052 [P] Write SC-001 determinism test in `packages/engine/tests/determinism.test.ts` — runs the same scripted scenario twice for ≥10,000 ticks and asserts `serializeWorld(a)` deep-equals `serializeWorld(b)` byte-for-byte (per Q-004 acceptance scenario; depends on T051)
-- [ ] T053 [P] Write 3/4-player supplementary test in `packages/engine/tests/quickstart/multi-player.test.ts` — covers FR-019 (engine API supports 2–4 players); minimal smoke test that `createWorld` + `tick` succeeds for `playerCount: 3` and `4` (v1 ships 2-player end-to-end per AGENTS.md; 3/4-player paths get lighter coverage here) (depends on T050)
-- [ ] T054 [P] Write SC-004 perf benchmark in `packages/engine/tests/perf/tick-perf.bench.ts` — measures wall-clock time for `tick()` over 1000 iterations on a default 32×32 board, 2 players; asserts median < 10 ms per tick; reports numbers in the test summary so CI trends are visible (depends on T049)
-- [ ] T055 [P] Add root `.github/workflows/engine-ci.yml` — runs `pnpm install`, `pnpm -r typecheck`, `pnpm -r lint`, `pnpm -r format:check`, `pnpm --filter @europa/engine test`, `pnpm --filter @europa/engine test --coverage`; coverage threshold 80 enforced; SHA-pinned `actions/checkout@v4` and `pnpm/action-setup@v4` per `github-actions` skill; minimal permissions (`contents: read`)
-- [ ] T056 [P] Write `packages/engine/README.md` documenting install, build, test, usage example (mirrors the manual smoke from `quickstart.md` §3), public API surface link to `dist/index.d.ts`
-- [ ] T057 Run full quickstart validation against `specs/001-core-game-engine/quickstart.md` (execute Q-001 through Q-010 per §3 smoke REPL); confirm the acceptance criteria table in §4 maps green-to-green; flip spec status from `Draft` → `Planned` → `Implemented` in `specs/001-core-game-engine/spec.md` per AGENTS.md; update `AGENTS.md` Current state section to reflect feature 001 phase 6 done
-- [ ] T058 Run final pre-merge verification per `code-quality` skill checklist — full test suite, lint, typecheck, build, coverage ≥80% on `packages/engine/src/`, determinism test passes, no `any` types, no lint suppressions, no debug `console.log` left behind, all FR-001..FR-019 acceptance tests green
+- [x] T033 Add `packages/matchmaking/tests/integration/terrain-smoothing-passthrough.test.ts` — via the real matchmaker: (a) create with `terrainSettings: { terrainSmoothing: 2 }` → match settings carry 2 and the generated board's `effectiveSettings.terrainSmoothing === 2`; (b) create with `terrainSmoothing: 99` → clamped to 8 and surfaced; (c) create with no override → default 4; (d) a rematch reuses the original smoothing value (`MatchRecord.initialSeed` + settings carry-over).
+  - Acceptance: 006 Implementation Notes verified; zero `packages/matchmaking/src` changes.
 
-**Checkpoint**: Engine package is production-ready as a published library. CI is green, coverage gate enforced, determinism proven over ≥10k ticks, perf budget met, all five user stories deliver their independent test criteria.
+**Checkpoint**: Matchmaking passthrough proven; no shape change.
+
+---
+
+## Phase 7: Manual — Same-Change-Set Updates (007 FR-012)
+
+**Purpose**: The manual rides with the behavior change sets (FR-012) — these pages land in the same commits as the engine/terrain/console behavior, not as a final monolith. Numbers traceable to `ENGINE_CONSTANTS`/`DEFAULT_GENERATION_SETTINGS` per SC-002.
+
+- [x] T034 Rewrite `docs/manual/pipes.md` — flow table becomes the gradient model: downhill 8–12 (Δ=1..≥5), flat 7, uphill 6→1 (Δ=1..6), stalled 0 (Δ≥7); the "classic new-player trap" section rewritten (uphill pipes are slow, steep uphill stalls — visible as hollow triangles per 005 FR-013); feeding/decay section unchanged except the "even 1 troop per tick" example (now "even a trickle" — the minimum non-zero flow is 1). **Flow rates per the PM-confirmed formula (R-1).**
+  - Acceptance: FR-006/FR-010 wording matches shipped behavior; no stale "uphill moves nothing" prose.
+- [x] T035 Rewrite `docs/manual/numbers.md` — Simulation table flow rows: downhill `flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)` (8–12), flat `flowBase` (7), uphill `max(0, flowBase − flowSlopeStep × |Δ|)` (6→1), stalled `0` (Δ≥7, threshold `flowBase / flowSlopeStep`); add a Terrain section row: `terrainSmoothing` default 4, range 0–8, traceable to `DEFAULT_GENERATION_SETTINGS`. **Values per the PM-confirmed formula (R-1).**
+  - Acceptance: SC-002 audit passes — every row traces to `ENGINE_CONSTANTS`/`DEFAULT_GENERATION_SETTINGS`.
+- [x] T036 Update `docs/manual/index.md` — the 60-second version's "downhill pipes flow while uphill pipes sit idle" → gradient phrasing ("downhill pipes flow fastest, flat pipes flow steadily, and steep uphill pipes stall"); add a terrain-smoothing mention if the board paragraph references roughness.
+  - Acceptance: index matches the shipped model; version footer line unchanged (`pnpm version:check` green).
+- [x] T037 Rewrite `docs/manual/the-board.md` — Elevation shading section: downhill bonus / uphill handicap / stall (gradient model, cross-ref pipes.md); add a terrain-smoothing paragraph (what the setting does, default 4, range 0–8, 0 = no smoothing, hosts adjust at match creation, smoother maps have more viable cross-map routes — FR-008).
+  - Acceptance: FR-008 wording matches shipped behavior.
+
+**Checkpoint**: Manual truthful; `pnpm version:check` + docs-privacy + `check:no-literals` green after edits.
+
+---
+
+## Phase 8: Final Gates (SC-001..SC-005 across touched packages)
+
+**Purpose**: Repo-wide verification before merge.
+
+- [x] T038 Repo-wide gates — `pnpm typecheck` && `pnpm lint` && `pnpm format:check` (zero errors, zero suppressions) && `pnpm version:check` (lockstep intact) && `pnpm --filter @europa/design check:no-literals` && `pnpm --filter @europa/design check:vendor-identity` && docs-privacy check (`specs/010-public-lobby-match-browser/check-documentation-privacy.mjs`).
+  - Acceptance: all green; zero inline suppressions in all touched trees.
+- [x] T039 Coverage gate — run coverage for every touched package: `pnpm --filter @europa/engine test -- --coverage`, `pnpm --filter @europa/terrain test -- --coverage`, `pnpm --filter @europa/design test -- --coverage`, `pnpm --filter @europa/matchmaking test -- --coverage`, `pnpm --filter console test -- --coverage` (merged node+browser). Assert each retains ≥80% on statements/branches/functions/lines (constitution III); no suppression comments added to meet gating.
+  - Acceptance: every touched package ≥80% on every metric; engine/terrain/console suites fully green (including the new flow/smoothing/slope/drift/reachable-land tests).
+- [x] T040 Full-suite regression — run the complete per-package suites (engine, terrain, fog, networking, matchmaking, console node-mode, version) and the console browser suites (component/a11y/e2e/perf/determinism/parity/conformance/keepalive); confirm the determinism fixtures (engine 10k-tick, terrain 1k-seed, console golden) stay green — the flow-rate change alters tick outcomes, so any committed golden fixture that encodes the old multiplicative model must be regenerated in this change set with the new model documented.
+  - Acceptance: repo-wide suites green; determinism fixtures regenerated where the flow model changed (documented in the PR).
+
+**Checkpoint**: All SCs green; no regression; manual truthful; tokens synced; zero suppressions; no version bumps.
 
 ---
 
 ## Dependencies & Execution Order
 
-### Phase Dependencies
+### Phase Dependencies (sequential where the product demands it; parallel where the code allows it)
 
-- **Setup (Phase 1)**: No dependencies — can start immediately.
-- **Foundational (Phase 2)**: Depends on Setup completion — **BLOCKS all user stories**. The types, constants, PRNG, and event builders are imported by every downstream task.
-- **User Stories (Phase 3–7)**: All depend on Foundational completion.
-  - User stories can proceed in parallel once Foundational is done (different files, minimal cross-story coupling beyond `tick.ts` wiring).
-  - The canonical sequential order matches spec priority (P1 → P2 → P3).
-- **Polish (Phase 8)**: Depends on all five user stories being complete (serialization and determinism test exercise every resolution rule).
-
-### User Story Dependencies
-
-- **User Story 1 (P1)**: Can start after Foundational (Phase 2). No dependencies on other stories. Brings up the simulation skeleton: `createWorld`, `applyCommand`, `tick`, production, flow.
-- **User Story 2 (P1)**: Can start after US1's `tick` orchestrator lands (T027). Adds combat + capture phases that run after flow. Tightly coupled to US1's flow phase (combat reads post-flow state).
-- **User Story 3 (P2)**: Can start after US1's flow phase (T023) — decay reads the post-flow inflow mask. Independent of US2's combat, but US3's quickstart asserts mutual-feeding which requires US1 flow working.
-- **User Story 4 (P2)**: Can start after US1's `applyCommand` (T025) — paratroop/gun are order types validated by the same machinery. Independent of US2/US3; para + gun phases run before flow in the tick pipeline.
-- **User Story 5 (P3)**: Can start after US1's `applyCommand` (T025) for the surrender order, but its full quickstart (Q-005 elimination-by-combat) requires US2's combat phase. Implementation can land independently; full quickstart waits for US2.
-
-### Within Each User Story
-
-- Tests are written first (must FAIL before implementation), per the spec-kit template.
-- Resolution rule modules before the tick wiring task that uses them.
-- Tick-wiring tasks before quickstart tests that exercise end-to-end flows.
-- Story completes (all its tasks green) before moving to the next priority.
-
-### Parallel Opportunities
-
-- **Setup**: All tasks touch distinct config files → most are `[P]`-safe.
-- **Foundational**: Types, constants, RNG, events, fixtures, and `index.ts` touch different files → most `[P]`.
-- **Within each user story**: All test tasks `[P]` (different files, no impl deps yet). All quickstart tests `[P]` after the story's tick-wiring task lands.
-- **Across user stories (with multiple dispatchers)**: Once Foundational completes, US2/US3/US4/US5 implementations can run in parallel — each adds its own resolution module + its own tick-wiring edit. The single shared `tick.ts` file means the wiring tasks must serialize, but resolution-module impl + tests can fan out.
-- **Polish**: `serialize.ts`, `determinism.test.ts`, `multi-player.test.ts`, `tick-perf.bench.ts`, `engine-ci.yml`, and `README.md` all touch different files → most `[P]`.
-
----
-
-## Parallel Examples
-
-### Parallel Example: User Story 1
-
-```bash
-# Launch all US1 failing tests first (independent files, must fail before impl):
-Task: "Write failing tests for createWorld in packages/engine/tests/unit/create.test.ts"
-Task: "Write failing tests for production in packages/engine/tests/unit/production.test.ts"
-Task: "Write failing tests for flow in packages/engine/tests/unit/flow.test.ts"
-
-# Then launch the three resolution+impl modules in parallel (each depends only on T011-T014):
-Task: "Implement createWorld in packages/engine/src/create.ts"
-Task: "Implement production in packages/engine/src/resolution/production.ts"
-Task: "Implement flow in packages/engine/src/resolution/flow.ts"
-
-# Finally, after tick wiring (T027) lands, run all three quickstart tests in parallel:
-Task: "Quickstart Q-001 in packages/engine/tests/quickstart/tick-to-terminal.test.ts"
-Task: "Quickstart Q-002 in packages/engine/tests/quickstart/production.test.ts"
-Task: "Quickstart Q-003 in packages/engine/tests/quickstart/slope-flow.test.ts"
+```
+Phase 1 — Setup (T001–T002) ──────────────────────────────────────────┐
+                                                                       │
+Phase 2 — Engine flow gradient (T003→T007→T005/T006→T008/T009/T010) ──┤  T003 (contract mirrors) blocks T007 (tests must compile)
+Phase 3 — Terrain smoothing (T011→T012/T013→T014→T015→T016/T017/T018) ┤  T011 (contract mirrors) blocks T012/T013/T014
+  (Phases 2 and 3 are disjoint packages — parallel-safe)               │  T019 (reachable-land) needs Phase 2 (flowRateForDelta)
+                                                                       │
+Phase 4 — Design tokens (T021→T022/T023/T024) ─────────────────────────┤  T021 (tokens) blocks T022 (DESIGN.md, FR-018)
+                                                                       │
+Phase 5 — Console (T025→T026→T027/T028/T029→T030/T031/T032) ───────────┤  needs Phase 2 (drift test) + Phase 4 (tokens)
+                                                                       │
+Phase 6 — Matchmaking verification (T033) ─────────────────────────────┤  needs Phase 3 (effectiveSettings)
+                                                                       │
+Phase 7 — Manual (T034–T037) — lands in the SAME change sets as the    │  FR-012: manual rides with behavior
+  engine/terrain/console behavior, not as a final monolith             │
+                                                                       │
+Phase 8 — Final gates (T038–T040) ─────────────────────────────────────┘
 ```
 
-### Parallel Example: User Story 4
+### Within Each Phase
 
-```bash
-# Tests for paratroop and gun in parallel (independent files):
-Task: "Write failing tests for paratroop in packages/engine/tests/unit/paratroop.test.ts"
-Task: "Write failing tests for gun in packages/engine/tests/unit/gun.test.ts"
+- Tests FIRST (or alongside) and must FAIL before implementation — especially `flow.test.ts` (T007), `smoothing.test.ts` (T016), `pipe-slope.test.ts` (T030), and the drift test (T031).
+- Contract mirrors before consumers (T003 before T007; T011 before T012–T015; T026 before T027).
+- Core implementation before integration; unit before component/E2E.
 
-# Implementations in parallel (different files):
-Task: "Implement paratroop in packages/engine/src/resolution/paratroop.ts"
-Task: "Implement gun in packages/engine/src/resolution/gun.ts"
-```
+### Parallel Opportunities (marked [P])
 
-### Parallel Example: Polish Phase
+- T002 (baseline audit) — standalone.
+- Phase 2 (engine) and Phase 3 (terrain) — disjoint packages, fully parallel.
+- T007 / T008 / T009 / T010 — disjoint test/README files after T003/T004.
+- T016 / T017 / T018 / T019 / T020 — disjoint terrain test/README files after T011–T015.
+- T022 / T023 / T024 — disjoint files after T021.
+- T030 / T031 / T032 — disjoint console test files after T025–T029.
+- T038 / T039 / T040 — disjoint gates (can run in any order; T040 last).
 
-```bash
-# Most Polish tasks touch different files:
-Task: "Implement serializeWorld/deserializeWorld/hashWorld in packages/engine/src/serialize.ts"
-Task: "Write SC-001 determinism test in packages/engine/tests/determinism.test.ts"
-Task: "Write 3/4-player supplementary test in packages/engine/tests/quickstart/multi-player.test.ts"
-Task: "Write SC-004 perf benchmark in packages/engine/tests/perf/tick-perf.bench.ts"
-Task: "Add CI workflow in .github/workflows/engine-ci.yml"
-Task: "Write engine package README in packages/engine/README.md"
-```
+### Subagent Reliability Notes (AGENTS.md environment notes)
 
----
-
-## Implementation Strategy
-
-### MVP First (User Story 1 Only)
-
-The MVP for feature 001 is **just User Story 1**. It delivers the deterministic simulation skeleton (`createWorld` → `applyCommand` → `tick` → production → flow) without which no other feature can build. The MVP proves:
-
-1. Monorepo scaffolding is sound.
-2. Deterministic tick loop works headlessly.
-3. The engine's public surface (types + functions) is importable from `@europa/engine`.
-4. SC-001 (determinism) is satisfied at the micro-scale (Q-001), with the macro-scale 10k-tick proof deferred to Polish.
-
-**MVP delivery sequence:**
-
-1. Complete Phase 1: Setup.
-2. Complete Phase 2: Foundational (CRITICAL — blocks all stories).
-3. Complete Phase 3: User Story 1.
-4. **STOP and VALIDATE**: `pnpm --filter @europa/engine test` runs Q-001/Q-002/Q-003 green; coverage ≥80% on `create.ts` + `production.ts` + `flow.ts` + `tick.ts`; `hashWorld` stable across two identical runs.
-5. Do NOT proceed to US2/US3/US4/US5 until US1 is merged and the smoke REPL from `quickstart.md` §3 prints expected output.
-
-### Incremental Delivery
-
-1. **Foundation** (Setup + Foundational) → `pnpm install` clean, `pnpm build` produces `dist/`, types and constants importable.
-2. **+ User Story 1** → MVP! Engine runs headlessly; production + flow work.
-3. **+ User Story 2** → Combat plays out; cities capturable. Most tactical options unlocked.
-4. **+ User Story 3** → Decay + capacity + reserves add strategic depth.
-5. **+ User Story 4** → Paratroopers + guns add raid tactics.
-6. **+ User Story 5** → Matches conclude with `MatchResult`.
-7. **+ Polish** → Serialization, 10k-tick determinism proof, CI, perf benchmark, README.
-
-Each story adds value without breaking the previous story's acceptance tests (the strict phase ordering in `tick.ts` means each new phase slots in without disturbing earlier phases).
-
-### Parallel Team Strategy
-
-With multiple dispatchers:
-
-1. **Phase 1 + 2** together (foundational setup is sequential by nature).
-2. **Phase 3 onward** can fan out:
-   - Dispatcher A: User Story 1 (`create.ts` + `production.ts` + `flow.ts` + `tick.ts` skeleton)
-   - Once US1 lands, Dispatchers B/C/D can take US2/US3/US4 in parallel — each adds its own `resolution/*.ts` module + edits `tick.ts` to wire it.
-   - Dispatcher E handles US5 once US2's combat phase lands (for Q-005's last-standing scenario).
-   - Dispatcher F takes Polish (serialization, determinism, perf, CI, README).
-
-The single shared `tick.ts` file is the synchronization point: resolution-module implementations can land in parallel, but the tick-wiring task in each story must wait for the previous story's wiring to merge cleanly. This is the one serialization constraint across the otherwise-parallel story implementations.
+- One file per dispatch where possible; verify each landing on disk before proceeding.
+- Exact file paths (all paths above verified against the current tree).
+- Pre-create target directories before dispatching writers (e.g., `packages/terrain/tests/integration/` exists; `packages/console/tests/unit/render/` exists; `packages/design/tests/` exists with `.keep`).
+- The R-1 formula confirmation is a hard gate before T007/T009/T030/T031/T034/T035 — do not dispatch those with unconfirmed expected values.
 
 ---
 
 ## Notes
 
-- `[P]` tasks = different files, no dependencies on incomplete tasks. Verify before marking `[P]`.
-- `[Story]` label maps task to user story for traceability. Setup / Foundational / Polish tasks MUST NOT carry a story label.
-- Each user story is independently completable and testable via its quickstart tests (Q-001..Q-008).
-- Tests are written first and must FAIL before implementation lands — this is TDD per constitution Principle III and the spec-kit template's "Tests first" rule.
-- Commit after each task or logical group; conventional-commit messages per AGENTS.md (e.g., `feat(engine): implement production resolution (US1)`).
-- Stop at any checkpoint to validate the story independently before moving on.
-- **Avoid**: vague tasks, same-file conflicts (multiple tasks writing to `tick.ts` simultaneously), cross-story dependencies that break the independent-testability guarantee.
-- **Subagent reliability** (AGENTS.md note): tasks target one file each wherever possible; large files like `tick.ts` are split per-phase so a single dispatch edits only its phase's wiring.
-- File paths are derived from `plan.md` §"Project Structure" and `research.md` §10 — they are the actual future monorepo paths. Do not invent paths not supported by the plan.
+- **R-1 formula**: any task that hardcodes flow expected values (T007, T009, T030, T031, T034, T035) must use the PM-confirmed formula. The working assumption (asymmetric cap) matches every number in the specs; the alternative (symmetric cap with cap ≥ 7) changes downhill rates and contradicts the spec's listing — flag to the PM, don't silently pick.
+- **No version bumps**: any task proposing to edit `ENGINE_API_VERSION`, `TERRAIN_API_VERSION`, `CONSOLE_API_VERSION`, `NETWORK_API_VERSION`, `MATCHMAKING_API_VERSION`, or a wire envelope is out of scope — reject it.
+- **No `any` / suppressions**: `any` is banned without documented justification; `eslint-disable` / `@ts-ignore` / `@ts-nocheck` / `@ts-expect-error` are never green — fix the code.
+- **No new literals**: the console's pipe colors must flow through `palette.ts` re-exports of `TOKENS`; `check:no-literals` (G-04) fails otherwise.
+- **Manual rides with behavior**: T034–T037 land in the same commits as the engine/terrain/console behavior (FR-012); never merge a behavior change with a stale manual.
+- Commit after each task or logical group; use Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`). Every commit message must be verifiable by `pnpm typecheck && pnpm lint && pnpm test` on the touched package.
+
+---
+
+## Implementation Strategy
+
+### MVP First (engine + terrain foundations)
+
+1. Complete Phase 1 + Phase 2 (engine gradient + tests) → the flow mechanic ships.
+2. Complete Phase 3 (terrain smoothing + tests) → maps become traversable.
+3. **STOP and VALIDATE**: run the engine + terrain suites and the reachable-land suite locally; confirm the R-1 formula with the PM before proceeding.
+
+### Incremental Delivery (each phase adds value without breaking previous)
+
+1. Engine gradient (Phase 2) → terrain smoothing (Phase 3) → tokens (Phase 4) → console rendering (Phase 5) → matchmaking verification (Phase 6) → manual (Phase 7, riding with behavior) → gates (Phase 8).
+2. The manual pages land with the behavior change sets (not deferred to the end) — at least touch `docs/manual/` in the commits that land Phase 2 and Phase 3 and Phase 5, so no merge to `main` carries a stale manual (FR-012).
+
+### Parallel Team Strategy (if multi-engineer)
+
+1. Engineer A: engine gradient (T003 → T007 → T005/T006 → T008/T009/T010)
+2. Engineer B: terrain smoothing (T011 → T012/T013 → T014 → T015 → T016/T017/T018/T019/T020) — T019 waits for Engineer A's `flowRateForDelta`
+3. Engineer C: design tokens (T021 → T022/T023/T024) after Phase 2/3 foundations, then console (T025 → T026 → T027/T028/T029 → T030/T031/T032)
+4. Join for matchmaking verification (T033), manual (T034–T037), and gates (T038–T040).

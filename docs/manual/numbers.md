@@ -11,8 +11,17 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | City saturation cap | 30 troops | `ENGINE_CONSTANTS.cityCapacity` |
 | Open-cell troop cap | 30 troops | `ENGINE_CONSTANTS.cellCapacity` |
 | Unfed decay | −1 troop/tick | `ENGINE_CONSTANTS.decayPerTick` |
-| Pipe flow, downhill or flat | 1 troop/tick per pipe | `ENGINE_CONSTANTS.flowBase` × `flowDownhillFactor` |
-| Pipe flow, uphill | 0 — uphill pipes move nothing at v1 tuning | `ENGINE_CONSTANTS.flowUphillFactor` |
+| Pipe flow, downhill | 8–12 troops/tick per pipe (Δ=1 → 8 … Δ≥5 → 12) | `ENGINE_CONSTANTS.flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)` |
+| Pipe flow, flat | 7 troops/tick per pipe | `ENGINE_CONSTANTS.flowBase` |
+| Pipe flow, uphill | 6→1 troops/tick per pipe (Δ=1 → 6 … Δ=6 → 1) | `max(0, ENGINE_CONSTANTS.flowBase − flowSlopeStep × |Δ|)` |
+| Pipe flow, stalled | 0 troops/tick (Δ≥7) | `ENGINE_CONSTANTS.flowBase / flowSlopeStep` (stall threshold) |
+{: .europa-table }
+
+## Terrain
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Terrain smoothing | 4 smoothing passes (range 0–8; 0 = no smoothing) | `DEFAULT_GENERATION_SETTINGS.terrainSmoothing` |
 {: .europa-table }
 
 ## Special weapons
