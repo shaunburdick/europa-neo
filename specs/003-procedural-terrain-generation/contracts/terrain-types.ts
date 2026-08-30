@@ -180,6 +180,17 @@ export interface GenerationSettings {
    * retries."
    */
   readonly maxRegenAttempts: number;
+
+  /**
+   * Number of deterministic post-process smoothing passes applied to
+   * the elevation field (FR-010). Default 4. Safe range: `[0, 8]`.
+   * `0` = no smoothing (byte-identical to pre-smoothing output); each
+   * pass replaces every cell's elevation with the round-half-up mean
+   * of its 3×3 neighborhood (coordinates clamped to the board edge),
+   * reducing adjacent-cell elevation differences so pipe networks gain
+   * more viable cross-map routes.
+   */
+  readonly terrainSmoothing: number;
 }
 
 /**
@@ -197,6 +208,7 @@ export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   minCityWaterDistance: 3,
   minCityCityDistance: 5,
   maxRegenAttempts: 5,
+  terrainSmoothing: 4,
 } as const;
 
 // ----------------------------------------------------------------------------
