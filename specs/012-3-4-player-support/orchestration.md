@@ -1,7 +1,7 @@
 # Orchestration Log: 012 3–4 Player Support
 
 ## Status
-- **Current Wave**: Complete — all 32 tasks (T001–T032) done; spec.md flipped to Implemented (2026-08-29); repo-wide typecheck+lint green; ready for PR (user approval pending)
+- **Current Wave**: Complete — all 32 tasks (T001–T032) done; spec.md Implemented (2026-08-29); repo-wide typecheck+lint green; **PR #29 OPEN** (https://github.com/shaunburdick/europa-neo/pull/29), CI running
 - **Branch**: `issue-6-3+4-player-matches`
 - **Last Updated**: 2026-08-29
 
