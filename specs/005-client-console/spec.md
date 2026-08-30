@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-08-23)
+**Status**: Implemented (2026-08-30)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 

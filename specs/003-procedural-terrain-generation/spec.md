@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented
+**Status**: Implemented (2026-08-30)
 
 **Input**: User description: "GeoMorph-inspired procedural map generation producing balanced, symmetric boards with elevation, water pools, and fair city placement; seed-reproducible."
 
