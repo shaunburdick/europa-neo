@@ -1,18 +1,22 @@
 /**
  * Render palette — Feature 005 (US1: T044/T045 support module).
  *
- * Single location for every color the board renderer uses, shared by
- * the DOM cell layer (`cell-view.tsx`) and the Canvas 2D painter
- * (`canvas.ts`) so both visual layers stay pixel-consistent
- * (research.md §2: canvas = visual source of truth, DOM overlay =
- * a11y source of truth; they must agree).
+ * Thin re-export layer over `@europa/design` tokens. Every color the board
+ * renderer uses is sourced from `TOKENS` so the DOM cell layer
+ * (`cell-view.tsx`) and the Canvas 2D painter (`canvas.ts`) share one
+ * canonical value (research.md §2: canvas = visual source of truth, DOM
+ * overlay = a11y source of truth; they must agree). No hex/rgba literal
+ * lives in this file — the single source is `packages/design/src/tokens.ts`
+ * (FR-009, contracts §3).
  *
- * Contrast notes (WCAG 1.4.3): every TEXT color pairs with a
- * background of ≥ 4.5:1 (troop/reserve chips are white on `#111827`
- * ≈ 15:1). Owner identity is never conveyed by color alone — the
- * accessible name carries "Player N" (Q-A01; constitution Principle
- * VI "no reliance on color alone").
+ * Terrain shading (HSL interpolation by elevation) remains console-owned
+ * history/rendering logic; the hue/saturation/lightness anchors are the
+ * token literals from design. Contrast notes (WCAG 1.4.3) are documented in
+ * `DESIGN.md` and pinned by `palette.test.ts`; owner identity is never
+ * conveyed by color alone (constitution Principle VI).
  */
+
+import { TOKENS } from '@europa/design';
 
 /**
  * Void (out-of-horizon fog) background — dark slate per fog FR-002.
@@ -24,46 +28,46 @@
  * absent from views (FR-002/FR-005 no-leak), so this is paint-only.
  * Must never equal {@link PAGE_BACKGROUND_COLOR}.
  */
-export const VOID_COLOR = '#1a2233';
+export const VOID_COLOR = TOKENS.color.voidBg;
 
 /**
  * Page chrome background (mirrors `body` in styles/index.css; CSS
  * stays the styling source of truth). Kept here so the void-vs-page
  * distinctness invariant is testable — see palette.test.ts.
  */
-export const PAGE_BACKGROUND_COLOR = '#0b0f19';
+export const PAGE_BACKGROUND_COLOR = TOKENS.color.pageBg;
 
-/** Water fill — Tailwind blue-700; reads unambiguously as blue. */
-export const WATER_COLOR = '#1d4ed8';
+/** Water fill — reads unambiguously as blue. */
+export const WATER_COLOR = TOKENS.color.water;
 
 /**
  * Land shading range by elevation (data-model.md §3: elevation 0..255
- * shades terrain). HSL lightness interpolates from 26% (sea level,
- * dark) to 62% (peaks, bright); hue/saturation fixed so elevation is
- * the only variable. The 26% floor (playtest 2026-08-24) keeps the
- * darkest land clearly lighter than {@link VOID_COLOR} so low
+ * shades terrain). HSL lightness interpolates from the token floor
+ * (sea level, dark) to the token ceiling (peaks, bright); hue and
+ * saturation are fixed so elevation is the only variable. The floor
+ * keeps the darkest land clearly lighter than {@link VOID_COLOR} so low
  * elevation never reads as fog.
  */
-export const LAND_HUE = 120;
-export const LAND_SATURATION_PCT = 12;
-export const LAND_MIN_LIGHTNESS_PCT = 26;
-export const LAND_MAX_LIGHTNESS_PCT = 62;
+export const LAND_HUE = TOKENS.color.landHue;
+export const LAND_SATURATION_PCT = TOKENS.color.landSaturationPct;
+export const LAND_MIN_LIGHTNESS_PCT = TOKENS.color.landMinLightnessPct;
+export const LAND_MAX_LIGHTNESS_PCT = TOKENS.color.landMaxLightnessPct;
 
-/** City outline + pipe indicator color — amber-400 family. */
-export const CITY_COLOR = '#fbbf24';
-export const PIPE_COLOR = '#f59e0b';
+/** City outline + pipe indicator color — amber family. */
+export const CITY_COLOR = TOKENS.color.city;
+export const PIPE_COLOR = TOKENS.color.accent;
 
 /** Chip background for troop counts / reserve badges / labels. */
-export const CHIP_BACKGROUND = '#111827';
-export const CHIP_TEXT = '#f9fafb';
+export const CHIP_BACKGROUND = TOKENS.color.chipBg;
+export const CHIP_TEXT = TOKENS.color.chipText;
 
 /** Focus ring (keyboard selection) — pure white for max contrast. */
-export const FOCUS_RING_COLOR = '#ffffff';
+export const FOCUS_RING_COLOR = TOKENS.color.focusRing;
 
 /** Combat flash / capture ring effect colors (Canvas layer). */
-export const COMBAT_EFFECT_COLOR = 'rgba(239, 68, 68, 0.55)';
-export const CAPTURE_EFFECT_COLOR = 'rgba(16, 185, 129, 0.55)';
-export const GENERIC_EFFECT_COLOR = 'rgba(148, 163, 184, 0.45)';
+export const COMBAT_EFFECT_COLOR = TOKENS.color.combatEffect;
+export const CAPTURE_EFFECT_COLOR = TOKENS.color.captureEffect;
+export const GENERIC_EFFECT_COLOR = TOKENS.color.genericEffect;
 
 /**
  * Terrain background for one cell as a CSS color string. Pure.
@@ -71,6 +75,10 @@ export const GENERIC_EFFECT_COLOR = 'rgba(148, 163, 184, 0.45)';
  * - water → {@link WATER_COLOR}
  * - land → HSL with lightness interpolated by elevation per
  *   data-model.md §3 ("Renderer shades terrain by this").
+ *
+ * Land anchors (hue/saturation/min/max lightness) are sourced from
+ * `TOKENS.color.land*` so the single-source rule holds; the
+ * interpolation itself stays console-owned.
  *
  * @param terrain Cell terrain classification.
  * @param elevation Elevation 0..255.
