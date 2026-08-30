@@ -17,8 +17,16 @@
  * - `root-package` / `workspace-package`: `package.json` version fields.
  * - `constant`: the single-source `APP_VERSION` constant itself.
  * - `readme` / `manual-index`: the human-facing documentation lines.
+ * - `design-md`: the `DESIGN.md` version header (spec 012 FR-020 / G-06) —
+ *   the living design contract must stay in lockstep with `APP_VERSION`.
  */
-export type VersionSourceKind = 'root-package' | 'workspace-package' | 'constant' | 'readme' | 'manual-index';
+export type VersionSourceKind =
+    | 'root-package'
+    | 'workspace-package'
+    | 'constant'
+    | 'readme'
+    | 'manual-index'
+    | 'design-md';
 
 /** One extracted version observation handed to {@link checkVersionDrift}. */
 export interface VersionSource {

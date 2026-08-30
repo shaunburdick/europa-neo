@@ -24,6 +24,10 @@
  *    {@link README_RELEASE_LINE_PATTERN}.
  * 5. `<root>/docs/manual/index.md` — the footer line pinned by
  *    {@link MANUAL_INDEX_FOOTER_PATTERN}.
+ * 6. `<root>/DESIGN.md` — the version header pinned by
+ *    {@link DESIGN_VERSION_PATTERN} (spec 012 FR-020 / G-06). The design
+ *    contract is a guarded surface so a stale header fails CI naming the
+ *    file, exactly like any package version drift.
  *
  * ## How the constant resolves under `--root` fixtures
  *
@@ -78,6 +82,17 @@ export const README_RELEASE_LINE_PATTERN = /^Current release:\s*\*\*v(\d+\.\d+\.
  * display `v` prefix.
  */
 export const MANUAL_INDEX_FOOTER_PATTERN = /^\*This manual documents Europa Neo v(\d+\.\d+\.\d+)\.\*[ \t]*$/m;
+
+/**
+ * `DESIGN.md` version header line (spec 012 FR-020 / contracts §5):
+ * `> **Version**: `0.1.0``. Capture group 1 is the raw semver WITHOUT the
+ * display backticks, ready for direct equality comparison against
+ * `APP_VERSION`. The pattern tolerates the quoted or unquoted form and also
+ * matches the `<!-- Version: 0.1.0 -->` HTML-comment fallback present in the
+ * file, so either marker pins the value. The regex is the canonical G-06
+ * marker defined in `specs/012-design-system/contracts/design-system.contract.md`.
+ */
+export const DESIGN_VERSION_PATTERN = /Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/m;
 
 /** The only field this package cares about in a parsed `package.json`. */
 interface PackageJsonShape {
@@ -234,6 +249,9 @@ export async function gatherVersionSources(rootDir: string, constantVersion: str
         await readSurface(rootDir, 'docs/manual/index.md', 'manual-index', (raw) =>
             extractDocVersion(raw, MANUAL_INDEX_FOOTER_PATTERN),
         ),
+    );
+    sources.push(
+        await readSurface(rootDir, 'DESIGN.md', 'design-md', (raw) => extractDocVersion(raw, DESIGN_VERSION_PATTERN)),
     );
 
     return sources;

@@ -53,8 +53,8 @@ const TSX_BIN = path.join(PACKAGE_ROOT, 'node_modules', '.bin', 'tsx');
 /** Absolute path of the drift-check entry point. */
 const CLI_SCRIPT = path.join(PACKAGE_ROOT, 'scripts', 'check-version-drift.ts');
 
-/** Every workspace package the real repository guards (six shipped + version). */
-const EXPECTED_WORKSPACE_PACKAGES = 7;
+/** Every workspace package the real repository guards (engine, terrain, fog, networking, matchmaking, console, version, design). */
+const EXPECTED_WORKSPACE_PACKAGES = 8;
 
 /** What a completed CLI run tells the test. */
 interface CliResult {
@@ -121,6 +121,10 @@ async function seedAgreeingTree(root: string, version: string): Promise<void> {
         path.join(root, 'docs', 'manual', 'index.md'),
         `# Fixture manual\n\n*This manual documents Europa Neo v${version}.*\n`,
     );
+    await writeFile(
+        path.join(root, 'DESIGN.md'),
+        `# Fixture design system\n\n> **Version**: \`${version}\` <!-- Version: ${version} -->\n\nSome body text.\n`,
+    );
 }
 
 /** Directories created by the current test; removed after each test. */
@@ -153,6 +157,7 @@ describe('drift check against the REAL repository (positive lockstep proof)', ()
         expect(sources.filter((source) => source.kind === 'constant')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'readme')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'manual-index')).toHaveLength(1);
+        expect(sources.filter((source) => source.kind === 'design-md')).toHaveLength(1);
     });
 
     it('every real surface agrees with APP_VERSION — checker reports ok (SC-001 restore direction)', async () => {
@@ -240,6 +245,21 @@ describe('spawned CLI against temp fixture trees (SC-001 both directions)', () =
         expect(result.stderr).toContain(`mismatch: README.md expected ${APP_VERSION} but found 9.9.9`);
     });
 
+    it('a stale DESIGN.md version header exits 1 naming DESIGN.md (spec 012 FR-020 / G-06)', async () => {
+        const root = await trackedFixtureRoot('stale-design');
+        await seedAgreeingTree(root, APP_VERSION);
+        await writeFile(
+            path.join(root, 'DESIGN.md'),
+            `# Fixture design system\n\n> **Version**: \`9.9.9\` <!-- Version: 9.9.9 -->\n\nSome body text.\n`,
+        );
+
+        const result = runCli(['--root', root], REPO_ROOT);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr.match(/mismatch:/g)).toHaveLength(1);
+        expect(result.stderr).toContain(`mismatch: DESIGN.md expected ${APP_VERSION} but found 9.9.9`);
+    });
+
     it('a missing manual footer exits 1 naming docs/manual/index.md as unparseable', async () => {
         const root = await trackedFixtureRoot('missing-footer');
         await seedAgreeingTree(root, APP_VERSION);
@@ -309,6 +329,7 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
             CONSTANT_SOURCE_FILE,
             'README.md',
             'docs/manual/index.md',
+            'DESIGN.md',
         ]);
         expect(sources.every((source) => source.version === APP_VERSION)).toBe(true);
     });
