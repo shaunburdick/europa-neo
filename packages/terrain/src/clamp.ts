@@ -20,6 +20,7 @@
  *   | `minCityWaterDistance` | integer | `[1,    6]` |
  *   | `minCityCityDistance` | integer | `[2,   10]`   |
  *   | `maxRegenAttempts`   | integer | `[1,   10]`   |
+ *   | `terrainSmoothing`   | integer | `[0,    8]`   |
  *
  * The float clamps use `Math.max(min, Math.min(max, value))`. The
  * integer clamps floor the result via `Math.floor` after clamping so
@@ -75,6 +76,10 @@ export const MIN_CITY_CITY_DISTANCE_MAX = 10;
 /** `maxRegenAttempts` safe range. Integers in `[1, 10]`. */
 export const MAX_REGEN_ATTEMPTS_MIN = 1;
 export const MAX_REGEN_ATTEMPTS_MAX = 10;
+
+/** `terrainSmoothing` safe range. Integers in `[0, 8]` (FR-010). */
+export const TERRAIN_SMOOTHING_MIN = 0;
+export const TERRAIN_SMOOTHING_MAX = 8;
 
 // ----------------------------------------------------------------------------
 // Clamp a single value into an inclusive `[min, max]` integer range
@@ -193,6 +198,20 @@ export function clampMaxRegenAttempts(v: number): number {
     return clampInt(v, MAX_REGEN_ATTEMPTS_MIN, MAX_REGEN_ATTEMPTS_MAX);
 }
 
+/**
+ * Clamp `terrainSmoothing` to the integer range `[0, 8]`. Non-integer
+ * inputs are floored after clamping.
+ *
+ * `0` = no smoothing (byte-identical to pre-smoothing output); values
+ * above 8 are clamped to 8 (FR-010, Clarifications v1.3).
+ *
+ * @param v The input value (any number).
+ * @returns An integer in `[TERRAIN_SMOOTHING_MIN, TERRAIN_SMOOTHING_MAX]`.
+ */
+export function clampTerrainSmoothing(v: number): number {
+    return clampInt(v, TERRAIN_SMOOTHING_MIN, TERRAIN_SMOOTHING_MAX);
+}
+
 // ----------------------------------------------------------------------------
 // Whole-settings clamp (T045's primary export)
 // ----------------------------------------------------------------------------
@@ -227,5 +246,6 @@ export function clampSettings(s: Readonly<GenerationSettings>): GenerationSettin
         minCityWaterDistance: clampMinCityWaterDistance(s.minCityWaterDistance),
         minCityCityDistance: clampMinCityCityDistance(s.minCityCityDistance),
         maxRegenAttempts: clampMaxRegenAttempts(s.maxRegenAttempts),
+        terrainSmoothing: clampTerrainSmoothing(s.terrainSmoothing),
     };
 }
