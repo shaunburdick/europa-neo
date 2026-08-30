@@ -85,12 +85,7 @@ describe('smoothElevation (FR-010)', () => {
 
     it('(c) preserves 180° point symmetry at k=1,2,4,8', () => {
         // 180°-symmetric 4×4 field (each cell equals its rotated partner).
-        const symmetric = new Uint8Array([
-            10, 20, 30, 40,
-            50, 60, 70, 80,
-            80, 70, 60, 50,
-            40, 30, 20, 10,
-        ]);
+        const symmetric = new Uint8Array([10, 20, 30, 40, 50, 60, 70, 80, 80, 70, 60, 50, 40, 30, 20, 10]);
         for (const k of [1, 2, 4, 8]) {
             expectPointSymmetric(smoothElevation(symmetric, 4, k), 4);
         }
@@ -121,11 +116,7 @@ describe('smoothElevation (FR-010)', () => {
         //   (0,0)×4, (0,1)×2, (1,0)×2, (1,1)×1
         // sum = 4·100 + 2·100 + 2·100 + 1·200 = 1000.
         // round-half-up mean = floor((1000 + 4) / 9) = floor(1004/9) = 111.
-        const input = new Uint8Array([
-            100, 100, 100,
-            100, 200, 100,
-            100, 100, 100,
-        ]);
+        const input = new Uint8Array([100, 100, 100, 100, 200, 100, 100, 100, 100]);
         const out = smoothElevation(input, 3, 1);
         expect(out[0]).toBe(111);
     });
