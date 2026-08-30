@@ -10,7 +10,10 @@
  *      consumption of the same PRNG.
  *   3. For `attempt ∈ [0, maxRegenAttempts)`:
  *        a. Derive the attempt's seed via `mixSeed`.
- *        b. Run the elevation → water → cities → board pipeline.
+ *        b. Run the elevation → smoothing → water → cities → board
+ *           pipeline (FR-010: the deterministic smoothing pass runs
+ *           after point-symmetry enforcement and before water
+ *           classification; it consumes no RNG).
  *        c. Validate the result.
  *        d. On first valid attempt, return the board + the effective seed.
  *   4. On exhaustion, throw `GenerationError({ kind: 'attempts_exhausted' })`.
@@ -50,6 +53,7 @@ import { GenerationError } from './contracts/terrain-types';
 import { generateElevationMap } from './elevation';
 import { deriveSubstream, mixSeed } from './rng-adapter';
 import { normalizeSettingsForPlayerCount, resolveSettings, validateSettings } from './settings';
+import { smoothElevation } from './smoothing';
 import { validateBoard } from './validate';
 import { extractWater } from './water';
 
@@ -158,6 +162,15 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         const attemptElevRng = deriveSubstream(elevationRng);
         const elev = generateElevationMap(attemptElevRng, req.boardSize, req.boardSize, settings);
 
+        // FR-010 (Clarifications v1.3): apply the deterministic
+        // smoothing pass AFTER point-symmetry enforcement (inside
+        // generateElevationMap) and BEFORE water classification. The
+        // pass is a pure function of the elevation field + setting —
+        // no RNG consumption, no wall-clock. `terrainSmoothing: 0`
+        // returns a copy of `elev` unchanged (byte-identical to
+        // pre-smoothing output).
+        const smoothed = smoothElevation(elev, req.boardSize, settings.terrainSmoothing);
+
         // Build water: derive a substream from the water rng.
         const attemptWaterRng = deriveSubstream(waterRng);
         // We don't actually use the rng for the water extraction (it's
@@ -166,7 +179,7 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         // discipline consistent.
         attemptWaterRng();
 
-        const water = extractWater(elev, req.boardSize, req.boardSize, settings.waterRatio);
+        const water = extractWater(smoothed, req.boardSize, req.boardSize, settings.waterRatio);
 
         // Place cities for the "primary" players only. The 180° partners
         // are added by `enforceCitySymmetry` and assigned to the
@@ -200,7 +213,7 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
             const isSelfSymmetric = req.playerCount === THREE_PLAYER_COUNT && pid === 2;
             const seedCount = isSelfSymmetric ? settings.citiesPerPlayer / 2 : settings.citiesPerPlayer;
             const playerCities = placeCitiesInBand(
-                elev,
+                smoothed,
                 water,
                 req.boardSize,
                 req.boardSize,
@@ -231,7 +244,7 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         }));
         // Build the Board with cities.
         const boardWithCities: Board = {
-            ...buildBoard(elev, water, req.boardSize, req.boardSize),
+            ...buildBoard(smoothed, water, req.boardSize, req.boardSize),
             cities: cityPlacements,
         };
 
