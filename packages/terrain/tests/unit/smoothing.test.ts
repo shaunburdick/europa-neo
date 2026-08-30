@@ -115,17 +115,19 @@ describe('smoothElevation (FR-010)', () => {
         }
     });
 
-    it('(e) edge clamping: corner cell mean uses the clamped 2×2 neighborhood', () => {
-        // 3×3 field; the (0,0) corner's clamped neighborhood is
-        // (0,0)=100, (0,1)=100, (1,0)=100, (1,1)=200 → sum 500.
-        // round-half-up mean = floor((500 + 4) / 9) = floor(504/9) = 56.
+    it('(e) edge clamping: corner cell mean uses the clamped 3×3 neighborhood', () => {
+        // 3×3 field; the (0,0) corner's 3×3 neighborhood clamps out-of-
+        // bounds coordinates to the edge, so the 2×2 block is replicated:
+        //   (0,0)×4, (0,1)×2, (1,0)×2, (1,1)×1
+        // sum = 4·100 + 2·100 + 2·100 + 1·200 = 1000.
+        // round-half-up mean = floor((1000 + 4) / 9) = floor(1004/9) = 111.
         const input = new Uint8Array([
             100, 100, 100,
             100, 200, 100,
             100, 100, 100,
         ]);
         const out = smoothElevation(input, 3, 1);
-        expect(out[0]).toBe(56);
+        expect(out[0]).toBe(111);
     });
 
     it('(f) monotone smoothing: max adjacent |Δ| is non-increasing with passes on a ridge', () => {
