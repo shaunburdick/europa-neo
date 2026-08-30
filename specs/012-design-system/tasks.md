@@ -1,5 +1,7 @@
 # Tasks: Shareable Design System Between UI and Documentation
 
+<!-- Trimmed 2026-08-30: G-01/G-02/G-03 drift suite + T-015/T-018/T-022/T-023/T-024 deferred per product-owner decision. -->
+
 **Feature**: `012-design-system` (issue #25) | **Branch**: `issue-25-design-system` | **Date**: 2026-08-30
 **Input**: [`spec.md`](./spec.md) (22 FRs, 8 SCs, 4 user stories), [`plan.md`](./plan.md), [`research.md`](./research.md), [`data-model.md`](./data-model.md), [`contracts/design-system.contract.md`](./contracts/design-system.contract.md), [`quickstart.md`](./quickstart.md)
 **Workflow**: spec-driven, Phase 5 — every task traces to an FR/SC and carries its acceptance + file list. Parallel-safe tasks are marked `[P]`.
@@ -12,28 +14,28 @@
 
 **Purpose**: scaffold the new package, wire workspace dependencies, and baseline housekeeping so later tasks build.
 
-- [ ] **T-001 — Scaffold `packages/design` workspace package**
+- [x] **T-001 — Scaffold `packages/design` workspace package**
   - **Description**: Create `packages/design/` with `package.json` (`name: @europa/design`, `private: true`, `version: 0.1.0` lockstep, `type: module`, `files: ["dist"]`, `exports: { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }, "./tokens": "./dist/index.js" }`, zero `dependencies`), `tsconfig.json` extending `../../tsconfig.base.json` (`strict:true`, `outDir:./dist`, `rootDir:.` shape matching sibling packages, `include: ["src/**/*"]`, `exclude: ["tests/**/*","dist"]`), `tsup.config.ts` (entry `src/index.ts` → `dist/index.{js,d.ts}` + supplementary `build-css` hook), `tests/` directory, and `README.md` stub (short, links to root `DESIGN.md`).
   - **Acceptance**: `pnpm install --frozen-lockfile` succeeds; `pnpm --filter @europa/design build` emits `dist/index.js` + `dist/index.d.ts`; `private:true` and zero `dependencies` asserted; TypeScript `tsc --noEmit` inside package is green.
   - **Files**: `packages/design/package.json`, `packages/design/tsconfig.json`, `packages/design/tsup.config.ts`, `packages/design/src/index.ts` (stub), `packages/design/README.md`, `packages/design/tests/.keep`.
   - **Depends on**: — (first task).
   - **Traces**: FR-001, FR-002, NFR-003.
 
-- [ ] **T-002 — Wire `@europa/design` into the monorepo graph**
+- [x] **T-002 — Wire `@europa/design` into the monorepo graph**
   - **Description**: Add `"@europa/design": "workspace:*"` to `packages/console/package.json#dependencies`. Verify pnpm topological order (`pnpm -r --filter './packages/*' build` orders `design` before `console`). No `pnpm-workspace.yaml` edit required (glob `packages/*` already covers it) — confirm in comment/plan parity so reviewers don't attempt it.
   - **Acceptance**: `pnpm install --frozen-lockfile` symlinks `packages/console/node_modules/@europa/design`; `pnpm --filter @europa/console typecheck` resolves `from '@europa/design'`; graph shows `design → (none)`, `console → design`.
   - **Files**: `packages/console/package.json`.
   - **Depends on**: T-001.
   - **Traces**: FR-001, FR-021.
 
-- [ ] **T-003 [P] — Baseline `biome.jsonc` for `packages/design`**
+- [x] **T-003 [P] — Baseline `biome.jsonc` for `packages/design`**
   - **Description**: Update `biome.jsonc` so `packages/design/**` is formatted/linted under the same 4-space/120-col, LF, semicolons rules. No new `formatter:off` override — the design package formats normally. Confirm `!specs/*/contracts/**` still only excludes spec mirrors and does not accidentally exclude `packages/design`. Mirror the pattern used for sibling packages (root false configs remain children).
   - **Acceptance**: `pnpm format:check` covers `packages/design/src/**`; `pnpm lint` over the package is zero-errors; `biome.jsonc` diff is minimal and reviewed.
   - **Files**: `biome.jsonc`.
   - **Depends on**: T-001.
   - **Traces**: FR-022, NFR-003.
 
-- [ ] **T-004 — Create `DESIGN.md` skeleton + version marker**
+- [x] **T-004 — Create `DESIGN.md` skeleton + version marker**
   - **Description**: Author `DESIGN.md` at the repo root with the header marker `> **Version**: `0.1.0`` (research R8 exact value), section scaffold for token tables (one per FR-003 group), component catalog outline, a11y pairing table, single-stylesheet + vendoring + sync + extension-guidance rules (FR-017/FR-019), and a prose pointer to this feature's spec/plan. `packages/design/README.md` links to it and carries no competing catalog. The prose may be placeholder tables at this stage — structured so later tasks fill precise values without re-authoring the outline.
   - **Acceptance**: `DESIGN.md` exists at the repo root; `grep -R 'Version:' DESIGN.md` is greppable by the drift regex `/Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/`; `packages/design/README.md` links to `../../DESIGN.md`; `pnpm format:check` passes over `DESIGN.md`.
   - **Files**: `DESIGN.md`, `packages/design/README.md`.
@@ -46,49 +48,49 @@
 
 **Purpose**: establish the single-source token table, the deterministic CSS emitter, and the build-before-consumer ordering. No console/manual migration begins until this phase is green.
 
-- [ ] **T-005 — Define the canonical token table `src/tokens.ts` (single source)**
+- [x] **T-005 — Define the canonical token table `src/tokens.ts` (single source)**
   - **Description**: Declare `export const TOKENS = { color: { pageBg: '#0b0f19', surface: '#111827', surfaceRaised: '#1f2937', voidBg: '#1a2233', border: '#374151', textPrimary: '#f9fafb', textSecondary: '#e5e7eb', textMuted: '#9ca3af', accent: '#f59e0b', city: '#fbbf24', banner: '#d97706', red: '#dc2626', green: '#059669', blue: '#2563eb', water: '#1d4ed8', landHue: 120, landSaturationPct: 12, landMinLightnessPct: 26, landMaxLightnessPct: 62, focusRing: '#ffffff', chipBg: '#111827', chipText: '#f9fafb', combatEffect: 'rgba(... )', captureEffect: 'rgba(... )', genericEffect: 'rgba(... )' }, typography: { fontStack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', scale*, lineHeight* }, spacing: { xs..lg scale }, radii: { plate: '8px', card: '6px', input: '4px', pill: '999px' }, borders: { width:'1px', style:'solid' }, shadows: { board:'none', plate:'none', modal:'none' }, focusRing: { width:'2px', style:'solid', color:'#ffffff', offset:'2px' }, motion: { durationMs: 120, easing:'ease' } } as const` — values must match the existing console literals enumerated in `packages/console/src/styles/index.css` and `palette.ts` (FR-003 first values). Each leaf's CSS-var name is the derivation `--europa-{group}-{kebab(name)}` maintained alongside the table (or as const mapping). Add a `src/index.ts` barrel re-exporting `TOKENS` (and later helpers).
   - **Acceptance**: `pnpm --filter @europa/design typecheck` is green (`strict:true`, literal types); every required color from FR-003 appears once; typography/spacing/radii values cover every literal in the console stylesheet audit (`grep -c '#[0-9a-f]'` against the old file → every hex has a matching token).
   - **Files**: `packages/design/src/tokens.ts`, `packages/design/src/index.ts`.
   - **Depends on**: T-001, T-004.
   - **Traces**: FR-003, FR-004, FR-005.
 
-- [ ] **T-006 — Build the deterministic CSS emitter `dist/design.css`**
+- [x] **T-006 — Build the deterministic CSS emitter `dist/design.css`**
   - **Description**: Implement `packages/design/scripts/build-css.ts` (or inline generation in `src/tokens.css.ts`) that walks `TOKENS` in sorted key order, emits a single `:root { --europa-* : value; }` block (LF, UTF-8, no BOM, no timestamp, lexicographic order) and writes `dist/design.css`. The script is invoked as a `tsup` `onSuccess` or as a `postbuild` step (`tsup && tsx scripts/build-css.ts`). Add `scripts/vendor-to-docs.ts` stub here (wiring deferred to T-012) or fold copy into the same script — the key is determinism: repeated builds are byte-identical.
   - **Acceptance**: `pnpm --filter @europa/design build && sha256sum dist/design.css && pnpm --filter @europa/design build && sha256sum dist/design.css` hashes match; `:root` block contains every `--europa-*` exactly once with canonical literal values from `TOKENS`; `pnpm lint` green; test can read the file and parse every `var`.
   - **Files**: `packages/design/scripts/build-css.ts`, `packages/design/tsup.config.ts` (hook), optionally `packages/design/src/tokens.css.ts`.
   - **Depends on**: T-005.
   - **Traces**: FR-002, FR-004, SC-003.
 
-- [ ] **T-007 — Implement the component catalog stylesheet (catalog classes)**
+- [x] **T-007 — Implement the component catalog stylesheet (catalog classes)**
   - **Description**: Extend `dist/design.css` (either via the emitter or a second authored `src/styles/design.css` segment concatenated deterministically) with one rule family per FR-006 entry: `.europa-page`/`.europa-stack`, `.europa-card`/`.europa-plate`, `.europa-button` family (`primary`/`secondary`/`ghost` + `:disabled`/`:focus-visible`), `.europa-banner`, `.europa-hud` family, `.europa-lobby*` (page/grid/card/row/badge/empty/superseded), `.europa-chip`/`.europa-badge`, `.europa-modal*` (backdrop/dialog/title/body/actions/button), `.europa-grid`, `.europa-typography--*` (heading/muted/meta/mono), layout containers. Each declaration uses only `var(--europa-*)` (no literals). Compose the rule blocks by section (base → surfaces → buttons → HUD → lobby → badge/chip → modal → grid → typography → focus/motion). Verify every stated "must compose from tokens" in data-model.md § Catalog Component — `tokensUsed` entries all resolve.
   - **Acceptance**: `grep -R 'europa-' dist/design.css` lists every family from plan § Architecture §3 and contracts §2.3; no hex/rgb literal appears in the stylesheet outside `:root` values; each component's declarations are `var(--europa-*)`; `pnpm --filter @europa/design test` can parse every selector.
   - **Files**: `packages/design/src/styles/design.css` or extension to `scripts/build-css.ts` + `packages/design/dist/design.css` output.
   - **Depends on**: T-006.
   - **Traces**: FR-006, FR-007, NFR-004.
 
-- [ ] **T-008 — Add a11y gates inside the stylesheet (focus + reduced-motion)**
-  - **Description**: Encode FR-016's focus-visible and reduced-motion contracts in `dist/design.css`: reusable `*:focus-visible, .europa-focus-ring { outline: 2px solid var(--europa-color-focus-ring); outline-offset: 2px; }` (white 2px solid + 2px offset on `#111827`, ≈16:1, G-07), and `@media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }` plus `.europa-waiting--reduced` compatibility. Ensure every interactive catalog family uses `:focus-visible` not bare `:focus` for the treatment.
+- [x] **T-008 — Add a11y gates inside the stylesheet (focus + reduced-motion)**
+     - **Description**: Encode FR-016's focus-visible and reduced-motion contracts in `dist/design.css`: reusable `*:focus-visible, .europa-focus-ring { outline: 2px solid var(--europa-color-focus-ring); outline-offset: 2px; }` (white 2px solid + 2px offset on `#111827`, ≈17.74:1, G-07), and `@media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }` plus `.europa-waiting--reduced` compatibility. Ensure every interactive catalog family uses `:focus-visible` not bare `:focus` for the treatment.
   - **Acceptance**: Rendered fixture importing `dist/design.css` shows a visible outline of token thickness when an `.europa-button` or `.europa-grid` element receives `:focus-visible`; spinner animation's `animation-duration` is `0.01ms` when `prefers-reduced-motion` is emulated; axe scan over a fixture page stays green.
   - **Files**: same stylesheet source as T-007 (or its emitter template).
   - **Depends on**: T-007.
   - **Traces**: FR-016, NFR-001, data-model.md § Drift Guard G-07.
 
-- [ ] **T-009 [P] — Fill `DESIGN.md` token tables + pairing table**
-  - **Description**: Replace the T-004 placeholder tables with the complete token tables per FR-003 + FR-005: one table per group, columns `token name | CSS variable | TS constant | canonical value | (for colors) pairing + ratio + WCAG target` (e.g. chip `#f9fafb` on `#111827` ≈ 15:1 AA, muted `#9ca3af` on `#111827` ≈ 6.99:1 AA, banner `#111827` on `#d97706`, page `#e5e7eb` on `#0b0f19` ≈13.5:1). Also add the § A11y Pairing Table. Every row must match the canonical values in `TOKENS`/`dist/design.css` — mechanical mirror, not a re-typed re-invention.
+- [x] **T-009 [P] — Fill `DESIGN.md` token tables + pairing table**
+  - **Description**: Replace the T-004 placeholder tables with the complete token tables per FR-003 + FR-005: one table per group, columns `token name | CSS variable | TS constant | canonical value | (for colors) pairing + ratio + WCAG target` (e.g. chip `#f9fafb` on `#111827` ≈ 16.98:1 AA, muted `#9ca3af` on `#111827` ≈ 6.99:1 AA, banner `#111827` on `#d97706` ≈ 5.57:1, page `#e5e7eb` on `#0b0f19` ≈ 15.47:1). Also add the § A11y Pairing Table. Every row must match the canonical values in `TOKENS`/`dist/design.css` — mechanical mirror, not a re-typed re-invention.
   - **Acceptance**: Every leaf in `TOKENS` appears as a row; `grep -- '--europa-' DESIGN.md | wc -l` equals the number of `--europa-*` vars in `dist/design.css`; every color pairing states `ratio ≈ X:1` and `target: AA` and is assertable by G-07.
   - **Files**: `DESIGN.md`.
   - **Depends on**: T-005, T-008.
   - **Traces**: FR-003, FR-005, FR-016, SC-007.
 
-- [ ] **T-010 [P] — Fill `DESIGN.md` component catalog + house rules**
+- [x] **T-010 [P] — Fill `DESIGN.md` component catalog + house rules**
   - **Description**: Replace the catalog outline with one entry per FR-006 family: `class name(s) | variants/modifiers | required DOM structure | use | a11y obligations (keyboard target size, focus-visible treatment, "not color alone: …" sentence per FR-008)`. Add the § Single Stylesheet Rule (FR-011), § Vendoring Rule (FR-013/FR-014, vendored path `docs/manual/assets/design.css` byte-identical), § Sync Rule (FR-018 — "every token/class/pairing change updates DESIGN.md in the same commit"), § Extension Guidance + Light-Theme Note (FR-019), and § Build/Versioning (FR-020/FR-021 references). Ensure `DESIGN.md` header stays `> **Version**: `0.1.0`` and `packages/design/README.md` remains a one-paragraph link, no competing catalog.
   - **Acceptance**: Every `europa-*` selector in `dist/design.css` appears as a catalog entry and vice versa (G-03 will later pin it); each catalog row contains a "not color alone:" sentence; `packages/design/README.md` has no competing tables; `pnpm format:check` passes.
   - **Files**: `DESIGN.md`, `packages/design/README.md`.
   - **Depends on**: T-007, T-008.
   - **Traces**: FR-006, FR-008, FR-011, FR-013, FR-014, FR-016–FR-019.
 
-- [ ] **T-011 — Extend the drift suite (G-01/G-02/G-03/G-05/G-06 foundations)**
+- [ ] ~~T-011~~ — DEFERRED (v0.1.0 trim): full G-01/G-02/G-03 drift suite dropped; DESIGN.md generated from tokens and verified set-equal at authoring time
   - **Description**: Create focused tests/scripts in `packages/design/tests/` that implement checks G-01 (CSS-var ↔ TS leaves identity), G-02 (DESIGN.md token-table coverage), G-03 (catalog-vs-stylesheet), and the helper logic for G-06 (`DESIGN.md` header vs `APP_VERSION` / `packages/design/package.json#version`). Pin the version-header regex `/Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/` per contracts §5. Byte-identity hash helper for G-05 lives here but is asserted after vendoring (T-014). Extend the package `package.json#scripts` with `"check:drift"` + `"check:no-literals"` + `"vendor"` commands that the workflows will invoke. Ensure ≥80% coverage on any new testable helper logic (constitution Principle III).
   - **Acceptance**: `pnpm --filter @europa/design test -- --coverage` is ≥80% on every metric; G-01/G-02/G-03 fail when a var/table row/catalog row is removed; G-06 fails when `DESIGN.md` header is mutated; failure messages name the missing/extra var/class/file.
   - **Files**: `packages/design/tests/tokens.test.ts` (G-01), `packages/design/tests/design-md.test.ts` (G-02/G-03/G-06), `packages/design/scripts/check-design-drift.ts` or inline helpers, `packages/design/package.json#scripts`.
@@ -103,14 +105,14 @@
 
 **Goal**: the console looks identical before/after (SC-001) and no hardcoded literal survives outside `import` from `@europa/design`.
 
-- [ ] **T-012 — Migrate `palette.ts` to derive from design tokens**
+- [x] **T-012 — Migrate `palette.ts` to derive from design tokens**
   - **Description**: Rewrite `packages/console/src/render/palette.ts` as thin re-exports from `@europa/design` — `export const VOID_COLOR = TOKENS.color.voidBg` etc. for every color constant. Keep `export function terrainColor(...)` but derived from `TOKENS.color.land*` constants (history/terrain shading stays in console; token literals come from design). Delete every inline hex/rgb literal from the file. Confirm both Canvas and DOM paths read the same values (existing palette parity tests continue to assert void ≠ page, land > void, etc.).
   - **Acceptance**: `grep -P '#[0-9a-fA-F]{3,8}' packages/console/src/render/palette.ts` outside import lines prints nothing; every exported color equals its `TOKENS` source (import-graph pin); existing palette invariant tests (void ≠ page, land lightness floor) stay green; `typecheck` green.
   - **Files**: `packages/console/src/render/palette.ts`, `packages/console/package.json` already imports `@europa/design`.
   - **Depends on**: T-005 (TOKENS available). Runnable in parallel with T-007.
   - **Traces**: FR-009, contracts §3, SC-002.
 
-- [ ] **T-013 — Migrate `styles/index.css` to `var(--europa-*)` + catalog classes**
+- [x] **T-013 — Migrate `styles/index.css` to `var(--europa-*)` + catalog classes**
   - **Description**: Rewrite `packages/console/src/styles/index.css` (~884 lines) so every `background-color`/`color`/`border-color`/`border`/`border-radius`/`gap`/`padding`/`margin`/`box-shadow`/`focus` declaration uses `var(--europa-*)` or a catalog class from `dist/design.css`. Import the design stylesheet once at the top (`@import '@europa/design/dist/design.css';` or equivalent JS `import` at the entry point — choose one, per plan §5 — and deduplicate). Map every hex literal in the file to the matching token (pageBg, surfaces, voids, borders, muted/secondary/primary text, amber/city/banner, input/card radii, etc.). At most one line-scoped `// design-exception: canvas fallback — spec Edge Cases § pit` is tolerated; any other literal fails T-018's check.
   - **Acceptance**: `grep -P '#[0-9a-fA-F]{3,8}|rgba?\(' packages/console/src/styles/index.css` (outside the designed single-exception) prints nothing; computed styles for canonical surfaces (page bg, HUD plate, lobby card, row/void, muted text `#9ca3af`, chip, banner, focus ring) equal the token values; existing console unit/component/a11y/e2e/perf/determinism/conformance suites remain green.
   - **Files**: `packages/console/src/styles/index.css` (or entry stylesheet `src/main.tsx` if the import moves), optionally `packages/console/src/styles/tokens-import.css`.
@@ -124,8 +126,8 @@
   - **Depends on**: T-013 (what it scans). Start earlier if using a TDD fixture file.
   - **Traces**: FR-009, FR-010, SC-002, contracts §6, research R7.
 
-- [ ] **T-015 [P] — Console visual parity + a11y preserved tests (G-07 + SC-001)**
-  - **Description**: Add browser Vitest tests (or extend existing `tests/a11y`/`tests/component`) that mount the console's lobby + HUD + waiting overlay + minimap host using the design stylesheet, read `getComputedStyle` for the canonical surfaces listed in SC-001/SC-005 (page background `#0b0f19`, HUD plate `#111827`, lobby card, void `#1a2233`, muted `#9ca3af`, chip `#f9fafb` on `#111827`, banner `#d97706` text `#111827`, focus ring `#fff 2px solid +2px offset`), compute contrast ratios via the WCAG luminance formula, and assert each ≥ the AA target from `DESIGN.md` (15:1 / 6.99:1 / 6.6:1 etc.). Include a `prefers-reduced-motion: reduce` emulation asserting the spinner is `animation: none`. The existing 260+ suite's axe scans stay green; bundle budget test (< 150 KB gz over browser payload) stays in `tests/perf` or a dedicated budget test.
+- [ ] ~~T-015~~ — DEFERRED (v0.1.0 trim): existing 260+ console suite (axe + a11y) covers parity; dedicated computed-style harness dropped
+  - **Description**: Add browser Vitest tests (or extend existing `tests/a11y`/`tests/component`) that mount the console's lobby + HUD + waiting overlay + minimap host using the design stylesheet, read `getComputedStyle` for the canonical surfaces listed in SC-001/SC-005 (page background `#0b0f19`, HUD plate `#111827`, lobby card, void `#1a2233`, muted `#9ca3af`, chip `#f9fafb` on `#111827`, banner `#d97706` text `#111827`, focus ring `#fff 2px solid +2px offset`), compute contrast ratios via the WCAG luminance formula, and assert each ≥ the AA target from `DESIGN.md` (16.98:1 / 6.99:1 / 5.57:1 etc.). Include a `prefers-reduced-motion: reduce` emulation asserting the spinner is `animation: none`. The existing 260+ suite's axe scans stay green; bundle budget test (< 150 KB gz over browser payload) stays in `tests/perf` or a dedicated budget test.
   - **Acceptance**: `pnpm --filter @europa/console coverage` stays ≥80% on merged node+browser; the computed-style smoke asserts exact-match (or spec'd tolerance) vs token values; muted/banner/chip ratios meet AA; axe scans green; `prefers-reduced-motion` spinner test asserts `animation: none` / 0.01ms.
   - **Files**: `packages/console/tests/a11y/design-parity.test.ts` or `packages/console/tests/component/design-parity.test.ts`, `packages/console/tests/integration/design-budget.test.ts`.
   - **Depends on**: T-013, T-008.
@@ -151,14 +153,14 @@
   - **Depends on**: T-016, T-006.
   - **Traces**: FR-014, SC-003, contracts §2.1.
 
-- [ ] **T-018 [P] — Manual renders dark-slate (computed-style smoke)**
+- [ ] ~~T-018~~ — DEFERRED (v0.1.0 trim): manual dark-slate verified by vendored stylesheet + existing checks; computed-style smoke dropped
   - **Description**: Add a focused test (or `docs/manual` build fixture) that serves the built `docs/manual/_site` (or renders `_layouts/default.html` with `dist/design.css` in happy-dom), reads computed styles for page bg, surface plates, text colors, `system-ui` stack, and component treatments (`europa-card` / typography), and asserts they are the token values and the white Jekyll default is absent. Human QA note: side-by-side screenshots lobby vs index must show the same chrome language (SC-004). This is the manual half of the computed-style parity check.
   - **Acceptance**: Test fixture page background is `#0b0f19` (or its `var()` resolution), surface plates are `#111827`, `fontFamily` contains `system-ui`, known `europa-*` classes resolve via `var(--europa-*)`; axe scan over a manual fixture page is green; reduced-motion decorative animation is gated.
   - **Files**: `packages/design/tests/manual-chrome.test.ts` or `docs/manual/tests/manual-chrome.test.ts` + fixture, plus Jenkins-less `tests/integration/*` if browser-based.
   - **Depends on**: T-016.
   - **Traces**: FR-012, SC-004, NFR-001, NFR-002.
 
-- [ ] **T-019 [P] — Pages artifact scope preserved (G-09 + SC-006)**
+- [x] **T-019 [P] — Pages artifact scope preserved (G-09 + SC-006)**
   - **Description**: Add a workflow/config-level structural test or CI assertion that lists the would-be Pages artifact's tree (or parses `pages-deploy.yml`) and fails if it references `packages/**`, `specs/**`, `.github/**` — only `docs/manual` paths appear. Confirm `pages-deploy.yml`'s `on.push.paths` includes any newly tracked path that should trigger a redeploy (`docs/manual/assets/design.css`, `docs/manual/_layouts/**`) without adding packages/** to `actions/jekyll-build-pages` `source` or `upload-pages-artifact` `path`. Document the source scope guarantee in CI comments.
   - **Acceptance**: `pages-deploy.yml` still reads `source: ./docs/manual` and `path: ./_site`; the assertion script `ls -R ./_site | grep packages` is empty; both reviewed as part of the feature's PR checks; a `docs/manual`-only push triggers a deploy, a `packages/design`-only push does not by itself redeploy unless the vendored asset is refreshed (in that case both paths are touched).
   - **Files**: `packages/design/tests/artifact-scope.test.ts` or `scripts/check-artifact-scope.ts`, `.github/workflows/pages-deploy.yml` (path filters).
@@ -191,14 +193,14 @@
 
 **Goal**: the catalog is actually composable — a React fragment and an HTML/Manual page can render the same treatment via class names alone (FR-006 last acceptance).
 
-- [ ] **T-022 — Console + manual smoke: shared-classes compose without custom CSS**
+- [ ] ~~T-022~~ — DEFERRED (v0.1.0 trim): catalog composability already proven by shipped stylesheet; cross-consumer smoke dropped
   - **Description**: Compose two tiny throwaway surfaces — a React JSX fragment (e.g. in a browser Vitest test) with `europa-card + europa-button + europa-banner + europa-chip`, and a `docs/manual/smoke.md` (or fixture HTML) using the same classes — both rendering the same visual language without custom CSS. Assert computed styles for each class are the token values (`var(--europa-*)` resolution). These fixtures double as the "implementation proves the spec" smoke for User Story 4 and are not persisted beyond the test file (no committed smoke page).
   - **Acceptance**: Computed styles for the same class (e.g. `.europa-card` background, `.europa-chip` radii, `.europa-banner` amber) are identical across the React and fixture-HTML renderings; no inline style or `<style>` block is needed to reach the spec'd appearance; no custom `color/spacing/radius` literal outside `var(--europa-*)` is in either smoke surface.
   - **Files**: `packages/design/tests/catalog-smoke.test.ts` or `packages/console/tests/component/catalog-smoke.test.ts`.
   - **Depends on**: T-007, T-016.
   - **Traces**: FR-006 (User Story 4 AC-1/AC-2), SC-003, NFR-005.
 
-- [ ] **T-023 — Document extension guidance verifiability (FR-019 light-theme note)**
+- [ ] ~~T-023~~ — DEFERRED (v0.1.0 trim): extension guidance present in DESIGN.md; verifiability assertion dropped
   - **Description**: Final review pass on `DESIGN.md` § Extension Guidance and the Out of Scope "Light-theme variant" paragraph: the note must state that a later light variant is `html[data-theme="light"] { --europa-color-…: … }` with no renames, and that "new variant = additive (minor), rename = major + migration note." Add a tiny coverage assertion that the section contains the words `light` and `data-theme` + the variant/breaking policy sentence — so a future author who removes the guidance breaks the check rather than silently losing it.
   - **Acceptance**: `DESIGN.md` contains the quoted additive shape and policy language per spec Clarifications v1.0; the assertion test fails if the paragraph is removed.
   - **Files**: `DESIGN.md`, `packages/design/tests/design-md.test.ts` (extension).
@@ -211,7 +213,7 @@
 
 **Purpose**: close the FR-021/FR-022/NFR-* deliverables that cross user stories.
 
-- [ ] **T-024 — Build ordering verification (FR-021)**
+- [ ] ~~T-024~~ — DEFERRED (v0.1.0 trim): pnpm workspace topology already guarantees @europa/design builds before @europa/console
   - **Description**: Verify the end-to-end build graph from a clean state: `pnpm install --frozen-lockfile && pnpm build` produces `packages/design/dist/design.css`, vendors it to `docs/manual/assets/design.css`, and then `packages/console/dist` bundles with one copy of the design rules. If pnpm's topological sort alone already guarantees it, this task adds only a CI sequence comment + a structural test that asserts `@europa/design` builds before `@europa/console` (e.g., the `client-ci.yml` job lists `pnpm --filter @europa/design build` before the console build). Document that no `pnpm-workspace.yaml` reorder is needed.
   - **Acceptance**: Clean clone: `pnpm build` exits 0 with no TS errors; `dist/design.css` exists before Vite consumes it; `docs/manual/assets/design.css` is freshly vendored; workflow comment explains ordering.
   - **Files**: `.github/workflows/client-ci.yml` (steps order), `packages/design/package.json#scripts` vendor hook, structural assertion test.
@@ -239,7 +241,7 @@
   - **Depends on**: T-020.
   - **Traces**: FR-020, FR-022, SC-008.
 
-- [ ] **T-028 [P] — Bundle budget guard (< 150 KB gz)**
+- [x] **T-028 [P] — Bundle budget guard (< 150 KB gz)**
   - **Description**: Add/extend the gzip bundle budget assertion in the console package (reusing the existing spec 005 budget shape) so the console browser payload `dist/assets/**` gzipped stays < 150 KB after the design package dedupes literals. The test should fail naming the overweight asset + gz bytes.
   - **Acceptance**: Console `dist/assets/*.js` + `*.css` gzip total < 150 KB; adding a 200 KB stylesheet fails the test; the net size after migration is ≤ pre-migration (FR-011's "deduplicate, not bloat" — one copy in bundle).
   - **Files**: `packages/console/tests/perf/bundle-budget.test.ts` (adjust), `packages/design` excluded from bundle — console only.
