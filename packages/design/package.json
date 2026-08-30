@@ -20,7 +20,8 @@
         "dist"
     ],
     "scripts": {
-        "build": "tsup && tsx scripts/build-css.ts",
+        "build": "tsup && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts",
+        "vendor": "tsx scripts/vendor-to-docs.ts",
         "test": "vitest run",
         "test:watch": "vitest",
         "lint": "biome check .",
