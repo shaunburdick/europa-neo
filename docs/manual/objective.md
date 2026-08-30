@@ -49,6 +49,7 @@ If both players are reduced to zero troops AND zero cities — even on the same 
 | You lose | You hold zero troops AND zero cities while any opponent holds either |
 | Draw | Both players hit zero troops AND zero cities |
 | Surrender | You confirm the surrender dialog; you are eliminated on the spot and spectate |
+{: .europa-table }
 
 ## Where to next
 
@@ -57,3 +58,4 @@ Learn how armies are built and lost: [Cities and troops](./cities-and-troops.md)
 ---
 
 [Back to contents](./index.md)
+

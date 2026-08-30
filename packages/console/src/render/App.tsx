@@ -35,7 +35,6 @@
  * failure, which is acceptable for the MVP demo surface.
  */
 
-import { APP_VERSION } from '@europa/version';
 import type { JSX } from 'react';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -53,6 +52,7 @@ import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
+import { BrandedFooter } from '../ui/branded-footer';
 import { OrderBar } from '../ui/order-bar';
 import { ParticipantStrip } from '../ui/participants';
 import { ReservesPanel } from '../ui/reserves-panel';
@@ -388,13 +388,6 @@ export function App({
                 <section id="hud" aria-label="Status bar" tabIndex={0} className="europa-hud">
                     <span className="europa-hud__item">Status: {resolvedState.status}</span>
                     <span className="europa-hud__item">Tick: {mapView?.tick ?? '—'}</span>
-                    {/* Version footer (feature 009 FR-007): the BUNDLED
-              constant, v-prefixed per the Clarifications presentation
-              ruling — never the server's hello-ack field (AD-5: a stale
-              tab must not display a version it is not running). Renders
-              in every connection state because it depends on no state
-              at all; plain span = no pointer/keyboard interception. */}
-                    <span className="europa-hud__item europa-hud__version">v{APP_VERSION}</span>
                     {/* Participant strip (feature 010 T-016, FR-020): per-seat
               authoritative labels from the session. Session-derived, so
               it is tick-stable (SC-008) and renders for spectators too
@@ -498,6 +491,12 @@ export function App({
                     }}
                 />
             ) : null}
+            {/* Branded footer (spec 012 addendum T-031, FR-023): the single
+           shared home for the app name + version + GitHub link. Mounted at
+           the view root so it appears on the match/HUD view, the waiting
+           overlay state, and the game-over state alike — exactly one per
+           view (the former HUD version span was consolidated into this). */}
+            <BrandedFooter />
             <div ref={liveHostRef} />
         </>
     );

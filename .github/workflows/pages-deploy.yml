@@ -24,6 +24,9 @@ on:
     branches: [main]
     paths:
       - 'docs/manual/**'
+      - 'docs/manual/assets/design.css'
+      - 'docs/manual/_layouts/**'
+      - 'DESIGN.md'
       - '.github/workflows/pages-deploy.yml'
   workflow_dispatch:
 

@@ -13,6 +13,7 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Unfed decay | −1 troop/tick | `ENGINE_CONSTANTS.decayPerTick` |
 | Pipe flow, downhill or flat | 1 troop/tick per pipe | `ENGINE_CONSTANTS.flowBase` × `flowDownhillFactor` |
 | Pipe flow, uphill | 0 — uphill pipes move nothing at v1 tuning | `ENGINE_CONSTANTS.flowUphillFactor` |
+{: .europa-table }
 
 ## Special weapons
 
@@ -23,12 +24,14 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Gun shot cost | 5 troops per shot | `ENGINE_CONSTANTS.gunCost` |
 | Gun damage | 2 troops, everything in the target cell | `ENGINE_CONSTANTS.gunDamage` |
 | Weapon range (both weapons) | 2 cells max (diagonals count as 1) | `SUBCELL_RANGE` |
+{: .europa-table }
 
 ## Vision
 
 | Value | Shipped value | Constant |
 | --- | --- | --- |
 | Sensor radius per stack | 4 cells (diagonals count as 1) | `ENGINE_CONSTANTS.visibilityRadiusDefault` |
+{: .europa-table }
 
 ## Match lifecycle
 
@@ -37,6 +40,7 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Reconnect grace window | 60 seconds | `NETWORK_CONSTANTS.defaultReconnectGraceMs` |
 | Board size (default by player count) | 2 players → 32×32, 3 players → 48×48, 4 players → 48×48; override to 32×32 or 48×48 (64×64 temporarily disabled — terrain issue #26) | `BOARD_SIZE_DEFAULTS` (2→32, 3→48, 4→48); `DEFAULT_MATCH_SETTINGS.boardSize` = 32 (2p backward-compat default) |
 | Unstarted-match lifetime | ~5 minutes before cleanup | `MATCHMAKING_CONSTANTS.emptyMatchTtlMs` |
+{: .europa-table }
 
 ## Interface
 
@@ -49,9 +53,11 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Player 2 color | Blue `#2563eb` | `DEFAULT_PLAYER_COLORS[2]` |
 | Player 3 color | Green `#059669` | `DEFAULT_PLAYER_COLORS[3]` |
 | Player 4 color | Orange-gold `#d97706` | `DEFAULT_PLAYER_COLORS[4]` |
+{: .europa-table }
 
 The v1 palette is fixed — these four colors are what ships. Owner identity is never conveyed by color alone: the interface also labels players by name and number.
 
 ---
 
 [Back to contents](./index.md)
+

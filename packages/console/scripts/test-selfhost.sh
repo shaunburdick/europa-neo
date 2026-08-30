@@ -14,6 +14,8 @@
 #   - XML/SVG namespace URIs (www.w3.org) — identifiers, never fetched.
 #   - React's minified error-message URLs (react.dev/errors/…) — prose
 #     embedded in thrown Error strings, not a resource fetch.
+#   - The branded footer's GitHub repo hyperlink (github.com/…) — a
+#     navigation link rendered as an <a href>, never a runtime fetch.
 #
 # Bundle budget: sum of per-file gzip sizes over the BROWSER-DELIVERED
 # payload (dist/assets/**/*.{js,css} — the Vite SPA build). The tsc
@@ -50,6 +52,8 @@ for url in ${url_tokens}; do
     *www.w3.org*) ;;
     # React error-decoder prose inside thrown Error strings.
     *react.dev/errors* | *reactjs.org/docs/error-decoder*) ;;
+    # Footer hyperlink to the project repo — navigation only, never a runtime fetch.
+    *github.com*) ;;
     *)
       violations="${violations}${url}
 "

@@ -1,0 +1,25 @@
+{
+    // Package-scoped Biome policy: extends the root configuration (which
+    // itself layers biome-config-shaunburdick).
+    "root": false,
+    "extends": ["../../biome.jsonc"],
+    "files": {
+        "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "*.jsonc"]
+    },
+    "overrides": [
+        {
+            // FR-016 a11y gates: reduced-motion suppression must use
+            // !important to override decorative animations regardless of
+            // specificity (WCAG 2.3.3); the global rule is the normative
+            // implementation of the contract's media query.
+            "includes": ["src/styles/catalog.css"],
+            "linter": {
+                "rules": {
+                    "complexity": {
+                        "noImportantStyles": "off"
+                    }
+                }
+            }
+        }
+    ]
+}

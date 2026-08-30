@@ -20,6 +20,8 @@
  * spec's "zero WCAG 2.2 A/AA violations" acceptance bar.
  */
 
+import '@europa/design/dist/design.css';
+
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import axe from 'axe-core';

@@ -13,6 +13,7 @@ A paratroop order lifts troops out of a cell you own and drops them on a nearby 
 | Range | At most 2 cells away (in any direction, counting diagonals) |
 | Target | Land cells only — water cannot be targeted |
 | Side effect | **Every pipe in the target cell is cleared** on arrival |
+{: .europa-table }
 
 The 2:1 exchange rate is the price of ignoring terrain and supply: you pay 20 at the source to put 10 on the ground. The source cell must be yours and must actually have 20 troops beyond any reserves you have set there.
 
@@ -35,6 +36,7 @@ A gun shot trades troops for fixed damage at a distance.
 | Cost | **5 troops per shot**, removed from the source cell |
 | Damage | **2 troops destroyed in the target cell** |
 | Range | At most 2 cells away (counting diagonals) |
+{: .europa-table }
 
 Guns do not move troops and do not capture anything — they are pure destruction, useful for shaving down a defender before a push or finishing a wounded stack.
 
@@ -55,3 +57,4 @@ Rejected orders — a water target, or not enough troops to pay — come back as
 ---
 
 [Back to contents](./index.md)
+

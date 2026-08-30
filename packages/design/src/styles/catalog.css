@@ -1,0 +1,568 @@
+/**
+ * Component and layout catalog for the shareable design system (spec 012,
+ * FR-006 / FR-007). Each declaration composes only Europa design tokens
+ * for color/spacing/radii/border/shadow/typography/focus — no hex/rgb
+ * literals outside the :root block emitted by scripts/build-css.ts.
+ *
+ * Sections are ordered deterministically (base → surfaces → buttons → HUD →
+ * lobby → badge/chip → modal → grid → typography → focus/motion) so the
+ * concatenated dist/design.css is reproducible.
+ */
+
+/* ── 1. Base / layout containers ──────────────────────────────────────── */
+.europa-page {
+    max-width: 60rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-lg);
+    padding: var(--europa-spacing-lg);
+    font-family: var(--europa-typography-font-stack);
+    background-color: var(--europa-color-page-bg);
+    color: var(--europa-color-text-secondary);
+    line-height: var(--europa-typography-line-height-relaxed);
+}
+
+.europa-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-md);
+}
+
+.europa-container {
+    width: 100%;
+    margin: 0 auto;
+    padding: var(--europa-spacing-lg);
+}
+
+/* centered flex-wrap board layout (page-level composition) */
+.europa-board-layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    align-content: flex-start;
+    gap: var(--europa-spacing-lg);
+    padding: var(--europa-spacing-lg);
+}
+
+/* ── 2. Surfaces — card / plate ───────────────────────────────────────── */
+.europa-card {
+    padding: var(--europa-spacing-md);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+    box-shadow: var(--europa-shadows-plate);
+}
+
+.europa-plate {
+    padding: var(--europa-spacing-md);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-plate);
+    box-shadow: var(--europa-shadows-plate);
+}
+
+/* ── 3. Buttons — primary / secondary / ghost + states ─────────────────── */
+.europa-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--europa-spacing-xs);
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-family: var(--europa-typography-font-stack);
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-normal);
+    cursor: pointer;
+}
+
+.europa-button--primary {
+    background-color: var(--europa-color-accent);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-accent);
+}
+
+.europa-button--secondary {
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    border-color: var(--europa-color-border);
+}
+
+.europa-button--ghost {
+    background-color: transparent;
+    color: var(--europa-color-text-primary);
+    border-color: var(--europa-color-border);
+}
+
+.europa-button:disabled,
+.europa-button--primary:disabled,
+.europa-button--secondary:disabled,
+.europa-button--ghost:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.europa-button:focus-visible,
+.europa-button--primary:focus-visible,
+.europa-button--secondary:focus-visible,
+.europa-button--ghost:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* ── 4. HUD chrome ─────────────────────────────────────────────────────── */
+.europa-hud {
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-xs);
+    min-width: 12rem;
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border-radius: var(--europa-radii-card);
+    font-size: var(--europa-typography-size-base);
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+.europa-hud__title {
+    margin: 0;
+    font-size: var(--europa-typography-size-lg);
+    color: var(--europa-color-text-primary);
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+.europa-hud__version {
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-xs);
+}
+
+.europa-hud__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-xs);
+}
+
+/* ── 5. Banners ────────────────────────────────────────────────────────── */
+.europa-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 900;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-lg);
+    background-color: var(--europa-color-banner);
+    color: var(--europa-color-surface);
+    font-family: var(--europa-typography-font-stack);
+    font-size: var(--europa-typography-size-base);
+    font-weight: 700;
+    text-align: center;
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+/* ── 6. Lobby chrome — page / grid / card / row / badge / empty / superseded ─ */
+.europa-lobby {
+    max-width: 60rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-lg);
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+}
+
+.europa-lobby__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: var(--europa-spacing-lg);
+    align-items: start;
+}
+
+.europa-lobby__card {
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-plate);
+    box-shadow: var(--europa-shadows-plate);
+}
+
+.europa-lobby__card--wide {
+    grid-column: 1 / -1;
+}
+
+.europa-lobby__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--europa-spacing-sm);
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    background-color: var(--europa-color-void-bg);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+    color: var(--europa-color-text-secondary);
+    font-size: var(--europa-typography-size-sm);
+}
+
+.europa-lobby__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--europa-spacing-xs);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
+    border-radius: var(--europa-radii-pill);
+    color: var(--europa-color-city);
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 700;
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+.europa-lobby__row-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--europa-spacing-xs);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
+    border-radius: var(--europa-radii-pill);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-city);
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 700;
+}
+
+.europa-lobby__empty {
+    margin: 0;
+    padding: var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-sm);
+    text-align: center;
+}
+
+.europa-lobby__superseded {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--europa-spacing-sm);
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-banner);
+    border-radius: var(--europa-radii-plate);
+    font-size: var(--europa-typography-size-sm);
+}
+
+/* ── 7. Badge / chip ───────────────────────────────────────────────────── */
+.europa-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2ch;
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    background-color: var(--europa-color-chip-bg);
+    color: var(--europa-color-chip-text);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-pill);
+    font-size: var(--europa-typography-size-chip);
+    font-weight: 700;
+    line-height: var(--europa-typography-line-height-normal);
+    text-align: center;
+}
+
+.europa-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--europa-spacing-xs);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-muted);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-pill);
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 700;
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+/* ── 8. Modal — backdrop / dialog / title / body / actions / button ───── */
+.europa-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--europa-color-overlay-strong);
+}
+
+.europa-modal {
+    max-width: 24rem;
+    width: 100%;
+    padding: var(--europa-spacing-xl) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-plate);
+    box-shadow: var(--europa-shadows-modal);
+}
+
+.europa-modal__dialog {
+    max-width: 24rem;
+    width: 100%;
+    padding: var(--europa-spacing-xl) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-plate);
+    box-shadow: var(--europa-shadows-modal);
+}
+
+.europa-modal__title {
+    margin: 0 0 var(--europa-spacing-sm);
+    font-size: var(--europa-typography-size-xl);
+    color: var(--europa-color-text-primary);
+    line-height: var(--europa-typography-line-height-normal);
+    font-weight: 700;
+}
+
+.europa-modal__body {
+    margin: 0 0 var(--europa-spacing-lg);
+    font-size: var(--europa-typography-size-base);
+    color: var(--europa-color-text-secondary);
+    line-height: var(--europa-typography-line-height-relaxed);
+}
+
+.europa-modal__actions {
+    display: flex;
+    gap: var(--europa-spacing-sm);
+    justify-content: flex-end;
+}
+
+.europa-modal__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-normal);
+    cursor: pointer;
+}
+
+.europa-modal__button:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* ── 9. Grid — lobby grid and board-adjacent stacks ───────────────────── */
+.europa-grid {
+    display: grid;
+    gap: var(--europa-spacing-md);
+    align-items: start;
+}
+
+.europa-grid--sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-sm);
+}
+
+.europa-grid--wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--europa-spacing-md);
+}
+
+/* ── 10. Typography — heading / muted / meta / mono ────────────────────── */
+.europa-typography--heading {
+    font-family: var(--europa-typography-font-stack);
+    font-size: var(--europa-typography-size3xl);
+    color: var(--europa-color-text-primary);
+    line-height: var(--europa-typography-line-height-normal);
+    font-weight: 700;
+}
+
+.europa-typography--muted {
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-relaxed);
+}
+
+.europa-typography--meta {
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-xs);
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+.europa-typography--mono {
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-secondary);
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+/* ── 11. Focus / motion a11y gates (FR-016, G-07) ──────────────────────── */
+*:focus-visible,
+.europa-focus-ring {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-color-focus-ring);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+.europa-focus-ring:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+.europa-waiting--reduced,
+.europa-waiting--reduced *,
+.europa-waiting--reduced *::before,
+.europa-waiting--reduced *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+}
+
+/* ── 12. Documentation prose (scoped under .europa-page) — T-030 ─────────── */
+/* Styles markdown-rendered elements for the player manual (spec 012, T-030).
+   Every declaration uses ONLY --europa-* tokens — no hex/rgb literals. These
+   rules are scoped to .europa-page so they never affect the console, which
+   does not wrap its chrome in .europa-page (it uses europa-lobby/europa-hud/
+   europa-card/etc. directly). The manual body carries .europa-page via
+   docs/manual/_layouts/default.html, so every manual page shares the console's
+   dark-slate design language for headings, paragraphs, tables, lists, code,
+   blockquotes, links, and rules. */
+.europa-page h1,
+.europa-page h2,
+.europa-page h3 {
+    color: var(--europa-color-text-primary);
+    font-family: var(--europa-typography-font-stack);
+    font-weight: 700;
+    line-height: var(--europa-typography-line-height-normal);
+    margin: 0 0 var(--europa-spacing-md);
+}
+
+.europa-page h1 {
+    font-size: var(--europa-typography-size3xl);
+}
+
+.europa-page h2 {
+    font-size: var(--europa-typography-size2xl);
+}
+
+.europa-page h3 {
+    font-size: var(--europa-typography-size-xl);
+}
+
+.europa-page p {
+    color: var(--europa-color-text-secondary);
+    line-height: var(--europa-typography-line-height-relaxed);
+    margin: 0 0 var(--europa-spacing-md);
+}
+
+.europa-page ul,
+.europa-page ol {
+    color: var(--europa-color-text-secondary);
+    line-height: var(--europa-typography-line-height-relaxed);
+    margin: 0 0 var(--europa-spacing-md);
+    padding-left: var(--europa-spacing-lg);
+}
+
+.europa-page li {
+    margin: 0 0 var(--europa-spacing-xs);
+}
+
+.europa-page a {
+    color: var(--europa-color-accent);
+    text-decoration: underline;
+}
+
+.europa-page a:hover {
+    color: var(--europa-color-city);
+}
+
+.europa-page code {
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-sm);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    padding: var(--europa-spacing-xs);
+    border-radius: var(--europa-radii-input);
+}
+
+.europa-page pre {
+    font-family: var(--europa-typography-font-mono);
+    background-color: var(--europa-color-void-bg);
+    color: var(--europa-color-text-primary);
+    padding: var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    overflow-x: auto;
+    margin: 0 0 var(--europa-spacing-md);
+}
+
+.europa-page pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+.europa-page blockquote {
+    margin: 0 0 var(--europa-spacing-md);
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border-left: var(--europa-spacing-xs) var(--europa-borders-style) var(--europa-color-accent);
+    color: var(--europa-color-text-muted);
+}
+
+.europa-page hr {
+    border: none;
+    border-top: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    margin: var(--europa-spacing-lg) 0;
+}
+
+/* Token-styled table — opt-in via Kramdown `{: .europa-table }` (T-030) and
+   also applied by the scoped `.europa-page table` rules below so every manual
+   table shares the dark-slate treatment regardless of explicit opt-in. */
+.europa-page table,
+.europa-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 var(--europa-spacing-md);
+    color: var(--europa-color-text-secondary);
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+.europa-page th,
+.europa-table th {
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    text-align: left;
+    font-weight: 700;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.europa-page td,
+.europa-table td {
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.europa-page tbody tr:nth-child(even) td,
+.europa-table tbody tr:nth-child(even) td {
+    background-color: var(--europa-color-surface-raised);
+}

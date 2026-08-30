@@ -27,6 +27,7 @@ The **Public matches** list shows eligible public games. Each row gives a short 
 | **Waiting for players** with an open seat | Choose **Join** to claim one player seat. |
 | **Waiting for players** and full | No action is offered; the game is about to start automatically. |
 | **In progress** | Choose **Spectate** to watch without joining as a player. |
+{: .europa-table }
 
 The list updates when games are created, filled, started, or cleaned up. Finished games are not kept as history. If a game fills or disappears between the time you read the list and choose an action, the lobby reports that it is unavailable and refreshes the list.
 
@@ -80,3 +81,4 @@ Use the native buttons, fields, radio buttons, and selects with Tab, Shift+Tab, 
 ---
 
 [Back to contents](./index.md)
+

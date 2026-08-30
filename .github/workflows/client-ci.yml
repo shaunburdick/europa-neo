@@ -18,6 +18,10 @@ on:
       - 'packages/networking/**'
       - 'packages/matchmaking/**'
       - 'packages/version/**'
+      - 'packages/design/**'
+      - 'DESIGN.md'
+      - 'docs/manual/assets/design.css'
+      - 'docs/manual/_layouts/**'
   pull_request:
     branches: [main]
     paths:
@@ -35,6 +39,10 @@ on:
       - 'packages/networking/**'
       - 'packages/matchmaking/**'
       - 'packages/version/**'
+      - 'packages/design/**'
+      - 'DESIGN.md'
+      - 'docs/manual/assets/design.css'
+      - 'docs/manual/_layouts/**'
   workflow_dispatch:
 
 concurrency:
@@ -70,6 +78,9 @@ jobs:
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
 
+      - name: Build @europa/design (workspace dependency)
+        run: pnpm --filter @europa/design build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -99,6 +110,24 @@ jobs:
       - name: Build console library emit
         run: pnpm --filter @europa/console build:lib
 
+      # Design-system drift guards (spec 012 FR-020 / FR-014 / FR-009): the
+      # vendored stylesheet must be byte-identical to the built one (G-05),
+      # and the console must carry no hardcoded literals outside
+      # @europa/design (G-04). Both run after the design + console builds so
+      # dist/design.css and the console sources are present.
+      - name: Design vendored-asset identity (G-05)
+        run: pnpm --filter @europa/design check:vendor-identity
+
+      - name: Console no-literals scan (G-04)
+        run: pnpm --filter @europa/design check:no-literals
+
+      - name: Design drift remediation hint
+        if: failure()
+        run: |
+          echo "::error::Design-system drift detected — run the failing check locally for the offending file:line."
+          echo "After a token/class change, rebuild the design package to re-vendor the stylesheet and re-scan:"
+          echo "  pnpm --filter @europa/design build"
+
       - name: Typecheck conformance program
         run: pnpm --filter @europa/console typecheck:conformance
 
@@ -121,6 +150,9 @@ jobs:
 
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
+
+      - name: Build @europa/design (workspace dependency)
+        run: pnpm --filter @europa/design build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
@@ -211,6 +243,9 @@ jobs:
 
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
+
+      - name: Build @europa/design (workspace dependency)
+        run: pnpm --filter @europa/design build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build

@@ -21,6 +21,7 @@ Every tick, each pipe delivers **1 troop** into the neighboring cell it points a
 | Downhill (target lower) | 1 troop |
 | Flat (equal elevation) | 1 troop |
 | Uphill (target higher) | **0 — uphill pipes move nothing at v1 tuning** |
+{: .europa-table }
 
 Flow never drains the source: the sending cell keeps its troops, and only the destination gains them.
 
@@ -54,3 +55,4 @@ Reserves interact with decay too: reserved troops cannot be eaten by decay. See 
 ---
 
 [Back to contents](./index.md)
+

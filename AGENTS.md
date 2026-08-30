@@ -70,6 +70,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - #12 `chore`: migrate legacy feature specs to `specs/` — **done via branch `issue-12-specs-migration` (PR #19)**
   - #13 `docs`: root `pnpm host` script missing / README quickstart falls through to system host(1) — **done via branch `issue-13-host-script` (PR #20)**
   - #15 `ci`: hardening follow-ups from feature 009 — downstream watch of `packages/version/**` + job `timeout-minutes` — **in flight on branch `issue-15-ci-hardening`**
+  - #25 `feat`: shareable design system `@europa/design` (single-source token table + deterministic `dist/design.css` + `europa-*` catalog, console + manual migration, living `DESIGN.md` contract, 4 cheap guards G-04/G-05/G-06 + workflow filters; full G-01..G-09 drift-suite + parity/smoke tests deferred by PO trim) — **implemented on branch `issue-25-design-system`, PR #31 open** (merging is the owner's call)
   - Repo-wide test-typechecking gap remains a documented tradeoff (do NOT fix casually — every package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs). Deliberately NOT ticketed to avoid casual pickup.
 
 - **Biome migration (Phase 1, 2026-08-24)**: the root configuration now layers

@@ -23,6 +23,7 @@ Press 0 (or slide to 0%) to clear reserves entirely.
 | 1 | 10% held back |
 | 5 | 50% held back |
 | 9 | 90% held back |
+{: .europa-table }
 
 There is no 100%: the maximum reserve is **90%**. A cell that reserved everything could never feed a pipe, fund a weapon, or fight — the game simply does not offer it.
 
@@ -49,3 +50,4 @@ Reserve what you cannot afford to lose; leave the rest free to work. Set reserve
 ---
 
 [Back to contents](./index.md)
+

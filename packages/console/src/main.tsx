@@ -1,6 +1,7 @@
 import { ErrorBoundary } from './render/ErrorBoundary';
 import { hasDirectMatchRoute } from './state/lobby-view';
 
+import '@europa/design/dist/design.css';
 import './styles/index.css';
 
 /**

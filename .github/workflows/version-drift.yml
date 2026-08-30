@@ -9,18 +9,28 @@ on:
     paths:
       - 'package.json'
       - 'packages/**/package.json'
+      - 'packages/design/package.json'
+      - 'packages/design/src/**'
       - 'packages/version/**'
       - 'README.md'
+      - 'DESIGN.md'
       - 'docs/manual/index.md'
+      - 'docs/manual/_config.yml'
+      - 'docs/manual/assets/design.css'
       - '.github/workflows/version-drift.yml'
   pull_request:
     branches: [main]
     paths:
       - 'package.json'
       - 'packages/**/package.json'
+      - 'packages/design/package.json'
+      - 'packages/design/src/**'
       - 'packages/version/**'
       - 'README.md'
+      - 'DESIGN.md'
       - 'docs/manual/index.md'
+      - 'docs/manual/_config.yml'
+      - 'docs/manual/assets/design.css'
       - '.github/workflows/version-drift.yml'
   workflow_dispatch:
 
@@ -52,8 +62,20 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Exits non-zero and names EVERY disagreeing file when APP_VERSION,
-      # any workspace package.json version, or the README header / manual
-      # index footer version strings drift apart (FR-009). Reads
-      # packages/version/src directly via tsx — no workspace builds needed.
-      - name: Version drift check (FR-009)
+      # any workspace package.json version, the README header / manual
+      # index footer version strings, or the DESIGN.md version header
+      # (spec 012 FR-020 / G-06) drift apart. Reads packages/version/src
+      # directly via tsx — no workspace builds needed.
+      - name: Version drift check (FR-009 / FR-020)
         run: pnpm version:check
+
+      # Actionable remediation: the check above already names every
+      # disagreeing file on stderr; this step points the maintainer at the
+      # one lockstep bump convention when the job fails (T-021).
+      - name: Version drift remediation hint
+        if: failure()
+        run: |
+          echo "::error::Version drift detected — run 'pnpm version:check' locally to list every disagreeing file."
+          echo "Bump every guarded surface in ONE lockstep commit (spec 009 FR-009 / spec 012 FR-020):"
+          echo "  packages/version/src/app-version.ts (APP_VERSION), every packages/*/package.json#version, README.md, docs/manual/index.md, docs/manual/_config.yml, and DESIGN.md."
+          echo "After a token/class change, refresh the vendored stylesheet with: pnpm --filter @europa/design build"

@@ -120,6 +120,7 @@ export class MapCanvas {
                 mapView.hover.x * zoom,
                 mapView.hover.y * zoom,
                 zoom,
+                // design-exception: canvas fallback — spec Edge Cases § pit
                 'rgba(255,255,255,0.45)',
                 1.5,
             );
