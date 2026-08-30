@@ -169,12 +169,12 @@ export interface EngineConstants {
   readonly cellCapacity: number;
   /** Troops lost per tick when a cell is unfed (FR-009). */
   readonly decayPerTick: number;
-  /** Slope multiplier for downhill flow (FR-007). */
-  readonly flowDownhillFactor: number;
-  /** Slope multiplier for uphill flow (FR-007). */
-  readonly flowUphillFactor: number;
-  /** Base troops per tick moving along a flat pipe. */
+  /** Base troops per tick moving along a flat pipe (FR-007). */
   readonly flowBase: number;
+  /** Troops added/subtracted per unit of elevation change (FR-007). */
+  readonly flowSlopeStep: number;
+  /** Caps the downhill bonus (FR-007). */
+  readonly flowSlopeDeltaCap: number;
   /** Troops spent per trooper landed via paratroop (FR-013). */
   readonly paratroopCost: number;
   /** Troops spent per gun shot (FR-014). */
