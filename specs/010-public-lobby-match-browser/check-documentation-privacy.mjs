@@ -1,12 +1,28 @@
 #!/usr/bin/env node
 
 /**
- * Documentation acceptance check for feature 010.
+ * Documentation acceptance check for feature 010 — CREDENTIAL / IDENTITY PRIVACY.
  *
- * This deliberately scans an explicit, reviewable file list rather than the
- * checker itself. Feature specifications and operator documentation must be
- * able to name the server-side concept; player-facing documentation must not
- * teach readers an opaque identifier or a credential-bearing URL.
+ * IMPORTANT: This check is about leaking *credentials and opaque player
+ * identifiers* into documentation (feature 010 FR-014 / NFR-3). It is NOT about
+ * public-vs-private *match visibility* (that is a separate concern handled
+ * elsewhere). "Private" in the patterns below means a *credential-bearing /
+ * private (token) URL*, never an invite-only match.
+ *
+ * What it enforces:
+ *  - Required privacy-related terminology must be present in certain docs
+ *    (handle guidance, spectator, lifecycle, server-authoritative, directed
+ *    identity, --create, same/cross-host, in-memory).
+ *  - Player-facing surfaces (docs/manual/*) must NOT teach readers an opaque
+ *    identifier or a credential-bearing URL: field names like guestPlayerId /
+ *    sessionToken / reconnectToken, credential-bearing URL params (?token=…),
+ *    and UUID-like opaque values are forbidden there.
+ *  - Implementation/spec surfaces may *name* those fields to define and validate
+ *    the privacy boundary, but must not print example credential VALUES
+ *    (e.g. sessionToken: "abc").
+ *
+ * This deliberately scans an explicit, reviewable file list (see below) rather
+ * than the checker itself, so reviewers can see exactly what is covered.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -47,8 +63,14 @@ const requiredImplementationTerms = [
     ['packages/matchmaking/README.md', /in-memory/i, 'in-memory lifecycle'],
 ];
 
-// These are forbidden only on player-facing surfaces. The implementation and
-// spec surfaces may name the fields to define and validate the privacy boundary.
+// These are forbidden only on player-facing surfaces (docs/manual/*). The
+// implementation and spec surfaces may NAME the fields to define and validate
+// the privacy boundary, but must not print example credential VALUES (see
+// forbiddenExamplePatterns below).
+//
+// NOTE on wording: "private" in these patterns means a CREDENTIAL-BEARING /
+// private (token) URL — e.g. a URL carrying ?token=… or a sessionToken. It does
+// NOT mean a private (invite-only) match; match visibility is out of scope here.
 const forbiddenPlayerPatterns = [
     [/guestPlayerId|GuestPlayerId/i, 'opaque guest ID field name'],
     [/opaque\s+(?:guest\s+)?(?:player\s+)?id(?:entifier)?s?/i, 'opaque identity term'],
