@@ -1,5 +1,5 @@
 /**
- * Flow resolution phase — Feature 001, T023
+ * Flow resolution phase — Feature 001, T023 (rewritten for issue #30)
  *
  * Pure `resolveFlow(state, board, constants): WorldState`.
  *
@@ -7,15 +7,17 @@
  *   1. Compute destination cell from N/E/S/W bit.
  *   2. Reject out-of-board or water destinations (FR-002).
  *   3. Compute the elevation delta (`dest.elev - src.elev`).
- *   4. Apply the appropriate slope factor:
- *        downhill → `flowBase * flowDownhillFactor`
- *        flat     → `flowBase * flowBase`
- *        uphill   → `flowBase * flowUphillFactor`
+ *   4. Rate = `flowRateForDelta(elevDelta, constants)` (FR-007):
+ *        downhill → `flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)`
+ *        flat     → `flowBase`
+ *        uphill   → `max(0, flowBase − flowSlopeStep × |Δ|)` — stalls at
+ *                   Δ ≥ flowBase / flowSlopeStep (legal no-op, US1 AC-5)
  *   5. Clamp the destination's new count at `cellCapacity` (FR-011).
  *   6. Reserve handling is US3 (decay phase); US1 flows every available
  *      troop up to the cap on the pipe (no reserves floor).
  *
- * All arithmetic is integer (`Math.imul` / `>>> 0`); no floats.
+ * All arithmetic is integer (the gradient formula in `flow-rate.ts` is
+ * integer-only); no floats.
  *
  * **Determinism** (FR-017): cell iteration is row-major; direction
  * iteration is N→E→S→W (fixed bit order). No randomness; same input
@@ -23,6 +25,7 @@
  */
 
 import type { EngineConstants } from '../contracts/engine-api';
+import { flowRateForDelta } from '../flow-rate';
 import type { Board, WorldState } from '../types';
 
 // Pipe direction bitmasks (must match the contract's WorldState docs).
@@ -38,9 +41,7 @@ interface TransferParams {
     dx: number;
     dy: number;
     srcOwner: number;
-    base: number;
-    downFactor: number;
-    upFactor: number;
+    constants: EngineConstants;
     cap: number;
     newCounts: Uint32Array;
     newOwners: Uint8Array;
@@ -53,7 +54,8 @@ interface TransferParams {
  *
  * @param state        Current world state (NOT mutated).
  * @param board        Board with cell elevations and terrain.
- * @param constants    Engine rule constants (flowBase, flow{Downhill,Uphill}Factor, cellCapacity).
+ * @param constants    Engine rule constants (flowBase, flowSlopeStep,
+ *                     flowSlopeDeltaCap, cellCapacity).
  * @param inflowTally  Optional per-cell per-owner inflow tally. When
  *                     supplied, slot `(cellIdx * 4) + (playerId - 1)` is
  *                     incremented by the count of troops that player
@@ -79,9 +81,6 @@ export function resolveFlow(
     const newCounts = new Uint32Array(state.troopCounts);
     const newOwners = new Uint8Array(state.troopOwners);
 
-    const base = constants.flowBase >>> 0;
-    const downFactor = constants.flowDownhillFactor >>> 0;
-    const upFactor = constants.flowUphillFactor >>> 0;
     const cap = constants.cellCapacity >>> 0;
 
     const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * 4;
@@ -106,9 +105,7 @@ export function resolveFlow(
             dx: 0,
             dy: 0,
             srcOwner,
-            base,
-            downFactor,
-            upFactor,
+            constants,
             cap,
             newCounts,
             newOwners,
@@ -152,7 +149,7 @@ export function resolveFlow(
  * if the destination is out of bounds, water, or already at capacity.
  */
 function transfer(params: TransferParams): void {
-    const { board, x, y, dx, dy, srcOwner, base, downFactor, upFactor, cap, newCounts, newOwners, tally } = params;
+    const { board, x, y, dx, dy, srcOwner, constants, cap, newCounts, newOwners, tally } = params;
     const nx = x + dx;
     const ny = y + dy;
     const w = board.width;
@@ -168,24 +165,15 @@ function transfer(params: TransferParams): void {
         return; // water impassable (FR-002)
     }
 
-    // Compute slope factor.
+    // Compute the elevation delta and the gradient flow rate (FR-007).
     const srcCell = board.cells[y * w + x];
     if (srcCell === undefined) {
         return;
     }
     const elevDelta = dstCell.elevation - srcCell.elevation;
-    let factor: number;
-    if (elevDelta < 0) {
-        factor = downFactor;
-    } else if (elevDelta > 0) {
-        factor = upFactor;
-    } else {
-        factor = 1; // flat = base * 1
-    }
-    // Integer multiply via imul for safety.
-    const moved = Math.imul(base, factor) >>> 0;
+    const moved = flowRateForDelta(elevDelta, constants);
     if (moved === 0) {
-        return;
+        return; // stall (uphill Δ ≥ flowBase / flowSlopeStep) — legal no-op
     }
 
     // Clamp destination to capacity (FR-011).
