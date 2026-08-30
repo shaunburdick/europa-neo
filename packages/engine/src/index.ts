@@ -124,6 +124,7 @@ export {
 
 export { applyCommand } from './applyCommand';
 export { createWorld } from './create';
+export { flowRateForDelta } from './flow-rate';
 export { isTerminal, tick } from './tick';
 export { validateCommand } from './validate';
 
