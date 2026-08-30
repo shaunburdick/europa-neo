@@ -180,6 +180,7 @@ function paintMinimap(
 
     // Land/water thumbnails (elevation-shaded land reads as texture).
     for (const info of cells) {
+        // design-exception: canvas fallback — spec Edge Cases § pit
         ctx.fillStyle = info.terrain === 'water' ? '#1d4ed8' : '#3f4a35';
         ctx.fillRect(
             Math.floor(info.coord.x * scale),
@@ -193,6 +194,7 @@ function paintMinimap(
         if (info.owner === null) {
             continue;
         }
+        // design-exception: canvas fallback — spec Edge Cases § pit
         ctx.fillStyle = '#f9fafb';
         const dot = info.isCity ? Math.max(3, scale) : Math.max(2, scale * 0.8);
         ctx.fillRect(info.coord.x * scale + (scale - dot) / 2, info.coord.y * scale + (scale - dot) / 2, dot, dot);
@@ -200,6 +202,7 @@ function paintMinimap(
 
     // Viewport rectangle (translucent white).
     const rect = viewportRect(camera, { width: boardWidth, height: boardHeight }, viewportSize);
+    // design-exception: canvas fallback — spec Edge Cases § pit
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 1;
     ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, Math.max(rect.w, 2), Math.max(rect.h, 2));

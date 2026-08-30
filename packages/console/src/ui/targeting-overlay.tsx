@@ -118,7 +118,9 @@ export function TargetingOverlay({ cell, zoom, subcell, abilityLabel, announcer 
                         width: 6,
                         height: 6,
                         borderRadius: '50%',
+                        // design-exception: canvas fallback — spec Edge Cases § pit
                         backgroundColor: '#f87171',
+                        // design-exception: canvas fallback — spec Edge Cases § pit
                         border: '1px solid #111827',
                         left: `calc(${subcell.x * 100}% - 3px)`,
                         top: `calc(${subcell.y * 100}% - 3px)`,
