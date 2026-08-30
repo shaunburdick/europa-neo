@@ -52,6 +52,13 @@ export const TOKENS = {
         overlaySoft: 'rgba(26, 34, 51, 0.6)',
         overlayStrong: 'rgba(26, 34, 51, 0.75)',
         pageBg: '#0b0f19',
+        // Pipe slope indicators (spec 005 FR-013): downhill/flat/uphill/stalled.
+        // Values reuse the canonical green/accent/red/textMuted tokens — zero new
+        // hex literals (FR-009 / FR-010); pairings documented in DESIGN.md § 1.1/§ 3.
+        pipeDownhill: '#059669',
+        pipeFlat: '#f59e0b',
+        pipeStalled: '#9ca3af',
+        pipeUphill: '#dc2626',
         red: '#dc2626',
         surface: '#111827',
         surfaceRaised: '#1f2937',

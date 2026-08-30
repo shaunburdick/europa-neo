@@ -22,6 +22,10 @@
   --europa-color-overlay-soft: rgba(26, 34, 51, 0.6);
   --europa-color-overlay-strong: rgba(26, 34, 51, 0.75);
   --europa-color-page-bg: #0b0f19;
+  --europa-color-pipe-downhill: #059669;
+  --europa-color-pipe-flat: #f59e0b;
+  --europa-color-pipe-stalled: #9ca3af;
+  --europa-color-pipe-uphill: #dc2626;
   --europa-color-red: #dc2626;
   --europa-color-surface: #111827;
   --europa-color-surface-raised: #1f2937;
