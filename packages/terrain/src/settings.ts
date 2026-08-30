@@ -47,6 +47,7 @@ export function resolveSettings(partial: Partial<GenerationSettings>): Generatio
         minCityWaterDistance: partial.minCityWaterDistance ?? DEFAULT_GENERATION_SETTINGS.minCityWaterDistance,
         minCityCityDistance: partial.minCityCityDistance ?? DEFAULT_GENERATION_SETTINGS.minCityCityDistance,
         maxRegenAttempts: partial.maxRegenAttempts ?? DEFAULT_GENERATION_SETTINGS.maxRegenAttempts,
+        terrainSmoothing: partial.terrainSmoothing ?? DEFAULT_GENERATION_SETTINGS.terrainSmoothing,
     };
 }
 
@@ -114,7 +115,7 @@ export function normalizeSettingsForPlayerCount(
  *   - Every numeric field is a finite number (no `NaN`, no `Infinity`).
  *   - Every integer field is an integer (`Number.isInteger`):
  *     `octaves`, `citiesPerPlayer`, `minCityWaterDistance`,
- *     `minCityCityDistance`, `maxRegenAttempts`.
+ *     `minCityCityDistance`, `maxRegenAttempts`, `terrainSmoothing`.
  *   - `symmetryStrategy` is one of the closed union members — v1 only
  *     accepts `'point'` (spec FR-004).
  *
@@ -132,6 +133,7 @@ export function validateSettings(s: GenerationSettings): void {
         'minCityWaterDistance',
         'minCityCityDistance',
         'maxRegenAttempts',
+        'terrainSmoothing',
     ];
 
     for (const field of integerFields) {
