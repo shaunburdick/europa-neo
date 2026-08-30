@@ -35,10 +35,9 @@
  * injected `now` / `randomId` dependencies (constitution Principle II).
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { Result } from '../contracts/lobby-api';
 import type { GuestIdentityClaim, GuestPlayerId, IdentityState, LobbyError } from '../contracts/lobby-types';
+import { randomUUID } from '../crypto';
 
 import { createGuestPlayerIdentity, type GuestPlayerIdentity } from './guestPlayerIdentity';
 import { makeLobbyError, normalizeHandleKey, validateHandle } from './handleValidation';

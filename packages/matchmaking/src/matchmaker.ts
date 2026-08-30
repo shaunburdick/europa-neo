@@ -56,8 +56,6 @@
  * method's JSDoc and spec 006 Implementation Notes for the phase table.
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { MatchResult } from '@europa/engine';
 import { createRng } from '@europa/engine';
 import type { Logger, MatchmakerBridge, Server, SessionToken } from '@europa/networking';
@@ -92,6 +90,7 @@ import type {
     RequestRematchResult,
 } from '../contracts/matchmaking-api';
 import { MATCHMAKING_CONSTANTS } from './constants';
+import { randomUUID } from './crypto';
 import { buildEngineSession, buildMatchConfig } from './engineSession';
 import { makeError } from './errors';
 import type { MatchStatusListener, StatusEventBus } from './eventBus';

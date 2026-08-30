@@ -19,11 +19,9 @@
  * Pure module apart from the CSPRNG call: no I/O, no clock reads.
  */
 
-import { getRandomValues, randomUUID } from 'node:crypto';
-
 import type { MatchId } from '@europa/networking';
-
 import type { PlayerSessionId } from '../contracts/match-types';
+import { getRandomValues, randomUUID } from './crypto';
 
 /**
  * Assert a plain string into a branded string type. Single audited
