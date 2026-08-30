@@ -1,8 +1,9 @@
 # Orchestration Log: Issue #30 — Elevation-Gradient Pipe Flow + Terrain Smoothing + Slope Color-Coding
 
 ## Status
-- **Current Wave**: Wave 8 (Final gates) — in progress
+- **Current Wave**: Complete — PR Open
 - **Branch**: `issue-30-pipe-flow-rate`
+- **PR**: https://github.com/shaunburdick/europa-neo/pull/33
 - **Last Updated**: 2026-08-30
 
 ## Plan Summary
