@@ -31,7 +31,7 @@ Single private package `@europa/design` (`packages/design`) — TS token table `
 - T-011 Drift suite (G-01/G-02/G-03/G-05/G-06 foundations) — ⛔ DEFERRED (v0.1.0 trim: full G-01/G-02/G-03 drift suite dropped)
 - T-016 Vendor `dist/design.css` → `docs/manual/assets/design.css` + Jekyll layout — ✅ done (b4f92ea)
 
-### Wave 5 — Guards, Parity, Smokes (high parallelism) — 🔄 In Progress
+### Wave 5 — Guards, Parity, Smokes — ✅ Complete
 - T-013 Migrate `styles/index.css` to `var(--europa-*)` + catalog classes — ✅ done (88b92d1)
 - T-014 [P] No-literals guard (G-04) — 🔄 in progress (combined agent w/ T-011/T-017)
 - T-015 [P] Console visual parity + a11y preserved tests (G-07 + SC-001) — ⛔ DEFERRED (v0.1.0 trim: existing 260+ console suite covers parity)
@@ -41,7 +41,7 @@ Single private package `@europa/design` (`packages/design`) — TS token table `
 - T-022 Cross-consumer smoke (shared classes) — ⛔ DEFERRED (v0.1.0 trim: catalog composability proven by shipped stylesheet)
 - T-023 Extension guidance verifiability — ⛔ DEFERRED (v0.1.0 trim: extension guidance present in DESIGN.md)
 
-### Wave 6 — Lockstep + CI Messages — ⏳ Pending
+### Wave 6 — Lockstep + CI Messages — ✅ Complete
 - T-020 Lockstep versioning joins `version:check` (G-06 final) — ⏳ pending (after T-004/T-009/T-011)
 - T-021 DESIGN.md↔implementation sync rule enforcement + CI messages — ⏳ pending (after T-011/T-020)
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-30
 
-**Status**: Draft
+**Status**: Implemented (2026-08-30)
 
 **GitHub Issue**: #25
 

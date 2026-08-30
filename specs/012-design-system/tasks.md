@@ -119,7 +119,7 @@
   - **Depends on**: T-007, T-012.
   - **Traces**: FR-010, FR-011, SC-001.
 
-- [ ] **T-014 [P] — Implement the no-literals guard (G-04)**
+- [x] **T-014 [P] — Implement the no-literals guard (G-04)**
   - **Description**: Create the deny-list scanner script (or extend `scripts/check-design-drift.ts`) that scans `packages/console/src/**` (and later `docs/manual/**` after T-016) for `/#[0-9a-fA-F]{3,8}\b/`, `/rgba?\(/` literals outside `import ... from '@europa/design'` and `@europa/design/dist/design.css`, with exactly one line-scoped allow-list entry matching `design-exception: canvas fallback`. Failures emit `file:line — use var(--europa-*)` per the spec. Expose as `pnpm --filter @europa/design check:no-literals` (and optionally a `check:drift` sub-check) so T-017's workflow step can invoke it.
   - **Acceptance**: Mutating any console CSS/TS file to add a new hex literal (even inside a comment outside the allow-list) causes the check to exit non-zero naming the file:line; tolerated single-exception line is not flagged; CI will invoke the script and fail the PR.
   - **Files**: `packages/design/scripts/check-no-literals.ts` or `packages/design/scripts/check-design-drift.ts`, `packages/design/package.json#scripts`.
@@ -146,7 +146,7 @@
   - **Depends on**: T-007, T-008.
   - **Traces**: FR-012, FR-013, research R2/R5.
 
-- [ ] **T-017 — Assert vendored-asset byte identity (G-05)**
+- [x] **T-017 — Assert vendored-asset byte identity (G-05)**
   - **Description**: Implement the hash-equality test/script for G-05: `sha256(packages/design/dist/design.css) === sha256(docs/manual/assets/design.css)` at HEAD (or lexicographic byte equality). Failure message names both paths + hashes. Wire it as `pnpm --filter @europa/design check:vendor-identity` (or as part of `check:drift`) so both local builds and CI can invoke it before Jekyll.
   - **Acceptance**: `pnpm --filter @europa/design check:vendor-identity` exits non-zero and prints both hashes when the vendored copy is mutated; exits zero when identical; CI step invokes it before any `pages-deploy.yml` content that would mask staleness.
   - **Files**: `packages/design/tests/vendor-identity.test.ts` or `packages/design/scripts/check-vendor-identity.ts`, `packages/design/package.json#scripts`.
@@ -173,14 +173,14 @@
 
 **Goal**: lockstep versioning, sync rule, and drift enforcement make `DESIGN.md` truthful.
 
-- [ ] **T-020 — Lockstep versioning joins the `version:check` surface (G-06 final)**
+- [x] **T-020 — Lockstep versioning joins the `version:check` surface (G-06 final)**
   - **Description**: Extend `packages/version/scripts/check-version-drift.ts` (or companion `check-design-drift`) to read `DESIGN.md`'s header (regex `/Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/` per contracts §5), `packages/design/package.json#version`, and the canonical list (`package.json` root, every `packages/*/package.json`, `packages/version/src/app-version.ts`, `README.md` head, `docs/manual/index.md` footer already in scope) and fail naming every disagreeing file, per spec 009's message convention. Register the new drift paths in `.github/workflows/version-drift.yml`'s `on.push/pull_request.paths` per research R6; add a job step that runs the extended check (reuse `pnpm version:check` if it now reads the new surfaces). The first version value remains `0.1.0` (FR-020/Clarifications v1.0).
   - **Acceptance**: `pnpm version:check` exits non-zero when `DESIGN.md` header is changed to `0.1.1` alone; exits zero when all surfaces agree at `0.1.0`; `version-drift.yml` paths include `packages/design/package.json`, `packages/design/src/**`, `DESIGN.md`, `docs/manual/assets/design.css`; review notes no special-case exemption.
   - **Files**: `packages/version/scripts/check-version-drift.ts` (or new companion), `.github/workflows/version-drift.yml`.
   - **Depends on**: T-004, T-009, T-011.
   - **Traces**: FR-017, FR-020, SC-007, SC-008, contracts §5.
 
-- [ ] **T-021 — `DESIGN.md`↔implementation sync rule enforcement + CI message audit**
+- [x] **T-021 — `DESIGN.md`↔implementation sync rule enforcement + CI message audit**
   - **Description**: Wire the drift helpers from T-011 + T-020 into CI workflows with actionable messages: every CI job that guards design (`client-ci.yml`'s post-design-build step, `version-drift.yml`'s drift job) fails with `file:line` + `run pnpm --filter @europa/design build` remediation where applicable. Verify FR-018's rule ("any change set that alters a token/class/pairing updates DESIGN.md in the same commit") is auditable — the CI check's output names the stale section (`missing row --europa-*`).
   - **Acceptance**: A mutation-only PR (change a token value without touching `DESIGN.md`) fails CI with a naming message; the guidance text in CI logs matches quickstart's Troubleshooting table.
   - **Files**: workflow job `steps:` blocks (`client-ci.yml`, `version-drift.yml`) — small `run:` lines.
@@ -220,21 +220,21 @@
   - **Depends on**: T-006, T-016.
   - **Traces**: FR-021, contracts §7.
 
-- [ ] **T-025 [P] — `client-ci.yml` path filter + job update**
+- [x] **T-025 [P] — `client-ci.yml` path filter + job update**
   - **Description**: Extend `client-ci.yml` `on.push/pull_request.paths` to include `packages/design/**`, `DESIGN.md`, `docs/manual/assets/design.css`, `docs/manual/_layouts/**`. Add the build-order steps (`pnpm --filter @europa/design build` → vendor → console build) and invoke the new design drift/no-literals checks (`check:drift` / `check:no-literals`) alongside the existing lint/typecheck/test/build steps, without widening `pages-deploy.yml` scope. Keep `workflow_dispatch` available.
   - **Acceptance**: Mutating `packages/design/src/tokens.ts` triggers `client-ci.yml`; mutating only `docs/manual/_layouts/default.html` triggers both `client-ci.yml` and `pages-deploy.yml` as filtered; PR touching only engine docs does not trigger console builds.
   - **Files**: `.github/workflows/client-ci.yml`.
   - **Depends on**: T-003, T-011, T-014.
   - **Traces**: FR-022, SC-008.
 
-- [ ] **T-026 [P] — `pages-deploy.yml` path filter update (no scope widening)**
+- [x] **T-026 [P] — `pages-deploy.yml` path filter update (no scope widening)**
   - **Description**: Extend `pages-deploy.yml` `on.push.paths` (and `pull_request` if present) to redeploy when `docs/manual/assets/design.css`, `docs/manual/_layouts/**`, or `DESIGN.md` changes that is reflected in the vendored asset — without adding `packages/**` to `actions/jekyll-build-pages` `source` or `upload-pages-artifact` `path`. The vendored file being inside `docs/manual` already ensures the content is deployed via `source: ./docs/manual`.
   - **Acceptance**: Touching `docs/manual/assets/design.css` triggers `Pages Deploy`; `source: ./docs/manual` and `path: ./_site` remain exactly scoped; artifact list asserted by G-09 stays passing.
   - **Files**: `.github/workflows/pages-deploy.yml`.
   - **Depends on**: T-016, T-019.
   - **Traces**: FR-013, FR-022, SC-006, SC-008.
 
-- [ ] **T-027 [P] — `version-drift.yml` path filter final audit**
+- [x] **T-027 [P] — `version-drift.yml` path filter final audit**
   - **Description**: Confirm the T-020 `on.push/pull_request.paths` list covers `packages/design/package.json`, `packages/design/src/**`, `DESIGN.md`, `docs/manual/assets/design.css`, plus the existing surfaces, with no special case. Ensure the `pnpm version:check` invocation (or companion) is the one canonical check.
   - **Acceptance**: Touching `DESIGN.md` triggers version drift; touching `packages/design/src/tokens.ts` triggers it; git history shows no `private: false` ever landed.
   - **Files**: `.github/workflows/version-drift.yml`.
@@ -248,7 +248,7 @@
   - **Depends on**: T-013.
   - **Traces**: NFR-005, SC-001 note.
 
-- [ ] **T-029 — End-to-end SC checklist + quickstart replay**
+- [x] **T-029 — End-to-end SC checklist + quickstart replay**
   - **Description**: Replay `quickstart.md` verbatim from a clean checkout: `pnpm build`, hash checks, `version:check`, `format:check`/`typecheck`, `tests --coverage`, computed-style smokes, Jekyll-scope assertion, human QA notes. Verify each SC row's acceptance is demonstrably met and note results in `specs/012-design-system/quickstart.md`'s validation appendix (mirror the appendices prior specs added). Update `AGENTS.md` Current state if this is the last gate before Phase 6 merge.
   - **Acceptance**: Quickstart's command table produces expected outputs; every SC-001..SC-008 maps to a passing local command or CI artifact assertion; manual site is inspectably dark-slate; no `TODO` remains.
   - **Files**: `specs/012-design-system/quickstart.md` (validation appendix), `AGENTS.md` (optional state line).
