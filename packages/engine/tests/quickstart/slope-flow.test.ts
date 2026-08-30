@@ -1,15 +1,17 @@
 /**
  * Quickstart Q-003 — Slope flow respects elevation — Feature 001, T030
+ * (rewritten for issue #30)
  *
  * Builds three boards with identical source-cell elevations and
  * identical pipe orders, varying only the destination cell's elevation.
  * Asserts the destination's troop count satisfies the strict
  * downhill > flat > uphill ordering (FR-007).
  *
- * As of Wave 2B-2, v1 defaults use `flowBase = 1`, so pipe flow is
- * functional out-of-the-box. The strict ordering assertion is now
- * meaningful: downhill destinations gain ≥ `flowBase`, flat gains
- * exactly `flowBase`, and uphill gains 0 (per `flowUphillFactor = 0`).
+ * Expected rates are derived from `ENGINE_CONSTANTS` via
+ * `flowRateForDelta` (the single source of the FR-007 formula):
+ *   downhill Δ=−10 → flowRateForDelta(−10, ENGINE_CONSTANTS) = 12
+ *   flat Δ=0       → flowRateForDelta(0, ENGINE_CONSTANTS) = 7
+ *   uphill Δ=+10   → flowRateForDelta(10, ENGINE_CONSTANTS) = 0 (stall)
  *
  * NOTE: We hand-build the elevation map here rather than use
  * `buildBoardWithElevation`'s cycling helper — that fixture cycles
@@ -21,6 +23,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
+import { flowRateForDelta } from '../../src/flow-rate';
 import { getCell } from '../../src/read';
 import type { Board, MatchConfig, Order, PlayerId } from '../../src/types';
 import { runScenario } from '../fixtures/scenarios';
@@ -66,11 +69,12 @@ function buildTwoCellSlopeBoard(srcElev: number, dstElev: number): Board {
 }
 
 describe('quickstart Q-003 — slope factor ordering', () => {
-    it('downhill destination gains ≥ flat destination gains ≥ uphill destination', () => {
-        // With v1 defaults (flowBase = 1, flowDownhillFactor = 1, flowUphillFactor = 0):
-        // - downhill source (10) → destination (0) gains `1 × 1 = 1` troop
-        // - flat source (5) → destination (5) gains `1 × 1 = 1` troop
-        // - uphill source (0) → destination (10) gains `1 × 0 = 0` troops
+    it('downhill destination gains > flat destination gains > uphill destination', () => {
+        // With the shipped gradient constants (flowBase=7, flowSlopeStep=1,
+        // flowSlopeDeltaCap=5):
+        // - downhill source (10) → destination (0) gains flowRateForDelta(−10) = 12
+        // - flat source (5) → destination (5) gains flowRateForDelta(0) = 7
+        // - uphill source (0) → destination (10) gains flowRateForDelta(+10) = 0 (stall)
         const downhill: Board = buildTwoCellSlopeBoard(10, 0);
         const flat: Board = buildTwoCellSlopeBoard(5, 5);
         const uphill: Board = buildTwoCellSlopeBoard(0, 10);
@@ -83,11 +87,8 @@ describe('quickstart Q-003 — slope factor ordering', () => {
         const flatCount = getCell(flatResult.finalWorld, 4, 3).troopCount;
         const upCount = getCell(upResult.finalWorld, 4, 3).troopCount;
 
-        // Non-strict ordering (always holds under any constants): downhill ≥ flat ≥ uphill.
-        expect(downCount).toBeGreaterThanOrEqual(flatCount);
-        expect(flatCount).toBeGreaterThanOrEqual(upCount);
-
-        // Strict ordering now meaningful: flat > uphill (because flowUphillFactor = 0).
+        // Strict ordering: downhill > flat > uphill (12 > 7 > 0).
+        expect(downCount).toBeGreaterThan(flatCount);
         expect(flatCount).toBeGreaterThan(upCount);
 
         // Sanity: nothing leaked into water (we built all-land boards) and
@@ -95,25 +96,30 @@ describe('quickstart Q-003 — slope factor ordering', () => {
         expect(downResult.events[0]?.appliedOrders.length).toBe(1);
     });
 
-    it('flow respects ENGINE_CONSTANTS factors (explicit value assertion)', () => {
-        // With v1 defaults (flowBase = 1), each tick moves exactly
-        // `flowBase × factor` troops along the pipe (clamped to capacity
-        // and source-stock). Verify the explicit value, deriving the
-        // expected count from the constants — this pins the contract:
-        // downstream code that changes ENGINE_CONSTANTS will need to
-        // update this assertion too.
+    it('flow respects ENGINE_CONSTANTS gradient rates (explicit value assertion)', () => {
+        // Each tick moves exactly `flowRateForDelta(delta, ENGINE_CONSTANTS)`
+        // troops along the pipe (clamped to capacity). Verify the explicit
+        // value, deriving the expected count from the constants via the
+        // exported formula — this pins the contract: downstream code that
+        // changes ENGINE_CONSTANTS will need to update this assertion too.
         const downhill: Board = buildTwoCellSlopeBoard(10, 0);
         const { finalWorld } = runScenario(cfg, downhill, [{ atTick: 0, order: pipeOrder }], 1);
         const dest = getCell(finalWorld, 4, 3);
         const srcElev = 10;
-        const expected =
-            ENGINE_CONSTANTS.flowBase *
-            (dest.cell.elevation < srcElev
-                ? ENGINE_CONSTANTS.flowDownhillFactor
-                : dest.cell.elevation > srcElev
-                  ? ENGINE_CONSTANTS.flowUphillFactor
-                  : 1);
+        const expected = flowRateForDelta(dest.cell.elevation - srcElev, ENGINE_CONSTANTS);
         expect(dest.troopCount).toBe(expected);
+        // Pin the shipped values explicitly: Δ=−10 → 12 (capped bonus).
+        expect(expected).toBe(12);
+    });
+
+    it('uphill Δ=10 stalls: destination gains 0 troops (US1 AC-5)', () => {
+        const uphill: Board = buildTwoCellSlopeBoard(0, 10);
+        const { finalWorld } = runScenario(cfg, uphill, [{ atTick: 0, order: pipeOrder }], 1);
+        const dest = getCell(finalWorld, 4, 3);
+        expect(flowRateForDelta(10, ENGINE_CONSTANTS)).toBe(0);
+        expect(dest.troopCount).toBe(0);
+        // Stall is a legal, persistent state: the pipe remains laid.
+        expect(getCell(finalWorld, 3, 3).pipes.has('E')).toBe(true);
     });
 
     it('flow is deterministic: same boards + same orders → same destination counts', () => {
