@@ -47,3 +47,20 @@ import type { ConsoleState } from './types';
 export function isAwaitingMatchStart(state: ConsoleState): boolean {
     return state.status === 'live' && (state.latestView === null || state.latestView.tick === 0);
 }
+
+/**
+ * N-aware waiting copy for the filling room (012 FR-005).
+ *
+ * Produces the headline rendered inside {@link ../ui/waiting-overlay.tsx}
+ * while {@link isAwaitingMatchStart} holds. Pure — no clock, no
+ * randomness.
+ *
+ * @param seatsFilled - Currently occupied seats (k, 1 ≤ k < N).
+ * @param capacity - Total seats (N, 2|3|4).
+ * @returns "Waiting for N-k more players… (k/N)" using correct singular/plural.
+ */
+export function formatWaitingMessage(seatsFilled: number, capacity: number): string {
+    const remaining = capacity - seatsFilled;
+    if (remaining === 1) return `Waiting for 1 more player… (${seatsFilled}/${capacity})`;
+    return `Waiting for ${remaining} more players… (${seatsFilled}/${capacity})`;
+}

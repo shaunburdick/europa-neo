@@ -35,7 +35,7 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Value | Shipped value | Constant |
 | --- | --- | --- |
 | Reconnect grace window | 60 seconds | `NETWORK_CONSTANTS.defaultReconnectGraceMs` |
-| Board size (standard match) | 32×32 cells | `DEFAULT_MATCH_SETTINGS.boardSize` |
+| Board size (default by player count) | 2 players → 32×32, 3 players → 48×48, 4 players → 48×48; override to 32×32 or 48×48 (64×64 temporarily disabled — terrain issue #26) | `BOARD_SIZE_DEFAULTS` (2→32, 3→48, 4→48); `DEFAULT_MATCH_SETTINGS.boardSize` = 32 (2p backward-compat default) |
 | Unstarted-match lifetime | ~5 minutes before cleanup | `MATCHMAKING_CONSTANTS.emptyMatchTtlMs` |
 
 ## Interface

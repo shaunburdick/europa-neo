@@ -6,7 +6,7 @@ The lobby and console are deliberately minimal. This page tours the status, part
 
 The default landing page is **Europa Neo lobby**. Its cards show **Your name**, **Create a match**, and **Public matches**. The lobby connection and identity status are separate: **Connected** means the lobby transport is ready, while **Ready to play** means a valid handle has been accepted.
 
-Public-match rows show **Waiting for players** or **In progress**, seat occupancy, capacity, board size, and tick interval. Open waiting rows have **Join**; in-progress rows have **Spectate**; full waiting rows say **Full**. The list may announce that a match was added, updated, started, or left the list.
+Public-match rows show **Waiting for players** or **In progress**, seat occupancy as *Players k / N* (for example, *Players 1 / 3*), capacity, board size, and tick interval. Open waiting rows have **Join**; in-progress rows have **Spectate**; full waiting rows say **Full**. The list may announce that a match was added, updated, started, or left the list.
 
 The lobby can also show **Loading public matches…**, **No public matches right now — create one to get started**, an inline validation error, or a recoverable action error. See [The public lobby](./lobby.md) for the actions and recovery steps.
 
@@ -63,7 +63,7 @@ They fade after a couple of seconds. A rejection always means nothing was sent �
 
 | Overlay | When | Meaning |
 | --- | --- | --- |
-| "Waiting for opponent to join…" | You are seated but the match has not started | The match auto-starts when both seats fill; the overlay hides itself at the first tick |
+| "Waiting for N-k more players… (k/N)" | You are seated but the match has not started | The match auto-starts when all N seats fill; the overlay hides itself at the first tick. For a 2-player game this reads "Waiting for 1 more player… (1/2)"; for 3 players at 1/3 it reads "Waiting for 2 more players… (1/3)". |
 | "Reconnecting to match…" banner | Connection lost mid-match | Auto-reconnect is trying; stay in the tab (see [Quick start](./quick-start.md)) |
 | Surrender dialog | After clicking **Surrender…** | Explicit confirm step — Cancel/Escape backs out, confirming eliminates you on the spot (see [Objective](./objective.md)) |
 | "This session moved somewhere else" | Another browser took over the guest session | Acknowledge it and set a new name |

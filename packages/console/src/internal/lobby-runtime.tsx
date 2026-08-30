@@ -56,6 +56,7 @@ import { createWsLobbyClient } from '../net/ws-lobby-client';
 import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
 import { ErrorBoundary } from '../render/ErrorBoundary';
+import { formatWaitingMessage } from '../state/awaiting-start';
 import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
 import type { LobbyStore } from '../state/lobby-store';
@@ -770,16 +771,25 @@ interface PreStartPlateProps {
  * text nodes/spans — the handle never enters an HTML-ish context.
  */
 function PreStartPlate({ handle, occupancy, announcer }: PreStartPlateProps): JSX.Element {
-    const lastAnnouncedRef = useRef(false);
+    // N-aware waiting copy (FR-005): when the lobby snapshot has pinned
+    // the row we already know the live occupancy, so render the same
+    // "Waiting for N-k more players… (k/N)" copy the App uses. The legacy
+    // single-opponent string remains only as a fallback for the brief
+    // window before the first snapshot arrives (occupancy still null).
+    const waitingMessage =
+        occupancy !== null
+            ? formatWaitingMessage(occupancy.seatsFilled, occupancy.capacity)
+            : WAITING_FOR_OPPONENT_MESSAGE;
+    const lastAnnouncedRef = useRef<string | null>(null);
     useEffect(() => {
-        if (announcer !== undefined && !lastAnnouncedRef.current) {
-            announcer.announce(WAITING_FOR_OPPONENT_MESSAGE, 'polite');
-            lastAnnouncedRef.current = true;
+        if (announcer !== undefined && waitingMessage !== lastAnnouncedRef.current) {
+            announcer.announce(waitingMessage, 'polite');
+            lastAnnouncedRef.current = waitingMessage;
         }
-    }, [announcer]);
+    }, [announcer, waitingMessage]);
     return (
         <div className="europa-waiting__plate" data-europa-prestart-plate="true">
-            <p className="europa-waiting__text">{WAITING_FOR_OPPONENT_MESSAGE}</p>
+            <p className="europa-waiting__text">{waitingMessage}</p>
             <p className="europa-lobby__status-line" data-europa-prestart-seat="true">
                 {handle !== null ? (
                     <span>

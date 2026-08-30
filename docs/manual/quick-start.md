@@ -18,7 +18,7 @@ The lobby list shows loading and empty states explicitly. It updates as games fi
 
 ## Step 3: Wait for the game to start
 
-After creating or joining, you may see **Waiting for opponent to join…** with your handle and the seat count. The game starts automatically when all required seats are filled. You do not need to refresh or press Start. On the first tick, the waiting view changes to the board.
+After creating or joining, you may see a waiting overlay — for example, **"Waiting for 2 more players… (1/3)"** — with your handle and the seat count (shown as *k / N*, where *k* seats are filled of *N* total). The game starts automatically when all required seats are filled. You do not need to refresh or press Start. On the first tick, the waiting view changes to the board.
 
 If you return to the lobby, your active match is marked **Your match** and cannot be claimed again by the same guest session.
 
@@ -47,6 +47,16 @@ The 60-second grace window is measured from the moment your connection dropped.
 A waiting match that never fills is eventually cleaned up by the host after about five minutes. If the waiting overlay never goes away, return to the lobby and choose another match or create a new one.
 
 If the server restarts, its in-memory lobby and guest sessions reset. Reload, choose a handle again, and create or join a new match.
+
+## Hosting a multi-player match (self-host)
+
+If you run Europa Neo yourself, the single-command host boots one web server on `http://localhost:8080/` and prints a join URL for each seat. For a 3-player game on the 48×48 board:
+
+```bash
+pnpm host --players 3 --board-size 48
+```
+
+This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
 
 ---
 

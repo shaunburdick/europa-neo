@@ -37,14 +37,14 @@ If there are no eligible games, the lobby says **No public matches right now —
 Choose settings in **Create a match**, then choose **Create match**:
 
 - **Players:** 2, 3, or 4;
-- **Board size:** 32 × 32, 48 × 48, or 64 × 64; and
+- **Board size:** 32 × 32 or 48 × 48 (64 × 64 is temporarily disabled — terrain generation is unreliable, issue #26 pending fix); and
 - **Cities per player:** 1–4.
 
 The server validates the settings. If a setting is unsupported, an explanation appears beside the relevant field and no match is created. Creating a match reserves your player seat and opens a waiting room. There is no separate Start button: when the required seats fill, the match starts automatically.
 
 ## Join and wait
 
-After **Join** or **Create match**, you enter the match view. Before the game starts, it shows **Waiting for opponent to join…**, your accepted handle, and the seat count. Keep the page open; the board appears and begins ticking when the match starts. The waiting message announces the transition for screen readers as well as visually.
+After **Join** or **Create match**, you enter the match view. Before the game starts, it shows a waiting overlay — for example, **"Waiting for 2 more players… (1/3)"** — your accepted handle, and the seat count (shown as *k / N*). Keep the page open; the board appears and begins ticking when the match starts. The waiting message announces the transition for screen readers as well as visually.
 
 Your own active match is marked **Your match** if you return to the lobby. Its row does not offer another Join or Spectate action, so the same guest session cannot accidentally claim a second seat.
 

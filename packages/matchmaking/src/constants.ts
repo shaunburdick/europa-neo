@@ -15,7 +15,7 @@
  * Pure module: no clock reads, no randomness (constitution Principle II).
  */
 
-import type { MatchmakerConstants } from '../contracts/match-types';
+import type { BoardSizeDefault, MatchmakerConstants } from '../contracts/match-types';
 import type { MatchmakerConfig } from '../contracts/matchmaking-api';
 
 /**
@@ -33,6 +33,24 @@ export const MATCHMAKING_CONSTANTS: MatchmakerConstants = {
     maxDisplayNameLength: 32,
     minDisplayNameLength: 1,
     sweepIntervalMs: 30 * 1000,
+} as const;
+
+/**
+ * Default board size per player count (FR-001 — single source).
+ *
+ * Canonical defaults — byte-identical to the informational mirror at
+ * `specs/012-3-4-player-support/contracts/board-size-defaults.ts` and to
+ * `BOARD_SIZE_DEFAULTS` in `../contracts/match-types.ts`.
+ *
+ * Single source for FR-001: lobby create form (FR-002) and host CLI
+ * implied size (FR-011) import this map from `@europa/matchmaking`.
+ * `DEFAULT_MATCH_SETTINGS.boardSize` stays `32` for backward
+ * compatibility — this map is additive.
+ */
+export const BOARD_SIZE_DEFAULTS: BoardSizeDefault = {
+    2: 32,
+    3: 48,
+    4: 48,
 } as const;
 
 const {

@@ -73,7 +73,9 @@ export function identityStatusLabel(identityStatus: 'unnamed' | 'named' | 'resto
 
 /**
  * Human-readable lifecycle label for one public entry (FR-007's two
- * actionable states; finished matches are never projected).
+ * actionable states; finished matches are never projected). Complements
+ * the FR-003 (012) capacity chrome (`formatOccupancy` + `formatEntrySettings`)
+ * that together render the lobby row's `k/N` + board label for `N ∈ {2,3,4}`.
  *
  * @param status The entry's lobby status.
  */
@@ -82,20 +84,29 @@ export function lobbyStatusLabel(status: LobbyStatus): string {
 }
 
 /**
- * Occupancy fragment, e.g. `"1 of 2 seats filled"`.
+ * Occupancy fragment — capacity chrome for FR-003 (012).
  *
- * @param seatsFilled Currently occupied seats.
- * @param capacity Total seats.
+ * Renders `k/N` as `"k of N seats filled"` (e.g. `1/2 → "1 of 2 seats filled"`,
+ * `2/3 → "2 of 3 seats filled"`, `3/4 → "3 of 4 seats filled"`), derived
+ * from `PublicLobbyEntry {capacity, seatsFilled}` where `capacity` is
+ * `playerCount` (`N ∈ {2,3,4}`). No new protocol field; private entries are
+ * filtered before projection per 010 FR-015.
+ *
+ * @param seatsFilled Currently occupied seats (k).
+ * @param capacity Total seats (N).
  */
 export function formatOccupancy(seatsFilled: number, capacity: number): string {
     return `${String(seatsFilled)} of ${String(capacity)} seats filled`;
 }
 
 /**
- * Short settings summary for one row (FR-006), e.g.
- * `"32×32 board · 250 ms ticks"`. The public projection carries only
- * board size and tick cadence — terrain detail is deliberately absent
- * from listings (privacy envelope, spec FR-006).
+ * Short settings summary for one row (FR-006 + FR-003 board label for 012),
+ * e.g. `"32×32 board · 250 ms ticks"` through `"48×48 board · 250 ms ticks"`.
+ * Derived from `PublicLobbyEntry {boardSize, tickIntervalMs}` where `boardSize`
+ * is `32|48` for `N ∈ {2,3,4}` (64 is temporarily disabled — terrain issue #26; FR-001 defaults: 2→32, 3→48, 4→48;
+ * overrideable). The public projection carries only board size and tick
+ * cadence — terrain detail is deliberately absent from listings (privacy
+ * envelope, spec FR-006). Private entries never reach this helper (010 FR-015).
  *
  * @param entry The public entry to summarize.
  */
@@ -106,7 +117,10 @@ export function formatEntrySettings(entry: PublicLobbyEntry): string {
 /**
  * Whether Join may be offered for an entry (FR-007: open WAITING
  * matches only — a full waiting match is about to auto-start and must
- * not advertise a seat that no longer exists).
+ * not advertise a seat that no longer exists). Derived from
+ * `PublicLobbyEntry {status, capacity, seatsFilled}` where `capacity` is
+ * `playerCount` (`N ∈ {2,3,4}`); no new protocol field, private entries
+ * filtered before projection (010 FR-015).
  *
  * @param entry The entry to judge.
  */
@@ -119,6 +133,10 @@ export function isJoinable(entry: PublicLobbyEntry): boolean {
  * text stays short ("Join"/"Spectate"); this label adds the row
  * context screen readers need to tell rows apart without reading the
  * whole row (WCAG 2.4.6/4.1.2). Contains the visible word first.
+ * Context includes FR-003 (012) capacity chrome (`k/N` via
+ * `formatOccupancy` where `N ∈ {2,3,4}`) + lifecycle label, derived from
+ * `PublicLobbyEntry {capacity, seatsFilled, status}`; no new protocol
+ * field, private entries never projected (010 FR-015).
  *
  * @param action Which action the button performs.
  * @param entry The row the button belongs to.

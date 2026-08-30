@@ -21,6 +21,7 @@ export default defineConfig({
         environment: 'node',
         include: [
             'tests/unit/**/*.test.ts',
+            'tests/integration/**/*.test.ts',
             'tests/quickstart/**/*.test.ts',
             'tests/conformance.test.ts',
             'tests/soak.test.ts',

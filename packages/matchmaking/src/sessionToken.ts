@@ -19,9 +19,8 @@
  * Pure module apart from the CSPRNG call: no I/O, no clock reads.
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { SessionToken } from '@europa/networking';
+import { randomUUID } from './crypto';
 
 /**
  * Assert a plain string into a branded string type. Single audited

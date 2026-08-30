@@ -22,12 +22,12 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 import { LobbyRoot } from '../../../src/internal/lobby-runtime';
 import type { LobbyConnectionState, LobbyErrorReport, WsLobbyClientState } from '../../../src/net/ws-lobby-client';
+import { formatWaitingMessage } from '../../../src/state/awaiting-start';
 import { createLobbyController, type LobbyTransport } from '../../../src/state/lobby-controller';
 import { INITIAL_LOBBY_STATE } from '../../../src/state/lobby-reducer';
 import type { LobbyState } from '../../../src/state/lobby-state';
 import type { MatchId as ConsoleMatchId } from '../../../src/state/types';
 import { LobbyLanding } from '../../../src/ui/lobby-landing';
-import { WAITING_FOR_OPPONENT_MESSAGE } from '../../../src/ui/waiting-overlay';
 import '../../../src/styles/index.css';
 
 afterEach(() => {
@@ -359,6 +359,13 @@ class SmokeTransport implements LobbyTransport {
         };
     }
 
+    /** Test helper: push a lobby snapshot to all registered handlers. */
+    pushSnapshot(snapshot: LobbySnapshot): void {
+        for (const handler of this.snapshotHandlers) {
+            handler(snapshot);
+        }
+    }
+
     onError(handler: ErrorHandler): () => void {
         this.errorHandlers.add(handler);
         return () => {
@@ -375,8 +382,9 @@ class SmokeTransport implements LobbyTransport {
 
 describe('LobbyRoot view gate (smoke)', () => {
     test('lobby first; a seat grant shows the waiting room; auto-start attaches the console', async () => {
+        const transport = new SmokeTransport();
         const controller = createLobbyController({
-            transport: new SmokeTransport(),
+            transport,
             url: 'ws://localhost:8080',
         });
         const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
@@ -388,8 +396,25 @@ describe('LobbyRoot view gate (smoke)', () => {
         // the match is still WAITING (no wire channel pre-auto-start),
         // so the waiting-room plate shows instead of the console.
         await controller.joinMatch(MATCH_A);
+        // The lobby snapshot pins the row: a 2-player match with one seat
+        // filled → N-aware "Waiting for 1 more player… (1/2)".
+        transport.pushSnapshot(
+            snapshotOf(
+                [
+                    {
+                        matchId: MATCH_A,
+                        seatsFilled: 1,
+                        capacity: 2,
+                        status: 'waiting',
+                        boardSize: 32,
+                        tickIntervalMs: 250,
+                    },
+                ],
+                MATCH_A,
+            ),
+        );
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
-        await expect.element(screen.getByRole('main').getByText(WAITING_FOR_OPPONENT_MESSAGE)).toBeVisible();
+        await expect.element(screen.getByRole('main').getByText(formatWaitingMessage(1, 2))).toBeVisible();
 
         // Auto-start: the lobby snapshot flips the row to in_progress…
         controller.store.dispatch({

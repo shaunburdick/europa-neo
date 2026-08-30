@@ -30,9 +30,10 @@
  * disables submission while the create action is in flight.
  */
 
+import { BOARD_SIZE_DEFAULTS, type PlayerCount } from '@europa/matchmaking';
 import type { LobbyMatchSettings, LobbyTerrainSettings } from '@europa/networking';
 import type { JSX } from 'react';
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useId, useRef, useState } from 'react';
 
 import type { LobbyActionStatus } from '../state/lobby-state';
 import { describeActionError } from './lobby-labels';
@@ -58,11 +59,11 @@ export const CREATE_TERRAIN_PRESET: LobbyTerrainSettings = {
     maxRegenAttempts: 5,
 } as const;
 
-/** Board sizes offered by the form. All are safely above the terrain
- * placement constraints' practical floor (smaller boards can exhaust
- * regeneration attempts on matchmaking-generated maps); 32 is the
- * shipped default. */
-export const CREATE_BOARD_SIZES: readonly number[] = [32, 48, 64] as const;
+/** Board sizes offered by the form. 64 is temporarily disabled (terrain
+ * generation is unreliable — follow-up issue #26); the selectable set is
+ * 32|48 until the terrain fix lands. Both are safely above the terrain
+ * placement constraints' practical floor; 32 is the shipped default. */
+export const CREATE_BOARD_SIZES: readonly number[] = [32, 48] as const;
 
 /** Cities-per-player options (GenerationSettings safe range [1, 4]). */
 export const CREATE_CITIES_OPTIONS: readonly number[] = [1, 2, 3, 4] as const;
@@ -93,6 +94,44 @@ export function buildCreateSettings(values: LobbyCreateFormValues): Partial<Lobb
             citiesPerPlayer: values.citiesPerPlayer,
         },
     };
+}
+
+/**
+ * Resolve the board size to display after a player-count radio change.
+ *
+ * FR-002 pre-selection: switching the player-count radio re-applies the
+ * target count's default board size UNLESS the player has explicitly
+ * overridden it. We re-apply the target default only when the current
+ * board size is still the *previous* count's default (the player never
+ * touched it) or is unset/NaN. The latter is defensive — the select can
+ * only hold 32/48 — but the resolver stays total so the form logic
+ * has no hidden branches. Any other value is an intentional override and
+ * is preserved across count switches.
+ *
+ * Extracted from the radio `onChange` handler so the pre-selection
+ * contract is unit-testable without rendering (the "unset" branch is not
+ * reachable through the UI).
+ *
+ * @param previousCount Player count before the change.
+ * @param currentBoardSize Board size currently selected (may be unset).
+ * @param nextCount Newly selected player count.
+ * @returns The board size that should now be selected.
+ */
+export function resolveBoardSizeOnPlayerCountChange(
+    previousCount: PlayerCount,
+    currentBoardSize: number | null | undefined,
+    nextCount: PlayerCount,
+): number {
+    const previousDefault = BOARD_SIZE_DEFAULTS[previousCount];
+    const nextDefault = BOARD_SIZE_DEFAULTS[nextCount];
+    const isUnset =
+        currentBoardSize === null ||
+        currentBoardSize === undefined ||
+        (typeof currentBoardSize === 'number' && Number.isNaN(currentBoardSize));
+    if (isUnset || currentBoardSize === previousDefault) {
+        return nextDefault;
+    }
+    return currentBoardSize;
 }
 
 /**
@@ -135,6 +174,7 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
     const [playerCount, setPlayerCount] = useState<2 | 3 | 4>(2);
     const [boardSize, setBoardSize] = useState<number>(32);
     const [citiesPerPlayer, setCitiesPerPlayer] = useState<number>(1);
+    const previousPlayerCountRef = useRef<2 | 3 | 4>(2);
 
     const headingId = useId();
     const countFieldName = useId();
@@ -174,7 +214,15 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                                     value={count}
                                     checked={playerCount === count}
                                     onChange={() => {
+                                        const previousCount = previousPlayerCountRef.current;
+                                        const nextSize = resolveBoardSizeOnPlayerCountChange(
+                                            previousCount,
+                                            boardSize,
+                                            count,
+                                        );
+                                        previousPlayerCountRef.current = count;
                                         setPlayerCount(count);
+                                        setBoardSize(nextSize);
                                     }}
                                 />
                                 {String(count)}

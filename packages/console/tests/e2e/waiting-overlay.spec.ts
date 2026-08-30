@@ -278,7 +278,7 @@ test('first console sees the waiting room while filling; auto-start clears it', 
 
         // THE FIX: the waiting room is visible instead of a silent grid.
         await expect(overlay(alice)).toBeVisible();
-        await expect(alice.locator('.europa-waiting__text')).toHaveText('Waiting for opponent to join…');
+        await expect(alice.locator('.europa-waiting__text')).toHaveText('Waiting for 1 more player… (1/2)');
 
         // -- Second seat fills via matchmaking ⇒ auto-start ------------------
         const filled = matchmaker.joinMatch({ matchId, displayName: 'Bob' });

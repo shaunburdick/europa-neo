@@ -43,6 +43,7 @@ export type {
     AcceptRematchRequest,
     AcceptRematchResult,
     Board,
+    BoardSizeDefault,
     Cell,
     CellView,
     CityPlacement,
@@ -78,6 +79,7 @@ export type {
     MatchVisibility,
     Order,
     Player,
+    PlayerCount,
     PlayerId,
     PlayerSessionId,
     PlayerStatus,
@@ -91,6 +93,7 @@ export type {
     SessionToken,
     TickEvents,
     TickResult,
+    UiBoardSize,
     ValidationError,
     World,
 } from '../contracts/match-types';
@@ -101,6 +104,7 @@ export type {
 } from '../contracts/matchmaking-api';
 
 export {
+    BOARD_SIZE_DEFAULTS,
     MATCHMAKING_CONSTANTS,
     MATCHMAKING_DEFAULT_CONFIG,
 } from './constants';
