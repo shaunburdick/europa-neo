@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-30
 
-**Status**: Implemented (2026-08-30) — with in-progress Addendum (branded footer, PR #31)
+**Status**: Implemented (2026-08-30) — branded-footer addendum shipped in PR #31
 
 **GitHub Issue**: #25
 

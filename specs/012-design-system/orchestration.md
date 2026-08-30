@@ -1,7 +1,7 @@
 # Orchestration Log: 012-design-system (issue #25) — Shareable Design System
 
 ## Status
-- **Current Wave**: Complete — PR #31 open (T-030 manual catalog adoption merged into branch)
+- **Current Wave**: Complete — PR #31 open (branded-footer sidecar merged into branch)
 - **Branch**: `issue-25-design-system`
 - **PR**: https://github.com/shaunburdick/europa-neo/pull/31
 - **Last Updated**: 2026-08-30
@@ -43,16 +43,14 @@ Single private package `@europa/design` (`packages/design`) — TS token table `
 - T-023 Extension guidance verifiability — ⛔ DEFERRED (v0.1.0 trim: extension guidance present in DESIGN.md)
 
 ### Wave 6 — Lockstep + CI Messages — ✅ Complete
-- T-020 Lockstep versioning joins `version:check` (G-06 final) — ⏳ pending (after T-004/T-009/T-011)
-- T-021 DESIGN.md↔implementation sync rule enforcement + CI messages — ⏳ pending (after T-011/T-020)
+- T-020 Lockstep versioning joins `version:check` (G-06 final) — ✅ done (8367c64)
+- T-021 DESIGN.md↔implementation sync rule enforcement + CI messages — ✅ done (8367c64)
 
-### Wave 7 — Polish & Housekeeping — ⏳ Pending
-- T-020 Lockstep versioning joins `version:check` (G-06 final) — ⏳ pending (after T-004/T-009/T-011)
-- T-021 DESIGN.md↔implementation sync rule enforcement + CI messages — ⏳ pending (after T-011/T-020)
+### Wave 7 — Polish & Housekeeping — ✅ Complete
 - T-024 Build ordering verification (FR-021) — ⛔ DEFERRED (v0.1.0 trim: pnpm topology guarantees ordering)
-- T-025 [P] `client-ci.yml` path filter + job update — ⏳ pending (after T-003/T-011/T-014)
-- T-026 [P] `pages-deploy.yml` path filter update — ⏳ pending (after T-016/T-019)
-- T-027 [P] `version-drift.yml` path filter final audit — ⏳ pending (after T-020)
+- T-025 [P] `client-ci.yml` path filter + job update — ✅ done (8367c64)
+- T-026 [P] `pages-deploy.yml` path filter update — ✅ done (8367c64)
+- T-027 [P] `version-drift.yml` path filter final audit — ✅ done (8367c64)
 - T-028 [P] Bundle budget guard (<150KB gz) — ✅ done (limit enforced by existing spec 005 budget test; design dedupes literals)
 
 ### Wave 8 — Final Verification — ✅ Complete
@@ -60,6 +58,11 @@ Single private package `@europa/design` (`packages/design`) — TS token table `
 
 ### Wave 9 — Manual Catalog Adoption (PO option 1, post-trim) — ✅ Complete
 - T-030 Adopt `europa-*` catalog classes in the player manual — ✅ done (87c590f; catalog §12 prose scoped under .europa-page, 11 manual .md annotated: 1 card / 8 chip / 19 table / 1 typography--meta; vendor-identity + no-literals green; console unaffected)
+
+### Wave 10 — Branded Footer Sidecar (PO review addon, in PR #31) — ✅ Complete
+- T-031 Console branded footer on every view — ✅ done (4914389; new `packages/console/src/ui/branded-footer.tsx` token-styled, mounted in App.tsx + lobby-landing.tsx, consolidated former HUD version span; tests added)
+- T-032 Manual branded footer on every page — ✅ done (4914389; `<footer>` in `docs/manual/_layouts/default.html` with app name + `{{ site.version }}` + GitHub link)
+- T-033 Wire `_config.yml` version + extend version-drift guard — ✅ done (4914389; `docs/manual/_config.yml` `version: 0.1.0` as `docs-config` surface in `version:check`; `version-drift.yml` path filter added)
 
 ## Decisions & Rationale
 - 2026-08-30: Large effort (29 tasks) — PM drives orchestration directly (not architect solo) per orchestration skill; architect cannot spawn sub-agents.
@@ -74,3 +77,4 @@ Single private package `@europa/design` (`packages/design`) — TS token table `
 ## Review Findings
 - Final verification (all green): pnpm build (console CSS 3.70KB gz), check:vendor-identity PASS, check:no-literals PASS, pnpm version:check PASS, console node 487 / component 65 / a11y 29 / perf 3 / e2e 15 pass, repo-wide typecheck/lint/format:check PASS.
 - Scope trimmed per PO: full G-01..G-09 drift-suite + parity/smoke tests deferred for v0.1.0 (private internal package — guardrail over-engineering).
+- Branded-footer sidecar (Wave 10) verification (all green): `pnpm version:check` EXIT 0 (incl `_config.yml` docs-config surface), `check:no-literals` EXIT 0, console build CSS 4.01KB gz (<150KB), `test:component` 89 pass, `test:a11y` 29 pass, `version` 38 pass, repo-wide typecheck/lint/format:check 0. Co-Authored-By trailers stripped via rebase (user forbade them); force-pushed to PR #31.
