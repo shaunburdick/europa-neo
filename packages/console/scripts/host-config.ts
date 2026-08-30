@@ -22,7 +22,14 @@ export interface HostConfig {
 export interface NPlayerHostConfig extends HostConfig {
     /** Requested player count — drives match creation in --create mode. */
     readonly playerCount: 2 | 3 | 4;
-    /** Requested board edge — drives match creation in --create mode. */
+    /**
+     * Requested board edge — drives match creation in --create mode.
+     * NOTE: `64` is temporarily disabled in the UI and host CLI (terrain
+     * generation is unreliable — follow-up issue #26); the accepted set is
+     * `32 | 48` until the terrain fix lands. The type keeps `64` as the
+     * theoretical set so the resolved config can still carry a 64 board when
+     * a direct API caller supplies one.
+     */
     readonly boardSize: 32 | 48 | 64;
 }
 
@@ -81,7 +88,8 @@ export function sanitizeLogText(text: string, maxLength: number = LOG_TEXT_MAX_L
 const DEFAULT_PORT = 8080;
 
 const ALLOWED_PLAYER_COUNTS: readonly (2 | 3 | 4)[] = [2, 3, 4] as const;
-const ALLOWED_BOARD_SIZES: readonly (32 | 48 | 64)[] = [32, 48, 64] as const;
+// 64 is temporarily disabled (terrain issue #26) — accepted set is 32|48.
+const ALLOWED_BOARD_SIZES: readonly (32 | 48 | 64)[] = [32, 48] as const;
 
 /** Write a line to stderr (launcher diagnostics). */
 function complain(line: string): void {
@@ -124,15 +132,27 @@ function parsePlayerCount(raw: string): 2 | 3 | 4 | undefined {
 }
 
 /**
- * Validate a board size string against 32|48|64.
+ * Validate a board size string against 32|48. `64` is temporarily disabled
+ * (terrain generation is unreliable — follow-up issue #26) and rejected with a
+ * dedicated message so operators know it is a known limitation, not a typo.
  *
  * @param raw Raw value from flag or env.
  * @returns The validated size, or undefined when invalid (error already printed).
  */
-function parseBoardSize(raw: string): 32 | 48 | 64 | undefined {
+function parseBoardSize(raw: string): 32 | 48 | undefined {
     const value = Number.parseInt(raw, 10);
-    if (!Number.isInteger(value) || (value !== 32 && value !== 48 && value !== 64)) {
-        complain(`host: --board-size must be 32, 48, or 64 (got "${raw}")`);
+    if (!Number.isInteger(value)) {
+        complain(`host: --board-size must be 32 or 48 (got "${raw}")`);
+        return undefined;
+    }
+    if (value === 64) {
+        complain(
+            'host: --board-size 64 is temporarily disabled — 64×64 generation is unreliable (terrain issue #26 pending fix)',
+        );
+        return undefined;
+    }
+    if (value !== 32 && value !== 48) {
+        complain(`host: --board-size must be 32 or 48 (got "${raw}")`);
         return undefined;
     }
     return value;
@@ -143,7 +163,7 @@ function parseBoardSize(raw: string): 32 | 48 | 64 | undefined {
  *
  * Additive N-player flags (012 FR-011):
  *   --players N | --player-count N | HOST_PLAYER_COUNT → playerCount (2|3|4, default 2)
- *   --board-size S | --boardSize S | HOST_BOARD_SIZE   → boardSize (32|48|64, implied BOARD_SIZE_DEFAULTS[playerCount] when absent)
+ *   --board-size S | --boardSize S | HOST_BOARD_SIZE   → boardSize (32|48; 64 temporarily disabled per terrain issue #26; implied BOARD_SIZE_DEFAULTS[playerCount] when absent)
  *
  * Single-port invariant (012 FR-012): HOST_STATIC_PORT / --static-port are
  * unsupported — passing them fails fast with a clear error and no second listener.
@@ -320,16 +340,16 @@ export function resolveConfig(
         boardSize = parsed;
     } else {
         const implied = BOARD_SIZE_DEFAULTS[playerCount];
-        // BOARD_SIZE_DEFAULTS is 32|48|64, so this is always valid.
-        if (implied !== 32 && implied !== 48 && implied !== 64) {
-            complain(`host: --board-size must be 32, 48, or 64 (got "${String(implied)}")`);
+        // BOARD_SIZE_DEFAULTS is 32|48 (64 temporarily disabled), so this is always valid.
+        if (implied !== 32 && implied !== 48) {
+            complain(`host: --board-size must be 32 or 48 (got "${String(implied)}")`);
             return null;
         }
         boardSize = implied;
     }
 
     if (!ALLOWED_BOARD_SIZES.includes(boardSize)) {
-        complain(`host: --board-size must be 32, 48, or 64 (got "${String(boardSize)}")`);
+        complain(`host: --board-size must be 32 or 48 (got "${String(boardSize)}")`);
         return null;
     }
 

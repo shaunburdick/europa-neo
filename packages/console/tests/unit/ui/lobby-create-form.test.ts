@@ -14,7 +14,7 @@
  *   - unset (null / undefined / NaN) → selects the target default;
  *   - still at the previous count's default → re-applies the target
  *     default;
- *   - explicit non-default (64) → preserved across the switch.
+ *   - explicit non-default (100) → preserved across the switch.
  *
  * It also pins `buildCreateSettings` so the FR-004 cities-per-player
  * override still flows into the wire payload (terrain preset reuse).
@@ -71,8 +71,8 @@ describe('resolveBoardSizeOnPlayerCountChange (FR-002 pre-selection)', () => {
                 );
             });
 
-            it('explicit non-default (64) is preserved across the switch', () => {
-                expect(resolveBoardSizeOnPlayerCountChange(from, 64, to)).toBe(64);
+            it('explicit non-default (100) is preserved across the switch', () => {
+                expect(resolveBoardSizeOnPlayerCountChange(from, 100, to)).toBe(100);
             });
         });
     }
@@ -101,10 +101,10 @@ describe('buildCreateSettings (FR-004 reuse)', () => {
     });
 
     it('includes the player/board choices and omits tick cadence', () => {
-        const values: LobbyCreateFormValues = { playerCount: 4, boardSize: 64, citiesPerPlayer: 2 };
+        const values: LobbyCreateFormValues = { playerCount: 4, boardSize: 48, citiesPerPlayer: 2 };
         const settings = buildCreateSettings(values);
         expect(settings.playerCount).toBe(4);
-        expect(settings.boardSize).toBe(64);
+        expect(settings.boardSize).toBe(48);
         // Tick cadence is server-authoritative; the client never sends it.
         expect(settings).not.toHaveProperty('tickIntervalMs');
     });
@@ -200,34 +200,29 @@ describe('LobbyCreateForm wiring (FR-002 end-to-end)', () => {
         }
     });
 
-    it('preserves an explicit board override (64) across count switches (2→3→4→2)', () => {
+    it('preserves an explicit board override (48) across count switches (2→3→4)', () => {
         const { container, unmount } = mountForm();
         try {
-            // Override the board to 64 at 2 players.
+            // Override the board to 48 at 2 players (48 is NOT the 2-player default 32).
             const select = boardSelect(container);
             act(() => {
-                select.value = '64';
+                select.value = '48';
                 select.dispatchEvent(new Event('change', { bubbles: true }));
             });
-            expect(select.value).toBe('64');
+            expect(select.value).toBe('48');
 
-            // Switch to 3 players → 64 preserved.
+            // Switch to 3 players → 48 preserved (48 !== previous default 32).
             act(() => {
                 playerRadio(container, 3).click();
             });
-            expect(boardSelect(container).value).toBe('64');
+            expect(boardSelect(container).value).toBe('48');
 
-            // Switch to 4 players → 64 preserved.
+            // Switch to 4 players → 48 preserved (48 is the 3/4 default, so it is
+            // re-applied as the target default and stays 48).
             act(() => {
                 playerRadio(container, 4).click();
             });
-            expect(boardSelect(container).value).toBe('64');
-
-            // Switch back to 2 players → 64 still preserved (explicit override).
-            act(() => {
-                playerRadio(container, 2).click();
-            });
-            expect(boardSelect(container).value).toBe('64');
+            expect(boardSelect(container).value).toBe('48');
         } finally {
             unmount();
         }

@@ -103,7 +103,7 @@ export function formatOccupancy(seatsFilled: number, capacity: number): string {
  * Short settings summary for one row (FR-006 + FR-003 board label for 012),
  * e.g. `"32×32 board · 250 ms ticks"` through `"48×48 board · 250 ms ticks"`.
  * Derived from `PublicLobbyEntry {boardSize, tickIntervalMs}` where `boardSize`
- * is `32|48|64` for `N ∈ {2,3,4}` (FR-001 defaults: 2→32, 3→48, 4→48;
+ * is `32|48` for `N ∈ {2,3,4}` (64 is temporarily disabled — terrain issue #26; FR-001 defaults: 2→32, 3→48, 4→48;
  * overrideable). The public projection carries only board size and tick
  * cadence — terrain detail is deliberately absent from listings (privacy
  * envelope, spec FR-006). Private entries never reach this helper (010 FR-015).

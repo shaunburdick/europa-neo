@@ -18,8 +18,9 @@
  * The wiring recipe mirrors `scripts/host.ts`'s `buildStack` exactly
  * (the production `buildStack` is launcher-internal and not exported), but
  * the match lifecycle is driven by the REAL `prepareMatch` — the code
- * under test for T018. Board sizes 32 / 48 / 64 are each exercised so the
- * matrix covers every allowed value.
+ * under test for T018. Board sizes 32 / 48 are each exercised so the
+ * matrix covers every allowed value (64 is temporarily disabled — terrain
+ * issue #26 — and is asserted rejected by a dedicated check below).
  *
  * Determinism discipline: no arbitrary sleeps — every wait is a bounded
  * `pollUntil` against observable client/server state (mirrors
@@ -40,10 +41,9 @@ import {
     type Server,
     type ServerDeps,
 } from '@europa/networking';
-import { GenerationError } from '@europa/terrain';
 import { APP_VERSION } from '@europa/version';
-import { afterEach, describe, expect, test } from 'vitest';
-import { prepareMatch } from '../../scripts/host';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+import { prepareMatch, resolveConfig } from '../../scripts/host';
 import { handleVersionRoute } from '../../scripts/version-route';
 import { createWsMatchClient, type WsMatchClient } from '../../src/net/ws-match-client';
 import type { CommandResult, Coord, MatchId, Order, PlayerId, PlayerView, SessionToken } from '../../src/state/types';
@@ -70,14 +70,6 @@ const WAIT_TIMEOUT_MS = 10_000;
 
 /** Poll interval for observable-state waits. */
 const POLL_INTERVAL_MS = 25;
-
-/**
- * Retries for a board size whose terrain generation is seed-flaky (64):
- * each `prepareMatch` mints a fresh CSPRNG match seed, so a retry may
- * land on a seed whose 64-board generates. Bounded so a genuinely
- * ungeneratable run fails cleanly rather than hanging.
- */
-const GEN_RETRIES = 4;
 
 // ----------------------------------------------------------------------------
 // Small async helpers
@@ -428,21 +420,15 @@ async function assertIdempotentSigintClose(stack: BootedStack, httpServer: HttpS
  * REAL `prepareMatch`, drive N token-bearing join URLs to hello→join→
  * ticks→ack, then prove a SIGINT-driven shutdown is idempotent.
  *
- * For a board size whose terrain generation is seed-flaky (64),
- * `tolerantGenerationFailure` retries `prepareMatch` past unlucky seeds
- * and — if generation genuinely cannot succeed this run — asserts the
- * host surfaces a CLEAN `GenerationError` (the override reached terrain;
- * no crash/hang) before exercising the SIGINT close.
+ * Board size `64` is NOT exercised here — it is temporarily disabled in the
+ * host CLI (terrain generation is unreliable, follow-up issue #26); its
+ * rejection is asserted by the dedicated `resolveConfig` check below. The
+ * matrix therefore covers the two selectable sizes, 32 and 48.
  *
  * @param playerCount Requested player count (2 | 3 | 4).
- * @param boardSize   Requested board edge (32 | 48 | 64).
- * @param options     `tolerantGenerationFailure` for seed-flaky boards.
+ * @param boardSize   Requested board edge (32 | 48).
  */
-async function runNPlayerSmoke(
-    playerCount: 2 | 3 | 4,
-    boardSize: 32 | 48 | 64,
-    options: { readonly tolerantGenerationFailure?: boolean } = {},
-): Promise<void> {
+async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Promise<void> {
     // Single-port surface: the host attaches serveStatic (which serves
     // /version) to the externally owned http.Server. Replicate that exact
     // request handling so GET /version answers on the same port as WS.
@@ -470,33 +456,12 @@ async function runNPlayerSmoke(
     probe.disconnect();
 
     // -- Prepare the N-seat match via the REAL production prepareMatch -----
-    // Retry past unlucky CSPRNG seeds when the board is seed-flaky (64).
-    let match: ReturnType<typeof prepareMatch> = null;
-    let lastGenError: GenerationError | null = null;
-    const attempts = options.tolerantGenerationFailure ? GEN_RETRIES : 1;
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-        try {
-            match = prepareMatch(stack.matchmaker, { playerCount, boardSize });
-            lastGenError = null;
-            break;
-        } catch (error) {
-            if (error instanceof GenerationError) {
-                lastGenError = error;
-                continue; // fresh seed next time
-            }
-            throw error;
-        }
-    }
-
+    const match = prepareMatch(stack.matchmaker, { playerCount, boardSize });
     if (match === null) {
-        // Seed-flaky board could not generate this run. The host path
-        // correctly surfaced a clean GenerationError (the override reached
-        // terrain; no crash/hang). Exercise the SIGINT close and return —
-        // the board-size override is proven wired through end-to-end.
-        expect(lastGenError).not.toBeNull();
-        expect(lastGenError).toBeInstanceOf(GenerationError);
-        await assertIdempotentSigintClose(stack, httpServer);
-        return;
+        // matchmaking rejected the settings (should not happen for 32/48).
+        throw new Error(
+            `prepareMatch returned null for ${playerCount}P board ${boardSize} (matchmaking rejected the settings)`,
+        );
     }
 
     expect(match.seatTokens.length).toBe(playerCount);
@@ -555,45 +520,44 @@ async function runNPlayerSmoke(
 }
 
 /**
- * Matrix over N∈{3,4} and board sizes {32,48,64}. The two N cases use
- * their default boards (48 each) and cover the 3-/4-player path; the
- * `boardSize=32` override (3P) and the `boardSize=64` override together
- * exercise every allowed board value.
+ * Matrix over N∈{3,4} and the two selectable board sizes {32,48}. The two
+ * N cases use their default boards (48 each) and cover the 3-/4-player path;
+ * the `boardSize=32` override (3P) covers the 32 value. N∈{3,4} remain
+ * covered at their default 48 board.
  *
- * The 64 override is `tolerantGenerationFailure`: the terrain generator
- * mints a fresh CSPRNG seed per match (matchmaking `newMatchSeed`) and
- * 64×64 city placement exhausts its internal regen attempts for a
- * meaningful fraction of seeds (observed for 2P/3P/4P alike), so a 64
- * smoke would otherwise be flaky. The case retries `prepareMatch` past
- * unlucky seeds and — if generation genuinely cannot succeed this run —
- * asserts the host surfaces a CLEAN `GenerationError` (the override
- * reached terrain; no crash/hang) before exercising the SIGINT close.
- * Either way the `boardSize=64` override is proven wired through
- * end-to-end. N∈{3,4} remain covered at their default 48 board.
+ * Board size `64` is intentionally absent: it is temporarily disabled in the
+ * host CLI (terrain generation is unreliable — follow-up issue #26). Its
+ * rejection is asserted by the dedicated `resolveConfig` check below, so the
+ * override path is still proven wired through without booting a real stack.
  */
 const SMOKE_MATRIX: ReadonlyArray<{
     readonly playerCount: 2 | 3 | 4;
-    readonly boardSize: 32 | 48 | 64;
-    readonly tolerantGenerationFailure?: boolean;
+    readonly boardSize: 32 | 48;
     readonly note: string;
 }> = [
     { playerCount: 3, boardSize: 48, note: 'N=3 default board' },
     { playerCount: 4, boardSize: 48, note: 'N=4 default board' },
-    {
-        playerCount: 2,
-        boardSize: 64,
-        note: 'additional boardSize=64 override (seed-flaky — retry + graceful GenerationError)',
-        tolerantGenerationFailure: true,
-    },
     { playerCount: 3, boardSize: 32, note: 'boardSize=32 override (covers the 32 value)' },
 ];
 
 describe('N-player host smoke (012 T020)', () => {
     for (const cfg of SMOKE_MATRIX) {
         test(`boots real ${String(cfg.playerCount)}P stack (board ${String(cfg.boardSize)}) — ${cfg.note}`, async () => {
-            await runNPlayerSmoke(cfg.playerCount, cfg.boardSize, {
-                tolerantGenerationFailure: cfg.tolerantGenerationFailure,
-            });
+            await runNPlayerSmoke(cfg.playerCount, cfg.boardSize);
         }, 60_000);
     }
+
+    test('rejects --board-size 64 (temporarily disabled, terrain issue #26) without booting a stack', () => {
+        const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+        try {
+            const result = resolveConfig(['--board-size', '64'], {});
+            expect(result).toBeNull();
+            const stderr = errSpy.mock.calls.map((c) => String(c[0])).join('');
+            expect(stderr).toContain(
+                'host: --board-size 64 is temporarily disabled — 64×64 generation is unreliable (terrain issue #26 pending fix)',
+            );
+        } finally {
+            errSpy.mockRestore();
+        }
+    });
 });

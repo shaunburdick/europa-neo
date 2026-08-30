@@ -59,11 +59,11 @@ export const CREATE_TERRAIN_PRESET: LobbyTerrainSettings = {
     maxRegenAttempts: 5,
 } as const;
 
-/** Board sizes offered by the form. All are safely above the terrain
- * placement constraints' practical floor (smaller boards can exhaust
- * regeneration attempts on matchmaking-generated maps); 32 is the
- * shipped default. */
-export const CREATE_BOARD_SIZES: readonly number[] = [32, 48, 64] as const;
+/** Board sizes offered by the form. 64 is temporarily disabled (terrain
+ * generation is unreliable — follow-up issue #26); the selectable set is
+ * 32|48 until the terrain fix lands. Both are safely above the terrain
+ * placement constraints' practical floor; 32 is the shipped default. */
+export const CREATE_BOARD_SIZES: readonly number[] = [32, 48] as const;
 
 /** Cities-per-player options (GenerationSettings safe range [1, 4]). */
 export const CREATE_CITIES_OPTIONS: readonly number[] = [1, 2, 3, 4] as const;
@@ -104,7 +104,7 @@ export function buildCreateSettings(values: LobbyCreateFormValues): Partial<Lobb
  * overridden it. We re-apply the target default only when the current
  * board size is still the *previous* count's default (the player never
  * touched it) or is unset/NaN. The latter is defensive — the select can
- * only hold 32/48/64 — but the resolver stays total so the form logic
+ * only hold 32/48 — but the resolver stays total so the form logic
  * has no hidden branches. Any other value is an intentional override and
  * is preserved across count switches.
  *

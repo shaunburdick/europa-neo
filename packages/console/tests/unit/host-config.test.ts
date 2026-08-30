@@ -139,26 +139,23 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
         });
 
         it('--board-size S sets the size explicitly', () => {
-            expect(run(['--board-size', '64']).result).toMatchObject({ boardSize: 64 });
             expect(run(['--board-size=32']).result).toMatchObject({ boardSize: 32 });
         });
 
         it('--boardSize S alias sets the size explicitly', () => {
             expect(run(['--boardSize', '48']).result).toMatchObject({ boardSize: 48 });
-            expect(run(['--boardSize=64']).result).toMatchObject({ boardSize: 64 });
         });
 
         it('HOST_BOARD_SIZE env sets the size explicitly', () => {
             expect(run([], { HOST_BOARD_SIZE: '32' }).result).toMatchObject({ boardSize: 32 });
-            expect(run([], { HOST_BOARD_SIZE: '64' }).result).toMatchObject({ boardSize: 64 });
         });
     });
 
     describe('explicit override wins over the implied default', () => {
-        it('--players 3 --board-size 64 overrides the implied 48', () => {
-            expect(run(['--players', '3', '--board-size', '64']).result).toMatchObject({
+        it('--players 3 --board-size 32 overrides the implied 48', () => {
+            expect(run(['--players', '3', '--board-size', '32']).result).toMatchObject({
                 playerCount: 3,
-                boardSize: 64,
+                boardSize: 32,
             });
         });
 
@@ -186,8 +183,8 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
             expect(run(['--player-count', '2'], { HOST_PLAYER_COUNT: '4' }).result).toMatchObject({ playerCount: 2 });
         });
 
-        it('--board-size 64 overrides HOST_BOARD_SIZE=32', () => {
-            expect(run(['--board-size', '64'], { HOST_BOARD_SIZE: '32' }).result).toMatchObject({ boardSize: 64 });
+        it('--board-size 48 overrides HOST_BOARD_SIZE=32', () => {
+            expect(run(['--board-size', '48'], { HOST_BOARD_SIZE: '32' }).result).toMatchObject({ boardSize: 48 });
         });
 
         it('--boardSize 32 overrides HOST_BOARD_SIZE=64', () => {
@@ -236,9 +233,32 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
             it(`rejects ${c.label}`, () => {
                 const { result, stderr } = run(c.args, c.env ?? {});
                 expect(result).toBeNull();
-                expect(stderr).toContain('host: --board-size must be 32, 48, or 64');
+                expect(stderr).toContain('host: --board-size must be 32 or 48');
             });
         }
+    });
+
+    describe('boardSize 64 is temporarily disabled (terrain issue #26)', () => {
+        const cases: Array<{ label: string; args: readonly string[]; env?: NodeJS.ProcessEnv }> = [
+            { label: '--board-size 64', args: ['--board-size', '64'] },
+            { label: '--boardSize=64', args: ['--boardSize=64'] },
+            { label: 'HOST_BOARD_SIZE=64', args: [], env: { HOST_BOARD_SIZE: '64' } },
+        ];
+        for (const c of cases) {
+            it(`rejects ${c.label} with the temp-disabled message`, () => {
+                const { result, stderr } = run(c.args, c.env ?? {});
+                expect(result).toBeNull();
+                expect(stderr).toContain(
+                    'host: --board-size 64 is temporarily disabled — 64×64 generation is unreliable (terrain issue #26 pending fix)',
+                );
+            });
+        }
+
+        it('flag 64 still beats env (rejected before the env value is read)', () => {
+            const { result, stderr } = run(['--board-size', '64'], { HOST_BOARD_SIZE: '32' });
+            expect(result).toBeNull();
+            expect(stderr).toContain('host: --board-size 64 is temporarily disabled');
+        });
     });
 
     describe('FR-012: second-port surface is hard-rejected', () => {
@@ -268,13 +288,13 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
     });
 
     it('resolves the base HostConfig surface alongside the N-player fields', () => {
-        expect(run(['--players', '3', '--board-size', '64']).result).toMatchObject({
+        expect(run(['--players', '3', '--board-size', '32']).result).toMatchObject({
             bindHost: '127.0.0.1',
             publicHost: 'localhost',
             port: 8080,
             wsPort: 8080,
             playerCount: 3,
-            boardSize: 64,
+            boardSize: 32,
         });
     });
 });

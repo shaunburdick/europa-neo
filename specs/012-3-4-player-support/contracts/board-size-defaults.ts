@@ -15,7 +15,13 @@
 /** Product-approved default board edge per player count (FR-001). */
 export type PlayerCount = 2 | 3 | 4;
 
-/** Board sizes offered by the lobby/host UI (presentation set; server clamp is [8,128]). */
+/**
+ * Board sizes offered by the lobby/host UI (presentation set; server clamp is
+ * [8,128]). NOTE: `64` is temporarily disabled in the lobby UI and host CLI
+ * (terrain generation is unreliable — follow-up issue #26); the selectable set
+ * is `32 | 48` until the terrain fix lands. The type keeps `64` as the
+ * theoretical set so a direct API caller can still supply a 64 board.
+ */
 export type UiBoardSize = 32 | 48 | 64;
 
 /** Single source map — the only place defaults are defined. */
