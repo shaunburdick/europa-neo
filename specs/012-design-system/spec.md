@@ -255,6 +255,12 @@ As a contributor building a new UI surface — whether a React view in the conso
 - **Contrast encoding is normative, not advisory**: every token-table color pairing states its ratio (`≈ 16.98:1`, `≈ 6.99:1`, etc.) and its AA target. The pairs are asserted by a test that reads computed styles — a comment claiming AA is not the proof.
 - **Versioning lockstep includes `DESIGN.md`**: the header in `DESIGN.md` is part of the `version:check` surface per FR-020 — a drift there fails like any package version drift. First value is the current lockstep `0.1.0` (not `0.0.1`; that era's first-lockstep choice was already superseded by FR-010's bump convention and is now the stable lockstep value).
 
+### v1.1 (2026-08-30) — Pipe slope color tokens (issue #30 companion)
+
+- **Additive tokens**: four new `@europa/design` color tokens — `pipeDownhill` (`#059669`, reuses `green`), `pipeFlat` (`#f59e0b`, reuses `accent`), `pipeUphill` (`#dc2626`, reuses `red`), `pipeStalled` (`#9ca3af`, reuses `textMuted`) — added to `packages/design/src/tokens.ts` and `DESIGN.md` § 1.1/§ 3 with measured pairings for spec 005 FR-013's slope color-coding. Zero new hex literals (FR-009 / FR-010).
+- **FR-018 same-change-set obligation**: the implementation change set updates `DESIGN.md` in the same commit as the tokens (FR-018 sync rule) and carries this companion note; the console no-literals guard (G-04) fails until the tokens exist.
+- **Additive (minor) per DESIGN.md § 6**: adding tokens is a minor change — no migration note needed, no version bump, no FR text altered.
+
 ## Addendum — Branded Footer (sidecar, in PR #31)
 
 A product-owner follow-up to the design system: ensure the app name, version, and GitHub link appear on **every** page of both the UI and the documentation. This reuses the `@europa/design` catalog (it is the reason the sidecar rides in PR #31) and adds no new visual language.
