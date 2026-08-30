@@ -1,18 +1,27 @@
 /**
- * Deterministic CSS emitter for the shareable design system (spec 012, T-006).
+ * Deterministic CSS emitter for the shareable design system (spec 012,
+ * T-006 / T-007).
  *
  * Walks {@link TOKENS} in sorted key order, emits a single
  * `:root { --europa-*: value; }` block (LF, UTF-8, no BOM, no timestamp,
- * lexicographic order) and writes `dist/design.css`. Imported by the
- * package `build` script as `tsup && tsx scripts/build-css.ts` so
- * repeated builds are byte-identical for the same token table.
+ * lexicographic order) and concatenates the authored catalog segment
+ * (`src/styles/catalog.css`) deterministically, then writes
+ * `dist/design.css`. Imported by the package `build` script as
+ * `tsup && tsx scripts/build-css.ts` so repeated builds are byte-identical
+ * for the same token table and catalog source.
+ *
+ * Catalog stylesheet (T-007): the file `src/styles/catalog.css` is tracked
+ * source that defines every `europa-*` class family from FR-006. Each
+ * declaration composes only `var(--europa-*)` (no hex/rgb literals outside
+ * `:root`). The emitter keeps the catalog authored but deterministic — one
+ * LF-joined concatenation after the `:root` block.
  *
  * No runtime dependencies — node:* builtins plus this package's own
  * source, executed by the workspace-catalog `tsx` runner (mirrors
  * `packages/version/scripts/check-version-drift.ts`).
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -101,13 +110,45 @@ function resolveDesignRoot(): string {
 }
 
 /**
+ * Read the authored catalog stylesheet (`src/styles/catalog.css`) if present.
+ *
+ * The catalog file is tracked source; concatenation is deterministic — the
+ * emitted `:root` block is always first, followed by exactly one LF-joined
+ * catalog segment. No transformation is applied to the catalog source beyond
+ * normalizing its trailing newline, so the author controls ordering and
+ * comments deterministically.
+ *
+ * @param designRoot - Absolute path to `packages/design`.
+ * @returns Catalog CSS text (with trailing LF) or empty string if absent.
+ */
+async function readCatalogCss(designRoot: string): Promise<string> {
+    const catalogPath = path.join(designRoot, 'src', 'styles', 'catalog.css');
+    try {
+        const raw = await readFile(catalogPath, 'utf8');
+        // Normalize: ensure exactly one trailing LF, CRLF → LF, no BOM.
+        const normalized = raw.replace(/\r\n/g, '\n');
+        return normalized.endsWith('\n') ? normalized : `${normalized}\n`;
+    } catch {
+        return '';
+    }
+}
+
+/**
  * Write `dist/design.css` deterministically.
+ *
+ * Output is the `:root` block (from {@link buildCssText}) concatenated
+ * deterministically with the authored catalog segment
+ * (`src/styles/catalog.css`) when present — one LF separator between them,
+ * no timestamp, no BOM. Repeated builds from the same token table and
+ * catalog source are byte-identical.
  *
  * @param designRoot - Absolute path to `packages/design` (defaults to resolved package root).
  * @returns Absolute path to the written file.
  */
 export async function writeDesignCss(designRoot: string = resolveDesignRoot()): Promise<string> {
-    const css = buildCssText();
+    const rootBlock = buildCssText();
+    const catalog = await readCatalogCss(designRoot);
+    const css = catalog.length > 0 ? `${rootBlock}\n${catalog}` : rootBlock;
     const outPath = path.join(designRoot, 'dist', 'design.css');
     await mkdir(path.dirname(outPath), { recursive: true });
     await writeFile(outPath, css, 'utf8');
