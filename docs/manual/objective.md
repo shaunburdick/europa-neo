@@ -12,14 +12,16 @@ You have three levers, and every strategy uses some combination of them:
 
 ## Victory: last commander standing
 
-You win when your opponent is **eliminated** while you are still alive.
+You win when every other commander is **eliminated** while you are still alive.
 
 A player is eliminated at the moment they hold **zero troops AND zero cities**. Both conditions must be true at once:
 
 - A player with troops but no cities is still in the fight — their remaining stacks can recapture cities.
 - A player with cities but no troops is still in the fight — their cities keep producing.
 
-Only when both counts hit zero does the game call it. There is no score, no timer, and no territory threshold: reduce your opponent to nothing, and the match announces you the winner.
+Only when both counts hit zero does the game call it. There is no score, no timer, and no territory threshold: reduce your opponents to nothing, and the match announces you the winner.
+
+In a match with three or four players the same rule applies to each of them: the last commander left standing — the one player with troops or cities after all the others are reduced to nothing — wins. Eliminating N−1 of your rivals is the whole game.
 
 ## Losing your last city is not losing
 
@@ -33,7 +35,7 @@ You can give up at any time during a live match:
 2. A confirmation dialog appears ("Surrender? Your cities fall under enemy control and you join as a spectator. This cannot be undone.").
 3. Click **Confirm surrender** to end your participation, or **Cancel** (or press Escape) to back out with no order sent.
 
-Surrendering takes effect immediately: your forces are put out of action and you flip from commander to spectator — you can keep watching the board, but you can issue no further orders. With you out of the fight, your opponent is declared the last commander standing and the match wraps up with the end-of-match announcement. The confirmation step is deliberate: a stray click cannot eliminate you.
+Surrendering takes effect immediately: your forces are put out of action and you flip from commander to spectator — you can keep watching the board, but you can issue no further orders. With you out of the fight, the match continues for the remaining players; if you were the last to leave, the surviving commander is declared the winner and the match wraps up with the end-of-match announcement. The confirmation step is deliberate: a stray click cannot eliminate you.
 
 ## Draw by mutual elimination
 
@@ -43,8 +45,8 @@ If both players are reduced to zero troops AND zero cities — even on the same 
 
 | Outcome | When it happens |
 | --- | --- |
-| You win | Your opponent holds zero troops AND zero cities while you hold either |
-| You lose | You hold zero troops AND zero cities while your opponent holds either |
+| You win | Your opponents (all other players) hold zero troops AND zero cities while you hold either |
+| You lose | You hold zero troops AND zero cities while any opponent holds either |
 | Draw | Both players hit zero troops AND zero cities |
 | Surrender | You confirm the surrender dialog; you are eliminated on the spot and spectate |
 

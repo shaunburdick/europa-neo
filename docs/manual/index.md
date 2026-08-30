@@ -12,13 +12,13 @@ Where your troops meet enemy troops in a cell, they fight by **attrition**: equa
 
 You see only what your troops can sense: a band of surrounding cells moves with your stacks, and ground you leave behind goes dark again. There is no radar memory and no peeking.
 
-**You win by being the last commander standing.** A player is eliminated when they hold zero troops AND zero cities. Surrender if you must; if both players eliminate each other on the same tick, the match is a draw.
+**You win by being the last commander standing.** A player is eliminated when they hold zero troops AND zero cities. Surrender if you must; if the final players eliminate each other on the same tick, the match is a draw.
 
 ## What v1 supports
 
 - Desktop browsers with a mouse and keyboard (touch screens are not supported).
 - English only.
-- Public matches discovered and entered through the landing lobby. The browser flow is currently shipped end-to-end for two players.
+- Public matches discovered and entered through the landing lobby. The browser flow ships end-to-end for two, three, or four players.
 - A fixed four-color player palette (red, blue, green, orange-gold).
 
 ## Table of contents

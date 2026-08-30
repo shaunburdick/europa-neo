@@ -44,7 +44,7 @@ The server validates the settings. If a setting is unsupported, an explanation a
 
 ## Join and wait
 
-After **Join** or **Create match**, you enter the match view. Before the game starts, it shows **Waiting for opponent to join…**, your accepted handle, and the seat count. Keep the page open; the board appears and begins ticking when the match starts. The waiting message announces the transition for screen readers as well as visually.
+After **Join** or **Create match**, you enter the match view. Before the game starts, it shows a waiting overlay — for example, **"Waiting for 2 more players… (1/3)"** — your accepted handle, and the seat count (shown as *k / N*). Keep the page open; the board appears and begins ticking when the match starts. The waiting message announces the transition for screen readers as well as visually.
 
 Your own active match is marked **Your match** if you return to the lobby. Its row does not offer another Join or Spectate action, so the same guest session cannot accidentally claim a second seat.
 
