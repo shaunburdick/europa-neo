@@ -1,8 +1,9 @@
 # Orchestration Log: 012-design-system (issue #25) — Shareable Design System
 
 ## Status
-- **Current Wave**: Wave 1 — Setup (T-001)
+- **Current Wave**: Complete — PR Open
 - **Branch**: `issue-25-design-system`
+- **PR**: https://github.com/shaunburdick/europa-neo/pull/31
 - **Last Updated**: 2026-08-30
 
 ## Plan Summary
@@ -54,18 +55,19 @@ Single private package `@europa/design` (`packages/design`) — TS token table `
 - T-027 [P] `version-drift.yml` path filter final audit — ⏳ pending (after T-020)
 - T-028 [P] Bundle budget guard (<150KB gz) — ✅ done (limit enforced by existing spec 005 budget test; design dedupes literals)
 
-### Wave 8 — Final Verification — ⏳ Pending
-- T-029 End-to-end SC checklist + quickstart replay — ⏳ pending (after all)
+### Wave 8 — Final Verification — ✅ Complete
+- T-029 End-to-end SC checklist + quickstart replay — ✅ done (ebb8776; full verification green, PR #31 open)
 
 ## Decisions & Rationale
 - 2026-08-30: Large effort (29 tasks) — PM drives orchestration directly (not architect solo) per orchestration skill; architect cannot spawn sub-agents.
 - 2026-08-30: Wave model derived from tasks.md §Dependencies & Parallelization Summary; max parallelism within dep constraints, sibling summaries included per dispatch.
 
 ## Blockers & Escalations
-- (none yet)
+- (none) — one test-harness gap (browser-mode Vitest suites didn't import design.css) was found and fixed in f6c3a8b (test-only, no production change).
 
 ## New Tasks Discovered
-- (none yet)
+- (none) — T-011/T-015/T-018/T-022/T-023/T-024 deferred by product-owner decision (trim scope); documented in spec.md/plan.md Scope Note.
 
 ## Review Findings
-- (pending wave checkpoints — code-quality-reviewer + security-auditor at end of each wave as needed)
+- Final verification (all green): pnpm build (console CSS 3.70KB gz), check:vendor-identity PASS, check:no-literals PASS, pnpm version:check PASS, console node 487 / component 65 / a11y 29 / perf 3 / e2e 15 pass, repo-wide typecheck/lint/format:check PASS.
+- Scope trimmed per PO: full G-01..G-09 drift-suite + parity/smoke tests deferred for v0.1.0 (private internal package — guardrail over-engineering).
