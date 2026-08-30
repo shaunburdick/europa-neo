@@ -20,7 +20,7 @@
         "dist"
     ],
     "scripts": {
-        "build": "tsup",
+        "build": "tsup && tsx scripts/build-css.ts",
         "test": "vitest run",
         "test:watch": "vitest",
         "lint": "biome check .",
@@ -32,6 +32,7 @@
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "tsup": "catalog:",
+        "tsx": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:"
     }
