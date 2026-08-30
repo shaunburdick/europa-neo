@@ -258,3 +258,15 @@ Contracts were updated in the same change set wherever behavior changed.
   `settings.playerCount` / "must be 2, 3, or 4") so downstream
   consumers can render field-specific feedback; finite out-of-range
   board sizes remain CLAMPED, not rejected.
+- **`terrainSmoothing` flows through `terrainSettings` (issue #30,
+  2026-08-30)**: feature 003's `GenerationSettings` gains an additive
+  `terrainSmoothing` field (default 4, range [0, 8], spec 003 FR-010).
+  `MatchSettings.terrainSettings` carries it automatically via
+  `DEFAULT_GENERATION_SETTINGS` — no `MatchSettings`/`DEFAULT_MATCH_SETTINGS`
+  shape change, no caller changes, existing matches and rematches
+  unaffected (a rematch reuses the original settings, so the smoothing
+  value carries over by construction). Hosts may pass
+  `terrainSettings: { terrainSmoothing: N }` at create; the clamped
+  value is surfaced via `TerrainGenerationResult.effectiveSettings`
+  and `MapStats.effectiveSettings` (feature 003's existing
+  `effectiveSettings` pattern).

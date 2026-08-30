@@ -6,7 +6,7 @@
 
 **Last Updated**: 2026-08-30
 
-**Version**: 1.2
+**Version**: 1.3
 
 **Status**: Implemented (2026-08-24)
 
@@ -131,9 +131,9 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 - **FR-005**: The manual MUST contain a controls reference whose every row matches the shipped input mapping exactly: pointer region targeting (left-click a cell's N/E/S/W region toggles a pipe toward that region; right-click or Alt+click issues an exclusive pipe replacing all pipes in the cell); keyboard equivalents i/j/k/l = north/west/south/east pipes, Alt+key = exclusive variants, Space = clear all pipes in the cell, p/h = paratroop, g/o = gun, 0–9 = reserves 0–90%, Escape = cancel, arrow keys = move selection; camera: mouse wheel zooms toward the cursor, middle-button drag pans; HUD buttons: order-bar Exclusive toggle and Clear-pipes, reserves slider + digit buttons, Surrender… with confirmation modal.
 - **FR-006**: The manual MUST explain each mechanic in plain language with the shipped behavior: cities produce troops every tick until saturated and are capturable; land cells hold up to four directional pipes; slope matters — flow rate is a gradient of the elevation change, downhill pipes flow faster than flat, uphill pipes flow slower, and steep uphill stalls at 0 (exact rates in the numbers appendix, FR-010); unfed stacks decay −1 troop per tick while mutually-fed pairs sustain indefinitely; cells cap at capacity; combat is attrition (equal forces trade equally; the larger side eliminates the smaller and keeps the difference); paratroopers cost 2 troops per 1 landed, fly at most 2 cells (Chebyshev), clear the destination's pipes, and cannot target water; guns cost troops and damage everything in the target cell at resolution time — friendly fire included; reserves hold a percentage (0–90% in 10% steps) back from outflow.
 - **FR-007**: The manual MUST explain fog of war as implemented: vision extends a fixed radius (4 cells, Chebyshev) around each of your stacks, unioned across stacks; enemies appear only inside your horizon; there is no memory — abandoned ground goes dark again; spectators see the whole board but cannot issue orders.
-- **FR-008**: The manual MUST describe the board: square grid (default 32×32), elevation-shaded terrain, impassable water pools, and fair maps — point-symmetric terrain with equal starting cities per player and guaranteed land routes between them.
+- **FR-008**: The manual MUST describe the board: square grid (default 32×32), elevation-shaded terrain, impassable water pools, fair maps — point-symmetric terrain with equal starting cities per player and guaranteed land routes between them — and the per-match terrain-smoothing setting (`terrainSmoothing`, default 4, range 0–8): what it does (gentler elevation changes, more viable cross-map routes), that 0 means no smoothing, and that match hosts can adjust it when creating a match.
 - **FR-009**: The manual MUST contain a reading-the-screen guide covering every console status value (`idle`, `connecting`, `live`, `reconnecting`, `expired`, `spectating`, `game_over`) in plain language, plus the tick counter, minimap navigation, order bar, reserves panel, transient feedback messages, waiting-for-opponent overlay, reconnecting banner, surrender modal, and the end-of-match announcement.
-- **FR-010**: The manual MUST include a numbers appendix table listing every player-facing tunable exactly as shipped (engine constants, tick cadence of 250 ms ≈ 4 ticks/second, default board size, vision radius, per-player colors, camera zoom bounds), each traceable to `ENGINE_CONSTANTS` / shipped defaults. The pipe-flow rows MUST list `flowBase`, `flowSlopeStep`, `flowSlopeDeltaCap`, and the resulting per-tick rates for downhill, flat, uphill, and stalled pipes (feature 001 FR-007, Clarifications v1.1).
+- **FR-010**: The manual MUST include a numbers appendix table listing every player-facing tunable exactly as shipped (engine constants, tick cadence of 250 ms ≈ 4 ticks/second, default board size, vision radius, per-player colors, camera zoom bounds), each traceable to `ENGINE_CONSTANTS` / shipped defaults. The pipe-flow rows MUST list `flowBase`, `flowSlopeStep`, `flowSlopeDeltaCap`, and the resulting per-tick rates for downhill, flat, uphill, and stalled pipes (feature 001 FR-007, Clarifications v1.2). The terrain rows MUST list `terrainSmoothing` (default 4, range 0–8) traceable to `DEFAULT_GENERATION_SETTINGS` (feature 003 FR-010).
 - **FR-011**: The manual itself MUST be accessible: semantic Markdown rendered to semantic HTML (one h1 per page, hierarchical headings, tables with header rows, alt text on any image, descriptive link text), readable and navigable without JavaScript.
 - **FR-012**: Any change set that alters gameplay behavior documented by the manual MUST update the manual in the same change set (constitution IV "specs stay truthful," extended to player-facing docs).
 - **FR-017**: The manual index page (`docs/manual/index.md`) MUST close with a footer line stating the application version the manual documents (e.g., "*This manual documents Europa Neo v0.0.1.*"); the version string MUST stay in lockstep with the shipped `APP_VERSION` (enforced by feature 009-shared-app-versioning's drift check), and version-bearing updates ride in the same change set as the change that moves them (FR-012 discipline).
@@ -257,3 +257,29 @@ Decisions recorded here for cheap veto:
   `flowBase = 3`, `flowSlopeStep = 1`, `flowSlopeDeltaCap = 5`; uphill
   stalls at Δ ≥ 3. The manual's numbers appendix must trace each to
   `ENGINE_CONSTANTS`.
+
+### v1.3 (2026-08-30) — Terrain smoothing + re-validated flow tuning (issue #30 scope extension)
+
+- **FR-008 amended**: the board description gains the per-match
+  `terrainSmoothing` setting (default 4, range 0–8) — what it does,
+  that 0 means no smoothing, and that hosts adjust it at match
+  creation. **FR-010 amended**: the numbers appendix gains the
+  `terrainSmoothing` row traceable to `DEFAULT_GENERATION_SETTINGS`
+  (feature 003 FR-010).
+- **Tuning values superseded** (feature 001 Clarifications v1.2):
+  `flowBase` rises 3 → 7 (stall threshold Δ ≥ 7); `flowSlopeStep = 1`,
+  `flowSlopeDeltaCap = 5` unchanged. The v1.2 Clarifications entry
+  above is superseded for the flow rows; the numbers appendix must
+  trace the new values to `ENGINE_CONSTANTS` per SC-002.
+- **Required manual-page updates (FR-012 — same change set as the
+  gameplay change)**: `docs/manual/the-board.md` (elevation-shading
+  section: downhill bonus / uphill handicap / stall, plus a
+  terrain-smoothing paragraph — what the setting does, default 4,
+  range 0–8, and that smoother maps have more viable cross-map
+  routes), `docs/manual/numbers.md` (flow rows updated to the v1.2
+  values + `terrainSmoothing` row), `docs/manual/pipes.md` (flow
+  table updated to the v1.2 rates), and `docs/manual/index.md`
+  (60-second version's terrain phrasing if it mentions roughness).
+  These pages land with the engine + terrain changes in the
+  implementation change set; this spec amendment is the requirement
+  record.

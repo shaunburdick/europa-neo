@@ -69,6 +69,7 @@ User-tunable knobs for the generator. All fields have safe defaults
 | `minCityWaterDistance` | `number` (int) | `3` | `[1, 6]` | Min Chebyshev distance from a city to any water cell (FR-005). |
 | `minCityCityDistance` | `number` (int) | `5` | `[2, 10]` | Min Chebyshev distance between any two cities (FR-005). |
 | `maxRegenAttempts` | `number` (int) | `5` | `[1, 10]` | Bounded retries on invalid output (FR-007). |
+| `terrainSmoothing` | `number` (int) | `4` | `[0, 8]` | Deterministic post-process smoothing passes over the elevation field (FR-010, Clarifications v1.3). `0` = no smoothing (pre-smoothing output, byte-identical); each pass reduces adjacent-cell elevation differences. Surfaced via `effectiveSettings`. |
 
 ### `SymmetryStrategy` (closed enum, v1 only allows `'point'`)
 
@@ -103,6 +104,11 @@ contract validator rejects anything else with a `GenerationError`.
   validation, and `effectiveSettings` (2p/4p requests are unaffected).
 - `minCityWaterDistance`, `minCityCityDistance`: clamped to safe ranges.
 - `maxRegenAttempts`: clamped to `[1, 10]`. Higher = wasteful retries.
+- `terrainSmoothing`: clamped to `[0, 8]` (integer). `0` = no smoothing
+  (byte-identical to pre-smoothing output); values above 8 are clamped
+  to 8. The pass is a pure function of the elevation field + setting —
+  no RNG consumption, no wall-clock — and preserves 180° point symmetry
+  exactly (FR-004/FR-010).
 - Out-of-range values are **clamped, not rejected**. The generator emits
   the clamped values in the `ValidationReport` so callers can see what
   was actually used.
@@ -110,9 +116,11 @@ contract validator rejects anything else with a `GenerationError`.
 ### Defaults are chosen for "out of the box playable"
 
 A 32×32 board with `waterRatio: 0.10`, `roughness: 0.5`, `octaves: 4`,
-`citiesPerPlayer: 1` produces a map that:
-- has 2–3 water pools (typical for 10% on a 32×32 board)
-- has elevation variance well above the SC-004 floor
+`citiesPerPlayer: 1`, `terrainSmoothing: 4` produces a map that:
+- has 2–3 water pools (typical for 10% on a 32×32 board; smoothing
+  improves contiguity — largest pool ≈ 3.7% of the board at the default)
+- has elevation variance well above the SC-004 floor (mean ≈ 394 at the
+  default vs 1054 unsmoothed; min over 200 seeds at k=8 is 89)
 - has 2 cities (1 per player for the 2-player default) at symmetric
   positions
 - passes all invariants in <100 ms (well under the SC-003 budget)
