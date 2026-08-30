@@ -67,8 +67,12 @@ type Terrain = 'land' | 'water';
 - Water cells reject all commands except `gun` (which damages but doesn't
   move troops there per FR-014).
 - Paratroop/gun/pipes into water fail validation (FR-002, edge cases).
-- Elevation difference between adjacent cells drives flow multipliers
-  (FR-007); values are signed: `destElev - srcElev`.
+- Elevation difference between adjacent cells drives the pipe flow rate
+  (FR-007); values are signed: `destElev - srcElev`. The per-tick rate is
+  `flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)` downhill,
+  `flowBase` flat, and `max(0, flowBase − flowSlopeStep × min(|Δ|,
+  flowSlopeDeltaCap))` uphill — integer math only, all constants from
+  `ENGINE_CONSTANTS` (Clarifications v1.1).
 
 ---
 

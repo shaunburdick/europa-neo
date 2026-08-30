@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-24
 
-**Last Updated**: 2026-08-25
+**Last Updated**: 2026-08-30
 
-**Version**: 1.1
+**Version**: 1.2
 
 **Status**: Implemented (2026-08-24)
 
@@ -111,7 +111,7 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 ### Edge Cases
 
 - What happens when gameplay changes make manual text stale? → FR-012 requires the manual to ride in the same change set as the gameplay change (constitution IV extended to player docs); the path-filtered workflow republishes on merge.
-- What if the original Europa's rules differ from ours? → The manual describes this implementation only; where tuning differs from the 1990s original (e.g., uphill pipe flow at v1 constants), the manual documents what ships.
+- What if the original Europa's rules differ from ours? → The manual describes this implementation only; where tuning differs from the 1990s original (e.g., the exact flow-rate gradient constants, which the original never documented numerically), the manual documents what ships.
 - Who hosts the matches players join? → Irrelevant to the manual: joining is described generically via links; hosting/self-hosting instructions stay out of scope (README territory).
 - Can a mobile or tablet player follow the manual? → v1 targets desktop browsers; the manual states this plainly rather than implying touch support.
 - Do colorblind readers have a path? → v1 ships a fixed four-color palette; the manual names the colors as shipped and does not promise alternatives.
@@ -129,11 +129,11 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 - **FR-003**: The manual MUST contain an objective section covering: victory by last-player-standing (a player is eliminated at zero troops AND zero cities), surrender (with its confirm step and transition to spectator view), and draw by mutual elimination.
 - **FR-004**: The manual MUST contain a getting-into-a-match section describing the v1 join flow: matches are reached via shareable join URLs carrying the match id (and optionally a per-seat reconnect token); display names identify seats; an unfilled match shows the waiting-for-opponent overlay until auto-start; reopening one's own link within the grace window reclaims the seat; disconnecting beyond the grace window forfeits.
 - **FR-005**: The manual MUST contain a controls reference whose every row matches the shipped input mapping exactly: pointer region targeting (left-click a cell's N/E/S/W region toggles a pipe toward that region; right-click or Alt+click issues an exclusive pipe replacing all pipes in the cell); keyboard equivalents i/j/k/l = north/west/south/east pipes, Alt+key = exclusive variants, Space = clear all pipes in the cell, p/h = paratroop, g/o = gun, 0–9 = reserves 0–90%, Escape = cancel, arrow keys = move selection; camera: mouse wheel zooms toward the cursor, middle-button drag pans; HUD buttons: order-bar Exclusive toggle and Clear-pipes, reserves slider + digit buttons, Surrender… with confirmation modal.
-- **FR-006**: The manual MUST explain each mechanic in plain language with the shipped behavior: cities produce troops every tick until saturated and are capturable; land cells hold up to four directional pipes; slope matters (downhill flows, uphill moves nothing at v1 tuning); unfed stacks decay −1 troop per tick while mutually-fed pairs sustain indefinitely; cells cap at capacity; combat is attrition (equal forces trade equally; the larger side eliminates the smaller and keeps the difference); paratroopers cost 2 troops per 1 landed, fly at most 2 cells (Chebyshev), clear the destination's pipes, and cannot target water; guns cost troops and damage everything in the target cell at resolution time — friendly fire included; reserves hold a percentage (0–90% in 10% steps) back from outflow.
+- **FR-006**: The manual MUST explain each mechanic in plain language with the shipped behavior: cities produce troops every tick until saturated and are capturable; land cells hold up to four directional pipes; slope matters — flow rate is a gradient of the elevation change, downhill pipes flow faster than flat, uphill pipes flow slower, and steep uphill stalls at 0 (exact rates in the numbers appendix, FR-010); unfed stacks decay −1 troop per tick while mutually-fed pairs sustain indefinitely; cells cap at capacity; combat is attrition (equal forces trade equally; the larger side eliminates the smaller and keeps the difference); paratroopers cost 2 troops per 1 landed, fly at most 2 cells (Chebyshev), clear the destination's pipes, and cannot target water; guns cost troops and damage everything in the target cell at resolution time — friendly fire included; reserves hold a percentage (0–90% in 10% steps) back from outflow.
 - **FR-007**: The manual MUST explain fog of war as implemented: vision extends a fixed radius (4 cells, Chebyshev) around each of your stacks, unioned across stacks; enemies appear only inside your horizon; there is no memory — abandoned ground goes dark again; spectators see the whole board but cannot issue orders.
 - **FR-008**: The manual MUST describe the board: square grid (default 32×32), elevation-shaded terrain, impassable water pools, and fair maps — point-symmetric terrain with equal starting cities per player and guaranteed land routes between them.
 - **FR-009**: The manual MUST contain a reading-the-screen guide covering every console status value (`idle`, `connecting`, `live`, `reconnecting`, `expired`, `spectating`, `game_over`) in plain language, plus the tick counter, minimap navigation, order bar, reserves panel, transient feedback messages, waiting-for-opponent overlay, reconnecting banner, surrender modal, and the end-of-match announcement.
-- **FR-010**: The manual MUST include a numbers appendix table listing every player-facing tunable exactly as shipped (engine constants, tick cadence of 250 ms ≈ 4 ticks/second, default board size, vision radius, per-player colors, camera zoom bounds), each traceable to `ENGINE_CONSTANTS` / shipped defaults.
+- **FR-010**: The manual MUST include a numbers appendix table listing every player-facing tunable exactly as shipped (engine constants, tick cadence of 250 ms ≈ 4 ticks/second, default board size, vision radius, per-player colors, camera zoom bounds), each traceable to `ENGINE_CONSTANTS` / shipped defaults. The pipe-flow rows MUST list `flowBase`, `flowSlopeStep`, `flowSlopeDeltaCap`, and the resulting per-tick rates for downhill, flat, uphill, and stalled pipes (feature 001 FR-007, Clarifications v1.1).
 - **FR-011**: The manual itself MUST be accessible: semantic Markdown rendered to semantic HTML (one h1 per page, hierarchical headings, tables with header rows, alt text on any image, descriptive link text), readable and navigable without JavaScript.
 - **FR-012**: Any change set that alters gameplay behavior documented by the manual MUST update the manual in the same change set (constitution IV "specs stay truthful," extended to player-facing docs).
 - **FR-017**: The manual index page (`docs/manual/index.md`) MUST close with a footer line stating the application version the manual documents (e.g., "*This manual documents Europa Neo v0.0.1.*"); the version string MUST stay in lockstep with the shipped `APP_VERSION` (enforced by feature 009-shared-app-versioning's drift check), and version-bearing updates ride in the same change set as the change that moves them (FR-012 discipline).
@@ -191,9 +191,9 @@ The manual consists of these pages under `docs/manual/` (one-line purpose each):
 | 1 | `index.md` | Welcome, 60-second game concept, table of contents linking every page, version footer |
 | 2 | `quick-start.md` | From link to first orders: opening a join URL, display name, waiting overlay, first safe things to try |
 | 3 | `objective.md` | How to win, how players are eliminated, surrendering, draws |
-| 4 | `the-board.md` | Grid, elevation shading, impassable water, fair symmetric maps |
+| 4 | `the-board.md` | Grid, elevation shading and its effect on pipe flow, impassable water, fair symmetric maps |
 | 5 | `cities-and-troops.md` | City production, saturation caps, capturing enemy cities |
-| 6 | `pipes.md` | Region targeting, four directions, exclusive mode, slope effects, feeding and decay |
+| 6 | `pipes.md` | Region targeting, four directions, exclusive mode, slope gradient (downhill bonus / uphill handicap / stall), feeding and decay |
 | 7 | `combat.md` | Attrition in plain language, when to attack, mutual-feeding stalemates |
 | 8 | `special-weapons.md` | Paratroopers (cost, range, pipe-cutting) and guns (cost, damage, friendly fire) |
 | 9 | `reserves.md` | Holding troops in place, why reserves beat hoarding in open cells |
@@ -233,3 +233,27 @@ Decisions recorded here for cheap veto:
   (feature 009 FR-009), so the footer stays mechanically honest
   instead of vigilance-maintained; FR-012's same-change-set rule
   governs every future bump that moves it.
+
+### v1.2 (2026-08-30) — Elevation-gradient pipe flow (issue #30)
+
+- **FR-006 amended**: the slope explanation moves from "downhill flows,
+  uphill moves nothing at v1 tuning" to the gradient model — downhill
+  faster than flat, uphill slower, steep uphill stalls at 0. **FR-010
+  amended** to require the flow-rate rows (`flowBase`, `flowSlopeStep`,
+  `flowSlopeDeltaCap`, per-tick rates) in the numbers appendix,
+  auditable against `ENGINE_CONSTANTS` per SC-002.
+- **Required manual-page updates (FR-012 — same change set as the
+  gameplay change)**: `docs/manual/pipes.md` (flow table and the
+  "classic new-player trap" section rewritten for the gradient; stalled
+  pipes documented as visible hollow triangles per feature 005 FR-013),
+  `docs/manual/numbers.md` (flow rows replaced with the new constants
+  and rates), `docs/manual/index.md` (60-second version's "downhill
+  pipes flow while uphill pipes sit idle" → gradient phrasing), and
+  `docs/manual/the-board.md` (elevation-shading section: downhill
+  bonus / uphill handicap / stall). These pages land with the engine
+  change in the implementation change set; this spec amendment is the
+  requirement record.
+- **Tuning values** (from feature 001 Clarifications v1.1):
+  `flowBase = 3`, `flowSlopeStep = 1`, `flowSlopeDeltaCap = 5`; uphill
+  stalls at Δ ≥ 3. The manual's numbers appendix must trace each to
+  `ENGINE_CONSTANTS`.

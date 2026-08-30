@@ -23,7 +23,8 @@ As a player, I want the server to advance the game on fixed ticks — cities pro
 1. **Given** a city cell with 0 troops, **When** 10 ticks elapse, **Then** the city contains `10 × productionRate` troops (bounded by saturation capacity).
 2. **Given** a saturated city with an eastward pipe into an empty cell, **When** ticks elapse, **Then** troops accumulate in the destination cell while the source stays at capacity.
 3. **Given** identical initial state and identical ordered command lists, **When** the simulation runs twice for N ticks, **Then** both runs produce bit-identical state.
-4. **Given** a downhill pipe (destination elevation < source), **When** troops flow, **Then** more troops move per tick than across flat terrain; uphill pipes move fewer.
+4. **Given** a downhill pipe (destination elevation < source), **When** troops flow, **Then** more troops move per tick than across flat terrain, and the bonus scales with the elevation change; uphill pipes move fewer, and the handicap scales with the elevation change.
+5. **Given** an uphill pipe whose elevation change reaches the stall threshold (`flowBase / flowSlopeStep`), **When** troops flow, **Then** the destination gains 0 troops (stall) and the pipe remains laid and legal.
 
 ---
 
@@ -99,6 +100,7 @@ As a player, I want the game to declare a winner when all opponents surrender or
 - What happens when paratroopers land in a water cell? → The launch fails validation; troops are not spent.
 - What happens when reserves exceed current troop count? → All troops are held; nothing flows out.
 - What happens when a gun hits a cell whose occupants changed between order and tick? → Damage applies to occupants present at resolution time (tick-time snapshot).
+- What happens when an uphill pipe's handicap reaches or exceeds the base flow? → Flow is floored at 0 (stall); the pipe remains laid and legal, and the console renders it with the stalled indicator (feature 005 FR-013).
 
 ## Requirements *(mandatory)*
 
@@ -110,7 +112,7 @@ As a player, I want the game to declare a winner when all opponents surrender or
 - **FR-004**: Cities MUST produce troops each tick until the cell reaches its saturation capacity; production rate and capacity MUST be tunable constants.
 - **FR-005**: Cities MUST be capturable: when a city cell's occupying troops belong to an enemy, ownership transfers to that enemy.
 - **FR-006**: Each land cell MUST support up to four directional pipes (N/E/S/W); players MAY set any combination, and MAY set a single mutually-exclusive direction replacing all others.
-- **FR-007**: Each tick, every cell with outgoing pipes MUST transfer troops along each pipe, modified by slope: downhill transfers more than flat, uphill fewer (tunable slope factors).
+- **FR-007**: Each tick, every cell with outgoing pipes MUST transfer troops along each pipe at a rate determined by the elevation change between source and destination (integer arithmetic only): downhill pipes move `flowBase + flowSlopeStep × min(|Δelev|, flowSlopeDeltaCap)` troops, flat pipes move `flowBase` troops, and uphill pipes move `max(0, flowBase − flowSlopeStep × min(|Δelev|, flowSlopeDeltaCap))` troops, where `Δelev = destElev − srcElev` and `flowBase`, `flowSlopeStep`, and `flowSlopeDeltaCap` are tunable constants. An uphill pipe whose handicap reaches `flowBase` MUST move 0 troops (stall); a stalled pipe is a legal, persistent state, not an error.
 - **FR-008**: When troops of different owners would occupy the same cell after flow, the engine MUST resolve combat as attrition: equal numbers cause equal losses; a numerically superior force eliminates the smaller and retains the difference (subject to tuning constants).
 - **FR-009**: Troops in a cell with no incoming pipe flow MUST lose exactly 1 troop per tick (decay); cells receiving flow from any friendly source are exempt.
 - **FR-010**: Two cells feeding each other via opposing pipes MUST sustain both stacks indefinitely without city supply.
@@ -149,7 +151,18 @@ As a player, I want the game to declare a winner when all opponents surrender or
 ## Assumptions
 
 - Board size defaults to 32×32 (matching the original's tile palette scale) but is configurable per match.
-- Exact numeric values not documented by the original (production rate, capacities, gun cost/damage, slope factors) will be chosen as sensible defaults during planning and exposed as tunable constants; none require product clarification to start.
+- Exact numeric values not documented by the original (production rate, capacities, gun cost/damage, slope gradient constants `flowBase`/`flowSlopeStep`/`flowSlopeDeltaCap`) will be chosen as sensible defaults during planning and exposed as tunable constants; none require product clarification to start.
 - Terrain is static within a match (no terraforming).
 - The engine is a pure library: no I/O, no clocks, no networking — those live in features 004/006.
 - v1 targets 2-player matches end-to-end; 3–4 player support is required by the engine API but may receive lighter integration testing initially.
+
+## Clarifications
+
+### v1.1 (2026-08-30) — Elevation-gradient pipe flow (issue #30)
+
+- **FR-007 rewritten** from the binary slope model (downhill = flat = `flowBase`, uphill = 0) to the elevation-gradient model: flow rate is a linear function of the elevation change, floored at 0 for uphill. The original game's rules are qualitative only — "troop flow is assisted and impeded by the terrain—troops will flow easily down a hill, but not so easily up a hill" (`europa-source/.../rules.html`) and "Its easy to go down a hill, but much more difficult to come up" (`strategy.html`) — no original numbers exist, so the tuning below is this spec's decision.
+- **Tuning (resolves open question 1)**: `flowBase = 3`, `flowSlopeStep = 1`, `flowSlopeDeltaCap = 5`. Effective delta is `min(|Δelev|, flowSlopeDeltaCap)`. Resulting per-tick rates: downhill 4/5/6/7/8 (Δ = 1/2/3/4/≥5), flat 3, uphill 2 (Δ = 1), 1 (Δ = 2), 0 (Δ ≥ 3 — stall). `flowBase` rises from 1 to 3 per the issue's proposal — a deliberate 3× pace increase on flat flow, documented in the player manual. The cap bounds the downhill bonus at 2.7× flat and prevents extreme cliffs (observed adjacent-cell deltas reach ~106 on generated terrain) from becoming capacity-filling superhighways.
+- **Terrain-roughness finding (grounds the tuning)**: an empirical sample of the shipped terrain generator (200 seeds × 32×32, 396,800 adjacent edges, replicating `fbm.ts` exactly) shows adjacent-cell elevation deltas are large — near-uniform across |Δ| = 1..50, max 106 — so 93% of uphill edges have Δ ≥ 3 and stall under this tuning. The uphill gradient is therefore visible mainly on gentle slopes (Δ 1–2); the downhill bonus is visible everywhere. Terrain smoothing would be a separate balance change and is out of scope (recorded for a future issue).
+- **Contract change (breaking, internal)**: `EngineConstants` replaces `flowDownhillFactor`/`flowUphillFactor` with `flowSlopeStep`/`flowSlopeDeltaCap` — the multiplicative-factor model is gone. Both contract mirrors (`packages/engine/src/contracts/engine-api.ts` and `specs/001-core-game-engine/contracts/engine-api.ts`) MUST be updated in the implementation change set; the engine conformance suite fails until both are in sync. Existing tests asserting the multiplicative model (`tests/unit/flow.test.ts` `TEST_CONSTANTS`, `tests/quickstart/slope-flow.test.ts` comments and expected-value derivation) MUST be updated in the same change set.
+- **Open question 3 ruling — no rebalance**: the flow-rate change does not warrant rebalancing in this change set. Most uphill edges still stall (ridges remain mostly impassable), the downhill bonus is bounded and symmetric (point-symmetric maps guarantee both players face identical terrain), and the flat-flow pace increase affects both players equally. All values remain tunable in `ENGINE_CONSTANTS`; a follow-up balance issue can adjust them if playtesting shows elevation is now too dominant.
+- **Product decisions taken as given** (from issue #30): steep uphill may stall at 0 flow; a stalled pipe must be visually distinct in the console (feature 005 FR-013).
