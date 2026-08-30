@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
     CONSTANT_SOURCE_FILE,
+    DOCS_CONFIG_VERSION_PATTERN,
     formatMismatchLine,
     gatherVersionSources,
     MANUAL_INDEX_FOOTER_PATTERN,
@@ -125,6 +126,7 @@ async function seedAgreeingTree(root: string, version: string): Promise<void> {
         path.join(root, 'DESIGN.md'),
         `# Fixture design system\n\n> **Version**: \`${version}\` <!-- Version: ${version} -->\n\nSome body text.\n`,
     );
+    await writeFile(path.join(root, 'docs', 'manual', '_config.yml'), `# Fixture manual config\nversion: ${version}\n`);
 }
 
 /** Directories created by the current test; removed after each test. */
@@ -158,6 +160,7 @@ describe('drift check against the REAL repository (positive lockstep proof)', ()
         expect(sources.filter((source) => source.kind === 'readme')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'manual-index')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'design-md')).toHaveLength(1);
+        expect(sources.filter((source) => source.kind === 'docs-config')).toHaveLength(1);
     });
 
     it('every real surface agrees with APP_VERSION — checker reports ok (SC-001 restore direction)', async () => {
@@ -171,9 +174,11 @@ describe('drift check against the REAL repository (positive lockstep proof)', ()
         const { readFile } = await import('node:fs/promises');
         const readme = await readFile(path.join(REPO_ROOT, 'README.md'), 'utf8');
         const manualIndex = await readFile(path.join(REPO_ROOT, 'docs/manual/index.md'), 'utf8');
+        const docsConfig = await readFile(path.join(REPO_ROOT, 'docs/manual/_config.yml'), 'utf8');
 
         expect(README_RELEASE_LINE_PATTERN.exec(readme)?.[1]).toBe(APP_VERSION);
         expect(MANUAL_INDEX_FOOTER_PATTERN.exec(manualIndex)?.[1]).toBe(APP_VERSION);
+        expect(DOCS_CONFIG_VERSION_PATTERN.exec(docsConfig)?.[1]).toBe(APP_VERSION);
     });
 
     it('the spawned CLI exits 0 silently against the real repo root', () => {
@@ -274,6 +279,18 @@ describe('spawned CLI against temp fixture trees (SC-001 both directions)', () =
         );
     });
 
+    it('a stale docs/manual/_config.yml version exits 1 naming that file (spec 012 addendum T-033, FR-025)', async () => {
+        const root = await trackedFixtureRoot('stale-docs-config');
+        await seedAgreeingTree(root, APP_VERSION);
+        await writeFile(path.join(root, 'docs', 'manual', '_config.yml'), '# Fixture manual config\nversion: 9.9.9\n');
+
+        const result = runCli(['--root', root], REPO_ROOT);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr.match(/mismatch:/g)).toHaveLength(1);
+        expect(result.stderr).toContain(`mismatch: docs/manual/_config.yml expected ${APP_VERSION} but found 9.9.9`);
+    });
+
     it('simultaneous mismatches name EVERY offender in deterministic gather order (FR-009)', async () => {
         const root = await trackedFixtureRoot('multi-drift');
         await seedAgreeingTree(root, APP_VERSION);
@@ -330,6 +347,7 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
             'README.md',
             'docs/manual/index.md',
             'DESIGN.md',
+            'docs/manual/_config.yml',
         ]);
         expect(sources.every((source) => source.version === APP_VERSION)).toBe(true);
     });

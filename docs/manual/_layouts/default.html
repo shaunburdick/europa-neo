@@ -18,5 +18,18 @@
 -->
 <body class="europa-page europa-stack">
   {{ content }}
+  <!--
+    Branded footer (spec 012 addendum T-032, FR-024 / FR-026 / FR-027):
+    present on every manual page because this layout wraps `{{ content }}`.
+    Styled with `europa-*` design tokens only (no hardcoded color literals —
+    the design-system no-literals guard scans docs/manual). The version comes
+    from `{{ site.version }}` (docs/manual/_config.yml), which the shared
+    version-drift check guards against APP_VERSION (FR-025).
+  -->
+  <footer style="margin-top: var(--europa-spacing-lg); padding: var(--europa-spacing-md) var(--europa-spacing-lg); border-top: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border); background-color: var(--europa-color-surface); color: var(--europa-color-text-muted); font-family: var(--europa-typography-font-stack); font-size: var(--europa-typography-size-xs); display: flex; flex-wrap: wrap; gap: var(--europa-spacing-sm); align-items: center;">
+    <span>Europa Neo</span>
+    <span>{{ site.version }}</span>
+    <a href="https://github.com/shaunburdick/europa-neo" style="color: var(--europa-color-accent); text-decoration: underline;">GitHub</a>
+  </footer>
 </body>
 </html>

@@ -19,6 +19,9 @@
  * - `readme` / `manual-index`: the human-facing documentation lines.
  * - `design-md`: the `DESIGN.md` version header (spec 012 FR-020 / G-06) —
  *   the living design contract must stay in lockstep with `APP_VERSION`.
+ * - `docs-config`: the `version:` key in `docs/manual/_config.yml` (spec 012
+ *   addendum T-033, FR-025) — the manual's version surface, rendered by the
+ *   branded footer via `{{ site.version }}` and guarded against `APP_VERSION`.
  */
 export type VersionSourceKind =
     | 'root-package'
@@ -26,7 +29,8 @@ export type VersionSourceKind =
     | 'constant'
     | 'readme'
     | 'manual-index'
-    | 'design-md';
+    | 'design-md'
+    | 'docs-config';
 
 /** One extracted version observation handed to {@link checkVersionDrift}. */
 export interface VersionSource {

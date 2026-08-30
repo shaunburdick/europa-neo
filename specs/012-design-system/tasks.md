@@ -270,6 +270,33 @@
 
 ---
 
+## Phase 9: Branded Footer (sidecar addendum, PR #31)
+
+**Purpose**: product-owner follow-up — app name + version + GitHub link on every UI view and every manual page. Reuses the `@europa/design` catalog (the reason it rides in PR #31). Added to spec 012 as an addendum (FR-023..FR-027, SC-009..SC-012) rather than a new spec.
+
+- [x] **T-031 — Branded footer on every console view**
+  - **Description**: Create a shared `BrandedFooter` component in `packages/console/src/ui/` that renders "Europa Neo", `APP_VERSION` (imported from `@europa/version`), and a link to `https://github.com/shaunburdick/europa-neo`. Style with `europa-*` classes / `var(--europa-*)` tokens only (no hardcoded literals). Mount it in every top-level view: lobby (`lobby-landing.tsx`), match/HUD (`App.tsx`), waiting overlay (`waiting-overlay.tsx`), and any other root view. Consolidate the existing HUD version line at `App.tsx:397` into this shared footer so no duplicate version strings appear.
+  - **Acceptance**: Every top-level view renders exactly one branded footer with app name + version + GitHub link; `check:no-literals` passes; a component/a11y test asserts presence on lobby + match; `prefers-reduced-motion` respected.
+  - **Files**: `packages/console/src/ui/branded-footer.tsx` (new), `packages/console/src/lobby-landing.tsx`, `packages/console/src/App.tsx`, `packages/console/src/ui/waiting-overlay.tsx`, and any other root view.
+  - **Depends on**: — (can run alongside T-032/T-033).
+  - **Traces**: FR-023, FR-026, FR-027, SC-009, SC-012.
+
+- [x] **T-032 — Branded footer in manual layout**
+  - **Description**: Add a `<footer>` to `docs/manual/_layouts/default.html` after `{{ content }}`, using `europa-*` classes / `var(--europa-*)` tokens, rendering "Europa Neo", `{{ site.version }}`, and the GitHub link `https://github.com/shaunburdick/europa-neo`. Present on every page (shared layout). Keep the existing `index.md` version line intact (separate surface for the version-drift guard).
+  - **Acceptance**: Built manual `_site` HTML contains a `<footer>` on every page with app name + version + GitHub link; no hardcoded color literals; structural validation confirms link + version resolve.
+  - **Files**: `docs/manual/_layouts/default.html`.
+  - **Depends on**: T-033 (for `{{ site.version }}` to resolve) — can land together.
+  - **Traces**: FR-024, FR-026, FR-027, SC-010, SC-012.
+
+- [x] **T-033 — Wire `_config.yml` version + extend version-drift guard**
+  - **Description**: Add `version: 0.1.0` to `docs/manual/_config.yml`. Extend `packages/version/scripts/gather-version-sources.ts` to read this `version` key as a new surface (`kind: 'docs-config'`), and add `docs/manual/_config.yml` to `version-drift.yml` `on.push/pull_request.paths`. Ensure `pnpm version:check` passes with the new surface in lockstep at `0.1.0`.
+  - **Acceptance**: `pnpm version:check` exits 0 with `_config.yml` included; mutating `_config.yml` version alone fails the check naming the file; `version-drift.yml` paths include `docs/manual/_config.yml`.
+  - **Files**: `docs/manual/_config.yml`, `packages/version/scripts/gather-version-sources.ts`, `.github/workflows/version-drift.yml`.
+  - **Depends on**: — (can run alongside T-031/T-032).
+  - **Traces**: FR-025, SC-011.
+
+---
+
 ## Dependencies & Parallelization Summary
 
 ```
@@ -332,6 +359,11 @@ T-007+T-016 ── T-030 (manual catalog adoption, PO option 1) — post-trim ad
 | FR-020 lockstep `DESIGN.md` + version:check | T-004, T-020 |
 | FR-021 build ordering | T-002, T-024, T-016 |
 | FR-022 biome + workflow `paths:` | T-003, T-025, T-026, T-027 |
+| FR-023 UI footer every view | T-031 |
+| FR-024 docs footer every page | T-032 |
+| FR-025 docs version from `_config.yml` + drift guard | T-033 |
+| FR-026 token-only styling | T-031, T-032 |
+| FR-027 GitHub link both | T-031, T-032 |
 
 ---
 
@@ -352,4 +384,5 @@ T-007+T-016 ── T-030 (manual catalog adoption, PO option 1) — post-trim ad
 * [ ] Catalog composability — two-smoke test (React + HTML) renders the same treatment per class without custom CSS
 * [ ] `DESIGN.md` is authoritative — version header, token tables, catalog entries, a11y table, and rules sections are all present; `packages/design/README.md` links to the root contract and carries no competing tables
 * [ ] Workflows — `client-ci.yml`, `pages-deploy.yml`, `version-drift.yml` path filters and job steps match the spec path tables; no widening of Pages artifact scope
+* [ ] Branded footer (Addendum) — every console top-level view renders one footer with "Europa Neo" + `APP_VERSION` + GitHub link (component/a11y test); every built manual page has a `<footer>` with app name + `{{ site.version }}` + GitHub link; `pnpm version:check` includes `docs/manual/_config.yml` version; `check:no-literals` passes for both footers (SC-009..SC-012)
 

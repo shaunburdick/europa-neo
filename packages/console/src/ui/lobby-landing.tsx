@@ -36,6 +36,7 @@ import { useEffect, useRef } from 'react';
 import type { LiveRegionAnnouncer } from '../a11y/live-region';
 import type { LobbyState } from '../state/lobby-state';
 import type { MatchId } from '../state/types';
+import { BrandedFooter } from './branded-footer';
 import { LobbyCreateForm, type LobbyCreateFormValues } from './lobby-create-form';
 import { LobbyIdentityCard } from './lobby-identity-card';
 import { connectionLabel, describeSnapshotChange } from './lobby-labels';
@@ -256,6 +257,10 @@ export function LobbyLanding({
                     />
                 </div>
             </main>
+            {/* Branded footer (spec 012 addendum T-031, FR-023): the single
+           shared home for the app name + version + GitHub link, mounted at
+           the lobby view root so it appears on every landing state. */}
+            <BrandedFooter />
         </>
     );
 }

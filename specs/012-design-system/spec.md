@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-30
 
-**Status**: Implemented (2026-08-30)
+**Status**: Implemented (2026-08-30) — with in-progress Addendum (branded footer, PR #31)
 
 **GitHub Issue**: #25
 
@@ -254,6 +254,43 @@ As a contributor building a new UI surface — whether a React view in the conso
 - **Tokens allow future light variant**: by fixing variable and class names and making values the variable part, a later light theme is `html[data-theme="light"] { --europa-color-bg-*: ... }` (or an equivalent redefinition) with no renames. This feature does not ship the light block — it only guarantees the shape admits it.
 - **Contrast encoding is normative, not advisory**: every token-table color pairing states its ratio (`≈ 16.98:1`, `≈ 6.99:1`, etc.) and its AA target. The pairs are asserted by a test that reads computed styles — a comment claiming AA is not the proof.
 - **Versioning lockstep includes `DESIGN.md`**: the header in `DESIGN.md` is part of the `version:check` surface per FR-020 — a drift there fails like any package version drift. First value is the current lockstep `0.1.0` (not `0.0.1`; that era's first-lockstep choice was already superseded by FR-010's bump convention and is now the stable lockstep value).
+
+## Addendum — Branded Footer (sidecar, in PR #31)
+
+A product-owner follow-up to the design system: ensure the app name, version, and GitHub link appear on **every** page of both the UI and the documentation. This reuses the `@europa/design` catalog (it is the reason the sidecar rides in PR #31) and adds no new visual language.
+
+### User Story (Priority: P1)
+
+As a player or manual reader, I want every console view and every manual page to show a small footer with "Europa Neo", the current version, and a link to the GitHub repository, so the build is self-identifying everywhere without hunting through menus.
+
+**Independent Test**: Load the lobby and a match view and assert a footer with app name + version + GitHub link exists in each; build the manual and assert every page's rendered HTML contains the same footer.
+
+**Acceptance Scenarios**:
+1. **Given** the console lobby/match/waiting views render, **When** each mounts, **Then** exactly one footer shows "Europa Neo", `APP_VERSION` (from `@europa/version`), and `https://github.com/shaunburdick/europa-neo`.
+2. **Given** any manual page renders via Jekyll, **When** the layout wraps `{{ content }}`, **Then** a `<footer>` shows "Europa Neo", `{{ site.version }}`, and the GitHub link.
+3. **Given** either footer renders, **When** inspected, **Then** it uses only `europa-*` classes / `var(--europa-*)` tokens (no hardcoded color literals) and respects `prefers-reduced-motion`.
+
+### Functional Requirements (addendum)
+
+- **FR-023**: The console MUST render a branded footer on every top-level view (lobby, match/HUD, waiting overlay, and any other root view) containing "Europa Neo", the current `APP_VERSION` (from `@europa/version`), and a link to `https://github.com/shaunburdick/europa-neo`.
+- **FR-024**: The documentation MUST render a branded `<footer>` on every page (via `_layouts/default.html`) containing "Europa Neo", the version from `{{ site.version }}`, and the GitHub link.
+- **FR-025**: The docs version MUST be sourced from `docs/manual/_config.yml` `version:` and MUST be included as a surface in the shared version-drift check (lockstep with `APP_VERSION` and `DESIGN.md`).
+- **FR-026**: Both footers MUST use only `europa-*` classes / `var(--europa-*)` design tokens (no hardcoded color literals), per the design-system contract (FR-009/FR-010).
+- **FR-027**: The GitHub link MUST point to `https://github.com/shaunburdick/europa-neo` in both footers.
+
+### Success Criteria (addendum)
+
+- **SC-009**: Every console top-level view contains exactly one branded footer with app name + version + GitHub link (asserted by a component/a11y test).
+- **SC-010**: Every built manual page contains a `<footer>` with app name + version + GitHub link (structural check).
+- **SC-011**: `pnpm version:check` passes with `_config.yml` version included as a surface (no drift).
+- **SC-012**: `check:no-literals` passes (no hardcoded color literals introduced in either footer).
+
+### Assumptions (addendum)
+
+- The design system `@europa/design` is already implemented and vendored into the manual (this PR); footers reuse `europa-*` classes.
+- `APP_VERSION` is reliably available in the console bundle via `@europa/version`.
+- Jekyll is not installed in the dev environment; docs footer validation is structural (same pattern as T-016), with live Pages deploy as final visual proof.
+- This addendum ships inside PR #31 on branch `issue-25-design-system`; it does not alter the core 012 Implemented status beyond this tracked addition.
 
 ## Constitution Alignment
 

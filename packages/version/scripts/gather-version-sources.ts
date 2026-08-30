@@ -28,6 +28,11 @@
  *    {@link DESIGN_VERSION_PATTERN} (spec 012 FR-020 / G-06). The design
  *    contract is a guarded surface so a stale header fails CI naming the
  *    file, exactly like any package version drift.
+ * 7. `<root>/docs/manual/_config.yml` — the `version:` key pinned by
+ *    {@link DOCS_CONFIG_VERSION_PATTERN} (spec 012 addendum T-033, FR-025).
+ *    The manual's version surface, rendered by the branded footer via
+ *    `{{ site.version }}`; a stale value fails CI naming the file, exactly
+ *    like any package version drift.
  *
  * ## How the constant resolves under `--root` fixtures
  *
@@ -93,6 +98,15 @@ export const MANUAL_INDEX_FOOTER_PATTERN = /^\*This manual documents Europa Neo 
  * marker defined in `specs/012-design-system/contracts/design-system.contract.md`.
  */
 export const DESIGN_VERSION_PATTERN = /Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/m;
+
+/**
+ * `docs/manual/_config.yml` `version:` key (spec 012 addendum T-033,
+ * FR-025): `version: 0.1.0`. Capture group 1 is the raw semver WITHOUT any
+ * display prefix, ready for direct equality comparison against `APP_VERSION`.
+ * The pattern tolerates an optional trailing `# comment` so a documented
+ * `version:` line still pins the value.
+ */
+export const DOCS_CONFIG_VERSION_PATTERN = /^version:\s*(\d+\.\d+\.\d+)\s*(?:#.*)?$/m;
 
 /** The only field this package cares about in a parsed `package.json`. */
 interface PackageJsonShape {
@@ -252,6 +266,11 @@ export async function gatherVersionSources(rootDir: string, constantVersion: str
     );
     sources.push(
         await readSurface(rootDir, 'DESIGN.md', 'design-md', (raw) => extractDocVersion(raw, DESIGN_VERSION_PATTERN)),
+    );
+    sources.push(
+        await readSurface(rootDir, 'docs/manual/_config.yml', 'docs-config', (raw) =>
+            extractDocVersion(raw, DOCS_CONFIG_VERSION_PATTERN),
+        ),
     );
 
     return sources;

@@ -10,6 +10,13 @@
 # The `source: ./docs/manual` scope of `.github/workflows/pages-deploy.yml` is
 # untouched — this file lives inside `docs/manual`, so the Pages artifact scope
 # remains exactly the manual tree (FR-013).
+#
+# `version:` (spec 012 addendum T-033, FR-025) is the manual's version surface
+# for the shared version-drift check: it MUST stay in lockstep with
+# `APP_VERSION` (0.1.0) and is guarded by `pnpm version:check` as a
+# `docs-config` source. The branded footer (`_layouts/default.html`) renders
+# `{{ site.version }}` from this key.
+version: 0.1.0
 defaults:
   - scope:
       path: ""

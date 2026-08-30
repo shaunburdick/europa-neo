@@ -1,22 +1,23 @@
 /**
- * HUD version footer component tests — feature 009 (T-005, SC-004).
+ * Branded footer component tests — spec 012 addendum (T-031, FR-023 /
+ * FR-026 / FR-027).
  *
- * SC-004 read through the Clarifications v1.0 presentation ruling:
- * the HUD's visible text carries `` `v${APP_VERSION}` `` as REAL DOM
- * text (not canvas, not a title attribute). The assertion imports
- * `APP_VERSION` from `@europa/version` rather than hard-coding
- * `'0.0.0'` so the lockstep bump (T-010) cannot stale this suite.
+ * The app name + version + GitHub link now live in ONE shared
+ * `BrandedFooter` mounted at the App view root (the former HUD
+ * `v${APP_VERSION}` span was consolidated into it — FR-023: no duplicate
+ * version string on a view). The assertions import `APP_VERSION` from
+ * `@europa/version` rather than hard-coding `'0.0.0'` so the lockstep bump
+ * cannot stale this suite.
  *
  * Coverage here:
- *   - the version span renders inside the labelled status bar
- *     (`#hud[aria-label="Status bar"]`) in every connection state —
- *     idle boot, live match, and reconnecting — because it derives
- *     from the bundled constant, not from connection state (works on
- *     the serverless `/` demo too, per spec Edge Cases);
- *   - it is a plain, non-interactive `<span>`: no tabindex, no
- *     pointer/keyboard interception (FR-007);
- *   - axe coverage for contrast/DOM-text lives in the a11y suite,
- *     which scans this same mounted App.
+ *   - the footer renders inside the mounted App in every connection state —
+ *     idle boot, live match, and reconnecting — because it derives from the
+ *     bundled constant, not from connection state;
+ *   - it carries the app name, the v-prefixed `APP_VERSION` as REAL DOM
+ *     text, and a GitHub link pointing at the canonical repository;
+ *   - the footer is a `<footer>` landmark; the only interactive element is
+ *     the external link (proper `rel`/`target`), so the footer itself
+ *     intercepts no pointer/keyboard input.
  *
  * Runs in Vitest Browser Mode per vitest.config.browser.ts.
  */
@@ -39,21 +40,17 @@ async function bootWithState(state: ConsoleState) {
     return render(createElement(App, { state }));
 }
 
-/** The HUD's version element, scoped to the labelled status bar. */
-function hudVersion(): HTMLElement {
-    const hud = document.querySelector('#hud[aria-label="Status bar"]');
-    if (hud === null) {
-        throw new Error('HUD status bar not mounted');
+/** The branded footer element mounted by the App. */
+function brandedFooter(): HTMLElement {
+    const footer = document.querySelector('footer');
+    if (!(footer instanceof HTMLElement)) {
+        throw new Error('branded footer not mounted');
     }
-    const version = hud.querySelector('.europa-hud__version');
-    if (!(version instanceof HTMLElement)) {
-        throw new Error('version footer not mounted inside #hud');
-    }
-    return version;
+    return footer;
 }
 
-describe('HUD version footer (feature 009 T-005, SC-004)', () => {
-    test('renders the v-prefixed APP_VERSION as real DOM text in the status bar (live state)', async () => {
+describe('Branded footer (spec 012 addendum T-031, FR-023)', () => {
+    test('renders app name, v-prefixed APP_VERSION, and GitHub link in the live state', async () => {
         const view = buildPlayerView({
             width: 10,
             height: 10,
@@ -72,28 +69,38 @@ describe('HUD version footer (feature 009 T-005, SC-004)', () => {
         });
         await bootWithState(createLiveConsoleState(view));
 
-        const version = hudVersion();
-        // Exact visible text — v-prefixed bundled constant (Clarifications
-        // presentation ruling), asserted against the imported constant so
-        // T-010's bump survives without editing this file.
-        expect(version.textContent).toBe(`v${APP_VERSION}`);
+        const footer = brandedFooter();
+        expect(footer.textContent).toContain('Europa Neo');
+        expect(footer.textContent).toContain(`v${APP_VERSION}`);
+        const link = footer.querySelector('a');
+        expect(link).not.toBeNull();
+        expect(link?.getAttribute('href')).toBe('https://github.com/shaunburdick/europa-neo');
     });
 
     test('renders in the idle boot state (no view, no connection yet)', async () => {
         await bootWithState(INITIAL_CONSOLE_STATE);
-        expect(hudVersion().textContent).toBe(`v${APP_VERSION}`);
+        const footer = brandedFooter();
+        expect(footer.textContent).toContain('Europa Neo');
+        expect(footer.textContent).toContain(`v${APP_VERSION}`);
     });
 
     test('renders in the reconnecting state', async () => {
         await bootWithState({ ...INITIAL_CONSOLE_STATE, status: 'reconnecting' });
-        expect(hudVersion().textContent).toBe(`v${APP_VERSION}`);
+        const footer = brandedFooter();
+        expect(footer.textContent).toContain(`v${APP_VERSION}`);
     });
 
-    test('is a plain non-interactive span (no pointer/keyboard interception)', async () => {
+    test('is a footer landmark whose only interactive element is the external link', async () => {
         await bootWithState(INITIAL_CONSOLE_STATE);
-        const version = hudVersion();
-        expect(version.tagName).toBe('SPAN');
-        expect(version.getAttribute('tabindex')).toBeNull();
-        expect(version.closest('button, a, input, select, textarea, [role="button"]')).toBeNull();
+        const footer = brandedFooter();
+        expect(footer.tagName).toBe('FOOTER');
+        // The footer itself is non-interactive; the GitHub link is the only
+        // focusable control and carries safe external-link attributes.
+        const link = footer.querySelector('a');
+        expect(link).not.toBeNull();
+        expect(link?.getAttribute('target')).toBe('_blank');
+        expect(link?.getAttribute('rel')).toContain('noreferrer');
+        expect(link?.getAttribute('rel')).toContain('noopener');
+        expect(footer.closest('button, input, select, textarea, [role="button"]')).toBeNull();
     });
 });
