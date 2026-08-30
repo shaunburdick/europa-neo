@@ -520,10 +520,13 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
 }
 
 /**
- * Matrix over N∈{3,4} and the two selectable board sizes {32,48}. The two
- * N cases use their default boards (48 each) and cover the 3-/4-player path;
- * the `boardSize=32` override (3P) covers the 32 value. N∈{3,4} remain
- * covered at their default 48 board.
+ * Matrix over N∈{2,3,4} and the two selectable board sizes {32,48}. The 2P
+ * case is the no-flag baseline: `pnpm host` defaults to `--players 2` and
+ * `DEFAULT_MATCH_SETTINGS.boardSize === 32` (FR-001), so it must be exercised
+ * explicitly as the shipped path (012 SC-006 / T025). The 3-/4-player cases
+ * use their default boards (48 each) and cover the N>2 path; the
+ * `boardSize=32` override (3P) covers the 32 value. N∈{3,4} remain covered at
+ * their default 48 board.
  *
  * Board size `64` is intentionally absent: it is temporarily disabled in the
  * host CLI (terrain generation is unreliable — follow-up issue #26). Its
@@ -535,6 +538,7 @@ const SMOKE_MATRIX: ReadonlyArray<{
     readonly boardSize: 32 | 48;
     readonly note: string;
 }> = [
+    { playerCount: 2, boardSize: 32, note: 'N=2 default board (no-flag baseline, FR-001 boardSize 32)' },
     { playerCount: 3, boardSize: 48, note: 'N=3 default board' },
     { playerCount: 4, boardSize: 48, note: 'N=4 default board' },
     { playerCount: 3, boardSize: 32, note: 'boardSize=32 override (covers the 32 value)' },
