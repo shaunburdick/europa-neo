@@ -2,8 +2,12 @@
  * Global styles: reset, skip link, and the US1 board layout +
  * cell/pipe/badge visual layer (Phase 3 T044/T045 support).
  *
- * Color values mirror src/render/palette.ts (kept as literals here;
- * CSS custom properties are introduced with theming in US5).
+ * All color, spacing, radii, border, shadow, typography, and focus
+ * values are sourced from the shareable design system
+ * (@europa/design) via var(--europa-*) — no hex/rgb literals
+ * outside the design package (FR-009/FR-010, contract §6).
+ * The design stylesheet is imported once in src/main.tsx
+ * (Vite dedupes — plan §5 single-import rule, FR-011).
  */
 
 *,
@@ -14,9 +18,9 @@
 
 body {
     margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background-color: #0b0f19;
-    color: #e5e7eb;
+    font-family: var(--europa-typography-font-stack);
+    background-color: var(--europa-color-page-bg);
+    color: var(--europa-color-text-secondary);
 }
 
 /*
@@ -29,9 +33,9 @@ body {
     top: 0;
     left: 0;
     transform: translateY(-200%);
-    padding: 0.5rem 1rem;
-    background-color: #111827;
-    color: #f9fafb;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
     z-index: 1000;
 }
 
@@ -49,8 +53,8 @@ body {
     align-items: flex-start;
     justify-content: center;
     align-content: flex-start;
-    gap: 1rem;
-    padding: 1rem;
+    gap: var(--europa-spacing-lg);
+    padding: var(--europa-spacing-lg);
 }
 
 .europa-board-area {
@@ -61,7 +65,7 @@ body {
     display: block;
     /* Mirrors VOID_COLOR in src/render/palette.ts (playtest 2026-08-24:
      dark slate, distinct from the page background, darker than land). */
-    background-color: #1a2233;
+    background-color: var(--europa-color-void-bg);
 }
 
 /* ARIA grid overlay — exactly covers the canvas. */
@@ -71,8 +75,8 @@ body {
 }
 
 .europa-grid:focus-visible {
-    outline: 2px solid #ffffff;
-    outline-offset: 2px;
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
 }
 
 /* One visible cell (role="gridcell"). Geometry + terrain color are
@@ -99,29 +103,29 @@ body {
 .europa-pipe--N {
     top: 0;
     left: calc(50% - var(--europa-pipe-tri));
-    border-width: 0 var(--europa-pipe-tri) 8px var(--europa-pipe-tri);
-    border-color: transparent transparent #f59e0b transparent;
+    border-width: 0 var(--europa-pipe-tri) var(--europa-radii-plate) var(--europa-pipe-tri);
+    border-color: transparent transparent var(--europa-color-accent) transparent;
 }
 
 .europa-pipe--S {
     bottom: 0;
     left: calc(50% - var(--europa-pipe-tri));
-    border-width: 8px var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
-    border-color: #f59e0b transparent transparent transparent;
+    border-width: var(--europa-radii-plate) var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
+    border-color: var(--europa-color-accent) transparent transparent transparent;
 }
 
 .europa-pipe--W {
     left: 0;
     top: calc(50% - var(--europa-pipe-tri));
-    border-width: var(--europa-pipe-tri) 8px var(--europa-pipe-tri) 0;
-    border-color: transparent #f59e0b transparent transparent;
+    border-width: var(--europa-pipe-tri) var(--europa-radii-plate) var(--europa-pipe-tri) 0;
+    border-color: transparent var(--europa-color-accent) transparent transparent;
 }
 
 .europa-pipe--E {
     right: 0;
     top: calc(50% - var(--europa-pipe-tri));
-    border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) 8px;
-    border-color: transparent transparent transparent #f59e0b;
+    border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) var(--europa-radii-plate);
+    border-color: transparent transparent transparent var(--europa-color-accent);
 }
 
 /* City marker dot (redundant with the city outline inline style). */
@@ -132,7 +136,7 @@ body {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: #fbbf24;
+    background-color: var(--europa-color-city);
 }
 
 /* Troop count chip: dark plate + white digits (≥ 4.5:1 contrast);
@@ -143,12 +147,12 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     min-width: 55%;
-    padding: 1px 3px;
-    border: 2px solid transparent;
-    border-radius: 999px;
-    font-size: 11px;
+    padding: 1px var(--europa-radii-sm);
+    border: var(--europa-focus-ring-width) solid transparent;
+    border-radius: var(--europa-radii-pill);
+    font-size: var(--europa-typography-size-chip);
     font-weight: 700;
-    line-height: 1.2;
+    line-height: var(--europa-typography-line-height-normal);
     text-align: center;
 }
 
@@ -157,49 +161,49 @@ body {
     position: absolute;
     bottom: 1px;
     right: 1px;
-    padding: 0 3px;
-    border-radius: 3px;
-    font-size: 9px;
+    padding: 0 var(--europa-radii-sm);
+    border-radius: var(--europa-radii-sm);
+    font-size: var(--europa-typography-size-reserve);
     font-weight: 700;
-    line-height: 1.4;
+    line-height: var(--europa-typography-line-height-relaxed);
 }
 
 /* HUD placeholder (US5 replaces it with the full status banner). */
 .europa-hud {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--europa-spacing-xs);
     min-width: 12rem;
-    padding: 0.75rem 1rem;
-    background-color: #111827;
-    color: #e5e7eb;
-    border-radius: 6px;
-    font-size: 0.9rem;
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border-radius: var(--europa-radii-card);
+    font-size: var(--europa-typography-size-base);
 }
 
 /*
  * Version footer (feature 009 FR-007): muted release identity rendered
- * as real DOM text in every connection state. #9ca3af on this section's
- * #111827 background ≈ 6.99:1 — above the WCAG 2.2 AA minimum (4.5:1)
- * while staying visually subordinate to the #e5e7eb status items
+ * as real DOM text in every connection state. var(--europa-color-text-muted) on this section's
+ * var(--europa-color-surface) background ≈ 6.99:1 — above the WCAG 2.2 AA minimum (4.5:1)
+ * while staying visually subordinate to the var(--europa-color-text-secondary) status items
  * (≈ 14.3:1). Deliberately non-interactive by construction: a plain
  * span with no handlers, tabindex, or role — it never intercepts
  * pointer or keyboard interaction (and stays text-selectable so
  * players can copy it into bug reports).
  */
 .europa-hud__version {
-    color: #9ca3af;
+    color: var(--europa-color-text-muted);
 }
 
 /* Surrender trigger (US5 T084) + minimap host (US5 T081). */
 .europa-hud__surrender {
-    margin-top: 0.25rem;
-    padding: 0.375rem 0.75rem;
-    border: 1px solid #374151;
-    border-radius: 4px;
-    background-color: #1f2937;
-    color: #f9fafb;
-    font-size: 0.85rem;
+    margin-top: var(--europa-spacing-xs);
+    padding: 0.375rem var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
     cursor: pointer;
 }
 
@@ -209,9 +213,9 @@ body {
 }
 
 .europa-minimap {
-    margin-top: 0.5rem;
-    border: 1px solid #374151;
-    border-radius: 4px;
+    margin-top: var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
     image-rendering: pixelated;
 }
 
@@ -225,9 +229,9 @@ body {
     left: 0;
     right: 0;
     z-index: 900;
-    padding: 0.5rem 1rem;
-    background-color: #d97706;
-    color: #111827;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-lg);
+    background-color: var(--europa-color-banner);
+    color: var(--europa-color-surface);
     font-weight: 700;
     text-align: center;
 }
@@ -243,47 +247,47 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(26, 34, 51, 0.75);
+    background-color: var(--europa-color-overlay-strong);
 }
 
 .europa-modal {
     max-width: 24rem;
-    padding: 1.25rem 1.5rem;
-    background-color: #111827;
-    color: #e5e7eb;
-    border: 1px solid #374151;
-    border-radius: 8px;
+    padding: var(--europa-spacing-xl) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-plate);
 }
 
 .europa-modal__title {
-    margin: 0 0 0.5rem;
-    font-size: 1.1rem;
+    margin: 0 0 var(--europa-spacing-sm);
+    font-size: var(--europa-typography-size-xl);
 }
 
 .europa-modal__body {
-    margin: 0 0 1rem;
-    font-size: 0.9rem;
-    line-height: 1.4;
+    margin: 0 0 var(--europa-spacing-lg);
+    font-size: var(--europa-typography-size-base);
+    line-height: var(--europa-typography-line-height-relaxed);
 }
 
 .europa-modal__actions {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--europa-spacing-sm);
     justify-content: flex-end;
 }
 
 .europa-modal__button {
-    padding: 0.375rem 0.75rem;
-    border: 1px solid #374151;
-    border-radius: 4px;
-    background-color: #1f2937;
-    color: #f9fafb;
-    font-size: 0.85rem;
+    padding: 0.375rem var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
     cursor: pointer;
 }
 
 .europa-modal__button--danger {
-    border-color: #dc2626;
+    border-color: var(--europa-color-red);
 }
 
 /*
@@ -295,49 +299,49 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
+    gap: var(--europa-spacing-md);
     padding: 2rem;
     text-align: center;
 }
 
 .europa-error-boundary__title {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: var(--europa-typography-size2xl);
 }
 
 .europa-error-boundary__body {
     margin: 0;
-    color: #9ca3af;
+    color: var(--europa-color-text-muted);
 }
 
 .europa-error-boundary__reload {
-    padding: 0.5rem 1rem;
-    border: 1px solid #374151;
-    border-radius: 4px;
-    background-color: #1f2937;
-    color: #f9fafb;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-lg);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
     cursor: pointer;
 }
 
 /*
  * Order palette (US2 T055). Sits after the HUD in DOM/Tab order.
- * Focus ring is #ffffff on #111827 (contrast ≈ 16:1, WCAG 2.4.7 ≥ 3:1).
+ * Focus ring is var(--europa-focus-ring-color) on var(--europa-color-surface) (contrast ≈ 16:1, WCAG 2.4.7 ≥ 3:1).
  */
 .europa-order-bar {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--europa-spacing-sm);
     min-width: 12rem;
-    padding: 0.75rem 1rem;
-    background-color: #111827;
-    color: #e5e7eb;
-    border-radius: 6px;
-    font-size: 0.9rem;
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border-radius: var(--europa-radii-card);
+    font-size: var(--europa-typography-size-base);
 }
 
 .europa-order-bar:focus-visible {
-    outline: 2px solid #ffffff;
-    outline-offset: 2px;
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
 }
 
 .europa-order-bar__mode {
@@ -346,16 +350,16 @@ body {
 
 .europa-order-bar__buttons {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--europa-spacing-sm);
 }
 
 .europa-order-bar__button {
-    padding: 0.375rem 0.75rem;
-    border: 1px solid #374151;
-    border-radius: 4px;
-    background-color: #1f2937;
-    color: #f9fafb;
-    font-size: 0.85rem;
+    padding: 0.375rem var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
     cursor: pointer;
 }
 
@@ -363,15 +367,15 @@ body {
    :focus rather than :focus-visible so the ring never disappears
    regardless of how focus arrived (keyboard, programmatic, pointer). */
 .europa-order-bar__button:focus {
-    outline: 2px solid #ffffff;
-    outline-offset: 2px;
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
 }
 
 /* Engaged exclusive-mode state (redundant with the mode badge text
    and aria-pressed — never color alone, constitution Principle VI). */
 .europa-order-bar__button[aria-pressed="true"] {
-    border-color: #f59e0b;
-    box-shadow: inset 0 0 0 1px #f59e0b;
+    border-color: var(--europa-color-accent);
+    box-shadow: inset 0 0 0 var(--europa-borders-width) var(--europa-color-accent);
 }
 
 /*
@@ -380,19 +384,19 @@ body {
  * documented yellow/blue rings); the aim dot is inline-styled.
  */
 .europa-targeting__rings {
-    outline: 1px dashed #f59e0b;
+    outline: 1px dashed var(--europa-color-accent);
     outline-offset: calc(-1 * var(--europa-ring-inset, 25%));
 }
 
 /*
  * Shared visible focus indicator (WCAG 2.4.7 Focus Visible): white
- * 2px outline on the dark chrome background (#111827) ≈ 16:1
+ * 2px outline on the dark chrome background (var(--europa-color-surface)) ≈ 16:1
  * contrast, far above the 3:1 minimum. Applied via the
  * `.europa-focus-ring` class on QoL-era controls.
  */
 .europa-focus-ring:focus {
-    outline: 2px solid #ffffff;
-    outline-offset: 2px;
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
 }
 
 /*
@@ -402,13 +406,13 @@ body {
 .europa-reserves {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--europa-spacing-sm);
     min-width: 12rem;
-    padding: 0.75rem 1rem;
-    background-color: #111827;
-    color: #e5e7eb;
-    border-radius: 6px;
-    font-size: 0.9rem;
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border-radius: var(--europa-radii-card);
+    font-size: var(--europa-typography-size-base);
 }
 
 .europa-reserves__label {
@@ -417,13 +421,13 @@ body {
 
 .europa-reserves__slider {
     width: 100%;
-    accent-color: #f59e0b;
+    accent-color: var(--europa-color-accent);
 }
 
 .europa-reserves__digits {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 0.25rem;
+    gap: var(--europa-spacing-xs);
 }
 
 /* Target size with sub-pixel safety margin above the WCAG 2.5.8
@@ -432,18 +436,18 @@ body {
 .europa-reserves__digit {
     min-width: 26px;
     min-height: 26px;
-    padding: 0.25rem 0;
-    border: 1px solid #374151;
-    border-radius: 4px;
-    background-color: #1f2937;
-    color: #f9fafb;
-    font-size: 0.85rem;
+    padding: var(--europa-spacing-xs) 0;
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
     cursor: pointer;
 }
 
 .europa-reserves__digit[aria-pressed="true"] {
-    border-color: #f59e0b;
-    box-shadow: inset 0 0 0 1px #f59e0b;
+    border-color: var(--europa-color-accent);
+    box-shadow: inset 0 0 0 var(--europa-borders-width) var(--europa-color-accent);
 }
 
 /*
@@ -458,7 +462,7 @@ body {
 .europa-feedback__list {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--europa-spacing-xs);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -466,26 +470,26 @@ body {
 
 .europa-feedback__item {
     padding: 0.375rem 0.625rem;
-    border-radius: 4px;
-    background-color: #111827;
-    color: #f9fafb;
-    font-size: 0.85rem;
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
 }
 
 .europa-feedback__item--success {
-    border-left: 3px solid #059669;
+    border-left: 3px solid var(--europa-color-green);
 }
 
 .europa-feedback__item--warning {
-    border-left: 3px solid #d97706;
+    border-left: 3px solid var(--europa-color-banner);
 }
 
 .europa-feedback__item--error {
-    border-left: 3px solid #dc2626;
+    border-left: 3px solid var(--europa-color-red);
 }
 
 .europa-feedback__item--info {
-    border-left: 3px solid #2563eb;
+    border-left: 3px solid var(--europa-color-blue);
 }
 
 /* Visually hidden but screen-reader-visible (clip pattern, mirrors
@@ -526,19 +530,19 @@ body {
     align-items: center;
     justify-content: center;
     pointer-events: none;
-    background-color: rgba(26, 34, 51, 0.6);
+    background-color: var(--europa-color-overlay-soft);
 }
 
 .europa-waiting__plate {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
-    background-color: #111827;
-    color: #f9fafb;
-    border: 1px solid #374151;
-    border-radius: 8px;
+    gap: var(--europa-spacing-md);
+    padding: var(--europa-spacing-lg) var(--europa-spacing-xl);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-plate);
 }
 
 /* Subtle spinner ring (decorative; aria-hidden in the component). */
@@ -546,9 +550,9 @@ body {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    border: 3px solid #374151;
-    border-top-color: #f59e0b;
-    animation: europa-spin 1.2s linear infinite;
+    border: 3px solid var(--europa-color-border);
+    border-top-color: var(--europa-color-accent);
+    animation: europa-spin var(--europa-motion-spin-duration) var(--europa-motion-easing-linear) infinite;
 }
 
 @keyframes europa-spin {
@@ -573,16 +577,16 @@ body {
 
 .europa-waiting__text {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: var(--europa-typography-size-md);
     font-weight: 600;
 }
 
 /*
  * ---------------------------------------------------------------------------
  * Public lobby landing (feature 010 T-015). Same chrome language as the
- * match view: #111827 plates on #0b0f19, #374151 borders, #f9fafb text,
+ * match view: var(--europa-color-surface) plates on var(--europa-color-page-bg), var(--europa-color-border) borders, var(--europa-color-text-primary) text,
  * shared .europa-focus-ring indicators. Focus ring contrast on plates is
- * ≈16:1 (WCAG 2.4.7 ≥ 3:1); body text ≈14:1; muted lines use #9ca3af
+ * ≈16:1 (WCAG 2.4.7 ≥ 3:1); body text ≈14:1; muted lines use var(--europa-color-text-muted)
  * (≈7:1 on plates) — all above AA.
  * ---------------------------------------------------------------------------
  */
@@ -593,8 +597,8 @@ body {
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    padding: 1.5rem 1rem 3rem;
+    gap: var(--europa-spacing-lg);
+    padding: 1.5rem var(--europa-spacing-lg) 3rem;
 }
 
 /* The h1 doubles as the return-to-lobby focus target (tabIndex=-1);
@@ -602,22 +606,22 @@ body {
    programmatically (WCAG 2.4.7). */
 .europa-lobby__title {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: var(--europa-typography-size3xl);
 }
 
 .europa-lobby__grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-    gap: 1rem;
+    gap: var(--europa-spacing-lg);
     align-items: start;
 }
 
 /* Cards: identity + create sit in the grid; the match list spans wide. */
 .europa-lobby__card {
-    padding: 1rem 1.25rem;
-    background-color: #111827;
-    border: 1px solid #374151;
-    border-radius: 8px;
+    padding: var(--europa-spacing-lg) var(--europa-spacing-xl);
+    background-color: var(--europa-color-surface);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-plate);
 }
 
 .europa-lobby__card--wide {
@@ -625,28 +629,28 @@ body {
 }
 
 .europa-lobby__card-title {
-    margin: 0 0 0.5rem;
-    font-size: 1.05rem;
+    margin: 0 0 var(--europa-spacing-sm);
+    font-size: var(--europa-typography-size-lg);
 }
 
 /* Status lines: muted but ≥ AA on the plate background. */
 .europa-lobby__status-line {
-    margin: 0 0 0.5rem;
-    color: #9ca3af;
-    font-size: 0.85rem;
+    margin: 0 0 var(--europa-spacing-sm);
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-sm);
 }
 
 /* Accepted handle emphasis: inherits surrounding color; <bdi> supplies
    the directional isolation (hostile-but-valid content rule). */
 .europa-lobby__handle {
     font-weight: 700;
-    color: #e5e7eb;
+    color: var(--europa-color-text-secondary);
 }
 
 .europa-lobby__form {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--europa-spacing-sm);
 }
 
 .europa-lobby__fieldset {
@@ -658,19 +662,19 @@ body {
 .europa-lobby__field {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--europa-spacing-xs);
 }
 
 .europa-lobby__field-label,
 .europa-lobby__fieldset legend {
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: var(--europa-typography-size-sm);
     padding: 0;
 }
 
 .europa-lobby__radio-row {
     display: flex;
-    gap: 0.75rem;
+    gap: var(--europa-spacing-md);
 }
 
 /* Radio labels: hit area above the WCAG 2.5.8 24px minimum. */
@@ -679,27 +683,27 @@ body {
     align-items: center;
     gap: 0.35rem;
     min-height: 24px;
-    font-size: 0.9rem;
+    font-size: var(--europa-typography-size-base);
 }
 
 .europa-lobby__input {
-    padding: 0.375rem 0.5rem;
-    border: 1px solid #374151;
-    border-radius: 4px;
-    background-color: #1f2937;
-    color: #f9fafb;
-    font-size: 0.9rem;
+    padding: 0.375rem var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-base);
 }
 
 /* Shared button style for lobby controls (mirrors the modal buttons). */
 .europa-lobby__button {
     align-self: flex-start;
-    padding: 0.375rem 0.75rem;
-    border: 1px solid #374151;
-    border-radius: 4px;
-    background-color: #1f2937;
-    color: #f9fafb;
-    font-size: 0.85rem;
+    padding: 0.375rem var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
     cursor: pointer;
 }
 
@@ -713,17 +717,17 @@ body {
    the text carries the message). */
 .europa-lobby__error {
     margin: 0;
-    padding: 0.25rem 0.5rem;
-    border-left: 3px solid #dc2626;
-    color: #fca5a5;
-    font-size: 0.85rem;
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    border-left: 3px solid var(--europa-color-red);
+    color: var(--europa-color-error-text);
+    font-size: var(--europa-typography-size-sm);
 }
 
 /* Match rows: stable per-match blocks inside a semantic list. */
 .europa-lobby__rows {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--europa-spacing-sm);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -734,51 +738,51 @@ body {
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #374151;
-    border-radius: 6px;
-    background-color: #1a2233;
+    gap: var(--europa-spacing-sm);
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+    background-color: var(--europa-color-void-bg);
 }
 
 .europa-lobby__row-main {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 0.5rem;
+    gap: var(--europa-spacing-sm);
     min-width: 0;
 }
 
 .europa-lobby__row-id {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.85rem;
-    color: #e5e7eb;
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-secondary);
 }
 
 /* "Your match" badge (US4 AC-4): text badge + amber edge — never color
    alone (constitution Principle VI). */
 .europa-lobby__row-badge {
-    padding: 0 0.4rem;
-    border: 1px solid #f59e0b;
-    border-radius: 999px;
-    color: #fbbf24;
-    font-size: 0.75rem;
+    padding: 0 var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
+    border-radius: var(--europa-radii-pill);
+    color: var(--europa-color-city);
+    font-size: var(--europa-typography-size-xs);
     font-weight: 700;
 }
 
 .europa-lobby__row-meta {
-    color: #9ca3af;
-    font-size: 0.85rem;
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-sm);
 }
 
 .europa-lobby__row-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--europa-spacing-sm);
 }
 
 .europa-lobby__row-full {
-    color: #9ca3af;
-    font-size: 0.85rem;
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-sm);
     font-weight: 600;
 }
 
@@ -786,10 +790,10 @@ body {
    card beside it. */
 .europa-lobby__empty {
     margin: 0;
-    padding: 0.75rem;
-    border: 1px dashed #374151;
-    border-radius: 6px;
-    color: #9ca3af;
+    padding: var(--europa-spacing-md);
+    border: var(--europa-borders-width) dashed var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+    color: var(--europa-color-text-muted);
 }
 
 /* Superseded notice (session moved elsewhere): assertive plate with an
@@ -799,27 +803,27 @@ body {
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border: 1px solid #d97706;
-    border-radius: 8px;
-    background-color: #111827;
+    gap: var(--europa-spacing-sm);
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-banner);
+    border-radius: var(--europa-radii-plate);
+    background-color: var(--europa-color-surface);
 }
 
 .europa-lobby__superseded p {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: var(--europa-typography-size-base);
 }
 
 /* Active-match note (US4 AC-4 visibility of the association). */
 .europa-lobby__active-note {
     margin: 0;
-    padding: 0.5rem 0.75rem;
-    border-left: 3px solid #2563eb;
-    background-color: #111827;
-    border-radius: 4px;
-    color: #e5e7eb;
-    font-size: 0.85rem;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border-left: 3px solid var(--europa-color-blue);
+    background-color: var(--europa-color-surface);
+    border-radius: var(--europa-radii-input);
+    color: var(--europa-color-text-secondary);
+    font-size: var(--europa-typography-size-sm);
 }
 
 /*
@@ -836,15 +840,15 @@ body {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem 1rem;
-    background-color: #111827;
-    border-bottom: 1px solid #374151;
+    gap: var(--europa-spacing-md);
+    padding: var(--europa-spacing-sm) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    border-bottom: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
 }
 
 .europa-lobby-match__title {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--europa-typography-size-lg);
     font-weight: 600;
 }
 
@@ -856,12 +860,12 @@ body {
 /*
  * Participant strip (feature 010 T-016, FR-020): per-seat
  * authoritative labels inside the HUD. Muted like the version footer —
- * #9ca3af on the HUD's #111827 ≈ 6.99:1 (AA) — with the local seat
- * highlighted in the HUD's own foreground (#e5e7eb ≈ 14.3:1). The list
+ * var(--europa-color-text-muted) on the HUD's var(--europa-color-surface) ≈ 6.99:1 (AA) — with the local seat
+ * highlighted in the HUD's own foreground (var(--europa-color-text-secondary) ≈ 14.3:1). The list
  * is non-interactive by construction (no handlers, plain text nodes).
  */
 .europa-participants {
-    margin-top: 0.25rem;
+    margin-top: var(--europa-spacing-xs);
 }
 
 .europa-participants__list {
@@ -871,14 +875,14 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.125rem;
-    font-size: 0.85rem;
+    font-size: var(--europa-typography-size-sm);
 }
 
 .europa-participants__seat {
-    color: #9ca3af;
+    color: var(--europa-color-text-muted);
 }
 
 .europa-participants__seat--local {
-    color: #e5e7eb;
+    color: var(--europa-color-text-secondary);
     font-weight: 600;
 }
