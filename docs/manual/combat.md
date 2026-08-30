@@ -16,6 +16,7 @@ Worked examples:
 | 20 | 20 | Both destroyed — mutual annihilation |
 | 25 | 10 | Enemy wiped out; you keep 15 |
 | 10 | 25 | You are wiped out; enemy keeps 15 |
+{: .europa-table }
 
 Equal forces trade equally and annihilate each other completely. Because combat resolves every tick, a 21-vs-20 fight leaves 1 troop standing — then decay or the next wave settles it.
 
@@ -42,3 +43,4 @@ Breaking a stalemate means changing the arithmetic:
 ---
 
 [Back to contents](./index.md)
+

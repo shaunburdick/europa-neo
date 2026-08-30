@@ -4,6 +4,12 @@ Welcome, commander. Europa Neo is a real-time strategy game: rival colonies of n
 
 Before you play, choose a temporary guest handle in the [public lobby](./lobby.md). You can rename it later; other players see this handle instead of private system details, and no account is required.
 
+<div class="europa-card">
+
+**Tip:** New to real-time strategy? Start with [Lobby](./lobby.md), [Quick start](./quick-start.md), and [Objective](./objective.md) — and keep [Controls](./controls.md) open in a second tab during your first match.
+
+</div>
+
 ## The 60-second version
 
 You land on Europa with a handful of **cities**. Every city produces troops each tick (the game heartbeat, four per second) until it saturates. You move troops around by laying **pipes** between cells — gravity does the work, so downhill pipes flow while uphill pipes sit idle. Troops cut off from supply slowly **decay**, so keeping your pipeline network fed matters.
@@ -39,4 +45,4 @@ You see only what your troops can sense: a band of surrounding cells moves with 
 
 New players should read [Lobby](./lobby.md), [Quick start](./quick-start.md), and [Objective](./objective.md) first; keep [Controls](./controls.md) open in a second tab during your first match.
 
-*This manual documents Europa Neo v0.1.0.*
+<span class="europa-typography--meta">*This manual documents Europa Neo v0.1.0.*</span>

@@ -37,9 +37,11 @@ A spectator — someone watching without a seat, including you after surrenderin
 | Sensor radius | 4 cells per stack |
 | Metric | Chebyshev (square radius, diagonals count as 1) |
 | Memory | None — abandoned ground goes dark |
+{: .europa-table }
 
 Every player-facing number lives in one auditable table: see [Numbers](./numbers.md).
 
 ---
 
 [Back to contents](./index.md)
+

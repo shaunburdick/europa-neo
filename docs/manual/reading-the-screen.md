@@ -16,14 +16,15 @@ The HUD's status line tells you where you stand in the match lifecycle. It shows
 
 | Status | What it means | What to do |
 | --- | --- | --- |
-| `idle` | Not connected to a match | Wait for the lobby or choose a match |
-| `connecting` | Handshake with the match server is in progress after choosing a lobby action | Wait a moment |
-| `live` | You are seated and receiving ticks; your orders are accepted | Play! |
-| `reconnecting` | The connection dropped; automatic reconnection is under way and a banner shows above the board | Keep the tab open |
-| `expired` | The 60-second grace window elapsed while you were away — your seat is forfeited | Return to the lobby and choose a match or create one (see [Quick start](./quick-start.md)) |
-| `spectating` | You are watching without a seat | Watch freely; orders are not available |
-| `game_over` | The match's final result has been delivered; the end-of-match announcement is shown | Review the board, then start a new match for another game |
-| `closed` | The console session was explicitly closed | Return to the lobby and choose another match |
+| <span class="europa-chip">idle</span> | Not connected to a match | Wait for the lobby or choose a match |
+| <span class="europa-chip">connecting</span> | Handshake with the match server is in progress after choosing a lobby action | Wait a moment |
+| <span class="europa-chip">live</span> | You are seated and receiving ticks; your orders are accepted | Play! |
+| <span class="europa-chip">reconnecting</span> | The connection dropped; automatic reconnection is under way and a banner shows above the board | Keep the tab open |
+| <span class="europa-chip">expired</span> | The 60-second grace window elapsed while you were away — your seat is forfeited | Return to the lobby and choose a match or create one (see [Quick start](./quick-start.md)) |
+| <span class="europa-chip">spectating</span> | You are watching without a seat | Watch freely; orders are not available |
+| <span class="europa-chip">game_over</span> | The match's final result has been delivered; the end-of-match announcement is shown | Review the board, then start a new match for another game |
+| <span class="europa-chip">closed</span> | The console session was explicitly closed | Return to the lobby and choose another match |
+{: .europa-table }
 
 While anything other than `live`, all order controls are disabled — the buttons gray out rather than silently swallowing clicks.
 
@@ -69,6 +70,7 @@ They fade after a couple of seconds. A rejection always means nothing was sent �
 | "This session moved somewhere else" | Another browser took over the guest session | Acknowledge it and set a new name |
 | "The server restarted — the lobby was reset" | The in-memory server state was lost | Reload, set a name, and choose or create a match |
 | "That match is no longer available" / "That match just filled up" | The listing changed before your action completed | Return to the refreshed list and choose another action |
+{: .europa-table }
 
 ## End of match
 
@@ -81,3 +83,4 @@ The first Tab stop is **Skip to main content**. Native buttons, form fields, rad
 ---
 
 [Back to contents](./index.md)
+

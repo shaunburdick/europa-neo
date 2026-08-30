@@ -504,3 +504,134 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
 }
+
+/* ── 12. Documentation prose (scoped under .europa-page) — T-030 ─────────── */
+/* Styles markdown-rendered elements for the player manual (spec 012, T-030).
+   Every declaration uses ONLY --europa-* tokens — no hex/rgb literals. These
+   rules are scoped to .europa-page so they never affect the console, which
+   does not wrap its chrome in .europa-page (it uses europa-lobby/europa-hud/
+   europa-card/etc. directly). The manual body carries .europa-page via
+   docs/manual/_layouts/default.html, so every manual page shares the console's
+   dark-slate design language for headings, paragraphs, tables, lists, code,
+   blockquotes, links, and rules. */
+.europa-page h1,
+.europa-page h2,
+.europa-page h3 {
+    color: var(--europa-color-text-primary);
+    font-family: var(--europa-typography-font-stack);
+    font-weight: 700;
+    line-height: var(--europa-typography-line-height-normal);
+    margin: 0 0 var(--europa-spacing-md);
+}
+
+.europa-page h1 {
+    font-size: var(--europa-typography-size3xl);
+}
+
+.europa-page h2 {
+    font-size: var(--europa-typography-size2xl);
+}
+
+.europa-page h3 {
+    font-size: var(--europa-typography-size-xl);
+}
+
+.europa-page p {
+    color: var(--europa-color-text-secondary);
+    line-height: var(--europa-typography-line-height-relaxed);
+    margin: 0 0 var(--europa-spacing-md);
+}
+
+.europa-page ul,
+.europa-page ol {
+    color: var(--europa-color-text-secondary);
+    line-height: var(--europa-typography-line-height-relaxed);
+    margin: 0 0 var(--europa-spacing-md);
+    padding-left: var(--europa-spacing-lg);
+}
+
+.europa-page li {
+    margin: 0 0 var(--europa-spacing-xs);
+}
+
+.europa-page a {
+    color: var(--europa-color-accent);
+    text-decoration: underline;
+}
+
+.europa-page a:hover {
+    color: var(--europa-color-city);
+}
+
+.europa-page code {
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-sm);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    padding: var(--europa-spacing-xs);
+    border-radius: var(--europa-radii-input);
+}
+
+.europa-page pre {
+    font-family: var(--europa-typography-font-mono);
+    background-color: var(--europa-color-void-bg);
+    color: var(--europa-color-text-primary);
+    padding: var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    overflow-x: auto;
+    margin: 0 0 var(--europa-spacing-md);
+}
+
+.europa-page pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+.europa-page blockquote {
+    margin: 0 0 var(--europa-spacing-md);
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border-left: var(--europa-spacing-xs) var(--europa-borders-style) var(--europa-color-accent);
+    color: var(--europa-color-text-muted);
+}
+
+.europa-page hr {
+    border: none;
+    border-top: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    margin: var(--europa-spacing-lg) 0;
+}
+
+/* Token-styled table — opt-in via Kramdown `{: .europa-table }` (T-030) and
+   also applied by the scoped `.europa-page table` rules below so every manual
+   table shares the dark-slate treatment regardless of explicit opt-in. */
+.europa-page table,
+.europa-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 var(--europa-spacing-md);
+    color: var(--europa-color-text-secondary);
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+.europa-page th,
+.europa-table th {
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    text-align: left;
+    font-weight: 700;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.europa-page td,
+.europa-table td {
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.europa-page tbody tr:nth-child(even) td,
+.europa-table tbody tr:nth-child(even) td {
+    background-color: var(--europa-color-surface-raised);
+}
