@@ -20,12 +20,14 @@
  */
 
 import { CONSOLE_CONSTANTS, DEFAULT_PLAYER_COLORS } from '../config';
+import { classifyPipeSlope, PIPE_SLOPE_CONSTANTS, type PipeSlope } from '../render/pipe-slope';
 import { diffCellChanges } from './diff';
 import type {
     CameraState,
     CellRenderInfo,
     CellView,
     Coord,
+    Direction,
     MapEffect,
     MapLabel,
     MapView,
@@ -74,9 +76,33 @@ export function cellViewToRenderInfo(cell: CellView): CellRenderInfo {
         isCity: cell.cityOwner !== null,
         cityOwner: cell.cityOwner,
         pipes: cell.pipes,
+        // Default: no slopes. buildMapView fills this for cells with
+        // pipes (005 FR-013) — the renderer only reads entries for
+        // directions present in `pipes`, so an empty map is correct
+        // for pipe-less cells.
+        pipeSlopes: new Map<Direction, PipeSlope>(),
         reservesPct: cell.reservesPercent,
         changedThisTick: false, // set by buildMapView after diffing
     };
+}
+
+/**
+ * The board coordinate one step in `direction` from `coord`. Pure.
+ * Out-of-bounds results are legal — the caller's `rawCells` lookup
+ * simply misses, which classifies the pipe as flat (fog fallback,
+ * 005 FR-013).
+ */
+function destinationCoord(coord: Coord, direction: Direction): Coord {
+    switch (direction) {
+        case 'N':
+            return { x: coord.x, y: coord.y - 1 };
+        case 'S':
+            return { x: coord.x, y: coord.y + 1 };
+        case 'W':
+            return { x: coord.x - 1, y: coord.y };
+        case 'E':
+            return { x: coord.x + 1, y: coord.y };
+    }
 }
 
 /**
@@ -157,11 +183,30 @@ export function buildMapView(args: BuildMapViewArgs): MapView {
         rawCells.set(coordKey(cellView.coord), cellViewToRenderInfo(cellView));
     }
 
-    // 2. Diff against the previous snapshot and stamp changedThisTick.
+    // 2. Diff against the previous snapshot and stamp changedThisTick;
+    //    precompute per-direction pipeSlopes for cells with pipes
+    //    (005 FR-013): look up each destination in rawCells (absent →
+    //    null → 'flat' fog fallback) and classify by elevation delta.
     const changed = diffCellChanges(prevView?.cells ?? new Map(), rawCells);
     const cells = new Map<string, CellRenderInfo>();
     for (const [key, info] of rawCells) {
-        cells.set(key, changed.has(key) ? { ...info, changedThisTick: true } : info);
+        let next: CellRenderInfo = info;
+        if (changed.has(key)) {
+            next = { ...next, changedThisTick: true };
+        }
+        if (info.pipes.size > 0) {
+            const pipeSlopes = new Map<Direction, PipeSlope>();
+            for (const direction of info.pipes) {
+                const dst = destinationCoord(info.coord, direction);
+                const dstInfo = rawCells.get(coordKey(dst));
+                pipeSlopes.set(
+                    direction,
+                    classifyPipeSlope(info.elevation, dstInfo?.elevation ?? null, PIPE_SLOPE_CONSTANTS),
+                );
+            }
+            next = { ...next, pipeSlopes };
+        }
+        cells.set(key, next);
     }
 
     // 3. Translate tick events into transient effects.
