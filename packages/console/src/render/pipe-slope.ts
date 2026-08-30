@@ -94,11 +94,7 @@ export function pipeFlowRate(delta: number, constants: PipeSlopeConstants): numb
  * @param constants The console-side constants mirror.
  * @returns The slope classification for rendering.
  */
-export function classifyPipeSlope(
-    srcElev: number,
-    dstElev: number | null,
-    constants: PipeSlopeConstants,
-): PipeSlope {
+export function classifyPipeSlope(srcElev: number, dstElev: number | null, constants: PipeSlopeConstants): PipeSlope {
     if (dstElev === null) {
         // Fog edge case (005 v1.2): unknown destination elevation —
         // render flat without claiming a slope.

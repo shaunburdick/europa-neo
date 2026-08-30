@@ -14,12 +14,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import {
-    classifyPipeSlope,
-    PIPE_SLOPE_CONSTANTS,
-    pipeFlowRate,
-    type PipeSlope,
-} from '../../../src/render/pipe-slope';
+import { classifyPipeSlope, PIPE_SLOPE_CONSTANTS, type PipeSlope, pipeFlowRate } from '../../../src/render/pipe-slope';
 
 describe('PIPE_SLOPE_CONSTANTS (005 FR-013 mirror)', () => {
     test('mirrors the engine flow constants exactly', () => {
