@@ -8,7 +8,7 @@
 
 **Version**: 1.0
 
-**Status**: Draft
+**Status**: Implemented (2026-08-29)
 
 **GitHub Issue**: #6
 
