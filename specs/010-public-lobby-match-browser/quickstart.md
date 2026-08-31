@@ -116,3 +116,39 @@ recipient-scoped game-state boundary.
 No application source or test files were changed by C-001. The residuals above
 are intentionally handed to the later correction tasks; private-match
 non-enumeration and fog-of-war redaction are not reclassified as ID secrecy.
+
+## C-008 residual sweep (2026-08-31)
+
+The tracked repository-wide residual sweep was run after commits `d788bab` and
+`81c9fe5`. It found no remaining active normative contradiction: non-secret
+guest/player IDs are permitted for correlation, handles remain preferred in UI,
+and private-match existence, server authority, fog filtering, and bearer-token
+protection remain explicit. Remaining old-policy phrases are confined to the
+historical C-001 inventory and are labelled as historical/superseded. A stale
+test comment referring to a “no-ID rendering scan” was corrected to describe
+handle preference and safe identity correlation; no test assertion or runtime
+source was changed.
+
+The narrow approved exception is preserved: local `pnpm host` output may print
+per-seat tokenized join URLs for operator seat handoff. These URLs remain bearer
+secrets and are not a general public-app URL, log, diagnostic, or documentation
+pattern.
+
+### C-008 checks
+
+| Check | Result |
+| --- | --- |
+| `node check-documentation-privacy.mjs` | PASS — 4 player-facing + 9 implementation/spec surfaces |
+| `node check-documentation-privacy-harness.mjs` | PASS — 4 forbidden examples rejected |
+| Matchmaking lobby conformance | PASS — 6 tests |
+| Matchmaking targeted identity/authority/conformance | PASS — 58 tests |
+| Networking targeted contract/lobby conformance | PASS — 32 tests |
+| Console contract conformance + strict typecheck | PASS — 9 tests |
+| Matchmaking/networking package typecheck | PASS |
+| `pnpm build` | PASS |
+| Broad matchmaking `typecheck:conformance` | **KNOWN BASELINE FAILURE** — existing settings-mirror witness at `tests/lobby-conformance.test.ts:305-306`; unrelated to C-008 and intentionally not changed |
+
+C-008 is complete based on the passing targeted contract/privacy gates and the
+residual classification above. The broad settings-mirror failure remains an
+existing follow-up outside this identity-policy correction and must not be
+silently reported as green.

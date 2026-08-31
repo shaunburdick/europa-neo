@@ -1,9 +1,9 @@
 # Orchestration Log: Player-ID Visibility Policy Correction
 
 ## Status
-- **Current Wave**: Wave 2 — policy and harness corrections complete
+- **Current Wave**: Wave 4 — integration verification in progress (C-008 complete)
 - **Branch**: `013-relaxed-player-id-visibility`
-- **Last Updated**: 2026-08-30
+- **Last Updated**: 2026-08-31
 
 ## Plan Summary
 Correct stale claims that player IDs are private. IDs are non-secret correlation
@@ -25,8 +25,9 @@ fog-of-war boundaries remain protected.
 ### Wave 3 — Focused test corrections — ✅ Complete
 - C-005, C-006 — ✅ complete
 
-### Wave 4 — Integration verification — ⏳ Pending
-- C-008, C-009, C-010
+### Wave 4 — Integration verification — ⏳ In progress
+- C-008 — ✅ complete
+- C-009, C-010 — ⏳ pending
 
 ## Decisions & Rationale
 - 2026-08-30: Treat this as a correction to existing Feature 010 and
@@ -55,3 +56,27 @@ fog-of-war boundaries remain protected.
   admission wording clarified, stale console comments corrected, checker
   allow/deny harness added, and ID security assertions updated. Commits
   `4df2eb3`, `b747764`, `6727836`, and `ffdba6c` landed.
+
+## C-008 residual sweep (2026-08-31)
+
+- The tracked repository-wide sweep found no active normative prohibition on
+  non-secret guest/player IDs. Remaining matches are either the approved
+  handle-first/private-existence/fog boundaries, protected bearer-token rules,
+  or explicitly labelled historical inventory text. The one stale test comment
+  naming a “no-ID rendering scan” was corrected to describe handle preference
+  and safe identity correlation; no test assertion or runtime source changed.
+- The approved local `pnpm host` tokenized-URL exception remains documented as
+  a narrow operator convenience. Those URLs remain bearer secrets and are not
+  generalized to public app URLs, logs, diagnostics, or documentation.
+- Documentation/privacy checker: PASS (4 player-facing and 9
+  implementation/spec surfaces). Executable checker harness: PASS (4 forbidden
+  examples rejected).
+- Matchmaking lobby conformance: PASS (6 tests); targeted matchmaking
+  authority/identity/conformance: PASS (58 tests); networking contract/lobby
+  conformance: PASS (32 tests); console conformance: PASS (9 tests) plus strict
+  typecheck. Matchmaking and networking package typechecks also pass.
+- The broader matchmaking `typecheck:conformance` remains a known unrelated
+  baseline failure: its existing settings-mirror witness reports terrain
+  `GenerationSettings` mirror drift at `tests/lobby-conformance.test.ts:305-306`
+  (the current branch adds no runtime or C-008 contract change). It is recorded
+  rather than altered under C-008's scope.

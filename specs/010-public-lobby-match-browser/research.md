@@ -19,23 +19,27 @@ The correction must not turn an ID into an authority claim. Private-match
 existence resistance, server-resolved seat/order authority, reconnect validation,
 and fog filtering remain separate security invariants.
 
-### Residual contradictions found
+### Residual contradictions found (historical inventory)
 
-- `check-documentation-privacy.mjs` still bans player-facing ID field/term names
-  and implementation-surface ID examples.
-- Source JSDoc/comments still say IDs are internal-only or never rendered in
+> This section records the pre-correction research inventory. It is not a
+> statement of current policy; C-002–C-007 corrected the listed normative
+> surfaces, and C-008 records the residual sweep below.
+
+- The pre-correction checker banned player-facing ID field/term names and
+  implementation-surface ID examples.
+- Pre-correction source JSDoc/comments said IDs were internal-only or never rendered in
   `packages/matchmaking/src/contracts/lobby-api.ts`, `lobby-types.ts`,
   `src/internal/{guestPlayerIdentity,playerSession,seatRecord}.ts`, and
   `packages/networking/src/contracts/network-types.ts` (and its Feature 004
   contract mirror), plus `packages/console/src/internal/lobby-runtime.tsx`.
-- Harness assertions/comments still encode the old policy in matchmaking
+- Pre-correction harness assertions/comments encoded the old policy in matchmaking
   `lobby-conformance.test.ts`, `identityAssociation.test.ts`,
   `lobby.serverAuthority.test.ts`, and networking `server-lobby.test.ts`;
-  the console lobby component test still names a no-ID rendering scan.
-- Historical/operational wording remains in Feature 010 tasks/orchestration/
+  the console lobby component test also named a no-ID rendering scan.
+- Historical/operational wording was identified in Feature 010 tasks/orchestration/
   handoff, Feature 012 tasks (including its completed zero-ID checker result),
-  and any manual text found by the targeted sweep. Historical results should be
-  relabelled, not silently deleted.
+  and any manual text found by the targeted sweep. Historical results are
+  relabelled rather than silently deleted.
 
 The already-corrected README and cross-feature spec paragraphs are review
 surfaces, not a reason to invent runtime behavior. Feature 011 contributes the

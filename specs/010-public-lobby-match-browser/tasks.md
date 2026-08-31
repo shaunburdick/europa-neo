@@ -15,7 +15,7 @@ These tasks correct stale privacy assertions only. They do not create a Feature
 - [x] C-005: Add checker fixtures or an equivalent focused harness proving non-secret guest/player IDs pass and `sessionToken`/`reconnectToken` values plus credential-bearing URLs fail, without tracking live credentials.
 - [x] C-006: [P] Replace old matchmaking/networking test assertions that equate ID presence with a leak with positive correlation assertions; retain forged identity/seat/order, cross-connection, private-match, fog, and bearer-credential negative coverage.
 - [x] C-007: [P] Update root/package READMEs and applicable manual/operator/API wording for handle-first labels, generic/ID fallback, non-secret correlation, and the credential boundary; preserve private-match and fog guidance.
-- [ ] C-008: Run the targeted residual sweep and contract/conformance checks; relabel historical old-policy notes rather than leaving normative contradictions.
+- [x] C-008: Run the targeted residual sweep and contract/conformance checks; relabel historical old-policy notes rather than leaving normative contradictions. **Complete on 2026-08-31** — see `quickstart.md` “C-008 residual sweep” and `orchestration.md`.
 - [ ] C-009: Run checker/security suites, existing private-match scenarios, and the 500-tick fog audit, then `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, relevant tests, build, and docs checks; record results in `quickstart.md`.
 - [ ] C-010: Review against Feature 010 FR-002/003/020/021/023/024/026/027 and NFR-003/004, constitution, and AGENTS.md; confirm the Phase 4–5 diff contains planning artifacts only and commit conventionally.
 
@@ -47,7 +47,7 @@ These tasks correct stale privacy assertions only. They do not create a Feature
 - [x] T-015: Build the accessible landing UI: identity/rename form, create settings form, public match rows, Join/Spectate actions, occupancy/status/settings labels, empty state, focus management, and live-region announcements.
 - [x] T-016: Wire authoritative handles into waiting/live seat labels and ensure player/spectator UI and client diagnostics treat IDs as non-secret correlation data while preserving credential, order, and fog visibility rules.
 - [x] T-017: Refactor `pnpm host` to serve the lobby by default without `prepareMatch()`, retain explicit create flow, `/version`, security headers, configurable ports, graceful shutdown, and self-host diagnostics.
-- [x] T-018: [P] Add console unit/component/a11y tests for identity persistence, validation, rows, transitions, failures, focus, announcements, keyboard-only use, and no-ID rendering.
+- [x] T-018: [P] Add console unit/component/a11y tests for identity persistence, validation, rows, transitions, failures, focus, announcements, keyboard-only use, handle-preference, and safe identity correlation.
 - [x] T-019: Add real two-browser E2E coverage for create→join→first tick, lobby updates, waiting→running action changes, spectator read-only entry, return-to-lobby, reconnect, and server restart recovery.
 
 ## Documentation and operational checks
