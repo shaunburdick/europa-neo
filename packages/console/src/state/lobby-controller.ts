@@ -26,13 +26,12 @@
  * correlation table without adding capability. The reducer stays pure;
  * this module is the sanctioned side-effect boundary.
  *
- * PRIVACY (binding): the directed `identity` event legitimately carries
- * the opaque `guestPlayerId` (spec Clarifications v1.6 delivery
- * channel). This controller strips EVERYTHING except the display
- * handle before dispatching — the id never enters `LobbyState`, so no
- * consumer of this layer can render, route, or log it. The module adds
- * ZERO log sites: there is nothing here to redact because nothing
- * secret is ever copied.
+ * Identity projection: the directed `identity` event carries the
+ * server-resolved player ID for correlation and the display handle. This
+ * controller currently dispatches only the handle because that is all the
+ * lobby state projection requires; IDs are non-secret and may be carried or
+ * displayed where useful. Bearer resume credentials remain protected, and
+ * the server remains authoritative for identity and seat resolution.
  */
 
 import type { LobbySnapshot } from '@europa/matchmaking';
@@ -208,11 +207,9 @@ export function createLobbyController(args: LobbyControllerArgs): LobbyControlle
 
     track(
         transport.onIdentity((identity) => {
-            // PRIVACY CHOKE POINT: the incoming IdentityState may carry the
-            // opaque guestPlayerId (Clarifications v1.6); ONLY the display
-            // handle crosses into application state. Nothing else is read,
-            // so nothing secret can ever reach DOM, URLs, or logs through
-            // this layer.
+            // The server-resolved ID is correlation data. This projection
+            // currently needs only the display handle; bearer credentials
+            // remain confined to the transport/storage boundary.
             store.dispatch({ kind: 'lobbyIdentityResolved', handle: identity.handle });
         }),
     );

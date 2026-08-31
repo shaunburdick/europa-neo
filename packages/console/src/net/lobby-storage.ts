@@ -20,10 +20,11 @@
  *     ({@link resolveLobbyStorage} returns `null`,
  *     {@link saveStoredClaim} returns `false`).
  *
- * Privacy boundary (spec FR-024 / NFR-003): the opaque ID lives here
- * and inside the lobby client's memory — it is NEVER placed in URLs,
- * query strings, logs, error messages, or UI state by any consumer of
- * this module. The persisted payload is exactly
+ * Boundary (spec FR-024 / NFR-003): the player ID is non-secret
+ * correlation data and is kept here for resume-claim construction. This
+ * module does not place it in URLs, query strings, logs, or error messages
+ * because those surfaces do not need it. The persisted resume claim is a
+ * bearer credential and remains protected. The persisted payload is exactly
  * `{ guestPlayerId, handle }` per data-model.md §4 ("The client stores
  * only `{ guestPlayerIdClaim, handle }` under a namespaced key").
  */

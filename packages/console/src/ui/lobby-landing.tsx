@@ -22,11 +22,11 @@
  *     their source (identity card, create form, match list, banners),
  *     which announce assertively by semantics.
  *
- * Privacy envelope: this component renders ONLY what
- * {@link LobbyState} carries — handles and public projections. The
- * opaque guest player id never reaches this layer (the controller
- * strips it upstream), so there is no code path that could display,
- * route, or log it.
+ * Identity presentation: this component renders what {@link LobbyState}
+ * carries — handles and public projections. Player IDs are non-secret
+ * correlation data and may be displayed where useful, though handles are
+ * preferred here. Bearer credentials are not UI data, and identity/seat
+ * authority comes from the server.
  */
 
 import type { PublicLobbyEntry } from '@europa/matchmaking';

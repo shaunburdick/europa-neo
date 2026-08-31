@@ -21,7 +21,7 @@
  *
  * Responsibilities owned here (per task T-012):
  *
- *   - **Claim/handle persistence** — the opaque guest player ID +
+ *   - **Claim/handle persistence** — the guest player ID correlation value +
  *     last accepted handle live in local storage (`lobby-storage.ts`)
  *     and are presented on every establish cycle. The LOCAL mint is
  *     first-frame bootstrap only: the server's directed `identity`
@@ -54,16 +54,13 @@
  *     distinctly from the transient `'reconnecting'`/`'disconnected'`
  *     states. Exactly ONE `lobbyIdentity` frame is sent per attempt
  *     (never a flood — the dispatcher rate-limits identity requests).
- *   - **Privacy (binding)** — the guest player ID is a bearer secret:
- *     it NEVER appears in URLs (this client appends nothing to the
- *     caller's URL), logs, or error messages. Every log line and every
- *     constructed error passes through {@link redact}, which scrubs
- *     EVERY secret value this session has held — the local bootstrap
- *     mint AND every server-delivered id — as defense-in-depth even
- *     against server-authored text echoing one back; error `detail`
- *     records get the same scrub. The public API surface exposes no
- *     accessor returning the id, so consumers cannot leak what they
- *     cannot read.
+ *   - **Identity and credential handling** — the guest player ID is
+ *     non-secret correlation data used to identify the server-resolved
+ *     identity. It is kept out of URLs, logs, and errors here because those
+ *     surfaces do not need it, not because the ID itself is a bearer secret.
+ *     The persisted resume claim is the bearer credential and remains
+ *     protected by storage and transport boundaries; redaction continues
+ *     to cover claim values and any server-authored text that echoes them.
  *
  * Determinism discipline: pure state machine over socket callbacks;
  * timers are transport infrastructure (heartbeat, action timeouts,
@@ -242,8 +239,9 @@ export interface WsLobbyClientOptions {
 /**
  * The concrete client handle. Actions return promises that settle only
  * on the server echo of their exact `LobbyActionId`; rejections carry
- * typed lobby errors. No method or accessor returns the opaque guest
- * player ID — see the module privacy note.
+ * typed lobby errors. The client does not expose its internal resume claim
+ * through an accessor; the ID is non-secret correlation data, while the
+ * bearer credential containing it remains protected (see the module note).
  */
 export interface WsLobbyClient {
     /** Open the socket and run the full establish cycle (identity + subscribe). */
