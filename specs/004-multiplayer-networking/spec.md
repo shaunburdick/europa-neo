@@ -3,7 +3,7 @@
 **Feature Branch**: `004-multiplayer-networking`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-08-30 (v1.4; feature 013 identity-visibility policy)
+**Last Updated**: 2026-08-30 (v1.4; identity-visibility correction)
 **Version**: 1.4
 
 **Status**: Implemented
@@ -121,8 +121,8 @@ As an observer, I want to attach to a running match as a spectator and receive f
 ### v1.3 (2026-08-25) — Additive lobby message family (feature 010-public-lobby-match-browser)
 
 - 2026-08-25: The wire protocol gains a closed additive `lobby*` message family per feature 010's approved contract (`specs/010-public-lobby-match-browser/contracts/lobby-wire.md`): client→server `lobbyIdentity`, `lobbySetHandle`, `lobbySubscribe`, `lobbyCreate`, `lobbyJoin`, `lobbySpectate`, `lobbyLeave`; server→client `lobbyEvent`. All ride the existing `ProtocolEnvelope`; every gameplay payload declared by this specification is byte-for-byte unchanged, so FR-001..FR-011 semantics and FR-004's breaking boundary do not move (`NETWORK_API_VERSION` is NOT bumped for the family's introduction). Normative policy, mirrored in both canonical contract copies: recipients MUST ignore unrecognized message kinds and unrecognized additive `LobbyEvent` variants; a lobby frame reaching a peer without lobby support gets a graceful actionable error while the connection stays open; the server delivers `lobbyEvent` frames ONLY to connections that opted in via `lobbySubscribe`, so gameplay-only clients never observe lobby traffic; identity/handle/seat resolution is server-authoritative with client-supplied claims advisory. The domain shapes (`GuestIdentityClaim`, `LobbySnapshot`, `LobbyEvent`, etc.) are wire-mirrored in the networking contract because matchmaking depends on networking — mutual assignability between the mirror and matchmaking's feature-010 implementation contracts is pinned by conformance fixtures. Pinned by tests: kind↔payload exhaustiveness over the extended union (twenty kinds), structural conformance of both copies against the lobby-wire.md transcription, schema admission of minimal valid lobby envelopes, and unchanged gameplay-kind behavior.
- - 2026-08-26 (feature 010 Clarifications v1.6): the wire-mirrored `IdentityState` gains an additive OPTIONAL `guestPlayerId?: GuestPlayerId`; clients tolerate its absence and the field does not grant authority. See feature 013 for the later policy that IDs are non-secret correlation data. Bearer credentials, private-match existence, and fog-filtered state remain protected.
+ - 2026-08-26 (feature 010 Clarifications v1.6): the wire-mirrored `IdentityState` gains an additive OPTIONAL `guestPlayerId?: GuestPlayerId`; clients tolerate its absence and the field does not grant authority. The identity-visibility correction below makes clear that IDs are non-secret correlation data. Bearer credentials, private-match existence, and fog-filtered state remain protected.
 
-### v1.4 (2026-08-30) — Relaxed player-ID visibility policy (feature 013)
+### v1.4 (2026-08-30) — Product-owner identity-visibility correction
 
 - Guest identity IDs and gameplay `PlayerId` values may be carried in wire payloads and diagnostics for correlation. They do not change authorization or fog filtering. `sessionToken` and `reconnectToken` remain bearer credentials and MUST NOT be logged or placed in risky URLs/documentation examples.

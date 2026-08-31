@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Last Updated**: 2026-08-30 (v1.2; feature 013 identity-visibility policy)
+**Last Updated**: 2026-08-30 (v1.2; identity-visibility correction)
 
 **Version**: 1.2
 
@@ -272,7 +272,7 @@ Contracts were updated in the same change set wherever behavior changed.
   and `MapStats.effectiveSettings` (feature 003's existing
   `effectiveSettings` pattern).
 
-### v1.2 (2026-08-30) — Relaxed player-ID visibility policy (feature 013)
+### v1.2 (2026-08-30) — Product-owner identity-visibility correction
 
 - Player IDs and guest identity IDs are not private. Handles remain preferred
   for UI labels; a generic fallback or ID is acceptable without a handle.

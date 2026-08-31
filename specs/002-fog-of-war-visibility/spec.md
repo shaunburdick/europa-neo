@@ -3,7 +3,7 @@
 **Feature Branch**: `002-fog-of-war-visibility`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-08-30 (v1.2; feature 013 identity-visibility policy)
+**Last Updated**: 2026-08-30 (v1.2; identity-visibility correction)
 **Version**: 1.2
 
 **Status**: Implemented
@@ -106,6 +106,6 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 
 - 2026-08-22: SC-004 measurement hardened — wall-clock p99 over ≤100 samples is dominated by shared-CI-runner scheduler stalls (observed 1.9–3.7ms tails against a 0.078ms median); assertion now median < 1ms + p99 < 10ms guard after warmup. Algorithm unchanged.
 
-### v1.2 (2026-08-30) — Identity metadata is distinct from fog privacy (feature 013)
+### v1.2 (2026-08-30) — Identity metadata is distinct from fog privacy
 
 - IDs may be exposed for participant correlation, including in a view or transport trace, without relaxing the server-side visibility set. Fog protects game state, not identity references.

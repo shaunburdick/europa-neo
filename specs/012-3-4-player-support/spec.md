@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-28
 
-**Last Updated**: 2026-08-30 (v1.2 — feature 013 identity-visibility policy)
+**Last Updated**: 2026-08-30 (v1.2 — identity-visibility correction)
 
 **Version**: 1.2
 
@@ -157,7 +157,7 @@ As a player reading `docs/manual/`, I want the board-size defaults, lobby partic
 - **Identity visibility**: Guest identity IDs and gameplay `PlayerId` values are
   non-secret correlation metadata. Handles remain preferred in UI; bearer
   session/reconnect tokens, private-match existence, authorization, and fog
-  boundaries remain protected (feature 013).
+  boundaries remain protected (feature-010 identity-visibility correction).
 
 ## Requirements
 
@@ -212,7 +212,7 @@ As a player reading `docs/manual/`, I want the board-size defaults, lobby partic
 
 - **FR-013 — Manual updated in same change sets**: Every change set that alters behavior documented by the manual MUST update `docs/manual/` in the SAME commit(s) — including the board-size defaults per player count, lobby capacity/occupancy display, waiting-overlay wording, host CLI flags/syntax, victory/spectate notes for `N>2`, and the `numbers.md` tunable table. Stale manual text or numbers are review failures. Allowed to land across multiple stacked change sets (each individually FR-012-consistent) rather than a single monolithic commit — but no merge to `main` may carry a stale manual. Version footer (`docs/manual/index.md`) lockstep (`APP_VERSION`) per 007 FR-017 / 009 FR-009 stays green.
 
-- **FR-014 — Docs credential boundary**: Manual updates MUST NOT print `SessionToken`/`reconnectToken` values or credential-bearing URLs. Player IDs are non-secret and may appear when useful, while examples prefer handles (`P1`..), satisfying feature 013 and the retained private-match/fog boundaries. The checker is amended by feature 013 during implementation.
+- **FR-014 — Docs credential boundary**: Manual updates MUST NOT print `SessionToken`/`reconnectToken` values or credential-bearing URLs. Player IDs are non-secret and may appear when useful, while examples prefer handles (`P1`..), satisfying the corrected feature-010 policy and the retained private-match/fog boundaries. The checker is amended during implementation planning.
 
 ### Key Entities
 

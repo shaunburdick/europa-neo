@@ -183,7 +183,7 @@ export function resolveConfig(
 Player IDs are non-secret correlation metadata and may be shown in diagnostic
 or contract examples. Token-bearing URLs remain operationally restricted, and
 the handle-preferred UI, private-match boundary, and fog-of-war rules remain
-unchanged (feature 013).
+unchanged (feature-010 identity-visibility correction).
 - `HOST_STATIC_PORT` / `--static-port` passing remains a conformance failure (011 FR-004) — rejected with clear error, no second listener.
 - E2E fixtures use `port:0` + `__boundPortForTest()` per 011 FR-009 — no two-port seam.
 
