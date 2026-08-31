@@ -188,11 +188,13 @@ re-establishes a lobby connection when configured to do so. A reconnect within
 `reconnectGraceMs` (60 seconds by default) restores the original association;
 an invalid, expired, or mismatched credential cannot attach another player's
 seat, orders, or view. Guest identity IDs and gameplay `PlayerId` values are
-non-secret correlation data and may appear in wire payloads, URLs, views, logs,
-and diagnostics. The accepted handle is preferred for UI labels. Bearer
-credentials remain secret: diagnostics MUST NOT log `sessionToken` or
-`reconnectToken`, and private-match existence plus fog filtering remain
-enforced.
+non-secret correlation data, not credentials or authority, and may appear in
+wire payloads, URLs, views, logs, and diagnostics. Labels are handle-first: the
+accepted handle is preferred for UI labels, with a generic label or the relevant
+ID as a fallback when no handle exists. Only a valid bearer credential can
+resume a seat. Bearer credentials remain secret: diagnostics MUST NOT log
+`sessionToken` or `reconnectToken`, and private-match existence plus fog
+filtering remain enforced.
 
 Guest identities and handles are ephemeral process state, not authentication
 or persistence. A server restart clears them and all lobby/match state.

@@ -135,10 +135,12 @@ mismatched reconnect credential cannot claim it. Player views stay
 fog-filtered, while spectators have no seat and cannot issue orders. The lobby
 distinguishes an initial loading state from a successfully loaded empty state
 and shows distinct empty guidance. Guest identity IDs and gameplay `PlayerId`
-values are non-secret correlation data and may appear in URLs, wire payloads,
-views, logs, and diagnostics. Accepted handles remain the preferred UI labels,
-with a generic or ID fallback when no handle exists. Host diagnostics never log
-bearer credentials (`sessionToken` or `reconnectToken`), and fog filtering plus
+values are non-secret correlation data, not credentials or authority, and may
+appear in URLs, wire payloads, views, logs, and diagnostics. Labels are
+handle-first: accepted handles remain the preferred UI labels, with a generic
+label or the relevant ID as a fallback when no handle exists. Only a valid
+bearer credential can resume a seat. Host diagnostics never log bearer
+credentials (`sessionToken` or `reconnectToken`), and fog filtering plus
 private-match visibility protections remain unchanged.
 
 The lobby normally connects to the WebSocket service on the same host as the

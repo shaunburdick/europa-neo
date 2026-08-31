@@ -159,11 +159,14 @@ cannot reassign a seat or view.
 All lobby identity, handle, session, and match state is process memory. Browser
 storage is only a resume aid, not an account or durable record. Clearing it or
 restarting the server begins a fresh lobby. Guest identity IDs and gameplay
-`PlayerId` values are non-secret correlation fields and may appear in
-projections, URLs, views, logs, diagnostics, and API examples where useful.
-Handles remain preferred UI labels. Public projections still contain only
-discovery data, private matches remain non-enumerable, and diagnostics/examples
-must not expose bearer credentials (`sessionToken` or `reconnectToken`).
+`PlayerId` values are non-secret correlation fields, not credentials and never
+authority-bearing; they may appear in projections, URLs, views, logs,
+diagnostics, and API examples where useful. Labels are handle-first: handles
+remain preferred UI labels, with a generic label or the relevant ID as a
+fallback when no handle exists. Only a valid bearer credential can resume a
+seat. Public projections still contain only discovery data, private matches
+remain non-enumerable, and diagnostics/examples must not expose bearer
+credentials (`sessionToken` or `reconnectToken`).
 
 ### Runtime building blocks
 
