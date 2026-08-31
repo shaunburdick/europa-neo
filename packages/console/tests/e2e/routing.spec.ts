@@ -161,7 +161,7 @@ test.describe('semantic route browser history', () => {
             await expect(page.locator('h1')).toContainText('Europa Neo lobby');
             await page.goForward();
             await expectPath(page, semanticPath);
-            await expect(page.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
+            await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
             expect(fullNavigations).toBe(0);
             page.off('load', onDocumentLoad);
         } finally {
