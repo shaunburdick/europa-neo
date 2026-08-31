@@ -1,9 +1,9 @@
 # Orchestration Log: 011 Docker Single-Port Self-Host (Issue #5)
 
 ## Status
-- **Current Wave**: Wave 1 — Foundational (single-port seam + host collapse) — ⏳ Pending dispatch
+- **Current Wave**: Wave 4 review remediation — ✅ complete; Wave 5 docs pending by design
 - **Branch**: `issue-5-docker-support`
-- **Last Updated**: 2026-08-26
+- **Last Updated**: 2026-08-31
 - **PM**: project-manager (primary) — orchestrating directly (large: 35 tasks)
 
 ## Plan Summary
@@ -72,10 +72,14 @@ Collapse two-port self-host to one `http.Server` on `HOST_PORT` (8080) serving H
 ## Review Findings
 - Wave 4 runtime/remediation — ✅ complete (2026-08-31): Docker now compiles the
   host launcher and uses `pnpm deploy --prod` in the build stage, so the final
-  image contains only built runtime artifacts and production dependencies; no
-  workspace source, tests, dev dependencies, or pnpm launcher remain.
+  image contains only the explicit runtime artifact set and production
+  dependencies; `dist/src`, test-only output, declarations, source maps,
+  package READMEs, and production contract `.ts` sources are removed.
 - `scripts/docker-smoke.sh` now verifies a real RFC 6455 handshake and confirms
-  Docker's HTTP mapping and WebSocket endpoint are the same host port.
+  Docker's HTTP mapping and WebSocket endpoint are the same host port, and
+  fails if forbidden runtime artifacts return.
+- The `validate` job now explicitly grants only `contents: read`; build/publish
+  permissions remain scoped to their existing jobs.
 - `.github/workflows/docker.yml` build-amd64 permissions are least privilege:
   `contents: read`, `packages: write`, `attestations: write`, and `id-token: write`.
 - Review blocker: none. Wave 5 documentation remains outside this remediation.

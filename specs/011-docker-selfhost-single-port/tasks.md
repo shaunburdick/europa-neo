@@ -120,6 +120,13 @@
 
 ### Wave 4 review remediation — ✅ complete (2026-08-31)
 
+- [x] T036 Tighten the runtime stage to an explicit minimal artifact set:
+  remove `dist/src`, test-only JavaScript, declarations, source maps, package
+  READMEs, and production dependency contract `.ts` sources while retaining
+  the compiled host, static assets, and native WebSocket dependencies.
+- [x] T037 Extend Docker smoke inspection to fail on forbidden runtime
+  artifacts and add `contents: read` to the workflow validation job.
+
 - Runtime image was tightened to compiled host/runtime artifacts plus production
   dependencies only; workspace source, tests, dev dependencies, and pnpm are
   absent from the final stage.

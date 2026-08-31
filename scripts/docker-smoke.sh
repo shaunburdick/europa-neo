@@ -19,6 +19,24 @@ docker compose config -q
 echo "[docker-smoke] building ${IMAGE_NAME}..."
 docker build --tag "${IMAGE_NAME}" .
 
+echo "[docker-smoke] inspecting the minimal runtime artifact set..."
+docker run --rm "${IMAGE_NAME}" sh -eu -c '
+    test -f /app/scripts/host.js
+    test -f /app/scripts/version-route.js
+    test -f /app/scripts/awaiting-start.js
+    test -f /app/dist/index.html
+    test -d /app/dist/assets
+    test "$(find /app/dist -mindepth 1 -maxdepth 1 -type f -printf "%f\\n")" = index.html
+    test "$(find /app/dist -mindepth 1 -maxdepth 1 -type d -printf "%f\\n")" = assets
+    test ! -e /app/src
+    test ! -e /app/dist/src
+    test ! -e /app/dist/internal/test-state.js
+    test -z "$(find /app -type f \( -name "*.d.ts" -o -name "*.map" \) -print -quit)"
+    test -z "$(find /app/node_modules -type f -path "*/contracts/*.ts" -print -quit)"
+    test ! -e /app/node_modules/.bin/pnpm
+    test ! -e /app/pnpm-lock.yaml
+'
+
 echo "[docker-smoke] starting one-port container on localhost:${HOST_PORT}..."
 docker run --detach --name "${CONTAINER_NAME}" --publish "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null
 
@@ -107,4 +125,4 @@ exposed_ports="$(docker image inspect "${IMAGE_NAME}" --format '{{json .Config.E
     exit 1
 }
 
-echo "[docker-smoke] PASS: semantic SPA paths, /version, asset 404, HTTP+WS same-port handshake, and one EXPOSE port verified"
+echo "[docker-smoke] PASS: minimal runtime artifacts, semantic SPA paths, /version, asset 404, HTTP+WS same-port handshake, and one EXPOSE port verified"

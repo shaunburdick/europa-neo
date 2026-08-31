@@ -22,9 +22,19 @@ RUN pnpm build
 # host launcher. The runtime stage never needs workspace source or pnpm.
 RUN pnpm deploy --filter @europa/console --prod --legacy /runtime
 RUN cp -R packages/console/dist-host/scripts /runtime/scripts
-RUN mkdir -p /runtime/src/state
-RUN cp packages/console/dist-host/src/state/awaiting-start.js /runtime/src/state/awaiting-start.js
-RUN rm -rf /runtime/README.md /runtime/contracts
+RUN cp packages/console/dist-host/src/state/awaiting-start.js /runtime/scripts/awaiting-start.js
+RUN sed -i 's#../src/state/awaiting-start.js#./awaiting-start.js#' /runtime/scripts/host.js
+# The host only serves the Vite shell and assets. Remove generated library
+# output, type/source metadata, and workspace contract sources from the deploy
+# tree instead of relying on pnpm's package-file selection.
+RUN rm -rf /runtime/README.md /runtime/contracts /runtime/dist/src \
+    /runtime/dist/internal/test-state.js /runtime/dist/internal/test-state.d.ts \
+    /runtime/dist/internal/test-state.js.map
+RUN find /runtime/dist -mindepth 1 -maxdepth 1 ! -name index.html ! -name assets -exec rm -rf {} +
+RUN find /runtime/dist -type f \( -name '*.d.ts' -o -name '*.map' \) -delete
+RUN find /runtime/node_modules -type d -name contracts -prune -exec rm -rf {} +
+RUN find /runtime/node_modules -type f \( -name '*.d.ts' -o -name '*.map' \) -delete
+RUN find /runtime/node_modules -type f -name 'README*' -delete
 RUN node -e "const fs=require('fs'); const file='/runtime/package.json'; const pkg=JSON.parse(fs.readFileSync(file)); delete pkg.devDependencies; delete pkg.scripts; delete pkg.packageManager; fs.writeFileSync(file, JSON.stringify(pkg)+'\\n');"
 
 # Stage 2 — runtime (minimal) — 24.x — latest LTS Aug 2026
