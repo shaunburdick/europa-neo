@@ -10,8 +10,8 @@
  *   - a same-origin WebSocket upgrade succeeds (hello → helloAck);
  *   - the REAL exported `prepareMatch` (012 T018) creates + fills an
  *     N-seat public match and yields one session token per seat;
- *   - N Node wire clients join through the exact token-bearing join URLs
- *     the launcher prints (semantic `/match/<id>` links), receive
+ *   - N Node wire clients join through semantic `/match/<id>/join` paths
+ *     (with credentials supplied through the wire, never the URL), receive
  *     tick broadcasts, and get authoritative order acks;
  *   - a SIGINT-driven shutdown is idempotent (the second signal is a no-op).
  *
@@ -270,17 +270,16 @@ interface SeatLeg {
 }
 
 /**
- * Connect a REAL match client and complete a token-bearing join through
- * the exact join URL the launcher prints. The seat's session token is
- * presented as `reconnectToken` (the URL's `?token=`); for a seat that
- * has never connected this resolves via the server's seat-scan path and
- * claims that specific seat — the same "refresh reclaims own seat"
- * behavior the URL exists for.
+ * Connect a REAL match client and complete a token-bearing wire join for
+ * the semantic path supplied by the host. The session token is presented
+ * as `reconnectToken` by the test fixture, not placed in the URL. For a
+ * seat that has never connected this resolves via the server's seat-scan
+ * path and claims that specific seat.
  *
  * @param wsUrl      Same-origin WebSocket URL (`ws://127.0.0.1:<port>`).
  * @param matchId   Match id from the prepared match.
- * @param token     The seat's session token (URL `?token=`).
- * @param displayName Cosmetic seat handle (URL `?name=`).
+ * @param token     The seat's session token supplied through the wire.
+ * @param displayName Cosmetic seat handle supplied through the wire.
  * @returns The joined leg with its recorded views.
  */
 async function joinSeat(wsUrl: string, matchId: MatchId, token: string, displayName: string): Promise<SeatLeg> {

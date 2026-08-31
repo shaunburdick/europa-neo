@@ -30,11 +30,11 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T014 real-socket semantic create/join/spectate coverage — ✅ complete
 - T015 security suite — ✅ complete
 - T016 unchanged `?e2e`/a11y/harness checks — ✅ complete
-### Wave 4 — Native host and Docker — T017 complete
+### Wave 4 — Native host and Docker — T017–T020 complete
 - T017 safe application-path SPA fallback with missing-asset protection — ✅ complete
-- T018 host link emission — ⏳ pending
+- T018 host link emission — ✅ complete
 - T019 self-host and host integration expansion — ⏳ pending
-- T020 Docker validation and documentation — ⏳ pending
+- T020 Docker validation and documentation — ✅ complete
 ### Wave 5 — Documentation truthfulness — ⏳ Pending
 ### Wave 6 — Final gate — ⏳ Pending
 
@@ -223,6 +223,18 @@ Replace production query-selected live boot with a pure pathname router and expl
 - No T014/T015, host, Docker, or documentation implementation was performed.
 - No blockers remain for this remediation. The previously recorded root
   no-test-files baseline for `@europa/design` is unrelated and unchanged.
+
+## T020 Completion
+
+- 2026-08-31: Added `scripts/docker-smoke.sh`, which runs `docker compose
+  config -q`, builds the image, starts it with one host mapping, checks the
+  `/lobby` and all three semantic match paths return the SPA shell, verifies
+  `/version` and missing-asset behavior, and asserts the image has exactly one
+  exposed port (`8080/tcp`). The Docker workflow runs this smoke gate before
+  the publish build.
+- Root Docker quick-start documentation now points to `/lobby` and explicitly
+  documents semantic deep-link fallback on the same single `http.Server`.
+- T021–T023 and the broader Wave 5 documentation migration remain untouched.
 
 ## T014 Completion
 

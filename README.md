@@ -145,12 +145,15 @@ clone:
 
 ```bash
 docker compose up --build   # first run builds the image; later `docker compose up` suffices
-# lobby at http://localhost:8080/  — single http.Server on HOST_PORT: static UI + /version + WS
+# lobby at http://localhost:8080/lobby — single http.Server on HOST_PORT: static UI + /version + WS
 ```
 
 One firewall/ingress rule is enough: the container exposes a single port
 (`EXPOSE 8080`, mapped as `${HOST_PORT:-8080}:${HOST_PORT:-8080}`) and the
 browser connects same-origin with no `?ws=` override needed.
+The same container also serves the semantic match entry paths (`/match/<id>`,
+`/match/<id>/join`, and `/match/<id>/spectate`) through the SPA fallback; direct
+loads and refreshes do not require a second listener.
 
 | Env var | Default | Purpose |
 |---|---|---|

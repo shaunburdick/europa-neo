@@ -21,11 +21,10 @@
  * fill a public 2-player match (which auto-starts it) and print two
  * clickable join URLs.
  *
- * Seat claiming needs nothing beyond name + matchId: a tokenless wire
- * `joinMatch` claims the first open seat in ascending playerId order.
- * Each URL ALSO carries its seat's matchmaking-issued session token
- * (`?token=`) so an accidental refresh reclaims the SAME seat within
- * the reconnect grace window instead of failing seat allocation.
+ * Seat claiming needs nothing beyond the semantic match path: a tokenless
+ * wire `joinMatch` claims the first open seat in ascending playerId order.
+ * Reconnect credentials remain in browser storage and are never put in a
+ * generated URL.
  *
  * Privacy boundary (spec 010 NFR-003/FR-024): host diagnostics NEVER
  * echo guestPlayerIds, session tokens, or reconnect tokens; free-form
@@ -84,7 +83,7 @@ const TICK_MS = 250;
 const SEAT_NAMES = ['P1', 'P2', 'P3', 'P4'] as const;
 
 /**
- * Cosmetic seat label for a join-URL `name=` param and seat-join logs.
+ * Cosmetic seat label for seat-join logs and the create banner.
  * Returns `P1`..`P4` for the supported player counts and falls back to a
  * generic label for any seat beyond the v1 four-seater.
  *
@@ -388,7 +387,7 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
 // Match bootstrap
 // ---------------------------------------------------------------------------
 
-/** The pre-filled match plus each seat's credentials for the join URLs. */
+/** The pre-filled match plus each seat's credentials for the host flow. */
 interface PreparedMatch {
     /** Matchmaking-issued match id (UUID). */
     readonly matchId: string;
@@ -491,7 +490,7 @@ export function printLobbyBanner(port: number, publicHost: string): void {
     say('');
     say('  Open the lobby in a browser:');
     say('');
-    say(`  → http://${host}:${String(port)}/`);
+    say(`  → http://${host}:${String(port)}/lobby`);
     say('');
     say('  Matches and guest identities are in-memory only — restarting resets the lobby.');
     say('  Ctrl-C to stop.');
@@ -500,9 +499,9 @@ export function printLobbyBanner(port: number, publicHost: string): void {
 
 /**
  * Print the `--create` startup banner: release version, launch mode,
- * endpoints, match id, and one clickable URL per seat. Tokens ride
- * along so a refreshed tab reclaims its own seat. This mode retains
- * the pre-lobby two-seat quick-test experience.
+ * endpoints, match id, and one clickable semantic URL per seat. The URL
+ * intentionally contains no identity, transport, or reconnect credentials;
+ * this mode retains the pre-lobby two-seat quick-test experience.
  *
  * Single-port: both ws and http share the same HOST_PORT.
  *
@@ -513,8 +512,7 @@ export function printLobbyBanner(port: number, publicHost: string): void {
 export function printCreateBanner(port: number, publicHost: string, match: PreparedMatch): void {
     const host = urlHostOf(publicHost);
     const wsUrl = `ws://${host}:${String(port)}`;
-    const joinUrl = (name: string, token: string): string =>
-        `http://${host}:${String(port)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
+    const joinUrl = `http://${host}:${String(port)}/match/${encodeURIComponent(match.matchId)}/join`;
     say('');
     say(`  Version      : v${APP_VERSION}`);
     say(
@@ -522,7 +520,7 @@ export function printCreateBanner(port: number, publicHost: string, match: Prepa
     );
     say(`  Match server : ${wsUrl}`);
     say(`  Console UI   : http://${host}:${String(port)}`);
-    say(`  Lobby        : http://${host}:${String(port)}/`);
+    say(`  Lobby        : http://${host}:${String(port)}/lobby`);
     say(`  Match id     : ${match.matchId}`);
     say('');
     say(`  Open in ${String(match.playerCount)} browser tabs:`);
@@ -530,7 +528,7 @@ export function printCreateBanner(port: number, publicHost: string, match: Prepa
     for (let i = 0; i < match.seatTokens.length; i += 1) {
         const seat = i + 1;
         const name = seatName(seat);
-        say(`  Player ${String(seat)} (${name}) → ${joinUrl(name, match.seatTokens[i])}`);
+        say(`  Player ${String(seat)} (${name}) → ${joinUrl}`);
     }
     say('');
     say('  Ctrl-C to stop.');
