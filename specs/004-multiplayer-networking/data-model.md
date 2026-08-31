@@ -19,7 +19,8 @@
 Player IDs and guest identity IDs are non-secret correlation metadata and may
 appear on wire or diagnostic surfaces. Session/reconnect tokens remain bearer
 credentials; this visibility distinction does not alter fog-of-war filtering or
-authorization.
+authorization. `MatchId` is also a non-secret routing reference; it selects a
+match for the matchmaking handoff but is not a session/reconnect credential.
 
 Networking maintains **three layers of state**, each with its own
 visibility:

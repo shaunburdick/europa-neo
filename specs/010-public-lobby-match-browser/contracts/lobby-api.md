@@ -20,5 +20,8 @@ contains no player seat/token. All methods are synchronous at the state mutation
 boundary except shutdown. Matchmaker bridge callbacks publish revisions after
 create/fill/start/collect and reconnect/grace callbacks update identity state.
 
-The API is intentionally not a persistence interface, account interface, or
-private-match interface.
+The API is intentionally not a persistence interface or account interface.
+When a caller supplies a `MatchId`, that non-secret match reference selects the
+match to join; it is not a session or reconnect bearer credential. Private-match
+existence remains non-enumerable through lobby projections and generic unknown-
+match errors, while server-resolved sessions and seats remain authoritative.

@@ -126,3 +126,4 @@ As an observer, I want to attach to a running match as a spectator and receive f
 ### v1.4 (2026-08-30) — Product-owner identity-visibility correction
 
 - Guest identity IDs and gameplay `PlayerId` values may be carried in wire payloads and diagnostics for correlation. They do not change authorization or fog filtering. `sessionToken` and `reconnectToken` remain bearer credentials and MUST NOT be logged or placed in risky URLs/documentation examples.
+- `MatchId` is a non-secret routing/reference value, not a session or reconnect bearer credential. Its use as the v1 private-match link does not change server-side seat authority, generic unknown-match handling, or fog filtering.

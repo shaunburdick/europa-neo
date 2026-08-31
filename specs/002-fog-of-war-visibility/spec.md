@@ -109,3 +109,6 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 ### v1.2 (2026-08-30) — Identity metadata is distinct from fog privacy
 
 - IDs may be exposed for participant correlation, including in a view or transport trace, without relaxing the server-side visibility set. Fog protects game state, not identity references.
+- `sessionToken` and `reconnectToken` remain bearer credentials and are not view
+  data; identity IDs never substitute for those credentials or for a
+  server-authorized seat.

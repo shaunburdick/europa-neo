@@ -63,8 +63,9 @@ export type LobbyEvent =
       };
 ```
 
-`MatchId` is imported from networking/matchmaking. Guest IDs are non-secret
-identity/reference data and may be projected where useful for correlation. A
-public projection still contains only public-match data, and IDs never grant
-authority or disclose private-match existence or fog-hidden state. Bearer
-session/reconnect tokens are not part of these projections.
+`MatchId` is imported from networking/matchmaking. Guest IDs, match IDs, and
+gameplay player IDs are non-secret identity/reference data and may be projected
+where useful for correlation. A public projection still contains only
+public-match data: an ID does not grant authority or disclose private-match
+existence or fog-hidden state. Bearer `sessionToken`/`reconnectToken` values
+remain credentials and are not part of these projections.

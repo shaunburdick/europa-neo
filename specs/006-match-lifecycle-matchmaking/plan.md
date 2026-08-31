@@ -96,7 +96,7 @@ In production, the server binary (`packages/server`) instantiates a real `Server
 | No `Math.random()` / unseeded randomness in src/ | ✅ All randomness goes through injected `randomId()` (default `crypto.randomUUID`) |
 | Session tokens are v4 UUIDs (122 bits of entropy) | ✅ Feature 004 boundary rule (`matchmaking-to-networking.ts` line 91) |
 | Match creation seed (engine `MatchConfig.seed`) is server-generated; matches are ephemeral so no cross-restart determinism is needed | ✅ Recorded in `MatchResultsRecord.effectiveSeed` per FR-008 |
-| Unknown match IDs return `match_not_found` for **both** "nonexistent" and "exists but private, no token" — no existence leak | ✅ Spec FR-006 + Q2 clarification; single code path |
+| Unknown match IDs return `match_not_found`; private-match existence is not disclosed by probing | ✅ Spec FR-006 + Q2 clarification; single code path; a known `MatchId` is the v1 shareable join reference, not a session bearer token |
 | Server-initiated forfeit: matchmaker injects `OrderSurrender` via `engineSession.submit()` (per `matchmaking-to-networking.ts` rule 4 + rule 6) | ✅ `forfeit.ts` does this directly; not via networking |
 | Determinism on the **game-simulation** hot path is unaffected (engine owns determinism; matchmaking is meta) | ✅ Lobby state transitions are not on the tick hot path |
 

@@ -68,7 +68,7 @@ As a player browsing the lobby, I want the create form to default to a larger bo
 1. **Given** the lobby create form, **When** a user selects `3 players`, **Then** the board-size control pre-selects the default for 3p (`48`) without erasing a prior explicit override until the player changes it again.
 2. **Given** the lobby create form, **When** a user selects `4 players`, **Then** the board-size control pre-selects the default for 4p (`48`) — overrideable to `32`, `48`, or `64`.
 3. **Given** three public matches (2p 1/2, 3p 2/3, 4p 3/4), **When** the lobby list is rendered, **Then** each row shows occupancy and capacity (e.g., "Players 2 / 3"), seats-filled count, and map-size label, with Join/Spectate availability correct per FR-007 of 010.
-4. **Given** a private 3p or 4p match exists (shareable link only), **When** the lobby is listed, **Then** the match does not appear in any public entry and its ID is not leaked (006 FR-006 boundary preserved; lobby = public only per 010 FR-015).
+4. **Given** a private 3p or 4p match exists (shareable link only), **When** the lobby is listed, **Then** the match does not appear in any public entry and the listing does not disclose its private existence (006 FR-006 boundary preserved; lobby = public only per 010 FR-015). A known non-secret match ID may still be used through its shareable link.
 
 ---
 

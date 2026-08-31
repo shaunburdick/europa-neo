@@ -61,13 +61,13 @@ mutation/lifecycle event. Clients apply only snapshots with a newer revision.
 Unknown additive lobby events are ignored by older clients; incompatible edits
 require the existing version policy and conformance updates.
 
-Identity-visibility boundary: `GuestPlayerId` and gameplay `PlayerId` values are
-non-secret correlation references and may be present in existing wire payloads,
-logs, diagnostics, or documentation when useful. Their presence does not grant
-authority, reveal private-match existence, or bypass fog filtering. A
-`sessionToken` or `reconnectToken` is a bearer credential and is not permitted
+Identity-visibility boundary: `GuestPlayerId`, `MatchId`, and gameplay `PlayerId`
+values are non-secret correlation references and may be present in existing wire
+payloads, logs, diagnostics, or documentation when useful. Their presence does
+not grant authority, reveal private-match existence, or bypass fog filtering.
+A `sessionToken` or `reconnectToken` is a bearer credential and is not permitted
 in risky URLs, logs, diagnostics, or documentation examples. This is a policy
-correction only; no payload or protocol-version change is implied.
+correction only; no payload shape or protocol-version change is implied.
 
 Handshake gating: lobby frames are exempt from the greeted-state gate — every
 `LobbyMessageKind` is valid before the `hello`/`helloAck` handshake, so a

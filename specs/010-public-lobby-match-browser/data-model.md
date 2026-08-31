@@ -12,6 +12,10 @@ type NormalizedHandle = string & { readonly __brand: 'NormalizedHandle' };
 non-secret. It may be serialized into correlation surfaces, but never grants
 authority or reveals private-match existence or fog-hidden state. The browser
 may store a claim, but the server can reject it and issue a new identity.
+`MatchId` and gameplay `PlayerId` values are likewise non-secret references;
+they are distinct from `sessionToken` and `reconnectToken`, which are bearer
+credentials. IDs may identify or correlate records, but only the server's
+session/seat resolution grants authority.
 `LobbyRevision` is monotonic for one process. `NormalizedHandle` is
 trimmed and case-folded for uniqueness only.
 
@@ -52,9 +56,10 @@ interface LobbySnapshot {
 ```
 
 Entries include no seat token, private data, finished match, or participant list.
-Guest IDs may be included where the projection explicitly needs identity
-correlation; they are not credentials and do not authorize an action. Waiting
-entries are joinable only when capacity remains;
+Guest IDs and gameplay player IDs may be included where the projection
+explicitly needs identity correlation; they are not bearer credentials and do
+not authorize an action. A public projection must not turn an ID into evidence
+that a private match exists. Waiting entries are joinable only when capacity remains;
 in-progress entries are spectatable only. Collected matches are absent.
 
 ## 4. Client lobby state
@@ -72,7 +77,8 @@ interface LobbyClientState {
 The client stores `{ guestPlayerIdClaim, handle }` under a namespaced
 local-storage key. It treats both as untrusted input and may display or forward
 the ID for correlation. Match tokens remain in memory/session handling as
-already defined by networking and must not enter unsafe URLs or logs.
+already defined by networking: they are bearer credentials and must not enter
+unsafe URLs, logs, diagnostics, or documentation examples.
 
 ## 5. State transitions and invariants
 
