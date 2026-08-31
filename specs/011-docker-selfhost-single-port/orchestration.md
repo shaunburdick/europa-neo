@@ -1,9 +1,9 @@
 # Orchestration Log: 011 Docker Single-Port Self-Host (Issue #5)
 
 ## Status
-- **Current Wave**: Wave 1 — Foundational (single-port seam + host collapse) — ⏳ Pending dispatch
+- **Current Wave**: Wave 4 review remediation — ✅ complete; Wave 5 docs pending by design
 - **Branch**: `issue-5-docker-support`
-- **Last Updated**: 2026-08-26
+- **Last Updated**: 2026-08-31
 - **PM**: project-manager (primary) — orchestrating directly (large: 35 tasks)
 
 ## Plan Summary
@@ -70,7 +70,26 @@ Collapse two-port self-host to one `http.Server` on `HOST_PORT` (8080) serving H
 - (none yet)
 
 ## Review Findings
-- (pending)
+- Wave 4 follow-up remediation — ✅ complete (2026-08-31): `workflow_dispatch`
+  jobs now require the canonical repository (`shaunburdick/europa-neo`), so a
+  manually dispatched fork cannot build or publish. After the amd64 digest is
+  built, `scripts/docker-validate.sh` runs the digest image and checks both
+  `/version.appVersion` and a real WebSocket `helloAck.appVersion` against the
+  checked-in canonical `APP_VERSION`; tag publication remains downstream of
+  that gate. No runtime artifact packaging or Wave 5 documentation changed.
+- Wave 4 runtime/remediation — ✅ complete (2026-08-31): Docker now compiles the
+  host launcher and uses `pnpm deploy --prod` in the build stage, so the final
+  image contains only the explicit runtime artifact set and production
+  dependencies; `dist/src`, test-only output, declarations, source maps,
+  package READMEs, and production contract `.ts` sources are removed.
+- `scripts/docker-smoke.sh` now verifies a real RFC 6455 handshake and confirms
+  Docker's HTTP mapping and WebSocket endpoint are the same host port, and
+  fails if forbidden runtime artifacts return.
+- The `validate` job now explicitly grants only `contents: read`; build/publish
+  permissions remain scoped to their existing jobs.
+- `.github/workflows/docker.yml` build-amd64 permissions are least privilege:
+  `contents: read`, `packages: write`, `attestations: write`, and `id-token: write`.
+- Review blocker: none. Wave 5 documentation remains outside this remediation.
 
 ## Wave Dispatch Plan
 - Wave 1 (Foundational) is blocking and file-coupled (host.ts + networking seam) — dispatch as 2 parallel sub-waves: (a) host-config/host tests+impl (T004+T007+T005+T006), (b) networking seam tests+impl (T008+T009), then merge with wire-up T010.

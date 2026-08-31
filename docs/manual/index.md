@@ -2,7 +2,12 @@
 
 Welcome, commander. Europa Neo is a real-time strategy game: rival colonies of nanobots wage war across the icy surface of Jupiter's moon Europa. This manual teaches you everything you need to play — from choosing a name in the public lobby to reading the battlefield like a veteran.
 
-Before you play, choose a temporary guest handle in the [public lobby](./lobby.md). You can rename it later; other players see this handle first, with a generic label or safe ID fallback only when a handle is unavailable. No account is required, and private system details are not used as player labels.
+Before you play, open the [public lobby](./lobby.md) at `/lobby` and choose a temporary guest handle. You can rename it later; other players see this handle instead of private system details, and no account is required.
+
+Matches use readable paths: `/match/<match-id>/join` requests a player seat, `/match/<match-id>/spectate` opens read-only spectating, and `/match/<match-id>` chooses the appropriate action for the match state. These paths contain the match ID only; your guest identity and reconnect session stay in the browser and are not credentials in the address.
+Guest/player IDs are non-secret correlation data, not credentials; the manual
+does not expose bearer credentials. Match IDs identify matches,
+while guest/player IDs identify participants.
 
 <div class="europa-card">
 

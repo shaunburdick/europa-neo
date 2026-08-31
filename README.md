@@ -24,7 +24,7 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 
 ## Project status
 
-**v1 implementation complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit: all features are specified, planned, implemented, integrated, and reviewed.
+**v1 core implementation is complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit. Feature 013's semantic routing is available on this branch, but its final validation gates are still pending; the status below distinguishes shipped features from work still under review.
 
 | Feature                                  | Package                                    | Status          |
 | ---------------------------------------- | ------------------------------------------ | --------------- |
@@ -35,6 +35,7 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 | 005 client console                       | `@europa/console`                          | ✅ Implemented |
 | 006 match lifecycle & matchmaking        | `@europa/matchmaking`                      | ✅ Implemented |
 | 010 public lobby & match browser         | `@europa/matchmaking`/`@europa/networking`/`@europa/console` | ✅ Implemented |
+| 013 semantic URL routing                  | `@europa/console`/host runtime                    | ⏳ Implementation in progress — final gates pending |
 
 An integration wave proved the full production path end-to-end: console UI ⇄ browser WebSocket client ⇄ match server ⇄ matchmaking-bound engine + terrain + fog, with two seats playing through the real wire protocol.
 
@@ -119,11 +120,24 @@ pnpm host
 both the console UI and the WebSocket match server on the same origin
 (`http://localhost:8080/` + `ws://localhost:8080`, FR-017: one `http.Server`,
 one `EXPOSE`, one port mapping, same-origin WS). The default is an empty
-public lobby at `/`: choose a guest handle, create a game, or browse and
+public lobby at `/lobby`: choose a guest handle, create a game, or browse and
 join/spectate an available public match. It does not create a match at startup.
 Use `pnpm host --create` for the explicit two-seat quick flow. The console also
 has a deterministic stub board when opened without a server, for renderer work
 only.
+
+Production navigation uses readable paths:
+
+| Path | Purpose |
+|---|---|
+| `/lobby` | Browse public matches, create a match, or choose Join/Spectate. |
+| `/match/<id>` | Open a match; waiting matches use player entry and running matches use read-only spectation. |
+| `/match/<id>/join` | Request player entry for a specific waiting match. |
+| `/match/<id>/spectate` | Open a specific running match read-only, without a seat. |
+
+The root path redirects to `/lobby`. Shared paths contain only the match ID;
+the browser establishes identity and transport details through the application
+session rather than the address bar.
 
 The host is loopback-safe by default. For a local-area network match, bind
 explicitly and advertise the address players can reach:
@@ -145,12 +159,15 @@ clone:
 
 ```bash
 docker compose up --build   # first run builds the image; later `docker compose up` suffices
-# lobby at http://localhost:8080/  — single http.Server on HOST_PORT: static UI + /version + WS
+# lobby at http://localhost:8080/lobby — single http.Server on HOST_PORT: static UI + /version + WS
 ```
 
 One firewall/ingress rule is enough: the container exposes a single port
 (`EXPOSE 8080`, mapped as `${HOST_PORT:-8080}:${HOST_PORT:-8080}`) and the
-browser connects same-origin with no `?ws=` override needed.
+browser connects to the same origin without a transport override.
+The same container also serves the semantic match entry paths (`/match/<id>`,
+`/match/<id>/join`, and `/match/<id>/spectate`) through the SPA fallback; direct
+loads and refreshes do not require a second listener.
 
 | Env var | Default | Purpose |
 |---|---|---|
@@ -215,15 +232,16 @@ fog-of-war boundaries remain protected.
 curl http://localhost:8080/version
 ```
 
-The normal lobby derives its WebSocket endpoint from the page host. For a
-different port or test harness, `?ws=` may override it, but only a same-host
-WebSocket URL is accepted; URLs with embedded credentials or another hostname
-are rejected. The direct `?live&ws=&match=&name=` route remains available for
-development and test integrations. Normal public-app URLs do not carry bearer
-credentials. As a temporary/local operator convenience, `pnpm host` may print
-per-seat tokenized join URLs; those URLs are bearer secrets, should be shared
-only through the local operator's intended channel, and are not a general URL,
-logging, diagnostics, or documentation-example policy.
+The normal lobby derives its WebSocket endpoint from the page host. Normal host
+output uses the lobby and semantic match paths, and does not place identity,
+transport, or credential material in the URL. The `?e2e` query documented in the
+console package is reserved for automated test harnesses and is not a
+production launch path.
+Guest/player IDs are non-secret correlation data and may appear in approved
+diagnostics or contract examples, but match IDs and guest/player IDs are not
+bearer credentials. Bearer session and reconnect tokens remain excluded from
+public app URLs, logs, diagnostics, and documentation examples. The direct
+`?live` route is historical test compatibility, not a production launch path.
 
 ## Credits & licensing
 

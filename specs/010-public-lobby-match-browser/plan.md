@@ -91,9 +91,18 @@ loop and each mutation rechecks current state immediately before assignment.
 
 ### 3. Existing console and host surfaces
 
-Audit existing console/host comments and docs only. Handle-first labels remain
-the UX rule; if a handle is absent, a generic label or player ID is valid. Any
-correlation URL may contain IDs but must not contain bearer credentials.
+Introduce a lobby state machine beside the existing console match store:
+`identitySetup → lobby → waiting → joining/spectating → match → lobby` plus
+recoverable `error`/`disconnected` substates. Keep the current live console
+mounted for the match state; use semantic paths as the host entry paths. The
+legacy query-selected live entry is retired rather than preserved as a
+compatibility route. Normal host output contains no match ID, seat, token, or
+identity in the URL.
+Create a reusable lobby UI with an identity form, create form, status-filtered
+public match rows, empty/loading/error states, and accessible transitions. Handle
+first labels remain the UX rule; if absent, a generic label or non-secret
+guest/player ID is valid. Match IDs and guest/player IDs are correlation data,
+not credentials; bearer tokens never appear in URLs, logs, diagnostics, or docs.
 
 ### 4. Documentation/privacy checker
 

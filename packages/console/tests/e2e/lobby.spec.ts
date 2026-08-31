@@ -58,6 +58,20 @@ import {
 } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
+/** Retain the ephemeral test server override while the app canonicalizes paths. */
+function preserveWsQueryInHistory(): void {
+    const preserveWsQuery = (url: string | URL | null): string | URL | null => {
+        if (url === null || !window.location.search.startsWith('?ws=')) return url;
+        const parsed = new URL(String(url), window.location.origin);
+        parsed.search = window.location.search;
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    };
+    const replaceState = window.history.replaceState.bind(window.history);
+    const pushState = window.history.pushState.bind(window.history);
+    window.history.replaceState = (state, title, url) => replaceState(state, title, preserveWsQuery(url));
+    window.history.pushState = (state, title, url) => pushState(state, title, preserveWsQuery(url));
+}
+
 // ---------------------------------------------------------------------------
 // Tunables (single location — constitution Principle V / AGENTS.md rule 3)
 // ---------------------------------------------------------------------------
@@ -295,11 +309,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const errors: string[] = [];
         const openLobbyTab = async (name: string): Promise<Page> => {
             const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+            await context.addInitScript(preserveWsQueryInHistory);
             const page = await context.newPage();
             page.on('pageerror', (error) => {
                 errors.push(`${name}: ${String(error)}`);
             });
-            await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+            await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
             return page;
         };
 
@@ -354,6 +369,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // -- Tab 2: Bob joins → auto-start → match transition ----------------
         await waitingRow.locator('button:has-text("Join")').click();
         await waitUntilLobby(bob, (l) => l.viewMode === 'match', 'Bob enters match view');
+        await expect(bob).toHaveURL(new RegExp(`/match/${matchId}/join`));
 
         // Alice's match entry flips to in_progress (lobby update, SC-004).
         await waitUntilLobby(
@@ -410,11 +426,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const errors: string[] = [];
         const openLobbyTab = async (name: string): Promise<Page> => {
             const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+            await context.addInitScript(preserveWsQueryInHistory);
             const page = await context.newPage();
             page.on('pageerror', (error) => {
                 errors.push(`${name}: ${String(error)}`);
             });
-            await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+            await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
             return page;
         };
 
@@ -471,6 +488,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // Click Spectate — should transition to the match view in read-only.
         await cara.locator(`[data-match-id="${matchId}"] button:has-text("Spectate")`).click();
         await waitUntilLobby(cara, (l) => l.viewMode === 'match', 'Cara in match view (spectator)');
+        await expect(cara).toHaveURL(new RegExp(`/match/${matchId}/spectate`));
 
         // The spectator heading says "Spectating" (FR-012, SC-005).
         await expect(cara.locator('.europa-lobby-match__title')).toContainText('Spectating');
@@ -507,7 +525,130 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
     });
 
     // -----------------------------------------------------------------------
-    // Scenario 3: return-to-lobby (identity survives)
+    // Scenario 3: semantic adaptive/explicit entry over real sockets
+    //             (Feature 013 T014: AC-003, AC-004, AC-006)
+    // -----------------------------------------------------------------------
+
+    test('semantic adaptive entry, explicit failures, and cross-match rejection', async ({ browser }) => {
+        test.setTimeout(120_000);
+
+        const errors: string[] = [];
+        const wsUrl = `ws://127.0.0.1:${String(wsPort)}`;
+        const openTab = async (name: string, path = '/lobby'): Promise<Page> => {
+            const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+            await context.addInitScript(preserveWsQueryInHistory);
+            const page = await context.newPage();
+            page.on('pageerror', (error) => errors.push(`${name}: ${String(error)}`));
+            await page.goto(`${path}?ws=${encodeURIComponent(wsUrl)}`);
+            return page;
+        };
+
+        const establishHandle = async (page: Page, handle: string): Promise<void> => {
+            await waitUntilLobby(page, (lobby) => lobby.connection === 'ready', `${handle} lobby connected`);
+            await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
+            await page.getByRole('textbox', { name: /display name/i }).fill(handle);
+            await page.locator('[data-europa-submit-handle="true"]').click();
+            await waitUntilLobby(page, (lobby) => lobby.handle === handle, `${handle} handle accepted`);
+        };
+
+        const alice = await openTab('Alice');
+        const bob = await openTab('Bob');
+        const cara = await openTab('Cara');
+        const dave = await openTab('Dave');
+
+        try {
+            await establishHandle(alice, 'Alice');
+            await alice.getByRole('button', { name: 'Create match' }).click();
+            await waitUntilLobby(alice, (lobby) => lobby.viewMode === 'match', 'Alice creates match A');
+            const matchA = (await readLobbyOrThrow(alice)).entries[0]?.matchId;
+            expect(matchA).toMatch(/^[0-9a-f-]{36}$/i);
+
+            await establishHandle(bob, 'Bob');
+            await waitUntilLobby(
+                bob,
+                (lobby) => lobby.entries.some((entry) => entry.matchId === matchA && entry.status === 'waiting'),
+                'Bob receives match A waiting projection',
+            );
+            // The real lobby action enters through the semantic player
+            // shortcut; the route adapter preserves this path after the
+            // authoritative join succeeds.
+            await bob.locator(`[data-match-id="${matchA}"] button:has-text("Join")`).click();
+            await waitUntilLobby(bob, (lobby) => lobby.viewMode === 'match', 'semantic route joins match A');
+            await expect(bob).toHaveURL(new RegExp(`/match/${matchA}/join(?:\\?.*)?$`));
+            await expect(bob.locator('.europa-lobby-match__title')).toContainText('In match');
+
+            // A real tick and one player order must cross the production wire.
+            await expect(bob.locator('.europa-hud')).toContainText(/Tick: [1-9]/, { timeout: WAIT_TIMEOUT });
+            const ownCity = bob.locator('[role="gridcell"][aria-label*="Player 2, city"]').first();
+            await expect(ownCity).toBeVisible({ timeout: WAIT_TIMEOUT });
+            await ownCity.click();
+            await bob.getByRole('button', { name: 'Set reserves to 70%' }).click();
+            await expect(bob.locator('#feedback')).toContainText(/reserve|accepted|sent/i, { timeout: WAIT_TIMEOUT });
+
+            // A running match is entered through its explicit read-only
+            // spectator shortcut, over the same real lobby and match sockets.
+            await establishHandle(cara, 'Cara');
+            await waitUntilLobby(
+                cara,
+                (lobby) => lobby.entries.some((entry) => entry.matchId === matchA && entry.status === 'in_progress'),
+                'Cara sees running match A',
+            );
+            await cara.locator(`[data-match-id="${matchA}"] button:has-text("Spectate")`).click();
+            await waitUntilLobby(cara, (lobby) => lobby.viewMode === 'match', 'adaptive route spectates match A');
+            await expect(cara.locator('.europa-lobby-match__title')).toContainText('Spectating');
+            await expect(cara.locator('[aria-label="Surrender controls"]')).toHaveCount(0);
+            await expect(cara.locator('[role="gridcell"]')).toHaveCount(32 * 32);
+
+            // Build a second filling match directly through the existing real
+            // matchmaking seam. It is public and open, but has no browser seat
+            // attached, making explicit spectate an intentional failure target.
+            const createdB = matchmaker.createMatch({
+                visibility: 'public',
+                displayName: 'Match B host',
+                settings: { playerCount: 2, boardSize: 32, tickIntervalMs: TICK_MS },
+            });
+            expect(createdB.ok).toBe(true);
+            if (!createdB.ok || matchA === undefined) return;
+            const matchB = createdB.data.matchId;
+
+            await establishHandle(dave, 'Dave');
+            await dave.goto(`/match/${encodeURIComponent(matchB)}/spectate?ws=${encodeURIComponent(wsUrl)}`);
+            await expect(dave.locator('[data-europa-route-notice="unavailable"]')).toBeVisible({
+                timeout: WAIT_TIMEOUT,
+            });
+            await expect(dave.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
+            await expect(dave.getByRole('button', { name: 'Return to lobby' })).toBeEnabled();
+
+            // Explicit join never downgrades to spectator on a running match.
+            await cara.goto(`/match/${encodeURIComponent(matchA)}/join?ws=${encodeURIComponent(wsUrl)}`);
+            await expect(cara.locator('[data-europa-route-notice="unavailable"]')).toBeVisible({
+                timeout: WAIT_TIMEOUT,
+            });
+            await expect(cara.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
+
+            // Fill B through the existing real matchmaking seam, then verify
+            // that an explicit join aimed at B is rejected rather than
+            // selecting A or silently changing the requested match.
+            const filledB = matchmaker.joinMatch({ matchId: matchB, displayName: 'Match B second player' });
+            expect(filledB.ok).toBe(true);
+            await alice.goto(`/match/${encodeURIComponent(matchB)}/join?ws=${encodeURIComponent(wsUrl)}`);
+            await expect(alice.locator('[data-europa-route-notice="unavailable"]')).toBeVisible({
+                timeout: WAIT_TIMEOUT,
+            });
+            await expect(alice.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
+            await expect(alice).toHaveURL(new RegExp(`/match/${matchB}/join(?:\\?.*)?$`));
+
+            expect(errors).toEqual([]);
+        } finally {
+            await dave.context().close();
+            await cara.context().close();
+            await bob.context().close();
+            await alice.context().close();
+        }
+    });
+
+    // -----------------------------------------------------------------------
+    // Scenario 4: return-to-lobby (identity survives)
     // -----------------------------------------------------------------------
 
     test('return-to-lobby preserves identity', async ({ browser }) => {
@@ -515,11 +656,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
         });
-        await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+        await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
 
         // -- Establish and create a match ------------------------------------
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'connected');
@@ -560,13 +702,14 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
         });
 
         // -- First visit: establish identity + create a match ----------------
-        await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+        await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'initial connection');
         await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
         await page.getByRole('textbox', { name: /display name/i }).fill('Grace');
@@ -588,6 +731,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'reconnected after reload');
         await waitUntilLobby(page, (l) => l.handle === 'Grace', 'handle restored after reload');
         await waitUntilLobby(page, (l) => l.identityStatus === 'named', 'identity confirmed after reload');
+
+        // The semantic match path is retained across reload. The restored
+        // active association resumes the existing waiting/live runtime; it
+        // must not replay the route's join request against changed state.
+        await expect(page).toHaveURL(new RegExp(`/match/${matchId}`));
+        await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
 
         // The "Your match" badge is visible (US4 AC-4: active match status
         // persists on the landing page even though the match leg was dropped
@@ -616,11 +765,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
         });
-        await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+        await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
 
         // -- Pre-restart: establish, create, join, verify ticks ---------------
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'pre-restart connection');
@@ -702,6 +852,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         test.setTimeout(60_000);
 
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
         await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
 

@@ -108,7 +108,7 @@ pnpm build                        # once; host serves dist/
 pnpm --filter @europa/console host
 ```
 
-Open `http://localhost:8080/`, choose a handle, and create or browse a public
+Open `http://localhost:8080/lobby`, choose a handle, and create or browse a public
 game. **Join** is available only for open waiting matches; **Spectate** is
 available only for running matches and is full-visibility but read-only. Port
 overrides: `--port N` (or `HOST_PORT`). The default bind is
@@ -120,6 +120,21 @@ recipe exercised by `tests/e2e/full-stack.spec.ts`.
 
 Pass `--create` for the explicit quick-test mode: it creates and fills a public
 two-player match. The default mode never pre-creates a match.
+
+Production launch and entry paths are:
+
+| Path | Purpose |
+|---|---|
+| `/lobby` | Browse public matches, create a match, or choose Join/Spectate. |
+| `/match/<id>` | Open a match; waiting matches use player entry and running matches use read-only spectation. |
+| `/match/<id>/join` | Request player entry for a specific waiting match. |
+| `/match/<id>/spectate` | Open a specific running match read-only, without a seat. |
+
+`/` redirects to `/lobby`. Semantic links contain only the match ID; guest
+identity, reconnect credentials, and transport details are established through
+the session rather than encoded in the address bar. The `?e2e` query shown in
+the `dev` script above is test-only and remains the Playwright harness entry
+point, not a production route.
 
 Guest identities and accepted handles are ephemeral, in-memory state. Handles
 are validated to 1–24 Unicode code points after trimming, at least one
@@ -144,11 +159,10 @@ credentials (`sessionToken` or `reconnectToken`), and fog filtering plus
 private-match visibility protections remain unchanged.
 
 The lobby normally connects to the WebSocket service on the same host as the
-page. `?ws=` is retained for non-default ports and tests, but the client rejects
-cross-host URLs and URLs containing credentials. The direct
-`?live&ws=&match=&name=` route remains a development/test compatibility path,
-not the normal self-host entry point. `/version` is served from the static
-console origin and can be queried without credentials.
+page (the same-host deployment boundary). `/version` is served from the static
+console origin and can be queried without credentials. Production navigation
+uses the semantic paths above; identity, reconnect credentials, and transport
+configuration are not URL parameters.
 
 ### Full-stack proof
 

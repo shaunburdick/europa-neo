@@ -21,11 +21,10 @@
  * fill a public 2-player match (which auto-starts it) and print two
  * clickable join URLs.
  *
- * Seat claiming needs nothing beyond name + matchId: a tokenless wire
- * `joinMatch` claims the first open seat in ascending playerId order.
- * Each URL ALSO carries its seat's matchmaking-issued session token
- * (`?token=`) so an accidental refresh reclaims the SAME seat within
- * the reconnect grace window instead of failing seat allocation.
+ * Seat claiming needs nothing beyond the semantic match path: a tokenless
+ * wire `joinMatch` claims the first open seat in ascending playerId order.
+ * Reconnect credentials remain in browser storage and are never put in a
+ * generated URL.
  *
  * Privacy boundary (spec 010 NFR-003/FR-024): host diagnostics NEVER
  * echo guestPlayerIds, session tokens, or reconnect tokens; free-form
@@ -84,7 +83,7 @@ const TICK_MS = 250;
 const SEAT_NAMES = ['P1', 'P2', 'P3', 'P4'] as const;
 
 /**
- * Cosmetic seat label for a join-URL `name=` param and seat-join logs.
+ * Cosmetic seat label for seat-join logs and the create banner.
  * Returns `P1`..`P4` for the supported player counts and falls back to a
  * generic label for any seat beyond the v1 four-seater.
  *
@@ -92,7 +91,9 @@ const SEAT_NAMES = ['P1', 'P2', 'P3', 'P4'] as const;
  * @returns The display label for that seat.
  */
 function seatName(playerId: number): string {
-    return playerId >= 1 && playerId <= SEAT_NAMES.length ? SEAT_NAMES[playerId - 1] : `Player ${String(playerId)}`;
+    return playerId >= 1 && playerId <= SEAT_NAMES.length
+        ? (SEAT_NAMES[playerId - 1] ?? `Player ${String(playerId)}`)
+        : `Player ${String(playerId)}`;
 }
 
 /** MIME types for the static server (covers everything vite emits). */
@@ -190,15 +191,15 @@ export function resolveConfig(
 // ---------------------------------------------------------------------------
 
 /**
- * Serve one request from {@link DIST_DIR}. `/` resolves to
- * `index.html`; existing files stream with a content-type; any other
- * extension-less path falls back to `index.html` (SPA safety net);
- * anything else is a plain 404. Path-traversal attempts are rejected.
+ * Serve one request from {@link DIST_DIR}. `/` resolves to `index.html`;
+ * existing files stream with a content-type; safe extension-less application
+ * paths fall back to `index.html` (SPA safety net); missing assets remain
+ * genuine 404s. Path-traversal attempts are rejected.
  *
  * @param req Incoming request.
  * @param res Response to fill.
  */
-async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
     // decodeURIComponent throws on malformed escapes (%zz); a hostile or
     // broken client must never crash the launcher, so treat those as 404.
     const [initialUrlPath] = (req.url ?? '/').split('?');
@@ -220,7 +221,12 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
         writeStaticHead(res, 403).end('forbidden');
         return;
     }
-    const target = existsSync(requested) ? requested : path.join(DIST_DIR, 'index.html');
+    // A request with an extension is an asset request, not a client-side
+    // route. Falling back for a missing JavaScript, CSS, image, or source-map
+    // file would turn deployment mistakes into an HTML parse error in the
+    // browser and would hide genuine missing-asset failures.
+    const isApplicationPath = urlPath === '/' || path.posix.extname(urlPath) === '';
+    const target = existsSync(requested) || !isApplicationPath ? requested : path.join(DIST_DIR, 'index.html');
     let canonicalTarget: string;
     try {
         canonicalTarget = await realpath(target);
@@ -297,7 +303,9 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
      * any seat beyond the v1 two-seater.
      */
     const seatLabel = (playerId: number): string =>
-        playerId >= 1 && playerId <= SEAT_NAMES.length ? SEAT_NAMES[playerId - 1] : `player ${String(playerId)}`;
+        playerId >= 1 && playerId <= SEAT_NAMES.length
+            ? (SEAT_NAMES[playerId - 1] ?? `player ${String(playerId)}`)
+            : `player ${String(playerId)}`;
 
     const forwardingBridge: MatchmakerBridge = {
         onSeatClaimed: (event) => {
@@ -383,7 +391,7 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
 // Match bootstrap
 // ---------------------------------------------------------------------------
 
-/** The pre-filled match plus each seat's credentials for the join URLs. */
+/** The pre-filled match plus each seat's credentials for the host flow. */
 interface PreparedMatch {
     /** Matchmaking-issued match id (UUID). */
     readonly matchId: string;
@@ -486,7 +494,7 @@ export function printLobbyBanner(port: number, publicHost: string): void {
     say('');
     say('  Open the lobby in a browser:');
     say('');
-    say(`  → http://${host}:${String(port)}/`);
+    say(`  → http://${host}:${String(port)}/lobby`);
     say('');
     say('  Matches and guest identities are in-memory only — restarting resets the lobby.');
     say('  Ctrl-C to stop.');
@@ -495,9 +503,9 @@ export function printLobbyBanner(port: number, publicHost: string): void {
 
 /**
  * Print the `--create` startup banner: release version, launch mode,
- * endpoints, match id, and one clickable URL per seat. Tokens ride
- * along so a refreshed tab reclaims its own seat. This mode retains
- * the pre-lobby two-seat quick-test experience.
+ * endpoints, match id, and one clickable semantic URL per seat. The URL
+ * intentionally contains no identity, transport, or reconnect credentials;
+ * this mode retains the pre-lobby two-seat quick-test experience.
  *
  * Single-port: both ws and http share the same HOST_PORT.
  *
@@ -508,8 +516,7 @@ export function printLobbyBanner(port: number, publicHost: string): void {
 export function printCreateBanner(port: number, publicHost: string, match: PreparedMatch): void {
     const host = urlHostOf(publicHost);
     const wsUrl = `ws://${host}:${String(port)}`;
-    const joinUrl = (name: string, token: string): string =>
-        `http://${host}:${String(port)}/?live&ws=${encodeURIComponent(wsUrl)}&match=${match.matchId}&name=${name}&token=${token}`;
+    const joinUrl = `http://${host}:${String(port)}/match/${encodeURIComponent(match.matchId)}/join`;
     say('');
     say(`  Version      : v${APP_VERSION}`);
     say(
@@ -517,7 +524,7 @@ export function printCreateBanner(port: number, publicHost: string, match: Prepa
     );
     say(`  Match server : ${wsUrl}`);
     say(`  Console UI   : http://${host}:${String(port)}`);
-    say(`  Lobby        : http://${host}:${String(port)}/`);
+    say(`  Lobby        : http://${host}:${String(port)}/lobby`);
     say(`  Match id     : ${match.matchId}`);
     say('');
     say(`  Open in ${String(match.playerCount)} browser tabs:`);
@@ -525,7 +532,7 @@ export function printCreateBanner(port: number, publicHost: string, match: Prepa
     for (let i = 0; i < match.seatTokens.length; i += 1) {
         const seat = i + 1;
         const name = seatName(seat);
-        say(`  Player ${String(seat)} (${name}) → ${joinUrl(name, match.seatTokens[i])}`);
+        say(`  Player ${String(seat)} (${name}) → ${joinUrl}`);
     }
     say('');
     say('  Ctrl-C to stop.');

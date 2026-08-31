@@ -54,7 +54,7 @@ export { createConsoleStore } from './state/store';
 
 // ----------------------------------------------------------------------------
 // Lobby state layer — feature 010 (T-014): reducer/store/controller beside
-// the match store + direct-live-route compatibility derivation
+// the match store; production entry is selected by semantic routing.
 // ----------------------------------------------------------------------------
 
 export {
@@ -80,7 +80,6 @@ export type {
     LobbyViewMode,
 } from './state/lobby-state';
 export { createLobbyStore, type LobbyStore } from './state/lobby-store';
-export { hasDirectMatchRoute, resolveInitialViewMode } from './state/lobby-view';
 
 // ----------------------------------------------------------------------------
 // Runtime surface — network adapter + a11y + input layer

@@ -270,6 +270,13 @@ jobs:
       - name: Library emit (conformance coverage suite reads dist/)
         run: pnpm --filter @europa/console build:lib
 
+      # Several real-host integration suites exercised by merged coverage serve
+      # the production SPA shell. Keep the application build separate from the
+      # library emit so coverage starts with the same runtime surface as local
+      # validation, including dist/index.html.
+      - name: Build console application (coverage host fixtures)
+        run: pnpm --filter @europa/console build
+
       # The merged-coverage config (vitest.config.coverage.ts) runs a
       # browser project that launches real Chromium; without the
       # browser install it contributes 0% and merged totals drop

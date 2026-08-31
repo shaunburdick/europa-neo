@@ -10,10 +10,8 @@
  *   - a same-origin WebSocket upgrade succeeds (hello → helloAck);
  *   - the REAL exported `prepareMatch` (012 T018) creates + fills an
  *     N-seat public match and yields one session token per seat;
- *   - N Node wire clients join through the exact token-bearing join URLs
- *     the local operator launcher prints (`?live&ws=…&match=…&name=…&token=…`).
- *     This is an explicitly local-operator convenience for seat recovery,
- *     not a general credential-in-URL policy; clients receive
+ *   - N Node wire clients join through semantic `/match/<id>/join` paths
+ *     (with credentials supplied through the wire, never the URL), receive
  *     tick broadcasts, and get authoritative order acks;
  *   - a SIGINT-driven shutdown is idempotent (the second signal is a no-op).
  *
@@ -45,8 +43,7 @@ import {
 } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { prepareMatch, resolveConfig } from '../../scripts/host';
-import { handleVersionRoute } from '../../scripts/version-route';
+import { prepareMatch, resolveConfig, serveStatic } from '../../scripts/host';
 import { createWsMatchClient, type WsMatchClient } from '../../src/net/ws-match-client';
 import type { CommandResult, Coord, MatchId, Order, PlayerId, PlayerView, SessionToken } from '../../src/state/types';
 
@@ -233,6 +230,31 @@ interface VersionResponse {
     readonly protocolVersion: string;
 }
 
+/** Response captured from the host's real static handler. */
+interface HttpResponse {
+    readonly status: number;
+    readonly headers: Record<string, string | string[] | undefined>;
+    readonly body: string;
+}
+
+/** Fetch a text response from the single host port. */
+function getHttp(port: number, urlPath: string): Promise<HttpResponse> {
+    return new Promise<HttpResponse>((resolve, reject) => {
+        const request = httpGet({ hostname: '127.0.0.1', port, path: urlPath }, (response) => {
+            const chunks: Buffer[] = [];
+            response.on('data', (chunk: Buffer) => chunks.push(chunk));
+            response.on('end', () => {
+                resolve({
+                    status: response.statusCode ?? 0,
+                    headers: response.headers,
+                    body: Buffer.concat(chunks).toString('utf8'),
+                });
+            });
+        });
+        request.on('error', reject);
+    });
+}
+
 /**
  * Perform a real `GET /version` against the running stack and return the
  * parsed body. Proves the static surface answers on the SAME port as WS.
@@ -272,17 +294,16 @@ interface SeatLeg {
 }
 
 /**
- * Connect a REAL match client and complete a token-bearing join through
- * the exact local-operator join URL the launcher prints. The seat's session token is
- * presented as `reconnectToken` (the URL's `?token=`); for a seat that
- * has never connected this resolves via the server's seat-scan path and
- * claims that specific seat — the same "refresh reclaims own seat"
- * behavior the URL exists for.
+ * Connect a REAL match client and complete a token-bearing wire join for
+ * the semantic path supplied by the host. The session token is presented
+ * as `reconnectToken` by the test fixture, not placed in the URL. For a
+ * seat that has never connected this resolves via the server's seat-scan
+ * path and claims that specific seat.
  *
  * @param wsUrl      Same-origin WebSocket URL (`ws://127.0.0.1:<port>`).
  * @param matchId   Match id from the prepared match.
- * @param token     The seat's session token (URL `?token=`).
- * @param displayName Cosmetic seat handle (URL `?name=`).
+ * @param token     The seat's session token supplied through the wire.
+ * @param displayName Cosmetic seat handle supplied through the wire.
  * @returns The joined leg with its recorded views.
  */
 async function joinSeat(wsUrl: string, matchId: MatchId, token: string, displayName: string): Promise<SeatLeg> {
@@ -435,11 +456,7 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
     // /version) to the externally owned http.Server. Replicate that exact
     // request handling so GET /version answers on the same port as WS.
     const httpServer = createHttpServer((req, res) => {
-        const [pathWithoutQuery] = (req.url ?? '/').split('?');
-        if (handleVersionRoute(req, res, pathWithoutQuery)) {
-            return;
-        }
-        res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('not found');
+        void serveStatic(req, res);
     });
     const stack = buildStack(httpServer);
     const port = await listen(stack);
@@ -449,6 +466,34 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
     expect(version.status).toBe(200);
     expect(version.appVersion).toBe(APP_VERSION);
     expect(version.protocolVersion).toBe(NETWORK_API_VERSION);
+
+    // -- Static single-port surface: canonical paths, reloads, assets, and recovery.
+    // The second request models a browser reload and deliberately uses the same
+    // origin: no route may depend on a prior SPA navigation.
+    const applicationPaths = [
+        '/lobby',
+        `/match/example-${String(playerCount)}`,
+        `/match/example-${String(playerCount)}/join`,
+        `/match/example-${String(playerCount)}/spectate`,
+        '/settings',
+    ];
+    for (const applicationPath of applicationPaths) {
+        for (let reload = 0; reload < 2; reload += 1) {
+            const response = await getHttp(port, applicationPath);
+            expect(response.status, `${applicationPath} reload ${String(reload)}`).toBe(200);
+            expect(response.body, `${applicationPath} must serve the SPA shell`).toContain('<div id="root">');
+            expect(response.headers['x-content-type-options']).toBe('nosniff');
+            expect(response.headers['referrer-policy']).toBe('no-referrer');
+        }
+    }
+
+    const missingAsset = await getHttp(port, '/assets/does-not-exist.js');
+    expect(missingAsset.status).toBe(404);
+    expect(missingAsset.body).not.toContain('<div id="root">');
+
+    const traversal = await getHttp(port, '/%2e%2e/%2e%2e/package.json');
+    expect(traversal.status).toBe(403);
+    expect(traversal.body).toBe('forbidden');
 
     // -- Same-origin WS upgrade works (hello → helloAck) -------------------
     const wsUrl = `ws://127.0.0.1:${String(port)}`;
@@ -478,22 +523,14 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
             throw new Error(`missing seat token for seat ${String(seat)}`);
         }
         const name = `P${String(seat)}`;
-        // Build the EXACT join URL the launcher prints (host.ts printCreateBanner).
-        const joinUrl =
-            `http://127.0.0.1:${String(port)}/` +
-            `?live&ws=${encodeURIComponent(wsUrl)}` +
-            `&match=${encodeURIComponent(match.matchId)}` +
-            `&name=${encodeURIComponent(name)}` +
-            `&token=${encodeURIComponent(token)}`;
+        // Build the semantic match URL the launcher prints. The test-only
+        // server seam remains the direct wire client below; credentials and
+        // transport details are intentionally absent from the browser URL.
+        const joinUrl = `http://127.0.0.1:${String(port)}/match/${encodeURIComponent(match.matchId)}/join`;
         const parsed = new URL(joinUrl);
-        const wsParam = parsed.searchParams.get('ws');
-        const matchParam = parsed.searchParams.get('match');
-        const nameParam = parsed.searchParams.get('name');
-        const tokenParam = parsed.searchParams.get('token');
-        if (wsParam === null || matchParam === null || nameParam === null || tokenParam === null) {
-            throw new Error('join URL missing a required param');
-        }
-        const leg = await joinSeat(wsParam, matchParam as MatchId, tokenParam, nameParam);
+        expect(parsed.pathname).toBe(`/match/${match.matchId}/join`);
+        expect(parsed.search).toBe('');
+        const leg = await joinSeat(wsUrl, match.matchId, token, name);
         legs.push(leg);
     }
 

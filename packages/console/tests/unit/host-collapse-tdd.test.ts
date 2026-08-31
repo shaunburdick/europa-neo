@@ -89,13 +89,13 @@ describe('host single-port collapse — TDD (T007)', () => {
         });
         // After collapse, printLobbyBanner takes single port
         // Call with single port 8080
-        // @ts-expect-error: tolerate old signature until fixed — test drives new signature
         printLobbyBanner(8080, 'localhost');
         const text = out.join('');
         // Both lines must contain :8080 and must NOT contain :5173
         expect(text).toMatch(/Match server.*:8080/);
         expect(text).toMatch(/Console UI.*:8080/);
         expect(text).not.toMatch(/:5173/);
+        expect(text).toMatch(/→ http:\/\/localhost:8080\/lobby\n/);
         // Must not mention staticPort
         expect(text).not.toMatch(/staticPort/i);
         spy.mockRestore();
@@ -110,13 +110,17 @@ describe('host single-port collapse — TDD (T007)', () => {
         const fakeMatch = { matchId: 'test-match', seatTokens: ['tok1', 'tok2'] } as unknown as Parameters<
             typeof printCreateBanner
         >[2];
-        // New signature: (port, publicHost, match)
-        // @ts-expect-error: interim
         printCreateBanner(9090, 'example.com', fakeMatch);
         const text = out.join('');
         expect(text).toMatch(/ws:\/\/example\.com:9090/);
         expect(text).toMatch(/http:\/\/example\.com:9090/);
         expect(text).not.toMatch(/:5173/);
+        expect(text).toMatch(/Lobby\s+: http:\/\/example\.com:9090\/lobby/);
+        expect(text).toMatch(/Player 1 \(P1\) → http:\/\/example\.com:9090\/match\/test-match\/join/);
+        expect(text).toMatch(/Player 2 \(P2\) → http:\/\/example\.com:9090\/match\/test-match\/join/);
+        expect(text).not.toMatch(/[?&](?:live|ws|match|name|token)=?/i);
+        expect(text).not.toContain('tok1');
+        expect(text).not.toContain('tok2');
         spy.mockRestore();
     });
 });

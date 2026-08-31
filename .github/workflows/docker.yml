@@ -56,6 +56,11 @@ on:
             - ".github/workflows/release.yml"
     workflow_dispatch:
 
+# Job-level permissions below add only the GHCR/attestation scopes required by
+# the publish build. Keep the default token read-only for every other job.
+permissions:
+    contents: read
+
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
@@ -65,11 +70,27 @@ env:
     IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-    build-amd64:
-        name: Build and Push Docker Image (linux/amd64)
+    validate:
+        name: Validate Docker Compose and semantic routes
+        if: github.repository == 'shaunburdick/europa-neo'
         runs-on: ubuntu-24.04
         permissions:
-            contents: write
+            contents: read
+        timeout-minutes: 30
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Run Docker smoke test
+              run: ./scripts/docker-smoke.sh
+
+    build-amd64:
+        name: Build and Push Docker Image (linux/amd64)
+        if: github.repository == 'shaunburdick/europa-neo'
+        needs: [validate]
+        runs-on: ubuntu-24.04
+        permissions:
+            contents: read
             packages: write
             attestations: write
             id-token: write
@@ -79,6 +100,18 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Read canonical APP_VERSION
+              id: version
+              shell: bash
+              run: |
+                  version="$(sed -nE "s/^[[:space:]]*export const APP_VERSION = '([^']+)';/\1/p" packages/version/src/app-version.ts | head -n1)"
+                  if [[ -z "${version}" ]] || ! [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      echo "::error::Could not extract a valid APP_VERSION from packages/version/src/app-version.ts"
+                      exit 1
+                  fi
+                  echo "value=${version}" >> "${GITHUB_OUTPUT}"
+                  echo "Canonical APP_VERSION: ${version}"
 
             - name: Set up Node.js
               uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
@@ -139,6 +172,13 @@ jobs:
                   provenance: mode=max
                   sbom: false
 
+            - name: Validate built image version surfaces before publishing tags
+              if: github.event_name != 'pull_request'
+              env:
+                  IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+                  CANONICAL_APP_VERSION: ${{ steps.version.outputs.value }}
+              run: bash scripts/docker-validate.sh "${IMAGE_REF}" "${CANONICAL_APP_VERSION}"
+
             - name: Export digest
               if: github.event_name != 'pull_request'
               run: |
@@ -173,9 +213,9 @@ jobs:
 
     push-image:
         name: Push Docker Image Tags
+        if: github.repository == 'shaunburdick/europa-neo' && github.event_name != 'pull_request'
         needs: [build-amd64]
         runs-on: ubuntu-latest
-        if: github.event_name != 'pull_request'
         permissions:
             contents: read
             packages: write

@@ -1,8 +1,9 @@
 /**
  * Live full-stack runtime — Integration wave harness.
  *
- * @internal Package-internal integration scaffolding. Mounted by
- * `main.tsx` ONLY when the page URL carries a `live` query parameter.
+ * @internal Package-internal integration scaffolding for the legacy full-stack
+ * test seam. It is not mounted by the production bootstrap; semantic routing
+ * owns production entry, while `?e2e` remains the separate demo harness.
  * Unlike {@link ./demo-runtime} (which injects a recording fake), this
  * boots the REAL production path end-to-end:
  *
@@ -10,7 +11,7 @@
  *   WsMatchClient (native WebSocket, networking's wire codec) →
  *   live createMatchServer → matchmaking-bound engine/terrain/fog
  *
- * Query parameters:
+ * Legacy test-seam query parameters (not a production URL contract):
  *   - `ws`    Optional WebSocket URL override (e.g. ws://host:port). When
  *             absent, same-origin fallback `${protocol==='https:'?'wss':'ws'}://${location.host}`
  *             is used (011 single-port FR-006). Explicit overrides still
@@ -52,6 +53,12 @@ export interface EuropaLiveHandle {
 declare global {
     interface Window {
         __europaLive?: EuropaLiveHandle;
+        __europaTestMatch?: {
+            readonly wsUrl: string;
+            readonly matchId: string;
+            readonly displayName: string;
+            readonly reconnectToken?: string;
+        };
     }
 }
 
@@ -74,28 +81,29 @@ function StoreApp({ store }: { readonly store: ConsoleStore }): JSX.Element {
  */
 export function mountLiveRuntime(root: HTMLElement): void {
     const params = new URLSearchParams(window.location.search);
-    const matchId = params.get('match');
-    const displayName = params.get('name') ?? '';
-    const token = params.get('token');
+    const seam = window.__europaTestMatch;
+    const matchId = seam?.matchId ?? params.get('match');
+    const displayName = seam?.displayName ?? params.get('name') ?? '';
+    const token = seam?.reconnectToken ?? params.get('token');
 
     if (matchId === null) {
         // No store to surface feedback through yet; expose the reason on
         // the handle so drivers fail with a diagnostic instead of hanging.
-        // 011 single-port: ?ws= is now optional (same-origin fallback), only ?match is required.
+        // Legacy test seam: a match identifier is required when this helper is mounted directly.
         window.__europaLive = {
             store: undefined as unknown as ConsoleStore,
             client: undefined as unknown as ConsoleClient,
-            bootError: 'live runtime requires ?match=<id> query parameter',
+            bootError: 'live runtime requires a match identifier',
         };
         return;
     }
 
     let safeUrl: string;
     try {
-        // Single-port (011): same-origin fallback when ?ws= absent — same path as lobby-view.
-        // Keeps ?live&ws= compatibility for Playwright fixtures; cross-host/credential overrides
-        // still hard-error before client construction (FR-007).
-        safeUrl = resolveLobbyServerUrl(window.location.search, window.location);
+        // Single-port (011): same-origin fallback when no transport override is present —
+        // same path as lobby-view. Explicit test/operator overrides still hard-error when cross-host
+        // or credential-bearing before client construction (FR-007).
+        safeUrl = seam?.wsUrl ?? resolveLobbyServerUrl(window.location.search, window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
         window.__europaLive = {

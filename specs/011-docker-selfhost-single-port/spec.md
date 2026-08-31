@@ -3,9 +3,9 @@
 **Feature Branch**: `issue-5-docker-support` (spec directory `011-docker-selfhost-single-port`, next available ID per `create-new-feature.sh`)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle & matchmaking), Feature 010 (public lobby & match browser), Feature 009 (shared app versioning)
 **Created**: 2026-08-26
-**Last Updated**: 2026-08-26 (v1.0)
-**Version**: 1.0
-**Status**: Implemented (2026-08-27)
+**Last Updated**: 2026-08-30 (v1.1)
+**Version**: 1.1
+**Status**: Implemented (2026-08-27); route details superseded by Feature 013
 **GitHub Issue**: #5
 **Input**: Product-owner request — "Binding decision: self-hostable by default. Today that means Node ≥22 + pnpm + pnpm build + pnpm host. Provide a container path so self-hosters don't need a toolchain." Single-port topology per 2026-08-26 decision.
 
@@ -127,7 +127,7 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 
 #### Console Client — Same-Origin Fallback
 
-- **FR-006**: The console's WebSocket URL resolution MUST default to same-origin when no explicit `?ws=` override is present: `ws(s)://` scheme derived from `location.protocol` (`https:` → `wss`, else `ws`) and `location.host` (hostname + port as the browser sees it). Applies to BOTH (a) the normal lobby path (`packages/console/src/state/lobby-view.ts:resolveLobbyServerUrl`) and (b) the direct `?live` path (`packages/console/src/internal/live-runtime.tsx`). Opening `http://host:HOST_PORT/` MUST just work with no `?ws=` needed.
+- **FR-006**: The console's WebSocket URL resolution MUST default to same-origin when no explicit test/operator override is present: `ws(s)://` scheme derived from `location.protocol` (`https:` → `wss`, else `ws`) and `location.host` (hostname + port as the browser sees it). This applies to the canonical `/lobby` and semantic match paths defined by Feature 013. The retired direct `?live` route is no longer a production or compatibility path.
 - **FR-007**: The explicit `?ws=` override MUST remain supported with its existing validation: scheme-normalized via `normalizeWsUrl`, rejected when cross-host (outside the `localhost`↔`127.0.0.1` alias allowance) or when containing credentials; validation error surfaces before identity setup. The override is consulted only when present — the same-origin fallback runs otherwise.
 - **FR-008**: The shipped console MUST NOT embed a hardcoded non-same-origin default port as its primary fallback (the current `LOBBY_DEFAULT_SERVER_PORT = 8080` mirror becomes the same-origin host fallback only for non-browser/test contexts or when `location.host` is unavailable — e.g. `file://` or unit test — where it remains documented as the default `HOST_PORT` value, not a second port).
 
@@ -199,7 +199,7 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 - The app version surface is unchanged by Docker packaging (`@europa/version` lockstep FR-009). Docker does not mint versions; it packages whatever `APP_VERSION` the commit carries.
 - Network exposure is plain HTTP + WS on `HOST_PORT`. TLS termination remains a reverse-proxy concern (spec 004/009 assumption retained).
 - Published images target `ghcr.io/shaunburdick/europa-neo` (lowercase owner). GHCR is the distribution registry; Docker Hub or other registries are out of scope.
-- The `?live&ws=&match=` direct-match routes remain functional for Playwright/E2E via the explicit `?ws=` path (tests bypass the lobby entirely — spec 010 compatibility contract preserved).
+- The `?e2e` query remains the unchanged test-only console harness. Semantic match paths, rather than direct `?live` query routes, are used for real-browser integration flows.
 
 ## Out of Scope
 
@@ -214,6 +214,10 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 
 ## Clarifications
 
+### Session 2026-08-30 — Semantic deep-link fallback (v1.1)
+
+Feature 013 is authoritative for application route shapes and retires the direct `?live` compatibility path. This feature's single-port requirement remains authoritative for serving the SPA shell on `/lobby` and semantic match paths, while `/version`, known assets, and WebSocket upgrades continue to bypass SPA fallback. The same-origin WebSocket rule is preserved; `?e2e` remains test-only and unchanged.
+
 ### Session 2026-08-26 — Binding product decision: single-port canonical (v1.0 — no open questions)
 
 No interactive clarification loop was required — the product owner asserted the topology as a binding decision that eliminates the usual open question:
@@ -224,7 +228,7 @@ No interactive clarification loop was required — the product owner asserted th
 
 - **(Resolved 2026-08-26)** The networking seam SHALL be either an optional `httpServer` in `ServerConfig`/`ServerDeps` or an `attachToHttpServer()` operation on the server instance, using `ws` `noServer: true` with an `upgrade` listener — the current `ws` server already uses `noServer:true` with its own internally-created `http.Server`, so the delta is ownership transfer only. No protocol/frame/contract change.
 
-- **(Resolved 2026-08-26)** Console fallback SHALL be `${location.protocol==="https:"?"wss":"ws"}://${location.host}` when `?ws=` is absent, applied in BOTH `src/internal/live-runtime.tsx` (`?live` path) and the normal lobby path (`state/lobby-view.ts:resolveLobbyServerUrl`). This is the correct fallback because `HOST_PORT` is now the origin's port — `location.host` already carries it. Tests/E2E fixtures keep `port: 0` ephemeral semantics but now on the single server (`__boundPortForTest()`).
+- **(Resolved 2026-08-26)** Console fallback SHALL be `${location.protocol==="https:"?"wss":"ws"}://${location.host}` when `?ws=` is absent on the canonical `/lobby` and semantic match paths (`state/lobby-view.ts:resolveLobbyServerUrl`). This is the correct fallback because `HOST_PORT` is now the origin's port — `location.host` already carries it. The retired query-selected live entry is not supported; `?e2e` remains test-only and explicit `?ws=` remains a validated test/operator override. Tests/E2E fixtures keep `port: 0` ephemeral semantics but now on the single server (`__boundPortForTest()`).
 
 - **(Resolved 2026-08-26)** Dockerfile is multi-stage: build stage (`node:22-slim` + pnpm: install workspace deps → build all packages → produce `packages/console/dist/` + host entry), runtime stage (`node:22-slim`: copy built artifacts only, `CMD` runs the host). `EXPOSE 8080` (the single host port, override via `HOST_PORT`). GHCR image is `ghcr.io/shaunburdick/europa-neo`; triggers are `v*` tag pushes → versioned image, `main` push → `:edge`. SHA-pinned actions, least-privilege (`packages: write`, `contents: read`). Multi-platform stretch goal is `amd64` mandatory, `arm64` best-effort — the spec deliberately does not require `arm64` blocking until plan time.
 

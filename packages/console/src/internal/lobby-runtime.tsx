@@ -1,8 +1,9 @@
 /**
  * Lobby runtime — feature 010 (T-015).
  *
- * The DEFAULT application entry (mounted by `main.tsx` for every page
- * load that is not a direct `?live`/`?e2e` route): boots the lobby
+ * The DEFAULT application entry (mounted by `main.tsx` for canonical and
+ * semantic production paths): boots the lobby. The `?e2e` harness is handled
+ * separately, and the retired live query is never a production entry.
  * transport + controller once per page, renders the landing view while
  * `viewMode === 'lobby'`, and — after a seat-granting action succeeds
  * — hands off to a match context (`viewMode === 'match'`) that ends in
@@ -57,6 +58,9 @@ import { createWsLobbyClient } from '../net/ws-lobby-client';
 import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
 import { ErrorBoundary } from '../render/ErrorBoundary';
+import type { Route } from '../routing/route';
+import { buildJoinUrl, buildMatchUrl, buildSpectateUrl, parseRoute } from '../routing/route';
+import { adaptRoute, executeRouteEntry } from '../routing/route-adapter';
 import { formatWaitingMessage } from '../state/awaiting-start';
 import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
@@ -75,6 +79,7 @@ import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
+import { RouteNotice, type RouteNoticeKind } from '../ui/route-notice';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
 
 // ----------------------------------------------------------------------------
@@ -107,7 +112,11 @@ declare global {
  *
  * @param root The DOM mount node (index.html's `#root`).
  */
-export function mountLobbyRuntime(root: HTMLElement): void {
+export function mountLobbyRuntime(
+    root: HTMLElement,
+    route?: Extract<Route, { readonly kind: 'match' }>,
+    recoveryKind?: RouteNoticeKind,
+): void {
     let wsUrl: string;
     try {
         wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
@@ -128,7 +137,12 @@ export function mountLobbyRuntime(root: HTMLElement): void {
     createRoot(root).render(
         <StrictMode>
             <ErrorBoundary>
-                <LobbyRoot controller={controller} wsUrl={wsUrl} />
+                <LobbyRoot
+                    controller={controller}
+                    wsUrl={wsUrl}
+                    initialRoute={route}
+                    initialNoticeKind={recoveryKind}
+                />
             </ErrorBoundary>
         </StrictMode>,
     );
@@ -163,6 +177,14 @@ export interface LobbyRootProps {
     readonly controller: LobbyController;
     /** Resolved lobby/match server URL (see `resolveLobbyServerUrl`). */
     readonly wsUrl: string;
+    /**
+     * Optional semantic match route selected by the production bootstrap.
+     * The route is resolved against the lobby snapshot before any match
+     * command or match socket is created.
+     */
+    readonly initialRoute?: Extract<Route, { readonly kind: 'match' }> | undefined;
+    /** Recovery notice selected by bootstrap for an unknown pathname. */
+    readonly initialNoticeKind?: RouteNoticeKind | undefined;
 }
 
 /**
@@ -170,7 +192,7 @@ export interface LobbyRootProps {
  * outcome announcements, and the lobby/match view gate. Exported for
  * component tests (the mount entry wires it identically).
  */
-export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
+export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }: LobbyRootProps): JSX.Element {
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
 
     // Shared hidden live regions (App.tsx pattern). Runtime-owned so
@@ -193,7 +215,15 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
     // Focus hand-off bookkeeping: count view-mode switches so views
     // know they are an ENTRY (focus heading) vs initial load (don't).
     const [viewSwitches, setViewSwitches] = useState(0);
+    const [currentRoute, setCurrentRoute] = useState<Extract<Route, { readonly kind: 'match' }> | undefined>(
+        initialRoute,
+    );
+    const [noticeKind, setNoticeKind] = useState<RouteNoticeKind | null>(initialNoticeKind ?? null);
+    const [routeRetryEpoch, setRouteRetryEpoch] = useState(0);
+    const pendingNavigationRef = useRef<'create' | 'join' | 'spectate' | null>(null);
     const prevViewModeRef = useRef(state.viewMode);
+    const routeResolutionRef = useRef(initialRoute !== undefined);
+    const completedNavigationPathRef = useRef<string | null>(null);
     useEffect(() => {
         if (prevViewModeRef.current !== state.viewMode) {
             prevViewModeRef.current = state.viewMode;
@@ -204,6 +234,126 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
     // The pending/current match-leg intent (render-phase ref holding
     // plain data — no I/O during render, App's MapCanvas pattern).
     const legIntentRef = useRef<LegIntent | null>(null);
+    const routeAttemptedRef = useRef(false);
+
+    function navigateTo(pathname: string): void {
+        if (window.location.pathname === pathname) return;
+        window.history.pushState(window.history.state, '', pathname);
+    }
+
+    function returnToLobby(): void {
+        setNoticeKind(null);
+        setCurrentRoute(undefined);
+        if (window.location.pathname !== '/lobby') {
+            window.history.replaceState(window.history.state, '', '/lobby');
+        }
+        if (state.viewMode === 'match') {
+            void controller.leaveMatch();
+        }
+    }
+
+    // Browser Back/Forward changes the route without remounting the page.
+    // Re-evaluate it against the current authoritative lobby snapshot.
+    useEffect(() => {
+        const onPopState = (): void => {
+            if (completedNavigationPathRef.current === window.location.pathname) return;
+            const next = parseRoute(window.location.pathname);
+            if (next.kind === 'match') {
+                routeAttemptedRef.current = false;
+                routeResolutionRef.current = true;
+                completedNavigationPathRef.current = null;
+                setNoticeKind(null);
+                setCurrentRoute(next);
+            } else if (next.kind === 'lobby') {
+                routeAttemptedRef.current = true;
+                setNoticeKind(null);
+                setCurrentRoute(undefined);
+                if (state.viewMode === 'match') void controller.leaveMatch();
+            } else {
+                window.history.replaceState(window.history.state, '', '/lobby');
+                setCurrentRoute(undefined);
+                setNoticeKind('unknown');
+            }
+        };
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
+    }, [controller, state.viewMode]);
+
+    // A semantic deep link is deliberately resolved only after the lobby has
+    // delivered its authoritative baseline. The adapter decides whether the
+    // route is a player or spectator entry; this runtime only records that
+    // decision and invokes the existing Feature 010 command. In particular,
+    // no match client exists while the route is unresolved, and an explicit
+    // intent can never be changed by this hand-off.
+    useEffect(() => {
+        if (
+            currentRoute === undefined ||
+            !routeResolutionRef.current ||
+            routeAttemptedRef.current ||
+            state.viewMode === 'match' ||
+            state.snapshot === null ||
+            completedNavigationPathRef.current === currentRoute.pathname
+        ) {
+            return;
+        }
+        routeAttemptedRef.current = true;
+        const entry = adaptRoute(currentRoute, state.snapshot);
+        // The lobby snapshot is authoritative for the current identity. On a
+        // reload, an active association means this route is a resume request,
+        // not a new join against the now-running/full projection. Preserve
+        // explicit spectate semantics; only adaptive/player routes may resume
+        // the existing player association.
+        if (
+            state.activeMatchId === currentRoute.matchId &&
+            (currentRoute.intent === 'adaptive' || currentRoute.intent === 'join')
+        ) {
+            legIntentRef.current = { matchId: state.activeMatchId, role: 'player' };
+            controller.resumeMatch(state.activeMatchId);
+            return;
+        }
+        if (entry.kind === 'unavailable') {
+            // A successful lobby action owns the transition even if its
+            // snapshot races this effect and now describes the match as full
+            // or running. Never let that stale route classification replace
+            // the already-mounted match runtime.
+            setNoticeKind('unavailable');
+            return;
+        }
+        if (entry.kind === 'player') {
+            legIntentRef.current = { matchId: entry.matchId, role: 'player' };
+        } else if (entry.kind === 'spectator') {
+            legIntentRef.current = { matchId: entry.matchId, role: 'spectator' };
+        }
+        void executeRouteEntry(entry, controller)?.then((result) => {
+            if (!result.ok) setNoticeKind('shortcut-failure');
+        });
+    }, [controller, currentRoute, routeRetryEpoch, state.snapshot, state.viewMode]);
+
+    // Successful actions initiated from the lobby get one canonical semantic
+    // history entry. Route-originated actions already have the right URL.
+    useEffect(() => {
+        const pending = pendingNavigationRef.current;
+        const matchId = state.activeMatchId;
+        if (state.viewMode !== 'match' || pending === null || matchId === null) return;
+        const path =
+            pending === 'create'
+                ? buildMatchUrl(window.location.origin, matchId)
+                : pending === 'join'
+                  ? buildJoinUrl(window.location.origin, matchId)
+                  : buildSpectateUrl(window.location.origin, matchId);
+        routeResolutionRef.current = false;
+        routeAttemptedRef.current = true;
+        setCurrentRoute(undefined);
+        setNoticeKind(null);
+        const pathname = new URL(path).pathname;
+        completedNavigationPathRef.current = pathname;
+        navigateTo(pathname);
+        // Do not put the newly-written path back through route resolution.
+        // The command already succeeded and its target may have changed state
+        // (for example, the final joiner starts the match immediately).
+        // Back/Forward remains the explicit re-resolution boundary.
+        pendingNavigationRef.current = null;
+    }, [state.activeMatchId, state.viewMode]);
 
     /** Announce a seat-grant outcome on success only — failures render
      * as role="alert" nodes at their source and announce themselves. */
@@ -218,22 +368,31 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
     }
 
     function createMatch(values: LobbyCreateFormValues): void {
+        routeResolutionRef.current = false;
+        pendingNavigationRef.current = 'create';
         legIntentRef.current = { matchId: null, role: 'player' };
         void controller.createMatch(buildCreateSettings(values)).then((result) => {
+            if (!result.ok) pendingNavigationRef.current = null;
             announceSeatOutcome(result, 'Match created — entering the waiting room.');
         });
     }
 
     function joinMatch(matchId: MatchId): void {
+        routeResolutionRef.current = false;
+        pendingNavigationRef.current = 'join';
         legIntentRef.current = { matchId, role: 'player' };
         void controller.joinMatch(matchId).then((result) => {
+            if (!result.ok) pendingNavigationRef.current = null;
             announceSeatOutcome(result, 'Joined — entering the match.');
         });
     }
 
     function spectateMatch(matchId: MatchId): void {
+        routeResolutionRef.current = false;
+        pendingNavigationRef.current = 'spectate';
         legIntentRef.current = { matchId, role: 'spectator' };
         void controller.spectateMatch(matchId).then((result) => {
+            if (!result.ok) pendingNavigationRef.current = null;
             announceSeatOutcome(result, 'Spectating — attaching read-only.');
         });
     }
@@ -242,6 +401,15 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
         void controller.leaveMatch().then((result) => {
             if (result.ok) {
                 legIntentRef.current = null;
+                // Keep the canonical semantic route in the address bar while
+                // preserving the existing lobby connection and identity.
+                // The released match entry is now eligible for normal
+                // popstate re-resolution; do not let the hand-off guard
+                // mistake a later Back traversal for its original push.
+                completedNavigationPathRef.current = null;
+                if (window.location.pathname !== '/lobby') {
+                    window.history.pushState(window.history.state, '', '/lobby');
+                }
                 announcer?.announce('Returned to the lobby.', 'polite');
             }
         });
@@ -255,6 +423,33 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
     const announcerHost = (
         <div ref={liveHostRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
     );
+
+    if (noticeKind !== null) {
+        const retry =
+            currentRoute === undefined
+                ? undefined
+                : () => {
+                      setNoticeKind(null);
+                      routeAttemptedRef.current = false;
+                      setRouteRetryEpoch((epoch) => epoch + 1);
+                  };
+        return (
+            <>
+                {announcerHost}
+                <RouteNotice
+                    kind={noticeKind}
+                    title={noticeKind === 'unknown' ? 'Page not found' : 'Match unavailable'}
+                    message={
+                        noticeKind === 'unknown'
+                            ? 'Page not found. Returning to lobby.'
+                            : 'This match entry is no longer available.'
+                    }
+                    onRetry={retry}
+                    onReturnToLobby={returnToLobby}
+                />
+            </>
+        );
+    }
 
     if (state.viewMode === 'match') {
         const intent = legIntentRef.current ?? { matchId: state.activeMatchId, role: 'player' as const };
@@ -286,6 +481,7 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
                     leaveError={state.actions.leaveMatch.error}
                     leaving={state.actions.leaveMatch.phase === 'loading'}
                     onLeave={leaveMatch}
+                    onRouteFailure={() => setNoticeKind('shortcut-failure')}
                 />
             </>
         );
@@ -334,6 +530,8 @@ interface MatchLegArgs {
     readonly matchId: MatchId;
     /** Display name for the seat claim — the accepted handle (FR-019). */
     readonly displayName: string;
+    /** Report a terminal handshake failure to route recovery. */
+    readonly onFailure: () => void;
 }
 
 /**
@@ -344,6 +542,10 @@ interface MatchLegArgs {
  * never construct one — see the module scope note.)
  */
 function createMatchLeg(args: MatchLegArgs): MatchLeg {
+    // React StrictMode deliberately runs an effect's cleanup before replaying
+    // it. A cancelled first boot can therefore reject after the replayed boot
+    // has started; only the current boot generation may fail the route.
+    let bootGeneration = 0;
     let forward: ((effect: ReducerEffect) => void) | null = null;
     const store = createConsoleStore(INITIAL_CONSOLE_STATE, (effect) => {
         forward?.(effect);
@@ -375,16 +577,16 @@ function createMatchLeg(args: MatchLegArgs): MatchLeg {
     return {
         store,
         async boot(): Promise<void> {
+            const generation = ++bootGeneration;
             try {
                 await client.connect();
                 await client.joinMatch();
             } catch {
-                // Join rejections (seat gone between list and claim) land
-                // in the reducer's error path / banner; the lobby stays
-                // reachable via Leave. Never throw into React.
+                if (generation === bootGeneration) args.onFailure();
             }
         },
         dispose(): void {
+            bootGeneration += 1;
             wsClient.disconnect();
         },
     };
@@ -428,6 +630,8 @@ interface MatchLegHostProps {
     readonly leaving: boolean;
     /** Release the seat/association and return to the lobby. */
     readonly onLeave: () => void;
+    /** Report match-leg failures without exposing transport details. */
+    readonly onRouteFailure: () => void;
 }
 
 /**
@@ -469,6 +673,7 @@ function MatchLegHost({
     leaveError,
     leaving,
     onLeave,
+    onRouteFailure,
 }: MatchLegHostProps): JSX.Element {
     const headingRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -495,7 +700,7 @@ function MatchLegHost({
     // (App's MapCanvas ref pattern); boot/dispose ride the effect.
     const legRef = useRef<MatchLeg | null>(null);
     if (legRef.current === null && role === 'player' && matchId !== null && matchStarted) {
-        legRef.current = createMatchLeg({ wsUrl, matchId, displayName });
+        legRef.current = createMatchLeg({ wsUrl, matchId, displayName, onFailure: onRouteFailure });
     }
     const leg = legRef.current;
     useEffect(() => {
@@ -539,7 +744,13 @@ function MatchLegHost({
             ) : role === 'spectator' && matchId !== null && matchStarted ? (
                 // Live read-only spectator surface — also App-rendered,
                 // so it likewise owns its own <main>.
-                <SpectatorMatchLeg wsUrl={wsUrl} matchId={matchId} displayName={displayName} announcer={announcer} />
+                <SpectatorMatchLeg
+                    wsUrl={wsUrl}
+                    matchId={matchId}
+                    displayName={displayName}
+                    announcer={announcer}
+                    onFailure={onRouteFailure}
+                />
             ) : (
                 <main id="main" className="europa-lobby europa-lobby-match__placeholder">
                     {/* Plate windows (no wire channel yet): the waiting
@@ -611,6 +822,8 @@ interface SpectatorLegArgs {
     readonly displayName: string;
     /** Snapshot sink (the component's React state setter). */
     readonly onSnapshot: (next: ConsoleState) => void;
+    /** Report attach failure to route recovery. */
+    readonly onFailure: () => void;
 }
 
 /**
@@ -637,6 +850,9 @@ interface SpectatorLegArgs {
  * unmounts.
  */
 function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
+    // See the player leg: StrictMode's intentional effect teardown must not
+    // turn a stale first attach rejection into a route-level failure.
+    let bootGeneration = 0;
     // The fold is sequential and single-owner: one mutable cell, each
     // envelope producing the next immutable snapshot.
     let current = initialSpectatorState(args.matchId);
@@ -670,10 +886,12 @@ function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
 
     return {
         async boot(): Promise<void> {
+            const generation = ++bootGeneration;
             try {
                 await client.connect();
                 await client.joinMatch();
             } catch {
+                if (generation !== bootGeneration) return;
                 // Attach failures (match ended between list and attach,
                 // spectator gate closed) surface as a fixed, id-free
                 // notice on the App's feedback surface; Leave remains
@@ -685,9 +903,11 @@ function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
                         performance.now(),
                     ),
                 );
+                args.onFailure();
             }
         },
         dispose(): void {
+            bootGeneration += 1;
             client.close();
         },
     };
@@ -702,6 +922,8 @@ interface SpectatorMatchLegProps {
     readonly displayName: string;
     /** Shared runtime announcer (survives view swaps). */
     readonly announcer?: LiveRegionAnnouncer | undefined;
+    /** Report attach failure to the route shell. */
+    readonly onFailure: () => void;
 }
 
 /**
@@ -716,14 +938,14 @@ interface SpectatorMatchLegProps {
  *
  * Announces the attach once through the shared runtime channel.
  */
-function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer }: SpectatorMatchLegProps): JSX.Element {
+function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer, onFailure }: SpectatorMatchLegProps): JSX.Element {
     const [snapshot, setSnapshot] = useState<ConsoleState>(() => initialSpectatorState(matchId));
 
     // One leg per mount (render-phase ref construction, no I/O — the
     // App's MapCanvas pattern); keyed by matchId upstream.
     const legRef = useRef<SpectatorLeg | null>(null);
     if (legRef.current === null) {
-        legRef.current = createSpectatorLeg({ wsUrl, matchId, displayName, onSnapshot: setSnapshot });
+        legRef.current = createSpectatorLeg({ wsUrl, matchId, displayName, onSnapshot: setSnapshot, onFailure });
     }
     const leg = legRef.current;
     useEffect(() => {

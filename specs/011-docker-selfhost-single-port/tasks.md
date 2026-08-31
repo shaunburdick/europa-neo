@@ -45,7 +45,7 @@
 - [x] T011 [P] [US2] Write `packages/console/src/state/lobby-view.test.ts` cases FIRST: `resolveLobbyServerUrl('', { protocol:'http:', host:'localhost:8080' }) → ws://localhost:8080`; `https:` → `wss`; `host===''` → `localhost:8080` fallback; `?ws=` same-host/loopback alias allowed, cross-host/credentials rejected; `LOBBY_DEFAULT_SERVER_PORT` JSDoc assert it is "default HOST_PORT, not a second listener"
 - [x] T012 [US2] Update `packages/console/src/state/lobby-view.ts`: widen `PageLocator` to include `readonly host: string` (`location.host`), change default branch to `` `${locator.protocol === 'https:' ? 'wss' : 'ws'}://${locator.host}` `` when `?ws=` absent, keep `validateLobbyServerUrl` path for overrides, retain `LOBBY_DEFAULT_SERVER_PORT = 8080` only for `host === ''` fallback with updated JSDoc
 - [x] T013 [US2] Write `packages/console/src/internal/live-runtime.test.ts` (or component test) case: missing `?ws=` no longer bootErrors but same-origin connects; `?ws=` cross-host still hard-error before client construction
-- [x] T014 [US2] Update `packages/console/src/internal/live-runtime.tsx`: consume same-origin fallback when `?ws=` absent (tolerate missing `ws` query param on `?live&match=&name=` entry) via `resolveLobbyServerUrl(window.location.search, window.location)` same path as lobby-view; do not regress direct `?live&ws=` compatibility for Playwright fixtures
+- [x] T014 [US2] Update the console's canonical lobby/semantic-match runtime to consume the same-origin fallback when `?ws=` is absent via `resolveLobbyServerUrl(window.location.search, window.location)`; keep explicit same-host `?ws=` overrides valid for test/operator seams while leaving the retired live query unsupported and `?e2e` unchanged
 - [x] T015 [US2] Grep `LOBBY_DEFAULT_SERVER_PORT` usages + `location.hostname` call sites across `packages/console/src/` and align both lobby-view and live-runtime to the same `location.host` path
 
 **Checkpoint**: `pnpm --filter @europa/console test` green; Q-D03 manually verified (10/10 no-override connects).
@@ -117,6 +117,23 @@
 - [x] T033 [P] [US5] `docs/manual/**` FR-012 trigger check + cleanup (or attest): grep and, if stale refs found, patch them to the single-port wording in the SAME change set; if zero refs, leave manual untouched and record "no update required" in the PR description (either satisfies FR-012/FR-016)
 - [x] T034 [US5] Operational doc polish: `Dockerfile` header comment (topology + Node 24 LTS gate + re-validation note), `docker-compose.yml` header comment (FR-017 wording), `packages/networking/src/contracts/network-api.ts` seam JSDoc + `host.ts` comment referencing plan's D3/D4 decisions; keep `README` in sync with the two contract files
 - [x] T035 [US5] Final gates: `pnpm typecheck` + `pnpm lint` + `pnpm format:check` zero errors; `pnpm test` (all packages, each ≥80% on every metric where the metric applies) green; `pnpm --filter @europa/console test:e2e` full-stack deterministic proof passes on the single-server fixture; `docker compose config -q && docker build -t europa:final . && docker run --rm europa:final pnpm --version | grep 11` exits 0; `pnpm --filter @europa/version version:check` still green (Docker packaging didn't add a new `package.json` version)
+
+### Wave 4 review remediation — ✅ complete (2026-08-31)
+
+- [x] T036 Tighten the runtime stage to an explicit minimal artifact set:
+  remove `dist/src`, test-only JavaScript, declarations, source maps, package
+  READMEs, and production dependency contract `.ts` sources while retaining
+  the compiled host, static assets, and native WebSocket dependencies.
+- [x] T037 Extend Docker smoke inspection to fail on forbidden runtime
+  artifacts and add `contents: read` to the workflow validation job.
+
+- Runtime image was tightened to compiled host/runtime artifacts plus production
+  dependencies only; workspace source, tests, dev dependencies, and pnpm are
+  absent from the final stage.
+- Docker smoke now performs and validates a real WebSocket handshake on the
+  mapped HTTP port, including the single-port mapping assertion.
+- The build-amd64 job now uses `contents: read`; required package/provenance
+  permissions are retained. Wave 5 documentation work is intentionally excluded.
 
 **Checkpoint**: README doctrine done; `pnpm version:check` independent of Docker; manual drift check is documented as executed.
 

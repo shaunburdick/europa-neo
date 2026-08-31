@@ -1,65 +1,15 @@
 /**
- * Lobby route/view-mode derivation — features 010 (T-014) + 011 single-port (FR-006..FR-008).
- *
- * Answers exactly one question for the app shell: given the boot URL's
- * query string, does this page load start in the LOBBY view or drop
- * straight into a MATCH view?
+ * Lobby server URL resolution — features 010 + 011 single-port (FR-006..FR-008).
  *
  * Single-port topology (011): the console UI and the WebSocket match/lobby server
  * share ONE http.Server on HOST_PORT (default 8080). The browser's same-origin
  * `location.host` (hostname + port as the browser sees it) is therefore the
  * canonical WebSocket fallback — no second port, no hardcoded non-same-origin
- * default as primary path. An explicit `?ws=` override remains validated
+ * default as primary path. An explicit transport override remains validated
  * (same-host + loopback alias + no credentials) via {@link validateLobbyServerUrl}.
- *
- * COMPATIBILITY CONTRACT (binding): the direct live-test routes used by
- * the integration-wave harness and Playwright drivers —
- * `?live&ws=<url>&match=<id>&name=[&token=]`, mounted by
- * `src/internal/live-runtime.tsx` — MUST keep working unchanged. A URL
- * carrying a match id goes straight to the match runtime and is NEVER
- * forced through the lobby; no lobby state, identity setup, or
- * connection may intercept it. This module pins that rule as a pure,
- * unit-tested predicate so the T-015 shell gate (and any future
- * default-entry wiring) cannot regress it.
- *
- * The predicate READS query parameters only — it never writes to the
- * URL, never stores parameter values in state, and never inspects
- * credential-bearing parameters (`token`) beyond their irrelevance to
- * the result. Pure: string in, classification out.
+ * Explicit transport overrides remain supported for operator/test configuration,
+ * but are validated before they can be used by a client.
  */
-
-import type { LobbyViewMode } from './lobby-state';
-
-/**
- * Whether the given query string mounts the DIRECT live-match runtime
- * (`?live` present together with its required `ws` and `match`
- * parameters). A bare `?live` without the match coordinates is NOT a
- * live-match route — there is nothing to join.
- *
- * @param search The query string (e.g. `window.location.search`),
- *   with or without the leading `?`.
- */
-export function hasDirectMatchRoute(search: string): boolean {
-    const params = new URLSearchParams(search);
-    return params.has('live') && params.get('ws') !== null && params.get('match') !== null;
-}
-
-/**
- * Resolve the initial {@link LobbyViewMode} for a page load:
- *
- *   - `'match'` — direct live-test route (see
- *     {@link hasDirectMatchRoute}); compatibility requires bypassing
- *     the lobby entirely.
- *   - `'lobby'` — every other entry point, including the default host
- *     landing (`/`), the demo harness (`?e2e`), and partial/malformed
- *     `?live` URLs (which fail loudly inside their own runtime, as
- *     today).
- *
- * @param search The query string (e.g. `window.location.search`).
- */
-export function resolveInitialViewMode(search: string): LobbyViewMode {
-    return hasDirectMatchRoute(search) ? 'match' : 'lobby';
-}
 
 // ----------------------------------------------------------------------------
 // Lobby server URL resolution (T-015)
@@ -102,7 +52,7 @@ export class LobbyServerUrlError extends Error {
  * URL: `ws://`/`wss://` pass through verbatim; `http(s)://` upgrade
  * scheme; bare `host[:port]` gains a `ws://` prefix.
  *
- * @param value The raw override value (e.g. a `?ws=` parameter).
+ * @param value The raw WebSocket override value.
  */
 function normalizeWsUrl(value: string): string {
     const lowerValue = value.toLowerCase();
@@ -127,7 +77,7 @@ function normalizeWsUrl(value: string): string {
  * never select a different hostname. The two equivalent IPv4 loopback
  * spellings, localhost and 127.0.0.1, are accepted together for local test
  * and self-host routes. This preserves the documented
- * `?ws=` operator/test setting while preventing bearer identity material
+ * operator/test transport setting while preventing bearer identity material
  * from being sent cross-host. Both ws/wss are accepted for same-host routes;
  * the browser remains responsible for mixed-content enforcement.
  */
@@ -173,7 +123,7 @@ export function validateLobbyServerUrl(value: string, locator: PageLocator): str
 /**
  * Resolve the lobby/match server URL for this page load (011 single-port FR-006/FR-007):
  *
- *   1. an explicit `ws` query parameter wins (operators on non-default
+ *   1. an explicit WebSocket transport override wins (operators on non-default
  *      ports; test harnesses) — scheme-normalized by
  *      {@link normalizeWsUrl} and validated by {@link validateLobbyServerUrl};
  *   2. otherwise same-origin fallback: `${protocol==='https:'?'wss':'ws'}://${location.host}`
@@ -183,7 +133,7 @@ export function validateLobbyServerUrl(value: string, locator: PageLocator): str
  *      listener (FR-008). Backwards-compat: if `host` is absent but `hostname`
  *      is present, derives host from `hostname` + `port` (old call sites).
  *
- * PRIVACY: reads ONLY the `ws` parameter — identifiers never ride
+ * PRIVACY: reads ONLY the transport override — identifiers never ride
  * URLs into this layer, and nothing here writes to the URL.
  *
  * @param search The query string (e.g. `window.location.search`).
