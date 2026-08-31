@@ -882,8 +882,11 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 };
             }
 
-            // Single existence code path (FR-006): unknown id AND private-
-            // without-token both land here; message never leaks existence.
+            // Unknown or invalid MatchIds use the generic, non-enumerating
+            // `match_not_found` response. A known private MatchId without a
+            // bearer token is still an admission attempt and proceeds through
+            // the normal seat and admission checks below; the ID grants no
+            // authority beyond that attempt.
             const match = store.getMatch(req.matchId);
             if (match === undefined) {
                 return { ok: false, error: makeError('match_not_found') };
