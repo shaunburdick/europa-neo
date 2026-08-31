@@ -154,10 +154,11 @@ export interface Matchmaker {
    *   `match_not_found` (no existence leak). If the seat was forfeited
    *   (grace window expired), returns `session_expired`.
    *
-   * **Private match access**: presence of the `MatchId` IS the auth
-   * for private matches. The matchmaker does not differentiate
-   * "private and you don't have the token" from "no such ID" — both
-   * return `match_not_found` per FR-006.
+   * **Private match access**: a known `MatchId` permits an admission attempt;
+   * it is not authentication or a bearer credential and grants no seat,
+   * order, reconnect, or view authority. The server validates admission.
+   * Unknown IDs and rejected private-match admission attempts both return
+   * `match_not_found` per FR-006.
    *
    * @see spec US1 AC-2, US3 AC-1, FR-006.
    */
