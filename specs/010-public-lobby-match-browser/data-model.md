@@ -9,9 +9,10 @@ type NormalizedHandle = string & { readonly __brand: 'NormalizedHandle' };
 ```
 
 `GuestPlayerId` is server-issued, opaque, unique among active identities, and
-never serialized into public projections, URLs, views, or documentation. The
-browser may store an opaque claim, but the server can reject it and issue a new
-identity. `LobbyRevision` is monotonic for one process. `NormalizedHandle` is
+non-secret. It may be serialized into correlation surfaces, but never grants
+authority or reveals private-match existence or fog-hidden state. The browser
+may store a claim, but the server can reject it and issue a new identity.
+`LobbyRevision` is monotonic for one process. `NormalizedHandle` is
 trimmed and case-folded for uniqueness only.
 
 ## 2. GuestPlayerIdentity (server internal)
@@ -50,8 +51,9 @@ interface LobbySnapshot {
 }
 ```
 
-Entries include no guest ID, seat token, private data, finished match, or
-participant list. Waiting entries are joinable only when capacity remains;
+Entries include no seat token, private data, finished match, or participant list.
+Guest IDs may be included only where the projection explicitly needs identity
+correlation. Waiting entries are joinable only when capacity remains;
 in-progress entries are spectatable only. Collected matches are absent.
 
 ## 4. Client lobby state
@@ -66,10 +68,10 @@ interface LobbyClientState {
 }
 ```
 
-The client stores only `{ guestPlayerIdClaim, handle }` under a namespaced
-local-storage key. It treats both as untrusted input and never renders the
-claim. Match tokens remain in memory/session handling as already defined by
-networking; they do not enter lobby URLs.
+The client stores `{ guestPlayerIdClaim, handle }` under a namespaced
+local-storage key. It treats both as untrusted input. Match tokens remain in
+memory/session handling as already defined by networking and must not enter
+unsafe URLs or logs.
 
 ## 5. State transitions and invariants
 
@@ -89,8 +91,8 @@ networking; they do not enter lobby URLs.
 Invariants: one normalized handle per active identity; one active match per
 identity; seats never exceed configured capacity; client claims cannot alter
 server associations; spectator has no seat/order authority; every accepted
-order uses the connection's server-resolved seat; player views contain handles
-only where already allowed and never opaque IDs.
+order uses the connection's server-resolved seat; player views prefer handles
+and may include non-secret IDs without changing authorization or fog filtering.
 
 ## 6. Validation and cleanup
 

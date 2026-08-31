@@ -200,10 +200,12 @@ matches offer **Spectate**; collected matches are not history.
 Temporary disconnects use the existing reconnect grace window. A valid
 reconnect credential within that window restores the original seat, handle,
 view, and order authority. Expired, unknown, or mismatched credentials do not
-reassign a connection. The opaque guest identifier is delivered only in the
-directed identity event to its owner; public listings, other connections,
-URLs, views, and logs remain free of it. Host diagnostics deliberately omit
-bearer credentials and opaque identity identifiers.
+reassign a connection. Guest identity IDs and gameplay `PlayerId` values are
+non-secret correlation data and may appear in URLs, wire payloads, views, logs,
+and diagnostics where useful. The accepted handle remains the preferred UI
+label, with a generic or ID fallback when no handle exists. Host diagnostics
+continue to omit bearer credentials (`sessionToken` and `reconnectToken`), and
+private-match existence and fog-of-war boundaries remain protected.
 
 `GET /version` on the single-port origin returns application and protocol versions:
 

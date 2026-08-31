@@ -138,7 +138,7 @@ services:
 | `triggers` | `enum` | `push` to `main` (path-filtered to `Dockerfile`/`docker-compose.yml`/`.dockerignore` + source surfaces) → `:edge`; `push` tag `v*` → `:vX.Y.Z` (via `feature 009` release flow). Guarded `if: github.repository == 'shaunburdick/europa-neo'`. |
 | `platforms` | `enum` | `linux/amd64` mandatory (blocking); `linux/arm64` best-effort non-blocking (workflow header documents non-blocking ruling; impl separates legs with `fail-fast:false` + `continue-on-error:true` on arm64). |
 | `permissions` | `object` | `packages: write`, `contents: read` top-level; `id-token: write` only if provenance enabled; all `uses:` SHA-pinned with version comments. |
-| `privacy` | `string` | No auth on `GET /version` inside image (FR-009 FR-006 reused); logs never leak bearer tokens / opaque guest IDs. |
+| `privacy` | `string` | No auth on `GET /version` inside image (FR-009 FR-006 reused); logs never leak bearer tokens. Non-secret player IDs may be logged for correlation. |
 
 ## Entity relationships
 

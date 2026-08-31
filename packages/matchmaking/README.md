@@ -137,7 +137,8 @@ drift caught by `tests/conformance.test.ts`.
 
 Feature 010 adds an in-memory lobby facade around this lifecycle. A visitor
 receives an ephemeral `GuestPlayerIdentity` and selects a handle; the handle is
-the only participant identity shown to users. Handles are 1–24 Unicode code
+the preferred participant identity shown to users, with a generic or ID fallback
+when unavailable. Handles are 1–24 Unicode code
 points after trimming, contain at least one non-whitespace character, and
 contain no control characters, no bidirectional formatting controls, and no
 unpaired surrogates; well-formed emoji counts as one code point. Active handles
@@ -157,11 +158,12 @@ cannot reassign a seat or view.
 
 All lobby identity, handle, session, and match state is process memory. Browser
 storage is only a resume aid, not an account or durable record. Clearing it or
-restarting the server begins a fresh lobby. The opaque guest identifier is
-delivered only in the directed identity event to its owner; public projections,
-other connections, URLs, views, and logs remain free of it. Public projections
-contain only discovery data; diagnostics and public API examples must not expose
-bearer credentials or opaque identity identifiers.
+restarting the server begins a fresh lobby. Guest identity IDs and gameplay
+`PlayerId` values are non-secret correlation fields and may appear in
+projections, URLs, views, logs, diagnostics, and API examples where useful.
+Handles remain preferred UI labels. Public projections still contain only
+discovery data, private matches remain non-enumerable, and diagnostics/examples
+must not expose bearer credentials (`sessionToken` or `reconnectToken`).
 
 ### Runtime building blocks
 

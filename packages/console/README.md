@@ -134,10 +134,12 @@ A reconnect within the grace window restores that association; an invalid or
 mismatched reconnect credential cannot claim it. Player views stay
 fog-filtered, while spectators have no seat and cannot issue orders. The lobby
 distinguishes an initial loading state from a successfully loaded empty state
-and shows distinct empty guidance. The opaque guest identifier is delivered
-only in the directed identity event to its owner; public listings, other
-connections, URLs, views, and logs remain free of it. Host diagnostics never
-log bearer credentials or opaque identity identifiers.
+and shows distinct empty guidance. Guest identity IDs and gameplay `PlayerId`
+values are non-secret correlation data and may appear in URLs, wire payloads,
+views, logs, and diagnostics. Accepted handles remain the preferred UI labels,
+with a generic or ID fallback when no handle exists. Host diagnostics never log
+bearer credentials (`sessionToken` or `reconnectToken`), and fog filtering plus
+private-match visibility protections remain unchanged.
 
 The lobby normally connects to the WebSocket service on the same host as the
 page. `?ws=` is retained for non-default ports and tests, but the client rejects

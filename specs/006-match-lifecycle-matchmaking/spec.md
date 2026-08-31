@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-21
 
-**Last Updated**: 2026-08-25 (Implementation Notes: `leaveMatch` implemented + feature-010 composition seams, remediation R-005)
+**Last Updated**: 2026-08-30 (v1.2; feature 013 identity-visibility policy)
 
-**Version**: 1.1
+**Version**: 1.2
 
 **Status**: Implemented
 
@@ -119,6 +119,7 @@ As a player, I want abandoned matches to resolve sensibly — my opponent wins a
 - **FR-010**: Disconnect-forfeit: if a seated player cannot be reconnected within the grace window (shared with feature 004 FR-007), the server MUST mark them forfeit; if one player remains, they win; if none remain, the match is destroyed.
 - **FR-011**: Empty unstarted matches MUST be garbage-collected after a short TTL; finished matches release resources after results delivery plus a grace period.
 - **FR-012**: All lifecycle transitions (created → filling → running → finished → collected) MUST be observable via protocol messages for client status displays.
+- **FR-013**: Match, guest identity, session, seat, and gameplay player IDs are non-secret correlation references and MAY appear in lifecycle records, URLs, wire payloads, logs, and diagnostics. This MUST NOT expose bearer credentials, enumerate private matches, or bypass authorization.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -270,3 +271,11 @@ Contracts were updated in the same change set wherever behavior changed.
   value is surfaced via `TerrainGenerationResult.effectiveSettings`
   and `MapStats.effectiveSettings` (feature 003's existing
   `effectiveSettings` pattern).
+
+### v1.2 (2026-08-30) — Relaxed player-ID visibility policy (feature 013)
+
+- Player IDs and guest identity IDs are not private. Handles remain preferred
+  for UI labels; a generic fallback or ID is acceptable without a handle.
+  `sessionToken` and `reconnectToken` remain secret bearer credentials.
+  Private-match non-enumeration and server-authoritative membership are
+  unchanged.

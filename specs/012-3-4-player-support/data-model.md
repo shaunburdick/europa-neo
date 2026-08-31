@@ -179,6 +179,11 @@ export function resolveConfig(
 - Flags pass through `resolveConfig` the same way `HOST_PORT`/`HOST_BIND_HOST`/`HOST_PUBLIC_HOST` do; env fallback applies only when neither flag present.
 - Validated before binding; invalid values fail fast naming ` --players must be 2, 3, or 4` / ` --board-size must be 32, 48, or 64` (no silent fallback, no second listener).
 - Single `http.Server` on `HOST_PORT` unchanged; `prepareMatch` drives `createMatch({visibility:'public', displayName, settings:{playerCount, boardSize, tickIntervalMs:250}})`, fills to `playerCount` seats, prints `playerCount` token-bearing join URLs; `GET /version` + same-origin WS over same port both work (011 FR-001..FR-003).
+
+Player IDs are non-secret correlation metadata and may be shown in diagnostic
+or contract examples. Token-bearing URLs remain operationally restricted, and
+the handle-preferred UI, private-match boundary, and fog-of-war rules remain
+unchanged (feature 013).
 - `HOST_STATIC_PORT` / `--static-port` passing remains a conformance failure (011 FR-004) — rejected with clear error, no second listener.
 - E2E fixtures use `port:0` + `__boundPortForTest()` per 011 FR-009 — no two-port seam.
 

@@ -187,14 +187,17 @@ empty state. The browser client sends heartbeat traffic and automatically
 re-establishes a lobby connection when configured to do so. A reconnect within
 `reconnectGraceMs` (60 seconds by default) restores the original association;
 an invalid, expired, or mismatched credential cannot attach another player's
-seat, orders, or view. The opaque guest identifier is delivered only in the
-directed identity event to its owner; public listings, other connections,
-URLs, views, and logs remain free of it.
+seat, orders, or view. Guest identity IDs and gameplay `PlayerId` values are
+non-secret correlation data and may appear in wire payloads, URLs, views, logs,
+and diagnostics. The accepted handle is preferred for UI labels. Bearer
+credentials remain secret: diagnostics MUST NOT log `sessionToken` or
+`reconnectToken`, and private-match existence plus fog filtering remain
+enforced.
 
 Guest identities and handles are ephemeral process state, not authentication
 or persistence. A server restart clears them and all lobby/match state.
-Networking diagnostics must not log bearer credentials or opaque identity
-identifiers.
+Networking diagnostics must not log bearer credentials. Player IDs are allowed
+as correlation fields when they do not disclose hidden state or grant authority.
 
 ### Constants & config
 

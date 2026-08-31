@@ -63,7 +63,7 @@ packages/matchmaking/src/
   lobby-events.ts
 ```
 
-Identity allocation is server-side and opaque. The client may present a stored
+Identity allocation is server-side and opaque but non-secret. The client may present a stored
 identity claim, but the server accepts it only when it matches its registry;
 otherwise it creates a fresh identity. Handle changes update the registry and
 future projections, while existing reconnect credentials continue to point to
@@ -92,14 +92,15 @@ Introduce a lobby state machine beside the existing console match store:
 recoverable `error`/`disconnected` substates. Keep the current live console
 mounted for the match state; replace query-string `?live` as the default host
 entry path. A route adapter may preserve direct `?live` compatibility for
-existing development/test links, but normal host output contains no match ID,
-seat, token, or identity in the URL.
+existing development/test links, but normal host output contains no
+credential-bearing token in the URL; match and identity IDs may be present where
+needed for correlation.
 
 Create a reusable lobby UI with an identity form, create form, status-filtered
 public match rows, empty/loading/error states, and accessible transitions. Match
-seat labels consume server-provided handles only. The lobby client persists the
-opaque identity claim and accepted handle locally, never renders or places the
-opaque ID in a URL.
+seat labels prefer server-provided handles. The lobby client persists the
+identity claim and accepted handle locally; non-secret IDs may be rendered or
+placed in correlation URLs, but bearer credentials may not.
 
 ### 4. Host and cleanup
 
