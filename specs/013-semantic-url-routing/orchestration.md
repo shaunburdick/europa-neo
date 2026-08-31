@@ -68,6 +68,12 @@ Replace production query-selected live boot with a pure pathname router and expl
 - None.
 
 ## Review Findings
+- Wave 4 review remediation — ✅ complete (2026-08-31): Docker runtime now
+  contains only compiled application artifacts and production dependencies;
+  Docker smoke proves an RFC 6455 handshake and HTTP/WS same-port mapping;
+  build-amd64 uses read-only contents permission while retaining package and
+  provenance scopes. Feature 013 status is implementation in progress; Wave 5
+  documentation remains pending.
 - Wave 0 code-review remediation complete:
   - T002 is complete and its retired-route fixture now distinguishes prose from a query-shaped
     historical example with a `/` path prefix.

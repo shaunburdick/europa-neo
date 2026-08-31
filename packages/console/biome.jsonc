@@ -10,6 +10,7 @@
             "*.json",
             "*.jsonc",
             "!scripts/generate-determinism-golden.ts",
+            "!dist-host",
             "!test-results",
             "!tests/fixtures/original-subcell.json",
             "!tests/fixtures/golden-1000-tick.json"

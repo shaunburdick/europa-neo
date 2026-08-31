@@ -61,10 +61,50 @@ asset_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "htt
     exit 1
 }
 
+echo "[docker-smoke] performing WebSocket handshake on the mapped HTTP port..."
+python3 - "${HOST_PORT}" <<'PY'
+import base64
+import hashlib
+import socket
+import sys
+
+port = int(sys.argv[1])
+key = base64.b64encode(b"0123456789abcdef").decode("ascii")
+request = (
+    "GET / HTTP/1.1\r\n"
+    "Host: 127.0.0.1\r\n"
+    "Upgrade: websocket\r\n"
+    "Connection: Upgrade\r\n"
+    f"Sec-WebSocket-Key: {key}\r\n"
+    "Sec-WebSocket-Version: 13\r\n\r\n"
+).encode("ascii")
+expected_accept = base64.b64encode(
+    hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("ascii")).digest()
+).decode("ascii")
+
+with socket.create_connection(("127.0.0.1", port), timeout=5) as connection:
+    connection.sendall(request)
+    response = connection.recv(4096).decode("latin1")
+
+if "HTTP/1.1 101 Switching Protocols" not in response:
+    raise SystemExit(f"expected a WebSocket 101 response, got: {response!r}")
+if "Upgrade: websocket" not in response:
+    raise SystemExit(f"missing WebSocket Upgrade response header: {response!r}")
+if f"Sec-WebSocket-Accept: {expected_accept}" not in response:
+    raise SystemExit(f"invalid WebSocket accept response: {response!r}")
+PY
+
+mapped_port="$(docker port "${CONTAINER_NAME}" 8080/tcp)"
+mapped_port="${mapped_port##*:}"
+[[ "${mapped_port}" == "${HOST_PORT}" ]] || {
+    echo "[docker-smoke] FAIL: Docker mapped ${mapped_port}, expected HTTP/WS port ${HOST_PORT}" >&2
+    exit 1
+}
+
 exposed_ports="$(docker image inspect "${IMAGE_NAME}" --format '{{json .Config.ExposedPorts}}')"
 [[ "${exposed_ports}" == '{"8080/tcp":{}}' ]] || {
     echo "[docker-smoke] FAIL: image exposes more than the single 8080/tcp port: ${exposed_ports}" >&2
     exit 1
 }
 
-echo "[docker-smoke] PASS: semantic SPA paths, /version, asset 404, and one EXPOSE port verified"
+echo "[docker-smoke] PASS: semantic SPA paths, /version, asset 404, HTTP+WS same-port handshake, and one EXPOSE port verified"

@@ -118,6 +118,16 @@
 - [x] T034 [US5] Operational doc polish: `Dockerfile` header comment (topology + Node 24 LTS gate + re-validation note), `docker-compose.yml` header comment (FR-017 wording), `packages/networking/src/contracts/network-api.ts` seam JSDoc + `host.ts` comment referencing plan's D3/D4 decisions; keep `README` in sync with the two contract files
 - [x] T035 [US5] Final gates: `pnpm typecheck` + `pnpm lint` + `pnpm format:check` zero errors; `pnpm test` (all packages, each ≥80% on every metric where the metric applies) green; `pnpm --filter @europa/console test:e2e` full-stack deterministic proof passes on the single-server fixture; `docker compose config -q && docker build -t europa:final . && docker run --rm europa:final pnpm --version | grep 11` exits 0; `pnpm --filter @europa/version version:check` still green (Docker packaging didn't add a new `package.json` version)
 
+### Wave 4 review remediation — ✅ complete (2026-08-31)
+
+- Runtime image was tightened to compiled host/runtime artifacts plus production
+  dependencies only; workspace source, tests, dev dependencies, and pnpm are
+  absent from the final stage.
+- Docker smoke now performs and validates a real WebSocket handshake on the
+  mapped HTTP port, including the single-port mapping assertion.
+- The build-amd64 job now uses `contents: read`; required package/provenance
+  permissions are retained. Wave 5 documentation work is intentionally excluded.
+
 **Checkpoint**: README doctrine done; `pnpm version:check` independent of Docker; manual drift check is documented as executed.
 
 ---

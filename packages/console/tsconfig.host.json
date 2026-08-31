@@ -1,0 +1,13 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "./dist-host",
+        "rootDir": ".",
+        "noEmit": false,
+        "declaration": false,
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "types": ["node"]
+    },
+    "include": ["scripts/host.ts", "scripts/host-config.ts", "scripts/version-route.ts", "src/state/awaiting-start.ts"],
+    "exclude": ["tests/**/*", "dist", "dist-host", "node_modules", "coverage"]
+}

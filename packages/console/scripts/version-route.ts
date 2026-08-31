@@ -17,7 +17,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
-import { STATIC_SECURITY_HEADERS } from './host-config';
+import { STATIC_SECURITY_HEADERS } from './host-config.js';
 
 /** The exact path this route serves (case-sensitive, no sub-paths). */
 const VERSION_PATH = '/version';

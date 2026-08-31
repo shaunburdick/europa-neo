@@ -80,6 +80,12 @@ red until the migration waves remove the existing production query references.
 - [x] T019 Extend self-host/host integration tests and `packages/console/scripts/test-selfhost.sh` for direct/reload canonical paths, one-port `/version`, assets, WS, headers, and recovery; depends on T017–T018.
 - [x] T020 [P] Update Docker smoke/build validation and root Docker documentation; verify `Dockerfile`/Compose inherit single-port SPA fallback with no second listener; depends on T017.
 
+### Wave 4 review remediation — ✅ complete (2026-08-31)
+
+- Docker runtime hardening, same-port WebSocket smoke coverage, and workflow
+  permission reduction are complete. Wave 5 README/manual/spec migration was
+  not addressed.
+
 ## Wave 5 — Documentation truthfulness
 
 - [ ] T021 [P] Update `README.md` and `packages/console/README.md` launch/route guidance; remove stale production `?live`, retain explicit `?e2e`; depends on T018.

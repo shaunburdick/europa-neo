@@ -70,7 +70,15 @@ Collapse two-port self-host to one `http.Server` on `HOST_PORT` (8080) serving H
 - (none yet)
 
 ## Review Findings
-- (pending)
+- Wave 4 runtime/remediation — ✅ complete (2026-08-31): Docker now compiles the
+  host launcher and uses `pnpm deploy --prod` in the build stage, so the final
+  image contains only built runtime artifacts and production dependencies; no
+  workspace source, tests, dev dependencies, or pnpm launcher remain.
+- `scripts/docker-smoke.sh` now verifies a real RFC 6455 handshake and confirms
+  Docker's HTTP mapping and WebSocket endpoint are the same host port.
+- `.github/workflows/docker.yml` build-amd64 permissions are least privilege:
+  `contents: read`, `packages: write`, `attestations: write`, and `id-token: write`.
+- Review blocker: none. Wave 5 documentation remains outside this remediation.
 
 ## Wave Dispatch Plan
 - Wave 1 (Foundational) is blocking and file-coupled (host.ts + networking seam) — dispatch as 2 parallel sub-waves: (a) host-config/host tests+impl (T004+T007+T005+T006), (b) networking seam tests+impl (T008+T009), then merge with wire-up T010.

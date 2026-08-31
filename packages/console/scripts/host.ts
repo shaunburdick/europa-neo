@@ -57,15 +57,15 @@ import {
     type ServerDeps,
 } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
-import { formatWaitingMessage } from '../src/state/awaiting-start';
+import { formatWaitingMessage } from '../src/state/awaiting-start.js';
 import {
     isPathInside,
     type NPlayerHostConfig,
     resolveConfig as resolveNPlayerConfig,
     STATIC_SECURITY_HEADERS,
     sanitizeLogText,
-} from './host-config';
-import { handleVersionRoute } from './version-route';
+} from './host-config.js';
+import { handleVersionRoute } from './version-route.js';
 
 /** Package root (this script lives in `<root>/scripts/`). */
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
@@ -91,7 +91,9 @@ const SEAT_NAMES = ['P1', 'P2', 'P3', 'P4'] as const;
  * @returns The display label for that seat.
  */
 function seatName(playerId: number): string {
-    return playerId >= 1 && playerId <= SEAT_NAMES.length ? SEAT_NAMES[playerId - 1] : `Player ${String(playerId)}`;
+    return playerId >= 1 && playerId <= SEAT_NAMES.length
+        ? (SEAT_NAMES[playerId - 1] ?? `Player ${String(playerId)}`)
+        : `Player ${String(playerId)}`;
 }
 
 /** MIME types for the static server (covers everything vite emits). */
@@ -301,7 +303,9 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
      * any seat beyond the v1 two-seater.
      */
     const seatLabel = (playerId: number): string =>
-        playerId >= 1 && playerId <= SEAT_NAMES.length ? SEAT_NAMES[playerId - 1] : `player ${String(playerId)}`;
+        playerId >= 1 && playerId <= SEAT_NAMES.length
+            ? (SEAT_NAMES[playerId - 1] ?? `player ${String(playerId)}`)
+            : `player ${String(playerId)}`;
 
     const forwardingBridge: MatchmakerBridge = {
         onSeatClaimed: (event) => {
