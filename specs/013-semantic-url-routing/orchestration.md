@@ -1,9 +1,9 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 3 — T014 and T015 complete; T016 remains pending
+- **Current Wave**: Wave 3 — T014–T016 complete
 - **Branch**: issue-35-semantic-url-scheme
-- **Last Updated**: 2026-08-30
+- **Last Updated**: 2026-08-31
 
 ## Plan Summary
 Replace production query-selected live boot with a pure pathname router and explicit route-to-runtime adapter. `/` redirects to canonical `/lobby`; semantic match paths preserve match intent while existing lobby, identity, networking, and gameplay seams remain authoritative. Native and Docker hosts serve the SPA shell for safe deep links while reserving `/version`, assets, WebSocket upgrades, and traversal handling; `?e2e` remains test-only and `?live` is retired.
@@ -26,10 +26,10 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T010 accessible route notices and focus/live-region recovery — ✅ complete
 - T011 runtime/browser coverage — ✅ complete (unit/component/a11y assertions)
 - T012 routing E2E — ✅ complete
-### Wave 3 — Full-stack and security — ✅ T014–T015 complete; T016 pending
+### Wave 3 — Full-stack and security — ✅ T014–T016 complete
 - T014 real-socket semantic create/join/spectate coverage — ✅ complete
 - T015 security suite — ✅ complete
-- T016 unchanged `?e2e`/a11y/harness checks — ⏳ pending
+- T016 unchanged `?e2e`/a11y/harness checks — ✅ complete
 ### Wave 4 — Native host and Docker — ⏳ Pending
 ### Wave 5 — Documentation truthfulness — ⏳ Pending
 ### Wave 6 — Final gate — ⏳ Pending
@@ -239,4 +239,16 @@ Replace production query-selected live boot with a pure pathname router and expl
   builders, exact cross-match selection, unresolved-route no-connection guards,
   and preservation of Feature 010's command authority for identity/seat claims.
    No production behavior was changed; T014 socket coverage is now complete
-   and T016 harness work remains pending.
+   and T016 harness work follows.
+
+## T016 Completion
+
+- 2026-08-31: Added one behavior-level browser assertion that the retired
+  `?live` query redirects to the lobby and never exposes the live-runtime
+  handle. The existing `?e2e` Playwright harness and deterministic capture were
+  left unchanged.
+- Verification: unchanged `?e2e` E2E acceptance **6/6** passed; focused
+  routing E2E including the retired-query assertion **4/4** passed; routing
+  unit suite **70/70** passed; deterministic integration suite **3/3** passed;
+  console accessibility suite **31/31** passed. Typecheck, lint, format check,
+  and production build passed.

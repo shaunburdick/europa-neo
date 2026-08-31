@@ -57,7 +57,7 @@ red until the migration waves remove the existing production query references.
 - [x] T013 remediation: prevent successful lobby-originated entry from replaying its newly retained semantic route; resume an active identity on direct/reloaded adaptive/player routes and update only the affected lobby lifecycle expectations; do not change explicit downgrade rules.
 - [x] T014 Add real-socket semantic create/join/spectate coverage: waiting/running entry states, one tick, one player order, explicit failures, and cross-match rejection; depends on T013.
 - [x] T015 Add security tests for traversal, slash injection, credential leakage, cross-match selection, unauthorized claims, and unsafe IDs never opening a match connection; depends on T004, T008, T013.
-- [ ] T016 Run unchanged `?e2e` deterministic and console a11y suites, plus an assertion that `?live` never mounts live runtime; depends on T011–T015.
+- [x] T016 Run unchanged `?e2e` deterministic and console a11y suites, plus an assertion that `?live` never mounts live runtime; depends on T011–T015.
 
 ### Wave 3 review remediation — StrictMode lifecycle and history ruling
 

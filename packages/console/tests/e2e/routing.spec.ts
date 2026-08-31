@@ -121,6 +121,16 @@ test.describe('semantic route browser history', () => {
         expect(navigations.filter((path) => path === '/')).toHaveLength(1);
     });
 
+    test('retires the legacy live query without mounting the live runtime', async ({ page }) => {
+        await page.goto(
+            '/?live&ws=wss%3A%2F%2Fexample.test%2Fsocket&match=legacy-match&name=LegacyPlayer&token=secret',
+        );
+
+        await expect(page).toHaveURL(/\/lobby$/);
+        await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+        expect(await page.evaluate(() => Object.hasOwn(window, '__europaLive'))).toBe(false);
+    });
+
     test('shows recoverable Match unavailable when Back revisits a released filling match', async ({ page }) => {
         const { server, matchmaker } = buildStack();
         await server.listen();
