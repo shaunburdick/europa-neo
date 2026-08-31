@@ -39,7 +39,8 @@ describe('semantic route contract', () => {
 
     it.each([
         ['/match/', 'empty-match-id'],
-        ['/match/m-123/extra', 'wrong-segment-count'],
+        ['/match/m-123/extra', 'unsupported-path'],
+        ['/match/m-123/join/extra', 'wrong-segment-count'],
         ['/settings', 'unsupported-path'],
         ['/match/m-123/unknown', 'unsupported-path'],
     ] as const)('classifies unsupported shape %s as recoverable unknown route', (pathname, reason) => {

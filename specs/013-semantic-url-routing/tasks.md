@@ -24,7 +24,7 @@ red until the migration waves remove the existing production query references.
 ## Wave 1 — Pure routing foundation
 
 - [x] T004 Add closed route/rejection types, pure pathname parser, one-segment decode/validation, and semantic URL builders in `packages/console/src/routing/route.ts`; satisfy `data-model.md` security invariants.
-- [ ] T005 Add unit tests first in `packages/console/tests/unit/routing/route.test.ts` for malformed escapes, encoded slash/backslash, dot/control characters, empty IDs, extra segments, round trips, and deterministic classification; depends on T004.
+- [x] T005 Add unit tests first in `packages/console/tests/unit/routing/route.test.ts` for malformed escapes, encoded slash/backslash, dot/control characters, empty IDs, extra segments, round trips, and deterministic classification; depends on T004.
 - [ ] T006 [P] Define the route-to-entry adapter seam in `packages/console/src/routing/route-adapter.ts` over existing Feature 010 projections/commands; prohibit implicit downgrade and pre-resolution match sockets.
 - [ ] T007 [P] Remove retired `hasDirectMatchRoute`/`resolveInitialViewMode` exports and tests in `packages/console/src/state/lobby-view.ts`, preserving same-origin WebSocket validation; depends on T004.
 
