@@ -52,8 +52,9 @@ interface LobbySnapshot {
 ```
 
 Entries include no seat token, private data, finished match, or participant list.
-Guest IDs may be included only where the projection explicitly needs identity
-correlation. Waiting entries are joinable only when capacity remains;
+Guest IDs may be included where the projection explicitly needs identity
+correlation; they are not credentials and do not authorize an action. Waiting
+entries are joinable only when capacity remains;
 in-progress entries are spectatable only. Collected matches are absent.
 
 ## 4. Client lobby state
@@ -69,9 +70,9 @@ interface LobbyClientState {
 ```
 
 The client stores `{ guestPlayerIdClaim, handle }` under a namespaced
-local-storage key. It treats both as untrusted input. Match tokens remain in
-memory/session handling as already defined by networking and must not enter
-unsafe URLs or logs.
+local-storage key. It treats both as untrusted input and may display or forward
+the ID for correlation. Match tokens remain in memory/session handling as
+already defined by networking and must not enter unsafe URLs or logs.
 
 ## 5. State transitions and invariants
 

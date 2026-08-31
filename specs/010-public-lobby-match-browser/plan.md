@@ -1,55 +1,55 @@
-# Implementation Plan: Public Lobby & Match Browser
+# Implementation Plan: Player-ID Visibility Policy Correction
 
-**Branch**: `010-public-lobby-match-browser`  
-**Spec**: [spec.md](./spec.md) (approved v1.6)
-**Dependencies**: 004 networking, 005 console, 006 matchmaking
+**Branch**: `013-relaxed-player-id-visibility`
+**Spec**: [spec.md](./spec.md) (existing Feature 010, approved v1.7)
+**Correction scope**: Existing Feature 010 source-of-truth amendment, cross-referenced by Features 002, 004, 006, 011, and 012. No Feature 013 specification or runtime subsystem.
 
 ## Summary
 
-Replace the `pnpm host` auto-created match with a default landing application. A
-single in-memory lobby service will own ephemeral `GuestPlayerIdentity` records,
-validated unique handles, public-match projections, and the association between
-identity, matchmaking session, seat, and network connection. A browser lobby
-client will use a versioned WebSocket lobby protocol over the existing server;
-match gameplay continues through the existing `MatchClient` and fog-filtered
-protocol unchanged. The host will boot an idle stack, serve the lobby at `/`,
-and retain an explicit create action rather than preparing a match.
+Correct the remaining implementation and acceptance harnesses that still treat
+guest identity IDs or gameplay `PlayerId` values as secrets. IDs become ordinary,
+non-secret correlation data wherever an existing surface already carries identity
+references. Accepted handles remain the preferred UI label. `sessionToken` and
+`reconnectToken` remain bearer credentials; private-match existence, server
+authority, and fog-of-war boundaries are unchanged.
+
+This is a documentation, contract-comment, checker, and test-harness correction.
+It does not add an API, change wire versioning, change match behavior, or alter
+the simulation. All code/test changes below are Phase 6 work; this Phase 4–5
+change set only updates planning artifacts.
 
 ## Technical context
 
 - pnpm TypeScript monorepo, Node 22, strict TypeScript, Biome 2, Vitest 4,
   Playwright, existing `ws` networking transport.
 - No new runtime dependency, database, account system, timer-driven simulation,
-  or cloud service.
-- Lobby state is process memory. Browser `localStorage` contains only the
-  opaque identity claim and selected handle needed to resume a guest session;
-  it is not auth.
-- Existing 2-player end-to-end behavior remains the shipped path. API settings
-  retain the existing 2–4 player contract.
+  or cloud service. No new package and no Feature 013 directory.
+- Existing branded IDs remain distinct types. The correction changes exposure
+  policy and assertions, not identity allocation, validation, or authority.
+- Existing 2-player end-to-end behavior and the 2–4 player engine contract remain
+  unchanged.
 
 ## Constitution alignment
 
 | Principle | Plan decision |
 | --- | --- |
-| I — Type safety | New public shapes are closed discriminated unions and branded IDs; no `any` or suppressions. Contract mirrors are conformance-tested. |
-| II — Authoritative/deterministic | The server resolves identity, handle, seat, role, and order authority. Lobby ordering uses stable server order; simulation/tick code is untouched. |
-| III — Tested logic | Identity normalization, atomic claims, lifecycle cleanup, protocol validation, and projections receive unit/concurrency tests with ≥80% coverage for new logic. |
-| IV — Specs/docs | This feature's contracts are the source of truth; README, launch guidance, API notes, and applicable manual pages change in the same implementation set. |
-| V — Simplicity | One lobby service and one WebSocket endpoint are preferred over a separate broker, database, or polling subsystem. |
-| VI — Accessibility | Semantic forms, labelled match rows, focus management, live-region status/error announcements, keyboard-only flows, and AA contrast are acceptance gates. |
-| VII — Self-hosting | `pnpm host` starts one process with an empty lobby and no cloud/persistence requirement. |
+| I — Type safety | Preserve branded ID types and mirrored contracts; update prose/JSDoc without weakening strict typechecking or adding suppressions. |
+| II — Authoritative/deterministic | IDs are correlation metadata only; server-resolved seat, authorization, and fog filtering remain authoritative. No tick logic changes. |
+| III — Tested logic | Replace false ID-secrecy assertions with positive correlation coverage and retain credential/private-match/fog regression coverage. Existing ≥80% gates remain. |
+| IV — Specs/docs | Feature 010 remains the normative owner; update affected contract mirrors, comments, READMEs, manual guidance, and checker semantics together. |
+| V — Simplicity | Change only stale policy assertions and their tests; do not introduce a privacy abstraction or new transport. |
+| VI — Accessibility | Handle-first labels remain accessible; an ID fallback is text and must not rely on color or obscure bearer-credential warnings. |
+| VII — Self-hosting | Existing self-hosted URLs/log diagnostics may correlate IDs, but must not expose bearer credentials. |
 
-## Architecture
+## Architecture and migration boundaries
 
-### 1. Lobby/identity service
+### 1. Existing identity and lobby surfaces (no runtime redesign)
 
-Extend `@europa/matchmaking` with a server-owned identity registry and a lobby
-facade. The facade creates/restores identities, validates and atomically reserves
-normalized handles, delegates supported match settings to the existing
-matchmaker, and projects only public data. It stores a single active match
-association per identity. Existing `MatchRecord`/`SeatRecord` remain the
-authoritative lifecycle records; new fields reference the identity rather than
-duplicating authority.
+The already-shipped identity registry, lobby facade, match records, and seat
+records remain unchanged at runtime. Their comments/contracts must describe
+`GuestPlayerId` as non-secret correlation data rather than "internal-only" or
+"never rendered" data. The server still resolves identity and seat associations;
+client-supplied IDs remain advisory and never become authority.
 
 Expected implementation areas:
 
@@ -63,18 +63,21 @@ packages/matchmaking/src/
   lobby-events.ts
 ```
 
-Identity allocation is server-side and opaque but non-secret. The client may present a stored
-identity claim, but the server accepts it only when it matches its registry;
-otherwise it creates a fresh identity. Handle changes update the registry and
-future projections, while existing reconnect credentials continue to point to
-the same identity.
+Identity allocation is server-side and opaque but non-secret. The client may
+present a stored identity claim, but the server accepts it only when it matches
+its registry; otherwise it creates a fresh identity. Handle changes update the
+registry and future projections, while existing reconnect credentials continue to
+point to the same identity.
 
-### 2. Lobby transport
+### 2. Existing contracts and transport
 
-Add lobby messages to the existing networking contract without changing the
-meaning or shape of gameplay messages. A greeted WebSocket can request identity,
-set a handle, list/subscribe to public matches, create/join/spectate, leave,
-and return to lobby. The server emits a complete safe lobby snapshot after
+No message family is added. Update the Feature 010 contract prose and the
+networking mirror comments to permit IDs on existing wire/diagnostic surfaces
+where useful. The server continues to resolve identity from connection/session
+state, and bearer tokens remain absent from unsafe URLs, logs, diagnostics, and
+documentation examples.
+
+The server emits a complete safe lobby snapshot after
 mutations and a monotonic revisioned update for create/fill/start/collect.
 One connection has at most one lobby or match presence; match joins transition
 to the existing networking handshake/session path. Spectator attachment uses
@@ -85,54 +88,35 @@ client-supplied seat/guest-ID fields. Gameplay `order` handling remains gated
 by the resolved network seat. Lobby actions are serialized by the Node event
 loop and each mutation rechecks current state immediately before assignment.
 
-### 3. Console state and routes
+### 3. Existing console and host surfaces
 
-Introduce a lobby state machine beside the existing console match store:
-`identitySetup → lobby → waiting → joining/spectating → match → lobby` plus
-recoverable `error`/`disconnected` substates. Keep the current live console
-mounted for the match state; replace query-string `?live` as the default host
-entry path. A route adapter may preserve direct `?live` compatibility for
-existing development/test links, but normal host output contains no
-credential-bearing token in the URL; match and identity IDs may be present where
-needed for correlation.
+Audit existing console/host comments and docs only. Handle-first labels remain
+the UX rule; if a handle is absent, a generic label or player ID is valid. Any
+correlation URL may contain IDs but must not contain bearer credentials.
 
-Create a reusable lobby UI with an identity form, create form, status-filtered
-public match rows, empty/loading/error states, and accessible transitions. Match
-seat labels prefer server-provided handles. The lobby client persists the
-identity claim and accepted handle locally; non-secret IDs may be rendered or
-placed in correlation URLs, but bearer credentials may not.
+### 4. Documentation/privacy checker
 
-### 4. Host and cleanup
+Revise `specs/010-public-lobby-match-browser/check-documentation-privacy.mjs` so
+it rejects credential values and credential-bearing URLs, while allowing
+representative non-secret player/guest IDs and ID field names on implementation,
+contract, README, and approved manual surfaces. Keep explicit checks for required
+handle guidance and the private-match/fog credential boundary. Add a small
+fixture/test seam if needed so both allow and deny cases are executable without
+placing live credentials in repository docs.
 
-Refactor `packages/console/scripts/host.ts` so it starts networking, matchmaking,
-and the static server without `prepareMatch()`. Bind the lobby service to the
-server and expose its WebSocket/API route on the existing configured endpoint.
-Keep `/version`, security headers, traversal protection, graceful SIGINT/SIGTERM,
-and configurable ports. Lifecycle events from matchmaking drive lobby updates;
-existing lazy match GC and reconnect grace remain the cleanup authority. On
-identity/session release, remove the normalized handle and association only when
-the reconnect grace window has expired. `close()` clears lobby identities,
-matches, subscriptions, and browser session assumptions disappear on restart.
+### 5. Documentation and cross-feature comments
 
-### 5. Documentation
-
-Update `README.md`, self-hosting/launch guidance, API/developer notes, and the
-applicable manual pages (`index`, `quick-start`, `reading-the-screen`, and a
-new lobby/identity page if the existing structure cannot explain the flow).
-Describe handles, validation, rename behavior, match actions, reconnect,
-server-authoritative association, and in-memory reset boundaries. Never use an
-opaque guest ID in examples. Update the Pages workflow only if the selected
-manual paths require a new path gate.
+Update only contradictory wording in `packages/{matchmaking,networking,console}`
+comments/READMEs, root README, applicable `docs/manual` guidance, and the
+Feature 002/004/006/011/012 cross-references. Documentation should use
+representative IDs where correlation is useful, never live bearer values. Keep
+private-match non-enumeration and fog-of-war wording explicit.
 
 ## Compatibility and migration
 
-- Do not change `NETWORK_API_VERSION` for additive lobby messages unless an
-  existing message shape changes; old gameplay clients continue to work against
-  a server match endpoint.
+- Do not change `NETWORK_API_VERSION`, payload shapes, or application behavior.
 - Preserve `HelloAck`, `JoinAck`, snapshot/tick, order ack, fog, terminal, and
-  reconnect semantics. Lobby fields are additive and unknown-message tolerant.
-- Keep the existing host flags and `/version` response. Change only the default
-  startup behavior from prefilled match to empty lobby.
+  reconnect semantics; ID exposure is not authentication or a version change.
 - Do not introduce private-match discovery, invitations, accounts, persistence,
   chat, ratings, history, or gameplay mechanics.
 
@@ -140,18 +124,14 @@ manual paths require a new path gate.
 
 | Risk | Mitigation |
 | --- | --- |
-| Identity spoofing or seat confusion | Server registry is the sole authority; forged identity/handle/seat fields are ignored or rejected and tested with 100 orders. |
-| Lobby races | Synchronous mutation critical sections plus 10+ conflicting request tests and 50-cycle soak. |
-| Stale rows | Revisioned full snapshots, mutation-triggered broadcasts, and action-time revalidation. |
-| Reconnect leaks a handle or wrong seat | Reconnect credential lookup precedes association; identity and seat are cross-checked; mismatch is recoverable failure. |
-| Existing live flow regresses | Keep match client/engine/fog contracts unchanged; run existing suites and two-browser create/join/spectate E2E. |
-| UI becomes inaccessible during transitions | Focus target rules, semantic status/live regions, axe checks, and keyboard-only Playwright flow. |
+| IDs mistaken for authority | Preserve server-side identity/seat resolution; test forged ID/handle/seat claims and unchanged world state. |
+| Bearer credential regression | Add checker fixtures and runtime/log assertions proving tokens never enter risky URLs, logs, diagnostics, or docs examples. |
+| Private/fog boundary regression | Re-run private-match existence and 500-tick fog audits; IDs may accompany only already-authorized data. |
+| Contradictory assertions remain | Run repository-wide targeted search plus contract/readme/manual checker and review the residual list in tasks. |
 
 ## Planned file surface
 
-See [tasks.md](./tasks.md) for the ordered executable list. The principal new
-surface is `packages/matchmaking` identity/lobby contracts and implementation,
-`packages/networking` lobby wire/server handling and browser client,
-`packages/console` lobby state/UI/runtime, host refactoring, tests, docs, and
-this feature's contract artifacts. No application code is changed during
-phases 4–5.
+See [tasks.md](./tasks.md) for the ordered executable list. The planned Phase 6
+surface is limited to the checker, stale source comments, contract mirrors/docs,
+README/manual wording, and focused test/harness assertions. `specs/013-*` must
+not be created. No application source or tests are changed during phases 4–5.
