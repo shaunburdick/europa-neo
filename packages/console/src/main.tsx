@@ -1,5 +1,4 @@
-import { createRoot } from 'react-dom/client';
-import { ErrorBoundary } from './render/ErrorBoundary';
+import type { Route } from './routing/route';
 import { parseRoute } from './routing/route';
 import { adaptRoute } from './routing/route-adapter';
 
@@ -18,9 +17,9 @@ import './styles/index.css';
  *     controllers + order bridge + recording fake client) so
  *     Playwright specs can drive real gestures (T052/T060).
  *   - PRODUCTION: pathname routing selects the public lobby or keeps a
- *     semantic match route in an explicit resolution state. Match entry is
- *     handed to the lobby adapter only after its authoritative snapshot is
- *     available (T009); this bootstrap never opens a match socket.
+ *     semantic match route through the lobby runtime. Match entry is handed
+ *     to the lobby adapter only after its authoritative snapshot is available
+ *     (T009); this bootstrap never opens a match socket.
  *
  * All modes wrap the root in {@link ErrorBoundary} (Q-B08): an
  * uncaught render error surfaces as an accessible fallback with a
@@ -69,25 +68,22 @@ function bootstrapProductionRoute(root: HTMLElement): void {
             mountLobby(root);
             return;
         case 'resolve':
-            // T009 will connect the lobby authority and execute the resolved
-            // entry. Do not mount LobbyRoot here: doing so would make a match
-            // deep link appear to be the plain lobby while it is unresolved.
             stripProductionQuery();
-            mountRouteResolution(root);
+            mountLobby(root, entry.route);
             return;
         case 'player':
         case 'spectator':
         case 'unavailable':
             // A null snapshot can only produce `resolve` for a valid match;
             // keep this exhaustive guard safe if the adapter evolves.
-            mountRouteResolution(root);
+            mountLobby(root);
             return;
     }
 }
 
 /** Mount the existing Feature 010 lobby runtime after route selection. */
-function mountLobby(root: HTMLElement): void {
-    void import('./internal/lobby-runtime').then((module) => module.mountLobbyRuntime(root));
+function mountLobby(root: HTMLElement, route?: Extract<Route, { readonly kind: 'match' }>): void {
+    void import('./internal/lobby-runtime').then((module) => module.mountLobbyRuntime(root, route));
 }
 
 /** Remove production query values before any existing runtime can inspect them. */
@@ -95,20 +91,4 @@ function stripProductionQuery(): void {
     if (window.location.search !== '') {
         window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.hash}`);
     }
-}
-
-/**
- * Render an explicit, non-lobby interim state for a semantic match route.
- * This is deliberately connection-free; route resolution and entry hand-off
- * belong to T009.
- */
-function mountRouteResolution(root: HTMLElement): void {
-    createRoot(root).render(
-        <ErrorBoundary>
-            <main id="main" aria-live="polite">
-                <h1>Resolving match</h1>
-                <p>Checking the match before connecting…</p>
-            </main>
-        </ErrorBoundary>,
-    );
 }

@@ -56,6 +56,8 @@ import { createWsLobbyClient } from '../net/ws-lobby-client';
 import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
 import { ErrorBoundary } from '../render/ErrorBoundary';
+import type { Route } from '../routing/route';
+import { adaptRoute, executeRouteEntry } from '../routing/route-adapter';
 import { formatWaitingMessage } from '../state/awaiting-start';
 import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
@@ -106,7 +108,7 @@ declare global {
  *
  * @param root The DOM mount node (index.html's `#root`).
  */
-export function mountLobbyRuntime(root: HTMLElement): void {
+export function mountLobbyRuntime(root: HTMLElement, route?: Extract<Route, { readonly kind: 'match' }>): void {
     let wsUrl: string;
     try {
         wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
@@ -127,7 +129,7 @@ export function mountLobbyRuntime(root: HTMLElement): void {
     createRoot(root).render(
         <StrictMode>
             <ErrorBoundary>
-                <LobbyRoot controller={controller} wsUrl={wsUrl} />
+                <LobbyRoot controller={controller} wsUrl={wsUrl} initialRoute={route} />
             </ErrorBoundary>
         </StrictMode>,
     );
@@ -162,6 +164,12 @@ export interface LobbyRootProps {
     readonly controller: LobbyController;
     /** Resolved lobby/match server URL (see `resolveLobbyServerUrl`). */
     readonly wsUrl: string;
+    /**
+     * Optional semantic match route selected by the production bootstrap.
+     * The route is resolved against the lobby snapshot before any match
+     * command or match socket is created.
+     */
+    readonly initialRoute?: Extract<Route, { readonly kind: 'match' }> | undefined;
 }
 
 /**
@@ -169,7 +177,7 @@ export interface LobbyRootProps {
  * outcome announcements, and the lobby/match view gate. Exported for
  * component tests (the mount entry wires it identically).
  */
-export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
+export function LobbyRoot({ controller, wsUrl, initialRoute }: LobbyRootProps): JSX.Element {
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
 
     // Shared hidden live regions (App.tsx pattern). Runtime-owned so
@@ -203,6 +211,27 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
     // The pending/current match-leg intent (render-phase ref holding
     // plain data — no I/O during render, App's MapCanvas pattern).
     const legIntentRef = useRef<LegIntent | null>(null);
+    const routeAttemptedRef = useRef(false);
+
+    // A semantic deep link is deliberately resolved only after the lobby has
+    // delivered its authoritative baseline. The adapter decides whether the
+    // route is a player or spectator entry; this runtime only records that
+    // decision and invokes the existing Feature 010 command. In particular,
+    // no match client exists while the route is unresolved, and an explicit
+    // intent can never be changed by this hand-off.
+    useEffect(() => {
+        if (initialRoute === undefined || routeAttemptedRef.current || state.snapshot === null) {
+            return;
+        }
+        routeAttemptedRef.current = true;
+        const entry = adaptRoute(initialRoute, state.snapshot);
+        if (entry.kind === 'player') {
+            legIntentRef.current = { matchId: entry.matchId, role: 'player' };
+        } else if (entry.kind === 'spectator') {
+            legIntentRef.current = { matchId: entry.matchId, role: 'spectator' };
+        }
+        void executeRouteEntry(entry, controller);
+    }, [controller, initialRoute, state.snapshot]);
 
     /** Announce a seat-grant outcome on success only — failures render
      * as role="alert" nodes at their source and announce themselves. */
@@ -241,6 +270,11 @@ export function LobbyRoot({ controller, wsUrl }: LobbyRootProps): JSX.Element {
         void controller.leaveMatch().then((result) => {
             if (result.ok) {
                 legIntentRef.current = null;
+                // Keep the canonical semantic route in the address bar while
+                // preserving the existing lobby connection and identity.
+                if (window.location.pathname !== '/lobby') {
+                    window.history.pushState(window.history.state, '', '/lobby');
+                }
                 announcer?.announce('Returned to the lobby.', 'polite');
             }
         });
