@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: T025 complete; T026–T027 pending
+- **Current Wave**: T026 complete; T027 pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
 
@@ -40,10 +40,10 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T022 player manual migration — ✅ complete — semantic paths documented; credentials excluded; issue #34 share/copy UX remains out of scope
 - T023 Feature 005/010/011 documentation/spec notes — ✅ complete
 - T024 tracked-surface stale-reference/privacy scan — ✅ complete
-### Wave 6 — Final gate — ⏳ T026–T027 pending
+### Wave 6 — Final gate — ⏳ T027 pending
 
 - T025 — ✅ complete (2026-08-31)
-- T026 — ⏳ pending
+- T026 — ✅ complete (2026-08-31)
 - T027 — ⏳ pending
 
 ## Decisions & Rationale
@@ -350,4 +350,34 @@ Replace production query-selected live boot with a pure pathname router and expl
 - Root `pnpm test` was run and still exits 1 at the documented baseline:
   `@europa/design` has no test files. This is unrelated to Feature 013 and was
   not altered. No genuine findings or suppressions were introduced.
-- T026 and T027 remain pending.
+- At the T025 checkpoint, T026 and T027 remained pending; T026 is completed
+  below and T027 remains pending.
+
+## T026 Completion — 2026-08-31
+
+The final validation matrix was run without application remediation. All
+feature-specific gates passed:
+
+| Area | Exact command | Result |
+|---|---|---|
+| Native self-host | `pnpm --filter @europa/console test:selfhost` | PASS; one-port host, semantic paths, `/version`, assets, WS, headers, traversal; 99,641 bytes gzipped under 153,600-byte budget |
+| Compose config | `docker compose config -q` | PASS |
+| Compose build | `docker compose build` | PASS; image `ghcr.io/shaunburdick/europa-neo` built |
+| Docker smoke | `bash scripts/docker-smoke.sh` | PASS; minimal runtime, `/lobby`, all semantic paths, `/version`, asset 404, same-port RFC 6455, one exposed port |
+| Semantic full-stack E2E | `CI=1 pnpm --filter @europa/console exec playwright test tests/e2e/full-stack.spec.ts tests/e2e/lobby.spec.ts tests/e2e/routing.spec.ts --retries=0` | PASS; 12/12 |
+| Full console E2E | `CI=1 pnpm --filter @europa/console test:e2e --retries=0` | PASS; 22/22 |
+| Accessibility | `pnpm --filter @europa/console test:a11y` | PASS; 31 tests |
+| Coverage / quickstart test gate | `pnpm --filter @europa/console coverage` | PASS; 787 tests / 79 files; 91.65% statements, 85.75% branches, 91.96% functions, 91.54% lines |
+| Quickstart typecheck | `pnpm typecheck` | PASS |
+| Quickstart lint | `pnpm lint` | PASS |
+| Quickstart format | `pnpm format:check` | PASS |
+| Quickstart build | `pnpm build` (included in `pnpm typecheck`) | PASS |
+| Docker quickstart build | `docker build -t europa:semantic-url-check .` | PASS |
+| Privacy guard | `pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/semantic-url-privacy.test.ts` | PASS; 7/7 |
+
+The documented baseline was also rechecked separately: `pnpm test` exits 1
+because `@europa/design` has no test files (`No test files found, exiting with
+code 1`). This is a pre-existing workspace test-runner baseline, unrelated to
+Feature 013, and no design package or root test configuration was changed.
+No genuine feature failure, suppression, or remediation was required. T027
+remains intentionally pending.
