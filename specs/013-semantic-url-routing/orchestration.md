@@ -189,3 +189,30 @@ Replace production query-selected live boot with a pure pathname router and expl
   retention and active-match reload recovery while retaining real tick, spectator,
   privacy, and lifecycle assertions. T014/T015 and host/Docker/docs work remain
   untouched.
+
+## StrictMode lifecycle remediation and history ruling
+
+- 2026-08-31: Player and spectator leg boot promises now use generation guards,
+  so React StrictMode's intentional first-effect teardown cannot invoke route
+  failure. A current-generation handshake/attach failure still renders normal
+  recovery. Component regressions cover initial `matchStarted` player and
+  spectator mounts under StrictMode.
+- 2026-08-31: Product-owner ruling recorded in the routing lifecycle E2E: after
+  the final seat leaves a filling match, Back shows recoverable `Match
+  unavailable` for the stale semantic path and Forward returns to `/lobby`;
+  the collected match is never resurrected and matchmaking semantics are
+  unchanged.
+
+## Remediation verification — 2026-08-31
+
+- StrictMode regression component file: **11/11** passed; routing component
+  directory: **12/12** passed.
+- Focused a11y suite: **31/31** passed; unit suite: **605/605** passed;
+  component suite: **101/101** passed.
+- Isolated routing E2E: **3/3** passed.
+- Full lobby/routing/migrated E2E (`lobby`, `routing`, `full-stack`,
+  `full-stack-n-players`, `waiting-overlay`): **13/13** passed.
+- Console typecheck, lint, format check, and production build: **passed**.
+- No T014/T015, host, Docker, or documentation implementation was performed.
+- No blockers remain for this remediation. The previously recorded root
+  no-test-files baseline for `@europa/design` is unrelated and unchanged.

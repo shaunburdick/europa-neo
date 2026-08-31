@@ -121,7 +121,7 @@ test.describe('semantic route browser history', () => {
         expect(navigations.filter((path) => path === '/')).toHaveLength(1);
     });
 
-    test('restores a semantic match route with Back/Forward without a document navigation', async ({ page }) => {
+    test('shows recoverable Match unavailable when Back revisits a released filling match', async ({ page }) => {
         const { server, matchmaker } = buildStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
@@ -148,20 +148,29 @@ test.describe('semantic route browser history', () => {
             await expectPath(page, semanticPath);
             await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
 
-            // Browser history traverses the entry created by the production
-            // create action. No document navigation should occur: popstate
-            // re-resolves the route and updates the visible view in place.
+            // Release the only seat before traversing history. Feature 006
+            // collects the filling match; routing must not resurrect it or
+            // alter matchmaking semantics when the stale route is revisited.
+            await page.getByRole('button', { name: 'Leave to lobby' }).click();
+            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+
+            // Browser history traverses the released entry. No document
+            // navigation should occur: popstate re-resolves the route and
+            // updates the visible view in place with recoverable failure.
             let fullNavigations = 0;
             const onDocumentLoad = () => {
                 fullNavigations += 1;
             };
             page.on('load', onDocumentLoad);
             await page.goBack();
+            await expectPath(page, semanticPath);
+            await expect(page.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
+            await page.getByRole('button', { name: 'Return to lobby' }).click();
             await expectPath(page, '/lobby');
             await expect(page.locator('h1')).toContainText('Europa Neo lobby');
             await page.goForward();
-            await expectPath(page, semanticPath);
-            await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
+            await expectPath(page, '/lobby');
+            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
             expect(fullNavigations).toBe(0);
             page.off('load', onDocumentLoad);
         } finally {

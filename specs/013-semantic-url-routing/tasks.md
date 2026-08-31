@@ -59,6 +59,20 @@ red until the migration waves remove the existing production query references.
 - [ ] T015 Add security tests for traversal, slash injection, credential leakage, cross-match selection, unauthorized claims, and unsafe IDs never opening a match connection; depends on T004, T008, T013.
 - [ ] T016 Run unchanged `?e2e` deterministic and console a11y suites, plus an assertion that `?live` never mounts live runtime; depends on T011–T015.
 
+### Wave 3 review remediation — StrictMode lifecycle and history ruling
+
+- [x] Guard player and spectator leg boot promises with a generation token so
+  React StrictMode's intentional first-effect teardown cannot report stale
+  cancellation as route failure; genuine failure from the current boot still
+  renders recovery. Regression coverage mounts both initial live player and
+  spectator entries under StrictMode.
+- [x] Update routing lifecycle E2E to assert the product-owner ruling: after
+  leaving/releasing the final seat of a filling match, Back revisits the stale
+  semantic path as recoverable `Match unavailable`, and Forward returns to the
+  lobby without resurrecting or changing matchmaking state.
+- T014/T015 remain intentionally unimplemented; host, Docker, and docs work is
+  not included in this remediation.
+
 ## Wave 4 — Native host and Docker
 
 - [ ] T017 Refactor `packages/console/scripts/host.ts` to serve SPA entry for safe application paths while preserving `/version`, assets, WS upgrades, traversal guards, headers, and genuine failures; depends on T004.

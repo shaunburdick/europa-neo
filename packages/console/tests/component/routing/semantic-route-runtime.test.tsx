@@ -6,19 +6,29 @@
  */
 
 import type { LobbySnapshot } from '@europa/matchmaking';
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
 const spectatorTransportMock = vi.hoisted(() => ({
+    rejectFirstConnect: false,
+    connectCalls: 0,
     createWsMatchClient: vi.fn(() => ({
         state: () => ({ connection: 'pending' }),
         onConnectionChanged: () => () => undefined,
         disconnect: vi.fn(),
+        lastOrderSeq: () => null,
     })),
     createConsoleClient: vi.fn(() => ({
-        connect: vi.fn(async () => undefined),
+        connect: vi.fn(async () => {
+            spectatorTransportMock.connectCalls += 1;
+            if (spectatorTransportMock.rejectFirstConnect && spectatorTransportMock.connectCalls === 1) {
+                throw new Error('stale StrictMode boot');
+            }
+        }),
         joinMatch: vi.fn(async () => undefined),
         onEnvelope: () => () => undefined,
+        sendOrder: vi.fn(async () => ({ ok: true })),
         close: vi.fn(),
     })),
 }));
@@ -40,6 +50,8 @@ afterEach(() => {
     window.history.replaceState({}, '', '/lobby');
     spectatorTransportMock.createWsMatchClient.mockClear();
     spectatorTransportMock.createConsoleClient.mockClear();
+    spectatorTransportMock.rejectFirstConnect = false;
+    spectatorTransportMock.connectCalls = 0;
     vi.restoreAllMocks();
 });
 
@@ -50,6 +62,64 @@ function waitingSnapshot(): LobbySnapshot {
 }
 
 describe('semantic route runtime hand-off', () => {
+    test('does not turn a stale first player boot rejection into Match unavailable under StrictMode', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(waitingSnapshot());
+        await controller.joinMatch(MATCH_ID);
+        transport.emitSnapshot(
+            snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })], MATCH_ID),
+        );
+        spectatorTransportMock.rejectFirstConnect = true;
+
+        const screen = await render(
+            <StrictMode>
+                <LobbyRoot
+                    controller={controller}
+                    wsUrl="ws://localhost:8080"
+                    initialRoute={
+                        parseRoute('/match/room-alpha/join') as Extract<
+                            ReturnType<typeof parseRoute>,
+                            { kind: 'match' }
+                        >
+                    }
+                />
+            </StrictMode>,
+        );
+
+        await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+        expect(spectatorTransportMock.connectCalls).toBe(2);
+        controller.disconnect();
+    });
+
+    test('does not turn a stale first spectator attach rejection into Match unavailable under StrictMode', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
+        spectatorTransportMock.rejectFirstConnect = true;
+
+        const screen = await render(
+            <StrictMode>
+                <LobbyRoot
+                    controller={controller}
+                    wsUrl="ws://localhost:8080"
+                    initialRoute={
+                        parseRoute('/match/room-alpha') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
+                    }
+                />
+            </StrictMode>,
+        );
+
+        await expect.element(screen.getByRole('heading', { name: 'Spectating' })).toBeVisible();
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+        expect(spectatorTransportMock.connectCalls).toBe(2);
+        controller.disconnect();
+    });
+
     test('adaptive deep link requests the exact waiting match and stays in the waiting room', async () => {
         const transport = new ScriptedLobbyTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });

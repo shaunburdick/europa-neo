@@ -401,6 +401,10 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                 legIntentRef.current = null;
                 // Keep the canonical semantic route in the address bar while
                 // preserving the existing lobby connection and identity.
+                // The released match entry is now eligible for normal
+                // popstate re-resolution; do not let the hand-off guard
+                // mistake a later Back traversal for its original push.
+                completedNavigationPathRef.current = null;
                 if (window.location.pathname !== '/lobby') {
                     window.history.pushState(window.history.state, '', '/lobby');
                 }
@@ -536,6 +540,10 @@ interface MatchLegArgs {
  * never construct one — see the module scope note.)
  */
 function createMatchLeg(args: MatchLegArgs): MatchLeg {
+    // React StrictMode deliberately runs an effect's cleanup before replaying
+    // it. A cancelled first boot can therefore reject after the replayed boot
+    // has started; only the current boot generation may fail the route.
+    let bootGeneration = 0;
     let forward: ((effect: ReducerEffect) => void) | null = null;
     const store = createConsoleStore(INITIAL_CONSOLE_STATE, (effect) => {
         forward?.(effect);
@@ -567,14 +575,16 @@ function createMatchLeg(args: MatchLegArgs): MatchLeg {
     return {
         store,
         async boot(): Promise<void> {
+            const generation = ++bootGeneration;
             try {
                 await client.connect();
                 await client.joinMatch();
             } catch {
-                args.onFailure();
+                if (generation === bootGeneration) args.onFailure();
             }
         },
         dispose(): void {
+            bootGeneration += 1;
             wsClient.disconnect();
         },
     };
@@ -838,6 +848,9 @@ interface SpectatorLegArgs {
  * unmounts.
  */
 function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
+    // See the player leg: StrictMode's intentional effect teardown must not
+    // turn a stale first attach rejection into a route-level failure.
+    let bootGeneration = 0;
     // The fold is sequential and single-owner: one mutable cell, each
     // envelope producing the next immutable snapshot.
     let current = initialSpectatorState(args.matchId);
@@ -871,10 +884,12 @@ function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
 
     return {
         async boot(): Promise<void> {
+            const generation = ++bootGeneration;
             try {
                 await client.connect();
                 await client.joinMatch();
             } catch {
+                if (generation !== bootGeneration) return;
                 // Attach failures (match ended between list and attach,
                 // spectator gate closed) surface as a fixed, id-free
                 // notice on the App's feedback surface; Leave remains
@@ -890,6 +905,7 @@ function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
             }
         },
         dispose(): void {
+            bootGeneration += 1;
             client.close();
         },
     };
