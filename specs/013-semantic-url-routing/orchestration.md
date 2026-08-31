@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 5 complete after documentation review remediation; T025–T027 pending
+- **Current Wave**: T025 complete; T026–T027 pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
 
@@ -40,7 +40,11 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T022 player manual migration — ✅ complete — semantic paths documented; credentials excluded; issue #34 share/copy UX remains out of scope
 - T023 Feature 005/010/011 documentation/spec notes — ✅ complete
 - T024 tracked-surface stale-reference/privacy scan — ✅ complete
-### Wave 6 — Final gate — ⏳ Pending (T025–T027)
+### Wave 6 — Final gate — ⏳ T026–T027 pending
+
+- T025 — ✅ complete (2026-08-31)
+- T026 — ⏳ pending
+- T027 — ⏳ pending
 
 ## Decisions & Rationale
 - 2026-08-30: `/` uses a replacement redirect to `/lobby`, leaving the root available for future authentication entry.
@@ -327,3 +331,23 @@ Replace production query-selected live boot with a pure pathname router and expl
 - This remediation does not close the feature. Spec 013 remains
   **Implementation in progress**; T025–T027 (strict final gates, matrix review,
   and implementation handoff) are still pending.
+
+## T025 Completion — 2026-08-31
+
+- Strict gates passed: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, and
+  `pnpm build`. The console conformance typecheck also passed.
+- Console coverage passed with **787 tests across 79 files**: **91.65%**
+  statements, **85.75%** branches, **91.96%** functions, and **91.54%** lines.
+- Console regressions passed: unit **621**, component **101**, a11y **31**;
+  console E2E **22**; non-design workspace regression run passed engine **297**,
+  fog **114**, terrain **344 passed / 50 skipped**, networking **287**,
+  matchmaking **400**, version **38**, and console node-mode **669**.
+- Semantic routing/privacy checks passed (routing unit and
+  `semantic-url-privacy.test.ts`), `pnpm version:check` passed, native
+  `test:selfhost` passed, `scripts/docker-smoke.sh` passed, and
+  `scripts/docker-validate.sh europa:semantic-url-smoke 0.1.0` verified both
+  `/version` and `helloAck.appVersion`.
+- Root `pnpm test` was run and still exits 1 at the documented baseline:
+  `@europa/design` has no test files. This is unrelated to Feature 013 and was
+  not altered. No genuine findings or suppressions were introduced.
+- T026 and T027 remain pending.

@@ -96,7 +96,7 @@ only explicitly labeled historical migration notes and test-only `?e2e` referenc
 
 ## Wave 6 — Final gate
 
-- [ ] T025 Run strict `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, targeted console coverage, regressions, and build; fix findings without suppressions; depends on T016, T019–T024.
+- [x] T025 Run strict `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, targeted console coverage, regressions, and build; fix findings without suppressions; depends on T016, T019–T024. Final gates passed on 2026-08-31; no remediation was required and no suppressions were added. Console coverage: 91.65% statements, 85.75% branches, 91.96% functions, 91.54% lines (787 tests/79 files). Semantic routing/privacy, self-host, Docker, version, conformance, console unit/component/a11y/E2E, and non-design workspace regressions passed. The root `pnpm test` remains the documented baseline failure because `@europa/design` has no test files.
 - [ ] T026 Run self-host, Docker Compose config/build, semantic full-stack E2E, accessibility, and quickstart matrix; record the known design no-test-files root-test issue separately; depends on T025.
 - [ ] T027 Review every acceptance criterion, security/privacy invariant, stale `?live` result, and issue #34 boundary; prepare implementation handoff; depends on T026.
 
