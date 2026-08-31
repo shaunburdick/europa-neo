@@ -1,9 +1,10 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: T027 complete; feature accepted
+- **Current Wave**: T027 complete; feature accepted; PR Open
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
+- **Pull Request**: [#38](https://github.com/shaunburdick/europa-neo/pull/38)
 
 ## Plan Summary
 Replace production query-selected live boot with a pure pathname router and explicit route-to-runtime adapter. `/` redirects to canonical `/lobby`; semantic match paths preserve match intent while existing lobby, identity, networking, and gameplay seams remain authoritative. Native and Docker hosts serve the SPA shell for safe deep links while reserving `/version`, assets, WebSocket upgrades, and traversal handling; `?e2e` remains test-only and `?live` is retired.
@@ -405,3 +406,20 @@ T027 disposition: **PASS**. Feature 013 status is now **Implemented
 (2026-08-31)**. The sole known validation exception remains the unrelated root
 `pnpm test` baseline failure because `@europa/design` has no test files; all
 feature-specific gates pass and no application-code defect was found.
+
+## Final PR handoff — 2026-08-31
+
+- **Status**: **PR Open**
+- **PR**: [#38 — feat: add semantic URL routing](https://github.com/shaunburdick/europa-neo/pull/38)
+- **Validation summary**: Feature-specific typecheck, lint, format, build,
+  console coverage (787 tests across 79 files; 91.65% statements, 85.75%
+  branches, 91.96% functions, 91.54% lines), accessibility (31), console E2E
+  (22/22), semantic full-stack E2E (12/12), native self-host, Docker
+  configuration/build/smoke, privacy guard (7/7), version checks, and all
+  routing acceptance/security checks passed. The only known exception is the
+  pre-existing root `pnpm test` failure because `@europa/design` has no test
+  files; no feature defect or suppression was introduced.
+- **Human merge handoff**: Please review and merge PR #38 when the required
+  GitHub checks are green. No further implementation work is pending for
+  Feature 013; after merge, verify the PR's merge commit and the production
+  semantic-route deployment smoke as appropriate.
