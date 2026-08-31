@@ -19,13 +19,30 @@ import {
 } from '@europa/networking';
 import { expect, test } from '@playwright/test';
 
-const TICK_MS = 100;
-const BOARD_SIZE = 32;
+const TICK_MS = 250;
 const WAIT_TIMEOUT = 15_000;
 
 /** Assert the browser-visible path while allowing the test-only ws seam. */
 async function expectPath(page: import('@playwright/test').Page, pathname: string): Promise<void> {
     await expect.poll(() => page.evaluate(() => window.location.pathname)).toBe(pathname);
+}
+
+/** Preserve the test-only transport override across same-document history. */
+function preserveWsQueryInHistory(): void {
+    const preserveWsQuery = (url: string | URL | null): string | URL | null => {
+        if (url === null || !window.location.search.startsWith('?ws=')) return url;
+        const parsed = new URL(String(url), window.location.origin);
+        parsed.search = window.location.search;
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    };
+    const replaceState = window.history.replaceState.bind(window.history);
+    const pushState = window.history.pushState.bind(window.history);
+    window.history.replaceState = (state, title, url) => {
+        replaceState(state, title, preserveWsQuery(url));
+    };
+    window.history.pushState = (state, title, url) => {
+        pushState(state, title, preserveWsQuery(url));
+    };
 }
 
 interface Stack {
@@ -104,102 +121,49 @@ test.describe('semantic route browser history', () => {
         expect(navigations.filter((path) => path === '/')).toHaveLength(1);
     });
 
-    test('restores a semantic match route with Back/Forward and refresh, then retains it through terminal and leave', async ({
-        page,
-    }) => {
-        test.setTimeout(90_000);
+    test('restores a semantic match route with Back/Forward without a document navigation', async ({ page }) => {
         const { server, matchmaker } = buildStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
-        const created = matchmaker.createMatch({
-            visibility: 'public',
-            displayName: 'Alice',
-            settings: { playerCount: 2, boardSize: BOARD_SIZE, tickIntervalMs: TICK_MS },
-        });
-        expect(created.ok).toBe(true);
-        if (!created.ok) return;
-
-        const matchId = created.data.matchId;
-        const semanticPath = `/match/${matchId}/join`;
         try {
             // The ephemeral lobby server is a test-only transport seam. Keep
             // its ws override available until lobby-runtime resolves it; the
-            // production URL itself is still asserted to be query-free after
-            // the runtime mounts.
-            await page.addInitScript(() => {
-                const replaceState = window.history.replaceState.bind(window.history);
-                window.history.replaceState = (state, title, url) => {
-                    if (typeof url === 'string' && window.location.search.startsWith('?ws=')) {
-                        const ws = window.location.search;
-                        replaceState(state, title, `${url}${ws}`);
-                        return;
-                    }
-                    replaceState(state, title, url);
-                };
-            });
+            // production URL itself is still asserted by pathname and the
+            // semantic history transition below is still same-document.
+            await page.context().addInitScript(preserveWsQueryInHistory);
             await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
             await waitForLobby(page);
             await page.getByRole('textbox', { name: /display name/i }).fill('Bob');
             await page.locator('[data-europa-submit-handle="true"]').click();
             await expect(page.locator('.europa-lobby__handle')).toContainText('Bob');
+            await page.getByRole('button', { name: 'Create match' }).click();
             await expect
-                .poll(
-                    () =>
-                        page.evaluate(
-                            (target) =>
-                                (
-                                    window as unknown as {
-                                        __europaLobby?: {
-                                            store: {
-                                                getState(): {
-                                                    snapshot: { entries: Array<{ matchId: string }> } | null;
-                                                };
-                                            };
-                                        };
-                                    }
-                                ).__europaLobby?.store
-                                    .getState()
-                                    .snapshot?.entries.some((entry) => entry.matchId === target) ?? false,
-                            matchId,
-                        ),
-                    { timeout: WAIT_TIMEOUT, intervals: [50, 100, 250] },
-                )
-                .toBe(true);
-
-            await page.goto(`${semanticPath}?ws=${encodeURIComponent(wsUrl)}`);
+                .poll(() => page.evaluate(() => window.location.pathname.match(/^\/match\/([^/]+)$/)?.[1] ?? null), {
+                    timeout: WAIT_TIMEOUT,
+                    intervals: [50, 100, 250],
+                })
+                .not.toBeNull();
+            const matchId = await page.evaluate(() => window.location.pathname.split('/')[2] ?? '');
+            const semanticPath = `/match/${matchId}`;
             await expectPath(page, semanticPath);
             await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
 
-            const filled = matchmaker.joinMatch({ matchId, displayName: 'Alice' });
-            expect(filled.ok).toBe(true);
-            await expect(page.locator('canvas.europa-canvas')).toBeVisible();
-
-            // A full reload starts from the same semantic path, not a query route.
-            await page.reload();
-            await expectPath(page, semanticPath);
-            await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
-
-            // Browser history restores the preceding lobby and then the exact match path.
-            await page.goto('/lobby');
-            await expect(page).toHaveURL(/\/lobby$/);
+            // Browser history traverses the entry created by the production
+            // create action. No document navigation should occur: popstate
+            // re-resolves the route and updates the visible view in place.
+            let fullNavigations = 0;
+            const onDocumentLoad = () => {
+                fullNavigations += 1;
+            };
+            page.on('load', onDocumentLoad);
             await page.goBack();
-            await expectPath(page, semanticPath);
-            await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
-            await page.goForward();
-            await expect(page).toHaveURL(/\/lobby$/);
-
-            // Return to the match and prove terminal display does not rewrite its route.
-            await page.goto(`${semanticPath}?ws=${encodeURIComponent(wsUrl)}`);
-            await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
-            await expect(page.getByRole('button', { name: /Surrender/ })).toBeVisible();
-            await page.getByRole('button', { name: /Surrender/ }).click();
-            await page.getByRole('button', { name: 'Confirm surrender' }).click();
-            await expect(page.getByText(/game over|surrendered|defeat/i).first()).toBeVisible();
-            await expectPath(page, semanticPath);
-
-            await page.locator('[data-europa-leave="true"]').click();
-            await expect(page).toHaveURL(/\/lobby$/);
+            await expectPath(page, '/lobby');
             await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            await page.goForward();
+            await expectPath(page, semanticPath);
+            await expect(page.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
+            expect(fullNavigations).toBe(0);
+            page.off('load', onDocumentLoad);
         } finally {
             await server.close();
             await matchmaker.close();

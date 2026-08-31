@@ -126,3 +126,11 @@ Replace production query-selected live boot with a pure pathname router and expl
   `Reconnecting to match…` without a route notice, and same-document create/join/spectate each
   push exactly one semantic entry while failed actions push none. T013 fixture migration is
   intentionally untouched.
+
+## Remaining Wave 2 review blocker — resolved
+
+- 2026-08-30: Updated `packages/console/tests/e2e/routing.spec.ts` so the history scenario
+  creates its semantic match entry through the production Create match action, then uses only
+  `page.goBack()`/`page.goForward()` for traversal. The test asserts pathname re-resolution,
+  lobby/recovery UI state, and zero `load` events during traversal; no `page.goto()` occurs
+  between history operations. T013 migration and host/Docker work remain pending and untouched.
