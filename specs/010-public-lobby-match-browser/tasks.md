@@ -12,8 +12,8 @@ These tasks correct stale privacy assertions only. They do not create a Feature
 - [x] C-002: [P] Update Feature 010 contract/data-model prose and affected Feature 002/004/006/011/012 cross-references to distinguish non-secret IDs from bearer credentials while preserving protocol shapes, authority, private-match existence, and fog semantics.
 - [x] C-003: [P] Correct contradictory matchmaking/networking source JSDoc/comments, including identity, session, seat, lobby projection, and public-entry descriptions; state that client claims remain advisory and server authority is unchanged.
 - [x] C-004: Amend `check-documentation-privacy.mjs` to allow ID names and representative non-secret ID values on approved surfaces while rejecting credential values and credential-bearing URLs/logs/docs examples; retain handle/lifecycle checks.
-- [ ] C-005: Add checker fixtures or an equivalent focused harness proving non-secret guest/player IDs pass and `sessionToken`/`reconnectToken` values plus credential-bearing URLs fail, without tracking live credentials.
-- [ ] C-006: [P] Replace old matchmaking/networking test assertions that equate ID presence with a leak with positive correlation assertions; retain forged identity/seat/order, cross-connection, private-match, fog, and bearer-credential negative coverage.
+- [x] C-005: Add checker fixtures or an equivalent focused harness proving non-secret guest/player IDs pass and `sessionToken`/`reconnectToken` values plus credential-bearing URLs fail, without tracking live credentials.
+- [x] C-006: [P] Replace old matchmaking/networking test assertions that equate ID presence with a leak with positive correlation assertions; retain forged identity/seat/order, cross-connection, private-match, fog, and bearer-credential negative coverage.
 - [x] C-007: [P] Update root/package READMEs and applicable manual/operator/API wording for handle-first labels, generic/ID fallback, non-secret correlation, and the credential boundary; preserve private-match and fog guidance.
 - [ ] C-008: Run the targeted residual sweep and contract/conformance checks; relabel historical old-policy notes rather than leaving normative contradictions.
 - [ ] C-009: Run checker/security suites, existing private-match scenarios, and the 500-tick fog audit, then `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, relevant tests, build, and docs checks; record results in `quickstart.md`.
@@ -54,7 +54,7 @@ These tasks correct stale privacy assertions only. They do not create a Feature
 
 - [x] T-020: [P] Update README and developer/operator/self-hosting/API guidance for the lobby default, guest identity/handle contract, authoritative association, reconnect/order/view behavior, and in-memory reset boundary; distinguish non-secret IDs from bearer credentials.
 - [x] T-021: [P] Update the player manual (index/quick-start/reading-the-screen plus a lobby page if needed) for handle setup, rename/validation, create/join/spectate, participant labels, reconnect, and failure states; update Pages path gates only when necessary.
-- [x] T-022: Add documentation and privacy-boundary validation (grep/checklist or test) proving required surfaces describe handles and do not expose opaque guest IDs; update specs/implementation notes if behavior clarifies an existing contract.
+- [x] T-022: Add documentation and privacy-boundary validation (grep/checklist or test) proving required surfaces describe handles and do not expose bearer credentials or hidden match/game state; non-secret opaque guest IDs remain permitted for correlation; update specs/implementation notes if behavior clarifies an existing contract.
 
 ## Wave 1 review remediation (code-quality-reviewer, 2026-08-25)
 

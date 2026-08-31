@@ -202,7 +202,7 @@ violations (which crash the process by design).
 | Code | Meaning |
 |------|---------|
 | `invalid_request` | Bad request shape (unknown visibility, empty displayName, bad settings). |
-| `match_not_found` | Unknown id OR private-without-token OR collected — single code path, never leaks existence (FR-006). |
+| `match_not_found` | Unknown or collected id — unknown-ID handling uses one generic path and never leaks private-match existence (FR-006). A caller that knows a private `MatchId` may attempt admission through the normal seat-fill path; the ID is not a bearer credential and grants no seat, order, or view authority. |
 | `match_full` | All seats taken (including race losers for the last seat). |
 | `match_not_joinable` | Match already running and this is not a reconnect. |
 | `seat_taken` | Reconnect race: another connection claimed the seat first. |

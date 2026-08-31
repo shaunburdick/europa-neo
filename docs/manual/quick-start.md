@@ -56,7 +56,7 @@ If you run Europa Neo yourself, the single-command host boots one web server on 
 pnpm host --players 3 --board-size 48
 ```
 
-This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
+This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). These printed URLs may include a per-seat bearer credential for this temporary/local operator flow. Treat them as secrets: anyone who obtains one may attempt to reclaim that seat during the grace window. This exception is not a general rule for public app URLs, logs, diagnostics, or documentation examples. Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
 
 ---
 

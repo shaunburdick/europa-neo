@@ -219,8 +219,11 @@ The normal lobby derives its WebSocket endpoint from the page host. For a
 different port or test harness, `?ws=` may override it, but only a same-host
 WebSocket URL is accepted; URLs with embedded credentials or another hostname
 are rejected. The direct `?live&ws=&match=&name=` route remains available for
-development and test integrations. Normal host output uses the lobby and does
-not place identity or credential material in the URL.
+development and test integrations. Normal public-app URLs do not carry bearer
+credentials. As a temporary/local operator convenience, `pnpm host` may print
+per-seat tokenized join URLs; those URLs are bearer secrets, should be shared
+only through the local operator's intended channel, and are not a general URL,
+logging, diagnostics, or documentation-example policy.
 
 ## Credits & licensing
 

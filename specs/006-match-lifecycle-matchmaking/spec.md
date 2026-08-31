@@ -112,7 +112,7 @@ As a player, I want abandoned matches to resolve sensibly — my opponent wins a
 - **FR-003**: Every created match MUST receive a unique server-assigned ID and a corresponding shareable join URL; both MUST be returned to the creator at creation time.
 - **FR-004**: A created match MUST reserve its creator's seat immediately and become joinable until seats fill.
 - **FR-005**: The lobby listing MUST include public matches only (id, display info, seat occupancy, settings), updated in near-real-time.
-- **FR-006**: Private matches MUST be joinable exclusively via their match ID/shareable URL; they MUST NOT appear in the lobby listing, and unknown IDs MUST be rejected without revealing whether a private match exists.
+- **FR-006**: Private matches MUST be joinable exclusively via their non-secret match ID/shareable URL; they MUST NOT appear in the lobby listing, and unknown IDs MUST be rejected without revealing whether a private match exists. Knowing the ID permits an admission attempt only: the server still authenticates reconnects with the applicable bearer credential and authoritatively assigns seats, orders, and fog-filtered views.
 - **FR-007**: When all seats fill, the server MUST atomically generate a map (feature 003), initialize the engine (feature 001), assign player ids/starting cities, and begin ticking.
 - **FR-008**: On match termination, the server MUST deliver results (winner, ticks elapsed, effective map seed) to all connected participants and spectators.
 - **FR-009**: The server MUST offer rematch coordination: all original participants must accept within a bounded window; acceptance creates a fresh match with identical settings and visibility type, and a newly generated seed/ID/link.
@@ -278,4 +278,6 @@ Contracts were updated in the same change set wherever behavior changed.
   for UI labels; a generic fallback or ID is acceptable without a handle.
   `sessionToken` and `reconnectToken` remain secret bearer credentials.
   Private-match non-enumeration and server-authoritative membership are
-  unchanged.
+  unchanged. `MatchId` is a non-secret routing/admission reference, not a
+  session or reconnect bearer credential. It may be shared as the private join
+  reference, but knowledge of it alone grants no seat, order, or view authority.

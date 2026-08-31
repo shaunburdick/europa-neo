@@ -22,8 +22,8 @@ fog-of-war boundaries remain protected.
 ### Wave 2 — Policy and harness corrections — ✅ Complete
 - C-002, C-003, C-004, C-007 — ✅ complete
 
-### Wave 3 — Focused test corrections — ⏳ Pending
-- C-005, C-006
+### Wave 3 — Focused test corrections — ✅ Complete
+- C-005, C-006 — ✅ complete
 
 ### Wave 4 — Integration verification — ⏳ Pending
 - C-008, C-009, C-010
@@ -40,12 +40,18 @@ fog-of-war boundaries remain protected.
 ## New Tasks Discovered
 - None.
 
-## Review Findings
+## Review Findings *(historical snapshots unless marked current)*
 - C-001 found stale ID-secrecy assertions in networking/matchmaking contracts,
   console comments, and negative tests; mixed private-match wording in the
   012 cross-reference; and one historical PM handoff note. Aligned surfaces
   already distinguish ID correlation, handle preference, bearer credentials,
   private-match existence, and fog boundaries.
-- Wave 2 integration: checker, typecheck, lint, and format checks passed. Commits
-  `4673ef0`, `7931347`, `5b6011b`, and `3bed997` landed. C-005, C-006, and
-  C-008–C-010 remain pending.
+- **Superseded snapshot:** Wave 2 integration reported checker, typecheck, lint,
+  and format checks passed and listed C-005/C-006/C-008–C-010 as pending. The
+  current task intentionally does not change checker implementation or tests;
+  current verification status is recorded separately in the final delivery
+  report.
+- Review HOLD items were remediated: Feature 004 mirrors synchronized, MatchId
+  admission wording clarified, stale console comments corrected, checker
+  allow/deny harness added, and ID security assertions updated. Commits
+  `4df2eb3`, `b747764`, `6727836`, and `ffdba6c` landed.

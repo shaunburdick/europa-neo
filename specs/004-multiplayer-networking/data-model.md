@@ -25,6 +25,12 @@ admission, but it is not a session/reconnect credential and grants no seat,
 order, or view authority. The server remains authoritative for admission,
 seating, orders, and fog-filtered views.
 
+The temporary/local `pnpm host` operator flow is a narrow operational
+exception to the general credential-URL rule: it may print tokenized join URLs
+for local seat handoff. Those URLs remain bearer secrets and are not permitted
+as a general pattern in public app URLs, logs, diagnostics, or documentation
+examples.
+
 Networking maintains **three layers of state**, each with its own
 visibility:
 

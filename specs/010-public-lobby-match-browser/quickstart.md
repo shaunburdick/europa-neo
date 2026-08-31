@@ -68,7 +68,13 @@ Expected Phase 6 result: the repository-wide residual sweep finds no normative
 prohibition on non-secret player IDs, while the bearer-credential prohibition
 and private/fog security boundaries remain present and tested.
 
-## C-001 residual audit (2026-08-30)
+## C-001 residual audit (2026-08-30) — historical inventory
+
+> This table records the audit's findings, not active policy. The stale
+> normative statements identified below have since been corrected or explicitly
+> marked historical. The checker still rejects bearer values and credential
+> examples in documentation; that documentation rule does not prohibit the
+> narrow runtime `pnpm host` operator exception described in the current spec.
 
 Scope was limited to tracked specifications, contracts, READMEs, source
 comments, manual pages, orchestration notes, and tests. This is an inventory,
@@ -80,8 +86,8 @@ recipient-scoped game-state boundary.
 
 | Path (line at audit) | Residual assertion | Class | Disposition |
 | --- | --- | --- | --- |
-| `spec.md:202` | v1.1 historical clarification says guest IDs are private and absent from URLs/UI/views/docs. | ID | **Stale contradiction**; superseded by v1.2/v1.7, retain only as history until C-002. |
-| `spec.md:162,132,165` | SC-008/FR-026 require opaque IDs not to appear in views/manual/docs. | ID | **Stale normative prohibition**; replace with correlation allowance while keeping handle-first UI in C-002/C-007. |
+| `spec.md:202` | v1.1 historical clarification says guest IDs are private and absent from URLs/UI/views/docs. | ID | **Superseded historical wording**; the current v1.7 rule permits non-secret correlation. |
+| `spec.md:162,132,165` | Former SC-008/FR-026 wording required opaque IDs not to appear in views/manual/docs. | ID | **Corrected**; correlation is allowed, with handle-first UI and credential/authority/private/fog boundaries retained. |
 | `plan.md:50-52,93-95` | IDs are non-secret and may correlate; handles preferred; generic/ID fallback allowed. | ID + Handle | Aligned baseline. |
 | `data-model.md:11-16,54-58,72-75,92-96` | IDs may cross correlation surfaces but do not authorize; tokens stay unsafe to expose; views may include IDs without changing auth/fog. | ID + Bearer + Fog | Aligned baseline. |
 | `contracts/lobby-wire.md:64-70` | Wire IDs are non-secret correlation; tokens are bearer credentials; no authority/private/fog bypass. | ID + Bearer + Private + Fog | Aligned baseline. |
@@ -101,8 +107,8 @@ recipient-scoped game-state boundary.
 | `packages/networking/tests/unit/server-lobby-reconnect.test.ts:61-67,102-119` and `tests/fixtures/fakeLobbyService.ts:62` | Guest ID is called bearer-secret. | ID + Bearer | **Stale terminology**; reconnect/session token remains bearer, guest ID does not. C-003/C-006. |
 | `packages/networking/tests/contracts-conformance.test.ts:493-514` | Conformance allows ID only in claim input and directed identity state; entries/targets must be ID-free. | ID + Private | **Stale shape policy**; retain directed-owner and no-private-state checks, update safe correlation allowance. C-002/C-006. |
 | `packages/console/tests/component/ui/participants.test.tsx:62-69` | Rendered HTML must not contain guest-ID-shaped values. | ID + Handle | **Stale UI prohibition**; replace with accepted-handle-first and valid fallback coverage. C-006/C-007. |
-| `specs/010-public-lobby-match-browser/pm-handoff.md:43-44` | Historical handoff says local storage holds an opaque token and IDs never appear in URLs/logs. | ID + Bearer | **Stale historical note**; explicitly relabel/update in C-008, while token protection remains. |
-| `specs/012-3-4-player-support/spec.md:71,152,177,215,229,251` and `tasks.md:137` | Private match IDs are described as “not leaked”; other lines preserve ID allowance, handle-only UI, fog, and token checks. | ID + Handle + Private + Bearer + Fog | **Mixed**: change “ID not leaked” to private existence not leaked; retain all other boundaries. C-002/C-007. |
+| `specs/010-public-lobby-match-browser/pm-handoff.md:43-44` | Historical handoff says local storage holds an opaque token and IDs never appear in URLs/logs. | ID + Bearer | **Superseded historical note**; the handoff now labels the old wording and records the narrow local `pnpm host` tokenized-URL exception. Bearer protection remains. |
+| `specs/012-3-4-player-support/spec.md:71,152,177,215,229,251` and `tasks.md:137` | Private match IDs are described as “not leaked”; other lines preserve ID allowance, handle-only UI, fog, and token checks. | ID + Handle + Private + Bearer + Fog | **Corrected/clarified**: the protected property is private existence, not ID secrecy; the host-local tokenized-URL exception is now explicit. |
 | `specs/004-multiplayer-networking/spec.md:124-128`, `specs/006-match-lifecycle-matchmaking/spec.md:115,122`, `specs/012-3-4-player-support/data-model.md:183-185` | IDs are correlation data; authorization, private existence, bearer, and fog rules remain. | ID + Bearer + Private + Fog | Aligned cross-feature policy. |
 | `docs/manual/index.md:5` and other `docs/manual/*.md` | Handles are shown instead of private system details; no ID examples are required. | Handle + ID | **Handle preference aligned**; absence of ID is not a prohibition, and no bearer/private/fog boundary is weakened. |
 | `README.md:194-208` | IDs may appear in safe correlation surfaces; tokens, private existence, and fog remain protected. | ID + Bearer + Private + Fog | Aligned baseline. |
