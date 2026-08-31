@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 2 — Complete after HOLD remediation; T013 remains pending
+- **Current Wave**: Wave 2 — Complete after second HOLD remediation; T013 remains pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-30
 
@@ -112,3 +112,17 @@ Replace production query-selected live boot with a pure pathname router and expl
   recovery without a redirect loop.
 - T013 remains intentionally pending; the broader existing `?live` full-stack fixtures were
   not migrated by this task.
+
+## Second Wave 2 review remediation
+
+- Route-notice retry now increments an explicit route retry epoch, causing the failed route
+  resolution/entry command to run again even when the pathname and snapshot references are
+  unchanged. A successful lobby-originated transition marks the route as already attempted so
+  its newly canonical URL cannot replay the command.
+- Post-attach player and spectator transport loss now preserves the existing reconnecting
+  surface. Only failed initial handshake/attach promises invoke route failure and replace the
+  route shell with a notice; socket-loss reducers still receive their normal reconnect events.
+- Component coverage proves retry re-runs a failed join command, transport loss renders
+  `Reconnecting to match…` without a route notice, and same-document create/join/spectate each
+  push exactly one semantic entry while failed actions push none. T013 fixture migration is
+  intentionally untouched.

@@ -6,7 +6,7 @@
  */
 
 import type { LobbySnapshot } from '@europa/matchmaking';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
 import { LobbyRoot } from '../../../src/internal/lobby-runtime';
@@ -18,6 +18,8 @@ import '../../../src/styles/index.css';
 
 afterEach(() => {
     cleanup();
+    window.history.replaceState({}, '', '/lobby');
+    vi.restoreAllMocks();
 });
 
 const MATCH_ID = matchIdOf('room-alpha');
@@ -99,6 +101,92 @@ describe('semantic route runtime hand-off', () => {
         await expect.element(screen.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
         await expect.element(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
         expect(transport.commands).toEqual([{ kind: 'connect' }]);
+        controller.disconnect();
+    });
+
+    test('Try again re-runs a failed shortcut command against the same route', async () => {
+        const transport = new ScriptedLobbyTransport();
+        transport.failNextCommand('joinMatch', () => new Error('match is temporarily unavailable'));
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitSnapshot(waitingSnapshot());
+
+        const screen = await render(
+            <LobbyRoot
+                controller={controller}
+                wsUrl="ws://localhost:8080"
+                initialRoute={
+                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
+                }
+            />,
+        );
+
+        await expect.element(screen.getByRole('alert')).toBeVisible();
+        expect(transport.commands.filter((command) => command.kind === 'joinMatch')).toHaveLength(1);
+
+        await screen.getByRole('button', { name: 'Try again' }).click();
+        await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
+        expect(transport.commands.filter((command) => command.kind === 'joinMatch')).toHaveLength(2);
+        controller.disconnect();
+    });
+});
+
+describe('same-document semantic history', () => {
+    test('successful create creates exactly one semantic history entry', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([]));
+        const pushState = vi.spyOn(window.history, 'pushState');
+
+        const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
+        await screen.getByRole('button', { name: 'Create match', exact: true }).click();
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID })], MATCH_ID));
+        await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
+
+        expect(pushState).toHaveBeenCalledTimes(1);
+        expect(window.location.pathname).toBe(`/match/${MATCH_ID}`);
+        controller.disconnect();
+    });
+
+    test.each([
+        ['join', 'waiting', 'Join'],
+        ['spectate', 'in_progress', 'Spectate'],
+    ] as const)('successful %s creates exactly one semantic history entry', async (action, status, buttonName) => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(
+            snapshotOf([entryOf({ matchId: MATCH_ID, status, seatsFilled: status === 'waiting' ? 1 : 2 })]),
+        );
+        const pushState = vi.spyOn(window.history, 'pushState');
+
+        const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
+        await screen.getByRole('button', { name: new RegExp(buttonName) }).click();
+        await expect.element(screen.getByRole('heading', { name: /In match|Spectating/ })).toBeVisible();
+
+        expect(pushState).toHaveBeenCalledTimes(1);
+        expect(window.location.pathname).toBe(`/match/${MATCH_ID}/${action}`);
+        controller.disconnect();
+    });
+
+    test('a failed lobby action does not create a semantic history entry', async () => {
+        const transport = new ScriptedLobbyTransport();
+        transport.failNextCommand('joinMatch', () => new Error('join rejected'));
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID })]));
+        const pushState = vi.spyOn(window.history, 'pushState');
+
+        const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
+        await screen.getByRole('button', { name: /Join match/ }).click();
+        await expect.element(screen.getByRole('alert')).toBeVisible();
+
+        expect(pushState).not.toHaveBeenCalled();
+        expect(window.location.pathname).toBe('/lobby');
         controller.disconnect();
     });
 });

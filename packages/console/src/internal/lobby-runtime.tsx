@@ -217,6 +217,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         initialRoute,
     );
     const [noticeKind, setNoticeKind] = useState<RouteNoticeKind | null>(initialNoticeKind ?? null);
+    const [routeRetryEpoch, setRouteRetryEpoch] = useState(0);
     const pendingNavigationRef = useRef<'create' | 'join' | 'spectate' | null>(null);
     const prevViewModeRef = useRef(state.viewMode);
     useEffect(() => {
@@ -295,7 +296,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         void executeRouteEntry(entry, controller)?.then((result) => {
             if (!result.ok) setNoticeKind('shortcut-failure');
         });
-    }, [controller, currentRoute, state.snapshot]);
+    }, [controller, currentRoute, routeRetryEpoch, state.snapshot]);
 
     // Successful actions initiated from the lobby get one canonical semantic
     // history entry. Route-originated actions already have the right URL.
@@ -311,7 +312,13 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                   : buildSpectateUrl(window.location.origin, matchId);
         navigateTo(new URL(path).pathname);
         const nextRoute = parseRoute(new URL(path).pathname);
-        if (nextRoute.kind === 'match') setCurrentRoute(nextRoute);
+        if (nextRoute.kind === 'match') {
+            // This transition already completed the lobby-originated command;
+            // do not replay it merely because its canonical URL became the
+            // current route. Back/Forward resets this guard explicitly.
+            routeAttemptedRef.current = true;
+            setCurrentRoute(nextRoute);
+        }
         pendingNavigationRef.current = null;
     }, [state.activeMatchId, state.viewMode]);
 
@@ -384,6 +391,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                 : () => {
                       setNoticeKind(null);
                       routeAttemptedRef.current = false;
+                      setRouteRetryEpoch((epoch) => epoch + 1);
                   };
         return (
             <>
@@ -482,7 +490,7 @@ interface MatchLegArgs {
     readonly matchId: MatchId;
     /** Display name for the seat claim — the accepted handle (FR-019). */
     readonly displayName: string;
-    /** Report a transport or handshake failure to route recovery. */
+    /** Report a terminal handshake failure to route recovery. */
     readonly onFailure: () => void;
 }
 
@@ -518,7 +526,6 @@ function createMatchLeg(args: MatchLegArgs): MatchLeg {
     wsClient.onConnectionChanged((current) => {
         if (current === 'disconnected' && (lastConnection === 'joined' || lastConnection === 'rejoined')) {
             store.dispatch({ kind: 'socketClosed', code: 1006, reason: 'transport lost' });
-            args.onFailure();
         }
         lastConnection = current;
     });
@@ -824,7 +831,6 @@ function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
     wsClient.onConnectionChanged((connection) => {
         if (connection === 'disconnected' && (lastConnection === 'joined' || lastConnection === 'rejoined')) {
             apply(applySpectatorTransportLoss(current, 1006));
-            args.onFailure();
         }
         lastConnection = connection;
     });
