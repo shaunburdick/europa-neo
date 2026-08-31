@@ -1,5 +1,4 @@
 import { ErrorBoundary } from './render/ErrorBoundary';
-import { hasDirectMatchRoute } from './state/lobby-view';
 
 import '@europa/design/dist/design.css';
 import './styles/index.css';
@@ -12,11 +11,6 @@ import './styles/index.css';
  * `#root` element declared by `index.html`.
  *
  * Boot modes:
- *   - `?live&ws=<url>&match=<id>&name=[&token=]` present: the live
- *     full-stack runtime — real browser WebSocket client against a
- *     real match server. COMPATIBILITY CONTRACT (feature 010
- *     `resolveInitialViewMode`): direct live-test routes bypass the
- *     lobby entirely and MUST keep working unchanged.
  *   - `?e2e` present: the interactive demo runtime (store + input
  *     controllers + order bridge + recording fake client) so
  *     Playwright specs can drive real gestures (T052/T060).
@@ -37,17 +31,9 @@ if (!rootElement) {
 }
 
 const bootParams = new URLSearchParams(window.location.search);
-// Direct live-test route ONLY when it carries its match coordinates —
-// a bare `?live` is not a match route and falls through to the lobby
-// (pinned by resolveInitialViewMode's compatibility contract).
-const isLive = hasDirectMatchRoute(window.location.search);
 const isE2E = bootParams.has('e2e');
 
-if (isLive) {
-    // Same chunking discipline: the live harness rides its own lazy
-    // chunk (which pulls in the real WebSocket client).
-    void import('./internal/live-runtime').then((module) => module.mountLiveRuntime(rootElement));
-} else if (isE2E) {
+if (isE2E) {
     // Dynamic import keeps the harness (and its fake client) in a
     // separate chunk that production boots never fetch.
     void import('./internal/demo-runtime').then((module) => module.mountDemoRuntime(rootElement));

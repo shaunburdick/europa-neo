@@ -80,7 +80,6 @@ export type {
     LobbyViewMode,
 } from './state/lobby-state';
 export { createLobbyStore, type LobbyStore } from './state/lobby-store';
-export { hasDirectMatchRoute, resolveInitialViewMode } from './state/lobby-view';
 
 // ----------------------------------------------------------------------------
 // Runtime surface — network adapter + a11y + input layer
