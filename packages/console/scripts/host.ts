@@ -197,7 +197,7 @@ export function resolveConfig(
  * @param req Incoming request.
  * @param res Response to fill.
  */
-async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
     // decodeURIComponent throws on malformed escapes (%zz); a hostile or
     // broken client must never crash the launcher, so treat those as 404.
     const [initialUrlPath] = (req.url ?? '/').split('?');

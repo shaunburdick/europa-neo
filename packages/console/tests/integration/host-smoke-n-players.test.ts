@@ -43,8 +43,7 @@ import {
 } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { prepareMatch, resolveConfig } from '../../scripts/host';
-import { handleVersionRoute } from '../../scripts/version-route';
+import { prepareMatch, resolveConfig, serveStatic } from '../../scripts/host';
 import { createWsMatchClient, type WsMatchClient } from '../../src/net/ws-match-client';
 import type { CommandResult, Coord, MatchId, Order, PlayerId, PlayerView, SessionToken } from '../../src/state/types';
 
@@ -229,6 +228,31 @@ interface VersionResponse {
     readonly status: number;
     readonly appVersion: string;
     readonly protocolVersion: string;
+}
+
+/** Response captured from the host's real static handler. */
+interface HttpResponse {
+    readonly status: number;
+    readonly headers: Record<string, string | string[] | undefined>;
+    readonly body: string;
+}
+
+/** Fetch a text response from the single host port. */
+function getHttp(port: number, urlPath: string): Promise<HttpResponse> {
+    return new Promise<HttpResponse>((resolve, reject) => {
+        const request = httpGet({ hostname: '127.0.0.1', port, path: urlPath }, (response) => {
+            const chunks: Buffer[] = [];
+            response.on('data', (chunk: Buffer) => chunks.push(chunk));
+            response.on('end', () => {
+                resolve({
+                    status: response.statusCode ?? 0,
+                    headers: response.headers,
+                    body: Buffer.concat(chunks).toString('utf8'),
+                });
+            });
+        });
+        request.on('error', reject);
+    });
 }
 
 /**
@@ -432,11 +456,7 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
     // /version) to the externally owned http.Server. Replicate that exact
     // request handling so GET /version answers on the same port as WS.
     const httpServer = createHttpServer((req, res) => {
-        const [pathWithoutQuery] = (req.url ?? '/').split('?');
-        if (handleVersionRoute(req, res, pathWithoutQuery)) {
-            return;
-        }
-        res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('not found');
+        void serveStatic(req, res);
     });
     const stack = buildStack(httpServer);
     const port = await listen(stack);
@@ -446,6 +466,34 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
     expect(version.status).toBe(200);
     expect(version.appVersion).toBe(APP_VERSION);
     expect(version.protocolVersion).toBe(NETWORK_API_VERSION);
+
+    // -- Static single-port surface: canonical paths, reloads, assets, and recovery.
+    // The second request models a browser reload and deliberately uses the same
+    // origin: no route may depend on a prior SPA navigation.
+    const applicationPaths = [
+        '/lobby',
+        `/match/example-${String(playerCount)}`,
+        `/match/example-${String(playerCount)}/join`,
+        `/match/example-${String(playerCount)}/spectate`,
+        '/settings',
+    ];
+    for (const applicationPath of applicationPaths) {
+        for (let reload = 0; reload < 2; reload += 1) {
+            const response = await getHttp(port, applicationPath);
+            expect(response.status, `${applicationPath} reload ${String(reload)}`).toBe(200);
+            expect(response.body, `${applicationPath} must serve the SPA shell`).toContain('<div id="root">');
+            expect(response.headers['x-content-type-options']).toBe('nosniff');
+            expect(response.headers['referrer-policy']).toBe('no-referrer');
+        }
+    }
+
+    const missingAsset = await getHttp(port, '/assets/does-not-exist.js');
+    expect(missingAsset.status).toBe(404);
+    expect(missingAsset.body).not.toContain('<div id="root">');
+
+    const traversal = await getHttp(port, '/%2e%2e/%2e%2e/package.json');
+    expect(traversal.status).toBe(403);
+    expect(traversal.body).toBe('forbidden');
 
     // -- Same-origin WS upgrade works (hello → helloAck) -------------------
     const wsUrl = `ws://127.0.0.1:${String(port)}`;

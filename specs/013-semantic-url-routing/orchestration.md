@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 3 — T014–T016 complete
+- **Current Wave**: Wave 4 — T017–T020 complete
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
 
@@ -33,7 +33,7 @@ Replace production query-selected live boot with a pure pathname router and expl
 ### Wave 4 — Native host and Docker — T017–T020 complete
 - T017 safe application-path SPA fallback with missing-asset protection — ✅ complete
 - T018 host link emission — ✅ complete
-- T019 self-host and host integration expansion — ⏳ pending
+- T019 self-host and host integration expansion — ✅ complete
 - T020 Docker validation and documentation — ✅ complete
 ### Wave 5 — Documentation truthfulness — ⏳ Pending
 ### Wave 6 — Final gate — ⏳ Pending
@@ -268,3 +268,19 @@ Replace production query-selected live boot with a pure pathname router and expl
   unit suite **70/70** passed; deterministic integration suite **3/3** passed;
   console accessibility suite **31/31** passed. Typecheck, lint, format check,
   and production build passed.
+
+## T019 Completion
+
+- 2026-08-31: Extended the real native host smoke with the production static
+  handler. Each canonical application path and an unknown path is loaded twice
+  (direct load plus reload), with the SPA shell, security headers, missing-asset
+  404, and traversal rejection asserted. The same test continues to prove
+  one-port `/version` and WebSocket upgrade behavior.
+- 2026-08-31: Extended `scripts/test-selfhost.sh` beyond bundle scanning: it
+  builds and boots the real one-port host, checks canonical/recovery paths,
+  `/version`'s exact JSON shape, a known asset and missing asset, security
+  headers, a `101` WebSocket upgrade, and traversal handling. Docker smoke and
+  documentation tasks were not changed.
+- Verification: host integration **5/5** passed; self-host script passed with
+  **99,649 bytes gzipped** against the **153,600-byte** budget. Console
+  typecheck passed during the focused gate.

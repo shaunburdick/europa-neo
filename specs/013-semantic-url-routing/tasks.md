@@ -70,14 +70,14 @@ red until the migration waves remove the existing production query references.
   leaving/releasing the final seat of a filling match, Back revisits the stale
   semantic path as recoverable `Match unavailable`, and Forward returns to the
   lobby without resurrecting or changing matchmaking state.
-- T014/T015 remain intentionally unimplemented; host, Docker, and docs work is
-  not included in this remediation.
+- T014/T015 are complete; host, Docker, and docs work was not included in this
+  remediation.
 
 ## Wave 4 — Native host and Docker
 
 - [x] T017 Refactor `packages/console/scripts/host.ts` to serve SPA entry for safe application paths while preserving `/version`, assets, WS upgrades, traversal guards, headers, and genuine failures; depends on T004.
 - [x] T018 Update host banner/create links and tests to emit only origin plus semantic `/match/<id>` paths, with no handle/token/WS query; depends on T004, T017.
-- [ ] T019 Extend self-host/host integration tests and `packages/console/scripts/test-selfhost.sh` for direct/reload canonical paths, one-port `/version`, assets, WS, headers, and recovery; depends on T017–T018.
+- [x] T019 Extend self-host/host integration tests and `packages/console/scripts/test-selfhost.sh` for direct/reload canonical paths, one-port `/version`, assets, WS, headers, and recovery; depends on T017–T018.
 - [x] T020 [P] Update Docker smoke/build validation and root Docker documentation; verify `Dockerfile`/Compose inherit single-port SPA fallback with no second listener; depends on T017.
 
 ## Wave 5 — Documentation truthfulness
