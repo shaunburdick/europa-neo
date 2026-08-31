@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 0 — Complete
+- **Current Wave**: Wave 1 — Complete after HOLD-1 remediation
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-30
 
@@ -15,11 +15,11 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T002 route contract tests — ✅ complete
 - T003 stale-link/privacy guards — ✅ complete (tracked production-surface guard added; expected findings remain until migration waves)
 
-### Wave 1 — Pure routing foundation — 🚧 T004–T005 complete
+### Wave 1 — Pure routing foundation — ✅ T004–T007 complete
 - T004 closed route model, pure parser, segment validation, and semantic builders — ✅ complete
 - T005 route unit tests — ✅ complete
-- T006 route-to-entry adapter seam — ⏳ pending
-- T007 retired live-route export removal — ⏳ pending
+- T006 route-to-entry adapter seam — ✅ complete
+- T007 retired live-route export removal — ✅ complete
 ### Wave 2 — Bootstrap, history, accessible recovery — ⏳ Pending
 ### Wave 3 — Full-stack and security — ⏳ Pending
 ### Wave 4 — Native host and Docker — ⏳ Pending
@@ -64,3 +64,11 @@ Replace production query-selected live boot with a pure pathname router and expl
   - The targeted privacy suite has no self-failures. Its final stale-reference assertion remains
     intentionally failing because migration waves have not yet removed the existing production
     `?live` and credential-bearing references.
+- Wave 1 HOLD-1 remediation complete:
+  - Added dedicated `route-adapter.test.ts` coverage using Feature 010-compatible lobby
+    snapshots and observable command outcomes.
+  - Covered adaptive player/spectator selection, full-waiting non-downgrade, explicit intent
+    preservation, snapshot-less resolution, no-command redirect/unavailable behavior, and
+    exact `MatchId` forwarding.
+  - No application implementation change was required; T008 and stale-reference migration
+    remain pending and were not addressed.
