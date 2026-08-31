@@ -323,6 +323,44 @@ body {
     cursor: pointer;
 }
 
+/* Semantic-route recovery (Feature 013 T010). The panel is focusable so
+   failed navigation has a deterministic keyboard/screen-reader landing spot;
+   both actions remain native buttons with the shared visible focus ring. */
+.europa-route-notice {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--europa-spacing-xl) var(--europa-spacing-lg);
+}
+
+.europa-route-notice__panel {
+    width: min(100%, 34rem);
+    padding: var(--europa-spacing-xl) var(--europa-spacing-lg);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+    box-shadow: var(--europa-shadows-plate);
+}
+
+.europa-route-notice__title {
+    margin: 0 0 var(--europa-spacing-sm);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-xl);
+}
+
+.europa-route-notice__message {
+    margin: 0 0 var(--europa-spacing-lg);
+    line-height: var(--europa-typography-line-height-relaxed);
+}
+
+.europa-route-notice__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--europa-spacing-sm);
+}
+
 /*
  * Order palette (US2 T055). Sits after the HUD in DOM/Tab order.
  * Focus ring is var(--europa-focus-ring-color) on var(--europa-color-surface) (contrast ≈ 16:1, WCAG 2.4.7 ≥ 3:1).

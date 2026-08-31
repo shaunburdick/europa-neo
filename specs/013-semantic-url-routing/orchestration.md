@@ -22,7 +22,9 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T007 retired live-route export removal — ✅ complete
 ### Wave 2 — Bootstrap, history, accessible recovery — ⏳ In progress
 - T008 route-aware production bootstrap — ✅ complete
-- T009–T012 runtime integration, notices, and browser coverage — ⏳ pending
+- T009 runtime integration — ✅ complete
+- T010 accessible route notices and focus/live-region recovery — ✅ complete
+- T011–T012 runtime/browser coverage — ⏳ pending
 ### Wave 3 — Full-stack and security — ⏳ Pending
 ### Wave 4 — Native host and Docker — ⏳ Pending
 ### Wave 5 — Documentation truthfulness — ⏳ Pending
