@@ -273,7 +273,7 @@ describe('transition matrix: association persists through every path (FR-019)', 
         expect(alice.session.currentSessionToken).toBe(aliceSeat.sessionToken);
     });
 
-    it('running → finished preserves seats; results carry handles and NO opaque id', () => {
+    it('running → finished preserves seats; results correlate players by playerId', () => {
         const { match, aliceSeat, bobSeat, alice } = makeSeatedFillingMatch();
         startMatch(match);
         const world = match.engineSession?.world();
@@ -294,9 +294,8 @@ describe('transition matrix: association persists through every path (FR-019)', 
         expect(aliceSeat.handle).toBe('Nova');
         expect(bobSeat.handle).toBe('Orion');
 
-        // Exposure audit (FR-024/NFR-003): the terminal payload shows
-        // handles only — exact contract key set, no guest-id field, and
-        // the fixture marker value appears nowhere in the serialization.
+        // Terminal results correlate authoritative seats with non-secret
+        // player IDs; lobby identity associations remain internal fields.
         expect(Object.keys(results.finalPlayers[0]).sort()).toEqual([
             'displayName',
             'finalCities',
@@ -305,6 +304,7 @@ describe('transition matrix: association persists through every path (FR-019)', 
             'status',
         ]);
         expect(results.finalPlayers.map((p) => p.displayName)).toEqual(['Alice', 'Bob']);
+        expect(results.finalPlayers.map((p) => p.id)).toEqual([1, 2]);
         expect(serialized(results)).not.toContain('guest-');
     });
 
@@ -543,7 +543,7 @@ describe('propagateHandleRename sweeps accepted renames (FR-019)', () => {
 // ----------------------------------------------------------------------------
 
 describe('exposure audit: public payloads never gain the opaque id', () => {
-    it('lobby projections expose discovery data only — no guest-id key, no marker value', () => {
+    it('lobby projections expose discovery data without private identity associations', () => {
         const { match } = makeSeatedFillingMatch();
 
         const entry = projectLobbyEntry(match, CLOCK_MS);
@@ -561,7 +561,7 @@ describe('exposure audit: public payloads never gain the opaque id', () => {
         expect(serialized(entry)).not.toContain('guest-');
     });
 
-    it('SeatAssignment keeps its exact contract shape on create and join', () => {
+    it('SeatAssignment correlates each result with its assigned player and keeps its exact shape', () => {
         const server = new FakeServer();
         const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
 
@@ -575,6 +575,7 @@ describe('exposure audit: public payloads never gain the opaque id', () => {
                 'seatIndex',
                 'sessionToken',
             ]);
+            expect(created.data.seatAssignment.playerId).toBe(1);
             expect(serialized(created.data)).not.toContain('guest-');
         }
 
@@ -592,6 +593,7 @@ describe('exposure audit: public payloads never gain the opaque id', () => {
                 'seatIndex',
                 'sessionToken',
             ]);
+            expect(joined.data.seatAssignment.playerId).toBe(2);
             expect(serialized(joined.data)).not.toContain('guest-');
         }
         matchmaker.close();

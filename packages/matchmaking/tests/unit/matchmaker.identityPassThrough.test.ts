@@ -191,7 +191,7 @@ describe('identity pass-through — supplied values land in records (FR-019)', (
 // ----------------------------------------------------------------------------
 
 describe('identity pass-through — public payload privacy (FR-003/FR-024)', () => {
-    it('SeatAssignment carries no opaque id and no handle-snapshot field', () => {
+    it('SeatAssignment carries the assigned player correlation and no handle snapshot', () => {
         const h = makeHarness();
 
         const created = h.matchmaker.createMatch({
@@ -215,6 +215,7 @@ describe('identity pass-through — public payload privacy (FR-003/FR-024)', () 
             'sessionToken',
         ]);
         expect(created.data.seatAssignment.displayName).toBe('Alice');
+        expect(created.data.seatAssignment.playerId).toBe(1);
         h.matchmaker.close();
     });
 });

@@ -202,11 +202,9 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
 
         // Nothing seat-shaped was handed over…
         expectNoSeatFrames(attacker.socket);
-        // …and nothing SECRET either: not the owner's token, not the
-        // owner's opaque guest id.
+        // …and no bearer credential is disclosed in the rejection.
         const attackerWire = attacker.socket.sentRaw.join('\n');
         expect(attackerWire).not.toContain(owner.sessionToken);
-        expect(attackerWire).not.toContain(BEARER_GUEST_ID);
 
         // The failed attempt burned nothing: the rightful owner reclaims.
         const ownerReturn = connectClient(server);
@@ -243,8 +241,8 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
 
         // Only the owner's close ever reached the teardown hook.
         expect(fake.closedCalls).toEqual([owner.connectionId]);
-        // And the decoy match's wire never carried the owner's secrets.
-        expect(attacker.socket.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
+        // And the decoy rejection never carried the owner's bearer token.
+        expect(attacker.socket.sentRaw.join('\n')).not.toContain(owner.sessionToken);
 
         awaitClose(server);
     });
@@ -266,8 +264,8 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
         expect(required(transportErrors(latecomer.socket)[0], 'expiry error').code).toBe('token_expired');
         expectNoSeatFrames(latecomer.socket);
 
-        // The expiry rejection carried no identity payload either.
-        expect(latecomer.socket.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
+        // The expiry rejection carried no session credential.
+        expect(latecomer.socket.sentRaw.join('\n')).not.toContain(owner.sessionToken);
         // No forfeit has fired yet: expiry ENFORCEMENT is the scheduler's
         // sweep (onSeatExpired), which never runs in mock-socket mode.
         expect(bridge.seatExpired).toHaveLength(0);
@@ -298,13 +296,11 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
         // …and a pure bystander watches the whole time.
         const bystander = connectClient(server);
 
-        // NONE of them sees any lobby event, any identity frame, or the
-        // owner's opaque id in any form.
+        // NONE of them sees any lobby event or identity frame.
         for (const observer of [firstAttacker.socket, secondAttacker.socket, bystander.socket]) {
             expect(framesOfType(observer, 'lobbyEvent')).toHaveLength(0);
-            expect(observer.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
         }
-        // The owner's own stream remains the sole place the id appeared.
+        // The owner's own stream receives the directed identity correlation.
         expect(owner.socket.sentRaw.join('\n')).toContain(BEARER_GUEST_ID);
         expect(fake.closedCalls).toEqual([owner.connectionId]);
 

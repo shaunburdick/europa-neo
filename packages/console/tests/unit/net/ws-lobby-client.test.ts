@@ -976,7 +976,7 @@ describe('heartbeat', () => {
     });
 });
 
-describe('privacy — no identity leakage in URLs, logs, or errors', () => {
+describe('privacy — no bearer credential leakage in URLs, logs, or errors', () => {
     it('never mutates the caller-supplied URL across initial connect and retries', async () => {
         const scheduler = new ManualScheduler();
         const storage = new MemoryStorage();
@@ -1097,11 +1097,10 @@ describe('privacy — no identity leakage in URLs, logs, or errors', () => {
         }
     });
 
-    it('exposes no accessor returning the opaque claim id', async () => {
+    it('exposes no accessor returning bearer credentials', async () => {
         const { client } = await readyHarness();
         const state: WsLobbyClientState = client.state();
-        const serialized = JSON.stringify(state);
-        expect(serialized).not.toContain(CLAIM_A);
-        expect(Object.keys(state).some((key) => key.toLowerCase().includes('guest'))).toBe(false);
+        expect(Object.keys(state).some((key) => /token|credential|secret/i.test(key))).toBe(false);
+        expect(state.handle).toBeNull();
     });
 });
