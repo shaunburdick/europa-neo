@@ -216,3 +216,12 @@ Replace production query-selected live boot with a pure pathname router and expl
 - No T014/T015, host, Docker, or documentation implementation was performed.
 - No blockers remain for this remediation. The previously recorded root
   no-test-files baseline for `@europa/design` is unrelated and unchanged.
+
+## T015 Completion
+
+- 2026-08-31: Added routing and native-host boundary security tests covering
+  traversal, encoded slash/backslash injection, unsafe IDs, credential-free URL
+  builders, exact cross-match selection, unresolved-route no-connection guards,
+  and preservation of Feature 010's command authority for identity/seat claims.
+  No production behavior was changed; T014 socket coverage and T016 harness
+  work remain pending.
