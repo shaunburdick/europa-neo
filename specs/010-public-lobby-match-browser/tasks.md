@@ -8,7 +8,7 @@ means the task is safe to perform in parallel with other tasks in its block.
 These tasks correct stale privacy assertions only. They do not create a Feature
 013 specification, add runtime behavior, or change protocol versions.
 
-- [ ] C-001: [P] Audit tracked specs, contracts, READMEs, source comments, manual pages, orchestration notes, and tests against the approved policy; produce a path-by-path residual list classifying ID correlation, handle preference, bearer credential, private-match, and fog assertions.
+- [x] C-001: [P] Audit tracked specs, contracts, READMEs, source comments, manual pages, orchestration notes, and tests against the approved policy; produce a path-by-path residual list classifying ID correlation, handle preference, bearer credential, private-match, and fog assertions.
 - [ ] C-002: [P] Update Feature 010 contract/data-model prose and affected Feature 002/004/006/011/012 cross-references to distinguish non-secret IDs from bearer credentials while preserving protocol shapes, authority, private-match existence, and fog semantics.
 - [ ] C-003: [P] Correct contradictory matchmaking/networking source JSDoc/comments, including identity, session, seat, lobby projection, and public-entry descriptions; state that client claims remain advisory and server authority is unchanged.
 - [ ] C-004: Amend `check-documentation-privacy.mjs` to allow ID names and representative non-secret ID values on approved surfaces while rejecting credential values and credential-bearing URLs/logs/docs examples; retain handle/lifecycle checks.
