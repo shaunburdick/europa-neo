@@ -4,7 +4,7 @@
  *
  * Pins the intersection of feature 004's reconnect contract and
  * feature 010's lobby teardown semantics: a player whose LOBBY
- * IDENTITY is bound (directed identity event delivered, opaque guest
+ * IDENTITY is bound (directed identity event delivered, non-secret guest
  * id and all) disconnects mid-match, and other credentials try to
  * claim the grace-held seat.
  *
@@ -17,7 +17,7 @@
  *     `connectionClosed` exactly once for the dropped connection only
  *     — the dispatcher half of "identity enters grace" (the facade's
  *     handle-reservation half is pinned by matchmaking's suites);
- *   - SECRECY: no mismatched claimant or bystander ever observes the
+ *   - ISOLATION: no mismatched claimant or bystander ever observes the
  *     owner's session token, snapshot, or view; the non-secret guest ID
  *     remains an identity reference, and the v1.6 delivery channel stays
  *     directed to its owner.
@@ -31,7 +31,7 @@ import { describe, expect, it } from 'vitest';
 import { createMatchServer } from '../../src/server';
 import type { IdentityState, MatchId, SessionToken } from '../../src/types';
 import type { MockWebSocket } from '../fixtures/conn';
-import { BEARER_GUEST_ID, FakeLobbyService, fakeLobbySource } from '../fixtures/fakeLobbyService';
+import { FakeLobbyService, fakeLobbySource, NON_SECRET_GUEST_ID } from '../fixtures/fakeLobbyService';
 import { RecordingMatchmakerBridge } from '../fixtures/fakeMatchmakerBridge';
 import {
     connectClient,
@@ -64,7 +64,7 @@ interface ObservedJoinAck {
  * present (`exactOptionalPropertyTypes` discipline).
  */
 function ownerIdentityState(): IdentityState {
-    const guestPlayerId = BEARER_GUEST_ID;
+    const guestPlayerId = NON_SECRET_GUEST_ID;
     return guestPlayerId === undefined ? buildIdentityState() : buildIdentityState({ guestPlayerId });
 }
 
@@ -132,7 +132,7 @@ function seatPlayerWithIdentity(
         }
     ).event;
     expect(delivered.kind).toBe('identity');
-    expect(delivered.identity.guestPlayerId).toBe(BEARER_GUEST_ID);
+    expect(delivered.identity.guestPlayerId).toBe(NON_SECRET_GUEST_ID);
 
     return {
         socket: client.socket,
@@ -302,7 +302,7 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
             expect(framesOfType(observer, 'lobbyEvent')).toHaveLength(0);
         }
         // The owner's own stream receives the directed identity correlation.
-        expect(owner.socket.sentRaw.join('\n')).toContain(BEARER_GUEST_ID);
+        expect(owner.socket.sentRaw.join('\n')).toContain(NON_SECRET_GUEST_ID);
         expect(fake.closedCalls).toEqual([owner.connectionId]);
 
         awaitClose(server);

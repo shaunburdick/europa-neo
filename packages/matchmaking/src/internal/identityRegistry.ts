@@ -110,8 +110,10 @@ export interface IdentityRegistry {
      * reactivates it (same id, same server-held handle); any absent,
      * expired, or forged claim silently yields a FRESH identity. The
      * claim's `handle` field is advisory and never overrides the
-     * server record. Runs the expiry sweep first, so an expired
-     * claimant frees its handle before the lookup.
+     * server record. A successful restore may let the lobby associate the
+     * connection with this ephemeral identity; it does not grant a match
+     * seat, order, reconnect-token, or fog-view authority. Runs the expiry
+     * sweep first, so an expired claimant frees its handle before the lookup.
      */
     restoreIdentity(claim: GuestIdentityClaim | undefined): IdentityRestoreOutcome;
 
@@ -160,8 +162,10 @@ export interface IdentityRegistry {
      * Project an identity into the safe wire shape (`IdentityState`:
      * accepted handle + literal `hasIdentity`). Identity IDs are non-secret
      * correlation metadata, not credentials; the facade may attach the ID at a
-     * suitable delivery seam. Server state remains authoritative, and bearer
-     * session/reconnect tokens remain protected separately.
+     * suitable delivery seam. It can identify the ephemeral lobby identity,
+     * but does not grant a match seat, order, reconnect-token, or fog-view
+     * authority. Server state remains authoritative, and bearer session/
+     * reconnect tokens remain protected separately.
      *
      * @returns The frozen projection, or `undefined` for unknown ids.
      * @throws When the registry is closed.

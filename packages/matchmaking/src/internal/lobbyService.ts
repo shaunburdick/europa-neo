@@ -475,9 +475,11 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
 
     /**
      * Attach the owning identity's non-secret ID to a safe registry projection
-     * for resume correlation. The ID is not a bearer credential and does not
-     * authorize a seat; the server-resolved session and seat remain authoritative.
-     * Handles are preferred for labels, and bearer tokens remain protected.
+     * for resume correlation. The ID is not a bearer credential. Restoring it
+     * may associate this connection with its ephemeral lobby identity, but
+     * server validation still controls match seats, orders, reconnect tokens,
+     * and fog views. Handles are preferred for labels, and bearer tokens remain
+     * protected.
      */
     function withOwnerId(safe: IdentityState, owner: GuestPlayerId): IdentityState {
         return Object.freeze({ handle: safe.handle, hasIdentity: true, guestPlayerId: owner });

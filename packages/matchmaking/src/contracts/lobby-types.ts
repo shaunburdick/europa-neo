@@ -156,8 +156,10 @@ export interface IdentityState {
  * Privacy envelope (NFR-003, FR-024): discovery data only — id,
  * occupancy/capacity, settings summary, lifecycle status. No host
  * name, no participant handles, no seats, no tokens, no seed, no
- * terrain detail beyond the summary numbers, and never the opaque
- * guest player id.
+ * terrain detail beyond the summary numbers. Guest player IDs are
+ * non-secret correlation data and may be present wherever the projection
+ * explicitly carries them; bearer credentials and unauthorized private-match
+ * or fog-of-war data remain excluded.
  */
 export interface PublicLobbyEntry {
     /** Stable match identifier (networking-owned `MatchId` brand). */

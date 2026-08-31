@@ -47,11 +47,11 @@ import type {
 import { NULL_LOGGER } from '../../src/types';
 import { MockWebSocket } from '../fixtures/conn';
 import {
-    BEARER_GUEST_ID,
     FakeLobbyService,
     fakeLobbySource,
     lobbyFailure,
     matchTarget,
+    NON_SECRET_GUEST_ID,
 } from '../fixtures/fakeLobbyService';
 import {
     buildIdentityClaim,
@@ -485,19 +485,19 @@ describe('lobby teardown + directed delivery (audit items 1, 8)', () => {
         sendLobby(owner.socket, 'lobbyIdentity', lobbyIdentityPayload());
         expect(lobbyEvents(owner.socket)).toHaveLength(1);
 
-        const owned = buildIdentityState({ guestPlayerId: BEARER_GUEST_ID });
+        const owned = buildIdentityState({ guestPlayerId: NON_SECRET_GUEST_ID });
         fake.push(owner.connectionId as never, { kind: 'identity', identity: owned });
 
         const ownerEvents = lobbyEvents(owner.socket);
         expect(ownerEvents).toHaveLength(2);
         const delivered = required(ownerEvents[1], 'directed identity event').identity as IdentityState;
         expect(delivered.handle).toBe('Nova');
-        expect(delivered.guestPlayerId).toBe(BEARER_GUEST_ID);
+        expect(delivered.guestPlayerId).toBe(NON_SECRET_GUEST_ID);
 
         // The bystander's stream carries NOTHING — no identity frame, and
-        // the owner's opaque id appears nowhere in its raw bytes.
+        // the owner's non-secret id appears nowhere in its raw bytes.
         expect(lobbyEvents(bystander.socket)).toHaveLength(0);
-        expect(bystander.socket.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
+        expect(bystander.socket.sentRaw.join('\n')).not.toContain(NON_SECRET_GUEST_ID);
     });
 
     it('drops sink deliveries addressed to unknown or closed connections without throwing', () => {
@@ -601,13 +601,13 @@ describe('claim correlation and failure isolation', () => {
         sendLobby(
             socket,
             'lobbyIdentity',
-            lobbyIdentityPayload({ claim: buildIdentityClaim({ guestPlayerId: BEARER_GUEST_ID }) }),
+            lobbyIdentityPayload({ claim: buildIdentityClaim({ guestPlayerId: NON_SECRET_GUEST_ID }) }),
         );
         sendLobby(socket, 'lobbySetHandle', lobbySetHandlePayload('x', 1 as never));
         socket.close();
 
         // Input direction reached the facade intact (the ONLY place the
         // claim is correlated with the identity operation).
-        expect(fake.identityCalls[0]?.claim?.guestPlayerId).toBe(BEARER_GUEST_ID);
+        expect(fake.identityCalls[0]?.claim?.guestPlayerId).toBe(NON_SECRET_GUEST_ID);
     });
 });
