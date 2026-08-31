@@ -20,8 +20,11 @@
  * the natural sentence. Unknown names render a neutral placeholder
  * outside any `<bdi>` (nothing user-supplied to isolate yet).
  *
- * Privacy: the session shape carries display values only — an opaque
- * guest id is structurally unreachable here (FR-024/NFR-003).
+ * Identity presentation: the session currently carries display values only
+ * because handles are the preferred participant labels. Player IDs are
+ * non-secret correlation data and may be carried or shown when useful;
+ * bearer credentials are never participant-display data, and the server
+ * remains authoritative for seat identity.
  */
 
 import type { JSX } from 'react';

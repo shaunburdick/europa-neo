@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-21
 
-**Last Updated**: 2026-08-25 (Implementation Notes: `leaveMatch` implemented + feature-010 composition seams, remediation R-005)
+**Last Updated**: 2026-08-30 (v1.2; identity-visibility correction)
 
-**Version**: 1.1
+**Version**: 1.2
 
 **Status**: Implemented
 
@@ -112,13 +112,14 @@ As a player, I want abandoned matches to resolve sensibly — my opponent wins a
 - **FR-003**: Every created match MUST receive a unique server-assigned ID and a corresponding shareable join URL; both MUST be returned to the creator at creation time.
 - **FR-004**: A created match MUST reserve its creator's seat immediately and become joinable until seats fill.
 - **FR-005**: The lobby listing MUST include public matches only (id, display info, seat occupancy, settings), updated in near-real-time.
-- **FR-006**: Private matches MUST be joinable exclusively via their match ID/shareable URL; they MUST NOT appear in the lobby listing, and unknown IDs MUST be rejected without revealing whether a private match exists.
+- **FR-006**: Private matches MUST be joinable exclusively via their non-secret match ID/shareable URL; they MUST NOT appear in the lobby listing, and unknown IDs MUST be rejected without revealing whether a private match exists. Knowing the ID permits an admission attempt only: the server still authenticates reconnects with the applicable bearer credential and authoritatively assigns seats, orders, and fog-filtered views.
 - **FR-007**: When all seats fill, the server MUST atomically generate a map (feature 003), initialize the engine (feature 001), assign player ids/starting cities, and begin ticking.
 - **FR-008**: On match termination, the server MUST deliver results (winner, ticks elapsed, effective map seed) to all connected participants and spectators.
 - **FR-009**: The server MUST offer rematch coordination: all original participants must accept within a bounded window; acceptance creates a fresh match with identical settings and visibility type, and a newly generated seed/ID/link.
 - **FR-010**: Disconnect-forfeit: if a seated player cannot be reconnected within the grace window (shared with feature 004 FR-007), the server MUST mark them forfeit; if one player remains, they win; if none remain, the match is destroyed.
 - **FR-011**: Empty unstarted matches MUST be garbage-collected after a short TTL; finished matches release resources after results delivery plus a grace period.
 - **FR-012**: All lifecycle transitions (created → filling → running → finished → collected) MUST be observable via protocol messages for client status displays.
+- **FR-013**: Match, guest identity, session, seat, and gameplay player IDs are non-secret correlation references and MAY appear in lifecycle records, URLs, wire payloads, logs, and diagnostics. This MUST NOT expose bearer credentials, enumerate private matches, or bypass authorization.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -270,3 +271,13 @@ Contracts were updated in the same change set wherever behavior changed.
   value is surfaced via `TerrainGenerationResult.effectiveSettings`
   and `MapStats.effectiveSettings` (feature 003's existing
   `effectiveSettings` pattern).
+
+### v1.2 (2026-08-30) — Product-owner identity-visibility correction
+
+- Player IDs and guest identity IDs are not private. Handles remain preferred
+  for UI labels; a generic fallback or ID is acceptable without a handle.
+  `sessionToken` and `reconnectToken` remain secret bearer credentials.
+  Private-match non-enumeration and server-authoritative membership are
+  unchanged. `MatchId` is a non-secret routing/admission reference, not a
+  session or reconnect bearer credential. It may be shared as the private join
+  reference, but knowledge of it alone grants no seat, order, or view authority.

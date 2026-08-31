@@ -28,7 +28,7 @@ The HUD's status line tells you where you stand in the match lifecycle. It shows
 
 While anything other than `live`, all order controls are disabled — the buttons gray out rather than silently swallowing clicks.
 
-In the match header, **In match** identifies a player view and **Spectating** identifies a read-only spectator view. **Leave to lobby** returns to the landing page. Every occupied player seat is labeled with its accepted handle, including your own. Names are displayed as isolated participant labels so mixed writing directions cannot rearrange nearby interface text.
+In the match header, **In match** identifies a player view and **Spectating** identifies a read-only spectator view. **Leave to lobby** returns to the landing page. Every occupied player seat uses a handle-first label, including your own; a generic label or safe ID fallback is used only when no handle exists. IDs are non-secret correlation data, not access credentials. Names are displayed as isolated participant labels so mixed writing directions cannot rearrange nearby interface text.
 
 The status bar also shows a small version indicator — the app version your console was built from (for example, v0.1.0) — which stays visible whatever state the match is in.
 
@@ -83,4 +83,3 @@ The first Tab stop is **Skip to main content**. Native buttons, form fields, rad
 ---
 
 [Back to contents](./index.md)
-

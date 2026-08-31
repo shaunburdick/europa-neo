@@ -6,7 +6,7 @@ Europa Neo opens at the **public lobby**. This page walks you from choosing a ha
 
 In **Your name**, enter a display name and choose **Set name**. Use 1–24 Unicode characters after trimming, with at least one non-whitespace character. Do not use control characters, invisible direction markers, or malformed Unicode; well-formed emoji counts as one character. If the name is already in use, choose another; comparison ignores case and surrounding whitespace.
 
-You can rename yourself later with **Change name** and **Update name**. Your accepted handle is the name shown in the lobby, waiting room, and match participant labels.
+You can rename yourself later with **Change name** and **Update name**. Your accepted handle is the handle-first label shown in the lobby, waiting room, and match participant labels. If no handle is available, the interface uses a generic label or safe ID fallback; these IDs only correlate a participant and do not grant access.
 
 ## Step 2: Create or find a match
 
@@ -14,7 +14,7 @@ You can rename yourself later with **Change name** and **Update name**. Your acc
 - To play in someone else's waiting game, choose **Join**.
 - To watch a running game, choose **Spectate**. Spectating is full-visibility and read-only: it has no seat and cannot send player orders.
 
-The lobby list shows loading and empty states explicitly. It updates as games fill, start, and finish. A match that disappears before your action is accepted produces a recoverable message and a refreshed list.
+The lobby list shows loading and empty states explicitly. It updates as games fill, start, and finish. A match that disappears before your action is accepted produces a recoverable message and a refreshed list. Private matches are not enumerated in this list; join them only with the match ID or link supplied by the host.
 
 ## Step 3: Wait for the game to start
 
@@ -56,7 +56,7 @@ If you run Europa Neo yourself, the single-command host boots one web server on 
 pnpm host --players 3 --board-size 48
 ```
 
-This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
+This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). These printed URLs may include a per-seat bearer credential for this temporary/local operator flow. Treat them as secrets: anyone who obtains one may attempt to reclaim that seat during the grace window. This exception is not a general rule for public app URLs, logs, diagnostics, or documentation examples. Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
 
 ---
 

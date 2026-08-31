@@ -137,7 +137,8 @@ drift caught by `tests/conformance.test.ts`.
 
 Feature 010 adds an in-memory lobby facade around this lifecycle. A visitor
 receives an ephemeral `GuestPlayerIdentity` and selects a handle; the handle is
-the only participant identity shown to users. Handles are 1–24 Unicode code
+the preferred participant identity shown to users, with a generic or ID fallback
+when unavailable. Handles are 1–24 Unicode code
 points after trimming, contain at least one non-whitespace character, and
 contain no control characters, no bidirectional formatting controls, and no
 unpaired surrogates; well-formed emoji counts as one code point. Active handles
@@ -157,11 +158,15 @@ cannot reassign a seat or view.
 
 All lobby identity, handle, session, and match state is process memory. Browser
 storage is only a resume aid, not an account or durable record. Clearing it or
-restarting the server begins a fresh lobby. The opaque guest identifier is
-delivered only in the directed identity event to its owner; public projections,
-other connections, URLs, views, and logs remain free of it. Public projections
-contain only discovery data; diagnostics and public API examples must not expose
-bearer credentials or opaque identity identifiers.
+restarting the server begins a fresh lobby. Guest identity IDs and gameplay
+`PlayerId` values are non-secret correlation fields, not credentials and never
+authority-bearing; they may appear in projections, URLs, views, logs,
+diagnostics, and API examples where useful. Labels are handle-first: handles
+remain preferred UI labels, with a generic label or the relevant ID as a
+fallback when no handle exists. Only a valid bearer credential can resume a
+seat. Public projections still contain only discovery data, private matches
+remain non-enumerable, and diagnostics/examples must not expose bearer
+credentials (`sessionToken` or `reconnectToken`).
 
 ### Runtime building blocks
 
@@ -197,7 +202,7 @@ violations (which crash the process by design).
 | Code | Meaning |
 |------|---------|
 | `invalid_request` | Bad request shape (unknown visibility, empty displayName, bad settings). |
-| `match_not_found` | Unknown id OR private-without-token OR collected — single code path, never leaks existence (FR-006). |
+| `match_not_found` | Unknown or collected id — unknown-ID handling uses one generic path and never leaks private-match existence (FR-006). A caller that knows a private `MatchId` may attempt admission through the normal seat-fill path; the ID is not a bearer credential and grants no seat, order, or view authority. |
 | `match_full` | All seats taken (including race losers for the last seat). |
 | `match_not_joinable` | Match already running and this is not a reconnect. |
 | `seat_taken` | Reconnect race: another connection claimed the seat first. |

@@ -60,15 +60,15 @@ export const NETWORK_API_VERSION = '0.1.0' as const;
 export type SessionToken = string & { readonly __brand: 'SessionToken' };
 
 /**
- * Match identifier (matches the matchmaking-issued id; networking uses
- * it only as a routing key).
+ * Match identifier (matches the matchmaking-issued id; networking uses it as
+ * a non-secret routing/correlation reference, never as a bearer credential).
  */
 export type MatchId = string & { readonly __brand: 'MatchId' };
 
 /**
- * Connection identifier. Assigned by the server when a WebSocket
- * connects; distinct from `SessionToken` (a connection id is the
- * transport handle, a session token is the seat claim).
+ * Connection identifier. Assigned by the server when a WebSocket connects;
+ * it is a non-secret transport/correlation handle distinct from `SessionToken`
+ * (a session token is the protected seat claim).
  */
 export type ConnectionId = string & { readonly __brand: 'ConnectionId' };
 
@@ -611,13 +611,13 @@ export type ErrorCode =
 //     are never addressed, so they never observe lobby traffic.
 
 /**
- * Opaque guest player identifier (feature 010). Server-issued, unique
- * among active identities, non-semantic, and NEVER a display name: it
- * must not appear in public lobby entries, participant labels, player/
- * spectator views, URLs, or documentation examples (spec FR-024). The
- * browser may store it locally and present it back as a
- * `GuestIdentityClaim`; the server honors that claim only while its own
- * registry still holds the identity.
+ * Guest player identifier (feature 010). Server-issued, unique among active
+ * identities, and non-semantic. It is non-secret correlation metadata and may
+ * appear on safe wire, view, or diagnostic surfaces when correlation is useful;
+ * a handle remains the preferred human-facing label. It is never a bearer
+ * credential and does not grant authority. The browser may store it locally
+ * and present it back as a `GuestIdentityClaim`; the server honors that claim
+ * only while its own registry still holds the identity.
  *
  * Wire form: plain string (brands are compile-time only).
  */
@@ -651,7 +651,7 @@ export type LobbyStatus = 'waiting' | 'in_progress';
 
 /**
  * Client-presentable identity claim (feature 010). The browser stores
- * the opaque id + handle locally and MAY present them via
+ * the non-secret correlation id + handle locally and MAY present them via
  * `LobbyIdentityPayload` to restore a previous session's identity. The
  * server accepts the claim only when its registry still holds that
  * identity; otherwise it issues a fresh one. Purely advisory input —
@@ -667,29 +667,26 @@ export interface GuestIdentityClaim {
  * until the player submits a valid handle; `hasIdentity` is always true
  * on a wire-delivered identity event.
  *
- * `guestPlayerId` (feature 010 Clarifications v1.6) is the sanctioned
- * FR-003 delivery channel for the opaque id: it rides ONLY on the
- * directed `identity` lobby event, which the server delivers solely to
- * the connection that owns the identity, so the browser can persist it
- * as its resume claim and restore the active identity on reload within
- * the reconnect grace window. It MUST NOT appear in lobby listings,
- * snapshots, join/spectate targets, UI, URLs, or logs (NFR-003/
- * FR-024), and recipients MUST tolerate its absence (older servers).
+ * `guestPlayerId` (feature 010 Clarifications v1.6) rides on the directed
+ * `identity` lobby event so the browser can persist it as its resume claim and
+ * restore the active identity on reload within the reconnect grace window. It
+ * may also be carried by safe correlation surfaces; clients should prefer the
+ * accepted handle for labels. Its presence never authorizes an action, and
+ * recipients MUST tolerate its absence (older servers). Session and reconnect
+ * tokens remain protected bearer credentials and must not be treated this way.
  */
 export interface IdentityState {
   readonly handle: string | null;
   readonly hasIdentity: true;
-  /**
-   * Opaque id of the identity this state describes — THIS connection's
-   * own only (directed delivery, feature 010 Clarifications v1.6).
-   */
+   /** Non-secret identity reference for correlation; handles are preferred labels. */
   readonly guestPlayerId?: GuestPlayerId;
 }
 
 /**
- * Safe public projection of one listed match (feature 010 FR-006).
- * Carries discovery data only: no participant list, no seat tokens, no
- * opaque guest ids, and never a private or finished match.
+ * Safe public projection of one listed match (feature 010 FR-006). Carries
+ * discovery data only: match IDs and other non-secret identity/reference data
+ * may support correlation, while handles are the preferred labels. It carries
+ * no seat or bearer tokens and never enumerates a private or finished match.
  */
 export interface PublicLobbyEntry {
   readonly matchId: MatchId;
@@ -793,6 +790,8 @@ export interface LobbyTerrainSettings {
   readonly minCityCityDistance: number;
   /** Maximum regeneration attempts on validation failure. Default 5. */
   readonly maxRegenAttempts: number;
+  /** Deterministic elevation smoothing passes. Default 4; range [0, 8]. */
+  readonly terrainSmoothing: number;
 }
 
 /**

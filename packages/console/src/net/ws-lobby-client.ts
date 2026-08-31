@@ -21,7 +21,7 @@
  *
  * Responsibilities owned here (per task T-012):
  *
- *   - **Claim/handle persistence** — the opaque guest player ID +
+ *   - **Claim/handle persistence** — the guest player ID correlation value +
  *     last accepted handle live in local storage (`lobby-storage.ts`)
  *     and are presented on every establish cycle. The LOCAL mint is
  *     first-frame bootstrap only: the server's directed `identity`
@@ -54,16 +54,15 @@
  *     distinctly from the transient `'reconnecting'`/`'disconnected'`
  *     states. Exactly ONE `lobbyIdentity` frame is sent per attempt
  *     (never a flood — the dispatcher rate-limits identity requests).
- *   - **Privacy (binding)** — the guest player ID is a bearer secret:
- *     it NEVER appears in URLs (this client appends nothing to the
- *     caller's URL), logs, or error messages. Every log line and every
- *     constructed error passes through {@link redact}, which scrubs
- *     EVERY secret value this session has held — the local bootstrap
- *     mint AND every server-delivered id — as defense-in-depth even
- *     against server-authored text echoing one back; error `detail`
- *     records get the same scrub. The public API surface exposes no
- *     accessor returning the id, so consumers cannot leak what they
- *     cannot read.
+ *   - **Identity and credential handling** — the guest player ID is
+ *     non-secret correlation data used to identify the server-resolved
+ *     identity. It is kept out of URLs, logs, and errors here because those
+ *     surfaces do not need it, not because the ID itself is a bearer secret.
+ *     The persisted guest-ID resume claim is non-secret, advisory
+ *     correlation data, not a bearer credential. It is distinct from the
+ *     protected `sessionToken`/`reconnectToken` credentials; redaction
+ *     continues to cover claim values and any server-authored text that
+ *     echoes them.
  *
  * Determinism discipline: pure state machine over socket callbacks;
  * timers are transport infrastructure (heartbeat, action timeouts,
@@ -242,8 +241,10 @@ export interface WsLobbyClientOptions {
 /**
  * The concrete client handle. Actions return promises that settle only
  * on the server echo of their exact `LobbyActionId`; rejections carry
- * typed lobby errors. No method or accessor returns the opaque guest
- * player ID — see the module privacy note.
+ * typed lobby errors. The client does not expose its internal resume claim
+ * through an accessor; the guest ID is non-secret advisory correlation data.
+ * The protected `sessionToken`/`reconnectToken` bearer credentials remain
+ * inaccessible (see the module note).
  */
 export interface WsLobbyClient {
     /** Open the socket and run the full establish cycle (identity + subscribe). */
@@ -430,25 +431,26 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     // -- Logging + privacy choke point ------------------------------------------
 
     /**
-     * Every opaque claim id this session has held: bootstrap mints,
+     * Every opaque identity-claim id this session has held: bootstrap mints,
      * values restored from storage, and server-delivered replacements
      * (feature 010 Clarifications v1.6). At the adoption moment two
      * live values exist — the stale local mint and the server-issued
      * successor — and log lines or server text from either era must
      * come out clean, so {@link redact} scrubs them ALL.
      */
-    const knownSecrets = new Set<string>();
+    const knownIdentityClaims = new Set<string>();
 
     /**
-     * Scrub every occurrence of ANY known secret value out of `text`.
-     * Defense-in-depth: our own messages never contain a secret, and
-     * this catches server-authored text echoing one back.
+     * Scrub every occurrence of ANY known guest-ID identity claim out of
+     * `text`. Defense-in-depth: our own messages do not need to expose this
+     * advisory correlation value, and this catches server-authored text
+     * echoing one back.
      */
     function redact(text: string): string {
         let safe = text;
-        for (const secret of knownSecrets) {
-            if (secret.length > 0) {
-                safe = safe.split(secret).join(REDACTION_MARKER);
+        for (const identityClaim of knownIdentityClaims) {
+            if (identityClaim.length > 0) {
+                safe = safe.split(identityClaim).join(REDACTION_MARKER);
             }
         }
         return safe;
@@ -500,7 +502,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      * fresh as needed. Called at the top of every establish cycle so a
      * forgotten/expired claim self-heals before the next presentation.
      * Every value that passes through is registered with
-     * {@link knownSecrets} for the redaction choke point.
+     * {@link knownIdentityClaims} for the redaction choke point.
      */
     function ensureClaim(): StoredLobbyClaim {
         if (currentClaim !== null) {
@@ -508,13 +510,13 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         }
         const restored = loadStoredClaim(storage);
         if (restored !== null) {
-            knownSecrets.add(restored.guestPlayerId);
+            knownIdentityClaims.add(restored.guestPlayerId);
             currentClaim = restored;
             confirmedHandle = restored.handle;
             return restored;
         }
         const fresh: StoredLobbyClaim = { guestPlayerId: mintClaimId(), handle: null };
-        knownSecrets.add(fresh.guestPlayerId);
+        knownIdentityClaims.add(fresh.guestPlayerId);
         if (!saveStoredClaim(fresh, storage) && storage !== null) {
             log('warn', 'claim persistence failed (storage unavailable or full)', {});
         }
@@ -565,7 +567,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         if (delivered === undefined) {
             return false;
         }
-        knownSecrets.add(delivered);
+        knownIdentityClaims.add(delivered);
         if (currentClaim === null) {
             const adopted: StoredLobbyClaim = { guestPlayerId: delivered, handle: confirmedHandle };
             currentClaim = adopted;

@@ -26,7 +26,9 @@
  * {@linkcode propagateHandleRename} sweeps an accepted-handle rename
  * across a guest's in-flight records (US1 AC-4); subsequent matches
  * pick the fresh handle up automatically via the same snapshot copy.
- * The opaque id stays internal — no public payload gains it.
+ * The identity id is non-secret correlation metadata and may be included on
+ * safe public or diagnostic surfaces; it does not grant authority. Handles
+ * remain preferred labels, while session/reconnect tokens stay protected.
  *
  * Records are mutated in place and returned for fluent use — the
  * store holds live references, so there is exactly one copy of the

@@ -46,7 +46,7 @@
 
 - Spec FR-006 is explicit: "unknown IDs MUST be rejected without revealing whether a private match exists."
 - Spec edge case: "What happens when a client tries to join a private match without its ID?" → "No discovery path exists; join attempts by unknown ID fail with 'match not found' (no existence leak)."
-- The "no existence leak" rule is satisfied by **a single code path** that does not differentiate "match doesn't exist" from "match exists but is private and you don't have the token" from "match is public but you're not the creator and can't see private metadata." All three return the same response.
+- The "no existence leak" rule is satisfied by **a single code path** for unknown IDs: it does not disclose whether a probed ID maps to a private match. A known private `MatchId` is the deliberately shareable, non-secret join reference in v1; it is distinct from the session/reconnect bearer token issued after seating.
 - This is the simplest possible implementation: one `if (!store.has(matchId)) return match_not_found;` check at the top of every join path.
 
 **Code-level enforcement**:
@@ -59,7 +59,7 @@ function joinMatch(req: JoinMatchRequest): JoinMatchResult {
   }
   const match = store.get(req.matchId)!;
   // ... proceed to seat-filling logic (no visibility check here —
-  //     the existence of the matchId in the store IS the auth)
+  //     the known matchId is the v1 shareable admission reference)
 }
 ```
 
@@ -300,7 +300,7 @@ The total wall time for steps 1–5 is bounded by `SC-002` (2 s end-to-end). All
 ```ts
 export type MatchmakerErrorCode =
   | 'invalid_request'         // bad shape (empty displayName, unknown visibility, etc.)
-  | 'match_not_found'         // ID unknown OR private (no existence leak)
+  | 'match_not_found'         // unknown ID; no private-match existence leak
   | 'match_full'              // all seats taken
   | 'match_not_joinable'      // already running, not a reconnect
   | 'seat_taken'              // reconnect race; another connection claimed the seat
@@ -317,7 +317,10 @@ export type MatchmakerErrorCode =
 **Rationale**:
 
 - Closed string union = TypeScript narrows `result.error.code` for callers. Console (feature 005) maps each code to a localized message.
-- `match_not_found` covers "unknown" + "private" + "expired" + "collected" — the matchmaker cannot distinguish these without leaking existence. (Same rationale as §2.)
+- `match_not_found` is the generic response for an unknown/unavailable match
+  reference where revealing private-match state would leak existence. A holder
+  of a valid private `MatchId` follows the normal join path; it does not receive
+  or substitute a session bearer credential.
 - Throwing is reserved for invariant violations (e.g., `createMatch` with `playerCount = 0`). The host's uncaught-exception handler logs and crashes the process (correctness over availability in v1).
 
 **Citation**: spec FR-006 + Q2 (no existence leak); constitution Principle IV (specs as docs — closed error code set is a documented contract).

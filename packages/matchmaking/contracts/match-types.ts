@@ -221,9 +221,11 @@ export type PlayerSessionId = string & { readonly __brand: 'PlayerSessionId' };
  *                   only by someone who knows the `MatchId` (typically
  *                   delivered via shareable URL).
  *
- * The matchmaker does NOT differentiate `match_not_found` for "ID is
- * unknown" vs. "ID is private and you don't have the token" — both
- * return the same error code (FR-006).
+ * A `MatchId` is a non-secret admission reference, not a bearer credential.
+ * A caller with the known reference may make an admission attempt; the server
+ * validates that attempt. The matchmaker does NOT differentiate
+ * `match_not_found` for an unknown `MatchId` vs. a rejected private-match
+ * admission attempt — both return the same error code (FR-006).
  */
 export type MatchVisibility = 'public' | 'private';
 
@@ -388,8 +390,9 @@ export type MatchmakerErrorCode =
   /** Bad request shape (empty displayName, unknown visibility, ...). */
   | 'invalid_request'
   /**
-   * Match ID unknown OR private-without-token OR expired OR collected.
-   * Single code path; no existence leak (FR-006 + Q2 clarification).
+   * Unknown `MatchId` OR rejected private-match admission attempt OR expired
+   * OR collected. Single code path; no existence leak (FR-006 + Q2
+   * clarification).
    */
   | 'match_not_found'
   /** All seats taken. */

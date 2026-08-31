@@ -16,6 +16,21 @@
 
 ## 1. Overview of entities
 
+Player IDs and guest identity IDs are non-secret correlation metadata and may
+appear on wire or diagnostic surfaces. Session/reconnect tokens remain bearer
+credentials; this visibility distinction does not alter fog-of-war filtering or
+authorization. `MatchId` is also a non-secret routing/admission reference; it
+selects a match for the matchmaking handoff and may be used to attempt private
+admission, but it is not a session/reconnect credential and grants no seat,
+order, or view authority. The server remains authoritative for admission,
+seating, orders, and fog-filtered views.
+
+The temporary/local `pnpm host` operator flow is a narrow operational
+exception to the general credential-URL rule: it may print tokenized join URLs
+for local seat handoff. Those URLs remain bearer secrets and are not permitted
+as a general pattern in public app URLs, logs, diagnostics, or documentation
+examples.
+
 Networking maintains **three layers of state**, each with its own
 visibility:
 

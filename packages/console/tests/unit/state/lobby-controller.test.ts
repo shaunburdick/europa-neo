@@ -188,15 +188,15 @@ class FakeTransport implements LobbyTransport {
 
 const LOBBY_URL = 'ws://localhost:8080';
 const MATCH_A = 'match-a' as MatchId;
-/** Distinctive secret planted in identity deliveries; must NEVER appear in state. */
-const SECRET_GUEST_ID = 'opaque-secret-guest-id-DO-NOT-LEAK' as GuestPlayerId;
+/** Stable identity value used to exercise the directed delivery path. */
+const GUEST_ID = 'guest-correlation-id' as GuestPlayerId;
 
 function snapshotOf(revision: number, activeMatchId: MatchId | null): LobbySnapshot {
     return { revision: revision as LobbyRevision, entries: [], activeMatchId };
 }
 
 function namedIdentity(handle: string): IdentityState {
-    return { handle, hasIdentity: true, guestPlayerId: SECRET_GUEST_ID };
+    return { handle, hasIdentity: true, guestPlayerId: GUEST_ID };
 }
 
 // ----------------------------------------------------------------------------
@@ -245,7 +245,7 @@ describe('inbound transport fan-in', () => {
         controller.dispose();
     });
 
-    it('PRIVACY: the opaque guestPlayerId never enters application state', () => {
+    it('keeps the accepted handle correlated in application state', () => {
         const transport = new FakeTransport();
         const controller = createLobbyController({ transport, url: LOBBY_URL });
 
@@ -264,8 +264,6 @@ describe('inbound transport fan-in', () => {
             actionId: null,
         });
 
-        const serialized = JSON.stringify(controller.store.getState());
-        expect(serialized).not.toContain(String(SECRET_GUEST_ID));
         expect(controller.store.getState().handle).toBe('Nova');
         expect(controller.store.getState().failure?.detail).toEqual({ normalized: 'nova' });
         controller.dispose();

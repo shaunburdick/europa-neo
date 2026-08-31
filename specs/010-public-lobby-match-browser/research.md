@@ -1,5 +1,50 @@
 # Research: Public Lobby & Match Browser
 
+## Identity-visibility correction (2026-08-30)
+
+The approved correction in commit `ecfcfa5` is a policy/assertion migration,
+not a new feature. Feature 010 remains the canonical owner because it owns the
+identity/lobby checker and affected identity contracts. The implementation must
+distinguish three independent boundaries:
+
+1. `GuestPlayerId`, guest identity IDs, `MatchId`, and gameplay `PlayerId` are
+   non-secret references. Existing wire fields, URLs, logs, diagnostics, and
+   documentation may carry them for correlation.
+2. Accepted handles are preferred in human-facing labels; a generic label or ID
+   fallback is valid when no handle exists.
+3. `sessionToken` and `reconnectToken` are bearer credentials. They remain
+   prohibited in risky URLs, logs, diagnostics, and documentation examples.
+
+The correction must not turn an ID into an authority claim. Private-match
+existence resistance, server-resolved seat/order authority, reconnect validation,
+and fog filtering remain separate security invariants.
+
+### Residual contradictions found (historical inventory)
+
+> This section records the pre-correction research inventory. It is not a
+> statement of current policy; C-002–C-007 corrected the listed normative
+> surfaces, and C-008 records the residual sweep below.
+
+- The pre-correction checker banned player-facing ID field/term names and
+  implementation-surface ID examples.
+- Pre-correction source JSDoc/comments said IDs were internal-only or never rendered in
+  `packages/matchmaking/src/contracts/lobby-api.ts`, `lobby-types.ts`,
+  `src/internal/{guestPlayerIdentity,playerSession,seatRecord}.ts`, and
+  `packages/networking/src/contracts/network-types.ts` (and its Feature 004
+  contract mirror), plus `packages/console/src/internal/lobby-runtime.tsx`.
+- Pre-correction harness assertions/comments encoded the old policy in matchmaking
+  `lobby-conformance.test.ts`, `identityAssociation.test.ts`,
+  `lobby.serverAuthority.test.ts`, and networking `server-lobby.test.ts`;
+  the console lobby component test also named a no-ID rendering scan.
+- Historical/operational wording was identified in Feature 010 tasks/orchestration/
+  handoff, Feature 012 tasks (including its completed zero-ID checker result),
+  and any manual text found by the targeted sweep. Historical results are
+  relabelled rather than silently deleted.
+
+The already-corrected README and cross-feature spec paragraphs are review
+surfaces, not a reason to invent runtime behavior. Feature 011 contributes the
+log-security clarification: permitting IDs in logs does not permit credentials.
+
 ## Findings
 
 1. **Reuse the existing WebSocket.** Feature 004 already owns framing,
@@ -39,7 +84,8 @@
 
 | Alternative | Rejection |
 | --- | --- |
-| URL-encoded guest ID/handle | Violates privacy and allows client-controlled identity; URLs also leak through history/logs. |
+| Treat IDs as bearer secrets | Incorrectly blocks correlation and conflates identity references with credentials; IDs still do not authorize requests. |
+| URL-encoded guest ID/handle as client authority | URLs may carry non-secret IDs for correlation, but server-side resolution must ignore client claims for authority; bearer credentials remain unsafe in URLs. |
 | Server-trusted client seat/handle | Violates FR-021–FR-024 and breaks reconnect security. |
 | Polling every second | Slower update semantics, needless load, and poor action race behavior. |
 | Persistent SQLite profile table | Explicitly out of scope and violates the in-memory restart boundary. |
@@ -56,3 +102,11 @@
   helpers, error boundary, and existing Playwright/browser test setup.
 - Constitution: strict typing, deterministic server simulation, 80% coverage,
   accessibility, and self-hosting.
+
+### Verification approach
+
+Use repository search as a completeness check, the Feature 010 checker as the
+documentation gate, existing contract-conformance suites for mirrored shapes,
+and focused negative fixtures for credential-bearing URLs/logs. Run the existing
+private-match and fog audits unchanged; success means the policy is relaxed for
+IDs without relaxing any actual security boundary.

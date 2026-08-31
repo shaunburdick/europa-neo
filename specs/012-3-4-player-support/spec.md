@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-28
 
-**Last Updated**: 2026-08-29 (v1.1 — disable 64×64 board size, terrain issue #26)
+**Last Updated**: 2026-08-30 (v1.2 — identity-visibility correction)
 
-**Version**: 1.0
+**Version**: 1.2
 
 **Status**: Implemented (2026-08-29)
 
@@ -68,7 +68,7 @@ As a player browsing the lobby, I want the create form to default to a larger bo
 1. **Given** the lobby create form, **When** a user selects `3 players`, **Then** the board-size control pre-selects the default for 3p (`48`) without erasing a prior explicit override until the player changes it again.
 2. **Given** the lobby create form, **When** a user selects `4 players`, **Then** the board-size control pre-selects the default for 4p (`48`) — overrideable to `32`, `48`, or `64`.
 3. **Given** three public matches (2p 1/2, 3p 2/3, 4p 3/4), **When** the lobby list is rendered, **Then** each row shows occupancy and capacity (e.g., "Players 2 / 3"), seats-filled count, and map-size label, with Join/Spectate availability correct per FR-007 of 010.
-4. **Given** a private 3p or 4p match exists (shareable link only), **When** the lobby is listed, **Then** the match does not appear in any public entry and its ID is not leaked (006 FR-006 boundary preserved; lobby = public only per 010 FR-015).
+4. **Given** a private 3p or 4p match exists (shareable link only), **When** the lobby is listed, **Then** the match does not appear in any public entry and the listing does not disclose its private existence (006 FR-006 boundary preserved; lobby = public only per 010 FR-015). A known non-secret match ID may still be used through its shareable link.
 
 ---
 
@@ -129,12 +129,12 @@ As a player reading `docs/manual/`, I want the board-size defaults, lobby partic
 
 **Why this priority**: FR-012 discipline: any change set that alters documented behavior must update the manual in the same change set; violation is a review failure.
 
-**Independent Test**: Manual review diff + automated doc guards: `docs/manual/*.md` touched in the same change sets that touch lobby/console/host defaults; `grep` docs drift check (009 FR-009 + 010's `check-documentation-privacy.mjs` pattern) passes with zero opaque IDs/session tokens exposed in prose or examples.
+**Independent Test**: Manual review diff + automated doc guards: `docs/manual/*.md` touched in the same change sets that touch lobby/console/host defaults; the docs check rejects credential values/URLs while allowing non-secret ID correlation examples.
 
 **Acceptance Scenarios**:
 
 1. **Given** the manual after this feature, **When** a player reads `the-board.md` and `numbers.md`, **Then** the default board sizes are listed per player count (2p→32, 3p→48, 4p→48; 32/48/64 all supported via override) and every per-player color / counts entry still matches shipped constants.
-2. **Given** `quick-start.md` / `reading-the-screen.md` / `controls.md`, **When** instructions mention the waiting overlay or joining via link, **Then** the pluralized wording and "N of M" occupancy are described without ever printing an opaque guestPlayerId or session token.
+ 2. **Given** `quick-start.md` / `reading-the-screen.md` / `controls.md`, **When** instructions mention the waiting overlay or joining via link, **Then** the pluralized wording and "N of M" occupancy are described without printing session/reconnect token values; non-secret player IDs may be used for correlation examples.
 3. **Given** `quick-start.md` or an operator/self-hosting section that mentions `pnpm host`, **When** read after this change set, **Then** the single-port URL (`http://localhost:8080/` per 011) and the new `--players`/`--board-size` flags are shown correctly (and `HOST_STATIC_PORT` is never presented as an option).
 4. **Given** the numbers appendix or `index.md` footer, **When** checked by the version-drift guard (009), **Then** the lockstep footer/version line remains byte-consistent with `APP_VERSION`.
 5. **Given** the same change set, **When** `pnpm version:check` and the docs-privacy check run, **Then** both pass (no stale two-port references per 011 FR-015/FR-016).
@@ -153,6 +153,11 @@ As a player reading `docs/manual/`, I want the board-size defaults, lobby partic
 - **Fog isolation with N>2**: Fog (002) computes a per-player `VisibleSet` unioned over that player's stacks at Chebyshev radius 4, stateless (no memory), deterministic, and spectators remain full-visibility read-only. Per-tick broadcasts for N>2 remain individually fog-filtered (004 FR-005). Zero structural leakage is pinned by a 500-tick audit (002 SC-001 / 004 SC-004) parameterized over `3` and `4`.
 - **Host script resilience**: `pnpm host --players N` without a built `dist/` fails with "run pnpm build" (existing guard); `EADDRINUSE` on `HOST_PORT` surfaces an actionable message (011); `--static-port`/`HOST_STATIC_PORT` are rejected as unsupported (011 FR-004) with a clear error — no second listener. SIGINT exits idempotently (host integration proven). Binary E2E topology uses a single `http.Server` with `port: 0` (`__boundPortForTest`) as 011 FR-009 mandates — no two-port test seam reintroduced.
 - **Compatibility**: Existing 2-player flows, `NETWORK_API_VERSION`/`MATCHMAKING_API_VERSION` semantics, `PrivateMatch`/`PublicLobbyEntry` discovery, reconnect/session/retry, and console geometry (region targeting, subcell para/gun, reserves 0–90% steps) are unchanged. No frame, envelope, wire-kind, or `ProtocolEnvelope` version bump.
+
+- **Identity visibility**: Guest identity IDs and gameplay `PlayerId` values are
+  non-secret correlation metadata. Handles remain preferred in UI; bearer
+  session/reconnect tokens, private-match existence, authorization, and fog
+  boundaries remain protected (feature-010 identity-visibility correction).
 
 ## Requirements
 
@@ -207,7 +212,7 @@ As a player reading `docs/manual/`, I want the board-size defaults, lobby partic
 
 - **FR-013 — Manual updated in same change sets**: Every change set that alters behavior documented by the manual MUST update `docs/manual/` in the SAME commit(s) — including the board-size defaults per player count, lobby capacity/occupancy display, waiting-overlay wording, host CLI flags/syntax, victory/spectate notes for `N>2`, and the `numbers.md` tunable table. Stale manual text or numbers are review failures. Allowed to land across multiple stacked change sets (each individually FR-012-consistent) rather than a single monolithic commit — but no merge to `main` may carry a stale manual. Version footer (`docs/manual/index.md`) lockstep (`APP_VERSION`) per 007 FR-017 / 009 FR-009 stays green.
 
-- **FR-014 — Docs privacy preserved**: Manual updates MUST NOT print opaque guest player IDs, `SessionToken`s, reconnect tokens, or credential-bearing URLs. Examples remain handle-based (`P1`..) and token-free, satisfying 010 NFR-003 / `check-documentation-privacy.mjs`.
+- **FR-014 — Docs credential boundary**: Manual updates MUST NOT print `SessionToken`/`reconnectToken` values or credential-bearing URLs. This prohibition does not ban the temporary/local `pnpm host` operator flow from printing tokenized join URLs at runtime; those URLs are a narrow operator convenience, must be treated as bearer secrets, and must not be generalized to public app URLs, logs, diagnostics, or documentation examples. Player IDs are non-secret and may appear when useful, while examples prefer handles (`P1`..), satisfying the corrected feature-010 policy and the retained private-match/fog boundaries. The checker is amended during implementation planning.
 
 ### Key Entities
 
@@ -243,7 +248,7 @@ As a player reading `docs/manual/`, I want the board-size defaults, lobby partic
 
 - **SC-008 — Host CLI smoke for N>2**: `host-config` unit tests + one real-`http.Server` integration smoke per `N ∈ {3,4}` (with `port: 0` + `__boundPortForTest()` per 011 FR-009) are green: `--players 3|4 --board-size 32|48|64` resolve correctly, invalid values fail with actionable messages naming the flag and allowed set, bare `--players 3` implies `48` (FR-011), and the booted stack at `--players N` prints `N` URLs, serves `GET /version === APP_VERSION` and same-origin WS over the same port (011 SC-002/SC-005 checks extended to N>2 smoke).
 
-- **SC-009 — Manual version stays truthful without publishing stale lore**: The implementation change set(s) include `docs/manual/` updates per FR-013; `pnpm version:check` is green (`APP_VERSION` lockstep) and the docs-privacy check is green (zero opaque-id/credential leaks, stale two-port references gone); `reading-the-screen` status values, the `numbers.md` tunable table, the lobby/waiting/host instructions, and the footer version line(`docs/manual/index.md`) are all byte-consistent with shipped behavior.
+- **SC-009 — Manual version stays truthful without publishing secrets**: The implementation change set(s) include `docs/manual/` updates per FR-013; `pnpm version:check` is green (`APP_VERSION` lockstep) and the docs check is green (zero credential leaks, stale two-port references gone; non-secret IDs may be documented); `reading-the-screen` status values, the `numbers.md` tunable table, the lobby/waiting/host instructions, and the footer version line(`docs/manual/index.md`) are all byte-consistent with shipped behavior.
 
 ## Assumptions
 

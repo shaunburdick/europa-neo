@@ -81,9 +81,11 @@ export type Result<TSuccess, TError> = [undefined] extends [TSuccess]
  * appear here (spec v1.1 amendment; FR-021 keeps order authority with
  * the server-resolved seat).
  *
- * The connection transitions into the existing networking handshake/
- * session path with these values; the lobby association stays
- * server-side (the browser never sees the opaque guest id).
+ * The connection transitions into the existing networking handshake/session
+ * path with these values. IDs may be visible for safe correlation, but handles
+ * are preferred labels and the lobby association remains server-authoritative.
+ * The session token is a protected bearer credential and must not be confused
+ * with an identity or match ID.
  */
 export interface MatchJoinTarget {
     /** The match entered (also reflected in later snapshots' `activeMatchId`). */

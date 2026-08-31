@@ -3,6 +3,8 @@
 **Feature Branch**: `002-fog-of-war-visibility`
 
 **Created**: 2026-08-21
+**Last Updated**: 2026-08-30 (v1.2; identity-visibility correction)
+**Version**: 1.2
 
 **Status**: Implemented
 
@@ -74,6 +76,7 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 - **FR-006**: A spectator/observer mode MUST receive full board state and MUST be read-only.
 - **FR-007**: Visibility computation MUST be deterministic and part of the engine core (same inputs → same visible sets), testable headlessly.
 - **FR-008**: Sensor radius MUST apply uniformly to all players (no asymmetric vision in v1).
+- **FR-009**: Player IDs and guest identity IDs are identity metadata, not hidden game state. They MAY accompany an otherwise authorized view, but MUST NOT grant access to or disclose cells, terrain, troops, events, or other fog-filtered state.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -102,3 +105,10 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 ### v1.1 (2026-08-22) — SC-004 measurement hardening
 
 - 2026-08-22: SC-004 measurement hardened — wall-clock p99 over ≤100 samples is dominated by shared-CI-runner scheduler stalls (observed 1.9–3.7ms tails against a 0.078ms median); assertion now median < 1ms + p99 < 10ms guard after warmup. Algorithm unchanged.
+
+### v1.2 (2026-08-30) — Identity metadata is distinct from fog privacy
+
+- IDs may be exposed for participant correlation, including in a view or transport trace, without relaxing the server-side visibility set. Fog protects game state, not identity references.
+- `sessionToken` and `reconnectToken` remain bearer credentials and are not view
+  data; identity IDs never substitute for those credentials or for a
+  server-authorized seat.

@@ -11,7 +11,9 @@
  *   - the REAL exported `prepareMatch` (012 T018) creates + fills an
  *     N-seat public match and yields one session token per seat;
  *   - N Node wire clients join through the exact token-bearing join URLs
- *     the launcher prints (`?live&ws=…&match=…&name=…&token=…`), receive
+ *     the local operator launcher prints (`?live&ws=…&match=…&name=…&token=…`).
+ *     This is an explicitly local-operator convenience for seat recovery,
+ *     not a general credential-in-URL policy; clients receive
  *     tick broadcasts, and get authoritative order acks;
  *   - a SIGINT-driven shutdown is idempotent (the second signal is a no-op).
  *
@@ -271,7 +273,7 @@ interface SeatLeg {
 
 /**
  * Connect a REAL match client and complete a token-bearing join through
- * the exact join URL the launcher prints. The seat's session token is
+ * the exact local-operator join URL the launcher prints. The seat's session token is
  * presented as `reconnectToken` (the URL's `?token=`); for a seat that
  * has never connected this resolves via the server's seat-scan path and
  * claims that specific seat — the same "refresh reclaims own seat"

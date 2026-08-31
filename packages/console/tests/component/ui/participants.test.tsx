@@ -7,8 +7,8 @@
  *   - nothing renders before naming data exists;
  *   - per-seat labels with `<bdi>` isolation on every server name;
  *   - the local seat's "(you)" marker and distinct accessible labels;
- *   - the no-ID guarantee: an opaque guest-id-shaped token never
- *     appears in the rendered HTML.
+ *   - handles are preferred labels and unknown names use a neutral
+ *     fallback rather than exposing transport credentials.
  */
 
 import { afterEach, describe, expect, test } from 'vitest';
@@ -59,13 +59,13 @@ describe('ParticipantStrip (smoke)', () => {
         expect(isolated[1]?.textContent).toBe('מִיכָאֵל');
     });
 
-    test('no opaque guest-id-shaped value reaches the rendered HTML', async () => {
-        // The session shape cannot carry a guest id; assert the guard
-        // anyway by scanning the full rendered HTML for the field name
-        // and a generic prefixed-token shape.
-        const session = sessionOf({ playerId: 1, displayName: 'Nova', opponents: ['Orion'] });
+    test('uses the authoritative player correlation for seat placement and a neutral name fallback', async () => {
+        const session = sessionOf({ playerId: 2, displayName: '', opponents: ['Nova'] });
         const screen = await render(<ParticipantStrip session={session} />);
-        expect(screen.container.innerHTML).not.toContain('guest_');
-        expect(screen.container.innerHTML).not.toMatch(/guestPlayerId/i);
+        const seats = screen.container.querySelectorAll('[data-europa-seat]');
+        expect(seats[0]?.textContent).toContain('Nova');
+        expect(seats[0]?.textContent).not.toContain('(you)');
+        expect(seats[1]?.textContent).toContain('—');
+        expect(seats[1]?.textContent).toContain('(you)');
     });
 });

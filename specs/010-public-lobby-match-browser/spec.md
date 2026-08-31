@@ -3,9 +3,9 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-26 (v1.6)
-**Version**: 1.6
-**Status**: Implemented (2026-08-26)
+**Last Updated**: 2026-08-31 (v1.7; identity-visibility correction)
+**Version**: 1.7
+**Status**: Implemented (2026-08-31; C-010 review complete)
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -80,7 +80,7 @@ As a player or observer, I want to join an open game or spectate a running publi
 2. **Given** a listed running public match, **When** the player activates Spectate, **Then** they receive the existing full-visibility spectator view and no player seat or order permissions.
 3. **Given** a player attempts to join a match after its last open seat was claimed, **When** the server processes the request, **Then** it rejects the request cleanly and the lobby refreshes the entry.
 4. **Given** a player is already seated in or spectating a match, **When** they return to the landing page, **Then** they can see their active-match status and cannot accidentally claim a second seat with the same active identity.
-5. **Given** a match contains players, **When** a participant views the match waiting/live UI, **Then** each occupied player seat is labeled with that player's accepted handle, including the viewer's own seat, and no participant is labeled with an opaque guest player ID.
+5. **Given** a match contains players, **When** a participant views the match waiting/live UI, **Then** each occupied player seat is labeled with that player's accepted handle when available, including the viewer's own seat; when unavailable, a generic fallback or player ID MAY be shown.
 
 ### Edge Cases
 
@@ -96,7 +96,7 @@ As a player or observer, I want to join an open game or spectate a running publi
 - A player's accepted handle and GuestPlayerIdentity remain associated when the player transitions from lobby to match, including the waiting session, player seat, reconnect state, order attribution, and server-generated player/spectator view.
 - Reconnecting with the existing reconnect credential restores the same player association and displayed handle; presenting another player's credential or an unknown credential cannot attach orders or views to that player.
 - The server is the sole authority for GuestPlayerIdentity-to-seat association and handle changes. Client-provided seat numbers, handles, or opaque guest player IDs are advisory input only and cannot override the server record.
-- Opaque guest player IDs are implementation/session identifiers, not display names: they are not rendered in lobby or match UI, public lobby projections, or spectator/player views, and are not accepted as a user-selectable participant identity.
+- Guest player IDs are non-secret correlation identifiers, not user-selected handles. They MAY appear in projections, URLs, views, logs, diagnostics, or documentation when useful; UI MUST prefer the accepted handle and MAY use an ID or generic fallback when no handle exists.
 - The implementation change that adds this feature MUST update applicable user-facing documentation, including the player manual, to explain guest player identity, handle selection, and how participant names appear in matches.
 - The same implementation change MUST update applicable developer/operator/API documentation, including README and self-hosting/launch guidance, to document identity and handle propagation, the relevant wire/session behavior, and the in-memory privacy/lifecycle boundary.
 
@@ -106,7 +106,7 @@ As a player or observer, I want to join an open game or spectate a running publi
 
 - **FR-001**: The service MUST provide one landing/lobby interface as the default entry point instead of automatically creating or selecting one match at startup.
 - **FR-002**: The server MUST assign each new visitor a `GuestPlayerIdentity` containing an opaque unique guest player ID and MUST keep the active guest player identity available to the application for lobby and match actions. A GuestPlayerIdentity is not an authenticated account: it is ephemeral, backed by browser and server memory, and lost when browser storage is cleared or the server restarts.
-- **FR-003**: The browser MUST store the opaque guest player ID and selected handle locally so a reload can restore the active GuestPlayerIdentity; this storage MUST NOT be treated as an account or durable server record. The opaque guest player ID is not a public display name and MUST NOT be exposed in UI, public listings, URLs, views, or documentation examples.
+- **FR-003**: The browser MUST store the guest player ID and selected handle locally so a reload can restore the active GuestPlayerIdentity; this storage MUST NOT be treated as an account or durable server record. The guest player ID MAY be exposed as non-secret identity/reference data, but the accepted handle remains the preferred UI label.
 - **FR-004**: Users MUST be able to set and rename a handle without authentication; a valid handle MUST contain 1–24 Unicode characters after trimming, contain at least one non-whitespace character, and contain no control characters. Uniqueness MUST be enforced among active users/sessions.
 - **FR-005**: Handle uniqueness MUST compare trimmed, case-insensitive values; the displayed value MAY preserve accepted casing, and the existing reconnect grace period MUST preserve the original user's handle.
 - **FR-006**: The lobby MUST list public matches only and MUST expose each listing's match identifier, occupancy/capacity, supported settings summary, and lifecycle status.
@@ -123,18 +123,18 @@ As a player or observer, I want to join an open game or spectate a running publi
 - **FR-017**: The default self-hosted launch MUST serve the landing interface without a pre-created match, while preserving an explicit path for a user to create one; gameplay remains server-authoritative and fixed-tick deterministic.
 - **FR-018**: The feature MUST surface recoverable failures (identity setup, duplicate handle, unavailable match, full match, lost connection, and server restart) without trapping the user on a blank or silent screen, and MUST provide a retry, correction, or return-to-lobby action where applicable.
 - **FR-019**: When a player creates or joins a match, the server MUST propagate the active `GuestPlayerIdentity` reference and its accepted handle into the authoritative match/session and seat records. The association MUST remain available through waiting, start, gameplay, terminal, and existing reconnect-grace states; a handle rename MUST update future match projections for that identity without changing the identity reference.
-- **FR-020**: The match waiting/live interface MUST identify every occupied player seat with the server-authoritative accepted handle, including the local player's own seat and other participants visible to that player. The UI MUST provide a distinct, accessible label for each player and MUST NOT display an opaque guest player ID as a participant name.
+- **FR-020**: The match waiting/live interface MUST identify every occupied player seat with the server-authoritative accepted handle when available, including the local player's own seat and other participants visible to that player. If no handle is available, it MUST provide a distinct accessible generic or player-ID label.
 - **FR-021**: The server MUST attribute every accepted order to the server-resolved player seat and GuestPlayerIdentity associated with the connection/session, regardless of any client-supplied handle, opaque guest player ID, or seat claim. An order claiming a different player MUST be rejected without changing world state, and the rejection MUST be observable to the requesting client.
 - **FR-022**: Existing reconnect handling MUST restore the same identity, handle, seat, and participant label when a reconnect credential is valid and within the existing grace period. Invalid, expired, mismatched, or already-consumed reconnect credentials MUST NOT attach the connection to another player's seat, orders, or view and MUST follow the existing recoverable reconnect failure behavior.
 - **FR-023**: Player and spectator views MUST be generated from server-authoritative seat/identity associations. Player views MAY expose the handles needed to identify visible participants, while spectator views MAY expose all match participant handles; neither view may allow a client to rewrite identity, seat ownership, or order authority.
-- **FR-024**: Guest player IDs MUST be opaque, unique among active GuestPlayerIdentities, non-semantic, and unsuitable as user-facing names. They MUST NOT appear in public lobby entries, participant labels, player views, spectator views, URLs, or documentation examples; transport/session records MAY retain them only as needed for server-authoritative association and reconnect handling.
-- **FR-025**: The feature's identity propagation behavior MUST have acceptance coverage proving that two players' handles follow them from lobby into match/session records and UI, that orders are attributed to the correct server-side seat, that reconnect restores the same association, and that player/spectator views do not leak opaque identifiers.
-- **FR-026**: The same implementation change set MUST update applicable user-facing documentation and the player manual with the guest player identity lifecycle, handle validation/rename behavior, and match participant identification. Documentation acceptance MUST verify that the manual describes what players see and how they are identified without exposing opaque guest player IDs.
-- **FR-027**: The same implementation change set MUST update applicable developer/operator/API documentation, including the README and self-hosting/launch documentation, with the GuestPlayerIdentity/handle propagation contract, server-authoritative association rules, reconnect/order/view implications, and the fact that guest player identities, handles, sessions, and matches are in-memory and lost on browser storage clearing or server restart. These documents MUST not present guest player IDs as stable accounts or public identifiers.
+- **FR-024**: Guest player IDs MUST be unique among active GuestPlayerIdentities and suitable for non-secret correlation. They MAY appear in public entries, participant labels, player/spectator views, URLs, transport/session records, logs, diagnostics, and documentation. They MUST NOT grant authority or disclose hidden match/game state. Bearer credentials remain governed by the credential boundary in this clarification.
+- **FR-025**: The feature's identity propagation behavior MUST have acceptance coverage proving that two players' handles follow them from lobby into match/session records and UI, that orders are attributed to the correct server-side seat, that reconnect restores the same association, and that player/spectator views do not disclose bearer credentials, hidden match/game state, or unauthorized authority through identity references.
+- **FR-026**: The same implementation change set MUST update applicable user-facing documentation and the player manual with the guest player identity lifecycle, handle validation/rename behavior, and match participant identification. Documentation acceptance MUST verify that the manual describes what players see and how they are identified, prefers accepted handles, and does not expose bearer credentials or hidden match/game state. Non-secret opaque guest/player IDs MAY be documented when useful for correlation; they MUST NOT be presented as credentials or authority.
+- **FR-027**: The same implementation change set MUST update applicable developer/operator/API documentation, including the README and self-hosting/launch documentation, with the GuestPlayerIdentity/handle propagation contract, server-authoritative association rules, reconnect/order/view implications, and the fact that guest player identities, handles, sessions, and matches are in-memory and lost on browser storage clearing or server restart. These documents MUST not present guest player IDs as stable authenticated accounts; they MAY present them as non-secret correlation identifiers.
 
 ### Key Entities
 
-- **GuestPlayerIdentity**: Ephemeral, non-authenticated, server-recognized guest player identity containing an opaque guest player ID, current handle, active-session status, and reconnect association. It is backed by browser/server memory and is lost when browser storage is cleared or the server restarts. Its opaque ID is not a public display name and is never exposed in UI, public listings, URLs, views, or documentation examples.
+- **GuestPlayerIdentity**: Ephemeral, non-authenticated, server-recognized guest player identity containing an opaque, non-secret guest player ID, current handle, active-session status, and reconnect association. It is backed by browser/server memory and is lost when browser storage is cleared or the server restarts. The handle is preferred as a display label; the ID may be used for correlation.
 - **Handle**: User-facing name associated with one active GuestPlayerIdentity; validated, trimmed for comparison, and unique case-insensitively among active identities.
 - **PublicMatch**: In-memory public match projection with a unique identifier, supported settings summary, capacity, occupancy, and lifecycle status.
 - **LobbyEntry**: Safe public projection of a PublicMatch used to decide whether Join or Spectate is available; it contains no private or hidden match data.
@@ -144,7 +144,7 @@ As a player or observer, I want to join an open game or spectate a running publi
 
 - **NFR-001 (Responsiveness)**: Under normal self-hosted conditions, the landing interface MUST show the initial identity/lobby state within 2 seconds of page readiness and MUST reflect a successful create, join, or leave action within 1 second of the authoritative response.
 - **NFR-002 (Concurrency)**: The server MUST preserve unique active handles and atomic seat assignment when concurrent requests target the same handle or final open seat; acceptance tests MUST cover at least 10 simultaneous conflicting requests.
-- **NFR-003 (Privacy)**: Public listings MUST contain only public-match data needed for discovery; opaque guest player IDs MUST remain server-side/session-scoped and MUST NOT be exposed in public listings, URLs, UI labels, player/spectator views, or documentation examples. Handles are the only participant identity shown to users, subject to the GuestPlayerIdentity's ephemeral, in-memory lifecycle; no authentication or personal data collection is required.
+- **NFR-003 (Identity and privacy boundaries)**: Public listings MUST contain only public-match data needed for discovery, but player IDs are non-secret identity/reference data and MAY be exposed where useful. UI prefers handles and may fall back to a generic label or ID. Bearer credentials, private-match existence, authorization, and fog-filtered game state remain protected; no authentication or personal data collection is required.
 - **NFR-004 (Compatibility)**: Existing gameplay, wire-version, reconnect-grace, fog-of-war, spectator, and match-terminal contracts MUST remain behaviorally compatible for clients entering a match through the lobby.
 - **NFR-005 (Operations)**: A self-hosted operator MUST be able to run the feature with the existing single-process launch instructions and no cloud service or persistent database.
 
@@ -159,10 +159,10 @@ As a player or observer, I want to join an open game or spectate a running publi
 - **SC-005**: A spectator can enter 10/10 sampled in-progress public matches, receives full-visibility read-only views, and produces zero accepted player orders.
 - **SC-006**: A keyboard-only accessibility pass can complete identity setup, create or join a match, spectate an in-progress match, and return to the lobby; all failure and empty states are announced and actionable.
 - **SC-007**: A 50-match sequential create/join/finish/collect soak leaves zero active matches, seats, or GuestPlayerIdentity sessions that should have expired under the existing lifecycle policy.
-- **SC-008**: In 10/10 two-client trials, each player's accepted handle appears on the correct waiting/live seat and remains correct after the first authoritative tick; neither client sees either opaque guest player ID in lobby, match UI, or received player/spectator view data.
+- **SC-008**: In 10/10 two-client trials, each player's accepted handle appears on the correct waiting/live seat and remains correct after the first authoritative tick. Any guest/player IDs present in lobby, match UI, or received player/spectator view data are treated as non-secret correlation data: they grant no seat, order, or view authority, disclose no hidden state, and do not replace the handle-first label rule.
 - **SC-009**: In a test with two seated players, 100 orders (including forged alternate handle, ID, and seat fields) result in every accepted order being attributed to the connection's server-authoritative seat, with all forged cross-player claims rejected and no unauthorized world-state change.
 - **SC-010**: In 10/10 reconnect trials within the existing grace period, each player resumes the original seat, handle, and view association; invalid or cross-player reconnect credentials produce no seat, order, or view reassignment.
-- **SC-011**: A documentation diff in the implementation change set updates the applicable player manual/user guidance and developer/operator/API/README/self-hosting guidance, and an automated or review checklist confirms that each describes handle visibility, authoritative identity association, and the opaque in-memory ID boundary without documenting opaque IDs as public identifiers.
+- **SC-011**: A documentation diff in the implementation change set updates the applicable player manual/user guidance and developer/operator/API/README/self-hosting guidance, and an automated or review checklist confirms that each describes handle visibility, authoritative identity association, and the opaque in-memory ID boundary without misrepresenting non-secret IDs as credentials, authority, or stable authenticated accounts.
 
 ## Out of Scope
 
@@ -196,16 +196,18 @@ No interactive clarification questions were required. The approved decisions res
 
 ### Session 2026-08-25 — Product-owner identity propagation amendment (v1.1)
 
+> **Historical policy note (superseded by v1.2 and v1.7 below):** The ID-visibility sentence in this amendment was an interim product decision and is no longer normative. The current rule permits non-secret ID correlation while preserving the credential, authority, private-match, and fog boundaries.
+
 - GuestPlayerIdentities and accepted handles follow players from the lobby into authoritative match/session and seat records and remain associated through orders, reconnects, terminal state, and player/spectator views.
-- Match UI identifies occupied seats with accepted handles, including the local player; opaque guest player IDs are never participant labels.
+- Match UI identifies occupied seats with accepted handles when available, including the local player; a generic fallback or non-secret player ID is allowed when no handle exists.
 - Identity, seat, order, reconnect, and view association is server-authoritative. Client-supplied identity, handle, or seat claims cannot reassign authority.
-- Guest player IDs remain private, non-semantic, session-scoped implementation identifiers. They are not exposed in lobby projections, URLs, UI labels, player/spectator views, or documentation examples.
+- Guest player IDs remain non-semantic, session-scoped implementation identifiers. (The former “private/not exposed” wording is superseded; see the current identity-visibility rule below.)
 - Documentation updates are part of the same implementation change set: applicable player-facing/manual content and applicable developer/operator/API/README/self-hosting content must describe the behavior and its in-memory privacy/lifecycle boundary.
 
 ### Session 2026-08-25 — Product-owner terminology amendment (v1.2)
 
 - The feature uses `GuestPlayerIdentity`/guest player identity consistently. A GuestPlayerIdentity is a guest player identity, not an authenticated account: it has a unique server-recognized opaque guest player ID and handle, is backed by browser/server memory, and is lost when browser storage is cleared or the server restarts.
-- The opaque guest player ID is not a public display name and MUST NOT be exposed in UI, public listings, URLs, views, or documentation examples. Handles remain the only participant identity shown to users.
+- Guest player IDs are non-secret identity references and MAY be exposed in UI, public listings, URLs, views, or documentation examples. Handles remain the preferred participant labels; IDs do not grant authority or disclose hidden state.
 
 ### Session 2026-08-25 — Wire error detail field ruling (v1.3)
 
@@ -230,8 +232,14 @@ No interactive clarification questions were required. The approved decisions res
 
 - **The gap (verified)**: FR-002 has the server assign each visitor an opaque GuestPlayerId and FR-003 has the browser store it locally so a reload restores the active identity within the reconnect grace window — but NO server→client channel carried that id. `IdentityState` was id-free in both canonical contract copies, `GuestIdentityClaim.guestPlayerId` was documented as "previously issued to this browser", and nothing ever issued/delivered it: on claim-miss the registry minted a server-side UUID that never reached the browser, so reload-restore could never work end-to-end.
 - **PM ruling (2026-08-26, final)**: `IdentityState` gains an ADDITIVE OPTIONAL `guestPlayerId?: GuestPlayerId` in BOTH canonical contract copies (matchmaking's `lobby-types.ts` and networking's wire mirror; no `NETWORK_API_VERSION` bump — same additive ruling pattern as v1.3's `detail`). The directed `identity` `LobbyEvent` becomes THE FR-003 delivery channel: the lobby facade populates the AUTHENTICATED owner's id when projecting identity state for that event (`establishIdentity`, `setHandle`, and every restore path), and the dispatcher forwards it verbatim — directed delivery to exactly ONE connection, the owner's. This mirrors feature-004's sessionToken delivery precedent.
-- **Witness-envelope change**: the compile-time privacy witnesses are re-scoped — `PublicLobbyEntry`, `LobbySnapshot`, and every action target still MUST NOT carry the id (unchanged), while the directed identity state is the ONE sanctioned exception, pinned for optionality + brand on both sides of the mirror (indexed-access witnesses, since plain mutual assignability cannot see a missing optional field). Runtime privacy scans stay truthful: entries, snapshots, action outcomes, and OTHER connections' deliveries remain scanned strictly id-free, and a dedicated pin proves a second connection NEVER receives another identity's guestPlayerId. Public listings/snapshots/targets/UI/URLs/logs remain strictly id-free (NFR-003/FR-024 unchanged).
+- **Witness-envelope change**: identity IDs are non-secret and may be carried by projections and correlation surfaces. Compile-time witnesses continue to enforce shape compatibility; runtime checks must still verify that IDs do not grant authority, expose credentials, enumerate private matches, or bypass fog filtering.
 - **Client contract**: browsers persist the server-delivered id (replacing any local bootstrap mint — the local mint remains first-frame bootstrap only) so reload-restore works end-to-end; clients MUST tolerate the field's absence (older servers).
+
+### Session 2026-08-30 — Product-owner identity-visibility correction (v1.7)
+
+- Guest identity IDs and gameplay `PlayerId` values are non-secret correlation data and may appear in URLs, wire payloads, internal state, logs, diagnostics, documentation, and examples.
+- Handles remain preferred participant labels; a generic fallback or player ID is acceptable when no handle is available.
+- Session/reconnect tokens remain bearer credentials and are not permitted in public app URLs, logs, diagnostics, or documentation examples. Narrow exception: the temporary/local `pnpm host` operator flow MAY print tokenized join URLs for local seat handoff; this is not a general app URL policy, and operators must treat those URLs as secrets because anyone who obtains one may attempt to resume that seat during the grace window. Private-match existence and fog-of-war boundaries are unchanged.
 
 ## Implementation Notes and Validation
 
@@ -253,7 +261,7 @@ changing the normative requirements or the v1.6 clarifications above:
   empty state, so an empty match list is not mistaken for a failed request.
 - The server-delivered identity claim is sent only in the directed identity
   event to its owner. Public projections, other connections, UI labels, URLs,
-  logs, and player/spectator views remain free of opaque identity identifiers;
+  logs, and player/spectator views may carry non-secret identity identifiers;
   handles are the only participant names shown to users.
 - Identity, handle, lobby, session, and match state is in memory. A server
   restart resets the lobby and browser resume assumptions; the next visit
@@ -267,3 +275,21 @@ names and credential-bearing examples from player-facing surfaces; and rejects
 credential-bearing example values in the implementation/spec surfaces. It
 fails nonzero and reports each offending file and rule, so adding a forbidden
 identifier or example cannot silently pass review.
+
+### C-010 final review (2026-08-31)
+
+- This branch is a correction to existing Feature 010 and its approved
+  cross-references. It does not create Feature 013.
+- The Phase 4–5 artifacts (`plan.md`, `research.md`, `data-model.md`,
+  `quickstart.md`, `tasks.md`, and `orchestration.md`) describe planning and
+  delivery tracking only; all implementation changes in this branch are
+  accounted for by C-001 through C-010. No untracked implementation task was
+  discovered.
+- Review of FR-002/003/020/021/023/024/026/027 and NFR-003/004 confirms that
+  guest/player IDs remain non-secret correlation data, handles remain the
+  preferred labels, and server authority, reconnect credentials,
+  private-match non-enumeration, and fog filtering remain unchanged.
+- No runtime gameplay behavior or protocol version changed. The sole explicit
+  URL exception remains local `pnpm host` tokenized seat handoff; those URLs
+  remain bearer secrets and are not generalized to public app URLs, logs,
+  diagnostics, or documentation examples.

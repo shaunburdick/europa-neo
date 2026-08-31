@@ -52,6 +52,7 @@ export const CREATE_TERRAIN_PRESET: LobbyTerrainSettings = {
     waterRatio: 0.1,
     roughness: 0.5,
     octaves: 4,
+    terrainSmoothing: 4,
     citiesPerPlayer: 1,
     symmetryStrategy: 'point',
     minCityWaterDistance: 3,

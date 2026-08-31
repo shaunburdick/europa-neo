@@ -35,11 +35,12 @@
  * at every layer, and fog visibility is exactly the server-generated
  * spectator view — nothing is filtered or re-derived client-side.
  *
- * PRIVACY (binding): this module handles only sanitized
- * {@link LobbyState} plus the display handle it deliberately copies
- * into the match join's `displayName` (FR-019 — the handle FOLLOWS
- * the player into the match). The opaque guest id never appears here:
- * no DOM text, no URL material, no log lines (zero log sites).
+ * Identity handling: this module consumes {@link LobbyState} plus the
+ * display handle it deliberately copies into the match join's
+ * `displayName` (FR-019 — the handle FOLLOWS the player into the match).
+ * Player IDs are non-secret correlation data and may be carried or shown
+ * when useful; handles remain the preferred user-facing label. Resume
+ * credentials are still protected and authority remains server-resolved.
  *
  * Focus management: each view focuses its heading on ENTRY, but never
  * on initial page load (browser convention — the first view skips the

@@ -17,11 +17,8 @@ export interface IdentityState {
     readonly handle: string | null;
     readonly hasIdentity: true;
     /**
-     * Opaque id of the identity this state describes. Present ONLY on
-     * the directed `identity` event to its OWNING connection (spec
-     * Clarifications v1.6 — the FR-003 delivery channel); absent from
-     * every listing/snapshot/target/UI/URL/log (NFR-003). Clients MUST
-     * tolerate its absence.
+      * Non-secret correlation id of the identity this state describes.
+      * Clients MUST tolerate its absence. It does not grant authority.
      */
     readonly guestPlayerId?: GuestPlayerId;
 }
@@ -66,8 +63,9 @@ export type LobbyEvent =
       };
 ```
 
-`MatchId` is imported from networking/matchmaking. No PUBLIC PROJECTION in this
-document contains a guest ID: entries, snapshots, and action targets are
-strictly id-free, and the claim is input only. The one sanctioned appearance of
-the opaque id is `IdentityState.guestPlayerId`, delivered only by the directed
-`identity` event to its owning connection (spec Clarifications v1.6).
+`MatchId` is imported from networking/matchmaking. Guest IDs, match IDs, and
+gameplay player IDs are non-secret identity/reference data and may be projected
+where useful for correlation. A public projection still contains only
+public-match data: an ID does not grant authority or disclose private-match
+existence or fog-hidden state. Bearer `sessionToken`/`reconnectToken` values
+remain credentials and are not part of these projections.

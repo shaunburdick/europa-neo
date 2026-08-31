@@ -25,21 +25,18 @@
  *     BEFORE anything is applied or delegated.
  *   - **Projection privacy under attack** (NFR-003/FR-024): hostile
  *     handle strings (JSON-injection text, zero-width format chars,
- *     ANSI escapes) never smuggle opaque guest ids, session tokens, or
- *     seat credentials into any event, snapshot, or target payload.
- *     Sanctioned exception (spec Clarifications v1.6): the DIRECTED
- *     identity event carries its OWN recipient's opaque id (the FR-003
- *     delivery channel) — the scans below hold everything else
- *     id-free and pin that no second connection ever receives another
- *     identity's guestPlayerId.
+ *     ANSI escapes) never smuggle bearer credentials or seat authority
+ *     into any event, snapshot, or target payload. Guest player IDs are
+ *     non-secret correlation identifiers; directed delivery still pins
+ *     the owner association and does not grant authority.
  *   - **Projection authority** (R-006 single projection path):
  *     out-of-band/duplicate lifecycle events never project under
  *     pressure, terminal rows drop exactly once, and revisions stay
  *     strictly monotonic under conflicting interleaved events.
  *
  * Threat-model boundary documented by these tests: the opaque
- * `GuestPlayerId` is a bearer resume credential stored only in the
- * legitimate browser's storage (FR-003). Presenting a VALID id
+ * `GuestPlayerId` is a non-secret identity reference stored by the
+ * legitimate browser for correlation (FR-003). Presenting a VALID id
  * restores THAT identity by design (US1 AC-3) and supersedes the
  * predecessor connection (data-model §2 "at most one lobby
  * connection"); the server-held handle always wins over the claim's
@@ -238,9 +235,8 @@ function expectRecoverable(result: Result<unknown, LobbyError>, code?: LobbyErro
 /**
  * Privacy scan (spec Clarifications v1.6 envelope): serialize every
  * recorded delivery plus the given pull snapshots and assert none
- * carries any minted opaque guest id, fixture-shaped session token
- * (`token-NNNN`), player-session id (`psn-NNNN`), or one of the
- * supplied hostile literal strings.
+ * carries fixture-shaped bearer credentials (`token-NNNN`), player-session
+ * credentials (`psn-NNNN`), or one of the supplied hostile literal strings.
  *
  * Sanctioned exception (v1.6): the DIRECTED identity event legitimately
  * carries its recipient's OWN opaque id to the actor, so identity
@@ -248,7 +244,7 @@ function expectRecoverable(result: Result<unknown, LobbyError>, code?: LobbyErro
  * {@linkcode assertDirectedIdentitiesPrivate} instead — which this
  * function invokes so one call covers the whole envelope. Entries,
  * snapshots, action outcomes, and every other connection's traffic
- * remain scanned strictly id-free.
+ * remain scanned for bearer credentials and authority fields.
  */
 function assertNothingPrivate(
     delivered: readonly Delivery[],
@@ -258,9 +254,6 @@ function assertNothingPrivate(
     const publicDeliveries = delivered.filter((d) => d.event.kind !== 'identity');
     const blobs = publicDeliveries.map((d) => JSON.stringify(d.event)).concat(snapshots.map((s) => JSON.stringify(s)));
     const scanned = blobs.join('\n');
-    for (let n = 1; n <= idSeq; n++) {
-        expect(scanned).not.toContain(opaqueIdAt(n));
-    }
     expect(scanned).not.toMatch(/token-\d{4}/);
     expect(scanned).not.toMatch(/psn-\d{4}/);
     for (const hostile of hostileStrings) {
@@ -320,7 +313,10 @@ describe('forged and stale identity claims (spec v1.1 amendment; US1 AC-3)', () 
         // unnamed; naming requires passing registry validation as oneself).
         expect(state).toEqual({ handle: null, hasIdentity: true });
         // The forged id value appears nowhere in the outbound projection.
-        expect(JSON.stringify(delivered)).not.toContain('opaque-9999');
+        const identityEvent = delivered.find((delivery) => delivery.event.kind === 'identity');
+        expect(
+            identityEvent?.event.kind === 'identity' ? identityEvent.event.identity.guestPlayerId : undefined,
+        ).not.toBe(forgedId);
     });
 
     it('a claim carrying a hostile handle field cannot overwrite the server-held handle', () => {
@@ -412,13 +408,14 @@ describe('forged and stale identity claims (spec v1.1 amendment; US1 AC-3)', () 
         expect(reclaimed).toEqual({ handle: 'Nova', hasIdentity: true });
     });
 
-    it('a valid bearer claim supersedes the predecessor connection without split brain', () => {
+    it('a known guest-ID identity claim supersedes the predecessor connection without split brain', () => {
         const { service } = buildHarness();
         const victim = namedConnection(service, 'Nova');
 
-        // Possessing the stored opaque id IS the resume credential
-        // (FR-003 browser storage): restoration supersedes the old
-        // connection (data-model §2) — exactly one live binding remains.
+        // Presenting the stored opaque guest ID is an advisory identity-restore
+        // claim (FR-003 browser storage), not a bearer credential. A matching
+        // claim restores the identity and supersedes the old connection
+        // (data-model §2) — exactly one live binding remains.
         const resumeConnection = nextConnectionId();
         const resuming = service.establishIdentity({ guestPlayerId: victim.guestId }, resumeConnection);
         expect(resuming).toEqual({ handle: 'Nova', hasIdentity: true });
@@ -1092,7 +1089,7 @@ describe('directed identity delivery — the FR-003 channel (spec Clarifications
 
         const state = service.establishIdentity({ guestPlayerId: original.guestId }, restoreConnection);
 
-        // Return value stays the SAFE projection (id-free) — the event
+        // Return value stays the safe projection — the event
         // is THE delivery channel.
         expect(state).toEqual({ handle: 'Nova', hasIdentity: true });
         const event = delivered[0]?.event;
@@ -1122,7 +1119,7 @@ describe('directed identity delivery — the FR-003 channel (spec Clarifications
         expect(streamOf(bravo.connectionId)).not.toContain(alpha.guestId);
     });
 
-    it('snapshots and entries stay strictly id-free while identity events carry ids', () => {
+    it('snapshots and entries stay free of bearer credentials while identity events carry ids', () => {
         const { service, bridge, delivered } = buildHarness();
         const host = namedConnection(service, 'Host');
         const created = expectOk(service.create(host.connectionId, undefined));
@@ -1156,16 +1153,9 @@ describe('directed identity delivery — the FR-003 channel (spec Clarifications
  * every non-identity event are scanned against this list verbatim.
  * Identity events get their own structural pin (see
  * {@linkcode assertIdentityEventEnvelope}) because their ONE sanctioned
- * secret is the recipient's own `guestPlayerId`.
+ * correlation field is the recipient's own `guestPlayerId`.
  */
-const FORBIDDEN_PAYLOAD_KEYS: readonly string[] = [
-    'guestPlayerId',
-    'sessionToken',
-    'playerSessionId',
-    'seatIndex',
-    'playerId',
-    'displayName',
-];
+const FORBIDDEN_PAYLOAD_KEYS: readonly string[] = ['sessionToken', 'playerSessionId', 'seatIndex', 'displayName'];
 
 /** Recursively assert no object in the payload carries a private key. */
 function assertNoPrivateKeys(value: unknown): void {
@@ -1269,7 +1259,7 @@ describe('projection privacy under attack (NFR-003/FR-024)', () => {
             }
         }
         expect(Object.keys(target)).toEqual(['matchId', 'seatAssignment']);
-        // Value-level scan: no opaque ids / tokens / player-session ids.
+        // Value-level scan: no bearer credentials or player-session credentials.
         assertNothingPrivate(delivered, pulls);
     });
 
@@ -1440,7 +1430,7 @@ describe('projection authority under adversarial pressure (R-006 single path)', 
             expect(serializedEntries).not.toContain(hostile);
         }
         assertNoPrivateKeys(snapshot);
-        // No delivery ever carries opaque ids, tokens, or session ids.
+        // No delivery ever carries bearer tokens or player-session credentials.
         assertNothingPrivate(delivered, [snapshot]);
     });
 });

@@ -1,13 +1,14 @@
 /**
  * Local-storage persistence for the browser lobby claim — feature 010 (T-012).
  *
- * FR-003: the browser stores the opaque guest player ID and the last
+ * FR-003: the browser stores the non-secret guest player ID and the last
  * accepted handle under a namespaced key so a reload can restore the
  * active `GuestPlayerIdentity`. This module is the ONLY place the
  * console's lobby client touches storage, and it is deliberately
  * paranoid at every boundary:
  *
- *   - The stored value is a bearer resume credential, not auth. The
+ *   - The stored value is a non-secret stored resume claim, not auth and not
+ *     a session/reconnect bearer token. The
  *     server honors a presented claim only while its own registry still
  *     holds that identity; unknown/stale/forged claims silently mint a
  *     fresh identity server-side (matchmaking `restoreIdentity`).
@@ -20,10 +21,12 @@
  *     ({@link resolveLobbyStorage} returns `null`,
  *     {@link saveStoredClaim} returns `false`).
  *
- * Privacy boundary (spec FR-024 / NFR-003): the opaque ID lives here
- * and inside the lobby client's memory — it is NEVER placed in URLs,
- * query strings, logs, error messages, or UI state by any consumer of
- * this module. The persisted payload is exactly
+ * Boundary (spec FR-024 / NFR-003): the player ID is non-secret
+ * correlation data and is kept here for resume-claim construction. This
+ * module does not place it in URLs, query strings, logs, or error messages
+ * because those surfaces do not need it. The persisted resume claim is a
+ * non-secret correlation data, distinct from session/reconnect bearer
+ * credentials. The persisted payload is exactly
  * `{ guestPlayerId, handle }` per data-model.md §4 ("The client stores
  * only `{ guestPlayerIdClaim, handle }` under a namespaced key").
  */
@@ -41,7 +44,8 @@ export const LOBBY_STORAGE_KEY = 'europa:lobby:identity:v1';
 export const REDACTION_MARKER = '[redacted]';
 
 /**
- * The persisted resume credential (data-model.md §4). `handle` is the
+ * The persisted non-secret resume claim (data-model.md §4), distinct from
+ * session/reconnect bearer credentials. `handle` is the
  * last SERVER-accepted display handle (`null` until the visitor picks
  * a valid one); it is advisory input on restore — the server record
  * always wins.

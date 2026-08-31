@@ -132,10 +132,11 @@ export type { PlayerView } from '@europa/fog';
  * The lobby wire shapes the console's lobby state layer consumes
  * (feature 010). Type-only, like every upstream re-export above.
  *
- * `GuestPlayerId` is DELIBERATELY absent: the opaque id must never be
- * needed by console consumers (the state layer strips it at the
- * controller boundary), and a smaller surface is one fewer path for it
- * to leak into DOM/URLs/logs (spec FR-024/NFR-003).
+ * `GuestPlayerId` is absent from this projection because the current lobby
+ * state does not need the correlation ID. IDs are non-secret and may be
+ * carried or displayed where useful; handles are preferred for user-facing
+ * labels. Bearer credentials must still stay out of DOM, URLs, and logs,
+ * while identity and authority remain server-resolved.
  */
 export type {
     IdentityState,

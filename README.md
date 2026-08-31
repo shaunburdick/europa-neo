@@ -200,10 +200,14 @@ matches offer **Spectate**; collected matches are not history.
 Temporary disconnects use the existing reconnect grace window. A valid
 reconnect credential within that window restores the original seat, handle,
 view, and order authority. Expired, unknown, or mismatched credentials do not
-reassign a connection. The opaque guest identifier is delivered only in the
-directed identity event to its owner; public listings, other connections,
-URLs, views, and logs remain free of it. Host diagnostics deliberately omit
-bearer credentials and opaque identity identifiers.
+reassign a connection. Guest identity IDs and gameplay `PlayerId` values are
+non-secret correlation data, not credentials or authority, and may appear in
+URLs, wire payloads, views, logs, and diagnostics where useful. Labels are
+handle-first: the accepted handle is the preferred UI label, with a generic label
+or the relevant ID as a fallback when no handle exists. Only a valid bearer
+credential can resume a seat; host diagnostics continue to omit bearer
+credentials (`sessionToken` and `reconnectToken`). Private-match existence and
+fog-of-war boundaries remain protected.
 
 `GET /version` on the single-port origin returns application and protocol versions:
 
@@ -215,8 +219,11 @@ The normal lobby derives its WebSocket endpoint from the page host. For a
 different port or test harness, `?ws=` may override it, but only a same-host
 WebSocket URL is accepted; URLs with embedded credentials or another hostname
 are rejected. The direct `?live&ws=&match=&name=` route remains available for
-development and test integrations. Normal host output uses the lobby and does
-not place identity or credential material in the URL.
+development and test integrations. Normal public-app URLs do not carry bearer
+credentials. As a temporary/local operator convenience, `pnpm host` may print
+per-seat tokenized join URLs; those URLs are bearer secrets, should be shared
+only through the local operator's intended channel, and are not a general URL,
+logging, diagnostics, or documentation-example policy.
 
 ## Credits & licensing
 

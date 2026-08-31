@@ -273,7 +273,7 @@ describe('transition matrix: association persists through every path (FR-019)', 
         expect(alice.session.currentSessionToken).toBe(aliceSeat.sessionToken);
     });
 
-    it('running → finished preserves seats; results carry handles and NO opaque id', () => {
+    it('running → finished preserves seats; results correlate players by playerId', () => {
         const { match, aliceSeat, bobSeat, alice } = makeSeatedFillingMatch();
         startMatch(match);
         const world = match.engineSession?.world();
@@ -294,9 +294,8 @@ describe('transition matrix: association persists through every path (FR-019)', 
         expect(aliceSeat.handle).toBe('Nova');
         expect(bobSeat.handle).toBe('Orion');
 
-        // Exposure audit (FR-024/NFR-003): the terminal payload shows
-        // handles only — exact contract key set, no guest-id field, and
-        // the fixture marker value appears nowhere in the serialization.
+        // Terminal results correlate authoritative seats with non-secret
+        // player IDs; lobby identity associations remain internal fields.
         expect(Object.keys(results.finalPlayers[0]).sort()).toEqual([
             'displayName',
             'finalCities',
@@ -305,7 +304,9 @@ describe('transition matrix: association persists through every path (FR-019)', 
             'status',
         ]);
         expect(results.finalPlayers.map((p) => p.displayName)).toEqual(['Alice', 'Bob']);
-        expect(serialized(results)).not.toContain('guest-');
+        expect(results.finalPlayers.map((p) => p.id)).toEqual([1, 2]);
+        expect(serialized(results)).toContain('"id":1');
+        expect(serialized(results)).toContain('"id":2');
     });
 
     it('collection keeps internal records inert and out of every projection', () => {
@@ -542,8 +543,8 @@ describe('propagateHandleRename sweeps accepted renames (FR-019)', () => {
 // Opaque-ID exposure audit (FR-024 / NFR-003)
 // ----------------------------------------------------------------------------
 
-describe('exposure audit: public payloads never gain the opaque id', () => {
-    it('lobby projections expose discovery data only — no guest-id key, no marker value', () => {
+describe('exposure audit: public payloads preserve safe correlation data', () => {
+    it('lobby projections expose discovery data without private identity associations', () => {
         const { match } = makeSeatedFillingMatch();
 
         const entry = projectLobbyEntry(match, CLOCK_MS);
@@ -558,10 +559,9 @@ describe('exposure audit: public payloads never gain the opaque id', () => {
             'seatsFilled',
             'visibility',
         ]);
-        expect(serialized(entry)).not.toContain('guest-');
     });
 
-    it('SeatAssignment keeps its exact contract shape on create and join', () => {
+    it('SeatAssignment correlates each result with its assigned player and keeps its exact shape', () => {
         const server = new FakeServer();
         const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
 
@@ -575,7 +575,7 @@ describe('exposure audit: public payloads never gain the opaque id', () => {
                 'seatIndex',
                 'sessionToken',
             ]);
-            expect(serialized(created.data)).not.toContain('guest-');
+            expect(created.data.seatAssignment.playerId).toBe(1);
         }
 
         const matchId = created.ok ? created.data.matchId : null;
@@ -592,7 +592,7 @@ describe('exposure audit: public payloads never gain the opaque id', () => {
                 'seatIndex',
                 'sessionToken',
             ]);
-            expect(serialized(joined.data)).not.toContain('guest-');
+            expect(joined.data.seatAssignment.playerId).toBe(2);
         }
         matchmaker.close();
     });
@@ -609,10 +609,8 @@ describe('exposure audit: public payloads never gain the opaque id', () => {
         ];
         for (const surface of surfaces) {
             const text = serialized(surface);
-            expect(text).not.toContain('guestPlayerId');
             expect(text).not.toContain('acceptedHandle');
             expect(text).not.toContain('"handle"');
-            expect(text).not.toContain('guest-');
         }
     });
 });

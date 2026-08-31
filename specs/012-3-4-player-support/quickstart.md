@@ -198,7 +198,8 @@ pnpm --filter @europa/matchmaking test -- victory-forfeit-rematch-n-players
 ```bash
 pnpm version:check                        # APP_VERSION lockstep (009 FR-009)
 node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
-# zero opaque guestPlayerId / SessionToken / reconnect token / credential URL in docs/manual/**/*.md
+# zero SessionToken/reconnect-token values or credential-bearing URLs in docs/manual/**/*.md;
+# non-secret player IDs are permitted for correlation (feature-010 policy correction)
 
 # grep drift checks (same as 010's standing checks):
 grep -r --include="*.md" "HOST_STATIC_PORT\|:5173.*http.*:8080" docs/manual/ && echo "stale two-port ref" && exit 1

@@ -2,7 +2,7 @@
 
 Welcome, commander. Europa Neo is a real-time strategy game: rival colonies of nanobots wage war across the icy surface of Jupiter's moon Europa. This manual teaches you everything you need to play — from choosing a name in the public lobby to reading the battlefield like a veteran.
 
-Before you play, choose a temporary guest handle in the [public lobby](./lobby.md). You can rename it later; other players see this handle instead of private system details, and no account is required.
+Before you play, choose a temporary guest handle in the [public lobby](./lobby.md). You can rename it later; other players see this handle first, with a generic label or safe ID fallback only when a handle is unavailable. No account is required, and private system details are not used as player labels.
 
 <div class="europa-card">
 

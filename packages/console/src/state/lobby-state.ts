@@ -10,14 +10,13 @@
  * feature rule, new IdentityState projection sites would need new
  * compile-time witnesses, so this layer only READS the client's types.
  *
- * Privacy envelope (binding): the opaque `guestPlayerId` NEVER enters
- * `LobbyState`. The directed `identity` event legitimately carries it
- * (spec Clarifications v1.6), so the controller strips everything
- * except the display handle BEFORE dispatching — what the store never
- * holds, the DOM/URLs/logs can never leak. Handles are stored verbatim
- * as opaque strings: validation/bidi/isolation concerns belong to the
- * server (already enforced) and to render time (T-015/T-016), never to
- * state derivation.
+ * Identity projection: the directed `identity` event carries a server-
+ * resolved player ID for correlation and an optional display handle. This
+ * state currently retains the handle only because that is the lobby view's
+ * projection; the ID is not secret and may be carried or displayed where
+ * useful. Resume credentials remain protected at the transport/storage
+ * boundary. Handles are stored verbatim as opaque strings: validation,
+ * bidi isolation, and rendering concerns belong to the server and UI.
  *
  * Purity: no clocks, no randomness — every field is derived from
  * dispatched {@link LobbyAction}s, so tests are fully deterministic
@@ -136,8 +135,10 @@ export interface LobbyFailure {
  * The complete lobby application state (feature 010 plan §3). Immutable;
  * advanced ONLY by {@link reduceLobby} over {@link LobbyAction}s.
  *
- * Deliberately ABSENT: the opaque guest player id (see module note),
- * any URL/query material, and any transformed handle text.
+ * Deliberately absent from this projection: the player ID, any URL/query
+ * material, and any transformed handle text. Player IDs are correlation
+ * data rather than secrets; this omission is a shape choice, not a privacy
+ * boundary.
  */
 export interface LobbyState {
     /** Which coarse screen the shell should render. */
@@ -156,7 +157,8 @@ export interface LobbyState {
 
     /**
      * Server-confirmed display handle, verbatim; `null` until the
-     * visitor picks a valid one. The ONLY identity datum retained.
+     * visitor picks a valid one. The preferred user-facing identity label;
+     * correlation IDs may be retained by other state projections when useful.
      */
     readonly handle: string | null;
 
@@ -219,8 +221,8 @@ export type LobbyAction =
     | { readonly kind: 'lobbyConnectionChanged'; readonly connection: LobbyConnectionState }
     /**
      * The DIRECTED identity event resolved for our connection. Carries
-     * the display handle ONLY — the controller strips the opaque id
-     * before dispatching (privacy envelope, module note).
+     * the display handle. The controller currently omits the non-secret
+     * correlation ID because this state projection does not need it.
      */
     | { readonly kind: 'lobbyIdentityResolved'; readonly handle: string | null }
     /** A revision-gated snapshot was applied upstream; adopt it wholesale. */

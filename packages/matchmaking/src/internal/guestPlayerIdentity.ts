@@ -5,8 +5,9 @@
  * non-authenticated, server-recognized guest player identity. Created
  * on the visitor's first landing-page load, held in process memory
  * only, and lost on restart or browser-storage clearing (FR-002/
- * FR-015). The opaque {@linkcode GuestPlayerId} is minted server-side
- * and NEVER leaves the server as a display value (FR-024).
+ * FR-015). The {@linkcode GuestPlayerId} is minted server-side and is
+ * non-secret correlation metadata; it is not a display label or credential.
+ * Handles remain preferred for human-facing labels.
  *
  * Lifecycle: `active` (lobby-bound or in a match) → `grace`
  * (disconnected; handle stays reserved for the reconnect grace window,
@@ -42,7 +43,7 @@ export type GuestIdentityStatus =
  * the feature-006 `PlayerSession` precedent.
  */
 export interface GuestPlayerIdentity {
-    /** Opaque unique id (FR-024); branded, never rendered anywhere. */
+    /** Non-secret unique correlation id (FR-024); handles remain preferred labels. */
     readonly id: GuestPlayerId;
     /** Accepted display handle (trimmed, casing preserved), or `null`. */
     handle: string | null;

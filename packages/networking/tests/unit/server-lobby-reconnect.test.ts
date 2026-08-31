@@ -4,7 +4,7 @@
  *
  * Pins the intersection of feature 004's reconnect contract and
  * feature 010's lobby teardown semantics: a player whose LOBBY
- * IDENTITY is bound (directed identity event delivered, opaque guest
+ * IDENTITY is bound (directed identity event delivered, non-secret guest
  * id and all) disconnects mid-match, and other credentials try to
  * claim the grace-held seat.
  *
@@ -17,9 +17,10 @@
  *     `connectionClosed` exactly once for the dropped connection only
  *     — the dispatcher half of "identity enters grace" (the facade's
  *     handle-reservation half is pinned by matchmaking's suites);
- *   - SECRECY: no mismatched claimant or bystander ever observes the
- *     owner's session token, snapshot, view, or opaque guestPlayerId —
- *     the v1.6 delivery channel stays directed to its owner.
+ *   - ISOLATION: no mismatched claimant or bystander ever observes the
+ *     owner's session token, snapshot, or view; the non-secret guest ID
+ *     remains an identity reference, and the v1.6 delivery channel stays
+ *     directed to its owner.
  *
  * Real engine sessions + real fog; mock sockets keep every path
  * synchronous and deterministic.
@@ -30,7 +31,7 @@ import { describe, expect, it } from 'vitest';
 import { createMatchServer } from '../../src/server';
 import type { IdentityState, MatchId, SessionToken } from '../../src/types';
 import type { MockWebSocket } from '../fixtures/conn';
-import { BEARER_GUEST_ID, FakeLobbyService, fakeLobbySource } from '../fixtures/fakeLobbyService';
+import { FakeLobbyService, fakeLobbySource, NON_SECRET_GUEST_ID } from '../fixtures/fakeLobbyService';
 import { RecordingMatchmakerBridge } from '../fixtures/fakeMatchmakerBridge';
 import {
     connectClient,
@@ -58,12 +59,12 @@ interface ObservedJoinAck {
 }
 
 /**
- * Identity state carrying the bearer-secret guest id. Built through a
+ * Identity state carrying the non-secret guest id. Built through a
  * runtime narrowing so the optional field is attached only when
  * present (`exactOptionalPropertyTypes` discipline).
  */
 function ownerIdentityState(): IdentityState {
-    const guestPlayerId = BEARER_GUEST_ID;
+    const guestPlayerId = NON_SECRET_GUEST_ID;
     return guestPlayerId === undefined ? buildIdentityState() : buildIdentityState({ guestPlayerId });
 }
 
@@ -101,7 +102,7 @@ interface SeatedPlayer {
 
 /**
  * Seat a player on `match` AND bind a lobby identity whose directed
- * confirmation carries the bearer-secret guest id (the v1.6 delivery
+ * confirmation carries the non-secret guest id (the v1.6 delivery
  * channel under protection here).
  *
  * @param server Target server.
@@ -114,7 +115,7 @@ function seatPlayerWithIdentity(
     fake: FakeLobbyService,
     match: ReturnType<typeof scriptedMatch>,
 ): SeatedPlayer {
-    // Script the directed identity event to carry the secret id BEFORE
+    // Script the directed identity event to carry the identity id BEFORE
     // the handshake so the establish push includes it.
     fake.identityToDeliver = ownerIdentityState();
 
@@ -131,7 +132,7 @@ function seatPlayerWithIdentity(
         }
     ).event;
     expect(delivered.kind).toBe('identity');
-    expect(delivered.identity.guestPlayerId).toBe(BEARER_GUEST_ID);
+    expect(delivered.identity.guestPlayerId).toBe(NON_SECRET_GUEST_ID);
 
     return {
         socket: client.socket,
@@ -202,11 +203,9 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
 
         // Nothing seat-shaped was handed over…
         expectNoSeatFrames(attacker.socket);
-        // …and nothing SECRET either: not the owner's token, not the
-        // owner's opaque guest id.
+        // …and no bearer credential is disclosed in the rejection.
         const attackerWire = attacker.socket.sentRaw.join('\n');
         expect(attackerWire).not.toContain(owner.sessionToken);
-        expect(attackerWire).not.toContain(BEARER_GUEST_ID);
 
         // The failed attempt burned nothing: the rightful owner reclaims.
         const ownerReturn = connectClient(server);
@@ -243,8 +242,8 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
 
         // Only the owner's close ever reached the teardown hook.
         expect(fake.closedCalls).toEqual([owner.connectionId]);
-        // And the decoy match's wire never carried the owner's secrets.
-        expect(attacker.socket.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
+        // And the decoy rejection never carried the owner's bearer token.
+        expect(attacker.socket.sentRaw.join('\n')).not.toContain(owner.sessionToken);
 
         awaitClose(server);
     });
@@ -266,8 +265,8 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
         expect(required(transportErrors(latecomer.socket)[0], 'expiry error').code).toBe('token_expired');
         expectNoSeatFrames(latecomer.socket);
 
-        // The expiry rejection carried no identity payload either.
-        expect(latecomer.socket.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
+        // The expiry rejection carried no session credential.
+        expect(latecomer.socket.sentRaw.join('\n')).not.toContain(owner.sessionToken);
         // No forfeit has fired yet: expiry ENFORCEMENT is the scheduler's
         // sweep (onSeatExpired), which never runs in mock-socket mode.
         expect(bridge.seatExpired).toHaveLength(0);
@@ -298,14 +297,12 @@ describe('reconnect with wrong credentials while a lobby identity is bound (T-01
         // …and a pure bystander watches the whole time.
         const bystander = connectClient(server);
 
-        // NONE of them sees any lobby event, any identity frame, or the
-        // owner's opaque id in any form.
+        // NONE of them sees any lobby event or identity frame.
         for (const observer of [firstAttacker.socket, secondAttacker.socket, bystander.socket]) {
             expect(framesOfType(observer, 'lobbyEvent')).toHaveLength(0);
-            expect(observer.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
         }
-        // The owner's own stream remains the sole place the id appeared.
-        expect(owner.socket.sentRaw.join('\n')).toContain(BEARER_GUEST_ID);
+        // The owner's own stream receives the directed identity correlation.
+        expect(owner.socket.sentRaw.join('\n')).toContain(NON_SECRET_GUEST_ID);
         expect(fake.closedCalls).toEqual([owner.connectionId]);
 
         awaitClose(server);

@@ -15,8 +15,9 @@
  * from the seated player's session at claim time. The snapshot is
  * what seat labels render (T-016); authority remains the identity
  * registry (data-model §2: "copied into a seat projection only as a
- * display snapshot"). The opaque id is internal-only and must never
- * reach a public payload.
+ * display snapshot"). The identity id is non-secret correlation metadata, not
+ * a bearer credential; handles remain preferred for seat labels. Session
+ * tokens stay protected and server seat authority is unchanged.
  *
  * @internal Exported for testability only; not part of the public
  * surface re-exported through the package barrel.
@@ -47,8 +48,8 @@ export interface SeatRecord {
      * from the session at claim time; survives start/terminal/forfeit
      * so attribution persists for the match's whole life.
      *
-     * PRIVACY (FR-003/FR-024): internal association only — never
-     * serialize into public payloads, projections, or views.
+     * Non-secret identity correlation reference. It may be serialized on safe
+     * correlation surfaces, but it does not authorize or select the seat.
      */
     readonly guestPlayerId: GuestPlayerId | null;
     /** Cosmetic name chosen by the seated player. */

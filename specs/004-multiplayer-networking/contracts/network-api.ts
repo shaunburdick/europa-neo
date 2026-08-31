@@ -388,7 +388,7 @@ export interface MatchmakerBridge {
 // ----------------------------------------------------------------------------
 
 /**
- * Opaque matchmaking session id (feature 010 structural mirror).
+ * Non-secret matchmaking session correlation id (feature 010 structural mirror).
  * Mirrors `@europa/matchmaking`'s branded `PlayerSessionId` — the brand
  * name is identical so the types stay mutually assignable (networking
  * cannot import matchmaking: the dependency arrow points the other
@@ -454,8 +454,9 @@ export interface LobbySeatAssignment {
 /**
  * What a successful lobby create/join returns (mirror of matchmaking's
  * `MatchJoinTarget`): the entered match plus the server-issued seat
- * credentials. Server-side bookkeeping only — none of it except the
- * match id is projected to the wire (privacy envelope, spec FR-024).
+ * credentials. The target itself is server-side bookkeeping and is not
+ * forwarded as a wire payload; its non-secret match/identity IDs may be used
+ * for correlation on safe surfaces, while bearer credentials remain protected.
  */
 export interface LobbyMatchTarget {
   /** The match entered (also reflected in later snapshots' `activeMatchId`). */
