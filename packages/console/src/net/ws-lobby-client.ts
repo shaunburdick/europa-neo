@@ -58,9 +58,11 @@
  *     non-secret correlation data used to identify the server-resolved
  *     identity. It is kept out of URLs, logs, and errors here because those
  *     surfaces do not need it, not because the ID itself is a bearer secret.
- *     The persisted resume claim is the bearer credential and remains
- *     protected by storage and transport boundaries; redaction continues
- *     to cover claim values and any server-authored text that echoes them.
+ *     The persisted guest-ID resume claim is non-secret, advisory
+ *     correlation data, not a bearer credential. It is distinct from the
+ *     protected `sessionToken`/`reconnectToken` credentials; redaction
+ *     continues to cover claim values and any server-authored text that
+ *     echoes them.
  *
  * Determinism discipline: pure state machine over socket callbacks;
  * timers are transport infrastructure (heartbeat, action timeouts,
