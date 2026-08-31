@@ -213,6 +213,8 @@ test.describe('semantic route browser history', () => {
         });
         await page.goto('/not-a-real-page');
         await expect(page).toHaveURL(/\/lobby$/);
+        await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+        await page.getByRole('button', { name: 'Return to lobby' }).click();
         await expect(page.locator('h1')).toContainText('Europa Neo lobby');
         await page.reload();
         await expect(page).toHaveURL(/\/lobby$/);

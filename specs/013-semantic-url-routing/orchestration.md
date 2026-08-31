@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 1 — Complete after HOLD-1 remediation
+- **Current Wave**: Wave 2 — Complete after HOLD remediation; T013 remains pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-30
 
@@ -20,9 +20,9 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T005 route unit tests — ✅ complete
 - T006 route-to-entry adapter seam — ✅ complete
 - T007 retired live-route export removal — ✅ complete
-### Wave 2 — Bootstrap, history, accessible recovery — ⏳ In progress
+### Wave 2 — Bootstrap, history, accessible recovery — ✅ Complete after HOLD remediation
 - T008 route-aware production bootstrap — ✅ complete
-- T009 runtime integration — ⏳ pending
+- T009 runtime integration — ✅ complete
 - T010 accessible route notices and focus/live-region recovery — ✅ complete
 - T011 runtime/browser coverage — ✅ complete (unit/component/a11y assertions)
 - T012 routing E2E — ✅ complete
@@ -77,6 +77,24 @@ Replace production query-selected live boot with a pure pathname router and expl
     exact `MatchId` forwarding.
 - No application implementation change was required; T008 and stale-reference migration
   remain pending and were not addressed.
+
+## Wave 2 HOLD remediation
+
+- Route notices are now rendered by the production route bootstrap/runtime, including unknown
+  paths, authoritative unavailable states, shortcut command failures, and match-leg transport
+  failures. Notices focus their alert panel and provide keyboard-operable retry/return actions
+  while retaining the existing lobby controller and identity.
+- Successful lobby-originated create/join/spectate actions push exactly one semantic match path;
+  failures do not push. Browser `popstate` updates the active route and re-runs authoritative
+  resolution. Component coverage proves unavailable recovery is rendered without an entry
+  command; the existing a11y suite proves alert naming, focus, and controls.
+- Routing E2E now uses `127.0.0.1` consistently for Playwright's browser origin and the
+  ephemeral WebSocket fixture, while retaining the init-script query-override removal assertion.
+- Focused unit/component/a11y gates, strict typecheck, lint, format, and build are green. The
+  routing E2E unknown-route and root cases are green; the semantic match case still exposes a
+  pre-existing full-stack fixture readiness failure (lobby remains reconnecting before the
+  target snapshot). Broader `?live` fixture failures are intentionally T013 stale-reference
+  work and were not migrated in this remediation.
 
 ## T011 Completion
 

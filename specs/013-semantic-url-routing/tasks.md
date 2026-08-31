@@ -36,6 +36,21 @@ red until the migration waves remove the existing production query references.
 - [x] T011 Add unit/component/a11y tests for navigation, no-connection guarantees, intent, identity conflicts, recovery, focus, announcements, and spectator read-only controls; depends on T008–T010.
 - [x] T012 Add `packages/console/tests/e2e/routing.spec.ts` for Back/Forward, refresh, root redirect, route retention through terminal/leave, and no loop; depends on T008–T011.
 
+### Wave 2 review HOLD remediation
+
+- [x] Wire `RouteNotice` through production bootstrap and lobby runtime for unknown, unavailable,
+  shortcut, and match transport failures. Recovery preserves the lobby controller/identity and
+  exposes keyboard-operable retry and return actions with focus and alert announcements.
+- [x] Push one semantic history entry for successful lobby-originated create/join/spectate,
+  retain route-originated paths, suppress pushes on failures, and re-evaluate route state on
+  `popstate` without changing the `?e2e` harness or starting sockets during classification.
+- [x] Add behavior-level component coverage for production unavailable recovery and update the
+  routing E2E to assert unknown-route notice recovery. Keep T013's broader fixture migration
+  explicitly pending.
+- [x] Normalize the routing E2E browser/socket loopback host to `127.0.0.1` in both Playwright
+  web-server configuration and the ephemeral WebSocket fixture; retain query-override removal
+  assertions.
+
 ## Wave 3 — Full-stack and security
 
 - [ ] T013 Migrate full-stack, n-player, waiting-overlay, and lobby integration fixtures from `?live` to semantic paths with test-only server seams; leave `?e2e` unchanged; depends on T008–T009.

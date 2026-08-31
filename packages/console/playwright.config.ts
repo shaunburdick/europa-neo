@@ -17,7 +17,7 @@ export default defineConfig({
     workers: process.env.CI ? 2 : undefined,
     reporter: process.env.CI ? 'github' : 'list',
     use: {
-        baseURL: 'http://localhost:5173',
+        baseURL: 'http://127.0.0.1:5173',
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },
@@ -28,8 +28,8 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: 'pnpm dev',
-        url: 'http://localhost:5173',
+        command: 'pnpm dev --host 127.0.0.1',
+        url: 'http://127.0.0.1:5173',
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,
     },

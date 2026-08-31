@@ -61,7 +61,7 @@ function bootstrapProductionRoute(root: HTMLElement): void {
             // Root and malformed/unknown paths have one canonical recovery
             // target. Replacing (rather than pushing) prevents a history loop.
             window.history.replaceState(window.history.state, '', '/lobby');
-            mountLobby(root);
+            mountLobby(root, undefined, route.kind === 'unknown' ? 'unknown' : undefined);
             return;
         case 'lobby':
             stripProductionQuery();
@@ -82,8 +82,12 @@ function bootstrapProductionRoute(root: HTMLElement): void {
 }
 
 /** Mount the existing Feature 010 lobby runtime after route selection. */
-function mountLobby(root: HTMLElement, route?: Extract<Route, { readonly kind: 'match' }>): void {
-    void import('./internal/lobby-runtime').then((module) => module.mountLobbyRuntime(root, route));
+function mountLobby(
+    root: HTMLElement,
+    route?: Extract<Route, { readonly kind: 'match' }>,
+    recoveryKind?: 'unknown',
+): void {
+    void import('./internal/lobby-runtime').then((module) => module.mountLobbyRuntime(root, route, recoveryKind));
 }
 
 /** Remove production query values before any existing runtime can inspect them. */

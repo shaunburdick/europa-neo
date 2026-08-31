@@ -80,6 +80,27 @@ describe('semantic route runtime hand-off', () => {
         expect(retried).toBe(true);
         expect(returned).toBe(true);
     });
+
+    test('production route resolution renders unavailable recovery without issuing an entry command', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitSnapshot(snapshotOf([]));
+
+        const screen = await render(
+            <LobbyRoot
+                controller={controller}
+                wsUrl="ws://localhost:8080"
+                initialRoute={parseRoute('/match/missing') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>}
+            />,
+        );
+
+        await expect.element(screen.getByRole('alert')).toBeVisible();
+        await expect.element(screen.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
+        await expect.element(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
+        expect(transport.commands).toEqual([{ kind: 'connect' }]);
+        controller.disconnect();
+    });
 });
 
 describe('semantic route recovery data', () => {

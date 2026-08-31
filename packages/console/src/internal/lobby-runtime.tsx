@@ -57,6 +57,7 @@ import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
 import { ErrorBoundary } from '../render/ErrorBoundary';
 import type { Route } from '../routing/route';
+import { buildJoinUrl, buildMatchUrl, buildSpectateUrl, parseRoute } from '../routing/route';
 import { adaptRoute, executeRouteEntry } from '../routing/route-adapter';
 import { formatWaitingMessage } from '../state/awaiting-start';
 import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
@@ -76,6 +77,7 @@ import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
+import { RouteNotice, type RouteNoticeKind } from '../ui/route-notice';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
 
 // ----------------------------------------------------------------------------
@@ -108,7 +110,11 @@ declare global {
  *
  * @param root The DOM mount node (index.html's `#root`).
  */
-export function mountLobbyRuntime(root: HTMLElement, route?: Extract<Route, { readonly kind: 'match' }>): void {
+export function mountLobbyRuntime(
+    root: HTMLElement,
+    route?: Extract<Route, { readonly kind: 'match' }>,
+    recoveryKind?: RouteNoticeKind,
+): void {
     let wsUrl: string;
     try {
         wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
@@ -129,7 +135,12 @@ export function mountLobbyRuntime(root: HTMLElement, route?: Extract<Route, { re
     createRoot(root).render(
         <StrictMode>
             <ErrorBoundary>
-                <LobbyRoot controller={controller} wsUrl={wsUrl} initialRoute={route} />
+                <LobbyRoot
+                    controller={controller}
+                    wsUrl={wsUrl}
+                    initialRoute={route}
+                    initialNoticeKind={recoveryKind}
+                />
             </ErrorBoundary>
         </StrictMode>,
     );
@@ -170,6 +181,8 @@ export interface LobbyRootProps {
      * command or match socket is created.
      */
     readonly initialRoute?: Extract<Route, { readonly kind: 'match' }> | undefined;
+    /** Recovery notice selected by bootstrap for an unknown pathname. */
+    readonly initialNoticeKind?: RouteNoticeKind | undefined;
 }
 
 /**
@@ -177,7 +190,7 @@ export interface LobbyRootProps {
  * outcome announcements, and the lobby/match view gate. Exported for
  * component tests (the mount entry wires it identically).
  */
-export function LobbyRoot({ controller, wsUrl, initialRoute }: LobbyRootProps): JSX.Element {
+export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }: LobbyRootProps): JSX.Element {
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
 
     // Shared hidden live regions (App.tsx pattern). Runtime-owned so
@@ -200,6 +213,11 @@ export function LobbyRoot({ controller, wsUrl, initialRoute }: LobbyRootProps): 
     // Focus hand-off bookkeeping: count view-mode switches so views
     // know they are an ENTRY (focus heading) vs initial load (don't).
     const [viewSwitches, setViewSwitches] = useState(0);
+    const [currentRoute, setCurrentRoute] = useState<Extract<Route, { readonly kind: 'match' }> | undefined>(
+        initialRoute,
+    );
+    const [noticeKind, setNoticeKind] = useState<RouteNoticeKind | null>(initialNoticeKind ?? null);
+    const pendingNavigationRef = useRef<'create' | 'join' | 'spectate' | null>(null);
     const prevViewModeRef = useRef(state.viewMode);
     useEffect(() => {
         if (prevViewModeRef.current !== state.viewMode) {
@@ -213,6 +231,46 @@ export function LobbyRoot({ controller, wsUrl, initialRoute }: LobbyRootProps): 
     const legIntentRef = useRef<LegIntent | null>(null);
     const routeAttemptedRef = useRef(false);
 
+    function navigateTo(pathname: string): void {
+        if (window.location.pathname === pathname) return;
+        window.history.pushState(window.history.state, '', pathname);
+    }
+
+    function returnToLobby(): void {
+        setNoticeKind(null);
+        setCurrentRoute(undefined);
+        if (window.location.pathname !== '/lobby') {
+            window.history.replaceState(window.history.state, '', '/lobby');
+        }
+        if (state.viewMode === 'match') {
+            void controller.leaveMatch();
+        }
+    }
+
+    // Browser Back/Forward changes the route without remounting the page.
+    // Re-evaluate it against the current authoritative lobby snapshot.
+    useEffect(() => {
+        const onPopState = (): void => {
+            const next = parseRoute(window.location.pathname);
+            if (next.kind === 'match') {
+                routeAttemptedRef.current = false;
+                setNoticeKind(null);
+                setCurrentRoute(next);
+            } else if (next.kind === 'lobby') {
+                routeAttemptedRef.current = true;
+                setNoticeKind(null);
+                setCurrentRoute(undefined);
+                if (state.viewMode === 'match') void controller.leaveMatch();
+            } else {
+                window.history.replaceState(window.history.state, '', '/lobby');
+                setCurrentRoute(undefined);
+                setNoticeKind('unknown');
+            }
+        };
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
+    }, [controller, state.viewMode]);
+
     // A semantic deep link is deliberately resolved only after the lobby has
     // delivered its authoritative baseline. The adapter decides whether the
     // route is a player or spectator entry; this runtime only records that
@@ -220,18 +278,42 @@ export function LobbyRoot({ controller, wsUrl, initialRoute }: LobbyRootProps): 
     // no match client exists while the route is unresolved, and an explicit
     // intent can never be changed by this hand-off.
     useEffect(() => {
-        if (initialRoute === undefined || routeAttemptedRef.current || state.snapshot === null) {
+        if (currentRoute === undefined || routeAttemptedRef.current || state.snapshot === null) {
             return;
         }
         routeAttemptedRef.current = true;
-        const entry = adaptRoute(initialRoute, state.snapshot);
+        const entry = adaptRoute(currentRoute, state.snapshot);
+        if (entry.kind === 'unavailable') {
+            setNoticeKind('unavailable');
+            return;
+        }
         if (entry.kind === 'player') {
             legIntentRef.current = { matchId: entry.matchId, role: 'player' };
         } else if (entry.kind === 'spectator') {
             legIntentRef.current = { matchId: entry.matchId, role: 'spectator' };
         }
-        void executeRouteEntry(entry, controller);
-    }, [controller, initialRoute, state.snapshot]);
+        void executeRouteEntry(entry, controller)?.then((result) => {
+            if (!result.ok) setNoticeKind('shortcut-failure');
+        });
+    }, [controller, currentRoute, state.snapshot]);
+
+    // Successful actions initiated from the lobby get one canonical semantic
+    // history entry. Route-originated actions already have the right URL.
+    useEffect(() => {
+        const pending = pendingNavigationRef.current;
+        const matchId = state.activeMatchId;
+        if (state.viewMode !== 'match' || pending === null || matchId === null) return;
+        const path =
+            pending === 'create'
+                ? buildMatchUrl(window.location.origin, matchId)
+                : pending === 'join'
+                  ? buildJoinUrl(window.location.origin, matchId)
+                  : buildSpectateUrl(window.location.origin, matchId);
+        navigateTo(new URL(path).pathname);
+        const nextRoute = parseRoute(new URL(path).pathname);
+        if (nextRoute.kind === 'match') setCurrentRoute(nextRoute);
+        pendingNavigationRef.current = null;
+    }, [state.activeMatchId, state.viewMode]);
 
     /** Announce a seat-grant outcome on success only — failures render
      * as role="alert" nodes at their source and announce themselves. */
@@ -246,22 +328,28 @@ export function LobbyRoot({ controller, wsUrl, initialRoute }: LobbyRootProps): 
     }
 
     function createMatch(values: LobbyCreateFormValues): void {
+        pendingNavigationRef.current = 'create';
         legIntentRef.current = { matchId: null, role: 'player' };
         void controller.createMatch(buildCreateSettings(values)).then((result) => {
+            if (!result.ok) pendingNavigationRef.current = null;
             announceSeatOutcome(result, 'Match created — entering the waiting room.');
         });
     }
 
     function joinMatch(matchId: MatchId): void {
+        pendingNavigationRef.current = 'join';
         legIntentRef.current = { matchId, role: 'player' };
         void controller.joinMatch(matchId).then((result) => {
+            if (!result.ok) pendingNavigationRef.current = null;
             announceSeatOutcome(result, 'Joined — entering the match.');
         });
     }
 
     function spectateMatch(matchId: MatchId): void {
+        pendingNavigationRef.current = 'spectate';
         legIntentRef.current = { matchId, role: 'spectator' };
         void controller.spectateMatch(matchId).then((result) => {
+            if (!result.ok) pendingNavigationRef.current = null;
             announceSeatOutcome(result, 'Spectating — attaching read-only.');
         });
     }
@@ -288,6 +376,32 @@ export function LobbyRoot({ controller, wsUrl, initialRoute }: LobbyRootProps): 
     const announcerHost = (
         <div ref={liveHostRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
     );
+
+    if (noticeKind !== null) {
+        const retry =
+            currentRoute === undefined
+                ? undefined
+                : () => {
+                      setNoticeKind(null);
+                      routeAttemptedRef.current = false;
+                  };
+        return (
+            <>
+                {announcerHost}
+                <RouteNotice
+                    kind={noticeKind}
+                    title={noticeKind === 'unknown' ? 'Page not found' : 'Match unavailable'}
+                    message={
+                        noticeKind === 'unknown'
+                            ? 'Page not found. Returning to lobby.'
+                            : 'This match entry is no longer available.'
+                    }
+                    onRetry={retry}
+                    onReturnToLobby={returnToLobby}
+                />
+            </>
+        );
+    }
 
     if (state.viewMode === 'match') {
         const intent = legIntentRef.current ?? { matchId: state.activeMatchId, role: 'player' as const };
@@ -319,6 +433,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute }: LobbyRootProps): 
                     leaveError={state.actions.leaveMatch.error}
                     leaving={state.actions.leaveMatch.phase === 'loading'}
                     onLeave={leaveMatch}
+                    onRouteFailure={() => setNoticeKind('shortcut-failure')}
                 />
             </>
         );
@@ -367,6 +482,8 @@ interface MatchLegArgs {
     readonly matchId: MatchId;
     /** Display name for the seat claim — the accepted handle (FR-019). */
     readonly displayName: string;
+    /** Report a transport or handshake failure to route recovery. */
+    readonly onFailure: () => void;
 }
 
 /**
@@ -401,6 +518,7 @@ function createMatchLeg(args: MatchLegArgs): MatchLeg {
     wsClient.onConnectionChanged((current) => {
         if (current === 'disconnected' && (lastConnection === 'joined' || lastConnection === 'rejoined')) {
             store.dispatch({ kind: 'socketClosed', code: 1006, reason: 'transport lost' });
+            args.onFailure();
         }
         lastConnection = current;
     });
@@ -412,9 +530,7 @@ function createMatchLeg(args: MatchLegArgs): MatchLeg {
                 await client.connect();
                 await client.joinMatch();
             } catch {
-                // Join rejections (seat gone between list and claim) land
-                // in the reducer's error path / banner; the lobby stays
-                // reachable via Leave. Never throw into React.
+                args.onFailure();
             }
         },
         dispose(): void {
@@ -461,6 +577,8 @@ interface MatchLegHostProps {
     readonly leaving: boolean;
     /** Release the seat/association and return to the lobby. */
     readonly onLeave: () => void;
+    /** Report match-leg failures without exposing transport details. */
+    readonly onRouteFailure: () => void;
 }
 
 /**
@@ -502,6 +620,7 @@ function MatchLegHost({
     leaveError,
     leaving,
     onLeave,
+    onRouteFailure,
 }: MatchLegHostProps): JSX.Element {
     const headingRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -528,7 +647,7 @@ function MatchLegHost({
     // (App's MapCanvas ref pattern); boot/dispose ride the effect.
     const legRef = useRef<MatchLeg | null>(null);
     if (legRef.current === null && role === 'player' && matchId !== null && matchStarted) {
-        legRef.current = createMatchLeg({ wsUrl, matchId, displayName });
+        legRef.current = createMatchLeg({ wsUrl, matchId, displayName, onFailure: onRouteFailure });
     }
     const leg = legRef.current;
     useEffect(() => {
@@ -572,7 +691,13 @@ function MatchLegHost({
             ) : role === 'spectator' && matchId !== null && matchStarted ? (
                 // Live read-only spectator surface — also App-rendered,
                 // so it likewise owns its own <main>.
-                <SpectatorMatchLeg wsUrl={wsUrl} matchId={matchId} displayName={displayName} announcer={announcer} />
+                <SpectatorMatchLeg
+                    wsUrl={wsUrl}
+                    matchId={matchId}
+                    displayName={displayName}
+                    announcer={announcer}
+                    onFailure={onRouteFailure}
+                />
             ) : (
                 <main id="main" className="europa-lobby europa-lobby-match__placeholder">
                     {/* Plate windows (no wire channel yet): the waiting
@@ -644,6 +769,8 @@ interface SpectatorLegArgs {
     readonly displayName: string;
     /** Snapshot sink (the component's React state setter). */
     readonly onSnapshot: (next: ConsoleState) => void;
+    /** Report attach failure to route recovery. */
+    readonly onFailure: () => void;
 }
 
 /**
@@ -697,6 +824,7 @@ function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
     wsClient.onConnectionChanged((connection) => {
         if (connection === 'disconnected' && (lastConnection === 'joined' || lastConnection === 'rejoined')) {
             apply(applySpectatorTransportLoss(current, 1006));
+            args.onFailure();
         }
         lastConnection = connection;
     });
@@ -718,6 +846,7 @@ function createSpectatorLeg(args: SpectatorLegArgs): SpectatorLeg {
                         performance.now(),
                     ),
                 );
+                args.onFailure();
             }
         },
         dispose(): void {
@@ -735,6 +864,8 @@ interface SpectatorMatchLegProps {
     readonly displayName: string;
     /** Shared runtime announcer (survives view swaps). */
     readonly announcer?: LiveRegionAnnouncer | undefined;
+    /** Report attach failure to the route shell. */
+    readonly onFailure: () => void;
 }
 
 /**
@@ -749,14 +880,14 @@ interface SpectatorMatchLegProps {
  *
  * Announces the attach once through the shared runtime channel.
  */
-function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer }: SpectatorMatchLegProps): JSX.Element {
+function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer, onFailure }: SpectatorMatchLegProps): JSX.Element {
     const [snapshot, setSnapshot] = useState<ConsoleState>(() => initialSpectatorState(matchId));
 
     // One leg per mount (render-phase ref construction, no I/O — the
     // App's MapCanvas pattern); keyed by matchId upstream.
     const legRef = useRef<SpectatorLeg | null>(null);
     if (legRef.current === null) {
-        legRef.current = createSpectatorLeg({ wsUrl, matchId, displayName, onSnapshot: setSnapshot });
+        legRef.current = createSpectatorLeg({ wsUrl, matchId, displayName, onSnapshot: setSnapshot, onFailure });
     }
     const leg = legRef.current;
     useEffect(() => {
