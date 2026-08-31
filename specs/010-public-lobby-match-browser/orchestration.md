@@ -1,7 +1,7 @@
 # Orchestration Log: Player-ID Visibility Policy Correction
 
 ## Status
-- **Current Wave**: Wave 4 — integration verification in progress (C-008 complete)
+- **Current Wave**: Wave 4 — integration verification in progress (C-009 complete)
 - **Branch**: `013-relaxed-player-id-visibility`
 - **Last Updated**: 2026-08-31
 
@@ -27,7 +27,8 @@ fog-of-war boundaries remain protected.
 
 ### Wave 4 — Integration verification — ⏳ In progress
 - C-008 — ✅ complete
-- C-009, C-010 — ⏳ pending
+- C-009 — ✅ complete; final validation is recorded in `quickstart.md`
+- C-010 — ⏳ pending
 
 ## Decisions & Rationale
 - 2026-08-30: Treat this as a correction to existing Feature 010 and
@@ -80,3 +81,14 @@ fog-of-war boundaries remain protected.
   `GenerationSettings` mirror drift at `tests/lobby-conformance.test.ts:305-306`
   (the current branch adds no runtime or C-008 contract change). It is recorded
   rather than altered under C-008's scope.
+
+## C-009 validation (2026-08-31)
+
+- All requested C-009 gates passed. The first E2E invocation was blocked by a
+  stale Vite process from another worktree occupying port 5173; that process was
+  terminated and the complete 17-test E2E suite passed on a clean retry.
+- The console lobby preset now includes the existing server default
+  `terrainSmoothing: 4`, required by the restored strict contract mirror. This
+  is a type/conformance correction only; it does not change the effective
+  matchmaking default or gameplay behavior.
+- See the detailed command-by-command results in `quickstart.md`.

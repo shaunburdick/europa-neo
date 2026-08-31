@@ -16,7 +16,7 @@ These tasks correct stale privacy assertions only. They do not create a Feature
 - [x] C-006: [P] Replace old matchmaking/networking test assertions that equate ID presence with a leak with positive correlation assertions; retain forged identity/seat/order, cross-connection, private-match, fog, and bearer-credential negative coverage.
 - [x] C-007: [P] Update root/package READMEs and applicable manual/operator/API wording for handle-first labels, generic/ID fallback, non-secret correlation, and the credential boundary; preserve private-match and fog guidance.
 - [x] C-008: Run the targeted residual sweep and contract/conformance checks; relabel historical old-policy notes rather than leaving normative contradictions. **Complete on 2026-08-31** — see `quickstart.md` “C-008 residual sweep” and `orchestration.md`.
-- [ ] C-009: Run checker/security suites, existing private-match scenarios, and the 500-tick fog audit, then `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, relevant tests, build, and docs checks; record results in `quickstart.md`.
+- [x] C-009: Run checker/security suites, existing private-match scenarios, and the 500-tick fog audit, then `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, relevant tests, build, and docs checks; record results in `quickstart.md`. **Complete on 2026-08-31** — see the C-009 validation record.
 - [ ] C-010: Review against Feature 010 FR-002/003/020/021/023/024/026/027 and NFR-003/004, constitution, and AGENTS.md; confirm the Phase 4–5 diff contains planning artifacts only and commit conventionally.
 
 ## Contracts and foundations

@@ -152,3 +152,49 @@ C-008 is complete based on the passing targeted contract/privacy gates and the
 residual classification above. The broad settings-mirror failure remains an
 existing follow-up outside this identity-policy correction and must not be
 silently reported as green.
+
+## C-009 validation record (2026-08-31)
+
+The following commands were run on branch `013-relaxed-player-id-visibility`.
+Results below are the observed results, including the complete suites rather
+than inferred coverage.
+
+### Privacy, credential, private-match, and fog gates
+
+| Check | Result |
+| --- | --- |
+| `node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs` | PASS — 4 player-facing and 9 implementation/spec surfaces |
+| `node specs/010-public-lobby-match-browser/check-documentation-privacy-harness.mjs` | PASS — 4 forbidden examples rejected |
+| Matchmaking identity/server-authority/private-match targeted tests (12 files) | PASS — 104 tests |
+| Networking lobby/reconnect/credential/conformance/fog targeted tests (4 files) | PASS — 34 tests |
+| Fog redaction and N-player isolation audits | PASS — 3 tests, including the 500-tick audits |
+| Console lobby transport, URL/host security, credential, and version targeted tests (6 files) | PASS — 121 tests |
+| Matchmaking `typecheck:conformance` and console `typecheck:conformance` | PASS |
+| Console lobby transport integration | PASS — 9 tests |
+| Console quiet-client keepalive security integration | PASS — 2 tests |
+| Console self-host security/bundle smoke | PASS — no remote URLs; 98,087 bytes gzipped within 153,600-byte budget |
+
+The targeted private-match scenarios included the non-enumeration check for a
+private match (`Q-M03-private-id-miss-no-leak.test.ts`). The fog checks included
+the 500-tick redaction audit and the N-player 500-tick zero-leakage audits.
+Non-secret player/guest IDs remain allowed for correlation; bearer credentials,
+private-match existence, server authority, and fog boundaries remain protected.
+The approved narrow local `pnpm host` tokenized-URL operator exception was not
+broadened.
+
+### Repository gates
+
+| Check | Result |
+| --- | --- |
+| `pnpm typecheck` | PASS — build plus all 8 package typechecks |
+| `pnpm lint` | PASS — all 8 packages, no fixes |
+| `pnpm format:check` | PASS — all 8 packages, no fixes |
+| `pnpm test` | PASS — design 3, engine 302, version 38, fog 114, terrain 366 (50 skipped), networking 287, matchmaking 404, console 605 |
+| `pnpm --filter @europa/console test:e2e` | PASS — 17/17 Chromium tests |
+| `pnpm build` | PASS — all 8 package builds (also exercised by `pnpm typecheck`) |
+| `git diff --check` | PASS |
+
+The first E2E attempt did not pass because port 5173 was occupied by a stale
+Vite process from another worktree and all lobby-dependent tests timed out while
+reconnecting. After removing that unrelated listener, the same complete E2E
+command passed 17/17. No failed run is represented as a successful gate.
