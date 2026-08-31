@@ -356,6 +356,7 @@ interface DocLobbyWireShapes {
                 readonly minCityWaterDistance: number;
                 readonly minCityCityDistance: number;
                 readonly maxRegenAttempts: number;
+                readonly terrainSmoothing: number;
             };
         };
     };

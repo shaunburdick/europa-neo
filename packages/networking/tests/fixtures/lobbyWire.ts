@@ -188,12 +188,13 @@ export interface WireTerrainSettingsOverrides {
     readonly minCityWaterDistance?: number;
     readonly minCityCityDistance?: number;
     readonly maxRegenAttempts?: number;
+    readonly terrainSmoothing?: number;
 }
 
 /**
  * Build wire `LobbyTerrainSettings` at the documented defaults
  * (water 0.10, roughness 0.5, 4 octaves, 1 city/player, point
- * symmetry, distances 3/5, 5 regen attempts). Frozen.
+ * symmetry, distances 3/5, 5 regen attempts, 4 smoothing passes). Frozen.
  */
 export function buildLobbyTerrainSettings(overrides: WireTerrainSettingsOverrides = {}): LobbyTerrainSettings {
     return Object.freeze({
@@ -205,6 +206,7 @@ export function buildLobbyTerrainSettings(overrides: WireTerrainSettingsOverride
         minCityWaterDistance: overrides.minCityWaterDistance ?? 3,
         minCityCityDistance: overrides.minCityCityDistance ?? 5,
         maxRegenAttempts: overrides.maxRegenAttempts ?? 5,
+        terrainSmoothing: overrides.terrainSmoothing ?? 4,
     });
 }
 

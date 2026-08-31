@@ -790,6 +790,8 @@ export interface LobbyTerrainSettings {
   readonly minCityCityDistance: number;
   /** Maximum regeneration attempts on validation failure. Default 5. */
   readonly maxRegenAttempts: number;
+  /** Deterministic elevation smoothing passes. Default 4; range [0, 8]. */
+  readonly terrainSmoothing: number;
 }
 
 /**
