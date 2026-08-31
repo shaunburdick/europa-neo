@@ -91,7 +91,7 @@ red until the migration waves remove the existing production query references.
 - [x] T021 [P] Update `README.md` and `packages/console/README.md` launch/route guidance; remove stale production `?live`, retain explicit `?e2e`; depends on T018.
 - [x] T022 [P] Update `docs/manual/index.md`, `quick-start.md`, and applicable lobby/reading-screen guidance to semantic paths, excluding issue #34 share/copy UX; depends on T018.
 - [x] T023 [P] Amend Feature 005, 010, and 011 docs/spec notes and developer/operational comments so compatibility claims are truthful; no unrelated contract changes; depends on T007, T018.
-- [ ] T024 Scan tracked source, tests, host output, Docker/docs, and generated assets for stale references/privacy violations; depends on T021–T023.
+- [x] T024 Scan tracked source, tests, host output, Docker/docs, and generated assets for stale references/privacy violations; depends on T021–T023. The guard now includes tracked HTML/CSS assets and the extensionless Dockerfile; retired query/credential wording was removed from the live test seam and transport-resolution comments. The untracked `packages/console/dist-host/` build output is ignored and is not committed.
 
 ## Wave 6 — Final gate
 

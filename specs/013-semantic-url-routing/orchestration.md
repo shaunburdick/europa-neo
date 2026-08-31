@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 5 — T021–T023 complete; T024 pending
+- **Current Wave**: Wave 5 — T021–T024 complete; T025 pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
 
@@ -39,7 +39,7 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T021 README and console README launch/route guidance — ✅ complete
 - T022 player manual migration — ✅ complete — semantic paths documented; credentials excluded; issue #34 share/copy UX remains out of scope
 - T023 Feature 005/010/011 documentation/spec notes — ✅ complete
-- T024 tracked-surface stale-reference/privacy scan — ⏳ pending
+- T024 tracked-surface stale-reference/privacy scan — ✅ complete
 ### Wave 6 — Final gate — ⏳ Pending
 
 ## Decisions & Rationale
@@ -294,3 +294,19 @@ Replace production query-selected live boot with a pure pathname router and expl
 - Verification: host integration **5/5** passed; self-host script passed with
   **99,649 bytes gzipped** against the **153,600-byte** budget. Console
   typecheck passed during the focused gate.
+
+## T024 Completion
+
+- 2026-08-31: Ran the tracked production-surface privacy guard across README and
+  package documentation, console source/scripts/fixtures, Dockerfile and Compose,
+  manual pages/assets, and tracked generated text assets. The guard now includes
+  tracked HTML/CSS and the extensionless Dockerfile. Findings were limited to
+  stale query wording in `live-runtime.tsx` and `lobby-view.ts`; comments and the
+  diagnostic were rewritten without changing runtime behavior. The privacy test's
+  overlap assertion was made line-number independent.
+- The only generated host output present was untracked
+  `packages/console/dist-host/`; it is build output, not intended for commit, and
+  is now ignored by `.gitignore`. No tracked files were deleted.
+- Verification: privacy guard **7/7** passed; full tracked-file scan reported no
+  stale production query or credential references outside explicitly retained
+  historical/spec and test-only cases.

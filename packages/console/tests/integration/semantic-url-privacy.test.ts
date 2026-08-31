@@ -19,7 +19,7 @@ const productionRoots = [
     'docs/manual',
 ] as const;
 
-const textExtensions = new Set(['.json', '.md', '.sh', '.ts', '.tsx', '.yml', '.yaml']);
+const textExtensions = new Set(['.css', '.html', '.json', '.md', '.sh', '.ts', '.tsx', '.yml', '.yaml']);
 const retiredQueryPattern = /(?:^|[?&])(?:live(?:[=&]|$)|ws=|match=|name=|token=)/i;
 const credentialQueryPattern = /(?:^|[?&])(?:guest(?:Id)?|handle|reconnect(?:Token)?|token|name|ws)=/i;
 
@@ -44,7 +44,7 @@ function trackedProductionFiles(): readonly string[] {
         }
 
         const extension = file.slice(file.lastIndexOf('.'));
-        return textExtensions.has(extension);
+        return file === 'Dockerfile' || textExtensions.has(extension);
     });
 }
 
@@ -140,12 +140,10 @@ describe('semantic URL production-surface guard', () => {
         ).toBe(true);
     });
 
-    it('combines overlapping stale and privacy kinds for one source line', () => {
-        const finding = scanTrackedProductionReferences().find(
-            ({ file, line }) => file === 'README.md' && line === 153,
-        );
+    it('has no overlapping stale and privacy findings after migration', () => {
+        const finding = scanTrackedProductionReferences().find(({ kinds }) => kinds.length === 2);
 
-        expect(finding?.kinds).toEqual(['retired-query', 'credential-query']);
+        expect(finding).toBeUndefined();
     });
 
     it('has no stale production links or privacy violations in tracked surfaces', () => {

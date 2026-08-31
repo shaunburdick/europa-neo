@@ -89,19 +89,19 @@ export function mountLiveRuntime(root: HTMLElement): void {
     if (matchId === null) {
         // No store to surface feedback through yet; expose the reason on
         // the handle so drivers fail with a diagnostic instead of hanging.
-        // Legacy test seam: only ?match is required when this helper is mounted directly.
+        // Legacy test seam: a match identifier is required when this helper is mounted directly.
         window.__europaLive = {
             store: undefined as unknown as ConsoleStore,
             client: undefined as unknown as ConsoleClient,
-            bootError: 'live runtime requires ?match=<id> query parameter',
+            bootError: 'live runtime requires a match identifier',
         };
         return;
     }
 
     let safeUrl: string;
     try {
-        // Single-port (011): same-origin fallback when ?ws= is absent — same path as
-        // lobby-view. Explicit test/operator overrides still hard-error when cross-host
+        // Single-port (011): same-origin fallback when no transport override is present —
+        // same path as lobby-view. Explicit test/operator overrides still hard-error when cross-host
         // or credential-bearing before client construction (FR-007).
         safeUrl = seam?.wsUrl ?? resolveLobbyServerUrl(window.location.search, window.location);
     } catch (error: unknown) {

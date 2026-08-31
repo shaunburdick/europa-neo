@@ -5,9 +5,9 @@
  * share ONE http.Server on HOST_PORT (default 8080). The browser's same-origin
  * `location.host` (hostname + port as the browser sees it) is therefore the
  * canonical WebSocket fallback — no second port, no hardcoded non-same-origin
- * default as primary path. An explicit `?ws=` override remains validated
+ * default as primary path. An explicit transport override remains validated
  * (same-host + loopback alias + no credentials) via {@link validateLobbyServerUrl}.
- * Explicit `?ws=` overrides remain supported for operator/test configuration,
+ * Explicit transport overrides remain supported for operator/test configuration,
  * but are validated before they can be used by a client.
  */
 
@@ -52,7 +52,7 @@ export class LobbyServerUrlError extends Error {
  * URL: `ws://`/`wss://` pass through verbatim; `http(s)://` upgrade
  * scheme; bare `host[:port]` gains a `ws://` prefix.
  *
- * @param value The raw override value (e.g. a `?ws=` parameter).
+ * @param value The raw WebSocket override value.
  */
 function normalizeWsUrl(value: string): string {
     const lowerValue = value.toLowerCase();
@@ -77,7 +77,7 @@ function normalizeWsUrl(value: string): string {
  * never select a different hostname. The two equivalent IPv4 loopback
  * spellings, localhost and 127.0.0.1, are accepted together for local test
  * and self-host routes. This preserves the documented
- * `?ws=` operator/test setting while preventing bearer identity material
+ * operator/test transport setting while preventing bearer identity material
  * from being sent cross-host. Both ws/wss are accepted for same-host routes;
  * the browser remains responsible for mixed-content enforcement.
  */
@@ -123,7 +123,7 @@ export function validateLobbyServerUrl(value: string, locator: PageLocator): str
 /**
  * Resolve the lobby/match server URL for this page load (011 single-port FR-006/FR-007):
  *
- *   1. an explicit `ws` query parameter wins (operators on non-default
+ *   1. an explicit WebSocket transport override wins (operators on non-default
  *      ports; test harnesses) — scheme-normalized by
  *      {@link normalizeWsUrl} and validated by {@link validateLobbyServerUrl};
  *   2. otherwise same-origin fallback: `${protocol==='https:'?'wss':'ws'}://${location.host}`
@@ -133,7 +133,7 @@ export function validateLobbyServerUrl(value: string, locator: PageLocator): str
  *      listener (FR-008). Backwards-compat: if `host` is absent but `hostname`
  *      is present, derives host from `hostname` + `port` (old call sites).
  *
- * PRIVACY: reads ONLY the `ws` parameter — identifiers never ride
+ * PRIVACY: reads ONLY the transport override — identifiers never ride
  * URLs into this layer, and nothing here writes to the URL.
  *
  * @param search The query string (e.g. `window.location.search`).
