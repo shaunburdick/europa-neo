@@ -1,8 +1,9 @@
 /**
  * Lobby runtime — feature 010 (T-015).
  *
- * The DEFAULT application entry (mounted by `main.tsx` for every page
- * load that is not a direct `?live`/`?e2e` route): boots the lobby
+ * The DEFAULT application entry (mounted by `main.tsx` for canonical and
+ * semantic production paths): boots the lobby. The `?e2e` harness is handled
+ * separately, and the retired live query is never a production entry.
  * transport + controller once per page, renders the landing view while
  * `viewMode === 'lobby'`, and — after a seat-granting action succeeds
  * — hands off to a match context (`viewMode === 'match'`) that ends in

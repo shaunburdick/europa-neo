@@ -54,7 +54,7 @@ export { createConsoleStore } from './state/store';
 
 // ----------------------------------------------------------------------------
 // Lobby state layer — feature 010 (T-014): reducer/store/controller beside
-// the match store + direct-live-route compatibility derivation
+// the match store; production entry is selected by semantic routing.
 // ----------------------------------------------------------------------------
 
 export {

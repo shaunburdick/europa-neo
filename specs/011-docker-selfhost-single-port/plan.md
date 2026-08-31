@@ -82,7 +82,7 @@ Single source file `packages/console/scripts/host.ts` (± `host-config.ts`, `ver
 
 - `resolveConfig`: `--port`/`HOST_PORT` default `8080`; `--static-port`/`HOST_STATIC_PORT` absent → when seen, return null with message `host: --static-port / HOST_STATIC_PORT no longer supported — the server uses a single port (HOST_PORT / --port); see README`.
 - `buildStack(wsPort, bindHost, httpServer)`: create `ServerDeps` with `httpServer`, expose the networking server's internal wss upgrade handle (either via returned `wss` or a small `getWss()` accessor) so host can wire `server.on('upgrade', …)` without duplicating auth logic.
-- Banner: `Match server : ws(s)://host:PORT` and `Console UI : http(s)://host:PORT` are the SAME port; lobby banner `→ http://…:PORT/` and `--create` banner join URLs both carry `http://host:PORT/?live&ws=ws://host:PORT&…` on one origin. Log lines MUST NOT mention `staticPort`.
+- Banner: `Match server : ws(s)://host:PORT` and `Console UI : http(s)://host:PORT` are the SAME port; lobby banner `→ http://…:PORT/lobby` and `--create` banner join URLs use semantic `/match/<matchId>/join` paths on one origin. Log lines MUST NOT mention `staticPort`.
 
 ### 4. Console same-origin fallback (Spec FR-006..FR-008)
 
@@ -99,7 +99,7 @@ Two call sites, one helper:
 
   Where `locator` is widened to carry `host` (`location.host` = hostname + port as the browser sees it). When `location.host` is empty (non-http origin, `file://`, unit test), fall back to `localhost:<LOBBY_DEFAULT_SERVER_PORT>` where `LOBBY_DEFAULT_SERVER_PORT` is now documented as "THE default `HOST_PORT` (8080) — not a second port". The explicit `?ws=` override still routes through `validateLobbyServerUrl` (same-host + loopback alias + no-credentials).
 
-- **`packages/console/src/internal/live-runtime.tsx`**: identical same-origin default when `?ws=` absent (currently requires `?ws=`; after collapse the lobby path already defaults, but the live-runtime must also support opening `http://host:PORT/?live&match=&name=` with no `ws` — E2E `?live` fixtures keep `ws` but the handler must tolerate absence via same-origin fallback instead of bootError).
+- **Semantic match runtime**: use the same-origin default when `?ws=` is absent on canonical lobby and semantic match paths. The retired query-selected live entry is not supported; `?e2e` remains the unchanged test-only harness and explicit `?ws=` remains a validated test/operator override.
 
 - Keep `validateLobbyServerUrl` semantics unchanged; `normalizeWsUrl` unchanged.
 

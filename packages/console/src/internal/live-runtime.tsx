@@ -1,8 +1,9 @@
 /**
  * Live full-stack runtime — Integration wave harness.
  *
- * @internal Package-internal integration scaffolding. Mounted by
- * `main.tsx` ONLY when the page URL carries a `live` query parameter.
+ * @internal Package-internal integration scaffolding for the legacy full-stack
+ * test seam. It is not mounted by the production bootstrap; semantic routing
+ * owns production entry, while `?e2e` remains the separate demo harness.
  * Unlike {@link ./demo-runtime} (which injects a recording fake), this
  * boots the REAL production path end-to-end:
  *
@@ -10,7 +11,7 @@
  *   WsMatchClient (native WebSocket, networking's wire codec) →
  *   live createMatchServer → matchmaking-bound engine/terrain/fog
  *
- * Query parameters:
+ * Legacy test-seam query parameters (not a production URL contract):
  *   - `ws`    Optional WebSocket URL override (e.g. ws://host:port). When
  *             absent, same-origin fallback `${protocol==='https:'?'wss':'ws'}://${location.host}`
  *             is used (011 single-port FR-006). Explicit overrides still
@@ -88,7 +89,7 @@ export function mountLiveRuntime(root: HTMLElement): void {
     if (matchId === null) {
         // No store to surface feedback through yet; expose the reason on
         // the handle so drivers fail with a diagnostic instead of hanging.
-        // 011 single-port: ?ws= is now optional (same-origin fallback), only ?match is required.
+        // Legacy test seam: only ?match is required when this helper is mounted directly.
         window.__europaLive = {
             store: undefined as unknown as ConsoleStore,
             client: undefined as unknown as ConsoleClient,
@@ -99,9 +100,9 @@ export function mountLiveRuntime(root: HTMLElement): void {
 
     let safeUrl: string;
     try {
-        // Single-port (011): same-origin fallback when ?ws= absent — same path as lobby-view.
-        // Keeps ?live&ws= compatibility for Playwright fixtures; cross-host/credential overrides
-        // still hard-error before client construction (FR-007).
+        // Single-port (011): same-origin fallback when ?ws= is absent — same path as
+        // lobby-view. Explicit test/operator overrides still hard-error when cross-host
+        // or credential-bearing before client construction (FR-007).
         safeUrl = seam?.wsUrl ?? resolveLobbyServerUrl(window.location.search, window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';

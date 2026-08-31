@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 4 — T017–T020 complete
+- **Current Wave**: Wave 5 — T021–T023 complete; T024 pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
 
@@ -35,7 +35,11 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T018 host link emission — ✅ complete
 - T019 self-host and host integration expansion — ✅ complete
 - T020 Docker validation and documentation — ✅ complete
-### Wave 5 — Documentation truthfulness — ⏳ Pending
+### Wave 5 — Documentation truthfulness — ⏳ T021–T023 complete
+- T021 README and console README launch/route guidance — ✅ complete
+- T022 player manual migration — ✅ complete — semantic paths documented; credentials excluded; issue #34 share/copy UX remains out of scope
+- T023 Feature 005/010/011 documentation/spec notes — ✅ complete
+- T024 tracked-surface stale-reference/privacy scan — ⏳ pending
 ### Wave 6 — Final gate — ⏳ Pending
 
 ## Decisions & Rationale

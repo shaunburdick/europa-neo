@@ -88,9 +88,9 @@ red until the migration waves remove the existing production query references.
 
 ## Wave 5 — Documentation truthfulness
 
-- [ ] T021 [P] Update `README.md` and `packages/console/README.md` launch/route guidance; remove stale production `?live`, retain explicit `?e2e`; depends on T018.
-- [ ] T022 [P] Update `docs/manual/index.md`, `quick-start.md`, and applicable lobby/reading-screen guidance to semantic paths, excluding issue #34 share/copy UX; depends on T018.
-- [ ] T023 [P] Amend Feature 005, 010, and 011 docs/spec notes and developer/operational comments so compatibility claims are truthful; no unrelated contract changes; depends on T007, T018.
+- [x] T021 [P] Update `README.md` and `packages/console/README.md` launch/route guidance; remove stale production `?live`, retain explicit `?e2e`; depends on T018.
+- [x] T022 [P] Update `docs/manual/index.md`, `quick-start.md`, and applicable lobby/reading-screen guidance to semantic paths, excluding issue #34 share/copy UX; depends on T018.
+- [x] T023 [P] Amend Feature 005, 010, and 011 docs/spec notes and developer/operational comments so compatibility claims are truthful; no unrelated contract changes; depends on T007, T018.
 - [ ] T024 Scan tracked source, tests, host output, Docker/docs, and generated assets for stale references/privacy violations; depends on T021–T023.
 
 ## Wave 6 — Final gate

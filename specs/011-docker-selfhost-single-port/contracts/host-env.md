@@ -42,7 +42,7 @@ Console UI   : http://localhost:8080
 `--create` mode's join URLs MUST carry the same origin:
 
 ```
-Player 1 → http://localhost:8080/?live&ws=ws://localhost:8080&match=...&name=P1&token=...
+Player 1 → http://localhost:8080/match/<matchId>/join
 ```
 
 Log plumbing (`onSeatClaimed`, `onMatchTerminal`) is unchanged; no extra port is mentioned.
@@ -66,7 +66,7 @@ const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hos
 
 - `location.protocol === 'https:'` → `wss://`, else `ws://`.
 - `location.host` carries `hostname:port` as the browser sees it — exactly `host:HOST_PORT`.
-- Applies at BOTH (a) normal lobby path (`packages/console/src/state/lobby-view.ts:resolveLobbyServerUrl`) and (b) direct `?live` path (`packages/console/src/internal/live-runtime.tsx`). The lobby path is the P1 gate; the live-runtime fix keeps `pnpm host --create` URLs correct and E2E `?live` with no `ws` from working (the common self-host case after collapse).
+- Applies to the canonical lobby and semantic match paths (`packages/console/src/state/lobby-view.ts:resolveLobbyServerUrl`). The retired query-selected live entry is not a production or compatibility path. Explicit `?ws=` remains available only as a validated test/operator override, and `?e2e` remains the separate test-only harness.
 - Explicit `?ws=` override still consulted FIRST: when present and non-empty, `validateLobbyServerUrl(override, locator)` is called (scheme-normalizes `http→ws`, `https→wss`, bare `host:port` → `ws://host:port`), enforcing same-host alias (`localhost↔127.0.0.1`) + no-credentials + well-formed. Fallback runs ONLY when `?ws=` absent/empty.
 
 ### `LOBBY_DEFAULT_SERVER_PORT` role

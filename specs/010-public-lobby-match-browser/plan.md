@@ -90,10 +90,10 @@ loop and each mutation rechecks current state immediately before assignment.
 Introduce a lobby state machine beside the existing console match store:
 `identitySetup → lobby → waiting → joining/spectating → match → lobby` plus
 recoverable `error`/`disconnected` substates. Keep the current live console
-mounted for the match state; replace query-string `?live` as the default host
-entry path. A route adapter may preserve direct `?live` compatibility for
-existing development/test links, but normal host output contains no match ID,
-seat, token, or identity in the URL.
+mounted for the match state; use semantic paths as the host entry paths. The
+legacy query-selected live entry is retired rather than preserved as a
+compatibility route. Normal host output contains no match ID, seat, token, or
+identity in the URL.
 
 Create a reusable lobby UI with an identity form, create form, status-filtered
 public match rows, empty/loading/error states, and accessible transitions. Match

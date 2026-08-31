@@ -140,9 +140,9 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 
 ## Clarifications
 
-### v1.2 (2026-08-30) — Semantic URL routing supersedes query live entry
+### v1.2 (2026-08-30) — Semantic URL routing retires query live entry
 
-Feature 013 replaces the former `?live&ws=<url>&match=<id>&name=[&token=]` production/test-entry description with semantic paths (`/lobby`, `/match/<matchId>`, and explicit `/join` and `/spectate` shortcuts). Rendering, input, networking, reconnect, spectator, and accessibility requirements remain in force. The `?e2e` harness remains unchanged and test-only; `resolveInitialViewMode` is no longer a public compatibility contract.
+Feature 013 replaces the former query-selected live-entry description with semantic paths (`/lobby`, `/match/<matchId>`, and explicit `/join` and `/spectate` shortcuts). The legacy `?live` URL is retired: it is not a production or compatibility entry point. Rendering, input, networking, reconnect, spectator, and accessibility requirements remain in force. The `?e2e` harness remains unchanged and test-only; `resolveInitialViewMode` is no longer a public compatibility contract.
 
 ### v1.1 (2026-08-23) — Perf-gate hardening after CI-runner jitter
 
