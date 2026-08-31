@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 0 — Complete
+- **Current Wave**: Wave 0 — T001 complete; guards pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-30
 
@@ -10,7 +10,7 @@ Replace production query-selected live boot with a pure pathname router and expl
 
 ## Task Wave Progress
 
-### Wave 0 — Baseline and guards — ✅ Complete
+### Wave 0 — Baseline and guards — 🔄 In Progress
 - T001 baseline and status — ✅ complete
 - T002 route contract tests — ⏳ pending
 - T003 stale-link/privacy guards — ⏳ pending
