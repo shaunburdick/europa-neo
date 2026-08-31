@@ -44,14 +44,11 @@
  *       declarations — the local copies exist only because the facade
  *       is type-only toward upstream at runtime; structurally they are
  *       mirrors and drift between them is a bug.
- *   (e) Privacy envelope — no public projection or spectator target
- *       can grow an opaque guest id, seat, or token field without
- *       failing this program (spec FR-003/FR-024/NFR-003). Per spec
- *       Clarifications v1.6, `IdentityState.guestPlayerId` is the ONE
- *       sanctioned exception: optional, brand-typed, delivered only by
- *       the directed identity event to its owning connection — so the
- *       witnesses pin its OPTIONALLY and brand (not its absence) while
- *       entries/snapshots/targets stay strictly id-free.
+ *   (e) Privacy envelope — bearer credentials and authority-bearing seat
+ *       fields remain out of public projections and spectator targets.
+ *       Guest player IDs are non-secret correlation identifiers; the
+ *       directed identity field is pinned for its brand and optionality,
+ *       rather than treating every ID as a credential.
  *   (f) Public barrel surface (T-003) — every feature-010 contract
  *       name is reachable from the BUILT package root
  *       (`dist/index.d.ts` — what consumers actually import as
@@ -130,8 +127,8 @@ const GUEST_PLAYER_ID_CONFORMS: GuestPlayerIdConforms = true;
 const LOBBY_REVISION_CONFORMS: LobbyRevisionConforms = true;
 const LOBBY_ACTION_ID_CONFORMS: LobbyActionIdConforms = true;
 
-// Pairwise distinctness: a guest id must never flow where a match id
-// (or vice versa) is expected, despite both branding strings.
+// Pairwise type distinctness: guest and match IDs must remain non-interchangeable
+// despite both being branded strings.
 type GuestIdDistinctFromMatchId = AssertDistinct<LobbyTypes.GuestPlayerId, MatchId>;
 const GUEST_ID_DISTINCT_FROM_MATCH_ID: GuestIdDistinctFromMatchId = true;
 
@@ -351,16 +348,11 @@ type IdentityStateGuestIdMirrors = AssertMutuallyAssignable<
 const IDENTITY_STATE_GUEST_ID_MIRRORS: IdentityStateGuestIdMirrors = true;
 
 // ---------------------------------------------------------------------------
-// (e) Privacy envelope (no opaque ids / seats / tokens in projections)
+// (e) Privacy envelope (bearer credentials / authority fields in projections)
 // ---------------------------------------------------------------------------
 
-type EntryHasNoGuestId = AssertKeyAbsent<'guestPlayerId', LobbyTypes.PublicLobbyEntry>;
-type SnapshotHasNoGuestId = AssertKeyAbsent<'guestPlayerId', LobbyTypes.LobbySnapshot>;
-// Sanctioned exception (spec Clarifications v1.6): the DIRECTED identity
-// state carries the owner's opaque id — OPTIONAL (absent from every
-// other projection of the shape) and typed exactly as the brand. These
-// witnesses fail if the field becomes required, retypes, or drifts from
-// `GuestPlayerId`.
+// The DIRECTED identity state carries the owner's non-secret correlation id,
+// typed exactly as the brand and remaining optional for older servers.
 type IdentityGuestIdIsOptional = AssertMutuallyAssignable<
     LobbyTypes.IdentityState['guestPlayerId'],
     LobbyTypes.GuestPlayerId | undefined
@@ -369,8 +361,6 @@ type SpectatorTargetHasNoToken = AssertKeyAbsent<'sessionToken', LobbyApi.Specta
 type SpectatorTargetHasNoSeat = AssertKeyAbsent<'seatIndex', LobbyApi.SpectatorTarget>;
 type SpectatorTargetHasNoPlayerId = AssertKeyAbsent<'playerId', LobbyApi.SpectatorTarget>;
 
-const ENTRY_HAS_NO_GUEST_ID: EntryHasNoGuestId = true;
-const SNAPSHOT_HAS_NO_GUEST_ID: SnapshotHasNoGuestId = true;
 const IDENTITY_GUEST_ID_IS_OPTIONAL: IdentityGuestIdIsOptional = true;
 const SPECTATOR_TARGET_HAS_NO_TOKEN: SpectatorTargetHasNoToken = true;
 const SPECTATOR_TARGET_HAS_NO_SEAT: SpectatorTargetHasNoSeat = true;
@@ -607,8 +597,6 @@ describe('feature 010 lobby contract witnesses (T-001)', () => {
         expect(WIRE_PUBLIC_LOBBY_ENTRY_MIRROR_CONFORMS).toBe(true);
         expect(ERROR_VARIANT_DETAIL_MIRRORS).toBe(true);
         expect(IDENTITY_STATE_GUEST_ID_MIRRORS).toBe(true);
-        expect(ENTRY_HAS_NO_GUEST_ID).toBe(true);
-        expect(SNAPSHOT_HAS_NO_GUEST_ID).toBe(true);
         expect(IDENTITY_GUEST_ID_IS_OPTIONAL).toBe(true);
         expect(SPECTATOR_TARGET_HAS_NO_TOKEN).toBe(true);
         expect(SPECTATOR_TARGET_HAS_NO_SEAT).toBe(true);

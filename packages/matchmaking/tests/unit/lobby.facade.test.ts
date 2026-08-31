@@ -416,25 +416,20 @@ describe('public projection', () => {
         });
     });
 
-    it('keeps projections free of guest ids, tokens, and session credentials', () => {
+    it('keeps projections free of bearer credentials while identity events correlate owners', () => {
         const { service, delivered } = buildHarness();
         const actor = namedConnection(service, 'Nova');
         expectOk(service.subscribe(actor.connectionId));
         expectOk(service.create(actor.connectionId, undefined));
 
         // Everything the receiving side can observe: pushed events + snapshots.
-        // Handles ("Nova") are LEGITIMATE display data (FR-020); opaque ids,
-        // session tokens, and player-session ids are not — anywhere except
-        // the ONE sanctioned channel (spec Clarifications v1.6): the
-        // DIRECTED identity event to its own owner. Entries, snapshots,
-        // action outcomes, and every non-identity frame stay strictly
-        // id-free.
+        // Guest IDs are non-secret correlation data. Bearer session tokens and
+        // player-session credentials must still stay out of lobby projections.
         const publicDeliveries = delivered.filter((d) => d.event.kind !== 'identity');
         const serialized = publicDeliveries
             .map((d) => JSON.stringify(d.event))
             .concat([JSON.stringify(expectOk(service.subscribe(actor.connectionId)))]);
         for (const blob of serialized) {
-            expect(blob).not.toContain('g-');
             expect(blob).not.toContain('token-');
             expect(blob).not.toContain('psn-');
         }

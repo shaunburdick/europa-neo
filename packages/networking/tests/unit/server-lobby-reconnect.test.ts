@@ -18,8 +18,9 @@
  *     — the dispatcher half of "identity enters grace" (the facade's
  *     handle-reservation half is pinned by matchmaking's suites);
  *   - SECRECY: no mismatched claimant or bystander ever observes the
- *     owner's session token, snapshot, view, or opaque guestPlayerId —
- *     the v1.6 delivery channel stays directed to its owner.
+ *     owner's session token, snapshot, or view; the non-secret guest ID
+ *     remains an identity reference, and the v1.6 delivery channel stays
+ *     directed to its owner.
  *
  * Real engine sessions + real fog; mock sockets keep every path
  * synchronous and deterministic.
@@ -58,7 +59,7 @@ interface ObservedJoinAck {
 }
 
 /**
- * Identity state carrying the bearer-secret guest id. Built through a
+ * Identity state carrying the non-secret guest id. Built through a
  * runtime narrowing so the optional field is attached only when
  * present (`exactOptionalPropertyTypes` discipline).
  */
@@ -101,7 +102,7 @@ interface SeatedPlayer {
 
 /**
  * Seat a player on `match` AND bind a lobby identity whose directed
- * confirmation carries the bearer-secret guest id (the v1.6 delivery
+ * confirmation carries the non-secret guest id (the v1.6 delivery
  * channel under protection here).
  *
  * @param server Target server.
@@ -114,7 +115,7 @@ function seatPlayerWithIdentity(
     fake: FakeLobbyService,
     match: ReturnType<typeof scriptedMatch>,
 ): SeatedPlayer {
-    // Script the directed identity event to carry the secret id BEFORE
+    // Script the directed identity event to carry the identity id BEFORE
     // the handshake so the establish push includes it.
     fake.identityToDeliver = ownerIdentityState();
 

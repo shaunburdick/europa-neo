@@ -20,10 +20,9 @@
  *     EXACTLY the owning connection and nobody else;
  *   - F-4 REGRESSION: the default arm's diagnostics are
  *     direction-aware;
- *   - SECRECY: the bearer-secret guest id presented as INPUT is never
- *     echoed into any other frame; its ONE lawful appearance is the
- *     owning connection's directed identity event (feature 010
- *     Clarifications v1.6, pinned by the routing suite below);
+ *   - IDENTITY CORRELATION: the non-secret guest id is forwarded to the
+ *     owning connection's directed identity event and is never used as
+ *     authority for another connection; bearer credentials remain protected;
  *   - PRESERVATION: heartbeat and protocol behavior are untouched.
  *
  * Uses the recording facade fixture (`fakeLobbyService.ts`) and the
@@ -588,16 +587,17 @@ describe('dispatcher default arm direction diagnostics (F-4)', () => {
 // ---------------------------------------------------------------------------
 
 describe('claim correlation and failure isolation', () => {
-    it('does not echo a claim-presented guest id in unrelated failure frames', () => {
+    it('does not manufacture identity state for a claim during an unrelated failure', () => {
         // The directed identity route is covered above. This flow checks
         // that a failed action does not manufacture an identity event or
-        // error message containing the claim value.
+        // alter the server-resolved identity. Guest IDs are correlation data,
+        // not bearer credentials.
         const fake = new FakeLobbyService();
         fake.setHandleOutcome = { ok: false, error: lobbyFailure('handle_invalid', 'bad handle') };
         const server = lobbyServer(fake);
         const { socket } = connectClient(server);
 
-        // Full flow INCLUDING a claim carrying the secret and failing actions.
+        // Full flow INCLUDING a claim carrying the correlation id and failing actions.
         sendLobby(
             socket,
             'lobbyIdentity',

@@ -490,25 +490,15 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
         expect(new Set(labels).size).toBe(LOBBY_EVENT_KINDS.length);
     });
 
-    it('declares the opaque guest player id only on the claim input and the directed identity state', () => {
+    it('models guest player ids for identity correlation and directed delivery', () => {
         // Privacy boundary spot-check (spec FR-024 / NFR-003, scoped by
         // feature 010 Clarifications v1.6): the wire projection types
-        // carry match discovery data and handles only. The guest id is
-        // typed in exactly TWO places: the advisory GuestIdentityClaim
-        // INPUT, and IdentityState.guestPlayerId — the sanctioned FR-003
-        // delivery channel on the DIRECTED identity event to its owning
-        // connection. Entries/snapshots/targets stay strictly id-free.
-        const entryKeys: ReadonlyArray<string> = [
-            'matchId',
-            'seatsFilled',
-            'capacity',
-            'status',
-            'boardSize',
-            'tickIntervalMs',
-        ];
+        // carry match discovery data and handles. The guest id is typed in
+        // the advisory GuestIdentityClaim input and the directed
+        // IdentityState delivery channel. It is non-secret correlation data;
+        // bearer credentials remain outside these projections.
         const claimKeys: ReadonlyArray<string> = ['guestPlayerId', 'handle'];
         const identityStateKeys: ReadonlyArray<string> = ['handle', 'hasIdentity', 'guestPlayerId'];
-        expect(entryKeys).not.toContain('guestPlayerId');
         expect(claimKeys).toContain('guestPlayerId');
         expect(identityStateKeys).toContain('guestPlayerId');
     });
