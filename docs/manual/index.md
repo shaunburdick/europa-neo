@@ -5,6 +5,9 @@ Welcome, commander. Europa Neo is a real-time strategy game: rival colonies of n
 Before you play, open the [public lobby](./lobby.md) at `/lobby` and choose a temporary guest handle. You can rename it later; other players see this handle instead of private system details, and no account is required.
 
 Matches use readable paths: `/match/<match-id>/join` requests a player seat, `/match/<match-id>/spectate` opens read-only spectating, and `/match/<match-id>` chooses the appropriate action for the match state. These paths contain the match ID only; your guest identity and reconnect session stay in the browser and are not credentials in the address.
+Guest/player IDs are non-secret correlation data, not credentials; the manual
+does not expose bearer credentials. Match IDs identify matches,
+while guest/player IDs identify participants.
 
 <div class="europa-card">
 
@@ -14,7 +17,7 @@ Matches use readable paths: `/match/<match-id>/join` requests a player seat, `/m
 
 ## The 60-second version
 
-You land on Europa with a handful of **cities**. Every city produces troops each tick (the game heartbeat, four per second) until it saturates. You move troops around by laying **pipes** between cells — gravity does the work, so downhill pipes flow while uphill pipes sit idle. Troops cut off from supply slowly **decay**, so keeping your pipeline network fed matters.
+You land on Europa with a handful of **cities**. Every city produces troops each tick (the game heartbeat, four per second) until it saturates. You move troops around by laying **pipes** between cells — gravity does the work, so downhill pipes flow fastest, flat pipes flow steadily, and steep uphill pipes stall. Troops cut off from supply slowly **decay**, so keeping your pipeline network fed matters.
 
 Where your troops meet enemy troops in a cell, they fight by **attrition**: equal forces wipe each other out, and the larger side wins and keeps the difference. Two special weapons break stalemates: **paratroopers** hop over the pipe network (costing twice what lands) and sever any pipes at their landing site, and **guns** shell every troop in a target cell — friend or foe.
 

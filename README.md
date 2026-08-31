@@ -217,10 +217,14 @@ matches offer **Spectate**; collected matches are not history.
 Temporary disconnects use the existing reconnect grace window. A valid
 reconnect credential within that window restores the original seat, handle,
 view, and order authority. Expired, unknown, or mismatched credentials do not
-reassign a connection. The opaque guest identifier is delivered only in the
-directed identity event to its owner; public listings, other connections,
-URLs, views, and logs remain free of it. Host diagnostics deliberately omit
-bearer credentials and opaque identity identifiers.
+reassign a connection. Guest identity IDs and gameplay `PlayerId` values are
+non-secret correlation data, not credentials or authority, and may appear in
+URLs, wire payloads, views, logs, and diagnostics where useful. Labels are
+handle-first: the accepted handle is the preferred UI label, with a generic label
+or the relevant ID as a fallback when no handle exists. Only a valid bearer
+credential can resume a seat; host diagnostics continue to omit bearer
+credentials (`sessionToken` and `reconnectToken`). Private-match existence and
+fog-of-war boundaries remain protected.
 
 `GET /version` on the single-port origin returns application and protocol versions:
 
@@ -233,6 +237,11 @@ output uses the lobby and semantic match paths, and does not place identity,
 transport, or credential material in the URL. The `?e2e` query documented in the
 console package is reserved for automated test harnesses and is not a
 production launch path.
+Guest/player IDs are non-secret correlation data and may appear in approved
+diagnostics or contract examples, but match IDs and guest/player IDs are not
+bearer credentials. Bearer session and reconnect tokens remain excluded from
+public app URLs, logs, diagnostics, and documentation examples. The direct
+`?live` route is historical test compatibility, not a production launch path.
 
 ## Credits & licensing
 

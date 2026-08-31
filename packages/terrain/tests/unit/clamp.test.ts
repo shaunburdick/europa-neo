@@ -26,6 +26,7 @@ import {
     clampOctaves,
     clampRoughness,
     clampSettings,
+    clampTerrainSmoothing,
     clampWaterRatio,
     MAX_REGEN_ATTEMPTS_MAX,
     MAX_REGEN_ATTEMPTS_MIN,
@@ -37,6 +38,8 @@ import {
     OCTAVES_MIN,
     ROUGHNESS_MAX,
     ROUGHNESS_MIN,
+    TERRAIN_SMOOTHING_MAX,
+    TERRAIN_SMOOTHING_MIN,
     WATER_RATIO_MAX,
     WATER_RATIO_MIN,
 } from '../../src/clamp';
@@ -198,6 +201,29 @@ describe('clamp (US3 / FR-008)', () => {
         });
     });
 
+    describe('clampTerrainSmoothing', () => {
+        it('returns the value unchanged when in range (mid)', () => {
+            expect(clampTerrainSmoothing(4)).toBe(4);
+        });
+        it('returns the lower bound unchanged (inclusive end)', () => {
+            expect(clampTerrainSmoothing(TERRAIN_SMOOTHING_MIN)).toBe(TERRAIN_SMOOTHING_MIN);
+        });
+        it('returns the upper bound unchanged (inclusive end)', () => {
+            expect(clampTerrainSmoothing(TERRAIN_SMOOTHING_MAX)).toBe(TERRAIN_SMOOTHING_MAX);
+        });
+        it('clamps below the lower bound up to the lower bound', () => {
+            expect(clampTerrainSmoothing(-3)).toBe(TERRAIN_SMOOTHING_MIN);
+            expect(clampTerrainSmoothing(-1)).toBe(TERRAIN_SMOOTHING_MIN);
+        });
+        it('clamps above the upper bound down to the upper bound', () => {
+            expect(clampTerrainSmoothing(9)).toBe(TERRAIN_SMOOTHING_MAX);
+            expect(clampTerrainSmoothing(99)).toBe(TERRAIN_SMOOTHING_MAX);
+        });
+        it('floors non-integer in-range values', () => {
+            expect(clampTerrainSmoothing(2.7)).toBe(2);
+        });
+    });
+
     describe('clampSettings (whole-object)', () => {
         it('returns the defaults unchanged when given DEFAULT_GENERATION_SETTINGS (idempotent)', () => {
             const out = clampSettings(DEFAULT_GENERATION_SETTINGS);
@@ -238,6 +264,15 @@ describe('clamp (US3 / FR-008)', () => {
             expect(out.waterRatio).toBe(WATER_RATIO_MAX);
             expect(out.roughness).toBe(ROUGHNESS_MIN);
             expect(out.octaves).toBe(3);
+        });
+
+        it('clamps out-of-range terrainSmoothing and surfaces the clamped value', () => {
+            const s: GenerationSettings = {
+                ...DEFAULT_GENERATION_SETTINGS,
+                terrainSmoothing: 99,
+            };
+            const out = clampSettings(s);
+            expect(out.terrainSmoothing).toBe(TERRAIN_SMOOTHING_MAX);
         });
 
         it('does not mutate the input object', () => {

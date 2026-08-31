@@ -1,403 +1,164 @@
-# Research: Core Game Engine (Feature 001)
+# Research: Elevation-Gradient Pipe Flow + Terrain Smoothing + Slope Color-Coding (issue #30)
 
-**Branch**: `001-europa-core`
-**Date**: 2026-08-21
-**Spec**: `specs/001-core-game-engine/spec.md`
-**Plan**: `specs/001-core-game-engine/plan.md`
+**Branch**: `issue-30-pipe-flow-rate` | **Date**: 2026-08-30 | **Specs**: 001 v1.2 · 003 v1.3 · 005 v1.2 · 006 ImplNotes · 007 v1.3 · 012 companion
 
-> Decisions captured for the engine package: tooling, determinism strategy,
-> numerics, API shape, and build/test infra. Each decision cites the version
-> and source consulted via `context7` (current docs) or `websearch` (current
-> practice).
+Phase-0 research for the issue #30 change set. Each section records the decision, the alternatives considered and rejected, and the evidence. The spec amendments (commits `3907ee1`, `71d46ad`) already resolved the product questions (tuning values, smoothing default/range, color scheme); this document resolves the technical questions (formula mechanics, kernel, plumbing, mirror strategy) and flags the one remaining product ambiguity (R-1).
 
 ---
 
-## 1. Monorepo workspace manager — **pnpm 11 with `workspace:*` protocol**
-
-**Decision**: `pnpm@11.x` workspaces, single root `pnpm-workspace.yaml`,
-per-package `package.json`, shared `typescript`/`vitest` versions pinned
-via the workspace `catalog:` feature.
-
-**Rationale**:
-- `pnpm` uses a content-addressable store (symlinks, not copies) — installs
-  are faster and disk-cheaper than `npm`/`yarn` for monorepos with several
-  packages.
-- pnpm enforces strict, non-hoisted dependency resolution by default. That
-  catches accidental cross-package imports of `dependencies` (vs.
-  `devDependencies` / peer `workspace:*`), which matters for a deterministic
-  engine: anything the engine reads from must be declared at the package
-  that uses it.
-- pnpm 11 introduced the `catalog:` / `catalogs:` protocol for sharing
-  dependency versions across a workspace without duplicating them in each
-  package.json. ([pnpm workspace manifest reader](https://github.com/pnpm/pnpm/blob/main/pnpm11/workspace/workspace-manifest-reader/src/index.ts))
-- `workspace:*` protocol is the canonical way to depend on a sibling
-  package. pnpm 11 parses `workspace:`, `workspace:^`, `workspace:~`, and
-  aliased `workspace:foo@*`. ([pnpm spec parser](https://github.com/pnpm/pnpm/blob/main/pnpm11/workspace/spec-parser/src/index.ts))
-
-**Alternatives considered**:
-- `npm@10` workspaces — works, but no `catalog:` shared versions, slower
-  installs, weaker isolation. Rejected: no tangible upside vs. pnpm.
-- `yarn@4` (berry) — PnP mode breaks many tools; node-modules linker mode
-  is fine but offers nothing pnpm doesn't. Rejected: smaller ecosystem
-  presence in 2026.
-
-**Citation**: pnpm workspace manifest & spec parser source files (Aug 2026).
-
----
-
-## 2. Build tool for `packages/engine` — **tsup 8.x (esbuild + dts)**
-
-**Decision**: `tsup@^8` for the engine package. Outputs ESM + `.d.ts`. No
-runtime dependencies.
-
-**Rationale**:
-- The engine is consumed by other packages via `workspace:*`. We need:
-  - `.d.ts` for type-safe consumption by 002/003/004/005/006.
-  - ESM for modern Node + browser bundlers.
-  - Fast rebuilds during iteration.
-- tsup is zero-config: `tsup src/index.ts --format esm --dts` is enough to
-  emit both JS and declaration files. Internally it uses esbuild for
-  transforms and `api-extractor`/rollup-plugins for `.d.ts` bundling.
-  ([tsup README](https://github.com/egoist/tsup/blob/main/docs/README.md))
-- Default extension selection handles the `package.json` `type: "module"`
-  corner case correctly. ([tsup utils](https://github.com/egoist/tsup/blob/main/src/utils.ts))
-
-**Alternatives considered**:
-- Raw `tsc --build` — works, but slower and produces only one format
-  without extra config. We don't need bundling for the engine (it's a
-  library, not a runtime app).
-- `swc` + manual `tsc --emitDeclarationOnly` — faster than tsc but loses
-  the simple single-command ergonomics of tsup.
-- `tsup` was preferred over `vite library mode` because vite is a
-  *bundler-for-applications* and brings web assumptions; tsup is purpose-
-  built for libraries.
-
-**Decision constraint**: the server package (`packages/server`) and client
-package (`packages/client`) will likely use `tsup` for the same reason.
-The browser console (feature 005) will use its own frontend bundler
-(Vite/esbuild) — but that decision belongs to the console's plan, not
-this one.
-
-**Citation**: tsup README + utils source.
-
----
-
-## 3. Test framework — **Vitest 4.1**
-
-**Decision**: `vitest@^4.1` for every package. Coverage provider: `v8`.
-
-**Rationale**:
-- Vitest is Vite-native, supports TS + ESM out of the box (no Babel/Jest
-  config), and is Jest-compatible so the engine tests can use `describe`/
-  `it`/`expect` syntax the team likely already knows.
-- Vitest 4.1 is the latest maintained minor of major v4 — confirmed in
-  the official support matrix. ([Vitest docs source](https://github.com/vitest-dev/vitest/blob/main/docs/.vitepress/theme/SupportedVersions.vue))
-- v8 coverage provider is the default in Vitest 4 and is faster than
-  Istanbul with no transform-stage overhead. ([coverage-v8 README](https://github.com/vitest-dev/vitest/blob/main/packages/coverage-v8/README.md))
-- ≥80% coverage is a **constitution merge gate** (Principle III). v8's
-  AST-aware remapping (introduced in 3.2 and being made default in the
-  next major) gives reliable per-line metrics on TS. ([Vitest 3.2 blog](https://github.com/vitest-dev/vitest/blob/main/docs/blog/vitest-3-2.md))
-
-**Alternatives considered**: Node's built-in `node:test` is fine for
-trivial cases but lacks the rich matcher library, watch mode, and coverage
-tooling. `jest` works but requires Babel/ts-jest config and is heavier
-than Vitest for TS/ESM projects.
-
-**Citation**: Vitest docs source + 3.2 release blog.
-
----
-
-## 4. Linting & formatting — **Biome 2.x** (single binary, single config)
-
-**Decision**: `@biomejs/biome@^2` for the whole monorepo, configured once
-at the repo root. Subpackages extend the root via `extends: ["//"]`.
-
-**Rationale**:
-- Biome is a single Rust binary that does both linting and formatting,
-  with no plugins, no Prettier dependency, no ESLint config inheritance
-  headaches. One tool to install, one tool to upgrade.
-- Biome 2 ships with first-class monorepo support: a child
-  `biome.json` can `extends: "//"` to inherit the root config and stop
-  upward traversal. ([Biome extends enum](https://github.com/biomejs/biome/blob/main/crates/biome_configuration/src/extends.rs))
-- The configuration schema is split into `formatter`, `linter`, `assist`,
-  `files`, and `vcs` sections — enough to enforce no-`any`, no-console,
-  import organization, and formatting in one place.
-  ([Biome Configuration struct](https://github.com/biomejs/biome/blob/main/crates/biome_configuration/src/lib.rs))
-
-**Alternatives considered**:
-- `eslint` + `typescript-eslint` + `prettier` — three tools, three config
-  formats, three upgrade cycles. More rules, but the rule set we actually
-  need (no `any`, no `console`, format) is covered by Biome with zero
-  configuration drama.
-- `deno lint` — not applicable; we run on Node, not Deno.
-
-**Caveat**: Biome does not yet have a TS strict-mode-aware `no-explicit-any`
-rule with the same granularity as `@typescript-eslint/no-explicit-any`.
-We'll use `noExplicitAny` + a project-level rule plus CI verification
-of `tsc --noEmit` to backstop it.
-
-**Citation**: Biome `Configuration` + `Extends` source files.
-
----
-
-## 5. Pseudorandom number generator — **sfc32 (128-bit)**
-
-**Decision**: `sfc32` as the project-wide deterministic PRNG. Exposed via
-`packages/engine/src/rng.ts`. Seeded by an integer seed (uint32) via the
-standard `xmur3(string) → 4×uint32 → sfc32` pattern when a string seed is
-needed.
-
-**Rationale**:
-- **sfc32** (Small Fast Counter, 128-bit state) is part of the PractRand
-  PRNG test suite and passes both Crush and BigCrush (TestU01), with no
-  known statistical weaknesses. ([bryc/code PRNGs reference](https://github.com/bryc/code/blob/master/jshash/PRNGs.md))
-- It's the fastest 128-bit JS PRNG (~7.45M ops/sec in the benchmark table),
-  with a 2¹²⁸-period state space — overkill for Europa but cheap insurance.
-- It uses only 32-bit integer ops, which are exact in JavaScript (no
-  silent promotion to `Number`). This matters for determinism: integer
-  math never drifts across V8/SpiderMonkey/JavaScriptCore.
-- Engine code itself does not call the PRNG — the simulation is a pure
-  state machine. But the engine owns the PRNG instance because:
-  1. Feature 003 (terrain) consumes it for map generation and must pass
-     the same seed the match was started with.
-  2. Future replays (out of v1 scope but in the architecture) need the
-     same PRNG instance the original match used.
-
-**Alternatives considered**:
-- **Mulberry32** (32-bit state) — simpler, faster, used by Chrome dev
-  team's CSS texture demo. Period is ~2³² which is technically enough for
-  a single match but smaller than we need for safety. Per the bryc
-  reference, `sfc32` is the recommended all-around JS PRNG. We adopt the
-  recommendation.
-- **xoshiro128\*\*** — fast 128-bit, but its lowest bits are known to be
-  weak; we'd need to mask/shift whenever we use it for integer ranges,
-  adding complexity.
-- **Math.random()** — disqualified. Unseeded; not specified in ECMA-262.
-
-**Citation**: [bryc/code jshash/PRNGs.md](https://github.com/bryc/code/blob/master/jshash/PRNGs.md)
-(PRNG benchmark table), [StackOverflow: Seeding the random number generator
-in JavaScript](https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript).
-
----
-
-## 6. Numeric representation — **integer-only**
-
-**Decision**: All troop counts, production rates, capacities, slope
-factors, reserves percentages, and combat deltas are **integers** in TS
-(`number` constrained to `Math.floor` results, never float math). All
-arithmetic in tick logic uses `| 0` / `Math.imul` / `Math.floor` — no
-floating-point in state updates.
-
-**Rationale**:
-- Spec FR-017 explicitly mandates "integer (or fixed-point) arithmetic
-  only". The spec also lists troops as "integer ≥ 0".
-- Troops are indivisible units (you cannot have 0.7 of a nanobot). All
-  downstream math is integer-safe.
-- Slope factors are integer ratios. Example: downhill = `2x` of base flow,
-  uphill = `floor(x/2)`. We model this as integer multiplication on a base
-  integer flow count. No fractional troops ever exist.
-- JavaScript `Number` is IEEE-754 double — perfectly capable of exact
-  integer arithmetic up to 2⁵³. We never approach that in a 32×32 board.
-  The risk is *implicit* float promotion, not capacity. We guard by using
-  `Math.imul`, `Math.floor`, and `| 0` consistently.
-- Determinism (FR-017) is the real driver. IEEE-754 results are
-  deterministic *given identical platform*, but float-equality comparisons
-  and accumulation drift are the kind of subtle bug we want to eliminate
-  by never introducing floats.
-
-**When we'd revisit**: if a future mechanic required fractional rates
-(e.g., research that grants +0.05/tick), we'd add a small fixed-point
-helper (`Fixed<Q>` parameterized by 2^k denominator). For v1, we don't.
-
-**Citation**: spec FR-017; JS `Math.imul` semantics (ECMA-262 §21.3.2.5).
-
----
-
-## 7. Engine ↔ consumer interface shape — **pure functions + immutable snapshots**
-
-**Decision**: The engine exports a small set of pure functions and a
-single readonly value type (`World`). All transitions return new
-`World` instances — the input is never mutated.
-
-```ts
-// Pure creation
-createWorld(config: MatchConfig, terrain: Board): World
-
-// Pure command application — validates + stages for next tick
-applyCommand(
-  world: Readonly<World>,
-  cmd: Order,
-): { world: Readonly<World>; result: CommandResult }
-
-// Pure tick — advances one simulation step
-tick(world: Readonly<World>): {
-  world: Readonly<World>;
-  events: TickEvents;
-  terminal?: MatchResult;
-}
-
-// Pure terminal check (cheap to call outside tick)
-isTerminal(world: Readonly<World>): MatchResult | undefined
-
-// Serialization (for replays / cross-process transport)
-serializeWorld(world: Readonly<World>): Uint8Array
-deserializeWorld(bytes: Uint8Array): Readonly<World>
-hashWorld(world: Readonly<World>): string
-```
-
-**Rationale**:
-- **Pure functions** = constitution Principle II (determinism). The
-  compiler can prove no hidden state; tests can run anywhere.
-- **Immutable snapshots per tick** = downstream consumers can diff
-  cheaply (reference equality for unchanged cells). Feature 004's tick
-  delta encoding becomes "compare prev & next cell refs, emit changed".
-- **Explicit `events` channel** = feature 002 (fog) and feature 005
-  (console) get a deterministic, replayable list of what happened this
-  tick (battles, captures, eliminations) without scanning the whole
-  world diff.
-- **No EventEmitter / no observables** — those tempt consumers to
-  subscribe to mutation, which couples them to ordering. Functions are
-  enough for the v1 consumers.
-
-**Alternatives considered**:
-- Event-emitter / observable style — rejected: introduces ordering
-  concerns and makes deterministic testing harder.
-- Mutable `World` class with methods — rejected: violates pure-function
-  contract; harder to test in isolation; can't share between worker
-  threads without structured-clone overhead.
-- OOP entity-component system — overkill for v1; rejected per
-  constitution Principle V (simplicity over cleverness).
-
-**Citation**: Spec FR-017/FR-018; constitution Principles II and V.
-
----
-
-## 8. Tick-rate strategy
-
-**Decision**: The engine does **not** own the wall clock. A separate
-`Scheduler` (lives in `packages/server`, feature 006) calls
-`engine.tick(world)` at fixed cadence. The engine measures tick intervals
-in *integer tick numbers*, not milliseconds.
-
-**Rationale**:
-- Keeps the engine pure (no `Date.now()`, no `setTimeout`). Matches
-  spec FR-017 ("no wall-clock reads inside tick logic").
-- The server's `Scheduler` enforces a fixed interval (e.g., 250 ms/tick
-  → 4 Hz, matching the original's pace). Configurable via
-  `MatchConfig.tickIntervalMs`. Tick *numbers* are monotonically
-  increasing from 1.
-- Consumers (networking) timestamp tick payloads with the tick number,
-  not a wall-clock value — replays are portable across runs.
-
-**Default tick rate**: 4 ticks/second (250 ms). Stored in `engine.constants.ts`
-as `DEFAULT_TICK_INTERVAL_MS = 250`. Tunable per match; tests use 0 ms
-(calls `tick()` as fast as possible).
-
-**Citation**: spec FR-003, FR-017, SC-004.
-
----
-
-## 9. Tunable constants location
-
-**Decision**: Single file `packages/engine/src/constants.ts` (re-exported
-as `ENGINE_CONSTANTS`). Every numeric rule from the spec — production
-rate, saturation capacity, attrition factor, slope multipliers, paratroop
-cost ratio, gun cost/damage, decay rate, reserves step — lives here and
-nowhere else.
-
-**Rationale**: spec SC-005 ("every numeric rule is defined in one
-tunable-constants location"). Centralizing also means a single
-override surface for balance testing (e.g., a "scenarios" file that
-imports constants and rewrites them for a test board).
-
-**Citation**: spec SC-005.
-
----
-
-## 10. Module structure within `packages/engine`
-
-```
-packages/engine/
-├── src/
-│   ├── index.ts            // public surface re-exports
-│   ├── types.ts            // World, Cell, City, Pipe, Troops, Order, etc.
-│   ├── constants.ts        // ENGINE_CONSTANTS (single source of tunable numbers)
-│   ├── rng.ts              // sfc32 + xmur3 helpers (deterministic PRNG)
-│   ├── create.ts           // createWorld(config, terrain)
-│   ├── validate.ts         // validateCommand(world, cmd) → ValidationResult
-│   ├── applyCommand.ts     // applyCommand(world, cmd) → {world, result}
-│   ├── tick.ts             // tick(world) → {world, events, terminal?}
-│   ├── resolution/         // pure functions for each phase
-│   │   ├── production.ts
-│   │   ├── flow.ts
-│   │   ├── combat.ts
-│   │   ├── decay.ts
-│   │   ├── capture.ts
-│   │   ├── paratroop.ts
-│   │   ├── gun.ts
-│   │   └── terminal.ts
-│   ├── serialize.ts        // serializeWorld/deserializeWorld/hashWorld
-│   └── events.ts           // TickEvents / CombatEvent / CaptureEvent / ...
-├── tests/
-│   ├── unit/
-│   │   ├── production.test.ts
-│   │   ├── flow.test.ts
-│   │   ├── combat.test.ts
-│   │   ├── decay.test.ts
-│   │   ├── paratroop.test.ts
-│   │   ├── gun.test.ts
-│   │   └── terminal.test.ts
-│   ├── fixtures/
-│   │   ├── board.ts        // scripted boards (small symmetric, asymmetric)
-│   │   └── scenarios.ts    // higher-level "games" (decay-only, mutual feed, etc.)
-│   └── determinism.test.ts // SC-001: byte-identical re-runs over ≥10k ticks
-├── package.json
-├── tsconfig.json
-├── vitest.config.ts
-└── tsup.config.ts
-```
-
-**Rationale**: each resolution rule is its own file with its own test.
-This is the "rule of one function per file" that constitution Principle V
-(simplicity) endorses, and it makes ≥80% coverage per file trivial.
-
-**Citation**: constitution Principle V; spec FR-001 through FR-019.
-
----
-
-## 11. What we are *not* doing (deferred)
-
-To keep v1 minimal and to avoid over-engineering the engine (Simplicity
-Principle), the following are explicitly **not** in scope for feature 001:
-
-- Persistence / save games (no `localStorage`, no DB writes) — feature 006.
-- Network transport — feature 004.
-- Fog-of-war filtering — feature 002. (Engine emits full world;
-  visibility is a consumer concern.)
-- Terrain *generation* — feature 003. (Engine *consumes* a `Board`
-  produced elsewhere; we only define the `Board` type.)
-- Account / session management — feature 006.
-- Matchmaking / lobby / private-vs-public — feature 006.
-- Replays in v1 — the *data* format supports it (deterministic + seeded
-  PRNG) but no UI / replay viewer ships in v1.
-
-These boundaries are reflected in the contracts (engine exports the
-types and the functions; everything else builds on top).
-
----
-
-## 12. Resolved unknowns
-
-| Open question (from prompt) | Resolution |
-|-----------------------------|------------|
-| Monorepo workspace manager | pnpm 11 |
-| Build tool for `packages/engine` | tsup 8 |
-| Test framework | Vitest 4.1 (v8 coverage) |
-| Linting / formatting | Biome 2 |
-| PRNG choice | sfc32 (with xmur3 for string seeds) |
-| Numeric representation | Integer-only; no floats in tick logic |
-| Engine API shape | Pure functions + readonly `World` snapshots |
-| Tick-rate strategy | Engine is wall-clock-free; Scheduler (server) drives it |
-| Constants location | `packages/engine/src/constants.ts` |
-
-No `NEEDS CLARIFICATION` markers remain.
+## 1. Flow formula — single source of truth
+
+**Decision (D1)**: export `flowRateForDelta(delta: number, constants: EngineConstants): number` from `@europa/engine` (additive public API) and have `resolveFlow` consume it.
+
+**Why**: three consumers need the identical formula:
+1. `resolveFlow` (engine tick) — the shipped behavior.
+2. The terrain reachable-land suite (003 US4 AC-1) — computes flow-viable edges over the 200-map suite; the spec requires it to read the stall threshold from `ENGINE_CONSTANTS`.
+3. The console slope drift test (005 FR-013) — pins the console's `pipe-slope.ts` mirror against the engine.
+
+If each consumer replicated the formula, the R-1 ambiguity (see §2) would propagate to three copies and a future retune would require three coordinated edits. One exported function makes the formula a single source; the console's src-boundary rule (no runtime `@europa/engine` import in `src/`) is satisfied because the console mirror is pinned by a test in `tests/`, not by a src import.
+
+**Alternatives rejected**:
+- *Keep the formula inline in `flow.ts` only* — the terrain suite and console drift test would each replicate it; the R-1 ambiguity would be silently resolved three times. Rejected.
+- *Export a constants-only helper (no formula)* — the terrain suite would still need the formula to decide flow-viability; the stall predicate `|Δ| ≥ flowBase/step` is a special case that only holds under the asymmetric reading. Rejected in favor of the full function.
+
+**Additive, not breaking**: a new exported function does not change any existing signature; `ENGINE_API_VERSION` stays put (the `EngineConstants` field swap is enforced by the existing semantic-diff conformance test, not a protocol version).
+
+## 2. The R-1 blocker — FR-007 formula vs the v1.2 constants
+
+**The inconsistency, precisely**: FR-007 as amended reads `max(0, flowBase − flowSlopeStep × min(|Δelev|, flowSlopeDeltaCap))` for uphill. With `flowBase=7, flowSlopeStep=1, flowSlopeDeltaCap=5`:
+
+| Δ (uphill) | min(|Δ|, 5) | symmetric formula | spec v1.2 listing |
+| --- | --- | --- | --- |
+| 1 | 1 | 6 | 6 |
+| 2 | 2 | 5 | 5 |
+| 3 | 3 | 4 | 4 |
+| 4 | 4 | 3 | 3 |
+| 5 | 5 | 2 | 2 |
+| 6 | 5 | **2** | **1** |
+| 7 | 5 | **2** | **0 (stall)** |
+| ≥8 | 5 | **2** | **0 (stall)** |
+
+The symmetric formula caps the handicap at 5 < flowBase=7, so uphill flow is always ≥ 2 and **never stalls**. The spec's own listing (uphill 6/5/4/3/2/1, 0 at Δ≥7) is exactly `max(0, 7 − Δ)` — an **uncapped** handicap. The downhill listing (8/9/10/11/12 at Δ=1/2/3/4/≥5) is exactly `7 + min(Δ, 5)` — a **capped** bonus. So the spec's numbers describe an asymmetric formula: the cap bounds the downhill bonus only.
+
+**Corroborating evidence**:
+- US1 AC-5: stall threshold = `flowBase / flowSlopeStep` = 7 — only reachable with an uncapped (or ≥7-capped) handicap.
+- Spec 003 v1.3 empirical run: "31.5% of uphill edges stall" at default smoothing — impossible under the symmetric formula (0% stall).
+- Spec 005 FR-013: stalled pipes must render hollow — the mechanic must exist.
+- Manual 007 v1.3: "uphill 6→1, stall Δ≥7".
+- The cap's documented purpose (001 v1.1): "bounds the downhill bonus at 2.7× flat and prevents extreme cliffs … from becoming capacity-filling superhighways" — nothing about the uphill handicap.
+
+**Working assumption (D2)**: asymmetric cap — `downhill: base + step × min(|Δ|, cap)`, `flat: base`, `uphill: max(0, base − step × |Δ|)`. This matches every number in the specs and the empirical validation.
+
+**Alternative considered**: raise `flowSlopeDeltaCap` to ≥ 7 so the symmetric formula can stall. Rejected because it changes the downhill rates to 8..14 (Δ≥7), contradicting the spec's "downhill 8/9/10/11/12 (Δ=1/2/3/4/≥5)" listing and the 2.7×-cap rationale.
+
+**⚠️ This is a product-level ambiguity (it changes shipped flow rates) and is flagged to the PM as a blocker (R-1).** The plan centralizes the formula in `flowRateForDelta` so either resolution is a one-line change; the flow tests are written against the PM-confirmed formula.
+
+## 3. Smoothing kernel — 3×3 box mean
+
+**Decision (D3)**: `smoothElevation(elev, size, passes)` applies a 3×3 box mean with divisor 9, coordinates clamped to `[0, size-1]` (edge cells replicate their edge), and round-half-up via `Math.floor((sum + 4) / 9)`.
+
+**Why this kernel**:
+- It is the spec's own reference kernel (003 v1.3: "the reference kernel used for tuning validation is a 3×3 box mean with divisor 9 and clamped coordinates"). The empirical numbers in the spec — max |Δ| 153→28, reachable 0.1%→53.6%, variance 1054.6→393.7, pool contiguity 27→6 pools — were computed with exactly this kernel. Any other kernel would invalidate the spec's validation and require re-running the 200-seed study.
+- It is trivially deterministic: a pure function of the field + setting, no RNG, no wall-clock.
+- It is symmetry-preserving: the kernel is symmetric, and coordinate clamping commutes with the 180° rotation mapping (cell (x,y)'s neighborhood maps onto its partner's neighborhood under rotation). Verified empirically at k=0,1,2,3,4,5,8 (spec 003 v1.3).
+- It is integer-safe: `Math.floor((sum + 4) / 9)` ≡ `Math.round(sum / 9)` for non-negative sums (elevations are uint8 0..255), and the single division is IEEE-754 correctly rounded — identical on every JS engine, so determinism holds cross-platform (constitution II).
+
+**Alternatives considered and rejected**:
+- *fBm parameter change (lower roughness / fewer octaves)* — rejected by the spec: not additive (k=0 would not reproduce current output), and the observable effect would not map 1:1 to a setting value.
+- *Larger kernels (5×5, Gaussian)* — more smoothing per pass but more arithmetic and no spec grounding; the 3×3 box is the documented reference.
+- *Median filter* — not a mean; would change the empirical statistics; more complex to make integer-exact.
+- *Float averaging* — rejected by constitution II (no floating-point drift in generation logic); the integer round-half-up avoids the question entirely.
+
+**Pass count semantics**: `terrainSmoothing` = number of passes (default 4, range [0,8] clamped). Each pass applies the box mean once. `passes === 0` returns the input unchanged — byte-identical to pre-smoothing output (backward compatibility; existing seeds/fixtures unaffected).
+
+## 4. Smoothing placement in the generation pipeline
+
+**Decision (D4)**: apply smoothing in `generateBoard` after `generateElevationMap` (which enforces point symmetry) and before `extractWater`.
+
+**Why**: FR-010's exact wording ("running after point-symmetry enforcement and before water classification"). Water classification then sees the smoothed elevation, so pools coalesce (documented side benefit: largest pool 1.7%→3.7%, pool count 27→6). No RNG is consumed by the pass — the elevation substream is already derived, and the pass is a pure function of the field + setting, so the PRNG discipline ("advances by one step per phase") is untouched.
+
+**Alternatives rejected**:
+- *Before symmetry enforcement* — would break the symmetry invariant (the pass must preserve the already-enforced symmetry; running before would require re-enforcing after).
+- *After water classification* — water cells are classified by elevation threshold; smoothing after would leave water pools inconsistent with the smoothed field.
+- *Inside `generateElevationMap`* — would couple the elevation generator to the smoothing setting and complicate the k=0 identity guarantee; a separate module is cleaner and independently testable.
+
+## 5. `terrainSmoothing` settings plumbing
+
+**Decision (D5)**: additive `GenerationSettings.terrainSmoothing: number` (integer, default 4, safe range [0,8]) plumbed through:
+- `contracts/terrain-types.ts` (both mirrors) — field + JSDoc + `DEFAULT_GENERATION_SETTINGS.terrainSmoothing = 4`.
+- `settings.ts` — `resolveSettings` gains one fallback line; `validateSettings` gains `'terrainSmoothing'` in `integerFields`.
+- `clamp.ts` — `TERRAIN_SMOOTHING_MIN = 0`, `TERRAIN_SMOOTHING_MAX = 8`, `clampTerrainSmoothing(v)` (integer clamp via the existing `clampInt`), and `clampSettings` gains one line.
+- `generate.ts` — `clampSettings`/`normalizeSettingsForPlayerCount` pass it through via the existing spreads; `effectiveSettings` (in `TerrainGenerationResult` and `MapStats`) surfaces the clamped value automatically because it is a `GenerationSettings` field.
+
+**Why**: mirrors the `citiesPerPlayer` normalization pattern exactly (spec 003 v1.3: "surfaced via `effectiveSettings` (mirroring the `citiesPerPlayer` normalization pattern)"). No new result fields, no new request fields — the field rides the existing `GenerationSettings` shape end-to-end.
+
+**Alternatives rejected**:
+- *A separate `smoothing` request field outside `GenerationSettings`* — would break the "settings are the tunable knobs" contract and require new plumbing in `TerrainGenerationRequest`.
+- *Rejecting out-of-range values* — FR-008 mandates clamping, never rejection.
+
+## 6. Pipe color tokens — reuse canonical values
+
+**Decision (D6)**: four new token NAMES in `packages/design/src/tokens.ts` reusing existing canonical values:
+
+| Token | Value | Existing token with the same value | §3 pairing already measured |
+| --- | --- | --- | --- |
+| `pipeDownhill` | `#059669` | `color.green` | green on surface ≈ 4.71:1 (AA 1.4.3) |
+| `pipeFlat` | `#f59e0b` | `color.accent` | accent on surface ≈ 8.26:1 (AA 1.4.11) |
+| `pipeUphill` | `#dc2626` | `color.red` | red on surface ≈ 3.67:1 (AA 1.4.3 large / 1.4.11) |
+| `pipeStalled` | `#9ca3af` | `color.textMuted` | text-muted on surface ≈ 6.99:1 (AA 1.4.3) |
+
+**Why**: zero new hex literals (constitution V — the token table stays small), pairings already measured in `DESIGN.md` §3, and the additive (minor) change policy in `DESIGN.md` §6 applies. The pipe triangles are non-text indicators drawn on the canvas over terrain tiles; the §1.1 rows will state the measured pairing against the darkest land tile / void (the canvas context), and the §3 table gains the four rows with the non-text 1.4.11 target where claimed. The hollow-vs-filled triangle shape is the primary stalled cue (005 FR-013); gray is the secondary (color is never the only carrier — constitution VI).
+
+**Alternatives rejected**:
+- *New hex values* — unnecessary; the semantic colors already exist and are measured.
+- *Intensity scaling* — explicitly rejected by 005 v1.2 ("no intensity scaling — a fixed three-color scheme").
+
+## 7. Console slope classification — precompute in `buildMapView`
+
+**Decision (D7)**: `CellRenderInfo` gains an additive `pipeSlopes: ReadonlyMap<Direction, PipeSlope>` field; `buildMapView` computes it per cell with pipes by looking up the destination cell in the visible-cells map (absent → `null` → flat fallback); the canvas painter reads it.
+
+**Why**:
+- The painter stays a dumb pixel pusher (single responsibility; the existing `drawPipes` signature grows only by reading the precomputed map).
+- Classification is pure and unit-testable without a canvas.
+- The DOM overlay (`grid-overlay.tsx`) can reuse `pipeSlopes` for accessible names ("pipe downhill", "pipe stalled") — the redundant encoding constitution VI asks for — without recomputing.
+- The destination lookup is O(1) in the cells map; total cost is O(cells × pipes) per snapshot, far inside the 50 ms input budget (005 SC-003).
+
+**Why not compute at paint time**: `drawPipes` would need the full cells map plus the classification function, coupling the painter to the mirror module and redoing the lookup per frame. Precomputation also makes the fog fallback explicit in one place (the destination lookup returns `null`).
+
+**Diff logic note**: `diffCellChanges` does not need `pipeSlopes` — it is derived from `pipes` (already compared via `pipesEqual`) and static elevation, so a pipe-slope change always coincides with a pipes change. No diff change required.
+
+## 8. Console mirror + drift pin
+
+**Decision (D8)**: `src/render/pipe-slope.ts` exports:
+- `PIPE_SLOPE_CONSTANTS` — a plain readonly object mirroring `flowBase`/`flowSlopeStep`/`flowSlopeDeltaCap` (typed as its own interface, not `EngineConstants`, to avoid a src import).
+- `pipeFlowRate(delta, constants)` — the console-side formula mirror.
+- `classifyPipeSlope(srcElev, dstElev | null, constants)` — the classification.
+
+The drift test (`tests/unit/render/slope-drift.test.ts`) imports `ENGINE_CONSTANTS` and `flowRateForDelta` from `@europa/engine` (runtime — sanctioned by 005 v1.2: "a drift test importing @europa/engine constants pins the mirror") and asserts:
+1. `PIPE_SLOPE_CONSTANTS` equals the three `ENGINE_CONSTANTS` fields.
+2. `pipeFlowRate(Δ, PIPE_SLOPE_CONSTANTS)` equals `flowRateForDelta(Δ, ENGINE_CONSTANTS)` for Δ ∈ {−10..10} (including the stall boundary).
+
+**Why**: the console src-boundary rule forbids runtime `@europa/engine` imports in `src/` (features 001/004 boundary; enforced by the conformance suite's type program). The mirror is the console's own module; the drift test pins it so a future engine retune fails loudly in the console suite.
+
+## 9. Matchmaking — zero code change, verification only
+
+**Decision (D9)**: no `packages/matchmaking` source change. `matchmaker.ts` builds `terrainSettings = { ...DEFAULT_GENERATION_SETTINGS, ...partial?.terrainSettings }` (line 239–242), so the new `terrainSmoothing` field flows through automatically; rematch reuses `match.settings.terrainSettings` (line 534), so the value carries over by construction (006 Implementation Notes).
+
+**Verification test**: `tests/integration/terrain-smoothing-passthrough.test.ts` asserts (a) a create with `terrainSettings: { terrainSmoothing: 2 }` produces a match whose settings carry 2 and whose generated board's `effectiveSettings.terrainSmoothing` is 2; (b) an out-of-range value (e.g., 99) is clamped to 8 and surfaced; (c) a rematch reuses the original smoothing value.
+
+## 10. Version discipline
+
+**Decision (D10)**: no version bumps. The `EngineConstants` field swap is internal to the engine's own constants type — no downstream package constructs `EngineConstants` (they consume `ENGINE_CONSTANTS`), and the swap is enforced by the existing semantic-diff conformance tests (engine `contracts-drift.test.ts`). `GenerationSettings.terrainSmoothing` is additive (no `TERRAIN_API_VERSION` bump — additive fields are not breaking). `CellRenderInfo.pipeSlopes` is additive (console conformance suite enforces byte-identical mirrors). No wire surface changes.
+
+## 11. Technology choices
+
+No new runtime dependencies anywhere. Existing stack (verified current in the repo):
+- TypeScript ≥ 5.6 strict, Biome 2 (four-space/120-column), Vitest 4 + v8 coverage, tsup 8, Vite 6 (console), tsx (scripts), Playwright (console E2E/component).
+- All new logic is pure TypeScript with zero deps — no library research needed beyond what the repo already pins.
+
+## 12. Sources
+
+- Spec amendments: `specs/001-core-game-engine/spec.md` Clarifications v1.1/v1.2; `specs/003-procedural-terrain-generation/spec.md` Clarifications v1.3; `specs/005-client-console/spec.md` Clarifications v1.2; `specs/006-match-lifecycle-matchmaking/spec.md` Implementation Notes; `specs/007-player-manual/spec.md` v1.2/v1.3.
+- Original-game reference (qualitative only — no numbers): `europa-source/games.dangerous-minds.net/Europa/html/Europa/rules.html` ("troop flow is assisted and impeded by the terrain") and `strategy.html` ("Its easy to go down a hill, but much more difficult to come up"). The gradient tuning is this spec's decision, not a reconstruction.
+- Empirical grounding: the 200-seed × 32×32 delta sampling and reachable-land study recorded in 001 v1.1/v1.2 and 003 v1.3 (replicating `fbm.ts` + the smoothing pass exactly).
+- Repo conventions: `AGENTS.md` (workflow rule 4 — specs/manual stay truthful; subagent reliability mitigations), `.specify/memory/constitution.md` (II determinism, III ≥80% coverage, V simplicity, VI a11y), `DESIGN.md` §6 (additive token policy), 012-design-system spec (FR-018 sync rule, G-04 guard).

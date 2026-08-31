@@ -47,8 +47,9 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 /**
  * Mint a fresh match id (36-char v4 UUID, branded `MatchId`). Issued
  * by the matchmaker at `createMatch` time and used verbatim in join
- * paths (`/join/<matchId>`); for private matches its secrecy IS the
- * access control (FR-003 + FR-006).
+ * paths (`/join/<matchId>`). Private matches are not publicly listed, but
+ * a known `MatchId` permits an admission attempt; the id is non-secret and
+ * grants no seat, order, reconnect-token, or view authority (FR-003 + FR-006).
  *
  * @returns A new branded match id.
  */

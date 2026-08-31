@@ -33,10 +33,14 @@ import {
     COMBAT_EFFECT_COLOR,
     FOCUS_RING_COLOR,
     GENERIC_EFFECT_COLOR,
-    PIPE_COLOR,
+    PIPE_DOWNHILL_COLOR,
+    PIPE_FLAT_COLOR,
+    PIPE_STALLED_COLOR,
+    PIPE_UPHILL_COLOR,
     terrainColor,
     VOID_COLOR,
 } from './palette';
+import type { PipeSlope } from './pipe-slope';
 
 /** Fraction of the cell size used as the troop-disc radius. */
 const UNIT_RADIUS_RATIO = 0.32;
@@ -46,6 +50,23 @@ const PIPE_SIZE_RATIO = 0.16;
 
 /** Inset fraction for the city outline square. */
 const CITY_INSET_RATIO = 0.12;
+
+/**
+ * Map a pipe slope classification to its palette color (005 FR-013).
+ * Pure; the stalled color is used for the hollow triangle's stroke.
+ */
+function pipeSlopeColor(slope: PipeSlope): string {
+    switch (slope) {
+        case 'downhill':
+            return PIPE_DOWNHILL_COLOR;
+        case 'flat':
+            return PIPE_FLAT_COLOR;
+        case 'uphill':
+            return PIPE_UPHILL_COLOR;
+        case 'stalled':
+            return PIPE_STALLED_COLOR;
+    }
+}
 
 /** Options modifying one paint pass. */
 export interface PaintOptions {
@@ -178,8 +199,10 @@ export class MapCanvas {
         const y = info.coord.y * zoom;
         const midX = x + zoom / 2;
         const midY = y + zoom / 2;
-        ctx.fillStyle = PIPE_COLOR;
         for (const direction of info.pipes) {
+            // Slope classification precomputed by buildMapView (005
+            // FR-013); a missing entry (defensive) renders flat.
+            const slope = info.pipeSlopes.get(direction) ?? 'flat';
             ctx.beginPath();
             if (direction === 'N') {
                 ctx.moveTo(midX - size, y);
@@ -199,7 +222,17 @@ export class MapCanvas {
                 ctx.lineTo(x + zoom - size * 1.6, midY);
             }
             ctx.closePath();
-            ctx.fill();
+            if (slope === 'stalled') {
+                // Hollow treatment (005 FR-013): outline-only triangle
+                // in the stalled color — visually distinct from the
+                // filled triangles of flowing pipes.
+                ctx.strokeStyle = pipeSlopeColor(slope);
+                ctx.lineWidth = Math.max(1.5, zoom * 0.06);
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = pipeSlopeColor(slope);
+                ctx.fill();
+            }
         }
     }
 

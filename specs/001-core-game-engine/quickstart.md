@@ -153,10 +153,13 @@ describe('production saturates a city cell', () => {
 
 ```ts
 describe('pipe flow respects slope', () => {
-  it('downhill moves ≥ flat moves ≥ uphill', () => {
+  it('downhill moves > flat moves > uphill', () => {
     // Build 3 boards: downhill, flat, uphill. Issue identical pipe
     // orders. Tick 1. Assert destination troop counts.
-    // Expected ratios match ENGINE_CONSTANTS.flow{Downhill,Base,Uphill}Factor.
+    // Expected rates come from flowRateForDelta(delta, ENGINE_CONSTANTS):
+    // downhill `flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)`,
+    // flat `flowBase`, uphill `max(0, flowBase − flowSlopeStep × |Δ|)`
+    // (stalls at Δ ≥ flowBase / flowSlopeStep).
   });
 });
 ```

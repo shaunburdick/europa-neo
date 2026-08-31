@@ -38,16 +38,20 @@ export const ENGINE_CONSTANTS: EngineConstants = {
     // FR-009: troops lost per tick when a cell is unfed (no friendly
     // inflow AND no city source).
     decayPerTick: 1,
-    // FR-007: slope-modified pipe flow. Multipliers applied to the base
-    // flow count per tick. The product `flowBase * <factor>` is the
-    // troops moved along that pipe per tick. v1: downhill = base, flat
-    // = base, uphill = 0 (so gravity drives flow, flat still flows).
-    // flowBase = 1 so pipe flow is functional out-of-the-box (Wave 2B-2
-    // bumped from 0; Q-003 slope-flow test was the only path that
-    // exercised non-zero destination counts with a synthetic base).
-    flowDownhillFactor: 1,
-    flowUphillFactor: 0,
-    flowBase: 1,
+    // FR-007: elevation-gradient pipe flow. The rate along a pipe is a
+    // linear function of the elevation change Δ = dstElev − srcElev:
+    //   downhill (Δ < 0): flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)
+    //   flat (Δ = 0):     flowBase
+    //   uphill (Δ > 0):   max(0, flowBase − flowSlopeStep × |Δ|)
+    // The cap bounds the DOWNHILL bonus only; the uphill handicap is
+    // uncapped (asymmetric cap per PM ruling R-1), so an uphill pipe
+    // stalls (moves 0) at Δ ≥ flowBase / flowSlopeStep = 7. A stalled
+    // pipe remains laid and legal (US1 AC-5). flowBase = 7 keeps pipe
+    // flow functional out-of-the-box (re-validated against smoothed
+    // terrain in spec 001 Clarifications v1.2).
+    flowBase: 7,
+    flowSlopeStep: 1,
+    flowSlopeDeltaCap: 5,
     // FR-013: paratroop cost is `2 × N` at the source, `N` lands at the
     // target. We model the per-trooper cost; the `2×` ratio is the
     // resolution rule (multiply by 2 at use-site).

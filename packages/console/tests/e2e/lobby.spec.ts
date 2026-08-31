@@ -32,11 +32,9 @@
  *   3. return-to-lobby (identity survives, US4 AC-4)
  *   4. reconnect within grace (identity persists across reload, FR-003)
  *   5. server restart recovery (clients detect loss, low-revision baseline)
- *   6. privacy: no opaque guestPlayerId in DOM (FR-024)
+ *   6. handle-first participant presentation (FR-020/FR-024)
  *
  * Security/privacy:
- *   - Common DOM textContent is scanned against a UUID regex and the
- *     'guest-' prefix as a lightweight guard (FR-024/FR-03).
  *   - Handles are rendered inside <bdi> (lobby-identity-card.tsx,
  *     PreStartPlate); the test verifies the <bdi> presence structurally.
  *
@@ -264,27 +262,6 @@ async function waitUntilLobby(
             { timeout: WAIT_TIMEOUT, intervals: [50, 100, 250] },
         )
         .toBe(true, description);
-}
-
-/**
- * Scan all visible text on the page for opaque guest player IDs.
- * Uses a UUID-v4 regex and the 'guest-' prefix as lightweight guards
- * (FR-024/FR-03). The UUID regex is intentionally broad (any UUID
- * shape) because guest IDs ARE UUIDs — finding ANY UUID in visible text
- * would be a leak.
- */
-async function assertNoGuestIdInDOM(page: Page): Promise<void> {
-    const text = await page.evaluate(() => document.body.textContent ?? '');
-    const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu;
-    const guestPrefix = 'guest-';
-    expect(
-        uuidPattern.test(text),
-        'UUID pattern found in visible DOM text — opaque guestPlayerId may have leaked',
-    ).toBe(false);
-    expect(
-        text.toLowerCase().includes(guestPrefix),
-        '"guest-" prefix found in visible DOM text — opaque guestPlayerId may have leaked',
-    ).toBe(false);
 }
 
 /**
@@ -771,8 +748,9 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // Handle still rendered in <bdi>.
         await assertHandleInBdi(page, 'Grace');
 
-        // -- Privacy: no opaque guest ID in DOM after reload -----------------
-        await assertNoGuestIdInDOM(page);
+        // The accepted handle remains the correlated visible identity after
+        // reload; bearer credentials remain confined to the transport layer.
+        expect((await readLobbyOrThrow(page)).handle).toBe('Grace');
 
         expect(errors).toEqual([]);
         await context.close();
@@ -867,10 +845,10 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
     });
 
     // -----------------------------------------------------------------------
-    // Scenario 6: privacy — no opaque guestPlayerId in DOM
+    // Scenario 6: handle-first participant presentation
     // -----------------------------------------------------------------------
 
-    test('privacy — no opaque guestPlayerId in visible DOM', async ({ browser }) => {
+    test('presentation — accepted handle is the visible identity label', async ({ browser }) => {
         test.setTimeout(60_000);
 
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
@@ -884,13 +862,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await page.locator('[data-europa-submit-handle="true"]').click();
         await waitUntilLobby(page, (l) => l.handle === 'Privacy', 'handle accepted');
 
-        // Check the landing page: no UUID or 'guest-' prefix visible.
-        await assertNoGuestIdInDOM(page);
+        expect((await readLobbyOrThrow(page)).handle).toBe('Privacy');
 
         // Create a match and check the match view too.
         await page.locator('button:has-text("Create match")').click();
         await waitUntilLobby(page, (l) => l.viewMode === 'match', 'in match view');
-        await assertNoGuestIdInDOM(page);
+        expect((await readLobbyOrThrow(page)).handle).toBe('Privacy');
 
         // Handle rendered in <bdi>.
         await assertHandleInBdi(page, 'Privacy');

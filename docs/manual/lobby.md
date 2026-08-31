@@ -59,13 +59,18 @@ Choose **Spectate** only on an **In progress** row. Spectator mode shows the ful
 - order controls do not issue orders; and
 - you cannot change the match state.
 
-Participant names come from the server's accepted handles. They are presented as separate, direction-safe labels, so a right-to-left or mixed-direction name cannot reorder surrounding text.
+Participant labels are handle-first and come from the server's accepted handles.
+If a handle is unavailable, the interface uses a generic label or a safe ID
+fallback; IDs are correlation data, not credentials. Labels are presented as
+separate, direction-safe fields, so a right-to-left or mixed-direction name
+cannot reorder surrounding text. Bearer credentials are never shown as labels,
+printed in diagnostics, or requested from players.
 
 ## Leave, reconnect, and return
 
 The match header has **Leave to lobby**. Choose it to release your match presence and return to `/lobby`; focus moves to the lobby heading and the return is announced. The accepted handle remains available for your next lobby action.
 
-If a player's connection drops, the match shows **Reconnecting to match…** and tries to restore the connection. Keep the tab open. A temporary disconnect can reclaim the same seat and handle during the existing 60-second reconnect grace period. After the grace period, the seat is forfeited and you must choose another match or create a new one.
+If a player's connection drops, the match shows **Reconnecting to match…** and tries to restore the connection. Keep the tab open. A temporary disconnect can reclaim the same seat and handle during the existing 60-second reconnect grace period. After the grace period, the seat is forfeited and you must choose another match or create a new one. The resume credential is handled by the browser and server; do not copy or share it.
 
 ## If something goes wrong
 

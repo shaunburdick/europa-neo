@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-08-23); URL routing superseded by Feature 013
+**Status**: Implemented (2026-08-30); URL routing superseded by Feature 013
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -20,7 +20,7 @@ As a player, I want a clear real-time view of the moon surface — terrain eleva
 
 **Acceptance Scenarios**:
 
-1. **Given** a tick payload arrives, **When** the console renders, **Then** every visible cell shows terrain shading by elevation, troop count for occupying stacks, owner color, and pipe direction indicators.
+1. **Given** a tick payload arrives, **When** the console renders, **Then** every visible cell shows terrain shading by elevation, troop count for occupying stacks, owner color, and slope color-coded pipe direction indicators.
 2. **Given** cells outside the player's horizon, **When** rendered, **Then** they appear as undifferentiated unknown space (black/void).
 3. **Given** a battle or capture event in view, **When** it renders, **Then** the change is visually distinguishable (event feedback) without obscuring the board.
 
@@ -101,7 +101,7 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 
 ### Functional Requirements
 
-- **FR-001**: The console MUST render the player's fog-filtered game state each tick: elevation-shaded terrain, water, city markers, troop counts, owner colors, and pipe indicators.
+- **FR-001**: The console MUST render the player's fog-filtered game state each tick: elevation-shaded terrain, water, city markers, troop counts, owner colors, and slope color-coded pipe indicators (FR-013).
 - **FR-002**: The console MUST support region-of-cell pointer targeting for pipe toggling (N/E/S/W) mirroring the original mouse-button semantics.
 - **FR-003**: The console MUST provide exclusive-pipe input (secondary button and Alt+primary/Alt+key equivalents).
 - **FR-004**: The console MUST implement keyboard equivalents: i/j/k/l (N/W/S/E pipes), space (clear cell pipes), p/h (paratroop), g/o (gun), 0–9 (reserves).
@@ -113,6 +113,7 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 - **FR-010**: The console MUST be usable at common desktop resolutions with zoom/pan; all interactive elements reachable by mouse and keyboard alone (accessibility-minded per constitution).
 - **FR-011**: Rendering technology is free within TypeScript/browser standards; the console MUST consume only protocol messages from feature 004 (no direct engine access).
 - **FR-012**: The console MUST render the application version in the HUD status-display area (FR-008's neighborhood) as real DOM text (not canvas): the bundled build constant, `v`-prefixed, visible in all connection states, meeting WCAG 2.2 AA contrast (constitution VI), never intercepting pointer or keyboard interaction, and never displaying a server-supplied value (feature 009-shared-app-versioning).
+- **FR-013**: The console MUST color-code pipe indicators by slope, derived from the fog-filtered view's elevation data (feature 001 FR-007): downhill pipes green, flat pipes amber, uphill pipes red — a fixed three-color scheme with no intensity scaling — and MUST render a stalled uphill pipe (one whose flow rate is 0 under feature 001 FR-007's formula) with a visually distinct treatment: a hollow (outline-only) triangle in the stalled color, distinct from the filled triangles of flowing pipes. Slope classification MUST mirror feature 001's constants (`flowBase`, `flowSlopeStep`, `flowSlopeDeltaCap`) via a console-side mirror pinned by a drift test against `ENGINE_CONSTANTS`; a pipe whose destination cell is outside the visibility horizon (elevation unknown) MUST render in the flat color without claiming a slope.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -147,6 +148,13 @@ Feature 013 replaces the former query-selected live-entry description with seman
 ### v1.1 (2026-08-23) — Perf-gate hardening after CI-runner jitter
 
 - 2026-08-23: Perf gate hardened after a shared-CI-runner throttle incident (coverage job flaked at paint min-round-median 9.2 ms vs the 8 ms budget while local p50 is ~1.8 ms; runner p99 225 ms showed environmental throttling across every round). The pass criterion is the MIN of round medians across ≥5 rounds (warmup + batch calibration unchanged) — the most jitter-robust estimator of "can this machine hit the budget when not thrashed". A documented CI slack knob, `EUROPA_PERF_BUDGET_FACTOR` (default 1.0), multiplies ONLY the paint budget and is set to 2 in client-ci.yml where perf tests run; local defaults keep the budgets strict.
+
+### v1.2 (2026-08-30) — Slope color-coding for pipes (issue #30)
+
+- **FR-001 amended / FR-013 added**: pipes render color-coded by slope (downhill green / flat amber / uphill red) with a distinct hollow-triangle treatment for stalled uphill pipes. Resolves issue #30 open question 2: **no intensity scaling** — a fixed three-color scheme. Rationale: simplicity (constitution V); feature 001 Clarifications v1.1 shows the terrain's elevation deltas saturate quickly, so intensity would carry little information; and a fixed scheme keeps the design-token table small and the WCAG story auditable.
+- **Design tokens (companion change required)**: the four pipe colors MUST be new `@europa/design` color tokens (`pipeDownhill`, `pipeFlat`, `pipeUphill`, `pipeStalled`) added to `packages/design/src/tokens.ts` and `DESIGN.md` §1.1/§3 with measured pairings — additive (minor) per DESIGN.md §6. `palette.ts` re-exports them per FR-009. The implementation change set MUST also update `DESIGN.md` (FR-018 sync rule) and carry a companion note in spec 012; the console no-literals guard (G-04) fails until the tokens exist.
+- **Slope mirror drift**: the console's slope classification thresholds mirror `ENGINE_CONSTANTS` (feature 001 FR-007); a drift test importing `@europa/engine` constants pins the mirror (the console already imports engine types for `MapView` construction), so a future retune fails loudly in the console suite.
+- **Fog edge case**: a pipe whose destination is outside the visibility horizon renders in the flat color (no slope claim). Practically unreachable for a player's own pipes — a pipe's destination is always within the owner's sensor horizon — but specified defensively.
 
 ## Implementation Notes (2026-08-23, Phase 8 Polish)
 

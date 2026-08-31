@@ -20,10 +20,9 @@
  *     EXACTLY the owning connection and nobody else;
  *   - F-4 REGRESSION: the default arm's diagnostics are
  *     direction-aware;
- *   - SECRECY: the bearer-secret guest id presented as INPUT is never
- *     echoed into any other frame; its ONE lawful appearance is the
- *     owning connection's directed identity event (feature 010
- *     Clarifications v1.6, pinned by the routing suite below);
+ *   - IDENTITY CORRELATION: the non-secret guest id is forwarded to the
+ *     owning connection's directed identity event and is never used as
+ *     authority for another connection; bearer credentials remain protected;
  *   - PRESERVATION: heartbeat and protocol behavior are untouched.
  *
  * Uses the recording facade fixture (`fakeLobbyService.ts`) and the
@@ -48,11 +47,11 @@ import type {
 import { NULL_LOGGER } from '../../src/types';
 import { MockWebSocket } from '../fixtures/conn';
 import {
-    BEARER_GUEST_ID,
     FakeLobbyService,
     fakeLobbySource,
     lobbyFailure,
     matchTarget,
+    NON_SECRET_GUEST_ID,
 } from '../fixtures/fakeLobbyService';
 import {
     buildIdentityClaim,
@@ -486,19 +485,19 @@ describe('lobby teardown + directed delivery (audit items 1, 8)', () => {
         sendLobby(owner.socket, 'lobbyIdentity', lobbyIdentityPayload());
         expect(lobbyEvents(owner.socket)).toHaveLength(1);
 
-        const owned = buildIdentityState({ guestPlayerId: BEARER_GUEST_ID });
+        const owned = buildIdentityState({ guestPlayerId: NON_SECRET_GUEST_ID });
         fake.push(owner.connectionId as never, { kind: 'identity', identity: owned });
 
         const ownerEvents = lobbyEvents(owner.socket);
         expect(ownerEvents).toHaveLength(2);
         const delivered = required(ownerEvents[1], 'directed identity event').identity as IdentityState;
         expect(delivered.handle).toBe('Nova');
-        expect(delivered.guestPlayerId).toBe(BEARER_GUEST_ID);
+        expect(delivered.guestPlayerId).toBe(NON_SECRET_GUEST_ID);
 
         // The bystander's stream carries NOTHING — no identity frame, and
-        // the owner's opaque id appears nowhere in its raw bytes.
+        // the owner's non-secret id appears nowhere in its raw bytes.
         expect(lobbyEvents(bystander.socket)).toHaveLength(0);
-        expect(bystander.socket.sentRaw.join('\n')).not.toContain(BEARER_GUEST_ID);
+        expect(bystander.socket.sentRaw.join('\n')).not.toContain(NON_SECRET_GUEST_ID);
     });
 
     it('drops sink deliveries addressed to unknown or closed connections without throwing', () => {
@@ -587,31 +586,28 @@ describe('dispatcher default arm direction diagnostics (F-4)', () => {
 // Secrecy (audit item 5)
 // ---------------------------------------------------------------------------
 
-describe('guest id secrecy', () => {
-    it('never echoes a claim-presented guest id outside the sanctioned directed identity event', () => {
-        // The recorder's scripted identity state carries NO id, so the
-        // bearer secret presented as INPUT must appear in zero outbound
-        // frames. (The ONE lawful appearance — the owning connection's
-        // directed identity event carrying ITS OWN v1.6 field — is
-        // pinned by the routing test above.)
+describe('claim correlation and failure isolation', () => {
+    it('does not manufacture identity state for a claim during an unrelated failure', () => {
+        // The directed identity route is covered above. This flow checks
+        // that a failed action does not manufacture an identity event or
+        // alter the server-resolved identity. Guest IDs are correlation data,
+        // not bearer credentials.
         const fake = new FakeLobbyService();
         fake.setHandleOutcome = { ok: false, error: lobbyFailure('handle_invalid', 'bad handle') };
         const server = lobbyServer(fake);
         const { socket } = connectClient(server);
 
-        // Full flow INCLUDING a claim carrying the secret and failing actions.
+        // Full flow INCLUDING a claim carrying the correlation id and failing actions.
         sendLobby(
             socket,
             'lobbyIdentity',
-            lobbyIdentityPayload({ claim: buildIdentityClaim({ guestPlayerId: BEARER_GUEST_ID }) }),
+            lobbyIdentityPayload({ claim: buildIdentityClaim({ guestPlayerId: NON_SECRET_GUEST_ID }) }),
         );
         sendLobby(socket, 'lobbySetHandle', lobbySetHandlePayload('x', 1 as never));
         socket.close();
 
-        const outbound = socket.sentRaw.join('\n');
-        expect(outbound).not.toContain(BEARER_GUEST_ID);
         // Input direction reached the facade intact (the ONLY place the
-        // id may travel as input).
-        expect(fake.identityCalls[0]?.claim?.guestPlayerId).toBe(BEARER_GUEST_ID);
+        // claim is correlated with the identity operation).
+        expect(fake.identityCalls[0]?.claim?.guestPlayerId).toBe(NON_SECRET_GUEST_ID);
     });
 });

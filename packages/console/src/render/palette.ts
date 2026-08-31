@@ -57,6 +57,17 @@ export const LAND_MAX_LIGHTNESS_PCT = TOKENS.color.landMaxLightnessPct;
 export const CITY_COLOR = TOKENS.color.city;
 export const PIPE_COLOR = TOKENS.color.accent;
 
+/**
+ * Pipe slope indicator colors (005 FR-013) — downhill green, flat
+ * amber, uphill red, stalled gray. Thin re-exports of the design
+ * tokens (FR-009): the canvas painter reads these per direction from
+ * `CellRenderInfo.pipeSlopes`; no hex literal lives here.
+ */
+export const PIPE_DOWNHILL_COLOR = TOKENS.color.pipeDownhill;
+export const PIPE_FLAT_COLOR = TOKENS.color.pipeFlat;
+export const PIPE_UPHILL_COLOR = TOKENS.color.pipeUphill;
+export const PIPE_STALLED_COLOR = TOKENS.color.pipeStalled;
+
 /** Chip background for troop counts / reserve badges / labels. */
 export const CHIP_BACKGROUND = TOKENS.color.chipBg;
 export const CHIP_TEXT = TOKENS.color.chipText;

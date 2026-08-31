@@ -2,7 +2,9 @@
 
 **Date**: 2026-08-26
 **Branch**: `issue-16-public-lobby` (worktree, based on current `main`)
-**Status**: Phase 6 complete — all waves implemented, reviewed, and verified; PR ready
+**Status**: Historical Phase 6 handoff snapshot — implementation complete; superseded by the current branch's policy correction
+
+> **Historical-policy notice:** This handoff was written for the original Feature 010 implementation. Its old ID-visibility statements are not normative. Current policy permits non-secret ID correlation, prefers handles in UI, and keeps bearer credentials, authority, private-match existence, and fog-of-war protected.
 
 ## Feature summary
 
@@ -41,7 +43,11 @@ chat/ratings/history. Private matches explicitly deferred.
 4. `pnpm host` refactored: boots idle stack, serves lobby at `/`, explicit
    create action instead of `prepareMatch()` auto-fill.
 5. No new runtime dependencies; localStorage holds only the opaque identity
-   token (not auth); IDs never appear in URLs or logs.
+   reference (not auth). **Superseded:** the original “IDs never appear in URLs
+   or logs” wording. IDs are non-secret correlation data; bearer credentials
+   remain protected. The temporary/local `pnpm host` operator flow is the narrow
+   documented exception for printing tokenized join URLs, which must be treated
+   as secrets and is not a general public-app URL pattern.
 
 ## Governing docs
 

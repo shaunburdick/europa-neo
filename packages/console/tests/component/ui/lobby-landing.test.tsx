@@ -5,7 +5,8 @@
  * mounts and reflects the store-derived states correctly. This is
  * deliberately NOT the comprehensive suite — identity persistence,
  * validation flows, focus/announcement audits, keyboard-only use, and
- * the no-ID rendering scan are T-018's contract. Coverage here:
+ * handle-preference and safe identity-correlation checks are T-018's contract.
+ * Coverage here:
  *
  *   - unnamed visitor: identity form + disabled create form;
  *   - named visitor: <bdi>-wrapped handle + rename affordance;

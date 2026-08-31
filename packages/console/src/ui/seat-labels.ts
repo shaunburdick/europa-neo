@@ -11,8 +11,10 @@
  * Authority rule (spec FR-020): labels come ONLY from
  * `ConsoleState.session` — which the reducer fills exclusively from the
  * server's join ack (`players` + assigned `playerId`). No client-side
- * guesswork, no transport reads, no opaque guest ids (the session shape
- * cannot even carry one).
+ * guesswork or transport reads. Handles are preferred labels; a server-
+ * resolved player ID is non-secret correlation data and may be used as a
+ * fallback or displayed where useful. Bearer credentials never belong in
+ * labels.
  *
  * Reconstruction rule: `opponents` holds the other players' display
  * names in ascending PlayerId order (reducer `joined` arm), and the
@@ -34,7 +36,8 @@ export interface SeatLabel {
     /**
      * The server-provided display value for this seat, or `null` when
      * unknown (seat occupancy/names not yet delivered). Rendered inside
-     * `<bdi>` by the caller; never fabricated here.
+     * `<bdi>` by the caller; when absent, the caller may use a generic
+     * fallback rather than inventing a server identity here.
      */
     readonly name: string | null;
     /** Whether this seat belongs to the local viewer. */

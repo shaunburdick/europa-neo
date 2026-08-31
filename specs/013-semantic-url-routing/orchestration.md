@@ -5,6 +5,8 @@
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
 - **Pull Request**: [#38](https://github.com/shaunburdick/europa-neo/pull/38)
+- **Merge update**: 2026-08-31 — merged `origin/main` into this branch; PR #38
+  remains open and is not merged into `main`.
 
 ## Plan Summary
 Replace production query-selected live boot with a pure pathname router and explicit route-to-runtime adapter. `/` redirects to canonical `/lobby`; semantic match paths preserve match intent while existing lobby, identity, networking, and gameplay seams remain authoritative. Native and Docker hosts serve the SPA shell for safe deep links while reserving `/version`, assets, WebSocket upgrades, and traversal handling; `?e2e` remains test-only and `?live` is retired.
@@ -75,6 +77,19 @@ Replace production query-selected live boot with a pure pathname router and expl
 
 ## New Tasks Discovered
 - None.
+
+## Merge-resolution notes
+
+- Preserved the newer mainline GitHub Actions pins and unrelated feature 012
+  changes while retaining PR #38's Docker runtime guards, same-port HTTP/WS and
+  `/version` validation, and least-privilege permissions.
+- Combined Feature 013 semantic `/lobby` and `/match/<id>` routing guidance with
+  Feature 010's ruling that guest/player IDs are non-secret correlation data.
+  Match IDs and guest/player IDs are distinct; bearer session/reconnect tokens
+  remain excluded from public URLs, logs, diagnostics, and documentation examples.
+- Kept host smoke coverage credential-free and retained current main status and
+  Feature 013 implementation status in repository guidance. No production `?live`
+  claim was restored and issue #34 scope was not expanded.
 
 ## Review Findings
 - Wave 4 review remediation — ✅ complete (2026-08-31): Docker runtime now
