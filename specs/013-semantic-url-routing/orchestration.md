@@ -25,7 +25,7 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T009 runtime integration — ⏳ pending
 - T010 accessible route notices and focus/live-region recovery — ✅ complete
 - T011 runtime/browser coverage — ✅ complete (unit/component/a11y assertions)
-- T012 routing E2E — ⏳ pending
+- T012 routing E2E — ✅ complete
 ### Wave 3 — Full-stack and security — ⏳ Pending
 ### Wave 4 — Native host and Docker — ⏳ Pending
 ### Wave 5 — Documentation truthfulness — ⏳ Pending
@@ -84,4 +84,13 @@ Replace production query-selected live boot with a pure pathname router and expl
   waiting hand-off and route recovery, and 2 a11y tests for recovery semantics and
   spectator read-only controls.
 - Focused result: **7 tests passed** across the three new T011 files.
-- T012 browser history/refresh E2E and all later migration/full-stack tasks remain pending.
+- T013 browser/full-stack migration and all later tasks remain pending.
+
+## T012 Completion
+
+- Added `packages/console/tests/e2e/routing.spec.ts` using a real matchmaking/networking
+  stack and poll-based waits. Coverage includes root replacement redirect and refresh,
+  Back/Forward and semantic-path refresh, terminal/leave route retention, and unknown-path
+  recovery without a redirect loop.
+- T013 remains intentionally pending; the broader existing `?live` full-stack fixtures were
+  not migrated by this task.
