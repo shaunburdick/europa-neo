@@ -57,15 +57,15 @@ import {
     type ServerDeps,
 } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
-import { formatWaitingMessage } from '../src/state/awaiting-start.js';
+import { formatWaitingMessage } from '../src/state/awaiting-start';
 import {
     isPathInside,
     type NPlayerHostConfig,
     resolveConfig as resolveNPlayerConfig,
     STATIC_SECURITY_HEADERS,
     sanitizeLogText,
-} from './host-config.js';
-import { handleVersionRoute } from './version-route.js';
+} from './host-config';
+import { handleVersionRoute } from './version-route';
 
 /** Package root (this script lives in `<root>/scripts/`). */
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');

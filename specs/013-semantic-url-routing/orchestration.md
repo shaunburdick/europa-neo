@@ -95,11 +95,12 @@ Replace production query-selected live boot with a pure pathname router and expl
   alone intentionally produces no SPA shell.
 
 ## Review Findings
-- Wave 4 review remediation — ✅ complete (2026-08-31): Docker runtime now
-  contains only compiled application artifacts and production dependencies;
-  Docker smoke proves an RFC 6455 handshake and HTTP/WS same-port mapping;
-  build-amd64 uses read-only contents permission while retaining package and
-  provenance scopes. Feature 013's Wave 6 final gates subsequently passed.
+- Wave 4 review remediation — ✅ complete (2026-08-31): Docker smoke proves an
+  RFC 6455 handshake and HTTP/WS same-port mapping; build-amd64 uses read-only
+  contents permission while retaining package and provenance scopes. The
+  proposed compiled-host/minimized runtime was subsequently removed as
+  brittle and is tracked by issue #39. Feature 013's Wave 6 final gates
+  subsequently passed.
 - Wave 0 code-review remediation complete (historical snapshot before Wave 5):
   - T002 is complete and its retired-route fixture now distinguishes prose from a query-shaped
     historical example with a `/` path prefix.
@@ -329,9 +330,8 @@ Replace production query-selected live boot with a pure pathname router and expl
   stale query wording in `live-runtime.tsx` and `lobby-view.ts`; comments and the
   diagnostic were rewritten without changing runtime behavior. The privacy test's
   overlap assertion was made line-number independent.
-- The only generated host output present was untracked
-  `packages/console/dist-host/`; it is build output, not intended for commit, and
-  is now ignored by `.gitignore`. No tracked files were deleted.
+- No generated compiled-host output is part of the supported build or commit.
+  No tracked files were deleted by the privacy cleanup.
 - Verification: privacy guard **7/7** passed; full tracked-file scan reported no
   stale production query or credential references outside explicitly retained
   historical/spec and test-only cases.
@@ -381,7 +381,7 @@ feature-specific gates passed:
 | Native self-host | `pnpm --filter @europa/console test:selfhost` | PASS; one-port host, semantic paths, `/version`, assets, WS, headers, traversal; 99,641 bytes gzipped under 153,600-byte budget |
 | Compose config | `docker compose config -q` | PASS |
 | Compose build | `docker compose build` | PASS; image `ghcr.io/shaunburdick/europa-neo` built |
-| Docker smoke | `bash scripts/docker-smoke.sh` | PASS; minimal runtime, `/lobby`, all semantic paths, `/version`, asset 404, same-port RFC 6455, one exposed port |
+| Docker smoke | `bash scripts/docker-smoke.sh` | PASS; runtime image, `/lobby`, all semantic paths, `/version`, asset 404, same-port RFC 6455, one exposed port |
 | Semantic full-stack E2E | `CI=1 pnpm --filter @europa/console exec playwright test tests/e2e/full-stack.spec.ts tests/e2e/lobby.spec.ts tests/e2e/routing.spec.ts --retries=0` | PASS; 12/12 |
 | Full console E2E | `CI=1 pnpm --filter @europa/console test:e2e --retries=0` | PASS; 22/22 |
 | Accessibility | `pnpm --filter @europa/console test:a11y` | PASS; 31 tests |
@@ -441,3 +441,17 @@ feature-specific gates pass and no application-code defect was found.
   GitHub checks are green. No further implementation work is pending for
   Feature 013; after merge, verify the PR's merge commit and the production
   semantic-route deployment smoke as appropriate.
+
+## Docker runtime scope decision — 2026-08-31
+
+- The compiled-host/`pnpm deploy --prod` runtime minimization introduced by
+  PR #38 was intentionally removed from this branch. It is brittle and is
+  tracked for a focused follow-up in [issue #39](https://github.com/shaunburdick/europa-neo/issues/39).
+- Docker now follows latest-main behavior: the runtime copies the built
+  workspace and installs its runtime dependencies with pnpm, then starts
+  `pnpm host`. Semantic deep-link SPA fallback, `/version`, WebSocket
+  upgrades, and the single-port Docker smoke remain in scope and validated.
+- Removed only minimization scaffolding and assertions (`tsconfig.host.json`,
+  compiled-host build output, `dist-host` ignore/format entries, and image
+  artifact-pruning checks). Workflow dependency SHAs and semantic route
+  validation remain unchanged; no issue #34 scope was added.

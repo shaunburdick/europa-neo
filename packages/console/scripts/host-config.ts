@@ -179,9 +179,8 @@ export function resolveConfig(
     args: readonly string[],
     environment: NodeJS.ProcessEnv = process.env,
 ): NPlayerHostConfig | null {
-    const envValue = (key: string): string | undefined => environment[key];
     // FR-012: second-port surface stays removed — fail fast when present.
-    const staticEnv = envValue('HOST_STATIC_PORT');
+    const staticEnv = environment.HOST_STATIC_PORT;
     if (staticEnv !== undefined && staticEnv !== '') {
         complain(
             'host: --static-port / HOST_STATIC_PORT no longer supported — the server uses a single port (HOST_PORT / --port); no second listener',
@@ -189,9 +188,9 @@ export function resolveConfig(
         return null;
     }
 
-    let port = parsePort(envValue('HOST_PORT'), 'HOST_PORT');
-    let bindHost = envValue('HOST_BIND_HOST') ?? '127.0.0.1';
-    let publicHost = envValue('HOST_PUBLIC_HOST');
+    let port = parsePort(environment.HOST_PORT, 'HOST_PORT');
+    let bindHost = environment.HOST_BIND_HOST ?? '127.0.0.1';
+    let publicHost = environment.HOST_PUBLIC_HOST;
 
     // N-player flag raw captures (env fallback only when neither flag present).
     let playersFlagRaw: string | undefined;
@@ -308,17 +307,14 @@ export function resolveConfig(
             return null;
         }
         playerCount = parsed;
-    } else {
-        const playerEnv = envValue('HOST_PLAYER_COUNT');
-        if (playerEnv !== undefined && playerEnv !== '') {
-            const parsed = parsePlayerCount(playerEnv);
-            if (parsed === undefined) {
-                return null;
-            }
-            playerCount = parsed;
-        } else {
-            playerCount = 2;
+    } else if (environment.HOST_PLAYER_COUNT !== undefined && environment.HOST_PLAYER_COUNT !== '') {
+        const parsed = parsePlayerCount(environment.HOST_PLAYER_COUNT);
+        if (parsed === undefined) {
+            return null;
         }
+        playerCount = parsed;
+    } else {
+        playerCount = 2;
     }
 
     // Validate that the defaults map actually contains the resolved playerCount
@@ -336,23 +332,20 @@ export function resolveConfig(
             return null;
         }
         boardSize = parsed;
-    } else {
-        const boardEnv = envValue('HOST_BOARD_SIZE');
-        if (boardEnv !== undefined && boardEnv !== '') {
-            const parsed = parseBoardSize(boardEnv);
-            if (parsed === undefined) {
-                return null;
-            }
-            boardSize = parsed;
-        } else {
-            const implied = BOARD_SIZE_DEFAULTS[playerCount];
-            // BOARD_SIZE_DEFAULTS is 32|48 (64 temporarily disabled), so this is always valid.
-            if (implied !== 32 && implied !== 48) {
-                complain(`host: --board-size must be 32 or 48 (got "${String(implied)}")`);
-                return null;
-            }
-            boardSize = implied;
+    } else if (environment.HOST_BOARD_SIZE !== undefined && environment.HOST_BOARD_SIZE !== '') {
+        const parsed = parseBoardSize(environment.HOST_BOARD_SIZE);
+        if (parsed === undefined) {
+            return null;
         }
+        boardSize = parsed;
+    } else {
+        const implied = BOARD_SIZE_DEFAULTS[playerCount];
+        // BOARD_SIZE_DEFAULTS is 32|48 (64 temporarily disabled), so this is always valid.
+        if (implied !== 32 && implied !== 48) {
+            complain(`host: --board-size must be 32 or 48 (got "${String(implied)}")`);
+            return null;
+        }
+        boardSize = implied;
     }
 
     if (!ALLOWED_BOARD_SIZES.includes(boardSize)) {
