@@ -2,7 +2,10 @@
 
 ## Status
 - **Current Wave**: Wave 4 — integration verification complete (C-010 complete)
-- **Branch**: `013-relaxed-player-id-visibility`
+- **Branch**: `013-relaxed-player-id-policy`
+- **Delivery Status**: PR Open — [PR #37](https://github.com/shaunburdick/europa-neo/pull/37)
+- **Final Quality/Security Review**: PASS
+- **Validation**: PASS; final validation and command results are recorded in `quickstart.md`.
 - **Last Updated**: 2026-08-31
 
 ## Plan Summary
