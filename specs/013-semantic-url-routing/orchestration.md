@@ -172,3 +172,20 @@ Replace production query-selected live boot with a pure pathname router and expl
   URL migration (Bob/spectator hand-off and reload handle rendering). The
   stale-reference privacy guard remains pending later Feature 013 cleanup and
   reports existing README/host/live-runtime/query documentation findings.
+
+## T013 remediation
+
+- 2026-08-31: Root cause was a production hand-off loop. A successful lobby
+  join/spectate pushed its semantic shortcut into the address bar and also fed
+  that new path back into the route resolver. By then the authoritative row
+  could already be `in_progress` (or full), so an explicit `/join` was correctly
+  rejected and replaced the live runtime with `Match unavailable`.
+- The hand-off now retains the path without re-resolving it; Back/Forward remains
+  the explicit re-resolution boundary. Reloaded routes whose lobby snapshot
+  identifies the same active match resume the existing player association without
+  issuing a second join command. Explicit spectate and all fresh direct-entry
+  downgrade protections remain unchanged.
+- The three affected lobby E2E expectations now assert semantic shortcut/path
+  retention and active-match reload recovery while retaining real tick, spectator,
+  privacy, and lifecycle assertions. T014/T015 and host/Docker/docs work remain
+  untouched.

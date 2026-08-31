@@ -134,6 +134,8 @@ export interface LobbyController {
     joinMatch(matchId: MatchId): Promise<LobbyCommandResult>;
     /** Attach read-only to a running public match (FR-012). */
     spectateMatch(matchId: MatchId): Promise<LobbyCommandResult>;
+    /** Re-enter an already-associated match without issuing a second lobby command. */
+    resumeMatch(matchId: MatchId): void;
     /** Release the match association and return to the lobby view (identity intact). */
     leaveMatch(): Promise<LobbyCommandResult>;
     /**
@@ -373,6 +375,13 @@ export function createLobbyController(args: LobbyControllerArgs): LobbyControlle
 
         spectateMatch(matchId: MatchId): Promise<LobbyCommandResult> {
             return runSeatCommand('spectateMatch', () => transport.spectateMatch(matchId), matchId);
+        },
+
+        resumeMatch(matchId: MatchId): void {
+            // A reload receives the active association from the lobby snapshot.
+            // Replaying join/spectate here races the changed match projection and
+            // can turn a valid route into a false "unavailable" result.
+            store.dispatch({ kind: 'lobbyEnteredMatch', matchId });
         },
 
         leaveMatch(): Promise<LobbyCommandResult> {

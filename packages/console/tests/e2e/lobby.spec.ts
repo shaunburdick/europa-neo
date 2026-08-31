@@ -392,6 +392,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // -- Tab 2: Bob joins → auto-start → match transition ----------------
         await waitingRow.locator('button:has-text("Join")').click();
         await waitUntilLobby(bob, (l) => l.viewMode === 'match', 'Bob enters match view');
+        await expect(bob).toHaveURL(new RegExp(`/match/${matchId}/join`));
 
         // Alice's match entry flips to in_progress (lobby update, SC-004).
         await waitUntilLobby(
@@ -510,6 +511,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // Click Spectate — should transition to the match view in read-only.
         await cara.locator(`[data-match-id="${matchId}"] button:has-text("Spectate")`).click();
         await waitUntilLobby(cara, (l) => l.viewMode === 'match', 'Cara in match view (spectator)');
+        await expect(cara).toHaveURL(new RegExp(`/match/${matchId}/spectate`));
 
         // The spectator heading says "Spectating" (FR-012, SC-005).
         await expect(cara.locator('.europa-lobby-match__title')).toContainText('Spectating');
@@ -629,6 +631,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'reconnected after reload');
         await waitUntilLobby(page, (l) => l.handle === 'Grace', 'handle restored after reload');
         await waitUntilLobby(page, (l) => l.identityStatus === 'named', 'identity confirmed after reload');
+
+        // The semantic match path is retained across reload. The restored
+        // active association resumes the existing waiting/live runtime; it
+        // must not replay the route's join request against changed state.
+        await expect(page).toHaveURL(new RegExp(`/match/${matchId}`));
+        await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
 
         // The "Your match" badge is visible (US4 AC-4: active match status
         // persists on the landing page even though the match leg was dropped

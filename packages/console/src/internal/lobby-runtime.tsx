@@ -220,6 +220,8 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     const [routeRetryEpoch, setRouteRetryEpoch] = useState(0);
     const pendingNavigationRef = useRef<'create' | 'join' | 'spectate' | null>(null);
     const prevViewModeRef = useRef(state.viewMode);
+    const routeResolutionRef = useRef(initialRoute !== undefined);
+    const completedNavigationPathRef = useRef<string | null>(null);
     useEffect(() => {
         if (prevViewModeRef.current !== state.viewMode) {
             prevViewModeRef.current = state.viewMode;
@@ -252,9 +254,12 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     // Re-evaluate it against the current authoritative lobby snapshot.
     useEffect(() => {
         const onPopState = (): void => {
+            if (completedNavigationPathRef.current === window.location.pathname) return;
             const next = parseRoute(window.location.pathname);
             if (next.kind === 'match') {
                 routeAttemptedRef.current = false;
+                routeResolutionRef.current = true;
+                completedNavigationPathRef.current = null;
                 setNoticeKind(null);
                 setCurrentRoute(next);
             } else if (next.kind === 'lobby') {
@@ -279,12 +284,36 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     // no match client exists while the route is unresolved, and an explicit
     // intent can never be changed by this hand-off.
     useEffect(() => {
-        if (currentRoute === undefined || routeAttemptedRef.current || state.snapshot === null) {
+        if (
+            currentRoute === undefined ||
+            !routeResolutionRef.current ||
+            routeAttemptedRef.current ||
+            state.viewMode === 'match' ||
+            state.snapshot === null ||
+            completedNavigationPathRef.current === currentRoute.pathname
+        ) {
             return;
         }
         routeAttemptedRef.current = true;
         const entry = adaptRoute(currentRoute, state.snapshot);
+        // The lobby snapshot is authoritative for the current identity. On a
+        // reload, an active association means this route is a resume request,
+        // not a new join against the now-running/full projection. Preserve
+        // explicit spectate semantics; only adaptive/player routes may resume
+        // the existing player association.
+        if (
+            state.activeMatchId === currentRoute.matchId &&
+            (currentRoute.intent === 'adaptive' || currentRoute.intent === 'join')
+        ) {
+            legIntentRef.current = { matchId: state.activeMatchId, role: 'player' };
+            controller.resumeMatch(state.activeMatchId);
+            return;
+        }
         if (entry.kind === 'unavailable') {
+            // A successful lobby action owns the transition even if its
+            // snapshot races this effect and now describes the match as full
+            // or running. Never let that stale route classification replace
+            // the already-mounted match runtime.
             setNoticeKind('unavailable');
             return;
         }
@@ -296,7 +325,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         void executeRouteEntry(entry, controller)?.then((result) => {
             if (!result.ok) setNoticeKind('shortcut-failure');
         });
-    }, [controller, currentRoute, routeRetryEpoch, state.snapshot]);
+    }, [controller, currentRoute, routeRetryEpoch, state.snapshot, state.viewMode]);
 
     // Successful actions initiated from the lobby get one canonical semantic
     // history entry. Route-originated actions already have the right URL.
@@ -310,15 +339,17 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                 : pending === 'join'
                   ? buildJoinUrl(window.location.origin, matchId)
                   : buildSpectateUrl(window.location.origin, matchId);
-        navigateTo(new URL(path).pathname);
-        const nextRoute = parseRoute(new URL(path).pathname);
-        if (nextRoute.kind === 'match') {
-            // This transition already completed the lobby-originated command;
-            // do not replay it merely because its canonical URL became the
-            // current route. Back/Forward resets this guard explicitly.
-            routeAttemptedRef.current = true;
-            setCurrentRoute(nextRoute);
-        }
+        routeResolutionRef.current = false;
+        routeAttemptedRef.current = true;
+        setCurrentRoute(undefined);
+        setNoticeKind(null);
+        const pathname = new URL(path).pathname;
+        completedNavigationPathRef.current = pathname;
+        navigateTo(pathname);
+        // Do not put the newly-written path back through route resolution.
+        // The command already succeeded and its target may have changed state
+        // (for example, the final joiner starts the match immediately).
+        // Back/Forward remains the explicit re-resolution boundary.
         pendingNavigationRef.current = null;
     }, [state.activeMatchId, state.viewMode]);
 
@@ -335,6 +366,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     }
 
     function createMatch(values: LobbyCreateFormValues): void {
+        routeResolutionRef.current = false;
         pendingNavigationRef.current = 'create';
         legIntentRef.current = { matchId: null, role: 'player' };
         void controller.createMatch(buildCreateSettings(values)).then((result) => {
@@ -344,6 +376,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     }
 
     function joinMatch(matchId: MatchId): void {
+        routeResolutionRef.current = false;
         pendingNavigationRef.current = 'join';
         legIntentRef.current = { matchId, role: 'player' };
         void controller.joinMatch(matchId).then((result) => {
@@ -353,6 +386,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     }
 
     function spectateMatch(matchId: MatchId): void {
+        routeResolutionRef.current = false;
         pendingNavigationRef.current = 'spectate';
         legIntentRef.current = { matchId, role: 'spectator' };
         void controller.spectateMatch(matchId).then((result) => {
