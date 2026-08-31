@@ -75,7 +75,7 @@ As an observer, I want to attach to a running match as a spectator and receive f
 - **FR-004**: Every protocol message MUST carry a schema version field; servers MUST reject mismatched major versions gracefully. This protocol version is the wire compatibility contract only — it is distinct from the application version (the release identity carried additively by `HelloAckPayload.appVersion`, feature 009-shared-app-versioning): neither implies the other, and no code path may derive one from the other (see Clarifications v1.2).
 - **FR-005**: Per-tick broadcasts MUST be filtered through each recipient's fog-of-war view before transmission (server-side enforcement).
 - **FR-006**: Tick payloads MUST be deltas (changed cells/events only) relative to the recipient's last known state; recipients MUST be able to request or be given a full snapshot on desync.
-- **FR-007**: Sessions MUST be identified by an opaque token issued at join; reconnection MUST present the token to reclaim a seat within the timeout window.
+- **FR-007**: Sessions MUST be identified by an opaque bearer token issued at join; reconnection MUST present that token to reclaim a seat within the timeout window. `GuestPlayerId`, gameplay `PlayerId`, and `MatchId` values are not substitutes for the session/reconnect credential.
 - **FR-008**: The server MUST apply received orders at tick boundaries in deterministic order (per feature 001 FR-017).
 - **FR-009**: The server MUST enforce heartbeat/timeouts: silent clients are marked disconnected, seats reclaimed per policy after the grace window.
 - **FR-010**: The server MUST rate-limit order submissions per client (tunable) and drop excess with an error message.
@@ -126,4 +126,4 @@ As an observer, I want to attach to a running match as a spectator and receive f
 ### v1.4 (2026-08-30) — Product-owner identity-visibility correction
 
 - Guest identity IDs and gameplay `PlayerId` values may be carried in wire payloads and diagnostics for correlation. They do not change authorization or fog filtering. `sessionToken` and `reconnectToken` remain bearer credentials and MUST NOT be logged or placed in risky URLs/documentation examples.
-- `MatchId` is a non-secret routing/reference value, not a session or reconnect bearer credential. Its use as the v1 private-match link does not change server-side seat authority, generic unknown-match handling, or fog filtering.
+- `MatchId` is a non-secret routing/admission reference, not a session or reconnect bearer credential. A client that knows one may attempt admission to the corresponding private match, but the ID alone grants no seat, order, or view authority; the server still resolves admission, seat ownership, orders, and fog-filtered views. Unknown-ID handling remains generic so private-match existence is not enumerable.

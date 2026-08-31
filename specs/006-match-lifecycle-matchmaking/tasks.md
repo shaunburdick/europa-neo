@@ -129,7 +129,7 @@ Per `plan.md` §"Project Structure" (monorepo root). The matchmaker lives at `pa
 
 **Goal**: Layer in private visibility + the shareable join URL + the single `match_not_found` code path. After this phase, a player can create a match with `visibility: 'private'`, receive a `joinUrl` (when `publicBaseUrl` is configured) + `joinPath`, share it with friends, and the friends can join via the URL — all while the private match is invisible in `listPublicMatches()`. Unknown `MatchId`s always return `match_not_found` regardless of whether the match exists (no existence leak per FR-006 + Q2 clarification).
 
-**Independent Test**: Per `quickstart.md` Q-M02 + Q-M03: create a private match (with `publicBaseUrl` set), assert `joinPath === '/join/<matchId>'` and `joinUrl === '<baseUrl>/join/<matchId>'`; assert `listPublicMatches()` returns 0 entries; join via the URL with the same `MatchId`, assert success; probe 100 unknown UUIDs, assert every one returns `match_not_found` with no existence leak in the message; probe the real private `MatchId` from another session, assert it also returns `match_not_found` (single code path).
+**Independent Test**: Per `quickstart.md` Q-M02 + Q-M03: create a private match (with `publicBaseUrl` set), assert `joinPath === '/join/<matchId>'` and `joinUrl === '<baseUrl>/join/<matchId>'`; assert `listPublicMatches()` returns 0 entries; join via the URL with the same `MatchId`, assert success; probe 100 unknown UUIDs, assert every one returns `match_not_found` with no existence leak in the message; verify a client that knows the real private `MatchId` can attempt admission through the normal server-authoritative seat-fill path (the ID grants no seat, order, or view authority).
 
 ### Tests for User Story 3
 

@@ -1,7 +1,7 @@
 # Orchestration Log: Player-ID Visibility Policy Correction
 
 ## Status
-- **Current Wave**: Wave 1 — residual audit
+- **Current Wave**: Wave 2 — policy and harness corrections complete
 - **Branch**: `013-relaxed-player-id-visibility`
 - **Last Updated**: 2026-08-30
 
@@ -19,8 +19,8 @@ fog-of-war boundaries remain protected.
   `quickstart.md` under “C-001 residual audit”. No application source or test
   files were changed.
 
-### Wave 2 — Policy and harness corrections — ⏳ Pending
-- C-002, C-003, C-004, C-007
+### Wave 2 — Policy and harness corrections — ✅ Complete
+- C-002, C-003, C-004, C-007 — ✅ complete
 
 ### Wave 3 — Focused test corrections — ⏳ Pending
 - C-005, C-006
@@ -45,4 +45,7 @@ fog-of-war boundaries remain protected.
   console comments, and negative tests; mixed private-match wording in the
   012 cross-reference; and one historical PM handoff note. Aligned surfaces
   already distinguish ID correlation, handle preference, bearer credentials,
-  private-match existence, and fog boundaries. C-002–C-010 remain pending.
+  private-match existence, and fog boundaries.
+- Wave 2 integration: checker, typecheck, lint, and format checks passed. Commits
+  `4673ef0`, `7931347`, `5b6011b`, and `3bed997` landed. C-005, C-006, and
+  C-008–C-010 remain pending.
