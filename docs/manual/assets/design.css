@@ -11,10 +11,20 @@
   --europa-color-chip-text: #f9fafb;
   --europa-color-city: #fbbf24;
   --europa-color-combat-effect: rgba(239, 68, 68, 0.55);
+  --europa-color-error: #dc6966;
+  --europa-color-error-active: #ad5553;
+  --europa-color-error-bg: #32191a;
+  --europa-color-error-border: #5b3231;
+  --europa-color-error-hover: #e89590;
   --europa-color-error-text: #fca5a5;
   --europa-color-focus-ring: #ffffff;
   --europa-color-generic-effect: rgba(148, 163, 184, 0.45);
   --europa-color-green: #059669;
+  --europa-color-info: #dca12e;
+  --europa-color-info-active: #ad872f;
+  --europa-color-info-bg: #302311;
+  --europa-color-info-border: #5b461d;
+  --europa-color-info-hover: #e8c35e;
   --europa-color-land-hue: 120;
   --europa-color-land-max-lightness-pct: 62;
   --europa-color-land-min-lightness-pct: 26;
@@ -27,13 +37,27 @@
   --europa-color-pipe-stalled: #9ca3af;
   --europa-color-pipe-uphill: #dc2626;
   --europa-color-red: #dc2626;
+  --europa-color-success: #059669;
+  --europa-color-success-active: #1b7154;
+  --europa-color-success-bg: #11221d;
+  --europa-color-success-border: #173f31;
+  --europa-color-success-hover: #3aa07a;
   --europa-color-surface: #111827;
   --europa-color-surface-raised: #1f2937;
   --europa-color-text-muted: #9ca3af;
   --europa-color-text-primary: #f9fafb;
   --europa-color-text-secondary: #e5e7eb;
   --europa-color-void-bg: #1a2233;
+  --europa-color-warning: #dcaa37;
+  --europa-color-warning-active: #ad872f;
+  --europa-color-warning-bg: #312512;
+  --europa-color-warning-border: #5b4920;
+  --europa-color-warning-hover: #e8c35e;
   --europa-color-water: #1d4ed8;
+  --europa-control-height-default: 32px;
+  --europa-control-height-lg: 40px;
+  --europa-control-height-sm: 24px;
+  --europa-control-height-xs: 16px;
   --europa-focus-ring-color: #ffffff;
   --europa-focus-ring-offset: 2px;
   --europa-focus-ring-style: solid;
@@ -187,6 +211,88 @@
 .europa-button--ghost:focus-visible {
     outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
     outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* ── 3b. Button state variants — success / warning / error / info ──────── */
+.europa-button--success {
+    background-color: var(--europa-color-success);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-success);
+}
+
+.europa-button--success:hover {
+    background-color: var(--europa-color-success-hover);
+    border-color: var(--europa-color-success-hover);
+}
+
+.europa-button--success:active {
+    background-color: var(--europa-color-success-active);
+    border-color: var(--europa-color-success-active);
+}
+
+.europa-button--warning {
+    background-color: var(--europa-color-warning);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-warning);
+}
+
+.europa-button--warning:hover {
+    background-color: var(--europa-color-warning-hover);
+    border-color: var(--europa-color-warning-hover);
+}
+
+.europa-button--warning:active {
+    background-color: var(--europa-color-warning-active);
+    border-color: var(--europa-color-warning-active);
+}
+
+.europa-button--error {
+    background-color: var(--europa-color-error);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-error);
+}
+
+.europa-button--error:hover {
+    background-color: var(--europa-color-error-hover);
+    border-color: var(--europa-color-error-hover);
+}
+
+.europa-button--error:active {
+    background-color: var(--europa-color-error-active);
+    border-color: var(--europa-color-error-active);
+}
+
+.europa-button--info {
+    background-color: var(--europa-color-info);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-info);
+}
+
+.europa-button--info:hover {
+    background-color: var(--europa-color-info-hover);
+    border-color: var(--europa-color-info-hover);
+}
+
+.europa-button--info:active {
+    background-color: var(--europa-color-info-active);
+    border-color: var(--europa-color-info-active);
+}
+
+.europa-button--success:focus-visible,
+.europa-button--warning:focus-visible,
+.europa-button--error:focus-visible,
+.europa-button--info:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* ── 3c. Button size modifiers — sm / lg (control-height tokens) ──────── */
+.europa-button--sm {
+    min-height: var(--europa-control-height-sm);
+}
+
+.europa-button--lg {
+    min-height: var(--europa-control-height-lg);
 }
 
 /* ── 4. HUD chrome ─────────────────────────────────────────────────────── */

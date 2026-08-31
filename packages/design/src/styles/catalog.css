@@ -116,6 +116,88 @@
     outline-offset: var(--europa-focus-ring-offset);
 }
 
+/* ── 3b. Button state variants — success / warning / error / info ──────── */
+.europa-button--success {
+    background-color: var(--europa-color-success);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-success);
+}
+
+.europa-button--success:hover {
+    background-color: var(--europa-color-success-hover);
+    border-color: var(--europa-color-success-hover);
+}
+
+.europa-button--success:active {
+    background-color: var(--europa-color-success-active);
+    border-color: var(--europa-color-success-active);
+}
+
+.europa-button--warning {
+    background-color: var(--europa-color-warning);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-warning);
+}
+
+.europa-button--warning:hover {
+    background-color: var(--europa-color-warning-hover);
+    border-color: var(--europa-color-warning-hover);
+}
+
+.europa-button--warning:active {
+    background-color: var(--europa-color-warning-active);
+    border-color: var(--europa-color-warning-active);
+}
+
+.europa-button--error {
+    background-color: var(--europa-color-error);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-error);
+}
+
+.europa-button--error:hover {
+    background-color: var(--europa-color-error-hover);
+    border-color: var(--europa-color-error-hover);
+}
+
+.europa-button--error:active {
+    background-color: var(--europa-color-error-active);
+    border-color: var(--europa-color-error-active);
+}
+
+.europa-button--info {
+    background-color: var(--europa-color-info);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-info);
+}
+
+.europa-button--info:hover {
+    background-color: var(--europa-color-info-hover);
+    border-color: var(--europa-color-info-hover);
+}
+
+.europa-button--info:active {
+    background-color: var(--europa-color-info-active);
+    border-color: var(--europa-color-info-active);
+}
+
+.europa-button--success:focus-visible,
+.europa-button--warning:focus-visible,
+.europa-button--error:focus-visible,
+.europa-button--info:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* ── 3c. Button size modifiers — sm / lg (control-height tokens) ──────── */
+.europa-button--sm {
+    min-height: var(--europa-control-height-sm);
+}
+
+.europa-button--lg {
+    min-height: var(--europa-control-height-lg);
+}
+
 /* ── 4. HUD chrome ─────────────────────────────────────────────────────── */
 .europa-hud {
     display: flex;
