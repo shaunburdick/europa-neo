@@ -24,7 +24,8 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T008 route-aware production bootstrap — ✅ complete
 - T009 runtime integration — ⏳ pending
 - T010 accessible route notices and focus/live-region recovery — ✅ complete
-- T011–T012 runtime/browser coverage — ⏳ pending
+- T011 runtime/browser coverage — ✅ complete (unit/component/a11y assertions)
+- T012 routing E2E — ⏳ pending
 ### Wave 3 — Full-stack and security — ⏳ Pending
 ### Wave 4 — Native host and Docker — ⏳ Pending
 ### Wave 5 — Documentation truthfulness — ⏳ Pending
@@ -74,5 +75,13 @@ Replace production query-selected live boot with a pure pathname router and expl
   - Covered adaptive player/spectator selection, full-waiting non-downgrade, explicit intent
     preservation, snapshot-less resolution, no-command redirect/unavailable behavior, and
     exact `MatchId` forwarding.
-  - No application implementation change was required; T008 and stale-reference migration
-    remain pending and were not addressed.
+- No application implementation change was required; T008 and stale-reference migration
+  remain pending and were not addressed.
+
+## T011 Completion
+
+- Added 2 unit tests for explicit-intent/no-I/O guards, 3 component tests for adaptive
+  waiting hand-off and route recovery, and 2 a11y tests for recovery semantics and
+  spectator read-only controls.
+- Focused result: **7 tests passed** across the three new T011 files.
+- T012 browser history/refresh E2E and all later migration/full-stack tasks remain pending.

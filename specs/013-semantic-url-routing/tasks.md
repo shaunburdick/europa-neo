@@ -33,7 +33,7 @@ red until the migration waves remove the existing production query references.
 - [x] T008 Implement `packages/console/src/main.tsx` route bootstrap: unchanged `?e2e`, one `/` replace redirect, semantic dispatch, and no query-derived production identity/transport; depends on T004, T006, T007.
 - [x] T009 Integrate adaptive, explicit join, and explicit spectate entry with `packages/console/src/internal/lobby-runtime.tsx` and existing storage/session behavior; preserve gameplay flows; depends on T006, T008.
 - [x] T010 Implement accessible unknown/unavailable/shortcut-failure notices and focus/live-region recovery in `packages/console/src/ui/`; retry/return must be keyboard operable; depends on T008.
-- [ ] T011 Add unit/component/a11y tests for navigation, no-connection guarantees, intent, identity conflicts, recovery, focus, announcements, and spectator read-only controls; depends on T008–T010.
+- [x] T011 Add unit/component/a11y tests for navigation, no-connection guarantees, intent, identity conflicts, recovery, focus, announcements, and spectator read-only controls; depends on T008–T010.
 - [ ] T012 Add `packages/console/tests/e2e/routing.spec.ts` for Back/Forward, refresh, root redirect, route retention through terminal/leave, and no loop; depends on T008–T011.
 
 ## Wave 3 — Full-stack and security
