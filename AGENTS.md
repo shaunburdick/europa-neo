@@ -74,6 +74,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - #25 `feat`: shareable design system `@europa/design` (single-source token table + deterministic `dist/design.css` + `europa-*` catalog, console + manual migration, living `DESIGN.md` contract, 4 cheap guards G-04/G-05/G-06 + workflow filters; full G-01..G-09 drift-suite + parity/smoke tests deferred by PO trim) — **implemented on branch `issue-25-design-system`, PR #31 open** (merging is the owner's call)
   - #35 `feat`: console semantic URL scheme — **Implemented (2026-08-31) on branch `issue-35-semantic-url-scheme` (Feature 013; semantic routing, Docker/runtime remediation, documentation, and final acceptance review complete)**
   - #30 `enhancement`: elevation-based pipe flow rate + slope color-coding (+ terrain smoothing pulled in by PO decision) — **implemented on branch `issue-30-pipe-flow-rate`, PR open** (merging is the owner's call)
+  - #41 `feat`: shared UI web components in `@europa/design` — framework-agnostic `customElements.define` wrappers for generic + game-specific primitives — **spec written on branch `issue-41-shared-UI-components`, phases 1–3 complete** (Feature 014; spec at `specs/014-shared-ui-components/spec.md`)
   - Repo-wide test-typechecking gap remains a documented tradeoff (do NOT fix casually — every package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs). Deliberately NOT ticketed to avoid casual pickup.
 
 - **Biome migration (Phase 1, 2026-08-24)**: the root configuration now layers
@@ -90,7 +91,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   six packages are documented in `.specify/biome-migration.md` and `pnpm format:check`
   is clean repo-wide.
 - Spec status lines: 001 = `**Status**: Implemented (2026-08-30)`; 003 = `**Status**: Implemented (2026-08-30)`; 002 = `**Status**: Implemented`; 004 = `**Status**: Implemented`; 006 = `**Status**: Implemented`; 005 = `**Status**: Implemented (2026-08-30)`; 007 = `**Status**: Implemented (2026-08-30)`; 009 = `**Status**: Implemented (2026-08-25)`; 012 = `**Status**: Implemented (2026-08-30)`
- - Spec status lines: 001 = `**Status**: Implemented (2026-08-30)`; 003 = `**Status**: Implemented (2026-08-30)`; 002 = `**Status**: Implemented`; 004 = `**Status**: Implemented`; 006 = `**Status**: Implemented`; 005 = `**Status**: Implemented (2026-08-30)`; 007 = `**Status**: Implemented (2026-08-30)`; 009 = `**Status**: Implemented (2026-08-25)`; 012 = `**Status**: Implemented (2026-08-30)`; 013 = `**Status**: Implemented (2026-08-31)`
+ - Spec status lines: 001 = `**Status**: Implemented (2026-08-30)`; 003 = `**Status**: Implemented (2026-08-30)`; 002 = `**Status**: Implemented`; 004 = `**Status**: Implemented`; 006 = `**Status**: Implemented`; 005 = `**Status**: Implemented (2026-08-30)`; 007 = `**Status**: Implemented (2026-08-30)`; 009 = `**Status**: Implemented (2026-08-25)`; 012 = `**Status**: Implemented (2026-08-30)`; 013 = `**Status**: Implemented (2026-08-31)`; 014 = `**Status**: Draft (2026-08-31)`
 - Monorepo test totals: more than 1,300 automated tests across the seven package suites; exact totals vary by package, project, and selected Vitest/Playwright configuration.
 
 ## Workflow rules
