@@ -408,13 +408,14 @@ describe('forged and stale identity claims (spec v1.1 amendment; US1 AC-3)', () 
         expect(reclaimed).toEqual({ handle: 'Nova', hasIdentity: true });
     });
 
-    it('a valid bearer claim supersedes the predecessor connection without split brain', () => {
+    it('a known guest-ID identity claim supersedes the predecessor connection without split brain', () => {
         const { service } = buildHarness();
         const victim = namedConnection(service, 'Nova');
 
-        // Possessing the stored opaque id IS the resume credential
-        // (FR-003 browser storage): restoration supersedes the old
-        // connection (data-model §2) — exactly one live binding remains.
+        // Presenting the stored opaque guest ID is an advisory identity-restore
+        // claim (FR-003 browser storage), not a bearer credential. A matching
+        // claim restores the identity and supersedes the old connection
+        // (data-model §2) — exactly one live binding remains.
         const resumeConnection = nextConnectionId();
         const resuming = service.establishIdentity({ guestPlayerId: victim.guestId }, resumeConnection);
         expect(resuming).toEqual({ handle: 'Nova', hasIdentity: true });

@@ -431,25 +431,26 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     // -- Logging + privacy choke point ------------------------------------------
 
     /**
-     * Every opaque claim id this session has held: bootstrap mints,
+     * Every opaque identity-claim id this session has held: bootstrap mints,
      * values restored from storage, and server-delivered replacements
      * (feature 010 Clarifications v1.6). At the adoption moment two
      * live values exist — the stale local mint and the server-issued
      * successor — and log lines or server text from either era must
      * come out clean, so {@link redact} scrubs them ALL.
      */
-    const knownSecrets = new Set<string>();
+    const knownIdentityClaims = new Set<string>();
 
     /**
-     * Scrub every occurrence of ANY known secret value out of `text`.
-     * Defense-in-depth: our own messages never contain a secret, and
-     * this catches server-authored text echoing one back.
+     * Scrub every occurrence of ANY known guest-ID identity claim out of
+     * `text`. Defense-in-depth: our own messages do not need to expose this
+     * advisory correlation value, and this catches server-authored text
+     * echoing one back.
      */
     function redact(text: string): string {
         let safe = text;
-        for (const secret of knownSecrets) {
-            if (secret.length > 0) {
-                safe = safe.split(secret).join(REDACTION_MARKER);
+        for (const identityClaim of knownIdentityClaims) {
+            if (identityClaim.length > 0) {
+                safe = safe.split(identityClaim).join(REDACTION_MARKER);
             }
         }
         return safe;
@@ -501,7 +502,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      * fresh as needed. Called at the top of every establish cycle so a
      * forgotten/expired claim self-heals before the next presentation.
      * Every value that passes through is registered with
-     * {@link knownSecrets} for the redaction choke point.
+     * {@link knownIdentityClaims} for the redaction choke point.
      */
     function ensureClaim(): StoredLobbyClaim {
         if (currentClaim !== null) {
@@ -509,13 +510,13 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         }
         const restored = loadStoredClaim(storage);
         if (restored !== null) {
-            knownSecrets.add(restored.guestPlayerId);
+            knownIdentityClaims.add(restored.guestPlayerId);
             currentClaim = restored;
             confirmedHandle = restored.handle;
             return restored;
         }
         const fresh: StoredLobbyClaim = { guestPlayerId: mintClaimId(), handle: null };
-        knownSecrets.add(fresh.guestPlayerId);
+        knownIdentityClaims.add(fresh.guestPlayerId);
         if (!saveStoredClaim(fresh, storage) && storage !== null) {
             log('warn', 'claim persistence failed (storage unavailable or full)', {});
         }
@@ -566,7 +567,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         if (delivered === undefined) {
             return false;
         }
-        knownSecrets.add(delivered);
+        knownIdentityClaims.add(delivered);
         if (currentClaim === null) {
             const adopted: StoredLobbyClaim = { guestPlayerId: delivered, handle: confirmedHandle };
             currentClaim = adopted;
