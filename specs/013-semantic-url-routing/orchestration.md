@@ -15,7 +15,11 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T002 route contract tests — ✅ complete
 - T003 stale-link/privacy guards — ✅ complete (tracked production-surface guard added; expected findings remain until migration waves)
 
-### Wave 1 — Pure routing foundation — ⏳ Pending
+### Wave 1 — Pure routing foundation — 🚧 T004 complete
+- T004 closed route model, pure parser, segment validation, and semantic builders — ✅ complete
+- T005 route unit tests — ⏳ pending
+- T006 route-to-entry adapter seam — ⏳ pending
+- T007 retired live-route export removal — ⏳ pending
 ### Wave 2 — Bootstrap, history, accessible recovery — ⏳ Pending
 ### Wave 3 — Full-stack and security — ⏳ Pending
 ### Wave 4 — Native host and Docker — ⏳ Pending
