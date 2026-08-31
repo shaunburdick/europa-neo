@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 2 — Complete after second HOLD remediation; T013 remains pending
+- **Current Wave**: Wave 3 — T014 and T015 complete; T016 remains pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-30
 
@@ -26,7 +26,10 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T010 accessible route notices and focus/live-region recovery — ✅ complete
 - T011 runtime/browser coverage — ✅ complete (unit/component/a11y assertions)
 - T012 routing E2E — ✅ complete
-### Wave 3 — Full-stack and security — ⏳ Pending
+### Wave 3 — Full-stack and security — ✅ T014–T015 complete; T016 pending
+- T014 real-socket semantic create/join/spectate coverage — ✅ complete
+- T015 security suite — ✅ complete
+- T016 unchanged `?e2e`/a11y/harness checks — ⏳ pending
 ### Wave 4 — Native host and Docker — ⏳ Pending
 ### Wave 5 — Documentation truthfulness — ⏳ Pending
 ### Wave 6 — Final gate — ⏳ Pending
@@ -217,11 +220,23 @@ Replace production query-selected live boot with a pure pathname router and expl
 - No blockers remain for this remediation. The previously recorded root
   no-test-files baseline for `@europa/design` is unrelated and unchanged.
 
+## T014 Completion
+
+- 2026-08-31: Added a real-stack lobby E2E scenario covering semantic create,
+  waiting-match player entry, running-match read-only spectation, a real tick,
+  one player reserves order, explicit running-join and waiting-spectate
+  failures, and rejection of a join aimed at a full second match. The test
+  uses the existing lobby/server/matchmaker seams and deterministic polling;
+  no production behavior or wire contract changed.
+- Verification: focused semantic scenario **1/1** passed in **4.7s** with
+  `CI=1` and `--retries=0`. T015, T016, host/Docker, and documentation work
+  remain intentionally untouched.
+
 ## T015 Completion
 
 - 2026-08-31: Added routing and native-host boundary security tests covering
   traversal, encoded slash/backslash injection, unsafe IDs, credential-free URL
   builders, exact cross-match selection, unresolved-route no-connection guards,
   and preservation of Feature 010's command authority for identity/seat claims.
-  No production behavior was changed; T014 socket coverage and T016 harness
-  work remain pending.
+   No production behavior was changed; T014 socket coverage is now complete
+   and T016 harness work remains pending.
