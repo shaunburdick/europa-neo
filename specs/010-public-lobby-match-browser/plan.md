@@ -15,8 +15,9 @@ authority, and fog-of-war boundaries are unchanged.
 
 This is a documentation, contract-comment, checker, and test-harness correction.
 It does not add an API, change wire versioning, change match behavior, or alter
-the simulation. All code/test changes below are Phase 6 work; this Phase 4–5
-change set only updates planning artifacts.
+the simulation. At the Phase 4–5 gate, the planned change set contained only
+planning artifacts; the subsequent Phase 6 implementation is tracked by
+C-001–C-010 in `tasks.md`.
 
 ## Technical context
 

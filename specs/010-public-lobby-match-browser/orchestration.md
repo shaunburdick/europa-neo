@@ -1,7 +1,7 @@
 # Orchestration Log: Player-ID Visibility Policy Correction
 
 ## Status
-- **Current Wave**: Wave 4 — integration verification in progress (C-009 complete)
+- **Current Wave**: Wave 4 — integration verification complete (C-010 complete)
 - **Branch**: `013-relaxed-player-id-visibility`
 - **Last Updated**: 2026-08-31
 
@@ -28,7 +28,8 @@ fog-of-war boundaries remain protected.
 ### Wave 4 — Integration verification — ⏳ In progress
 - C-008 — ✅ complete
 - C-009 — ✅ complete; final validation is recorded in `quickstart.md`
-- C-010 — ⏳ pending
+- C-010 — ✅ complete; final review and command results are recorded in
+  `quickstart.md`
 
 ## Decisions & Rationale
 - 2026-08-30: Treat this as a correction to existing Feature 010 and
@@ -92,3 +93,23 @@ fog-of-war boundaries remain protected.
   is a type/conformance correction only; it does not change the effective
   matchmaking default or gameplay behavior.
 - See the detailed command-by-command results in `quickstart.md`.
+
+## C-010 final review (2026-08-31)
+
+- **Scope ruling:** this is a correction to Feature 010 and its approved
+  cross-references, not Feature 013. C-001 through C-010 account for all
+  implementation work on this branch; no additional task was discovered.
+- **Requirement review:** FR-002/003 preserve ephemeral server-issued guest
+  identity and browser resume; FR-020/021 preserve handle-first labels and
+  server-resolved seat/order authority; FR-023/024 preserve authorized views,
+  non-secret ID correlation, bearer-credential protection, private-match
+  non-enumeration, and fog boundaries; FR-026/027 preserve documentation
+  coverage and the in-memory lifecycle; NFR-003/004 remain satisfied.
+- **Compatibility ruling:** no gameplay behavior or protocol version changed.
+  The only URL exception is the explicitly approved local `pnpm host`
+  tokenized seat-handoff output; those bearer URLs remain secrets and are not
+  emitted by general app URLs, logs, diagnostics, or documentation.
+- **Planning-artifact ruling:** Phase 4–5 artifacts are planning/tracking
+  records. Source, tests, checker, and documentation edits are Phase 6 work
+  represented by the C-task list.
+- **Final status:** ✅ complete; branch is ready for conventional commit.

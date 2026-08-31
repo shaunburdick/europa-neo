@@ -198,3 +198,33 @@ The first E2E attempt did not pass because port 5173 was occupied by a stale
 Vite process from another worktree and all lobby-dependent tests timed out while
 reconnecting. After removing that unrelated listener, the same complete E2E
 command passed 17/17. No failed run is represented as a successful gate.
+
+## C-010 final review (2026-08-31)
+
+### Scope and requirement review
+
+| Review point | Result |
+| --- | --- |
+| Feature scope | Correction to existing Feature 010; no `specs/013-*` feature created |
+| FR-002/003 | Ephemeral server-issued identity and browser resume remain intact; IDs are non-secret correlation data |
+| FR-020/021 | Handle-first participant labels and server-authoritative seat/order attribution remain intact |
+| FR-023/024 | Views remain authorization/fog filtered; IDs grant no authority; bearer credentials remain protected |
+| FR-026/027 | Manual, README, package, operator, and API guidance cover the identity lifecycle and credential boundary |
+| NFR-003/004 | Public/private/fog boundaries and gameplay, wire-version, reconnect, spectator, and terminal compatibility remain intact |
+| URL exception | Only local `pnpm host` may print tokenized seat-handoff URLs; they remain bearer secrets and are not general app URL/log/diagnostic/docs output |
+| Phase 4–5 accounting | Planning artifacts are planning/tracking records; all implementation edits are represented by C-001–C-010 |
+
+No runtime gameplay behavior or protocol version changed. A repository-wide
+review found no remaining contradiction requiring a new task or feature.
+
+### Final C-010 gates
+
+| Command | Result |
+| --- | --- |
+| `node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs` | PASS — 4 player-facing + 9 implementation/spec surfaces |
+| `node specs/010-public-lobby-match-browser/check-documentation-privacy-harness.mjs` | PASS — 4 forbidden credential examples rejected |
+| `pnpm test` | PASS — design 3, engine 302, version 38, fog 114, terrain 366 (50 skipped), networking 287, matchmaking 404, console 605 |
+| `pnpm typecheck` | PASS — build plus all 8 package typechecks |
+| `pnpm lint` | PASS — all 8 packages, no fixes |
+| `pnpm format:check` | PASS — all 8 packages, no fixes |
+| `git diff --check` | PASS |

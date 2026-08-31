@@ -3,9 +3,9 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-30 (v1.7; identity-visibility correction)
+**Last Updated**: 2026-08-31 (v1.7; identity-visibility correction)
 **Version**: 1.7
-**Status**: Implemented (2026-08-26)
+**Status**: Implemented (2026-08-31; C-010 review complete)
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -275,3 +275,21 @@ names and credential-bearing examples from player-facing surfaces; and rejects
 credential-bearing example values in the implementation/spec surfaces. It
 fails nonzero and reports each offending file and rule, so adding a forbidden
 identifier or example cannot silently pass review.
+
+### C-010 final review (2026-08-31)
+
+- This branch is a correction to existing Feature 010 and its approved
+  cross-references. It does not create Feature 013.
+- The Phase 4–5 artifacts (`plan.md`, `research.md`, `data-model.md`,
+  `quickstart.md`, `tasks.md`, and `orchestration.md`) describe planning and
+  delivery tracking only; all implementation changes in this branch are
+  accounted for by C-001 through C-010. No untracked implementation task was
+  discovered.
+- Review of FR-002/003/020/021/023/024/026/027 and NFR-003/004 confirms that
+  guest/player IDs remain non-secret correlation data, handles remain the
+  preferred labels, and server authority, reconnect credentials,
+  private-match non-enumeration, and fog filtering remain unchanged.
+- No runtime gameplay behavior or protocol version changed. The sole explicit
+  URL exception remains local `pnpm host` tokenized seat handoff; those URLs
+  remain bearer secrets and are not generalized to public app URLs, logs,
+  diagnostics, or documentation examples.
