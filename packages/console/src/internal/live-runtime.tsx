@@ -52,6 +52,12 @@ export interface EuropaLiveHandle {
 declare global {
     interface Window {
         __europaLive?: EuropaLiveHandle;
+        __europaTestMatch?: {
+            readonly wsUrl: string;
+            readonly matchId: string;
+            readonly displayName: string;
+            readonly reconnectToken?: string;
+        };
     }
 }
 
@@ -74,9 +80,10 @@ function StoreApp({ store }: { readonly store: ConsoleStore }): JSX.Element {
  */
 export function mountLiveRuntime(root: HTMLElement): void {
     const params = new URLSearchParams(window.location.search);
-    const matchId = params.get('match');
-    const displayName = params.get('name') ?? '';
-    const token = params.get('token');
+    const seam = window.__europaTestMatch;
+    const matchId = seam?.matchId ?? params.get('match');
+    const displayName = seam?.displayName ?? params.get('name') ?? '';
+    const token = seam?.reconnectToken ?? params.get('token');
 
     if (matchId === null) {
         // No store to surface feedback through yet; expose the reason on
@@ -95,7 +102,7 @@ export function mountLiveRuntime(root: HTMLElement): void {
         // Single-port (011): same-origin fallback when ?ws= absent — same path as lobby-view.
         // Keeps ?live&ws= compatibility for Playwright fixtures; cross-host/credential overrides
         // still hard-error before client construction (FR-007).
-        safeUrl = resolveLobbyServerUrl(window.location.search, window.location);
+        safeUrl = seam?.wsUrl ?? resolveLobbyServerUrl(window.location.search, window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
         window.__europaLive = {

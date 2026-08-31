@@ -150,6 +150,25 @@ Replace production query-selected live boot with a pure pathname router and expl
   `Spectating` state and exactly one `pushState`; T013 remains pending.
 - Verification: isolated test 9/9; routing component suite 99/99; routing E2E
   3/3 (with `CI=1` to force Playwright's Vite web server); typecheck, lint,
-  format, and build all pass. The first non-CI E2E attempt reused a dead
-  development-server slot after the broad package run and was not a test
-  failure; the forced clean-server rerun is authoritative.
+   format, and build all pass. The first non-CI E2E attempt reused a dead
+   development-server slot after the broad package run and was not a test
+   failure; the forced clean-server rerun is authoritative.
+
+## T013 Completion
+
+- 2026-08-31: Migrated the full-stack, n-player, and waiting-overlay browser
+  fixtures to semantic `/match/<id>/join` paths. Their real WebSocket details
+  now travel through the test-only `window.__europaTestMatch` bootstrap seam;
+  production URLs contain no match, name, token, or transport query values.
+  The lobby integration fixture now starts at `/lobby` with its test-only
+  `?ws=` endpoint override, preserving the real lobby transport and polling
+  behavior. The n-player host smoke now validates credential-free semantic
+  launcher links while continuing to drive real wire clients through its
+  existing in-process server seam. The `?e2e` fixtures were not changed.
+- Verification: migrated full-stack/n-player/waiting-overlay E2E **4/4**;
+  host-smoke integration **11/11**; console typecheck, lint, format, and build
+  green. The existing lobby E2E remains **3/6** green: three failures are in
+  pre-existing route-transition/reconnect expectations exposed by the semantic
+  URL migration (Bob/spectator hand-off and reload handle rendering). The
+  stale-reference privacy guard remains pending later Feature 013 cleanup and
+  reports existing README/host/live-runtime/query documentation findings.

@@ -3,7 +3,7 @@
  *
  * Proves the entire production path with NO fakes on the game path:
  *
- *   console UI (real Chromium, ?live runtime) ⇄
+ *   console UI (real Chromium, semantic match route) ⇄
  *   WsMatchClient (networking's wire codec over native WebSocket) ⇄
  *   real createMatchServer (ephemeral port, ticking scheduler) ⇄
  *   matchmaking Matchmaker bridge (auto-start register/attach) ⇄
@@ -175,7 +175,6 @@ async function readLive(page: Page): Promise<{
         };
     });
 }
-
 /**
  * Read the live handle's essential state from a page, failing the
  * test when the runtime never mounted (instead of a cryptic null).
@@ -183,7 +182,7 @@ async function readLive(page: Page): Promise<{
 async function readLiveOrThrow(page: Page): Promise<NonNullable<Awaited<ReturnType<typeof readLive>>>> {
     const live = await readLive(page);
     if (live === null) {
-        throw new Error('live runtime handle missing (page did not mount ?live runtime)');
+        throw new Error('live runtime handle missing (page did not mount the semantic match runtime)');
     }
     return live;
 }
@@ -254,17 +253,25 @@ test('two consoles drive one live match end-to-end over the real stack', async (
         const stats = server.stats();
         expect(stats.activeMatches).toBe(1);
 
-        // -- Two real browser consoles join through the ?live runtime --------
+        // -- Two real browser consoles join through the semantic match route --------
         const errors: string[] = [];
         const openConsole = async (name: string): Promise<Page> => {
             const context = await browser.newContext();
+            await context.addInitScript(
+                ({ wsUrl, matchId, displayName }) => {
+                    (window as unknown as { __europaTestMatch: object }).__europaTestMatch = {
+                        wsUrl,
+                        matchId,
+                        displayName,
+                    };
+                },
+                { wsUrl: `ws://127.0.0.1:${String(port)}`, matchId, displayName: name },
+            );
             const page = await context.newPage();
             page.on('pageerror', (error) => {
                 errors.push(`${name}: ${String(error)}`);
             });
-            await page.goto(
-                `/?live&ws=ws://127.0.0.1:${String(port)}&match=${encodeURIComponent(matchId)}&name=${name}`,
-            );
+            await page.goto(`/match/${encodeURIComponent(matchId)}/join`);
             return page;
         };
 

@@ -60,6 +60,20 @@ import {
 } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
+/** Retain the ephemeral test server override while the app canonicalizes paths. */
+function preserveWsQueryInHistory(): void {
+    const preserveWsQuery = (url: string | URL | null): string | URL | null => {
+        if (url === null || !window.location.search.startsWith('?ws=')) return url;
+        const parsed = new URL(String(url), window.location.origin);
+        parsed.search = window.location.search;
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    };
+    const replaceState = window.history.replaceState.bind(window.history);
+    const pushState = window.history.pushState.bind(window.history);
+    window.history.replaceState = (state, title, url) => replaceState(state, title, preserveWsQuery(url));
+    window.history.pushState = (state, title, url) => pushState(state, title, preserveWsQuery(url));
+}
+
 // ---------------------------------------------------------------------------
 // Tunables (single location — constitution Principle V / AGENTS.md rule 3)
 // ---------------------------------------------------------------------------
@@ -318,11 +332,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const errors: string[] = [];
         const openLobbyTab = async (name: string): Promise<Page> => {
             const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+            await context.addInitScript(preserveWsQueryInHistory);
             const page = await context.newPage();
             page.on('pageerror', (error) => {
                 errors.push(`${name}: ${String(error)}`);
             });
-            await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+            await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
             return page;
         };
 
@@ -433,11 +448,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const errors: string[] = [];
         const openLobbyTab = async (name: string): Promise<Page> => {
             const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+            await context.addInitScript(preserveWsQueryInHistory);
             const page = await context.newPage();
             page.on('pageerror', (error) => {
                 errors.push(`${name}: ${String(error)}`);
             });
-            await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+            await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
             return page;
         };
 
@@ -538,11 +554,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
         });
-        await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+        await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
 
         // -- Establish and create a match ------------------------------------
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'connected');
@@ -583,13 +600,14 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
         });
 
         // -- First visit: establish identity + create a match ----------------
-        await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+        await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'initial connection');
         await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
         await page.getByRole('textbox', { name: /display name/i }).fill('Grace');
@@ -638,11 +656,12 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
         });
-        await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+        await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
 
         // -- Pre-restart: establish, create, join, verify ticks ---------------
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'pre-restart connection');
@@ -724,6 +743,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         test.setTimeout(60_000);
 
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+        await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
         await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
 

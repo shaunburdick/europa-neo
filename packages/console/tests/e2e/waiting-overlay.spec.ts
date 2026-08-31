@@ -266,10 +266,19 @@ test('first console sees the waiting room while filling; auto-start clears it', 
 
         // -- First console joins the UNFILLED match --------------------------
         const aliceContext = await browser.newContext();
-        const alice = await aliceContext.newPage();
-        await alice.goto(
-            `/?live&ws=ws://127.0.0.1:${String(port)}&match=${encodeURIComponent(matchId)}&name=Alice&token=${aliceToken}`,
+        await aliceContext.addInitScript(
+            ({ wsUrl, matchId, displayName, reconnectToken }) => {
+                (window as unknown as { __europaTestMatch: object }).__europaTestMatch = {
+                    wsUrl,
+                    matchId,
+                    displayName,
+                    reconnectToken,
+                };
+            },
+            { wsUrl: `ws://127.0.0.1:${String(port)}`, matchId, displayName: 'Alice', reconnectToken: aliceToken },
         );
+        const alice = await aliceContext.newPage();
+        await alice.goto(`/match/${encodeURIComponent(matchId)}/join`);
 
         // Joined ('live') while the match is still filling…
         await waitUntil(alice, (live) => live.status === 'live', 'Alice reaches live');
@@ -286,10 +295,19 @@ test('first console sees the waiting room while filling; auto-start clears it', 
         const bobToken = filled.data.seatAssignment.sessionToken;
 
         const bobContext = await browser.newContext();
-        const bob = await bobContext.newPage();
-        await bob.goto(
-            `/?live&ws=ws://127.0.0.1:${String(port)}&match=${encodeURIComponent(matchId)}&name=Bob&token=${bobToken}`,
+        await bobContext.addInitScript(
+            ({ wsUrl, matchId, displayName, reconnectToken }) => {
+                (window as unknown as { __europaTestMatch: object }).__europaTestMatch = {
+                    wsUrl,
+                    matchId,
+                    displayName,
+                    reconnectToken,
+                };
+            },
+            { wsUrl: `ws://127.0.0.1:${String(port)}`, matchId, displayName: 'Bob', reconnectToken: bobToken },
         );
+        const bob = await bobContext.newPage();
+        await bob.goto(`/match/${encodeURIComponent(matchId)}/join`);
         await waitUntil(bob, (live) => live.status === 'live', 'Bob reaches live');
 
         // -- Ticks flow to BOTH seats; the overlay retires on each ----------

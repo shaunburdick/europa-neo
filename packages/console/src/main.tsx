@@ -5,6 +5,20 @@ import { adaptRoute } from './routing/route-adapter';
 import '@europa/design/dist/design.css';
 import './styles/index.css';
 
+/** Test-only direct match seam used by real-network fixture harnesses. */
+interface TestMatchSeam {
+    readonly wsUrl: string;
+    readonly matchId: string;
+    readonly displayName: string;
+    readonly reconnectToken?: string;
+}
+
+declare global {
+    interface Window {
+        __europaTestMatch?: TestMatchSeam;
+    }
+}
+
 /**
  * SPA entry point (T013, wired to the real App by T047; E2E harness
  * branch added by T052; error boundary added by T085; live full-stack
@@ -54,6 +68,11 @@ if (isE2E) {
  */
 function bootstrapProductionRoute(root: HTMLElement): void {
     const route = parseRoute(window.location.pathname);
+    if (route.kind === 'match' && window.__europaTestMatch !== undefined) {
+        stripProductionQuery();
+        void import('./internal/live-runtime').then((module) => module.mountLiveRuntime(root));
+        return;
+    }
     const entry = adaptRoute(route, null);
 
     switch (entry.kind) {
@@ -73,6 +92,8 @@ function bootstrapProductionRoute(root: HTMLElement): void {
             return;
         case 'player':
         case 'spectator':
+            mountLobby(root);
+            return;
         case 'unavailable':
             // A null snapshot can only produce `resolve` for a valid match;
             // keep this exhaustive guard safe if the adapter evolves.

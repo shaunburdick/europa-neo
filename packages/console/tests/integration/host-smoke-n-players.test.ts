@@ -11,7 +11,7 @@
  *   - the REAL exported `prepareMatch` (012 T018) creates + fills an
  *     N-seat public match and yields one session token per seat;
  *   - N Node wire clients join through the exact token-bearing join URLs
- *     the launcher prints (`?live&ws=…&match=…&name=…&token=…`), receive
+ *     the launcher prints (semantic `/match/<id>` links), receive
  *     tick broadcasts, and get authoritative order acks;
  *   - a SIGINT-driven shutdown is idempotent (the second signal is a no-op).
  *
@@ -476,22 +476,14 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
             throw new Error(`missing seat token for seat ${String(seat)}`);
         }
         const name = `P${String(seat)}`;
-        // Build the EXACT join URL the launcher prints (host.ts printCreateBanner).
-        const joinUrl =
-            `http://127.0.0.1:${String(port)}/` +
-            `?live&ws=${encodeURIComponent(wsUrl)}` +
-            `&match=${encodeURIComponent(match.matchId)}` +
-            `&name=${encodeURIComponent(name)}` +
-            `&token=${encodeURIComponent(token)}`;
+        // Build the semantic match URL the launcher prints. The test-only
+        // server seam remains the direct wire client below; credentials and
+        // transport details are intentionally absent from the browser URL.
+        const joinUrl = `http://127.0.0.1:${String(port)}/match/${encodeURIComponent(match.matchId)}/join`;
         const parsed = new URL(joinUrl);
-        const wsParam = parsed.searchParams.get('ws');
-        const matchParam = parsed.searchParams.get('match');
-        const nameParam = parsed.searchParams.get('name');
-        const tokenParam = parsed.searchParams.get('token');
-        if (wsParam === null || matchParam === null || nameParam === null || tokenParam === null) {
-            throw new Error('join URL missing a required param');
-        }
-        const leg = await joinSeat(wsParam, matchParam as MatchId, tokenParam, nameParam);
+        expect(parsed.pathname).toBe(`/match/${match.matchId}/join`);
+        expect(parsed.search).toBe('');
+        const leg = await joinSeat(wsUrl, match.matchId, token, name);
         legs.push(leg);
     }
 

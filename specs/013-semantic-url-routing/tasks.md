@@ -53,7 +53,7 @@ red until the migration waves remove the existing production query references.
 
 ## Wave 3 — Full-stack and security
 
-- [ ] T013 Migrate full-stack, n-player, waiting-overlay, and lobby integration fixtures from `?live` to semantic paths with test-only server seams; leave `?e2e` unchanged; depends on T008–T009.
+- [x] T013 Migrate full-stack, n-player, waiting-overlay, and lobby integration fixtures from `?live` to semantic paths with test-only server seams; leave `?e2e` unchanged; depends on T008–T009.
 - [ ] T014 Add real-socket semantic create/join/spectate coverage: adaptive states, one tick, one player order, explicit failures, and cross-match rejection; depends on T013.
 - [ ] T015 Add security tests for traversal, slash injection, credential leakage, cross-match selection, unauthorized claims, and unsafe IDs never opening a match connection; depends on T004, T008, T013.
 - [ ] T016 Run unchanged `?e2e` deterministic and console a11y suites, plus an assertion that `?live` never mounts live runtime; depends on T011–T015.
