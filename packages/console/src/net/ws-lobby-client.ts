@@ -242,8 +242,9 @@ export interface WsLobbyClientOptions {
  * The concrete client handle. Actions return promises that settle only
  * on the server echo of their exact `LobbyActionId`; rejections carry
  * typed lobby errors. The client does not expose its internal resume claim
- * through an accessor; the ID is non-secret correlation data, while the
- * bearer credential containing it remains protected (see the module note).
+ * through an accessor; the guest ID is non-secret advisory correlation data.
+ * The protected `sessionToken`/`reconnectToken` bearer credentials remain
+ * inaccessible (see the module note).
  */
 export interface WsLobbyClient {
     /** Open the socket and run the full establish cycle (identity + subscribe). */
