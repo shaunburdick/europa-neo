@@ -14,8 +14,10 @@
  * server-resolved reference and display snapshot — they are set once
  * at creation from server state (never from client claims) and have
  * no public mutator, so a forged association cannot be expressed.
- * The opaque id is internal-only: it must never reach any public
- * payload (`SeatAssignment`, `LobbyEntry`, results, views).
+ * The identity id is non-secret correlation metadata and may reach safe
+ * payloads or diagnostics where useful; handles remain preferred for labels.
+ * It is not a bearer credential. Session/reconnect tokens remain protected and
+ * are the values used for seat authority.
  *
  * @internal Exported for testability only; not part of the public
  * surface re-exported through the package barrel.
@@ -49,8 +51,8 @@ export interface PlayerSession {
      * at creation; immutable for the session's lifetime — the lobby
      * facade passes the registry's value, never a client claim.
      *
-     * PRIVACY (FR-003/FR-024): internal association only. Never
-     * serialize into public payloads, projections, or views.
+     * Non-secret identity correlation reference. It does not authorize a seat;
+     * the server-resolved session and seat remain authoritative.
      */
     readonly guestPlayerId: GuestPlayerId | null;
     /**

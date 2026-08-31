@@ -634,9 +634,10 @@ export function createMatchServer(
      * Run one lobby handler against the facade with uniform guard
      * rails: unavailable lobby → polite transport-level error; thrown
      * facade errors (invariant breaches, closed facade) → logged +
-     * `internal_error`, connection stays open. Payload contents are
-     * NEVER included in messages or logs (audit item 5: the identity
-     * claim carries the bearer-secret guest id).
+     * `internal_error`, connection stays open. Bearer tokens and other
+     * credentials are never included in messages or logs. Non-secret IDs may
+     * be retained where needed for correlation; client claims remain advisory
+     * and server authority is unchanged.
      *
      * @param connection Requesting connection.
      * @param handler    Synchronous facade call + reply logic.
@@ -664,10 +665,9 @@ export function createMatchServer(
      * silently mint a fresh identity), so there is no error arm.
      *
      * @param connection Requesting connection.
-     * @param payload    Advisory resume claim (input only — the server-
-     *                   resolved opaque id is delivered back ONLY on this
-     *                   connection's directed `identity` event, feature
-     *                   010 Clarifications v1.6).
+     * @param payload    Advisory resume claim (input only — the server
+     *                   resolves identity and may return its non-secret ID
+     *                   for correlation on safe surfaces, feature 010).
      */
     function handleLobbyIdentity(connection: Connection, payload: LobbyIdentityPayload): void {
         withLobbyFacade(connection, (facade) => {

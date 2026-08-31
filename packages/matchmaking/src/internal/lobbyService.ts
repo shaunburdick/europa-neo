@@ -137,17 +137,14 @@
  * whose status event re-enters this module) completes its own diff
  * pass first, and the outer pass then finds nothing changed to publish.
  *
- * Privacy envelope (NFR-003, FR-024): nothing projected through
- * `PublicLobbyEntry` or `LobbySnapshot`, and no action target, contains
- * the opaque guest id, session tokens, seats, or participant names. The
- * ONE sanctioned exception is `IdentityState.guestPlayerId` on the
- * DIRECTED `identity` event (spec Clarifications v1.6 — the FR-003
- * resume-claim delivery channel): {@linkcode withOwnerId} attaches the
- * authenticated owner's id at this delivery seam and the sink routes
- * that event to the owner's connection ONLY — a second connection never
- * receives another identity's id. The compile-time witnesses in
- * `tests/lobby-conformance.test.ts` pin the shapes and this module
- * never widens them.
+ * Privacy envelope (NFR-003, FR-024): public projections contain discovery
+ * data only. Non-secret IDs may be included on safe correlation surfaces;
+ * accepted handles are preferred for labels, and session/reconnect tokens
+ * remain protected bearer credentials. Client-provided identity claims are
+ * advisory only; the registry and matchmaker remain the authority for identity,
+ * sessions, and seats. The directed `identity` event still carries the owning
+ * ID for resume correlation, while public entries contain no seat tokens or
+ * private-match data.
  *
  * Pure apart from injected dependencies: clock and randomness arrive
  * via `deps.now` / the registry's `randomId` (constitution Principle II).
@@ -477,20 +474,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
     }
 
     /**
-     * Attach the AUTHENTICATED owner's opaque id to a safe registry
-     * projection — THE FR-003 delivery enrichment (spec Clarifications
-     * v1.6). SEAM RULING: the enrichment lives HERE at the facade's
-     * event-delivery seam, not in the registry — the registry's
-     * `projectIdentity` stays unconditionally id-free for every caller,
-     * and the one sanctioned exception is visible at the exact place
-     * directed identity events are born. The result is lawful ONLY as
-     * the payload of the `identity` event delivered to `owner`'s own
-     * connection: the transport sink resolves that single recipient, so
-     * the bearer secret reaches its rightful browser (which persists it
-     * for reload-restore) and nothing else. Listings, snapshots, and
-     * action targets are built from structurally id-free shapes and can
-     * never pick this up; method RETURN values deliberately stay
-     * un-enriched (the directed event is the one channel).
+     * Attach the owning identity's non-secret ID to a safe registry projection
+     * for resume correlation. The ID is not a bearer credential and does not
+     * authorize a seat; the server-resolved session and seat remain authoritative.
+     * Handles are preferred for labels, and bearer tokens remain protected.
      */
     function withOwnerId(safe: IdentityState, owner: GuestPlayerId): IdentityState {
         return Object.freeze({ handle: safe.handle, hasIdentity: true, guestPlayerId: owner });
@@ -862,9 +849,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             deliverEvent(connectionId, {
                 kind: 'identity',
                 // FR-003 delivery channel (spec Clarifications v1.6): the
-                // directed event alone carries the owner's opaque id, and
-                // the sink routes it to THIS connection only. The return
-                // value above stays the safe id-free projection.
+                // The directed event carries the owner's non-secret ID for
+                // correlation, and the sink routes it to THIS connection.
+                // The return value above remains the facade's safe projection.
                 identity: projected === undefined ? state : withOwnerId(projected, identity.id),
             });
             return state;

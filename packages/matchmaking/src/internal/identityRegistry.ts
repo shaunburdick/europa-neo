@@ -4,8 +4,8 @@
  * Owns every `GuestPlayerIdentity` and the reserved-handle map that
  * enforces FR-005 uniqueness. Plan.md §1: the registry is the
  * server-side authority behind the lobby facade (T-007); identity is
- * resolved from THIS registry, never from client-supplied claims
- * (spec v1.1 amendment — claims are advisory input).
+ * resolved from THIS registry, while client-supplied claims remain advisory
+ * input (spec v1.1 amendment); server authority is unchanged.
  *
  * State is process memory only (FR-015): two `Map`s keyed by branded
  * ids / normalized handle keys, mirroring feature 006's store
@@ -157,12 +157,11 @@ export interface IdentityRegistry {
     releaseExpired(): number;
 
     /**
-     * Project an identity into the SAFE wire shape (`IdentityState`:
-     * accepted handle + literal `hasIdentity`; NO opaque id, FR-024).
-     * This projection is unconditionally id-free for every caller —
-     * the facade attaches the authenticated owner's id DOWNSTREAM, at
-     * its directed-event delivery seam only (spec Clarifications
-     * v1.6), so no registry consumer can leak the secret by accident.
+     * Project an identity into the safe wire shape (`IdentityState`:
+     * accepted handle + literal `hasIdentity`). Identity IDs are non-secret
+     * correlation metadata, not credentials; the facade may attach the ID at a
+     * suitable delivery seam. Server state remains authoritative, and bearer
+     * session/reconnect tokens remain protected separately.
      *
      * @returns The frozen projection, or `undefined` for unknown ids.
      * @throws When the registry is closed.
@@ -199,7 +198,7 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
     const now = deps.now ?? Date.now;
     const graceMs = deps.graceMs ?? IDENTITY_GRACE_MS_DEFAULT;
 
-    /** Every held identity, active or in grace, by opaque id. */
+    /** Every held identity, active or in grace, by non-secret correlation id. */
     const identities = new Map<GuestPlayerId, GuestPlayerIdentity>();
     /** Reserved normalized handle key → owning identity id. */
     const handleOwners = new Map<string, GuestPlayerId>();

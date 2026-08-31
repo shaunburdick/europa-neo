@@ -17,14 +17,11 @@
  *   - Integer-only numeric fields (revisions, action ids, capacities).
  *   - Branded primitives prevent confusion with networking's tokens and
  *     matchmaking's session ids.
- *   - Public projections (entries, snapshots, action targets) NEVER
- *     carry the opaque `GuestPlayerId` — the claim is input only
- *     (spec FR-003/FR-024). The ONE sanctioned appearance is the
- *     optional `IdentityState.guestPlayerId` on the DIRECTED
- *     `identity` event to its owning connection (spec Clarifications
- *     v1.6 — the FR-003 delivery channel), enforced by the compile-
- *     time witnesses in `tests/lobby-conformance.test.ts` and the
- *     runtime privacy scans in `tests/unit/lobby.serverAuthority.test.ts`.
+ *   - IDs are non-secret correlation identifiers, not credentials. They may
+ *     appear on safe correlation surfaces; accepted handles remain preferred
+ *     for human-facing labels. Bearer session/reconnect tokens stay protected.
+ *     Client claims are advisory input only; server-resolved identity, session,
+ *     and seat state remains authoritative.
  *
  * Versioning: additive changes keep the wire tolerant (unknown-message
  * and unknown-error-code clients default their branches, mirroring
@@ -48,14 +45,12 @@ import type { MatchId } from '@europa/networking';
 // ----------------------------------------------------------------------------
 
 /**
- * Opaque, unique, non-semantic identifier of one ephemeral
- * `GuestPlayerIdentity` (spec FR-002/FR-024). Minted server-side;
- * stored in browser storage only as an opaque resume claim.
- *
- * NEVER rendered in UI, public listings, URLs, player/spectator views,
- * or documentation examples, and never accepted as a user-selectable
- * participant identity. Branded so it cannot silently flow into a
- * `string` field meant for display (handles, match ids, tokens).
+ * Unique, non-semantic identifier of one ephemeral `GuestPlayerIdentity`
+ * (spec FR-002/FR-024). Minted server-side and usable as non-secret
+ * correlation metadata, including in safe views, traces, or diagnostics.
+ * Handles are preferred for display; this identifier is never a bearer
+ * credential or a user-selectable identity. Branded so it cannot silently flow
+ * into a `string` field meant for display (handles, match ids, tokens).
  */
 export type GuestPlayerId = string & { readonly __brand: 'GuestPlayerId' };
 
@@ -127,16 +122,12 @@ export interface GuestIdentityClaim {
  * only once an identity has been established) so client narrowing can
  * discriminate it from pre-establishment states without a null check.
  *
- * `guestPlayerId` (spec Clarifications v1.6) is the SANCTIONED
- * FR-003 delivery channel for the opaque id: the facade populates it
- * only when projecting identity state for the directed `identity`
- * event, which the transport delivers exclusively to the connection
- * that owns the identity. The browser persists that delivered id as
- * its resume claim so a reload restores the active identity within
- * the reconnect grace window. It MUST NOT appear anywhere else — not
- * in `PublicLobbyEntry`, `LobbySnapshot`, join/spectate targets, UI,
- * URLs, or logs (NFR-003/FR-024) — and clients MUST tolerate its
- * absence (older servers, non-delivery projections).
+ * `guestPlayerId` (spec Clarifications v1.6) is delivered on the directed
+ * `identity` event so the owning browser can persist it as a resume claim.
+ * The ID may also be included on safe correlation surfaces, but it never
+ * authorizes an action; handles remain preferred for labels. Session and
+ * reconnect tokens are protected bearer credentials and are not interchangeable
+ * with identity IDs. Clients MUST tolerate the ID's absence.
  */
 export interface IdentityState {
     /** Accepted handle, or `null` while the visitor has not chosen one. */
@@ -144,10 +135,9 @@ export interface IdentityState {
     /** Literal `true`: this state is only produced for established identities. */
     readonly hasIdentity: true;
     /**
-     * Opaque id of the identity this state describes. Present ONLY on
-     * the directed `identity` event to its OWNING connection (spec
-     * Clarifications v1.6); absent from every other projection of
-     * this shape and from every listing/snapshot/target (NFR-003).
+     * Non-secret identity reference for correlation. Present on the directed
+     * `identity` event and permitted on other safe correlation surfaces; it is
+     * not a credential. Use the accepted handle as the human-facing label.
      */
     readonly guestPlayerId?: GuestPlayerId;
 }
