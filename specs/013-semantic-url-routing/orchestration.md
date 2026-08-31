@@ -30,7 +30,11 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T014 real-socket semantic create/join/spectate coverage — ✅ complete
 - T015 security suite — ✅ complete
 - T016 unchanged `?e2e`/a11y/harness checks — ✅ complete
-### Wave 4 — Native host and Docker — ⏳ Pending
+### Wave 4 — Native host and Docker — T017 complete
+- T017 safe application-path SPA fallback with missing-asset protection — ✅ complete
+- T018 host link emission — ⏳ pending
+- T019 self-host and host integration expansion — ⏳ pending
+- T020 Docker validation and documentation — ⏳ pending
 ### Wave 5 — Documentation truthfulness — ⏳ Pending
 ### Wave 6 — Final gate — ⏳ Pending
 

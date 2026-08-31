@@ -190,10 +190,10 @@ export function resolveConfig(
 // ---------------------------------------------------------------------------
 
 /**
- * Serve one request from {@link DIST_DIR}. `/` resolves to
- * `index.html`; existing files stream with a content-type; any other
- * extension-less path falls back to `index.html` (SPA safety net);
- * anything else is a plain 404. Path-traversal attempts are rejected.
+ * Serve one request from {@link DIST_DIR}. `/` resolves to `index.html`;
+ * existing files stream with a content-type; safe extension-less application
+ * paths fall back to `index.html` (SPA safety net); missing assets remain
+ * genuine 404s. Path-traversal attempts are rejected.
  *
  * @param req Incoming request.
  * @param res Response to fill.
@@ -220,7 +220,12 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
         writeStaticHead(res, 403).end('forbidden');
         return;
     }
-    const target = existsSync(requested) ? requested : path.join(DIST_DIR, 'index.html');
+    // A request with an extension is an asset request, not a client-side
+    // route. Falling back for a missing JavaScript, CSS, image, or source-map
+    // file would turn deployment mistakes into an HTML parse error in the
+    // browser and would hide genuine missing-asset failures.
+    const isApplicationPath = urlPath === '/' || path.posix.extname(urlPath) === '';
+    const target = existsSync(requested) || !isApplicationPath ? requested : path.join(DIST_DIR, 'index.html');
     let canonicalTarget: string;
     try {
         canonicalTarget = await realpath(target);

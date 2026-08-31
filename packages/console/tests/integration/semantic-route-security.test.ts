@@ -42,6 +42,23 @@ describe('native host route security boundary', () => {
         expect(result.body).not.toContain('secret');
         expect(result.body).not.toContain('other.test');
     });
+
+    it.each(['/lobby', '/match/target-match', '/match/target-match/join', '/match/target-match/spectate', '/settings'])(
+        'serves the SPA shell for safe application path %s',
+        async (pathname) => {
+            const result = await get(pathname);
+
+            expect(result.status).toBe(200);
+            expect(result.body).toContain('<!doctype html>');
+        },
+    );
+
+    it('does not turn a missing asset into an HTML application response', async () => {
+        const result = await get('/assets/does-not-exist.js');
+
+        expect(result.status).toBe(404);
+        expect(result.body).toBe('not found — did you run `pnpm build`?');
+    });
 });
 
 function collectOutput(processHandle: ChildProcess): { readonly text: () => string } {
