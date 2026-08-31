@@ -13,7 +13,7 @@ Replace production query-selected live boot with a pure pathname router and expl
 ### Wave 0 — Baseline and guards — 🔄 In Progress
 - T001 baseline and status — ✅ complete
 - T002 route contract tests — ⏳ pending
-- T003 stale-link/privacy guards — ⏳ pending
+- T003 stale-link/privacy guards — ✅ complete (tracked production-surface guard added; expected findings remain until migration waves)
 
 ### Wave 1 — Pure routing foundation — ⏳ Pending
 ### Wave 2 — Bootstrap, history, accessible recovery — ⏳ Pending

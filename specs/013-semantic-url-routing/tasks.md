@@ -7,7 +7,7 @@
 
 - [x] T001 Record branch/status, package commands, and the known root `pnpm test` `@europa/design` no-test-files baseline; add no application code.
 - [ ] T002 [P] Add route contract tests in `packages/console/tests/unit/routing/` for all supported shapes, `?e2e`, and retired `?live`; depends on T001.
-- [ ] T003 [P] Add stale production-link/privacy guard coverage for source, generated host links, docs, and fixtures; allow historical notes and `?e2e` only; depends on T001.
+- [x] T003 [P] Add stale production-link/privacy guard coverage for source, generated host links, docs, and fixtures; allow historical notes and `?e2e` only; depends on T001.
 
 ## Wave 1 — Pure routing foundation
 
