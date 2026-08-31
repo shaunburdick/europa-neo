@@ -3,9 +3,9 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-26 (v1.6)
-**Version**: 1.6
-**Status**: Implemented (2026-08-26)
+**Last Updated**: 2026-08-30 (v1.7)
+**Version**: 1.7
+**Status**: Implemented (2026-08-26); URL routing superseded by Feature 013
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -181,6 +181,10 @@ As a player or observer, I want to join an open game or spectate a running publi
 - User-facing text may be localized later; v1 requires clear English labels and status announcements.
 
 ## Clarifications
+
+### Session 2026-08-30 — Semantic route supersession (v1.7)
+
+Feature 013 is authoritative for browser URL routing. `/lobby` is the canonical landing path, `/match/<matchId>` is the adaptive match path, and `/match/<matchId>/join` plus `/match/<matchId>/spectate` are explicit shortcuts. The former direct `?live` compatibility contract is retired; lobby identity, match lifecycle, public-listing, spectator, and accessibility behavior remains unchanged. The unchanged `?e2e` query is test-only and is not part of the production lobby contract.
 
 ### Session 2026-08-25 — Approved product decisions (v1.0)
 

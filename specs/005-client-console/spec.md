@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-08-23)
+**Status**: Implemented (2026-08-23); URL routing superseded by Feature 013
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -139,6 +139,10 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 - Client-side prediction is deliberately minimal (tick-paced game); correctness beats latency masking in v1.
 
 ## Clarifications
+
+### v1.2 (2026-08-30) — Semantic URL routing supersedes query live entry
+
+Feature 013 replaces the former `?live&ws=<url>&match=<id>&name=[&token=]` production/test-entry description with semantic paths (`/lobby`, `/match/<matchId>`, and explicit `/join` and `/spectate` shortcuts). Rendering, input, networking, reconnect, spectator, and accessibility requirements remain in force. The `?e2e` harness remains unchanged and test-only; `resolveInitialViewMode` is no longer a public compatibility contract.
 
 ### v1.1 (2026-08-23) — Perf-gate hardening after CI-runner jitter
 
