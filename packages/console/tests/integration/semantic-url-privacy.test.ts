@@ -28,7 +28,7 @@ type FindingKind = 'retired-query' | 'credential-query';
 interface Finding {
     readonly file: string;
     readonly line: number;
-    readonly kind: FindingKind;
+    readonly kinds: readonly FindingKind[];
     readonly text: string;
 }
 
@@ -61,11 +61,15 @@ function scanTrackedProductionReferences(): readonly Finding[] {
             // Remove the one permitted query marker rather than exempting its whole line. A
             // line containing both `?e2e` and a retired production query must still fail.
             const productionText = text.replace(/\?e2e\b/gi, '');
+            const kinds: FindingKind[] = [];
             if (retiredQueryPattern.test(productionText)) {
-                findings.push({ file, line: index + 1, kind: 'retired-query', text: text.trim() });
+                kinds.push('retired-query');
             }
             if (credentialQueryPattern.test(productionText)) {
-                findings.push({ file, line: index + 1, kind: 'credential-query', text: text.trim() });
+                kinds.push('credential-query');
+            }
+            if (kinds.length > 0) {
+                findings.push({ file, line: index + 1, kinds, text: text.trim() });
             }
         });
     }
@@ -109,14 +113,18 @@ describe('semantic URL production-surface guard', () => {
     it('does not treat historical clarification prose as a production surface', () => {
         const historicalNote =
             'Clarification note: the retired /?live route is intentionally documented here for migration history.';
+        const historicalQueryPrefix =
+            'Historical: the retired https://example.test/?live&ws=example.test route is retained for migration history.';
         const historicalPath = 'specs/013-semantic-url-routing/spec.md';
 
         expect(historicalPath.startsWith('specs/')).toBe(true);
-        expect(retiredQueryPattern.test(historicalNote)).toBe(true);
+        expect(retiredQueryPattern.test(historicalNote)).toBe(false);
+        expect(retiredQueryPattern.test(historicalQueryPrefix)).toBe(true);
         expect(productionRoots.some((root) => historicalPath === root || historicalPath.startsWith(`${root}/`))).toBe(
             false,
         );
         expect(isAllowedHistoricalNote('docs/manual/quick-start.md', historicalNote)).toBe(true);
+        expect(isAllowedHistoricalNote('docs/manual/quick-start.md', historicalQueryPrefix)).toBe(true);
         expect(isAllowedHistoricalNote('README.md', historicalNote)).toBe(false);
     });
 
@@ -130,6 +138,14 @@ describe('semantic URL production-surface guard', () => {
                 productionRoots.some((root) => finding.file === root || finding.file.startsWith(`${root}/`)),
             ),
         ).toBe(true);
+    });
+
+    it('combines overlapping stale and privacy kinds for one source line', () => {
+        const finding = scanTrackedProductionReferences().find(
+            ({ file, line }) => file === 'README.md' && line === 153,
+        );
+
+        expect(finding?.kinds).toEqual(['retired-query', 'credential-query']);
     });
 
     it('has no stale production links or privacy violations in tracked surfaces', () => {

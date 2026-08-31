@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 0 — T001 complete; guards pending
+- **Current Wave**: Wave 0 — Complete
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-30
 
@@ -10,9 +10,9 @@ Replace production query-selected live boot with a pure pathname router and expl
 
 ## Task Wave Progress
 
-### Wave 0 — Baseline and guards — 🔄 In Progress
+### Wave 0 — Baseline and guards — ✅ Complete
 - T001 baseline and status — ✅ complete
-- T002 route contract tests — ⏳ pending
+- T002 route contract tests — ✅ complete
 - T003 stale-link/privacy guards — ✅ complete (tracked production-surface guard added; expected findings remain until migration waves)
 
 ### Wave 1 — Pure routing foundation — ⏳ Pending
@@ -52,4 +52,11 @@ Replace production query-selected live boot with a pure pathname router and expl
 - None.
 
 ## Review Findings
-- No implementation wave reviewed yet.
+- Wave 0 code-review remediation complete:
+  - T002 is complete and its retired-route fixture now distinguishes prose from a query-shaped
+    historical example with a `/` path prefix.
+  - Same-line stale/privacy matches are consolidated into one diagnostic carrying both kinds;
+    the guard's detection scope and exemptions are unchanged.
+  - The targeted privacy suite has no self-failures. Its final stale-reference assertion remains
+    intentionally failing because migration waves have not yet removed the existing production
+    `?live` and credential-bearing references.

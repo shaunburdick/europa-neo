@@ -5,9 +5,21 @@
 
 ## Wave 0 — Baseline and guards
 
+**Status**: Complete after review remediation. The stale-reference assertion remains intentionally
+red until the migration waves remove the existing production query references.
+
 - [x] T001 Record branch/status, package commands, and the known root `pnpm test` `@europa/design` no-test-files baseline; add no application code.
-- [ ] T002 [P] Add route contract tests in `packages/console/tests/unit/routing/` for all supported shapes, `?e2e`, and retired `?live`; depends on T001.
+- [x] T002 [P] Add route contract tests in `packages/console/tests/unit/routing/` for all supported shapes, `?e2e`, and retired `?live`; depends on T001.
 - [x] T003 [P] Add stale production-link/privacy guard coverage for source, generated host links, docs, and fixtures; allow historical notes and `?e2e` only; depends on T001.
+
+### Wave 0 review findings
+
+- The historical `/?live` prose fixture now distinguishes a prose mention (not a query match)
+  from an explicit historical query-shaped example, including a URL path prefix.
+- Same-line stale/privacy findings are consolidated into one diagnostic with both finding kinds;
+  detection remains unchanged.
+- Targeted guard verification has one expected failure: the stale-reference assertion detects
+  pre-migration `?live`/credential references. No self-failing fixture remains.
 
 ## Wave 1 — Pure routing foundation
 
