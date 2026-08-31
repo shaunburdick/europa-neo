@@ -13,13 +13,14 @@
  *  - Required privacy-related terminology must be present in certain docs
  *    (handle guidance, spectator, lifecycle, server-authoritative, directed
  *    identity, --create, same/cross-host, in-memory).
- *  - Player-facing surfaces (docs/manual/*) must NOT teach readers an opaque
- *    identifier or a credential-bearing URL: field names like guestPlayerId /
- *    sessionToken / reconnectToken, credential-bearing URL params (?token=…),
- *    and UUID-like opaque values are forbidden there.
- *  - Implementation/spec surfaces may *name* those fields to define and validate
- *    the privacy boundary, but must not print example credential VALUES
- *    (e.g. sessionToken: "abc").
+ *  - Player-facing surfaces (docs/manual/*) must NOT teach readers bearer
+ *    credential fields or credential-bearing URLs. Non-secret player/guest IDs
+ *    are permitted where the approved documentation surfaces use them for
+ *    correlation.
+ *  - All approved surfaces may *name* player/guest ID fields and show
+ *    representative non-secret ID values. No approved surface may print a
+ *    bearer credential value (e.g. sessionToken: "abc") or a credential-bearing
+ *    URL/log/example.
  *
  * This deliberately scans an explicit, reviewable file list (see below) rather
  * than the checker itself, so reviewers can see exactly what is covered.
@@ -57,32 +58,41 @@ const requiredImplementationTerms = [
     ['README.md', /public lobby/i, 'public lobby behavior'],
     ['README.md', /handle/i, 'handle visibility'],
     ['specs/010-public-lobby-match-browser/spec.md', /server-authoritative/i, 'authoritative association'],
-    ['specs/010-public-lobby-match-browser/spec.md', /directed.*identity|identity.*directed/i, 'directed identity delivery'],
+    [
+        'specs/010-public-lobby-match-browser/spec.md',
+        /directed.*identity|identity.*directed/i,
+        'directed identity delivery',
+    ],
     ['packages/console/README.md', /same-host|cross-host/i, 'WebSocket host boundary'],
     ['packages/console/README.md', /--create/i, 'explicit create mode'],
     ['packages/matchmaking/README.md', /in-memory/i, 'in-memory lifecycle'],
 ];
 
-// These are forbidden only on player-facing surfaces (docs/manual/*). The
-// implementation and spec surfaces may NAME the fields to define and validate
-// the privacy boundary, but must not print example credential VALUES (see
-// forbiddenExamplePatterns below).
+// These remain forbidden only on player-facing surfaces (docs/manual/*): a
+// player manual should use handles (or a generic fallback) rather than teach
+// credential mechanics. Player/guest ID names and representative values are
+// deliberately absent from this list: they are non-secret correlation data on
+// every explicitly approved surface above.
 //
 // NOTE on wording: "private" in these patterns means a CREDENTIAL-BEARING /
 // private (token) URL — e.g. a URL carrying ?token=… or a sessionToken. It does
 // NOT mean a private (invite-only) match; match visibility is out of scope here.
 const forbiddenPlayerPatterns = [
-    [/guestPlayerId|GuestPlayerId/i, 'opaque guest ID field name'],
-    [/opaque\s+(?:guest\s+)?(?:player\s+)?id(?:entifier)?s?/i, 'opaque identity term'],
     [/sessionToken|reconnectToken/i, 'credential field name'],
     [/(?:session|reconnect)\s+token/i, 'credential term'],
     [/[?&](?:token|sessionToken|reconnectToken)=[^\s)\]}>]+/i, 'credential-bearing URL parameter'],
     [/(?:https?|wss?):\/\/[^\s)\]}>]*(?:token|credential|secret)=[^\s)\]}>]*/i, 'credential-bearing URL'],
-    [/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i, 'UUID-like opaque value'],
 ];
-const forbiddenExamplePatterns = [
-    [/(?:sessionToken|reconnectToken|guestPlayerId)\s*[:=]\s*["'`]\S+/i, 'credential/opaque ID example value'],
-    [/[?&](?:token|sessionToken|reconnectToken)=[A-Za-z0-9._~-]{4,}/i, 'credential-bearing example URL'],
+const forbiddenCredentialPatterns = [
+    [
+        /(?:sessionToken|reconnectToken|accessToken|refreshToken|bearerToken)\s*[:=]\s*(?:["'`]\S+|(?!(?:string|undefined|null)\b)[A-Za-z0-9._~+/-]+)/i,
+        'credential value',
+    ],
+    [
+        /(?:[?&](?:token|sessionToken|reconnectToken|access_token|accessToken|credential|secret|bearer)=[^\s)\]}>]+|(?:https?|wss?):\/\/[^\s)\]}>]*(?:token|credential|secret|bearer)=[^\s)\]}>]*)/i,
+        'credential-bearing URL',
+    ],
+    [/\bAuthorization\s*:\s*Bearer\s+\S+/i, 'bearer Authorization value'],
 ];
 
 const failures = [];
@@ -108,24 +118,34 @@ for (const [relativePath, pattern, description] of requiredImplementationTerms) 
 }
 for (const relativePath of playerSurfaces) {
     const text = contents.get(relativePath);
-    if (!text) continue;
+    if (!text) {
+        continue;
+    }
     for (const [pattern, description] of forbiddenPlayerPatterns) {
         const match = text.match(pattern);
-        if (match) failures.push(`${relativePath}: forbidden ${description} (${match[0]})`);
+        if (match) {
+            failures.push(`${relativePath}: forbidden ${description} (${match[0]})`);
+        }
     }
 }
-for (const relativePath of implementationSurfaces) {
+for (const relativePath of [...playerSurfaces, ...implementationSurfaces]) {
     const text = contents.get(relativePath);
-    if (!text) continue;
-    for (const [pattern, description] of forbiddenExamplePatterns) {
+    if (!text) {
+        continue;
+    }
+    for (const [pattern, description] of forbiddenCredentialPatterns) {
         const match = text.match(pattern);
-        if (match) failures.push(`${relativePath}: forbidden ${description} (${match[0]})`);
+        if (match) {
+            failures.push(`${relativePath}: forbidden ${description} (${match[0]})`);
+        }
     }
 }
 
 if (failures.length > 0) {
     process.stderr.write(`Feature 010 documentation/privacy check failed (${failures.length} issue(s)):\n`);
-    for (const failure of failures) process.stderr.write(`- ${failure}\n`);
+    for (const failure of failures) {
+        process.stderr.write(`- ${failure}\n`);
+    }
     process.exitCode = 1;
 } else {
     process.stdout.write(
