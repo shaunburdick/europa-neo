@@ -189,6 +189,15 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.9
+      '@vitest/browser':
+        specifier: 'catalog:'
+        version: 4.1.11(vite@8.2.2(@types/node@22.20.1)(esbuild@0.27.7)(tsx@4.23.12))(vitest@4.1.11)
+      '@vitest/browser-playwright':
+        specifier: 'catalog:'
+        version: 4.1.11(playwright@1.62.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.27.7)(tsx@4.23.12))(vitest@4.1.11)
+      happy-dom:
+        specifier: 'catalog:'
+        version: 20.11.6
       tsup:
         specifier: 'catalog:'
         version: 8.5.1(postcss@8.5.26)(supports-color@7.2.0)(tsx@4.23.12)(typescript@5.9.3)
@@ -2251,7 +2260,6 @@ snapshots:
       - msw
       - utf-8-validate
       - vite
-    optional: true
 
   '@vitest/browser-playwright@4.1.11(playwright@1.62.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12))(vitest@4.1.11)':
     dependencies:
@@ -2282,7 +2290,6 @@ snapshots:
       - msw
       - utf-8-validate
       - vite
-    optional: true
 
   '@vitest/browser@4.1.11(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(tsx@4.23.12))(vitest@4.1.11)':
     dependencies:
