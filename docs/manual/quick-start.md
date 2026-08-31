@@ -1,6 +1,6 @@
 # Quick start
 
-Europa Neo opens at the **public lobby**. This page walks you from choosing a handle to issuing your first orders. See [The public lobby](./lobby.md) for the complete browser guide.
+Europa Neo opens at the **public lobby** (`/lobby`). This page walks you from choosing a handle to issuing your first orders. See [The public lobby](./lobby.md) for the complete browser guide.
 
 ## Step 1: Choose a handle
 
@@ -14,13 +14,15 @@ You can rename yourself later with **Change name** and **Update name**. Your acc
 - To play in someone else's waiting game, choose **Join**.
 - To watch a running game, choose **Spectate**. Spectating is full-visibility and read-only: it has no seat and cannot send player orders.
 
+The resulting match address uses a semantic path such as `/match/m-123/join` for player entry or `/match/m-123/spectate` for read-only viewing. A plain `/match/m-123` address adapts to the match state: an open waiting match offers player entry, while a running match is viewed as a spectator. The address contains no display name, reconnect token, or WebSocket address. Your accepted handle and reconnect session come from this browser's stored guest session.
+
 The lobby list shows loading and empty states explicitly. It updates as games fill, start, and finish. A match that disappears before your action is accepted produces a recoverable message and a refreshed list.
 
 ## Step 3: Wait for the game to start
 
 After creating or joining, you may see a waiting overlay — for example, **"Waiting for 2 more players… (1/3)"** — with your handle and the seat count (shown as *k / N*, where *k* seats are filled of *N* total). The game starts automatically when all required seats are filled. You do not need to refresh or press Start. On the first tick, the waiting view changes to the board.
 
-If you return to the lobby, your active match is marked **Your match** and cannot be claimed again by the same guest session.
+If you return to `/lobby`, your active match is marked **Your match** and cannot be claimed again by the same guest session.
 
 ## Step 4: Play
 
@@ -36,8 +38,8 @@ When you are ready for offense, read [Special weapons](./special-weapons.md) for
 
 Life happens: tabs get refreshed, laptops sleep, Wi-Fi drops.
 
-- **Refresh within 60 seconds** and the existing guest session can reclaim the same seat and accepted handle — the match continues as if you never left.
-- **Stay away longer than 60 seconds** and your seat expires: you forfeit the match. Choose another lobby match or create a new one.
+- **Refresh the same semantic match path within 60 seconds** and the existing guest session can reclaim the same seat and accepted handle — the match continues as if you never left.
+- **Stay away longer than 60 seconds** and your seat expires: you forfeit the match. Return to `/lobby`, then choose another match or create a new one.
 - If the connection drops mid-match but you stay put, the console shows a **"Reconnecting to match…"** banner and tries to restore your session on its own — keep the tab open.
 
 The 60-second grace window is measured from the moment your connection dropped.

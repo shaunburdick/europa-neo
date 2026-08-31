@@ -119,11 +119,24 @@ pnpm host
 both the console UI and the WebSocket match server on the same origin
 (`http://localhost:8080/` + `ws://localhost:8080`, FR-017: one `http.Server`,
 one `EXPOSE`, one port mapping, same-origin WS). The default is an empty
-public lobby at `/`: choose a guest handle, create a game, or browse and
+public lobby at `/lobby`: choose a guest handle, create a game, or browse and
 join/spectate an available public match. It does not create a match at startup.
 Use `pnpm host --create` for the explicit two-seat quick flow. The console also
 has a deterministic stub board when opened without a server, for renderer work
 only.
+
+Production navigation uses readable paths:
+
+| Path | Purpose |
+|---|---|
+| `/lobby` | Browse public matches, create a match, or choose Join/Spectate. |
+| `/match/<id>` | Open a match; waiting matches use player entry and running matches use read-only spectation. |
+| `/match/<id>/join` | Request player entry for a specific waiting match. |
+| `/match/<id>/spectate` | Open a specific running match read-only, without a seat. |
+
+The root path redirects to `/lobby`. Shared paths contain only the match ID;
+the browser establishes identity and transport details through the application
+session rather than the address bar.
 
 The host is loopback-safe by default. For a local-area network match, bind
 explicitly and advertise the address players can reach:
@@ -150,7 +163,7 @@ docker compose up --build   # first run builds the image; later `docker compose 
 
 One firewall/ingress rule is enough: the container exposes a single port
 (`EXPOSE 8080`, mapped as `${HOST_PORT:-8080}:${HOST_PORT:-8080}`) and the
-browser connects same-origin with no `?ws=` override needed.
+browser connects to the same origin without a transport override.
 The same container also serves the semantic match entry paths (`/match/<id>`,
 `/match/<id>/join`, and `/match/<id>/spectate`) through the SPA fallback; direct
 loads and refreshes do not require a second listener.
@@ -214,12 +227,11 @@ bearer credentials and opaque identity identifiers.
 curl http://localhost:8080/version
 ```
 
-The normal lobby derives its WebSocket endpoint from the page host. For a
-different port or test harness, `?ws=` may override it, but only a same-host
-WebSocket URL is accepted; URLs with embedded credentials or another hostname
-are rejected. The direct `?live&ws=&match=&name=` route remains available for
-development and test integrations. Normal host output uses the lobby and does
-not place identity or credential material in the URL.
+The normal lobby derives its WebSocket endpoint from the page host. Normal host
+output uses the lobby and semantic match paths, and does not place identity,
+transport, or credential material in the URL. The `?e2e` query documented in the
+console package is reserved for automated test harnesses and is not a
+production launch path.
 
 ## Credits & licensing
 

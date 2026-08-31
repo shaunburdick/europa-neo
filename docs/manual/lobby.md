@@ -1,6 +1,6 @@
 # The public lobby
 
-The lobby is Europa Neo's default landing page. It is where you choose the name other players see, browse public matches, and decide whether to play or watch. No account is required.
+The lobby is Europa Neo's default landing page at `/lobby`. It is where you choose the name other players see, browse public matches, and decide whether to play or watch. No account is required. The site root redirects here.
 
 ## Choose a handle
 
@@ -47,6 +47,8 @@ The server validates the settings. If a setting is unsupported, an explanation a
 
 After **Join** or **Create match**, you enter the match view. Before the game starts, it shows a waiting overlay — for example, **"Waiting for 2 more players… (1/3)"** — your accepted handle, and the seat count (shown as *k / N*). Keep the page open; the board appears and begins ticking when the match starts. The waiting message announces the transition for screen readers as well as visually.
 
+The match view keeps a semantic address such as `/match/m-123/join`. You can use `/match/m-123` to let the match state choose between player entry and spectating, or `/match/m-123/spectate` to request read-only viewing explicitly. These addresses contain the match ID, not your handle, reconnect session, or transport details.
+
 Your own active match is marked **Your match** if you return to the lobby. Its row does not offer another Join or Spectate action, so the same guest session cannot accidentally claim a second seat.
 
 ## Spectate
@@ -61,7 +63,7 @@ Participant names come from the server's accepted handles. They are presented as
 
 ## Leave, reconnect, and return
 
-The match header has **Leave to lobby**. Choose it to release your match presence and return to the landing page; focus moves to the lobby heading and the return is announced. The accepted handle remains available for your next lobby action.
+The match header has **Leave to lobby**. Choose it to release your match presence and return to `/lobby`; focus moves to the lobby heading and the return is announced. The accepted handle remains available for your next lobby action.
 
 If a player's connection drops, the match shows **Reconnecting to match…** and tries to restore the connection. Keep the tab open. A temporary disconnect can reclaim the same seat and handle during the existing 60-second reconnect grace period. After the grace period, the seat is forfeited and you must choose another match or create a new one.
 
@@ -81,4 +83,3 @@ Use the native buttons, fields, radio buttons, and selects with Tab, Shift+Tab, 
 ---
 
 [Back to contents](./index.md)
-
