@@ -70,6 +70,13 @@ Collapse two-port self-host to one `http.Server` on `HOST_PORT` (8080) serving H
 - (none yet)
 
 ## Review Findings
+- Wave 4 follow-up remediation — ✅ complete (2026-08-31): `workflow_dispatch`
+  jobs now require the canonical repository (`shaunburdick/europa-neo`), so a
+  manually dispatched fork cannot build or publish. After the amd64 digest is
+  built, `scripts/docker-validate.sh` runs the digest image and checks both
+  `/version.appVersion` and a real WebSocket `helloAck.appVersion` against the
+  checked-in canonical `APP_VERSION`; tag publication remains downstream of
+  that gate. No runtime artifact packaging or Wave 5 documentation changed.
 - Wave 4 runtime/remediation — ✅ complete (2026-08-31): Docker now compiles the
   host launcher and uses `pnpm deploy --prod` in the build stage, so the final
   image contains only the explicit runtime artifact set and production
