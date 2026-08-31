@@ -5,7 +5,7 @@
 **Created**: 2026-08-30
 **Last Updated**: 2026-08-31 (v1.0)
 **Version**: 1.0
-**Status**: Implementation in progress — semantic routing is shipped on this branch; Wave 5 documentation review remediation is complete, and Wave 6 final gates are pending
+**Status**: Implemented (2026-08-31)
 **GitHub Issue**: #35
 
 ## Problem Statement

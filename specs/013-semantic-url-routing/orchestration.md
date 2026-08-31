@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: T026 complete; T027 pending
+- **Current Wave**: T027 complete; feature accepted
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
 
@@ -40,11 +40,11 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T022 player manual migration — ✅ complete — semantic paths documented; credentials excluded; issue #34 share/copy UX remains out of scope
 - T023 Feature 005/010/011 documentation/spec notes — ✅ complete
 - T024 tracked-surface stale-reference/privacy scan — ✅ complete
-### Wave 6 — Final gate — ⏳ T027 pending
+### Wave 6 — Final gate — ✅ Complete
 
 - T025 — ✅ complete (2026-08-31)
 - T026 — ✅ complete (2026-08-31)
-- T027 — ⏳ pending
+- T027 — ✅ complete (2026-08-31)
 
 ## Decisions & Rationale
 - 2026-08-30: `/` uses a replacement redirect to `/lobby`, leaving the root available for future authentication entry.
@@ -80,8 +80,7 @@ Replace production query-selected live boot with a pure pathname router and expl
   contains only compiled application artifacts and production dependencies;
   Docker smoke proves an RFC 6455 handshake and HTTP/WS same-port mapping;
   build-amd64 uses read-only contents permission while retaining package and
-  provenance scopes. Feature 013 remains implementation in progress until the
-  Wave 6 final gates pass.
+  provenance scopes. Feature 013's Wave 6 final gates subsequently passed.
 - Wave 0 code-review remediation complete (historical snapshot before Wave 5):
   - T002 is complete and its retired-route fixture now distinguishes prose from a query-shaped
     historical example with a `/` path prefix.
@@ -379,5 +378,30 @@ The documented baseline was also rechecked separately: `pnpm test` exits 1
 because `@europa/design` has no test files (`No test files found, exiting with
 code 1`). This is a pre-existing workspace test-runner baseline, unrelated to
 Feature 013, and no design package or root test configuration was changed.
-No genuine feature failure, suppression, or remediation was required. T027
-remains intentionally pending.
+No genuine feature failure, suppression, or remediation was required.
+
+## T027 Final acceptance review — 2026-08-31
+
+All acceptance criteria are satisfied. AC-001 through AC-004 pass via the 70/70
+routing-unit suite, route-adapter coverage, and the 12/12 semantic full-stack
+E2E matrix. AC-005 passes via the unchanged `?e2e` harness (6/6); AC-006 via
+real semantic WebSocket create/join/spectate coverage, including a tick and
+player order; AC-007 via native self-host and Docker smoke/build checks; AC-008
+via the 7/7 privacy guard and clean tracked-surface scan; AC-009 via traversal,
+encoded-slash, unsafe-ID, cross-match, credential-leakage, and unauthorized
+claim tests; AC-010 via 31 passing accessibility tests; and AC-011 via routing
+history, refresh, and no-loop E2E coverage.
+
+Security/privacy invariants are satisfied: match IDs are decoded and validated
+before filesystem or match resolution, unsafe segments cannot inject slashes or
+traversal, unresolved routes open no match socket, identity and seat authority
+remains with Feature 010, and generated links/history contain only origin plus
+semantic path. The stale `?live` review is clean: it never mounts a live runtime;
+only historical explanation and unchanged test-only `?e2e` references remain.
+The issue #34 boundary is intact: share/copy controls, invitation UX, access
+policy, private-link policy, and expiration were not added or changed.
+
+T027 disposition: **PASS**. Feature 013 status is now **Implemented
+(2026-08-31)**. The sole known validation exception remains the unrelated root
+`pnpm test` baseline failure because `@europa/design` has no test files; all
+feature-specific gates pass and no application-code defect was found.
