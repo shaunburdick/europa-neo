@@ -24,7 +24,7 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 
 ## Project status
 
-**v1 implementation complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit: all features are specified, planned, implemented, integrated, and reviewed.
+**v1 core implementation is complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit. Feature 013's semantic routing is available on this branch, but its final validation gates are still pending; the status below distinguishes shipped features from work still under review.
 
 | Feature                                  | Package                                    | Status          |
 | ---------------------------------------- | ------------------------------------------ | --------------- |
@@ -35,6 +35,7 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 | 005 client console                       | `@europa/console`                          | ✅ Implemented |
 | 006 match lifecycle & matchmaking        | `@europa/matchmaking`                      | ✅ Implemented |
 | 010 public lobby & match browser         | `@europa/matchmaking`/`@europa/networking`/`@europa/console` | ✅ Implemented |
+| 013 semantic URL routing                  | `@europa/console`/host runtime                    | ⏳ Implementation in progress — final gates pending |
 
 An integration wave proved the full production path end-to-end: console UI ⇄ browser WebSocket client ⇄ match server ⇄ matchmaking-bound engine + terrain + fog, with two seats playing through the real wire protocol.
 

@@ -1,7 +1,7 @@
 # Orchestration Log: Console Semantic URL Routing
 
 ## Status
-- **Current Wave**: Wave 5 — T021–T024 complete; T025 pending
+- **Current Wave**: Wave 5 complete after documentation review remediation; T025–T027 pending
 - **Branch**: issue-35-semantic-url-scheme
 - **Last Updated**: 2026-08-31
 
@@ -13,7 +13,7 @@ Replace production query-selected live boot with a pure pathname router and expl
 ### Wave 0 — Baseline and guards — ✅ Complete
 - T001 baseline and status — ✅ complete
 - T002 route contract tests — ✅ complete
-- T003 stale-link/privacy guards — ✅ complete (tracked production-surface guard added; expected findings remain until migration waves)
+- T003 stale-link/privacy guards — ✅ complete (tracked production-surface guard added; at this checkpoint expected findings remained until the migration waves)
 
 ### Wave 1 — Pure routing foundation — ✅ T004–T007 complete
 - T004 closed route model, pure parser, segment validation, and semantic builders — ✅ complete
@@ -35,12 +35,12 @@ Replace production query-selected live boot with a pure pathname router and expl
 - T018 host link emission — ✅ complete
 - T019 self-host and host integration expansion — ✅ complete
 - T020 Docker validation and documentation — ✅ complete
-### Wave 5 — Documentation truthfulness — ⏳ T021–T023 complete
+### Wave 5 — Documentation truthfulness — ✅ T021–T024 complete after review remediation
 - T021 README and console README launch/route guidance — ✅ complete
 - T022 player manual migration — ✅ complete — semantic paths documented; credentials excluded; issue #34 share/copy UX remains out of scope
 - T023 Feature 005/010/011 documentation/spec notes — ✅ complete
 - T024 tracked-surface stale-reference/privacy scan — ✅ complete
-### Wave 6 — Final gate — ⏳ Pending
+### Wave 6 — Final gate — ⏳ Pending (T025–T027)
 
 ## Decisions & Rationale
 - 2026-08-30: `/` uses a replacement redirect to `/lobby`, leaving the root available for future authentication entry.
@@ -76,26 +76,27 @@ Replace production query-selected live boot with a pure pathname router and expl
   contains only compiled application artifacts and production dependencies;
   Docker smoke proves an RFC 6455 handshake and HTTP/WS same-port mapping;
   build-amd64 uses read-only contents permission while retaining package and
-  provenance scopes. Feature 013 status is implementation in progress; Wave 5
-  documentation remains pending.
-- Wave 0 code-review remediation complete:
+  provenance scopes. Feature 013 remains implementation in progress until the
+  Wave 6 final gates pass.
+- Wave 0 code-review remediation complete (historical snapshot before Wave 5):
   - T002 is complete and its retired-route fixture now distinguishes prose from a query-shaped
     historical example with a `/` path prefix.
   - Same-line stale/privacy matches are consolidated into one diagnostic carrying both kinds;
     the guard's detection scope and exemptions are unchanged.
-  - The targeted privacy suite has no self-failures. Its final stale-reference assertion remains
-    intentionally failing because migration waves have not yet removed the existing production
-    `?live` and credential-bearing references.
+  - The targeted privacy suite had no self-failures. At that earlier checkpoint its final
+    stale-reference assertion intentionally failed because migration waves had not yet removed
+    the existing production `?live` and credential-bearing references; the later Wave 5 result is
+    recorded below.
 - Wave 1 HOLD-1 remediation complete:
   - Added dedicated `route-adapter.test.ts` coverage using Feature 010-compatible lobby
     snapshots and observable command outcomes.
   - Covered adaptive player/spectator selection, full-waiting non-downgrade, explicit intent
     preservation, snapshot-less resolution, no-command redirect/unavailable behavior, and
     exact `MatchId` forwarding.
-- No application implementation change was required; T008 and stale-reference migration
-  remain pending and were not addressed.
+- No application implementation change was required by this remediation; the
+  stale-reference migration was completed in the later Wave 5 work recorded below.
 
-## Wave 2 HOLD remediation
+## Wave 2 HOLD remediation (historical implementation record)
 
 - Route notices are now rendered by the production route bootstrap/runtime, including unknown
   paths, authoritative unavailable states, shortcut command failures, and match-leg transport
@@ -110,8 +111,8 @@ Replace production query-selected live boot with a pure pathname router and expl
 - Focused unit/component/a11y gates, strict typecheck, lint, format, and build are green. The
   routing E2E unknown-route and root cases are green; the semantic match case still exposes a
   pre-existing full-stack fixture readiness failure (lobby remains reconnecting before the
-  target snapshot). Broader `?live` fixture failures are intentionally T013 stale-reference
-  work and were not migrated in this remediation.
+  target snapshot). Broader `?live` fixture failures were reserved T013 migration work and
+  are retained here as an audit trail, not as the current route contract.
 
 ## T011 Completion
 
@@ -119,7 +120,7 @@ Replace production query-selected live boot with a pure pathname router and expl
   waiting hand-off and route recovery, and 2 a11y tests for recovery semantics and
   spectator read-only controls.
 - Focused result: **7 tests passed** across the three new T011 files.
-- T013 browser/full-stack migration and all later tasks remain pending.
+- At this checkpoint T013 browser/full-stack migration and all later tasks remained pending.
 
 ## T012 Completion
 
@@ -127,8 +128,8 @@ Replace production query-selected live boot with a pure pathname router and expl
   stack and poll-based waits. Coverage includes root replacement redirect and refresh,
   Back/Forward and semantic-path refresh, terminal/leave route retention, and unknown-path
   recovery without a redirect loop.
-- T013 remains intentionally pending; the broader existing `?live` full-stack fixtures were
-  not migrated by this task.
+- At this checkpoint T013 remained intentionally pending; the broader existing `?live` full-stack
+  fixtures were not migrated by this task. Later migration completion is recorded below.
 
 ## Second Wave 2 review remediation
 
@@ -187,8 +188,9 @@ Replace production query-selected live boot with a pure pathname router and expl
   green. The existing lobby E2E remains **3/6** green: three failures are in
   pre-existing route-transition/reconnect expectations exposed by the semantic
   URL migration (Bob/spectator hand-off and reload handle rendering). The
-  stale-reference privacy guard remains pending later Feature 013 cleanup and
-  reports existing README/host/live-runtime/query documentation findings.
+  At this checkpoint the stale-reference privacy guard remained pending later Feature 013
+  cleanup and reported existing README/host/live-runtime/query documentation findings; the
+  later Wave 5 result supersedes that checkpoint.
 
 ## T013 remediation
 
@@ -244,7 +246,8 @@ Replace production query-selected live boot with a pure pathname router and expl
   the publish build.
 - Root Docker quick-start documentation now points to `/lobby` and explicitly
   documents semantic deep-link fallback on the same single `http.Server`.
-- T021–T023 and the broader Wave 5 documentation migration remain untouched.
+- T021–T023 were subsequently completed by the Wave 5 documentation remediation
+  recorded below; no gameplay documentation or issue #34 scope was changed.
 
 ## T014 Completion
 
@@ -310,3 +313,17 @@ Replace production query-selected live boot with a pure pathname router and expl
 - Verification: privacy guard **7/7** passed; full tracked-file scan reported no
   stale production query or credential references outside explicitly retained
   historical/spec and test-only cases.
+
+## Wave 5 review remediation — 2026-08-31
+
+- T021–T023 are complete: README and Feature 012/007 coordination artifacts now
+  describe the shipped semantic `/match/<id>/join` and `/match/<id>/spectate`
+  routes. Any retained query-route wording is explicitly historical migration
+  context or test-only `?e2e` guidance; it is not a production launch path.
+- T024 is complete after this reconciliation. The tracked privacy/stale-reference
+  scan remains the authoritative result: credential-free semantic links are the
+  current contract, while issue #34 share/copy UX and gameplay documentation
+  remain untouched.
+- This remediation does not close the feature. Spec 013 remains
+  **Implementation in progress**; T025–T027 (strict final gates, matrix review,
+  and implementation handoff) are still pending.

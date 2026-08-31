@@ -73,7 +73,7 @@ Parsed in `resolveConfig(args, env)` layered as:
 1. `--players N` (alias `--player-count`) wins when present; else `HOST_PLAYER_COUNT` env when neither flag present; else default `2` (backward compat with v1 and every existing doc link).
 2. `--board-size S` (alias `--boardSize`) wins when present; else `HOST_BOARD_SIZE` env; else implied `BOARD_SIZE_DEFAULTS[playerCount]` (so bare `--players 3` → 48, not silently 32 — FR-011).
 3. Both validated **before binding**; invalid (`5`, `16`, `--static-port`, alias mismatch) fails fast with actionable message naming the offending flag and naming the allowed set (011 NFR-004 style). `HOST_STATIC_PORT` / `--static-port` remain unsupported failures (FR-012) — passing them is conformance failure.
-4. The resolved pair drives the single public match created+filled in `--create` mode (011 FR-003). Printing: `playerCount` URLs each with per-seat `?token=`; `GET /version` + same-origin WS over the single `http.Server` unchanged (011 FR-001..FR-003).
+4. The resolved pair drives the single public match created+filled in `--create` mode (011 FR-003). Printing: `playerCount` credential-free semantic `/match/<id>/join` URLs; `GET /version` + same-origin WS over the single `http.Server` unchanged (011 FR-001..FR-003).
 
 **Layering rationale**:
 - Flags/env/defaults follow the same `resolveConfig` pattern that already handles `HOST_PORT`/`HOST_BIND_HOST`/`HOST_PUBLIC_HOST` — extend, don't invent a second parser.

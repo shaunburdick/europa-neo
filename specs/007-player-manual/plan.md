@@ -109,7 +109,7 @@ Every page names its authoritative sources. `research.md` §2–§4 expands this
 | Page | Primary sources (verify against, never copy) |
 | --- | --- |
 | `index.md` | Spec outline; README §"Game concept" (adapted, same authorship); ToC = links to the other 12 pages |
-| `quick-start.md` | US2/FR-004 · `packages/console/src/internal/live-runtime.tsx` (URL params `?live&ws=&match=&name=[&token=]`) · `packages/console/scripts/host.ts` (join URLs printed by `pnpm host`) · `NETWORK_CONSTANTS.defaultReconnectGraceMs` (60 s) · `packages/console/src/ui/waiting-overlay.tsx` · `packages/console/src/net/ws-match-client.ts` (reconnect snapshot+replay) |
+| `quick-start.md` | US2/FR-004 · Feature 013 semantic routes (`/lobby`, `/match/<id>`, `/match/<id>/join`, `/match/<id>/spectate`) · `packages/console/scripts/host.ts` (semantic join URLs printed by `pnpm host`) · `NETWORK_CONSTANTS.defaultReconnectGraceMs` (60 s) · `packages/console/src/ui/waiting-overlay.tsx` · `packages/console/src/net/ws-match-client.ts` (reconnect snapshot+replay) |
 | `objective.md` | US1/FR-003 · `packages/engine/src/resolution/terminal.ts` + `capture.ts` (elimination = 0 troops AND 0 cities) · engine `OrderSurrender` confirm flow (`SurrenderModal.tsx`) · draw by mutual elimination |
 | `the-board.md` | FR-008 · spec 003 · `packages/terrain/src/constants.ts` (water ratio bounds, elevation range) · `packages/console/src/render/palette.ts` (elevation shading) · point-symmetric fair maps |
 | `cities-and-troops.md` | FR-006 · `resolution/production.ts` + `ENGINE_CONSTANTS.productionRate` (1/tick) / `cityCapacity` (30) · `resolution/capture.ts` |

@@ -5,8 +5,8 @@
 
 ## Wave 0 — Baseline and guards
 
-**Status**: Complete after review remediation. The stale-reference assertion remains intentionally
-red until the migration waves remove the existing production query references.
+**Status**: Complete after review remediation. The tracked stale-reference/privacy scan is green;
+only explicitly labeled historical migration notes and test-only `?e2e` references remain.
 
 - [x] T001 Record branch/status, package commands, and the known root `pnpm test` `@europa/design` no-test-files baseline; add no application code.
 - [x] T002 [P] Add route contract tests in `packages/console/tests/unit/routing/` for all supported shapes, `?e2e`, and retired `?live`; depends on T001.
@@ -83,8 +83,9 @@ red until the migration waves remove the existing production query references.
 ### Wave 4 review remediation — ✅ complete (2026-08-31)
 
 - Docker runtime hardening, same-port WebSocket smoke coverage, and workflow
-  permission reduction are complete. Wave 5 README/manual/spec migration was
-  not addressed.
+  permission reduction are complete. The earlier review snapshot did not yet
+  include the Wave 5 README/manual/spec migration; that migration is now recorded
+  as complete below.
 
 ## Wave 5 — Documentation truthfulness
 

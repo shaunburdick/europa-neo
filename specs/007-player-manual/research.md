@@ -20,7 +20,7 @@ Known deliberate divergences from the original (document-what-ships, don't apolo
 | --- | --- | --- |
 | Uphill pipe flow | Gravity-driven slope rules | `flowUphillFactor: 0` — uphill pipes move nothing at v1 tuning |
 | Paratroop economics | (original ratios) | Order costs 2× troops at source per trooper landed; one order = cost 20, lands 10 |
-| Joining a match | Applet lobby | URL-based join (`?live&ws=&match=&name=[&token=]`), no lobby screen in v1 |
+| Joining a match | Applet lobby | Semantic `/match/<id>/join` and `/match/<id>/spectate` routes through the lobby; no credentials in URLs |
 
 ---
 
@@ -36,7 +36,7 @@ Known deliberate divergences from the original (document-what-ships, don't apolo
 | `packages/engine/src/resolution/*.ts` | Per-rule behavior: `production`, `capture`, `flow`, `decay`, `combat`, `paratroop`, `gun`, `terminal` | cities-and-troops, pipes, combat, special-weapons, objective |
 | `packages/fog/src/constants.ts` + spec 002 | Vision radius fallback (=4), Chebyshev metric | fog-of-war |
 | `packages/console/src/net/connection.ts` | Status state machine → the seven console status values | reading-the-screen |
-| `packages/console/src/internal/live-runtime.tsx` | Live join flow: URL params `?live&ws=&match=&name=[&token=]`; `window.__europaLive` | quick-start |
+| `packages/console/src/internal/live-runtime.tsx` | Historical pre-013 live join flow; migration reference only | migration context |
 | `packages/console/scripts/host.ts` (`pnpm host`) | What a real join URL looks like; two-seat launch | quick-start |
 | `packages/console/src/ui/waiting-overlay.tsx` | "Waiting for opponent to join…" overlay semantics | quick-start, reading-the-screen |
 | `packages/console/src/ui/order-bar.tsx`, `reserves-panel.tsx`, `src/render/SurrenderModal.tsx` | HUD buttons: Exclusive toggle, Clear-pipes, reserves slider + digits, Surrender… + confirm | controls, reading-the-screen |
@@ -123,7 +123,7 @@ empty-match TTL: 5 min         # unstarted matches evaporate (host context)
 2. **Paratroop 20→10**: an order drops 10 troops at the target and removes 20 from the source (2:1). Range ≤ 2 cells Chebyshev; cannot target water; clears the destination's pipes on arrival. → `special-weapons.md`.
 3. **Guns have friendly fire**: damage hits everything in the target cell at resolution time regardless of owner. Cost 5, damage 2. → `special-weapons.md`.
 4. **Decay & mutual feeding**: unfed stacks lose 1 troop/tick; two stacks piping into each other sustain indefinitely (neither counts as unfed). → `pipes.md` + `combat.md` stalemate callout.
-5. **Join flow is URL-based**: no lobby in v1. URL carries match id + optional per-seat token; refreshing own link within 60 s reclaims the seat; waiting overlay hides on first tick when the match auto-starts. → `quick-start.md`.
+5. **Join flow is semantic URL-based**: `/match/<id>/join` requests player entry and `/match/<id>/spectate` requests read-only viewing; browser storage/session state handles identity and reconnect, while refreshing within 60 s can reclaim the seat. The waiting overlay hides on first tick when the match auto-starts. → `quick-start.md`. Historical query URLs are migration context only.
 6. **All seven HUD statuses** incl. `expired` and `spectating` — see table above. → `reading-the-screen.md`.
 7. **Reserves max 90%**: digit n holds n×10%; you can't reserve 100% (a stack that reserves everything could never act/feed). → `reserves.md`.
 8. **Elimination = zero troops AND zero cities**; surrender requires confirmation then flips to spectator view; mutual elimination = draw. → `objective.md`.

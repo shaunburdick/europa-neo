@@ -3,9 +3,9 @@
 **Feature Branch**: `issue-35-semantic-url-scheme`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment)
 **Created**: 2026-08-30
-**Last Updated**: 2026-08-30 (v1.0)
+**Last Updated**: 2026-08-31 (v1.0)
 **Version**: 1.0
-**Status**: Draft — specification complete, clarification gate passed
+**Status**: Implementation in progress — semantic routing is shipped on this branch; Wave 5 documentation review remediation is complete, and Wave 6 final gates are pending
 **GitHub Issue**: #35
 
 ## Problem Statement

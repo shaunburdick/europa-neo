@@ -155,10 +155,10 @@ connections, URLs, views, and logs remain free of it. Host diagnostics never
 log bearer credentials or opaque identity identifiers.
 
 The lobby normally connects to the WebSocket service on the same host as the
-page. `/version` is served from the static console origin and can be queried
-without credentials. Production navigation uses the semantic paths above;
-identity, reconnect credentials, and transport configuration are not URL
-parameters.
+page (the same-host deployment boundary). `/version` is served from the static
+console origin and can be queried without credentials. Production navigation
+uses the semantic paths above; identity, reconnect credentials, and transport
+configuration are not URL parameters.
 
 ### Full-stack proof
 

@@ -106,7 +106,7 @@ pnpm --filter console test -- host-smoke
 # boots real http.Server + matchmaker + networking with port:0, each N∈{3,4}:
 #  GET /version === APP_VERSION over same port
 #  same-origin WS upgrade over same port
-#  --create with N prints N URLs (token-bearing), SIGINT idempotent
+#  --create with N prints N semantic join URLs, SIGINT idempotent
 ```
 
 Manual smoke:

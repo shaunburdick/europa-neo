@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-28
 
-**Last Updated**: 2026-08-29 (v1.1 — disable 64×64 board size, terrain issue #26)
+**Last Updated**: 2026-08-31 (v1.1 — disable 64×64 board size, terrain issue #26; semantic URL guidance aligned with Feature 013)
 
 **Version**: 1.0
 
@@ -108,7 +108,7 @@ As a player in a 3- or 4-player game, I want elimination/last-player-standing, s
 
 ### User Story 6 — Single-Command N-Player Smoke via `pnpm host` (Priority: P3)
 
-As an operator testing locally, I want `pnpm host --players 3 --board-size 48` (and `4`/`64`) to boot the single-port stack, create+fill a public N-player match, and print N join URLs (each per-seat token-bearing), so that 3–4 player smoke needs no lobby clicks.
+As an operator testing locally, I want `pnpm host --players 3 --board-size 48` (and `4`/`64`) to boot the single-port stack, create+fill a public N-player match, and print N semantic join URLs, so that 3–4 player smoke needs no lobby clicks.
 
 **Why this priority**: Reuses the proven `pnpm host --create` recipe (005 Integration wave + 011 single-port) with a flag. Validates the path that CI and operator playtests actually run.
 
@@ -116,7 +116,7 @@ As an operator testing locally, I want `pnpm host --players 3 --board-size 48` (
 
 **Acceptance Scenarios**:
 
-1. **Given** a built console (`dist/` present), **When** the operator runs `pnpm host --players 3 --board-size 48`, **Then** the process listens on a single `http.Server` (`HOST_PORT` default 8080, single `EXPOSE`), creates a public 3p match on 48×48 that auto-starts when the third seat is claimed, prints "Waiting for N more players…" progress to stdout, and prints 3 token-bearing join URLs; `GET /version` and same-origin WS over the same port both work (011 single-port contract preserved).
+1. **Given** a built console (`dist/` present), **When** the operator runs `pnpm host --players 3 --board-size 48`, **Then** the process listens on a single `http.Server` (`HOST_PORT` default 8080, single `EXPOSE`), creates a public 3p match on 48×48 that auto-starts when the third seat is claimed, prints "Waiting for N more players…" progress to stdout, and prints 3 credential-free `/match/<id>/join` URLs; `GET /version` and same-origin WS over the same port both work (011 single-port contract preserved).
 2. **Given** `pnpm host --players 4 --board-size 64` (override exercises every value in `32|48|64`), **When** the flow completes, **Then** 4 URLs are printed and the match runs at 4 ticks/s (250 ms cadence) with fog-filtered per-seat views.
 3. **Given** an invalid flag (e.g., `--players 5`, `--board-size 16`, `--static-port`, or alias mismatch), **When** parsing runs, **Then** the process fails fast with an actionable message naming the offending flag and naming the allowed set (no silent fallback, no second listener).
 4. **Given** `--players 3` with no explicit `--board-size`, **When** the host creates the match, **Then** the board size is the product-approved default (2p→32, 3p→48, 4p→48) — never silently 32 for every count.
@@ -198,7 +198,7 @@ As a player reading `docs/manual/`, I want the board-size defaults, lobby partic
 - **FR-011 — `pnpm host --players` + `--board-size` flags**: `packages/console/scripts/host.ts` MUST accept additive CLI flags:
   - `--players N` (`2|3|4`; alias `--player-count`; env fallback `HOST_PLAYER_COUNT` when neither flag present) — defaults to `2` when absent (backward compatibility with v1 and every existing doc link).
   - `--board-size S` (`32|48|64`; alias `--boardSize`; env fallback `HOST_BOARD_SIZE` when neither flag present) — when absent, implied size is the FR-001 default for the requested `playerCount` (2→32, 3→48, 4→48; NOT always 32).
-  - Both flags pass through `resolveConfig`/`HostConfig` the same way `HOST_PORT`/`HOST_BIND_HOST`/`HOST_PUBLIC_HOST` do. The resolved `playerCount` × `boardSize` pair drives the single public match created+filled in `--create` mode (011 FR-003). Printing: the number of URLs equals `playerCount`; join URLs embed per-seat `?token=` exactly as today. `GET /version` + same-origin WS over the single `http.Server` on `HOST_PORT` remain unchanged (011 FR-001..FR-003). Flags are parsed before binding; invalid values fail fast with actionable messages listing allowed values (011 NFR-004 style).
+   - Both flags pass through `resolveConfig`/`HostConfig` the same way `HOST_PORT`/`HOST_BIND_HOST`/`HOST_PUBLIC_HOST` do. The resolved `playerCount` × `boardSize` pair drives the single public match created+filled in `--create` mode (011 FR-003). Printing: the number of URLs equals `playerCount`; each URL uses the semantic `/match/<id>/join` path and contains no credential or transport query. `GET /version` + same-origin WS over the single `http.Server` on `HOST_PORT` remain unchanged (011 FR-001..FR-003). Flags are parsed before binding; invalid values fail fast with actionable messages listing allowed values (011 NFR-004 style).
   - **Clarifications v1.1 — 64×64 temporarily disabled**: The `--board-size 64` override is temporarily rejected by the host CLI with the message `host: --board-size 64 is temporarily disabled — 64×64 generation is unreliable (terrain issue #26 pending fix)`. The allowed override set is `32|48` until terrain issue #26 is fixed; `BOARD_SIZE_DEFAULTS` is unchanged.
 
 - **FR-012 — Removed second-port surface stays removed**: `HOST_STATIC_PORT` / `--static-port` remain unsupported failures per 011 FR-004. Passing `HOST_STATIC_PORT` or attempting to bind a second HTTP listener via any code path added by this change set is a conformance failure.
@@ -277,7 +277,7 @@ No interactive clarification loop was required: issue #6 noted the feature is bl
   - "Without extra chrome" alternative was rejected at intake — it would leave the multi-player capacity implicit from the occupancy integer.
   - Recorded as **FR-003** (lister chrome) and **FR-005** (overlay pluralization) and the corresponding SC-007 acceptance pass.
 
-- **Q3 Host script — decision**: `packages/console/scripts/host.ts` gains additive CLI flags `--players 2|3|4` (aliases `--player-count`, env `HOST_PLAYER_COUNT`) and `--board-size 32|48|64` (aliases `--boardSize`, env `HOST_BOARD_SIZE`), each validated at parse time with actionable reject ("--players must be 2, 3, or 4", etc.), no second listener, single `http.Server` on `HOST_PORT` unchanged. `--players N` alone implies the board size from FR-001 (so `--players 3` with no `--board-size` yields `48`, not silently `32`). Bare `pnpm host` remains `2p→32` for 2p compatibility. The launcher prints `N` token-bearing join URLs in `--create` mode and the stack is booted with `port: 0` + `__boundPortForTest()` in E2E fixtures per 011 FR-009 — no two-port seam reintroduced.
+- **Q3 Host script — decision**: `packages/console/scripts/host.ts` gains additive CLI flags `--players 2|3|4` (aliases `--player-count`, env `HOST_PLAYER_COUNT`) and `--board-size 32|48|64` (aliases `--boardSize`, env `HOST_BOARD_SIZE`), each validated at parse time with actionable reject ("--players must be 2, 3, or 4", etc.), no second listener, single `http.Server` on `HOST_PORT` unchanged. `--players N` alone implies the board size from FR-001 (so `--players 3` with no `--board-size` yields `48`, not silently `32`). Bare `pnpm host` remains `2p→32` for 2p compatibility. The launcher prints `N` credential-free semantic `/match/<id>/join` URLs in `--create` mode and the stack is booted with `port: 0` + `__boundPortForTest()` in E2E fixtures per 011 FR-009 — no two-port seam reintroduced.
   - Recorded as **FR-011** (host flags/env/defaults/validation) and SC-008.
 
 - **Q4 Testing bar — decision**: Full-stack E2E for BOTH `3` and `4` players is required — lobby→match→ticks→orders→victory with per-seat fog isolation, plus deterministic terrain seeds and fog/terrain balance checks parameterized over `3` and `4`. The harness mirrors the existing 2p E2E `tests/e2e/full-stack.spec.ts` `buildStack()` recipe but parameterized over `N ∈ {3,4}` (three/four distinct guest identities claiming seats atomically, single-server `HOST_PORT: 0` topology per 011). At least one seed exercises an odd `citiesPerPlayer` for `3p` to exercise even-normalization determinism. Coverage on touched logic remains ≥80% on every metric (constitution III); no `any`/suppressions; `2`p remains green.
