@@ -90,6 +90,9 @@ Replace production query-selected live boot with a pure pathname router and expl
 - Kept host smoke coverage credential-free and retained current main status and
   Feature 013 implementation status in repository guidance. No production `?live`
   claim was restored and issue #34 scope was not expanded.
+- Added the missing console application build before the CI merged-coverage job:
+  host-backed coverage fixtures require `dist/index.html`, while library emit
+  alone intentionally produces no SPA shell.
 
 ## Review Findings
 - Wave 4 review remediation — ✅ complete (2026-08-31): Docker runtime now
