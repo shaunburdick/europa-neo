@@ -9,6 +9,25 @@ import type { LobbySnapshot } from '@europa/matchmaking';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
+const spectatorTransportMock = vi.hoisted(() => ({
+    createWsMatchClient: vi.fn(() => ({
+        state: () => ({ connection: 'pending' }),
+        onConnectionChanged: () => () => undefined,
+        disconnect: vi.fn(),
+    })),
+    createConsoleClient: vi.fn(() => ({
+        connect: vi.fn(async () => undefined),
+        joinMatch: vi.fn(async () => undefined),
+        onEnvelope: () => () => undefined,
+        close: vi.fn(),
+    })),
+}));
+
+vi.mock('../../../src/net/ws-match-client', () => ({
+    createWsMatchClient: spectatorTransportMock.createWsMatchClient,
+}));
+vi.mock('../../../src/net/client', () => ({ createConsoleClient: spectatorTransportMock.createConsoleClient }));
+
 import { LobbyRoot } from '../../../src/internal/lobby-runtime';
 import { parseRoute } from '../../../src/routing/route';
 import { createLobbyController } from '../../../src/state/lobby-controller';
@@ -19,6 +38,8 @@ import '../../../src/styles/index.css';
 afterEach(() => {
     cleanup();
     window.history.replaceState({}, '', '/lobby');
+    spectatorTransportMock.createWsMatchClient.mockClear();
+    spectatorTransportMock.createConsoleClient.mockClear();
     vi.restoreAllMocks();
 });
 

@@ -134,3 +134,22 @@ Replace production query-selected live boot with a pure pathname router and expl
   `page.goBack()`/`page.goForward()` for traversal. The test asserts pathname re-resolution,
   lobby/recovery UI state, and zero `load` events during traversal; no `page.goto()` occurs
   between history operations. T013 migration and host/Docker work remain pending and untouched.
+
+## Remaining Wave 2 gate — resolved
+
+- 2026-08-31: The isolated successful-spectate history test passed, but the full
+  routing component run exposed a fixture gap: the scripted lobby transport
+  correctly returned the successful spectator transition, then the production
+  `SpectatorMatchLeg` attempted its real WebSocket attach. With no match server
+  in this component test, that attach failed and correctly rendered route
+  recovery instead of spectator state. This was a stale fixture expectation, not
+  a routing or spectator production defect.
+- Added a narrow component-local match-client mock so the test exercises the
+  successful lobby hand-off and semantic history behavior without pretending to
+  run a full-stack spectator attach. The test still asserts the observable
+  `Spectating` state and exactly one `pushState`; T013 remains pending.
+- Verification: isolated test 9/9; routing component suite 99/99; routing E2E
+  3/3 (with `CI=1` to force Playwright's Vite web server); typecheck, lint,
+  format, and build all pass. The first non-CI E2E attempt reused a dead
+  development-server slot after the broad package run and was not a test
+  failure; the forced clean-server rerun is authoritative.
