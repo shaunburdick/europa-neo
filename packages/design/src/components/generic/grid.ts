@@ -40,7 +40,7 @@ export class EuropaGrid extends EuropaElement {
      *
      * @returns The observed attribute names.
      */
-    static get observedAttributes(): string[] {
+    static override get observedAttributes(): string[] {
         return ['variant'];
     }
 
@@ -51,7 +51,7 @@ export class EuropaGrid extends EuropaElement {
      * Idempotent: the wrapper and slot are created on first call; the
      * wrapper's classes are refreshed on every call (attribute changes).
      */
-    protected render(): void {
+    protected override render(): void {
         if (this._grid === null) {
             this._grid = document.createElement('div');
             this._grid.appendChild(document.createElement('slot'));

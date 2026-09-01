@@ -53,7 +53,7 @@ const VARIANT_TAGS: Record<TypographyVariant, string> = {
  */
 export class EuropaTypography extends EuropaElement {
     /** The observed `variant` attribute. */
-    static get observedAttributes(): string[] {
+    static override get observedAttributes(): string[] {
         return ['variant'];
     }
 
@@ -72,7 +72,7 @@ export class EuropaTypography extends EuropaElement {
      * case the slot is moved into a freshly created element of the new tag.
      * The catalog class is reapplied on every render.
      */
-    protected render(): void {
+    protected override render(): void {
         const variant = this._variant();
         const tag = VARIANT_TAGS[variant];
 

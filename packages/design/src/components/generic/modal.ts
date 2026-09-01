@@ -88,7 +88,7 @@ export class EuropaModal extends EuropaElement {
      *
      * @returns The observed attribute names (`open`, `title`).
      */
-    static get observedAttributes(): string[] {
+    static override get observedAttributes(): string[] {
         return ['open', 'title'];
     }
 
@@ -100,7 +100,7 @@ export class EuropaModal extends EuropaElement {
      * refreshes the open/hidden state and title text. The document-level
      * `keydown` listener is attached once and cleaned up on disconnect.
      */
-    protected render(): void {
+    protected override render(): void {
         if (this._backdrop === null) {
             this._backdrop = document.createElement('div');
             this._backdrop.className = 'europa-modal-backdrop';
@@ -135,12 +135,14 @@ export class EuropaModal extends EuropaElement {
             document.addEventListener('keydown', this._onKeyDown);
         }
 
-        this._titleEl.textContent = this.getAttribute('title') ?? '';
+        if (this._titleEl !== null) {
+            this._titleEl.textContent = this.getAttribute('title') ?? '';
+        }
 
         const isOpen = this.hasAttribute('open');
 
         this.setAttributeIf(this, 'hidden', !isOpen);
-        this.setAttributeIf(this, 'tabindex', isOpen ? false : true);
+        this.setAttributeIf(this, 'tabindex', !isOpen);
 
         if (isOpen && this._dialog !== null) {
             this._dialog.focus();
@@ -178,27 +180,27 @@ export class EuropaModal extends EuropaElement {
      * @param e  The Tab keydown event.
      */
     private _trapFocus(e: KeyboardEvent): void {
-        const focusable = Array.from(
-            (this._dialog ?? this).querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-        ).filter((el) => !el.hasAttribute('disabled') && el.tabIndex >= 0);
+        const focusable = Array.from((this._dialog ?? this).querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+            (el) => !el.hasAttribute('disabled') && el.tabIndex >= 0,
+        );
 
         if (focusable.length === 0) {
             return;
         }
 
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
+        const first = focusable[0] as HTMLElement | undefined;
+        const last = focusable[focusable.length - 1] as HTMLElement | undefined;
         const active = document.activeElement as HTMLElement | null;
 
         if (e.shiftKey) {
-            if (active === first || active === this._dialog) {
+            if ((first !== undefined && active === first) || active === this._dialog) {
                 e.preventDefault();
-                last.focus();
+                last?.focus();
             }
         } else {
-            if (active === last || active === this._dialog) {
+            if ((last !== undefined && active === last) || active === this._dialog) {
                 e.preventDefault();
-                first.focus();
+                first?.focus();
             }
         }
     }
@@ -207,7 +209,7 @@ export class EuropaModal extends EuropaElement {
      * Capture the element that had focus before the modal opened, so focus
      * can be restored when the modal closes.
      */
-    connectedCallback(): void {
+    override connectedCallback(): void {
         if (this.hasAttribute('open') && this._previousFocus === null) {
             this._previousFocus = document.activeElement as HTMLElement | null;
         }
@@ -231,11 +233,7 @@ export class EuropaModal extends EuropaElement {
      * happen before the re-render triggered by `attributeChangedCallback`
      * switches focus into the dialog.
      */
-    attributeChangedCallback(
-        name: string,
-        oldValue: string | null,
-        newValue: string | null,
-    ): void {
+    override attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
         if (name === 'open' && oldValue === null && newValue !== null) {
             this._previousFocus = document.activeElement as HTMLElement | null;
         }

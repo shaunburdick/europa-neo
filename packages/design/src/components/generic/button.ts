@@ -36,7 +36,7 @@ export class EuropaButton extends EuropaElement {
      *
      * @returns The observed attribute names.
      */
-    static get observedAttributes(): string[] {
+    static override get observedAttributes(): string[] {
         return ['variant', 'size', 'disabled', 'type', 'aria-label'];
     }
 
@@ -47,7 +47,7 @@ export class EuropaButton extends EuropaElement {
      * only classes and forwarded attributes are refreshed on subsequent
      * calls (attribute changes).
      */
-    protected render(): void {
+    protected override render(): void {
         if (this._button === null) {
             this._button = document.createElement('button');
             this._button.appendChild(document.createElement('slot'));

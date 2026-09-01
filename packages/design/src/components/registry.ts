@@ -12,27 +12,26 @@
  * files so that the registry is complete from the start.
  */
 
-import { EuropaButton } from './generic/button.js';
-import { EuropaCard } from './generic/card.js';
-import { EuropaPlate } from './generic/plate.js';
-import { EuropaModal } from './generic/modal.js';
-import { EuropaChip } from './generic/chip.js';
+import { EuropaCityMarker } from './game/city-marker.js';
+import { EuropaElevationSwatch } from './game/elevation-swatch.js';
+import { EuropaFogOverlay } from './game/fog-overlay.js';
+import { EuropaPipeSlope } from './game/pipe-slope.js';
+import { EuropaPlayerBadge } from './game/player-badge.js';
+import { EuropaReserveIndicator } from './game/reserve-indicator.js';
+import { EuropaTroopChip } from './game/troop-chip.js';
 import { EuropaBadge } from './generic/badge.js';
 import { EuropaBanner } from './generic/banner.js';
+import { EuropaButton } from './generic/button.js';
+import { EuropaCard } from './generic/card.js';
+import { EuropaChip } from './generic/chip.js';
+import { EuropaContainer } from './generic/container.js';
+import { EuropaGrid } from './generic/grid.js';
+import { EuropaModal } from './generic/modal.js';
+import { EuropaPage } from './generic/page.js';
+import { EuropaPlate } from './generic/plate.js';
+import { EuropaStack } from './generic/stack.js';
 import { EuropaTypography } from './generic/typography.js';
 import { EuropaWaiting } from './generic/waiting.js';
-import { EuropaGrid } from './generic/grid.js';
-import { EuropaStack } from './generic/stack.js';
-import { EuropaContainer } from './generic/container.js';
-import { EuropaPage } from './generic/page.js';
-
-import { EuropaTroopChip } from './game/troop-chip.js';
-import { EuropaCityMarker } from './game/city-marker.js';
-import { EuropaPipeSlope } from './game/pipe-slope.js';
-import { EuropaElevationSwatch } from './game/elevation-swatch.js';
-import { EuropaPlayerBadge } from './game/player-badge.js';
-import { EuropaFogOverlay } from './game/fog-overlay.js';
-import { EuropaReserveIndicator } from './game/reserve-indicator.js';
 
 /**
  * Describes a single registered custom element: its tag name and the class

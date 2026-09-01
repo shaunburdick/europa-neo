@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { register } from '../../src/components/index.js';
 import { REGISTRY } from '../../src/components/registry.js';
 
@@ -23,10 +23,7 @@ describe('register()', () => {
         // happy-dom may not fully implement customElements.get, so only assert
         // when the API is present (the idempotency test below exercises the
         // real registration path, which requires it).
-        if (
-            typeof customElements !== 'undefined' &&
-            typeof customElements.get === 'function'
-        ) {
+        if (typeof customElements !== 'undefined' && typeof customElements.get === 'function') {
             for (const { tag } of REGISTRY) {
                 expect(customElements.get(tag)).toBeUndefined();
             }

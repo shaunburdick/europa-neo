@@ -49,7 +49,7 @@ export class EuropaWaiting extends EuropaElement {
      *
      * @returns The observed attribute names.
      */
-    static get observedAttributes(): string[] {
+    static override get observedAttributes(): string[] {
         return ['message', 'reduced-motion'];
     }
 
@@ -63,7 +63,7 @@ export class EuropaWaiting extends EuropaElement {
      * Catalog classes are applied directly to the internal wrapper
      * elements (not the host), per the web-components contract.
      */
-    protected render(): void {
+    protected override render(): void {
         if (this._root === null) {
             this._root = document.createElement('div');
             this._plate = document.createElement('div');
@@ -82,27 +82,28 @@ export class EuropaWaiting extends EuropaElement {
         const message = this.getAttribute('message') ?? '';
 
         // Root wrapper classes.
-        const rootClasses = [
-            'europa-waiting',
-            isReducedMotion && 'europa-waiting--reduced',
-        ]
-            .filter(Boolean)
-            .join(' ');
+        const rootClasses = ['europa-waiting', isReducedMotion && 'europa-waiting--reduced'].filter(Boolean).join(' ');
 
         this._root.className = rootClasses;
 
         // Plate — structural, always the same class.
-        this._plate.className = 'europa-waiting__plate';
+        if (this._plate !== null) {
+            this._plate.className = 'europa-waiting__plate';
+        }
 
         // Pulse — always present and always aria-hidden (decorative).
-        this._pulse.className = 'europa-waiting__pulse';
-        this._pulse.setAttribute('aria-hidden', 'true');
+        if (this._pulse !== null) {
+            this._pulse.className = 'europa-waiting__pulse';
+            this._pulse.setAttribute('aria-hidden', 'true');
+        }
 
         // Text content — update when the message attribute changes.
-        this._text.className = 'europa-waiting__text';
+        if (this._text !== null) {
+            this._text.className = 'europa-waiting__text';
 
-        if (this._text.textContent !== message) {
-            this._text.textContent = message;
+            if (this._text.textContent !== message) {
+                this._text.textContent = message;
+            }
         }
     }
 }

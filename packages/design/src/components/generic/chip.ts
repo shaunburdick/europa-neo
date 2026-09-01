@@ -28,7 +28,7 @@ export class EuropaChip extends EuropaElement {
      *
      * @returns The observed attribute names.
      */
-    static get observedAttributes(): string[] {
+    static override get observedAttributes(): string[] {
         return ['count'];
     }
 
@@ -39,7 +39,7 @@ export class EuropaChip extends EuropaElement {
      * call; only the count text node is refreshed on subsequent calls
      * (attribute changes).
      */
-    protected render(): void {
+    protected override render(): void {
         if (this._span === null || this._countText === null) {
             this._span = document.createElement('span');
             this._span.className = 'europa-chip';

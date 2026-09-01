@@ -65,11 +65,7 @@ export abstract class EuropaElement extends HTMLElement {
      * @param _oldValue  The attribute's previous value (`null` when added).
      * @param _newValue  The attribute's new value (`null` when removed).
      */
-    attributeChangedCallback(
-        _name: string,
-        _oldValue: string | null,
-        _newValue: string | null,
-    ): void {
+    attributeChangedCallback(_name: string, _oldValue: string | null, _newValue: string | null): void {
         this.render();
     }
 

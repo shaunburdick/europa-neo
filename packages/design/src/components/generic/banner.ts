@@ -25,7 +25,7 @@ export class EuropaBanner extends EuropaElement {
      *
      * @returns The observed attribute names.
      */
-    static get observedAttributes(): string[] {
+    static override get observedAttributes(): string[] {
         return ['variant'];
     }
 
@@ -37,7 +37,7 @@ export class EuropaBanner extends EuropaElement {
      * calls (attribute changes) only the role/aria-live attributes are
      * refreshed to match the current `variant`.
      */
-    protected render(): void {
+    protected override render(): void {
         if (this._banner === null) {
             const banner = document.createElement('div');
             banner.className = 'europa-banner';
