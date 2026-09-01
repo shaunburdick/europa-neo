@@ -30,6 +30,9 @@ export class EuropaButton extends EuropaElement {
     /** Reference to the internal native `<button>` element. */
     private _button: HTMLButtonElement | null = null;
 
+    /** Whether the initial render has already been queued for this element. */
+    private _renderQueued = false;
+
     /**
      * The attributes this component observes. Changes trigger a re-render
      * via {@link EuropaElement.attributeChangedCallback}.
@@ -38,6 +41,31 @@ export class EuropaButton extends EuropaElement {
      */
     static override get observedAttributes(): string[] {
         return ['variant', 'size', 'disabled', 'type', 'aria-label'];
+    }
+
+    /**
+     * Render after the host's light-DOM children have been committed.
+     * React 19 appends custom-element children after `connectedCallback`; a
+     * synchronous render would otherwise be cleared by that commit.
+     */
+    override connectedCallback(): void {
+        if (this._renderQueued) {
+            return;
+        }
+        this._renderQueued = true;
+        queueMicrotask(() => {
+            this._renderQueued = false;
+            if (this.isConnected) {
+                this.render();
+            }
+        });
+    }
+
+    /** Update an already-rendered native button when host attributes change. */
+    override attributeChangedCallback(_name: string, oldValue: string | null, newValue: string | null): void {
+        if (oldValue !== newValue && this._button !== null) {
+            this.render();
+        }
     }
 
     /**

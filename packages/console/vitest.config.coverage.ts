@@ -67,7 +67,7 @@ export default defineConfig({
                         'tests/a11y/**/*.test.ts',
                         'tests/integration/perf.test.ts',
                     ],
-                    setupFiles: ['./tests/setup-web-components.ts', './tests/setup.ts'],
+                    setupFiles: ['./tests/setup-web-components.ts'],
                 },
             },
         ],

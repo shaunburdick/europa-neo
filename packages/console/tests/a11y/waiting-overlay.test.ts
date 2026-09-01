@@ -25,7 +25,7 @@ import { createConsoleStore } from '../../src/state/store';
 import type { ConsoleState } from '../../src/state/types';
 import '../../src/styles/index.css';
 import { buildCellView, buildPlayerView } from '../fixtures/player-view';
-import { expectNoDomA11yViolations } from '../setup';
+import { expectNoDomA11yViolations } from '../setup-a11y-dom';
 
 afterEach(() => {
     cleanup();

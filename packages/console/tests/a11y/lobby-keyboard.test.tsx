@@ -15,6 +15,10 @@
  * events) per vitest.config.browser.ts.
  */
 
+import { register } from '@europa/design/components';
+
+register();
+
 import type { LobbyRevision, LobbySnapshot, MatchId } from '@europa/matchmaking';
 import { afterEach, describe, expect, test } from 'vitest';
 import { userEvent } from 'vitest/browser';
@@ -29,7 +33,7 @@ import type {
 } from '../../src/net/ws-lobby-client';
 import { createLobbyController, type LobbyTransport } from '../../src/state/lobby-controller';
 import '../../src/styles/index.css';
-import { expectNoDomA11yViolations } from '../setup';
+import { expectNoDomA11yViolations } from '../setup-a11y-dom';
 
 afterEach(() => {
     cleanup();
@@ -189,17 +193,17 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         expect(document.activeElement).toBe(nameInput.element());
 
         // The "Set name" button must be focusable and be a real button.
-        const setNameBtn = screen.getByRole('button', { name: 'Set name' });
-        setNameBtn.element().focus();
-        expect(document.activeElement).toBe(setNameBtn.element());
-        expect((setNameBtn.element() as HTMLElement).tagName).toBe('BUTTON');
+        const setNameBtn = screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement;
+        setNameBtn.focus();
+        expect(document.activeElement).toBe(setNameBtn);
+        expect(setNameBtn.tagName).toBe('BUTTON');
 
         // The "Create match" button must exist and be a real <button>
         // (disabled until a handle is confirmed — disabled buttons
         // can't receive programmatic focus, so just assert presence).
-        const createBtn = screen.getByRole('button', { name: 'Create match' });
-        expect((createBtn.element() as HTMLElement).tagName).toBe('BUTTON');
-        expect((createBtn.element() as HTMLButtonElement).disabled).toBe(true);
+        const createBtn = screen.getByRole('button', { name: 'Create match' }).element() as HTMLButtonElement;
+        expect(createBtn.tagName).toBe('BUTTON');
+        expect(createBtn.disabled).toBe(true);
 
         controller.disconnect();
     });
@@ -290,14 +294,12 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         await expect.element(screen.getByText('Nova')).toBeVisible();
 
         // The Join button must be a real <button>.
-        const joinButton = screen.getByRole('button', { name: /Join match/ });
-        const joinEl = joinButton.element() as HTMLElement;
+        const joinEl = screen.getByRole('button', { name: /Join match/ }).element() as HTMLElement;
         expect(joinEl.tagName).toBe('BUTTON');
         expect(joinEl.getAttribute('type')).toBe('button');
 
         // The Spectate button must be a real <button>.
-        const spectateButton = screen.getByRole('button', { name: /Spectate match/ });
-        const spectateEl = spectateButton.element() as HTMLElement;
+        const spectateEl = screen.getByRole('button', { name: /Spectate match/ }).element() as HTMLElement;
         expect(spectateEl.tagName).toBe('BUTTON');
         expect(spectateEl.getAttribute('type')).toBe('button');
         controller.disconnect();
@@ -339,16 +341,16 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         await expect.element(screen.getByText('Nova')).toBeVisible();
 
         // 2. Create match via keyboard — focus button and Enter.
-        const createButton = screen.getByRole('button', { name: /Create match/ });
-        createButton.element().focus();
+        const createButton = screen.getByRole('button', { name: 'Create match' }).element() as HTMLButtonElement;
+        createButton.focus();
         await user.keyboard('{Enter}');
 
         // 3. We should now be in the match view (waiting room).
         await expect.element(screen.getByText(/In match/)).toBeVisible();
 
         // 4. Leave via keyboard — focus the "Leave to lobby" button and Enter.
-        const leaveButton = screen.getByRole('button', { name: /Leave to lobby/ });
-        leaveButton.element().focus();
+        const leaveButton = screen.getByRole('button', { name: /Leave to lobby/ }).element() as HTMLButtonElement;
+        leaveButton.focus();
         await user.keyboard('{Enter}');
 
         // 5. Back in the lobby.

@@ -255,6 +255,11 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     },
 ];
 
+/** Wait for custom-element lifecycle work scheduled with queueMicrotask(). */
+async function flushMicrotasks(): Promise<void> {
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+}
+
 describe('web component conformance (FR-030)', () => {
     beforeAll(() => {
         for (const { tag, ctor } of REGISTRY) {
@@ -269,7 +274,7 @@ describe('web component conformance (FR-030)', () => {
     });
 
     for (const scenario of SCENARIOS) {
-        it(scenario.name, () => {
+        it(scenario.name, async () => {
             const ctor = CTOR_BY_TAG.get(scenario.tag);
             expect(ctor, `missing constructor for ${scenario.tag}`).toBeDefined();
 
@@ -280,6 +285,7 @@ describe('web component conformance (FR-030)', () => {
                 }
             }
             document.body.appendChild(host);
+            await flushMicrotasks();
 
             const selector = scenario.selector ?? ':scope > *';
             const el = host.querySelector(selector);

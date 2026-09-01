@@ -8,7 +8,7 @@ import { initialSpectatorState } from '../../src/state/spectator-session';
 import { RouteNotice } from '../../src/ui/route-notice';
 import { matchIdOf } from '../fixtures/lobbyTransports';
 import { buildPlayerView } from '../fixtures/player-view';
-import { expectNoDomA11yViolations } from '../setup';
+import { expectNoDomA11yViolations } from '../setup-a11y-dom';
 import '../../src/styles/index.css';
 
 afterEach(() => {

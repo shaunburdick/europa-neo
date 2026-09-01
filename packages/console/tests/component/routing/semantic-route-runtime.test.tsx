@@ -5,6 +5,10 @@
  * the authoritative snapshot says that it has started.
  */
 
+import { register } from '@europa/design/components';
+
+register();
+
 import type { LobbySnapshot } from '@europa/matchmaking';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
@@ -168,8 +172,10 @@ describe('semantic route runtime hand-off', () => {
         expect(panel.getAttribute('role')).toBe('alert');
         expect(document.activeElement).toBe(panel);
 
-        await screen.getByRole('button', { name: 'Try again' }).click();
-        await screen.getByRole('button', { name: 'Return to lobby' }).click();
+        const tryAgainBtn = screen.getByRole('button', { name: 'Try again' }).element() as HTMLButtonElement;
+        await tryAgainBtn.click();
+        const returnBtn = screen.getByRole('button', { name: 'Return to lobby' }).element() as HTMLButtonElement;
+        await returnBtn.click();
         expect(retried).toBe(true);
         expect(returned).toBe(true);
     });
@@ -215,7 +221,8 @@ describe('semantic route runtime hand-off', () => {
         await expect.element(screen.getByRole('alert')).toBeVisible();
         expect(transport.commands.filter((command) => command.kind === 'joinMatch')).toHaveLength(1);
 
-        await screen.getByRole('button', { name: 'Try again' }).click();
+        const tryAgainBtn = screen.getByRole('button', { name: 'Try again' }).element() as HTMLButtonElement;
+        await tryAgainBtn.click();
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
         expect(transport.commands.filter((command) => command.kind === 'joinMatch')).toHaveLength(2);
         controller.disconnect();
@@ -232,7 +239,8 @@ describe('same-document semantic history', () => {
         const pushState = vi.spyOn(window.history, 'pushState');
 
         const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
-        await screen.getByRole('button', { name: 'Create match', exact: true }).click();
+        const createBtn = screen.getByRole('button', { name: 'Create match' }).element() as HTMLButtonElement;
+        await createBtn.click();
         transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID })], MATCH_ID));
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
 
@@ -255,7 +263,8 @@ describe('same-document semantic history', () => {
         const pushState = vi.spyOn(window.history, 'pushState');
 
         const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
-        await screen.getByRole('button', { name: new RegExp(buttonName) }).click();
+        const actionBtn = screen.getByRole('button', { name: new RegExp(buttonName) }).element() as HTMLButtonElement;
+        await actionBtn.click();
         await expect.element(screen.getByRole('heading', { name: /In match|Spectating/ })).toBeVisible();
 
         expect(pushState).toHaveBeenCalledTimes(1);
@@ -273,7 +282,8 @@ describe('same-document semantic history', () => {
         const pushState = vi.spyOn(window.history, 'pushState');
 
         const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
-        await screen.getByRole('button', { name: /Join match/ }).click();
+        const joinBtn = screen.getByRole('button', { name: /Join match/ }).element() as HTMLButtonElement;
+        await joinBtn.click();
         await expect.element(screen.getByRole('alert')).toBeVisible();
 
         expect(pushState).not.toHaveBeenCalled();

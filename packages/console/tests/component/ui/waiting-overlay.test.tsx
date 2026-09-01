@@ -32,7 +32,7 @@ import { type ConsoleStore, createConsoleStore } from '../../../src/state/store'
 import type { ConsoleState, PlayerId } from '../../../src/state/types';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../../../src/ui/waiting-overlay';
 import { buildPlayerView } from '../../fixtures/player-view';
-import { expectNoDomA11yViolations } from '../../setup';
+import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
 afterEach(() => {

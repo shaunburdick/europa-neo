@@ -21,7 +21,7 @@ import {
 } from '../../../src/internal/test-state';
 import { App } from '../../../src/render/App';
 import { VOID_COLOR } from '../../../src/render/palette';
-import { expectNoDomA11yViolations } from '../../setup';
+import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
 /** Parse `#rrggbb` into an [r, g, b] triple. */

@@ -28,7 +28,7 @@ export default defineConfig({
             instances: [{ browser: 'chromium' }],
         },
         include: ['tests/component/**/*.test.tsx', 'tests/a11y/**/*.test.{ts,tsx}', 'tests/integration/perf.test.ts'],
-        setupFiles: ['./tests/setup-web-components.ts', './tests/setup.ts'],
+        setupFiles: ['./tests/setup-web-components.ts'],
         passWithNoTests: true,
         coverage: {
             provider: 'v8',
