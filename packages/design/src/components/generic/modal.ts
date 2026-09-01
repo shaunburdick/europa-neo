@@ -117,6 +117,7 @@ export class EuropaModal extends EuropaElement {
 
             this._dialog = document.createElement('div');
             this._dialog.className = 'europa-modal';
+            this._dialog.setAttribute('tabindex', '-1');
             this._dialog.setAttribute('role', 'dialog');
             this._dialog.setAttribute('aria-modal', 'true');
             this._dialog.setAttribute('aria-labelledby', this._id);

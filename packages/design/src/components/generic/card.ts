@@ -4,10 +4,10 @@ import { EuropaElement } from '../base.js';
  * The `<europa-card>` custom element — a light-DOM wrapper for the
  * `europa-card` catalog class.
  *
- * Renders a single `<div class="europa-card">` containing a `<slot>` so
- * arbitrary slotted children are projected into the card. The class conveys
- * no semantics, so the host is responsible for supplying heading structure
- * and any interactive content.
+ * Renders a single `<div class="europa-card">` with children manually
+ * reparented into the wrapper. The class conveys no semantics, so the
+ * host is responsible for supplying heading structure and any interactive
+ * content.
  *
  * No attributes are observed; the element renders once on connect.
  *
@@ -24,18 +24,24 @@ export class EuropaCard extends EuropaElement {
     private _card: HTMLDivElement | null = null;
 
     /**
-     * Create (once) the internal card wrapper and slot, then apply the
-     * `europa-card` catalog class. Idempotent: subsequent calls no-op.
+     * Create (once) the internal card wrapper, then apply the
+     * `europa-card` catalog class. Children are manually reparented
+     * into the wrapper on every render (slots are inert in light DOM).
      */
     protected render(): void {
-        if (this._card !== null) {
-            return;
+        if (this._card === null) {
+            const card = document.createElement('div');
+            card.className = 'europa-card';
+            this.appendChild(card);
+            this._card = card;
         }
 
-        const card = document.createElement('div');
-        card.className = 'europa-card';
-        card.appendChild(document.createElement('slot'));
-        this.appendChild(card);
-        this._card = card;
+        // Reparent any host children not yet inside the wrapper.
+        const children = Array.from(this.childNodes);
+        for (const child of children) {
+            if (child !== this._card) {
+                this._card.appendChild(child);
+            }
+        }
     }
 }

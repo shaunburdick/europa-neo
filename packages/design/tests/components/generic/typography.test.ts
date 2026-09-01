@@ -19,7 +19,7 @@ import { EuropaTypography } from '../../../src/components/generic/typography.js'
  *   `europa-typography` + `europa-typography--body`.
  * - Variant rendering: each supported variant produces the correct semantic
  *   element and catalog modifier.
- * - Slotted children project into the semantic element.
+ * - Slotted children are reparented into the semantic element.
  * - Cleanup: the element is removed from the document after each test.
  */
 describe('europa-typography', () => {
@@ -86,15 +86,10 @@ describe('europa-typography', () => {
         typography.appendChild(child);
         document.body.appendChild(typography);
 
-        // The child stays a light-DOM child of the host (slot projection, not
-        // relocation into the semantic element).
-        expect(typography.contains(child)).toBe(true);
-
-        // The semantic element contains a <slot> that projects the host's
-        // children.
+        // Children are manually reparented into the semantic element (no <slot>
+        // in Light DOM).
         const el = typography.querySelector('p.europa-typography');
         expect(el).not.toBeNull();
-        const slot = el?.querySelector('slot');
-        expect(slot).not.toBeNull();
+        expect(el?.contains(child)).toBe(true);
     });
 });

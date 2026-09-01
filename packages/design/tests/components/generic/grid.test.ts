@@ -7,10 +7,9 @@ import { EuropaGrid } from '../../../src/components/generic/grid.js';
  * primitives).
  *
  * `EuropaGrid` is a light-DOM layout wrapper: on connect it renders a
- * single `<div class="europa-grid">` containing a `<slot>`, so arbitrary
- * slotted children are projected into the grid. It observes the `variant`
- * attribute and applies the catalog classes to the **internal wrapper div**
- * (not the host element):
+ * single `<div class="europa-grid">` with children manually reparented
+ * into the wrapper. It observes the `variant` attribute and applies the
+ * catalog classes to the **internal wrapper div** (not the host element):
  *
  * - `sidebar` → adds `europa-grid--sidebar`
  * - `wrap` → adds `europa-grid--wrap`
@@ -26,7 +25,7 @@ import { EuropaGrid } from '../../../src/components/generic/grid.js';
  *   internal div.
  * - The `variant="wrap"` attribute adds `europa-grid--wrap` to the internal
  *   div.
- * - Slotted children project into the `.europa-grid` div.
+ * - Children are reparented into the `.europa-grid` div.
  */
 describe('europa-grid', () => {
     beforeAll(() => {
@@ -96,20 +95,17 @@ describe('europa-grid', () => {
 
     it('projects slotted children into the europa-grid div', () => {
         const host = document.createElement('europa-grid');
-        document.body.appendChild(host);
 
         const child = document.createElement('p');
         child.textContent = 'Grid content';
         host.appendChild(child);
 
-        // The child stays a light-DOM child of the host (slot projection, not
-        // relocation into the internal wrapper).
-        expect(host.contains(child)).toBe(true);
+        // Connect after adding children so render() reparents them.
+        document.body.appendChild(host);
 
-        // The wrapper contains a <slot> that projects the host's children.
+        // Children are manually reparented into the wrapper (no <slot> in Light DOM).
         const grid = host.querySelector('.europa-grid');
         expect(grid).not.toBeNull();
-        const slot = grid?.querySelector('slot');
-        expect(slot).not.toBeNull();
+        expect(grid?.contains(child)).toBe(true);
     });
 });

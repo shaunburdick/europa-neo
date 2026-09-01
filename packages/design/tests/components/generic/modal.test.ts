@@ -48,6 +48,16 @@ describe('europa-modal', () => {
         expect(dialog?.className).toBe('europa-modal');
     });
 
+    it('has tabindex=-1 on the dialog for focus()', () => {
+        const modal = document.createElement(TAG);
+        modal.setAttribute('open', '');
+        document.body.appendChild(modal);
+
+        const dialog = modal.querySelector('div.europa-modal');
+        expect(dialog).not.toBeNull();
+        expect(dialog?.getAttribute('tabindex')).toBe('-1');
+    });
+
     it('sets role and aria-modal on the dialog', () => {
         const modal = document.createElement(TAG);
         modal.setAttribute('open', '');

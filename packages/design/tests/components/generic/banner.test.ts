@@ -2,12 +2,12 @@
  * Tests for the `<europa-banner>` web component (spec 014, FR-012).
  *
  * The banner is a light-DOM wrapper around the catalog's `.europa-banner`
- * class. It renders a single `<div class="europa-banner">` that wraps a
- * `<slot>` projecting the host's light-DOM children. The `variant` attribute
- * selects the accessibility contract: `status` (default) maps to
- * `role="status"` + `aria-live="polite"`, while `alert` maps to
- * `role="alert"` + `aria-live="assertive"` so the message is announced
- * immediately.
+ * class. It renders a single `<div class="europa-banner">` with children
+ * manually reparented into the wrapper. The `variant` attribute selects
+ * both the accessibility contract and visual style: `status` (default)
+ * maps to `role="status"` + `aria-live="polite"` + blue background,
+ * while `alert` maps to `role="alert"` + `aria-live="assertive"` +
+ * red background.
  *
  * The component does NOT auto-register (FR-004) — this suite registers it
  * explicitly via `customElements.define` in `beforeAll`.
@@ -35,7 +35,7 @@ describe('europa-banner', () => {
 
         const wrapper = banner.querySelector('div.europa-banner');
         expect(wrapper).not.toBeNull();
-        expect(wrapper?.className).toBe('europa-banner');
+        expect(wrapper?.className).toBe('europa-banner europa-banner--status');
     });
 
     it('defaults to role=status and aria-live=polite', () => {
@@ -47,7 +47,16 @@ describe('europa-banner', () => {
         expect(wrapper?.getAttribute('aria-live')).toBe('polite');
     });
 
-    it('maps variant=alert to role=alert and aria-live=assertive', () => {
+    it('applies europa-banner--status class by default', () => {
+        const banner = document.createElement(TAG);
+        document.body.appendChild(banner);
+
+        const wrapper = banner.querySelector('div.europa-banner');
+        expect(wrapper?.classList.contains('europa-banner--status')).toBe(true);
+        expect(wrapper?.classList.contains('europa-banner--alert')).toBe(false);
+    });
+
+    it('maps variant=alert to role=alert, aria-live=assertive, and europa-banner--alert class', () => {
         const banner = document.createElement(TAG);
         banner.setAttribute('variant', 'alert');
         document.body.appendChild(banner);
@@ -55,6 +64,24 @@ describe('europa-banner', () => {
         const wrapper = banner.querySelector('div.europa-banner');
         expect(wrapper?.getAttribute('role')).toBe('alert');
         expect(wrapper?.getAttribute('aria-live')).toBe('assertive');
+        expect(wrapper?.classList.contains('europa-banner--alert')).toBe(true);
+        expect(wrapper?.classList.contains('europa-banner--status')).toBe(false);
+    });
+
+    it('switches variant class when variant attribute changes', () => {
+        const banner = document.createElement(TAG);
+        document.body.appendChild(banner);
+
+        const wrapper = banner.querySelector('div.europa-banner');
+        expect(wrapper?.classList.contains('europa-banner--status')).toBe(true);
+
+        banner.setAttribute('variant', 'alert');
+        expect(wrapper?.classList.contains('europa-banner--alert')).toBe(true);
+        expect(wrapper?.classList.contains('europa-banner--status')).toBe(false);
+
+        banner.removeAttribute('variant');
+        expect(wrapper?.classList.contains('europa-banner--status')).toBe(true);
+        expect(wrapper?.classList.contains('europa-banner--alert')).toBe(false);
     });
 
     it('projects slotted children into the internal div', () => {
@@ -63,14 +90,9 @@ describe('europa-banner', () => {
         banner.appendChild(child);
         document.body.appendChild(banner);
 
-        // The child stays a light-DOM child of the host (slot projection, not
-        // relocation).
-        expect(banner.contains(child)).toBe(true);
-
-        // The wrapper contains a <slot> that projects the host's children.
+        // Children are manually reparented into the wrapper (no <slot> in Light DOM).
         const wrapper = banner.querySelector('div.europa-banner');
         expect(wrapper).not.toBeNull();
-        const slot = wrapper?.querySelector('slot');
-        expect(slot).not.toBeNull();
+        expect(wrapper?.contains(child)).toBe(true);
     });
 });

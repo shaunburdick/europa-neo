@@ -4,14 +4,15 @@ import { EuropaPlate } from '../../../src/components/generic/plate.js';
 /**
  * Tests for the `<europa-plate>` component (spec 014, FR-001 / FR-027).
  *
- * `EuropaPlate` renders a `<div class="europa-plate">` that wraps a `<slot>`
- * in **light DOM** (no Shadow DOM, per FR-009). It observes no attributes and
- * is not auto-registered on import (FR-004) — this suite registers the class
- * explicitly via `customElements.define` before running.
+ * `EuropaPlate` renders a `<div class="europa-plate">` with children
+ * manually reparented into the wrapper in **light DOM** (no Shadow DOM,
+ * per FR-009). It observes no attributes and is not auto-registered on
+ * import (FR-004) — this suite registers the class explicitly via
+ * `customElements.define` before running.
  *
  * Covered here:
  * - Class composition: the internal wrapper carries the `europa-plate` class.
- * - Slot rendering: slotted children project into the wrapper div.
+ * - Children are reparented into the wrapper div.
  * - Idempotent render: re-connecting does not duplicate the wrapper.
  */
 describe('europa-plate', () => {
@@ -44,15 +45,11 @@ describe('europa-plate', () => {
         expect(paragraph).not.toBeNull();
         expect(paragraph?.textContent).toBe('Body content goes here.');
 
-        // The children stay light-DOM children of the host (slot projection, not relocation)
-        expect(el.contains(heading as Node)).toBe(true);
-        expect(el.contains(paragraph as Node)).toBe(true);
-
-        // The wrapper contains a <slot> that projects the host's children
+        // Children are manually reparented into the wrapper (no <slot> in Light DOM).
         const wrapper = el.querySelector('div.europa-plate');
         expect(wrapper).not.toBeNull();
-        const slot = wrapper?.querySelector('slot');
-        expect(slot).not.toBeNull();
+        expect(wrapper?.contains(heading as Node)).toBe(true);
+        expect(wrapper?.contains(paragraph as Node)).toBe(true);
     });
 
     it('does not duplicate the wrapper when re-connected', () => {

@@ -4,11 +4,12 @@ import { EuropaElement } from '../base.js';
  * The `<europa-banner>` custom element — a light-DOM wrapper around the
  * catalog's `.europa-banner` class.
  *
- * Renders a single `<div class="europa-banner">` that wraps the slotted
- * message text. The `variant` attribute selects the accessibility contract
- * (FR-012): `status` (default) maps to `role="status"` + `aria-live="polite"`,
- * while `alert` maps to `role="alert"` + `aria-live="assertive"` so the
- * message is announced immediately.
+ * Renders a single `<div class="europa-banner">` with children manually
+ * reparented into the wrapper. The `variant` attribute selects the
+ * accessibility contract (FR-012): `status` (default) maps to
+ * `role="status"` + `aria-live="polite"`, while `alert` maps to
+ * `role="alert"` + `aria-live="assertive"` so the message is announced
+ * immediately.
  *
  * @example
  * ```html
@@ -32,21 +33,34 @@ export class EuropaBanner extends EuropaElement {
     /**
      * Create (once) or update the internal banner wrapper.
      *
-     * Idempotent: on first call a `<div class="europa-banner">` is created
-     * with a `<slot>` projecting the host's light-DOM children; on subsequent
-     * calls (attribute changes) only the role/aria-live attributes are
-     * refreshed to match the current `variant`.
+     * On first call a `<div class="europa-banner">` is created and light-DOM
+     * children are manually reparented into it (slots are inert in light DOM).
+     * On subsequent calls the role/aria-live attributes are refreshed to match
+     * the current `variant`, and any late-arriving children are reparented.
      */
     protected override render(): void {
         if (this._banner === null) {
             const banner = document.createElement('div');
             banner.className = 'europa-banner';
-            banner.appendChild(document.createElement('slot'));
             this.appendChild(banner);
             this._banner = banner;
         }
 
+        // Reparent any host children not yet inside the wrapper.
+        const children = Array.from(this.childNodes);
+        for (const child of children) {
+            if (child !== this._banner) {
+                this._banner.appendChild(child);
+            }
+        }
+
         const isAlert = this.getAttribute('variant') === 'alert';
+
+        // Apply variant-specific modifier class for visual differentiation.
+        // The base `.europa-banner` class provides shared layout; the modifier
+        // classes control background color per the accessibility contract.
+        this._banner.classList.toggle('europa-banner--status', !isAlert);
+        this._banner.classList.toggle('europa-banner--alert', isAlert);
 
         // Both variants always carry the live-region contract; ensure the
         // attributes are present, then set their variant-specific values.

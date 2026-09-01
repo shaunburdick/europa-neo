@@ -31,8 +31,8 @@ const VARIANT_TAGS: Record<TypographyVariant, string> = {
  *   `subheading` → `<h3 …--subheading>`, `body` → `<p …--body>`,
  *   `label` → `<span …--label>`, `caption` → `<span …--caption>`.
  *
- * **Slots**:
- * - default — the text/content to render inside the semantic element.
+ * **Slots**: none — children are manually reparented into the semantic
+ * element (slots are inert in light DOM).
  *
  * **Events**: none.
  *
@@ -60,32 +60,34 @@ export class EuropaTypography extends EuropaElement {
     /** The rendered semantic element (created lazily, reused across renders). */
     private _el: HTMLElement | null = null;
 
-    /** The `<slot>` projecting the host's light-DOM children. */
-    private _slot: HTMLSlotElement | null = null;
-
     /**
      * Create (once) or refresh the semantic element for the current `variant`.
      *
-     * Idempotent: on first call the semantic element and its `<slot>` are
-     * created and appended; on subsequent calls the existing element is reused
-     * unless the variant changed the tag (e.g. `heading` → `body`), in which
-     * case the slot is moved into a freshly created element of the new tag.
-     * The catalog class is reapplied on every render.
+     * On first call the semantic element is created and appended, and light-DOM
+     * children are manually reparented into it. On subsequent calls the existing
+     * element is reused unless the variant changed the tag (e.g. `heading` →
+     * `body`), in which case children are moved into a freshly created element
+     * of the new tag. The catalog class is reapplied on every render.
      */
     protected override render(): void {
         const variant = this._variant();
         const tag = VARIANT_TAGS[variant];
 
         if (this._el === null) {
-            this._slot = document.createElement('slot');
             this._el = document.createElement(tag);
-            this._el.appendChild(this._slot);
             this.appendChild(this._el);
         } else if (this._el.tagName.toLowerCase() !== tag) {
             const next = document.createElement(tag);
-            next.appendChild(this._slot as HTMLSlotElement);
             this.replaceChild(next, this._el);
             this._el = next;
+        }
+
+        // Reparent any host children not yet inside the semantic element.
+        const children = Array.from(this.childNodes);
+        for (const child of children) {
+            if (child !== this._el) {
+                this._el.appendChild(child);
+            }
         }
 
         this._el.className = `europa-typography europa-typography--${variant}`;

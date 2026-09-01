@@ -7,14 +7,14 @@ import { EuropaStack } from '../../../src/components/generic/stack.js';
  * primitives).
  *
  * `EuropaStack` is a light-DOM layout primitive: on connect it renders a
- * single `<div class="europa-stack">` containing a `<slot>`, so arbitrary
- * slotted children are projected into the stack. It observes no attributes
- * and registers no element on import — the test registers it explicitly.
+ * single `<div class="europa-stack">` with children manually reparented
+ * into the wrapper. It observes no attributes and registers no element on
+ * import — the test registers it explicitly.
  *
  * Covered here:
  * - Registration via `customElements.define` (no auto-registration).
  * - On connect, an internal `<div class="europa-stack">` is rendered.
- * - Slotted children project into the `.europa-stack` div.
+ * - Children are reparented into the `.europa-stack` div.
  * - Idempotent render: re-connecting does not duplicate the wrapper.
  */
 describe('europa-stack', () => {
@@ -37,20 +37,18 @@ describe('europa-stack', () => {
 
     it('projects slotted children into the europa-stack div', () => {
         const host = document.createElement('europa-stack');
-        document.body.appendChild(host);
 
         const child = document.createElement('p');
         child.textContent = 'First item';
         host.appendChild(child);
 
-        // The child stays a light-DOM child of the host (slot projection, not relocation)
-        expect(host.contains(child)).toBe(true);
+        // Connect after adding children so render() reparents them.
+        document.body.appendChild(host);
 
-        // The wrapper contains a <slot> that projects the host's children
+        // Children are manually reparented into the wrapper (no <slot> in Light DOM).
         const stack = host.querySelector('div.europa-stack');
         expect(stack).not.toBeNull();
-        const slot = stack?.querySelector('slot');
-        expect(slot).not.toBeNull();
+        expect(stack?.contains(child)).toBe(true);
     });
 
     it('does not duplicate the wrapper when re-connected', () => {

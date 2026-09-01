@@ -7,14 +7,14 @@ import { EuropaPage } from '../../../src/components/generic/page.js';
  * primitives).
  *
  * `EuropaPage` is a light-DOM wrapper: on connect it renders a single
- * `<div class="europa-page">` containing a `<slot>`, so arbitrary slotted
- * children are projected into the page. It observes no attributes and
- * registers no element on import — the test registers it explicitly.
+ * `<div class="europa-page">` with children manually reparented into
+ * the wrapper. It observes no attributes and registers no element on
+ * import — the test registers it explicitly.
  *
  * Covered here:
  * - Registration via `customElements.define` (no auto-registration).
  * - On connect, an internal `<div class="europa-page">` is rendered.
- * - Slotted children project into the `.europa-page` div.
+ * - Children are reparented into the `.europa-page` div.
  */
 describe('europa-page', () => {
     beforeAll(() => {
@@ -36,19 +36,17 @@ describe('europa-page', () => {
 
     it('projects slotted children into the europa-page div', () => {
         const host = document.createElement('europa-page');
-        document.body.appendChild(host);
 
         const child = document.createElement('p');
         child.textContent = 'Match lobby';
         host.appendChild(child);
 
-        // The child stays a light-DOM child of the host (slot projection, not relocation)
-        expect(host.contains(child)).toBe(true);
+        // Connect after adding children so render() reparents them.
+        document.body.appendChild(host);
 
-        // The wrapper contains a <slot> that projects the host's children
+        // Children are manually reparented into the wrapper (no <slot> in Light DOM).
         const page = host.querySelector('div.europa-page');
         expect(page).not.toBeNull();
-        const slot = page?.querySelector('slot');
-        expect(slot).not.toBeNull();
+        expect(page?.contains(child)).toBe(true);
     });
 });
