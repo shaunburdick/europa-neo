@@ -14,8 +14,8 @@
             "import": "./dist/index.js"
         },
         "./components": {
-            "types": "./dist/components.d.ts",
-            "import": "./dist/components.js"
+            "types": "./dist/components/index.d.ts",
+            "import": "./dist/components/index.js"
         },
         "./dist/design.css": "./dist/design.css"
     },
