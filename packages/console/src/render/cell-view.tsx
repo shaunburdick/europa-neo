@@ -134,9 +134,30 @@ export function CellView({
                       }
             }
         >
-            {[...info.pipes].map((direction) => (
-                <span key={direction} aria-hidden="true" className={`europa-pipe europa-pipe--${direction}`} />
-            ))}
+            {[...info.pipes].map((direction) => {
+                const slope = info.pipeSlopes.get(direction) ?? 'flat';
+                const intensity = info.pipeIntensities.get(direction) ?? 0;
+                // Compute intensity-scaled triangle size (issue #43).
+                // Min = max(2.4px, zoom * 0.06) so pipes stay visible at low zoom.
+                // Max = 6px (full size at intensity=1).
+                // Stalled pipes use a fixed smaller size (no intensity variation).
+                const minSize = Math.max(2.4, zoom * 0.06);
+                const triSize = slope === 'stalled' ? minSize : minSize + intensity * (6 - minSize);
+                return (
+                    <span
+                        key={direction}
+                        aria-hidden="true"
+                        className={`europa-pipe europa-pipe--${direction}`}
+                        data-slope={slope}
+                        style={
+                            {
+                                '--europa-pipe-tri': `${triSize}px`,
+                                '--pipe-zoom': `${zoom}px`,
+                            } as React.CSSProperties
+                        }
+                    />
+                );
+            })}
             {info.isCity ? <span aria-hidden="true" className="europa-cell__city-dot" /> : null}
             {info.troops > 0 && info.owner !== null ? (
                 <span

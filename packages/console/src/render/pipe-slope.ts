@@ -111,3 +111,40 @@ export function classifyPipeSlope(srcElev: number, dstElev: number | null, const
     }
     return 'flat';
 }
+
+/**
+ * Compute normalized intensity (0–1) for a pipe direction (issue #43).
+ *
+ * Intensity encodes how steep the elevation gradient is, scaled to
+ * the maximum meaningful delta for each slope class:
+ *   - Downhill: |Δ| / flowSlopeDeltaCap (capped at 1).
+ *   - Uphill:   Δ / (flowBase / flowSlopeStep) (capped at 1).
+ *   - Flat/stalled/fog: 0 (no visual intensity — flat pipes have
+ *     no gradient signal; stalled pipes use the hollow treatment
+ *     as their signal instead).
+ *
+ * @param srcElev   Source cell elevation.
+ * @param dstElev   Destination cell elevation, or `null` when outside
+ *                  the visibility horizon (fog fallback → 0).
+ * @param slope     Pre-classified slope (avoids re-classification).
+ * @param constants The console-side constants mirror.
+ * @returns Normalized intensity in [0, 1].
+ */
+export function pipeIntensity(
+    srcElev: number,
+    dstElev: number | null,
+    slope: PipeSlope,
+    constants: PipeSlopeConstants,
+): number {
+    if (slope === 'flat' || slope === 'stalled' || dstElev === null) {
+        return 0;
+    }
+    const delta = dstElev - srcElev;
+    if (slope === 'downhill') {
+        // |Δ| normalized by the downhill cap; saturates at 1.
+        return Math.min(Math.abs(delta), constants.flowSlopeDeltaCap) / constants.flowSlopeDeltaCap;
+    }
+    // slope === 'uphill': Δ normalized by the stall point; saturates at 1.
+    const stallPoint = constants.flowBase / constants.flowSlopeStep;
+    return Math.min(delta, stallPoint) / stallPoint;
+}

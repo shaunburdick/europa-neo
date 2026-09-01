@@ -33,6 +33,25 @@ Two more limits:
 - Water stops flow: a pipe pointing into water delivers nothing.
 - Destination cells cap at 30 troops; a full cell accepts nothing until it has room.
 
+## Pipe slope colors and intensity
+
+Each pipe triangle on the board is colored by its slope classification:
+
+| Slope | Color | Visual treatment |
+| --- | --- | --- |
+| Downhill | Green | Filled triangle; size scales with gradient strength |
+| Flat | Amber | Filled triangle; smallest size (no gradient signal) |
+| Uphill | Red | Filled triangle; size scales with gradient strength |
+| Stalled | Gray | Hollow (outline-only) triangle; fixed size |
+{: .europa-table }
+
+**Intensity** encodes how steep the elevation gradient is as triangle size. Stronger slopes produce bigger triangles:
+
+- **Downhill intensity**: Δ=1 produces a small triangle; Δ≥5 (the maximum bonus) produces the largest.
+- **Uphill intensity**: Δ=1 produces a small triangle; Δ≥7 (stall point) produces the largest — but stalled pipes are always fixed size with the hollow treatment instead.
+- **Flat pipes** have the smallest triangles (no gradient signal).
+- At low zoom levels, a minimum triangle floor ensures pipes remain visible.
+
 ## Feeding and decay
 
 Troops cut off from supply do not wait politely — they die:

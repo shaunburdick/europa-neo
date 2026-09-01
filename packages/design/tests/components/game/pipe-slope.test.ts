@@ -94,7 +94,7 @@ describe('europa-pipe-slope', () => {
     // ── T-049.2: aria-label generation ──────────────────────────────────
 
     describe('aria-label', () => {
-        it('sets aria-label to "pipe <direction>" for each valid direction', () => {
+        it('sets aria-label to "pipe <direction>" for each valid direction at full intensity', () => {
             for (const direction of ['downhill', 'flat', 'uphill', 'stalled']) {
                 document.body.innerHTML = '';
                 const el = mount(direction);
@@ -159,6 +159,97 @@ describe('europa-pipe-slope', () => {
 
             expect(span.style.borderBottomColor).toBe(TOKENS.color.pipeStalled);
             expect(span.getAttribute('aria-label')).toBe('pipe stalled');
+        });
+    });
+
+    // ── T-012: intensity attribute (issue #43) ───────────────────────────
+
+    describe('intensity attribute (issue #43)', () => {
+        it('default intensity produces full-size triangle (16px bottom, 12px sides)', () => {
+            const el = mount('downhill');
+            const span = getIndicator(el);
+            expect(span.style.borderBottomWidth).toBe('16px');
+            expect(span.style.borderLeftWidth).toBe('12px');
+            expect(span.style.borderRightWidth).toBe('12px');
+        });
+
+        it('intensity="0.5" produces smaller triangle than intensity="1"', () => {
+            const el = mount('downhill');
+            const span = getIndicator(el);
+
+            // Full intensity
+            expect(span.style.borderBottomWidth).toBe('16px');
+
+            // Half intensity
+            el.setAttribute('intensity', '0.5');
+            const bottomWidth = Number.parseInt(span.style.borderBottomWidth, 10);
+            expect(bottomWidth).toBeLessThan(16);
+            expect(bottomWidth).toBeGreaterThan(0);
+        });
+
+        it('intensity="0" produces minimum-size triangle (40% of base)', () => {
+            const el = mount('downhill');
+            el.setAttribute('intensity', '0');
+            const span = getIndicator(el);
+            // 40% of 16 = 6.4, rounded to 6
+            expect(span.style.borderBottomWidth).toBe('6px');
+            // 40% of 12 = 4.8, rounded to 5
+            expect(span.style.borderLeftWidth).toBe('5px');
+        });
+
+        it('stalled direction ignores intensity (always full size)', () => {
+            const el = mount('stalled');
+            el.setAttribute('intensity', '0');
+            const span = getIndicator(el);
+            expect(span.style.borderBottomWidth).toBe('16px');
+            expect(span.style.borderLeftWidth).toBe('12px');
+        });
+
+        it('aria-label includes intensity qualifier when intensity < 1', () => {
+            const el = mount('uphill');
+            el.setAttribute('intensity', '0.2');
+            const span = getIndicator(el);
+            expect(span.getAttribute('aria-label')).toBe('pipe uphill, light gradient');
+        });
+
+        it('aria-label includes "moderate" for intensity around 0.5', () => {
+            const el = mount('downhill');
+            el.setAttribute('intensity', '0.5');
+            const span = getIndicator(el);
+            expect(span.getAttribute('aria-label')).toBe('pipe downhill, moderate gradient');
+        });
+
+        it('aria-label includes "strong" for intensity around 0.8', () => {
+            const el = mount('uphill');
+            el.setAttribute('intensity', '0.8');
+            const span = getIndicator(el);
+            expect(span.getAttribute('aria-label')).toBe('pipe uphill, strong gradient');
+        });
+
+        it('aria-label omits qualifier when intensity is 1', () => {
+            const el = mount('downhill');
+            el.setAttribute('intensity', '1');
+            const span = getIndicator(el);
+            expect(span.getAttribute('aria-label')).toBe('pipe downhill');
+        });
+
+        it('non-numeric intensity falls back to full size', () => {
+            const el = mount('downhill');
+            el.setAttribute('intensity', 'abc');
+            const span = getIndicator(el);
+            expect(span.style.borderBottomWidth).toBe('16px');
+        });
+
+        it('out-of-range intensity is clamped', () => {
+            const el = mount('downhill');
+            el.setAttribute('intensity', '2');
+            const span = getIndicator(el);
+            // Clamped to 1 → full size
+            expect(span.style.borderBottomWidth).toBe('16px');
+
+            el.setAttribute('intensity', '-1');
+            // Clamped to 0 → minimum size
+            expect(span.style.borderBottomWidth).toBe('6px');
         });
     });
 });

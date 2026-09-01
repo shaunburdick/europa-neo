@@ -20,7 +20,7 @@
  */
 
 import { CONSOLE_CONSTANTS, DEFAULT_PLAYER_COLORS } from '../config';
-import { classifyPipeSlope, PIPE_SLOPE_CONSTANTS, type PipeSlope } from '../render/pipe-slope';
+import { classifyPipeSlope, PIPE_SLOPE_CONSTANTS, type PipeSlope, pipeIntensity } from '../render/pipe-slope';
 import { diffCellChanges } from './diff';
 import type {
     CameraState,
@@ -81,6 +81,9 @@ export function cellViewToRenderInfo(cell: CellView): CellRenderInfo {
         // directions present in `pipes`, so an empty map is correct
         // for pipe-less cells.
         pipeSlopes: new Map<Direction, PipeSlope>(),
+        // Default: no intensities. buildMapView fills this alongside
+        // pipeSlopes for cells with pipes (issue #43).
+        pipeIntensities: new Map<Direction, number>(),
         reservesPct: cell.reservesPercent,
         changedThisTick: false, // set by buildMapView after diffing
     };
@@ -196,15 +199,16 @@ export function buildMapView(args: BuildMapViewArgs): MapView {
         }
         if (info.pipes.size > 0) {
             const pipeSlopes = new Map<Direction, PipeSlope>();
+            const pipeIntensities = new Map<Direction, number>();
             for (const direction of info.pipes) {
                 const dst = destinationCoord(info.coord, direction);
                 const dstInfo = rawCells.get(coordKey(dst));
-                pipeSlopes.set(
-                    direction,
-                    classifyPipeSlope(info.elevation, dstInfo?.elevation ?? null, PIPE_SLOPE_CONSTANTS),
-                );
+                const dstElev = dstInfo?.elevation ?? null;
+                const slope = classifyPipeSlope(info.elevation, dstElev, PIPE_SLOPE_CONSTANTS);
+                pipeSlopes.set(direction, slope);
+                pipeIntensities.set(direction, pipeIntensity(info.elevation, dstElev, slope, PIPE_SLOPE_CONSTANTS));
             }
-            next = { ...next, pipeSlopes };
+            next = { ...next, pipeSlopes, pipeIntensities };
         }
         cells.set(key, next);
     }

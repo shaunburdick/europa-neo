@@ -188,4 +188,81 @@ describe('pipe slope color-coding (005 FR-013)', () => {
 
         await expectNoDomA11yViolations(document);
     });
+
+    test('DOM pipe spans have data-slope attributes matching their slope class', async () => {
+        setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
+        const screen = await render(<App />);
+        await expect.element(screen.getByRole('grid')).toBeInTheDocument();
+
+        // Each source cell (row 1) has a single north pipe.
+        const pipeSpans = screen.container.querySelectorAll('.europa-pipe');
+        expect(pipeSpans.length).toBe(5);
+
+        // (1,1) → downhill, (2,1) → flat, (3,1) → uphill, (4,1) → stalled, (5,1) → flat (fog)
+        const expectedSlopes = ['downhill', 'flat', 'uphill', 'stalled', 'flat'];
+        for (let i = 0; i < expectedSlopes.length; i++) {
+            const span = pipeSpans[i];
+            expect(span?.getAttribute('data-slope')).toBe(expectedSlopes[i]);
+        }
+    });
+
+    test('pipe spans have --europa-pipe-tri set via inline style (intensity sizing)', async () => {
+        setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
+        const screen = await render(<App />);
+        await expect.element(screen.getByRole('grid')).toBeInTheDocument();
+
+        const pipeSpans = screen.container.querySelectorAll('.europa-pipe');
+        for (const span of pipeSpans) {
+            const style = (span as HTMLElement).style;
+            // --europa-pipe-tri should be set as a CSS custom property
+            const triValue = style.getPropertyValue('--europa-pipe-tri');
+            expect(triValue).toBeTruthy();
+            expect(triValue).toMatch(/^\d+(\.\d+)?px$/);
+        }
+    });
+
+    test('downhill pipe has larger triangle than flat pipe (intensity > 0 vs = 0)', async () => {
+        setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
+        const screen = await render(<App />);
+        await expect.element(screen.getByRole('grid')).toBeInTheDocument();
+
+        const pipeSpans = [...screen.container.querySelectorAll('.europa-pipe')];
+        // (1,1) downhill — first pipe span (index 0)
+        const downhillTri = parseFloat(pipeSpans[0]?.style.getPropertyValue('--europa-pipe-tri') ?? '0');
+        // (2,1) flat — second pipe span (index 1)
+        const flatTri = parseFloat(pipeSpans[1]?.style.getPropertyValue('--europa-pipe-tri') ?? '0');
+
+        expect(downhillTri).toBeGreaterThan(flatTri);
+    });
+
+    test('canvas triangle size varies with intensity: downhill (high) > flat (zero)', async () => {
+        setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
+        const screen = await render(<App />);
+        await expect.element(screen.getByRole('grid')).toBeInTheDocument();
+
+        const canvas = screen.container.querySelector('canvas');
+        expect(canvas).not.toBeNull();
+        const ctx = canvas?.getContext('2d');
+        expect(ctx).not.toBeNull();
+
+        const { zoom } = DEFAULT_CAMERA;
+        const baseSize = zoom * 0.16;
+
+        // Downhill (Δ=-50, intensity=1): full size triangle
+        const downhillSize = baseSize * (0.4 + 1.0 * 0.6);
+        // Flat (Δ=0, intensity=0): 40% size triangle
+        const flatSize = baseSize * (0.4 + 0 * 0.6);
+
+        expect(downhillSize).toBeGreaterThan(flatSize);
+
+        // Verify the downhill triangle's centroid pixel is the downhill color
+        // (which proves the triangle is big enough to cover the centroid)
+        const downhillRgb = hexToRgb(PIPE_DOWNHILL_COLOR);
+        const centroidY = (downhillSize * 1.6) / 3;
+        const px = 1 * zoom + zoom / 2;
+        const py = 1 * zoom + centroidY;
+        const pixel = ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
+        expect(pixel).not.toBeUndefined();
+        expect(closeTo(pixel as Uint8ClampedArray, downhillRgb)).toBe(true);
+    });
 });

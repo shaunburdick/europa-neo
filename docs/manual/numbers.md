@@ -24,6 +24,18 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Terrain smoothing | 4 smoothing passes (range 0–8; 0 = no smoothing) | `DEFAULT_GENERATION_SETTINGS.terrainSmoothing` |
 {: .europa-table }
 
+## Pipe slope intensity
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Pipe intensity formula (downhill) | `min(|Δ|, flowSlopeDeltaCap) / flowSlopeDeltaCap` → 0–1 | `PIPE_SLOPE_CONSTANTS.flowSlopeDeltaCap` (5) |
+| Pipe intensity formula (uphill) | `min(Δ, flowBase / flowSlopeStep) / (flowBase / flowSlopeStep)` → 0–1 | `PIPE_SLOPE_CONSTANTS.flowBase` (7) / `flowSlopeStep` (1) |
+| Pipe intensity (flat/stalled/fog) | 0 (no visual intensity) | — |
+| Pipe triangle min size | `max(2.4px, zoom × 0.06)` at intensity=0 (40% of base) | `cell-view.tsx` intensity scaling |
+| Pipe triangle max size | 6px at intensity=1 (100% of base) | `cell-view.tsx` intensity scaling |
+| Canvas intensity scale | `(0.4 + intensity × 0.6)` × base size | `canvas.ts` `drawPipes` |
+{: .europa-table }
+
 ## Special weapons
 
 | Value | Shipped value | Constant |
