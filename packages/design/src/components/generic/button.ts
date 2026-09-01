@@ -10,11 +10,18 @@ import { EuropaElement } from '../base.js';
  * passthrough attributes (`type`, `aria-label`) are forwarded to the
  * internal `<button>`.
  *
+ * **Form association**: This element declares `static formAssociated = true`
+ * and uses `ElementInternals` so that `<europa-button type="submit">` inside
+ * a `<form>` triggers native form submission via `form.requestSubmit()`.
+ * The click handler is attached to the host element and delegates to the
+ * associated form when `type="submit"`.
+ *
  * **Attributes**:
  * - `variant` — maps to `europa-button--<variant>` modifier class.
  * - `size` — maps to `europa-button--<size>` modifier class.
  * - `disabled` (boolean) — forwarded to the native button's `disabled`.
- * - `type` — forwarded to the native button's `type` (default `button`).
+ * - `type` — forwarded to the native button's `type` (default `button`);
+ *   `submit` also triggers form submission via ElementInternals.
  * - `aria-label` — forwarded to the native button.
  *
  * **Slots**: default — renders inside the native `<button>`.
@@ -27,11 +34,50 @@ import { EuropaElement } from '../base.js';
  * ```
  */
 export class EuropaButton extends EuropaElement {
+    /**
+     * Opt-in to the form-associated custom element API so that
+     * `<europa-button type="submit">` participates in native form
+     * submission (FR-013, ElementInternals).
+     *
+     * @see https://html.spec.whatwg.org/multipage/custom-elements.html#form-associated-custom-elements
+     */
+    static formAssociated = true;
+
     /** Reference to the internal native `<button>` element. */
     private _button: HTMLButtonElement | null = null;
 
+    /** ElementInternals handle for form association. */
+    private readonly _internals: ElementInternals;
+
     /** Whether the initial render has already been queued for this element. */
     private _renderQueued = false;
+
+    /**
+     * Bound click handler reference so it can be added on construction
+     * and removed on disconnection.
+     */
+    private readonly _handleClick: (event: Event) => void;
+
+    constructor() {
+        super();
+        this._internals = this.attachInternals();
+        this._handleClick = (): void => {
+            if (this.getAttribute('type') === 'submit') {
+                const form = this._internals.form;
+                if (form !== null) {
+                    form.requestSubmit();
+                }
+            }
+        };
+        this.addEventListener('click', this._handleClick);
+    }
+
+    /**
+     * Remove the click listener when the element leaves the document.
+     */
+    disconnectedCallback(): void {
+        this.removeEventListener('click', this._handleClick);
+    }
 
     /**
      * The attributes this component observes. Changes trigger a re-render

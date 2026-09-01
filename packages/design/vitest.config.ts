@@ -8,6 +8,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     test: {
         environment: 'happy-dom',
+        setupFiles: ['./tests/setup-element-internals.ts'],
         include: ['tests/components/**/*.test.ts'],
         passWithNoTests: true,
         coverage: {

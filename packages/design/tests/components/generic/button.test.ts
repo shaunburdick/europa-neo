@@ -112,4 +112,38 @@ describe('europa-button', () => {
         const button = element.querySelector('button');
         expect(button?.getAttribute('aria-label')).toBe('Deploy the fleet');
     });
+
+    it('triggers form.requestSubmit() when type="submit" and clicked inside a form', async () => {
+        const form = document.createElement('form');
+        document.body.appendChild(form);
+        const button = document.createElement('europa-button');
+        button.setAttribute('type', 'submit');
+        form.appendChild(button);
+        await flushMicrotasks();
+
+        let submitted = false;
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitted = true;
+        });
+        button.click();
+        expect(submitted).toBe(true);
+    });
+
+    it('does NOT trigger form submission when type="button"', async () => {
+        const form = document.createElement('form');
+        document.body.appendChild(form);
+        const button = document.createElement('europa-button');
+        button.setAttribute('type', 'button');
+        form.appendChild(button);
+        await flushMicrotasks();
+
+        let submitted = false;
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitted = true;
+        });
+        button.click();
+        expect(submitted).toBe(false);
+    });
 });
