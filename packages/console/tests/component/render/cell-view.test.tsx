@@ -70,6 +70,8 @@ describe('CellView (T040 / data-model §3)', () => {
             isCity: false,
             cityOwner: null,
             pipes: new Set(),
+            pipeSlopes: new Map(),
+            pipeIntensities: new Map(),
             reservesPct: 0,
             changedThisTick: false,
         });
@@ -91,6 +93,8 @@ describe('CellView (T040 / data-model §3)', () => {
             isCity: false,
             cityOwner: null,
             pipes: new Set(),
+            pipeSlopes: new Map(),
+            pipeIntensities: new Map(),
             reservesPct: 0,
             changedThisTick: false,
         });
@@ -103,6 +107,8 @@ describe('CellView (T040 / data-model §3)', () => {
             isCity: false,
             cityOwner: null,
             pipes: new Set(),
+            pipeSlopes: new Map(),
+            pipeIntensities: new Map(),
             reservesPct: 0,
             changedThisTick: false,
         });
@@ -122,6 +128,8 @@ describe('CellView (T040 / data-model §3)', () => {
             isCity: true,
             cityOwner: 1,
             pipes: new Set(),
+            pipeSlopes: new Map(),
+            pipeIntensities: new Map(),
             reservesPct: 0,
             changedThisTick: false,
         });
@@ -134,6 +142,8 @@ describe('CellView (T040 / data-model §3)', () => {
             isCity: false,
             cityOwner: null,
             pipes: new Set(),
+            pipeSlopes: new Map(),
+            pipeIntensities: new Map(),
             reservesPct: 0,
             changedThisTick: false,
         });
@@ -155,6 +165,14 @@ describe('CellView (T040 / data-model §3)', () => {
             isCity: false,
             cityOwner: null,
             pipes: new Set(['N', 'E']),
+            pipeSlopes: new Map([
+                ['N', 'flat'],
+                ['E', 'flat'],
+            ]),
+            pipeIntensities: new Map([
+                ['N', 0],
+                ['E', 0],
+            ]),
             reservesPct: 0,
             changedThisTick: false,
         });
@@ -182,6 +200,8 @@ describe('CellView (T040 / data-model §3)', () => {
             isCity: false,
             cityOwner: null,
             pipes: new Set(),
+            pipeSlopes: new Map(),
+            pipeIntensities: new Map(),
             reservesPct: 7,
             changedThisTick: false,
         });

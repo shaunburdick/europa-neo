@@ -192,9 +192,12 @@ export class MapCanvas {
         ctx.fillText(String(info.troops), cx, cy);
     }
 
-    /** Draw outward-pointing pipe triangles at the cell's edges. */
+    /** Draw outward-pointing pipe triangles at the cell's edges.
+     *  Triangle size scales with intensity (issue #43): smaller at
+     *  low intensity, full size at high intensity. Stalled pipes
+     *  remain full size with hollow stroke (existing behavior). */
     private drawPipes(ctx: CanvasRenderingContext2D, info: CellRenderInfo, zoom: number): void {
-        const size = zoom * PIPE_SIZE_RATIO;
+        const baseSize = zoom * PIPE_SIZE_RATIO;
         const x = info.coord.x * zoom;
         const y = info.coord.y * zoom;
         const midX = x + zoom / 2;
@@ -203,6 +206,11 @@ export class MapCanvas {
             // Slope classification precomputed by buildMapView (005
             // FR-013); a missing entry (defensive) renders flat.
             const slope = info.pipeSlopes.get(direction) ?? 'flat';
+            // Intensity scales triangle size (issue #43): 0.4 at
+            // intensity=0, 1.0 at intensity=1. Stalled pipes use
+            // full size (hollow is the signal, not size).
+            const intensity = info.pipeIntensities.get(direction) ?? 0;
+            const size = slope === 'stalled' ? baseSize : baseSize * (0.4 + intensity * 0.6);
             ctx.beginPath();
             if (direction === 'N') {
                 ctx.moveTo(midX - size, y);

@@ -91,41 +91,64 @@ body {
 }
 
 /* Pipe indicators: CSS border triangles pinned to the cell edges.
-   The span itself is zero-size; its borders form the triangle. */
+   The span itself is zero-size; its borders form the triangle.
+   Slope-based coloring via data-slope attribute selectors using
+   the canonical pipe design tokens (issue #43).
+   Intensity encoded as triangle size via --europa-pipe-tri CSS
+   custom property (set inline by cell-view.tsx per zoom level). */
 .europa-pipe {
     position: absolute;
     width: 0;
     height: 0;
     border-style: solid;
+    /* Default triangle size; overridden inline per pipe by cell-view.tsx. */
     --europa-pipe-tri: 6px;
 }
 
+/* Slope → color mapping (issue #43). Each slope class sets the
+   --europa-pipe-color custom property using the canonical design tokens. */
+.europa-pipe[data-slope="downhill"] {
+    --europa-pipe-color: var(--europa-color-pipe-downhill);
+}
+.europa-pipe[data-slope="flat"] {
+    --europa-pipe-color: var(--europa-color-pipe-flat);
+}
+.europa-pipe[data-slope="uphill"] {
+    --europa-pipe-color: var(--europa-color-pipe-uphill);
+}
+.europa-pipe[data-slope="stalled"] {
+    --europa-pipe-color: var(--europa-color-pipe-stalled);
+}
+
+/* N/S pipes: use --europa-pipe-tri for both width and depth
+   (unified sizing, issue #43). */
 .europa-pipe--N {
     top: 0;
     left: calc(50% - var(--europa-pipe-tri));
-    border-width: 0 var(--europa-pipe-tri) var(--europa-radii-plate) var(--europa-pipe-tri);
-    border-color: transparent transparent var(--europa-color-accent) transparent;
+    border-width: 0 var(--europa-pipe-tri) var(--europa-pipe-tri) var(--europa-pipe-tri);
+    border-color: transparent transparent var(--europa-pipe-color) transparent;
 }
 
 .europa-pipe--S {
     bottom: 0;
     left: calc(50% - var(--europa-pipe-tri));
-    border-width: var(--europa-radii-plate) var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
-    border-color: var(--europa-color-accent) transparent transparent transparent;
+    border-width: var(--europa-pipe-tri) var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
+    border-color: var(--europa-pipe-color) transparent transparent transparent;
 }
 
+/* E/W pipes: use --europa-pipe-tri for both width and depth. */
 .europa-pipe--W {
     left: 0;
     top: calc(50% - var(--europa-pipe-tri));
-    border-width: var(--europa-pipe-tri) var(--europa-radii-plate) var(--europa-pipe-tri) 0;
-    border-color: transparent var(--europa-color-accent) transparent transparent;
+    border-width: var(--europa-pipe-tri) var(--europa-pipe-tri) var(--europa-pipe-tri) 0;
+    border-color: transparent var(--europa-pipe-color) transparent transparent;
 }
 
 .europa-pipe--E {
     right: 0;
     top: calc(50% - var(--europa-pipe-tri));
-    border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) var(--europa-radii-plate);
-    border-color: transparent transparent transparent var(--europa-color-accent);
+    border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) var(--europa-pipe-tri);
+    border-color: transparent transparent transparent var(--europa-pipe-color);
 }
 
 /* City marker dot (redundant with the city outline inline style). */

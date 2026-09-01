@@ -440,6 +440,14 @@ export interface CellRenderInfo {
      * not color-code pipes may ignore it.
      */
     readonly pipeSlopes: ReadonlyMap<Direction, PipeSlope>;
+    /**
+     * Per-direction normalized intensity (0–1) for pipe rendering
+     * (issue #43). 0 = no gradient signal (flat/stalled/fog),
+     * 1 = maximum gradient. Intensity encodes triangle size/thickness
+     * — bigger triangles indicate stronger slopes. Additive field —
+     * consumers that don't render intensity may ignore it.
+     */
+    readonly pipeIntensities: ReadonlyMap<Direction, number>;
     /** Reserves percentage (0..9 → 0%..90% in steps of 10). */
     readonly reservesPct: ReservesPct;
     /**

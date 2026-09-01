@@ -14,7 +14,13 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { classifyPipeSlope, PIPE_SLOPE_CONSTANTS, type PipeSlope, pipeFlowRate } from '../../../src/render/pipe-slope';
+import {
+    classifyPipeSlope,
+    PIPE_SLOPE_CONSTANTS,
+    type PipeSlope,
+    pipeFlowRate,
+    pipeIntensity,
+} from '../../../src/render/pipe-slope';
 
 describe('PIPE_SLOPE_CONSTANTS (005 FR-013 mirror)', () => {
     test('mirrors the engine flow constants exactly', () => {
@@ -107,5 +113,65 @@ describe('classifyPipeSlope (005 FR-013)', () => {
         for (const slope of classifications) {
             expect(['downhill', 'flat', 'uphill', 'stalled']).toContain(slope);
         }
+    });
+});
+
+describe('pipeIntensity (issue #43)', () => {
+    const C = PIPE_SLOPE_CONSTANTS;
+
+    test('downhill Δ=0 → intensity 0', () => {
+        // Δ=0 classifies as flat, so intensity is 0.
+        expect(pipeIntensity(100, 100, 'flat', C)).toBe(0);
+    });
+
+    test('downhill intensity scales linearly with |Δ| up to cap', () => {
+        // Δ=-1 → |Δ|=1 → 1/5 = 0.2
+        expect(pipeIntensity(100, 99, 'downhill', C)).toBe(1 / 5);
+        // Δ=-2 → |Δ|=2 → 2/5 = 0.4
+        expect(pipeIntensity(100, 98, 'downhill', C)).toBe(2 / 5);
+        // Δ=-3 → |Δ|=3 → 3/5 = 0.6
+        expect(pipeIntensity(100, 97, 'downhill', C)).toBe(3 / 5);
+        // Δ=-4 → |Δ|=4 → 4/5 = 0.8
+        expect(pipeIntensity(100, 96, 'downhill', C)).toBe(4 / 5);
+        // Δ=-5 → |Δ|=5 → 5/5 = 1.0 (saturates at cap)
+        expect(pipeIntensity(100, 95, 'downhill', C)).toBe(1);
+    });
+
+    test('downhill intensity saturates at 1 for |Δ| > cap', () => {
+        expect(pipeIntensity(100, 94, 'downhill', C)).toBe(1);
+        expect(pipeIntensity(100, 90, 'downhill', C)).toBe(1);
+        expect(pipeIntensity(100, 0, 'downhill', C)).toBe(1);
+    });
+
+    test('uphill intensity scales linearly with Δ up to stall point', () => {
+        // stallPoint = flowBase / flowSlopeStep = 7
+        // Δ=1 → 1/7 ≈ 0.142857…
+        expect(pipeIntensity(100, 101, 'uphill', C)).toBe(1 / 7);
+        // Δ=2 → 2/7
+        expect(pipeIntensity(100, 102, 'uphill', C)).toBe(2 / 7);
+        // Δ=3 → 3/7
+        expect(pipeIntensity(100, 103, 'uphill', C)).toBe(3 / 7);
+        // Δ=6 → 6/7
+        expect(pipeIntensity(100, 106, 'uphill', C)).toBe(6 / 7);
+        // Δ=7 → 7/7 = 1.0 (saturates at stall point)
+        expect(pipeIntensity(100, 107, 'uphill', C)).toBe(1);
+    });
+
+    test('uphill intensity saturates at 1 for Δ > stall point', () => {
+        expect(pipeIntensity(100, 108, 'uphill', C)).toBe(1);
+        expect(pipeIntensity(100, 200, 'uphill', C)).toBe(1);
+    });
+
+    test('flat → intensity 0', () => {
+        expect(pipeIntensity(100, 100, 'flat', C)).toBe(0);
+    });
+
+    test('stalled → intensity 0', () => {
+        expect(pipeIntensity(100, 107, 'stalled', C)).toBe(0);
+    });
+
+    test('fog fallback (dstElev=null) → intensity 0', () => {
+        expect(pipeIntensity(100, null, 'flat', C)).toBe(0);
+        expect(pipeIntensity(100, null, 'downhill', C)).toBe(0);
     });
 });
