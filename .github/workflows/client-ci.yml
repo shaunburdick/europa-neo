@@ -121,6 +121,12 @@ jobs:
       - name: Console no-literals scan (G-04)
         run: pnpm --filter @europa/design check:no-literals
 
+      - name: Design component-catalog guard (G-10)
+        run: pnpm --filter @europa/design check:component-catalog
+
+      - name: Design bundle-size guard (FR-025)
+        run: pnpm --filter @europa/design check:bundle-size
+
       - name: Design drift remediation hint
         if: failure()
         run: |

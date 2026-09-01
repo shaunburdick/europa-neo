@@ -55,7 +55,7 @@ function resolveDesignRoot(): string {
  * @returns Whether the bundle is within budget and its gzip byte count.
  */
 export function checkBundleSize(
-    componentsPath: string = path.join(resolveDesignRoot(), 'dist', 'components.js'),
+    componentsPath: string = path.join(resolveDesignRoot(), 'dist', 'components', 'index.js'),
 ): BundleSizeResult {
     let buffer: Buffer;
     try {
@@ -78,15 +78,17 @@ export function runMain(check: () => BundleSizeResult = checkBundleSize): void {
     const result = check();
     if (!result.ok) {
         if (result.gzipBytes === 0) {
-            console.error('FR-025: dist/components.js is missing — run `pnpm --filter @europa/design build` first');
+            console.error(
+                'FR-025: dist/components/index.js is missing — run `pnpm --filter @europa/design build` first',
+            );
         } else {
             console.error(
-                `FR-025: dist/components.js gzip ${result.gzipBytes} B exceeds the ${BUNDLE_BUDGET_BYTES} B (15 KB) budget`,
+                `FR-025: dist/components/index.js gzip ${result.gzipBytes} B exceeds the ${BUNDLE_BUDGET_BYTES} B (15 KB) budget`,
             );
         }
         process.exit(1);
     }
-    console.log(`FR-025: dist/components.js gzip ${result.gzipBytes} B ≤ ${BUNDLE_BUDGET_BYTES} B (15 KB) — OK`);
+    console.log(`FR-025: dist/components/index.js gzip ${result.gzipBytes} B ≤ ${BUNDLE_BUDGET_BYTES} B (15 KB) — OK`);
 }
 
 const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);

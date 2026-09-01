@@ -31,9 +31,6 @@ export interface ComponentCatalogResult {
     readonly extra: string[];
 }
 
-/** Regex matching a `europa-*` custom element tag name. */
-const TAG_PATTERN = /europa-[a-z][a-z0-9-]*/g;
-
 /**
  * Regex matching the `tag: '...'` property in a `ComponentDefinition` entry
  * inside `registry.ts`. Captures the tag name string (group 1).
@@ -66,31 +63,48 @@ export function extractRegisteredTags(registrySource: string): string[] {
 }
 
 /**
- * Extract documented `europa-*` tag names from DESIGN.md section 2.
+ * Extract documented `europa-*` tag names from the web-component subsection
+ * of DESIGN.md § 2.
  *
- * Scopes to the text between `## 2.` and `## 3.` headers, then matches
- * every `europa-[a-z][a-z0-9-]*` occurrence and returns the unique set
- * sorted lexicographically.
+ * Scopes to the text between `### Web components (spec 014)` and the next
+ * `---` separator (or `## 3.` as fallback).  Only the **first table column**
+ * (the Tag column) is scanned, so event names like `europa-close` in the
+ * Events column are not picked up as custom-element tags.
  *
  * @param designMd - Full text of DESIGN.md.
- * @returns Sorted unique tag names found in section 2.
+ * @returns Sorted unique tag names found in the web-component subsection.
  */
 export function extractDocumentedTags(designMd: string): string[] {
-    const section2Start = designMd.indexOf('## 2.');
-    const section3Start = designMd.indexOf('## 3.');
-
-    if (section2Start === -1) {
+    const subsectionStart = designMd.indexOf('### Web components (spec 014)');
+    if (subsectionStart === -1) {
         return [];
     }
 
-    const end = section3Start !== -1 ? section3Start : designMd.length;
-    const section2Text = designMd.slice(section2Start, end);
+    // Find the end boundary: the first `---` after the subsection start,
+    // falling back to `## 3.` or end-of-file.
+    const afterStart = designMd.slice(subsectionStart);
+    const hrIndex = afterStart.indexOf('\n---');
+    const section3Index = designMd.indexOf('## 3.', subsectionStart);
+
+    let endOffset: number;
+    if (hrIndex !== -1) {
+        endOffset = subsectionStart + hrIndex;
+    } else if (section3Index !== -1) {
+        endOffset = section3Index;
+    } else {
+        endOffset = designMd.length;
+    }
+
+    const subsectionText = designMd.slice(subsectionStart, endOffset);
 
     const tags = new Set<string>();
-    const matches = section2Text.matchAll(TAG_PATTERN);
+    // Each row in the web-component table starts with `| \`europa-...\``
+    // (the Tag column).  This avoids matching event names in later columns.
+    const tagRowPattern = /^\|\s*`(europa-[a-z][a-z0-9-]*)`/gm;
+    const matches = subsectionText.matchAll(tagRowPattern);
     for (const match of matches) {
-        if (match[0] !== undefined) {
-            tags.add(match[0]);
+        if (match[1] !== undefined) {
+            tags.add(match[1]);
         }
     }
 
@@ -167,7 +181,7 @@ export function runMain(check: () => ComponentCatalogResult = checkComponentCata
             console.error(`missing in DESIGN.md: ${tag}`);
         }
         for (const tag of result.extra) {
-            console.error(`registered but not in DESIGN.md: ${tag}`);
+            console.error(`in DESIGN.md but not registered: ${tag}`);
         }
         process.exit(1);
     }

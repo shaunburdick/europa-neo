@@ -214,6 +214,38 @@ are intentionally absent here; only the shared stylesheet's selectors are contra
 | `.europa-waiting--reduced` | none | Applied by the host to an ancestor of anything animated when the user prefers reduced motion | Opt-in motion suppression alongside the stylesheet's `prefers-reduced-motion` media query | Implements WCAG 2.3.3: animation and transition durations collapse for the whole subtree, so nothing decorative animates. Redundant encoding — not color alone: the waiting state is announced as text through a live region, so removing the spinner loses no information. |
 | `.europa-waiting__plate`, `.europa-waiting__pulse`, `.europa-waiting__text` | `.europa-waiting--reduced` disables the pulse animation; `@media (prefers-reduced-motion: reduce)` does the same at the OS level | `.europa-waiting__plate` wraps `.europa-waiting__pulse` (decorative spinner, `aria-hidden`) and `.europa-waiting__text` (the message). The root `.europa-waiting` positioning is host-local (not in the catalog). | Structural/visual styles for the waiting overlay — shared by the console, the manual, and non-React toolchains | Plate text on the surface fill ≈ 14.33:1 (§ 3). Spinner is decorative (`aria-hidden`) and the message is announced through a live region, so the animation is never the sole state cue. Redundant encoding — not color alone: the spinner pairs motion with the text label, and both reduced-motion paths collapse the animation while the text remains. |
 
+### Web components (spec 014)
+
+Framework-agnostic web components registered via `register()` from `@europa/design/components`
+(spec 014). Each wraps one or more catalog CSS classes (§ 2 above) in a `customElements.define`
+element so the same primitives work in React, plain HTML, or any framework. Components are
+opt-in — importing `@europa/design/components` does not auto-register; consumers call
+`register()` or `customElements.define` individually. The `EuropaElement` base class applies
+the catalog class to the host and manages Shadow DOM (or light-DOM slot forwarding) as needed.
+
+| Tag | Attributes | Slots | Events | A11y obligations | Usage example |
+| --- | --- | --- | --- | --- | --- |
+| `europa-button` | `variant` (primary/secondary/ghost/success/warning/error/info), `size` (sm/lg), `disabled`, `type`, `aria-label` | default (label) | none | native `<button>` (FR-013), keyboard-operable, focus-visible ring | `<europa-button variant="primary">Save</europa-button>` |
+| `europa-card` | none | default | none | host supplies heading structure | `<europa-card><h3>Title</h3><p>Content</p></europa-card>` |
+| `europa-plate` | none | default | none | host supplies heading structure | `<europa-plate><p>Content</p></europa-plate>` |
+| `europa-modal` | `open` (boolean), `title` (string) | default (body), `actions` (button bar) | `europa-close` (Escape/backdrop) | `role="dialog"`, `aria-modal`, `aria-labelledby`, focus trap, Escape close, focus restore (FR-011) | `<europa-modal open title="Confirm"><p>Are you sure?</p><div slot="actions"><europa-button>Yes</europa-button></div></europa-modal>` |
+| `europa-chip` | `count` | none | none | text content is the value | `<europa-chip count="12"></europa-chip>` |
+| `europa-badge` | none | default (label) | none | text label | `<europa-badge>Your match</europa-badge>` |
+| `europa-banner` | `variant` (status/alert) | default (message) | none | `role="status"` (status) or `role="alert"` + `aria-live="assertive"` (alert) (FR-012) | `<europa-banner variant="alert">Connection lost</europa-banner>` |
+| `europa-typography` | `variant` (heading/subheading/body/label/caption) | default | none | heading renders `<h2>`, subheading renders `<h3>` | `<europa-typography variant="heading">Title</europa-typography>` |
+| `europa-waiting` | `message` (string), `reduced-motion` (boolean) | none | none | spinner `aria-hidden`, message announced via live region, respects `prefers-reduced-motion` | `<europa-waiting message="Connecting…"></europa-waiting>` |
+| `europa-grid` | `variant` (sidebar/wrap) | default (items) | none | layout only, DOM order = reading order | `<europa-grid variant="wrap"><div>Item 1</div><div>Item 2</div></europa-grid>` |
+| `europa-stack` | none | default (items) | none | layout only | `<europa-stack><div>A</div><div>B</div></europa-stack>` |
+| `europa-container` | none | default | none | layout only | `<europa-container><p>Content</p></europa-container>` |
+| `europa-page` | none | default | none | layout only, DOM order = reading order | `<europa-page><h1>Title</h1><p>Body</p></europa-page>` |
+| `europa-troop-chip` | `count` (string), `owner` (player 1–4) | none | none | `role="img"`, `aria-label` from count+owner (FR-014) | `<europa-troop-chip count="12" owner="1"></europa-troop-chip>` |
+| `europa-city-marker` | `owner` (player 1–4) | none | none | `role="img"`, `aria-label` from owner (FR-014) | `<europa-city-marker owner="2"></europa-city-marker>` |
+| `europa-pipe-slope` | `direction` (downhill/flat/uphill/stalled) | none | none | `role="img"`, `aria-label` from direction (FR-014) | `<europa-pipe-slope direction="downhill"></europa-pipe-slope>` |
+| `europa-elevation-swatch` | `elevation` (0–100) | none | none | `role="img"`, `aria-label` with elevation value (FR-014) | `<europa-elevation-swatch elevation="42"></europa-elevation-swatch>` |
+| `europa-player-badge` | `player` (1–4), `name` (optional) | none | none | `role="img"`, `aria-label` from player+name (FR-014) | `<europa-player-badge player="1" name="Alice"></europa-player-badge>` |
+| `europa-fog-overlay` | `visible` (boolean, default true) | none | none | `aria-hidden="true"` (FR-014) | `<europa-fog-overlay></europa-fog-overlay>` |
+| `europa-reserve-indicator` | `percent` (0–90 step 10) | none | none | `role="img"`, `aria-label` with percentage (FR-014) | `<europa-reserve-indicator percent="30"></europa-reserve-indicator>` |
+
 ---
 
 ## 3. Accessibility pairing table (FR-016 / NFR-001)
