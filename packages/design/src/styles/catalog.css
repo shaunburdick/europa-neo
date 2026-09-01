@@ -516,7 +516,7 @@
     *,
     *::before,
     *::after {
-        animation-duration: 0.01ms !important;
+        animation: none !important;
         transition-duration: 0.01ms !important;
     }
 }
@@ -525,7 +525,7 @@
 .europa-waiting--reduced *,
 .europa-waiting--reduced *::before,
 .europa-waiting--reduced *::after {
-    animation-duration: 0.01ms !important;
+    animation: none !important;
     transition-duration: 0.01ms !important;
 }
 
