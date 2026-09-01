@@ -35,9 +35,10 @@ export class EuropaChip extends EuropaElement {
     /**
      * Create (once) or update the internal chip `<span>`.
      *
-     * Idempotent: the span, slot, and count text node are created on first
-     * call; only the count text node is refreshed on subsequent calls
-     * (attribute changes).
+     * Idempotent: the span and count text node are created on first call;
+     * light-DOM children are manually reparented into the span (projection
+     * is manual, not via `<slot>` — slots are inert in light DOM). On
+     * subsequent calls only the count text node is refreshed.
      */
     protected override render(): void {
         if (this._span === null || this._countText === null) {
@@ -45,8 +46,26 @@ export class EuropaChip extends EuropaElement {
             this._span.className = 'europa-chip';
             this._countText = document.createTextNode('');
             this._span.appendChild(this._countText);
-            this._span.appendChild(document.createElement('slot'));
             this.appendChild(this._span);
+
+            // Manually reparent light-DOM children into the span.
+            // Snapshot childNodes (live NodeList) before moving.
+            const children = Array.from(this.childNodes);
+            for (const child of children) {
+                if (child !== this._span) {
+                    this._span.appendChild(child);
+                }
+            }
+        }
+
+        // Reparent any host children not yet inside the span.
+        // Handles children added after the initial render (e.g. when
+        // setAttribute triggers render() before children are appended).
+        const remaining = Array.from(this.childNodes);
+        for (const child of remaining) {
+            if (child !== this._span) {
+                this._span.appendChild(child);
+            }
         }
 
         this._countText.nodeValue = this.getAttribute('count') ?? '';

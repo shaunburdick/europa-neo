@@ -47,6 +47,12 @@ export class EuropaModal extends EuropaElement {
     /** The inner dialog `<div role="dialog">`. */
     private _dialog: HTMLDivElement | null = null;
 
+    /** The body `<div class="europa-modal__body">`. */
+    private _body: HTMLDivElement | null = null;
+
+    /** The actions `<div class="europa-modal__actions">`. */
+    private _actions: HTMLDivElement | null = null;
+
     /** The title `<h2>` element. */
     private _titleEl: HTMLHeadingElement | null = null;
 
@@ -96,9 +102,13 @@ export class EuropaModal extends EuropaElement {
      * Create (once) or update the internal dialog DOM.
      *
      * On first call, builds the full backdrop → dialog → title → body →
-     * actions structure and appends it to the host. On subsequent calls,
-     * refreshes the open/hidden state and title text. The document-level
-     * `keydown` listener is attached once and cleaned up on disconnect.
+     * actions structure and appends it to the host. Light-DOM children are
+     * manually reparented: default children go into the body div, children
+     * with `slot="actions"` go into the actions div (projection is manual,
+     * not via `<slot>` — slots are inert in light DOM). On subsequent
+     * calls, refreshes the open/hidden state and title text. The
+     * document-level `keydown` listener is attached once and cleaned up
+     * on disconnect.
      */
     protected override render(): void {
         if (this._backdrop === null) {
@@ -115,24 +125,55 @@ export class EuropaModal extends EuropaElement {
             this._titleEl.className = 'europa-modal__title';
             this._titleEl.id = this._id;
 
-            const body = document.createElement('div');
-            body.className = 'europa-modal__body';
-            body.appendChild(document.createElement('slot'));
+            this._body = document.createElement('div');
+            this._body.className = 'europa-modal__body';
+            // Inert <slot> kept as structural marker (light DOM does not
+            // project via <slot>); actual projection is manual below.
+            this._body.appendChild(document.createElement('slot'));
 
-            const actions = document.createElement('div');
-            actions.className = 'europa-modal__actions';
+            this._actions = document.createElement('div');
+            this._actions.className = 'europa-modal__actions';
             const actionsSlot = document.createElement('slot');
             actionsSlot.setAttribute('name', 'actions');
-            actions.appendChild(actionsSlot);
+            this._actions.appendChild(actionsSlot);
 
             this._dialog.appendChild(this._titleEl);
-            this._dialog.appendChild(body);
-            this._dialog.appendChild(actions);
+            this._dialog.appendChild(this._body);
+            this._dialog.appendChild(this._actions);
             this._backdrop.appendChild(this._dialog);
             this.appendChild(this._backdrop);
 
+            // Manually reparent light-DOM children into body/actions.
+            // Snapshot childNodes (live NodeList) before moving.
+            const children = Array.from(this.childNodes);
+            for (const child of children) {
+                if (child === this._backdrop || child === this._dialog) {
+                    continue;
+                }
+                if (child.nodeType === 1 && (child as HTMLElement).getAttribute('slot') === 'actions') {
+                    this._actions.appendChild(child);
+                } else {
+                    this._body.appendChild(child);
+                }
+            }
+
             this._backdrop.addEventListener('click', this._onBackdropClick);
             document.addEventListener('keydown', this._onKeyDown);
+        }
+
+        // Reparent any host children not yet inside body/actions.
+        // Handles children added after the initial render (e.g. when
+        // setAttribute triggers render() before children are appended).
+        const remaining = Array.from(this.childNodes);
+        for (const child of remaining) {
+            if (child === this._backdrop || child === this._dialog) {
+                continue;
+            }
+            if (child.nodeType === 1 && (child as HTMLElement).getAttribute('slot') === 'actions') {
+                this._actions?.appendChild(child);
+            } else {
+                this._body?.appendChild(child);
+            }
         }
 
         if (this._titleEl !== null) {

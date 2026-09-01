@@ -43,15 +43,34 @@ export class EuropaButton extends EuropaElement {
     /**
      * Create (once) or update the internal `<button>` element.
      *
-     * Idempotent: the button and its `<slot>` are created on first call;
-     * only classes and forwarded attributes are refreshed on subsequent
-     * calls (attribute changes).
+     * Idempotent: the button is created on first call and light-DOM
+     * children are manually reparented into it (projection is manual,
+     * not via `<slot>` — slots are inert in light DOM). On subsequent
+     * calls only classes and forwarded attributes are refreshed.
      */
     protected override render(): void {
         if (this._button === null) {
             this._button = document.createElement('button');
-            this._button.appendChild(document.createElement('slot'));
             this.appendChild(this._button);
+
+            // Manually reparent light-DOM children into the button.
+            // Snapshot childNodes (live NodeList) before moving.
+            const children = Array.from(this.childNodes);
+            for (const child of children) {
+                if (child !== this._button) {
+                    this._button.appendChild(child);
+                }
+            }
+        }
+
+        // Reparent any host children not yet inside the button.
+        // Handles children added after the initial render (e.g. when
+        // setAttribute triggers render() before children are appended).
+        const remaining = Array.from(this.childNodes);
+        for (const child of remaining) {
+            if (child !== this._button) {
+                this._button.appendChild(child);
+            }
         }
 
         const variant = this.getAttribute('variant');
