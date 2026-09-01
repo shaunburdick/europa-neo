@@ -24,7 +24,8 @@
  *      hostile-but-valid user content and must never reorder
  *      surrounding layout for OTHER readers (Wave-4 dispatch invariant);
  *   - all controls are native elements (keyboard-operable by
- *      construction) carrying the shared `.europa-focus-ring`;
+ *      construction); the submit button uses `<europa-button>`
+ *      which wraps a native `<button>` with `:focus-visible` ring;
  *   - busy states disable the submit button and relabel it ("Saving…")
  *      rather than hiding it, keeping focus stable.
  */
@@ -139,14 +140,13 @@ export function LobbyIdentityCard({
                             {errorMessage}
                         </p>
                     ) : null}
-                    <button
+                    <europa-button
                         type="submit"
-                        className="europa-lobby__button europa-focus-ring"
                         disabled={saving}
                         data-europa-submit-handle="true"
                     >
                         {saving ? 'Saving…' : named ? 'Update name' : 'Set name'}
-                    </button>
+                    </europa-button>
                 </form>
             )}
         </section>
