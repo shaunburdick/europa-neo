@@ -62,7 +62,12 @@ Extract 20 framework-agnostic web components (`customElements.define`) into `@eu
 ### Wave 5 — Console migration — ⏳ Pending
 ### Wave 6 — DESIGN.md §2 + G-10 wiring — ⏳ Pending
 ### Wave 7 — Final gates — ⏳ Pending
-### Wave 8 — Dev playground (PO inspection aid) — 🔄 In Progress (T-080..T-083)
+### Wave 8 — Dev playground (PO inspection aid) — ✅ Complete (commit `67358d4`)
+- [x] T-080: vite (catalog) devDep + `dev` (`vite playground`) + `dev:build` (`pnpm build && vite preview playground`) scripts in packages/design/package.json
+- [x] T-081: packages/design/playground/index.html (shell, mounts #app, loads main.ts + catalog.css)
+- [x] T-082: packages/design/playground/main.ts (register() + 3 sections: 13 generic w/ variant matrices, 7 game primitives w/ states, token color reference from TOKENS)
+- [x] T-083: verified `pnpm dev` serves HTTP 200, `/main.ts` transforms, `/src/components/index.ts` resolves (200); `pnpm build` succeeds; biome clean
+- Notes: page imports from `src/` (HMR, no build needed to view). Defines `:root` CSS vars at runtime from TOKENS (catalog.css consumes them; dist/design.css emits them via build-css). Playground-only framing CSS for fog-overlay (transparent in source) + modal (positioned container). Not a spec deliverable — does not alter component source/spec.
 
 ## Decisions & Rationale
 - 2026-08-31: PO decisions — Light DOM (no Shadow DOM/::part()/adoptedStyleSheets); React 19 (native custom element support, no wrapper); all 20 components in one delivery.
