@@ -24,7 +24,6 @@
  */
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { register } from '@europa/design/components';
 import { cleanup, render } from 'vitest-browser-react';
 import { App } from '../../../src/render/App';
 import { formatWaitingMessage } from '../../../src/state/awaiting-start';
@@ -35,9 +34,6 @@ import { WAITING_FOR_OPPONENT_MESSAGE } from '../../../src/ui/waiting-overlay';
 import { buildPlayerView } from '../../fixtures/player-view';
 import { expectNoDomA11yViolations } from '../../setup';
 import '../../../src/styles/index.css';
-
-// Register <europa-waiting> so the custom element renders its internal DOM.
-register();
 
 afterEach(() => {
     cleanup();

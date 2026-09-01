@@ -21,6 +21,11 @@
  */
 
 import '@europa/design/dist/design.css';
+import { register } from '@europa/design/components';
+
+// Register all web components from @europa/design so that any component
+// test using <europa-*> custom elements renders its internal DOM.
+register();
 
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
