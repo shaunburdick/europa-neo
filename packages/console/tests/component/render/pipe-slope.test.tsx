@@ -132,9 +132,12 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         // Sample the centroid of each source cell's north pipe triangle.
         // N-triangle vertices: (midX±size, y), (midX, y + size*1.6);
         // centroid = (midX, y + size*1.6/3).
-        const size = zoom * 0.16;
-        const centroidOffsetY = (size * 1.6) / 3;
-        const sampleCentroid = (cellX: number, cellY: number): Uint8ClampedArray => {
+        // Triangle size scales with intensity: size = baseSize * (0.4 + intensity * 0.6).
+        // baseSize = zoom * 0.16 (matches PIPE_SIZE_RATIO in canvas.ts).
+        const baseSize = zoom * 0.16;
+        const sampleCentroid = (cellX: number, cellY: number, intensity: number): Uint8ClampedArray => {
+            const size = baseSize * (0.4 + intensity * 0.6);
+            const centroidOffsetY = (size * 1.6) / 3;
             const px = cellX * zoom + zoom / 2;
             const py = cellY * zoom + centroidOffsetY;
             const pixel = ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
@@ -144,11 +147,13 @@ describe('pipe slope color-coding (005 FR-013)', () => {
             return pixel;
         };
 
-        expect(closeTo(sampleCentroid(1, 1), downhillRgb)).toBe(true);
-        expect(closeTo(sampleCentroid(2, 1), flatRgb)).toBe(true);
-        expect(closeTo(sampleCentroid(3, 1), uphillRgb)).toBe(true);
+        // Downhill (Δ=-50, intensity=1), flat (Δ=0, intensity=0),
+        // uphill (Δ=3, intensity=3/7), fog (intensity=0).
+        expect(closeTo(sampleCentroid(1, 1, 1), downhillRgb)).toBe(true);
+        expect(closeTo(sampleCentroid(2, 1, 0), flatRgb)).toBe(true);
+        expect(closeTo(sampleCentroid(3, 1, 3 / 7), uphillRgb)).toBe(true);
         // Fog fallback: destination outside the horizon renders flat.
-        expect(closeTo(sampleCentroid(5, 1), flatRgb)).toBe(true);
+        expect(closeTo(sampleCentroid(5, 1, 0), flatRgb)).toBe(true);
     });
 
     test('stalled pipe renders hollow: stroke present on the edge, fill absent at the centroid', async () => {
@@ -165,8 +170,9 @@ describe('pipe slope color-coding (005 FR-013)', () => {
 
         // Centroid of the (4,1) north triangle: NO fill — the pixel is
         // the terrain color, not the stalled color.
-        const size = zoom * 0.16;
-        const centroidOffsetY = (size * 1.6) / 3;
+        // Stalled pipes use full baseSize (hollow is the signal, not size).
+        const stalledSize = zoom * 0.16;
+        const centroidOffsetY = (stalledSize * 1.6) / 3;
         const centroid = ctx?.getImageData(
             Math.round(4 * zoom + zoom / 2),
             Math.round(1 * zoom + centroidOffsetY),
