@@ -224,7 +224,7 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         tag: 'europa-pipe-slope',
         attrs: { direction: 'downhill' },
         expectNoClass: true,
-        expectStyles: [{ prop: 'borderTopColor', value: TOKENS.color.pipeDownhill }],
+        expectStyles: [{ prop: 'borderBottomColor', value: TOKENS.color.pipeDownhill }],
     },
     {
         name: 'europa-elevation-swatch elevation="100" computes the land-band hsl color (no catalog class)',

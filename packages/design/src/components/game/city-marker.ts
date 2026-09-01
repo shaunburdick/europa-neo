@@ -66,6 +66,10 @@ export class EuropaCityMarker extends EuropaElement {
         if (this._marker === null) {
             this._marker = document.createElement('span');
             this._marker.setAttribute('role', 'img');
+            this._marker.style.display = 'inline-block';
+            this._marker.style.width = '24px';
+            this._marker.style.height = '24px';
+            this._marker.style.borderRadius = '2px';
             this.appendChild(this._marker);
         }
 

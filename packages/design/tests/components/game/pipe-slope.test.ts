@@ -7,10 +7,11 @@ import { TOKENS } from '../../../src/tokens.js';
  * FR-014).
  *
  * The component reads a `direction` attribute (`downhill` | `flat` | `uphill` |
- * `stalled`) and renders a `<span role="img">` whose `borderTopColor` is the
- * corresponding canonical pipe token. An unknown or absent direction falls back
- * to the muted `pipeStalled` token. Uses light DOM and inline styles only — no
- * Shadow DOM.
+ * `stalled`) and renders a `<span role="img">` whose `borderBottomColor` is the
+ * corresponding canonical pipe token. The 16px bottom border forms the visible
+ * downward-pointing triangle; left/right borders (12px) are transparent. An
+ * unknown or absent direction falls back to the muted `pipeStalled` token.
+ * Uses light DOM and inline styles only — no Shadow DOM.
  *
  * Covered here (T-049):
  * - Each direction maps to the correct `TOKENS.color.pipe*` value.
@@ -82,10 +83,10 @@ describe('europa-pipe-slope', () => {
         ];
 
         for (const { direction, tokenKey, label } of cases) {
-            it(`sets borderTopColor to ${label} token (${TOKENS.color[tokenKey]})`, () => {
+            it(`sets borderBottomColor to ${label} token (${TOKENS.color[tokenKey]})`, () => {
                 const el = mount(direction);
                 const span = getIndicator(el);
-                expect(span.style.borderTopColor).toBe(TOKENS.color[tokenKey]);
+                expect(span.style.borderBottomColor).toBe(TOKENS.color[tokenKey]);
             });
         }
     });
@@ -117,19 +118,19 @@ describe('europa-pipe-slope', () => {
         const el = mount('downhill');
         const span = getIndicator(el);
 
-        expect(span.style.borderTopColor).toBe(TOKENS.color.pipeDownhill);
+        expect(span.style.borderBottomColor).toBe(TOKENS.color.pipeDownhill);
         expect(span.getAttribute('aria-label')).toBe('pipe downhill');
 
         el.setAttribute('direction', 'flat');
-        expect(span.style.borderTopColor).toBe(TOKENS.color.pipeFlat);
+        expect(span.style.borderBottomColor).toBe(TOKENS.color.pipeFlat);
         expect(span.getAttribute('aria-label')).toBe('pipe flat');
 
         el.setAttribute('direction', 'uphill');
-        expect(span.style.borderTopColor).toBe(TOKENS.color.pipeUphill);
+        expect(span.style.borderBottomColor).toBe(TOKENS.color.pipeUphill);
         expect(span.getAttribute('aria-label')).toBe('pipe uphill');
 
         el.setAttribute('direction', 'stalled');
-        expect(span.style.borderTopColor).toBe(TOKENS.color.pipeStalled);
+        expect(span.style.borderBottomColor).toBe(TOKENS.color.pipeStalled);
         expect(span.getAttribute('aria-label')).toBe('pipe stalled');
     });
 
@@ -140,7 +141,7 @@ describe('europa-pipe-slope', () => {
             const el = mount();
             const span = getIndicator(el);
 
-            expect(span.style.borderTopColor).toBe(TOKENS.color.pipeStalled);
+            expect(span.style.borderBottomColor).toBe(TOKENS.color.pipeStalled);
             expect(span.getAttribute('aria-label')).toBe('pipe stalled');
         });
 
@@ -148,7 +149,7 @@ describe('europa-pipe-slope', () => {
             const el = mount('diagonal');
             const span = getIndicator(el);
 
-            expect(span.style.borderTopColor).toBe(TOKENS.color.pipeStalled);
+            expect(span.style.borderBottomColor).toBe(TOKENS.color.pipeStalled);
             expect(span.getAttribute('aria-label')).toBe('pipe stalled');
         });
 
@@ -156,7 +157,7 @@ describe('europa-pipe-slope', () => {
             const el = mount('');
             const span = getIndicator(el);
 
-            expect(span.style.borderTopColor).toBe(TOKENS.color.pipeStalled);
+            expect(span.style.borderBottomColor).toBe(TOKENS.color.pipeStalled);
             expect(span.getAttribute('aria-label')).toBe('pipe stalled');
         });
     });

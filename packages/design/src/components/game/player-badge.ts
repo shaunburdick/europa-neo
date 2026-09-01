@@ -57,7 +57,7 @@ export class EuropaPlayerBadge extends EuropaElement {
      * Create (once) or refresh the internal badge `<span>`.
      *
      * Idempotent: the span is created on first call; subsequent calls
-     * update only its `aria-label` and inline `color` style.
+     * update its text content, `aria-label`, and inline `color` style.
      */
     protected override render(): void {
         if (this._span === null) {
@@ -69,6 +69,13 @@ export class EuropaPlayerBadge extends EuropaElement {
 
         const player = this.getAttribute('player');
         const name = this.getAttribute('name');
+
+        // --- Visible text (name or player label) ---------------------------
+        // The badge must contain visible text content so it renders at the
+        // correct size.  When a name is provided it becomes the badge text;
+        // otherwise a "P{n}" fallback label keeps the badge visible.
+        const displayText = name !== null && name !== '' ? name : `P${player ?? '?'}`;
+        this._span.textContent = displayText;
 
         // --- Accessible label (FR-014) -----------------------------------
         if (name !== null && name !== '') {

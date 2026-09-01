@@ -50,6 +50,10 @@ export class EuropaElevationSwatch extends EuropaElement {
         if (this._swatch === null) {
             this._swatch = document.createElement('span');
             this._swatch.setAttribute('role', 'img');
+            this._swatch.style.display = 'inline-block';
+            this._swatch.style.width = '24px';
+            this._swatch.style.height = '24px';
+            this._swatch.style.borderRadius = '2px';
             this.appendChild(this._swatch);
         }
 

@@ -51,18 +51,38 @@ export class EuropaPipeSlope extends EuropaElement {
      *
      * Idempotent: the span is created on first call; only its fill color and
      * `aria-label` are refreshed on subsequent calls (attribute changes).
+     *
+     * The triangle is drawn with the CSS border technique: a zero-width
+     * element with `borderWidth: 0 top, 12px right, 16px bottom, 12px left`.
+     * The 16px bottom border forms the visible downward-pointing triangle;
+     * its color is set to the direction token. The left and right borders
+     * (12px each) are transparent and form the slanted sides. The top
+     * border is 0px wide and invisible regardless of color.
      */
     protected override render(): void {
         if (this._indicator === null) {
             this._indicator = document.createElement('span');
             this._indicator.setAttribute('role', 'img');
+            this._indicator.style.display = 'inline-block';
+            this._indicator.style.width = '0';
+            this._indicator.style.height = '0';
+            this._indicator.style.borderStyle = 'solid';
+            this._indicator.style.borderWidth = '0 12px 16px 12px';
+            this._indicator.style.borderTopColor = 'transparent';
+            this._indicator.style.borderLeftColor = 'transparent';
+            this._indicator.style.borderRightColor = 'transparent';
+            this._indicator.style.borderBottomColor = 'transparent';
             this.appendChild(this._indicator);
         }
 
         const direction = this._direction();
         const color = this._colorFor(direction);
 
-        this._indicator.style.borderTopColor = color;
+        // The 16px bottom border IS the visible triangle — color it with the
+        // direction token. The 12px left/right borders are transparent (they
+        // form the slanted sides). The 0px top border is invisible regardless
+        // of its color value.
+        this._indicator.style.borderBottomColor = color;
         this._indicator.setAttribute('aria-label', `pipe ${direction}`);
     }
 
