@@ -53,6 +53,20 @@ export class EuropaButton extends EuropaElement {
     private _renderQueued = false;
 
     /**
+     * Guard flag to prevent infinite MutationObserver loops. When
+     * {@link render} is reparenting children, it sets this to `true` so
+     * the observer callback skips the synthetic childList mutation.
+     */
+    private _updating = false;
+
+    /**
+     * MutationObserver that watches the host element's `childList` for
+     * React re-render text changes (e.g. "Set name" → "Update name").
+     * Without this, new text children land outside the internal `<button>`.
+     */
+    private readonly _childObserver: MutationObserver;
+
+    /**
      * Bound click handler reference so it can be added on construction
      * and removed on disconnection.
      */
@@ -70,13 +84,22 @@ export class EuropaButton extends EuropaElement {
             }
         };
         this.addEventListener('click', this._handleClick);
+
+        this._childObserver = new MutationObserver(() => {
+            if (!this._updating) {
+                this.render();
+            }
+        });
+        this._childObserver.observe(this, { childList: true });
     }
 
     /**
-     * Remove the click listener when the element leaves the document.
+     * Remove the click listener and disconnect the child-list observer
+     * when the element leaves the document.
      */
     disconnectedCallback(): void {
         this.removeEventListener('click', this._handleClick);
+        this._childObserver.disconnect();
     }
 
     /**
@@ -123,6 +146,10 @@ export class EuropaButton extends EuropaElement {
      * calls only classes and forwarded attributes are refreshed.
      */
     protected override render(): void {
+        // Guard against re-entrant calls from the MutationObserver when
+        // appendChild moves nodes (synthetic childList mutations).
+        this._updating = true;
+
         if (this._button === null) {
             this._button = document.createElement('button');
             this.appendChild(this._button);
@@ -146,6 +173,8 @@ export class EuropaButton extends EuropaElement {
                 this._button.appendChild(child);
             }
         }
+
+        this._updating = false;
 
         const variant = this.getAttribute('variant');
         const size = this.getAttribute('size');
