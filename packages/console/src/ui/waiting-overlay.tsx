@@ -159,10 +159,5 @@ export function WaitingOverlay({
     // resolved headline and reduced-motion flag as attributes.
     const motionAttr = reducedMotion === true ? 'reduced-motion' : undefined;
 
-    return (
-        <europa-waiting
-            message={headline}
-            {...(motionAttr !== undefined ? { [motionAttr]: '' } : {})}
-        />
-    );
+    return <europa-waiting message={headline} {...(motionAttr !== undefined ? { [motionAttr]: '' } : {})} />;
 }

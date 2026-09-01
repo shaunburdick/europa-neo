@@ -1,7 +1,7 @@
+import { register } from '@europa/design/components';
 import type { Route } from './routing/route';
 import { parseRoute } from './routing/route';
 import { adaptRoute } from './routing/route-adapter';
-import { register } from '@europa/design/components';
 
 import '@europa/design/dist/design.css';
 import './styles/index.css';

@@ -140,11 +140,7 @@ export function LobbyIdentityCard({
                             {errorMessage}
                         </p>
                     ) : null}
-                    <europa-button
-                        type="submit"
-                        disabled={saving}
-                        data-europa-submit-handle="true"
-                    >
+                    <europa-button type="submit" disabled={saving} data-europa-submit-handle="true">
                         {saving ? 'Saving…' : named ? 'Update name' : 'Set name'}
                     </europa-button>
                 </form>

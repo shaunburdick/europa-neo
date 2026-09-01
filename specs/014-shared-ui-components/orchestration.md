@@ -1,9 +1,9 @@
 # Orchestration Log: Shared UI Web Components (Feature 014)
 
 ## Status
-- **Current Wave**: Wave 7 (Final gates) — Pending
+- **Current Wave**: Complete
 - **Branch**: `issue-41-shared-UI-components`
-- **Last Updated**: 2026-08-31
+- **Last Updated**: 2026-09-01
 
 ## Plan Summary
 Extract 20 framework-agnostic web components (`customElements.define`) into `@europa/design` under a new `@europa/design/components` subpath. Light DOM (apply existing `europa-*` classes, no Shadow DOM). `EuropaElement` abstract base class + `REGISTRY` array + idempotent `register()`. 13 generic + 7 game-specific primitives. Console migrates 6 in-scope files (React 19 native custom-element interop, no wrapper). New G-10 guard (every registered tag documented in DESIGN.md §2) + bundle-size guard (dist/components.js gzip ≤ 15 KB). Waiting-family catalog move (console index.css → shared catalog.css). All 20 components in one delivery.
@@ -81,7 +81,23 @@ Extract 20 framework-agnostic web components (`customElements.define`) into `@eu
   - check-component-catalog.ts: scoped extractDocumentedTags to web-component subsection only (was matching CSS class selectors from catalog table); fixed misleading error message for extra array
   - check-bundle-size.ts: updated default path from dist/components.js to dist/components/index.js (tsup output structure); fixed long line formatting
 - Gates: typecheck exit 0, lint exit 0, 162/162 tests passing, G-10 exit 0, bundle-size 9,611 B gz ≤ 15,360 B
-### Wave 7 — Final gates — ⏳ Pending
+### Wave 7 — Final gates — ✅ Complete
+- [x] T-069: `pnpm --filter @europa/design typecheck` — exit 0
+- [x] T-070: `pnpm --filter @europa/design lint` + `format:check` — exit 0
+- [x] T-071: `pnpm --filter @europa/design exec vitest run tests/components/` — 23 files / 162 tests passing; browser: 10/10 passing
+- [x] T-072: `pnpm --filter @europa/design build` — tsup (3.15 KB index + 42.19 KB components) + build-css + vendor-to-docs
+- [x] T-073: `pnpm --filter @europa/design check:component-catalog` — exit 0
+- [x] T-074: `pnpm --filter @europa/design check:bundle-size` — 9,611 B gz ≤ 15,360 B
+- [x] T-075: `check:vendor-identity` + `check:no-literals` — both green
+- [x] T-076: Console typecheck + lint + format:check — all exit 0 (fixed JSX IntrinsicElements gap via global.d.ts)
+- [x] T-077: Console build — browser-payload 100,342 B gz < 153,600 B
+- [x] T-078: Repo-wide typecheck + lint + format:check + version:check — all green
+- [x] T-079: Playground visual smoke — all 20 components render correctly
+- Fixes during wave:
+  - Created `packages/console/src/global.d.ts` — augments React.JSX.IntrinsicElements with europa-button/europa-banner/europa-waiting types (React 19 module-scoped JSX pattern)
+  - Fixed console main.tsx import ordering (external before local)
+  - Fixed lobby-identity-card.tsx + waiting-overlay.tsx formatting (Biome)
+- Spec status updated to Implemented (2026-09-01); all 79 tasks checked off
 ### Wave 8 — Dev playground (PO inspection aid) — ✅ Complete (commit `67358d4`)
 - [x] T-080: vite (catalog) devDep + `dev` (`vite playground`) + `dev:build` (`pnpm build && vite preview playground`) scripts in packages/design/package.json
 - [x] T-081: packages/design/playground/index.html (shell, mounts #app, loads main.ts + catalog.css)
@@ -101,4 +117,4 @@ Extract 20 framework-agnostic web components (`customElements.define`) into `@eu
 - None yet.
 
 ## Review Findings
-- None yet.
+- Modal tabindex fix: dialog div had no tabindex="-1" so focus() was a no-op in real browsers (happy-dom masked). Fixed in prior commit (`7444c1e`). All 9 modal tests pass.
