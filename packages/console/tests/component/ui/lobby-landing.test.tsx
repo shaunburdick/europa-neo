@@ -18,6 +18,10 @@
  *   - LobbyRoot gate: lobby view first, match chrome after a join.
  */
 
+import { register } from '@europa/design/components';
+
+register();
+
 import type { IdentityState, LobbyRevision, LobbySnapshot, MatchId } from '@europa/matchmaking';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
@@ -123,7 +127,7 @@ describe('LobbyLanding (smoke)', () => {
         });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
         await expect
-            .element(screen.getByRole('button', { name: /Join match — Waiting for players, 1 of 2 seats filled/ }))
+            .element(screen.getByRole('button', { name: 'Join match — Waiting for players, 1 of 2 seats filled' }))
             .toBeVisible();
         expect(screen.container.querySelector('[data-europa-lobby-loading]')).toBeNull();
         expect(
@@ -151,7 +155,10 @@ describe('LobbyLanding (smoke)', () => {
         });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
         await expect.element(screen.getByRole('button', { name: /Spectate match/ })).toBeVisible();
-        expect(screen.getByRole('button', { name: /^Join match/ }).elements()).toHaveLength(0);
+        const joinButtons = [...screen.container.querySelectorAll('europa-button')].filter((el) =>
+            /^Join match/.test(el.getAttribute('aria-label') ?? ''),
+        );
+        expect(joinButtons).toHaveLength(0);
     });
 
     test("the viewer's own active match shows a badge and no actions", async () => {
@@ -177,7 +184,10 @@ describe('LobbyLanding (smoke)', () => {
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
         // Exact match: the active-note paragraph also CONTAINS the phrase.
         await expect.element(screen.getByText('Your match', { exact: true })).toBeVisible();
-        expect(screen.getByRole('button', { name: /^Join match/ }).elements()).toHaveLength(0);
+        const joinButtons = [...screen.container.querySelectorAll('europa-button')].filter((el) =>
+            /^Join match/.test(el.getAttribute('aria-label') ?? ''),
+        );
+        expect(joinButtons).toHaveLength(0);
         await expect.element(screen.getByText(/You have an active match/)).toBeVisible();
     });
 
@@ -245,7 +255,7 @@ describe('LobbyLanding (smoke)', () => {
         const screen = await render(
             <LobbyLanding state={state} focusHeading={false} {...noopCallbacks} onRetry={onRetry} />,
         );
-        const retry = screen.getByRole('button', { name: 'Retry connection' });
+        const retry = screen.getByRole('button', { name: 'Retry connection' }).element() as HTMLButtonElement;
         await retry.click();
         expect(onRetry).toHaveBeenCalledTimes(1);
     });
@@ -267,7 +277,8 @@ describe('LobbyLanding (smoke)', () => {
             />,
         );
         await expect.element(screen.getByText(/session moved somewhere else/i)).toBeVisible();
-        await screen.getByRole('button', { name: 'Acknowledge' }).click();
+        const ackBtn = screen.getByRole('button', { name: 'Acknowledge' }).element() as HTMLButtonElement;
+        await ackBtn.click();
         expect(onAcknowledgeSuperseded.mock.calls.length).toBe(1);
     });
 });

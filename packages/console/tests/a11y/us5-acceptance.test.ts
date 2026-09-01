@@ -20,7 +20,7 @@ import { cleanup, render } from 'vitest-browser-react';
 import { MapCanvas } from '../../src/render/canvas';
 import { SurrenderModal } from '../../src/render/SurrenderModal';
 import type { MapEffect, MapView } from '../../src/state/types';
-import { expectNoDomA11yViolations } from '../setup';
+import { expectNoDomA11yViolations } from '../setup-a11y-dom';
 
 afterEach(() => {
     cleanup();

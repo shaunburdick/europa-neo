@@ -180,22 +180,23 @@ export function LobbyLanding({
             <a id="skip-link" className="skip-link" href="#main">
                 Skip to main content
             </a>
-            {/* Terminal connection failure (FR-018): role="alert"
-          announces itself; Retry re-runs the establish cycle. */}
+            {/* Terminal connection failure (FR-018): europa-banner
+          variant="alert" sets role="alert" + aria-live="assertive"
+          internally; Retry re-runs the establish cycle. */}
             {state.failure !== null && state.connection === 'failed' ? (
-                <div role="alert" className="europa-banner" data-europa-lobby-failure="true">
+                <europa-banner variant="alert" data-europa-lobby-failure="true">
                     {state.failure.message}{' '}
                     <button type="button" className="europa-focus-ring" onClick={onRetry}>
                         Retry connection
                     </button>
-                </div>
+                </europa-banner>
             ) : null}
             {/* Transient transport loss with auto-retry running: visible
           status, no retry button (the backoff loop owns recovery). */}
             {state.failure !== null && state.connection === 'disconnected' ? (
-                <div role="alert" className="europa-banner" data-europa-lobby-failure="true">
+                <europa-banner variant="alert" data-europa-lobby-failure="true">
                     {state.failure.message} Reconnecting…
-                </div>
+                </europa-banner>
             ) : null}
             <main id="main" className="europa-lobby">
                 <h1 ref={headingRef} tabIndex={-1} className="europa-lobby__title europa-focus-ring">

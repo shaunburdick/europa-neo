@@ -27,7 +27,7 @@ import {
 import { App } from '../../src/render/App';
 import { cellElementId } from '../../src/render/cell-view';
 import { buildCellView, buildPlayerView } from '../fixtures/player-view';
-import { expectNoDomA11yViolations } from '../setup';
+import { expectNoDomA11yViolations } from '../setup-a11y-dom';
 
 /** Boot the App with the 10×10 / 3-visible acceptance view. */
 async function bootAcceptanceConsole() {

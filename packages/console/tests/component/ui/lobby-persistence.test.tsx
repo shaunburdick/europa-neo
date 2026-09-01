@@ -26,6 +26,10 @@
  * every test.
  */
 
+import { register } from '@europa/design/components';
+
+register();
+
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 import { LobbyRoot } from '../../../src/internal/lobby-runtime';
@@ -240,7 +244,8 @@ describe('lobby identity persistence across a page remount (US1/FR-003)', () => 
         // Choose a handle THROUGH THE FORM.
         const input = first.screen.getByRole('textbox', { name: 'Display name' });
         await input.fill('Nova');
-        await first.screen.getByRole('button', { name: 'Set name' }).click();
+        const setNameBtn = first.screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement;
+        await setNameBtn.click();
 
         const named = first.screen.getByText('Nova');
         await expect.element(named).toBeVisible();
@@ -263,7 +268,8 @@ describe('lobby identity persistence across a page remount (US1/FR-003)', () => 
         first.socket.open();
         await first.connecting;
         await first.screen.getByRole('textbox', { name: 'Display name' }).fill('Nova');
-        await first.screen.getByRole('button', { name: 'Set name' }).click();
+        const setNameBtn = first.screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement;
+        await setNameBtn.click();
         await expect.element(first.screen.getByText('Nova')).toBeVisible();
         const issuedId = first.server.issuedGuestId;
         first.controller.disconnect();

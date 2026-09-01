@@ -16,7 +16,7 @@ import { GridOverlay } from '../../../src/render/grid-overlay';
 import { buildMapView } from '../../../src/state/build-map-view';
 import type { MapView, MapViewId } from '../../../src/state/types';
 import { buildCellView, buildPlayerView } from '../../fixtures/player-view';
-import { expectNoDomA11yViolations } from '../../setup';
+import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
 /** Build a MapView snapshot around a PlayerView (test defaults). */

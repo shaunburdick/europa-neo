@@ -5,8 +5,8 @@
  * literals outside the :root block emitted by scripts/build-css.ts.
  *
  * Sections are ordered deterministically (base → surfaces → buttons → HUD →
- * lobby → badge/chip → modal → grid → typography → focus/motion) so the
- * concatenated dist/design.css is reproducible.
+ * lobby → badge/chip → modal → grid → typography → focus/motion → waiting →
+ * documentation prose) so the concatenated dist/design.css is reproducible.
  */
 
 /* ── 1. Base / layout containers ──────────────────────────────────────── */
@@ -245,6 +245,17 @@
     font-weight: 700;
     text-align: center;
     line-height: var(--europa-typography-line-height-normal);
+}
+
+/* Variant modifiers — calmer blue for status (polite), urgent red for alert
+   (assertive). Background colors use existing semantic tokens; text color
+   stays --europa-color-surface for sufficient contrast on both fills. */
+.europa-banner--status {
+    background-color: var(--europa-color-info);
+}
+
+.europa-banner--alert {
+    background-color: var(--europa-color-error);
 }
 
 /* ── 6. Lobby chrome — page / grid / card / row / badge / empty / superseded ─ */
@@ -505,7 +516,7 @@
     *,
     *::before,
     *::after {
-        animation-duration: 0.01ms !important;
+        animation: none !important;
         transition-duration: 0.01ms !important;
     }
 }
@@ -514,11 +525,51 @@
 .europa-waiting--reduced *,
 .europa-waiting--reduced *::before,
 .europa-waiting--reduced *::after {
-    animation-duration: 0.01ms !important;
+    animation: none !important;
     transition-duration: 0.01ms !important;
 }
 
-/* ── 12. Documentation prose (scoped under .europa-page) — T-030 ─────────── */
+/* ── 12. Waiting overlay — plate / spinner / text ─────────────────────── */
+/* Structural styles for the waiting-family (spec 014, D-6 gap). The root
+   .europa-waiting positioning (absolute, inset, z-index, background) is
+   game-specific and lives in the host's consumer-local stylesheet. These
+   rules provide the shared visual language so <europa-waiting> works in
+   the manual, non-React toolchains, and any host. */
+.europa-waiting__plate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--europa-spacing-md);
+    padding: var(--europa-spacing-lg) var(--europa-spacing-xl);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-plate);
+}
+
+/* Subtle spinner ring (decorative; aria-hidden in the component). */
+.europa-waiting__pulse {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 3px solid var(--europa-color-border);
+    border-top-color: var(--europa-color-accent);
+    animation: europa-spin var(--europa-motion-spin-duration) var(--europa-motion-easing-linear) infinite;
+}
+
+@keyframes europa-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.europa-waiting__text {
+    margin: 0;
+    font-size: var(--europa-typography-size-md);
+    font-weight: 600;
+}
+
+/* ── 13. Documentation prose (scoped under .europa-page) — T-030 ─────────── */
 /* Styles markdown-rendered elements for the player manual (spec 012, T-030).
    Every declaration uses ONLY --europa-* tokens — no hex/rgb literals. These
    rules are scoped to .europa-page so they never affect the console, which

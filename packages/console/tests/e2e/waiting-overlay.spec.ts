@@ -186,9 +186,14 @@ async function waitUntil(
         .toBe(true, description);
 }
 
-/** The waiting overlay root, by its stable data attribute. */
+/**
+ * The visible waiting overlay root. The <europa-waiting> custom element
+ * uses light DOM — its CSS is applied to the inner `<div class="europa-waiting">`,
+ * not the host element. Playwright considers the host element "hidden"
+ * (no CSS sizing), so we target the styled inner div.
+ */
 function overlay(page: Page): ReturnType<Page['locator']> {
-    return page.locator('[data-europa-waiting="true"]');
+    return page.locator('.europa-waiting');
 }
 
 // ---------------------------------------------------------------------------

@@ -29,7 +29,7 @@ import {
     PIPE_UPHILL_COLOR,
 } from '../../../src/render/palette';
 import type { CellView, Direction, PlayerView } from '../../../src/state/types';
-import { expectNoDomA11yViolations } from '../../setup';
+import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
 /** Board size of the scripted slope view (8×8 keeps pixel math small). */

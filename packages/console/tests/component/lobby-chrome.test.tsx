@@ -27,6 +27,10 @@
  * browser-mode lobby-transport crypto conflict.
  */
 
+import { register } from '@europa/design/components';
+
+register();
+
 import type { MatchId, PublicLobbyEntry } from '@europa/matchmaking';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
@@ -34,7 +38,7 @@ import { cleanup, render } from 'vitest-browser-react';
 
 import { LobbyMatchList } from '../../src/ui/lobby-match-list';
 import '../../src/styles/index.css';
-import { expectNoDomA11yViolations } from '../setup';
+import { expectNoDomA11yViolations } from '../setup-a11y-dom';
 
 afterEach(() => {
     cleanup();
@@ -155,17 +159,17 @@ describe('LobbyMatchList seat actions (FR-007 / FR-012)', () => {
 
         // 2p 1/2 (waiting, open) and 3p 2/3 (waiting, open) → Join.
         await expect
-            .element(screen.getByRole('button', { name: /Join match — Waiting for players, 1 of 2 seats filled/ }))
+            .element(screen.getByRole('button', { name: 'Join match — Waiting for players, 1 of 2 seats filled' }))
             .toBeVisible();
         await expect
-            .element(screen.getByRole('button', { name: /Join match — Waiting for players, 2 of 3 seats filled/ }))
+            .element(screen.getByRole('button', { name: 'Join match — Waiting for players, 2 of 3 seats filled' }))
             .toBeVisible();
 
         // 4p 3/4 is in_progress → NO Join button within that row (the 2p
         // and 3p rows legitimately keep theirs; we scope to the 4p row).
         const row4p = screen.container.querySelector(`[data-match-id="${MATCH_4P}"]`);
         expect(row4p).not.toBeNull();
-        expect(row4p?.querySelector('button[aria-label^="Join match"]')).toBeNull();
+        expect(row4p?.querySelector('europa-button[aria-label^="Join match"]')).toBeNull();
 
         // Spectate was never invoked by mere rendering.
         expect(onSpectate).not.toHaveBeenCalled();
@@ -189,7 +193,10 @@ describe('LobbyMatchList seat actions (FR-007 / FR-012)', () => {
         );
 
         // No Join button for a full waiting match (auto-start owns it).
-        expect(screen.getByRole('button', { name: /^Join match/ }).elements()).toHaveLength(0);
+        const joinButtons = [...screen.container.querySelectorAll('europa-button')].filter((el) =>
+            /^Join match/.test(el.getAttribute('aria-label') ?? ''),
+        );
+        expect(joinButtons).toHaveLength(0);
         await expect.element(screen.getByText('Full')).toBeVisible();
     });
 
@@ -209,11 +216,14 @@ describe('LobbyMatchList seat actions (FR-007 / FR-012)', () => {
 
         // 4p 3/4 in_progress → Spectate.
         await expect
-            .element(screen.getByRole('button', { name: /Spectate match — In progress, 3 of 4 seats filled/ }))
+            .element(screen.getByRole('button', { name: 'Spectate match — In progress, 3 of 4 seats filled' }))
             .toBeVisible();
 
         // Waiting matches never offer Spectate.
-        expect(screen.getByRole('button', { name: /^Spectate match/ }).elements()).toHaveLength(1);
+        const spectateButtons = [...screen.container.querySelectorAll('europa-button')].filter((el) =>
+            /^Spectate match/.test(el.getAttribute('aria-label') ?? ''),
+        );
+        expect(spectateButtons).toHaveLength(1);
     });
 });
 
@@ -244,13 +254,13 @@ describe('LobbyMatchList accessibility (axe + labels)', () => {
         // Every action button is reachable by a composed accessible name
         // (visible verb first, then lifecycle + occupancy context).
         await expect
-            .element(screen.getByRole('button', { name: /Join match — Waiting for players, 1 of 2 seats filled/ }))
+            .element(screen.getByRole('button', { name: 'Join match — Waiting for players, 1 of 2 seats filled' }))
             .toBeVisible();
         await expect
-            .element(screen.getByRole('button', { name: /Join match — Waiting for players, 2 of 3 seats filled/ }))
+            .element(screen.getByRole('button', { name: 'Join match — Waiting for players, 2 of 3 seats filled' }))
             .toBeVisible();
         await expect
-            .element(screen.getByRole('button', { name: /Spectate match — In progress, 3 of 4 seats filled/ }))
+            .element(screen.getByRole('button', { name: 'Spectate match — In progress, 3 of 4 seats filled' }))
             .toBeVisible();
 
         // No WCAG 2.2 AA violations in the rendered subtree.
@@ -278,14 +288,14 @@ describe('LobbyMatchList keyboard-only flow', () => {
             />,
         );
 
-        const joinButton = screen.getByRole('button', {
-            name: /Join match — Waiting for players, 1 of 2 seats filled/,
-        });
+        const joinButton = screen
+            .getByRole('button', { name: 'Join match — Waiting for players, 1 of 2 seats filled' })
+            .element() as HTMLButtonElement;
 
         // Keyboard-reachable: a native <button> is focusable; Tab/Enter
         // reach it without a pointer.
-        joinButton.element().focus();
-        expect(document.activeElement).toBe(joinButton.element());
+        joinButton.focus();
+        expect(document.activeElement).toBe(joinButton);
 
         // Genuine keyboard activation: Enter on a focused native button
         // fires the same click handler a pointer would.
@@ -311,11 +321,11 @@ describe('LobbyMatchList keyboard-only flow', () => {
             />,
         );
 
-        const spectateButton = screen.getByRole('button', {
-            name: /Spectate match — In progress, 3 of 4 seats filled/,
-        });
-        spectateButton.element().focus();
-        expect(document.activeElement).toBe(spectateButton.element());
+        const spectateButton = screen
+            .getByRole('button', { name: 'Spectate match — In progress, 3 of 4 seats filled' })
+            .element() as HTMLButtonElement;
+        spectateButton.focus();
+        expect(document.activeElement).toBe(spectateButton);
 
         const user = userEvent.setup();
         await user.keyboard('{Enter}');
