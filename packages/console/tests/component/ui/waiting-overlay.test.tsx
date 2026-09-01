@@ -24,6 +24,7 @@
  */
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { register } from '@europa/design/components';
 import { cleanup, render } from 'vitest-browser-react';
 import { App } from '../../../src/render/App';
 import { formatWaitingMessage } from '../../../src/state/awaiting-start';
@@ -34,6 +35,9 @@ import { WAITING_FOR_OPPONENT_MESSAGE } from '../../../src/ui/waiting-overlay';
 import { buildPlayerView } from '../../fixtures/player-view';
 import { expectNoDomA11yViolations } from '../../setup';
 import '../../../src/styles/index.css';
+
+// Register <europa-waiting> so the custom element renders its internal DOM.
+register();
 
 afterEach(() => {
     cleanup();
@@ -71,9 +75,9 @@ async function bootWithStore(
     return store;
 }
 
-/** The overlay root, queried by its stable data attribute. */
+/** The overlay host element — the <europa-waiting> custom element. */
 function overlay(): Element | null {
-    return document.querySelector('[data-europa-waiting="true"]');
+    return document.querySelector('europa-waiting');
 }
 
 /**
@@ -169,12 +173,15 @@ describe('waiting-for-opponent overlay (component, 2-player legacy fallback)', (
 
         await bootWithStore(liveState(null), { waitingCapacity: CAPACITY, waitingSeatsFilled: SEATS_FILLED });
         expect(overlay()).not.toBeNull();
-        expect(overlay()?.classList.contains('europa-waiting--reduced')).toBe(true);
+        // The --reduced modifier is on the internal .europa-waiting root div, not the host element.
+        const root = overlay()?.querySelector('.europa-waiting');
+        expect(root?.classList.contains('europa-waiting--reduced')).toBe(true);
     });
 
     test('spinner animates by default (no reduced-motion modifier)', async () => {
         await bootWithStore(liveState(null), { waitingCapacity: CAPACITY, waitingSeatsFilled: SEATS_FILLED });
-        expect(overlay()?.classList.contains('europa-waiting--reduced')).toBe(false);
+        const root = overlay()?.querySelector('.europa-waiting');
+        expect(root?.classList.contains('europa-waiting--reduced')).toBe(false);
     });
 
     test('static boots (no store) never show the overlay', async () => {
@@ -300,7 +307,9 @@ describe('N-aware waiting overlay (feature 012 FR-005, T016)', () => {
 
                 await bootWithStore(liveState(null), { waitingCapacity: capacity, waitingSeatsFilled: seatsFilled });
                 expect(overlay()).not.toBeNull();
-                expect(overlay()?.classList.contains('europa-waiting--reduced')).toBe(true);
+                // The --reduced modifier is on the internal .europa-waiting root div, not the host element.
+                const root = overlay()?.querySelector('.europa-waiting');
+                expect(root?.classList.contains('europa-waiting--reduced')).toBe(true);
             });
 
             test('appearance is announced exactly once on the polite live region', async () => {
