@@ -26,6 +26,8 @@
     ],
     "scripts": {
         "build": "tsup && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts",
+        "dev": "vite playground",
+        "dev:build": "pnpm build && vite preview playground",
         "vendor": "tsx scripts/vendor-to-docs.ts",
         "check:no-literals": "tsx scripts/check-no-literals.ts",
         "check:vendor-identity": "tsx scripts/check-vendor-identity.ts",
@@ -47,6 +49,7 @@
         "tsup": "catalog:",
         "tsx": "catalog:",
         "typescript": "catalog:",
+        "vite": "catalog:",
         "vitest": "catalog:"
     }
 }

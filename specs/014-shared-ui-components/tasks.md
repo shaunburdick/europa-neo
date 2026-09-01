@@ -181,6 +181,19 @@
 
 ---
 
+## Wave 8: Dev playground (inspection aid — PO request)
+
+**Purpose**: A servable static showcase page in `@europa/design` so the PO can visually inspect all 20 web components (variant/state matrices) and the token color reference (player colors, pipe-slope colors, elevation ramp, base palette) in a real browser, with real-time refresh as source changes (Vite HMR). This is an inspection aid, NOT a spec deliverable — it does not alter component source or the spec. Imports from `src/` so it always reflects current source and HMR works (no separate build needed to view).
+
+- [ ] T-080: Add `vite` (catalog:) to `packages/design/package.json` devDependencies; add `dev` script (`vite playground`) and `dev:build` script (`pnpm build && vite preview playground`). Existing scripts/exports unchanged.
+- [ ] T-081: Create `packages/design/playground/index.html` — showcase shell; imports `./main.ts` (module) + `../src/styles/catalog.css`; mounts a root container.
+- [ ] T-082: Create `packages/design/playground/main.ts` — calls `register()` (from `../src/components/index.ts`), then renders: (a) all 20 components in a grid with their variant/state matrices (button variants/sizes/disabled, banner status/alert, typography heading/body/label/caption, grid sidebar/wrap, modal open w/ sample content, game primitives across owner/color/direction/elevation/percent), (b) a token color reference table built live from `TOKENS` (player colors P1–P4 + fallback, pipe-slope colors, elevation ramp 0→100, base palette). Plain DOM construction, no framework.
+- [ ] T-083: Verify `pnpm --filter @europa/design dev` starts Vite and serves the page (curl the dev URL returns the HTML; confirm no console/import errors by checking Vite's transform of main.ts). Confirm `dev:build` builds then previews.
+
+**Checkpoint**: PO can open the playground in a browser and inspect components + colors; HMR refreshes on edit.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Wave Dependencies
