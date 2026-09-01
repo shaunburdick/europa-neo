@@ -96,9 +96,8 @@ function MatchRow({
             <div className="europa-lobby__row-actions">
                 {entry.status === 'waiting' && !ownMatch ? (
                     joinable ? (
-                        <button
+                        <europa-button
                             type="button"
-                            className="europa-lobby__button europa-focus-ring"
                             disabled={busy}
                             aria-label={rowActionLabel('join', entry)}
                             onClick={() => {
@@ -106,7 +105,7 @@ function MatchRow({
                             }}
                         >
                             Join
-                        </button>
+                        </europa-button>
                     ) : (
                         // Full waiting match: auto-start owns it now; no seat
                         // to advertise (FR-007 "open waiting matches" only).
@@ -114,9 +113,8 @@ function MatchRow({
                     )
                 ) : null}
                 {entry.status === 'in_progress' && !ownMatch ? (
-                    <button
+                    <europa-button
                         type="button"
-                        className="europa-lobby__button europa-focus-ring"
                         disabled={busy}
                         aria-label={rowActionLabel('spectate', entry)}
                         onClick={() => {
@@ -124,7 +122,7 @@ function MatchRow({
                         }}
                     >
                         Spectate
-                    </button>
+                    </europa-button>
                 ) : null}
             </div>
         </li>
