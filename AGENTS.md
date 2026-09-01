@@ -101,6 +101,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 3. **Determinism discipline**: engine code must be pure (no wall-clock, no unseeded randomness, integer/fixed-point math); all tunable numbers live in one constants location.
 4. **Specs stay truthful**: changing behavior means updating the spec in the same change set. Stale specs are bugs. This extends to player-facing docs (spec 007 FR-012): **any change set that alters gameplay behavior documented by the manual MUST update `docs/manual/` in the same change set** — the path-gated Pages workflow republishes it on merge. Stale manual numbers are bugs (the `docs/manual/numbers.md` appendix exists to be auditable against `ENGINE_CONSTANTS`).
 5. **Licensing hygiene**: never copy code from `europa-source/` (SOS license, © Alex Nicolaou). It is reference material only — reimplement from documented behavior. The archive is a trimmed documentation subset (`html/Europa/` only); never modify files under `europa-source/`.
+6. **Pre-push verification gate**: before pushing to a PR branch, run the **complete** project verification suite locally — not just the tests relevant to the changed package. This includes typecheck, lint, format, all package tests, browser-mode tests, E2E tests, and any guards. A failure discovered at CI time is a process failure.
 
 ## Environment notes (hard-won, verified this session)
 
@@ -110,6 +111,12 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
   - Pre-create target directories before dispatching writers.
 - If subagents keep failing, check `~/.config/opencode/agent/*.md` frontmatter: none pin a `model:`, so all inherit the session model. Pinning worker agents to a tool-call-reliable model fixes it (restart opencode after edits).
 - `uvx --from git+https://github.com/github/spec-kit.git specify …` is the spec-kit CLI; current CLI uses `--integration opencode` (not `--ai`).
+- **Light DOM child projection**: `<slot>` elements do not work in Light DOM — they are inert and do not project children. Components that need to wrap host children must manually reparent them via `appendChild` loops. The reparenting loop must run on every `render()` (outside the creation guard) to handle timing where `attributeChangedCallback` fires before children are appended (e.g., React 19 commits children after `connectedCallback`). This is the established pattern for all 20 web components in `@europa/design`.
+- **Form-associated custom elements**: a custom element replacing a native `<button type="submit">` inside a `<form>` will NOT participate in HTML form submission — browsers only recognize native `<button>`, `<input type="submit">`, and `<input type="image">` as submit buttons. Use `static formAssociated = true` + `this.attachInternals()` in the constructor + `this._internals.form.requestSubmit()` in a click handler to restore form participation. `type="button"` elements with `onClick` handlers are unaffected. See `packages/design/src/components/generic/button.ts` for the reference implementation.
+- **Test environment gotchas**:
+  - **Vitest Browser Mode `setupFiles`**: run inside the browser, not Node.js. Node-only imports (e.g., `@axe-core/playwright`) in setup files poison the browser bundle and break all test files that transitively import them. Split browser-safe code into separate setup files.
+  - **happy-dom gaps** (v20.x): `attachInternals()` not implemented (needs polyfill in `tests/setup-element-internals.ts`), `assignedNodes()` returns empty for light-DOM slots, `focus()` is a no-op on non-focusable elements (add `tabindex="-1"` to receive focus), `ResizeObserver`/`IntersectionObserver` absent.
+  - **Playwright accessibility tree**: `getByRole('button')` does NOT traverse into custom elements to find internal native elements. Use `container.querySelector('europa-button button')` or similar DOM selectors for custom element internals.
 
 ## Restart procedure (fresh session)
 
