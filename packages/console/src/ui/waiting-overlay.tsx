@@ -50,6 +50,20 @@ import { useEffect, useRef } from 'react';
 import type { LiveRegionAnnouncer } from '../a11y/live-region';
 import { formatWaitingMessage } from '../state/awaiting-start';
 
+// JSX intrinsic declaration for the <europa-waiting> web component from
+// @europa/design. The component is registered at runtime by T-066; this
+// declaration lets TypeScript accept the tag in JSX.
+declare module 'react' {
+    namespace JSX {
+        interface IntrinsicElements {
+            'europa-waiting': {
+                message?: string;
+                'reduced-motion'?: '' | boolean;
+            };
+        }
+    }
+}
+
 /** The legacy single-opponent headline (also the visible fallback). */
 export const WAITING_FOR_OPPONENT_MESSAGE = 'Waiting for opponent to join…';
 
@@ -140,17 +154,15 @@ export function WaitingOverlay({
         }
     }, [announcer, headline]);
 
+    // The <europa-waiting> web component handles the plate, spinner
+    // (aria-hidden), and text internally via light DOM. We pass the
+    // resolved headline and reduced-motion flag as attributes.
+    const motionAttr = reducedMotion === true ? 'reduced-motion' : undefined;
+
     return (
-        <div
-            className={reducedMotion === true ? 'europa-waiting europa-waiting--reduced' : 'europa-waiting'}
-            data-europa-waiting="true"
-        >
-            <div className="europa-waiting__plate">
-                {/* Decorative spinner — hidden from AT; the text below is the
-            information carrier (WCAG 1.1.1). */}
-                <div aria-hidden="true" className="europa-waiting__pulse" />
-                <p className="europa-waiting__text">{headline}</p>
-            </div>
-        </div>
+        <europa-waiting
+            message={headline}
+            {...(motionAttr !== undefined ? { [motionAttr]: '' } : {})}
+        />
     );
 }
