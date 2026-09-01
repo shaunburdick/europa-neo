@@ -1,7 +1,7 @@
 # Orchestration Log: Shared UI Web Components (Feature 014)
 
 ## Status
-- **Current Wave**: Wave 2 (Game primitives) — Next
+- **Current Wave**: Wave 3 (Modal integration + conformance) — Next
 - **Branch**: `issue-41-shared-UI-components`
 - **Last Updated**: 2026-08-31
 
@@ -37,7 +37,21 @@ Extract 20 framework-agnostic web components (`customElements.define`) into `@eu
   - Slot-projection tests asserted `wrapper.contains(child)` — WRONG for light DOM (children stay host children); fixed 8 tests to assert host containment + wrapper has `<slot>`
   - Modal test set innerHTML after `open` attr (wiped rendered backdrop) — reordered
 
-### Wave 2 — Game primitives (7) — ⏳ Pending
+### Wave 2 — Game primitives (7) — ✅ Complete (commit `2566f54`)
+- [x] T-040..T-046: 7 game component source files (troop-chip, city-marker, pipe-slope, elevation-swatch, player-badge, fog-overlay, reserve-indicator)
+- [x] T-047..T-053: 7 game component unit test files (66 tests, all passing)
+- Component-local player-color map (plan D-7): P1→accent, P2→city, P3→green, P4→blue, fallback→textMuted (reuses TOKENS.color.*, no new hex/tokens)
+- Elevation swatch interpolates land-band lightness 26→62 (hsl(120,12%,L%))
+- Pipe slope maps direction → TOKENS.color.pipe* (downhill/flat/uphill/stalled)
+- All primitives: role=img + aria-label (FR-014), light DOM, no auto-register
+- Systematic issues found & fixed during wave:
+  - **tsconfig DOM lib**: packages/design/tsconfig.json lacked DOM lib (base sets lib:["ES2022"]) — web components need it. Added `"lib": ["ES2022","DOM","DOM.Iterable"]` (scoped to design package only).
+  - **override modifiers (17)**: noImplicitOverride required `override` on members overriding EuropaElement (render/observedAttributes/connectedCallback/attributeChangedCallback) across all 14 generic+game components. NOTE: disconnectedCallback does NOT need override (not declared in base — inherited from HTMLElement).
+  - **strict null-safety (11)**: noUncheckedIndexedAccess surfaced null-key map lookups (player-badge/troop-chip) + modal focus-trap + waiting internal refs.
+  - **absent-owner/player color fallback bug**: `(owner !== null && MAP[owner]) ?? fallback` returned `false` (not fallback) when owner absent — `false ?? x` = false. Fixed to `MAP[owner] ?? fallback`. Found in troop-chip + player-badge.
+  - **Biome lint/format (18)**: auto-fixed via biome check --write + manual noUselessTernary in modal.ts (`isOpen ? false : true` → `!isOpen`).
+- Gates: typecheck exit 0, lint exit 0, component suite 21 files / 124 tests passing.
+
 ### Wave 3 — Modal integration + conformance — ⏳ Pending
 ### Wave 4 — Waiting-family catalog move — ⏳ Pending
 ### Wave 5 — Console migration — ⏳ Pending
