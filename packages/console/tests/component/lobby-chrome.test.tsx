@@ -165,7 +165,7 @@ describe('LobbyMatchList seat actions (FR-007 / FR-012)', () => {
         // and 3p rows legitimately keep theirs; we scope to the 4p row).
         const row4p = screen.container.querySelector(`[data-match-id="${MATCH_4P}"]`);
         expect(row4p).not.toBeNull();
-        expect(row4p?.querySelector('button[aria-label^="Join match"]')).toBeNull();
+        expect(row4p?.querySelector('europa-button[aria-label^="Join match"]')).toBeNull();
 
         // Spectate was never invoked by mere rendering.
         expect(onSpectate).not.toHaveBeenCalled();
