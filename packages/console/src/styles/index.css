@@ -571,53 +571,8 @@ body {
     background-color: var(--europa-color-overlay-soft);
 }
 
-.europa-waiting__plate {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--europa-spacing-md);
-    padding: var(--europa-spacing-lg) var(--europa-spacing-xl);
-    background-color: var(--europa-color-surface);
-    color: var(--europa-color-text-primary);
-    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
-    border-radius: var(--europa-radii-plate);
-}
-
-/* Subtle spinner ring (decorative; aria-hidden in the component). */
-.europa-waiting__pulse {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 3px solid var(--europa-color-border);
-    border-top-color: var(--europa-color-accent);
-    animation: europa-spin var(--europa-motion-spin-duration) var(--europa-motion-easing-linear) infinite;
-}
-
-@keyframes europa-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Reduced motion, path 1 of 2: the App-owned preference subscription
-   flips this modifier class live (Q-A07 / WCAG 2.3.3). */
-.europa-waiting--reduced .europa-waiting__pulse {
-    animation: none;
-}
-
-/* Reduced motion, path 2 of 2: stylesheet-level guard so the ring
-   stands still even when only the OS flag is observable. */
-@media (prefers-reduced-motion: reduce) {
-    .europa-waiting__pulse {
-        animation: none;
-    }
-}
-
-.europa-waiting__text {
-    margin: 0;
-    font-size: var(--europa-typography-size-md);
-    font-weight: 600;
-}
+/* Structural waiting styles (plate, pulse, text) live in the shared
+ * catalog.css — only the game-specific overlay positioning stays here. */
 
 /*
  * ---------------------------------------------------------------------------
