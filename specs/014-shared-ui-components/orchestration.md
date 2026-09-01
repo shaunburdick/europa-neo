@@ -1,7 +1,7 @@
 # Orchestration Log: Shared UI Web Components (Feature 014)
 
 ## Status
-- **Current Wave**: Wave 1 (Generic components) — In Progress
+- **Current Wave**: Wave 2 (Game primitives) — Next
 - **Branch**: `issue-41-shared-UI-components`
 - **Last Updated**: 2026-08-31
 
@@ -25,7 +25,18 @@ Extract 20 framework-agnostic web components (`customElements.define`) into `@eu
 - [x] T-012: scripts/check-component-catalog.ts (G-10)
 - [x] T-013: scripts/check-bundle-size.ts (FR-025)
 
-### Wave 1 — Generic components (13) — ⏳ Pending
+### Wave 1 — Generic components (13) — ✅ Complete (commit `d1b8c0f`)
+- [x] T-014..T-026: 13 generic component source files (button, card, plate, modal, chip, badge, banner, typography, waiting, grid, stack, container, page)
+- [x] T-027..T-039: 13 generic component unit test files (55 tests, all passing)
+- Systematic issues found & fixed during wave:
+  - Wrong import path `./base.js` → `../base.js` in button/card/chip/plate/typography (base.ts is one level up from generic/)
+  - FR-004 violation: plate.ts auto-registered on import — removed
+  - Button/grid applied catalog classes to host instead of internal element — fixed to internal element
+  - Waiting used `setClasses(el, ...)` (wrong — setClasses applies to host only) — fixed to direct className assignments
+  - Waiting pulse `aria-hidden` was empty string via setAttributeIf — fixed to explicit `aria-hidden="true"` (component bug)
+  - Slot-projection tests asserted `wrapper.contains(child)` — WRONG for light DOM (children stay host children); fixed 8 tests to assert host containment + wrapper has `<slot>`
+  - Modal test set innerHTML after `open` attr (wiped rendered backdrop) — reordered
+
 ### Wave 2 — Game primitives (7) — ⏳ Pending
 ### Wave 3 — Modal integration + conformance — ⏳ Pending
 ### Wave 4 — Waiting-family catalog move — ⏳ Pending
