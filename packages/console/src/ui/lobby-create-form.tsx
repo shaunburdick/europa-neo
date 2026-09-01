@@ -289,9 +289,9 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                         {formError}
                     </p>
                 ) : null}
-                <button type="submit" className="europa-lobby__button europa-focus-ring" disabled={busy}>
+                <europa-button type="submit" disabled={busy}>
                     {creating ? 'Creating…' : 'Create match'}
-                </button>
+                </europa-button>
             </form>
         </section>
     );
