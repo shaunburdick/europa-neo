@@ -23,10 +23,10 @@ Every tick, each pipe delivers troops into the neighboring cell it points at —
 
 | Slope | Flow per tick |
 | --- | --- |
-| Downhill (target lower) | 8–12 troops — the steeper the drop, the faster the flow (Δ=1 → 8, Δ≥5 → 12) |
-| Flat (equal elevation) | 7 troops |
-| Uphill (target higher) | 6→1 troops — the steeper the climb, the slower the flow (Δ=1 → 6, Δ=6 → 1) |
-| Steep uphill (Δ≥7) | **0 — stalled** |
+| <europa-pipe-slope direction="downhill"></europa-pipe-slope> Downhill (target lower) | 8–12 troops — the steeper the drop, the faster the flow (Δ=1 → 8, Δ≥5 → 12) |
+| <europa-pipe-slope direction="flat"></europa-pipe-slope> Flat (equal elevation) | 7 troops |
+| <europa-pipe-slope direction="uphill"></europa-pipe-slope> Uphill (target higher) | 6→1 troops — the steeper the climb, the slower the flow (Δ=1 → 6, Δ=6 → 1) |
+| <europa-pipe-slope direction="stalled"></europa-pipe-slope> Steep uphill (Δ≥7) | **0 — stalled** |
 
 Flow never drains the source: the sending cell keeps its troops, and only the destination gains them.
 
@@ -43,10 +43,10 @@ Each pipe triangle on the board is colored by its slope classification:
 
 | Slope | Color | Visual treatment |
 | --- | --- | --- |
-| Downhill | Green | Filled triangle; size scales with gradient strength |
-| Flat | Amber | Filled triangle; smallest size (no gradient signal) |
-| Uphill | Red | Filled triangle; size scales with gradient strength |
-| Stalled | Gray | Hollow (outline-only) triangle; fixed size |
+| <europa-pipe-slope direction="downhill"></europa-pipe-slope> Downhill | Green | Filled triangle; size scales with gradient strength |
+| <europa-pipe-slope direction="flat"></europa-pipe-slope> Flat | Amber | Filled triangle; smallest size (no gradient signal) |
+| <europa-pipe-slope direction="uphill"></europa-pipe-slope> Uphill | Red | Filled triangle; size scales with gradient strength |
+| <europa-pipe-slope direction="stalled"></europa-pipe-slope> Stalled | Gray | Hollow (outline-only) triangle; fixed size |
 
 **Intensity** encodes how steep the elevation gradient is as triangle size. Stronger slopes produce bigger triangles:
 

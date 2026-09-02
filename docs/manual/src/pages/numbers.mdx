@@ -12,14 +12,14 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Value | Shipped value | Constant |
 | --- | --- | --- |
 | Tick cadence | 250 ms (4 ticks/second) | `DEFAULT_TICK_INTERVAL_MS` |
-| City production | 1 troop/tick until saturated | `ENGINE_CONSTANTS.productionRate` |
-| City saturation cap | 30 troops | `ENGINE_CONSTANTS.cityCapacity` |
+| City production | <europa-troop-chip count="1" owner="1"></europa-troop-chip> troop/tick until saturated | `ENGINE_CONSTANTS.productionRate` |
+| City saturation cap | <europa-chip count="30"></europa-chip> troops | `ENGINE_CONSTANTS.cityCapacity` |
 | Open-cell troop cap | 30 troops | `ENGINE_CONSTANTS.cellCapacity` |
 | Unfed decay | −1 troop/tick | `ENGINE_CONSTANTS.decayPerTick` |
-| Pipe flow, downhill | 8–12 troops/tick per pipe (Δ=1 → 8 … Δ≥5 → 12) | `ENGINE_CONSTANTS.flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)` |
-| Pipe flow, flat | 7 troops/tick per pipe | `ENGINE_CONSTANTS.flowBase` |
-| Pipe flow, uphill | 6→1 troops/tick per pipe (Δ=1 → 6 … Δ=6 → 1) | `max(0, ENGINE_CONSTANTS.flowBase − flowSlopeStep × |Δ|)` |
-| Pipe flow, stalled | 0 troops/tick (Δ≥7) | `ENGINE_CONSTANTS.flowBase / flowSlopeStep` (stall threshold) |
+| Pipe flow, downhill | <europa-pipe-slope direction="downhill"></europa-pipe-slope> 8–12 troops/tick per pipe (Δ=1 → 8 … Δ≥5 → 12) | `ENGINE_CONSTANTS.flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)` |
+| Pipe flow, flat | <europa-pipe-slope direction="flat"></europa-pipe-slope> 7 troops/tick per pipe | `ENGINE_CONSTANTS.flowBase` |
+| Pipe flow, uphill | <europa-pipe-slope direction="uphill"></europa-pipe-slope> 6→1 troops/tick per pipe (Δ=1 → 6 … Δ=6 → 1) | `max(0, ENGINE_CONSTANTS.flowBase − flowSlopeStep × |Δ|)` |
+| Pipe flow, stalled | <europa-pipe-slope direction="stalled"></europa-pipe-slope> 0 troops/tick (Δ≥7) | `ENGINE_CONSTANTS.flowBase / flowSlopeStep` (stall threshold) |
 
 ## Terrain
 
@@ -42,10 +42,10 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 
 | Value | Shipped value | Constant |
 | --- | --- | --- |
-| Paratroop order cost | 20 troops removed at source | `ENGINE_CONSTANTS.paratroopCost` (10) × 2 |
-| Paratroops landed | 10 troops at target | `ENGINE_CONSTANTS.paratroopCost` |
-| Gun shot cost | 5 troops per shot | `ENGINE_CONSTANTS.gunCost` |
-| Gun damage | 2 troops, everything in the target cell | `ENGINE_CONSTANTS.gunDamage` |
+| Paratroop order cost | <europa-troop-chip count="20" owner="1"></europa-troop-chip> troops removed at source | `ENGINE_CONSTANTS.paratroopCost` (10) × 2 |
+| Paratroops landed | <europa-troop-chip count="10" owner="1"></europa-troop-chip> troops at target | `ENGINE_CONSTANTS.paratroopCost` |
+| Gun shot cost | <europa-troop-chip count="5" owner="1"></europa-troop-chip> troops per shot | `ENGINE_CONSTANTS.gunCost` |
+| Gun damage | <europa-troop-chip count="2" owner="2"></europa-troop-chip> troops, everything in the target cell | `ENGINE_CONSTANTS.gunDamage` |
 | Weapon range (both weapons) | 2 cells max (diagonals count as 1) | `SUBCELL_RANGE` |
 
 ## Vision
@@ -66,13 +66,13 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 
 | Value | Shipped value | Constant |
 | --- | --- | --- |
-| Reserves steps | 0–90% in 10% steps (digits 0–9) | reserve key mapping (`resolveReservePercent`) |
+| Reserves steps | <europa-reserve-indicator percent="0"></europa-reserve-indicator>–<europa-reserve-indicator percent="90"></europa-reserve-indicator> in 10% steps (digits 0–9) | reserve key mapping (`resolveReservePercent`) |
 | Camera zoom bounds | 12–96 pixels per cell | `DEFAULT_CAMERA.minZoom` / `.maxZoom` |
 | Default zoom | 32 pixels per cell | `DEFAULT_CAMERA.zoom` |
-| Player 1 color | Red `#dc2626` | `DEFAULT_PLAYER_COLORS[1]` |
-| Player 2 color | Blue `#2563eb` | `DEFAULT_PLAYER_COLORS[2]` |
-| Player 3 color | Green `#059669` | `DEFAULT_PLAYER_COLORS[3]` |
-| Player 4 color | Orange-gold `#d97706` | `DEFAULT_PLAYER_COLORS[4]` |
+| Player 1 color | <europa-player-badge player="1"></europa-player-badge> Red `#dc2626` | `DEFAULT_PLAYER_COLORS[1]` |
+| Player 2 color | <europa-player-badge player="2"></europa-player-badge> Blue `#2563eb` | `DEFAULT_PLAYER_COLORS[2]` |
+| Player 3 color | <europa-player-badge player="3"></europa-player-badge> Green `#059669` | `DEFAULT_PLAYER_COLORS[3]` |
+| Player 4 color | <europa-player-badge player="4"></europa-player-badge> Orange-gold `#d97706` | `DEFAULT_PLAYER_COLORS[4]` |
 
 The v1 palette is fixed — these four colors are what ships. Owner identity is never conveyed by color alone: the interface also labels players by name and number.
 
