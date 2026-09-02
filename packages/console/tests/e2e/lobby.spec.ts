@@ -329,7 +329,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await waitUntilLobby(alice, (l) => l.handle === 'Alice', 'Alice handle accepted');
 
         // -- Tab 1: Create a public match → waiting state --------------------
-        await alice.locator('button:has-text("Create match")').click();
+        await alice.getByRole('button', { name: 'Create match' }).click();
         await waitUntilLobby(alice, (l) => l.viewMode === 'match', 'Alice enters match view');
         await expect(alice.locator('.europa-lobby-match__title')).toContainText('In match');
         await expect(alice.locator('[data-europa-prestart-plate="true"]')).toBeVisible();
@@ -362,10 +362,10 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const waitingRow = bob.locator(`[data-match-id="${matchId}"]`);
         await expect(waitingRow).toHaveAttribute('data-status', 'waiting');
-        await expect(waitingRow.locator('button:has-text("Join")')).toBeVisible();
+        await expect(waitingRow.getByRole('button', { name: /^Join/ })).toBeVisible();
 
         // -- Tab 2: Bob joins → auto-start → match transition ----------------
-        await waitingRow.locator('button:has-text("Join")').click();
+        await waitingRow.getByRole('button', { name: /^Join/ }).click();
         await waitUntilLobby(bob, (l) => l.viewMode === 'match', 'Bob enters match view');
         await expect(bob).toHaveURL(new RegExp(`/match/${matchId}/join`));
 
@@ -402,7 +402,9 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
             (l) => l.entries.some((entry) => entry.matchId === matchId && entry.status === 'in_progress'),
             'Observer sees in_progress match',
         );
-        await expect(observer.locator(`[data-match-id="${matchId}"] button:has-text("Spectate")`)).toBeVisible();
+        await expect(
+            observer.locator(`[data-match-id="${matchId}"]`).getByRole('button', { name: /^Spectate/ }),
+        ).toBeVisible();
 
         // -- Zero page errors across the conversation ------------------------
         expect(errors).toEqual([]);
@@ -437,7 +439,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await setHandleViaProfile(alice, 'Alice');
         await waitUntilLobby(alice, (l) => l.handle === 'Alice', 'Alice handle accepted');
 
-        await alice.locator('button:has-text("Create match")').click();
+        await alice.getByRole('button', { name: 'Create match' }).click();
         await waitUntilLobby(alice, (l) => l.viewMode === 'match', 'Alice in match view');
 
         const matchId = await waitUntilLobby(
@@ -459,7 +461,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
             (l) => l.entries.some((entry) => entry.matchId === matchId && entry.status === 'waiting'),
             'Bob sees waiting match',
         );
-        await bob.locator(`[data-match-id="${matchId}"] button:has-text("Join")`).click();
+        await bob.locator(`[data-match-id="${matchId}"]`).getByRole('button', { name: /^Join/ }).click();
         await waitUntilLobby(bob, (l) => l.viewMode === 'match', 'Bob in match view');
 
         // -- Tab 3: Spectator enters and spectates the running match ---------
@@ -476,7 +478,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         );
 
         // Click Spectate — should transition to the match view in read-only.
-        await cara.locator(`[data-match-id="${matchId}"] button:has-text("Spectate")`).click();
+        await cara.locator(`[data-match-id="${matchId}"]`).getByRole('button', { name: /^Spectate/ }).click();
         await waitUntilLobby(cara, (l) => l.viewMode === 'match', 'Cara in match view (spectator)');
         await expect(cara).toHaveURL(new RegExp(`/match/${matchId}/spectate`));
 
@@ -560,7 +562,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
             // The real lobby action enters through the semantic player
             // shortcut; the route adapter preserves this path after the
             // authoritative join succeeds.
-            await bob.locator(`[data-match-id="${matchA}"] button:has-text("Join")`).click();
+            await bob.locator(`[data-match-id="${matchA}"]`).getByRole('button', { name: /^Join/ }).click();
             await waitUntilLobby(bob, (lobby) => lobby.viewMode === 'match', 'semantic route joins match A');
             await expect(bob).toHaveURL(new RegExp(`/match/${matchA}/join(?:\\?.*)?$`));
             await expect(bob.locator('.europa-lobby-match__title')).toContainText('In match');
@@ -581,7 +583,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
                 (lobby) => lobby.entries.some((entry) => entry.matchId === matchA && entry.status === 'in_progress'),
                 'Cara sees running match A',
             );
-            await cara.locator(`[data-match-id="${matchA}"] button:has-text("Spectate")`).click();
+            await cara.locator(`[data-match-id="${matchA}"]`).getByRole('button', { name: /^Spectate/ }).click();
             await waitUntilLobby(cara, (lobby) => lobby.viewMode === 'match', 'adaptive route spectates match A');
             await expect(cara.locator('.europa-lobby-match__title')).toContainText('Spectating');
             await expect(cara.locator('[aria-label="Surrender controls"]')).toHaveCount(0);
@@ -656,7 +658,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await setHandleViaProfile(page, 'Solo');
         await waitUntilLobby(page, (l) => l.handle === 'Solo', 'handle accepted');
 
-        await page.locator('button:has-text("Create match")').click();
+        await page.getByRole('button', { name: 'Create match' }).click();
         await waitUntilLobby(page, (l) => l.viewMode === 'match', 'in match view');
         await expect(page.locator('.europa-lobby-match__title')).toContainText('In match');
 
@@ -700,7 +702,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await setHandleViaProfile(page, 'Grace');
         await waitUntilLobby(page, (l) => l.handle === 'Grace', 'handle accepted');
 
-        await page.locator('button:has-text("Create match")').click();
+        await page.getByRole('button', { name: 'Create match' }).click();
         await waitUntilLobby(page, (l) => l.viewMode === 'match', 'in match view');
 
         // Capture the match id before reload (the lobby snapshot carries it).
@@ -761,7 +763,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await setHandleViaProfile(page, 'Phoenix');
         await waitUntilLobby(page, (l) => l.handle === 'Phoenix', 'pre-restart handle');
 
-        await page.locator('button:has-text("Create match")').click();
+        await page.getByRole('button', { name: 'Create match' }).click();
         await waitUntilLobby(page, (l) => l.viewMode === 'match', 'pre-restart in match');
 
         // -- Kill the server -------------------------------------------------
@@ -817,7 +819,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
             await waitUntilLobby(page, (l) => l.handle === 'PhoenixII', 'new handle after restart');
         }
 
-        await page.locator('button:has-text("Create match")').click();
+        await page.getByRole('button', { name: 'Create match' }).click();
         await waitUntilLobby(page, (l) => l.viewMode === 'match', 'match created after restart');
 
         expect(errors).toEqual([]);
@@ -843,7 +845,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         expect((await readLobbyOrThrow(page)).handle).toBe('Privacy');
 
         // Create a match and check the match view too.
-        await page.locator('button:has-text("Create match")').click();
+        await page.getByRole('button', { name: 'Create match' }).click();
         await waitUntilLobby(page, (l) => l.viewMode === 'match', 'in match view');
         expect((await readLobbyOrThrow(page)).handle).toBe('Privacy');
 
