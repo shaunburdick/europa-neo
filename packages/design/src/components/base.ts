@@ -7,9 +7,23 @@
  * `setAttributeIf`) that keep individual component `render()` methods
  * short and declarative.
  *
- * All components use **light DOM** (no Shadow DOM, no `::part()`,
- * no `adoptedStyleSheets`). The existing `europa-*` CSS classes from the
- * shared catalog are applied directly via `setClasses`.
+ * ## Shadow DOM architecture
+ *
+ * All components use **Shadow DOM** with an open shadow root. The shared
+ * catalog stylesheet (`CATALOG_CSS`) is adopted via a single constructed
+ * `CSSStyleSheet` — one sheet shared across all instances. CSS custom
+ * properties (`--europa-*`) inherit through the shadow boundary from
+ * `:root`, so the token block is not duplicated inside shadow roots.
+ *
+ * Subclasses call {@link EuropaElement.ensureShadowRoot} in their
+ * `render()` method to lazily create and style the shadow root, then
+ * append internal elements to it. Light DOM children are projected via
+ * `<slot>` elements inside the shadow tree.
+ *
+ * The host element's `class` attribute (set via {@link EuropaElement.setClasses})
+ * remains on the host for external `:host(.foo)` selectors and consumer
+ * class-based styling. Internal element attributes are managed via
+ * {@link EuropaElement.setAttributeIf}.
  *
  * @example
  * ```ts
@@ -19,7 +33,8 @@
  *     }
  *
  *     protected render(): void {
- *         // Create or update internal DOM …
+ *         const root = this.ensureShadowRoot();
+ *         // Create or update internal DOM inside shadow root …
  *         this.setClasses(
  *             'europa-button',
  *             this.getAttribute('variant') === 'primary' && 'europa-button--primary',
@@ -28,7 +43,30 @@
  * }
  * ```
  */
+
+import { CATALOG_CSS } from '../styles/catalog-styles.js';
+
+/**
+ * Shared stylesheet constructed once at module load time.
+ *
+ * All shadow roots adopt this single instance via `adoptedStyleSheets`,
+ * avoiding per-element stylesheet parsing overhead.
+ */
+const CATALOG_STYLESHEET: CSSStyleSheet = (() => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(CATALOG_CSS);
+    return sheet;
+})();
+
 export abstract class EuropaElement extends HTMLElement {
+    /**
+     * Tracks whether the shadow root has been created and styled.
+     *
+     * Once `true`, subsequent calls to {@link EuropaElement.ensureShadowRoot}
+     * skip attachment and return the existing shadow root immediately.
+     */
+    private _shadowReady = false;
+
     /**
      * Subclasses must override this to declare the attributes they observe.
      *
@@ -76,11 +114,46 @@ export abstract class EuropaElement extends HTMLElement {
      * {@link EuropaElement.connectedCallback} (initial creation) and
      * {@link EuropaElement.attributeChangedCallback} (attribute updates).
      *
-     * Use {@link EuropaElement.setClasses} and
-     * {@link EuropaElement.setAttributeIf} inside this method for
-     * concise, declarative class/attribute management.
+     * Call {@link EuropaElement.ensureShadowRoot} to obtain the shadow
+     * root, then build/update the internal tree inside it. Use
+     * {@link EuropaElement.setClasses} and
+     * {@link EuropaElement.setAttributeIf} for concise, declarative
+     * class/attribute management.
      */
     protected abstract render(): void;
+
+    /**
+     * Lazily create an open shadow root and adopt the shared catalog
+     * stylesheet.
+     *
+     * On first call, attaches a shadow root with `mode: 'open'` and
+     * adopts the shared {@link CATALOG_STYLESHEET} via `adoptedStyleSheets`.
+     * Subsequent calls return the cached shadow root immediately.
+     *
+     * Subclasses should call this at the top of their `render()` method:
+     *
+     * @example
+     * ```ts
+     * protected render(): void {
+     *     const root = this.ensureShadowRoot();
+     *     // build internal DOM inside root …
+     * }
+     * ```
+     *
+     * @returns The element's open shadow root.
+     */
+    protected ensureShadowRoot(): ShadowRoot {
+        if (!this._shadowReady) {
+            const shadow = this.attachShadow({ mode: 'open' });
+            shadow.adoptedStyleSheets = [CATALOG_STYLESHEET];
+            this._shadowReady = true;
+        }
+        const root = this.shadowRoot;
+        if (root === null) {
+            throw new Error('ensureShadowRoot: shadowRoot is null after attachShadow');
+        }
+        return root;
+    }
 
     /**
      * Replace this element's `class` attribute with the joined list of
@@ -89,6 +162,10 @@ export abstract class EuropaElement extends HTMLElement {
      * Falsy values (`false`, `null`, `undefined`, empty string) are
      * filtered out before joining. If no truthy classes remain, the
      * `class` attribute is removed entirely.
+     *
+     * The `class` attribute lives on the **host element** (outside the
+     * shadow boundary), so it works with external `:host(.foo)` selectors
+     * and consumer-provided class-based styling.
      *
      * @param classes  One or more class names or falsy sentinels.
      *
