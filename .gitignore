@@ -34,6 +34,7 @@ pnpm-debug.log*
 .cache/
 .eslintcache
 .vite/
+.astro/
 
 # OS / editor
 .DS_Store
@@ -45,3 +46,6 @@ Thumbs.db
 # Original Europa archive: reference material only (see AGENTS.md).
 # Blocks accidental additions; tracked files must never be modified.
 europa-source/
+
+# Agent tooling
+.agents/
