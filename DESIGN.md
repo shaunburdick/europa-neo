@@ -116,6 +116,30 @@ alone. Existing token pairings measure at least 3:1 for essential marks on the
 intended light/dark surfaces; wordmark values use `text-primary` or `text-secondary`
 and meet the normal-text target.
 
+### 1.11 Brand artwork and wordmark source (spec 015, artwork milestone)
+
+`packages/design/src/brand/masters/` is the canonical artwork directory. The primary
+lockup is the horizontal `lockup.svg` family; `lockup-vertical.svg` preserves the
+supplied vertical composition as an additional reviewable variant. Emblems retain the
+supplied gradients and filters, with normalized IDs and no editor metadata, network
+references, raster images, or runtime font dependency. Every master has a complete
+`title` and `description` pair.
+
+The wordmark was normalized from **Montserrat ExtraBold (800)**, a geometric sans-serif
+typeface. The bundled authoring reference is
+`packages/design/src/brand/fonts/Montserrat-ExtraBold.woff2`; its license text is kept in
+`Montserrat-LICENSE.txt`. Montserrat is licensed under the **SIL Open Font License 1.1**;
+the source package is `@fontsource/montserrat@5.3.0`, source repository
+`https://github.com/google/fonts/tree/main/ofl/montserrat`. The font is an authoring
+reference only: the shipped wordmark is converted to SVG paths, so consumers never
+download or resolve a font at runtime.
+
+The horizontal lockup is the required production direction and has a 160 CSS px minimum
+wordmark width. Use `lockup-vertical.svg` only where its tall composition fits; use an
+emblem variant below the minimum width. This milestone intentionally stops at normalized
+SVG masters and preview review; generated raster/ICO/PWA/social assets and consumer
+integration remain gated on product-owner approval.
+
 ### 1.2 Typography
 
 | Token name | CSS variable | TS constant | Canonical value | Notes |

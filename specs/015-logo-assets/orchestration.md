@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 1 — canonical artwork and package generator
+- **Current Wave**: Artwork milestone complete — awaiting product review
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -33,11 +33,12 @@ integration proceeds.
 - T-004 build/staging boundary decision — ✅ done; exact package, Pages, root-build,
   and Docker command boundaries recorded in [`plan.md` §9](plan.md#9-wave-0-command-boundary-decision)
 
-### Wave 1 — canonical artwork and package generator — 🔄 Rework required / Product Review
-- T-005 — 🔁 reopened: initial nine SVG masters diverged from the approved full
-  composition; revise before downstream generation
-- T-006 — 🔁 reopened: revalidate treatments after revised masters
-- T-007 through T-014 — ⏸ paused pending product-owner logo feedback
+### Wave 1 — canonical artwork and package generator — ✅ Artwork milestone complete / Product Review
+- T-005 — ✅ normalized supplied artwork, added horizontal lockup, retained vertical
+  variant, and converted the Montserrat ExtraBold wordmark to paths
+- T-006 — ✅ verified clean metadata/namespaces, stable IDs, complete accessibility
+  metadata, preserved gradients/filters, and documented token/licensing choices
+- T-007 through T-014 — ⏸ paused pending product-owner visual approval
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
 - T-015 through T-019
@@ -70,8 +71,10 @@ integration proceeds.
   no use of `europa-source/`.
 
 ## Blockers & Escalations
-- Downstream generation and integration remain paused until revised masters pass
-  AC-011 and receive product-owner visual approval.
+- Downstream generation, raster/ICO/PWA/social output, and all consumer integration
+  remain paused until the normalized artwork passes AC-011 and receives product-owner
+  visual approval. This is intentional; the artwork review is not a covert invitation
+  to grow another asset hydra.
 
 ## New Tasks Discovered
 - None.

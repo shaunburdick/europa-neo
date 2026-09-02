@@ -16,6 +16,7 @@ export const SOURCE_MASTER_PATHS = [
     'src/brand/masters/emblem-dark.svg',
     'src/brand/masters/emblem-mono.svg',
     'src/brand/masters/emblem-compact.svg',
+    'src/brand/masters/lockup-vertical.svg',
 ] as const;
 
 export type BrandFormat = 'svg' | 'png' | 'ico' | 'webmanifest';

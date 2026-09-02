@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { EXPECTED_BRAND_MANIFEST, SOURCE_MASTER_PATHS } from './inventory.fixture.js';
 
 describe('brand source-tree inventory', () => {
-    it('names all nine source SVG masters', () => {
-        expect(SOURCE_MASTER_PATHS).toHaveLength(9);
+    it('names all canonical source SVG masters and the retained vertical variant', () => {
+        expect(SOURCE_MASTER_PATHS).toHaveLength(10);
         expect(new Set(SOURCE_MASTER_PATHS).size).toBe(SOURCE_MASTER_PATHS.length);
         expect(SOURCE_MASTER_PATHS.every((path) => path.startsWith('src/brand/masters/'))).toBe(true);
     });

@@ -185,3 +185,18 @@ For a decorative repeated header mark:
 - **Principle VI**: Contrast, alternative text, non-color distinction, focus preservation, and reduced-motion behavior are explicit.
 - **Principle VII**: All assets work from local static files in self-hosted and Pages deployments with no external service.
 - **Additional constraints**: Original artwork and permissively licensed tooling preserve licensing hygiene; package privacy is unchanged.
+
+## Implementation Notes — artwork review milestone (2026-09-02)
+
+- Product owner approved **Option B**: preserve the supplied artwork while normalizing it
+  for production; this is not a redesign. The supplied vertical composition is retained as
+  `lockup-vertical.svg`, and the required production direction is the derived horizontal
+  `lockup.svg` family.
+- The masters preserve the supplied gradients and filters, remove editor metadata and
+  namespaces, normalize IDs, and include complete `title`/`description` accessibility
+  metadata. The wordmark uses bundled **Montserrat ExtraBold (800)** under SIL OFL 1.1,
+  but all shipped wordmark glyphs are SVG paths; no runtime font or network dependency is
+  introduced.
+- This milestone ends at normalized SVG masters plus the review preview. Raster, ICO,
+  PWA/social generation and broad consumer integration remain paused pending product-owner
+  visual review, as recorded in `orchestration.md`.
