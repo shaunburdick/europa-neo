@@ -22,17 +22,12 @@
  *    whatever version the CALLER supplies.
  * 4. `<root>/README.md` — the release line pinned by
  *    {@link README_RELEASE_LINE_PATTERN}.
- * 5. `<root>/docs/manual/index.md` — the footer line pinned by
+ * 5. `<root>/docs/manual/src/pages/index.mdx` — the footer line pinned by
  *    {@link MANUAL_INDEX_FOOTER_PATTERN}.
  * 6. `<root>/DESIGN.md` — the version header pinned by
  *    {@link DESIGN_VERSION_PATTERN} (spec 012 FR-020 / G-06). The design
  *    contract is a guarded surface so a stale header fails CI naming the
  *    file, exactly like any package version drift.
- * 7. `<root>/docs/manual/_config.yml` — the `version:` key pinned by
- *    {@link DOCS_CONFIG_VERSION_PATTERN} (spec 012 addendum T-033, FR-025).
- *    The manual's version surface, rendered by the branded footer via
- *    `{{ site.version }}`; a stale value fails CI naming the file, exactly
- *    like any package version drift.
  *
  * ## How the constant resolves under `--root` fixtures
  *
@@ -82,11 +77,12 @@ export const CONSTANT_SOURCE_FILE = 'packages/version/src/app-version.ts';
 export const README_RELEASE_LINE_PATTERN = /^Current release:\s*\*\*v(\d+\.\d+\.\d+)\*\*[ \t]*$/m;
 
 /**
- * Player-manual index footer line (plan §5): `*This manual documents
- * Europa Neo vX.Y.Z.*`. Capture group 1 is the raw semver without the
- * display `v` prefix.
+ * Player-manual index footer line (Astro migration): the
+ * `<europa-typography>` component renders the version footer. The pattern
+ * captures the raw semver WITHOUT the display `v` prefix, matching the
+ * source `.mdx` content.
  */
-export const MANUAL_INDEX_FOOTER_PATTERN = /^\*This manual documents Europa Neo v(\d+\.\d+\.\d+)\.\*[ \t]*$/m;
+export const MANUAL_INDEX_FOOTER_PATTERN = />This manual documents Europa Neo v(\d+\.\d+\.\d+)\.<\/europa-typography>/m;
 
 /**
  * `DESIGN.md` version header line (spec 012 FR-020 / contracts §5):
@@ -98,15 +94,6 @@ export const MANUAL_INDEX_FOOTER_PATTERN = /^\*This manual documents Europa Neo 
  * marker defined in `specs/012-design-system/contracts/design-system.contract.md`.
  */
 export const DESIGN_VERSION_PATTERN = /Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/m;
-
-/**
- * `docs/manual/_config.yml` `version:` key (spec 012 addendum T-033,
- * FR-025): `version: 0.1.0`. Capture group 1 is the raw semver WITHOUT any
- * display prefix, ready for direct equality comparison against `APP_VERSION`.
- * The pattern tolerates an optional trailing `# comment` so a documented
- * `version:` line still pins the value.
- */
-export const DOCS_CONFIG_VERSION_PATTERN = /^version:\s*(\d+\.\d+\.\d+)\s*(?:#.*)?$/m;
 
 /** The only field this package cares about in a parsed `package.json`. */
 interface PackageJsonShape {
@@ -260,17 +247,12 @@ export async function gatherVersionSources(rootDir: string, constantVersion: str
         await readSurface(rootDir, 'README.md', 'readme', (raw) => extractDocVersion(raw, README_RELEASE_LINE_PATTERN)),
     );
     sources.push(
-        await readSurface(rootDir, 'docs/manual/index.md', 'manual-index', (raw) =>
+        await readSurface(rootDir, 'docs/manual/src/pages/index.mdx', 'manual-index', (raw) =>
             extractDocVersion(raw, MANUAL_INDEX_FOOTER_PATTERN),
         ),
     );
     sources.push(
         await readSurface(rootDir, 'DESIGN.md', 'design-md', (raw) => extractDocVersion(raw, DESIGN_VERSION_PATTERN)),
-    );
-    sources.push(
-        await readSurface(rootDir, 'docs/manual/_config.yml', 'docs-config', (raw) =>
-            extractDocVersion(raw, DOCS_CONFIG_VERSION_PATTERN),
-        ),
     );
 
     return sources;

@@ -11,9 +11,9 @@
 # Scope guarantees:
 #   - Path filter: only pushes touching docs/manual/** or this workflow
 #     file trigger a deployment (FR-013).
-#   - Artifact scope: jekyll-build-pages' source is scoped to
-#     ./docs/manual, so the uploaded artifact contains only rendered
-#     manual HTML — never package source, specs, or workflows (FR-015).
+#   - Artifact scope: the Astro build outputs only rendered manual HTML
+#     under docs/manual/dist — never package source, specs, or workflows
+#     (FR-015).
 #   - Permissions: least privilege — contents:read at the top level;
 #     only the deploy job elevates to pages:write + id-token:write,
 #     which the OIDC-verified Pages deployment requires (FR-014).
@@ -24,9 +24,6 @@ on:
     branches: [main]
     paths:
       - 'docs/manual/**'
-      - 'docs/manual/assets/design.css'
-      - 'docs/manual/_layouts/**'
-      - 'DESIGN.md'
       - '.github/workflows/pages-deploy.yml'
   workflow_dispatch:
 
@@ -42,24 +39,30 @@ concurrency:
 
 jobs:
   build:
-    name: Build manual site (Jekyll)
+    name: Build manual site (Astro)
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Configure Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-
-      # Official Jekyll rendering with defaults (no _config.yml, no
-      # theme). Source is scoped so ONLY the manual directory is
-      # rendered into ./_site (FR-015 artifact scope).
-      - name: Build manual with Jekyll
-        uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
+      - name: Setup Node
+        uses: actions/setup-node@1a16735589b18c41a2312f5c78a1e5f12028c542 # v4.1.0
         with:
-          source: ./docs/manual
-          destination: ./_site
+          node-version: 22
+          cache: pnpm
+
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build design package
+        run: pnpm --filter @europa/design build
+
+      - name: Build Astro site
+        run: pnpm --filter @europa/manual build
 
       # Docs-privacy guard (010 FR-014 / NFR-003): the manual is published
       # here, so the privacy check runs at the exact point it ships. Fails
@@ -71,7 +74,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: ./_site
+          path: docs/manual/dist
 
   deploy:
     name: Deploy to GitHub Pages

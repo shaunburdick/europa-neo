@@ -44,7 +44,7 @@ function agreeableSources(): VersionSource[] {
         { kind: 'workspace-package', file: 'packages/console/package.json', version: V },
         constantSource(V),
         { kind: 'readme', file: 'README.md', version: V },
-        { kind: 'manual-index', file: 'docs/manual/index.md', version: V },
+        { kind: 'manual-index', file: 'docs/manual/src/pages/index.mdx', version: V },
     ];
 }
 
@@ -118,7 +118,9 @@ describe('checkVersionDrift', () => {
             );
 
             expect(report.ok).toBe(false);
-            expect(report.mismatches).toEqual([{ file: 'docs/manual/index.md', expected: V, actual: '9.9.9' }]);
+            expect(report.mismatches).toEqual([
+                { file: 'docs/manual/src/pages/index.mdx', expected: V, actual: '9.9.9' },
+            ]);
         });
     });
 
@@ -143,7 +145,7 @@ describe('checkVersionDrift', () => {
             expect(report.mismatches).toEqual([
                 { file: 'package.json', expected: V, actual: '0.0.2' },
                 { file: 'README.md', expected: V, actual: null },
-                { file: 'docs/manual/index.md', expected: V, actual: 'v0.0.0' },
+                { file: 'docs/manual/src/pages/index.mdx', expected: V, actual: 'v0.0.0' },
             ]);
         });
     });
