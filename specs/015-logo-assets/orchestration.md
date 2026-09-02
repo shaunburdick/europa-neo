@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: T-013 generated-output validation complete — T-011, T-012, and T-014 pending
+- **Current Wave**: Wave 1 complete through T-014; ready for Wave 2
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -49,17 +49,18 @@ integration proceeds.
 - T-010 remediation — ✅ package build now invokes generation and a manifest/output assertion; every source master is validated before use; `favicon.svg` is generated from the emblem and checked; clean-build, malformed-output, and maskable-safe-area tests added
 - Remaining review HOLD — ✅ maskable transform corrected to centered `scale(0.72)`; conservative bounds cover shield corners, moon, circuitry, and energy clash with a >5 px radial margin inside the documented 204.8 px safe radius; artwork masters remain unchanged
 - Maskable-safety review follow-up — ✅ regression coverage now exercises `generateBrandAssets()` into an isolated temporary directory, reads and decodes the actual emitted `icon-512-maskable.png`, and measures its non-background pixels against the explicitly pinned manifest safe circle (`diameterRatio: 0.8`). The test also asserts the emitted transform and approved emblem body, so changing `RASTER_TARGETS` to an unsafe transform fails; no T-013/T-014 work was started.
-- T-011 — ⏳ pending; T-012 — ⏳ pending
+- T-011 — ✅ deterministic ICO writer/parser/validator with exact 16/32/48 entries
+- T-012 — ✅ typed relative web manifest with stable formatting and icon purposes
 - T-013 — ✅ complete; generated-output contract coverage verifies the complete
   manifest inventory, safe relative paths, PNG dimensions/signatures, exact ICO
   cardinality through the existing parser, SVG/favicons source identity, web
   manifest content, maskable safe-zone output, clean-output rejection, and
   byte-identical regeneration. The package assertion also fails closed on stale,
   malformed, dimensionally incorrect, or source-drifting generated files.
-- T-014 — ⏳ pending
-- Review remediation for T-007–T-009 — ✅ complete; downstream generation remains paused
+- T-014 — ✅ `@europa/design/brand` and wildcard exports, build ordering, and surface tests
+- Review remediation for T-007–T-009 — ✅ complete; generated asset review also complete
 
-### Wave 2 — design documentation and staging — ⏳ Pending
+### Wave 2 — design documentation and staging — ⏳ Pending / Ready
 - T-015 through T-019
 
 ### Wave 3 — console, manual, host, and Docker integration — ⏳ Pending
