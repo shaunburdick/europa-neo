@@ -24,6 +24,7 @@ export type RouteEntryUnavailableReason = 'not-found' | 'not-joinable' | 'full' 
 export type RouteEntry =
     | { readonly kind: 'redirect'; readonly route: Route; readonly pathname: '/lobby' }
     | { readonly kind: 'lobby'; readonly route: Route; readonly pathname: '/lobby' }
+    | { readonly kind: 'profile'; readonly route: Extract<Route, { readonly kind: 'profile' }> }
     | {
           readonly kind: 'resolve';
           readonly route: Extract<Route, { readonly kind: 'match' }>;
@@ -65,6 +66,9 @@ export function adaptRoute(route: Route, snapshot: LobbySnapshot | null): RouteE
     }
     if (route.kind === 'lobby') {
         return { kind: 'lobby', route, pathname: route.pathname };
+    }
+    if (route.kind === 'profile') {
+        return { kind: 'profile', route };
     }
 
     const matchId = asMatchId(route.matchId);
@@ -114,6 +118,7 @@ export function executeRouteEntry(entry: RouteEntry, commands: RouteEntryCommand
             return commands.spectateMatch(entry.matchId);
         case 'redirect':
         case 'lobby':
+        case 'profile':
         case 'resolve':
         case 'unavailable':
             return null;
