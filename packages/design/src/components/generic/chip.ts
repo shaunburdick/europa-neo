@@ -4,10 +4,10 @@ import { EuropaElement } from '../base.js';
  * `<europa-chip>` — a pill-shaped count badge wrapping the `.europa-chip`
  * catalog class.
  *
- * Renders a `<span class="europa-chip">` whose text content is the `count`
- * attribute value (e.g. a troop count). Slotted children are rendered inside
- * the span alongside the count via a `<slot>` element. Uses light DOM and
- * applies the shared catalog class directly (FR-009 / FR-010).
+ * Renders a `<span class="europa-chip">` inside a shadow root whose first
+ * text node is the `count` attribute value (e.g. a troop count). Host
+ * children are projected inside the span after the count via a `<slot>`
+ * element (Shadow DOM — no manual reparenting; FR-009 / FR-010).
  *
  * @example
  * ```html
@@ -16,7 +16,7 @@ import { EuropaElement } from '../base.js';
  * ```
  */
 export class EuropaChip extends EuropaElement {
-    /** The internal `<span class="europa-chip">` element. */
+    /** The internal `<span class="europa-chip">` element inside the shadow root. */
     private _span: HTMLSpanElement | null = null;
 
     /** The text node holding the `count` value. */
@@ -33,39 +33,30 @@ export class EuropaChip extends EuropaElement {
     }
 
     /**
-     * Create (once) or update the internal chip `<span>`.
+     * Create (once) or update the internal chip `<span>` inside the shadow
+     * root.
      *
-     * Idempotent: the span and count text node are created on first call;
-     * light-DOM children are manually reparented into the span (projection
-     * is manual, not via `<slot>` — slots are inert in light DOM). On
-     * subsequent calls only the count text node is refreshed.
+     * Idempotent: the span, count text node, and `<slot>` are created on
+     * first call — host children are projected via the slot, never
+     * reparented. On subsequent calls only the count text node is refreshed
+     * from the current `count` attribute value.
      */
     protected override render(): void {
+        const shadow = this.ensureShadowRoot();
+
         if (this._span === null || this._countText === null) {
-            this._span = document.createElement('span');
-            this._span.className = 'europa-chip';
-            this._countText = document.createTextNode('');
-            this._span.appendChild(this._countText);
-            this.appendChild(this._span);
+            const span = document.createElement('span');
+            span.className = 'europa-chip';
 
-            // Manually reparent light-DOM children into the span.
-            // Snapshot childNodes (live NodeList) before moving.
-            const children = Array.from(this.childNodes);
-            for (const child of children) {
-                if (child !== this._span) {
-                    this._span.appendChild(child);
-                }
-            }
-        }
+            const countText = document.createTextNode('');
+            span.appendChild(countText);
 
-        // Reparent any host children not yet inside the span.
-        // Handles children added after the initial render (e.g. when
-        // setAttribute triggers render() before children are appended).
-        const remaining = Array.from(this.childNodes);
-        for (const child of remaining) {
-            if (child !== this._span) {
-                this._span.appendChild(child);
-            }
+            const slot = document.createElement('slot');
+            span.appendChild(slot);
+
+            shadow.appendChild(span);
+            this._span = span;
+            this._countText = countText;
         }
 
         this._countText.nodeValue = this.getAttribute('count') ?? '';

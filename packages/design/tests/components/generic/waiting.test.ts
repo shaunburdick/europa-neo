@@ -1,15 +1,16 @@
 /**
  * Tests for the `<europa-waiting>` web component (spec 014, FR-014).
  *
- * The waiting component is a light-DOM wrapper around the catalog's
+ * The waiting component is a Shadow DOM wrapper around the catalog's
  * `.europa-waiting` family of classes. It renders a root
- * `<div class="europa-waiting">` containing a plate
+ * `<div class="europa-waiting">` inside a shadow root containing a plate
  * (`__plate`) that holds a decorative spinner pulse (`__pulse`,
  * `aria-hidden="true"`) and a message paragraph (`__text`).
  *
  * The `message` attribute drives the text shown in `__text`, and the
  * `reduced-motion` attribute adds the `.europa-waiting--reduced` modifier
- * class to the root to disable the pulse animation.
+ * class to the root to disable the pulse animation (the adopted catalog
+ * stylesheet applies inside the shadow root).
  *
  * The component does NOT auto-register (FR-004) — this suite registers it
  * explicitly via `customElements.define` in `beforeAll`.
@@ -35,7 +36,10 @@ describe('europa-waiting', () => {
         const waiting = document.createElement(TAG);
         document.body.appendChild(waiting);
 
-        const root = waiting.querySelector('div.europa-waiting');
+        const shadow = waiting.shadowRoot;
+        expect(shadow).not.toBeNull();
+
+        const root = shadow?.querySelector('div.europa-waiting');
         expect(root).not.toBeNull();
         expect(root?.className).toBe('europa-waiting');
 
@@ -49,11 +53,21 @@ describe('europa-waiting', () => {
         expect(text).not.toBeNull();
     });
 
+    it('renders no slot element (the message is attribute-driven)', () => {
+        const waiting = document.createElement(TAG);
+        document.body.appendChild(waiting);
+
+        // No child projection: the message comes from the `message`
+        // attribute, so the shadow tree contains no <slot>.
+        const shadow = waiting.shadowRoot;
+        expect(shadow?.querySelector('slot')).toBeNull();
+    });
+
     it('marks the pulse as decorative with aria-hidden', () => {
         const waiting = document.createElement(TAG);
         document.body.appendChild(waiting);
 
-        const pulse = waiting.querySelector('div.europa-waiting__pulse');
+        const pulse = waiting.shadowRoot?.querySelector('div.europa-waiting__pulse');
         expect(pulse?.getAttribute('aria-hidden')).toBe('true');
     });
 
@@ -62,7 +76,7 @@ describe('europa-waiting', () => {
         waiting.setAttribute('message', 'Waiting for opponent…');
         document.body.appendChild(waiting);
 
-        const text = waiting.querySelector('p.europa-waiting__text');
+        const text = waiting.shadowRoot?.querySelector('p.europa-waiting__text');
         expect(text?.textContent).toBe('Waiting for opponent…');
     });
 
@@ -73,7 +87,7 @@ describe('europa-waiting', () => {
 
         waiting.setAttribute('message', 'Reconnecting…');
 
-        const text = waiting.querySelector('p.europa-waiting__text');
+        const text = waiting.shadowRoot?.querySelector('p.europa-waiting__text');
         expect(text?.textContent).toBe('Reconnecting…');
     });
 
@@ -82,7 +96,7 @@ describe('europa-waiting', () => {
         waiting.setAttribute('reduced-motion', '');
         document.body.appendChild(waiting);
 
-        const root = waiting.querySelector('div.europa-waiting');
+        const root = waiting.shadowRoot?.querySelector('div.europa-waiting');
         expect(root?.classList.contains('europa-waiting--reduced')).toBe(true);
     });
 
@@ -90,7 +104,7 @@ describe('europa-waiting', () => {
         const waiting = document.createElement(TAG);
         document.body.appendChild(waiting);
 
-        const root = waiting.querySelector('div.europa-waiting');
+        const root = waiting.shadowRoot?.querySelector('div.europa-waiting');
         expect(root?.classList.contains('europa-waiting--reduced')).toBe(false);
     });
 });

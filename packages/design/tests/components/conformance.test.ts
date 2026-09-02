@@ -122,6 +122,7 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     {
         name: 'europa-chip renders the europa-chip wrapper',
         tag: 'europa-chip',
+        useShadowDom: true,
         expectExactClassName: 'europa-chip',
     },
     {
@@ -133,6 +134,7 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     {
         name: 'europa-banner defaults to the status live-region contract',
         tag: 'europa-banner',
+        useShadowDom: true,
         expectClasses: ['europa-banner'],
         expectAttr: { role: 'status', 'aria-live': 'polite' },
     },
@@ -140,33 +142,39 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         name: 'europa-banner variant="alert" switches to the alert live-region contract',
         tag: 'europa-banner',
         attrs: { variant: 'alert' },
+        useShadowDom: true,
         expectClasses: ['europa-banner'],
         expectAttr: { role: 'alert', 'aria-live': 'assertive' },
     },
     {
         name: 'europa-typography defaults to the body variant classes',
         tag: 'europa-typography',
+        useShadowDom: true,
         expectClasses: ['europa-typography', 'europa-typography--body'],
     },
     {
         name: 'europa-typography variant="heading" applies the heading modifier',
         tag: 'europa-typography',
         attrs: { variant: 'heading' },
+        useShadowDom: true,
         expectClasses: ['europa-typography', 'europa-typography--heading'],
     },
     {
         name: 'europa-waiting renders the europa-waiting family of classes',
         tag: 'europa-waiting',
         selector: '.europa-waiting',
+        useShadowDom: true,
         expectClasses: ['europa-waiting'],
         extraAssert: (host: HTMLElement): void => {
-            expect(host.querySelector('.europa-waiting__plate')?.classList.contains('europa-waiting__plate')).toBe(
-                true,
-            );
-            expect(host.querySelector('.europa-waiting__pulse')?.classList.contains('europa-waiting__pulse')).toBe(
-                true,
-            );
-            expect(host.querySelector('.europa-waiting__text')?.classList.contains('europa-waiting__text')).toBe(true);
+            expect(
+                host.shadowRoot?.querySelector('.europa-waiting__plate')?.classList.contains('europa-waiting__plate'),
+            ).toBe(true);
+            expect(
+                host.shadowRoot?.querySelector('.europa-waiting__pulse')?.classList.contains('europa-waiting__pulse'),
+            ).toBe(true);
+            expect(
+                host.shadowRoot?.querySelector('.europa-waiting__text')?.classList.contains('europa-waiting__text'),
+            ).toBe(true);
         },
     },
     {
@@ -174,17 +182,20 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         tag: 'europa-waiting',
         attrs: { 'reduced-motion': '' },
         selector: '.europa-waiting',
+        useShadowDom: true,
         expectClasses: ['europa-waiting', 'europa-waiting--reduced'],
     },
     {
         name: 'europa-grid renders the europa-grid wrapper by default',
         tag: 'europa-grid',
+        useShadowDom: true,
         expectExactClassName: 'europa-grid',
     },
     {
         name: 'europa-grid variant="sidebar" adds the europa-grid--sidebar modifier',
         tag: 'europa-grid',
         attrs: { variant: 'sidebar' },
+        useShadowDom: true,
         expectClasses: ['europa-grid', 'europa-grid--sidebar'],
     },
     {

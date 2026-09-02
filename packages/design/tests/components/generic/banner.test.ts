@@ -1,13 +1,14 @@
 /**
  * Tests for the `<europa-banner>` web component (spec 014, FR-012).
  *
- * The banner is a light-DOM wrapper around the catalog's `.europa-banner`
- * class. It renders a single `<div class="europa-banner">` with children
- * manually reparented into the wrapper. The `variant` attribute selects
- * both the accessibility contract and visual style: `status` (default)
- * maps to `role="status"` + `aria-live="polite"` + blue background,
- * while `alert` maps to `role="alert"` + `aria-live="assertive"` +
- * red background.
+ * The banner is a Shadow DOM wrapper around the catalog's `.europa-banner`
+ * class. It renders a single `<div class="europa-banner">` inside a shadow
+ * root with a `<slot>` projecting host children into the wrapper. The
+ * `variant` attribute selects both the accessibility contract and visual
+ * style: `status` (default) maps to `role="status"` + `aria-live="polite"` +
+ * blue background, while `alert` maps to `role="alert"` +
+ * `aria-live="assertive"` + red background. Both live-region attributes live
+ * on the internal wrapper div inside the shadow root.
  *
  * The component does NOT auto-register (FR-004) — this suite registers it
  * explicitly via `customElements.define` in `beforeAll`.
@@ -33,7 +34,10 @@ describe('europa-banner', () => {
         const banner = document.createElement(TAG);
         document.body.appendChild(banner);
 
-        const wrapper = banner.querySelector('div.europa-banner');
+        const shadow = banner.shadowRoot;
+        expect(shadow).not.toBeNull();
+
+        const wrapper = shadow?.querySelector('div.europa-banner');
         expect(wrapper).not.toBeNull();
         expect(wrapper?.className).toBe('europa-banner europa-banner--status');
     });
@@ -42,7 +46,7 @@ describe('europa-banner', () => {
         const banner = document.createElement(TAG);
         document.body.appendChild(banner);
 
-        const wrapper = banner.querySelector('div.europa-banner');
+        const wrapper = banner.shadowRoot?.querySelector('div.europa-banner');
         expect(wrapper?.getAttribute('role')).toBe('status');
         expect(wrapper?.getAttribute('aria-live')).toBe('polite');
     });
@@ -51,7 +55,7 @@ describe('europa-banner', () => {
         const banner = document.createElement(TAG);
         document.body.appendChild(banner);
 
-        const wrapper = banner.querySelector('div.europa-banner');
+        const wrapper = banner.shadowRoot?.querySelector('div.europa-banner');
         expect(wrapper?.classList.contains('europa-banner--status')).toBe(true);
         expect(wrapper?.classList.contains('europa-banner--alert')).toBe(false);
     });
@@ -61,7 +65,7 @@ describe('europa-banner', () => {
         banner.setAttribute('variant', 'alert');
         document.body.appendChild(banner);
 
-        const wrapper = banner.querySelector('div.europa-banner');
+        const wrapper = banner.shadowRoot?.querySelector('div.europa-banner');
         expect(wrapper?.getAttribute('role')).toBe('alert');
         expect(wrapper?.getAttribute('aria-live')).toBe('assertive');
         expect(wrapper?.classList.contains('europa-banner--alert')).toBe(true);
@@ -72,7 +76,7 @@ describe('europa-banner', () => {
         const banner = document.createElement(TAG);
         document.body.appendChild(banner);
 
-        const wrapper = banner.querySelector('div.europa-banner');
+        const wrapper = banner.shadowRoot?.querySelector('div.europa-banner');
         expect(wrapper?.classList.contains('europa-banner--status')).toBe(true);
 
         banner.setAttribute('variant', 'alert');
@@ -84,15 +88,20 @@ describe('europa-banner', () => {
         expect(wrapper?.classList.contains('europa-banner--alert')).toBe(false);
     });
 
-    it('projects slotted children into the internal div', () => {
+    it('projects host children via slot projection', () => {
         const banner = document.createElement(TAG);
         const child = document.createTextNode('Reconnecting to match…');
         banner.appendChild(child);
         document.body.appendChild(banner);
 
-        // Children are manually reparented into the wrapper (no <slot> in Light DOM).
-        const wrapper = banner.querySelector('div.europa-banner');
+        // Under Shadow DOM, children remain on the host and are projected
+        // via the <slot> — they are NOT reparented into the wrapper div.
+        expect(banner.contains(child)).toBe(true);
+
+        // The slot exists inside the wrapper.
+        const wrapper = banner.shadowRoot?.querySelector('div.europa-banner');
         expect(wrapper).not.toBeNull();
-        expect(wrapper?.contains(child)).toBe(true);
+        const slot = wrapper?.querySelector('slot');
+        expect(slot).not.toBeNull();
     });
 });

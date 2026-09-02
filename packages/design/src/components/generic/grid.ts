@@ -1,12 +1,12 @@
 import { EuropaElement } from '../base.js';
 
 /**
- * `<europa-grid>` — a light-DOM layout wrapper for the `europa-grid`
+ * `<europa-grid>` — a Shadow DOM layout wrapper for the `europa-grid`
  * catalog class.
  *
- * Renders a `<div class="europa-grid">` with children manually reparented
- * into the wrapper. The `variant` attribute selects an optional modifier
- * class:
+ * Renders a `<div class="europa-grid">` inside a shadow root, with a
+ * `<slot>` element projecting host children into the wrapper. The
+ * `variant` attribute selects an optional modifier class:
  *
  * - `sidebar` → adds `europa-grid--sidebar`
  * - `wrap` → adds `europa-grid--wrap`
@@ -31,7 +31,7 @@ import { EuropaElement } from '../base.js';
  * ```
  */
 export class EuropaGrid extends EuropaElement {
-    /** The internal `<div>` wrapper. */
+    /** The internal `<div class="europa-grid">` wrapper inside the shadow root. */
     private _grid: HTMLDivElement | null = null;
 
     /**
@@ -45,25 +45,27 @@ export class EuropaGrid extends EuropaElement {
     }
 
     /**
-     * Create (once) the internal grid wrapper, then apply the `europa-grid`
-     * catalog classes to the **internal wrapper div** and reparent light-DOM
-     * children into it on every render (slots are inert in light DOM).
+     * Create (once) the shadow root, internal grid wrapper, and `<slot>`,
+     * then apply the `europa-grid` catalog classes to the **internal wrapper
+     * div** on every render.
      *
-     * Idempotent: the wrapper is created on first call; the wrapper's classes
-     * and children are refreshed on every call (attribute changes).
+     * Idempotent: the wrapper and slot are created on first call; only the
+     * wrapper's modifier class is refreshed on subsequent calls (attribute
+     * changes). Host children are projected via the `<slot>` — they remain
+     * light-DOM children of the host, so framework reconciliation (React 19
+     * `removeChild`) works without reparenting.
      */
     protected override render(): void {
-        if (this._grid === null) {
-            this._grid = document.createElement('div');
-            this.appendChild(this._grid);
-        }
+        const shadow = this.ensureShadowRoot();
 
-        // Reparent any host children not yet inside the wrapper.
-        const children = Array.from(this.childNodes);
-        for (const child of children) {
-            if (child !== this._grid) {
-                this._grid.appendChild(child);
-            }
+        if (this._grid === null) {
+            const grid = document.createElement('div');
+
+            const slot = document.createElement('slot');
+            grid.appendChild(slot);
+
+            shadow.appendChild(grid);
+            this._grid = grid;
         }
 
         const variant = this.getAttribute('variant');
