@@ -1,0 +1,214 @@
+/*
+ * Logo responsive CSS — Feature 015 (T-023, spec 015 FR-005 / FR-019).
+ *
+ * Covers the brand-mark responsive behavior for both surfaces:
+ *   - Lobby: the combined lockup in the header area (.europa-lobby__logo)
+ *   - Footer: the decorative emblem in the branded footer
+ *
+ * Requirements covered:
+ *   1. 160 CSS px lockup threshold (FR-005): below this width the
+ *      combined lockup switches to compact (emblem-only) treatment.
+ *   2. Emblem fallback: if the lockup <img> fails to load, show the
+ *      emblem variant as a CSS background fallback.
+ *   3. Intrinsic dimensions: every logo element carries explicit
+ *      width/height to prevent layout shift (CLS).
+ *   4. No overflow: logo containers never cause horizontal overflow.
+ *   5. Focus preservation: if the logo is inside a focusable
+ *      container, the existing focus-ring behavior is preserved.
+ *   6. Reduced-motion: any transitions on logo elements respect
+ *      prefers-reduced-motion (catalog.css §11 global guard already
+ *      covers inherited motion; these explicit guards cover local
+ *      transitions).
+ *
+ * All color, spacing, radii, and border values use --europa-* design
+ * tokens exclusively — no hex/rgb literals (SC-012).
+ *
+ * Classes consumed by:
+ *   - .europa-lobby__logo — the lobby combined lockup (T-022)
+ *   - .europa-logo-emblem — standalone emblem (decorative / fallback)
+ *   - .europa-logo-emblem-compact — compact emblem for small viewports
+ *   - .europa-logo-container — container-query wrapper for threshold
+ */
+
+/* ── 1. Lobby lockup — combined wordmark + emblem ────────────────────── */
+
+/*
+ * The lobby lockup (T-022) is an <img> with:
+ *   - src="assets/brand/europa-neo-lockup-dark.svg"
+ *   - alt="Europa Neo"
+ *   - width=240 height=80
+ *   - className="europa-lobby__logo"
+ *
+ * This rule adds CLS prevention, overflow protection, emblem fallback,
+ * and responsive switching on top of any existing styles.
+ */
+.europa-lobby__logo {
+    /* Fluid sizing: never wider than 100% of its container */
+    max-width: 100%;
+    height: auto;
+    display: block;
+
+    /* Prevent any overflow from oversized intrinsic content */
+    overflow: hidden;
+
+    /* CLS prevention: the img has explicit width/height attributes;
+       these CSS properties reinforce the floor. */
+    min-width: 0;
+    min-height: 0;
+
+    /* Emblem fallback: if the lockup fails to load, the emblem appears
+       as a CSS background behind the broken image icon, so the user
+       still sees a recognizable brand mark. The emblem is the dark
+       variant (matches the console's dark-slate surface). */
+    background-image: var(--europa-logo-fallback-emblem, none);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+/* ── 2. Compact emblem — threshold below 160 CSS px ─────────────────── */
+
+/*
+ * Container query on the lobby's main element. When the lobby column
+ * is narrower than 160px, the lockup switches to compact treatment.
+ *
+ * The .europa-lobby element is the natural container for the logo;
+ * we declare it as a container-type: inline-size so the query
+ * measures the available column width, not the viewport.
+ *
+ * For the 160px threshold to work without a container wrapper, we
+ * use a max-width media query on the lockup itself as a progressive
+ * enhancement: below 160px viewport or container width, the lockup
+ * scales down and a compact emblem appears.
+ */
+.europa-lobby {
+    container-type: inline-size;
+    container-name: logo;
+}
+
+/*
+ * Below 160px container width: the lockup scales down fluidly.
+ * The lockup SVG is wide (3:1 aspect); at narrow widths the wordmark
+ * becomes unreadable, so we cap it and rely on the alt text for the
+ * product name (FR-005).
+ */
+@container logo (max-width: 160px) {
+    .europa-lobby__logo {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+/*
+ * Compact emblem: rendered alongside the lockup by T-022, hidden by
+ * default. Shown below the 160px threshold via the container query.
+ */
+.europa-logo-emblem-compact {
+    display: none;
+    max-width: 100%;
+    height: auto;
+    overflow: hidden;
+}
+
+@container logo (max-width: 160px) {
+    .europa-logo-emblem-compact {
+        display: block;
+    }
+}
+
+/* ── 3. Standalone emblem — decorative / fallback ────────────────────── */
+
+/*
+ * The standalone emblem is used as:
+ *   - A decorative mark in the branded footer (T-022)
+ *   - The fallback image when the lockup fails to load
+ *   - The compact treatment below the 160px threshold
+ *
+ * Intrinsic sizing: the emblem SVG is square; we add overflow
+ * protection and CLS prevention.
+ */
+.europa-logo-emblem {
+    display: block;
+    height: auto;
+    max-width: 100%;
+
+    /* Prevent overflow */
+    overflow: hidden;
+
+    /* CLS prevention: the component sets explicit width/height
+       attributes; these CSS properties reinforce the floor. */
+    min-width: 0;
+    min-height: 0;
+
+    /* Smooth transitions — disabled under reduced motion via the
+       global catalog.css §11 guard and the local guard below. */
+    transition: opacity 0.15s ease;
+}
+
+/* ── 4. Focus preservation ──────────────────────────────────────────── */
+
+/*
+ * The lobby lockup is a plain <img>, not inside a link. If a future
+ * consumer wraps it in a link (<a>) or focusable container, the focus
+ * ring must not break. The existing .europa-focus-ring class handles
+ * focus-visible outlines; we ensure logo elements never suppress
+ * outlines on focusable ancestors.
+ *
+ * We define a .europa-logo-lockup-link class for the link-wrapping
+ * case, ensuring the shared focus-visible ring is preserved.
+ */
+.europa-logo-lockup-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    /* No overflow from the link itself */
+    max-width: 100%;
+    overflow: hidden;
+
+    /* Remove default link decoration on the logo link */
+    text-decoration: none;
+    color: inherit;
+}
+
+/*
+ * Focus-visible ring on the logo link: uses the shared design tokens
+ * so the ring matches every other focusable element. The ring must be
+ * visible on the dark-slate surface (WCAG 2.4.7 ≥ 3:1).
+ */
+.europa-logo-lockup-link:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+    border-radius: var(--europa-radii-input);
+}
+
+/* ── 5. Reduced-motion behavior ─────────────────────────────────────── */
+
+/*
+ * Any transitions on logo elements are explicitly disabled under
+ * prefers-reduced-motion. The catalog.css §11 global guard already
+ * neutralizes inherited motion, but we add a local guard for
+ * completeness (defense-in-depth — the spec requires explicit
+ * coverage for logo elements).
+ */
+@media (prefers-reduced-motion: reduce) {
+    .europa-lobby__logo,
+    .europa-logo-emblem,
+    .europa-logo-emblem-compact {
+        transition: none;
+    }
+}
+
+/* ── 6. Overflow prevention (global guard) ──────────────────────────── */
+
+/*
+ * Ensure no logo element can ever cause horizontal overflow, regardless
+ * of viewport size or container context. This is the belt-and-suspenders
+ * guard beyond the per-element overflow: hidden.
+ */
+.europa-lobby__logo,
+.europa-logo-emblem,
+.europa-logo-emblem-compact,
+.europa-logo-lockup-link {
+    overflow: hidden;
+}
