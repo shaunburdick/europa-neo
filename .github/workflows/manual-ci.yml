@@ -43,5 +43,8 @@ jobs:
       - name: Build Astro site
         run: pnpm --filter @europa/manual build
 
+      - name: Install Playwright browsers
+        run: pnpm --filter @europa/manual exec playwright install chromium
+
       - name: Run Playwright link test
         run: pnpm --filter @europa/manual test:links
