@@ -478,7 +478,10 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         );
 
         // Click Spectate — should transition to the match view in read-only.
-        await cara.locator(`[data-match-id="${matchId}"]`).getByRole('button', { name: /^Spectate/ }).click();
+        await cara
+            .locator(`[data-match-id="${matchId}"]`)
+            .getByRole('button', { name: /^Spectate/ })
+            .click();
         await waitUntilLobby(cara, (l) => l.viewMode === 'match', 'Cara in match view (spectator)');
         await expect(cara).toHaveURL(new RegExp(`/match/${matchId}/spectate`));
 
@@ -583,7 +586,10 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
                 (lobby) => lobby.entries.some((entry) => entry.matchId === matchA && entry.status === 'in_progress'),
                 'Cara sees running match A',
             );
-            await cara.locator(`[data-match-id="${matchA}"]`).getByRole('button', { name: /^Spectate/ }).click();
+            await cara
+                .locator(`[data-match-id="${matchA}"]`)
+                .getByRole('button', { name: /^Spectate/ })
+                .click();
             await waitUntilLobby(cara, (lobby) => lobby.viewMode === 'match', 'adaptive route spectates match A');
             await expect(cara.locator('.europa-lobby-match__title')).toContainText('Spectating');
             await expect(cara.locator('[aria-label="Surrender controls"]')).toHaveCount(0);
