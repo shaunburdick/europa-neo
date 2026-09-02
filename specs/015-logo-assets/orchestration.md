@@ -72,7 +72,9 @@ integration proceeds.
   missing distribution file. `stage:manual` exposes the same boundary for
   explicit Pages/local use; focused tests cover byte identity, clean output,
   and absent-distribution failures.
-- T-018 — ⏳ pending (parallel sibling owns the drift-test files).
+- T-018 — ✅ complete; `packages/design/tests/brand/drift.test.ts` covers manifest/file,
+  source/generated, package export, `DESIGN.md`, and checked-in manual staging drift
+  boundaries. T-019 remains tracked separately; workflow files were intentionally untouched.
 - T-019 — ✅ complete; Pages now installs from the lockfile, builds and
   explicitly stages `@europa/design` brand distribution before Jekyll, while
   retaining the scoped `docs/manual` artifact, least-privilege permissions,
