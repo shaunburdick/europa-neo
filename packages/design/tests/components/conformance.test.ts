@@ -88,12 +88,14 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     {
         name: 'europa-button renders the europa-button base class by default',
         tag: 'europa-button',
+        useShadowDom: true,
         expectExactClassName: 'europa-button',
     },
     {
         name: 'europa-button maps variant to a europa-button--<variant> modifier',
         tag: 'europa-button',
         attrs: { variant: 'primary' },
+        useShadowDom: true,
         expectClasses: ['europa-button', 'europa-button--primary'],
     },
     {

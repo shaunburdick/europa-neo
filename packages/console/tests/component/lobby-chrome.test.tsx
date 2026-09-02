@@ -293,9 +293,13 @@ describe('LobbyMatchList keyboard-only flow', () => {
             .element() as HTMLButtonElement;
 
         // Keyboard-reachable: a native <button> is focusable; Tab/Enter
-        // reach it without a pointer.
+        // reach it without a pointer. With Shadow DOM (spec 014 Wave 3)
+        // that native button lives inside <europa-button>'s open shadow
+        // root, and document.activeElement reports the shadow HOST for
+        // focus inside an open shadow tree.
         joinButton.focus();
-        expect(document.activeElement).toBe(joinButton);
+        const joinRoot = joinButton.getRootNode();
+        expect(document.activeElement).toBe(joinRoot instanceof ShadowRoot ? joinRoot.host : joinButton);
 
         // Genuine keyboard activation: Enter on a focused native button
         // fires the same click handler a pointer would.
@@ -324,8 +328,11 @@ describe('LobbyMatchList keyboard-only flow', () => {
         const spectateButton = screen
             .getByRole('button', { name: 'Spectate match — In progress, 3 of 4 seats filled' })
             .element() as HTMLButtonElement;
+
+        // Same shadow-host focus anchor as the Join test above.
         spectateButton.focus();
-        expect(document.activeElement).toBe(spectateButton);
+        const spectateRoot = spectateButton.getRootNode();
+        expect(document.activeElement).toBe(spectateRoot instanceof ShadowRoot ? spectateRoot.host : spectateButton);
 
         const user = userEvent.setup();
         await user.keyboard('{Enter}');
