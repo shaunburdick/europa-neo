@@ -42,10 +42,10 @@ after all preceding wave dependencies are complete.
 - [ ] T-021 (console): Extend `build-assets.ts` to resolve `@europa/design` distribution and stage only manifest-selected files into `dist/assets/brand`; fail on absent or mismatched files.
 - [ ] T-022 [P] (console): Integrate meaningful combined/compact logo variants into lobby and a decorative emblem into an in-match persistent surface without duplicating the page name or altering controls/simulation.
 - [ ] T-023 [P] (console): Add responsive CSS and tests for the 160 CSS px lockup threshold, emblem fallback, intrinsic dimensions, no overflow, focus preservation, and reduced-motion behavior.
-- [x] T-024 (manual): Update the shared Jekyll layout/header with local logo, favicon, manifest, and social metadata using `relative_url`; ensure all manual pages inherit it and accessible repetition rules hold.
+- [ ] T-024 (manual): Update the shared Jekyll layout/header with local logo, favicon, manifest, and social metadata using `relative_url`; ensure all manual pages inherit it and accessible repetition rules hold.
 - [ ] T-025 [P] (manual): Add Pages-style build/staged-asset tests covering every referenced path, repository-base deployment, and missing-asset failure.
-- [x] T-026 (host): Add `.webmanifest` MIME handling and static-host tests for all staged brand assets, 404 behavior, traversal safety, and no external fallback.
-- [x] T-027 [P] (Docker): Add single-port Docker build/smoke validation proving console build output contains the design-owned brand set and runtime serves it with correct types; do not add a second server. `scripts/docker-smoke.sh` performs a no-cache image build, checks every manifest asset in the console distribution, and probes each asset over the existing single HTTP/WS port.
+- [ ] T-026 (host): Add `.webmanifest` MIME handling and static-host tests for all staged brand assets, 404 behavior, traversal safety, and no external fallback.
+- [ ] T-027 [P] (Docker): Add single-port Docker build/smoke validation proving console build output contains the design-owned brand set and runtime serves it with correct types; do not add a second server.
 - [ ] T-028 (integration): Add cross-surface tests proving console, manual, host, and Docker references resolve to locally staged design distribution files rather than competing copies.
 
 ## Wave 4 — accessibility, visual review, originality, and gates
