@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildJoinUrl, buildLobbyUrl, buildMatchUrl, buildSpectateUrl, parseRoute } from '../../../src/routing/route';
+import {
+    buildJoinUrl,
+    buildLobbyUrl,
+    buildMatchUrl,
+    buildProfileUrl,
+    buildSpectateUrl,
+    parseRoute,
+} from '../../../src/routing/route';
 
 describe('semantic route parser', () => {
     it.each(['/match/%', '/match/%A', '/match/%GG', '/match/%E0%A4%A/join'])(
@@ -56,6 +63,28 @@ describe('semantic route parser', () => {
             matchId,
             intent,
         });
+    });
+
+    it('classifies /profile as a profile route', () => {
+        expect(parseRoute('/profile')).toEqual({ kind: 'profile', pathname: '/profile' });
+    });
+
+    it('ignores query parameters when classifying /profile', () => {
+        const parsedUrl = new URL('https://example.test/profile?returnTo=%2Fmatch%2Fabc');
+        expect(parseRoute(parsedUrl.pathname)).toEqual({
+            kind: 'profile',
+            pathname: '/profile',
+        });
+    });
+
+    it('classifies /profile/ (trailing slash) as unknown', () => {
+        expect(parseRoute('/profile/')).toEqual({ kind: 'unknown', pathname: '/profile/', reason: 'unsupported-path' });
+    });
+
+    it('builds the canonical profile URL and preserves only the origin', () => {
+        expect(buildProfileUrl('https://example.test:8443/ignored/path?token=secret')).toBe(
+            'https://example.test:8443/profile',
+        );
     });
 
     it('builds the canonical lobby URL and preserves only the origin', () => {
