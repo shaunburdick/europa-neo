@@ -23,7 +23,9 @@ describe('typed generated brand manifest scaffold', () => {
     it('names every required generated logical asset before generators exist', () => {
         expect(EXPECTED_BRAND_MANIFEST.version).toBe(1);
         expect(EXPECTED_BRAND_MANIFEST.assets).toHaveLength(17);
-        expect(EXPECTED_BRAND_MANIFEST.assets.map(({ id }) => id)).toEqual([
+        const assetIds = EXPECTED_BRAND_MANIFEST.assets.map(({ id }) => id);
+
+        expect(assetIds).toEqual([
             'apple-touch-icon',
             'emblem',
             'emblem-compact',
@@ -32,16 +34,17 @@ describe('typed generated brand manifest scaffold', () => {
             'emblem-mono',
             'favicon',
             'favicon-ico',
+            'icon-192',
+            'icon-512',
+            'icon-512-maskable',
             'lockup',
             'lockup-dark',
             'lockup-light',
             'lockup-mono',
-            'icon-192',
-            'icon-512',
-            'icon-512-maskable',
             'site-manifest',
             'social',
         ]);
+        expect(assetIds).toEqual([...assetIds].sort());
     });
 
     it('pins the required raster dimensions and maskable safe area', () => {

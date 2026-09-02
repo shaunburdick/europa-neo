@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 0 — contract and harness freeze
+- **Current Wave**: Wave 1 — canonical artwork and package generator
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -21,14 +21,14 @@ integration proceeds.
 
 ## Task Wave Progress
 
-### Wave 0 — freeze contracts and harnesses — 🔄 In Progress
+### Wave 0 — freeze contracts and harnesses — ✅ Complete
 - T-001 architect contract review — ✅ complete; eight implementation clarifications recorded in `plan.md` §8
 - T-002 original-art direction sheet — ✅ done (`design-direction.md`)
 - T-003 source inventory and typed-manifest test scaffold — ✅ done (`packages/design/tests/brand/inventory.fixture.ts`, `inventory.test.ts`)
 - T-004 build/staging boundary decision — ✅ done; exact package, Pages, root-build,
   and Docker command boundaries recorded in [`plan.md` §9](plan.md#9-wave-0-command-boundary-decision)
 
-### Wave 1 — canonical artwork and package generator — ⏳ Pending
+### Wave 1 — canonical artwork and package generator — ⏳ Pending / Ready
 - T-005 through T-014
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
@@ -52,6 +52,8 @@ integration proceeds.
   clean build-stage `pnpm build` dependency order to transitively stage brand
   files into the console distribution. The explicit Pages stage is idempotent
   even when package build finalization also invokes it.
+- 2026-09-02: `favicon.ico` has exactly three PNG-backed directory entries—one
+  each at 16×16, 32×32, and 48×48—with no undocumented extra entries.
 
 ## Blockers & Escalations
 - None.

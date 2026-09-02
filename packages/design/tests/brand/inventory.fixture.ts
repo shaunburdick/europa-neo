@@ -110,10 +110,6 @@ export const EXPECTED_BRAND_MANIFEST = {
             alt: null,
             safeArea: null,
         },
-        { ...svgAsset('lockup', 'brand/europa-neo-lockup.svg', 'transparent') },
-        { ...svgAsset('lockup-dark', 'brand/europa-neo-lockup-dark.svg', 'dark') },
-        { ...svgAsset('lockup-light', 'brand/europa-neo-lockup-light.svg', 'light') },
-        { ...svgAsset('lockup-mono', 'brand/europa-neo-lockup-mono.svg', 'mixed') },
         {
             id: 'icon-192',
             path: 'brand/icon-192.png',
@@ -147,6 +143,10 @@ export const EXPECTED_BRAND_MANIFEST = {
             alt: null,
             safeArea: { shape: 'circle', diameterRatio: 0.8 },
         },
+        { ...svgAsset('lockup', 'brand/europa-neo-lockup.svg', 'transparent') },
+        { ...svgAsset('lockup-dark', 'brand/europa-neo-lockup-dark.svg', 'dark') },
+        { ...svgAsset('lockup-light', 'brand/europa-neo-lockup-light.svg', 'light') },
+        { ...svgAsset('lockup-mono', 'brand/europa-neo-lockup-mono.svg', 'mixed') },
         {
             id: 'site-manifest',
             path: 'brand/site.webmanifest',

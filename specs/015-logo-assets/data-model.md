@@ -43,7 +43,7 @@ such as `europa-neo-lockup-dark.svg`; consumers never import `src/brand`.
 | File | Dimensions/metadata | Purpose |
 |---|---|---|
 | `favicon.svg` | SVG emblem only | Modern browser favicon |
-| `favicon.ico` | ICO directory entries 16×16, 32×32, 48×48 | Legacy/browser fallback |
+| `favicon.ico` | Exactly three PNG-backed ICO directory entries: one 16×16, one 32×32, and one 48×48; no other entries | Legacy/browser fallback |
 | `apple-touch-icon.png` | 180×180 opaque PNG | Apple home screen |
 | `icon-192.png` | 192×192 PNG | PWA `any` icon |
 | `icon-512.png` | 512×512 PNG | PWA `any` icon |
@@ -71,8 +71,9 @@ the master tree and generator version/configuration.
    documented build metadata files.
 3. Every SVG has a viewBox, parses successfully, and contains no raster,
    external reference, font, script, animation, or network dependency.
-4. Raster dimensions equal the inventory exactly; ICO has exactly the required
-   three sizes (or at minimum contains all three with no duplicate size entries).
+4. Raster dimensions equal the inventory exactly. `favicon.ico` contains exactly
+   three PNG-backed directory entries: one 16×16, one 32×32, and one 48×48, with
+   no undocumented extra entries or duplicate dimensions.
 5. Manifest icon paths are relative and resolve from the manifest directory.
 6. Lockup accessibility uses “Europa Neo”; decorative repeats use empty alt or
    `aria-hidden`; logo-only links have an accessible name.

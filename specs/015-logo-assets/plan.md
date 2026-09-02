@@ -11,7 +11,7 @@
 | Canonical owner | `packages/design` | One source prevents consumer-specific artwork drift. This is the product-owner-confirmed architecture and satisfies AGENTS.md's simplicity and specs-as-documentation principles. |
 | Master artwork | Hand-authored, self-contained SVGs in `packages/design/src/brand/masters/` | SVG remains editable, scalable, inspectable, and independent of a font, network, or raster source. |
 | Raster generation | Existing `@resvg/resvg-js` dev dependency, run by a deterministic TypeScript build script | It is already used by the console asset pipeline, avoids a new runtime dependency, disables system fonts, and renders SVG locally. |
-| ICO generation | Small deterministic TypeScript ICO container writer which embeds the generated PNG layers | ICO is a container; this avoids adding a second image dependency. The required 16/32/48 layers are independently testable. |
+| ICO generation | Small deterministic TypeScript ICO container writer which embeds the generated PNG layers | ICO is a container; this avoids adding a second image dependency. It emits exactly three PNG-backed directory entries—one each at 16×16, 32×32, and 48×48—with no undocumented extras. |
 | Social image | Render a dedicated, programmatically composed 1200×630 SVG scene using the original lockup and brand background, then rasterize it | The preview remains derived from original vector work without becoming a competing master logo. |
 | Package surface | `@europa/design/brand` manifest plus `@europa/design/brand/*` generated files | Consumers never reach into source files. Export targets are generated/owned package distribution files only. |
 | Consumer staging | Build-time copies from the design distribution into console `dist/` and manual `docs/manual/assets/brand/` | Runtime remains local and self-hostable. Docker inherits the console build output; no asset server is added. |
@@ -86,7 +86,8 @@ layered:
 
 1. source SVG structural checks;
 2. manifest/export/generated-file drift checks;
-3. PNG dimensions, ICO directory entries, maskable safe-zone geometry, and
+3. PNG dimensions, the exactly three PNG-backed ICO directory entries (16×16,
+   32×32, and 48×48, with no extras), maskable safe-zone geometry, and
    social image dimensions;
 4. contrast and non-color semantic checks using the canonical design tokens;
 5. consumer staging and HTML/base-path checks;
@@ -147,7 +148,7 @@ The implementation waves must leave these executable gates green:
 | Gate | Evidence |
 |---|---|
 | Inventory/source | all nine masters and every generated path are present and manifest-exported |
-| Binary | exact PNG sizes; ICO has 16/32/48 entries; social PNG is 1200×630 |
+| Binary | exact PNG sizes; ICO has exactly three PNG-backed entries—16×16, 32×32, and 48×48, with no extras; social PNG is 1200×630 |
 | SVG safety | parser rejects raster, external references, fonts, scripts, animation, and malformed XML |
 | Visual | Chromium render review at 16, 32, 48, 180, 192, 512 and light/dark/social surfaces |
 | Accessibility | axe/browser tests, accessible-name tests, contrast calculations, reduced-motion and responsive tests |
@@ -191,10 +192,9 @@ implementation and do not change the feature's user-facing scope:
    pattern. Staging code strips no path components: it resolves the path below
    `dist/` and copies the resulting file to the consumer's local `brand/` root.
    Source master paths are never valid manifest paths.
-4. **ICO cardinality**: emit exactly one PNG-backed directory entry for each of
-   16×16, 32×32, and 48×48. Validators must reject duplicate dimensions as well
-   as missing dimensions, so the data-model wording “or at minimum” cannot permit
-   undocumented extra entries.
+4. **ICO cardinality**: emit exactly three PNG-backed directory entries: exactly
+   one at each of 16×16, 32×32, and 48×48. Validators must reject duplicate,
+   missing, or undocumented extra entries.
 5. **Build ordering and clean checkouts**: the design build/generator is the
    prerequisite for console and manual staging. Root recursive builds must use
    the workspace dependency order; Pages must explicitly install dependencies,
