@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { BRAND_MANIFEST } from '../../src/brand/manifest.js';
 import { EXPECTED_BRAND_MANIFEST, SOURCE_MASTER_PATHS } from './inventory.fixture.js';
 
 describe('brand source-tree inventory', () => {
@@ -20,6 +21,10 @@ describe('brand source-tree inventory', () => {
 });
 
 describe('typed generated brand manifest scaffold', () => {
+    it('matches the authoritative typed manifest inventory', () => {
+        expect(BRAND_MANIFEST).toEqual(EXPECTED_BRAND_MANIFEST);
+    });
+
     it('names every required generated logical asset before generators exist', () => {
         expect(EXPECTED_BRAND_MANIFEST.version).toBe(1);
         expect(EXPECTED_BRAND_MANIFEST.assets).toHaveLength(17);

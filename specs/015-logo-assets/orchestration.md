@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Artwork milestone complete — awaiting product review
+- **Current Wave**: Wave 1 — T-007 complete; T-008 through T-014 pending
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -41,7 +41,9 @@ integration proceeds.
   scale in every treatment; the preview now presents the square overlay composition.
 - T-006 — ✅ verified clean metadata/namespaces, stable IDs, complete accessibility
   metadata, preserved gradients/filters, and documented token/licensing choices
-- T-007 through T-014 — ⏸ paused pending product-owner visual approval
+- T-007 — ✅ strict manifest and package-local path helpers; traversal, undeclared,
+  and consumer-source paths are rejected
+- T-008 through T-014 — ⏳ pending
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
 - T-015 through T-019
@@ -72,6 +74,9 @@ integration proceeds.
   shield/route direction. The full composition is mandatory for the primary lockup;
   originality safeguards remain unchanged, including no mockup tracing/copying and
   no use of `europa-source/`.
+- 2026-09-02: T-007 implementation uses a readonly manifest inventory and
+  package-root-resolved helpers. Source resolution accepts only canonical master
+  names; distribution resolution accepts only manifest-declared `brand/` paths.
 
 ## Blockers & Escalations
 - Downstream generation, raster/ICO/PWA/social output, and all consumer integration

@@ -43,6 +43,7 @@
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
+        "@types/node": "catalog:",
         "@vitest/browser": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "happy-dom": "catalog:",
