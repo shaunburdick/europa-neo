@@ -34,7 +34,7 @@ after all preceding wave dependencies are complete.
 - [ ] T-016 (docs): Update `packages/design/README.md` with authoring, generation, validation, and consumer import/staging instructions; do not describe `dist` as hand-editable.
 - [x] T-017 (build): Extend the canonical design build/vendor pipeline to stage the selected brand set into `docs/manual/assets/brand/` deterministically from package distribution.
 - [ ] T-018 [P] (test): Add design drift tests for manifest↔files, source↔generated output, package exports, `DESIGN.md` inventory, and manual staging byte/content identity.
-- [ ] T-019 [P] (docs/CI): Update Pages workflow to build the design package and stage assets from a clean checkout before Jekyll; preserve path gates, permissions, artifact scope, and timeout discipline.
+- [x] T-019 [P] (docs/CI): Update Pages workflow to build the design package and stage assets from a clean checkout before Jekyll; preserve path gates, permissions, artifact scope, and timeout discipline.
 
 ## Wave 3 — console, manual, host, and Docker integration
 

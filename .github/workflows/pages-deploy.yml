@@ -9,8 +9,8 @@
 # time flip, deployments succeed without further intervention.
 #
 # Scope guarantees:
-#   - Path filter: only pushes touching docs/manual/** or this workflow
-#     file trigger a deployment (FR-013).
+#   - Path filter: only pushes touching the manual, its design-owned inputs,
+#     or this workflow file trigger a deployment (FR-013).
 #   - Artifact scope: the Astro build outputs only rendered manual HTML
 #     under docs/manual/dist — never package source, specs, or workflows
 #     (FR-015).
@@ -24,6 +24,13 @@ on:
     branches: [main]
     paths:
       - 'docs/manual/**'
+      - 'docs/manual/assets/design.css'
+      - 'docs/manual/_layouts/**'
+      - 'DESIGN.md'
+      - 'packages/design/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
       - '.github/workflows/pages-deploy.yml'
   workflow_dispatch:
 
@@ -46,10 +53,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup pnpm
+      - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - name: Setup Node
+      - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
@@ -58,8 +65,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build design package
+      # The design distribution is the only approved source for generated
+      # brand assets. Stage it before the manual build so a clean checkout
+      # cannot rely on an ignored or stale local dist tree. The explicit
+      # stage is intentionally retained even though design build finalization
+      # also invokes it: both commands are idempotent and make this boundary
+      # auditable in the Pages workflow.
+      - name: Build @europa/design
         run: pnpm --filter @europa/design build
+
+      - name: Stage brand assets for the manual
+        run: pnpm --filter @europa/design stage:manual
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Build Astro site
         run: pnpm --filter @europa/manual build

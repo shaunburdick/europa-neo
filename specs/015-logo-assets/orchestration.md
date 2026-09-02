@@ -72,7 +72,12 @@ integration proceeds.
   missing distribution file. `stage:manual` exposes the same boundary for
   explicit Pages/local use; focused tests cover byte identity, clean output,
   and absent-distribution failures.
-- T-018 and T-019 — ⏳ pending.
+- T-018 — ⏳ pending (parallel sibling owns the drift-test files).
+- T-019 — ✅ complete; Pages now installs from the lockfile, builds and
+  explicitly stages `@europa/design` brand distribution before Jekyll, while
+  retaining the scoped `docs/manual` artifact, least-privilege permissions,
+  two-minute job timeouts, non-cancelling `pages` concurrency, and SHA-pinned
+  actions.
 
 ### Wave 3 — console, manual, host, and Docker integration — ⏳ Pending
 - T-020 through T-028
