@@ -50,7 +50,7 @@ after all preceding wave dependencies are complete.
 
 ## Wave 4 — accessibility, visual review, originality, and gates
 
-- [ ] T-029 (a11y): Add browser/axe coverage for meaningful logo names, decorative hidden/empty alt, logo-only link names, contrast, keyboard focus, compact fallback, and reduced-motion behavior.
+- [x] T-029 (a11y): Add browser/axe coverage for meaningful logo names, decorative hidden/empty alt, logo-only link names, contrast, keyboard focus, compact fallback, and reduced-motion behavior.
 - [ ] T-030 (visual): Review actual 16/32/48/180/192/512 renderings, maskable crop, light/dark treatments, monochrome meaning, and 1200×630 safe margins in Chromium; record findings and remediate before acceptance.
 - [x] T-031 (licensing): Complete and commit an originality/licensing review record naming the authoring process, dependency/tool licenses, and negative checks for mockup pixels, `europa-source/`, third-party marks, restricted fonts, and remote assets.
 - [x] T-032 (docs): Update relevant manual/index and README references so user-facing brand paths and usage rules remain truthful; update spec implementation notes/status only after acceptance is proven.
