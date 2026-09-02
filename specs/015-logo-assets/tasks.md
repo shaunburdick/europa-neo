@@ -25,7 +25,7 @@ after all preceding wave dependencies are complete.
 - [x] Review HOLD follow-up (maskable regression coupling): Assert the emitted maskable SVG transform and emblem body, then generate into an isolated output directory, decode the actual emitted `icon-512-maskable.png`, and measure its non-plate pixels against the explicitly pinned manifest safe circle (`diameterRatio: 0.8`). Preserve `scale(0.72)` and approved masters; do not begin T-013/T-014.
 - [ ] T-011 (build): Implement deterministic ICO packaging from generated 16/32/48 PNG layers and expose a parser/validator for directory dimensions, offsets, and payload bounds.
 - [ ] T-012 (build): Generate the local web manifest with relative paths, correct purposes, theme/background tokens, and stable formatting; export the typed manifest via `@europa/design/brand`.
-- [ ] T-013 [P] (test): Add dimension, ICO, manifest, safe-zone, and reproducibility tests, including a failure test for missing/stale/generated output.
+- [x] T-013 [P] (test): Add dimension, ICO, manifest, safe-zone, and reproducibility tests, including a failure test for missing/stale/generated output. `generated-output.test.ts` validates the complete manifest inventory, binary signatures/dimensions, SVG source identity, relative manifest paths, clean-output rejection, and byte-identical repeated generation; the generator assertion now enforces the same output contract.
 - [ ] T-014 (build): Add `@europa/design/brand` and `@europa/design/brand/*` package exports, build ordering, package files policy, and a distribution-surface compile test.
 
 ## Wave 2 — design documentation and staging

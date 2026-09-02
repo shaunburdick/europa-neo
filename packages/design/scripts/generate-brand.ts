@@ -71,8 +71,25 @@ export const createMaskableIconSvg = (emblem: string): string => createIconSvg(e
 export const createSocialSvg = (lockup: string): string =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630"><title>Europa Neo</title><desc>Europa Neo — real-time strategy on Europa</desc><defs><linearGradient id="social-background" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#111827"/></linearGradient><linearGradient id="social-beam-blue" x1="0" x2="1"><stop stop-color="#1d4ed8" stop-opacity="0"/><stop offset=".5" stop-color="#3b82f6" stop-opacity=".7"/><stop offset="1" stop-color="#bae6fd" stop-opacity="0"/></linearGradient><linearGradient id="social-beam-orange" x1="1" x2="0"><stop stop-color="#c2410c" stop-opacity="0"/><stop offset=".5" stop-color="#f97316" stop-opacity=".7"/><stop offset="1" stop-color="#fed7aa" stop-opacity="0"/></linearGradient></defs><rect width="1200" height="630" fill="url(#social-background)"/><path d="M40 470 H1160" stroke="url(#social-beam-blue)" stroke-width="3"/><path d="M40 480 H1160" stroke="url(#social-beam-orange)" stroke-width="3"/><g transform="translate(344 59) scale(.9)">${extractSvgBody(lockup)}</g></svg>`;
 
+const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+
+const assertPng = (data: Uint8Array, name: string, width: number, height: number): void => {
+    if (data.length < 24 || !PNG_SIGNATURE.every((byte, index) => data[index] === byte)) {
+        throw new Error(`${name} is not a PNG`);
+    }
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+    const actualWidth = view.getUint32(16);
+    const actualHeight = view.getUint32(20);
+    if (actualWidth !== width || actualHeight !== height) {
+        throw new Error(`${name} dimensions are ${actualWidth}×${actualHeight}; expected ${width}×${height}`);
+    }
+};
+
 /** Validate every generated file required by the typed consumer inventory. */
-export async function assertGeneratedBrandAssets(outputDirectory: string = BRAND_OUTPUT_DIRECTORY): Promise<void> {
+export async function assertGeneratedBrandAssets(
+    outputDirectory: string = BRAND_OUTPUT_DIRECTORY,
+    mastersDirectory: string = BRAND_MASTERS_DIRECTORY,
+): Promise<void> {
     const expected = new Set(BRAND_MANIFEST.assets.map((asset) => asset.path.slice('brand/'.length)));
     const actual = new Set(await readdir(outputDirectory));
     const missing = [...expected].filter((name) => !actual.has(name));
@@ -86,10 +103,29 @@ export async function assertGeneratedBrandAssets(outputDirectory: string = BRAND
         const details = await stat(path.join(outputDirectory, name));
         if (!details.isFile() || details.size === 0) throw new Error(`Brand output is empty or not a file: ${name}`);
     }
+
+    const masters = new Map<string, string>();
+    for (const sourceName of ALL_MASTER_NAMES) {
+        masters.set(sourceName, await readFile(path.join(mastersDirectory, sourceName), 'utf8'));
+    }
+    for (const [outputName, sourceName] of Object.entries(SVG_VARIANTS)) {
+        const generated = await readFile(path.join(outputDirectory, outputName), 'utf8');
+        const validation = validateSvg(generated);
+        if (!validation.valid)
+            throw new Error(`Generated ${outputName} failed validation: ${validation.errors.join('; ')}`);
+        if (generated !== masters.get(sourceName))
+            throw new Error(`Generated ${outputName} differs from ${sourceName}`);
+    }
     const favicon = await readFile(path.join(outputDirectory, 'favicon.svg'), 'utf8');
     const faviconValidation = validateSvg(favicon);
-    if (!faviconValidation.valid) {
+    if (!faviconValidation.valid)
         throw new Error(`Generated favicon.svg failed validation: ${faviconValidation.errors.join('; ')}`);
+    if (favicon !== masters.get('emblem.svg')) throw new Error('Generated favicon.svg differs from emblem.svg');
+
+    for (const asset of BRAND_MANIFEST.assets.filter(({ format }) => format === 'png')) {
+        const data = await readFile(path.join(outputDirectory, asset.path.slice('brand/'.length)));
+        if (asset.width === null || asset.height === null) throw new Error(`PNG asset lacks dimensions: ${asset.id}`);
+        assertPng(data, asset.path, asset.width, asset.height);
     }
     const ico = validateIco(await readFile(path.join(outputDirectory, 'favicon.ico')));
     if (!ico.valid) throw new Error(`Generated favicon.ico failed validation: ${ico.errors.join('; ')}`);
@@ -171,7 +207,7 @@ export async function generateBrandAssets(options: BrandGenerationOptions = {}):
         renderPng(createSocialSvg(getMaster(masters, 'lockup.svg')), 1200, 630),
     );
     await writeFile(path.join(outputDirectory, 'site.webmanifest'), serializeWebManifest(), 'utf8');
-    await assertGeneratedBrandAssets(outputDirectory);
+    await assertGeneratedBrandAssets(outputDirectory, mastersDirectory);
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

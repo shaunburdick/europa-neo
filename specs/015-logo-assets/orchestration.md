@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 1 maskable-safety review remediation complete — T-011 through T-014 pending
+- **Current Wave**: T-013 generated-output validation complete — T-011, T-012, and T-014 pending
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -49,7 +49,14 @@ integration proceeds.
 - T-010 remediation — ✅ package build now invokes generation and a manifest/output assertion; every source master is validated before use; `favicon.svg` is generated from the emblem and checked; clean-build, malformed-output, and maskable-safe-area tests added
 - Remaining review HOLD — ✅ maskable transform corrected to centered `scale(0.72)`; conservative bounds cover shield corners, moon, circuitry, and energy clash with a >5 px radial margin inside the documented 204.8 px safe radius; artwork masters remain unchanged
 - Maskable-safety review follow-up — ✅ regression coverage now exercises `generateBrandAssets()` into an isolated temporary directory, reads and decodes the actual emitted `icon-512-maskable.png`, and measures its non-background pixels against the explicitly pinned manifest safe circle (`diameterRatio: 0.8`). The test also asserts the emitted transform and approved emblem body, so changing `RASTER_TARGETS` to an unsafe transform fails; no T-013/T-014 work was started.
-- T-011 through T-014 — ⏳ pending
+- T-011 — ⏳ pending; T-012 — ⏳ pending
+- T-013 — ✅ complete; generated-output contract coverage verifies the complete
+  manifest inventory, safe relative paths, PNG dimensions/signatures, exact ICO
+  cardinality through the existing parser, SVG/favicons source identity, web
+  manifest content, maskable safe-zone output, clean-output rejection, and
+  byte-identical regeneration. The package assertion also fails closed on stale,
+  malformed, dimensionally incorrect, or source-drifting generated files.
+- T-014 — ⏳ pending
 - Review remediation for T-007–T-009 — ✅ complete; downstream generation remains paused
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
@@ -152,4 +159,15 @@ The regression now couples the manifest contract to the generated artifact path:
 against the manifest's centered circle. The test pins the contract ratio to `0.8`
 and cross-checks it with the generator constant. An unsafe `RASTER_TARGETS` transform
 therefore fails even if the standalone SVG helper remains unchanged. Approved masters
-and `MASKABLE_SCALE = 0.72` are unchanged; T-013/T-014 remain pending.
+and `MASKABLE_SCALE = 0.72` are unchanged. At this checkpoint T-013/T-014 remained
+pending; T-013 was subsequently completed below.
+
+### T-013 generated-output validation — 2026-09-02
+
+T-013 is complete. `generated-output.test.ts` validates every `BRAND_MANIFEST`
+asset, safe relative paths, binary signatures and dimensions, exact ICO 16/32/48
+entries through the existing parser, generated SVG and favicon identity, web
+manifest content, maskable safe-area behavior, clean-output failures for missing,
+stale, malformed, and source-drifting files, and byte-identical repeated
+generation. The package assertion now enforces the same generated-output contract.
+T-014 package exports and all staging/consumer integration remain untouched.
