@@ -8,18 +8,18 @@
 
 **Purpose**: Extend the routing system to recognize `/profile` — all subsequent tasks depend on this.
 
-- [ ] T001 **[US1/US2/US3]** Add `'profile'` variant to `Route` union in `packages/console/src/routing/route.ts`
+- [x] T001 **[US1/US2/US3]** Add `'profile'` variant to `Route` union in `packages/console/src/routing/route.ts`
   - Add `{ readonly kind: 'profile'; readonly pathname: '/profile' }` to the `Route` type
   - Add `parseRoute('/profile')` recognition before the match prefix check
   - Add `buildProfileUrl()` helper (mirrors `buildLobbyUrl` pattern)
   - Update exhaustive switch in `unknown()` if needed
 
-- [ ] T002 **[US1/US2/US3]** Add `'profile'` variant to `RouteEntry` in `packages/console/src/routing/route-adapter.ts`
+- [x] T002 **[US1/US2/US3]** Add `'profile'` variant to `RouteEntry` in `packages/console/src/routing/route-adapter.ts`
   - Add `{ readonly kind: 'profile'; readonly route: Extract<Route, { readonly kind: 'profile' }> }` to `RouteEntry`
   - Add profile case in `adaptRoute()` — return `{ kind: 'profile', route }` (no snapshot lookup needed)
   - Add profile case in `executeRouteEntry()` — return `null` (no I/O)
 
-- [ ] T003 **[US1/US2/US3]** Update `bootstrapProductionRoute()` in `packages/console/src/main.tsx`
+- [x] T003 **[US1/US2/US3]** Update `bootstrapProductionRoute()` in `packages/console/src/main.tsx`
   - Add `case 'profile':` to the `entry.kind` switch
   - Route falls through to `mountLobby(root)` (same as lobby — the profile view is a sub-view of the lobby runtime)
 
@@ -27,12 +27,12 @@
 
 **Purpose**: Create the dedicated profile page component.
 
-- [ ] T004 **[US1/US2]** Implement `readReturnTo(search: string): string | null` in `packages/console/src/ui/profile-view.ts`
+- [x] T004 **[US1/US2]** Implement `readReturnTo(search: string): string | null` in `packages/console/src/ui/profile-view.ts`
   - Pure function: decode, validate safety (no external URLs, no traversal, no empty)
   - Return safe relative pathname or null
   - Tests: unit tests for all edge cases (external, traversal, empty, malformed, valid)
 
-- [ ] T005 **[US1/US2]** Implement `ProfileView` component in `packages/console/src/ui/profile-view.tsx`
+- [x] T005 **[US1/US2]** Implement `ProfileView` component in `packages/console/src/ui/profile-view.tsx`
   - Props: `identityStatus`, `handle`, `connection`, `actionStatus`, `onSubmitHandle`, `returnTo`
   - Three render states:
     - `restoring`: "Restoring your session…" indicator, disabled Continue button
@@ -47,14 +47,14 @@
 
 **Purpose**: Wire the profile view into the lobby runtime's view gate.
 
-- [ ] T006 **[US1/US2/US3]** Update `LobbyRoot` view gate in `packages/console/src/internal/lobby-runtime.tsx`
+- [x] T006 **[US1/US2/US3]** Update `LobbyRoot` view gate in `packages/console/src/internal/lobby-runtime.tsx`
   - Add profile detection: `window.location.pathname === '/profile'` when `viewMode === 'lobby'`
   - Render `ProfileView` instead of `LobbyLanding` when on `/profile`
   - Pass `returnTo: readReturnTo(window.location.search)` to `ProfileView`
   - Pass `onSubmitHandle` (existing `submitHandle` function)
   - Handle match-join redirect (US3): when `identityStatus === 'unnamed'` AND `currentRoute` is a match route, redirect to `/profile?returnTo=<encoded-match-url>` via `history.replaceState`
 
-- [ ] T007 **[US4]** Replace `LobbyIdentityCard` with compact identity display in `packages/console/src/ui/lobby-landing.tsx`
+- [x] T007 **[US4]** Replace `LobbyIdentityCard` with compact identity display in `packages/console/src/ui/lobby-landing.tsx`
   - Remove `LobbyIdentityCard` import and usage
   - Remove `onSubmitHandle` prop from `LobbyLandingProps`
   - Add compact identity section:
@@ -66,28 +66,28 @@
 
 **Purpose**: Verify all acceptance criteria and a11y requirements.
 
-- [ ] T008 **[P]** **[US1/US2/US3]** Route parser + adapter tests in `packages/console/tests/unit/routing/`
+- [x] T008 **[P]** **[US1/US2/US3]** Route parser + adapter tests in `packages/console/tests/unit/routing/`
   - `route.test.ts`: add `'/profile'` → `{ kind: 'profile', pathname: '/profile' }` test
   - `route-contract.test.ts`: add profile to non-match route classification tests, add query-parameter isolation test for `/profile?returnTo=...`
   - `route-adapter.test.ts`: add profile adaptation test (returns profile entry, executes to null)
 
-- [ ] T009 **[P]** **[US1/US2]** `readReturnTo` unit tests in `packages/console/tests/unit/ui/profile-view.test.ts`
+- [x] T009 **[P]** **[US1/US2]** `readReturnTo` unit tests in `packages/console/tests/unit/ui/profile-view.test.ts`
   - Valid relative paths: `/lobby`, `/match/abc/join`, `/match/abc123/spectate`
   - Unsafe values: external URLs, protocol-relative, `..` traversal, empty, malformed encoding, missing leading slash
 
-- [ ] T010 **[P]** **[US1/US2]** `ProfileView` component tests in `packages/console/tests/component/ui/profile-view.test.tsx`
+- [x] T010 **[P]** **[US1/US2]** `ProfileView` component tests in `packages/console/tests/component/ui/profile-view.test.tsx`
   - Unnamed: form visible, input label, submit button, error display
   - Named: welcome card, handle in bdi, Continue button
   - Restoring: indicator visible, Continue disabled
   - Connection status line renders correctly
   - Auto-navigate on successful handle submission
 
-- [ ] T011 **[P]** **[US4]** Update `LobbyLanding` component tests in `packages/console/tests/component/ui/lobby-landing.test.tsx`
+- [x] T011 **[P]** **[US4]** Update `LobbyLanding` component tests in `packages/console/tests/component/ui/lobby-landing.test.tsx`
   - Named: compact "Playing as {handle}" display, no input form, "Manage profile" link
   - Unnamed: "Choose a name" link, no input form
   - `onSubmitHandle` prop removed from test calls
 
-- [ ] T012 **[P]** **[US1/US2]** ProfileView a11y tests in `packages/console/tests/a11y/profile-view.test.tsx`
+- [x] T012 **[P]** **[US1/US2]** ProfileView a11y tests in `packages/console/tests/a11y/profile-view.test.tsx`
   - Heading focusable (`tabIndex={-1}`)
   - Input has tied `<label>`
   - Errors use `role="alert"`
@@ -98,7 +98,7 @@
 
 **Purpose**: Final verification and cleanup.
 
-- [ ] T013 Verify all acceptance criteria from spec (SC-001 through SC-006)
+- [x] T013 Verify all acceptance criteria from spec (SC-001 through SC-006)
   - SC-001: First-time visitor → form → set name → auto-redirect
   - SC-002: Returning visitor → welcome card → single click to lobby
   - SC-003: Deep link redirect round-trip (unnamed → profile → match)
@@ -106,7 +106,7 @@
   - SC-005: a11y automated tests pass
   - SC-006: returnTo safety validation (external URLs rejected)
 
-- [ ] T014 Run full verification suite: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`
+- [x] T014 Run full verification suite: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`
   - All existing tests continue passing (no regressions)
   - New tests pass
   - Coverage ≥80% on new code

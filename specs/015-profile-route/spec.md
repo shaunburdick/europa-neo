@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-01
 
-**Status**: Draft
+**Status**: Implemented (2026-09-02)
 
 **Input**: User description: "Dedicated `/profile` route for name/handle setup, replacing the inline lobby identity card. Returning players see 'Welcome back, {handle}' with a Continue button. New players see the full handle-setting form. Match-join without identity redirects to `/profile?returnTo=<encoded-match-url>` — stateless, no storage."
 
