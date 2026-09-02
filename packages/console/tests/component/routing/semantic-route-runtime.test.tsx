@@ -103,6 +103,11 @@ describe('semantic route runtime hand-off', () => {
         const transport = new ScriptedLobbyTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
         await controller.connect();
+        // Protocol-faithful ordering: the directed identity event ALWAYS
+        // precedes the baseline snapshot in a real establish cycle, and
+        // route resolution waits for a resolved identity posture (feature
+        // 015 gating).
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
         transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
         spectatorTransportMock.rejectFirstConnect = true;
 
@@ -128,6 +133,9 @@ describe('semantic route runtime hand-off', () => {
         const transport = new ScriptedLobbyTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
         await controller.connect();
+        // Protocol-faithful ordering (see the spectator test above): the
+        // identity event precedes the baseline snapshot.
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
         transport.emitSnapshot(waitingSnapshot());
 
         const screen = await render(
@@ -184,6 +192,8 @@ describe('semantic route runtime hand-off', () => {
         const transport = new ScriptedLobbyTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
         await controller.connect();
+        // Protocol-faithful ordering (see the spectator test above).
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
         transport.emitSnapshot(snapshotOf([]));
 
         const screen = await render(
@@ -206,6 +216,8 @@ describe('semantic route runtime hand-off', () => {
         transport.failNextCommand('joinMatch', () => new Error('match is temporarily unavailable'));
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
         await controller.connect();
+        // Protocol-faithful ordering (see the spectator test above).
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
         transport.emitSnapshot(waitingSnapshot());
 
         const screen = await render(
@@ -305,5 +317,111 @@ describe('semantic route recovery data', () => {
 
         expect(screen.container.textContent).toBe('Page not foundPage not found. Returning to lobby.Return to lobby');
         expect(screen.container.querySelector('a')).toBeNull();
+    });
+});
+
+describe('match-route resolution gates (feature 015 live-smoke defect fix)', () => {
+    test('defers route resolution while identity is unresolved and never fires an entry command', async () => {
+        window.history.replaceState({}, '', '/match/room-alpha/join');
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        // No identity event: the posture stays 'restoring' — the deep link
+        // must NOT command a join against an unresolved identity (the old
+        // defect fired one and matchmaking rejected it with
+        // identity_invalid, planting a sticky Match unavailable notice).
+        transport.emitSnapshot(waitingSnapshot());
+
+        const screen = await render(
+            <LobbyRoot
+                controller={controller}
+                wsUrl="ws://localhost:8080"
+                initialRoute={
+                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
+                }
+            />,
+        );
+
+        await expect.element(screen.getByRole('heading', { name: 'Europa Neo lobby' })).toBeVisible();
+        expect(transport.commands.some((command) => command.kind === 'joinMatch')).toBe(false);
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+        controller.disconnect();
+    });
+
+    test('an unnamed deep-link visitor is redirected to the profile and the naming round-trip resolves the route', async () => {
+        window.history.replaceState({}, '', '/match/room-alpha/join');
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: null, hasIdentity: true });
+        transport.emitSnapshot(waitingSnapshot());
+
+        const screen = await render(
+            <LobbyRoot
+                controller={controller}
+                wsUrl="ws://localhost:8080"
+                initialRoute={
+                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
+                }
+            />,
+        );
+
+        // US3 AC-1: the redirect owns the URL and the profile form renders.
+        // The old defect rendered a sticky "Match unavailable" notice over
+        // this form because a premature join had already failed.
+        await expect.element(screen.getByRole('textbox', { name: 'Display name' })).toBeVisible();
+        expect(window.location.pathname).toBe('/profile');
+        expect(window.location.search).toContain('returnTo=');
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+        expect(transport.commands.some((command) => command.kind === 'joinMatch')).toBe(false);
+
+        // Name yourself through the REAL form: the fixture settles the
+        // rename on the directed identity event, the FR-010 auto-navigation
+        // pushes the returnTo target, and the deferred route resolves.
+        const input = screen.getByRole('textbox', { name: 'Display name' });
+        await input.fill('Deeplink');
+        await (screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement).click();
+        await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
+        expect(window.location.pathname).toBe('/match/room-alpha/join');
+        expect(transport.commands).toContainEqual({ kind: 'joinMatch', argument: MATCH_ID });
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+        controller.disconnect();
+    });
+
+    test('route resolution waits for a ready connection even after the baseline snapshot arrives', async () => {
+        window.history.replaceState({}, '', '/match/room-alpha/join');
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        // Model the real establish-cycle tail: the baseline snapshot is
+        // applied while the transport is still connecting (the ready flip
+        // is dispatched a microtask after the snapshot handlers on the
+        // wire). The old defect joined in that window and the transport
+        // rejected it locally.
+        transport.emitConnection('connecting');
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(waitingSnapshot());
+
+        const screen = await render(
+            <LobbyRoot
+                controller={controller}
+                wsUrl="ws://localhost:8080"
+                initialRoute={
+                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
+                }
+            />,
+        );
+
+        await expect.element(screen.getByRole('heading', { name: 'Europa Neo lobby' })).toBeVisible();
+        expect(transport.commands.some((command) => command.kind === 'joinMatch')).toBe(false);
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+
+        // The ready flip (what the wire delivers when the in-flight cycle
+        // completes — controller.connect() would deliberately no-op while
+        // the transport reports 'connecting') re-runs the effect and
+        // resolves the deferred route.
+        transport.emitConnection('ready');
+        await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
+        expect(transport.commands).toContainEqual({ kind: 'joinMatch', argument: MATCH_ID });
+        controller.disconnect();
     });
 });
