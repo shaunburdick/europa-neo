@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 2 staging complete through T-019; Wave 3 consumer integration not started
+- **Current Wave**: Wave 3 consumer integration in progress; T-024 manual layout complete
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -81,8 +81,15 @@ integration proceeds.
   two-minute job timeouts, non-cancelling `pages` concurrency, and SHA-pinned
   actions.
 
-### Wave 3 — console, manual layout, host, and Docker consumer integration — ⏳ Pending (not started)
-- T-020 through T-028
+### Wave 3 — console, manual layout, host, and Docker consumer integration — ⏳ In progress
+- T-027 — ✅ complete; `scripts/docker-smoke.sh` now builds the existing single-port
+  image from a no-cache context, reads the canonical `@europa/design/brand`
+  manifest inside the image, verifies every selected asset is present in
+  `packages/console/dist/assets/brand`, and checks its served Content-Type.
+- T-020 — ✅ console metadata (sibling work)
+- T-021 through T-023 — ⏳ pending on sibling work
+- T-024 — ✅ shared Jekyll layout/header, local metadata, and inheritance test
+- T-025 through T-026 and T-028 remain pending on sibling work.
 
 ### Wave 4 — accessibility, visual review, originality, and gates — ⏳ Pending
 - T-029 through T-035
