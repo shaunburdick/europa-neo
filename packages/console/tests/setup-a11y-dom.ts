@@ -18,14 +18,28 @@ import '@europa/design/dist/design.css';
 
 import axe from 'axe-core';
 
-/** Axe rule tags enforced on every scan (WCAG 2.2 AA target). */
-const AXE_TAGS: readonly string[] = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+/**
+ * Axe rule tags enforced on every scan (WCAG 2.2 AA target).
+ *
+ * Exported so auxiliary suites (e.g. the shadow-DOM traversal canary
+ * in `tests/a11y/shadow-traversal.test.ts`) scan with the identical
+ * rule set as {@link expectNoDomA11yViolations}.
+ */
+export const AXE_TAGS: readonly string[] = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /**
  * Run an axe scan inside Vitest Browser Mode against the live
  * document (or a subtree), enforcing the same WCAG tag set as the
  * Playwright helper in setup.ts. Used by `tests/component/**` and
  * `tests/a11y/**` suites where no Playwright Page exists.
+ *
+ * Shadow DOM: axe-core ≥ 4 traverses **open** shadow roots by
+ * default, so the internals of the converted `@europa/design` generic
+ * components (button, card, modal, … — all Shadow DOM since the
+ * issue-49 conversion) are audited. This behavior is load-bearing for
+ * the a11y suite's coverage and is pinned by
+ * `tests/a11y/shadow-traversal.test.ts`, which fails loudly if an
+ * axe-core upgrade ever regresses default shadow traversal.
  *
  * @param context Root node to audit; defaults to the whole document.
  * @throws Error listing every violation (rule id, impact, affected
