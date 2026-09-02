@@ -47,7 +47,8 @@ export function readReturnTo(search: string): string | null {
  *
  * Checks (in precedence order):
  *   1. Starts with `/` (absolute pathname, not bare segment).
- *   2. Does NOT contain `://` (rejects `https://evil.com`).
+ *   2. Does NOT contain `://` (rejects any absolute URL that carries an
+ *      explicit scheme — a hostile off-site origin).
  *   3. Does NOT start with `//` (rejects protocol-relative `//evil.com`).
  *   4. Does NOT contain `..` segments (rejects path traversal).
  */
