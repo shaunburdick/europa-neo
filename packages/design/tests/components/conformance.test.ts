@@ -114,11 +114,14 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         name: 'europa-modal renders the europa-modal-backdrop and europa-modal dialog',
         tag: 'europa-modal',
         selector: '.europa-modal-backdrop',
+        useShadowDom: true,
         expectClasses: ['europa-modal-backdrop'],
         extraAssert: (host: HTMLElement): void => {
-            const dialog = host.querySelector('.europa-modal');
+            const dialog = host.shadowRoot?.querySelector('.europa-modal');
             expect(dialog).not.toBeNull();
             expect(dialog?.classList.contains('europa-modal')).toBe(true);
+            expect(dialog?.getAttribute('role')).toBe('dialog');
+            expect(dialog?.getAttribute('aria-modal')).toBe('true');
         },
     },
     {

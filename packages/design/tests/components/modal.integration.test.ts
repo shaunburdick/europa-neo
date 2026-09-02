@@ -10,7 +10,7 @@
  *
  * Covered behaviors:
  * - Tab / Shift+Tab focus-trap cycling (forward wraps last→first, reverse
- *   wraps first→last among the focusable descendants).
+ *   wraps first→last among the flattened focusables).
  * - Focus cannot escape the dialog to an element outside it.
  * - Escape closes the modal and restores focus to the previously-focused
  *   element, firing `europa-close`.
@@ -18,42 +18,86 @@
  *   the dialog does not.
  * - Toggling the `open` attribute shows/hides the modal.
  *
- * IMPORTANT — light-DOM slot caveat: `<europa-modal>` renders with **light DOM**
- * (no Shadow DOM). The `<slot>` elements it renders are inert with respect to
- * `querySelectorAll` — slotted host children are NOT descendants of the dialog
- * element, so the focus-trap's `querySelectorAll` would never find them. To
- * place focusable elements *inside* the dialog for these tests, they are
- * appended directly to the rendered `div.europa-modal__body` element.
+ * Shadow DOM note (Wave 3): `<europa-modal>` renders its backdrop/dialog
+ * structure inside an open shadow root and projects host children via the
+ * body's default `<slot>`. Focusable content is therefore supplied as plain
+ * host children — the natural post-conversion pattern — and the focusable
+ * enumeration helper below mirrors the component's flattened-tree walk
+ * (shadow tree → slots → assigned subtrees). The file also runs in the
+ * happy-dom node suite, where `slot.assignedElements()` and focus simulation
+ * are supported, so every assertion holds in both environments.
  *
- * NOTE on focus entry: the component's `render()` calls `this._dialog.focus()`
- * when opened, but the dialog `<div>` carries no `tabindex`, so that call is a
- * no-op in a real browser (unlike happy-dom). These tests therefore never
- * assume focus lands on the dialog element itself; they drive focus onto the
- * real focusable buttons inside the dialog and assert the trap's boundary
- * behavior from there.
+ * Focus entry: the component's `render()` calls `this._dialog.focus()` when
+ * opened; the dialog carries `tabindex="-1"` and lives inside the shadow
+ * root, so `document.activeElement` reports the `<europa-modal>` host with
+ * the dialog itself as `shadowRoot.activeElement`. The trap resolves the
+ * deep active element, so the boundary conditions work from the dialog too.
  */
 
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { EuropaModal } from '../../src/components/generic/modal.js';
 
-/** The selector used by the component to enumerate focusable descendants. */
+/** The selector the component uses to enumerate focusable elements. */
 const FOCUSABLE_SELECTOR =
     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/** The disabled/negative-tabindex guard the component applies to every source. */
+function isFocusable(el: Element): boolean {
+    return el.matches(FOCUSABLE_SELECTOR) && !el.hasAttribute('disabled') && el.tabIndex >= 0;
+}
+
 /**
- * Returns the focusable elements rendered inside the dialog (title bar, body,
- * and actions regions). In browser mode the light-DOM structure actually
- * renders, so any `<button>` appended into the body becomes a real focusable
- * descendant of the dialog element.
+ * Collect the focusable elements inside the dialog, in flattened document
+ * order. Mirrors the component's `_collectFocusables` walk: shadow-tree
+ * children, then slots (into their assigned light-DOM elements), then
+ * nested open shadow roots.
+ *
+ * @param dialog  The dialog element (inside the modal's shadow root).
+ * @param out  The accumulator for focusable elements.
+ */
+function collectFocusablesIn(container: ParentNode, out: HTMLElement[]): void {
+    for (const child of container.children) {
+        if (child instanceof HTMLSlotElement) {
+            for (const assigned of child.assignedElements()) {
+                collectInto(assigned, out);
+            }
+            continue;
+        }
+        collectInto(child, out);
+    }
+}
+
+/**
+ * Append `el` itself when focusable, then recurse into its children and its
+ * open shadow root, if any. Mirrors the component's per-element walk.
+ *
+ * @param el  The element to visit.
+ * @param out  The accumulator for focusable elements.
+ */
+function collectInto(el: Element, out: HTMLElement[]): void {
+    if (isFocusable(el)) {
+        out.push(el as HTMLElement);
+    }
+    if (el.shadowRoot !== null) {
+        collectFocusablesIn(el.shadowRoot, out);
+    }
+    collectFocusablesIn(el, out);
+}
+
+/**
+ * Returns the focusable elements rendered inside the dialog (title bar,
+ * body, and actions regions of the flattened tree).
  *
  * @param modal  The `<europa-modal>` element to inspect.
  * @returns The array of focusable `HTMLElement`s inside the dialog.
  */
 function getDialogFocusables(modal: EuropaModal): HTMLElement[] {
-    const dialog = modal.querySelector<HTMLElement>('div[role="dialog"]');
-    if (dialog === null) return [];
-    return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+    const dialog = modal.shadowRoot?.querySelector<HTMLElement>('div[role="dialog"]');
+    if (dialog === null || dialog === undefined) return [];
+    const out: HTMLElement[] = [];
+    collectFocusablesIn(dialog, out);
+    return out;
 }
 
 describe('europa-modal (browser integration)', () => {
@@ -73,15 +117,17 @@ describe('europa-modal (browser integration)', () => {
     });
 
     /**
-     * Create and open a modal with focusable buttons placed directly inside the
-     * rendered dialog body, plus optionally one focusable button OUTSIDE the
-     * modal in the document body.
+     * Create and open a modal with focusable buttons supplied as HOST
+     * children (they project through the body's default slot), plus
+     * optionally one focusable button OUTSIDE the modal in the document
+     * body.
      *
      * The modal is attached to the document first (so `connectedCallback`
-     * synchronously renders the backdrop/dialog structure), then buttons are
-     * appended into the body, and finally `open` is set — which triggers
-     * `attributeChangedCallback` to capture `_previousFocus` and `render()` to
-     * run focus management.
+     * synchronously renders the shadow structure), then buttons are added
+     * to the host (slot projection makes them part of the flattened
+     * dialog), and finally `open` is set — which triggers
+     * `attributeChangedCallback` to capture `_previousFocus` and `render()`
+     * to run focus management.
      *
      * @param options  Optional configuration for inside/outside buttons.
      * @returns The modal plus the inside and outside buttons for assertions.
@@ -108,21 +154,19 @@ describe('europa-modal (browser integration)', () => {
 
         const modal = document.createElement(TAG) as EuropaModal;
 
-        // Attach first so connectedCallback renders the internal structure.
+        // Attach first so connectedCallback renders the shadow structure.
         document.body.appendChild(modal);
 
-        const body = modal.querySelector<HTMLElement>('div.europa-modal__body');
-        if (body === null) {
-            throw new Error('modal body element not rendered');
-        }
+        // Slotted content: plain host children project through the default
+        // slot into the flattened dialog.
         for (let i = 0; i < insideCount; i++) {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = `Btn ${i}`;
-            body.appendChild(btn);
+            modal.appendChild(btn);
         }
 
-        // Set open AFTER the internal DOM exists so focus management runs.
+        // Set open AFTER the slotted content exists so focus management runs.
         modal.setAttribute('open', '');
 
         const insideButtons = getDialogFocusables(modal).filter(
@@ -212,6 +256,8 @@ describe('europa-modal (browser integration)', () => {
         let focused = pressTab(false);
         expect(focused).toBe(first);
         expect(focused).not.toBe(outsideButton);
+        // Slotted elements stay light-DOM children of the host, so tree
+        // containment still holds across the shadow boundary.
         expect(modal.contains(focused)).toBe(true);
 
         // Additional Tabs keep focus on the first (boundary no-op), never outside.
@@ -299,7 +345,7 @@ describe('europa-modal (browser integration)', () => {
             closeFired = true;
         });
 
-        const backdrop = modal.querySelector<HTMLElement>('div.europa-modal-backdrop');
+        const backdrop = modal.shadowRoot?.querySelector<HTMLElement>('div.europa-modal-backdrop');
         expect(backdrop).not.toBeNull();
 
         // Click the backdrop element directly (e.target === backdrop).
@@ -317,7 +363,7 @@ describe('europa-modal (browser integration)', () => {
             closeFired = true;
         });
 
-        const dialog = modal.querySelector<HTMLElement>('div[role="dialog"]');
+        const dialog = modal.shadowRoot?.querySelector<HTMLElement>('div[role="dialog"]');
         expect(dialog).not.toBeNull();
 
         dialog?.click();
