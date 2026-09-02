@@ -21,7 +21,7 @@ register();
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
-import type { LobbyActionStatus, LobbyIdentityStatus } from '../../../src/state/lobby-state';
+import type { LobbyActionStatus } from '../../../src/state/lobby-state';
 import { ProfileView, type ProfileViewProps } from '../../../src/ui/profile-view';
 import '../../../src/styles/index.css';
 
@@ -172,9 +172,7 @@ describe('ProfileView — unnamed state', () => {
 
 describe('ProfileView — named state', () => {
     test('renders "Welcome back, {handle}" with handle in bdi element', async () => {
-        const screen = await render(
-            <ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />,
-        );
+        const screen = await render(<ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />);
         await expect.element(screen.getByText('Welcome back, Nova')).toBeVisible();
         const handleEl = screen.container.querySelector('bdi.europa-lobby__handle');
         expect(handleEl).not.toBeNull();
@@ -182,18 +180,14 @@ describe('ProfileView — named state', () => {
     });
 
     test('renders "Continue to lobby" button', async () => {
-        const screen = await render(
-            <ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />,
-        );
+        const screen = await render(<ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />);
         await expect.element(screen.getByRole('button', { name: 'Continue to lobby' })).toBeVisible();
     });
 
     test('clicking Continue navigates to /lobby via history.pushState', async () => {
         const pushState = vi.fn();
         vi.stubGlobal('history', { ...window.history, pushState });
-        const screen = await render(
-            <ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />,
-        );
+        const screen = await render(<ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />);
         const button = screen.getByRole('button', { name: 'Continue to lobby' }).element() as HTMLButtonElement;
         await button.click();
         expect(pushState).toHaveBeenCalled();
@@ -218,9 +212,7 @@ describe('ProfileView — named state', () => {
     });
 
     test('unnamed form is not present when named', async () => {
-        const screen = await render(
-            <ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />,
-        );
+        const screen = await render(<ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />);
         expect(screen.container.querySelector('.europa-lobby__form')).toBeNull();
         expect(screen.container.querySelector('.europa-lobby__input')).toBeNull();
     });

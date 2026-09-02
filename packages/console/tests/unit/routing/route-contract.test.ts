@@ -7,14 +7,17 @@ import { parseRoute, type Route } from '../../../src/routing/route';
  * this suite keeps the pathname authority and query isolation explicit.
  */
 describe('semantic route contract', () => {
-    it.each([['/'] as const, ['/lobby'] as const, ['/profile'] as const])('classifies %s as a non-match route', (pathname) => {
-        const route = parseRoute(pathname);
+    it.each([['/'] as const, ['/lobby'] as const, ['/profile'] as const])(
+        'classifies %s as a non-match route',
+        (pathname) => {
+            const route = parseRoute(pathname);
 
-        expect(route).toEqual({
-            kind: pathname === '/' ? 'root' : pathname === '/lobby' ? 'lobby' : 'profile',
-            pathname,
-        });
-    });
+            expect(route).toEqual({
+                kind: pathname === '/' ? 'root' : pathname === '/lobby' ? 'lobby' : 'profile',
+                pathname,
+            });
+        },
+    );
 
     it.each([
         ['/match/m-123', 'm-123', 'adaptive'],

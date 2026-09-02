@@ -21,7 +21,6 @@ register();
 import { afterEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
-import type { LobbyActionStatus, LobbyIdentityStatus } from '../../src/state/lobby-state';
 import { ProfileView, type ProfileViewProps } from '../../src/ui/profile-view';
 import '../../src/styles/index.css';
 import { expectNoDomA11yViolations } from '../setup-a11y-dom';
@@ -64,10 +63,10 @@ describe('ProfileView a11y', () => {
         // accessible-name resolution across the shadow boundary.
         const heading = screen.container.querySelector('h1');
         expect(heading).not.toBeNull();
-        expect(heading!.getAttribute('tabindex')).toBe('-1');
+        expect(heading?.getAttribute('tabindex')).toBe('-1');
         // Should be focusable via programmatic focus (used for route-change
         // announcements).
-        heading!.focus();
+        heading?.focus();
         expect(document.activeElement).toBe(heading);
     });
 
@@ -151,7 +150,7 @@ describe('ProfileView a11y', () => {
         const alert = screen.getByRole('alert');
         const errorId = alert.element().id;
         expect(errorId).toBeTruthy();
-        expect(describedBy!.split(/\s+/)).toContain(errorId);
+        expect(describedBy?.split(/\s+/)).toContain(errorId);
     });
 
     // -----------------------------------------------------------------------
@@ -189,12 +188,13 @@ describe('ProfileView a11y', () => {
     test('tab order is logical: heading → input → button', async () => {
         const screen = await render(<ProfileView {...defaultProps()} />);
 
-        const heading = screen.container.querySelector('h1')!;
+        const heading = screen.container.querySelector('h1');
+        expect(heading).not.toBeNull();
         const input = screen.getByLabelText('Display name').element();
         const button = screen.getByRole('button', { name: /Set name/ }).element();
 
         // Collect tabbable elements in DOM order.
-        const tabbables = [heading, input, button];
+        const tabbables = [heading as Element, input, button];
 
         // Verify the elements appear in the expected DOM sequence by
         // comparing document position (compareDocumentPosition).
