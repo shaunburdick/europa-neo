@@ -15,6 +15,11 @@ integration proceeds.
 ## Product-Owner Checkpoint
 - Product owner approved the Phase 4–5 plan and requested an early logo review before
   the remaining integration work advances.
+- 2026-09-02: Product owner rejected the initial logo direction as diverged from the
+  reference and clarified that the revised primary lockup must retain the full
+  composition as original vector artwork: Europa planet/moon central, icy outer
+  shield/frame, circuitry behind the planet, strong horizontal blue-versus-orange
+  energy beam/clash, and clear `EUROPA`-dominant / `NEO`-subordinate hierarchy.
 - First reviewable milestone: original SVG masters plus a rendered preview sheet after
   Wave 1. Pause for product-owner feedback before committing to downstream generated
   assets and consumer integration.
@@ -28,9 +33,10 @@ integration proceeds.
 - T-004 build/staging boundary decision — ✅ done; exact package, Pages, root-build,
   and Docker command boundaries recorded in [`plan.md` §9](plan.md#9-wave-0-command-boundary-decision)
 
-### Wave 1 — canonical artwork and package generator — 🔄 Partial / Product Review
-- T-005 — ✅ nine original SVG masters authored
-- T-006 — ✅ token mapping and visual treatment documented
+### Wave 1 — canonical artwork and package generator — 🔄 Rework required / Product Review
+- T-005 — 🔁 reopened: initial nine SVG masters diverged from the approved full
+  composition; revise before downstream generation
+- T-006 — 🔁 reopened: revalidate treatments after revised masters
 - T-007 through T-014 — ⏸ paused pending product-owner logo feedback
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
@@ -58,9 +64,14 @@ integration proceeds.
   each at 16×16, 32×32, and 48×48—with no undocumented extra entries.
 - 2026-09-02: Product-owner review is required after the first SVG milestone and
   before generated icons or consumer integration proceed.
+- 2026-09-02: Product-owner visual clarification supersedes the initial abstract
+  shield/route direction. The full composition is mandatory for the primary lockup;
+  originality safeguards remain unchanged, including no mockup tracing/copying and
+  no use of `europa-source/`.
 
 ## Blockers & Escalations
-- None.
+- Downstream generation and integration remain paused until revised masters pass
+  AC-011 and receive product-owner visual approval.
 
 ## New Tasks Discovered
 - None.

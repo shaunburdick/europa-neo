@@ -4,26 +4,36 @@
 **Status:** Approved direction for SVG authoring
 **Owner:** `packages/design`
 
-This sheet freezes the visual decisions needed to author the nine SVG masters. It
-is an implementation brief, not a finished logo. All geometry must be authored
-as new vector work in `packages/design/src/brand/masters/`; no raster tracing,
-pixel sampling, or artwork reuse is permitted.
+This sheet freezes the approved visual decisions needed to revise the nine SVG
+masters. It is an implementation brief, not a finished logo. The primary lockup
+must retain the mockup's full composition as original vector artwork: Europa
+planet/moon central, icy outer shield/frame, circuitry behind the planet, a
+strong horizontal blue-versus-orange energy beam/clash, and a clear `EUROPA NEO`
+wordmark hierarchy. All geometry must be authored as new vector work in
+`packages/design/src/brand/masters/`; no raster tracing, pixel sampling, or
+artwork reuse is permitted.
 
 ## 1. Design idea
 
-The mark is a compact **ice-core shield**: a faceted, upright enclosure around
-two opposing signal paths. It should suggest a frozen moon, engineered terrain,
-and a tactical contest without depicting a literal planet, weapon, animal, or
-letterform. The wordmark is a quiet technical counterweight to the energetic
-emblem: `Europa` on the first line and `Neo` on the second in the same
-system-font-independent outlined geometry used by the master, not a bundled or
-remote font.
+The primary mark is an **Europa conflict lockup**: a recognizable Europa
+planet/moon anchors the center, an icy shield/frame encloses it, circuit traces
+sit behind it, and a horizontal blue-versus-orange energy beam visibly clashes
+across the center. The wordmark is a clear hierarchy: `EUROPA` is the dominant
+line and `NEO` is subordinate, both in system-font-independent outlined geometry
+used by the master, not a bundled or remote font. The standalone and compact
+emblems are reductions of this composition, not replacements for it in the
+primary lockup.
 
 The identity is recognized by its silhouette and internal construction first;
 blue and orange are supporting team treatments, never the only identifying
 information.
 
 ## 2. Canonical geometry
+
+The geometry below describes the required composition, not a license to copy
+the mockup's pixels or contours. The planet must read as a spherical icy moon
+through newly authored circular/faceted geometry; it must not be replaced by an
+abstract node or shield-only symbol.
 
 ### 2.1 Coordinate system
 
@@ -44,38 +54,53 @@ information.
    `(208,64)`, then two lower shoulders at `(192,184)` and `(128,232)`, and
    `(64,184)`. Close the path. The lower point is the visual anchor; do not
    flatten it into a generic badge.
-2. **Ice facets:** inset the shield by 16 units to form a continuous inner
+2. **Europa planet/moon:** center a newly authored spherical/faceted Europa
+   visual inside the frame. Icy surface cues must remain legible in monochrome;
+   the planet is the central visual anchor, not a minor background ornament.
+3. **Circuitry:** place multiple angular circuit traces and nodes behind the
+   planet, visibly layered as a rear construction. They must not obscure the
+   planet or become the primary silhouette.
+4. **Horizontal conflict beam:** run two opposing, clearly separated horizontal
+   energy paths into a visible central clash across the planet. Blue and orange
+   must meet as a strong left/right conflict without becoming an unreadable blur;
+   the beam remains horizontal in every full-size treatment.
+5. **Conflict cues:** retain a clear central gap or clash boundary and distinct
+   geometric terminal treatments so the two sides remain distinguishable without
+   color. These cues may simplify in compact variants only as specified below.
+6. **Ice facets:** inset the shield by 16 units to form a continuous inner
    field. Split that field with two diagonal seams descending toward the lower
    anchor. Seams are structural negative space, not decorative texture: retain
    them in monochrome and at compact size.
-3. **Signal channels:** place two separate angular paths on opposite sides of
+7. **Beam construction:** place two separate angular paths on opposite sides of
    the centerline. Each starts at a shoulder terminal, makes two 45-degree
    turns, and terminates before the lower point. The channels must never touch
    each other or merge into a single lightning bolt.
-4. **Conflict core:** reserve a narrow vertical negative-space gap of at least
+8. **Conflict core:** reserve a narrow vertical negative-space gap of at least
    12 units between the channels. The gap must remain visible at 16 px after
    rasterization. Add one small central hexagonal node, no larger than 32 units
    across, between the channels; it is the shared objective, not a third team.
-5. **Terminals:** terminate each channel with a distinct geometric cap: the
+9. **Terminals:** terminate each channel with a distinct geometric cap: the
    blue-side path ends in a squared cap, while the orange-side path ends in a
    triangular cap. Caps must remain visible when colors are removed.
-6. **Stroke discipline:** where strokes are used for seams or channels, use a
+10. **Stroke discipline:** where strokes are used for seams or channels, use a
    nominal 12-unit width at master scale, round line joins, and butt/round caps
    consistently within a treatment. Do not use hairlines below 8 units in the
    emblem master; they will disappear in favicon sizes.
 
-The resulting silhouette should read as one shield at a glance, then as two
-separated routes converging on a shared node. It must not depend on a letter
-inside the shield to be recognizable.
+The resulting emblem should read first as an icy framed Europa planet with
+behind-the-planet circuitry and a horizontal energy clash, then as a tactical
+conflict mark. It must not depend on a letter inside the shield to be
+recognizable.
 
 ### 2.3 Lockup geometry
 
 - Use a `640 0 640 256` viewBox for the horizontal lockup.
 - Place the emblem at `x=0..256`, aligned to the wordmark's optical cap height.
 - Keep a 32-unit gap between emblem and wordmark boundary.
-- Set the wordmark block to `x=288..624`, vertically centered. `Europa` is the
-  dominant line; `Neo` is subordinate but not smaller than 60% of the dominant
-  line height.
+- Set the wordmark block to `x=288..624`, vertically centered. `EUROPA` is the
+  dominant line; `NEO` is subordinate but not smaller than 60% of the dominant
+  line height. The hierarchy must remain obvious at the documented minimum
+  width.
 - Construct the wordmark as stable outlined paths or simple authored geometric
   letterforms. Do not rely on a user's installed font, a web font, text layout,
   or external font file.
@@ -186,13 +211,19 @@ than adding a stroke or enlarging beyond the canvas.
   artwork, restricted typeface, or externally fetched visual material may enter
   the master or any generated asset.
 
-## 9. Review checklist for the first rendered sheet
+## 9. Review checklist for the revised rendered sheet
 
-- [ ] Shield silhouette is identifiable without color or wordmark.
+- [ ] Primary lockup visibly contains an Europa planet/moon, icy outer
+      shield/frame, circuitry behind the planet, and a strong horizontal
+      blue-versus-orange energy beam/clash.
+- [ ] `EUROPA` is visibly dominant over subordinate `NEO` in the wordmark.
+- [ ] The approved full composition is present; a shield-only, route-only, or
+      abstract-node substitute is rejected.
 - [ ] Channel gap, square/triangle terminal pair, and center node survive 16 px.
 - [ ] Lockup remains readable at 160 CSS px and switches cleanly to compact form.
 - [ ] Light, dark, and monochrome treatments are geometrically identical.
 - [ ] Clear space is visible on transparent, light, dark, and social compositions.
 - [ ] Blue/orange conflict remains distinguishable when rendered grayscale.
 - [ ] No gradients, glow, font dependency, external resource, or non-original
-      artwork has entered the authoring tree.
+      artwork has entered the authoring tree; no mockup pixels or
+      `europa-source/` material was traced, copied, or embedded.

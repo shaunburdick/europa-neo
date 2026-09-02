@@ -1,6 +1,6 @@
 # Feature Specification: Europa Neo Logo and Favicon/Icon Set
 
-> Version: 1.1
+> Version: 1.2
 > Last Updated: 2026-09-02
 > Status: Draft
 > GitHub Issue: #54
@@ -12,7 +12,7 @@
 
 Europa Neo has a recognizable dark-slate product surface but no owned brand mark. The console, player manual, and self-hosted landing page therefore lack a consistent identity in headers, browser chrome, bookmarks, and link previews. This feature establishes an original, reusable visual identity: a combined emblem and “Europa Neo” wordmark, a standalone emblem, and a complete icon/preview set derived from the same vector source.
 
-The supplied mockup is visual inspiration only. The artwork must be newly authored for Europa Neo and must communicate icy Europa terrain, circuitry, and blue-versus-orange conflict energy without copying raster artwork, traced shapes, or third-party marks.
+The supplied mockup is visual inspiration only. The approved primary-lockup direction is its full composition: an Europa planet/moon as the central visual, enclosed by an icy outer shield/frame, with circuitry behind the planet, a strong horizontal blue-versus-orange energy beam/clash, and a clear “EUROPA NEO” wordmark hierarchy. The artwork must be newly authored for Europa Neo and must not copy raster artwork, traced shapes, or third-party marks.
 
 ## User Scenarios & Testing
 
@@ -56,7 +56,7 @@ As a player or maintainer, I want browser icons and a share preview that remain 
 
 ### Brand artwork and source of truth
 
-- **FR-001**: The feature MUST provide newly authored Europa Neo artwork consisting of a combined emblem + “Europa Neo” wordmark and a standalone emblem. Artwork may use an icy shield/Europa motif, circuit-like geometry, and blue/orange conflict energy inspired by the mockup, but MUST NOT copy, trace, embed, or derive pixels from the supplied raster mockup or from `europa-source/`.
+- **FR-001**: The feature MUST provide newly authored Europa Neo artwork consisting of a combined primary lockup + “EUROPA NEO” wordmark and a standalone emblem. The primary lockup MUST retain the approved full composition: Europa planet/moon as the central visual; an icy outer shield/frame; circuitry visibly positioned behind the planet; a strong horizontal blue-versus-orange energy beam/clash; and a clear wordmark hierarchy in which `EUROPA` is dominant and `NEO` is subordinate. Simplified emblem variants MAY reduce detail for small sizes, but MUST preserve the recognizable planet, frame, circuitry, and conflict cues. Artwork MUST NOT copy, trace, embed, or derive pixels from the supplied raster mockup or from `europa-source/`.
 - **FR-002**: `packages/design` MUST own the master artwork and generated brand asset source of truth. Master artwork MUST be editable, scalable SVG with a `viewBox`, no embedded raster images, no external stylesheet, no external font, and no network dependency. Standalone SVGs MUST include a meaningful `<title>`/description. No consumer may maintain a competing copy of a master asset.
 - **FR-003**: The inventory MUST be authored under `packages/design` (master SVGs under its source tree and generated outputs under its distribution tree) and MUST include these original SVGs: combined lockup, standalone emblem, light-background lockup, dark-background lockup, monochrome lockup, light-background emblem, dark-background emblem, monochrome emblem, and a compact emblem variant for constrained headers. Variant names and intended background MUST be documented in `DESIGN.md`.
 - **FR-004**: Light and dark variants MUST preserve geometry and meaning while meeting NFR-002. Monochrome variants MUST remain identifiable without blue/orange color distinction.
@@ -106,6 +106,7 @@ As a player or maintainer, I want browser icons and a share preview that remain 
 - [ ] **AC-008**: Tests cover inventory, dimensions, references, metadata, accessible names, responsive selection, and missing-asset failures; new executable code meets the 80% coverage gate.
 - [ ] **AC-009**: `DESIGN.md` documents every master/generated file, package export, staging rule, and usage rule, and drift tests fail when an inventory file, export, generated output, or integration reference is removed/renamed without documentation.
 - [ ] **AC-010**: Final originality/licensing review records that no mockup raster pixels, `europa-source/` code/artwork, restricted font, or third-party mark was copied.
+- [ ] **AC-011**: Product-owner visual review confirms that the primary lockup is a newly authored full composition containing, and visually reading in this order, an Europa planet/moon central visual, icy outer shield/frame, circuitry behind the planet, a strong horizontal blue-versus-orange energy beam/clash, and a clear `EUROPA`-over-`NEO` wordmark hierarchy; an abstract shield-only or route-only substitute fails acceptance.
 
 ## Edge Cases
 
@@ -169,6 +170,12 @@ For a decorative repeated header mark:
 |---|---|---|---|
 | 6 | Which package owns brand assets and how do consumers receive them? | `packages/design` owns master SVGs and generated outputs. Consumers use the documented `@europa/design/brand` manifest and `@europa/design/brand/*` asset exports; no consumer maintains master copies. | FR-002, FR-003, FR-010, FR-015, FR-016 |
 | 7 | How do runtime surfaces receive assets while remaining self-hosted? | Console, manual, `pnpm host`, and Docker stage selected generated files from `@europa/design` at build time into local static trees. No CDN, registry publication, or second asset server is introduced. | FR-011–FR-017, NFR-001, AC-006–AC-009 |
+
+### v1.2 (2026-09-02) — Product-owner visual-direction clarification
+
+| # | Question | Decision | Requirement(s) |
+|---|---|---|---|
+| 8 | What visual composition must the revised primary lockup deliver? | The primary lockup must retain the mockup’s full compositional idea as original vector artwork: Europa planet/moon central, icy outer shield/frame, circuitry behind it, a strong horizontal blue-versus-orange beam/clash, and an explicit `EUROPA`-dominant / `NEO`-subordinate hierarchy. This is an approved direction, not permission to trace or copy the mockup. | FR-001, AC-011 |
 
 ## Constitution Alignment
 

@@ -13,8 +13,8 @@ after all preceding wave dependencies are complete.
 
 ## Wave 1 — canonical artwork and package generator
 
-- [x] T-005 (design): Author the nine self-contained SVG masters under `packages/design/src/brand/masters/`; include meaningful title/description in standalone emblem files and keep all geometry original.
-- [x] T-006 (design): Add documented brand tokens or token references using existing `@europa/design` values; prove light/dark/monochrome contrast and non-color distinction before raster generation.
+- [ ] T-005 (design): Revise the nine self-contained SVG masters under `packages/design/src/brand/masters/` to satisfy the approved full primary-lockup composition (Europa planet/moon, icy outer shield/frame, rear circuitry, horizontal blue-versus-orange beam/clash, and `EUROPA`-dominant/`NEO`-subordinate wordmark); retain meaningful title/description in standalone emblem files and keep all geometry original.
+- [ ] T-006 (design): Revalidate documented brand tokens or token references using existing `@europa/design` values; prove light/dark/monochrome contrast and non-color distinction for the revised composition before raster generation.
 - [ ] T-007 (build): Implement strict typed brand manifest and package-local source/distribution path helpers; reject traversal, undeclared, and consumer-source paths.
 - [ ] T-008 (build): Implement SVG structural validation for parseability, viewBox, embedded raster, external/network references, fonts, scripts, animation, and malformed content.
 - [ ] T-009 [P] (test): Add source SVG tests for inventory, title/description, geometry invariance between treatments, no-forbidden-content, and combined-lockup size limits.
