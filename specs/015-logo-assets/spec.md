@@ -1,6 +1,6 @@
 # Feature Specification: Europa Neo Logo and Favicon/Icon Set
 
-> Version: 1.0
+> Version: 1.1
 > Last Updated: 2026-09-02
 > Status: Draft
 > GitHub Issue: #54
@@ -57,8 +57,8 @@ As a player or maintainer, I want browser icons and a share preview that remain 
 ### Brand artwork and source of truth
 
 - **FR-001**: The feature MUST provide newly authored Europa Neo artwork consisting of a combined emblem + “Europa Neo” wordmark and a standalone emblem. Artwork may use an icy shield/Europa motif, circuit-like geometry, and blue/orange conflict energy inspired by the mockup, but MUST NOT copy, trace, embed, or derive pixels from the supplied raster mockup or from `europa-source/`.
-- **FR-002**: Master artwork MUST be editable, scalable SVG with a `viewBox`, no embedded raster images, no external stylesheet, no external font, and no network dependency. Standalone SVGs MUST include a meaningful `<title>`/description.
-- **FR-003**: The inventory MUST include these original SVGs under one documented brand-assets root: combined lockup, standalone emblem, light-background lockup, dark-background lockup, monochrome lockup, light-background emblem, dark-background emblem, monochrome emblem, and a compact emblem variant for constrained headers. Variant names and intended background MUST be documented in `DESIGN.md`.
+- **FR-002**: `packages/design` MUST own the master artwork and generated brand asset source of truth. Master artwork MUST be editable, scalable SVG with a `viewBox`, no embedded raster images, no external stylesheet, no external font, and no network dependency. Standalone SVGs MUST include a meaningful `<title>`/description. No consumer may maintain a competing copy of a master asset.
+- **FR-003**: The inventory MUST be authored under `packages/design` (master SVGs under its source tree and generated outputs under its distribution tree) and MUST include these original SVGs: combined lockup, standalone emblem, light-background lockup, dark-background lockup, monochrome lockup, light-background emblem, dark-background emblem, monochrome emblem, and a compact emblem variant for constrained headers. Variant names and intended background MUST be documented in `DESIGN.md`.
 - **FR-004**: Light and dark variants MUST preserve geometry and meaning while meeting NFR-002. Monochrome variants MUST remain identifiable without blue/orange color distinction.
 - **FR-005**: The wordmark MUST remain readable at its documented minimum display width of 160 CSS px. Below that width consumers MUST use the compact emblem; the emblem MUST remain recognizable from 16 CSS px through 512 CSS px.
 - **FR-006**: Brand colors MUST reference existing `@europa/design` tokens or a documented brand-token extension in `DESIGN.md`; no ad-hoc console-only color literals may be introduced. Conflict colors MUST be blue and orange with sufficient non-color shape/value distinction.
@@ -68,25 +68,26 @@ As a player or maintainer, I want browser icons and a share preview that remain 
 - **FR-007**: The set MUST include a favicon SVG and a `favicon.ico` containing 16×16, 32×32, and 48×48 icon images. The favicon MUST use the emblem only.
 - **FR-008**: The set MUST include a 180×180 Apple touch icon, 192×192 Android/PWA icon, and 512×512 Android/PWA icon. The 512×512 icon MUST also have a documented maskable-safe variant with artwork inside the central safe area if the manifest uses `purpose: maskable`.
 - **FR-009**: The set MUST include a 1200×630 social/share preview image in PNG or JPEG, generated from original vector artwork. It MUST include the combined lockup, dark Europa/icy visual language, and documented safe margins.
-- **FR-010**: Web entry points MUST declare local favicon, Apple touch icon, manifest/PWA icons where applicable, and Open Graph/Twitter-compatible preview metadata. Metadata MUST use the existing self-hosted base-path mechanism and MUST NOT point at a CDN.
+- **FR-010**: `@europa/design` MUST document a consumer export surface for the complete brand set: `@europa/design/brand` for the typed asset manifest/metadata and `@europa/design/brand/*` for generated SVG/raster files. The package export MUST resolve only to files generated or owned by `packages/design`; consumers MUST NOT import unpublished source files or copy assets manually.
+- **FR-011**: Web entry points MUST declare local favicon, Apple touch icon, manifest/PWA icons where applicable, and Open Graph/Twitter-compatible preview metadata. Metadata MUST use the existing self-hosted base-path mechanism and MUST NOT point at a CDN.
 
 ### Product integration
 
-- **FR-011**: The console MUST integrate the brand in the lobby/landing surface and at least one in-match persistent surface without obscuring gameplay controls, changing simulation behavior, or duplicating an accessible page-level name.
-- **FR-012**: The player manual MUST integrate the logo in its shared layout/header and include local favicon metadata. Manual pages MUST continue to build with the existing GitHub Pages workflow and local asset policy.
-- **FR-013**: The self-hosted page served by `pnpm host` and the single-port Docker deployment MUST expose and use the same local brand asset paths, including preview metadata, without requiring a separate asset server.
-- **FR-014**: Root `DESIGN.md` MUST document the inventory, variant selection, minimum sizes, clear space, backgrounds, color usage, accessibility rules, file paths, and original-art/licensing statement. Future asset changes MUST update `DESIGN.md` in the same change set.
+- **FR-012**: The console MUST integrate the brand in the lobby/landing surface and at least one in-match persistent surface without obscuring gameplay controls, changing simulation behavior, or duplicating an accessible page-level name. Console build output MUST receive assets from the `@europa/design` distribution, not a hand-maintained console asset copy.
+- **FR-013**: The player manual MUST integrate the logo in its shared layout/header and include local favicon metadata. The manual build MUST copy or stage selected files from the `@europa/design` distribution into its existing local asset area, continue to build with the existing GitHub Pages workflow, and contain no independent master artwork.
+- **FR-014**: The `pnpm host` static surface and the single-port Docker image MUST, at build time, copy/stage selected generated files from `@europa/design` into their served static tree and expose the same local brand asset paths, including preview metadata, without requiring a separate asset server.
+- **FR-015**: Root `DESIGN.md` MUST document the inventory, `packages/design` ownership, consumer exports, build-time distribution contract, variant selection, minimum sizes, clear space, backgrounds, color usage, accessibility rules, file paths, and original-art/licensing statement. Future asset changes MUST update `DESIGN.md` in the same change set.
 
 ### Validation and accessibility
 
-- **FR-015**: Automated asset validation MUST fail on missing inventory items, malformed SVG, SVG raster/embed or external-reference content, incorrect raster dimensions, missing ICO sizes, or broken local references.
-- **FR-016**: Integration tests MUST verify that console, manual, static host, and Docker-served HTML reference existing local assets and that response content types are correct. Tests MUST cover repository-base and non-root deployment base paths where supported.
-- **FR-017**: Meaningful logo images MUST have accessible text equivalent “Europa Neo”; decorative repetitions MUST use empty alternative text or be hidden from assistive technology. A logo-only link MUST provide the link's accessible name.
-- **FR-018**: Implementation MUST preserve visible focus indicators, keyboard operation, reduced-motion behavior, and existing WCAG 2.2 AA checks. Decorative SVG motion is not required and MUST be absent or disabled by default.
+- **FR-016**: Automated asset validation MUST fail on missing inventory items, malformed SVG, SVG raster/embed or external-reference content, incorrect raster dimensions, missing ICO sizes, broken local references, missing package exports, or generated output that differs from the declared `packages/design` source.
+- **FR-017**: Integration tests MUST verify that console, manual, static host, and Docker-served HTML reference existing locally staged assets from `@europa/design` and that response content types are correct. Tests MUST cover repository-base and non-root deployment base paths where supported.
+- **FR-018**: Meaningful logo images MUST have accessible text equivalent “Europa Neo”; decorative repetitions MUST use empty alternative text or be hidden from assistive technology. A logo-only link MUST provide the link's accessible name.
+- **FR-019**: Implementation MUST preserve visible focus indicators, keyboard operation, reduced-motion behavior, and existing WCAG 2.2 AA checks. Decorative SVG motion is not required and MUST be absent or disabled by default.
 
 ## Non-Functional Requirements
 
-- **NFR-001 (Self-hosting)**: Runtime assets are local, cacheable static files. No external CDN, font, analytics, image proxy, SaaS API, or network fetch is required.
+- **NFR-001 (Self-hosting)**: Runtime assets are local, cacheable static files staged from `@europa/design` during each consumer build. No external CDN, font, analytics, image proxy, SaaS API, or network fetch is required.
 - **NFR-002 (Contrast)**: Logo text and essential non-text marks MUST meet WCAG 2.2 AA contrast against each documented intended background: 4.5:1 for normal wordmark text and 3:1 for essential graphical marks. If a treatment cannot meet the mark threshold on a busy background, it MUST use its documented plate.
 - **NFR-003 (Compatibility)**: SVGs MUST render in current Chromium, Firefox, and Safari; raster icons MUST work in current desktop/mobile browsers; ICO MUST contain the three required square images.
 - **NFR-004 (Performance)**: Brand assets MUST add no more than 25 KB gzipped to the console browser payload excluding social/install icons, and the combined lockup SVG MUST be no larger than 30 KB uncompressed.
@@ -95,15 +96,15 @@ As a player or maintainer, I want browser icons and a share preview that remain 
 
 ## Acceptance Criteria
 
-- [ ] **AC-001**: Documented SVG inventory exists, validates as SVG, has no raster or external/network references, and includes combined and standalone variants.
+- [ ] **AC-001**: `packages/design` contains the documented SVG masters and generated inventory, validates each SVG as having no raster or external/network references, and includes combined and standalone variants.
 - [ ] **AC-002**: `favicon.ico` contains valid 16×16, 32×32, and 48×48 images; PNG icons are exactly 180×180, 192×192, and 512×512; preview is exactly 1200×630.
 - [ ] **AC-003**: At 16×16, 32×32, 48×48, 180×180, 192×192, and 512×512 renderings, the emblem is not clipped and remains distinguishable by geometry/image review.
 - [ ] **AC-004**: Automated contrast checks confirm light/dark and monochrome variants meet NFR-002 on intended backgrounds; a test confirms meaning is not conveyed by color alone.
 - [ ] **AC-005**: Console lobby/landing and an in-match persistent surface display the responsive variant with no existing console accessibility or interaction regression.
-- [ ] **AC-006**: Every manual page's shared layout exposes local logo/favicon metadata, and a Pages-style build contains all referenced brand assets.
-- [ ] **AC-007**: `pnpm host` and single-port Docker serve and render local logo, favicon, PWA metadata, and social metadata without CDN requests.
+- [ ] **AC-006**: `@europa/design/brand` and `@europa/design/brand/*` resolve the documented manifest and generated assets, and every manual page's shared layout exposes local logo/favicon metadata from a Pages-style build containing all referenced staged assets.
+- [ ] **AC-007**: `pnpm host` and single-port Docker build steps stage assets from `@europa/design`, then serve and render the local logo, favicon, PWA metadata, and social metadata without CDN requests or a second asset server.
 - [ ] **AC-008**: Tests cover inventory, dimensions, references, metadata, accessible names, responsive selection, and missing-asset failures; new executable code meets the 80% coverage gate.
-- [ ] **AC-009**: `DESIGN.md` documents every file and usage rule, and a drift test fails when an inventory file or integration reference is removed/renamed without documentation.
+- [ ] **AC-009**: `DESIGN.md` documents every master/generated file, package export, staging rule, and usage rule, and drift tests fail when an inventory file, export, generated output, or integration reference is removed/renamed without documentation.
 - [ ] **AC-010**: Final originality/licensing review records that no mockup raster pixels, `europa-source/` code/artwork, restricted font, or third-party mark was copied.
 
 ## Edge Cases
@@ -139,7 +140,7 @@ For a decorative repeated header mark:
 ## Assumptions
 
 - Product owner approved the combined emblem + wordmark direction and Medium scope; exact geometry is an implementation/design responsibility, not a request to reproduce the mockup.
-- Existing console, Jekyll, `pnpm host`, Docker, and base-path/static-serving mechanisms remain integration points.
+- `packages/design` is the canonical owner for both master SVGs and generated outputs. Existing console, Jekyll, `pnpm host`, Docker, and base-path/static-serving mechanisms consume its documented distribution rather than owning copies.
 - The project remains self-hosted and all workspace packages remain private; no brand asset is published to npm.
 - Architect may choose a permissively licensed local rasterization/ICO tool or deterministic generation process, provided outputs and licensing requirements are met.
 
@@ -161,6 +162,13 @@ For a decorative repeated header mark:
 | 3 | Where are assets served? | One local documented brand root is copied/served by console, manual, `pnpm host`, and single-port Docker; no CDN or package publication. | FR-010–FR-013 |
 | 4 | What accessibility applies to repeated logos? | Meaningful images expose “Europa Neo”; decorative repetitions are hidden/empty; logo-only links are named. | FR-017–FR-018 |
 | 5 | How does the mockup constrain implementation? | It supplies mood only; new vector geometry, no traced/copied pixels, and an originality review are mandatory. | FR-001, FR-002, AC-010 |
+
+### v1.1 (2026-09-02) — Product-owner architectural confirmation
+
+| # | Question | Decision | Requirement(s) |
+|---|---|---|---|
+| 6 | Which package owns brand assets and how do consumers receive them? | `packages/design` owns master SVGs and generated outputs. Consumers use the documented `@europa/design/brand` manifest and `@europa/design/brand/*` asset exports; no consumer maintains master copies. | FR-002, FR-003, FR-010, FR-015, FR-016 |
+| 7 | How do runtime surfaces receive assets while remaining self-hosted? | Console, manual, `pnpm host`, and Docker stage selected generated files from `@europa/design` at build time into local static trees. No CDN, registry publication, or second asset server is introduced. | FR-011–FR-017, NFR-001, AC-006–AC-009 |
 
 ## Constitution Alignment
 
