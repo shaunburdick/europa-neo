@@ -2,7 +2,7 @@
 
 **Feature**: 015-logo-assets
 **Branch**: `issue-54-logo`
-**Status**: Phase 4 plan / Phase 5 tasking complete; implementation intentionally not started
+**Status**: Phase 4 plan / Phase 5 tasking complete; T-010 implemented, remaining tasks pending
 
 ## 1. Technical context
 

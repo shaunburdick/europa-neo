@@ -211,6 +211,9 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.9
+      '@resvg/resvg-js':
+        specifier: 'catalog:'
+        version: 2.6.2
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.1

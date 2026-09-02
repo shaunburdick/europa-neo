@@ -25,7 +25,7 @@
         "dist"
     ],
     "scripts": {
-        "build": "tsx scripts/build-css.ts --emit-module && tsup && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts",
+        "build": "tsx scripts/build-css.ts --emit-module && tsup && tsx scripts/generate-brand.ts && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts",
         "dev": "vite playground",
         "dev:build": "pnpm build && vite preview playground",
         "vendor": "tsx scripts/vendor-to-docs.ts",
@@ -47,6 +47,7 @@
         "@vitest/browser": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "happy-dom": "catalog:",
+        "@resvg/resvg-js": "catalog:",
         "tsup": "catalog:",
         "tsx": "catalog:",
         "typescript": "catalog:",

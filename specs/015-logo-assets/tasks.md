@@ -19,7 +19,7 @@ after all preceding wave dependencies are complete.
 - [x] T-008 (build): Implement SVG structural validation for parseability, viewBox, embedded raster, external/network references, fonts, scripts, animation, and malformed content.
 - [x] T-009 [P] (test): Add source SVG tests for inventory, title/description, geometry invariance between treatments, no-forbidden-content, and combined-lockup size limits.
 - [x] T-007–T-009 remediation (review): Harden SVG validation with a safe element allowlist and event-handler rejection; document the approved self-contained artwork palette (including the product-approved blue/orange extension); add SVG palette drift coverage; instrument executable brand TypeScript in Vitest coverage. Code-quality review HOLD resolved; T-010+ remain paused.
-- [ ] T-010 (build): Implement deterministic resvg generation for variant SVG distribution copies and exact 180/192/512/512-maskable/1200×630 PNG outputs with system fonts disabled.
+- [x] T-010 (build): Implement deterministic resvg generation for variant SVG distribution copies and exact 180/192/512/512-maskable/1200×630 PNG outputs with system fonts disabled.
 - [ ] T-011 (build): Implement deterministic ICO packaging from generated 16/32/48 PNG layers and expose a parser/validator for directory dimensions, offsets, and payload bounds.
 - [ ] T-012 (build): Generate the local web manifest with relative paths, correct purposes, theme/background tokens, and stable formatting; export the typed manifest via `@europa/design/brand`.
 - [ ] T-013 [P] (test): Add dimension, ICO, manifest, safe-zone, and reproducibility tests, including a failure test for missing/stale/generated output.

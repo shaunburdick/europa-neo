@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 1 remediation complete — T-010 through T-014 pending
+- **Current Wave**: Wave 1 T-010 complete — T-011 through T-014 pending
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -45,7 +45,8 @@ integration proceeds.
   and consumer-source paths are rejected
 - T-008 — ✅ structural SVG validation and focused safety tests
 - T-009 — ✅ source SVG contract tests (`packages/design/tests/brand/source.test.ts`)
-- T-010 through T-014 — ⏳ pending
+- T-010 — ✅ deterministic `@resvg/resvg-js` generator and focused reproducibility/dimension tests; outputs remain package-owned under `dist/brand/`
+- T-011 through T-014 — ⏳ pending
 - Review remediation for T-007–T-009 — ✅ complete; downstream generation remains paused
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
@@ -114,4 +115,15 @@ explicit safe SVG element allowlist and all `on*` event attributes. `#3b82f6` an
 `#f97316` remain unchanged as a documented brand-token extension because they are
 product-approved artwork colours; a test rejects undocumented SVG colour literals.
 Vitest instruments executable `src/brand/**/*.ts` while excluding only masters/fonts/
-preview assets. T-010+ generation and integrations were not implemented.
+preview assets. At the review checkpoint, T-010+ generation and integrations had not
+yet been implemented.
+
+### T-010 implementation — 2026-09-02
+
+T-010 is complete. The design package now owns a deterministic `@resvg/resvg-js`
+generator with system-font discovery disabled. It copies the nine approved SVG
+variants and renders the 180×180 Apple icon, 192×192 and 512×512 PWA icons,
+80%-scaled centered 512×512 maskable icon, and fixed 1200×630 social PNG under
+`dist/brand/`. Focused tests verify PNG dimensions, byte reproducibility, safe-area
+transform, local-resource composition, and source-copy identity. ICO, manifest,
+exports, staging, and consumer integrations remain intentionally untouched.
