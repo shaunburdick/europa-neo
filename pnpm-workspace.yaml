@@ -1,5 +1,6 @@
 packages:
   - "packages/*"
+  - "docs/manual"
 
 # pnpm 11 blocks dependency lifecycle scripts by default (supply-chain
 # security). Approve esbuild's native postinstall so tsup/vitest can
