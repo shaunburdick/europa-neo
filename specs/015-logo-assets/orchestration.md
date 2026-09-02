@@ -25,7 +25,8 @@ integration proceeds.
 - T-001 architect contract review — ✅ complete; eight implementation clarifications recorded in `plan.md` §8
 - T-002 original-art direction sheet — ✅ done (`design-direction.md`)
 - T-003 source inventory and typed-manifest test scaffold — ✅ done (`packages/design/tests/brand/inventory.fixture.ts`, `inventory.test.ts`)
-- T-004 build/staging boundary decision — ⏳ pending
+- T-004 build/staging boundary decision — ✅ done; exact package, Pages, root-build,
+  and Docker command boundaries recorded in [`plan.md` §9](plan.md#9-wave-0-command-boundary-decision)
 
 ### Wave 1 — canonical artwork and package generator — ⏳ Pending
 - T-005 through T-014
@@ -44,6 +45,13 @@ integration proceeds.
   generated files at build time to preserve self-hosting and prevent artwork drift.
 - 2026-09-02: Pause after the first original SVG artwork milestone for product-owner
   visual review, as requested.
+- 2026-09-02: Generation and consumer staging are separate named boundaries:
+  `@europa/design build` owns package distribution, while `stage:manual` owns
+  writes below `docs/manual/assets/brand/`. Pages explicitly runs install →
+  design build → manual staging → Jekyll, and Docker relies on the existing
+  clean build-stage `pnpm build` dependency order to transitively stage brand
+  files into the console distribution. The explicit Pages stage is idempotent
+  even when package build finalization also invokes it.
 
 ## Blockers & Escalations
 - None.

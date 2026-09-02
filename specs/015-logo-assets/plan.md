@@ -40,18 +40,39 @@
 
 ### 2.2 Consumer pipeline
 
-- `@europa/design` build stages selected brand files into the manual asset tree,
-  alongside its existing byte-identical stylesheet vendoring. The Pages workflow
-  continues to build only `docs/manual`, but first installs/builds the workspace
-  so the staging step is reproducible from a fresh checkout.
+- `@europa/design` owns two deliberately separate boundaries: `pnpm --filter
+  @europa/design build` produces the complete package distribution under
+  `packages/design/dist/` (including the generated brand manifest/files and the
+  existing stylesheet output), while `pnpm --filter @europa/design stage:manual`
+  is the only command allowed to copy generated design outputs into
+  `docs/manual/assets/brand/`. The staging command is deterministic and
+  idempotent, reads only from the freshly built package distribution, and fails
+  closed when that distribution or a manifest-selected file is absent. The
+  package build invokes this staging command as its final workspace-side step to
+  preserve the repository's existing `pnpm build` one-command behavior; explicit
+  callers still use `stage:manual` so the cross-package write boundary is visible
+  and testable.
+- The Pages workflow runs, in this exact order, after checkout:
+  `pnpm install --frozen-lockfile`, `pnpm --filter @europa/design build`,
+  `pnpm --filter @europa/design stage:manual`, then
+  `actions/jekyll-build-pages` with `source: ./docs/manual` and
+  `destination: ./_site`. It must not run Jekyll before staging, resolve a
+  developer or cache-provided `dist`, or widen the Jekyll source/artifact path.
+  The repeated stage call is intentional: it makes the workflow's prerequisite
+  explicit while remaining harmless when `build` already performed the
+  idempotent stage.
 - The console asset build resolves the built workspace package's `dist/brand`
   directory and copies the selected files to `packages/console/dist/assets/brand`.
   It fails loudly if the manifest or any selected file is absent. Vite HTML uses
   relative links so its configured base path remains authoritative.
 - The single-port host serves the console `dist` tree using its existing MIME
   table. Add `application/manifest+json` for `.webmanifest`; existing SVG, PNG,
-  and ICO handling remains local. Docker's existing `pnpm build` therefore stages
-  the same files before the runtime stage copies the built packages.
+  and ICO handling remains local. Docker keeps its existing transitive boundary:
+  the build stage runs `pnpm install --frozen-lockfile` followed by `pnpm build`,
+  pnpm builds the design workspace before its console consumer, and the runtime
+  stage serves only the resulting `packages/console/dist` tree. Docker does not
+  run a second design server, resolve brand files at runtime, or copy the manual
+  staging tree into the image.
 - Console UI uses a semantic logo link on the lobby and a decorative emblem in
   the persistent in-match footer/HUD. CSS switches lockup to compact/emblem at
   the documented 160 CSS px threshold without changing controls or simulation.
@@ -196,3 +217,24 @@ implementation and do not change the feature's user-facing scope:
    Any generator, staging, export, or consumer metadata change must update the
    relevant spec/contract or documentation in the same change set. No changes
    may touch `europa-source/`, and no generated asset may be hand-edited.
+
+## 9. Wave 0 command-boundary decision
+
+The command contract below is the implementation target for T-004. It removes
+the otherwise easy-to-miss distinction between generating package outputs and
+staging consumer assets:
+
+| Context | Required command boundary | Writes | Must not do |
+|---|---|---|---|
+| Design package development | `pnpm --filter @europa/design build` | `packages/design/dist/**`, then the existing CSS vendor output and idempotent manual stage | Read from `console/dist`, copy source masters to consumers, or depend on an unbuilt/stale distribution |
+| Explicit manual staging | `pnpm --filter @europa/design stage:manual` | Only manifest-selected generated files under `docs/manual/assets/brand/` (plus the existing design stylesheet vendor path) | Generate artwork, read `europa-source/`, or stage masters/unlisted files |
+| Root local build | `pnpm install --frozen-lockfile && pnpm build` | Design distribution, manual staging, and console distribution in pnpm workspace dependency order | Require Jekyll or a running server; use an ignored local distribution as input |
+| GitHub Pages | `pnpm install --frozen-lockfile` → `pnpm --filter @europa/design build` → `pnpm --filter @europa/design stage:manual` → Jekyll `source: ./docs/manual`, `destination: ./_site` → privacy check → upload `./_site` | Only the checkout's generated/manual paths and the scoped `_site` artifact | Run Jekyll before staging or upload `packages/**`, `specs/**`, or `.github/**` |
+| Docker | Build stage: `pnpm install --frozen-lockfile && pnpm build`; runtime stage copies the built package tree and runs `pnpm host` | Console `dist/**`, including `dist/assets/brand/**`, then the existing runtime image | Add an asset server, runtime package resolution, or rely on host-local ignored `dist` files |
+
+The Pages sequence is intentionally explicit even if the package build invokes
+the idempotent staging helper: a clean checkout cannot accidentally pass because
+of an untracked or stale distribution, and the Jekyll source remains the sole
+artifact boundary. Docker validation must use a clean build context (for
+example, `docker build --no-cache` after the checkout's ignored distributions
+are absent) so its transitive design→console staging is actually exercised.
