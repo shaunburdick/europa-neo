@@ -133,3 +133,67 @@ historical — completion is tracked HERE).
 - axe-core ≥ 4 traverses open shadow roots by default (canary-pinned).
 - happy-dom (v20.x): structural shadow assertions only — no event retargeting at the boundary, no
   form-owner recomputation on re-parenting.
+
+## Post-implementation defect fix — unnamed deep-link dead-end (2026-09-02)
+
+Live-smoke verification of the built dist reproduced a sticky **"Match unavailable"** dead-end for a
+fresh (unnamed) visitor opening a match share-link (`/match/<id>/join`), 4/4 runs; private matches
+were unrecoverable (never lobby-listed). A second-order race hit *named* deep-linkers too
+(`joinMatch requires a ready lobby connection (got connecting)`).
+
+### Root cause (confirmed by code reading + test)
+
+- The route-resolution effect in `lobby-runtime.tsx` gated only on `state.snapshot !== null` — never
+  on identity/connection. Wire ordering inside an establish cycle is identity event → baseline
+  snapshot → `'ready'` (the ready flip is dispatched a microtask AFTER the snapshot handlers), so:
+  an unnamed visitor's deep link fired `joinMatch` → matchmaking `guardNamed` rejected
+  `identity_invalid` → `shortcut-failure` notice; the US3 redirect effect then rewrote the URL to
+  `/profile?returnTo=…` — but the `LobbyRoot` view gate checks `noticeKind` BEFORE the profile gate,
+  so the notice suppressed the profile form. Sticky. Manual recovery only.
+- Named deep-linkers could fire `joinMatch` in the connecting window (ready flips after the
+  baseline) → local transport rejection → same notice.
+
+### Fix (minimal — gate the effect, no runtime refactor)
+
+- Route resolution now additionally requires `state.connection === 'ready'` AND
+  `state.identityStatus === 'named'`, deferring WITHOUT consuming the attempt (routeAttemptedRef
+  untouched) and re-running on the identity/connection deps. Naming on the redirected `/profile`
+  therefore resolves the deferred route via FR-010's returnTo round-trip; the ready flip releases
+  the connecting-window race. Spectators defer too (the redirect owns every match-route URL while
+  unnamed; attaching a spectator leg under a `/profile` URL would be incoherent — spec note records
+  that spectate needs no handle, only a resolved posture). A post-naming failure (match filled while
+  typing) still surfaces the recovery notice on the match route — legitimate, not suppressed.
+- US3 redirect captures `window.location.pathname` ONLY into `returnTo` (FR-005's relative-pathname
+  contract; production-identical since bootstrap strips match-route queries before mount). Found via
+  the new E2E: with the test ws-override query inside the captured value, `readReturnTo`'s double
+  decode (URLSearchParams + decodeURIComponent) produced a `://` sequence and rightly rejected the
+  value — silently dead-ending the round-trip. The pathname cannot trip that check.
+- View-gate ordering left untouched: with the premature attempt prevented, no notice can coexist
+  with the profile form; the remaining notice cases legitimately postdate the profile step.
+
+### Coverage added
+
+- E2E (`routing.spec.ts`): unnamed deep-link round-trip over the REAL stack — host tab creates a
+  public 4-player match through the lobby UI (the projection ledger lists ONLY facade-issued
+  matches: raw `matchmaker.createMatch` never appears in the snapshot — harness lesson recorded),
+  fresh-context visitor deep-links `/match/<id>/join`, asserts the `/profile?returnTo=…` redirect +
+  form (and NO "Match unavailable"), names themselves, asserts auto-return to the match URL and the
+  pre-start waiting plate at 2/4. Uses a merge-variant ws-preserve init script (the shared one
+  would clobber the redirect's `returnTo` param when re-adding `?ws=`). Proven failing pre-fix
+  (stash run) and passing post-fix.
+- Component (`semantic-route-runtime.test.tsx`): three new gating tests — deferral while identity
+  is unresolved (no command, no notice), the unnamed-redirect + naming round-trip through the real
+  form, and the ready-flip release after a baseline-while-connecting snapshot. Four existing route
+  tests + the transport-recovery test now emit the directed identity event before the baseline
+  snapshot (protocol-faithful ordering; previously they exercised an ordering the wire never
+  produces).
+
+### Verification
+
+- Console: unit 677 · component 137 · a11y 44 · E2E routing 5 (incl. new) · lobby+full-stack 8 ·
+  waiting-overlay/us1/us2/us4/us5/n-players 7 — all green (E2E on port 5199; foreign squatter on
+  5173 untouched).
+- Repo gates: typecheck · lint · format:check clean; console conformance typecheck clean;
+  `@europa/design` 189/189 (untouched, sanity).
+- Spec 015 amended same change set: Implementation Notes 1–2 (gating semantics + pathname-only
+  returnTo). `packages/design/` untouched.

@@ -229,3 +229,31 @@ The following are explicitly **not** part of this feature:
 ## Clarifications Applied
 
 *None yet — this spec is at v1.0 draft. Clarifications will be documented here during Phase 3.*
+
+## Implementation Notes
+
+1. **Match-route resolution gating (2026-09-02, live-smoke defect fix)**: semantic match-route
+   resolution in `lobby-runtime.tsx` is deferred until BOTH the lobby connection is `ready` AND the
+   guest identity has resolved as `named` — no premature `joinMatch`/`spectateMatch` attempt fires
+   while identity is `restoring` or `unnamed`, or while the connection is still connecting. Wire
+   ordering makes both gates necessary: the directed identity event always precedes the baseline
+   snapshot, and the `ready` flip is dispatched a microtask AFTER the baseline snapshot handlers, so
+   a snapshot-only gate could command a join with an unresolved identity (rejected server-side with
+   `identity_invalid`) or mid-connect (rejected locally). Either rejection used to plant a sticky
+   "Match unavailable" notice rendered over this feature's `/profile` redirect — the deep-link
+   dead-end. While a gate holds, resolution is deferred WITHOUT consuming the attempt; the
+   identity/connection transitions re-run it, so naming on the redirected `/profile` resolves the
+   deferred route through FR-010's returnTo round-trip. Spectator routes defer too: the redirect
+   owns every match-route URL while unnamed, so no spectator leg attaches under a `/profile` URL
+   (spectate itself needs no handle server-side — only a resolved identity posture). A deferred
+   attempt that fails AFTER naming (e.g. the match filled while the visitor typed) still surfaces
+   the standard recovery notice on the match route; that notice legitimately postdates the profile
+   step.
+2. **returnTo captures the pathname (2026-09-02, same fix)**: the US3 redirect effect encodes
+   `window.location.pathname` alone into `returnTo`. FR-005 defines the parameter as a relative
+   pathname, and match routes never carry a query in production (the bootstrap strips it before the
+   lobby runtime mounts), so this is production-identical to the previous `pathname + search`
+   capture while removing a real hazard: `readReturnTo` decodes twice (URLSearchParams +
+   `decodeURIComponent`), so a query riding on the deep link (e.g. a transport-override query in
+   test harnesses) decoded into a `://` sequence inside the captured value and was rightly rejected
+   as unsafe — silently dead-ending the returnTo round-trip. The pathname cannot trip that check.

@@ -336,6 +336,26 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     // decision and invokes the existing Feature 010 command. In particular,
     // no match client exists while the route is unresolved, and an explicit
     // intent can never be changed by this hand-off.
+    //
+    // Resolution additionally waits for the IDENTITY and CONNECTION gates
+    // (feature 015 live-smoke defect fix). Wire ordering inside one
+    // establish cycle is identity event → baseline snapshot → 'ready',
+    // where 'ready' is dispatched a microtask AFTER the snapshot handlers
+    // — so a naive snapshot gate can command a join while the transport is
+    // still 'connecting' (rejected locally), and an unnamed visitor's join
+    // is rejected server-side with `identity_invalid` (matchmaking US1
+    // AC-5). Either failure used to land as a sticky shortcut-failure
+    // notice rendered OVER the US3 /profile redirect — the deep-link
+    // dead-end. While either gate holds, this effect defers WITHOUT
+    // consuming the attempt (routeAttemptedRef stays false) and re-runs on
+    // the identity/connection deps: naming on the redirected /profile
+    // resolves the deferred route through the returnTo round-trip (FR-010),
+    // and the 'ready' flip releases the connecting-window race. Spectator
+    // routes wait too: the redirect effect owns the URL for EVERY match
+    // route while unnamed, so attaching a spectator leg under a /profile
+    // URL would be incoherent — after naming, the same returnTo round-trip
+    // delivers spectators (spectate itself needs no handle server-side,
+    // only a resolved identity posture).
     useEffect(() => {
         if (
             currentRoute === undefined ||
@@ -343,7 +363,12 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
             routeAttemptedRef.current ||
             state.viewMode === 'match' ||
             state.snapshot === null ||
-            completedNavigationPathRef.current === currentRoute.pathname
+            completedNavigationPathRef.current === currentRoute.pathname ||
+            // Feature 015 gates — see the block comment above. Deferring
+            // here must NOT mark the attempt: a later identity/connection
+            // transition re-runs this effect and resolves the route then.
+            state.connection !== 'ready' ||
+            state.identityStatus !== 'named'
         ) {
             return;
         }
@@ -378,19 +403,38 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         void executeRouteEntry(entry, controller)?.then((result) => {
             if (!result.ok) setNoticeKind('shortcut-failure');
         });
-    }, [controller, currentRoute, routeRetryEpoch, state.snapshot, state.viewMode]);
+    }, [
+        controller,
+        currentRoute,
+        routeRetryEpoch,
+        state.connection,
+        state.identityStatus,
+        state.snapshot,
+        state.viewMode,
+    ]);
 
     // US3 match-join redirect: when a player arrives at a match route
     // (via browser URL) and identity resolution completes as unnamed,
-    // redirect to /profile with returnTo carrying the original URL.
+    // redirect to /profile with returnTo carrying the original route.
     // This fires AFTER identity resolution (not at bootstrap) so the
     // redirect happens only when the server confirms the visitor has
     // no handle.
+    //
+    // returnTo captures the PATHNAME only (feature 015 live-smoke fix):
+    // FR-005 defines the parameter as a relative pathname, and match
+    // routes never carry a query in production — the bootstrap strips
+    // it before this runtime mounts, so `pathname + search` was already
+    // pathname-equivalent here. Keeping the search out matters because
+    // `readReturnTo` decodes twice (URLSearchParams + decodeURIComponent),
+    // so a query inside the captured value (e.g. a transport-override
+    // query riding on the deep link) would decode into a `://` sequence
+    // and be rightly rejected as unsafe — silently dead-ending the
+    // returnTo round-trip. The pathname cannot trip that check.
     useEffect(() => {
         if (state.identityStatus !== 'unnamed') return;
         const route = parseRoute(window.location.pathname);
         if (route.kind !== 'match') return;
-        const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+        const returnTo = encodeURIComponent(window.location.pathname);
         window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
     }, [state.identityStatus]);
 
