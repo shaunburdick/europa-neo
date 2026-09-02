@@ -252,9 +252,9 @@ files from `dist/brand/` into a consumer's local `brand/` root. Staging must be 
 idempotent, fail closed when the distribution or a selected file is missing, and never generate
 artwork or read `europa-source/`. The manual target is `docs/manual/assets/brand/`; the console target
 is `packages/console/dist/assets/brand/`; Docker serves the already staged console tree and adds no
-asset server. The Pages order is install → design build → manual stage → Jekyll. These consumer
-staging commands and integrations are not yet implemented (T-017 onward); this section documents
-the binding contract rather than claiming those paths currently exist.
+asset server. The Pages order is install → design build → manual stage → Jekyll. The design build
+and explicit `stage:manual` command now implement the manual staging boundary (spec 015 T-017);
+console, host, Docker, and Pages integrations remain subsequent tasks.
 
 #### Accessibility and originality
 

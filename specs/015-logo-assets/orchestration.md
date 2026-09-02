@@ -66,7 +66,13 @@ integration proceeds.
   planned staging boundaries, accessibility rules, and originality/licensing statement. It
   explicitly distinguishes the implemented package generator from pending consumer staging.
 - T-016 (`packages/design/README.md`) — ✅ complete.
-- T-017 through T-019 — ⏳ pending.
+- T-017 — ✅ complete; the canonical design build now stages the complete
+  manifest-selected brand inventory from `dist/brand` into
+  `docs/manual/assets/brand/`, replacing stale output and failing closed on a
+  missing distribution file. `stage:manual` exposes the same boundary for
+  explicit Pages/local use; focused tests cover byte identity, clean output,
+  and absent-distribution failures.
+- T-018 and T-019 — ⏳ pending.
 
 ### Wave 3 — console, manual, host, and Docker integration — ⏳ Pending
 - T-020 through T-028

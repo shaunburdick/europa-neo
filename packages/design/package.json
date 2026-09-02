@@ -34,6 +34,7 @@
         "dev": "vite playground",
         "dev:build": "pnpm build && vite preview playground",
         "vendor": "tsx scripts/vendor-to-docs.ts",
+        "stage:manual": "tsx scripts/vendor-to-docs.ts",
         "check:no-literals": "tsx scripts/check-no-literals.ts",
         "check:vendor-identity": "tsx scripts/check-vendor-identity.ts",
         "check:component-catalog": "tsx scripts/check-component-catalog.ts",

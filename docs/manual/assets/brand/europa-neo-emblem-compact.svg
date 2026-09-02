@@ -1,0 +1,162 @@
+<svg
+   viewBox="0 0 32 32"
+   role="img"
+   aria-labelledby="title description"
+   version="1.1"
+   id="compact-1"
+   xmlns="http://www.w3.org/2000/svg">
+
+  <title id="title">Europa Neo emblem</title><desc id="description">A compact Europa Neo shield emblem with an icy moon and opposing energy beams.</desc>
+  <defs
+     id="compact-4">
+    <clipPath
+       id="compact-5">
+      <path
+         d="M4 2 H28 L30 4 V20 L27 25 L16 30 L5 25 L2 20 V4 Z"
+         id="compact-6" />
+    </clipPath>
+    <linearGradient
+       id="compact-7"
+       x1="0"
+       y1="0"
+       x2="1"
+       y2="0">
+      <stop
+         offset="0%"
+         stop-color="#3b82f6"
+         id="compact-8" />
+      <stop
+         offset="48%"
+         stop-color="#60a5fa"
+         id="compact-9" />
+      <stop
+         offset="50%"
+         stop-color="#ffffff"
+         id="compact-10" />
+      <stop
+         offset="52%"
+         stop-color="#fdba74"
+         id="compact-11" />
+      <stop
+         offset="100%"
+         stop-color="#f97316"
+         id="compact-12" />
+    </linearGradient>
+    <radialGradient
+       id="compact-13"
+       cx="0.45"
+       cy="0.4"
+       r="0.6">
+      <stop
+         offset="0%"
+         stop-color="#e0f2fe"
+         id="compact-14" />
+      <stop
+         offset="60%"
+         stop-color="#bae6fd"
+         id="compact-15" />
+      <stop
+         offset="100%"
+         stop-color="#7dd3fc"
+         id="compact-16" />
+    </radialGradient>
+  </defs>
+  <path
+     d="M4 2 H28 L30 4 V20 L27 25 L16 30 L5 25 L2 20 V4 Z"
+     fill="#0a0f1a"
+     stroke="#475569"
+     stroke-width="1"
+     stroke-linejoin="miter"
+     id="compact-17" />
+  <path
+     d="M 13.242599,2.5066623 15.445618,2.433935 14.83248,3.1965904 14.505903,4.81723 13.855791,3.1925208 Z"
+     fill="#b9d7e8"
+     opacity="0.8"
+     id="compact-18" />
+  <path
+     d="M 23.163636,2.5272728 26.781818,2.4545455 25.562182,3.1767677 24.871706,5.2826059 24.140727,3.2131313 Z"
+     fill="#b9d7e8"
+     opacity="0.8"
+     id="compact-19" />
+  <path
+     d="M 5.4545454,2.5454546 9.0727273,2.4727273 7.8530908,3.1949495 7.1221817,4.2090909 6.4316363,3.2313131 Z"
+     fill="#b9d7e8"
+     opacity="0.8"
+     id="compact-20" />
+  <g
+     clip-path="url(#compact-5)"
+     id="compact-21">
+    <circle
+       cx="16"
+       cy="15"
+       r="9"
+       fill="url(#compact-13)"
+       id="compact-22" />
+    <g
+       stroke="#0a0f1a"
+       stroke-width="0.8"
+       fill="none"
+       opacity="0.6"
+       id="compact-23">
+      <path
+         d="M12 11 L15 14 L14 17 L17 20"
+         id="compact-24" />
+      <path
+         d="M15 14 L18 12 L20 13"
+         id="compact-25" />
+    </g>
+  </g>
+  <g
+     clip-path="url(#compact-5)"
+     id="compact-26">
+    <path
+       d="M1 21.1 H11 L15.1 22 L11 22.9 H1 Z"
+       fill="url(#compact-7)"
+       id="compact-27" />
+    <path
+       d="M31 21.1 H21 L16.9 22 L21 22.9 H31 Z"
+       fill="url(#compact-7)"
+       id="compact-28" />
+    <path
+       d="M2 21.6 H14.5 L16 22 L14.5 22.4 H2 Z"
+       fill="#bfdbfe"
+       opacity="0.85"
+       id="compact-29" />
+    <path
+       d="M30 21.6 H17.5 L16 22 L17.5 22.4 H30 Z"
+       fill="#fed7aa"
+       opacity="0.85"
+       id="compact-30" />
+  </g>
+  <path
+     d="M16 19.8 L18.2 22 L16 24.2 L13.8 22 Z"
+     fill="#f97316"
+     opacity="0.9"
+     id="compact-31" />
+  <circle
+     cx="16"
+     cy="22"
+     r="1.45"
+     fill="#fff7ed"
+     id="compact-32" />
+  <path
+     d="m 24.365792,26.725728 0.888754,-0.398457 -0.373858,0.586096 -0.224048,0.822994 -0.211675,-0.793485 z"
+     fill="#b9d7e8"
+     opacity="0.8"
+     id="compact-33" />
+  <path
+     d="m 22.734116,27.483094 0.817294,-0.374637 -0.379813,0.550366 -0.224048,0.822994 -0.211675,-0.793485 z"
+     fill="#b9d7e8"
+     opacity="0.8"
+     id="compact-34" />
+  <path
+     d="m 12,28.713565 0.763699,0.345923 -0.02847,0.181153 -0.224048,0.822994 -0.211675,-0.793485 z"
+     fill="#b9d7e8"
+     opacity="0.8"
+     id="compact-35" />
+  <path
+     d="m 7.6545455,26.731747 0.6799492,0.319948 0.055284,0.207128 -0.224048,0.822994 -0.211675,-0.793485 z"
+     fill="#b9d7e8"
+     opacity="0.8"
+     id="compact-36" />
+</svg>
