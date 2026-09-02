@@ -6,9 +6,16 @@
  * `:root { --europa-*: value; }` block (LF, UTF-8, no BOM, no timestamp,
  * lexicographic order) and concatenates the authored catalog segment
  * (`src/styles/catalog.css`) deterministically, then writes
- * `dist/design.css`. Imported by the package `build` script as
- * `tsup && tsx scripts/build-css.ts` so repeated builds are byte-identical
- * for the same token table and catalog source.
+ * `dist/design.css`. Imported by the package `build` script so repeated
+ * builds are byte-identical for the same token table and catalog source.
+ *
+ * The `build` script is two-phase because `src/components/base.ts` imports
+ * the generated `src/styles/catalog-styles.ts` module (below): `tsup` cannot
+ * bundle a fresh clone without it, yet `tsup`'s `clean: true` would delete a
+ * pre-existing `dist/design.css`. The script therefore runs
+ * 1. `build-css.ts --emit-module` — generate ONLY the module (tsup input),
+ * 2. `tsup` — clean `dist/` and bundle,
+ * 3. `build-css.ts` (full mode) — write `dist/design.css` for the final dist.
  *
  * Catalog stylesheet (T-007): the file `src/styles/catalog.css` is tracked
  * source that defines every `europa-*` class family from FR-006. Each
@@ -213,6 +220,41 @@ async function writeCatalogStylesModule(designRoot: string, catalogCss: string):
 }
 
 /**
+ * Emit ONLY `src/styles/catalog-styles.ts` — the module-only build mode
+ * (CLI flag `--emit-module`).
+ *
+ * The package `build` script runs this mode before `tsup` because
+ * `src/components/base.ts` imports the generated module: on a fresh clone
+ * the file does not exist (it is gitignored — generated files are never
+ * tracked), so bundling must be preceded by generation. This mode
+ * deliberately skips `dist/design.css` — `tsup` runs immediately after with
+ * `clean: true` and would delete it; the full mode (no flag) writes the
+ * dist stylesheet once `tsup` has finished.
+ *
+ * Unlike {@link writeDesignCss}, which tolerates an absent catalog by
+ * skipping the module emission, this mode fails loudly: the generated
+ * module is a hard build input for `tsup`, so a missing or empty
+ * `catalog.css` (tracked source) cannot produce a meaningful build.
+ *
+ * The emitted module is byte-identical to the one written by the full mode
+ * — both go through {@link readCatalogCss} and {@link writeCatalogStylesModule}.
+ *
+ * @param designRoot - Absolute path to `packages/design` (defaults to resolved package root).
+ * @returns Absolute path to the written module.
+ * @throws Error when `src/styles/catalog.css` is missing or empty.
+ */
+export async function emitCatalogStylesModule(designRoot: string = resolveDesignRoot()): Promise<string> {
+    const catalog = await readCatalogCss(designRoot);
+    if (catalog.length === 0) {
+        throw new Error(
+            'src/styles/catalog.css is missing or empty — cannot emit src/styles/catalog-styles.ts ' +
+                '(the generated module is a tsup build input and must exist before bundling).',
+        );
+    }
+    return writeCatalogStylesModule(designRoot, catalog);
+}
+
+/**
  * Write `dist/design.css` deterministically.
  *
  * Output is the `:root` block (from {@link buildCssText}) concatenated
@@ -243,8 +285,20 @@ export async function writeDesignCss(designRoot: string = resolveDesignRoot()): 
     return outPath;
 }
 
+/**
+ * CLI flag selecting module-only emission — writes only
+ * `src/styles/catalog-styles.ts` (no `dist/design.css`). Used by the
+ * package `build` script's pre-`tsup` generation pass; see
+ * {@link emitCatalogStylesModule}.
+ */
+const EMIT_MODULE_FLAG = '--emit-module';
+
 const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 
 if (isMain) {
-    await writeDesignCss();
+    if (process.argv.includes(EMIT_MODULE_FLAG)) {
+        await emitCatalogStylesModule();
+    } else {
+        await writeDesignCss();
+    }
 }

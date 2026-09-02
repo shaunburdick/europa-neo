@@ -25,7 +25,7 @@
         "dist"
     ],
     "scripts": {
-        "build": "tsup && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts",
+        "build": "tsx scripts/build-css.ts --emit-module && tsup && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts",
         "dev": "vite playground",
         "dev:build": "pnpm build && vite preview playground",
         "vendor": "tsx scripts/vendor-to-docs.ts",
