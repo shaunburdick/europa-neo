@@ -97,6 +97,25 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `warning-hover` | `--europa-color-warning-hover` | `TOKENS.color.warningHover` | `#e8c35e` | Hover state for warning buttons — bg/border use only |
 | `water` | `--europa-color-water` | `TOKENS.color.water` | `#1d4ed8` | Canvas water tile fill: ≈ 2.37:1 on `void-bg`, ≈ 2.68:1 vs the land ceiling — non-text tile; terrain identity is redundantly encoded by elevation shading, chip labels, and the minimap (not color alone) |
 
+### 1.10 Brand artwork token references (spec 015, T-006)
+
+The original SVG masters in `packages/design/src/brand/masters/` use the existing
+canonical color tokens directly: blue routes use `TOKENS.color.blue` (or the
+light-surface `water` value), orange routes use `TOKENS.color.accent` (or the
+light-surface `banner` value), dark structure uses `surface`/`surface-raised`,
+light structure uses `text-primary`/`text-secondary`, and monochrome routes use
+`border` and `text-muted`. These are token references rather than a new brand
+palette; the literal values in standalone SVGs are intentionally self-contained
+so they render without a stylesheet.
+
+The conflict treatment has three independent cues: the blue route has a square
+terminal and the lower-value monochrome route; the orange route has a triangular
+terminal, a distinct inner elbow, and the higher-value monochrome route. The
+routes remain separated by the central negative-space gap and never rely on hue
+alone. Existing token pairings measure at least 3:1 for essential marks on the
+intended light/dark surfaces; wordmark values use `text-primary` or `text-secondary`
+and meet the normal-text target.
+
 ### 1.2 Typography
 
 | Token name | CSS variable | TS constant | Canonical value | Notes |

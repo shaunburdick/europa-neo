@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 256" role="img" aria-labelledby="title description">
+  <title id="title">Europa Neo for light backgrounds</title>
+  <desc id="description">Europa Neo wordmark paired with a dark-edged ice-core shield and separated signal routes.</desc>
+  <path fill="#111827" d="M48 64 128 24l80 40-16 120-64 48-64-48Z"/><path fill="#f9fafb" d="m64 72 64-32 64 32-13 102-51 38-51-38Z"/><path fill="#e5e7eb" d="m64 72 64-32v140l-51 38Z"/><path fill="#1d4ed8" d="m56 96 16-16 40 40-16 16-32-32v16l40 40v40H88v-34l-40-40Z"/><path fill="#d97706" d="m200 96-16-16-40 40 16 16 32-32v16l-40 40v40h16v-34l40-40Z"/><path fill="#1d4ed8" d="M48 80h24v24H48Z"/><path fill="#d97706" d="m184 80 24 12-24 12Z"/><path fill="#111827" d="m128 120 16 8v16l-16 8-16-8v-16Z"/>
+  <path fill="#111827" fill-rule="evenodd" d="M288 72h40v10h-28v10h24v10h-24v12h28v10h-40Zm48 0h12v32l18 10v-42h12v50h-30l-12-8Zm52 0h28q12 0 12 12v8q0 9-8 12l10 18h-14l-9-17h-7v17h-12Zm12 10v13h13q3 0 3-4v-5q0-4-3-4Zm35-10h28q12 0 12 12v26q0 12-12 12h-28Zm12 10v30h13q3 0 3-3V85q0-3-3-3Zm36-10h29q11 0 11 12v26q0 12-11 12h-29v-10h26q3 0 3-4V86q0-4-3-4h-14v40h-12Zm48 0h12v50h-12Zm20 0h12v19l17-19h15l-19 23 20 27h-15l-18-24v24h-12Z"/>
+  <path fill="#374151" d="M352 148h12v42h-12Zm20 0h12v42h-12Zm20 0h12v10l17-10h15l-20 17 20 25h-15l-17-21v21h-12Zm48 0h12v42h-12Zm20 0h25q11 0 11 11v20q0 11-11 11h-25Zm12 10v22h11q3 0 3-3v-16q0-3-3-3Z"/>
+</svg>

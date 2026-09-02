@@ -1,4 +1,4 @@
-/** Contract-level inventory tests for the future brand generator (spec 015). */
+/** Contract-level inventory tests for the brand generator (spec 015). */
 
 import { describe, expect, it } from 'vitest';
 
