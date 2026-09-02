@@ -71,8 +71,9 @@ if [ -n "${violations}" ]; then
   echo "[test-selfhost] FAIL: remote URLs found in built output:"
   while IFS= read -r url; do
     [ -n "${url}" ] || continue
-    # Re-locate each offending token for file:line context.
-    grep -rnF -- "${url}" dist --include='*.js' --include='*.css' || true
+    # Re-locate each offending token for file:line context. Options and the
+    # end-of-options marker precede the pattern; `dist` is the file operand.
+    grep -rnF --include='*.js' --include='*.css' -- "${url}" dist || true
   done <<<"${violations}"
   exit 1
 fi

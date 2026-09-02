@@ -38,7 +38,6 @@ import type { LobbyState } from '../state/lobby-state';
 import type { MatchId } from '../state/types';
 import { BrandedFooter } from './branded-footer';
 import { LobbyCreateForm, type LobbyCreateFormValues } from './lobby-create-form';
-import { LobbyIdentityCard } from './lobby-identity-card';
 import { connectionLabel, describeSnapshotChange } from './lobby-labels';
 import { LobbyMatchList } from './lobby-match-list';
 
@@ -56,8 +55,6 @@ export interface LobbyLandingProps {
      * RETURNS to the lobby (view-mode switches), never initial load.
      */
     readonly focusHeading: boolean;
-    /** Submit a raw handle draft (caller binds the controller command). */
-    readonly onSubmitHandle: (raw: string) => void;
     /** Submit create-form values (caller binds the controller command). */
     readonly onCreate: (values: LobbyCreateFormValues) => void;
     /** Join a waiting match (caller binds the controller command). */
@@ -77,7 +74,6 @@ export function LobbyLanding({
     state,
     announcer,
     focusHeading,
-    onSubmitHandle,
     onCreate,
     onJoin,
     onSpectate,
@@ -235,13 +231,31 @@ export function LobbyLanding({
                     </p>
                 ) : null}
                 <div className="europa-lobby__grid">
-                    <LobbyIdentityCard
-                        connection={state.connection}
-                        identityStatus={state.identityStatus}
-                        handle={state.handle}
-                        actionStatus={state.actions.setHandle}
-                        onSubmitHandle={onSubmitHandle}
-                    />
+                    <section className="europa-lobby__card" aria-label="Identity">
+                        <p className="europa-lobby__status-line" data-europa-identity-status={state.identityStatus}>
+                            {state.identityStatus === 'restoring' ? (
+                                'Restoring…'
+                            ) : state.identityStatus === 'named' && state.handle !== null ? (
+                                <>
+                                    Playing as <bdi className="europa-lobby__handle">{state.handle}</bdi>
+                                </>
+                            ) : (
+                                'Choose a name'
+                            )}
+                        </p>
+                        {state.identityStatus !== 'restoring' ? (
+                            <a
+                                className="europa-lobby__button europa-focus-ring"
+                                href="/profile"
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    window.history.pushState(window.history.state, '', '/profile');
+                                }}
+                            >
+                                {state.identityStatus === 'named' ? 'Manage profile' : 'Choose a name'}
+                            </a>
+                        ) : null}
+                    </section>
                     <LobbyCreateForm
                         disabled={createDisabled}
                         actionStatus={state.actions.createMatch}

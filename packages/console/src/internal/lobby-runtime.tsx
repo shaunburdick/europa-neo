@@ -52,6 +52,49 @@ import type { PublicLobbyEntry } from '@europa/matchmaking';
 import type { JSX } from 'react';
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+
+/**
+ * Subscribe to the current browser pathname, re-rendering on ANY change —
+ * including `history.pushState`/`replaceState`, which do NOT fire
+ * `popstate`. The lobby view gate reads `window.location.pathname`
+ * directly, so it must re-evaluate when the pathname changes (e.g. the
+ * lobby landing's "Choose a name" link pushes `/profile`).
+ *
+ * `pushState`/`replaceState` are patched once to dispatch a custom
+ * `europa:pathchange` event; `popstate` and `hashchange` are also
+ * observed for Back/Forward and hash-only navigation.
+ */
+function usePathname(): string {
+    return useSyncExternalStore(
+        (onStoreChange) => {
+            const onPathChange = (): void => onStoreChange();
+            window.addEventListener('popstate', onPathChange);
+            window.addEventListener('hashchange', onPathChange);
+            window.addEventListener('europa:pathchange', onPathChange);
+            return () => {
+                window.removeEventListener('popstate', onPathChange);
+                window.removeEventListener('hashchange', onPathChange);
+                window.removeEventListener('europa:pathchange', onPathChange);
+            };
+        },
+        () => window.location.pathname,
+    );
+}
+
+/** Patch history.pushState/replaceState once to emit `europa:pathchange`. */
+function patchHistoryForPathChanges(): void {
+    const pushState = window.history.pushState.bind(window.history);
+    const replaceState = window.history.replaceState.bind(window.history);
+    window.history.pushState = (state, title, url) => {
+        pushState(state, title, url);
+        window.dispatchEvent(new Event('europa:pathchange'));
+    };
+    window.history.replaceState = (state, title, url) => {
+        replaceState(state, title, url);
+        window.dispatchEvent(new Event('europa:pathchange'));
+    };
+}
+
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { createConsoleClient } from '../net/client';
 import { createWsLobbyClient } from '../net/ws-lobby-client';
@@ -79,6 +122,8 @@ import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
+import { readReturnTo } from '../ui/profile-url';
+import { ProfileView } from '../ui/profile-view';
 import { RouteNotice, type RouteNoticeKind } from '../ui/route-notice';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
 
@@ -194,6 +239,12 @@ export interface LobbyRootProps {
  */
 export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }: LobbyRootProps): JSX.Element {
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
+    // Re-render on pathname changes (pushState/replaceState/popstate) so the
+    // profile/lobby view gate below re-evaluates. Patch history once.
+    const pathname = usePathname();
+    useEffect(() => {
+        patchHistoryForPathChanges();
+    }, []);
 
     // Shared hidden live regions (App.tsx pattern). Runtime-owned so
     // announcements SURVIVE the lobby⇄match view swap.
@@ -224,6 +275,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     const prevViewModeRef = useRef(state.viewMode);
     const routeResolutionRef = useRef(initialRoute !== undefined);
     const completedNavigationPathRef = useRef<string | null>(null);
+    const lobbyRedirectedRef = useRef(false);
     useEffect(() => {
         if (prevViewModeRef.current !== state.viewMode) {
             prevViewModeRef.current = state.viewMode;
@@ -285,6 +337,26 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     // decision and invokes the existing Feature 010 command. In particular,
     // no match client exists while the route is unresolved, and an explicit
     // intent can never be changed by this hand-off.
+    //
+    // Resolution additionally waits for the IDENTITY and CONNECTION gates
+    // (feature 015 live-smoke defect fix). Wire ordering inside one
+    // establish cycle is identity event → baseline snapshot → 'ready',
+    // where 'ready' is dispatched a microtask AFTER the snapshot handlers
+    // — so a naive snapshot gate can command a join while the transport is
+    // still 'connecting' (rejected locally), and an unnamed visitor's join
+    // is rejected server-side with `identity_invalid` (matchmaking US1
+    // AC-5). Either failure used to land as a sticky shortcut-failure
+    // notice rendered OVER the US3 /profile redirect — the deep-link
+    // dead-end. While either gate holds, this effect defers WITHOUT
+    // consuming the attempt (routeAttemptedRef stays false) and re-runs on
+    // the identity/connection deps: naming on the redirected /profile
+    // resolves the deferred route through the returnTo round-trip (FR-010),
+    // and the 'ready' flip releases the connecting-window race. Spectator
+    // routes wait too: the redirect effect owns the URL for EVERY match
+    // route while unnamed, so attaching a spectator leg under a /profile
+    // URL would be incoherent — after naming, the same returnTo round-trip
+    // delivers spectators (spectate itself needs no handle server-side,
+    // only a resolved identity posture).
     useEffect(() => {
         if (
             currentRoute === undefined ||
@@ -292,7 +364,12 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
             routeAttemptedRef.current ||
             state.viewMode === 'match' ||
             state.snapshot === null ||
-            completedNavigationPathRef.current === currentRoute.pathname
+            completedNavigationPathRef.current === currentRoute.pathname ||
+            // Feature 015 gates — see the block comment above. Deferring
+            // here must NOT mark the attempt: a later identity/connection
+            // transition re-runs this effect and resolves the route then.
+            state.connection !== 'ready' ||
+            state.identityStatus !== 'named'
         ) {
             return;
         }
@@ -327,7 +404,62 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         void executeRouteEntry(entry, controller)?.then((result) => {
             if (!result.ok) setNoticeKind('shortcut-failure');
         });
-    }, [controller, currentRoute, routeRetryEpoch, state.snapshot, state.viewMode]);
+    }, [
+        controller,
+        currentRoute,
+        routeRetryEpoch,
+        state.connection,
+        state.identityStatus,
+        state.snapshot,
+        state.viewMode,
+    ]);
+
+    // US3 match-join redirect: when a player arrives at a match route
+    // (via browser URL) and identity resolution completes as unnamed,
+    // redirect to /profile with returnTo carrying the original route.
+    // This fires AFTER identity resolution (not at bootstrap) so the
+    // redirect happens only when the server confirms the visitor has
+    // no handle.
+    //
+    // returnTo captures the PATHNAME only (feature 015 live-smoke fix):
+    // FR-005 defines the parameter as a relative pathname, and match
+    // routes never carry a query in production — the bootstrap strips
+    // it before this runtime mounts, so `pathname + search` was already
+    // pathname-equivalent here. Keeping the search out matters because
+    // `readReturnTo` decodes twice (URLSearchParams + decodeURIComponent),
+    // so a query inside the captured value (e.g. a transport-override
+    // query riding on the deep link) would decode into a `://` sequence
+    // and be rightly rejected as unsafe — silently dead-ending the
+    // returnTo round-trip. The pathname cannot trip that check.
+    useEffect(() => {
+        if (state.identityStatus !== 'unnamed') return;
+        const route = parseRoute(window.location.pathname);
+        if (route.kind !== 'match') return;
+        const returnTo = encodeURIComponent(window.location.pathname);
+        window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
+    }, [state.identityStatus]);
+
+    // US1 lobby identity gate: when an unnamed visitor lands on the lobby
+    // root (/ or /lobby), redirect to /profile so they choose a name before
+    // interacting. This fires AFTER identity resolution (not at bootstrap)
+    // so the redirect happens only when the server confirms the visitor has
+    // no handle. The redirect is one-shot (lobbyRedirectedRef) to avoid a
+    // loop: after pushState to /profile, the pathname is no longer a lobby
+    // route, so the guard exits even without the ref.
+    //
+    // Connection gating: wait until the lobby connection is 'ready' so the
+    // identity has been resolved by the server — avoid a flash redirect
+    // before the server responds.
+    useEffect(() => {
+        if (lobbyRedirectedRef.current) return;
+        if (state.identityStatus !== 'unnamed') return;
+        if (state.connection !== 'ready') return;
+        const route = parseRoute(window.location.pathname);
+        if (route.kind !== 'root' && route.kind !== 'lobby') return;
+        lobbyRedirectedRef.current = true;
+        const returnTo = encodeURIComponent(window.location.pathname);
+        window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
+    }, [state.identityStatus, state.connection]);
 
     // Successful actions initiated from the lobby get one canonical semantic
     // history entry. Route-originated actions already have the right URL.
@@ -487,6 +619,26 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         );
     }
 
+    // Profile route: when the browser pathname is /profile and the view
+    // mode is lobby, render the dedicated profile view instead of the
+    // lobby landing. This check runs AFTER noticeKind and match-gate
+    // guards, so profile notices and match legs are unaffected.
+    if (state.viewMode === 'lobby' && pathname === '/profile') {
+        return (
+            <>
+                {announcerHost}
+                <ProfileView
+                    identityStatus={state.identityStatus}
+                    handle={state.handle}
+                    connection={{ status: state.connection }}
+                    actionStatus={state.actions.setHandle}
+                    onSubmitHandle={submitHandle}
+                    returnTo={readReturnTo(window.location.search)}
+                />
+            </>
+        );
+    }
+
     return (
         <>
             {announcerHost}
@@ -494,7 +646,6 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                 state={state}
                 announcer={announcer ?? undefined}
                 focusHeading={viewSwitches > 0}
-                onSubmitHandle={submitHandle}
                 onCreate={createMatch}
                 onJoin={joinMatch}
                 onSpectate={spectateMatch}

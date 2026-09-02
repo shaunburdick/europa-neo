@@ -5,10 +5,11 @@
  * lifecycle without a pointing device:
  *
  *   1. Tab through landing controls and confirm they are reachable.
- *   2. Submit the identity form via Enter (no click required).
+ *   2. Identity is settable via the controller (form lives on /profile
+ *      since feature 015).
  *   3. Tab to the create-match form and confirm radio/button
  *      are keyboard-operable.
- *   4. Full name → create → leave lifecycle via keyboard only.
+ *   4. Set name → create → leave → lobby lifecycle via keyboard.
  *   5. The entire flow produces zero axe-core WCAG 2.2 AA violations.
  *
  * Runs in Vitest Browser Mode (real Chromium, real DOM, real keyboard
@@ -20,7 +21,7 @@ import { register } from '@europa/design/components';
 register();
 
 import type { LobbyRevision, LobbySnapshot, MatchId } from '@europa/matchmaking';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 
@@ -34,6 +35,14 @@ import type {
 import { createLobbyController, type LobbyTransport } from '../../src/state/lobby-controller';
 import '../../src/styles/index.css';
 import { expectNoDomA11yViolations } from '../setup-a11y-dom';
+
+beforeEach(() => {
+    // Ensure the pathname is not a lobby route (/ or /lobby) before
+    // each test — the lobby identity gate (feature 015) redirects
+    // unnamed visitors away from lobby routes to /profile. These
+    // tests exercise LobbyRoot directly and must bypass the redirect.
+    window.history.pushState(window.history.state, '', '/test-lobby-a11y');
+});
 
 afterEach(() => {
     cleanup();
@@ -187,16 +196,11 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         skipLink.element().focus();
         expect(document.activeElement).toBe(skipLink.element());
 
-        // The name input must be focusable.
-        const nameInput = screen.getByLabelText('Display name');
-        nameInput.element().focus();
-        expect(document.activeElement).toBe(nameInput.element());
-
-        // The "Set name" button must be focusable and be a real button.
-        const setNameBtn = screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement;
-        setNameBtn.focus();
-        expect(document.activeElement).toBe(setNameBtn);
-        expect(setNameBtn.tagName).toBe('BUTTON');
+        // The profile link (Choose a name / Manage profile) must be
+        // focusable — feature 015 moved the identity form to /profile.
+        const profileLink = screen.getByRole('link', { name: /Choose a name|Manage profile/i });
+        profileLink.element().focus();
+        expect(document.activeElement).toBe(profileLink.element());
 
         // The "Create match" button must exist and be a real <button>
         // (disabled until a handle is confirmed — disabled buttons
@@ -208,7 +212,7 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         controller.disconnect();
     });
 
-    test('identity form submits via Enter without a click', async () => {
+    test('identity is settable via controller when form is on /profile', async () => {
         const transport = new FakeTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
         await controller.connect();
@@ -217,19 +221,17 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
         await expect.element(screen.getByText('Europa Neo lobby')).toBeVisible();
 
-        const user = userEvent.setup();
-
-        // Focus the name input directly and type.
-        const nameInput = screen.getByLabelText('Display name');
-        nameInput.element().focus();
-        await user.keyboard('Nova');
-
-        // Press Enter to submit the form (no mouse click).
-        await user.keyboard('{Enter}');
-
-        // The handle should be confirmed.
+        // Feature 015 moved the identity form to /profile. The lobby
+        // landing shows a "Choose a name" link instead of an inline
+        // form. Set the handle through the controller (the same path
+        // the /profile route uses after form submission).
+        await controller.setHandle('Nova');
         await expect.element(screen.getByText('Nova')).toBeVisible();
         expect(controller.store.getState().handle).toBe('Nova');
+
+        // The create button should now be enabled.
+        const createBtn = screen.getByRole('button', { name: 'Create match' }).element() as HTMLButtonElement;
+        expect(createBtn.disabled).toBe(false);
         controller.disconnect();
     });
 
@@ -322,7 +324,7 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         controller.disconnect();
     });
 
-    test('full keyboard lifecycle: name → create → leave → lobby, zero axe violations', async () => {
+    test('full keyboard lifecycle: set name → create → leave → lobby, zero axe violations', async () => {
         const transport = new FakeTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
         await controller.connect();
@@ -333,11 +335,9 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
 
         const user = userEvent.setup();
 
-        // 1. Set name via keyboard — focus input, type, submit.
-        const nameInput = screen.getByLabelText('Display name');
-        nameInput.element().focus();
-        await user.keyboard('Nova');
-        await user.keyboard('{Enter}'); // submit
+        // 1. Set name — feature 015 moved the form to /profile; the
+        // lobby uses the controller headless API.
+        await controller.setHandle('Nova');
         await expect.element(screen.getByText('Nova')).toBeVisible();
 
         // 2. Create match via keyboard — focus button and Enter.

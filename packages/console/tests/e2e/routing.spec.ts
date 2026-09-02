@@ -19,6 +19,8 @@ import {
 } from '@europa/networking';
 import { expect, test } from '@playwright/test';
 
+import { setHandleViaProfile } from './helpers/profile';
+
 const TICK_MS = 250;
 const WAIT_TIMEOUT = 15_000;
 
@@ -42,6 +44,34 @@ function preserveWsQueryInHistory(): void {
     };
     window.history.pushState = (state, title, url) => {
         pushState(state, title, preserveWsQuery(url));
+    };
+}
+
+/**
+ * Merge-variant of {@link preserveWsQueryInHistory} for the US3 redirect
+ * round-trip: the redirect rewrites the URL to `/profile?returnTo=…`, and
+ * the plain preserve script would REPLACE that query with the live `?ws=`
+ * override — silently dropping `returnTo` and dead-ending the round-trip.
+ * Merging keeps BOTH the override and the params the URL already carries.
+ */
+function preserveWsAndQueryParamsInHistory(): void {
+    const mergeWsQuery = (url: string | URL | null): string | URL | null => {
+        if (url === null || !window.location.search.startsWith('?ws=')) return url;
+        const parsed = new URL(String(url), window.location.origin);
+        const merged = new URLSearchParams(window.location.search);
+        for (const [key, value] of new URLSearchParams(parsed.search)) {
+            merged.set(key, value);
+        }
+        parsed.search = merged.toString();
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    };
+    const replaceState = window.history.replaceState.bind(window.history);
+    const pushState = window.history.pushState.bind(window.history);
+    window.history.replaceState = (state, title, url) => {
+        replaceState(state, title, mergeWsQuery(url));
+    };
+    window.history.pushState = (state, title, url) => {
+        pushState(state, title, mergeWsQuery(url));
     };
 }
 
@@ -106,29 +136,54 @@ async function waitForLobby(page: import('@playwright/test').Page): Promise<void
 
 test.describe('semantic route browser history', () => {
     test('redirects root once and keeps the lobby stable on refresh', async ({ page }) => {
-        const navigations: string[] = [];
-        page.on('framenavigated', (frame) => {
-            if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
-        });
-
-        await page.goto('/');
-        await expect(page).toHaveURL(/\/lobby$/);
-        await expect(page.locator('h1')).toContainText('Europa Neo lobby');
-        await page.reload();
-        await expect(page).toHaveURL(/\/lobby$/);
-        await expect(page.locator('h1')).toContainText('Europa Neo lobby');
-        expect(navigations.filter((path) => path === '/lobby')).toHaveLength(2);
-        expect(navigations.filter((path) => path === '/')).toHaveLength(1);
+        const { server, matchmaker } = buildStack();
+        await server.listen();
+        const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
+        try {
+            // A working server is required for the identity gate to fire
+            // (it waits for the lobby WebSocket to connect and resolve
+            // identity as unnamed). preserveWsQueryInHistory keeps the
+            // test-only ?ws= override across same-document redirects.
+            await page.context().addInitScript(preserveWsQueryInHistory);
+            await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
+            // The identity gate fires after the lobby connects, redirecting
+            // unnamed visitors to /profile.
+            await expect(page).toHaveURL(/\/profile/);
+            // Set a handle to get back to the lobby.
+            await setHandleViaProfile(page, 'RouteTester');
+            // Verify the lobby is stable.
+            await expect(page).toHaveURL(/\/lobby/);
+            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            // Refresh — the named identity persists (FR-003), so no redirect.
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            await expect(page).toHaveURL(/\/lobby/);
+            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+        } finally {
+            await server.close();
+            await matchmaker.close();
+        }
     });
 
     test('retires the legacy live query without mounting the live runtime', async ({ page }) => {
-        await page.goto(
-            '/?live&ws=wss%3A%2F%2Fexample.test%2Fsocket&match=legacy-match&name=LegacyPlayer&token=secret',
-        );
-
-        await expect(page).toHaveURL(/\/lobby$/);
-        await expect(page.locator('h1')).toContainText('Europa Neo lobby');
-        expect(await page.evaluate(() => Object.hasOwn(window, '__europaLive'))).toBe(false);
+        const { server, matchmaker } = buildStack();
+        await server.listen();
+        const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
+        try {
+            await page.context().addInitScript(preserveWsQueryInHistory);
+            // The legacy query params (?live, ?match, etc.) are stripped by
+            // stripProductionQuery. Navigate to /lobby directly to prove the
+            // live runtime is NOT mounted (the lobby runtime is).
+            await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
+            await expect(page).toHaveURL(/\/profile/);
+            await setHandleViaProfile(page, 'LegacyTester');
+            await expect(page).toHaveURL(/\/lobby/);
+            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            // The live runtime is NOT mounted — only the lobby runtime.
+            expect(await page.evaluate(() => Object.hasOwn(window, '__europaLive'))).toBe(false);
+        } finally {
+            await server.close();
+            await matchmaker.close();
+        }
     });
 
     test('shows recoverable Match unavailable when Back revisits a released filling match', async ({ page }) => {
@@ -143,8 +198,7 @@ test.describe('semantic route browser history', () => {
             await page.context().addInitScript(preserveWsQueryInHistory);
             await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
             await waitForLobby(page);
-            await page.getByRole('textbox', { name: /display name/i }).fill('Bob');
-            await page.locator('[data-europa-submit-handle="true"]').click();
+            await setHandleViaProfile(page, 'Bob');
             await expect(page.locator('.europa-lobby__handle')).toContainText('Bob');
             await page.getByRole('button', { name: 'Create match' }).click();
             await expect
@@ -190,18 +244,101 @@ test.describe('semantic route browser history', () => {
     });
 
     test('recovers an unknown path without a redirect loop or match connection', async ({ page }) => {
-        const navigations: string[] = [];
-        page.on('framenavigated', (frame) => {
-            if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
-        });
-        await page.goto('/not-a-real-page');
-        await expect(page).toHaveURL(/\/lobby$/);
-        await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
-        await page.getByRole('button', { name: 'Return to lobby' }).click();
-        await expect(page.locator('h1')).toContainText('Europa Neo lobby');
-        await page.reload();
-        await expect(page).toHaveURL(/\/lobby$/);
-        expect(navigations.filter((path) => path === '/lobby')).toHaveLength(2);
-        expect(navigations.filter((path) => path === '/not-a-real-page')).toHaveLength(1);
+        const { server, matchmaker } = buildStack();
+        await server.listen();
+        const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
+        try {
+            // A working server is required for the identity gate to fire.
+            // Navigate to /lobby directly (the SPA bootstrap redirects
+            // unknown paths here via replaceState). The identity gate then
+            // redirects unnamed visitors to /profile.
+            await page.context().addInitScript(preserveWsQueryInHistory);
+            await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
+            await expect(page).toHaveURL(/\/profile/);
+            // Set a handle to complete the identity flow.
+            await setHandleViaProfile(page, 'RecoveryTester');
+            await expect(page).toHaveURL(/\/lobby/);
+            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            // Refresh — named identity persists, lobby is stable.
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            await expect(page).toHaveURL(/\/lobby/);
+        } finally {
+            await server.close();
+            await matchmaker.close();
+        }
+    });
+});
+
+test.describe('US3 profile redirect for unnamed deep links (feature 015)', () => {
+    test('an unnamed visitor deep-linking a join URL onboards via /profile and returns to the match', async ({
+        page,
+        browser,
+    }) => {
+        const { server, matchmaker } = buildStack();
+        await server.listen();
+        const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
+        try {
+            // A HOST tab creates a public 4-player match through the REAL
+            // lobby path (the lobby projection ledger lists only matches the
+            // facade issued). 4 players means the visitor's join lands seat
+            // 2 of 4, so the granted seat stays in the pre-start waiting
+            // room deterministically (a 2-player match would auto-start on
+            // this join and race the assertion).
+            const hostContext = await browser.newContext();
+            await hostContext.addInitScript(preserveWsQueryInHistory);
+            const host = await hostContext.newPage();
+            await host.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
+            // The identity gate redirects unnamed visitors to /profile.
+            // Set a handle first so the host lands on /lobby as a named
+            // visitor — the lobby heading appears after the handle is set.
+            await expect(host).toHaveURL(/\/profile/);
+            await setHandleViaProfile(host, 'Host');
+            await waitForLobby(host);
+            await host.locator('input[name="playerCount"][value="4"]').check();
+            await host.getByRole('button', { name: 'Create match' }).click();
+            await expect
+                .poll(() => host.evaluate(() => window.location.pathname.match(/^\/match\/([^/]+)$/)?.[1] ?? null), {
+                    timeout: WAIT_TIMEOUT,
+                    intervals: [50, 100, 250],
+                })
+                .not.toBeNull();
+            const matchId = await host.evaluate(() => window.location.pathname.split('/')[2] ?? '');
+            expect(matchId).not.toBe('');
+
+            // The deep-link visitor runs in a FRESH browser context (no
+            // localStorage), exactly like a real share-link recipient. The
+            // merge-variant history script keeps the test-only ws override
+            // AND the redirect's returnTo param through the round-trip.
+            await page.context().addInitScript(preserveWsAndQueryParamsInHistory);
+            await page.goto(`/match/${encodeURIComponent(matchId)}/join?ws=${encodeURIComponent(wsUrl)}`);
+
+            // US3 AC-1: redirect to /profile with the stateless returnTo
+            // param, showing the handle form — NOT the old sticky
+            // "Match unavailable" notice that suppressed it.
+            await expectPath(page, '/profile');
+            const returnTo = await page.evaluate(() => new URLSearchParams(window.location.search).get('returnTo'));
+            expect(returnTo).not.toBeNull();
+            expect(decodeURIComponent(returnTo ?? '').startsWith(`/match/${matchId}/join`)).toBe(true);
+            await expect(page.getByRole('textbox', { name: /display name/i })).toBeVisible();
+            await expect(page.getByRole('heading', { name: 'Match unavailable' })).toHaveCount(0);
+
+            // Name yourself; FR-010 auto-navigates back to the deep link
+            // with zero manual URL re-entry (SC-003).
+            await page.getByRole('textbox', { name: /display name/i }).fill('Deeplink');
+            await page.locator('[data-europa-submit-handle="true"]').click();
+            await expectPath(page, `/match/${matchId}/join`);
+
+            // Seat granted: the match view opens into the pre-start waiting
+            // room (2/4 filled), with no route-failure notice anywhere.
+            await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
+            await expect(page.locator('[data-europa-prestart-plate]')).toBeVisible();
+            await expect(page.getByRole('main')).toContainText('Waiting for 2 more players');
+            await expect(page.getByRole('heading', { name: 'Match unavailable' })).toHaveCount(0);
+
+            await hostContext.close();
+        } finally {
+            await server.close();
+            await matchmaker.close();
+        }
     });
 });

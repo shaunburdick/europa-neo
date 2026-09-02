@@ -65,6 +65,11 @@ describe('semantic route transport recovery', () => {
         const transport = new ScriptedLobbyTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
         await controller.connect();
+        // Protocol-faithful ordering: the directed identity event ALWAYS
+        // precedes the baseline snapshot in a real establish cycle, and
+        // route resolution waits for a resolved identity posture (feature
+        // 015 gating).
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
         transport.emitSnapshot(snapshot('waiting'));
 
         const screen = await render(

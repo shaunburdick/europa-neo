@@ -57,6 +57,8 @@ interface Scenario {
     readonly expectText?: string;
     /** Token-derived inline style assertions. */
     readonly expectStyles?: ReadonlyArray<{ readonly prop: StyleProp; readonly value: string }>;
+    /** When `true`, query internal elements through `host.shadowRoot`. */
+    readonly useShadowDom?: boolean;
     /** Optional extra assertions against the host element. */
     readonly extraAssert?: (host: HTMLElement) => void;
 }
@@ -86,48 +88,58 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     {
         name: 'europa-button renders the europa-button base class by default',
         tag: 'europa-button',
+        useShadowDom: true,
         expectExactClassName: 'europa-button',
     },
     {
         name: 'europa-button maps variant to a europa-button--<variant> modifier',
         tag: 'europa-button',
         attrs: { variant: 'primary' },
+        useShadowDom: true,
         expectClasses: ['europa-button', 'europa-button--primary'],
     },
     {
         name: 'europa-card renders the europa-card wrapper',
         tag: 'europa-card',
+        useShadowDom: true,
         expectExactClassName: 'europa-card',
     },
     {
         name: 'europa-plate renders the europa-plate wrapper',
         tag: 'europa-plate',
+        useShadowDom: true,
         expectExactClassName: 'europa-plate',
     },
     {
         name: 'europa-modal renders the europa-modal-backdrop and europa-modal dialog',
         tag: 'europa-modal',
         selector: '.europa-modal-backdrop',
+        useShadowDom: true,
         expectClasses: ['europa-modal-backdrop'],
         extraAssert: (host: HTMLElement): void => {
-            const dialog = host.querySelector('.europa-modal');
+            const dialog = host.shadowRoot?.querySelector('.europa-modal');
             expect(dialog).not.toBeNull();
             expect(dialog?.classList.contains('europa-modal')).toBe(true);
+            expect(dialog?.getAttribute('role')).toBe('dialog');
+            expect(dialog?.getAttribute('aria-modal')).toBe('true');
         },
     },
     {
         name: 'europa-chip renders the europa-chip wrapper',
         tag: 'europa-chip',
+        useShadowDom: true,
         expectExactClassName: 'europa-chip',
     },
     {
         name: 'europa-badge renders the europa-badge wrapper',
         tag: 'europa-badge',
+        useShadowDom: true,
         expectExactClassName: 'europa-badge',
     },
     {
         name: 'europa-banner defaults to the status live-region contract',
         tag: 'europa-banner',
+        useShadowDom: true,
         expectClasses: ['europa-banner'],
         expectAttr: { role: 'status', 'aria-live': 'polite' },
     },
@@ -135,33 +147,39 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         name: 'europa-banner variant="alert" switches to the alert live-region contract',
         tag: 'europa-banner',
         attrs: { variant: 'alert' },
+        useShadowDom: true,
         expectClasses: ['europa-banner'],
         expectAttr: { role: 'alert', 'aria-live': 'assertive' },
     },
     {
         name: 'europa-typography defaults to the body variant classes',
         tag: 'europa-typography',
+        useShadowDom: true,
         expectClasses: ['europa-typography', 'europa-typography--body'],
     },
     {
         name: 'europa-typography variant="heading" applies the heading modifier',
         tag: 'europa-typography',
         attrs: { variant: 'heading' },
+        useShadowDom: true,
         expectClasses: ['europa-typography', 'europa-typography--heading'],
     },
     {
         name: 'europa-waiting renders the europa-waiting family of classes',
         tag: 'europa-waiting',
         selector: '.europa-waiting',
+        useShadowDom: true,
         expectClasses: ['europa-waiting'],
         extraAssert: (host: HTMLElement): void => {
-            expect(host.querySelector('.europa-waiting__plate')?.classList.contains('europa-waiting__plate')).toBe(
-                true,
-            );
-            expect(host.querySelector('.europa-waiting__pulse')?.classList.contains('europa-waiting__pulse')).toBe(
-                true,
-            );
-            expect(host.querySelector('.europa-waiting__text')?.classList.contains('europa-waiting__text')).toBe(true);
+            expect(
+                host.shadowRoot?.querySelector('.europa-waiting__plate')?.classList.contains('europa-waiting__plate'),
+            ).toBe(true);
+            expect(
+                host.shadowRoot?.querySelector('.europa-waiting__pulse')?.classList.contains('europa-waiting__pulse'),
+            ).toBe(true);
+            expect(
+                host.shadowRoot?.querySelector('.europa-waiting__text')?.classList.contains('europa-waiting__text'),
+            ).toBe(true);
         },
     },
     {
@@ -169,32 +187,38 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         tag: 'europa-waiting',
         attrs: { 'reduced-motion': '' },
         selector: '.europa-waiting',
+        useShadowDom: true,
         expectClasses: ['europa-waiting', 'europa-waiting--reduced'],
     },
     {
         name: 'europa-grid renders the europa-grid wrapper by default',
         tag: 'europa-grid',
+        useShadowDom: true,
         expectExactClassName: 'europa-grid',
     },
     {
         name: 'europa-grid variant="sidebar" adds the europa-grid--sidebar modifier',
         tag: 'europa-grid',
         attrs: { variant: 'sidebar' },
+        useShadowDom: true,
         expectClasses: ['europa-grid', 'europa-grid--sidebar'],
     },
     {
         name: 'europa-stack renders the europa-stack wrapper',
         tag: 'europa-stack',
+        useShadowDom: true,
         expectExactClassName: 'europa-stack',
     },
     {
         name: 'europa-container renders the europa-container wrapper',
         tag: 'europa-container',
+        useShadowDom: true,
         expectExactClassName: 'europa-container',
     },
     {
         name: 'europa-page renders the europa-page wrapper',
         tag: 'europa-page',
+        useShadowDom: true,
         expectExactClassName: 'europa-page',
     },
 
@@ -287,8 +311,18 @@ describe('web component conformance (FR-030)', () => {
             document.body.appendChild(host);
             await flushMicrotasks();
 
+            const queryRoot = scenario.useShadowDom === true ? host.shadowRoot : host;
+            expect(
+                queryRoot,
+                `expected ${scenario.useShadowDom === true ? 'shadowRoot' : 'host'} for ${scenario.tag}`,
+            ).not.toBeNull();
+            // happy-dom does not support ':scope > *' on ShadowRoot, so use
+            // firstElementChild when the default selector applies in Shadow DOM.
             const selector = scenario.selector ?? ':scope > *';
-            const el = host.querySelector(selector);
+            const el =
+                scenario.useShadowDom === true && scenario.selector === undefined
+                    ? queryRoot?.firstElementChild
+                    : queryRoot?.querySelector(selector);
             expect(el, `expected internal element for ${scenario.tag}`).not.toBeNull();
 
             if (scenario.expectNoClass === true) {

@@ -6,10 +6,11 @@ import { EuropaGrid } from '../../../src/components/generic/grid.js';
  * Tests for the `<europa-grid>` web component (spec 014, FR-001 generic
  * primitives).
  *
- * `EuropaGrid` is a light-DOM layout wrapper: on connect it renders a
- * single `<div class="europa-grid">` with children manually reparented
- * into the wrapper. It observes the `variant` attribute and applies the
- * catalog classes to the **internal wrapper div** (not the host element):
+ * `EuropaGrid` is a Shadow DOM layout wrapper: on connect it renders a
+ * single `<div class="europa-grid">` inside a shadow root with a `<slot>`
+ * for projecting host children. It observes the `variant` attribute and
+ * applies the catalog classes to the **internal wrapper div** (not the
+ * host element):
  *
  * - `sidebar` → adds `europa-grid--sidebar`
  * - `wrap` → adds `europa-grid--wrap`
@@ -20,12 +21,14 @@ import { EuropaGrid } from '../../../src/components/generic/grid.js';
  *
  * Covered here:
  * - Registration via `customElements.define` (no auto-registration).
- * - On connect, an internal `<div class="europa-grid">` is rendered.
+ * - On connect, an internal `<div class="europa-grid">` is rendered in the
+ *   shadow root.
  * - The `variant="sidebar"` attribute adds `europa-grid--sidebar` to the
  *   internal div.
  * - The `variant="wrap"` attribute adds `europa-grid--wrap` to the internal
  *   div.
- * - Children are reparented into the `.europa-grid` div.
+ * - The modifier class updates when `variant` changes after connect.
+ * - Children remain host children and are projected via `<slot>`.
  */
 describe('europa-grid', () => {
     beforeAll(() => {
@@ -40,7 +43,10 @@ describe('europa-grid', () => {
         const host = document.createElement('europa-grid');
         document.body.appendChild(host);
 
-        const grid = host.querySelector('.europa-grid');
+        const shadow = host.shadowRoot;
+        expect(shadow).not.toBeNull();
+
+        const grid = shadow?.querySelector('.europa-grid');
         expect(grid).not.toBeNull();
         expect(grid).toBeInstanceOf(HTMLDivElement);
     });
@@ -50,7 +56,7 @@ describe('europa-grid', () => {
         host.setAttribute('variant', 'sidebar');
         document.body.appendChild(host);
 
-        const grid = host.querySelector('.europa-grid');
+        const grid = host.shadowRoot?.querySelector('.europa-grid');
         expect(grid?.classList.contains('europa-grid')).toBe(true);
         expect(grid?.classList.contains('europa-grid--sidebar')).toBe(true);
         expect(grid?.classList.contains('europa-grid--wrap')).toBe(false);
@@ -61,7 +67,7 @@ describe('europa-grid', () => {
         host.setAttribute('variant', 'wrap');
         document.body.appendChild(host);
 
-        const grid = host.querySelector('.europa-grid');
+        const grid = host.shadowRoot?.querySelector('.europa-grid');
         expect(grid?.classList.contains('europa-grid')).toBe(true);
         expect(grid?.classList.contains('europa-grid--wrap')).toBe(true);
         expect(grid?.classList.contains('europa-grid--sidebar')).toBe(false);
@@ -71,7 +77,7 @@ describe('europa-grid', () => {
         const host = document.createElement('europa-grid');
         document.body.appendChild(host);
 
-        const grid = host.querySelector('.europa-grid');
+        const grid = host.shadowRoot?.querySelector('.europa-grid');
         expect(grid?.classList.contains('europa-grid')).toBe(true);
         expect(grid?.classList.contains('europa-grid--sidebar')).toBe(false);
         expect(grid?.classList.contains('europa-grid--wrap')).toBe(false);
@@ -81,7 +87,7 @@ describe('europa-grid', () => {
         const host = document.createElement('europa-grid');
         document.body.appendChild(host);
 
-        const grid = host.querySelector('.europa-grid');
+        const grid = host.shadowRoot?.querySelector('.europa-grid');
         expect(grid?.classList.contains('europa-grid--sidebar')).toBe(false);
 
         host.setAttribute('variant', 'sidebar');
@@ -93,19 +99,24 @@ describe('europa-grid', () => {
         expect(grid?.classList.contains('europa-grid--sidebar')).toBe(false);
     });
 
-    it('projects slotted children into the europa-grid div', () => {
+    it('projects host children via slot projection', () => {
         const host = document.createElement('europa-grid');
 
         const child = document.createElement('p');
         child.textContent = 'Grid content';
         host.appendChild(child);
 
-        // Connect after adding children so render() reparents them.
+        // Connect after adding children so render() sets up the shadow root.
         document.body.appendChild(host);
 
-        // Children are manually reparented into the wrapper (no <slot> in Light DOM).
-        const grid = host.querySelector('.europa-grid');
+        // Under Shadow DOM, children remain on the host and are projected
+        // via the <slot> — they are NOT reparented into the wrapper div.
+        expect(host.contains(child)).toBe(true);
+
+        // The slot exists inside the wrapper.
+        const grid = host.shadowRoot?.querySelector('div.europa-grid');
         expect(grid).not.toBeNull();
-        expect(grid?.contains(child)).toBe(true);
+        const slot = grid?.querySelector('slot');
+        expect(slot).not.toBeNull();
     });
 });

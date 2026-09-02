@@ -105,6 +105,7 @@ describe('route entry adapter', () => {
     it.each([
         ['/lobby', { kind: 'lobby', pathname: '/lobby' }],
         ['/', { kind: 'redirect', pathname: '/lobby' }],
+        ['/profile', { kind: 'profile' }],
     ] as const)('does not invoke commands for %s entries', (pathname, expected) => {
         const route = parseRoute(pathname);
         const commands = successfulCommands();
@@ -123,6 +124,22 @@ describe('route entry adapter', () => {
         const entry = adaptRoute(route, snapshotOf([]));
         expect(entry).toMatchObject({ kind: 'unavailable', matchId, reason: 'not-found' });
         expect(executeRouteEntry(entry, commands)).toBeNull();
+        expect(commands.joinMatch).not.toHaveBeenCalled();
+        expect(commands.spectateMatch).not.toHaveBeenCalled();
+    });
+
+    it('adapts a profile route to a profile entry regardless of snapshot', () => {
+        const route = parseRoute('/profile');
+        const commands = successfulCommands();
+
+        const entryNull = adaptRoute(route, null);
+        expect(entryNull).toEqual({ kind: 'profile', route });
+
+        const entrySnapshot = adaptRoute(route, snapshotOf([]));
+        expect(entrySnapshot).toEqual({ kind: 'profile', route });
+
+        expect(executeRouteEntry(entryNull, commands)).toBeNull();
+        expect(executeRouteEntry(entrySnapshot, commands)).toBeNull();
         expect(commands.joinMatch).not.toHaveBeenCalled();
         expect(commands.spectateMatch).not.toHaveBeenCalled();
     });

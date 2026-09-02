@@ -77,6 +77,19 @@ function overlay(): Element | null {
 }
 
 /**
+ * The overlay's shadow-internal root element — `<europa-waiting>` renders
+ * its `.europa-waiting` structure inside an open shadow root (spec 014
+ * Wave 2), so internal catalog elements must be queried through
+ * `shadowRoot`, not the document.
+ *
+ * @param selector  Selector scoped to the shadow tree.
+ * @returns The matching element inside the overlay's shadow root, or `null`.
+ */
+function overlayShadow(selector: string): Element | null {
+    return overlay()?.shadowRoot?.querySelector(selector) ?? null;
+}
+
+/**
  * The N-aware headline the App renders for a filling room of `capacity`
  * with `seatsFilled` seats occupied. Mirrors the App's derivation so the
  * assertions stay DRY and in lock-step with {@link formatWaitingMessage}.
@@ -103,7 +116,7 @@ describe('waiting-for-opponent overlay (component, 2-player legacy fallback)', (
             waitingSeatsFilled: SEATS_FILLED,
         });
         expect(overlay()).not.toBeNull();
-        expect(document.querySelector('.europa-waiting__text')?.textContent).toBe(HEADLINE);
+        expect(overlayShadow('.europa-waiting__text')?.textContent).toBe(HEADLINE);
     });
 
     test('hidden once the first tick broadcast arrives', async () => {
@@ -170,13 +183,13 @@ describe('waiting-for-opponent overlay (component, 2-player legacy fallback)', (
         await bootWithStore(liveState(null), { waitingCapacity: CAPACITY, waitingSeatsFilled: SEATS_FILLED });
         expect(overlay()).not.toBeNull();
         // The --reduced modifier is on the internal .europa-waiting root div, not the host element.
-        const root = overlay()?.querySelector('.europa-waiting');
+        const root = overlayShadow('.europa-waiting');
         expect(root?.classList.contains('europa-waiting--reduced')).toBe(true);
     });
 
     test('spinner animates by default (no reduced-motion modifier)', async () => {
         await bootWithStore(liveState(null), { waitingCapacity: CAPACITY, waitingSeatsFilled: SEATS_FILLED });
-        const root = overlay()?.querySelector('.europa-waiting');
+        const root = overlayShadow('.europa-waiting');
         expect(root?.classList.contains('europa-waiting--reduced')).toBe(false);
     });
 
@@ -217,7 +230,7 @@ describe('N-aware waiting overlay (feature 012 FR-005, T016)', () => {
             test('visible with N-aware headline while live with no view', async () => {
                 await bootWithStore(liveState(null), { waitingCapacity: capacity, waitingSeatsFilled: seatsFilled });
                 expect(overlay()).not.toBeNull();
-                expect(document.querySelector('.europa-waiting__text')?.textContent).toBe(headline);
+                expect(overlayShadow('.europa-waiting__text')?.textContent).toBe(headline);
                 // The copy is N-aware: it names the remaining seats and the
                 // filled/total ratio, never the legacy single-opponent string.
                 expect(headline).not.toBe(WAITING_FOR_OPPONENT_MESSAGE);
@@ -230,7 +243,7 @@ describe('N-aware waiting overlay (feature 012 FR-005, T016)', () => {
                     waitingSeatsFilled: seatsFilled,
                 });
                 expect(overlay()).not.toBeNull();
-                expect(document.querySelector('.europa-waiting__text')?.textContent).toBe(headline);
+                expect(overlayShadow('.europa-waiting__text')?.textContent).toBe(headline);
             });
 
             test('hidden on the first tick broadcast (tick ≥ 1)', async () => {
@@ -290,7 +303,7 @@ describe('N-aware waiting overlay (feature 012 FR-005, T016)', () => {
                 // still retain the last headline text; that is a hidden
                 // off-screen node, not visible chrome, so it is not asserted
                 // here.)
-                expect(document.querySelector('.europa-waiting__text')).toBeNull();
+                expect(overlayShadow('.europa-waiting__text')).toBeNull();
             });
 
             test('spinner animation is disabled under reduced motion (modifier class)', async () => {
@@ -304,7 +317,7 @@ describe('N-aware waiting overlay (feature 012 FR-005, T016)', () => {
                 await bootWithStore(liveState(null), { waitingCapacity: capacity, waitingSeatsFilled: seatsFilled });
                 expect(overlay()).not.toBeNull();
                 // The --reduced modifier is on the internal .europa-waiting root div, not the host element.
-                const root = overlay()?.querySelector('.europa-waiting');
+                const root = overlayShadow('.europa-waiting');
                 expect(root?.classList.contains('europa-waiting--reduced')).toBe(true);
             });
 

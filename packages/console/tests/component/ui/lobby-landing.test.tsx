@@ -1,5 +1,5 @@
 /**
- * Lobby landing component SMOKE tests — feature 010 (T-015).
+ * Lobby landing component SMOKE tests — feature 010 (T-015) + feature 015 (T-011).
  *
  * Minimal render-level verification that the new landing surface
  * mounts and reflects the store-derived states correctly. This is
@@ -8,8 +8,10 @@
  * handle-preference and safe identity-correlation checks are T-018's contract.
  * Coverage here:
  *
- *   - unnamed visitor: identity form + disabled create form;
- *   - named visitor: <bdi>-wrapped handle + rename affordance;
+ *   - unnamed visitor: compact identity display ("Choose a name" link) + disabled create form;
+ *   - named visitor: compact identity display (<bdi>-wrapped handle + "Manage profile" link);
+ *   - restoring visitor: "Restoring…" status indicator;
+ *   - no input form present in the lobby (identity form moved to /profile);
  *   - row semantics: Join (open waiting) / Full / Spectate
  *     (in progress) / "Your match" badge without actions;
  *   - empty state message;
@@ -62,7 +64,6 @@ function stateOf(overrides: Partial<LobbyState> = {}): LobbyState {
 
 /** No-op callbacks for direct Landing renders. */
 const noopCallbacks = {
-    onSubmitHandle: (): void => undefined,
     onCreate: (): void => undefined,
     onJoin: (): void => undefined,
     onSpectate: (): void => undefined,
@@ -75,17 +76,21 @@ const noopCallbacks = {
 // ----------------------------------------------------------------------------
 
 describe('LobbyLanding (smoke)', () => {
-    test('unnamed visitor sees the naming form and a disabled create form', async () => {
+    test('unnamed visitor sees the compact identity display and a disabled create form', async () => {
         const state = stateOf({ connection: 'ready', identityStatus: 'unnamed', handle: null });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
         await expect.element(screen.getByText('Europa Neo lobby')).toBeVisible();
-        await expect.element(screen.getByLabelText('Display name')).toBeVisible();
-        // Naming is available immediately; hosting waits for a handle.
-        await expect.element(screen.getByRole('button', { name: 'Set name' })).toBeEnabled();
+        // Compact identity: "Choose a name" text and link to /profile.
+        const chooseNameLink = screen.getByRole('link', { name: 'Choose a name' });
+        await expect.element(chooseNameLink).toBeVisible();
+        expect(chooseNameLink.element().getAttribute('href')).toBe('/profile');
+        // No text input (identity form) in the lobby — identity form lives on /profile.
+        expect(screen.container.querySelector('input[type="text"]')).toBeNull();
+        // Naming is available via link; hosting waits for a handle.
         await expect.element(screen.getByRole('button', { name: 'Create match' })).toBeDisabled();
     });
 
-    test('named visitor sees their handle inside a bdi and a rename form', async () => {
+    test('named visitor sees their handle inside a bdi and a Manage profile link', async () => {
         const state = stateOf({
             connection: 'ready',
             identityStatus: 'named',
@@ -93,11 +98,17 @@ describe('LobbyLanding (smoke)', () => {
             snapshot: snapshotOf([]),
         });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+        // Compact identity: "Playing as Nova" with handle inside <bdi>.
+        await expect.element(screen.getByText('Playing as')).toBeVisible();
         const handle = screen.getByText('Nova');
         await expect.element(handle).toBeVisible();
         // Wave-4 invariant: hostile-but-valid handles render inside <bdi>.
         expect(handle.element().tagName).toBe('BDI');
-        await expect.element(screen.getByLabelText('Change name')).toBeVisible();
+        // "Manage profile" link points to /profile.
+        await expect.element(screen.getByRole('link', { name: 'Manage profile' })).toBeVisible();
+        expect(screen.getByRole('link', { name: 'Manage profile' }).element().getAttribute('href')).toBe('/profile');
+        // No text input (identity form) in the lobby.
+        expect(screen.container.querySelector('input[type="text"]')).toBeNull();
         await expect.element(screen.getByRole('button', { name: 'Create match' })).toBeEnabled();
     });
 
@@ -281,6 +292,49 @@ describe('LobbyLanding (smoke)', () => {
         await ackBtn.click();
         expect(onAcknowledgeSuperseded.mock.calls.length).toBe(1);
     });
+
+    test('restoring visitor sees the "Restoring…" status indicator', async () => {
+        const state = stateOf({
+            connection: 'ready',
+            identityStatus: 'restoring',
+            handle: null,
+        });
+        const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+        await expect.element(screen.getByText('Restoring…')).toBeVisible();
+        // No link shown while restoring.
+        const links = [...screen.container.querySelectorAll('a')].filter(
+            (el) => el.getAttribute('href') === '/profile',
+        );
+        expect(links).toHaveLength(0);
+    });
+
+    test('clicking "Manage profile" navigates to /profile via pushState', async () => {
+        const pushState = vi.spyOn(window.history, 'pushState');
+        const state = stateOf({
+            connection: 'ready',
+            identityStatus: 'named',
+            handle: 'Nova',
+            snapshot: snapshotOf([]),
+        });
+        const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+        const link = screen.getByRole('link', { name: 'Manage profile' }).element() as HTMLAnchorElement;
+        await link.click();
+        expect(pushState).toHaveBeenCalledTimes(1);
+        expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/profile');
+    });
+
+    test('no identity input form is present in the lobby landing', async () => {
+        const state = stateOf({
+            connection: 'ready',
+            identityStatus: 'named',
+            handle: 'Nova',
+            snapshot: snapshotOf([]),
+        });
+        const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+        // The identity text input has been moved to /profile; only radio inputs
+        // (player count) remain in the create form.
+        expect(screen.container.querySelector('input[type="text"]')).toBeNull();
+    });
 });
 
 // ----------------------------------------------------------------------------
@@ -394,6 +448,12 @@ class SmokeTransport implements LobbyTransport {
 
 describe('LobbyRoot view gate (smoke)', () => {
     test('lobby first; a seat grant shows the waiting room; auto-start attaches the console', async () => {
+        // The profile route view gate (feature 015) renders ProfileView when
+        // window.location.pathname === '/profile'. In Vitest browser mode the
+        // page URL may sit on /profile, so we pushState to / first to ensure
+        // the lobby gate falls through to LobbyLanding.
+        window.history.pushState(window.history.state, '', '/');
+
         const transport = new SmokeTransport();
         const controller = createLobbyController({
             transport,

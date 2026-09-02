@@ -14,6 +14,7 @@ export type RouteRejection =
 export type Route =
     | { readonly kind: 'root'; readonly pathname: '/' }
     | { readonly kind: 'lobby'; readonly pathname: '/lobby' }
+    | { readonly kind: 'profile'; readonly pathname: '/profile' }
     | {
           readonly kind: 'match';
           readonly pathname: string;
@@ -40,6 +41,10 @@ export function parseRoute(pathname: string): Route {
 
     if (pathname === '/lobby') {
         return { kind: 'lobby', pathname };
+    }
+
+    if (pathname === '/profile') {
+        return { kind: 'profile', pathname };
     }
 
     const segments = pathname.split('/').slice(1);
@@ -72,6 +77,11 @@ export function parseRoute(pathname: string): Route {
 /** Builds the canonical public lobby URL for an origin. */
 export function buildLobbyUrl(origin: string): string {
     return `${normalizeOrigin(origin)}/lobby`;
+}
+
+/** Builds the canonical profile URL for an origin. */
+export function buildProfileUrl(origin: string): string {
+    return `${normalizeOrigin(origin)}/profile`;
 }
 
 /** Builds an adaptive semantic match URL. */

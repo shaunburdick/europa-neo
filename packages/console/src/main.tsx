@@ -98,6 +98,7 @@ function bootstrapProductionRoute(root: HTMLElement): void {
             return;
         case 'player':
         case 'spectator':
+        case 'profile':
             mountLobby(root);
             return;
         case 'unavailable':

@@ -31,8 +31,8 @@ const VARIANT_TAGS: Record<TypographyVariant, string> = {
  *   `subheading` → `<h3 …--subheading>`, `body` → `<p …--body>`,
  *   `label` → `<span …--label>`, `caption` → `<span …--caption>`.
  *
- * **Slots**: none — children are manually reparented into the semantic
- * element (slots are inert in light DOM).
+ * **Slots**: default slot — host children are projected inside the semantic
+ * element via a `<slot>` (Shadow DOM; children are never reparented).
  *
  * **Events**: none.
  *
@@ -42,8 +42,9 @@ const VARIANT_TAGS: Record<TypographyVariant, string> = {
  * element (DESIGN.md § 2). The `body`/`label`/`caption` variants render
  * non-heading elements and carry no implicit semantics.
  *
- * Uses **light DOM**: the catalog class is applied directly to the rendered
- * element, so it participates in the page's normal stylesheet cascade.
+ * Uses **Shadow DOM**: the semantic element lives inside the shadow root and
+ * the shared catalog stylesheet is adopted into it, so the catalog classes
+ * apply without touching the page's global cascade.
  *
  * @example
  * ```html
@@ -61,33 +62,33 @@ export class EuropaTypography extends EuropaElement {
     private _el: HTMLElement | null = null;
 
     /**
-     * Create (once) or refresh the semantic element for the current `variant`.
+     * Create or rebuild the semantic element for the current `variant`
+     * inside the shadow root.
      *
-     * On first call the semantic element is created and appended, and light-DOM
-     * children are manually reparented into it. On subsequent calls the existing
-     * element is reused unless the variant changed the tag (e.g. `heading` →
-     * `body`), in which case children are moved into a freshly created element
-     * of the new tag. The catalog class is reapplied on every render.
+     * The semantic element wraps a `<slot>` projecting host children. When
+     * the variant (and therefore the tag) changes — or on first render —
+     * the shadow root is cleared and a fresh element of the correct tag is
+     * created. When the tag is unchanged, the existing element is reused and
+     * only its catalog class is refreshed.
      */
     protected override render(): void {
+        const shadow = this.ensureShadowRoot();
+
         const variant = this._variant();
         const tag = VARIANT_TAGS[variant];
 
-        if (this._el === null) {
-            this._el = document.createElement(tag);
-            this.appendChild(this._el);
-        } else if (this._el.tagName.toLowerCase() !== tag) {
-            const next = document.createElement(tag);
-            this.replaceChild(next, this._el);
-            this._el = next;
-        }
+        if (this._el === null || this._el.tagName.toLowerCase() !== tag) {
+            // Clear the shadow root and rebuild with the new tag (the
+            // adopted stylesheet survives — it lives on adoptedStyleSheets).
+            shadow.innerHTML = '';
 
-        // Reparent any host children not yet inside the semantic element.
-        const children = Array.from(this.childNodes);
-        for (const child of children) {
-            if (child !== this._el) {
-                this._el.appendChild(child);
-            }
+            const el = document.createElement(tag);
+
+            const slot = document.createElement('slot');
+            el.appendChild(slot);
+
+            shadow.appendChild(el);
+            this._el = el;
         }
 
         this._el.className = `europa-typography europa-typography--${variant}`;

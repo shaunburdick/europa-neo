@@ -1,13 +1,13 @@
 import { EuropaElement } from '../base.js';
 
 /**
- * The `<europa-card>` custom element — a light-DOM wrapper for the
+ * The `<europa-card>` custom element — a Shadow DOM wrapper for the
  * `europa-card` catalog class.
  *
- * Renders a single `<div class="europa-card">` with children manually
- * reparented into the wrapper. The class conveys no semantics, so the
- * host is responsible for supplying heading structure and any interactive
- * content.
+ * Renders a single `<div class="europa-card">` inside a shadow root,
+ * with a `<slot>` element for projecting host children. The class
+ * conveys no semantics, so the host is responsible for supplying heading
+ * structure and any interactive content.
  *
  * No attributes are observed; the element renders once on connect.
  *
@@ -20,28 +20,25 @@ import { EuropaElement } from '../base.js';
  * ```
  */
 export class EuropaCard extends EuropaElement {
-    /** The internal `<div class="europa-card">` wrapper. */
+    /** The internal `<div class="europa-card">` wrapper inside the shadow root. */
     private _card: HTMLDivElement | null = null;
 
     /**
-     * Create (once) the internal card wrapper, then apply the
-     * `europa-card` catalog class. Children are manually reparented
-     * into the wrapper on every render (slots are inert in light DOM).
+     * Lazily create the shadow root and internal card wrapper with a
+     * `<slot>` for projecting host children.
      */
     protected render(): void {
+        const shadow = this.ensureShadowRoot();
+
         if (this._card === null) {
             const card = document.createElement('div');
             card.className = 'europa-card';
-            this.appendChild(card);
-            this._card = card;
-        }
 
-        // Reparent any host children not yet inside the wrapper.
-        const children = Array.from(this.childNodes);
-        for (const child of children) {
-            if (child !== this._card) {
-                this._card.appendChild(child);
-            }
+            const slot = document.createElement('slot');
+            card.appendChild(slot);
+
+            shadow.appendChild(card);
+            this._card = card;
         }
     }
 }

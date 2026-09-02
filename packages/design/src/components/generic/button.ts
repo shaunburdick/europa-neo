@@ -4,17 +4,29 @@ import { EuropaElement } from '../base.js';
  * `<europa-button>` — a button web component wrapping a native `<button>`
  * element with the shared `europa-*` CSS class catalog.
  *
+ * Uses **Shadow DOM**: a native `<button class="europa-button …">` is
+ * rendered inside an open shadow root (styled by the shared catalog
+ * stylesheet adopted by {@link EuropaElement.ensureShadowRoot}), with a
+ * `<slot>` element projecting the host's light-DOM children (label text,
+ * icons) into the button. Host children are *projected*, never reparented,
+ * so consumer DOM references stay valid.
+ *
  * Renders a native `<button>` (FR-013) for full keyboard, focus, and form
  * participation. Applies `europa-button` + variant/size modifier classes
- * to the host element via light DOM. Boolean attributes (`disabled`) and
+ * to the internal button element. Boolean attributes (`disabled`) and
  * passthrough attributes (`type`, `aria-label`) are forwarded to the
  * internal `<button>`.
  *
  * **Form association**: This element declares `static formAssociated = true`
  * and uses `ElementInternals` so that `<europa-button type="submit">` inside
  * a `<form>` triggers native form submission via `form.requestSubmit()`.
- * The click handler is attached to the host element and delegates to the
- * associated form when `type="submit"`.
+ * Form association operates on the host element and is independent of DOM
+ * mode. The click handler is attached to the host element; clicks on the
+ * internal button are composed and bubble across the shadow boundary to the
+ * host, delegating to the associated form when `type="submit"`. (The
+ * internal button itself has no form owner — its shadow tree contains no
+ * `<form>` ancestor — so `requestSubmit()` is the only submission path and
+ * there is no double-submission risk.)
  *
  * **Attributes**:
  * - `variant` — maps to `europa-button--<variant>` modifier class.
@@ -24,7 +36,7 @@ import { EuropaElement } from '../base.js';
  *   `submit` also triggers form submission via ElementInternals.
  * - `aria-label` — forwarded to the native button.
  *
- * **Slots**: default — renders inside the native `<button>`.
+ * **Slots**: default — projects inside the native `<button>`.
  *
  * @example
  * ```html
@@ -43,32 +55,18 @@ export class EuropaButton extends EuropaElement {
      */
     static formAssociated = true;
 
-    /** Reference to the internal native `<button>` element. */
+    /** Reference to the internal native `<button>` inside the shadow root. */
     private _button: HTMLButtonElement | null = null;
 
     /** ElementInternals handle for form association. */
     private readonly _internals: ElementInternals;
 
-    /** Whether the initial render has already been queued for this element. */
-    private _renderQueued = false;
-
-    /**
-     * Guard flag to prevent infinite MutationObserver loops. When
-     * {@link render} is reparenting children, it sets this to `true` so
-     * the observer callback skips the synthetic childList mutation.
-     */
-    private _updating = false;
-
-    /**
-     * MutationObserver that watches the host element's `childList` for
-     * React re-render text changes (e.g. "Set name" → "Update name").
-     * Without this, new text children land outside the internal `<button>`.
-     */
-    private readonly _childObserver: MutationObserver;
-
     /**
      * Bound click handler reference so it can be added on construction
-     * and removed on disconnection.
+     * and removed on disconnection. Attached to the **host** element:
+     * clicks on the internal (shadow) button are composed and bubble
+     * across the shadow boundary to the host, so both real user clicks
+     * on the button and programmatic `host.click()` trigger submission.
      */
     private readonly _handleClick: (event: Event) => void;
 
@@ -84,22 +82,13 @@ export class EuropaButton extends EuropaElement {
             }
         };
         this.addEventListener('click', this._handleClick);
-
-        this._childObserver = new MutationObserver(() => {
-            if (!this._updating) {
-                this.render();
-            }
-        });
-        this._childObserver.observe(this, { childList: true });
     }
 
     /**
-     * Remove the click listener and disconnect the child-list observer
-     * when the element leaves the document.
+     * Remove the host click listener when the element leaves the document.
      */
     disconnectedCallback(): void {
         this.removeEventListener('click', this._handleClick);
-        this._childObserver.disconnect();
     }
 
     /**
@@ -113,68 +102,35 @@ export class EuropaButton extends EuropaElement {
     }
 
     /**
-     * Render after the host's light-DOM children have been committed.
-     * React 19 appends custom-element children after `connectedCallback`; a
-     * synchronous render would otherwise be cleared by that commit.
+     * Update the internal native button when host attributes change.
+     *
+     * No-op attribute writes (`oldValue === newValue`) skip the re-render.
      */
-    override connectedCallback(): void {
-        if (this._renderQueued) {
-            return;
-        }
-        this._renderQueued = true;
-        queueMicrotask(() => {
-            this._renderQueued = false;
-            if (this.isConnected) {
-                this.render();
-            }
-        });
-    }
-
-    /** Update an already-rendered native button when host attributes change. */
     override attributeChangedCallback(_name: string, oldValue: string | null, newValue: string | null): void {
-        if (oldValue !== newValue && this._button !== null) {
+        if (oldValue !== newValue) {
             this.render();
         }
     }
 
     /**
-     * Create (once) or update the internal `<button>` element.
+     * Create (once) or update the internal `<button>` element inside the
+     * shadow root.
      *
-     * Idempotent: the button is created on first call and light-DOM
-     * children are manually reparented into it (projection is manual,
-     * not via `<slot>` — slots are inert in light DOM). On subsequent
-     * calls only classes and forwarded attributes are refreshed.
+     * Idempotent: on first call an open shadow root is created (via
+     * {@link EuropaElement.ensureShadowRoot}) containing a native
+     * `<button class="europa-button">` with a `<slot>` that projects the
+     * host's light-DOM children. On subsequent calls only classes and
+     * forwarded attributes are refreshed.
      */
     protected override render(): void {
-        // Guard against re-entrant calls from the MutationObserver when
-        // appendChild moves nodes (synthetic childList mutations).
-        this._updating = true;
+        const shadow = this.ensureShadowRoot();
 
         if (this._button === null) {
-            this._button = document.createElement('button');
-            this.appendChild(this._button);
-
-            // Manually reparent light-DOM children into the button.
-            // Snapshot childNodes (live NodeList) before moving.
-            const children = Array.from(this.childNodes);
-            for (const child of children) {
-                if (child !== this._button) {
-                    this._button.appendChild(child);
-                }
-            }
+            const button = document.createElement('button');
+            button.appendChild(document.createElement('slot'));
+            shadow.appendChild(button);
+            this._button = button;
         }
-
-        // Reparent any host children not yet inside the button.
-        // Handles children added after the initial render (e.g. when
-        // setAttribute triggers render() before children are appended).
-        const remaining = Array.from(this.childNodes);
-        for (const child of remaining) {
-            if (child !== this._button) {
-                this._button.appendChild(child);
-            }
-        }
-
-        this._updating = false;
 
         const variant = this.getAttribute('variant');
         const size = this.getAttribute('size');

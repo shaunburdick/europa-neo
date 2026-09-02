@@ -1,18 +1,19 @@
 /**
  * Tests for the `<europa-modal>` web component (spec 014, FR-011 / FR-027).
  *
- * The modal is the most complex component in the set: it renders a light-DOM
- * `backdrop > dialog > title + body[slot] + actions[slot]` structure, enforces
- * the accessibility contract (`role="dialog"`, `aria-modal="true"`,
- * `aria-labelledby` pointing to the title), and dispatches `europa-close` on
- * Escape or backdrop click.
+ * The modal is the most complex component in the set: it renders a
+ * shadow-DOM `backdrop > dialog > title + body[slot] + actions[slot]`
+ * structure, enforces the accessibility contract (`role="dialog"`,
+ * `aria-modal="true"`, `aria-labelledby` pointing to the title), and
+ * dispatches `europa-close` on Escape or backdrop click.
  *
  * This suite covers the component's OWN logic that happy-dom can reliably
- * exercise (FR-027): class composition, attribute → DOM mapping, slot
- * rendering, a11y attributes, and the Escape-close event. The full focus-trap
- * and focus-restore behavior (FR-011 d/f, FR-028) is covered by the browser
- * integration test (`modal.integration.test.ts`), which runs in real Chromium
- * where focus management is reliable — happy-dom's focus support is limited.
+ * exercise (FR-027): structural rendering through the shadow root, host
+ * children staying in the light DOM (slot projection), a11y attributes,
+ * and the Escape-close event. The full focus-trap and focus-restore
+ * behavior (FR-011 d/f, FR-028) is covered by the browser integration test
+ * (`modal.integration.test.ts`), which runs in real Chromium where focus
+ * management is reliable — happy-dom's focus support is limited.
  *
  * The component does NOT auto-register (FR-004) — this suite registers it
  * explicitly via `customElements.define` in `beforeAll`.
@@ -34,12 +35,12 @@ describe('europa-modal', () => {
         document.body.innerHTML = '';
     });
 
-    it('renders the backdrop and dialog when open', () => {
+    it('renders the backdrop and dialog inside the shadow root when open', () => {
         const modal = document.createElement(TAG);
         modal.setAttribute('open', '');
         document.body.appendChild(modal);
 
-        const backdrop = modal.querySelector('div.europa-modal-backdrop');
+        const backdrop = modal.shadowRoot?.querySelector('div.europa-modal-backdrop');
         expect(backdrop).not.toBeNull();
         expect(backdrop?.className).toBe('europa-modal-backdrop');
 
@@ -53,7 +54,7 @@ describe('europa-modal', () => {
         modal.setAttribute('open', '');
         document.body.appendChild(modal);
 
-        const dialog = modal.querySelector('div.europa-modal');
+        const dialog = modal.shadowRoot?.querySelector('div.europa-modal');
         expect(dialog).not.toBeNull();
         expect(dialog?.getAttribute('tabindex')).toBe('-1');
     });
@@ -63,7 +64,7 @@ describe('europa-modal', () => {
         modal.setAttribute('open', '');
         document.body.appendChild(modal);
 
-        const dialog = modal.querySelector('div.europa-modal');
+        const dialog = modal.shadowRoot?.querySelector('div.europa-modal');
         expect(dialog?.getAttribute('role')).toBe('dialog');
         expect(dialog?.getAttribute('aria-modal')).toBe('true');
     });
@@ -74,17 +75,17 @@ describe('europa-modal', () => {
         modal.setAttribute('title', 'Confirm surrender');
         document.body.appendChild(modal);
 
-        const title = modal.querySelector('h2.europa-modal__title');
+        const title = modal.shadowRoot?.querySelector('h2.europa-modal__title');
         expect(title).not.toBeNull();
         expect(title?.textContent).toBe('Confirm surrender');
 
-        const dialog = modal.querySelector('div.europa-modal');
+        const dialog = modal.shadowRoot?.querySelector('div.europa-modal');
         const labelledBy = dialog?.getAttribute('aria-labelledby');
         expect(labelledBy).not.toBeNull();
         expect(title?.id).toBe(labelledBy);
     });
 
-    it('renders the body and actions slots', () => {
+    it('renders the body and actions slots inside the shadow root', () => {
         const modal = document.createElement(TAG);
         modal.innerHTML = `
             <p>Body content</p>
@@ -95,14 +96,31 @@ describe('europa-modal', () => {
         modal.setAttribute('open', '');
         document.body.appendChild(modal);
 
-        const body = modal.querySelector('div.europa-modal__body');
+        const body = modal.shadowRoot?.querySelector('div.europa-modal__body');
         expect(body).not.toBeNull();
         expect(body?.querySelector('slot')).not.toBeNull();
 
-        const actions = modal.querySelector('div.europa-modal__actions');
+        const actions = modal.shadowRoot?.querySelector('div.europa-modal__actions');
         expect(actions).not.toBeNull();
         const actionsSlot = actions?.querySelector('slot[name="actions"]');
         expect(actionsSlot).not.toBeNull();
+    });
+
+    it('keeps host children in the light DOM (slot projection, not reparenting)', () => {
+        const modal = document.createElement(TAG);
+        const bodyChild = document.createElement('p');
+        bodyChild.textContent = 'Body content';
+        const actionsChild = document.createElement('div');
+        actionsChild.setAttribute('slot', 'actions');
+        modal.appendChild(bodyChild);
+        modal.appendChild(actionsChild);
+        modal.setAttribute('open', '');
+        document.body.appendChild(modal);
+
+        // Structural projection: slotted content stays in the host's light
+        // DOM (never reparented into the shadow tree).
+        expect(modal.contains(bodyChild)).toBe(true);
+        expect(modal.contains(actionsChild)).toBe(true);
     });
 
     it('hides the host when open is absent', () => {

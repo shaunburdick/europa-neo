@@ -241,11 +241,11 @@ describe('lobby identity persistence across a page remount (US1/FR-003)', () => 
         expect(first.controller.store.getState().identityStatus).toBe('unnamed');
         expect(first.server.issuedGuestId).not.toBeNull();
 
-        // Choose a handle THROUGH THE FORM.
-        const input = first.screen.getByRole('textbox', { name: 'Display name' });
-        await input.fill('Nova');
-        const setNameBtn = first.screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement;
-        await setNameBtn.click();
+        // Choose a handle via the controller (identity form now lives at
+        // /profile via ProfileView — feature 015 moved the form off the
+        // lobby landing). The persistence contract is the same: the handle
+        // reaches the store and is persisted to storage.
+        await first.controller.setHandle('Nova');
 
         const named = first.screen.getByText('Nova');
         await expect.element(named).toBeVisible();
@@ -267,9 +267,8 @@ describe('lobby identity persistence across a page remount (US1/FR-003)', () => 
         const first = await mountFreshLanding(registry);
         first.socket.open();
         await first.connecting;
-        await first.screen.getByRole('textbox', { name: 'Display name' }).fill('Nova');
-        const setNameBtn = first.screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement;
-        await setNameBtn.click();
+        // Choose a handle via the controller (identity form now lives at /profile).
+        await first.controller.setHandle('Nova');
         await expect.element(first.screen.getByText('Nova')).toBeVisible();
         const issuedId = first.server.issuedGuestId;
         first.controller.disconnect();
@@ -286,8 +285,9 @@ describe('lobby identity persistence across a page remount (US1/FR-003)', () => 
         expect(second.controller.store.getState().identityStatus).toBe('named');
         expect(second.controller.store.getState().handle).toBe('Nova');
         await expect.element(second.screen.getByText('Nova')).toBeVisible();
-        // Rename affordance (not first-visit wording) proves the named path.
-        await expect.element(second.screen.getByRole('textbox', { name: 'Change name' })).toBeVisible();
+        // Named identity shows "Manage profile" link to /profile (feature 015
+        // identity flow) — proves the named path without re-entry.
+        await expect.element(second.screen.getByRole('link', { name: 'Manage profile' })).toBeVisible();
 
         // The reload PRESENTED the stored (server-delivered) claim — not
         // a fresh local mint — so the server resolved the SAME identity.

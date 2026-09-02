@@ -14,12 +14,27 @@ const FOCUSABLE_SELECTOR =
  * `<europa-modal>` — a dialog web component with focus trapping, Escape-to-close,
  * backdrop click, and automatic focus restore.
  *
- * Renders a light-DOM structure matching the catalog's `.europa-modal-backdrop`
- * + `.europa-modal` + `.europa-modal__title` + `.europa-modal__body` +
- * `.europa-modal__actions` class hierarchy. Enforces the accessibility contract
- * (FR-011): `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to
- * the title element, Tab/Shift+Tab focus trap, Escape dispatching `europa-close`,
- * and focus restore to the previously-focused element on close.
+ * Uses **Shadow DOM**: the `.europa-modal-backdrop` → `.europa-modal` dialog →
+ * `.europa-modal__title` + `.europa-modal__body` + `.europa-modal__actions`
+ * structure is rendered inside an open shadow root (styled by the shared
+ * catalog stylesheet adopted by {@link EuropaElement.ensureShadowRoot}). Host
+ * children are *projected*, never reparented: default children show through
+ * the body's default `<slot>`, children carrying `slot="actions"` show
+ * through the actions' named `<slot>`.
+ *
+ * Enforces the accessibility contract (FR-011): `role="dialog"`,
+ * `aria-modal="true"`, `aria-labelledby` pointing to the title element
+ * (both live inside the same shadow root, so the id reference resolves),
+ * Tab/Shift+Tab focus trap, Escape dispatching `europa-close`, and focus
+ * restore to the previously-focused element on close.
+ *
+ * **Focus trap under Shadow DOM**: the trap walks the dialog's *flattened*
+ * tree in document order — shadow-tree elements, slotted light-DOM content
+ * (via `slot.assignedElements()`, since slotted nodes stay light-DOM
+ * children of the host), and the internal focusables of nested open-shadow
+ * components such as a slotted `<europa-button>`. Boundary comparisons use
+ * {@link deepActiveElement} so focus inside any open shadow root along the
+ * chain compares equal to the corresponding flattened element.
  *
  * **Attributes**:
  * - `open` (boolean) — controls visibility and focus management.
@@ -41,16 +56,16 @@ const FOCUSABLE_SELECTOR =
  * ```
  */
 export class EuropaModal extends EuropaElement {
-    /** The outermost backdrop `<div>`. */
+    /** The outermost backdrop `<div>` inside the shadow root. */
     private _backdrop: HTMLDivElement | null = null;
 
-    /** The inner dialog `<div role="dialog">`. */
+    /** The inner dialog `<div role="dialog">` inside the shadow root. */
     private _dialog: HTMLDivElement | null = null;
 
-    /** The body `<div class="europa-modal__body">`. */
+    /** The body `<div class="europa-modal__body">` (contains the default slot). */
     private _body: HTMLDivElement | null = null;
 
-    /** The actions `<div class="europa-modal__actions">`. */
+    /** The actions `<div class="europa-modal__actions">` (contains the actions slot). */
     private _actions: HTMLDivElement | null = null;
 
     /** The title `<h2>` element. */
@@ -81,7 +96,10 @@ export class EuropaModal extends EuropaElement {
 
     /**
      * Bound `click` handler on the backdrop. Closes the modal when the
-     * backdrop itself (not its descendants) is the event target.
+     * backdrop itself (not its descendants) is the event target. For a
+     * listener inside the shadow root the event target is NOT retargeted,
+     * so clicks on the dialog or its slotted content never match the
+     * backdrop, while a direct backdrop click does.
      */
     private readonly _onBackdropClick = (e: Event): void => {
         if (e.target === this._backdrop && this.getAttribute('open') !== null) {
@@ -99,82 +117,59 @@ export class EuropaModal extends EuropaElement {
     }
 
     /**
-     * Create (once) or update the internal dialog DOM.
+     * Create (once) or update the internal dialog DOM inside the shadow
+     * root.
      *
      * On first call, builds the full backdrop → dialog → title → body →
-     * actions structure and appends it to the host. Light-DOM children are
-     * manually reparented: default children go into the body div, children
-     * with `slot="actions"` go into the actions div (projection is manual,
-     * not via `<slot>` — slots are inert in light DOM). On subsequent
-     * calls, refreshes the open/hidden state and title text. The
-     * document-level `keydown` listener is attached once and cleaned up
-     * on disconnect.
+     * actions structure inside the open shadow root. Host children are
+     * projected via slots (default slot in the body, named `actions` slot
+     * in the actions bar) — they stay in the host's light DOM. On
+     * subsequent calls, refreshes the open/hidden state and title text.
+     * The document-level `keydown` listener is attached once and cleaned
+     * up on disconnect.
      */
     protected override render(): void {
-        if (this._backdrop === null) {
-            this._backdrop = document.createElement('div');
-            this._backdrop.className = 'europa-modal-backdrop';
+        const shadow = this.ensureShadowRoot();
 
-            this._dialog = document.createElement('div');
-            this._dialog.className = 'europa-modal';
-            this._dialog.setAttribute('tabindex', '-1');
-            this._dialog.setAttribute('role', 'dialog');
-            this._dialog.setAttribute('aria-modal', 'true');
-            this._dialog.setAttribute('aria-labelledby', this._id);
+        if (this._backdrop === null || this._dialog === null || this._body === null || this._actions === null) {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'europa-modal-backdrop';
 
-            this._titleEl = document.createElement('h2');
-            this._titleEl.className = 'europa-modal__title';
-            this._titleEl.id = this._id;
+            const dialog = document.createElement('div');
+            dialog.className = 'europa-modal';
+            dialog.setAttribute('tabindex', '-1');
+            dialog.setAttribute('role', 'dialog');
+            dialog.setAttribute('aria-modal', 'true');
+            dialog.setAttribute('aria-labelledby', this._id);
 
-            this._body = document.createElement('div');
-            this._body.className = 'europa-modal__body';
-            // Inert <slot> kept as structural marker (light DOM does not
-            // project via <slot>); actual projection is manual below.
-            this._body.appendChild(document.createElement('slot'));
+            const titleEl = document.createElement('h2');
+            titleEl.className = 'europa-modal__title';
+            titleEl.id = this._id;
 
-            this._actions = document.createElement('div');
-            this._actions.className = 'europa-modal__actions';
+            const body = document.createElement('div');
+            body.className = 'europa-modal__body';
+            body.appendChild(document.createElement('slot'));
+
+            const actions = document.createElement('div');
+            actions.className = 'europa-modal__actions';
             const actionsSlot = document.createElement('slot');
             actionsSlot.setAttribute('name', 'actions');
-            this._actions.appendChild(actionsSlot);
+            actions.appendChild(actionsSlot);
 
-            this._dialog.appendChild(this._titleEl);
-            this._dialog.appendChild(this._body);
-            this._dialog.appendChild(this._actions);
-            this._backdrop.appendChild(this._dialog);
-            this.appendChild(this._backdrop);
+            dialog.appendChild(titleEl);
+            dialog.appendChild(body);
+            dialog.appendChild(actions);
+            backdrop.appendChild(dialog);
+            shadow.appendChild(backdrop);
 
-            // Manually reparent light-DOM children into body/actions.
-            // Snapshot childNodes (live NodeList) before moving.
-            const children = Array.from(this.childNodes);
-            for (const child of children) {
-                if (child === this._backdrop || child === this._dialog) {
-                    continue;
-                }
-                if (child.nodeType === 1 && (child as HTMLElement).getAttribute('slot') === 'actions') {
-                    this._actions.appendChild(child);
-                } else {
-                    this._body.appendChild(child);
-                }
-            }
+            this._backdrop = backdrop;
+            this._dialog = dialog;
+            this._body = body;
+            this._actions = actions;
+            this._titleEl = titleEl;
 
-            this._backdrop.addEventListener('click', this._onBackdropClick);
+            backdrop.addEventListener('click', this._onBackdropClick);
             document.addEventListener('keydown', this._onKeyDown);
-        }
-
-        // Reparent any host children not yet inside body/actions.
-        // Handles children added after the initial render (e.g. when
-        // setAttribute triggers render() before children are appended).
-        const remaining = Array.from(this.childNodes);
-        for (const child of remaining) {
-            if (child === this._backdrop || child === this._dialog) {
-                continue;
-            }
-            if (child.nodeType === 1 && (child as HTMLElement).getAttribute('slot') === 'actions') {
-                this._actions?.appendChild(child);
-            } else {
-                this._body?.appendChild(child);
-            }
         }
 
         if (this._titleEl !== null) {
@@ -214,6 +209,68 @@ export class EuropaModal extends EuropaElement {
     }
 
     /**
+     * Collects the focusable elements inside the dialog, in flattened
+     * document order.
+     *
+     * Because of the Shadow DOM split, three sources are combined by a
+     * depth-first walk in document order:
+     *
+     * 1. **Shadow-tree elements** of the dialog (internal focusables).
+     * 2. **Slotted light-DOM content** — slotted nodes remain light-DOM
+     *    children of the host (projection does not move them), so they are
+     *    invisible to `querySelectorAll` on the shadow tree; slots are
+     *    followed via `slot.assignedElements()` in slot order.
+     * 3. **Nested open-shadow components** — a slotted `<europa-button>`'s
+     *    internal native button is a real tab stop in the flattened tree
+     *    but lives inside the component's own shadow root; open shadow
+     *    roots found along the walk are descended into.
+     *
+     * The same disabled / negative-tabindex filter that guarded the
+     * pre-Shadow-DOM implementation is applied to every source.
+     *
+     * @returns The focusable elements, in flattened document order.
+     */
+    private _collectFocusables(): HTMLElement[] {
+        const dialog = this._dialog;
+        if (dialog === null) {
+            return [];
+        }
+
+        const focusable: HTMLElement[] = [];
+        const visit = (el: HTMLElement): void => {
+            if (el.matches(FOCUSABLE_SELECTOR) && !el.hasAttribute('disabled') && el.tabIndex >= 0) {
+                focusable.push(el);
+            }
+            const children = el.children;
+            for (let i = 0; i < children.length; i++) {
+                const child = children[i] as HTMLElement;
+                if (child instanceof HTMLSlotElement) {
+                    // A slot renders its assigned light-DOM elements in the
+                    // flat tree — walk the assigned elements in slot order
+                    // instead of the slot's (empty) shadow children.
+                    const assigned = child.assignedElements();
+                    for (let j = 0; j < assigned.length; j++) {
+                        visit(assigned[j] as HTMLElement);
+                    }
+                    continue;
+                }
+                // Nested open shadow roots (e.g. a slotted <europa-button>):
+                // the internal focusables are real tab stops in the
+                // flattened tree but invisible from this shadow tree.
+                if (child.shadowRoot !== null) {
+                    const inner = child.shadowRoot.children;
+                    for (let k = 0; k < inner.length; k++) {
+                        visit(inner[k] as HTMLElement);
+                    }
+                }
+                visit(child);
+            }
+        };
+        visit(dialog);
+        return focusable;
+    }
+
+    /**
      * Traps Tab / Shift+Tab focus within the modal dialog.
      *
      * Computes the set of focusable descendants on each keydown (reflecting
@@ -222,9 +279,7 @@ export class EuropaModal extends EuropaElement {
      * @param e  The Tab keydown event.
      */
     private _trapFocus(e: KeyboardEvent): void {
-        const focusable = Array.from((this._dialog ?? this).querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-            (el) => !el.hasAttribute('disabled') && el.tabIndex >= 0,
-        );
+        const focusable = this._collectFocusables();
 
         if (focusable.length === 0) {
             return;
@@ -232,7 +287,16 @@ export class EuropaModal extends EuropaElement {
 
         const first = focusable[0] as HTMLElement | undefined;
         const last = focusable[focusable.length - 1] as HTMLElement | undefined;
-        const active = document.activeElement as HTMLElement | null;
+
+        // Resolve the deep active element: document.activeElement reports
+        // the top-level shadow host when focus sits inside an open shadow
+        // tree, so follow shadowRoot.activeElement down to the real focused
+        // element before comparing against the (possibly shadow-internal)
+        // boundary entries.
+        let active = document.activeElement as HTMLElement | null;
+        while (active !== null && active.shadowRoot !== null && active.shadowRoot.activeElement !== null) {
+            active = active.shadowRoot.activeElement as HTMLElement | null;
+        }
 
         if (e.shiftKey) {
             if ((first !== undefined && active === first) || active === this._dialog) {
