@@ -86,8 +86,9 @@ export function scanContent(content: string, relPath: string): ReadonlyArray<Lit
  * @param relPath - Repository-relative file path.
  */
 export function shouldSkipFile(relPath: string): boolean {
-    // Vendored design-token CSS — the canonical literal source
-    if (relPath.endsWith('docs/manual/public/design.css')) {
+    // Vendored design-token CSS — the canonical literal source (public/ is the
+    // static asset; assets/ is the build-artifact copy from vendor-to-docs.ts)
+    if (relPath.endsWith('design.css') && relPath.includes('docs/manual/')) {
         return true;
     }
     // Documentation content (Markdown or MDX) — hex colors in tables are
