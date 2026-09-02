@@ -1,0 +1,50 @@
+---
+layout: ../../layouts/ManualLayout.astro
+title: Fog of War
+---
+
+# Fog of war
+
+You do not see the whole board. You see what your troops can sense — and nothing else. This page covers exactly where your vision ends, what enemies see, and what spectators get.
+
+## Your sensor horizon
+
+Each of your troop stacks senses its surroundings out to a **radius of 4 cells** (measured in any direction, counting diagonals — a square around the stack). Your total vision is the **union** of these radii across all of your stacks:
+
+- More stacks in an area means a wider combined horizon.
+- A single deep raiding stack carries its own bubble of vision with it.
+- Everything inside your horizon is drawn normally: terrain, cities, enemy troops and pipes.
+
+## Outside the horizon
+
+Ground beyond 4 cells of every stack you own is hidden:
+
+- Enemy troops and pipes outside your horizon are invisible — attacks can come from the dark.
+- You get no memory of what you saw: ground your stacks abandon **goes dark again**. There is no radar trail, no last-known-position ghosting; if you saw a column pass through a cell and marched away, that cell is blank until one of your stacks sees it again.
+- Terrain itself is only revealed by vision too — the map is as unknown to you as to your opponent at tick zero.
+
+Both players labor under exactly the same fog: there is no peeking, for anyone.
+
+## Playing in the fog
+
+- Assume unseen troops: a sudden quiet on the front often means movement somewhere you cannot see.
+- Keep a cheap stack on overwatch duty — its 4-cell radius is a tripwire against flanks.
+- Remember that paratroopers fly over fog freely: range limits apply, but darkness does not stop a drop.
+
+## Spectators see everything
+
+A spectator — someone watching without a seat, including you after surrendering or being eliminated — sees the **whole board**: both players' troops, pipes, and territory, with no fog at all. Spectators issue no orders; the view is strictly read-only.
+
+## The numbers
+
+| Value | Shipped value |
+| --- | --- |
+| Sensor radius | 4 cells per stack |
+| Metric | Chebyshev (square radius, diagonals count as 1) |
+| Memory | None — abandoned ground goes dark |
+
+Every player-facing number lives in one auditable table: see [Numbers](./numbers).
+
+---
+
+[Back to contents](./index)
