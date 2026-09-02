@@ -12,8 +12,27 @@ export interface SvgValidationResult {
 }
 
 const XML_NAME = '[A-Za-z_][A-Za-z0-9_.:-]*';
-const FORBIDDEN_ELEMENTS =
-    /^(?:image|foreignobject|script|style|text|font|fontface|font-face|glyph|animate|animatemotion|animatetransform|set|mpath|discard)$/i;
+/** Elements permitted in a self-contained, non-active brand SVG. */
+const SAFE_ELEMENTS = new Set([
+    'circle',
+    'clippath',
+    'defs',
+    'desc',
+    'ellipse',
+    'fegaussianblur',
+    'femerge',
+    'femergenode',
+    'filter',
+    'g',
+    'line',
+    'lineargradient',
+    'path',
+    'radialgradient',
+    'rect',
+    'stop',
+    'svg',
+    'title',
+]);
 const URL_REFERENCE = /(?:data:|https?:|ftp:|file:|javascript:|blob:|\/\/)/i;
 
 const findTagEnd = (source: string, start: number): number => {
@@ -51,6 +70,7 @@ const inspectAttributes = (body: string, errors: string[]): void => {
         const value = match[2] ?? match[3] ?? '';
         if (names.has(name)) errors.push(`duplicate attribute: ${matchedName}`);
         names.add(name);
+        if (/^on[a-z]/i.test(name)) errors.push(`event-handler attribute: ${matchedName}`);
         if ((name === 'href' || name === 'xlink:href') && !value.startsWith('#')) {
             errors.push(`external or embedded reference in ${matchedName}`);
         }
@@ -127,7 +147,7 @@ export const validateSvg = (source: string): SvgValidationResult => {
             position = end + 1;
             continue;
         }
-        if (FORBIDDEN_ELEMENTS.test(name)) errors.push(`forbidden element: ${name}`);
+        if (!SAFE_ELEMENTS.has(name.toLowerCase())) errors.push(`forbidden element: ${name}`);
         if (!closing) inspectAttributes(match[2] ?? '', errors);
         if (closing) {
             if (stack.pop() !== name) errors.push(`mismatched closing element: ${name}`);

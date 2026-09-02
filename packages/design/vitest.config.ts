@@ -13,8 +13,8 @@ export default defineConfig({
         passWithNoTests: true,
         coverage: {
             provider: 'v8',
-            include: ['src/components/**'],
-            exclude: ['**/*.d.ts'],
+            include: ['src/components/**/*.ts', 'src/brand/**/*.ts'],
+            exclude: ['**/*.d.ts', 'src/brand/masters/**', 'src/brand/fonts/**', 'src/brand/preview.html'],
             thresholds: {
                 lines: 80,
                 functions: 80,

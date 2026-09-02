@@ -99,14 +99,11 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 
 ### 1.10 Brand artwork token references (spec 015, T-006)
 
-The original SVG masters in `packages/design/src/brand/masters/` use the existing
-canonical color tokens directly: blue routes use `TOKENS.color.blue` (or the
-light-surface `water` value), orange routes use `TOKENS.color.accent` (or the
-light-surface `banner` value), dark structure uses `surface`/`surface-raised`,
-light structure uses `text-primary`/`text-secondary`, and monochrome routes use
-`border` and `text-muted`. These are token references rather than a new brand
-palette; the literal values in standalone SVGs are intentionally self-contained
-so they render without a stylesheet.
+The original SVG masters in `packages/design/src/brand/masters/` use a self-contained artwork palette so they render without a stylesheet. The blue and orange beam colours `#3b82f6` and `#f97316` are an explicit, product-approved **brand-token extension**, exported as `BRAND_ARTWORK_COLOR_EXTENSIONS` rather than silently pretending to be the nearby UI tokens `TOKENS.color.blue` and `TOKENS.color.accent`. Preserving these colours is intentional: they are the approved high-energy conflict treatment, and changing them would alter the reviewed artwork. Each has at least 3:1 contrast against the dark `surface` (approximately 4.6:1 and 6.0:1, respectively); the beam conflict is also encoded by terminal geometry and monochrome value, never hue alone. The complete literal palette is listed below and is guarded by the brand-master tests; adding a literal requires updating this list and receiving artwork review.
+
+<!-- brand-artwork-palette:start -->
+`#0a0f1a`, `#0f172a`, `#1d4ed8`, `#1e293b`, `#26384a`, `#334155`, `#374151`, `#38bdf8`, `#3b82f6`, `#475569`, `#4b5563`, `#526064`, `#596568`, `#60a5fa`, `#64748b`, `#6b7280`, `#7dd3fc`, `#7f1d1d`, `#93c5fd`, `#9ca3af`, `#9ca9aa`, `#9fb5c8`, `#aebbbb`, `#b91c1c`, `#b9d7e8`, `#bae6fd`, `#bfdbfe`, `#c2410c`, `#cbd5e1`, `#d1d5db`, `#d9e1e1`, `#e0f2fe`, `#e2e8f0`, `#e5e7eb`, `#eef3f1`, `#ef4444`, `#f0f9ff`, `#f1f5f2`, `#f4f8f6`, `#f59e0b`, `#f5f8f5`, `#f97316`, `#f9fafb`, `#fb923c`, `#fdba74`, `#fed7aa`, `#fff7ed`, `#ffffff`
+<!-- brand-artwork-palette:end -->
 
 The conflict treatment has three independent cues: the blue route has a square
 terminal and the lower-value monochrome route; the orange route has a triangular

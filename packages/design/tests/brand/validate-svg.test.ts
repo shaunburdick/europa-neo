@@ -28,8 +28,16 @@ describe('validateSvg', () => {
         ['font', '<text font-family="Montserrat">Neo</text>'],
         ['script', '<script>alert(1)</script>'],
         ['animation', '<animate attributeName="x"/>'],
+        ['event handler', '<path onload="alert(1)"/>'],
+        ['unknown active element', '<iframe src="https://example.test"/>'],
+        ['embedded object', '<object data="logo.svg"/>'],
     ])('rejects %s', (_label, element) => {
         expect(validateSvg(`<svg viewBox="0 0 10 10">${element}</svg>`).valid).toBe(false);
+    });
+
+    it('rejects event attributes regardless of their spelling or element', () => {
+        const result = validateSvg('<svg viewBox="0 0 10 10"><g oNcLiCk="alert(1)"/></svg>');
+        expect(result.errors).toContain('event-handler attribute: oNcLiCk');
     });
 
     it.each([
@@ -52,5 +60,22 @@ describe('validateSvg', () => {
                 'viewBox width and height must be positive',
             ]),
         );
+    });
+
+    it('handles XML comments, CDATA, processing instructions, and tag edge cases', () => {
+        expect(validateSvg('<?xml version="1.0"?><svg viewBox="0 0 1 1"/>').valid).toBe(true);
+        expect(validateSvg('<svg viewBox="0 0 1 1"><!-- safe --><![CDATA[decorative text]]><?pi ok?></svg>')).toEqual({
+            valid: true,
+            errors: [],
+        });
+        expect(validateSvg('<svg viewBox="0 0 1 1"><!-- -- bad --></svg>').errors).toContain(
+            'invalid double hyphen in comment',
+        );
+        expect(validateSvg('<svg viewBox="0 0 1 1"><!--').errors).toContain('unterminated comment');
+        expect(validateSvg('<svg viewBox="0 0 1 1"><![CDATA[').errors).toContain('unterminated CDATA section');
+        expect(validateSvg('<svg viewBox="0 0 1 1"><?pi').errors).toContain('unterminated processing instruction');
+        expect(validateSvg('<svg viewBox="0 0 1 1"><').errors).toContain('unterminated element');
+        expect(validateSvg('<svg viewBox="0 0 1 1"><!bad></svg>').errors).toContain('malformed element tag');
+        expect(validateSvg('<svg viewBox="0 0 1 1"></svg>after').errors).toContain('text outside the SVG root');
     });
 });

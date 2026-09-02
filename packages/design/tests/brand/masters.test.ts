@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { BRAND_ARTWORK_COLOR_EXTENSIONS } from '../../src/brand/colors.js';
 import { SOURCE_MASTER_PATHS } from './inventory.fixture.js';
 
 const mastersDirectory = resolve(import.meta.dirname, '../../src/brand/masters');
@@ -110,9 +111,29 @@ describe('brand SVG masters', () => {
     it('preserves separate blue and orange conflict treatments', async () => {
         const documents = await Promise.all(['emblem.svg', 'emblem-light.svg', 'emblem-dark.svg'].map(readMaster));
         for (const document of documents) {
-            expect(document).toContain('#3b82f6');
-            expect(document).toContain('#f97316');
+            expect(document).toContain(BRAND_ARTWORK_COLOR_EXTENSIONS.blueBeam);
+            expect(document).toContain(BRAND_ARTWORK_COLOR_EXTENSIONS.orangeBeam);
             expect(document).toContain('clip-path');
         }
+    });
+
+    it('keeps every SVG colour documented in the approved artwork palette', async () => {
+        const designContract = await readFile(resolve(import.meta.dirname, '../../../../DESIGN.md'), 'utf8');
+        const palette = designContract
+            .match(/<!-- brand-artwork-palette:start -->([\s\S]*?)<!-- brand-artwork-palette:end -->/)?.[1]
+            ?.match(/#[0-9a-f]{6}/gi);
+        expect(palette).toBeDefined();
+        const documented = new Set(palette?.map((colour) => colour.toLowerCase()));
+        const documents = await Promise.all(
+            SOURCE_MASTER_PATHS.map((path) => readMaster(path.replace('src/brand/masters/', ''))),
+        );
+        const used = new Set(
+            documents
+                .flatMap((document) => document.match(/#[0-9a-f]{6}/gi) ?? [])
+                .map((colour) => colour.toLowerCase()),
+        );
+        expect([...used].filter((colour) => !documented.has(colour))).toEqual([]);
+        expect(documented).toContain(BRAND_ARTWORK_COLOR_EXTENSIONS.blueBeam);
+        expect(documented).toContain(BRAND_ARTWORK_COLOR_EXTENSIONS.orangeBeam);
     });
 });

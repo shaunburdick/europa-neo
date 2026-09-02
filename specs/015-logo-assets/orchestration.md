@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 1 — T-007 and T-008 complete; T-010 through T-014 pending
+- **Current Wave**: Wave 1 remediation complete — T-010 through T-014 pending
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -46,6 +46,7 @@ integration proceeds.
 - T-008 — ✅ structural SVG validation and focused safety tests
 - T-009 — ✅ source SVG contract tests (`packages/design/tests/brand/source.test.ts`)
 - T-010 through T-014 — ⏳ pending
+- Review remediation for T-007–T-009 — ✅ complete; downstream generation remains paused
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
 - T-015 through T-019
@@ -91,7 +92,7 @@ integration proceeds.
   to grow another asset hydra.
 
 ## New Tasks Discovered
-- None.
+- 2026-09-02: Code-quality review HOLD required validator hardening, explicit artwork-palette documentation/drift coverage, and brand-source coverage instrumentation. Remediated without starting T-010+.
 
 ## Review Findings
 - 2026-09-02: Initial horizontal masters placed the wordmark outside/right of the
@@ -105,3 +106,12 @@ integration proceeds.
 - Manifest boundary, package-relative paths, strict ICO cardinality, clean-checkout
   build ordering, Docker staging, base-path metadata, and documentation/source-drift
   rules are now explicit in `plan.md` §8.
+
+### Review result — 2026-09-02
+
+The code-quality review HOLD is resolved. `validateSvg` now fails closed against an
+explicit safe SVG element allowlist and all `on*` event attributes. `#3b82f6` and
+`#f97316` remain unchanged as a documented brand-token extension because they are
+product-approved artwork colours; a test rejects undocumented SVG colour literals.
+Vitest instruments executable `src/brand/**/*.ts` while excluding only masters/fonts/
+preview assets. T-010+ generation and integrations were not implemented.

@@ -1,3 +1,4 @@
+export { BRAND_ARTWORK_COLOR_EXTENSIONS } from './colors.js';
 export type {
     BrandAsset,
     BrandAssetId,
