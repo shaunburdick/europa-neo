@@ -50,6 +50,18 @@ export function BrandedFooter(): JSX.Element {
                 alignItems: 'center',
             }}
         >
+            {/* Decorative emblem (spec 015 FR-012, AC-005): small
+          persistent brand mark in the in-match footer. Hidden from
+          assistive technology — the footer text already names the
+          product. */}
+            <img
+                src="assets/brand/europa-neo-emblem.svg"
+                alt=""
+                aria-hidden="true"
+                width={16}
+                height={16}
+                style={{ flexShrink: 0 }}
+            />
             <span>Europa Neo</span>
             <span>v{APP_VERSION}</span>
             <a
