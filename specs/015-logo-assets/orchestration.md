@@ -60,8 +60,13 @@ integration proceeds.
 - T-014 — ✅ `@europa/design/brand` and wildcard exports, build ordering, and surface tests
 - Review remediation for T-007–T-009 — ✅ complete; generated asset review also complete
 
-### Wave 2 — design documentation and staging — ⏳ Pending / Ready
-- T-015 through T-019
+### Wave 2 — design documentation and staging — ⏳ In progress
+- T-015 — ✅ root `DESIGN.md` now contains the complete source/generated inventory, approved
+  artwork palette extension and pairings, clear-space/minimum-size rules, export contract,
+  planned staging boundaries, accessibility rules, and originality/licensing statement. It
+  explicitly distinguishes the implemented package generator from pending consumer staging.
+- T-016 (`packages/design/README.md`) — ✅ complete.
+- T-017 through T-019 — ⏳ pending.
 
 ### Wave 3 — console, manual, host, and Docker integration — ⏳ Pending
 - T-020 through T-028

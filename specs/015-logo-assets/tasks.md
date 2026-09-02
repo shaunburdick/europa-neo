@@ -30,7 +30,7 @@ after all preceding wave dependencies are complete.
 
 ## Wave 2 — design documentation and staging
 
-- [ ] T-015 (docs): Update root `DESIGN.md` with every master/generated file, token/background pairing, clear space, minimum sizes, export contract, staging rules, accessibility, and originality/licensing statement.
+- [x] T-015 (docs): Update root `DESIGN.md` with every master/generated file, token/background pairing, clear space, minimum sizes, export contract, staging rules, accessibility, and originality/licensing statement. Consumer staging/integration remains explicitly pending T-017 onward.
 - [ ] T-016 (docs): Update `packages/design/README.md` with authoring, generation, validation, and consumer import/staging instructions; do not describe `dist` as hand-editable.
 - [ ] T-017 (build): Extend the canonical design build/vendor pipeline to stage the selected brand set into `docs/manual/assets/brand/` deterministically from package distribution.
 - [ ] T-018 [P] (test): Add design drift tests for manifest↔files, source↔generated output, package exports, `DESIGN.md` inventory, and manual staging byte/content identity.
