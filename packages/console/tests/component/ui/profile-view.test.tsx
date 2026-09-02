@@ -229,13 +229,16 @@ describe('ProfileView — restoring state', () => {
         await expect.element(screen.getByText('Restoring your session…')).toBeVisible();
     });
 
-    test('shows loading status line (native div, not europa-waiting)', async () => {
+    test('shows spinner (europa-waiting host with shadow internals)', async () => {
         const screen = await render(<ProfileView {...propsOf({ identityStatus: 'restoring' })} />);
-        const loadingLine = screen.container.querySelector('.europa-lobby__status-line[aria-hidden="true"]');
-        expect(loadingLine).not.toBeNull();
-        expect(loadingLine?.textContent).toBe('Loading…');
-        // No europa-waiting component — native div avoids Light DOM crash.
-        expect(screen.container.querySelector('europa-waiting')).toBeNull();
+        // Shadow DOM conversion (spec 014 Wave 1): the host element stays a
+        // light-DOM child of the card, while its spinner/message internals
+        // live inside the open shadow root — query them through `shadowRoot`
+        // (the Wave 3/4 pattern used by the waiting-overlay tests).
+        const waiting = screen.container.querySelector('europa-waiting');
+        expect(waiting).not.toBeNull();
+        expect(waiting?.shadowRoot?.querySelector('.europa-waiting__pulse')).not.toBeNull();
+        expect(waiting?.shadowRoot?.querySelector('.europa-waiting__text')?.textContent).toBe('Loading…');
     });
 
     test('Continue button is disabled', async () => {

@@ -118,15 +118,14 @@ export function ProfileView({
     const errorMessage = localError ?? (actionStatus.error !== null ? describeActionError(actionStatus.error) : null);
 
     if (identityStatus === 'restoring') {
-        /* FR-008: restoring state — all-native elements to avoid
-           Light DOM reparenting crash on React 19 unmount.
-           Every europa-* container (page, card, stack) reparents
-           children via appendChild into an internal wrapper div;
-           when React unmounts this branch it calls removeChild on
-           the host, but the children are already in the wrapper. */
+        /* FR-008: restoring state — waiting spinner + disabled Continue.
+           The design-system web components are safe here again: the
+           spec 014 Shadow DOM conversion (Waves 0–4) removed the Light
+           DOM reparenting hazard — children stay as host light-DOM
+           children projected through <slot>, so React's teardown works. */
         return (
-            <div className="europa-page">
-                <div className="europa-stack">
+            <europa-page>
+                <europa-stack>
                     <h1 ref={headingRef} id={headingId} tabIndex={-1}>
                         <europa-typography variant="heading">Profile</europa-typography>
                     </h1>
@@ -136,19 +135,17 @@ export function ProfileView({
                         Connection: {connectionLabel(connection.status as Parameters<typeof connectionLabel>[0])}
                     </p>
 
-                    <div className="europa-card">
-                        <div className="europa-stack">
+                    <europa-card>
+                        <europa-stack>
                             <p data-europa-identity-status="restoring">Restoring your session…</p>
-                            <div className="europa-lobby__status-line" aria-hidden="true">
-                                Loading…
-                            </div>
-                            <button type="button" disabled className="europa-lobby__button">
+                            <europa-waiting message="Loading…" />
+                            <europa-button type="button" disabled>
                                 Continue
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                            </europa-button>
+                        </europa-stack>
+                    </europa-card>
+                </europa-stack>
+            </europa-page>
         );
     }
 
