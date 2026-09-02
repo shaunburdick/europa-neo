@@ -95,14 +95,20 @@ and copy only the selected manifest entries into its own local static tree:
 <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
 ```
 
-Consumer staging is a build-time operation, not a runtime fetch. Build
-`@europa/design` first, then stage manifest-selected files into the consumer's
-local asset directory (for example `dist/assets/brand/` or
-`docs/manual/assets/brand/`). Staging must fail if the design distribution is
-missing and must never copy masters, hand-maintained duplicates, or unlisted
-files. The consumer integration owns its staging command; this package owns
-generation only. Do not implement or bypass that boundary by editing consumer
-assets manually.
+Consumer staging is a build-time operation, not a runtime fetch. This package
+owns generation and the explicit manual staging boundary:
+`pnpm --filter @europa/design stage:manual` copies the manifest-selected
+generated files into `docs/manual/assets/brand/`. The package build also runs
+that manual staging step as part of the Pages-compatible local build. Staging
+must fail if the design distribution is missing and must never copy masters,
+hand-maintained duplicates, or unlisted files.
+
+Future consumers own their adapter and staging commands. For example, the
+console adapter will stage selected files into `dist/assets/brand/`, while a
+host or Docker integration will serve the consumer's already-staged tree.
+Those integrations must build this package first and consume only its generated
+manifest surface; do not bypass that boundary by editing consumer assets
+manually.
 
 ## Development
 

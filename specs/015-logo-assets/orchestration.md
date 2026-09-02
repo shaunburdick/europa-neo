@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 1 complete through T-014; ready for Wave 2
+- **Current Wave**: Wave 2 complete through T-019; Wave 3 not started
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -21,8 +21,8 @@ integration proceeds.
   shield/frame, circuitry behind the planet, strong horizontal blue-versus-orange
   energy beam/clash, and clear `EUROPA`-dominant / `NEO`-subordinate hierarchy.
 - First reviewable milestone: original SVG masters plus a rendered preview sheet after
-  Wave 1. Pause for product-owner feedback before committing to downstream generated
-  assets and consumer integration.
+  Wave 1. Product-owner feedback was incorporated before the Wave 2 generated-asset and
+  manual-staging work; console, host, and Docker consumer integration remains for Wave 3.
 
 ## Task Wave Progress
 
@@ -60,7 +60,7 @@ integration proceeds.
 - T-014 — ✅ `@europa/design/brand` and wildcard exports, build ordering, and surface tests
 - Review remediation for T-007–T-009 — ✅ complete; generated asset review also complete
 
-### Wave 2 — design documentation and staging — ⏳ In progress
+### Wave 2 — design documentation and staging — ✅ Complete
 - T-015 — ✅ root `DESIGN.md` now contains the complete source/generated inventory, approved
   artwork palette extension and pairings, clear-space/minimum-size rules, export contract,
   planned staging boundaries, accessibility rules, and originality/licensing statement. It
@@ -81,7 +81,7 @@ integration proceeds.
   two-minute job timeouts, non-cancelling `pages` concurrency, and SHA-pinned
   actions.
 
-### Wave 3 — console, manual, host, and Docker integration — ⏳ Pending
+### Wave 3 — console, manual, host, and Docker integration — ⏳ Pending (not started)
 - T-020 through T-028
 
 ### Wave 4 — accessibility, visual review, originality, and gates — ⏳ Pending
@@ -116,10 +116,8 @@ integration proceeds.
   viewBoxes fail closed.
 
 ## Blockers & Escalations
-- Downstream generation, raster/ICO/PWA/social output, and all consumer integration
-  remain paused until the normalized artwork passes AC-011 and receives product-owner
-  visual approval. This is intentional; the artwork review is not a covert invitation
-  to grow another asset hydra.
+- Wave 3 console, host, and Docker integrations remain pending. Manual staging is
+  implemented in Wave 2; no Wave 3 task has been started by this remediation.
 
 ## New Tasks Discovered
 - 2026-09-02: Code-quality review HOLD required validator hardening, explicit artwork-palette documentation/drift coverage, and brand-source coverage instrumentation. Remediated without starting T-010+.

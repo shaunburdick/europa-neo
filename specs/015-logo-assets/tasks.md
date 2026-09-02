@@ -30,8 +30,8 @@ after all preceding wave dependencies are complete.
 
 ## Wave 2 — design documentation and staging
 
-- [x] T-015 (docs): Update root `DESIGN.md` with every master/generated file, token/background pairing, clear space, minimum sizes, export contract, staging rules, accessibility, and originality/licensing statement. Consumer staging/integration remains explicitly pending T-017 onward.
-- [ ] T-016 (docs): Update `packages/design/README.md` with authoring, generation, validation, and consumer import/staging instructions; do not describe `dist` as hand-editable.
+- [x] T-015 (docs): Update root `DESIGN.md` with every master/generated file, token/background pairing, clear space, minimum sizes, export contract, staging rules, accessibility, and originality/licensing statement. Manual staging is implemented by T-017; consumer integrations remain pending in Wave 3.
+- [x] T-016 (docs): Update `packages/design/README.md` with authoring, generation, validation, and consumer import/staging instructions; do not describe `dist` as hand-editable.
 - [x] T-017 (build): Extend the canonical design build/vendor pipeline to stage the selected brand set into `docs/manual/assets/brand/` deterministically from package distribution.
 - [x] T-018 [P] (test): Add design drift tests for manifest↔files, source↔generated output, package exports, `DESIGN.md` inventory, and manual staging byte/content identity.
 - [x] T-019 [P] (docs/CI): Update Pages workflow to build the design package and stage assets from a clean checkout before Jekyll; preserve path gates, permissions, artifact scope, and timeout discipline.

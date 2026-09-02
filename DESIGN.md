@@ -140,8 +140,10 @@ download or resolve a font at runtime.
 
 The horizontal lockup is the required production direction and has a 160 CSS px minimum wordmark
 width. Use `lockup-vertical.svg` only where its tall composition fits; use an emblem variant below
-the minimum width. Raster, ICO, PWA, and social generation is implemented in the design package;
-consumer staging and integration remain pending T-017 onward.
+the minimum width. Raster, ICO, PWA, and social generation is implemented in the design package.
+Explicit manual staging via `pnpm --filter @europa/design stage:manual` is also implemented for
+`docs/manual/assets/brand/` (T-017). Console, host, and Docker consumer integrations remain
+pending in Wave 3.
 
 ### 1.12 Brand inventory, usage, and delivery contract (spec 015, T-015)
 
