@@ -98,9 +98,7 @@ describe('T-025: staged brand asset integrity', () => {
     it('every manifest asset is reachable from the layout OR staged but not referenced', async () => {
         const layout = await readFile(layoutPath, 'utf8');
         const layoutPaths = extractBrandPaths(layout);
-        const layoutFileNames = new Set(
-            layoutPaths.map((p) => p.replace(/^\/assets\/brand\//, '')),
-        );
+        const layoutFileNames = new Set(layoutPaths.map((p) => p.replace(/^\/assets\/brand\//, '')));
 
         const stagedFiles = await readdir(manualBrandRoot);
         const unstaged = stagedFiles.filter((f) => !layoutFileNames.has(f));
@@ -115,10 +113,7 @@ describe('T-025: staged brand asset integrity', () => {
         // surface them so a human can decide whether to add a layout reference.
         if (unstaged.length > 0) {
             // Log rather than fail — staged-only assets are not a bug.
-            console.info(
-                'Staged brand files not referenced by the manual layout (informational):',
-                unstaged,
-            );
+            console.info('Staged brand files not referenced by the manual layout (informational):', unstaged);
         }
     });
 });
@@ -131,9 +126,7 @@ describe('T-025: repository-base deployment', () => {
         // so that a repository subpath (e.g. /europa-neo/) is handled correctly.
         const brandReferences = layout.match(/(?:href|src|content)="[^"]*\/assets\/brand\/[^"]*"/g) ?? [];
 
-        const rootAbsolute = brandReferences.filter(
-            (ref) => !ref.includes('| relative_url'),
-        );
+        const rootAbsolute = brandReferences.filter((ref) => !ref.includes('| relative_url'));
 
         expect(
             rootAbsolute,
@@ -141,7 +134,7 @@ describe('T-025: repository-base deployment', () => {
                 'Found root-absolute brand references that will break under repository-base deployment:',
                 ...rootAbsolute.map((r) => `  - ${r}`),
                 '',
-                'Fix: use {{ \'/assets/brand/...\' | relative_url }} in the layout.',
+                "Fix: use {{ '/assets/brand/...' | relative_url }} in the layout.",
             ].join('\n'),
         ).toHaveLength(0);
     });
