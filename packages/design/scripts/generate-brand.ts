@@ -10,6 +10,8 @@ import path from 'node:path';
 
 import { Resvg } from '@resvg/resvg-js';
 
+import { writeIco } from '../src/brand/ico.js';
+
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
 export const BRAND_MASTERS_DIRECTORY = path.join(PACKAGE_ROOT, 'src', 'brand', 'masters');
 export const BRAND_OUTPUT_DIRECTORY = path.join(PACKAGE_ROOT, 'dist', 'brand');
@@ -99,6 +101,12 @@ export async function generateBrandAssets(options: BrandGenerationOptions = {}):
             renderPng(target.svg(emblem), target.width, target.height),
         );
     }
+    const faviconLayers = [16, 32, 48].map((size) => ({
+        width: size,
+        height: size,
+        png: renderPng(createIconSvg(emblem, size), size, size),
+    }));
+    await writeFile(path.join(outputDirectory, 'favicon.ico'), writeIco(faviconLayers));
     await writeFile(
         path.join(outputDirectory, 'europa-neo-social.png'),
         renderPng(createSocialSvg(getMaster(masters, 'lockup.svg')), 1200, 630),
