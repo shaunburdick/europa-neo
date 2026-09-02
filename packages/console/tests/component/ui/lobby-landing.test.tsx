@@ -448,6 +448,12 @@ class SmokeTransport implements LobbyTransport {
 
 describe('LobbyRoot view gate (smoke)', () => {
     test('lobby first; a seat grant shows the waiting room; auto-start attaches the console', async () => {
+        // The profile route view gate (feature 015) renders ProfileView when
+        // window.location.pathname === '/profile'. In Vitest browser mode the
+        // page URL may sit on /profile, so we pushState to / first to ensure
+        // the lobby gate falls through to LobbyLanding.
+        window.history.pushState(window.history.state, '', '/');
+
         const transport = new SmokeTransport();
         const controller = createLobbyController({
             transport,
