@@ -79,10 +79,16 @@ export default function rehypeFixLinks() {
             // Only rewrite relative links starting with ./
             if (!href.startsWith('./')) return;
 
-            // Strip the ./ prefix, then prepend the correct number of ../
-            // e.g. ./controls → ../controls, ./index → ../index
-            // For index pages, prefix is '' so ./foo stays ./foo
-            node.properties.href = prefix + href.slice(2);
+            // Strip the ./ prefix to get the target path
+            const target = href.slice(2);
+
+            // Special case: ./index → just ../ (the parent directory root)
+            // The index page lives at /europa-neo/, not /europa-neo/index/
+            if (/^index(?:\.mdx?)?$/i.test(target)) {
+                node.properties.href = prefix;
+            } else {
+                node.properties.href = prefix + target;
+            }
 
             // Add trailing slash if not present — Astro's trailingSlash: 'always'
             // serves pages at /europa-neo/pipes/ (with slash), so links must match
