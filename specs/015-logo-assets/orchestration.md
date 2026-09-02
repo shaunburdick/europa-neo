@@ -43,7 +43,9 @@ integration proceeds.
   metadata, preserved gradients/filters, and documented token/licensing choices
 - T-007 — ✅ strict manifest and package-local path helpers; traversal, undeclared,
   and consumer-source paths are rejected
-- T-008 through T-014 — ⏳ pending
+- T-008 — ⏳ sibling implementation in progress
+- T-009 — ✅ source SVG contract tests (`packages/design/tests/brand/source.test.ts`)
+- T-010 through T-014 — ⏳ pending
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
 - T-015 through T-019
