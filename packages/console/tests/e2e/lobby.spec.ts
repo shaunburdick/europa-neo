@@ -322,7 +322,8 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         // -- Tab 1: Alice enters the lobby, sets a handle --------------------
         const alice = await openLobbyTab('Alice');
-        await expect(alice.locator('h1')).toContainText('Europa Neo lobby');
+        // The US1 identity gate may redirect unnamed visitors to /profile
+        // before the lobby renders — wait for connection readiness either way.
         await waitUntilLobby(alice, (l) => l.connection === 'ready', 'Alice lobby connected');
 
         await setHandleViaProfile(alice, 'Alice');
