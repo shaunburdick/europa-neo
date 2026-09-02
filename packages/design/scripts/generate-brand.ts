@@ -19,6 +19,11 @@ const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
 export const BRAND_MASTERS_DIRECTORY = path.join(PACKAGE_ROOT, 'src', 'brand', 'masters');
 export const BRAND_OUTPUT_DIRECTORY = path.join(PACKAGE_ROOT, 'dist', 'brand');
 
+/** The manifest safe area is a centered circle 80% of the 512px canvas. */
+export const MASKABLE_SAFE_AREA_DIAMETER_RATIO = 0.8;
+/** Centered scale that contains the complete essential emblem geometry. */
+export const MASKABLE_SCALE = 0.72;
+
 const SVG_VARIANTS = {
     'europa-neo-emblem.svg': 'emblem.svg',
     'europa-neo-emblem-compact.svg': 'emblem-compact.svg',
@@ -37,6 +42,12 @@ export interface BrandGenerationOptions {
     readonly mastersDirectory?: string;
     readonly outputDirectory?: string;
 }
+
+/** Apply the centered maskable transform to a source-space point. */
+export const transformMaskablePoint = (point: readonly [number, number]): readonly [number, number] => {
+    const offset = ((1 - MASKABLE_SCALE) * 512) / 2;
+    return [point[0] * MASKABLE_SCALE + offset, point[1] * MASKABLE_SCALE + offset];
+};
 
 interface RasterTarget {
     readonly name: string;
@@ -87,8 +98,12 @@ const RASTER_TARGETS: readonly RasterTarget[] = [
     { name: 'apple-touch-icon.png', width: 180, height: 180, svg: (emblem) => createIconSvg(emblem, 180) },
     { name: 'icon-192.png', width: 192, height: 192, svg: (emblem) => createIconSvg(emblem, 192) },
     { name: 'icon-512.png', width: 512, height: 512, svg: (emblem) => createIconSvg(emblem, 512) },
-    // 80% centered artwork fits the manifest's central circular safe area.
-    { name: 'icon-512-maskable.png', width: 512, height: 512, svg: (emblem) => createIconSvg(emblem, 512, 0.8) },
+    {
+        name: 'icon-512-maskable.png',
+        width: 512,
+        height: 512,
+        svg: (emblem) => createIconSvg(emblem, 512, MASKABLE_SCALE),
+    },
 ];
 
 /** Render an SVG at an exact size with system fonts disabled. */

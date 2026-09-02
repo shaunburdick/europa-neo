@@ -9,6 +9,9 @@ import {
     BRAND_MASTERS_DIRECTORY,
     createSocialSvg,
     generateBrandAssets,
+    MASKABLE_SAFE_AREA_DIAMETER_RATIO,
+    MASKABLE_SCALE,
+    transformMaskablePoint,
 } from '../../scripts/generate-brand.js';
 
 const pngSize = (png: Uint8Array): readonly [number, number] => {
@@ -18,23 +21,41 @@ const pngSize = (png: Uint8Array): readonly [number, number] => {
 };
 
 describe('brand raster generation', () => {
-    it('keeps the emblem moon inside the documented centered 80% circular safe area', async () => {
-        const emblem = await readFile(path.join(BRAND_MASTERS_DIRECTORY, 'emblem.svg'), 'utf8');
-        const moon = emblem.match(/<circle cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/);
-        expect(moon).not.toBeNull();
-        const [, centerX, centerY, radius] = moon ?? [];
-        const scale = 0.8;
-        const offset = ((1 - scale) * 512) / 2;
-        const safeRadius = (512 * 0.8) / 2;
-        const transformedRadius = Number(radius) * scale;
-        const transformedCenterX = Number(centerX) * scale + offset;
-        const transformedCenterY = Number(centerY) * scale + offset;
-        expect(transformedCenterX).toBe(256);
-        expect(transformedCenterX - transformedRadius).toBeGreaterThanOrEqual(256 - safeRadius);
-        expect(transformedCenterX + transformedRadius).toBeLessThanOrEqual(256 + safeRadius);
-        expect(transformedCenterY - transformedRadius).toBeGreaterThanOrEqual(256 - safeRadius);
-        expect(transformedCenterY + transformedRadius).toBeLessThanOrEqual(256 + safeRadius);
-        expect(transformedRadius).toBeLessThan(safeRadius);
+    it('keeps every essential emblem geometry inside the centered circular safe area', () => {
+        const safeRadius = (512 * MASKABLE_SAFE_AREA_DIAMETER_RATIO) / 2;
+        // Conservative authored-space bounds include the shield stroke/miter,
+        // moon, circuitry, and the clipped energy-beam extremities.
+        const essentialBounds: readonly (readonly [number, number])[] = [
+            [82, 42],
+            [430, 42],
+            [50, 74],
+            [462, 74],
+            [50, 326],
+            [462, 326],
+            [74, 388],
+            [438, 388],
+            [256, 490], // shield, including stroke margin
+            [142, 136],
+            [370, 360], // moon circle bounds
+            [74, 94],
+            [438, 426], // circuitry extents plus stroke margin
+            [50, 257],
+            [462, 365], // clipped blue/orange energy bounds
+        ];
+        const distances = essentialBounds.map(([x, y]) => {
+            const [transformedX, transformedY] = transformMaskablePoint([x, y]);
+            return Math.hypot(transformedX - 256, transformedY - 256);
+        });
+        const maximumDistance = Math.max(...distances);
+        const sourceMaximumDistance = maximumDistance / MASKABLE_SCALE;
+
+        expect(transformMaskablePoint([256, 256])).toEqual([256, 256]);
+        expect(maximumDistance).toBeLessThanOrEqual(safeRadius);
+        // This is a regression guard for the former moon-only 0.8 transform:
+        // the shield corners would have been cropped by the circular mask.
+        expect(sourceMaximumDistance * 0.8).toBeGreaterThan(safeRadius);
+        expect(MASKABLE_SCALE).toBe(0.72);
+        expect(safeRadius - maximumDistance).toBeGreaterThan(5);
     });
 
     it('composes the social preview without external resources', async () => {

@@ -141,6 +141,17 @@ asset's shorter dimension, whichever is larger.
 - If available space cannot honor clear space, use the compact emblem rather
   than scaling the full lockup until its wordmark becomes illegible.
 
+For the 512×512 `purpose: maskable` PWA icon, the safe area is the centered
+circle with diameter `0.8 × 512 = 409.6 px` and radius `204.8 px`. The complete
+essential emblem—not only the moon—must fit: shield corners, moon, behind-moon
+circuitry, and the clipped blue/orange energy clash. The generator uses a
+centered `scale(0.72)` transform with translation
+`((1 - 0.72) × 512) / 2 = 71.68 px`. Conservative authored-space bounds,
+including a 6 px stroke/miter margin, have a maximum transformed center
+distance of approximately `198.58 px`, leaving more than `6.2 px` radial
+margin. This geometry is regression-tested; the approved master artwork is not
+altered for maskable output.
+
 ## 5. Background and treatment matrix
 
 | Treatment | Intended background | Construction | Required behavior |

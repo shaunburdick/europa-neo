@@ -47,6 +47,7 @@ integration proceeds.
 - T-009 — ✅ source SVG contract tests (`packages/design/tests/brand/source.test.ts`)
 - T-010 — ✅ deterministic `@resvg/resvg-js` generator and focused reproducibility/dimension tests; outputs remain package-owned under `dist/brand/`
 - T-010 remediation — ✅ package build now invokes generation and a manifest/output assertion; every source master is validated before use; `favicon.svg` is generated from the emblem and checked; clean-build, malformed-output, and maskable-safe-area tests added
+- Remaining review HOLD — ✅ maskable transform corrected to centered `scale(0.72)`; conservative bounds cover shield corners, moon, circuitry, and energy clash with a >5 px radial margin inside the documented 204.8 px safe radius; artwork masters remain unchanged
 - T-011 through T-014 — ⏳ pending
 - Review remediation for T-007–T-009 — ✅ complete; downstream generation remains paused
 
@@ -128,3 +129,13 @@ variants and renders the 180×180 Apple icon, 192×192 and 512×512 PWA icons,
 `dist/brand/`. Focused tests verify PNG dimensions, byte reproducibility, safe-area
 transform, local-resource composition, and source-copy identity. ICO, manifest,
 exports, staging, and consumer integrations remain intentionally untouched.
+
+### Maskable review remediation — 2026-09-02
+
+The prior `scale(0.8)` transform only demonstrated the moon's containment and
+allowed shield corners to exceed the circular safe area. The generator now uses
+centered `scale(0.72)` (`translate(71.68 71.68)`), and the focused geometry
+regression covers conservative bounds for every essential visual layer. At
+512px, the safe radius is 204.8px; the checked maximum transformed distance is
+approximately 198.58px. T-011 through T-014 and all integrations remain
+intentionally untouched.
