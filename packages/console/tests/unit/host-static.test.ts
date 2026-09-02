@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { createServer, request as httpRequest, type IncomingHttpHeaders, type Server } from 'node:http';
+import path from 'node:path';
 import { BRAND_MANIFEST } from '@europa/design/brand';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { serveStatic } from '../../scripts/host';
@@ -73,7 +74,8 @@ describe('single-port static host brand surface (T-026)', () => {
             const response = await requestStatic(`/assets/${asset.path}`);
             expect(response.status, asset.path).toBe(200);
             const expectedType = contentTypeFor(asset.format);
-            expect(response.headers['content-type']?.[0], asset.path).toBe(
+            // Node.js http returns single-valued headers as strings, not arrays.
+            expect(response.headers['content-type'], asset.path).toBe(
                 expectedType === 'application/manifest+json' ? `${expectedType}; charset=utf-8` : expectedType,
             );
             expect(response.body.byteLength, asset.path).toBeGreaterThan(0);
@@ -102,6 +104,8 @@ describe('single-port static host brand surface (T-026)', () => {
 
 describe('static-host test precondition', () => {
     it('expects the console build to stage the design-owned brand directory', () => {
-        expect(existsSync(new URL('../../dist/assets/brand/', import.meta.url))).toBe(true);
+        // Happy-dom intercepts new URL() resolution, so use path.resolve
+        // with the file-system directory rather than a URL-based approach.
+        expect(existsSync(path.resolve(import.meta.dirname, '../../dist/assets/brand/'))).toBe(true);
     });
 });
