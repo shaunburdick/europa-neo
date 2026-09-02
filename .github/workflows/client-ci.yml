@@ -178,6 +178,14 @@ jobs:
       - name: Build @europa/matchmaking (workspace dependency)
         run: pnpm --filter @europa/matchmaking build
 
+      # The console's build script runs build-assets.ts which stages
+      # brand assets into dist/assets/brand/. host-static.test.ts
+      # imports BRAND_MANIFEST and verifies every listed asset is
+      # served with the correct MIME type — the test 404s without
+      # the staged files.
+      - name: Build console (brand asset staging)
+        run: pnpm --filter @europa/console build
+
       - name: Unit tests (reducer + input math + QoL)
         run: pnpm --filter @europa/console test:unit
 
