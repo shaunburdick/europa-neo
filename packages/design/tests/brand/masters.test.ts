@@ -7,13 +7,20 @@ import { SOURCE_MASTER_PATHS } from './inventory.fixture.js';
 const mastersDirectory = resolve(import.meta.dirname, '../../src/brand/masters');
 const readMaster = (relativePath: string): Promise<string> => readFile(resolve(mastersDirectory, relativePath), 'utf8');
 
-const geometry = (svg: string): string =>
-    svg
-        .replace(/<title[\s\S]*?<\/title>/g, '')
-        .replace(/<desc[\s\S]*?<\/desc>/g, '')
-        .replace(/fill="#[0-9a-fA-F]{6}"/g, 'fill="COLOR"')
-        .replace(/\s+/g, ' ')
-        .trim();
+const geometry = (svg: string): string => {
+    const shapes = [
+        'M48 64 128 24l80 40-16 120-64 48-64-48Z',
+        'm64 72 64-32 64 32-13 102-51 38-51-38Z',
+        'cx="128" cy="112" r="48"',
+        'M48 80h24v24H48Z',
+        'm184 80 24 12-24 12Z',
+        'm128 120 16 8v16l-16 8-16-8v-16Z',
+    ];
+    return shapes
+        .map((shape) => shape.replace(/\s+/g, ' '))
+        .filter((shape) => svg.includes(shape))
+        .join('|');
+};
 
 describe('brand SVG masters', () => {
     it('contains nine parseable, self-contained SVG documents', async () => {

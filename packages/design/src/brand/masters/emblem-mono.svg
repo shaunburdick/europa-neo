@@ -1,12 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title description">
-  <title id="title">Europa Neo monochrome emblem</title>
-  <desc id="description">A one-ink ice-core shield whose separated routes retain square and triangular terminals and a shared hexagonal node.</desc>
-  <path fill="#111827" d="M48 64 128 24l80 40-16 120-64 48-64-48Z"/>
-  <path fill="#f9fafb" d="m64 72 64-32 64 32-13 102-51 38-51-38Z"/>
-  <path fill="#374151" d="m64 72 64-32v140l-51 38Z"/>
-  <path fill="#374151" d="m56 96 16-16 40 40-16 16-32-32v16l40 40v40H88v-34l-40-40Z"/>
-  <path fill="#9ca3af" d="m200 96-16-16-40 40 16 16 32-32v16l-40 40v40h16v-34l40-40Z"/>
-  <path fill="#374151" d="M48 80h24v24H48Z"/>
-  <path fill="#9ca3af" d="m184 80 24 12-24 12Z"/>
-  <path fill="#111827" d="m128 120 16 8v16l-16 8-16-8v-16Z"/>
+  <title id="title">Europa Neo monochrome emblem</title><desc id="description">One-ink Europa moon shield with rear circuitry, a separated square-ended lower-value route, triangular-ended higher-value route, and central objective.</desc>
+  <g aria-hidden="true"><path id="shield" fill="#111827" d="M48 64 128 24l80 40-16 120-64 48-64-48Z"/><path id="ice-field" fill="#f9fafb" d="m64 72 64-32 64 32-13 102-51 38-51-38Z"/><path id="ice-facet" fill="#e5e7eb" d="m64 72 64-32v140l-51 38Z"/><path id="ice-seam-left" fill="#111827" d="m80 88 48-24v20L96 104v48l32 32v20l-48-48Z"/><path id="ice-seam-right" fill="#111827" d="m176 88-48-24v20l32 20v48l-32 32v20l48-48Z"/><path fill="#9ca3af" d="M72 104H48v-8h32v16h16v8H72Z M88 72H72V56h8v8h16v8h-8Z M184 104h24v-8h-32v16h-16v8h24Z M168 72h16V56h-8v8h-16v8h8Z M72 160H56v16h16v8h-8v-16h16Z M184 160h16v16h-16v8h8v-16h-16Z"/><path fill="#374151" d="M48 96h8v8h-8Z M72 56h8v8h-8Z M200 96h8v8h-8Z M176 56h8v8h-8Z"/><circle id="europa-moon" cx="128" cy="112" r="48" fill="#9ca3af"/><path fill="#f9fafb" d="m92 96 20-24 28 4 16 20-20 12-24-4Z M116 80l8-8 8 8-8 12Z M144 104l16-8 8 8-16 8Z"/><path fill="#374151" d="m104 128 24-12 28 12-12 24-28 8-16-16Z M120 92l8 8-12 12 8 8-8 8-16-16Z M140 120l8-8 12 12-8 8Z"/><path id="blue-channel" fill="#374151" d="M48 80h24v24H48Z M56 96h28l20 20 12-12-32-32-16 16v16l40 40v40h16v-48l-40-40Z"/><path id="orange-channel" fill="#9ca3af" d="m184 80 24 12-24 12Z M200 96h-28l-20 20-12-12 32-32 16 16v16l-40 40v40h-16v-48l40-40Z"/><path id="objective" fill="#111827" d="m128 120 16 8v16l-16 8-16-8v-16Z"/><path fill="#f9fafb" d="m128 128 8 4-8 4-8-4Z"/></g>
 </svg>

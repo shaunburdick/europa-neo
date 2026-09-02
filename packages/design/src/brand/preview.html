@@ -4,19 +4,17 @@
   <title>Europa Neo logo master preview</title>
   <style>
     :root { color-scheme: light dark; font: 16px system-ui, sans-serif; }
-    body { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin: 2rem; }
-    figure { align-items: center; background: #f9fafb; border: 1px solid #9ca3af; display: grid; gap: .75rem; margin: 0; min-height: 180px; padding: 1rem; }
-    figure.dark { background: #111827; }
-    img { max-height: 180px; max-width: 100%; }
-    figcaption { font-size: .875rem; }
+    body { background: #0b0f19; color: #f9fafb; display: grid; gap: 1.25rem; grid-template-columns: repeat(3, minmax(260px, 1fr)); margin: 2rem auto; max-width: 1320px; padding: 0 1rem; }
+    h1, p { grid-column: 1 / -1; margin: 0; } h1 { font-size: 1.5rem; } p { color: #9ca3af; }
+    figure { align-items: center; background: #f9fafb; border: 1px solid #9ca3af; border-radius: 8px; display: grid; gap: .75rem; margin: 0; min-height: 260px; padding: 1.25rem; }
+    figure.hero { grid-column: 1 / -1; min-height: 310px; } figure.dark { background: #111827; } figure.mono { background: #e5e7eb; }
+    img { max-height: 260px; max-width: 100%; } .hero img { max-height: 300px; } figcaption { color: #111827; font-size: .9rem; font-weight: 600; } .dark figcaption { color: #f9fafb; }
+    .samples { align-items: end; display: flex; gap: 1rem; } .samples img { height: 16px; width: 16px; } .samples img:nth-child(2) { height: 32px; width: 32px; } .samples img:nth-child(3) { height: 48px; width: 48px; }
+    @media (max-width: 800px) { body { grid-template-columns: 1fr; } figure.hero { grid-column: auto; } }
   </style>
-  <figure><img src="masters/lockup.svg" alt="Europa Neo"><figcaption>Default lockup</figcaption></figure>
-  <figure class="dark"><img src="masters/lockup-dark.svg" alt="Europa Neo"><figcaption>Dark lockup</figcaption></figure>
-  <figure><img src="masters/lockup-light.svg" alt="Europa Neo"><figcaption>Light lockup</figcaption></figure>
-  <figure><img src="masters/lockup-mono.svg" alt="Europa Neo"><figcaption>Monochrome lockup</figcaption></figure>
-  <figure><img src="masters/emblem.svg" alt="Europa Neo emblem"><figcaption>Default emblem</figcaption></figure>
-  <figure class="dark"><img src="masters/emblem-dark.svg" alt="Europa Neo emblem"><figcaption>Dark emblem</figcaption></figure>
-  <figure><img src="masters/emblem-light.svg" alt="Europa Neo emblem"><figcaption>Light emblem</figcaption></figure>
-  <figure><img src="masters/emblem-mono.svg" alt="Europa Neo emblem"><figcaption>Monochrome emblem</figcaption></figure>
-  <figure class="dark"><img src="masters/emblem-compact.svg" alt="Europa Neo emblem"><figcaption>Compact emblem</figcaption></figure>
+  <h1>Europa Neo — revised original SVG masters</h1><p>Composition review: Europa moon, icy shield, rear circuitry, separated blue/orange clash, and EUROPA-dominant wordmark. All artwork is editable, self-contained vector.</p>
+  <figure class="hero dark"><img src="masters/lockup-dark.svg" alt="Europa Neo"><figcaption>Primary lockup · dark treatment</figcaption></figure>
+  <figure><img src="masters/lockup.svg" alt="Europa Neo"><figcaption>Default lockup</figcaption></figure><figure><img src="masters/lockup-light.svg" alt="Europa Neo"><figcaption>Light lockup</figcaption></figure><figure class="mono"><img src="masters/lockup-mono.svg" alt="Europa Neo"><figcaption>Monochrome lockup</figcaption></figure>
+  <figure class="dark"><img src="masters/emblem.svg" alt="Europa Neo emblem"><figcaption>Default emblem</figcaption></figure><figure class="dark"><img src="masters/emblem-dark.svg" alt="Europa Neo emblem"><figcaption>Dark emblem</figcaption></figure><figure><img src="masters/emblem-light.svg" alt="Europa Neo emblem"><figcaption>Light emblem</figcaption></figure><figure class="mono"><img src="masters/emblem-mono.svg" alt="Europa Neo emblem"><figcaption>Monochrome emblem</figcaption></figure><figure class="dark"><img src="masters/emblem-compact.svg" alt="Europa Neo emblem"><figcaption>Compact emblem</figcaption></figure>
+  <figure class="dark"><div class="samples"><img src="masters/emblem-compact.svg" alt="16 pixel compact emblem"><img src="masters/emblem-compact.svg" alt="32 pixel compact emblem"><img src="masters/emblem-compact.svg" alt="48 pixel compact emblem"></div><figcaption>Compact size samples · 16 / 32 / 48 px</figcaption></figure>
 </html>
