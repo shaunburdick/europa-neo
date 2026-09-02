@@ -197,3 +197,10 @@ were unrecoverable (never lobby-listed). A second-order race hit *named* deep-li
   `@europa/design` 189/189 (untouched, sanity).
 - Spec 015 amended same change set: Implementation Notes 1–2 (gating semantics + pathname-only
   returnTo). `packages/design/` untouched.
+
+## Final verification + CI (2026-09-02)
+
+- Wave 7 (full pre-push gate): all package suites green (engine 302 · terrain 366|50 skip · fog 114 · networking 287 · matchmaking 404 · version 38 · design 189+13 · console unit 677 / component 134 / a11y 44 / perf 3 / determinism 3 / parity 2 / keepalive 2 / lobby-integration 9 / contract-conformance 9); console merged coverage 92.06/86.49/92.14/91.96; design coverage 96.97/90.95/98.41/97.17; bundle 15,318 B gz ≤ 15,360 B byte-identical; `pnpm host` live smoke two-seat PASS — profile flow, unnamed deep-link round-trip, auto-start, ticks advancing, ZERO console errors (original crash dead on the production chain).
+- Wave 7b (US3 defect): root cause + fix + E2E as logged above (`60f3097`/`f86f2a2`).
+- Fresh-clone CI failure (`12cedeb`): `catalog-styles.ts` generated after tsup consumed it — fixed with `--emit-module` two-phase build; wiped-artifact verified; all artifact sha256s byte-identical.
+- **PR #55 CI: ALL GREEN** (run 33676767575/33676767560) — test suites 3m02s · coverage 1m41s · lint+typecheck 51s · Docker 1m27s · compose 1m01s · version drift 29s. Branch ready for merge (owner's call).
