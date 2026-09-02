@@ -181,6 +181,12 @@ jobs:
       - name: Unit tests (reducer + input math + QoL)
         run: pnpm --filter @europa/console test:unit
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       # Must precede EVERY browser-launching step below (component,
       # a11y, e2e, perf all boot Chromium); vitest browser mode fails
       # with "Executable doesn't exist" without it.
@@ -268,6 +274,12 @@ jobs:
       # The keepalive integration suite imports the matchmaking runtime.
       - name: Build @europa/matchmaking (workspace dependency)
         run: pnpm --filter @europa/matchmaking build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       # Merged node+browser coverage (vitest.config.coverage.ts) —
       # thresholds (80% lines/functions/branches/statements) live in

@@ -1,0 +1,91 @@
+---
+layout: ../layouts/ManualLayout.astro
+title: Reading the Screen
+---
+
+# Reading the screen
+
+This page explains every status indicator, overlay, and message you will encounter in the lobby and during a match. The lobby lives at `/lobby`; match views use semantic addresses like `/match/m-123/join` or `/match/m-123/spectate` while you play or watch.
+
+## The lobby
+
+The default landing page is **Europa Neo lobby**. Its cards show **Your name**, **Create a match**, and **Public matches**. Two independent indicators tell you the lobby's state:
+
+- **Connected** — the lobby transport is ready.
+- **Ready to play** — a valid handle has been accepted.
+
+Public-match rows show **Waiting for players** or **In progress**, seat occupancy as *Players k / N* (for example, *Players 1 / 3*), capacity, board size, and tick interval. Open waiting rows have **Join**; in-progress rows have **Spectate**; full waiting rows say **Full**. The list announces when a match is added, updated, started, or removed.
+
+The lobby may also show **Loading public matches…**, **No public matches right now — create one to get started**, an inline validation error, or a recoverable action error. See [The public lobby](./lobby) for actions and recovery steps.
+
+## The status chip
+
+The HUD's status line tells you where you stand in the match lifecycle. It shows one of these values:
+
+| Status | What it means | What to do |
+| --- | --- | --- |
+| <europa-badge>idle</europa-badge> | You are not connected to a match. | Wait for the lobby or choose a match. |
+| <europa-badge>connecting</europa-badge> | A handshake with the match server is in progress after you chose a lobby action. | Wait a moment. |
+| <europa-badge>live</europa-badge> | You are seated and receiving ticks. Your orders are accepted. | Play. |
+| <europa-badge>reconnecting</europa-badge> | The connection dropped. Automatic reconnection is under way. A banner shows above the board. | Keep the tab open. |
+| <europa-badge>expired</europa-badge> | The 60-second grace window elapsed while you were away. Your seat is forfeited. | Return to the lobby and choose or create a match (see [Quick start](./quick-start)). |
+| <europa-badge>spectating</europa-badge> | You are watching without a seat. | Watch freely. Orders are not available. |
+| <europa-badge>game_over</europa-badge> | The match's final result has been delivered. The end-of-match announcement is shown. | Review the board, then start a new match. |
+| <europa-badge>closed</europa-badge> | The console session was explicitly closed. | Return to the lobby and choose another match. |
+
+While the status is anything other than `live`, all order controls are disabled — buttons gray out rather than silently swallowing clicks.
+
+In the match header, **In match** identifies a player view and **Spectating** identifies a read-only spectator view. **Leave to lobby** returns you to `/lobby`. Every occupied player seat is labeled with its accepted handle, including your own. Names are displayed as isolated participant labels so mixed writing directions cannot rearrange nearby interface text. If a handle is unavailable, a generic label or safe guest/player ID fallback may be used. These IDs are non-secret correlation data, not access credentials.
+
+The status bar also shows a small version indicator — the app version your console was built from (for example, v0.1.0) — which stays visible regardless of the match state.
+
+## The tick counter
+
+Next to the status chip, **Tick** counts game heartbeats since the match started. Ticks run at four per second. Production, pipe flow, combat, and decay all resolve once per tick (see [Cities and troops](./cities-and-troops)). A running counter means the match is alive; a frozen one means nobody is seated or the connection has stalled.
+
+## The minimap
+
+The small map in the HUD mirrors the whole visible board and draws a rectangle showing which part currently fills your main view:
+
+- **Click anywhere on the minimap** to jump the camera there.
+- Use it to keep an eye on distant fronts without scrolling.
+
+## The order bar
+
+Below the board: the current pipe mode ("Toggle pipes" or "Exclusive pipes"), the **Exclusive pipes** toggle, and the **Clear pipes** button. See [Controls](./controls) for details.
+
+## The reserves panel
+
+Appears when you have a selected cell: a slider from 0% to 90% plus ten digit buttons, mirroring the number keys. See [Reserves](./reserves) for details.
+
+## Feedback messages
+
+Short messages appear near the bottom of the screen after your actions:
+
+- **Confirmations**: "Pipe north at (5, 7)", "Reserved 70% at (3, 4)", "Cleared all pipes at (2, 2)".
+- **Rejections**: "Target is out of range (max 2 cells)", "Can't target a water cell", "You don't own that cell", "Source cell has no troops", "You have already surrendered", "The match is already over".
+
+Messages fade after a couple of seconds. A rejection means nothing was sent — fix the cause and try again.
+
+## Overlays and recovery messages
+
+| Overlay | When | Meaning |
+| --- | --- | --- |
+| "Waiting for N-k more players… (k/N)" | You are seated but the match has not started. | The match auto-starts when all N seats fill. The overlay hides itself at the first tick. For a 2-player game this reads "Waiting for 1 more player… (1/2)"; for 3 players at 1/3 it reads "Waiting for 2 more players… (1/3)". |
+| "Reconnecting to match…" banner | The connection dropped mid-match. | Auto-reconnect is trying. Keep the tab open (see [Quick start](./quick-start)). |
+| Surrender dialog | After clicking **Surrender…**. | An explicit confirmation step. Cancel or <europa-badge>Escape</europa-badge> backs out. Confirming eliminates you on the spot (see [Objective](./objective)). |
+| "This session moved somewhere else" | Another browser took over the guest session. | Acknowledge the notice and set a new name. |
+| "The server restarted — the lobby was reset" | The in-memory server state was lost. | Reload, set a name, and choose or create a match. |
+| "That match is no longer available" / "That match just filled up" | The listing changed before your action completed. | Return to the refreshed list and choose another action. |
+
+## End of match
+
+When a match ends — victory, defeat, or draw — the console announces **"Match over"** and switches to `game_over`. The final board stays on display so you can survey the wreckage. If you finished playing but the match is still running (for example, you surrendered), you spectate with a full-board view and no orders until it wraps up. Choose **Leave to lobby** when you are ready for another match.
+
+## Keyboard and accessibility cues
+
+The first Tab stop is **Skip to main content**. Native buttons, form fields, radio buttons, and selects are keyboard-operable with Tab, Shift+Tab, arrow keys, Enter, and Space. Focus is visible. Loading, empty, connection, identity, and action failures are announced without requiring a mouse. Returning to the lobby moves focus to its heading. Reduced-motion preferences are honored by waiting and transition indicators.
+
+---
+
+[Back to contents](./index)

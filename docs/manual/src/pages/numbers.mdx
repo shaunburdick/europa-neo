@@ -1,0 +1,83 @@
+---
+layout: ../layouts/ManualLayout.astro
+title: Numbers
+---
+
+# Numbers
+
+Every player-facing number in Europa Neo, exactly as shipped. When this table and the game disagree, the manual is wrong — report it as a bug. Each row names the constant it ships from.
+
+## Simulation
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Tick cadence | 250 ms (4 ticks/second) | `DEFAULT_TICK_INTERVAL_MS` |
+| City production | <europa-troop-chip count="1" owner="1"></europa-troop-chip> troop/tick until saturated | `ENGINE_CONSTANTS.productionRate` |
+| City saturation cap | <europa-chip count="30"></europa-chip> troops | `ENGINE_CONSTANTS.cityCapacity` |
+| Open-cell troop cap | 30 troops | `ENGINE_CONSTANTS.cellCapacity` |
+| Unfed decay | −1 troop/tick | `ENGINE_CONSTANTS.decayPerTick` |
+| Pipe flow, downhill | <europa-pipe-slope direction="downhill"></europa-pipe-slope> 8–12 troops/tick per pipe (Δ=1 → 8 … Δ≥5 → 12) | `ENGINE_CONSTANTS.flowBase + flowSlopeStep × min(│Δ│, flowSlopeDeltaCap)` |
+| Pipe flow, flat | <europa-pipe-slope direction="flat"></europa-pipe-slope> 7 troops/tick per pipe | `ENGINE_CONSTANTS.flowBase` |
+| Pipe flow, uphill | <europa-pipe-slope direction="uphill"></europa-pipe-slope> 6→1 troops/tick per pipe (Δ=1 → 6 … Δ=6 → 1) | `max(0, ENGINE_CONSTANTS.flowBase − flowSlopeStep × │Δ│)` |
+| Pipe flow, stalled | <europa-pipe-slope direction="stalled"></europa-pipe-slope> 0 troops/tick (Δ≥7) | `ENGINE_CONSTANTS.flowBase / flowSlopeStep` (stall threshold) |
+
+## Terrain
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Terrain smoothing | 4 smoothing passes (range 0–8; 0 = no smoothing) | `DEFAULT_GENERATION_SETTINGS.terrainSmoothing` |
+
+## Pipe slope intensity
+
+These values control the visual triangle size on pipe slopes, not gameplay.
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Intensity formula (downhill) | `min(│Δ│, flowSlopeDeltaCap) / flowSlopeDeltaCap` → 0–1 | `PIPE_SLOPE_CONSTANTS.flowSlopeDeltaCap` (5) |
+| Intensity formula (uphill) | `min(Δ, flowBase / flowSlopeStep) / (flowBase / flowSlopeStep)` → 0–1 | `PIPE_SLOPE_CONSTANTS.flowBase` (7) / `flowSlopeStep` (1) |
+| Intensity (flat / stalled / fog) | 0 (no visual intensity) | — |
+| Triangle min size | `max(2.4px, zoom × 0.064)` at intensity=0 (40% of base) | `cell-view.tsx` intensity scaling |
+| Triangle max size | `zoom × 0.16` at intensity=1 (100% of base) | `cell-view.tsx` intensity scaling |
+| Canvas intensity scale | `(0.4 + intensity × 0.6)` × base size | `canvas.ts` `drawPipes` |
+
+## Special weapons
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Paratroop order cost | <europa-troop-chip count="20" owner="1"></europa-troop-chip> troops removed at source | `ENGINE_CONSTANTS.paratroopCost` (10) × 2 |
+| Paratroops landed | <europa-troop-chip count="10" owner="1"></europa-troop-chip> troops at target | `ENGINE_CONSTANTS.paratroopCost` |
+| Gun shot cost | <europa-troop-chip count="5" owner="1"></europa-troop-chip> troops per shot | `ENGINE_CONSTANTS.gunCost` |
+| Gun damage | <europa-troop-chip count="2" owner="2"></europa-troop-chip> troops, everything in the target cell | `ENGINE_CONSTANTS.gunDamage` |
+| Weapon range (both) | 2 cells max (diagonals count as 1) | `SUBCELL_RANGE` |
+
+## Vision
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Sensor radius per stack | 4 cells (diagonals count as 1) | `ENGINE_CONSTANTS.visibilityRadiusDefault` |
+
+## Match lifecycle
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Reconnect grace window | 60 seconds | `NETWORK_CONSTANTS.defaultReconnectGraceMs` |
+| Board size (default by player count) | 2 players → 32×32, 3 players → 48×48, 4 players → 48×48; override to 32×32 or 48×48 (64×64 temporarily disabled — terrain issue #26) | `BOARD_SIZE_DEFAULTS` (2→32, 3→48, 4→48); `DEFAULT_MATCH_SETTINGS.boardSize` = 32 (2p backward-compat default) |
+| Unstarted-match lifetime | ~5 minutes before cleanup | `MATCHMAKING_CONSTANTS.emptyMatchTtlMs` |
+
+## Interface
+
+| Value | Shipped value | Constant |
+| --- | --- | --- |
+| Reserves steps | <europa-reserve-indicator percent="0"></europa-reserve-indicator>–<europa-reserve-indicator percent="90"></europa-reserve-indicator> in 10% steps (digits 0–9) | Reserve key mapping (`resolveReservePercent`) |
+| Camera zoom bounds | 12–96 pixels per cell | `DEFAULT_CAMERA.minZoom` / `.maxZoom` |
+| Default zoom | 32 pixels per cell | `DEFAULT_CAMERA.zoom` |
+| Player 1 color | <europa-player-badge player="1"></europa-player-badge> Red `#dc2626` | `DEFAULT_PLAYER_COLORS[1]` |
+| Player 2 color | <europa-player-badge player="2"></europa-player-badge> Blue `#2563eb` | `DEFAULT_PLAYER_COLORS[2]` |
+| Player 3 color | <europa-player-badge player="3"></europa-player-badge> Green `#059669` | `DEFAULT_PLAYER_COLORS[3]` |
+| Player 4 color | <europa-player-badge player="4"></europa-player-badge> Orange-gold `#d97706` | `DEFAULT_PLAYER_COLORS[4]` |
+
+The v1 palette is fixed — these four colors are what ships. Owner identity is never conveyed by color alone: the interface also labels players by name and number.
+
+---
+
+[Back to contents](./index)

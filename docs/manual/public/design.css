@@ -672,9 +672,9 @@
    rules are scoped to .europa-page so they never affect the console, which
    does not wrap its chrome in .europa-page (it uses europa-lobby/europa-hud/
    europa-card/etc. directly). The manual body carries .europa-page via
-   docs/manual/_layouts/default.html, so every manual page shares the console's
-   dark-slate design language for headings, paragraphs, tables, lists, code,
-   blockquotes, links, and rules. */
+   docs/manual/src/layouts/ManualLayout.astro, so every manual page shares
+   the console's dark-slate design language for headings, paragraphs, tables,
+   lists, code, blockquotes, links, and rules. */
 .europa-page h1,
 .europa-page h2,
 .europa-page h3 {

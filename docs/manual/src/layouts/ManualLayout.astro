@@ -1,0 +1,27 @@
+---
+interface Props {
+    title: string;
+}
+const { title } = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <link rel="stylesheet" href="/europa-neo/design.css">
+</head>
+<body class="europa-page europa-stack">
+  <slot />
+  <footer style="margin-top: var(--europa-spacing-lg); padding: var(--europa-spacing-md) var(--europa-spacing-lg); border-top: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border); background-color: var(--europa-color-surface); color: var(--europa-color-text-muted); font-family: var(--europa-typography-font-stack); font-size: var(--europa-typography-size-xs); display: flex; flex-wrap: wrap; gap: var(--europa-spacing-sm); align-items: center;">
+    <span>Europa Neo</span>
+    <span>v0.1.0</span>
+    <a href="https://github.com/shaunburdick/europa-neo" style="color: var(--europa-color-accent); text-decoration: underline;">GitHub</a>
+  </footer>
+  <script>
+    import { register } from '@europa/design/components';
+    register();
+  </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+---
+layout: ../layouts/ManualLayout.astro
+title: Europa Neo — Player Manual
+---
+
+# Europa Neo — Player Manual
+
+This manual is the complete reference for Europa Neo — a real-time strategy game where rival nanobot colonies wage war across the icy surface of Jupiter's moon Europa. Whether you are playing your first match or sharpening advanced tactics, this is where you learn the rules.
+
+Before you play, open the [public lobby](./lobby) at `/lobby` and choose a temporary guest handle. You can rename it later; other players see this handle instead of private system details, and no account is required.
+
+<europa-card>
+
+**Tip:** New to real-time strategy? Start with [Lobby](./lobby), [Quick start](./quick-start), and [Objective](./objective) — and keep [Controls](./controls) open in a second tab during your first match.
+
+</europa-card>
+
+## The 60-second version
+
+You land on Europa with a handful of **cities**. Every city produces troops each tick — the game heartbeat, four per second — until it saturates. You move troops around by laying **pipes** between cells. Gravity does the work: downhill pipes flow fastest, flat pipes flow steadily, and steep uphill pipes stall. Troops cut off from supply slowly **decay**, so keeping your pipeline network fed matters.
+
+Where your troops meet enemy troops in a cell, they fight by **attrition**: equal forces wipe each other out, and the larger side wins and keeps the difference. Two special weapons break stalemates: **paratroopers** hop over the pipe network (costing twice what lands) and sever any pipes at their landing site, and **guns** shell every troop in a target cell — friend or foe.
+
+You see only what your troops can sense: a band of surrounding cells moves with your stacks, and ground you leave behind goes dark again. There is no radar memory and no peeking.
+
+**You win by being the last commander standing.** A player is eliminated when they hold zero troops AND zero cities. Surrender if you must; if the final players eliminate each other on the same tick, the match is a draw.
+
+## What v1 supports
+
+- Desktop browsers with a mouse and keyboard (touch screens are not supported).
+- English only.
+- Public matches discovered and entered through the landing lobby. The browser flow ships end-to-end for two, three, or four players.
+- A fixed four-color player palette (red, blue, green, orange-gold).
+
+## Table of contents
+
+1. [Lobby — choose a name, create or find a match, and spectate](./lobby)
+2. [Quick start — from the lobby to first orders](./quick-start)
+3. [Objective — how matches are won, lost, surrendered, and drawn](./objective)
+4. [The board — grid, elevation, water, and fair maps](./the-board)
+5. [Cities and troops — production, saturation, capture](./cities-and-troops)
+6. [Pipes — directing troop flow, slope, feeding, and decay](./pipes)
+7. [Combat — attrition in plain language](./combat)
+8. [Special weapons — paratroopers and guns](./special-weapons)
+9. [Reserves — holding troops back](./reserves)
+10. [Fog of war — what you can and cannot see](./fog-of-war)
+11. [Controls — complete pointer and keyboard reference](./controls)
+12. [Reading the screen — lobby, match HUD, and status meanings](./reading-the-screen)
+13. [Numbers — every shipped tunable in one auditable table](./numbers)
+
+New players should read [Lobby](./lobby), [Quick start](./quick-start), and [Objective](./objective) first; keep [Controls](./controls) open in a second tab during your first match.
+
+<europa-typography variant="caption">This manual documents Europa Neo v0.1.0.</europa-typography>

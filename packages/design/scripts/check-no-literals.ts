@@ -10,12 +10,13 @@
  * Scopes:
  *   - `packages/console/src/**` (all files)
  *   - `docs/manual/**` EXCLUDING the vendored stylesheet
- *     (`docs/manual/assets/design.css` — `@europa/design`'s own emitted CSS,
+ *     (`docs/manual/public/design.css` — `@europa/design`'s own emitted CSS,
  *     the canonical literal source, so scanning it is self-referential) and
- *     EXCLUDING markdown (any `docs/manual/**` file ending in `.md` — documentation content such as
- *     the player-color reference table in `numbers.md`; the manual's styling is
- *     exclusively the vendored catalog CSS + catalog classes, so markdown never
- *     carries a styling literal to tokenize).
+ *     EXCLUDING documentation content (any `docs/manual/**` file ending in
+ *     `.md` or `.mdx` — documentation pages such as the player-color reference
+ *     table in `numbers.mdx`; the manual's styling is exclusively the vendored
+ *     catalog CSS + catalog classes, so documentation pages never carry a
+ *     styling literal to tokenize).
  *
  * Exposed as `pnpm --filter @europa/design check:no-literals`.
  */
@@ -85,10 +86,14 @@ export function scanContent(content: string, relPath: string): ReadonlyArray<Lit
  * @param relPath - Repository-relative file path.
  */
 export function shouldSkipFile(relPath: string): boolean {
-    if (relPath.endsWith('docs/manual/assets/design.css')) {
+    // Vendored design-token CSS — the canonical literal source (public/ is the
+    // static asset; assets/ is the build-artifact copy from vendor-to-docs.ts)
+    if (relPath.endsWith('design.css') && relPath.includes('docs/manual/')) {
         return true;
     }
-    if (relPath.endsWith('.md') && relPath.includes('docs/manual/')) {
+    // Documentation content (Markdown or MDX) — hex colors in tables are
+    // reference data, not styling literals
+    if ((relPath.endsWith('.md') || relPath.endsWith('.mdx')) && relPath.includes('docs/manual/')) {
         return true;
     }
     return false;

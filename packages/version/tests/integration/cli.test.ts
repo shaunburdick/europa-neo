@@ -30,7 +30,6 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
     CONSTANT_SOURCE_FILE,
-    DOCS_CONFIG_VERSION_PATTERN,
     formatMismatchLine,
     gatherVersionSources,
     MANUAL_INDEX_FOOTER_PATTERN,
@@ -105,7 +104,7 @@ async function createFixtureRoot(label: string): Promise<string> {
  * @param version - Version written to every surface.
  */
 async function seedAgreeingTree(root: string, version: string): Promise<void> {
-    await mkdir(path.join(root, 'docs', 'manual'), { recursive: true });
+    await mkdir(path.join(root, 'docs', 'manual', 'src', 'pages'), { recursive: true });
     await mkdir(path.join(root, 'packages', 'zeta'), { recursive: true });
     await mkdir(path.join(root, 'packages', 'alpha'), { recursive: true });
 
@@ -119,14 +118,13 @@ async function seedAgreeingTree(root: string, version: string): Promise<void> {
         `# Fixture\n\n[badge]\n\nCurrent release: **v${version}**\n\nSome body text.\n`,
     );
     await writeFile(
-        path.join(root, 'docs', 'manual', 'index.md'),
-        `# Fixture manual\n\n*This manual documents Europa Neo v${version}.*\n`,
+        path.join(root, 'docs', 'manual', 'src', 'pages', 'index.mdx'),
+        `# Fixture manual\n\n<europa-typography variant="caption">This manual documents Europa Neo v${version}.</europa-typography>\n`,
     );
     await writeFile(
         path.join(root, 'DESIGN.md'),
         `# Fixture design system\n\n> **Version**: \`${version}\` <!-- Version: ${version} -->\n\nSome body text.\n`,
     );
-    await writeFile(path.join(root, 'docs', 'manual', '_config.yml'), `# Fixture manual config\nversion: ${version}\n`);
 }
 
 /** Directories created by the current test; removed after each test. */
@@ -160,7 +158,6 @@ describe('drift check against the REAL repository (positive lockstep proof)', ()
         expect(sources.filter((source) => source.kind === 'readme')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'manual-index')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'design-md')).toHaveLength(1);
-        expect(sources.filter((source) => source.kind === 'docs-config')).toHaveLength(1);
     });
 
     it('every real surface agrees with APP_VERSION — checker reports ok (SC-001 restore direction)', async () => {
@@ -173,12 +170,10 @@ describe('drift check against the REAL repository (positive lockstep proof)', ()
     it('the plan §5 patterns extract exactly APP_VERSION from the real README and manual index (SC-005)', async () => {
         const { readFile } = await import('node:fs/promises');
         const readme = await readFile(path.join(REPO_ROOT, 'README.md'), 'utf8');
-        const manualIndex = await readFile(path.join(REPO_ROOT, 'docs/manual/index.md'), 'utf8');
-        const docsConfig = await readFile(path.join(REPO_ROOT, 'docs/manual/_config.yml'), 'utf8');
+        const manualIndex = await readFile(path.join(REPO_ROOT, 'docs/manual/src/pages/index.mdx'), 'utf8');
 
         expect(README_RELEASE_LINE_PATTERN.exec(readme)?.[1]).toBe(APP_VERSION);
         expect(MANUAL_INDEX_FOOTER_PATTERN.exec(manualIndex)?.[1]).toBe(APP_VERSION);
-        expect(DOCS_CONFIG_VERSION_PATTERN.exec(docsConfig)?.[1]).toBe(APP_VERSION);
     });
 
     it('the spawned CLI exits 0 silently against the real repo root', () => {
@@ -265,30 +260,21 @@ describe('spawned CLI against temp fixture trees (SC-001 both directions)', () =
         expect(result.stderr).toContain(`mismatch: DESIGN.md expected ${APP_VERSION} but found 9.9.9`);
     });
 
-    it('a missing manual footer exits 1 naming docs/manual/index.md as unparseable', async () => {
+    it('a missing manual footer exits 1 naming docs/manual/src/pages/index.mdx as unparseable', async () => {
         const root = await trackedFixtureRoot('missing-footer');
         await seedAgreeingTree(root, APP_VERSION);
-        await writeFile(path.join(root, 'docs', 'manual', 'index.md'), '# Fixture manual\n\nNo footer here.\n');
+        await writeFile(
+            path.join(root, 'docs', 'manual', 'src', 'pages', 'index.mdx'),
+            '# Fixture manual\n\nNo footer here.\n',
+        );
 
         const result = runCli(['--root', root], REPO_ROOT);
 
         expect(result.status).toBe(1);
         expect(result.stderr.match(/mismatch:/g)).toHaveLength(1);
         expect(result.stderr).toContain(
-            `mismatch: docs/manual/index.md expected ${APP_VERSION} but found nothing (surface missing or unparseable)`,
+            `mismatch: docs/manual/src/pages/index.mdx expected ${APP_VERSION} but found nothing (surface missing or unparseable)`,
         );
-    });
-
-    it('a stale docs/manual/_config.yml version exits 1 naming that file (spec 012 addendum T-033, FR-025)', async () => {
-        const root = await trackedFixtureRoot('stale-docs-config');
-        await seedAgreeingTree(root, APP_VERSION);
-        await writeFile(path.join(root, 'docs', 'manual', '_config.yml'), '# Fixture manual config\nversion: 9.9.9\n');
-
-        const result = runCli(['--root', root], REPO_ROOT);
-
-        expect(result.status).toBe(1);
-        expect(result.stderr.match(/mismatch:/g)).toHaveLength(1);
-        expect(result.stderr).toContain(`mismatch: docs/manual/_config.yml expected ${APP_VERSION} but found 9.9.9`);
     });
 
     it('simultaneous mismatches name EVERY offender in deterministic gather order (FR-009)', async () => {
@@ -302,7 +288,10 @@ describe('spawned CLI against temp fixture trees (SC-001 both directions)', () =
             path.join(root, 'README.md'),
             `# Fixture\n\n[badge]\n\nCurrent release: **v9.9.9**\n\nSome body text.\n`,
         );
-        await writeFile(path.join(root, 'docs', 'manual', 'index.md'), '# Fixture manual\n\nNo footer here.\n');
+        await writeFile(
+            path.join(root, 'docs', 'manual', 'src', 'pages', 'index.mdx'),
+            '# Fixture manual\n\nNo footer here.\n',
+        );
 
         const result = runCli(['--root', root], REPO_ROOT);
 
@@ -310,7 +299,7 @@ describe('spawned CLI against temp fixture trees (SC-001 both directions)', () =
         expect(result.stderr.match(/mismatch:/g)).toHaveLength(3);
         const zetaAt = result.stderr.indexOf('packages/zeta/package.json');
         const readmeAt = result.stderr.indexOf('README.md');
-        const manualAt = result.stderr.indexOf('docs/manual/index.md');
+        const manualAt = result.stderr.indexOf('docs/manual/src/pages/index.mdx');
         expect(zetaAt).toBeGreaterThan(-1);
         expect(readmeAt).toBeGreaterThan(zetaAt);
         expect(manualAt).toBeGreaterThan(readmeAt);
@@ -345,9 +334,8 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
             'packages/zeta/package.json',
             CONSTANT_SOURCE_FILE,
             'README.md',
-            'docs/manual/index.md',
+            'docs/manual/src/pages/index.mdx',
             'DESIGN.md',
-            'docs/manual/_config.yml',
         ]);
         expect(sources.every((source) => source.version === APP_VERSION)).toBe(true);
     });
@@ -402,9 +390,9 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
 
     it('doc surfaces yield null when the file is absent or the line format is wrong', async () => {
         const root = await trackedFixtureRoot('doc-formats');
-        await mkdir(path.join(root, 'docs', 'manual'), { recursive: true });
+        await mkdir(path.join(root, 'docs', 'manual', 'src', 'pages'), { recursive: true });
         await writeFile(path.join(root, 'README.md'), 'Current release: v0.0.0 without bold markers\n');
-        await writeFile(path.join(root, 'docs', 'manual', 'index.md'), 'no footer\n');
+        await writeFile(path.join(root, 'docs', 'manual', 'src', 'pages', 'index.mdx'), 'no footer\n');
 
         const sources = await gatherVersionSources(root, APP_VERSION);
 
@@ -413,7 +401,7 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
             version: null,
         });
         expect(sources.find((source) => source.kind === 'manual-index')).toMatchObject({
-            file: 'docs/manual/index.md',
+            file: 'docs/manual/src/pages/index.mdx',
             version: null,
         });
 
@@ -446,8 +434,8 @@ describe('formatMismatchLine rendering', () => {
     });
 
     it('renders null actuals as an explicit missing-surface note', () => {
-        expect(formatMismatchLine({ file: 'docs/manual/index.md', expected: '0.0.1', actual: null })).toBe(
-            'mismatch: docs/manual/index.md expected 0.0.1 but found nothing (surface missing or unparseable)',
+        expect(formatMismatchLine({ file: 'docs/manual/src/pages/index.mdx', expected: '0.0.1', actual: null })).toBe(
+            'mismatch: docs/manual/src/pages/index.mdx expected 0.0.1 but found nothing (surface missing or unparseable)',
         );
     });
 });

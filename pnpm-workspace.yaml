@@ -1,5 +1,6 @@
 packages:
   - "packages/*"
+  - "docs/manual"
 
 # pnpm 11 blocks dependency lifecycle scripts by default (supply-chain
 # security). Approve esbuild's native postinstall so tsup/vitest can
@@ -7,6 +8,12 @@ packages:
 # onlyBuiltDependencies list.)
 allowBuilds:
   esbuild: true
+  # sharp@0.34.x has a native postinstall script (C++ compilation).
+  # pnpm 11 blocks lifecycle scripts by default. sharp is a transitive
+  # dep of astro (image optimization) — not used by the manual but
+  # cannot be excluded from the lockfile. Approved because sharp is a
+  # well-maintained, widely-used package with a benign build script.
+  sharp: true
 
 catalog:
   tsup: ^8.3.5
