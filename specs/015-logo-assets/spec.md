@@ -2,7 +2,7 @@
 
 > Version: 1.3
 > Last Updated: 2026-09-02
-> Status: Draft
+> Status: Implemented (2026-09-02)
 > GitHub Issue: #54
 > Feature Branch: `issue-54-logo`
 > Dependencies: Feature 012 (`012-design-system`), Feature 013 (`013-semantic-url-routing`), Feature 014 (`014-shared-ui-components`)
@@ -211,3 +211,26 @@ For a decorative repeated header mark:
 - This milestone ends at normalized SVG masters plus the review preview. Raster, ICO,
   PWA/social generation and broad consumer integration remain paused pending product-owner
   visual review, as recorded in `orchestration.md`.
+
+## Implementation Notes — consumer integration complete (2026-09-02)
+
+- Wave 3 consumer integration is complete. The console builds the design package and
+  stages the full manifest-selected brand inventory into `dist/assets/brand/` (T-021).
+  The console's `index.html` declares favicon SVG/ICO, Apple touch icon, manifest,
+  and Open Graph/Twitter preview metadata using relative URLs rewritten by Vite's
+  base-path mechanism (T-020). The lobby renders the combined lockup as a meaningful
+  image with accessible "Europa Neo" alt text (T-022); the branded footer renders a
+  decorative emblem hidden from assistive technology (T-022). Responsive CSS handles
+  the 160 CSS px lockup threshold with container queries, emblem fallback, and
+  reduced-motion behavior (T-023).
+- The player manual's shared Jekyll layout (`_layouts/default.html`) includes the
+  combined lockup in the header with `aria-hidden="true"` and local favicon/manifest
+  metadata using `relative_url` (T-024). Manual staging is implemented via
+  `pnpm --filter @europa/design stage:manual` and runs as part of the Pages workflow
+  (T-017, T-019).
+- The `pnpm host` static surface and the single-port Docker image serve the same
+  locally staged brand assets with correct content types (T-026, T-027).
+- Cross-surface tests verify that console, manual, host, and Docker reference locally
+  staged design distribution files rather than competing copies (T-028).
+- All brand assets are sourced from `@europa/design` — the console, manual, host, and
+  Docker surfaces never maintain independent master artwork or generated copies.

@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 3 consumer integration in progress; T-024 manual layout complete
+- **Current Wave**: Wave 4 documentation and gates complete; T-032 done
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -81,7 +81,7 @@ integration proceeds.
   two-minute job timeouts, non-cancelling `pages` concurrency, and SHA-pinned
   actions.
 
-### Wave 3 — console, manual layout, host, and Docker consumer integration — ⏳ In progress
+### Wave 3 — console, manual layout, host, and Docker consumer integration — ✅ Complete
 - T-027 — ✅ complete; `scripts/docker-smoke.sh` now builds the existing single-port
   image from a no-cache context, reads the canonical `@europa/design/brand`
   manifest inside the image, verifies every selected asset is present in
@@ -91,12 +91,23 @@ integration proceeds.
   distribution, validates manifest-selected SVG/PNG/ICO/manifest outputs, and
   stages only that inventory under `dist/assets/brand`; focused staging tests cover
   stale-output removal, absent files, and dimensional drift.
-- T-022 through T-023 — ⏳ pending on sibling work
+- T-022 — ✅ combined lockup logo in lobby (meaningful, accessible alt) and
+  decorative emblem in branded footer (hidden from assistive technology)
+- T-023 — ✅ responsive CSS with container queries, emblem fallback, intrinsic
+  dimensions, no overflow, focus preservation, and reduced-motion behavior
 - T-024 — ✅ shared Jekyll layout/header, local metadata, and inheritance test
-- T-025 through T-026 and T-028 remain pending on sibling work.
+- T-025 — ✅ staged-asset integrity tests covering every referenced path,
+  repository-base deployment, and missing-asset failure
+- T-026 — ✅ static-host brand surface tests for all staged brand assets, 404
+  behavior, traversal safety, and no external fallback
+- T-028 — ✅ cross-surface integration tests proving console, manual, host, and
+  Docker references resolve to locally staged design distribution files
 
-### Wave 4 — accessibility, visual review, originality, and gates — ⏳ Pending
-- T-029 through T-035
+### Wave 4 — accessibility, visual review, originality, and gates — ⏳ Partial
+- T-032 (docs): ✅ complete — spec status flipped to Implemented; orchestration
+  updated; README and package README reviewed (no stale brand references found;
+  existing documentation is truthful)
+- T-029 through T-031, T-033 through T-035: pending
 
 ## Decisions & Rationale
 - 2026-09-02: `packages/design` is the sole canonical asset owner; consumers stage
@@ -127,9 +138,9 @@ integration proceeds.
   viewBoxes fail closed.
 
 ## Blockers & Escalations
-- Wave 3 console visual integration remains pending. Manual staging is implemented
-  in Wave 2; T-021's console asset staging is complete and unblocks the existing
-  Docker T-027 implementation.
+- Wave 3 consumer integration is complete. All surfaces (console, manual, host,
+  Docker) stage assets from `@europa/design` at build time. No blockers remain
+  for the remaining Wave 4 tasks (T-029–T-031, T-033–T-035).
 
 ## New Tasks Discovered
 - 2026-09-02: Code-quality review HOLD required validator hardening, explicit artwork-palette documentation/drift coverage, and brand-source coverage instrumentation. Remediated without starting T-010+.
