@@ -5,11 +5,11 @@ title: Reserves
 
 # Reserves
 
-Reserves are a per-cell promise: *these troops stay put*. This page explains what reserving does, how to set it, and why a reserved garrison beats a hoarded pile.
+This page explains what reserving does, how to set it, and why a reserved garrison beats a hoarded pile.
 
 ## What reserves do
 
-Setting reserves on a cell holds back a percentage of that cell's troops. The reserved count is pinned in place — it cannot be eaten by decay, so an unfed, reserved stack keeps its core alive instead of rotting to nothing.
+Setting reserves on a cell holds back a percentage of that cell's troops. The reserved count is pinned in place — it cannot be eaten by decay. An unfed, reserved stack keeps its core alive instead of rotting to nothing.
 
 Everything above the reserve remains available: to flow through pipes, to pay for paratroops and guns, and to fight.
 
@@ -29,7 +29,7 @@ Press 0 (or slide to 0%) to clear reserves entirely.
 | 5 | <europa-reserve-indicator percent="50"></europa-reserve-indicator> 50% held back |
 | 9 | <europa-reserve-indicator percent="90"></europa-reserve-indicator> 90% held back |
 
-There is no 100%: the maximum reserve is **90%**. A cell that reserved everything could never feed a pipe, fund a weapon, or fight — the game simply does not offer it.
+The digit you press maps directly to a percentage: **digit × 10 = reserve percentage**. There is no 100%: the maximum reserve is **90%**. A cell that reserved everything could never feed a pipe, fund a weapon, or fight — the game simply does not offer it.
 
 The console flashes a confirmation like "Reserved 70% at (3, 4)" when the order lands (see [Reading the screen](./reading-the-screen)).
 

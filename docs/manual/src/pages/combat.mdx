@@ -5,14 +5,16 @@ title: Combat
 
 # Combat
 
-Combat in Europa Neo is **attrition** — no dice, no bonuses, no counters. When opposing troops meet in a cell, arithmetic decides. This page tells you exactly how, and when attacking is worth it.
+This page explains how combat resolves when opposing troops meet, and when attacking is worth it.
 
 ## The attrition rule
 
-When troops of both players end up in the same cell:
+Combat in Europa Neo is **attrition** — no dice, no bonuses, no counters. When opposing troops end up in the same cell, arithmetic decides:
 
 - Each side loses troops equal to the **smaller** force.
-- The larger side survives and keeps the **difference**.
+- The larger side survives with the **difference**.
+
+In other words, both sides subtract the smaller number from both stacks. Whatever remains belongs to the larger side.
 
 Worked examples:
 
@@ -22,7 +24,7 @@ Worked examples:
 | <europa-troop-chip count="25" owner="1"></europa-troop-chip> 25 | <europa-troop-chip count="10" owner="2"></europa-troop-chip> 10 | Enemy wiped out; you keep 15 |
 | <europa-troop-chip count="10" owner="1"></europa-troop-chip> 10 | <europa-troop-chip count="25" owner="2"></europa-troop-chip> 25 | You are wiped out; enemy keeps 15 |
 
-Equal forces trade equally and annihilate each other completely. Because combat resolves every tick, a 21-vs-20 fight leaves 1 troop standing — then decay or the next wave settles it.
+Equal forces annihilate each other completely. Because combat resolves every tick, a 21-vs-20 fight leaves 1 troop standing — then decay or the next wave settles it.
 
 ## What this means for attacking
 
@@ -36,7 +38,7 @@ A defended city is captured by winning the engagement in its cell — survivors 
 
 ## Stalemates
 
-Attrition makes even fights self-canceling, and mutual feeding (see [Pipes](./pipes)) makes fronts unkillable by decay, while reserves pin a defensive core in place that no supply cut can rot away (see [Reserves](./reserves)). The result is the classic Europa stalemate: two mutually-fed lines glaring across no-man's-land, where every attack at parity is pure waste.
+Attrition makes even fights self-canceling. Mutual feeding (see [Pipes](./pipes)) makes fronts unkillable by decay, and reserves pin a defensive core in place that no supply cut can rot away (see [Reserves](./reserves)). The result is the classic Europa stalemate: two mutually-fed lines glaring across no-man's-land, where every attack at parity is pure waste.
 
 Breaking a stalemate means changing the arithmetic:
 
