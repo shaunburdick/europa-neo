@@ -7,18 +7,26 @@
  * `setAttributeIf`) that keep individual component `render()` methods
  * short and declarative.
  *
- * ## Shadow DOM architecture
+ * ## DOM architecture (two-tier)
  *
- * All components use **Shadow DOM** with an open shadow root. The shared
- * catalog stylesheet (`CATALOG_CSS`) is adopted via a single constructed
- * `CSSStyleSheet` — one sheet shared across all instances. CSS custom
- * properties (`--europa-*`) inherit through the shadow boundary from
- * `:root`, so the token block is not duplicated inside shadow roots.
+ * Child-projecting generic components use **Shadow DOM** with an open
+ * shadow root. The shared catalog stylesheet (`CATALOG_CSS`) is adopted
+ * via a single constructed `CSSStyleSheet` — one sheet shared across all
+ * instances. CSS custom properties (`--europa-*`) inherit through the
+ * shadow boundary from `:root`, so the token block is not duplicated
+ * inside shadow roots.
  *
- * Subclasses call {@link EuropaElement.ensureShadowRoot} in their
- * `render()` method to lazily create and style the shadow root, then
- * append internal elements to it. Light DOM children are projected via
- * `<slot>` elements inside the shadow tree.
+ * Shadow-DOM subclasses call {@link EuropaElement.ensureShadowRoot} in
+ * their `render()` method to lazily create and style the shadow root,
+ * then append internal elements to it. Light DOM children are projected
+ * via `<slot>` elements inside the shadow tree — children stay as
+ * children of the host and are never reparented (reparenting
+ * React-managed nodes breaks React 19 unmounts).
+ *
+ * The game-specific primitives (troop-chip, city-marker, pipe-slope,
+ * elevation-swatch, player-badge, fog-overlay, reserve-indicator) are
+ * **Light DOM** leaf elements — they render regular children on the host
+ * and do NOT call {@link EuropaElement.ensureShadowRoot}.
  *
  * The host element's `class` attribute (set via {@link EuropaElement.setClasses})
  * remains on the host for external `:host(.foo)` selectors and consumer
@@ -27,7 +35,7 @@
  *
  * @example
  * ```ts
- * class EuropaButton extends EuropaButton {
+ * class EuropaButton extends EuropaElement {
  *     static get observedAttributes(): string[] {
  *         return ['variant', 'size', 'disabled'];
  *     }
