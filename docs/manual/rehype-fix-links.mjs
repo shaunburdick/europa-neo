@@ -7,10 +7,17 @@
  * so `./lobby` from pipes resolves to /europa-neo/pipes/lobby — a 404.
  *
  * This plugin walks every <a> element and, for relative links starting with
- * "./", rewrites the href based on the current page's output depth:
+ * "./", performs two fixes:
  *
- *   index.mdx  → /europa-neo/index.html      (depth 1) → ./foo stays ./foo
- *   pipes.mdx  → /europa-neo/pipes/index.html (depth 2) → ./foo becomes ../foo
+ * 1. Depth-rewriting: adjusts the ./ prefix based on the page's output depth
+ *    so the link reaches the correct path under /europa-neo/:
+ *      index.mdx  → depth 1 → ./foo stays ./foo
+ *      pipes.mdx  → depth 2 → ./foo becomes ../foo
+ *
+ * 2. Trailing-slash: appends a trailing slash to all rewritten relative links
+ *    so they match Astro's `trailingSlash: 'always'` config:
+ *      ./lobby    → /europa-neo/lobby/  (not /europa-neo/lobby which 404s)
+ *      ../pipes/  → /europa-neo/pipes/  (already correct)
  *
  * Because the site is flat (no nested page directories), the only two depths
  * that matter are 1 and 2.
@@ -55,15 +62,13 @@ function getOutputDepth(filePath) {
 export default function rehypeFixLinks() {
     return (tree, file) => {
         const filePath = file?.path ?? file?.history?.[0] ?? '';
+        console.log('[rehype-fix-links] called for:', filePath);
         const depth = getOutputDepth(filePath);
-
-        // Depth 1 pages (index) don't need rewriting — ./foo resolves correctly
-        if (depth <= 1) return;
 
         // For depth N pages, relative ./foo needs (N - 1) ../ prefixes to
         // reach the site root.  Since we're flat and depth is always 2,
-        // that means one ../ prefix.
-        const prefix = '../'.repeat(depth - 1);
+        // that means one ../ prefix.  Depth 1 pages (index) skip this.
+        const prefix = depth > 1 ? '../'.repeat(depth - 1) : '';
 
         visit(tree, 'element', (node) => {
             if (node.tagName !== 'a') return;
@@ -76,7 +81,14 @@ export default function rehypeFixLinks() {
 
             // Strip the ./ prefix, then prepend the correct number of ../
             // e.g. ./controls → ../controls, ./index → ../index
+            // For index pages, prefix is '' so ./foo stays ./foo
             node.properties.href = prefix + href.slice(2);
+
+            // Add trailing slash if not present — Astro's trailingSlash: 'always'
+            // serves pages at /europa-neo/pipes/ (with slash), so links must match
+            if (!node.properties.href.endsWith('/')) {
+                node.properties.href += '/';
+            }
         });
     };
 }
