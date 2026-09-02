@@ -20,7 +20,7 @@ jobs:
   verify:
     name: Build + link verification
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,6 +42,12 @@ jobs:
 
       - name: Build Astro site
         run: pnpm --filter @europa/manual build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('docs/manual/pnpm-lock.yaml') }}
 
       - name: Install Playwright browsers
         run: pnpm --filter @europa/manual exec playwright install chromium
