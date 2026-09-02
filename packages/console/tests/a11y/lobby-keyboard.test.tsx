@@ -21,7 +21,7 @@ import { register } from '@europa/design/components';
 register();
 
 import type { LobbyRevision, LobbySnapshot, MatchId } from '@europa/matchmaking';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 
@@ -35,6 +35,14 @@ import type {
 import { createLobbyController, type LobbyTransport } from '../../src/state/lobby-controller';
 import '../../src/styles/index.css';
 import { expectNoDomA11yViolations } from '../setup-a11y-dom';
+
+beforeEach(() => {
+    // Ensure the pathname is not a lobby route (/ or /lobby) before
+    // each test — the lobby identity gate (feature 015) redirects
+    // unnamed visitors away from lobby routes to /profile. These
+    // tests exercise LobbyRoot directly and must bypass the redirect.
+    window.history.pushState(window.history.state, '', '/test-lobby-a11y');
+});
 
 afterEach(() => {
     cleanup();

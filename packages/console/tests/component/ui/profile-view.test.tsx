@@ -257,15 +257,13 @@ describe('ProfileView — restoring state', () => {
 // ---------------------------------------------------------------------------
 
 describe('ProfileView — auto-navigate (FR-010)', () => {
-    test('when identityStatus is named on mount, auto-navigates to /lobby', async () => {
+    test('when identityStatus is named on mount, does NOT auto-navigate (FR-010 only fires on transition)', async () => {
         const pushState = vi.fn();
         vi.stubGlobal('history', { ...window.history, pushState });
 
-        // The FR-010 effect fires on mount when named is already true —
-        // this models the post-submission re-render where the parent
-        // transitions identityStatus to 'named' before the next paint.
-        // (Direct mount as 'named' avoids rerender DOM conflicts with
-        // custom elements that reparent children.)
+        // FR-010 auto-navigate is gated on a false→true transition
+        // (wasUnnamedRef), NOT on mount-as-named. This verifies that
+        // the "Manage profile" entry path does not trigger navigation.
         await render(
             <ProfileView
                 {...propsOf({
@@ -274,13 +272,14 @@ describe('ProfileView — auto-navigate (FR-010)', () => {
                 })}
             />,
         );
-        await vi.waitFor(() => {
-            expect(pushState).toHaveBeenCalled();
+        // Wait a tick for any effects to settle.
+        await new Promise<void>((r) => {
+            setTimeout(r, 50);
         });
-        expect(pushState.mock.calls.at(-1)?.[2]).toBe('/lobby');
+        expect(pushState).not.toHaveBeenCalled();
     });
 
-    test('when returnTo is present, auto-navigates to returnTo instead', async () => {
+    test('when returnTo is present and named on mount, does NOT auto-navigate', async () => {
         const pushState = vi.fn();
         vi.stubGlobal('history', { ...window.history, pushState });
 
@@ -293,9 +292,9 @@ describe('ProfileView — auto-navigate (FR-010)', () => {
                 })}
             />,
         );
-        await vi.waitFor(() => {
-            expect(pushState).toHaveBeenCalled();
+        await new Promise<void>((r) => {
+            setTimeout(r, 50);
         });
-        expect(pushState.mock.calls.at(-1)?.[2]).toBe('/match/xyz-789');
+        expect(pushState).not.toHaveBeenCalled();
     });
 });
