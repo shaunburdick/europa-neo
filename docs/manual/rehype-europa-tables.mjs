@@ -1,7 +1,7 @@
 import { visit } from 'unist-util-visit';
 
 export default function rehypeEuropaTables() {
-    return (tree) => {
+    return (tree, file) => {
         visit(tree, 'element', (node) => {
             if (node.tagName === 'table') {
                 node.properties = node.properties || {};

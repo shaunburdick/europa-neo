@@ -111,6 +111,9 @@ importers:
         specifier: ^7.2.10
         version: 7.2.10(@astrojs/markdown-remark@7.3.0(supports-color@7.2.0))(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@22.20.1)(tsx@4.23.12)
     devDependencies:
+      '@playwright/test':
+        specifier: 'catalog:'
+        version: 1.62.1
       unist-util-visit:
         specifier: ^5.0.0
         version: 5.1.0

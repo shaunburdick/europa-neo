@@ -62,7 +62,6 @@ function getOutputDepth(filePath) {
 export default function rehypeFixLinks() {
     return (tree, file) => {
         const filePath = file?.path ?? file?.history?.[0] ?? '';
-        console.log('[rehype-fix-links] called for:', filePath);
         const depth = getOutputDepth(filePath);
 
         // For depth N pages, relative ./foo needs (N - 1) ../ prefixes to
