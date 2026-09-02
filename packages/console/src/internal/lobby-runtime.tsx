@@ -275,6 +275,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     const prevViewModeRef = useRef(state.viewMode);
     const routeResolutionRef = useRef(initialRoute !== undefined);
     const completedNavigationPathRef = useRef<string | null>(null);
+    const lobbyRedirectedRef = useRef(false);
     useEffect(() => {
         if (prevViewModeRef.current !== state.viewMode) {
             prevViewModeRef.current = state.viewMode;
@@ -437,6 +438,28 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         const returnTo = encodeURIComponent(window.location.pathname);
         window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
     }, [state.identityStatus]);
+
+    // US1 lobby identity gate: when an unnamed visitor lands on the lobby
+    // root (/ or /lobby), redirect to /profile so they choose a name before
+    // interacting. This fires AFTER identity resolution (not at bootstrap)
+    // so the redirect happens only when the server confirms the visitor has
+    // no handle. The redirect is one-shot (lobbyRedirectedRef) to avoid a
+    // loop: after pushState to /profile, the pathname is no longer a lobby
+    // route, so the guard exits even without the ref.
+    //
+    // Connection gating: wait until the lobby connection is 'ready' so the
+    // identity has been resolved by the server — avoid a flash redirect
+    // before the server responds.
+    useEffect(() => {
+        if (lobbyRedirectedRef.current) return;
+        if (state.identityStatus !== 'unnamed') return;
+        if (state.connection !== 'ready') return;
+        const route = parseRoute(window.location.pathname);
+        if (route.kind !== 'root' && route.kind !== 'lobby') return;
+        lobbyRedirectedRef.current = true;
+        const returnTo = encodeURIComponent(window.location.pathname);
+        window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
+    }, [state.identityStatus, state.connection]);
 
     // Successful actions initiated from the lobby get one canonical semantic
     // history entry. Route-originated actions already have the right URL.
