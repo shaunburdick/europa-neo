@@ -12,6 +12,8 @@ import { Resvg } from '@resvg/resvg-js';
 
 import { writeIco } from '../src/brand/ico.js';
 
+import { serializeWebManifest } from '../src/brand/web-manifest.js';
+
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
 export const BRAND_MASTERS_DIRECTORY = path.join(PACKAGE_ROOT, 'src', 'brand', 'masters');
 export const BRAND_OUTPUT_DIRECTORY = path.join(PACKAGE_ROOT, 'dist', 'brand');
@@ -111,6 +113,7 @@ export async function generateBrandAssets(options: BrandGenerationOptions = {}):
         path.join(outputDirectory, 'europa-neo-social.png'),
         renderPng(createSocialSvg(getMaster(masters, 'lockup.svg')), 1200, 630),
     );
+    await writeFile(path.join(outputDirectory, 'site.webmanifest'), serializeWebManifest(), 'utf8');
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

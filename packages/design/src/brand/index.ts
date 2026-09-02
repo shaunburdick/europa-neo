@@ -1,4 +1,6 @@
 export { BRAND_ARTWORK_COLOR_EXTENSIONS } from './colors.js';
+export type { IcoEntry, IcoFile, IcoLayer, IcoValidationResult } from './ico.js';
+export { parseIco, validateIco, writeIco } from './ico.js';
 export type {
     BrandAsset,
     BrandAssetId,
