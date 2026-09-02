@@ -255,8 +255,9 @@ idempotent, fail closed when the distribution or a selected file is missing, and
 artwork or read `europa-source/`. The manual target is `docs/manual/assets/brand/`; the console target
 is `packages/console/dist/assets/brand/`; Docker serves the already staged console tree and adds no
 asset server. The Pages order is install → design build → manual stage → Jekyll. The design build
-and explicit `stage:manual` command now implement the manual staging boundary (spec 015 T-017);
-console, host, Docker, and Pages integrations remain subsequent tasks.
+and explicit `stage:manual` command implement the manual staging boundary (spec 015 T-017),
+and T-019 implements the corresponding Pages workflow staging. Console, host, and Docker
+consumer integrations remain pending in Wave 3.
 
 #### Accessibility and originality
 

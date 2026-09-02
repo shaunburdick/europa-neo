@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 2 complete through T-019; Wave 3 not started
+- **Current Wave**: Wave 2 staging complete through T-019; Wave 3 consumer integration not started
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -81,7 +81,7 @@ integration proceeds.
   two-minute job timeouts, non-cancelling `pages` concurrency, and SHA-pinned
   actions.
 
-### Wave 3 — console, manual, host, and Docker integration — ⏳ Pending (not started)
+### Wave 3 — console, manual layout, host, and Docker consumer integration — ⏳ Pending (not started)
 - T-020 through T-028
 
 ### Wave 4 — accessibility, visual review, originality, and gates — ⏳ Pending
