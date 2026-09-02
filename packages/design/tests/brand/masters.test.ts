@@ -55,6 +55,24 @@ describe('brand SVG masters', () => {
         }
     });
 
+    it('places every lockup wordmark inside the upper shield composition', async () => {
+        const documents = await Promise.all(
+            ['lockup.svg', 'lockup-light.svg', 'lockup-dark.svg', 'lockup-mono.svg'].map(readMaster),
+        );
+
+        for (const document of documents) {
+            expect(document).toContain('viewBox="0 0 512 512"');
+            expect(document).toMatch(
+                /<g id="wordmark" clip-path="url\(#brand-1\)" transform="translate\(256 100\) scale\(\.55\)">/,
+            );
+            expect(document).not.toContain('translate(530 88)');
+        }
+
+        const vertical = await readMaster('lockup-vertical.svg');
+        expect(vertical).toMatch(/<g\s+id="wordmark"[\s\S]*clip-path="url\(#vertical-shield\)"/);
+        expect(vertical).not.toContain('translate(530 88)');
+    });
+
     it('preserves separate blue and orange conflict treatments', async () => {
         const documents = await Promise.all(['emblem.svg', 'emblem-light.svg', 'emblem-dark.svg'].map(readMaster));
         for (const document of documents) {

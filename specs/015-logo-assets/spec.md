@@ -1,6 +1,6 @@
 # Feature Specification: Europa Neo Logo and Favicon/Icon Set
 
-> Version: 1.2
+> Version: 1.3
 > Last Updated: 2026-09-02
 > Status: Draft
 > GitHub Issue: #54
@@ -177,6 +177,12 @@ For a decorative repeated header mark:
 |---|---|---|---|
 | 8 | What visual composition must the revised primary lockup deliver? | The primary lockup must retain the mockup’s full compositional idea as original vector artwork: Europa planet/moon central, icy outer shield/frame, circuitry behind it, a strong horizontal blue-versus-orange beam/clash, and an explicit `EUROPA`-dominant / `NEO`-subordinate hierarchy. This is an approved direction, not permission to trace or copy the mockup. | FR-001, AC-011 |
 
+### v1.3 (2026-09-02) — Product-owner lockup placement clarification
+
+| # | Question | Decision | Requirement(s) |
+|---|---|---|---|
+| 9 | Where must the lockup wordmark sit relative to the emblem? | The normalized Montserrat path wordmark is layered over the upper portion of the moon/shield and clipped to the shield silhouette in every lockup treatment. It MUST NOT be positioned as an external label to the right of the shield. | FR-001, FR-004, AC-011 |
+
 ## Constitution Alignment
 
 - **Principle I**: Integration helpers and validation code use strict TypeScript with no `any` or suppressions.
@@ -197,6 +203,9 @@ For a decorative repeated header mark:
   metadata. The wordmark uses bundled **Montserrat ExtraBold (800)** under SIL OFL 1.1,
   but all shipped wordmark glyphs are SVG paths; no runtime font or network dependency is
   introduced.
+- The lockup wordmark is an overlaid, shield-clipped layer centered in the upper moon
+  area in every treatment; the horizontal masters use a square composition rather than
+  an external right-hand wordmark placement. Geometry tests pin this relationship.
 - This milestone ends at normalized SVG masters plus the review preview. Raster, ICO,
   PWA/social generation and broad consumer integration remain paused pending product-owner
   visual review, as recorded in `orchestration.md`.

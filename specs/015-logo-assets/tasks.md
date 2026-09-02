@@ -13,7 +13,7 @@ after all preceding wave dependencies are complete.
 
 ## Wave 1 — canonical artwork and package generator
 
-- [x] T-005 (design): Revise and normalize the supplied artwork into self-contained SVG masters under `packages/design/src/brand/masters/`, preserving the full composition and adding the required horizontal lockup plus retained `lockup-vertical.svg`; convert the Montserrat ExtraBold wordmark to paths.
+- [x] T-005 (design): Revise and normalize the supplied artwork into self-contained SVG masters under `packages/design/src/brand/masters/`, preserving the full composition and adding the required horizontal lockup plus retained `lockup-vertical.svg`; convert the Montserrat ExtraBold wordmark to paths. Product-owner follow-up places the wordmark as a clipped overlay in the shield's upper moon area for every lockup treatment; it is not an external right-hand label.
 - [x] T-006 (design): Revalidate documented brand tokens, treatments, accessibility metadata, normalized IDs, and blue/orange non-color distinction for the revised composition before raster generation. Product-owner visual review remains the gate for the next wave.
 - [ ] T-007 (build): Implement strict typed brand manifest and package-local source/distribution path helpers; reject traversal, undeclared, and consumer-source paths.
 - [ ] T-008 (build): Implement SVG structural validation for parseability, viewBox, embedded raster, external/network references, fonts, scripts, animation, and malformed content.

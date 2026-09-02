@@ -36,6 +36,9 @@ integration proceeds.
 ### Wave 1 — canonical artwork and package generator — ✅ Artwork milestone complete / Product Review
 - T-005 — ✅ normalized supplied artwork, added horizontal lockup, retained vertical
   variant, and converted the Montserrat ExtraBold wordmark to paths
+- Product-owner follow-up — ✅ corrected all lockup placement: the normalized path
+  wordmark is clipped and centered over the upper moon/shield area at the intended
+  scale in every treatment; the preview now presents the square overlay composition.
 - T-006 — ✅ verified clean metadata/namespaces, stable IDs, complete accessibility
   metadata, preserved gradients/filters, and documented token/licensing choices
 - T-007 through T-014 — ⏸ paused pending product-owner visual approval
@@ -80,6 +83,11 @@ integration proceeds.
 - None.
 
 ## Review Findings
+- 2026-09-02: Initial horizontal masters placed the wordmark outside/right of the
+  shield. Product-owner clarification rejected that composition. The four horizontal
+  treatments now use the same clipped `wordmark` group (`translate(256 100) scale(.55)`)
+  and a square `512 × 512` viewBox; the retained vertical treatment is explicitly
+  identified with the same layering contract. Geometry tests pin this placement.
 - T-001 review completed against `AGENTS.md` and `.specify/memory/constitution.md`.
 - The plan's rasterizer statement needed correction: `@resvg/resvg-js` is currently
   console-only and must become a direct design-package development dependency.
