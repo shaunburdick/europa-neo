@@ -9,6 +9,7 @@ export default defineConfig({
     base: '/europa-neo',
     output: 'static',
     compressHTML: true,
+    trailingSlash: 'always',
     integrations: [mdx()],
     markdown: {
         processor: unified({
