@@ -104,6 +104,7 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
     '.json': 'application/json; charset=utf-8',
+    '.webmanifest': 'application/manifest+json; charset=utf-8',
     '.map': 'application/json; charset=utf-8',
     '.ogg': 'audio/ogg',
     '.ico': 'image/x-icon',
