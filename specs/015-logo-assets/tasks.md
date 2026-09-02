@@ -8,7 +8,7 @@ after all preceding wave dependencies are complete.
 
 - [x] T-001 (architect): Review this plan, data model, contract, and spec against `AGENTS.md` and the constitution; record any approved implementation clarifications before coding.
 - [x] T-002 (design): Write the original-art direction sheet (geometry, clear space, backgrounds, minimum sizes, blue/orange non-color encoding) without referencing mockup pixels or `europa-source/` artwork. See [`design-direction.md`](design-direction.md).
-- [ ] T-003 [P] (design): Add source-tree inventory fixtures and a typed manifest test scaffold under `packages/design/tests/brand/`; assert every required logical asset is named before generators exist.
+- [x] T-003 [P] (design): Add source-tree inventory fixtures and a typed manifest test scaffold under `packages/design/tests/brand/`; assert every required logical asset is named before generators exist.
 - [ ] T-004 [P] (build): Decide and document the exact design-package build/staging command boundaries, including fresh-checkout Pages ordering and Docker transitive staging.
 
 ## Wave 1 — canonical artwork and package generator

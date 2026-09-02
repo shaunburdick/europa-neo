@@ -9,7 +9,7 @@ export default defineConfig({
     test: {
         environment: 'happy-dom',
         setupFiles: ['./tests/setup-element-internals.ts'],
-        include: ['tests/components/**/*.test.ts'],
+        include: ['tests/{brand,components}/**/*.test.ts'],
         passWithNoTests: true,
         coverage: {
             provider: 'v8',
