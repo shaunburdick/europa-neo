@@ -220,8 +220,35 @@ Framework-agnostic web components registered via `register()` from `@europa/desi
 (spec 014). Each wraps one or more catalog CSS classes (§ 2 above) in a `customElements.define`
 element so the same primitives work in React, plain HTML, or any framework. Components are
 opt-in — importing `@europa/design/components` does not auto-register; consumers call
-`register()` or `customElements.define` individually. The `EuropaElement` base class applies
-the catalog class to the host and manages Shadow DOM (or light-DOM slot forwarding) as needed.
+`register()` or `customElements.define` individually.
+
+**DOM model — two tiers (spec 014 Clarifications v1.1).** The 13 generic components (`europa-page`,
+`card`, `plate`, `stack`, `container`, `badge`, `grid`, `banner`, `chip`, `typography`, `waiting`,
+`button`, `modal`) use **Shadow DOM (open) + `<slot>` projection**: children remain light-DOM
+children of the host and are projected by the browser — components never reparent host children
+(manual reparenting is forbidden; it crashes React 19 unmounts with `removeChild` NotFoundError).
+The 7 game primitives (`europa-troop-chip`, `city-marker`, `pipe-slope`, `elevation-swatch`,
+`player-badge`, `fog-overlay`, `reserve-indicator`) remain **Light DOM** leaf elements, styled by
+the global stylesheet and inline token styles. The `class` attribute is still set on the host for
+consumer-side class targeting.
+
+**Styling pipeline — one authored source, two artifacts.** `packages/design/src/styles/catalog.css`
+(authored) is compiled by `scripts/build-css.ts` into (1) `dist/design.css` — the global stylesheet
+(`:root` token block + class rules; contract unchanged, still loaded by the console and manual for
+light-DOM elements and plain HTML, vendored per § 4.2) and (2) the gitignored generated module
+`src/styles/catalog-styles.ts` — the catalog class rules only, without the `:root` block (CSS custom
+properties inherit through shadow boundaries). `EuropaElement.ensureShadowRoot()` lazily attaches an
+open shadow root and adopts one shared constructed `CSSStyleSheet` via `adoptedStyleSheets`, so the
+class rules apply inside every shadow root without duplication and no `<style>` tags are used.
+
+**Testing implications (verified empirically, issue #49).** Query shadow-DOM component internals
+through `element.shadowRoot.querySelector(...)` — a light-DOM `querySelector` cannot see them. In
+Playwright, `getByRole` pierces open shadow roots, but `getByText` does not resolve shadow-internal
+text, and `document.activeElement` reports the host when focus is inside an open shadow tree
+(resolve the deep element via `host.shadowRoot.activeElement`). axe-core ≥ 4 traverses open shadow
+roots by default — pinned by a canary test (`packages/console/tests/a11y/shadow-traversal.test.ts`)
+that fails loudly if traversal is ever lost. happy-dom supports structural shadow-DOM assertions
+only: no event retargeting at the shadow boundary and no form-owner recomputation on re-parenting.
 
 | Tag | Attributes | Slots | Events | A11y obligations | Usage example |
 | --- | --- | --- | --- | --- | --- |
