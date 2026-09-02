@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 1 T-010 complete — T-011 through T-014 pending
+- **Current Wave**: Wave 1 T-010 remediation complete — T-011 through T-014 pending
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -46,6 +46,7 @@ integration proceeds.
 - T-008 — ✅ structural SVG validation and focused safety tests
 - T-009 — ✅ source SVG contract tests (`packages/design/tests/brand/source.test.ts`)
 - T-010 — ✅ deterministic `@resvg/resvg-js` generator and focused reproducibility/dimension tests; outputs remain package-owned under `dist/brand/`
+- T-010 remediation — ✅ package build now invokes generation and a manifest/output assertion; every source master is validated before use; `favicon.svg` is generated from the emblem and checked; clean-build, malformed-output, and maskable-safe-area tests added
 - T-011 through T-014 — ⏳ pending
 - Review remediation for T-007–T-009 — ✅ complete; downstream generation remains paused
 
