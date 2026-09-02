@@ -72,6 +72,8 @@ export function register(): void;
 
 Each component class extends `HTMLElement` (via the shared `EuropaElement` base). The public surface is the class name, its `observedAttributes`, and its rendered DOM structure. All classes are exported from `@europa/design/components`.
 
+**DOM model (spec Clarifications v1.1)**: the generic components in § 3.1 render their internal structure inside an **open shadow root** — children stay light-DOM children of the host and are projected via `<slot>`; one shared constructed stylesheet is adopted via `adoptedStyleSheets` — so structural queries go through `host.shadowRoot`. The game primitives in § 3.2 are **Light DOM**; their internal elements are regular host children. The per-component "Rendered DOM" entries below describe the internal structure either way — only its location (shadow root vs host subtree) differs.
+
 ### 3.1 Generic components (FR-001)
 
 #### `EuropaButton` — `<europa-button>`
@@ -273,6 +275,7 @@ abstract class EuropaElement extends HTMLElement {
 - `render()` is idempotent — safe to call from both `connectedCallback` and `attributeChangedCallback`.
 - `connectedCallback` calls `render()` once (creating the internal DOM if not already present).
 - `attributeChangedCallback` calls `render()` to update classes/attributes on the internal DOM.
+- Shadow-DOM components call the base's `ensureShadowRoot()` (added in the Shadow DOM conversion — spec Clarifications v1.1): it lazily attaches an open shadow root and adopts the shared catalog stylesheet. Light-DOM primitives do not call it.
 
 ---
 
@@ -321,7 +324,7 @@ export function checkBundleSize(): { ok: boolean; gzipBytes: number };
 
 ## 8. Out-of-scope — what this contract does not promise
 
-- **Shadow DOM / `::part()` / `adoptedStyleSheets`** — all components use light DOM (product-owner decision 1).
+- **`::part()` / `::theme` theming API** — no public shadow theming API and no per-component style isolation ship. Shadow DOM (open) + `<slot>` + one shared adopted stylesheet IS the shipped model for generic components; game primitives stay Light DOM (spec Clarifications v1.1).
 - **Framework wrappers** — no React/Vue/Svelte wrapper packages ship (product-owner decision 2).
 - **Auto-importing the stylesheet** — components do not import `design.css` (FR-007).
 - **New token variables or CSS classes** — the web-component layer adds none (FR-010); the only catalog change is the additive waiting-family move (research R7).
