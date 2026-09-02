@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 1 — T-007 complete; T-008 through T-014 pending
+- **Current Wave**: Wave 1 — T-007 and T-008 complete; T-010 through T-014 pending
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -43,7 +43,7 @@ integration proceeds.
   metadata, preserved gradients/filters, and documented token/licensing choices
 - T-007 — ✅ strict manifest and package-local path helpers; traversal, undeclared,
   and consumer-source paths are rejected
-- T-008 — ⏳ sibling implementation in progress
+- T-008 — ✅ structural SVG validation and focused safety tests
 - T-009 — ✅ source SVG contract tests (`packages/design/tests/brand/source.test.ts`)
 - T-010 through T-014 — ⏳ pending
 
@@ -79,6 +79,10 @@ integration proceeds.
 - 2026-09-02: T-007 implementation uses a readonly manifest inventory and
   package-root-resolved helpers. Source resolution accepts only canonical master
   names; distribution resolution accepts only manifest-declared `brand/` paths.
+- 2026-09-02: T-008 uses a dependency-free strict XML scanner. Approved gradients,
+  filters, clip paths, and local fragment references remain allowed under Option B;
+  active content, embedded/external resources, fonts, malformed markup, and invalid
+  viewBoxes fail closed.
 
 ## Blockers & Escalations
 - Downstream generation, raster/ICO/PWA/social output, and all consumer integration
