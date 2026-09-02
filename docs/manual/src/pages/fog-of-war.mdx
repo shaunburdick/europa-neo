@@ -11,6 +11,10 @@ You do not see the whole board. You see what your troops can sense — and nothi
 
 Each of your troop stacks senses its surroundings out to a **radius of 4 cells** (measured in any direction, counting diagonals — a square around the stack). Your total vision is the **union** of these radii across all of your stacks:
 
+<div style="position: relative; width: 120px; height: 120px; background: #059669; margin: 1rem 0; border-radius: var(--europa-borders-radius);">
+  <europa-fog-overlay aria-hidden="true"></europa-fog-overlay>
+</div>
+
 - More stacks in an area means a wider combined horizon.
 - A single deep raiding stack carries its own bubble of vision with it.
 - Everything inside your horizon is drawn normally: terrain, cities, enemy troops and pipes.
