@@ -79,6 +79,8 @@ import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
+import { readReturnTo } from '../ui/profile-url';
+import { ProfileView } from '../ui/profile-view';
 import { RouteNotice, type RouteNoticeKind } from '../ui/route-notice';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
 
@@ -329,6 +331,20 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         });
     }, [controller, currentRoute, routeRetryEpoch, state.snapshot, state.viewMode]);
 
+    // US3 match-join redirect: when a player arrives at a match route
+    // (via browser URL) and identity resolution completes as unnamed,
+    // redirect to /profile with returnTo carrying the original URL.
+    // This fires AFTER identity resolution (not at bootstrap) so the
+    // redirect happens only when the server confirms the visitor has
+    // no handle.
+    useEffect(() => {
+        if (state.identityStatus !== 'unnamed') return;
+        const route = parseRoute(window.location.pathname);
+        if (route.kind !== 'match') return;
+        const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+        window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
+    }, [state.identityStatus]);
+
     // Successful actions initiated from the lobby get one canonical semantic
     // history entry. Route-originated actions already have the right URL.
     useEffect(() => {
@@ -487,6 +503,26 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         );
     }
 
+    // Profile route: when the browser pathname is /profile and the view
+    // mode is lobby, render the dedicated profile view instead of the
+    // lobby landing. This check runs AFTER noticeKind and match-gate
+    // guards, so profile notices and match legs are unaffected.
+    if (state.viewMode === 'lobby' && window.location.pathname === '/profile') {
+        return (
+            <>
+                {announcerHost}
+                <ProfileView
+                    identityStatus={state.identityStatus}
+                    handle={state.handle}
+                    connection={{ status: state.connection }}
+                    actionStatus={state.actions.setHandle}
+                    onSubmitHandle={submitHandle}
+                    returnTo={readReturnTo(window.location.search)}
+                />
+            </>
+        );
+    }
+
     return (
         <>
             {announcerHost}
@@ -494,7 +530,6 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                 state={state}
                 announcer={announcer ?? undefined}
                 focusHeading={viewSwitches > 0}
-                onSubmitHandle={submitHandle}
                 onCreate={createMatch}
                 onJoin={joinMatch}
                 onSpectate={spectateMatch}
