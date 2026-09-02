@@ -57,6 +57,8 @@ interface Scenario {
     readonly expectText?: string;
     /** Token-derived inline style assertions. */
     readonly expectStyles?: ReadonlyArray<{ readonly prop: StyleProp; readonly value: string }>;
+    /** When `true`, query internal elements through `host.shadowRoot`. */
+    readonly useShadowDom?: boolean;
     /** Optional extra assertions against the host element. */
     readonly extraAssert?: (host: HTMLElement) => void;
 }
@@ -97,11 +99,13 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     {
         name: 'europa-card renders the europa-card wrapper',
         tag: 'europa-card',
+        useShadowDom: true,
         expectExactClassName: 'europa-card',
     },
     {
         name: 'europa-plate renders the europa-plate wrapper',
         tag: 'europa-plate',
+        useShadowDom: true,
         expectExactClassName: 'europa-plate',
     },
     {
@@ -123,6 +127,7 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     {
         name: 'europa-badge renders the europa-badge wrapper',
         tag: 'europa-badge',
+        useShadowDom: true,
         expectExactClassName: 'europa-badge',
     },
     {
@@ -185,16 +190,19 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
     {
         name: 'europa-stack renders the europa-stack wrapper',
         tag: 'europa-stack',
+        useShadowDom: true,
         expectExactClassName: 'europa-stack',
     },
     {
         name: 'europa-container renders the europa-container wrapper',
         tag: 'europa-container',
+        useShadowDom: true,
         expectExactClassName: 'europa-container',
     },
     {
         name: 'europa-page renders the europa-page wrapper',
         tag: 'europa-page',
+        useShadowDom: true,
         expectExactClassName: 'europa-page',
     },
 
@@ -287,8 +295,18 @@ describe('web component conformance (FR-030)', () => {
             document.body.appendChild(host);
             await flushMicrotasks();
 
+            const queryRoot = scenario.useShadowDom === true ? host.shadowRoot : host;
+            expect(
+                queryRoot,
+                `expected ${scenario.useShadowDom === true ? 'shadowRoot' : 'host'} for ${scenario.tag}`,
+            ).not.toBeNull();
+            // happy-dom does not support ':scope > *' on ShadowRoot, so use
+            // firstElementChild when the default selector applies in Shadow DOM.
             const selector = scenario.selector ?? ':scope > *';
-            const el = host.querySelector(selector);
+            const el =
+                scenario.useShadowDom === true && scenario.selector === undefined
+                    ? queryRoot?.firstElementChild
+                    : queryRoot?.querySelector(selector);
             expect(el, `expected internal element for ${scenario.tag}`).not.toBeNull();
 
             if (scenario.expectNoClass === true) {

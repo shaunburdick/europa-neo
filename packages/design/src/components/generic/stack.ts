@@ -3,12 +3,13 @@ import { EuropaElement } from '../base.js';
 /**
  * `<europa-stack>` — a vertical-stack layout primitive.
  *
- * Renders a `<div class="europa-stack">` with children manually reparented
- * into the wrapper. The catalog class provides vertical spacing and flex
- * direction via the shared `catalog.css` rules.
+ * Renders a `<div class="europa-stack">` inside a shadow root, with a
+ * `<slot>` element for projecting host children. The catalog class
+ * provides vertical spacing and flex direction via the shared catalog
+ * stylesheet.
  *
  * No attributes are observed; the element renders once on connect.
- * Uses **light DOM** so the catalog class cascades directly.
+ * Uses **Shadow DOM** so the catalog class is adopted into the shadow root.
  *
  * @example
  * ```html
@@ -19,27 +20,25 @@ import { EuropaElement } from '../base.js';
  * ```
  */
 export class EuropaStack extends EuropaElement {
-    /** The internal `<div class="europa-stack">` wrapper. */
+    /** The internal `<div class="europa-stack">` wrapper inside the shadow root. */
     private _wrapper: HTMLDivElement | null = null;
 
     /**
-     * Create the internal stack wrapper, then reparent light-DOM children
-     * into it on every render (slots are inert in light DOM).
+     * Lazily create the shadow root and internal stack wrapper with a
+     * `<slot>` for projecting host children.
      */
     protected render(): void {
+        const shadow = this.ensureShadowRoot();
+
         if (this._wrapper === null) {
             const wrapper = document.createElement('div');
             wrapper.className = 'europa-stack';
-            this.appendChild(wrapper);
-            this._wrapper = wrapper;
-        }
 
-        // Reparent any host children not yet inside the wrapper.
-        const children = Array.from(this.childNodes);
-        for (const child of children) {
-            if (child !== this._wrapper) {
-                this._wrapper.appendChild(child);
-            }
+            const slot = document.createElement('slot');
+            wrapper.appendChild(slot);
+
+            shadow.appendChild(wrapper);
+            this._wrapper = wrapper;
         }
     }
 }
