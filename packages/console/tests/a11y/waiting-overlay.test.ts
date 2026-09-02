@@ -103,9 +103,13 @@ describe('waiting-for-opponent overlay a11y acceptance', () => {
     test('(d) the spinner is decorative (aria-hidden), text carries meaning', async () => {
         await bootAwaitingConsole();
 
-        const pulse = document.querySelector('.europa-waiting__pulse');
+        // <europa-waiting> renders its structure inside an open shadow root
+        // (spec 014 Wave 2), so the internal spinner/text elements are
+        // queried through the host's shadowRoot.
+        const overlayRoot = document.querySelector('europa-waiting')?.shadowRoot ?? null;
+        const pulse = overlayRoot?.querySelector('.europa-waiting__pulse');
         expect(pulse).not.toBeNull();
         expect(pulse?.getAttribute('aria-hidden')).toBe('true');
-        expect(document.querySelector('.europa-waiting__text')?.textContent).toBe(formatWaitingMessage(1, 2));
+        expect(overlayRoot?.querySelector('.europa-waiting__text')?.textContent).toBe(formatWaitingMessage(1, 2));
     });
 });
