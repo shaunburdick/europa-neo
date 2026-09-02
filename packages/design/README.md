@@ -12,6 +12,12 @@ competing catalog — see `DESIGN.md` for the full reference.
 - **Contract**: [`DESIGN.md`](../../DESIGN.md) at the repo root
 - **Feature spec**: [`specs/012-design-system/spec.md`](../../specs/012-design-system/spec.md)
 - **Plan**: [`specs/012-design-system/plan.md`](../../specs/012-design-system/plan.md)
+- **Brand spec**: [`specs/015-logo-assets/spec.md`](../../specs/015-logo-assets/spec.md)
+
+Generated brand assets are available only after `pnpm --filter @europa/design build`:
+`@europa/design/brand` exposes the typed manifest and
+`@europa/design/brand/*` exposes declared files below `dist/brand/`. Source masters
+and unlisted files are not package exports.
 
 ## Usage (after tokens land in T-005)
 

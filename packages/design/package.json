@@ -17,6 +17,11 @@
             "types": "./dist/components/index.d.ts",
             "import": "./dist/components/index.js"
         },
+        "./brand": {
+            "types": "./dist/brand/index.d.ts",
+            "import": "./dist/brand/index.js"
+        },
+        "./brand/*": "./dist/brand/*",
         "./dist/design.css": "./dist/design.css"
     },
     "main": "./dist/index.js",
@@ -25,7 +30,7 @@
         "dist"
     ],
     "scripts": {
-        "build": "tsx scripts/build-css.ts --emit-module && tsup && tsx scripts/generate-brand.ts && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts && tsx scripts/assert-brand-output.ts",
+        "build": "tsx scripts/build-css.ts --emit-module && tsup && tsx scripts/generate-brand.ts && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts && tsx scripts/assert-brand-output.ts && pnpm check:brand-types && tsx scripts/check-brand-surface.ts",
         "dev": "vite playground",
         "dev:build": "pnpm build && vite preview playground",
         "vendor": "tsx scripts/vendor-to-docs.ts",
@@ -33,6 +38,8 @@
         "check:vendor-identity": "tsx scripts/check-vendor-identity.ts",
         "check:component-catalog": "tsx scripts/check-component-catalog.ts",
         "check:bundle-size": "tsx scripts/check-bundle-size.ts",
+        "check:brand-surface": "tsx scripts/check-brand-surface.ts",
+        "check:brand-types": "tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck tests/brand/package-surface.types.ts",
         "test": "vitest run",
         "test:watch": "vitest",
         "lint": "biome check .",

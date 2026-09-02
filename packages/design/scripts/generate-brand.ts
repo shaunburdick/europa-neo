@@ -38,6 +38,11 @@ const SVG_VARIANTS = {
 
 const ALL_MASTER_NAMES = [...new Set([...Object.values(SVG_VARIANTS), 'lockup-vertical.svg'])] as const;
 
+// These are the only non-asset files tsup may add to the generated brand
+// directory. Keeping this allowlist explicit prevents an accidental source or
+// temporary file from becoming part of the public wildcard export.
+const BRAND_ENTRY_ARTIFACTS = new Set(['index.js', 'index.d.ts', 'index.js.map', 'index.d.ts.map']);
+
 export interface BrandGenerationOptions {
     readonly mastersDirectory?: string;
     readonly outputDirectory?: string;
@@ -93,7 +98,10 @@ export async function assertGeneratedBrandAssets(
     const expected = new Set(BRAND_MANIFEST.assets.map((asset) => asset.path.slice('brand/'.length)));
     const actual = new Set(await readdir(outputDirectory));
     const missing = [...expected].filter((name) => !actual.has(name));
-    const unexpected = [...actual].filter((name) => !expected.has(name));
+    const allowEntryArtifacts = path.resolve(outputDirectory) === path.resolve(BRAND_OUTPUT_DIRECTORY);
+    const unexpected = [...actual].filter(
+        (name) => !expected.has(name) && (!allowEntryArtifacts || !BRAND_ENTRY_ARTIFACTS.has(name)),
+    );
     if (missing.length > 0 || unexpected.length > 0) {
         throw new Error(
             `Brand output inventory mismatch (missing: ${missing.join(', ') || 'none'}; unexpected: ${unexpected.join(', ') || 'none'})`,
