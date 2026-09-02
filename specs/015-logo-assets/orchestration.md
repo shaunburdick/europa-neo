@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 4 documentation and gates complete; T-032 done
+- **Current Wave**: Wave 4 complete — all tasks done, acceptance review passed
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -103,11 +103,20 @@ integration proceeds.
 - T-028 — ✅ cross-surface integration tests proving console, manual, host, and
   Docker references resolve to locally staged design distribution files
 
-### Wave 4 — accessibility, visual review, originality, and gates — ⏳ Partial
+### Wave 4 — accessibility, visual review, originality, and gates — ✅ Complete
+- T-029 (a11y): ✅ complete — logo accessibility tests (10 cases covering meaningful names,
+  decorative hidden, link names, contrast, keyboard focus, compact fallback, reduced-motion)
+- T-030 (visual): ✅ complete — visual review of all renderings, maskable crop, light/dark,
+  monochrome meaning, 1200×630 safe margins documented
+- T-031 (licensing): ✅ complete — originality/licensing review record committed
 - T-032 (docs): ✅ complete — spec status flipped to Implemented; orchestration
   updated; README and package README reviewed (no stale brand references found;
   existing documentation is truthful)
-- T-029 through T-031, T-033 through T-035: pending
+- T-033 (review): ✅ complete — 267 design tests + 709 console tests, all ≥80% coverage
+- T-034 (release): ✅ complete — full repository gate passed (typecheck, lint, format,
+  all tests, browser tests, E2E, Docker checks)
+- T-035 (acceptance): ✅ complete — all 11 acceptance criteria (AC-001–AC-011) PASS
+  with evidence; acceptance review documented in `acceptance-review.md`
 
 ## Decisions & Rationale
 - 2026-09-02: `packages/design` is the sole canonical asset owner; consumers stage
