@@ -96,6 +96,11 @@ export function shouldSkipFile(relPath: string): boolean {
     if ((relPath.endsWith('.md') || relPath.endsWith('.mdx')) && relPath.includes('docs/manual/')) {
         return true;
     }
+    // Generated brand assets (SVGs, PNGs, ICO, webmanifest) — hex colors are
+    // legitimate brand values, not styling literals
+    if (relPath.startsWith('docs/manual/assets/brand/')) {
+        return true;
+    }
     return false;
 }
 
