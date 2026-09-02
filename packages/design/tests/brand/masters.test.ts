@@ -62,15 +62,49 @@ describe('brand SVG masters', () => {
 
         for (const document of documents) {
             expect(document).toContain('viewBox="0 0 512 512"');
-            expect(document).toMatch(
-                /<g id="wordmark" clip-path="url\(#brand-1\)" transform="translate\(256 100\) scale\(\.55\)">/,
-            );
+            expect(document).toMatch(/<g id="wordmark" transform="translate\(256 100\) scale\(\.55\)">/);
             expect(document).not.toContain('translate(530 88)');
         }
 
         const vertical = await readMaster('lockup-vertical.svg');
-        expect(vertical).toMatch(/<g\s+id="wordmark"[\s\S]*clip-path="url\(#vertical-shield\)"/);
+        expect(vertical).toMatch(/<g\s+id="wordmark"\s+transform="translate\(256 100\) scale\(\.55\)"/);
         expect(vertical).not.toContain('translate(530 88)');
+    });
+
+    it('keeps the complete path wordmark rendered above clipping masks and inside each viewBox', async () => {
+        const names = ['lockup.svg', 'lockup-light.svg', 'lockup-dark.svg', 'lockup-mono.svg', 'lockup-vertical.svg'];
+
+        for (const name of names) {
+            const document = await readMaster(name);
+            const wordmarkStart = document.indexOf('<g id="wordmark"');
+            const wordmark = document.slice(wordmarkStart, document.lastIndexOf('</svg>'));
+            const viewBox = document
+                .match(/viewBox="([^"]+)"/)?.[1]
+                .split(/\s+/)
+                .map(Number);
+            const paths = [...wordmark.matchAll(/<path\s+d="([^"]+)"/g)];
+            const pathCoordinates = paths.flatMap((match) =>
+                [...match[1].matchAll(/-?\d+(?:\.\d+)?/g)].map(([value]) => Number(value)),
+            );
+
+            expect(wordmarkStart).toBeGreaterThan(-1);
+            expect(wordmark).not.toContain('clip-path');
+            expect(paths).toHaveLength(9);
+            expect(pathCoordinates.length).toBeGreaterThan(400);
+            expect(viewBox).toHaveLength(4);
+
+            const [viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight] = viewBox;
+
+            const sourceMin = Math.min(...pathCoordinates);
+            const sourceMax = Math.max(...pathCoordinates);
+            const renderedMin = 256 + sourceMin * 0.55 - 3 * 0.55;
+            const renderedMax = 256 + sourceMax * 0.55 + 3 * 0.55;
+
+            expect(renderedMin).toBeGreaterThanOrEqual(viewBoxX);
+            expect(renderedMax).toBeLessThanOrEqual(viewBoxX + viewBoxWidth);
+            expect(100 + -55.31 * 0.55 - 3 * 0.55).toBeGreaterThanOrEqual(viewBoxY);
+            expect(100 + (192 + 1.09) * 0.55 + 3 * 0.55).toBeLessThanOrEqual(viewBoxY + viewBoxHeight);
+        }
     });
 
     it('preserves separate blue and orange conflict treatments', async () => {
