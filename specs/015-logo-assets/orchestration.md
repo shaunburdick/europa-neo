@@ -28,8 +28,10 @@ integration proceeds.
 - T-004 build/staging boundary decision — ✅ done; exact package, Pages, root-build,
   and Docker command boundaries recorded in [`plan.md` §9](plan.md#9-wave-0-command-boundary-decision)
 
-### Wave 1 — canonical artwork and package generator — ⏳ Pending / Ready
-- T-005 through T-014
+### Wave 1 — canonical artwork and package generator — 🔄 Partial / Product Review
+- T-005 — ✅ nine original SVG masters authored
+- T-006 — ✅ token mapping and visual treatment documented
+- T-007 through T-014 — ⏸ paused pending product-owner logo feedback
 
 ### Wave 2 — design documentation and staging — ⏳ Pending
 - T-015 through T-019
@@ -54,6 +56,8 @@ integration proceeds.
   even when package build finalization also invokes it.
 - 2026-09-02: `favicon.ico` has exactly three PNG-backed directory entries—one
   each at 16×16, 32×32, and 48×48—with no undocumented extra entries.
+- 2026-09-02: Product-owner review is required after the first SVG milestone and
+  before generated icons or consumer integration proceed.
 
 ## Blockers & Escalations
 - None.
