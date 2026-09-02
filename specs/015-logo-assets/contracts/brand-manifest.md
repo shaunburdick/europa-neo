@@ -34,6 +34,11 @@ export interface BrandManifest {
 export declare const BRAND_MANIFEST: BrandManifest;
 ```
 
+For `icon-512-maskable.png`, `safeArea` is explicitly the centered circle with
+`diameterRatio: 0.8` (409.6px diameter and 204.8px radius on its 512px canvas).
+Every non-background pixel in the generated artifact must remain inside that
+circle.
+
 Package exports MUST resolve as follows:
 
 - `@europa/design/brand` → generated `dist/brand/index.js` and declarations;

@@ -16,6 +16,7 @@ import {
     renderPng,
     transformMaskablePoint,
 } from '../../scripts/generate-brand.js';
+import { BRAND_MANIFEST } from '../../src/brand/manifest.js';
 
 const pngSize = (png: Uint8Array): readonly [number, number] => {
     expect([...png.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -92,10 +93,17 @@ const paeth = (left: number, above: number, upperLeft: number): number => {
 };
 
 describe('brand raster generation', () => {
-    it('keeps the generated maskable SVG and PNG inside the centered circular safe area', async () => {
+    it('keeps the generated maskable SVG and emitted PNG inside the manifest safe area', async () => {
         const emblem = await readFile(path.join(BRAND_MASTERS_DIRECTORY, 'emblem.svg'), 'utf8');
         const maskableSvg = createMaskableIconSvg(emblem);
-        const safeRadius = (512 * MASKABLE_SAFE_AREA_DIAMETER_RATIO) / 2;
+        const maskableAsset = BRAND_MANIFEST.assets.find((asset) => asset.id === 'icon-512-maskable');
+        expect(maskableAsset).toBeDefined();
+        expect(maskableAsset?.safeArea).toEqual({ shape: 'circle', diameterRatio: 0.8 });
+        const safeArea = maskableAsset?.safeArea;
+        if (safeArea === null || safeArea === undefined) throw new Error('Maskable manifest asset lacks a safe area');
+        expect(safeArea.diameterRatio).toBe(0.8);
+        expect(safeArea.diameterRatio).toBe(MASKABLE_SAFE_AREA_DIAMETER_RATIO);
+        const safeRadius = (512 * safeArea.diameterRatio) / 2;
         const expectedOffset = ((1 - MASKABLE_SCALE) * 512) / 2;
         expect(maskableSvg).toContain(`translate(${expectedOffset} ${expectedOffset}) scale(${MASKABLE_SCALE})`);
         expect(maskableSvg).toContain(emblem.replace(/^\s*<svg\b[^>]*>/i, '').replace(/<\/svg>\s*$/i, ''));
@@ -133,6 +141,30 @@ describe('brand raster generation', () => {
         expect(MASKABLE_SCALE).toBe(0.72);
         expect(safeRadius - maximumDistance).toBeGreaterThan(5);
 
+        const outputDirectory = await mkdtemp(path.join(os.tmpdir(), 'europa-brand-maskable-'));
+        try {
+            await generateBrandAssets({ outputDirectory });
+            const emittedMaskablePng = await readFile(path.join(outputDirectory, 'icon-512-maskable.png'));
+            const rendered = decodeRgbaPng(emittedMaskablePng);
+            const visiblePixels: Array<readonly [number, number]> = [];
+            for (let y = 0; y < rendered.height; y += 1) {
+                for (let x = 0; x < rendered.width; x += 1) {
+                    const index = (y * rendered.width + x) * 4;
+                    const differsFromPlate = [0, 1, 2].some(
+                        (channel) => Math.abs((rendered.pixels[index + channel] ?? 0) - [10, 15, 26][channel]) > 3,
+                    );
+                    if (differsFromPlate) visiblePixels.push([x + 0.5, y + 0.5]);
+                }
+            }
+            const renderedMaximumDistance = Math.max(...visiblePixels.map(([x, y]) => Math.hypot(x - 256, y - 256)));
+            expect(renderedMaximumDistance).toBeLessThanOrEqual(safeRadius);
+            expect(safeRadius - renderedMaximumDistance).toBeGreaterThan(2);
+        } finally {
+            await rm(outputDirectory, { recursive: true, force: true });
+        }
+
+        // Keep this direct renderer check alongside the generated-output check so
+        // failures identify whether composition or output selection regressed.
         const rendered = decodeRgbaPng(renderPng(maskableSvg, 512, 512));
         const visiblePixels: Array<readonly [number, number]> = [];
         for (let y = 0; y < rendered.height; y += 1) {

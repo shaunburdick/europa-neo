@@ -48,7 +48,7 @@ integration proceeds.
 - T-010 — ✅ deterministic `@resvg/resvg-js` generator and focused reproducibility/dimension tests; outputs remain package-owned under `dist/brand/`
 - T-010 remediation — ✅ package build now invokes generation and a manifest/output assertion; every source master is validated before use; `favicon.svg` is generated from the emblem and checked; clean-build, malformed-output, and maskable-safe-area tests added
 - Remaining review HOLD — ✅ maskable transform corrected to centered `scale(0.72)`; conservative bounds cover shield corners, moon, circuitry, and energy clash with a >5 px radial margin inside the documented 204.8 px safe radius; artwork masters remain unchanged
-- Maskable-safety review follow-up — ✅ regression coverage now exercises the generated maskable SVG and its resvg PNG: the test asserts the emitted transform, verifies it contains the approved emblem body, and measures rendered pixels against the manifest safe circle. This fails if the generator stops applying the safe transform or returns to unsafe scaling; no T-013/T-014 work was started.
+- Maskable-safety review follow-up — ✅ regression coverage now exercises `generateBrandAssets()` into an isolated temporary directory, reads and decodes the actual emitted `icon-512-maskable.png`, and measures its non-background pixels against the explicitly pinned manifest safe circle (`diameterRatio: 0.8`). The test also asserts the emitted transform and approved emblem body, so changing `RASTER_TARGETS` to an unsafe transform fails; no T-013/T-014 work was started.
 - T-011 through T-014 — ⏳ pending
 - Review remediation for T-007–T-009 — ✅ complete; downstream generation remains paused
 
@@ -143,3 +143,13 @@ generated maskable SVG and checks its non-plate pixels, coupling the safety
 assertion to both the approved emblem source and the emitted artifact rather
 than only to a list of authored points. T-011 through T-014 and all
 integrations remain intentionally untouched.
+
+### Final safe-area HOLD closure — 2026-09-02
+
+The regression now couples the manifest contract to the generated artifact path:
+`generateBrandAssets()` writes to a temporary directory, the test reads the emitted
+`icon-512-maskable.png`, decodes its RGBA pixels, and checks every non-plate pixel
+against the manifest's centered circle. The test pins the contract ratio to `0.8`
+and cross-checks it with the generator constant. An unsafe `RASTER_TARGETS` transform
+therefore fails even if the standalone SVG helper remains unchanged. Approved masters
+and `MASKABLE_SCALE = 0.72` are unchanged; T-013/T-014 remain pending.
