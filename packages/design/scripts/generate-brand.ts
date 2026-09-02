@@ -64,6 +64,9 @@ export const createIconSvg = (emblem: string, size: number, scale = 1): string =
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}"><title>Europa Neo</title><desc>Europa Neo emblem</desc><rect width="512" height="512" fill="#0a0f1a"/><g transform="translate(${offset} ${offset}) scale(${scale})">${extractSvgBody(emblem)}</g></svg>`;
 };
 
+/** Compose the canonical maskable icon SVG before it is rasterized. */
+export const createMaskableIconSvg = (emblem: string): string => createIconSvg(emblem, 512, MASKABLE_SCALE);
+
 /** Compose the fixed 1200×630 dark social scene from the lockup master. */
 export const createSocialSvg = (lockup: string): string =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630"><title>Europa Neo</title><desc>Europa Neo — real-time strategy on Europa</desc><defs><linearGradient id="social-background" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#111827"/></linearGradient><linearGradient id="social-beam-blue" x1="0" x2="1"><stop stop-color="#1d4ed8" stop-opacity="0"/><stop offset=".5" stop-color="#3b82f6" stop-opacity=".7"/><stop offset="1" stop-color="#bae6fd" stop-opacity="0"/></linearGradient><linearGradient id="social-beam-orange" x1="1" x2="0"><stop stop-color="#c2410c" stop-opacity="0"/><stop offset=".5" stop-color="#f97316" stop-opacity=".7"/><stop offset="1" stop-color="#fed7aa" stop-opacity="0"/></linearGradient></defs><rect width="1200" height="630" fill="url(#social-background)"/><path d="M40 470 H1160" stroke="url(#social-beam-blue)" stroke-width="3"/><path d="M40 480 H1160" stroke="url(#social-beam-orange)" stroke-width="3"/><g transform="translate(344 59) scale(.9)">${extractSvgBody(lockup)}</g></svg>`;
@@ -102,7 +105,7 @@ const RASTER_TARGETS: readonly RasterTarget[] = [
         name: 'icon-512-maskable.png',
         width: 512,
         height: 512,
-        svg: (emblem) => createIconSvg(emblem, 512, MASKABLE_SCALE),
+        svg: createMaskableIconSvg,
     },
 ];
 

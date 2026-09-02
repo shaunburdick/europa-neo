@@ -1,7 +1,7 @@
 # Orchestration Log: Europa Neo Logo and Favicon/Icon Set
 
 ## Status
-- **Current Wave**: Wave 1 T-010 remediation complete — T-011 through T-014 pending
+- **Current Wave**: Wave 1 maskable-safety review remediation complete — T-011 through T-014 pending
 - **Branch**: `issue-54-logo`
 - **Last Updated**: 2026-09-02
 
@@ -48,6 +48,7 @@ integration proceeds.
 - T-010 — ✅ deterministic `@resvg/resvg-js` generator and focused reproducibility/dimension tests; outputs remain package-owned under `dist/brand/`
 - T-010 remediation — ✅ package build now invokes generation and a manifest/output assertion; every source master is validated before use; `favicon.svg` is generated from the emblem and checked; clean-build, malformed-output, and maskable-safe-area tests added
 - Remaining review HOLD — ✅ maskable transform corrected to centered `scale(0.72)`; conservative bounds cover shield corners, moon, circuitry, and energy clash with a >5 px radial margin inside the documented 204.8 px safe radius; artwork masters remain unchanged
+- Maskable-safety review follow-up — ✅ regression coverage now exercises the generated maskable SVG and its resvg PNG: the test asserts the emitted transform, verifies it contains the approved emblem body, and measures rendered pixels against the manifest safe circle. This fails if the generator stops applying the safe transform or returns to unsafe scaling; no T-013/T-014 work was started.
 - T-011 through T-014 — ⏳ pending
 - Review remediation for T-007–T-009 — ✅ complete; downstream generation remains paused
 
@@ -137,5 +138,8 @@ allowed shield corners to exceed the circular safe area. The generator now uses
 centered `scale(0.72)` (`translate(71.68 71.68)`), and the focused geometry
 regression covers conservative bounds for every essential visual layer. At
 512px, the safe radius is 204.8px; the checked maximum transformed distance is
-approximately 198.58px. T-011 through T-014 and all integrations remain
-intentionally untouched.
+approximately 198.58px. The regression additionally renders the exact
+generated maskable SVG and checks its non-plate pixels, coupling the safety
+assertion to both the approved emblem source and the emitted artifact rather
+than only to a list of authored points. T-011 through T-014 and all
+integrations remain intentionally untouched.

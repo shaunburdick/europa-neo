@@ -1,16 +1,19 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { inflateSync } from 'node:zlib';
 
 import { describe, expect, it } from 'vitest';
 
 import {
     assertGeneratedBrandAssets,
     BRAND_MASTERS_DIRECTORY,
+    createMaskableIconSvg,
     createSocialSvg,
     generateBrandAssets,
     MASKABLE_SAFE_AREA_DIAMETER_RATIO,
     MASKABLE_SCALE,
+    renderPng,
     transformMaskablePoint,
 } from '../../scripts/generate-brand.js';
 
@@ -20,9 +23,82 @@ const pngSize = (png: Uint8Array): readonly [number, number] => {
     return [view.getUint32(16), view.getUint32(20)];
 };
 
+interface DecodedPng {
+    readonly width: number;
+    readonly height: number;
+    readonly pixels: Uint8Array;
+}
+
+/** Decode the RGBA PNG emitted by resvg without adding a production dependency. */
+const decodeRgbaPng = (png: Uint8Array): DecodedPng => {
+    const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+    const width = view.getUint32(16);
+    const height = view.getUint32(20);
+    const idat: number[] = [];
+    let offset = 8;
+    let colorType = 0;
+    let bitDepth = 0;
+    while (offset < png.byteLength) {
+        const length = view.getUint32(offset);
+        const type = String.fromCharCode(...png.slice(offset + 4, offset + 8));
+        const payload = png.slice(offset + 8, offset + 8 + length);
+        if (type === 'IHDR') {
+            bitDepth = payload[8] ?? 0;
+            colorType = payload[9] ?? 0;
+        } else if (type === 'IDAT') {
+            idat.push(...payload);
+        }
+        offset += 12 + length;
+    }
+    expect([bitDepth, colorType]).toEqual([8, 6]);
+    const stride = width * 4;
+    const filtered = inflateSync(Uint8Array.from(idat));
+    const pixels = new Uint8Array(height * stride);
+    for (let y = 0; y < height; y += 1) {
+        const filter = filtered[y * (stride + 1)];
+        const rowStart = y * stride;
+        const sourceStart = y * (stride + 1) + 1;
+        for (let x = 0; x < stride; x += 1) {
+            const left = x >= 4 ? pixels[rowStart + x - 4] : 0;
+            const above = y > 0 ? pixels[rowStart - stride + x] : 0;
+            const upperLeft = y > 0 && x >= 4 ? pixels[rowStart - stride + x - 4] : 0;
+            const value = filtered[sourceStart + x] ?? 0;
+            const predictor =
+                filter === 1
+                    ? left
+                    : filter === 2
+                      ? above
+                      : filter === 3
+                        ? Math.floor((left + above) / 2)
+                        : filter === 4
+                          ? paeth(left, above, upperLeft)
+                          : 0;
+            pixels[rowStart + x] = (value + predictor) & 0xff;
+        }
+    }
+    return { width, height, pixels };
+};
+
+const paeth = (left: number, above: number, upperLeft: number): number => {
+    const estimate = left + above - upperLeft;
+    const leftDistance = Math.abs(estimate - left);
+    const aboveDistance = Math.abs(estimate - above);
+    const upperLeftDistance = Math.abs(estimate - upperLeft);
+    return leftDistance <= aboveDistance && leftDistance <= upperLeftDistance
+        ? left
+        : aboveDistance <= upperLeftDistance
+          ? above
+          : upperLeft;
+};
+
 describe('brand raster generation', () => {
-    it('keeps every essential emblem geometry inside the centered circular safe area', () => {
+    it('keeps the generated maskable SVG and PNG inside the centered circular safe area', async () => {
+        const emblem = await readFile(path.join(BRAND_MASTERS_DIRECTORY, 'emblem.svg'), 'utf8');
+        const maskableSvg = createMaskableIconSvg(emblem);
         const safeRadius = (512 * MASKABLE_SAFE_AREA_DIAMETER_RATIO) / 2;
+        const expectedOffset = ((1 - MASKABLE_SCALE) * 512) / 2;
+        expect(maskableSvg).toContain(`translate(${expectedOffset} ${expectedOffset}) scale(${MASKABLE_SCALE})`);
+        expect(maskableSvg).toContain(emblem.replace(/^\s*<svg\b[^>]*>/i, '').replace(/<\/svg>\s*$/i, ''));
         // Conservative authored-space bounds include the shield stroke/miter,
         // moon, circuitry, and the clipped energy-beam extremities.
         const essentialBounds: readonly (readonly [number, number])[] = [
@@ -56,6 +132,21 @@ describe('brand raster generation', () => {
         expect(sourceMaximumDistance * 0.8).toBeGreaterThan(safeRadius);
         expect(MASKABLE_SCALE).toBe(0.72);
         expect(safeRadius - maximumDistance).toBeGreaterThan(5);
+
+        const rendered = decodeRgbaPng(renderPng(maskableSvg, 512, 512));
+        const visiblePixels: Array<readonly [number, number]> = [];
+        for (let y = 0; y < rendered.height; y += 1) {
+            for (let x = 0; x < rendered.width; x += 1) {
+                const index = (y * rendered.width + x) * 4;
+                const differsFromPlate = [0, 1, 2].some(
+                    (channel) => Math.abs((rendered.pixels[index + channel] ?? 0) - [10, 15, 26][channel]) > 3,
+                );
+                if (differsFromPlate) visiblePixels.push([x + 0.5, y + 0.5]);
+            }
+        }
+        const renderedMaximumDistance = Math.max(...visiblePixels.map(([x, y]) => Math.hypot(x - 256, y - 256)));
+        expect(renderedMaximumDistance).toBeLessThanOrEqual(safeRadius);
+        expect(safeRadius - renderedMaximumDistance).toBeGreaterThan(2);
     });
 
     it('composes the social preview without external resources', async () => {
