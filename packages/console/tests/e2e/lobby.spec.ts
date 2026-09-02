@@ -273,6 +273,34 @@ async function assertHandleInBdi(page: Page, handle: string): Promise<void> {
     expect(bdiCount, `handle "${handle}" not found inside a <bdi> element`).toBeGreaterThan(0);
 }
 
+/**
+ * Set a display handle via the `/profile` route (Feature 015).
+ *
+ * Navigates directly to `/profile` with the existing `?ws=` transport
+ * override, fills the "Display name" input, submits, and waits for the
+ * auto-redirect back to `/lobby` (FR-010).
+ *
+ * Using `page.goto` (full navigation) rather than clicking the lobby
+ * profile link avoids a React re-render timing issue: the lobby link
+ * uses `pushState` which doesn't trigger `popstate`, so the
+ * ProfileView component only renders on the next controller state
+ * update — not synchronously after the URL change.
+ */
+async function setHandleViaProfile(page: Page, handle: string): Promise<void> {
+    const currentUrl = new URL(page.url());
+    const wsParam = currentUrl.searchParams.get('ws');
+    const profileUrl =
+        wsParam !== null ? `/profile?ws=${encodeURIComponent(wsParam)}` : '/profile';
+    await page.goto(profileUrl);
+    // Wait for the ProfileView form to render — identity must resolve
+    // as unnamed first (restoring → unnamed transition).
+    await page.getByRole('textbox', { name: /display name/i }).waitFor({ state: 'visible' });
+    await page.getByRole('textbox', { name: /display name/i }).fill(handle);
+    await page.locator('[data-europa-submit-handle="true"]').click();
+    // FR-010: ProfileView auto-navigates to /lobby after successful submission.
+    await page.waitForURL(/\/lobby/);
+}
+
 // ---------------------------------------------------------------------------
 // The proofs
 // ---------------------------------------------------------------------------
@@ -323,9 +351,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await expect(alice.locator('h1')).toContainText('Europa Neo lobby');
         await waitUntilLobby(alice, (l) => l.connection === 'ready', 'Alice lobby connected');
 
-        await alice.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await alice.getByRole('textbox', { name: /display name/i }).fill('Alice');
-        await alice.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(alice, 'Alice');
         await waitUntilLobby(alice, (l) => l.handle === 'Alice', 'Alice handle accepted');
 
         // -- Tab 1: Create a public match → waiting state --------------------
@@ -350,9 +376,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const bob = await openLobbyTab('Bob');
         await waitUntilLobby(bob, (l) => l.connection === 'ready', 'Bob lobby connected');
 
-        await bob.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await bob.getByRole('textbox', { name: /display name/i }).fill('Bob');
-        await bob.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(bob, 'Bob');
         await waitUntilLobby(bob, (l) => l.handle === 'Bob', 'Bob handle accepted');
 
         // Bob sees Alice's waiting match with Join available (SC-004).
@@ -395,9 +419,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // Create a third tab to observe the lobby snapshot externally.
         const observer = await openLobbyTab('Observer');
         await waitUntilLobby(observer, (l) => l.connection === 'ready', 'Observer connected');
-        await observer.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await observer.getByRole('textbox', { name: /display name/i }).fill('Observer');
-        await observer.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(observer, 'Observer');
         await waitUntilLobby(observer, (l) => l.handle === 'Observer', 'Observer handle accepted');
 
         // The observer sees the running match with Spectate available.
@@ -438,9 +460,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // -- Establish two players and start a match -------------------------
         const alice = await openLobbyTab('Alice');
         await waitUntilLobby(alice, (l) => l.connection === 'ready', 'Alice lobby connected');
-        await alice.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await alice.getByRole('textbox', { name: /display name/i }).fill('Alice');
-        await alice.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(alice, 'Alice');
         await waitUntilLobby(alice, (l) => l.handle === 'Alice', 'Alice handle accepted');
 
         await alice.locator('button:has-text("Create match")').click();
@@ -457,9 +477,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const bob = await openLobbyTab('Bob');
         await waitUntilLobby(bob, (l) => l.connection === 'ready', 'Bob connected');
-        await bob.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await bob.getByRole('textbox', { name: /display name/i }).fill('Bob');
-        await bob.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(bob, 'Bob');
         await waitUntilLobby(bob, (l) => l.handle === 'Bob', 'Bob handle accepted');
 
         await waitUntilLobby(
@@ -473,9 +491,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // -- Tab 3: Spectator enters and spectates the running match ---------
         const cara = await openLobbyTab('Cara');
         await waitUntilLobby(cara, (l) => l.connection === 'ready', 'Cara connected');
-        await cara.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await cara.getByRole('textbox', { name: /display name/i }).fill('Cara');
-        await cara.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(cara, 'Cara');
         await waitUntilLobby(cara, (l) => l.handle === 'Cara', 'Cara handle accepted');
 
         // Cara sees the running match in the lobby.
@@ -545,9 +561,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const establishHandle = async (page: Page, handle: string): Promise<void> => {
             await waitUntilLobby(page, (lobby) => lobby.connection === 'ready', `${handle} lobby connected`);
-            await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-            await page.getByRole('textbox', { name: /display name/i }).fill(handle);
-            await page.locator('[data-europa-submit-handle="true"]').click();
+            await setHandleViaProfile(page, handle);
             await waitUntilLobby(page, (lobby) => lobby.handle === handle, `${handle} handle accepted`);
         };
 
@@ -665,9 +679,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         // -- Establish and create a match ------------------------------------
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'connected');
-        await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await page.getByRole('textbox', { name: /display name/i }).fill('Solo');
-        await page.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(page, 'Solo');
         await waitUntilLobby(page, (l) => l.handle === 'Solo', 'handle accepted');
 
         await page.locator('button:has-text("Create match")').click();
@@ -711,9 +723,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // -- First visit: establish identity + create a match ----------------
         await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'initial connection');
-        await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await page.getByRole('textbox', { name: /display name/i }).fill('Grace');
-        await page.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(page, 'Grace');
         await waitUntilLobby(page, (l) => l.handle === 'Grace', 'handle accepted');
 
         await page.locator('button:has-text("Create match")').click();
@@ -774,9 +784,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         // -- Pre-restart: establish, create, join, verify ticks ---------------
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'pre-restart connection');
-        await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await page.getByRole('textbox', { name: /display name/i }).fill('Phoenix');
-        await page.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(page, 'Phoenix');
         await waitUntilLobby(page, (l) => l.handle === 'Phoenix', 'pre-restart handle');
 
         await page.locator('button:has-text("Create match")').click();
@@ -831,9 +839,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const lobbyAfterRestart = await readLobbyOrThrow(page);
         if (lobbyAfterRestart.handle === null) {
             // Fresh identity: set a new handle.
-            await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-            await page.getByRole('textbox', { name: /display name/i }).fill('PhoenixII');
-            await page.locator('[data-europa-submit-handle="true"]').click();
+            await setHandleViaProfile(page, 'PhoenixII');
             await waitUntilLobby(page, (l) => l.handle === 'PhoenixII', 'new handle after restart');
         }
 
@@ -857,9 +863,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
 
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'connected');
-        await page.locator('[data-europa-submit-handle="true"]').waitFor({ state: 'attached' });
-        await page.getByRole('textbox', { name: /display name/i }).fill('Privacy');
-        await page.locator('[data-europa-submit-handle="true"]').click();
+        await setHandleViaProfile(page, 'Privacy');
         await waitUntilLobby(page, (l) => l.handle === 'Privacy', 'handle accepted');
 
         expect((await readLobbyOrThrow(page)).handle).toBe('Privacy');

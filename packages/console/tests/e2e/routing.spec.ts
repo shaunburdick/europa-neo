@@ -17,7 +17,7 @@ import {
     type Server,
     type ServerDeps,
 } from '@europa/networking';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 const TICK_MS = 250;
 const WAIT_TIMEOUT = 15_000;
@@ -104,6 +104,28 @@ async function waitForLobby(page: import('@playwright/test').Page): Promise<void
         .toBe('Europa Neo lobby');
 }
 
+/**
+ * Set a display handle via the `/profile` route (Feature 015).
+ *
+ * Navigates directly to `/profile` with the existing `?ws=` transport
+ * override, fills the "Display name" input, submits, and waits for the
+ * auto-redirect back to `/lobby` (FR-010).
+ */
+async function setHandleViaProfile(page: Page, handle: string): Promise<void> {
+    const currentUrl = new URL(page.url());
+    const wsParam = currentUrl.searchParams.get('ws');
+    const profileUrl =
+        wsParam !== null ? `/profile?ws=${encodeURIComponent(wsParam)}` : '/profile';
+    await page.goto(profileUrl);
+    // Wait for the ProfileView form to render — identity must resolve
+    // as unnamed first (restoring → unnamed transition).
+    await page.getByRole('textbox', { name: /display name/i }).waitFor({ state: 'visible' });
+    await page.getByRole('textbox', { name: /display name/i }).fill(handle);
+    await page.locator('[data-europa-submit-handle="true"]').click();
+    // FR-010: ProfileView auto-navigates to /lobby after successful submission.
+    await page.waitForURL(/\/lobby/);
+}
+
 test.describe('semantic route browser history', () => {
     test('redirects root once and keeps the lobby stable on refresh', async ({ page }) => {
         const navigations: string[] = [];
@@ -143,8 +165,7 @@ test.describe('semantic route browser history', () => {
             await page.context().addInitScript(preserveWsQueryInHistory);
             await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
             await waitForLobby(page);
-            await page.getByRole('textbox', { name: /display name/i }).fill('Bob');
-            await page.locator('[data-europa-submit-handle="true"]').click();
+            await setHandleViaProfile(page, 'Bob');
             await expect(page.locator('.europa-lobby__handle')).toContainText('Bob');
             await page.getByRole('button', { name: 'Create match' }).click();
             await expect
