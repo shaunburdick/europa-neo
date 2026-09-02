@@ -113,8 +113,11 @@ class FakeTransport implements LobbyTransport {
     connect(): Promise<void> {
         this.connection = 'ready';
         this.emitState();
+        // Deliver a named identity so LobbyRoot does NOT redirect to /profile.
+        // Tests that need the unnamed/profile path should call setHandle() or
+        // use a dedicated transport configuration.
         for (const handler of this.identityHandlers) {
-            handler({ handle: null, hasIdentity: false });
+            handler({ handle: 'Tester', hasIdentity: true });
         }
         return Promise.resolve();
     }
