@@ -9,12 +9,12 @@ export default defineConfig({
     test: {
         environment: 'happy-dom',
         setupFiles: ['./tests/setup-element-internals.ts'],
-        include: ['tests/components/**/*.test.ts'],
+        include: ['tests/{brand,components}/**/*.test.ts'],
         passWithNoTests: true,
         coverage: {
             provider: 'v8',
-            include: ['src/components/**'],
-            exclude: ['**/*.d.ts'],
+            include: ['src/components/**/*.ts', 'src/brand/**/*.ts'],
+            exclude: ['**/*.d.ts', 'src/brand/masters/**', 'src/brand/fonts/**', 'src/brand/preview.html'],
             thresholds: {
                 lines: 80,
                 functions: 80,

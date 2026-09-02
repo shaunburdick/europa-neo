@@ -1,0 +1,222 @@
+# Orchestration Log: Europa Neo Logo and Favicon/Icon Set
+
+## Status
+- **Current Wave**: Wave 4 complete — all tasks done, acceptance review passed
+- **Branch**: `issue-54-logo`
+- **Last Updated**: 2026-09-02
+
+## Plan Summary
+`packages/design` is the canonical owner of original SVG masters and generated brand
+assets. Consumer builds will stage selected package outputs into local console,
+manual, host, and Docker static trees. Implementation is split into five dependency-
+ordered waves, with visual review and product-owner inspection before broad consumer
+integration proceeds.
+
+## Product-Owner Checkpoint
+- Product owner approved the Phase 4–5 plan and requested an early logo review before
+  the remaining integration work advances.
+- 2026-09-02: Product owner rejected the initial logo direction as diverged from the
+  reference and clarified that the revised primary lockup must retain the full
+  composition as original vector artwork: Europa planet/moon central, icy outer
+  shield/frame, circuitry behind the planet, strong horizontal blue-versus-orange
+  energy beam/clash, and clear `EUROPA`-dominant / `NEO`-subordinate hierarchy.
+- First reviewable milestone: original SVG masters plus a rendered preview sheet after
+  Wave 1. Product-owner feedback was incorporated before the Wave 2 generated-asset and
+  manual-staging work; console, host, and Docker consumer integration remains for Wave 3.
+
+## Task Wave Progress
+
+### Wave 0 — freeze contracts and harnesses — ✅ Complete
+- T-001 architect contract review — ✅ complete; eight implementation clarifications recorded in `plan.md` §8
+- T-002 original-art direction sheet — ✅ done (`design-direction.md`)
+- T-003 source inventory and typed-manifest test scaffold — ✅ done (`packages/design/tests/brand/inventory.fixture.ts`, `inventory.test.ts`)
+- T-004 build/staging boundary decision — ✅ done; exact package, Pages, root-build,
+  and Docker command boundaries recorded in [`plan.md` §9](plan.md#9-wave-0-command-boundary-decision)
+
+### Wave 1 — canonical artwork and package generator — ✅ Artwork milestone complete / Product Review
+- T-005 — ✅ normalized supplied artwork, added horizontal lockup, retained vertical
+  variant, and converted the Montserrat ExtraBold wordmark to paths
+- Product-owner follow-up — ✅ corrected all lockup placement: the normalized path
+  wordmark is clipped and centered over the upper moon/shield area at the intended
+  scale in every treatment; the preview now presents the square overlay composition.
+- T-006 — ✅ verified clean metadata/namespaces, stable IDs, complete accessibility
+  metadata, preserved gradients/filters, and documented token/licensing choices
+- T-007 — ✅ strict manifest and package-local path helpers; traversal, undeclared,
+  and consumer-source paths are rejected
+- T-008 — ✅ structural SVG validation and focused safety tests
+- T-009 — ✅ source SVG contract tests (`packages/design/tests/brand/source.test.ts`)
+- T-010 — ✅ deterministic `@resvg/resvg-js` generator and focused reproducibility/dimension tests; outputs remain package-owned under `dist/brand/`
+- T-010 remediation — ✅ package build now invokes generation and a manifest/output assertion; every source master is validated before use; `favicon.svg` is generated from the emblem and checked; clean-build, malformed-output, and maskable-safe-area tests added
+- Remaining review HOLD — ✅ maskable transform corrected to centered `scale(0.72)`; conservative bounds cover shield corners, moon, circuitry, and energy clash with a >5 px radial margin inside the documented 204.8 px safe radius; artwork masters remain unchanged
+- Maskable-safety review follow-up — ✅ regression coverage now exercises `generateBrandAssets()` into an isolated temporary directory, reads and decodes the actual emitted `icon-512-maskable.png`, and measures its non-background pixels against the explicitly pinned manifest safe circle (`diameterRatio: 0.8`). The test also asserts the emitted transform and approved emblem body, so changing `RASTER_TARGETS` to an unsafe transform fails; no T-013/T-014 work was started.
+- T-011 — ✅ deterministic ICO writer/parser/validator with exact 16/32/48 entries
+- T-012 — ✅ typed relative web manifest with stable formatting and icon purposes
+- T-013 — ✅ complete; generated-output contract coverage verifies the complete
+  manifest inventory, safe relative paths, PNG dimensions/signatures, exact ICO
+  cardinality through the existing parser, SVG/favicons source identity, web
+  manifest content, maskable safe-zone output, clean-output rejection, and
+  byte-identical regeneration. The package assertion also fails closed on stale,
+  malformed, dimensionally incorrect, or source-drifting generated files.
+- T-014 — ✅ `@europa/design/brand` and wildcard exports, build ordering, and surface tests
+- Review remediation for T-007–T-009 — ✅ complete; generated asset review also complete
+
+### Wave 2 — design documentation and staging — ✅ Complete
+- T-015 — ✅ root `DESIGN.md` now contains the complete source/generated inventory, approved
+  artwork palette extension and pairings, clear-space/minimum-size rules, export contract,
+  planned staging boundaries, accessibility rules, and originality/licensing statement. It
+  explicitly distinguishes the implemented package generator from pending consumer staging.
+- T-016 (`packages/design/README.md`) — ✅ complete.
+- T-017 — ✅ complete; the canonical design build now stages the complete
+  manifest-selected brand inventory from `dist/brand` into
+  `docs/manual/assets/brand/`, replacing stale output and failing closed on a
+  missing distribution file. `stage:manual` exposes the same boundary for
+  explicit Pages/local use; focused tests cover byte identity, clean output,
+  and absent-distribution failures.
+- T-018 — ✅ complete; `packages/design/tests/brand/drift.test.ts` covers manifest/file,
+  source/generated, package export, `DESIGN.md`, and checked-in manual staging drift
+  boundaries. T-019 remains tracked separately; workflow files were intentionally untouched.
+- T-019 — ✅ complete; Pages now installs from the lockfile, builds and
+  explicitly stages `@europa/design` brand distribution before Jekyll, while
+  retaining the scoped `docs/manual` artifact, least-privilege permissions,
+  two-minute job timeouts, non-cancelling `pages` concurrency, and SHA-pinned
+  actions.
+
+### Wave 3 — console, manual layout, host, and Docker consumer integration — ✅ Complete
+- T-027 — ✅ complete; `scripts/docker-smoke.sh` now builds the existing single-port
+  image from a no-cache context, reads the canonical `@europa/design/brand`
+  manifest inside the image, verifies every selected asset is present in
+  `packages/console/dist/assets/brand`, and checks its served Content-Type.
+- T-020 — ✅ console metadata (sibling work)
+- T-021 — ✅ console build now resolves the installed `@europa/design/brand`
+  distribution, validates manifest-selected SVG/PNG/ICO/manifest outputs, and
+  stages only that inventory under `dist/assets/brand`; focused staging tests cover
+  stale-output removal, absent files, and dimensional drift.
+- T-022 — ✅ combined lockup logo in lobby (meaningful, accessible alt) and
+  decorative emblem in branded footer (hidden from assistive technology)
+- T-023 — ✅ responsive CSS with container queries, emblem fallback, intrinsic
+  dimensions, no overflow, focus preservation, and reduced-motion behavior
+- T-024 — ✅ shared Jekyll layout/header, local metadata, and inheritance test
+- T-025 — ✅ staged-asset integrity tests covering every referenced path,
+  repository-base deployment, and missing-asset failure
+- T-026 — ✅ static-host brand surface tests for all staged brand assets, 404
+  behavior, traversal safety, and no external fallback
+- T-028 — ✅ cross-surface integration tests proving console, manual, host, and
+  Docker references resolve to locally staged design distribution files
+
+### Wave 4 — accessibility, visual review, originality, and gates — ✅ Complete
+- T-029 (a11y): ✅ complete — logo accessibility tests (10 cases covering meaningful names,
+  decorative hidden, link names, contrast, keyboard focus, compact fallback, reduced-motion)
+- T-030 (visual): ✅ complete — visual review of all renderings, maskable crop, light/dark,
+  monochrome meaning, 1200×630 safe margins documented
+- T-031 (licensing): ✅ complete — originality/licensing review record committed
+- T-032 (docs): ✅ complete — spec status flipped to Implemented; orchestration
+  updated; README and package README reviewed (no stale brand references found;
+  existing documentation is truthful)
+- T-033 (review): ✅ complete — 267 design tests + 709 console tests, all ≥80% coverage
+- T-034 (release): ✅ complete — full repository gate passed (typecheck, lint, format,
+  all tests, browser tests, E2E, Docker checks)
+- T-035 (acceptance): ✅ complete — all 11 acceptance criteria (AC-001–AC-011) PASS
+  with evidence; acceptance review documented in `acceptance-review.md`
+
+## Decisions & Rationale
+- 2026-09-02: `packages/design` is the sole canonical asset owner; consumers stage
+  generated files at build time to preserve self-hosting and prevent artwork drift.
+- 2026-09-02: Pause after the first original SVG artwork milestone for product-owner
+  visual review, as requested.
+- 2026-09-02: Generation and consumer staging are separate named boundaries:
+  `@europa/design build` owns package distribution, while `stage:manual` owns
+  writes below `docs/manual/assets/brand/`. Pages explicitly runs install →
+  design build → manual staging → Jekyll, and Docker relies on the existing
+  clean build-stage `pnpm build` dependency order to transitively stage brand
+  files into the console distribution. The explicit Pages stage is idempotent
+  even when package build finalization also invokes it.
+- 2026-09-02: `favicon.ico` has exactly three PNG-backed directory entries—one
+  each at 16×16, 32×32, and 48×48—with no undocumented extra entries.
+- 2026-09-02: Product-owner review is required after the first SVG milestone and
+  before generated icons or consumer integration proceed.
+- 2026-09-02: Product-owner visual clarification supersedes the initial abstract
+  shield/route direction. The full composition is mandatory for the primary lockup;
+  originality safeguards remain unchanged, including no mockup tracing/copying and
+  no use of `europa-source/`.
+- 2026-09-02: T-007 implementation uses a readonly manifest inventory and
+  package-root-resolved helpers. Source resolution accepts only canonical master
+  names; distribution resolution accepts only manifest-declared `brand/` paths.
+- 2026-09-02: T-008 uses a dependency-free strict XML scanner. Approved gradients,
+  filters, clip paths, and local fragment references remain allowed under Option B;
+  active content, embedded/external resources, fonts, malformed markup, and invalid
+  viewBoxes fail closed.
+
+## Blockers & Escalations
+- Wave 3 consumer integration is complete. All surfaces (console, manual, host,
+  Docker) stage assets from `@europa/design` at build time. No blockers remain
+  for the remaining Wave 4 tasks (T-029–T-031, T-033–T-035).
+
+## New Tasks Discovered
+- 2026-09-02: Code-quality review HOLD required validator hardening, explicit artwork-palette documentation/drift coverage, and brand-source coverage instrumentation. Remediated without starting T-010+.
+
+## Review Findings
+- 2026-09-02: Initial horizontal masters placed the wordmark outside/right of the
+  shield. Product-owner clarification rejected that composition. The four horizontal
+  treatments now use the same clipped `wordmark` group (`translate(256 100) scale(.55)`)
+  and a square `512 × 512` viewBox; the retained vertical treatment is explicitly
+  identified with the same layering contract. Geometry tests pin this placement.
+- T-001 review completed against `AGENTS.md` and `.specify/memory/constitution.md`.
+- The plan's rasterizer statement needed correction: `@resvg/resvg-js` is currently
+  console-only and must become a direct design-package development dependency.
+- Manifest boundary, package-relative paths, strict ICO cardinality, clean-checkout
+  build ordering, Docker staging, base-path metadata, and documentation/source-drift
+  rules are now explicit in `plan.md` §8.
+
+### Review result — 2026-09-02
+
+The code-quality review HOLD is resolved. `validateSvg` now fails closed against an
+explicit safe SVG element allowlist and all `on*` event attributes. `#3b82f6` and
+`#f97316` remain unchanged as a documented brand-token extension because they are
+product-approved artwork colours; a test rejects undocumented SVG colour literals.
+Vitest instruments executable `src/brand/**/*.ts` while excluding only masters/fonts/
+preview assets. At the review checkpoint, T-010+ generation and integrations had not
+yet been implemented.
+
+### T-010 implementation — 2026-09-02
+
+T-010 is complete. The design package now owns a deterministic `@resvg/resvg-js`
+generator with system-font discovery disabled. It copies the nine approved SVG
+variants and renders the 180×180 Apple icon, 192×192 and 512×512 PWA icons,
+80%-scaled centered 512×512 maskable icon, and fixed 1200×630 social PNG under
+`dist/brand/`. Focused tests verify PNG dimensions, byte reproducibility, safe-area
+transform, local-resource composition, and source-copy identity. ICO, manifest,
+exports, staging, and consumer integrations remain intentionally untouched.
+
+### Maskable review remediation — 2026-09-02
+
+The prior `scale(0.8)` transform only demonstrated the moon's containment and
+allowed shield corners to exceed the circular safe area. The generator now uses
+centered `scale(0.72)` (`translate(71.68 71.68)`), and the focused geometry
+regression covers conservative bounds for every essential visual layer. At
+512px, the safe radius is 204.8px; the checked maximum transformed distance is
+approximately 198.58px. The regression additionally renders the exact
+generated maskable SVG and checks its non-plate pixels, coupling the safety
+assertion to both the approved emblem source and the emitted artifact rather
+than only to a list of authored points. T-011 through T-014 and all
+integrations remain intentionally untouched.
+
+### Final safe-area HOLD closure — 2026-09-02
+
+The regression now couples the manifest contract to the generated artifact path:
+`generateBrandAssets()` writes to a temporary directory, the test reads the emitted
+`icon-512-maskable.png`, decodes its RGBA pixels, and checks every non-plate pixel
+against the manifest's centered circle. The test pins the contract ratio to `0.8`
+and cross-checks it with the generator constant. An unsafe `RASTER_TARGETS` transform
+therefore fails even if the standalone SVG helper remains unchanged. Approved masters
+and `MASKABLE_SCALE = 0.72` are unchanged. At this checkpoint T-013/T-014 remained
+pending; T-013 was subsequently completed below.
+
+### T-013 generated-output validation — 2026-09-02
+
+T-013 is complete. `generated-output.test.ts` validates every `BRAND_MANIFEST`
+asset, safe relative paths, binary signatures and dimensions, exact ICO 16/32/48
+entries through the existing parser, generated SVG and favicon identity, web
+manifest content, maskable safe-area behavior, clean-output failures for missing,
+stale, malformed, and source-drifting files, and byte-identical repeated
+generation. The package assertion now enforces the same generated-output contract.
+T-014 package exports and all staging/consumer integration remain untouched.

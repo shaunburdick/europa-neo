@@ -16,8 +16,10 @@ trap cleanup EXIT
 echo "[docker-smoke] validating Compose configuration..."
 docker compose config -q
 
-echo "[docker-smoke] building ${IMAGE_NAME}..."
-docker build --tag "${IMAGE_NAME}" .
+echo "[docker-smoke] building ${IMAGE_NAME} from a clean context..."
+# Do not let an ignored developer dist tree or a cached build layer mask a
+# missing design→console staging step.
+docker build --no-cache --tag "${IMAGE_NAME}" .
 
 echo "[docker-smoke] starting one-port container on localhost:${HOST_PORT}..."
 docker run --detach --name "${CONTAINER_NAME}" --publish "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null
@@ -58,6 +60,47 @@ version_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "h
 asset_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:${HOST_PORT}/assets/missing.css")"
 [[ "${asset_status}" == "404" ]] || {
     echo "[docker-smoke] FAIL: missing asset returned HTTP ${asset_status}, expected 404" >&2
+    exit 1
+}
+
+echo "[docker-smoke] checking the complete design-owned brand set in the console output..."
+brand_assets="$(docker run --rm "${IMAGE_NAME}" node --input-type=module -e '
+    import { BRAND_MANIFEST } from "./packages/design/dist/brand/index.js";
+    for (const asset of BRAND_MANIFEST.assets) {
+        process.stdout.write(`${asset.path}\t${asset.format}\n`);
+    }
+')"
+asset_count=0
+while IFS=$'\t' read -r brand_path brand_format; do
+    [[ -n "${brand_path}" ]] || continue
+    asset_count=$((asset_count + 1))
+    container_asset="/app/packages/console/dist/assets/${brand_path}"
+    docker run --rm "${IMAGE_NAME}" test -s "${container_asset}" || {
+        echo "[docker-smoke] FAIL: design asset is absent from console output: ${brand_path}" >&2
+        exit 1
+    }
+
+    expected_type=''
+    case "${brand_format}" in
+        svg) expected_type='image/svg+xml' ;;
+        png) expected_type='image/png' ;;
+        ico) expected_type='image/x-icon' ;;
+        webmanifest) expected_type='application/manifest+json' ;;
+        *)
+            echo "[docker-smoke] FAIL: unsupported manifest format ${brand_format@Q} for ${brand_path}" >&2
+            exit 1
+            ;;
+    esac
+
+    asset_headers="$(curl --fail --silent --show-error --head "http://127.0.0.1:${HOST_PORT}/assets/${brand_path}")"
+    if ! printf '%s\n' "${asset_headers}" | grep -Fqi "content-type: ${expected_type}"; then
+        echo "[docker-smoke] FAIL: ${brand_path} did not return Content-Type ${expected_type}" >&2
+        printf '%s\n' "${asset_headers}" >&2
+        exit 1
+    fi
+done <<<"${brand_assets}"
+[[ "${asset_count}" -gt 0 ]] || {
+    echo '[docker-smoke] FAIL: design brand manifest contains no assets' >&2
     exit 1
 }
 

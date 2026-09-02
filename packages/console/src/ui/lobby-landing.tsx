@@ -195,6 +195,19 @@ export function LobbyLanding({
                 </europa-banner>
             ) : null}
             <main id="main" className="europa-lobby">
+                {/* Combined lockup logo (spec 015 FR-012, AC-005): the
+              primary visual identity on the lobby screen. Meaningful
+              image — the alt text names the product; the h1 carries the
+              page-level heading. No duplicate text label beside the logo
+              (spec constraint). Uses the dark-background variant for the
+              lobby's dark page background. */}
+                <img
+                    src="assets/brand/europa-neo-lockup-dark.svg"
+                    alt="Europa Neo"
+                    className="europa-lobby__logo"
+                    width={240}
+                    height={80}
+                />
                 <h1 ref={headingRef} tabIndex={-1} className="europa-lobby__title europa-focus-ring">
                     Europa Neo lobby
                 </h1>

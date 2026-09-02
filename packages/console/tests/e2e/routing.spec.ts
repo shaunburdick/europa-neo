@@ -197,8 +197,16 @@ test.describe('semantic route browser history', () => {
             // semantic history transition below is still same-document.
             await page.context().addInitScript(preserveWsQueryInHistory);
             await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
-            await waitForLobby(page);
+            // Wait for either the profile redirect or the lobby heading,
+            // then set a handle via the profile route.
+            await page.waitForFunction(
+                () =>
+                    window.location.pathname === '/profile' ||
+                    document.querySelector('h1')?.textContent?.includes('Europa Neo lobby'),
+                { timeout: WAIT_TIMEOUT },
+            );
             await setHandleViaProfile(page, 'Bob');
+            await waitForLobby(page);
             await expect(page.locator('.europa-lobby__handle')).toContainText('Bob');
             await page.getByRole('button', { name: 'Create match' }).click();
             await expect

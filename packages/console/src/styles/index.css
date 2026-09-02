@@ -617,6 +617,15 @@ body {
     padding: 1.5rem var(--europa-spacing-lg) 3rem;
 }
 
+/* Combined lockup logo (spec 015 FR-012): meaningful brand mark at the
+   top of the lobby. Scaled down on narrow viewports via max-width
+   (T-023 will add the 160 CSS px threshold responsive behavior). */
+.europa-lobby__logo {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
 /* The h1 doubles as the return-to-lobby focus target (tabIndex=-1);
    the shared focus-ring class gives it a visible indicator when focused
    programmatically (WCAG 2.4.7). */

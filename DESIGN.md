@@ -97,6 +97,185 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `warning-hover` | `--europa-color-warning-hover` | `TOKENS.color.warningHover` | `#e8c35e` | Hover state for warning buttons — bg/border use only |
 | `water` | `--europa-color-water` | `TOKENS.color.water` | `#1d4ed8` | Canvas water tile fill: ≈ 2.37:1 on `void-bg`, ≈ 2.68:1 vs the land ceiling — non-text tile; terrain identity is redundantly encoded by elevation shading, chip labels, and the minimap (not color alone) |
 
+### 1.10 Brand artwork token references (spec 015, T-006)
+
+Brand SVGs are self-contained because they must render when a consumer has not loaded the
+stylesheet. Most artwork colours are part of the approved artwork palette rather than UI tokens.
+The two beam colours `#3b82f6` and `#f97316` are the explicit, product-approved **brand-token
+extension**, exported as `BRAND_ARTWORK_COLOR_EXTENSIONS`; they must not be silently relabelled as
+`TOKENS.color.blue` or `TOKENS.color.accent`. Against the dark `surface`, they measure approximately
+4.57:1 and 6.04:1, respectively. The beam conflict is also encoded by terminal geometry, route
+topology, and monochrome value, never hue alone. The palette is guarded by brand-master tests;
+adding a literal requires updating this list and receiving artwork review.
+
+<!-- brand-artwork-palette:start -->
+`#0a0f1a`, `#0f172a`, `#1d4ed8`, `#1e293b`, `#26384a`, `#334155`, `#374151`, `#38bdf8`, `#3b82f6`, `#475569`, `#4b5563`, `#526064`, `#596568`, `#60a5fa`, `#64748b`, `#6b7280`, `#7dd3fc`, `#7f1d1d`, `#93c5fd`, `#9ca3af`, `#9ca9aa`, `#9fb5c8`, `#aebbbb`, `#b91c1c`, `#b9d7e8`, `#bae6fd`, `#bfdbfe`, `#c2410c`, `#cbd5e1`, `#d1d5db`, `#d9e1e1`, `#e0f2fe`, `#e2e8f0`, `#e5e7eb`, `#eef3f1`, `#ef4444`, `#f0f9ff`, `#f1f5f2`, `#f4f8f6`, `#f59e0b`, `#f5f8f5`, `#f97316`, `#f9fafb`, `#fb923c`, `#fdba74`, `#fed7aa`, `#fff7ed`, `#ffffff`
+<!-- brand-artwork-palette:end -->
+
+The conflict treatment has three independent cues: the blue route has a square
+terminal and the lower-value monochrome route; the orange route has a triangular
+terminal, a distinct inner elbow, and the higher-value monochrome route. The
+routes remain separated by the central negative-space gap and never rely on hue
+alone. Existing token pairings measure at least 3:1 for essential marks on the
+intended light/dark surfaces; wordmark values use `text-primary` or `text-secondary`
+and meet the normal-text target.
+
+### 1.11 Brand artwork and wordmark source (spec 015)
+
+`packages/design/src/brand/masters/` is the canonical artwork directory. The primary lockup is the
+horizontal `lockup.svg` family; `lockup-vertical.svg` is retained as an additional vertical
+composition. Emblems retain the approved gradients and filters, with normalized IDs and no editor
+metadata, network references, raster images, or runtime font dependency. Every master has a complete
+`title` and `description` pair. These source files are not package exports and must never be copied
+into a consumer tree.
+
+The wordmark was normalized from **Montserrat ExtraBold (800)**, a geometric sans-serif
+typeface. The bundled authoring reference is
+`packages/design/src/brand/fonts/Montserrat-ExtraBold.woff2`; its license text is kept in
+`Montserrat-LICENSE.txt`. Montserrat is licensed under the **SIL Open Font License 1.1**;
+the source package is `@fontsource/montserrat@5.3.0`, source repository
+`https://github.com/google/fonts/tree/main/ofl/montserrat`. The font is an authoring
+reference only: the shipped wordmark is converted to SVG paths, so consumers never
+download or resolve a font at runtime.
+
+The horizontal lockup is the required production direction and has a 160 CSS px minimum wordmark
+width. Use `lockup-vertical.svg` only where its tall composition fits; use an emblem variant below
+the minimum width. Raster, ICO, PWA, and social generation is implemented in the design package.
+Explicit manual staging via `pnpm --filter @europa/design stage:manual` is also implemented for
+`docs/manual/assets/brand/` (T-017). Console, host, and Docker consumer integrations remain
+pending in Wave 3.
+
+### 1.12 Brand inventory, usage, and delivery contract (spec 015, T-015)
+
+The following inventory is complete. Masters are editable source artwork; generated files are the
+only consumer-facing artifacts. Generated files are emitted by `pnpm --filter @europa/design build`
+under `packages/design/dist/brand/` and are validated against the typed manifest. The distribution
+directory may be ignored build output; it is never hand-edited.
+
+#### Source masters
+
+| File | Role | Intended use |
+| --- | --- | --- |
+| `src/brand/masters/lockup.svg` | Default horizontal lockup | Transparent or stable token surface |
+| `src/brand/masters/lockup-light.svg` | Light-background horizontal lockup | Near-white/light surfaces |
+| `src/brand/masters/lockup-dark.svg` | Dark-background horizontal lockup | `surface`, `page-bg`, or `void-bg` |
+| `src/brand/masters/lockup-mono.svg` | Monochrome horizontal lockup | Print, one-ink, or unknown surfaces |
+| `src/brand/masters/lockup-vertical.svg` | Retained vertical lockup composition | Tall spaces only; not a generated consumer asset |
+| `src/brand/masters/emblem.svg` | Default standalone emblem | Transparent or stable token surface |
+| `src/brand/masters/emblem-light.svg` | Light-background emblem | Near-white/light surfaces |
+| `src/brand/masters/emblem-dark.svg` | Dark-background emblem | `surface`, `page-bg`, or `void-bg` |
+| `src/brand/masters/emblem-mono.svg` | Monochrome emblem | Print, one-ink, or unknown surfaces |
+| `src/brand/masters/emblem-compact.svg` | Simplified emblem | Compact headers and favicon source |
+
+#### Generated distribution
+
+| Manifest ID | Package-relative file | Format / dimensions | Background and purpose |
+| --- | --- | --- | --- |
+| `lockup` | `brand/europa-neo-lockup.svg` | SVG, scalable | Transparent default lockup |
+| `lockup-light` | `brand/europa-neo-lockup-light.svg` | SVG, scalable | Light-background lockup |
+| `lockup-dark` | `brand/europa-neo-lockup-dark.svg` | SVG, scalable | Dark-background lockup |
+| `lockup-mono` | `brand/europa-neo-lockup-mono.svg` | SVG, scalable | Mixed/unknown-background monochrome lockup |
+| `emblem` | `brand/europa-neo-emblem.svg` | SVG, scalable | Transparent default emblem |
+| `emblem-light` | `brand/europa-neo-emblem-light.svg` | SVG, scalable | Light-background emblem |
+| `emblem-dark` | `brand/europa-neo-emblem-dark.svg` | SVG, scalable | Dark-background emblem |
+| `emblem-mono` | `brand/europa-neo-emblem-mono.svg` | SVG, scalable | Mixed/unknown-background monochrome emblem |
+| `emblem-compact` | `brand/europa-neo-emblem-compact.svg` | SVG, scalable | Compact constrained emblem |
+| `favicon` | `brand/favicon.svg` | SVG, emblem only | Transparent browser favicon |
+| `favicon-ico` | `brand/favicon.ico` | ICO, 16×16/32×32/48×48 | Transparent browser favicon |
+| `apple-touch-icon` | `brand/apple-touch-icon.png` | PNG, 180×180 | Opaque install icon |
+| `icon-192` | `brand/icon-192.png` | PNG, 192×192 | Opaque PWA icon |
+| `icon-512` | `brand/icon-512.png` | PNG, 512×512 | Opaque PWA icon |
+| `icon-512-maskable` | `brand/icon-512-maskable.png` | PNG, 512×512 | Opaque maskable PWA icon; centered 0.8-diameter safe circle |
+| `social` | `brand/europa-neo-social.png` | PNG, 1200×630 | Dark social/share preview |
+| `site-manifest` | `brand/site.webmanifest` | Web manifest | Local PWA metadata; relative icon paths |
+
+The machine-readable source for this table is `BRAND_MANIFEST` in `src/brand/manifest.ts`; its
+generated JavaScript and declarations are emitted as `dist/brand/index.js` and `dist/brand/index.d.ts`.
+The manifest intentionally excludes all ten source masters. `favicon.svg` is generated from the
+standalone emblem, and the ICO contains exactly one PNG-backed image at each of 16×16, 32×32, and
+48×48. The maskable output uses the centered `scale(0.72)` transform and keeps the complete
+essential emblem inside the centered 80% safe circle.
+
+#### Background pairings and variant selection
+
+| Surface | Approved asset | Pairing / rule |
+| --- | --- | --- |
+| Stable transparent or token surface | Default lockup or emblem | Use only when the surrounding surface is uncluttered and contrast is known. |
+| Light, near-white surface | `*-light.svg` | Dark outline and wordmark with blue/orange channels; essential marks target ≥3:1 and wordmark text ≥4.5:1. |
+| `surface`, `page-bg`, or `void-bg` | `*-dark.svg` | Light outline/wordmark with the blue/orange channels; use a token plate when the background is busy. |
+| Print, one-ink, or unknown surface | `*-mono.svg` | Preserve silhouette, channel gap, square/triangle terminals, and center node; never rely on hue. |
+| Compact header or less than 160 CSS px available | `emblem-compact.svg` | Emblem only; never squeeze the wordmark below its minimum width. |
+| Browser favicon | `favicon.svg` or `favicon.ico` | Emblem only; do not use a lockup or wordmark. |
+| Apple/PWA install surface | PNG install icon | Opaque dark plate; maskable icon uses the documented safe circle. |
+| Social preview | `europa-neo-social.png` | Dark field, full lockup, at least 96 px left/right and 72 px top/bottom margins. |
+
+Transparent artwork is not a universal fallback. Put the mark on an opaque token plate when the
+background is photographic, busy, or insufficiently contrasting. The plate belongs to the consumer
+composition, not inside a transparent master.
+
+#### Clear space and minimum sizes
+
+Define `u` as the width of the emblem's central node. Keep at least `2u` of empty space on every
+side of an emblem and around the complete lockup; when `u` cannot be measured, use 8% of the asset's
+shorter dimension, whichever is larger. No text, control, border, crop, or decorative detail may
+enter this zone. The intrinsic SVG margin does not replace consumer clear space.
+
+| Asset or treatment | Minimum |
+| --- | ---: |
+| Full horizontal lockup | 160 CSS px wide |
+| Standalone or compact emblem | 16 CSS px square |
+| Favicon layers | 16, 32, and 48 px |
+| Apple touch icon | 180×180 px |
+| PWA icons | 192×192 and 512×512 px |
+| Social preview | 1200×630 px |
+
+At 16 px, the shield should occupy at least 12 px of the short dimension and the center gap and
+terminal shapes must remain distinct. If those constraints cannot be met, select the compact emblem
+and do not add a compensating stroke. The 512 px maskable icon's centered safe circle is 409.6 px
+in diameter (radius 204.8 px); shield, moon, circuitry, and beam must all fit inside it.
+
+#### Package exports and staging rules
+
+Consumers import only the generated package surface:
+
+```ts
+import { BRAND_MANIFEST } from '@europa/design/brand';
+import darkLockup from '@europa/design/brand/europa-neo-lockup-dark.svg';
+```
+
+`@europa/design/brand` resolves to `dist/brand/index.js` plus declarations. The wildcard
+`@europa/design/brand/*` resolves only below `dist/brand/`; the path helpers reject traversal,
+undeclared paths, and source-master paths. There is no npm publication: `@europa/design` remains
+private. Consumers must not import `src/brand/masters`, reach into `dist` by an alternate path, or
+maintain a competing artwork copy.
+
+The intended build-time staging rule is: build `@europa/design` first, then copy only manifest-listed
+files from `dist/brand/` into a consumer's local `brand/` root. Staging must be deterministic,
+idempotent, fail closed when the distribution or a selected file is missing, and never generate
+artwork or read `europa-source/`. The manual target is `docs/manual/assets/brand/`; the console target
+is `packages/console/dist/assets/brand/`; Docker serves the already staged console tree and adds no
+asset server. The Pages order is install → design build → manual stage → Jekyll. The design build
+and explicit `stage:manual` command implement the manual staging boundary (spec 015 T-017),
+and T-019 implements the corresponding Pages workflow staging. Console, host, and Docker
+consumer integrations remain pending in Wave 3.
+
+#### Accessibility and originality
+
+Meaningful logo images expose the accessible text **Europa Neo**. Decorative repeated header marks
+use `alt=""` or `aria-hidden="true"`; a logo-only link supplies its own accessible name. Do not
+announce a logo and the same adjacent page heading twice. Keep visible focus indicators, keyboard
+operation, and reduced-motion behavior intact; the artwork contains no animation. Blue and orange
+channels are additionally distinguished by terminal shape, route topology, relative value, and
+the preserved central gap, so meaning never depends on color alone.
+
+The artwork and generation code are original Europa Neo project work. No mockup pixels, traced
+geometry, artwork, code, or assets from `europa-source/` are included. The wordmark authoring
+reference is Montserrat ExtraBold, distributed under SIL Open Font License 1.1 with its license kept
+at `packages/design/src/brand/fonts/Montserrat-LICENSE.txt`; shipped wordmarks are SVG paths and do
+not load that font at runtime. The generator uses the permissively licensed `@resvg/resvg-js`
+development dependency. No third-party mark, restricted font, remote resource, CDN, or embedded
+raster artwork is permitted. Future asset changes require updating this section in the same change.
+
 ### 1.2 Typography
 
 | Token name | CSS variable | TS constant | Canonical value | Notes |

@@ -14,9 +14,11 @@
  * CLI: `tsx scripts/build-assets.ts`
  */
 import { existsSync } from 'node:fs';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+import { BRAND_MANIFEST } from '@europa/design/brand';
 import { Resvg } from '@resvg/resvg-js';
 
 /** Scale multipliers every sprite is rendered at (1× baseline + HiDPI). */
@@ -36,6 +38,101 @@ const SOUNDS_SRC_DIR = path.join(PACKAGE_ROOT, 'assets', 'sounds');
 
 /** Output directory for packaged sounds. */
 const SOUNDS_OUT_DIR = path.join(PACKAGE_ROOT, 'public', 'sounds');
+
+/** Output directory for package-owned brand assets. */
+const BRAND_OUT_DIR = path.join(PACKAGE_ROOT, 'dist', 'assets', 'brand');
+
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+
+const assetName = (assetPath: `brand/${string}`): string => assetPath.slice('brand/'.length);
+
+/** Options for staging the generated design package brand inventory. */
+export interface BrandStagingOptions {
+    /** Absolute `@europa/design/dist/brand` directory. */
+    readonly distributionDirectory: string;
+    /** Destination `dist/assets/brand` directory. */
+    readonly targetDirectory: string;
+}
+
+const pngDimensions = (bytes: Uint8Array): readonly [number, number] => {
+    if (bytes.length < 24 || !PNG_SIGNATURE.every((byte, index) => bytes[index] === byte)) {
+        throw new Error('file is not a PNG');
+    }
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return [view.getUint32(16), view.getUint32(20)];
+};
+
+const validateAsset = async (asset: (typeof BRAND_MANIFEST.assets)[number], filePath: string): Promise<void> => {
+    const bytes = await readFile(filePath);
+    const name = assetName(asset.path);
+    if (asset.format === 'png') {
+        const [width, height] = pngDimensions(bytes);
+        if (width !== asset.width || height !== asset.height) {
+            throw new Error(`brand asset ${name} is ${width}×${height}; expected ${asset.width}×${asset.height}`);
+        }
+    } else if (asset.format === 'svg' && (!bytes.includes('<svg') || !bytes.includes('viewBox'))) {
+        throw new Error(`brand asset ${name} is not a valid SVG distribution file`);
+    } else if (asset.format === 'webmanifest') {
+        try {
+            JSON.parse(bytes.toString());
+        } catch (error: unknown) {
+            throw new Error(`brand asset ${name} is not valid JSON`, { cause: error });
+        }
+    } else if (asset.format === 'ico') {
+        if (bytes.length < 6) throw new Error(`brand asset ${name} has a truncated ICO header`);
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const count = view.getUint16(4, true);
+        const dimensions = new Set<string>();
+        for (let index = 0; index < count; index += 1) {
+            const offset = 6 + index * 16;
+            if (offset + 16 > bytes.length) throw new Error(`brand asset ${name} has a truncated ICO directory`);
+            const width = bytes[offset] === 0 ? 256 : bytes[offset];
+            const height = bytes[offset + 1] === 0 ? 256 : bytes[offset + 1];
+            dimensions.add(`${width}×${height}`);
+        }
+        if (count !== 3 || ![16, 32, 48].every((size) => dimensions.has(`${size}×${size}`))) {
+            throw new Error(`brand asset ${name} must contain 16×16, 32×32, and 48×48 images`);
+        }
+    }
+};
+
+/** Stage exactly the manifest-selected design distribution files into the console build. */
+export async function stageBrandAssets(options: BrandStagingOptions): Promise<readonly string[]> {
+    const assets = [...BRAND_MANIFEST.assets].sort((left, right) => left.path.localeCompare(right.path));
+    let entries: string[];
+    try {
+        entries = await readdir(options.distributionDirectory);
+    } catch (error: unknown) {
+        throw new Error(
+            `Cannot stage console brand assets: distribution is unavailable at ${options.distributionDirectory}`,
+            {
+                cause: error,
+            },
+        );
+    }
+    const expected = assets.map(({ path: assetPath }) => assetName(assetPath));
+    const missing = expected.filter((name) => !entries.includes(name));
+    if (missing.length > 0) {
+        throw new Error(`Cannot stage console brand assets: missing distribution file(s): ${missing.join(', ')}`);
+    }
+    const sourceRoot = path.resolve(options.distributionDirectory);
+    const sources = assets.map((asset) => {
+        const name = assetName(asset.path);
+        const sourcePath = path.resolve(sourceRoot, name);
+        if (path.dirname(sourcePath) !== sourceRoot) throw new Error(`Cannot stage unsafe brand path: ${name}`);
+        return { asset, name, sourcePath };
+    });
+    for (const { asset, name, sourcePath } of sources) {
+        const details = await lstat(sourcePath);
+        if (!details.isFile() || details.isSymbolicLink())
+            throw new Error(`Cannot stage non-file brand asset: ${name}`);
+        await validateAsset(asset, sourcePath);
+    }
+    await rm(options.targetDirectory, { recursive: true, force: true });
+    await mkdir(options.targetDirectory, { recursive: true });
+    for (const { name, sourcePath } of sources) await copyFile(sourcePath, path.join(options.targetDirectory, name));
+    return expected;
+}
 
 /**
  * Renders one SVG source to PNGs at every configured scale.
@@ -77,9 +174,16 @@ async function main(): Promise<void> {
             await writeFile(path.join(SOUNDS_OUT_DIR, file), await readFile(path.join(SOUNDS_SRC_DIR, file)));
         }
     }
+
+    const designEntry = fileURLToPath(import.meta.resolve('@europa/design/brand'));
+    const designDistribution = path.dirname(designEntry);
+    await stageBrandAssets({ distributionDirectory: designDistribution, targetDirectory: BRAND_OUT_DIR });
 }
 
-main().catch((error: unknown) => {
-    process.exitCode = 1;
-    process.stderr.write(`build-assets failed: ${String(error)}\n`);
-});
+const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) {
+    main().catch((error: unknown) => {
+        process.exitCode = 1;
+        process.stderr.write(`build-assets failed: ${String(error)}\n`);
+    });
+}

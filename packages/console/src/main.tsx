@@ -5,6 +5,7 @@ import { adaptRoute } from './routing/route-adapter';
 
 import '@europa/design/dist/design.css';
 import './styles/index.css';
+import './styles/logo.css';
 
 /** Test-only direct match seam used by real-network fixture harnesses. */
 interface TestMatchSeam {
