@@ -54,6 +54,6 @@ after all preceding wave dependencies are complete.
 - [ ] T-030 (visual): Review actual 16/32/48/180/192/512 renderings, maskable crop, light/dark treatments, monochrome meaning, and 1200×630 safe margins in Chromium; record findings and remediate before acceptance.
 - [x] T-031 (licensing): Complete and commit an originality/licensing review record naming the authoring process, dependency/tool licenses, and negative checks for mockup pixels, `europa-source/`, third-party marks, restricted fonts, and remote assets.
 - [x] T-032 (docs): Update relevant manual/index and README references so user-facing brand paths and usage rules remain truthful; update spec implementation notes/status only after acceptance is proven.
-- [ ] T-033 (review): Run targeted design/console/manual/host/Docker suites and confirm new executable helpers meet ≥80% coverage with no lint suppressions or weak types.
+- [x] T-033 (review): Run targeted design/console/manual/host/Docker suites and confirm new executable helpers meet ≥80% coverage with no lint suppressions or weak types.
 - [ ] T-034 (release): Run the complete repository gate from a clean build: typecheck, lint, format check, all package tests, browser tests, E2E, self-host/Docker checks, drift/privacy/vendor guards, and final artifact inspection.
 - [ ] T-035 (architect/PM): Review every acceptance criterion AC-001–AC-010, attach command output and visual/originality evidence, and obtain product-owner sign-off before merging.
