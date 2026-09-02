@@ -23,7 +23,7 @@ integration proceeds.
 
 ### Wave 0 — freeze contracts and harnesses — 🔄 In Progress
 - T-001 architect contract review — ✅ complete; eight implementation clarifications recorded in `plan.md` §8
-- T-002 original-art direction sheet — ⏳ pending
+- T-002 original-art direction sheet — ✅ done (`design-direction.md`)
 - T-003 source inventory and typed-manifest test scaffold — ⏳ pending
 - T-004 build/staging boundary decision — ⏳ pending
 
