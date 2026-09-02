@@ -87,7 +87,11 @@ integration proceeds.
   manifest inside the image, verifies every selected asset is present in
   `packages/console/dist/assets/brand`, and checks its served Content-Type.
 - T-020 — ✅ console metadata (sibling work)
-- T-021 through T-023 — ⏳ pending on sibling work
+- T-021 — ✅ console build now resolves the installed `@europa/design/brand`
+  distribution, validates manifest-selected SVG/PNG/ICO/manifest outputs, and
+  stages only that inventory under `dist/assets/brand`; focused staging tests cover
+  stale-output removal, absent files, and dimensional drift.
+- T-022 through T-023 — ⏳ pending on sibling work
 - T-024 — ✅ shared Jekyll layout/header, local metadata, and inheritance test
 - T-025 through T-026 and T-028 remain pending on sibling work.
 
@@ -123,8 +127,9 @@ integration proceeds.
   viewBoxes fail closed.
 
 ## Blockers & Escalations
-- Wave 3 console, host, and Docker integrations remain pending. Manual staging is
-  implemented in Wave 2; no Wave 3 task has been started by this remediation.
+- Wave 3 console visual integration remains pending. Manual staging is implemented
+  in Wave 2; T-021's console asset staging is complete and unblocks the existing
+  Docker T-027 implementation.
 
 ## New Tasks Discovered
 - 2026-09-02: Code-quality review HOLD required validator hardening, explicit artwork-palette documentation/drift coverage, and brand-source coverage instrumentation. Remediated without starting T-010+.

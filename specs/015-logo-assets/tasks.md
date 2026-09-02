@@ -39,7 +39,7 @@ after all preceding wave dependencies are complete.
 ## Wave 3 — console, manual, host, and Docker integration
 
 - [x] T-020 (console): Update Vite entry metadata and base-path handling for local favicon SVG/ICO, Apple touch icon, manifest, Open Graph, and Twitter preview URLs.
-- [ ] T-021 (console): Extend `build-assets.ts` to resolve `@europa/design` distribution and stage only manifest-selected files into `dist/assets/brand`; fail on absent or mismatched files.
+- [x] T-021 (console): Extend `build-assets.ts` to resolve `@europa/design` distribution and stage only manifest-selected files into `dist/assets/brand`; fail on absent or mismatched files.
 - [ ] T-022 [P] (console): Integrate meaningful combined/compact logo variants into lobby and a decorative emblem into an in-match persistent surface without duplicating the page name or altering controls/simulation.
 - [ ] T-023 [P] (console): Add responsive CSS and tests for the 160 CSS px lockup threshold, emblem fallback, intrinsic dimensions, no overflow, focus preservation, and reduced-motion behavior.
 - [ ] T-024 (manual): Update the shared Jekyll layout/header with local logo, favicon, manifest, and social metadata using `relative_url`; ensure all manual pages inherit it and accessible repetition rules hold.
