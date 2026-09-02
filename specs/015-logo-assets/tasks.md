@@ -46,7 +46,7 @@ after all preceding wave dependencies are complete.
 - [ ] T-025 [P] (manual): Add Pages-style build/staged-asset tests covering every referenced path, repository-base deployment, and missing-asset failure.
 - [x] T-026 (host): Add `.webmanifest` MIME handling and static-host tests for all staged brand assets, 404 behavior, traversal safety, and no external fallback.
 - [x] T-027 [P] (Docker): Add single-port Docker build/smoke validation proving console build output contains the design-owned brand set and runtime serves it with correct types; do not add a second server.
-- [ ] T-028 (integration): Add cross-surface tests proving console, manual, host, and Docker references resolve to locally staged design distribution files rather than competing copies.
+- [x] T-028 (integration): Add cross-surface tests proving console, manual, host, and Docker references resolve to locally staged design distribution files rather than competing copies.
 
 ## Wave 4 — accessibility, visual review, originality, and gates
 
