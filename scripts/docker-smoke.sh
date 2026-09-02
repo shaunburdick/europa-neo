@@ -85,7 +85,7 @@ while IFS=$'\t' read -r brand_path brand_format; do
         svg) expected_type='image/svg+xml' ;;
         png) expected_type='image/png' ;;
         ico) expected_type='image/x-icon' ;;
-        webmanifest) expected_type='application/json' ;;
+        webmanifest) expected_type='application/manifest+json' ;;
         *)
             echo "[docker-smoke] FAIL: unsupported manifest format ${brand_format@Q} for ${brand_path}" >&2
             exit 1
