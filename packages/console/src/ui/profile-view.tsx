@@ -90,8 +90,13 @@ export function ProfileView({
     // FR-010: auto-navigate on successful handle submission — when
     // identity transitions from unnamed to named, push to returnTo
     // or /lobby without requiring a manual Continue click.
+    // Guard: only fire on a false→true transition (actual identity
+    // setup), not on initial mount when already named (e.g. the
+    // "Manage profile" entry path).
+    const wasUnnamedRef = useRef(!named);
     useEffect(() => {
-        if (named) {
+        if (named && wasUnnamedRef.current) {
+            wasUnnamedRef.current = false;
             const target = returnTo ?? '/lobby';
             window.history.pushState(window.history.state, '', target);
         }
