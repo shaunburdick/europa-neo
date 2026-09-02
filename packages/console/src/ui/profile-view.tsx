@@ -117,6 +117,41 @@ export function ProfileView({
 
     const errorMessage = localError ?? (actionStatus.error !== null ? describeActionError(actionStatus.error) : null);
 
+    if (identityStatus === 'restoring') {
+        /* FR-008: restoring state — all-native elements to avoid
+           Light DOM reparenting crash on React 19 unmount.
+           Every europa-* container (page, card, stack) reparents
+           children via appendChild into an internal wrapper div;
+           when React unmounts this branch it calls removeChild on
+           the host, but the children are already in the wrapper. */
+        return (
+            <div className="europa-page">
+                <div className="europa-stack">
+                    <h1 ref={headingRef} id={headingId} tabIndex={-1}>
+                        <europa-typography variant="heading">Profile</europa-typography>
+                    </h1>
+
+                    {/* FR-015: connection status line */}
+                    <p className="europa-lobby__status-line" data-europa-connection-status={connection.status}>
+                        Connection: {connectionLabel(connection.status as Parameters<typeof connectionLabel>[0])}
+                    </p>
+
+                    <div className="europa-card">
+                        <div className="europa-stack">
+                            <p data-europa-identity-status="restoring">Restoring your session…</p>
+                            <div className="europa-lobby__status-line" aria-hidden="true">
+                                Loading…
+                            </div>
+                            <button type="button" disabled className="europa-lobby__button">
+                                Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <europa-page>
             <europa-stack>
@@ -131,14 +166,7 @@ export function ProfileView({
 
                 <europa-card>
                     <europa-stack>
-                        {identityStatus === 'restoring' ? (
-                            /* FR-008: restoring state — waiting indicator, disabled Continue */
-                            <>
-                                <p data-europa-identity-status="restoring">Restoring your session…</p>
-                                <europa-waiting />
-                                <europa-button disabled>Continue</europa-button>
-                            </>
-                        ) : named ? (
+                        {named ? (
                             /* FR-007: named state — welcome card with Continue button */
                             <>
                                 <p data-europa-identity-status="named">

@@ -228,9 +228,13 @@ describe('ProfileView — restoring state', () => {
         await expect.element(screen.getByText('Restoring your session…')).toBeVisible();
     });
 
-    test('shows spinner (europa-waiting element)', async () => {
+    test('shows loading status line (native div, not europa-waiting)', async () => {
         const screen = await render(<ProfileView {...propsOf({ identityStatus: 'restoring' })} />);
-        expect(screen.container.querySelector('europa-waiting')).not.toBeNull();
+        const loadingLine = screen.container.querySelector('.europa-lobby__status-line[aria-hidden="true"]');
+        expect(loadingLine).not.toBeNull();
+        expect(loadingLine?.textContent).toBe('Loading…');
+        // No europa-waiting component — native div avoids Light DOM crash.
+        expect(screen.container.querySelector('europa-waiting')).toBeNull();
     });
 
     test('Continue button is disabled', async () => {
