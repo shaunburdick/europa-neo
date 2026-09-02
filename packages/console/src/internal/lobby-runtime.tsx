@@ -52,6 +52,49 @@ import type { PublicLobbyEntry } from '@europa/matchmaking';
 import type { JSX } from 'react';
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+
+/**
+ * Subscribe to the current browser pathname, re-rendering on ANY change —
+ * including `history.pushState`/`replaceState`, which do NOT fire
+ * `popstate`. The lobby view gate reads `window.location.pathname`
+ * directly, so it must re-evaluate when the pathname changes (e.g. the
+ * lobby landing's "Choose a name" link pushes `/profile`).
+ *
+ * `pushState`/`replaceState` are patched once to dispatch a custom
+ * `europa:pathchange` event; `popstate` and `hashchange` are also
+ * observed for Back/Forward and hash-only navigation.
+ */
+function usePathname(): string {
+    return useSyncExternalStore(
+        (onStoreChange) => {
+            const onPathChange = (): void => onStoreChange();
+            window.addEventListener('popstate', onPathChange);
+            window.addEventListener('hashchange', onPathChange);
+            window.addEventListener('europa:pathchange', onPathChange);
+            return () => {
+                window.removeEventListener('popstate', onPathChange);
+                window.removeEventListener('hashchange', onPathChange);
+                window.removeEventListener('europa:pathchange', onPathChange);
+            };
+        },
+        () => window.location.pathname,
+    );
+}
+
+/** Patch history.pushState/replaceState once to emit `europa:pathchange`. */
+function patchHistoryForPathChanges(): void {
+    const pushState = window.history.pushState.bind(window.history);
+    const replaceState = window.history.replaceState.bind(window.history);
+    window.history.pushState = (state, title, url) => {
+        pushState(state, title, url);
+        window.dispatchEvent(new Event('europa:pathchange'));
+    };
+    window.history.replaceState = (state, title, url) => {
+        replaceState(state, title, url);
+        window.dispatchEvent(new Event('europa:pathchange'));
+    };
+}
+
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { createConsoleClient } from '../net/client';
 import { createWsLobbyClient } from '../net/ws-lobby-client';
@@ -196,6 +239,12 @@ export interface LobbyRootProps {
  */
 export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }: LobbyRootProps): JSX.Element {
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
+    // Re-render on pathname changes (pushState/replaceState/popstate) so the
+    // profile/lobby view gate below re-evaluates. Patch history once.
+    const pathname = usePathname();
+    useEffect(() => {
+        patchHistoryForPathChanges();
+    }, []);
 
     // Shared hidden live regions (App.tsx pattern). Runtime-owned so
     // announcements SURVIVE the lobby⇄match view swap.
@@ -507,7 +556,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     // mode is lobby, render the dedicated profile view instead of the
     // lobby landing. This check runs AFTER noticeKind and match-gate
     // guards, so profile notices and match legs are unaffected.
-    if (state.viewMode === 'lobby' && window.location.pathname === '/profile') {
+    if (state.viewMode === 'lobby' && pathname === '/profile') {
         return (
             <>
                 {announcerHost}

@@ -58,6 +58,8 @@ import {
 } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
+import { setHandleViaProfile } from './helpers/profile';
+
 /** Retain the ephemeral test server override while the app canonicalizes paths. */
 function preserveWsQueryInHistory(): void {
     const preserveWsQuery = (url: string | URL | null): string | URL | null => {
@@ -271,34 +273,6 @@ async function waitUntilLobby(
 async function assertHandleInBdi(page: Page, handle: string): Promise<void> {
     const bdiCount = await page.locator('bdi').filter({ hasText: handle }).count();
     expect(bdiCount, `handle "${handle}" not found inside a <bdi> element`).toBeGreaterThan(0);
-}
-
-/**
- * Set a display handle via the `/profile` route (Feature 015).
- *
- * Navigates directly to `/profile` with the existing `?ws=` transport
- * override, fills the "Display name" input, submits, and waits for the
- * auto-redirect back to `/lobby` (FR-010).
- *
- * Using `page.goto` (full navigation) rather than clicking the lobby
- * profile link avoids a React re-render timing issue: the lobby link
- * uses `pushState` which doesn't trigger `popstate`, so the
- * ProfileView component only renders on the next controller state
- * update — not synchronously after the URL change.
- */
-async function setHandleViaProfile(page: Page, handle: string): Promise<void> {
-    const currentUrl = new URL(page.url());
-    const wsParam = currentUrl.searchParams.get('ws');
-    const profileUrl =
-        wsParam !== null ? `/profile?ws=${encodeURIComponent(wsParam)}` : '/profile';
-    await page.goto(profileUrl);
-    // Wait for the ProfileView form to render — identity must resolve
-    // as unnamed first (restoring → unnamed transition).
-    await page.getByRole('textbox', { name: /display name/i }).waitFor({ state: 'visible' });
-    await page.getByRole('textbox', { name: /display name/i }).fill(handle);
-    await page.locator('[data-europa-submit-handle="true"]').click();
-    // FR-010: ProfileView auto-navigates to /lobby after successful submission.
-    await page.waitForURL(/\/lobby/);
 }
 
 // ---------------------------------------------------------------------------
