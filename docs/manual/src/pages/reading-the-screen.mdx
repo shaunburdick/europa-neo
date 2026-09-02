@@ -21,14 +21,14 @@ The HUD's status line tells you where you stand in the match lifecycle. It shows
 
 | Status | What it means | What to do |
 | --- | --- | --- |
-| <span class="europa-chip">idle</span> | Not connected to a match | Wait for the lobby or choose a match |
-| <span class="europa-chip">connecting</span> | Handshake with the match server is in progress after choosing a lobby action | Wait a moment |
-| <span class="europa-chip">live</span> | You are seated and receiving ticks; your orders are accepted | Play! |
-| <span class="europa-chip">reconnecting</span> | The connection dropped; automatic reconnection is under way and a banner shows above the board | Keep the tab open |
-| <span class="europa-chip">expired</span> | The 60-second grace window elapsed while you were away — your seat is forfeited | Return to the lobby and choose a match or create one (see [Quick start](./quick-start)) |
-| <span class="europa-chip">spectating</span> | You are watching without a seat | Watch freely; orders are not available |
-| <span class="europa-chip">game_over</span> | The match's final result has been delivered; the end-of-match announcement is shown | Review the board, then start a new match for another game |
-| <span class="europa-chip">closed</span> | The console session was explicitly closed | Return to the lobby and choose another match |
+| <europa-badge>idle</europa-badge> | Not connected to a match | Wait for the lobby or choose a match |
+| <europa-badge>connecting</europa-badge> | Handshake with the match server is in progress after choosing a lobby action | Wait a moment |
+| <europa-badge>live</europa-badge> | You are seated and receiving ticks; your orders are accepted | Play! |
+| <europa-badge>reconnecting</europa-badge> | The connection dropped; automatic reconnection is under way and a banner shows above the board | Keep the tab open |
+| <europa-badge>expired</europa-badge> | The 60-second grace window elapsed while you were away — your seat is forfeited | Return to the lobby and choose a match or create one (see [Quick start](./quick-start)) |
+| <europa-badge>spectating</europa-badge> | You are watching without a seat | Watch freely; orders are not available |
+| <europa-badge>game_over</europa-badge> | The match's final result has been delivered; the end-of-match announcement is shown | Review the board, then start a new match for another game |
+| <europa-badge>closed</europa-badge> | The console session was explicitly closed | Return to the lobby and choose another match |
 
 While anything other than `live`, all order controls are disabled — the buttons gray out rather than silently swallowing clicks.
 
