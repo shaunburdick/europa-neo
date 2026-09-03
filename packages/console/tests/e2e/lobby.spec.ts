@@ -843,7 +843,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
         const page = await context.newPage();
-        await page.goto(`/?ws=ws://127.0.0.1:${String(wsPort)}`);
+        await page.goto(`/lobby?ws=ws://127.0.0.1:${String(wsPort)}`);
 
         await waitUntilLobby(page, (l) => l.connection === 'ready', 'connected');
         await setHandleViaProfile(page, 'Privacy');

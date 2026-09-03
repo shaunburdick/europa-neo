@@ -135,33 +135,47 @@ async function waitForLobby(page: import('@playwright/test').Page): Promise<void
 }
 
 test.describe('semantic route browser history', () => {
-    test('redirects root once and keeps the lobby stable on refresh', async ({ page }) => {
+    test('shows welcome screen on / and navigates to lobby via Play link (AC-001, AC-004, AC-007)', async ({
+        page,
+    }) => {
+        // No server needed — the welcome screen is a pure static component.
+        await page.goto('/');
+        // AC-001: URL remains /, no redirect to /lobby.
+        await expectPath(page, '/');
+        // Welcome screen content visible.
+        await expect(page.locator('img[alt="Europa Neo"]')).toBeVisible();
+        await expect(page.getByText('Nanobot warfare')).toBeVisible();
+        // AC-004: Play link navigates to /lobby.
+        await page.getByRole('link', { name: 'Play', exact: true }).click();
+        await expect(page).toHaveURL(/\/lobby/);
+    });
+
+    test('unknown route still redirects to lobby (AC-008)', async ({ page }) => {
         const { server, matchmaker } = buildStack();
         await server.listen();
         const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
         try {
-            // A working server is required for the identity gate to fire
-            // (it waits for the lobby WebSocket to connect and resolve
-            // identity as unnamed). preserveWsQueryInHistory keeps the
-            // test-only ?ws= override across same-document redirects.
             await page.context().addInitScript(preserveWsQueryInHistory);
-            await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
-            // The identity gate fires after the lobby connects, redirecting
-            // unnamed visitors to /profile.
-            await expect(page).toHaveURL(/\/profile/);
-            // Set a handle to get back to the lobby.
-            await setHandleViaProfile(page, 'RouteTester');
-            // Verify the lobby is stable.
-            await expect(page).toHaveURL(/\/lobby/);
-            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
-            // Refresh — the named identity persists (FR-003), so no redirect.
-            await page.reload({ waitUntil: 'domcontentloaded' });
-            await expect(page).toHaveURL(/\/lobby/);
-            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            // Navigate to an unknown path — SPA bootstrap redirects to /lobby.
+            await page.goto(`/foo?ws=${encodeURIComponent(wsUrl)}`);
+            // The redirect fires via replaceState, then the lobby identity
+            // gate redirects unnamed visitors to /profile.
+            await expect(page).toHaveURL(/\/lobby|\/profile/);
         } finally {
             await server.close();
             await matchmaker.close();
         }
+    });
+
+    test('unnamed visitor on / is NOT redirected to /profile (AC-012)', async ({ page }) => {
+        // No server needed — the welcome screen requires no identity.
+        await page.goto('/');
+        await expectPath(page, '/');
+        // Welcome screen content visible, no redirect to /profile.
+        await expect(page.locator('img[alt="Europa Neo"]')).toBeVisible();
+        // Wait briefly to ensure no async redirect fires.
+        await page.waitForTimeout(500);
+        await expectPath(page, '/');
     });
 
     test('retires the legacy live query without mounting the live runtime', async ({ page }) => {

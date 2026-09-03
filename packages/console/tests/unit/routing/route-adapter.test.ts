@@ -104,7 +104,7 @@ describe('route entry adapter', () => {
 
     it.each([
         ['/lobby', { kind: 'lobby', pathname: '/lobby' }],
-        ['/', { kind: 'redirect', pathname: '/lobby' }],
+        ['/', { kind: 'welcome' }],
         ['/profile', { kind: 'profile' }],
     ] as const)('does not invoke commands for %s entries', (pathname, expected) => {
         const route = parseRoute(pathname);
@@ -115,6 +115,26 @@ describe('route entry adapter', () => {
         expect(executeRouteEntry(entry, commands)).toBeNull();
         expect(commands.joinMatch).not.toHaveBeenCalled();
         expect(commands.spectateMatch).not.toHaveBeenCalled();
+    });
+
+    it('returns a welcome entry for / and executeRouteEntry returns null', () => {
+        const route = parseRoute('/');
+        const commands = successfulCommands();
+
+        const entry = adaptRoute(route, null);
+        expect(entry).toEqual({ kind: 'welcome' });
+        expect(executeRouteEntry(entry, commands)).toBeNull();
+        expect(commands.joinMatch).not.toHaveBeenCalled();
+        expect(commands.spectateMatch).not.toHaveBeenCalled();
+    });
+
+    it('still redirects unknown routes to /lobby', () => {
+        const route = parseRoute('/unknown-path');
+        const commands = successfulCommands();
+
+        const entry = adaptRoute(route, null);
+        expect(entry).toMatchObject({ kind: 'redirect', pathname: '/lobby' });
+        expect(executeRouteEntry(entry, commands)).toBeNull();
     });
 
     it('does not invoke commands for a missing match', () => {

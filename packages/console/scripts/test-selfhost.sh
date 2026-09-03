@@ -60,6 +60,8 @@ for url in ${url_tokens}; do
     *react.dev/errors* | *reactjs.org/docs/error-decoder*) ;;
     # Footer hyperlink to the project repo — navigation only, never a runtime fetch.
     *github.com*) ;;
+    # Player manual link on the welcome screen — navigation only, never a runtime fetch.
+    *shaunburdick.github.io*) ;;
     *)
       violations="${violations}${url}
 "

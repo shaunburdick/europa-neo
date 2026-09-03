@@ -440,7 +440,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     }, [state.identityStatus]);
 
     // US1 lobby identity gate: when an unnamed visitor lands on the lobby
-    // root (/ or /lobby), redirect to /profile so they choose a name before
+    // root (/lobby), redirect to /profile so they choose a name before
     // interacting. This fires AFTER identity resolution (not at bootstrap)
     // so the redirect happens only when the server confirms the visitor has
     // no handle. The redirect is one-shot (lobbyRedirectedRef) to avoid a
@@ -450,12 +450,16 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     // Connection gating: wait until the lobby connection is 'ready' so the
     // identity has been resolved by the server — avoid a flash redirect
     // before the server responds.
+    //
+    // Note: the welcome screen (/) requires no identity — unnamed visitors
+    // on / see the landing page and are only redirected to /profile when
+    // they click Play and land on /lobby.
     useEffect(() => {
         if (lobbyRedirectedRef.current) return;
         if (state.identityStatus !== 'unnamed') return;
         if (state.connection !== 'ready') return;
         const route = parseRoute(window.location.pathname);
-        if (route.kind !== 'root' && route.kind !== 'lobby') return;
+        if (route.kind !== 'lobby') return;
         lobbyRedirectedRef.current = true;
         const returnTo = encodeURIComponent(window.location.pathname);
         window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
