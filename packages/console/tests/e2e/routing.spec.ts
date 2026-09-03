@@ -314,7 +314,10 @@ test.describe('US3 profile redirect for unnamed deep links (feature 015)', () =>
             await expect(host).toHaveURL(/\/profile/);
             await setHandleViaProfile(host, 'Host');
             await waitForLobby(host);
-            await host.locator('input[name="playerCount"][value="4"]').check();
+            // The radio input is europa-visually-hidden inside a label —
+            // the label's flex layout intercepts pointer events, so force
+            // the check to bypass Playwright's actionability snapshot.
+            await host.locator('input[name="playerCount"][value="4"]').check({ force: true });
             await host.getByRole('button', { name: 'Create match' }).click();
             await expect
                 .poll(() => host.evaluate(() => window.location.pathname.match(/^\/match\/([^/]+)$/)?.[1] ?? null), {

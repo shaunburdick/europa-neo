@@ -267,12 +267,18 @@ async function waitUntilLobby(
 }
 
 /**
- * Verify the lobby page renders a handle inside a `<bdi>` element
- * (hostile-but-valid user content isolation, WCAG bidi).
+ * Verify the lobby page renders a handle in the identity card.
+ * Checks for either a `<bdi>` element (hostile-but-valid user content
+ * isolation, WCAG bidi) or the `.europa-lobby__identity-name` span
+ * used by the redesigned lobby layout.
  */
 async function assertHandleInBdi(page: Page, handle: string): Promise<void> {
     const bdiCount = await page.locator('bdi').filter({ hasText: handle }).count();
-    expect(bdiCount, `handle "${handle}" not found inside a <bdi> element`).toBeGreaterThan(0);
+    const identityNameCount = await page.locator('.europa-lobby__identity-name').filter({ hasText: handle }).count();
+    expect(
+        bdiCount + identityNameCount,
+        `handle "${handle}" not found in a <bdi> or .europa-lobby__identity-name element`,
+    ).toBeGreaterThan(0);
 }
 
 // ---------------------------------------------------------------------------
