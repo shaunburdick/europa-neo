@@ -213,7 +213,7 @@ export function LobbyLanding({
                         height={80}
                     />
                     <h1 ref={headingRef} tabIndex={-1} className="europa-lobby__title europa-focus-ring">
-                        Europa Neo lobby
+                        Europa Neo Lobby
                     </h1>
                     <p className="europa-lobby__subtitle">Create or join a match to begin your campaign</p>
                 </div>
@@ -293,7 +293,7 @@ export function LobbyLanding({
                             </div>
                             {state.identityStatus !== 'restoring' ? (
                                 <a
-                                    className="europa-lobby__button europa-lobby__button--secondary europa-lobby__button--full europa-focus-ring"
+                                    className="europa-lobby__profile-link europa-focus-ring"
                                     href="/profile"
                                     onClick={(event) => {
                                         event.preventDefault();

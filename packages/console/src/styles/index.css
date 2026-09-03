@@ -667,7 +667,7 @@ body {
     background-color: var(--europa-color-surface);
     border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
     border-radius: var(--europa-radii-plate);
-    box-shadow: var(--europa-shadows-plate);
+    box-shadow: var(--europa-shadows-card-hover);
     transition:
         box-shadow var(--europa-motion-transition-default),
         transform var(--europa-motion-transition-default);
@@ -722,6 +722,11 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--europa-spacing-sm);
+}
+
+/* Submit button in create form: full-width for visual prominence. */
+.europa-lobby__form > europa-button[type="submit"] {
+    width: 100%;
 }
 
 .europa-lobby__fieldset {
@@ -1219,7 +1224,7 @@ body {
 /* T-022: Card elevation + hover shadow (FR-007, AC-009).
    Shadow-only hover — no transform to avoid form element jank. */
 .europa-lobby__card {
-    box-shadow: var(--europa-shadows-plate);
+    box-shadow: var(--europa-shadows-card-hover);
 }
 
 .europa-lobby__card:hover {
@@ -1610,19 +1615,46 @@ body {
 }
 
 /* T-027/F: Identity card accent (FR-027, AC-030).
-   Left-border accent distinguishes the identity card. */
+   Top gradient bar distinguishes the identity card. */
 .europa-lobby__card--identity {
-    border-left: 3px solid var(--europa-color-accent);
+    position: relative;
+    overflow: hidden;
+    border-left: none;
 }
 
 /* Identity card: gradient accent bar at top. */
 .europa-lobby__card--identity::before {
     content: "";
-    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     height: 3px;
-    margin: calc(-1 * var(--europa-spacing-lg)) calc(-1 * var(--europa-spacing-xl)) var(--europa-spacing-md);
-    background: linear-gradient(to right, var(--europa-color-accent), var(--europa-color-city));
-    border-radius: var(--europa-radii-plate) var(--europa-radii-plate) 0 0;
+    background: linear-gradient(90deg, var(--europa-color-accent), var(--europa-color-city));
+}
+
+/* Profile manage/choose link inside identity card: full-width bordered
+   control matching design system secondary style without lobby button
+   inheritance conflicts. */
+.europa-lobby__profile-link {
+    display: block;
+    width: 100%;
+    padding: 0.375rem var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: transparent;
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
+    text-align: center;
+    cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__profile-link:hover {
+    border-color: var(--europa-color-text-primary);
+    background-color: var(--europa-color-surface-raised);
 }
 
 /* Identity card layout: avatar + info row. */

@@ -209,7 +209,10 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                     </legend>
                     <div className="europa-lobby__radio-row" role="radiogroup" aria-labelledby={countFieldName}>
                         {CREATE_PLAYER_COUNTS.map((count) => (
-                            <label key={count} className="europa-lobby__option-card">
+                            <label
+                                key={count}
+                                className={`europa-lobby__option-card${playerCount === count ? ' europa-lobby__option-card--active' : ''}`}
+                            >
                                 <input
                                     type="radio"
                                     name="playerCount"
@@ -291,7 +294,7 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                         {formError}
                     </p>
                 ) : null}
-                <europa-button type="submit" disabled={busy} className="europa-lobby__button--primary">
+                <europa-button type="submit" disabled={busy} variant="primary">
                     {creating ? 'Creating…' : 'Create match'}
                 </europa-button>
             </form>
