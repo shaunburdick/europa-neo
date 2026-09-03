@@ -12,11 +12,32 @@
  * Runs in Vitest Browser Mode per vitest.config.browser.ts.
  */
 
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { Tooltip } from '../../../src/qol/tooltip';
 import '../../../src/styles/index.css';
+
+/**
+ * Default userEvent instance shared across tests. The `setup()` call
+ * is intentionally lazily deferred to the first use in each test.
+ */
+const user = userEvent.setup();
+
+/**
+ * Move the browser cursor to the top-left corner — well outside any
+ * rendered component — so that Playwright's residual cursor position
+ * does not trigger spurious mouseenter events during render().
+ *
+ * Vitest Browser Mode with V8 coverage instrumentation changes the
+ * rendering timing such that the default cursor position can overlap
+ * with newly rendered elements, firing mouseenter before the test
+ * assertion runs. Moving the cursor to a known-safe location before
+ * each test eliminates this race.
+ */
+beforeEach(async () => {
+    await user.hover(document.body);
+});
 
 afterEach(async () => {
     await cleanup();
@@ -26,6 +47,11 @@ afterEach(async () => {
 
 /**
  * Render a simple tooltip-wrapped button and return the wrapper element.
+ *
+ * After rendering, the mouse is explicitly moved off the wrapper to
+ * guarantee that any residual cursor position from Vitest Browser Mode
+ * does not leave the tooltip in a visible state. Tests that need the
+ * tooltip visible should hover the wrapper after calling this helper.
  */
 async function renderTrigger(
     content: string,
@@ -36,7 +62,12 @@ async function renderTrigger(
             <button type="button">Trigger</button>
         </Tooltip>,
     );
-    return result.container.querySelector('.europa-tooltip-wrap') as HTMLDivElement;
+    const wrapper = result.container.querySelector('.europa-tooltip-wrap') as HTMLDivElement;
+    // Reset any spurious hover that Vitest Browser Mode may have
+    // triggered during render.  Explicit hover/focus by the test will
+    // re-show the tooltip as needed.
+    await user.unhover(wrapper);
+    return wrapper;
 }
 
 /** Query the tooltip element by role. */
