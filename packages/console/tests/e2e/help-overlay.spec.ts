@@ -96,11 +96,7 @@ interface LiveHandleView {
     bootError: string | null;
 }
 
-async function waitUntil(
-    page: Page,
-    when: (live: { status: string }) => boolean,
-    description: string,
-): Promise<void> {
+async function waitUntil(page: Page, when: (live: { status: string }) => boolean, description: string): Promise<void> {
     await expect
         .poll(
             async () => {
@@ -134,7 +130,7 @@ test.describe('help overlay', () => {
     let port: number;
     let matchId: string;
 
-    test.beforeAll(async ({ browser }) => {
+    test.beforeAll(async () => {
         ({ httpServer, server, matchmaker } = buildStack());
         await new Promise<void>((resolve, reject) => {
             httpServer.once('error', reject);
