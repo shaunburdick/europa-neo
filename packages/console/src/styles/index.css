@@ -724,9 +724,39 @@ body {
     gap: var(--europa-spacing-sm);
 }
 
-/* Submit button in create form: full-width for visual prominence. */
+/* Submit button in create form: full-width for visual prominence.
+   Also style the host element directly so it's visually prominent
+   even when the Shadow DOM catalog stylesheet hasn't fully loaded. */
 .europa-lobby__form > europa-button[type="submit"] {
     width: 100%;
+    display: block;
+    padding: 0.5rem var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-accent);
+    color: var(--europa-color-surface);
+    font-family: var(--europa-typography-font-stack);
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__form > europa-button[type="submit"]:hover {
+    opacity: 0.9;
+}
+
+.europa-lobby__form > europa-button[type="submit"]:active {
+    background-color: var(--europa-color-accent-active);
+    border-color: var(--europa-color-accent-active);
+}
+
+.europa-lobby__form > europa-button[type="submit"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .europa-lobby__fieldset {
@@ -765,6 +795,7 @@ body {
 /* Visual option cards for player count (replaces plain radios). */
 .europa-lobby__option-card {
     display: flex;
+    flex: 1;
     align-items: center;
     justify-content: center;
     min-width: 48px;
@@ -1639,22 +1670,28 @@ body {
 .europa-lobby__profile-link {
     display: block;
     width: 100%;
-    padding: 0.375rem var(--europa-spacing-md);
+    padding: 0.5rem var(--europa-spacing-md);
     border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
     border-radius: var(--europa-radii-input);
-    background-color: transparent;
+    background-color: var(--europa-color-surface-raised);
     color: var(--europa-color-text-primary);
+    font-family: var(--europa-typography-font-stack);
     font-size: var(--europa-typography-size-sm);
+    font-weight: 500;
+    line-height: var(--europa-typography-line-height-normal);
     text-align: center;
+    text-decoration: none;
     cursor: pointer;
     transition:
         background-color var(--europa-motion-transition-fast),
-        border-color var(--europa-motion-transition-fast);
+        border-color var(--europa-motion-transition-fast),
+        color var(--europa-motion-transition-fast);
 }
 
 .europa-lobby__profile-link:hover {
-    border-color: var(--europa-color-text-primary);
-    background-color: var(--europa-color-surface-raised);
+    border-color: var(--europa-color-accent);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-accent);
 }
 
 /* Identity card layout: avatar + info row. */
