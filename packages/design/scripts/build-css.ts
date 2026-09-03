@@ -252,6 +252,19 @@ function stripRootBlock(css: string): string {
 }
 
 /**
+ * Strip CSS comments from a CSS string to reduce bundle size.
+ *
+ * Preserves `/*!` comments (which are meant to be kept in minified output).
+ * All other `/* ... *​/` comments are removed, including section dividers.
+ *
+ * @param css - CSS text with comments.
+ * @returns CSS text with comments stripped.
+ */
+function stripComments(css: string): string {
+    return css.replace(/\/\*![\s\S]*?\*\//g, '/* KEEP */').replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/**
  * Emit `src/styles/catalog-styles.ts` — a TypeScript module exporting the
  * catalog CSS (without the `:root` block) as a string literal.
  *
@@ -265,7 +278,7 @@ function stripRootBlock(css: string): string {
  * @returns Absolute path to the written file.
  */
 async function writeCatalogStylesModule(designRoot: string, catalogCss: string): Promise<string> {
-    const stripped = stripRootBlock(catalogCss);
+    const stripped = stripComments(stripRootBlock(catalogCss));
     const module = [
         '/**',
         ' * Catalog CSS rules for Shadow DOM adoption (T-001).',
