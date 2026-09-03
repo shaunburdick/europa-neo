@@ -660,7 +660,8 @@ body {
     align-items: start;
 }
 
-/* Cards: identity + create sit in the sidebar; the match list spans wide. */
+/* Cards: identity + create sit in the sidebar; the match list fills
+   the second column via natural grid auto-placement. */
 .europa-lobby__card {
     padding: var(--europa-spacing-lg) var(--europa-spacing-xl);
     background-color: var(--europa-color-surface);
@@ -670,10 +671,6 @@ body {
     transition:
         box-shadow var(--europa-motion-transition-default),
         transform var(--europa-motion-transition-default);
-}
-
-.europa-lobby__card--wide {
-    grid-column: 1 / -1;
 }
 
 /* Sidebar column: stacks identity + create form vertically. */

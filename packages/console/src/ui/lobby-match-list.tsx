@@ -170,11 +170,7 @@ export function LobbyMatchList({
     const headingId = 'europa-lobby-matches-heading';
     const errorId = 'europa-lobby-matches-error';
     return (
-        <section
-            className="europa-lobby__card europa-lobby__card--wide"
-            aria-labelledby={headingId}
-            aria-busy={loading || busy}
-        >
+        <section className="europa-lobby__card" aria-labelledby={headingId} aria-busy={loading || busy}>
             <div className="europa-lobby__list-header">
                 <h2 id={headingId} className="europa-lobby__card-title">
                     Public matches
