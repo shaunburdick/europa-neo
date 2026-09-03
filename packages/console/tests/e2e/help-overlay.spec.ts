@@ -228,7 +228,9 @@ test.describe('help overlay', () => {
         await helpButton.click();
         await expect(modal).toHaveAttribute('open', '');
 
-        await helpButton.click();
+        // The modal covers the help button after opening, so close via
+        // keyboard shortcut instead of clicking the button.
+        await page.keyboard.press('?');
         await expect(modal).not.toHaveAttribute('open', '');
     });
 
@@ -270,8 +272,9 @@ test.describe('help overlay', () => {
         const helpWrapper = page.locator('.europa-help-button').locator('..');
         await helpWrapper.hover();
 
-        // The tooltip should become visible (no --hidden class).
-        const tooltip = page.locator('[role="tooltip"]');
+        // Narrow to the help button's own tooltip (there are multiple
+        // [role="tooltip"] elements in the HUD).
+        const tooltip = page.getByRole('tooltip', { name: 'Open help overlay' });
         await expect(tooltip).not.toHaveClass(/europa-tooltip--hidden/);
     });
 });
