@@ -138,9 +138,9 @@ jobs:
         run: pnpm --filter @europa/console typecheck:conformance
 
   console-test:
-    name: Test suites (console)
+    name: Test suites (console — node)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -189,6 +189,69 @@ jobs:
       - name: Unit tests (reducer + input math + QoL)
         run: pnpm --filter @europa/console test:unit
 
+      - name: Determinism (SC-002 golden fixture)
+        run: pnpm --filter @europa/console test:determinism
+
+      - name: Subcell parity vs original
+        run: pnpm --filter @europa/console test:parity
+
+      # Quiet-client keepalive vs the idle sweep (Bug 2 regression
+      # guard): real sockets + real timers, ~8 s wall time.
+      - name: Quiet-client keepalive (idle-sweep guard)
+        run: pnpm --filter @europa/console test:keepalive
+
+      # Lobby transport over the real stack (R-010 regression guard):
+      # real sockets against the real matchmaking + networking stacks,
+      # ~6 s wall time.
+      - name: Lobby transport integration (real stack)
+        run: pnpm --filter @europa/console test:lobby-integration
+
+  console-e2e:
+    name: Test suites (console — browser)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
+
+      - name: Build @europa/design (workspace dependency)
+        run: pnpm --filter @europa/design build
+
+      - name: Build @europa/engine (workspace dependency)
+        run: pnpm --filter @europa/engine build
+
+      - name: Build @europa/terrain (workspace dependency)
+        run: pnpm --filter @europa/terrain build
+
+      - name: Build @europa/fog (workspace dependency)
+        run: pnpm --filter @europa/fog build
+
+      - name: Build @europa/networking (workspace dependency)
+        run: pnpm --filter @europa/networking build
+
+      - name: Build @europa/matchmaking (workspace dependency)
+        run: pnpm --filter @europa/matchmaking build
+
+      # The console's build script runs build-assets.ts which stages
+      # brand assets into dist/assets/brand/. host-static.test.ts
+      # imports BRAND_MANIFEST and verifies every listed asset is
+      # served with the correct MIME type — the test 404s without
+      # the staged files.
+      - name: Build console (brand asset staging)
+        run: pnpm --filter @europa/console build
+
       - name: Cache Playwright browsers
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -221,23 +284,6 @@ jobs:
         env:
           EUROPA_PERF_BUDGET_FACTOR: '2'
 
-      - name: Determinism (SC-002 golden fixture)
-        run: pnpm --filter @europa/console test:determinism
-
-      - name: Subcell parity vs original
-        run: pnpm --filter @europa/console test:parity
-
-      # Quiet-client keepalive vs the idle sweep (Bug 2 regression
-      # guard): real sockets + real timers, ~8 s wall time.
-      - name: Quiet-client keepalive (idle-sweep guard)
-        run: pnpm --filter @europa/console test:keepalive
-
-      # Lobby transport over the real stack (R-010 regression guard):
-      # real sockets against the real matchmaking + networking stacks,
-      # ~6 s wall time.
-      - name: Lobby transport integration (real stack)
-        run: pnpm --filter @europa/console test:lobby-integration
-
       # Contract byte-identity + surface completeness (reads dist/).
       - name: Library emit + contract conformance
         run: |
@@ -247,7 +293,7 @@ jobs:
   console-coverage:
     name: Coverage gate (console ≥ 80%)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

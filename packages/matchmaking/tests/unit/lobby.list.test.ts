@@ -1,9 +1,13 @@
 /**
- * Unit tests for `listPublicMatches` filtering — Feature 006 (T033)
+ * Unit tests for `projectLobbyEntry` and `listPublicMatches` — Feature 006
+ *
+ * Covers FR-004 + FR-005 + data-model.md §12: `projectLobbyEntry`
+ * projects a public `filling` match into a `LobbyEntry`, returns
+ * `null` for private matches and for non-joinable statuses.
  *
  * Covers FR-005 + spec US2 AC-1/AC-2/AC-3 + data-model.md §12: given a
  * mix of matches in `filling`/`running`/`finished`/`collected` states
- * with both `public`/`private` visibilities, the projection returns
+ * with both `public`/`private` visibilities, `listPublicMatches` returns
  * ONLY matches with `status === 'filling' && visibility === 'public'`;
  * private matches never appear regardless of status; the result array
  * is rebuilt on every call (mutation snapshot) and seat occupancy
@@ -15,6 +19,8 @@
  * the filter is tested against production data, not doubles.
  *
  * Test descriptions cite the requirement they pin.
+ *
+ * T009: `projectLobbyEntry` tests consolidated from lobby.test.ts.
  */
 
 import type { MatchId } from '@europa/networking';
@@ -29,7 +35,7 @@ import type {
 import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import { createMatchRecord, type MatchRecord } from '../../src/internal/matchRecord';
 import { createSeatRecord } from '../../src/internal/seatRecord';
-import { listPublicMatches } from '../../src/lobby';
+import { listPublicMatches, projectLobbyEntry } from '../../src/lobby';
 
 /** Deterministic id factory: concrete ids never matter to filtering logic. */
 let idCounter = 0;
@@ -148,5 +154,77 @@ describe('listPublicMatches — mutation snapshot (US2 AC-3 / SC-003)', () => {
         match.status = 'running';
 
         expect(listPublicMatches([match], 62_000)).toEqual([]);
+    });
+});
+
+describe('projectLobbyEntry — FR-004 / FR-005 / data-model §12', () => {
+    /**
+     * Build a `filling` match with `filled` seats named P1..Pn. Uses the
+     * real record factories so the projection is tested against the
+     * production shapes, not test doubles.
+     */
+    function makeMatch(visibility: MatchVisibility, filled: number, createdAtMs = 1_000): MatchRecord {
+        const record = createMatchRecord({
+            matchId: nextId('match') as MatchId,
+            visibility,
+            settings: DEFAULT_MATCH_SETTINGS,
+            createdAtMs,
+        });
+        for (let seat = 0; seat < filled; seat++) {
+            record.seats.set(
+                seat as SeatIndex,
+                createSeatRecord({
+                    seatIndex: seat as SeatIndex,
+                    playerSessionId: nextId('session') as PlayerSessionId,
+                    displayName: `P${String(seat + 1)}`,
+                    sessionToken: nextId('token') as SessionToken,
+                    playerId: null,
+                    connectedAtMs: createdAtMs,
+                }),
+            );
+        }
+        return record;
+    }
+
+    it('FR-005: projects a public filling match with host, occupancy, settings, and age', () => {
+        const match = makeMatch('public', 1, 10_000);
+        const entry = projectLobbyEntry(match, 12_500);
+
+        expect(entry).not.toBeNull();
+        expect(entry?.matchId).toBe(match.matchId);
+        expect(entry?.hostDisplayName).toBe('P1');
+        expect(entry?.playerCount).toBe(DEFAULT_MATCH_SETTINGS.playerCount);
+        expect(entry?.seatsFilled).toBe(1);
+        expect(entry?.boardSize).toBe(DEFAULT_MATCH_SETTINGS.boardSize);
+        expect(entry?.visibility).toBe('public');
+        expect(entry?.createdAtMs).toBe(10_000);
+        expect(entry?.ageSeconds).toBe(2.5);
+    });
+
+    it('FR-005 / Q1: returns null for a private match regardless of status', () => {
+        const match = makeMatch('private', 1);
+        expect(projectLobbyEntry(match, 2_000)).toBeNull();
+    });
+
+    it('FR-005: returns null once the match is running (no longer joinable)', () => {
+        const match = makeMatch('public', 2);
+        match.status = 'running';
+        expect(projectLobbyEntry(match, 2_000)).toBeNull();
+    });
+
+    it('FR-005: returns null for finished and collected matches', () => {
+        const finished = makeMatch('public', 2);
+        finished.status = 'finished';
+        const collected = makeMatch('public', 1);
+        collected.status = 'collected';
+        expect(projectLobbyEntry(finished, 2_000)).toBeNull();
+        expect(projectLobbyEntry(collected, 2_000)).toBeNull();
+    });
+
+    it('FR-005: refuses to project a public filling match with no host seat', () => {
+        // Defensive path: seat 0 is populated atomically at creation, so a
+        // hostless record can only exist through external corruption.
+        const match = makeMatch('public', 0);
+        expect(projectLobbyEntry(match, 2_000)).toBeNull();
     });
 });
