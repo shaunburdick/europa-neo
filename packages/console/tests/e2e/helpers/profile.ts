@@ -12,6 +12,9 @@
 
 import type { Page } from '@playwright/test';
 
+/** Timeout for waits that depend on server-side identity resolution. */
+const WAIT_TIMEOUT = 15_000;
+
 /**
  * Set a display handle via the `/profile` route (Feature 015).
  *
@@ -30,8 +33,12 @@ export async function setHandleViaProfile(page: Page, handle: string): Promise<v
 
     if (!alreadyOnProfile) {
         // Still on /lobby — click the "Choose a name" link (pushState,
-        // preserves the live WebSocket connection).
-        await page.getByRole('link', { name: /choose a name/i }).click();
+        // preserves the live WebSocket connection). The link only renders
+        // once identityStatus transitions from 'restoring' to 'unnamed',
+        // so wait for it to appear before clicking.
+        const chooseNameLink = page.getByRole('link', { name: /choose a name/i });
+        await chooseNameLink.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
+        await chooseNameLink.click();
     }
 
     // Wait for the ProfileView form to render (identity must resolve as
