@@ -66,9 +66,12 @@ export function WelcomeScreen(): JSX.Element {
             <img
                 src="assets/brand/europa-neo-lockup-dark.svg"
                 alt="Europa Neo"
-                width={480}
-                height={160}
-                style={{ marginBottom: 'var(--europa-spacing-lg)' }}
+                style={{
+                    maxWidth: '80vw',
+                    width: '480px',
+                    height: 'auto',
+                    marginBottom: 'var(--europa-spacing-lg)',
+                }}
             />
 
             {/* Tagline — FR-003: design-system typography level. */}
@@ -94,9 +97,8 @@ export function WelcomeScreen(): JSX.Element {
                     color: 'var(--europa-color-text-secondary)',
                 }}
             >
-                Build cities, lay pipelines, and command your forces in this faithful
-                reimplementation of the classic multiplayer strategy game. Play against
-                a friend in real-time or host your own server.
+                Build cities, lay pipelines, and command your forces in this faithful reimplementation of the classic
+                multiplayer strategy game. Play against a friend in real-time or host your own server.
             </p>
 
             {/* Primary CTA: Play — FR-004: styled &lt;a&gt; with europa tokens. */}
@@ -166,7 +168,9 @@ export function WelcomeScreen(): JSX.Element {
                 </a>
             </nav>
 
-            <BrandedFooter />
+            <div style={{ width: '100%', marginTop: 'auto' }}>
+                <BrandedFooter />
+            </div>
         </main>
     );
 }
