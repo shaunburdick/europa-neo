@@ -10,6 +10,7 @@
         "pnpm": ">=11.0.0"
     },
     "scripts": {
+        "clean": "pnpm --filter './packages/*' run clean",
         "build": "pnpm -r --filter './packages/*' build",
         "test": "pnpm -r --filter './packages/*' test",
         "lint": "pnpm -r --filter './packages/*' lint",

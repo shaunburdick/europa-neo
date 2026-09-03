@@ -18,6 +18,7 @@
         "contracts"
     ],
     "scripts": {
+        "clean": "rm -rf dist",
         "build": "tsup",
         "test": "vitest run",
         "test:watch": "vitest",

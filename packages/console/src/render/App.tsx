@@ -36,7 +36,7 @@
  */
 
 import type { JSX } from 'react';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { RegionSelectController } from '../input/region-select';
@@ -45,6 +45,7 @@ import { peekInjectedConsoleState } from '../internal/test-state';
 import { HotkeyController } from '../qol/hotkeys';
 import { Minimap } from '../qol/minimap';
 import { subscribeReducedMotion } from '../qol/reduced-motion';
+import { Tooltip } from '../qol/tooltip';
 import { useContainerSize } from '../qol/use-container-size';
 import { ZoomPanController } from '../qol/zoom';
 import { formatWaitingMessage, isAwaitingMatchStart } from '../state/awaiting-start';
@@ -52,6 +53,7 @@ import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
+import { DEFAULT_PLAYER_COLORS, SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
 import { OrderBar } from '../ui/order-bar';
 import { ParticipantStrip } from '../ui/participants';
@@ -62,6 +64,9 @@ import { MapCanvas } from './canvas';
 import { GridOverlay } from './grid-overlay';
 import { liveLabels, nextLabelExpiryMs } from './label-overlay';
 import { SurrenderModal } from './SurrenderModal';
+
+/** Lazy-loaded help overlay (Feature 018 FR-021 — zero initial bundle impact). */
+const HelpOverlay = lazy(() => import('../ui/help-overlay').then((m) => ({ default: m.HelpOverlay })));
 
 /** Props for {@link App}. */
 export interface AppProps {
@@ -282,6 +287,42 @@ export function App({
         }
     }, [surrenderRequestEpoch]);
 
+    // Help overlay state (Feature 018 FR-008): toggled by the ? key
+    // or the help button. Registered as a document-level keydown
+    // handler separate from the HotkeyController — the ? key is a
+    // UI-only concern, not an order-producing binding (plan §2
+    // Decision 1). The shouldIgnoreKeyEvent guard prevents toggle
+    // when focus is inside buttons/inputs/modal.
+    const [helpOpen, setHelpOpen] = useState(false);
+    const helpButtonRef = useRef<HTMLButtonElement | null>(null);
+    useEffect(() => {
+        const handleHelpToggle = (e: KeyboardEvent): void => {
+            if (e.key !== '?' || e.ctrlKey || e.metaKey || e.altKey) {
+                return;
+            }
+            // Reuse the same guard as the HotkeyController: suppress
+            // when focus is inside interactive chrome (buttons, inputs,
+            // toolbars, contenteditable) so ? inside the modal's close
+            // button doesn't re-toggle.
+            const target = e.target;
+            if (
+                target instanceof Element &&
+                target.closest('button, a, input, textarea, select, [role="toolbar"]') !== null
+            ) {
+                return;
+            }
+            if (target instanceof HTMLElement && target.isContentEditable) {
+                return;
+            }
+            e.preventDefault();
+            setHelpOpen((prev) => !prev);
+        };
+        document.addEventListener('keydown', handleHelpToggle);
+        return () => {
+            document.removeEventListener('keydown', handleHelpToggle);
+        };
+    }, []);
+
     const zoom = mapView?.camera.zoom ?? 32;
     const { selection } = resolvedState;
 
@@ -386,24 +427,45 @@ export function App({
                     ) : null}
                 </div>
                 <section id="hud" aria-label="Status bar" tabIndex={0} className="europa-hud">
-                    <span className="europa-hud__item">Status: {resolvedState.status}</span>
-                    <span className="europa-hud__item">Tick: {mapView?.tick ?? '—'}</span>
+                    <Tooltip content="Current connection and game status">
+                        <span className="europa-hud__item">Status: {resolvedState.status}</span>
+                    </Tooltip>
+                    <Tooltip content="Current game tick number">
+                        <span className="europa-hud__item">Tick: {mapView?.tick ?? '—'}</span>
+                    </Tooltip>
                     {/* Participant strip (feature 010 T-016, FR-020): per-seat
               authoritative labels from the session. Session-derived, so
               it is tick-stable (SC-008) and renders for spectators too
               (static boots — FR-023 allows all handles there). */}
                     <ParticipantStrip session={resolvedState.session} />
                     {store !== undefined && mapView !== null ? (
-                        <Minimap
-                            boardWidth={mapView.width}
-                            boardHeight={mapView.height}
-                            camera={resolvedState.camera}
-                            cells={[...mapView.cells.values()]}
-                            // exactOptionalPropertyTypes: only carry the size when measured.
-                            {...(boardSize === null ? {} : { viewportSize: boardSize })}
-                            onSetCamera={(camera) => store.dispatch({ kind: 'setCamera', camera })}
-                        />
+                        <Tooltip content="Board overview — click to move viewport" position="below">
+                            <Minimap
+                                boardWidth={mapView.width}
+                                boardHeight={mapView.height}
+                                camera={resolvedState.camera}
+                                cells={[...mapView.cells.values()]}
+                                // exactOptionalPropertyTypes: only carry the size when measured.
+                                {...(boardSize === null ? {} : { viewportSize: boardSize })}
+                                onSetCamera={(camera) => store.dispatch({ kind: 'setCamera', camera })}
+                            />
+                        </Tooltip>
                     ) : null}
+                    {/* Help button (Feature 018 FR-001): toggles the help
+                        overlay via ? key or click. */}
+                    <Tooltip content="Open help overlay (? key)">
+                        <button
+                            ref={helpButtonRef}
+                            type="button"
+                            className="europa-help-button europa-focus-ring"
+                            disabled={!resolvedState.inputEnabled}
+                            onClick={() => {
+                                setHelpOpen((prev) => !prev);
+                            }}
+                        >
+                            ?
+                        </button>
+                    </Tooltip>
                 </section>
                 <OrderBar
                     exclusiveMode={resolvedState.exclusiveMode}
@@ -430,20 +492,22 @@ export function App({
             onSurrenderRequest delegate). */}
                 {store !== undefined ? (
                     <section id="surrender" aria-label="Surrender controls" className="europa-surrender">
-                        <button
-                            type="button"
-                            className="europa-hud__surrender europa-focus-ring"
-                            disabled={!resolvedState.inputEnabled}
-                            onClick={() => {
-                                if (onSurrenderRequest !== undefined) {
-                                    onSurrenderRequest();
-                                    return;
-                                }
-                                setSurrenderOpen(true);
-                            }}
-                        >
-                            Surrender…
-                        </button>
+                        <Tooltip content="Forfeit the current match">
+                            <button
+                                type="button"
+                                className="europa-hud__surrender europa-focus-ring"
+                                disabled={!resolvedState.inputEnabled}
+                                onClick={() => {
+                                    if (onSurrenderRequest !== undefined) {
+                                        onSurrenderRequest();
+                                        return;
+                                    }
+                                    setSurrenderOpen(true);
+                                }}
+                            >
+                                Surrender…
+                            </button>
+                        </Tooltip>
                     </section>
                 ) : null}
                 {store !== undefined && selection !== null ? (
@@ -490,6 +554,28 @@ export function App({
                         store.dispatch({ kind: 'surrender' });
                     }}
                 />
+            ) : null}
+            {/* Help overlay (Feature 018): lazy-loaded on first open,
+                reads game status from the resolved state for FR-007. */}
+            {store !== undefined ? (
+                <Suspense fallback={null}>
+                    <HelpOverlay
+                        open={helpOpen}
+                        onClose={() => {
+                            setHelpOpen(false);
+                            helpButtonRef.current?.focus();
+                        }}
+                        tick={mapView?.tick ?? null}
+                        playerName={resolvedState.session.displayName}
+                        playerColor={
+                            resolvedState.session.playerId !== null
+                                ? DEFAULT_PLAYER_COLORS[resolvedState.session.playerId]
+                                : SPECTATOR_COLOR
+                        }
+                        matchStatus={resolvedState.status}
+                        playerCount={resolvedState.session.opponents.length + 1}
+                    />
+                </Suspense>
             ) : null}
             {/* Branded footer (spec 012 addendum T-031, FR-023): the single
            shared home for the app name + version + GitHub link. Mounted at

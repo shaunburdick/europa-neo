@@ -1,0 +1,160 @@
+/*
+ * Help overlay styles — Feature 018 (In-Match Help Overlay, FR-004–FR-016).
+ *
+ * Styles for the help overlay modal content: symbol legend table,
+ * keyboard shortcuts table, game status section, and learn-more link.
+ * The modal shell (backdrop, title, close button) is handled by the
+ * europa-modal web component via design system catalog styles.
+ *
+ * All values sourced from @europa/design tokens (constitution §6).
+ */
+
+/* Scrollable content container inside the modal. */
+.europa-help-overlay__content {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: var(--europa-spacing-xs);
+}
+
+/* Section headings inside the overlay. */
+.europa-help-overlay__section-title {
+    margin: var(--europa-spacing-lg) 0 var(--europa-spacing-sm);
+    font-size: var(--europa-typography-size-lg);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+}
+
+.europa-help-overlay__section-title:first-child {
+    margin-top: 0;
+}
+
+/* Definition list for the symbol legend (FR-004). */
+.europa-help-overlay__legend {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--europa-spacing-xs) var(--europa-spacing-md);
+    margin: 0;
+    padding: 0;
+}
+
+.europa-help-overlay__legend-symbol {
+    display: contents;
+}
+
+.europa-help-overlay__legend dt {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-xs);
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-primary);
+    white-space: nowrap;
+}
+
+.europa-help-overlay__legend dd {
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-secondary);
+    margin: 0;
+}
+
+/* Keyboard shortcuts table (FR-005). */
+.europa-help-overlay__shortcuts {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--europa-typography-size-sm);
+}
+
+.europa-help-overlay__shortcuts th,
+.europa-help-overlay__shortcuts td {
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    text-align: left;
+    border-bottom: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.europa-help-overlay__shortcuts th {
+    font-weight: 600;
+    color: var(--europa-color-text-primary);
+}
+
+.europa-help-overlay__shortcuts td:first-child {
+    font-family: var(--europa-typography-font-mono);
+    white-space: nowrap;
+    color: var(--europa-color-text-primary);
+}
+
+.europa-help-overlay__shortcuts td:last-child {
+    color: var(--europa-color-text-secondary);
+}
+
+/* Game status section (FR-007). */
+.europa-help-overlay__status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--europa-spacing-sm) var(--europa-spacing-lg);
+    margin: 0;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    background-color: var(--europa-color-surface-raised);
+    border-radius: var(--europa-radii-input);
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-secondary);
+}
+
+.europa-help-overlay__status-item {
+    display: flex;
+    gap: var(--europa-spacing-xs);
+}
+
+.europa-help-overlay__status-label {
+    font-weight: 600;
+    color: var(--europa-color-text-primary);
+}
+
+/* Learn-more link (FR-006). */
+.europa-help-overlay__learn-more {
+    margin-top: var(--europa-spacing-md);
+}
+
+.europa-help-overlay__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--europa-spacing-xs);
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
+    text-decoration: none;
+}
+
+.europa-help-overlay__link:hover {
+    background-color: var(--europa-color-surface);
+}
+
+.europa-help-overlay__link:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* Help button in the HUD (FR-001). */
+.europa-help-button {
+    margin-top: var(--europa-spacing-xs);
+    padding: 0.375rem var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.europa-help-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.europa-help-button:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
