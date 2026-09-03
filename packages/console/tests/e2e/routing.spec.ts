@@ -146,7 +146,7 @@ test.describe('semantic route browser history', () => {
         await expect(page.locator('img[alt="Europa Neo"]')).toBeVisible();
         await expect(page.getByText('Nanobot warfare')).toBeVisible();
         // AC-004: Play link navigates to /lobby.
-        await page.getByRole('link', { name: 'Play' }).click();
+        await page.getByRole('link', { name: 'Play', exact: true }).click();
         await expect(page).toHaveURL(/\/lobby/);
     });
 
