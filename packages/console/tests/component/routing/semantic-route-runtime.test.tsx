@@ -49,8 +49,8 @@ import { RouteNotice } from '../../../src/ui/route-notice';
 import { entryOf, matchIdOf, ScriptedLobbyTransport, snapshotOf } from '../../fixtures/lobbyTransports';
 import '../../../src/styles/index.css';
 
-afterEach(() => {
-    cleanup();
+afterEach(async () => {
+    await cleanup();
     window.history.replaceState({}, '', '/lobby');
     spectatorTransportMock.createWsMatchClient.mockClear();
     spectatorTransportMock.createConsoleClient.mockClear();
