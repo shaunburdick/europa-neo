@@ -18,6 +18,7 @@
         "contracts"
     ],
     "scripts": {
+        "clean": "rm -rf dist",
         "dev": "vite",
         "host": "tsx scripts/host.ts",
         "build": "tsc --noEmit && vite build && tsx scripts/build-assets.ts && tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\"",

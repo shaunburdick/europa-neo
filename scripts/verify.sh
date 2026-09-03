@@ -23,8 +23,12 @@ echo ""
 # artifacts exist. Without this, stale dist/ files mask import-resolution
 # bugs (e.g., CSS imports resolved by leftover vite output).
 echo "--- Phase 3: Console library emit + conformance ---"
-rm -rf packages/console/dist
+pnpm --filter @europa/console run clean
 pnpm --filter @europa/console build:lib
+# build:assets restores the brand directory that Phase 1 produced but
+# build:lib does not — unit tests (Phase 5) and the selfhost test (Phase 9)
+# expect dist/assets/brand/ to exist.
+pnpm --filter @europa/console build:assets
 pnpm --filter @europa/console typecheck:conformance
 echo ""
 
