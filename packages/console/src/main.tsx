@@ -83,9 +83,12 @@ function bootstrapProductionRoute(root: HTMLElement): void {
     const entry = adaptRoute(route, null);
 
     switch (entry.kind) {
+        case 'welcome':
+            mountWelcome(root);
+            return;
         case 'redirect':
-            // Root and malformed/unknown paths have one canonical recovery
-            // target. Replacing (rather than pushing) prevents a history loop.
+            // Malformed/unknown paths have one canonical recovery target.
+            // Replacing (rather than pushing) prevents a history loop.
             window.history.replaceState(window.history.state, '', '/lobby');
             mountLobby(root, undefined, route.kind === 'unknown' ? 'unknown' : undefined);
             return;
@@ -117,6 +120,11 @@ function mountLobby(
     recoveryKind?: 'unknown',
 ): void {
     void import('./internal/lobby-runtime').then((module) => module.mountLobbyRuntime(root, route, recoveryKind));
+}
+
+/** Mount the static welcome screen for the root route (Feature 017). */
+function mountWelcome(root: HTMLElement): void {
+    void import('./ui/welcome-screen').then((module) => module.mountWelcomeScreen(root));
 }
 
 /** Remove production query values before any existing runtime can inspect them. */

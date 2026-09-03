@@ -105,4 +105,13 @@ describe('semantic route parser', () => {
         expect(parseRoute(pathname)).toEqual(expected);
         expect(parseRoute(pathname)).toEqual(expected);
     });
+
+    it('classifies / as a welcome route', () => {
+        expect(parseRoute('/')).toEqual({ kind: 'welcome', pathname: '/' });
+    });
+
+    it('ignores query parameters when classifying /', () => {
+        const parsedUrl = new URL('https://example.test/?foo=bar');
+        expect(parseRoute(parsedUrl.pathname)).toEqual({ kind: 'welcome', pathname: '/' });
+    });
 });

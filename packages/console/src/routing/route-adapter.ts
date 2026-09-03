@@ -23,6 +23,7 @@ export type RouteEntryUnavailableReason = 'not-found' | 'not-joinable' | 'full' 
 /** The result of adapting a browser route into an application entry point. */
 export type RouteEntry =
     | { readonly kind: 'redirect'; readonly route: Route; readonly pathname: '/lobby' }
+    | { readonly kind: 'welcome' }
     | { readonly kind: 'lobby'; readonly route: Route; readonly pathname: '/lobby' }
     | { readonly kind: 'profile'; readonly route: Extract<Route, { readonly kind: 'profile' }> }
     | {
@@ -61,7 +62,10 @@ export type RouteEntry =
  * @param snapshot Latest lobby projection, or `null` before the baseline.
  */
 export function adaptRoute(route: Route, snapshot: LobbySnapshot | null): RouteEntry {
-    if (route.kind === 'root' || route.kind === 'unknown') {
+    if (route.kind === 'welcome') {
+        return { kind: 'welcome' };
+    }
+    if (route.kind === 'unknown') {
         return { kind: 'redirect', route, pathname: '/lobby' };
     }
     if (route.kind === 'lobby') {
@@ -117,6 +121,7 @@ export function executeRouteEntry(entry: RouteEntry, commands: RouteEntryCommand
         case 'spectator':
             return commands.spectateMatch(entry.matchId);
         case 'redirect':
+        case 'welcome':
         case 'lobby':
         case 'profile':
         case 'resolve':

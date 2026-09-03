@@ -12,7 +12,7 @@ export type RouteRejection =
 
 /** The closed set of routes understood by the production console. */
 export type Route =
-    | { readonly kind: 'root'; readonly pathname: '/' }
+    | { readonly kind: 'welcome'; readonly pathname: '/' }
     | { readonly kind: 'lobby'; readonly pathname: '/lobby' }
     | { readonly kind: 'profile'; readonly pathname: '/profile' }
     | {
@@ -36,7 +36,7 @@ const SPECTATE_SUFFIX = 'spectate';
  */
 export function parseRoute(pathname: string): Route {
     if (pathname === '/') {
-        return { kind: 'root', pathname };
+        return { kind: 'welcome', pathname };
     }
 
     if (pathname === '/lobby') {
