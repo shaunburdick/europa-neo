@@ -28,6 +28,7 @@
 import type { JSX } from 'react';
 import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrandedFooter } from './branded-footer';
 
 /** Canonical GitHub Pages URL for the player manual (FR-005). */
 const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/manual/';
@@ -65,8 +66,8 @@ export function WelcomeScreen(): JSX.Element {
             <img
                 src="assets/brand/europa-neo-lockup-dark.svg"
                 alt="Europa Neo"
-                width={240}
-                height={80}
+                width={480}
+                height={160}
                 style={{ marginBottom: 'var(--europa-spacing-lg)' }}
             />
 
@@ -81,6 +82,21 @@ export function WelcomeScreen(): JSX.Element {
                 }}
             >
                 Nanobot warfare on Jupiter&rsquo;s moon Europa &mdash; a real-time multiplayer strategy game
+            </p>
+
+            {/* Descriptive copy — game overview. */}
+            <p
+                style={{
+                    margin: '0 0 var(--europa-spacing-xl)',
+                    maxWidth: '32rem',
+                    fontSize: 'var(--europa-typography-size-base)',
+                    lineHeight: 'var(--europa-typography-line-height-relaxed)',
+                    color: 'var(--europa-color-text-secondary)',
+                }}
+            >
+                Build cities, lay pipelines, and command your forces in this faithful
+                reimplementation of the classic multiplayer strategy game. Play against
+                a friend in real-time or host your own server.
             </p>
 
             {/* Primary CTA: Play — FR-004: styled &lt;a&gt; with europa tokens. */}
@@ -122,7 +138,6 @@ export function WelcomeScreen(): JSX.Element {
                     href={MANUAL_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="europa-focus-ring"
                     style={{
                         color: 'var(--europa-color-accent)',
                         textDecoration: 'underline',
@@ -138,7 +153,6 @@ export function WelcomeScreen(): JSX.Element {
                     href={GITHUB_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="europa-focus-ring"
                     style={{
                         color: 'var(--europa-color-accent)',
                         textDecoration: 'underline',
@@ -151,6 +165,8 @@ export function WelcomeScreen(): JSX.Element {
                     GitHub
                 </a>
             </nav>
+
+            <BrandedFooter />
         </main>
     );
 }

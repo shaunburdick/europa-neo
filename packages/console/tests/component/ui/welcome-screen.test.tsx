@@ -116,15 +116,17 @@ describe('WelcomeScreen component', () => {
 
     test('Play link, manual link, and GitHub link are all keyboard-navigable (AC-011)', async () => {
         const screen = await render(<WelcomeScreen />);
-        // All links should have the europa-focus-ring class for visible focus
+        // Play CTA should have the europa-focus-ring class for visible focus
         const playLink = screen.container.querySelector('a[href="/lobby"]');
         expect(playLink?.classList.contains('europa-focus-ring')).toBe(true);
 
+        // Secondary links should NOT have europa-focus-ring (avoids always-visible
+        // outline boxes); they still get *:focus-visible styling for keyboard nav.
         const manualLink = screen.container.querySelector(`a[href="${MANUAL_URL}"]`);
-        expect(manualLink?.classList.contains('europa-focus-ring')).toBe(true);
+        expect(manualLink?.classList.contains('europa-focus-ring')).toBe(false);
 
         const githubLink = screen.container.querySelector(`a[href="${GITHUB_URL}"]`);
-        expect(githubLink?.classList.contains('europa-focus-ring')).toBe(true);
+        expect(githubLink?.classList.contains('europa-focus-ring')).toBe(false);
     });
 
     test('has a nav element wrapping secondary links', async () => {
