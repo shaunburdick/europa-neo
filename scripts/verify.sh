@@ -55,6 +55,19 @@ pnpm --filter @europa/console test:component
 pnpm --filter @europa/console test:a11y
 echo ""
 
+# Phase 6b: Console browser-mode tests WITH V8 coverage (mirrors
+# console-coverage job's browser project). The standalone browser config
+# (Phase 6) never activates coverage instrumentation, so race conditions
+# between V8 coverage and Playwright's cursor positioning go undetected.
+# Running the browser project from the coverage config catches this class
+# of flaky test before push.
+echo "--- Phase 6b: Console browser-mode tests (coverage mode) ---"
+pnpm --filter @europa/console exec vitest run \
+  --config vitest.config.coverage.ts \
+  --project browser \
+  --reporter verbose
+echo ""
+
 # Phase 7: Console E2E tests (mirrors console-e2e)
 echo "--- Phase 7: Console E2E tests (Playwright) ---"
 pnpm --filter @europa/console test:e2e
