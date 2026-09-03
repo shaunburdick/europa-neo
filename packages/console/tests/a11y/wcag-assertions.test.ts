@@ -230,6 +230,7 @@ describe('WCAG 2.1.1 — palette keyboard operability', () => {
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
+        await user.keyboard('{Tab}');
         expect(document.activeElement?.id).toBe('order-bar');
 
         const exclusiveButton = document.querySelector('#order-bar button[aria-pressed]') as HTMLButtonElement | null;
@@ -296,8 +297,8 @@ describe('WCAG 2.4.7 — order bar focus ring contrast', () => {
 
         // Keyboard-focus the first palette button (:focus-visible only
         // matches keyboard-initiated focus, so Tab all the way in:
-        // skip-link → map → hud → order-bar → button).
-        for (let i = 0; i < 5; i++) {
+        // skip-link → map → hud → help-button → order-bar → button).
+        for (let i = 0; i < 6; i++) {
             await user.keyboard('{Tab}');
         }
         const button = document.activeElement as HTMLButtonElement | null;
