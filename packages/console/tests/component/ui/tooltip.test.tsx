@@ -18,8 +18,8 @@ import { cleanup, render } from 'vitest-browser-react';
 import { Tooltip } from '../../../src/qol/tooltip';
 import '../../../src/styles/index.css';
 
-afterEach(() => {
-    cleanup();
+afterEach(async () => {
+    await cleanup();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
 });
