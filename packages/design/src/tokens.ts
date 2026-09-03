@@ -34,6 +34,8 @@ export const TOKENS = {
     color: {
         accent: '#f59e0b',
         accentActive: '#d97706',
+        accentGlow: 'rgba(245, 158, 11, 0.08)',
+        accentGlowStrong: 'rgba(245, 158, 11, 0.3)',
         banner: '#d97706',
         blue: '#2563eb',
         border: '#374151',
@@ -56,6 +58,7 @@ export const TOKENS = {
         focusRing: '#ffffff',
         genericEffect: 'rgba(148, 163, 184, 0.45)',
         green: '#059669',
+        greenGlow: 'rgba(5, 150, 105, 0.5)',
         info: '#dca12e',
         infoActive: '#ad872f',
         infoBg: '#302311',

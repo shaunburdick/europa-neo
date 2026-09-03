@@ -131,7 +131,7 @@ async function waitForLobby(page: import('@playwright/test').Page): Promise<void
             timeout: WAIT_TIMEOUT,
             intervals: [50, 100, 250],
         })
-        .toBe('Europa Neo lobby');
+        .toBe('Europa Neo Lobby');
 }
 
 test.describe('semantic route browser history', () => {
@@ -191,7 +191,7 @@ test.describe('semantic route browser history', () => {
             await expect(page).toHaveURL(/\/profile/);
             await setHandleViaProfile(page, 'LegacyTester');
             await expect(page).toHaveURL(/\/lobby/);
-            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            await expect(page.locator('h1')).toContainText('Europa Neo Lobby');
             // The live runtime is NOT mounted — only the lobby runtime.
             expect(await page.evaluate(() => Object.hasOwn(window, '__europaLive'))).toBe(false);
         } finally {
@@ -219,7 +219,7 @@ test.describe('semantic route browser history', () => {
             await expect(page).toHaveURL(/\/profile/, { timeout: WAIT_TIMEOUT });
             await setHandleViaProfile(page, 'Bob');
             await waitForLobby(page);
-            await expect(page.locator('.europa-lobby__handle')).toContainText('Bob');
+            await expect(page.locator('.europa-lobby__identity-name')).toContainText('Bob');
             await page.getByRole('button', { name: 'Create match' }).click();
             await expect
                 .poll(() => page.evaluate(() => window.location.pathname.match(/^\/match\/([^/]+)$/)?.[1] ?? null), {
@@ -236,7 +236,7 @@ test.describe('semantic route browser history', () => {
             // collects the filling match; routing must not resurrect it or
             // alter matchmaking semantics when the stale route is revisited.
             await page.getByRole('button', { name: 'Leave to lobby' }).click();
-            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            await expect(page.locator('h1')).toContainText('Europa Neo Lobby');
 
             // Browser history traverses the released entry. No document
             // navigation should occur: popstate re-resolves the route and
@@ -251,10 +251,10 @@ test.describe('semantic route browser history', () => {
             await expect(page.getByRole('heading', { name: 'Match unavailable' })).toBeVisible();
             await page.getByRole('button', { name: 'Return to lobby' }).click();
             await expectPath(page, '/lobby');
-            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            await expect(page.locator('h1')).toContainText('Europa Neo Lobby');
             await page.goForward();
             await expectPath(page, '/lobby');
-            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            await expect(page.locator('h1')).toContainText('Europa Neo Lobby');
             expect(fullNavigations).toBe(0);
             page.off('load', onDocumentLoad);
         } finally {
@@ -278,7 +278,7 @@ test.describe('semantic route browser history', () => {
             // Set a handle to complete the identity flow.
             await setHandleViaProfile(page, 'RecoveryTester');
             await expect(page).toHaveURL(/\/lobby/);
-            await expect(page.locator('h1')).toContainText('Europa Neo lobby');
+            await expect(page.locator('h1')).toContainText('Europa Neo Lobby');
             // Refresh — named identity persists, lobby is stable.
             await page.reload({ waitUntil: 'domcontentloaded' });
             await expect(page).toHaveURL(/\/lobby/);

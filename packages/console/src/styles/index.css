@@ -644,8 +644,8 @@ body {
 }
 
 /* Override catalog.europa-focus-ring default outline: the h1 shows a
-   visible white ring in default state (var(--europa-color-focus-ring) = #fff).
-   Hide it; re-show on :focus-visible per WCAG 2.4.7. */
+   visible white ring in default state. Hide it; re-show on :focus-visible
+   per WCAG 2.4.7. */
 .europa-lobby__title.europa-focus-ring {
     outline-color: transparent;
 }
@@ -869,7 +869,7 @@ body {
 
 .europa-lobby__button--primary:hover:not(:disabled) {
     background-color: var(--europa-color-city);
-    box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 12px var(--europa-color-accent-glow-strong);
 }
 
 /* Secondary button variant: transparent bg, white border. */
@@ -979,7 +979,7 @@ body {
 /* Waiting: green with glow. */
 .europa-lobby__status-dot--waiting {
     background-color: var(--europa-color-green);
-    box-shadow: 0 0 8px rgba(5, 150, 105, 0.5);
+    box-shadow: 0 0 8px var(--europa-color-green-glow);
 }
 
 /* Playing: amber with pulse. */
@@ -1633,7 +1633,7 @@ body {
     width: 300px;
     height: 300px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--europa-color-accent-glow) 0%, transparent 70%);
     pointer-events: none;
     z-index: -1;
 }

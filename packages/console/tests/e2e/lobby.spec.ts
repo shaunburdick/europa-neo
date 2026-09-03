@@ -510,7 +510,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // -- FR-012: Leave returns spectator to lobby ------------------------
         await cara.locator('[data-europa-leave="true"]').click();
         await waitUntilLobby(cara, (l) => l.viewMode === 'lobby', 'Cara returns to lobby');
-        await expect(cara.locator('h1')).toContainText('Europa Neo lobby');
+        await expect(cara.locator('h1')).toContainText('Europa Neo Lobby');
 
         // -- Zero page errors -----------------------------------------------
         expect(errors).toEqual([]);
@@ -676,7 +676,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // Identity preserved: handle still shown (the input is for editing and
         // resets on remount, but the handle text in the status line confirms
         // the identity survived the view transition).
-        await expect(page.locator('.europa-lobby__handle')).toContainText('Solo');
+        await expect(page.locator('.europa-lobby__identity-name')).toContainText('Solo');
 
         // The match list is visible again.
         await expect(page.getByRole('heading', { name: 'Public matches' })).toBeVisible();
