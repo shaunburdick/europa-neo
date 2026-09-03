@@ -13,6 +13,7 @@
  */
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { Tooltip } from '../../../src/qol/tooltip';
 import '../../../src/styles/index.css';
@@ -59,7 +60,8 @@ describe('Tooltip component', () => {
     describe('desktop hover', () => {
         test('mouseenter on wrapper shows the tooltip', async () => {
             const wrapper = await renderTrigger('Hover me');
-            wrapper.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            const user = userEvent.setup();
+            await user.hover(wrapper);
             // Allow React state update.
             await vi.waitFor(() => {
                 expect(tooltipEl()?.classList.contains('europa-tooltip--hidden')).toBe(false);
@@ -68,12 +70,13 @@ describe('Tooltip component', () => {
 
         test('mouseleave on wrapper hides the tooltip', async () => {
             const wrapper = await renderTrigger('Hover me');
-            wrapper.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            const user = userEvent.setup();
+            await user.hover(wrapper);
             await vi.waitFor(() => {
                 expect(tooltipEl()?.classList.contains('europa-tooltip--hidden')).toBe(false);
             });
 
-            wrapper.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+            await user.unhover(wrapper);
             await vi.waitFor(() => {
                 expect(tooltipEl()?.classList.contains('europa-tooltip--hidden')).toBe(true);
             });
@@ -111,10 +114,11 @@ describe('Tooltip component', () => {
 
         test('wrapper has aria-describedby when tooltip is visible', async () => {
             const wrapper = await renderTrigger('ARIA describedby');
+            const user = userEvent.setup();
             // Initially no aria-describedby (tooltip hidden).
             expect(wrapper.getAttribute('aria-describedby')).toBeNull();
 
-            wrapper.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            await user.hover(wrapper);
             await vi.waitFor(() => {
                 const describedBy = wrapper.getAttribute('aria-describedby');
                 expect(describedBy).not.toBeNull();
@@ -125,12 +129,13 @@ describe('Tooltip component', () => {
 
         test('wrapper removes aria-describedby when tooltip hides', async () => {
             const wrapper = await renderTrigger('ARIA cleanup');
-            wrapper.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            const user = userEvent.setup();
+            await user.hover(wrapper);
             await vi.waitFor(() => {
                 expect(wrapper.getAttribute('aria-describedby')).not.toBeNull();
             });
 
-            wrapper.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+            await user.unhover(wrapper);
             await vi.waitFor(() => {
                 expect(wrapper.getAttribute('aria-describedby')).toBeNull();
             });

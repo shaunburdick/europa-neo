@@ -38,6 +38,10 @@
 }
 
 .europa-help-overlay__legend-symbol {
+    display: contents;
+}
+
+.europa-help-overlay__legend dt {
     display: flex;
     align-items: center;
     gap: var(--europa-spacing-xs);
@@ -47,9 +51,10 @@
     white-space: nowrap;
 }
 
-.europa-help-overlay__legend-desc {
+.europa-help-overlay__legend dd {
     font-size: var(--europa-typography-size-sm);
     color: var(--europa-color-text-secondary);
+    margin: 0;
 }
 
 /* Keyboard shortcuts table (FR-005). */

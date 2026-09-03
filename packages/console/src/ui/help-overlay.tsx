@@ -31,7 +31,8 @@ import './help-overlay.css';
 
 // JSX intrinsic declaration for the <europa-modal> web component from
 // @europa/design. The component is registered at runtime; this
-// declaration lets TypeScript accept the tag in JSX.
+// declaration lets TypeScript accept the tag in JSX. Children are
+// projected via the default <slot> inside the shadow root.
 declare module 'react' {
     namespace JSX {
         interface IntrinsicElements {
@@ -39,6 +40,8 @@ declare module 'react' {
                 title?: string;
                 open?: boolean;
                 onEuropaClose?: (() => void) | undefined;
+                children?: React.ReactNode;
+                ref?: React.Ref<HTMLElement>;
             };
         }
     }
@@ -139,7 +142,7 @@ export function HelpOverlay({
     };
 
     return (
-        <europa-modal ref={setModalRef} title="Game Help" {...(open ? { open: '' } : {})}>
+        <europa-modal ref={setModalRef} title="Game Help" {...(open ? { open: true } : {})}>
             <div className="europa-help-overlay__content">
                 {/* Symbol Legend (FR-004) */}
                 <h2 id="help-legend-title" className="europa-help-overlay__section-title">
@@ -147,10 +150,10 @@ export function HelpOverlay({
                 </h2>
                 <dl className="europa-help-overlay__legend">
                     {SYMBOL_LEGEND.map((entry) => (
-                        <span key={entry.symbol} className="europa-help-overlay__legend-symbol">
+                        <div key={entry.symbol} className="europa-help-overlay__legend-symbol">
                             <dt>{entry.symbol}</dt>
                             <dd className="europa-help-overlay__legend-desc">{entry.description}</dd>
-                        </span>
+                        </div>
                     ))}
                 </dl>
 
