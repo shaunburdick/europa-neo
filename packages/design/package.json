@@ -31,7 +31,7 @@
     ],
     "scripts": {
         "clean": "rm -rf dist",
-        "build": "tsx scripts/build-css.ts --emit-module && tsup && tsx scripts/generate-brand.ts && tsx scripts/build-css.ts && tsx scripts/vendor-to-docs.ts && tsx scripts/assert-brand-output.ts && pnpm check:brand-types && tsx scripts/check-brand-surface.ts",
+        "build": "tsx scripts/build-css.ts --emit-module && tsup && tsx scripts/generate-brand.ts && tsx scripts/build-css.ts && tsx scripts/generate-contrast-notes.ts && tsx scripts/vendor-to-docs.ts && tsx scripts/assert-brand-output.ts && pnpm check:brand-types && tsx scripts/check-brand-surface.ts",
         "dev": "vite playground",
         "dev:build": "pnpm build && vite preview playground",
         "vendor": "tsx scripts/vendor-to-docs.ts",
@@ -41,6 +41,7 @@
         "check:component-catalog": "tsx scripts/check-component-catalog.ts",
         "check:bundle-size": "tsx scripts/check-bundle-size.ts",
         "check:brand-surface": "tsx scripts/check-brand-surface.ts",
+        "check:contrast-notes": "tsx scripts/check-contrast-notes.ts",
         "check:brand-types": "tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck tests/brand/package-surface.types.ts",
         "test": "vitest run",
         "test:watch": "vitest",

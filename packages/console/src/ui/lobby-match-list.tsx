@@ -168,9 +168,15 @@ export function LobbyMatchList({
                     Loading public matches…
                 </p>
             ) : entries.length === 0 ? (
-                <p className="europa-lobby__empty" data-europa-lobby-empty="true">
-                    No public matches right now — create one to get started.
-                </p>
+                <div className="europa-empty-state" data-europa-lobby-empty="true">
+                    <span className="europa-empty-state__icon" aria-hidden="true">
+                        ⚔
+                    </span>
+                    <p className="europa-empty-state__title">No matches</p>
+                    <p className="europa-empty-state__message">
+                        No public matches right now — create one to get started.
+                    </p>
+                </div>
             ) : (
                 <ul className="europa-lobby__rows" aria-busy={loading || busy}>
                     {entries.map((entry) => (

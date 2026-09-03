@@ -195,22 +195,27 @@ export function LobbyLanding({
                 </europa-banner>
             ) : null}
             <main id="main" className="europa-lobby">
-                {/* Combined lockup logo (spec 015 FR-012, AC-005): the
-              primary visual identity on the lobby screen. Meaningful
-              image — the alt text names the product; the h1 carries the
-              page-level heading. No duplicate text label beside the logo
-              (spec constraint). Uses the dark-background variant for the
-              lobby's dark page background. */}
-                <img
-                    src="assets/brand/europa-neo-lockup-dark.svg"
-                    alt="Europa Neo"
-                    className="europa-lobby__logo"
-                    width={240}
-                    height={80}
-                />
-                <h1 ref={headingRef} tabIndex={-1} className="europa-lobby__title europa-focus-ring">
-                    Europa Neo lobby
-                </h1>
+                {/* Hero section (FR-026, AC-029): centered logo + title
+              with generous vertical padding. The logo scales down on
+              viewports < 768px via responsive max-width in the CSS. */}
+                <div className="europa-lobby__hero">
+                    {/* Combined lockup logo (spec 015 FR-012, AC-005): the
+                  primary visual identity on the lobby screen. Meaningful
+                  image — the alt text names the product; the h1 carries the
+                  page-level heading. No duplicate text label beside the logo
+                  (spec constraint). Uses the dark-background variant for the
+                  lobby's dark page background. */}
+                    <img
+                        src="assets/brand/europa-neo-lockup-dark.svg"
+                        alt="Europa Neo"
+                        className="europa-lobby__logo"
+                        width={240}
+                        height={80}
+                    />
+                    <h1 ref={headingRef} tabIndex={-1} className="europa-lobby__title europa-focus-ring">
+                        Europa Neo lobby
+                    </h1>
+                </div>
                 {/* SUPERSESSION (US4/security invariant): the session's
             claim was taken over or evicted elsewhere. Distinct visual
             + verbal treatment; acknowledgement is explicit. */}
@@ -244,7 +249,7 @@ export function LobbyLanding({
                     </p>
                 ) : null}
                 <div className="europa-lobby__grid">
-                    <section className="europa-lobby__card" aria-label="Identity">
+                    <section className="europa-lobby__card europa-lobby__card--identity" aria-label="Identity">
                         <p className="europa-lobby__status-line" data-europa-identity-status={state.identityStatus}>
                             {state.identityStatus === 'restoring' ? (
                                 'Restoring…'

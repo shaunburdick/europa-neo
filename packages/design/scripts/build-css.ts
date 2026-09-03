@@ -29,6 +29,11 @@
  * shadow boundaries so the `:root` block is unnecessary inside shadow
  * roots.
  *
+ * Token JSON (FR-006): the `--emit-json` flag writes `dist/tokens.json`
+ * — a machine-readable JSON array of every CSS variable with `group`,
+ * `name`, `cssVar`, and `value` fields, sorted lexicographically by
+ * `cssVar`.
+ *
  * No runtime dependencies — node:* builtins plus this package's own
  * source, executed by the workspace-catalog `tsx` runner (mirrors
  * `packages/version/scripts/check-version-drift.ts`).
@@ -85,6 +90,20 @@ function collectEntries(): ReadonlyArray<{ cssVar: string; value: string }> {
 }
 
 /**
+ * Inline CSS comments emitted before specific token declarations (FR-046).
+ *
+ * Maps a CSS variable name to the comment text that should appear on the
+ * line immediately before its declaration in the `:root` block. Only the
+ * two background tokens receive comments — the distinction between
+ * `void-bg` (board/canvas recessed background) and `page-bg` (outermost
+ * page background) is a common source of confusion.
+ */
+const TOKEN_COMMENTS: Record<string, string> = {
+    '--europa-color-page-bg': '/* page-bg: the outermost page background (lobby, manual pages) */',
+    '--europa-color-void-bg': '/* void-bg: the board/canvas recessed background (distinct from page-bg) */',
+};
+
+/**
  * Build the deterministic CSS text for the current {@link TOKENS}.
  *
  * Output shape:
@@ -96,16 +115,63 @@ function collectEntries(): ReadonlyArray<{ cssVar: string; value: string }> {
  * ```
  * LF line endings, UTF-8, no BOM, no timestamp, single `:root` block.
  *
+ * Inline comments are added before the two background tokens (FR-046) to
+ * document the `void-bg` vs `page-bg` distinction.
+ *
  * @returns The complete CSS file contents (trailing LF included).
  */
 export function buildCssText(): string {
     const entries = collectEntries();
     const lines: string[] = [':root {'];
     for (const entry of entries) {
+        const comment = TOKEN_COMMENTS[entry.cssVar] ?? '';
+        if (comment.length > 0) {
+            lines.push(`  ${comment}`);
+        }
         lines.push(`  ${entry.cssVar}: ${entry.value};`);
     }
     lines.push('}');
     return `${lines.join('\n')}\n`;
+}
+
+/**
+ * Build a machine-readable JSON representation of the token table (FR-006).
+ *
+ * Each entry contains the token group, camelCase name, CSS variable name,
+ * and string value. Sorted lexicographically by `cssVar` for deterministic
+ * output consumed by tooling, documentation generators, and the design
+ * system preview page.
+ *
+ * @returns Sorted list of token entries.
+ */
+export function buildTokensJson(): ReadonlyArray<{
+    group: string;
+    name: string;
+    cssVar: string;
+    value: string;
+}> {
+    const entries: Array<{ group: string; name: string; cssVar: string; value: string }> = [];
+    const groups = Object.keys(TOKENS).sort();
+
+    for (const group of groups) {
+        const groupValue = TOKENS[group as keyof typeof TOKENS] as Record<string, string | number>;
+        const leafKeys = Object.keys(groupValue).sort();
+        const groupKebab = toKebabCase(group);
+
+        for (const leafKey of leafKeys) {
+            const rawValue = groupValue[leafKey];
+            if (rawValue === undefined) {
+                continue;
+            }
+            const leafKebab = toKebabCase(leafKey);
+            const cssVar = `--europa-${groupKebab}-${leafKebab}`;
+            const cssValue = typeof rawValue === 'number' ? String(rawValue) : rawValue;
+            entries.push({ group, name: leafKey, cssVar, value: cssValue });
+        }
+    }
+
+    entries.sort((left, right) => left.cssVar.localeCompare(right.cssVar));
+    return entries;
 }
 
 /**
@@ -293,11 +359,25 @@ export async function writeDesignCss(designRoot: string = resolveDesignRoot()): 
  */
 const EMIT_MODULE_FLAG = '--emit-module';
 
+/**
+ * CLI flag selecting JSON-only emission — writes only
+ * `dist/tokens.json` (no `dist/design.css`, no catalog module). A
+ * machine-readable representation of the complete token table (FR-006).
+ */
+const EMIT_JSON_FLAG = '--emit-json';
+
 const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 
 if (isMain) {
     if (process.argv.includes(EMIT_MODULE_FLAG)) {
         await emitCatalogStylesModule();
+    } else if (process.argv.includes(EMIT_JSON_FLAG)) {
+        const entries = buildTokensJson();
+        const designRoot = resolveDesignRoot();
+        const outPath = path.join(designRoot, 'dist', 'tokens.json');
+        await mkdir(path.dirname(outPath), { recursive: true });
+        await writeFile(outPath, `${JSON.stringify(entries, null, 2)}\n`, 'utf8');
+        console.log(`Wrote ${entries.length} entries to ${outPath}`);
     } else {
         await writeDesignCss();
     }
