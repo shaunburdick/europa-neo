@@ -31,8 +31,8 @@ import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 
 import { FakeMatchClient } from '../../src/internal/fake-match-client';
-import { MapCanvas } from '../../src/render/canvas';
 import { App } from '../../src/render/App';
+import { MapCanvas } from '../../src/render/canvas';
 import { cellElementId } from '../../src/render/cell-view';
 import { SurrenderModal } from '../../src/render/SurrenderModal';
 import { createOrderBridge } from '../../src/state/order-actions';
@@ -232,9 +232,7 @@ describe('WCAG 2.1.1 — palette keyboard operability', () => {
         await user.keyboard('{Tab}');
         expect(document.activeElement?.id).toBe('order-bar');
 
-        const exclusiveButton = document.querySelector(
-            '#order-bar button[aria-pressed]',
-        ) as HTMLButtonElement | null;
+        const exclusiveButton = document.querySelector('#order-bar button[aria-pressed]') as HTMLButtonElement | null;
         expect(exclusiveButton).not.toBeNull();
         exclusiveButton?.focus();
         expect(document.activeElement).toBe(exclusiveButton);
