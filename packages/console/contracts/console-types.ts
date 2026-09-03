@@ -530,6 +530,12 @@ export const DEFAULT_PLAYER_COLORS: Readonly<Record<PlayerId, string>> = {
   4: '#d97706',
 };
 
+/**
+ * Fallback color for spectators (no player ID).
+ * Gray-500 — neutral, distinct from all player colors.
+ */
+export const SPECTATOR_COLOR = '#888888';
+
 // ----------------------------------------------------------------------------
 // ConsoleState (the global, non-render state)
 // ----------------------------------------------------------------------------

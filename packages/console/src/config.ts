@@ -26,5 +26,6 @@ export {
     DEFAULT_INPUT_MAPPING,
     DEFAULT_PLAYER_COLORS,
     DEFAULT_QOL_SETTINGS,
+    SPECTATOR_COLOR,
     SUBCELL_RANGE,
 } from '../contracts/console-types';

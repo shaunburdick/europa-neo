@@ -53,7 +53,7 @@ import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
-import { DEFAULT_PLAYER_COLORS } from '../state/types';
+import { DEFAULT_PLAYER_COLORS, SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
 import { OrderBar } from '../ui/order-bar';
 import { ParticipantStrip } from '../ui/participants';
@@ -570,7 +570,7 @@ export function App({
                         playerColor={
                             resolvedState.session.playerId !== null
                                 ? DEFAULT_PLAYER_COLORS[resolvedState.session.playerId]
-                                : '#888888'
+                                : SPECTATOR_COLOR
                         }
                         matchStatus={resolvedState.status}
                         playerCount={resolvedState.session.opponents.length + 1}
