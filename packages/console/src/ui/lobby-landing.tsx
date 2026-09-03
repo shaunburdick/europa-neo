@@ -249,7 +249,10 @@ export function LobbyLanding({
                     </p>
                 ) : null}
                 <div className="europa-lobby__grid">
-                    <section className="europa-lobby__card europa-lobby__card--identity" aria-label="Identity">
+                    <section
+                        className="europa-lobby__card europa-lobby__card--identity europa-lobby__card--wide"
+                        aria-label="Identity"
+                    >
                         <p className="europa-lobby__status-line" data-europa-identity-status={state.identityStatus}>
                             {state.identityStatus === 'restoring' ? (
                                 'Restoring…'
