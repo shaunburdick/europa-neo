@@ -19,7 +19,11 @@ pnpm format:check
 echo ""
 
 # Phase 3: Console library emit + conformance (mirrors console-lint + console-e2e)
+# Clean dist/ first — mirrors CI's fresh checkout where no residual build
+# artifacts exist. Without this, stale dist/ files mask import-resolution
+# bugs (e.g., CSS imports resolved by leftover vite output).
 echo "--- Phase 3: Console library emit + conformance ---"
+rm -rf packages/console/dist
 pnpm --filter @europa/console build:lib
 pnpm --filter @europa/console typecheck:conformance
 echo ""
