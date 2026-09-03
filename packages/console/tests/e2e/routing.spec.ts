@@ -211,14 +211,12 @@ test.describe('semantic route browser history', () => {
             // semantic history transition below is still same-document.
             await page.context().addInitScript(preserveWsQueryInHistory);
             await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
-            // Wait for either the profile redirect or the lobby heading,
-            // then set a handle via the profile route.
-            await page.waitForFunction(
-                () =>
-                    window.location.pathname === '/profile' ||
-                    document.querySelector('h1')?.textContent?.includes('Europa Neo lobby'),
-                { timeout: WAIT_TIMEOUT },
-            );
+            // The US1 identity gate redirects unnamed visitors from /lobby
+            // to /profile. Wait for the redirect (not the lobby heading —
+            // the heading renders before identity resolves, creating a race
+            // where setHandleViaProfile tries to click "Choose a name"
+            // while the link is still hidden during the 'restoring' state).
+            await expect(page).toHaveURL(/\/profile/, { timeout: WAIT_TIMEOUT });
             await setHandleViaProfile(page, 'Bob');
             await waitForLobby(page);
             await expect(page.locator('.europa-lobby__handle')).toContainText('Bob');
