@@ -1,0 +1,79 @@
+/*
+ * Tooltip system — Feature 018 (In-Match Help Overlay, FR-010–FR-013).
+ *
+ * Lightweight CSS positioning for contextual tooltips on HUD elements.
+ * No external library — pure CSS + React event handlers.
+ *
+ * Design tokens sourced from @europa/design via var(--europa-*)
+ * (constitution Principle I + contract §6).
+ *
+ * Accessibility: role="tooltip" + aria-describedby handled by the
+ * React component; CSS handles appearance and animation only.
+ * Reduced-motion suppression (FR-014 / WCAG 2.3.3) is enforced
+ * via the @media guard below and the component's modifier class.
+ */
+
+/* Tooltip wrapper: position relative on the trigger's parent so the
+   absolutely-positioned tooltip is scoped to the HUD container. */
+.europa-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+/* The tooltip element itself: absolutely positioned relative to its
+   position-absolute parent. Positioned above by default; the "below"
+   modifier flips it. */
+.europa-tooltip {
+    position: absolute;
+    z-index: 500;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 240px;
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    box-shadow: var(--europa-shadows-plate);
+    font-size: var(--europa-typography-size-xs);
+    line-height: var(--europa-typography-line-height-normal);
+    white-space: normal;
+    text-align: center;
+    pointer-events: none;
+
+    /* Fade-in animation (FR-012). Duration is short to feel instant. */
+    opacity: 1;
+    transition: opacity 0.15s ease-in-out;
+}
+
+/* Above the trigger (default). */
+.europa-tooltip--above {
+    bottom: calc(100% + 6px);
+    top: auto;
+}
+
+/* Below the trigger (FR-013 flip variant). */
+.europa-tooltip--below {
+    top: calc(100% + 6px);
+    bottom: auto;
+}
+
+/* Fade-out state: hidden tooltip with transition. */
+.europa-tooltip--hidden {
+    opacity: 0;
+}
+
+/* Trigger element gets a subtle underline on hover/focus to signal
+   tooltip availability (desktop only). */
+.europa-tooltip-wrap:hover > .europa-tooltip-trigger,
+.europa-tooltip-wrap:focus-within > .europa-tooltip-trigger {
+    text-decoration-style: dotted;
+    text-decoration-line: underline;
+}
+
+/* Reduced-motion: suppress all animations (WCAG 2.3.3 / FR-014). */
+@media (prefers-reduced-motion: reduce) {
+    .europa-tooltip {
+        transition: none;
+    }
+}
