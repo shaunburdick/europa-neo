@@ -31,14 +31,7 @@ import type { PublicLobbyEntry } from '@europa/matchmaking';
 import type { JSX } from 'react';
 import type { LobbyActionError } from '../state/lobby-state';
 import type { MatchId } from '../state/types';
-import {
-    describeActionError,
-    formatEntrySettings,
-    formatOccupancy,
-    isJoinable,
-    lobbyStatusLabel,
-    rowActionLabel,
-} from './lobby-labels';
+import { describeActionError, formatEntrySettings, isJoinable, lobbyStatusLabel, rowActionLabel } from './lobby-labels';
 
 /** Props for {@link LobbyMatchList}. */
 export interface LobbyMatchListProps {
@@ -80,17 +73,49 @@ function MatchRow({
     readonly onSpectate: (matchId: MatchId) => void;
 }): JSX.Element {
     const joinable = isJoinable(entry);
+
+    /** Derive the status dot class from the match status. */
+    function statusDotClass(): string {
+        if (entry.status === 'waiting') {
+            return joinable ? 'europa-lobby__status-dot--waiting' : 'europa-lobby__status-dot--full';
+        }
+        if (entry.status === 'in_progress') {
+            return 'europa-lobby__status-dot--playing';
+        }
+        return 'europa-lobby__status-dot--full';
+    }
+
     return (
-        <li className="europa-lobby__row" data-match-id={entry.matchId} data-status={entry.status}>
+        <li
+            className={`europa-lobby__row${ownMatch ? ' europa-lobby__row--own' : ''}`}
+            data-match-id={entry.matchId}
+            data-status={entry.status}
+        >
             <div className="europa-lobby__row-main">
+                {/* Status dot indicator. */}
+                <span className="europa-lobby__status-indicator">
+                    <span className={`europa-lobby__status-dot ${statusDotClass()}`} aria-hidden="true" />
+                </span>
+                {/* Player occupancy dots. */}
+                <span className="europa-lobby__player-dots">
+                    <span className="europa-visually-hidden">
+                        {entry.seatsFilled} of {entry.capacity} players
+                    </span>
+                    {Array.from({ length: entry.capacity }, (_, i) => (
+                        <span
+                            key={i}
+                            className={`europa-lobby__player-dot ${i < entry.seatsFilled ? 'europa-lobby__player-dot--filled' : 'europa-lobby__player-dot--empty'}`}
+                            aria-hidden="true"
+                        />
+                    ))}
+                </span>
                 {/* The id is a server-minted UUID (safe charset) rendered as
           opaque text; handles never appear in listings (privacy
           envelope), so no `<bdi>` is required here. */}
                 <span className="europa-lobby__row-id">Match {entry.matchId.slice(0, 8)}</span>
                 {ownMatch ? <span className="europa-lobby__row-badge">Your match</span> : null}
                 <span className="europa-lobby__row-meta">
-                    {lobbyStatusLabel(entry.status)} · {formatOccupancy(entry.seatsFilled, entry.capacity)} ·{' '}
-                    {formatEntrySettings(entry)}
+                    {lobbyStatusLabel(entry.status)} · {formatEntrySettings(entry)}
                 </span>
             </div>
             <div className="europa-lobby__row-actions">
@@ -150,9 +175,16 @@ export function LobbyMatchList({
             aria-labelledby={headingId}
             aria-busy={loading || busy}
         >
-            <h2 id={headingId} className="europa-lobby__card-title">
-                Public matches
-            </h2>
+            <div className="europa-lobby__list-header">
+                <h2 id={headingId} className="europa-lobby__card-title">
+                    Public matches
+                </h2>
+                {!loading ? (
+                    <span className="europa-lobby__list-count" aria-hidden="true">
+                        {entries.length}
+                    </span>
+                ) : null}
+            </div>
             {actionError !== null ? (
                 <p className="europa-lobby__error" id={errorId} role="alert">
                     {describeActionError(actionError)}

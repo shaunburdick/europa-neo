@@ -316,7 +316,7 @@ describe('lobby keyboard-only use (SC-006 / dimension 8)', () => {
         const loadingStatus = screen.getByText('Loading public matches…');
         await expect.element(loadingStatus).toBeVisible();
 
-        const listCard = screen.getByRole('heading', { name: 'Public matches' }).element().parentElement;
+        const listCard = screen.getByRole('heading', { name: 'Public matches' }).element().closest('section');
         expect(listCard?.getAttribute('aria-busy')).toBe('true');
         expect(loadingStatus.element().getAttribute('role')).toBe('status');
         expect(loadingStatus.element().getAttribute('aria-live')).toBe('polite');

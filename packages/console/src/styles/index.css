@@ -607,9 +607,9 @@ body {
  * ---------------------------------------------------------------------------
  */
 
-/* Page column: centered single-column layout, comfortable measure. */
+/* Page column: centered layout, wider for two-column grid. */
 .europa-lobby {
-    max-width: 60rem;
+    max-width: 1100px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -632,7 +632,15 @@ body {
    programmatically (WCAG 2.4.7). */
 .europa-lobby__title {
     margin: 0;
-    font-size: var(--europa-typography-size3xl);
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-weight: 600;
+}
+
+/* Hero subtitle: muted descriptive text below the title. */
+.europa-lobby__subtitle {
+    margin: 0.5rem 0 0;
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-base);
 }
 
 /* Override catalog.europa-focus-ring default outline: the h1 shows a
@@ -647,26 +655,56 @@ body {
 
 .europa-lobby__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    grid-template-columns: 1fr 1.5fr;
     gap: var(--europa-spacing-lg);
     align-items: start;
 }
 
-/* Cards: identity + create sit in the grid; the match list spans wide. */
+/* Cards: identity + create sit in the sidebar; the match list spans wide. */
 .europa-lobby__card {
     padding: var(--europa-spacing-lg) var(--europa-spacing-xl);
     background-color: var(--europa-color-surface);
     border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
     border-radius: var(--europa-radii-plate);
+    box-shadow: var(--europa-shadows-plate);
+    transition:
+        box-shadow var(--europa-motion-transition-default),
+        transform var(--europa-motion-transition-default);
 }
 
 .europa-lobby__card--wide {
     grid-column: 1 / -1;
 }
 
+/* Sidebar column: stacks identity + create form vertically. */
+.europa-lobby__sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-lg);
+    align-items: stretch;
+}
+
 .europa-lobby__card-title {
     margin: 0 0 var(--europa-spacing-sm);
     font-size: var(--europa-typography-size-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-sm);
+}
+
+/* HOST badge pill next to "Create Match" title. */
+.europa-lobby__host-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem var(--europa-spacing-sm);
+    border-radius: var(--europa-radii-pill);
+    background-color: var(--europa-color-accent);
+    color: var(--europa-color-page-bg);
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 700;
+    letter-spacing: var(--europa-typography-tracking-wide);
+    text-transform: uppercase;
 }
 
 /* Status lines: muted but ≥ AA on the plate background. */
@@ -710,7 +748,7 @@ body {
 
 .europa-lobby__radio-row {
     display: flex;
-    gap: var(--europa-spacing-md);
+    gap: var(--europa-spacing-sm);
 }
 
 /* Radio labels: hit area above the WCAG 2.5.8 24px minimum. */
@@ -720,6 +758,36 @@ body {
     gap: 0.35rem;
     min-height: 24px;
     font-size: var(--europa-typography-size-base);
+}
+
+/* Visual option cards for player count (replaces plain radios). */
+.europa-lobby__option-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-secondary);
+    font-weight: 600;
+    font-size: var(--europa-typography-size-base);
+    cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast),
+        color var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__option-card:hover {
+    border-color: var(--europa-color-accent);
+}
+
+.europa-lobby__option-card--active {
+    background-color: var(--europa-color-accent);
+    border-color: var(--europa-color-accent);
+    color: var(--europa-color-page-bg);
 }
 
 .europa-lobby__input {
@@ -741,11 +809,70 @@ body {
     color: var(--europa-color-text-primary);
     font-size: var(--europa-typography-size-sm);
     cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast),
+        color var(--europa-motion-transition-fast),
+        box-shadow var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__button:active {
+    transform: translateY(1px);
 }
 
 .europa-lobby__button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
+}
+
+/* Primary button variant: accent bg, dark text. */
+.europa-lobby__button--primary {
+    background-color: var(--europa-color-accent);
+    border-color: var(--europa-color-accent);
+    color: var(--europa-color-page-bg);
+    font-weight: 600;
+}
+
+.europa-lobby__button--primary:hover:not(:disabled) {
+    background-color: var(--europa-color-city);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+/* Secondary button variant: transparent bg, white border. */
+.europa-lobby__button--secondary {
+    background-color: transparent;
+    border-color: var(--europa-color-text-primary);
+    color: var(--europa-color-text-primary);
+}
+
+.europa-lobby__button--secondary:hover:not(:disabled) {
+    border-color: var(--europa-color-text-primary);
+    background-color: var(--europa-color-surface-raised);
+}
+
+/* Ghost button variant: transparent, muted text. */
+.europa-lobby__button--ghost {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--europa-color-text-muted);
+}
+
+.europa-lobby__button--ghost:hover:not(:disabled) {
+    color: var(--europa-color-text-primary);
+}
+
+/* Full-width button variant. */
+.europa-lobby__button--full {
+    width: 100%;
+    align-self: stretch;
+    justify-content: center;
+}
+
+/* Small button variant. */
+.europa-lobby__button--sm {
+    padding: 0.2rem var(--europa-spacing-sm);
+    font-size: var(--europa-typography-size-xs);
 }
 
 /* Inline field/form errors: role="alert" announces them; the left
@@ -779,6 +906,95 @@ body {
     border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
     border-radius: var(--europa-radii-card);
     background-color: var(--europa-color-void-bg);
+    transition:
+        border-color var(--europa-motion-transition-fast),
+        background-color var(--europa-motion-transition-fast),
+        transform var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__row:hover {
+    border-color: var(--europa-color-accent);
+    background-color: var(--europa-color-surface);
+    transform: translateX(4px);
+}
+
+/* Own match: left accent border + accent border + surface bg. */
+.europa-lobby__row--own {
+    border-left: 3px solid var(--europa-color-accent);
+    border-color: var(--europa-color-accent);
+    background-color: var(--europa-color-surface);
+}
+
+.europa-lobby__row--own:hover {
+    border-color: var(--europa-color-accent);
+}
+
+/* Status dot: 8px circle with semantic colors. */
+.europa-lobby__status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.europa-lobby__status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Waiting: green with glow. */
+.europa-lobby__status-dot--waiting {
+    background-color: var(--europa-color-green);
+    box-shadow: 0 0 8px rgba(5, 150, 105, 0.5);
+}
+
+/* Playing: amber with pulse. */
+.europa-lobby__status-dot--playing {
+    background-color: var(--europa-color-accent);
+    animation: europa-status-pulse 2s ease-in-out infinite;
+}
+
+@keyframes europa-status-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .europa-lobby__status-dot--playing {
+        animation: none;
+    }
+}
+
+/* Full: muted gray. */
+.europa-lobby__status-dot--full {
+    background-color: var(--europa-color-text-muted);
+}
+
+/* Player indicators: dot grid. */
+.europa-lobby__player-dots {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.europa-lobby__player-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.europa-lobby__player-dot--filled {
+    background-color: var(--europa-color-accent);
+}
+
+.europa-lobby__player-dot--empty {
+    background-color: var(--europa-color-text-muted);
 }
 
 .europa-lobby__row-main {
@@ -798,12 +1014,14 @@ body {
 /* "Your match" badge (US4 AC-4): text badge + amber edge — never color
    alone (constitution Principle VI). */
 .europa-lobby__row-badge {
-    padding: 0 var(--europa-spacing-sm);
-    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
+    padding: 0.1rem var(--europa-spacing-sm);
     border-radius: var(--europa-radii-pill);
-    color: var(--europa-color-city);
+    background-color: var(--europa-color-chip-bg);
+    color: var(--europa-color-accent);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
     font-size: var(--europa-typography-size-xs);
     font-weight: 700;
+    letter-spacing: var(--europa-typography-tracking-wide);
 }
 
 .europa-lobby__row-meta {
@@ -822,14 +1040,60 @@ body {
     font-weight: 600;
 }
 
-/* Empty state (US2 AC-4): explicit, quiet, actionable via the create
-   card beside it. */
+/* Match list header: title + count badge. */
+.europa-lobby__list-header {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-sm);
+    margin: 0 0 var(--europa-spacing-sm);
+}
+
+.europa-lobby__list-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    padding: 0 var(--europa-spacing-xs);
+    border-radius: var(--europa-radii-pill);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-muted);
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 600;
+}
+
+/* Empty state (redesigned): dashed border, centered content. */
 .europa-lobby__empty {
     margin: 0;
-    padding: var(--europa-spacing-md);
-    border: var(--europa-borders-width) dashed var(--europa-color-border);
+    padding: var(--europa-spacing-xl);
+    border: 2px dashed var(--europa-color-border);
     border-radius: var(--europa-radii-card);
     color: var(--europa-color-text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--europa-spacing-sm);
+    text-align: center;
+}
+
+.europa-lobby__empty-icon {
+    font-size: 3rem;
+    line-height: 1;
+    color: var(--europa-color-text-muted);
+}
+
+.europa-lobby__empty-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--europa-color-text-secondary);
+}
+
+.europa-lobby__empty-message {
+    margin: 0;
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-muted);
+    max-width: 24rem;
 }
 
 /* Superseded notice (session moved elsewhere): assertive plate with an
@@ -851,15 +1115,38 @@ body {
     font-size: var(--europa-typography-size-base);
 }
 
-/* Active-match note (US4 AC-4 visibility of the association). */
+/* Active-match banner (redesigned): blue border, icon, resume button. */
 .europa-lobby__active-note {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-md);
     margin: 0;
     padding: var(--europa-spacing-sm) var(--europa-spacing-md);
-    border-left: 3px solid var(--europa-color-blue);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-blue);
     background-color: var(--europa-color-surface);
-    border-radius: var(--europa-radii-input);
+    border-radius: var(--europa-radii-plate);
     color: var(--europa-color-text-secondary);
     font-size: var(--europa-typography-size-sm);
+}
+
+/* Active match icon: lightning bolt in a blue circle. */
+.europa-lobby__active-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--europa-color-blue);
+    color: var(--europa-color-text-primary);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+/* Active match text content. */
+.europa-lobby__active-text {
+    flex: 1;
+    min-width: 0;
 }
 
 /*
@@ -1135,8 +1422,8 @@ body {
 
 /* T-032: Lobby grid responsive breakpoints (FR-022, AC-024/025).
    ≤480px: tighter lobby padding + single-column grid.
-   ≤768px: single-column grid (auto-fit collapses to one column).
-   769–1199px: explicit two-column grid. */
+   ≤768px: single-column grid.
+   769px+: two-column grid (1fr sidebar + 1.5fr match list). */
 @media (max-width: 480px) {
     .europa-lobby {
         padding: var(--europa-spacing-sm);
@@ -1146,12 +1433,6 @@ body {
 @media (max-width: 768px) {
     .europa-lobby__grid {
         grid-template-columns: 1fr;
-    }
-}
-
-@media (min-width: 769px) and (max-width: 1199px) {
-    .europa-lobby__grid {
-        grid-template-columns: repeat(2, 1fr);
     }
 }
 
@@ -1302,10 +1583,26 @@ body {
 }
 
 /* T-026/F: Lobby hero section (FR-026, AC-029).
-   Centered logo + title with generous vertical padding. */
+   Centered logo + title with generous vertical padding + radial glow. */
 .europa-lobby__hero {
     text-align: center;
     padding: var(--europa-spacing-xl) 0;
+    position: relative;
+}
+
+/* Subtle radial gradient glow behind the hero. */
+.europa-lobby__hero::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: -1;
 }
 
 /* Logo responsive scaling: constrained on viewports >= 768px. */
@@ -1319,4 +1616,72 @@ body {
    Left-border accent distinguishes the identity card. */
 .europa-lobby__card--identity {
     border-left: 3px solid var(--europa-color-accent);
+}
+
+/* Identity card: gradient accent bar at top. */
+.europa-lobby__card--identity::before {
+    content: "";
+    display: block;
+    height: 3px;
+    margin: calc(-1 * var(--europa-spacing-lg)) calc(-1 * var(--europa-spacing-xl)) var(--europa-spacing-md);
+    background: linear-gradient(to right, var(--europa-color-accent), var(--europa-color-city));
+    border-radius: var(--europa-radii-plate) var(--europa-radii-plate) 0 0;
+}
+
+/* Identity card layout: avatar + info row. */
+.europa-lobby__identity-row {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-md);
+    margin-bottom: var(--europa-spacing-sm);
+}
+
+/* Avatar circle: initials on accent background. */
+.europa-lobby__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--europa-color-accent);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-accent);
+    font-weight: 700;
+    font-size: var(--europa-typography-size-lg);
+    flex-shrink: 0;
+}
+
+/* Identity info: name + status. */
+.europa-lobby__identity-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+/* Player name in identity card. */
+.europa-lobby__identity-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--europa-color-text-primary);
+}
+
+/* Status line with dot indicator. */
+.europa-lobby__identity-status {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-muted);
+}
+
+/* Status dot: green circle for online. */
+.europa-lobby__status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--europa-color-green);
+    flex-shrink: 0;
 }
