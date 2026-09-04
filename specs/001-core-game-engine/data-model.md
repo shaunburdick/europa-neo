@@ -1,131 +1,153 @@
-# Data Model: Elevation-Gradient Pipe Flow + Terrain Smoothing + Slope Color-Coding (issue #30)
+# Data Model: Total-Force Combat Resolution (issue #51)
 
-**Branch**: `issue-30-pipe-flow-rate` | **Date**: 2026-08-30 | **Specs**: 001 v1.2 · 003 v1.3 · 005 v1.2 · 006 ImplNotes · 007 v1.3 · 012 companion
+**Branch**: `issue-51-improved-combat` | **Date**: 2026-09-04 | **Specs**: 001 v1.4
 
-> **Delta document** — mirrors the `012-3-4-player-support/data-model.md` convention: only the entities this change set adds or alters are specified here. Unchanged entities (Board, Cell, City, TroopStack, PipeSet, Order, Player, GameState, TickResult, MapSeed, GeneratedMap, ValidationReport, ConsoleState, InputMapping, RenderLayer, QoLSettings, Match, Seat, LobbyEntry, RematchOffer) keep their existing definitions in the original feature data models.
->
-> Field types are TypeScript-flavored. All numeric game/generation values are integers (constitution II); the only floats in the system are the terrain generator's `waterRatio`/`roughness` settings and the console's paint-time HSL interpolation, both unchanged.
+> **Delta document** — only the entities this change set adds or alters are specified here. Unchanged entities keep their existing definitions in the original feature data models.
 
 ---
 
-## 1. `EngineConstants` — changed fields (spec 001 FR-007, Clarifications v1.1/v1.2)
-
-The slope model changes from multiplicative factors to a linear gradient. Two fields are **removed**, two are **added**; `flowBase` is retained with a new value.
-
-| Field | Type | Change | Value | Notes |
-| --- | --- | --- | --- | --- |
-| `flowDownhillFactor` | `number` (int) | **REMOVED** | — | Multiplicative-factor model is gone (001 v1.1 contract change). |
-| `flowUphillFactor` | `number` (int) | **REMOVED** | — | ditto |
-| `flowBase` | `number` (int) | **VALUE CHANGE** | `7` (was `1`) | Base troops per tick along a flat pipe. Raised 3→7 in v1.2 (re-validated against smoothed terrain). |
-| `flowSlopeStep` | `number` (int) | **ADDED** | `1` | Troops added/subtracted per unit of elevation change. |
-| `flowSlopeDeltaCap` | `number` (int) | **ADDED** | `5` | Caps the **downhill bonus** at `flowSlopeStep × 5` (working assumption R-1: the cap bounds the downhill bonus only; the uphill handicap is uncapped). |
-
-**Contract mirrors**: `packages/engine/src/contracts/engine-api.ts` and `specs/001-core-game-engine/contracts/engine-api.ts` change together (semantic-diff conformance test enforces). `ENGINE_API_VERSION` does not bump (internal constants type; no downstream package constructs `EngineConstants`).
-
-**Derived rates** (per-tick, at shipped constants): downhill `8/9/10/11/12` (Δ=1/2/3/4/≥5), flat `7`, uphill `6/5/4/3/2/1` (Δ=1..6), `0` (Δ≥7 — stall). A stalled pipe is legal and persistent (US1 AC-5).
-
-## 2. `flowRateForDelta` — new pure function (spec 001 FR-007)
-
-```ts
-flowRateForDelta(delta: number, constants: EngineConstants): number
-```
-
-- `delta < 0` (downhill): `flowBase + flowSlopeStep × min(|delta|, flowSlopeDeltaCap)`
-- `delta === 0` (flat): `flowBase`
-- `delta > 0` (uphill): `max(0, flowBase − flowSlopeStep × |delta|)` — uncapped handicap (working assumption R-1)
-
-**Constraints**: pure; integer arithmetic; deterministic (FR-017). Exported additively from `@europa/engine` (single source for engine tick, terrain reachable-land suite, console drift test). Informational mirror: `specs/001-core-game-engine/contracts/flow-rate.ts`.
-
-## 3. `GenerationSettings.terrainSmoothing` — new field (spec 003 FR-010, Clarifications v1.3)
-
-| Field | Type | Default | Safe range | Clamp | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `terrainSmoothing` | `number` (int) | `4` | `[0, 8]` | `clampTerrainSmoothing` (integer clamp via `clampInt`) | Number of 3×3 box-mean passes applied to the elevation field. `0` = no smoothing (byte-identical to pre-smoothing output). |
-
-**Plumbing** (each gains one line, mirroring the `citiesPerPlayer` pattern):
-- `resolveSettings(partial)` — fallback to `DEFAULT_GENERATION_SETTINGS.terrainSmoothing`.
-- `validateSettings(s)` — added to `integerFields` (finite + integer check).
-- `clampSettings(s)` — via `clampTerrainSmoothing`; `TERRAIN_SMOOTHING_MIN = 0`, `TERRAIN_SMOOTHING_MAX = 8` in `clamp.ts`.
-- `normalizeSettingsForPlayerCount` — passes through via the existing spread (no parity rule applies).
-- `effectiveSettings` — surfaced automatically in `TerrainGenerationResult` and `MapStats` (the field is part of `GenerationSettings`).
-
-**Contract mirrors**: `packages/terrain/src/contracts/terrain-types.ts` and `specs/003-procedural-terrain-generation/contracts/terrain-types.ts` change together (semantic-diff conformance test enforces). `TERRAIN_API_VERSION` does not bump (additive field).
-
-## 4. `smoothElevation` — new pure function (spec 003 FR-010)
-
-```ts
-smoothElevation(elev: Uint8Array, size: number, passes: number): Uint8Array
-```
-
-- **Kernel**: 3×3 box mean, divisor 9, coordinates clamped to `[0, size-1]` (edge cells replicate their edge).
-- **Rounding**: round-half-up via `Math.floor((sum + 4) / 9)` — integer-safe, deterministic (IEEE-754 correctly rounded division, identical on every engine).
-- **Passes**: `passes` applications; `passes === 0` returns the input unchanged (identity).
-- **Invariants**: pure (no RNG, no wall-clock); preserves 180° point symmetry exactly (symmetric kernel + symmetric clamping commute with rotation); output stays in `[0, 255]` (mean of uint8s).
-- **Placement**: called in `generateBoard` after `generateElevationMap` (symmetry enforced) and before `extractWater`.
-- **Observable effect** (empirical, spec 003 v1.3): at k=4, max |Δ| 153→28, flow-viable reachable land 0.1%→53.6%, elevation variance 1054.6→393.7, water pools 27→6 (largest 1.7%→3.7%).
-
-Informational mirror: `specs/001-core-game-engine/contracts/terrain-smoothing.ts`.
-
-## 5. Design tokens — four new color tokens (spec 012 companion, 005 FR-013)
-
-`packages/design/src/tokens.ts` `color` group gains four **names** reusing canonical values:
-
-| Token name | CSS variable | TS constant | Value | Reuses |
-| --- | --- | --- | --- | --- |
-| `pipeDownhill` | `--europa-color-pipe-downhill` | `TOKENS.color.pipeDownhill` | `#059669` | `color.green` |
-| `pipeFlat` | `--europa-color-pipe-flat` | `TOKENS.color.pipeFlat` | `#f59e0b` | `color.accent` |
-| `pipeUphill` | `--europa-color-pipe-uphill` | `TOKENS.color.pipeUphill` | `#dc2626` | `color.red` |
-| `pipeStalled` | `--europa-color-pipe-stalled` | `TOKENS.color.pipeStalled` | `#9ca3af` | `color.textMuted` |
-
-**Sync obligations** (FR-018): `DESIGN.md` §1.1 rows (token name, CSS variable, TS constant, canonical value, pairing + measured ratio + WCAG target) and §3 pairing rows; companion Clarifications note in `specs/012-design-system/spec.md`. Additive (minor) per `DESIGN.md` §6 — no migration note needed. The console no-literals guard (G-04) passes because the console consumes the tokens via `palette.ts` re-exports.
-
-## 6. `CellRenderInfo.pipeSlopes` — new additive field (spec 005 FR-013)
+## 1. `CombatEvent` — two additive fields (spec 001 FR-008, Clarifications v1.4)
 
 | Field | Type | Change | Notes |
 | --- | --- | --- | --- |
-| `pipeSlopes` | `ReadonlyMap<Direction, PipeSlope>` | **ADDED** | Per-direction slope classification for the cell's active pipes. |
+| `attackerTotal` | `number` (int ≥ 0) | **ADDED** | Pre-attrition total force of the attacker: committed flow (raw pipe delivery) + any pre-existing troops they own in the cell. |
+| `defenderTotal` | `number` (int ≥ 0) | **ADDED** | Pre-attrition total force of the defender: garrison (pre-flow troops of the cell's owner) + defender's committed flow. |
 
 ```ts
-type PipeSlope = 'downhill' | 'flat' | 'uphill' | 'stalled';
+interface CombatEvent {
+    readonly tick: number;
+    readonly cell: Coord;
+    readonly attacker: PlayerId;
+    readonly defender: PlayerId;
+    readonly attackerLoss: number;
+    readonly defenderLoss: number;
+    readonly winner: PlayerId | 'tie';
+    readonly attackerTotal: number;   // NEW — pre-attrition attacker force
+    readonly defenderTotal: number;   // NEW — pre-attrition defender force
+}
 ```
 
-**Computation** (`buildMapView`, second pass over cells with pipes): for each direction in `info.pipes`, look up the destination cell in the visible-cells map; absent (outside the visibility horizon) → `'flat'` (fog fallback, no slope claim); else classify via `classifyPipeSlope(srcElev, dstElev, PIPE_SLOPE_CONSTANTS)`.
+**Constraints**: `attackerTotal ≥ 0`, `defenderTotal ≥ 0` (integer). `attackerLoss ≤ attackerTotal`, `defenderLoss ≤ defenderTotal`. In 2-way attrition: `attackerLoss === defenderLoss === min(attackerTotal, defenderTotal)`. In 3-way+: dominant retains all, losers lose all (`defenderLoss === defenderTotal`, `attackerLoss === 0`).
 
-**Classification** (`src/render/pipe-slope.ts`):
-- `dstElev === null` → `'flat'`
-- `dstElev < srcElev` → `'downhill'`
-- `dstElev === srcElev` → `'flat'`
-- `dstElev > srcElev` → `'uphill'`, and if `pipeFlowRate(dstElev − srcElev, constants) === 0` → `'stalled'`
+**Contract mirrors**: `packages/engine/src/contracts/engine-types.ts` and `specs/001-core-game-engine/contracts/engine-types.ts` change together (semantic-diff conformance test enforces). `ENGINE_API_VERSION` does not bump (additive field).
 
-**Rendering** (`canvas.ts` `drawPipes`): filled triangle in the slope color (`pipeDownhill`/`pipeFlat`/`pipeUphill`); `'stalled'` → outline-only (hollow) triangle in `pipeStalled`. Shape (filled vs hollow) is the primary stalled cue; color is never the only carrier (constitution VI).
+**Consumer impact**: additive — existing consumers that destructure or spread `CombatEvent` will have extra fields they don't read. The fog filter (`packages/fog`) filters by `cell` coordinates only. The console (`packages/console`) reads `attacker` for city capture display only. The networking wire protocol (`packages/networking`) passes `TickEvents` through without field-level inspection.
 
-**Contract mirrors**: `packages/console/contracts/console-types.ts` and `specs/005-client-console/contracts/console-types.ts` change together (byte-identity conformance test enforces). Additive — `diffCellChanges` does not need the field (derived from `pipes` + static elevation).
+## 2. `committedFlowTally` — new side-channel (spec 001 FR-008, Clarifications v1.4)
 
-**Mirror module** (`src/render/pipe-slope.ts`): `PIPE_SLOPE_CONSTANTS` (plain readonly object mirroring `flowBase`/`flowSlopeStep`/`flowSlopeDeltaCap`), `pipeFlowRate(delta, constants)` (formula mirror), `classifyPipeSlope(srcElev, dstElev | null, constants)`. Drift test pins the mirror against `ENGINE_CONSTANTS`/`flowRateForDelta` from `@europa/engine` (tests may runtime-import; `src/` may not — boundary rule).
+| Property | Type | Layout | Notes |
+| --- | --- | --- | --- |
+| `committedFlowTally` | `Uint32Array` | `n * 4`, same layout as `inflowTally` | Records raw pipe flow **before** headroom clamping. Slot `(cellIdx * 4) + (playerId - 1)` is the count of troops that player's pipes would have delivered to that cell this tick, ignoring capacity constraints. |
 
-## 7. Manual numbers (spec 007 FR-010, v1.2/v1.3)
+**Population**: written by `resolveFlow` / `transfer()` in the same iteration order as `inflowTally` (row-major, N→E→S→W). For each pipe transfer:
+- `moved = flowRateForDelta(elevDelta, constants)` — the raw committed flow
+- `committedFlowTally[dstIdx * 4 + (srcOwner - 1)] += moved` — recorded BEFORE headroom clamping
 
-`docs/manual/numbers.md` flow rows become:
+**Consumption**: read by `resolveCombat` to compute total forces for each side.
 
-| Value | Shipped value | Constant |
+**Difference from `inflowTally`**:
+- `inflowTally` records `add = min(moved, headroom)` — actual inflow (used by `resolveDecay` for friendly-inflow exemption)
+- `committedFlowTally` records `moved` — raw committed flow (used by `resolveCombat` for total-force calculation)
+
+When a cell is at full capacity (headroom = 0): `inflowTally` = 0 for everyone (nobody flowed in), but `committedFlowTally` may be nonzero (pipes tried to deliver). This is the key distinction that enables combat to fire against full cells.
+
+**Constraints**: `committedFlowTally[slot] ≥ 0` for all slots. Deterministic: populated in the same order as `inflowTally` (row-major, N→E→S→W). Pure: no RNG, no wall-clock.
+
+## 3. `preFlowState` — new snapshot parameter (spec 001 FR-008, Clarifications v1.4)
+
+| Property | Type | Notes |
 | --- | --- | --- |
-| Pipe flow, downhill | 8–12 troops/tick (Δ=1..≥5) | `ENGINE_CONSTANTS.flowBase` + `flowSlopeStep` × `min(|Δ|, flowSlopeDeltaCap)` |
-| Pipe flow, flat | 7 troops/tick | `ENGINE_CONSTANTS.flowBase` |
-| Pipe flow, uphill | 6→1 troops/tick (Δ=1..6) | `max(0, flowBase − flowSlopeStep × |Δ|)` |
-| Pipe flow, stalled uphill | 0 (Δ ≥ 7) | stall threshold `flowBase / flowSlopeStep` |
+| `preFlowState.troopOwners` | `Uint8Array` | Snapshot of `state.troopOwners` taken **before** `resolveFlow` runs. |
+| `preFlowState.troopCounts` | `Uint32Array` | Snapshot of `state.troopCounts` taken **before** `resolveFlow` runs. |
 
-Terrain rows gain:
+**Purpose**: `resolveFlow` overwrites `troopOwners[idx]` when new troops arrive in a cell. After flow, the cell owner may be the attacker (the last writer), not the original garrison owner. `resolveCombat` needs the pre-flow owner to correctly identify defender vs attacker.
 
-| Value | Shipped value | Constant |
-| --- | --- | --- |
-| Terrain smoothing | 4 passes (range 0–8; 0 = no smoothing) | `DEFAULT_GENERATION_SETTINGS.terrainSmoothing` |
+**Capture point**: in the tick orchestrator, between Phase 3 (gun) and Phase 4 (flow):
+```ts
+const preFlowState = {
+    troopOwners: new Uint8Array(state.troopOwners),
+    troopCounts: new Uint32Array(state.troopCounts),
+};
+```
 
-Each row traces to `ENGINE_CONSTANTS` / `DEFAULT_GENERATION_SETTINGS` per SC-002.
+**Consumption by `resolveCombat`**:
+- `garrisonOwner = preFlowState.troopOwners[idx]` (0 if cell was empty before flow)
+- `garrisonCount = preFlowState.troopCounts[idx]` (0 if cell was empty before flow)
+- If `garrisonOwner !== 0` and appears in `committedFlowTally`: that player is the **defender** (garrison owner); all other committed-flow contributors are **attackers**
+- If `garrisonOwner === 0` (empty cell before flow): fall back to the existing dominant-owner model (unchanged)
 
-## 8. Matchmaking (spec 006 Implementation Notes) — no shape change
+**Constraints**: snapshot taken at a deterministic point in the pipeline (before Phase 4). Pure: shallow copy of typed arrays.
 
-`MatchSettings.terrainSettings` is unchanged in shape; it carries `terrainSmoothing` automatically because `matchmaker.ts` builds it as `{ ...DEFAULT_GENERATION_SETTINGS, ...partial?.terrainSettings }`. Rematch reuses `match.settings.terrainSettings` (carries over by construction). Hosts may pass `terrainSettings: { terrainSmoothing: N }` at create; the clamped value surfaces via `TerrainGenerationResult.effectiveSettings` / `MapStats.effectiveSettings`.
+## 4. `resolveCombat` — new parameters (spec 001 FR-008)
+
+```ts
+function resolveCombat(
+    state: Readonly<WorldState>,
+    board: Readonly<Board>,
+    constants: EngineConstants,
+    tickNumber: number,
+    inflowTally?: Readonly<Uint32Array>,
+    committedFlowTally?: Readonly<Uint32Array>,   // NEW
+    preFlowState?: Readonly<{                     // NEW
+        troopOwners: Uint8Array;
+        troopCounts: Uint32Array;
+    }>,
+): { state: WorldState; events: TickEvents }
+```
+
+**Backward compatibility**: both new parameters are optional. When omitted (e.g., in direct unit tests), `resolveCombat` falls back to the existing dominant-owner model (no garrison identification). This preserves backward compatibility with existing unit tests that call `resolveCombat` without the new parameters.
+
+## 5. `resolveFlow` — new parameter
+
+```ts
+function resolveFlow(
+    state: Readonly<WorldState>,
+    board: Readonly<Board>,
+    constants: EngineConstants,
+    inflowTally?: Uint32Array,
+    committedFlowTally?: Uint32Array,   // NEW
+): WorldState
+```
+
+**Backward compatibility**: `committedFlowTally` is optional. When omitted, the function behaves exactly as before (no committed flow recording). This preserves backward compatibility with existing unit tests.
+
+## 6. 2-way combat resolution (rewritten)
+
+For a contested cell with exactly 2 owners in the committed flow tally:
+
+1. **Identify garrison owner** from `preFlowState.troopOwners[idx]`
+2. **If garrison exists** (`garrisonOwner !== 0`):
+   - `defender = garrisonOwner`
+   - `defenderTotal = garrisonCount + committedFlowTally[defender]`
+   - `attacker = the other player in the tally`
+   - `attackerTotal = committedFlowTally[attacker]`
+3. **If no garrison** (`garrisonOwner === 0`):
+   - Fall back to dominant-owner model (existing behavior)
+   - `attackerTotal = dominant's count`, `defenderTotal = other's count`
+4. **1:1 attrition**: `damage = min(attackerTotal, defenderTotal)`
+5. **Attacker/defender labeling**: attacker = lower PlayerId (deterministic symmetry, unchanged)
+6. **Cell's new owner**: surviving side (or 0 if both 0)
+7. **CombatEvent**: includes `attackerTotal` and `defenderTotal`
+
+## 7. 3-way+ combat resolution (unchanged in model, additive in event)
+
+The dominant-owner model stays for 3-way+ conflicts. The `CombatEvent` for each (winner, loser) pair gains `attackerTotal` and `defenderTotal` fields (the dominant's count and the loser's count, respectively).
+
+## 8. Worked examples (from spec Clarifications v1.4)
+
+**Scenario A — 2 pipes vs 1 pipe, cell at capacity** (the motivating bug):
+
+Cell has 30 troops (P2). P1 has 2 pipes (14 committed), P2 has 1 pipe (7 committed). cellCapacity = 30.
+
+| Tick | Headroom | P1 actual inflow | P2 actual inflow | P1 committed | P2 committed | Garrison | Combat | Result |
+|------|----------|-----------------|-----------------|-------------|-------------|----------|--------|--------|
+| 1 | 0 | 0 | 0 | 14 | 7 | 30 (P2) | 14 vs 30 → both lose 14 | P2 = 16 |
+| 2 | 14 | 14 | 0 | 14 | 7 | 16 (P2) | 14 vs 16 → both lose 14 | P2 = 2 |
+| 3 | 28 | 14 | 7 | 14 | 7 | 2 (P2) | 14 vs 9 → both lose 9 | P1 = 5, P2 = 0 → **capture** |
 
 ## 9. State transitions
 
-No new state machines. The engine tick pipeline (production → flow → combat → capture → decay → …) is unchanged in phase order; only the flow phase's rate computation changes. The terrain generation pipeline (elevation → **smoothing** → water → cities → board) gains one deterministic step. The console render pipeline (view → `buildMapView` → canvas) gains a precomputed per-pipe classification. The match lifecycle machine (`filling → running → finished → collected`) is untouched.
+No new state machines. The tick pipeline order is unchanged (production → paratroop → gun → flow → combat → capture → decay → terminal). The only changes are:
+- Phase 4 (flow) records an additional side-channel (`committedFlowTally`)
+- Phase 5 (combat) reads the additional side-channel and a pre-flow snapshot
+- Phase 7 (decay) is unchanged (reads `inflowTally` only)
