@@ -20,6 +20,20 @@
                     }
                 }
             }
+        },
+        {
+            // Modal backdrop is a full-screen interactive overlay, not a
+            // semantic button. Using <button> would wrap the entire dialog
+            // (invalid HTML nesting). role="button" + onKeyDown satisfies
+            // the a11y contract while useSemanticElements cannot apply here.
+            "includes": ["src/components/generic/modal.tsx"],
+            "linter": {
+                "rules": {
+                    "a11y": {
+                        "useSemanticElements": "off"
+                    }
+                }
+            }
         }
     ]
 }
