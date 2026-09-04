@@ -22,8 +22,16 @@ export interface EuropaChipProps {
 export function EuropaChip({ count, children }: EuropaChipProps) {
     return (
         <span className="europa-chip">
-            {count}
-            {children}
+            {count != null && children != null ? (
+                <>
+                    {count} {children}
+                </>
+            ) : (
+                <>
+                    {count}
+                    {children}
+                </>
+            )}
         </span>
     );
 }
