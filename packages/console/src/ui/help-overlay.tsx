@@ -2,7 +2,7 @@
  * Help overlay modal — Feature 018 (In-Match Help Overlay, FR-001–FR-016).
  *
  * A comprehensive in-match help surface that explains every symbol,
- * color, and control on the screen. Uses the `europa-modal` web
+ * color, and control on the screen. Uses the `EuropaModal` React
  * component (Feature 014) for the dialog shell, which provides:
  *   - `role="dialog"` + `aria-modal="true"` (AC-012)
  *   - Focus trap (Tab cycles within overlay — AC-012)
@@ -24,28 +24,10 @@
  *   - Screen reader navigation via headings
  */
 
+import { EuropaModal } from '@europa/design/components';
 import type { JSX } from 'react';
-import { useEffect, useRef } from 'react';
 
 import './help-overlay.css';
-
-// JSX intrinsic declaration for the <europa-modal> web component from
-// @europa/design. The component is registered at runtime; this
-// declaration lets TypeScript accept the tag in JSX. Children are
-// projected via the default <slot> inside the shadow root.
-declare module 'react' {
-    namespace JSX {
-        interface IntrinsicElements {
-            'europa-modal': {
-                title?: string;
-                open?: boolean;
-                onEuropaClose?: (() => void) | undefined;
-                children?: React.ReactNode;
-                ref?: React.Ref<HTMLElement>;
-            };
-        }
-    }
-}
 
 /** Props for {@link HelpOverlay}. */
 export interface HelpOverlayProps {
@@ -99,7 +81,7 @@ const KEYBOARD_SHORTCUTS: ReadonlyArray<{ readonly keys: string; readonly action
 const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/manual/';
 
 /**
- * The help overlay modal. Renders inside a `<europa-modal>` web
+ * The help overlay modal. Renders inside an `EuropaModal` React
  * component which handles the dialog shell, focus trap, and
  * dismissal. The overlay content is organized into sections per
  * FR-015: Symbol Legend, Keyboard Shortcuts, Game Status, Learn More.
@@ -113,36 +95,8 @@ export function HelpOverlay({
     matchStatus,
     playerCount,
 }: HelpOverlayProps): JSX.Element {
-    const modalRef = useRef<HTMLElement | null>(null);
-
-    // Listen for the europa-close event from the web component and
-    // forward it to the onClose callback.
-    useEffect(() => {
-        const modal = modalRef.current;
-        if (modal === null) {
-            return undefined;
-        }
-        const handleClose = (): void => {
-            onClose();
-        };
-        modal.addEventListener('europa-close', handleClose);
-        return () => {
-            modal.removeEventListener('europa-close', handleClose);
-        };
-    }, [onClose]);
-
-    // When the modal opens, sync the open attribute and capture a ref.
-    const setModalRef = (node: HTMLElement | null): void => {
-        (modalRef as React.MutableRefObject<HTMLElement | null>).current = node;
-        if (node !== null && open) {
-            node.setAttribute('open', '');
-        } else if (node !== null && !open) {
-            node.removeAttribute('open');
-        }
-    };
-
     return (
-        <europa-modal ref={setModalRef} title="Game Help" {...(open ? { open: true } : {})}>
+        <EuropaModal title="Game Help" open={open} onClose={onClose}>
             <div className="europa-help-overlay__content">
                 {/* Symbol Legend (FR-004) */}
                 <h2 id="help-legend-title" className="europa-help-overlay__section-title">
@@ -221,6 +175,6 @@ export function HelpOverlay({
                     </a>
                 </div>
             </div>
-        </europa-modal>
+        </EuropaModal>
     );
 }

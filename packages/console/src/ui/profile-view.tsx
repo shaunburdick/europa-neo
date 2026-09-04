@@ -27,10 +27,19 @@
  * Connection status (FR-015): a non-intrusive line using
  * `connectionLabel()` from lobby-labels.ts.
  *
- * Design system (FR-016): `<europa-page>`, `<europa-card>`,
- * `<europa-stack>`, `<europa-button>`, `<europa-typography>`.
+ * Design system (FR-016): `EuropaPage`, `EuropaCard`,
+ * `EuropaStack`, `EuropaButton`, `EuropaTypography`,
+ * `EuropaWaiting`.
  */
 
+import {
+    EuropaButton,
+    EuropaCard,
+    EuropaPage,
+    EuropaStack,
+    EuropaTypography,
+    EuropaWaiting,
+} from '@europa/design/components';
 import type { JSX } from 'react';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 
@@ -123,16 +132,12 @@ export function ProfileView({
     const errorMessage = localError ?? (actionStatus.error !== null ? describeActionError(actionStatus.error) : null);
 
     if (identityStatus === 'restoring') {
-        /* FR-008: restoring state — waiting spinner + disabled Continue.
-           The design-system web components are safe here again: the
-           spec 014 Shadow DOM conversion (Waves 0–4) removed the Light
-           DOM reparenting hazard — children stay as host light-DOM
-           children projected through <slot>, so React's teardown works. */
+        /* FR-008: restoring state — waiting spinner + disabled Continue. */
         return (
-            <europa-page>
-                <europa-stack>
+            <EuropaPage>
+                <EuropaStack>
                     <h1 ref={headingRef} id={headingId} tabIndex={-1}>
-                        <europa-typography variant="heading">Profile</europa-typography>
+                        <EuropaTypography variant="heading">Profile</EuropaTypography>
                     </h1>
 
                     {/* FR-015: connection status line */}
@@ -140,25 +145,25 @@ export function ProfileView({
                         Connection: {connectionLabel(connection.status as Parameters<typeof connectionLabel>[0])}
                     </p>
 
-                    <europa-card>
-                        <europa-stack>
+                    <EuropaCard>
+                        <EuropaStack>
                             <p data-europa-identity-status="restoring">Restoring your session…</p>
-                            <europa-waiting message="Loading…" />
-                            <europa-button type="button" disabled>
+                            <EuropaWaiting message="Loading…" />
+                            <EuropaButton type="button" disabled>
                                 Continue
-                            </europa-button>
-                        </europa-stack>
-                    </europa-card>
-                </europa-stack>
-            </europa-page>
+                            </EuropaButton>
+                        </EuropaStack>
+                    </EuropaCard>
+                </EuropaStack>
+            </EuropaPage>
         );
     }
 
     return (
-        <europa-page>
-            <europa-stack>
+        <EuropaPage>
+            <EuropaStack>
                 <h1 ref={headingRef} id={headingId} tabIndex={-1}>
-                    <europa-typography variant="heading">Profile</europa-typography>
+                    <EuropaTypography variant="heading">Profile</EuropaTypography>
                 </h1>
 
                 {/* FR-015: connection status line */}
@@ -166,21 +171,21 @@ export function ProfileView({
                     Connection: {connectionLabel(connection.status as Parameters<typeof connectionLabel>[0])}
                 </p>
 
-                <europa-card>
-                    <europa-stack>
+                <EuropaCard>
+                    <EuropaStack>
                         {named ? (
                             /* FR-007: named state — welcome card with Continue button */
                             <>
                                 <p data-europa-identity-status="named">
                                     Welcome back, <bdi className="europa-lobby__handle">{handle}</bdi>
                                 </p>
-                                <europa-button
+                                <EuropaButton
                                     type="button"
                                     data-europa-continue-to-lobby="true"
                                     onClick={navigateToTarget}
                                 >
                                     Continue to lobby
-                                </europa-button>
+                                </EuropaButton>
                             </>
                         ) : (
                             /* FR-006: unnamed state — handle input form */
@@ -212,15 +217,15 @@ export function ProfileView({
                                             {errorMessage}
                                         </p>
                                     ) : null}
-                                    <europa-button type="submit" disabled={saving} data-europa-submit-handle="true">
+                                    <EuropaButton type="submit" disabled={saving} data-europa-submit-handle="true">
                                         {saving ? 'Saving…' : 'Set name'}
-                                    </europa-button>
+                                    </EuropaButton>
                                 </form>
                             </>
                         )}
-                    </europa-stack>
-                </europa-card>
-            </europa-stack>
-        </europa-page>
+                    </EuropaStack>
+                </EuropaCard>
+            </EuropaStack>
+        </EuropaPage>
     );
 }
