@@ -17,7 +17,7 @@ import {
     INITIAL_CONSOLE_STATE,
     reduce,
 } from '../../../src/state/reducer';
-import type { ConsoleState, PlayerAction, PlayerView } from '../../../src/state/types';
+import type { ConsoleState, PlayerAction, PlayerId, PlayerView } from '../../../src/state/types';
 
 const NOW = 10_000;
 
@@ -250,6 +250,79 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
 
     it('INITIAL_CONSOLE_STATE.matchResult is null (FR-014)', () => {
         expect(INITIAL_CONSOLE_STATE.matchResult).toBeNull();
+    });
+
+    it('socketClosed does NOT overwrite game_over status (Bug 3 fix)', () => {
+        // Simulate the real-world sequence: terminal arrives, then the
+        // server closes the socket for cleanup. The game_over status
+        // must survive the socketClosed event.
+        const over = step(live(), {
+            kind: 'terminal',
+            result: { kind: 'win', winner: 1, tick: 100, reason: 'last_standing' },
+        }).state;
+        expect(over.status).toBe('game_over');
+
+        const afterClose = step(over, { kind: 'socketClosed', code: 1006, reason: 'abnormal' }).state;
+        expect(afterClose.status).toBe('game_over');
+        expect(afterClose.matchResult).toEqual({ kind: 'win', winner: 1, tick: 100, reason: 'last_standing' });
+    });
+
+    it('socketClosed still transitions live state to reconnecting (unchanged behavior)', () => {
+        const closed = step(live(), { kind: 'socketClosed', code: 1006, reason: 'abnormal' }).state;
+        expect(closed.status).toBe('reconnecting');
+    });
+
+    it('terminal announce text resolves player names from session (Bug 2 fix)', () => {
+        const seated: ConsoleState = {
+            ...live(),
+            session: {
+                ...live().session,
+                playerId: 1 as PlayerId,
+                displayName: 'Shaun',
+                opponents: ['Chrome'],
+                playerNames: new Map<PlayerId, string>([
+                    [1 as PlayerId, 'Shaun'],
+                    [2 as PlayerId, 'Chrome'],
+                ]),
+            },
+        };
+        const { effects } = step(seated, {
+            kind: 'terminal',
+            result: { kind: 'win', winner: 2, tick: 100, reason: 'last_standing' },
+        });
+        // Winner is player 2 (Chrome), so the announce text uses the name.
+        expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Chrome wins!', politeness: 'assertive' }]);
+    });
+
+    it('terminal announce text uses own display name for local winner', () => {
+        const seated: ConsoleState = {
+            ...live(),
+            session: {
+                ...live().session,
+                playerId: 1 as PlayerId,
+                displayName: 'Shaun',
+                opponents: ['Chrome'],
+                playerNames: new Map<PlayerId, string>([
+                    [1 as PlayerId, 'Shaun'],
+                    [2 as PlayerId, 'Chrome'],
+                ]),
+            },
+        };
+        const { effects } = step(seated, {
+            kind: 'terminal',
+            result: { kind: 'win', winner: 1, tick: 200, reason: 'last_standing' },
+        });
+        // Winner is player 1 (Shaun — the local player).
+        expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Shaun wins!', politeness: 'assertive' }]);
+    });
+
+    it('terminal announce text falls back to Player N when session is absent', () => {
+        const { effects } = step(live(), {
+            kind: 'terminal',
+            result: { kind: 'win', winner: 2, tick: 100, reason: 'all_surrendered' },
+        });
+        // live() has empty displayName and no opponents → fallback.
+        expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Player 2 wins!', politeness: 'assertive' }]);
     });
 
     it('error events land in feedback with an assertive announcement', () => {

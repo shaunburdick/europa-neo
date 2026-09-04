@@ -672,6 +672,13 @@ export interface ConsoleSession {
   readonly displayName: string;
   /** Display names of other players in the match. Index by `PlayerId - 1`. */
   readonly opponents: ReadonlyArray<string>;
+  /**
+   * Bidirectional map from `PlayerId` to display name. Populated from
+   * the server's `players` array on join; used by the game-over modal
+   * and terminal announcement to resolve numeric IDs to handles.
+   * Empty before the `joined` event arrives.
+   */
+  readonly playerNames: ReadonlyMap<PlayerId, string>;
 }
 
 // ----------------------------------------------------------------------------

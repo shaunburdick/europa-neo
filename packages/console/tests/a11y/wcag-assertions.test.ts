@@ -100,6 +100,7 @@ async function bootInteractiveConsole(): Promise<InteractiveBoot> {
                 playerId: 1,
                 displayName: 'Player 1',
                 opponents: ['Player 2'],
+                playerNames: new Map(),
             },
             exclusiveMode: false,
         },

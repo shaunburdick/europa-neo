@@ -565,11 +565,18 @@ export function App({
             ) : null}
             {/* Game-over results modal (Feature 019 FR-008): renders
                 when the match is over with a result and the host
-                provides the return-to-lobby callback. */}
+                provides the return-to-lobby callback. The playerNames
+                map resolves numeric PlayerIds to display names so the
+                modal shows the winner's handle instead of a raw number. */}
             {resolvedState.status === 'game_over' &&
             resolvedState.matchResult !== null &&
             onReturnToLobby !== undefined ? (
-                <GameOverModal open={true} result={resolvedState.matchResult} onReturnToLobby={onReturnToLobby} />
+                <GameOverModal
+                    open={true}
+                    result={resolvedState.matchResult}
+                    onReturnToLobby={onReturnToLobby}
+                    playerNames={resolvedState.session.playerNames}
+                />
             ) : null}
             {/* Help overlay (Feature 018): lazy-loaded on first open,
                 reads game status from the resolved state for FR-007. */}

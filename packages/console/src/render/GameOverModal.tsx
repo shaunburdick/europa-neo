@@ -22,7 +22,7 @@
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 
-import type { MatchResult } from '../state/types';
+import type { MatchResult, PlayerId } from '../state/types';
 
 /** Props for {@link GameOverModal}. */
 export interface GameOverModalProps {
@@ -32,18 +32,38 @@ export interface GameOverModalProps {
     readonly result: MatchResult | null;
     /** Callback invoked when the user activates "Return to Lobby". */
     readonly onReturnToLobby: () => void;
+    /**
+     * Optional map from `PlayerId` to display name. When provided, the
+     * modal shows the winner's name (e.g. "Shaun wins!") instead of
+     * the raw numeric ID. Falls back to "Player N" when the map is
+     * absent or does not contain the winner's key.
+     */
+    readonly playerNames?: ReadonlyMap<PlayerId, string>;
+}
+
+/**
+ * Resolve a `PlayerId` to a human-readable display name. Falls back
+ * to "Player N" when the name map is absent or does not contain the
+ * key. Pure.
+ *
+ * @param id The player's numeric id.
+ * @param playerNames Optional name map from the session state.
+ */
+function resolvePlayerName(id: PlayerId, playerNames?: ReadonlyMap<PlayerId, string>): string {
+    return playerNames?.get(id) ?? `Player ${String(id)}`;
 }
 
 /**
  * Build the display title from a match result.
  *
  * @param result The engine's terminal match result.
+ * @param playerNames Optional name map for human-readable names.
  * @returns Human-readable title string.
  */
-function resultTitle(result: MatchResult): string {
+function resultTitle(result: MatchResult, playerNames?: ReadonlyMap<PlayerId, string>): string {
     switch (result.kind) {
         case 'win':
-            return `Player ${String(result.winner)} wins!`;
+            return `${resolvePlayerName(result.winner, playerNames)} wins!`;
         case 'draw':
             return 'Draw';
         default:
@@ -72,7 +92,7 @@ function resultReason(result: MatchResult): string {
  * The game-over results dialog. Non-dismissable — the only exit is
  * the "Return to Lobby" button (FR-005).
  */
-export function GameOverModal({ open, result, onReturnToLobby }: GameOverModalProps): JSX.Element | null {
+export function GameOverModal({ open, result, onReturnToLobby, playerNames }: GameOverModalProps): JSX.Element | null {
     const buttonRef = useRef<HTMLButtonElement | null>(null);
 
     // Move focus to the Return to Lobby button on open (WCAG 2.4.3).
@@ -108,7 +128,7 @@ export function GameOverModal({ open, result, onReturnToLobby }: GameOverModalPr
                 onKeyDown={handleKeyDown}
             >
                 <h2 id="gameover-title" className="europa-modal__title">
-                    {resultTitle(result)}
+                    {resultTitle(result, playerNames)}
                 </h2>
                 <p id="gameover-body" className="europa-modal__body">
                     {resultReason(result)}

@@ -11,7 +11,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../../src/render/App';
 import { GameOverModal } from '../../../src/render/GameOverModal';
-import type { MatchResult } from '../../../src/state/types';
+import type { MatchResult, PlayerId } from '../../../src/state/types';
 
 let container: HTMLDivElement;
 
@@ -29,7 +29,12 @@ afterEach(() => {
 });
 
 /** Render the modal into the test container. */
-function renderModal(props: { open: boolean; result: MatchResult | null; onReturnToLobby: () => void }): void {
+function renderModal(props: {
+    open: boolean;
+    result: MatchResult | null;
+    onReturnToLobby: () => void;
+    playerNames?: ReadonlyMap<PlayerId, string>;
+}): void {
     act(() => {
         const root = createRoot(container);
         root.render(createElement(GameOverModal, props));
@@ -159,6 +164,40 @@ describe('GameOverModal', () => {
         });
         expect(document.activeElement).toBe(button);
     });
+
+    it('shows display name instead of numeric ID when playerNames is provided', () => {
+        const names = new Map<PlayerId, string>([
+            [1, 'Shaun'],
+            [2, 'Chrome'],
+        ]);
+        renderModal({ open: true, result: winResult, onReturnToLobby: vi.fn(), playerNames: names });
+        const title = document.getElementById('gameover-title');
+        expect(title?.textContent).toBe('Shaun wins!');
+    });
+
+    it('falls back to Player N when playerNames does not contain the winner', () => {
+        const names = new Map<PlayerId, string>([[2, 'Chrome']]);
+        renderModal({ open: true, result: winResult, onReturnToLobby: vi.fn(), playerNames: names });
+        const title = document.getElementById('gameover-title');
+        expect(title?.textContent).toBe('Player 1 wins!');
+    });
+
+    it('falls back to Player N when playerNames is absent (backward compat)', () => {
+        renderModal({ open: true, result: winResult, onReturnToLobby: vi.fn() });
+        const title = document.getElementById('gameover-title');
+        expect(title?.textContent).toBe('Player 1 wins!');
+    });
+
+    it('shows display name for winner ID 2', () => {
+        const result: MatchResult = { kind: 'win', winner: 2, tick: 300, reason: 'all_surrendered' };
+        const names = new Map<PlayerId, string>([
+            [1, 'Shaun'],
+            [2, 'Chrome'],
+        ]);
+        renderModal({ open: true, result, onReturnToLobby: vi.fn(), playerNames: names });
+        const title = document.getElementById('gameover-title');
+        expect(title?.textContent).toBe('Chrome wins!');
+    });
 });
 
 describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
@@ -190,7 +229,14 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
                 theme: 'system' as const,
                 ownerColorRing: true,
             },
-            session: { matchId: null, sessionToken: null, playerId: null, displayName: '', opponents: [] },
+            session: {
+                matchId: null,
+                sessionToken: null,
+                playerId: null,
+                displayName: '',
+                opponents: [],
+                playerNames: new Map(),
+            },
             inputEnabled: false,
             exclusiveMode: false,
         } as import('../../../src/state/types').ConsoleState;
@@ -227,5 +273,50 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
         expect(document.querySelector('.europa-modal-backdrop')).not.toBeNull();
         const title = document.getElementById('gameover-title');
         expect(title?.textContent).toBe('Player 1 wins!');
+    });
+
+    it('passes display names to GameOverModal from session state', () => {
+        const onReturnToLobby = vi.fn();
+        const winResult: MatchResult = { kind: 'win', winner: 2, tick: 100, reason: 'last_standing' };
+        const state = {
+            status: 'game_over',
+            matchResult: winResult,
+            latestView: null,
+            initialWorld: null,
+            camera: { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 12, maxZoom: 96 },
+            hover: null,
+            selection: null,
+            lastCursorScreen: null,
+            feedback: [],
+            rejectedOrders: [],
+            qol: {
+                soundOn: false,
+                animation: 'full' as const,
+                tooltips: true,
+                theme: 'system' as const,
+                ownerColorRing: true,
+            },
+            session: {
+                matchId: null,
+                sessionToken: null,
+                playerId: 1 as import('../../../src/state/types').PlayerId,
+                displayName: 'Shaun',
+                opponents: ['Chrome'],
+                playerNames: new Map([
+                    [1 as import('../../../src/state/types').PlayerId, 'Shaun'],
+                    [2 as import('../../../src/state/types').PlayerId, 'Chrome'],
+                ]),
+            },
+            inputEnabled: false,
+            exclusiveMode: false,
+        } as import('../../../src/state/types').ConsoleState;
+
+        act(() => {
+            const root = createRoot(container);
+            root.render(createElement(App, { state, onReturnToLobby }));
+        });
+        expect(document.querySelector('.europa-modal-backdrop')).not.toBeNull();
+        const title = document.getElementById('gameover-title');
+        expect(title?.textContent).toBe('Chrome wins!');
     });
 });

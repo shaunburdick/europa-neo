@@ -72,6 +72,7 @@ export function initialSpectatorState(matchId: MatchId): ConsoleState {
             playerId: null,
             displayName: '',
             opponents: [],
+            playerNames: new Map(),
         },
         inputEnabled: false,
         exclusiveMode: false,
@@ -102,6 +103,12 @@ export function applySpectatorEnvelope(
             if (payload.playerId !== null) {
                 return state;
             }
+            const playerNames = new Map<import('@europa/engine').PlayerId, string>();
+            for (const player of payload.players) {
+                if (player.displayName !== '') {
+                    playerNames.set(player.id, player.displayName);
+                }
+            }
             return {
                 ...state,
                 status: 'spectating',
@@ -111,6 +118,7 @@ export function applySpectatorEnvelope(
                     // FR-023: all participant handles, ascending seat order
                     // (the engine's players array is indexed by PlayerId - 1).
                     opponents: payload.players.map((player) => player.displayName),
+                    playerNames,
                 },
             };
         }
