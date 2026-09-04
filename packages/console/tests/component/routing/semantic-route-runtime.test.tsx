@@ -315,7 +315,7 @@ describe('semantic route recovery data', () => {
             />,
         );
 
-        expect(screen.container.textContent).toBe('Page not foundPage not found. Returning to lobby.Return to lobby');
+        expect(screen.container.textContent).toBe('🔍Page not foundPage not found. Returning to lobby.Return to lobby');
         expect(screen.container.querySelector('a')).toBeNull();
     });
 });

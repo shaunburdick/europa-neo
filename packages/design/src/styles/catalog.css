@@ -699,3 +699,267 @@
 .europa-table tbody tr:nth-child(even) td {
     background-color: var(--europa-color-surface-raised);
 }
+
+/* ── 14. Link — FR-017 ─────────────────────────────────────────────────── */
+.europa-link {
+    color: var(--europa-color-text-link);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition:
+        color var(--europa-motion-transition-fast) var(--europa-motion-easing),
+        border-color var(--europa-motion-transition-fast) var(--europa-motion-easing);
+}
+
+.europa-link:hover {
+    color: var(--europa-color-text-link);
+    border-bottom-color: var(--europa-color-text-link);
+}
+
+.europa-link:visited {
+    color: var(--europa-color-text-muted);
+}
+
+.europa-link:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-light-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* ── 15. Divider — FR-018 ──────────────────────────────────────────────── */
+.europa-divider {
+    border: none;
+    border-top: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-divider);
+    margin: var(--europa-spacing-lg) 0;
+}
+
+.europa-divider--success {
+    border-top-color: var(--europa-color-success);
+}
+
+.europa-divider--error {
+    border-top-color: var(--europa-color-error);
+}
+
+.europa-divider--warning {
+    border-top-color: var(--europa-color-warning);
+}
+
+/* ── 16. Tooltip — FR-019 (CSS-only, data-tooltip attribute) ────────────── */
+.europa-tooltip {
+    position: relative;
+}
+
+/* Tooltip body */
+.europa-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    border-radius: var(--europa-radii-sm);
+    font-size: var(--europa-typography-size-xs);
+    line-height: var(--europa-typography-line-height-normal);
+    white-space: nowrap;
+    box-shadow: var(--europa-shadows-plate);
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        opacity var(--europa-motion-transition-fast) var(--europa-motion-easing),
+        visibility var(--europa-motion-transition-fast) var(--europa-motion-easing);
+}
+
+/* Tooltip arrow */
+.europa-tooltip::before {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: var(--europa-color-surface);
+    z-index: 101;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        opacity var(--europa-motion-transition-fast) var(--europa-motion-easing),
+        visibility var(--europa-motion-transition-fast) var(--europa-motion-easing);
+}
+
+.europa-tooltip:hover::after,
+.europa-tooltip:hover::before {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .europa-tooltip::after,
+    .europa-tooltip::before {
+        transition: none;
+    }
+}
+
+/* ── 17. Badge status variants — FR-020 ────────────────────────────────── */
+.europa-badge--success {
+    background-color: var(--europa-color-success-bg);
+    color: var(--europa-color-success);
+    border-color: var(--europa-color-success-border);
+}
+
+.europa-badge--warning {
+    background-color: var(--europa-color-warning-bg);
+    color: var(--europa-color-warning);
+    border-color: var(--europa-color-warning-border);
+}
+
+.europa-badge--error {
+    background-color: var(--europa-color-error-bg);
+    color: var(--europa-color-error);
+    border-color: var(--europa-color-error-border);
+}
+
+.europa-badge--info {
+    background-color: var(--europa-color-info-bg);
+    color: var(--europa-color-info);
+    border-color: var(--europa-color-info-border);
+}
+
+.europa-badge--accent {
+    background-color: var(--europa-color-chip-bg);
+    color: var(--europa-color-accent);
+    border-color: var(--europa-color-accent);
+}
+
+/* ── 18. Empty state — FR-021 ──────────────────────────────────────────── */
+.europa-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--europa-spacing-md);
+    padding: var(--europa-spacing-xl);
+    text-align: center;
+    color: var(--europa-color-text-muted);
+}
+
+.europa-empty-state__icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.europa-empty-state__title {
+    margin: 0;
+    font-size: var(--europa-typography-size-lg);
+    color: var(--europa-color-text-secondary);
+    font-weight: 600;
+}
+
+.europa-empty-state__message {
+    margin: 0;
+    font-size: var(--europa-typography-size-sm);
+    max-width: 24rem;
+}
+
+/* ── 19. Typography utilities — FR-040a ────────────────────────────────── */
+.europa-heading-1 {
+    font-size: var(--europa-typography-size3xl);
+    line-height: var(--europa-typography-line-height-normal);
+    letter-spacing: var(--europa-typography-tracking-tight);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+}
+
+.europa-heading-2 {
+    font-size: var(--europa-typography-size2xl);
+    line-height: var(--europa-typography-line-height-normal);
+    letter-spacing: var(--europa-typography-tracking-tight);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+}
+
+.europa-heading-3 {
+    font-size: var(--europa-typography-size-xl);
+    line-height: var(--europa-typography-line-height-normal);
+    letter-spacing: var(--europa-typography-tracking-tight);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+}
+
+.europa-subheading {
+    font-size: var(--europa-typography-size2xl);
+    line-height: var(--europa-typography-line-height-normal);
+    letter-spacing: var(--europa-typography-tracking-normal);
+    font-weight: 600;
+    color: var(--europa-color-text-secondary);
+}
+
+.europa-body {
+    font-size: var(--europa-typography-size-base);
+    line-height: var(--europa-typography-line-height-relaxed);
+    letter-spacing: var(--europa-typography-tracking-normal);
+    font-weight: 400;
+    color: var(--europa-color-text-secondary);
+}
+
+.europa-body-sm {
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-relaxed);
+    letter-spacing: var(--europa-typography-tracking-normal);
+    font-weight: 400;
+    color: var(--europa-color-text-secondary);
+}
+
+.europa-caption {
+    font-size: var(--europa-typography-size-xs);
+    line-height: var(--europa-typography-line-height-normal);
+    letter-spacing: var(--europa-typography-tracking-wide);
+    font-weight: 400;
+    color: var(--europa-color-text-muted);
+}
+
+/* ── 20. Footer — FR-038 ───────────────────────────────────────────────── */
+.europa-footer {
+    display: flex;
+    justify-content: center;
+    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    border-top: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-divider);
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-xs);
+    text-align: center;
+}
+
+.europa-footer__links {
+    display: flex;
+    justify-content: center;
+    gap: var(--europa-spacing-md);
+    flex-wrap: wrap;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* ── 21. Layout utilities — FR-039 ─────────────────────────────────────── */
+.europa-layout-centered {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: var(--europa-spacing-lg);
+}
+
+.europa-layout-sidebar {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: var(--europa-spacing-lg);
+}
+
+.europa-layout-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--europa-spacing-lg);
+    align-items: start;
+}

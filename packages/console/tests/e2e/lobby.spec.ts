@@ -267,12 +267,18 @@ async function waitUntilLobby(
 }
 
 /**
- * Verify the lobby page renders a handle inside a `<bdi>` element
- * (hostile-but-valid user content isolation, WCAG bidi).
+ * Verify the lobby page renders a handle in the identity card.
+ * Checks for either a `<bdi>` element (hostile-but-valid user content
+ * isolation, WCAG bidi) or the `.europa-lobby__identity-name` span
+ * used by the redesigned lobby layout.
  */
 async function assertHandleInBdi(page: Page, handle: string): Promise<void> {
     const bdiCount = await page.locator('bdi').filter({ hasText: handle }).count();
-    expect(bdiCount, `handle "${handle}" not found inside a <bdi> element`).toBeGreaterThan(0);
+    const identityNameCount = await page.locator('.europa-lobby__identity-name').filter({ hasText: handle }).count();
+    expect(
+        bdiCount + identityNameCount,
+        `handle "${handle}" not found in a <bdi> or .europa-lobby__identity-name element`,
+    ).toBeGreaterThan(0);
 }
 
 // ---------------------------------------------------------------------------
@@ -510,7 +516,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // -- FR-012: Leave returns spectator to lobby ------------------------
         await cara.locator('[data-europa-leave="true"]').click();
         await waitUntilLobby(cara, (l) => l.viewMode === 'lobby', 'Cara returns to lobby');
-        await expect(cara.locator('h1')).toContainText('Europa Neo lobby');
+        await expect(cara.locator('h1')).toContainText('Europa Neo Lobby');
 
         // -- Zero page errors -----------------------------------------------
         expect(errors).toEqual([]);
@@ -676,7 +682,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         // Identity preserved: handle still shown (the input is for editing and
         // resets on remount, but the handle text in the status line confirms
         // the identity survived the view transition).
-        await expect(page.locator('.europa-lobby__handle')).toContainText('Solo');
+        await expect(page.locator('.europa-lobby__identity-name')).toContainText('Solo');
 
         // The match list is visible again.
         await expect(page.getByRole('heading', { name: 'Public matches' })).toBeVisible();

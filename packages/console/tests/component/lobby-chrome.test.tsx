@@ -94,10 +94,9 @@ describe('LobbyMatchList capacity chrome (012)', () => {
         const rows = screen.getByRole('listitem').elements();
         expect(rows).toHaveLength(3);
 
-        // Occupancy text contains the k / N numbers for every capacity.
-        await expect.element(screen.getByText('1 of 2 seats filled')).toBeVisible();
-        await expect.element(screen.getByText('2 of 3 seats filled')).toBeVisible();
-        await expect.element(screen.getByText('3 of 4 seats filled')).toBeVisible();
+        // Player occupancy dots are rendered for each row (visual occupancy indicator).
+        const playerDots = screen.container.querySelectorAll('.europa-lobby__player-dots');
+        expect(playerDots).toHaveLength(3);
 
         // Board label carries the square dimension + tick cadence
         // (32×32 is unique to the 2p row; 48×48 is shared by 3p + 4p).

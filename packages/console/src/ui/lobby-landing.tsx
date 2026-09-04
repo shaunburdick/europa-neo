@@ -195,22 +195,28 @@ export function LobbyLanding({
                 </europa-banner>
             ) : null}
             <main id="main" className="europa-lobby">
-                {/* Combined lockup logo (spec 015 FR-012, AC-005): the
-              primary visual identity on the lobby screen. Meaningful
-              image — the alt text names the product; the h1 carries the
-              page-level heading. No duplicate text label beside the logo
-              (spec constraint). Uses the dark-background variant for the
-              lobby's dark page background. */}
-                <img
-                    src="assets/brand/europa-neo-lockup-dark.svg"
-                    alt="Europa Neo"
-                    className="europa-lobby__logo"
-                    width={240}
-                    height={80}
-                />
-                <h1 ref={headingRef} tabIndex={-1} className="europa-lobby__title europa-focus-ring">
-                    Europa Neo lobby
-                </h1>
+                {/* Hero section (FR-026, AC-029): centered logo + title
+              with generous vertical padding. The logo scales down on
+              viewports < 768px via responsive max-width in the CSS. */}
+                <div className="europa-lobby__hero">
+                    {/* Combined lockup logo (spec 015 FR-012, AC-005): the
+                  primary visual identity on the lobby screen. Meaningful
+                  image — the alt text names the product; the h1 carries the
+                  page-level heading. No duplicate text label beside the logo
+                  (spec constraint). Uses the dark-background variant for the
+                  lobby's dark page background. */}
+                    <img
+                        src="assets/brand/europa-neo-lockup-dark.svg"
+                        alt="Europa Neo"
+                        className="europa-lobby__logo"
+                        width={240}
+                        height={80}
+                    />
+                    <h1 ref={headingRef} tabIndex={-1} className="europa-lobby__title europa-focus-ring">
+                        Europa Neo Lobby
+                    </h1>
+                    <p className="europa-lobby__subtitle">Create or join a match to begin your campaign</p>
+                </div>
                 {/* SUPERSESSION (US4/security invariant): the session's
             claim was taken over or evicted elsewhere. Distinct visual
             + verbal treatment; acknowledgement is explicit. */}
@@ -238,42 +244,72 @@ export function LobbyLanding({
                 {/* US4 AC-4: active-match status stays VISIBLE on the
             landing page; the row badge prevents a second-seat claim. */}
                 {state.activeMatchId !== null ? (
-                    <p className="europa-lobby__active-note" data-europa-active-match="true">
-                        You have an active match ({state.activeMatchId.slice(0, 8)}…). It is marked “Your match” in the
-                        list below.
-                    </p>
+                    <div className="europa-lobby__active-note" data-europa-active-match="true">
+                        <span className="europa-lobby__active-icon" aria-hidden="true">
+                            ⚡
+                        </span>
+                        <span className="europa-lobby__active-text">
+                            You have an active match {state.activeMatchId.slice(0, 8)}…. It is marked "Your match" in
+                            the list below.
+                        </span>
+                        <a
+                            className="europa-lobby__button europa-lobby__button--secondary europa-lobby__button--sm europa-focus-ring"
+                            href={`/match/${state.activeMatchId}`}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                window.history.pushState(window.history.state, '', `/match/${state.activeMatchId}`);
+                            }}
+                        >
+                            Resume
+                        </a>
+                    </div>
                 ) : null}
                 <div className="europa-lobby__grid">
-                    <section className="europa-lobby__card" aria-label="Identity">
-                        <p className="europa-lobby__status-line" data-europa-identity-status={state.identityStatus}>
-                            {state.identityStatus === 'restoring' ? (
-                                'Restoring…'
-                            ) : state.identityStatus === 'named' && state.handle !== null ? (
-                                <>
-                                    Playing as <bdi className="europa-lobby__handle">{state.handle}</bdi>
-                                </>
-                            ) : (
-                                'Choose a name'
-                            )}
-                        </p>
-                        {state.identityStatus !== 'restoring' ? (
-                            <a
-                                className="europa-lobby__button europa-focus-ring"
-                                href="/profile"
-                                onClick={(event) => {
-                                    event.preventDefault();
-                                    window.history.pushState(window.history.state, '', '/profile');
-                                }}
-                            >
-                                {state.identityStatus === 'named' ? 'Manage profile' : 'Choose a name'}
-                            </a>
-                        ) : null}
-                    </section>
-                    <LobbyCreateForm
-                        disabled={createDisabled}
-                        actionStatus={state.actions.createMatch}
-                        onCreate={onCreate}
-                    />
+                    <div className="europa-lobby__sidebar">
+                        <section className="europa-lobby__card europa-lobby__card--identity" aria-label="Identity">
+                            {/* Identity card: avatar + name + status + manage button. */}
+                            <div className="europa-lobby__identity-row">
+                                <span className="europa-lobby__avatar" aria-hidden="true">
+                                    {state.handle !== null ? state.handle.slice(0, 2).toUpperCase() : '??'}
+                                </span>
+                                <div className="europa-lobby__identity-info">
+                                    <span className="europa-lobby__identity-name">
+                                        {state.identityStatus === 'named' && state.handle !== null
+                                            ? state.handle
+                                            : 'Unnamed'}
+                                    </span>
+                                    <span
+                                        className="europa-lobby__identity-status"
+                                        data-europa-identity-status={state.identityStatus}
+                                    >
+                                        <span className="europa-lobby__status-dot" aria-hidden="true" />
+                                        {state.identityStatus === 'restoring'
+                                            ? 'Restoring…'
+                                            : state.identityStatus === 'named'
+                                              ? 'Online'
+                                              : 'Choose a name'}
+                                    </span>
+                                </div>
+                            </div>
+                            {state.identityStatus !== 'restoring' ? (
+                                <a
+                                    className="europa-lobby__profile-link europa-focus-ring"
+                                    href="/profile"
+                                    onClick={(event) => {
+                                        event.preventDefault();
+                                        window.history.pushState(window.history.state, '', '/profile');
+                                    }}
+                                >
+                                    {state.identityStatus === 'named' ? 'Manage profile' : 'Choose a name'}
+                                </a>
+                            ) : null}
+                        </section>
+                        <LobbyCreateForm
+                            disabled={createDisabled}
+                            actionStatus={state.actions.createMatch}
+                            onCreate={onCreate}
+                        />
+                    </div>
                     <LobbyMatchList
                         entries={entries}
                         loading={!snapshotLoaded}

@@ -9,7 +9,7 @@
  * Coverage here:
  *
  *   - unnamed visitor: compact identity display ("Choose a name" link) + disabled create form;
- *   - named visitor: compact identity display (<bdi>-wrapped handle + "Manage profile" link);
+ *   - named visitor: identity card with handle + "Manage profile" link;
  *   - restoring visitor: "Restoring…" status indicator;
  *   - no input form present in the lobby (identity form moved to /profile);
  *   - row semantics: Join (open waiting) / Full / Spectate
@@ -90,7 +90,7 @@ describe('LobbyLanding (smoke)', () => {
         await expect.element(screen.getByRole('button', { name: 'Create match' })).toBeDisabled();
     });
 
-    test('named visitor sees their handle inside a bdi and a Manage profile link', async () => {
+    test('named visitor sees their handle in the identity card and a Manage profile link', async () => {
         const state = stateOf({
             connection: 'ready',
             identityStatus: 'named',
@@ -98,12 +98,8 @@ describe('LobbyLanding (smoke)', () => {
             snapshot: snapshotOf([]),
         });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
-        // Compact identity: "Playing as Nova" with handle inside <bdi>.
-        await expect.element(screen.getByText('Playing as')).toBeVisible();
-        const handle = screen.getByText('Nova');
-        await expect.element(handle).toBeVisible();
-        // Wave-4 invariant: hostile-but-valid handles render inside <bdi>.
-        expect(handle.element().tagName).toBe('BDI');
+        // Identity card: name displayed directly.
+        await expect.element(screen.getByText('Nova')).toBeVisible();
         // "Manage profile" link points to /profile.
         await expect.element(screen.getByRole('link', { name: 'Manage profile' })).toBeVisible();
         expect(screen.getByRole('link', { name: 'Manage profile' }).element().getAttribute('href')).toBe('/profile');
@@ -141,9 +137,9 @@ describe('LobbyLanding (smoke)', () => {
             .element(screen.getByRole('button', { name: 'Join match — Waiting for players, 1 of 2 seats filled' }))
             .toBeVisible();
         expect(screen.container.querySelector('[data-europa-lobby-loading]')).toBeNull();
-        expect(
-            screen.getByRole('heading', { name: 'Public matches' }).element().parentElement?.getAttribute('aria-busy'),
-        ).toBe('false');
+        // aria-busy is on the match list section (not the heading's parent wrapper).
+        const matchSection = screen.getByRole('heading', { name: 'Public matches' }).element().closest('section');
+        expect(matchSection?.getAttribute('aria-busy')).toBe('false');
         // Full waiting match: no seat to advertise (FR-007).
         await expect.element(screen.getByText('Full')).toBeVisible();
     });

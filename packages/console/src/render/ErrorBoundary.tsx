@@ -55,10 +55,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                     <div aria-live="assertive" aria-atomic="true" className="europa-visually-hidden">
                         The console encountered an unexpected error and stopped rendering.
                     </div>
+                    <span className="europa-error-boundary__icon" aria-hidden="true">
+                        ⚠
+                    </span>
                     <h2 className="europa-error-boundary__title">Something went wrong</h2>
                     <p className="europa-error-boundary__body">
                         The console hit an unexpected error and cannot continue rendering this match.
                     </p>
+                    <pre className="europa-error-boundary__details">{error.message}</pre>
                     <button
                         type="button"
                         className="europa-error-boundary__reload europa-focus-ring"

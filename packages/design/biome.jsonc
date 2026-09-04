@@ -4,7 +4,7 @@
     "root": false,
     "extends": ["../../biome.jsonc"],
     "files": {
-        "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "*.jsonc"]
+        "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "*.jsonc", "!src/styles/catalog-styles.ts"]
     },
     "overrides": [
         {

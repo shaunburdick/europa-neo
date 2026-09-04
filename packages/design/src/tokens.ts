@@ -33,14 +33,19 @@ export const TOKENS = {
     },
     color: {
         accent: '#f59e0b',
+        accentActive: '#d97706',
+        accentGlow: 'rgba(245, 158, 11, 0.08)',
+        accentGlowStrong: 'rgba(245, 158, 11, 0.3)',
         banner: '#d97706',
         blue: '#2563eb',
         border: '#374151',
         captureEffect: 'rgba(16, 185, 129, 0.55)',
+        cardHoverBorder: '#f59e0b',
         chipBg: '#111827',
         chipText: '#f9fafb',
         city: '#fbbf24',
         combatEffect: 'rgba(239, 68, 68, 0.55)',
+        divider: '#374151',
         // Semantic state colors — dark-theme values for success/warning/error/info.
         // Each state has a base fill, bg, border, hover, and active variant.  Sourced
         // from the OpenDesign reference (packages/design/tmp/system/variables.dark.css).
@@ -53,6 +58,7 @@ export const TOKENS = {
         focusRing: '#ffffff',
         genericEffect: 'rgba(148, 163, 184, 0.45)',
         green: '#059669',
+        greenGlow: 'rgba(5, 150, 105, 0.5)',
         info: '#dca12e',
         infoActive: '#ad872f',
         infoBg: '#302311',
@@ -80,6 +86,7 @@ export const TOKENS = {
         successHover: '#3aa07a',
         surface: '#111827',
         surfaceRaised: '#1f2937',
+        textLink: '#f59e0b',
         textMuted: '#9ca3af',
         textPrimary: '#f9fafb',
         textSecondary: '#e5e7eb',
@@ -100,15 +107,24 @@ export const TOKENS = {
     },
     focusRing: {
         color: '#ffffff',
+        darkColor: '#111827',
+        lightColor: '#ffffff',
         offset: '2px',
         style: 'solid',
         width: '2px',
     },
     motion: {
+        duration: '120ms',
         durationMs: 120,
         easing: 'ease',
+        easingInOut: 'ease-in-out',
         easingLinear: 'linear',
+        easingOut: 'cubic-bezier(0.16, 1, 0.3, 1)',
         spinDuration: '1.2s',
+        transitionDefault: '120ms',
+        transitionFast: '80ms',
+        transitionSlow: '200ms',
+        transitionSpring: '300ms',
     },
     radii: {
         card: '6px',
@@ -118,9 +134,12 @@ export const TOKENS = {
         sm: '3px',
     },
     shadows: {
-        board: 'none',
-        modal: 'none',
-        plate: 'none',
+        board: 'inset 0 1px 4px rgba(0, 0, 0, 0.3)',
+        cardActive: '0 2px 4px rgba(0, 0, 0, 0.25)',
+        cardHover: '0 4px 12px rgba(0, 0, 0, 0.3)',
+        hud: '0 2px 8px rgba(0, 0, 0, 0.25)',
+        modal: '0 8px 32px rgba(0, 0, 0, 0.4)',
+        plate: '0 2px 8px rgba(0, 0, 0, 0.2)',
     },
     spacing: {
         lg: '1rem',
@@ -132,6 +151,7 @@ export const TOKENS = {
     typography: {
         fontMono: 'ui-monospace, SFMono-Regular, Menlo, monospace',
         fontStack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        heading: '1.5rem',
         lineHeightNormal: '1.2',
         lineHeightRelaxed: '1.4',
         size2xl: '1.2rem',
@@ -144,6 +164,10 @@ export const TOKENS = {
         sizeSm: '0.85rem',
         sizeXl: '1.1rem',
         sizeXs: '0.75rem',
+        subheading: '1.2rem',
+        trackingNormal: '0',
+        trackingTight: '-0.025em',
+        trackingWide: '0.05em',
     },
 } as const;
 

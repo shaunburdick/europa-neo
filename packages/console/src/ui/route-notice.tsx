@@ -54,6 +54,9 @@ export function RouteNotice({
                 aria-atomic="true"
                 aria-labelledby="route-notice-title"
             >
+                <span className="europa-route-notice__icon" aria-hidden="true">
+                    🔍
+                </span>
                 <h1 id="route-notice-title" className="europa-route-notice__title">
                     {title}
                 </h1>

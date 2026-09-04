@@ -607,9 +607,9 @@ body {
  * ---------------------------------------------------------------------------
  */
 
-/* Page column: centered single-column layout, comfortable measure. */
+/* Page column: centered layout, wider for two-column grid. */
 .europa-lobby {
-    max-width: 60rem;
+    max-width: 1100px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -622,6 +622,7 @@ body {
    (T-023 will add the 160 CSS px threshold responsive behavior). */
 .europa-lobby__logo {
     display: block;
+    margin: 0 auto;
     max-width: 100%;
     height: auto;
 }
@@ -631,31 +632,76 @@ body {
    programmatically (WCAG 2.4.7). */
 .europa-lobby__title {
     margin: 0;
-    font-size: var(--europa-typography-size3xl);
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-weight: 600;
+}
+
+/* Hero subtitle: muted descriptive text below the title. */
+.europa-lobby__subtitle {
+    margin: 0.5rem 0 0;
+    color: var(--europa-color-text-muted);
+    font-size: var(--europa-typography-size-base);
+}
+
+/* Override catalog.europa-focus-ring default outline: the h1 shows a
+   visible white ring in default state. Hide it; re-show on :focus-visible
+   per WCAG 2.4.7. */
+.europa-lobby__title.europa-focus-ring {
+    outline-color: transparent;
+}
+.europa-lobby__title.europa-focus-ring:focus-visible {
+    outline-color: var(--europa-focus-ring-color);
 }
 
 .europa-lobby__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    grid-template-columns: 1fr 1.5fr;
     gap: var(--europa-spacing-lg);
     align-items: start;
 }
 
-/* Cards: identity + create sit in the grid; the match list spans wide. */
+/* Cards: identity + create sit in the sidebar; the match list fills
+   the second column via natural grid auto-placement. */
 .europa-lobby__card {
     padding: var(--europa-spacing-lg) var(--europa-spacing-xl);
     background-color: var(--europa-color-surface);
     border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
     border-radius: var(--europa-radii-plate);
+    box-shadow: var(--europa-shadows-card-hover);
+    transition:
+        box-shadow var(--europa-motion-transition-default),
+        transform var(--europa-motion-transition-default);
 }
 
-.europa-lobby__card--wide {
-    grid-column: 1 / -1;
+/* Sidebar column: stacks identity + create form vertically. */
+.europa-lobby__sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-lg);
+    align-items: stretch;
 }
 
 .europa-lobby__card-title {
     margin: 0 0 var(--europa-spacing-sm);
     font-size: var(--europa-typography-size-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-sm);
+}
+
+/* HOST badge pill next to "Create Match" title. */
+.europa-lobby__host-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem var(--europa-spacing-sm);
+    border-radius: var(--europa-radii-pill);
+    background-color: var(--europa-color-accent);
+    color: var(--europa-color-page-bg);
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 700;
+    letter-spacing: var(--europa-typography-tracking-wide);
+    text-transform: uppercase;
 }
 
 /* Status lines: muted but ≥ AA on the plate background. */
@@ -676,6 +722,41 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--europa-spacing-sm);
+}
+
+/* Submit button in create form: full-width for visual prominence.
+   Also style the host element directly so it's visually prominent
+   even when the Shadow DOM catalog stylesheet hasn't fully loaded. */
+.europa-lobby__form > europa-button[type="submit"] {
+    width: 100%;
+    display: block;
+    padding: 0.5rem var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-accent);
+    color: var(--europa-color-surface);
+    font-family: var(--europa-typography-font-stack);
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__form > europa-button[type="submit"]:hover {
+    opacity: 0.9;
+}
+
+.europa-lobby__form > europa-button[type="submit"]:active {
+    background-color: var(--europa-color-accent-active);
+    border-color: var(--europa-color-accent-active);
+}
+
+.europa-lobby__form > europa-button[type="submit"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .europa-lobby__fieldset {
@@ -699,7 +780,7 @@ body {
 
 .europa-lobby__radio-row {
     display: flex;
-    gap: var(--europa-spacing-md);
+    gap: var(--europa-spacing-sm);
 }
 
 /* Radio labels: hit area above the WCAG 2.5.8 24px minimum. */
@@ -709,6 +790,37 @@ body {
     gap: 0.35rem;
     min-height: 24px;
     font-size: var(--europa-typography-size-base);
+}
+
+/* Visual option cards for player count (replaces plain radios). */
+.europa-lobby__option-card {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-secondary);
+    font-weight: 600;
+    font-size: var(--europa-typography-size-base);
+    cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast),
+        color var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__option-card:hover {
+    border-color: var(--europa-color-accent);
+}
+
+.europa-lobby__option-card--active {
+    background-color: var(--europa-color-accent);
+    border-color: var(--europa-color-accent);
+    color: var(--europa-color-page-bg);
 }
 
 .europa-lobby__input {
@@ -730,11 +842,70 @@ body {
     color: var(--europa-color-text-primary);
     font-size: var(--europa-typography-size-sm);
     cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast),
+        color var(--europa-motion-transition-fast),
+        box-shadow var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__button:active {
+    transform: translateY(1px);
 }
 
 .europa-lobby__button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
+}
+
+/* Primary button variant: accent bg, dark text. */
+.europa-lobby__button--primary {
+    background-color: var(--europa-color-accent);
+    border-color: var(--europa-color-accent);
+    color: var(--europa-color-page-bg);
+    font-weight: 600;
+}
+
+.europa-lobby__button--primary:hover:not(:disabled) {
+    background-color: var(--europa-color-city);
+    box-shadow: 0 0 12px var(--europa-color-accent-glow-strong);
+}
+
+/* Secondary button variant: transparent bg, white border. */
+.europa-lobby__button--secondary {
+    background-color: transparent;
+    border-color: var(--europa-color-text-primary);
+    color: var(--europa-color-text-primary);
+}
+
+.europa-lobby__button--secondary:hover:not(:disabled) {
+    border-color: var(--europa-color-text-primary);
+    background-color: var(--europa-color-surface-raised);
+}
+
+/* Ghost button variant: transparent, muted text. */
+.europa-lobby__button--ghost {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--europa-color-text-muted);
+}
+
+.europa-lobby__button--ghost:hover:not(:disabled) {
+    color: var(--europa-color-text-primary);
+}
+
+/* Full-width button variant. */
+.europa-lobby__button--full {
+    width: 100%;
+    align-self: stretch;
+    justify-content: center;
+}
+
+/* Small button variant. */
+.europa-lobby__button--sm {
+    padding: 0.2rem var(--europa-spacing-sm);
+    font-size: var(--europa-typography-size-xs);
 }
 
 /* Inline field/form errors: role="alert" announces them; the left
@@ -768,6 +939,95 @@ body {
     border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
     border-radius: var(--europa-radii-card);
     background-color: var(--europa-color-void-bg);
+    transition:
+        border-color var(--europa-motion-transition-fast),
+        background-color var(--europa-motion-transition-fast),
+        transform var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__row:hover {
+    border-color: var(--europa-color-accent);
+    background-color: var(--europa-color-surface);
+    transform: translateX(4px);
+}
+
+/* Own match: left accent border + accent border + surface bg. */
+.europa-lobby__row--own {
+    border-left: 3px solid var(--europa-color-accent);
+    border-color: var(--europa-color-accent);
+    background-color: var(--europa-color-surface);
+}
+
+.europa-lobby__row--own:hover {
+    border-color: var(--europa-color-accent);
+}
+
+/* Status dot: 8px circle with semantic colors. */
+.europa-lobby__status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.europa-lobby__status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Waiting: green with glow. */
+.europa-lobby__status-dot--waiting {
+    background-color: var(--europa-color-green);
+    box-shadow: 0 0 8px var(--europa-color-green-glow);
+}
+
+/* Playing: amber with pulse. */
+.europa-lobby__status-dot--playing {
+    background-color: var(--europa-color-accent);
+    animation: europa-status-pulse 2s ease-in-out infinite;
+}
+
+@keyframes europa-status-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .europa-lobby__status-dot--playing {
+        animation: none;
+    }
+}
+
+/* Full: muted gray. */
+.europa-lobby__status-dot--full {
+    background-color: var(--europa-color-text-muted);
+}
+
+/* Player indicators: dot grid. */
+.europa-lobby__player-dots {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.europa-lobby__player-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.europa-lobby__player-dot--filled {
+    background-color: var(--europa-color-accent);
+}
+
+.europa-lobby__player-dot--empty {
+    background-color: var(--europa-color-text-muted);
 }
 
 .europa-lobby__row-main {
@@ -787,12 +1047,14 @@ body {
 /* "Your match" badge (US4 AC-4): text badge + amber edge — never color
    alone (constitution Principle VI). */
 .europa-lobby__row-badge {
-    padding: 0 var(--europa-spacing-sm);
-    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
+    padding: 0.1rem var(--europa-spacing-sm);
     border-radius: var(--europa-radii-pill);
-    color: var(--europa-color-city);
+    background-color: var(--europa-color-chip-bg);
+    color: var(--europa-color-accent);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-accent);
     font-size: var(--europa-typography-size-xs);
     font-weight: 700;
+    letter-spacing: var(--europa-typography-tracking-wide);
 }
 
 .europa-lobby__row-meta {
@@ -811,14 +1073,60 @@ body {
     font-weight: 600;
 }
 
-/* Empty state (US2 AC-4): explicit, quiet, actionable via the create
-   card beside it. */
+/* Match list header: title + count badge. */
+.europa-lobby__list-header {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-sm);
+    margin: 0 0 var(--europa-spacing-sm);
+}
+
+.europa-lobby__list-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    padding: 0 var(--europa-spacing-xs);
+    border-radius: var(--europa-radii-pill);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-muted);
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 600;
+}
+
+/* Empty state (redesigned): dashed border, centered content. */
 .europa-lobby__empty {
     margin: 0;
-    padding: var(--europa-spacing-md);
-    border: var(--europa-borders-width) dashed var(--europa-color-border);
+    padding: var(--europa-spacing-xl);
+    border: 2px dashed var(--europa-color-border);
     border-radius: var(--europa-radii-card);
     color: var(--europa-color-text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--europa-spacing-sm);
+    text-align: center;
+}
+
+.europa-lobby__empty-icon {
+    font-size: 3rem;
+    line-height: 1;
+    color: var(--europa-color-text-muted);
+}
+
+.europa-lobby__empty-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--europa-color-text-secondary);
+}
+
+.europa-lobby__empty-message {
+    margin: 0;
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-muted);
+    max-width: 24rem;
 }
 
 /* Superseded notice (session moved elsewhere): assertive plate with an
@@ -840,15 +1148,38 @@ body {
     font-size: var(--europa-typography-size-base);
 }
 
-/* Active-match note (US4 AC-4 visibility of the association). */
+/* Active-match banner (redesigned): blue border, icon, resume button. */
 .europa-lobby__active-note {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-md);
     margin: 0;
     padding: var(--europa-spacing-sm) var(--europa-spacing-md);
-    border-left: 3px solid var(--europa-color-blue);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-blue);
     background-color: var(--europa-color-surface);
-    border-radius: var(--europa-radii-input);
+    border-radius: var(--europa-radii-plate);
     color: var(--europa-color-text-secondary);
     font-size: var(--europa-typography-size-sm);
+}
+
+/* Active match icon: lightning bolt in a blue circle. */
+.europa-lobby__active-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--europa-color-blue);
+    color: var(--europa-color-text-primary);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+/* Active match text content. */
+.europa-lobby__active-text {
+    flex: 1;
+    min-width: 0;
 }
 
 /*
@@ -910,4 +1241,513 @@ body {
 .europa-participants__seat--local {
     color: var(--europa-color-text-secondary);
     font-weight: 600;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Wave 3: Console CSS polish (T-022 through T-031)
+ *
+ * All rules compose only --europa-* tokens — no hex/rgb literals.
+ * Animations are guarded by prefers-reduced-motion (AC-014a).
+ * ---------------------------------------------------------------------------
+ */
+
+/* T-022: Card elevation + hover shadow (FR-007, AC-009).
+   Shadow-only hover — no transform to avoid form element jank. */
+.europa-lobby__card {
+    box-shadow: var(--europa-shadows-card-hover);
+}
+
+.europa-lobby__card:hover {
+    box-shadow: var(--europa-shadows-card-hover);
+}
+
+/* T-023: Match row hover + state modifiers (FR-008, G2, AC-010/010a). */
+.europa-lobby__row {
+    transition: border-color var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__row:hover {
+    border-color: var(--europa-color-accent);
+}
+
+.europa-lobby__row--waiting {
+    border-left: 3px solid var(--europa-color-success);
+}
+
+.europa-lobby__row--in-progress {
+    border-left: 3px solid var(--europa-color-warning);
+}
+
+.europa-lobby__row--your-match {
+    background-color: var(--europa-color-chip-bg);
+}
+
+/* T-024: HUD depth shadow (FR-009, AC-011). */
+.europa-hud {
+    box-shadow: var(--europa-shadows-hud);
+}
+
+/* T-025: Button transitions (FR-010, AC-012). */
+.europa-button,
+.europa-button--primary,
+.europa-button--secondary,
+.europa-button--ghost,
+.europa-button--success,
+.europa-button--warning,
+.europa-button--error,
+.europa-button--info {
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast),
+        color var(--europa-motion-transition-fast),
+        box-shadow var(--europa-motion-transition-fast);
+}
+
+/* T-026: Surrender button danger hover/active (FR-011, AC-013). */
+.europa-hud__surrender:hover {
+    background-color: var(--europa-color-error);
+    color: var(--europa-color-chip-text);
+}
+
+.europa-hud__surrender:active {
+    background-color: var(--europa-color-error-hover);
+}
+
+/* T-027: Order bar active state + mode active styling (FR-012, G3, AC-016a). */
+.europa-order-bar__button[aria-pressed="true"] {
+    background-color: var(--europa-color-accent);
+    color: var(--europa-color-text-primary);
+    transition: background-color var(--europa-motion-transition-fast);
+}
+
+.europa-order-bar__mode--active {
+    background-color: var(--europa-color-accent);
+    color: var(--europa-color-text-primary);
+}
+
+/* T-028: Feedback toast slide-in/out + variant borders (FR-013, G4, D1, AC-014/014a). */
+@keyframes europa-toast-enter {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes europa-toast-exit {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+}
+
+.europa-feedback__item {
+    animation: europa-toast-enter var(--europa-motion-duration) var(--europa-motion-easing-out) forwards;
+}
+
+.europa-feedback__item--success {
+    border-left: 3px solid var(--europa-color-success);
+}
+
+.europa-feedback__item--error {
+    border-left: 3px solid var(--europa-color-error);
+}
+
+.europa-feedback__item--info {
+    border-left: 3px solid var(--europa-color-info);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .europa-feedback__item {
+        animation: none;
+    }
+}
+
+/* T-029: Modal backdrop blur + enter animation (FR-014, AC-015/016). */
+@keyframes europa-modal-backdrop-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes europa-modal-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.europa-modal-backdrop {
+    backdrop-filter: blur(4px);
+    animation: europa-modal-backdrop-in var(--europa-motion-duration) var(--europa-motion-easing-out) forwards;
+}
+
+.europa-modal {
+    animation: europa-modal-enter var(--europa-motion-duration) var(--europa-motion-easing-out) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .europa-modal-backdrop,
+    .europa-modal {
+        animation: none;
+    }
+}
+
+/* T-030: Error boundary refinement (FR-015, G6, AC-017a). */
+.europa-error-boundary {
+    background-color: var(--europa-color-surface);
+    border: 1px solid var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+}
+
+.europa-error-boundary__reload {
+    transition: background-color var(--europa-motion-transition-fast);
+}
+
+.europa-error-boundary__icon {
+    font-size: 4rem;
+    color: var(--europa-color-text-muted);
+}
+
+.europa-error-boundary__details {
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-sm);
+    background-color: var(--europa-color-void-bg);
+    padding: var(--europa-spacing-md);
+    border-radius: var(--europa-radii-sm);
+    overflow-x: auto;
+}
+
+/* T-031: Route notice panel polish (FR-016, G7, AC-017b). */
+.europa-route-notice__panel {
+    box-shadow: var(--europa-shadows-plate);
+    transition: box-shadow var(--europa-motion-transition-fast);
+}
+
+.europa-route-notice__icon {
+    font-size: 3rem;
+    color: var(--europa-color-text-muted);
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Wave 4: Responsive breakpoints (T-032 through T-035)
+ *
+ * Desktop-first: max-width rules apply to small screens, min-width to
+ * large. All rules compose only --europa-* tokens — no hex/rgb literals.
+ * ---------------------------------------------------------------------------
+ */
+
+/* T-032: Lobby grid responsive breakpoints (FR-022, AC-024/025).
+   ≤480px: tighter lobby padding + single-column grid.
+   ≤768px: single-column grid.
+   769px+: two-column grid (1fr sidebar + 1.5fr match list). */
+@media (max-width: 480px) {
+    .europa-lobby {
+        padding: var(--europa-spacing-sm);
+    }
+}
+
+@media (max-width: 768px) {
+    .europa-lobby__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* T-033: Match view stacking on small screens (FR-023, AC-028).
+   ≤768px: board + HUD stack vertically at full width. */
+@media (max-width: 768px) {
+    .europa-board-layout {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* T-034: HUD horizontal layout on wide screens (FR-024, AC-026).
+   ≥1200px: HUD sections spread horizontally with wrapping. */
+@media (min-width: 1200px) {
+    .europa-hud {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: var(--europa-spacing-md);
+    }
+}
+
+/* T-035: Modal responsive width (FR-025, AC-027).
+   ≤480px: modal fills viewport with 1rem margin on each side. */
+@media (max-width: 480px) {
+    .europa-modal,
+    .europa-modal__dialog {
+        max-width: calc(100vw - 2rem);
+    }
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Wave 5: Page-Specific Layouts (T-036 through T-050)
+ *
+ * Hero section, identity accent, match list hierarchy, form polish,
+ * board depth, HUD hierarchy, order bar mode, reserves, feedback
+ * positioning, waiting blur, surrender danger, typography refinements.
+ * All rules compose only --europa-* tokens — no hex/rgb literals.
+ * ---------------------------------------------------------------------------
+ */
+
+/* T-041: Match list visual hierarchy (FR-028, AC-031).
+   Track tight for monospaced IDs, normal for meta, wide for badges. */
+.europa-lobby__row-id {
+    letter-spacing: var(--europa-typography-tracking-tight);
+}
+
+.europa-lobby__row-meta {
+    letter-spacing: var(--europa-typography-tracking-normal);
+}
+
+.europa-lobby__row-badge {
+    letter-spacing: var(--europa-typography-tracking-wide);
+}
+
+/* T-042: Create form polish (FR-030, AC-032).
+   Smooth border/shadow transitions on focus for input elements. */
+.europa-lobby__input {
+    transition:
+        border-color var(--europa-motion-transition-fast),
+        box-shadow var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__input:focus {
+    border-color: var(--europa-color-accent);
+    box-shadow: 0 0 0 3px var(--europa-color-focus-ring);
+}
+
+/* T-043: Board area depth (FR-031, AC-033).
+   Inset shadow creates a recessed-board feel. */
+.europa-board-area {
+    box-shadow: var(--europa-shadows-board);
+}
+
+/* T-044: HUD information hierarchy (FR-032, AC-034).
+   Visual separator between HUD sections + tighter heading tracking. */
+.europa-hud__section {
+    border-top: 1px solid var(--europa-color-border);
+    padding-top: var(--europa-spacing-sm);
+}
+
+.europa-hud__title {
+    letter-spacing: var(--europa-typography-tracking-tight);
+}
+
+/* T-045: Order bar mode clarity (FR-033, AC-035).
+   Mode label becomes uppercase small caps for clearer distinction. */
+.europa-order-bar__mode {
+    text-transform: uppercase;
+    letter-spacing: var(--europa-typography-tracking-wide);
+    font-size: var(--europa-typography-size-xs);
+}
+
+/* T-046: Reserves panel compact (FR-034, AC-036).
+   Smooth selection feedback on digit buttons. */
+.europa-reserves__digit {
+    transition:
+        border-color var(--europa-motion-transition-fast),
+        background-color var(--europa-motion-transition-fast);
+}
+
+/* T-047: Feedback toast positioning (FR-035, D2, AC-037).
+   Fixed bottom-left, above board but below banner/modal z-indexes. */
+.europa-feedback {
+    position: fixed;
+    bottom: var(--europa-spacing-lg);
+    left: var(--europa-spacing-lg);
+    z-index: 800;
+}
+
+/* T-048: Waiting overlay blur (FR-036, AC-038).
+   Subtle backdrop blur consistent with modal backdrop (FR-014). */
+.europa-waiting {
+    backdrop-filter: blur(2px);
+}
+
+/* T-049: Surrender modal danger emphasis (FR-037, AC-039).
+   Filled danger button with hover/active states + transition. */
+.europa-modal__button--danger {
+    background-color: var(--europa-color-error);
+    color: var(--europa-color-surface);
+    border-color: var(--europa-color-error);
+    transition: background-color var(--europa-motion-transition-fast);
+}
+
+.europa-modal__button--danger:hover {
+    background-color: var(--europa-color-error-hover);
+}
+
+.europa-modal__button--danger:active {
+    background-color: var(--europa-color-error-active);
+}
+
+/* T-050: Typography scale refinements (FR-040).
+   Heading tracking-tight, muted line-height documented, meta tracking-wide. */
+.europa-typography--heading {
+    letter-spacing: var(--europa-typography-tracking-tight);
+}
+
+.europa-typography--muted {
+    line-height: var(--europa-typography-line-height-relaxed);
+}
+
+.europa-typography--meta {
+    letter-spacing: var(--europa-typography-tracking-wide);
+}
+
+/* T-026/F: Lobby hero section (FR-026, AC-029).
+   Centered logo + title with generous vertical padding + radial glow. */
+.europa-lobby__hero {
+    text-align: center;
+    padding: var(--europa-spacing-xl) 0;
+    position: relative;
+}
+
+/* Subtle radial gradient glow behind the hero. */
+.europa-lobby__hero::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--europa-color-accent-glow) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Logo responsive scaling: constrained on viewports >= 768px. */
+@media (min-width: 768px) {
+    .europa-lobby__logo {
+        max-width: 20rem;
+    }
+}
+
+/* T-027/F: Identity card accent (FR-027, AC-030).
+   Top gradient bar distinguishes the identity card. */
+.europa-lobby__card--identity {
+    position: relative;
+    overflow: hidden;
+    border-left: none;
+}
+
+/* Identity card: gradient accent bar at top. */
+.europa-lobby__card--identity::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--europa-color-accent), var(--europa-color-city));
+}
+
+/* Profile manage/choose link inside identity card: full-width bordered
+   control matching design system secondary style without lobby button
+   inheritance conflicts. */
+.europa-lobby__profile-link {
+    display: block;
+    width: 100%;
+    padding: 0.5rem var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-family: var(--europa-typography-font-stack);
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 500;
+    line-height: var(--europa-typography-line-height-normal);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast),
+        border-color var(--europa-motion-transition-fast),
+        color var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__profile-link:hover {
+    border-color: var(--europa-color-accent);
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-accent);
+}
+
+/* Identity card layout: avatar + info row. */
+.europa-lobby__identity-row {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-md);
+    margin-bottom: var(--europa-spacing-sm);
+}
+
+/* Avatar circle: initials on accent background. */
+.europa-lobby__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--europa-color-accent);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-accent);
+    font-weight: 700;
+    font-size: var(--europa-typography-size-lg);
+    flex-shrink: 0;
+}
+
+/* Identity info: name + status. */
+.europa-lobby__identity-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+/* Player name in identity card. */
+.europa-lobby__identity-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--europa-color-text-primary);
+}
+
+/* Status line with dot indicator. */
+.europa-lobby__identity-status {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-muted);
+}
+
+/* Status dot: green circle for online. */
+.europa-lobby__status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--europa-color-green);
+    flex-shrink: 0;
 }

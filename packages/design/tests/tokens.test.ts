@@ -91,4 +91,97 @@ describe('token table determinism invariant (spec 012 FR-004)', () => {
         const sorted = [...keys].sort((left, right) => left.localeCompare(right));
         expect(keys).toEqual(sorted);
     });
+
+    it('keeps the shadows group keys sorted alphabetically', () => {
+        const keys = Object.keys(TOKENS.shadows);
+        const sorted = [...keys].sort((left, right) => left.localeCompare(right));
+        expect(keys).toEqual(sorted);
+    });
+
+    it('keeps the motion group keys sorted alphabetically', () => {
+        const keys = Object.keys(TOKENS.motion);
+        const sorted = [...keys].sort((left, right) => left.localeCompare(right));
+        expect(keys).toEqual(sorted);
+    });
+
+    it('keeps the typography group keys sorted alphabetically', () => {
+        const keys = Object.keys(TOKENS.typography);
+        const sorted = [...keys].sort((left, right) => left.localeCompare(right));
+        expect(keys).toEqual(sorted);
+    });
+
+    it('keeps the focusRing group keys sorted alphabetically', () => {
+        const keys = Object.keys(TOKENS.focusRing);
+        const sorted = [...keys].sort((left, right) => left.localeCompare(right));
+        expect(keys).toEqual(sorted);
+    });
+});
+
+describe('shadow tokens (Feature 062 FR-001)', () => {
+    it('defines all six shadow tokens with non-none values', () => {
+        expect(TOKENS.shadows.board).not.toBe('none');
+        expect(TOKENS.shadows.modal).not.toBe('none');
+        expect(TOKENS.shadows.plate).not.toBe('none');
+        expect(TOKENS.shadows.cardHover).toBeDefined();
+        expect(TOKENS.shadows.cardActive).toBeDefined();
+        expect(TOKENS.shadows.hud).toBeDefined();
+    });
+
+    it('pins the exact shadow values', () => {
+        expect(TOKENS.shadows.board).toBe('inset 0 1px 4px rgba(0, 0, 0, 0.3)');
+        expect(TOKENS.shadows.cardActive).toBe('0 2px 4px rgba(0, 0, 0, 0.25)');
+        expect(TOKENS.shadows.cardHover).toBe('0 4px 12px rgba(0, 0, 0, 0.3)');
+        expect(TOKENS.shadows.hud).toBe('0 2px 8px rgba(0, 0, 0, 0.25)');
+        expect(TOKENS.shadows.modal).toBe('0 8px 32px rgba(0, 0, 0, 0.4)');
+        expect(TOKENS.shadows.plate).toBe('0 2px 8px rgba(0, 0, 0, 0.2)');
+    });
+});
+
+describe('motion tokens (Feature 062 FR-002)', () => {
+    it('defines all new motion tokens', () => {
+        expect(TOKENS.motion.duration).toBe('120ms');
+        expect(TOKENS.motion.transitionFast).toBe('80ms');
+        expect(TOKENS.motion.transitionDefault).toBe('120ms');
+        expect(TOKENS.motion.transitionSlow).toBe('200ms');
+        expect(TOKENS.motion.transitionSpring).toBe('300ms');
+        expect(TOKENS.motion.easingOut).toBe('cubic-bezier(0.16, 1, 0.3, 1)');
+        expect(TOKENS.motion.easingInOut).toBe('ease-in-out');
+    });
+
+    it('preserves existing motion tokens', () => {
+        expect(TOKENS.motion.durationMs).toBe(120);
+        expect(TOKENS.motion.easing).toBe('ease');
+        expect(TOKENS.motion.easingLinear).toBe('linear');
+        expect(TOKENS.motion.spinDuration).toBe('1.2s');
+    });
+});
+
+describe('color token additions (Feature 062 FR-003)', () => {
+    it('defines the four new color tokens', () => {
+        expect(TOKENS.color.textLink).toBe('#f59e0b');
+        expect(TOKENS.color.accentActive).toBe('#d97706');
+        expect(TOKENS.color.divider).toBe('#374151');
+        expect(TOKENS.color.cardHoverBorder).toBe('#f59e0b');
+    });
+});
+
+describe('typography token additions (Feature 062 FR-004)', () => {
+    it('defines the five new typography tokens', () => {
+        expect(TOKENS.typography.heading).toBe('1.5rem');
+        expect(TOKENS.typography.subheading).toBe('1.2rem');
+        expect(TOKENS.typography.trackingTight).toBe('-0.025em');
+        expect(TOKENS.typography.trackingNormal).toBe('0');
+        expect(TOKENS.typography.trackingWide).toBe('0.05em');
+    });
+});
+
+describe('focus ring token additions (Feature 062 FR-005)', () => {
+    it('defines the two new focus ring tokens', () => {
+        expect(TOKENS.focusRing.darkColor).toBe('#111827');
+        expect(TOKENS.focusRing.lightColor).toBe('#ffffff');
+    });
+
+    it('preserves existing focus ring token', () => {
+        expect(TOKENS.focusRing.color).toBe('#ffffff');
+    });
 });

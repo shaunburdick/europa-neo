@@ -199,7 +199,8 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
     return (
         <section className="europa-lobby__card" aria-labelledby={headingId}>
             <h2 id={headingId} className="europa-lobby__card-title">
-                Create a match
+                Create Match
+                <span className="europa-lobby__host-badge">HOST</span>
             </h2>
             <form className="europa-lobby__form" onSubmit={submit}>
                 <fieldset className="europa-lobby__fieldset" disabled={busy}>
@@ -208,7 +209,10 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                     </legend>
                     <div className="europa-lobby__radio-row" role="radiogroup" aria-labelledby={countFieldName}>
                         {CREATE_PLAYER_COUNTS.map((count) => (
-                            <label key={count} className="europa-lobby__radio">
+                            <label
+                                key={count}
+                                className={`europa-lobby__option-card${playerCount === count ? ' europa-lobby__option-card--active' : ''}`}
+                            >
                                 <input
                                     type="radio"
                                     name="playerCount"
@@ -225,6 +229,7 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                                         setPlayerCount(count);
                                         setBoardSize(nextSize);
                                     }}
+                                    className="europa-visually-hidden"
                                 />
                                 {String(count)}
                             </label>
@@ -289,7 +294,7 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                         {formError}
                     </p>
                 ) : null}
-                <europa-button type="submit" disabled={busy}>
+                <europa-button type="submit" disabled={busy} variant="primary">
                     {creating ? 'Creating…' : 'Create match'}
                 </europa-button>
             </form>
