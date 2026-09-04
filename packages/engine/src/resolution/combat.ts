@@ -100,9 +100,165 @@ export function resolveCombat(
         preFlowState.troopCounts.length >= n;
 
     for (let idx = 0; idx < n; idx++) {
-        if (tallyAvailable) {
-            // Multi-owner conflict detection from the inflow tally.
-            const tally = inflowTally as Uint32Array; // narrowed above
+        if (preFlowAvailable && committedAvailable) {
+            // Total-force model: detect contested cells from committedFlowTally
+            // (raw pipe intent) + preFlowState (garrison). This detects combat
+            // even when headroom is 0 (inflowTally would be empty).
+            const committed = committedFlowTally as Uint32Array;
+            const preOwners = (preFlowState as Required<typeof preFlowState>).troopOwners;
+            const preCounts = (preFlowState as Required<typeof preFlowState>).troopCounts;
+            const garrisonOwner = preOwners[idx] ?? 0;
+            const garrisonCount = preCounts[idx] ?? 0;
+
+            // Build the set of players who committed flow to this cell.
+            const committedPlayers: Array<{ owner: PlayerId; count: number }> = [];
+            for (let p = 1; p <= PLAYERS; p++) {
+                const c = committed[idx * PLAYERS + (p - 1)] ?? 0;
+                if (c > 0) {
+                    committedPlayers.push({ owner: p as PlayerId, count: c });
+                }
+            }
+
+            // Determine if this cell is contested:
+            // 1. Garrison exists + at least one non-garrison player committed flow
+            // 2. Empty cell + multiple players committed flow
+            let contested = false;
+            if (garrisonOwner !== 0) {
+                // Cell had a garrison. Contested if any non-garrison player committed.
+                contested = committedPlayers.some((p) => p.owner !== garrisonOwner);
+                // Add garrison to the participants if it exists (for total-force calc).
+                if (!committedPlayers.some((p) => p.owner === garrisonOwner)) {
+                    committedPlayers.push({ owner: garrisonOwner as PlayerId, count: 0 });
+                }
+            } else {
+                // Empty cell before flow. Contested if multiple players committed.
+                contested = committedPlayers.length >= 2;
+            }
+
+            if (!contested || committedPlayers.length < 2) {
+                continue;
+            }
+
+            // Sort by PlayerId ascending (deterministic).
+            committedPlayers.sort((a, b) => a.owner - b.owner);
+
+            if (committedPlayers.length === 2) {
+                const a = committedPlayers[0];
+                const b = committedPlayers[1];
+                if (a === undefined || b === undefined) {
+                    continue;
+                }
+
+                // Determine logical attacker/defender and their total forces.
+                let logicalAttacker: PlayerId;
+                let logicalDefender: PlayerId;
+                let attackerTotalForce: number;
+                let defenderTotalForce: number;
+
+                if (garrisonOwner !== 0) {
+                    // Garrison exists: logical defender = garrison owner.
+                    logicalDefender = garrisonOwner as PlayerId;
+                    logicalAttacker = a.owner === garrisonOwner ? b.owner : a.owner;
+                    const defenderCommitted = committed[idx * PLAYERS + (garrisonOwner - 1)] ?? 0;
+                    defenderTotalForce = garrisonCount + defenderCommitted;
+                    attackerTotalForce = committed[idx * PLAYERS + (logicalAttacker - 1)] ?? 0;
+                } else {
+                    // No garrison: dominant-owner model.
+                    logicalAttacker = a.owner < b.owner ? a.owner : b.owner;
+                    logicalDefender = a.owner < b.owner ? b.owner : a.owner;
+                    if (a.owner < b.owner) {
+                        attackerTotalForce = a.count;
+                        defenderTotalForce = b.count;
+                    } else {
+                        attackerTotalForce = b.count;
+                        defenderTotalForce = a.count;
+                    }
+                }
+
+                // 1:1 attrition: damage = min(attackerTotal, defenderTotal).
+                const damage = Math.min(attackerTotalForce, defenderTotalForce);
+
+                // Event labeling: attacker = lower PlayerId (deterministic symmetry).
+                const eventAttacker: PlayerId = a.owner < b.owner ? a.owner : b.owner;
+                const eventDefender: PlayerId = a.owner < b.owner ? b.owner : a.owner;
+
+                // Winner: whoever has the higher total (or 'tie' if equal).
+                const winner: PlayerId | 'tie' = attackerTotalForce > defenderTotalForce
+                    ? logicalAttacker
+                    : defenderTotalForce > attackerTotalForce
+                        ? logicalDefender
+                        : 'tie';
+
+                // Remaining troops after 1:1 attrition.
+                const attackerRemaining = (attackerTotalForce - damage) >>> 0;
+                const defenderRemaining = (defenderTotalForce - damage) >>> 0;
+
+                if (attackerRemaining > defenderRemaining) {
+                    newCounts[idx] = attackerRemaining;
+                    newOwners[idx] = logicalAttacker;
+                } else if (defenderRemaining > attackerRemaining) {
+                    newCounts[idx] = defenderRemaining;
+                    newOwners[idx] = logicalDefender;
+                } else {
+                    // Equal remnants (typically both 0) → tie.
+                    newCounts[idx] = 0;
+                    newOwners[idx] = 0;
+                }
+
+                const ev: CombatEvent = {
+                    tick: tickNumber,
+                    cell: idxToCoord(idx, board.width),
+                    attacker: eventAttacker,
+                    defender: eventDefender,
+                    attackerLoss: damage,
+                    defenderLoss: damage,
+                    winner,
+                    attackerTotal: attackerTotalForce,
+                    defenderTotal: defenderTotalForce,
+                };
+                events = pushCombatEvent(events, ev);
+            } else {
+                // 3-way or more: dominant keeps their count, losers eliminated.
+                // Dominant = highest committed count, ascending PlayerId as tiebreak.
+                let domIdx = 0;
+                for (let i = 1; i < committedPlayers.length; i++) {
+                    const ai = committedPlayers[i];
+                    const bi = committedPlayers[domIdx];
+                    if (ai === undefined || bi === undefined) {
+                        continue;
+                    }
+                    if (ai.count > bi.count || (ai.count === bi.count && ai.owner < bi.owner)) {
+                        domIdx = i;
+                    }
+                }
+                const domPlayer = committedPlayers[domIdx];
+                if (domPlayer === undefined) {
+                    continue;
+                }
+                newCounts[idx] = domPlayer.count;
+                newOwners[idx] = domPlayer.owner;
+                for (const o of committedPlayers) {
+                    if (o.owner === domPlayer.owner) {
+                        continue;
+                    }
+                    const ev: CombatEvent = {
+                        tick: tickNumber,
+                        cell: idxToCoord(idx, board.width),
+                        attacker: domPlayer.owner,
+                        defender: o.owner,
+                        attackerLoss: 0, // dominant retains all in 3-way+
+                        defenderLoss: o.count,
+                        winner: domPlayer.owner,
+                        attackerTotal: domPlayer.count,
+                        defenderTotal: o.count,
+                    };
+                    events = pushCombatEvent(events, ev);
+                }
+            }
+        } else if (tallyAvailable) {
+            // Legacy path: detect from inflow tally (used in unit tests
+            // without preFlowState).
+            const tally = inflowTally as Uint32Array;
             const ownersAtCell: Array<{ owner: PlayerId; count: number }> = [];
             for (let p = 1; p <= PLAYERS; p++) {
                 const c = tally[idx * PLAYERS + (p - 1)] ?? 0;
@@ -111,13 +267,10 @@ export function resolveCombat(
                 }
             }
             if (ownersAtCell.length <= 1) {
-                continue; // single-owner cell: no combat
+                continue;
             }
-
-            // Sort by PlayerId ascending (deterministic).
             ownersAtCell.sort((a, b) => a.owner - b.owner);
 
-            // Dominant owner: highest count, ascending PlayerId as tiebreak.
             let dominantIdx = 0;
             for (let i = 1; i < ownersAtCell.length; i++) {
                 const a = ownersAtCell[i];
@@ -129,10 +282,9 @@ export function resolveCombat(
                     dominantIdx = i;
                 }
             }
-
             const dom = ownersAtCell[dominantIdx];
             if (dom === undefined) {
-                continue; // defensive
+                continue;
             }
 
             if (ownersAtCell.length === 2) {
@@ -140,62 +292,15 @@ export function resolveCombat(
                 if (other === undefined) {
                     continue;
                 }
-
-                // Total-force model: use preFlowState to identify garrison,
-                // committedFlowTally to compute total forces.
-                const garrisonOwner = preFlowAvailable ? (preFlowState as Required<typeof preFlowState>).troopOwners[idx] ?? 0 : 0;
-                const garrisonCount = preFlowAvailable ? (preFlowState as Required<typeof preFlowState>).troopCounts[idx] ?? 0 : 0;
-
-                let attackerTotal: number;
-                let defenderTotal: number;
-
-                if (garrisonOwner !== 0 && committedAvailable) {
-                    // Garrison exists: defender = garrison owner.
-                    const committed = committedFlowTally as Uint32Array;
-                    const defenderCommitted = committed[idx * PLAYERS + (garrisonOwner - 1)] ?? 0;
-                    defenderTotal = garrisonCount + defenderCommitted;
-
-                    // Attacker is the other player in the tally.
-                    const attackerOwner = dom.owner === garrisonOwner ? other.owner : dom.owner;
-                    attackerTotal = committed[idx * PLAYERS + (attackerOwner - 1)] ?? 0;
-                } else {
-                    // No garrison (empty cell before flow): dominant-owner model.
-                    // attacker = lower PlayerId, defender = higher PlayerId.
-                    if (dom.owner < other.owner) {
-                        attackerTotal = dom.count;
-                        defenderTotal = other.count;
-                    } else {
-                        attackerTotal = other.count;
-                        defenderTotal = dom.count;
-                    }
-                }
-
-                // 1:1 attrition: damage = min(attackerTotal, defenderTotal).
-                const damage = Math.min(attackerTotal, defenderTotal);
-
-                // Attacker/defender labeling: attacker = lower PlayerId
-                // (deterministic symmetry).
+                const damage = Math.min(dom.count, other.count);
                 const attackerLabel: PlayerId = dom.owner < other.owner ? dom.owner : other.owner;
                 const defenderLabel: PlayerId = dom.owner < other.owner ? other.owner : dom.owner;
+                const winner: PlayerId | 'tie' = dom.count > other.count ? dom.owner : 'tie';
 
-                // Winner: whoever has the higher total (or 'tie' if equal).
-                let winnerTotal: number;
-                let loserTotal: number;
-                if (attackerTotal >= defenderTotal) {
-                    winnerTotal = attackerTotal;
-                    loserTotal = defenderTotal;
-                } else {
-                    winnerTotal = defenderTotal;
-                    loserTotal = attackerTotal;
-                }
-                const winner: PlayerId | 'tie' = winnerTotal > loserTotal
-                    ? (winnerTotal === attackerTotal ? attackerLabel : defenderLabel)
-                    : 'tie';
-
-                // Remaining troops after 1:1 attrition.
-                const attackerRemaining = (attackerTotal - damage) >>> 0;
-                const defenderRemaining = (defenderTotal - damage) >>> 0;
-
+                const attackerCount = attackerLabel === dom.owner ? dom.count : other.count;
+                const defenderCount = defenderLabel === dom.owner ? dom.count : other.count;
+                const attackerRemaining = (attackerCount - damage) >>> 0;
+                const defenderRemaining = (defenderCount - damage) >>> 0;
                 if (attackerRemaining > defenderRemaining) {
                     newCounts[idx] = attackerRemaining;
                     newOwners[idx] = attackerLabel;
@@ -203,7 +308,6 @@ export function resolveCombat(
                     newCounts[idx] = defenderRemaining;
                     newOwners[idx] = defenderLabel;
                 } else {
-                    // Equal remnants (typically both 0) → tie.
                     newCounts[idx] = 0;
                     newOwners[idx] = 0;
                 }
@@ -216,12 +320,11 @@ export function resolveCombat(
                     attackerLoss: damage,
                     defenderLoss: damage,
                     winner,
-                    attackerTotal,
-                    defenderTotal,
+                    attackerTotal: attackerCount,
+                    defenderTotal: defenderCount,
                 };
                 events = pushCombatEvent(events, ev);
             } else {
-                // 3-way or more: dominant keeps their count, losers eliminated.
                 newCounts[idx] = dom.count;
                 newOwners[idx] = dom.owner;
                 for (const o of ownersAtCell) {
@@ -233,7 +336,7 @@ export function resolveCombat(
                         cell: idxToCoord(idx, board.width),
                         attacker: dom.owner,
                         defender: o.owner,
-                        attackerLoss: 0, // dominant retains all in 3-way+
+                        attackerLoss: 0,
                         defenderLoss: o.count,
                         winner: dom.owner,
                         attackerTotal: dom.count,
@@ -244,8 +347,6 @@ export function resolveCombat(
             }
         }
         // When no tally is provided, we treat the cell as single-owner.
-        // The state may still contain a multi-owner encoding from upstream
-        // (not in the current model), so we don't try to detect it here.
     }
 
     return {
