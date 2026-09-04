@@ -50,9 +50,7 @@ export async function expectNoDomA11yViolations(
     const results = await axe.run(context, {
         runOnly: { type: 'tag', values: [...AXE_TAGS] },
     });
-    const filtered = excludeRules
-        ? results.violations.filter((v) => !excludeRules.includes(v.id))
-        : results.violations;
+    const filtered = excludeRules ? results.violations.filter((v) => !excludeRules.includes(v.id)) : results.violations;
     throwOnViolations(filtered);
 }
 

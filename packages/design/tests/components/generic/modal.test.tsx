@@ -74,7 +74,7 @@ describe('EuropaModal', () => {
             </EuropaModal>,
         );
         const actions = container.querySelector('.europa-modal__actions');
-        expect(actions).toContainHTML('<button>OK</button>');
+        expect(actions).toContainHTML('<button type="button">OK</button>');
     });
 
     it('calls onClose when Escape is pressed', async () => {

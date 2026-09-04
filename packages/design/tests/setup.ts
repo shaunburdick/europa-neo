@@ -11,3 +11,10 @@
  * conversion (spec 014 Clarifications v1.2, SC-008).
  */
 import '@testing-library/jest-dom/vitest';
+import { cleanup } from '@testing-library/react';
+import { afterEach } from 'vitest';
+
+// Auto-cleanup after each test to prevent DOM accumulation
+afterEach(() => {
+    cleanup();
+});
