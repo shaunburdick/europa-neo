@@ -121,13 +121,17 @@ export function extractDocumentedTags(designMd: string): string[] {
     const subsectionText = designMd.slice(subsectionStart, endOffset);
 
     const tags = new Set<string>();
-    // Each row in the React component table starts with `| \`europa-...\``
-    // (the Tag column).  This avoids matching event names in later columns.
-    const tagRowPattern = /^\|\s*`(europa-[a-z][a-z0-9-]*)`/gm;
+    // Each row in the React component table starts with `| \`Europa...\``
+    // or `| \`europa-...\`` (the Tag column).  Both PascalCase and kebab-case
+    // are accepted; PascalCase is normalised to kebab-case via toKebabTag().
+    // This avoids matching event names in later columns.
+    const tagRowPattern = /^\|\s*`([Ee]uropa[A-Za-z][A-Za-z0-9]*|europa-[a-z][a-z0-9-]*)`/gm;
     const matches = subsectionText.matchAll(tagRowPattern);
     for (const match of matches) {
         if (match[1] !== undefined) {
-            tags.add(match[1]);
+            // Normalise PascalCase to kebab-case for comparison with exports.
+            const tag = match[1].startsWith('europa-') ? match[1] : toKebabTag(match[1]);
+            tags.add(tag);
         }
     }
 
