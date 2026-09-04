@@ -416,12 +416,6 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             case 'terminal': {
                 // Match over: the server closes the socket after delivery; no
                 // further pings are needed (and none would be protocol-legal).
-                // DIAGNOSTIC (issue #47): log terminal receipt at the transport layer.
-                console.log('[DIAG-47] ws-match-client terminal envelope:', {
-                    payload: envelope.payload,
-                    seq: envelope.seq,
-                    prevConnection: connection,
-                });
                 stopHeartbeat();
                 setState('terminal');
                 return;
@@ -481,14 +475,6 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             socket = null;
             stopHeartbeat();
             const wasJoined = connection === 'joined' || connection === 'rejoined';
-            // DIAGNOSTIC (issue #47): log socket close to detect terminal race.
-            console.log('[DIAG-47] ws-match-client onclose:', {
-                code: event.code,
-                connection,
-                wasJoined,
-                closedByUs,
-                nextConnection: closedByUs || !wasJoined ? 'closed' : 'disconnected',
-            });
             flushPendingRejections(
                 new Error(`ws-match-client: socket closed (${String(event.code)}) before completion`),
             );
