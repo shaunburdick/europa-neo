@@ -74,11 +74,8 @@ function propsOf(overrides: Partial<ProfileViewProps> = {}): ProfileViewProps {
 describe('ProfileView — unnamed state', () => {
     test('renders heading "Profile"', async () => {
         const screen = await render(<ProfileView {...propsOf()} />);
-        // The heading text is rendered inside <europa-typography>'s shadow
-        // DOM (spec 014 Wave 2): the internal <h2> carries the text and is
-        // exposed through the accessibility tree, so assert by role + name.
-        // `level: 2` disambiguates from the page-level <h1> route header.
-        await expect.element(screen.getByRole('heading', { name: 'Profile', level: 2 })).toBeVisible();
+        // The heading text is in a direct <h1> element — assert by role + name.
+        await expect.element(screen.getByRole('heading', { name: 'Profile', level: 1 })).toBeVisible();
     });
 
     test('renders "Set up your profile" text', async () => {

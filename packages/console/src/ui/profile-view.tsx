@@ -28,18 +28,10 @@
  * `connectionLabel()` from lobby-labels.ts.
  *
  * Design system (FR-016): `EuropaPage`, `EuropaCard`,
- * `EuropaStack`, `EuropaButton`, `EuropaTypography`,
- * `EuropaWaiting`.
+ * `EuropaStack`, `EuropaButton`, `EuropaWaiting`.
  */
 
-import {
-    EuropaButton,
-    EuropaCard,
-    EuropaPage,
-    EuropaStack,
-    EuropaTypography,
-    EuropaWaiting,
-} from '@europa/design/components';
+import { EuropaButton, EuropaCard, EuropaPage, EuropaStack, EuropaWaiting } from '@europa/design/components';
 import type { JSX } from 'react';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 
@@ -136,8 +128,13 @@ export function ProfileView({
         return (
             <EuropaPage>
                 <EuropaStack>
-                    <h1 ref={headingRef} id={headingId} tabIndex={-1}>
-                        <EuropaTypography variant="heading">Profile</EuropaTypography>
+                    <h1
+                        ref={headingRef}
+                        id={headingId}
+                        tabIndex={-1}
+                        className="europa-typography europa-typography--heading"
+                    >
+                        Profile
                     </h1>
 
                     {/* FR-015: connection status line */}
@@ -162,8 +159,13 @@ export function ProfileView({
     return (
         <EuropaPage>
             <EuropaStack>
-                <h1 ref={headingRef} id={headingId} tabIndex={-1}>
-                    <EuropaTypography variant="heading">Profile</EuropaTypography>
+                <h1
+                    ref={headingRef}
+                    id={headingId}
+                    tabIndex={-1}
+                    className="europa-typography europa-typography--heading"
+                >
+                    Profile
                 </h1>
 
                 {/* FR-015: connection status line */}

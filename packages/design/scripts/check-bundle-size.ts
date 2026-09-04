@@ -25,7 +25,7 @@ export const BUNDLE_BUDGET_BYTES = 20_480;
 export interface BundleSizeResult {
     /** True when the gzipped bundle is within budget (or the file is absent). */
     readonly ok: boolean;
-    /** Gzip byte count of `dist/components.js` (0 when the file is missing). */
+    /** Gzip byte count of `dist/components/index.js` (0 when the file is missing). */
     readonly gzipBytes: number;
 }
 
