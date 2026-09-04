@@ -12,10 +12,12 @@ import type { ReactNode } from 'react';
  * ```
  */
 export interface EuropaBadgeProps {
+    /** Additional CSS class names (e.g. status modifiers like `europa-badge--success`). */
+    className?: string;
     /** Label text projected inside the badge. */
     children?: ReactNode;
 }
 
-export function EuropaBadge({ children }: EuropaBadgeProps) {
-    return <span className="europa-badge">{children}</span>;
+export function EuropaBadge({ className, children }: EuropaBadgeProps) {
+    return <span className={className ? `europa-badge ${className}` : 'europa-badge'}>{children}</span>;
 }

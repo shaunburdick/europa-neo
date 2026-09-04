@@ -1,80 +1,61 @@
-# Orchestration Log: 012-design-system (issue #25) — Shareable Design System
+# Orchestration Log: Unified Design System Dev Page (Issue #68)
 
 ## Status
-- **Current Wave**: Complete — PR #31 open (branded-footer sidecar merged into branch)
-- **Branch**: `issue-25-design-system`
-- **PR**: https://github.com/shaunburdick/europa-neo/pull/31
-- **Last Updated**: 2026-08-30
+- **Current Wave**: Complete — PR Open
+- **Branch**: `issue-68-unified-design-system`
+- **PR**: https://github.com/shaunburdick/europa-neo/pull/73
+- **Last Updated**: 2026-09-04
 
 ## Plan Summary
-Single private package `@europa/design` (`packages/design`) — TS token table `src/tokens.ts` (as const) is single source, deterministic `scripts/build-css.ts` emits `:root{--europa-*}` + `europa-*` catalog classes to `dist/design.css`, vendored byte-identical to `docs/manual/assets/design.css` via checked-in copy inside `docs/manual` (preserves `pages-deploy.yml` artifact scope), console `palette.ts` thin re-export + `styles/index.css` migrated to `var(--europa-*)`, root `DESIGN.md` is versioned living contract (header `> **Version**: 0.1.0`), drift guards G-01..09, biome/CI/version-drift path filters updated, build ordering design→console, bundle budget <150KB gz.
+Merge `packages/design/preview/` (static HTML token docs) and `packages/design/playground/` (React component demos) into a single unified dev page at `packages/design/dev/`. React shell with hash-based sidebar navigation, CSS-only theme toggle, token-only page chrome. 62 tasks across 7 phases.
 
 ## Task Wave Progress
 
-### Wave 1 — Scaffold + Baseline Housekeeping — ✅ Complete
-- T-001 Scaffold `packages/design` workspace package — ✅ done (9a88a34)
-- T-002 Wire `@europa/design` into monorepo graph — ✅ done (eabf130)
-- T-003 [P] Baseline `biome.jsonc` for `packages/design` — ✅ done (ce6d324)
-- T-004 Create `DESIGN.md` skeleton + version marker — ✅ done (15d3e65)
+### Wave 1 — Extract Shared Logic — ✅ Complete
+- T-001: Extract contrast helpers → `dev/lib/contrast.ts` ✅
+- T-002: Extract token builders → `dev/lib/token-utils.ts` ✅
+- T-003: Update preview.test.ts imports ✅
 
-### Wave 2 — Tokens & Emitter — ✅ Complete
-- T-005 Canonical token table `src/tokens.ts` — ✅ done (ce86616)
-- T-006 Deterministic CSS emitter `dist/design.css` — ✅ done (c1cb67a)
+### Wave 2 — React Shell — ✅ Complete
+- T-004: `dev/index.html` ✅
+- T-005: `dev/vite.config.ts` ✅
+- T-006: `dev/main.tsx` ✅
+- T-007: `dev/styles/shell.css` ✅
+- T-008: `dev/hooks/useHashRoute.ts` ✅
+- T-009: `dev/hooks/useTheme.ts` ✅
+- T-010: `dev/components/ThemeToggle.tsx` ✅
+- T-011: `dev/lib/sections.ts` ✅
+- T-012: `dev/components/Sidebar.tsx` ✅
+- T-013: `dev/components/App.tsx` ✅
+- T-014: `package.json` scripts updated ✅
 
-### Wave 3 — Catalog + Palette + A11y Gates — ✅ Complete
-- T-007 Component catalog stylesheet (catalog classes) — ✅ done (1d4f19a)
-- T-008 A11y gates inside stylesheet (focus + reduced-motion) — ✅ done (bcb4f3b)
-- T-012 [P] Migrate `palette.ts` to derive from design tokens — ✅ done (ead343a)
+### Wave 3 — Foundations + Components — ✅ Complete
+- T-015–T-019: 5 foundation sections ✅
+- T-020–T-041: 20 component demos + token color reference + barrel export ✅
 
-### Wave 4 — DESIGN.md Tables + Vendor — ✅ Complete
-- T-009 [P] Fill `DESIGN.md` token tables + pairing table — ✅ done (b01ac14)
-- T-010 [P] Fill `DESIGN.md` component catalog + house rules — ✅ done (b01ac14)
-- T-011 Drift suite (G-01/G-02/G-03/G-05/G-06 foundations) — ⛔ DEFERRED (v0.1.0 trim: full G-01/G-02/G-03 drift suite dropped)
-- T-016 Vendor `dist/design.css` → `docs/manual/assets/design.css` + Jekyll layout — ✅ done (b4f92ea)
+### Wave 4 — Tests — ✅ Complete
+- T-042–T-045: 4 test files, 40 tests passing ✅
 
-### Wave 5 — Guards, Parity, Smokes — ✅ Complete
-- T-013 Migrate `styles/index.css` to `var(--europa-*)` + catalog classes — ✅ done (88b92d1)
-- T-014 [P] No-literals guard (G-04) — 🔄 in progress (combined agent w/ T-011/T-017)
-- T-015 [P] Console visual parity + a11y preserved tests (G-07 + SC-001) — ⛔ DEFERRED (v0.1.0 trim: existing 260+ console suite covers parity)
-- T-017 Assert vendored-asset byte identity (G-05) — 🔄 in progress (combined agent w/ T-011/T-014)
-- T-018 [P] Manual renders dark-slate smoke — ⛔ DEFERRED (v0.1.0 trim: verified by vendored stylesheet + existing checks)
-- T-019 [P] Pages artifact scope preserved (G-09) — ✅ done (scope preserved by unchanged `pages-deploy.yml` `source: ./docs/manual` + T-026 path filter)
-- T-022 Cross-consumer smoke (shared classes) — ⛔ DEFERRED (v0.1.0 trim: catalog composability proven by shipped stylesheet)
-- T-023 Extension guidance verifiability — ⛔ DEFERRED (v0.1.0 trim: extension guidance present in DESIGN.md)
+### Wave 5 — Cleanup — ✅ Complete
+- T-048–T-049: Deleted `preview/` and `playground/` ✅
+- T-050–T-052: Verified configs, CI, docs ✅
+- T-053–T-055: typecheck/lint/format all clean ✅
+- T-056: 363 tests passing ✅
 
-### Wave 6 — Lockstep + CI Messages — ✅ Complete
-- T-020 Lockstep versioning joins `version:check` (G-06 final) — ✅ done (8367c64)
-- T-021 DESIGN.md↔implementation sync rule enforcement + CI messages — ✅ done (8367c64)
-
-### Wave 7 — Polish & Housekeeping — ✅ Complete
-- T-024 Build ordering verification (FR-021) — ⛔ DEFERRED (v0.1.0 trim: pnpm topology guarantees ordering)
-- T-025 [P] `client-ci.yml` path filter + job update — ✅ done (8367c64)
-- T-026 [P] `pages-deploy.yml` path filter update — ✅ done (8367c64)
-- T-027 [P] `version-drift.yml` path filter final audit — ✅ done (8367c64)
-- T-028 [P] Bundle budget guard (<150KB gz) — ✅ done (limit enforced by existing spec 005 budget test; design dedupes literals)
-
-### Wave 8 — Final Verification — ✅ Complete
-- T-029 End-to-end SC checklist + quickstart replay — ✅ done (ebb8776; full verification green, PR #31 open)
-
-### Wave 9 — Manual Catalog Adoption (PO option 1, post-trim) — ✅ Complete
-- T-030 Adopt `europa-*` catalog classes in the player manual — ✅ done (87c590f; catalog §12 prose scoped under .europa-page, 11 manual .md annotated: 1 card / 8 chip / 19 table / 1 typography--meta; vendor-identity + no-literals green; console unaffected)
-
-### Wave 10 — Branded Footer Sidecar (PO review addon, in PR #31) — ✅ Complete
-- T-031 Console branded footer on every view — ✅ done (4914389; new `packages/console/src/ui/branded-footer.tsx` token-styled, mounted in App.tsx + lobby-landing.tsx, consolidated former HUD version span; tests added)
-- T-032 Manual branded footer on every page — ✅ done (4914389; `<footer>` in `docs/manual/_layouts/default.html` with app name + `{{ site.version }}` + GitHub link)
-- T-033 Wire `_config.yml` version + extend version-drift guard — ✅ done (4914389; `docs/manual/_config.yml` `version: 0.1.0` as `docs-config` surface in `version:check`; `version-drift.yml` path filter added)
+### Wave 6 — Final Verification — ✅ Complete
+- T-057–T-062: All SCs verified ✅
 
 ## Decisions & Rationale
-- 2026-08-30: Large effort (29 tasks) — PM drives orchestration directly (not architect solo) per orchestration skill; architect cannot spawn sub-agents.
-- 2026-08-30: Wave model derived from tasks.md §Dependencies & Parallelization Summary; max parallelism within dep constraints, sibling summaries included per dispatch.
+- 2026-09-04: Scrollable document over conditional rendering (simpler, matches both existing patterns)
+- 2026-09-04: CSS-only theme toggle (no JS token manipulation, no React context needed)
+- 2026-09-04: Extract pure functions from preview/main.ts before building React shell (enables test migration)
 
 ## Blockers & Escalations
-- (none) — one test-harness gap (browser-mode Vitest suites didn't import design.css) was found and fixed in f6c3a8b (test-only, no production change).
+(none)
 
 ## New Tasks Discovered
-- (none) — T-011/T-015/T-018/T-022/T-023/T-024 deferred by product-owner decision (trim scope); documented in spec.md/plan.md Scope Note.
+(none)
 
 ## Review Findings
-- Final verification (all green): pnpm build (console CSS 3.70KB gz), check:vendor-identity PASS, check:no-literals PASS, pnpm version:check PASS, console node 487 / component 65 / a11y 29 / perf 3 / e2e 15 pass, repo-wide typecheck/lint/format:check PASS.
-- Scope trimmed per PO: full G-01..G-09 drift-suite + parity/smoke tests deferred for v0.1.0 (private internal package — guardrail over-engineering).
-- Branded-footer sidecar (Wave 10) verification (all green): `pnpm version:check` EXIT 0 (incl `_config.yml` docs-config surface), `check:no-literals` EXIT 0, console build CSS 4.01KB gz (<150KB), `test:component` 89 pass, `test:a11y` 29 pass, `version` 38 pass, repo-wide typecheck/lint/format:check 0. Co-Authored-By trailers stripped via rebase (user forbade them); force-pushed to PR #31.
+- Lint fixes applied: `import React` → `import type React` in 6 files, import ordering in 5 files, a11y overlay changed from div to button
+- Preview test migration: HTML structure tests now validate `dev/index.html`, CSS compliance tests validate `shell.css`

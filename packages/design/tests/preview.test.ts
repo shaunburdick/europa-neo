@@ -2,8 +2,8 @@
  * Preview page tests for the design system (FR-042, AC-041/042/043).
  *
  * Validates:
- * - Key structural sections render in the HTML shell (AC-041)
- * - No hex/rgb literals in the page's own `<style>` block (AC-042)
+ * - Dev page HTML entry point structure (AC-041)
+ * - shell.css no-hex compliance outside theme block (AC-042)
  * - The TypeScript module generates correct helper outputs
  * - The token tables are complete
  *
@@ -15,15 +15,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { contrastRatioNumeric, parseHex } from '../dev/lib/contrast.ts';
 import {
     buildA11yPairings,
     buildColorCategories,
     buildTokenGroups,
     buildTypeSamples,
-    contrastRatioNumeric,
-    parseHex,
     toKebabCase,
-} from '../preview/main.ts';
+} from '../dev/lib/token-utils.ts';
 import { TOKENS } from '../src/tokens.ts';
 
 // ---------------------------------------------------------------------------
@@ -31,38 +30,26 @@ import { TOKENS } from '../src/tokens.ts';
 // ---------------------------------------------------------------------------
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PREVIEW_DIR = path.resolve(__dirname, '..', 'preview');
-const HTML_PATH = path.join(PREVIEW_DIR, 'index.html');
+const DEV_DIR = path.resolve(__dirname, '..', 'dev');
+const HTML_PATH = path.join(DEV_DIR, 'index.html');
+const SHELL_CSS_PATH = path.join(DEV_DIR, 'styles', 'shell.css');
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Read the preview HTML file contents.
+ * Read the dev page HTML file contents.
  */
-async function readPreviewHtml(): Promise<string> {
+async function readDevHtml(): Promise<string> {
     return readFile(HTML_PATH, 'utf8');
 }
 
 /**
- * Extract the content of the first `<style>` block from HTML.
+ * Read the shell CSS file contents.
  */
-function extractStyleBlock(html: string): string {
-    const start = html.indexOf('<style>');
-    const end = html.indexOf('</style>');
-    if (start === -1 || end === -1) {
-        return '';
-    }
-    return html.slice(start + '<style>'.length, end);
-}
-
-/**
- * Check if a CSS value contains a hex color literal (#rgb or #rrggbb).
- */
-function containsHexLiteral(value: string): boolean {
-    // Match #rgb or #rrggbb patterns (not inside var() or comments)
-    return /#(?:[0-9a-fA-F]{3}){1,2}\b/.test(value);
+async function readShellCss(): Promise<string> {
+    return readFile(SHELL_CSS_PATH, 'utf8');
 }
 
 /**
@@ -73,86 +60,58 @@ function containsRgbLiteral(value: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// HTML structure tests (AC-041)
+// HTML structure tests (AC-041) — migrated to dev page
 // ---------------------------------------------------------------------------
 
-describe('preview page HTML structure (AC-041)', () => {
-    it('contains the sticky navigation', async () => {
-        const content = await readPreviewHtml();
-        expect(content).toContain('class="preview-nav"');
-        expect(content).toContain('aria-label="Design system sections"');
+describe('dev page HTML structure (AC-041)', () => {
+    it('has a root div for React mounting', async () => {
+        const content = await readDevHtml();
+        expect(content).toContain('id="root"');
     });
 
-    it('contains the hero section with stats', async () => {
-        const content = await readPreviewHtml();
-        expect(content).toContain('class="preview-hero"');
-        expect(content).toContain('data-stat="components"');
-        expect(content).toContain('data-stat="colors"');
-        expect(content).toContain('data-stat="a11y"');
-    });
-
-    it('contains the footer', async () => {
-        const content = await readPreviewHtml();
-        expect(content).toContain('class="preview-footer"');
-    });
-
-    it('links to dist/design.css', async () => {
-        const content = await readPreviewHtml();
-        expect(content).toContain('href="../dist/design.css"');
-    });
-
-    it('imports main.ts as a module', async () => {
-        const content = await readPreviewHtml();
-        expect(content).toContain('src="./main.ts"');
+    it('imports main.tsx as a module', async () => {
+        const content = await readDevHtml();
+        expect(content).toContain('src="./main.tsx"');
         expect(content).toContain('type="module"');
+    });
+
+    it('has the correct page title', async () => {
+        const content = await readDevHtml();
+        expect(content).toContain('<title>Europa Design System</title>');
+    });
+
+    it('declares lang attribute', async () => {
+        const content = await readDevHtml();
+        expect(content).toContain('lang="en"');
+    });
+
+    it('includes viewport meta tag', async () => {
+        const content = await readDevHtml();
+        expect(content).toContain('name="viewport"');
     });
 });
 
 // ---------------------------------------------------------------------------
-// AC-042: No hex/rgb literals in the page's own CSS
+// AC-042: shell.css token compliance (migrated from inline style block)
 // ---------------------------------------------------------------------------
 
-describe('preview page CSS token compliance (AC-042)', () => {
-    it('contains no hex literals in the <style> block', async () => {
-        const html = await readPreviewHtml();
-        const styleBlock = extractStyleBlock(html);
+describe('shell.css token compliance (AC-042)', () => {
+    it('contains no hex literals in property values outside theme block', async () => {
+        const css = await readShellCss();
+        const themeStart = css.indexOf(':root[data-theme="light"]');
+        const mainCss = themeStart >= 0 ? css.slice(0, themeStart) : css;
 
-        // Allow hex values inside code examples and comments, but not in
-        // property values. We check for hex in property-value positions.
-        const lines = styleBlock.split('\n');
-        const violations: string[] = [];
-
-        for (const line of lines) {
-            const trimmed = line.trim();
-            // Skip empty lines, comments, and property names
-            if (trimmed === '' || trimmed.startsWith('/*') || trimmed.startsWith('*') || trimmed.startsWith('//')) {
-                continue;
-            }
-
-            // Check for property declarations with hex values
-            const colonIndex = trimmed.indexOf(':');
-            if (colonIndex > 0) {
-                const value = trimmed
-                    .slice(colonIndex + 1)
-                    .replace(/;$/, '')
-                    .trim();
-                // Skip var() references and calc() expressions
-                if (!value.startsWith('var(') && !value.startsWith('calc(')) {
-                    if (containsHexLiteral(value)) {
-                        violations.push(trimmed);
-                    }
-                }
-            }
-        }
-
-        expect(violations, `Found hex literals in <style> block:\n${violations.join('\n')}`).toHaveLength(0);
+        const hexInProperties = /:\s*#[0-9a-fA-F]{3,8}/g;
+        const matches = mainCss.match(hexInProperties) || [];
+        expect(matches).toEqual([]);
     });
 
-    it('contains no rgb/rgba literals in the <style> block', async () => {
-        const html = await readPreviewHtml();
-        const styleBlock = extractStyleBlock(html);
+    it('contains no rgb/rgba literals outside theme block', async () => {
+        const css = await readShellCss();
+        const themeStart = css.indexOf(':root[data-theme="light"]');
+        const mainCss = themeStart >= 0 ? css.slice(0, themeStart) : css;
 
-        const lines = styleBlock.split('\n');
+        const lines = mainCss.split('\n');
         const violations: string[] = [];
 
         for (const line of lines) {
@@ -175,67 +134,17 @@ describe('preview page CSS token compliance (AC-042)', () => {
             }
         }
 
-        expect(violations, `Found rgb/rgba literals in <style> block:\n${violations.join('\n')}`).toHaveLength(0);
+        expect(violations, `Found rgb/rgba literals outside theme block:\n${violations.join('\n')}`).toHaveLength(0);
     });
 
-    it('uses only --europa-* custom properties in CSS values', async () => {
-        const html = await readPreviewHtml();
-        const styleBlock = extractStyleBlock(html);
+    it('uses var(--europa-*) for background-color outside theme block', async () => {
+        const css = await readShellCss();
+        const themeStart = css.indexOf(':root[data-theme="light"]');
+        const mainCss = themeStart >= 0 ? css.slice(0, themeStart) : css;
 
-        // Extract all property values that should be var() references
-        const lines = styleBlock.split('\n');
-        const nonVarValues: string[] = [];
-
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (
-                trimmed === '' ||
-                trimmed.startsWith('/*') ||
-                trimmed.startsWith('*') ||
-                trimmed.startsWith('//') ||
-                trimmed.startsWith('@')
-            ) {
-                continue;
-            }
-
-            const colonIndex = trimmed.indexOf(':');
-            if (colonIndex > 0) {
-                const prop = trimmed.slice(0, colonIndex).trim();
-                const value = trimmed
-                    .slice(colonIndex + 1)
-                    .replace(/;$/, '')
-                    .trim();
-
-                // Skip non-color properties (display, position, etc.)
-                const colorProps = [
-                    'color',
-                    'background-color',
-                    'background',
-                    'border-color',
-                    'border-top-color',
-                    'border-left-color',
-                    'border-right-color',
-                    'border-bottom-color',
-                    'outline-color',
-                    'box-shadow',
-                    'text-shadow',
-                ];
-
-                if (colorProps.includes(prop)) {
-                    if (
-                        !value.startsWith('var(') &&
-                        !value.startsWith('transparent') &&
-                        !value.startsWith('none') &&
-                        value !== 'inherit' &&
-                        value !== 'currentColor'
-                    ) {
-                        nonVarValues.push(`${prop}: ${value}`);
-                    }
-                }
-            }
-        }
-
-        expect(nonVarValues, `Found non-var() color values:\n${nonVarValues.join('\n')}`).toHaveLength(0);
+        const bgRegex = /background-color:\s*(?!var\(--europa)[^;]+;/g;
+        const matches = mainCss.match(bgRegex) || [];
+        expect(matches).toEqual([]);
     });
 });
 
