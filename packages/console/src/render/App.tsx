@@ -405,6 +405,7 @@ export function App({
                     {mapView !== null && mapView.cells.size > 0 ? (
                         <GridOverlay
                             mapView={mapView}
+                            playerNames={resolvedState.session.playerNames}
                             onCellClick={
                                 store === undefined
                                     ? undefined

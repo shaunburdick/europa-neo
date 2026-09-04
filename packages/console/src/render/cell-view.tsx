@@ -34,6 +34,12 @@ export interface CellViewProps {
     /** Per-player cosmetic colors (MapView.playerColors). */
     readonly playerColors: Readonly<Record<PlayerId, string>>;
     /**
+     * Optional player name map from the session state. When present,
+     * the cell's aria-label resolves the owner's display name instead
+     * of the raw "Player N" fallback.
+     */
+    readonly playerNames?: ReadonlyMap<PlayerId, string> | undefined;
+    /**
      * Whether this cell currently holds the keyboard focus ring
      * (roving focus via `aria-activedescendant` on the grid).
      */
@@ -52,14 +58,18 @@ export interface CellViewProps {
  * Build the accessible name for one cell.
  *
  * Format (Phase 3 Independent Test item c / Q-B04):
- * `Cell (5, 7), 32 troops, Player 1, city, pipes: N, E` — segments
+ * `Cell (5, 7), 32 troops, Nova, city, pipes: N, E` — segments
  * omitted when not applicable (`city` only for cities, `pipes:` only
  * when the cell has pipes, owner rendered as `unowned` when empty).
- * Pure.
+ * When a `playerNames` map is supplied, the owner's display name
+ * replaces the raw "Player N" fallback. Pure.
+ *
+ * @param info The cell's render data.
+ * @param playerNames Optional name map from the session state.
  */
-export function formatCellAriaLabel(info: CellRenderInfo): string {
+export function formatCellAriaLabel(info: CellRenderInfo, playerNames?: ReadonlyMap<PlayerId, string>): string {
     const parts: string[] = [`Cell (${info.coord.x}, ${info.coord.y})`, `${info.troops} troops`];
-    parts.push(info.owner !== null ? `Player ${info.owner}` : 'unowned');
+    parts.push(info.owner !== null ? (playerNames?.get(info.owner) ?? `Player ${String(info.owner)}`) : 'unowned');
     if (info.isCity) {
         parts.push('city');
     }
@@ -89,6 +99,7 @@ export function CellView({
     info,
     camera,
     playerColors,
+    playerNames,
     focused = false,
     onClick,
     onPointerEnter,
@@ -105,7 +116,7 @@ export function CellView({
             id={cellElementId(info.coord)}
             aria-rowindex={info.coord.y + 1}
             aria-colindex={info.coord.x + 1}
-            aria-label={formatCellAriaLabel(info)}
+            aria-label={formatCellAriaLabel(info, playerNames)}
             className={classes.join(' ')}
             style={{
                 left: info.coord.x * zoom,
