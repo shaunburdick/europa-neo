@@ -47,21 +47,30 @@ interface TransferParams {
     newOwners: Uint8Array;
     /** Optional inflow tally to populate (null when tally is not supplied). */
     tally: Uint32Array | null;
+    /**
+     * Optional committed-flow tally to populate (null when not supplied).
+     * Records raw pipe flow BEFORE headroom clamping — used by combat
+     * to compute total forces for each side.
+     */
+    committedTally: Uint32Array | null;
 }
 
 /**
  * Resolve one tick of pipe flow.
  *
- * @param state        Current world state (NOT mutated).
- * @param board        Board with cell elevations and terrain.
- * @param constants    Engine rule constants (flowBase, flowSlopeStep,
- *                     flowSlopeDeltaCap, cellCapacity).
- * @param inflowTally  Optional per-cell per-owner inflow tally. When
- *                     supplied, slot `(cellIdx * 4) + (playerId - 1)` is
- *                     incremented by the count of troops that player
- *                     sent into that cell this tick. Consumed by
- *                     resolveCombat (multi-owner detection) and
- *                     resolveDecay (friendly-inflow exemption).
+ * @param state              Current world state (NOT mutated).
+ * @param board              Board with cell elevations and terrain.
+ * @param constants          Engine rule constants (flowBase, flowSlopeStep,
+ *                           flowSlopeDeltaCap, cellCapacity).
+ * @param inflowTally        Optional per-cell per-owner inflow tally. When
+ *                           supplied, slot `(cellIdx * 4) + (playerId - 1)` is
+ *                           incremented by the count of troops that player
+ *                           sent into that cell this tick. Consumed by
+ *                           resolveCombat (multi-owner detection) and
+ *                           resolveDecay (friendly-inflow exemption).
+ * @param committedFlowTally Required per-cell per-owner committed-flow tally.
+ *                           Records raw pipe flow BEFORE headroom clamping.
+ *                           Used by resolveCombat to compute total forces.
  * @returns A fresh `WorldState` with updated troopCounts/troopOwners on
  *          destination cells. Source cells retain their counts (US1 does
  *          not model source depletion here; US3 reserves/decay cover that).
@@ -71,6 +80,7 @@ export function resolveFlow(
     board: Readonly<Board>,
     constants: EngineConstants,
     inflowTally?: Uint32Array,
+    committedFlowTally?: Uint32Array,
 ): WorldState {
     const w = board.width;
     const n = w * w;
@@ -84,6 +94,7 @@ export function resolveFlow(
     const cap = constants.cellCapacity >>> 0;
 
     const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * 4;
+    const committedTallyAvailable = committedFlowTally !== undefined && committedFlowTally.length >= n * 4;
 
     for (let idx = 0; idx < n; idx++) {
         const mask = state.pipeMasks[idx] ?? 0;
@@ -110,6 +121,7 @@ export function resolveFlow(
             newCounts,
             newOwners,
             tally: tallyAvailable ? (inflowTally as Uint32Array) : null,
+            committedTally: committedTallyAvailable ? (committedFlowTally as Uint32Array) : null,
         };
 
         // Iterate directions in fixed order (N, E, S, W) for determinism.
@@ -149,7 +161,7 @@ export function resolveFlow(
  * if the destination is out of bounds, water, or already at capacity.
  */
 function transfer(params: TransferParams): void {
-    const { board, x, y, dx, dy, srcOwner, constants, cap, newCounts, newOwners, tally } = params;
+    const { board, x, y, dx, dy, srcOwner, constants, cap, newCounts, newOwners, tally, committedTally } = params;
     const nx = x + dx;
     const ny = y + dy;
     const w = board.width;
@@ -174,6 +186,12 @@ function transfer(params: TransferParams): void {
     const moved = flowRateForDelta(elevDelta, constants);
     if (moved === 0) {
         return; // stall (uphill Δ ≥ flowBase / flowSlopeStep) — legal no-op
+    }
+
+    // Record committed flow BEFORE headroom clamping — used by combat
+    // to compute total forces for each side.
+    if (committedTally !== null && srcOwner >= 1 && srcOwner <= 4) {
+        committedTally[dstIdx * 4 + (srcOwner - 1)] = (committedTally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + moved;
     }
 
     // Clamp destination to capacity (FR-011).
