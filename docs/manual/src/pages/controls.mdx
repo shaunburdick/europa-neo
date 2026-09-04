@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Controls
 ---
 
+import { EuropaBadge } from '@europa/design/components';
+
 # Controls
 
 This page lists every pointer gesture and keyboard command available during a match. Keep it open during your first game. For what these commands do to the board, see [Pipes](./pipes), [Reserves](./reserves), and [Special weapons](./special-weapons).
@@ -26,37 +28,37 @@ Most commands act on your **selected cell** — the one highlighted by your last
 
 | Key | Effect |
 | --- | --- |
-| <europa-badge>i</europa-badge> | Pipe north from the selected cell |
-| <europa-badge>j</europa-badge> | Pipe west from the selected cell |
-| <europa-badge>k</europa-badge> | Pipe south from the selected cell |
-| <europa-badge>l</europa-badge> | Pipe east from the selected cell |
-| <europa-badge>Alt+i</europa-badge> / <europa-badge>Alt+j</europa-badge> / <europa-badge>Alt+k</europa-badge> / <europa-badge>Alt+l</europa-badge> | Exclusive pipe north/west/south/east (replaces all pipes in the cell) |
-| <europa-badge>Space</europa-badge> | Clear all pipes in the selected cell |
+| <EuropaBadge>i</EuropaBadge> | Pipe north from the selected cell |
+| <EuropaBadge>j</EuropaBadge> | Pipe west from the selected cell |
+| <EuropaBadge>k</EuropaBadge> | Pipe south from the selected cell |
+| <EuropaBadge>l</EuropaBadge> | Pipe east from the selected cell |
+| <EuropaBadge>Alt+i</EuropaBadge> / <EuropaBadge>Alt+j</EuropaBadge> / <EuropaBadge>Alt+k</EuropaBadge> / <EuropaBadge>Alt+l</EuropaBadge> | Exclusive pipe north/west/south/east (replaces all pipes in the cell) |
+| <EuropaBadge>Space</EuropaBadge> | Clear all pipes in the selected cell |
 
 ### Weapons and reserves
 
 | Key | Effect |
 | --- | --- |
-| <europa-badge>p</europa-badge> (or <europa-badge>h</europa-badge>) | Paratroop: launch from the selected cell to the target picked by your cursor's position (see [Aiming](#aiming-paratroopers-and-guns)) |
-| <europa-badge>g</europa-badge> (or <europa-badge>o</europa-badge>) | Gun: shell the target picked by your cursor's position inside the selected cell |
-| <europa-badge>0</europa-badge>–<europa-badge>9</europa-badge> | Set reserves on the selected cell (0 = none, 9 = hold back 90%) |
+| <EuropaBadge>p</EuropaBadge> (or <EuropaBadge>h</EuropaBadge>) | Paratroop: launch from the selected cell to the target picked by your cursor's position (see [Aiming](#aiming-paratroopers-and-guns)) |
+| <EuropaBadge>g</EuropaBadge> (or <EuropaBadge>o</EuropaBadge>) | Gun: shell the target picked by your cursor's position inside the selected cell |
+| <EuropaBadge>0</EuropaBadge>–<EuropaBadge>9</EuropaBadge> | Set reserves on the selected cell (0 = none, 9 = hold back 90%) |
 
 ### Navigation
 
 | Key | Effect |
 | --- | --- |
-| <europa-badge>Escape</europa-badge> | Cancel the current selection |
-| <europa-badge>Arrow keys</europa-badge> | Move the selection one cell up, left, down, or right |
+| <EuropaBadge>Escape</EuropaBadge> | Cancel the current selection |
+| <EuropaBadge>Arrow keys</EuropaBadge> | Move the selection one cell up, left, down, or right |
 
 ### Aiming paratroopers and guns
 
-Pressing <europa-badge>p</europa-badge>/<europa-badge>h</europa-badge> or <europa-badge>g</europa-badge>/<europa-badge>o</europa-badge> fires from the **selected cell**. The target is picked by your cursor's position inside that cell — you never need to leave the cell to aim.
+Pressing <EuropaBadge>p</EuropaBadge>/<EuropaBadge>h</EuropaBadge> or <EuropaBadge>g</EuropaBadge>/<EuropaBadge>o</EuropaBadge> fires from the **selected cell**. The target is picked by your cursor's position inside that cell — you never need to leave the cell to aim.
 
 While a cell is selected, the cursor's position inside it acts as a miniature map of everything within 2 cells:
 
 1. Click a cell you own to select it.
 2. Keep the cursor inside the selected cell and slide it toward your target — up for north, lower-right for south-east, and so on. The farther from the center, the longer the throw: halfway to an edge aims about 1 cell out; the edge or a corner aims the full 2.
-3. Press <europa-badge>p</europa-badge> (or <europa-badge>h</europa-badge>) for paratroop, <europa-badge>g</europa-badge> (or <europa-badge>o</europa-badge>) for gun.
+3. Press <EuropaBadge>p</EuropaBadge> (or <EuropaBadge>h</EuropaBadge>) for paratroop, <EuropaBadge>g</EuropaBadge> (or <EuropaBadge>o</EuropaBadge>) for gun.
 
 A red aim dot on the selected cell shows exactly where you are pointing. Each new target cell is announced to screen readers as it changes. If the cursor is near the center of the cell, nothing launches — slide it off-center toward your target first.
 
@@ -82,11 +84,11 @@ The console's clickable controls mirror the keyboard commands, so mouse-only pla
 | Control | Where | Effect |
 | --- | --- | --- |
 | Mode badge ("Mode: Toggle pipes" / "Mode: Exclusive pipes") | Order bar, below the board | Shows whether your next pipe command adds or replaces. Announces changes to screen readers. |
-| **Exclusive pipes** toggle | Order bar | Flip sticky exclusive mode: while engaged, every pipe command (pointer or <europa-badge>i</europa-badge>/<europa-badge>j</europa-badge>/<europa-badge>k</europa-badge>/<europa-badge>l</europa-badge>) replaces the cell's pipes instead of adding. |
-| **Clear pipes** | Order bar | Clear all pipes in the selected cell (same as <europa-badge>Space</europa-badge>). |
+| **Exclusive pipes** toggle | Order bar | Flip sticky exclusive mode: while engaged, every pipe command (pointer or <EuropaBadge>i</EuropaBadge>/<EuropaBadge>j</EuropaBadge>/<EuropaBadge>k</EuropaBadge>/<EuropaBadge>l</EuropaBadge>) replaces the cell's pipes instead of adding. |
+| **Clear pipes** | Order bar | Clear all pipes in the selected cell (same as <EuropaBadge>Space</EuropaBadge>). |
 | Reserves slider | Reserves panel | Drag or arrow-key a value from 0% to 90% in 10% steps for the selected cell. |
 | Digit buttons 0–9 | Reserves panel | One-click presets matching the number keys ("Set reserves to 70%", and so on). |
-| **Surrender…** | Below the order bar | Opens the confirmation dialog. Confirming eliminates you on the spot (see [Objective](./objective)); Cancel or <europa-badge>Escape</europa-badge> backs out. |
+| **Surrender…** | Below the order bar | Opens the confirmation dialog. Confirming eliminates you on the spot (see [Objective](./objective)); Cancel or <EuropaBadge>Escape</EuropaBadge> backs out. |
 
 All order buttons disable themselves when orders cannot be sent — while connecting, reconnecting, spectating, or after the match ends.
 

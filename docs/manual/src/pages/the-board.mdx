@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: The Board
 ---
 
+import { EuropaElevationSwatch } from '@europa/design/components';
+
 # The board
 
 This page explains the playing field: the grid, elevation, water, and why every map is fair.
@@ -23,10 +25,10 @@ Every cell is one of two terrain types: **land** or **water**. Troops, cities, p
 
 Land cells are shaded by elevation, from dark green at the lowest ground to bright green at the peaks. Elevation is not decoration — it drives pipe flow:
 
-- **Downhill** pipes (toward lower cells) get a bonus: the steeper the drop, the faster the flow. <europa-elevation-swatch elevation="20"></europa-elevation-swatch>
-- **Flat** pipes (equal elevation) flow steadily at the base rate. <europa-elevation-swatch elevation="50"></europa-elevation-swatch>
-- **Uphill** pipes (toward higher cells) pay a handicap: the steeper the climb, the slower the flow. <europa-elevation-swatch elevation="80"></europa-elevation-swatch>
-- **Steep uphill** pipes (a climb of 7 or more elevation steps) **stall** — they move nothing, and render as hollow triangles on the board. <europa-elevation-swatch elevation="100"></europa-elevation-swatch>
+- **Downhill** pipes (toward lower cells) get a bonus: the steeper the drop, the faster the flow. <EuropaElevationSwatch elevation="20"></EuropaElevationSwatch>
+- **Flat** pipes (equal elevation) flow steadily at the base rate. <EuropaElevationSwatch elevation="50"></EuropaElevationSwatch>
+- **Uphill** pipes (toward higher cells) pay a handicap: the steeper the climb, the slower the flow. <EuropaElevationSwatch elevation="80"></EuropaElevationSwatch>
+- **Steep uphill** pipes (a climb of 7 or more elevation steps) **stall** — they move nothing, and render as hollow triangles on the board. <EuropaElevationSwatch elevation="100"></EuropaElevationSwatch>
 
 Reading elevation well is a real skill: a ridge between your cities and the front can force long detours, because steep uphill pipes stall entirely. See [Pipes](./pipes) for the exact flow rates.
 

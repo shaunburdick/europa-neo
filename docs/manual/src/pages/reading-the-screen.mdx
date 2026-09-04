@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Reading the Screen
 ---
 
+import { EuropaBadge } from '@europa/design/components';
+
 # Reading the screen
 
 This page explains every status indicator, overlay, and message you will encounter in the lobby and during a match. The lobby lives at `/lobby`; match views use semantic addresses like `/match/m-123/join` or `/match/m-123/spectate` while you play or watch.
@@ -24,14 +26,14 @@ The HUD's status line tells you where you stand in the match lifecycle. It shows
 
 | Status | What it means | What to do |
 | --- | --- | --- |
-| <europa-badge>idle</europa-badge> | You are not connected to a match. | Wait for the lobby or choose a match. |
-| <europa-badge>connecting</europa-badge> | A handshake with the match server is in progress after you chose a lobby action. | Wait a moment. |
-| <europa-badge>live</europa-badge> | You are seated and receiving ticks. Your orders are accepted. | Play. |
-| <europa-badge>reconnecting</europa-badge> | The connection dropped. Automatic reconnection is under way. A banner shows above the board. | Keep the tab open. |
-| <europa-badge>expired</europa-badge> | The 60-second grace window elapsed while you were away. Your seat is forfeited. | Return to the lobby and choose or create a match (see [Quick start](./quick-start)). |
-| <europa-badge>spectating</europa-badge> | You are watching without a seat. | Watch freely. Orders are not available. |
-| <europa-badge>game_over</europa-badge> | The match's final result has been delivered. The end-of-match announcement is shown. | Review the board, then start a new match. |
-| <europa-badge>closed</europa-badge> | The console session was explicitly closed. | Return to the lobby and choose another match. |
+| <EuropaBadge>idle</EuropaBadge> | You are not connected to a match. | Wait for the lobby or choose a match. |
+| <EuropaBadge>connecting</EuropaBadge> | A handshake with the match server is in progress after you chose a lobby action. | Wait a moment. |
+| <EuropaBadge>live</EuropaBadge> | You are seated and receiving ticks. Your orders are accepted. | Play. |
+| <EuropaBadge>reconnecting</EuropaBadge> | The connection dropped. Automatic reconnection is under way. A banner shows above the board. | Keep the tab open. |
+| <EuropaBadge>expired</EuropaBadge> | The 60-second grace window elapsed while you were away. Your seat is forfeited. | Return to the lobby and choose or create a match (see [Quick start](./quick-start)). |
+| <EuropaBadge>spectating</EuropaBadge> | You are watching without a seat. | Watch freely. Orders are not available. |
+| <EuropaBadge>game_over</EuropaBadge> | The match's final result has been delivered. The end-of-match announcement is shown. | Review the board, then start a new match. |
+| <EuropaBadge>closed</EuropaBadge> | The console session was explicitly closed. | Return to the lobby and choose another match. |
 
 While the status is anything other than `live`, all order controls are disabled — buttons gray out rather than silently swallowing clicks.
 
@@ -73,7 +75,7 @@ Messages fade after a couple of seconds. A rejection means nothing was sent — 
 | --- | --- | --- |
 | "Waiting for N-k more players… (k/N)" | You are seated but the match has not started. | The match auto-starts when all N seats fill. The overlay hides itself at the first tick. For a 2-player game this reads "Waiting for 1 more player… (1/2)"; for 3 players at 1/3 it reads "Waiting for 2 more players… (1/3)". |
 | "Reconnecting to match…" banner | The connection dropped mid-match. | Auto-reconnect is trying. Keep the tab open (see [Quick start](./quick-start)). |
-| Surrender dialog | After clicking **Surrender…**. | An explicit confirmation step. Cancel or <europa-badge>Escape</europa-badge> backs out. Confirming eliminates you on the spot (see [Objective](./objective)). |
+| Surrender dialog | After clicking **Surrender…**. | An explicit confirmation step. Cancel or <EuropaBadge>Escape</EuropaBadge> backs out. Confirming eliminates you on the spot (see [Objective](./objective)). |
 | "This session moved somewhere else" | Another browser took over the guest session. | Acknowledge the notice and set a new name. |
 | "The server restarted — the lobby was reset" | The in-memory server state was lost. | Reload, set a name, and choose or create a match. |
 | "That match is no longer available" / "That match just filled up" | The listing changed before your action completed. | Return to the refreshed list and choose another action. |

@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Objective
 ---
 
+import { EuropaBadge } from '@europa/design/components';
+
 # Objective
 
 This page explains how a Europa Neo match ends: the four possible outcomes — victory, loss, surrender, and draw — and what you control on the way there.
@@ -50,10 +52,10 @@ If both players are reduced to zero troops AND zero cities — even on the same 
 
 | Outcome | When it happens |
 | --- | --- |
-| <europa-badge>You win</europa-badge> | Your opponents (all other players) hold zero troops AND zero cities while you hold either |
-| <europa-badge>You lose</europa-badge> | You hold zero troops AND zero cities while any opponent holds either |
-| <europa-badge>Draw</europa-badge> | Both players hit zero troops AND zero cities |
-| <europa-badge>Surrender</europa-badge> | You confirm the surrender dialog; you are eliminated on the spot and spectate |
+| <EuropaBadge>You win</EuropaBadge> | Your opponents (all other players) hold zero troops AND zero cities while you hold either |
+| <EuropaBadge>You lose</EuropaBadge> | You hold zero troops AND zero cities while any opponent holds either |
+| <EuropaBadge>Draw</EuropaBadge> | Both players hit zero troops AND zero cities |
+| <EuropaBadge>Surrender</EuropaBadge> | You confirm the surrender dialog; you are eliminated on the spot and spectate |
 
 ## Where to next
 

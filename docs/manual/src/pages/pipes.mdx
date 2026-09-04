@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Pipes
 ---
 
+import { EuropaPipeSlope } from '@europa/design/components';
+
 # Pipes
 
 This page explains how to lay pipes, how troop flow works through them, and why supply lines matter.
@@ -23,10 +25,10 @@ Every tick, each pipe delivers troops into the neighboring cell it points at. Th
 
 | Slope | Flow per tick |
 | --- | --- |
-| <europa-pipe-slope direction="downhill"></europa-pipe-slope> Downhill (target lower) | 8–12 troops — the steeper the drop, the faster the flow (Δ=1 → 8, Δ≥5 → 12) |
-| <europa-pipe-slope direction="flat"></europa-pipe-slope> Flat (equal elevation) | 7 troops |
-| <europa-pipe-slope direction="uphill"></europa-pipe-slope> Uphill (target higher) | 6→1 troops — the steeper the climb, the slower the flow (Δ=1 → 6, Δ=6 → 1) |
-| <europa-pipe-slope direction="stalled"></europa-pipe-slope> Steep uphill (Δ≥7) | **0 — stalled** |
+| <EuropaPipeSlope direction="downhill"></EuropaPipeSlope> Downhill (target lower) | 8–12 troops — the steeper the drop, the faster the flow (Δ=1 → 8, Δ≥5 → 12) |
+| <EuropaPipeSlope direction="flat"></EuropaPipeSlope> Flat (equal elevation) | 7 troops |
+| <EuropaPipeSlope direction="uphill"></EuropaPipeSlope> Uphill (target higher) | 6→1 troops — the steeper the climb, the slower the flow (Δ=1 → 6, Δ=6 → 1) |
+| <EuropaPipeSlope direction="stalled"></EuropaPipeSlope> Steep uphill (Δ≥7) | **0 — stalled** |
 
 Flow never drains the source cell. Only the destination gains troops.
 
@@ -45,10 +47,10 @@ Each pipe triangle on the board is colored by its slope classification:
 
 | Slope | Color | Visual treatment |
 | --- | --- | --- |
-| <europa-pipe-slope direction="downhill"></europa-pipe-slope> Downhill | Green | Filled triangle; size scales with gradient strength |
-| <europa-pipe-slope direction="flat"></europa-pipe-slope> Flat | Amber | Filled triangle; smallest size (no gradient signal) |
-| <europa-pipe-slope direction="uphill"></europa-pipe-slope> Uphill | Red | Filled triangle; size scales with gradient strength |
-| <europa-pipe-slope direction="stalled"></europa-pipe-slope> Stalled | Gray | Hollow (outline-only) triangle; fixed size |
+| <EuropaPipeSlope direction="downhill"></EuropaPipeSlope> Downhill | Green | Filled triangle; size scales with gradient strength |
+| <EuropaPipeSlope direction="flat"></EuropaPipeSlope> Flat | Amber | Filled triangle; smallest size (no gradient signal) |
+| <EuropaPipeSlope direction="uphill"></EuropaPipeSlope> Uphill | Red | Filled triangle; size scales with gradient strength |
+| <EuropaPipeSlope direction="stalled"></EuropaPipeSlope> Stalled | Gray | Hollow (outline-only) triangle; fixed size |
 
 **Intensity** encodes gradient steepness as triangle size. Stronger slopes produce bigger triangles:
 

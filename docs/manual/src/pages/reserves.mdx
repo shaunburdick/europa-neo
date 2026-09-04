@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Reserves
 ---
 
+import { EuropaReserveIndicator } from '@europa/design/components';
+
 # Reserves
 
 This page explains what reserving does, how to set it, and why a reserved garrison beats a hoarded pile.
@@ -24,10 +26,10 @@ Press 0 (or slide to 0%) to clear reserves entirely.
 
 | Digit | Reserve |
 | --- | --- |
-| 0 | <europa-reserve-indicator percent="0"></europa-reserve-indicator> None — everything is free to move |
-| 1 | <europa-reserve-indicator percent="10"></europa-reserve-indicator> 10% held back |
-| 5 | <europa-reserve-indicator percent="50"></europa-reserve-indicator> 50% held back |
-| 9 | <europa-reserve-indicator percent="90"></europa-reserve-indicator> 90% held back |
+| 0 | <EuropaReserveIndicator percent="0"></EuropaReserveIndicator> None — everything is free to move |
+| 1 | <EuropaReserveIndicator percent="10"></EuropaReserveIndicator> 10% held back |
+| 5 | <EuropaReserveIndicator percent="50"></EuropaReserveIndicator> 50% held back |
+| 9 | <EuropaReserveIndicator percent="90"></EuropaReserveIndicator> 90% held back |
 
 The digit you press maps directly to a percentage: **digit × 10 = reserve percentage**. There is no 100%: the maximum reserve is **90%**. A cell that reserved everything could never feed a pipe, fund a weapon, or fight — the game simply does not offer it.
 

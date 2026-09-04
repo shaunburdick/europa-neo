@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Fog of War
 ---
 
+import { EuropaFogOverlay } from '@europa/design/components';
+
 # Fog of war
 
 This page explains what you can see, what you cannot, and how vision works on the board.
@@ -12,7 +14,7 @@ This page explains what you can see, what you cannot, and how vision works on th
 Each of your troop stacks senses its surroundings out to a **radius of 4 cells** (measured in any direction, counting diagonals — a square around the stack). Your total vision is the **union** of these radii across all of your stacks:
 
 <div style="position: relative; width: 120px; height: 120px; background: #059669; margin: 1rem 0; border-radius: var(--europa-borders-radius);">
-  <europa-fog-overlay aria-hidden="true"></europa-fog-overlay>
+  <EuropaFogOverlay aria-hidden="true"></EuropaFogOverlay>
 </div>
 
 - More stacks in an area means a wider combined horizon.
