@@ -1,6 +1,6 @@
 {
     "name": "@europa/terrain",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "private": true,
     "description": "Europa Neo procedural terrain generation — deterministic, point-symmetric, integer-only map generator producing engine-ready Boards for feature 001.",
     "type": "module",
