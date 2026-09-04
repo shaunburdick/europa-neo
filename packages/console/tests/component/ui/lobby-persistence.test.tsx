@@ -26,10 +26,6 @@
  * every test.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 import { LobbyRoot } from '../../../src/internal/lobby-runtime';

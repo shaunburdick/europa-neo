@@ -183,30 +183,32 @@ test.describe('help overlay', () => {
 
         await page.keyboard.press('?');
 
-        const modal = page.locator('europa-modal');
-        await expect(modal).toHaveAttribute('open', '');
+        // The React EuropaModal renders the dialog when open (no open
+        // attribute — it conditionally renders).
+        const modal = page.locator('.europa-modal');
+        await expect(modal).toBeVisible();
     });
 
     test('pressing ? again closes the help overlay', async ({ page }) => {
         await openMatchPage(page);
 
         await page.keyboard.press('?');
-        const modal = page.locator('europa-modal');
-        await expect(modal).toHaveAttribute('open', '');
+        const modal = page.locator('.europa-modal');
+        await expect(modal).toBeVisible();
 
         await page.keyboard.press('?');
-        await expect(modal).not.toHaveAttribute('open', '');
+        await expect(modal).not.toBeVisible();
     });
 
     test('pressing Escape closes the help overlay', async ({ page }) => {
         await openMatchPage(page);
 
         await page.keyboard.press('?');
-        const modal = page.locator('europa-modal');
-        await expect(modal).toHaveAttribute('open', '');
+        const modal = page.locator('.europa-modal');
+        await expect(modal).toBeVisible();
 
         await page.keyboard.press('Escape');
-        await expect(modal).not.toHaveAttribute('open', '');
+        await expect(modal).not.toBeVisible();
     });
 
     test('the help button in the HUD opens the overlay', async ({ page }) => {
@@ -215,23 +217,23 @@ test.describe('help overlay', () => {
         const helpButton = page.locator('.europa-help-button');
         await helpButton.click();
 
-        const modal = page.locator('europa-modal');
-        await expect(modal).toHaveAttribute('open', '');
+        const modal = page.locator('.europa-modal');
+        await expect(modal).toBeVisible();
     });
 
     test('the help button toggles the overlay closed', async ({ page }) => {
         await openMatchPage(page);
 
         const helpButton = page.locator('.europa-help-button');
-        const modal = page.locator('europa-modal');
+        const modal = page.locator('.europa-modal');
 
         await helpButton.click();
-        await expect(modal).toHaveAttribute('open', '');
+        await expect(modal).toBeVisible();
 
         // The modal covers the help button after opening, so close via
         // keyboard shortcut instead of clicking the button.
         await page.keyboard.press('?');
-        await expect(modal).not.toHaveAttribute('open', '');
+        await expect(modal).not.toBeVisible();
     });
 
     test('the help button is visible in the HUD', async ({ page }) => {

@@ -386,7 +386,7 @@ describe('LobbyCreateForm rejection rendering (US3 AC-4 / FR-002)', () => {
     it('shows the busy "Creating…" label while the create action is loading', () => {
         const { container, unmount } = mountFormWithStatus({ phase: 'loading', error: null });
         try {
-            const button = container.querySelector('europa-button[type="submit"]');
+            const button = container.querySelector('.europa-button[type="submit"]');
             expect(button).not.toBeNull();
             expect(button?.textContent?.trim()).toBe('Creating…');
             expect(button?.hasAttribute('disabled')).toBe(true);

@@ -30,10 +30,6 @@
  * Runs in Vitest Browser Mode per vitest.config.browser.ts.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import type { LobbyRevision, LobbySnapshot } from '@europa/matchmaking';
 import { afterEach, describe, expect, test } from 'vitest';
 import { userEvent } from 'vitest/browser';

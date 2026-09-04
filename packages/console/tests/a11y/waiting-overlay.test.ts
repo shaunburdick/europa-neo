@@ -103,13 +103,14 @@ describe('waiting-for-opponent overlay a11y acceptance', () => {
     test('(d) the spinner is decorative (aria-hidden), text carries meaning', async () => {
         await bootAwaitingConsole();
 
-        // <europa-waiting> renders its structure inside an open shadow root
-        // (spec 014 Wave 2), so the internal spinner/text elements are
-        // queried through the host's shadowRoot.
-        const overlayRoot = document.querySelector('europa-waiting')?.shadowRoot ?? null;
-        const pulse = overlayRoot?.querySelector('.europa-waiting__pulse');
+        // The React EuropaWaiting component renders standard HTML with
+        // europa-* classes (no shadow DOM), so query directly from the
+        // document.
+        const overlay = document.querySelector('.europa-waiting');
+        expect(overlay).not.toBeNull();
+        const pulse = overlay?.querySelector('.europa-waiting__pulse');
         expect(pulse).not.toBeNull();
         expect(pulse?.getAttribute('aria-hidden')).toBe('true');
-        expect(overlayRoot?.querySelector('.europa-waiting__text')?.textContent).toBe(formatWaitingMessage(1, 2));
+        expect(overlay?.querySelector('.europa-waiting__text')?.textContent).toBe(formatWaitingMessage(1, 2));
     });
 });

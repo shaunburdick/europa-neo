@@ -5,10 +5,6 @@
  * the authoritative snapshot says that it has started.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import type { LobbySnapshot } from '@europa/matchmaking';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';

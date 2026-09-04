@@ -20,10 +20,6 @@
  *   - LobbyRoot gate: lobby view first, match chrome after a join.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import type { IdentityState, LobbyRevision, LobbySnapshot, MatchId } from '@europa/matchmaking';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
@@ -162,7 +158,7 @@ describe('LobbyLanding (smoke)', () => {
         });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
         await expect.element(screen.getByRole('button', { name: /Spectate match/ })).toBeVisible();
-        const joinButtons = [...screen.container.querySelectorAll('europa-button')].filter((el) =>
+        const joinButtons = [...screen.container.querySelectorAll('.europa-button')].filter((el) =>
             /^Join match/.test(el.getAttribute('aria-label') ?? ''),
         );
         expect(joinButtons).toHaveLength(0);
@@ -191,7 +187,7 @@ describe('LobbyLanding (smoke)', () => {
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
         // Exact match: the active-note paragraph also CONTAINS the phrase.
         await expect.element(screen.getByText('Your match', { exact: true })).toBeVisible();
-        const joinButtons = [...screen.container.querySelectorAll('europa-button')].filter((el) =>
+        const joinButtons = [...screen.container.querySelectorAll('.europa-button')].filter((el) =>
             /^Join match/.test(el.getAttribute('aria-label') ?? ''),
         );
         expect(joinButtons).toHaveLength(0);

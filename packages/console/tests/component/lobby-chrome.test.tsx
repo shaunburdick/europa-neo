@@ -27,10 +27,6 @@
  * browser-mode lobby-transport crypto conflict.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import type { MatchId, PublicLobbyEntry } from '@europa/matchmaking';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
@@ -168,7 +164,7 @@ describe('LobbyMatchList seat actions (FR-007 / FR-012)', () => {
         // and 3p rows legitimately keep theirs; we scope to the 4p row).
         const row4p = screen.container.querySelector(`[data-match-id="${MATCH_4P}"]`);
         expect(row4p).not.toBeNull();
-        expect(row4p?.querySelector('europa-button[aria-label^="Join match"]')).toBeNull();
+        expect(row4p?.querySelector('.europa-button[aria-label^="Join match"]')).toBeNull();
 
         // Spectate was never invoked by mere rendering.
         expect(onSpectate).not.toHaveBeenCalled();
@@ -192,7 +188,7 @@ describe('LobbyMatchList seat actions (FR-007 / FR-012)', () => {
         );
 
         // No Join button for a full waiting match (auto-start owns it).
-        const joinButtons = [...screen.container.querySelectorAll('europa-button')].filter((el) =>
+        const joinButtons = [...screen.container.querySelectorAll('.europa-button')].filter((el) =>
             /^Join match/.test(el.getAttribute('aria-label') ?? ''),
         );
         expect(joinButtons).toHaveLength(0);
@@ -219,7 +215,7 @@ describe('LobbyMatchList seat actions (FR-007 / FR-012)', () => {
             .toBeVisible();
 
         // Waiting matches never offer Spectate.
-        const spectateButtons = [...screen.container.querySelectorAll('europa-button')].filter((el) =>
+        const spectateButtons = [...screen.container.querySelectorAll('.europa-button')].filter((el) =>
             /^Spectate match/.test(el.getAttribute('aria-label') ?? ''),
         );
         expect(spectateButtons).toHaveLength(1);
@@ -292,13 +288,11 @@ describe('LobbyMatchList keyboard-only flow', () => {
             .element() as HTMLButtonElement;
 
         // Keyboard-reachable: a native <button> is focusable; Tab/Enter
-        // reach it without a pointer. With Shadow DOM (spec 014 Wave 3)
-        // that native button lives inside <europa-button>'s open shadow
-        // root, and document.activeElement reports the shadow HOST for
-        // focus inside an open shadow tree.
+        // reach it without a pointer. The React EuropaButton renders a
+        // native <button> directly (no shadow DOM), so activeElement is
+        // the button itself.
         joinButton.focus();
-        const joinRoot = joinButton.getRootNode();
-        expect(document.activeElement).toBe(joinRoot instanceof ShadowRoot ? joinRoot.host : joinButton);
+        expect(document.activeElement).toBe(joinButton);
 
         // Genuine keyboard activation: Enter on a focused native button
         // fires the same click handler a pointer would.
@@ -328,10 +322,10 @@ describe('LobbyMatchList keyboard-only flow', () => {
             .getByRole('button', { name: 'Spectate match — In progress, 3 of 4 seats filled' })
             .element() as HTMLButtonElement;
 
-        // Same shadow-host focus anchor as the Join test above.
+        // Same direct-focus pattern as the Join test above — React
+        // EuropaButton renders a native <button> (no shadow DOM).
         spectateButton.focus();
-        const spectateRoot = spectateButton.getRootNode();
-        expect(document.activeElement).toBe(spectateRoot instanceof ShadowRoot ? spectateRoot.host : spectateButton);
+        expect(document.activeElement).toBe(spectateButton);
 
         const user = userEvent.setup();
         await user.keyboard('{Enter}');

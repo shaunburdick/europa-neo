@@ -15,10 +15,6 @@
  * Runs in Vitest Browser Mode per vitest.config.browser.ts.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 import type { LobbyActionStatus } from '../../../src/state/lobby-state';
@@ -229,16 +225,14 @@ describe('ProfileView — restoring state', () => {
         await expect.element(screen.getByText('Restoring your session…')).toBeVisible();
     });
 
-    test('shows spinner (europa-waiting host with shadow internals)', async () => {
+    test('shows spinner (europa-waiting with pulse and text)', async () => {
         const screen = await render(<ProfileView {...propsOf({ identityStatus: 'restoring' })} />);
-        // Shadow DOM conversion (spec 014 Wave 1): the host element stays a
-        // light-DOM child of the card, while its spinner/message internals
-        // live inside the open shadow root — query them through `shadowRoot`
-        // (the Wave 3/4 pattern used by the waiting-overlay tests).
-        const waiting = screen.container.querySelector('europa-waiting');
+        // The React EuropaWaiting component renders standard HTML with
+        // europa-* classes (no shadow DOM), so query directly.
+        const waiting = screen.container.querySelector('.europa-waiting');
         expect(waiting).not.toBeNull();
-        expect(waiting?.shadowRoot?.querySelector('.europa-waiting__pulse')).not.toBeNull();
-        expect(waiting?.shadowRoot?.querySelector('.europa-waiting__text')?.textContent).toBe('Loading…');
+        expect(waiting?.querySelector('.europa-waiting__pulse')).not.toBeNull();
+        expect(waiting?.querySelector('.europa-waiting__text')?.textContent).toBe('Loading…');
     });
 
     test('Continue button is disabled', async () => {

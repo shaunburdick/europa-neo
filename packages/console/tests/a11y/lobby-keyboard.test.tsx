@@ -16,10 +16,6 @@
  * events) per vitest.config.browser.ts.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import type { LobbyRevision, LobbySnapshot, MatchId } from '@europa/matchmaking';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { userEvent } from 'vitest/browser';
