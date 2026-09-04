@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-31
 
-**Status**: Implemented (2026-09-01; Amended 2026-09-03 — React component conversion, issue #65)
+**Status**: Implemented (2026-09-01; Amended 2026-09-03 — React component conversion, issue #65; Completed 2026-09-04)
 
 **GitHub Issue**: #41 (original); #65 (this amendment)
 
