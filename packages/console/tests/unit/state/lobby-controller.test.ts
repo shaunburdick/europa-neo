@@ -116,6 +116,10 @@ class FakeTransport implements LobbyTransport {
         return outcome === null ? Promise.resolve() : outcome();
     }
 
+    lastSeatSessionToken(): string | null {
+        return null;
+    }
+
     state(): WsLobbyClientState {
         return {
             connection: this.connection,

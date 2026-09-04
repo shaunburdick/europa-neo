@@ -613,6 +613,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     handle={state.handle}
                     occupancy={entry !== null ? { seatsFilled: entry.seatsFilled, capacity: entry.capacity } : null}
                     matchStarted={matchStarted}
+                    seatSessionToken={state.seatSessionToken}
                     announcer={announcer ?? undefined}
                     leaveError={state.actions.leaveMatch.error}
                     leaving={state.actions.leaveMatch.phase === 'loading'}
@@ -686,6 +687,13 @@ interface MatchLegArgs {
     readonly matchId: MatchId;
     /** Display name for the seat claim — the accepted handle (FR-019). */
     readonly displayName: string;
+    /**
+     * Matchmaking-issued session token for this seat. Passed as
+     * `reconnectToken` in the wire join so the server assigns the
+     * connection to the CORRECT seat (the one the lobby assigned),
+     * rather than racing for the first open seat.
+     */
+    readonly seatSessionToken: string | null;
     /** Report a terminal handshake failure to route recovery. */
     readonly onFailure: () => void;
 }
@@ -714,6 +722,10 @@ function createMatchLeg(args: MatchLegArgs): MatchLeg {
             url: args.wsUrl,
             displayName: args.displayName,
             matchId: args.matchId,
+            // exactOptionalPropertyTypes: only carry reconnectToken when set.
+            ...(args.seatSessionToken === null
+                ? {}
+                : { reconnectToken: args.seatSessionToken as import('../state/types').SessionToken }),
         },
         { matchClientFactory: () => wsClient },
     );
@@ -778,6 +790,12 @@ interface MatchLegHostProps {
      * with the wire server, so a leg can attach.
      */
     readonly matchStarted: boolean;
+    /**
+     * Matchmaking-issued session token for this seat, or `null` when
+     * unknown (create flow, spectator). Passed to the match leg so the
+     * wire join claims the correct seat.
+     */
+    readonly seatSessionToken: string | null;
     /** Shared runtime announcer (survives view swaps). */
     readonly announcer?: LiveRegionAnnouncer | undefined;
     /** The leave action's error slot (rendered beside the button). */
@@ -827,6 +845,7 @@ function MatchLegHost({
     handle,
     occupancy,
     matchStarted,
+    seatSessionToken,
     announcer,
     leaveError,
     leaving,
@@ -859,7 +878,7 @@ function MatchLegHost({
     // (App's MapCanvas ref pattern); boot/dispose ride the effect.
     const legRef = useRef<MatchLeg | null>(null);
     if (legRef.current === null && role === 'player' && matchId !== null && matchStarted) {
-        legRef.current = createMatchLeg({ wsUrl, matchId, displayName, onFailure: onRouteFailure });
+        legRef.current = createMatchLeg({ wsUrl, matchId, displayName, seatSessionToken, onFailure: onRouteFailure });
     }
     const leg = legRef.current;
     useEffect(() => {

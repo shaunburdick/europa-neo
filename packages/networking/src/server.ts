@@ -734,7 +734,12 @@ export function createMatchServer(
                 sendLobbyEvent(connection, lobbyErrorPayload(payload.actionId, result.error).event);
                 return;
             }
-            sendLobbyEvent(connection, { kind: 'actionAccepted', actionId: payload.actionId, transition: 'waiting' });
+            sendLobbyEvent(connection, {
+                kind: 'actionAccepted',
+                actionId: payload.actionId,
+                transition: 'waiting',
+                seatSessionToken: result.data.seatAssignment.sessionToken,
+            });
         });
     }
 
@@ -766,6 +771,7 @@ export function createMatchServer(
                     kind: 'actionAccepted',
                     actionId: payload.actionId,
                     transition: peekedRowStatus(result.data.matchId) === 'in_progress' ? 'match' : 'waiting',
+                    seatSessionToken: result.data.seatAssignment.sessionToken,
                 });
             } finally {
                 peek.connectionId = null;
