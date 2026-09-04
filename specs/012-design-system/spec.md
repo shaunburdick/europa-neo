@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-30
 
-**Status**: Implemented (2026-08-30) — branded-footer addendum shipped in PR #31
+**Status**: Implemented (2026-08-30) — branded-footer addendum shipped in PR #31; unified-dev-page addendum (issue #68) in review
 
 **GitHub Issue**: #25
 
@@ -99,6 +99,28 @@ As a contributor building a new UI surface — whether a React view in the conso
 
 ---
 
+### User Story 5 — Unified Design System Dev Page Replaces Preview + Playground (Priority: P2)
+
+As a contributor or maintainer, I want a single `pnpm dev` page that combines the token documentation (color swatches, typography scale, token tables, a11y pairings) currently in `packages/design/preview/` with the live component demos (all 20 components rendered with variants and states) currently in `packages/design/playground/` — so that I have one authoritative surface to validate the design system end-to-end: tokens, components, accessibility, and theme behavior in one place.
+
+**Why this priority**: The current split forces contributors to mentally reconcile two separate pages. The preview page is static HTML (not served by `pnpm dev`) and the playground is React-only (no token documentation). A unified page gives a single entry point for validating the token system, inspecting every component, toggling themes, and checking responsive behavior — all without external tools like Storybook (NFR-004). Priority P2 because it builds on the implemented design system (FR-001–FR-027) but is not required for the core "shareable chrome" promise (US1–US4).
+
+**Independent Test**: Can be fully tested by running `pnpm dev` in `packages/design`, loading the unified page in a browser, and asserting: (a) all preview content (token tables, a11y pairings, color swatches) is present, (b) all 20 component demos render with interactive controls, (c) the sidebar navigates between sections via hash, (d) the theme toggle swaps CSS variables, (e) no hardcoded hex literals appear in the page shell, and (f) the page is responsive (sidebar collapses on mobile viewport).
+
+**Acceptance Scenarios**:
+
+1. **Given** a contributor runs `pnpm dev` in `packages/design`, **When** the unified page loads, **Then** a sticky sidebar lists categorized sections — Foundations (Colors, Typography, Spacing, Borders, Shadows, A11y Pairings, Token Table), Generic Components (Page, Card, Plate, Stack, Container, Badge, Grid, Banner, Chip, Typography, Waiting, Button, Modal), and Game Primitives (Cell, Board, Pipe, City, Troop, Fog, HUD) — with hash-based navigation to each section.
+2. **Given** a contributor clicks a sidebar link, **When** the hash changes, **Then** the page scrolls to the corresponding section and updates the sidebar active state; the URL hash is shareable and restores the same scroll position on reload.
+3. **Given** the token documentation sections, **When** the contributor views Colors, **Then** every token from `src/tokens.ts` is rendered as a named color swatch with its CSS variable name, TypeScript constant name, and hex value — matching the content currently in the preview page's color section.
+4. **Given** the token documentation sections, **When** the contributor views A11y Pairings, **Then** every text-on-background pairing is rendered with the measured WCAG contrast ratio and AA compliance badge — matching the preview page's a11y section.
+5. **Given** the live component demo sections, **When** the contributor views any component, **Then** all variants and states from the current playground are rendered (e.g., Button primary/secondary/ghost × enabled/disabled/focused; Modal open/closed; Badge variants; Chip with/without icon) — migrated from `packages/design/playground/`.
+6. **Given** the unified page renders, **When** inspected, **Then** every `color`, `background-color`, `border-color`, `border`, `border-radius`, `gap`, `padding`, `margin`, `font-family`, `font-size`, `line-height`, and `box-shadow` declaration on the page shell (sidebar, layout, section containers) uses only `var(--europa-*)` tokens — no hardcoded hex, rgb, rem, or px literals outside `var()` references. The page itself is a proof that the token system works.
+7. **Given** the theme toggle control, **When** the contributor clicks it, **Then** the page switches between dark theme (default, current `--europa-*` values) and a light theme (redefined `--europa-*` values on `:root[data-theme="light"]`), and all token documentation and component demos re-render in the new theme without page reload. The toggle persists across page reloads (localStorage).
+8. **Given** the page viewed on a viewport narrower than 768px, **When** the contributor loads the page, **Then** the sidebar collapses to a hamburger icon or slide-out drawer, the content fills the full viewport width, and all token tables and component demos remain readable (horizontal scroll for tables if needed).
+9. **Given** `src/tokens.ts` exports, **When** the page loads at runtime, **Then** the token documentation sections dynamically read the `TOKENS` object from source (imported via the existing TypeScript/build path) and render the current token set — so adding a new token to `src/tokens.ts` automatically appears on the dev page without manual page updates.
+
+---
+
 ### Edge Cases
 
 - **Missing token / undefined CSS variable**: the component MUST degrade to a readable fallback (dark background + light text) and MUST surface the missing-token name in the drift check rather than silently rendering white/invisible text. Build-time token generation MUST fail loudly if a referenced variable has no definition.
@@ -111,6 +133,9 @@ As a contributor building a new UI surface — whether a React view in the conso
 - **Reduced motion not honored**: decorative animations from the design stylesheet MUST be suppressed by both the existing console `.europa-waiting--reduced` mechanism and the stylesheet-level `@media (prefers-reduced-motion: reduce)` guard; a focused test MUST assert the animation is inert when the preference is set.
 - **System font not available**: the `system-ui` stack MUST degrade through the canonical fallback chain (`system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`) without layout shift or invisible text; no external font or CDN fetch is permitted (self-hostable, binding decision 6).
 - **Version drift vs `DESIGN.md`**: the design contract MUST carry a version header tied to `@europa/design`'s workspace version; drift between `DESIGN.md`'s declared version and the package version MUST be surfaced by CI (mirrors the `version:check` pattern from spec 009).
+- **Dev page — hash route for unknown section**: if a user navigates to a hash that does not match any section (e.g., `#nonexistent`), the page MUST not crash or scroll to a random position; the sidebar MUST show no active item, and the content area MUST remain at its current scroll position or scroll to top.
+- **Dev page — localStorage unavailable**: if `localStorage` is unavailable (private browsing, quota exceeded, SSR), the theme toggle MUST still work for the current session; the missing persistence MUST not cause a JavaScript error or prevent the page from loading.
+- **Dev page — token import failure**: if the `TOKENS` import from `src/tokens.ts` fails at build time (e.g., the file is missing or has a syntax error), Vite MUST surface the error clearly; the dev page MUST NOT render with an empty or partial token set without indicating the failure.
 
 ## Requirements *(mandatory)*
 
@@ -195,6 +220,7 @@ As a contributor building a new UI surface — whether a React view in the conso
 - **`DESIGN.md`**: the living, versioned design contract at the repo root. Authoritative over the implementation; kept in sync by FR-018 and guarded by CI. Replaces hunting through `index.css`/`palette.ts` for the canonical answer.
 - **Single Stylesheet Source**: the one compiled stylesheet built by `@europa/design` that defines all variables and class rules. Imported by the console and vendored into `docs/manual/assets/` (byte-identical per FR-014); the artifact-scoped Pages build serves that vendored copy.
 - **Drift Guard**: automated checks that keep design truthful: CSS-var ↔ TS-constant identity, `DESIGN.md` ↔ implementation agreement, console no-literals enforcement, vendored-asset identity, a11y pairing ratios — all run in CI and locally, failing with actionable messages.
+- **Unified Dev Page**: the single-page Vite/React application served by `pnpm dev` in `packages/design` that combines token documentation (from the former preview page) and live component demos (from the former playground). Uses hash-based sidebar navigation, reads `TOKENS` from source at runtime, and validates the token system by building its own chrome exclusively from `--europa-*` variables (FR-028–FR-035).
 
 ### Non-Functional Requirements
 
@@ -229,7 +255,7 @@ As a contributor building a new UI surface — whether a React view in the conso
 
 ## Out of Scope
 
-- **Light-theme variant**: tokens are structured to allow it later, but no light stylesheet, toggle, or dual-theme build ships in this feature.
+- **Light-theme variant**: tokens are structured to allow it later, but no light stylesheet, toggle, or dual-theme build ships as a user-facing feature in the console or manual. The dev page's light toggle (FR-033) is a dev-page-only validation tool, not a shipped theme — it uses inline CSS redefinitions, not a `design.css` light variant.
 - **Storybook / visual regression service**: no Storybook, Chromatic, Percy, or hosted visual-compare service is added. Verification is via computed-style assertions, hash checks, and focused manual QA.
 - **Rebrand or content rewrite**: no new palette, typeface, brand mark, or manual prose beyond what the dark-slate adoption requires. The console's interaction design and the manual's information architecture stay as they are.
 - **Spec 011 Docker / multi-player packaging**: not in this feature's scope (separate specs).
@@ -240,6 +266,7 @@ As a contributor building a new UI surface — whether a React view in the conso
 
 - Spec 005 `client-console` (console chrome and palette to migrate) and spec 007 `player-manual` (Pages deploy and artifact-scope contract). Spec 009 `shared-app-versioning` (lockstep versioning / `version:check` pattern that this package joins). Toolchain: `biome.jsonc` and `.github/workflows/*` path filtering conventions must be updated to cover the new surfaces.
 - No dependencies on engine/fog/terrain/networking/matchmaking internals beyond the console's existing consumption of them.
+- **Unified dev page (issue #68)**: depends on the existing `@europa/design` package being implemented (FR-001–FR-022). The dev page migrates content from `packages/design/preview/` and `packages/design/playground/` — both of which already exist and import `TOKENS` from `src/tokens.ts`. No new package dependencies are required.
 
 ## Clarifications
 
@@ -260,6 +287,15 @@ As a contributor building a new UI surface — whether a React view in the conso
 - **Additive tokens**: four new `@europa/design` color tokens — `pipeDownhill` (`#059669`, reuses `green`), `pipeFlat` (`#f59e0b`, reuses `accent`), `pipeUphill` (`#dc2626`, reuses `red`), `pipeStalled` (`#9ca3af`, reuses `textMuted`) — added to `packages/design/src/tokens.ts` and `DESIGN.md` § 1.1/§ 3 with measured pairings for spec 005 FR-013's slope color-coding. Zero new hex literals (FR-009 / FR-010).
 - **FR-018 same-change-set obligation**: the implementation change set updates `DESIGN.md` in the same commit as the tokens (FR-018 sync rule) and carries this companion note; the console no-literals guard (G-04) fails until the tokens exist.
 - **Additive (minor) per DESIGN.md § 6**: adding tokens is a minor change — no migration note needed, no version bump, no FR text altered.
+
+### v1.3 (2026-09-04) — Unified dev page (issue #68)
+
+- **Unified dev page replaces preview + playground**: `packages/design/preview/` (static HTML token documentation, 39 tests) and `packages/design/playground/` (live React component demos, no tests) are merged into a single dev page served by `pnpm dev`. The standalone preview file is no longer needed because the unified page serves the same content dynamically. No new dependencies are introduced — the page uses Vite + React (already the playground's stack) with hash-based routing (no router library).
+- **No router dependency**: the sidebar uses `window.location.hash` and `hashchange` events for navigation. This avoids adding a router package (NFR-004 simplicity) and keeps the page self-contained. Hash routes are `#colors`, `#typography`, `#spacing`, `#a11y`, `#tokens`, `#page`, `#card`, `#plate`, `#stack`, `#container`, `#badge`, `#grid`, `#banner`, `#chip`, `#typography-component`, `#waiting`, `#button`, `#modal`, `#cell`, `#board`, `#pipe`, `#city`, `#troop`, `#fog`, `#hud`.
+- **Theme toggle is dev-page-only**: the light theme toggle (FR-033) is scoped to the dev page as a validation tool. It does NOT ship as a user-facing feature in the console or manual. The light theme values are defined inline in the dev page code (not in `design.css`), confirming that the token namespace admits a future light variant without committing to one.
+- **No-literals invariant extends to page shell**: FR-032 applies the same no-literals rule to the dev page shell that FR-009/FR-010 apply to the console. The page shell is a real UI surface built from tokens — it is not exempt.
+- **Token documentation reads from source at runtime**: FR-035 ensures the dev page imports `TOKENS` from `src/tokens.ts` (the same import path the preview and playground already use) rather than maintaining a static copy. This means adding/removing tokens in source immediately reflects on the dev page.
+- **Existing tests migrate or are replaced**: the preview page's 39 tests (`tests/preview.test.ts`) are either migrated to cover the unified page's token documentation sections or replaced by equivalent tests. The playground has no tests to migrate. New tests cover: sidebar navigation, hash routing, theme toggle persistence, responsive layout, and token dynamic rendering (SC-013–SC-017).
 
 ## Addendum — Branded Footer (sidecar, in PR #31)
 
@@ -284,12 +320,31 @@ As a player or manual reader, I want every console view and every manual page to
 - **FR-026**: Both footers MUST use only `europa-*` classes / `var(--europa-*)` design tokens (no hardcoded color literals), per the design-system contract (FR-009/FR-010).
 - **FR-027**: The GitHub link MUST point to `https://github.com/shaunburdick/europa-neo` in both footers.
 
+#### Unified dev page (issue #68)
+
+- **FR-028**: `packages/design` MUST expose a single unified dev page served by `pnpm dev` (Vite dev server) that combines token documentation and live component demos. The page MUST be served from a single `index.html` entry point in the dev page directory (e.g., `packages/design/dev/index.html`). The existing standalone preview (`packages/design/preview/`) and playground (`packages/design/playground/`) MUST be removed or migrated into the unified page; no two separate dev surfaces may coexist.
+- **FR-029**: The page MUST include a sticky sidebar with categorized navigation links: **Foundations** (Colors, Typography, Spacing/Borders/Shadows, A11y Pairings, Full Token Table), **Generic Components** (all 13 generic components: Page, Card, Plate, Stack, Container, Badge, Grid, Banner, Chip, Typography, Waiting, Button, Modal), and **Game Primitives** (all 7 game components: Cell, Board, Pipe, City, Troop, Fog, HUD). Navigation MUST use hash-based routing (`#colors`, `#button`, `#cell`, etc.) with no external router dependency. Clicking a sidebar link MUST scroll to the corresponding section and update the sidebar's active indicator. The URL hash MUST be shareable and restore the correct scroll position on reload.
+- **FR-030**: The Foundations sections MUST migrate the token documentation content currently in `packages/design/preview/`: color swatches with WCAG contrast ratios (every pairing from `DESIGN.md` § 3), typography scale with the system-ui stack and line-height demonstrations, spacing/borders/shadows token groups, the full token table (every token from `src/tokens.ts` with CSS variable name, TypeScript constant name, value, and description), and a11y pairings with measured ratios and AA compliance indicators. The migrated content MUST be functionally equivalent to the current preview page — no token documentation may be lost in the migration.
+- **FR-031**: The component demo sections MUST migrate the live component demos currently in `packages/design/playground/`: all 20 components rendered with their full variant and state matrix (e.g., Button × {primary, secondary, ghost} × {enabled, disabled, focused}; Modal × {open, closed}; Badge × all variants). Demos MUST be interactive (clicking a button triggers its click handler, toggling a modal opens/closes it, etc.) and MUST hot-reload when source changes. The React shell MAY be the same Vite React setup used by the current playground — the constraint is that all demos migrate, not that the framework changes.
+- **FR-032**: The page shell (sidebar, section containers, layout chrome, navigation, theme toggle) MUST use only `var(--europa-*)` CSS custom properties and `europa-*` class names for all visual styling. Zero hardcoded hex literals, rgb values, spacing values, or font declarations may appear in the page shell code. The dev page itself serves as a living proof that the token system is sufficient for building a real UI surface.
+- **FR-033**: The page MUST include a dark/light theme toggle control. The default theme is dark (current `--europa-*` values). Toggling to light MUST redefine the CSS custom property values on `:root[data-theme="light"]` (or equivalent mechanism) so that all token documentation and component demos re-render in the light theme without page reload. The selected theme MUST persist across page reloads via `localStorage` (key: `europa-dev-theme`). The light theme is a dev-page-only convenience for validating that the token namespace admits a future light variant (spec 007 scope note) — it does NOT ship as a user-facing feature in the console or manual.
+- **FR-034**: The page MUST be responsive. On viewports narrower than 768px, the sidebar MUST collapse to a hamburger icon or slide-out drawer, and the content area MUST fill the full viewport width. Token tables MAY scroll horizontally on narrow viewports. Component demos MUST remain usable (not truncated or hidden) at mobile widths. The page MUST not require horizontal scroll for the sidebar or layout chrome at any viewport width.
+- **FR-035**: The page MUST dynamically read the `TOKENS` object from `src/tokens.ts` at runtime (via the existing TypeScript import path that both the preview and playground already use). Adding a new token to `src/tokens.ts` MUST automatically appear in the dev page's token documentation sections without manual page updates. The page MUST NOT maintain a static copy of the token set — it reads from source as the single source of truth.
+
 ### Success Criteria (addendum)
 
 - **SC-009**: Every console top-level view contains exactly one branded footer with app name + version + GitHub link (asserted by a component/a11y test).
 - **SC-010**: Every built manual page contains a `<footer>` with app name + version + GitHub link (structural check).
 - **SC-011**: `pnpm version:check` passes with `_config.yml` version included as a surface (no drift).
 - **SC-012**: `check:no-literals` passes (no hardcoded color literals introduced in either footer).
+
+#### Unified dev page (issue #68)
+
+- **SC-013 — Single dev page replaces both surfaces**: `pnpm dev` in `packages/design` serves exactly one page that contains all token documentation from the former preview page AND all component demos from the former playground. The old `packages/design/preview/` and `packages/design/playground/` directories are removed (or their content migrated and directories deleted). A contributor can validate every token, every component variant, and every a11y pairing from one page.
+- **SC-014 — Page shell is token-verified**: A grep/test asserts the dev page shell code (sidebar, layout, section containers, theme toggle) contains zero hardcoded hex/rgb/spacing/font literals outside `var(--europa-*)` references — the same no-literals invariant enforced on the console (FR-009/FR-010) applies to the dev page. The check runs in CI and locally.
+- **SC-015 — Theme toggle works end-to-end**: Loading the dev page, toggling to light theme, and inspecting computed styles on representative elements (page background, text, card surface) confirms the CSS variables changed values; reloading the page restores the light theme from localStorage; toggling back to dark restores dark. All component demos render correctly in both themes without visual breakage (no invisible text, no lost contrast).
+- **SC-016 — Responsive layout verified**: The dev page renders correctly at viewport widths of 320px, 768px, and 1200px: sidebar is hidden/collapsed at 320px, visible at 768px+; content fills the viewport; no horizontal overflow on the layout chrome; token tables and component demos are usable at all three widths.
+- **SC-017 — Token dynamic rendering**: Adding a test token to `src/tokens.ts` and reloading the dev page causes the token to appear in the token documentation section without any manual page edits. Removing the token and reloading causes it to disappear. The dev page reads from source, not a static copy.
 
 ### Assumptions (addendum)
 

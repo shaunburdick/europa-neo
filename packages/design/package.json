@@ -36,8 +36,8 @@
     "scripts": {
         "clean": "rm -rf dist",
         "build": "tsup && tsx scripts/generate-brand.ts && tsx scripts/build-css.ts && tsx scripts/generate-contrast-notes.ts && tsx scripts/vendor-to-docs.ts && tsx scripts/assert-brand-output.ts && pnpm check:brand-types && tsx scripts/check-brand-surface.ts",
-        "dev": "vite playground",
-        "dev:build": "pnpm build && vite preview playground",
+        "dev": "vite dev --config dev/vite.config.ts",
+        "dev:build": "pnpm build && vite preview --config dev/vite.config.ts",
         "vendor": "tsx scripts/vendor-to-docs.ts",
         "stage:manual": "tsx scripts/vendor-to-docs.ts",
         "check:no-literals": "tsx scripts/check-no-literals.ts",

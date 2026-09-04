@@ -1,0 +1,506 @@
+/**
+ * Unified Design System Dev Page — Shell Styles
+ *
+ * Provides the page-level layout, sidebar, content area, section styling,
+ * component demo containers, responsive behavior, and light theme overrides
+ * for the design system showcase page.
+ *
+ * Every declaration uses `var(--europa-*)` CSS custom properties — zero
+ * hardcoded hex/rgb literals in property values. The only exceptions are
+ * the `:root[data-theme="light"]` block (which legitimately redefines
+ * token values) and the mobile overlay backdrop (rgba(0, 0, 0, 0.5)).
+ *
+ * @see packages/design/src/tokens.ts — canonical token definitions
+ * @see packages/design/src/styles/catalog.css — component catalog patterns
+ */
+
+/* ── 1. CSS Reset ─────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── 2. Body ──────────────────────────────────────────────────────────── */
+body {
+    background-color: var(--europa-color-page-bg);
+    color: var(--europa-color-text-primary);
+    font-family: var(--europa-typography-font-stack);
+    font-size: var(--europa-typography-size-md);
+    line-height: var(--europa-typography-line-height-normal);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── 3. Layout Grid ───────────────────────────────────────────────────── */
+.dev-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+}
+
+/* ── 4. Sidebar ───────────────────────────────────────────────────────── */
+.dev-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: var(--europa-color-surface);
+    border-right: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    padding: var(--europa-spacing-md);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Sidebar header */
+.dev-sidebar__header {
+    margin-bottom: var(--europa-spacing-lg);
+    padding-bottom: var(--europa-spacing-md);
+    border-bottom: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.dev-sidebar__title {
+    font-size: var(--europa-typography-size-xl);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+    line-height: var(--europa-typography-line-height-normal);
+    margin: 0 0 var(--europa-spacing-xs);
+}
+
+.dev-sidebar__subtitle {
+    font-size: var(--europa-typography-size-xs);
+    color: var(--europa-color-text-muted);
+    line-height: var(--europa-typography-line-height-normal);
+}
+
+/* Sidebar navigation */
+.dev-sidebar__nav {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.dev-sidebar__category {
+    margin-bottom: var(--europa-spacing-md);
+}
+
+.dev-sidebar__category-heading {
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+    text-transform: uppercase;
+    letter-spacing: var(--europa-typography-tracking-wide);
+    margin-bottom: var(--europa-spacing-xs);
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+}
+
+.dev-sidebar__link {
+    display: block;
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    color: var(--europa-color-text-secondary);
+    text-decoration: none;
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-normal);
+    border-radius: var(--europa-radii-input);
+    transition:
+        background-color var(--europa-motion-transition-fast) var(--europa-motion-easing),
+        color var(--europa-motion-transition-fast) var(--europa-motion-easing);
+}
+
+.dev-sidebar__link:hover {
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+}
+
+/* Active sidebar item: aria-current="true" gets visual indicator */
+.dev-sidebar__link[aria-current="true"],
+.dev-sidebar__link[aria-current="page"] {
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-accent);
+    font-weight: 600;
+}
+
+.dev-sidebar__link[aria-current="true"]::before,
+.dev-sidebar__link[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: var(--europa-spacing-xs);
+    height: 1.5em;
+    background-color: var(--europa-color-accent);
+    border-radius: var(--europa-radii-sm);
+}
+
+/* Sidebar footer — ThemeToggle positioned at bottom */
+.dev-sidebar__footer {
+    margin-top: auto;
+    padding-top: var(--europa-spacing-md);
+    border-top: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+/* Theme toggle button */
+.dev-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--europa-spacing-xs);
+    width: 100%;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-secondary);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    font-family: inherit;
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-normal);
+    cursor: pointer;
+    transition:
+        background-color var(--europa-motion-transition-fast) var(--europa-motion-easing),
+        color var(--europa-motion-transition-fast) var(--europa-motion-easing);
+}
+
+.dev-theme-toggle:hover {
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+}
+
+.dev-theme-toggle:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* ── 5. Content Area ──────────────────────────────────────────────────── */
+.dev-content {
+    padding: var(--europa-spacing-xl);
+    max-width: 1200px;
+}
+
+/* ── 6. Section Styling ───────────────────────────────────────────────── */
+.dev-section {
+    margin-bottom: var(--europa-spacing-xl);
+    padding-bottom: var(--europa-spacing-xl);
+    border-bottom: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.dev-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.dev-section__heading {
+    font-size: var(--europa-typography-size-xl);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+    line-height: var(--europa-typography-line-height-normal);
+    margin: 0 0 var(--europa-spacing-md);
+}
+
+.dev-section__subheading {
+    font-size: var(--europa-typography-size-lg);
+    font-weight: 600;
+    color: var(--europa-color-text-primary);
+    line-height: var(--europa-typography-line-height-normal);
+    margin: 0 0 var(--europa-spacing-sm);
+}
+
+.dev-section__description {
+    font-size: var(--europa-typography-size-base);
+    color: var(--europa-color-text-secondary);
+    line-height: var(--europa-typography-line-height-relaxed);
+    margin: 0 0 var(--europa-spacing-md);
+}
+
+/* Token tables — bordered, striped rows using token colors */
+.dev-token-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--europa-typography-size-sm);
+    line-height: var(--europa-typography-line-height-normal);
+    color: var(--europa-color-text-secondary);
+    margin-bottom: var(--europa-spacing-md);
+}
+
+.dev-token-table th {
+    background-color: var(--europa-color-surface);
+    color: var(--europa-color-text-primary);
+    text-align: left;
+    font-weight: 700;
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.dev-token-table td {
+    padding: var(--europa-spacing-sm) var(--europa-spacing-md);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+}
+
+.dev-token-table tbody tr:nth-child(even) td {
+    background-color: var(--europa-color-surface-raised);
+}
+
+.dev-token-table tbody tr:hover td {
+    background-color: var(--europa-color-surface-raised);
+}
+
+.dev-token-table__name {
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-xs);
+    color: var(--europa-color-text-muted);
+}
+
+.dev-token-table__value {
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-xs);
+    color: var(--europa-color-accent);
+}
+
+/* Color swatches — grid layout */
+.dev-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--europa-spacing-md);
+    margin-bottom: var(--europa-spacing-md);
+}
+
+.dev-swatches__category {
+    margin-bottom: var(--europa-spacing-lg);
+}
+
+.dev-swatches__category-title {
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+    margin-bottom: var(--europa-spacing-sm);
+}
+
+.dev-swatch {
+    display: flex;
+    flex-direction: column;
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+    overflow: hidden;
+}
+
+.dev-swatch__color {
+    height: 64px;
+    width: 100%;
+}
+
+.dev-swatch__info {
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    background-color: var(--europa-color-surface);
+}
+
+.dev-swatch__name {
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 600;
+    color: var(--europa-color-text-primary);
+    margin: 0 0 var(--europa-spacing-xs);
+}
+
+.dev-swatch__value {
+    font-family: var(--europa-typography-font-mono);
+    font-size: 0.65rem;
+    color: var(--europa-color-text-muted);
+}
+
+/* ── 7. Component Demo Containers ─────────────────────────────────────── */
+.dev-demo {
+    background-color: var(--europa-color-surface);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-card);
+    padding: var(--europa-spacing-lg);
+    margin-bottom: var(--europa-spacing-md);
+}
+
+.dev-demo__label {
+    font-size: var(--europa-typography-size-xs);
+    color: var(--europa-color-text-muted);
+    margin-bottom: var(--europa-spacing-sm);
+    text-transform: uppercase;
+    letter-spacing: var(--europa-typography-tracking-wide);
+    font-weight: 600;
+}
+
+.dev-demo__content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--europa-spacing-md);
+    align-items: center;
+}
+
+.dev-demo__content--column {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.dev-demo__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--europa-spacing-sm);
+    align-items: center;
+}
+
+/* Code display within demos */
+.dev-demo__code {
+    font-family: var(--europa-typography-font-mono);
+    font-size: var(--europa-typography-size-xs);
+    color: var(--europa-color-text-muted);
+    background-color: var(--europa-color-void-bg);
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    border-radius: var(--europa-radii-input);
+    margin-top: var(--europa-spacing-sm);
+}
+
+/* ── 8. Responsive Media Query ────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .dev-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .dev-sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 1000;
+        transform: translateX(-100%);
+        transition: transform var(--europa-motion-duration) var(--europa-motion-easing);
+    }
+
+    .dev-sidebar--open {
+        transform: translateX(0);
+    }
+
+    .dev-sidebar-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        border: none;
+        padding: 0;
+        margin: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+        font: inherit;
+        color: inherit;
+    }
+
+    .dev-hamburger {
+        display: flex;
+    }
+
+    .dev-content {
+        padding: var(--europa-spacing-md);
+    }
+}
+
+/* Hamburger button — hidden on desktop */
+.dev-hamburger {
+    display: none;
+    position: fixed;
+    top: var(--europa-spacing-md);
+    left: var(--europa-spacing-md);
+    z-index: 1001;
+    align-items: center;
+    justify-content: center;
+    width: var(--europa-control-height-lg);
+    height: var(--europa-control-height-lg);
+    background-color: var(--europa-color-surface);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    color: var(--europa-color-text-primary);
+    cursor: pointer;
+}
+
+.dev-hamburger:focus-visible {
+    outline: var(--europa-focus-ring-width) var(--europa-focus-ring-style) var(--europa-focus-ring-color);
+    outline-offset: var(--europa-focus-ring-offset);
+}
+
+/* ── 9. Light Theme Overrides ─────────────────────────────────────────── */
+:root[data-theme="light"] {
+    /* Surfaces */
+    --europa-color-page-bg: #f8fafc;
+    --europa-color-surface: #ffffff;
+    --europa-color-surface-raised: #f1f5f9;
+    --europa-color-void-bg: #f1f5f9;
+
+    /* Text */
+    --europa-color-text-primary: #0f172a;
+    --europa-color-text-secondary: #334155;
+    --europa-color-text-muted: #64748b;
+    --europa-color-text-link: #d97706;
+
+    /* Borders */
+    --europa-color-border: #e2e8f0;
+    --europa-color-divider: #e2e8f0;
+
+    /* Accent */
+    --europa-color-accent: #d97706;
+    --europa-color-accent-active: #b45309;
+    --europa-color-banner: #d97706;
+    --europa-color-city: #d97706;
+
+    /* Semantic state — light theme */
+    --europa-color-success: #059669;
+    --europa-color-success-hover: #047857;
+    --europa-color-success-active: #065f46;
+    --europa-color-success-bg: #ecfdf5;
+    --europa-color-success-border: #a7f3d0;
+
+    --europa-color-warning: #d97706;
+    --europa-color-warning-hover: #b45309;
+    --europa-color-warning-active: #92400e;
+    --europa-color-warning-bg: #fffbeb;
+    --europa-color-warning-border: #fde68a;
+
+    --europa-color-error: #dc2626;
+    --europa-color-error-hover: #b91c1c;
+    --europa-color-error-active: #991b1b;
+    --europa-color-error-bg: #fef2f2;
+    --europa-color-error-border: #fecaca;
+
+    --europa-color-info: #2563eb;
+    --europa-color-info-hover: #1d4ed8;
+    --europa-color-info-active: #1e40af;
+    --europa-color-info-bg: #eff6ff;
+    --europa-color-info-border: #bfdbfe;
+
+    /* Chips */
+    --europa-color-chip-bg: #f1f5f9;
+    --europa-color-chip-text: #334155;
+
+    /* Focus ring — light theme uses darker ring for contrast */
+    --europa-focus-ring-color: #0f172a;
+
+    /* Shadows — lighter for light theme */
+    --europa-shadows-plate: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --europa-shadows-card-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --europa-shadows-card-active: 0 2px 4px rgba(0, 0, 0, 0.08);
+    --europa-shadows-modal: 0 8px 24px rgba(0, 0, 0, 0.15);
+    --europa-shadows-hud: 0 2px 6px rgba(0, 0, 0, 0.1);
+
+    /* Pipe slopes — same in light theme */
+    --europa-color-pipe-downhill: #059669;
+    --europa-color-pipe-flat: #d97706;
+    --europa-color-pipe-uphill: #dc2626;
+    --europa-color-pipe-stalled: #64748b;
+
+    /* Overlays */
+    --europa-color-overlay-soft: rgba(0, 0, 0, 0.4);
+    --europa-color-overlay-strong: rgba(0, 0, 0, 0.6);
+}
+
+/* ── Reduced Motion ───────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .dev-sidebar {
+        transition: none;
+    }
+}
