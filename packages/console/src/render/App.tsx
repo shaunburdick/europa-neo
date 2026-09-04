@@ -61,6 +61,7 @@ import { ReservesPanel } from '../ui/reserves-panel';
 import { TargetingOverlay } from '../ui/targeting-overlay';
 import { WaitingOverlay } from '../ui/waiting-overlay';
 import { MapCanvas } from './canvas';
+import { GameOverModal } from './GameOverModal';
 import { GridOverlay } from './grid-overlay';
 import { liveLabels, nextLabelExpiryMs } from './label-overlay';
 import { SurrenderModal } from './SurrenderModal';
@@ -107,6 +108,12 @@ export interface AppProps {
      * the authoritative lobby entry when available.
      */
     readonly waitingCapacity?: number;
+    /**
+     * Callback to navigate back to the lobby. When provided and the
+     * match is over with a result, the {@link GameOverModal} is
+     * rendered (FR-008). Omitted by static/test boots.
+     */
+    readonly onReturnToLobby?: () => void;
 }
 
 /** Subscription shim for static boots (no store to subscribe to). */
@@ -132,6 +139,7 @@ export function App({
     surrenderRequestEpoch,
     waitingSeatsFilled,
     waitingCapacity,
+    onReturnToLobby,
 }: AppProps): JSX.Element {
     const fallbackState = state ?? peekInjectedConsoleState() ?? INITIAL_CONSOLE_STATE;
     const resolvedState = useSyncExternalStore(
@@ -554,6 +562,14 @@ export function App({
                         store.dispatch({ kind: 'surrender' });
                     }}
                 />
+            ) : null}
+            {/* Game-over results modal (Feature 019 FR-008): renders
+                when the match is over with a result and the host
+                provides the return-to-lobby callback. */}
+            {resolvedState.status === 'game_over' &&
+            resolvedState.matchResult !== null &&
+            onReturnToLobby !== undefined ? (
+                <GameOverModal open={true} result={resolvedState.matchResult} onReturnToLobby={onReturnToLobby} />
             ) : null}
             {/* Help overlay (Feature 018): lazy-loaded on first open,
                 reads game status from the resolved state for FR-007. */}

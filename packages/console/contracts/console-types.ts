@@ -101,6 +101,7 @@ import type {
   CellView,
   Coord,
   Direction,
+  MatchResult,
   Order,
   PlayerId,
   ReservesPct,
@@ -587,6 +588,14 @@ export interface ConsoleState {
    * pressing a hotkey to toggle.
    */
   readonly exclusiveMode: boolean;
+  /**
+   * The engine's terminal match result, stored when the `terminal`
+   * wire event arrives. `null` until the match ends. The
+   * {@link GameOverModal} reads this field to display who won, the
+   * reason, and the final tick. `MatchResult | null` — re-exported
+   * via `@europa/engine`.
+   */
+  readonly matchResult: MatchResult | null;
 }
 
 /**
@@ -828,6 +837,7 @@ export type {
   CellView,
   Coord,
   Direction,
+  MatchResult,
   Order,
   PlayerId,
   ReservesPct,

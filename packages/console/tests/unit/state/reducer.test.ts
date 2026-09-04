@@ -180,10 +180,11 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
     it('terminal ends the match; socketClosed/reconnecting surface the gap', () => {
         const over = step(live(), {
             kind: 'terminal',
-            result: { winner: 2, reason: 'conquest' as never },
+            result: { kind: 'win', winner: 2, tick: 1247, reason: 'last_standing' },
         }).state;
         expect(over.status).toBe('game_over');
         expect(over.inputEnabled).toBe(false);
+        expect(over.matchResult).toEqual({ kind: 'win', winner: 2, tick: 1247, reason: 'last_standing' });
 
         const closed = step(live(), { kind: 'socketClosed', code: 1006, reason: 'abnormal' }).state;
         expect(closed.status).toBe('reconnecting');
@@ -195,6 +196,60 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
         });
         expect(state.status).toBe('reconnecting');
         expect(effects).toEqual([{ kind: 'scheduleReconnect', delayMs: 750 }]);
+    });
+
+    it('terminal stores matchResult from a win event (AC-001)', () => {
+        const { state } = step(live(), {
+            kind: 'terminal',
+            result: { kind: 'win', winner: 1, tick: 500, reason: 'last_standing' },
+        });
+        expect(state.matchResult).not.toBeNull();
+        expect(state.matchResult?.kind).toBe('win');
+        expect(state.status).toBe('game_over');
+    });
+
+    it('terminal stores matchResult from a draw event', () => {
+        const { state } = step(live(), {
+            kind: 'terminal',
+            result: { kind: 'draw', tick: 892, reason: 'mutual_elimination' },
+        });
+        expect(state.matchResult).toEqual({ kind: 'draw', tick: 892, reason: 'mutual_elimination' });
+    });
+
+    it('terminal stores null matchResult when result is undefined (defensive)', () => {
+        const { state } = step(live(), {
+            kind: 'terminal',
+            result: undefined as never,
+        });
+        expect(state.matchResult).toBeNull();
+    });
+
+    it('terminal produces result-aware announce text for win (FR-012)', () => {
+        const { effects } = step(live(), {
+            kind: 'terminal',
+            result: { kind: 'win', winner: 2, tick: 100, reason: 'all_surrendered' },
+        });
+        expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Player 2 wins!', politeness: 'assertive' }]);
+    });
+
+    it('terminal produces result-aware announce text for draw (FR-012)', () => {
+        const { effects } = step(live(), {
+            kind: 'terminal',
+            result: { kind: 'draw', tick: 200, reason: 'mutual_elimination' },
+        });
+        expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Draw.', politeness: 'assertive' }]);
+    });
+
+    it('terminal produces fallback announce text when result is null (defensive)', () => {
+        const { effects } = step(live(), {
+            kind: 'terminal',
+            result: null as never,
+        });
+        expect(effects).toEqual([{ kind: 'announce', text: 'Match over.', politeness: 'assertive' }]);
+    });
+
+    it('INITIAL_CONSOLE_STATE.matchResult is null (FR-014)', () => {
+        expect(INITIAL_CONSOLE_STATE.matchResult).toBeNull();
     });
 
     it('error events land in feedback with an assertive announcement', () => {
@@ -215,7 +270,7 @@ describe('reducer invariants (data-model §17)', () => {
         for (const event of [
             { kind: 'socketClosed', code: 1006, reason: 'x' },
             { kind: 'pong', clientTimeMs: 1, serverTimeMs: 2 },
-            { kind: 'terminal', result: { winner: 1, reason: 'conquest' as never } },
+            { kind: 'terminal', result: { kind: 'win', winner: 1, tick: 10, reason: 'last_standing' } },
         ] as const) {
             ({ state } = step(state, event));
             expect(state.inputEnabled).toBe(state.status === 'live');

@@ -618,6 +618,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     leaving={state.actions.leaveMatch.phase === 'loading'}
                     onLeave={leaveMatch}
                     onRouteFailure={() => setNoticeKind('shortcut-failure')}
+                    onReturnToLobby={returnToLobby}
                 />
             </>
         );
@@ -787,6 +788,8 @@ interface MatchLegHostProps {
     readonly onLeave: () => void;
     /** Report match-leg failures without exposing transport details. */
     readonly onRouteFailure: () => void;
+    /** Callback to navigate back to the lobby on game-over (FR-009). */
+    readonly onReturnToLobby?: () => void;
 }
 
 /**
@@ -829,6 +832,7 @@ function MatchLegHost({
     leaving,
     onLeave,
     onRouteFailure,
+    onReturnToLobby,
 }: MatchLegHostProps): JSX.Element {
     const headingRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -895,7 +899,7 @@ function MatchLegHost({
             {leg !== null ? (
                 // Player board: App owns the page's single
                 // <main id="main"> landmark (skip-link target).
-                <App store={leg.store} />
+                <App store={leg.store} {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})} />
             ) : role === 'spectator' && matchId !== null && matchStarted ? (
                 // Live read-only spectator surface — also App-rendered,
                 // so it likewise owns its own <main>.
@@ -905,6 +909,7 @@ function MatchLegHost({
                     displayName={displayName}
                     announcer={announcer}
                     onFailure={onRouteFailure}
+                    {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})}
                 />
             ) : (
                 <main id="main" className="europa-lobby europa-lobby-match__placeholder">
@@ -1079,6 +1084,8 @@ interface SpectatorMatchLegProps {
     readonly announcer?: LiveRegionAnnouncer | undefined;
     /** Report attach failure to the route shell. */
     readonly onFailure: () => void;
+    /** Callback to navigate back to the lobby (FR-010). */
+    readonly onReturnToLobby?: () => void;
 }
 
 /**
@@ -1093,7 +1100,14 @@ interface SpectatorMatchLegProps {
  *
  * Announces the attach once through the shared runtime channel.
  */
-function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer, onFailure }: SpectatorMatchLegProps): JSX.Element {
+function SpectatorMatchLeg({
+    wsUrl,
+    matchId,
+    displayName,
+    announcer,
+    onFailure,
+    onReturnToLobby,
+}: SpectatorMatchLegProps): JSX.Element {
     const [snapshot, setSnapshot] = useState<ConsoleState>(() => initialSpectatorState(matchId));
 
     // One leg per mount (render-phase ref construction, no I/O — the
@@ -1120,7 +1134,7 @@ function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer, onFailure }
         }
     }, [announcer, snapshot.status]);
 
-    return <App state={snapshot} />;
+    return <App state={snapshot} {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})} />;
 }
 
 /** Props for {@link PreStartPlate}. */

@@ -38,6 +38,7 @@ import type {
     ConsoleAction,
     ConsoleState,
     FeedbackMessage,
+    MatchResult,
     Order,
     PlayerAction,
     ReduceOptions,
@@ -146,6 +147,7 @@ export const INITIAL_CONSOLE_STATE: ConsoleState = {
     },
     inputEnabled: false,
     exclusiveMode: false,
+    matchResult: null,
 };
 
 // ----------------------------------------------------------------------------
@@ -388,6 +390,27 @@ function orderCellOf(action: PlayerAction): import('@europa/engine').Coord {
 // ----------------------------------------------------------------------------
 
 /**
+ * Build a result-aware announcement string for the terminal event.
+ * Used by both the player reducer and the screen-reader announcer
+ * (FR-012). Pure — no side effects.
+ *
+ * @param result The engine's terminal match result, or `null` defensively.
+ */
+function terminalAnnouncementText(result: MatchResult | null): string {
+    if (result === null) {
+        return 'Match over.';
+    }
+    switch (result.kind) {
+        case 'win':
+            return `Match over. Player ${String(result.winner)} wins!`;
+        case 'draw':
+            return 'Match over. Draw.';
+        default:
+            return 'Match over.';
+    }
+}
+
+/**
  * Handle a NetEvent (FR-007..FR-010). Each variant mirrors the wire
  * mapping in data-model.md §12.
  */
@@ -500,11 +523,13 @@ function reduceNetEvent(
             };
         }
 
-        case 'terminal':
+        case 'terminal': {
+            const matchResult = event.result ?? null;
             return {
-                state: { ...state, status: 'game_over' },
-                effects: [{ kind: 'announce', text: 'Match over', politeness: 'assertive' }],
+                state: { ...state, status: 'game_over', matchResult },
+                effects: [{ kind: 'announce', text: terminalAnnouncementText(matchResult), politeness: 'assertive' }],
             };
+        }
 
         case 'pong':
             // Heartbeat echo carries no UI state change.

@@ -112,6 +112,48 @@ describe('applySpectatorEnvelope', () => {
         expect(state.feedback.at(-1)?.text).toBe('Match over — player 2 wins.');
     });
 
+    it('terminal stores matchResult in state (FR-010)', () => {
+        let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
+        state = applySpectatorEnvelope(
+            state,
+            envelope('terminal', { result: { kind: 'win', winner: 1, tick: 50, reason: 'last_standing' } }),
+            NOW,
+        );
+        expect(state.matchResult).toEqual({ kind: 'win', winner: 1, tick: 50, reason: 'last_standing' });
+    });
+
+    it('terminal stores matchResult for draw events', () => {
+        let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
+        state = applySpectatorEnvelope(
+            state,
+            envelope('terminal', { result: { kind: 'draw', tick: 100, reason: 'mutual_elimination' } }),
+            NOW,
+        );
+        expect(state.matchResult).toEqual({ kind: 'draw', tick: 100, reason: 'mutual_elimination' });
+    });
+
+    it('terminal stores null matchResult when result is undefined (defensive)', () => {
+        let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
+        state = applySpectatorEnvelope(state, envelope('terminal', { result: undefined }), NOW);
+        expect(state.matchResult).toBeNull();
+    });
+
+    it('initialSpectatorState.matchResult is null', () => {
+        const state = initialSpectatorState(MATCH);
+        expect(state.matchResult).toBeNull();
+    });
+
+    it('terminal still appends feedback text (FR-011 — spectatorTerminalText unchanged)', () => {
+        let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
+        state = applySpectatorEnvelope(
+            state,
+            envelope('terminal', { result: { kind: 'win', winner: 2, tick: 12, reason: 'last_standing' } }),
+            NOW,
+        );
+        expect(state.feedback).toHaveLength(1);
+        expect(state.feedback[0]?.text).toBe('Match over — player 2 wins.');
+    });
+
     it('server errors land as feedback notices', () => {
         const next = applySpectatorEnvelope(
             initialSpectatorState(MATCH),

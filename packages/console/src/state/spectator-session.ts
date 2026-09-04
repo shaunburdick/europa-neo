@@ -75,6 +75,7 @@ export function initialSpectatorState(matchId: MatchId): ConsoleState {
         },
         inputEnabled: false,
         exclusiveMode: false,
+        matchResult: null,
     };
 }
 
@@ -127,13 +128,15 @@ export function applySpectatorEnvelope(
 
         case 'terminal': {
             const payload = envelope.payload as TerminalPayload;
+            const matchResult = payload.result ?? null;
             return {
                 ...state,
                 status: 'game_over',
+                matchResult,
                 feedback: appendFeedback(
                     state.feedback,
                     {
-                        text: spectatorTerminalText(payload.result),
+                        text: matchResult !== null ? spectatorTerminalText(matchResult) : 'Match over.',
                         kind: 'info',
                         ttlMs: Number.MAX_SAFE_INTEGER,
                     },

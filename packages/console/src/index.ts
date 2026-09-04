@@ -192,6 +192,7 @@ export {
 // ----------------------------------------------------------------------------
 
 export { ErrorBoundary, type ErrorBoundaryProps } from './render/ErrorBoundary';
+export { GameOverModal, type GameOverModalProps } from './render/GameOverModal';
 export { SurrenderModal, type SurrenderModalProps } from './render/SurrenderModal';
 export { OrderBar, type OrderBarProps } from './ui/order-bar';
 export { ReservesPanel, type ReservesPanelProps } from './ui/reserves-panel';
