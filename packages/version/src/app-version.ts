@@ -17,4 +17,4 @@
  * wire *protocol version* (`NETWORK_API_VERSION`, spec 004) — separate
  * lifecycles, and no code path may derive either value from the other.
  */
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';

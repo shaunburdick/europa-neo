@@ -1,6 +1,6 @@
 # Europa Neo — Design System
 
-> **Version**: `0.1.0` <!-- Version: 0.1.0 --> — must match `APP_VERSION` in `packages/version/src/app-version.ts` and every `package.json#version`.
+> **Version**: `0.2.0` <!-- Version: 0.2.0 --> — must match `APP_VERSION` in `packages/version/src/app-version.ts` and every `package.json#version`.
 
 The authoritative, versioned, living contract for Europa Neo's shareable design system.
 `@europa/design` (`packages/design`) is the single implementation source; this document is the single
@@ -742,7 +742,7 @@ Change policy:
 
 ## 7. Build, versioning, and house-keeping (FR-020 / FR-021 / FR-022)
 
-- **Versioning (FR-020)**: this header's `0.1.0` is the current lockstep value and is part of the
+- **Versioning (FR-020)**: this header's `0.2.0` is the current lockstep value and is part of the
   `version:check` surface — it must equal `packages/design/package.json#version`, `APP_VERSION`, and
   every other `package.json#version`, with no special case. Bumps follow spec 009's
   `chore(release): vX.Y.Z` convention (see the header's "How to bump").

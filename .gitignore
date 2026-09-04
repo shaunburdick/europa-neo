@@ -49,3 +49,6 @@ europa-source/
 
 # Agent tooling
 .agents/
+
+# Generated build artifacts
+packages/design/src/styles/catalog-styles.ts

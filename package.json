@@ -1,6 +1,6 @@
 {
     "name": "@europa/root",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "private": true,
     "description": "Europa Neo monorepo root — pnpm workspaces hosting the server-authoritative game engine, server, client console, and shared types.",
     "type": "module",
