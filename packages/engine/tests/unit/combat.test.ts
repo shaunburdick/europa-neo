@@ -506,8 +506,11 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
 
         const tally = emptyTally(size); // inflowTally = 0 (no actual inflow)
         const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4,
-            2, 30,  // garrison: P2 with 30
+            size,
+            4,
+            4,
+            2,
+            30, // garrison: P2 with 30
             [{ player: 1, count: 14 }], // P1 committed 14
         );
 
@@ -542,8 +545,11 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
 
         const tally = emptyTally(size);
         const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4,
-            2, 20,  // garrison: P2 with 20
+            size,
+            4,
+            4,
+            2,
+            20, // garrison: P2 with 20
             [{ player: 1, count: 15 }], // P1 committed 15
         );
 
@@ -577,9 +583,15 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
 
         const tally = emptyTally(size);
         const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4,
-            1, 10,  // garrison: P1 with 10
-            [{ player: 1, count: 7 }, { player: 2, count: 7 }],
+            size,
+            4,
+            4,
+            1,
+            10, // garrison: P1 with 10
+            [
+                { player: 1, count: 7 },
+                { player: 2, count: 7 },
+            ],
         );
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
@@ -587,7 +599,7 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
         if (ev !== undefined) {
-            expect(ev.attackerTotal).toBe(7);  // P2 committed
+            expect(ev.attackerTotal).toBe(7); // P2 committed
             expect(ev.defenderTotal).toBe(17); // P1 garrison(10) + committed(7)
             expect(ev.attackerLoss).toBe(7);
             expect(ev.defenderLoss).toBe(7);
@@ -610,9 +622,15 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
 
         const tally = emptyTally(size);
         const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4,
-            0, 0, // no garrison
-            [{ player: 1, count: 20 }, { player: 2, count: 12 }],
+            size,
+            4,
+            4,
+            0,
+            0, // no garrison
+            [
+                { player: 1, count: 20 },
+                { player: 2, count: 12 },
+            ],
         );
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
@@ -642,11 +660,9 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         state.troopOwners[idx] = 2;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4,
-            2, 15,
-            [{ player: 1, count: 10 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 15, [
+            { player: 1, count: 10 },
+        ]);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
@@ -678,11 +694,10 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         state.troopOwners[idx] = 2;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4,
-            2, 25,
-            [{ player: 1, count: 12 }, { player: 3, count: 8 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 25, [
+            { player: 1, count: 12 },
+            { player: 3, count: 8 },
+        ]);
 
         const reference = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         for (let i = 0; i < 1000; i++) {

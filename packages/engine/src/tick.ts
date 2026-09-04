@@ -158,7 +158,15 @@ export function tick(world: Readonly<World>): TickResult {
     state = resolveFlow(state, world.board, ENGINE_CONSTANTS, inflowTally, committedFlowTally);
 
     // ---- Phase 5: combat (total-force model) ------------------------------
-    const combatResult = resolveCombat(state, world.board, ENGINE_CONSTANTS, world.tick, inflowTally, committedFlowTally, preFlowState);
+    const combatResult = resolveCombat(
+        state,
+        world.board,
+        ENGINE_CONSTANTS,
+        world.tick,
+        inflowTally,
+        committedFlowTally,
+        preFlowState,
+    );
     ({ state } = combatResult);
     events = {
         ...events,

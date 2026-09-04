@@ -95,9 +95,7 @@ export function resolveCombat(
     const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * PLAYERS;
     const committedAvailable = committedFlowTally !== undefined && committedFlowTally.length >= n * PLAYERS;
     const preFlowAvailable =
-        preFlowState !== undefined &&
-        preFlowState.troopOwners.length >= n &&
-        preFlowState.troopCounts.length >= n;
+        preFlowState !== undefined && preFlowState.troopOwners.length >= n && preFlowState.troopCounts.length >= n;
 
     for (let idx = 0; idx < n; idx++) {
         if (preFlowAvailable && committedAvailable) {
@@ -183,11 +181,12 @@ export function resolveCombat(
                 const eventDefender: PlayerId = a.owner < b.owner ? b.owner : a.owner;
 
                 // Winner: whoever has the higher total (or 'tie' if equal).
-                const winner: PlayerId | 'tie' = attackerTotalForce > defenderTotalForce
-                    ? logicalAttacker
-                    : defenderTotalForce > attackerTotalForce
-                        ? logicalDefender
-                        : 'tie';
+                const winner: PlayerId | 'tie' =
+                    attackerTotalForce > defenderTotalForce
+                        ? logicalAttacker
+                        : defenderTotalForce > attackerTotalForce
+                          ? logicalDefender
+                          : 'tie';
 
                 // Remaining troops after 1:1 attrition.
                 const attackerRemaining = (attackerTotalForce - damage) >>> 0;
