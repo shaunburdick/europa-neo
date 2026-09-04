@@ -7,8 +7,9 @@
  * and byte-identical determinism.  Validates `buildTokensJson()` array
  * structure, lexicographic sort, and completeness.
  *
- * Does NOT test `writeDesignCss()` or `emitCatalogStylesModule()` —
- * those require filesystem setup beyond the scope of unit tests.
+ * Does NOT test `writeDesignCss()` — it requires filesystem setup beyond
+ * the scope of unit tests. The former `emitCatalogStylesModule()` was
+ * removed in the React conversion (spec 014 Clarifications v1.2).
  */
 
 import { describe, expect, it } from 'vitest';

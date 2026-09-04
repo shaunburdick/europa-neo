@@ -46,6 +46,13 @@ catalog:
   # playwright" form was removed in Vitest 4.1).
   "@vitest/browser-playwright": ^4.1.0
   vitest-browser-react: ^2.2.0
+  # Feature 014 React conversion (issue #65): React Testing Library
+  # packages for component unit tests. @testing-library/dom is a peer
+  # dependency of @testing-library/react@16 (must be installed separately).
+  "@testing-library/react": ^16.3.2
+  "@testing-library/dom": ^10.0.0
+  "@testing-library/jest-dom": ^7.0.1
+  "@testing-library/user-event": ^14.6.7
   "@axe-core/playwright": ^4.13.0
   # Standalone axe-core engine for Vitest Browser Mode a11y scans
   # (tests/setup.ts expectNoDomA11yViolations): AxeBuilder from

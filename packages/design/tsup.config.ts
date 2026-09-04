@@ -8,4 +8,7 @@ export default defineConfig({
     splitting: false,
     sourcemap: true,
     target: 'es2022',
+    // React is a peer dependency (Q3) — never bundle it. Consumers
+    // (console, manual) provide their own React runtime.
+    external: ['react', 'react-dom'],
 });

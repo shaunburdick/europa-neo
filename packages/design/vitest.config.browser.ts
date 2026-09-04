@@ -3,8 +3,9 @@ import { defineConfig } from 'vitest/config';
 
 /**
  * Browser-mode Vitest config (real Chromium via Playwright) for the
- * design package's browser integration tests (modal focus-trap, button
- * click retargeting / form submission).
+ * design package's React component integration tests (modal focus-trap,
+ * Escape close, focus restore — FR-028). React components are rendered
+ * with `vitest-browser-react` (imported in the test files).
  *
  * Vitest 4.1 note: `browser.provider` takes the provider FACTORY from
  * `@vitest/browser-playwright`, not the legacy `'playwright'` string.
@@ -17,7 +18,8 @@ export default defineConfig({
             headless: true,
             instances: [{ browser: 'chromium' }],
         },
-        include: ['tests/components/*.integration.test.ts'],
+        setupFiles: ['./tests/setup.ts'],
+        include: ['tests/components/*.integration.test.tsx'],
         passWithNoTests: true,
         coverage: {
             provider: 'v8',

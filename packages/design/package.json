@@ -29,9 +29,13 @@
     "files": [
         "dist"
     ],
+    "peerDependencies": {
+        "react": ">=18",
+        "react-dom": ">=18"
+    },
     "scripts": {
         "clean": "rm -rf dist",
-        "build": "tsx scripts/build-css.ts --emit-module && tsup && tsx scripts/generate-brand.ts && tsx scripts/build-css.ts && tsx scripts/generate-contrast-notes.ts && tsx scripts/vendor-to-docs.ts && tsx scripts/assert-brand-output.ts && pnpm check:brand-types && tsx scripts/check-brand-surface.ts",
+        "build": "tsup && tsx scripts/generate-brand.ts && tsx scripts/build-css.ts && tsx scripts/generate-contrast-notes.ts && tsx scripts/vendor-to-docs.ts && tsx scripts/assert-brand-output.ts && pnpm check:brand-types && tsx scripts/check-brand-surface.ts",
         "dev": "vite playground",
         "dev:build": "pnpm build && vite preview playground",
         "vendor": "tsx scripts/vendor-to-docs.ts",
@@ -53,7 +57,13 @@
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
+        "@testing-library/dom": "catalog:",
+        "@testing-library/jest-dom": "catalog:",
+        "@testing-library/react": "catalog:",
+        "@testing-library/user-event": "catalog:",
         "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
         "@vitest/browser": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "happy-dom": "catalog:",
@@ -62,6 +72,7 @@
         "tsx": "catalog:",
         "typescript": "catalog:",
         "vite": "catalog:",
-        "vitest": "catalog:"
+        "vitest": "catalog:",
+        "vitest-browser-react": "catalog:"
     }
 }
