@@ -16,7 +16,9 @@
  *
  * - `root-package` / `workspace-package`: `package.json` version fields.
  * - `constant`: the single-source `APP_VERSION` constant itself.
- * - `readme` / `manual-index`: the human-facing documentation lines.
+ * - `readme` / `manual-index` / `manual-layout`: the human-facing
+ *   documentation lines (README release header, manual index footer, and
+ *   the Astro layout footer that renders to the published page).
  * - `design-md`: the `DESIGN.md` version header (spec 012 FR-020 / G-06) —
  *   the living design contract must stay in lockstep with `APP_VERSION`.
  */
@@ -26,6 +28,7 @@ export type VersionSourceKind =
     | 'constant'
     | 'readme'
     | 'manual-index'
+    | 'manual-layout'
     | 'design-md';
 
 /** One extracted version observation handed to {@link checkVersionDrift}. */

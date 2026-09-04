@@ -15,6 +15,7 @@ on:
       - 'README.md'
       - 'DESIGN.md'
       - 'docs/manual/index.md'
+      - 'docs/manual/src/layouts/ManualLayout.astro'
       - 'docs/manual/_config.yml'
       - 'docs/manual/assets/design.css'
       - '.github/workflows/version-drift.yml'
@@ -29,6 +30,7 @@ on:
       - 'README.md'
       - 'DESIGN.md'
       - 'docs/manual/index.md'
+      - 'docs/manual/src/layouts/ManualLayout.astro'
       - 'docs/manual/_config.yml'
       - 'docs/manual/assets/design.css'
       - '.github/workflows/version-drift.yml'
@@ -73,5 +75,5 @@ jobs:
         run: |
           echo "::error::Version drift detected — run 'pnpm version:check' locally to list every disagreeing file."
           echo "Bump every guarded surface in ONE lockstep commit (spec 009 FR-009 / spec 012 FR-020):"
-          echo "  packages/version/src/app-version.ts (APP_VERSION), every packages/*/package.json#version, README.md, docs/manual/index.md, docs/manual/_config.yml, and DESIGN.md."
+          echo "  packages/version/src/app-version.ts (APP_VERSION), every packages/*/package.json#version, README.md, docs/manual/index.md, docs/manual/src/layouts/ManualLayout.astro, docs/manual/_config.yml, and DESIGN.md."
           echo "After a token/class change, refresh the vendored stylesheet with: pnpm --filter @europa/design build"
