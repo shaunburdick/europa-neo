@@ -4,6 +4,8 @@
   --europa-borders-width: 1px;
   --europa-color-accent: #f59e0b;
   --europa-color-accent-active: #d97706;
+  --europa-color-accent-glow: rgba(245, 158, 11, 0.08);
+  --europa-color-accent-glow-strong: rgba(245, 158, 11, 0.3);
   --europa-color-banner: #d97706;
   --europa-color-blue: #2563eb;
   --europa-color-border: #374151;
@@ -23,6 +25,7 @@
   --europa-color-focus-ring: #ffffff;
   --europa-color-generic-effect: rgba(148, 163, 184, 0.45);
   --europa-color-green: #059669;
+  --europa-color-green-glow: rgba(5, 150, 105, 0.5);
   --europa-color-info: #dca12e;
   --europa-color-info-active: #ad872f;
   --europa-color-info-bg: #302311;
