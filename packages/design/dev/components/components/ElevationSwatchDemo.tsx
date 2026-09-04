@@ -13,6 +13,7 @@ export function ElevationSwatchDemo(): React.ReactElement {
     return (
         <section id="elevation-swatch" className="dev-section">
             <h2 className="dev-section__heading">ElevationSwatch</h2>
+            <p className="dev-section__description">Color ramp showing terrain elevation levels.</p>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <EuropaElevationSwatch elevation={0} />
                 <EuropaElevationSwatch elevation={25} />

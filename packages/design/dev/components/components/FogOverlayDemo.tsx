@@ -14,6 +14,7 @@ export function FogOverlayDemo(): React.ReactElement {
     return (
         <section id="fog-overlay" className="dev-section">
             <h2 className="dev-section__heading">FogOverlay</h2>
+            <p className="dev-section__description">Visibility overlay for fog-of-war areas.</p>
             <div style={{ display: 'flex', gap: '1rem' }}>
                 <div
                     style={{

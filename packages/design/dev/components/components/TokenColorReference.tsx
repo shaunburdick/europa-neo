@@ -61,10 +61,10 @@ export function TokenColorReference(): React.ReactElement {
 
             {/* Player colors */}
             <h3 className="dev-section__subheading">Player Colors</h3>
-            <div className="dev-swatch-grid">
+            <div className="dev-swatches">
                 {PLAYER_COLOR_ENTRIES.map(({ player, color }) => (
-                    <div key={player} className="dev-swatch-card">
-                        <div className="dev-swatch-preview" style={{ backgroundColor: color }} />
+                    <div key={player} className="dev-swatch">
+                        <div className="dev-swatch__color" style={{ backgroundColor: color }} />
                         <code>player-{player}</code>
                     </div>
                 ))}
@@ -72,10 +72,10 @@ export function TokenColorReference(): React.ReactElement {
 
             {/* Pipe slope colors */}
             <h3 className="dev-section__subheading">Pipe Slope Colors</h3>
-            <div className="dev-swatch-grid">
+            <div className="dev-swatches">
                 {PIPE_SLOPE_ENTRIES.map(({ name, color }) => (
-                    <div key={name} className="dev-swatch-card">
-                        <div className="dev-swatch-preview" style={{ backgroundColor: color }} />
+                    <div key={name} className="dev-swatch">
+                        <div className="dev-swatch__color" style={{ backgroundColor: color }} />
                         <code>pipe-{name}</code>
                     </div>
                 ))}
@@ -83,10 +83,10 @@ export function TokenColorReference(): React.ReactElement {
 
             {/* Base palette */}
             <h3 className="dev-section__subheading">Base Palette</h3>
-            <div className="dev-swatch-grid">
+            <div className="dev-swatches">
                 {basePalette.slice(0, 20).map(([key, value]) => (
-                    <div key={key} className="dev-swatch-card">
-                        <div className="dev-swatch-preview" style={{ backgroundColor: String(value) }} />
+                    <div key={key} className="dev-swatch">
+                        <div className="dev-swatch__color" style={{ backgroundColor: String(value) }} />
                         <code>{key}</code>
                     </div>
                 ))}

@@ -8,6 +8,7 @@ export function ModalDemo(): React.ReactElement {
     return (
         <section id="modal" className="dev-section">
             <h2 className="dev-section__heading">Modal</h2>
+            <p className="dev-section__description">An overlay dialog for focused interactions.</p>
             <EuropaButton onClick={() => setOpen(true)}>Open Modal</EuropaButton>
             <EuropaModal open={open} onClose={() => setOpen(false)} title="Demo Modal">
                 <p>Modal content goes here.</p>

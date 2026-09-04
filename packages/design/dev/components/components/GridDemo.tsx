@@ -5,6 +5,7 @@ export function GridDemo(): React.ReactElement {
     return (
         <section id="grid" className="dev-section">
             <h2 className="dev-section__heading">Grid</h2>
+            <p className="dev-section__description">A responsive grid layout for organizing cards and content.</p>
             <EuropaGrid variant="wrap">
                 <EuropaCard>Cell 1</EuropaCard>
                 <EuropaCard>Cell 2</EuropaCard>

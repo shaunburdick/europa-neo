@@ -13,6 +13,7 @@ export function ReserveIndicatorDemo(): React.ReactElement {
     return (
         <section id="reserve-indicator" className="dev-section">
             <h2 className="dev-section__heading">ReserveIndicator</h2>
+            <p className="dev-section__description">Gauge showing reserve troop capacity.</p>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 <EuropaReserveIndicator percent={0} />
                 <EuropaReserveIndicator percent={30} />
