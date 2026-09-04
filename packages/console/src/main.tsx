@@ -1,4 +1,3 @@
-import { register } from '@europa/design/components';
 import type { Route } from './routing/route';
 import { parseRoute } from './routing/route';
 import { adaptRoute } from './routing/route-adapter';
@@ -41,11 +40,6 @@ declare global {
  * uncaught render error surfaces as an accessible fallback with a
  * Reload action instead of a blank page.
  */
-
-// Register all Europa Neo web components before any React render touches
-// custom element tags. Idempotent — safe to call even if components are
-// already defined.
-register();
 
 const rootElement = document.getElementById('root');
 

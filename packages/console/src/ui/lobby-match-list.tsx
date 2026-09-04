@@ -27,8 +27,10 @@
  * `role="alert"`; all controls are native buttons with visible focus.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { PublicLobbyEntry } from '@europa/matchmaking';
 import type { JSX } from 'react';
+
 import type { LobbyActionError } from '../state/lobby-state';
 import type { MatchId } from '../state/types';
 import { describeActionError, formatEntrySettings, isJoinable, lobbyStatusLabel, rowActionLabel } from './lobby-labels';
@@ -121,7 +123,7 @@ function MatchRow({
             <div className="europa-lobby__row-actions">
                 {entry.status === 'waiting' && !ownMatch ? (
                     joinable ? (
-                        <europa-button
+                        <EuropaButton
                             type="button"
                             disabled={busy}
                             aria-label={rowActionLabel('join', entry)}
@@ -130,7 +132,7 @@ function MatchRow({
                             }}
                         >
                             Join
-                        </europa-button>
+                        </EuropaButton>
                     ) : (
                         // Full waiting match: auto-start owns it now; no seat
                         // to advertise (FR-007 "open waiting matches" only).
@@ -138,7 +140,7 @@ function MatchRow({
                     )
                 ) : null}
                 {entry.status === 'in_progress' && !ownMatch ? (
-                    <europa-button
+                    <EuropaButton
                         type="button"
                         disabled={busy}
                         aria-label={rowActionLabel('spectate', entry)}
@@ -147,7 +149,7 @@ function MatchRow({
                         }}
                     >
                         Spectate
-                    </europa-button>
+                    </EuropaButton>
                 ) : null}
             </div>
         </li>

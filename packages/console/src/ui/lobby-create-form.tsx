@@ -30,6 +30,7 @@
  * disables submission while the create action is in flight.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import { BOARD_SIZE_DEFAULTS, type PlayerCount } from '@europa/matchmaking';
 import type { LobbyMatchSettings, LobbyTerrainSettings } from '@europa/networking';
 import type { JSX } from 'react';
@@ -294,9 +295,9 @@ export function LobbyCreateForm({ disabled, actionStatus, onCreate }: LobbyCreat
                         {formError}
                     </p>
                 ) : null}
-                <europa-button type="submit" disabled={busy} variant="primary">
+                <EuropaButton type="submit" disabled={busy} variant="primary">
                     {creating ? 'Creating…' : 'Create match'}
-                </europa-button>
+                </EuropaButton>
             </form>
         </section>
     );

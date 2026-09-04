@@ -31,10 +31,9 @@
  *     nothing interactive inside), so the contractual Q-A04 head
  *     sequence is untouched;
  *   - motion respects `prefers-reduced-motion` twice over: the
- *     App-owned subscription flips the `europa-waiting--reduced`
- *     modifier class (live, no remount needed), and the stylesheet's
- *     own `@media (prefers-reduced-motion: reduce)` guard stops the
- *     animation even if the class path is bypassed (Q-A07 /
+ *     App-owned subscription passes the `reducedMotion` prop, and the
+ *     stylesheet's own `@media (prefers-reduced-motion: reduce)` guard
+ *     stops the animation even if the prop path is bypassed (Q-A07 /
  *     WCAG 2.3.3).
  *
  * Precedence: the caller renders this only while
@@ -44,25 +43,12 @@
  * and this overlay unmounts — it can never stack with those UIs.
  */
 
+import { EuropaWaiting } from '@europa/design/components';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 
 import type { LiveRegionAnnouncer } from '../a11y/live-region';
 import { formatWaitingMessage } from '../state/awaiting-start';
-
-// JSX intrinsic declaration for the <europa-waiting> web component from
-// @europa/design. The component is registered at runtime by T-066; this
-// declaration lets TypeScript accept the tag in JSX.
-declare module 'react' {
-    namespace JSX {
-        interface IntrinsicElements {
-            'europa-waiting': {
-                message?: string;
-                'reduced-motion'?: '' | boolean;
-            };
-        }
-    }
-}
 
 /** The legacy single-opponent headline (also the visible fallback). */
 export const WAITING_FOR_OPPONENT_MESSAGE = 'Waiting for opponent to join…';
@@ -154,10 +140,5 @@ export function WaitingOverlay({
         }
     }, [announcer, headline]);
 
-    // The <europa-waiting> web component handles the plate, spinner
-    // (aria-hidden), and text internally via light DOM. We pass the
-    // resolved headline and reduced-motion flag as attributes.
-    const motionAttr = reducedMotion === true ? 'reduced-motion' : undefined;
-
-    return <europa-waiting message={headline} {...(motionAttr !== undefined ? { [motionAttr]: '' } : {})} />;
+    return <EuropaWaiting message={headline} reducedMotion={reducedMotion === true} />;
 }

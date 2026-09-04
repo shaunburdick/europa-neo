@@ -29,6 +29,7 @@
  * authority comes from the server.
  */
 
+import { EuropaBanner } from '@europa/design/components';
 import type { PublicLobbyEntry } from '@europa/matchmaking';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
@@ -180,19 +181,19 @@ export function LobbyLanding({
           variant="alert" sets role="alert" + aria-live="assertive"
           internally; Retry re-runs the establish cycle. */}
             {state.failure !== null && state.connection === 'failed' ? (
-                <europa-banner variant="alert" data-europa-lobby-failure="true">
+                <EuropaBanner variant="alert" data-europa-lobby-failure="true">
                     {state.failure.message}{' '}
                     <button type="button" className="europa-focus-ring" onClick={onRetry}>
                         Retry connection
                     </button>
-                </europa-banner>
+                </EuropaBanner>
             ) : null}
             {/* Transient transport loss with auto-retry running: visible
           status, no retry button (the backoff loop owns recovery). */}
             {state.failure !== null && state.connection === 'disconnected' ? (
-                <europa-banner variant="alert" data-europa-lobby-failure="true">
+                <EuropaBanner variant="alert" data-europa-lobby-failure="true">
                     {state.failure.message} Reconnecting…
-                </europa-banner>
+                </EuropaBanner>
             ) : null}
             <main id="main" className="europa-lobby">
                 {/* Hero section (FR-026, AC-029): centered logo + title
