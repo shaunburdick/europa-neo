@@ -16,14 +16,14 @@
 
 **Purpose**: Package config, peer deps, test tooling, tsconfig/tsup/vitest config, delete web-component infrastructure. These are the prerequisites for every component.
 
-- [ ] T-001: Add `peerDependencies` (`react: ">=18"`, `react-dom: ">=18"`) to `packages/design/package.json` (Q3). Single-file change.
-- [ ] T-002: Add `@testing-library/react` `^16.3.2`, `@testing-library/dom` `^10.0.0`, `@testing-library/jest-dom` `^7.0.1`, `@testing-library/user-event` `^14.6.7` devDependencies to `packages/design/package.json`. Single-file change.
-- [ ] T-003: Update `packages/design/tsconfig.json` to add React JSX support (`"jsx": "react-jsx"`, `"jsxImportSource": "react"`, `lib` includes `DOM`). Verify `@types/react`/`@types/react-dom` resolve. Single-file change.
-- [ ] T-004: Update `packages/design/tsup.config.ts` to bundle React components (externalize `react`/`react-dom` as peer deps; entry `src/components/index.ts` preserved). Single-file change.
-- [ ] T-005: Update `packages/design/vitest.config.ts` to add RTL setup (`@testing-library/jest-dom` matchers); remove `setup-element-internals.ts` reference. Single-file change.
-- [ ] T-006: Update `packages/design/vitest.config.browser.ts` to use `vitest-browser-react` for React component rendering. Single-file change.
-- [ ] T-007: Delete web-component infrastructure: `src/components/base.ts`, `src/components/register.ts`, `src/components/registry.ts`, `tests/setup-element-internals.ts`. Multi-file deletion.
-- [ ] T-008: Remove `build-css.ts --emit-module` path + `catalog-styles.ts` generation (no shadow roots remain); retain full `dist/design.css` pass. Single-file change to `scripts/build-css.ts` + `package.json#build` script.
+- [x] T-001: Add `peerDependencies` (`react: ">=18"`, `react-dom: ">=18"`) to `packages/design/package.json` (Q3). Single-file change.
+- [x] T-002: Add `@testing-library/react` `^16.3.2`, `@testing-library/dom` `^10.0.0`, `@testing-library/jest-dom` `^7.0.1`, `@testing-library/user-event` `^14.6.7` devDependencies to `packages/design/package.json`. Single-file change.
+- [x] T-003: Update `packages/design/tsconfig.json` to add React JSX support (`"jsx": "react-jsx"`, `"jsxImportSource": "react"`, `lib` includes `DOM`). Verify `@types/react`/`@types/react-dom` resolve. Single-file change.
+- [x] T-004: Update `packages/design/tsup.config.ts` to bundle React components (externalize `react`/`react-dom` as peer deps; entry `src/components/index.ts` preserved). Single-file change.
+- [x] T-005: Update `packages/design/vitest.config.ts` to add RTL setup (`@testing-library/jest-dom` matchers); remove `setup-element-internals.ts` reference. Single-file change.
+- [x] T-006: Update `packages/design/vitest.config.browser.ts` to use `vitest-browser-react` for React component rendering. Single-file change.
+- [x] T-007: Delete web-component infrastructure: `src/components/base.ts`, `src/components/register.ts`, `src/components/registry.ts`, `tests/setup-element-internals.ts`. Multi-file deletion.
+- [x] T-008: Remove `build-css.ts --emit-module` path + `catalog-styles.ts` generation (no shadow roots remain); retain full `dist/design.css` pass. Single-file change to `scripts/build-css.ts` + `package.json#build` script.
 
 ---
 
