@@ -144,12 +144,29 @@ export function tick(world: Readonly<World>): TickResult {
         }
     }
 
-    // ---- Phase 4: flow (populates inflow tally) ---------------------------
-    const inflowTally = new Uint32Array(n * PLAYERS);
-    state = resolveFlow(state, world.board, ENGINE_CONSTANTS, inflowTally);
+    // ---- Capture pre-flow snapshot (total-force combat) --------------------
+    // Snapshot troopOwners/troopCounts BEFORE flow so combat can identify
+    // the garrison owner (pre-flow) vs attacker (post-flow last-writer).
+    const preFlowState = {
+        troopOwners: new Uint8Array(state.troopOwners),
+        troopCounts: new Uint32Array(state.troopCounts),
+    };
 
-    // ---- Phase 5: combat -------------------------------------------------
-    const combatResult = resolveCombat(state, world.board, ENGINE_CONSTANTS, world.tick, inflowTally);
+    // ---- Phase 4: flow (populates inflow tally + committed flow tally) ----
+    const inflowTally = new Uint32Array(n * PLAYERS);
+    const committedFlowTally = new Uint32Array(n * PLAYERS);
+    state = resolveFlow(state, world.board, ENGINE_CONSTANTS, inflowTally, committedFlowTally);
+
+    // ---- Phase 5: combat (total-force model) ------------------------------
+    const combatResult = resolveCombat(
+        state,
+        world.board,
+        ENGINE_CONSTANTS,
+        world.tick,
+        inflowTally,
+        committedFlowTally,
+        preFlowState,
+    );
     ({ state } = combatResult);
     events = {
         ...events,

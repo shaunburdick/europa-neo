@@ -308,6 +308,10 @@ export interface CombatEvent {
   readonly attackerLoss: number;
   readonly defenderLoss: number;
   readonly winner: PlayerId | 'tie';
+  /** Pre-attrition total force of the attacker: committed flow (raw pipe delivery) + any pre-existing troops they own in the cell. */
+  readonly attackerTotal: number;
+  /** Pre-attrition total force of the defender: garrison (pre-flow troops of the cell's owner) + defender's committed flow. */
+  readonly defenderTotal: number;
 }
 
 export interface CaptureEvent {

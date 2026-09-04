@@ -131,6 +131,9 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         // Attacker is the lower PlayerId (deterministic tiebreak).
         expect(ev.attacker).toBe(1);
         expect(ev.defender).toBe(2);
+        // Total-force: each side committed 100.
+        expect(ev.attackerTotal).toBe(100);
+        expect(ev.defenderTotal).toBe(100);
     });
 
     it('200v50: bigger force overwhelms smaller; defender eliminated; attacker retains 150', () => {
@@ -166,6 +169,9 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         expect(ev.winner).toBe(1);
         expect(ev.attacker).toBe(1);
         expect(ev.defender).toBe(2);
+        // Total-force: P1 committed 200, P2 committed 50.
+        expect(ev.attackerTotal).toBe(200);
+        expect(ev.defenderTotal).toBe(50);
     });
 
     it('100v100: losses are within ±20% of each other (the equality assertion)', () => {
@@ -382,7 +388,16 @@ describe('resolveCombat — defensive / boundary', () => {
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(99);
+        // Total-force model without preFlowState: dominant-owner fallback.
+        // P2 dominates tally (100 > 1), so P2 wins and retains the cell.
         expect(out.state.troopOwners[4 * size + 4]).toBe(2);
+        // Verify CombatEvent totals.
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            expect(ev.attackerTotal).toBe(1);
+            expect(ev.defenderTotal).toBe(100);
+        }
     });
 
     it('1v1: both eliminated', () => {
@@ -396,6 +411,14 @@ describe('resolveCombat — defensive / boundary', () => {
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(0);
         expect(out.state.troopOwners[4 * size + 4]).toBe(0);
+        // Verify CombatEvent totals: equal forces → tie.
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            expect(ev.attackerTotal).toBe(1);
+            expect(ev.defenderTotal).toBe(1);
+            expect(ev.winner).toBe('tie');
+        }
     });
 
     it('does not modify unrelated state arrays (pipeMasks, cityOwners, reservesPct)', () => {
@@ -428,5 +451,267 @@ describe('resolveCombat — defensive / boundary', () => {
         const out = resolveCombat(state, board, CONSTANTS, TICK);
         expect(out.events.combat.length).toBe(0);
         expect(out.state.troopCounts[4 * size + 4]).toBe(200);
+    });
+});
+
+// ============================================================================
+// Total-force combat resolution (FR-008 Clarifications v1.4)
+// ============================================================================
+
+describe('resolveCombat — total-force model (preFlowState + committedFlowTally)', () => {
+    /**
+     * Helper: build a preFlowState snapshot and committedFlowTally for a
+     * single cell at (x, y). preFlowState reflects the garrison BEFORE
+     * flow; committedFlowTally records raw pipe delivery per player.
+     */
+    function buildPreFlowAndCommitted(
+        size: number,
+        cellX: number,
+        cellY: number,
+        garrisonOwner: PlayerId | 0,
+        garrisonCount: number,
+        flows: Array<{ player: PlayerId; count: number }>,
+    ): {
+        preFlowState: { troopOwners: Uint8Array; troopCounts: Uint32Array };
+        committedFlowTally: Uint32Array;
+    } {
+        const n = size * size;
+        const preOwners = new Uint8Array(n);
+        const preCounts = new Uint32Array(n);
+        const tally = new Uint32Array(n * 4);
+        const idx = cellY * size + cellX;
+        preOwners[idx] = garrisonOwner;
+        preCounts[idx] = garrisonCount;
+        for (const f of flows) {
+            tally[idx * 4 + (f.player - 1)] = f.count;
+        }
+        return {
+            preFlowState: { troopOwners: preOwners, troopCounts: preCounts },
+            committedFlowTally: tally,
+        };
+    }
+
+    it('T-020: cell at capacity with zero headroom — committed flow fires combat (AC-1)', () => {
+        // Cell has 30 P2 troops (at capacity). P1 pipes deliver 14 committed.
+        // Headroom = 0, so inflowTally = 0 for P1. But committedFlowTally = 14.
+        // Combat fires: attackerTotal=14, defenderTotal=30+0=30.
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const idx = 4 * size + 4;
+
+        // Post-flow state: P2 owns cell with 30 troops (at capacity, no new flow).
+        state.troopCounts[idx] = 30;
+        state.troopOwners[idx] = 2;
+
+        const tally = emptyTally(size); // inflowTally = 0 (no actual inflow)
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
+            size,
+            4,
+            4,
+            2,
+            30, // garrison: P2 with 30
+            [{ player: 1, count: 14 }], // P1 committed 14
+        );
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        expect(out.events.combat.length).toBe(1);
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            expect(ev.attackerTotal).toBe(14); // P1 committed
+            expect(ev.defenderTotal).toBe(30); // P2 garrison + 0 committed
+            expect(ev.attackerLoss).toBe(14);
+            expect(ev.defenderLoss).toBe(14);
+            expect(ev.winner).toBe(2); // P2 survives (30-14=16 > 0)
+        }
+        // P2 retains cell with 16 troops.
+        expect(out.state.troopCounts[idx]).toBe(16);
+        expect(out.state.troopOwners[idx]).toBe(2);
+    });
+
+    it('T-022: garrison-only vs inflow-only — attacker inflow vs defender garrison (AC-3)', () => {
+        // Cell has 20 P2 troops (garrison). P1 sends 15 via pipe.
+        // defenderTotal = 20 (garrison) + 0 (P2 committed) = 20
+        // attackerTotal = 15 (P1 committed)
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const idx = 4 * size + 4;
+
+        // Post-flow: P1 overwrote owner (last writer wins in flow phase).
+        state.troopCounts[idx] = 35; // 20 garrison + 15 inflow
+        state.troopOwners[idx] = 1;
+
+        const tally = emptyTally(size);
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
+            size,
+            4,
+            4,
+            2,
+            20, // garrison: P2 with 20
+            [{ player: 1, count: 15 }], // P1 committed 15
+        );
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        expect(out.events.combat.length).toBe(1);
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            expect(ev.attackerTotal).toBe(15);
+            expect(ev.defenderTotal).toBe(20);
+            expect(ev.attackerLoss).toBe(15);
+            expect(ev.defenderLoss).toBe(15);
+        }
+        // P2 survives (20-15=5 > 0), P1 eliminated.
+        expect(out.state.troopCounts[idx]).toBe(5);
+        expect(out.state.troopOwners[idx]).toBe(2);
+    });
+
+    it('T-023: garrison + inflow from both sides — garrison owner is defender (AC-4)', () => {
+        // Cell has 10 P1 troops (garrison). P1 pipes deliver 7, P2 pipes deliver 7.
+        // defenderTotal = 10 (garrison) + 7 (P1 committed) = 17
+        // attackerTotal = 7 (P2 committed)
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const idx = 4 * size + 4;
+
+        // Post-flow: P2 overwrote owner.
+        state.troopCounts[idx] = 24; // 10 garrison + 7 P1 + 7 P2
+        state.troopOwners[idx] = 2;
+
+        const tally = emptyTally(size);
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
+            size,
+            4,
+            4,
+            1,
+            10, // garrison: P1 with 10
+            [
+                { player: 1, count: 7 },
+                { player: 2, count: 7 },
+            ],
+        );
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        expect(out.events.combat.length).toBe(1);
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            expect(ev.attackerTotal).toBe(7); // P2 committed
+            expect(ev.defenderTotal).toBe(17); // P1 garrison(10) + committed(7)
+            expect(ev.attackerLoss).toBe(7);
+            expect(ev.defenderLoss).toBe(7);
+        }
+        // P1 survives (17-7=10), P2 eliminated.
+        expect(out.state.troopCounts[idx]).toBe(10);
+        expect(out.state.troopOwners[idx]).toBe(1);
+    });
+
+    it('T-024: empty cell with simultaneous inflow — dominant-owner fallback (AC-5)', () => {
+        // Both P1 and P2 pipe into empty cell. No garrison.
+        // Falls back to dominant-owner model.
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const idx = 4 * size + 4;
+
+        state.troopCounts[idx] = 0;
+        state.troopOwners[idx] = 0;
+
+        const tally = emptyTally(size);
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
+            size,
+            4,
+            4,
+            0,
+            0, // no garrison
+            [
+                { player: 1, count: 20 },
+                { player: 2, count: 12 },
+            ],
+        );
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        expect(out.events.combat.length).toBe(1);
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            // Dominant-owner model: P1 committed 20, P2 committed 12.
+            // attacker = lower PlayerId = P1, defender = P2.
+            expect(ev.attackerTotal).toBe(20);
+            expect(ev.defenderTotal).toBe(12);
+            expect(ev.attackerLoss).toBe(12);
+            expect(ev.defenderLoss).toBe(12);
+            expect(ev.winner).toBe(1); // P1 retains 8
+        }
+        expect(out.state.troopCounts[idx]).toBe(8);
+        expect(out.state.troopOwners[idx]).toBe(1);
+    });
+
+    it('T-025: CombatEvent payloads include attackerTotal/defenderTotal (AC-6)', () => {
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const idx = 4 * size + 4;
+
+        state.troopCounts[idx] = 15;
+        state.troopOwners[idx] = 2;
+
+        const tally = emptyTally(size);
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 15, [
+            { player: 1, count: 10 },
+        ]);
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        expect(out.events.combat.length).toBe(1);
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            // Exact payload verification.
+            expect(ev).toEqual({
+                tick: TICK,
+                cell: { x: 4, y: 4 },
+                attacker: 1,
+                defender: 2,
+                attackerLoss: 10,
+                defenderLoss: 10,
+                winner: 2,
+                attackerTotal: 10,
+                defenderTotal: 15,
+            });
+        }
+    });
+
+    it('T-026: determinism — same input × 1000 calls → byte-identical output (AC-7)', () => {
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const idx = 4 * size + 4;
+
+        state.troopCounts[idx] = 25;
+        state.troopOwners[idx] = 2;
+
+        const tally = emptyTally(size);
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 25, [
+            { player: 1, count: 12 },
+            { player: 3, count: 8 },
+        ]);
+
+        const reference = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        for (let i = 0; i < 1000; i++) {
+            const next = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+            expect(Array.from(next.state.troopCounts)).toEqual(Array.from(reference.state.troopCounts));
+            expect(Array.from(next.state.troopOwners)).toEqual(Array.from(reference.state.troopOwners));
+            expect(next.events.combat.length).toBe(reference.events.combat.length);
+            // Verify attackerTotal/defenderTotal are identical.
+            for (let j = 0; j < next.events.combat.length; j++) {
+                const nev = next.events.combat[j];
+                const rev = reference.events.combat[j];
+                expect(nev?.attackerTotal).toBe(rev?.attackerTotal);
+                expect(nev?.defenderTotal).toBe(rev?.defenderTotal);
+            }
+        }
     });
 });

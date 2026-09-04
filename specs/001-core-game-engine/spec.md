@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-08-30)
+**Status**: Implemented (2026-09-04)
 
 **Input**: User description: "Deterministic tick-based simulation of the original Europa gameplay: grid terrain with elevation and water, cities producing nanobot troops, pipes directing troop flow, attrition combat, decay, cell capacity with reserves, paratroopers, guns, and last-player-standing victory."
 
@@ -41,6 +41,8 @@ As a player, I want battles to erupt when my pipe flows into enemy-occupied cell
 1. **Given** cell A (100 troops) pipes into cell B (100 enemy troops), **When** one tick resolves, **Then** both stacks lose approximately equal numbers (1:1 attrition).
 2. **Given** cell A (200 troops) pipes into cell B (50 enemy troops), **When** ticks elapse, **Then** B is eliminated quickly and A captures the cell with majority of its force intact.
 3. **Given** two opposing stacks flowing into each other simultaneously, **When** the tick resolves, **Then** combat applies symmetrically regardless of which player issued orders first.
+4. **Given** a cell with 30 enemy troops at capacity (zero headroom), **When** the attacker pipes troops into it (producing inflow from the attacker), **Then** combat fires and attrition applies between the attacker's inflow and the defender's garrison — the cell is NOT invulnerable.
+5. **Given** a cell with 5 enemy troops and the attacker sends 20 via pipe, **When** ticks elapse, **Then** the attacker captures the cell (20 inflow vs 5 garrison → attacker retains 15).
 
 ---
 
@@ -113,7 +115,7 @@ As a player, I want the game to declare a winner when all opponents surrender or
 - **FR-005**: Cities MUST be capturable: when a city cell's occupying troops belong to an enemy, ownership transfers to that enemy.
 - **FR-006**: Each land cell MUST support up to four directional pipes (N/E/S/W); players MAY set any combination, and MAY set a single mutually-exclusive direction replacing all others.
 - **FR-007**: Each tick, every cell with outgoing pipes MUST transfer troops along each pipe at a rate determined by the elevation change between source and destination (integer arithmetic only): downhill pipes move `flowBase + flowSlopeStep × min(|Δelev|, flowSlopeDeltaCap)` troops, flat pipes move `flowBase` troops, and uphill pipes move `max(0, flowBase − flowSlopeStep × |Δelev|)` troops, where `Δelev = destElev − srcElev` and `flowBase`, `flowSlopeStep`, and `flowSlopeDeltaCap` are tunable constants. An uphill pipe whose handicap reaches `flowBase` MUST move 0 troops (stall); a stalled pipe is a legal, persistent state, not an error.
-- **FR-008**: When troops of different owners would occupy the same cell after flow, the engine MUST resolve combat as attrition: equal numbers cause equal losses; a numerically superior force eliminates the smaller and retains the difference (subject to tuning constants).
+- **FR-008**: When troops of different owners would occupy the same cell after flow, the engine MUST resolve combat as attrition using **total forces** — not just fresh inflow. For each contested cell, the attacker's total is the sum of their committed flow (what the pipes would have delivered without capacity constraints) plus any pre-existing troops they own in the cell; the defender's total is the garrison (pre-flow troops of the cell's owner) plus the defender's committed flow. Equal totals cause equal losses; a numerically superior force eliminates the smaller and retains the difference. A new `committedFlowTally` side-channel (alongside the existing `inflowTally`) records the raw pipe flow before headroom clamping, enabling combat to fire even when a cell is at full capacity. The `CombatEvent` type includes `attackerTotal` and `defenderTotal` fields recording the pre-attrition totals.
 - **FR-009**: Troops in a cell with no incoming pipe flow MUST lose exactly 1 troop per tick (decay); cells receiving flow from any friendly source are exempt.
 - **FR-010**: Two cells feeding each other via opposing pipes MUST sustain both stacks indefinitely without city supply.
 - **FR-011**: Every cell MUST enforce a maximum troop capacity; transfers that would exceed it MUST be truncated at capacity.
@@ -180,3 +182,59 @@ As a player, I want the game to declare a winner when all opponents surrender or
 - **R-1 ruling (recorded in tasks.md and data-model.md §2)**: `flowSlopeDeltaCap` bounds the DOWNHILL bonus only; the uphill handicap is UNCAPPED. The operative formula is: downhill `flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)`, flat `flowBase`, uphill `max(0, flowBase − flowSlopeStep × |Δ|)`.
 - **Why the correction**: the FR-007 text as literally written before this change applied the cap symmetrically — the uphill branch was bounded by `flowSlopeDeltaCap` exactly like the downhill branch. With `flowBase = 7` and `flowSlopeDeltaCap = 5`, a capped uphill branch can never stall (uphill always ≥ 2), contradicting US1 AC-5 (stall at Δ ≥ `flowBase / flowSlopeStep` = 7) and the v1.2 rate listing (uphill 6/5/4/3/2/1, 0 at Δ ≥ 7).
 - **Shipped implementation**: `flowRateForDelta` in `packages/engine/src/flow-rate.ts` implements the asymmetric formula — downhill `flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)`, flat `flowBase`, uphill `max(0, flowBase − flowSlopeStep × |Δ|)` — stalling at Δ ≥ 7. FR-007 above is corrected to match; the v1.1 "effective delta" sentence is amended to scope the cap to the downhill bonus.
+
+### v1.4 (2026-09-04) — Total-force combat resolution (issue #51)
+
+- **FR-008 rewritten** from inflow-only attrition to total-force attrition. The previous model compared only fresh inflow (troops that arrived via pipes during the current tick), ignoring the existing garrison. This made cells at capacity invulnerable to pipe-based combat — a critical gameplay defect documented in issue #51.
+- **The fix**: combat now considers total forces for each owner in a contested cell. For a 2-way conflict, the attacker's total = their committed flow (what the pipes would have delivered without capacity constraints) + any pre-existing troops they own in the cell; the defender's total = the garrison (pre-flow troops of the cell's owner) + defender's committed flow. 1:1 attrition applies between these totals. A new `committedFlowTally` side-channel (alongside the existing `inflowTally`) records the raw pipe flow before headroom clamping, enabling combat to fire even when a cell is at full capacity. The `inflowTally` continues to record actual inflow for decay-exemption logic.
+- **CombatEvent extension**: two new fields — `attackerTotal` and `defenderTotal` — record the pre-attrition totals. This makes events self-documenting and avoids clients reverse-engineering the pre-combat state. The existing `attacker`, `defender`, `attackerLoss`, `defenderLoss`, `winner` fields are unchanged.
+- **Contract change (additive, non-breaking)**: `CombatEvent` in both contract mirrors gains `attackerTotal: number` and `defenderTotal: number`. Both mirrors (`packages/engine/src/contracts/engine-types.ts` and `specs/001-core-game-engine/contracts/engine-api.ts`) MUST be updated in the same change set.
+- **Tick order unchanged**: flow → combat → capture → decay. Combat reads the post-flow state and the inflow tally; it does not modify the flow phase.
+- **3-way+ combat unchanged**: the dominant-owner model stays; this improvement targets the 2-way case (the overwhelmingly common case).
+
+#### Attacker vs defender identification
+
+The flow phase (`resolveFlow`) overwrites `troopOwners[idx]` when a new player's troops arrive in a cell. After flow, the cell owner may be the attacker (the last writer), not the original garrison owner. `resolveCombat` needs the pre-flow owner to correctly identify defender vs attacker. Recommended approach: `resolveCombat` accepts a `preFlowState` parameter (or the tick orchestrator captures the pre-flow `troopOwners` before calling `resolveFlow`). When `preFlowState.troopOwners[idx] !== 0` and matches a player in the committed flow tally, that player is the garrison owner (defender); all other committed-flow contributors are attackers. When `preFlowState.troopOwners[idx] === 0` (empty cell before flow), fall back to the existing dominant-owner model.
+
+#### Worked examples
+
+**Scenario A — 2 pipes vs 1 pipe, cell at capacity** (the motivating bug):
+
+Cell has 30 troops belonging to Player 2 (defender). Player 1 (attacker) has 2 pipes flowing in; Player 2 has 1 pipe. Each pipe delivers 7 troops/tick (flowBase on flat terrain). cellCapacity = 30.
+
+Under the OLD model (inflow-only): tick 1 cell full → headroom 0 → nobody flows in → no combat. Cell untouchable forever.
+
+Under the NEW model (total forces, using `committedFlowTally`):
+- Tick 1: P1 commits 14 (2×7), P2 commits 7 (1×7). Cell at 30, headroom 0, nobody flows in (`inflowTally` = 0). `committedFlowTally`: P1 = 14, P2 = 7. Combat: P1's 14 vs P2's 30. Both lose 14. P1 = 0; P2 = 16. Cell stays P2's.
+- Tick 2: P1 commits 14, P2 commits 7. Cell has 16 (P2), headroom 14. P1's 14 fill headroom (inflow = 14). P2's 7 cannot flow (headroom exhausted). `committedFlowTally`: P1 = 14, P2 = 7. Combat: P1's 14 vs P2's 16 (garrison). Both lose 14. P1 = 0; P2 = 2.
+- Tick 3: P1 commits 14, P2 commits 7. Cell has 2 (P2), headroom 28. Both flow in fully. `committedFlowTally`: P1 = 14, P2 = 7. Combat: P1's 14 vs P2's 2 (garrison) + 7 (committed) = 9. Both lose 9. P1 = 5; P2 = 0. **Capture**.
+
+**Scenario B — Garrison vs inflow (headroom-limited attack):**
+
+Cell has 20 troops (P2 garrison). P1 sends 15 via pipe. Cell capacity 30, headroom 10. Flow: P1 committed = 15, headroom 10 → only 10 enter. `committedFlowTally`: P1 = 15. Combat: P1's 15 (committed) vs P2's 20 (garrison). Both lose 15. P1 = 0; P2 = 5. Cell retains 5 P2 troops.
+
+**Scenario C — Successful capture:**
+
+Cell has 5 troops (P2). P1 sends 20 via pipe. All 20 enter (headroom 25). `committedFlowTally`: P1 = 20. Combat: P1's 20 vs P2's 5. Both lose 5. P1 = 15; P2 = 0. Cell captured by P1 with 15 troops.
+
+#### Edge cases
+
+- **Cell at capacity, zero headroom, attacker flows in**: `committedFlowTally` records committed flow; combat fires against the garrison (motivating scenario above).
+- **Cell with garrison, no new inflow from garrison owner, only inflow from attacker**: Combat fires. Defender total = garrison (no new inflow); attacker total = inflow. If garrison > inflow, attacker is destroyed.
+- **Cell with garrison from A, inflow from both A and B**: Defender total = A's garrison + A's inflow; attacker total = B's inflow. The garrison owner is always the defender.
+- **Empty cell, inflow from two owners**: Unchanged — both sides are purely inflow counts, dominant-owner model applies.
+- **Cell with garrison, no inflow from anyone**: Single-owner cell → no combat. Unchanged.
+- **Attacker inflow exceeds defender garrison + defender inflow**: Attacker captures the cell with the surplus.
+- **Defender garrison + defender inflow exceeds attacker inflow**: Defender retains the cell with the surplus.
+- **Simultaneous inflow into empty cell (no garrison)**: Falls back to dominant-owner model. Player with highest inflow wins; ties broken by ascending PlayerId.
+
+#### Acceptance criteria
+
+- AC-1: A cell at capacity with zero headroom can be attacked by pipe flow — combat fires using `committedFlowTally`.
+- AC-2: Multi-tick attrition progression matches expected trace (Scenario A above).
+- AC-3: Garrison-only vs inflow-only — combat compares attacker's inflow vs defender's garrison.
+- AC-4: Garrison + inflow from both sides — garrison owner is defender.
+- AC-5: Empty cell with simultaneous inflow — unchanged dominant-owner behavior.
+- AC-6: `CombatEvent` payloads include `attackerTotal` and `defenderTotal` with correct values.
+- AC-7: Byte-identical determinism preserved (SC-001).
+- AC-8: Existing combat tests pass (with updated assertions where applicable); new tests cover garrison-vs-inflow model.
