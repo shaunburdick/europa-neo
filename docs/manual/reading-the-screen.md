@@ -32,7 +32,7 @@ In the match header, **In match** identifies a player view and **Spectating** id
 If a handle is unavailable, a generic label or safe guest/player ID fallback may
 be used. These IDs are non-secret correlation data, not access credentials.
 
-The status bar also shows a small version indicator — the app version your console was built from (for example, v0.1.0) — which stays visible whatever state the match is in.
+The status bar also shows a small version indicator — the app version your console was built from — which stays visible whatever state the match is in.
 
 ## The tick counter
 

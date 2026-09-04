@@ -24,7 +24,10 @@
  *    {@link README_RELEASE_LINE_PATTERN}.
  * 5. `<root>/docs/manual/src/pages/index.mdx` — the footer line pinned by
  *    {@link MANUAL_INDEX_FOOTER_PATTERN}.
- * 6. `<root>/DESIGN.md` — the version header pinned by
+ * 6. `<root>/docs/manual/src/layouts/ManualLayout.astro` — the layout footer
+ *    line pinned by {@link MANUAL_LAYOUT_FOOTER_PATTERN}. This is the version
+ *    string that actually renders on every published manual page.
+ * 7. `<root>/DESIGN.md` — the version header pinned by
  *    {@link DESIGN_VERSION_PATTERN} (spec 012 FR-020 / G-06). The design
  *    contract is a guarded surface so a stale header fails CI naming the
  *    file, exactly like any package version drift.
@@ -84,6 +87,15 @@ export const README_RELEASE_LINE_PATTERN = /^Current release:\s*\*\*v(\d+\.\d+\.
  * of the wrapping tag or its attributes.
  */
 export const MANUAL_INDEX_FOOTER_PATTERN = />This manual documents Europa Neo v(\d+\.\d+\.\d+)\./m;
+
+/**
+ * Player-manual Astro layout footer line: `<span>v0.2.0</span>` inside the
+ * `<footer>` of `docs/manual/src/layouts/ManualLayout.astro`. This is the
+ * version string that actually renders on every published manual page — the
+ * `index.mdx` footer is the semantic marker, but the layout is the one users
+ * see. The pattern captures the raw semver WITHOUT the display `v` prefix.
+ */
+export const MANUAL_LAYOUT_FOOTER_PATTERN = /<span>v(\d+\.\d+\.\d+)<\/span>/m;
 
 /**
  * `DESIGN.md` version header line (spec 012 FR-020 / contracts §5):
@@ -250,6 +262,11 @@ export async function gatherVersionSources(rootDir: string, constantVersion: str
     sources.push(
         await readSurface(rootDir, 'docs/manual/src/pages/index.mdx', 'manual-index', (raw) =>
             extractDocVersion(raw, MANUAL_INDEX_FOOTER_PATTERN),
+        ),
+    );
+    sources.push(
+        await readSurface(rootDir, 'docs/manual/src/layouts/ManualLayout.astro', 'manual-layout', (raw) =>
+            extractDocVersion(raw, MANUAL_LAYOUT_FOOTER_PATTERN),
         ),
     );
     sources.push(

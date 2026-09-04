@@ -33,6 +33,7 @@ import {
     formatMismatchLine,
     gatherVersionSources,
     MANUAL_INDEX_FOOTER_PATTERN,
+    MANUAL_LAYOUT_FOOTER_PATTERN,
     README_RELEASE_LINE_PATTERN,
 } from '../../scripts/gather-version-sources';
 import { APP_VERSION } from '../../src/app-version';
@@ -105,6 +106,7 @@ async function createFixtureRoot(label: string): Promise<string> {
  */
 async function seedAgreeingTree(root: string, version: string): Promise<void> {
     await mkdir(path.join(root, 'docs', 'manual', 'src', 'pages'), { recursive: true });
+    await mkdir(path.join(root, 'docs', 'manual', 'src', 'layouts'), { recursive: true });
     await mkdir(path.join(root, 'packages', 'zeta'), { recursive: true });
     await mkdir(path.join(root, 'packages', 'alpha'), { recursive: true });
 
@@ -120,6 +122,10 @@ async function seedAgreeingTree(root: string, version: string): Promise<void> {
     await writeFile(
         path.join(root, 'docs', 'manual', 'src', 'pages', 'index.mdx'),
         `# Fixture manual\n\n<EuropaTypography variant="caption">This manual documents Europa Neo v${version}.</EuropaTypography>\n`,
+    );
+    await writeFile(
+        path.join(root, 'docs', 'manual', 'src', 'layouts', 'ManualLayout.astro'),
+        `---\ninterface Props { title: string; }\n---\n<html><body><footer><span>v${version}</span></footer></body></html>\n`,
     );
     await writeFile(
         path.join(root, 'DESIGN.md'),
@@ -157,6 +163,7 @@ describe('drift check against the REAL repository (positive lockstep proof)', ()
         expect(sources.filter((source) => source.kind === 'constant')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'readme')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'manual-index')).toHaveLength(1);
+        expect(sources.filter((source) => source.kind === 'manual-layout')).toHaveLength(1);
         expect(sources.filter((source) => source.kind === 'design-md')).toHaveLength(1);
     });
 
@@ -167,13 +174,15 @@ describe('drift check against the REAL repository (positive lockstep proof)', ()
         expect(report.mismatches).toEqual([]);
     });
 
-    it('the plan §5 patterns extract exactly APP_VERSION from the real README and manual index (SC-005)', async () => {
+    it('the plan §5 patterns extract exactly APP_VERSION from the real README, manual index, and layout footer (SC-005)', async () => {
         const { readFile } = await import('node:fs/promises');
         const readme = await readFile(path.join(REPO_ROOT, 'README.md'), 'utf8');
         const manualIndex = await readFile(path.join(REPO_ROOT, 'docs/manual/src/pages/index.mdx'), 'utf8');
+        const layout = await readFile(path.join(REPO_ROOT, 'docs/manual/src/layouts/ManualLayout.astro'), 'utf8');
 
         expect(README_RELEASE_LINE_PATTERN.exec(readme)?.[1]).toBe(APP_VERSION);
         expect(MANUAL_INDEX_FOOTER_PATTERN.exec(manualIndex)?.[1]).toBe(APP_VERSION);
+        expect(MANUAL_LAYOUT_FOOTER_PATTERN.exec(layout)?.[1]).toBe(APP_VERSION);
     });
 
     it('the spawned CLI exits 0 silently against the real repo root', () => {
@@ -260,6 +269,23 @@ describe('spawned CLI against temp fixture trees (SC-001 both directions)', () =
         expect(result.stderr).toContain(`mismatch: DESIGN.md expected ${APP_VERSION} but found 9.9.9`);
     });
 
+    it('a stale layout footer exits 1 naming the Astro layout file', async () => {
+        const root = await trackedFixtureRoot('stale-layout');
+        await seedAgreeingTree(root, APP_VERSION);
+        await writeFile(
+            path.join(root, 'docs', 'manual', 'src', 'layouts', 'ManualLayout.astro'),
+            `---\ninterface Props { title: string; }\n---\n<html><body><footer><span>v0.1.0</span></footer></body></html>\n`,
+        );
+
+        const result = runCli(['--root', root], REPO_ROOT);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr.match(/mismatch:/g)).toHaveLength(1);
+        expect(result.stderr).toContain(
+            `mismatch: docs/manual/src/layouts/ManualLayout.astro expected ${APP_VERSION} but found 0.1.0`,
+        );
+    });
+
     it('a missing manual footer exits 1 naming docs/manual/src/pages/index.mdx as unparseable', async () => {
         const root = await trackedFixtureRoot('missing-footer');
         await seedAgreeingTree(root, APP_VERSION);
@@ -335,6 +361,7 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
             CONSTANT_SOURCE_FILE,
             'README.md',
             'docs/manual/src/pages/index.mdx',
+            'docs/manual/src/layouts/ManualLayout.astro',
             'DESIGN.md',
         ]);
         expect(sources.every((source) => source.version === APP_VERSION)).toBe(true);
@@ -391,8 +418,13 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
     it('doc surfaces yield null when the file is absent or the line format is wrong', async () => {
         const root = await trackedFixtureRoot('doc-formats');
         await mkdir(path.join(root, 'docs', 'manual', 'src', 'pages'), { recursive: true });
+        await mkdir(path.join(root, 'docs', 'manual', 'src', 'layouts'), { recursive: true });
         await writeFile(path.join(root, 'README.md'), 'Current release: v0.0.0 without bold markers\n');
         await writeFile(path.join(root, 'docs', 'manual', 'src', 'pages', 'index.mdx'), 'no footer\n');
+        await writeFile(
+            path.join(root, 'docs', 'manual', 'src', 'layouts', 'ManualLayout.astro'),
+            '<span>no version</span>\n',
+        );
 
         const sources = await gatherVersionSources(root, APP_VERSION);
 
@@ -404,12 +436,17 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
             file: 'docs/manual/src/pages/index.mdx',
             version: null,
         });
+        expect(sources.find((source) => source.kind === 'manual-layout')).toMatchObject({
+            file: 'docs/manual/src/layouts/ManualLayout.astro',
+            version: null,
+        });
 
         await rm(path.join(root, 'README.md'));
         await rm(path.join(root, 'docs', 'manual'), { recursive: true });
         const afterRemoval = await gatherVersionSources(root, APP_VERSION);
         expect(afterRemoval.find((source) => source.kind === 'readme')).toMatchObject({ version: null });
         expect(afterRemoval.find((source) => source.kind === 'manual-index')).toMatchObject({ version: null });
+        expect(afterRemoval.find((source) => source.kind === 'manual-layout')).toMatchObject({ version: null });
     });
 
     it('the constant observation carries the caller-supplied version under the fixed label', async () => {
