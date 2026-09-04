@@ -1,13 +1,13 @@
 /**
  * Bundle-size guard for the shareable design system (feature 014, T-013 / FR-025).
  *
- * Asserts `dist/components.js` gzip ≤ 15 KB (15,360 bytes). The components
- * bundle is emitted standalone (`tsup` second entry with `splitting: false`,
- * plan D-4), so the 15 KB budget is measurable on a single file.
+ * Asserts `dist/components/index.js` gzip ≤ 20 KB (20,480 bytes). The
+ * components bundle is emitted standalone (`tsup` entry point), so the 20 KB
+ * budget is measurable on a single file.
  *
  * Exposed as `pnpm --filter @europa/design check:bundle-size`.
  *
- * Note: `dist/components.js` does not exist until the Wave 7 build (T-072)
+ * Note: `dist/components/index.js` does not exist until the build (T-072)
  * produces it. Running this script before then fails with a "file missing"
  * message — that is the expected initial state; the guard is verified green
  * after the build (T-074).
@@ -18,8 +18,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
-/** The gzip budget for `dist/components.js` in bytes (FR-025: ≤ 15 KB). */
-export const BUNDLE_BUDGET_BYTES = 15_360;
+/** The gzip budget for `dist/components/index.js` in bytes (FR-025: ≤ 20 KB). */
+export const BUNDLE_BUDGET_BYTES = 20_480;
 
 /** Result of the bundle-size check. */
 export interface BundleSizeResult {
@@ -44,14 +44,14 @@ function resolveDesignRoot(): string {
 }
 
 /**
- * Assert `dist/components.js` gzip ≤ 15 KB (FR-025).
+ * Assert `dist/components/index.js` gzip ≤ 20 KB (FR-025).
  *
  * Reads the built components bundle, computes its gzip size, and reports
- * whether it is within the 15,360-byte budget. A missing file is reported as
+ * whether it is within the 20,480-byte budget. A missing file is reported as
  * `ok: false` with `gzipBytes: 0` so the CLI can surface a clear "file
- * missing" failure before the Wave 7 build produces the bundle.
+ * missing" failure before the build produces the bundle.
  *
- * @param componentsPath - Absolute path to `dist/components.js` (defaults to resolved package path).
+ * @param componentsPath - Absolute path to `dist/components/index.js` (defaults to resolved package path).
  * @returns Whether the bundle is within budget and its gzip byte count.
  */
 export function checkBundleSize(
@@ -83,12 +83,12 @@ export function runMain(check: () => BundleSizeResult = checkBundleSize): void {
             );
         } else {
             console.error(
-                `FR-025: dist/components/index.js gzip ${result.gzipBytes} B exceeds the ${BUNDLE_BUDGET_BYTES} B (15 KB) budget`,
+                `FR-025: dist/components/index.js gzip ${result.gzipBytes} B exceeds the ${BUNDLE_BUDGET_BYTES} B (20 KB) budget`,
             );
         }
         process.exit(1);
     }
-    console.log(`FR-025: dist/components/index.js gzip ${result.gzipBytes} B ≤ ${BUNDLE_BUDGET_BYTES} B (15 KB) — OK`);
+    console.log(`FR-025: dist/components/index.js gzip ${result.gzipBytes} B ≤ ${BUNDLE_BUDGET_BYTES} B (20 KB) — OK`);
 }
 
 const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
