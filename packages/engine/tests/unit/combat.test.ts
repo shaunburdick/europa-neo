@@ -382,6 +382,8 @@ describe('resolveCombat — defensive / boundary', () => {
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(99);
+        // Total-force model without preFlowState: dominant-owner fallback.
+        // P2 dominates tally (100 > 1), so P2 wins and retains the cell.
         expect(out.state.troopOwners[4 * size + 4]).toBe(2);
     });
 
