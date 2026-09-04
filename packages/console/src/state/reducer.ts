@@ -554,6 +554,13 @@ function reduceNetEvent(
 
         case 'terminal': {
             const matchResult = event.result ?? null;
+            // DIAGNOSTIC (issue #47): log terminal event receipt + result.
+            console.log('[DIAG-47] reducer terminal event:', {
+                matchResult,
+                playerId: state.session.playerId,
+                prevStatus: state.status,
+                playerNames: Object.fromEntries(state.session.playerNames),
+            });
             return {
                 state: { ...state, status: 'game_over', matchResult },
                 effects: [
@@ -592,6 +599,11 @@ function reduceNetEvent(
             // `terminal`) must NOT overwrite `game_over` with
             // `reconnecting` — the player should see the result modal,
             // not the reconnecting banner.
+            // DIAGNOSTIC (issue #47): log socketClosed to detect terminal race.
+            console.log('[DIAG-47] reducer socketClosed:', {
+                prevStatus: state.status,
+                wasGameOver: state.status === 'game_over',
+            });
             if (state.status === 'game_over') {
                 return { state, effects: [] };
             }

@@ -80,6 +80,13 @@ export function createOrderBridge(args: OrderBridgeArgs): OrderBridge {
     const connectedAtMs = performance.now();
 
     const unsubscribe = client.onEnvelope((envelope) => {
+        // DIAGNOSTIC (issue #47): log terminal envelopes at the bridge.
+        if (envelope.type === 'terminal') {
+            console.log('[DIAG-47] order-bridge terminal envelope:', {
+                payload: envelope.payload,
+                seq: envelope.seq,
+            });
+        }
         const event = netEventFromEnvelope(envelope, {
             seqToActionId: client.seqToActionId ?? new Map(),
             connectedAtMs,
