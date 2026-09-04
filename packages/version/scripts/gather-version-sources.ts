@@ -77,12 +77,13 @@ export const CONSTANT_SOURCE_FILE = 'packages/version/src/app-version.ts';
 export const README_RELEASE_LINE_PATTERN = /^Current release:\s*\*\*v(\d+\.\d+\.\d+)\*\*[ \t]*$/m;
 
 /**
- * Player-manual index footer line (Astro migration): the
- * `<europa-typography>` component renders the version footer. The pattern
- * captures the raw semver WITHOUT the display `v` prefix, matching the
- * source `.mdx` content.
+ * Player-manual index footer line: the version sentence rendered by a
+ * typography component (originally `<europa-typography>`, now
+ * `<EuropaTypography>`). The pattern captures the raw semver WITHOUT the
+ * display `v` prefix, matching the source `.mdx` text content regardless
+ * of the wrapping tag or its attributes.
  */
-export const MANUAL_INDEX_FOOTER_PATTERN = />This manual documents Europa Neo v(\d+\.\d+\.\d+)\.<\/europa-typography>/m;
+export const MANUAL_INDEX_FOOTER_PATTERN = />This manual documents Europa Neo v(\d+\.\d+\.\d+)\./m;
 
 /**
  * `DESIGN.md` version header line (spec 012 FR-020 / contracts §5):

@@ -119,7 +119,7 @@ async function seedAgreeingTree(root: string, version: string): Promise<void> {
     );
     await writeFile(
         path.join(root, 'docs', 'manual', 'src', 'pages', 'index.mdx'),
-        `# Fixture manual\n\n<europa-typography variant="caption">This manual documents Europa Neo v${version}.</europa-typography>\n`,
+        `# Fixture manual\n\n<EuropaTypography variant="caption">This manual documents Europa Neo v${version}.</EuropaTypography>\n`,
     );
     await writeFile(
         path.join(root, 'DESIGN.md'),
