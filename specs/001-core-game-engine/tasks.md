@@ -12,7 +12,7 @@
 
 ## Wave 2: Committed Flow Tally (flow phase)
 
-- [ ] T-004: Add `committedFlowTally?: Uint32Array` parameter to `resolveFlow` signature in `packages/engine/src/resolution/flow.ts` — update JSDoc
+- [ ] T-004: Add `committedFlowTally: Uint32Array` parameter (required, not optional) to `resolveFlow` signature in `packages/engine/src/resolution/flow.ts` — update JSDoc
 - [ ] T-005: Update `TransferParams` interface to include `committedTally: Uint32Array | null`
 - [ ] T-006: In `transfer()`, record `committedTally[dstIdx * 4 + (srcOwner - 1)] += moved` BEFORE headroom clamping (after the `moved === 0` early return, before the `current >= cap` early return)
 - [ ] T-007: Wire `committedFlowTally` through from `resolveFlow` to `transfer()` (same pattern as `tally`/`inflowTally`)
@@ -27,9 +27,9 @@
 
 ## Wave 4: Combat Resolver (total-force logic)
 
-- [ ] T-013: Update `resolveCombat` signature — add `committedFlowTally?: Readonly<Uint32Array>` and `preFlowState?: Readonly<{ troopOwners: Uint8Array; troopCounts: Uint32Array }>` parameters
+- [ ] T-013: Update `resolveCombat` signature — add `committedFlowTally: Readonly<Uint32Array>` and `preFlowState: Readonly<{ troopOwners: Uint8Array; troopCounts: Uint32Array }>` parameters (required, not optional)
 - [ ] T-014: Update `resolveCombat` JSDoc to document the new parameters and total-force semantics
-- [ ] T-015: In the 2-way branch: extract `garrisonOwner` and `garrisonCount` from `preFlowState` (fallback to 0 if not provided); if garrison exists, identify defender = garrison owner, compute `defenderTotal = garrisonCount + committedFlowTally[defender]`, compute `attackerTotal = committedFlowTally[attacker]`; if no garrison, fall back to existing dominant-owner model
+- [ ] T-015: In the 2-way branch: extract `garrisonOwner` and `garrisonCount` from `preFlowState`; if garrison exists, identify defender = garrison owner, compute `defenderTotal = garrisonCount + committedFlowTally[defender]`, compute `attackerTotal = committedFlowTally[attacker]`; if no garrison, fall back to existing dominant-owner model
 - [ ] T-016: Add `attackerTotal` and `defenderTotal` to all `CombatEvent` object literals in `resolveCombat` (2-way and 3-way branches)
 - [ ] T-017: Update the 3-way branch to include `attackerTotal`/`defenderTotal` in emitted events
 
