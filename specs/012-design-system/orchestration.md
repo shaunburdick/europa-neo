@@ -1,8 +1,9 @@
 # Orchestration Log: Unified Design System Dev Page (Issue #68)
 
 ## Status
-- **Current Wave**: Complete (all tasks done, PR ready)
+- **Current Wave**: Complete — PR Open
 - **Branch**: `issue-68-unified-design-system`
+- **PR**: https://github.com/shaunburdick/europa-neo/pull/73
 - **Last Updated**: 2026-09-04
 
 ## Plan Summary
