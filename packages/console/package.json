@@ -21,7 +21,7 @@
         "clean": "rm -rf dist",
         "dev": "vite",
         "host": "tsx scripts/host.ts",
-        "build": "tsc --noEmit && vite build && tsx scripts/build-assets.ts && tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\"",
+        "build": "tsc --noEmit && vite build && tsx scripts/build-assets.ts && tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\" && node -e \"const{readdirSync,cpSync,mkdirSync}=require('fs'),{join,dirname}=require('path');function c(d){for(const e of readdirSync(d,{withFileTypes:true})){const p=join(d,e.name);if(e.isDirectory())c(p);else if(e.name.endsWith('.css')){const t=join('dist',p.replace(/^src\\//, ''));mkdirSync(dirname(t),{recursive:true});cpSync(p,t)}}}c('src')\"",
         "build:lib": "tsc && node -e \"require('fs').cpSync('dist/src','dist',{recursive:true})\" && node -e \"const{readdirSync,cpSync,mkdirSync}=require('fs'),{join,dirname}=require('path');function c(d){for(const e of readdirSync(d,{withFileTypes:true})){const p=join(d,e.name);if(e.isDirectory())c(p);else if(e.name.endsWith('.css')){const t=join('dist',p.replace(/^src\\//, ''));mkdirSync(dirname(t),{recursive:true});cpSync(p,t)}}}c('src')\"",
         "build:assets": "tsx scripts/build-assets.ts",
         "test": "vitest",

@@ -49,7 +49,6 @@ describe('EuropaTroopChip', () => {
             const chip = screen.getByText('5');
             expect(chip).toBeDefined();
         });
-
     });
 
     // ── player-color inline styles ─────────────────────────────────────
@@ -79,5 +78,4 @@ describe('EuropaTroopChip', () => {
             });
         });
     });
-
 });

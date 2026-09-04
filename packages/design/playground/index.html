@@ -244,12 +244,7 @@
                 overflow: hidden;
             }
 
-            europa-fog-overlay {
-                position: absolute;
-                inset: 0;
-            }
-
-            europa-fog-overlay > div {
+            .playground-fog-box > div {
                 position: absolute;
                 inset: 0;
                 background: rgba(26, 34, 51, 0.75);
@@ -272,7 +267,7 @@
         <header class="ds-header">
             <h1>Europa Design System</h1>
             <p>
-                A visual catalogue of all 20 shared web components and the design token palette.
+                A visual catalogue of all 20 shared React components and the design token palette.
                 Edit <code>src/</code> and the page hot-reloads via Vite HMR.
             </p>
         </header>
@@ -281,6 +276,6 @@
             <ul class="ds-toc__list" id="toc"></ul>
         </nav>
         <main id="app"></main>
-        <script type="module" src="./main.ts"></script>
+        <script type="module" src="./main.tsx"></script>
     </body>
 </html>

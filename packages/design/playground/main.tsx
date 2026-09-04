@@ -1,20 +1,40 @@
 /**
- * Europa Design — Web Component Playground entry point.
+ * Europa Design — React Component Playground entry point.
  *
- * A framework-free inspection aid (NOT a spec deliverable) that renders all
- * 20 shared web components and the token color reference into a real browser
- * so the PO can visually verify variants, states, and the design tokens.
+ * A dev-tool inspection aid that renders all 20 shared React components
+ * and the design token palette into a real browser so the PO can visually
+ * verify variants, states, and the design tokens.
  *
  * It imports directly from `src/` (not `dist/`) so the page always reflects
  * current component source and Vite HMR works without a separate build step.
  */
 
-import { register } from '../src/components/index.ts';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+    EuropaBadge,
+    EuropaBanner,
+    EuropaButton,
+    EuropaCard,
+    EuropaChip,
+    EuropaCityMarker,
+    EuropaContainer,
+    EuropaElevationSwatch,
+    EuropaFogOverlay,
+    EuropaGrid,
+    EuropaModal,
+    EuropaPage,
+    EuropaPipeSlope,
+    EuropaPlate,
+    EuropaPlayerBadge,
+    EuropaReserveIndicator,
+    EuropaStack,
+    EuropaTroopChip,
+    EuropaTypography,
+    EuropaWaiting,
+} from '../src/components/index.ts';
 import '../src/styles/catalog.css';
 import { TOKENS } from '../src/tokens.ts';
-
-/** Register all 20 custom elements with the browser. */
-register();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,11 +80,10 @@ function applyTokenVariables(): void {
 applyTokenVariables();
 
 /**
- * Create an element (custom or native) with attributes and children.
+ * Create a native DOM element with attributes and children.
  *
- * Attributes are set before the node is connected/inserted, which is required
- * for custom elements so their `attributeChangedCallback` sees the initial
- * values. Children may be strings (turned into text nodes) or nodes.
+ * Used for layout containers (headings, dividers, grid wrappers) that are
+ * not React components.
  */
 function make(tag: string, attrs: Record<string, string> = {}, ...children: Array<Node | string>): HTMLElement {
     const node = document.createElement(tag);
@@ -99,6 +118,16 @@ function subheading(text: string): HTMLElement {
 }
 
 /**
+ * Render a React element into a DOM container and return it wrapped in a
+ * playground cell. This bridges React components into the DOM-based layout.
+ */
+function reactDemo(label: string, element: React.ReactElement): HTMLElement {
+    const wrapper = document.createElement('div');
+    createRoot(wrapper).render(element);
+    return cell(label, wrapper);
+}
+
+/**
  * Section descriptor used by both the TOC builder and the section renderer.
  */
 interface SectionDescriptor {
@@ -118,19 +147,21 @@ const sections: SectionDescriptor[] = [
     {
         id: 'button',
         title: 'Button',
-        tag: 'europa-button',
+        tag: 'EuropaButton',
         description:
             'Clickable action element with primary / secondary / ghost variants, five semantic state colours, and sm / lg sizes.',
         render(body) {
             const variants = ['primary', 'secondary', 'ghost', 'success', 'warning', 'error', 'info'];
-            const variantCells = variants.map((v) => cell(v, make('europa-button', { variant: v }, v)));
+            const variantCells = variants.map((v) =>
+                reactDemo(v, React.createElement(EuropaButton, { variant: v as never }, v)),
+            );
             const sizeCells = [
-                cell('size="sm"', make('europa-button', { variant: 'primary', size: 'sm' }, 'Small')),
-                cell('size="lg"', make('europa-button', { variant: 'primary', size: 'lg' }, 'Large')),
+                reactDemo('size="sm"', React.createElement(EuropaButton, { variant: 'primary', size: 'sm' }, 'Small')),
+                reactDemo('size="lg"', React.createElement(EuropaButton, { variant: 'primary', size: 'lg' }, 'Large')),
             ];
-            const disabledCell = cell(
+            const disabledCell = reactDemo(
                 'disabled',
-                make('europa-button', { variant: 'primary', disabled: '' }, 'Disabled'),
+                React.createElement(EuropaButton, { variant: 'primary', disabled: true }, 'Disabled'),
             );
 
             body.append(subheading('Variants'), grid(...variantCells));
@@ -140,18 +171,18 @@ const sections: SectionDescriptor[] = [
     {
         id: 'card',
         title: 'Card',
-        tag: 'europa-card',
+        tag: 'EuropaCard',
         description: 'Surface for grouping related content with a subtle border and raised background.',
         render(body) {
             body.append(
                 grid(
-                    cell(
+                    reactDemo(
                         'default',
-                        make(
-                            'europa-card',
-                            {},
-                            make('strong', {}, 'Card'),
-                            make('p', {}, 'A surface for grouping related content.'),
+                        React.createElement(
+                            EuropaCard,
+                            null,
+                            React.createElement('strong', null, 'Card'),
+                            React.createElement('p', null, 'A surface for grouping related content.'),
                         ),
                     ),
                 ),
@@ -161,18 +192,18 @@ const sections: SectionDescriptor[] = [
     {
         id: 'plate',
         title: 'Plate',
-        tag: 'europa-plate',
+        tag: 'EuropaPlate',
         description: 'Lighter content surface with a larger border-radius than Card.',
         render(body) {
             body.append(
                 grid(
-                    cell(
+                    reactDemo(
                         'default',
-                        make(
-                            'europa-plate',
-                            {},
-                            make('strong', {}, 'Plate'),
-                            make('p', {}, 'A lighter content surface.'),
+                        React.createElement(
+                            EuropaPlate,
+                            null,
+                            React.createElement('strong', null, 'Plate'),
+                            React.createElement('p', null, 'A lighter content surface.'),
                         ),
                     ),
                 ),
@@ -182,18 +213,18 @@ const sections: SectionDescriptor[] = [
     {
         id: 'stack',
         title: 'Stack',
-        tag: 'europa-stack',
+        tag: 'EuropaStack',
         description: 'Vertical flex container that applies consistent spacing between children.',
         render(body) {
             body.append(
                 grid(
-                    cell(
+                    reactDemo(
                         'two buttons',
-                        make(
-                            'europa-stack',
-                            {},
-                            make('europa-button', { variant: 'secondary' }, 'First'),
-                            make('europa-button', { variant: 'secondary' }, 'Second'),
+                        React.createElement(
+                            EuropaStack,
+                            null,
+                            React.createElement(EuropaButton, { variant: 'secondary' }, 'First'),
+                            React.createElement(EuropaButton, { variant: 'secondary' }, 'Second'),
                         ),
                     ),
                 ),
@@ -203,18 +234,18 @@ const sections: SectionDescriptor[] = [
     {
         id: 'container',
         title: 'Container',
-        tag: 'europa-container',
+        tag: 'EuropaContainer',
         description: 'Full-width padded wrapper for grouping page-level content.',
         render(body) {
             body.append(
                 grid(
-                    cell(
+                    reactDemo(
                         'default',
-                        make(
-                            'europa-container',
-                            {},
-                            make('h3', {}, 'Container'),
-                            make('p', {}, 'A full-width padded wrapper.'),
+                        React.createElement(
+                            EuropaContainer,
+                            null,
+                            React.createElement('h3', null, 'Container'),
+                            React.createElement('p', null, 'A full-width padded wrapper.'),
                         ),
                     ),
                 ),
@@ -224,18 +255,18 @@ const sections: SectionDescriptor[] = [
     {
         id: 'page',
         title: 'Page',
-        tag: 'europa-page',
+        tag: 'EuropaPage',
         description: 'Top-level page scaffold with max-width, centering, and consistent padding.',
         render(body) {
             body.append(
                 grid(
-                    cell(
+                    reactDemo(
                         'default',
-                        make(
-                            'europa-page',
-                            {},
-                            make('h1', {}, 'Page'),
-                            make('p', {}, 'A top-level page scaffold (max-width, centered).'),
+                        React.createElement(
+                            EuropaPage,
+                            null,
+                            React.createElement('h1', null, 'Page'),
+                            React.createElement('p', null, 'A top-level page scaffold (max-width, centered).'),
                         ),
                     ),
                 ),
@@ -245,13 +276,13 @@ const sections: SectionDescriptor[] = [
     {
         id: 'chip',
         title: 'Chip',
-        tag: 'europa-chip',
+        tag: 'EuropaChip',
         description: 'Compact inline label for numeric counts, typically used inside troop indicators.',
         render(body) {
             body.append(
                 grid(
-                    cell('count="12"', make('europa-chip', { count: '12' })),
-                    cell('count="5" + label', make('europa-chip', { count: '5' }, 'troops')),
+                    reactDemo('count={12}', React.createElement(EuropaChip, { count: 12 })),
+                    reactDemo('count={5} + label', React.createElement(EuropaChip, { count: 5 }, 'troops')),
                 ),
             );
         },
@@ -259,26 +290,28 @@ const sections: SectionDescriptor[] = [
     {
         id: 'badge',
         title: 'Badge',
-        tag: 'europa-badge',
+        tag: 'EuropaBadge',
         description: 'Slotted inline label for short textual annotations.',
         render(body) {
-            body.append(grid(cell('default', make('europa-badge', {}, 'Your match'))));
+            body.append(grid(reactDemo('default', React.createElement(EuropaBadge, null, 'Your match'))));
         },
     },
     {
         id: 'banner',
         title: 'Banner',
-        tag: 'europa-banner',
+        tag: 'EuropaBanner',
         description:
             'Full-width status or alert bar. Fixed-position by design; examples below are framed in a positioned container so they do not cover the page.',
         render(body) {
-            const status = make('europa-banner', { variant: 'status' }, 'Match started \u2014 good luck!');
-            const alert = make('europa-banner', { variant: 'alert' }, 'Reconnecting to match\u2026');
+            const statusBox = make('div', { class: 'playground-banner-box' });
+            createRoot(statusBox).render(
+                React.createElement(EuropaBanner, { variant: 'status' }, 'Match started \u2014 good luck!'),
+            );
 
-            // Task A: wrap each banner in a positioned container so fixed
-            // positioning is scoped to the box, not the viewport.
-            const statusBox = make('div', { class: 'playground-banner-box' }, status);
-            const alertBox = make('div', { class: 'playground-banner-box' }, alert);
+            const alertBox = make('div', { class: 'playground-banner-box' });
+            createRoot(alertBox).render(
+                React.createElement(EuropaBanner, { variant: 'alert' }, 'Reconnecting to match\u2026'),
+            );
 
             body.append(subheading('variant="status"'), statusBox, subheading('variant="alert"'), alertBox);
         },
@@ -286,12 +319,15 @@ const sections: SectionDescriptor[] = [
     {
         id: 'typography',
         title: 'Typography',
-        tag: 'europa-typography',
+        tag: 'EuropaTypography',
         description: 'Semantic text wrapper with heading, subheading, body, label, and caption variants.',
         render(body) {
             const variants = ['heading', 'subheading', 'body', 'label', 'caption'] as const;
             const cells = variants.map((v) =>
-                cell(`variant="${v}"`, make('europa-typography', { variant: v }, `The quick brown fox (${v})`)),
+                reactDemo(
+                    `variant="${v}"`,
+                    React.createElement(EuropaTypography, { variant: v }, `The quick brown fox (${v})`),
+                ),
             );
             body.append(subheading('Variants'), grid(...cells));
         },
@@ -299,37 +335,49 @@ const sections: SectionDescriptor[] = [
     {
         id: 'grid',
         title: 'Grid',
-        tag: 'europa-grid',
+        tag: 'EuropaGrid',
         description: 'Layout primitive with sidebar (vertical stack) and wrap (flex-wrap) modes.',
         render(body) {
-            const sidebar = make(
-                'europa-grid',
-                { variant: 'sidebar' },
-                make('europa-card', {}, 'Sidebar item'),
-                make('europa-card', {}, 'Sidebar item'),
+            const sidebar = reactDemo(
+                'variant="sidebar"',
+                React.createElement(
+                    EuropaGrid,
+                    { variant: 'sidebar' },
+                    React.createElement(EuropaCard, null, 'Sidebar item'),
+                    React.createElement(EuropaCard, null, 'Sidebar item'),
+                ),
             );
-            const wrap = make(
-                'europa-grid',
-                { variant: 'wrap' },
-                make('europa-card', {}, 'Wrap A'),
-                make('europa-card', {}, 'Wrap B'),
-                make('europa-card', {}, 'Wrap C'),
+            const wrap = reactDemo(
+                'variant="wrap"',
+                React.createElement(
+                    EuropaGrid,
+                    { variant: 'wrap' },
+                    React.createElement(EuropaCard, null, 'Wrap A'),
+                    React.createElement(EuropaCard, null, 'Wrap B'),
+                    React.createElement(EuropaCard, null, 'Wrap C'),
+                ),
             );
-            body.append(grid(cell('variant="sidebar"', sidebar), cell('variant="wrap"', wrap)));
+            body.append(grid(sidebar, wrap));
         },
     },
     {
         id: 'waiting',
         title: 'Waiting',
-        tag: 'europa-waiting',
+        tag: 'EuropaWaiting',
         description: 'Animated loading indicator with a custom message and optional reduced-motion mode.',
         render(body) {
             body.append(
                 grid(
-                    cell('message="Loading\u2026"', make('europa-waiting', { message: 'Loading\u2026' })),
-                    cell(
+                    reactDemo(
+                        'message="Loading\u2026"',
+                        React.createElement(EuropaWaiting, { message: 'Loading\u2026' }),
+                    ),
+                    reactDemo(
                         'reduced-motion',
-                        make('europa-waiting', { message: 'Reconnecting\u2026', 'reduced-motion': '' }),
+                        React.createElement(EuropaWaiting, {
+                            message: 'Reconnecting\u2026',
+                            reducedMotion: true,
+                        }),
                     ),
                 ),
             );
@@ -338,21 +386,27 @@ const sections: SectionDescriptor[] = [
     {
         id: 'modal',
         title: 'Modal',
-        tag: 'europa-modal',
+        tag: 'EuropaModal',
         description: 'Dialog overlay with title, body, and action buttons. Framed in a positioned box for inspection.',
         render(body) {
-            const dialog = make(
-                'europa-modal',
-                { open: '', title: 'Example dialog' },
-                make('p', {}, 'This is the modal body. Press Escape or click the backdrop to close it.'),
-                make(
-                    'div',
-                    { slot: 'actions' },
-                    make('europa-button', { variant: 'ghost' }, 'Cancel'),
-                    make('europa-button', { variant: 'primary' }, 'OK'),
+            const framed = make('div', { class: 'playground-modal-box' });
+            createRoot(framed).render(
+                React.createElement(
+                    EuropaModal,
+                    { title: 'Example dialog', open: true, onClose: () => {} },
+                    React.createElement(
+                        'p',
+                        null,
+                        'This is the modal body. Press Escape or click the backdrop to close it.',
+                    ),
+                    React.createElement(
+                        EuropaModalActions,
+                        null,
+                        React.createElement(EuropaButton, { variant: 'ghost' }, 'Cancel'),
+                        React.createElement(EuropaButton, { variant: 'primary' }, 'OK'),
+                    ),
                 ),
             );
-            const framed = make('div', { class: 'playground-modal-box' }, dialog);
             body.append(subheading('open'), framed);
         },
     },
@@ -361,55 +415,58 @@ const sections: SectionDescriptor[] = [
     {
         id: 'troop-chip',
         title: 'Troop Chip',
-        tag: 'europa-troop-chip',
+        tag: 'EuropaTroopChip',
         description:
             'Player-coloured chip showing troop count for a board cell, with four owner slots and an unowned state.',
         render(body) {
-            const owners = ['1', '2', '3', '4', ''];
+            const owners = [1, 2, 3, 4, undefined] as const;
             const cells = owners.map((owner) => {
-                const label = owner === '' ? 'no owner' : `owner="${owner}"`;
-                const attrs = owner === '' ? { count: '20' } : { owner, count: '20' };
-                return cell(label, make('europa-troop-chip', attrs));
+                const label = owner === undefined ? 'no owner' : `owner={${owner}}`;
+                return reactDemo(
+                    label,
+                    React.createElement(EuropaTroopChip, { count: 20, ...(owner !== undefined ? { owner } : {}) }),
+                );
             });
-            body.append(subheading('count="20"'), grid(...cells));
+            body.append(subheading('count={20}'), grid(...cells));
         },
     },
     {
         id: 'city-marker',
         title: 'City Marker',
-        tag: 'europa-city-marker',
+        tag: 'EuropaCityMarker',
         description: 'Small indicator for city ownership on the board, with four player colours and an unowned state.',
         render(body) {
-            const owners = ['1', '2', '3', '4', ''];
+            const owners = [1, 2, 3, 4] as const;
             const cells = owners.map((owner) => {
-                const label = owner === '' ? 'no owner' : `owner="${owner}"`;
-                const attrs = owner === '' ? {} : { owner };
-                return cell(label, make('europa-city-marker', attrs));
+                const label = `owner={${owner}}`;
+                return reactDemo(label, React.createElement(EuropaCityMarker, { owner }));
             });
-            body.append(grid(...cells));
+            body.append(subheading('owner variants'), grid(...cells));
         },
     },
     {
         id: 'pipe-slope',
         title: 'Pipe Slope',
-        tag: 'europa-pipe-slope',
+        tag: 'EuropaPipeSlope',
         description:
             'Directional colour indicator for pipe flow: downhill (green), flat (amber), uphill (red), stalled (grey).',
         render(body) {
             const directions = ['downhill', 'flat', 'uphill', 'stalled'] as const;
-            const cells = directions.map((d) => cell(`direction="${d}"`, make('europa-pipe-slope', { direction: d })));
+            const cells = directions.map((d) =>
+                reactDemo(`direction="${d}"`, React.createElement(EuropaPipeSlope, { direction: d })),
+            );
             body.append(grid(...cells));
         },
     },
     {
         id: 'elevation-swatch',
         title: 'Elevation Swatch',
-        tag: 'europa-elevation-swatch',
+        tag: 'EuropaElevationSwatch',
         description: 'Colour ramp tile mapping an elevation value (0\u2013100) to the terrain HSL formula.',
         render(body) {
             const elevations = [0, 25, 50, 75, 100];
             const cells = elevations.map((e) =>
-                cell(`elevation="${e}"`, make('europa-elevation-swatch', { elevation: String(e) })),
+                reactDemo(`elevation={${e}}`, React.createElement(EuropaElevationSwatch, { elevation: e })),
             );
             body.append(subheading('Ramp (0 / 25 / 50 / 75 / 100)'), grid(...cells));
         },
@@ -417,47 +474,44 @@ const sections: SectionDescriptor[] = [
     {
         id: 'player-badge',
         title: 'Player Badge',
-        tag: 'europa-player-badge',
+        tag: 'EuropaPlayerBadge',
         description: 'Name badge coloured by player number, used in the HUD and lobby.',
         render(body) {
-            const players = ['1', '2', '3', '4', ''];
-            const cells = players.map((p) => {
-                if (p === '') {
-                    return cell('no player', make('europa-player-badge', {}));
-                }
-                return cell(`player="${p}" name="Alice"`, make('europa-player-badge', { player: p, name: 'Alice' }));
-            });
-            body.append(grid(...cells));
+            const players = [1, 2, 3, 4] as const;
+            const cells = players.map((p) =>
+                reactDemo(
+                    `player={${p}} name="Alice"`,
+                    React.createElement(EuropaPlayerBadge, { player: p, name: 'Alice' }),
+                ),
+            );
+            body.append(subheading('player variants'), grid(...cells));
         },
     },
     {
         id: 'fog-overlay',
         title: 'Fog Overlay',
-        tag: 'europa-fog-overlay',
+        tag: 'EuropaFogOverlay',
         description: 'Full-cell overlay that hides unexplored board tiles. Framed in a visible box for inspection.',
         render(body) {
-            body.append(
-                grid(
-                    cell(
-                        'default (visible)',
-                        make('div', { class: 'playground-fog-box' }, make('europa-fog-overlay', {})),
-                    ),
-                    cell(
-                        'visible="false"',
-                        make('div', { class: 'playground-fog-box' }, make('europa-fog-overlay', { visible: 'false' })),
-                    ),
-                ),
-            );
+            const visibleBox = make('div', { class: 'playground-fog-box' });
+            createRoot(visibleBox).render(React.createElement(EuropaFogOverlay));
+
+            const hiddenBox = make('div', { class: 'playground-fog-box' });
+            createRoot(hiddenBox).render(React.createElement(EuropaFogOverlay, { visible: false }));
+
+            body.append(grid(cell('default (visible)', visibleBox), cell('visible={false}', hiddenBox)));
         },
     },
     {
         id: 'reserve-indicator',
         title: 'Reserve Indicator',
-        tag: 'europa-reserve-indicator',
+        tag: 'EuropaReserveIndicator',
         description: 'Radial gauge showing the percentage of reserves available to a player (0\u201390%).',
         render(body) {
-            const percents = ['0', '30', '60', '90'];
-            const cells = percents.map((p) => cell(`percent="${p}"`, make('europa-reserve-indicator', { percent: p })));
+            const percents = [0, 30, 60, 90];
+            const cells = percents.map((p) =>
+                reactDemo(`percent={${p}}`, React.createElement(EuropaReserveIndicator, { percent: p })),
+            );
             body.append(grid(...cells));
         },
     },
@@ -474,6 +528,18 @@ const sections: SectionDescriptor[] = [
         },
     },
 ];
+
+// ---------------------------------------------------------------------------
+// Modal.Actions helper (slot name for action buttons)
+// ---------------------------------------------------------------------------
+
+/**
+ * A simple wrapper that renders children inside a div with `slot="actions"`
+ * for the modal's footer area. Used only in the playground demo.
+ */
+function EuropaModalActions({ children }: { children?: React.ReactNode }) {
+    return <div slot="actions">{children}</div>;
+}
 
 // ---------------------------------------------------------------------------
 // Token reference renderer

@@ -58,6 +58,5 @@ describe('EuropaReserveIndicator', () => {
             expect(chip).toBeDefined();
             expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'reserves 30%');
         });
-
     });
 });

@@ -58,7 +58,6 @@ describe('semantic state color tokens', () => {
         expect(TOKENS.color.infoHover).toBe('#e8c35e');
         expect(TOKENS.color.infoActive).toBe('#ad872f');
     });
-
 });
 
 describe('control height tokens', () => {
@@ -168,5 +167,4 @@ describe('focus ring token additions (Feature 062 FR-005)', () => {
         expect(TOKENS.focusRing.darkColor).toBe('#111827');
         expect(TOKENS.focusRing.lightColor).toBe('#ffffff');
     });
-
 });
