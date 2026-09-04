@@ -1,7 +1,7 @@
 # Orchestration Log: Unified Design System Dev Page (Issue #68)
 
 ## Status
-- **Current Wave**: Wave 1 (Phase 1 — Extract Shared Logic)
+- **Current Wave**: Complete (all tasks done, PR ready)
 - **Branch**: `issue-68-unified-design-system`
 - **Last Updated**: 2026-09-04
 
@@ -10,26 +10,39 @@ Merge `packages/design/preview/` (static HTML token docs) and `packages/design/p
 
 ## Task Wave Progress
 
-### Wave 1 — Extract Shared Logic — ⏳ Pending
-- T-001: Extract contrast helpers → `dev/lib/contrast.ts`
-- T-002: Extract token builders → `dev/lib/token-utils.ts`
-- T-003: Update preview.test.ts imports (depends on T-001 + T-002)
+### Wave 1 — Extract Shared Logic — ✅ Complete
+- T-001: Extract contrast helpers → `dev/lib/contrast.ts` ✅
+- T-002: Extract token builders → `dev/lib/token-utils.ts` ✅
+- T-003: Update preview.test.ts imports ✅
 
-### Wave 2 — React Shell — ⏳ Pending
-- T-004–T-014: index.html, vite.config, main.tsx, shell.css, hooks, sidebar, app, package.json
+### Wave 2 — React Shell — ✅ Complete
+- T-004: `dev/index.html` ✅
+- T-005: `dev/vite.config.ts` ✅
+- T-006: `dev/main.tsx` ✅
+- T-007: `dev/styles/shell.css` ✅
+- T-008: `dev/hooks/useHashRoute.ts` ✅
+- T-009: `dev/hooks/useTheme.ts` ✅
+- T-010: `dev/components/ThemeToggle.tsx` ✅
+- T-011: `dev/lib/sections.ts` ✅
+- T-012: `dev/components/Sidebar.tsx` ✅
+- T-013: `dev/components/App.tsx` ✅
+- T-014: `package.json` scripts updated ✅
 
-### Wave 3 — Foundations + Components (parallel) — ⏳ Pending
-- T-015–T-019: 5 foundation sections
-- T-020–T-041: 20 component demos
+### Wave 3 — Foundations + Components — ✅ Complete
+- T-015–T-019: 5 foundation sections ✅
+- T-020–T-041: 20 component demos + token color reference + barrel export ✅
 
-### Wave 4 — Tests — ⏳ Pending
-- T-042–T-047: dev-page tests, shell-css tests, preview test migration
+### Wave 4 — Tests — ✅ Complete
+- T-042–T-045: 4 test files, 40 tests passing ✅
 
-### Wave 5 — Cleanup — ⏳ Pending
-- T-048–T-056: delete old dirs, CI audit, typecheck/lint/format
+### Wave 5 — Cleanup — ✅ Complete
+- T-048–T-049: Deleted `preview/` and `playground/` ✅
+- T-050–T-052: Verified configs, CI, docs ✅
+- T-053–T-055: typecheck/lint/format all clean ✅
+- T-056: 363 tests passing ✅
 
-### Wave 6 — Final Verification — ⏳ Pending
-- T-057–T-062: SC-013–SC-017 acceptance
+### Wave 6 — Final Verification — ✅ Complete
+- T-057–T-062: All SCs verified ✅
 
 ## Decisions & Rationale
 - 2026-09-04: Scrollable document over conditional rendering (simpler, matches both existing patterns)
@@ -37,10 +50,11 @@ Merge `packages/design/preview/` (static HTML token docs) and `packages/design/p
 - 2026-09-04: Extract pure functions from preview/main.ts before building React shell (enables test migration)
 
 ## Blockers & Escalations
-(none yet)
+(none)
 
 ## New Tasks Discovered
-(none yet)
+(none)
 
 ## Review Findings
-(none yet)
+- Lint fixes applied: `import React` → `import type React` in 6 files, import ordering in 5 files, a11y overlay changed from div to button
+- Preview test migration: HTML structure tests now validate `dev/index.html`, CSS compliance tests validate `shell.css`
