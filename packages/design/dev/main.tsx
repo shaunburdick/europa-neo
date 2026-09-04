@@ -14,7 +14,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './components/App';
 import { toKebabCase } from './lib/token-utils';
 import './styles/shell.css';
-import { TOKENS } from '../../src/tokens.ts';
+import { TOKENS } from '../src/tokens.ts';
 
 // ---------------------------------------------------------------------------
 // Token variable injection

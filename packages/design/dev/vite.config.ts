@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-    root: '.',
+    root: import.meta.dirname,
     esbuild: {
         jsx: 'automatic',
         jsxImportSource: 'react',
