@@ -14,10 +14,6 @@
  * vitest.config.browser.ts.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import { afterEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
@@ -58,9 +54,8 @@ describe('ProfileView a11y', () => {
     test('heading is focusable with tabIndex={-1}', async () => {
         const screen = await render(<ProfileView {...defaultProps()} />);
 
-        // The heading text lives inside <europa-typography> shadow DOM, so
-        // we query the <h1> by its structural role without relying on
-        // accessible-name resolution across the shadow boundary.
+        // The heading text lives directly in the <h1>, so query by its
+        // structural role without relying on text-content matching.
         const heading = screen.container.querySelector('h1');
         expect(heading).not.toBeNull();
         expect(heading?.getAttribute('tabindex')).toBe('-1');

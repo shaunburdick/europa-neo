@@ -21,7 +21,7 @@
  *
  * IMPORTANT: Browser-mode tests should NOT use this file as a setup
  * entry point — it imports @axe-core/playwright (Node-only) which
- * poisons the browser bundle. Use setup-web-components.ts instead
+ * poisons the browser bundle. Use setup-a11y-dom.ts instead
  * (see vitest.config.browser.ts setupFiles).
  */
 
@@ -38,11 +38,9 @@ export { expectNoDomA11yViolations } from './setup-a11y-dom.js';
  * Run an axe scan against `page` with the console's WCAG tag set and
  * fail with a human-readable violation report when anything trips.
  *
- * Shadow DOM: axe-core ≥ 4 traverses open shadow roots by default,
- * keeping this helper in parity with {@link expectNoDomA11yViolations}
- * — the shadow-internal DOM of converted `@europa/design` generic
- * components is audited here too. The parity guarantee is pinned by
- * `tests/a11y/shadow-traversal.test.ts`.
+ * axe-core ≥ 4 traverses open shadow roots by default, keeping this
+ * helper in parity with {@link expectNoDomA11yViolations}. The parity
+ * guarantee is pinned by `tests/a11y/shadow-traversal.test.ts`.
  *
  * @param page The Playwright page to audit (current DOM state).
  * @throws Error listing every violation (rule id, impact, affected

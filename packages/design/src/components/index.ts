@@ -1,45 +1,38 @@
 /**
- * @europa/design/components — barrel re-export for all web components.
+ * @europa/design/components — barrel re-export for all React components.
  *
- * Re-exports every component class (for selective registration) and the
- * bulk `register()` function (FR-005 / FR-008). Importing this module
- * has no side effects (FR-004).
+ * Re-exports every React component (function components) and their prop
+ * interfaces. Importing this module has no side effects.
  *
  * @module
  */
 
 // ---------------------------------------------------------------------------
-// Bulk registration (FR-003 / FR-004 / FR-005)
-// ---------------------------------------------------------------------------
-
-export { register } from './register.js';
-
-// ---------------------------------------------------------------------------
 // Generic components (13) — FR-001
 // ---------------------------------------------------------------------------
 
-export { EuropaBadge } from './generic/badge.js';
-export { EuropaBanner } from './generic/banner.js';
-export { EuropaButton } from './generic/button.js';
-export { EuropaCard } from './generic/card.js';
-export { EuropaChip } from './generic/chip.js';
-export { EuropaContainer } from './generic/container.js';
-export { EuropaGrid } from './generic/grid.js';
-export { EuropaModal } from './generic/modal.js';
-export { EuropaPage } from './generic/page.js';
-export { EuropaPlate } from './generic/plate.js';
-export { EuropaStack } from './generic/stack.js';
-export { EuropaTypography } from './generic/typography.js';
-export { EuropaWaiting } from './generic/waiting.js';
+export { EuropaBadge, type EuropaBadgeProps } from './generic/badge.js';
+export { EuropaBanner, type EuropaBannerProps } from './generic/banner.js';
+export { EuropaButton, type EuropaButtonProps } from './generic/button.js';
+export { EuropaCard, type EuropaCardProps } from './generic/card.js';
+export { EuropaChip, type EuropaChipProps } from './generic/chip.js';
+export { EuropaContainer, type EuropaContainerProps } from './generic/container.js';
+export { EuropaGrid, type EuropaGridProps } from './generic/grid.js';
+export { EuropaModal, type EuropaModalProps } from './generic/modal.js';
+export { EuropaPage, type EuropaPageProps } from './generic/page.js';
+export { EuropaPlate, type EuropaPlateProps } from './generic/plate.js';
+export { EuropaStack, type EuropaStackProps } from './generic/stack.js';
+export { EuropaTypography, type EuropaTypographyProps } from './generic/typography.js';
+export { EuropaWaiting, type EuropaWaitingProps } from './generic/waiting.js';
 
 // ---------------------------------------------------------------------------
 // Game-specific primitives (7) — FR-002
 // ---------------------------------------------------------------------------
 
-export { EuropaCityMarker } from './game/city-marker.js';
-export { EuropaElevationSwatch } from './game/elevation-swatch.js';
-export { EuropaFogOverlay } from './game/fog-overlay.js';
-export { EuropaPipeSlope } from './game/pipe-slope.js';
-export { EuropaPlayerBadge } from './game/player-badge.js';
-export { EuropaReserveIndicator } from './game/reserve-indicator.js';
-export { EuropaTroopChip } from './game/troop-chip.js';
+export { EuropaCityMarker, type EuropaCityMarkerProps } from './game/city-marker.js';
+export { EuropaElevationSwatch, type EuropaElevationSwatchProps } from './game/elevation-swatch.js';
+export { EuropaFogOverlay, type EuropaFogOverlayProps } from './game/fog-overlay.js';
+export { EuropaPipeSlope, type EuropaPipeSlopeProps, type PipeSlopeDirection } from './game/pipe-slope.js';
+export { EuropaPlayerBadge, type EuropaPlayerBadgeProps } from './game/player-badge.js';
+export { EuropaReserveIndicator, type EuropaReserveIndicatorProps } from './game/reserve-indicator.js';
+export { EuropaTroopChip, type EuropaTroopChipProps } from './game/troop-chip.js';

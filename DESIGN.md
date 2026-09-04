@@ -487,64 +487,52 @@ interaction model. The `.europa-hover-border` pattern is the primary hover cue f
 the outline-based `.europa-focus-ring` (or the shared `*:focus-visible` rule) for maximum
 compatibility. All patterns are additive and composable.
 
-### Web components (spec 014)
+### React components (spec 014)
 
-Framework-agnostic web components registered via `register()` from `@europa/design/components`
-(spec 014). Each wraps one or more catalog CSS classes (§ 2 above) in a `customElements.define`
-element so the same primitives work in React, plain HTML, or any framework. Components are
-opt-in — importing `@europa/design/components` does not auto-register; consumers call
-`register()` or `customElements.define` individually.
+React function components exported from `@europa/design/components` (spec 014). Each component
+renders plain React elements with `europa-*` CSS classes (§ 2 above). There is no Shadow DOM, no
+Light DOM reparenting, no `customElements.define`, and no `register()` — components are standard
+React function components that integrate naturally with React's virtual DOM and lifecycle.
 
-**DOM model — two tiers (spec 014 Clarifications v1.1).** The 13 generic components (`europa-page`,
-`card`, `plate`, `stack`, `container`, `badge`, `grid`, `banner`, `chip`, `typography`, `waiting`,
-`button`, `modal`) use **Shadow DOM (open) + `<slot>` projection**: children remain light-DOM
-children of the host and are projected by the browser — components never reparent host children
-(manual reparenting is forbidden; it crashes React 19 unmounts with `removeChild` NotFoundError).
-The 7 game primitives (`europa-troop-chip`, `city-marker`, `pipe-slope`, `elevation-swatch`,
-`player-badge`, `fog-overlay`, `reserve-indicator`) remain **Light DOM** leaf elements, styled by
-the global stylesheet and inline token styles. The `class` attribute is still set on the host for
-consumer-side class targeting.
+**Component model.** The 13 generic components (`EuropaPage`, `EuropaCard`, `EuropaPlate`,
+`EuropaStack`, `EuropaContainer`, `EuropaBadge`, `EuropaGrid`, `EuropaBanner`, `EuropaChip`,
+`EuropaTypography`, `EuropaWaiting`, `EuropaButton`, `EuropaModal`) and 7 game primitives
+(`EuropaTroopChip`, `EuropaCityMarker`, `EuropaPipeSlope`, `EuropaElevationSwatch`,
+`EuropaPlayerBadge`, `EuropaFogOverlay`, `EuropaReserveIndicator`) are React function components.
+Props map 1:1 from the former web-component attributes — `variant`, `size`, `count`, `owner`, etc.
+are all typed React props. Children are passed via the standard `children` prop (no slots).
 
-**Styling pipeline — one authored source, two artifacts.** `packages/design/src/styles/catalog.css`
-(authored) is compiled by `scripts/build-css.ts` into (1) `dist/design.css` — the global stylesheet
-(`:root` token block + class rules; contract unchanged, still loaded by the console and manual for
-light-DOM elements and plain HTML, vendored per § 4.2) and (2) the gitignored generated module
-`src/styles/catalog-styles.ts` — the catalog class rules only, without the `:root` block (CSS custom
-properties inherit through shadow boundaries). `EuropaElement.ensureShadowRoot()` lazily attaches an
-open shadow root and adopts one shared constructed `CSSStyleSheet` via `adoptedStyleSheets`, so the
-class rules apply inside every shadow root without duplication and no `<style>` tags are used.
+**Styling.** Components apply `europa-*` CSS classes to the elements they render, so the same
+catalog CSS rules (§ 2 above) apply. `dist/design.css` is loaded as a global stylesheet by the
+console; no constructed stylesheets or shadow boundaries are involved. CSS custom properties
+(`:root` tokens) are inherited normally through the DOM tree.
 
-**Testing implications (verified empirically, issue #49).** Query shadow-DOM component internals
-through `element.shadowRoot.querySelector(...)` — a light-DOM `querySelector` cannot see them. In
-Playwright, `getByRole` pierces open shadow roots, but `getByText` does not resolve shadow-internal
-text, and `document.activeElement` reports the host when focus is inside an open shadow tree
-(resolve the deep element via `host.shadowRoot.activeElement`). axe-core ≥ 4 traverses open shadow
-roots by default — pinned by a canary test (`packages/console/tests/a11y/shadow-traversal.test.ts`)
-that fails loudly if traversal is ever lost. happy-dom supports structural shadow-DOM assertions
-only: no event retargeting at the shadow boundary and no form-owner recomputation on re-parenting.
+**Import pattern.** Consumers import components and their prop types from the barrel:
+`import { EuropaButton, type EuropaButtonProps } from '@europa/design/components'`. Tree-shaking
+removes unused components from the production bundle (guarded by G-10 and the bundle-size guard).
 
-| Tag | Attributes | Slots | Events | A11y obligations | Usage example |
+| Component | Props | Children | Events | A11y obligations | Usage example |
 | --- | --- | --- | --- | --- | --- |
-| `europa-button` | `variant` (primary/secondary/ghost/success/warning/error/info), `size` (sm/lg), `disabled`, `type`, `aria-label` | default (label) | none | native `<button>` (FR-013), keyboard-operable, focus-visible ring | `<europa-button variant="primary">Save</europa-button>` |
-| `europa-card` | none | default | none | host supplies heading structure | `<europa-card><h3>Title</h3><p>Content</p></europa-card>` |
-| `europa-plate` | none | default | none | host supplies heading structure | `<europa-plate><p>Content</p></europa-plate>` |
-| `europa-modal` | `open` (boolean), `title` (string) | default (body), `actions` (button bar) | `europa-close` (Escape/backdrop) | `role="dialog"`, `aria-modal`, `aria-labelledby`, focus trap, Escape close, focus restore (FR-011) | `<europa-modal open title="Confirm"><p>Are you sure?</p><div slot="actions"><europa-button>Yes</europa-button></div></europa-modal>` |
-| `europa-chip` | `count` | none | none | text content is the value | `<europa-chip count="12"></europa-chip>` |
-| `europa-badge` | none | default (label) | none | text label | `<europa-badge>Your match</europa-badge>` |
-| `europa-banner` | `variant` (status/alert) | default (message) | none | `role="status"` (status) or `role="alert"` + `aria-live="assertive"` (alert) (FR-012) | `<europa-banner variant="alert">Connection lost</europa-banner>` |
-| `europa-typography` | `variant` (heading/subheading/body/label/caption) | default | none | heading renders `<h2>`, subheading renders `<h3>` | `<europa-typography variant="heading">Title</europa-typography>` |
-| `europa-waiting` | `message` (string), `reduced-motion` (boolean) | none | none | spinner `aria-hidden`, message announced via live region, respects `prefers-reduced-motion` | `<europa-waiting message="Connecting…"></europa-waiting>` |
-| `europa-grid` | `variant` (sidebar/wrap) | default (items) | none | layout only, DOM order = reading order | `<europa-grid variant="wrap"><div>Item 1</div><div>Item 2</div></europa-grid>` |
-| `europa-stack` | none | default (items) | none | layout only | `<europa-stack><div>A</div><div>B</div></europa-stack>` |
-| `europa-container` | none | default | none | layout only | `<europa-container><p>Content</p></europa-container>` |
-| `europa-page` | none | default | none | layout only, DOM order = reading order | `<europa-page><h1>Title</h1><p>Body</p></europa-page>` |
-| `europa-troop-chip` | `count` (string), `owner` (player 1–4) | none | none | `role="img"`, `aria-label` from count+owner (FR-014) | `<europa-troop-chip count="12" owner="1"></europa-troop-chip>` |
-| `europa-city-marker` | `owner` (player 1–4) | none | none | `role="img"`, `aria-label` from owner (FR-014) | `<europa-city-marker owner="2"></europa-city-marker>` |
-| `europa-pipe-slope` | `direction` (downhill/flat/uphill/stalled) | none | none | `role="img"`, `aria-label` from direction (FR-014) | `<europa-pipe-slope direction="downhill"></europa-pipe-slope>` |
-| `europa-elevation-swatch` | `elevation` (0–100) | none | none | `role="img"`, `aria-label` with elevation value (FR-014) | `<europa-elevation-swatch elevation="42"></europa-elevation-swatch>` |
-| `europa-player-badge` | `player` (1–4), `name` (optional) | none | none | `role="img"`, `aria-label` from player+name (FR-014) | `<europa-player-badge player="1" name="Alice"></europa-player-badge>` |
-| `europa-fog-overlay` | `visible` (boolean, default true) | none | none | `aria-hidden="true"` (FR-014) | `<europa-fog-overlay></europa-fog-overlay>` |
-| `europa-reserve-indicator` | `percent` (0–90 step 10) | none | none | `role="img"`, `aria-label` with percentage (FR-014) | `<europa-reserve-indicator percent="30"></europa-reserve-indicator>` |
+| `EuropaButton` | `variant` (primary/secondary/ghost/success/warning/error/info), `size` (sm/lg), `disabled`, `type`, `aria-label` | `ReactNode` (label) | none | native `<button>` (FR-013), keyboard-operable, focus-visible ring | `<EuropaButton variant="primary">Save</EuropaButton>` |
+| `EuropaCard` | none | `ReactNode` | none | host supplies heading structure | `<EuropaCard><h3>Title</h3><p>Content</p></EuropaCard>` |
+| `EuropaPlate` | none | `ReactNode` | none | host supplies heading structure | `<EuropaPlate><p>Content</p></EuropaPlate>` |
+| `EuropaModal` | `open` (boolean), `title` (string), `onClose` (() → void) | `ReactNode` (body), `actions` slot via named child | `onClose` (Escape/backdrop) | `role="dialog"`, `aria-modal`, `aria-labelledby`, focus trap, Escape close, focus restore (FR-011) | `<EuropaModal open title="Confirm" onClose={handleClose}><p>Are you sure?</p><EuropaButton onClick={confirm}>Yes</EuropaButton></EuropaModal>` |
+| `EuropaChip` | `count` (number) | none | none | text content is the value | `<EuropaChip count={12} />` |
+| `EuropaBadge` | none | `ReactNode` (label) | none | text label | `<EuropaBadge>Your match</EuropaBadge>` |
+| `EuropaBanner` | `variant` (status/alert) | `ReactNode` (message) | none | `role="status"` (status) or `role="alert"` + `aria-live="assertive"` (alert) (FR-012) | `<EuropaBanner variant="alert">Connection lost</EuropaBanner>` |
+| `EuropaTypography` | `variant` (heading/subheading/body/label/caption) | `ReactNode` | none | heading renders `<h2>`, subheading renders `<h3>` | `<EuropaTypography variant="heading">Title</EuropaTypography>` |
+| `EuropaWaiting` | `message` (string), `reducedMotion` (boolean) | none | none | spinner `aria-hidden`, message announced via live region, respects `prefers-reduced-motion` | `<EuropaWaiting message="Connecting…" />` |
+| `EuropaGrid` | `variant` (sidebar/wrap) | `ReactNode` (items) | none | layout only, DOM order = reading order | `<EuropaGrid variant="wrap"><div>Item 1</div><div>Item 2</div></EuropaGrid>` |
+| `EuropaStack` | none | `ReactNode` (items) | none | layout only | `<EuropaStack><div>A</div><div>B</div></EuropaStack>` |
+| `EuropaContainer` | none | `ReactNode` | none | layout only | `<EuropaContainer><p>Content</p></EuropaContainer>` |
+| `EuropaPage` | none | `ReactNode` | none | layout only, DOM order = reading order | `<EuropaPage><h1>Title</h1><p>Body</p></EuropaPage>` |
+| `EuropaTroopChip` | `count` (string), `owner` (player 1–4) | none | none | `role="img"`, `aria-label` from count+owner (FR-014) | `<EuropaTroopChip count="12" owner={1} />` |
+| `EuropaCityMarker` | `owner` (player 1–4) | none | none | `role="img"`, `aria-label` from owner (FR-014) | `<EuropaCityMarker owner={2} />` |
+| `EuropaPipeSlope` | `direction` (downhill/flat/uphill/stalled) | none | none | `role="img"`, `aria-label` from direction (FR-014) | `<EuropaPipeSlope direction="downhill" />` |
+| `EuropaElevationSwatch` | `elevation` (0–100) | none | none | `role="img"`, `aria-label` with elevation value (FR-014) | `<EuropaElevationSwatch elevation={42} />` |
+| `EuropaPlayerBadge` | `player` (1–4), `name` (optional) | none | none | `role="img"`, `aria-label` from player+name (FR-014) | `<EuropaPlayerBadge player={1} name="Alice" />` |
+| `EuropaFogOverlay` | `visible` (boolean, default true) | none | none | `aria-hidden="true"` (FR-014) | `<EuropaFogOverlay />` |
+| `EuropaReserveIndicator` | `percent` (0–90 step 10) | none | none | `role="img"`, `aria-label` with percentage (FR-014) | `<EuropaReserveIndicator percent={30} />` |
 
 ---
 

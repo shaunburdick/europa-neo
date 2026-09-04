@@ -71,22 +71,27 @@ async function bootWithStore(
     return store;
 }
 
-/** The overlay host element — the <europa-waiting> custom element. */
+/** The overlay element — the React EuropaWaiting renders <div class="europa-waiting">. */
 function overlay(): Element | null {
-    return document.querySelector('europa-waiting');
+    return document.querySelector('.europa-waiting');
 }
 
 /**
- * The overlay's shadow-internal root element — `<europa-waiting>` renders
- * its `.europa-waiting` structure inside an open shadow root (spec 014
- * Wave 2), so internal catalog elements must be queried through
- * `shadowRoot`, not the document.
+ * Query a selector scoped to the overlay element. The React EuropaWaiting
+ * renders standard HTML with europa-* classes (no shadow DOM), so queries
+ * go directly against the overlay element. When the selector matches the
+ * overlay element itself (e.g., '.europa-waiting'), returns it directly
+ * since querySelector only searches descendants.
  *
- * @param selector  Selector scoped to the shadow tree.
- * @returns The matching element inside the overlay's shadow root, or `null`.
+ * @param selector  Selector scoped to the overlay element.
+ * @returns The matching element inside the overlay, or `null`.
  */
 function overlayShadow(selector: string): Element | null {
-    return overlay()?.shadowRoot?.querySelector(selector) ?? null;
+    const el = overlay();
+    if (!el) return null;
+    // If the selector matches the overlay element itself, return it
+    // directly — querySelector only searches descendants.
+    return el.matches(selector) ? el : el.querySelector(selector);
 }
 
 /**

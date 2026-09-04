@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Cities and Troops
 ---
 
+import { EuropaChip } from '@europa/design/components';
+
 # Cities and troops
 
 This page explains how cities produce troops, how stacks grow and cap out, and how cities change hands. These are the core mechanics of your economy and army.
@@ -13,9 +15,9 @@ The game advances in **ticks** — four per second. Each city you own produces *
 
 ## Saturation: the cap of 30
 
-A city cell holds at most <europa-chip count="30"></europa-chip> **troops**. Once it reaches 30, production stops for that tick — no overflow, no waste beyond the cap. A saturated city resumes producing the moment troops march away and free up room.
+A city cell holds at most <EuropaChip count="30"></EuropaChip> **troops**. Once it reaches 30, production stops for that tick — no overflow, no waste beyond the cap. A saturated city resumes producing the moment troops march away and free up room.
 
-Open (non-city) land cells hold at most <europa-chip count="30"></europa-chip> **troops** as well, so a big stack arriving in a small cell simply fills it to the cap.
+Open (non-city) land cells hold at most <EuropaChip count="30"></EuropaChip> **troops** as well, so a big stack arriving in a small cell simply fills it to the cap.
 
 ## Troops are your currency
 

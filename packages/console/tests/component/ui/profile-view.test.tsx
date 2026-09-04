@@ -15,10 +15,6 @@
  * Runs in Vitest Browser Mode per vitest.config.browser.ts.
  */
 
-import { register } from '@europa/design/components';
-
-register();
-
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 import type { LobbyActionStatus } from '../../../src/state/lobby-state';
@@ -78,11 +74,8 @@ function propsOf(overrides: Partial<ProfileViewProps> = {}): ProfileViewProps {
 describe('ProfileView — unnamed state', () => {
     test('renders heading "Profile"', async () => {
         const screen = await render(<ProfileView {...propsOf()} />);
-        // The heading text is rendered inside <europa-typography>'s shadow
-        // DOM (spec 014 Wave 2): the internal <h2> carries the text and is
-        // exposed through the accessibility tree, so assert by role + name.
-        // `level: 2` disambiguates from the page-level <h1> route header.
-        await expect.element(screen.getByRole('heading', { name: 'Profile', level: 2 })).toBeVisible();
+        // The heading text is in a direct <h1> element — assert by role + name.
+        await expect.element(screen.getByRole('heading', { name: 'Profile', level: 1 })).toBeVisible();
     });
 
     test('renders "Set up your profile" text', async () => {
@@ -229,16 +222,14 @@ describe('ProfileView — restoring state', () => {
         await expect.element(screen.getByText('Restoring your session…')).toBeVisible();
     });
 
-    test('shows spinner (europa-waiting host with shadow internals)', async () => {
+    test('shows spinner (europa-waiting with pulse and text)', async () => {
         const screen = await render(<ProfileView {...propsOf({ identityStatus: 'restoring' })} />);
-        // Shadow DOM conversion (spec 014 Wave 1): the host element stays a
-        // light-DOM child of the card, while its spinner/message internals
-        // live inside the open shadow root — query them through `shadowRoot`
-        // (the Wave 3/4 pattern used by the waiting-overlay tests).
-        const waiting = screen.container.querySelector('europa-waiting');
+        // The React EuropaWaiting component renders standard HTML with
+        // europa-* classes (no shadow DOM), so query directly.
+        const waiting = screen.container.querySelector('.europa-waiting');
         expect(waiting).not.toBeNull();
-        expect(waiting?.shadowRoot?.querySelector('.europa-waiting__pulse')).not.toBeNull();
-        expect(waiting?.shadowRoot?.querySelector('.europa-waiting__text')?.textContent).toBe('Loading…');
+        expect(waiting?.querySelector('.europa-waiting__pulse')).not.toBeNull();
+        expect(waiting?.querySelector('.europa-waiting__text')?.textContent).toBe('Loading…');
     });
 
     test('Continue button is disabled', async () => {

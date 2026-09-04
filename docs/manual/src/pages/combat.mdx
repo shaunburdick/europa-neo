@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Combat
 ---
 
+import { EuropaTroopChip } from '@europa/design/components';
+
 # Combat
 
 This page explains how combat resolves when opposing troops meet, and when attacking is worth it.
@@ -20,9 +22,9 @@ Worked examples:
 
 | Your troops | Enemy troops | Result |
 | --- | --- | --- |
-| <europa-troop-chip count="20" owner="1"></europa-troop-chip> 20 | <europa-troop-chip count="20" owner="2"></europa-troop-chip> 20 | Both destroyed — mutual annihilation |
-| <europa-troop-chip count="25" owner="1"></europa-troop-chip> 25 | <europa-troop-chip count="10" owner="2"></europa-troop-chip> 10 | Enemy wiped out; you keep 15 |
-| <europa-troop-chip count="10" owner="1"></europa-troop-chip> 10 | <europa-troop-chip count="25" owner="2"></europa-troop-chip> 25 | You are wiped out; enemy keeps 15 |
+| <EuropaTroopChip count="20" owner="1"></EuropaTroopChip> 20 | <EuropaTroopChip count="20" owner="2"></EuropaTroopChip> 20 | Both destroyed — mutual annihilation |
+| <EuropaTroopChip count="25" owner="1"></EuropaTroopChip> 25 | <EuropaTroopChip count="10" owner="2"></EuropaTroopChip> 10 | Enemy wiped out; you keep 15 |
+| <EuropaTroopChip count="10" owner="1"></EuropaTroopChip> 10 | <EuropaTroopChip count="25" owner="2"></EuropaTroopChip> 25 | You are wiped out; enemy keeps 15 |
 
 Equal forces annihilate each other completely. Because combat resolves every tick, a 21-vs-20 fight leaves 1 troop standing — then decay or the next wave settles it.
 

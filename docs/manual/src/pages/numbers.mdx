@@ -3,6 +3,8 @@ layout: ../layouts/ManualLayout.astro
 title: Numbers
 ---
 
+import { EuropaTroopChip, EuropaChip, EuropaPipeSlope, EuropaReserveIndicator, EuropaPlayerBadge } from '@europa/design/components';
+
 # Numbers
 
 Every player-facing number in Europa Neo, exactly as shipped. When this table and the game disagree, the manual is wrong — report it as a bug. Each row names the constant it ships from.
@@ -12,14 +14,14 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Value | Shipped value | Constant |
 | --- | --- | --- |
 | Tick cadence | 250 ms (4 ticks/second) | `DEFAULT_TICK_INTERVAL_MS` |
-| City production | <europa-troop-chip count="1" owner="1"></europa-troop-chip> troop/tick until saturated | `ENGINE_CONSTANTS.productionRate` |
-| City saturation cap | <europa-chip count="30"></europa-chip> troops | `ENGINE_CONSTANTS.cityCapacity` |
+| City production | <EuropaTroopChip count="1" owner="1"></EuropaTroopChip> troop/tick until saturated | `ENGINE_CONSTANTS.productionRate` |
+| City saturation cap | <EuropaChip count="30"></EuropaChip> troops | `ENGINE_CONSTANTS.cityCapacity` |
 | Open-cell troop cap | 30 troops | `ENGINE_CONSTANTS.cellCapacity` |
 | Unfed decay | −1 troop/tick | `ENGINE_CONSTANTS.decayPerTick` |
-| Pipe flow, downhill | <europa-pipe-slope direction="downhill"></europa-pipe-slope> 8–12 troops/tick per pipe (Δ=1 → 8 … Δ≥5 → 12) | `ENGINE_CONSTANTS.flowBase + flowSlopeStep × min(│Δ│, flowSlopeDeltaCap)` |
-| Pipe flow, flat | <europa-pipe-slope direction="flat"></europa-pipe-slope> 7 troops/tick per pipe | `ENGINE_CONSTANTS.flowBase` |
-| Pipe flow, uphill | <europa-pipe-slope direction="uphill"></europa-pipe-slope> 6→1 troops/tick per pipe (Δ=1 → 6 … Δ=6 → 1) | `max(0, ENGINE_CONSTANTS.flowBase − flowSlopeStep × │Δ│)` |
-| Pipe flow, stalled | <europa-pipe-slope direction="stalled"></europa-pipe-slope> 0 troops/tick (Δ≥7) | `ENGINE_CONSTANTS.flowBase / flowSlopeStep` (stall threshold) |
+| Pipe flow, downhill | <EuropaPipeSlope direction="downhill"></EuropaPipeSlope> 8–12 troops/tick per pipe (Δ=1 → 8 … Δ≥5 → 12) | `ENGINE_CONSTANTS.flowBase + flowSlopeStep × min(│Δ│, flowSlopeDeltaCap)` |
+| Pipe flow, flat | <EuropaPipeSlope direction="flat"></EuropaPipeSlope> 7 troops/tick per pipe | `ENGINE_CONSTANTS.flowBase` |
+| Pipe flow, uphill | <EuropaPipeSlope direction="uphill"></EuropaPipeSlope> 6→1 troops/tick per pipe (Δ=1 → 6 … Δ=6 → 1) | `max(0, ENGINE_CONSTANTS.flowBase − flowSlopeStep × │Δ│)` |
+| Pipe flow, stalled | <EuropaPipeSlope direction="stalled"></EuropaPipeSlope> 0 troops/tick (Δ≥7) | `ENGINE_CONSTANTS.flowBase / flowSlopeStep` (stall threshold) |
 
 ## Terrain
 
@@ -44,10 +46,10 @@ These values control the visual triangle size on pipe slopes, not gameplay.
 
 | Value | Shipped value | Constant |
 | --- | --- | --- |
-| Paratroop order cost | <europa-troop-chip count="20" owner="1"></europa-troop-chip> troops removed at source | `ENGINE_CONSTANTS.paratroopCost` (10) × 2 |
-| Paratroops landed | <europa-troop-chip count="10" owner="1"></europa-troop-chip> troops at target | `ENGINE_CONSTANTS.paratroopCost` |
-| Gun shot cost | <europa-troop-chip count="5" owner="1"></europa-troop-chip> troops per shot | `ENGINE_CONSTANTS.gunCost` |
-| Gun damage | <europa-troop-chip count="2" owner="2"></europa-troop-chip> troops, everything in the target cell | `ENGINE_CONSTANTS.gunDamage` |
+| Paratroop order cost | <EuropaTroopChip count="20" owner="1"></EuropaTroopChip> troops removed at source | `ENGINE_CONSTANTS.paratroopCost` (10) × 2 |
+| Paratroops landed | <EuropaTroopChip count="10" owner="1"></EuropaTroopChip> troops at target | `ENGINE_CONSTANTS.paratroopCost` |
+| Gun shot cost | <EuropaTroopChip count="5" owner="1"></EuropaTroopChip> troops per shot | `ENGINE_CONSTANTS.gunCost` |
+| Gun damage | <EuropaTroopChip count="2" owner="2"></EuropaTroopChip> troops, everything in the target cell | `ENGINE_CONSTANTS.gunDamage` |
 | Weapon range (both) | 2 cells max (diagonals count as 1) | `SUBCELL_RANGE` |
 
 ## Vision
@@ -68,13 +70,13 @@ These values control the visual triangle size on pipe slopes, not gameplay.
 
 | Value | Shipped value | Constant |
 | --- | --- | --- |
-| Reserves steps | <europa-reserve-indicator percent="0"></europa-reserve-indicator>–<europa-reserve-indicator percent="90"></europa-reserve-indicator> in 10% steps (digits 0–9) | Reserve key mapping (`resolveReservePercent`) |
+| Reserves steps | <EuropaReserveIndicator percent="0"></EuropaReserveIndicator>–<EuropaReserveIndicator percent="90"></EuropaReserveIndicator> in 10% steps (digits 0–9) | Reserve key mapping (`resolveReservePercent`) |
 | Camera zoom bounds | 12–96 pixels per cell | `DEFAULT_CAMERA.minZoom` / `.maxZoom` |
 | Default zoom | 32 pixels per cell | `DEFAULT_CAMERA.zoom` |
-| Player 1 color | <europa-player-badge player="1"></europa-player-badge> Red `#dc2626` | `DEFAULT_PLAYER_COLORS[1]` |
-| Player 2 color | <europa-player-badge player="2"></europa-player-badge> Blue `#2563eb` | `DEFAULT_PLAYER_COLORS[2]` |
-| Player 3 color | <europa-player-badge player="3"></europa-player-badge> Green `#059669` | `DEFAULT_PLAYER_COLORS[3]` |
-| Player 4 color | <europa-player-badge player="4"></europa-player-badge> Orange-gold `#d97706` | `DEFAULT_PLAYER_COLORS[4]` |
+| Player 1 color | <EuropaPlayerBadge player="1"></EuropaPlayerBadge> Red `#dc2626` | `DEFAULT_PLAYER_COLORS[1]` |
+| Player 2 color | <EuropaPlayerBadge player="2"></EuropaPlayerBadge> Blue `#2563eb` | `DEFAULT_PLAYER_COLORS[2]` |
+| Player 3 color | <EuropaPlayerBadge player="3"></EuropaPlayerBadge> Green `#059669` | `DEFAULT_PLAYER_COLORS[3]` |
+| Player 4 color | <EuropaPlayerBadge player="4"></EuropaPlayerBadge> Orange-gold `#d97706` | `DEFAULT_PLAYER_COLORS[4]` |
 
 The v1 palette is fixed — these four colors are what ships. Owner identity is never conveyed by color alone: the interface also labels players by name and number.
 

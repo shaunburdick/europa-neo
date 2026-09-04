@@ -4,7 +4,7 @@
     "root": false,
     "extends": ["../../biome.jsonc"],
     "files": {
-        "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "*.jsonc", "!src/styles/catalog-styles.ts"]
+        "includes": ["src/**", "tests/**", "scripts/**", "*.ts", "*.json", "*.jsonc"]
     },
     "overrides": [
         {
@@ -17,6 +17,20 @@
                 "rules": {
                     "complexity": {
                         "noImportantStyles": "off"
+                    }
+                }
+            }
+        },
+        {
+            // Modal backdrop is a full-screen interactive overlay, not a
+            // semantic button. Using <button> would wrap the entire dialog
+            // (invalid HTML nesting). role="button" + onKeyDown satisfies
+            // the a11y contract while useSemanticElements cannot apply here.
+            "includes": ["src/components/generic/modal.tsx"],
+            "linter": {
+                "rules": {
+                    "a11y": {
+                        "useSemanticElements": "off"
                     }
                 }
             }

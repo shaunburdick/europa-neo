@@ -8,6 +8,8 @@
         "declaration": true,
         "declarationMap": true,
         "sourceMap": true,
+        "jsx": "react-jsx",
+        "jsxImportSource": "react",
         "lib": ["ES2022", "DOM", "DOM.Iterable"]
     },
     "include": ["src/**/*"],
