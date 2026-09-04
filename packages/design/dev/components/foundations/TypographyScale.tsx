@@ -32,12 +32,12 @@ export function TypographyScale(): React.ReactElement {
                     <div key={sample.token} className="dev-type-sample">
                         <span
                             style={{
-                                fontSize: `var(--europa-typography-size-${sample.token})`,
+                                fontSize: `var(--europa-typography-${sample.token})`,
                             }}
                         >
                             {sample.sample}
                         </span>
-                        <code>--europa-typography-size-{sample.token}</code>
+                        <code>--europa-typography-{sample.token}</code>
                         <span>{sample.value}</span>
                     </div>
                 ))}

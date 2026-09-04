@@ -504,3 +504,11 @@ body {
         transition: none;
     }
 }
+
+/* ── Dev-page component overrides ────────────────────────────────────── */
+/* Override catalog.css's position:fixed banner so it stays in-flow in
+   the dev page showcase instead of overlaying the entire viewport. */
+.dev-section .europa-banner {
+    position: static;
+    z-index: auto;
+}

@@ -14,6 +14,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './components/App';
 import { toKebabCase } from './lib/token-utils';
 import './styles/shell.css';
+import '../src/styles/catalog.css';
 import { TOKENS } from '../src/tokens.ts';
 
 // ---------------------------------------------------------------------------
@@ -30,7 +31,7 @@ import { TOKENS } from '../src/tokens.ts';
  * styled with no prior build and hot-reloads when tokens change.
  */
 function applyTokenVariables(): void {
-    const root = document.documentElement;
+    const lines: string[] = [':root {'];
     const groups = Object.keys(TOKENS).sort() as Array<keyof typeof TOKENS>;
 
     for (const group of groups) {
@@ -43,9 +44,16 @@ function applyTokenVariables(): void {
                 continue;
             }
             const cssVar = `--europa-${groupKebab}-${toKebabCase(leafKey)}`;
-            root.style.setProperty(cssVar, String(rawValue));
+            lines.push(`    ${cssVar}: ${String(rawValue)};`);
         }
     }
+
+    lines.push('}');
+
+    const style = document.createElement('style');
+    style.id = 'europa-token-vars';
+    style.textContent = lines.join('\n');
+    document.head.appendChild(style);
 }
 
 // Inject tokens synchronously before React renders.
