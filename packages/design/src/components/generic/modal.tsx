@@ -71,7 +71,6 @@ export function EuropaModal({ open = false, title, children, actions, onClose }:
         (e: KeyboardEvent) => {
             if (!open) return;
             if (e.key === 'Escape') {
-                (window as any).__modalEscapeFired = ((window as any).__modalEscapeFired || 0) + 1;
                 e.preventDefault();
                 onCloseRef.current?.();
                 return;
