@@ -48,9 +48,9 @@ export interface CategoryDescriptor {
  * Rendered as section headings; order determines visual grouping.
  */
 export const CATEGORIES: ReadonlyArray<CategoryDescriptor> = [
-    { key: 'foundations', label: 'Foundations' },
-    { key: 'components', label: 'Generic Components' },
     { key: 'primitives', label: 'Game Primitives' },
+    { key: 'components', label: 'Generic Components' },
+    { key: 'foundations', label: 'Foundations' },
 ] as const;
 
 // ---------------------------------------------------------------------------

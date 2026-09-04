@@ -86,12 +86,15 @@ export function App(): React.ReactElement {
         <div className="dev-layout">
             <Sidebar />
             <main className="dev-content" ref={contentRef}>
-                {/* -- Foundations ---------------------------------------- */}
-                <ColorSwatches />
-                <TypographyScale />
-                <SpacingBorders />
-                <A11yPairings />
-                <TokenReference />
+                {/* -- Game Primitives ------------------------------------ */}
+                <TroopChipDemo />
+                <CityMarkerDemo />
+                <PipeSlopeDemo />
+                <ElevationSwatchDemo />
+                <PlayerBadgeDemo />
+                <FogOverlayDemo />
+                <ReserveIndicatorDemo />
+                <TokenColorReference />
 
                 <hr className="dev-divider" />
 
@@ -112,15 +115,12 @@ export function App(): React.ReactElement {
 
                 <hr className="dev-divider" />
 
-                {/* -- Game Primitives ------------------------------------ */}
-                <TroopChipDemo />
-                <CityMarkerDemo />
-                <PipeSlopeDemo />
-                <ElevationSwatchDemo />
-                <PlayerBadgeDemo />
-                <FogOverlayDemo />
-                <ReserveIndicatorDemo />
-                <TokenColorReference />
+                {/* -- Foundations ---------------------------------------- */}
+                <ColorSwatches />
+                <TypographyScale />
+                <SpacingBorders />
+                <A11yPairings />
+                <TokenReference />
             </main>
         </div>
     );
