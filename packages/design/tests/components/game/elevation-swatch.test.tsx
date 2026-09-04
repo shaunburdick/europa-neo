@@ -51,12 +51,6 @@ describe('EuropaElevationSwatch', () => {
         expect(swatch).toHaveStyle({ backgroundColor: expectedHsl(50) });
     });
 
-    it('sets the correct background color for elevation 42', () => {
-        render(<EuropaElevationSwatch elevation={42} />);
-        const swatch = screen.getByRole('img');
-        expect(swatch).toHaveStyle({ backgroundColor: expectedHsl(42) });
-    });
-
     it('sets aria-label with the elevation value', () => {
         render(<EuropaElevationSwatch elevation={42} />);
         const swatch = screen.getByRole('img');
@@ -82,12 +76,6 @@ describe('EuropaElevationSwatch', () => {
         const swatch = screen.getByRole('img');
         expect(swatch).toHaveStyle({ backgroundColor: expectedHsl(100) });
         expect(swatch).toHaveAttribute('aria-label', 'elevation 100');
-    });
-
-    it('renders role="img" on the span', () => {
-        render(<EuropaElevationSwatch elevation={50} />);
-        const swatch = screen.getByRole('img');
-        expect(swatch).toBeDefined();
     });
 
     it('has inline-block display with 24x24 dimensions', () => {

@@ -15,7 +15,7 @@ import { EuropaFogOverlay } from '../../../src/components/game/fog-overlay.js';
  * Covered:
  * - Default visibility: overlay rendered when `visible` is absent.
  * - Hidden when `visible={false}` (renders nothing).
- * - `aria-hidden="true"` present on the overlay div.
+ * - Toggle behavior when `visible` prop changes.
  */
 describe('EuropaFogOverlay', () => {
     it('renders the overlay div by default', () => {
@@ -28,12 +28,6 @@ describe('EuropaFogOverlay', () => {
         const { container } = render(<EuropaFogOverlay visible={false} />);
         const overlay = container.querySelector('div[aria-hidden="true"]');
         expect(overlay).toBeNull();
-    });
-
-    it('has aria-hidden="true" attribute', () => {
-        const { container } = render(<EuropaFogOverlay />);
-        const overlay = container.firstChild as HTMLElement;
-        expect(overlay).toHaveAttribute('aria-hidden', 'true');
     });
 
     it('toggles visibility when the visible prop changes', () => {

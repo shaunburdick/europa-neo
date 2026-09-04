@@ -58,14 +58,6 @@ describe('EuropaPipeSlope', () => {
         });
     });
 
-    // ── role="img" ────────────────────────────────────────────────────
-
-    it('renders a span with role="img"', () => {
-        render(<EuropaPipeSlope direction="downhill" />);
-        const indicator = screen.getByRole('img');
-        expect(indicator).toBeDefined();
-    });
-
     // ── unknown / absent direction → stalled fallback ───────────────────
 
     describe('unknown / absent direction falls back to stalled', () => {

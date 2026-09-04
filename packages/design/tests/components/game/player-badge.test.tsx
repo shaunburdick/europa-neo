@@ -65,14 +65,6 @@ describe('EuropaPlayerBadge', () => {
         }
     });
 
-    it('falls back to textMuted for an unknown player value', () => {
-        // The type system prevents unknown values, but the runtime fallback
-        // is tested via the PLAYER_COLORS lookup behavior.
-        render(<EuropaPlayerBadge player={1} />);
-        const badge = screen.getByRole('img');
-        expect(badge).toHaveStyle({ color: TOKENS.color.accent });
-    });
-
     it('displays the name when provided', () => {
         render(<EuropaPlayerBadge player={1} name="Alice" />);
         const badge = screen.getByText('Alice');

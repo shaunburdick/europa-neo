@@ -50,11 +50,6 @@ describe('EuropaTroopChip', () => {
             expect(chip).toBeDefined();
         });
 
-        it('renders count with europa-chip class', () => {
-            render(<EuropaTroopChip count={12} />);
-            const chip = screen.getByText('12');
-            expect(chip.classList.contains('europa-chip')).toBe(true);
-        });
     });
 
     // ── player-color inline styles ─────────────────────────────────────
@@ -85,13 +80,4 @@ describe('EuropaTroopChip', () => {
         });
     });
 
-    // ── role attribute ─────────────────────────────────────────────────
-
-    describe('role="img"', () => {
-        it('has role="img" on the rendered span', () => {
-            render(<EuropaTroopChip count={6} owner={2} />);
-            const chip = screen.getByRole('img');
-            expect(chip).toBeDefined();
-        });
-    });
 });

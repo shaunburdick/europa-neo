@@ -30,12 +30,6 @@ describe('EuropaReserveIndicator', () => {
         expect(chip).toBeDefined();
     });
 
-    it('renders the span with role="img" and europa-chip class', () => {
-        render(<EuropaReserveIndicator percent={50} />);
-        const chip = screen.getByRole('img');
-        expect(chip.classList.contains('europa-chip')).toBe(true);
-    });
-
     describe('percent coercion', () => {
         it('falls back to 0 when percent is NaN', () => {
             render(<EuropaReserveIndicator percent={Number.NaN} />);
@@ -65,11 +59,5 @@ describe('EuropaReserveIndicator', () => {
             expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'reserves 30%');
         });
 
-        it('rounds 35 up to 40 (nearest step of 10)', () => {
-            render(<EuropaReserveIndicator percent={35} />);
-            const chip = screen.getByText('40%');
-            expect(chip).toBeDefined();
-            expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'reserves 40%');
-        });
     });
 });

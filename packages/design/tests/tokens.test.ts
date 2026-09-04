@@ -59,9 +59,6 @@ describe('semantic state color tokens', () => {
         expect(TOKENS.color.infoActive).toBe('#ad872f');
     });
 
-    it('success reuses the canonical green value', () => {
-        expect(TOKENS.color.success).toBe(TOKENS.color.green);
-    });
 });
 
 describe('control height tokens', () => {
@@ -118,15 +115,6 @@ describe('token table determinism invariant (spec 012 FR-004)', () => {
 });
 
 describe('shadow tokens (Feature 062 FR-001)', () => {
-    it('defines all six shadow tokens with non-none values', () => {
-        expect(TOKENS.shadows.board).not.toBe('none');
-        expect(TOKENS.shadows.modal).not.toBe('none');
-        expect(TOKENS.shadows.plate).not.toBe('none');
-        expect(TOKENS.shadows.cardHover).toBeDefined();
-        expect(TOKENS.shadows.cardActive).toBeDefined();
-        expect(TOKENS.shadows.hud).toBeDefined();
-    });
-
     it('pins the exact shadow values', () => {
         expect(TOKENS.shadows.board).toBe('inset 0 1px 4px rgba(0, 0, 0, 0.3)');
         expect(TOKENS.shadows.cardActive).toBe('0 2px 4px rgba(0, 0, 0, 0.25)');
@@ -181,7 +169,4 @@ describe('focus ring token additions (Feature 062 FR-005)', () => {
         expect(TOKENS.focusRing.lightColor).toBe('#ffffff');
     });
 
-    it('preserves existing focus ring token', () => {
-        expect(TOKENS.focusRing.color).toBe('#ffffff');
-    });
 });

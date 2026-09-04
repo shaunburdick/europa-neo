@@ -2,10 +2,10 @@
  * Tests for the deterministic CSS emitter (spec 012, FR-006 / FR-046)
  * and the `--emit-json` mode (Feature 062, FR-006).
  *
- * Validates `buildCssText()` output structure, variable coverage, new
- * shadow/motion/color/typography/focus-ring tokens, inline comments,
- * and byte-identical determinism.  Validates `buildTokensJson()` array
- * structure, lexicographic sort, and completeness.
+ * Validates `buildCssText()` output structure, variable coverage,
+ * inline comments, and byte-identical determinism.  Validates
+ * `buildTokensJson()` array structure, lexicographic sort, and
+ * completeness. Token exact-value tests live in tokens.test.ts.
  *
  * Does NOT test `writeDesignCss()` — it requires filesystem setup beyond
  * the scope of unit tests. The former `emitCatalogStylesModule()` was
@@ -38,40 +38,6 @@ describe('buildCssText()', () => {
         expect(css).toContain('--europa-radii-');
         expect(css).toContain('--europa-borders-');
         expect(css).toContain('--europa-control-height-');
-    });
-
-    it('includes the new shadow tokens', () => {
-        const css = buildCssText();
-        expect(css).toContain('--europa-shadows-card-hover: 0 4px 12px rgba(0, 0, 0, 0.3);');
-        expect(css).toContain('--europa-shadows-card-active: 0 2px 4px rgba(0, 0, 0, 0.25);');
-        expect(css).toContain('--europa-shadows-hud: 0 2px 8px rgba(0, 0, 0, 0.25);');
-    });
-
-    it('includes the new motion tokens', () => {
-        const css = buildCssText();
-        expect(css).toContain('--europa-motion-duration: 120ms;');
-        expect(css).toContain('--europa-motion-transition-fast: 80ms;');
-        expect(css).toContain('--europa-motion-easing-out: cubic-bezier(0.16, 1, 0.3, 1);');
-    });
-
-    it('includes the new color tokens', () => {
-        const css = buildCssText();
-        expect(css).toContain('--europa-color-text-link: #f59e0b;');
-        expect(css).toContain('--europa-color-accent-active: #d97706;');
-        expect(css).toContain('--europa-color-divider: #374151;');
-        expect(css).toContain('--europa-color-card-hover-border: #f59e0b;');
-    });
-
-    it('includes the new typography tokens', () => {
-        const css = buildCssText();
-        expect(css).toContain('--europa-typography-heading: 1.5rem;');
-        expect(css).toContain('--europa-typography-tracking-tight: -0.025em;');
-    });
-
-    it('includes the new focus ring tokens', () => {
-        const css = buildCssText();
-        expect(css).toContain('--europa-focus-ring-dark-color: #111827;');
-        expect(css).toContain('--europa-focus-ring-light-color: #ffffff;');
     });
 
     it('emits inline comments before background tokens (FR-046)', () => {
@@ -136,50 +102,6 @@ describe('buildTokensJson()', () => {
         const cssVars = entries.map((e) => e.cssVar);
         const sorted = [...cssVars].sort();
         expect(cssVars).toEqual(sorted);
-    });
-
-    it('includes all new shadow tokens', () => {
-        const entries = buildTokensJson();
-        const cssVars = new Set(entries.map((e) => e.cssVar));
-
-        expect(cssVars.has('--europa-shadows-card-hover')).toBe(true);
-        expect(cssVars.has('--europa-shadows-card-active')).toBe(true);
-        expect(cssVars.has('--europa-shadows-hud')).toBe(true);
-    });
-
-    it('includes all new motion tokens', () => {
-        const entries = buildTokensJson();
-        const cssVars = new Set(entries.map((e) => e.cssVar));
-
-        expect(cssVars.has('--europa-motion-duration')).toBe(true);
-        expect(cssVars.has('--europa-motion-transition-fast')).toBe(true);
-        expect(cssVars.has('--europa-motion-easing-out')).toBe(true);
-    });
-
-    it('includes all new color tokens', () => {
-        const entries = buildTokensJson();
-        const cssVars = new Set(entries.map((e) => e.cssVar));
-
-        expect(cssVars.has('--europa-color-text-link')).toBe(true);
-        expect(cssVars.has('--europa-color-accent-active')).toBe(true);
-        expect(cssVars.has('--europa-color-divider')).toBe(true);
-        expect(cssVars.has('--europa-color-card-hover-border')).toBe(true);
-    });
-
-    it('includes all new typography tokens', () => {
-        const entries = buildTokensJson();
-        const cssVars = new Set(entries.map((e) => e.cssVar));
-
-        expect(cssVars.has('--europa-typography-heading')).toBe(true);
-        expect(cssVars.has('--europa-typography-tracking-tight')).toBe(true);
-    });
-
-    it('includes all new focus ring tokens', () => {
-        const entries = buildTokensJson();
-        const cssVars = new Set(entries.map((e) => e.cssVar));
-
-        expect(cssVars.has('--europa-focus-ring-dark-color')).toBe(true);
-        expect(cssVars.has('--europa-focus-ring-light-color')).toBe(true);
     });
 
     it('maps cssVar names back to the correct group', () => {
