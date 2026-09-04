@@ -111,6 +111,90 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 6. **Pre-push verification gate**: before pushing to a PR branch, run `pnpm verify` (or `bash scripts/verify.sh`) — the single source of truth for CI-equivalent local verification. This runs typecheck, lint, format, all package tests, browser-mode tests, E2E tests, selfhost checks, design system guards, and conformance programs. A failure discovered at CI time is a process failure.
 7. **CI must pass before merge**: no PR may be merged with failing CI checks. There are never "preexisting" test failures — if CI was green before your branch and is red after, your changes caused it. Fix failures in your branch before requesting review. If you observe a failure you believe is unrelated to your changes, investigate thoroughly before assuming it's someone else's problem.
 
+## Browser automation with agent-browser
+
+The project uses `agent-browser` (v0.36+) for visual verification, exploratory testing, and live-smoke checks against the running app. It drives real Chromium via CDP — no Playwright or Puppeteer dependency.
+
+### Starting the app
+
+`pnpm host` boots the full stack on a **single port** (default `8080`): match server + WebSocket + static console UI. The server prints clickable join URLs on startup.
+
+```bash
+# Default port
+pnpm host
+
+# Custom port
+pnpm host --port 9090
+# or
+HOST_PORT=9090 pnpm host
+```
+
+Wait for the "Match server listening" output before opening a browser session.
+
+### Agent-browser workflow
+
+```bash
+# 1. Set a named session (avoids hijacking other agents' browsers)
+export AGENT_BROWSER_SESSION="$(agent-browser session id --scope worktree --prefix task)"
+
+# 2. Open the app
+agent-browser open http://localhost:8080/lobby
+
+# 3. See what's on the page (interactive elements with @eN refs)
+agent-browser snapshot -i
+
+# 4. Interact using refs from the snapshot
+agent-browser click @e3
+agent-browser fill @e5 "PlayerName"
+agent-browser press Enter
+
+# 5. Re-snapshot after any page change (refs go stale on navigation/render)
+agent-browser snapshot -i
+
+# 6. Take a screenshot for visual verification
+agent-browser screenshot lobby-check.png
+
+# 7. Clean up when done
+agent-browser close
+```
+
+### Key rules
+
+- **Always re-snapshot after actions** — `@eN` refs are fresh per snapshot and go stale the moment the page changes (navigation, click, form submit, dynamic re-render).
+- **Use named sessions** (`AGENT_BROWSER_SESSION`) — the default unnamed session is shared across all agents on the machine and persists across conversations.
+- **Inspect computed styles** when the question is "how does this render?":
+  ```bash
+  agent-browser inspect @e3    # computed styles for the matched element
+  ```
+- **Resize viewport** to check responsive layout:
+  ```bash
+  agent-browser resize mobile   # or tablet, desktop, fill
+  ```
+- **Navigate between pages** — the browser stays running across commands:
+  ```bash
+  agent-browser open http://localhost:8080/match/some-id
+  agent-browser back
+  agent-browser forward
+  ```
+
+### App routes for testing
+
+| Route                     | Purpose                                      |
+| ------------------------- | -------------------------------------------- |
+| `/`                         | Welcome/landing page                         |
+| `/lobby`                    | Main lobby (identity card, create, match list) |
+| `/profile`                  | Identity management (set/change handle)      |
+| `/match/<id>`               | Active match view (board, HUD, orders)       |
+| `/match/<id>/join`          | Join a match by ID                           |
+| `/match/<id>/spectate`      | Read-only spectator view                     |
+
+The lobby requires a set identity (handle). First visit to `/lobby` redirects unnamed visitors to `/profile`. Use the profile form to set a handle, then navigate back to `/lobby`.
+
+### When to use agent-browser vs Playwright E2E
+
+- **agent-browser**: visual verification, exploratory testing, debugging UI issues, checking how something renders, quick smoke checks during development. Interactive and ad-hoc.
+- **Playwright E2E** (`pnpm test:e2e`): automated regression tests, CI gates, deterministic assertions. Structured and repeatable.
+
 ## Environment notes (hard-won, verified this session)
 
 - **Subagent reliability**: long-running subagent tasks in this environment may silently die ("stuck in thought", empty results, zero disk changes). Mitigations that work:
