@@ -48,6 +48,8 @@ export function EuropaModal({ open = false, title, children, actions, onClose }:
     const id = useId();
     const previousFocus = useRef<HTMLElement | null>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
+    const onCloseRef = useRef(onClose);
+    onCloseRef.current = onClose;
 
     // Capture previous focus when opening
     useEffect(() => {
@@ -69,8 +71,9 @@ export function EuropaModal({ open = false, title, children, actions, onClose }:
         (e: KeyboardEvent) => {
             if (!open) return;
             if (e.key === 'Escape') {
+                (window as any).__modalEscapeFired = ((window as any).__modalEscapeFired || 0) + 1;
                 e.preventDefault();
-                onClose?.();
+                onCloseRef.current?.();
                 return;
             }
             if (e.key === 'Tab') {
@@ -94,7 +97,7 @@ export function EuropaModal({ open = false, title, children, actions, onClose }:
                 }
             }
         },
-        [open, onClose],
+        [open],
     );
 
     useEffect(() => {
