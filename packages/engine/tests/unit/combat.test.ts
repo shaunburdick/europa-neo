@@ -131,6 +131,9 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         // Attacker is the lower PlayerId (deterministic tiebreak).
         expect(ev.attacker).toBe(1);
         expect(ev.defender).toBe(2);
+        // Total-force: each side committed 100.
+        expect(ev.attackerTotal).toBe(100);
+        expect(ev.defenderTotal).toBe(100);
     });
 
     it('200v50: bigger force overwhelms smaller; defender eliminated; attacker retains 150', () => {
@@ -166,6 +169,9 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         expect(ev.winner).toBe(1);
         expect(ev.attacker).toBe(1);
         expect(ev.defender).toBe(2);
+        // Total-force: P1 committed 200, P2 committed 50.
+        expect(ev.attackerTotal).toBe(200);
+        expect(ev.defenderTotal).toBe(50);
     });
 
     it('100v100: losses are within ±20% of each other (the equality assertion)', () => {
@@ -385,6 +391,13 @@ describe('resolveCombat — defensive / boundary', () => {
         // Total-force model without preFlowState: dominant-owner fallback.
         // P2 dominates tally (100 > 1), so P2 wins and retains the cell.
         expect(out.state.troopOwners[4 * size + 4]).toBe(2);
+        // Verify CombatEvent totals.
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            expect(ev.attackerTotal).toBe(1);
+            expect(ev.defenderTotal).toBe(100);
+        }
     });
 
     it('1v1: both eliminated', () => {
@@ -398,6 +411,14 @@ describe('resolveCombat — defensive / boundary', () => {
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(0);
         expect(out.state.troopOwners[4 * size + 4]).toBe(0);
+        // Verify CombatEvent totals: equal forces → tie.
+        const ev = out.events.combat[0];
+        expect(ev).toBeDefined();
+        if (ev !== undefined) {
+            expect(ev.attackerTotal).toBe(1);
+            expect(ev.defenderTotal).toBe(1);
+            expect(ev.winner).toBe('tie');
+        }
     });
 
     it('does not modify unrelated state arrays (pipeMasks, cityOwners, reservesPct)', () => {

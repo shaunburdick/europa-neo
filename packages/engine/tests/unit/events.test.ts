@@ -42,6 +42,8 @@ const COMBAT: CombatEvent = {
     attackerLoss: 5,
     defenderLoss: 5,
     winner: 'tie',
+    attackerTotal: 10,
+    defenderTotal: 10,
 };
 
 const CAPTURE: CaptureEvent = {
