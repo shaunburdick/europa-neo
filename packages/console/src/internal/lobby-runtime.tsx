@@ -288,6 +288,24 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     const legIntentRef = useRef<LegIntent | null>(null);
     const routeAttemptedRef = useRef(false);
 
+    // Pin the leg intent's matchId once activeMatchId is known (create
+    // flow — join/spectate set it eagerly). Without this, the creator's
+    // legIntentRef stays `{ matchId: null }` until the lobby snapshot
+    // removes the terminated match and activeMatchId reverts to null.
+    // That causes the derived matchId to become null, changing the
+    // MatchLegHost key and unmounting the live App (with its
+    // GameOverModal) before the player sees the result.
+    useEffect(() => {
+        if (
+            state.viewMode === 'match' &&
+            legIntentRef.current !== null &&
+            legIntentRef.current.matchId === null &&
+            state.activeMatchId !== null
+        ) {
+            legIntentRef.current = { ...legIntentRef.current, matchId: state.activeMatchId };
+        }
+    }, [state.viewMode, state.activeMatchId]);
+
     function navigateTo(pathname: string): void {
         if (window.location.pathname === pathname) return;
         window.history.pushState(window.history.state, '', pathname);
