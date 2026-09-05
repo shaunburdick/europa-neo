@@ -40,7 +40,7 @@ import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fi
 const CELL = { x: 5, y: 5 };
 
 /** Default camera used for MapView construction. */
-const CAMERA: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 12, maxZoom: 96 };
+const CAMERA: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 16, maxZoom: 96 };
 
 /** Board with one owned friendly cell under the cursor. */
 function makeView(reservesPercent: 0 | 7 = 0): PlayerView {

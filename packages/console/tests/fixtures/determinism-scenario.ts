@@ -152,7 +152,7 @@ export function buildScenarioAction(tick: number): PlayerAction {
                 camera: {
                     zoom: 32,
                     pan: { x: (tick % 5) * 2, y: (tick % 4) * 2 },
-                    minZoom: 12,
+                    minZoom: 16,
                     maxZoom: 96,
                 },
             };

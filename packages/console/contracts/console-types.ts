@@ -90,8 +90,11 @@
  * Mirrors the engine/fog/networking versioning discipline: every
  * consumer pin-checks at startup; incrementing forces a coordinated
  * update.
+ *
+ * 0.2.0 (issue #76): `DEFAULT_CAMERA.minZoom` raised 12 → 16 — the
+ * zoom clamp range is part of the public console surface (FR-017).
  */
-export const CONSOLE_API_VERSION = '0.1.0' as const;
+export const CONSOLE_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)
@@ -494,7 +497,7 @@ export interface CameraState {
   readonly zoom: number;
   /** Top-left offset in CSS pixels. */
   readonly pan: { readonly x: number; readonly y: number };
-  /** Min cell size (CSS pixels). Default 12 (board visible at 12×12 = 384px min). */
+  /** Min cell size (CSS pixels). Default 16 (issue #76 FR-017: 50% zoom). */
   readonly minZoom: number;
   /** Max cell size. Default 96 (so a single cell fits the viewport). */
   readonly maxZoom: number;
@@ -507,7 +510,7 @@ export interface CameraState {
 export const DEFAULT_CAMERA: CameraState = {
   zoom: 32,
   pan: { x: 0, y: 0 },
-  minZoom: 12,
+  minZoom: 16,
   maxZoom: 96,
 };
 

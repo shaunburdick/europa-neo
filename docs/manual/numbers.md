@@ -68,7 +68,7 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | Value | Shipped value | Constant |
 | --- | --- | --- |
 | Reserves steps | 0–90% in 10% steps (digits 0–9) | reserve key mapping (`resolveReservePercent`) |
-| Camera zoom bounds | 12–96 pixels per cell | `DEFAULT_CAMERA.minZoom` / `.maxZoom` |
+| Camera zoom bounds | 16–96 pixels per cell | `DEFAULT_CAMERA.minZoom` / `.maxZoom` |
 | Default zoom | 32 pixels per cell | `DEFAULT_CAMERA.zoom` |
 | Player 1 color | Red `#dc2626` | `DEFAULT_PLAYER_COLORS[1]` |
 | Player 2 color | Blue `#2563eb` | `DEFAULT_PLAYER_COLORS[2]` |

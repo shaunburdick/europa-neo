@@ -11,7 +11,8 @@
  * place a constant can drift: the contract itself.
  *
  * Values (data-model.md §15 / tasks.md T019):
- *   - defaultCellPx 32 · minCellPx 12 · maxCellPx 96 (camera clamp)
+ *   - defaultCellPx 32 · minCellPx 16 · maxCellPx 96 (camera clamp,
+ *     issue #76 FR-017: 50%–300%)
  *   - feedbackTtlMs 2000 · labelTtlMs 1500 · effectTtlMs 400 (transient TTLs)
  *   - maxFeedbackMessages 5 · maxRejectedOrders 10 (FIFO caps)
  *   - clientOrderRatePerSec 10 (client-side debounce hint)

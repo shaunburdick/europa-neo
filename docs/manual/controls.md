@@ -55,7 +55,7 @@ A red aim dot drawn on the selected cell shows exactly where you are pointing, a
 | Zoom section buttons | The sidebar's Zoom section shows the current zoom as a percentage and offers **+**, **−**, and **100%** buttons with the same effects as the keys |
 {: .europa-table }
 
-Zoom runs from 12 to 96 pixels per cell; a fresh match starts at 32 pixels per cell, which fits a standard 32×32 board on a typical desktop screen.
+Zoom runs from 16 to 96 pixels per cell; a fresh match starts at 32 pixels per cell, which fits a standard 32×32 board on a typical desktop screen.
 
 ## On-screen buttons
 

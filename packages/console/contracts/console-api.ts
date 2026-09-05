@@ -565,7 +565,7 @@ export interface ConsoleConstants {
  */
 export const CONSOLE_CONSTANTS: ConsoleConstants = {
   defaultCellPx: 32,
-  minCellPx: 12,
+  minCellPx: 16,
   maxCellPx: 96,
   feedbackTtlMs: 2000,
   labelTtlMs: 1500,
@@ -582,5 +582,8 @@ export const CONSOLE_CONSTANTS: ConsoleConstants = {
  * from console-types.ts) so this file stays dependency-free at
  * runtime; a conformance test asserts the two literals match.
  * Increment on any breaking change to the public surface.
+ *
+ * 0.2.0 (issue #76): `minCellPx` raised 12 → 16 — the zoom clamp
+ * range is part of the public console surface (FR-017).
  */
-export const CONSOLE_API_VERSION = '0.1.0' as const;
+export const CONSOLE_API_VERSION = '0.2.0' as const;

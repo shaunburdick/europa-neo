@@ -12,7 +12,7 @@ import type { CameraState } from '../../../src/state/types';
 const BASE: CameraState = {
     zoom: 32,
     pan: { x: 0, y: 0 },
-    minZoom: 12,
+    minZoom: 16,
     maxZoom: 96,
 };
 const BOARD: BoardBounds = { width: 32, height: 32 };

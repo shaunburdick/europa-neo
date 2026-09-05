@@ -464,7 +464,7 @@ describe('createConsole (T087)', () => {
         // Partial-camera merge semantics.
         europa.setCamera({ zoom: 48 });
         expect(europa.getState().camera.zoom).toBe(48);
-        expect(europa.getState().camera.minZoom).toBe(12);
+        expect(europa.getState().camera.minZoom).toBe(16);
 
         // Session accessors before join.
         expect(europa.getSessionToken()).toBeNull();
