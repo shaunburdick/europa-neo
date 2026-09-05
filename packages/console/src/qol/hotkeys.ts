@@ -37,9 +37,11 @@
  * JSDoc references: FR-004 + research.md §7 + Q-U10.
  */
 
+import { CONSOLE_CONSTANTS } from '../config';
 import { shouldIgnoreKeyEvent, translateKey } from '../input/order-draft';
+import { boardCenterScreen, clampCamera, zoomedCamera } from '../qol/zoom';
 import type { ConsoleStore } from '../state/store';
-import type { CursorTarget, InputMapping } from '../state/types';
+import type { CameraState, CursorTarget, InputMapping } from '../state/types';
 import { DEFAULT_INPUT_MAPPING } from '../state/types';
 
 /**
@@ -234,6 +236,12 @@ export class HotkeyController {
         if (shouldIgnoreKeyEvent(event)) {
             return;
         }
+        // UI-zoom layer (FR-018) runs BEFORE the order table: these
+        // keys are not InputMapping bindings, and `Home` deliberately
+        // avoids the `0` reserve key (PM ruling). Same focus guard.
+        if (this.tryZoomShortcut(event)) {
+            return;
+        }
         const nowMs = performance.now();
         const ageMs = this.sample === null ? null : nowMs - this.sample.atMs;
         const outcome = translateKey({
@@ -250,5 +258,47 @@ export class HotkeyController {
             event.preventDefault();
             this.store.dispatch(outcome.action);
         }
+    }
+
+    /**
+     * UI-zoom shortcut path (issue #76 FR-018): `+`/`=` zoom in one
+     * step, `-`/`_` zoom out one step, `Home` resets to 100%. A
+     * distinct path from the order table — these keys are not
+     * `InputMapping` bindings, and `Home` deliberately avoids the `0`
+     * reserve key (PM ruling). Zoom anchors at the board center in
+     * screen space, matching the sidebar buttons (FR-017). Browser
+     * modifier combos (Ctrl/Meta/Alt) are never hijacked; the shared
+     * focus guard already suppressed interactive-chrome keys.
+     *
+     * @param event The keydown being handled.
+     * @returns `true` when the event was consumed as a zoom shortcut.
+     */
+    private tryZoomShortcut(event: KeyboardEvent): boolean {
+        const key = event.key;
+        const zoomIn = key === '+' || key === '=';
+        const zoomOut = key === '-' || key === '_';
+        const reset = key === 'Home';
+        if (!zoomIn && !zoomOut && !reset) {
+            return false;
+        }
+        if (event.ctrlKey || event.metaKey || event.altKey) {
+            return false;
+        }
+        const state = this.store.getState();
+        if (state.latestView === null) {
+            return false;
+        }
+        const size = state.latestView.config.boardSize;
+        const board = { width: size, height: size };
+        const camera = state.camera;
+        let next: CameraState;
+        if (reset) {
+            next = clampCamera({ ...camera, zoom: CONSOLE_CONSTANTS.defaultCellPx }, board);
+        } else {
+            next = zoomedCamera(camera, zoomIn ? -100 : 100, boardCenterScreen(camera, board), board);
+        }
+        event.preventDefault();
+        this.store.dispatch({ kind: 'setCamera', camera: next });
+        return true;
     }
 }

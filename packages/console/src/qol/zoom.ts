@@ -60,6 +60,28 @@ export interface BoardBounds {
 }
 
 /**
+ * Board-center anchor in screen space (issue #76 FR-017/FR-018).
+ * Keyboard and sidebar-button zoom keep the board center stationary
+ * instead of a cursor point, so the visible content does not swim
+ * when zooming without a pointer anchor. Pure.
+ *
+ * @param camera Current camera.
+ * @param board  Board dimensions in cells.
+ */
+export function boardCenterScreen(
+    camera: CameraState,
+    board: BoardBounds,
+): {
+    readonly x: number;
+    readonly y: number;
+} {
+    return {
+        x: camera.pan.x + (board.width * camera.zoom) / 2,
+        y: camera.pan.y + (board.height * camera.zoom) / 2,
+    };
+}
+
+/**
  * Clamp a camera to the contractual zoom range and pan window
  * (data-model.md §4). Pure.
  *

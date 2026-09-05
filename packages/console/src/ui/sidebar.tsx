@@ -33,7 +33,7 @@ import type { JSX, RefObject } from 'react';
 import { CONSOLE_CONSTANTS } from '../config';
 import { Minimap } from '../qol/minimap';
 import { Tooltip } from '../qol/tooltip';
-import { clampCamera, zoomedCamera, zoomPercent } from '../qol/zoom';
+import { boardCenterScreen, clampCamera, zoomedCamera, zoomPercent } from '../qol/zoom';
 import type { CameraState, CellRenderInfo, ConsoleState, ReservesPct } from '../state/types';
 import { OrderBar } from './order-bar';
 import { ParticipantStrip } from './participants';
@@ -78,20 +78,6 @@ export interface SidebarProps {
      * order-producing controls render disabled/inert (FR-021).
      */
     readonly interactive: boolean;
-}
-
-/** Board-center anchor in screen space (keyboard/button zoom keeps the center still). */
-function boardCenterScreen(
-    camera: CameraState,
-    board: { readonly width: number; readonly height: number },
-): {
-    readonly x: number;
-    readonly y: number;
-} {
-    return {
-        x: camera.pan.x + (board.width * camera.zoom) / 2,
-        y: camera.pan.y + (board.height * camera.zoom) / 2,
-    };
 }
 
 /**
