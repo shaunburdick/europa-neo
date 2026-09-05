@@ -1823,3 +1823,21 @@ body {
     border-radius: 0;
     box-shadow: none;
 }
+
+/* Responsive (issue #76 FR-020): below the desktop breakpoint the
+   sidebar stacks BELOW the board in a single column instead of
+   overflowing the viewport. All interactive elements stay reachable
+   (the sidebar remains in normal flow, just after the board). */
+@media (max-width: 768px) {
+    .europa-main {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .europa-sidebar {
+        flex: 0 0 auto;
+        width: 100%;
+        position: static;
+        max-height: none;
+    }
+}

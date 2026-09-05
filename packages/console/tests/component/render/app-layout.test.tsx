@@ -10,6 +10,7 @@
  */
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { page } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 
 import { App } from '../../../src/render/App';
@@ -45,6 +46,9 @@ function makeStore(): ConsoleStore {
 
 describe('App two-column layout (FR-014)', () => {
     test('europa-main is flex with board area left and sidebar right', async () => {
+        // Desktop viewport — the sidebar's 280px fixed width is only
+        // enforced above the 768px responsive breakpoint (FR-020).
+        await page.viewport(1024, 768);
         await render(<App store={makeStore()} />);
 
         const main = document.querySelector<HTMLElement>('.europa-main');
@@ -73,6 +77,7 @@ describe('App two-column layout (FR-014)', () => {
 
 describe('App sidebar static during zoom/pan (FR-016)', () => {
     test('sidebar geometry is unchanged across setCamera dispatches', async () => {
+        await page.viewport(1024, 768);
         const store = makeStore();
         await render(<App store={store} />);
 

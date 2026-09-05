@@ -506,7 +506,10 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         await expect(cara.locator('.europa-order-bar button')).toHaveCount(2);
         await expect(cara.locator('.europa-order-bar button').nth(0)).toBeDisabled();
         await expect(cara.locator('.europa-order-bar button').nth(1)).toBeDisabled();
-        await expect(cara.locator('[aria-label="Surrender controls"]')).toHaveCount(0);
+        // FR-021: the sidebar renders order-producing controls DISABLED
+        // (not absent) for spectators — Surrender included.
+        await expect(cara.locator('#surrender button')).toHaveCount(1);
+        await expect(cara.locator('#surrender button')).toBeDisabled();
 
         // -- SC-005: constructive proof of zero orders -----------------------
         // Spectator sees full-visibility view (the entire board is visible).
@@ -599,7 +602,8 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
                 .click();
             await waitUntilLobby(cara, (lobby) => lobby.viewMode === 'match', 'adaptive route spectates match A');
             await expect(cara.locator('.europa-lobby-match__title')).toContainText('Spectating');
-            await expect(cara.locator('[aria-label="Surrender controls"]')).toHaveCount(0);
+            await expect(cara.locator('#surrender button')).toHaveCount(1);
+            await expect(cara.locator('#surrender button')).toBeDisabled();
             await expect(cara.locator('[role="gridcell"]')).toHaveCount(32 * 32);
 
             // Build a second filling match directly through the existing real

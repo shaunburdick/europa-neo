@@ -472,12 +472,12 @@ before implementation lands (TDD per constitution Principle III).
 compose the `Sidebar` component. The sidebar is owned by `App` so
 player and spectator share one render path (FR-022).
 
-- [ ] T098 [P] Write the component test `tests/component/ui/sidebar.test.tsx` asserting the sidebar renders all 8 sections in vertical order (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) with the correct landmark roles (FR-015). FAILS before implementation.
-- [ ] T099 [P] Write the component test `tests/component/render/app-layout.test.tsx` asserting `europa-main` is `display: flex` with `europa-board-area` left (flex-grow: 1) and `europa-sidebar` right (fixed ~280px) (FR-014). FAILS before implementation.
-- [ ] T100 Create `packages/console/src/ui/sidebar.tsx` — the `Sidebar` component composing the 8 sections (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) from existing `ConsoleState` slices. Order-producing controls render disabled/inert when `store === undefined` (FR-021). Props mirror the current inline `App` HUD wiring (status, tick, session, exclusiveMode, inputEnabled, selection, reserves, camera, minimap, surrender, help).
-- [ ] T101 Restructure `packages/console/src/render/App.tsx` — `europa-main` becomes `display: flex`; `europa-board-area` left (flex-grow: 1); compose `<Sidebar>` right (FR-014/FR-015/FR-022). Migrate the inline HUD items (`#hud`, `OrderBar`, `ReservesPanel`, `Minimap`, Surrender, Help) into the sidebar structure. `BrandedFooter` stays at the view root. The `store === undefined` guards disable order-producing controls (FR-021).
-- [ ] T102 Update `packages/console/src/styles/index.css` — `europa-main` `display: flex`; `europa-board-area` `flex-grow: 1`; `europa-sidebar` fixed ~280px; sidebar section styling. The sidebar stays static during zoom/pan (FR-016 — only the board area's transform changes).
-- [ ] T103 Update the existing component tests (`tests/component/render/app-wire-view.test.tsx`, `tests/component/qol/minimap.test.tsx`) to the sidebar structure. Assert the sidebar ref/geometry is unchanged across `setCamera` dispatches (FR-016).
+- [x] T098 [P] Write the component test `tests/component/ui/sidebar.test.tsx` asserting the sidebar renders all 8 sections in vertical order (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) with the correct landmark roles (FR-015). FAILS before implementation.
+- [x] T099 [P] Write the component test `tests/component/render/app-layout.test.tsx` asserting `europa-main` is `display: flex` with `europa-board-area` left (flex-grow: 1) and `europa-sidebar` right (fixed ~280px) (FR-014). FAILS before implementation.
+- [x] T100 Create `packages/console/src/ui/sidebar.tsx` — the `Sidebar` component composing the 8 sections (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) from existing `ConsoleState` slices. Order-producing controls render disabled/inert when `store === undefined` (FR-021). Props mirror the current inline `App` HUD wiring (status, tick, session, exclusiveMode, inputEnabled, selection, reserves, camera, minimap, surrender, help).
+- [x] T101 Restructure `packages/console/src/render/App.tsx` — `europa-main` becomes `display: flex`; `europa-board-area` left (flex-grow: 1); compose `<Sidebar>` right (FR-014/FR-015/FR-022). Migrate the inline HUD items (`#hud`, `OrderBar`, `ReservesPanel`, `Minimap`, Surrender, Help) into the sidebar structure. `BrandedFooter` stays at the view root. The `store === undefined` guards disable order-producing controls (FR-021).
+- [x] T102 Update `packages/console/src/styles/index.css` — `europa-main` `display: flex`; `europa-board-area` `flex-grow: 1`; `europa-sidebar` fixed ~280px; sidebar section styling. The sidebar stays static during zoom/pan (FR-016 — only the board area's transform changes).
+- [x] T103 Update the existing component tests (`tests/component/render/app-wire-view.test.tsx`, `tests/component/qol/minimap.test.tsx`) to the sidebar structure. Assert the sidebar ref/geometry is unchanged across `setCamera` dispatches (FR-016).
 
 **Checkpoint**: `pnpm test:component` green; `pnpm typecheck` + `pnpm lint` clean.
 
@@ -487,10 +487,10 @@ player and spectator share one render path (FR-022).
 add the percentage display layer. The underlying `CameraState` values
 stay in cell-pixels; only the display is a percentage.
 
-- [ ] T104 [P] Update the unit test `tests/unit/qol/zoom.test.ts` — assert `clampCamera` clamps to `[16, 96]` (was `[12, 96]`) and the percentage conversion (`zoom / 32 * 100`). FAILS before implementation.
-- [ ] T105 Update `packages/console/contracts/console-api.ts` — `CONSOLE_CONSTANTS.minCellPx` 12 → 16. Update `packages/console/contracts/console-types.ts` — `DEFAULT_CAMERA.minZoom` 12 → 16. **Confirm `CONSOLE_API_VERSION` bump (0.1.0 → 0.2.0) with PM** (behavioral change to a public constant).
-- [ ] T106 Update `packages/console/src/qol/zoom.ts` — `clampCamera`/`zoomedCamera` already read `camera.minZoom`/`maxZoom`; verify the new range flows through. Add a pure `zoomPercent(zoom)` helper (or reuse an existing one) for the sidebar indicator.
-- [ ] T107 Add the Zoom section to `packages/console/src/ui/sidebar.tsx` — level indicator (percentage) + controls (zoom in / out / reset buttons). Wire to `setCamera` dispatch.
+- [x] T104 [P] Update the unit test `tests/unit/qol/zoom.test.ts` — assert `clampCamera` clamps to `[16, 96]` (was `[12, 96]`) and the percentage conversion (`zoom / 32 * 100`). FAILS before implementation.
+- [x] T105 Update `packages/console/contracts/console-api.ts` — `CONSOLE_CONSTANTS.minCellPx` 12 → 16. Update `packages/console/contracts/console-types.ts` — `DEFAULT_CAMERA.minZoom` 12 → 16. **Confirm `CONSOLE_API_VERSION` bump (0.1.0 → 0.2.0) with PM** (behavioral change to a public constant).
+- [x] T106 Update `packages/console/src/qol/zoom.ts` — `clampCamera`/`zoomedCamera` already read `camera.minZoom`/`maxZoom`; verify the new range flows through. Add a pure `zoomPercent(zoom)` helper (or reuse an existing one) for the sidebar indicator.
+- [x] T107 Add the Zoom section to `packages/console/src/ui/sidebar.tsx` — level indicator (percentage) + controls (zoom in / out / reset buttons). Wire to `setCamera` dispatch.
 
 **Checkpoint**: `pnpm test:unit` green; `pnpm typecheck` + `pnpm lint` clean.
 
@@ -500,9 +500,9 @@ stay in cell-pixels; only the display is a percentage.
 zooms in, `-`/`_` zooms out, `0` resets to 100%. Suppressed when focus
 is inside interactive chrome (reuses `shouldIgnoreKeyEvent`).
 
-- [ ] T108 [P] Write the unit test `tests/unit/qol/hotkeys-zoom.test.ts` — assert `+`/`=`/`-`/`_`/`0` dispatch `setCamera` (zoom in/out/reset) and are suppressed when focus is inside interactive chrome. FAILS before implementation.
-- [ ] T109 Extend `packages/console/src/qol/hotkeys.ts` — add a UI-zoom layer to `HotkeyController` (one handler, same focus guard). `+`/`=` zoom in, `-`/`_` zoom out, `0` reset to 100%. The `0` zoom-reset is a distinct UI-zoom path (does NOT route through `translateKey`, which would map `0` to `reserve0`); the order-table `reserve0` binding is unchanged.
-- [ ] T110 Add the E2E test `tests/e2e/zoom-shortcuts.spec.ts` — press `+`/`-`/`0` and assert the zoom indicator changes (FR-018).
+- [x] T108 [P] Write the unit test `tests/unit/qol/hotkeys-zoom.test.ts` — assert `+`/`=`/`-`/`_`/`0` dispatch `setCamera` (zoom in/out/reset) and are suppressed when focus is inside interactive chrome. FAILS before implementation.
+- [x] T109 Extend `packages/console/src/qol/hotkeys.ts` — add a UI-zoom layer to `HotkeyController` (one handler, same focus guard). `+`/`=` zoom in, `-`/`_` zoom out, `0` reset to 100%. The `0` zoom-reset is a distinct UI-zoom path (does NOT route through `translateKey`, which would map `0` to `reserve0`); the order-table `reserve0` binding is unchanged.
+- [x] T110 Add the E2E test `tests/e2e/zoom-shortcuts.spec.ts` — press `+`/`-`/`0` and assert the zoom indicator changes (FR-018).
 
 **Checkpoint**: `pnpm test:unit` + `pnpm test:e2e` green.
 
@@ -512,11 +512,11 @@ is inside interactive chrome (reuses `shouldIgnoreKeyEvent`).
 zoom/pan live (FR-019), add responsive stacking below 768px (FR-020),
 and verify spectator parity (FR-021).
 
-- [ ] T111 [P] Write the component test `tests/component/qol/minimap-viewport.test.tsx` — assert `viewportRect` reflects new zoom/pan after `setCamera` (FR-019). FAILS before implementation.
-- [ ] T112 Update `packages/console/src/styles/index.css` — add `@media (max-width: 768px)` collapsing to single column (sidebar below board, `width: 100%`) (FR-020).
-- [ ] T113 Write the component test `tests/component/render/app-responsive.test.tsx` — resize to < 768px and assert the sidebar stacks below the board (FR-020). FAILS before implementation.
-- [ ] T114 Add the E2E test `tests/e2e/spectator-sidebar.spec.ts` — the spectator leg renders the sidebar with inert order controls (Orders, Reserve, Surrender disabled) (FR-021). FAILS before implementation.
-- [ ] T115 Verify the minimap viewport rect styling in the sidebar context (FR-019) — enhance `packages/console/src/qol/minimap.tsx` styling for the sidebar "Overview" section if needed.
+- [x] T111 [P] Write the component test `tests/component/qol/minimap-viewport.test.tsx` — assert `viewportRect` reflects new zoom/pan after `setCamera` (FR-019). FAILS before implementation.
+- [x] T112 Update `packages/console/src/styles/index.css` — add `@media (max-width: 768px)` collapsing to single column (sidebar below board, `width: 100%`) (FR-020).
+- [x] T113 Write the component test `tests/component/render/app-responsive.test.tsx` — resize to < 768px and assert the sidebar stacks below the board (FR-020). FAILS before implementation.
+- [x] T114 Add the E2E test `tests/e2e/spectator-sidebar.spec.ts` — the spectator leg renders the sidebar with inert order controls (Orders, Reserve, Surrender disabled) (FR-021). FAILS before implementation.
+- [x] T115 Verify the minimap viewport rect styling in the sidebar context (FR-019) — enhance `packages/console/src/qol/minimap.tsx` styling for the sidebar "Overview" section if needed.
 
 **Checkpoint**: `pnpm test:component` + `pnpm test:e2e` green.
 
@@ -524,8 +524,8 @@ and verify spectator parity (FR-021).
 
 **Purpose**: Run the full gate and update the spec status.
 
-- [ ] T116 Run `pnpm verify` (typecheck, lint, format, all suites, selfhost, conformance). Fix any failures in-branch.
-- [ ] T117 Update `AGENTS.md` "Current state" section to record the issue #76 sidebar + zoom expansion. Flip the spec status to reflect the amendment (already `Implemented`; add the issue #76 note).
+- [x] T116 Run `pnpm verify` (typecheck, lint, format, all suites, selfhost, conformance). Fix any failures in-branch.
+- [x] T117 Update `AGENTS.md` "Current state" section to record the issue #76 sidebar + zoom expansion. Flip the spec status to reflect the amendment (already `Implemented`; add the issue #76 note).
 
 **Checkpoint**: `pnpm verify` green; spec + AGENTS.md updated.
 
