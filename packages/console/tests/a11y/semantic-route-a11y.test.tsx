@@ -47,8 +47,13 @@ describe('semantic route accessibility', () => {
         for (const button of orderButtons) {
             expect((button as HTMLButtonElement).disabled).toBe(true);
         }
-        expect(screen.getByRole('button', { name: 'Surrender…' }).elements()).toHaveLength(0);
-        expect(screen.getByRole('region', { name: 'Surrender controls' }).elements()).toHaveLength(0);
+        // Issue #76 FR-021: order-producing controls render DISABLED in
+        // the shared sidebar (not absent) — the surrender trigger is
+        // present but inert for spectators.
+        const surrenderButtons = screen.getByRole('button', { name: 'Surrender…' }).elements();
+        expect(surrenderButtons).toHaveLength(1);
+        expect((surrenderButtons[0] as HTMLButtonElement).disabled).toBe(true);
+        expect(screen.getByRole('region', { name: 'Surrender' }).elements()).toHaveLength(1);
         expect(screen.container.textContent).not.toContain('bearer-token');
         await expectNoDomA11yViolations(screen.container);
     });

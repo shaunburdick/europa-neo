@@ -174,8 +174,8 @@ test.describe('help overlay', () => {
         );
         await page.goto(`/match/${encodeURIComponent(matchId)}/join`);
         await waitUntil(page, (live) => live.status === 'live', 'player reaches live');
-        // Wait for the HUD to be visible (the help button is inside it).
-        await page.waitForSelector('.europa-hud', { timeout: 10_000 });
+        // Wait for the sidebar to be visible (the help button is inside it).
+        await page.waitForSelector('.europa-sidebar', { timeout: 10_000 });
     }
 
     test('pressing ? opens the help overlay', async ({ page }) => {

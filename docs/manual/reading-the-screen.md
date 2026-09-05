@@ -12,7 +12,7 @@ The lobby can also show **Loading public matches…**, **No public matches right
 
 ## The status chip
 
-The HUD's status line tells you where you stand in the match lifecycle. It shows one of these values:
+The sidebar's Status section tells you where you stand in the match lifecycle. It shows one of these values:
 
 | Status | What it means | What to do |
 | --- | --- | --- |
@@ -32,7 +32,7 @@ In the match header, **In match** identifies a player view and **Spectating** id
 If a handle is unavailable, a generic label or safe guest/player ID fallback may
 be used. These IDs are non-secret correlation data, not access credentials.
 
-The status bar also shows a small version indicator — the app version your console was built from — which stays visible whatever state the match is in.
+The page footer shows a small version indicator — the app version your console was built from — which stays visible whatever state the match is in.
 
 ## The tick counter
 
@@ -40,18 +40,18 @@ Next to the status chip, **Tick** counts game heartbeats since the match started
 
 ## The minimap
 
-The small map in the HUD mirrors the whole visible board and draws a rectangle showing which part currently fills your main view:
+The small map in the sidebar's Overview section mirrors the whole visible board and draws a rectangle showing which part currently fills your main view:
 
 - **Click anywhere on the minimap** to jump the camera there.
 - Use it to keep an eye on distant fronts without scrolling.
 
 ## The order bar
 
-Below the board: the current pipe mode ("Toggle pipes" or "Exclusive pipes"), the **Exclusive pipes** toggle, and the **Clear pipes** button. Details in [Controls](./controls.md).
+In the sidebar's Orders section: the current pipe mode ("Toggle pipes" or "Exclusive pipes"), the **Exclusive pipes** toggle, and the **Clear pipes** button. Details in [Controls](./controls.md).
 
 ## The reserves panel
 
-Appears when you have a selected cell: a slider from 0% to 90% plus ten digit buttons, mirroring the number keys. Details in [Reserves](./reserves.md).
+Appears in the sidebar's Reserve section when you have a selected cell: a slider from 0% to 90% plus ten digit buttons, mirroring the number keys. Details in [Reserves](./reserves.md).
 
 ## Feedback messages
 

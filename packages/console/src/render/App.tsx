@@ -1,5 +1,6 @@
 /**
- * Root React component — Feature 005 (T047, extended by T053–T056).
+ * Root React component — Feature 005 (T047, extended by T053–T056,
+ * issue #76 sidebar restructure T101).
  *
  * Composes the render surface:
  *   - the Canvas 2D visual layer ({@link MapCanvas} painting into a
@@ -7,11 +8,9 @@
  *     this in production lands with the Phase 8 runtime),
  *   - the ARIA grid overlay ({@link GridOverlay} — a11y source of
  *     truth, WCAG 1.3.1 / 4.1.2),
- *   - a HUD section (status + tick; FR-008's full banner arrives with
- *     US5) carrying the bundled app-version footer (feature 009
- *     FR-007 — real DOM text, all connection states),
- *   - the order palette ({@link OrderBar}, T055) after the HUD in Tab
- *     order (Q-A04),
+ *   - the right sidebar ({@link Sidebar}, issue #76 FR-014/FR-015) —
+ *     all HUD controls in 8 contractual sections, owned by App so
+ *     player and spectator share one render path (FR-022),
  *   - the hidden `aria-live` announcer mount ({@link LiveRegionAnnouncer}
  *     from T021) so tick/order announcements have a home from day one.
  *
@@ -43,9 +42,7 @@ import { RegionSelectController } from '../input/region-select';
 import { CURSOR_STALE_MS } from '../input/subcell-target';
 import { peekInjectedConsoleState } from '../internal/test-state';
 import { HotkeyController } from '../qol/hotkeys';
-import { Minimap } from '../qol/minimap';
 import { subscribeReducedMotion } from '../qol/reduced-motion';
-import { Tooltip } from '../qol/tooltip';
 import { useContainerSize } from '../qol/use-container-size';
 import { ZoomPanController } from '../qol/zoom';
 import { formatWaitingMessage, isAwaitingMatchStart } from '../state/awaiting-start';
@@ -55,9 +52,7 @@ import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
 import { DEFAULT_PLAYER_COLORS, SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
-import { OrderBar } from '../ui/order-bar';
-import { ParticipantStrip } from '../ui/participants';
-import { ReservesPanel } from '../ui/reserves-panel';
+import { Sidebar } from '../ui/sidebar';
 import { TargetingOverlay } from '../ui/targeting-overlay';
 import { WaitingOverlay } from '../ui/waiting-overlay';
 import { MapCanvas } from './canvas';
@@ -435,53 +430,27 @@ export function App({
                         />
                     ) : null}
                 </div>
-                <section id="hud" aria-label="Status bar" tabIndex={0} className="europa-hud">
-                    <Tooltip content="Current connection and game status">
-                        <span className="europa-hud__item">Status: {resolvedState.status}</span>
-                    </Tooltip>
-                    <Tooltip content="Current game tick number">
-                        <span className="europa-hud__item">Tick: {mapView?.tick ?? '—'}</span>
-                    </Tooltip>
-                    {/* Participant strip (feature 010 T-016, FR-020): per-seat
-              authoritative labels from the session. Session-derived, so
-              it is tick-stable (SC-008) and renders for spectators too
-              (static boots — FR-023 allows all handles there). */}
-                    <ParticipantStrip session={resolvedState.session} />
-                    {store !== undefined && mapView !== null ? (
-                        <Tooltip content="Board overview — click to move viewport" position="below">
-                            <Minimap
-                                boardWidth={mapView.width}
-                                boardHeight={mapView.height}
-                                camera={resolvedState.camera}
-                                cells={[...mapView.cells.values()]}
-                                // exactOptionalPropertyTypes: only carry the size when measured.
-                                {...(boardSize === null ? {} : { viewportSize: boardSize })}
-                                onSetCamera={(camera) => store.dispatch({ kind: 'setCamera', camera })}
-                            />
-                        </Tooltip>
-                    ) : null}
-                    {/* Help button (Feature 018 FR-001): toggles the help
-                        overlay via ? key or click. */}
-                    <Tooltip content="Open help overlay (? key)">
-                        <button
-                            ref={helpButtonRef}
-                            type="button"
-                            className="europa-help-button europa-focus-ring"
-                            disabled={!resolvedState.inputEnabled}
-                            onClick={() => {
-                                setHelpOpen((prev) => !prev);
-                            }}
-                        >
-                            ?
-                        </button>
-                    </Tooltip>
-                </section>
-                <OrderBar
-                    exclusiveMode={resolvedState.exclusiveMode}
-                    inputEnabled={resolvedState.inputEnabled}
+                {/* Right sidebar (issue #76 FR-014/FR-015/FR-022): all HUD
+                    controls live here, composed by App so player and spectator
+                    share one render path. Order-producing controls render
+                    disabled/inert when `store === undefined` (FR-021). */}
+                <Sidebar
+                    state={resolvedState}
+                    tick={mapView?.tick ?? null}
+                    selectionReserves={selectionReserves}
+                    boardWidth={mapView?.width ?? 0}
+                    boardHeight={mapView?.height ?? 0}
+                    cells={mapView !== null ? [...mapView.cells.values()] : []}
+                    // exactOptionalPropertyTypes: only carry the size when measured.
+                    {...(boardSize === null ? {} : { viewportSize: boardSize })}
+                    onSetCamera={
+                        store === undefined
+                            ? () => undefined
+                            : (camera) => store.dispatch({ kind: 'setCamera', camera })
+                    }
                     onToggleExclusive={
                         store === undefined
-                            ? undefined
+                            ? () => undefined
                             : () =>
                                   store.dispatch({
                                       kind: 'setExclusiveMode',
@@ -490,46 +459,30 @@ export function App({
                     }
                     onClearPipes={
                         store === undefined || selection === null
-                            ? undefined
+                            ? () => undefined
                             : () => store.dispatch({ kind: 'clearAllPipes', cell: selection })
                     }
+                    onSetReserves={
+                        store === undefined || selection === null
+                            ? () => undefined
+                            : (percent) => store.dispatch({ kind: 'setReserves', cell: selection, percent })
+                    }
+                    onSurrenderRequest={() => {
+                        if (onSurrenderRequest !== undefined) {
+                            onSurrenderRequest();
+                            return;
+                        }
+                        setSurrenderOpen(true);
+                    }}
+                    onHelpToggle={() => {
+                        setHelpOpen((prev) => !prev);
+                    }}
+                    helpButtonRef={helpButtonRef}
+                    interactive={store !== undefined}
                 />
-                {/* Surrender trigger (US5 AC-2 / FR-009). Placed AFTER the
-            order palette so the contractual Q-A04 head sequence
-            (skip-link → map → hud → order-bar) is unchanged; the
-            confirm gate lives in SurrenderModal (or the host's
-            onSurrenderRequest delegate). */}
-                {store !== undefined ? (
-                    <section id="surrender" aria-label="Surrender controls" className="europa-surrender">
-                        <Tooltip content="Forfeit the current match">
-                            <button
-                                type="button"
-                                className="europa-hud__surrender europa-focus-ring"
-                                disabled={!resolvedState.inputEnabled}
-                                onClick={() => {
-                                    if (onSurrenderRequest !== undefined) {
-                                        onSurrenderRequest();
-                                        return;
-                                    }
-                                    setSurrenderOpen(true);
-                                }}
-                            >
-                                Surrender…
-                            </button>
-                        </Tooltip>
-                    </section>
-                ) : null}
-                {store !== undefined && selection !== null ? (
-                    <ReservesPanel
-                        cell={selection}
-                        currentPercent={selectionReserves}
-                        disabled={!resolvedState.inputEnabled}
-                        onSetReserves={(percent) => store.dispatch({ kind: 'setReserves', cell: selection, percent })}
-                    />
-                ) : null}
                 {/* FR-007 feedback surface: the reducer's confirmation queue
-            rendered as transient toasts. The polite live region makes
-            every confirmation audible without moving focus (Q-A05). */}
+                    rendered as transient toasts. The polite live region makes
+                    every confirmation audible without moving focus (Q-A05). */}
                 <section id="feedback" aria-label="Order feedback" className="europa-feedback">
                     <div
                         role="status"

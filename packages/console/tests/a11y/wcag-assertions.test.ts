@@ -228,8 +228,9 @@ describe('WCAG 2.1.1 — palette keyboard operability', () => {
         const user = userEvent.setup();
 
         // Walk Tab stops to the order bar, then into its buttons.
-        await user.keyboard('{Tab}');
-        await user.keyboard('{Tab}');
+        // Issue #76 sidebar restructure: skip-link → map → order-bar
+        // (the former HUD + help-button stops moved into the sidebar
+        // AFTER the order bar in DOM order).
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
@@ -299,8 +300,8 @@ describe('WCAG 2.4.7 — order bar focus ring contrast', () => {
 
         // Keyboard-focus the first palette button (:focus-visible only
         // matches keyboard-initiated focus, so Tab all the way in:
-        // skip-link → map → hud → help-button → order-bar → button).
-        for (let i = 0; i < 6; i++) {
+        // skip-link → map → order-bar → button).
+        for (let i = 0; i < 4; i++) {
             await user.keyboard('{Tab}');
         }
         const button = document.activeElement as HTMLButtonElement | null;

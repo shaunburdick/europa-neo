@@ -41,7 +41,7 @@ Pressing p/h or g/o fires from the **selected cell**, and the target is picked w
 2. Keep the cursor inside the selected cell and slide it toward where you want to fire — up for north, lower-right for south-east, and so on. The farther from the center, the longer the throw: halfway to an edge aims about 1 cell out; the edge or a corner aims the full 2.
 3. Press p (or h) for paratroop, g (or o) for gun.
 
-A red aim dot drawn on the selected cell shows exactly where you are pointing, and each new target cell is announced to screen readers as it changes. Cursor near the center of the cell means nothing launches — slide it off-center toward your target first (the same happens if the cursor has been still for a moment). Invalid targets — water for paratroops, cells outside your vision, no troops to pay with — are rejected with a short message above the order bar (see [Reading the screen](./reading-the-screen.md)).
+A red aim dot drawn on the selected cell shows exactly where you are pointing, and each new target cell is announced to screen readers as it changes. Cursor near the center of the cell means nothing launches — slide it off-center toward your target first (the same happens if the cursor has been still for a moment). Invalid targets — water for paratroops, cells outside your vision, no troops to pay with — are rejected with a short message in the feedback area at the bottom-left of the screen (see [Reading the screen](./reading-the-screen.md)).
 
 ## Camera
 
@@ -49,6 +49,10 @@ A red aim dot drawn on the selected cell shows exactly where you are pointing, a
 | --- | --- |
 | Mouse wheel | Zoom in/out, keeping the point under the cursor pinned in place |
 | Middle-button drag | Pan around the board |
+| **+** / **=** | Zoom in one step (centered on the board) |
+| **−** / **_** | Zoom out one step (centered on the board) |
+| **Home** | Reset zoom to 100% |
+| Zoom section buttons | The sidebar's Zoom section shows the current zoom as a percentage and offers **+**, **−**, and **100%** buttons with the same effects as the keys |
 {: .europa-table }
 
 Zoom runs from 12 to 96 pixels per cell; a fresh match starts at 32 pixels per cell, which fits a standard 32×32 board on a typical desktop screen.
@@ -59,12 +63,12 @@ The console's clickable controls mirror the keyboard commands, so mouse-only pla
 
 | Control | Where | Effect |
 | --- | --- | --- |
-| Mode badge ("Mode: Toggle pipes" / "Mode: Exclusive pipes") | Order bar, below the board | Shows whether your next pipe command adds or replaces. Announces changes to screen readers. |
+| Mode badge ("Mode: Toggle pipes" / "Mode: Exclusive pipes") | Order bar, in the sidebar's Orders section | Shows whether your next pipe command adds or replaces. Announces changes to screen readers. |
 | **Exclusive pipes** toggle | Order bar | Flip sticky exclusive mode: while engaged, every pipe command (pointer or i/j/k/l) replaces the cell's pipes instead of adding. |
 | **Clear pipes** | Order bar | Clear all pipes in the selected cell (same as Space). |
-| Reserves slider | Reserves panel | Drag or arrow-key a value from 0% to 90% in 10% steps for the selected cell. |
+| Reserves slider | Reserves panel, in the sidebar's Reserve section | Drag or arrow-key a value from 0% to 90% in 10% steps for the selected cell. |
 | Digit buttons 0–9 | Reserves panel | One-click presets matching the number keys ("Set reserves to 70%", and so on). |
-| **Surrender…** | Below the order bar | Opens the confirmation dialog. Confirming eliminates you on the spot (see [Objective](./objective.md)); Cancel or Escape backs out. |
+| **Surrender…** | Sidebar's Surrender section | Opens the confirmation dialog. Confirming eliminates you on the spot (see [Objective](./objective.md)); Cancel or Escape backs out. |
 {: .europa-table }
 
 All order buttons disable themselves when orders cannot be sent — while connecting, reconnecting, spectating, or after the match ends.

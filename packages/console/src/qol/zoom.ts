@@ -29,6 +29,7 @@
  * JSDoc references: US5 AC-1 + data-model.md §4 + FR-010.
  */
 
+import { CONSOLE_CONSTANTS } from '../config';
 import type { ConsoleStore } from '../state/store';
 import type { CameraState, ScreenPoint } from '../state/types';
 
@@ -38,6 +39,19 @@ import type { CameraState, ScreenPoint } from '../state/types';
  * Module-level tunable: the single definition point for this number.
  */
 export const ZOOM_WHEEL_STEP = 1.15;
+
+/**
+ * Zoom percentage display layer (issue #76 FR-017): the sidebar
+ * indicator shows the camera zoom as a percentage of the default cell
+ * size (32px = 100%). Pure display conversion — `CameraState.zoom`
+ * stays in cell-pixels; only the presentation is a percentage.
+ *
+ * @param zoom Camera zoom in cell-pixels.
+ * @returns Rounded percentage (50 for 16px, 100 for 32px, 300 for 96px).
+ */
+export function zoomPercent(zoom: number): number {
+    return Math.round((zoom / CONSOLE_CONSTANTS.defaultCellPx) * 100);
+}
 
 /** Board dimensions the pan clamp needs (cells). */
 export interface BoardBounds {
