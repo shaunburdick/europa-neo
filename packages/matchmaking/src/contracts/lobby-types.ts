@@ -287,6 +287,13 @@ export type LobbyEvent =
           readonly kind: 'actionAccepted';
           readonly actionId: LobbyActionId;
           readonly transition: 'waiting' | 'match';
+          /**
+           * Seat-granting actions carry the matchmaking-issued session
+           * token so the client can pass it to the match server as
+           * `reconnectToken`, ensuring the wire join claims the correct
+           * seat rather than racing for the first open seat.
+           */
+          readonly seatSessionToken?: string;
       }
     /**
      * Recoverable failure (FR-018). `actionId` is present when the

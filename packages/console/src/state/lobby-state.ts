@@ -181,6 +181,15 @@ export interface LobbyState {
      */
     readonly activeMatchId: MatchId | null;
 
+    /**
+     * The matchmaking-issued session token for the current seat, or
+     * `null` when lobby-bound. Passed to the match leg so it can join
+     * the wire server with `reconnectToken` and claim the CORRECT seat
+     * (the one the lobby assigned), rather than racing for the first
+     * open seat.
+     */
+    readonly seatSessionToken: string | null;
+
     /** Per-action loading/error tracking, one slot per {@link LobbyActionKind}. */
     readonly actions: Readonly<Record<LobbyActionKind, LobbyActionStatus>>;
 
@@ -247,9 +256,15 @@ export type LobbyAction =
      * Explicit enter-match pin (used by the controller on seat-grant
      * success and available to later match-handoff wiring). `matchId`
      * may be `null` when the caller has no id yet (create flow — the
-     * next snapshot supplies it).
+     * next snapshot supplies it). `seatSessionToken` is the
+     * matchmaking-issued bearer token for this seat, passed through to
+     * the match leg so the wire join claims the correct seat.
      */
-    | { readonly kind: 'lobbyEnteredMatch'; readonly matchId: MatchId | null }
+    | {
+          readonly kind: 'lobbyEnteredMatch';
+          readonly matchId: MatchId | null;
+          readonly seatSessionToken?: string;
+      }
     /**
      * Return-to-lobby: leave succeeded (or a terminal result offers the
      * way back). Clears the active match and the leave-action slot while

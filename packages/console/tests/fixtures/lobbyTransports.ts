@@ -255,6 +255,10 @@ export class ScriptedLobbyTransport implements LobbyTransport {
         }
     }
 
+    lastSeatSessionToken(): string | null {
+        return null;
+    }
+
     state(): WsLobbyClientState {
         return {
             connection: this.connectionState,

@@ -64,10 +64,20 @@ declare global {
 
 /**
  * Root component binding the live store to {@link App}.
+ *
+ * The `onReturnToLobby` stub enables the GameOverModal to render in
+ * E2E tests (the modal requires a non-undefined callback). The stub
+ * is never invoked — tests assert the modal's presence via the store
+ * state, not the navigation.
  */
 function StoreApp({ store }: { readonly store: ConsoleStore }): JSX.Element {
     const state = useSyncExternalStore(store.subscribe, store.getState);
-    return <App store={store} state={state} />;
+    return <App store={store} state={state} onReturnToLobby={noopReturnToLobby} />;
+}
+
+/** No-op return-to-lobby callback for E2E test harness. */
+function noopReturnToLobby(): void {
+    // Intentional no-op: tests assert modal presence via store state.
 }
 
 /**

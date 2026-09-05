@@ -72,9 +72,11 @@ export function initialSpectatorState(matchId: MatchId): ConsoleState {
             playerId: null,
             displayName: '',
             opponents: [],
+            playerNames: new Map(),
         },
         inputEnabled: false,
         exclusiveMode: false,
+        matchResult: null,
     };
 }
 
@@ -101,6 +103,12 @@ export function applySpectatorEnvelope(
             if (payload.playerId !== null) {
                 return state;
             }
+            const playerNames = new Map<import('@europa/engine').PlayerId, string>();
+            for (const player of payload.players) {
+                if (player.displayName !== '') {
+                    playerNames.set(player.id, player.displayName);
+                }
+            }
             return {
                 ...state,
                 status: 'spectating',
@@ -110,6 +118,7 @@ export function applySpectatorEnvelope(
                     // FR-023: all participant handles, ascending seat order
                     // (the engine's players array is indexed by PlayerId - 1).
                     opponents: payload.players.map((player) => player.displayName),
+                    playerNames,
                 },
             };
         }
@@ -127,13 +136,18 @@ export function applySpectatorEnvelope(
 
         case 'terminal': {
             const payload = envelope.payload as TerminalPayload;
+            const matchResult = payload.result ?? null;
             return {
                 ...state,
                 status: 'game_over',
+                matchResult,
                 feedback: appendFeedback(
                     state.feedback,
                     {
-                        text: spectatorTerminalText(payload.result),
+                        text:
+                            matchResult !== null
+                                ? spectatorTerminalText(matchResult, state.session.playerNames)
+                                : 'Match over.',
                         kind: 'info',
                         ttlMs: Number.MAX_SAFE_INTEGER,
                     },
@@ -188,16 +202,40 @@ export function withNotice(state: ConsoleState, text: string, nowMs: number): Co
 }
 
 /**
+ * Resolve a `PlayerId` to a display name using session state. Falls
+ * back to "Player N" when the name is absent or empty. Pure.
+ *
+ * Mirrors the `resolveName` helper in the player reducer.
+ *
+ * @param id The player's numeric id.
+ * @param playerNames Name map from the session state.
+ */
+function resolveName(
+    id: import('@europa/engine').PlayerId,
+    playerNames?: ReadonlyMap<import('@europa/engine').PlayerId, string>,
+): string {
+    return playerNames?.get(id) ?? `Player ${String(id)}`;
+}
+
+/**
  * One-line summary of a terminal result for the feedback surface.
- * Deliberately name-free (results carry no handles) and id-free.
+ * Resolves the winner's display name when available; falls back to
+ * "Player N". Id-free.
  * Pure.
  *
  * @param result The engine's terminal match result.
+ * @param playerNames Name map from the session state (optional for
+ *   backward-compat callers, but populated on real terminal paths).
  */
-function spectatorTerminalText(result: import('@europa/engine').MatchResult): string {
+function spectatorTerminalText(
+    result: import('@europa/engine').MatchResult,
+    playerNames?: ReadonlyMap<import('@europa/engine').PlayerId, string>,
+): string {
     switch (result.kind) {
-        case 'win':
-            return `Match over — player ${String(result.winner)} wins.`;
+        case 'win': {
+            const name = resolveName(result.winner, playerNames);
+            return `Match over — ${name} wins!`;
+        }
         case 'draw':
             return 'Match over — draw.';
         default:

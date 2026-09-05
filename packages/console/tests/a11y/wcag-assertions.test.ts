@@ -34,6 +34,7 @@ import { FakeMatchClient } from '../../src/internal/fake-match-client';
 import { App } from '../../src/render/App';
 import { MapCanvas } from '../../src/render/canvas';
 import { cellElementId } from '../../src/render/cell-view';
+import { GameOverModal } from '../../src/render/GameOverModal';
 import { SurrenderModal } from '../../src/render/SurrenderModal';
 import { createOrderBridge } from '../../src/state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../../src/state/store';
@@ -99,6 +100,7 @@ async function bootInteractiveConsole(): Promise<InteractiveBoot> {
                 playerId: 1,
                 displayName: 'Player 1',
                 opponents: ['Player 2'],
+                playerNames: new Map(),
             },
             exclusiveMode: false,
         },
@@ -528,5 +530,53 @@ describe('WCAG 2.4.3 — surrender modal focus trap', () => {
         await user.keyboard('{Escape}');
         expect(onCancel).toHaveBeenCalledTimes(1);
         expect(onConfirm).not.toHaveBeenCalled();
+    });
+});
+
+// ============================================================================
+// 14. Game-over modal keyboard focus trap + ARIA (WCAG 2.4.3 + 4.1.2)
+// ============================================================================
+
+describe('WCAG 2.4.3 — game-over modal focus trap', () => {
+    test('game-over modal traps focus on the single Return to Lobby button', async () => {
+        const onReturnToLobby = vi.fn();
+        const winResult = { kind: 'win' as const, winner: 1, tick: 100, reason: 'last_standing' as const };
+        await render(createElement(GameOverModal, { open: true, result: winResult, onReturnToLobby }));
+
+        const button = document.querySelector<HTMLButtonElement>('.europa-modal__button');
+        expect(button).not.toBeNull();
+
+        // Focus moves to the Return to Lobby button on open (AC-007).
+        expect(document.activeElement).toBe(button);
+
+        const user = userEvent.setup();
+        // Tab keeps focus on the single button (AC-005).
+        await user.keyboard('{Tab}');
+        expect(document.activeElement).toBe(button);
+        await user.keyboard('{Shift>}{Tab}{/Shift}');
+        expect(document.activeElement).toBe(button);
+
+        // Escape does NOT dismiss (FR-005, AC-004).
+        await user.keyboard('{Escape}');
+        expect(onReturnToLobby).not.toHaveBeenCalled();
+        expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    });
+
+    test('game-over modal has correct ARIA dialog attributes', async () => {
+        const winResult = { kind: 'win' as const, winner: 2, tick: 500, reason: 'all_surrendered' as const };
+        await render(createElement(GameOverModal, { open: true, result: winResult, onReturnToLobby: vi.fn() }));
+
+        const dialog = document.querySelector('[role="dialog"]');
+        expect(dialog).not.toBeNull();
+        expect(dialog?.getAttribute('aria-modal')).toBe('true');
+        expect(dialog?.getAttribute('aria-labelledby')).toBe('gameover-title');
+        expect(dialog?.getAttribute('aria-describedby')).toBe('gameover-body');
+
+        const title = document.getElementById('gameover-title');
+        expect(title?.textContent).toBe('Player 2 wins!');
+
+        const body = document.getElementById('gameover-body');
+        expect(body?.textContent).toContain('Reason: all surrendered');
+        expect(body?.textContent).toContain('Final tick: 500');
     });
 });

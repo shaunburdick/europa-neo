@@ -750,6 +750,14 @@ export type LobbyEvent =
       readonly kind: 'actionAccepted';
       readonly actionId: LobbyActionId;
       readonly transition: 'waiting' | 'match';
+      /**
+       * Seat-granting actions (create/join/spectate) carry the
+       * matchmaking-issued session token so the client can pass it to
+       * the match server as `reconnectToken`, ensuring the wire join
+       * claims the CORRECT seat (the one the lobby assigned) rather
+       * than racing for the first open seat.
+       */
+      readonly seatSessionToken?: string;
     }
   | {
       readonly kind: 'error';

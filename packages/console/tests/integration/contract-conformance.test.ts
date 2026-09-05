@@ -171,6 +171,7 @@ const DIST_TYPE_WITNESS = {
     MapView: null as unknown as DistTypes.MapView,
     MapViewId: null as unknown as DistTypes.MapViewId,
     MatchId: null as unknown as DistTypes.MatchId,
+    MatchResult: null as unknown as DistTypes.MatchResult,
     NetEvent: null as unknown as DistTypes.NetEvent,
     NetworkPayload: null as unknown as DistTypes.NetworkPayload,
     Order: null as unknown as DistTypes.Order,

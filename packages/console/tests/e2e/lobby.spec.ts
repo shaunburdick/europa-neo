@@ -579,7 +579,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
             // A real tick and one player order must cross the production wire.
             await expect(bob.locator('.europa-hud')).toContainText(/Tick: [1-9]/, { timeout: WAIT_TIMEOUT });
-            const ownCity = bob.locator('[role="gridcell"][aria-label*="Player 2, city"]').first();
+            const ownCity = bob.locator('[role="gridcell"][aria-label*="Bob, city"]').first();
             await expect(ownCity).toBeVisible({ timeout: WAIT_TIMEOUT });
             await ownCity.click();
             await bob.getByRole('button', { name: 'Set reserves to 70%' }).click();

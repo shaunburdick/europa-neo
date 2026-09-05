@@ -263,6 +263,13 @@ export interface WsLobbyClient {
     spectateMatch(matchId: MatchId): Promise<'waiting' | 'match'>;
     /** Release this identity's match association and return to the lobby. */
     leaveMatch(): Promise<void>;
+    /**
+     * The seat session token from the most recent seat-granting
+     * `actionAccepted` event (create/join), or `null` if none has been
+     * received. The controller reads this AFTER the command resolves to
+     * pass it to the match leg for a correct-seat wire join.
+     */
+    lastSeatSessionToken(): string | null;
     /** Immutable state snapshot. */
     state(): WsLobbyClientState;
     /** Subscribe to connection-state transitions; returns the unsubscribe function. */
@@ -344,6 +351,14 @@ const globalScheduler: LobbyScheduler = {
 
 /** Outcome envelope used to settle pending actions exactly once. */
 type ActionOutcome = { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: Error };
+
+/**
+ * Captured seat session token from the most recent seat-granting
+ * `actionAccepted` event. The controller reads this AFTER the command
+ * resolves to pass it to the match leg for a correct-seat wire join.
+ * Reset to `null` at the start of each establish cycle.
+ */
+let lastCapturedSeatSessionToken: string | null = null;
 
 /** One in-flight correlated action awaiting its echoed actionId. */
 interface PendingAction {
@@ -759,6 +774,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         if (activeUrl === null) {
             return;
         }
+        lastCapturedSeatSessionToken = null;
         attemptEpoch += 1;
         const epoch = attemptEpoch;
         phase = 'identity';
@@ -941,6 +957,9 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 applySnapshot(event.snapshot);
                 return;
             case 'actionAccepted':
+                if (event.seatSessionToken !== undefined) {
+                    lastCapturedSeatSessionToken = event.seatSessionToken;
+                }
                 settleByActionId(event.actionId, { ok: true, value: event.transition });
                 return;
             case 'error':
@@ -1213,6 +1232,10 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             // which still requires the identity. Explicit identity
             // abandonment is `forgetIdentity()`.
             return sendCorrelatedAction<void>('lobbyLeave', (actionId) => ({ actionId }), 'leaveMatch');
+        },
+
+        lastSeatSessionToken(): string | null {
+            return lastCapturedSeatSessionToken;
         },
 
         state(): WsLobbyClientState {

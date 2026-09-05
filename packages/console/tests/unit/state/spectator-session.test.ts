@@ -101,7 +101,7 @@ describe('applySpectatorEnvelope', () => {
         expect(stale).toBe(state);
     });
 
-    it('terminal flips to game_over with a name-free notice', () => {
+    it('terminal flips to game_over with a resolved-name notice', () => {
         let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
         state = applySpectatorEnvelope(
             state,
@@ -109,7 +109,59 @@ describe('applySpectatorEnvelope', () => {
             NOW,
         );
         expect(state.status).toBe('game_over');
-        expect(state.feedback.at(-1)?.text).toBe('Match over — player 2 wins.');
+        expect(state.feedback.at(-1)?.text).toBe('Match over — Orion wins!');
+    });
+
+    it('terminal stores matchResult in state (FR-010)', () => {
+        let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
+        state = applySpectatorEnvelope(
+            state,
+            envelope('terminal', { result: { kind: 'win', winner: 1, tick: 50, reason: 'last_standing' } }),
+            NOW,
+        );
+        expect(state.matchResult).toEqual({ kind: 'win', winner: 1, tick: 50, reason: 'last_standing' });
+    });
+
+    it('terminal stores matchResult for draw events', () => {
+        let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
+        state = applySpectatorEnvelope(
+            state,
+            envelope('terminal', { result: { kind: 'draw', tick: 100, reason: 'mutual_elimination' } }),
+            NOW,
+        );
+        expect(state.matchResult).toEqual({ kind: 'draw', tick: 100, reason: 'mutual_elimination' });
+    });
+
+    it('terminal stores null matchResult when result is undefined (defensive)', () => {
+        let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
+        state = applySpectatorEnvelope(state, envelope('terminal', { result: undefined }), NOW);
+        expect(state.matchResult).toBeNull();
+    });
+
+    it('initialSpectatorState.matchResult is null', () => {
+        const state = initialSpectatorState(MATCH);
+        expect(state.matchResult).toBeNull();
+    });
+
+    it('terminal still appends feedback text (FR-011 — spectatorTerminalText resolves names)', () => {
+        let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
+        state = applySpectatorEnvelope(
+            state,
+            envelope('terminal', { result: { kind: 'win', winner: 2, tick: 12, reason: 'last_standing' } }),
+            NOW,
+        );
+        expect(state.feedback).toHaveLength(1);
+        expect(state.feedback[0]?.text).toBe('Match over — Orion wins!');
+    });
+
+    it('terminal falls back to "Player N" when no name is available', () => {
+        // No joinAck → no playerNames populated
+        const state = applySpectatorEnvelope(
+            initialSpectatorState(MATCH),
+            envelope('terminal', { result: { kind: 'win', winner: 1, tick: 10, reason: 'last_standing' } }),
+            NOW,
+        );
+        expect(state.feedback.at(-1)?.text).toBe('Match over — Player 1 wins!');
     });
 
     it('server errors land as feedback notices', () => {

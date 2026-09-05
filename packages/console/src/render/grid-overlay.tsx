@@ -29,13 +29,19 @@ import { useEffect, useRef, useState } from 'react';
 
 import { KeyboardNavigator } from '../a11y/keyboard';
 import { coordKey } from '../state/build-map-view';
-import type { CellRenderInfo, Coord, MapView } from '../state/types';
+import type { CellRenderInfo, Coord, MapView, PlayerId } from '../state/types';
 import { CellView, cellElementId } from './cell-view';
 
 /** Props for {@link GridOverlay}. */
 export interface GridOverlayProps {
     /** The frame snapshot to render (data-model.md §2). */
     readonly mapView: MapView;
+    /**
+     * Optional player name map from the session state. When present,
+     * cell aria-labels resolve the owner's display name instead of the
+     * raw "Player N" fallback.
+     */
+    readonly playerNames?: ReadonlyMap<PlayerId, string> | undefined;
     /**
      * Click activation on a visible cell (pointer or Enter key).
      * The order pipeline consumes this from Phase 4 onward; optional
@@ -64,6 +70,7 @@ export interface GridOverlayProps {
  */
 export function GridOverlay({
     mapView,
+    playerNames,
     onCellClick,
     onCellHover,
     onFocusedCoordChange,
@@ -174,6 +181,7 @@ export function GridOverlay({
                             info={info}
                             camera={mapView.camera}
                             playerColors={mapView.playerColors}
+                            playerNames={playerNames}
                             focused={
                                 focusedCoord !== null &&
                                 focusedCoord.x === info.coord.x &&

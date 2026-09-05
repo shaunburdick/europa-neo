@@ -38,8 +38,10 @@ import type {
     ConsoleAction,
     ConsoleState,
     FeedbackMessage,
+    MatchResult,
     Order,
     PlayerAction,
+    PlayerId,
     ReduceOptions,
     ReducerEffect,
     RejectedOrder,
@@ -143,9 +145,11 @@ export const INITIAL_CONSOLE_STATE: ConsoleState = {
         playerId: null,
         displayName: '',
         opponents: [],
+        playerNames: new Map(),
     },
     inputEnabled: false,
     exclusiveMode: false,
+    matchResult: null,
 };
 
 // ----------------------------------------------------------------------------
@@ -388,6 +392,47 @@ function orderCellOf(action: PlayerAction): import('@europa/engine').Coord {
 // ----------------------------------------------------------------------------
 
 /**
+ * Build a result-aware announcement string for the terminal event.
+ * Used by both the player reducer and the screen-reader announcer
+ * (FR-012). Resolves the winner's `PlayerId` to a display name when
+ * session data is available, falling back to the raw numeric ID.
+ * Pure — no side effects.
+ *
+ * @param result The engine's terminal match result, or `null` defensively.
+ * @param session The console session carrying seat + opponent data.
+ */
+function terminalAnnouncementText(
+    result: MatchResult | null,
+    session?: { readonly playerNames: ReadonlyMap<PlayerId, string> },
+): string {
+    if (result === null) {
+        return 'Match over.';
+    }
+    switch (result.kind) {
+        case 'win': {
+            const name = resolveName(result.winner, session);
+            return `Match over. ${name} wins!`;
+        }
+        case 'draw':
+            return 'Match over. Draw.';
+        default:
+            return 'Match over.';
+    }
+}
+
+/**
+ * Resolve a `PlayerId` to a display name using session state. Falls
+ * back to "Player N" when session data is absent or the name is
+ * empty. Pure.
+ *
+ * @param id The player's numeric id.
+ * @param session Optional console session data.
+ */
+function resolveName(id: PlayerId, session?: { readonly playerNames: ReadonlyMap<PlayerId, string> }): string {
+    return session?.playerNames.get(id) ?? `Player ${String(id)}`;
+}
+
+/**
  * Handle a NetEvent (FR-007..FR-010). Each variant mirrors the wire
  * mapping in data-model.md §12.
  */
@@ -418,6 +463,12 @@ function reduceNetEvent(
             // client-side assertion. Falls back to the prior value when
             // the server omits the entry.
             const ownName = event.players.find((player) => player.id === event.playerId)?.displayName;
+            const playerNames = new Map<PlayerId, string>();
+            for (const player of event.players) {
+                if (player.displayName !== '') {
+                    playerNames.set(player.id, player.displayName);
+                }
+            }
             return {
                 state: {
                     ...state,
@@ -429,6 +480,7 @@ function reduceNetEvent(
                         playerId: event.playerId,
                         displayName: ownName ?? state.session.displayName,
                         opponents: event.players.filter((p) => p.id !== event.playerId).map((p) => p.displayName),
+                        playerNames,
                     },
                 },
                 effects: [],
@@ -500,11 +552,19 @@ function reduceNetEvent(
             };
         }
 
-        case 'terminal':
+        case 'terminal': {
+            const matchResult = event.result ?? null;
             return {
-                state: { ...state, status: 'game_over' },
-                effects: [{ kind: 'announce', text: 'Match over', politeness: 'assertive' }],
+                state: { ...state, status: 'game_over', matchResult },
+                effects: [
+                    {
+                        kind: 'announce',
+                        text: terminalAnnouncementText(matchResult, state.session),
+                        politeness: 'assertive',
+                    },
+                ],
             };
+        }
 
         case 'pong':
             // Heartbeat echo carries no UI state change.
@@ -527,6 +587,14 @@ function reduceNetEvent(
 
         case 'socketClosed':
             // Auto-reconnect is on by default (US5 AC-3); surface the gap.
+            // Terminal state is terminal: once the match result is known,
+            // a subsequent socket close (server cleanup after sending
+            // `terminal`) must NOT overwrite `game_over` with
+            // `reconnecting` — the player should see the result modal,
+            // not the reconnecting banner.
+            if (state.status === 'game_over') {
+                return { state, effects: [] };
+            }
             return { state: { ...state, status: 'reconnecting' }, effects: [] };
 
         case 'reconnecting':

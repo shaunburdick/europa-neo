@@ -62,6 +62,7 @@ export type LobbyTransport = Pick<
     | 'joinMatch'
     | 'spectateMatch'
     | 'leaveMatch'
+    | 'lastSeatSessionToken'
     | 'state'
     | 'onStateChange'
     | 'onIdentity'
@@ -319,9 +320,18 @@ export function createLobbyController(args: LobbyControllerArgs): LobbyControlle
         store.dispatch({ kind: 'lobbyActionStarted', action: kind });
         try {
             const transition = await run();
+            // Capture the seat session token from the most recent
+            // actionAccepted event (set by the transport when the server
+            // includes it). The match leg needs this to claim the correct
+            // seat via reconnectToken in the wire join.
+            const seatSessionToken = transport.lastSeatSessionToken();
             store.dispatch({ kind: 'lobbyActionSucceeded', action: kind, transition });
             if (knownMatchId !== null) {
-                store.dispatch({ kind: 'lobbyEnteredMatch', matchId: knownMatchId });
+                store.dispatch({
+                    kind: 'lobbyEnteredMatch',
+                    matchId: knownMatchId,
+                    ...(seatSessionToken === null ? {} : { seatSessionToken }),
+                });
             }
             return { ok: true, transition };
         } catch (error: unknown) {

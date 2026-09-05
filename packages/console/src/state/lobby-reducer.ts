@@ -78,6 +78,7 @@ export const INITIAL_LOBBY_STATE: LobbyState = {
     everNamed: false,
     snapshot: null,
     activeMatchId: null,
+    seatSessionToken: null,
     actions: allActionsIdle(),
     superseded: false,
     failure: null,
@@ -219,6 +220,10 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                 ...state,
                 viewMode: 'match',
                 ...(action.matchId !== null ? { activeMatchId: action.matchId } : {}),
+                // Preserve the existing token when the action doesn't carry
+                // one (e.g. resumeMatch after a reload where the token is
+                // already in state from the original join).
+                ...(action.seatSessionToken !== undefined ? { seatSessionToken: action.seatSessionToken } : {}),
             };
 
         case 'lobbyReturned':
@@ -226,6 +231,7 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                 ...state,
                 viewMode: 'lobby',
                 activeMatchId: null,
+                seatSessionToken: null,
                 actions: { ...state.actions, leaveMatch: idleActionStatus() },
             };
 

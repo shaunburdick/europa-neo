@@ -101,6 +101,7 @@ import type {
   CellView,
   Coord,
   Direction,
+  MatchResult,
   Order,
   PlayerId,
   ReservesPct,
@@ -587,6 +588,14 @@ export interface ConsoleState {
    * pressing a hotkey to toggle.
    */
   readonly exclusiveMode: boolean;
+  /**
+   * The engine's terminal match result, stored when the `terminal`
+   * wire event arrives. `null` until the match ends. The
+   * {@link GameOverModal} reads this field to display who won, the
+   * reason, and the final tick. `MatchResult | null` — re-exported
+   * via `@europa/engine`.
+   */
+  readonly matchResult: MatchResult | null;
 }
 
 /**
@@ -663,6 +672,13 @@ export interface ConsoleSession {
   readonly displayName: string;
   /** Display names of other players in the match. Index by `PlayerId - 1`. */
   readonly opponents: ReadonlyArray<string>;
+  /**
+   * Bidirectional map from `PlayerId` to display name. Populated from
+   * the server's `players` array on join; used by the game-over modal
+   * and terminal announcement to resolve numeric IDs to handles.
+   * Empty before the `joined` event arrives.
+   */
+  readonly playerNames: ReadonlyMap<PlayerId, string>;
 }
 
 // ----------------------------------------------------------------------------
@@ -828,6 +844,7 @@ export type {
   CellView,
   Coord,
   Direction,
+  MatchResult,
   Order,
   PlayerId,
   ReservesPct,

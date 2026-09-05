@@ -288,6 +288,24 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     const legIntentRef = useRef<LegIntent | null>(null);
     const routeAttemptedRef = useRef(false);
 
+    // Pin the leg intent's matchId once activeMatchId is known (create
+    // flow — join/spectate set it eagerly). Without this, the creator's
+    // legIntentRef stays `{ matchId: null }` until the lobby snapshot
+    // removes the terminated match and activeMatchId reverts to null.
+    // That causes the derived matchId to become null, changing the
+    // MatchLegHost key and unmounting the live App (with its
+    // GameOverModal) before the player sees the result.
+    useEffect(() => {
+        if (
+            state.viewMode === 'match' &&
+            legIntentRef.current !== null &&
+            legIntentRef.current.matchId === null &&
+            state.activeMatchId !== null
+        ) {
+            legIntentRef.current = { ...legIntentRef.current, matchId: state.activeMatchId };
+        }
+    }, [state.viewMode, state.activeMatchId]);
+
     function navigateTo(pathname: string): void {
         if (window.location.pathname === pathname) return;
         window.history.pushState(window.history.state, '', pathname);
@@ -613,11 +631,13 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     handle={state.handle}
                     occupancy={entry !== null ? { seatsFilled: entry.seatsFilled, capacity: entry.capacity } : null}
                     matchStarted={matchStarted}
+                    seatSessionToken={state.seatSessionToken}
                     announcer={announcer ?? undefined}
                     leaveError={state.actions.leaveMatch.error}
                     leaving={state.actions.leaveMatch.phase === 'loading'}
                     onLeave={leaveMatch}
                     onRouteFailure={() => setNoticeKind('shortcut-failure')}
+                    onReturnToLobby={returnToLobby}
                 />
             </>
         );
@@ -685,6 +705,13 @@ interface MatchLegArgs {
     readonly matchId: MatchId;
     /** Display name for the seat claim — the accepted handle (FR-019). */
     readonly displayName: string;
+    /**
+     * Matchmaking-issued session token for this seat. Passed as
+     * `reconnectToken` in the wire join so the server assigns the
+     * connection to the CORRECT seat (the one the lobby assigned),
+     * rather than racing for the first open seat.
+     */
+    readonly seatSessionToken: string | null;
     /** Report a terminal handshake failure to route recovery. */
     readonly onFailure: () => void;
 }
@@ -713,6 +740,10 @@ function createMatchLeg(args: MatchLegArgs): MatchLeg {
             url: args.wsUrl,
             displayName: args.displayName,
             matchId: args.matchId,
+            // exactOptionalPropertyTypes: only carry reconnectToken when set.
+            ...(args.seatSessionToken === null
+                ? {}
+                : { reconnectToken: args.seatSessionToken as import('../state/types').SessionToken }),
         },
         { matchClientFactory: () => wsClient },
     );
@@ -777,6 +808,12 @@ interface MatchLegHostProps {
      * with the wire server, so a leg can attach.
      */
     readonly matchStarted: boolean;
+    /**
+     * Matchmaking-issued session token for this seat, or `null` when
+     * unknown (create flow, spectator). Passed to the match leg so the
+     * wire join claims the correct seat.
+     */
+    readonly seatSessionToken: string | null;
     /** Shared runtime announcer (survives view swaps). */
     readonly announcer?: LiveRegionAnnouncer | undefined;
     /** The leave action's error slot (rendered beside the button). */
@@ -787,6 +824,8 @@ interface MatchLegHostProps {
     readonly onLeave: () => void;
     /** Report match-leg failures without exposing transport details. */
     readonly onRouteFailure: () => void;
+    /** Callback to navigate back to the lobby on game-over (FR-009). */
+    readonly onReturnToLobby?: () => void;
 }
 
 /**
@@ -824,11 +863,13 @@ function MatchLegHost({
     handle,
     occupancy,
     matchStarted,
+    seatSessionToken,
     announcer,
     leaveError,
     leaving,
     onLeave,
     onRouteFailure,
+    onReturnToLobby,
 }: MatchLegHostProps): JSX.Element {
     const headingRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -855,7 +896,7 @@ function MatchLegHost({
     // (App's MapCanvas ref pattern); boot/dispose ride the effect.
     const legRef = useRef<MatchLeg | null>(null);
     if (legRef.current === null && role === 'player' && matchId !== null && matchStarted) {
-        legRef.current = createMatchLeg({ wsUrl, matchId, displayName, onFailure: onRouteFailure });
+        legRef.current = createMatchLeg({ wsUrl, matchId, displayName, seatSessionToken, onFailure: onRouteFailure });
     }
     const leg = legRef.current;
     useEffect(() => {
@@ -895,7 +936,7 @@ function MatchLegHost({
             {leg !== null ? (
                 // Player board: App owns the page's single
                 // <main id="main"> landmark (skip-link target).
-                <App store={leg.store} />
+                <App store={leg.store} {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})} />
             ) : role === 'spectator' && matchId !== null && matchStarted ? (
                 // Live read-only spectator surface — also App-rendered,
                 // so it likewise owns its own <main>.
@@ -905,6 +946,7 @@ function MatchLegHost({
                     displayName={displayName}
                     announcer={announcer}
                     onFailure={onRouteFailure}
+                    {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})}
                 />
             ) : (
                 <main id="main" className="europa-lobby europa-lobby-match__placeholder">
@@ -1079,6 +1121,8 @@ interface SpectatorMatchLegProps {
     readonly announcer?: LiveRegionAnnouncer | undefined;
     /** Report attach failure to the route shell. */
     readonly onFailure: () => void;
+    /** Callback to navigate back to the lobby (FR-010). */
+    readonly onReturnToLobby?: () => void;
 }
 
 /**
@@ -1093,7 +1137,14 @@ interface SpectatorMatchLegProps {
  *
  * Announces the attach once through the shared runtime channel.
  */
-function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer, onFailure }: SpectatorMatchLegProps): JSX.Element {
+function SpectatorMatchLeg({
+    wsUrl,
+    matchId,
+    displayName,
+    announcer,
+    onFailure,
+    onReturnToLobby,
+}: SpectatorMatchLegProps): JSX.Element {
     const [snapshot, setSnapshot] = useState<ConsoleState>(() => initialSpectatorState(matchId));
 
     // One leg per mount (render-phase ref construction, no I/O — the
@@ -1120,7 +1171,7 @@ function SpectatorMatchLeg({ wsUrl, matchId, displayName, announcer, onFailure }
         }
     }, [announcer, snapshot.status]);
 
-    return <App state={snapshot} />;
+    return <App state={snapshot} {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})} />;
 }
 
 /** Props for {@link PreStartPlate}. */

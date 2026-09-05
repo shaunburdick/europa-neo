@@ -734,7 +734,12 @@ export function createMatchServer(
                 sendLobbyEvent(connection, lobbyErrorPayload(payload.actionId, result.error).event);
                 return;
             }
-            sendLobbyEvent(connection, { kind: 'actionAccepted', actionId: payload.actionId, transition: 'waiting' });
+            sendLobbyEvent(connection, {
+                kind: 'actionAccepted',
+                actionId: payload.actionId,
+                transition: 'waiting',
+                seatSessionToken: result.data.seatAssignment.sessionToken,
+            });
         });
     }
 
@@ -766,6 +771,7 @@ export function createMatchServer(
                     kind: 'actionAccepted',
                     actionId: payload.actionId,
                     transition: peekedRowStatus(result.data.matchId) === 'in_progress' ? 'match' : 'waiting',
+                    seatSessionToken: result.data.seatAssignment.sessionToken,
                 });
             } finally {
                 peek.connectionId = null;
@@ -915,6 +921,19 @@ export function createMatchServer(
             };
             connection.send(envelopeOf('joinAck', ackPayload));
             statsCounter.recordFrameSent('joinAck');
+
+            // Late-join spectator to a terminal match: deliver the
+            // terminal payload so the client transitions to game_over
+            // (same fix as the player path — issue #47).
+            if (channel.terminalSent) {
+                const terminalResult = channel.engineSession.status();
+                if (terminalResult) {
+                    const payload: TerminalPayload = { result: terminalResult };
+                    connection.send(envelopeOf('terminal', payload), Date.now());
+                    connection.markTerminal();
+                    statsCounter.recordFrameSent('terminal');
+                }
+            }
             return;
         }
 
@@ -996,6 +1015,23 @@ export function createMatchServer(
         channel.attachSeat(target.playerId, target.token, connection);
         connection.markJoined(target.token, target.playerId, payload.matchId);
         sendJoinAck(connection, channel, target.playerId, false);
+
+        // Late-join to a terminal match: deliver the terminal payload
+        // so the client transitions to game_over. Without this, a
+        // connection that joins after the terminal was already broadcast
+        // would receive the final snapshot via joinAck but never see the
+        // terminal envelope — the client would stay in 'live' status
+        // indefinitely (issue #47: match creator never sees game-over).
+        if (channel.terminalSent) {
+            const terminalResult = channel.engineSession.status();
+            if (terminalResult) {
+                const payload: TerminalPayload = { result: terminalResult };
+                connection.send(envelopeOf('terminal', payload), Date.now());
+                connection.markTerminal();
+                statsCounter.recordFrameSent('terminal');
+            }
+        }
+
         // Feature 009 FR-005: every successful seat claim logs the release
         // identity with the seat/connection detail ("at each seat join").
         deps.logger.info('seat joined', {
@@ -1072,6 +1108,18 @@ export function createMatchServer(
         for (const entry of buffer?.getSince(0) ?? []) {
             connection.send(envelopeOf('tick', { tick: entry.tick, view: entry.view }));
             statsCounter.recordFrameSent('tick');
+        }
+
+        // Reconnect to a terminal match: deliver the terminal payload
+        // so the client transitions to game_over (issue #47).
+        if (channel.terminalSent) {
+            const terminalResult = channel.engineSession.status();
+            if (terminalResult) {
+                const payload: TerminalPayload = { result: terminalResult };
+                connection.send(envelopeOf('terminal', payload), Date.now());
+                connection.markTerminal();
+                statsCounter.recordFrameSent('terminal');
+            }
         }
 
         deps.matchmaker.onSeatReconnected?.({
