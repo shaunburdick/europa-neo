@@ -411,6 +411,18 @@ For the console to be considered "ready":
 When all 15 E2E + 8 a11y + 10 unit + 8 component tests pass and
 the manual smoke is clean, the console is ready for v1.
 
+### Issue #76 additions (sidebar layout + zoom expansion)
+
+- [ ] Two-column layout renders (board left, sidebar right) — FR-014.
+- [ ] Sidebar shows all 8 sections in order — FR-015.
+- [ ] Sidebar stays static during zoom/pan — FR-016.
+- [ ] Zoom range 50%–300%, default 100% — FR-017.
+- [ ] Keyboard zoom shortcuts work (`+`/`=`/`-`/`_`/`0`) — FR-018.
+- [ ] Minimap viewport rect reflects current zoom/pan — FR-019.
+- [ ] Responsive stacking below 768px — FR-020.
+- [ ] Spectator sidebar renders with inert order controls — FR-021.
+- [ ] Sidebar owned by `App` (no lobby-runtime sidebar) — FR-022.
+
 ---
 
 ## 14. Validation results appendix (2026-08-23, Phase 8 Polish)
@@ -435,3 +447,42 @@ not 15 per-FR specs), the mapping notes the consolidation.
 §13 checklist status: every automated row green; the only manual
 item remaining is the 30-minute two-player smoke (needs the feature
 006 ↔ console integration wave).
+
+---
+
+## 15. Issue #76 validation mapping (sidebar layout + zoom expansion)
+
+The issue #76 acceptance items (spec "Layout acceptance mapping"),
+mapped to the proving suites. These are additive to the base feature's
+Q-* scenarios.
+
+| Acceptance item | Proving suite | Notes |
+| --- | --- | --- |
+| FR-014 two-column layout | `test:component` (App layout assertion) + `test:e2e` (sidebar present) | New component test asserts `europa-main` is flex with board left + sidebar right; E2E asserts the sidebar landmark exists |
+| FR-015 sidebar section list | `test:component` (renders all sections) + axe roles check | Component test asserts all 8 sections render in order; a11y test asserts landmark roles |
+| FR-016 sidebar static during zoom/pan | `test:component` (sidebar ref unchanged across camera changes) | Dispatch `setCamera`; assert sidebar DOM ref/geometry unchanged |
+| FR-017 zoom 50%–300%, default 100% | `test:unit` (zoom math clamp) + `test:component` (indicator) | Unit test asserts `clampCamera` clamps to `[16, 96]`; component test asserts the percentage indicator |
+| FR-018 keyboard shortcuts | `test:unit` (HotkeyController zoom layer) + `test:e2e` (keypress) | Unit test asserts `+`/`=`/`-`/`_`/`0` dispatch `setCamera`; E2E presses keys and asserts zoom changes |
+| FR-019 minimap viewport rect | `test:component` (rect updates with zoom) | Assert `viewportRect` reflects new zoom/pan after `setCamera` |
+| FR-020 responsive stacking | `test:component` (viewport resize → single column) | Resize to < 768px; assert sidebar stacks below board |
+| FR-021 spectator parity | `test:e2e` (spectator sidebar) | Spectator leg renders sidebar with inert order controls |
+| FR-022 sidebar owned by App | code review: `App.tsx` contains the sidebar, no lobby-runtime sidebar | Manual code review + grep for `europa-sidebar` in `App.tsx` only |
+
+### Issue #76 verification commands
+
+```bash
+# Unit (zoom clamp + hotkey zoom layer)
+pnpm test:unit
+
+# Component (sidebar layout, sections, static, indicator, minimap rect, responsive)
+pnpm test:component
+
+# E2E (sidebar present, keypress zoom, spectator sidebar)
+pnpm test:e2e
+
+# A11y (sidebar landmark roles)
+pnpm test:a11y
+
+# Full gate (typecheck, lint, format, all suites, selfhost, conformance)
+pnpm verify
+```

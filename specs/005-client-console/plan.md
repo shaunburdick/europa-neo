@@ -566,3 +566,125 @@ implements solo, with self-review against the spec and the constitution.
 If Phase 6 grows past 60 hours of architect time, the orchestrator
 may be invoked per AGENTS.md "large → orchestration skill" — but
 the current estimate is medium.
+
+---
+
+# Amendment: Console UI Redesign (issue #76)
+
+**Branch**: `issue-76-Console-UI-Redesign` | **Date**: 2026-09-05 | **Spec**: [`specs/005-client-console/spec.md`](./spec.md) (Clarifications v1.4, FR-014..FR-022, Implementation Note 16)
+
+This amendment restructures the shipped match view into a two-column
+layout (board left, fixed-width right sidebar with all HUD controls),
+expands the zoom range to 50%–300% with a percentage display layer,
+adds keyboard zoom shortcuts, and guarantees spectator parity. It is
+an **additive/restructuring** change to the already-Implemented feature
+005 — no engine, fog, terrain, or networking changes; no new
+dependencies.
+
+## Scope (from spec FR-014..FR-022)
+
+| FR | Requirement | Primary surface |
+|----|-------------|-----------------|
+| FR-014 | Two-column layout: board left, fixed-width right sidebar | `App.tsx` + `index.css` |
+| FR-015 | Sidebar section list (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) | `App.tsx` + new `Sidebar` component |
+| FR-016 | Sidebar static during zoom/pan (only board transform changes) | `index.css` (flex layout) |
+| FR-017 | Zoom 50%–300%, default 100%; percentage display layer over cell-pixel math | `zoom.ts` + `CONSOLE_CONSTANTS` |
+| FR-018 | Keyboard zoom shortcuts `+`/`=`/`-`/`_`/`0`; focus-guard suppressed | `hotkeys.ts` (UI-zoom layer) |
+| FR-019 | Minimap viewport rect reflects current zoom/pan live | `minimap.tsx` (already wired) |
+| FR-020 | Responsive: sidebar stacks below board < 768px | `index.css` media query |
+| FR-021 | Spectator parity: same layout, order controls inert | `App.tsx` (`store === undefined` guards) |
+| FR-022 | Sidebar owned by `App`, not lobby runtime | `App.tsx` + `lobby-runtime.tsx` |
+
+## Key design decisions (issue #76)
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Sidebar ownership | `App.tsx` composes the sidebar; player + spectator share one render path | FR-022; spectator already renders `App` with `state` prop and no `store` (Implementation Note 16) |
+| Zoom semantics | Percentage is a **display layer** over existing cell-pixel math; `CameraState` stays in cell-pixels | FR-017; pan-clamp math unchanged; 50% = 16px/cell, 100% = 32px/cell, 300% = 96px/cell |
+| Zoom range | `minZoom` 12 → **16** (50% of 32); `maxZoom` stays 96 (300% of 32) | FR-017; `minCellPx` in `CONSOLE_CONSTANTS` changes 12 → 16 |
+| Keyboard shortcuts | `HotkeyController` extended with a UI-zoom layer (one handler, same focus guard) | FR-018; reuses `shouldIgnoreKeyEvent` |
+| Minimap viewport rect | Existing `viewportRect` helper + `useContainerSize`; enhanced styling for sidebar context | FR-019; already wired to camera state subscription |
+| Responsive | Media query at 768px; sidebar stacks below board | FR-020; matches spec Assumptions (desktop-first, mobile not precluded) |
+| Spectator parity | `store === undefined` guards disable order-producing controls | FR-021; structural invariant — spectators have no store/order bridge |
+| Sidebar sections | New `Sidebar` component composing Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help | FR-015; migrated from inline `App` HUD items |
+
+## Architecture (issue #76)
+
+The match view restructures from a single-column flow into a two-column
+flex layout:
+
+```
+europa-main (display: flex)
+├── europa-board-area (flex-grow: 1)   ← canvas + grid overlay + targeting/waiting overlays
+└── europa-sidebar (fixed width ~280px) ← Status / Players / Orders / Reserve / Overview / Zoom / Surrender / Help
+```
+
+- `europa-main` becomes `display: flex`; `europa-board-area` is the
+  left (flex-grow: 1) column; a new `europa-sidebar` is the right
+  (fixed ~280px) column.
+- The header (page title) and `BrandedFooter` stay at the view root,
+  outside the two-column area (FR-014).
+- The existing inline HUD items (`#hud`, `OrderBar`, `ReservesPanel`,
+  `Minimap`, Surrender, Help) migrate into the sidebar structure
+  (Implementation Note 16).
+- The sidebar is composed as children of `App` (FR-022) so player and
+  spectator share one render path.
+- `ZoomPanController` and `clampCamera` are updated for the new
+  `minZoom=16` range (FR-017).
+- Keyboard zoom shortcuts live in `HotkeyController` (one handler,
+  same focus guard as order shortcuts) (FR-018).
+- The minimap's `viewportRect` is already wired; it updates with the
+  existing camera state subscription (FR-019).
+- Responsive: media query at 768px collapses to single-column (sidebar
+  below board) (FR-020).
+- Spectator path: `SpectatorMatchLeg` in `lobby-runtime.tsx` renders
+  `App` with `state` prop and no `store`; the sidebar renders with
+  `store === undefined` guards disabling all order-producing controls
+  (FR-021) — no new spectator-specific code needed.
+
+## Contract impact (issue #76)
+
+- **`CONSOLE_CONSTANTS.minCellPx`**: 12 → 16 (50% of 32). This is a
+  **behavioral change** to a public contract constant. Per the
+  feature 004 "pre-1.0 minor = breaking boundary" precedent, this
+  warrants a `CONSOLE_API_VERSION` bump (0.1.0 → 0.2.0). **Decision
+  for the implementer**: confirm the bump with the PM before landing;
+  the constant's *type* is unchanged, but its *value* changes, so
+  downstream consumers relying on `minCellPx === 12` would break.
+- **`CameraState.minZoom`** default: 12 → 16 (in `DEFAULT_CAMERA`,
+  `contracts/console-types.ts`).
+- **`HotkeyId` union**: additive `zoomIn` / `zoomOut` / `zoomReset`
+  entries (or a separate UI-zoom layer keyed by raw key string — see
+  tasks.md). No existing binding removed.
+- **No engine/fog/terrain/networking changes**: the console remains a
+  leaf consumer (data-model §16).
+
+## Risk & open questions (issue #76)
+
+| Item | Mitigation |
+|------|------------|
+| `minCellPx` 12 → 16 is a behavioral contract change | Confirm `CONSOLE_API_VERSION` bump with PM; the constant's type is unchanged |
+| Sidebar width (~280px) reduces board area on narrow desktops | FR-020 responsive stacking below 768px; board area flex-grows |
+| Spectator sidebar must not send orders | Structural invariant (no store/order bridge); `store === undefined` guards render controls inert (FR-021) |
+| Keyboard zoom shortcuts must not collide with order keys | `+`/`=`/`-`/`_`/`0` are not in the default `InputMapping`; `HotkeyController` focus guard suppresses in interactive chrome (FR-018) |
+| Existing component/E2E tests assert the old HUD structure | Update `app-wire-view.test.tsx`, minimap tests, and E2E specs to the sidebar structure in the same change set |
+
+## Phase 6 handoff notes (issue #76)
+
+1. Run `pnpm install` (no new deps).
+2. Restructure `App.tsx` into the two-column layout; compose the
+   `Sidebar` component (FR-014/FR-015/FR-022).
+3. Update `index.css` for the flex layout + 768px media query
+   (FR-016/FR-020).
+4. Update `zoom.ts` + `CONSOLE_CONSTANTS` for `minZoom=16`
+   (FR-017).
+5. Extend `HotkeyController` with the UI-zoom layer (FR-018).
+6. Verify minimap viewport rect (FR-019) and spectator parity
+   (FR-021).
+7. Update existing component/E2E tests to the sidebar structure.
+8. Verify with the full `pnpm verify` gate (typecheck, lint, format,
+   all suites, selfhost, conformance).
+
+**Size estimate**: ~400–700 LOC of code + tests. Small-to-medium
+restructuring feature; the architect implements solo with self-review
+against the spec and constitution.
