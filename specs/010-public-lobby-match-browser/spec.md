@@ -350,3 +350,34 @@ identifier or example cannot silently pass review.
   URL exception remains local `pnpm host` tokenized seat handoff; those URLs
   remain bearer secrets and are not generalized to public app URLs, logs,
   diagnostics, or documentation examples.
+
+### Issue #34 shareable match links implementation (2026-09-06)
+
+The following implementation decisions resolve the integration details for
+the shareable match links feature (FR-028–FR-035) without changing the
+normative requirements above:
+
+- **Clipboard fallback (plan decision D6)**: The copy-link action uses
+  `navigator.clipboard.writeText()` with a hidden-input fallback when the
+  Clipboard API is unavailable (insecure context, permission denied). On
+  failure, the URL is displayed as selectable text so the user can copy it
+  manually. The action never silently fails without feedback.
+- **Interstitial state (plan decision D3)**: The play-or-spectate
+  interstitial is a transient UI state within the lobby (`deepLinkInterstitial`
+  phase in `LobbyState`), not a new URL or route. The URL stays as
+  `/match/<matchId>` throughout. Back/Forward navigation re-resolves the
+  route and dismisses the interstitial. Participants (existing seat holders)
+  bypass the interstitial entirely via the `activeMatchId` check (plan D4).
+- **Visibility tracking (plan decision D2)**: Match visibility (`public` or
+  `private`) is stored locally in the lobby state when a match is entered
+  (create/join/spectate). This avoids changing the wire contract and keeps
+  the decision local to the console UI. The visibility determines whether
+  the copy-link button is rendered prominently (private) or subtly (public).
+- **Host script changes (plan decision D7)**: `--public-url` /
+  `HOST_PUBLIC_URL` configures an absolute public URL base for terminal join
+  URLs. When set, `--create` mode prints `${publicUrl}/match/<matchId>`
+  instead of the default `${protocol}://${publicHost}:${port}/match/<matchId>`.
+  The value is also passed to `createMatchmaker({ publicBaseUrl })` so
+  `joinLinks()` returns absolute `joinUrl` when configured. The canonical
+  URL scheme is `/match/<matchId>` (plan decision D8); the matchmaker's
+  `joinPath` stays as `/join/<matchId>` for backward compatibility.
