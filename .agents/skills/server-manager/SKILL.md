@@ -255,9 +255,15 @@ npx pm2 start .agents/skills/server-manager/scripts/ecosystem.config.cjs
   ```bash
   rm -f docs/manual/.astro/dev.json docs/manual/.astro/dev.log
   ```
-- **Orphaned children.** Killing the `pnpm` wrapper (`pm2 delete`, `timeout`,
-  Ctrl-C) does not always kill the `vite`/`astro` node child — it keeps running
-  and holds the port. After any cleanup, verify ports are actually free:
+- **Orphaned children (fixed in the config).** PM2's default kill only signals
+  the direct pid — killing the `pnpm` wrapper left the `vite`/`astro` node
+  child running and holding the port. The ecosystem config now sets
+  `treekill: true` on every app so PM2 kills the whole process tree, and the
+  docs app sets `ASTRO_DEV_BACKGROUND: "0"` because Astro 7.x auto-detects AI
+  agent environments (`am-i-vibing`) and daemonizes `astro dev` into a
+  detached background server that would survive even a tree-kill. Verified:
+  `pm2 delete all` leaves zero orphans. Still worth a safety check after
+  cleanup, especially if anything was started outside PM2:
   ```bash
   ss -tlnp | grep -E ':(8080|5173|4321)\b'
   # kill any stragglers by pid
@@ -370,8 +376,9 @@ npx pm2 delete all
 npx pm2 status
 # Should show an empty process table
 
-# Verify ports are actually free — pnpm wrappers can orphan their
-# vite/astro node children, which keep holding the port
+# Safety check: ports should be free. The config's treekill: true +
+# ASTRO_DEV_BACKGROUND: "0" prevent orphans, but verify anyway — especially
+# if anything was started outside PM2.
 ss -tlnp | grep -E ':(8080|5173|4321)\b'
 # kill any stragglers by pid
 ```
@@ -414,9 +421,10 @@ HOST_PORT=9090 npx pm2 start .agents/skills/server-manager/scripts/ecosystem.con
 ```
 
 Two recurring causes worth checking first (see "Isolating Environments" for
-details): an **orphaned vite/astro child** left behind by a killed `pnpm`
-wrapper, or a **stale Astro lock file** (`docs/manual/.astro/dev.json`) that
-makes the docs server refuse to start.
+details): a **stale Astro lock file** (`docs/manual/.astro/dev.json`) that
+makes the docs server refuse to start, or an **orphaned server process** left
+by something started outside PM2 (the config's `treekill: true` +
+`ASTRO_DEV_BACKGROUND: "0"` prevent orphans from PM2-managed servers).
 
 ### Server starts then immediately stops
 
