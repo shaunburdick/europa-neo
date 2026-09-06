@@ -59,7 +59,7 @@ describe('App first paint (Q-B01)', () => {
         const boardPx = view.config.boardSize * zoom;
 
         // Wait for the initial paint to complete before sampling.
-        const initialPaintCount = Number(canvas?.dataset.paintCount ?? '0');
+        const initialPaintCount = Number(canvas?.getAttribute('data-paint-count') ?? '0');
 
         // Poll for the expected pixel state. Offsets are recalculated on
         // each iteration because the canvas bitmap dimensions change as
@@ -73,7 +73,7 @@ describe('App first paint (Q-B01)', () => {
                     const curH = canvas?.height ?? 0;
                     if (curW === 0 || curH === 0) return false;
                     // Wait for paint to complete after any resize.
-                    if (Number(canvas?.dataset.paintCount ?? '0') <= initialPaintCount) return false;
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') <= initialPaintCount) return false;
                     const curOffX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const curOffY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     let paintedVisible = 0;
@@ -101,7 +101,10 @@ describe('App first paint (Q-B01)', () => {
                         }
                     }
                     const totalCells = view.config.boardSize * view.config.boardSize;
-                    return paintedVisible === view.visibleCells.length && paintedVoid === totalCells - view.visibleCells.length;
+                    return (
+                        paintedVisible === view.visibleCells.length &&
+                        paintedVoid === totalCells - view.visibleCells.length
+                    );
                 },
                 { timeout: 5000, message: 'all visible cells painted, all out-of-horizon cells void' },
             )

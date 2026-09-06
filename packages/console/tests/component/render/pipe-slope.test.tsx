@@ -136,7 +136,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         const uphillRgb = hexToRgb(PIPE_UPHILL_COLOR);
 
         // Wait for the initial paint to complete before sampling.
-        const initialPaintCount = Number(canvas?.dataset.paintCount ?? '0');
+        const initialPaintCount = Number(canvas?.getAttribute('data-paint-count') ?? '0');
 
         // Poll for the expected pixel state. Offsets are recalculated on
         // each iteration because the canvas bitmap dimensions change as
@@ -150,10 +150,14 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     const curH = canvas?.height ?? 0;
                     if (curW === 0 || curH === 0) return false;
                     // Wait for paint to complete after any resize.
-                    if (Number(canvas?.dataset.paintCount ?? '0') <= initialPaintCount) return false;
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') <= initialPaintCount) return false;
                     const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
-                    const sampleCentroid = (cellX: number, cellY: number, intensity: number): Uint8ClampedArray | undefined => {
+                    const sampleCentroid = (
+                        cellX: number,
+                        cellY: number,
+                        intensity: number,
+                    ): Uint8ClampedArray | undefined => {
                         const size = baseSize * (0.4 + intensity * 0.6);
                         const centroidOffsetY = (size * 1.6) / 3;
                         const px = cellX * zoom + zoom / 2 + offX;
@@ -195,7 +199,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         const boardPx = BOARD_SIZE * zoom;
 
         // Wait for the initial paint to complete before sampling.
-        const initialPaintCount = Number(canvas?.dataset.paintCount ?? '0');
+        const initialPaintCount = Number(canvas?.getAttribute('data-paint-count') ?? '0');
 
         // Poll for the expected pixel state.
         await expect
@@ -205,7 +209,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     const curH = canvas?.height ?? 0;
                     if (curW === 0 || curH === 0) return false;
                     // Wait for paint to complete after any resize.
-                    if (Number(canvas?.dataset.paintCount ?? '0') <= initialPaintCount) return false;
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') <= initialPaintCount) return false;
                     const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     // Centroid of (4,1) north triangle: NO fill — terrain color, not stalled.
@@ -313,7 +317,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         const centroidY = (downhillSize * 1.6) / 3;
 
         // Wait for the initial paint to complete before sampling.
-        const initialPaintCount = Number(canvas?.dataset.paintCount ?? '0');
+        const initialPaintCount = Number(canvas?.getAttribute('data-paint-count') ?? '0');
 
         // Poll for the expected pixel state with recalculated offsets.
         await expect
@@ -323,7 +327,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     const curH = canvas?.height ?? 0;
                     if (curW === 0 || curH === 0) return false;
                     // Wait for paint to complete after any resize.
-                    if (Number(canvas?.dataset.paintCount ?? '0') <= initialPaintCount) return false;
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') <= initialPaintCount) return false;
                     const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     const px = 1 * zoom + zoom / 2 + offX;
