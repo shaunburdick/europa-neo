@@ -213,3 +213,72 @@ describe('host banner with --public-url (T-034-16)', () => {
         });
     });
 });
+
+// ---------------------------------------------------------------------------
+// T-034-22: Host script publicBaseUrl absolute URL E2E
+// ---------------------------------------------------------------------------
+
+describe('host script publicBaseUrl absolute URL E2E (T-034-22, FR-034)', () => {
+    function captureStdout(fn: () => void): string {
+        const out: string[] = [];
+        const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+            out.push(String(chunk));
+            return true;
+        });
+        try {
+            fn();
+            return out.join('');
+        } finally {
+            spy.mockRestore();
+        }
+    }
+
+    const matchId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const seatTokens = ['tok-p1', 'tok-p2'];
+    const fakeMatch = {
+        matchId,
+        seatTokens,
+        playerCount: 2,
+        boardSize: 32,
+    } as unknown as Parameters<typeof printCreateBanner>[2];
+
+    it('--public-url produces absolute /match/<matchId> URLs in terminal output', () => {
+        const text = captureStdout(() => {
+            printCreateBanner(8080, 'localhost', fakeMatch, 'https://game.example.com');
+        });
+
+        // Both player URLs must be absolute with the configured public URL.
+        expect(text).toContain(`Player 1 (P1) → https://game.example.com/match/${matchId}`);
+        expect(text).toContain(`Player 2 (P2) → https://game.example.com/match/${matchId}`);
+
+        // Must NOT contain relative URLs or the old /join suffix.
+        expect(text).not.toMatch(new RegExp(`/match/${matchId}/join`));
+        expect(text).not.toMatch(/→ \/match\//);
+
+        // The publicUrl must NOT leak into ws/Console UI lines.
+        expect(text).toMatch(/Match server\s+: ws:\/\/localhost:8080/);
+        expect(text).toMatch(/Console UI\s+: http:\/\/localhost:8080/);
+    });
+
+    it('lobby banner uses publicUrl for the lobby link', () => {
+        const text = captureStdout(() => {
+            printLobbyBanner(8080, 'localhost', 'https://game.example.com');
+        });
+
+        // The lobby URL must be absolute with the configured public URL.
+        expect(text).toContain('→ https://game.example.com/lobby');
+
+        // Console UI line stays local.
+        expect(text).toMatch(/Console UI\s+: http:\/\/localhost:8080/);
+    });
+
+    it('without publicUrl, banner uses default http://host:port', () => {
+        const text = captureStdout(() => {
+            printCreateBanner(9090, 'example.com', fakeMatch);
+        });
+
+        // Default: http://example.com:9090/match/<matchId>
+        expect(text).toContain(`Player 1 (P1) → http://example.com:9090/match/${matchId}`);
+        expect(text).toContain(`Player 2 (P2) → http://example.com:9090/match/${matchId}`);
+    });
+});
