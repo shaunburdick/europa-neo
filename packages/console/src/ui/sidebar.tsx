@@ -121,14 +121,15 @@ export function Sidebar({
             {/* 1. Status — connection status, match-live indicator, local player. */}
             <section id="status" aria-label="Status" className="europa-sidebar__section">
                 <h2 className="europa-sidebar__heading">Status</h2>
-                <Tooltip content="Current connection and game status">
-                    <span className="europa-hud__item">Status: {status}</span>
-                </Tooltip>
-                {status === 'live' && (
+                {status === 'live' ? (
                     <span className="europa-sidebar__live-indicator">
                         <span className="europa-sidebar__live-dot" aria-hidden="true" />
                         Match live
                     </span>
+                ) : (
+                    <Tooltip content="Current connection and game status">
+                        <span className="europa-hud__item">Status: {status}</span>
+                    </Tooltip>
                 )}
                 <Tooltip content="Your seat in this match">
                     <span className="europa-hud__item">

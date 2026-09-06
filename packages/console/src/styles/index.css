@@ -69,10 +69,14 @@ body {
     background-color: var(--europa-color-void-bg);
 }
 
-/* ARIA grid overlay — exactly covers the canvas. */
+/* ARIA grid overlay — exactly covers the canvas.
+ * top/left anchor to the board area origin; inline width/height + transform
+ * match the canvas dimensions. inset:0 was removed because it stretched the
+ * grid to fill the container before the explicit dimensions took effect. */
 .europa-grid {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
 }
 
 .europa-grid:focus-visible {
