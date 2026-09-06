@@ -151,6 +151,7 @@
  */
 
 import type { ConnectionId, Logger, MatchId, MatchmakerBridge } from '@europa/networking';
+import { NULL_LOGGER } from '@europa/networking';
 import type { MatchmakerError, MatchSettings, SeatAssignment } from '../../contracts/match-types';
 import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
@@ -175,14 +176,6 @@ import { createIdentityRegistry } from './identityRegistry';
 // ----------------------------------------------------------------------------
 // Tunables & local defaults
 // ----------------------------------------------------------------------------
-
-/** Local no-op logger — networking's `NULL_LOGGER` is a runtime value. */
-const NULL_LOGGER: Logger = {
-    debug: () => {},
-    info: () => {},
-    warn: () => {},
-    error: () => {},
-};
 
 // ----------------------------------------------------------------------------
 // Internal record shapes

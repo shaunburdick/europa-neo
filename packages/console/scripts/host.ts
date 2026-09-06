@@ -47,15 +47,9 @@ import { createServer as createHttpServer, type IncomingMessage, type ServerResp
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { computePlayerView } from '@europa/fog';
+import { createLogger, type Logger, sanitizeLogText } from '@europa/logging';
 import { createLobbyService, createMatchmaker, type Matchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type ServerDeps,
-} from '@europa/networking';
+import { createMatchServer, type MatchmakerBridge, NETWORK_DEFAULT_CONFIG, type ServerDeps } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
 import { formatWaitingMessage } from '../src/state/awaiting-start';
 import {
@@ -63,7 +57,6 @@ import {
     type NPlayerHostConfig,
     resolveConfig as resolveNPlayerConfig,
     STATIC_SECURITY_HEADERS,
-    sanitizeLogText,
 } from './host-config';
 import { handleVersionRoute } from './version-route';
 
@@ -113,17 +106,21 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
 };
 
 // ---------------------------------------------------------------------------
-// Output helpers (biome noConsole; launcher output IS the product)
+// Structured logger (feature 020 — replaces raw say/complain helpers)
 // ---------------------------------------------------------------------------
 
-/** Write a line to stdout. */
+/** Structured logger for host diagnostics. Reads LOG_LEVEL/LOG_FORMAT from env. */
+const logger = createLogger();
+
+/**
+ * Write a line to stdout (human-facing banner output).
+ *
+ * This function is retained for the startup banner — formatted
+ * user-facing display text, not diagnostic logging. Diagnostic
+ * messages go through the structured logger.
+ */
 function say(line: string): void {
     process.stdout.write(`${line}\n`);
-}
-
-/** Write a line to stderr. */
-function complain(line: string): void {
-    process.stderr.write(`${line}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -311,12 +308,13 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
     const forwardingBridge: MatchmakerBridge = {
         onSeatClaimed: (event) => {
             if (event.role === 'player' && event.playerId !== null) {
-                // Feature 009 FR-005: production runs NULL_LOGGER, so this
-                // launcher line IS the operator-visible seat-join log — it
-                // carries the release identity like the server's own tap.
                 // Structural facts only: never the session token, never a
                 // guest id, never a wire-supplied handle.
-                say(`▶ ${seatLabel(event.playerId)} joined (seat ${String(event.playerId)}, v${APP_VERSION})`);
+                logger.info('player joined', {
+                    seat: seatLabel(event.playerId),
+                    playerId: event.playerId,
+                    version: APP_VERSION,
+                });
             }
             bound.onSeatClaimed?.(event);
         },
@@ -334,7 +332,7 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
                 event.result.kind === 'win'
                     ? `${seatLabel(event.result.winner)} wins (${event.result.reason})`
                     : `draw (${event.result.reason})`;
-            say(`■ Match finished at tick ${String(event.tick)}: ${outcome}`);
+            logger.info('match finished', { tick: event.tick, outcome });
             bound.onMatchTerminal?.(event);
         },
     };
@@ -351,7 +349,7 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
             computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
         },
         matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
+        logger: logger as Logger,
         httpServer,
         lobby: {
             create: (sink) => {
@@ -428,7 +426,7 @@ export function prepareMatch(
         settings: { playerCount, boardSize, tickIntervalMs: TICK_MS },
     });
     if (!created.ok) {
-        complain(`host: creating the match failed: ${sanitizeLogText(created.error.message)}`);
+        logger.error('match creation failed', { error: sanitizeLogText(created.error.message) });
         return null;
     }
     const seatTokens: string[] = [created.data.seatAssignment.sessionToken];
@@ -442,7 +440,7 @@ export function prepareMatch(
             displayName: seatName(seat),
         });
         if (!filled.ok) {
-            complain(`host: filling seat ${String(seat)} failed: ${sanitizeLogText(filled.error.message)}`);
+            logger.error('seat fill failed', { seat, error: sanitizeLogText(filled.error.message) });
             return null;
         }
         seatTokens.push(filled.data.seatAssignment.sessionToken);
@@ -576,9 +574,8 @@ async function main(): Promise<void> {
     }
 
     if (!existsSync(path.join(DIST_DIR, 'index.html'))) {
-        complain('host: packages/console/dist/index.html not found.');
-        complain('host: Build the console first, then retry:');
-        complain('host:   pnpm install && pnpm build');
+        logger.error('packages/console/dist/index.html not found');
+        logger.error('Build the console first, then retry: pnpm install && pnpm build');
         process.exitCode = 1;
         return;
     }
@@ -589,11 +586,11 @@ async function main(): Promise<void> {
         void serveStatic(req, res);
     });
     httpServer.on('error', (error: NodeJS.ErrnoException) => {
-        complain(
-            error.code === 'EADDRINUSE'
-                ? `host: port ${String(config.port)} is already in use — try --port <other>`
-                : `host: server error: ${sanitizeLogText(error.message)}`,
-        );
+        if (error.code === 'EADDRINUSE') {
+            logger.error('port already in use', { port: config.port, hint: 'try --port <other>' });
+        } else {
+            logger.error('server error', { error: sanitizeLogText(error.message) });
+        }
         process.exitCode = 1;
         void shutdown();
     });
@@ -612,11 +609,11 @@ async function main(): Promise<void> {
         });
     } catch (error: unknown) {
         const code = (error as NodeJS.ErrnoException | null)?.code;
-        complain(
-            code === 'EADDRINUSE'
-                ? `host: port ${String(config.port)} is already in use — try --port <other>`
-                : `host: server failed to start: ${sanitizeLogText(String(error))}`,
-        );
+        if (code === 'EADDRINUSE') {
+            logger.error('port already in use', { port: config.port, hint: 'try --port <other>' });
+        } else {
+            logger.error('server failed to start', { error: sanitizeLogText(String(error)) });
+        }
         process.exitCode = 1;
         return;
     }
@@ -684,6 +681,6 @@ process.on('SIGTERM', () => {
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
     main().catch((error: unknown) => {
         process.exitCode = 1;
-        complain(`host failed: ${sanitizeLogText(String(error))}`);
+        logger.error('host failed', { error: sanitizeLogText(String(error)) });
     });
 }

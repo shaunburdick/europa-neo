@@ -64,6 +64,8 @@ import type {
   SessionToken,
 } from './network-types';
 
+import type { Logger } from '@europa/logging';
+
 // ----------------------------------------------------------------------------
 // Server config (passed to createMatchServer)
 // ----------------------------------------------------------------------------
@@ -581,28 +583,19 @@ export interface LobbyServiceSource {
 }
 
 // ----------------------------------------------------------------------------
-// Logger
+// Logger (re-exported from @europa/logging — canonical definition)
 // ----------------------------------------------------------------------------
 
 /**
  * Minimal logger interface. Networking never calls `console.*`
  * directly; the host provides a logger. The default in production
  * is pino; in tests a no-op.
+ *
+ * Re-exported from `@europa/logging` — the canonical definition
+ * lives there to avoid circular dependencies.
  */
-export interface Logger {
-  debug(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
-  info(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
-  warn(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
-  error(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
-}
-
-/** No-op logger. Used as default when `ServerDeps.logger` is omitted. */
-export const NULL_LOGGER: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-};
+export type { Logger };
+export { NULL_LOGGER } from '@europa/logging';
 
 // ----------------------------------------------------------------------------
 // Server public surface

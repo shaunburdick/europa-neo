@@ -46,6 +46,7 @@
         "@europa/design": "workspace:*",
         "@europa/engine": "workspace:*",
         "@europa/fog": "workspace:*",
+        "@europa/logging": "workspace:*",
         "@europa/matchmaking": "workspace:*",
         "@europa/terrain": "workspace:*",
         "@europa/networking": "workspace:*",
