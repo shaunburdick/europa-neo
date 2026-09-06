@@ -468,6 +468,7 @@ describe('WCAG 2.3.3 — reduced motion', () => {
             selection: null,
             dragSelection: null,
             exclusiveMode: false,
+            viewportOffset: { x: 0, y: 0 },
         };
     }
 

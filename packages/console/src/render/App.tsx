@@ -223,20 +223,26 @@ export function App({
         if (canvas === null || mapView === null) {
             return;
         }
+        const { zoom, pan } = mapView.camera;
         // Use the measured board area size when available; fall back
         // to the canvas CSS rect for the first paint.
-        const containerW = boardSize?.width ?? canvas.getBoundingClientRect().width;
-        const containerH = boardSize?.height ?? canvas.getBoundingClientRect().height;
-        const { zoom, pan } = mapView.camera;
+        let containerW = boardSize?.width ?? canvas.getBoundingClientRect().width;
+        let containerH = boardSize?.height ?? canvas.getBoundingClientRect().height;
+        // Fall back to board pixel size when the container has zero
+        // dimensions (e.g. in headless test environments without
+        // explicit viewport sizing).
+        if (containerW === 0 || containerH === 0) {
+            containerW = mapView.width * zoom;
+            containerH = mapView.height * zoom;
+        }
         const boardPx = mapView.width * zoom;
         let offX = 0;
         let offY = 0;
         if (containerW > 0 && containerH > 0) {
-            const isSmaller = boardPx < containerW;
-            // Offset in canvas pixels: negative when centered (the board
-            // origin is to the left of the visible area's top-left).
-            offX = isSmaller ? -(containerW - boardPx) / 2 : -pan.x;
-            offY = isSmaller ? -(containerH - boardPx) / 2 : -pan.y;
+            // Center the board on each axis independently when it is
+            // smaller than the container; otherwise defer to pan.
+            offX = boardPx < containerW ? -(containerW - boardPx) / 2 : -pan.x;
+            offY = boardPx < containerH ? -(containerH - boardPx) / 2 : -pan.y;
         }
         // Size the canvas bitmap to its CSS layout size.
         canvas.width = containerW;

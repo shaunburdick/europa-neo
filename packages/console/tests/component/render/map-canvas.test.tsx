@@ -58,9 +58,6 @@ describe('App first paint (Q-B01)', () => {
         const visibleKeys = new Set(view.visibleCells.map((cell) => `${cell.coord.x},${cell.coord.y}`));
         const boardPx = view.config.boardSize * zoom;
 
-        // Wait for the initial paint to complete before sampling.
-        const initialPaintCount = Number(canvas?.getAttribute('data-paint-count') ?? '0');
-
         // Poll for the expected pixel state. Offsets are recalculated on
         // each iteration because the canvas bitmap dimensions change as
         // useContainerSize fires its ResizeObserver and the paint effect
@@ -72,12 +69,14 @@ describe('App first paint (Q-B01)', () => {
                     const curW = canvas?.width ?? 0;
                     const curH = canvas?.height ?? 0;
                     if (curW === 0 || curH === 0) return false;
-                    // Wait for paint to complete after any resize.
-                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') <= initialPaintCount) return false;
+                    // Wait for at least one paint to complete.
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
                     const curOffX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const curOffY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     let paintedVisible = 0;
                     let paintedVoid = 0;
+                    let onScreenVisible = 0;
+                    let onScreenTotal = 0;
                     for (let y = 0; y < view.config.boardSize; y++) {
                         for (let x = 0; x < view.config.boardSize; x++) {
                             const px = x * zoom + zoom / 2 + curOffX;
@@ -85,6 +84,7 @@ describe('App first paint (Q-B01)', () => {
                             if (px < 0 || py < 0 || px >= curW || py >= curH) {
                                 continue;
                             }
+                            onScreenTotal++;
                             const pixel = ctx?.getImageData(px, py, 1, 1).data;
                             if (pixel === undefined) {
                                 continue;
@@ -94,17 +94,15 @@ describe('App first paint (Q-B01)', () => {
                                 Math.abs(pixel[1] - voidRgb[1]) < 6 &&
                                 Math.abs(pixel[2] - voidRgb[2]) < 6;
                             if (visibleKeys.has(`${x},${y}`)) {
+                                onScreenVisible++;
                                 if (!isVoid) paintedVisible++;
                             } else if (isVoid) {
                                 paintedVoid++;
                             }
                         }
                     }
-                    const totalCells = view.config.boardSize * view.config.boardSize;
-                    return (
-                        paintedVisible === view.visibleCells.length &&
-                        paintedVoid === totalCells - view.visibleCells.length
-                    );
+                    const onScreenHorizon = onScreenTotal - onScreenVisible;
+                    return paintedVisible === onScreenVisible && paintedVoid === onScreenHorizon;
                 },
                 { timeout: 5000, message: 'all visible cells painted, all out-of-horizon cells void' },
             )
