@@ -1,0 +1,7 @@
+# Pre-push verification gate: run the targeted verification suite for the
+# changed packages (see scripts/verify-changed.sh). This mirrors the CI gate
+# locally — a failure discovered at CI time is a process failure.
+#
+# Escape hatch: `git push --no-verify` skips this hook (use sparingly — CI
+# will still run the full suite on the PR).
+pnpm verify:changed

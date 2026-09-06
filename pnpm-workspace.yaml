@@ -66,6 +66,10 @@ catalog:
   "@resvg/resvg-js": ^2.6.2
   # tsx runner for packages/console/scripts/*.ts (build-assets).
   tsx: ^4.23.12
+  # Git hooks (husky) + staged-file linting (lint-staged). Root-only
+  # devDependencies; lint-staged drives Biome over staged files.
+  husky: ^9.1.7
+  lint-staged: ^17.5.0
 
 minimumReleaseAgeExclude:
   - biome-config-shaunburdick@1.0.0

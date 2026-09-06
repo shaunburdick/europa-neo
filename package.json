@@ -20,12 +20,19 @@
         "coverage": "pnpm -r --filter './packages/*' coverage",
         "version:check": "pnpm --filter @europa/version version:check",
         "host": "pnpm --filter @europa/console host",
-        "verify": "bash scripts/verify.sh"
+        "verify": "bash scripts/verify.sh",
+        "verify:changed": "bash scripts/verify-changed.sh",
+        "prepare": "husky"
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "biome-config-shaunburdick": "catalog:",
         "@vitest/coverage-v8": "^4.1.11",
-        "typescript": "catalog:"
+        "typescript": "catalog:",
+        "husky": "catalog:",
+        "lint-staged": "catalog:"
+    },
+    "lint-staged": {
+        "*.{js,ts,tsx,jsx,json,jsonc}": "biome check --write"
     }
 }
