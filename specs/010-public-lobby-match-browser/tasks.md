@@ -111,19 +111,19 @@ Tasks for the v1.8 spec amendment (FR-028–FR-035). Dependency ordered; `[P]` m
 
 ### Wave 2: Deep-link entry flow (FR-029–FR-031, FR-033)
 
-- [ ] T-034-06: Create `packages/console/src/ui/deep-link-interstitial.tsx` — the play-or-spectate interstitial component. Props: `matchId: string`, `entry: RouteEntry` (player or spectator), `onPlay: () => void`, `onSpectate: () => void`, `onReturnToLobby: () => void`, `announcer?: LiveRegionAnnouncer`. Renders: match ID display, action buttons (Play + Spectate for `player` entry; Spectate only for `spectator` entry), "Return to lobby" link. Keyboard-accessible, focus-trapped, announced via live region. Uses `role="region"` with `aria-labelledby`.
+- [x] T-034-06: Create `packages/console/src/ui/deep-link-interstitial.tsx` — the play-or-spectate interstitial component. Props: `matchId: string`, `entry: RouteEntry` (player or spectator), `onPlay: () => void`, `onSpectate: () => void`, `onReturnToLobby: () => void`, `announcer?: LiveRegionAnnouncer`. Renders: match ID display, action buttons (Play + Spectate for `player` entry; Spectate only for `spectator` entry), "Return to lobby" link. Keyboard-accessible, focus-trapped, announced via live region. Uses `role="region"` with `aria-labelledby`.
 
-- [ ] T-034-07: Modify the route resolution effect in `LobbyRoot` (`packages/console/src/internal/lobby-runtime.tsx`) to detect when `adaptRoute` resolves to `player` or `spectator` for a non-participant (i.e., `state.activeMatchId !== currentRoute.matchId`). Instead of calling `executeRouteEntry`, dispatch `lobbyDeepLinkInterstitialShown` with the resolved entry. The effect must still wait for `connection === 'ready'` AND `identityStatus === 'named'` (existing gates).
+- [x] T-034-07: Modify the route resolution effect in `LobbyRoot` (`packages/console/src/internal/lobby-runtime.tsx`) to detect when `adaptRoute` resolves to `player` or `spectator` for a non-participant (i.e., `state.activeMatchId !== currentRoute.matchId`). Instead of calling `executeRouteEntry`, dispatch `lobbyDeepLinkInterstitialShown` with the resolved entry. The effect must still wait for `connection === 'ready'` AND `identityStatus === 'named'` (existing gates).
 
-- [ ] T-034-08: Modify the view gate in `LobbyRoot` to render `DeepLinkInterstitial` when `state.deepLinkInterstitial` is non-null, instead of `LobbyLanding`. Wire `onPlay` to call `executeRouteEntry` with the player entry, `onSpectate` to call with the spectator entry, and `onReturnToLobby` to dismiss the interstitial and navigate to `/lobby`.
+- [x] T-034-08: Modify the view gate in `LobbyRoot` to render `DeepLinkInterstitial` when `state.deepLinkInterstitial` is non-null, instead of `LobbyLanding`. Wire `onPlay` to call `executeRouteEntry` with the player entry, `onSpectate` to call with the spectator entry, and `onReturnToLobby` to dismiss the interstitial and navigate to `/lobby`.
 
-- [ ] T-034-09: Handle the `unavailable` case: when `adaptRoute` returns `unavailable`, the existing `RouteNotice` already handles this (set `noticeKind`). Verify that the interstitial is NOT shown for unavailable entries. Add a test for this path.
+- [x] T-034-09: Handle the `unavailable` case: when `adaptRoute` returns `unavailable`, the existing `RouteNotice` already handles this (set `noticeKind`). Verify that the interstitial is NOT shown for unavailable entries. Add a test for this path.
 
-- [ ] T-034-10: Handle Back/Forward navigation while interstitial is shown: the popstate handler already re-resolves the route. Verify that navigating away dismisses the interstitial (the `deepLinkInterstitial` state is cleared on route change).
+- [x] T-034-10: Handle Back/Forward navigation while interstitial is shown: the popstate handler already re-resolves the route. Verify that navigating away dismisses the interstitial (the `deepLinkInterstitial` state is cleared on route change).
 
-- [ ] T-034-11: [P] Write component tests for `DeepLinkInterstitial` in `packages/console/tests/component/deep-link-interstitial.test.tsx`. Test: player entry shows Play + Spectate, spectator entry shows Spectate only, focus management, keyboard navigation, screen-reader announcements, return-to-lobby dismissal.
+- [x] T-034-11: [P] Write component tests for `DeepLinkInterstitial` in `packages/console/tests/component/deep-link-interstitial.test.tsx`. Test: player entry shows Play + Spectate, spectator entry shows Spectate only, focus management, keyboard navigation, screen-reader announcements, return-to-lobby dismissal.
 
-- [ ] T-034-12: [P] Write integration tests for the deep-link entry flow in `packages/console/tests/unit/deep-link-entry.test.ts`. Test: unnamed visitor → profile redirect → return → interstitial → play/spectate; named participant → straight in; named non-participant → interstitial; full match → spectate only; collected match → RouteNotice.
+- [x] T-034-12: [P] Write integration tests for the deep-link entry flow in `packages/console/tests/unit/deep-link-entry.test.ts`. Test: unnamed visitor → profile redirect → return → interstitial → play/spectate; named participant → straight in; named non-participant → interstitial; full match → spectate only; collected match → RouteNotice.
 
 ### Wave 3: Host script `publicBaseUrl` + documentation (FR-034, FR-035)
 
