@@ -129,3 +129,93 @@ describe('host single-port collapse — TDD (T007)', () => {
         spy.mockRestore();
     });
 });
+
+// ---------------------------------------------------------------------------
+// T-034-16: Banner output with --public-url (FR-034, issue #34)
+// ---------------------------------------------------------------------------
+
+describe('host banner with --public-url (T-034-16)', () => {
+    function captureStdout(fn: () => void): string {
+        const out: string[] = [];
+        const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+            out.push(String(chunk));
+            return true;
+        });
+        try {
+            fn();
+            return out.join('');
+        } finally {
+            spy.mockRestore();
+        }
+    }
+
+    const fakeMatch = {
+        matchId: 'abc-123',
+        seatTokens: ['tok1', 'tok2'],
+        playerCount: 2,
+        boardSize: 32,
+    } as unknown as Parameters<typeof printCreateBanner>[2];
+
+    describe('lobby banner with publicUrl', () => {
+        it('uses publicUrl for the lobby link when provided', () => {
+            const text = captureStdout(() => {
+                printLobbyBanner(8080, 'localhost', 'https://game.example.com');
+            });
+            expect(text).toMatch(/→ https:\/\/game\.example\.com\/lobby/);
+            // Console UI still uses the local address
+            expect(text).toMatch(/Console UI\s+: http:\/\/localhost:8080/);
+        });
+
+        it('falls back to http://host:port when publicUrl is omitted', () => {
+            const text = captureStdout(() => {
+                printLobbyBanner(8080, 'localhost');
+            });
+            expect(text).toMatch(/→ http:\/\/localhost:8080\/lobby/);
+        });
+    });
+
+    describe('create banner with publicUrl', () => {
+        it('uses publicUrl for match join URLs when provided', () => {
+            const text = captureStdout(() => {
+                printCreateBanner(8080, 'localhost', fakeMatch, 'https://game.example.com');
+            });
+            expect(text).toMatch(
+                /Player 1 \(P1\) → https:\/\/game\.example\.com\/match\/abc-123/,
+            );
+            expect(text).toMatch(
+                /Player 2 \(P2\) → https:\/\/game\.example\.com\/match\/abc-123/,
+            );
+            // Should not use the old /join suffix
+            expect(text).not.toMatch(/\/match\/abc-123\/join/);
+        });
+
+        it('falls back to http://host:port when publicUrl is omitted', () => {
+            const text = captureStdout(() => {
+                printCreateBanner(9090, 'example.com', fakeMatch);
+            });
+            expect(text).toMatch(
+                /Player 1 \(P1\) → http:\/\/example\.com:9090\/match\/abc-123/,
+            );
+        });
+
+        it('preserves ws and Console UI local addresses regardless of publicUrl', () => {
+            const text = captureStdout(() => {
+                printCreateBanner(8080, 'localhost', fakeMatch, 'https://game.example.com');
+            });
+            expect(text).toMatch(/Match server\s+: ws:\/\/localhost:8080/);
+            expect(text).toMatch(/Console UI\s+: http:\/\/localhost:8080/);
+            expect(text).toMatch(/Lobby\s+: http:\/\/localhost:8080\/lobby/);
+        });
+
+        it('URL-encodes the match ID in the join URL', () => {
+            const specialMatch = {
+                ...fakeMatch,
+                matchId: 'id with spaces',
+            } as unknown as Parameters<typeof printCreateBanner>[2];
+            const text = captureStdout(() => {
+                printCreateBanner(8080, 'localhost', specialMatch, 'https://game.example.com');
+            });
+            expect(text).toMatch(/match\/id%20with%20spaces/);
+        });
+    });
+});
