@@ -103,7 +103,7 @@ import { App } from '../render/App';
 import { ErrorBoundary } from '../render/ErrorBoundary';
 import type { Route } from '../routing/route';
 import { buildJoinUrl, buildMatchUrl, buildSpectateUrl, parseRoute } from '../routing/route';
-import { adaptRoute, executeRouteEntry } from '../routing/route-adapter';
+import { adaptRoute } from '../routing/route-adapter';
 import { formatWaitingMessage } from '../state/awaiting-start';
 import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
@@ -416,14 +416,19 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
             setNoticeKind('unavailable');
             return;
         }
-        if (entry.kind === 'player') {
-            legIntentRef.current = { matchId: entry.matchId, role: 'player' };
-        } else if (entry.kind === 'spectator') {
-            legIntentRef.current = { matchId: entry.matchId, role: 'spectator' };
+        // Non-participant deep link: show the play-or-spectate
+        // interstitial instead of immediately joining/spectating.
+        // The interstitial's callbacks will call joinMatch/spectateMatch
+        // when the user makes their choice (FR-029, D3).
+        // Participant detection (D4): the activeMatchId check above
+        // already bypasses the interstitial for participants.
+        if (entry.kind === 'player' || entry.kind === 'spectator') {
+            controller.store.dispatch({
+                kind: 'lobbyDeepLinkInterstitialShown',
+                routeEntry: entry,
+                matchId: entry.matchId,
+            });
         }
-        void executeRouteEntry(entry, controller)?.then((result) => {
-            if (!result.ok) setNoticeKind('shortcut-failure');
-        });
     }, [
         controller,
         currentRoute,
