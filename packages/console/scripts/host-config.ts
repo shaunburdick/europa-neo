@@ -33,6 +33,14 @@ export interface NPlayerHostConfig extends HostConfig {
      * a direct API caller supplies one.
      */
     readonly boardSize: 32 | 48 | 64;
+    /**
+     * Absolute public URL base for terminal join URLs (FR-034, issue #34).
+     * When set, `--create` mode prints `${publicUrl}/match/<matchId>` instead
+     * of the default `${protocol}://${publicHost}:${port}/match/<matchId>`.
+     * Accepts `--public-url` CLI flag or `HOST_PUBLIC_URL` env var; must be
+     * an absolute HTTP or HTTPS URL with no trailing slash.
+     */
+    readonly publicUrl: string;
 }
 
 /** Return true for an address that listens on all interfaces. */
@@ -65,6 +73,17 @@ const ALLOWED_BOARD_SIZES: readonly (32 | 48 | 64)[] = [32, 48] as const;
 /** Write a line to stderr (launcher diagnostics). */
 function complain(line: string): void {
     process.stderr.write(`${line}\n`);
+}
+
+/**
+ * Bracket an IPv6 literal host for URL embedding; any other host value
+ * passes through untouched (values are regex-validated at parse time).
+ *
+ * @param host The operator-advertised reachable host.
+ * @returns The URL-safe host form.
+ */
+function urlHostOf(host: string): string {
+    return host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
 }
 
 /**
@@ -130,6 +149,35 @@ function parseBoardSize(raw: string): 32 | 48 | undefined {
 }
 
 /**
+ * Validate a public URL string as an absolute HTTP or HTTPS URL without a
+ * trailing slash (FR-034, issue #34). Returns the normalized URL, or undefined
+ * when invalid (error already printed).
+ *
+ * @param raw Raw value from flag or env.
+ * @returns The validated URL, or undefined when invalid.
+ */
+function parsePublicUrl(raw: string): string | undefined {
+    let parsed: URL;
+    try {
+        parsed = new URL(raw);
+    } catch {
+        complain(`host: --public-url must be an absolute URL (got "${raw}")`);
+        return undefined;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        complain(`host: --public-url must use http or https (got "${raw}")`);
+        return undefined;
+    }
+    // Reject URLs with a path, query, or fragment — only origin is valid.
+    if (parsed.pathname !== '/' || parsed.search !== '' || parsed.hash !== '') {
+        complain(`host: --public-url must be an origin only, no path/query/hash (got "${raw}")`);
+        return undefined;
+    }
+    // Strip trailing slash for consistent concatenation.
+    return parsed.origin;
+}
+
+/**
  * Resolve launcher configuration from argv and environment.
  *
  * Additive N-player flags (012 FR-011):
@@ -166,6 +214,7 @@ export function resolveConfig(
     // N-player flag raw captures (env fallback only when neither flag present).
     let playersFlagRaw: string | undefined;
     let boardSizeFlagRaw: string | undefined;
+    let publicUrlRaw: string | undefined;
 
     for (let i = 0; i < args.length; i += 1) {
         const arg = args[i];
@@ -255,8 +304,21 @@ export function resolveConfig(
             continue;
         }
 
+        if (flag === '--public-url') {
+            const value = inline ?? args[i + 1];
+            if (value === undefined || value === '') {
+                complain('host: --public-url requires a value');
+                return null;
+            }
+            publicUrlRaw = value;
+            if (inline === undefined) {
+                i += 1;
+            }
+            continue;
+        }
+
         complain(
-            `host: unknown argument "${arg}" (supported: --create, --port N, --bind-host HOST, --public-host HOST, --players N, --player-count N, --board-size S, --boardSize S)`,
+            `host: unknown argument "${arg}" (supported: --create, --port N, --bind-host HOST, --public-host HOST, --public-url URL, --players N, --player-count N, --board-size S, --boardSize S)`,
         );
         return null;
     }
@@ -326,6 +388,25 @@ export function resolveConfig(
 
     const resolvedPort = port ?? DEFAULT_PORT;
 
+    // Resolve publicUrl: flag > env > default from publicHost:port.
+    let publicUrl: string;
+    if (publicUrlRaw !== undefined) {
+        const parsed = parsePublicUrl(publicUrlRaw);
+        if (parsed === undefined) {
+            return null;
+        }
+        publicUrl = parsed;
+    } else if (environment.HOST_PUBLIC_URL !== undefined && environment.HOST_PUBLIC_URL !== '') {
+        const parsed = parsePublicUrl(environment.HOST_PUBLIC_URL);
+        if (parsed === undefined) {
+            return null;
+        }
+        publicUrl = parsed;
+    } else {
+        const resolvedPublicHost = publicHost ?? (bindHost === '127.0.0.1' ? 'localhost' : bindHost);
+        publicUrl = `http://${urlHostOf(resolvedPublicHost)}:${String(resolvedPort)}`;
+    }
+
     return {
         bindHost,
         publicHost: publicHost ?? (bindHost === '127.0.0.1' ? 'localhost' : bindHost),
@@ -333,5 +414,6 @@ export function resolveConfig(
         wsPort: resolvedPort,
         playerCount,
         boardSize,
+        publicUrl,
     };
 }
