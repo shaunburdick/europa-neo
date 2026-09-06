@@ -363,6 +363,9 @@ importers:
       '@europa/engine':
         specifier: workspace:*
         version: link:../engine
+      '@europa/logging':
+        specifier: workspace:*
+        version: link:../logging
       '@europa/networking':
         specifier: workspace:*
         version: link:../networking

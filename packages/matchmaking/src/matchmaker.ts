@@ -58,8 +58,8 @@
 
 import type { MatchResult } from '@europa/engine';
 import { createRng } from '@europa/engine';
+import { NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { MatchmakerBridge, Server, SessionToken } from '@europa/networking';
-import { NULL_LOGGER } from '@europa/networking';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
 import type {
     CreateMatchRequest,
@@ -855,7 +855,12 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             };
             logger.info('matchmaker: match created', {
                 matchId: match.matchId,
-                visibility: req.visibility,
+                handle: sanitizeLogText(displayName),
+                settings: {
+                    playerCount: settings.playerCount,
+                    boardSize: settings.boardSize,
+                    tickIntervalMs: settings.tickIntervalMs,
+                },
             });
             return { ok: true, data: result };
         },
@@ -952,6 +957,8 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             };
             logger.info(started ? 'matchmaker: match started' : 'matchmaker: seat filled', {
                 matchId: match.matchId,
+                handle: sanitizeLogText(displayName),
+                seat: freeSeat,
                 seatsFilled: match.seats.size,
             });
             return { ok: true, data: result };

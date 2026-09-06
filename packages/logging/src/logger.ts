@@ -212,7 +212,7 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
                 message,
             };
             if (Object.keys(contextFields).length > 0) {
-                envelope.context = contextFields;
+                envelope['context'] = contextFields;
             }
             dest(`${JSON.stringify(envelope)}\n`);
         }

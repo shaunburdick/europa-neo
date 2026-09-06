@@ -150,8 +150,8 @@
  * via `deps.now` / the registry's `randomId` (constitution Principle II).
  */
 
+import { NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { ConnectionId, Logger, MatchId, MatchmakerBridge } from '@europa/networking';
-import { NULL_LOGGER } from '@europa/networking';
 import type { MatchmakerError, MatchSettings, SeatAssignment } from '../../contracts/match-types';
 import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
@@ -841,6 +841,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             bindConnection(connectionId, identity.id);
             const projected = registry.projectIdentity(identity.id);
             const state: IdentityState = projected ?? Object.freeze({ handle: null, hasIdentity: true });
+            logger.info('lobbyService: player joined lobby', {
+                handle: projected !== undefined && projected.handle !== null ? sanitizeLogText(projected.handle) : null,
+                connectionId,
+            });
             deliverEvent(connectionId, {
                 kind: 'identity',
                 // FR-003 delivery channel (spec Clarifications v1.6): the
@@ -866,6 +870,7 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             if (!guest.ok) {
                 return guest;
             }
+            const previousHandle = registry.projectIdentity(guest.value)?.handle ?? null;
             const reserved = registry.setHandle(guest.value, handle);
             if (!reserved.ok) {
                 return reserved;
@@ -879,6 +884,11 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                     error: makeLobbyError('internal_error', 'Identity vanished during handle reservation.'),
                 };
             }
+            logger.info('lobbyService: handle changed', {
+                handle: sanitizeLogText(handle),
+                previousHandle: previousHandle !== null ? sanitizeLogText(previousHandle) : null,
+                connectionId,
+            });
             deliverEvent(connectionId, {
                 kind: 'identity',
                 // Same FR-003 channel as `establishIdentity` (spec
@@ -1038,6 +1048,11 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // transport layer anyway — worst case, the read-only attach
             // fails safely there and costs nobody a seat.
             presence.set(guest.value, { matchId, role: 'spectator', seatAssignment: null });
+            const spectatorHandle = registry.projectIdentity(guest.value)?.handle ?? null;
+            logger.info('lobbyService: spectator joined match', {
+                matchId,
+                handle: spectatorHandle !== null ? sanitizeLogText(spectatorHandle) : null,
+            });
             // No revision bump: entries are unchanged and other subscribers'
             // snapshots are unaffected; the actor's own association is
             // conveyed by the returned target and every later snapshot.
