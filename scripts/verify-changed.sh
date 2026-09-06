@@ -132,9 +132,30 @@ for p in "${CHANGED_PKGS[@]}"; do
     esac
 done
 
+# RUN_TIER_D gates the slow console browser/E2E/perf/selfhost tiers. It is
+# true only when the console package itself changed (or --scope console /
+# --full). In the ambiguous case we set HAS_CONSOLE=true above purely so Tier
+# B runs the console-adjacent libs, but we must NOT run Tier D — CI covers it.
+RUN_TIER_D="$HAS_CONSOLE"
 if [[ "$AMBIGUOUS" == true ]]; then
-    echo "=== verify-changed: ambiguous changes detected — running full suite ==="
-    exec bash scripts/verify.sh
+    RUN_TIER_D=false
+fi
+
+# Ambiguous changes (root config, scripts/, specs/, .github/, .agents/) can
+# affect any package, so run the fast tiers across EVERYTHING. We deliberately
+# do NOT fall through to the full verify.sh here: the slow console browser /
+# E2E / perf / selfhost tiers (Tier D) are covered by CI on the PR, and the
+# pre-push hook should be a fast smoke that catches obvious breakage before
+# wasting a CI cycle — not a full CI mirror. Tiers A+B+C (build, lint,
+# typecheck, all node-mode package tests, console node-mode integration) run
+# in well under a minute and catch the overwhelming majority of regressions.
+if [[ "$AMBIGUOUS" == true ]]; then
+    echo "=== verify-changed: ambiguous changes detected — running fast full-suite (Tiers A+B+C, skipping slow console browser/E2E/selfhost — CI covers those) ==="
+    # Treat every package as changed so Tier B covers all of them.
+    CHANGED_PKGS=(engine terrain fog networking matchmaking version design console)
+    HAS_LIB=true
+    HAS_CONSOLE=true
+    HAS_DOCS=false
 fi
 
 echo "=== Europa Neo — Targeted Verification ==="
@@ -143,9 +164,12 @@ echo "Tiers: A(always) B(lib tests) C(console node) D(console browser) E(docs)"
 echo ""
 
 # Tier A: Build + lint + typecheck (always — cheap and foundational).
+# Note: we run `pnpm build` once, then the per-package typecheck directly.
+# The root `pnpm typecheck` script re-runs `pnpm build` first (it's designed
+# to be self-contained), which would double-build here — wasteful.
 echo "--- Tier A: Build + Lint + Typecheck ---"
 pnpm build
-pnpm typecheck
+pnpm -r --filter './packages/*' typecheck
 pnpm lint
 pnpm format:check
 echo ""
@@ -176,7 +200,7 @@ if [[ "$HAS_LIB" == true ]]; then
 fi
 
 # Tier D: Full console suite — only when the console itself changed.
-if [[ "$HAS_CONSOLE" == true ]]; then
+if [[ "$RUN_TIER_D" == true ]]; then
     echo "--- Tier D: Console library emit + conformance ---"
     pnpm --filter @europa/console run clean
     pnpm --filter @europa/console build:lib
