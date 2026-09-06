@@ -127,19 +127,19 @@ Tasks for the v1.8 spec amendment (FR-028–FR-035). Dependency ordered; `[P]` m
 
 ### Wave 3: Host script `publicBaseUrl` + documentation (FR-034, FR-035)
 
-- [ ] T-034-13: Add `publicUrl` field to `NPlayerHostConfig` in `packages/console/scripts/host-config.ts`. Accept `--public-url` CLI flag and `HOST_PUBLIC_URL` env var. Validate as absolute HTTP(S) URL. Default: constructed from `publicHost:port`.
+- [x] T-034-13: Add `publicUrl` field to `NPlayerHostConfig` in `packages/console/scripts/host-config.ts`. Accept `--public-url` CLI flag and `HOST_PUBLIC_URL` env var. Validate as absolute HTTP(S) URL. Default: constructed from `publicHost:port`.
 
-- [ ] T-034-14: Modify `packages/console/scripts/host.ts` to use the new `publicUrl` for terminal join URLs. In `--create` mode, print `${publicUrl}/match/${encodeURIComponent(matchId)}` instead of the old `/match/${matchId}/join` pattern. Pass `publicBaseUrl` to `createMatchmaker()` when configured.
+- [x] T-034-14: Modify `packages/console/scripts/host.ts` to use the new `publicUrl` for terminal join URLs. In `--create` mode, print `${publicUrl}/match/${encodeURIComponent(matchId)}` instead of the old `/match/${matchId}/join` pattern. Pass `publicBaseUrl` to `createMatchmaker()` when configured.
 
-- [ ] T-034-15: [P] Write unit tests for `host-config.ts` `--public-url` parsing in existing host-config test suite. Test: valid URL accepted, invalid URL rejected, env var fallback, default construction from publicHost:port.
+- [x] T-034-15: [P] Write unit tests for `host-config.ts` `--public-url` parsing in existing host-config test suite. Test: valid URL accepted, invalid URL rejected, env var fallback, default construction from publicHost:port.
 
-- [ ] T-034-16: [P] Write unit tests for `host.ts` banner output with `--public-url`. Test: `--create` mode prints absolute `/match/<matchId>` URLs, lobby mode prints lobby URL, both use the configured public URL.
+- [x] T-034-16: [P] Write unit tests for `host.ts` banner output with `--public-url`. Test: `--create` mode prints absolute `/match/<matchId>` URLs, lobby mode prints lobby URL, both use the configured public URL.
 
-- [ ] T-034-17: Update `docs/manual/` pages to document the copy-link affordance (FR-035): explain that every match has a "Copy link" action, private matches show it prominently, public matches show it subtly. Document that the link is the `/match/<matchId>` URL. Update `docs/manual/index.md`, `docs/manual/quick-start.md`, and relevant gameplay pages.
+- [x] T-034-17: Update `docs/manual/` pages to document the copy-link affordance (FR-035): explain that every match has a "Copy link" action, private matches show it prominently, public matches show it subtly. Document that the link is the `/match/<matchId>` URL. Update `docs/manual/index.md`, `docs/manual/quick-start.md`, and relevant gameplay pages.
 
-- [ ] T-034-18: Update `README.md` and self-hosting guidance to document: (a) `--public-url` / `HOST_PUBLIC_URL` for the host script, (b) that `/match/<matchId>` is the canonical shareable URL, (c) that private matches are joinable/spectatable only via the shareable link.
+- [x] T-034-18: Update `README.md` and self-hosting guidance to document: (a) `--public-url` / `HOST_PUBLIC_URL` for the host script, (b) that `/match/<matchId>` is the canonical shareable URL, (c) that private matches are joinable/spectatable only via the shareable link.
 
-- [ ] T-034-19: Update `specs/010-public-lobby-match-browser/spec.md` Implementation Notes to record the issue #34 implementation decisions (clipboard fallback, interstitial state, visibility tracking, host script changes).
+- [x] T-034-19: Update `specs/010-public-lobby-match-browser/spec.md` Implementation Notes to record the issue #34 implementation decisions (clipboard fallback, interstitial state, visibility tracking, host script changes).
 
 ### Wave 4: Integration testing + edge cases
 
