@@ -48,7 +48,10 @@ Thumbs.db
 europa-source/
 
 # Agent tooling
-.agents/
+.agents/*
+# ...except the repo-local server-manager skill, which is version-controlled
+!.agents/skills/
+!.agents/skills/**
 
 # Generated build artifacts
 packages/design/src/styles/catalog-styles.ts
