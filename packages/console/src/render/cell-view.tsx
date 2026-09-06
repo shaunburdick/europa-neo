@@ -178,6 +178,9 @@ export function CellView({
                         backgroundColor: CHIP_BACKGROUND,
                         color: CHIP_TEXT,
                         borderColor: playerColors[info.owner] ?? CHIP_TEXT,
+                        // Scale font size proportionally with zoom so the badge
+                        // maintains its aspect ratio at all zoom levels (issue #76).
+                        fontSize: `${Math.max(9, Math.round(zoom * 0.34))}px`,
                     }}
                 >
                     {info.troops}

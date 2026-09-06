@@ -295,7 +295,8 @@ body {
 
 .europa-zoom__controls {
     display: flex;
-    gap: var(--europa-spacing-xs);
+    flex-wrap: wrap;
+    gap: var(--europa-spacing-sm);
     border: 0;
     padding: 0;
     margin: 0;
@@ -593,7 +594,7 @@ body {
 .europa-reserves__digits {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: var(--europa-spacing-xs);
+    gap: var(--europa-spacing-sm);
 }
 
 /* Target size with sub-pixel safety margin above the WCAG 2.5.8
