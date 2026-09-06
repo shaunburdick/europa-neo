@@ -201,10 +201,13 @@ fi
 
 # Tier D: Full console suite — only when the console itself changed.
 if [[ "$RUN_TIER_D" == true ]]; then
-    echo "--- Tier D: Console library emit + conformance ---"
+    # Rebuild the full console dist (vite bundle + lib + assets). The `clean`
+    # wipes any stale dist/ so the subsequent build produces a fresh bundle.
+    # Without this, `pnpm host` and the selfhost/E2E/perf tests can pick up a
+    # stale dist/ from a previous build, silently testing old code.
+    echo "--- Tier D: Console dist rebuild + conformance ---"
     pnpm --filter @europa/console run clean
-    pnpm --filter @europa/console build:lib
-    pnpm --filter @europa/console build:assets
+    pnpm --filter @europa/console build
     pnpm --filter @europa/console typecheck:conformance
     echo ""
 
