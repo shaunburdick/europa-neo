@@ -98,7 +98,7 @@ export function createLogger(opts?: {
 - Reads `LOG_FORMAT` from `process.env` (default `"json"`)
 - Invalid `LOG_LEVEL` → default to `"info"` + one stderr warning
 - Invalid `LOG_FORMAT` → default to `"json"` + one stderr warning
-- Context fields with reserved names (`timestamp`, `level`, `message`) are silently overwritten
+- Context fields with reserved names (`timestamp`, `level`, `message`) are stripped from context subkey
 
 ### sanitizeLogText(text, maxLength?)
 
@@ -134,12 +134,14 @@ export { sanitizeLogText } from './sanitize';
   "timestamp": "2026-09-06T14:30:00.123Z",
   "level": "info",
   "message": "match started",
-  "matchId": "m-abc-123",
-  "playerCount": 2
+  "context": {
+    "matchId": "m-abc-123",
+    "playerCount": 2
+  }
 }
 ```
 
-All context fields are spread at the top level of the JSON object. No nesting.
+Context fields are nested under a `context` subkey. The `context` key is omitted entirely when no context fields are provided.
 
 ## Pretty Output Shape
 

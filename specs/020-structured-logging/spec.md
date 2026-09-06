@@ -20,7 +20,7 @@ Server-side processes (the host launcher, matchmaking, networking, and engine or
 
 - **FR-001**: Create a new `@europa/logging` private workspace package containing the `Logger` interface, `NULL_LOGGER`, `createLogger()` factory, and `sanitizeLogText()` utility. The package follows the same workspace pattern as `@europa/version` (zero external dependencies, tsup build, private, `type: "module"`).
 - **FR-002**: The `Logger` interface has four methods: `debug(msg, ctx?)`, `info(msg, ctx?)`, `warn(msg, ctx?)`, `error(msg, ctx?)` — each accepting a string message and an optional context object of type `Record<string, unknown>`. This is the same shape as the existing interface in `packages/networking/src/contracts/network-api.ts` (lines 592-597).
-- **FR-003**: `createLogger(opts?)` returns a `Logger` implementation that writes one JSON line per call to `process.stdout` (debug/info) or `process.stderr` (warn/error). Each line is a single JSON object: `{ "timestamp": "<ISO-8601>", "level": "<debug|info|warn|error>", "message": "<string>", ...<context fields> }`. The `timestamp` field uses `new Date().toISOString()`.
+- **FR-003**: `createLogger(opts?)` returns a `Logger` implementation that writes one JSON line per call to `process.stdout` (debug/info) or `process.stderr` (warn/error). Each line is a single JSON object: `{ "timestamp": "<ISO-8601>", "level": "<debug|info|warn|error>", "message": "<string>", "context": { ...<context fields> } }`. The `context` key is omitted entirely when no context fields are provided. The `timestamp` field uses `new Date().toISOString()`.
 - **FR-004**: `createLogger()` reads `LOG_LEVEL` from `process.env` (default `"info"`). Messages below the configured level are silently dropped (not serialized). Level hierarchy: `debug < info < warn < error`.
 - **FR-005**: `createLogger()` reads `LOG_FORMAT` from `process.env` (default `"json"`). When `LOG_FORMAT === "pretty"`, output is human-readable: `[2026-09-06T12:00:00.000Z] INFO  match started { matchId: "abc" }`. Pretty mode is intended for TTY use; JSON mode for PM2/production.
 - **FR-006**: The `Logger` interface and `NULL_LOGGER` constant are migrated from `packages/networking/src/contracts/network-api.ts` to `@europa/logging`. The networking package re-exports them from its public API for backward compatibility — existing consumers (`@europa/matchmaking`, `@europa/console` scripts, tests) continue to work without import changes.
@@ -72,7 +72,7 @@ The following are explicitly **not** part of this feature:
 - **Environment variables missing**: When `LOG_LEVEL` and `LOG_FORMAT` are unset, defaults apply (`info`, `json`). No warnings are emitted.
 - **Invalid `LOG_LEVEL` value**: When `LOG_LEVEL` contains an unrecognized string (e.g., `"verbose"`), treat it as `"info"` (the default) and emit one warning to stderr at startup: `unknown LOG_LEVEL "verbose", defaulting to "info"`.
 - **Invalid `LOG_FORMAT` value**: When `LOG_FORMAT` is neither `"json"` nor `"pretty"`, default to `"json"` and emit one warning to stderr at startup.
-- **Context field named `timestamp`, `level`, or `message`**: Context fields with reserved names are silently overwritten by the logger's own fields (timestamp, level, message take precedence). No error.
+- **Context field named `timestamp`, `level`, or `message`**: Context fields with reserved names are stripped — reserved fields never appear in the context subkey. No error.
 - **Empty message**: `logger.info("")` produces a JSON line with `"message": ""`. No validation or rejection.
 - **Large context objects**: Context objects with deeply nested values are serialized via `JSON.stringify` without depth limiting. The caller is responsible for passing serializable values.
 - **`process.stdout` / `process.stderr` not writable** (e.g., pipe closed): The write call returns `false` (backpressure). The logger does not retry or throw; it is a fire-and-forget implementation.
@@ -83,10 +83,10 @@ The following are explicitly **not** part of this feature:
 ### JSON output (LOG_FORMAT=json, default)
 
 ```json
-{"timestamp":"2026-09-06T14:30:00.123Z","level":"info","message":"match started","matchId":"m-abc-123","playerCount":2}
-{"timestamp":"2026-09-06T14:30:00.456Z","level":"debug","message":"tick completed","matchId":"m-abc-123","tick":42,"durationMs":0.08}
-{"timestamp":"2026-09-06T14:30:01.789Z","level":"warn","message":"seat fill failed","matchId":"m-abc-123","error":"match full"}
-{"timestamp":"2026-09-06T14:30:02.012Z","level":"error","message":"server failed to start","port":8080,"error":"EADDRINUSE"}
+{"timestamp":"2026-09-06T14:30:00.123Z","level":"info","message":"match started","context":{"matchId":"m-abc-123","playerCount":2}}
+{"timestamp":"2026-09-06T14:30:00.456Z","level":"debug","message":"tick completed","context":{"matchId":"m-abc-123","tick":42,"durationMs":0.08}}
+{"timestamp":"2026-09-06T14:30:01.789Z","level":"warn","message":"seat fill failed","context":{"matchId":"m-abc-123","error":"match full"}}
+{"timestamp":"2026-09-06T14:30:02.012Z","level":"error","message":"server failed to start","context":{"port":8080,"error":"EADDRINUSE"}}
 ```
 
 ### Pretty output (LOG_FORMAT=pretty)

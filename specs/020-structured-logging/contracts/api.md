@@ -44,7 +44,7 @@ function createLogger(opts?: {
 
 **Output format (JSON)**:
 ```json
-{"timestamp":"<ISO-8601>","level":"<level>","message":"<msg>",...<ctx>}
+{"timestamp":"<ISO-8601>","level":"<level>","message":"<msg>","context":{...<ctx>}}
 ```
 
 **Output format (pretty)**:

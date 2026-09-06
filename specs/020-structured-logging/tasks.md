@@ -12,7 +12,7 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 
 ### Wave 2: Core Implementation [P — T-002 and T-003 are parallel-safe]
 
-- [x] **T-002**: Implement `src/logger.ts` — `Logger` interface + `createLogger(opts?)` factory. Reads `LOG_LEVEL`/`LOG_FORMAT` from env, validates, emits one stderr warning on invalid values. JSON mode: `{timestamp, level, message, ...ctx}` via `JSON.stringify` → `process.stdout.write` (debug/info) or `process.stderr.write` (warn/error). Pretty mode: `[<timestamp>] <LEVEL_PAD8>  <msg> {<ctx>}`. Level filtering via numeric index comparison. Reserved field overwrite (timestamp/level/message from ctx silently dropped). [Core — FR-002, FR-003, FR-004, FR-005, FR-010]
+- [x] **T-002**: Implement `src/logger.ts` — `Logger` interface + `createLogger(opts?)` factory. Reads `LOG_LEVEL`/`LOG_FORMAT` from env, validates, emits one stderr warning on invalid values. JSON mode: `{timestamp, level, message, context?: {...ctx}}` via `JSON.stringify` → `process.stdout.write` (debug/info) or `process.stderr.write` (warn/error). Pretty mode: `[<timestamp>] <LEVEL_PAD8>  <msg> {<ctx>}`. Level filtering via numeric index comparison. Reserved field stripping (timestamp/level/message from ctx are never included in context subkey). [Core — FR-002, FR-003, FR-004, FR-005, FR-010]
 
 - [x] **T-003**: Implement `src/sanitize.ts` — move `sanitizeLogText()` from `packages/console/scripts/host-config.ts` (line 79). Copy the function verbatim: `LOG_CONTROL_CHARS` regex, `LOG_TEXT_MAX_LENGTH` constant, the `sanitizeLogText` function. Zero behavior changes. [Core — FR-008]
 

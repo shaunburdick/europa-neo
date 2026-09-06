@@ -23,7 +23,7 @@ The project's constitution demands simplicity (Principle V), zero unnecessary de
 
 **JSON format** (default):
 ```json
-{"timestamp":"2026-09-06T14:30:00.123Z","level":"info","message":"match started","matchId":"m-abc-123"}
+{"timestamp":"2026-09-06T14:30:00.123Z","level":"info","message":"match started","context":{"matchId":"m-abc-123"}}
 ```
 
 **Pretty format** (TTY):
@@ -37,7 +37,7 @@ The project's constitution demands simplicity (Principle V), zero unnecessary de
 - `LOG_LEVEL`: parsed at `createLogger()` time, default `"info"`, invalid values default to `"info"` with one stderr warning
 - `LOG_FORMAT`: parsed at `createLogger()` time, default `"json"`, invalid values default to `"json"` with one stderr warning
 
-**Reserved field precedence**: Context fields named `timestamp`, `level`, or `message` are silently overwritten by the logger's own fields. No error thrown — the logger's structural fields always win.
+**Reserved field stripping**: Context fields named `timestamp`, `level`, or `message` are stripped — they never appear in the context subkey. The logger's structural fields always occupy their fixed positions.
 
 ## Reference: sanitizeLogText()
 

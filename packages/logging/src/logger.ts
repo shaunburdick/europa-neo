@@ -18,10 +18,11 @@ const LEVEL_INDEX: ReadonlyMap<LogLevel, number> = new Map(LEVEL_ORDER.map((leve
 /**
  * Typed context object attached to a log line.
  *
- * Callers pass arbitrary key-value pairs; the logger spreads them into
- * the JSON output (or pretty-print block). Reserved keys (`timestamp`,
- * `level`, `message`) are silently overwritten by the logger's own
- * fields when present.
+ * Callers pass arbitrary key-value pairs; in JSON mode they are nested
+ * under a `context` key (omitted entirely when empty). In pretty mode
+ * they appear inline after the message. Reserved keys (`timestamp`,
+ * `level`, `message`) are silently stripped — they never appear in the
+ * context object.
  */
 export interface LogContext {
     readonly [key: string]: unknown;
@@ -148,8 +149,10 @@ function formatPrettyContext(ctx: Readonly<Record<string, unknown>>): string {
  *
  * **JSON mode** (default, `LOG_FORMAT=json`):
  * ```json
- * {"timestamp":"...","level":"info","message":"...",...ctx}
+ * {"timestamp":"...","level":"info","message":"...","context":{"key":"value"}}
  * ```
+ * When no context fields are provided, the `context` key is omitted
+ * entirely.
  *
  * **Pretty mode** (`LOG_FORMAT=pretty`):
  * ```
@@ -207,8 +210,10 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
                 timestamp,
                 level: msgLevel,
                 message,
-                ...contextFields,
             };
+            if (Object.keys(contextFields).length > 0) {
+                envelope.context = contextFields;
+            }
             dest(`${JSON.stringify(envelope)}\n`);
         }
     }

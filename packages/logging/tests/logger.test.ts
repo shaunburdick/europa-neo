@@ -51,7 +51,7 @@ describe('createLogger', () => {
             expect(parsed.message).toBe('hello world');
         });
 
-        it('spreads context fields into the JSON envelope', () => {
+        it('nests context fields under a "context" key', () => {
             const lines: string[] = [];
             const stdout = (data: string) => {
                 lines.push(data);
@@ -61,9 +61,22 @@ describe('createLogger', () => {
             logger.info('match started', { matchId: 'm-abc', playerCount: 2 });
 
             const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
-            expect(parsed.matchId).toBe('m-abc');
-            expect(parsed.playerCount).toBe(2);
             expect(parsed.message).toBe('match started');
+            expect(parsed.context).toEqual({ matchId: 'm-abc', playerCount: 2 });
+        });
+
+        it('omits context key entirely when no context fields are provided', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'json', stdout });
+
+            logger.info('simple message');
+
+            const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
+            expect(parsed).not.toHaveProperty('context');
+            expect(Object.keys(parsed)).toEqual(['timestamp', 'level', 'message']);
         });
 
         it('writes warn/error to stderr', () => {
@@ -312,7 +325,7 @@ describe('createLogger', () => {
             expect(parsed.message).toBe('');
         });
 
-        it('overwrites reserved context keys with logger fields', () => {
+        it('strips reserved context keys, keeping only valid context under "context"', () => {
             const lines: string[] = [];
             const stdout = (data: string) => {
                 lines.push(data);
@@ -326,7 +339,7 @@ describe('createLogger', () => {
             expect(parsed.timestamp).not.toBe('fake');
             expect(parsed.level).toBe('info');
             expect(parsed.message).toBe('msg');
-            expect(parsed.extra).toBe('yes');
+            expect(parsed.context).toEqual({ extra: 'yes' });
         });
 
         it('coerces non-string msg via String() at runtime', () => {
@@ -354,7 +367,7 @@ describe('createLogger', () => {
             logger.info('deep', deep);
 
             const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
-            expect(parsed.a).toEqual({ b: { c: { d: 'e' } } });
+            expect(parsed.context).toEqual({ a: { b: { c: { d: 'e' } } } });
         });
     });
 
@@ -370,7 +383,7 @@ describe('createLogger', () => {
 
             const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
             expect(parsed.level).toBe('debug');
-            expect(parsed.key).toBe('val');
+            expect(parsed.context).toEqual({ key: 'val' });
         });
 
         it('all four methods are callable', () => {
