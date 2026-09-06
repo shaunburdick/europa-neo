@@ -256,7 +256,7 @@ body {
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 50%;
-    background-color: var(--europa-color-green, #22c55e);
+    background-color: var(--europa-color-green);
     animation: europa-live-pulse 2s ease-in-out infinite;
 }
 

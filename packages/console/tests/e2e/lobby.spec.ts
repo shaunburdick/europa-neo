@@ -580,8 +580,8 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
             await expect(bob).toHaveURL(new RegExp(`/match/${matchA}/join(?:\\?.*)?$`));
             await expect(bob.locator('.europa-lobby-match__title')).toContainText('In match');
 
-            // A real tick and one player order must cross the production wire.
-            await expect(bob.locator('.europa-sidebar')).toContainText(/Tick: [1-9]/, { timeout: WAIT_TIMEOUT });
+            // A live match indicator and one player order must cross the production wire.
+            await expect(bob.locator('.europa-sidebar')).toContainText(/Match live/, { timeout: WAIT_TIMEOUT });
             const ownCity = bob.locator('[role="gridcell"][aria-label*="Bob, city"]').first();
             await expect(ownCity).toBeVisible({ timeout: WAIT_TIMEOUT });
             await ownCity.click();
