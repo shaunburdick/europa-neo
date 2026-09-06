@@ -184,6 +184,91 @@ for i in $(seq 1 30); do
 done
 ```
 
+## Isolating Environments (Multiple Agents / Sessions)
+
+The default setup shares ONE PM2 daemon (`~/.pm2`) and three fixed ports
+(`8080`/`5173`/`4321`) across every agent on the machine. Two agents starting
+`host` would clobber each other's process and fight over the port. Isolate in
+two layers:
+
+### 1. Per-session PM2 daemon (`PM2_HOME`)
+
+`PM2_HOME` points PM2 at a different daemon home. Each value gets its own
+daemon, process list, and log directory — `pm2 status`, `pm2 delete all`, and
+`pm2 logs` only ever see YOUR processes.
+
+```bash
+# At the start of your session, pick a unique name and export it
+export PM2_HOME="$HOME/.pm2-<session-name>"
+
+# Every pm2 command in this shell now uses your private daemon
+npx pm2 start .agents/skills/server-manager/scripts/ecosystem.config.cjs --only host
+npx pm2 status          # only your processes
+npx pm2 delete all      # only your processes
+```
+
+Logs move with the daemon: `$PM2_HOME/logs/<name>-out.log` / `-err.log`
+instead of `~/.pm2/logs/`.
+
+### 2. Per-session ports
+
+Separate daemons still share the default ports. Pick unique ports per session
+and export them before starting (the ecosystem config reads them at start):
+
+```bash
+export HOST_PORT=8080    # unique per session
+export VITE_PORT=5173
+export DOCS_PORT=4321
+```
+
+Then start and probe with the matching port:
+
+```bash
+npx pm2 start .agents/skills/server-manager/scripts/ecosystem.config.cjs --only host
+.agents/skills/server-manager/scripts/ready.sh host "$HOST_PORT"
+```
+
+### Full isolation recipe
+
+```bash
+export PM2_HOME="$HOME/.pm2-$(whoami)-$(hostname)-session1"   # unique daemon
+export HOST_PORT=8080                                          # unique ports
+export VITE_PORT=5173
+export DOCS_PORT=4321
+npx pm2 start .agents/skills/server-manager/scripts/ecosystem.config.cjs
+.agents/skills/server-manager/scripts/ready.sh host "$HOST_PORT"
+.agents/skills/server-manager/scripts/ready.sh dev "$VITE_PORT"
+.agents/skills/server-manager/scripts/ready.sh docs "$DOCS_PORT"
+```
+
+### Port override gotchas (verified 2026-09-06)
+
+- **Vite and Astro ignore the `PORT` env var.** `vite.config.ts` hardcodes
+  `server.port: 5173` and Astro defaults to `4321`. The ecosystem config
+  therefore passes `--port` as a CLI argument (`args`), which pnpm forwards to
+  the underlying script — this is why `VITE_PORT`/`DOCS_PORT` work. Do not try
+  to override with `PORT`; it has no effect.
+- **Astro lock file.** Astro writes `docs/manual/.astro/dev.json` recording the
+  running dev server. If that process dies uncleanly, the stale lock makes the
+  next `docs` start fail with "Dev server already running at
+  http://localhost:4321 (pid N)". Clear it:
+  ```bash
+  rm -f docs/manual/.astro/dev.json docs/manual/.astro/dev.log
+  ```
+- **Orphaned children (fixed in the config).** PM2's default kill only signals
+  the direct pid — killing the `pnpm` wrapper left the `vite`/`astro` node
+  child running and holding the port. The ecosystem config now sets
+  `treekill: true` on every app so PM2 kills the whole process tree, and the
+  docs app sets `ASTRO_DEV_BACKGROUND: "0"` because Astro 7.x auto-detects AI
+  agent environments (`am-i-vibing`) and daemonizes `astro dev` into a
+  detached background server that would survive even a tree-kill. Verified:
+  `pm2 delete all` leaves zero orphans. Still worth a safety check after
+  cleanup, especially if anything was started outside PM2:
+  ```bash
+  ss -tlnp | grep -E ':(8080|5173|4321)\b'
+  # kill any stragglers by pid
+  ```
+
 ## Reading Server Logs
 
 PM2 captures stdout and stderr from each process. Use `npx pm2 logs` to inspect
@@ -212,12 +297,15 @@ npx pm2 logs --lines 200 --nostream
 ### Log file locations
 
 PM2 stores logs on disk. The paths are printed by `npx pm2 show <name>`, but
-conventionally:
+conventionally (under the default daemon):
 
 ```
 ~/.pm2/logs/<name>-out.log   # stdout
 ~/.pm2/logs/<name>-err.log   # stderr
 ```
+
+With a custom `PM2_HOME` (see "Isolating Environments"), logs live under
+`$PM2_HOME/logs/` instead.
 
 You can read these directly for large log volumes or piping:
 
@@ -287,6 +375,12 @@ npx pm2 delete all
 # Verify clean slate
 npx pm2 status
 # Should show an empty process table
+
+# Safety check: ports should be free. The config's treekill: true +
+# ASTRO_DEV_BACKGROUND: "0" prevent orphans, but verify anyway — especially
+# if anything was started outside PM2.
+ss -tlnp | grep -E ':(8080|5173|4321)\b'
+# kill any stragglers by pid
 ```
 
 ### Check what's running
@@ -325,6 +419,12 @@ Kill the occupant, or override with a different port:
 ```bash
 HOST_PORT=9090 npx pm2 start .agents/skills/server-manager/scripts/ecosystem.config.cjs --only host
 ```
+
+Two recurring causes worth checking first (see "Isolating Environments" for
+details): a **stale Astro lock file** (`docs/manual/.astro/dev.json`) that
+makes the docs server refuse to start, or an **orphaned server process** left
+by something started outside PM2 (the config's `treekill: true` +
+`ASTRO_DEV_BACKGROUND: "0"` prevent orphans from PM2-managed servers).
 
 ### Server starts then immediately stops
 
@@ -370,5 +470,7 @@ CommonJS (`*.cjs`) for PM2 compatibility.
 ### Adding a new server
 
 Edit `ecosystem.config.cjs` and add a new entry to the `apps` array. Follow
-the existing pattern: set `name`, `cwd`, `script`, `args`, and `env`. Then
-update this SKILL.md with the new server's details.
+the existing pattern: set `name`, `cwd`, `script`, `args`, and `env`. For
+Vite/Astro-style dev servers, pass the port via `args` (`--port ${...}`) —
+the `PORT` env var is ignored by both. Then update this SKILL.md with the new
+server's details.

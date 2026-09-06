@@ -19,7 +19,7 @@ describe('EuropaChip', () => {
     it('renders count and children together', () => {
         const { container } = render(<EuropaChip count={5}>troops</EuropaChip>);
         const chip = container.querySelector('span.europa-chip');
-        expect(chip?.textContent).toBe('5troops');
+        expect(chip?.textContent).toBe('5 troops');
     });
 
     it('renders children without count', () => {

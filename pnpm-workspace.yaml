@@ -66,6 +66,9 @@ catalog:
   "@resvg/resvg-js": ^2.6.2
   # tsx runner for packages/console/scripts/*.ts (build-assets).
   tsx: ^4.23.12
+  # Git hooks (husky). Root-only devDependency; pre-push runs
+  # verify:changed.
+  husky: ^9.1.7
 
 minimumReleaseAgeExclude:
   - biome-config-shaunburdick@1.0.0

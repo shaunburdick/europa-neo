@@ -29,6 +29,36 @@ agent-browser snapshot -i
 
 The host server prints its banner (Console UI / Lobby / join URLs) to its PM2 logs — see [Reading server output](#reading-server-output).
 
+> **Shared machine?** If other agents may be running servers on this box, isolate first: give yourself a private PM2 daemon (`export PM2_HOME="$HOME/.pm2-<session>"`) and unique ports (`HOST_PORT`/`VITE_PORT`/`DOCS_PORT`), then use those ports in every URL below. See "Isolating Environments" in the server-manager skill.
+
+## Solo demo mode (UI-only, no server)
+
+For front-end-only testing — board rendering, cell interaction, order palette, reserves, HUD — you don't need the full stack or a second session. The console has a built-in **demo boot mode**: any URL with an `?e2e` query parameter mounts a deterministic 16×16 demo board (a 22-cell visibility cluster exercising every render feature: both players' cities, troops, pipes, reserves, water, multiple elevations) against a fake in-browser match client.
+
+```bash
+# 1. Start just the frontend (Vite, no match server)
+npx pm2 start .agents/skills/server-manager/scripts/ecosystem.config.cjs --only dev
+bash .agents/skills/server-manager/scripts/ready.sh dev 5173
+
+# 2. Open the demo board
+agent-browser open "http://127.0.0.1:5173/?e2e"
+agent-browser snapshot -i
+```
+
+The demo also works on the host server's built bundle (`http://localhost:8080/?e2e`) — the demo runtime ships as a lazy chunk in production builds.
+
+**What's interactive** (all verified):
+- Click any cell → the cursor centers on it ("No launch — cursor centered on (x, y)" in order feedback) and the reserves slider opens with presets.
+- Set reserves → the fake server echo applies the value and bumps the tick (e.g. 42 → 43), driving the real inbound envelope → reducer → render path.
+- Order palette (Exclusive pipes / Clear pipes), minimap, help overlay, and surrender button all work.
+
+**Limitations** — it's the E2E test harness, not a simulation:
+- The view is **static**: ticks don't advance on their own (only reserves orders bump them). No combat, no troop movement.
+- No fog-of-war differences, no multiplayer, no identity gating — you're always seated as Player 1.
+- It's test scaffolding (excluded from coverage), so treat it as a dev/QA tool, not a user-facing feature.
+
+**Use the demo mode** when testing rendering, layout, interaction, or a11y in isolation. **Use the full stack** (host server + two sessions) when you need gameplay, fog-of-war, or multiplayer behavior.
+
 ## App routes
 
 | Route | Purpose |
@@ -193,4 +223,5 @@ npx pm2 delete all                  # stop and remove all managed servers
 - **Waiting room**: a player who joins an unfilled match sees the waiting room ("Waiting for N more player… (M/2)", "Seated as <handle> · X of 2 seats filled · starting when full") on a dark board until auto-start. This is correct behavior, not a hang — fill the second seat (or spectate) to proceed.
 - **Board cells need the match running**: before auto-start there are no live cells to click; the board is inert. Wait for the first tick (HUD tick counter advancing) before issuing orders.
 - **Fog of war**: each player sees only their own territory plus a Chebyshev horizon. Two sessions will legitimately show different boards — that's the feature, not a bug.
-- **The dev server is not the full stack**: `pnpm dev` (Vite, :5173) serves the frontend with HMR but no match server. For end-to-end exploration (lobby → match → board), use the host server on :8080. The docs server (:4321) serves the player manual under `/europa-neo/`.
+- **The dev server is not the full stack**: `pnpm dev` (Vite, :5173) serves the frontend with HMR but no match server. For UI-only board testing, open `/?e2e` on it (see [Solo demo mode](#solo-demo-mode-ui-only-no-server)). For end-to-end exploration (lobby → match → board), use the host server on :8080. The docs server (:4321) serves the player manual under `/europa-neo/`.
+- **Demo mode is static**: the `?e2e` board doesn't tick on its own and has no combat — don't expect gameplay from it. If a snapshot shows a frozen tick counter, that's the demo mode working as designed, not a hang.
