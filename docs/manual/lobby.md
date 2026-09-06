@@ -70,6 +70,21 @@ printed in diagnostics, or requested from players.
 
 The match header has **Leave to lobby**. Choose it to release your match presence and return to `/lobby`; focus moves to the lobby heading and the return is announced. The accepted handle remains available for your next lobby action.
 
+## Share a match link
+
+Every match has a **Copy link** action that copies the match address to your clipboard. The link is the canonical `/match/<match-id>` URL — it contains the match ID only, not your handle, reconnect session, or transport details.
+
+| Match type | Copy link appearance |
+| --- | --- |
+| **Private match** | A dedicated share row — the link is the only way for others to join, so the action is prominent and unmissable. |
+| **Public match** | A subtle icon button — the lobby listing is also an entry path, so the action is quieter. |
+
+After copying, a brief **Copied!** confirmation appears. If the clipboard write fails (for example, the browser denies permission), the URL is displayed as selectable text so you can copy it manually.
+
+Send the link to a friend. When they open it in their browser, they are guided through handle setup (if needed) and then asked whether they want to **Play** (if seats are open) or **Spectate**. Participants who already have a seat go straight into the match without an interstitial. Private matches are joinable and spectatable only through the shareable link — they do not appear in the lobby list.
+
+You can reload the page at any time; the `/match/<match-id>` address remains stable and your existing reconnect behavior is preserved.
+
 If a player's connection drops, the match shows **Reconnecting to match…** and tries to restore the connection. Keep the tab open. A temporary disconnect can reclaim the same seat and handle during the existing 60-second reconnect grace period. After the grace period, the seat is forfeited and you must choose another match or create a new one. The resume credential is handled by the browser and server; do not copy or share it.
 
 ## If something goes wrong

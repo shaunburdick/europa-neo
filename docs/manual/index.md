@@ -30,6 +30,8 @@ You see only what your troops can sense: a band of surrounding cells moves with 
 - Desktop browsers with a mouse and keyboard (touch screens are not supported).
 - English only.
 - Public matches discovered and entered through the landing lobby. The browser flow ships end-to-end for two, three, or four players.
+- Private matches joinable only via shareable `/match/<match-id>` links.
+- Shareable match links: every match has a **Copy link** action; private matches show it prominently, public matches show it subtly.
 - A fixed four-color player palette (red, blue, green, orange-gold).
 
 ## Table of contents
