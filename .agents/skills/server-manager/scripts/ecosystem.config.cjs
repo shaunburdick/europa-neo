@@ -15,6 +15,15 @@
  *   VITE_PORT        — port for the Vite dev server (default: 5173)
  *   DOCS_PORT        — port for the Astro docs server (default: 4321)
  *   PM2_HOME         — override PM2 daemon home (default: ~/.pm2)
+ *
+ * Port isolation notes (verified 2026-09-06):
+ *   - The host server reads HOST_PORT from its environment (custom code).
+ *   - Vite and Astro IGNORE the PORT env var — vite.config.ts hardcodes
+ *     `server.port: 5173` and Astro defaults to 4321. The only reliable
+ *     override is the `--port` CLI flag, which is why the dev/docs apps
+ *     pass it through their `args` below (pnpm forwards extra args to the
+ *     underlying script). Set VITE_PORT / DOCS_PORT in the shell before
+ *     `pm2 start` to pick a unique port per session.
  */
 
 const path = require("node:path");
@@ -41,10 +50,9 @@ module.exports = {
             name: "dev",
             cwd: path.join(ROOT, "packages", "console"),
             script: "pnpm",
-            args: "dev --host 127.0.0.1",
-            env: {
-                PORT: process.env.VITE_PORT || "5173",
-            },
+            // Vite ignores the PORT env var (vite.config.ts hardcodes 5173);
+            // the --port CLI flag is the only reliable override.
+            args: `dev --host 127.0.0.1 --port ${process.env.VITE_PORT || "5173"}`,
             max_restarts: 3,
             restart_delay: 1500,
             autorestart: true,
@@ -53,10 +61,9 @@ module.exports = {
             name: "docs",
             cwd: path.join(ROOT, "docs", "manual"),
             script: "pnpm",
-            args: "dev",
-            env: {
-                PORT: process.env.DOCS_PORT || "4321",
-            },
+            // Astro ignores the PORT env var (defaults to 4321); the --port
+            // CLI flag is the only reliable override.
+            args: `dev --port ${process.env.DOCS_PORT || "4321"}`,
             max_restarts: 3,
             restart_delay: 1500,
             autorestart: true,

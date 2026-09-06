@@ -29,6 +29,8 @@ agent-browser snapshot -i
 
 The host server prints its banner (Console UI / Lobby / join URLs) to its PM2 logs — see [Reading server output](#reading-server-output).
 
+> **Shared machine?** If other agents may be running servers on this box, isolate first: give yourself a private PM2 daemon (`export PM2_HOME="$HOME/.pm2-<session>"`) and unique ports (`HOST_PORT`/`VITE_PORT`/`DOCS_PORT`), then use those ports in every URL below. See "Isolating Environments" in the server-manager skill.
+
 ## Solo demo mode (UI-only, no server)
 
 For front-end-only testing — board rendering, cell interaction, order palette, reserves, HUD — you don't need the full stack or a second session. The console has a built-in **demo boot mode**: any URL with an `?e2e` query parameter mounts a deterministic 16×16 demo board (a 22-cell visibility cluster exercising every render feature: both players' cities, troops, pipes, reserves, water, multiple elevations) against a fake in-browser match client.
