@@ -25,6 +25,7 @@
 
 import type { LobbyErrorCode, LobbySnapshot } from '@europa/matchmaking';
 import type { LobbyConnectionState } from '../net/ws-lobby-client';
+import type { RouteEntry } from '../routing/route-adapter';
 import type { MatchId } from './types';
 
 // ----------------------------------------------------------------------------
@@ -55,6 +56,23 @@ export type LobbyViewMode = 'lobby' | 'match';
  *   - `'named'`     — identity confirmed WITH an accepted handle.
  */
 export type LobbyIdentityStatus = 'unnamed' | 'named' | 'restoring';
+
+// ----------------------------------------------------------------------------
+// Deep-link interstitial (issue #34)
+// ----------------------------------------------------------------------------
+
+/**
+ * Transient state held while the play-or-spectate interstitial is
+ * shown (FR-029). The interstitial is a client-side UI gate only —
+ * the URL stays as `/match/<matchId>` throughout; Back/Forward
+ * re-resolves the route and dismisses the interstitial.
+ */
+export interface DeepLinkInterstitial {
+    /** The resolved route entry from `adaptRoute` (player or spectator). */
+    readonly routeEntry: Extract<RouteEntry, { readonly kind: 'player' | 'spectator' }>;
+    /** The target match identifier. */
+    readonly matchId: MatchId;
+}
 
 // ----------------------------------------------------------------------------
 // Per-action loading/error tracking
@@ -190,6 +208,14 @@ export interface LobbyState {
      */
     readonly seatSessionToken: string | null;
 
+    /**
+     * Match visibility as recorded at entry time (issue #34, D2).
+     * `'public'` or `'private'` once entered; `null` when lobby-bound.
+     * Stored locally so the copy-link button can choose its visual
+     * treatment without changing the wire contract.
+     */
+    readonly matchVisibility: 'public' | 'private' | null;
+
     /** Per-action loading/error tracking, one slot per {@link LobbyActionKind}. */
     readonly actions: Readonly<Record<LobbyActionKind, LobbyActionStatus>>;
 
@@ -204,6 +230,15 @@ export interface LobbyState {
 
     /** Current session-level failure banner payload, `null` when healthy. */
     readonly failure: LobbyFailure | null;
+
+    /**
+     * Transient deep-link interstitial state (issue #34, FR-029).
+     * When non-null, the view gate renders the play-or-spectate
+     * interstitial instead of the lobby landing. Set when `adaptRoute`
+     * resolves to `player` or `spectator` for a non-participant;
+     * cleared by choosing Play/Spectate or returning to the lobby.
+     */
+    readonly deepLinkInterstitial: DeepLinkInterstitial | null;
 }
 
 // ----------------------------------------------------------------------------
@@ -264,6 +299,12 @@ export type LobbyAction =
           readonly kind: 'lobbyEnteredMatch';
           readonly matchId: MatchId | null;
           readonly seatSessionToken?: string;
+          /**
+           * Match visibility at entry time (issue #34, D2). Stored
+           * locally so the copy-link button can choose its visual
+           * treatment without changing the wire contract.
+           */
+          readonly matchVisibility?: 'public' | 'private';
       }
     /**
      * Return-to-lobby: leave succeeded (or a terminal result offers the
@@ -274,4 +315,20 @@ export type LobbyAction =
     /** The user acknowledged the "session moved elsewhere" notice. */
     | { readonly kind: 'lobbySupersededAcknowledged' }
     /** The user actuated retry; optimistically clear the failure banner. */
-    | { readonly kind: 'lobbyRetryRequested' };
+    | { readonly kind: 'lobbyRetryRequested' }
+    /**
+     * Deep-link interstitial shown (issue #34, FR-029). Set when
+     * `adaptRoute` resolves to `player` or `spectator` for a
+     * non-participant. The view gate renders the interstitial
+     * instead of the lobby landing.
+     */
+    | {
+          readonly kind: 'lobbyDeepLinkInterstitialShown';
+          readonly routeEntry: Extract<RouteEntry, { readonly kind: 'player' | 'spectator' }>;
+          readonly matchId: MatchId;
+      }
+    /**
+     * Deep-link interstitial dismissed (issue #34, FR-029). Cleared
+     * when the user chooses Play/Spectate or returns to the lobby.
+     */
+    | { readonly kind: 'lobbyDeepLinkInterstitialDismissed' };
