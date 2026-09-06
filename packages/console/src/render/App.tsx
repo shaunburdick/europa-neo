@@ -150,13 +150,36 @@ export function App({
     // is read at this UI boundary (sanctioned clock, same as the
     // store's dispatch default); expiry enforcement happens in the
     // paint path via liveLabels.
-    //
-    // Viewport offset (issue #76): the board-space origin of the
-    // visible area's top-left corner, derived from the container size
-    // and the camera transform. The canvas fills the container; cells
-    // are painted relative to this offset.
     const lastMapViewRef = useRef<MapView | null>(null);
     const boardAreaRef = useRef<HTMLDivElement | null>(null);
+
+    // Real container sizing for the minimap's viewport rectangle
+    // (integration wave T-I3) and for the canvas viewport offset
+    // (issue #76): without it the indicator defaults to the full
+    // board, which lies whenever the visible window is smaller.
+    const boardSize = useContainerSize(boardAreaRef);
+
+    // Viewport offset (issue #76): the board-space origin of the
+    // visible area's top-left corner, derived from the container size
+    // and the camera transform. Computed ONCE here so both the canvas
+    // paint layer and the DOM GridOverlay share the same value —
+    // passing a different offset to each caused double-city, parallax
+    // zoom, and click-offset bugs (issue #76 regression).
+
+    const viewportOffset = useMemo(() => {
+        const view = resolvedState.latestView;
+        if (view === null || boardSize === null) {
+            return { x: 0, y: 0 };
+        }
+        const zoom = resolvedState.camera.zoom;
+        const pan = resolvedState.camera.pan;
+        const boardPx = view.config.boardSize * zoom;
+        const { width: containerW, height: containerH } = boardSize;
+        const offX = boardPx < containerW ? -(containerW - boardPx) / 2 : -pan.x;
+        const offY = boardPx < containerH ? -(containerH - boardPx) / 2 : -pan.y;
+        return { x: offX, y: offY };
+    }, [resolvedState, boardSize]);
+
     const mapView = useMemo(() => {
         const view = resolvedState.latestView;
         if (view === null) {
@@ -171,9 +194,9 @@ export function App({
             exclusiveMode: resolvedState.exclusiveMode,
             prevView: lastMapViewRef.current,
             nowMs: performance.now(),
-            viewportOffset: { x: 0, y: 0 },
+            viewportOffset,
         });
-    }, [resolvedState]);
+    }, [resolvedState, viewportOffset]);
     useEffect(() => {
         lastMapViewRef.current = mapView;
     }, [mapView]);
@@ -197,14 +220,6 @@ export function App({
         };
     }, [labels]);
 
-    // Trigger a paint pass after the board area ref is first available.
-    // The canvas paint effect depends on `mapView`, which doesn't change
-    // Real container sizing for the minimap's viewport rectangle
-    // (integration wave T-I3) and for the canvas viewport offset
-    // (issue #76): without it the indicator defaults to the full
-    // board, which lies whenever the visible window is smaller.
-    const boardSize = useContainerSize(boardAreaRef);
-
     // Canvas visual layer: sized to fill its container; the viewport
     // offset determines which portion of the board is visible (issue
     // #76: canvas fills the available space; zoom controls cell
@@ -223,7 +238,7 @@ export function App({
         if (canvas === null || mapView === null) {
             return;
         }
-        const { zoom, pan } = mapView.camera;
+        const { zoom } = mapView.camera;
         // Use the measured board area size when available; fall back
         // to the canvas CSS rect for the first paint.
         let containerW = boardSize?.width ?? canvas.getBoundingClientRect().width;
@@ -235,27 +250,26 @@ export function App({
             containerW = mapView.width * zoom;
             containerH = mapView.height * zoom;
         }
-        const boardPx = mapView.width * zoom;
-        let offX = 0;
-        let offY = 0;
-        if (containerW > 0 && containerH > 0) {
-            // Center the board on each axis independently when it is
-            // smaller than the container; otherwise defer to pan.
-            offX = boardPx < containerW ? -(containerW - boardPx) / 2 : -pan.x;
-            offY = boardPx < containerH ? -(containerH - boardPx) / 2 : -pan.y;
+        // Only resize the bitmap when dimensions actually changed —
+        // setting canvas.width/height clears the bitmap, which causes
+        // a flash. The CSS already fills the container (width:100%;
+        // height:100%); we only need the bitmap to match.
+        const roundedW = Math.round(containerW);
+        const roundedH = Math.round(containerH);
+        if (canvas.width !== roundedW || canvas.height !== roundedH) {
+            canvas.width = roundedW;
+            canvas.height = roundedH;
         }
-        // Size the canvas bitmap to its CSS layout size.
-        canvas.width = containerW;
-        canvas.height = containerH;
         const ctx = canvas.getContext('2d');
         if (ctx === null) {
             return;
         }
+        // The viewportOffset is already in mapView (computed once in
+        // the viewportOffset useMemo and passed to buildMapView).
         // Expired labels never reach the pixels (T071 lifecycle); the
         // flashing effect kinds are skipped under reduced motion (T083).
         const frame: MapView = {
             ...mapView,
-            viewportOffset: { x: offX, y: offY },
             labels: liveLabels(mapView.labels, performance.now()),
         };
         mapCanvasRef.current?.paint(frame, ctx, { reducedMotion });
