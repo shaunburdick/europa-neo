@@ -107,17 +107,22 @@ describe('host single-port collapse — TDD (T007)', () => {
             out.push(String(chunk));
             return true;
         });
-        const fakeMatch = { matchId: 'test-match', seatTokens: ['tok1', 'tok2'] } as unknown as Parameters<
-            typeof printCreateBanner
-        >[2];
+        const fakeMatch = {
+            matchId: 'test-match',
+            seatTokens: ['tok1', 'tok2'],
+            playerCount: 2,
+            boardSize: 32,
+        } as unknown as Parameters<typeof printCreateBanner>[2];
         printCreateBanner(9090, 'example.com', fakeMatch);
         const text = out.join('');
         expect(text).toMatch(/ws:\/\/example\.com:9090/);
         expect(text).toMatch(/http:\/\/example\.com:9090/);
         expect(text).not.toMatch(/:5173/);
         expect(text).toMatch(/Lobby\s+: http:\/\/example\.com:9090\/lobby/);
-        expect(text).toMatch(/Player 1 \(P1\) → http:\/\/example\.com:9090\/match\/test-match\/join/);
-        expect(text).toMatch(/Player 2 \(P2\) → http:\/\/example\.com:9090\/match\/test-match\/join/);
+        // T-034-14: canonical /match/<matchId> scheme (no /join suffix)
+        expect(text).toMatch(/Player 1 \(P1\) → http:\/\/example\.com:9090\/match\/test-match/);
+        expect(text).toMatch(/Player 2 \(P2\) → http:\/\/example\.com:9090\/match\/test-match/);
+        expect(text).not.toMatch(/\/match\/test-match\/join/);
         expect(text).not.toMatch(/[?&](?:live|ws|match|name|token)=?/i);
         expect(text).not.toContain('tok1');
         expect(text).not.toContain('tok2');
