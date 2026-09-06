@@ -420,8 +420,11 @@ test.describe('copy-link E2E — clipboard and visibility (issue #34 T-034-20)',
             `/match/${encodeURIComponent(matchId)}?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`,
         );
 
-        // The participant should go straight in (FR-030).
+        // The participant should go straight in (FR-030) — identity already
+        // established, no interstitial.
         await waitUntilLobby(page, (l) => l.viewMode === 'match', 'still in match view after deep link');
+        // No interstitial for participants.
+        await expect(page.locator('[data-europa-deep-link-interstitial="true"]')).toHaveCount(0);
 
         // Copy link should still work.
         const copyButton = page.locator('[data-europa-copy-link-button="true"]');

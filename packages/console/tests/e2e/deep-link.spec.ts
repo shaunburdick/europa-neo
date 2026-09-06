@@ -282,7 +282,8 @@ test.describe('deep-link entry E2E — issue #34 (FR-029–FR-033, SC-013–SC-0
             .toBe('/profile');
 
         // -- Set handle via profile form ------------------------------------
-        await setHandleViaProfile(bob, 'Bob');
+        // The returnTo redirect goes to /match/<matchId> (not /lobby).
+        await setHandleViaProfile(bob, 'Bob', `/match/${matchId}`);
 
         // After naming, the returnTo round-trip delivers Bob back to
         // /match/<matchId>. The route resolver will fire and show the
@@ -407,7 +408,7 @@ test.describe('deep-link entry E2E — issue #34 (FR-029–FR-033, SC-013–SC-0
             .poll(() => dave.evaluate(() => window.location.pathname), { timeout: WAIT_TIMEOUT })
             .toBe('/profile');
 
-        await setHandleViaProfile(dave, 'Dave');
+        await setHandleViaProfile(dave, 'Dave', `/match/${matchId}`);
         await waitUntilLobby(dave, (l) => l.identityStatus === 'named', 'Dave named');
 
         // -- Spectate-only interstitial (FR-029: full/running → spectate) ----
