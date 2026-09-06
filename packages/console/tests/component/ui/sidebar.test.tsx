@@ -58,6 +58,7 @@ function mapViewOf(state: ConsoleState): MapView {
         exclusiveMode: false,
         prevView: null,
         nowMs: 0,
+        viewportOffset: { x: 0, y: 0 },
     });
 }
 

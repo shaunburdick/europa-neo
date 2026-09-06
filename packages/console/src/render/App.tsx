@@ -150,7 +150,13 @@ export function App({
     // is read at this UI boundary (sanctioned clock, same as the
     // store's dispatch default); expiry enforcement happens in the
     // paint path via liveLabels.
+    //
+    // Viewport offset (issue #76): the board-space origin of the
+    // visible area's top-left corner, derived from the container size
+    // and the camera transform. The canvas fills the container; cells
+    // are painted relative to this offset.
     const lastMapViewRef = useRef<MapView | null>(null);
+    const boardAreaRef = useRef<HTMLDivElement | null>(null);
     const mapView = useMemo(() => {
         const view = resolvedState.latestView;
         if (view === null) {
@@ -165,6 +171,7 @@ export function App({
             exclusiveMode: resolvedState.exclusiveMode,
             prevView: lastMapViewRef.current,
             nowMs: performance.now(),
+            viewportOffset: { x: 0, y: 0 },
         });
     }, [resolvedState]);
     useEffect(() => {
@@ -190,8 +197,18 @@ export function App({
         };
     }, [labels]);
 
-    // Canvas visual layer: size the bitmap to the board and paint the
-    // current snapshot synchronously on change (rAF loop = Phase 8).
+    // Trigger a paint pass after the board area ref is first available.
+    // The canvas paint effect depends on `mapView`, which doesn't change
+    // Real container sizing for the minimap's viewport rectangle
+    // (integration wave T-I3) and for the canvas viewport offset
+    // (issue #76): without it the indicator defaults to the full
+    // board, which lies whenever the visible window is smaller.
+    const boardSize = useContainerSize(boardAreaRef);
+
+    // Canvas visual layer: sized to fill its container; the viewport
+    // offset determines which portion of the board is visible (issue
+    // #76: canvas fills the available space; zoom controls cell
+    // density, not canvas size).
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const mapCanvasRef = useRef<MapCanvas | null>(null);
     if (mapCanvasRef.current === null) {
@@ -206,9 +223,24 @@ export function App({
         if (canvas === null || mapView === null) {
             return;
         }
-        const { zoom } = mapView.camera;
-        canvas.width = mapView.width * zoom;
-        canvas.height = mapView.height * zoom;
+        // Use the measured board area size when available; fall back
+        // to the canvas CSS rect for the first paint.
+        const containerW = boardSize?.width ?? canvas.getBoundingClientRect().width;
+        const containerH = boardSize?.height ?? canvas.getBoundingClientRect().height;
+        const { zoom, pan } = mapView.camera;
+        const boardPx = mapView.width * zoom;
+        let offX = 0;
+        let offY = 0;
+        if (containerW > 0 && containerH > 0) {
+            const isSmaller = boardPx < containerW;
+            // Offset in canvas pixels: negative when centered (the board
+            // origin is to the left of the visible area's top-left).
+            offX = isSmaller ? -(containerW - boardPx) / 2 : -pan.x;
+            offY = isSmaller ? -(containerH - boardPx) / 2 : -pan.y;
+        }
+        // Size the canvas bitmap to its CSS layout size.
+        canvas.width = containerW;
+        canvas.height = containerH;
         const ctx = canvas.getContext('2d');
         if (ctx === null) {
             return;
@@ -217,6 +249,7 @@ export function App({
         // flashing effect kinds are skipped under reduced motion (T083).
         const frame: MapView = {
             ...mapView,
+            viewportOffset: { x: offX, y: offY },
             labels: liveLabels(mapView.labels, performance.now()),
         };
         mapCanvasRef.current?.paint(frame, ctx, { reducedMotion });
@@ -226,7 +259,7 @@ export function App({
         // dimension changes and the async paint effect. The value
         // increments so tests can wait for a specific paint generation.
         canvas.dataset['paintCount'] = String(Number(canvas.dataset['paintCount'] ?? '0') + 1);
-    }, [mapView, labelEpoch, reducedMotion]);
+    }, [mapView, labelEpoch, reducedMotion, boardSize]);
 
     // Hidden aria-live regions (WCAG 4.1.3 status messages). One
     // announcer per mount; cleared on unmount. Mirrored into state so
@@ -255,7 +288,7 @@ export function App({
     // wheel zooms toward the cursor and middle-drag pans (US5 AC-1);
     // it stops propagation on pan start so region-select never sees a
     // pan gesture as an exclusive-pipe click.
-    const boardAreaRef = useRef<HTMLDivElement | null>(null);
+
     const [cursorSample, setCursorSample] = useState<CursorSample | null>(null);
     useEffect(() => {
         if (store === undefined) {
@@ -332,7 +365,6 @@ export function App({
         };
     }, []);
 
-    const zoom = mapView?.camera.zoom ?? 32;
     const { selection } = resolvedState;
 
     // Waiting-for-opponent overlay (post-playtest fix): joined but the
@@ -355,11 +387,6 @@ export function App({
         awaitingStart && waitingCapacityResolved > 0
             ? formatWaitingMessage(waitingSeatsFilledResolved, waitingCapacityResolved)
             : undefined;
-
-    // Real container sizing for the minimap's viewport rectangle
-    // (integration wave T-I3): without it the indicator defaults to the
-    // full board, which lies whenever the visible window is smaller.
-    const boardSize = useContainerSize(boardAreaRef);
 
     // Current reserves digit on the focused cell (drives the US4
     // panel's slider/pressed state). Unknown cells read as 0.
@@ -396,13 +423,7 @@ export function App({
             ) : null}
             <main id="main" className="europa-main">
                 <div ref={boardAreaRef} className="europa-board-area">
-                    <canvas
-                        ref={canvasRef}
-                        role="img"
-                        aria-label="Game board visual"
-                        className="europa-canvas"
-                        style={{ width: (mapView?.width ?? 10) * zoom, height: (mapView?.height ?? 10) * zoom }}
-                    />
+                    <canvas ref={canvasRef} role="img" aria-label="Game board visual" className="europa-canvas" />
                     {mapView !== null && mapView.cells.size > 0 ? (
                         <GridOverlay
                             mapView={mapView}
@@ -486,31 +507,29 @@ export function App({
                     helpButtonRef={helpButtonRef}
                     interactive={store !== undefined}
                 />
-                {/* FR-007 feedback surface: the reducer's confirmation queue
-                    rendered as transient toasts. The polite live region makes
-                    every confirmation audible without moving focus (Q-A05). */}
-                <section id="feedback" aria-label="Order feedback" className="europa-feedback">
-                    <div
-                        role="status"
-                        aria-live="polite"
-                        aria-atomic="true"
-                        data-europa-live="polite"
-                        className="europa-visually-hidden"
-                    >
-                        {resolvedState.feedback.map((message) => message.text).join('. ')}
-                    </div>
-                    <ul className="europa-feedback__list">
-                        {resolvedState.feedback.map((message) => (
-                            <li
-                                key={message.id}
-                                className={`europa-feedback__item europa-feedback__item--${message.kind}`}
-                            >
-                                {message.text}
-                            </li>
-                        ))}
-                    </ul>
-                </section>
             </main>
+            {/* FR-007 feedback surface: the reducer's confirmation queue
+                rendered as transient toasts. Positioned on the right side
+                over the sidebar area (issue #76). The polite live region
+                makes every confirmation audible without moving focus (Q-A05). */}
+            <section id="feedback" aria-label="Order feedback" className="europa-feedback">
+                <div
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    data-europa-live="polite"
+                    className="europa-visually-hidden"
+                >
+                    {resolvedState.feedback.map((message) => message.text).join('. ')}
+                </div>
+                <ul className="europa-feedback__list">
+                    {resolvedState.feedback.map((message) => (
+                        <li key={message.id} className={`europa-feedback__item europa-feedback__item--${message.kind}`}>
+                            {message.text}
+                        </li>
+                    ))}
+                </ul>
+            </section>
             {store !== undefined ? (
                 <SurrenderModal
                     open={surrenderOpen}

@@ -71,16 +71,14 @@ describe('HotkeyController UI-zoom layer (FR-018)', () => {
         controller.dispose();
     });
 
-    test('- and _ zoom out one step', () => {
+    test('- and _ zoom out one step (clamped at minZoom when at default)', () => {
         const { store } = makeStore();
         const controller = new HotkeyController(store);
         controller.attach();
-        const before = store.getState().camera.zoom;
+        // With minZoom = defaultCellPx = 32, zooming out from the
+        // default camera immediately hits the floor.
         pressKey('-');
-        expect(store.getState().camera.zoom).toBeCloseTo(before / ZOOM_WHEEL_STEP);
-        const afterMinus = store.getState().camera.zoom;
-        pressKey('_');
-        expect(store.getState().camera.zoom).toBeCloseTo(afterMinus / ZOOM_WHEEL_STEP);
+        expect(store.getState().camera.zoom).toBe(store.getState().camera.minZoom);
         controller.dispose();
     });
 

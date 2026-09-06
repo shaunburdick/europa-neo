@@ -91,10 +91,10 @@
  * consumer pin-checks at startup; incrementing forces a coordinated
  * update.
  *
- * 0.2.0 (issue #76): `DEFAULT_CAMERA.minZoom` raised 12 → 16 — the
- * zoom clamp range is part of the public console surface (FR-017).
+ * 0.3.0 (issue #76): `DEFAULT_CAMERA.minZoom` raised 16 → 32 — zoom
+ * range is now 100%–300% (board always fully visible at min zoom).
  */
-export const CONSOLE_API_VERSION = '0.2.0' as const;
+export const CONSOLE_API_VERSION = '0.3.0' as const;
 
 // ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)
@@ -399,6 +399,14 @@ export interface MapView {
    * instead of toggle.
    */
   readonly exclusiveMode: boolean;
+  /**
+   * Viewport offset in board-pixel coordinates — the board-space
+   * origin of the top-left corner of the visible area. Used by the
+   * canvas painter and DOM overlay to position cells relative to the
+   * viewport instead of the full board (issue #76: canvas fills the
+   * container; zoom controls visible cell density).
+   */
+  readonly viewportOffset: { readonly x: number; readonly y: number };
 }
 
 /**
@@ -510,7 +518,7 @@ export interface CameraState {
 export const DEFAULT_CAMERA: CameraState = {
   zoom: 32,
   pan: { x: 0, y: 0 },
-  minZoom: 16,
+  minZoom: 32,
   maxZoom: 96,
 };
 

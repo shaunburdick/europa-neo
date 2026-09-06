@@ -42,12 +42,6 @@ describe('App first paint (Q-B01)', () => {
     test('canvas mounts sized to the board and paints all visible cells', async () => {
         const view = createDemoPlayerView();
         setConsoleStateForTesting(createStubConsoleState(view));
-        // Capture paintCount before render — guaranteed to be 0 (no canvas
-        // exists yet).  The poll guard then waits for paintCount > 0,
-        // which confirms the paint effect has run at least once *after*
-        // the canvas was mounted (after any ResizeObserver-driven resize
-        // that clears the bitmap).
-        const initialPaintCount = 0;
         const screen = await render(<App />);
 
         // The a11y overlay proves React committed; the effect that paints
@@ -56,19 +50,22 @@ describe('App first paint (Q-B01)', () => {
 
         const canvas = screen.container.querySelector('canvas');
         expect(canvas).not.toBeNull();
-        const { zoom } = DEFAULT_CAMERA;
-        expect(canvas?.width).toBe(view.config.boardSize * zoom);
-        expect(canvas?.height).toBe(view.config.boardSize * zoom);
-
         const ctx = canvas?.getContext('2d');
         expect(ctx).not.toBeNull();
 
+        const { zoom } = DEFAULT_CAMERA;
         const voidRgb = hexToRgb(VOID_COLOR);
         const visibleKeys = new Set(view.visibleCells.map((cell) => `${cell.coord.x},${cell.coord.y}`));
+        const boardPx = view.config.boardSize * zoom;
 
-        // Poll for the paint to complete before sampling pixels. This
-        // avoids the race where canvas.width = W clears the bitmap but
-        // the subsequent paint has not yet run.
+        // Wait for the initial paint to complete before sampling.
+        const initialPaintCount = Number(canvas?.dataset.paintCount ?? '0');
+
+        // Poll for the expected pixel state. Offsets are recalculated on
+        // each iteration because the canvas bitmap dimensions change as
+        // useContainerSize fires its ResizeObserver and the paint effect
+        // re-runs. Sampling the pixel state inside the poll ensures we
+        // always use dimensions that match the most recent paint.
         await expect
             .poll(
                 () => {
@@ -77,11 +74,18 @@ describe('App first paint (Q-B01)', () => {
                     if (curW === 0 || curH === 0) return false;
                     // Wait for paint to complete after any resize.
                     if (Number(canvas?.dataset.paintCount ?? '0') <= initialPaintCount) return false;
+                    const curOffX = boardPx < curW ? (curW - boardPx) / 2 : 0;
+                    const curOffY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     let paintedVisible = 0;
                     let paintedVoid = 0;
                     for (let y = 0; y < view.config.boardSize; y++) {
                         for (let x = 0; x < view.config.boardSize; x++) {
-                            const pixel = ctx?.getImageData(x * zoom + zoom / 2, y * zoom + zoom / 2, 1, 1).data;
+                            const px = x * zoom + zoom / 2 + curOffX;
+                            const py = y * zoom + zoom / 2 + curOffY;
+                            if (px < 0 || py < 0 || px >= curW || py >= curH) {
+                                continue;
+                            }
+                            const pixel = ctx?.getImageData(px, py, 1, 1).data;
                             if (pixel === undefined) {
                                 continue;
                             }

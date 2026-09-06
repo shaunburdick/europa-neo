@@ -4,7 +4,7 @@
  *
  * Covers US5 AC-1 + data-model.md §4:
  *   · wheel zoom clamps to `[CONSOLE_CONSTANTS.minCellPx,
- *     maxCellPx] = [16, 96]` (issue #76 FR-017: 50%–300%);
+ *     maxCellPx] = [32, 96]` (issue #76 FR-017: 100%–300%);
  *   · zoom anchors at the cursor (the board point under the cursor
  *     stays put);
  *   · pan is clamped to keep the board visible
@@ -24,7 +24,7 @@ import type { CameraState } from '../../../src/state/types';
 
 /** 16×16 board with the default camera. */
 const BOARD = { width: 16, height: 16 };
-const BASE: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 16, maxZoom: 96 };
+const BASE: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 32, maxZoom: 96 };
 
 describe('zoomedCamera', () => {
     test('scroll up zooms in by the wheel step', () => {
@@ -32,18 +32,20 @@ describe('zoomedCamera', () => {
         expect(next.zoom).toBeCloseTo(32 * ZOOM_WHEEL_STEP, 10);
     });
 
-    test('scroll down zooms out symmetrically', () => {
+    test('scroll down zooms out but never below minCellPx', () => {
         const next = zoomedCamera(BASE, 100, { x: 256, y: 256 }, BOARD);
-        expect(next.zoom).toBeCloseTo(32 / ZOOM_WHEEL_STEP, 10);
+        // With minZoom = 32 = defaultCellPx, one step out from 32
+        // would go below the floor, so it clamps.
+        expect(next.zoom).toBe(CONSOLE_CONSTANTS.minCellPx);
     });
 
     test('zoom clamps to [minCellPx, maxCellPx]', () => {
         // Near the ceiling one step overshoots into the clamp…
         const maxed = zoomedCamera({ ...BASE, zoom: 90 }, -100, { x: 0, y: 0 }, BOARD);
         expect(maxed.zoom).toBe(CONSOLE_CONSTANTS.maxCellPx);
-        const minned = zoomedCamera({ ...BASE, zoom: 17 }, 100, { x: 0, y: 0 }, BOARD);
+        const minned = zoomedCamera({ ...BASE, zoom: 33 }, 100, { x: 0, y: 0 }, BOARD);
         expect(minned.zoom).toBe(CONSOLE_CONSTANTS.minCellPx);
-        expect(CONSOLE_CONSTANTS.minCellPx).toBe(16);
+        expect(CONSOLE_CONSTANTS.minCellPx).toBe(32);
         expect(CONSOLE_CONSTANTS.maxCellPx).toBe(96);
     });
 
@@ -74,7 +76,7 @@ describe('pannedCamera + clampCamera', () => {
     });
 
     test('clampCamera bounds zoom and both pan axes', () => {
-        const clamped = clampCamera({ zoom: 500, minZoom: 16, maxZoom: 96, pan: { x: -9999, y: 9999 } }, BOARD);
+        const clamped = clampCamera({ zoom: 500, minZoom: 32, maxZoom: 96, pan: { x: -9999, y: 9999 } }, BOARD);
         expect(clamped.zoom).toBe(96);
         expect(clamped.pan.x).toBe(-192);
         expect(clamped.pan.y).toBe(16 * 96);
@@ -83,9 +85,9 @@ describe('pannedCamera + clampCamera', () => {
 
 describe('zoomPercent (FR-017 display layer)', () => {
     test('maps cell-pixels to the percentage of the default cell size', () => {
-        expect(zoomPercent(16)).toBe(50);
         expect(zoomPercent(32)).toBe(100);
         expect(zoomPercent(48)).toBe(150);
+        expect(zoomPercent(64)).toBe(200);
         expect(zoomPercent(96)).toBe(300);
     });
 

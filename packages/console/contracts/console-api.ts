@@ -565,7 +565,7 @@ export interface ConsoleConstants {
  */
 export const CONSOLE_CONSTANTS: ConsoleConstants = {
   defaultCellPx: 32,
-  minCellPx: 16,
+  minCellPx: 32,
   maxCellPx: 96,
   feedbackTtlMs: 2000,
   labelTtlMs: 1500,
@@ -583,7 +583,7 @@ export const CONSOLE_CONSTANTS: ConsoleConstants = {
  * runtime; a conformance test asserts the two literals match.
  * Increment on any breaking change to the public surface.
  *
- * 0.2.0 (issue #76): `minCellPx` raised 12 → 16 — the zoom clamp
- * range is part of the public console surface (FR-017).
+ * 0.3.0 (issue #76): `minCellPx` raised 16 → 32 — zoom range is now
+ * 100%–300% (the board is always fully visible at minimum zoom).
  */
-export const CONSOLE_API_VERSION = '0.2.0' as const;
+export const CONSOLE_API_VERSION = '0.3.0' as const;

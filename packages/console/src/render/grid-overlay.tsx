@@ -120,6 +120,7 @@ export function GridOverlay({
     }
 
     const { zoom } = mapView.camera;
+    const { viewportOffset } = mapView;
 
     /** Move the roving focus one step in the pressed arrow direction. */
     function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
@@ -146,7 +147,11 @@ export function GridOverlay({
             aria-label="Game board"
             tabIndex={0}
             className="europa-grid"
-            style={{ width: mapView.width * zoom, height: mapView.height * zoom }}
+            style={{
+                width: mapView.width * zoom,
+                height: mapView.height * zoom,
+                transform: `translate(${-viewportOffset.x}px, ${-viewportOffset.y}px)`,
+            }}
             aria-activedescendant={focusedCoord === null ? undefined : cellElementId(focusedCoord)}
             onKeyDown={handleKeyDown}
             onFocus={() => {

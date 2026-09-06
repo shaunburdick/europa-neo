@@ -12,7 +12,7 @@
  *   cell   = (screen − pan) / zoom      (inverse / hit-testing)
  *
  * Constraints enforced here:
- *   - `zoom` ∈ [camera.minZoom, camera.maxZoom] ([12, 96] by
+ *   - `zoom` ∈ [camera.minZoom, camera.maxZoom] ([32, 96] by
  *     default per CONSOLE_CONSTANTS);
  *   - `pan.x` ∈ [−(maxZoom × 2), boardWidth × zoom], same for y —
  *     the board can never be panned entirely off-screen.

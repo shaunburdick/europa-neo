@@ -261,6 +261,7 @@ function buildFullBoardMapView(): MapView {
         exclusiveMode: false,
         prevView: null,
         nowMs: 250,
+        viewportOffset: { x: 0, y: 0 },
     });
 }
 

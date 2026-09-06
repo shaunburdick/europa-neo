@@ -30,6 +30,7 @@ function mapViewFrom(view: ReturnType<typeof buildPlayerView>): MapView {
         exclusiveMode: false,
         prevView: null,
         nowMs: 0,
+        viewportOffset: { x: 0, y: 0 },
     });
 }
 

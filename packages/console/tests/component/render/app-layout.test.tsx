@@ -88,7 +88,7 @@ describe('App sidebar static during zoom/pan (FR-016)', () => {
         // Dispatch a zoom + pan through the store.
         store.dispatch({
             kind: 'setCamera',
-            camera: { zoom: 64, pan: { x: -100, y: -50 }, minZoom: 16, maxZoom: 96 },
+            camera: { zoom: 64, pan: { x: -100, y: -50 }, minZoom: 32, maxZoom: 96 },
         });
 
         const after = sidebar?.getBoundingClientRect();

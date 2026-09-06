@@ -40,7 +40,7 @@ import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fi
 const CELL = { x: 5, y: 5 };
 
 /** Default camera used for MapView construction. */
-const CAMERA: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 16, maxZoom: 96 };
+const CAMERA: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 32, maxZoom: 96 };
 
 /** Board with one owned friendly cell under the cursor. */
 function makeView(reservesPercent: 0 | 7 = 0): PlayerView {
@@ -192,6 +192,7 @@ describe('US4 AC-1: the transient "70%" label', () => {
             exclusiveMode: false,
             prevView: null,
             nowMs,
+            viewportOffset: { x: 0, y: 0 },
         });
         const after = buildMapView({
             id: 'mv-1',
@@ -202,6 +203,7 @@ describe('US4 AC-1: the transient "70%" label', () => {
             exclusiveMode: false,
             prevView: before,
             nowMs,
+            viewportOffset: { x: 0, y: 0 },
         });
 
         expect(after.labels).toHaveLength(1);
@@ -223,6 +225,7 @@ describe('US4 AC-1: the transient "70%" label', () => {
             exclusiveMode: false,
             prevView: null,
             nowMs,
+            viewportOffset: { x: 0, y: 0 },
         });
         const mapView: MapView = buildMapView({
             id: 'mv-1',
@@ -233,6 +236,7 @@ describe('US4 AC-1: the transient "70%" label', () => {
             exclusiveMode: false,
             prevView: before,
             nowMs,
+            viewportOffset: { x: 0, y: 0 },
         });
         const [label] = mapView.labels;
         expect(label).toBeDefined();

@@ -305,6 +305,7 @@ export declare function buildMapView(args: {
   readonly exclusiveMode: boolean;
   readonly prevView: import('./console-types').MapView;
   readonly nowMs: number;
+  readonly viewportOffset: { readonly x: number; readonly y: number };
 }): import('./console-types').MapView;
 
 /**

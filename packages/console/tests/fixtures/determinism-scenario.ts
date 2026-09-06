@@ -152,7 +152,7 @@ export function buildScenarioAction(tick: number): PlayerAction {
                 camera: {
                     zoom: 32,
                     pan: { x: (tick % 5) * 2, y: (tick % 4) * 2 },
-                    minZoom: 16,
+                    minZoom: 32,
                     maxZoom: 96,
                 },
             };
@@ -345,6 +345,7 @@ export function runDeterminismScenario(): ScenarioRun {
             exclusiveMode: state.exclusiveMode,
             prevView: prevFrame,
             nowMs,
+            viewportOffset: { x: 0, y: 0 },
         });
         frames.push(serializeMapView(frame));
         prevFrame = frame;
