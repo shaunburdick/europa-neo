@@ -119,6 +119,8 @@ import {
 } from '../state/spectator-session';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
 import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
+import type { MatchVisibility } from '../ui/copy-link-button';
+import { CopyLinkButton } from '../ui/copy-link-button';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
@@ -638,6 +640,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     onLeave={leaveMatch}
                     onRouteFailure={() => setNoticeKind('shortcut-failure')}
                     onReturnToLobby={returnToLobby}
+                    matchVisibility={state.matchVisibility}
                 />
             </>
         );
@@ -826,6 +829,12 @@ interface MatchLegHostProps {
     readonly onRouteFailure: () => void;
     /** Callback to navigate back to the lobby on game-over (FR-009). */
     readonly onReturnToLobby?: () => void;
+    /**
+     * Match visibility at entry time (issue #34, D2). Drives the
+     * copy-link button's visual treatment: `'private'` → prominent,
+     * `'public'` → subtle. `null` before the first snapshot resolves.
+     */
+    readonly matchVisibility: MatchVisibility | null;
 }
 
 /**
@@ -870,6 +879,7 @@ function MatchLegHost({
     onLeave,
     onRouteFailure,
     onReturnToLobby,
+    matchVisibility,
 }: MatchLegHostProps): JSX.Element {
     const headingRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -918,6 +928,22 @@ function MatchLegHost({
                     {role === 'spectator' ? 'Spectating' : 'In match'}{' '}
                     {matchId === null ? '— resolving…' : `(${matchId.slice(0, 8)}…)`}
                 </h1>
+                {matchId !== null ? (
+                    <CopyLinkButton
+                        matchId={matchId}
+                        visibility={matchVisibility ?? 'public'}
+                        onCopyResult={
+                            announcer !== undefined
+                                ? (r) => {
+                                      announcer.announce(
+                                          r.ok ? 'Link copied to clipboard.' : 'Could not copy link.',
+                                          'polite',
+                                      );
+                                  }
+                                : undefined
+                        }
+                    />
+                ) : null}
                 <button
                     type="button"
                     className="europa-lobby__button europa-focus-ring"
