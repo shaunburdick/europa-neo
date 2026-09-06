@@ -17,8 +17,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { reduceLobby } from '../../src/state/lobby-reducer';
-import { INITIAL_LOBBY_STATE } from '../../src/state/lobby-reducer';
+import { INITIAL_LOBBY_STATE, reduceLobby } from '../../src/state/lobby-reducer';
 import type { LobbyState } from '../../src/state/lobby-state';
 import type { MatchId } from '../../src/state/types';
 
@@ -38,7 +37,14 @@ function namedState(overrides?: Partial<LobbyState>): LobbyState {
         everNamed: true,
         snapshot: {
             entries: [
-                { matchId: MATCH_A, seatsFilled: 1, capacity: 2, status: 'waiting', boardSize: 32, tickIntervalMs: 250 },
+                {
+                    matchId: MATCH_A,
+                    seatsFilled: 1,
+                    capacity: 2,
+                    status: 'waiting',
+                    boardSize: 32,
+                    tickIntervalMs: 250,
+                },
             ],
             activeMatchId: null,
             revision: 1,

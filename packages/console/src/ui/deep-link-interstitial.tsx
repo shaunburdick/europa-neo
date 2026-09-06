@@ -103,7 +103,6 @@ export function DeepLinkInterstitial({
         <main id="main" className="europa-lobby" data-europa-deep-link-interstitial="true">
             <section
                 className="europa-deep-link-interstitial europa-focus-ring"
-                role="region"
                 aria-labelledby="deep-link-interstitial-heading"
                 tabIndex={-1}
             >
@@ -139,17 +138,14 @@ export function DeepLinkInterstitial({
                     </button>
                 </div>
                 <div className="europa-deep-link-interstitial__footer">
-                    <a
-                        href="/lobby"
-                        className="europa-deep-link-interstitial__return europa-focus-ring"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            onReturnToLobby();
-                        }}
+                    <button
+                        type="button"
+                        className="europa-lobby__button europa-focus-ring"
+                        onClick={onReturnToLobby}
                         data-europa-deep-link-return="true"
                     >
                         Return to lobby
-                    </a>
+                    </button>
                 </div>
             </section>
         </main>

@@ -121,12 +121,12 @@ import { type ConsoleStore, createConsoleStore } from '../state/store';
 import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
 import type { MatchVisibility } from '../ui/copy-link-button';
 import { CopyLinkButton } from '../ui/copy-link-button';
+import { DeepLinkInterstitial } from '../ui/deep-link-interstitial';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
 import { readReturnTo } from '../ui/profile-url';
 import { ProfileView } from '../ui/profile-view';
-import { DeepLinkInterstitial } from '../ui/deep-link-interstitial';
 import { RouteNotice, type RouteNoticeKind } from '../ui/route-notice';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
 
