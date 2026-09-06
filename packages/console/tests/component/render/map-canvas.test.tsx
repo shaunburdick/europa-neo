@@ -42,6 +42,12 @@ describe('App first paint (Q-B01)', () => {
     test('canvas mounts sized to the board and paints all visible cells', async () => {
         const view = createDemoPlayerView();
         setConsoleStateForTesting(createStubConsoleState(view));
+        // Capture paintCount before render — guaranteed to be 0 (no canvas
+        // exists yet).  The poll guard then waits for paintCount > 0,
+        // which confirms the paint effect has run at least once *after*
+        // the canvas was mounted (after any ResizeObserver-driven resize
+        // that clears the bitmap).
+        const initialPaintCount = 0;
         const screen = await render(<App />);
 
         // The a11y overlay proves React committed; the effect that paints
@@ -60,32 +66,42 @@ describe('App first paint (Q-B01)', () => {
         const voidRgb = hexToRgb(VOID_COLOR);
         const visibleKeys = new Set(view.visibleCells.map((cell) => `${cell.coord.x},${cell.coord.y}`));
 
-        let paintedVisible = 0;
-        let paintedVoid = 0;
-        for (let y = 0; y < view.config.boardSize; y++) {
-            for (let x = 0; x < view.config.boardSize; x++) {
-                const pixel = ctx?.getImageData(x * zoom + zoom / 2, y * zoom + zoom / 2, 1, 1).data;
-                if (pixel === undefined) {
-                    continue;
-                }
-                const isVoid =
-                    Math.abs(pixel[0] - voidRgb[0]) < 6 &&
-                    Math.abs(pixel[1] - voidRgb[1]) < 6 &&
-                    Math.abs(pixel[2] - voidRgb[2]) < 6;
-                if (visibleKeys.has(`${x},${y}`)) {
-                    if (!isVoid) {
-                        paintedVisible++;
+        // Poll for the paint to complete before sampling pixels. This
+        // avoids the race where canvas.width = W clears the bitmap but
+        // the subsequent paint has not yet run.
+        await expect
+            .poll(
+                () => {
+                    const curW = canvas?.width ?? 0;
+                    const curH = canvas?.height ?? 0;
+                    if (curW === 0 || curH === 0) return false;
+                    // Wait for paint to complete after any resize.
+                    if (Number(canvas?.dataset.paintCount ?? '0') <= initialPaintCount) return false;
+                    let paintedVisible = 0;
+                    let paintedVoid = 0;
+                    for (let y = 0; y < view.config.boardSize; y++) {
+                        for (let x = 0; x < view.config.boardSize; x++) {
+                            const pixel = ctx?.getImageData(x * zoom + zoom / 2, y * zoom + zoom / 2, 1, 1).data;
+                            if (pixel === undefined) {
+                                continue;
+                            }
+                            const isVoid =
+                                Math.abs(pixel[0] - voidRgb[0]) < 6 &&
+                                Math.abs(pixel[1] - voidRgb[1]) < 6 &&
+                                Math.abs(pixel[2] - voidRgb[2]) < 6;
+                            if (visibleKeys.has(`${x},${y}`)) {
+                                if (!isVoid) paintedVisible++;
+                            } else if (isVoid) {
+                                paintedVoid++;
+                            }
+                        }
                     }
-                } else if (isVoid) {
-                    paintedVoid++;
-                }
-            }
-        }
-
-        // Every visible cell got painted; every out-of-horizon cell is void.
-        expect(paintedVisible).toBe(view.visibleCells.length);
-        const totalCells = view.config.boardSize * view.config.boardSize;
-        expect(paintedVoid).toBe(totalCells - view.visibleCells.length);
+                    const totalCells = view.config.boardSize * view.config.boardSize;
+                    return paintedVisible === view.visibleCells.length && paintedVoid === totalCells - view.visibleCells.length;
+                },
+                { timeout: 5000, message: 'all visible cells painted, all out-of-horizon cells void' },
+            )
+            .toBe(true);
     });
 
     test('the booted board passes an axe scan', async () => {
