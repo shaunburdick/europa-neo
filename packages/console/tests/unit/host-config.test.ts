@@ -308,21 +308,15 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
         });
 
         it('defaults using custom publicHost', () => {
-            expect(run(['--public-host', '192.168.1.20']).result?.publicUrl).toBe(
-                'http://192.168.1.20:8080',
-            );
+            expect(run(['--public-host', '192.168.1.20']).result?.publicUrl).toBe('http://192.168.1.20:8080');
         });
 
         it('--public-url sets the public URL', () => {
-            expect(run(['--public-url', 'https://example.com']).result?.publicUrl).toBe(
-                'https://example.com',
-            );
+            expect(run(['--public-url', 'https://example.com']).result?.publicUrl).toBe('https://example.com');
         });
 
         it('--public-url= inline form works', () => {
-            expect(run(['--public-url=https://game.example.com']).result?.publicUrl).toBe(
-                'https://game.example.com',
-            );
+            expect(run(['--public-url=https://game.example.com']).result?.publicUrl).toBe('https://game.example.com');
         });
 
         it('HOST_PUBLIC_URL env sets the public URL', () => {
@@ -333,15 +327,13 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
 
         it('flag beats env for publicUrl', () => {
             expect(
-                run(['--public-url', 'https://flag.example.com'], { HOST_PUBLIC_URL: 'https://env.example.com' })
-                    .result?.publicUrl,
+                run(['--public-url', 'https://flag.example.com'], { HOST_PUBLIC_URL: 'https://env.example.com' }).result
+                    ?.publicUrl,
             ).toBe('https://flag.example.com');
         });
 
         it('strips trailing slash from the URL', () => {
-            expect(run(['--public-url', 'https://example.com/']).result?.publicUrl).toBe(
-                'https://example.com',
-            );
+            expect(run(['--public-url', 'https://example.com/']).result?.publicUrl).toBe('https://example.com');
         });
 
         it('rejects non-absolute URL', () => {
@@ -387,15 +379,11 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
         });
 
         it('accepts http URL', () => {
-            expect(run(['--public-url', 'http://localhost:3000']).result?.publicUrl).toBe(
-                'http://localhost:3000',
-            );
+            expect(run(['--public-url', 'http://localhost:3000']).result?.publicUrl).toBe('http://localhost:3000');
         });
 
         it('accepts IPv6 host', () => {
-            expect(run(['--public-url', 'http://[::1]:8080']).result?.publicUrl).toBe(
-                'http://[::1]:8080',
-            );
+            expect(run(['--public-url', 'http://[::1]:8080']).result?.publicUrl).toBe('http://[::1]:8080');
         });
     });
 });

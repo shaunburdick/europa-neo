@@ -387,10 +387,7 @@ function buildStack(
             bound = { ...bound, ...bridge };
         },
     });
-    const matchmaker = createMatchmaker(
-        publicBaseUrl !== undefined ? { publicBaseUrl } : {},
-        { server: bindable },
-    );
+    const matchmaker = createMatchmaker(publicBaseUrl !== undefined ? { publicBaseUrl } : {}, { server: bindable });
     wiring.matchmaker = matchmaker;
     return { server, matchmaker, lobbyFacade: () => wiring.lobby };
 }
@@ -524,12 +521,7 @@ export function printLobbyBanner(port: number, publicHost: string, publicUrl?: s
  * @param match      The prepared match.
  * @param publicUrl  Absolute public URL base for join links (FR-034).
  */
-export function printCreateBanner(
-    port: number,
-    publicHost: string,
-    match: PreparedMatch,
-    publicUrl?: string,
-): void {
+export function printCreateBanner(port: number, publicHost: string, match: PreparedMatch, publicUrl?: string): void {
     const host = urlHostOf(publicHost);
     const wsUrl = `ws://${host}:${String(port)}`;
     const baseUrl = publicUrl ?? `http://${host}:${String(port)}`;

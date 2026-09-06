@@ -179,12 +179,8 @@ describe('host banner with --public-url (T-034-16)', () => {
             const text = captureStdout(() => {
                 printCreateBanner(8080, 'localhost', fakeMatch, 'https://game.example.com');
             });
-            expect(text).toMatch(
-                /Player 1 \(P1\) → https:\/\/game\.example\.com\/match\/abc-123/,
-            );
-            expect(text).toMatch(
-                /Player 2 \(P2\) → https:\/\/game\.example\.com\/match\/abc-123/,
-            );
+            expect(text).toMatch(/Player 1 \(P1\) → https:\/\/game\.example\.com\/match\/abc-123/);
+            expect(text).toMatch(/Player 2 \(P2\) → https:\/\/game\.example\.com\/match\/abc-123/);
             // Should not use the old /join suffix
             expect(text).not.toMatch(/\/match\/abc-123\/join/);
         });
@@ -193,9 +189,7 @@ describe('host banner with --public-url (T-034-16)', () => {
             const text = captureStdout(() => {
                 printCreateBanner(9090, 'example.com', fakeMatch);
             });
-            expect(text).toMatch(
-                /Player 1 \(P1\) → http:\/\/example\.com:9090\/match\/abc-123/,
-            );
+            expect(text).toMatch(/Player 1 \(P1\) → http:\/\/example\.com:9090\/match\/abc-123/);
         });
 
         it('preserves ws and Console UI local addresses regardless of publicUrl', () => {
