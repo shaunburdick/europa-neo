@@ -29,10 +29,6 @@
         "biome-config-shaunburdick": "catalog:",
         "@vitest/coverage-v8": "^4.1.11",
         "typescript": "catalog:",
-        "husky": "catalog:",
-        "lint-staged": "catalog:"
-    },
-    "lint-staged": {
-        "*.{js,ts,tsx,jsx,json,jsonc}": "biome check --write"
+        "husky": "catalog:"
     }
 }
