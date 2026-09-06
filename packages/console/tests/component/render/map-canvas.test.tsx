@@ -50,42 +50,63 @@ describe('App first paint (Q-B01)', () => {
 
         const canvas = screen.container.querySelector('canvas');
         expect(canvas).not.toBeNull();
-        const { zoom } = DEFAULT_CAMERA;
-        expect(canvas?.width).toBe(view.config.boardSize * zoom);
-        expect(canvas?.height).toBe(view.config.boardSize * zoom);
-
         const ctx = canvas?.getContext('2d');
         expect(ctx).not.toBeNull();
 
+        const { zoom } = DEFAULT_CAMERA;
         const voidRgb = hexToRgb(VOID_COLOR);
         const visibleKeys = new Set(view.visibleCells.map((cell) => `${cell.coord.x},${cell.coord.y}`));
+        const boardPx = view.config.boardSize * zoom;
 
-        let paintedVisible = 0;
-        let paintedVoid = 0;
-        for (let y = 0; y < view.config.boardSize; y++) {
-            for (let x = 0; x < view.config.boardSize; x++) {
-                const pixel = ctx?.getImageData(x * zoom + zoom / 2, y * zoom + zoom / 2, 1, 1).data;
-                if (pixel === undefined) {
-                    continue;
-                }
-                const isVoid =
-                    Math.abs(pixel[0] - voidRgb[0]) < 6 &&
-                    Math.abs(pixel[1] - voidRgb[1]) < 6 &&
-                    Math.abs(pixel[2] - voidRgb[2]) < 6;
-                if (visibleKeys.has(`${x},${y}`)) {
-                    if (!isVoid) {
-                        paintedVisible++;
+        // Poll for the expected pixel state. Offsets are recalculated on
+        // each iteration because the canvas bitmap dimensions change as
+        // useContainerSize fires its ResizeObserver and the paint effect
+        // re-runs. Sampling the pixel state inside the poll ensures we
+        // always use dimensions that match the most recent paint.
+        await expect
+            .poll(
+                () => {
+                    const curW = canvas?.width ?? 0;
+                    const curH = canvas?.height ?? 0;
+                    if (curW === 0 || curH === 0) return false;
+                    // Wait for at least one paint to complete.
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
+                    const curOffX = boardPx < curW ? (curW - boardPx) / 2 : 0;
+                    const curOffY = boardPx < curH ? (curH - boardPx) / 2 : 0;
+                    let paintedVisible = 0;
+                    let paintedVoid = 0;
+                    let onScreenVisible = 0;
+                    let onScreenTotal = 0;
+                    for (let y = 0; y < view.config.boardSize; y++) {
+                        for (let x = 0; x < view.config.boardSize; x++) {
+                            const px = x * zoom + zoom / 2 + curOffX;
+                            const py = y * zoom + zoom / 2 + curOffY;
+                            if (px < 0 || py < 0 || px >= curW || py >= curH) {
+                                continue;
+                            }
+                            onScreenTotal++;
+                            const pixel = ctx?.getImageData(px, py, 1, 1).data;
+                            if (pixel === undefined) {
+                                continue;
+                            }
+                            const isVoid =
+                                Math.abs(pixel[0] - voidRgb[0]) < 6 &&
+                                Math.abs(pixel[1] - voidRgb[1]) < 6 &&
+                                Math.abs(pixel[2] - voidRgb[2]) < 6;
+                            if (visibleKeys.has(`${x},${y}`)) {
+                                onScreenVisible++;
+                                if (!isVoid) paintedVisible++;
+                            } else if (isVoid) {
+                                paintedVoid++;
+                            }
+                        }
                     }
-                } else if (isVoid) {
-                    paintedVoid++;
-                }
-            }
-        }
-
-        // Every visible cell got painted; every out-of-horizon cell is void.
-        expect(paintedVisible).toBe(view.visibleCells.length);
-        const totalCells = view.config.boardSize * view.config.boardSize;
-        expect(paintedVoid).toBe(totalCells - view.visibleCells.length);
+                    const onScreenHorizon = onScreenTotal - onScreenVisible;
+                    return paintedVisible === onScreenVisible && paintedVoid === onScreenHorizon;
+                },
+                { timeout: 5000, message: 'all visible cells painted, all out-of-horizon cells void' },
+            )
+            .toBe(true);
     });
 
     test('the booted board passes an axe scan', async () => {

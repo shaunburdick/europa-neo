@@ -81,7 +81,7 @@ async function bootInteractiveConsole(): Promise<InteractiveBoot> {
             status: 'live',
             inputEnabled: true,
             latestView: view,
-            camera: { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 12, maxZoom: 96 },
+            camera: { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 32, maxZoom: 96 },
             hover: null,
             selection: null,
             lastCursorScreen: null,
@@ -117,7 +117,9 @@ async function bootInteractiveConsole(): Promise<InteractiveBoot> {
 
 /**
  * Dispatch a pointermove at fraction `(fx, fy)` of cell `(cx, cy)`
- * to trigger the targeting overlay's subcell binning.
+ * to trigger the targeting overlay's subcell binning. Accounts for
+ * the viewport offset that centers the board when it is smaller
+ * than the container (issue #76).
  */
 async function movePointerOver(cx: number, cy: number, fx: number, fy: number): Promise<void> {
     const boardArea = document.querySelector('.europa-board-area') as HTMLElement | null;
@@ -125,10 +127,25 @@ async function movePointerOver(cx: number, cy: number, fx: number, fy: number): 
         throw new Error('.europa-board-area not found');
     }
     const rect = boardArea.getBoundingClientRect();
+    // Read the grid overlay's actual dimensions from its inline styles
+    // to compute the viewport offset correctly.
+    const grid = document.getElementById('map') as HTMLElement | null;
+    const gridW = grid !== null ? parseFloat(grid.style.width) : 0;
+    // Derive zoom from the grid width and the board cell count (10 in
+    // the standard test fixture).
+    const boardCells = 10;
+    const zoom = gridW / boardCells;
+    const boardPx = gridW;
+    // Compute viewport offset: centering when board < container.
+    const offX = boardPx < rect.width ? -(rect.width - boardPx) / 2 : 0;
+    const offY = boardPx < rect.height ? -(rect.height - boardPx) / 2 : 0;
+    // Screen position: board origin + cell offset + subcell fraction.
+    const screenX = -offX + (cx + fx) * zoom;
+    const screenY = -offY + (cy + fy) * zoom;
     boardArea.dispatchEvent(
         new PointerEvent('pointermove', {
-            clientX: rect.left + (cx + fx) * 32,
-            clientY: rect.top + (cy + fy) * 32,
+            clientX: rect.left + screenX,
+            clientY: rect.top + screenY,
             bubbles: true,
         }),
     );
@@ -228,8 +245,9 @@ describe('WCAG 2.1.1 — palette keyboard operability', () => {
         const user = userEvent.setup();
 
         // Walk Tab stops to the order bar, then into its buttons.
-        await user.keyboard('{Tab}');
-        await user.keyboard('{Tab}');
+        // Issue #76 sidebar restructure: skip-link → map → order-bar
+        // (the former HUD + help-button stops moved into the sidebar
+        // AFTER the order bar in DOM order).
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
@@ -299,8 +317,8 @@ describe('WCAG 2.4.7 — order bar focus ring contrast', () => {
 
         // Keyboard-focus the first palette button (:focus-visible only
         // matches keyboard-initiated focus, so Tab all the way in:
-        // skip-link → map → hud → help-button → order-bar → button).
-        for (let i = 0; i < 6; i++) {
+        // skip-link → map → order-bar → button).
+        for (let i = 0; i < 4; i++) {
             await user.keyboard('{Tab}');
         }
         const button = document.activeElement as HTMLButtonElement | null;
@@ -462,11 +480,12 @@ describe('WCAG 2.3.3 — reduced motion', () => {
                 { kind: 'combat', cell: { x: 0, y: 0 }, expiresAtMs: Number.MAX_SAFE_INTEGER },
             ] satisfies readonly MapEffect[],
             labels: [],
-            camera: { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 12, maxZoom: 96 },
+            camera: { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 32, maxZoom: 96 },
             hover: null,
             selection: null,
             dragSelection: null,
             exclusiveMode: false,
+            viewportOffset: { x: 0, y: 0 },
         };
     }
 

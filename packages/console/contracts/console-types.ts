@@ -90,8 +90,11 @@
  * Mirrors the engine/fog/networking versioning discipline: every
  * consumer pin-checks at startup; incrementing forces a coordinated
  * update.
+ *
+ * 0.3.0 (issue #76): `DEFAULT_CAMERA.minZoom` raised 16 → 32 — zoom
+ * range is now 100%–300% (board always fully visible at min zoom).
  */
-export const CONSOLE_API_VERSION = '0.1.0' as const;
+export const CONSOLE_API_VERSION = '0.3.0' as const;
 
 // ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)
@@ -396,6 +399,14 @@ export interface MapView {
    * instead of toggle.
    */
   readonly exclusiveMode: boolean;
+  /**
+   * Viewport offset in board-pixel coordinates — the board-space
+   * origin of the top-left corner of the visible area. Used by the
+   * canvas painter and DOM overlay to position cells relative to the
+   * viewport instead of the full board (issue #76: canvas fills the
+   * container; zoom controls visible cell density).
+   */
+  readonly viewportOffset: { readonly x: number; readonly y: number };
 }
 
 /**
@@ -494,7 +505,7 @@ export interface CameraState {
   readonly zoom: number;
   /** Top-left offset in CSS pixels. */
   readonly pan: { readonly x: number; readonly y: number };
-  /** Min cell size (CSS pixels). Default 12 (board visible at 12×12 = 384px min). */
+  /** Min cell size (CSS pixels). Default 16 (issue #76 FR-017: 50% zoom). */
   readonly minZoom: number;
   /** Max cell size. Default 96 (so a single cell fits the viewport). */
   readonly maxZoom: number;
@@ -507,7 +518,7 @@ export interface CameraState {
 export const DEFAULT_CAMERA: CameraState = {
   zoom: 32,
   pan: { x: 0, y: 0 },
-  minZoom: 12,
+  minZoom: 32,
   maxZoom: 96,
 };
 

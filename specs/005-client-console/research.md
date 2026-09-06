@@ -795,3 +795,151 @@ No library was chosen without checking its license is
 permissive (MIT, BSD, Apache-2.0, ISC, or MPL-2.0 for
 test-only deps). All listed deps pass the constitution's
 "Additional Constraints" check.
+
+---
+
+## 15. Issue #76 — Console UI Redesign (sidebar layout + zoom expansion)
+
+Research for the amendment (spec Clarifications v1.4, FR-014..FR-022,
+Implementation Note 16). This section documents the decisions specific
+to the redesign; the base feature's research (§1–§14) remains in force.
+
+### 15.1 Two-column layout (FR-014/FR-015/FR-022)
+
+**Decision**: `europa-main` becomes `display: flex` with
+`europa-board-area` left (flex-grow: 1) and a new `europa-sidebar`
+right (fixed width ~280px). The sidebar is composed as children of
+`App` (FR-022), so player and spectator share one render path.
+
+**Rationale**:
+- The existing `App.tsx` already renders the HUD items inline
+  (`#hud`, `OrderBar`, `ReservesPanel`, `Minimap`, Surrender, Help).
+  Migrating them into a sidebar structure is a pure composition
+  change — no state, contract, or reducer changes.
+- FR-022 mandates `App` ownership; the spectator path
+  (`SpectatorMatchLeg` in `lobby-runtime.tsx`) already renders `App`
+  with a `state` prop and no `store`, so the sidebar renders with
+  `store === undefined` guards — no new spectator-specific code.
+- A fixed-width sidebar (~280px) matches the spec's "fixed-width"
+  wording (FR-014) and keeps the board area flex-grow simple.
+
+**Alternatives considered**:
+- Sidebar owned by `lobby-runtime.tsx` — rejected: FR-022 explicitly
+  mandates `App` ownership so player and spectator share one path.
+- CSS grid instead of flex — equivalent outcome; flex is the existing
+  `europa-main` display mode and the smaller delta.
+
+### 15.2 Zoom percentage layer (FR-017)
+
+**Decision**: The percentage is a **display layer** over the existing
+cell-pixel zoom math. `CameraState` values remain in cell-pixels;
+`minZoom` changes 12 → 16 (50% of 32), `maxZoom` stays 96 (300% of
+32), default stays 32 (100%).
+
+**Rationale**:
+- The existing `screen = pan + cell × zoom` transform (data-model §4)
+  is unchanged; only the clamp bounds shift.
+- 50% = 16px/cell, 100% = 32px/cell, 300% = 96px/cell — a clean
+  integer mapping that keeps the pan-clamp math (`[-(maxZoom*2),
+  boardWidth*zoom]`) intact.
+- The sidebar indicator shows the percentage (`zoom / 32 * 100`),
+  while the underlying `CameraState.zoom` stays in cell-pixels —
+  zero drift between the display and the transform.
+
+**Contract impact**: `CONSOLE_CONSTANTS.minCellPx` changes 12 → 16.
+This is a behavioral change to a public constant (type unchanged).
+Per the feature 004 "pre-1.0 minor = breaking boundary" precedent,
+this warrants a `CONSOLE_API_VERSION` bump (0.1.0 → 0.2.0) — confirm
+with PM before landing.
+
+### 15.3 Keyboard zoom shortcuts (FR-018)
+
+**Decision**: `HotkeyController` is extended with a UI-zoom layer.
+`+`/`=` zooms in one step, `-`/`_` zooms out one step, `0` resets to
+100%. The same `shouldIgnoreKeyEvent` focus guard suppresses the
+shortcuts when focus is inside interactive chrome (buttons, inputs,
+toolbars, contenteditable).
+
+**Rationale**:
+- `HotkeyController` already owns the document-level keydown listener
+  and the focus guard; adding a UI-zoom layer is one handler with the
+  same gating — no new listener, no guard duplication.
+- `+`/`=`/`-`/`_`/`0` are not in the default `InputMapping` (which
+  binds i/j/k/l, space, p/h, g/o, 0-9, arrows, Escape), so there is
+  no collision with order keys. Note: `0` is a reserve digit key in
+  the default mapping — the zoom-reset binding must be checked for
+  collision (see tasks.md; the UI-zoom layer is keyed separately from
+  the order table, so `0` as zoom-reset must be reconciled with
+  `reserve0`).
+- The `?` help toggle already uses a separate document-level handler
+  with the same guard pattern (App.tsx); the zoom layer follows the
+  same convention.
+
+**Collision note**: the default `InputMapping` binds `0` to
+`reserve0`. The zoom-reset shortcut (`0`) must either (a) live in a
+separate UI-zoom layer that takes precedence only when no cell is
+selected / no reserves context, or (b) be reconciled via the
+`HotkeyController`'s existing collision detection. **Decision for the
+implementer**: the UI-zoom layer is a distinct keydown path that
+checks the focus guard and dispatches `setCamera` directly; it does
+not go through `translateKey` (which would route `0` to `reserve0`).
+The order-table `reserve0` binding is unchanged. This matches the
+spec's "one handler, same focus guard" wording (Implementation Note
+16).
+
+### 15.4 Minimap viewport rectangle (FR-019)
+
+**Decision**: The existing `viewportRect` helper (minimap.tsx) already
+computes the visible-viewport rectangle from `camera` + `viewportSize`.
+It is already wired to the camera state subscription and
+`useContainerSize` (integration wave T-I3). The redesign only enhances
+the styling for the sidebar context (e.g., a labeled "Overview"
+section header).
+
+**Rationale**: No new geometry. The viewport rect updates live as the
+camera changes because `Minimap` re-renders on every `camera` state
+change (React subscription). FR-019 is satisfied by the existing
+implementation; the task is verification + styling.
+
+### 15.5 Responsive stacking (FR-020)
+
+**Decision**: A media query at 768px collapses the two-column layout
+to a single column with the sidebar below the board.
+
+**Rationale**:
+- Matches the spec Assumptions ("Desktop browsers are the v1 target;
+  touch/mobile adaptation is out of scope but layout must not preclude
+  it later").
+- A single media query (`@media (max-width: 768px)`) flips
+  `europa-main` to `flex-direction: column` and the sidebar to
+  `width: 100%` — all interactive elements remain reachable by mouse
+  and keyboard (FR-020).
+
+### 15.6 Spectator parity (FR-021)
+
+**Decision**: The sidebar renders identically for player and spectator;
+order-producing controls (Orders, Reserve, Surrender) render disabled
+or visually inert when `store === undefined`.
+
+**Rationale**:
+- The spectator path (`SpectatorMatchLeg`) already renders `App` with
+  `state` prop and no `store`. The existing `store === undefined`
+  guards (e.g., `OrderBar`'s `onToggleExclusive`/`onClearPipes`
+  omitted, `ReservesPanel` not rendered, Surrender not rendered)
+  already implement the inert behavior.
+- The structural invariant (no store, no order bridge, adapter refuses
+  orders) means no orders can be sent even if a control were
+  accidentally enabled — the disabled rendering is defense-in-depth
+  for the UI, not the security boundary.
+
+### 15.7 External research citations (issue #76)
+
+- **CSS Flexbox** (MDN) — two-column layout, `flex-grow`, media
+  queries for responsive stacking.
+- **WCAG 2.2** — 1.3.1 (sidebar sections as landmarks), 2.1.1
+  (keyboard zoom shortcuts), 2.4.7 (focus visibility on zoom
+  controls), 2.5.8 (target size on zoom buttons).
+- **Existing codebase** — `App.tsx`, `zoom.ts`, `hotkeys.ts`,
+  `minimap.tsx`, `index.css`, `lobby-runtime.tsx` (spectator path),
+  `CONSOLE_CONSTANTS` (contracts/console-api.ts), `DEFAULT_CAMERA`
+  (contracts/console-types.ts).

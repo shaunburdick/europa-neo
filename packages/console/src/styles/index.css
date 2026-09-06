@@ -43,35 +43,40 @@ body {
     transform: none;
 }
 
-/* Root layout: board left/center, HUD right. Wraps (rather than
-   overflowing) when the QoL-era sidebar stack exceeds the viewport,
-   so the board never lands at negative screen coordinates. */
+/* Root layout (issue #76 FR-014): two-column flex — board left
+   (flex-grow), fixed-width right sidebar. Fills 100vw × 100vh
+   with no page scroll (issue #76 layout fix). */
 .europa-main {
-    min-height: 100vh;
+    height: calc(100vh - var(--europa-match-bar-height, 42px) - var(--europa-footer-height, 32px));
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: center;
-    align-content: flex-start;
-    gap: var(--europa-spacing-lg);
-    padding: var(--europa-spacing-lg);
+    flex-direction: row;
+    align-items: stretch;
 }
 
 .europa-board-area {
     position: relative;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .europa-canvas {
     display: block;
+    width: 100%;
+    height: 100%;
     /* Mirrors VOID_COLOR in src/render/palette.ts (playtest 2026-08-24:
      dark slate, distinct from the page background, darker than land). */
     background-color: var(--europa-color-void-bg);
 }
 
-/* ARIA grid overlay — exactly covers the canvas. */
+/* ARIA grid overlay — exactly covers the canvas.
+ * top/left anchor to the board area origin; inline width/height + transform
+ * match the canvas dimensions. inset:0 was removed because it stretched the
+ * grid to fill the container before the explicit dimensions took effect. */
 .europa-grid {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
 }
 
 .europa-grid:focus-visible {
@@ -191,32 +196,133 @@ body {
     line-height: var(--europa-typography-line-height-relaxed);
 }
 
-/* HUD placeholder (US5 replaces it with the full status banner). */
-.europa-hud {
+/* Right sidebar (issue #76 FR-014/FR-015): fixed ~280px column
+   holding all HUD controls in 8 sections. Fills full height between
+   header and footer; scrolls independently when content overflows
+   (FR-016 — only the board transform changes). */
+.europa-sidebar {
+    flex: 0 0 280px;
+    width: 280px;
     display: flex;
     flex-direction: column;
-    gap: var(--europa-spacing-xs);
-    min-width: 12rem;
-    padding: var(--europa-spacing-md) var(--europa-spacing-lg);
+    gap: var(--europa-spacing-md);
+    padding: var(--europa-spacing-md);
     background-color: var(--europa-color-surface);
     color: var(--europa-color-text-secondary);
     border-radius: var(--europa-radii-card);
+    box-shadow: var(--europa-shadows-hud);
+    overflow-y: auto;
+}
+
+.europa-sidebar__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-xs);
+    border-top: 1px solid var(--europa-color-border);
+    padding-top: var(--europa-spacing-sm);
+}
+
+.europa-sidebar__section:first-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.europa-sidebar__heading {
+    margin: 0;
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 700;
+    letter-spacing: var(--europa-typography-tracking-tight);
+    color: var(--europa-color-text-primary);
+}
+
+.europa-sidebar__hint {
+    margin: 0;
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-muted);
+}
+
+/* Status items inside the sidebar (Status section). */
+.europa-hud__item {
     font-size: var(--europa-typography-size-base);
 }
 
-/*
- * Version footer (feature 009 FR-007): muted release identity rendered
- * as real DOM text in every connection state. var(--europa-color-text-muted) on this section's
- * var(--europa-color-surface) background ≈ 6.99:1 — above the WCAG 2.2 AA minimum (4.5:1)
- * while staying visually subordinate to the var(--europa-color-text-secondary) status items
- * (≈ 14.3:1). Deliberately non-interactive by construction: a plain
- * span with no handlers, tabindex, or role — it never intercepts
- * pointer or keyboard interaction (and stays text-selectable so
- * players can copy it into bug reports).
- */
-.europa-hud__version {
-    color: var(--europa-color-text-muted);
+/* Live match indicator (FR-024): pulsing green dot + label,
+   rendered only when status === 'live'. */
+.europa-sidebar__live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-secondary);
 }
+
+.europa-sidebar__live-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background-color: var(--europa-color-green);
+    animation: europa-live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes europa-live-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .europa-sidebar__live-dot {
+        animation: none;
+    }
+}
+
+/* Zoom section (issue #76 FR-017): percentage level + controls. */
+.europa-zoom {
+    display: flex;
+    flex-direction: column;
+    gap: var(--europa-spacing-xs);
+}
+
+.europa-zoom__level {
+    font-size: var(--europa-typography-size-base);
+    font-weight: 700;
+    color: var(--europa-color-text-primary);
+}
+
+.europa-zoom__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--europa-spacing-sm);
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.europa-zoom__controls button {
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0.25rem var(--europa-spacing-sm);
+    border: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    border-radius: var(--europa-radii-input);
+    background-color: var(--europa-color-surface-raised);
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
+    cursor: pointer;
+}
+
+.europa-zoom__controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Nested HUD components lose their outer card chrome inside the
+   sidebar (they are sections of the sidebar card now). The override
+   block lives at the END of this file so the higher-specificity
+   selectors always follow the base component rules. */
 
 /* Surrender trigger (US5 T084) + minimap host (US5 T081). */
 .europa-hud__surrender {
@@ -488,7 +594,7 @@ body {
 .europa-reserves__digits {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: var(--europa-spacing-xs);
+    gap: var(--europa-spacing-sm);
 }
 
 /* Target size with sub-pixel safety margin above the WCAG 2.5.8
@@ -1184,12 +1290,14 @@ body {
 
 /*
  * Match-context chrome (entered from the lobby): a slim bar above the
- * unchanged game UI carrying the leave control.
+ * unchanged game UI carrying the leave control. Fills 100vh with no
+ * page scroll (issue #76 layout fix).
  */
 .europa-lobby-match {
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .europa-lobby-match__bar {
@@ -1283,8 +1391,9 @@ body {
     background-color: var(--europa-color-chip-bg);
 }
 
-/* T-024: HUD depth shadow (FR-009, AC-011). */
-.europa-hud {
+/* T-024: Sidebar depth shadow (FR-009, AC-011) — moved from the
+   former HUD section to the sidebar card (issue #76). */
+.europa-sidebar {
     box-shadow: var(--europa-shadows-hud);
 }
 
@@ -1478,17 +1587,6 @@ body {
     }
 }
 
-/* T-034: HUD horizontal layout on wide screens (FR-024, AC-026).
-   ≥1200px: HUD sections spread horizontally with wrapping. */
-@media (min-width: 1200px) {
-    .europa-hud {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: var(--europa-spacing-md);
-    }
-}
-
 /* T-035: Modal responsive width (FR-025, AC-027).
    ≤480px: modal fills viewport with 1rem margin on each side. */
 @media (max-width: 480px) {
@@ -1542,14 +1640,14 @@ body {
     box-shadow: var(--europa-shadows-board);
 }
 
-/* T-044: HUD information hierarchy (FR-032, AC-034).
-   Visual separator between HUD sections + tighter heading tracking. */
-.europa-hud__section {
+/* T-044: Sidebar information hierarchy (FR-032, AC-034).
+   Visual separator between sidebar sections + tighter heading tracking. */
+.europa-sidebar__section {
     border-top: 1px solid var(--europa-color-border);
     padding-top: var(--europa-spacing-sm);
 }
 
-.europa-hud__title {
+.europa-sidebar__heading {
     letter-spacing: var(--europa-typography-tracking-tight);
 }
 
@@ -1570,12 +1668,13 @@ body {
 }
 
 /* T-047: Feedback toast positioning (FR-035, D2, AC-037).
-   Fixed bottom-left, above board but below banner/modal z-indexes. */
+   Fixed bottom-right, over the sidebar area (issue #76 layout fix). */
 .europa-feedback {
     position: fixed;
-    bottom: var(--europa-spacing-lg);
-    left: var(--europa-spacing-lg);
+    bottom: calc(var(--europa-footer-height, 32px) + var(--europa-spacing-lg));
+    right: var(--europa-spacing-lg);
     z-index: 800;
+    max-width: 280px;
 }
 
 /* T-048: Waiting overlay blur (FR-036, AC-038).
@@ -1750,4 +1849,36 @@ body {
     border-radius: 50%;
     background-color: var(--europa-color-green);
     flex-shrink: 0;
+}
+
+/* Nested HUD components lose their outer card chrome inside the
+   sidebar (they are sections of the sidebar card now). This block
+   lives at the END of the file so the higher-specificity selectors
+   always follow the base component rules (noDescendingSpecificity). */
+.europa-sidebar .europa-order-bar,
+.europa-sidebar .europa-reserves,
+.europa-sidebar .europa-surrender {
+    min-width: 0;
+    padding: 0;
+    background-color: transparent;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* Responsive (issue #76 FR-020): below the desktop breakpoint the
+   sidebar stacks BELOW the board in a single column instead of
+   overflowing the viewport. All interactive elements stay reachable
+   (the sidebar remains in normal flow, just after the board). */
+@media (max-width: 768px) {
+    .europa-main {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .europa-sidebar {
+        flex: 0 0 auto;
+        width: 100%;
+        position: static;
+        max-height: none;
+    }
 }

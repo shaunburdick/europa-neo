@@ -1,14 +1,10 @@
 /**
- * E2E — help overlay (Feature 018, FR-001–FR-016).
+ * E2E — keyboard zoom shortcuts (issue #76, FR-018).
  *
- * Tests the help overlay open/close behavior via the ? key and the
- * help button, plus tooltip visibility on hover.
- *
- * The overlay is only available in the match view (the App component
- * renders the help button and keyboard listener in interactive mode).
- * This spec spins up a real match server, creates + fills a 2-player
- * match (auto-start), then one browser joins through the semantic
- * match route to reach the game view.
+ * Presses `+`/`-`/`Home` in a live match and asserts the sidebar zoom
+ * indicator (`[data-europa-zoom-level]`) changes: in, out, and reset
+ * to 100%. Also covers the sidebar buttons (FR-017) as the same
+ * dispatch path.
  *
  * Determinism: all waits poll observable DOM conditions.
  */
@@ -117,11 +113,25 @@ async function waitUntil(page: Page, when: (live: { status: string }) => boolean
         .toBe(true, description);
 }
 
+/** Read the sidebar zoom indicator text (e.g. "100%"). */
+async function zoomLevel(page: Page): Promise<string> {
+    const level = page.locator('[data-europa-zoom-level="true"]');
+    await expect(level).toBeVisible();
+    return (await level.textContent()) ?? '';
+}
+
+/** Parse the indicator's percentage number. */
+function percentOf(text: string): number {
+    const match = /^(\d+)%$/.exec(text.trim());
+    expect(match, `zoom indicator text ${JSON.stringify(text)}`).not.toBeNull();
+    return Number(match?.[1]);
+}
+
 // ---------------------------------------------------------------------------
 // The tests
 // ---------------------------------------------------------------------------
 
-test.describe('help overlay', () => {
+test.describe('keyboard zoom shortcuts (FR-018)', () => {
     test.setTimeout(60_000);
 
     let httpServer: HttpServer;
@@ -174,109 +184,41 @@ test.describe('help overlay', () => {
         );
         await page.goto(`/match/${encodeURIComponent(matchId)}/join`);
         await waitUntil(page, (live) => live.status === 'live', 'player reaches live');
-        // Wait for the sidebar to be visible (the help button is inside it).
         await page.waitForSelector('.europa-sidebar', { timeout: 10_000 });
+        // First tick lands shortly after live; the zoom indicator is
+        // present regardless, but wait for a non-zero tick so the board
+        // view exists (zoom shortcuts require latestView).
+        await expect.poll(async () => percentOf(await zoomLevel(page)), { timeout: 10_000 }).toBe(100);
     }
 
-    test('pressing ? opens the help overlay', async ({ page }) => {
+    test('+ zooms in and - zooms out from the default 100%', async ({ page }) => {
         await openMatchPage(page);
 
-        await page.keyboard.press('?');
+        await page.keyboard.press('+');
+        await expect.poll(async () => percentOf(await zoomLevel(page))).toBeGreaterThan(100);
 
-        // The React EuropaModal renders the dialog when open (no open
-        // attribute — it conditionally renders).
-        const modal = page.locator('.europa-modal');
-        await expect(modal).toBeVisible();
+        await page.keyboard.press('-');
+        await expect.poll(async () => percentOf(await zoomLevel(page))).toBe(100);
     });
 
-    test('pressing ? again closes the help overlay', async ({ page }) => {
+    test('Home resets to 100% from a zoomed-in state', async ({ page }) => {
         await openMatchPage(page);
 
-        await page.keyboard.press('?');
-        const modal = page.locator('.europa-modal');
-        await expect(modal).toBeVisible();
+        await page.keyboard.press('+');
+        await page.keyboard.press('+');
+        await expect.poll(async () => percentOf(await zoomLevel(page))).toBeGreaterThan(100);
 
-        await page.keyboard.press('?');
-        await expect(modal).not.toBeVisible();
+        await page.keyboard.press('Home');
+        await expect.poll(async () => percentOf(await zoomLevel(page))).toBe(100);
     });
 
-    test('pressing Escape closes the help overlay', async ({ page }) => {
+    test('the sidebar zoom buttons drive the same indicator (FR-017)', async ({ page }) => {
         await openMatchPage(page);
 
-        await page.keyboard.press('?');
-        const modal = page.locator('.europa-modal');
-        await expect(modal).toBeVisible();
+        await page.getByRole('button', { name: 'Zoom in' }).click();
+        await expect.poll(async () => percentOf(await zoomLevel(page))).toBeGreaterThan(100);
 
-        await page.keyboard.press('Escape');
-        await expect(modal).not.toBeVisible();
-    });
-
-    test('the help button in the HUD opens the overlay', async ({ page }) => {
-        await openMatchPage(page);
-
-        const helpButton = page.locator('.europa-help-button');
-        await helpButton.click();
-
-        const modal = page.locator('.europa-modal');
-        await expect(modal).toBeVisible();
-    });
-
-    test('the help button toggles the overlay closed', async ({ page }) => {
-        await openMatchPage(page);
-
-        const helpButton = page.locator('.europa-help-button');
-        const modal = page.locator('.europa-modal');
-
-        await helpButton.click();
-        await expect(modal).toBeVisible();
-
-        // The modal covers the help button after opening, so close via
-        // keyboard shortcut instead of clicking the button.
-        await page.keyboard.press('?');
-        await expect(modal).not.toBeVisible();
-    });
-
-    test('the help button is visible in the HUD', async ({ page }) => {
-        await openMatchPage(page);
-
-        const helpButton = page.locator('.europa-help-button');
-        await expect(helpButton).toBeVisible();
-        await expect(helpButton).toHaveText('?');
-    });
-
-    test('the overlay contains all expected sections', async ({ page }) => {
-        await openMatchPage(page);
-
-        await page.keyboard.press('?');
-
-        const content = page.locator('.europa-help-overlay__content');
-        await expect(content).toContainText('Symbol Legend');
-        await expect(content).toContainText('Keyboard Shortcuts');
-        await expect(content).toContainText('Game Status');
-        await expect(content).toContainText('Learn More');
-    });
-
-    test('the overlay contains the player manual link', async ({ page }) => {
-        await openMatchPage(page);
-
-        await page.keyboard.press('?');
-
-        const link = page.locator('a[href*="shaunburdick.github.io/europa-neo/manual"]');
-        await expect(link).toBeVisible();
-        await expect(link).toHaveAttribute('target', '_blank');
-        await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-    });
-
-    test('tooltip appears on hover over the help button', async ({ page }) => {
-        await openMatchPage(page);
-
-        // Hover over the help button wrapper.
-        const helpWrapper = page.locator('.europa-help-button').locator('..');
-        await helpWrapper.hover();
-
-        // Narrow to the help button's own tooltip (there are multiple
-        // [role="tooltip"] elements in the HUD).
-        const tooltip = page.getByRole('tooltip', { name: 'Open help overlay' });
-        await expect(tooltip).not.toHaveClass(/europa-tooltip--hidden/);
+        await page.getByRole('button', { name: 'Reset zoom to 100%' }).click();
+        await expect.poll(async () => percentOf(await zoomLevel(page))).toBe(100);
     });
 });

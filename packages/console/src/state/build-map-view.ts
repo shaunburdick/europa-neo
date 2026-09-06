@@ -165,6 +165,11 @@ export interface BuildMapViewArgs {
     readonly prevView: MapView | null;
     /** Monotonic clock reading stamping effect/label expiry. */
     readonly nowMs: number;
+    /**
+     * Viewport offset in board-pixel coordinates — the board-space
+     * origin of the visible area's top-left corner (issue #76).
+     */
+    readonly viewportOffset: { readonly x: number; readonly y: number };
 }
 
 /**
@@ -178,7 +183,7 @@ export interface BuildMapViewArgs {
  * @returns The immutable `MapView` the renderer paints.
  */
 export function buildMapView(args: BuildMapViewArgs): MapView {
-    const { id, view, camera, hover, selection, exclusiveMode, prevView, nowMs } = args;
+    const { id, view, camera, hover, selection, exclusiveMode, prevView, nowMs, viewportOffset } = args;
 
     // 1. Convert visible cells and index them by coord key.
     const rawCells = new Map<string, CellRenderInfo>();
@@ -261,5 +266,6 @@ export function buildMapView(args: BuildMapViewArgs): MapView {
         selection,
         dragSelection: null, // v1: single-cell targeting only (research.md §12)
         exclusiveMode,
+        viewportOffset,
     };
 }

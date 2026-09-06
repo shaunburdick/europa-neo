@@ -1,27 +1,30 @@
 /**
- * Zoom/pan unit tests — Feature 005 (T073).
+ * Zoom/pan unit tests — Feature 005 (T073), issue #76 zoom range
+ * expansion (T104).
  *
  * Covers US5 AC-1 + data-model.md §4:
  *   · wheel zoom clamps to `[CONSOLE_CONSTANTS.minCellPx,
- *     maxCellPx] = [12, 96]`;
+ *     maxCellPx]` (issue #76 FR-017: 100%–300%);
  *   · zoom anchors at the cursor (the board point under the cursor
  *     stays put);
  *   · pan is clamped to keep the board visible
  *     (`pan.x ∈ [-(maxZoom*2), width*zoom]`, same for y);
  *   · input targeting (`hitTest`) remains accurate at every zoom
- *     level (round-trip through the same transform).
+ *     level (round-trip through the same transform);
+ *   · `zoomPercent` maps cell-pixels to the display percentage
+ *     relative to fitZoom (100% = whole board visible, FR-017).
  */
 
 import { describe, expect, test } from 'vitest';
 
 import { CONSOLE_CONSTANTS } from '../../../src/config';
 import { hitTest } from '../../../src/input/hit-test';
-import { clampCamera, pannedCamera, ZOOM_WHEEL_STEP, zoomedCamera } from '../../../src/qol/zoom';
+import { clampCamera, pannedCamera, ZOOM_WHEEL_STEP, zoomedCamera, zoomPercent } from '../../../src/qol/zoom';
 import type { CameraState } from '../../../src/state/types';
 
 /** 16×16 board with the default camera. */
 const BOARD = { width: 16, height: 16 };
-const BASE: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 12, maxZoom: 96 };
+const BASE: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 32, maxZoom: 96 };
 
 describe('zoomedCamera', () => {
     test('scroll up zooms in by the wheel step', () => {
@@ -29,18 +32,20 @@ describe('zoomedCamera', () => {
         expect(next.zoom).toBeCloseTo(32 * ZOOM_WHEEL_STEP, 10);
     });
 
-    test('scroll down zooms out symmetrically', () => {
+    test('scroll down zooms out but never below minCellPx', () => {
         const next = zoomedCamera(BASE, 100, { x: 256, y: 256 }, BOARD);
-        expect(next.zoom).toBeCloseTo(32 / ZOOM_WHEEL_STEP, 10);
+        // With minZoom = 32 (default), one step out from 32
+        // would go below the floor, so it clamps.
+        expect(next.zoom).toBe(CONSOLE_CONSTANTS.minCellPx);
     });
 
     test('zoom clamps to [minCellPx, maxCellPx]', () => {
         // Near the ceiling one step overshoots into the clamp…
         const maxed = zoomedCamera({ ...BASE, zoom: 90 }, -100, { x: 0, y: 0 }, BOARD);
         expect(maxed.zoom).toBe(CONSOLE_CONSTANTS.maxCellPx);
-        const minned = zoomedCamera({ ...BASE, zoom: 13 }, 100, { x: 0, y: 0 }, BOARD);
+        const minned = zoomedCamera({ ...BASE, zoom: 33 }, 100, { x: 0, y: 0 }, BOARD);
         expect(minned.zoom).toBe(CONSOLE_CONSTANTS.minCellPx);
-        expect(CONSOLE_CONSTANTS.minCellPx).toBe(12);
+        expect(CONSOLE_CONSTANTS.minCellPx).toBe(32);
         expect(CONSOLE_CONSTANTS.maxCellPx).toBe(96);
     });
 
@@ -71,10 +76,29 @@ describe('pannedCamera + clampCamera', () => {
     });
 
     test('clampCamera bounds zoom and both pan axes', () => {
-        const clamped = clampCamera({ zoom: 500, minZoom: 12, maxZoom: 96, pan: { x: -9999, y: 9999 } }, BOARD);
+        const clamped = clampCamera({ zoom: 500, minZoom: 32, maxZoom: 96, pan: { x: -9999, y: 9999 } }, BOARD);
         expect(clamped.zoom).toBe(96);
         expect(clamped.pan.x).toBe(-192);
         expect(clamped.pan.y).toBe(16 * 96);
+    });
+});
+
+describe('zoomPercent (FR-017 display layer)', () => {
+    test('maps cell-pixels to the percentage of the fit zoom (100% baseline)', () => {
+        // With fitZoom = 25 (dynamic), zoom 25 = 100%, zoom 50 = 200%, zoom 75 = 300%.
+        expect(zoomPercent(25, 25)).toBe(100);
+        expect(zoomPercent(50, 25)).toBe(200);
+        expect(zoomPercent(75, 25)).toBe(300);
+        // With fitZoom = 32, same as old behavior.
+        expect(zoomPercent(32, 32)).toBe(100);
+        expect(zoomPercent(48, 32)).toBe(150);
+        expect(zoomPercent(64, 32)).toBe(200);
+        expect(zoomPercent(96, 32)).toBe(300);
+    });
+
+    test('rounds fractional percentages', () => {
+        expect(zoomPercent(33, 32)).toBe(103);
+        expect(zoomPercent(31, 32)).toBe(97);
     });
 });
 

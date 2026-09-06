@@ -52,6 +52,7 @@ describe('buildMapView pipeIntensities (issue #43)', () => {
             exclusiveMode: false,
             prevView: null,
             nowMs: 0,
+            viewportOffset: { x: 0, y: 0 },
         });
         const info = mv.cells.get('0,0');
         expect(info).toBeDefined();
@@ -69,6 +70,7 @@ describe('buildMapView pipeIntensities (issue #43)', () => {
             exclusiveMode: false,
             prevView: null,
             nowMs: 0,
+            viewportOffset: { x: 0, y: 0 },
         });
         const info = mv.cells.get('1,1');
         expect(info).toBeDefined();
@@ -85,6 +87,7 @@ describe('buildMapView pipeIntensities (issue #43)', () => {
             exclusiveMode: false,
             prevView: null,
             nowMs: 0,
+            viewportOffset: { x: 0, y: 0 },
         });
         const info = mv.cells.get('1,1');
         expect(info).toBeDefined();
@@ -102,6 +105,7 @@ describe('buildMapView pipeIntensities (issue #43)', () => {
             exclusiveMode: false,
             prevView: null,
             nowMs: 0,
+            viewportOffset: { x: 0, y: 0 },
         });
         const info = mv.cells.get('1,1');
         expect(info).toBeDefined();
@@ -119,6 +123,7 @@ describe('buildMapView pipeIntensities (issue #43)', () => {
             exclusiveMode: false,
             prevView: null,
             nowMs: 0,
+            viewportOffset: { x: 0, y: 0 },
         });
         const info = mv.cells.get('1,1');
         expect(info).toBeDefined();
@@ -136,6 +141,7 @@ describe('buildMapView pipeIntensities (issue #43)', () => {
             exclusiveMode: false,
             prevView: null,
             nowMs: 0,
+            viewportOffset: { x: 0, y: 0 },
         });
         const info = mv.cells.get('0,1');
         expect(info).toBeDefined();

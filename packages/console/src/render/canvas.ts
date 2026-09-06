@@ -87,9 +87,11 @@ export class MapCanvas {
      * canvas to void first (out-of-horizon cells stay void per fog
      * FR-002), then draws in the fixed pass order.
      *
-     * The caller owns canvas sizing: the canvas bitmap should be at
-     * least `width * zoom × height * zoom` device pixels (App keeps it
-     * in sync). Drawing clips naturally to the canvas bounds.
+     * The caller owns canvas sizing: the canvas bitmap should match
+     * its CSS layout size (fills the board area container). The
+     * viewport offset in `mapView` determines which board cells are
+     * visible at the current zoom level. Drawing clips naturally to
+     * the canvas bounds.
      *
      * @param mapView The immutable snapshot to paint.
      * @param ctx Target 2D context (its current transform is treated
@@ -99,12 +101,18 @@ export class MapCanvas {
     paint(mapView: MapView, ctx: CanvasRenderingContext2D, options?: PaintOptions): void {
         const reducedMotion = options?.reducedMotion === true;
         const { zoom } = mapView.camera;
-        const pixelWidth = mapView.width * zoom;
-        const pixelHeight = mapView.height * zoom;
+        const { viewportOffset } = mapView;
+        const canvasWidth = ctx.canvas.width;
+        const canvasHeight = ctx.canvas.height;
 
         // Pass 0: void backdrop (also clears the previous frame).
         ctx.fillStyle = VOID_COLOR;
-        ctx.fillRect(0, 0, pixelWidth, pixelHeight);
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Apply viewport offset so cells paint relative to the
+        // visible area instead of the full board origin (issue #76).
+        ctx.save();
+        ctx.translate(-viewportOffset.x, -viewportOffset.y);
 
         // Pass 1: terrain (elevation shading, water, city outlines).
         for (const info of mapView.cells.values()) {
@@ -149,6 +157,9 @@ export class MapCanvas {
         if (mapView.selection !== null) {
             this.strokeCellRect(ctx, mapView.selection.x * zoom, mapView.selection.y * zoom, zoom, FOCUS_RING_COLOR, 2);
         }
+
+        // Restore to canvas-absolute coordinates (undo viewport offset).
+        ctx.restore();
     }
 
     /** Draw one cell's terrain fill (+ city outline when applicable). */

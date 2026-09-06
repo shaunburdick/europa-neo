@@ -1,5 +1,6 @@
 /**
- * Root React component — Feature 005 (T047, extended by T053–T056).
+ * Root React component — Feature 005 (T047, extended by T053–T056,
+ * issue #76 sidebar restructure T101).
  *
  * Composes the render surface:
  *   - the Canvas 2D visual layer ({@link MapCanvas} painting into a
@@ -7,11 +8,9 @@
  *     this in production lands with the Phase 8 runtime),
  *   - the ARIA grid overlay ({@link GridOverlay} — a11y source of
  *     truth, WCAG 1.3.1 / 4.1.2),
- *   - a HUD section (status + tick; FR-008's full banner arrives with
- *     US5) carrying the bundled app-version footer (feature 009
- *     FR-007 — real DOM text, all connection states),
- *   - the order palette ({@link OrderBar}, T055) after the HUD in Tab
- *     order (Q-A04),
+ *   - the right sidebar ({@link Sidebar}, issue #76 FR-014/FR-015) —
+ *     all HUD controls in 8 contractual sections, owned by App so
+ *     player and spectator share one render path (FR-022),
  *   - the hidden `aria-live` announcer mount ({@link LiveRegionAnnouncer}
  *     from T021) so tick/order announcements have a home from day one.
  *
@@ -39,13 +38,12 @@ import type { JSX } from 'react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { LiveRegionAnnouncer } from '../a11y/live-region';
+import { CONSOLE_CONSTANTS } from '../config';
 import { RegionSelectController } from '../input/region-select';
 import { CURSOR_STALE_MS } from '../input/subcell-target';
 import { peekInjectedConsoleState } from '../internal/test-state';
 import { HotkeyController } from '../qol/hotkeys';
-import { Minimap } from '../qol/minimap';
 import { subscribeReducedMotion } from '../qol/reduced-motion';
-import { Tooltip } from '../qol/tooltip';
 import { useContainerSize } from '../qol/use-container-size';
 import { ZoomPanController } from '../qol/zoom';
 import { formatWaitingMessage, isAwaitingMatchStart } from '../state/awaiting-start';
@@ -55,9 +53,7 @@ import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
 import { DEFAULT_PLAYER_COLORS, SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
-import { OrderBar } from '../ui/order-bar';
-import { ParticipantStrip } from '../ui/participants';
-import { ReservesPanel } from '../ui/reserves-panel';
+import { Sidebar } from '../ui/sidebar';
 import { TargetingOverlay } from '../ui/targeting-overlay';
 import { WaitingOverlay } from '../ui/waiting-overlay';
 import { MapCanvas } from './canvas';
@@ -65,6 +61,7 @@ import { GameOverModal } from './GameOverModal';
 import { GridOverlay } from './grid-overlay';
 import { liveLabels, nextLabelExpiryMs } from './label-overlay';
 import { SurrenderModal } from './SurrenderModal';
+import { computeViewportOffset } from './viewport-offset';
 
 /** Lazy-loaded help overlay (Feature 018 FR-021 — zero initial bundle impact). */
 const HelpOverlay = lazy(() => import('../ui/help-overlay').then((m) => ({ default: m.HelpOverlay })));
@@ -156,6 +153,71 @@ export function App({
     // store's dispatch default); expiry enforcement happens in the
     // paint path via liveLabels.
     const lastMapViewRef = useRef<MapView | null>(null);
+    const boardAreaRef = useRef<HTMLDivElement | null>(null);
+
+    // Real container sizing for the minimap's viewport rectangle
+    // (integration wave T-I3) and for the canvas viewport offset
+    // (issue #76): without it the indicator defaults to the full
+    // board, which lies whenever the visible window is smaller.
+    const boardSize = useContainerSize(boardAreaRef);
+
+    // Fit-zoom initialization (issue #76 zoom model fix): on the
+    // first tick when boardSize becomes available, compute the zoom
+    // level that makes the whole board visible (100% = fit board to
+    // viewport) and update the camera range so zoom percentages are
+    // relative to this dynamic baseline. Only fires once — when the
+    // camera is still at its defaults (zoom = minCellPx, pan = {0,0}).
+    useEffect(() => {
+        if (boardSize === null || store === undefined) {
+            return;
+        }
+        const state = store.getState();
+        const { camera, latestView } = state;
+        if (latestView === null) {
+            return;
+        }
+        // Only initialize when camera is still at defaults.
+        if (camera.zoom !== CONSOLE_CONSTANTS.minCellPx || camera.pan.x !== 0 || camera.pan.y !== 0) {
+            return;
+        }
+        const boardCells = latestView.config.boardSize;
+        if (boardCells <= 0) {
+            return;
+        }
+        const fitZoom = Math.min(boardSize.width, boardSize.height) / boardCells;
+        const clampedFitZoom = Math.min(CONSOLE_CONSTANTS.maxCellPx, Math.max(CONSOLE_CONSTANTS.minCellPx, fitZoom));
+        store.dispatch({
+            kind: 'setCamera',
+            camera: {
+                ...camera,
+                zoom: clampedFitZoom,
+                minZoom: clampedFitZoom,
+                maxZoom: Math.min(CONSOLE_CONSTANTS.maxCellPx, clampedFitZoom * 3),
+            },
+        });
+    }, [boardSize, store]);
+
+    // Viewport offset (issue #76): the board-space origin of the
+    // visible area's top-left corner, derived from the container size
+    // and the camera transform. Computed ONCE here so both the canvas
+    // paint layer and the DOM GridOverlay share the same value —
+    // passing a different offset to each caused double-city, parallax
+    // zoom, and click-offset bugs (issue #76 regression).
+
+    const viewportOffset = useMemo(() => {
+        const view = resolvedState.latestView;
+        if (view === null || boardSize === null) {
+            return { x: 0, y: 0 };
+        }
+        return computeViewportOffset(
+            resolvedState.camera.zoom,
+            resolvedState.camera.pan,
+            view.config.boardSize,
+            boardSize.width,
+            boardSize.height,
+        );
+    }, [resolvedState, boardSize]);
+
     const mapView = useMemo(() => {
         const view = resolvedState.latestView;
         if (view === null) {
@@ -170,8 +232,9 @@ export function App({
             exclusiveMode: resolvedState.exclusiveMode,
             prevView: lastMapViewRef.current,
             nowMs: performance.now(),
+            viewportOffset,
         });
-    }, [resolvedState]);
+    }, [resolvedState, viewportOffset]);
     useEffect(() => {
         lastMapViewRef.current = mapView;
     }, [mapView]);
@@ -195,8 +258,10 @@ export function App({
         };
     }, [labels]);
 
-    // Canvas visual layer: size the bitmap to the board and paint the
-    // current snapshot synchronously on change (rAF loop = Phase 8).
+    // Canvas visual layer: sized to fill its container; the viewport
+    // offset determines which portion of the board is visible (issue
+    // #76: canvas fills the available space; zoom controls cell
+    // density, not canvas size).
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const mapCanvasRef = useRef<MapCanvas | null>(null);
     if (mapCanvasRef.current === null) {
@@ -212,12 +277,33 @@ export function App({
             return;
         }
         const { zoom } = mapView.camera;
-        canvas.width = mapView.width * zoom;
-        canvas.height = mapView.height * zoom;
+        // Use the measured board area size when available; fall back
+        // to the canvas CSS rect for the first paint.
+        let containerW = boardSize?.width ?? canvas.getBoundingClientRect().width;
+        let containerH = boardSize?.height ?? canvas.getBoundingClientRect().height;
+        // Fall back to board pixel size when the container has zero
+        // dimensions (e.g. in headless test environments without
+        // explicit viewport sizing).
+        if (containerW === 0 || containerH === 0) {
+            containerW = mapView.width * zoom;
+            containerH = mapView.height * zoom;
+        }
+        // Only resize the bitmap when dimensions actually changed —
+        // setting canvas.width/height clears the bitmap, which causes
+        // a flash. The CSS already fills the container (width:100%;
+        // height:100%); we only need the bitmap to match.
+        const roundedW = Math.round(containerW);
+        const roundedH = Math.round(containerH);
+        if (canvas.width !== roundedW || canvas.height !== roundedH) {
+            canvas.width = roundedW;
+            canvas.height = roundedH;
+        }
         const ctx = canvas.getContext('2d');
         if (ctx === null) {
             return;
         }
+        // The viewportOffset is already in mapView (computed once in
+        // the viewportOffset useMemo and passed to buildMapView).
         // Expired labels never reach the pixels (T071 lifecycle); the
         // flashing effect kinds are skipped under reduced motion (T083).
         const frame: MapView = {
@@ -225,7 +311,14 @@ export function App({
             labels: liveLabels(mapView.labels, performance.now()),
         };
         mapCanvasRef.current?.paint(frame, ctx, { reducedMotion });
-    }, [mapView, labelEpoch, reducedMotion]);
+        // Signal to tests that the canvas has been painted with the
+        // current dimensions. Tests poll for this attribute before
+        // sampling pixels to avoid the race between ResizeObserver-driven
+        // dimension changes and the async paint effect. The value
+        // increments so tests can wait for a specific paint generation.
+        const prev = Number(canvas.getAttribute('data-paint-count') ?? '0');
+        canvas.setAttribute('data-paint-count', String(prev + 1));
+    }, [mapView, labelEpoch, reducedMotion, boardSize]);
 
     // Hidden aria-live regions (WCAG 4.1.3 status messages). One
     // announcer per mount; cleared on unmount. Mirrored into state so
@@ -254,8 +347,9 @@ export function App({
     // wheel zooms toward the cursor and middle-drag pans (US5 AC-1);
     // it stops propagation on pan start so region-select never sees a
     // pan gesture as an exclusive-pipe click.
-    const boardAreaRef = useRef<HTMLDivElement | null>(null);
+
     const [cursorSample, setCursorSample] = useState<CursorSample | null>(null);
+    const hotkeyControllerRef = useRef<HotkeyController | null>(null);
     useEffect(() => {
         if (store === undefined) {
             return undefined;
@@ -269,6 +363,7 @@ export function App({
         // later-registered pipe handlers from the pan gesture.
         const zoomPan = new ZoomPanController(boardArea, store).attach();
         const hotkeys = new HotkeyController(store);
+        hotkeyControllerRef.current = hotkeys;
         const region = new RegionSelectController(boardArea, store, {
             onCursor: (target, atMs) => {
                 hotkeys.notePointer(target, atMs);
@@ -278,11 +373,21 @@ export function App({
         const regionHandle = region.attach();
         hotkeys.attach();
         return () => {
+            hotkeyControllerRef.current = null;
             regionHandle.dispose();
             hotkeys.dispose();
             zoomPan.dispose();
         };
     }, [store]);
+
+    // Keep the hotkey controller's viewport offset in sync so
+    // keyboard zoom shortcuts use the correct board-center anchor
+    // (issue #76).
+    useEffect(() => {
+        if (hotkeyControllerRef.current !== null) {
+            hotkeyControllerRef.current.viewportOffset = viewportOffset;
+        }
+    }, [viewportOffset]);
 
     // Surrender modal state (US5 T084): opened by the HUD button,
     // delegating to the host when `onSurrenderRequest` is provided.
@@ -331,7 +436,6 @@ export function App({
         };
     }, []);
 
-    const zoom = mapView?.camera.zoom ?? 32;
     const { selection } = resolvedState;
 
     // Waiting-for-opponent overlay (post-playtest fix): joined but the
@@ -354,11 +458,6 @@ export function App({
         awaitingStart && waitingCapacityResolved > 0
             ? formatWaitingMessage(waitingSeatsFilledResolved, waitingCapacityResolved)
             : undefined;
-
-    // Real container sizing for the minimap's viewport rectangle
-    // (integration wave T-I3): without it the indicator defaults to the
-    // full board, which lies whenever the visible window is smaller.
-    const boardSize = useContainerSize(boardAreaRef);
 
     // Current reserves digit on the focused cell (drives the US4
     // panel's slider/pressed state). Unknown cells read as 0.
@@ -395,13 +494,7 @@ export function App({
             ) : null}
             <main id="main" className="europa-main">
                 <div ref={boardAreaRef} className="europa-board-area">
-                    <canvas
-                        ref={canvasRef}
-                        role="img"
-                        aria-label="Game board visual"
-                        className="europa-canvas"
-                        style={{ width: (mapView?.width ?? 10) * zoom, height: (mapView?.height ?? 10) * zoom }}
-                    />
+                    <canvas ref={canvasRef} role="img" aria-label="Game board visual" className="europa-canvas" />
                     {mapView !== null && mapView.cells.size > 0 ? (
                         <GridOverlay
                             mapView={mapView}
@@ -425,6 +518,7 @@ export function App({
                             subcell={aimSubcell}
                             abilityLabel="Paratroop target"
                             announcer={announcer ?? undefined}
+                            viewportOffset={viewportOffset}
                         />
                     ) : null}
                     {awaitingStart ? (
@@ -435,53 +529,27 @@ export function App({
                         />
                     ) : null}
                 </div>
-                <section id="hud" aria-label="Status bar" tabIndex={0} className="europa-hud">
-                    <Tooltip content="Current connection and game status">
-                        <span className="europa-hud__item">Status: {resolvedState.status}</span>
-                    </Tooltip>
-                    <Tooltip content="Current game tick number">
-                        <span className="europa-hud__item">Tick: {mapView?.tick ?? '—'}</span>
-                    </Tooltip>
-                    {/* Participant strip (feature 010 T-016, FR-020): per-seat
-              authoritative labels from the session. Session-derived, so
-              it is tick-stable (SC-008) and renders for spectators too
-              (static boots — FR-023 allows all handles there). */}
-                    <ParticipantStrip session={resolvedState.session} />
-                    {store !== undefined && mapView !== null ? (
-                        <Tooltip content="Board overview — click to move viewport" position="below">
-                            <Minimap
-                                boardWidth={mapView.width}
-                                boardHeight={mapView.height}
-                                camera={resolvedState.camera}
-                                cells={[...mapView.cells.values()]}
-                                // exactOptionalPropertyTypes: only carry the size when measured.
-                                {...(boardSize === null ? {} : { viewportSize: boardSize })}
-                                onSetCamera={(camera) => store.dispatch({ kind: 'setCamera', camera })}
-                            />
-                        </Tooltip>
-                    ) : null}
-                    {/* Help button (Feature 018 FR-001): toggles the help
-                        overlay via ? key or click. */}
-                    <Tooltip content="Open help overlay (? key)">
-                        <button
-                            ref={helpButtonRef}
-                            type="button"
-                            className="europa-help-button europa-focus-ring"
-                            disabled={!resolvedState.inputEnabled}
-                            onClick={() => {
-                                setHelpOpen((prev) => !prev);
-                            }}
-                        >
-                            ?
-                        </button>
-                    </Tooltip>
-                </section>
-                <OrderBar
-                    exclusiveMode={resolvedState.exclusiveMode}
-                    inputEnabled={resolvedState.inputEnabled}
+                {/* Right sidebar (issue #76 FR-014/FR-015/FR-022): all HUD
+                    controls live here, composed by App so player and spectator
+                    share one render path. Order-producing controls render
+                    disabled/inert when `store === undefined` (FR-021). */}
+                <Sidebar
+                    state={resolvedState}
+                    selectionReserves={selectionReserves}
+                    boardWidth={mapView?.width ?? 0}
+                    boardHeight={mapView?.height ?? 0}
+                    cells={mapView !== null ? [...mapView.cells.values()] : []}
+                    viewportOffset={viewportOffset}
+                    // exactOptionalPropertyTypes: only carry the size when measured.
+                    {...(boardSize === null ? {} : { viewportSize: boardSize })}
+                    onSetCamera={
+                        store === undefined
+                            ? () => undefined
+                            : (camera) => store.dispatch({ kind: 'setCamera', camera })
+                    }
                     onToggleExclusive={
                         store === undefined
-                            ? undefined
+                            ? () => undefined
                             : () =>
                                   store.dispatch({
                                       kind: 'setExclusiveMode',
@@ -490,68 +558,50 @@ export function App({
                     }
                     onClearPipes={
                         store === undefined || selection === null
-                            ? undefined
+                            ? () => undefined
                             : () => store.dispatch({ kind: 'clearAllPipes', cell: selection })
                     }
+                    onSetReserves={
+                        store === undefined || selection === null
+                            ? () => undefined
+                            : (percent) => store.dispatch({ kind: 'setReserves', cell: selection, percent })
+                    }
+                    onSurrenderRequest={() => {
+                        if (onSurrenderRequest !== undefined) {
+                            onSurrenderRequest();
+                            return;
+                        }
+                        setSurrenderOpen(true);
+                    }}
+                    onHelpToggle={() => {
+                        setHelpOpen((prev) => !prev);
+                    }}
+                    helpButtonRef={helpButtonRef}
+                    interactive={store !== undefined}
                 />
-                {/* Surrender trigger (US5 AC-2 / FR-009). Placed AFTER the
-            order palette so the contractual Q-A04 head sequence
-            (skip-link → map → hud → order-bar) is unchanged; the
-            confirm gate lives in SurrenderModal (or the host's
-            onSurrenderRequest delegate). */}
-                {store !== undefined ? (
-                    <section id="surrender" aria-label="Surrender controls" className="europa-surrender">
-                        <Tooltip content="Forfeit the current match">
-                            <button
-                                type="button"
-                                className="europa-hud__surrender europa-focus-ring"
-                                disabled={!resolvedState.inputEnabled}
-                                onClick={() => {
-                                    if (onSurrenderRequest !== undefined) {
-                                        onSurrenderRequest();
-                                        return;
-                                    }
-                                    setSurrenderOpen(true);
-                                }}
-                            >
-                                Surrender…
-                            </button>
-                        </Tooltip>
-                    </section>
-                ) : null}
-                {store !== undefined && selection !== null ? (
-                    <ReservesPanel
-                        cell={selection}
-                        currentPercent={selectionReserves}
-                        disabled={!resolvedState.inputEnabled}
-                        onSetReserves={(percent) => store.dispatch({ kind: 'setReserves', cell: selection, percent })}
-                    />
-                ) : null}
-                {/* FR-007 feedback surface: the reducer's confirmation queue
-            rendered as transient toasts. The polite live region makes
-            every confirmation audible without moving focus (Q-A05). */}
-                <section id="feedback" aria-label="Order feedback" className="europa-feedback">
-                    <div
-                        role="status"
-                        aria-live="polite"
-                        aria-atomic="true"
-                        data-europa-live="polite"
-                        className="europa-visually-hidden"
-                    >
-                        {resolvedState.feedback.map((message) => message.text).join('. ')}
-                    </div>
-                    <ul className="europa-feedback__list">
-                        {resolvedState.feedback.map((message) => (
-                            <li
-                                key={message.id}
-                                className={`europa-feedback__item europa-feedback__item--${message.kind}`}
-                            >
-                                {message.text}
-                            </li>
-                        ))}
-                    </ul>
-                </section>
             </main>
+            {/* FR-007 feedback surface: the reducer's confirmation queue
+                rendered as transient toasts. Positioned on the right side
+                over the sidebar area (issue #76). The polite live region
+                makes every confirmation audible without moving focus (Q-A05). */}
+            <section id="feedback" aria-label="Order feedback" className="europa-feedback">
+                <div
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    data-europa-live="polite"
+                    className="europa-visually-hidden"
+                >
+                    {resolvedState.feedback.map((message) => message.text).join('. ')}
+                </div>
+                <ul className="europa-feedback__list">
+                    {resolvedState.feedback.map((message) => (
+                        <li key={message.id} className={`europa-feedback__item europa-feedback__item--${message.kind}`}>
+                            {message.text}
+                        </li>
+                    ))}
+                </ul>
+            </section>
             {store !== undefined ? (
                 <SurrenderModal
                     open={surrenderOpen}

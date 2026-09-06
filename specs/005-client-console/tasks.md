@@ -448,3 +448,93 @@ The following items surfaced during tasks drafting that warrant explicit PM atte
 6. **Spec status flip**: the AGENTS.md rule says flip the spec from `Draft` → `Planned` once `plan.md` lands (already done for the `9708c6b` commit per the in-progress note) and `Planned` → `Implemented` after phase 6 merge. **Decision in this tasks.md**: T095 flips the spec to `Implemented` after the quickstart validation passes. The spec is currently `**Status**: Draft` per the committed spec.md — the PM should confirm whether the `Draft` → `Planned` flip is owed (plan.md has landed but the spec wasn't updated) and either flip it manually before phase 6 begins or have T095 flip it to `Implemented` directly, skipping `Planned` (the latter is fine if the implementer is doing both in the same change set).
 
 7. **`ConsoleLogger` call sites**: the plan's `research.md` §"Locked stack" calls for "the host's `ConsoleConfig.logger` (passed at `createConsoleClient` time)" — a small interface (`debug`, `info`, `warn`, `error`) per `contracts/console-api.ts:237`. The console never calls `console.*` directly. **Decision in this tasks.md**: every module that needs to log uses the `ConsoleLogger` interface, threaded through `ConsoleConfig.logger` (default: `NULL_LOGGER` per `contracts/console-api.ts:245`). This is a cross-cutting concern that the plan doesn't enumerate per-module but is in the constitution's "every public function has a JSDoc doc comment" + "no `console.log`" discipline. The implementer should thread the logger through `ConsoleDeps` (T087) and into the runtime (T086). **PM action**: confirm the logger discipline is acceptable. If the PM wants a per-module log verbosity setting, the plan's `ConsoleFeatureFlags` could be extended; v1 ships the simple `ConsoleLogger` interface.
+
+---
+
+# Issue #76: Console UI Redesign (sidebar layout + zoom expansion)
+
+**Branch**: `issue-76-Console-UI-Redesign` | **Spec**: [`spec.md`](./spec.md) Clarifications v1.4, FR-014..FR-022, Implementation Note 16
+
+This amendment restructures the shipped match view into a two-column
+layout (board left, fixed-width right sidebar with all HUD controls),
+expands the zoom range to 50%–300% with a percentage display layer,
+adds keyboard zoom shortcuts, and guarantees spectator parity. It is
+an **additive/restructuring** change to the already-Implemented feature
+005 — no engine/fog/terrain/networking changes, no new dependencies.
+
+Tasks continue the T0xx numbering (T098+). Each task targets a specific
+file under `packages/console/`. Tests are written first and must FAIL
+before implementation lands (TDD per constitution Principle III).
+
+## Phase R1: Sidebar layout (FR-014/FR-015/FR-022)
+
+**Purpose**: Restructure `App.tsx` into the two-column layout and
+compose the `Sidebar` component. The sidebar is owned by `App` so
+player and spectator share one render path (FR-022).
+
+- [x] T098 [P] Write the component test `tests/component/ui/sidebar.test.tsx` asserting the sidebar renders all 8 sections in vertical order (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) with the correct landmark roles (FR-015). FAILS before implementation.
+- [x] T099 [P] Write the component test `tests/component/render/app-layout.test.tsx` asserting `europa-main` is `display: flex` with `europa-board-area` left (flex-grow: 1) and `europa-sidebar` right (fixed ~280px) (FR-014). FAILS before implementation.
+- [x] T100 Create `packages/console/src/ui/sidebar.tsx` — the `Sidebar` component composing the 8 sections (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) from existing `ConsoleState` slices. Order-producing controls render disabled/inert when `store === undefined` (FR-021). Props mirror the current inline `App` HUD wiring (status, tick, session, exclusiveMode, inputEnabled, selection, reserves, camera, minimap, surrender, help).
+- [x] T101 Restructure `packages/console/src/render/App.tsx` — `europa-main` becomes `display: flex`; `europa-board-area` left (flex-grow: 1); compose `<Sidebar>` right (FR-014/FR-015/FR-022). Migrate the inline HUD items (`#hud`, `OrderBar`, `ReservesPanel`, `Minimap`, Surrender, Help) into the sidebar structure. `BrandedFooter` stays at the view root. The `store === undefined` guards disable order-producing controls (FR-021).
+- [x] T102 Update `packages/console/src/styles/index.css` — `europa-main` `display: flex`; `europa-board-area` `flex-grow: 1`; `europa-sidebar` fixed ~280px; sidebar section styling. The sidebar stays static during zoom/pan (FR-016 — only the board area's transform changes).
+- [x] T103 Update the existing component tests (`tests/component/render/app-wire-view.test.tsx`, `tests/component/qol/minimap.test.tsx`) to the sidebar structure. Assert the sidebar ref/geometry is unchanged across `setCamera` dispatches (FR-016).
+
+**Checkpoint**: `pnpm test:component` green; `pnpm typecheck` + `pnpm lint` clean.
+
+## Phase R2: Zoom range + percentage display (FR-017)
+
+**Purpose**: Expand the zoom range to 50%–300% (minZoom 12 → 16) and
+add the percentage display layer. The underlying `CameraState` values
+stay in cell-pixels; only the display is a percentage.
+
+- [x] T104 [P] Update the unit test `tests/unit/qol/zoom.test.ts` — assert `clampCamera` clamps to `[16, 96]` (was `[12, 96]`) and the percentage conversion (`zoom / 32 * 100`). FAILS before implementation.
+- [x] T105 Update `packages/console/contracts/console-api.ts` — `CONSOLE_CONSTANTS.minCellPx` 12 → 16. Update `packages/console/contracts/console-types.ts` — `DEFAULT_CAMERA.minZoom` 12 → 16. **Confirm `CONSOLE_API_VERSION` bump (0.1.0 → 0.2.0) with PM** (behavioral change to a public constant).
+- [x] T106 Update `packages/console/src/qol/zoom.ts` — `clampCamera`/`zoomedCamera` already read `camera.minZoom`/`maxZoom`; verify the new range flows through. Add a pure `zoomPercent(zoom)` helper (or reuse an existing one) for the sidebar indicator.
+- [x] T107 Add the Zoom section to `packages/console/src/ui/sidebar.tsx` — level indicator (percentage) + controls (zoom in / out / reset buttons). Wire to `setCamera` dispatch.
+
+**Checkpoint**: `pnpm test:unit` green; `pnpm typecheck` + `pnpm lint` clean.
+
+## Phase R3: Keyboard zoom shortcuts (FR-018)
+
+**Purpose**: Extend `HotkeyController` with a UI-zoom layer. `+`/`=`
+zooms in, `-`/`_` zooms out, `0` resets to 100%. Suppressed when focus
+is inside interactive chrome (reuses `shouldIgnoreKeyEvent`).
+
+- [x] T108 [P] Write the unit test `tests/unit/qol/hotkeys-zoom.test.ts` — assert `+`/`=`/`-`/`_`/`0` dispatch `setCamera` (zoom in/out/reset) and are suppressed when focus is inside interactive chrome. FAILS before implementation.
+- [x] T109 Extend `packages/console/src/qol/hotkeys.ts` — add a UI-zoom layer to `HotkeyController` (one handler, same focus guard). `+`/`=` zoom in, `-`/`_` zoom out, `0` reset to 100%. The `0` zoom-reset is a distinct UI-zoom path (does NOT route through `translateKey`, which would map `0` to `reserve0`); the order-table `reserve0` binding is unchanged.
+- [x] T110 Add the E2E test `tests/e2e/zoom-shortcuts.spec.ts` — press `+`/`-`/`0` and assert the zoom indicator changes (FR-018).
+
+**Checkpoint**: `pnpm test:unit` + `pnpm test:e2e` green.
+
+## Phase R4: Minimap viewport rect + responsive + spectator (FR-019/FR-020/FR-021)
+
+**Purpose**: Verify the minimap viewport rect reflects the current
+zoom/pan live (FR-019), add responsive stacking below 768px (FR-020),
+and verify spectator parity (FR-021).
+
+- [x] T111 [P] Write the component test `tests/component/qol/minimap-viewport.test.tsx` — assert `viewportRect` reflects new zoom/pan after `setCamera` (FR-019). FAILS before implementation.
+- [x] T112 Update `packages/console/src/styles/index.css` — add `@media (max-width: 768px)` collapsing to single column (sidebar below board, `width: 100%`) (FR-020).
+- [x] T113 Write the component test `tests/component/render/app-responsive.test.tsx` — resize to < 768px and assert the sidebar stacks below the board (FR-020). FAILS before implementation.
+- [x] T114 Add the E2E test `tests/e2e/spectator-sidebar.spec.ts` — the spectator leg renders the sidebar with inert order controls (Orders, Reserve, Surrender disabled) (FR-021). FAILS before implementation.
+- [x] T115 Verify the minimap viewport rect styling in the sidebar context (FR-019) — enhance `packages/console/src/qol/minimap.tsx` styling for the sidebar "Overview" section if needed.
+
+**Checkpoint**: `pnpm test:component` + `pnpm test:e2e` green.
+
+## Phase R5: Final verification (issue #76)
+
+**Purpose**: Run the full gate and update the spec status.
+
+- [x] T116 Run `pnpm verify` (typecheck, lint, format, all suites, selfhost, conformance). Fix any failures in-branch.
+- [x] T117 Update `AGENTS.md` "Current state" section to record the issue #76 sidebar + zoom expansion. Flip the spec status to reflect the amendment (already `Implemented`; add the issue #76 note).
+
+**Checkpoint**: `pnpm verify` green; spec + AGENTS.md updated.
+
+---
+
+## Issue #76 PM Handoff (Items Requiring Product Decision)
+
+1. **`CONSOLE_API_VERSION` bump (T105)**: changing `CONSOLE_CONSTANTS.minCellPx` from 12 to 16 is a behavioral change to a public contract constant (type unchanged). Per the feature 004 "pre-1.0 minor = breaking boundary" precedent, this warrants a bump from `0.1.0` to `0.2.0`. **Decision in this tasks.md**: bump to `0.2.0` in the same change set as T105. **PM action**: confirm the bump is acceptable before landing.
+
+2. **`0` zoom-reset vs `reserve0` collision (T109)**: the default `InputMapping` binds `0` to `reserve0`. The zoom-reset shortcut (`0`) is a distinct UI-zoom path that does NOT route through `translateKey` (which would map `0` to `reserve0`). **Decision in this tasks.md**: the UI-zoom layer checks the focus guard and dispatches `setCamera` directly; the order-table `reserve0` binding is unchanged. This matches the spec's "one handler, same focus guard" wording (Implementation Note 16). **PM action**: confirm this reconciliation is acceptable — a player with a cell selected who presses `0` will reset zoom rather than set reserves to 0%. If the PM prefers `0` to remain reserves-only, the zoom-reset shortcut should be a different key (e.g., `Home` or `Shift+0`).
+
+3. **Sidebar width (~280px)**: the fixed ~280px sidebar reduces the board area on narrow desktops. **Decision in this tasks.md**: FR-020 responsive stacking below 768px handles narrow viewports; the board area flex-grows to fill the remaining space. **PM action**: confirm ~280px is acceptable (matches the spec's "fixed-width" wording).

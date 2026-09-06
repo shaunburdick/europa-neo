@@ -121,39 +121,63 @@ describe('pipe slope color-coding (005 FR-013)', () => {
 
         const canvas = screen.container.querySelector('canvas');
         expect(canvas).not.toBeNull();
+
         const ctx = canvas?.getContext('2d');
         expect(ctx).not.toBeNull();
 
         const { zoom } = DEFAULT_CAMERA;
+        const boardPx = BOARD_SIZE * zoom;
+
+        // Triangle geometry (matches PIPE_SIZE_RATIO in canvas.ts).
+        const baseSize = zoom * 0.16;
+
         const downhillRgb = hexToRgb(PIPE_DOWNHILL_COLOR);
         const flatRgb = hexToRgb(PIPE_FLAT_COLOR);
         const uphillRgb = hexToRgb(PIPE_UPHILL_COLOR);
 
-        // Sample the centroid of each source cell's north pipe triangle.
-        // N-triangle vertices: (midX±size, y), (midX, y + size*1.6);
-        // centroid = (midX, y + size*1.6/3).
-        // Triangle size scales with intensity: size = baseSize * (0.4 + intensity * 0.6).
-        // baseSize = zoom * 0.16 (matches PIPE_SIZE_RATIO in canvas.ts).
-        const baseSize = zoom * 0.16;
-        const sampleCentroid = (cellX: number, cellY: number, intensity: number): Uint8ClampedArray => {
-            const size = baseSize * (0.4 + intensity * 0.6);
-            const centroidOffsetY = (size * 1.6) / 3;
-            const px = cellX * zoom + zoom / 2;
-            const py = cellY * zoom + centroidOffsetY;
-            const pixel = ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
-            if (pixel === undefined) {
-                throw new Error(`no pixel data at (${px}, ${py})`);
-            }
-            return pixel;
-        };
-
-        // Downhill (Δ=-50, intensity=1), flat (Δ=0, intensity=0),
-        // uphill (Δ=3, intensity=3/7), fog (intensity=0).
-        expect(closeTo(sampleCentroid(1, 1, 1), downhillRgb)).toBe(true);
-        expect(closeTo(sampleCentroid(2, 1, 0), flatRgb)).toBe(true);
-        expect(closeTo(sampleCentroid(3, 1, 3 / 7), uphillRgb)).toBe(true);
-        // Fog fallback: destination outside the horizon renders flat.
-        expect(closeTo(sampleCentroid(5, 1, 0), flatRgb)).toBe(true);
+        // Poll for the expected pixel state. Offsets are recalculated on
+        // each iteration because the canvas bitmap dimensions change as
+        // useContainerSize fires its ResizeObserver and the paint effect
+        // re-runs. Sampling inside the poll ensures we always use
+        // dimensions that match the most recent paint.
+        await expect
+            .poll(
+                () => {
+                    const curW = canvas?.width ?? 0;
+                    const curH = canvas?.height ?? 0;
+                    if (curW === 0 || curH === 0) return false;
+                    // Wait for at least one paint to complete.
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
+                    const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
+                    const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
+                    const sampleCentroid = (
+                        cellX: number,
+                        cellY: number,
+                        intensity: number,
+                    ): Uint8ClampedArray | undefined => {
+                        const size = baseSize * (0.4 + intensity * 0.6);
+                        const centroidOffsetY = (size * 1.6) / 3;
+                        const px = cellX * zoom + zoom / 2 + offX;
+                        const py = cellY * zoom + centroidOffsetY + offY;
+                        return ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
+                    };
+                    // Downhill (Δ=-50, intensity=1)
+                    const d = sampleCentroid(1, 1, 1);
+                    if (d === undefined || !closeTo(d, downhillRgb)) return false;
+                    // Flat (Δ=0, intensity=0)
+                    const f = sampleCentroid(2, 1, 0);
+                    if (f === undefined || !closeTo(f, flatRgb)) return false;
+                    // Uphill (Δ=3, intensity=3/7)
+                    const u = sampleCentroid(3, 1, 3 / 7);
+                    if (u === undefined || !closeTo(u, uphillRgb)) return false;
+                    // Fog fallback (intensity=0)
+                    const fog = sampleCentroid(5, 1, 0);
+                    if (fog === undefined || !closeTo(fog, flatRgb)) return false;
+                    return true;
+                },
+                { timeout: 5000, message: 'slope color pixels match expected values' },
+            )
+            .toBe(true);
     });
 
     test('stalled pipe renders hollow: stroke present on the edge, fill absent at the centroid', async () => {
@@ -162,30 +186,50 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         await expect.element(screen.getByRole('grid')).toBeInTheDocument();
 
         const canvas = screen.container.querySelector('canvas');
+        expect(canvas).not.toBeNull();
+
         const ctx = canvas?.getContext('2d');
         expect(ctx).not.toBeNull();
 
         const { zoom } = DEFAULT_CAMERA;
         const stalledRgb = hexToRgb(PIPE_STALLED_COLOR);
+        const boardPx = BOARD_SIZE * zoom;
 
-        // Centroid of the (4,1) north triangle: NO fill — the pixel is
-        // the terrain color, not the stalled color.
-        // Stalled pipes use full baseSize (hollow is the signal, not size).
-        const stalledSize = zoom * 0.16;
-        const centroidOffsetY = (stalledSize * 1.6) / 3;
-        const centroid = ctx?.getImageData(
-            Math.round(4 * zoom + zoom / 2),
-            Math.round(1 * zoom + centroidOffsetY),
-            1,
-            1,
-        ).data;
-        expect(centroid).not.toBeUndefined();
-        expect(closeTo(centroid as Uint8ClampedArray, stalledRgb)).toBe(false);
-
-        // Midpoint of the triangle's top edge: the stroke IS present.
-        const edge = ctx?.getImageData(Math.round(4 * zoom + zoom / 2), Math.round(1 * zoom), 1, 1).data;
-        expect(edge).not.toBeUndefined();
-        expect(closeTo(edge as Uint8ClampedArray, stalledRgb)).toBe(true);
+        // Poll for the expected pixel state.
+        await expect
+            .poll(
+                () => {
+                    const curW = canvas?.width ?? 0;
+                    const curH = canvas?.height ?? 0;
+                    if (curW === 0 || curH === 0) return false;
+                    // Wait for at least one paint to complete.
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
+                    const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
+                    const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
+                    // Centroid of (4,1) north triangle: NO fill — terrain color, not stalled.
+                    const stalledSize = zoom * 0.16;
+                    const centroidOffsetY = (stalledSize * 1.6) / 3;
+                    const centroid = ctx?.getImageData(
+                        Math.round(4 * zoom + zoom / 2 + offX),
+                        Math.round(1 * zoom + centroidOffsetY + offY),
+                        1,
+                        1,
+                    ).data;
+                    if (centroid === undefined) return false;
+                    if (closeTo(centroid, stalledRgb)) return false; // must NOT be stalled color
+                    // Midpoint of top edge: stroke IS present.
+                    const edge = ctx?.getImageData(
+                        Math.round(4 * zoom + zoom / 2 + offX),
+                        Math.round(1 * zoom + offY),
+                        1,
+                        1,
+                    ).data;
+                    if (edge === undefined) return false;
+                    return closeTo(edge, stalledRgb);
+                },
+                { timeout: 5000, message: 'stalled pipe hollow: stroke on edge, no fill at centroid' },
+            )
+            .toBe(true);
     });
 
     test('the booted board passes an axe scan', async () => {
@@ -248,6 +292,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
 
         const canvas = screen.container.querySelector('canvas');
         expect(canvas).not.toBeNull();
+
         const ctx = canvas?.getContext('2d');
         expect(ctx).not.toBeNull();
 
@@ -261,14 +306,29 @@ describe('pipe slope color-coding (005 FR-013)', () => {
 
         expect(downhillSize).toBeGreaterThan(flatSize);
 
-        // Verify the downhill triangle's centroid pixel is the downhill color
-        // (which proves the triangle is big enough to cover the centroid)
+        const boardPx = BOARD_SIZE * zoom;
         const downhillRgb = hexToRgb(PIPE_DOWNHILL_COLOR);
         const centroidY = (downhillSize * 1.6) / 3;
-        const px = 1 * zoom + zoom / 2;
-        const py = 1 * zoom + centroidY;
-        const pixel = ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
-        expect(pixel).not.toBeUndefined();
-        expect(closeTo(pixel as Uint8ClampedArray, downhillRgb)).toBe(true);
+
+        // Poll for the expected pixel state with recalculated offsets.
+        await expect
+            .poll(
+                () => {
+                    const curW = canvas?.width ?? 0;
+                    const curH = canvas?.height ?? 0;
+                    if (curW === 0 || curH === 0) return false;
+                    // Wait for at least one paint to complete.
+                    if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
+                    const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
+                    const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
+                    const px = 1 * zoom + zoom / 2 + offX;
+                    const py = 1 * zoom + centroidY + offY;
+                    const pixel = ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
+                    if (pixel === undefined) return false;
+                    return closeTo(pixel, downhillRgb);
+                },
+                { timeout: 5000, message: 'downhill triangle centroid is downhill color' },
+            )
+            .toBe(true);
     });
 });

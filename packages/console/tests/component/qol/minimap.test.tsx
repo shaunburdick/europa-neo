@@ -21,7 +21,7 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-const CAMERA: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 12, maxZoom: 96 };
+const CAMERA: CameraState = { zoom: 32, pan: { x: 0, y: 0 }, minZoom: 32, maxZoom: 96 };
 
 /** Two owned cells on a 16×16 board. */
 const CELLS: readonly CellRenderInfo[] = [

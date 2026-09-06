@@ -12,8 +12,7 @@
  *   cell   = (screen − pan) / zoom      (inverse / hit-testing)
  *
  * Constraints enforced here:
- *   - `zoom` ∈ [camera.minZoom, camera.maxZoom] ([12, 96] by
- *     default per CONSOLE_CONSTANTS);
+ *   - `zoom` ∈ [camera.minZoom, camera.maxZoom];
  *   - `pan.x` ∈ [−(maxZoom × 2), boardWidth × zoom], same for y —
  *     the board can never be panned entirely off-screen.
  *
@@ -29,6 +28,7 @@
  * JSDoc references: US5 AC-1 + data-model.md §4 + FR-010.
  */
 
+import { computeViewportOffset } from '../render/viewport-offset';
 import type { ConsoleStore } from '../state/store';
 import type { CameraState, ScreenPoint } from '../state/types';
 
@@ -39,10 +39,56 @@ import type { CameraState, ScreenPoint } from '../state/types';
  */
 export const ZOOM_WHEEL_STEP = 1.15;
 
+/**
+ * Zoom percentage display layer (issue #76 FR-017): the sidebar
+ * indicator shows the camera zoom as a percentage of the fit zoom
+ * (the zoom level that makes the whole board visible in the viewport).
+ * 100% = whole board visible, 300% = max zoom. Pure display conversion
+ * — `CameraState.zoom` stays in cell-pixels; only the presentation is
+ * a percentage.
+ *
+ * @param zoom    Camera zoom in cell-pixels.
+ * @param fitZoom The fit-zoom level (100% baseline). Typically
+ *                `camera.minZoom` after initialization.
+ * @returns Rounded percentage (100 for fitZoom, 200 for 2× fitZoom, etc.).
+ */
+export function zoomPercent(zoom: number, fitZoom: number): number {
+    return Math.round((zoom / fitZoom) * 100);
+}
+
 /** Board dimensions the pan clamp needs (cells). */
 export interface BoardBounds {
     readonly width: number;
     readonly height: number;
+}
+
+/**
+ * Board-center anchor in screen space (issue #76 FR-017/FR-018).
+ * Keyboard and sidebar-button zoom keep the board center stationary
+ * instead of a cursor point, so the visible content does not swim
+ * when zooming without a pointer anchor. Pure.
+ *
+ * @param camera Current camera.
+ * @param board  Board dimensions in cells.
+ * @param viewportOffset Board-space offset of the container's top-left
+ *                       corner (issue #76). When omitted, falls back
+ *                       to `camera.pan` (correct only when the board
+ *                       fills or exceeds the container).
+ */
+export function boardCenterScreen(
+    camera: CameraState,
+    board: BoardBounds,
+    viewportOffset?: { readonly x: number; readonly y: number },
+): {
+    readonly x: number;
+    readonly y: number;
+} {
+    const ox = viewportOffset?.x ?? -camera.pan.x;
+    const oy = viewportOffset?.y ?? -camera.pan.y;
+    return {
+        x: -ox + (board.width * camera.zoom) / 2,
+        y: -oy + (board.height * camera.zoom) / 2,
+    };
 }
 
 /**
@@ -78,19 +124,32 @@ export function clampCamera(camera: CameraState, board: BoardBounds): CameraStat
  * @param deltaY  Raw `WheelEvent.deltaY`.
  * @param cursor  Cursor position in canvas CSS pixels.
  * @param board   Board dimensions in cells.
+ * @param viewportOffset Board-space offset of the container's top-left
+ *                       corner (issue #76). When omitted, falls back
+ *                       to `camera.pan` (correct only when the board
+ *                       fills or exceeds the container).
  */
 export function zoomedCamera(
     camera: CameraState,
     deltaY: number,
     cursor: ScreenPoint,
     board: BoardBounds,
+    viewportOffset?: { readonly x: number; readonly y: number },
 ): CameraState {
     const factor = deltaY < 0 ? ZOOM_WHEEL_STEP : 1 / ZOOM_WHEEL_STEP;
     const rawZoom = camera.zoom * factor;
     const zoom = Math.min(camera.maxZoom, Math.max(camera.minZoom, rawZoom));
     // Hold the board point under the cursor stationary.
-    const boardX = (cursor.x - camera.pan.x) / camera.zoom;
-    const boardY = (cursor.y - camera.pan.y) / camera.zoom;
+    // Use viewportOffset for the correct screen→board mapping when
+    // the board is centered (smaller than container).
+    const ox = viewportOffset?.x ?? -camera.pan.x;
+    const boardX = (cursor.x + ox) / camera.zoom;
+    const oy = viewportOffset?.y ?? -camera.pan.y;
+    const boardY = (cursor.y + oy) / camera.zoom;
+    // After zoom, set pan so the board point stays under the cursor.
+    // When the board remains centered (< container), the centering
+    // formula overrides pan, so this pan value is immaterial; when
+    // the board exceeds the container, this formula is exact.
     return clampCamera(
         {
             ...camera,
@@ -159,10 +218,24 @@ export class ZoomPanController {
                 return;
             }
             const size = state.latestView.config.boardSize;
-            const next = zoomedCamera(state.camera, event.deltaY, this.relativePoint(event), {
-                width: size,
-                height: size,
-            });
+            const rect = this.element.getBoundingClientRect();
+            const viewportOffset = computeViewportOffset(
+                state.camera.zoom,
+                state.camera.pan,
+                size,
+                rect.width,
+                rect.height,
+            );
+            const next = zoomedCamera(
+                state.camera,
+                event.deltaY,
+                this.relativePoint(event),
+                {
+                    width: size,
+                    height: size,
+                },
+                viewportOffset,
+            );
             this.store.dispatch({ kind: 'setCamera', camera: next });
         };
 

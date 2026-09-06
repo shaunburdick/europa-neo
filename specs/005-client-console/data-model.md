@@ -207,8 +207,8 @@ The view transform. Pure data.
 |-------|------|-------------|
 | `zoom` | `number` | Cell size in CSS pixels. Clamped to `[minZoom, maxZoom]`. |
 | `pan` | `{ x: number, y: number }` | Top-left offset in CSS pixels. |
-| `minZoom` | `number` | Min cell size (default 12). |
-| `maxZoom` | `number` | Max cell size (default 96). |
+| `minZoom` | `number` | Min cell size (default 16 — 50% of the 32px default, issue #76). |
+| `maxZoom` | `number` | Max cell size (default 96 — 300% of the 32px default, issue #76). |
 
 ### Coordinate mapping
 
@@ -237,15 +237,30 @@ subcellY = ((screen.y - pan.y) / zoom) - cell.y   // [0, 1)
 
 ```ts
 const DEFAULT_CAMERA: CameraState = {
-  zoom: 32,    // 32 px per cell
+  zoom: 32,    // 32 px per cell = 100%
   pan: { x: 0, y: 0 },
-  minZoom: 12,
-  maxZoom: 96,
+  minZoom: 16, // 50% of 32 (issue #76)
+  maxZoom: 96, // 300% of 32 (issue #76)
 };
 ```
 
 A 32×32 board at default zoom is 1024×1024 CSS pixels — fits
-a typical 1080p viewport with HUD chrome on the side.
+a typical 1080p viewport with the right sidebar (~280px) on the side.
+
+### Zoom percentage display layer (issue #76)
+
+The sidebar indicator shows the zoom as a percentage of the 32px
+default cell. The percentage is a **display layer** over the
+cell-pixel math — `CameraState.zoom` stays in cell-pixels:
+
+| Percentage | Cell size (px) |
+|------------|----------------|
+| 50% (min)  | 16 |
+| 100% (default) | 32 |
+| 300% (max) | 96 |
+
+Conversion: `percent = round(zoom / 32 * 100)`. The pan-clamp math
+(`[-(maxZoom*2), boardWidth*zoom]`) is unchanged.
 
 ---
 
@@ -485,9 +500,9 @@ of the engine's `ENGINE_CONSTANTS` discipline):
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| `defaultCellPx` | `32` | Default cell size. |
-| `minCellPx` | `12` | Min zoom. |
-| `maxCellPx` | `96` | Max zoom. |
+| `defaultCellPx` | `32` | Default cell size (= 100%). |
+| `minCellPx` | `16` | Min zoom (50% of 32; was 12 pre-issue-#76). |
+| `maxCellPx` | `96` | Max zoom (300% of 32). |
 | `feedbackTtlMs` | `2000` | Feedback message TTL. |
 | `labelTtlMs` | `1500` | MapLabel TTL (e.g., "70%" flash). |
 | `effectTtlMs` | `400` | MapEffect TTL (e.g., combat flash). |
@@ -542,3 +557,78 @@ For each entity, the test suite asserts:
 
 1000 consecutive ticks of scripted input produce byte-identical
 `MapView` snapshots (SC-002 determinism).
+
+---
+
+## 18. Sidebar layout (issue #76, FR-014..FR-022)
+
+The match view restructures into a two-column flex layout. This is a
+**presentation** model — no new state entity; the sidebar is composed
+from existing `ConsoleState` slices.
+
+### Layout structure
+
+```
+europa-main (display: flex)
+├── europa-board-area (flex-grow: 1)   ← canvas + grid overlay + targeting/waiting overlays
+└── europa-sidebar (fixed width ~280px) ← Status / Players / Orders / Reserve / Overview / Zoom / Surrender / Help
+```
+
+- `europa-main` becomes `display: flex`; `europa-board-area` is the
+  left (flex-grow: 1) column; a new `europa-sidebar` is the right
+  (fixed ~280px) column (FR-014).
+- The header (page title) and `BrandedFooter` stay at the view root,
+  outside the two-column area (FR-014).
+- The sidebar is composed as children of `App` (FR-022) so player and
+  spectator share one render path.
+
+### Sidebar sections (FR-015, in vertical order)
+
+| Section | Content | State source |
+|---------|---------|--------------|
+| Status | Tick counter, player turn indicator, connection status | `ConsoleState.status`, `MapView.tick` |
+| Players | List with color indicators, names, roles YOU/P2/... | `ConsoleSession` (via `ParticipantStrip`) |
+| Orders | Exclusive/clear mode toggle with mode label | `ConsoleState.exclusiveMode`, `inputEnabled` |
+| Reserve | Percentage slider with quick-select buttons (0, 25, 50, 75, 100) | `ConsoleState.selection`, cell `reservesPercent` |
+| Overview | Minimap with viewport rectangle | `MapView`, `CameraState`, `useContainerSize` |
+| Zoom | Level indicator and controls | `CameraState.zoom` (percentage display) |
+| Surrender | Surrender button | `ConsoleState.inputEnabled`, `onSurrenderRequest` |
+| Help | Help button | `inputEnabled` |
+
+### Zoom percentage display (FR-017)
+
+The sidebar Zoom section shows `zoom / 32 * 100` percent. The
+underlying `CameraState.zoom` stays in cell-pixels; only the display
+is a percentage. Range: 50% (16px) to 300% (96px), default 100%
+(32px).
+
+### Keyboard zoom shortcuts (FR-018)
+
+`HotkeyController` gains a UI-zoom layer:
+
+| Key | Action |
+|-----|--------|
+| `+` or `=` | Zoom in one step |
+| `-` or `_` | Zoom out one step |
+| `0` | Reset to 100% |
+
+Suppressed when focus is inside interactive chrome (reuses the
+existing `shouldIgnoreKeyEvent` focus guard). The `0` zoom-reset is a
+distinct UI-zoom path — it does not route through `translateKey` (which
+would map `0` to `reserve0`); the order-table `reserve0` binding is
+unchanged.
+
+### Responsive (FR-020)
+
+`@media (max-width: 768px)`: `europa-main` flips to
+`flex-direction: column`; `europa-sidebar` becomes `width: 100%`
+(stacked below the board). All interactive elements remain reachable
+by mouse and keyboard.
+
+### Spectator parity (FR-021)
+
+The sidebar renders identically for player and spectator. When
+`store === undefined` (spectator path), order-producing controls
+(Orders, Reserve, Surrender) render disabled or visually inert. This
+is defense-in-depth for the UI; the structural invariant (no store, no
+order bridge, adapter refuses orders) is the security boundary.

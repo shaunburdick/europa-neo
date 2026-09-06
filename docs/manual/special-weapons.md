@@ -52,7 +52,7 @@ Shots land at resolution time each tick; a target cell emptied by someone else f
 2. Keep the cursor inside the selected cell and slide it toward the target — its position within the cell picks the shell's destination, up to 2 cells away (see [Controls](./controls.md)).
 3. Press g (or o).
 
-Rejected orders — a water target, or not enough troops to pay — come back as a short message above the order bar (see [Reading the screen](./reading-the-screen.md)).
+Rejected orders — a water target, or not enough troops to pay — come back as a short message in the feedback area at the bottom-left of the screen (see [Reading the screen](./reading-the-screen.md)).
 
 ---
 

@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-08-30); URL routing superseded by Feature 013
+**Status**: Implemented (2026-08-30); URL routing superseded by Feature 013; right-sidebar layout + zoom range expansion added (Clarifications v1.4, issue #76)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -90,12 +90,35 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 
 ---
 
+### User Story 6 - Right Sidebar Layout + Zoom Range Expansion (Priority: P1, issue #76)
+
+As a player, I want all HUD controls consolidated into a right sidebar so the game board receives maximum horizontal space, with zoom controls accessible via mousewheel and keyboard shortcuts.
+
+**Why this priority**: The board is the primary interaction surface; maximizing its viewport directly improves playability. Zoom range expansion (100%–300%) allows close-up precision while the minimap provides overview context.
+
+**Independent Test**: Can be tested via Playwright E2E: layout assertions (sidebar present, board fills remaining space), zoom range assertions (100%–300% clamped, default 100%), keyboard shortcut assertions (+/=/-/_/Home), and minimap viewport rectangle assertions.
+
+**Acceptance Scenarios**:
+
+1. **Given** the match view, **When** the layout renders, **Then** the board occupies the left column and the sidebar occupies the right column, with the header and footer outside the two-column area.
+2. **Given** the sidebar, **When** it renders, **Then** it contains Status (tick counter, player turn, connection), Players (list with color indicators, names, roles), Orders (exclusive/clear toggle with mode label), Reserve (percentage slider + quick-select digit buttons 0–9 mirroring the number keys), Overview (minimap with viewport rectangle), Zoom (level indicator + controls), Surrender button, and Help button — in that vertical order.
+3. **Given** the board at default zoom, **When** the player scrolls the mousewheel over the board, **Then** the board zooms toward the cursor position (scroll up = in, scroll down = out).
+4. **Given** the board at any zoom level, **When** the player presses `+`/`=` or `-`/`_`, **Then** the board zooms in/out by one step, clamped to 100%–300%.
+5. **Given** the board at any zoom level, **When** the player presses `Home`, **Then** the board resets to 100% (default).
+6. **Given** the minimap, **When** the zoom level changes, **Then** the viewport rectangle updates to reflect the visible area at the current zoom.
+7. **Given** a spectator, **When** the layout renders, **Then** the same sidebar layout is shown (read-only; order controls are inert).
+8. **Given** the match view, **When** the player scrolls the mousewheel over the board, **Then** notification toasts appear on the right side (over the sidebar) and never obscure the game board.
+
+---
+
 ### Edge Cases
 
 - What happens when input targets an enemy-owned cell for pipe orders? → Client may send; server rejects; console surfaces the rejection non-intrusively.
 - What happens when orders are issued during disconnect? → Console queues nothing silently: inputs are disabled with visible status when offline.
 - What happens at extreme zoom on large boards? → Rendering degrades gracefully (level-of-detail simplification) rather than dropping frames.
 - What happens when two rapid contradictory orders race (toggle then exclusive)? → Both are sent in order; server applies sequentially; console reflects authoritative result after next tick.
+- What happens when the player rapidly scrolls the mousewheel? → Zoom changes are clamped to 100%–300%; no overflow or NaN state.
+- What happens at very small zoom levels? → Minimum zoom is 100% (full board visible); the minimap provides overview context when zoomed in.
 
 ## Requirements *(mandatory)*
 
@@ -114,6 +137,16 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 - **FR-011**: Rendering technology is free within TypeScript/browser standards; the console MUST consume only protocol messages from feature 004 (no direct engine access).
 - **FR-012**: The console MUST render the application version in the HUD status-display area (FR-008's neighborhood) as real DOM text (not canvas): the bundled build constant, `v`-prefixed, visible in all connection states, meeting WCAG 2.2 AA contrast (constitution VI), never intercepting pointer or keyboard interaction, and never displaying a server-supplied value (feature 009-shared-app-versioning).
 - **FR-013**: The console MUST color-code pipe indicators by slope, derived from the fog-filtered view's elevation data (feature 001 FR-007): downhill pipes green, flat pipes amber, uphill pipes red — with intensity encoding (triangle size/thickness scales with normalized 0–1 intensity; bigger triangles indicate stronger slopes; see Clarifications v1.3) — and MUST render a stalled uphill pipe (one whose flow rate is 0 under feature 001 FR-007's formula) with a visually distinct treatment: a hollow (outline-only) triangle in the stalled color, fixed size (no intensity variation), distinct from the filled triangles of flowing pipes. Slope classification MUST mirror feature 001's constants (`flowBase`, `flowSlopeStep`, `flowSlopeDeltaCap`) via a console-side mirror pinned by a drift test against `ENGINE_CONSTANTS`; a pipe whose destination cell is outside the visibility horizon (elevation unknown) MUST render in the flat color without claiming a slope.
+- **FR-014 (issue #76)**: The console MUST render the match view as a two-column layout: the game board in the left column, and a fixed-width right sidebar containing all HUD controls. The header (page title) and shared footer MUST remain outside the two-column area, occupying the top and bottom of the viewport respectively.
+- **FR-015 (issue #76)**: The sidebar MUST contain, in vertical order: Status (tick counter, player turn indicator, connection status), Players (list with color indicators, names, and roles YOU/P2/...), Orders (exclusive/clear mode toggle with mode label), Reserve (percentage slider with quick-select digit buttons 0–9, mirroring the number keys — the engine's reserves domain is 0%–90% in 10% steps, so the originally-proposed 25/50/75/100 presets are unrepresentable and are NOT shipped), Overview (minimap with viewport rectangle), Zoom (level indicator and controls), Surrender button, and Help button.
+- **FR-016 (issue #76)**: The sidebar MUST remain static during board zoom and pan operations; only the board area's transform changes.
+- **FR-017 (issue #76)**: The zoom range MUST be 100% (full board visible) to 300% (close-up), with a default of 100%. The percentage is a display layer over the existing cell-pixel zoom math (e.g., 100% = 32px per cell, 300% = 96px per cell); the underlying `CameraState` values remain in cell-pixels and the existing pan-clamp math is unchanged. The canvas MUST always fill the available board area — zoom changes cell density, not canvas size.
+- **FR-018 (issue #76)**: The console MUST provide keyboard zoom shortcuts: `+` or `=` zooms in one step, `-` or `_` zooms out one step, `Home` resets to 100%. Shortcuts MUST be suppressed when focus is inside interactive chrome (buttons, inputs, toolbars, contenteditable) — reusing the existing `HotkeyController` focus guard. (`0` is NOT a zoom shortcut — it remains the `reserve0` digit key per the engine's 0–9 reserves domain.)
+- **FR-019 (issue #76)**: The minimap's viewport rectangle MUST reflect the visible area at the current zoom level and pan position, updated live as the camera changes.
+- **FR-020 (issue #76)**: The layout MUST fill the viewport at `100vw × 100vh` with no page scrolling. The minimum supported viewport width is 768px. The header and footer MUST remain fixed at the top and bottom respectively, never scrolling away.
+- **FR-021 (issue #76)**: The sidebar layout MUST apply equally to player and spectator views. In spectator mode, order-producing controls (Orders, Reserve, Surrender) MUST be rendered as disabled or visually inert; no orders are sent (this is already the structural invariant — spectators have no store, no order bridge, and the adapter refuses orders).
+- **FR-022 (issue #76)**: The sidebar MUST be owned by `App` (not the lobby runtime) so player and spectator share one render path. The match-leg host's slim chrome (title + leave button) remains in `lobby-runtime.tsx`'s `MatchLegHost`.
+- **FR-023 (issue #76)**: Notification toasts (order confirmations, rejections, connection status) MUST appear on the right side of the viewport, overlaying the sidebar area. Toasts MUST never obscure the game board. At worst, a toast covers the bottom sidebar sections (Help/Surrender).
 
 ### Key Entities *(include if feature involves data)*
 
@@ -156,7 +189,20 @@ Feature 013 replaces the former query-selected live-entry description with seman
 - **Slope mirror drift**: the console's slope classification thresholds mirror `ENGINE_CONSTANTS` (feature 001 FR-007); a drift test importing `@europa/engine` constants pins the mirror (the console already imports engine types for `MapView` construction), so a future retune fails loudly in the console suite.
 - **Fog edge case**: a pipe whose destination is outside the visibility horizon renders in the flat color (no slope claim). Practically unreachable for a player's own pipes — a pipe's destination is always within the owner's sensor horizon — but specified defensively.
 
-### v1.3 (2026-09-01) — Intensity encoding for pipe slopes (issue #43)
+### v1.4 (2026-09-05) — Right sidebar layout + zoom range expansion (issue #76)
+
+- **FR-014 through FR-023 added**: two-column layout (board left, sidebar right), sidebar section list, zoom range 100%–300% with default 100%, keyboard shortcuts `+`/`=`/`-`/`_`/`Home`, minimap viewport rectangle, full viewport (no scroll), spectator parity, sidebar owned by `App`, toasts on right side over sidebar.
+- **Zoom semantics**: 100% = full board visible (default), 300% = max close-up. The canvas always fills the available board area — zoom changes cell density, not canvas size. Underlying `CameraState` values remain in cell-pixels; pan-clamp math unchanged. The sidebar indicator shows percentage.
+- **No zoom-out**: minimum zoom is 100% (seeing the whole board). The minimap provides overview context when zoomed in.
+- **Keyboard shortcuts**: `HotkeyController` extended with a UI-zoom layer; `+`/`=` zooms in, `-`/`_` zooms out (floor 100%), `Home` resets to 100% (PM ruling: `0` stays the `reserve0` digit key). Suppressed when focus is inside interactive chrome (reuses existing focus guard).
+- **Full viewport**: `100vw × 100vh`, no page scrolling, no scrollbars. Header and footer fixed at top/bottom, outside the two-column area.
+- **Minimum viewport**: 768px wide. No responsive stacking — sidebar is always visible.
+- **Toast position**: toasts appear on the right side, overlaying the sidebar. Never obscures the game board.
+- **Sidebar ownership**: `App.tsx` owns the sidebar; player and spectator share one render path. Match-leg host chrome (title + leave button) stays in `lobby-runtime.tsx`'s `MatchLegHost`.
+- **Minimap viewport rectangle**: uses existing `viewportRect` helper; enhanced styling for the sidebar context.
+- **Spectator**: same layout; order controls inert (structural invariant — no store, no order bridge).
+
+## Implementation Notes (2026-08-23, Phase 8 Polish)
 
 - **FR-013 amended**: pipes now encode normalized intensity (0–1) as triangle size/thickness in addition to the three-color slope scheme. Intensity is computed per pipe direction from the elevation delta: downhill = `min(|Δ|, flowSlopeDeltaCap) / flowSlopeDeltaCap`; uphill = `min(Δ, flowBase / flowSlopeStep) / (flowBase / flowSlopeStep)`; flat/stalled/fog = 0. Triangle size ranges from 40% (intensity=0, min `max(2.4px, zoom*0.06)`) to 100% (intensity=1, 6px at default zoom). Stalled pipes are fixed size (no intensity variation — the hollow treatment is the signal). The prior "no intensity scaling" rationale (v1.2) is superseded: the PO confirmed that intensity encoding improves slope readability at all zoom levels.
 - **Data model addition**: `CellRenderInfo` gains an additive `pipeIntensities: ReadonlyMap<Direction, number>` field (0–1 normalized). Both contract mirrors updated. Consumers that don't render intensity may ignore it.
@@ -304,8 +350,38 @@ truthful).
     propagated into state); component tests assert the real DOM text
     via the imported constant across idle/live/reconnecting states
     (`hud-version.test.tsx`).
+16. **Right sidebar layout + zoom expansion (issue #76)**: the match view restructures into a two-column flex layout: `europa-main` becomes `display: flex` with `europa-board-area` left (flex-grow: 1, fills all available space) and a new `europa-sidebar` right (fixed width, ~280px). The sidebar sections (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) are composed as children of `App`. The existing HUD items currently rendered inline in `App` (`#hud`, `OrderBar`, `ReservesPanel`, `Minimap`, Surrender, Help) are migrated into the sidebar structure. The `BrandedFooter` stays at the view root (below the two-column area). Zoom range: `minZoom=32` (100% of 32, full board visible), `maxZoom=96` (300% of 32). The canvas always fills the available board area — zoom changes cell density, not canvas size. The `ZoomPanController` and `clampCamera` are updated accordingly. Keyboard zoom shortcuts live in `HotkeyController` (one handler, same focus-guard as order shortcuts). The minimap's `viewportRect` is already wired; it updates with the existing camera state subscription. Toasts positioned on the right side, overlaying the sidebar. The layout fills `100vw × 100vh` with no page scrolling; header and footer are fixed at top/bottom. Minimum viewport width is 768px — no responsive stacking needed. Spectator path: `SpectatorMatchLeg` in `lobby-runtime.tsx` renders `App` with `state` prop and no `store`; the sidebar renders with `store === undefined` guards disabling all order-producing controls — no new spectator-specific code needed.
+17. **`CONSOLE_API_VERSION` 0.1.0 → 0.2.0 (issue #76)**: raising `minCellPx` 12 → 16 changes the public zoom-clamp surface, so both contract mirrors (`console-api.ts` + `console-types.ts`) bump the API version in the same change set. The wire protocol version is separate and untouched. No test asserts the literal version value; the conformance suite asserts the two mirrors stay byte-identical.
 
 ### Quickstart validation mapping (Q-* → proving suites)
+
+| Quickstart items | Proving suite | Result |
+| --- | --- | --- |
+| Q-C01..Q-C03 (dev-mode boots) | Manual smoke; `?e2e` harness covered by Playwright specs | Manual |
+| Q-U01..Q-U10 (unit) | `test:unit` — 192 tests incl. reducer arms/invariants, net layer, preflight, zoom math, controllers | PASS |
+| Q-B01..Q-B08 (component) | `test:component` — 25 tests | PASS |
+| Q-E01..Q-E15 (E2E) | `test:e2e` — 7 Playwright specs covering US1–US5 wire-level acceptance + selfhost smoke | PASS |
+| Q-A01..Q-A08 (a11y E2E) | `test:a11y` — 19 axe-core acceptance tests | PASS |
+| Q-P01/P02/P04 (perf budgets) | `test:perf` — paint 1.8 ms (<8), reduce ~0.2 µs (<1 ms), preflight ~0.3 µs (<0.1 ms) | PASS |
+| Q-P03 (bundle < 150 KB gz) | `test:selfhost` — 76,528 bytes over `dist/assets` | PASS |
+| SC-002 determinism | `test:determinism` — 1000-tick golden fixture, zero divergence | PASS |
+| SC-004 parity | `test:parity` + original-subcell fixture | PASS |
+| Constitution VII self-host | remote-URL scan in `test:selfhost` | PASS |
+
+### Layout acceptance mapping (issue #76 sidebar + zoom)
+
+| Acceptance item | Proving suite | Result |
+| --- | --- | --- |
+| FR-014 two-column layout | `test:component` (App layout assertion) + `test:e2e` (sidebar present) | PASS |
+| FR-015 sidebar section list | `test:component` (renders all sections) + axe roles check | PASS |
+| FR-016 sidebar static during zoom/pan | `test:component` (sidebar ref unchanged across camera changes) | PASS |
+| FR-017 zoom 100%–300%, default 100% | `test:unit` (zoom math clamp) + `test:component` (indicator) | PASS |
+| FR-018 keyboard shortcuts | `test:unit` (HotkeyController zoom layer) + `test:e2e` (keypress) | PASS |
+| FR-019 minimap viewport rect | `test:component` (rect updates with zoom) | PASS |
+| FR-020 full viewport, no scroll | `test:component` (layout fills viewport) | PASS |
+| FR-021 spectator parity | `test:e2e` (spectator sidebar) | PASS |
+| FR-022 sidebar owned by App | code review: `App.tsx` contains the sidebar, no lobby-runtime sidebar | PASS |
+| FR-023 toasts on right side | `test:component` (toast position over sidebar) | PASS |
 
 | Quickstart items | Proving suite | Result |
 | --- | --- | --- |

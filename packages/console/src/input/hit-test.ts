@@ -59,19 +59,34 @@ export function regionFromDirection(direction: Direction): CellRegion {
 /**
  * Hit-test a screen point against the camera transform. Pure.
  *
- * Inverse mapping (data-model.md §4):
- *   cell.x = floor((screen.x - pan.x) / zoom)
- *   subcellX = ((screen.x - pan.x) / zoom) - cell.x   // [0, 1)
+ * Inverse mapping (data-model.md §4, issue #76 viewport offset):
+ *   cell.x = floor((screen.x + viewportOffset.x) / zoom)
+ *   subcellX = ((screen.x + viewportOffset.x) / zoom) - cell.x   // [0, 1)
  *
  * Points left of or above the board origin yield `cell: null` (the
  * cursor is over chrome / void); negative cells are never returned.
  *
  * @param screen Screen-space point (CSS pixels, canvas top-left origin).
  * @param camera Current camera (zoom = px per cell, pan = board offset).
+ * @param viewportOffset Board-space offset of the container's top-left
+ *                       corner. Accounts for centering when the board
+ *                       is smaller than the container (issue #76).
+ *                       Defaults to `{-pan.x, -pan.y}` for backward
+ *                       compatibility with callers that predate the
+ *                       viewport-offset fix.
  */
-export function hitTest(screen: ScreenPoint, camera: CameraState): CursorTarget {
-    const boardX = (screen.x - camera.pan.x) / camera.zoom;
-    const boardY = (screen.y - camera.pan.y) / camera.zoom;
+export function hitTest(
+    screen: ScreenPoint,
+    camera: CameraState,
+    viewportOffset?: { readonly x: number; readonly y: number },
+): CursorTarget {
+    // When viewportOffset is not supplied, fall back to the legacy
+    // pan-only formula (correct when the board fills or exceeds the
+    // container). The supplied offset includes centering.
+    const ox = viewportOffset?.x ?? -camera.pan.x;
+    const oy = viewportOffset?.y ?? -camera.pan.y;
+    const boardX = (screen.x + ox) / camera.zoom;
+    const boardY = (screen.y + oy) / camera.zoom;
 
     const cellX = Math.floor(boardX);
     const cellY = Math.floor(boardY);

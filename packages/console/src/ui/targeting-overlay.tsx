@@ -27,7 +27,7 @@ import { useEffect, useRef } from 'react';
 
 import type { LiveRegionAnnouncer } from '../a11y/live-region';
 import { subcellToTargetCoord } from '../input/subcell';
-import type { Coord, SubcellPosition } from '../state/types';
+import type { Coord, ScreenPoint, SubcellPosition } from '../state/types';
 
 /** Props for {@link TargetingOverlay}. */
 export interface TargetingOverlayProps {
@@ -47,6 +47,14 @@ export interface TargetingOverlayProps {
      * provided, target changes are announced through it as well.
      */
     readonly announcer?: LiveRegionAnnouncer | undefined;
+    /**
+     * Viewport offset — the board-space origin of the visible area's
+     * top-left corner. The TargetingOverlay is a sibling of the grid
+     * overlay inside `.europa-board-area` and does NOT inherit the
+     * grid's CSS transform, so it must subtract the offset explicitly
+     * to stay aligned with the canvas-painted terrain (issue #76).
+     */
+    readonly viewportOffset?: ScreenPoint | undefined;
 }
 
 /**
@@ -81,7 +89,14 @@ export function aimingTarget(source: Coord, subcell: SubcellPosition): Coord {
  * The crosshair + subcell indicator overlay. Render nothing when the
  * anchor cell is null (caller decides visibility).
  */
-export function TargetingOverlay({ cell, zoom, subcell, abilityLabel, announcer }: TargetingOverlayProps): JSX.Element {
+export function TargetingOverlay({
+    cell,
+    zoom,
+    subcell,
+    abilityLabel,
+    announcer,
+    viewportOffset = { x: 0, y: 0 },
+}: TargetingOverlayProps): JSX.Element {
     const target = aimingTarget(cell, subcell);
     const selfTarget = target.x === cell.x && target.y === cell.y;
     const label = formatTargetingLabel(abilityLabel, cell, selfTarget ? null : target);
@@ -100,8 +115,8 @@ export function TargetingOverlay({ cell, zoom, subcell, abilityLabel, announcer 
             className="europa-targeting"
             style={{
                 position: 'absolute',
-                left: cell.x * zoom,
-                top: cell.y * zoom,
+                left: cell.x * zoom - viewportOffset.x,
+                top: cell.y * zoom - viewportOffset.y,
                 width: zoom,
                 height: zoom,
                 pointerEvents: 'none',
