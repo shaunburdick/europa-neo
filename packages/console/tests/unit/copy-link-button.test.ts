@@ -44,9 +44,10 @@ function setup() {
     document.body.append(container);
     const root: Root = createRoot(container);
 
-    function render(
-        props: Partial<React.ComponentProps<typeof CopyLinkButton>> = {},
-    ): { container: HTMLDivElement; root: Root } {
+    function render(props: Partial<React.ComponentProps<typeof CopyLinkButton>> = {}): {
+        container: HTMLDivElement;
+        root: Root;
+    } {
         act(() => {
             root.render(
                 createElement(CopyLinkButton, {
