@@ -27,6 +27,7 @@
  * JSDoc references: spec US2 AC-1/2 + FR-002/FR-003.
  */
 
+import { computeViewportOffset } from '../render/viewport-offset';
 import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, Coord, CursorTarget, Direction, PlayerAction, ScreenPoint } from '../state/types';
 import { directionFromRegion, hitTest } from './hit-test';
@@ -210,10 +211,33 @@ export class RegionSelectController {
         return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     }
 
+    /**
+     * Compute the viewport offset from the current state and element
+     * dimensions. Used to correctly map screen coordinates to board
+     * coordinates when the board is centered in the container
+     * (issue #76).
+     */
+    private getViewportOffset(): ScreenPoint {
+        const state = this.store.getState();
+        const view = state.latestView;
+        if (view === null) {
+            return { x: 0, y: 0 };
+        }
+        const rect = this.element.getBoundingClientRect();
+        return computeViewportOffset(
+            state.camera.zoom,
+            state.camera.pan,
+            view.config.boardSize,
+            rect.width,
+            rect.height,
+        );
+    }
+
     /** Hit-test + hover dispatch + cursor callback fan-out. */
     private handleMove(event: PointerEvent): void {
         const state = this.store.getState();
-        const target = hitTest(this.relativePoint(event), state.camera);
+        const viewportOffset = this.getViewportOffset();
+        const target = hitTest(this.relativePoint(event), state.camera, viewportOffset);
         if (this.onCursor !== undefined) {
             this.onCursor(target, performance.now());
         }
@@ -237,7 +261,8 @@ export class RegionSelectController {
         // fallback. Keyboard Tab focus is unaffected.
         event.preventDefault();
         const state = this.store.getState();
-        const target = hitTest(this.relativePoint(event), state.camera);
+        const viewportOffset = this.getViewportOffset();
+        const target = hitTest(this.relativePoint(event), state.camera, viewportOffset);
         const button = BUTTON_BY_INDEX[event.button] ?? 'left';
         const decision = decideRegionClick({
             target,

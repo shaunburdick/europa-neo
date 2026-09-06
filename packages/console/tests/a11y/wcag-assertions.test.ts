@@ -117,7 +117,9 @@ async function bootInteractiveConsole(): Promise<InteractiveBoot> {
 
 /**
  * Dispatch a pointermove at fraction `(fx, fy)` of cell `(cx, cy)`
- * to trigger the targeting overlay's subcell binning.
+ * to trigger the targeting overlay's subcell binning. Accounts for
+ * the viewport offset that centers the board when it is smaller
+ * than the container (issue #76).
  */
 async function movePointerOver(cx: number, cy: number, fx: number, fy: number): Promise<void> {
     const boardArea = document.querySelector('.europa-board-area') as HTMLElement | null;
@@ -125,10 +127,25 @@ async function movePointerOver(cx: number, cy: number, fx: number, fy: number): 
         throw new Error('.europa-board-area not found');
     }
     const rect = boardArea.getBoundingClientRect();
+    // Read the grid overlay's actual dimensions from its inline styles
+    // to compute the viewport offset correctly.
+    const grid = document.getElementById('map') as HTMLElement | null;
+    const gridW = grid !== null ? parseFloat(grid.style.width) : 0;
+    // Derive zoom from the grid width and the board cell count (10 in
+    // the standard test fixture).
+    const boardCells = 10;
+    const zoom = gridW / boardCells;
+    const boardPx = gridW;
+    // Compute viewport offset: centering when board < container.
+    const offX = boardPx < rect.width ? -(rect.width - boardPx) / 2 : 0;
+    const offY = boardPx < rect.height ? -(rect.height - boardPx) / 2 : 0;
+    // Screen position: board origin + cell offset + subcell fraction.
+    const screenX = -offX + (cx + fx) * zoom;
+    const screenY = -offY + (cy + fy) * zoom;
     boardArea.dispatchEvent(
         new PointerEvent('pointermove', {
-            clientX: rect.left + (cx + fx) * 32,
-            clientY: rect.top + (cy + fy) * 32,
+            clientX: rect.left + screenX,
+            clientY: rect.top + screenY,
             bubbles: true,
         }),
     );

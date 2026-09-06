@@ -56,6 +56,11 @@ export interface SidebarProps {
     readonly cells: readonly CellRenderInfo[];
     /** Visible container size for the minimap viewport rect. */
     readonly viewportSize?: { readonly width: number; readonly height: number } | undefined;
+    /**
+     * Viewport offset in board-pixel coordinates (issue #76). Used by
+     * the zoom-in/out buttons to anchor at the correct board center.
+     */
+    readonly viewportOffset: { readonly x: number; readonly y: number };
     /** Dispatch sink for camera changes (minimap click + zoom buttons). */
     readonly onSetCamera: (camera: CameraState) => void;
     /** Toggle exclusive-pipe mode (Orders section). */
@@ -98,6 +103,7 @@ export function Sidebar({
     onHelpToggle,
     helpButtonRef,
     interactive,
+    viewportOffset,
 }: SidebarProps): JSX.Element {
     const { status, session, exclusiveMode, inputEnabled, selection, camera } = state;
     const hasView = cells.length > 0;
@@ -106,10 +112,12 @@ export function Sidebar({
     // Zoom actions anchor at the board center in screen space so the
     // visible content does not swim when zooming via the sidebar.
     const zoomIn = (): void => {
-        onSetCamera(zoomedCamera(camera, -100, boardCenterScreen(camera, board), board));
+        onSetCamera(
+            zoomedCamera(camera, -100, boardCenterScreen(camera, board, viewportOffset), board, viewportOffset),
+        );
     };
     const zoomOut = (): void => {
-        onSetCamera(zoomedCamera(camera, 100, boardCenterScreen(camera, board), board));
+        onSetCamera(zoomedCamera(camera, 100, boardCenterScreen(camera, board, viewportOffset), board, viewportOffset));
     };
     const zoomReset = (): void => {
         onSetCamera(clampCamera({ ...camera, zoom: camera.minZoom }, board));

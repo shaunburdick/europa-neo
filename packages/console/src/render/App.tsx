@@ -61,6 +61,7 @@ import { GameOverModal } from './GameOverModal';
 import { GridOverlay } from './grid-overlay';
 import { liveLabels, nextLabelExpiryMs } from './label-overlay';
 import { SurrenderModal } from './SurrenderModal';
+import { computeViewportOffset } from './viewport-offset';
 
 /** Lazy-loaded help overlay (Feature 018 FR-021 — zero initial bundle impact). */
 const HelpOverlay = lazy(() => import('../ui/help-overlay').then((m) => ({ default: m.HelpOverlay })));
@@ -208,13 +209,13 @@ export function App({
         if (view === null || boardSize === null) {
             return { x: 0, y: 0 };
         }
-        const zoom = resolvedState.camera.zoom;
-        const pan = resolvedState.camera.pan;
-        const boardPx = view.config.boardSize * zoom;
-        const { width: containerW, height: containerH } = boardSize;
-        const offX = boardPx < containerW ? -(containerW - boardPx) / 2 : -pan.x;
-        const offY = boardPx < containerH ? -(containerH - boardPx) / 2 : -pan.y;
-        return { x: offX, y: offY };
+        return computeViewportOffset(
+            resolvedState.camera.zoom,
+            resolvedState.camera.pan,
+            view.config.boardSize,
+            boardSize.width,
+            boardSize.height,
+        );
     }, [resolvedState, boardSize]);
 
     const mapView = useMemo(() => {
@@ -348,6 +349,7 @@ export function App({
     // pan gesture as an exclusive-pipe click.
 
     const [cursorSample, setCursorSample] = useState<CursorSample | null>(null);
+    const hotkeyControllerRef = useRef<HotkeyController | null>(null);
     useEffect(() => {
         if (store === undefined) {
             return undefined;
@@ -361,6 +363,7 @@ export function App({
         // later-registered pipe handlers from the pan gesture.
         const zoomPan = new ZoomPanController(boardArea, store).attach();
         const hotkeys = new HotkeyController(store);
+        hotkeyControllerRef.current = hotkeys;
         const region = new RegionSelectController(boardArea, store, {
             onCursor: (target, atMs) => {
                 hotkeys.notePointer(target, atMs);
@@ -370,11 +373,21 @@ export function App({
         const regionHandle = region.attach();
         hotkeys.attach();
         return () => {
+            hotkeyControllerRef.current = null;
             regionHandle.dispose();
             hotkeys.dispose();
             zoomPan.dispose();
         };
     }, [store]);
+
+    // Keep the hotkey controller's viewport offset in sync so
+    // keyboard zoom shortcuts use the correct board-center anchor
+    // (issue #76).
+    useEffect(() => {
+        if (hotkeyControllerRef.current !== null) {
+            hotkeyControllerRef.current.viewportOffset = viewportOffset;
+        }
+    }, [viewportOffset]);
 
     // Surrender modal state (US5 T084): opened by the HUD button,
     // delegating to the host when `onSurrenderRequest` is provided.
@@ -525,6 +538,7 @@ export function App({
                     boardWidth={mapView?.width ?? 0}
                     boardHeight={mapView?.height ?? 0}
                     cells={mapView !== null ? [...mapView.cells.values()] : []}
+                    viewportOffset={viewportOffset}
                     // exactOptionalPropertyTypes: only carry the size when measured.
                     {...(boardSize === null ? {} : { viewportSize: boardSize })}
                     onSetCamera={

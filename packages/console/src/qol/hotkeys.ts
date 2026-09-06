@@ -191,6 +191,13 @@ export class HotkeyController {
     private handler: ((event: KeyboardEvent) => void) | null = null;
 
     /**
+     * Current viewport offset (issue #76). Set by the host (App.tsx)
+     * whenever the offset changes so keyboard zoom shortcuts can use
+     * the correct board-center anchor.
+     */
+    viewportOffset: { readonly x: number; readonly y: number } = { x: 0, y: 0 };
+
+    /**
      * @param store   Dispatch target + state source.
      * @param options Optional mapping override (see {@link HotkeyControllerOptions}).
      */
@@ -294,7 +301,13 @@ export class HotkeyController {
         if (reset) {
             next = clampCamera({ ...camera, zoom: camera.minZoom }, board);
         } else {
-            next = zoomedCamera(camera, zoomIn ? -100 : 100, boardCenterScreen(camera, board), board);
+            next = zoomedCamera(
+                camera,
+                zoomIn ? -100 : 100,
+                boardCenterScreen(camera, board, this.viewportOffset),
+                board,
+                this.viewportOffset,
+            );
         }
         event.preventDefault();
         this.store.dispatch({ kind: 'setCamera', camera: next });
