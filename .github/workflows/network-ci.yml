@@ -14,6 +14,7 @@ on:
       - 'biome.jsonc'
       - 'packages/engine/**'
       - 'packages/fog/**'
+      - 'packages/logging/**'
       - 'packages/version/**'
   pull_request:
     branches: [main]
@@ -28,6 +29,7 @@ on:
       - 'biome.jsonc'
       - 'packages/engine/**'
       - 'packages/fog/**'
+      - 'packages/logging/**'
       - 'packages/version/**'
   workflow_dispatch:
 
@@ -56,6 +58,9 @@ jobs:
 
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
+
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
@@ -88,6 +93,9 @@ jobs:
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
 
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -112,6 +120,9 @@ jobs:
 
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
+
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build

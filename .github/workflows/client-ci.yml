@@ -17,6 +17,7 @@ on:
       - 'packages/fog/**'
       - 'packages/networking/**'
       - 'packages/matchmaking/**'
+      - 'packages/logging/**'
       - 'packages/version/**'
       - 'packages/design/**'
       - 'DESIGN.md'
@@ -38,6 +39,7 @@ on:
       - 'packages/fog/**'
       - 'packages/networking/**'
       - 'packages/matchmaking/**'
+      - 'packages/logging/**'
       - 'packages/version/**'
       - 'packages/design/**'
       - 'DESIGN.md'
@@ -85,6 +87,9 @@ jobs:
 
       - name: Build @europa/fog (workspace dependency)
         run: pnpm --filter @europa/fog build
+
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
 
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
@@ -161,6 +166,9 @@ jobs:
       - name: Build @europa/fog (workspace dependency)
         run: pnpm --filter @europa/fog build
 
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
+
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
 
@@ -225,6 +233,9 @@ jobs:
 
       - name: Build @europa/fog (workspace dependency)
         run: pnpm --filter @europa/fog build
+
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
 
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
@@ -305,6 +316,9 @@ jobs:
 
       - name: Build @europa/fog (workspace dependency)
         run: pnpm --filter @europa/fog build
+
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
 
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build

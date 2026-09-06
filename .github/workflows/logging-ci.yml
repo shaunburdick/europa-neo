@@ -1,0 +1,100 @@
+name: Logging CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/logging/**'
+      - '.github/workflows/logging-ci.yml'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - 'biome.jsonc'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/logging/**'
+      - '.github/workflows/logging-ci.yml'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - 'biome.jsonc'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+# Minimal permissions: contents:read is enough for typecheck/lint/test/build.
+# No jobs need write access; we don't push artifacts or publish.
+permissions:
+  contents: read
+
+jobs:
+  logging-lint:
+    name: Lint (logging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Typecheck (logging)
+        run: pnpm --filter @europa/logging typecheck
+
+      - name: Lint (logging)
+        run: pnpm --filter @europa/logging lint
+
+      - name: Format check (logging)
+        run: pnpm --filter @europa/logging format:check
+
+  logging-test:
+    name: Test (logging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Test (logging)
+        run: pnpm --filter @europa/logging test
+
+  logging-coverage:
+    name: Coverage gate (logging ≥ 80%)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Coverage (logging)
+        run: pnpm --filter @europa/logging coverage
+
+      # Coverage thresholds (80% lines/functions/branches/statements) are
+      # enforced by vitest config at packages/logging/vitest.config.ts.
+      # The command exits non-zero if any threshold is below 80%.
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: logging-coverage
+          path: packages/logging/coverage/
+          retention-days: 14

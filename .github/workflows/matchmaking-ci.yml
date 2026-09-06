@@ -15,6 +15,7 @@ on:
       - 'packages/engine/**'
       - 'packages/terrain/**'
       - 'packages/networking/**'
+      - 'packages/logging/**'
       - 'packages/version/**'
   pull_request:
     branches: [main]
@@ -30,6 +31,7 @@ on:
       - 'packages/engine/**'
       - 'packages/terrain/**'
       - 'packages/networking/**'
+      - 'packages/logging/**'
       - 'packages/version/**'
   workflow_dispatch:
 
@@ -71,6 +73,9 @@ jobs:
       - name: Build @europa/fog (workspace dependency)
         run: pnpm --filter @europa/fog build
 
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
+
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
 
@@ -107,6 +112,9 @@ jobs:
 
       - name: Build @europa/fog (workspace dependency)
         run: pnpm --filter @europa/fog build
+
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
 
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
@@ -157,6 +165,9 @@ jobs:
 
       - name: Build @europa/fog (workspace dependency)
         run: pnpm --filter @europa/fog build
+
+      - name: Build @europa/logging (workspace dependency)
+        run: pnpm --filter @europa/logging build
 
       - name: Build @europa/networking (workspace dependency)
         run: pnpm --filter @europa/networking build
