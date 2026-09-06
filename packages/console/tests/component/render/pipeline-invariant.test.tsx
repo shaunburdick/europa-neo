@@ -193,7 +193,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('Grid overlay transform matches viewportOffset', () => {
-    test(`translate(${-offX}, ${-offY}) equals the computed offset`, async () => {
+    test('translate(...) equals the computed viewportOffset', async () => {
         await page.viewport(1024, 768);
         await render(<App store={makeStore()} />);
 
