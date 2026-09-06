@@ -126,6 +126,7 @@ import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
 import { readReturnTo } from '../ui/profile-url';
 import { ProfileView } from '../ui/profile-view';
+import { DeepLinkInterstitial } from '../ui/deep-link-interstitial';
 import { RouteNotice, type RouteNoticeKind } from '../ui/route-notice';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
 
@@ -316,6 +317,10 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     function returnToLobby(): void {
         setNoticeKind(null);
         setCurrentRoute(undefined);
+        // Clear the deep-link interstitial if it is showing (FR-029).
+        if (state.deepLinkInterstitial !== null) {
+            controller.store.dispatch({ kind: 'lobbyDeepLinkInterstitialDismissed' });
+        }
         if (window.location.pathname !== '/lobby') {
             window.history.replaceState(window.history.state, '', '/lobby');
         }
@@ -666,6 +671,28 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     actionStatus={state.actions.setHandle}
                     onSubmitHandle={submitHandle}
                     returnTo={readReturnTo(window.location.search)}
+                />
+            </>
+        );
+    }
+
+    // Deep-link interstitial (FR-029): when a non-participant opens
+    // /match/<matchId>, show the play-or-spectate choice instead of
+    // the lobby landing. The interstitial is a transient UI gate —
+    // the URL stays as /match/<matchId> throughout; Back/Forward
+    // re-resolves the route and dismisses it via popstate.
+    if (state.deepLinkInterstitial !== null) {
+        const interstitial = state.deepLinkInterstitial;
+        return (
+            <>
+                {announcerHost}
+                <DeepLinkInterstitial
+                    matchId={interstitial.matchId}
+                    entry={interstitial.routeEntry}
+                    onPlay={() => joinMatch(interstitial.matchId)}
+                    onSpectate={() => spectateMatch(interstitial.matchId)}
+                    onReturnToLobby={returnToLobby}
+                    announcer={announcer ?? undefined}
                 />
             </>
         );
