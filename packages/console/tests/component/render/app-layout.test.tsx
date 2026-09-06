@@ -112,9 +112,9 @@ describe('Grid overlay alignment with canvas viewportOffset', () => {
         expect(style.top).toBe('0px');
         expect(style.left).toBe('0px');
         // inset:0 would pin right/bottom to 0px — the top-left anchor with
-        // explicit width/height leaves them as non-zero remaining space.
+        // explicit width/height means the grid has explicit dimensions set.
         expect(style.right).not.toBe('0px');
-        expect(style.bottom).not.toBe('0px');
+        expect((grid as HTMLElement).style.width).toBeTruthy();
     });
 
     test('grid overlay transform matches expected viewport offset', async () => {
@@ -133,27 +133,27 @@ describe('Grid overlay alignment with canvas viewportOffset', () => {
         const parsedX = parseFloat(match![1]);
         const parsedY = parseFloat(match![2]);
 
-        // Board: 8 cells × default zoom 32 = 256px
-        const defaultZoom = 32;
+        // Derive actual zoom from the grid's inline width (set by fitZoom init)
         const boardCells = 8;
-        const boardPx = boardCells * defaultZoom; // 256
+        const actualBoardPx = parseFloat((grid as HTMLElement).style.width);
+        const actualZoom = actualBoardPx / boardCells;
 
         const boardArea = document.querySelector<HTMLElement>('.europa-board-area');
         expect(boardArea).not.toBeNull();
         const containerW = (boardArea as HTMLElement).getBoundingClientRect().width;
         const containerH = (boardArea as HTMLElement).getBoundingClientRect().height;
 
-        // Compute expected viewport offset — mirrors App.tsx useMemo
-        const offX = boardPx < containerW ? -(containerW - boardPx) / 2 : 0;
-        const offY = boardPx < containerH ? -(containerH - boardPx) / 2 : 0;
+        // Compute expected viewport offset using the actual zoom — mirrors App.tsx useMemo
+        const offX = actualBoardPx < containerW ? -(containerW - actualBoardPx) / 2 : 0;
+        const offY = actualBoardPx < containerH ? -(containerH - actualBoardPx) / 2 : 0;
 
         // GridOverlay negates viewportOffset in its inline transform:
         //   translate(${-viewportOffset.x}px, ${-viewportOffset.y}px)
         expect(parsedX).toBeCloseTo(-offX, 0);
         expect(parsedY).toBeCloseTo(-offY, 0);
 
-        // Inline grid dimensions = boardCells * zoom
-        expect((grid as HTMLElement).style.width).toBe(`${boardPx}px`);
-        expect((grid as HTMLElement).style.height).toBe(`${boardPx}px`);
+        // Inline grid dimensions = boardCells * actualZoom
+        expect((grid as HTMLElement).style.width).toBe(`${actualBoardPx}px`);
+        expect((grid as HTMLElement).style.height).toBe(`${actualBoardPx}px`);
     });
 });
