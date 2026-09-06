@@ -3,9 +3,9 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-08-31 (v1.7; identity-visibility correction)
-**Version**: 1.7
-**Status**: Implemented (2026-08-31; C-010 review complete); URL routing superseded by Feature 013
+**Last Updated**: 2026-09-06 (v1.8; issue #34 shareable-match-links amendment)
+**Version**: 1.8
+**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06); URL routing superseded by Feature 013
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -82,6 +82,28 @@ As a player or observer, I want to join an open game or spectate a running publi
 4. **Given** a player is already seated in or spectating a match, **When** they return to the landing page, **Then** they can see their active-match status and cannot accidentally claim a second seat with the same active identity.
 5. **Given** a match contains players, **When** a participant views the match waiting/live UI, **Then** each occupied player seat is labeled with that player's accepted handle when available, including the viewer's own seat; when unavailable, a generic fallback or player ID MAY be shown.
 
+---
+
+### User Story 5 - Share a Match Link and Enter via Deep Link (Priority: P1)
+
+As a player, I want to copy a shareable link for my match and send it to a friend, and as a visitor I want to open that link and be onboarded into the match, so that I can play with friends without requiring them to find the match in the lobby.
+
+**Why this priority**: Private matches are joinable only by link (binding decision 4); without in-UI copy-link and deep-link onboarding, the private-match feature is unusable from the browser. Public matches benefit too — a host can hand out a link instead of telling friends to hunt the lobby.
+
+**Independent Test**: Create a private match, copy the link from the match UI, open it in a fresh browser profile, complete handle setup, choose Play or Spectate, and verify seating/spectation. Repeat for a public match. Also verify that an existing participant opening the same link goes straight in.
+
+**Acceptance Scenarios**:
+
+1. **Given** a player who created or joined a match (public or private), **When** they activate the "Copy link" action, **Then** the canonical `/match/<matchId>` URL is written to the clipboard and a visible confirmation is shown; the action is keyboard-accessible.
+2. **Given** a private match, **When** the player views the match waiting/live UI, **Then** the "Copy link" affordance is prominent and unmissable (e.g., a dedicated share row) because the link is the only way for others to enter.
+3. **Given** a public match, **When** the player views the match waiting/live UI, **Then** the "Copy link" affordance is present but may be quieter (e.g., a subtle icon button) since the lobby listing is also an entry path.
+4. **Given** a visitor opening `/match/<matchId>` in a fresh browser with no stored handle, **When** the adaptive entry resolves, **Then** the existing identity card prompts for a handle (never pre-filled from the URL), and after onboarding an interstitial offers Play (when seats are open) or Spectate.
+5. **Given** a visitor opening `/match/<matchId>` where the match is full or already running, **When** the interstitial is presented, **Then** only Spectate is offered — Play is not shown.
+6. **Given** a participant (seated player) or spectator opening `/match/<matchId>`, **When** the adaptive entry resolves their existing association, **Then** they go straight into the match view without an interstitial.
+7. **Given** a visitor choosing Spectate via the deep-link interstitial, **When** the choice is confirmed, **Then** they are attached as a spectator with the existing full-visibility read-only view — including for private matches reached via link.
+8. **Given** a visitor or participant opening `/match/<matchId>` for an unknown, expired, or collected match, **When** the resolution fails, **Then** the existing recoverable "match not found" state is shown with a return-to-lobby action — never a blank screen.
+9. **Given** a player who created or joined a match, **When** they reload the page, **Then** `/match/<matchId>` remains the canonical URL and their existing reconnect behavior is preserved.
+
 ### Edge Cases
 
 - Handle comparison is trimmed and case-insensitive; `" Nova "`, `"nova"`, and `"NOVA"` conflict while the displayed handle preserves the user's accepted casing.
@@ -99,6 +121,11 @@ As a player or observer, I want to join an open game or spectate a running publi
 - Guest player IDs are non-secret correlation identifiers, not user-selected handles. They MAY appear in projections, URLs, views, logs, diagnostics, or documentation when useful; UI MUST prefer the accepted handle and MAY use an ID or generic fallback when no handle exists.
 - The implementation change that adds this feature MUST update applicable user-facing documentation, including the player manual, to explain guest player identity, handle selection, and how participant names appear in matches.
 - The same implementation change MUST update applicable developer/operator/API documentation, including README and self-hosting/launch guidance, to document identity and handle propagation, the relevant wire/session behavior, and the in-memory privacy/lifecycle boundary.
+- Clipboard write failure (e.g., permissions prompt denied, insecure context) MUST show a fallback — the URL MAY be displayed as selectable text so the user can copy it manually. The copy-link action MUST NOT silently fail without feedback.
+- A visitor who opens a deep-link and then navigates away before completing onboarding MUST NOT leave a partial seat reservation; the server's atomic seat assignment (FR-010) prevents orphaned state.
+- The play-or-spectate interstitial MUST NOT appear for a match that collected between link generation and link use; the adaptive entry resolves to "match not found" (FR-033) instead.
+- A match whose last seat fills between the interstitial rendering and the Play action MUST be rejected cleanly by the server's atomic seat assignment (FR-010); the visitor sees an actionable error and may choose Spectate or return to the lobby.
+- The shareable link for a private match contains only the match ID in the path; it does not contain a handle, session token, reconnect token, or any bearer credential. Knowledge of the match ID alone grants an admission attempt only — the server still authenticates with the applicable bearer credential and authoritatively assigns seats, orders, and fog-filtered views (spec 006 FR-006, v1.2 clarification).
 
 ## Requirements
 
@@ -115,10 +142,10 @@ As a player or observer, I want to join an open game or spectate a running publi
 - **FR-009**: Creating a match MUST reserve the creator's seat and make the match visible as a public waiting entry until it starts or is collected.
 - **FR-010**: Joining MUST be an atomic server-authoritative operation that assigns no more than one seat to a request and returns a clear error when the match is full, unavailable, or the identity is already committed elsewhere.
 - **FR-011**: A public match MUST start automatically when its required seats fill; v1 MUST NOT require a separate manual start action. At start, the feature MUST hand off to the existing matchmaking, networking, terrain, fog-of-war, engine, and console contracts without changing gameplay mechanics or visibility rules.
-- **FR-012**: The feature MUST allow a user to spectate an in-progress public match through the existing spectator mode, with no seat assignment and no ability to issue player orders.
+- **FR-012**: The feature MUST allow a user to spectate an in-progress match through the existing spectator mode, with no seat assignment and no ability to issue player orders. Public matches may be spectated from the lobby listing; private matches may be spectated by anyone holding the shareable link (spectate-by-link). The existing spectator join accepts a private `MatchId` unchanged; no new wire path is required.
 - **FR-013**: The lobby MUST update when public matches are created, filled, started, or collected; stale entries MUST be removed or marked unavailable before offering an invalid action.
 - **FR-014**: Finished matches MUST be cleaned up using the existing match lifecycle policy and MUST NOT be displayed in a history list.
-- **FR-015**: The feature MUST retain all lobby, identity, and match state in memory only; no accounts, authentication, database/persistent storage, chat, ratings, invitations, private matches, or match history may be introduced.
+- **FR-015**: The feature MUST retain all lobby, identity, and match state in memory only; no accounts, authentication, database/persistent storage, chat, ratings, or match history may be introduced. Private matches are supported via shareable links but are not lobby-listed (binding decision 4); link rotation, revocation, and expiry are deferred to the future accounts feature.
 - **FR-016**: The interface MUST provide accessible keyboard navigation, semantic names and statuses for controls and match rows, visible focus, sufficient contrast, and announcements for identity errors, empty/loading states, and action failures in line with WCAG 2.2 AA goals.
 - **FR-017**: The default self-hosted launch MUST serve the landing interface without a pre-created match, while preserving an explicit path for a user to create one; gameplay remains server-authoritative and fixed-tick deterministic.
 - **FR-018**: The feature MUST surface recoverable failures (identity setup, duplicate handle, unavailable match, full match, lost connection, and server restart) without trapping the user on a blank or silent screen, and MUST provide a retry, correction, or return-to-lobby action where applicable.
@@ -131,6 +158,14 @@ As a player or observer, I want to join an open game or spectate a running publi
 - **FR-025**: The feature's identity propagation behavior MUST have acceptance coverage proving that two players' handles follow them from lobby into match/session records and UI, that orders are attributed to the correct server-side seat, that reconnect restores the same association, and that player/spectator views do not disclose bearer credentials, hidden match/game state, or unauthorized authority through identity references.
 - **FR-026**: The same implementation change set MUST update applicable user-facing documentation and the player manual with the guest player identity lifecycle, handle validation/rename behavior, and match participant identification. Documentation acceptance MUST verify that the manual describes what players see and how they are identified, prefers accepted handles, and does not expose bearer credentials or hidden match/game state. Non-secret opaque guest/player IDs MAY be documented when useful for correlation; they MUST NOT be presented as credentials or authority.
 - **FR-027**: The same implementation change set MUST update applicable developer/operator/API documentation, including the README and self-hosting/launch documentation, with the GuestPlayerIdentity/handle propagation contract, server-authoritative association rules, reconnect/order/view implications, and the fact that guest player identities, handles, sessions, and matches are in-memory and lost on browser storage clearing or server restart. These documents MUST not present guest player IDs as stable authenticated accounts; they MAY present them as non-secret correlation identifiers.
+- **FR-028**: The match waiting/live interface MUST provide a "Copy link" action for the match the user is in (as creator, player, or spectator), producing the canonical `/match/<matchId>` URL. The action MUST write the URL to the clipboard, show visible confirmation (e.g., a brief "Copied!" toast or state change on the button), and be keyboard-accessible (focusable and activatable via Enter/Space). The affordance MUST be available for all matches (public and private) but rendered more prominently for private matches — for a private match the link is the only way in, so it MUST be unmissable (e.g., a dedicated share row on the waiting view or a prominent button). Public matches MAY use a quieter affordance (e.g., a subtle icon button).
+- **FR-029**: Opening `/match/<matchId>` (the canonical match URL) when the visitor is not in the match MUST trigger an adaptive deep-link entry flow: the console resolves the match's authoritative state via spec 013's adaptive routing, then (a) if the visitor has no stored handle, the existing identity card (FR-004) prompts for one before proceeding — the handle is never pre-filled from the URL; (b) after onboarding (or if a handle is already saved), an interstitial asks whether the visitor wants to Play or Spectate. If the match is full, already running, or collected, only Spectate is offered. Choosing Play seats the visitor (subject to FR-010's atomic seat assignment); choosing Spectate attaches them as a spectator. The interstitial MUST be keyboard-accessible and announced for screen readers.
+- **FR-030**: A participant (seated player) or spectator opening `/match/<matchId>` MUST go straight into the match view without an interstitial — the adaptive entry resolves their existing association and restores the correct view.
+- **FR-031**: Spectating a private match via its shareable link MUST work identically to spectating a public match: the link holder receives the existing full-visibility read-only spectator view, with no seat assignment and no ability to issue player orders. The existing spectator join accepts a private `MatchId` unchanged; no new wire path is required. This extends FR-012's scope to private matches reached via link.
+- **FR-032**: `/match/<matchId>` MUST be the canonical in-match URL for all entry paths — lobby join, deep-link entry, and reconnect. The URL MUST remain stable and visible through waiting, live play, spectation, reconnect, and terminal display, per spec 013's route contract.
+- **FR-033**: Unknown, expired, collected, or otherwise unavailable match IDs surfaced through the deep-link entry flow MUST show the existing recoverable "match not found" state (spec 006 FR-006 single code path) with a return-to-lobby action, never a blank or silent screen. The failure MUST be keyboard-accessible and announced for screen readers.
+- **FR-034**: The self-hosted host script (`packages/console/scripts/host.ts`) MUST emit join URLs using the canonical `/match/<matchId>` scheme (per spec 013) and MUST support a `publicBaseUrl` configuration (or equivalent) so that emitted URLs are absolute when the server is not reachable from the client's origin (e.g., behind a reverse proxy). When `publicBaseUrl` is not configured, the host MAY use `window.location.origin` at copy time (FR-028) or a sensible default for the emitted terminal URLs.
+- **FR-035**: The same implementation change set MUST update applicable user-facing documentation (player manual) and developer/operator documentation (README, self-hosting guidance) to describe the copy-link affordance, the deep-link entry flow, and the play-or-spectate interstitial. Documentation MUST explain that private matches are joinable and spectatable only via the shareable link, and that `/match/<matchId>` is the canonical shareable URL.
 
 ### Key Entities
 
@@ -156,18 +191,22 @@ As a player or observer, I want to join an open game or spectate a running publi
 - **SC-002**: Two browser clients complete create → join → first authoritative tick through the landing interface in under 2 seconds after the second seat is accepted, including existing map generation.
 - **SC-003**: In a 50-cycle concurrent conflict test, no two active sessions hold the same normalized handle and no match receives more seats than its configured capacity.
 - **SC-004**: In 10/10 trials, the lobby shows Join for an open public match, changes the entry on start, shows Spectate for an in-progress public match, and shows neither the finished match nor a history entry after collection.
-- **SC-005**: A spectator can enter 10/10 sampled in-progress public matches, receives full-visibility read-only views, and produces zero accepted player orders.
+- **SC-005**: A spectator can enter 10/10 sampled in-progress public matches from the lobby, receives full-visibility read-only views, and produces zero accepted player orders. (Private-match spectation via link is covered by SC-016.)
 - **SC-006**: A keyboard-only accessibility pass can complete identity setup, create or join a match, spectate an in-progress match, and return to the lobby; all failure and empty states are announced and actionable.
 - **SC-007**: A 50-match sequential create/join/finish/collect soak leaves zero active matches, seats, or GuestPlayerIdentity sessions that should have expired under the existing lifecycle policy.
 - **SC-008**: In 10/10 two-client trials, each player's accepted handle appears on the correct waiting/live seat and remains correct after the first authoritative tick. Any guest/player IDs present in lobby, match UI, or received player/spectator view data are treated as non-secret correlation data: they grant no seat, order, or view authority, disclose no hidden state, and do not replace the handle-first label rule.
 - **SC-009**: In a test with two seated players, 100 orders (including forged alternate handle, ID, and seat fields) result in every accepted order being attributed to the connection's server-authoritative seat, with all forged cross-player claims rejected and no unauthorized world-state change.
 - **SC-010**: In 10/10 reconnect trials within the existing grace period, each player resumes the original seat, handle, and view association; invalid or cross-player reconnect credentials produce no seat, order, or view reassignment.
 - **SC-011**: A documentation diff in the implementation change set updates the applicable player manual/user guidance and developer/operator/API/README/self-hosting guidance, and an automated or review checklist confirms that each describes handle visibility, authoritative identity association, and the opaque in-memory ID boundary without misrepresenting non-secret IDs as credentials, authority, or stable authenticated accounts.
+- **SC-012**: In 10/10 trials, a player who creates or joins a match (public or private) can copy a shareable `/match/<matchId>` link from the match UI with visible clipboard confirmation; the action is keyboard-accessible. For private matches, the affordance is prominent and unmissable.
+- **SC-013**: In 10/10 fresh-browser deep-link trials, opening `/match/<matchId>` for a waiting match with open seats prompts a handle-less visitor through identity setup (if needed), presents the play-or-spectate interstitial, and seats the visitor on Play or attaches them as spectator on Spectate. For a full or in-progress match, only Spectate is offered.
+- **SC-014**: In 10/10 trials, a participant or spectator opening `/match/<matchId>` for a match they are already in goes straight into the match view without an interstitial.
+- **SC-015**: In 10/10 trials, opening `/match/<matchId>` for an unknown, expired, or collected match shows a recoverable "match not found" state with a return-to-lobby action — never a blank screen.
+- **SC-016**: A spectator can enter 10/10 sampled private matches via shareable link, receives full-visibility read-only views, and produces zero accepted player orders — identical to public-match spectation (FR-012/FR-031).
 
 ## Out of Scope
 
-- Private matches, shareable invitations, or hidden-match links.
-- Accounts, passwords, authentication, cross-device identity, or durable profiles.
+- Accounts, passwords, authentication, cross-device identity, durable profiles, link rotation, link revocation, or link expiry (link rotation/revocation/expiry is deferred to the future accounts feature).
 - Database or file persistence, match history, replays, ratings, leaderboards, chat, moderation, or invitations.
 - Changes to city, pipe, combat, fog-of-war, tick, victory, spectator, reconnect, or order mechanics.
 - End-to-end expansion of 3–4 player browser flows; the existing v1 contract remains 2-player end-to-end while engine/matchmaking support is retained.
@@ -244,6 +283,20 @@ No interactive clarification questions were required. The approved decisions res
 - Guest identity IDs and gameplay `PlayerId` values are non-secret correlation data and may appear in URLs, wire payloads, internal state, logs, diagnostics, documentation, and examples.
 - Handles remain preferred participant labels; a generic fallback or player ID is acceptable when no handle is available.
 - Session/reconnect tokens remain bearer credentials and are not permitted in public app URLs, logs, diagnostics, or documentation examples. Narrow exception: the temporary/local `pnpm host` operator flow MAY print tokenized join URLs for local seat handoff; this is not a general app URL policy, and operators must treat those URLs as secrets because anyone who obtains one may attempt to resume that seat during the grace window. Private-match existence and fog-of-war boundaries are unchanged.
+
+### Session 2026-09-06 — Issue #34 shareable match links amendment (v1.8)
+
+This amendment picks up the previously deferred scope of private matches and shareable invitations (former Out of Scope line: "Private matches, shareable invitations, or hidden-match links"). It adds copy-link UX, deep-link onboarding, and play-or-spectate interstitial behavior on top of the existing lobby, identity, and semantic URL infrastructure (spec 013). Key decisions from the issue's resolved design decisions (do not relitigate):
+
+- **Copy-link scope**: all matches get a "Copy link" affordance; more prominent for private matches (the only entry path), quieter for public matches. The link is the canonical `/match/<matchId>` URL (spec 013 scheme).
+- **Spectate-by-link for private matches**: link holders may spectate a private match — the link is the invitation (spec 006 Q2 model). FR-012 is amended to cover private matches reached via link; no new wire path needed (existing spectator join accepts a private `MatchId` unchanged).
+- **URL construction**: FR-028 uses the canonical `/match/<matchId>` URL. FR-034 addresses self-hosted absolute URL generation via `publicBaseUrl` configuration or `window.location.origin` at copy time — the exact mechanism is an implementation choice.
+- **Handle on deep link**: always through the identity card / already-saved handle (FR-004); the URL never pre-fills a handle.
+- **Play-or-spectate interstitial**: presented only to non-participants who reach `/match/<matchId>` via deep link. Play is offered only when seats are open; full/running/collected matches offer only Spectate. Participants and spectators go straight in (FR-030).
+- **Canonical in-match URL**: `/match/<matchId>` for all entry paths (lobby join, deep link, reconnect), per spec 013's route contract (FR-032).
+- **Failure handling**: unknown/expired/collected match IDs show the existing recoverable "match not found" state (spec 006 FR-006) with a return-to-lobby action (FR-033).
+
+Binding decisions preserved: private matches remain invisible in the lobby (binding decision 4); link rotation/revocation/expiry deferred to future accounts feature; the match ID is the admission reference, not a bearer credential (spec 006 v1.2).
 
 ## Implementation Notes and Validation
 
