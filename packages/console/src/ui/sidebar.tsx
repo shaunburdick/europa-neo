@@ -6,7 +6,7 @@
  * sidebar composes the 8 contractual sections in vertical order
  * (FR-015):
  *
- *   1. Status   — connection status, tick counter, local player
+ *   1. Status   — connection status, match-live indicator, local player
  *   2. Players  — per-seat authoritative labels + color indicators
  *   3. Orders   — exclusive/clear mode toggle (OrderBar)
  *   4. Reserve  — reserves slider + quick-select digits (ReservesPanel)
@@ -47,8 +47,6 @@ export interface SidebarProps {
      * camera) directly from here — one prop, no per-slice drift.
      */
     readonly state: ConsoleState;
-    /** Current tick, or `null` before the first view (Status section). */
-    readonly tick: number | null;
     /** Reserves digit on the focused cell (Reserve section). */
     readonly selectionReserves: ReservesPct;
     /** Board width in cells (Overview + Zoom sections). */
@@ -88,7 +86,6 @@ export interface SidebarProps {
  */
 export function Sidebar({
     state,
-    tick,
     selectionReserves,
     boardWidth,
     boardHeight,
@@ -121,15 +118,18 @@ export function Sidebar({
 
     return (
         <aside className="europa-sidebar" aria-label="Match controls">
-            {/* 1. Status — connection status, tick counter, local player. */}
+            {/* 1. Status — connection status, match-live indicator, local player. */}
             <section id="status" aria-label="Status" className="europa-sidebar__section">
                 <h2 className="europa-sidebar__heading">Status</h2>
                 <Tooltip content="Current connection and game status">
                     <span className="europa-hud__item">Status: {status}</span>
                 </Tooltip>
-                <Tooltip content="Current game tick number">
-                    <span className="europa-hud__item">Tick: {tick ?? '—'}</span>
-                </Tooltip>
+                {status === 'live' && (
+                    <span className="europa-sidebar__live-indicator">
+                        <span className="europa-sidebar__live-dot" aria-hidden="true" />
+                        Match live
+                    </span>
+                )}
                 <Tooltip content="Your seat in this match">
                     <span className="europa-hud__item">
                         You:{' '}

@@ -484,7 +484,6 @@ export function App({
                     disabled/inert when `store === undefined` (FR-021). */}
                 <Sidebar
                     state={resolvedState}
-                    tick={mapView?.tick ?? null}
                     selectionReserves={selectionReserves}
                     boardWidth={mapView?.width ?? 0}
                     boardHeight={mapView?.height ?? 0}

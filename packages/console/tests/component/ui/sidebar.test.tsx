@@ -67,7 +67,6 @@ function liveSidebarProps(state: ConsoleState) {
     const mapView = mapViewOf(state);
     return {
         state,
-        tick: state.latestView?.tick ?? null,
         selectionReserves: 0,
         boardWidth: mapView.width,
         boardHeight: mapView.height,
@@ -114,12 +113,40 @@ describe('Sidebar (FR-015)', () => {
         }
     });
 
-    test('Status section shows tick + connection status', async () => {
+    test('Status section shows connection status', async () => {
         const state = liveState();
         await render(<Sidebar {...liveSidebarProps(state)} />);
         const status = document.querySelector('#status');
         expect(status?.textContent).toContain('live');
-        expect(status?.textContent).toContain(String(state.latestView?.tick ?? ''));
+    });
+
+    test('Status section shows live indicator when status is live', async () => {
+        const state = liveState();
+        await render(<Sidebar {...liveSidebarProps(state)} />);
+        const indicator = document.querySelector('.europa-sidebar__live-indicator');
+        expect(indicator).not.toBeNull();
+        expect(indicator?.textContent).toContain('Match live');
+        const dot = document.querySelector('.europa-sidebar__live-dot');
+        expect(dot).not.toBeNull();
+        expect(dot?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    test('Status section hides live indicator when status is not live', async () => {
+        const state = { ...INITIAL_CONSOLE_STATE };
+        await render(
+            <Sidebar
+                state={state}
+                selectionReserves={0}
+                boardWidth={0}
+                boardHeight={0}
+                cells={[]}
+                onSetCamera={vi.fn()}
+                onSurrenderRequest={vi.fn()}
+                onHelpToggle={vi.fn()}
+            />,
+        );
+        const indicator = document.querySelector('.europa-sidebar__live-indicator');
+        expect(indicator).toBeNull();
     });
 });
 
@@ -131,7 +158,6 @@ describe('Sidebar spectator parity (FR-021)', () => {
         await render(
             <Sidebar
                 state={state}
-                tick={null}
                 selectionReserves={0}
                 boardWidth={8}
                 boardHeight={8}

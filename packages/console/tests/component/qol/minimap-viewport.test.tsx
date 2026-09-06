@@ -59,7 +59,6 @@ function SidebarHarness({ store, mapView }: { store: ReturnType<typeof createCon
     );
     return createElement(Sidebar, {
         state,
-        tick: state.latestView?.tick ?? null,
         selectionReserves: 0,
         boardWidth: mapView.width,
         boardHeight: mapView.height,

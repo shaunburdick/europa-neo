@@ -242,6 +242,40 @@ body {
     font-size: var(--europa-typography-size-base);
 }
 
+/* Live match indicator (FR-024): pulsing green dot + label,
+   rendered only when status === 'live'. */
+.europa-sidebar__live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-secondary);
+}
+
+.europa-sidebar__live-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background-color: var(--europa-color-green, #22c55e);
+    animation: europa-live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes europa-live-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .europa-sidebar__live-dot {
+        animation: none;
+    }
+}
+
 /* Zoom section (issue #76 FR-017): percentage level + controls. */
 .europa-zoom {
     display: flex;
