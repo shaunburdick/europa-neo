@@ -225,7 +225,7 @@ export function App({
         // sampling pixels to avoid the race between ResizeObserver-driven
         // dimension changes and the async paint effect. The value
         // increments so tests can wait for a specific paint generation.
-        canvas.dataset.paintCount = String(Number(canvas.dataset.paintCount ?? '0') + 1);
+        canvas.dataset['paintCount'] = String(Number(canvas.dataset['paintCount'] ?? '0') + 1);
     }, [mapView, labelEpoch, reducedMotion]);
 
     // Hidden aria-live regions (WCAG 4.1.3 status messages). One
