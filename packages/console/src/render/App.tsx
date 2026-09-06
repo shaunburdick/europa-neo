@@ -518,6 +518,7 @@ export function App({
                             subcell={aimSubcell}
                             abilityLabel="Paratroop target"
                             announcer={announcer ?? undefined}
+                            viewportOffset={viewportOffset}
                         />
                     ) : null}
                     {awaitingStart ? (
