@@ -98,3 +98,62 @@ describe('App sidebar static during zoom/pan (FR-016)', () => {
         expect(after?.height).toBe(before?.height);
     });
 });
+
+describe('Grid overlay alignment with canvas viewportOffset', () => {
+    test('grid overlay uses top-left anchor, not inset stretch', async () => {
+        await page.viewport(1024, 768);
+        await render(<App store={makeStore()} />);
+
+        const grid = document.querySelector<HTMLElement>('#map');
+        expect(grid).not.toBeNull();
+
+        const style = window.getComputedStyle(grid as HTMLElement);
+        expect(style.position).toBe('absolute');
+        expect(style.top).toBe('0px');
+        expect(style.left).toBe('0px');
+        // inset:0 would pin right/bottom to 0px — the top-left anchor with
+        // explicit width/height leaves them as non-zero remaining space.
+        expect(style.right).not.toBe('0px');
+        expect(style.bottom).not.toBe('0px');
+    });
+
+    test('grid overlay transform matches expected viewport offset', async () => {
+        await page.viewport(1024, 768);
+        await render(<App store={makeStore()} />);
+
+        const grid = document.querySelector<HTMLElement>('#map');
+        expect(grid).not.toBeNull();
+
+        // Inline style: width/height = boardSize * zoom, transform = translate(Xpx, Ypx)
+        const inlineTransform = (grid as HTMLElement).style.transform;
+        expect(inlineTransform).toMatch(/translate\(/);
+
+        const match = inlineTransform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
+        expect(match).not.toBeNull();
+        const parsedX = parseFloat(match![1]);
+        const parsedY = parseFloat(match![2]);
+
+        // Board: 8 cells × default zoom 32 = 256px
+        const defaultZoom = 32;
+        const boardCells = 8;
+        const boardPx = boardCells * defaultZoom; // 256
+
+        const boardArea = document.querySelector<HTMLElement>('.europa-board-area');
+        expect(boardArea).not.toBeNull();
+        const containerW = (boardArea as HTMLElement).getBoundingClientRect().width;
+        const containerH = (boardArea as HTMLElement).getBoundingClientRect().height;
+
+        // Compute expected viewport offset — mirrors App.tsx useMemo
+        const offX = boardPx < containerW ? -(containerW - boardPx) / 2 : 0;
+        const offY = boardPx < containerH ? -(containerH - boardPx) / 2 : 0;
+
+        // GridOverlay negates viewportOffset in its inline transform:
+        //   translate(${-viewportOffset.x}px, ${-viewportOffset.y}px)
+        expect(parsedX).toBeCloseTo(-offX, 0);
+        expect(parsedY).toBeCloseTo(-offY, 0);
+
+        // Inline grid dimensions = boardCells * zoom
+        expect((grid as HTMLElement).style.width).toBe(`${boardPx}px`);
+        expect((grid as HTMLElement).style.height).toBe(`${boardPx}px`);
+    });
+});
