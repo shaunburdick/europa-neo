@@ -30,7 +30,6 @@
 
 import type { JSX, RefObject } from 'react';
 
-import { CONSOLE_CONSTANTS } from '../config';
 import { Minimap } from '../qol/minimap';
 import { Tooltip } from '../qol/tooltip';
 import { boardCenterScreen, clampCamera, zoomedCamera, zoomPercent } from '../qol/zoom';
@@ -113,7 +112,7 @@ export function Sidebar({
         onSetCamera(zoomedCamera(camera, 100, boardCenterScreen(camera, board), board));
     };
     const zoomReset = (): void => {
-        onSetCamera(clampCamera({ ...camera, zoom: CONSOLE_CONSTANTS.defaultCellPx }, board));
+        onSetCamera(clampCamera({ ...camera, zoom: camera.minZoom }, board));
     };
 
     return (
@@ -200,7 +199,7 @@ export function Sidebar({
                 <h2 className="europa-sidebar__heading">Zoom</h2>
                 <div className="europa-zoom">
                     <span className="europa-zoom__level" data-europa-zoom-level="true">
-                        {zoomPercent(camera.zoom)}%
+                        {zoomPercent(camera.zoom, camera.minZoom)}%
                     </span>
                     <fieldset className="europa-zoom__controls" aria-label="Zoom controls">
                         <button

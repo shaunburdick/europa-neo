@@ -6,7 +6,7 @@
  *   · `+` / `=` zoom in one step (× ZOOM_WHEEL_STEP, board-center
  *     anchored — same pure helpers as the wheel + sidebar buttons);
  *   · `-` / `_` zoom out one step;
- *   · `Home` resets to 100% (defaultCellPx).
+ *   · `Home` resets to 100% (camera.minZoom = fitZoom).
  *
  * PM ruling: `0` is NOT a zoom shortcut — it stays the `reserve0`
  * digit key (the engine's reserves domain owns 0–9). The zoom layer
@@ -16,7 +16,6 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { CONSOLE_CONSTANTS } from '../../../src/config';
 import { FakeMatchClient } from '../../../src/internal/fake-match-client';
 import { HotkeyController } from '../../../src/qol/hotkeys';
 import { ZOOM_WHEEL_STEP } from '../../../src/qol/zoom';
@@ -75,22 +74,23 @@ describe('HotkeyController UI-zoom layer (FR-018)', () => {
         const { store } = makeStore();
         const controller = new HotkeyController(store);
         controller.attach();
-        // With minZoom = defaultCellPx = 32, zooming out from the
+        // With minZoom = 32 (default), zooming out from the
         // default camera immediately hits the floor.
         pressKey('-');
         expect(store.getState().camera.zoom).toBe(store.getState().camera.minZoom);
         controller.dispose();
     });
 
-    test('Home resets to 100% (defaultCellPx) from any zoom', () => {
+    test('Home resets to 100% (camera.minZoom) from any zoom', () => {
         const { store } = makeStore();
         const controller = new HotkeyController(store);
         controller.attach();
         pressKey('+');
         pressKey('+');
-        expect(store.getState().camera.zoom).toBeGreaterThan(CONSOLE_CONSTANTS.defaultCellPx);
+        const minZoom = store.getState().camera.minZoom;
+        expect(store.getState().camera.zoom).toBeGreaterThan(minZoom);
         pressKey('Home');
-        expect(store.getState().camera.zoom).toBe(CONSOLE_CONSTANTS.defaultCellPx);
+        expect(store.getState().camera.zoom).toBe(minZoom);
         controller.dispose();
     });
 

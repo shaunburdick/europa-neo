@@ -37,7 +37,6 @@
  * JSDoc references: FR-004 + research.md §7 + Q-U10.
  */
 
-import { CONSOLE_CONSTANTS } from '../config';
 import { shouldIgnoreKeyEvent, translateKey } from '../input/order-draft';
 import { boardCenterScreen, clampCamera, zoomedCamera } from '../qol/zoom';
 import type { ConsoleStore } from '../state/store';
@@ -293,7 +292,7 @@ export class HotkeyController {
         const camera = state.camera;
         let next: CameraState;
         if (reset) {
-            next = clampCamera({ ...camera, zoom: CONSOLE_CONSTANTS.defaultCellPx }, board);
+            next = clampCamera({ ...camera, zoom: camera.minZoom }, board);
         } else {
             next = zoomedCamera(camera, zoomIn ? -100 : 100, boardCenterScreen(camera, board), board);
         }

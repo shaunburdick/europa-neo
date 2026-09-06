@@ -38,6 +38,7 @@ import type { JSX } from 'react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { LiveRegionAnnouncer } from '../a11y/live-region';
+import { CONSOLE_CONSTANTS } from '../config';
 import { RegionSelectController } from '../input/region-select';
 import { CURSOR_STALE_MS } from '../input/subcell-target';
 import { peekInjectedConsoleState } from '../internal/test-state';
@@ -158,6 +159,42 @@ export function App({
     // (issue #76): without it the indicator defaults to the full
     // board, which lies whenever the visible window is smaller.
     const boardSize = useContainerSize(boardAreaRef);
+
+    // Fit-zoom initialization (issue #76 zoom model fix): on the
+    // first tick when boardSize becomes available, compute the zoom
+    // level that makes the whole board visible (100% = fit board to
+    // viewport) and update the camera range so zoom percentages are
+    // relative to this dynamic baseline. Only fires once — when the
+    // camera is still at its defaults (zoom = minCellPx, pan = {0,0}).
+    useEffect(() => {
+        if (boardSize === null || store === undefined) {
+            return;
+        }
+        const state = store.getState();
+        const { camera, latestView } = state;
+        if (latestView === null) {
+            return;
+        }
+        // Only initialize when camera is still at defaults.
+        if (camera.zoom !== CONSOLE_CONSTANTS.minCellPx || camera.pan.x !== 0 || camera.pan.y !== 0) {
+            return;
+        }
+        const boardCells = latestView.config.boardSize;
+        if (boardCells <= 0) {
+            return;
+        }
+        const fitZoom = Math.min(boardSize.width, boardSize.height) / boardCells;
+        const clampedFitZoom = Math.min(CONSOLE_CONSTANTS.maxCellPx, Math.max(CONSOLE_CONSTANTS.minCellPx, fitZoom));
+        store.dispatch({
+            kind: 'setCamera',
+            camera: {
+                ...camera,
+                zoom: clampedFitZoom,
+                minZoom: clampedFitZoom,
+                maxZoom: Math.min(CONSOLE_CONSTANTS.maxCellPx, clampedFitZoom * 3),
+            },
+        });
+    }, [boardSize, store]);
 
     // Viewport offset (issue #76): the board-space origin of the
     // visible area's top-left corner, derived from the container size

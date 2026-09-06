@@ -12,8 +12,7 @@
  *   cell   = (screen − pan) / zoom      (inverse / hit-testing)
  *
  * Constraints enforced here:
- *   - `zoom` ∈ [camera.minZoom, camera.maxZoom] ([32, 96] by
- *     default per CONSOLE_CONSTANTS);
+ *   - `zoom` ∈ [camera.minZoom, camera.maxZoom];
  *   - `pan.x` ∈ [−(maxZoom × 2), boardWidth × zoom], same for y —
  *     the board can never be panned entirely off-screen.
  *
@@ -29,7 +28,6 @@
  * JSDoc references: US5 AC-1 + data-model.md §4 + FR-010.
  */
 
-import { CONSOLE_CONSTANTS } from '../config';
 import type { ConsoleStore } from '../state/store';
 import type { CameraState, ScreenPoint } from '../state/types';
 
@@ -42,15 +40,19 @@ export const ZOOM_WHEEL_STEP = 1.15;
 
 /**
  * Zoom percentage display layer (issue #76 FR-017): the sidebar
- * indicator shows the camera zoom as a percentage of the default cell
- * size (32px = 100%). Pure display conversion — `CameraState.zoom`
- * stays in cell-pixels; only the presentation is a percentage.
+ * indicator shows the camera zoom as a percentage of the fit zoom
+ * (the zoom level that makes the whole board visible in the viewport).
+ * 100% = whole board visible, 300% = max zoom. Pure display conversion
+ * — `CameraState.zoom` stays in cell-pixels; only the presentation is
+ * a percentage.
  *
- * @param zoom Camera zoom in cell-pixels.
- * @returns Rounded percentage (50 for 16px, 100 for 32px, 300 for 96px).
+ * @param zoom    Camera zoom in cell-pixels.
+ * @param fitZoom The fit-zoom level (100% baseline). Typically
+ *                `camera.minZoom` after initialization.
+ * @returns Rounded percentage (100 for fitZoom, 200 for 2× fitZoom, etc.).
  */
-export function zoomPercent(zoom: number): number {
-    return Math.round((zoom / CONSOLE_CONSTANTS.defaultCellPx) * 100);
+export function zoomPercent(zoom: number, fitZoom: number): number {
+    return Math.round((zoom / fitZoom) * 100);
 }
 
 /** Board dimensions the pan clamp needs (cells). */
