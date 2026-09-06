@@ -130,13 +130,11 @@ describe('Grid overlay alignment with canvas viewportOffset', () => {
 
         const match = inlineTransform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
         expect(match).not.toBeNull();
-        const parsedX = parseFloat(match![1]);
-        const parsedY = parseFloat(match![2]);
+        const parsedX = parseFloat(match?.[1]);
+        const parsedY = parseFloat(match?.[2]);
 
-        // Derive actual zoom from the grid's inline width (set by fitZoom init)
-        const boardCells = 8;
+        // Derive actual board pixels from the grid's inline width (set by fitZoom init)
         const actualBoardPx = parseFloat((grid as HTMLElement).style.width);
-        const actualZoom = actualBoardPx / boardCells;
 
         const boardArea = document.querySelector<HTMLElement>('.europa-board-area');
         expect(boardArea).not.toBeNull();

@@ -95,7 +95,9 @@ async function waitForTargetingOverlay(): Promise<HTMLElement> {
             message: 'TargetingOverlay (.europa-targeting) did not appear after selectCell',
         })
         .not.toBeNull();
-    return document.querySelector<HTMLElement>('.europa-targeting')!;
+    const el = document.querySelector<HTMLElement>('.europa-targeting');
+    if (el === null) throw new Error('TargetingOverlay not found after poll');
+    return el;
 }
 
 /**
@@ -191,7 +193,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('Grid overlay transform matches viewportOffset', () => {
-    test('translate(${-offX}, ${-offY}) equals the computed offset', async () => {
+    test(`translate(${-offX}, ${-offY}) equals the computed offset`, async () => {
         await page.viewport(1024, 768);
         await render(<App store={makeStore()} />);
 
@@ -222,7 +224,7 @@ describe('CellView positions match the viewportOffset formula', () => {
 
             const cell = grid.querySelector<HTMLElement>(`#europa-cell-${x}-${y}`);
             expect(cell, `Cell (${x}, ${y}) should exist in the DOM`).not.toBeNull();
-            const rect = cell!.getBoundingClientRect();
+            const rect = (cell as HTMLElement).getBoundingClientRect();
 
             expect(
                 Math.abs(rect.left - expected.left),
@@ -292,7 +294,7 @@ describe('CellView and TargetingOverlay agree on screen position', () => {
         // Layer 2: CellView (GridOverlay)
         const cell = grid.querySelector<HTMLElement>('#europa-cell-3-3');
         expect(cell).not.toBeNull();
-        const cellRect = cell!.getBoundingClientRect();
+        const cellRect = (cell as HTMLElement).getBoundingClientRect();
 
         // Layer 3: TargetingOverlay
         store.dispatch({ kind: 'selectCell', cell: { x: 3, y: 3 } });
@@ -322,7 +324,7 @@ describe('CellView and TargetingOverlay agree on screen position', () => {
 
         const cell = grid.querySelector<HTMLElement>('#europa-cell-0-7');
         expect(cell).not.toBeNull();
-        const cellRect = cell!.getBoundingClientRect();
+        const cellRect = (cell as HTMLElement).getBoundingClientRect();
 
         store.dispatch({ kind: 'selectCell', cell: { x: 0, y: 7 } });
         const targeting = await waitForTargetingOverlay();
@@ -358,14 +360,16 @@ describe('Canvas dimensions match the board area container', () => {
 
         const boardArea = document.querySelector<HTMLElement>('.europa-board-area');
         expect(boardArea).not.toBeNull();
-        const containerRect = boardArea!.getBoundingClientRect();
+        const containerRect = (boardArea as HTMLElement).getBoundingClientRect();
 
         // Canvas bitmap dimensions are set to Math.round(container) in App.tsx.
-        expect(Math.abs(canvas!.width - Math.round(containerRect.width))).toBeLessThanOrEqual(1);
-        expect(Math.abs(canvas!.height - Math.round(containerRect.height))).toBeLessThanOrEqual(1);
+        expect(Math.abs((canvas as HTMLCanvasElement).width - Math.round(containerRect.width))).toBeLessThanOrEqual(1);
+        expect(Math.abs((canvas as HTMLCanvasElement).height - Math.round(containerRect.height))).toBeLessThanOrEqual(
+            1,
+        );
 
         // Canvas CSS dimensions fill the container (width: 100%; height: 100%).
-        const canvasRect = canvas!.getBoundingClientRect();
+        const canvasRect = (canvas as HTMLCanvasElement).getBoundingClientRect();
         expect(Math.abs(canvasRect.width - containerRect.width)).toBeLessThanOrEqual(1);
         expect(Math.abs(canvasRect.height - containerRect.height)).toBeLessThanOrEqual(1);
     });
@@ -379,8 +383,6 @@ describe('Zoom change propagates to all layers', () => {
 
         const grid = await waitForGrid();
         const before = readRenderedGeometry();
-
-        const beforeCellRect = grid.querySelector<HTMLElement>('#europa-cell-3-3')!.getBoundingClientRect();
 
         // Dispatch a zoom change — double the current zoom and keep pan at {0, 0}
         // so the centering branch still applies.
@@ -410,7 +412,9 @@ describe('Zoom change propagates to all layers', () => {
             .toBe(true);
 
         const after = readRenderedGeometry();
-        const afterCellRect = grid.querySelector<HTMLElement>('#europa-cell-3-3')!.getBoundingClientRect();
+        const afterCellEl = grid.querySelector<HTMLElement>('#europa-cell-3-3');
+        expect(afterCellEl).not.toBeNull();
+        const afterCellRect = (afterCellEl as HTMLElement).getBoundingClientRect();
 
         // The expected position at the new zoom should match what the DOM reports.
         const expected = expectedScreenPos(3, 3, after);
