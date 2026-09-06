@@ -36,6 +36,7 @@
     },
     "dependencies": {
         "@europa/engine": "workspace:*",
+        "@europa/logging": "workspace:*",
         "@europa/networking": "workspace:*",
         "@europa/terrain": "workspace:*"
     },

@@ -55,7 +55,7 @@ const TSX_BIN = path.join(PACKAGE_ROOT, 'node_modules', '.bin', 'tsx');
 const CLI_SCRIPT = path.join(PACKAGE_ROOT, 'scripts', 'check-version-drift.ts');
 
 /** Every workspace package the real repository guards (engine, terrain, fog, networking, matchmaking, console, version, design). */
-const EXPECTED_WORKSPACE_PACKAGES = 8;
+const EXPECTED_WORKSPACE_PACKAGES = 9;
 
 /** What a completed CLI run tells the test. */
 interface CliResult {
@@ -153,7 +153,7 @@ async function trackedFixtureRoot(label: string): Promise<string> {
 }
 
 describe('drift check against the REAL repository (positive lockstep proof)', () => {
-    it('gathered sources cover every guarded surface kind with seven workspace packages', async () => {
+    it('gathered sources cover every guarded surface kind with nine workspace packages', async () => {
         const sources = await gatherVersionSources(REPO_ROOT, APP_VERSION);
 
         expect(sources.filter((source) => source.kind === 'root-package')).toHaveLength(1);
