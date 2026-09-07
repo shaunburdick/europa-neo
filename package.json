@@ -20,6 +20,9 @@
         "coverage": "pnpm -r --filter './packages/*' coverage",
         "version:check": "pnpm --filter @europa/version version:check",
         "host": "pnpm --filter @europa/console host",
+        "replay:capture": "tsx packages/engine/scripts/capture.ts",
+        "replay:run": "tsx packages/engine/scripts/run.ts",
+        "replay:update": "tsx packages/engine/scripts/update.ts",
         "verify": "bash scripts/verify.sh",
         "verify:changed": "bash scripts/verify-changed.sh",
         "prepare": "husky"
