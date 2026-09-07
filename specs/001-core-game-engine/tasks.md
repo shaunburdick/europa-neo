@@ -6,28 +6,28 @@
 
 ## Wave 1: Fix the defect in combat.ts
 
-- [ ] T-001: Remove `void constants;` on line 85 of `packages/engine/src/resolution/combat.ts` so the `constants` parameter is accessible for `cellCapacity`
-- [ ] T-002: In the 2-way combat path (lines 195–205), clamp the winner's remaining troops to `Math.min(remaining, constants.cellCapacity)` — apply to both `attackerRemaining` (line 196) and `defenderRemaining` (line 199) branches
-- [ ] T-003: In the 3-way combat path (line 237), clamp the dominant player's count to `Math.min(domPlayer.count, constants.cellCapacity)`
+- [x] T-001: Remove `void constants;` on line 85 of `packages/engine/src/resolution/combat.ts` so the `constants` parameter is accessible for `cellCapacity`
+- [x] T-002: In the 2-way combat path (lines 195–205), clamp the winner's remaining troops to `Math.min(remaining, constants.cellCapacity)` — apply to both `attackerRemaining` (line 196) and `defenderRemaining` (line 199) branches
+- [x] T-003: In the 3-way combat path (line 237), clamp the dominant player's count to `Math.min(domPlayer.count, constants.cellCapacity)`
 
 ## Wave 2: Update existing tests
 
-- [ ] T-004: Review `packages/engine/tests/unit/combat.test.ts` — the `200v50` test (line 139) asserts `troopCounts[idx] === 150` but `cellCapacity = 30`, so after clamping the expected value becomes 30. Update this assertion and the corresponding `1v100` test (line 381) which asserts 99 (≤ 30, no change needed). Update any other tests where the winner's remaining exceeds `cellCapacity`.
-- [ ] T-005: Review `packages/engine/tests/quickstart/combat.test.ts` — check if any assertions on combat outcome troop counts are affected by clamping. Update as needed.
+- [x] T-004: Review `packages/engine/tests/unit/combat.test.ts` — the `200v50` test (line 139) asserts `troopCounts[idx] === 150` but `cellCapacity = 30`, so after clamping the expected value becomes 30. Update this assertion and the corresponding `1v100` test (line 381) which asserts 99 (≤ 30, no change needed). Update any other tests where the winner's remaining exceeds `cellCapacity`.
+- [x] T-005: Review `packages/engine/tests/quickstart/combat.test.ts` — check if any assertions on combat outcome troop counts are affected by clamping. Update as needed.
 
 ## Wave 3: Add clamping-specific tests
 
-- [ ] T-006: Add unit test: 2-way combat where winner remaining equals `cellCapacity` exactly — no clamping occurs (boundary: remaining === capacity)
-- [ ] T-007: Add unit test: 2-way combat where winner remaining is `cellCapacity + 1` — clamped to `cellCapacity` (boundary: remaining = capacity + 1)
-- [ ] T-008: Add unit test: 3-way combat where dominant player's count exceeds `cellCapacity` — clamped to `cellCapacity`
-- [ ] T-009: Add unit test: 2-way combat where winner remaining is `cellCapacity - 1` — no clamping occurs (boundary: remaining = capacity − 1)
+- [x] T-006: Add unit test: 2-way combat where winner remaining equals `cellCapacity` exactly — no clamping occurs (boundary: remaining === capacity)
+- [x] T-007: Add unit test: 2-way combat where winner remaining is `cellCapacity + 1` — clamped to `cellCapacity` (boundary: remaining = capacity + 1)
+- [x] T-008: Add unit test: 3-way combat where dominant player's count exceeds `cellCapacity` — clamped to `cellCapacity`
+- [x] T-009: Add unit test: 2-way combat where winner remaining is `cellCapacity - 1` — no clamping occurs (boundary: remaining = capacity − 1)
 
 ## Wave 4: Final verification
 
-- [ ] T-010: Run full engine test suite: `pnpm --filter @europa/engine test`
-- [ ] T-011: Run typecheck: `pnpm --filter @europa/engine typecheck`
-- [ ] T-012: Run lint + format: `pnpm --filter @europa/engine lint` + `pnpm --filter @europa/engine format:check`
-- [ ] T-013: If golden fixture changed, regenerate `tests/fixtures/golden-1000-tick.json` and verify determinism test passes
+- [x] T-010: Run full engine test suite: `pnpm --filter @europa/engine test`
+- [x] T-011: Run typecheck: `pnpm --filter @europa/engine typecheck`
+- [x] T-012: Run lint + format: `pnpm --filter @europa/engine lint` + `pnpm --filter @europa/engine format:check`
+- [x] T-013: If golden fixture changed, regenerate `tests/fixtures/golden-1000-tick.json` and verify determinism test passes
 
 ---
 
