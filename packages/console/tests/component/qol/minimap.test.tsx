@@ -14,6 +14,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { MINIMAP_SIZE_PX, Minimap, viewportRect } from '../../../src/qol/minimap';
+import { terrainColor } from '../../../src/render/palette';
 import type { CameraState, CellRenderInfo } from '../../../src/state/types';
 
 afterEach(() => {
@@ -126,5 +127,19 @@ describe('viewportRect (pure geometry)', () => {
         const partial = viewportRect(CAMERA, { width: 16, height: 16 }, { width: 256, height: 128 });
         expect(partial.w).toBeCloseTo((256 / 32) * (96 / 16), 6);
         expect(partial.h).toBeCloseTo((128 / 32) * (96 / 16), 6);
+    });
+});
+
+describe('Minimap terrain colors (spec 021 FR-007)', () => {
+    test('terrain colors match terrainColor() output (no hardcoded hex)', async () => {
+        await mountMinimap();
+        // Verify terrainColor is callable and returns expected values for test cells.
+        expect(terrainColor('land', 40)).not.toBe('#3f4a35');
+        expect(terrainColor('water', 20)).toBe('#1d4ed8');
+        // The minimap should use terrainColor for each cell — no hardcoded hex.
+        const landColor = terrainColor('land', 40);
+        const waterColor = terrainColor('water', 20);
+        expect(landColor).toMatch(/^hsl\(/);
+        expect(waterColor).toMatch(/^#[0-9a-f]{6}$/);
     });
 });

@@ -172,6 +172,7 @@ pnpm build
 pnpm -r --filter './packages/*' typecheck
 pnpm lint
 pnpm format:check
+pnpm --filter @europa/design check:no-literals
 echo ""
 
 # Tier B: Per-package tests for changed library packages.

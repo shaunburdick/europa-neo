@@ -23,7 +23,7 @@
 
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
-import { VOID_COLOR } from '../render/palette';
+import { terrainColor, VOID_COLOR } from '../render/palette';
 import type { CameraState, CellRenderInfo, Coord } from '../state/types';
 import { clampCamera } from './zoom';
 
@@ -180,8 +180,7 @@ function paintMinimap(
 
     // Land/water thumbnails (elevation-shaded land reads as texture).
     for (const info of cells) {
-        // design-exception: canvas fallback — spec Edge Cases § pit
-        ctx.fillStyle = info.terrain === 'water' ? '#1d4ed8' : '#3f4a35';
+        ctx.fillStyle = terrainColor(info.terrain, info.elevation);
         ctx.fillRect(
             Math.floor(info.coord.x * scale),
             Math.floor(info.coord.y * scale),

@@ -68,6 +68,30 @@ export const PIPE_FLAT_COLOR = TOKENS.color.pipeFlat;
 export const PIPE_UPHILL_COLOR = TOKENS.color.pipeUphill;
 export const PIPE_STALLED_COLOR = TOKENS.color.pipeStalled;
 
+/** Water shallow variant (design token). */
+export const WATER_SHALLOW_COLOR = TOKENS.color.waterShallow;
+
+/** Water deep variant (design token). */
+export const WATER_DEEP_COLOR = TOKENS.color.waterDeep;
+
+/** Land band count (6 discrete elevation bands). */
+export const LAND_BAND_COUNT = TOKENS.color.landBandCount;
+
+/** Land band lightness values — index 0 = lowest, 5 = highest. */
+export const LAND_BAND_LIGHTNESS = TOKENS.color.landBandLightness;
+
+/** City glow color (semi-transparent amber overlay). */
+export const CITY_GLOW_COLOR = TOKENS.color.cityGlow;
+
+/** City glow strong color (center dot + border glow). */
+export const CITY_GLOW_STRONG_COLOR = TOKENS.color.cityGlowStrong;
+
+/** Void gradient center (lighter void). */
+export const VOID_GRADIENT_CENTER = TOKENS.color.voidGradientCenter;
+
+/** Void gradient edge (darker void). */
+export const VOID_GRADIENT_EDGE = TOKENS.color.voidGradientEdge;
+
 /** Chip background for troop counts / reserve badges / labels. */
 export const CHIP_BACKGROUND = TOKENS.color.chipBg;
 export const CHIP_TEXT = TOKENS.color.chipText;
@@ -102,4 +126,53 @@ export function terrainColor(terrain: 'land' | 'water', elevation: number): stri
     const t = clamped / 255;
     const lightness = Math.round(LAND_MIN_LIGHTNESS_PCT + t * (LAND_MAX_LIGHTNESS_PCT - LAND_MIN_LIGHTNESS_PCT));
     return `hsl(${LAND_HUE} ${LAND_SATURATION_PCT}% ${lightness}%)`;
+}
+
+/**
+ * Return the water color for a given depth level.
+ *
+ * @param depth 0 (shallow), 1 (standard), 2 (deep). Clamped to [0, 2].
+ * @returns Hex color string from design tokens.
+ */
+export function waterDepthColor(depth: number): string {
+    const clamped = Math.max(0, Math.min(2, depth));
+    if (clamped <= 0) return WATER_SHALLOW_COLOR;
+    if (clamped >= 2) return WATER_DEEP_COLOR;
+    return WATER_COLOR;
+}
+
+/**
+ * Quantize elevation 0–255 into a discrete band index 0–5.
+ *
+ * @param elevation Integer 0–255. Negative values clamp to band 0; values > 255 clamp to band 5.
+ * @returns Band index 0–5.
+ */
+export function landBandIndex(elevation: number): number {
+    if (elevation <= 0) return 0;
+    if (elevation >= 255) return 5;
+    return Math.min(5, Math.floor((elevation / 256) * LAND_BAND_COUNT));
+}
+
+/**
+ * Return the HSL color for a given land band index.
+ *
+ * @param band Index 0–5. Clamped to [0, 5].
+ * @returns HSL color string: `hsl(H S% L%)`
+ */
+export function landBandColor(band: number): string {
+    const clamped = Math.max(0, Math.min(5, Math.round(band)));
+    return `hsl(${LAND_HUE} ${LAND_SATURATION_PCT}% ${LAND_BAND_LIGHTNESS[clamped] ?? 18}%)`;
+}
+
+/**
+ * Map cell elevation to water depth (stub for future depth data).
+ *
+ * Currently always returns 1 (standard depth). Will be enhanced
+ * when the board model provides depth information.
+ *
+ * @param elevation Integer 0–255.
+ * @returns Water depth: 0 (shallow), 1 (standard), or 2 (deep).
+ */
+export function waterDepthForCell(_elevation: number): number {
+    return 1;
 }

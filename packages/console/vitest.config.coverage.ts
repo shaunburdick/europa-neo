@@ -65,7 +65,11 @@ export default defineConfig({
                     include: [
                         'tests/component/**/*.test.tsx',
                         'tests/a11y/**/*.test.ts',
-                        'tests/integration/perf.test.ts',
+                        // Perf timing tests are excluded from the coverage
+                        // session: v8 instrumentation adds per-call overhead
+                        // that inflates paint budgets. Q-P01 is already
+                        // validated in the dedicated browser test suite
+                        // (client-ci.yml "Test suites" job) without coverage.
                     ],
                     setupFiles: ['./tests/setup-web-components.ts'],
                 },

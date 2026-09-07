@@ -23,7 +23,7 @@
 
 import type { JSX } from 'react';
 import type { CameraState, CellRenderInfo, Direction, PlayerId } from '../state/types';
-import { CHIP_BACKGROUND, CHIP_TEXT, CITY_COLOR, FOCUS_RING_COLOR, terrainColor } from './palette';
+import { CHIP_BACKGROUND, CHIP_TEXT, CITY_COLOR, FOCUS_RING_COLOR } from './palette';
 
 /** Props for {@link CellView}. */
 export interface CellViewProps {
@@ -123,7 +123,7 @@ export function CellView({
                 top: info.coord.y * zoom,
                 width: zoom,
                 height: zoom,
-                backgroundColor: terrainColor(info.terrain, info.elevation),
+                backgroundColor: 'transparent',
                 ...(info.isCity ? { outline: `2px solid ${CITY_COLOR}`, outlineOffset: -2 } : {}),
                 ...(focused ? { outline: `3px solid ${FOCUS_RING_COLOR}`, outlineOffset: -3 } : {}),
             }}
