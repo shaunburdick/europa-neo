@@ -241,7 +241,7 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         name: 'EuropaElevationSwatch elevation=100 computes the land-band hsl color (no catalog class)',
         element: <EuropaElevationSwatch elevation={100} />,
         expectNoClass: true,
-        expectStyles: [{ prop: 'backgroundColor', value: 'hsl(120, 12%, 62%)' }],
+        expectStyles: [{ prop: 'backgroundColor', value: 'hsl(120, 12%, 58%)' }],
     },
     {
         name: 'EuropaPlayerBadge player=3 uses the green token color',

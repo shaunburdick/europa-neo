@@ -1,35 +1,40 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EuropaElevationSwatch } from '../../../src/components/game/elevation-swatch.js';
+import { TOKENS } from '../../../src/tokens.js';
 
 /**
- * Tests for the {@link EuropaElevationSwatch} React component (spec 014,
- * FR-009 / FR-010).
+ * Tests for the {@link EuropaElevationSwatch} React component (spec 021,
+ * FR-008 — discrete band lookup).
  *
  * The component reads an `elevation` prop (0–100) and renders a
- * `<span role="img">` whose background color is computed by interpolating
- * the land elevation lightness band between `TOKENS.color.landMinLightnessPct`
- * (26) and `TOKENS.color.landMaxLightnessPct` (62). The color formula is:
- *
- *     hsl(120, 12%, <lightness>%)
- *     lightness = 26 + (62 − 26) × (elevation / 100)
+ * `<span role="img">` whose background color is computed by looking up
+ * a discrete elevation band (6 bands) from `TOKENS.color.landBandLightness`.
+ * The elevation range 0–100 is mapped to the palette's 0–255 range.
  *
  * Covered:
- * - Elevation → land-band color formula at boundary and midpoint values.
+ * - Elevation → band-matched color at boundary and midpoint values.
  * - `aria-label` announcing the elevation value.
  * - Coercion: NaN → 0; out-of-range → clamped to [0, 100].
  * - `role="img"` present on the rendered span.
  */
 describe('EuropaElevationSwatch', () => {
     /**
-     * Helper: build the expected `hsl(...)` string for a given elevation.
+     * Helper: build the expected `hsl(...)` string for a given elevation
+     * using the discrete band lookup matching the component's formula.
      *
-     * Reimplements the component's formula so tests catch formula drift in
-     * either direction.
+     * Maps elevation 0–100 → palette 0–255 → band index 0–5 → lightness.
      */
     function expectedHsl(elevation: number): string {
         const clamped = Math.min(100, Math.max(0, elevation));
-        const lightness = 26 + (62 - 26) * (clamped / 100);
+        const scaled = Math.round((clamped / 100) * 255);
+        let band = 0;
+        if (scaled > 0 && scaled < 255) {
+            band = Math.min(5, Math.floor((scaled / 256) * TOKENS.color.landBandCount));
+        } else if (scaled >= 255) {
+            band = 5;
+        }
+        const lightness = TOKENS.color.landBandLightness[band];
         return `hsl(120, 12%, ${lightness}%)`;
     }
 
@@ -85,5 +90,16 @@ describe('EuropaElevationSwatch', () => {
         expect(swatch.style.width).toBe('24px');
         expect(swatch.style.height).toBe('24px');
         expect(swatch.style.borderRadius).toBe('2px');
+    });
+
+    it('uses discrete band colors at boundary elevations', () => {
+        // Elevation 0 → band 0 → lightness 18
+        render(<EuropaElevationSwatch elevation={0} />);
+        expect(screen.getByRole('img')).toHaveStyle({ backgroundColor: 'hsl(120, 12%, 18%)' });
+
+        // Elevation 42 → scaled to ~107 → band 2 → lightness 34
+        render(<EuropaElevationSwatch elevation={42} />);
+        const swatches = screen.getAllByRole('img');
+        expect(swatches[1]).toHaveStyle({ backgroundColor: expectedHsl(42) });
     });
 });

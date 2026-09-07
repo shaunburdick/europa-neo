@@ -14,6 +14,8 @@
   --europa-color-chip-bg: #111827;
   --europa-color-chip-text: #f9fafb;
   --europa-color-city: #fbbf24;
+  --europa-color-city-glow: #ff6b6b;
+  --europa-color-city-glow-strong: #ff4444;
   --europa-color-combat-effect: rgba(239, 68, 68, 0.55);
   --europa-color-divider: #374151;
   --europa-color-error: #dc6966;
@@ -31,6 +33,7 @@
   --europa-color-info-bg: #302311;
   --europa-color-info-border: #5b461d;
   --europa-color-info-hover: #e8c35e;
+  --europa-color-land-band-count: 6;
   --europa-color-land-hue: 120;
   --europa-color-land-max-lightness-pct: 62;
   --europa-color-land-min-lightness-pct: 26;
@@ -57,12 +60,16 @@
   --europa-color-text-secondary: #e5e7eb;
   /* void-bg: the board/canvas recessed background (distinct from page-bg) */
   --europa-color-void-bg: #1a2233;
+  --europa-color-void-gradient-center: #1e2940;
+  --europa-color-void-gradient-edge: #151c2a;
   --europa-color-warning: #dcaa37;
   --europa-color-warning-active: #ad872f;
   --europa-color-warning-bg: #312512;
   --europa-color-warning-border: #5b4920;
   --europa-color-warning-hover: #e8c35e;
   --europa-color-water: #1d4ed8;
+  --europa-color-water-deep: #1e3a5f;
+  --europa-color-water-shallow: #4a90d9;
   --europa-control-height-default: 32px;
   --europa-control-height-lg: 40px;
   --europa-control-height-sm: 24px;

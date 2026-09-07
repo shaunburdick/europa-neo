@@ -67,7 +67,7 @@ function collectEntries(): ReadonlyArray<{ cssVar: string; value: string }> {
 
         for (const leafKey of leafKeys) {
             const rawValue = groupValue[leafKey];
-            if (rawValue === undefined) {
+            if (rawValue === undefined || (typeof rawValue !== 'string' && typeof rawValue !== 'number')) {
                 continue;
             }
             const leafKebab = toKebabCase(leafKey);
@@ -152,7 +152,7 @@ export function buildTokensJson(): ReadonlyArray<{
 
         for (const leafKey of leafKeys) {
             const rawValue = groupValue[leafKey];
-            if (rawValue === undefined) {
+            if (rawValue === undefined || (typeof rawValue !== 'string' && typeof rawValue !== 'number')) {
                 continue;
             }
             const leafKebab = toKebabCase(leafKey);

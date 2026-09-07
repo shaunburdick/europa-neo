@@ -30,15 +30,22 @@ import {
     CHIP_BACKGROUND,
     CHIP_TEXT,
     CITY_COLOR,
+    CITY_GLOW_STRONG_COLOR,
     COMBAT_EFFECT_COLOR,
     FOCUS_RING_COLOR,
     GENERIC_EFFECT_COLOR,
+    landBandColor,
+    landBandIndex,
     PIPE_DOWNHILL_COLOR,
     PIPE_FLAT_COLOR,
     PIPE_STALLED_COLOR,
     PIPE_UPHILL_COLOR,
     terrainColor,
-    VOID_COLOR,
+    VOID_GRADIENT_CENTER,
+    VOID_GRADIENT_EDGE,
+    WATER_DEEP_COLOR,
+    WATER_SHALLOW_COLOR,
+    waterDepthForCell,
 } from './palette';
 import type { PipeSlope } from './pipe-slope';
 
@@ -105,8 +112,14 @@ export class MapCanvas {
         const canvasWidth = ctx.canvas.width;
         const canvasHeight = ctx.canvas.height;
 
-        // Pass 0: void backdrop (also clears the previous frame).
-        ctx.fillStyle = VOID_COLOR;
+        // Pass 0: void backdrop with radial gradient (FR-004).
+        const cx = canvasWidth / 2;
+        const cy = canvasHeight / 2;
+        const outerRadius = Math.sqrt(cx * cx + cy * cy);
+        const voidGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerRadius);
+        voidGrad.addColorStop(0, VOID_GRADIENT_CENTER);
+        voidGrad.addColorStop(1, VOID_GRADIENT_EDGE);
+        ctx.fillStyle = voidGrad;
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
         // Apply viewport offset so cells paint relative to the
@@ -162,17 +175,125 @@ export class MapCanvas {
         ctx.restore();
     }
 
-    /** Draw one cell's terrain fill (+ city outline when applicable). */
+    /**
+     * Draw one cell's terrain fill with visual enhancements.
+     *
+     * Water cells: gradient fill (linear, 4 color stops) + wave texture
+     * (vertical lines at 4px spacing, 0.5px width, 4% white opacity).
+     * Land cells: discrete elevation band (6 bands) + directional
+     * gradient + inner shadow + contour hints (bands 3+).
+     * City cells: existing border + radial glow overlay + glowing center
+     * dot + glow border.
+     *
+     * @param ctx Target 2D context.
+     * @param info Cell render data (terrain, elevation, isCity).
+     * @param zoom Cell pixel size.
+     */
     private drawTerrain(ctx: CanvasRenderingContext2D, info: CellRenderInfo, zoom: number): void {
         const x = info.coord.x * zoom;
         const y = info.coord.y * zoom;
-        ctx.fillStyle = terrainColor(info.terrain, info.elevation);
-        ctx.fillRect(x, y, zoom, zoom);
+
+        if (info.terrain === 'water') {
+            // FR-001: water gradient fill (linear, top-left to bottom-right, 4 color stops).
+            const depth = waterDepthForCell(info.elevation);
+            const baseColor =
+                depth <= 0
+                    ? WATER_SHALLOW_COLOR
+                    : depth >= 2
+                      ? WATER_DEEP_COLOR
+                      : terrainColor('water', info.elevation);
+            const grad = ctx.createLinearGradient(x, y, x + zoom, y + zoom);
+            grad.addColorStop(0, this.adjustBrightness(baseColor, 20));
+            grad.addColorStop(0.33, baseColor);
+            grad.addColorStop(0.66, this.adjustBrightness(baseColor, -10));
+            grad.addColorStop(1, this.adjustBrightness(baseColor, -20));
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, y, zoom, zoom);
+
+            // FR-001: wave texture — vertical lines at 4px spacing, 0.5px width, 4% white.
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.lineWidth = 0.5;
+            for (let wx = x; wx < x + zoom; wx += 4) {
+                ctx.beginPath();
+                ctx.moveTo(wx, y);
+                ctx.lineTo(wx, y + zoom);
+                ctx.stroke();
+            }
+            ctx.restore();
+        } else {
+            // FR-002: discrete land band + directional gradient + inner shadow.
+            const band = landBandIndex(info.elevation);
+            const bandColor = landBandColor(band);
+            const darkColor = this.adjustBrightness(bandColor, -15);
+
+            // Directional gradient: top-left to bottom-right.
+            const grad = ctx.createLinearGradient(x, y, x + zoom, y + zoom);
+            grad.addColorStop(0, bandColor);
+            grad.addColorStop(1, darkColor);
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, y, zoom, zoom);
+
+            // Inner shadow: 1px dark top/left edge, 1px light bottom/right edge.
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillRect(x, y, zoom, 1);
+            ctx.fillRect(x, y, 1, zoom);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.fillRect(x, y + zoom - 1, zoom, 1);
+            ctx.fillRect(x + zoom - 1, y, 1, zoom);
+            ctx.restore();
+
+            // FR-002: contour hints on bands 3+ (diagonal lines, 6px spacing, 10% black).
+            if (band >= 3) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.10)';
+                ctx.lineWidth = 0.5;
+                const step = 6;
+                for (let offset = -zoom; offset < zoom * 2; offset += step) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + offset, y);
+                    ctx.lineTo(x + offset + zoom, y + zoom);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
+        // FR-003: city glow effects (drawn after terrain, before pipes).
         if (info.isCity) {
             const inset = zoom * CITY_INSET_RATIO;
+            const cx = x + zoom / 2;
+            const cy = y + zoom / 2;
+
+            // Radial glow: 40% cell radius, cityGlowStrong → transparent.
+            ctx.save();
+            const glowRadius = zoom * 0.4;
+            const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
+            glowGrad.addColorStop(0, CITY_GLOW_STRONG_COLOR);
+            glowGrad.addColorStop(1, 'rgba(255, 68, 68, 0)');
+            ctx.fillStyle = glowGrad;
+            ctx.fillRect(x, y, zoom, zoom);
+            ctx.restore();
+
+            // Center dot with shadow blur.
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, Math.max(1, zoom * 0.06), 0, Math.PI * 2);
+            ctx.fillStyle = CITY_GLOW_STRONG_COLOR;
+            ctx.shadowColor = CITY_GLOW_STRONG_COLOR;
+            ctx.shadowBlur = 6;
+            ctx.fill();
+            ctx.restore();
+
+            // Border stroke with glow.
+            ctx.save();
             ctx.strokeStyle = CITY_COLOR;
             ctx.lineWidth = Math.max(1.5, zoom * 0.06);
+            ctx.shadowColor = CITY_GLOW_STRONG_COLOR;
+            ctx.shadowBlur = 4;
             ctx.strokeRect(x + inset, y + inset, zoom - inset * 2, zoom - inset * 2);
+            ctx.restore();
         }
     }
 
@@ -276,6 +397,40 @@ export class MapCanvas {
             ctx.fillRect(effect.cell.x * zoom, effect.cell.y * zoom, zoom, zoom);
         }
         ctx.restore();
+    }
+
+    /**
+     * Adjust the brightness of a hex color string by a percentage.
+     *
+     * Parses `#rrggbb` or `#rrggbbaa`, adjusts R/G/B channels by
+     * `percent`% of 255, clamps each channel to 0–255, returns adjusted
+     * hex string. rgb/rgba strings are returned unchanged (can't adjust
+     * reliably).
+     *
+     * @param hex Color string (#rrggbb, #rrggbbaa, or rgb/rgba passthrough).
+     * @param percent Brightness adjustment (-100 to +100). Positive = lighter.
+     * @returns Adjusted color string in the same format as input.
+     */
+    private adjustBrightness(hex: string, percent: number): string {
+        if (!hex) return '';
+        // Return rgb/rgba strings unchanged — can't parse reliably.
+        if (hex.startsWith('rgb')) return hex;
+        const match6 = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+        if (match6) {
+            const r = Math.max(0, Math.min(255, Math.round(Number.parseInt(match6[1], 16) + (percent / 100) * 255)));
+            const g = Math.max(0, Math.min(255, Math.round(Number.parseInt(match6[2], 16) + (percent / 100) * 255)));
+            const b = Math.max(0, Math.min(255, Math.round(Number.parseInt(match6[3], 16) + (percent / 100) * 255)));
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+        const match8 = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+        if (match8) {
+            const r = Math.max(0, Math.min(255, Math.round(Number.parseInt(match8[1], 16) + (percent / 100) * 255)));
+            const g = Math.max(0, Math.min(255, Math.round(Number.parseInt(match8[2], 16) + (percent / 100) * 255)));
+            const b = Math.max(0, Math.min(255, Math.round(Number.parseInt(match8[3], 16) + (percent / 100) * 255)));
+            const a = Number.parseInt(match8[4], 16);
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}${a.toString(16).padStart(2, '0')}`;
+        }
+        return '';
     }
 
     /** Stroke a rectangle around a cell (hover/focus indicators). */

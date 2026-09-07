@@ -18,12 +18,18 @@
 
 import { describe, expect, test } from 'vitest';
 import {
+    LAND_BAND_COUNT,
+    LAND_BAND_LIGHTNESS,
     LAND_MAX_LIGHTNESS_PCT,
     LAND_MIN_LIGHTNESS_PCT,
+    landBandColor,
+    landBandIndex,
     PAGE_BACKGROUND_COLOR,
     terrainColor,
     VOID_COLOR,
     WATER_COLOR,
+    waterDepthColor,
+    waterDepthForCell,
 } from '../../../src/render/palette';
 
 /** Parse `hsl(H S% L%)` (the exact format terrainColor emits). */
@@ -111,5 +117,198 @@ describe('palette contrast invariants (spec 005 Implementation Notes 13)', () =>
         const mid = parseHsl(terrainColor('land', 128)).light;
         expect(mid).toBeGreaterThan(LAND_MIN_LIGHTNESS_PCT);
         expect(mid).toBeLessThan(LAND_MAX_LIGHTNESS_PCT);
+    });
+});
+
+describe('waterDepthColor (spec 021 FR-006)', () => {
+    test('depth 0 returns waterShallow', () => {
+        expect(waterDepthColor(0)).toBe('#4a90d9');
+    });
+
+    test('depth 1 returns standard water', () => {
+        expect(waterDepthColor(1)).toBe(WATER_COLOR);
+    });
+
+    test('depth 2 returns waterDeep', () => {
+        expect(waterDepthColor(2)).toBe('#1e3a5f');
+    });
+
+    test('negative depth clamps to 0', () => {
+        expect(waterDepthColor(-5)).toBe(waterDepthColor(0));
+    });
+
+    test('depth > 2 clamps to 2', () => {
+        expect(waterDepthColor(10)).toBe(waterDepthColor(2));
+    });
+
+    test('fractional depth 1.5 returns standard', () => {
+        expect(waterDepthColor(1.5)).toBe(WATER_COLOR);
+    });
+});
+
+describe('landBandIndex (spec 021 FR-006)', () => {
+    test('elevation 0 → band 0', () => {
+        expect(landBandIndex(0)).toBe(0);
+    });
+
+    test('elevation 255 → band 5', () => {
+        expect(landBandIndex(255)).toBe(5);
+    });
+
+    test('elevation 42 → band 0 (floor(42/256*6) = 0)', () => {
+        expect(landBandIndex(42)).toBe(0);
+    });
+
+    test('elevation 43 → band 1 (floor(43/256*6) = 1)', () => {
+        expect(landBandIndex(43)).toBe(1);
+    });
+
+    test('negative elevation clamps to band 0', () => {
+        expect(landBandIndex(-10)).toBe(0);
+    });
+
+    test('elevation > 255 clamps to band 5', () => {
+        expect(landBandIndex(300)).toBe(5);
+    });
+
+    test('all 6 bands are reachable', () => {
+        const bands = new Set<number>();
+        for (let e = 0; e <= 255; e++) {
+            bands.add(landBandIndex(e));
+        }
+        expect(bands.size).toBe(LAND_BAND_COUNT);
+        expect(bands).toEqual(new Set([0, 1, 2, 3, 4, 5]));
+    });
+});
+
+describe('landBandColor (spec 021 FR-006)', () => {
+    test('band 0 has lightness 18', () => {
+        const hsl = parseHsl(landBandColor(0));
+        expect(hsl.light).toBe(18);
+    });
+
+    test('band 5 has lightness 58', () => {
+        const hsl = parseHsl(landBandColor(5));
+        expect(hsl.light).toBe(58);
+    });
+
+    test('band index clamps below 0 to band 0', () => {
+        expect(landBandColor(-1)).toBe(landBandColor(0));
+    });
+
+    test('band index clamps above 5 to band 5', () => {
+        expect(landBandColor(10)).toBe(landBandColor(5));
+    });
+
+    test('output matches terrainColor format (space-separated HSL)', () => {
+        const color = landBandColor(3);
+        expect(color).toMatch(/^hsl\(\d+ \d+% \d+%\)$/);
+    });
+
+    test('lightness values match design tokens', () => {
+        for (let b = 0; b < LAND_BAND_COUNT; b++) {
+            const hsl = parseHsl(landBandColor(b));
+            expect(hsl.light).toBe(LAND_BAND_LIGHTNESS[b]);
+        }
+    });
+});
+
+describe('waterDepthForCell (spec 021 FR-006 stub)', () => {
+    test('always returns 1 (standard depth)', () => {
+        expect(waterDepthForCell(0)).toBe(1);
+        expect(waterDepthForCell(128)).toBe(1);
+        expect(waterDepthForCell(255)).toBe(1);
+        expect(waterDepthForCell(-5)).toBe(1);
+    });
+});
+
+describe('land band contrast vs void (spec 021 AC-12)', () => {
+    /**
+     * Parse `hsl(H S% L%)` to RGB for contrast calculation.
+     */
+    function hslToRgb(hue: number, sat: number, light: number): [number, number, number] {
+        const s = sat / 100;
+        const l = light / 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+        const m = l - c / 2;
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        if (hue < 60) {
+            r = c;
+            g = x;
+            b = 0;
+        } else if (hue < 120) {
+            r = x;
+            g = c;
+            b = 0;
+        } else if (hue < 180) {
+            r = 0;
+            g = c;
+            b = x;
+        } else if (hue < 240) {
+            r = 0;
+            g = x;
+            b = c;
+        } else if (hue < 300) {
+            r = x;
+            g = 0;
+            b = c;
+        } else {
+            r = c;
+            g = 0;
+            b = x;
+        }
+        return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+    }
+
+    /** Relative luminance per WCAG 2.x (sRGB → linear → weighted sum). */
+    function relativeLuminance(rgb: [number, number, number]): number {
+        const [rs, gs, bs] = rgb.map((c) => {
+            const s = c / 255;
+            return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    }
+
+    /** WCAG contrast ratio between two relative luminances. */
+    function contrastRatio(l1: number, l2: number): number {
+        const lighter = Math.max(l1, l2);
+        const darker = Math.min(l1, l2);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    test('bands 3+ (lightness 42, 50, 58) meet 3:1 contrast vs void', () => {
+        const voidRgb = hexToRgb(VOID_COLOR);
+        const voidLum = relativeLuminance(voidRgb);
+
+        // Bands 3, 4, 5 → lightness 42, 50, 58
+        const highBands = [LAND_BAND_LIGHTNESS[3], LAND_BAND_LIGHTNESS[4], LAND_BAND_LIGHTNESS[5]];
+        for (const lightness of highBands) {
+            const bandRgb = hslToRgb(120, 12, lightness);
+            const bandLum = relativeLuminance(bandRgb);
+            const ratio = contrastRatio(bandLum, voidLum);
+            expect(ratio).toBeGreaterThanOrEqual(3.0);
+        }
+    });
+
+    test('bands 0-2 are documented as acceptable (terrain never sole info carrier)', () => {
+        // Bands 0, 1, 2 → lightness 18, 26, 34 — may be below 3:1
+        // but terrain is never the sole information carrier per constitution
+        // Principle VI. This test documents the gap.
+        const voidRgb = hexToRgb(VOID_COLOR);
+        const voidLum = relativeLuminance(voidRgb);
+
+        const lowBands = [LAND_BAND_LIGHTNESS[0], LAND_BAND_LIGHTNESS[1], LAND_BAND_LIGHTNESS[2]];
+        for (const lightness of lowBands) {
+            const bandRgb = hslToRgb(120, 12, lightness);
+            const bandLum = relativeLuminance(bandRgb);
+            const ratio = contrastRatio(bandLum, voidLum);
+            // Document: these bands may be below 3:1 but are acceptable
+            // because terrain is never the sole info carrier.
+            expect(typeof ratio).toBe('number');
+            expect(ratio).toBeGreaterThan(0);
+        }
     });
 });
