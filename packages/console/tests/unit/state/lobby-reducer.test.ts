@@ -21,6 +21,7 @@ import type { LobbyRevision, LobbySnapshot, MatchId } from '@europa/matchmaking'
 import { describe, expect, it } from 'vitest';
 
 import type { LobbyConnectionState } from '../../../src/net/ws-lobby-client';
+import type { RouteEntry } from '../../../src/routing/route-adapter';
 import { INITIAL_LOBBY_STATE, reduceLobby } from '../../../src/state/lobby-reducer';
 import type { LobbyActionError, LobbyFailure, LobbyState } from '../../../src/state/lobby-state';
 
@@ -399,5 +400,117 @@ describe('retryRequested and purity', () => {
             transition: 'match',
         };
         expect(reduceLobby(NAMED_STATE, action)).toEqual(reduceLobby(NAMED_STATE, action));
+    });
+});
+
+// ----------------------------------------------------------------------------
+// Deep-link interstitial (issue #34, FR-029)
+// ----------------------------------------------------------------------------
+
+describe('deep-link interstitial', () => {
+    /** A player-type route entry for testing. */
+    const PLAYER_ENTRY: Extract<RouteEntry, { readonly kind: 'player' }> = {
+        kind: 'player',
+        route: { kind: 'match', pathname: '/match/test-123', matchId: 'test-123', intent: 'adaptive' },
+        matchId: 'test-123' as MatchId,
+        intent: 'adaptive',
+    };
+
+    it('lobbyDeepLinkInterstitialShown sets the interstitial', () => {
+        const state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyDeepLinkInterstitialShown',
+            routeEntry: PLAYER_ENTRY,
+            matchId: 'test-123' as MatchId,
+        });
+        expect(state.deepLinkInterstitial).not.toBeNull();
+        expect(state.deepLinkInterstitial?.matchId).toBe('test-123');
+        expect(state.deepLinkInterstitial?.routeEntry.kind).toBe('player');
+    });
+
+    it('lobbyDeepLinkInterstitialDismissed clears the interstitial', () => {
+        let state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyDeepLinkInterstitialShown',
+            routeEntry: PLAYER_ENTRY,
+            matchId: 'test-123' as MatchId,
+        });
+        expect(state.deepLinkInterstitial).not.toBeNull();
+        state = reduceLobby(state, { kind: 'lobbyDeepLinkInterstitialDismissed' });
+        expect(state.deepLinkInterstitial).toBeNull();
+    });
+
+    it('lobbyReturned clears deepLinkInterstitial', () => {
+        let state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyDeepLinkInterstitialShown',
+            routeEntry: PLAYER_ENTRY,
+            matchId: 'test-123' as MatchId,
+        });
+        state = reduceLobby(state, { kind: 'lobbyReturned' });
+        expect(state.deepLinkInterstitial).toBeNull();
+    });
+
+    it('lobbyDeepLinkInterstitialShown does not change view mode', () => {
+        const state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyDeepLinkInterstitialShown',
+            routeEntry: PLAYER_ENTRY,
+            matchId: 'test-123' as MatchId,
+        });
+        expect(state.viewMode).toBe('lobby');
+    });
+});
+
+// ----------------------------------------------------------------------------
+// matchVisibility tracking (issue #34, D2)
+// ----------------------------------------------------------------------------
+
+describe('matchVisibility tracking', () => {
+    it('lobbyEnteredMatch stores public visibility', () => {
+        const state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyEnteredMatch',
+            matchId: MATCH_A,
+            matchVisibility: 'public',
+        });
+        expect(state.matchVisibility).toBe('public');
+    });
+
+    it('lobbyEnteredMatch stores private visibility', () => {
+        const state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyEnteredMatch',
+            matchId: MATCH_A,
+            matchVisibility: 'private',
+        });
+        expect(state.matchVisibility).toBe('private');
+    });
+
+    it('lobbyEnteredMatch without visibility preserves null', () => {
+        const state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyEnteredMatch',
+            matchId: MATCH_A,
+        });
+        expect(state.matchVisibility).toBeNull();
+    });
+
+    it('lobbyReturned clears matchVisibility', () => {
+        let state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyEnteredMatch',
+            matchId: MATCH_A,
+            matchVisibility: 'private',
+        });
+        expect(state.matchVisibility).toBe('private');
+        state = reduceLobby(state, { kind: 'lobbyReturned' });
+        expect(state.matchVisibility).toBeNull();
+    });
+
+    it('lobbyDeepLinkInterstitialShown does not affect matchVisibility', () => {
+        const state = reduceLobby(NAMED_STATE, {
+            kind: 'lobbyDeepLinkInterstitialShown',
+            routeEntry: {
+                kind: 'player',
+                route: { kind: 'match', pathname: '/match/x', matchId: 'x', intent: 'adaptive' },
+                matchId: 'x' as MatchId,
+                intent: 'adaptive',
+            },
+            matchId: 'x' as MatchId,
+        });
+        expect(state.matchVisibility).toBeNull();
     });
 });

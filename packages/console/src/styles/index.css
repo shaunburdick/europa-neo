@@ -1014,6 +1014,35 @@ body {
     font-size: var(--europa-typography-size-xs);
 }
 
+/*
+ * Copy-link button (issue #34 FR-028): wrapper and button
+ * height-matched to the chrome bar's title and leave button.
+ *
+ * The bar uses align-items: center, so each child can be a
+ * different height. The wrapper stretches to match the tallest
+ * sibling (the h1 title), and the button inside stretches to
+ * fill the wrapper — giving the icon-only subtle variant the
+ * same visual height as the text buttons.
+ */
+.europa-copy-link {
+    display: flex;
+    flex-shrink: 0;
+    /* Stretch to match the tallest sibling (the h1 title) in the bar. */
+    align-self: stretch;
+}
+
+/* Button fills the wrapper's height (overrides align-self: flex-start
+   from .europa-lobby__button). */
+.europa-copy-link__button {
+    align-self: stretch;
+}
+
+/* Subtle (icon-only) variant: same vertical padding as the leave
+   button, plus horizontal padding so it's not a tiny square. */
+.europa-copy-link__button--subtle {
+    padding: 0.375rem 0.625rem;
+}
+
 /* Inline field/form errors: role="alert" announces them; the left
    border echoes the match view's error toasts (never color alone —
    the text carries the message). */
@@ -1303,7 +1332,7 @@ body {
 .europa-lobby-match__bar {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: stretch;
     gap: var(--europa-spacing-md);
     padding: var(--europa-spacing-sm) var(--europa-spacing-lg);
     background-color: var(--europa-color-surface);
@@ -1314,6 +1343,15 @@ body {
     margin: 0;
     font-size: var(--europa-typography-size-lg);
     font-weight: 600;
+    /* Center text vertically when the bar uses align-items: stretch. */
+    display: flex;
+    align-items: center;
+}
+
+/* Leave button in the chrome bar: override align-self: flex-start
+   from .europa-lobby__button so it stretches to match siblings. */
+.europa-lobby-match__bar [data-europa-leave] {
+    align-self: stretch;
 }
 
 .europa-lobby-match__placeholder {

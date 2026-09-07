@@ -14,7 +14,9 @@ You can rename yourself later with **Change name** and **Update name**. Your acc
 - To play in someone else's waiting game, choose **Join**.
 - To watch a running game, choose **Spectate**. Spectating is full-visibility and read-only: it has no seat and cannot send player orders.
 
-The resulting match address uses a semantic path such as `/match/m-123/join` for player entry or `/match/m-123/spectate` for read-only viewing. A plain `/match/m-123` address adapts to the match state: an open waiting match offers player entry, while a running match is viewed as a spectator. The address contains no display name, session data, or WebSocket address. Your accepted handle and reconnect session come from this browser's stored guest session.
+The resulting match address uses a semantic path such as `/match/m-123` for player entry or `/match/m-123/spectate` for read-only viewing. A plain `/match/m-123` address adapts to the match state: an open waiting match offers player entry, while a running match is viewed as a spectator. The address contains no display name, session data, or WebSocket address. Your accepted handle and reconnect session come from this browser's stored guest session.
+
+Every match has a **Copy link** action that copies the canonical `/match/<match-id>` URL to your clipboard. Send it to a friend so they can join directly without searching the lobby. Private matches are joinable only through the shareable link — they do not appear in the lobby list.
 
 The lobby list shows loading and empty states explicitly. It updates as games fill, start, and finish. A match that disappears before your action is accepted produces a recoverable message and a refreshed list.
 The lobby list shows loading and empty states explicitly. It updates as games fill,

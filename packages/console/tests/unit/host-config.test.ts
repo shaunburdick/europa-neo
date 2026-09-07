@@ -297,4 +297,93 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
             boardSize: 32,
         });
     });
+
+    describe('publicUrl resolution (FR-034, issue #34)', () => {
+        it('defaults to http://publicHost:port when no flag and no env', () => {
+            expect(run([]).result?.publicUrl).toBe('http://localhost:8080');
+        });
+
+        it('defaults using custom port', () => {
+            expect(run(['--port', '9090']).result?.publicUrl).toBe('http://localhost:9090');
+        });
+
+        it('defaults using custom publicHost', () => {
+            expect(run(['--public-host', '192.168.1.20']).result?.publicUrl).toBe('http://192.168.1.20:8080');
+        });
+
+        it('--public-url sets the public URL', () => {
+            expect(run(['--public-url', 'https://example.com']).result?.publicUrl).toBe('https://example.com');
+        });
+
+        it('--public-url= inline form works', () => {
+            expect(run(['--public-url=https://game.example.com']).result?.publicUrl).toBe('https://game.example.com');
+        });
+
+        it('HOST_PUBLIC_URL env sets the public URL', () => {
+            expect(run([], { HOST_PUBLIC_URL: 'https://env.example.com' }).result?.publicUrl).toBe(
+                'https://env.example.com',
+            );
+        });
+
+        it('flag beats env for publicUrl', () => {
+            expect(
+                run(['--public-url', 'https://flag.example.com'], { HOST_PUBLIC_URL: 'https://env.example.com' }).result
+                    ?.publicUrl,
+            ).toBe('https://flag.example.com');
+        });
+
+        it('strips trailing slash from the URL', () => {
+            expect(run(['--public-url', 'https://example.com/']).result?.publicUrl).toBe('https://example.com');
+        });
+
+        it('rejects non-absolute URL', () => {
+            const { result, stderr } = run(['--public-url', 'not-a-url']);
+            expect(result).toBeNull();
+            expect(stderr).toContain('host: --public-url must be an absolute URL');
+        });
+
+        it('rejects non-http protocol', () => {
+            const { result, stderr } = run(['--public-url', 'ftp://example.com']);
+            expect(result).toBeNull();
+            expect(stderr).toContain('host: --public-url must use http or https');
+        });
+
+        it('rejects URL with a path', () => {
+            const { result, stderr } = run(['--public-url', 'https://example.com/app']);
+            expect(result).toBeNull();
+            expect(stderr).toContain('host: --public-url must be an origin only');
+        });
+
+        it('rejects URL with a query string', () => {
+            const { result, stderr } = run(['--public-url', 'https://example.com?foo=bar']);
+            expect(result).toBeNull();
+            expect(stderr).toContain('host: --public-url must be an origin only');
+        });
+
+        it('rejects URL with a fragment', () => {
+            const { result, stderr } = run(['--public-url', 'https://example.com#section']);
+            expect(result).toBeNull();
+            expect(stderr).toContain('host: --public-url must be an origin only');
+        });
+
+        it('rejects HOST_PUBLIC_URL env with invalid URL', () => {
+            const { result, stderr } = run([], { HOST_PUBLIC_URL: 'ftp://bad' });
+            expect(result).toBeNull();
+            expect(stderr).toContain('host: --public-url must use http or https');
+        });
+
+        it('--public-url requires a value', () => {
+            const { result, stderr } = run(['--public-url']);
+            expect(result).toBeNull();
+            expect(stderr).toContain('host: --public-url requires a value');
+        });
+
+        it('accepts http URL', () => {
+            expect(run(['--public-url', 'http://localhost:3000']).result?.publicUrl).toBe('http://localhost:3000');
+        });
+
+        it('accepts IPv6 host', () => {
+            expect(run(['--public-url', 'http://[::1]:8080']).result?.publicUrl).toBe('http://[::1]:8080');
+        });
+    });
 });

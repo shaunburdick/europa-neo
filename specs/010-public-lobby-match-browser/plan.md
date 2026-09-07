@@ -139,9 +139,179 @@ private-match non-enumeration and fog-of-war wording explicit.
 | Private/fog boundary regression | Re-run private-match existence and 500-tick fog audits; IDs may accompany only already-authorized data. |
 | Contradictory assertions remain | Run repository-wide targeted search plus contract/readme/manual checker and review the residual list in tasks. |
 
-## Planned file surface
+## Planned file surface (identity-visibility correction)
 
 See [tasks.md](./tasks.md) for the ordered executable list. The planned Phase 6
 surface is limited to the checker, stale source comments, contract mirrors/docs,
 README/manual wording, and focused test/harness assertions. `specs/013-*` must
 not be created. No application source or tests are changed during phases 4–5.
+
+---
+
+# Issue #34: Shareable Match Links — Copy-Link UX & Deep-Link Onboarding
+
+**Branch**: `issue-34-shareable-match-links`
+**Spec amendment**: spec 010 v1.8 (commit `55ead09`)
+**Date**: 2026-09-06
+
+## Summary
+
+Add two capabilities to the existing lobby/match-browser feature:
+
+1. **Copy-link affordance** (FR-028): A "Copy link" action in the match waiting/live UI that copies `/match/<matchId>` to clipboard with visible confirmation. More prominent for private matches; quieter for public.
+
+2. **Deep-link entry flow** (FR-029–FR-031): Opening `/match/<matchId>` triggers an adaptive entry: handle onboarding if needed → play-or-spectate interstitial for non-participants → join/spectate. Participants go straight in. Spectate-by-link works for private matches.
+
+3. **Supporting**: canonical `/match/<matchId>` URL (FR-032), failure handling (FR-033), host script `publicBaseUrl` config (FR-034), documentation updates (FR-035).
+
+## Technical context
+
+Building on top of already-shipped infrastructure:
+- **Route system** (`packages/console/src/routing/route.ts`): `parseRoute` already classifies `/match/<matchId>` with `adaptive | join | spectate` intent; `buildMatchUrl()` constructs canonical `/match/<matchId>` URLs.
+- **Route adapter** (`packages/console/src/routing/route-adapter.ts`): `adaptRoute()` resolves routes against lobby snapshots → `player | spectator | unavailable | resolve` entries; `executeRouteEntry()` invokes lobby commands.
+- **Lobby runtime** (`packages/console/src/internal/lobby-runtime.tsx`): `LobbyRoot` already handles deep-link resolution — waits for `connection === 'ready'` AND `identityStatus === 'named'`, then calls `adaptRoute` + `executeRouteEntry`. Identity redirect to `/profile` with `returnTo` round-trip already works.
+- **Match chrome** (`MatchLegHost` in lobby-runtime.tsx): renders `europa-lobby-match__bar` with title + "Leave to lobby" button — the natural home for a copy-link action.
+- **Matchmaker** (`packages/matchmaking/src/matchmaker.ts`): `createMatch`/`joinMatch` return `joinPath` (`/join/<matchId>`) and `joinUrl` (when `publicBaseUrl` configured). `ResolvedConfig.publicBaseUrl` already exists.
+- **Host script** (`packages/console/scripts/host.ts`): `--create` mode prints `/match/<matchId>/join` URLs; lobby mode prints only the lobby URL. Uses `NPlayerHostConfig` from `host-config.ts`.
+
+## Architecture decisions
+
+### D1: Copy-link URL construction — `window.location.origin` at copy time
+
+The canonical shareable URL is `/match/<matchId>`. At copy time, the console uses `window.location.origin` to construct the full absolute URL:
+
+```ts
+const url = `${window.location.origin}/match/${encodeURIComponent(matchId)}`;
+```
+
+**Rationale**: The console runs in the browser and always knows its own origin. This avoids any server-side `publicBaseUrl` propagation to the client. For self-hosted setups behind a reverse proxy, the browser's `window.location.origin` is already the correct public origin (the proxy sets `Host`/`X-Forwarded-Host`). The `publicBaseUrl` config (FR-034) is for the host script's terminal output only.
+
+### D2: Copy-link button placement — in the `MatchLegHost` chrome bar
+
+The copy-link button lives in the `europa-lobby-match__bar` section of `MatchLegHost`, alongside the "Leave to lobby" button. Two visual treatments:
+
+- **Private matches**: A dedicated row with prominent styling (e.g., `europa-lobby__button--primary` or a styled share row with icon + "Copy link" text). The bar gains a `visibility` prop derived from the lobby snapshot or creation response.
+- **Public matches**: A subtle icon button (clipboard icon) with `aria-label="Copy match link"`, visually quieter.
+
+The `visibility` is not currently in the `PublicLobbyEntry` type (private matches are not lobby-listed). For the match chrome, visibility can be derived from:
+1. The create-match response (which returns `visibility` in `SeatAssignedResult`), OR
+2. A new `visibility` field on `LobbySnapshot` (additive, per v1.3/v1.6 additive ruling pattern), OR
+3. Stored locally when the match was created/joined (the lobby controller already knows).
+
+**Decision**: Store the match visibility in the lobby state when the match is entered (create/join/spectate). The lobby controller's `lobbyEnteredMatch` action gains an optional `visibility` field. This avoids changing the wire contract and keeps the decision local.
+
+### D3: Deep-link interstitial — new component + lobby state phase
+
+When `adaptRoute` resolves to `player` or `spectator` for a non-participant, instead of immediately executing the route entry, the lobby shows an interstitial. This requires:
+
+1. **New lobby state phase**: `deepLinkInterstitial` — holds the resolved `RouteEntry` and match metadata.
+2. **New component**: `DeepLinkInterstitial` — renders match info + Play/Spectate buttons.
+3. **Modified route resolution effect**: when the resolved entry is for a non-participant, set `deepLinkInterstitial` instead of calling `executeRouteEntry`.
+4. **Modified view gate**: when `deepLinkInterstitial` is set, render the interstitial instead of the lobby landing.
+
+**Why a state phase instead of a separate route**: The interstitial is a transient UI state within the lobby, not a new URL. The URL stays as `/match/<matchId>` throughout. Back/Forward navigation re-resolves the route (existing popstate handler), which can dismiss the interstitial.
+
+### D4: Participant detection — reload resume already works
+
+The existing route resolution effect (lines 378–433 of lobby-runtime.tsx) already checks `state.activeMatchId === currentRoute.matchId` for adaptive/join routes and calls `controller.resumeMatch()` — skipping the interstitial entirely. This covers FR-030 (participants go straight in). Spectator routes with an existing association are similarly handled. No new logic needed for this case.
+
+### D5: Play-or-spectate interstitial logic
+
+The interstitial's available actions are determined by the `adaptRoute` result:
+
+| adaptRoute result | Match status | Seats | Actions shown |
+|---|---|---|---|
+| `player` | waiting | open | Play, Spectate |
+| `player` | waiting | full | Spectate only |
+| `spectator` | in_progress | — | Spectate only |
+| `unavailable` | — | — | Return to lobby (no interstitial — shows RouteNotice) |
+
+The interstitial is ONLY shown for `player` or `spectator` entries (valid matches). `unavailable` entries already show the `RouteNotice` component.
+
+### D6: Clipboard API with fallback
+
+```ts
+async function copyMatchUrl(matchId: string): Promise<{ ok: boolean; url: string }> {
+    const url = `${window.location.origin}/match/${encodeURIComponent(matchId)}`;
+    try {
+        await navigator.clipboard.writeText(url);
+        return { ok: true, url };
+    } catch {
+        // Fallback: select from a hidden input
+        return { ok: false, url };
+    }
+}
+```
+
+The fallback renders the URL as selectable text in a temporary element. The copy-link button shows "Copied!" confirmation on success, or the URL text on failure (FR-028 edge case: "Clipboard write failure MUST show a fallback").
+
+### D7: Host script `publicBaseUrl` — `--public-url` CLI flag
+
+Add `--public-url` / `HOST_PUBLIC_URL` to `host-config.ts`'s `NPlayerHostConfig`. The host script uses this to:
+1. Construct terminal join URLs as `${publicBaseUrl}/match/${matchId}` (new canonical scheme).
+2. Pass to `createMatchmaker({ publicBaseUrl })` so `joinLinks()` returns absolute `joinUrl`.
+
+When not configured, the host constructs URLs from `publicHost:port` (existing pattern). The lobby-mode banner prints the lobby URL; the `--create` mode banner prints per-seat match URLs.
+
+### D8: Canonical `/match/<matchId>` — no backend path change
+
+The matchmaker's `joinPath` stays as `/join/<matchId>` for backward compatibility. The canonical `/match/<matchId>` URL is a frontend routing concern:
+- Console copy-link uses `buildMatchUrl()` from `route.ts`.
+- Host script terminal URLs use the `/match/${matchId}` pattern directly.
+- Deep links already route through `/match/<matchId>` via `parseRoute`.
+
+No `NETWORK_API_VERSION` bump. No wire contract changes.
+
+## Constitution alignment
+
+| Principle | Decision |
+|---|---|
+| I — Type safety | Clipboard API typed via `navigator.clipboard` types; no `any`. New state types use branded/readonly patterns. |
+| II — Authoritative deterministic | No simulation changes. Copy-link is pure UI. Interstitial is pre-join UI only. |
+| III — Tested logic | ≥80% coverage on new components and state transitions. E2E coverage for copy-link + deep-link flow. |
+| IV — Specs as documentation | Spec 010 v1.8 is the source of truth. Plan and tasks amend the existing spec artifacts. |
+| V — Simplicity | Reuse existing `adaptRoute`/`executeRouteEntry` pipeline. Interstitial is a thin UI gate, not a new routing system. |
+| VI — Accessibility | Copy-link: keyboard-accessible button, `aria-label`, clipboard confirmation announced via live region. Interstitial: `role="dialog"` semantics, focus trap, screen-reader announcements for Play/Spectate choices. |
+| VII — Self-hostable | `publicBaseUrl` is optional; default uses `window.location.origin`. No cloud services. |
+
+## File surface (issue #34)
+
+```
+packages/console/src/
+  ui/
+    copy-link-button.tsx          (NEW — copy-link affordance component)
+    deep-link-interstitial.tsx    (NEW — play-or-spectate interstitial)
+    match-leg-chrome.tsx          (NEW — extracted match chrome bar with copy-link + leave)
+  internal/
+    lobby-runtime.tsx             (MODIFY — interstitial state, visibility tracking, route resolution gating)
+  state/
+    lobby-state.ts                (MODIFY — add deepLinkInterstitial phase, visibility field)
+    lobby-controller.ts           (MODIFY — no changes needed; commands already support the flow)
+  routing/
+    route.ts                      (NO CHANGE — buildMatchUrl already exists)
+
+packages/console/scripts/
+  host.ts                         (MODIFY — use /match/<matchId> URLs, --public-url flag)
+  host-config.ts                  (MODIFY — add publicUrl to NPlayerHostConfig)
+
+docs/manual/
+  *.md                           (MODIFY — document copy-link, deep-link, play-or-spectate)
+```
+
+## Compatibility and migration
+
+- No `NETWORK_API_VERSION` bump. No wire contract changes.
+- The `joinPath` field on `SeatAssignedResult` stays as `/join/<matchId>` (backward compatible).
+- Existing lobby join, spectate, and reconnect paths are unchanged.
+- The interstitial is a client-side UI gate only — no new server round-trips.
+- `publicBaseUrl` in matchmaking config is already optional and additive.
+
+## Risks and mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Interstitial blocks deep-link participants | Existing `activeMatchId` check (D4) bypasses the interstitial for participants. Reload resume is unchanged. |
+| Clipboard API unavailable (insecure context) | Fallback renders URL as selectable text; button shows URL on failure. |
+| Private match visibility not in wire contract | Stored locally in lobby state at join/create time; no wire change needed. |
+| Host script URL scheme backward compat | `--create` mode is operator-facing only; no external consumers. |
+| Interstitial + Back/Forward race | Popstate handler re-resolves route; interstitial is dismissed on navigation. |

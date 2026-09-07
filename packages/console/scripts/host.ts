@@ -285,10 +285,16 @@ interface Stack {
  * @param wsPort Port for the single http.Server (HOST_PORT).
  * @param bindHost Interface for the WebSocket listener.
  * @param httpServer The single http.Server that will also handle WS upgrades.
+ * @param publicBaseUrl Optional absolute public URL base for join links (FR-034).
  * @returns The bound server + matchmaker (not yet listening) and the
  *          lobby-facade accessor for shutdown.
  */
-function buildStack(wsPort: number, bindHost: string, httpServer: import('node:http').Server): Stack {
+function buildStack(
+    wsPort: number,
+    bindHost: string,
+    httpServer: import('node:http').Server,
+    publicBaseUrl?: string,
+): Stack {
     let bound: MatchmakerBridge = {};
     /**
      * Forward-reference slots filled right after server construction:
@@ -381,7 +387,7 @@ function buildStack(wsPort: number, bindHost: string, httpServer: import('node:h
             bound = { ...bound, ...bridge };
         },
     });
-    const matchmaker = createMatchmaker({}, { server: bindable });
+    const matchmaker = createMatchmaker(publicBaseUrl !== undefined ? { publicBaseUrl } : {}, { server: bindable });
     wiring.matchmaker = matchmaker;
     return { server, matchmaker, lobbyFacade: () => wiring.lobby };
 }
@@ -482,9 +488,11 @@ function urlHostOf(publicHost: string): string {
  *
  * @param port       Single port the server is bound on (HOST_PORT).
  * @param publicHost Host reachable by players.
+ * @param publicUrl  Absolute public URL base for the lobby link (FR-034).
  */
-export function printLobbyBanner(port: number, publicHost: string): void {
+export function printLobbyBanner(port: number, publicHost: string, publicUrl?: string): void {
     const host = urlHostOf(publicHost);
+    const lobbyUrl = publicUrl !== undefined ? `${publicUrl}/lobby` : `http://${host}:${String(port)}/lobby`;
     say('');
     say(`  Version      : v${APP_VERSION}`);
     say('  Mode         : lobby (visitors create/join matches in the browser)');
@@ -493,7 +501,7 @@ export function printLobbyBanner(port: number, publicHost: string): void {
     say('');
     say('  Open the lobby in a browser:');
     say('');
-    say(`  → http://${host}:${String(port)}/lobby`);
+    say(`  → ${lobbyUrl}`);
     say('');
     say('  Matches and guest identities are in-memory only — restarting resets the lobby.');
     say('  Ctrl-C to stop.');
@@ -511,11 +519,13 @@ export function printLobbyBanner(port: number, publicHost: string): void {
  * @param port       Single port the server is bound on (HOST_PORT).
  * @param publicHost Host reachable by players.
  * @param match      The prepared match.
+ * @param publicUrl  Absolute public URL base for join links (FR-034).
  */
-export function printCreateBanner(port: number, publicHost: string, match: PreparedMatch): void {
+export function printCreateBanner(port: number, publicHost: string, match: PreparedMatch, publicUrl?: string): void {
     const host = urlHostOf(publicHost);
     const wsUrl = `ws://${host}:${String(port)}`;
-    const joinUrl = `http://${host}:${String(port)}/match/${encodeURIComponent(match.matchId)}/join`;
+    const baseUrl = publicUrl ?? `http://${host}:${String(port)}`;
+    const matchUrl = `${baseUrl}/match/${encodeURIComponent(match.matchId)}`;
     say('');
     say(`  Version      : v${APP_VERSION}`);
     say(
@@ -531,7 +541,7 @@ export function printCreateBanner(port: number, publicHost: string, match: Prepa
     for (let i = 0; i < match.seatTokens.length; i += 1) {
         const seat = i + 1;
         const name = seatName(seat);
-        say(`  Player ${String(seat)} (${name}) → ${joinUrl}`);
+        say(`  Player ${String(seat)} (${name}) → ${matchUrl}`);
     }
     say('');
     say('  Ctrl-C to stop.');
@@ -600,7 +610,7 @@ async function main(): Promise<void> {
     // its `upgrade` handler on server.listen() and never creates a second
     // listener. This collapses the former ws:8080 + http:5173 pair onto
     // one origin (one http.Server, one EXPOSE, one port mapping, same-origin WS).
-    const stack = buildStack(config.port, config.bindHost, httpServer);
+    const stack = buildStack(config.port, config.bindHost, httpServer, config.publicUrl);
 
     try {
         await new Promise<void>((resolve, reject) => {
@@ -661,10 +671,10 @@ async function main(): Promise<void> {
             process.exitCode = 1;
             return;
         }
-        printCreateBanner(boundPort, config.publicHost, match);
+        printCreateBanner(boundPort, config.publicHost, match, config.publicUrl);
         return;
     }
-    printLobbyBanner(boundPort, config.publicHost);
+    printLobbyBanner(boundPort, config.publicHost, config.publicUrl);
 }
 
 process.on('SIGINT', () => {

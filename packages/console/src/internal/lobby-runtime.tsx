@@ -103,7 +103,7 @@ import { App } from '../render/App';
 import { ErrorBoundary } from '../render/ErrorBoundary';
 import type { Route } from '../routing/route';
 import { buildJoinUrl, buildMatchUrl, buildSpectateUrl, parseRoute } from '../routing/route';
-import { adaptRoute, executeRouteEntry } from '../routing/route-adapter';
+import { adaptRoute } from '../routing/route-adapter';
 import { formatWaitingMessage } from '../state/awaiting-start';
 import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
@@ -119,6 +119,9 @@ import {
 } from '../state/spectator-session';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
 import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
+import type { MatchVisibility } from '../ui/copy-link-button';
+import { CopyLinkButton } from '../ui/copy-link-button';
+import { DeepLinkInterstitial } from '../ui/deep-link-interstitial';
 import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { formatOccupancy } from '../ui/lobby-labels';
 import { LobbyLanding } from '../ui/lobby-landing';
@@ -314,6 +317,10 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     function returnToLobby(): void {
         setNoticeKind(null);
         setCurrentRoute(undefined);
+        // Clear the deep-link interstitial if it is showing (FR-029).
+        if (state.deepLinkInterstitial !== null) {
+            controller.store.dispatch({ kind: 'lobbyDeepLinkInterstitialDismissed' });
+        }
         if (window.location.pathname !== '/lobby') {
             window.history.replaceState(window.history.state, '', '/lobby');
         }
@@ -414,14 +421,19 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
             setNoticeKind('unavailable');
             return;
         }
-        if (entry.kind === 'player') {
-            legIntentRef.current = { matchId: entry.matchId, role: 'player' };
-        } else if (entry.kind === 'spectator') {
-            legIntentRef.current = { matchId: entry.matchId, role: 'spectator' };
+        // Non-participant deep link: show the play-or-spectate
+        // interstitial instead of immediately joining/spectating.
+        // The interstitial's callbacks will call joinMatch/spectateMatch
+        // when the user makes their choice (FR-029, D3).
+        // Participant detection (D4): the activeMatchId check above
+        // already bypasses the interstitial for participants.
+        if (entry.kind === 'player' || entry.kind === 'spectator') {
+            controller.store.dispatch({
+                kind: 'lobbyDeepLinkInterstitialShown',
+                routeEntry: entry,
+                matchId: entry.matchId,
+            });
         }
-        void executeRouteEntry(entry, controller)?.then((result) => {
-            if (!result.ok) setNoticeKind('shortcut-failure');
-        });
     }, [
         controller,
         currentRoute,
@@ -638,6 +650,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     onLeave={leaveMatch}
                     onRouteFailure={() => setNoticeKind('shortcut-failure')}
                     onReturnToLobby={returnToLobby}
+                    matchVisibility={state.matchVisibility}
                 />
             </>
         );
@@ -658,6 +671,28 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     actionStatus={state.actions.setHandle}
                     onSubmitHandle={submitHandle}
                     returnTo={readReturnTo(window.location.search)}
+                />
+            </>
+        );
+    }
+
+    // Deep-link interstitial (FR-029): when a non-participant opens
+    // /match/<matchId>, show the play-or-spectate choice instead of
+    // the lobby landing. The interstitial is a transient UI gate —
+    // the URL stays as /match/<matchId> throughout; Back/Forward
+    // re-resolves the route and dismisses it via popstate.
+    if (state.deepLinkInterstitial !== null) {
+        const interstitial = state.deepLinkInterstitial;
+        return (
+            <>
+                {announcerHost}
+                <DeepLinkInterstitial
+                    matchId={interstitial.matchId}
+                    entry={interstitial.routeEntry}
+                    onPlay={() => joinMatch(interstitial.matchId)}
+                    onSpectate={() => spectateMatch(interstitial.matchId)}
+                    onReturnToLobby={returnToLobby}
+                    announcer={announcer ?? undefined}
                 />
             </>
         );
@@ -826,6 +861,12 @@ interface MatchLegHostProps {
     readonly onRouteFailure: () => void;
     /** Callback to navigate back to the lobby on game-over (FR-009). */
     readonly onReturnToLobby?: () => void;
+    /**
+     * Match visibility at entry time (issue #34, D2). Drives the
+     * copy-link button's visual treatment: `'private'` → prominent,
+     * `'public'` → subtle. `null` before the first snapshot resolves.
+     */
+    readonly matchVisibility: MatchVisibility | null;
 }
 
 /**
@@ -870,6 +911,7 @@ function MatchLegHost({
     onLeave,
     onRouteFailure,
     onReturnToLobby,
+    matchVisibility,
 }: MatchLegHostProps): JSX.Element {
     const headingRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -918,6 +960,22 @@ function MatchLegHost({
                     {role === 'spectator' ? 'Spectating' : 'In match'}{' '}
                     {matchId === null ? '— resolving…' : `(${matchId.slice(0, 8)}…)`}
                 </h1>
+                {matchId !== null ? (
+                    <CopyLinkButton
+                        matchId={matchId}
+                        visibility={matchVisibility ?? 'public'}
+                        onCopyResult={
+                            announcer !== undefined
+                                ? (r) => {
+                                      announcer.announce(
+                                          r.ok ? 'Link copied to clipboard.' : 'Could not copy link.',
+                                          'polite',
+                                      );
+                                  }
+                                : undefined
+                        }
+                    />
+                ) : null}
                 <button
                     type="button"
                     className="europa-lobby__button europa-focus-ring"

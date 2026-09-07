@@ -152,6 +152,26 @@ an explicit public host. Direct internet
 exposure is not supported: a public deployment still needs a TLS-terminating
 reverse proxy, rate limiting, and origin controls.
 
+### Shareable match links and public URL
+
+Every match has a canonical `/match/<match-id>` URL. The in-game **Copy link**
+action copies this URL to the clipboard with visible confirmation. Private
+matches are joinable and spectatable only through the shareable link — they do
+not appear in the lobby list. Public matches show a quieter copy-link button
+since the lobby listing is also an entry path.
+
+For self-hosted setups behind a reverse proxy, use `--public-url` or
+`HOST_PUBLIC_URL` so the host script prints absolute join URLs in its terminal
+output:
+
+```bash
+--public-url https://game.example.com
+HOST_PUBLIC_URL=https://game.example.com pnpm host
+```
+
+The value must be an absolute HTTP or HTTPS origin (no trailing path, query, or
+fragment). When omitted, the host constructs URLs from `publicHost:port`.
+
 ### Docker quick start (single port)
 
 No Node toolchain required — just Docker Engine + Compose v2. From a fresh
@@ -174,6 +194,7 @@ loads and refreshes do not require a second listener.
 | `HOST_PORT` | `8080` | Single `http.Server` port for HTTP + WebSocket (one knob controls both). |
 | `HOST_BIND_HOST` | `0.0.0.0` (compose) / `127.0.0.1` (native) | Interface to bind. Compose defaults wide because Docker's `ports:` is the ingress. |
 | `HOST_PUBLIC_HOST` | `localhost` (when loopback) else `bindHost` | Advertised host for banner and join URLs. Required when `HOST_BIND_HOST` is wildcard. |
+| `HOST_PUBLIC_URL` | `http://publicHost:port` | Absolute public URL base for terminal join URLs (e.g., behind a reverse proxy). Must be an HTTP/HTTPS origin. |
 
 Examples:
 

@@ -79,9 +79,11 @@ export const INITIAL_LOBBY_STATE: LobbyState = {
     snapshot: null,
     activeMatchId: null,
     seatSessionToken: null,
+    matchVisibility: null,
     actions: allActionsIdle(),
     superseded: false,
     failure: null,
+    deepLinkInterstitial: null,
 };
 
 /** Session-level failure payload for the terminal `'failed'` connection state. */
@@ -224,6 +226,8 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                 // one (e.g. resumeMatch after a reload where the token is
                 // already in state from the original join).
                 ...(action.seatSessionToken !== undefined ? { seatSessionToken: action.seatSessionToken } : {}),
+                // Issue #34: track visibility for the copy-link button.
+                ...(action.matchVisibility !== undefined ? { matchVisibility: action.matchVisibility } : {}),
             };
 
         case 'lobbyReturned':
@@ -232,6 +236,8 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                 viewMode: 'lobby',
                 activeMatchId: null,
                 seatSessionToken: null,
+                matchVisibility: null,
+                deepLinkInterstitial: null,
                 actions: { ...state.actions, leaveMatch: idleActionStatus() },
             };
 
@@ -241,5 +247,18 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
 
         case 'lobbyRetryRequested':
             return { ...state, failure: null };
+
+        // -- Deep-link interstitial (issue #34, FR-029) -----------------
+        case 'lobbyDeepLinkInterstitialShown':
+            return {
+                ...state,
+                deepLinkInterstitial: { routeEntry: action.routeEntry, matchId: action.matchId },
+            };
+
+        case 'lobbyDeepLinkInterstitialDismissed':
+            return {
+                ...state,
+                deepLinkInterstitial: null,
+            };
     }
 }

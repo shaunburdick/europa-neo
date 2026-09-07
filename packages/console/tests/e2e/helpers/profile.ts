@@ -8,6 +8,11 @@
  *      helper was called. Fill the form directly.
  *   2. **Still on /lobby** — named visitor or gate hasn't fired yet.
  *      Click the "Choose a name" link (pushState, keeps WS alive).
+ *
+ * When the visitor arrived via a deep link (e.g. `/match/<matchId>`),
+ * the identity gate redirects to `/profile?returnTo=/match/<matchId>`.
+ * After handle submission, the auto-redirect goes to the returnTo path
+ * instead of `/lobby`. Pass `returnToPath` to wait for the correct URL.
  */
 
 import type { Page } from '@playwright/test';
@@ -20,13 +25,15 @@ const WAIT_TIMEOUT = 15_000;
  *
  * Detects whether the page is already on /profile (identity gate
  * redirect) or still on /lobby ("Choose a name" link), fills the
- * "Display name" input, submits, and waits for the auto-redirect
- * back to /lobby (FR-010).
+ * "Display name" input, submits, and waits for the auto-redirect.
  *
- * @param page   The Playwright page showing the lobby or profile.
- * @param handle The display name to submit.
+ * @param page         The Playwright page showing the lobby or profile.
+ * @param handle       The display name to submit.
+ * @param returnToPath The path to wait for after submission. Defaults to
+ *                     `/lobby` (the standard lobby flow). For deep-link
+ *                     tests, pass the match path (e.g. `/match/<id>`).
  */
-export async function setHandleViaProfile(page: Page, handle: string): Promise<void> {
+export async function setHandleViaProfile(page: Page, handle: string, returnToPath: string = '/lobby'): Promise<void> {
     // The US1 identity gate may have already redirected to /profile.
     // Detect which path we're on and act accordingly.
     const alreadyOnProfile = await page.evaluate(() => window.location.pathname === '/profile');
@@ -46,7 +53,8 @@ export async function setHandleViaProfile(page: Page, handle: string): Promise<v
     await page.getByRole('textbox', { name: /display name/i }).waitFor({ state: 'visible' });
     await page.getByRole('textbox', { name: /display name/i }).fill(handle);
     await page.locator('[data-europa-submit-handle="true"]').click();
-    // FR-010: ProfileView auto-navigates to /lobby after successful submission.
-    // history.pushState does not trigger a load event, so poll the URL directly.
-    await page.waitForFunction(() => window.location.pathname === '/lobby');
+    // FR-010: ProfileView auto-navigates to the returnTo path after
+    // successful submission. history.pushState does not trigger a load
+    // event, so poll the URL directly.
+    await page.waitForFunction((expected) => window.location.pathname === expected, returnToPath);
 }

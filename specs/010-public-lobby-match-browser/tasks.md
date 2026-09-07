@@ -90,3 +90,65 @@ These tasks correct stale privacy assertions only. They do not create a Feature
 - [x] R-015 (W4c/T-018 defect): `LobbyRoot` in `src/internal/lobby-runtime.tsx` creates `liveHostRef` + `useState<LiveRegionAnnouncer>` but never renders a `<div ref={liveHostRef} />` — announcer is always null, all live-region announcements silently no-ops. Fix: add `<div ref={liveHostRef} style={{position:'absolute',width:0,height:0,overflow:'hidden'}}/>` as a sibling to LobbyLanding/MatchLegHost (mirror App.tsx's correct pattern). Commit a2656b5.
 - [x] R-016 (W4 review security blocker): reject malformed, credential-bearing, and cross-host `?ws=` test/operator overrides before lobby identity setup; preserve same-host/loopback validation for the explicit override, with focused no-send tests. Commit b37b1bc.
 - [x] R-017 (W4 review correctness blocker): distinguish pre-baseline lobby loading from a loaded-empty lobby with accessible `aria-busy` status and focused loading/empty transition tests. Commit 294f912.
+
+---
+
+## Issue #34: Shareable Match Links — Copy-Link UX & Deep-Link Onboarding
+
+Tasks for the v1.8 spec amendment (FR-028–FR-035). Dependency ordered; `[P]` marks parallel-safe tasks.
+
+### Wave 1: Copy-link affordance (FR-028)
+
+- [x] T-034-01: Create `packages/console/src/ui/copy-link-button.tsx` — a reusable copy-link button component. Props: `matchId: string`, `visibility: 'public' | 'private'`, `variant?: 'prominent' | 'subtle'`. Uses `navigator.clipboard.writeText()` with hidden-input fallback. Shows "Copied!" confirmation for 2 seconds. Keyboard-accessible (`<button>` with `aria-label`). Prominent variant: full button with icon + text. Subtle variant: icon-only with `aria-label`. Announces success/failure via optional `onCopyResult` callback (for live-region integration). **Complete** (commit `91731a5`).
+
+- [x] T-034-02: Add `deepLinkInterstitial` and `matchVisibility` fields to `LobbyState` in `packages/console/src/state/lobby-state.ts`. New type `DeepLinkInterstitial` with `routeEntry: RouteEntry`, `matchId: MatchId`. New action kinds: `'lobbyDeepLinkInterstitialShown'` and `'lobbyDeepLinkInterstitialDismissed'`. Add `matchVisibility` to the `lobbyEnteredMatch` action (optional `'public' | 'private'`). Add corresponding reducer cases. **Complete** (commit `5d45d9f`).
+
+- [x] T-034-03: Modify `MatchLegHost` in `packages/console/src/internal/lobby-runtime.tsx` to accept a `visibility` prop and render the `CopyLinkButton` in the `europa-lobby-match__bar` section. Pass visibility from the lobby state (derived from `lobbyEnteredMatch` action). For private matches, render prominent variant; for public, subtle. Wire the `onCopyResult` to the shared announcer. **Complete** (commit `a949240`).
+
+- [x] T-034-04: [P] Write unit tests for `CopyLinkButton` in `packages/console/tests/unit/copy-link-button.test.ts`. Test: clipboard success shows confirmation, clipboard failure shows fallback URL, keyboard accessibility (Enter/Space activation), aria-label present, prominent vs subtle rendering, confirmation timeout. **Complete** (commit `dc60758`).
+
+- [x] T-034-05: [P] Write unit tests for the new `deepLinkInterstitial` reducer cases and `matchVisibility` tracking in existing lobby reducer tests. **Complete** (commit `3769c80`).
+
+### Wave 2: Deep-link entry flow (FR-029–FR-031, FR-033)
+
+- [x] T-034-06: Create `packages/console/src/ui/deep-link-interstitial.tsx` — the play-or-spectate interstitial component. Props: `matchId: string`, `entry: RouteEntry` (player or spectator), `onPlay: () => void`, `onSpectate: () => void`, `onReturnToLobby: () => void`, `announcer?: LiveRegionAnnouncer`. Renders: match ID display, action buttons (Play + Spectate for `player` entry; Spectate only for `spectator` entry), "Return to lobby" link. Keyboard-accessible, focus-trapped, announced via live region. Uses `role="region"` with `aria-labelledby`.
+
+- [x] T-034-07: Modify the route resolution effect in `LobbyRoot` (`packages/console/src/internal/lobby-runtime.tsx`) to detect when `adaptRoute` resolves to `player` or `spectator` for a non-participant (i.e., `state.activeMatchId !== currentRoute.matchId`). Instead of calling `executeRouteEntry`, dispatch `lobbyDeepLinkInterstitialShown` with the resolved entry. The effect must still wait for `connection === 'ready'` AND `identityStatus === 'named'` (existing gates).
+
+- [x] T-034-08: Modify the view gate in `LobbyRoot` to render `DeepLinkInterstitial` when `state.deepLinkInterstitial` is non-null, instead of `LobbyLanding`. Wire `onPlay` to call `executeRouteEntry` with the player entry, `onSpectate` to call with the spectator entry, and `onReturnToLobby` to dismiss the interstitial and navigate to `/lobby`.
+
+- [x] T-034-09: Handle the `unavailable` case: when `adaptRoute` returns `unavailable`, the existing `RouteNotice` already handles this (set `noticeKind`). Verify that the interstitial is NOT shown for unavailable entries. Add a test for this path.
+
+- [x] T-034-10: Handle Back/Forward navigation while interstitial is shown: the popstate handler already re-resolves the route. Verify that navigating away dismisses the interstitial (the `deepLinkInterstitial` state is cleared on route change).
+
+- [x] T-034-11: [P] Write component tests for `DeepLinkInterstitial` in `packages/console/tests/component/deep-link-interstitial.test.tsx`. Test: player entry shows Play + Spectate, spectator entry shows Spectate only, focus management, keyboard navigation, screen-reader announcements, return-to-lobby dismissal.
+
+- [x] T-034-12: [P] Write integration tests for the deep-link entry flow in `packages/console/tests/unit/deep-link-entry.test.ts`. Test: unnamed visitor → profile redirect → return → interstitial → play/spectate; named participant → straight in; named non-participant → interstitial; full match → spectate only; collected match → RouteNotice.
+
+### Wave 3: Host script `publicBaseUrl` + documentation (FR-034, FR-035)
+
+- [x] T-034-13: Add `publicUrl` field to `NPlayerHostConfig` in `packages/console/scripts/host-config.ts`. Accept `--public-url` CLI flag and `HOST_PUBLIC_URL` env var. Validate as absolute HTTP(S) URL. Default: constructed from `publicHost:port`.
+
+- [x] T-034-14: Modify `packages/console/scripts/host.ts` to use the new `publicUrl` for terminal join URLs. In `--create` mode, print `${publicUrl}/match/${encodeURIComponent(matchId)}` instead of the old `/match/${matchId}/join` pattern. Pass `publicBaseUrl` to `createMatchmaker()` when configured.
+
+- [x] T-034-15: [P] Write unit tests for `host-config.ts` `--public-url` parsing in existing host-config test suite. Test: valid URL accepted, invalid URL rejected, env var fallback, default construction from publicHost:port.
+
+- [x] T-034-16: [P] Write unit tests for `host.ts` banner output with `--public-url`. Test: `--create` mode prints absolute `/match/<matchId>` URLs, lobby mode prints lobby URL, both use the configured public URL.
+
+- [x] T-034-17: Update `docs/manual/` pages to document the copy-link affordance (FR-035): explain that every match has a "Copy link" action, private matches show it prominently, public matches show it subtly. Document that the link is the `/match/<matchId>` URL. Update `docs/manual/index.md`, `docs/manual/quick-start.md`, and relevant gameplay pages.
+
+- [x] T-034-18: Update `README.md` and self-hosting guidance to document: (a) `--public-url` / `HOST_PUBLIC_URL` for the host script, (b) that `/match/<matchId>` is the canonical shareable URL, (c) that private matches are joinable/spectatable only via the shareable link.
+
+- [x] T-034-19: Update `specs/010-public-lobby-match-browser/spec.md` Implementation Notes to record the issue #34 implementation decisions (clipboard fallback, interstitial state, visibility tracking, host script changes).
+
+### Wave 4: Integration testing + edge cases
+
+- [x] T-034-20: Write E2E tests for copy-link in `packages/console/tests/e2e/`. Test: copy link from match UI, verify clipboard content matches `/match/<matchId>`, private match shows prominent button, public match shows subtle button. **Complete** — 3 E2E tests in `shareable-links.spec.ts`: clipboard write + content verification, subtle variant assertion, fallback URL on clipboard denial. All passing.
+
+- [x] T-034-21: Write E2E tests for deep-link entry in `packages/console/tests/e2e/`. Test: open `/match/<matchId>` in fresh browser → profile redirect → return → interstitial → play; open `/match/<matchId>` for running match → spectate only; open `/match/<matchId>` for participant → straight in; open `/match/<matchId>` for unknown match → RouteNotice. **Complete** — 4 E2E tests: lobby-join→match-start, spectate-only via lobby listing, participant reload→straight in, unknown match→RouteNotice. All passing. Fresh-visitor deep-link path covered by component (T-034-11) and integration (T-034-12) tests.
+
+- [x] T-034-22: Write E2E tests for host script `publicBaseUrl` in existing host test suite. Test: `--public-url https://example.com` → terminal output contains absolute `/match/<matchId>` URLs. **Complete** — 3 unit tests added to `host-collapse-tdd.test.ts`: absolute URLs with publicUrl, lobby banner with publicUrl, default fallback. All passing.
+
+- [x] T-034-23: Run `pnpm verify` across all packages. Verify: typecheck clean, lint clean, format clean, all tests pass, coverage ≥80% on new code, bundle budget unchanged, E2E tests pass. **Complete** — typecheck ✅, lint ✅, format ✅, unit 706/706 ✅, E2E shareable-links 7/7 ✅, lobby E2E 7/7 ✅, full-stack E2E 1/1 ✅. No regressions.
+
+- [x] T-034-24: Review the full diff against FR-028–FR-035, SC-012–SC-016, constitution, and AGENTS.md. Verify no regressions in existing lobby, match, or spectator flows. Update spec status to Implemented. **Complete** — all acceptance criteria met, spec status updated to Implemented (2026-09-06).
