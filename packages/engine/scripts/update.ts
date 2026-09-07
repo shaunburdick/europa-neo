@@ -19,7 +19,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '../../terrain/src/index';
+import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
 import { checkVersionMismatch, replayMatch } from '../src/replay/replay';
 import type { Fixture } from '../src/replay/types';
 import { validateFixture } from '../src/replay/validate';

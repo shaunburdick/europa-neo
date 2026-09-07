@@ -18,7 +18,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '../../terrain/src/index';
+import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
 import { applyCommand } from '../src/applyCommand';
 import { createWorld } from '../src/create';
 import { ENGINE_API_VERSION, hashWorld, isTerminal, tick } from '../src/index';

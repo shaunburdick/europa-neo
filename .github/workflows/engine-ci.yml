@@ -70,6 +70,9 @@ jobs:
           cache: true
           require-lockfile: true
 
+      - name: Build terrain (CLI scripts need @europa/terrain dist)
+        run: pnpm --filter @europa/terrain build
+
       - name: Test (engine)
         run: pnpm --filter @europa/engine test
 
@@ -85,6 +88,9 @@ jobs:
           runtime: 'node@22'
           cache: true
           require-lockfile: true
+
+      - name: Build terrain (CLI scripts need @europa/terrain dist)
+        run: pnpm --filter @europa/terrain build
 
       - name: Coverage (engine)
         run: pnpm --filter @europa/engine coverage
