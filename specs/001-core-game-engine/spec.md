@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-09-04)
+**Status**: Implemented (2026-09-07)
 
 **Input**: User description: "Deterministic tick-based simulation of the original Europa gameplay: grid terrain with elevation and water, cities producing nanobot troops, pipes directing troop flow, attrition combat, decay, cell capacity with reserves, paratroopers, guns, and last-player-standing victory."
 
@@ -238,3 +238,14 @@ Cell has 5 troops (P2). P1 sends 20 via pipe. All 20 enter (headroom 25). `commi
 - AC-6: `CombatEvent` payloads include `attackerTotal` and `defenderTotal` with correct values.
 - AC-7: Byte-identical determinism preserved (SC-001).
 - AC-8: Existing combat tests pass (with updated assertions where applicable); new tests cover garrison-vs-inflow model.
+
+### v1.5 (2026-09-07) — Combat winner capacity clamping (issue #78)
+
+- **FR-011 interpretation clarified**: the phrase "transfers that would exceed it MUST be truncated at capacity" applies not only to pipe-based troop transfers but also to combat resolution winners. When combat attrition reduces a cell to fewer troops than the winner's surviving force, the winner's count MUST be clamped to `cellCapacity` — i.e. `Math.min(winnerRemaining, cellCapacity)`.
+- **Why this is a clarification, not a new rule**: FR-011 already mandates capacity clamping for "transfers"; combat is a transfer of control — the winning force takes possession of the cell and its contents. Without clamping, the winner could end up with more troops than the cell can hold, violating the invariant that `cell.troops ≤ cellCapacity` at all times. This clarification codifies what the existing FR-011 wording already implies.
+- **Applies to all combat paths**: the clamping MUST be applied in both the 2-way combat path (two opposing stacks) and the 3-way+ combat path (dominant-owner model). In each case, after attrition resolves and the winner is determined, the winner's surviving troop count is clamped to `Math.min(surviving, cellCapacity)`.
+- **Worked example** — 2-way path: Cell capacity 30. Attacker sends 20 via pipe into a cell with 5 defender troops. Combat: 20 vs 5 → attacker retains 15, defender eliminated. 15 ≤ 30 → no clamping needed. Now suppose cell capacity 10: attacker retains 15, clamped to 10. The surplus 5 troops are lost (never produced — they simply do not exist after clamping).
+- **Worked example** — 3-way path: Cell capacity 30. Three owners contribute 25, 15, and 10 committed flow respectively, with no garrison. Dominant player (25) wins against combined 25 (15+10). After attrition, dominant retains 0 (25 − 25 = 0). Cell captured with 0 troops. If dominant had 25 vs 20 combined, dominant retains 5; 5 ≤ 30 → no clamping. If cell capacity were 3 and dominant retained 5, clamped to 3.
+- **No contract change**: this is a behavioral clarification of existing FR-011 semantics, not a new field or type change. `CombatEvent` is unaffected; the clamping occurs after combat resolution in the tick orchestrator.
+- **AC-9**: After combat resolution, every cell satisfies `cell.troops ≤ cellCapacity` — verified by a post-combat invariant assertion in the tick orchestrator.
+- **AC-10**: Existing combat tests pass (with updated assertions where the winning force exceeds cell capacity); new tests specifically exercise the clamping boundary (winner remaining = capacity, capacity − 1, capacity + 1).
