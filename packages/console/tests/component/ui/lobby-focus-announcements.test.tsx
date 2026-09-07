@@ -27,7 +27,6 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 
-import { LobbyRoot } from '../../../src/internal/lobby-runtime';
 import type {
     LobbySnapshot as ClientSnapshot,
     LobbyConnectionState,
@@ -35,6 +34,7 @@ import type {
     WsLobbyClientState,
 } from '../../../src/net/ws-lobby-client';
 import { createLobbyController, type LobbyTransport } from '../../../src/state/lobby-controller';
+import { LobbyRootWithLayout as LobbyRoot } from '../../fixtures/lobby-layout-wrapper';
 import '../../../src/styles/index.css';
 
 afterEach(() => {

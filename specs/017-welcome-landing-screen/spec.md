@@ -1,8 +1,8 @@
 # Feature Specification: Welcome Landing Screen
 
-> Version: 1.0
-> Last Updated: 2026-09-02
-> Status: Implemented (2026-09-02)
+> Version: 1.1
+> Last Updated: 2026-09-07
+> Status: Implemented (2026-09-02); v1.1 Clarifications note added 2026-09-07 (TanStack Router migration, issue #75)
 > Dependencies: Feature 005 (Client Console), Feature 013 (Semantic URL Routing), Feature 014 (Shared UI Components)
 
 ## Problem Statement
@@ -250,4 +250,14 @@ None. All requirements are fully specified.
 
 > Populated during Phase 3. Each entry documents a question asked and the requirement it produced.
 
-_(No clarifications yet — this is the initial draft.)_
+### v1.1 (2026-09-07) — TanStack Router migration (issue #75)
+
+Feature 013 v1.1 migrates the console's hand-rolled routing layer (`parseRoute`/`adaptRoute` in `packages/console/src/routing/`) to `@tanstack/react-router`. This amendment records the impact on this spec's routing references:
+
+- **FR-001, FR-010 (route classification)**: The requirement that `parseRoute('/')` return `{ kind: 'welcome', pathname: '/' }` (with the `root` kind removed) is preserved in behavior but superseded in mechanism — the TanStack Router route tree MUST classify `/` as the welcome route identically (feature 013 FR-021). The `Route` union's `welcome` variant remains the authoritative type contract.
+- **FR-001 (adaptRoute)**: The requirement that `adaptRoute()` return `{ kind: 'welcome' }` for the root route (and `{ kind: 'redirect' }` only for unknown routes) is preserved in behavior; the migration MUST keep the welcome entry as a terminal no-I/O entry (feature 013 FR-023).
+- **FR-011 (unnamed-identity redirect scope)**: The one-line lobby-only redirect check (`route.kind !== 'lobby'`) MUST continue to exclude the welcome route — unnamed visitors on `/` see the landing page and are only redirected to `/profile` after clicking Play and landing on `/lobby`.
+- **FR-012 (unknown-route recovery)**: Unknown/malformed routes MUST continue to recover to `/lobby` via `history.replaceState` (or the router's equivalent replace navigation) with the accessible "Page not found. Returning to lobby." notice (feature 013 FR-012, FR-028).
+- **FR-009 (static page)**: The welcome screen's zero-runtime-dependency constraint is unaffected — it remains a static React component with no WebSocket, lobby, or identity imports, regardless of the router that mounts it.
+
+All other requirements of this spec (logo, tagline, CTAs, responsive layout, dark-theme tokens, accessibility) are unaffected by the routing migration.

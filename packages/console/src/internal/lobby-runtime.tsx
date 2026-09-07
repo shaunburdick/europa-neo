@@ -53,48 +53,6 @@ import type { JSX } from 'react';
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 
-/**
- * Subscribe to the current browser pathname, re-rendering on ANY change —
- * including `history.pushState`/`replaceState`, which do NOT fire
- * `popstate`. The lobby view gate reads `window.location.pathname`
- * directly, so it must re-evaluate when the pathname changes (e.g. the
- * lobby landing's "Choose a name" link pushes `/profile`).
- *
- * `pushState`/`replaceState` are patched once to dispatch a custom
- * `europa:pathchange` event; `popstate` and `hashchange` are also
- * observed for Back/Forward and hash-only navigation.
- */
-function usePathname(): string {
-    return useSyncExternalStore(
-        (onStoreChange) => {
-            const onPathChange = (): void => onStoreChange();
-            window.addEventListener('popstate', onPathChange);
-            window.addEventListener('hashchange', onPathChange);
-            window.addEventListener('europa:pathchange', onPathChange);
-            return () => {
-                window.removeEventListener('popstate', onPathChange);
-                window.removeEventListener('hashchange', onPathChange);
-                window.removeEventListener('europa:pathchange', onPathChange);
-            };
-        },
-        () => window.location.pathname,
-    );
-}
-
-/** Patch history.pushState/replaceState once to emit `europa:pathchange`. */
-function patchHistoryForPathChanges(): void {
-    const pushState = window.history.pushState.bind(window.history);
-    const replaceState = window.history.replaceState.bind(window.history);
-    window.history.pushState = (state, title, url) => {
-        pushState(state, title, url);
-        window.dispatchEvent(new Event('europa:pathchange'));
-    };
-    window.history.replaceState = (state, title, url) => {
-        replaceState(state, title, url);
-        window.dispatchEvent(new Event('europa:pathchange'));
-    };
-}
-
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { createConsoleClient } from '../net/client';
 import { createWsLobbyClient } from '../net/ws-lobby-client';
@@ -102,10 +60,10 @@ import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
 import { ErrorBoundary } from '../render/ErrorBoundary';
 import type { Route } from '../routing/route';
-import { buildJoinUrl, buildMatchUrl, buildSpectateUrl, parseRoute } from '../routing/route';
+import { buildJoinUrl, buildMatchUrl, buildSpectateUrl } from '../routing/route';
 import { adaptRoute } from '../routing/route-adapter';
 import { formatWaitingMessage } from '../state/awaiting-start';
-import { createLobbyController, type LobbyCommandResult, type LobbyController } from '../state/lobby-controller';
+import { createLobbyController, type LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
 import type { LobbyStore } from '../state/lobby-store';
 import { LobbyServerUrlError, resolveLobbyServerUrl } from '../state/lobby-view';
@@ -121,14 +79,32 @@ import { type ConsoleStore, createConsoleStore } from '../state/store';
 import type { ConsoleState, MatchId, ReducerEffect } from '../state/types';
 import type { MatchVisibility } from '../ui/copy-link-button';
 import { CopyLinkButton } from '../ui/copy-link-button';
-import { DeepLinkInterstitial } from '../ui/deep-link-interstitial';
-import { buildCreateSettings, type LobbyCreateFormValues } from '../ui/lobby-create-form';
 import { formatOccupancy } from '../ui/lobby-labels';
-import { LobbyLanding } from '../ui/lobby-landing';
-import { readReturnTo } from '../ui/profile-url';
-import { ProfileView } from '../ui/profile-view';
 import { RouteNotice, type RouteNoticeKind } from '../ui/route-notice';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../ui/waiting-overlay';
+import { LobbyView } from './lobby-view';
+
+// ─── Pathname classification (replaces removed parseRoute) ────────────────
+
+/**
+ * Lightweight pathname classifier for lobby-internal use only.
+ *
+ * This replaces the removed `parseRoute` function. The TanStack Router
+ * route tree now owns route classification for the production UI; this
+ * helper exists solely for popstate and redirect guards that fire before
+ * the router tree is consulted.
+ */
+function classifyPathname(pathname: string): Route {
+    if (pathname === '/') return { kind: 'welcome', pathname };
+    if (pathname === '/lobby') return { kind: 'lobby', pathname };
+    if (pathname === '/profile') return { kind: 'profile', pathname };
+    if (pathname.startsWith('/match/')) {
+        const segments = pathname.split('/').slice(1);
+        const intent = segments[2] === 'join' ? 'join' : segments[2] === 'spectate' ? 'spectate' : 'adaptive';
+        return { kind: 'match', pathname, matchId: segments[1] ?? '', intent };
+    }
+    return { kind: 'unknown', pathname, reason: 'unsupported-path' };
+}
 
 // ----------------------------------------------------------------------------
 // Test handle — exposed for Playwright lobby E2E assertions
@@ -242,12 +218,6 @@ export interface LobbyRootProps {
  */
 export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }: LobbyRootProps): JSX.Element {
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
-    // Re-render on pathname changes (pushState/replaceState/popstate) so the
-    // profile/lobby view gate below re-evaluates. Patch history once.
-    const pathname = usePathname();
-    useEffect(() => {
-        patchHistoryForPathChanges();
-    }, []);
 
     // Shared hidden live regions (App.tsx pattern). Runtime-owned so
     // announcements SURVIVE the lobby⇄match view swap.
@@ -278,7 +248,6 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     const prevViewModeRef = useRef(state.viewMode);
     const routeResolutionRef = useRef(initialRoute !== undefined);
     const completedNavigationPathRef = useRef<string | null>(null);
-    const lobbyRedirectedRef = useRef(false);
     useEffect(() => {
         if (prevViewModeRef.current !== state.viewMode) {
             prevViewModeRef.current = state.viewMode;
@@ -309,11 +278,6 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         }
     }, [state.viewMode, state.activeMatchId]);
 
-    function navigateTo(pathname: string): void {
-        if (window.location.pathname === pathname) return;
-        window.history.pushState(window.history.state, '', pathname);
-    }
-
     function returnToLobby(): void {
         setNoticeKind(null);
         setCurrentRoute(undefined);
@@ -328,33 +292,6 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
             void controller.leaveMatch();
         }
     }
-
-    // Browser Back/Forward changes the route without remounting the page.
-    // Re-evaluate it against the current authoritative lobby snapshot.
-    useEffect(() => {
-        const onPopState = (): void => {
-            if (completedNavigationPathRef.current === window.location.pathname) return;
-            const next = parseRoute(window.location.pathname);
-            if (next.kind === 'match') {
-                routeAttemptedRef.current = false;
-                routeResolutionRef.current = true;
-                completedNavigationPathRef.current = null;
-                setNoticeKind(null);
-                setCurrentRoute(next);
-            } else if (next.kind === 'lobby') {
-                routeAttemptedRef.current = true;
-                setNoticeKind(null);
-                setCurrentRoute(undefined);
-                if (state.viewMode === 'match') void controller.leaveMatch();
-            } else {
-                window.history.replaceState(window.history.state, '', '/lobby');
-                setCurrentRoute(undefined);
-                setNoticeKind('unknown');
-            }
-        };
-        window.addEventListener('popstate', onPopState);
-        return () => window.removeEventListener('popstate', onPopState);
-    }, [controller, state.viewMode]);
 
     // A semantic deep link is deliberately resolved only after the lobby has
     // delivered its authoritative baseline. The adapter decides whether the
@@ -463,37 +400,11 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     // returnTo round-trip. The pathname cannot trip that check.
     useEffect(() => {
         if (state.identityStatus !== 'unnamed') return;
-        const route = parseRoute(window.location.pathname);
+        const route = classifyPathname(window.location.pathname);
         if (route.kind !== 'match') return;
         const returnTo = encodeURIComponent(window.location.pathname);
         window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
     }, [state.identityStatus]);
-
-    // US1 lobby identity gate: when an unnamed visitor lands on the lobby
-    // root (/lobby), redirect to /profile so they choose a name before
-    // interacting. This fires AFTER identity resolution (not at bootstrap)
-    // so the redirect happens only when the server confirms the visitor has
-    // no handle. The redirect is one-shot (lobbyRedirectedRef) to avoid a
-    // loop: after pushState to /profile, the pathname is no longer a lobby
-    // route, so the guard exits even without the ref.
-    //
-    // Connection gating: wait until the lobby connection is 'ready' so the
-    // identity has been resolved by the server — avoid a flash redirect
-    // before the server responds.
-    //
-    // Note: the welcome screen (/) requires no identity — unnamed visitors
-    // on / see the landing page and are only redirected to /profile when
-    // they click Play and land on /lobby.
-    useEffect(() => {
-        if (lobbyRedirectedRef.current) return;
-        if (state.identityStatus !== 'unnamed') return;
-        if (state.connection !== 'ready') return;
-        const route = parseRoute(window.location.pathname);
-        if (route.kind !== 'lobby') return;
-        lobbyRedirectedRef.current = true;
-        const returnTo = encodeURIComponent(window.location.pathname);
-        window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
-    }, [state.identityStatus, state.connection]);
 
     // Successful actions initiated from the lobby get one canonical semantic
     // history entry. Route-originated actions already have the right URL.
@@ -513,55 +424,15 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         setNoticeKind(null);
         const pathname = new URL(path).pathname;
         completedNavigationPathRef.current = pathname;
-        navigateTo(pathname);
+        if (window.location.pathname !== pathname) {
+            window.history.pushState(window.history.state, '', pathname);
+        }
         // Do not put the newly-written path back through route resolution.
         // The command already succeeded and its target may have changed state
         // (for example, the final joiner starts the match immediately).
         // Back/Forward remains the explicit re-resolution boundary.
         pendingNavigationRef.current = null;
     }, [state.activeMatchId, state.viewMode]);
-
-    /** Announce a seat-grant outcome on success only — failures render
-     * as role="alert" nodes at their source and announce themselves. */
-    function announceSeatOutcome(result: LobbyCommandResult, successMessage: string): void {
-        if (result.ok && announcer !== null) {
-            announcer.announce(successMessage, 'polite');
-        }
-    }
-
-    function submitHandle(raw: string): void {
-        void controller.setHandle(raw);
-    }
-
-    function createMatch(values: LobbyCreateFormValues): void {
-        routeResolutionRef.current = false;
-        pendingNavigationRef.current = 'create';
-        legIntentRef.current = { matchId: null, role: 'player' };
-        void controller.createMatch(buildCreateSettings(values)).then((result) => {
-            if (!result.ok) pendingNavigationRef.current = null;
-            announceSeatOutcome(result, 'Match created — entering the waiting room.');
-        });
-    }
-
-    function joinMatch(matchId: MatchId): void {
-        routeResolutionRef.current = false;
-        pendingNavigationRef.current = 'join';
-        legIntentRef.current = { matchId, role: 'player' };
-        void controller.joinMatch(matchId).then((result) => {
-            if (!result.ok) pendingNavigationRef.current = null;
-            announceSeatOutcome(result, 'Joined — entering the match.');
-        });
-    }
-
-    function spectateMatch(matchId: MatchId): void {
-        routeResolutionRef.current = false;
-        pendingNavigationRef.current = 'spectate';
-        legIntentRef.current = { matchId, role: 'spectator' };
-        void controller.spectateMatch(matchId).then((result) => {
-            if (!result.ok) pendingNavigationRef.current = null;
-            announceSeatOutcome(result, 'Spectating — attaching read-only.');
-        });
-    }
 
     function leaveMatch(): void {
         void controller.leaveMatch().then((result) => {
@@ -638,7 +509,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     key={matchId ?? 'pending'}
                     wsUrl={wsUrl}
                     matchId={matchId}
-                    role={intent.role}
+                    matchRole={intent.role}
                     displayName={state.handle ?? 'Player'}
                     handle={state.handle}
                     occupancy={entry !== null ? { seatsFilled: entry.seatsFilled, capacity: entry.capacity } : null}
@@ -656,63 +527,27 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         );
     }
 
-    // Profile route: when the browser pathname is /profile and the view
-    // mode is lobby, render the dedicated profile view instead of the
-    // lobby landing. This check runs AFTER noticeKind and match-gate
-    // guards, so profile notices and match legs are unaffected.
-    if (state.viewMode === 'lobby' && pathname === '/profile') {
-        return (
-            <>
-                {announcerHost}
-                <ProfileView
-                    identityStatus={state.identityStatus}
-                    handle={state.handle}
-                    connection={{ status: state.connection }}
-                    actionStatus={state.actions.setHandle}
-                    onSubmitHandle={submitHandle}
-                    returnTo={readReturnTo(window.location.search)}
-                />
-            </>
-        );
-    }
-
-    // Deep-link interstitial (FR-029): when a non-participant opens
-    // /match/<matchId>, show the play-or-spectate choice instead of
-    // the lobby landing. The interstitial is a transient UI gate —
-    // the URL stays as /match/<matchId> throughout; Back/Forward
-    // re-resolves the route and dismisses it via popstate.
-    if (state.deepLinkInterstitial !== null) {
-        const interstitial = state.deepLinkInterstitial;
-        return (
-            <>
-                {announcerHost}
-                <DeepLinkInterstitial
-                    matchId={interstitial.matchId}
-                    entry={interstitial.routeEntry}
-                    onPlay={() => joinMatch(interstitial.matchId)}
-                    onSpectate={() => spectateMatch(interstitial.matchId)}
-                    onReturnToLobby={returnToLobby}
-                    announcer={announcer ?? undefined}
-                />
-            </>
-        );
-    }
-
+    // Lobby route: render the self-contained LobbyView which handles
+    // the lobby-specific sub-views (route notice, deep-link interstitial,
+    // lobby landing). Profile and match views are handled by separate
+    // route components in the TanStack Router tree (T-112, T-113).
     return (
         <>
             {announcerHost}
-            <LobbyLanding
+            <LobbyView
                 state={state}
-                announcer={announcer ?? undefined}
                 focusHeading={viewSwitches > 0}
-                onCreate={createMatch}
-                onJoin={joinMatch}
-                onSpectate={spectateMatch}
-                onRetry={() => {
-                    void controller.retry();
+                onSetLegIntent={(intent) => {
+                    legIntentRef.current = intent;
                 }}
-                onAcknowledgeSuperseded={() => {
-                    controller.acknowledgeSuperseded();
+                onMarkRouteResolved={() => {
+                    routeResolutionRef.current = false;
+                }}
+                onPendingNavigationStarted={(type) => {
+                    pendingNavigationRef.current = type;
+                }}
+                onClearPendingNavigation={() => {
+                    pendingNavigationRef.current = null;
                 }}
             />
         </>
@@ -814,7 +649,7 @@ function createMatchLeg(args: MatchLegArgs): MatchLeg {
 }
 
 /** Props for {@link MatchLegHost}. */
-interface MatchLegHostProps {
+export interface MatchLegHostProps {
     /** WebSocket URL of the match server. */
     readonly wsUrl: string;
     /**
@@ -822,7 +657,7 @@ interface MatchLegHostProps {
      * before the next snapshot pins `activeMatchId`.
      */
     readonly matchId: MatchId | null;
-    readonly role: 'player' | 'spectator';
+    readonly matchRole: 'player' | 'spectator';
     /** Display name for the seat/spectator join — the accepted handle (FR-019). */
     readonly displayName: string;
     /**
@@ -896,10 +731,10 @@ interface MatchLegHostProps {
  * here; their entry was announced by the command wrappers / the
  * spectator attach path instead.
  */
-function MatchLegHost({
+export function MatchLegHost({
     wsUrl,
     matchId,
-    role,
+    matchRole,
     displayName,
     handle,
     occupancy,
@@ -937,7 +772,7 @@ function MatchLegHost({
     // switching matches rebuilds cleanly. Construction does no I/O
     // (App's MapCanvas ref pattern); boot/dispose ride the effect.
     const legRef = useRef<MatchLeg | null>(null);
-    if (legRef.current === null && role === 'player' && matchId !== null && matchStarted) {
+    if (legRef.current === null && matchRole === 'player' && matchId !== null && matchStarted) {
         legRef.current = createMatchLeg({ wsUrl, matchId, displayName, seatSessionToken, onFailure: onRouteFailure });
     }
     const leg = legRef.current;
@@ -957,7 +792,7 @@ function MatchLegHost({
             </a>
             <section className="europa-lobby-match__bar" aria-label="Lobby controls" data-europa-match-chrome="true">
                 <h1 ref={headingRef} tabIndex={-1} className="europa-lobby-match__title europa-focus-ring">
-                    {role === 'spectator' ? 'Spectating' : 'In match'}{' '}
+                    {matchRole === 'spectator' ? 'Spectating' : 'In match'}{' '}
                     {matchId === null ? '— resolving…' : `(${matchId.slice(0, 8)}…)`}
                 </h1>
                 {matchId !== null ? (
@@ -995,7 +830,7 @@ function MatchLegHost({
                 // Player board: App owns the page's single
                 // <main id="main"> landmark (skip-link target).
                 <App store={leg.store} {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})} />
-            ) : role === 'spectator' && matchId !== null && matchStarted ? (
+            ) : matchRole === 'spectator' && matchId !== null && matchStarted ? (
                 // Live read-only spectator surface — also App-rendered,
                 // so it likewise owns its own <main>.
                 <SpectatorMatchLeg
@@ -1012,7 +847,7 @@ function MatchLegHost({
             room for players, the pre-attach notice for spectators.
             Informational only — no board, no order surface; announces
             once politely through the shared channel. */}
-                    {role === 'spectator' ? (
+                    {matchRole === 'spectator' ? (
                         <SpectatorPlate matchId={matchId} announcer={announcer} />
                     ) : (
                         <PreStartPlate matchId={matchId} handle={handle} occupancy={occupancy} announcer={announcer} />

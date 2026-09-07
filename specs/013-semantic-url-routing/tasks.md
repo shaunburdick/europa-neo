@@ -1,109 +1,69 @@
-# Tasks: Console Semantic URL Routing
+# Tasks: Console Semantic URL Routing — v1.1 TanStack Router Migration
 
-**Input**: `spec.md`, `plan.md`, `research.md`, `data-model.md`, and
+**Input**: `spec.md` v1.1, `plan.md` (v1.1), `research.md` (v1.1), `data-model.md`,
 `contracts/route-contract.md`. Implementation begins only after approval.
 
-## Wave 0 — Baseline and guards
+## Wave 0 — Dependency and baseline
 
-**Status**: Complete after review remediation. The tracked stale-reference/privacy scan is green;
-only explicitly labeled historical migration notes and test-only `?e2e` references remain.
+- [x] T101 Add `@tanstack/react-router` v1.x to `packages/console/package.json` dependencies; run `pnpm install`; verify `pnpm typecheck` and `pnpm lint` pass with the new dependency present. Record the pre-migration bundle size for later comparison.
+- [x] T102 [P] Run existing `pnpm test:unit`, `pnpm test:component`, `pnpm test:a11y`, and `pnpm test:e2e` to establish the green baseline. Record counts per suite. Any pre-existing failure is NOT this migration's responsibility.
 
-- [x] T001 Record branch/status, package commands, and the known root `pnpm test` `@europa/design` no-test-files baseline; add no application code.
-- [x] T002 [P] Add route contract tests in `packages/console/tests/unit/routing/` for all supported shapes, `?e2e`, and retired `?live`; depends on T001.
-- [x] T003 [P] Add stale production-link/privacy guard coverage for source, generated host links, docs, and fixtures; allow historical notes and `?e2e` only; depends on T001.
+## Wave 1 — Route tree and validation foundation
 
-### Wave 0 review findings
+- [x] T103 Extract `validateMatchId` from `route.ts`: move the `decodeMatchSegment` + `validateDecodedMatchId` logic into a standalone exported function that returns `{ ok: true, value: string } | { ok: false, reason: RouteRejection }`. Preserve the `RouteRejection` union type. Keep the URL builder functions (`buildMatchUrl`, `buildJoinUrl`, `buildSpectateUrl`, `buildLobbyUrl`, `buildProfileUrl`) in `route.ts`.
+- [x] T104 Create `src/routing/route-tree.ts`: define the code-based TanStack Router route tree with `createRootRoute`, `createRoute`, pathless layout routes, and all five canonical route shapes (`/`, `/lobby`, `/profile`, `/match/$matchId`, `/match/$matchId/join`, `/match/$matchId/spectate`). Implement the `/` → `/lobby` redirect in a root-level `beforeLoad`. Implement `notFoundComponent` that renders `RouteNotice` with `kind: 'unknown'`.
+- [x] T105 Add `validateSearch` to the `/profile` route: implement the `returnTo` safety contract (relative-pathname-only, unsafe → absent) matching the existing `readReturnTo` function. Export the validated search type.
+- [x] T106 Add match-ID validation in the `/match/$matchId` route's `beforeLoad`: call `validateMatchId`, throw `redirect({ to: '/lobby' })` on rejection (preserving the six rejection reasons as a logged classification). Add component-level error handling for rejected match IDs.
+- [x] T107 Write unit tests for the route tree: test all five canonical shapes classify correctly, `/` redirects to `/lobby`, `/profile` validates `returnTo`, match routes validate matchId with all six rejection reasons, unknown routes trigger `notFoundComponent`. Port all 17 test cases from the existing `route.test.ts` to exercise the new validation surface.
 
-- The historical `/?live` prose fixture now distinguishes a prose mention (not a query match)
-  from an explicit historical query-shaped example, including a URL path prefix.
-- Same-line stale/privacy findings are consolidated into one diagnostic with both finding kinds;
-  detection remains unchanged.
-- Targeted guard verification has one expected failure: the stale-reference assertion detects
-  pre-migration `?live`/credential references. No self-failing fixture remains.
+## Wave 2 — Layout routes and lobby decomposition
 
-## Wave 1 — Pure routing foundation
+- [x] T108 Create `src/internal/lobby-layout.tsx`: the root layout route component. Move the lobby controller/transport lifecycle (connection, identity, announcer) from `LobbyRoot` into this layout. Render `<Outlet />` for child routes. Remove `usePathname`, `patchHistoryForPathChanges`, and `europa:pathchange` references.
+- [x] T109 Implement deferred-resolution `beforeLoad` on the lobby layout route: gate child rendering on `state.connection === 'ready'` and `state.identityStatus === 'named'`. While a gate holds, the route stays pending (TanStack Router's pending state). Re-evaluation happens automatically on identity/connection changes.
+- [x] T110 Create `src/internal/match-layout.tsx`: pathless layout under `/match/$matchId`. Implement deferred route resolution against the lobby snapshot using `adaptRoute`. Handle the deep-link interstitial dispatch (non-participant opens match route). Handle the unnamed-identity → `/profile?returnTo` redirect. Preserve the resume-match logic for active participants.
+- [x] T111 Extract `LobbyView` from `lobby-runtime.tsx`: the lobby landing component (`LobbyLanding`). Wire it as the `/lobby` route component. Preserve `createMatch`, `joinMatch`, `spectateMatch`, `leaveMatch` command wrappers.
+- [x] T112 Wire `ProfileView` (existing `src/ui/profile-view.tsx`) as the `/profile` route component. Connect the typed `returnTo` search param from the route's `validateSearch`.
+- [x] T113 Extract match views: create thin route components for `/match/$matchId/index` (adaptive), `/match/$matchId/join` (explicit player), `/match/$matchId/spectate` (explicit spectator). Each calls `adaptRoute` against the lobby snapshot and dispatches to the existing match leg host.
 
-- [x] T004 Add closed route/rejection types, pure pathname parser, one-segment decode/validation, and semantic URL builders in `packages/console/src/routing/route.ts`; satisfy `data-model.md` security invariants.
-- [x] T005 Add unit tests first in `packages/console/tests/unit/routing/route.test.ts` for malformed escapes, encoded slash/backslash, dot/control characters, empty IDs, extra segments, round trips, and deterministic classification; depends on T004.
-- [x] T006 [P] Define the route-to-entry adapter seam in `packages/console/src/routing/route-adapter.ts` over existing Feature 010 projections/commands; prohibit implicit downgrade and pre-resolution match sockets. Dedicated adapter tests were added during Wave 1 review remediation in `packages/console/tests/unit/routing/route-adapter.test.ts`.
-- [x] T007 [P] Remove retired `hasDirectMatchRoute`/`resolveInitialViewMode` exports and tests in `packages/console/src/state/lobby-view.ts`, preserving same-origin WebSocket validation; depends on T004.
+## Wave 3 — Bootstrap replacement
 
-## Wave 2 — Bootstrap, history, accessible recovery
+- [x] T114 Rewrite `src/main.tsx`: replace `bootstrapProductionRoute` with `createRouter` + `RouterProvider`. Preserve the `?e2e` guard (runs before router mount). Preserve the `__europaTestMatch` seam (runs before router mount). Preserve the `stripProductionQuery` logic for production paths. Mount `RouterProvider` into `#root`.
+- [x] T115 Remove the `parseRoute` function and its imports from `route.ts`. Remove the `Route` type (the route tree replaces it). Keep `RouteRejection`, `validateMatchId`, and URL builders. Update all import sites (`lobby-runtime.tsx` → `lobby-layout.tsx`, `match-layout.tsx`).
+- [x] T116 Remove `usePathname`, `patchHistoryForPathChanges`, and the `europa:pathchange` custom event from `lobby-runtime.tsx` (now `lobby-layout.tsx`). Remove the `popstate` listener that re-evaluates routes (TanStack Router handles this natively).
+- [x] T117 Update `src/routing/route.ts` exports: remove `parseRoute` and `Route` type; export `validateMatchId`, `RouteRejection`, `MatchRouteIntent`, and URL builders. Update the barrel export if one exists.
 
-- [x] T008 Implement `packages/console/src/main.tsx` route bootstrap: unchanged `?e2e`, one `/` replace redirect, semantic dispatch, and no query-derived production identity/transport; depends on T004, T006, T007.
-- [x] T009 Integrate adaptive, explicit join, and explicit spectate entry with `packages/console/src/internal/lobby-runtime.tsx` and existing storage/session behavior; preserve gameplay flows; depends on T006, T008.
-- [x] T010 Implement accessible unknown/unavailable/shortcut-failure notices and focus/live-region recovery in `packages/console/src/ui/`; retry/return must be keyboard operable; depends on T008.
-- [x] T011 Add unit/component/a11y tests for navigation, no-connection guarantees, intent, identity conflicts, recovery, focus, announcements, and spectator read-only controls; depends on T008–T010.
-- [x] T012 Add `packages/console/tests/e2e/routing.spec.ts` for Back/Forward, refresh, root redirect, route retention through terminal/leave, and no loop; depends on T008–T011.
+## Wave 4 — Test rewrite
 
-### Wave 2 review HOLD remediation
+- [x] T118 Rewrite `tests/unit/routing/route.test.ts`: test `validateMatchId` directly (all six rejection reasons, valid IDs, round-trips). Test URL builders (unchanged assertions). Test that the route tree classifies all supported shapes.
+- [x] T119 Rewrite `tests/unit/routing/route-adapter.test.ts`: test `adaptRoute` against the lobby snapshot (all eight entry kinds). The adapter function is unchanged; tests just import from the new module paths.
+- [x] T120 Rewrite `tests/unit/routing/semantic-route-guards.test.ts`: test no-I/O recovery and intent preservation using the new `validateMatchId` and `adaptRoute` imports.
+- [x] T121 Rewrite `tests/component/routing/semantic-route-runtime.test.tsx`: test the route tree rendering, deferred-resolution gates, deep-link interstitial, and match leg dispatch using `RouterProvider` with a test history.
+- [x] T122 Rewrite `tests/component/routing/semantic-route-transport.test.tsx`: test transport/lobby integration through the route tree.
+- [x] T123 Update `tests/component/deep-link-interstitial.test.tsx`: update imports (route-adapter types preserved, so minimal change expected).
+- [x] T124 Update `tests/unit/state/lobby-reducer.test.ts`: update `RouteEntry` type imports if paths changed.
 
-- [x] Wire `RouteNotice` through production bootstrap and lobby runtime for unknown, unavailable,
-  shortcut, and match transport failures. Recovery preserves the lobby controller/identity and
-  exposes keyboard-operable retry and return actions with focus and alert announcements.
-- [x] Push one semantic history entry for successful lobby-originated create/join/spectate,
-  retain route-originated paths, suppress pushes on failures, and re-evaluate route state on
-  `popstate` without changing the `?e2e` harness or starting sockets during classification.
-- [x] Add behavior-level component coverage for production unavailable recovery and update the
-  routing E2E to assert unknown-route notice recovery. Keep T013's broader fixture migration
-  explicitly pending.
-- [x] Normalize the routing E2E browser/socket loopback host to `127.0.0.1` in both Playwright
-  web-server configuration and the ephemeral WebSocket fixture; retain query-override removal
-  assertions.
+## Wave 5 — Integration and E2E
 
-## Wave 3 — Full-stack and security
+- [x] T125 Run `pnpm test:unit` — all routing, state, and deep-link tests must pass.
+- [x] T126 Run `pnpm test:component` — all component and a11y tests must pass.
+- [x] T127 Run `pnpm test:e2e` — Back/Forward, reload, root redirect, route retention, and no loop must pass. The `?e2e` harness must remain unchanged.
+- [x] T128 Run full-stack semantic-path E2E: create/join/spectate flows through the real wire with TanStack Router handling navigation. Verify ticks, orders, and fog.
+- [x] T129 Verify the `?ws=` transport override works on semantic paths (e.g., `/lobby?ws=wss://...`).
+- [x] T130 Run `pnpm test:keepalive` and `pnpm test:determinism` — existing integration suites must pass unchanged.
 
-- [x] T013 Migrate full-stack, n-player, waiting-overlay, and lobby integration fixtures from `?live` to semantic paths with test-only server seams; leave `?e2e` unchanged; depends on T008–T009.
-- [x] T013 remediation: prevent successful lobby-originated entry from replaying its newly retained semantic route; resume an active identity on direct/reloaded adaptive/player routes and update only the affected lobby lifecycle expectations; do not change explicit downgrade rules.
-- [x] T014 Add real-socket semantic create/join/spectate coverage: waiting/running entry states, one tick, one player order, explicit failures, and cross-match rejection; depends on T013.
-- [x] T015 Add security tests for traversal, slash injection, credential leakage, cross-match selection, unauthorized claims, and unsafe IDs never opening a match connection; depends on T004, T008, T013.
-- [x] T016 Run unchanged `?e2e` deterministic and console a11y suites, plus an assertion that `?live` never mounts live runtime; depends on T011–T015.
+## Wave 6 — Bundle, cleanup, and final gate
 
-### Wave 3 review remediation — StrictMode lifecycle and history ruling
-
-- [x] Guard player and spectator leg boot promises with a generation token so
-  React StrictMode's intentional first-effect teardown cannot report stale
-  cancellation as route failure; genuine failure from the current boot still
-  renders recovery. Regression coverage mounts both initial live player and
-  spectator entries under StrictMode.
-- [x] Update routing lifecycle E2E to assert the product-owner ruling: after
-  leaving/releasing the final seat of a filling match, Back revisits the stale
-  semantic path as recoverable `Match unavailable`, and Forward returns to the
-  lobby without resurrecting or changing matchmaking state.
-- T014/T015 are complete; host, Docker, and docs work was not included in this
-  remediation.
-
-## Wave 4 — Native host and Docker
-
-- [x] T017 Refactor `packages/console/scripts/host.ts` to serve SPA entry for safe application paths while preserving `/version`, assets, WS upgrades, traversal guards, headers, and genuine failures; depends on T004.
-- [x] T018 Update host banner/create links and tests to emit only origin plus semantic `/match/<id>` paths, with no handle/token/WS query; depends on T004, T017.
-- [x] T019 Extend self-host/host integration tests and `packages/console/scripts/test-selfhost.sh` for direct/reload canonical paths, one-port `/version`, assets, WS, headers, and recovery; depends on T017–T018.
-- [x] T020 [P] Update Docker smoke/build validation and root Docker documentation; verify `Dockerfile`/Compose inherit single-port SPA fallback with no second listener; depends on T017.
-
-### Wave 4 review remediation — ✅ complete (2026-08-31)
-
-- Docker runtime hardening, same-port WebSocket smoke coverage, and workflow
-  permission reduction are complete. The earlier review snapshot did not yet
-  include the Wave 5 README/manual/spec migration; that migration is now recorded
-  as complete below.
-
-## Wave 5 — Documentation truthfulness
-
-- [x] T021 [P] Update `README.md` and `packages/console/README.md` launch/route guidance; remove stale production `?live`, retain explicit `?e2e`; depends on T018.
-- [x] T022 [P] Update `docs/manual/index.md`, `quick-start.md`, and applicable lobby/reading-screen guidance to semantic paths, excluding issue #34 share/copy UX; depends on T018.
-- [x] T023 [P] Amend Feature 005, 010, and 011 docs/spec notes and developer/operational comments so compatibility claims are truthful; no unrelated contract changes; depends on T007, T018.
-- [x] T024 Scan tracked source, tests, host output, Docker/docs, and generated assets for stale references/privacy violations; depends on T021–T023. The guard now includes tracked HTML/CSS assets and the extensionless Dockerfile; retired query/credential wording was removed from the live test seam and transport-resolution comments. Compiled-host output is not part of the supported build and is not committed.
-
-## Wave 6 — Final gate
-
-- [x] T025 Run strict `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, targeted console coverage, regressions, and build; fix findings without suppressions; depends on T016, T019–T024. Final gates passed on 2026-08-31; no remediation was required and no suppressions were added. Console coverage: 91.65% statements, 85.75% branches, 91.96% functions, 91.54% lines (787 tests/79 files). Semantic routing/privacy, self-host, Docker, version, conformance, console unit/component/a11y/E2E, and non-design workspace regressions passed. The root `pnpm test` remains the documented baseline failure because `@europa/design` has no test files.
-- [x] T026 Run self-host, Docker Compose config/build, semantic full-stack E2E, accessibility, and quickstart matrix; record the known design no-test-files root-test issue separately; depends on T025. Matrix passed on 2026-08-31; details are in `orchestration.md`. The root `pnpm test` failure remains the known, unrelated `@europa/design` no-test-files baseline.
-- [x] T027 Review every acceptance criterion, security/privacy invariant, stale `?live` result, and issue #34 boundary; prepare implementation handoff; depends on T026. Final acceptance review passed on 2026-08-31; dispositions and validation evidence are recorded in `orchestration.md`. Feature 013 is implemented.
+- [x] T131 Measure the production bundle: verify `dist/assets` gzipped total is under 150 KB (FR-030). If over budget, implement lazy route chunks for welcome/match views.
+- [x] T132 Remove the dead `parseRoute` function, the `Route` type, and any orphaned imports. Verify zero references to the removed surface in tracked files.
+- [x] T133 Run `pnpm verify` (full suite): typecheck, lint, format, all tests, build, conformance, selfhost, design guards. Fix any findings without suppressions.
+- [x] T134 Update `quickstart.md` with migration validation results (route tree classification, bundle size, test counts).
+- [x] T135 Review every v1.1 acceptance criterion (AC-012..AC-017) against the implementation; prepare completion summary.
 
 ## Dependencies
 
-Wave 0 precedes Wave 1; Wave 1 blocks Waves 2–3. Wave 4 can proceed after T004
-in parallel with Wave 3. Wave 5 is parallel-safe where marked and T024 waits for
-all docs. Wave 6 is serial. `[P]` is used only for distinct files with no shared
-implementation dependency. No task changes engine, terrain, combat, fog, wire,
-reconnect, matchmaking semantics, or issue #34 UX.
+Wave 0 precedes Wave 1. Wave 1 blocks Waves 2–3. Wave 3 blocks Wave 4
+(test rewrite depends on new modules). Wave 5 depends on Waves 3–4.
+Wave 6 depends on Wave 5. `[P]` marks parallel-safe tasks.
+
+No task changes engine, terrain, combat, fog, wire, reconnect, matchmaking
+semantics, or issue #34 UX.

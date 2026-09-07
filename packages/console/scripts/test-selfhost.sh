@@ -54,6 +54,8 @@ for url in ${url_tokens}; do
   case "${url}" in
     # Bare schemes carry no host (scheme detection/translation literals).
     http:// | https://) ;;
+    # TanStack Router SSR fallback origin — not fetched at runtime in the browser.
+    http://localhost) ;;
     # XML/SVG namespace identifiers — never fetched.
     *www.w3.org*) ;;
     # React error-decoder prose inside thrown Error strings.

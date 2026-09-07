@@ -28,11 +28,11 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
-import { LobbyRoot } from '../../../src/internal/lobby-runtime';
 import { LOBBY_STORAGE_KEY } from '../../../src/net/lobby-storage';
 import type { LobbySnapshot } from '../../../src/net/ws-lobby-client';
 import { createWsLobbyClient, type WsLobbyClient } from '../../../src/net/ws-lobby-client';
 import { createLobbyController, type LobbyController } from '../../../src/state/lobby-controller';
+import { LobbyRootWithLayout as LobbyRoot } from '../../fixtures/lobby-layout-wrapper';
 
 // ----------------------------------------------------------------------------
 // Scripted fake WebSocket + mini lobby server

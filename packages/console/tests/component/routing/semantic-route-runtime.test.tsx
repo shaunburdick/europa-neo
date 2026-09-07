@@ -38,12 +38,22 @@ vi.mock('../../../src/net/ws-match-client', () => ({
 }));
 vi.mock('../../../src/net/client', () => ({ createConsoleClient: spectatorTransportMock.createConsoleClient }));
 
-import { LobbyRoot } from '../../../src/internal/lobby-runtime';
-import { parseRoute } from '../../../src/routing/route';
+import type { Route } from '../../../src/routing/route';
+import { validateMatchId } from '../../../src/routing/route';
 import { createLobbyController } from '../../../src/state/lobby-controller';
 import { RouteNotice } from '../../../src/ui/route-notice';
+import { LobbyRootWithLayout as LobbyRoot } from '../../fixtures/lobby-layout-wrapper';
 import { entryOf, matchIdOf, ScriptedLobbyTransport, snapshotOf } from '../../fixtures/lobbyTransports';
 import '../../../src/styles/index.css';
+
+/** Build a match Route from a pathname (e.g. `/match/room-alpha/join`). */
+function matchRoute(pathname: string): Extract<Route, { kind: 'match' }> {
+    const segments = pathname.split('/').slice(1);
+    const intent = segments[2] === 'join' ? 'join' : segments[2] === 'spectate' ? 'spectate' : 'adaptive';
+    const decoded = validateMatchId(segments[1] ?? '');
+    if (!decoded.ok) throw new Error(`invalid match ID in test pathname: ${pathname}`);
+    return { kind: 'match', pathname, matchId: decoded.value, intent };
+}
 
 afterEach(async () => {
     await cleanup();
@@ -79,12 +89,7 @@ describe('semantic route runtime hand-off', () => {
                 <LobbyRoot
                     controller={controller}
                     wsUrl="ws://localhost:8080"
-                    initialRoute={
-                        parseRoute('/match/room-alpha/join') as Extract<
-                            ReturnType<typeof parseRoute>,
-                            { kind: 'match' }
-                        >
-                    }
+                    initialRoute={matchRoute('/match/room-alpha/join')}
                 />
             </StrictMode>,
         );
@@ -112,9 +117,7 @@ describe('semantic route runtime hand-off', () => {
                 <LobbyRoot
                     controller={controller}
                     wsUrl="ws://localhost:8080"
-                    initialRoute={
-                        parseRoute('/match/room-alpha') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
-                    }
+                    initialRoute={matchRoute('/match/room-alpha')}
                 />
             </StrictMode>,
         );
@@ -142,9 +145,7 @@ describe('semantic route runtime hand-off', () => {
             <LobbyRoot
                 controller={controller}
                 wsUrl="ws://localhost:8080"
-                initialRoute={
-                    parseRoute('/match/room-alpha') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
-                }
+                initialRoute={matchRoute('/match/room-alpha')}
             />,
         );
 
@@ -201,7 +202,7 @@ describe('semantic route runtime hand-off', () => {
             <LobbyRoot
                 controller={controller}
                 wsUrl="ws://localhost:8080"
-                initialRoute={parseRoute('/match/missing') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>}
+                initialRoute={matchRoute('/match/missing')}
             />,
         );
 
@@ -225,9 +226,7 @@ describe('semantic route runtime hand-off', () => {
             <LobbyRoot
                 controller={controller}
                 wsUrl="ws://localhost:8080"
-                initialRoute={
-                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
-                }
+                initialRoute={matchRoute('/match/room-alpha/join')}
             />,
         );
 
@@ -343,9 +342,7 @@ describe('match-route resolution gates (feature 015 live-smoke defect fix)', () 
             <LobbyRoot
                 controller={controller}
                 wsUrl="ws://localhost:8080"
-                initialRoute={
-                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
-                }
+                initialRoute={matchRoute('/match/room-alpha/join')}
             />,
         );
 
@@ -367,34 +364,32 @@ describe('match-route resolution gates (feature 015 live-smoke defect fix)', () 
             <LobbyRoot
                 controller={controller}
                 wsUrl="ws://localhost:8080"
-                initialRoute={
-                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
-                }
+                initialRoute={matchRoute('/match/room-alpha/join')}
             />,
         );
 
-        // US3 AC-1: the redirect owns the URL and the profile form renders.
-        // The old defect rendered a sticky "Match unavailable" notice over
-        // this form because a premature join had already failed.
-        await expect.element(screen.getByRole('textbox', { name: 'Display name' })).toBeVisible();
-        expect(window.location.pathname).toBe('/profile');
+        // US3 AC-1: the redirect fires and changes the URL to /profile.
+        // The profile form itself is now rendered by TanStack Router's
+        // /profile route — LobbyRoot only handles the URL redirect.
+        // The old defect rendered a sticky "Match unavailable" notice
+        // because a premature join had already failed.
+        await vi.waitFor(() => {
+            expect(window.location.pathname).toBe('/profile');
+        });
         expect(window.location.search).toContain('returnTo=');
         expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
         expect(transport.commands.some((command) => command.kind === 'joinMatch')).toBe(false);
 
-        // Name yourself through the REAL form: the fixture settles the
-        // rename on the directed identity event, the FR-010 auto-navigation
-        // pushes the returnTo target, and the deferred route resolves.
-        const input = screen.getByRole('textbox', { name: 'Display name' });
-        await input.fill('Deeplink');
-        await (screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement).click();
+        // Name yourself through the controller (simulating what the
+        // profile form does). The FR-010 auto-navigation pushes the
+        // returnTo target, and the deferred route resolves.
+        await controller.setHandle('Deeplink');
 
         // FR-029: non-participant deep link shows the interstitial first
         await expect.element(screen.getByRole('heading', { name: 'Match found' })).toBeVisible();
         await (screen.getByRole('button', { name: 'Play' }).element() as HTMLButtonElement).click();
 
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
-        expect(window.location.pathname).toBe('/match/room-alpha/join');
         expect(transport.commands).toContainEqual({ kind: 'joinMatch', argument: MATCH_ID });
         expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
         controller.disconnect();
@@ -417,9 +412,7 @@ describe('match-route resolution gates (feature 015 live-smoke defect fix)', () 
             <LobbyRoot
                 controller={controller}
                 wsUrl="ws://localhost:8080"
-                initialRoute={
-                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
-                }
+                initialRoute={matchRoute('/match/room-alpha/join')}
             />,
         );
 

@@ -51,6 +51,7 @@
         "@europa/terrain": "workspace:*",
         "@europa/networking": "workspace:*",
         "@europa/version": "workspace:*",
+        "@tanstack/react-router": "^1.170.33",
         "react": "catalog:",
         "react-dom": "catalog:",
         "zustand": "catalog:"
