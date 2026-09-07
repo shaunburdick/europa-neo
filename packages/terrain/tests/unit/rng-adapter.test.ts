@@ -15,7 +15,7 @@
  * test is suspect.
  */
 
-import { createRng } from '@europa/engine';
+import { createRng } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 
 import { deriveSubstream, mixSeed } from '../../src/rng-adapter';

@@ -64,7 +64,7 @@ import type {
   Board,
   Coord,
   PlayerId,
-} from '@europa/engine';
+} from '@europa/core';
 
 import type {
   GenerationSettings,

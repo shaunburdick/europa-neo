@@ -57,7 +57,7 @@
  * the orchestrator.
  */
 
-import type { Board, CityPlacement } from '@europa/engine';
+import type { Board, CityPlacement } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 
 import { partnerPlayer } from '../../src/city-symmetry';

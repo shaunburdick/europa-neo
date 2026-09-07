@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'packages/matchmaking/**'
+      - 'packages/core/**'
       - '.github/workflows/matchmaking-ci.yml'
       - 'specs/006-match-lifecycle-matchmaking/**'
       - 'pnpm-workspace.yaml'
@@ -21,6 +22,7 @@ on:
     branches: [main]
     paths:
       - 'packages/matchmaking/**'
+      - 'packages/core/**'
       - '.github/workflows/matchmaking-ci.yml'
       - 'specs/006-match-lifecycle-matchmaking/**'
       - 'pnpm-workspace.yaml'
@@ -64,6 +66,9 @@ jobs:
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
 
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -103,6 +108,9 @@ jobs:
 
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
+
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
@@ -156,6 +164,9 @@ jobs:
 
       - name: Build @europa/version (workspace dependency)
         run: pnpm --filter @europa/version build
+
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build

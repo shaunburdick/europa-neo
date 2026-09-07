@@ -28,7 +28,7 @@
  *   - Same `(req, rng-state)` → identical output, byte-for-byte.
  */
 
-import type { Board, CityPlacement, PlayerId } from '@europa/engine';
+import type { Board, CityPlacement, PlayerId } from '@europa/core';
 
 import { buildBoard } from './board';
 import { getPlayerBand } from './city-band';

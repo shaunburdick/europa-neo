@@ -21,10 +21,11 @@ import type { Rng } from '../../src/types';
 // `import.meta.url` is the only way to locate our own file in ESM;
 // `readFileSync` then lets us scan the source as text. We use
 // `dirname()` to get the directory of THIS test file
-// (`packages/engine/tests/unit/`) and then go up 2 levels to reach
-// `packages/engine/src/rng.ts`.
+// (`packages/engine/tests/unit/`) and then go up 3 levels to reach
+// `packages/core/src/rng.ts` (the canonical sfc32 implementation,
+// re-exported by engine).
 const here = dirname(fileURLToPath(import.meta.url));
-const RNG_SOURCE_PATH = resolve(here, '..', '..', 'src', 'rng.ts');
+const RNG_SOURCE_PATH = resolve(here, '..', '..', '..', 'core', 'src', 'rng.ts');
 
 describe('createRng — determinism (FR-006 / SC-001)', () => {
     it('same seed produces the same first 1000 outputs', () => {

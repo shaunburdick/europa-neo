@@ -38,7 +38,7 @@ export type {
     CityPlacement,
     Coord,
     PlayerId,
-} from '@europa/engine';
+} from '@europa/core';
 // Re-export the `TerrainConstants` interface from the API contract so
 // downstream packages can do `import type { TerrainConstants } from
 // '@europa/terrain'` without reaching into the contracts directory.

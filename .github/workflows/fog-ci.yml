@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'packages/fog/**'
+      - 'packages/core/**'
       - '.github/workflows/fog-ci.yml'
       - 'specs/002-fog-of-war-visibility/**'
       - 'pnpm-workspace.yaml'
@@ -17,6 +18,7 @@ on:
     branches: [main]
     paths:
       - 'packages/fog/**'
+      - 'packages/core/**'
       - '.github/workflows/fog-ci.yml'
       - 'specs/002-fog-of-war-visibility/**'
       - 'pnpm-workspace.yaml'
@@ -50,6 +52,9 @@ jobs:
           cache: true
           require-lockfile: true
 
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -75,6 +80,9 @@ jobs:
           cache: true
           require-lockfile: true
 
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -93,6 +101,9 @@ jobs:
           runtime: 'node@22'
           cache: true
           require-lockfile: true
+
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build

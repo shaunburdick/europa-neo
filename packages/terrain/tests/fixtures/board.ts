@@ -25,7 +25,7 @@
  * vitest config and the package's `exports` map.
  */
 
-import type { Board, Cell, Coord } from '@europa/engine';
+import type { Board, Cell, Coord } from '@europa/core';
 
 /** Minimum board size used across the terrain's quickstart tests. */
 const MIN_BOARD_SIZE = 8;

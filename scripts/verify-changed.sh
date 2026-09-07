@@ -167,15 +167,8 @@ echo ""
 # Note: we run `pnpm build` once, then the per-package typecheck directly.
 # The root `pnpm typecheck` script re-runs `pnpm build` first (it's designed
 # to be self-contained), which would double-build here — wasteful.
-#
-# --workspace-concurrency=1 forces sequential builds. This is needed because
-# engine ↔ terrain have a circular dependency (engine devDepends on terrain,
-# terrain peerDepends on engine), so pnpm cannot determine a topological build
-# order and defaults to parallel execution. When terrain's DTS build starts
-# before engine's DTS is emitted, terrain fails with "Could not find a
-# declaration file for module '@europa/engine'". Sequential builds resolve this.
 echo "--- Tier A: Build + Lint + Typecheck ---"
-pnpm -r --filter './packages/*' --workspace-concurrency=1 build
+pnpm -r --filter './packages/*' build
 pnpm -r --filter './packages/*' typecheck
 pnpm lint
 pnpm format:check

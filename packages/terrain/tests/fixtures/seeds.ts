@@ -20,7 +20,7 @@
  *     without taking a private import on the engine's `src/rng.ts`.
  */
 
-import { createRng } from '@europa/engine';
+import { createRng } from '@europa/core';
 
 import type { Rng } from '../../src/types';
 
