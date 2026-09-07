@@ -1,4 +1,7 @@
-# Skill: design-system
+---
+name: design-system
+description: "Guide for using the @europa/design component library and CSS token system. Load this skill before implementing any UI work in the console package — it prevents common mistakes like using raw HTML elements when design system components exist. Covers all 20 React components (13 generic + 7 game primitives), CSS custom property tokens, button variants, import patterns, and anti-patterns to avoid. Use whenever writing or modifying UI components, adding sidebar sections, or working with europa-* CSS classes."
+---
 
 # Design System — Europa Neo
 
