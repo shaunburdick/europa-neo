@@ -16,10 +16,6 @@ RUN corepack enable && corepack prepare pnpm@11.22.0 --activate && pnpm --versio
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
-# Build engine first — terrain peer-depends on engine's types, and engine
-# dev-depends on terrain (workspace cycle). Building engine first ensures its
-# .d.ts is available when terrain's tsup emits declaration files.
-RUN pnpm --filter @europa/engine build
 RUN pnpm build
 
 # Stage 2 — runtime (minimal) — 24.x — latest LTS Aug 2026

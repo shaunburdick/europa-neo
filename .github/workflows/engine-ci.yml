@@ -50,6 +50,9 @@ jobs:
           cache: true
           require-lockfile: true
 
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
+
       - name: Typecheck (engine)
         run: pnpm --filter @europa/engine typecheck
 
