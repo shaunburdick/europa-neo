@@ -187,6 +187,9 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.9
+      '@europa/core':
+        specifier: workspace:*
+        version: link:../core
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.62.1
@@ -385,6 +388,9 @@ importers:
 
   packages/matchmaking:
     dependencies:
+      '@europa/core':
+        specifier: workspace:*
+        version: link:../core
       '@europa/engine':
         specifier: workspace:*
         version: link:../engine

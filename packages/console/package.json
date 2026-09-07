@@ -58,6 +58,7 @@
     "devDependencies": {
         "@axe-core/playwright": "catalog:",
         "@biomejs/biome": "catalog:",
+        "@europa/core": "workspace:*",
         "axe-core": "catalog:",
         "@playwright/test": "catalog:",
         "@resvg/resvg-js": "catalog:",

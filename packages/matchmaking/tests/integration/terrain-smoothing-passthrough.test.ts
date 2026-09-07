@@ -34,7 +34,7 @@
  * rather than an artifact of the regeneration.
  */
 
-import { createRng } from '@europa/engine';
+import { createRng } from '@europa/core';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard, hashBoard } from '@europa/terrain';
 import { describe, expect, it } from 'vitest';
 import type { CreateMatchRequest, MatchId, MatchSettings, SeatAssignment } from '../../contracts/match-types';
