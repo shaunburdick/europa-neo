@@ -53,8 +53,10 @@ const PLAYERS = 4;
  *
  * @param state              Current world state (NOT mutated).
  * @param board              Board (used only for dimensions; cells are not read).
- * @param constants          Engine rule constants (reserved for future tunables
- *                           such as a `combatLossMultiplier`; unused today).
+ * @param constants          Engine rule constants — `cellCapacity` is used to
+ *                           clamp combat winners so every cell satisfies
+ *                           `cell.troops ≤ cellCapacity` after resolution
+ *                           (FR-011 invariant, Clarifications v1.5).
  * @param tickNumber         Tick number to stamp on every emitted CombatEvent.
  * @param inflowTally        Optional per-cell per-owner inflow tally written by
  *                           `resolveFlow`. Packed: slot `(cellIdx * 4) +
@@ -81,9 +83,6 @@ export function resolveCombat(
     committedFlowTally?: Readonly<Uint32Array>,
     preFlowState?: Readonly<{ troopOwners: Uint8Array; troopCounts: Uint32Array }>,
 ): { state: WorldState; events: TickEvents } {
-    // `constants` is reserved for future tunables; silence unused-arg lint.
-    void constants;
-
     const n = board.width * board.height;
 
     // Allocate fresh typed arrays (immutable update).
@@ -193,10 +192,12 @@ export function resolveCombat(
                 const defenderRemaining = (defenderTotalForce - damage) >>> 0;
 
                 if (attackerRemaining > defenderRemaining) {
-                    newCounts[idx] = attackerRemaining;
+                    // Clamp to cellCapacity (FR-011 invariant).
+                    newCounts[idx] = Math.min(attackerRemaining, constants.cellCapacity);
                     newOwners[idx] = logicalAttacker;
                 } else if (defenderRemaining > attackerRemaining) {
-                    newCounts[idx] = defenderRemaining;
+                    // Clamp to cellCapacity (FR-011 invariant).
+                    newCounts[idx] = Math.min(defenderRemaining, constants.cellCapacity);
                     newOwners[idx] = logicalDefender;
                 } else {
                     // Equal remnants (typically both 0) → tie.
@@ -234,7 +235,8 @@ export function resolveCombat(
                 if (domPlayer === undefined) {
                     continue;
                 }
-                newCounts[idx] = domPlayer.count;
+                // Clamp to cellCapacity (FR-011 invariant).
+                newCounts[idx] = Math.min(domPlayer.count, constants.cellCapacity);
                 newOwners[idx] = domPlayer.owner;
                 for (const o of committedPlayers) {
                     if (o.owner === domPlayer.owner) {
@@ -301,10 +303,12 @@ export function resolveCombat(
                 const attackerRemaining = (attackerCount - damage) >>> 0;
                 const defenderRemaining = (defenderCount - damage) >>> 0;
                 if (attackerRemaining > defenderRemaining) {
-                    newCounts[idx] = attackerRemaining;
+                    // Clamp to cellCapacity (FR-011 invariant).
+                    newCounts[idx] = Math.min(attackerRemaining, constants.cellCapacity);
                     newOwners[idx] = attackerLabel;
                 } else if (defenderRemaining > attackerRemaining) {
-                    newCounts[idx] = defenderRemaining;
+                    // Clamp to cellCapacity (FR-011 invariant).
+                    newCounts[idx] = Math.min(defenderRemaining, constants.cellCapacity);
                     newOwners[idx] = defenderLabel;
                 } else {
                     newCounts[idx] = 0;
@@ -324,7 +328,8 @@ export function resolveCombat(
                 };
                 events = pushCombatEvent(events, ev);
             } else {
-                newCounts[idx] = dom.count;
+                // Clamp to cellCapacity (FR-011 invariant).
+                newCounts[idx] = Math.min(dom.count, constants.cellCapacity);
                 newOwners[idx] = dom.owner;
                 for (const o of ownersAtCell) {
                     if (o.owner === dom.owner) {
