@@ -415,22 +415,15 @@ export class MapCanvas {
         if (!hex) return '';
         // Return rgb/rgba strings unchanged — can't parse reliably.
         if (hex.startsWith('rgb')) return hex;
-        const match6 = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
-        if (match6) {
-            const r = Math.max(0, Math.min(255, Math.round(Number.parseInt(match6[1], 16) + (percent / 100) * 255)));
-            const g = Math.max(0, Math.min(255, Math.round(Number.parseInt(match6[2], 16) + (percent / 100) * 255)));
-            const b = Math.max(0, Math.min(255, Math.round(Number.parseInt(match6[3], 16) + (percent / 100) * 255)));
-            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-        }
-        const match8 = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
-        if (match8) {
-            const r = Math.max(0, Math.min(255, Math.round(Number.parseInt(match8[1], 16) + (percent / 100) * 255)));
-            const g = Math.max(0, Math.min(255, Math.round(Number.parseInt(match8[2], 16) + (percent / 100) * 255)));
-            const b = Math.max(0, Math.min(255, Math.round(Number.parseInt(match8[3], 16) + (percent / 100) * 255)));
-            const a = Number.parseInt(match8[4], 16);
-            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}${a.toString(16).padStart(2, '0')}`;
-        }
-        return '';
+        const h = hex.replace('#', '');
+        if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(h)) return '';
+        const adjust = (v: string): number =>
+            Math.max(0, Math.min(255, Math.round(Number.parseInt(v, 16) + (percent / 100) * 255)));
+        const toHex = (v: number): string => v.toString(16).padStart(2, '0');
+        const r = toHex(adjust(h.slice(0, 2)));
+        const g = toHex(adjust(h.slice(2, 4)));
+        const b = toHex(adjust(h.slice(4, 6)));
+        return h.length === 8 ? `#${r}${g}${b}${toHex(Number.parseInt(h.slice(6, 8), 16))}` : `#${r}${g}${b}`;
     }
 
     /** Stroke a rectangle around a cell (hover/focus indicators). */

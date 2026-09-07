@@ -161,7 +161,7 @@ export function landBandIndex(elevation: number): number {
  */
 export function landBandColor(band: number): string {
     const clamped = Math.max(0, Math.min(5, Math.round(band)));
-    return `hsl(${LAND_HUE} ${LAND_SATURATION_PCT}% ${LAND_BAND_LIGHTNESS[clamped]}%)`;
+    return `hsl(${LAND_HUE} ${LAND_SATURATION_PCT}% ${LAND_BAND_LIGHTNESS[clamped] ?? 18}%)`;
 }
 
 /**
