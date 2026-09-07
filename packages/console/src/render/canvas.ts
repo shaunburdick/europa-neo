@@ -34,6 +34,7 @@ import {
     COMBAT_EFFECT_COLOR,
     FOCUS_RING_COLOR,
     GENERIC_EFFECT_COLOR,
+    LAND_BAND_COUNT,
     landBandColor,
     landBandIndex,
     PIPE_DOWNHILL_COLOR,
@@ -127,10 +128,184 @@ export class MapCanvas {
         ctx.save();
         ctx.translate(-viewportOffset.x, -viewportOffset.y);
 
-        // Pass 1: terrain (elevation shading, water, city outlines).
-        for (const info of mapView.cells.values()) {
-            this.drawTerrain(ctx, info, zoom);
+        // --- Pass 1: batched terrain sub-passes ---
+        //
+        // The original per-cell drawTerrain had three performance bottlenecks:
+        //   (a) ~5000 adjustBrightness regex calls per frame
+        //   (b) ~4000 individual ctx.stroke() calls for wave + contour lines
+        //   (c) ~2000 ctx.save()/ctx.restore() pairs for minor state changes
+        //
+        // Restructured into batched sub-passes that pre-compute colors once,
+        // batch all strokes into single paths, and minimize state operations.
+
+        // Pre-compute once: cached land band colors and their dark variants
+        // eliminate ~5000 adjustBrightness regex calls per frame.
+        const landBandColors = new Map<number, string>();
+        const landBandDarkColors = new Map<number, string>();
+        for (let b = 0; b < LAND_BAND_COUNT; b++) {
+            const color = landBandColor(b);
+            landBandColors.set(b, color);
+            landBandDarkColors.set(b, this.adjustBrightness(color, -15));
         }
+
+        // Pre-compute once: water gradient stop color variants per depth tier.
+        // depth ≤ 0 → shallow; depth ≥ 2 → deep; else → standard WATER_COLOR.
+        const waterStops = {
+            shallow: {
+                light20: this.adjustBrightness(WATER_SHALLOW_COLOR, 20),
+                base: WATER_SHALLOW_COLOR,
+                dark10: this.adjustBrightness(WATER_SHALLOW_COLOR, -10),
+                dark20: this.adjustBrightness(WATER_SHALLOW_COLOR, -20),
+            },
+            standard: {
+                light20: this.adjustBrightness(terrainColor('water', 128), 20),
+                base: terrainColor('water', 128),
+                dark10: this.adjustBrightness(terrainColor('water', 128), -10),
+                dark20: this.adjustBrightness(terrainColor('water', 128), -20),
+            },
+            deep: {
+                light20: this.adjustBrightness(WATER_DEEP_COLOR, 20),
+                base: WATER_DEEP_COLOR,
+                dark10: this.adjustBrightness(WATER_DEEP_COLOR, -10),
+                dark20: this.adjustBrightness(WATER_DEEP_COLOR, -20),
+            },
+        };
+
+        // Sub-pass 1a: water gradient fills (per-cell — gradients are
+        // position-dependent, but color computation is now pre-cached).
+        for (const info of mapView.cells.values()) {
+            if (info.terrain !== 'water') continue;
+            const x = info.coord.x * zoom;
+            const y = info.coord.y * zoom;
+            const depth = waterDepthForCell(info.elevation);
+            const stops = depth <= 0 ? waterStops.shallow : depth >= 2 ? waterStops.deep : waterStops.standard;
+            const grad = ctx.createLinearGradient(x, y, x + zoom, y + zoom);
+            grad.addColorStop(0, stops.light20);
+            grad.addColorStop(0.33, stops.base);
+            grad.addColorStop(0.66, stops.dark10);
+            grad.addColorStop(1, stops.dark20);
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, y, zoom, zoom);
+        }
+
+        // Sub-pass 1b: batched wave texture — ALL water wave lines collected
+        // into a single path and stroked once (was ~4000 individual strokes).
+        // design-exception: canvas fallback
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for (const info of mapView.cells.values()) {
+            if (info.terrain !== 'water') continue;
+            const x = info.coord.x * zoom;
+            const y = info.coord.y * zoom;
+            for (let wx = x; wx < x + zoom; wx += 4) {
+                ctx.moveTo(wx, y);
+                ctx.lineTo(wx, y + zoom);
+            }
+        }
+        ctx.stroke();
+
+        // Sub-pass 1c: land directional gradients (per-cell — gradients
+        // are position-dependent, but band colors are pre-cached).
+        for (const info of mapView.cells.values()) {
+            if (info.terrain !== 'land') continue;
+            const x = info.coord.x * zoom;
+            const y = info.coord.y * zoom;
+            const band = landBandIndex(info.elevation);
+            const bandColor = landBandColors.get(band) ?? landBandColor(band);
+            const darkColor = landBandDarkColors.get(band) ?? this.adjustBrightness(bandColor, -15);
+            const grad = ctx.createLinearGradient(x, y, x + zoom, y + zoom);
+            grad.addColorStop(0, bandColor);
+            grad.addColorStop(1, darkColor);
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, y, zoom, zoom);
+        }
+
+        // Sub-pass 1d: batched land inner shadows — all dark edges in one
+        // fillStyle assignment, then all light edges. Eliminates per-cell
+        // save/restore and repeated fillStyle assignments.
+        // design-exception: canvas fallback
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        for (const info of mapView.cells.values()) {
+            if (info.terrain !== 'land') continue;
+            const x = info.coord.x * zoom;
+            const y = info.coord.y * zoom;
+            ctx.fillRect(x, y, zoom, 1);
+            ctx.fillRect(x, y, 1, zoom);
+        }
+        // design-exception: canvas fallback
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        for (const info of mapView.cells.values()) {
+            if (info.terrain !== 'land') continue;
+            const x = info.coord.x * zoom;
+            const y = info.coord.y * zoom;
+            ctx.fillRect(x, y + zoom - 1, zoom, 1);
+            ctx.fillRect(x + zoom - 1, y, 1, zoom);
+        }
+
+        // Sub-pass 1e: batched contour hints — ALL contour diagonal lines
+        // collected into a single path and stroked once (was hundreds of
+        // individual strokes). Band ≥ 3 only.
+        const contourStep = 6;
+        // design-exception: canvas fallback
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.10)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for (const info of mapView.cells.values()) {
+            if (info.terrain !== 'land') continue;
+            const band = landBandIndex(info.elevation);
+            if (band < 3) continue;
+            const x = info.coord.x * zoom;
+            const y = info.coord.y * zoom;
+            for (let offset = -zoom; offset < zoom * 2; offset += contourStep) {
+                ctx.moveTo(x + offset, y);
+                ctx.lineTo(x + offset + zoom, y + zoom);
+            }
+        }
+        ctx.stroke();
+
+        // Sub-pass 1f: batched city glow effects — drawn last in terrain
+        // because shadowBlur is one of the most expensive Canvas2D ops.
+        // Grouping cities together keeps the shadow state set once and
+        // minimizes save/restore cycles.
+        for (const info of mapView.cells.values()) {
+            if (!info.isCity) continue;
+            const x = info.coord.x * zoom;
+            const y = info.coord.y * zoom;
+            const inset = zoom * CITY_INSET_RATIO;
+            const cityCx = x + zoom / 2;
+            const cityCy = y + zoom / 2;
+
+            // Radial glow: 40% cell radius, cityGlowStrong → transparent.
+            const glowRadius = zoom * 0.4;
+            const glowGrad = ctx.createRadialGradient(cityCx, cityCy, 0, cityCx, cityCy, glowRadius);
+            glowGrad.addColorStop(0, CITY_GLOW_STRONG_COLOR);
+            // design-exception: canvas fallback
+            glowGrad.addColorStop(1, 'rgba(255, 68, 68, 0)');
+            ctx.fillStyle = glowGrad;
+            ctx.fillRect(x, y, zoom, zoom);
+
+            // Center dot with shadow blur.
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cityCx, cityCy, Math.max(1, zoom * 0.06), 0, Math.PI * 2);
+            ctx.fillStyle = CITY_GLOW_STRONG_COLOR;
+            ctx.shadowColor = CITY_GLOW_STRONG_COLOR;
+            ctx.shadowBlur = 6;
+            ctx.fill();
+            ctx.restore();
+
+            // Border stroke with glow.
+            ctx.save();
+            ctx.strokeStyle = CITY_COLOR;
+            ctx.lineWidth = Math.max(1.5, zoom * 0.06);
+            ctx.shadowColor = CITY_GLOW_STRONG_COLOR;
+            ctx.shadowBlur = 4;
+            ctx.strokeRect(x + inset, y + inset, zoom - inset * 2, zoom - inset * 2);
+            ctx.restore();
+        }
+
+        // --- End Pass 1 terrain sub-passes ---
 
         // Pass 2: units (troop discs + counts in owner colors).
         for (const info of mapView.cells.values()) {
@@ -173,133 +348,6 @@ export class MapCanvas {
 
         // Restore to canvas-absolute coordinates (undo viewport offset).
         ctx.restore();
-    }
-
-    /**
-     * Draw one cell's terrain fill with visual enhancements.
-     *
-     * Water cells: gradient fill (linear, 4 color stops) + wave texture
-     * (vertical lines at 4px spacing, 0.5px width, 4% white opacity).
-     * Land cells: discrete elevation band (6 bands) + directional
-     * gradient + inner shadow + contour hints (bands 3+).
-     * City cells: existing border + radial glow overlay + glowing center
-     * dot + glow border.
-     *
-     * @param ctx Target 2D context.
-     * @param info Cell render data (terrain, elevation, isCity).
-     * @param zoom Cell pixel size.
-     */
-    private drawTerrain(ctx: CanvasRenderingContext2D, info: CellRenderInfo, zoom: number): void {
-        const x = info.coord.x * zoom;
-        const y = info.coord.y * zoom;
-
-        if (info.terrain === 'water') {
-            // FR-001: water gradient fill (linear, top-left to bottom-right, 4 color stops).
-            const depth = waterDepthForCell(info.elevation);
-            const baseColor =
-                depth <= 0
-                    ? WATER_SHALLOW_COLOR
-                    : depth >= 2
-                      ? WATER_DEEP_COLOR
-                      : terrainColor('water', info.elevation);
-            const grad = ctx.createLinearGradient(x, y, x + zoom, y + zoom);
-            grad.addColorStop(0, this.adjustBrightness(baseColor, 20));
-            grad.addColorStop(0.33, baseColor);
-            grad.addColorStop(0.66, this.adjustBrightness(baseColor, -10));
-            grad.addColorStop(1, this.adjustBrightness(baseColor, -20));
-            ctx.fillStyle = grad;
-            ctx.fillRect(x, y, zoom, zoom);
-
-            // FR-001: wave texture — vertical lines at 4px spacing, 0.5px width, 4% white.
-            ctx.save();
-            // design-exception: canvas fallback
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-            ctx.lineWidth = 0.5;
-            for (let wx = x; wx < x + zoom; wx += 4) {
-                ctx.beginPath();
-                ctx.moveTo(wx, y);
-                ctx.lineTo(wx, y + zoom);
-                ctx.stroke();
-            }
-            ctx.restore();
-        } else {
-            // FR-002: discrete land band + directional gradient + inner shadow.
-            const band = landBandIndex(info.elevation);
-            const bandColor = landBandColor(band);
-            const darkColor = this.adjustBrightness(bandColor, -15);
-
-            // Directional gradient: top-left to bottom-right.
-            const grad = ctx.createLinearGradient(x, y, x + zoom, y + zoom);
-            grad.addColorStop(0, bandColor);
-            grad.addColorStop(1, darkColor);
-            ctx.fillStyle = grad;
-            ctx.fillRect(x, y, zoom, zoom);
-
-            // Inner shadow: 1px dark top/left edge, 1px light bottom/right edge.
-            ctx.save();
-            // design-exception: canvas fallback
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-            ctx.fillRect(x, y, zoom, 1);
-            ctx.fillRect(x, y, 1, zoom);
-            // design-exception: canvas fallback
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.fillRect(x, y + zoom - 1, zoom, 1);
-            ctx.fillRect(x + zoom - 1, y, 1, zoom);
-            ctx.restore();
-
-            // FR-002: contour hints on bands 3+ (diagonal lines, 6px spacing, 10% black).
-            if (band >= 3) {
-                ctx.save();
-                // design-exception: canvas fallback
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.10)';
-                ctx.lineWidth = 0.5;
-                const step = 6;
-                for (let offset = -zoom; offset < zoom * 2; offset += step) {
-                    ctx.beginPath();
-                    ctx.moveTo(x + offset, y);
-                    ctx.lineTo(x + offset + zoom, y + zoom);
-                    ctx.stroke();
-                }
-                ctx.restore();
-            }
-        }
-
-        // FR-003: city glow effects (drawn after terrain, before pipes).
-        if (info.isCity) {
-            const inset = zoom * CITY_INSET_RATIO;
-            const cx = x + zoom / 2;
-            const cy = y + zoom / 2;
-
-            // Radial glow: 40% cell radius, cityGlowStrong → transparent.
-            ctx.save();
-            const glowRadius = zoom * 0.4;
-            const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
-            glowGrad.addColorStop(0, CITY_GLOW_STRONG_COLOR);
-            // design-exception: canvas fallback
-            glowGrad.addColorStop(1, 'rgba(255, 68, 68, 0)');
-            ctx.fillStyle = glowGrad;
-            ctx.fillRect(x, y, zoom, zoom);
-            ctx.restore();
-
-            // Center dot with shadow blur.
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(cx, cy, Math.max(1, zoom * 0.06), 0, Math.PI * 2);
-            ctx.fillStyle = CITY_GLOW_STRONG_COLOR;
-            ctx.shadowColor = CITY_GLOW_STRONG_COLOR;
-            ctx.shadowBlur = 6;
-            ctx.fill();
-            ctx.restore();
-
-            // Border stroke with glow.
-            ctx.save();
-            ctx.strokeStyle = CITY_COLOR;
-            ctx.lineWidth = Math.max(1.5, zoom * 0.06);
-            ctx.shadowColor = CITY_GLOW_STRONG_COLOR;
-            ctx.shadowBlur = 4;
-            ctx.strokeRect(x + inset, y + inset, zoom - inset * 2, zoom - inset * 2);
-            ctx.restore();
-        }
     }
 
     /** Draw the troop disc + count for an occupied cell. */
