@@ -14,14 +14,14 @@
 
 **Purpose**: The pure replay engine functions that CLI scripts and tests consume.
 
-- [ ] T-001 Create `packages/engine/src/replay/` directory and `index.ts` barrel
-- [ ] T-002 Implement `validateFixture(data: unknown)` type-narrowing validator in `packages/engine/src/replay/validate.ts` — checks all required fields (version, seed, settings, terrainSettings, playerCount, orders, terminalTick, terminalResult, finalStateHash, engineVersion) with descriptive errors
-- [ ] T-003 Implement `replayMatch(fixture: Fixture)` pure function in `packages/engine/src/replay/replay.ts` — regenerates board via `generateBoard`, creates world, replays orders tick-by-tick, returns `{ finalWorld, hash, tickCount }`
-- [ ] T-004 [P] Define `Fixture` and `OrderRecord` TypeScript interfaces in `packages/engine/src/replay/types.ts`
-- [ ] T-005 Export replay types and functions from `packages/engine/src/replay/index.ts` and re-export from `packages/engine/src/index.ts`
-- [ ] T-006 Write unit tests for `validateFixture` in `packages/engine/tests/replay/validate.test.ts` — valid fixture, missing fields, wrong types, extra fields tolerated
-- [ ] T-007 [P] Write unit tests for `replayMatch` in `packages/engine/tests/replay/replay.test.ts` — deterministic round-trip (create fixture → replay → same hash), empty orders, single order, multiple orders at same tick
-- [ ] T-008 Run engine test suite and verify ≥80% coverage on replay module
+- [x] T-001 Create `packages/engine/src/replay/` directory and `index.ts` barrel
+- [x] T-002 Implement `validateFixture(data: unknown)` type-narrowing validator in `packages/engine/src/replay/validate.ts` — checks all required fields (version, seed, settings, terrainSettings, playerCount, orders, terminalTick, terminalResult, finalStateHash, engineVersion) with descriptive errors
+- [x] T-003 Implement `replayMatch(fixture: Fixture)` pure function in `packages/engine/src/replay/replay.ts` — regenerates board via `generateBoard`, creates world, replays orders tick-by-tick, returns `{ finalWorld, hash, tickCount }`
+- [x] T-004 [P] Define `Fixture` and `OrderRecord` TypeScript interfaces in `packages/engine/src/replay/types.ts`
+- [x] T-005 Export replay types and functions from `packages/engine/src/replay/index.ts` and re-export from `packages/engine/src/index.ts`
+- [x] T-006 Write unit tests for `validateFixture` in `packages/engine/tests/replay/validate.test.ts` — valid fixture, missing fields, wrong types, extra fields tolerated
+- [x] T-007 [P] Write unit tests for `replayMatch` in `packages/engine/tests/replay/replay.test.ts` — deterministic round-trip (create fixture → replay → same hash), empty orders, single order, multiple orders at same tick
+- [x] T-008 Run engine test suite and verify ≥80% coverage on replay module
 
 **Checkpoint**: Replay core library is tested and ready for CLI consumption.
 
@@ -31,11 +31,11 @@
 
 **Purpose**: The three pnpm scripts that wrap the replay core.
 
-- [ ] T-009 Create `packages/engine/scripts/capture.ts` — reads `--seed`, `--settings` (JSON path), `--orders` (JSON path), `--out` (output path, default `replay-<timestamp>.json`); generates board, replays, writes fixture JSON with 2-space indent
-- [ ] T-010 Create `packages/engine/scripts/run.ts` — reads fixture path from argv[2]; validates, replays, compares hash; prints `PASS <N> ticks` or `FAIL expected <hash> got <actual>`; exits 0/1/2
-- [ ] T-011 Create `packages/engine/scripts/update.ts` — reads fixture path from argv[2]; validates, replays, overwrites `finalStateHash` in-place; prints old → new hash; exits 0 on success, 2 on error
-- [ ] T-012 Add root `package.json` scripts: `"replay:capture": "tsx packages/engine/scripts/capture.ts"`, `"replay:run": "tsx packages/engine/scripts/run.ts"`, `"replay:update": "tsx packages/engine/scripts/update.ts"`
-- [ ] T-013 Add `@europa/terrain: "workspace:*"` and `tsx: "catalog:"` as devDependencies in `packages/engine/package.json`
+- [x] T-009 Create `packages/engine/scripts/capture.ts` — reads `--seed`, `--settings` (JSON path), `--orders` (JSON path), `--out` (output path, default `replay-<timestamp>.json`); generates board, replays, writes fixture JSON with 2-space indent
+- [x] T-010 Create `packages/engine/scripts/run.ts` — reads fixture path from argv[2]; validates, replays, compares hash; prints `PASS <N> ticks` or `FAIL expected <hash> got <actual>`; exits 0/1/2
+- [x] T-011 Create `packages/engine/scripts/update.ts` — reads fixture path from argv[2]; validates, replays, overwrites `finalStateHash` in-place; prints old → new hash; exits 0 on success, 2 on error
+- [x] T-012 Add root `package.json` scripts: `"replay:capture": "tsx packages/engine/scripts/capture.ts"`, `"replay:run": "tsx packages/engine/scripts/run.ts"`, `"replay:update": "tsx packages/engine/scripts/update.ts"`
+- [x] T-013 Add `@europa/terrain: "workspace:*"` and `tsx: "catalog:"` as devDependencies in `packages/engine/package.json`
 
 **Checkpoint**: All three CLI commands work end-to-end.
 
@@ -45,8 +45,8 @@
 
 **Purpose**: Add a collapsible Debug section to the sidebar with the map seed.
 
-- [ ] T-014 [P] Add collapsible "Debug" section in `packages/console/src/ui/sidebar.tsx` — below Status section, starts collapsed, header toggles expansion; reads `state.latestView?.config.seed`, renders "Seed: {value}" with `aria-label="Map seed: {value}"` (FR-014–FR-018)
-- [ ] T-015 [P] Write component test for Debug section in `packages/console/tests/component/debug-section.test.tsx` — render sidebar with seed in ConsoleState, assert section exists, starts collapsed, expands on click, text content and aria-label correct; test with seed undefined (no seed rendered); test spectator mode (FR-017)
+- [x] T-014 [P] Add collapsible "Debug" section in `packages/console/src/ui/sidebar.tsx` — below Status section, starts collapsed, header toggles expansion; reads `state.latestView?.config.seed`, renders "Seed: {value}" with `aria-label="Map seed: {value}"` (FR-014–FR-018)
+- [x] T-015 [P] Write component test for Debug section in `packages/console/tests/component/debug-section.test.tsx` — render sidebar with seed in ConsoleState, assert section exists, starts collapsed, expands on click, text content and aria-label correct; test with seed undefined (no seed rendered); test spectator mode (FR-017)
 
 **Checkpoint**: Seed is visible in both player and spectator sidebar views.
 
@@ -56,10 +56,10 @@
 
 **Purpose**: End-to-end validation and edge case coverage.
 
-- [ ] T-016 Write CLI integration tests in `packages/engine/tests/replay/cli.test.ts` — spawn `capture.ts`, `run.ts`, `update.ts` via `child_process.execFile`; verify exit codes (0/1/2), stdout format, fixture file written correctly
-- [ ] T-017 [P] Write edge case tests: empty order sequence fixture, corrupted fixture (invalid JSON), fixture missing required fields, engine version mismatch warning (stderr, exit 0)
-- [ ] T-018 [P] Create a sample fixture file `packages/engine/tests/fixtures/sample-2p-match.json` from a known deterministic match for regression testing
-- [ ] T-019 Update `packages/engine/README.md` with replay tool documentation (usage, fixture format, exit codes)
+- [x] T-016 Write CLI integration tests in `packages/engine/tests/replay/cli.test.ts` — spawn `capture.ts`, `run.ts`, `update.ts` via `child_process.execFile`; verify exit codes (0/1/2), stdout format, fixture file written correctly
+- [x] T-017 [P] Write edge case tests: empty order sequence fixture, corrupted fixture (invalid JSON), fixture missing required fields, engine version mismatch warning (stderr, exit 0)
+- [x] T-018 [P] Create a sample fixture file `packages/engine/tests/fixtures/sample-2p-match.json` from a known deterministic match for regression testing
+- [x] T-019 Update `packages/engine/README.md` with replay tool documentation (usage, fixture format, exit codes)
 
 **Checkpoint**: All acceptance criteria verified; documentation complete.
 
@@ -69,9 +69,9 @@
 
 **Purpose**: Ensure everything passes the full verification gate.
 
-- [ ] T-020 Run `pnpm verify:changed` (or full `pnpm verify`) — typecheck, lint, format, all tests green
-- [ ] T-021 Verify engine coverage ≥80% on all metrics (replay module included)
-- [ ] T-022 Verify console component tests pass with seed display addition
+- [x] T-020 Run `pnpm verify:changed` (or full `pnpm verify`) — typecheck, lint, format, all tests green
+- [x] T-021 Verify engine coverage ≥80% on all metrics (replay module included)
+- [x] T-022 Verify console component tests pass with seed display addition
 
 **Checkpoint**: Ready for PR.
 

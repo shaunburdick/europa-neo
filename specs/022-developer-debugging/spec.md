@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-06
 
-**Status**: Draft
+**Status**: Implemented (2026-09-07)
 
 **Input**: GitHub issue #81 — "feat: match replay capture and replay harness"
 
