@@ -29,9 +29,9 @@
  * JSDoc references: FR-014..FR-022 + data-model.md §18.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { JSX, RefObject } from 'react';
 import { useState } from 'react';
-
 import { Minimap } from '../qol/minimap';
 import { Tooltip } from '../qol/tooltip';
 import { boardCenterScreen, clampCamera, zoomedCamera, zoomPercent } from '../qol/zoom';
@@ -158,8 +158,8 @@ export function Sidebar({
 
             {/* Debug — collapsible seed display (FR-014–FR-018). Visible in both player and spectator modes. */}
             <section id="debug" aria-label="Debug" className="europa-sidebar__section">
-                <button
-                    type="button"
+                <EuropaButton
+                    variant="ghost"
                     className="europa-sidebar__heading europa-sidebar__debug-toggle"
                     onClick={(): void => {
                         setDebugExpanded((prev) => !prev);
@@ -167,7 +167,7 @@ export function Sidebar({
                     aria-expanded={debugExpanded}
                 >
                     Debug
-                </button>
+                </EuropaButton>
                 {debugExpanded && seed !== undefined && (
                     <div className="europa-hud__item" role="status" aria-label={`Map seed: ${String(seed)}`}>
                         Seed: {String(seed)}
