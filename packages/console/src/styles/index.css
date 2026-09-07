@@ -1699,6 +1699,7 @@ body {
     display: block;
     width: 100%;
     text-align: start;
+    background: transparent;
     color: var(--europa-color-text-primary);
     font-size: var(--europa-typography-size-sm);
     font-weight: 700;
