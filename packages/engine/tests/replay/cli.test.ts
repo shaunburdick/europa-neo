@@ -13,13 +13,33 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 const ENGINE_DIR = import.meta.dirname ? join(import.meta.dirname, '..', '..') : process.cwd();
-const TSX = join(ENGINE_DIR, '..', '..', 'node_modules', '.bin', 'tsx');
+
+/**
+ * Resolve the `tsx` binary. In pnpm workspaces, binaries may be hoisted
+ * to the root `node_modules/.bin/` or scoped to the package's own
+ * `node_modules/.bin/`. Check the engine-local path first (CI-safe),
+ * then fall back to the repo root.
+ */
+function resolveTsx(): string {
+    const local = join(ENGINE_DIR, 'node_modules', '.bin', 'tsx');
+    if (existsSync(local)) return local;
+    const root = join(ENGINE_DIR, '..', '..', 'node_modules', '.bin', 'tsx');
+    if (existsSync(root)) return root;
+    // Last resort: try PATH resolution via `which`.
+    try {
+        return execFileSync('which', ['tsx'], { encoding: 'utf-8' }).trim();
+    } catch {
+        throw new Error('Cannot find tsx binary — install dependencies first');
+    }
+}
+
+const TSX = resolveTsx();
 const CAPTURE_SCRIPT = join(ENGINE_DIR, 'scripts', 'capture.ts');
 const RUN_SCRIPT = join(ENGINE_DIR, 'scripts', 'run.ts');
 const UPDATE_SCRIPT = join(ENGINE_DIR, 'scripts', 'update.ts');

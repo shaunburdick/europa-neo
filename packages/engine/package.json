@@ -28,7 +28,6 @@
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
-        "@europa/terrain": "workspace:*",
         "tsup": "catalog:",
         "tsx": "catalog:",
         "typescript": "catalog:",
