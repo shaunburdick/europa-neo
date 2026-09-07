@@ -46,9 +46,8 @@ function assertField(record: Record<string, unknown>, key: string, expectedType:
         }
     } else if (expectedType === 'object') {
         if (typeof value !== 'object' || Array.isArray(value)) {
-            throw new Error(
-                `Invalid ${label}: '${key}' must be ${expectedType}, got ${Array.isArray(value) ? 'array' : typeof value}`,
-            );
+            const got = Array.isArray(value) ? 'array' : typeof value;
+            throw new Error(`Invalid ${label}: '${key}' must be ${expectedType}, got ${got}`);
         }
     } else if (typeof value !== expectedType) {
         throw new Error(`Invalid ${label}: '${key}' must be ${expectedType}, got ${typeof value}`);
