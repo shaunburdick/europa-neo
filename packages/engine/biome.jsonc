@@ -127,6 +127,14 @@
             "linter": { "rules": { "style": { "useConsistentArrayType": "off" } } }
         },
         {
+            // Validate.ts uses Record<string, unknown> with dynamic key access.
+            // TypeScript's noPropertyAccessFromIndexSignature requires bracket
+            // notation, which conflicts with Biome's useLiteralKeys. This
+            // config-level override resolves the genuine tooling conflict.
+            "includes": ["src/replay/validate.ts"],
+            "linter": { "rules": { "complexity": { "useLiteralKeys": "off" } } }
+        },
+        {
             "includes": ["src/contracts/engine-api.ts"],
             "linter": {
                 "rules": {

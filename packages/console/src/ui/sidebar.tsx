@@ -3,17 +3,18 @@
  *
  * The fixed-width right column of the two-column match view. Owned by
  * `App` (FR-022) so player and spectator share one render path; the
- * sidebar composes the 8 contractual sections in vertical order
- * (FR-015):
+ * sidebar composes the 9 sections in vertical order
+ * (FR-015 + FR-014):
  *
  *   1. Status   — connection status, match-live indicator, local player
- *   2. Players  — per-seat authoritative labels + color indicators
- *   3. Orders   — exclusive/clear mode toggle (OrderBar)
- *   4. Reserve  — reserves slider + quick-select digits (ReservesPanel)
- *   5. Overview — minimap with live viewport rectangle
- *   6. Zoom     — percentage level indicator + in/out/reset controls
- *   7. Surrender — forfeit trigger
- *   8. Help     — help overlay toggle
+ *   2. Debug    — collapsible seed display (FR-014–FR-018)
+ *   3. Players  — per-seat authoritative labels + color indicators
+ *   4. Orders   — exclusive/clear mode toggle (OrderBar)
+ *   5. Reserve  — reserves slider + quick-select digits (ReservesPanel)
+ *   6. Overview — minimap with live viewport rectangle
+ *   7. Zoom     — percentage level indicator + in/out/reset controls
+ *   8. Surrender — forfeit trigger
+ *   9. Help     — help overlay toggle
  *
  * Spectator parity (FR-021): when `interactive` is false (no store),
  * order-producing controls (Orders, Reserve, Surrender) render
@@ -28,8 +29,9 @@
  * JSDoc references: FR-014..FR-022 + data-model.md §18.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { JSX, RefObject } from 'react';
-
+import { useState } from 'react';
 import { Minimap } from '../qol/minimap';
 import { Tooltip } from '../qol/tooltip';
 import { boardCenterScreen, clampCamera, zoomedCamera, zoomPercent } from '../qol/zoom';
@@ -109,6 +111,10 @@ export function Sidebar({
     const hasView = cells.length > 0;
     const board = { width: boardWidth, height: boardHeight };
 
+    // Debug section — collapsed by default (FR-018).
+    const [debugExpanded, setDebugExpanded] = useState(false);
+    const seed = state.latestView?.config.seed;
+
     // Zoom actions anchor at the board center in screen space so the
     // visible content does not swim when zooming via the sidebar.
     const zoomIn = (): void => {
@@ -148,6 +154,25 @@ export function Sidebar({
                               : 'Spectator'}
                     </span>
                 </Tooltip>
+            </section>
+
+            {/* Debug — collapsible seed display (FR-014–FR-018). Visible in both player and spectator modes. */}
+            <section id="debug" aria-label="Debug" className="europa-sidebar__section">
+                <EuropaButton
+                    variant="ghost"
+                    className="europa-sidebar__heading europa-sidebar__debug-toggle"
+                    onClick={(): void => {
+                        setDebugExpanded((prev) => !prev);
+                    }}
+                    aria-expanded={debugExpanded}
+                >
+                    Debug
+                </EuropaButton>
+                {debugExpanded && seed !== undefined && (
+                    <div className="europa-hud__item" role="status" aria-label={`Map seed: ${String(seed)}`}>
+                        Seed: {String(seed)}
+                    </div>
+                )}
             </section>
 
             {/* 2. Players — per-seat labels + color indicators. */}

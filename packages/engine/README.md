@@ -106,6 +106,72 @@ console.log('troops at (2, 1):', result.world.state.troopCounts[1 * 8 + 2]);
 
 For the full feature surface (orders, validation, serialization, terminal detection), see the API documentation in [`dist/index.d.ts`](./dist/index.d.ts) and the spec at [`specs/001-core-game-engine/spec.md`](../../specs/001-core-game-engine/spec.md).
 
+## Replay Tools (Feature 022)
+
+The engine ships with a deterministic match capture/replay harness for debugging and regression testing. Three CLI scripts are available from the monorepo root:
+
+### Capture a match
+
+```sh
+pnpm replay:capture --seed 42 --out fixture.json
+```
+
+Records a headless match's seed, settings, and order sequence to a JSON fixture file. Accepts `--settings <path>` and `--orders <path>` for custom terrain settings and scripted orders.
+
+### Replay a captured match
+
+```sh
+pnpm replay:run fixture.json
+```
+
+Replays the fixture through the engine and compares the final state hash against the stored baseline. Exit codes:
+
+- **0** — PASS: hash matches
+- **1** — FAIL: hash differs
+- **2** — Input error (missing file, invalid JSON, missing fields)
+
+Output format: `PASS <tickCount> ticks` or `FAIL expected <hash> got <actual>`.
+
+### Update baseline hash
+
+```sh
+pnpm replay:update fixture.json
+```
+
+Replays the fixture and overwrites the `finalStateHash` field with the engine's current output. Prints old → new hash for audit trail.
+
+### Fixture format (version 1)
+
+```json
+{
+  "version": 1,
+  "seed": 42,
+  "settings": { "boardSize": 32, "playerCount": 2, "tickIntervalMs": 250, "seed": 42, "visibilityRadius": 6 },
+  "terrainSettings": { "waterRatio": 0.1, "roughness": 0.5, "octaves": 4, "citiesPerPlayer": 1, "symmetryStrategy": "point", "minCityWaterDistance": 3, "minCityCityDistance": 5, "maxRegenAttempts": 5, "terrainSmoothing": 4 },
+  "playerCount": 2,
+  "orders": [],
+  "terminalTick": 1,
+  "terminalResult": null,
+  "finalStateHash": "52d4a5c3",
+  "engineVersion": "0.1.0"
+}
+```
+
+### Programmatic usage
+
+```ts
+import { validateFixture, replayMatch, checkVersionMismatch } from '@europa/engine';
+
+const fixture = validateFixture(JSON.parse(rawJson));
+const warning = checkVersionMismatch(fixture.engineVersion);
+if (warning !== null) console.warn(warning);
+
+// Generate board from fixture.seed + fixture.terrainSettings (via @europa/terrain)
+// then replay:
+const result = replayMatch(fixture, board);
+console.log(result.hash === fixture.finalStateHash ? 'PASS' : 'FAIL');
+```
+
 ## Determinism
 
 The engine is **deterministic by contract** (spec FR-017, SC-001):

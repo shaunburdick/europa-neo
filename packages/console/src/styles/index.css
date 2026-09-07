@@ -1689,6 +1689,16 @@ body {
     letter-spacing: var(--europa-typography-tracking-tight);
 }
 
+/* Debug toggle uses EuropaButton ghost variant — override its defaults
+   to look like a section heading (full-width, left-aligned, bold). */
+.europa-sidebar__debug-toggle {
+    display: block;
+    width: 100%;
+    text-align: start;
+    font-weight: 700;
+    letter-spacing: var(--europa-typography-tracking-tight);
+}
+
 /* T-045: Order bar mode clarity (FR-033, AC-035).
    Mode label becomes uppercase small caps for clearer distinction. */
 .europa-order-bar__mode {

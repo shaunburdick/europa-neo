@@ -152,3 +152,14 @@ export {
     hashWorld,
     serializeWorld,
 } from './serialize';
+
+// ----------------------------------------------------------------------------
+// Replay (Feature 022 — developer debugging tools)
+// ----------------------------------------------------------------------------
+
+export type { Fixture, GenerationSettings, OrderRecord, ReplayResult } from './replay';
+export {
+    checkVersionMismatch,
+    replayMatch,
+    validateFixture,
+} from './replay';

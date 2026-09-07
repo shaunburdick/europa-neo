@@ -1,0 +1,28 @@
+{
+    "version": 1,
+    "seed": 42,
+    "settings": {
+        "boardSize": 32,
+        "playerCount": 2,
+        "tickIntervalMs": 250,
+        "seed": 42,
+        "visibilityRadius": 6
+    },
+    "terrainSettings": {
+        "waterRatio": 0.1,
+        "roughness": 0.5,
+        "octaves": 4,
+        "citiesPerPlayer": 1,
+        "symmetryStrategy": "point",
+        "minCityWaterDistance": 3,
+        "minCityCityDistance": 5,
+        "maxRegenAttempts": 5,
+        "terrainSmoothing": 4
+    },
+    "playerCount": 2,
+    "orders": [],
+    "terminalTick": 1,
+    "terminalResult": null,
+    "finalStateHash": "52d4a5c3",
+    "engineVersion": "0.1.0"
+}

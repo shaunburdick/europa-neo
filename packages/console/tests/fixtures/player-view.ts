@@ -77,6 +77,8 @@ export interface BuildPlayerViewArgs {
     readonly tick?: number;
     /** Owning player of this view. Default 1. */
     readonly playerId?: PlayerId;
+    /** Match seed for the embedded MatchConfig. Default 0. */
+    readonly seed?: number;
     /** Tick events block. Default: all-empty events. */
     readonly tickEvents?: TickEvents;
 }
@@ -84,14 +86,15 @@ export interface BuildPlayerViewArgs {
 /**
  * Build a fog-filtered `PlayerView` for tests. The embedded
  * `MatchConfig` uses neutral defaults (250 ms ticks, seed 0, sensor
- * radius 2) — fields the console reads but never mutates. Pure.
+ * radius 2) unless overridden — fields the console reads but never
+ * mutates. Pure.
  */
 export function buildPlayerView(args: BuildPlayerViewArgs): PlayerView {
     const config: MatchConfig = {
         boardSize: args.width,
         playerCount: 2,
         tickIntervalMs: 250,
-        seed: 0,
+        seed: args.seed ?? 0,
         visibilityRadius: 2,
     };
     const emptyEvents: TickEvents = {
