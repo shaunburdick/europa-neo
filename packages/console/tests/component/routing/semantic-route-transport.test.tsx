@@ -81,6 +81,11 @@ describe('semantic route transport recovery', () => {
                 }
             />,
         );
+
+        // FR-029: non-participant deep link shows the interstitial first
+        await expect.element(screen.getByRole('heading', { name: 'Match found' })).toBeVisible();
+        await (screen.getByRole('button', { name: 'Play' }).element() as HTMLButtonElement).click();
+
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
 
         transport.emitSnapshot(snapshot('in_progress'));

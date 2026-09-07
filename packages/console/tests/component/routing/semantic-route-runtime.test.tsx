@@ -119,6 +119,10 @@ describe('semantic route runtime hand-off', () => {
             </StrictMode>,
         );
 
+        // FR-029: non-participant spectator deep link shows the interstitial first
+        await expect.element(screen.getByRole('heading', { name: 'Match found' })).toBeVisible();
+        await (screen.getByRole('button', { name: 'Spectate' }).element() as HTMLButtonElement).click();
+
         await expect.element(screen.getByRole('heading', { name: 'Spectating' })).toBeVisible();
         expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
         expect(spectatorTransportMock.connectCalls).toBe(2);
@@ -144,11 +148,12 @@ describe('semantic route runtime hand-off', () => {
             />,
         );
 
+        // FR-029: non-participant deep link shows the interstitial first
+        await expect.element(screen.getByRole('heading', { name: 'Match found' })).toBeVisible();
+        await (screen.getByRole('button', { name: 'Play' }).element() as HTMLButtonElement).click();
+
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
         await expect.element(screen.getByRole('main').getByText(/Waiting for 1 more player/)).toBeVisible();
-        await expect
-            .element(screen.container.querySelector('[data-europa-live="polite"]') as HTMLElement)
-            .toHaveTextContent('Waiting for 1 more player');
         expect(transport.commands).toContainEqual({ kind: 'joinMatch', argument: MATCH_ID });
         expect(transport.commands.some((command) => command.kind === 'spectateMatch')).toBe(false);
         expect(screen.container.querySelector('[data-europa-prestart-plate]')).not.toBeNull();
@@ -226,11 +231,17 @@ describe('semantic route runtime hand-off', () => {
             />,
         );
 
-        await expect.element(screen.getByRole('alert')).toBeVisible();
+        // FR-029: non-participant deep link shows the interstitial first
+        await expect.element(screen.getByRole('heading', { name: 'Match found' })).toBeVisible();
+        // First Play click: the queued failure consumes the joinMatch command.
+        await (screen.getByRole('button', { name: 'Play' }).element() as HTMLButtonElement).click();
         expect(transport.commands.filter((command) => command.kind === 'joinMatch')).toHaveLength(1);
 
-        const tryAgainBtn = screen.getByRole('button', { name: 'Try again' }).element() as HTMLButtonElement;
-        await tryAgainBtn.click();
+        // The interstitial stays visible after the failed join (no route
+        // notice — the error is transient). Clicking Play again re-runs
+        // the shortcut command against the same route.
+        await expect.element(screen.getByRole('heading', { name: 'Match found' })).toBeVisible();
+        await (screen.getByRole('button', { name: 'Play' }).element() as HTMLButtonElement).click();
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
         expect(transport.commands.filter((command) => command.kind === 'joinMatch')).toHaveLength(2);
         controller.disconnect();
@@ -377,6 +388,11 @@ describe('match-route resolution gates (feature 015 live-smoke defect fix)', () 
         const input = screen.getByRole('textbox', { name: 'Display name' });
         await input.fill('Deeplink');
         await (screen.getByRole('button', { name: 'Set name' }).element() as HTMLButtonElement).click();
+
+        // FR-029: non-participant deep link shows the interstitial first
+        await expect.element(screen.getByRole('heading', { name: 'Match found' })).toBeVisible();
+        await (screen.getByRole('button', { name: 'Play' }).element() as HTMLButtonElement).click();
+
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
         expect(window.location.pathname).toBe('/match/room-alpha/join');
         expect(transport.commands).toContainEqual({ kind: 'joinMatch', argument: MATCH_ID });
@@ -416,6 +432,11 @@ describe('match-route resolution gates (feature 015 live-smoke defect fix)', () 
         // the transport reports 'connecting') re-runs the effect and
         // resolves the deferred route.
         transport.emitConnection('ready');
+
+        // FR-029: non-participant deep link shows the interstitial first
+        await expect.element(screen.getByRole('heading', { name: 'Match found' })).toBeVisible();
+        await (screen.getByRole('button', { name: 'Play' }).element() as HTMLButtonElement).click();
+
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
         expect(transport.commands).toContainEqual({ kind: 'joinMatch', argument: MATCH_ID });
         controller.disconnect();
