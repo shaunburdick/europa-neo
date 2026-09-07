@@ -162,6 +162,8 @@ agent-browser screenshot lobby-check.png
 agent-browser close
 ```
 
+**Screenshot storage for review**: save screenshots meant for the user to review into the repo-local `__screenshots__/` directory (already gitignored, so they never get committed). This is the same directory Vitest Browser Mode writes its debug artifacts to, and it's visible to the user via remote OpenChamber — unlike `/tmp`, which is outside the worktree and invisible to remote review. Use a descriptive filename (e.g. `__screenshots__/lobby-check.png`).
+
 ### Key rules
 
 - **Always re-snapshot after actions** — `@eN` refs are fresh per snapshot and go stale the moment the page changes (navigation, click, form submit, dynamic re-render).
