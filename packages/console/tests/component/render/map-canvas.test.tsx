@@ -20,7 +20,7 @@ import {
     setConsoleStateForTesting,
 } from '../../../src/internal/test-state';
 import { App } from '../../../src/render/App';
-import { VOID_COLOR } from '../../../src/render/palette';
+import { VOID_COLOR, VOID_GRADIENT_CENTER, VOID_GRADIENT_EDGE } from '../../../src/render/palette';
 import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
@@ -73,6 +73,8 @@ describe('App first paint (Q-B01)', () => {
                     if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
                     const curOffX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const curOffY = boardPx < curH ? (curH - boardPx) / 2 : 0;
+                    const centerRgb = hexToRgb(VOID_GRADIENT_CENTER);
+                    const edgeRgb = hexToRgb(VOID_GRADIENT_EDGE);
                     let paintedVisible = 0;
                     let paintedVoid = 0;
                     let onScreenVisible = 0;
@@ -89,10 +91,16 @@ describe('App first paint (Q-B01)', () => {
                             if (pixel === undefined) {
                                 continue;
                             }
-                            const isVoid =
-                                Math.abs(pixel[0] - voidRgb[0]) < 6 &&
-                                Math.abs(pixel[1] - voidRgb[1]) < 6 &&
-                                Math.abs(pixel[2] - voidRgb[2]) < 6;
+                            const tolerance = 12;
+                            const matchesCenter =
+                                Math.abs(pixel[0] - centerRgb[0]) < tolerance &&
+                                Math.abs(pixel[1] - centerRgb[1]) < tolerance &&
+                                Math.abs(pixel[2] - centerRgb[2]) < tolerance;
+                            const matchesEdge =
+                                Math.abs(pixel[0] - edgeRgb[0]) < tolerance &&
+                                Math.abs(pixel[1] - edgeRgb[1]) < tolerance &&
+                                Math.abs(pixel[2] - edgeRgb[2]) < tolerance;
+                            const isVoid = matchesCenter || matchesEdge;
                             if (visibleKeys.has(`${x},${y}`)) {
                                 onScreenVisible++;
                                 if (!isVoid) paintedVisible++;

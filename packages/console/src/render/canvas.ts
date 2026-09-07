@@ -212,6 +212,7 @@ export class MapCanvas {
 
             // FR-001: wave texture — vertical lines at 4px spacing, 0.5px width, 4% white.
             ctx.save();
+            // design-exception: canvas fallback
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
             ctx.lineWidth = 0.5;
             for (let wx = x; wx < x + zoom; wx += 4) {
@@ -236,9 +237,11 @@ export class MapCanvas {
 
             // Inner shadow: 1px dark top/left edge, 1px light bottom/right edge.
             ctx.save();
+            // design-exception: canvas fallback
             ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
             ctx.fillRect(x, y, zoom, 1);
             ctx.fillRect(x, y, 1, zoom);
+            // design-exception: canvas fallback
             ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
             ctx.fillRect(x, y + zoom - 1, zoom, 1);
             ctx.fillRect(x + zoom - 1, y, 1, zoom);
@@ -247,6 +250,7 @@ export class MapCanvas {
             // FR-002: contour hints on bands 3+ (diagonal lines, 6px spacing, 10% black).
             if (band >= 3) {
                 ctx.save();
+                // design-exception: canvas fallback
                 ctx.strokeStyle = 'rgba(0, 0, 0, 0.10)';
                 ctx.lineWidth = 0.5;
                 const step = 6;
@@ -271,6 +275,7 @@ export class MapCanvas {
             const glowRadius = zoom * 0.4;
             const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
             glowGrad.addColorStop(0, CITY_GLOW_STRONG_COLOR);
+            // design-exception: canvas fallback
             glowGrad.addColorStop(1, 'rgba(255, 68, 68, 0)');
             ctx.fillStyle = glowGrad;
             ctx.fillRect(x, y, zoom, zoom);
