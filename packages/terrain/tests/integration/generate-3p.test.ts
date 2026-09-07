@@ -14,7 +14,7 @@
  *      unreachable under 180° symmetry (parity impossibility).
  */
 
-import type { CityPlacement } from '@europa/engine';
+import type { CityPlacement } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 import { partnerPlayer } from '../../src/city-symmetry';
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';

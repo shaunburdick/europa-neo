@@ -100,12 +100,6 @@ export { ENGINE_API_VERSION } from './types';
 export { DEFAULT_TICK_INTERVAL_MS, ENGINE_CONSTANTS } from './constants';
 
 // ----------------------------------------------------------------------------
-// Deterministic PRNG (sfc32 + xmur3 helpers)
-// ----------------------------------------------------------------------------
-
-export { createRng, createRngFromString, hashSeed } from './rng';
-
-// ----------------------------------------------------------------------------
 // TickEvents builders (pure, immutable)
 // ----------------------------------------------------------------------------
 

@@ -23,113 +23,32 @@
  */
 
 // ----------------------------------------------------------------------------
-// Version
+// Shared types from @europa/core
 // ----------------------------------------------------------------------------
+//
+// The canonical definitions of `Board`, `Cell`, `CityPlacement`, `Coord`,
+// `Direction`, `MatchConfig`, `PlayerId`, `Rng`, `Terrain`, and
+// `ENGINE_API_VERSION` live in `@europa/core`. We import them for local use
+// (so this file's own interface definitions can reference them) and re-export
+// them for backward compatibility — consumers of `@europa/engine` can still
+// `import { Board, Coord, ... } from '@europa/engine'` without a direct
+// dependency on `@europa/core`.
 
-/**
- * Current engine API version. Increment on any breaking change to the
- * public surface (types or functions in this file and engine-api.ts).
- */
-export const ENGINE_API_VERSION = '0.1.0' as const;
+import type { Board, Cell, CityPlacement, Coord, Direction, MatchConfig, PlayerId, Rng, Terrain } from '@europa/core';
+import { ENGINE_API_VERSION } from '@europa/core';
+
+export { ENGINE_API_VERSION };
+export type { Board, Cell, CityPlacement, Coord, Direction, MatchConfig, PlayerId, Rng, Terrain };
 
 // ----------------------------------------------------------------------------
-// Branded primitives
+// Engine-specific branded primitives
 // ----------------------------------------------------------------------------
-
-/** Player identifier; 1..4 (spec FR-019: 2–4 players). */
-export type PlayerId = 1 | 2 | 3 | 4;
-
-/** Cardinal direction a pipe can face. */
-export type Direction = 'N' | 'E' | 'S' | 'W';
-
-/** Terrain classification of a cell. */
-export type Terrain = 'land' | 'water';
 
 /** Game status for a player. */
 export type PlayerStatus = 'alive' | 'surrendered' | 'eliminated';
 
 /** Per-cell reserve percentage, stored ×10 (FR-012: 0–90% in 10% steps). */
 export type ReservesPct = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-
-// ----------------------------------------------------------------------------
-// PRNG (the engine owns the deterministic PRNG; terrain consumes an
-// instance — see contracts/engine-to-terrain.ts)
-// ----------------------------------------------------------------------------
-
-/**
- * Callable pseudorandom generator that returns a uint32 each call.
- *
- * The engine instantiates one `Rng` per match from the match's `seed`
- * (sfc32, see `research.md` §5). The same `Rng` instance is passed to
- * feature 003 (terrain) so map generation consumes the same PRNG stream
- * that drives subsequent tick resolution — guaranteeing full-match
- * determinism for replays.
- *
- * Consumers MUST NOT advance the generator from outside; it is
- * engine-owned. The `state` field is exposed for test/assertion purposes
- * only (SC-001 10k-tick determinism).
- */
-export type Rng = {
-  /** Advance internal state and return the next uint32 in [0, 2^32). */
-  (): number;
-  /** Current state (4 × uint32, sfc32's internal order). Read-only by contract. */
-  readonly state: Uint32Array;
-};
-
-/**
- * Cell coordinate. `x` and `y` are non-negative integers in `[0, boardSize)`.
- */
-export interface Coord {
-  readonly x: number;
-  readonly y: number;
-}
-
-// ----------------------------------------------------------------------------
-// Terrain / Board (input to createWorld — produced by feature 003)
-// ----------------------------------------------------------------------------
-
-export interface Cell {
-  readonly x: number;
-  readonly y: number;
-  readonly elevation: number;   // integer, 0..255 (FR-001)
-  readonly terrain: Terrain;     // FR-001, FR-002
-}
-
-/**
- * Where a city is placed. `owner` is the starting player (FR-005).
- */
-export interface CityPlacement {
-  readonly cell: Coord;
-  readonly owner: PlayerId;
-}
-
-/**
- * Immutable terrain definition for a match. Produced by feature 003,
- * consumed by feature 001's `createWorld`.
- */
-export interface Board {
-  readonly width: number;                    // square; FR-001
-  readonly height: number;                   // FR-001
-  readonly cells: ReadonlyArray<Cell>;       // row-major: cells[y*w + x]
-  readonly cities: ReadonlyArray<CityPlacement>;
-}
-
-// ----------------------------------------------------------------------------
-// MatchConfig (input to createWorld)
-// ----------------------------------------------------------------------------
-
-export interface MatchConfig {
-  /** Square board dimension. Default 32 (spec Assumptions). */
-  readonly boardSize: number;
-  /** Player count. v1 ships 2; engine supports 2–4 (FR-019, AGENTS.md). */
-  readonly playerCount: 2 | 3 | 4;
-  /** Tick interval (ms). Default 250 → 4 Hz. Engine itself does not read this. */
-  readonly tickIntervalMs: number;
-  /** Seed for the engine's PRNG (sfc32). uint32. */
-  readonly seed: number;
-  /** Sensor radius in cells (Chebyshev). Stored here so the engine owns it; consumed by feature 002. */
-  readonly visibilityRadius: number;
-}
 
 // ----------------------------------------------------------------------------
 // Runtime state (flat-arrays form)

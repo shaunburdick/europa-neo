@@ -1,8 +1,8 @@
 {
-    "name": "@europa/terrain",
+    "name": "@europa/core",
     "version": "0.2.0",
     "private": true,
-    "description": "Europa Neo procedural terrain generation — deterministic, point-symmetric, integer-only map generator producing engine-ready Boards for feature 001.",
+    "description": "Europa Neo shared foundation — core game types, deterministic PRNG, and version constant. Zero workspace dependencies; builds first to resolve the engine ↔ terrain ordering constraint.",
     "type": "module",
     "exports": {
         ".": {
@@ -26,13 +26,8 @@
         "typecheck": "tsc --noEmit",
         "coverage": "vitest run --coverage"
     },
-    "dependencies": {
-        "@europa/core": "workspace:*"
-    },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
-        "@europa/engine": "workspace:*",
-        "@vitest/coverage-v8": "^4.1.11",
         "tsup": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:"

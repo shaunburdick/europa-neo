@@ -26,6 +26,9 @@
         "typecheck": "tsc --noEmit",
         "coverage": "vitest run --coverage"
     },
+    "dependencies": {
+        "@europa/core": "workspace:*"
+    },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@europa/terrain": "workspace:*",

@@ -35,6 +35,7 @@
         "typecheck:conformance": "tsc -p tsconfig.conformance.json"
     },
     "dependencies": {
+        "@europa/core": "workspace:*",
         "@europa/engine": "workspace:*",
         "@europa/logging": "workspace:*",
         "@europa/networking": "workspace:*",

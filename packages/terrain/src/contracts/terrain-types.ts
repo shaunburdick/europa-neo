@@ -54,8 +54,8 @@ import type {
   CityPlacement,
   Coord,
   PlayerId,
-} from '@europa/engine';
-import { ENGINE_API_VERSION as _ENGINE_API_VERSION_REF } from '@europa/engine';
+} from '@europa/core';
+import { ENGINE_API_VERSION as _ENGINE_API_VERSION_REF } from '@europa/core';
 
 /**
  * The engine API version terrain was built against. If the engine
@@ -109,7 +109,7 @@ export type MapSeed = number;
  * re-export. The original `export type { Rng } from '@europa/engine'`
  * re-exports but doesn't import for local use, breaking compilation.
  */
-import type { Rng } from '@europa/engine';
+import type { Rng } from '@europa/core';
 export type { Rng };
 
 // ----------------------------------------------------------------------------

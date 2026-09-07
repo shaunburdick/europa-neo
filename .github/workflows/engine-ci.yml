@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'packages/engine/**'
+      - 'packages/core/**'
       - '.github/workflows/engine-ci.yml'
       - 'specs/001-core-game-engine/**'
       - 'pnpm-workspace.yaml'
@@ -16,6 +17,7 @@ on:
     branches: [main]
     paths:
       - 'packages/engine/**'
+      - 'packages/core/**'
       - '.github/workflows/engine-ci.yml'
       - 'specs/001-core-game-engine/**'
       - 'pnpm-workspace.yaml'
@@ -48,6 +50,9 @@ jobs:
           cache: true
           require-lockfile: true
 
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
+
       - name: Typecheck (engine)
         run: pnpm --filter @europa/engine typecheck
 
@@ -70,6 +75,9 @@ jobs:
           cache: true
           require-lockfile: true
 
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
+
       - name: Build engine then terrain (CLI scripts need @europa/terrain dist; terrain peer-depends on engine types)
         run: pnpm --filter @europa/engine build && pnpm --filter @europa/terrain build
 
@@ -88,6 +96,9 @@ jobs:
           runtime: 'node@22'
           cache: true
           require-lockfile: true
+
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
 
       - name: Build engine then terrain (CLI scripts need @europa/terrain dist; terrain peer-depends on engine types)
         run: pnpm --filter @europa/engine build && pnpm --filter @europa/terrain build

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'packages/console/**'
+      - 'packages/core/**'
       - '.github/workflows/client-ci.yml'
       - 'specs/005-client-console/**'
       - 'pnpm-workspace.yaml'
@@ -27,6 +28,7 @@ on:
     branches: [main]
     paths:
       - 'packages/console/**'
+      - 'packages/core/**'
       - '.github/workflows/client-ci.yml'
       - 'specs/005-client-console/**'
       - 'pnpm-workspace.yaml'
@@ -78,6 +80,9 @@ jobs:
 
       - name: Build @europa/design (workspace dependency)
         run: pnpm --filter @europa/design build
+
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
@@ -157,6 +162,9 @@ jobs:
       - name: Build @europa/design (workspace dependency)
         run: pnpm --filter @europa/design build
 
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
+
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
 
@@ -224,6 +232,9 @@ jobs:
 
       - name: Build @europa/design (workspace dependency)
         run: pnpm --filter @europa/design build
+
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build
@@ -307,6 +318,9 @@ jobs:
 
       - name: Build @europa/design (workspace dependency)
         run: pnpm --filter @europa/design build
+
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
 
       - name: Build @europa/engine (workspace dependency)
         run: pnpm --filter @europa/engine build

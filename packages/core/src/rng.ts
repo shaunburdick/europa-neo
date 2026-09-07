@@ -1,11 +1,11 @@
 /**
- * Deterministic Pseudorandom Number Generator — Feature 001
+ * Deterministic Pseudorandom Number Generator — Shared Foundation
  *
  * Implements **sfc32** (Small Fast Counter, 128-bit state) plus the
  * **xmur3** string-hashing helper used to seed it. Together they form
  * the match-wide deterministic PRNG required by spec FR-017
  * ("no wall-clock reads inside tick logic", "command application in a
- * well-defined total order"). See `research.md` §5 for rationale.
+ * well-defined total order"). See engine `research.md` §5 for rationale.
  *
  * **Determinism invariants (constitution Principle II):**
  *   - No unseeded entropy sources (any host RNG, wall-clock reads,
@@ -17,24 +17,16 @@
  *     on every platform, every run. This is the basis of replay
  *     support and the SC-001 10k-tick determinism test.
  *
- * The engine owns the PRNG instance; it is passed to feature 003
- * (terrain) so map generation consumes the same stream that drives
- * tick resolution. Consumers MUST NOT advance the generator from
- * outside — `Rng.state` is exposed read-only for test/assertion use.
+ * Originally lived in `@europa/engine` (`packages/engine/src/rng.ts`).
+ * Moved here (issue #93) so both engine and terrain can import the PRNG
+ * factory without creating a circular dependency.
  *
- * **Branch coverage note (Wave 2B-2 code review)**: the per-file
- * branch coverage on this module sits at 50% — the uncovered
- * branches are all `| 0` and `>>> 0` parity coercions inside the
- * canonical public-domain sfc32 implementation (see
- * https://github.com/bryc/code/blob/master/jshash/PRNGs.md). These
- * branches only fire when JS engines diverge on the implicit Number
- * coercion of intermediate results, which never happens in practice
- * (every JS engine coerces the same way for inputs in `[0, 2^32)`).
- * Modifying the algorithm to "linearize" the branches would mean
- * rewriting the canonical reference, which we explicitly avoid —
- * sfc32 is the well-studied, accepted PRNG for this engine, and
- * the parity coercions are an intentional safety belt for non-spec
- * JS engines. Coverage is intentionally left at 50% on this file.
+ * **Branch coverage note**: the per-file branch coverage sits at ~50% —
+ * the uncovered branches are all `| 0` and `>>> 0` parity coercions
+ * inside the canonical public-domain sfc32 implementation. These
+ * branches only fire when JS engines diverge on implicit Number
+ * coercion, which never happens in practice. Coverage is intentionally
+ * left at ~50% on this file.
  */
 
 import type { Rng } from './types';
@@ -84,7 +76,7 @@ function xmur3(str: string): () => number {
  * in place; the returned `Rng` exposes a live read-only view via `.state`.
  *
  * @param state 4-word Uint32Array (sfc32 internal order). Not copied.
- * @returns Callable matching the `Rng` type from `./types`.
+ * @returns Callable matching the `Rng` type.
  */
 function createRngFromState(state: Uint32Array): Rng {
     // Read the four state words on every call (instead of holding them
@@ -164,7 +156,7 @@ export function hashSeed(seed: number): Uint32Array {
  * @param seed Integer seed (typically uint32; not validated — any
  *             number works, but values are coerced through `String`
  *             to the xmur3 mixer).
- * @returns Callable `Rng` (see `./types`).
+ * @returns Callable `Rng`.
  */
 export function createRng(seed: number): Rng {
     return createRngFromState(hashSeed(seed));

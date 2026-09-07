@@ -8,21 +8,22 @@
  *   3. `createRng(0)` is non-degenerate (edge case: zero seed).
  *   4. Source uses only `Math.imul` / `>>> 0` (constitution Principle II:
  *      no `Math.random`, no `Date.now`, no `Math.sin`/`Math.cos`).
+ *
+ * Moved from `packages/engine/tests/unit/rng.test.ts` to live alongside
+ * the implementation in `@europa/core`. Engine re-exports these functions
+ * unchanged — no need to duplicate the tests there.
  */
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { createRng, createRngFromString, hashSeed } from '../../src/rng';
-import type { Rng } from '../../src/types';
+import type { Rng } from '../../src/index';
+import { createRng, createRngFromString, hashSeed } from '../../src/index';
 
 // Resolve the rng.ts source so we can grep it for forbidden APIs.
 // `import.meta.url` is the only way to locate our own file in ESM;
-// `readFileSync` then lets us scan the source as text. We use
-// `dirname()` to get the directory of THIS test file
-// (`packages/engine/tests/unit/`) and then go up 2 levels to reach
-// `packages/engine/src/rng.ts`.
+// `readFileSync` then lets us scan the source as text.
 const here = dirname(fileURLToPath(import.meta.url));
 const RNG_SOURCE_PATH = resolve(here, '..', '..', 'src', 'rng.ts');
 

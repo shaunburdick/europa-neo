@@ -1,4 +1,4 @@
-import type { Board } from '@europa/engine';
+import type { Board } from '@europa/core';
 
 /**
  * Hash a `Board` into a stable 16-character hex string using integer-only

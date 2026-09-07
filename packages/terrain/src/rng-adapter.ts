@@ -42,7 +42,7 @@
  * every JS engine.
  */
 
-import { createRng } from '@europa/engine';
+import { createRng } from '@europa/core';
 
 import type { Rng } from './contracts/terrain-types';
 

@@ -13,7 +13,7 @@
  * 001's `createWorld` from consuming the terrain output.
  */
 
-import type { MatchConfig } from '@europa/engine';
+import type { MatchConfig } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 
 import { assertBoardMatchesConfig } from '../../src/board';

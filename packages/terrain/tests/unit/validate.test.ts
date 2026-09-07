@@ -18,7 +18,7 @@
  * (with `cities: []`). US2 will add city-specific failing cases.
  */
 
-import type { Board, Cell, CityPlacement, Coord, PlayerId } from '@europa/engine';
+import type { Board, Cell, CityPlacement, Coord, PlayerId } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 import { buildBoard } from '../../src/board';
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';

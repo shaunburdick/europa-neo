@@ -25,7 +25,8 @@
  * join window; the fill + assertions happen well inside it.
  */
 
-import { applyCommand, createRng, createWorld, ENGINE_CONSTANTS, isTerminal, tick } from '@europa/engine';
+import { createRng } from '@europa/core';
+import { applyCommand, createWorld, ENGINE_CONSTANTS, isTerminal, tick } from '@europa/engine';
 import { computePlayerView } from '@europa/fog';
 import { createMatchmaker } from '@europa/matchmaking';
 import {

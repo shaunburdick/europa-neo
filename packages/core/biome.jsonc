@@ -1,0 +1,40 @@
+{
+    "root": false,
+    "extends": ["../../biome.jsonc"],
+    "files": {
+        "includes": ["src/**", "tests/**", "*.ts", "*.json", "*.jsonc"]
+    },
+    "overrides": [
+        {
+            // Deterministic PRNG uses intentional bitwise coercion and well-known
+            // sfc32/xmur3 magic constants. These are public-domain reference
+            // values — extracting them to named constants would obscure the
+            // algorithm without improving readability.
+            "includes": ["src/rng.ts"],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noBitwiseOperators": "off"
+                    },
+                    "style": {
+                        "noMagicNumbers": "off"
+                    }
+                }
+            }
+        },
+        {
+            // Rng is a callable type (function + readonly state property) which
+            // cannot be expressed as an interface. ReadonlyArray matches the
+            // engine contract conventions for Board.cells / Board.cities.
+            "includes": ["src/types.ts"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "useConsistentTypeDefinitions": "off",
+                        "useConsistentArrayType": "off"
+                    }
+                }
+            }
+        }
+    ]
+}

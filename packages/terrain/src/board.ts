@@ -18,7 +18,7 @@
  * `createWorld` and by feature 006 when loading a stored Board).
  */
 
-import type { Board, Cell, MatchConfig } from '@europa/engine';
+import type { Board, Cell, MatchConfig } from '@europa/core';
 import { TERRAIN_CONSTANTS } from './constants';
 
 /**

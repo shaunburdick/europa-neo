@@ -33,7 +33,7 @@
  * in well under 1 ms on the reference platform.
  */
 
-import type { Board, CityPlacement, Coord, PlayerId } from '@europa/engine';
+import type { Board, CityPlacement, Coord, PlayerId } from '@europa/core';
 
 import { partnerPlayer } from './city-symmetry';
 import {

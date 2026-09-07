@@ -14,16 +14,15 @@
  *   --orders <path>       Path to a JSON file with [{tick, playerId, order}]. Optional (empty orders).
  *   --out <path>          Output fixture path. Default: replay-<timestamp>.json.
  */
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { createRng } from '@europa/core';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
 import { applyCommand } from '../src/applyCommand';
 import { createWorld } from '../src/create';
 import { ENGINE_API_VERSION, hashWorld, isTerminal, tick } from '../src/index';
 import type { GenerationSettings } from '../src/replay/types';
-import { createRng } from '../src/rng';
 import type { MatchConfig, Order, PlayerId } from '../src/types';
 
 // ---------------------------------------------------------------------------

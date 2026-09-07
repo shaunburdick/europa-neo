@@ -56,8 +56,8 @@
  * method's JSDoc and spec 006 Implementation Notes for the phase table.
  */
 
+import { createRng } from '@europa/core';
 import type { MatchResult } from '@europa/engine';
-import { createRng } from '@europa/engine';
 import { NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { MatchmakerBridge, Server, SessionToken } from '@europa/networking';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
