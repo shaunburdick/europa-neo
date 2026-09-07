@@ -70,8 +70,8 @@ jobs:
           cache: true
           require-lockfile: true
 
-      - name: Build terrain (CLI scripts need @europa/terrain dist)
-        run: pnpm --filter @europa/terrain build
+      - name: Build engine then terrain (CLI scripts need @europa/terrain dist; terrain peer-depends on engine types)
+        run: pnpm --filter @europa/engine build && pnpm --filter @europa/terrain build
 
       - name: Test (engine)
         run: pnpm --filter @europa/engine test
@@ -89,8 +89,8 @@ jobs:
           cache: true
           require-lockfile: true
 
-      - name: Build terrain (CLI scripts need @europa/terrain dist)
-        run: pnpm --filter @europa/terrain build
+      - name: Build engine then terrain (CLI scripts need @europa/terrain dist; terrain peer-depends on engine types)
+        run: pnpm --filter @europa/engine build && pnpm --filter @europa/terrain build
 
       - name: Coverage (engine)
         run: pnpm --filter @europa/engine coverage
