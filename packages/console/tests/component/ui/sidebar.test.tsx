@@ -1,8 +1,8 @@
 /**
  * Sidebar component tests — issue #76 (T098, FR-015/FR-021).
  *
- * Asserts the sidebar renders all 8 sections in vertical order
- * (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help)
+ * Asserts the sidebar renders all 9 sections in vertical order
+ * (Status, Debug, Players, Orders, Reserve, Overview, Zoom, Surrender, Help)
  * with the correct landmark roles, and that order-producing controls
  * render disabled/inert when `store === undefined` (spectator parity,
  * FR-021).
@@ -77,9 +77,10 @@ function liveSidebarProps(state: ConsoleState) {
     };
 }
 
-/** The 8 sidebar sections in the contractual vertical order (FR-015). */
+/** The 9 sidebar sections in the contractual vertical order (FR-015 + FR-014). */
 const SECTIONS = [
     { id: 'status', label: 'Status' },
+    { id: 'debug', label: 'Debug' },
     { id: 'players', label: 'Players' },
     { id: 'orders', label: 'Orders' },
     { id: 'reserve', label: 'Reserve' },
@@ -90,7 +91,7 @@ const SECTIONS = [
 ] as const;
 
 describe('Sidebar (FR-015)', () => {
-    test('renders all 8 sections in vertical order with landmark roles', async () => {
+    test('renders all 9 sections in vertical order with landmark roles', async () => {
         const state = liveState();
         await render(<Sidebar {...liveSidebarProps(state)} />);
 

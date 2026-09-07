@@ -12,13 +12,13 @@
  */
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { cleanup, fireEvent, render } from 'vitest-browser-react';
+import { userEvent } from 'vitest/browser';
+import { cleanup, render } from 'vitest-browser-react';
 
-import { buildMapView } from '../../../src/state/build-map-view';
-import { INITIAL_CONSOLE_STATE } from '../../../src/state/reducer';
-import type { ConsoleState, MapView, MapViewId } from '../../../src/state/types';
-import { Sidebar } from '../../../src/ui/sidebar';
-import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
+import { INITIAL_CONSOLE_STATE } from '../../src/state/reducer';
+import type { ConsoleState } from '../../src/state/types';
+import { Sidebar } from '../../src/ui/sidebar';
+import { buildCellView, buildPlayerView, createLiveConsoleState } from '../fixtures/player-view';
 
 afterEach(() => {
     cleanup();
@@ -62,34 +62,14 @@ function spectatorStateWithSeed(seed: number): ConsoleState {
     };
 }
 
-/** Render snapshot for the sidebar's board-derived props. */
-function mapViewOf(state: ConsoleState): MapView {
-    const view = state.latestView;
-    if (view === null || view === undefined) {
-        throw new Error('mapViewOf requires a live state with a latestView');
-    }
-    return buildMapView({
-        id: 'debug-test' as MapViewId,
-        view,
-        camera: state.camera,
-        hover: null,
-        selection: null,
-        exclusiveMode: false,
-        prevView: null,
-        nowMs: 0,
-        viewportOffset: { x: 0, y: 0 },
-    });
-}
-
-/** Common props for a sidebar render. */
+/** Common props for a sidebar render — minimal, no board-derived props needed for debug tests. */
 function sidebarProps(state: ConsoleState) {
-    const mapView = mapViewOf(state);
     return {
         state,
         selectionReserves: 0,
-        boardWidth: mapView.width,
-        boardHeight: mapView.height,
-        cells: [...mapView.cells.values()],
+        boardWidth: 0,
+        boardHeight: 0,
+        cells: [],
         onSetCamera: vi.fn(),
         onSurrenderRequest: vi.fn(),
         onHelpToggle: vi.fn(),
@@ -115,6 +95,7 @@ describe('Sidebar Debug section (FR-014–FR-018)', () => {
 
     test('Clicking Debug header expands to show seed', async () => {
         const state = liveStateWithSeed(42);
+        const user = userEvent.setup();
         await render(<Sidebar {...sidebarProps(state)} interactive={true} />);
 
         const debug = document.querySelector('#debug');
@@ -123,7 +104,7 @@ describe('Sidebar Debug section (FR-014–FR-018)', () => {
 
         // Click to expand.
         if (toggle === null || toggle === undefined) return;
-        fireEvent.click(toggle);
+        await user.click(toggle);
 
         // Now seed should be visible.
         expect(debug?.textContent).toContain('Seed: 42');
@@ -132,13 +113,14 @@ describe('Sidebar Debug section (FR-014–FR-018)', () => {
 
     test('Seed display has correct aria-label (FR-016)', async () => {
         const state = liveStateWithSeed(42);
+        const user = userEvent.setup();
         await render(<Sidebar {...sidebarProps(state)} interactive={true} />);
 
         // Expand the debug section.
         const debug = document.querySelector('#debug');
         const toggle = debug?.querySelector('button');
         if (toggle === null || toggle === undefined) return;
-        fireEvent.click(toggle);
+        await user.click(toggle);
 
         // Find the seed element.
         const seedEl = debug?.querySelector('[aria-label="Map seed: 42"]');
@@ -148,6 +130,7 @@ describe('Sidebar Debug section (FR-014–FR-018)', () => {
 
     test('Debug section visible in spectator mode (FR-017)', async () => {
         const state = spectatorStateWithSeed(99);
+        const user = userEvent.setup();
         await render(<Sidebar {...sidebarProps(state)} interactive={false} />);
 
         const debug = document.querySelector('#debug');
@@ -156,7 +139,7 @@ describe('Sidebar Debug section (FR-014–FR-018)', () => {
         // Expand.
         const toggle = debug?.querySelector('button');
         if (toggle === null || toggle === undefined) return;
-        fireEvent.click(toggle);
+        await user.click(toggle);
 
         // Seed should be visible for spectators too.
         expect(debug?.textContent).toContain('Seed: 99');
@@ -185,13 +168,15 @@ describe('Sidebar Debug section (FR-014–FR-018)', () => {
         // Expand — but no seed should appear.
         const toggle = debug?.querySelector('button');
         if (toggle === null || toggle === undefined) return;
-        fireEvent.click(toggle);
+        const user = userEvent.setup();
+        await user.click(toggle);
 
         expect(debug?.textContent).not.toContain('Seed:');
     });
 
     test('Debug section can collapse after expanding', async () => {
         const state = liveStateWithSeed(42);
+        const user = userEvent.setup();
         await render(<Sidebar {...sidebarProps(state)} interactive={true} />);
 
         const debug = document.querySelector('#debug');
@@ -199,11 +184,11 @@ describe('Sidebar Debug section (FR-014–FR-018)', () => {
         if (toggle === null || toggle === undefined) return;
 
         // Expand.
-        fireEvent.click(toggle);
+        await user.click(toggle);
         expect(debug?.textContent).toContain('Seed: 42');
 
         // Collapse.
-        fireEvent.click(toggle);
+        await user.click(toggle);
         expect(debug?.textContent).not.toContain('Seed: 42');
     });
 });

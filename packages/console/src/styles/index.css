@@ -1689,6 +1689,22 @@ body {
     letter-spacing: var(--europa-typography-tracking-tight);
 }
 
+/* Debug toggle is a <button> that must inherit the heading text color
+   and have no UA background (buttons reset color/bg in some browsers
+   — axe color-contrast rule). */
+.europa-sidebar__debug-toggle {
+    all: unset;
+    cursor: pointer;
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    text-align: start;
+    color: var(--europa-color-text-primary);
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 700;
+    letter-spacing: var(--europa-typography-tracking-tight);
+}
+
 /* T-045: Order bar mode clarity (FR-033, AC-035).
    Mode label becomes uppercase small caps for clearer distinction. */
 .europa-order-bar__mode {
