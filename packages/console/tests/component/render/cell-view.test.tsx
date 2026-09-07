@@ -15,7 +15,6 @@ import { cleanup, render } from 'vitest-browser-react';
 import '../../../src/styles/index.css';
 import { DEFAULT_CAMERA, DEFAULT_PLAYER_COLORS } from '../../../src/config';
 import { CellView } from '../../../src/render/cell-view';
-import { WATER_COLOR } from '../../../src/render/palette';
 import type { CellRenderInfo } from '../../../src/state/types';
 
 /** Render one cell and return its root element. */
@@ -32,35 +31,12 @@ async function renderCell(info: CellRenderInfo): Promise<HTMLElement> {
     return el;
 }
 
-/** Parse an `rgb(...)`/`rgba(...)` computed color into channels. */
-function rgbChannels(color: string): [number, number, number] {
-    const matches = color.match(/[\d.]+/g);
-    if (matches === null || matches.length < 3) {
-        throw new Error(`Unparseable color: ${color}`);
-    }
-    return [Number(matches[0]), Number(matches[1]), Number(matches[2])];
-}
-
-/** Parse an `#rrggbb` palette color into channels. */
-function hexToRgb(hex: string): [number, number, number] {
-    return [
-        Number.parseInt(hex.slice(1, 3), 16),
-        Number.parseInt(hex.slice(3, 5), 16),
-        Number.parseInt(hex.slice(5, 7), 16),
-    ];
-}
-
-/** Relative luminance (WCAG 1.4.3 definition) of an rgb triple. */
-function luminance([r, g, b]: [number, number, number]): number {
-    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-}
-
 afterEach(() => {
     cleanup();
 });
 
 describe('CellView (T040 / data-model §3)', () => {
-    test('water cells render blue', async () => {
+    test('water cells render with transparent background (canvas handles terrain color)', async () => {
         const el = await renderCell({
             coord: { x: 2, y: 9 },
             elevation: 0,
@@ -76,14 +52,13 @@ describe('CellView (T040 / data-model §3)', () => {
             changedThisTick: false,
         });
 
-        const [r, g, b] = rgbChannels(getComputedStyle(el).backgroundColor);
-        expect(b).toBeGreaterThan(r + 50);
-        expect(b).toBeGreaterThan(g + 50);
-        // And it is the palette's water color exactly.
-        expect([r, g, b]).toEqual(hexToRgb(WATER_COLOR));
+        // DOM cell is transparent — terrain coloring comes from the canvas layer.
+        expect(getComputedStyle(el).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+        // A11y label still encodes terrain type.
+        expect(el.getAttribute('aria-label')).toContain('Cell (2, 9)');
     });
 
-    test('land at elevation 200 renders lighter than sea-level land', async () => {
+    test('land cells render with transparent background (canvas handles terrain color)', async () => {
         const high = await renderCell({
             coord: { x: 0, y: 0 },
             elevation: 200,
@@ -113,9 +88,12 @@ describe('CellView (T040 / data-model §3)', () => {
             changedThisTick: false,
         });
 
-        const highLum = luminance(rgbChannels(getComputedStyle(high).backgroundColor));
-        const lowLum = luminance(rgbChannels(getComputedStyle(low).backgroundColor));
-        expect(highLum).toBeGreaterThan(lowLum);
+        // Both DOM cells are transparent — terrain shading comes from the canvas layer.
+        expect(getComputedStyle(high).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+        expect(getComputedStyle(low).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+        // A11y labels still encode coordinates.
+        expect(high.getAttribute('aria-label')).toContain('Cell (0, 0)');
+        expect(low.getAttribute('aria-label')).toContain('Cell (1, 0)');
     });
 
     test('city cells render with a distinct outline', async () => {
