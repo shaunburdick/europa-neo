@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createRng, createRngFromString, hashSeed } from '../../src/rng';
+import { createRng, createRngFromString, hashSeed } from '../../src/index';
 import type { Rng } from '../../src/types';
 
 describe('engine RNG re-exports from @europa/core', () => {

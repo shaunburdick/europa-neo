@@ -17,15 +17,14 @@
  *   PASS <tickCount> ticks
  *   FAIL expected <hash> got <actual>
  */
-
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { createRng } from '@europa/core';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
 import { checkVersionMismatch, replayMatch } from '../src/replay/replay';
 import type { Fixture } from '../src/replay/types';
 import { validateFixture } from '../src/replay/validate';
-import { createRng } from '../src/rng';
 
 // ---------------------------------------------------------------------------
 // Main

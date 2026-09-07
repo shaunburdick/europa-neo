@@ -103,7 +103,7 @@ export { DEFAULT_TICK_INTERVAL_MS, ENGINE_CONSTANTS } from './constants';
 // Deterministic PRNG (sfc32 + xmur3 helpers)
 // ----------------------------------------------------------------------------
 
-export { createRng, createRngFromString, hashSeed } from './rng';
+export { createRng, createRngFromString, hashSeed } from '@europa/core';
 
 // ----------------------------------------------------------------------------
 // TickEvents builders (pure, immutable)

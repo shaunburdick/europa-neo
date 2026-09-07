@@ -20,7 +20,7 @@
  *   initialization (4 uint32s).
  */
 
-import { hashSeed } from './rng';
+import { hashSeed } from '@europa/core';
 import type { Board, Cell, CityPlacement, MatchConfig, Player, PlayerId, Terrain, World, WorldState } from './types';
 
 /** Minimum board dimension the engine accepts (per data-model.md §1). */
