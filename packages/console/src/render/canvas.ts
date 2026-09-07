@@ -400,30 +400,43 @@ export class MapCanvas {
     }
 
     /**
-     * Adjust the brightness of a hex color string by a percentage.
+     * Adjust the brightness of a color string by a percentage.
      *
-     * Parses `#rrggbb` or `#rrggbbaa`, adjusts R/G/B channels by
-     * `percent`% of 255, clamps each channel to 0–255, returns adjusted
-     * hex string. rgb/rgba strings are returned unchanged (can't adjust
-     * reliably).
+     * Parses hex (`#rrggbb`, `#rrggbbaa`), HSL (`hsl(H S% L%)`), and
+     * HSLA (`hsla(H, S%, L%, A)`) strings, adjusts the lightness/brightness
+     * component, and returns the adjusted string. rgb/rgba strings are
+     * returned unchanged (can't adjust reliably).
      *
-     * @param hex Color string (#rrggbb, #rrggbbaa, or rgb/rgba passthrough).
+     * For hex/RGB, each channel is shifted by `percent`% of 255 and clamped
+     * to 0–255. For HSL/HSLA, lightness (0–100) is shifted directly by
+     * `percent` and clamped to 0–100.
+     *
+     * @param color Color string in any supported format.
      * @param percent Brightness adjustment (-100 to +100). Positive = lighter.
      * @returns Adjusted color string in the same format as input.
      */
-    private adjustBrightness(hex: string, percent: number): string {
-        if (!hex) return '';
+    private adjustBrightness(color: string, percent: number): string {
+        if (!color) return '';
         // Return rgb/rgba strings unchanged — can't parse reliably.
-        if (hex.startsWith('rgb')) return hex;
-        const h = hex.replace('#', '');
-        if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(h)) return '';
+        if (color.startsWith('rgb')) return color;
+        // Handle HSL strings: hsl(H S% L%) or hsl(H, S%, L%) or hsla variants.
+        const hslMatch = /^hsla?\(\s*(\d+)[,\s]+(\d+)%[,\s]+(\d+)%(?:[,\s/]+[\d.]+%?)?\s*\)$/i.exec(color);
+        if (hslMatch) {
+            const h = Number(hslMatch[1]);
+            const s = Number(hslMatch[2]);
+            const l = Math.max(0, Math.min(100, Math.round(Number(hslMatch[3]) + percent)));
+            return color.startsWith('hsla') ? `hsla(${h}, ${s}%, ${l}%, 1)` : `hsl(${h} ${s}% ${l}%)`;
+        }
+        // Handle hex strings: #rgb, #rrggbb, #rrggbbaa.
+        const hex = color.replace('#', '');
+        if (!/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(hex)) return color;
         const adjust = (v: string): number =>
             Math.max(0, Math.min(255, Math.round(Number.parseInt(v, 16) + (percent / 100) * 255)));
         const toHex = (v: number): string => v.toString(16).padStart(2, '0');
-        const r = toHex(adjust(h.slice(0, 2)));
-        const g = toHex(adjust(h.slice(2, 4)));
-        const b = toHex(adjust(h.slice(4, 6)));
-        return h.length === 8 ? `#${r}${g}${b}${toHex(Number.parseInt(h.slice(6, 8), 16))}` : `#${r}${g}${b}`;
+        const r = toHex(adjust(hex.slice(0, 2)));
+        const g = toHex(adjust(hex.slice(2, 4)));
+        const b = toHex(adjust(hex.slice(4, 6)));
+        return hex.length === 8 ? `#${r}${g}${b}${toHex(Number.parseInt(hex.slice(6, 8), 16))}` : `#${r}${g}${b}`;
     }
 
     /** Stroke a rectangle around a cell (hover/focus indicators). */
