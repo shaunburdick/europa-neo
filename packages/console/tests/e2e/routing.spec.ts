@@ -351,6 +351,11 @@ test.describe('US3 profile redirect for unnamed deep links (feature 015)', () =>
             await page.locator('[data-europa-submit-handle="true"]').click();
             await expectPath(page, `/match/${matchId}/join`);
 
+            // FR-029: non-participant deep links now show the interstitial.
+            // Click Play to proceed into the match.
+            await expect(page.getByRole('heading', { name: 'Match found' })).toBeVisible();
+            await page.getByRole('button', { name: 'Play' }).click();
+
             // Seat granted: the match view opens into the pre-start waiting
             // room (2/4 filled), with no route-failure notice anywhere.
             await expect(page.getByRole('heading', { name: /In match/ })).toBeVisible();
