@@ -136,7 +136,7 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         expect(ev.defenderTotal).toBe(100);
     });
 
-    it('200v50: bigger force overwhelms smaller; defender eliminated; attacker retains 150', () => {
+    it('200v50: bigger force overwhelms smaller; defender eliminated; winner clamped to cellCapacity', () => {
         const size = 8;
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
@@ -145,7 +145,8 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         inflow(state, tally, size, 4, 4, 2, 50);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
-        expect(out.state.troopCounts[4 * size + 4]).toBe(150);
+        // Winner's remaining (150) exceeds cellCapacity (30) → clamped.
+        expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
     });
 
@@ -246,7 +247,7 @@ describe('resolveCombat — single-sided & empty cells', () => {
 });
 
 describe('resolveCombat — three-way (3 owners, all-equal stack)', () => {
-    it('100/100/100: tie broken by ascending PlayerId; P1 wins, keeps 100; P2/P3 eliminated', () => {
+    it('100/100/100: tie broken by ascending PlayerId; P1 wins, clamped to cellCapacity', () => {
         const size = 8;
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
@@ -256,7 +257,8 @@ describe('resolveCombat — three-way (3 owners, all-equal stack)', () => {
         inflow(state, tally, size, 4, 4, 3, 100);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
-        expect(out.state.troopCounts[4 * size + 4]).toBe(100);
+        // Dominant count (100) exceeds cellCapacity (30) → clamped.
+        expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
     });
 
@@ -282,7 +284,7 @@ describe('resolveCombat — three-way (3 owners, all-equal stack)', () => {
         expect(e2?.defenderLoss).toBe(100);
     });
 
-    it('three-way with one larger stack: the larger stack wins, two losers eliminated', () => {
+    it('three-way with one larger stack: the larger stack wins, clamped to cellCapacity', () => {
         const size = 8;
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
@@ -292,7 +294,8 @@ describe('resolveCombat — three-way (3 owners, all-equal stack)', () => {
         inflow(state, tally, size, 4, 4, 3, 100);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
-        expect(out.state.troopCounts[4 * size + 4]).toBe(200);
+        // Dominant count (200) exceeds cellCapacity (30) → clamped.
+        expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
     });
 });
@@ -316,10 +319,10 @@ describe('resolveCombat — symmetry regardless of order-issuing player', () => 
         const outA = resolveCombat(stateA, boardA, CONSTANTS, TICK, tallyA);
         const outB = resolveCombat(stateB, boardA, CONSTANTS, TICK, tallyB);
 
-        // In A: cell (4,4) holds 150 for P1 (winner by majority).
-        // In B: cell (4,4) holds 150 for P2 (winner by majority).
-        expect(outA.state.troopCounts[4 * size + 4]).toBe(150);
-        expect(outB.state.troopCounts[4 * size + 4]).toBe(150);
+        // In A: cell (4,4) holds 30 for P1 (winner, clamped to cellCapacity).
+        // In B: cell (4,4) holds 30 for P2 (winner, clamped to cellCapacity).
+        expect(outA.state.troopCounts[4 * size + 4]).toBe(30);
+        expect(outB.state.troopCounts[4 * size + 4]).toBe(30);
         expect(outA.state.troopOwners[4 * size + 4]).toBe(1);
         expect(outB.state.troopOwners[4 * size + 4]).toBe(2);
     });
@@ -378,7 +381,7 @@ describe('resolveCombat — determinism', () => {
 });
 
 describe('resolveCombat — defensive / boundary', () => {
-    it('1v100: smaller eliminated, larger retains 99', () => {
+    it('1v100: smaller eliminated, larger clamped to cellCapacity', () => {
         const size = 8;
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
@@ -387,7 +390,8 @@ describe('resolveCombat — defensive / boundary', () => {
         inflow(state, tally, size, 4, 4, 2, 100);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
-        expect(out.state.troopCounts[4 * size + 4]).toBe(99);
+        // Winner's remaining (99) exceeds cellCapacity (30) → clamped.
+        expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         // Total-force model without preFlowState: dominant-owner fallback.
         // P2 dominates tally (100 > 1), so P2 wins and retains the cell.
         expect(out.state.troopOwners[4 * size + 4]).toBe(2);
@@ -713,5 +717,74 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
                 expect(nev?.defenderTotal).toBe(rev?.defenderTotal);
             }
         }
+    });
+});
+
+// ============================================================================
+// Capacity clamping boundary tests (FR-011, Clarifications v1.5)
+// ============================================================================
+
+describe('resolveCombat — cellCapacity clamping (FR-011)', () => {
+    it('T-006: 2-way winner remaining === cellCapacity exactly — no clamping', () => {
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const tally = emptyTally(size);
+        // P1=40, P2=10. After 1:1 attrition: min(40,10)=10 damage. P1 retains 30.
+        // 30 === cellCapacity → no clamping.
+        inflow(state, tally, size, 4, 4, 1, 40);
+        inflow(state, tally, size, 4, 4, 2, 10);
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        expect(out.state.troopCounts[4 * size + 4]).toBe(30);
+        expect(out.state.troopOwners[4 * size + 4]).toBe(1);
+    });
+
+    it('T-007: 2-way winner remaining === cellCapacity + 1 — clamped to cellCapacity', () => {
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const tally = emptyTally(size);
+        // P1=41, P2=10. After 1:1 attrition: min(41,10)=10 damage. P1 retains 31.
+        // 31 > cellCapacity (30) → clamped to 30.
+        inflow(state, tally, size, 4, 4, 1, 41);
+        inflow(state, tally, size, 4, 4, 2, 10);
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        expect(out.state.troopCounts[4 * size + 4]).toBe(30);
+        expect(out.state.troopOwners[4 * size + 4]).toBe(1);
+    });
+
+    it('T-008: 3-way dominant count exceeds cellCapacity — clamped to cellCapacity', () => {
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const tally = emptyTally(size);
+        // P1=40, P2=10, P3=10. P1 dominates (40 > 10).
+        // Dominant count 40 > cellCapacity (30) → clamped to 30.
+        inflow(state, tally, size, 4, 4, 1, 40);
+        inflow(state, tally, size, 4, 4, 2, 10);
+        inflow(state, tally, size, 4, 4, 3, 10);
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        expect(out.state.troopCounts[4 * size + 4]).toBe(30);
+        expect(out.state.troopOwners[4 * size + 4]).toBe(1);
+        // Two losers eliminated.
+        expect(out.events.combat.length).toBe(2);
+    });
+
+    it('T-009: 2-way winner remaining === cellCapacity − 1 — no clamping', () => {
+        const size = 8;
+        const board: Board = buildSmallBoard(size, []);
+        const state = emptyState(size);
+        const tally = emptyTally(size);
+        // P1=39, P2=10. After 1:1 attrition: min(39,10)=10 damage. P1 retains 29.
+        // 29 < cellCapacity (30) → no clamping.
+        inflow(state, tally, size, 4, 4, 1, 39);
+        inflow(state, tally, size, 4, 4, 2, 10);
+
+        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        expect(out.state.troopCounts[4 * size + 4]).toBe(29);
+        expect(out.state.troopOwners[4 * size + 4]).toBe(1);
     });
 });
