@@ -20,7 +20,7 @@ import {
     setConsoleStateForTesting,
 } from '../../../src/internal/test-state';
 import { App } from '../../../src/render/App';
-import { VOID_COLOR, VOID_GRADIENT_CENTER, VOID_GRADIENT_EDGE } from '../../../src/render/palette';
+import { VOID_GRADIENT_CENTER, VOID_GRADIENT_EDGE } from '../../../src/render/palette';
 import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
@@ -54,7 +54,6 @@ describe('App first paint (Q-B01)', () => {
         expect(ctx).not.toBeNull();
 
         const { zoom } = DEFAULT_CAMERA;
-        const voidRgb = hexToRgb(VOID_COLOR);
         const visibleKeys = new Set(view.visibleCells.map((cell) => `${cell.coord.x},${cell.coord.y}`));
         const boardPx = view.config.boardSize * zoom;
 
