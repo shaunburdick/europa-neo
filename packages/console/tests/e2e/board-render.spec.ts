@@ -115,11 +115,21 @@ test.describe('board render (demo mode)', () => {
     test('sidebar sections are all present', async ({ page }) => {
         await openDemoBoard(page);
 
-        // All 8 sidebar sections (FR-015) are present.
+        // All 9 sidebar sections (FR-015 + FR-014) are present.
         const sections = page.locator('.europa-sidebar > section');
-        await expect(sections).toHaveCount(8);
+        await expect(sections).toHaveCount(9);
 
-        for (const label of ['Status', 'Players', 'Orders', 'Reserve', 'Overview', 'Zoom', 'Surrender', 'Help']) {
+        for (const label of [
+            'Status',
+            'Debug',
+            'Players',
+            'Orders',
+            'Reserve',
+            'Overview',
+            'Zoom',
+            'Surrender',
+            'Help',
+        ]) {
             await expect(page.locator(`section[aria-label="${label}"]`)).toBeVisible();
         }
 

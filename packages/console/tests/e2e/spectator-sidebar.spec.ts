@@ -1,7 +1,7 @@
 /**
  * E2E — spectator sidebar parity (issue #76, FR-021).
  *
- * The spectator leg renders the SAME sidebar as a player, with all 8
+ * The spectator leg renders the SAME sidebar as a player, with all 9
  * sections present but order-producing controls (Orders, Reserve,
  * Surrender) rendered disabled or inert — no orders can be sent
  * (structural invariant: spectators have no store, no order bridge).
@@ -300,12 +300,22 @@ test.describe('spectator sidebar parity (FR-021)', () => {
         };
     }
 
-    test('the spectator sees all 8 sidebar sections', async ({ page }) => {
+    test('the spectator sees all 9 sidebar sections', async ({ page }) => {
         await setupLiveMatchAndSpectate(page);
 
         const sections = page.locator('.europa-sidebar > section');
-        await expect(sections).toHaveCount(8);
-        for (const label of ['Status', 'Players', 'Orders', 'Reserve', 'Overview', 'Zoom', 'Surrender', 'Help']) {
+        await expect(sections).toHaveCount(9);
+        for (const label of [
+            'Status',
+            'Debug',
+            'Players',
+            'Orders',
+            'Reserve',
+            'Overview',
+            'Zoom',
+            'Surrender',
+            'Help',
+        ]) {
             await expect(page.locator(`section[aria-label="${label}"]`)).toBeVisible();
         }
     });
