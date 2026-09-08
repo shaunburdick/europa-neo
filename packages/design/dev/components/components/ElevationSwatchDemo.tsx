@@ -7,10 +7,10 @@ import { TOKENS } from '../../../src/tokens';
  * Matches spec 024 FR-001/FR-050 zone definitions.
  */
 const BIOME_ZONES = [
-    { name: 'Ice Plains', range: '0–80', flow: 'Always flowable', example: 40 },
+    { name: 'Smooth Ice', range: '0–80', flow: 'Always flowable', example: 40 },
     { name: 'Fractured Ice', range: '81–160', flow: 'Flowable but slower', example: 120 },
     { name: 'Rocky Outcrops', range: '161–208', flow: 'May stall uphill', example: 185 },
-    { name: 'Peaks', range: '209–255', flow: 'Extreme — uphill always stalled', example: 232 },
+    { name: 'Ice Peaks', range: '209–255', flow: 'Extreme — uphill always stalled', example: 232 },
 ] as const;
 
 /**

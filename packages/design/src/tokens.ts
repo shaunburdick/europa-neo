@@ -48,13 +48,13 @@ export const TOKENS = {
          *   Zone 0 (0–80):   downhill bonus — easy flow (Ice Plains)
          *   Zone 1 (81–160):  flat-to-mild-uphill — moderate flow (Fractured Ice)
          *   Zone 2 (161–208): stalled uphill — hard flow (Rocky Outcrops)
-         *   Zone 3 (209–255): extreme uphill — extreme (Peaks)
+         *   Zone 3 (209–255): extreme uphill — extreme (Ice Peaks)
          */
         biomeZones: [
-            { elevationMax: 80, hue: 195, saturationPct: 30, lightnessMin: 15, lightnessMax: 28 },
-            { elevationMax: 160, hue: 210, saturationPct: 35, lightnessMin: 10, lightnessMax: 22 },
-            { elevationMax: 208, hue: 200, saturationPct: 15, lightnessMin: 20, lightnessMax: 35 },
-            { elevationMax: 255, hue: 220, saturationPct: 8, lightnessMin: 60, lightnessMax: 78 },
+            { elevationMax: 80, hue: 210, saturationPct: 65, lightnessMin: 38, lightnessMax: 52 },
+            { elevationMax: 160, hue: 170, saturationPct: 55, lightnessMin: 26, lightnessMax: 40 },
+            { elevationMax: 208, hue: 30, saturationPct: 55, lightnessMin: 30, lightnessMax: 42 },
+            { elevationMax: 255, hue: 200, saturationPct: 15, lightnessMin: 80, lightnessMax: 95 },
         ] as const,
         blue: '#2563eb',
         border: '#374151',

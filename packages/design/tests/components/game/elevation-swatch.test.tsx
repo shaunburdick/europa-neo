@@ -100,12 +100,12 @@ describe('EuropaElevationSwatch', () => {
     });
 
     it('renders 4 distinct biome zone colors across the elevation range', () => {
-        // Elevation 0 → Ice Plains (hue 195)
-        // Elevation 30 → Ice Plains (hue 195)
-        // Elevation 60 → Fractured Ice (hue 210)
-        // Elevation 85 → Peaks (hue 220)
-        const elevations = [0, 30, 60, 85];
-        const expectedHues = [195, 195, 210, 220];
+        // Elevation 10 → Smooth Ice (hue 210)
+        // Elevation 45 → Fractured Ice (hue 170)
+        // Elevation 70 → Rocky Outcrops (hue 30)
+        // Elevation 90 → Ice Peaks (hue 200)
+        const elevations = [10, 45, 70, 90];
+        const expectedHues = [210, 170, 30, 200];
 
         for (let i = 0; i < elevations.length; i++) {
             render(<EuropaElevationSwatch elevation={elevations[i]} />);
@@ -117,11 +117,11 @@ describe('EuropaElevationSwatch', () => {
     });
 
     it('uses biome zone colors at zone boundaries', () => {
-        // Elevation 0 → Ice Plains (hue 195, lightness 15)
+        // Elevation 0 → Smooth Ice (hue 210, lightness 38)
         render(<EuropaElevationSwatch elevation={0} />);
-        expect(screen.getByRole('img')).toHaveStyle({ backgroundColor: 'hsl(195, 30%, 15%)' });
+        expect(screen.getByRole('img')).toHaveStyle({ backgroundColor: 'hsl(210, 65%, 38%)' });
 
-        // Elevation 100 → Peaks (hue 220, lightness 78)
+        // Elevation 100 → Ice Peaks (hue 200, lightness 95)
         render(<EuropaElevationSwatch elevation={100} />);
         const swatches = screen.getAllByRole('img');
         expect(swatches[1]).toHaveStyle({ backgroundColor: expectedHsl(100) });

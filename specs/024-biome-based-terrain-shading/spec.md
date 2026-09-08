@@ -1,6 +1,6 @@
 # Feature 024: Biome-Based Terrain Shading
 
-> Version: 1.3
+> Version: 1.4
 > Last Updated: 2026-09-08
 > Status: Implemented (2026-09-08)
 > Dependencies: Feature 021 (Tile Visual Redesign), Feature 012 (Design System)
@@ -55,18 +55,18 @@ As a developer, I want the biome shading to integrate into the existing renderin
 
   | Zone | Index | Elevation Range | Hue | Saturation (%) | Lightness Range (%) |
   |------|-------|-----------------|-----|----------------|---------------------|
-  | Ice Plains | 0 | 0–80 | 195 (icy cyan) | 30 | 15–28 |
-  | Fractured Ice | 1 | 81–160 | 210 (deep blue) | 35 | 10–22 |
-  | Rocky Outcrops | 2 | 161–208 | 200 (blue-gray) | 15 | 20–35 |
-  | Peaks | 3 | 209–255 | 220 (cool white) | 8 | 60–78 |
+  | Smooth Ice | 0 | 0–80 | 210 (blue) | 65 | 38–52 |
+  | Fractured Ice | 1 | 81–160 | 170 (teal) | 55 | 26–40 |
+  | Rocky Outcrops | 2 | 161–208 | 30 (orange) | 55 | 30–42 |
+  | Ice Peaks | 3 | 209–255 | 200 (light blue) | 15 | 80–95 |
 
   Within each zone, lightness interpolates linearly from the min to the max based on the cell's normalized position within that zone's elevation range. The zone boundaries are aligned with the pipe flow formula's behavioral transitions (FR-050):
-  - Zone 0 (0–80): always flowable (delta < 40 max within zone) — easy flow (Ice Plains)
+  - Zone 0 (0–80): always flowable (delta < 40 max within zone) — easy flow (Smooth Ice)
   - Zone 1 (81–160): flowable but slower when uphill (delta 40–80 crosses into this zone) — moderate flow (Fractured Ice)
   - Zone 2 (161–208): uphill pipes may stall (delta > 80 crosses two zones) — hard flow (Rocky Outcrops)
-  - Zone 3 (209–255): extreme terrain, uphill pipes always stalled — extreme (Peaks)
+  - Zone 3 (209–255): extreme terrain, uphill pipes always stalled — extreme (Ice Peaks)
 
-  **Contrast rationale**: The biome zone lightness ranges are deliberately kept dark (max 35% for zones 0–2, max 78% for zone 3) to ensure the pipe slope indicator colors maintain visual contrast. The Peaks zone is the lightest but capped at 78% (not 85%) to keep the gray stalled indicator readable.
+  **Contrast rationale**: The biome zones use distinct hue families (blue, teal, orange, light blue) for maximum visual separation. Zones 0–2 are medium-lightness (26–52%) with high saturation (55–65%) for vivid terrain colors. Zone 3 (Ice Peaks) is deliberately light (80–95%) with low saturation (15%) to create a snow/ice appearance. The dark outline on pipe triangles (FR-010) guarantees contrast against all backgrounds.
 
 - **FR-002**: The `landBandIndex(elevation)` function MUST be updated to map elevation 0–255 into 4 biome zone indices (0–3) instead of 6 bands (0–5). The mapping is:
   - elevation 0–80 → zone 0
@@ -87,7 +87,7 @@ As a developer, I want the biome shading to integrate into the existing renderin
 
 ### Canvas Rendering — Pipe Triangle Outlines
 
-- **FR-010**: The Canvas renderer's pipe triangle drawing (Pass 3, `drawPipes`) MUST add a dark outline to every pipe triangle — both filled (flowing) and hollow (stalled). The outline serves two purposes: (a) it provides a visual boundary separating the pipe from the terrain, and (b) it guarantees contrast against light backgrounds (Peaks) where the pipe fill color alone would be insufficient.
+- **FR-010**: The Canvas renderer's pipe triangle drawing (Pass 3, `drawPipes`) MUST add a dark outline to every pipe triangle — both filled (flowing) and hollow (stalled). The outline serves two purposes: (a) it provides a visual boundary separating the pipe from the terrain, and (b) it guarantees contrast against light backgrounds (Ice Peaks) where the pipe fill color alone would be insufficient.
 
   **Implementation detail**: For filled pipes (downhill/flat/uphill), the draw order is:
   1. `ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)'` + `ctx.lineWidth = Math.max(1, zoom * 0.04)` + `ctx.stroke()` (dark outline)
@@ -97,13 +97,13 @@ As a developer, I want the biome shading to integrate into the existing renderin
   1. `ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)'` + `ctx.lineWidth = Math.max(2, zoom * 0.08)` + `ctx.stroke()` (thick dark outline)
   2. `ctx.strokeStyle = pipeSlopeColor(slope)` + `ctx.lineWidth = Math.max(1.5, zoom * 0.06)` + `ctx.stroke()` (colored inner stroke)
 
-  **Contrast strategy**: The pipe's visibility relies on two complementary mechanisms. Against light backgrounds (Peaks, lightness 60–78%), the dark outline provides ≥9:1 contrast, making the pipe unmistakable. Against dark backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops), the pipe fill colors themselves provide sufficient contrast (amber flat: ≥4.3:1, gray stalled: ≥3.6:1, green downhill: ≥2.4:1, red uphill: ≥1.9:1). The green and red indicators against dark biomes are below 3:1 in isolation, but these colors are perceptually distinct from the terrain hues (cyan/blue/gray vs green pipe, red pipe) and are always presented alongside the shape (triangle) and position (cell edge), providing redundant visual channels per constitution Principle VI. The outline ensures no pipe becomes invisible against any background.
+  **Contrast strategy**: The pipe's visibility relies on two complementary mechanisms. Against light backgrounds (Ice Peaks, lightness 80–95%), the dark outline provides ≥9:1 contrast, making the pipe unmistakable. Against dark backgrounds (Smooth Ice, Fractured Ice, Rocky Outcrops), the pipe fill colors themselves provide sufficient contrast (amber flat: ≥4.3:1, gray stalled: ≥3.6:1, green downhill: ≥2.4:1, red uphill: ≥1.9:1). The green and red indicators against dark biomes are below 3:1 in isolation, but these colors are perceptually distinct from the terrain hues (blue/teal/orange vs green pipe, red pipe) and are always presented alongside the shape (triangle) and position (cell edge), providing redundant visual channels per constitution Principle VI. The outline ensures no pipe becomes invisible against any background.
 
 ### Canvas Rendering — Terrain
 
 - **FR-011**: The Canvas renderer's land sub-pass (sub-pass 1c) MUST use the new biome zone colors for directional gradients. Each cell's gradient goes from the biome-interpolated color (top-left) to a darker variant (bottom-right), matching the current visual structure but with biome-specific hues.
 
-- **FR-012**: The Canvas renderer's contour hint sub-pass (sub-pass 1e) MUST continue to show contour lines on cells in zones 2–3 (Rocky Outcrops and Peaks), equivalent to the current band ≥ 3 threshold. The contour line color remains `rgba(0, 0, 0, 0.10)`.
+- **FR-012**: The Canvas renderer's contour hint sub-pass (sub-pass 1e) MUST continue to show contour lines on cells in zones 2–3 (Rocky Outcrops and Ice Peaks), equivalent to the current band ≥ 3 threshold. The contour line color remains `rgba(0, 0, 0, 0.10)`.
 
 - **FR-013**: The Canvas renderer's inner shadow sub-passes (sub-pass 1d) MUST remain unchanged — dark top/left edge and light bottom/right edge apply uniformly to all land cells regardless of biome zone.
 
@@ -169,36 +169,36 @@ As a developer, I want the biome shading to integrate into the existing renderin
 
 - **Performance**: The biome zone calculation is a simple comparison chain (4 branches) — cheaper than the current 6-band `Math.floor` division. The Canvas renderer's pre-computed color cache (sub-pass 1c) reduces from 6 cached colors to 4. The pipe outline adds one extra `ctx.stroke()` call per pipe triangle (negligible — pipes are already batched). Net performance impact is neutral to slightly positive.
 
-- **Accessibility**: The DOM overlay remains transparent and unaffected. Pipe slope indicators use dark outlines (FR-010/FR-021) to provide visual separation from terrain backgrounds. Against light backgrounds (Peaks), the outline provides ≥9:1 contrast. Against dark backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops), the pipe fill colors are perceptually distinct from terrain hues and are reinforced by shape (triangle) and position (cell edge) — redundant visual channels per constitution Principle VI. Biome zone colors are not the sole conveyor of any gameplay information. Owner identity is never conveyed by color alone.
+- **Accessibility**: The DOM overlay remains transparent and unaffected. Pipe slope indicators use dark outlines (FR-010/FR-021) to provide visual separation from terrain backgrounds. Against light backgrounds (Ice Peaks), the outline provides ≥9:1 contrast. Against dark backgrounds (Smooth Ice, Fractured Ice, Rocky Outcrops), the pipe fill colors are perceptually distinct from terrain hues and are reinforced by shape (triangle) and position (cell edge) — redundant visual channels per constitution Principle VI. Biome zone colors are not the sole conveyor of any gameplay information. Owner identity is never conveyed by color alone.
 
 - **Determinism**: Same seed → same elevation map → same biome zone assignment → same pixel output. The biome zone function is pure (no wall-clock, no randomness). Per constitution Principle II, the Canvas output is byte-identical for identical inputs.
 
 - **Backward Compatibility**: The `@europa/core` flow formula and `@europa/engine` constants are updated (FR-051/FR-053). The `@europa/terrain`, fog, networking, and matchmaking packages are NOT modified. The console's pipe slope classifier and pre-computed cache are updated to match the new formula. All existing game logic test suites must be updated to reflect the new constants and formula behavior.
 
-- **Contrast**: Pipe slope indicators use a combination of dark outline + fill color to ensure visibility against all biome backgrounds. The outline guarantees ≥9:1 contrast against light backgrounds (Peaks). Against dark backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops), the fill colors are perceptually distinct from terrain hues and are reinforced by shape/position. Full contrast matrix documented in Examples section and verified as part of acceptance criteria.
+- **Contrast**: Pipe slope indicators use a combination of dark outline + fill color to ensure visibility against all biome backgrounds. The outline guarantees ≥9:1 contrast against light backgrounds (Ice Peaks). Against dark backgrounds (Smooth Ice, Fractured Ice, Rocky Outcrops), the fill colors are perceptually distinct from terrain hues and are reinforced by shape/position. Full contrast matrix documented in Examples section and verified as part of acceptance criteria.
 
 ## Acceptance Criteria
 
 ### Biome Zone Colors
 
-- [ ] **AC-001**: Land cells at elevation 0 render in the Ice Plains icy cyan hue (hue ~195, saturation ~30%, lightness ~15%).
-- [ ] **AC-002**: Land cells at elevation 80 render in the Ice Plains icy cyan hue at the zone's maximum lightness (~28%).
-- [ ] **AC-003**: Land cells at elevation 81 render in the Fractured Ice deep blue hue (hue ~210, saturation ~35%, lightness ~10%) — visually distinct from elevation 80.
-- [ ] **AC-004**: Land cells at elevation 160 render in the Fractured Ice zone at maximum lightness (~22%).
-- [ ] **AC-005**: Land cells at elevation 161 render in the Rocky Outcrops blue-gray hue (hue ~200, saturation ~15%, lightness ~20%) — visually distinct from elevation 160.
-- [ ] **AC-006**: Land cells at elevation 208 render in the Rocky Outcrops zone at maximum lightness (~35%).
-- [ ] **AC-007**: Land cells at elevation 209 render in the Peaks cool white hue (hue ~220, saturation ~8%, lightness ~60%) — visually distinct from elevation 208.
-- [ ] **AC-008**: Land cells at elevation 255 render in the Peaks zone at maximum lightness (~78%).
+- [ ] **AC-001**: Land cells at elevation 0 render in the Smooth Ice icy cyan hue (hue ~195, saturation ~30%, lightness ~15%).
+- [ ] **AC-002**: Land cells at elevation 80 render in the Smooth Ice icy cyan hue at the zone's maximum lightness (~28%).
+- [ ] **AC-003**: Land cells at elevation 81 render in the Fractured Ice teal hue (hue ~170, saturation ~55%, lightness ~26%) — visually distinct from elevation 80.
+- [ ] **AC-004**: Land cells at elevation 160 render in the Fractured Ice zone at maximum lightness (~40%).
+- [ ] **AC-005**: Land cells at elevation 161 render in the Rocky Outcrops orange hue (hue ~30, saturation ~55%, lightness ~30%) — visually distinct from elevation 160.
+- [ ] **AC-006**: Land cells at elevation 208 render in the Rocky Outcrops zone at maximum lightness (~42%).
+- [ ] **AC-007**: Land cells at elevation 209 render in the Ice Peaks light blue hue (hue ~200, saturation ~15%, lightness ~80%) — visually distinct from elevation 208.
+- [ ] **AC-008**: Land cells at elevation 255 render in the Ice Peaks zone at maximum lightness (~95%).
 - [ ] **AC-009**: Adjacent cells at each zone boundary (80/81, 160/161, 208/209) show clearly different hues (not just lightness changes).
 
 ### Pipe Readability
 
 - [ ] **AC-010**: Every pipe triangle (filled and hollow) in the Canvas renderer has a dark outline (`rgba(0, 0, 0, 0.7)`) visible at ≥1px width.
-- [ ] **AC-011**: The dark outline provides ≥9:1 contrast against Peaks backgrounds (lightness 60–78%), making all pipe types clearly visible.
-- [ ] **AC-012**: Green downhill pipe indicators (`#059669`) are perceptually distinct from all 4 biome zone backgrounds (hue 195/210/200/220 vs pipe hue 160) and reinforced by triangle shape.
-- [ ] **AC-013**: Red uphill pipe indicators (`#dc2626`) are perceptually distinct from all 4 biome zone backgrounds (hue 195/210/200/220 vs pipe hue 0) and reinforced by triangle shape.
-- [ ] **AC-014**: Amber flat pipe indicators (`#f59e0b`) provide ≥4.3:1 contrast against all dark biome backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops) and ≥9:1 against Peaks via the dark outline.
-- [ ] **AC-015**: Gray stalled pipe indicators (`#9ca3af`) provide ≥3.6:1 contrast against all dark biome backgrounds and ≥9:1 against Peaks via the dark outline.
+- [ ] **AC-011**: The dark outline provides ≥9:1 contrast against Ice Peaks backgrounds (lightness 80–95%), making all pipe types clearly visible.
+- [ ] **AC-012**: Green downhill pipe indicators (`#059669`) are perceptually distinct from all 4 biome zone backgrounds (hue 210/170/30/200 vs pipe hue 160) and reinforced by triangle shape.
+- [ ] **AC-013**: Red uphill pipe indicators (`#dc2626`) are perceptually distinct from all 4 biome zone backgrounds (hue 210/170/30/200 vs pipe hue 0) and reinforced by triangle shape.
+- [ ] **AC-014**: Amber flat pipe indicators (`#f59e0b`) provide ≥4.3:1 contrast against all dark biome backgrounds (Smooth Ice, Fractured Ice, Rocky Outcrops) and ≥9:1 against Ice Peaks via the dark outline.
+- [ ] **AC-015**: Gray stalled pipe indicators (`#9ca3af`) provide ≥3.6:1 contrast against all dark biome backgrounds and ≥9:1 against Ice Peaks via the dark outline.
 - [ ] **AC-016**: DOM overlay pipe CSS triangles have a dark drop-shadow matching the Canvas outline behavior.
 
 ### Unchanged Behavior
@@ -244,7 +244,7 @@ The following are explicitly **not** part of this feature:
 - **Elevation out of range (< 0 or > 255)**: Clamped to the nearest zone boundary (zone 0 for < 0, zone 3 for > 255). Same clamping behavior as the current `landBandIndex`.
 - **Water cells**: Biome zone is not applied. `terrainColor()` returns `WATER_COLOR` for all water cells regardless of elevation.
 - **Fog/void cells**: Not rendered by the terrain pass. The void radial gradient (spec 021 FR-004) is unchanged.
-- **Peaks (zone 3) + pipe slope indicators**: The Peaks zone (lightness 60–78%) is the lightest biome. The dark outline on every pipe triangle (FR-010) guarantees contrast — the outline color `rgba(0, 0, 0, 0.7)` provides ≥3:1 contrast against any background up to lightness 90%. No special indicator color changes are needed.
+- **Ice Peaks (zone 3) + pipe slope indicators**: The Ice Peaks zone (lightness 80–95%) is the lightest biome. The dark outline on every pipe triangle (FR-010) guarantees contrast — the outline color `rgba(0, 0, 0, 0.7)` provides ≥3:1 contrast against any background up to lightness 95%. No special indicator color changes are needed.
 - **Reduced motion**: The biome shading is static (not animated). No motion to suppress. Wave texture and contour lines are also static (spec 021).
 - **Extreme zoom**: Biome zone colors scale with cell size (same as current bands). Pipe outlines scale with zoom via the `Math.max(1, zoom * 0.04)` formula.
 - **Elevation swatch at zone boundaries**: The swatch shows 4 discrete entries with zone labels (e.g., "0–80", "81–160", etc.) instead of the current 6 unlabeled bands.
@@ -254,18 +254,18 @@ The following are explicitly **not** part of this feature:
 ### Biome Zone Color Mapping
 
 ```
-Elevation 0   → hsl(195, 30%, 15%)  — very dark icy cyan (Ice Plains, easy flow)
-Elevation 40  → hsl(195, 30%, 21%)  — dark icy cyan
-Elevation 80  → hsl(195, 30%, 28%)  — medium icy cyan (zone boundary)
-Elevation 81  → hsl(210, 35%, 10%)  — very dark deep blue (Fractured Ice, moderate flow)
-Elevation 120 → hsl(210, 35%, 16%)  — dark deep blue
-Elevation 160 → hsl(210, 35%, 22%)  — medium deep blue (zone boundary)
-Elevation 161 → hsl(200, 15%, 20%)  — dark blue-gray (Rocky Outcrops, hard flow)
-Elevation 185 → hsl(200, 15%, 27%)  — medium blue-gray
-Elevation 208 → hsl(200, 15%, 35%)  — light blue-gray (zone boundary)
-Elevation 209 → hsl(220, 8%, 60%)   — cool gray-white (Peaks, extreme)
-Elevation 232 → hsl(220, 8%, 69%)   — light gray-white
-Elevation 255 → hsl(220, 8%, 78%)   — bright white
+Elevation 0   → hsl(210, 65%, 38%)  — medium blue (Smooth Ice, easy flow)
+Elevation 40  → hsl(210, 65%, 45%)  — bright blue
+Elevation 80  → hsl(210, 65%, 52%)  — light blue (zone boundary)
+Elevation 81  → hsl(170, 55%, 26%)  — dark teal (Fractured Ice, moderate flow)
+Elevation 120 → hsl(170, 55%, 33%)  — medium teal
+Elevation 160 → hsl(170, 55%, 40%)  — light teal (zone boundary)
+Elevation 161 → hsl(30, 55%, 30%)   — dark orange (Rocky Outcrops, hard flow)
+Elevation 185 → hsl(30, 55%, 36%)   — medium orange
+Elevation 208 → hsl(30, 55%, 42%)   — light orange (zone boundary)
+Elevation 209 → hsl(200, 15%, 80%)  — pale blue (Ice Peaks, extreme)
+Elevation 232 → hsl(200, 15%, 87%)  — very pale blue
+Elevation 255 → hsl(200, 15%, 95%)  — near-white
 ```
 
 ### Contrast Matrix (with dark outline)
@@ -274,8 +274,8 @@ The dark outline (`rgba(0, 0, 0, 0.7)`) on every pipe triangle provides a visual
 
 ```
                     Zone 0          Zone 1          Zone 2          Zone 3
-                    (icy cyan)      (deep blue)     (blue-gray)     (cool white)
-                    L=15–28%        L=10–22%        L=20–35%        L=60–78%
+                    (blue)          (teal)          (orange)        (light blue)
+                    L=38–52%        L=26–40%        L=30–42%        L=80–95%
 Downhill #059669   ✓ shape+ hue    ✓ shape+ hue    ✓ shape+ hue    ✓ outline
 Flat     #f59e0b   ✓ 4.6:1         ✓ 5.9:1         ✓ 4.3:1         ✓ outline
 Uphill   #dc2626   ✓ shape+ hue    ✓ shape+ hue    ✓ shape+ hue    ✓ outline
@@ -287,7 +287,7 @@ Legend:
 - "✓ outline" = dark outline provides ≥9:1 contrast against light background
 - "✓ shape+ hue" = pipe fill color is perceptually distinct from terrain hue (different hue family) and reinforced by triangle shape; contrast ratio 1.9–2.6:1 in isolation but visually unambiguous due to redundant channels (hue + shape + position)
 
-The key insight: against dark biomes (Ice Plains, Fractured Ice, Rocky Outcrops), the bright pipe fills (green, amber, red) stand out as distinct hues against the darker terrain. Against light Peaks, the dark outline provides the contrast guarantee. No pipe becomes invisible against any background.
+The key insight: against dark biomes (Smooth Ice, Fractured Ice, Rocky Outcrops), the bright pipe fills (green, amber, red) stand out as distinct hues against the darker terrain. Against light Ice Peaks, the dark outline provides the contrast guarantee. No pipe becomes invisible against any background.
 
 ## Clarifications Applied
 
@@ -296,7 +296,7 @@ The key insight: against dark biomes (Ice Plains, Fractured Ice, Rocky Outcrops)
 | # | Question | Answer | Requirement Added |
 |---|----------|--------|-------------------|
 | 1 | The pipe slope colors fail WCAG contrast against colored biome backgrounds — how do we fix this? | Add a dark outline (`rgba(0, 0, 0, 0.7)`) to every pipe triangle (Canvas) and a dark drop-shadow to DOM overlay pipe CSS triangles. The outline provides a guaranteed contrast boundary regardless of background color. Pipe indicator colors remain unchanged. | FR-010, FR-014, FR-021 |
-| 2 | What should the Peaks zone lightness range be? | Cap at 60–78% (not 70–85%) to keep the gray stalled indicator readable even without the outline. The outline provides additional contrast insurance. | FR-001 (revised ranges) |
+| 2 | What should the Ice Peaks zone lightness range be? | Cap at 80–95% (not 70–85%) to create a distinct snow/ice appearance. The dark outline provides additional contrast insurance. | FR-001 (revised ranges) |
 | 3 | Should the stalled indicator color be darkened for Snow Caps? | No — the dark outline (Clarification 1) makes color changes unnecessary. The existing `#9ca3af` is retained. | FR-014 |
 | 4 | The original ticket specifies flow viability rules (same biome = always flowable, +1 biome = slower, +2 biomes = stalled). These were missing from v1.2. Should they be added? | Yes — the flow viability rules are the core gameplay mechanic. The engine formula must be updated to stall at delta > 80 (not delta >= 7). New constants: `flowDownhillStep=1`, `flowUphillStep=1`, `flowUphillCap=73`. | FR-050, FR-051, FR-052, FR-053 |
 
@@ -310,11 +310,11 @@ The key insight: against dark biomes (Ice Plains, Fractured Ice, Rocky Outcrops)
 
 3. **DOM overlay is unchanged for terrain**: `cell-view.tsx` does not render terrain colors (it uses `backgroundColor: 'transparent'`). No terrain-related changes needed. The only change to `cell-view.tsx` is adding `filter: drop-shadow(...)` to pipe span elements (FR-021).
 
-4. **Contour hints on zones 2–3**: The current contour hint threshold is band ≥ 3 (out of 6). The equivalent for 4 zones is zones 2–3 (Rocky Outcrops and Peaks). This preserves the visual signal that "higher terrain has contour texture."
+4. **Contour hints on zones 2–3**: The current contour hint threshold is band ≥ 3 (out of 6). The equivalent for 4 zones is zones 2–3 (Rocky Outcrops and Ice Peaks). This preserves the visual signal that "higher terrain has contour texture."
 
-5. **Dark outline approach**: The contrast analysis revealed that ALL four pipe slope colors fail strict WCAG 1.4.11 (≥3:1) against some biome backgrounds when measured as direct color-to-color contrast. Rather than changing the pipe colors (which would require amending spec 005 and updating player-facing documentation), the dark outline approach provides a universal visual boundary. Against light backgrounds (Peaks), the outline provides ≥9:1 contrast. Against dark backgrounds, the pipe fill colors are perceptually distinct from terrain hues (different hue families) and reinforced by triangle shape and cell-edge position — redundant visual channels per constitution Principle VI. This is a rendering-layer enhancement that does not affect the pipe color tokens or their documented semantics.
+5. **Dark outline approach**: The contrast analysis revealed that ALL four pipe slope colors fail strict WCAG 1.4.11 (≥3:1) against some biome backgrounds when measured as direct color-to-color contrast. Rather than changing the pipe colors (which would require amending spec 005 and updating player-facing documentation), the dark outline approach provides a universal visual boundary. Against light backgrounds (Ice Peaks), the outline provides ≥9:1 contrast. Against dark backgrounds, the pipe fill colors are perceptually distinct from terrain hues (different hue families) and reinforced by triangle shape and cell-edge position — redundant visual channels per constitution Principle VI. This is a rendering-layer enhancement that does not affect the pipe color tokens or their documented semantics.
 
-6. **Biome zone darkening**: The biome zone lightness ranges are deliberately darker than the initial proposal (v1.0). Zone 0 max lightness dropped from 40% to 28%, zone 1 from 30% to 22%, zone 2 from 45% to 35%, zone 3 from 85% to 78%. This darker palette serves two purposes: (a) it provides better inherent contrast for pipe indicators, and (b) it maintains the dark-themed visual language of the game (page background is `#0b0f19`).
+6. **Biome zone color scheme**: The biome zones use distinct hue families (blue, teal, orange, light blue) for maximum visual separation. Zones 0–2 are medium-lightness (26–52%) with high saturation (55–65%) for vivid terrain colors. Zone 3 (Ice Peaks) is deliberately light (80–95%) with low saturation (15%) to create a snow/ice appearance. This replaces the earlier similar-teal scheme that lacked visual distinction between zones.
 
 ### v1.0 → v1.1 Changes
 
@@ -327,7 +327,7 @@ The key insight: against dark biomes (Ice Plains, Fractured Ice, Rocky Outcrops)
 
 ### v1.1 → v1.2 Changes
 
-- Renamed biome zones from vegetation theme to Europa ice moon theme: Low Vegetation → Ice Plains, Forest → Fractured Ice, Rocky/Alpine → Rocky Outcrops, Snow Caps → Peaks.
+- Renamed biome zones from vegetation theme to Europa ice moon theme: Low Vegetation → Smooth Ice, Forest → Fractured Ice, Rocky/Alpine → Rocky Outcrops, Snow Caps → Peaks.
 - Updated zone hues: Zone 0 hue 130→195 (icy cyan), Zone 1 hue 145→210 (deep blue), Zone 2 hue 30→200 (blue-gray), Zone 3 unchanged (220, cool white).
 - Updated zone saturations: Zone 0 sat 35→30%, Zone 1 sat 40→35%, Zone 2 sat 30→15% (muted blue-gray for exposed rock).
 - Updated all acceptance criteria, examples, contrast matrix, and edge cases to reflect new names and colors.
@@ -337,6 +337,16 @@ The key insight: against dark biomes (Ice Plains, Fractured Ice, Rocky Outcrops)
 - Added flow viability rules (FR-050, FR-051, FR-052, FR-053) — the core gameplay mechanic from the original ticket that was missing from v1.2.
 - Updated engine flow formula: replaced `flowSlopeStep` with directional `flowDownhillStep`/`flowUphillStep` + `flowUphillCap` (Option C).
 - Updated stall threshold from delta >= 7 to delta > 80.
+
+### v1.3 → v1.4 Changes
+
+- Updated biome zone colors to use distinct hue families for maximum visual separation.
+- Zone 0 (Smooth Ice): hue 195→210 (blue), saturation 30→65%, lightness 15–28%→38–52%.
+- Zone 1 (Fractured Ice): hue 210→170 (teal), saturation 35→55%, lightness 10–22%→26–40%.
+- Zone 2 (Rocky Outcrops): hue 200→30 (orange), saturation 15→55%, lightness 20–35%→30–42%.
+- Zone 3 (Ice Peaks): hue 220→200 (light blue), saturation 8→15%, lightness 60–78%→80–95%.
+- Updated all acceptance criteria, examples, contrast matrix, and edge cases to reflect new color values.
+- Renamed "Peaks" to "Ice Peaks" throughout spec for consistency.
 - Updated zone descriptions in FR-001 to reflect flow viability semantics.
 - Removed "Engine changes" and "Pipe flow formula changes" from Out of Scope.
 - Added AC-027 through AC-033 for flow viability verification.
