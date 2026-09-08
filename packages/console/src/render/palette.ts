@@ -9,11 +9,13 @@
  * lives in this file — the single source is `packages/design/src/tokens.ts`
  * (FR-009, contracts §3).
  *
- * Terrain shading (HSL interpolation by elevation) remains console-owned
- * history/rendering logic; the hue/saturation/lightness anchors are the
- * token literals from design. Contrast notes (WCAG 1.4.3) are documented in
- * `DESIGN.md` and pinned by `palette.test.ts`; owner identity is never
- * conveyed by color alone (constitution Principle VI).
+ * Terrain shading uses 4 biome zones (spec 024 FR-001) with distinct hue
+ * families replacing the retired single-hue 6-band system. Each zone maps
+ * a contiguous elevation range to icy cyan / deep blue / blue-gray / cool
+ * white, so terrain color communicates both elevation and pipe flow viability.
+ * Contrast notes (WCAG 1.4.3/1.4.11) are documented in `DESIGN.md` and
+ * pinned by `palette.test.ts`; owner identity is never conveyed by color
+ * alone (constitution Principle VI).
  */
 
 import { TOKENS } from '@europa/design';
@@ -41,17 +43,34 @@ export const PAGE_BACKGROUND_COLOR = TOKENS.color.pageBg;
 export const WATER_COLOR = TOKENS.color.water;
 
 /**
- * Land shading range by elevation (data-model.md §3: elevation 0..255
- * shades terrain). HSL lightness interpolates from the token floor
- * (sea level, dark) to the token ceiling (peaks, bright); hue and
- * saturation are fixed so elevation is the only variable. The floor
- * keeps the darkest land clearly lighter than {@link VOID_COLOR} so low
- * elevation never reads as fog.
+ * Biome zone configuration (spec 024 FR-001/FR-031).
+ *
+ * 4 zones replacing the retired single-hue 6-band land shading.
+ * Each zone has a distinct hue family aligned with the pipe flow
+ * formula's behavioral transitions.
  */
-export const LAND_HUE = TOKENS.color.landHue;
-export const LAND_SATURATION_PCT = TOKENS.color.landSaturationPct;
-export const LAND_MIN_LIGHTNESS_PCT = TOKENS.color.landMinLightnessPct;
-export const LAND_MAX_LIGHTNESS_PCT = TOKENS.color.landMaxLightnessPct;
+export const BIOME_ZONES = TOKENS.color.biomeZones;
+
+/**
+ * Look up a biome zone config by index, returning the first zone as fallback.
+ * Safe accessor for `noUncheckedIndexedAccess` tsconfig.
+ */
+function biomeZoneAt(index: number): (typeof BIOME_ZONES)[number] {
+    // BIOME_ZONES always has 4 elements (spec 024 FR-001); the fallback
+    // handles the noUncheckedIndexedAccess case.
+    return BIOME_ZONES.at(index) ?? BIOME_ZONES[0];
+}
+
+/**
+ * Dark outline color for pipe triangles — guarantees contrast against
+ * all biome backgrounds (spec 024 FR-010, FR-021).
+ *
+ * Against light backgrounds (Peaks, L=60–78%), provides ≥9:1 contrast.
+ * Against dark backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops),
+ * the pipe fill colors themselves are perceptually distinct from terrain
+ * hues and reinforced by triangle shape and cell-edge position.
+ */
+export const PIPE_OUTLINE_COLOR = TOKENS.color.pipeOutline;
 
 /** City outline + pipe indicator color — amber family. */
 export const CITY_COLOR = TOKENS.color.city;
@@ -74,11 +93,25 @@ export const WATER_SHALLOW_COLOR = TOKENS.color.waterShallow;
 /** Water deep variant (design token). */
 export const WATER_DEEP_COLOR = TOKENS.color.waterDeep;
 
-/** Land band count (6 discrete elevation bands). */
-export const LAND_BAND_COUNT = TOKENS.color.landBandCount;
+/**
+ * Biome zone count (4 zones replacing 6 bands).
+ * Retained as `LAND_BAND_COUNT` for backward compatibility with
+ * canvas.ts cache loops, but now equals 4.
+ */
+export const LAND_BAND_COUNT = BIOME_ZONES.length;
 
-/** Land band lightness values — index 0 = lowest, 5 = highest. */
-export const LAND_BAND_LIGHTNESS = TOKENS.color.landBandLightness;
+/**
+ * Land band lightness values — indexed by biome zone 0–3.
+ * Each zone has a single representative lightness (the zone's midpoint).
+ * Retained for backward compatibility; prefer `biomeZoneForElevation()`
+ * for per-cell lightness computation.
+ */
+export const LAND_BAND_LIGHTNESS = [
+    Math.round((biomeZoneAt(0).lightnessMin + biomeZoneAt(0).lightnessMax) / 2),
+    Math.round((biomeZoneAt(1).lightnessMin + biomeZoneAt(1).lightnessMax) / 2),
+    Math.round((biomeZoneAt(2).lightnessMin + biomeZoneAt(2).lightnessMax) / 2),
+    Math.round((biomeZoneAt(3).lightnessMin + biomeZoneAt(3).lightnessMax) / 2),
+] as const;
 
 /** City glow color (semi-transparent amber overlay). */
 export const CITY_GLOW_COLOR = TOKENS.color.cityGlow;
@@ -105,15 +138,46 @@ export const CAPTURE_EFFECT_COLOR = TOKENS.color.captureEffect;
 export const GENERIC_EFFECT_COLOR = TOKENS.color.genericEffect;
 
 /**
+ * Compute the complete biome shading parameters for a given elevation.
+ *
+ * Pure function: same elevation always returns the same zone, hue,
+ * saturation, and interpolated lightness. Used by the Canvas renderer
+ * to compute per-cell colors without calling multiple functions.
+ *
+ * @param elevation Integer 0–255. Values < 0 clamp to zone 0; values > 255 clamp to zone 3.
+ * @returns Biome zone index (0–3), hue, saturation percentage, and interpolated lightness.
+ */
+export function biomeZoneForElevation(elevation: number): {
+    zone: number;
+    hue: number;
+    saturationPct: number;
+    lightness: number;
+} {
+    const clamped = Math.max(0, Math.min(255, elevation));
+    let zoneIndex = 0;
+    for (let i = 0; i < BIOME_ZONES.length; i++) {
+        const zone = BIOME_ZONES.at(i);
+        if (zone !== undefined && clamped <= zone.elevationMax) {
+            zoneIndex = i;
+            break;
+        }
+    }
+    const zone = biomeZoneAt(zoneIndex);
+    const prevMax = zoneIndex === 0 ? 0 : biomeZoneAt(zoneIndex - 1).elevationMax;
+    const zoneSpan = zone.elevationMax - prevMax;
+    const t = zoneSpan === 0 ? 0 : (clamped - prevMax) / zoneSpan;
+    const lightness = Math.round(zone.lightnessMin + t * (zone.lightnessMax - zone.lightnessMin));
+    return { zone: zoneIndex, hue: zone.hue, saturationPct: zone.saturationPct, lightness };
+}
+
+/**
  * Terrain background for one cell as a CSS color string. Pure.
  *
  * - water → {@link WATER_COLOR}
- * - land → HSL with lightness interpolated by elevation per
- *   data-model.md §3 ("Renderer shades terrain by this").
+ * - land → HSL with biome-zone-based coloring per spec 024 FR-004.
  *
- * Land anchors (hue/saturation/min/max lightness) are sourced from
- * `TOKENS.color.land*` so the single-source rule holds; the
- * interpolation itself stays console-owned.
+ * Each land cell's hue, saturation, and lightness are derived from
+ * the biome zone that contains its elevation (spec 024 FR-001).
  *
  * @param terrain Cell terrain classification.
  * @param elevation Elevation 0..255.
@@ -122,10 +186,8 @@ export function terrainColor(terrain: 'land' | 'water', elevation: number): stri
     if (terrain === 'water') {
         return WATER_COLOR;
     }
-    const clamped = Math.max(0, Math.min(255, elevation));
-    const t = clamped / 255;
-    const lightness = Math.round(LAND_MIN_LIGHTNESS_PCT + t * (LAND_MAX_LIGHTNESS_PCT - LAND_MIN_LIGHTNESS_PCT));
-    return `hsl(${LAND_HUE} ${LAND_SATURATION_PCT}% ${lightness}%)`;
+    const { hue, saturationPct, lightness } = biomeZoneForElevation(elevation);
+    return `hsl(${hue}, ${saturationPct}%, ${lightness}%)`;
 }
 
 /**
@@ -142,26 +204,32 @@ export function waterDepthColor(depth: number): string {
 }
 
 /**
- * Quantize elevation 0–255 into a discrete band index 0–5.
+ * Quantize elevation 0–255 into a discrete biome zone index 0–3.
  *
- * @param elevation Integer 0–255. Negative values clamp to band 0; values > 255 clamp to band 5.
- * @returns Band index 0–5.
+ * Zone boundaries (spec 024 FR-002):
+ *   elevation 0–80   → zone 0 (Ice Plains)
+ *   elevation 81–160  → zone 1 (Fractured Ice)
+ *   elevation 161–208 → zone 2 (Rocky Outcrops)
+ *   elevation 209–255 → zone 3 (Peaks)
+ *
+ * @param elevation Integer 0–255. Negative values clamp to zone 0; values > 255 clamp to zone 3.
+ * @returns Zone index 0–3.
  */
 export function landBandIndex(elevation: number): number {
-    if (elevation <= 0) return 0;
-    if (elevation >= 255) return 5;
-    return Math.min(5, Math.floor((elevation / 256) * LAND_BAND_COUNT));
+    return biomeZoneForElevation(elevation).zone;
 }
 
 /**
- * Return the HSL color for a given land band index.
+ * Return the HSL color for a given biome zone index.
  *
- * @param band Index 0–5. Clamped to [0, 5].
- * @returns HSL color string: `hsl(H S% L%)`
+ * @param band Index 0–3. Clamped to [0, 3].
+ * @returns HSL color string: `hsl(H, S%, L%)`
  */
 export function landBandColor(band: number): string {
-    const clamped = Math.max(0, Math.min(5, Math.round(band)));
-    return `hsl(${LAND_HUE} ${LAND_SATURATION_PCT}% ${LAND_BAND_LIGHTNESS[clamped] ?? 18}%)`;
+    const clamped = Math.max(0, Math.min(3, Math.round(band)));
+    const zone = biomeZoneAt(clamped);
+    const lightness = Math.round((zone.lightnessMin + zone.lightnessMax) / 2);
+    return `hsl(${zone.hue}, ${zone.saturationPct}%, ${lightness}%)`;
 }
 
 /**

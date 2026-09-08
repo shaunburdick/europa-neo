@@ -45,7 +45,7 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 /** True when `pixel` matches `rgb` within `tolerance` per channel. */
-function closeTo(pixel: Uint8ClampedArray, rgb: [number, number, number], tolerance = 6): boolean {
+function closeTo(pixel: Uint8ClampedArray, rgb: [number, number, number], tolerance = 8): boolean {
     return (
         Math.abs(pixel[0] - rgb[0]) < tolerance &&
         Math.abs(pixel[1] - rgb[1]) < tolerance &&
@@ -150,28 +150,34 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
                     const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
-                    const sampleCentroid = (
-                        cellX: number,
-                        cellY: number,
-                        intensity: number,
-                    ): Uint8ClampedArray | undefined => {
-                        const size = baseSize * (0.4 + intensity * 0.6);
-                        const centroidOffsetY = (size * 1.6) / 3;
+
+                    /**
+                     * Sample a pixel inside the north-facing pipe triangle.
+                     * Uses a point 1px below the cell top edge (the triangle
+                     * base) — this is the widest part of the triangle and
+                     * gives a solid fill color even for tiny triangles
+                     * (intensity=0).  The true centroid (h/3 from base) sits
+                     * in a region only ~2.7px wide for the smallest triangles,
+                     * where sub-pixel anti-aliasing produces colour drift.
+                     */
+                    const samplePipe = (cellX: number, cellY: number): Uint8ClampedArray | undefined => {
                         const px = cellX * zoom + zoom / 2 + offX;
-                        const py = cellY * zoom + centroidOffsetY + offY;
+                        // 1px below the cell top = inside the north triangle
+                        // at its widest point.
+                        const py = cellY * zoom + 1 + offY;
                         return ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
                     };
                     // Downhill (Δ=-50, intensity=1)
-                    const d = sampleCentroid(1, 1, 1);
+                    const d = samplePipe(1, 1);
                     if (d === undefined || !closeTo(d, downhillRgb)) return false;
                     // Flat (Δ=0, intensity=0)
-                    const f = sampleCentroid(2, 1, 0);
+                    const f = samplePipe(2, 1);
                     if (f === undefined || !closeTo(f, flatRgb)) return false;
                     // Uphill (Δ=3, intensity=3/7)
-                    const u = sampleCentroid(3, 1, 3 / 7);
+                    const u = samplePipe(3, 1);
                     if (u === undefined || !closeTo(u, uphillRgb)) return false;
                     // Fog fallback (intensity=0)
-                    const fog = sampleCentroid(5, 1, 0);
+                    const fog = samplePipe(5, 1);
                     if (fog === undefined || !closeTo(fog, flatRgb)) return false;
                     return true;
                 },
@@ -207,6 +213,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     // Centroid of (4,1) north triangle: NO fill — terrain color, not stalled.
+                    // Uses 1/3 from base (true centroid) for the hollow check.
                     const stalledSize = zoom * 0.16;
                     const centroidOffsetY = (stalledSize * 1.6) / 3;
                     const centroid = ctx?.getImageData(

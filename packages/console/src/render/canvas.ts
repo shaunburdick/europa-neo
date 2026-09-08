@@ -39,6 +39,7 @@ import {
     landBandIndex,
     PIPE_DOWNHILL_COLOR,
     PIPE_FLAT_COLOR,
+    PIPE_OUTLINE_COLOR,
     PIPE_STALLED_COLOR,
     PIPE_UPHILL_COLOR,
     terrainColor,
@@ -245,7 +246,7 @@ export class MapCanvas {
 
         // Sub-pass 1e: batched contour hints — ALL contour diagonal lines
         // collected into a single path and stroked once (was hundreds of
-        // individual strokes). Band ≥ 3 only.
+        // individual strokes). Zone ≥ 2 only (Rocky Outcrops + Peaks).
         const contourStep = 6;
         // design-exception: canvas fallback
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.10)';
@@ -253,8 +254,8 @@ export class MapCanvas {
         ctx.beginPath();
         for (const info of mapView.cells.values()) {
             if (info.terrain !== 'land') continue;
-            const band = landBandIndex(info.elevation);
-            if (band < 3) continue;
+            const zone = landBandIndex(info.elevation);
+            if (zone < 2) continue;
             const x = info.coord.x * zoom;
             const y = info.coord.y * zoom;
             for (let offset = -zoom; offset < zoom * 2; offset += contourStep) {
@@ -380,7 +381,9 @@ export class MapCanvas {
     /** Draw outward-pointing pipe triangles at the cell's edges.
      *  Triangle size scales with intensity (issue #43): smaller at
      *  low intensity, full size at high intensity. Stalled pipes
-     *  remain full size with hollow stroke (existing behavior). */
+     *  remain full size with hollow stroke (existing behavior).
+     *  Every pipe triangle gets a dark outline (spec 024 FR-010) to
+     *  guarantee contrast against any biome background. */
     private drawPipes(ctx: CanvasRenderingContext2D, info: CellRenderInfo, zoom: number): void {
         const baseSize = zoom * PIPE_SIZE_RATIO;
         const x = info.coord.x * zoom;
@@ -416,13 +419,25 @@ export class MapCanvas {
             }
             ctx.closePath();
             if (slope === 'stalled') {
-                // Hollow treatment (005 FR-013): outline-only triangle
-                // in the stalled color — visually distinct from the
-                // filled triangles of flowing pipes.
+                // Hollow treatment (005 FR-013): thick dark outline
+                // + colored inner stroke (spec 024 FR-010).
+                ctx.strokeStyle = PIPE_OUTLINE_COLOR;
+                ctx.lineWidth = Math.max(2, zoom * 0.08);
+                ctx.stroke();
                 ctx.strokeStyle = pipeSlopeColor(slope);
                 ctx.lineWidth = Math.max(1.5, zoom * 0.06);
                 ctx.stroke();
             } else {
+                // Dark outline first, then colored fill (spec 024 FR-010).
+                // Skip the outline for very small pipes (low intensity)
+                // where the stroke width overwhelms the triangle interior,
+                // producing muddy blended pixels instead of a clean color.
+                const outlineWidth = Math.max(1, zoom * 0.04);
+                if (size * 1.6 > outlineWidth * 3) {
+                    ctx.strokeStyle = PIPE_OUTLINE_COLOR;
+                    ctx.lineWidth = outlineWidth;
+                    ctx.stroke();
+                }
                 ctx.fillStyle = pipeSlopeColor(slope);
                 ctx.fill();
             }
@@ -455,7 +470,7 @@ export class MapCanvas {
     /**
      * Adjust the brightness of a color string by a percentage.
      *
-     * Parses hex (`#rrggbb`, `#rrggbbaa`), HSL (`hsl(H S% L%)`), and
+     * Parses hex (`#rrggbb`, `#rrggbbaa`), HSL (`hsl(H, S%, L%)`), and
      * HSLA (`hsla(H, S%, L%, A)`) strings, adjusts the lightness/brightness
      * component, and returns the adjusted string. rgb/rgba strings are
      * returned unchanged (can't adjust reliably).
@@ -472,13 +487,13 @@ export class MapCanvas {
         if (!color) return '';
         // Return rgb/rgba strings unchanged — can't parse reliably.
         if (color.startsWith('rgb')) return color;
-        // Handle HSL strings: hsl(H S% L%) or hsl(H, S%, L%) or hsla variants.
+        // Handle HSL strings: hsl(H, S%, L%) or hsl(H S% L%) or hsla variants.
         const hslMatch = /^hsla?\(\s*(\d+)[,\s]+(\d+)%[,\s]+(\d+)%(?:[,\s/]+[\d.]+%?)?\s*\)$/i.exec(color);
         if (hslMatch) {
             const h = Number(hslMatch[1]);
             const s = Number(hslMatch[2]);
             const l = Math.max(0, Math.min(100, Math.round(Number(hslMatch[3]) + percent)));
-            return color.startsWith('hsla') ? `hsla(${h}, ${s}%, ${l}%, 1)` : `hsl(${h} ${s}% ${l}%)`;
+            return color.startsWith('hsla') ? `hsla(${h}, ${s}%, ${l}%, 1)` : `hsl(${h}, ${s}%, ${l}%)`;
         }
         // Handle hex strings: #rgb, #rrggbb, #rrggbbaa.
         const hex = color.replace('#', '');

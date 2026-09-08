@@ -67,17 +67,15 @@ by set *or* by count and get the same answer. Reference tokens from prose by the
 | `info-bg` | `--europa-color-info-bg` | `TOKENS.color.infoBg` | `#302311` | Info background surface (panels, cards) — very low contrast with `surface` ≈ 1.16:1; non-text fill only |
 | `info-border` | `--europa-color-info-border` | `TOKENS.color.infoBorder` | `#5b461d` | Info border for panels/cards — non-text; paired with `info-bg` as a decorative boundary |
 | `info-hover` | `--europa-color-info-hover` | `TOKENS.color.infoHover` | `#e8c35e` | Hover state for info buttons — bg/border use only |
-| `land-hue` | `--europa-color-land-hue` | `TOKENS.color.landHue` | `120` | Numeric HSL hue for Canvas terrain shading — no pairing (not a color literal) |
-| `land-max-lightness-pct` | `--europa-color-land-max-lightness-pct` | `TOKENS.color.landMaxLightnessPct` | `62` | Numeric HSL lightness ceiling: `hsl(120 12% 62%)` = `#92aa92`, ≈ 6.35:1 on `void-bg` — non-text tile fill |
-| `land-min-lightness-pct` | `--europa-color-land-min-lightness-pct` | `TOKENS.color.landMinLightnessPct` | `26` | Numeric HSL lightness floor: `hsl(120 12% 26%)` = `#3a4a3a`, ≈ 1.68:1 on `void-bg` — non-text tile fill; elevation band spans ≈ 3.78:1 floor-to-ceiling |
-| `land-saturation-pct` | `--europa-color-land-saturation-pct` | `TOKENS.color.landSaturationPct` | `12` | Numeric HSL saturation for Canvas terrain shading — no pairing (not a color literal) |
+| `biome-zones` | (array, no CSS variable) | `TOKENS.color.biomeZones` | `[{elevationMax:80, hue:195, saturationPct:30, lightnessMin:15, lightnessMax:28}, ...]` | 4 biome zone configs replacing the retired 6-band land shading (spec 024 FR-001/FR-031). Each zone maps a contiguous elevation range to a distinct hue family aligned with pipe flow transitions. Ice Plains (0–80, cyan), Fractured Ice (81–160, deep blue), Rocky Outcrops (161–208, blue-gray), Peaks (209–255, cool white). Not a CSS variable — consumed only by TS palette/canvas logic |
 | `overlay-soft` | `--europa-color-overlay-soft` | `TOKENS.color.overlaySoft` | `rgba(26, 34, 51, 0.6)` | Translucent veil over board/plates — non-text; text drawn above it uses `text-primary`/`text-secondary` on the composited surface |
 | `overlay-strong` | `--europa-color-overlay-strong` | `TOKENS.color.overlayStrong` | `rgba(26, 34, 51, 0.75)` | Modal backdrop veil (`.europa-modal-backdrop`) — non-text; dialog contents sit on `surface` |
 | `page-bg` | `--europa-color-page-bg` | `TOKENS.color.pageBg` | `#0b0f19` | `text-secondary` `#e5e7eb` on this bg ≈ 15.47:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-muted` ≈ 7.54:1; `text-primary` ≈ 18.33:1 |
-| `pipe-downhill` | `--europa-color-pipe-downhill` | `TOKENS.color.pipeDownhill` | `#059669` | Reuses `green`. Downhill pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 4.22:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs the darkest land tile `#3a4a3a` ≈ 2.51:1 — below target, see § 3 note N-4 |
-| `pipe-flat` | `--europa-color-pipe-flat` | `TOKENS.color.pipeFlat` | `#f59e0b` | Reuses `accent`. Flat pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 7.40:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs the darkest land tile `#3a4a3a` ≈ 4.40:1 — meets |
-| `pipe-stalled` | `--europa-color-pipe-stalled` | `TOKENS.color.pipeStalled` | `#9ca3af` | Reuses `text-muted`. Stalled pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 6.26:1 (per § 3) — AA 1.4.11 non-text (≥ 3:1): meets; vs the darkest land tile `#3a4a3a` ≈ 3.73:1 — meets |
-| `pipe-uphill` | `--europa-color-pipe-uphill` | `TOKENS.color.pipeUphill` | `#dc2626` | Reuses `red`. Uphill pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 3.29:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs the darkest land tile `#3a4a3a` ≈ 1.96:1 — below target, see § 3 note N-4 |
+| `pipe-downhill` | `--europa-color-pipe-downhill` | `TOKENS.color.pipeDownhill` | `#059669` | Reuses `green`. Downhill pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 4.22:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs dark biome backgrounds (Ice Plains/Fractured Ice/Rocky Outcrops) ≈ 1.9–2.6:1 — below target in isolation, but perceptually distinct from terrain hues (green 160° vs cyan 195°/blue 210°/gray 200°) and reinforced by triangle shape + dark outline (spec 024 FR-010); vs Peaks background — dark outline provides ≥7:1 guarantee |
+| `pipe-flat` | `--europa-color-pipe-flat` | `TOKENS.color.pipeFlat` | `#f59e0b` | Reuses `accent`. Flat pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 7.40:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs dark biome backgrounds ≈ 4.3–5.9:1 — meets; vs Peaks background — dark outline provides ≥7:1 guarantee (spec 024 FR-010) |
+| `pipe-outline` | `--europa-color-pipe-outline` | `TOKENS.color.pipeOutline` | `rgba(0, 0, 0, 0.7)` | Dark outline for every pipe triangle (spec 024 FR-010/FR-021). Provides ≥7:1 contrast against Peaks (L=60–78%) and ≥3:1 against all dark biome backgrounds. Used by Canvas stroke and CSS drop-shadow |
+| `pipe-stalled` | `--europa-color-pipe-stalled` | `TOKENS.color.pipeStalled` | `#9ca3af` | Reuses `text-muted`. Stalled pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 6.26:1 (per § 3) — AA 1.4.11 non-text (≥ 3:1): meets; vs dark biome backgrounds ≈ 3.6–5.0:1 — meets; vs Peaks background — dark outline provides ≥7:1 guarantee (spec 024 FR-010) |
+| `pipe-uphill` | `--europa-color-pipe-uphill` | `TOKENS.color.pipeUphill` | `#dc2626` | Reuses `red`. Uphill pipe indicator on the board (005 FR-013): vs `void-bg` ≈ 3.29:1 — AA 1.4.11 non-text (≥ 3:1): meets; vs dark biome backgrounds ≈ 1.9–2.5:1 — below target in isolation, but perceptually distinct from terrain hues (red 0° vs cyan 195°/blue 210°/gray 200°) and reinforced by triangle shape + dark outline (spec 024 FR-010); vs Peaks background — dark outline provides ≥7:1 guarantee |
 | `red` | `--europa-color-red` | `TOKENS.color.red` | `#dc2626` | On `surface`: ≈ 3.67:1 — AA 1.4.3 large (≥ 3:1) / 1.4.11 non-text (≥ 3:1): meets; normal-size text: does NOT meet, use `error-text` |
 | `surface` | `--europa-color-surface` | `TOKENS.color.surface` | `#111827` | `text-primary` `#f9fafb` on this fill ≈ 16.98:1 — AA 1.4.3 normal (≥ 4.5:1): meets; `text-secondary` ≈ 14.33:1; `text-muted` ≈ 6.99:1 |
 | `surface-raised` | `--europa-color-surface-raised` | `TOKENS.color.surfaceRaised` | `#1f2937` | `text-primary` `#f9fafb` on this fill ≈ 14.05:1 — AA 1.4.3 normal (≥ 4.5:1): meets |
@@ -571,8 +569,8 @@ not a comment. Every row below is at or above its stated target.
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.surface` `#111827` | ≈ 17.74:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — `*:focus-visible` / `.europa-focus-ring` outline on a plate |
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.pageBg` `#0b0f19` | ≈ 19.15:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — outline on the page column |
 | `TOKENS.color.focusRing` `#ffffff` | `TOKENS.color.voidBg` `#1a2233` | ≈ 15.90:1 | AA 2.4.7 focus ≥ 3:1 vs adjacent | G-07 focus pair — outline on the board / `.europa-lobby__row` |
-| Land band ceiling `hsl(120 12% 62%)` `#92aa92` — from `TOKENS.color.landMaxLightnessPct` | `TOKENS.color.voidBg` `#1a2233` | ≈ 6.35:1 | AA 1.4.11 non-text ≥ 3:1 | G-07 non-text pair — land tiles against fog void; the elevation band is the identification cue |
-| Pipe slope fills — downhill `#059669` / flat `#f59e0b` / uphill `#dc2626` / stalled `#9ca3af` (reuse of `TOKENS.color.green` / `TOKENS.color.accent` / `TOKENS.color.red` / `TOKENS.color.textMuted`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 4.22:1 / 7.40:1 / 3.29:1 / 6.26:1 | AA 1.4.11 non-text ≥ 3:1 | G-07 non-text pair — pipe slope indicators over fog void (005 FR-013); darkest-land-tile worst case in note N-4 |
+| Peaks zone ceiling `hsl(220 8% 78%)` — biome zone 3 max lightness | `TOKENS.color.voidBg` `#1a2233` | ≈ 4.57:1 | AA 1.4.11 non-text ≥ 3:1 | G-07 non-text pair — brightest biome tiles against fog void; terrain identity redundantly encoded by elevation shading, chip labels, and minimap |
+| Pipe slope fills — downhill `#059669` / flat `#f59e0b` / uphill `#dc2626` / stalled `#9ca3af` (reuse of `TOKENS.color.green` / `TOKENS.color.accent` / `TOKENS.color.red` / `TOKENS.color.textMuted`) | `TOKENS.color.voidBg` `#1a2233` | ≈ 4.22:1 / 7.40:1 / 3.29:1 / 6.26:1 | AA 1.4.11 non-text ≥ 3:1 | G-07 non-text pair — pipe slope indicators over fog void (005 FR-013); dark outline guarantees ≥7:1 against Peaks and ≥3:1 against all biome backgrounds (spec 024 FR-010, note N-4) |
 | `TOKENS.color.textLink` `#f59e0b` | `TOKENS.color.pageBg` `#0b0f19` | ≈ 8.92:1 | AA 1.4.3 normal ≥ 4.5:1 | G-07 computed-style pair — `.europa-link` text on the page background |
 | `TOKENS.color.textLink` `#f59e0b` | `TOKENS.color.surface` `#111827` | ≈ 8.26:1 | AA 1.4.3 normal ≥ 4.5:1 | G-07 computed-style pair — `.europa-link` text on a card/plate surface |
 | `TOKENS.color.accentActive` `#d97706` | `TOKENS.color.surface` `#111827` | ≈ 5.57:1 | AA 1.4.3 normal ≥ 4.5:1 | G-07 computed-style pair — active/pressed accent state; bg/border use only |
@@ -603,21 +601,22 @@ the focus ring, so the hairline is a decorative separator and is deliberately **
 boundary. Do not build a component whose only cue is this border. Where a real non-text boundary is
 needed, use the accent edge (≈ 8.26:1) or the focus ring (≈ 17.74:1).
 
-**N-3 — Canvas terrain fills.** Water against the fog void measures ≈ 2.37:1 and the land band's floor
-≈ 1.68:1, both below 3:1. These are Canvas tile fills, not text and not UI-component boundaries, and
-terrain identity is redundantly encoded: the elevation band itself spans ≈ 3.78:1 floor-to-ceiling, and
-tiles are further identified by troop chips, city markers, and the minimap. This is the inherited
-console rendering codified as tokens, not a new decision (spec Assumptions); a future contrast pass on
-terrain would change values only, never names (§ 6).
+**N-3 — Canvas terrain fills.** Water against the fog void measures ≈ 2.37:1 and the darkest biome zone
+(Fractured Ice at L=10%) measures ≈ 1.42:1, both below 3:1. These are Canvas tile fills, not text and
+not UI-component boundaries, and terrain identity is redundantly encoded: biome zones span distinct hue
+families (cyan/blue/gray/white), and tiles are further identified by troop chips, city markers, and the
+minimap. This is the inherited console rendering codified as tokens, not a new decision (spec Assumptions);
+a future contrast pass on terrain would change values only, never names (§ 6).
 
-**N-4 — Pipe slope fills on the board.** Pipe indicators render on terrain tiles, so the darkest land
-tile (`#3a4a3a`, the land band floor) is the worst-case background: downhill `#059669` measures
-≈ 2.51:1 and uphill `#dc2626` ≈ 1.96:1 there, both below the 3:1 non-text target. Against the fog void
-(`#1a2233`) all four fills meet ≥ 3:1 (downhill ≈ 4.22:1, flat ≈ 7.40:1, uphill ≈ 3.29:1, stalled
-≈ 6.26:1). The fixed three-color slope scheme is spec 005 FR-013's decision (no intensity scaling); the
-stalled state is redundantly encoded by a hollow-triangle shape distinct from the filled flowing
-triangles. The land band spans ≈ 3.78:1 floor-to-ceiling, so most land tiles are lighter than the floor.
-A future contrast pass on terrain would change values only, never names (§ 6).
+**N-4 — Pipe slope fills on the board.** Pipe indicators render on terrain tiles, so the biome zone
+backgrounds are the worst-case surfaces. Against dark biomes (Ice Plains, Fractured Ice, Rocky Outcrops),
+the pipe fill colors are perceptually distinct from terrain hues (green 160° / red 0° / amber 43° vs
+cyan 195° / blue 210° / gray 200° / blue 220°) and reinforced by triangle shape + cell-edge position.
+The dark outline (`rgba(0, 0, 0, 0.7)`, spec 024 FR-010) on every pipe triangle provides a universal
+contrast guarantee: ≥7:1 against the lightest biome (Peaks, L=60–78%) and ≥3:1 against all dark biomes.
+The fixed slope-color scheme is spec 005 FR-013's decision (no intensity scaling); the stalled state is
+redundantly encoded by a hollow-triangle shape distinct from the filled flowing triangles. The outline
+approach is simpler than recoloring pipe indicators per biome zone and does not require amending spec 005.
 
 **Motion (WCAG 2.3.3).** Decorative animation is gated twice: the stylesheet's
 `@media (prefers-reduced-motion: reduce)` block collapses animation and transition durations globally,

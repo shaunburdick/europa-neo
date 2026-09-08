@@ -25,14 +25,10 @@ const PIPE_SLOPE_ENTRIES: ReadonlyArray<{ name: string; color: string }> = [
 
 /**
  * Keys in the color token table that are not user-visible swatches
- * (numeric calibration values and transparency-only entries).
+ * (numeric calibration values, transparency-only entries, and
+ * non-color data like the biome zone configuration array).
  */
-const SKIP_COLOR_KEYS: ReadonlySet<string> = new Set([
-    'landHue',
-    'landMaxLightnessPct',
-    'landMinLightnessPct',
-    'landSaturationPct',
-]);
+const SKIP_COLOR_KEYS: ReadonlySet<string> = new Set(['biomeZones']);
 
 /**
  * Token color reference section — renders swatches for player colors,
@@ -57,7 +53,7 @@ export function TokenColorReference(): React.ReactElement {
     return (
         <section id="token-colors" className="dev-section">
             <h2 className="dev-section__heading">Token Colors</h2>
-            <p className="dev-section__description">Player colors, pipe slopes, elevation ramp, and base palette</p>
+            <p className="dev-section__description">Player colors, pipe slopes, biome zones, and base palette</p>
 
             {/* Player colors */}
             <h3 className="dev-section__subheading">Player Colors</h3>

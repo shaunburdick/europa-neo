@@ -37,6 +37,24 @@ export const TOKENS = {
         accentGlow: 'rgba(245, 158, 11, 0.08)',
         accentGlowStrong: 'rgba(245, 158, 11, 0.3)',
         banner: '#d97706',
+        /**
+         * Biome zone configuration (spec 024 FR-001/FR-031). Each zone
+         * maps a contiguous elevation range to a distinct hue family,
+         * replacing the retired single-hue 6-band land shading.
+         *
+         * Zone boundaries align with the pipe flow formula's behavioral
+         * transitions (flowBase=7, flowSlopeStep=1, flowSlopeDeltaCap=5):
+         *   Zone 0 (0–80):   downhill bonus — easy flow (Ice Plains)
+         *   Zone 1 (81–160):  flat-to-mild-uphill — moderate flow (Fractured Ice)
+         *   Zone 2 (161–208): stalled uphill — hard flow (Rocky Outcrops)
+         *   Zone 3 (209–255): extreme uphill — extreme (Peaks)
+         */
+        biomeZones: [
+            { elevationMax: 80, hue: 195, saturationPct: 30, lightnessMin: 15, lightnessMax: 28 },
+            { elevationMax: 160, hue: 210, saturationPct: 35, lightnessMin: 10, lightnessMax: 22 },
+            { elevationMax: 208, hue: 200, saturationPct: 15, lightnessMin: 20, lightnessMax: 35 },
+            { elevationMax: 255, hue: 220, saturationPct: 8, lightnessMin: 60, lightnessMax: 78 },
+        ] as const,
         blue: '#2563eb',
         border: '#374151',
         captureEffect: 'rgba(16, 185, 129, 0.55)',
@@ -66,12 +84,6 @@ export const TOKENS = {
         infoBg: '#302311',
         infoBorder: '#5b461d',
         infoHover: '#e8c35e',
-        landBandCount: 6,
-        landBandLightness: [18, 26, 34, 42, 50, 58] as const,
-        landHue: 120,
-        landMaxLightnessPct: 62,
-        landMinLightnessPct: 26,
-        landSaturationPct: 12,
         overlaySoft: 'rgba(26, 34, 51, 0.6)',
         overlayStrong: 'rgba(26, 34, 51, 0.75)',
         pageBg: '#0b0f19',
@@ -80,6 +92,7 @@ export const TOKENS = {
         // hex literals (FR-009 / FR-010); pairings documented in DESIGN.md § 1.1/§ 3.
         pipeDownhill: '#059669',
         pipeFlat: '#f59e0b',
+        pipeOutline: 'rgba(0, 0, 0, 0.7)',
         pipeStalled: '#9ca3af',
         pipeUphill: '#dc2626',
         red: '#dc2626',

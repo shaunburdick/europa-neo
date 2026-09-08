@@ -1,19 +1,21 @@
 /**
- * Canvas terrain rendering tests — spec 021 (FR-001..FR-004).
+ * Canvas terrain rendering tests — spec 021 + spec 024 (biome zones).
  *
  * Exercises drawTerrain through the public `paint` method using a mock
  * CanvasRenderingContext2D. Verifies water gradient + wave texture,
- * land discrete bands + inner shadow + contour hints, city glow effects,
- * and void radial gradient.
+ * land biome-zone gradients + inner shadow + contour hints, city glow effects,
+ * void radial gradient, and pipe triangle outlines.
  */
 
 import { describe, expect, test, vi } from 'vitest';
 import { MapCanvas } from '../../../src/render/canvas';
+import { PIPE_OUTLINE_COLOR, PIPE_STALLED_COLOR } from '../../../src/render/palette';
 import type { CellRenderInfo, MapView } from '../../../src/state/types';
 
 /** Build a minimal mock CanvasRenderingContext2D with tracked calls. */
 function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
     const mocks = new Map<string | symbol, ReturnType<typeof vi.fn>>();
+    const props = new Map<string | symbol, unknown>();
     const gradient = {
         addColorStop: vi.fn(),
     };
@@ -21,6 +23,10 @@ function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
     const handler: ProxyHandler<object> = {
         get(_target, prop) {
             if (prop === 'canvas') return { width, height };
+            // Return stored property value if it was assigned (strokeStyle, lineWidth, etc.).
+            if (props.has(prop)) {
+                return props.get(prop);
+            }
             if (!mocks.has(prop)) {
                 if (prop === 'createLinearGradient' || prop === 'createRadialGradient') {
                     mocks.set(
@@ -32,6 +38,10 @@ function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
                 }
             }
             return mocks.get(prop);
+        },
+        set(_target, prop, value) {
+            props.set(prop, value);
+            return true;
         },
     };
 
@@ -86,7 +96,30 @@ function makeLandCell(x: number, y: number, elevation: number, isCity = false): 
     } as unknown as CellRenderInfo;
 }
 
-describe('MapCanvas terrain rendering (spec 021)', () => {
+function makePipeCell(
+    x: number,
+    y: number,
+    elevation: number,
+    direction: 'N' | 'S' | 'E' | 'W',
+    slope: 'downhill' | 'flat' | 'uphill' | 'stalled',
+): CellRenderInfo {
+    return {
+        coord: { x, y },
+        elevation,
+        terrain: 'land',
+        troops: 0,
+        owner: null,
+        isCity: false,
+        cityOwner: null,
+        pipes: new Set([direction]),
+        pipeSlopes: new Map([[direction, slope]]),
+        pipeIntensities: new Map([[direction, 0.5]]),
+        reservesPct: 0,
+        changedThisTick: false,
+    } as unknown as CellRenderInfo;
+}
+
+describe('MapCanvas terrain rendering (spec 021 + 024)', () => {
     test('water cells use linear gradient (not flat fill)', () => {
         const ctx = createMockCtx();
         const canvas = new MapCanvas();
@@ -154,28 +187,88 @@ describe('MapCanvas terrain rendering (spec 021)', () => {
         expect(() => canvas.paint(view, ctx)).not.toThrow();
     });
 
-    test('band 3+ land cells trigger contour hints', () => {
+    test('zone 2+ land cells (Rocky Outcrops, Peaks) trigger contour hints', () => {
         const ctx = createMockCtx();
         const canvas = new MapCanvas();
-        // Elevation 171 → band 4 (>= 3) → contour hints
-        const view = makeMapView([makeLandCell(0, 0, 171)]);
+        // Elevation 185 → zone 2 (Rocky Outcrops, zone ≥ 2) → contour hints
+        const view = makeMapView([makeLandCell(0, 0, 185)]);
         canvas.paint(view, ctx);
 
         // Contour hints draw additional stroke calls (diagonal lines).
         expect(ctx.stroke).toHaveBeenCalled();
     });
 
-    test('low-band land cells (band 0-2) have no contour hints', () => {
+    test('low-zone land cells (zones 0-1) have no contour hints', () => {
         const ctx = createMockCtx();
         const canvas = new MapCanvas();
-        // Elevation 42 → band 0 (< 3) → no contour hints
+        // Elevation 42 → zone 0 (Ice Plains, zone < 2) → no contour hints
         const view = makeMapView([makeLandCell(0, 0, 42)]);
         canvas.paint(view, ctx);
 
         // Land rendering still calls stroke for inner shadow, but
-        // contour lines are not drawn (band < 3). The test verifies
+        // contour lines are not drawn (zone < 2). The test verifies
         // the method completes without error — exact contour counting
         // is an integration concern.
         expect(ctx.fillRect).toHaveBeenCalled();
+    });
+});
+
+describe('MapCanvas pipe outlines (spec 024 FR-010, AC-010)', () => {
+    test('filled pipe triangles get a dark outline stroke before fill', () => {
+        const ctx = createMockCtx();
+        const canvas = new MapCanvas();
+        // Downhill pipe at elevation 40 (Ice Plains zone)
+        const view = makeMapView([makePipeCell(0, 0, 40, 'N', 'downhill')]);
+        canvas.paint(view, ctx);
+
+        // FR-010: stroke (outline) must be called before fill (colored).
+        const strokeIdx = ctx.stroke.mock.invocationCallOrder[0];
+        const fillIdx = ctx.fill.mock.invocationCallOrder[0];
+        expect(strokeIdx).toBeDefined();
+        expect(fillIdx).toBeDefined();
+        expect(strokeIdx).toBeLessThan(fillIdx!);
+
+        // Outline color must be PIPE_OUTLINE_COLOR (dark, guaranteed contrast).
+        expect(ctx.strokeStyle).toBe(PIPE_OUTLINE_COLOR);
+
+        // lineWidth = Math.max(1, zoom * 0.04); zoom=32 → 1.28
+        expect(ctx.lineWidth).toBe(Math.max(1, 32 * 0.04));
+    });
+
+    test('stalled pipe triangles get a thick dark outline + colored inner stroke', () => {
+        const ctx = createMockCtx();
+        const canvas = new MapCanvas();
+        // Stalled pipe at elevation 200 (Rocky Outcrops zone)
+        const view = makeMapView([makePipeCell(0, 0, 200, 'E', 'stalled')]);
+        canvas.paint(view, ctx);
+
+        // Stalled pipes: exactly 2 strokes (thick dark outline + colored inner),
+        // no fill (hollow treatment). Terrain strokes may also be present,
+        // so we check >= 2 total stroke calls.
+        expect(ctx.stroke.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+        // No fill call for stalled pipes (hollow).
+        expect(ctx.fill).not.toHaveBeenCalled();
+
+        // Final strokeStyle is the inner color (last pipe stroke sets it).
+        expect(ctx.strokeStyle).toBe(PIPE_STALLED_COLOR);
+
+        // lineWidth: outline uses Math.max(2, zoom * 0.08)=2.56, then
+        // inner stroke uses Math.max(1.5, zoom * 0.06)=1.92.
+        // Final lineWidth is the inner stroke's value.
+        expect(ctx.lineWidth).toBe(Math.max(1.5, 32 * 0.06));
+    });
+
+    test('all pipe slope types render without throwing', () => {
+        const ctx = createMockCtx();
+        const canvas = new MapCanvas();
+        const cells = [
+            makePipeCell(0, 0, 40, 'N', 'downhill'),
+            makePipeCell(1, 0, 120, 'S', 'flat'),
+            makePipeCell(2, 0, 185, 'E', 'uphill'),
+            makePipeCell(3, 0, 230, 'W', 'stalled'),
+        ];
+        const view = makeMapView(cells);
+        expect(() => canvas.paint(view, ctx)).not.toThrow();
     });
 });

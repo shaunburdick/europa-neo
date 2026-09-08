@@ -50,8 +50,6 @@ describe('buildCssText()', () => {
         const css = buildCssText();
         // motion.durationMs is 120 (number), should appear as bare 120
         expect(css).toMatch(/--europa-motion-duration-ms: 120;/);
-        // color.landHue is 120 (number)
-        expect(css).toMatch(/--europa-color-land-hue: 120;/);
     });
 
     it('is byte-identical across repeated calls', () => {
@@ -128,9 +126,6 @@ describe('buildTokensJson()', () => {
         const durationMs = byCssVar.get('--europa-motion-duration-ms');
         expect(durationMs?.value).toBe('120');
         expect(typeof durationMs?.value).toBe('string');
-
-        const landHue = byCssVar.get('--europa-color-land-hue');
-        expect(landHue?.value).toBe('120');
     });
 
     it('is byte-identical across repeated calls', () => {

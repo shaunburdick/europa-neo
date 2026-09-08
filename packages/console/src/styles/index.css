@@ -108,6 +108,10 @@ body {
     border-style: solid;
     /* Default triangle size; overridden inline per pipe by cell-view.tsx. */
     --europa-pipe-tri: 6px;
+    /* Dark outline around CSS border-triangles to guarantee contrast
+       against any biome background (spec 024 FR-021, AC-016).
+       Matches the Canvas renderer's stroke outline (FR-010). */
+    filter: drop-shadow(0 0 1px var(--europa-color-pipe-outline));
 }
 
 /* Slope → color mapping (issue #43). Each slope class sets the

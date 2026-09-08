@@ -168,6 +168,41 @@ describe('CellView (T040 / data-model §3)', () => {
         expect(el.querySelector('.europa-pipe--W')).toBeNull();
     });
 
+    test('pipe triangles have dark drop-shadow outline (spec 024 AC-016)', async () => {
+        const el = await renderCell({
+            coord: { x: 3, y: 8 },
+            elevation: 50,
+            terrain: 'land',
+            troops: 7,
+            owner: 1,
+            isCity: false,
+            cityOwner: null,
+            pipes: new Set(['N', 'E']),
+            pipeSlopes: new Map([
+                ['N', 'downhill'],
+                ['E', 'uphill'],
+            ]),
+            pipeIntensities: new Map([
+                ['N', 0.5],
+                ['E', 0.5],
+            ]),
+            reservesPct: 0,
+            changedThisTick: false,
+        });
+
+        const north = el.querySelector('.europa-pipe--N') as Element;
+        const east = el.querySelector('.europa-pipe--E') as Element;
+        expect(north).not.toBeNull();
+        expect(east).not.toBeNull();
+
+        // The CSS rule .europa-pipe applies filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.7))
+        // to guarantee contrast against any biome background (spec 024 FR-021).
+        const northFilter = getComputedStyle(north).filter;
+        const eastFilter = getComputedStyle(east).filter;
+        expect(northFilter).toContain('drop-shadow');
+        expect(eastFilter).toContain('drop-shadow');
+    });
+
     test('reserves percentage renders as a small badge', async () => {
         const el = await renderCell({
             coord: { x: 4, y: 4 },
