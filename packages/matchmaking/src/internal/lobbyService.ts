@@ -166,6 +166,11 @@ import type {
     LobbySnapshot,
     LobbyStatus,
     PublicLobbyEntry,
+    RosterChange,
+    RosterEntry,
+    RosterRevision,
+    RosterSnapshot,
+    RosterStatus,
 } from '../contracts/lobby-types';
 import type { MatchStatusChangedEvent } from '../eventBus';
 import type { MatchmakerCompositionSeam } from '../matchmaker';
@@ -176,6 +181,27 @@ import { createIdentityRegistry } from './identityRegistry';
 // ----------------------------------------------------------------------------
 // Tunables & local defaults
 // ----------------------------------------------------------------------------
+
+/**
+ * Anti-flap grace window (ms) for roster status transitions (feature 023
+ * FR-011). When a status change arrives within this window of a prior
+ * change for the same player, the timer is reset and only the final
+ * stable state is broadcast when the timer fires.
+ */
+const ANTI_FLAP_GRACE_MS = 500;
+
+/**
+ * Maximum number of unsent roster deltas before a full snapshot is
+ * sent instead (feature 023 FR-005).
+ */
+const ROSTER_DELTA_THRESHOLD = 20;
+
+/**
+ * Maximum elapsed time (ms) between full roster snapshots (feature 023
+ * FR-005). A full snapshot is sent if this duration has elapsed since
+ * the last one.
+ */
+const ROSTER_SNAPSHOT_INTERVAL_MS = 60_000;
 
 // ----------------------------------------------------------------------------
 // Internal record shapes
@@ -341,6 +367,48 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
      */
     let publishedEntries: readonly PublicLobbyEntry[] = Object.freeze([]);
 
+    // -- Roster state (feature 023) ---------------------------------------------
+
+    /**
+     * The authoritative in-memory roster. GuestPlayerId → RosterEntry
+     * (feature 023 FR-008). Entries are derived from the `presence` map
+     * and added/removed alongside identity lifecycle events.
+     */
+    const roster = new Map<GuestPlayerId, RosterEntry>();
+
+    /**
+     * Monotonic roster revision counter (feature 023 FR-004). Starts at
+     * 1; increments by 1 for every roster mutation (player added,
+     * removed, or status changed). NEVER resets.
+     */
+    let rosterRevision: RosterRevision = 1 as RosterRevision;
+
+    /**
+     * Per-player anti-flap debounce timers (feature 023 FR-011). When a
+     * status change arrives within the grace window, the timer is reset.
+     * Only the final stable state is broadcast when the timer fires.
+     */
+    const rosterDebounceTimers = new Map<GuestPlayerId, ReturnType<typeof setTimeout>>();
+
+    /**
+     * Pending roster changes during debounce windows. When a timer fires,
+     * the pending entry is broadcast and removed from this map.
+     */
+    const rosterPendingChanges = new Map<GuestPlayerId, RosterEntry>();
+
+    /**
+     * Count of unsent roster deltas (for periodic full snapshot gating,
+     * feature 023 FR-005). Reset to 0 when a full snapshot is sent.
+     */
+    let rosterUnsentDeltaCount = 0;
+
+    /**
+     * Timestamp (epoch ms) of the last full roster snapshot sent (for
+     * periodic full snapshot gating, feature 023 FR-005). Reset when a
+     * full snapshot is sent.
+     */
+    let rosterLastSnapshotTime = now();
+
     /** Unsubscribe for the status-bus seam, when the matchmaker exposes it. */
     let unsubscribeStatus: (() => void) | null = null;
 
@@ -371,6 +439,136 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
         } catch (error) {
             logger.warn('lobbyService: event sink threw; delivery skipped', { error: String(error) });
         }
+    }
+
+    // -- Roster helpers (feature 023) -------------------------------------------
+
+    /**
+     * Derive a player's roster status from the existing `presence` map
+     * (feature 023 FR-009). Priority: `in_game` (seated player) >
+     * `spectating` > `in_lobby` (no match association).
+     */
+    function deriveRosterStatus(guestId: GuestPlayerId): RosterStatus {
+        const attached = presence.get(guestId);
+        if (attached === undefined) {
+            return 'in_lobby';
+        }
+        if (attached.role === 'player') {
+            return 'in_game';
+        }
+        return 'spectating';
+    }
+
+    /**
+     * Add or update a roster entry with the derived status, applying
+     * anti-flap grace period (feature 023 FR-011). If a change arrives
+     * within the grace window, the debounce timer is reset — only the
+     * final stable state is broadcast when the timer fires.
+     *
+     * @param guestId - The player's guest identity.
+     * @param handle - The player's accepted display handle.
+     */
+    function updateRosterEntry(guestId: GuestPlayerId, handle: string): void {
+        const status = deriveRosterStatus(guestId);
+        const entry: RosterEntry = Object.freeze({ handle, status });
+
+        roster.set(guestId, entry);
+        rosterRevision = (rosterRevision + 1) as RosterRevision;
+
+        // Anti-flap: if a debounce timer is already running, reset it
+        // and update the pending entry to the latest state.
+        const existingTimer = rosterDebounceTimers.get(guestId);
+        if (existingTimer !== undefined) {
+            clearTimeout(existingTimer);
+        }
+
+        rosterPendingChanges.set(guestId, entry);
+
+        const timer = setTimeout(() => {
+            rosterDebounceTimers.delete(guestId);
+            const pending = rosterPendingChanges.get(guestId);
+            if (pending !== undefined) {
+                rosterPendingChanges.delete(guestId);
+                broadcastRosterDelta([pending]);
+            }
+        }, ANTI_FLAP_GRACE_MS);
+        rosterDebounceTimers.set(guestId, timer);
+    }
+
+    /**
+     * Remove a roster entry and clear its debounce timer (feature 023).
+     * Deltas do NOT carry explicit removals (FR-003) — the next full
+     * snapshot confirms the removal. The revision is still incremented
+     * so clients can detect that something changed.
+     */
+    function removeRosterEntry(guestId: GuestPlayerId): void {
+        const existingTimer = rosterDebounceTimers.get(guestId);
+        if (existingTimer !== undefined) {
+            clearTimeout(existingTimer);
+            rosterDebounceTimers.delete(guestId);
+        }
+        rosterPendingChanges.delete(guestId);
+        roster.delete(guestId);
+        rosterRevision = (rosterRevision + 1) as RosterRevision;
+    }
+
+    /**
+     * Build a deterministic snapshot from the current roster state
+     * (feature 023 FR-006: ordered lexicographically by handle,
+     * case-insensitive). Frozen and returned.
+     */
+    function buildSortedRosterEntries(): ReadonlyArray<RosterEntry> {
+        const entries = [...roster.values()];
+        entries.sort((a, b) => a.handle.toLowerCase().localeCompare(b.handle.toLowerCase()));
+        return Object.freeze(entries);
+    }
+
+    /**
+     * Send a full roster snapshot to all subscribed connections
+     * (feature 023 FR-005/FR-007). Resets the unsent-delta counter
+     * and updates the last-snapshot timestamp.
+     */
+    function broadcastRosterSnapshot(): void {
+        if (deliver === null || subscriptions.size === 0) {
+            return;
+        }
+        const sorted = buildSortedRosterEntries();
+        const snapshot: RosterSnapshot = Object.freeze({
+            revision: rosterRevision,
+            players: sorted,
+        });
+        const event: LobbyEvent = Object.freeze({ kind: 'roster', roster: snapshot });
+        for (const connectionId of subscriptions) {
+            deliverEvent(connectionId, event);
+        }
+        rosterUnsentDeltaCount = 0;
+        rosterLastSnapshotTime = now();
+    }
+
+    /**
+     * Send a roster delta to all subscribed connections (feature 023
+     * FR-003/FR-007). Increments the unsent-delta counter for
+     * periodic full-snapshot gating.
+     *
+     * @param entries - The roster entries that changed (additions or
+     *   status updates). Deltas do NOT carry removals.
+     */
+    function broadcastRosterDelta(entries: ReadonlyArray<RosterEntry>): void {
+        if (deliver === null || subscriptions.size === 0) {
+            return;
+        }
+        if (entries.length === 0) {
+            return;
+        }
+        const changes: ReadonlyArray<RosterChange> = entries.map(
+            (e): RosterChange => Object.freeze({ handle: e.handle, status: e.status }),
+        );
+        const delta = Object.freeze({ revision: rosterRevision, changes });
+        const event: LobbyEvent = Object.freeze({ kind: 'rosterDelta', delta });
+        for (const connectionId of subscriptions) {
+            deliverEvent(connectionId, event);
+        }
+        rosterUnsentDeltaCount += 1;
     }
 
     /**
@@ -410,6 +608,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // so their match presence ends with the connection.
             presence.delete(guestId);
         }
+        // Feature 023: remove the roster entry on disconnect. If the
+        // player reconnects within grace, establishIdentity re-adds them.
+        removeRosterEntry(guestId);
         // Players AND lobby visitors: the identity drops to grace (handle
         // reserved until reclaim or lazy expiry). Safe to repeat — the
         // registry restarts the anchor (documented idempotent semantics).
@@ -634,6 +835,15 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
         publishedEntries = Object.freeze(nextEntries);
         revisionCounter += 1;
         broadcastSnapshots();
+        // Feature 023 FR-005: periodic full roster snapshot when the
+        // accumulated unsent delta set exceeds the threshold or the
+        // snapshot interval has elapsed.
+        if (
+            rosterUnsentDeltaCount >= ROSTER_DELTA_THRESHOLD ||
+            now() - rosterLastSnapshotTime >= ROSTER_SNAPSHOT_INTERVAL_MS
+        ) {
+            broadcastRosterSnapshot();
+        }
     }
 
     // -- Error mapping ----------------------------------------------------------
@@ -674,17 +884,17 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
 
     /**
      * Drop every identity's association with a match (terminal/expiry
-     * fan-out) and return how many were cleared.
+     * fan-out) and return the affected guest IDs (for roster updates).
      */
-    function clearPresenceForMatch(matchId: MatchId): number {
-        let cleared = 0;
+    function clearPresenceForMatch(matchId: MatchId): GuestPlayerId[] {
+        const affected: GuestPlayerId[] = [];
         for (const [guestId, attached] of presence) {
             if (attached.matchId === matchId) {
                 presence.delete(guestId);
-                cleared += 1;
+                affected.push(guestId);
             }
         }
-        return cleared;
+        return affected;
     }
 
     /**
@@ -703,8 +913,18 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             return;
         }
         if (event.to === 'finished' || event.to === 'collected') {
-            clearPresenceForMatch(event.matchId);
+            const affected = clearPresenceForMatch(event.matchId);
             ledger.delete(event.matchId);
+            // Feature 023: re-derive roster status for affected players
+            // (in_game/spectating → in_lobby). Players still connected
+            // re-establish via establishIdentity; disconnected players
+            // were already removed by releaseConnection.
+            for (const guestId of affected) {
+                if (roster.has(guestId)) {
+                    const handle = registry.projectIdentity(guestId)?.handle ?? 'Anonymous';
+                    updateRosterEntry(guestId, handle);
+                }
+            }
         }
         recomputeAndPublish();
     };
@@ -782,6 +1002,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                     presence.delete(guestId);
                     connections.delete(connectionId);
                     subscriptions.delete(connectionId);
+                    // Feature 023: remove the roster entry — the seat
+                    // expired and the connection is gone.
+                    removeRosterEntry(guestId);
                 }
             }
             recomputeAndPublish();
@@ -797,8 +1020,15 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             if (closed) {
                 return;
             }
-            clearPresenceForMatch(event.matchId);
+            const affected = clearPresenceForMatch(event.matchId);
             ledger.delete(event.matchId);
+            // Feature 023: re-derive roster status for affected players.
+            for (const guestId of affected) {
+                if (roster.has(guestId)) {
+                    const handle = registry.projectIdentity(guestId)?.handle ?? 'Anonymous';
+                    updateRosterEntry(guestId, handle);
+                }
+            }
             recomputeAndPublish();
         },
     };
@@ -853,6 +1083,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 // The return value above remains the facade's safe projection.
                 identity: projected === undefined ? state : withOwnerId(projected, identity.id),
             });
+            // Feature 023 FR-008/FR-009: add or update the roster entry.
+            // Players without a handle get a fallback label (edge case).
+            const rosterHandle = projected?.handle ?? 'Anonymous';
+            updateRosterEntry(identity.id, rosterHandle);
             return state;
         },
 
@@ -895,6 +1129,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 // Clarifications v1.6): owner's id, directed delivery only.
                 identity: withOwnerId(projected, guest.value),
             });
+            // Feature 023: update the roster entry's handle (preserve
+            // status). The new handle re-derives the entry in-place.
+            updateRosterEntry(guest.value, handle);
             return { ok: true, data: projected };
         },
 
@@ -909,6 +1146,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // since the last publish, subscribers learn NOW at a bumped
             // revision instead of receiving a mis-versioned baseline.
             recomputeAndPublish();
+            // Feature 023 FR-005: send a complete roster snapshot as the
+            // first roster event for this connection.
+            broadcastRosterSnapshot();
             return { ok: true, data: snapshotFor(guest.value) };
         },
 
@@ -949,6 +1189,8 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 role: 'player',
                 seatAssignment: result.data.seatAssignment,
             });
+            // Feature 023: re-derive and broadcast roster status (in_lobby → in_game).
+            updateRosterEntry(guest.value, named.value);
             recomputeAndPublish();
             return { ok: true, data: target };
         },
@@ -1011,6 +1253,8 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 tracked.status = 'in_progress';
             }
             presence.set(guest.value, { matchId: result.data.matchId, role: 'player', seatAssignment: seat });
+            // Feature 023: re-derive and broadcast roster status (in_lobby → in_game).
+            updateRosterEntry(guest.value, named.value);
             recomputeAndPublish();
             return { ok: true, data: Object.freeze({ matchId: result.data.matchId, seatAssignment: seat }) };
         },
@@ -1053,6 +1297,8 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 matchId,
                 handle: spectatorHandle !== null ? sanitizeLogText(spectatorHandle) : null,
             });
+            // Feature 023: re-derive and broadcast roster status (in_lobby → spectating).
+            updateRosterEntry(guest.value, spectatorHandle ?? 'Anonymous');
             // No revision bump: entries are unchanged and other subscribers'
             // snapshots are unaffected; the actor's own association is
             // conveyed by the returned target and every later snapshot.
@@ -1080,6 +1326,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 // facade must not pin an association the matchmaker may have
                 // already released (e.g., inline filling-phase releases).
                 presence.delete(guest.value);
+                // Feature 023: re-derive and broadcast roster status (in_game → in_lobby).
+                const leaveHandle = registry.projectIdentity(guest.value)?.handle ?? 'Anonymous';
+                updateRosterEntry(guest.value, leaveHandle);
                 if (!result.ok) {
                     return { ok: false, error: mapUpstreamError(result.error) };
                 }
@@ -1093,6 +1342,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // Spectator detach: no seat exists upstream (the read-only view
             // detaches at the transport layer); presence-only cleanup here.
             presence.delete(guest.value);
+            // Feature 023: re-derive and broadcast roster status (spectating → in_lobby).
+            const spectateLeaveHandle = registry.projectIdentity(guest.value)?.handle ?? 'Anonymous';
+            updateRosterEntry(guest.value, spectateLeaveHandle);
             return { ok: true };
         },
 
@@ -1113,6 +1365,13 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 unsubscribeStatus();
                 unsubscribeStatus = null;
             }
+            // Feature 023: clear all roster debounce timers and maps.
+            for (const timer of rosterDebounceTimers.values()) {
+                clearTimeout(timer);
+            }
+            rosterDebounceTimers.clear();
+            rosterPendingChanges.clear();
+            roster.clear();
             connections.clear();
             subscriptions.clear();
             presence.clear();
