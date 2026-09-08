@@ -1,6 +1,6 @@
 # Feature 024: Biome-Based Terrain Shading
 
-> Version: 1.2
+> Version: 1.3
 > Last Updated: 2026-09-08
 > Status: Implemented (2026-09-08)
 > Dependencies: Feature 021 (Tile Visual Redesign), Feature 012 (Design System)
@@ -60,11 +60,11 @@ As a developer, I want the biome shading to integrate into the existing renderin
   | Rocky Outcrops | 2 | 161–208 | 200 (blue-gray) | 15 | 20–35 |
   | Peaks | 3 | 209–255 | 220 (cool white) | 8 | 60–78 |
 
-  Within each zone, lightness interpolates linearly from the min to the max based on the cell's normalized position within that zone's elevation range. The zone boundaries are aligned with the pipe flow formula's behavioral transitions:
-  - Zone 0 (0–80): flow rate 7–12 (base + downhill bonus) — easy flow (Ice Plains)
-  - Zone 1 (81–160): flow rate 0–7 (transition from uphill handicap to base) — moderate flow (Fractured Ice)
-  - Zone 2 (161–208): flow rate 0 (stalled uphill) — hard flow (Rocky Outcrops)
-  - Zone 3 (209–255): flow rate 0 (extreme uphill) — extreme (Peaks)
+  Within each zone, lightness interpolates linearly from the min to the max based on the cell's normalized position within that zone's elevation range. The zone boundaries are aligned with the pipe flow formula's behavioral transitions (FR-050):
+  - Zone 0 (0–80): always flowable (delta < 40 max within zone) — easy flow (Ice Plains)
+  - Zone 1 (81–160): flowable but slower when uphill (delta 40–80 crosses into this zone) — moderate flow (Fractured Ice)
+  - Zone 2 (161–208): uphill pipes may stall (delta > 80 crosses two zones) — hard flow (Rocky Outcrops)
+  - Zone 3 (209–255): extreme terrain, uphill pipes always stalled — extreme (Peaks)
 
   **Contrast rationale**: The biome zone lightness ranges are deliberately kept dark (max 35% for zones 0–2, max 78% for zone 3) to ensure the pipe slope indicator colors maintain visual contrast. The Peaks zone is the lightest but capped at 78% (not 85%) to keep the gray stalled indicator readable.
 
@@ -131,6 +131,40 @@ As a developer, I want the biome shading to integrate into the existing renderin
 
 - **FR-041**: The elevation swatch component MUST be updated to display 4 biome zones instead of 6 bands, matching the new visual language. Each swatch entry shows the zone's representative color and elevation range label.
 
+### Flow Viability Rules
+
+- **FR-050**: The pipe flow formula MUST implement biome-aware flow viability rules. The elevation delta between source and destination determines flow behavior:
+
+  | Condition | Elevation Delta | Flow Behavior |
+  |-----------|----------------|---------------|
+  | Same biome | delta < 40 (max within zone) | Always flowable — full flow rate |
+  | +1 biome uphill | delta 40–80 | Flowable but slower — reduced flow rate |
+  | +2 biomes uphill | delta > 80 | Stalled — zero flow |
+  | Downhill (any) | delta < 0 | Always fast flow — full rate + downhill bonus |
+
+  These rules ensure that terrain color directly communicates pipe viability: same-color cells always connect, one-color-difference uphill is slower, two-color-difference uphill is blocked.
+
+- **FR-051**: The engine flow formula in `@europa/core` (`flowRateForDelta`) MUST be updated to support an uphill stall cap. The formula becomes:
+
+  ```
+  downhill: flowBase + flowDownhillStep × min(|delta|, flowSlopeDeltaCap)
+  flat:     flowBase
+  uphill:   max(0, flowBase − flowUphillStep × min(delta, flowUphillCap))
+  ```
+
+  New constants (replacing the current `flowSlopeStep` with directional parameters):
+  - `flowBase`: 7 (base troops per tick on flat pipe)
+  - `flowDownhillStep`: 1 (per-unit downhill bonus, same as current `flowSlopeStep`)
+  - `flowUphillStep`: 1 (per-unit uphill penalty, same as current `flowSlopeStep`)
+  - `flowSlopeDeltaCap`: 5 (downhill bonus cap, unchanged)
+  - `flowUphillCap`: 73 (uphill penalty cap — stalls at delta = 7 + 73 = 80)
+
+  This replaces the current `flowSlopeStep` field with `flowDownhillStep` and `flowUphillStep`, and adds `flowUphillCap`. The engine's `ENGINE_CONSTANTS` and the console's `PIPE_SLOPE_CONSTANTS` mirror MUST both be updated.
+
+- **FR-052**: The console's `classifyPipeSlope` function MUST use the updated formula from FR-051. The stalled threshold moves from `delta >= 7` to `delta > 80`. Pipes with delta 1–80 are classified as uphill (not stalled), with intensity scaling from 0 to 1 over that range.
+
+- **FR-053**: The engine's `flowRateForDelta` function in `@europa/core` MUST accept the expanded `FlowConstants` interface (with `flowDownhillStep`, `flowUphillStep`, `flowUphillCap` fields). The `DEFAULT_FLOW_CONSTANTS` and `ENGINE_CONSTANTS` objects MUST be updated with the new field values. The existing `flowSlopeStep` field is removed and replaced by the directional variants.
+
 ## Non-Functional Requirements
 
 - **Performance**: The biome zone calculation is a simple comparison chain (4 branches) — cheaper than the current 6-band `Math.floor` division. The Canvas renderer's pre-computed color cache (sub-pass 1c) reduces from 6 cached colors to 4. The pipe outline adds one extra `ctx.stroke()` call per pipe triangle (negligible — pipes are already batched). Net performance impact is neutral to slightly positive.
@@ -139,7 +173,7 @@ As a developer, I want the biome shading to integrate into the existing renderin
 
 - **Determinism**: Same seed → same elevation map → same biome zone assignment → same pixel output. The biome zone function is pure (no wall-clock, no randomness). Per constitution Principle II, the Canvas output is byte-identical for identical inputs.
 
-- **Backward Compatibility**: The engine, terrain generation, fog, networking, and matchmaking packages are NOT modified. The change is entirely contained within the console rendering package (`packages/console/src/render/`) and the design token package (`packages/design/src/`). Existing game logic, test suites, and wire contracts are unaffected.
+- **Backward Compatibility**: The `@europa/core` flow formula and `@europa/engine` constants are updated (FR-051/FR-053). The `@europa/terrain`, fog, networking, and matchmaking packages are NOT modified. The console's pipe slope classifier and pre-computed cache are updated to match the new formula. All existing game logic test suites must be updated to reflect the new constants and formula behavior.
 
 - **Contrast**: Pipe slope indicators use a combination of dark outline + fill color to ensure visibility against all biome backgrounds. The outline guarantees ≥9:1 contrast against light backgrounds (Peaks). Against dark backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops), the fill colors are perceptually distinct from terrain hues and are reinforced by shape/position. Full contrast matrix documented in Examples section and verified as part of acceptance criteria.
 
@@ -183,14 +217,22 @@ As a developer, I want the biome shading to integrate into the existing renderin
 - [ ] **AC-025**: The minimap renders with biome-zone colors (no hardcoded hex).
 - [ ] **AC-026**: `pnpm verify` passes (typecheck, lint, format, all tests, design guards).
 
+### Flow Viability
+
+- [ ] **AC-027**: A pipe between two cells in the same biome zone (elevation delta < 40) always has a positive flow rate (not stalled).
+- [ ] **AC-028**: A pipe from zone N to zone N+1 uphill (elevation delta 40–80) has a reduced but positive flow rate.
+- [ ] **AC-029**: A pipe from zone N to zone N+2 uphill (elevation delta > 80) has zero flow rate (stalled).
+- [ ] **AC-030**: Any downhill pipe (negative elevation delta) has a positive flow rate regardless of zone difference.
+- [ ] **AC-031**: The `flowRateForDelta` function with the new constants returns 0 only when `delta > 80` (uphill).
+- [ ] **AC-032**: The console's `classifyPipeSlope` returns `'stalled'` only when the elevation delta exceeds 80 uphill.
+- [ ] **AC-033**: The engine constants (`ENGINE_CONSTANTS`) and console mirror (`PIPE_SLOPE_CONSTANTS`) have identical flow-related field values.
+
 ## Out of Scope
 
 The following are explicitly **not** part of this feature:
 
-- **Engine changes**: The `@europa/engine` package is not modified. Biome zones are a rendering-layer concept only.
 - **Terrain generation changes**: The `@europa/terrain` package is not modified. Elevation values and map generation are unaffected.
 - **Fog, networking, matchmaking changes**: These packages are unaffected.
-- **Pipe flow formula changes**: The flow constants (`flowBase=7`, `flowSlopeStep=1`, `flowSlopeDeltaCap=5`) and the `flowRateForDelta` formula are unchanged.
 - **New biome zone data model**: The terrain data model (`elevation: number`) is unchanged. Biome zones are derived from elevation at render time, not stored.
 - **Animated transitions between zones**: Zone boundaries are discrete (hard edges), matching the current band behavior.
 - **Biome-specific textures or patterns**: The current directional gradient + inner shadow + contour hints are retained; only the base color changes per zone.
@@ -256,12 +298,13 @@ The key insight: against dark biomes (Ice Plains, Fractured Ice, Rocky Outcrops)
 | 1 | The pipe slope colors fail WCAG contrast against colored biome backgrounds — how do we fix this? | Add a dark outline (`rgba(0, 0, 0, 0.7)`) to every pipe triangle (Canvas) and a dark drop-shadow to DOM overlay pipe CSS triangles. The outline provides a guaranteed contrast boundary regardless of background color. Pipe indicator colors remain unchanged. | FR-010, FR-014, FR-021 |
 | 2 | What should the Peaks zone lightness range be? | Cap at 60–78% (not 70–85%) to keep the gray stalled indicator readable even without the outline. The outline provides additional contrast insurance. | FR-001 (revised ranges) |
 | 3 | Should the stalled indicator color be darkened for Snow Caps? | No — the dark outline (Clarification 1) makes color changes unnecessary. The existing `#9ca3af` is retained. | FR-014 |
+| 4 | The original ticket specifies flow viability rules (same biome = always flowable, +1 biome = slower, +2 biomes = stalled). These were missing from v1.2. Should they be added? | Yes — the flow viability rules are the core gameplay mechanic. The engine formula must be updated to stall at delta > 80 (not delta >= 7). New constants: `flowDownhillStep=1`, `flowUphillStep=1`, `flowUphillCap=73`. | FR-050, FR-051, FR-052, FR-053 |
 
 ## Implementation Notes
 
 ### v1.1 Implementation (2026-09-08)
 
-1. **Zone boundaries align with pipe flow formula**: The 4 biome zones are not arbitrary — they map to the pipe flow formula's behavioral transitions. Zone 0 (0–80) covers the downhill bonus range. Zone 1 (81–160) covers the flat-to-mild-uphill range. Zone 2 (161–208) covers the stalled range. Zone 3 (209–255) covers extreme terrain. This alignment means the visual language and the gameplay mechanic are one system.
+1. **Zone boundaries align with flow viability rules**: The 4 biome zones are not arbitrary — they map to the flow viability rules (FR-050). Zone 0 (0–80) spans the "always flowable" range (max delta within zone < 40). Zone 1 (81–160) spans the "+1 biome slower" range (delta 40–80 when crossing from zone 0). Zone 2 (161–208) spans the "+2 biomes stalled" range (delta > 80 when crossing from zone 0). Zone 3 (209–255) is extreme terrain where uphill pipes are always stalled. The visual language and the gameplay mechanic are one system.
 
 2. **Palette module is the change boundary**: All color computation changes are in `packages/console/src/render/palette.ts` and `packages/design/src/tokens.ts`. The Canvas renderer (`canvas.ts`) calls the same palette functions — it needs only minor updates to match the new band count (6→4) and to use `biomeZoneForElevation()` where it currently calls `landBandIndex()` + `landBandColor()` separately.
 
@@ -288,3 +331,13 @@ The key insight: against dark biomes (Ice Plains, Fractured Ice, Rocky Outcrops)
 - Updated zone hues: Zone 0 hue 130→195 (icy cyan), Zone 1 hue 145→210 (deep blue), Zone 2 hue 30→200 (blue-gray), Zone 3 unchanged (220, cool white).
 - Updated zone saturations: Zone 0 sat 35→30%, Zone 1 sat 40→35%, Zone 2 sat 30→15% (muted blue-gray for exposed rock).
 - Updated all acceptance criteria, examples, contrast matrix, and edge cases to reflect new names and colors.
+
+### v1.2 → v1.3 Changes
+
+- Added flow viability rules (FR-050, FR-051, FR-052, FR-053) — the core gameplay mechanic from the original ticket that was missing from v1.2.
+- Updated engine flow formula: replaced `flowSlopeStep` with directional `flowDownhillStep`/`flowUphillStep` + `flowUphillCap` (Option C).
+- Updated stall threshold from delta >= 7 to delta > 80.
+- Updated zone descriptions in FR-001 to reflect flow viability semantics.
+- Removed "Engine changes" and "Pipe flow formula changes" from Out of Scope.
+- Added AC-027 through AC-033 for flow viability verification.
+- Added Clarification 4 documenting the scope correction.

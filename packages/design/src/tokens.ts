@@ -43,7 +43,8 @@ export const TOKENS = {
          * replacing the retired single-hue 6-band land shading.
          *
          * Zone boundaries align with the pipe flow formula's behavioral
-         * transitions (flowBase=7, flowSlopeStep=1, flowSlopeDeltaCap=5):
+         * transitions (flowBase=7, flowDownhillStep=1, flowUphillStep=1,
+         * flowSlopeDeltaCap=5, flowUphillCap=80):
          *   Zone 0 (0–80):   downhill bonus — easy flow (Ice Plains)
          *   Zone 1 (81–160):  flat-to-mild-uphill — moderate flow (Fractured Ice)
          *   Zone 2 (161–208): stalled uphill — hard flow (Rocky Outcrops)

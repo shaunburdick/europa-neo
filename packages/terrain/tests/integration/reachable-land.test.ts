@@ -19,8 +19,8 @@
  *     `flowRateForDelta(-delta, ENGINE_CONSTANTS) > 0`, where
  *     `delta = dstElevation − srcElevation`. Pipes are bidirectional
  *     conduits, so the uphill direction is the binding constraint: the
- *     edge is traversable iff `|delta| < flowBase / flowSlopeStep`
- *     (the stall threshold, 7 with the shipped constants). This matches
+ *     edge is traversable iff `|delta| < flowUphillCap`
+ *     (the stall threshold, 80 with the shipped constants). This matches
  *     the empirical grounding in spec 003 v1.3 — a directional-only
  *     edge rule measures ~84% (downhill edges of any height stay
  *     traversable), while the bidirectional rule measures ~54.5%,
@@ -33,9 +33,9 @@
  * reads the stall threshold from `ENGINE_CONSTANTS` via
  * `flowRateForDelta` (imported from `@europa/core`, issue #96; feature
  * 001 FR-007), never from a hard-coded literal. A future retune of
- * `flowBase` / `flowSlopeStep` shifts the threshold and moves the
- * measured mean — the suite sits ~4.5pp above the 50% floor, so a
- * retune that narrows flow-viable traversal fails this suite loudly
+ * `flowUphillCap` shifts the threshold and moves the measured mean —
+ * the suite sits well above the 50% floor, so a retune that narrows
+ * flow-viable traversal fails this suite loudly
  * (spec 003 Clarifications v1.3, cross-feature coupling; spec 001
  * plan.md R-2).
  */
@@ -63,8 +63,8 @@ const NEIGHBOR_DELTAS = [
  * Is the undirected land edge (src → dst) flow-viable in BOTH
  * directions? A pipe is a bidirectional conduit, so a cell is only
  * flow-reachable when the pipe can carry troops each way — the uphill
- * direction is the binding constraint (stall threshold
- * `flowBase / flowSlopeStep`, read live from `ENGINE_CONSTANTS`).
+ * direction is the binding constraint (stall threshold `flowUphillCap`,
+ * read live from `ENGINE_CONSTANTS`).
  *
  * @param srcElevation Elevation of the source cell.
  * @param dstElevation Elevation of the destination cell.
