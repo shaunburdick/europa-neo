@@ -182,7 +182,18 @@ export function tick(world: Readonly<World>): TickResult {
     };
 
     // ---- Phase 7: decay --------------------------------------------------
+    // Populate the per-cell reserves floor (FR-012) from the post-capture
+    // state: `reservesPct` of the current count is held in the cell and
+    // decay cannot reduce the stack below it. Previously this array was
+    // allocated but never populated, so reserves had no effect on decay.
     const reservedFloors = new Uint32Array(n);
+    for (let i = 0; i < n; i++) {
+        const count = state.troopCounts[i] ?? 0;
+        const reservesPct = state.reservesPct[i] ?? 0;
+        if (reservesPct > 0 && count > 0) {
+            reservedFloors[i] = Math.ceil((count * reservesPct) / 10);
+        }
+    }
     const decayResult = resolveDecay(state, world.board, ENGINE_CONSTANTS, world.tick, inflowTally, reservedFloors);
     ({ state } = decayResult);
     events = {

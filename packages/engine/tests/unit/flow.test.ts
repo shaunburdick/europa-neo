@@ -171,8 +171,8 @@ describe('resolveFlow — FR-007 gradient slope rates', () => {
         expect(out.troopOwners[1]).toBe(0);
         // Stall is a legal, persistent state: the pipe stays laid...
         expect(out.pipeMasks[0] & E).toBe(E);
-        // ...and the source stack is untouched (US1: no source depletion
-        // in the flow phase).
+        // ...and the source stack is untouched because NO transfer
+        // occurred (stall = zero flow rate; Clarifications v1.6).
         expect(out.troopCounts[0]).toBe(30);
     });
 
@@ -223,7 +223,7 @@ describe('resolveFlow — FR-007 gradient slope rates', () => {
 });
 
 describe('resolveFlow — FR-006 pipe support', () => {
-    it('4-way pipe support: each direction moves independently', () => {
+    it('4-way pipe support: each direction moves independently, source depletes (Clarifications v1.6)', () => {
         // Hand-roll a board: (4,4) is elevation 10, all its neighbors are
         // elevation 5, all other cells are elevation 5 too (so they're
         // "flat" relative to each other but "downhill" relative to (4,4)).
@@ -242,7 +242,9 @@ describe('resolveFlow — FR-006 pipe support', () => {
         });
         const state = emptyState(8);
         // (4,4) pipes N/E/S/W. All neighbors at elevation 5, source at 10
-        // → Δ = −5 → 12 troops per direction.
+        // → Δ = −5 → 12 troops per direction. The source has 30 troops, so
+        // directions deplete it in N→E→S→W order: N takes 12 (30→18),
+        // E takes 12 (18→6), S takes the remaining 6 (6→0), W gets nothing.
         setPipe(state, 8, 4, 4, N | E | S | W, 30, 1);
 
         const out = resolveFlow(state, board, TEST_CONSTANTS);
@@ -250,10 +252,20 @@ describe('resolveFlow — FR-006 pipe support', () => {
         const eIdx = 4 * 8 + 5; // (5,4)
         const sIdx = 5 * 8 + 4; // (4,5)
         const wIdx = 4 * 8 + 3; // (3,4)
+        const srcIdx = 4 * 8 + 4; // (4,4)
         expect(out.troopCounts[nIdx]).toBe(12);
         expect(out.troopCounts[eIdx]).toBe(12);
-        expect(out.troopCounts[sIdx]).toBe(12);
-        expect(out.troopCounts[wIdx]).toBe(12);
+        expect(out.troopCounts[sIdx]).toBe(6);
+        expect(out.troopCounts[wIdx]).toBe(0);
+        // Source fully depleted → owner cleared (Clarifications v1.6).
+        expect(out.troopCounts[srcIdx]).toBe(0);
+        expect(out.troopOwners[srcIdx]).toBe(0);
+        // Conservation: total on the board is unchanged (30 in, 30 out).
+        let total = 0;
+        for (const c of out.troopCounts) {
+            total += c;
+        }
+        expect(total).toBe(30);
     });
 
     it('exclusive mode: only the configured direction receives troops', () => {
@@ -339,7 +351,8 @@ describe('resolveFlow — water-target rejection', () => {
             }
         }
         expect(nonZeroOffSource).toBe(0);
-        // Source cell itself still has its original count (no decrement).
+        // Source cell keeps its count: no transfer occurred (OOB
+        // destination → no-op; Clarifications v1.6).
         expect(out.troopCounts[srcIdx]).toBe(30);
     });
 });
@@ -411,6 +424,170 @@ describe('resolveFlow — defensive branches', () => {
         setPipe(state, 8, 0, 0, E, 30, 1);
         const out = resolveFlow(state, board, TEST_CONSTANTS);
         expect(out.troopCounts[1]).toBe(TEST_CONSTANTS.flowBase);
+    });
+});
+
+describe('resolveFlow — source depletion (Clarifications v1.6)', () => {
+    it('source cell is decremented by the amount transferred', () => {
+        // Downhill Δ=−5 → 12 troops move; source 30 → 18.
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [10, 0],
+            [5, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        setPipe(state, 8, 0, 0, E, 30, 1);
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        expect(out.troopCounts[1]).toBe(12); // destination gained 12
+        expect(out.troopCounts[0]).toBe(18); // source lost 12
+        expect(out.troopOwners[0]).toBe(1); // source still owned
+    });
+
+    it('source with fewer troops than the flow rate transfers only what it has', () => {
+        // Source has 5 troops; the pipe rate is 12. Only 5 can move.
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [10, 0],
+            [5, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        setPipe(state, 8, 0, 0, E, 5, 1);
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        expect(out.troopCounts[1]).toBe(5);
+        expect(out.troopCounts[0]).toBe(0);
+        expect(out.troopOwners[0]).toBe(0); // source emptied → owner cleared
+    });
+
+    it('source reaching 0 clears its owner (null cell)', () => {
+        // Source has exactly 12 troops; the pipe rate is 12. All move.
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [10, 0],
+            [5, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        setPipe(state, 8, 0, 0, E, 12, 1);
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        expect(out.troopCounts[1]).toBe(12);
+        expect(out.troopCounts[0]).toBe(0);
+        expect(out.troopOwners[0]).toBe(0);
+    });
+
+    it('reserves floor protects the source from depleting below the floor (FR-012)', () => {
+        // Source has 30 troops with reserves = 8 (80%). Floor = ceil(30×8/10)
+        // = 24, so only 30 − 24 = 6 can flow. The pipe rate is 12, but the
+        // transfer is capped at 6 — the floor binds.
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [10, 0],
+            [5, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        setPipe(state, 8, 0, 0, E, 30, 1);
+        state.reservesPct[0] = 8; // 80% reserved
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        expect(out.troopCounts[1]).toBe(6); // capped by the floor
+        expect(out.troopCounts[0]).toBe(24); // floor preserved
+        expect(out.troopOwners[0]).toBe(1);
+    });
+
+    it('reserves floor holds ALL troops when reserves exceed the stack', () => {
+        // Source has 5 troops with reserves = 9 (90%). Floor = ceil(5×9/10)
+        // = 5 → nothing can flow.
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [10, 0],
+            [5, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        setPipe(state, 8, 0, 0, E, 5, 1);
+        state.reservesPct[0] = 9;
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        expect(out.troopCounts[1]).toBe(0);
+        expect(out.troopCounts[0]).toBe(5);
+        expect(out.troopOwners[0]).toBe(1);
+    });
+
+    it('multi-pipe source depletes across directions in N→E→S→W order', () => {
+        // Source at (4,4) elevation 10, all neighbors elevation 5 (Δ=−5,
+        // rate 12). Source has 30 troops with reserves = 1 (10%). The
+        // floor is recomputed per-transfer against the current count:
+        //   N: 30 → floor 3, deduct 12 → 18
+        //   E: 18 → floor 2, deduct 12 → 6
+        //   S: 6  → floor 1, deduct 5  → 1
+        //   W: 1  → floor 1, maxDeductable 0 → nothing
+        const size = 8;
+        const cells = Array.from({ length: size * size }, (_, i) => {
+            const cx = i % size;
+            const cy = Math.floor(i / size);
+            const elev = cx === 4 && cy === 4 ? 10 : 5;
+            return { x: cx, y: cy, elevation: elev, terrain: 'land' as const };
+        });
+        const board: Board = Object.freeze({
+            width: size,
+            height: size,
+            cells: Object.freeze(cells),
+            cities: Object.freeze([]),
+        });
+        const state = emptyState(8);
+        setPipe(state, 8, 4, 4, N | E | S | W, 30, 1);
+        state.reservesPct[4 * 8 + 4] = 1; // 10% reserved
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        const nIdx = 3 * 8 + 4;
+        const eIdx = 4 * 8 + 5;
+        const sIdx = 5 * 8 + 4;
+        const wIdx = 4 * 8 + 3;
+        expect(out.troopCounts[nIdx]).toBe(12);
+        expect(out.troopCounts[eIdx]).toBe(12);
+        expect(out.troopCounts[sIdx]).toBe(5); // only 5 left above floor
+        expect(out.troopCounts[wIdx]).toBe(0); // at floor → no flow
+        expect(out.troopCounts[4 * 8 + 4]).toBe(1); // floor preserved
+        expect(out.troopOwners[4 * 8 + 4]).toBe(1);
+    });
+
+    it('destination at capacity: source is NOT depleted (no transfer occurred)', () => {
+        // Destination already at cap → headroom 0 → no transfer → source
+        // keeps its count (Clarifications v1.6: only actual transfers
+        // deduct from the source).
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [10, 0],
+            [5, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        state.troopCounts[1] = TEST_CONSTANTS.cellCapacity; // dest full
+        state.troopOwners[1] = 1;
+        setPipe(state, 8, 0, 0, E, 30, 1);
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        expect(out.troopCounts[1]).toBe(TEST_CONSTANTS.cellCapacity);
+        expect(out.troopCounts[0]).toBe(30); // source untouched
+        expect(out.troopOwners[0]).toBe(1);
+    });
+
+    it('troop conservation: total board count is unchanged by flow', () => {
+        // Two sources piping into two destinations; verify the total
+        // troop count on the board is identical before and after flow.
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [10, 0],
+            [5, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        // Source A at (0,0) pipes E; source B at (1,1) pipes S.
+        setPipe(state, 8, 0, 0, E, 20, 1);
+        setPipe(state, 8, 1, 1, S, 15, 2);
+
+        const before = Array.from(state.troopCounts).reduce((a, b) => a + b, 0);
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        const after = Array.from(out.troopCounts).reduce((a, b) => a + b, 0);
+        expect(after).toBe(before);
     });
 });
 

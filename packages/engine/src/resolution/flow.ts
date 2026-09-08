@@ -13,8 +13,16 @@
  *        uphill   → `max(0, flowBase − flowSlopeStep × |Δ|)` — stalls at
  *                   Δ ≥ flowBase / flowSlopeStep (legal no-op, US1 AC-5)
  *   5. Clamp the destination's new count at `cellCapacity` (FR-011).
- *   6. Reserve handling is US3 (decay phase); US1 flows every available
- *      troop up to the cap on the pipe (no reserves floor).
+ *   6. Transfer troops from source to destination (Clarifications v1.6):
+ *      source cells ARE decremented by the amount actually transferred.
+ *      This is a transfer, not a copy — troop counts are conserved.
+ *
+ * **Source depletion** (Clarifications v1.6): each pipe direction reads
+ * the source's current count from `newCounts` (accumulated across prior
+ * directions), so a 4-way pipe correctly depletes the source across all
+ * four directions. A source with reserves (FR-012) is protected: the
+ * reserve floor (`srcCount × reservesPct / 10`) is computed per-transfer
+ * so the source never flows below that floor.
  *
  * All arithmetic is integer (the gradient formula in `flow-rate.ts` is
  * integer-only); no floats.
@@ -45,6 +53,8 @@ interface TransferParams {
     cap: number;
     newCounts: Uint32Array;
     newOwners: Uint8Array;
+    /** Per-cell reserves percentage (0..9 → 0..90%), FR-012. */
+    reservesPct: Readonly<Uint8Array>;
     /** Optional inflow tally to populate (null when tally is not supplied). */
     tally: Uint32Array | null;
     /**
@@ -56,7 +66,8 @@ interface TransferParams {
 }
 
 /**
- * Resolve one tick of pipe flow.
+ * Resolve one tick of pipe flow. Transfers troops from source cells to
+ * destination cells (Clarifications v1.6 — troop conservation).
  *
  * @param state              Current world state (NOT mutated).
  * @param board              Board with cell elevations and terrain.
@@ -71,9 +82,9 @@ interface TransferParams {
  * @param committedFlowTally Required per-cell per-owner committed-flow tally.
  *                           Records raw pipe flow BEFORE headroom clamping.
  *                           Used by resolveCombat to compute total forces.
- * @returns A fresh `WorldState` with updated troopCounts/troopOwners on
- *          destination cells. Source cells retain their counts (US1 does
- *          not model source depletion here; US3 reserves/decay cover that).
+ * @returns A fresh `WorldState` with updated troopCounts/troopOwners.
+ *          Source cells are decremented by the amount transferred;
+ *          destination cells are incremented. Troop counts are conserved.
  */
 export function resolveFlow(
     state: Readonly<WorldState>,
@@ -85,9 +96,8 @@ export function resolveFlow(
     const w = board.width;
     const n = w * w;
 
-    // Start with copies; we'll only modify destination cells in this
-    // phase. Source counts are not decremented (US1 simplification —
-    // US3 decay/reserves govern source losses).
+    // Start with copies; transfer() will modify both source (decrement)
+    // and destination (increment) cells as troops move along pipes.
     const newCounts = new Uint32Array(state.troopCounts);
     const newOwners = new Uint8Array(state.troopOwners);
 
@@ -120,6 +130,7 @@ export function resolveFlow(
             cap,
             newCounts,
             newOwners,
+            reservesPct: state.reservesPct,
             tally: tallyAvailable ? (inflowTally as Uint32Array) : null,
             committedTally: committedTallyAvailable ? (committedFlowTally as Uint32Array) : null,
         };
@@ -159,9 +170,15 @@ export function resolveFlow(
 /**
  * Apply a single pipe transfer from `(x, y)` to `(x+dx, y+dy)`. No-ops
  * if the destination is out of bounds, water, or already at capacity.
+ *
+ * Troops are TRANSFERRED, not copied (Clarifications v1.6): the source
+ * cell is decremented by the amount actually delivered to the
+ * destination. The source's reserves floor (FR-012) protects a
+ * percentage of the source stack from flowing out.
  */
 function transfer(params: TransferParams): void {
-    const { board, x, y, dx, dy, srcOwner, constants, cap, newCounts, newOwners, tally, committedTally } = params;
+    const { board, x, y, dx, dy, srcOwner, constants, cap, newCounts, newOwners, reservesPct, tally, committedTally } =
+        params;
     const nx = x + dx;
     const ny = y + dy;
     const w = board.width;
@@ -188,23 +205,54 @@ function transfer(params: TransferParams): void {
         return; // stall (uphill Δ ≥ flowBase / flowSlopeStep) — legal no-op
     }
 
-    // Record committed flow BEFORE headroom clamping — used by combat
-    // to compute total forces for each side.
-    if (committedTally !== null && srcOwner >= 1 && srcOwner <= 4) {
-        committedTally[dstIdx * 4 + (srcOwner - 1)] = (committedTally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + moved;
+    // Check source availability BEFORE writing the destination
+    // (Clarifications v1.6 — transfer, not copy). Read the CURRENT
+    // source count from `newCounts` so multi-pipe sources deplete
+    // across all directions in N→E→S→W order.
+    const srcIdx = y * w + x;
+    const srcCount = newCounts[srcIdx] ?? 0;
+    if (srcCount === 0) {
+        return; // nothing left to transfer
+    }
+    // Reserve floor (FR-012): protect `reservesPct` of the source stack
+    // from flowing out. Computed per-transfer against the current count
+    // so a multi-pipe source never dips below its floor.
+    const reservePct = reservesPct[srcIdx] ?? 0;
+    const reserveFloor = reservePct > 0 ? Math.ceil((srcCount * reservePct) / 10) : 0;
+    const maxDeductable = srcCount > reserveFloor ? srcCount - reserveFloor : 0;
+    if (maxDeductable === 0) {
+        return; // all troops reserved — nothing can flow
     }
 
-    // Clamp destination to capacity (FR-011).
+    // Record committed flow BEFORE headroom clamping — used by combat
+    // to compute total forces for each side. Capped at what the source
+    // can actually supply (source depletion + reserves floor).
+    const committed = moved < maxDeductable ? moved : maxDeductable;
+    if (committedTally !== null && srcOwner >= 1 && srcOwner <= 4) {
+        committedTally[dstIdx * 4 + (srcOwner - 1)] = (committedTally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + committed;
+    }
+
+    // Clamp destination to capacity (FR-011), then clamp the actual
+    // transfer to what the source can supply. `deduct` is the number of
+    // troops that actually move: destination gains it, source loses it.
     const current = newCounts[dstIdx] ?? 0;
     if (current >= cap) {
         return;
     }
     const headroom = cap - current;
     const add = moved < headroom ? moved : headroom;
-    newCounts[dstIdx] = current + add;
+    const deduct = add < maxDeductable ? add : maxDeductable;
+    newCounts[dstIdx] = current + deduct;
     newOwners[dstIdx] = srcOwner;
     // Update inflow tally if supplied (US2 combat + US3 decay side-channel).
     if (tally !== null && srcOwner >= 1 && srcOwner <= 4) {
-        tally[dstIdx * 4 + (srcOwner - 1)] = (tally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + add;
+        tally[dstIdx * 4 + (srcOwner - 1)] = (tally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + deduct;
+    }
+
+    // Deduct from the source (Clarifications v1.6 — transfer, not copy).
+    newCounts[srcIdx] = (srcCount - deduct) >>> 0;
+    // If the source hit 0, its owner becomes 0 (null).
+    if (newCounts[srcIdx] === 0) {
+        newOwners[srcIdx] = 0;
     }
 }

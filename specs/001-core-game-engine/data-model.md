@@ -39,9 +39,10 @@ interface CombatEvent {
 | --- | --- | --- | --- |
 | `committedFlowTally` | `Uint32Array` | `n * 4`, same layout as `inflowTally` | Records raw pipe flow **before** headroom clamping. Slot `(cellIdx * 4) + (playerId - 1)` is the count of troops that player's pipes would have delivered to that cell this tick, ignoring capacity constraints. |
 
-**Population**: written by `resolveFlow` / `transfer()` in the same iteration order as `inflowTally` (row-major, N→E→S→W). For each pipe transfer:
-- `moved = flowRateForDelta(elevDelta, constants)` — the raw committed flow
-- `committedFlowTally[dstIdx * 4 + (srcOwner - 1)] += moved` — recorded BEFORE headroom clamping
+**Population**: written by `resolveFlow` / `transfer()` in the same iteration order as `inflowTally` (row-major, N→E→S→W). For each pipe transfer (Clarifications v1.6 — transfer, not copy):
+ - `moved = flowRateForDelta(elevDelta, constants)` — the raw gradient rate
+ - `committed = min(moved, currentSourceCount − reserveFloor)` — capped by source availability (source depletion + FR-012 reserves floor)
+ - `committedFlowTally[dstIdx * 4 + (srcOwner - 1)] += committed` — recorded BEFORE headroom clamping
 
 **Consumption**: read by `resolveCombat` to compute total forces for each side.
 
