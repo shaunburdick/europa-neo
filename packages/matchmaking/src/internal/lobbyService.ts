@@ -469,6 +469,16 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
      * @param handle - The player's accepted display handle.
      */
     function updateRosterEntry(guestId: GuestPlayerId, handle: string): void {
+        // Feature 023 FR-008 (v1.1): players who have not completed
+        // onboarding (no handle set) are excluded from the roster entirely.
+        if (handle === 'Anonymous') {
+            // If the player is already in the roster, remove them — their
+            // onboarding state was cleared.
+            if (roster.has(guestId)) {
+                removeRosterEntry(guestId);
+            }
+            return;
+        }
         const status = deriveRosterStatus(guestId);
         const entry: RosterEntry = Object.freeze({ handle, status });
 
@@ -532,7 +542,7 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
         if (deliver === null || subscriptions.size === 0) {
             return;
         }
-        const sorted = buildSortedRosterEntries();
+        const sorted = buildSortedRosterEntries().filter((e) => e.handle !== 'Anonymous');
         const snapshot: RosterSnapshot = Object.freeze({
             revision: rosterRevision,
             players: sorted,
@@ -921,8 +931,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // were already removed by releaseConnection.
             for (const guestId of affected) {
                 if (roster.has(guestId)) {
-                    const handle = registry.projectIdentity(guestId)?.handle ?? 'Anonymous';
-                    updateRosterEntry(guestId, handle);
+                    const handle = registry.projectIdentity(guestId)?.handle;
+                    if (handle !== undefined && handle !== null) {
+                        updateRosterEntry(guestId, handle);
+                    }
                 }
             }
         }
@@ -1025,8 +1037,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // Feature 023: re-derive roster status for affected players.
             for (const guestId of affected) {
                 if (roster.has(guestId)) {
-                    const handle = registry.projectIdentity(guestId)?.handle ?? 'Anonymous';
-                    updateRosterEntry(guestId, handle);
+                    const handle = registry.projectIdentity(guestId)?.handle;
+                    if (handle !== undefined && handle !== null) {
+                        updateRosterEntry(guestId, handle);
+                    }
                 }
             }
             recomputeAndPublish();
@@ -1084,9 +1098,11 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 identity: projected === undefined ? state : withOwnerId(projected, identity.id),
             });
             // Feature 023 FR-008/FR-009: add or update the roster entry.
-            // Players without a handle get a fallback label (edge case).
-            const rosterHandle = projected?.handle ?? 'Anonymous';
-            updateRosterEntry(identity.id, rosterHandle);
+            // Players without a handle (not yet onboarded) are excluded
+            // from the roster entirely (v1.1).
+            if (projected?.handle !== undefined && projected.handle !== null) {
+                updateRosterEntry(identity.id, projected.handle);
+            }
             return state;
         },
 
@@ -1298,7 +1314,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 handle: spectatorHandle !== null ? sanitizeLogText(spectatorHandle) : null,
             });
             // Feature 023: re-derive and broadcast roster status (in_lobby → spectating).
-            updateRosterEntry(guest.value, spectatorHandle ?? 'Anonymous');
+            if (spectatorHandle !== null) {
+                updateRosterEntry(guest.value, spectatorHandle);
+            }
             // No revision bump: entries are unchanged and other subscribers'
             // snapshots are unaffected; the actor's own association is
             // conveyed by the returned target and every later snapshot.
@@ -1327,8 +1345,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 // already released (e.g., inline filling-phase releases).
                 presence.delete(guest.value);
                 // Feature 023: re-derive and broadcast roster status (in_game → in_lobby).
-                const leaveHandle = registry.projectIdentity(guest.value)?.handle ?? 'Anonymous';
-                updateRosterEntry(guest.value, leaveHandle);
+                const leaveHandle = registry.projectIdentity(guest.value)?.handle;
+                if (leaveHandle !== undefined && leaveHandle !== null) {
+                    updateRosterEntry(guest.value, leaveHandle);
+                }
                 if (!result.ok) {
                     return { ok: false, error: mapUpstreamError(result.error) };
                 }
@@ -1343,8 +1363,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // detaches at the transport layer); presence-only cleanup here.
             presence.delete(guest.value);
             // Feature 023: re-derive and broadcast roster status (spectating → in_lobby).
-            const spectateLeaveHandle = registry.projectIdentity(guest.value)?.handle ?? 'Anonymous';
-            updateRosterEntry(guest.value, spectateLeaveHandle);
+            const spectateLeaveHandle = registry.projectIdentity(guest.value)?.handle;
+            if (spectateLeaveHandle !== undefined && spectateLeaveHandle !== null) {
+                updateRosterEntry(guest.value, spectateLeaveHandle);
+            }
             return { ok: true };
         },
 

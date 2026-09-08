@@ -651,3 +651,101 @@ describe('T024: Integration — full lobby flow', () => {
         }
     });
 });
+
+// T025: Anonymous exclusion (FR-008 v1.1)
+describe('T025: Anonymous exclusion from roster', () => {
+    it('player without a handle does NOT appear in the roster', () => {
+        const { service, delivered } = buildHarness();
+        // freshConnection creates an identity without setting a handle
+        const unnamed = freshConnection(service);
+        namedConnection(service, 'Alice');
+        service.subscribe(unnamed.connectionId);
+        const snapshots = rosterSnapshots(delivered);
+        const lastSnapshot = snapshots[snapshots.length - 1];
+        expect(lastSnapshot).toBeDefined();
+        // The unnamed player should not appear; only Alice should be present
+        const handles = lastSnapshot?.players.map((p) => p.handle) ?? [];
+        expect(handles).not.toContain('Anonymous');
+        expect(handles).toContain('Alice');
+        // Count should only include named players
+        expect(lastSnapshot?.players.length).toBe(1);
+    });
+
+    it('player is added to roster when they set a handle (onboarding completes)', () => {
+        const { service, delivered } = buildHarness();
+        const unnamed = freshConnection(service);
+        namedConnection(service, 'Alice');
+        service.subscribe(unnamed.connectionId);
+        // Before setting handle, unnamed should not be in roster
+        const beforeSnapshots = rosterSnapshots(delivered);
+        const beforeSnapshot = beforeSnapshots[beforeSnapshots.length - 1];
+        expect(beforeSnapshot?.players.find((p) => p.handle === 'Anonymous')).toBeUndefined();
+        delivered.length = 0;
+        // Set handle — this completes onboarding
+        expectOk(service.setHandle(unnamed.connectionId, 'NewPlayer'));
+        flushRoster();
+        // After setting handle, the player should appear in the roster
+        const deltas = rosterDeltas(delivered);
+        const addChange = deltas.flatMap((d) => d.changes).find((c) => c.handle === 'NewPlayer');
+        expect(addChange).toBeDefined();
+        expect(addChange?.status).toBe('in_lobby');
+    });
+
+    it('multiple unnamed players are all excluded from roster', () => {
+        const { service, delivered } = buildHarness();
+        freshConnection(service);
+        freshConnection(service);
+        const alice = namedConnection(service, 'Alice');
+        service.subscribe(alice.connectionId);
+        const snapshots = rosterSnapshots(delivered);
+        const lastSnapshot = snapshots[snapshots.length - 1];
+        const handles = lastSnapshot?.players.map((p) => p.handle) ?? [];
+        expect(handles).not.toContain('Anonymous');
+        expect(handles).toContain('Alice');
+        expect(handles.length).toBe(1);
+    });
+
+    it('unnamed spectator does not appear in roster', () => {
+        const { service, bridge, delivered } = buildHarness();
+        const host = namedConnection(service, 'Host');
+        const filler = namedConnection(service, 'Filler');
+        // Create an unnamed spectator
+        const unnamedSpectator = freshConnection(service);
+        const match = expectOk(service.create(host.connectionId));
+        bridge.queueJoinResult({
+            ok: true,
+            data: {
+                matchId: match.matchId,
+                joinPath: `/join/${match.matchId}` as JoinPath,
+                joinUrl: null,
+                seatAssignment: buildSeatAssignment({ seatIndex: 1 as SeatIndex }),
+            },
+        });
+        expectOk(service.join(filler.connectionId, match.matchId));
+        service.subscribe(unnamedSpectator.connectionId);
+        delivered.length = 0;
+        // Spectating with no handle should not add to roster
+        expectOk(service.spectate(unnamedSpectator.connectionId, match.matchId));
+        flushRoster();
+        const deltas = rosterDeltas(delivered);
+        const allChanges = deltas.flatMap((d) => d.changes);
+        expect(allChanges.find((c) => c.handle === 'Anonymous')).toBeUndefined();
+    });
+
+    it('named player count is correct when unnamed players are present', () => {
+        const { service, delivered } = buildHarness();
+        freshConnection(service);
+        freshConnection(service);
+        const alice = namedConnection(service, 'Alice');
+        namedConnection(service, 'Bob');
+        service.subscribe(alice.connectionId);
+        const snapshots = rosterSnapshots(delivered);
+        const lastSnapshot = snapshots[snapshots.length - 1];
+        // Should only count named players
+        expect(lastSnapshot?.players.length).toBe(2);
+        const handles = lastSnapshot?.players.map((p) => p.handle) ?? [];
+        expect(handles).toContain('Alice');
+        expect(handles).toContain('Bob');
+        expect(handles).not.toContain('Anonymous');
+    });
+});
