@@ -72,8 +72,8 @@ interface TransferParams {
  *                           Records raw pipe flow BEFORE headroom clamping.
  *                           Used by resolveCombat to compute total forces.
  * @returns A fresh `WorldState` with updated troopCounts/troopOwners on
- *          destination cells. Source cells retain their counts (US1 does
- *          not model source depletion here; US3 reserves/decay cover that).
+ *          destination cells. Source cells are decremented by the actual
+ *          transferred amount, clamped to their current count.
  */
 export function resolveFlow(
     state: Readonly<WorldState>,
@@ -85,9 +85,10 @@ export function resolveFlow(
     const w = board.width;
     const n = w * w;
 
-    // Start with copies; we'll only modify destination cells in this
-    // phase. Source counts are not decremented (US1 simplification —
-    // US3 decay/reserves govern source losses).
+    // Start with copies; destination cells gain troops and source cells
+    // lose them. The transfer is a movement, not a copy — without the
+    // source decrement troops are created from nothing and decay does
+    // not compensate (cities skip decay, cells with inflow skip decay).
     const newCounts = new Uint32Array(state.troopCounts);
     const newOwners = new Uint8Array(state.troopOwners);
 
@@ -200,11 +201,25 @@ function transfer(params: TransferParams): void {
         return;
     }
     const headroom = cap - current;
+    const srcIdx = y * w + x;
+    const srcCount = newCounts[srcIdx] ?? 0;
+    // Clamp transfer to what the source actually has. A cell cannot flow
+    // more troops than it holds — the gradient rate is a rate, not a count.
     const add = moved < headroom ? moved : headroom;
-    newCounts[dstIdx] = current + add;
+    const actual = add < srcCount ? add : srcCount;
+    if (actual === 0) {
+        return; // source is empty
+    }
+    newCounts[dstIdx] = current + actual;
     newOwners[dstIdx] = srcOwner;
+    // Subtract from source — troops are transferred, not duplicated.
+    // Without this every pipe flow creates troops from nothing at
+    // flowBase × pipe_chain_length per tick, and the decay phase does
+    // not compensate because cities skip decay entirely and non-city
+    // cells with incoming inflow skip decay as well.
+    newCounts[srcIdx] = srcCount - actual;
     // Update inflow tally if supplied (US2 combat + US3 decay side-channel).
     if (tally !== null && srcOwner >= 1 && srcOwner <= 4) {
-        tally[dstIdx * 4 + (srcOwner - 1)] = (tally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + add;
+        tally[dstIdx * 4 + (srcOwner - 1)] = (tally[dstIdx * 4 + (srcOwner - 1)] ?? 0) + actual;
     }
 }
