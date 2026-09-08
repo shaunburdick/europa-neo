@@ -400,22 +400,26 @@ export class MapCanvas {
             const intensity = info.pipeIntensities.get(direction) ?? 0;
             const size = slope === 'stalled' ? baseSize : baseSize * (0.4 + intensity * 0.6);
             ctx.beginPath();
+            // Triangles point OUTWARD from cell center toward the pipe
+            // direction — matching the original Europa rules: "lines
+            // originating near the center of a cell and pointing in the
+            // direction of the desired troops flow" (issue #101).
             if (direction === 'N') {
-                ctx.moveTo(midX - size, y);
-                ctx.lineTo(midX + size, y);
-                ctx.lineTo(midX, y + size * 1.6);
+                ctx.moveTo(midX - size, midY);
+                ctx.lineTo(midX + size, midY);
+                ctx.lineTo(midX, midY - size * 1.6);
             } else if (direction === 'S') {
-                ctx.moveTo(midX - size, y + zoom);
-                ctx.lineTo(midX + size, y + zoom);
-                ctx.lineTo(midX, y + zoom - size * 1.6);
+                ctx.moveTo(midX - size, midY);
+                ctx.lineTo(midX + size, midY);
+                ctx.lineTo(midX, midY + size * 1.6);
             } else if (direction === 'W') {
-                ctx.moveTo(x, midY - size);
-                ctx.lineTo(x, midY + size);
-                ctx.lineTo(x + size * 1.6, midY);
+                ctx.moveTo(midX, midY - size);
+                ctx.lineTo(midX, midY + size);
+                ctx.lineTo(midX - size * 1.6, midY);
             } else {
-                ctx.moveTo(x + zoom, midY - size);
-                ctx.lineTo(x + zoom, midY + size);
-                ctx.lineTo(x + zoom - size * 1.6, midY);
+                ctx.moveTo(midX, midY - size);
+                ctx.lineTo(midX, midY + size);
+                ctx.lineTo(midX + size * 1.6, midY);
             }
             ctx.closePath();
             if (slope === 'stalled') {

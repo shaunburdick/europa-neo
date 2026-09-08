@@ -130,31 +130,32 @@ body {
 }
 
 /* N/S pipes: use --europa-pipe-tri for both width and depth
-   (unified sizing, issue #43). */
+   (unified sizing, issue #43). Triangles point OUTWARD from cell
+   center toward the pipe direction (issue #101). */
 .europa-pipe--N {
-    top: 0;
-    left: calc(50% - var(--europa-pipe-tri));
-    border-width: 0 var(--europa-pipe-tri) var(--europa-pipe-tri) var(--europa-pipe-tri);
-    border-color: transparent transparent var(--europa-pipe-color) transparent;
-}
-
-.europa-pipe--S {
-    bottom: 0;
+    top: calc(50% - var(--europa-pipe-tri));
     left: calc(50% - var(--europa-pipe-tri));
     border-width: var(--europa-pipe-tri) var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
     border-color: var(--europa-pipe-color) transparent transparent transparent;
 }
 
+.europa-pipe--S {
+    bottom: calc(50% - var(--europa-pipe-tri));
+    left: calc(50% - var(--europa-pipe-tri));
+    border-width: 0 var(--europa-pipe-tri) var(--europa-pipe-tri) var(--europa-pipe-tri);
+    border-color: transparent transparent var(--europa-pipe-color) transparent;
+}
+
 /* E/W pipes: use --europa-pipe-tri for both width and depth. */
 .europa-pipe--W {
-    left: 0;
+    left: calc(50% - var(--europa-pipe-tri));
     top: calc(50% - var(--europa-pipe-tri));
     border-width: var(--europa-pipe-tri) var(--europa-pipe-tri) var(--europa-pipe-tri) 0;
     border-color: transparent var(--europa-pipe-color) transparent transparent;
 }
 
 .europa-pipe--E {
-    right: 0;
+    right: calc(50% - var(--europa-pipe-tri));
     top: calc(50% - var(--europa-pipe-tri));
     border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) var(--europa-pipe-tri);
     border-color: transparent transparent transparent var(--europa-pipe-color);
