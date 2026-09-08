@@ -128,9 +128,9 @@ describe('T017: deriveRosterStatus', () => {
         service.subscribe(alice.connectionId);
         const snapshots = rosterSnapshots(delivered);
         expect(snapshots.length).toBeGreaterThanOrEqual(1);
-        const entry = snapshots[snapshots.length - 1]!.players.find((p) => p.handle === 'Alice');
+        const entry = snapshots[snapshots.length - 1]?.players.find((p) => p.handle === 'Alice');
         expect(entry).toBeDefined();
-        expect(entry!.status).toBe('in_lobby');
+        expect(entry?.status).toBe('in_lobby');
     });
 
     it('seated player has status in_game', () => {
@@ -144,7 +144,7 @@ describe('T017: deriveRosterStatus', () => {
         expect(deltas.length).toBeGreaterThanOrEqual(1);
         const entry = deltas.flatMap((d) => d.changes).find((c) => c.handle === 'Host');
         expect(entry).toBeDefined();
-        expect(entry!.status).toBe('in_game');
+        expect(entry?.status).toBe('in_game');
     });
 
     it('spectator has status spectating', () => {
@@ -171,7 +171,7 @@ describe('T017: deriveRosterStatus', () => {
         expect(deltas.length).toBeGreaterThanOrEqual(1);
         const watcherChange = deltas.flatMap((d) => d.changes).find((c) => c.handle === 'Watcher');
         expect(watcherChange).toBeDefined();
-        expect(watcherChange!.status).toBe('spectating');
+        expect(watcherChange?.status).toBe('spectating');
     });
 
     it('seated player gets in_game status (player priority)', () => {
@@ -195,7 +195,7 @@ describe('T017: deriveRosterStatus', () => {
         const deltas = rosterDeltas(delivered);
         const fillerChange = deltas.flatMap((d) => d.changes).find((c) => c.handle === 'Filler');
         expect(fillerChange).toBeDefined();
-        expect(fillerChange!.status).toBe('in_game');
+        expect(fillerChange?.status).toBe('in_game');
     });
 });
 
@@ -224,7 +224,7 @@ describe('T018: Anti-flap grace period', () => {
         const finalDeltas = rosterDeltas(delivered);
         const aliceChanges = finalDeltas.flatMap((d) => d.changes.filter((c) => c.handle === 'Alice'));
         expect(aliceChanges.length).toBeGreaterThanOrEqual(1);
-        expect(aliceChanges[aliceChanges.length - 1]!.status).toBe('in_game');
+        expect(aliceChanges[aliceChanges.length - 1]?.status).toBe('in_game');
     });
 
     it('change outside grace window broadcasts normally', () => {
@@ -238,14 +238,14 @@ describe('T018: Anti-flap grace period', () => {
         const deltas = rosterDeltas(delivered);
         const aliceChanges = deltas.flatMap((d) => d.changes.filter((c) => c.handle === 'Alice'));
         expect(aliceChanges.length).toBeGreaterThanOrEqual(1);
-        expect(aliceChanges[aliceChanges.length - 1]!.status).toBe('in_lobby');
+        expect(aliceChanges[aliceChanges.length - 1]?.status).toBe('in_lobby');
         delivered.length = 0;
         expectOk(service.create(alice.connectionId));
         flushRoster();
         const deltas2 = rosterDeltas(delivered);
         const aliceChanges2 = deltas2.flatMap((d) => d.changes.filter((c) => c.handle === 'Alice'));
         expect(aliceChanges2.length).toBeGreaterThanOrEqual(1);
-        expect(aliceChanges2[aliceChanges2.length - 1]!.status).toBe('in_game');
+        expect(aliceChanges2[aliceChanges2.length - 1]?.status).toBe('in_game');
     });
 });
 
@@ -256,21 +256,21 @@ describe('T019: Revision monotonicity', () => {
         const alice = namedConnection(service, 'Alice');
         service.subscribe(alice.connectionId);
         const initialSnapshots = rosterSnapshots(delivered);
-        const initialRevision = initialSnapshots[initialSnapshots.length - 1]!.revision;
+        const initialRevision = initialSnapshots[initialSnapshots.length - 1]?.revision;
         expect(initialRevision).toBeGreaterThanOrEqual(1);
         delivered.length = 0;
         expectOk(service.create(alice.connectionId));
         flushRoster();
         const afterCreate = rosterDeltas(delivered);
         expect(afterCreate.length).toBeGreaterThanOrEqual(1);
-        expect(afterCreate[afterCreate.length - 1]!.revision).toBeGreaterThan(initialRevision);
+        expect(afterCreate[afterCreate.length - 1]?.revision).toBeGreaterThan(initialRevision);
         delivered.length = 0;
         expectOk(service.leave(alice.connectionId));
         flushRoster();
         const afterLeave = rosterDeltas(delivered);
         expect(afterLeave.length).toBeGreaterThanOrEqual(1);
-        expect(afterLeave[afterLeave.length - 1]!.revision).toBeGreaterThan(
-            afterCreate[afterCreate.length - 1]!.revision,
+        expect(afterLeave[afterLeave.length - 1]?.revision).toBeGreaterThan(
+            afterCreate[afterCreate.length - 1]?.revision,
         );
     });
 
@@ -283,7 +283,7 @@ describe('T019: Revision monotonicity', () => {
         flushRoster();
         const deltas = rosterDeltas(delivered);
         expect(deltas.length).toBeGreaterThanOrEqual(1);
-        expect(deltas[deltas.length - 1]!.revision).toBeGreaterThanOrEqual(1);
+        expect(deltas[deltas.length - 1]?.revision).toBeGreaterThanOrEqual(1);
     });
 
     it('roster deltas carry monotonic revisions', () => {
@@ -337,8 +337,8 @@ describe('T020: Delta batching', () => {
         flushRoster();
         const deltas = rosterDeltas(delivered);
         const allChanges = deltas.flatMap((d) => d.changes);
-        expect(allChanges.find((c) => c.handle === 'Alice')!.status).toBe('in_game');
-        expect(allChanges.find((c) => c.handle === 'Bob')!.status).toBe('in_game');
+        expect(allChanges.find((c) => c.handle === 'Alice')?.status).toBe('in_game');
+        expect(allChanges.find((c) => c.handle === 'Bob')?.status).toBe('in_game');
     });
 
     it('batched delta carries the current revision', () => {
@@ -369,7 +369,7 @@ describe('T021: Handle change preserves status', () => {
         const deltas = rosterDeltas(delivered);
         const aliceChanges = deltas.flatMap((d) => d.changes.filter((c) => c.handle === 'AliceV2'));
         expect(aliceChanges.length).toBeGreaterThanOrEqual(1);
-        expect(aliceChanges[aliceChanges.length - 1]!.status).toBe('in_lobby');
+        expect(aliceChanges[aliceChanges.length - 1]?.status).toBe('in_lobby');
     });
 
     it('changing handle while in_game preserves in_game status', () => {
@@ -383,7 +383,7 @@ describe('T021: Handle change preserves status', () => {
         const deltas = rosterDeltas(delivered);
         const aliceChanges = deltas.flatMap((d) => d.changes.filter((c) => c.handle === 'AlicePro'));
         expect(aliceChanges.length).toBeGreaterThanOrEqual(1);
-        expect(aliceChanges[aliceChanges.length - 1]!.status).toBe('in_game');
+        expect(aliceChanges[aliceChanges.length - 1]?.status).toBe('in_game');
     });
 
     it('handle change updates the snapshot to show new handle', () => {
@@ -397,7 +397,7 @@ describe('T021: Handle change preserves status', () => {
         const aliceChanges = deltas.flatMap((d) => d.changes);
         const newHandleEntry = aliceChanges.find((c) => c.handle === 'Alicia');
         expect(newHandleEntry).toBeDefined();
-        expect(newHandleEntry!.status).toBe('in_lobby');
+        expect(newHandleEntry?.status).toBe('in_lobby');
         const oldHandleEntry = aliceChanges.find((c) => c.handle === 'Alice');
         expect(oldHandleEntry).toBeUndefined();
     });
@@ -412,7 +412,7 @@ describe('T022: Full snapshot periodicity', () => {
         service.subscribe(alice.connectionId);
         const snapshots = rosterSnapshots(delivered);
         expect(snapshots.length).toBeGreaterThanOrEqual(1);
-        expect(snapshots[snapshots.length - 1]!.players.find((p) => p.handle === 'Alice')).toBeDefined();
+        expect(snapshots[snapshots.length - 1]?.players.find((p) => p.handle === 'Alice')).toBeDefined();
     });
 
     it('full snapshot sent periodically after enough deltas', () => {
@@ -461,8 +461,8 @@ describe('T023: Player removal on disconnect', () => {
         service.subscribe(alice.connectionId);
         service.subscribe(bob.connectionId);
         const snapshots1 = rosterSnapshots(delivered);
-        expect(snapshots1[snapshots1.length - 1]!.players.find((p) => p.handle === 'Alice')).toBeDefined();
-        expect(snapshots1[snapshots1.length - 1]!.players.find((p) => p.handle === 'Bob')).toBeDefined();
+        expect(snapshots1[snapshots1.length - 1]?.players.find((p) => p.handle === 'Alice')).toBeDefined();
+        expect(snapshots1[snapshots1.length - 1]?.players.find((p) => p.handle === 'Bob')).toBeDefined();
         delivered.length = 0;
         service.connectionClosed(alice.connectionId);
         flushRoster();
@@ -471,7 +471,7 @@ describe('T023: Player removal on disconnect', () => {
         flushRoster();
         const snapshots2 = rosterSnapshots(delivered);
         if (snapshots2.length > 0) {
-            expect(snapshots2[snapshots2.length - 1]!.players.find((p) => p.handle === 'Alice')).toBeUndefined();
+            expect(snapshots2[snapshots2.length - 1]?.players.find((p) => p.handle === 'Alice')).toBeUndefined();
         }
     });
 
@@ -488,7 +488,7 @@ describe('T023: Player removal on disconnect', () => {
         flushRoster();
         const snapshots = rosterSnapshots(delivered);
         if (snapshots.length > 0) {
-            expect(snapshots[snapshots.length - 1]!.players.find((p) => p.handle === 'Alice')).toBeUndefined();
+            expect(snapshots[snapshots.length - 1]?.players.find((p) => p.handle === 'Alice')).toBeUndefined();
         }
     });
 
@@ -515,7 +515,7 @@ describe('T023: Player removal on disconnect', () => {
         const deltas = rosterDeltas(delivered);
         const watcherChange = deltas.flatMap((d) => d.changes).find((c) => c.handle === 'Watcher');
         expect(watcherChange).toBeDefined();
-        expect(watcherChange!.status).toBe('spectating');
+        expect(watcherChange?.status).toBe('spectating');
         delivered.length = 0;
         service.connectionClosed(watcher.connectionId);
         flushRoster();
@@ -526,7 +526,7 @@ describe('T023: Player removal on disconnect', () => {
         flushRoster();
         const snapshots = rosterSnapshots(delivered);
         if (snapshots.length > 0) {
-            expect(snapshots[snapshots.length - 1]!.players.find((p) => p.handle === 'Watcher')).toBeUndefined();
+            expect(snapshots[snapshots.length - 1]?.players.find((p) => p.handle === 'Watcher')).toBeUndefined();
         }
     });
 });
@@ -540,19 +540,19 @@ describe('T024: Integration — full lobby flow', () => {
         expect(service.subscribe(alice.connectionId).ok).toBe(true);
         const initialSnapshots = rosterSnapshots(delivered.filter((d) => d.connectionId === alice.connectionId));
         expect(initialSnapshots.length).toBeGreaterThanOrEqual(1);
-        expect(initialSnapshots[initialSnapshots.length - 1]!.players.find((p) => p.handle === 'Alice')!.status).toBe(
+        expect(initialSnapshots[initialSnapshots.length - 1]?.players.find((p) => p.handle === 'Alice')?.status).toBe(
             'in_lobby',
         );
         delivered.length = 0;
         expectOk(service.create(alice.connectionId));
         flushRoster();
         const joinDeltas = rosterDeltas(delivered.filter((d) => d.connectionId === alice.connectionId));
-        expect(joinDeltas.flatMap((d) => d.changes).find((c) => c.handle === 'Alice')!.status).toBe('in_game');
+        expect(joinDeltas.flatMap((d) => d.changes).find((c) => c.handle === 'Alice')?.status).toBe('in_game');
         delivered.length = 0;
         expectOk(service.leave(alice.connectionId));
         flushRoster();
         const leaveDeltas = rosterDeltas(delivered.filter((d) => d.connectionId === alice.connectionId));
-        expect(leaveDeltas.flatMap((d) => d.changes).find((c) => c.handle === 'Alice')!.status).toBe('in_lobby');
+        expect(leaveDeltas.flatMap((d) => d.changes).find((c) => c.handle === 'Alice')?.status).toBe('in_lobby');
         delivered.length = 0;
         service.connectionClosed(alice.connectionId);
         flushRoster();
@@ -562,7 +562,7 @@ describe('T024: Integration — full lobby flow', () => {
         const postDisconnectSnapshots = rosterSnapshots(delivered.filter((d) => d.connectionId === bob.connectionId));
         const lastSnapshot = postDisconnectSnapshots[postDisconnectSnapshots.length - 1];
         expect(lastSnapshot).toBeDefined();
-        expect(lastSnapshot!.players.find((p) => p.handle === 'Alice')).toBeUndefined();
+        expect(lastSnapshot?.players.find((p) => p.handle === 'Alice')).toBeUndefined();
     });
 
     it('two players see each other in the roster', () => {
@@ -575,8 +575,8 @@ describe('T024: Integration — full lobby flow', () => {
         const snapshots = rosterSnapshots(delivered);
         const lastSnapshot = snapshots[snapshots.length - 1];
         expect(lastSnapshot).toBeDefined();
-        expect(lastSnapshot!.players.length).toBeGreaterThanOrEqual(2);
-        expect(lastSnapshot!.players.find((p) => p.handle === 'Alice')!.status).toBe('in_lobby');
+        expect(lastSnapshot?.players.length).toBeGreaterThanOrEqual(2);
+        expect(lastSnapshot?.players.find((p) => p.handle === 'Alice')?.status).toBe('in_lobby');
     });
 
     it('spectator status reflected for other players', () => {
@@ -603,7 +603,7 @@ describe('T024: Integration — full lobby flow', () => {
         const deltas = rosterDeltas(delivered.filter((d) => d.connectionId === watcher.connectionId));
         const watcherChange = deltas.flatMap((d) => d.changes).find((c) => c.handle === 'Watcher');
         expect(watcherChange).toBeDefined();
-        expect(watcherChange!.status).toBe('spectating');
+        expect(watcherChange?.status).toBe('spectating');
         // Also verify Host and Filler are in_game via the full snapshot from subscribe
         // (we need to check delivered before the clear, but it was already cleared).
         // Instead, trigger a lobby mutation to get a fresh full snapshot.
@@ -615,8 +615,8 @@ describe('T024: Integration — full lobby flow', () => {
         const snapshots = rosterSnapshots(delivered.filter((d) => d.connectionId === watcher.connectionId));
         if (snapshots.length > 0) {
             const lastSnapshot = snapshots[snapshots.length - 1];
-            expect(lastSnapshot!.players.find((p) => p.handle === 'Host')!.status).toBe('in_game');
-            expect(lastSnapshot!.players.find((p) => p.handle === 'Filler')!.status).toBe('in_game');
+            expect(lastSnapshot?.players.find((p) => p.handle === 'Host')?.status).toBe('in_game');
+            expect(lastSnapshot?.players.find((p) => p.handle === 'Filler')?.status).toBe('in_game');
         }
     });
 
@@ -630,7 +630,7 @@ describe('T024: Integration — full lobby flow', () => {
         const snapshots = rosterSnapshots(delivered);
         const lastSnapshot = snapshots[snapshots.length - 1];
         expect(lastSnapshot).toBeDefined();
-        const handles = lastSnapshot!.players.map((p) => p.handle);
+        const handles = lastSnapshot?.players.map((p) => p.handle);
         const sorted = [...handles].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
         expect(handles).toEqual(sorted);
     });
@@ -642,7 +642,7 @@ describe('T024: Integration — full lobby flow', () => {
         const snapshots = rosterSnapshots(delivered);
         const lastSnapshot = snapshots[snapshots.length - 1];
         expect(lastSnapshot).toBeDefined();
-        for (const entry of lastSnapshot!.players) {
+        for (const entry of lastSnapshot?.players ?? []) {
             const keys = Object.keys(entry);
             expect(keys).toEqual(expect.arrayContaining(['handle', 'status']));
             expect(keys.length).toBe(2);
