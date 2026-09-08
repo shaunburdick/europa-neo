@@ -23,7 +23,7 @@ import { cleanup, render } from 'vitest-browser-react';
 
 import type { RosterState } from '../../src/state/lobby-state';
 import { RosterCard, rosterHeadingText, rosterStatusLabel } from '../../src/ui/lobby-roster-card';
-import '../../src/styles/index.css';
+import '../../../src/styles/index.css';
 
 afterEach(() => {
     cleanup();
