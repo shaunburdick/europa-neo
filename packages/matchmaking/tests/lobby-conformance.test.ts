@@ -404,6 +404,12 @@ const BARREL_TYPE_WITNESS = {
     MatchJoinTarget: null as unknown as LobbyBarrel.MatchJoinTarget,
     PublicLobbyEntry: null as unknown as LobbyBarrel.PublicLobbyEntry,
     Result: null as unknown as LobbyBarrel.Result<LobbyTypes.IdentityState, LobbyTypes.LobbyError>,
+    RosterChange: null as unknown as LobbyBarrel.RosterChange,
+    RosterDelta: null as unknown as LobbyBarrel.RosterDelta,
+    RosterEntry: null as unknown as LobbyBarrel.RosterEntry,
+    RosterRevision: null as unknown as LobbyBarrel.RosterRevision,
+    RosterSnapshot: null as unknown as LobbyBarrel.RosterSnapshot,
+    RosterStatus: null as unknown as LobbyBarrel.RosterStatus,
     SpectatorTarget: null as unknown as LobbyBarrel.SpectatorTarget,
 };
 
@@ -462,6 +468,24 @@ type BarrelSpectatorTargetIsSrc = AssertMutuallyAssignable<
     LobbyApi.SpectatorTarget,
     typeof BARREL_TYPE_WITNESS.SpectatorTarget
 >;
+type BarrelRosterChangeIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.RosterChange,
+    typeof BARREL_TYPE_WITNESS.RosterChange
+>;
+type BarrelRosterDeltaIsSrc = AssertMutuallyAssignable<LobbyTypes.RosterDelta, typeof BARREL_TYPE_WITNESS.RosterDelta>;
+type BarrelRosterEntryIsSrc = AssertMutuallyAssignable<LobbyTypes.RosterEntry, typeof BARREL_TYPE_WITNESS.RosterEntry>;
+type BarrelRosterRevisionIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.RosterRevision,
+    typeof BARREL_TYPE_WITNESS.RosterRevision
+>;
+type BarrelRosterSnapshotIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.RosterSnapshot,
+    typeof BARREL_TYPE_WITNESS.RosterSnapshot
+>;
+type BarrelRosterStatusIsSrc = AssertMutuallyAssignable<
+    LobbyTypes.RosterStatus,
+    typeof BARREL_TYPE_WITNESS.RosterStatus
+>;
 
 const BARREL_GUEST_IDENTITY_CLAIM_IS_SRC: BarrelGuestIdentityClaimIsSrc = true;
 const BARREL_GUEST_PLAYER_ID_IS_SRC: BarrelGuestPlayerIdIsSrc = true;
@@ -478,6 +502,12 @@ const BARREL_MATCH_JOIN_TARGET_IS_SRC: BarrelMatchJoinTargetIsSrc = true;
 const BARREL_PUBLIC_LOBBY_ENTRY_IS_SRC: BarrelPublicLobbyEntryIsSrc = true;
 const BARREL_RESULT_IS_SRC: BarrelResultIsSrc = true;
 const BARREL_SPECTATOR_TARGET_IS_SRC: BarrelSpectatorTargetIsSrc = true;
+const BARREL_ROSTER_CHANGE_IS_SRC: BarrelRosterChangeIsSrc = true;
+const BARREL_ROSTER_DELTA_IS_SRC: BarrelRosterDeltaIsSrc = true;
+const BARREL_ROSTER_ENTRY_IS_SRC: BarrelRosterEntryIsSrc = true;
+const BARREL_ROSTER_REVISION_IS_SRC: BarrelRosterRevisionIsSrc = true;
+const BARREL_ROSTER_SNAPSHOT_IS_SRC: BarrelRosterSnapshotIsSrc = true;
+const BARREL_ROSTER_STATUS_IS_SRC: BarrelRosterStatusIsSrc = true;
 
 /**
  * The two feature-010 contract modules backing the barrel exports.
