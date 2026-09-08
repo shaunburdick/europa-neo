@@ -1411,15 +1411,15 @@ body {
 }
 
 .europa-lobby__roster-status-dot--in_lobby {
-    background-color: var(--europa-color-success, #059669);
+    background-color: var(--europa-color-success);
 }
 
 .europa-lobby__roster-status-dot--in_game {
-    background-color: var(--europa-color-warning, #f59e0b);
+    background-color: var(--europa-color-warning);
 }
 
 .europa-lobby__roster-status-dot--spectating {
-    background-color: var(--europa-color-info, #3b82f6);
+    background-color: var(--europa-color-info);
 }
 
 /* Status text label: visible on desktop, hidden on very narrow
