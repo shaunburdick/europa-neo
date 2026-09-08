@@ -428,6 +428,10 @@ class SmokeTransport implements LobbyTransport {
         }
     }
 
+    onRoster(): () => void {
+        return () => undefined;
+    }
+
     onError(handler: ErrorHandler): () => void {
         this.errorHandlers.add(handler);
         return () => {
