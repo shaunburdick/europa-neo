@@ -109,10 +109,12 @@ describe('RosterCard (component)', () => {
         await expect.element(screen.getByText('Bob')).toBeVisible();
         await expect.element(screen.getByText('Charlie')).toBeVisible();
 
-        // Status labels visible.
-        await expect.element(screen.getByText('In lobby')).toBeVisible();
-        await expect.element(screen.getByText('In game')).toBeVisible();
-        await expect.element(screen.getByText('Spectating')).toBeVisible();
+        // Status labels visible (use .first() because each status text
+        // appears twice: once in a visually-hidden span for screen readers
+        // and once in a visible span for sighted users — a11y by design).
+        await expect.element(screen.getByText('In lobby').first()).toBeVisible();
+        await expect.element(screen.getByText('In game').first()).toBeVisible();
+        await expect.element(screen.getByText('Spectating').first()).toBeVisible();
     });
 
     test('shows "(you)" for own entry', async () => {
