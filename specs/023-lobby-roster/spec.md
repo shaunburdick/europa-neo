@@ -5,9 +5,9 @@
 
 **Created**: 2026-09-08
 **Last Updated**: 2026-09-08
-**Version**: 1.0
+**Version**: 1.1
 
-**Status**: Implemented (2026-09-08)
+**Status**: Implemented (2026-09-08; anonymous exclusion v1.1 2026-09-08)
 
 **Input**: GitHub issue #28 — add a presence roster to the lobby showing every active player's handle and current status.
 
@@ -111,7 +111,7 @@ As a player, if the roster connection fails or the server does not support roste
 
 ### Server-Side Roster Derivation
 
-- **FR-008**: The server MUST maintain an authoritative in-memory roster of all active players. A player is added to the roster when their lobby identity is established (existing `establishIdentity` flow) and removed when their session ends (disconnect beyond grace window, explicit leave, or server restart).
+- **FR-008**: The server MUST maintain an authoritative in-memory roster of all onboarded players (players who have completed lobby onboarding — currently: set a handle). A player is added to the roster when they complete onboarding and removed when their onboarding state is cleared, their session ends (disconnect beyond grace window, explicit leave), or the server restarts. Players who have not completed onboarding are excluded from the roster entirely.
 - **FR-009**: Player status MUST be derived from the player's current seat/spectator association: `in_game` (seated in a running or filling match) > `spectating` (attached as a spectator) > `in_lobby` (not in any match). The highest-priority applicable status wins.
 - **FR-010**: Private-match participants MUST appear in the roster with their derived status (`in_game` or `spectating`) but WITHOUT any match ID, match name, or other match-identifying information. The roster payload `{handle, status}` is the entire data surface — the server never emits match identity through the roster.
 - **FR-011**: A grace anti-flap window MUST be applied to status transitions to prevent rapid toggling (e.g., a player leaving a match and immediately rejoining). If a status change occurs within the grace window of a prior change for the same player, the server MUST NOT broadcast the intermediate state — only the final stable state is broadcast after the window elapses. The grace window duration MUST be tunable (default: 500ms).
@@ -148,7 +148,7 @@ As a player, if the roster connection fails or the server does not support roste
 - [ ] **AC-003**: When a player joins a match, their roster status changes from "In lobby" to "In game" within 1 second for all lobby subscribers.
 - [ ] **AC-004**: When a player spectates a match, their roster status changes from "In lobby" to "Spectating" within 1 second.
 - [ ] **AC-005**: A player in a private match appears in the roster as "In game" with no match ID, match name, or other match-identifying information in any roster payload.
-- [ ] **AC-006**: The roster heading displays "Players online (N)" with the correct count of all active players.
+- [ ] **AC-006**: The roster heading displays "Players online (N)" with the correct count of onboarded players.
 - [ ] **AC-007**: A player who disconnects beyond the grace window is removed from the roster within 2 seconds for all remaining subscribers.
 - [ ] **AC-008**: Roster entries are ordered lexicographically by handle (case-insensitive).
 - [ ] **AC-009**: On lobby subscribe, the player receives a complete roster snapshot as the first roster event.
@@ -179,7 +179,7 @@ The following are explicitly **not** part of this feature:
 - **Handle change while in roster**: When a player changes their handle (feature 010 FR-004), the roster MUST update the entry with the new handle. The old entry is removed and the new one added (or the entry is updated in-place in a delta). Status is preserved through handle changes.
 - **Simultaneous join and status change**: When a player joins the lobby and immediately joins a match in the same event batch, the server applies the anti-flap grace period (FR-011) and broadcasts only the final stable state (`in_game`), not the intermediate `in_lobby`.
 - **Server restart**: All roster state is lost. Players reconnecting re-establish their roster presence through the normal lobby subscribe flow. The roster starts empty and populates as players connect.
-- **Player with no handle**: If a player has established an identity but not yet set a handle, they MUST still appear in the roster. The handle field uses a fallback label (e.g., "Anonymous" or the player's guest ID truncated) consistent with feature 010 FR-020's fallback behavior.
+- **Player not yet onboarded**: Players who have not completed lobby onboarding are excluded from the roster entirely. They are not visible to other lobby participants. Once a player completes onboarding, they appear in the roster immediately. If a player's onboarding state is later cleared (e.g., identity reset), they are removed from the roster.
 - **Roster delta after full snapshot**: After a full `roster` snapshot, the server MAY reset its pending-delta queue and subsequent deltas reflect only changes since that snapshot. Clients MUST handle receiving a full snapshot at any time (not just on subscribe) — a full snapshot replaces the client's entire local roster unconditionally.
 - **Multiple simultaneous status changes**: When multiple players change status simultaneously (e.g., a match starts and both players transition from `in_lobby` to `in_game`), the server MAY batch these into a single `rosterDelta` event with multiple changes.
 - **Empty roster**: When no players are active, the roster snapshot contains an empty `players` array and the count is 0. The UI displays "Players online (0)".
