@@ -38,7 +38,7 @@
  */
 
 import type { Board, CityPlacement, Coord, PlayerId } from '@europa/core';
-import { ENGINE_CONSTANTS, flowRateForDelta } from '@europa/engine';
+import { flowRateForDelta } from '@europa/core';
 
 import { partnerPlayer } from './city-symmetry';
 import {
@@ -145,7 +145,7 @@ function bfsLandReachable(board: Board, start: Coord): Set<number> {
  */
 function isFlowViableEdge(srcElevation: number, dstElevation: number): boolean {
     const delta = dstElevation - srcElevation;
-    return flowRateForDelta(delta, ENGINE_CONSTANTS) > 0 || flowRateForDelta(-delta, ENGINE_CONSTANTS) > 0;
+    return flowRateForDelta(delta) > 0 || flowRateForDelta(-delta) > 0;
 }
 
 /**

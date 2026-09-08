@@ -39,7 +39,8 @@
  * coupling; spec 001 plan.md R-2).
  */
 
-import { ENGINE_CONSTANTS, flowRateForDelta } from '@europa/engine';
+import { ENGINE_CONSTANTS } from '@europa/engine';
+import { flowRateForDelta } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';

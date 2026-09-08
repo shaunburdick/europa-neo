@@ -118,7 +118,8 @@ export {
 
 export { applyCommand } from './applyCommand';
 export { createWorld } from './create';
-export { flowRateForDelta } from './flow-rate';
+export { flowRateForDelta } from '@europa/core';
+export type { FlowConstants } from '@europa/core';
 export { isTerminal, tick } from './tick';
 export { validateCommand } from './validate';
 
