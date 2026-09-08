@@ -23,7 +23,6 @@
 import type { IdentityState, LobbyRevision, LobbySnapshot, MatchId } from '@europa/matchmaking';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
-import { LobbyRoot } from '../../../src/internal/lobby-runtime';
 import type { LobbyConnectionState, LobbyErrorReport, WsLobbyClientState } from '../../../src/net/ws-lobby-client';
 import { formatWaitingMessage } from '../../../src/state/awaiting-start';
 import { createLobbyController, type LobbyTransport } from '../../../src/state/lobby-controller';
@@ -31,6 +30,7 @@ import { INITIAL_LOBBY_STATE } from '../../../src/state/lobby-reducer';
 import type { LobbyState } from '../../../src/state/lobby-state';
 import type { MatchId as ConsoleMatchId } from '../../../src/state/types';
 import { LobbyLanding } from '../../../src/ui/lobby-landing';
+import { LobbyRootWithLayout as LobbyRoot } from '../../fixtures/lobby-layout-wrapper';
 import '../../../src/styles/index.css';
 
 afterEach(() => {

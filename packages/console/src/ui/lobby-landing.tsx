@@ -207,7 +207,7 @@ export function LobbyLanding({
                   (spec constraint). Uses the dark-background variant for the
                   lobby's dark page background. */}
                     <img
-                        src="assets/brand/europa-neo-lockup-dark.svg"
+                        src="/assets/brand/europa-neo-lockup-dark.svg"
                         alt="Europa Neo"
                         className="europa-lobby__logo"
                         width={240}

@@ -34,8 +34,6 @@ import type { LobbyRevision, LobbySnapshot } from '@europa/matchmaking';
 import { afterEach, describe, expect, test } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
-
-import { LobbyRoot } from '../../src/internal/lobby-runtime';
 import type {
     LobbySnapshot as ClientSnapshot,
     LobbyConnectionState,
@@ -45,6 +43,7 @@ import type {
 import { createLobbyController, type LobbyTransport } from '../../src/state/lobby-controller';
 import { INITIAL_LOBBY_STATE } from '../../src/state/lobby-reducer';
 import type { LobbyState } from '../../src/state/lobby-state';
+import { LobbyRootWithLayout as LobbyRoot } from '../fixtures/lobby-layout-wrapper';
 import '../../src/styles/index.css';
 import '../../src/styles/logo.css';
 import { BrandedFooter } from '../../src/ui/branded-footer';

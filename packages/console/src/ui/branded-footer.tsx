@@ -55,7 +55,7 @@ export function BrandedFooter(): JSX.Element {
           assistive technology — the footer text already names the
           product. */}
             <img
-                src="assets/brand/europa-neo-emblem.svg"
+                src="/assets/brand/europa-neo-emblem.svg"
                 alt=""
                 aria-hidden="true"
                 width={16}

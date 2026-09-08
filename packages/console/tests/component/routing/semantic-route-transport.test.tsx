@@ -43,11 +43,21 @@ const matchTransportMock = vi.hoisted(() => {
 vi.mock('../../../src/net/ws-match-client', () => ({ createWsMatchClient: matchTransportMock.createWsMatchClient }));
 vi.mock('../../../src/net/client', () => ({ createConsoleClient: matchTransportMock.createConsoleClient }));
 
-import { LobbyRoot } from '../../../src/internal/lobby-runtime';
-import { parseRoute } from '../../../src/routing/route';
+import type { Route } from '../../../src/routing/route';
+import { validateMatchId } from '../../../src/routing/route';
 import { createLobbyController } from '../../../src/state/lobby-controller';
+import { LobbyRootWithLayout as LobbyRoot } from '../../fixtures/lobby-layout-wrapper';
 import { entryOf, matchIdOf, ScriptedLobbyTransport, snapshotOf } from '../../fixtures/lobbyTransports';
 import '../../../src/styles/index.css';
+
+/** Build a match Route from a pathname (e.g. `/match/room-alpha/join`). */
+function matchRoute(pathname: string): Extract<Route, { kind: 'match' }> {
+    const segments = pathname.split('/').slice(1);
+    const intent = segments[2] === 'join' ? 'join' : segments[2] === 'spectate' ? 'spectate' : 'adaptive';
+    const decoded = validateMatchId(segments[1] ?? '');
+    if (!decoded.ok) throw new Error(`invalid match ID in test pathname: ${pathname}`);
+    return { kind: 'match', pathname, matchId: decoded.value, intent };
+}
 
 afterEach(() => {
     cleanup();
@@ -76,9 +86,7 @@ describe('semantic route transport recovery', () => {
             <LobbyRoot
                 controller={controller}
                 wsUrl="ws://localhost:8080"
-                initialRoute={
-                    parseRoute('/match/room-alpha/join') as Extract<ReturnType<typeof parseRoute>, { kind: 'match' }>
-                }
+                initialRoute={matchRoute('/match/room-alpha/join')}
             />,
         );
 

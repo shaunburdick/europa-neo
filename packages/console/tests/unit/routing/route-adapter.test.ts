@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { buildJoinUrl, buildMatchUrl, buildSpectateUrl, parseRoute } from '../../../src/routing/route';
+import type { Route } from '../../../src/routing/route';
+import { buildJoinUrl, buildMatchUrl, buildSpectateUrl, validateMatchId } from '../../../src/routing/route';
 import type { LobbyCommandResult, RouteEntryCommands } from '../../../src/routing/route-adapter';
 import { adaptRoute, executeRouteEntry } from '../../../src/routing/route-adapter';
 import { entryOf, matchIdOf, snapshotOf } from '../../fixtures/lobbyTransports';
@@ -8,8 +9,23 @@ import { entryOf, matchIdOf, snapshotOf } from '../../fixtures/lobbyTransports';
 const MATCH_ID = 'room alpha';
 const matchId = matchIdOf(MATCH_ID);
 
-function routeFor(url: string) {
-    return parseRoute(new URL(url).pathname);
+function routeFor(url: string): Route {
+    const pathname = new URL(url).pathname;
+    const segments = pathname.split('/').slice(1);
+    if (segments[0] !== 'match') return { kind: 'unknown', pathname, reason: 'unsupported-path' };
+    if (!segments[1]) return { kind: 'unknown', pathname, reason: 'empty-match-id' };
+    const intent = segments[2] === 'join' ? 'join' : segments[2] === 'spectate' ? 'spectate' : 'adaptive';
+    const decoded = validateMatchId(segments[1]);
+    if (!decoded.ok) return { kind: 'unknown', pathname, reason: decoded.reason };
+    return { kind: 'match', pathname, matchId: decoded.value, intent };
+}
+
+/** Build a Route from a plain pathname (welcome / lobby / profile / match). */
+function routeFromPathname(pathname: string): Route {
+    if (pathname === '/') return { kind: 'welcome', pathname };
+    if (pathname === '/lobby') return { kind: 'lobby', pathname };
+    if (pathname === '/profile') return { kind: 'profile', pathname };
+    return routeFor(`https://example.test${pathname}`);
 }
 
 function successfulCommands(): RouteEntryCommands & {
@@ -107,7 +123,7 @@ describe('route entry adapter', () => {
         ['/', { kind: 'welcome' }],
         ['/profile', { kind: 'profile' }],
     ] as const)('does not invoke commands for %s entries', (pathname, expected) => {
-        const route = parseRoute(pathname);
+        const route = routeFromPathname(pathname);
         const commands = successfulCommands();
 
         const entry = adaptRoute(route, snapshotOf([]));
@@ -118,7 +134,7 @@ describe('route entry adapter', () => {
     });
 
     it('returns a welcome entry for / and executeRouteEntry returns null', () => {
-        const route = parseRoute('/');
+        const route = routeFromPathname('/');
         const commands = successfulCommands();
 
         const entry = adaptRoute(route, null);
@@ -129,7 +145,7 @@ describe('route entry adapter', () => {
     });
 
     it('still redirects unknown routes to /lobby', () => {
-        const route = parseRoute('/unknown-path');
+        const route = routeFromPathname('/unknown-path');
         const commands = successfulCommands();
 
         const entry = adaptRoute(route, null);
@@ -149,7 +165,7 @@ describe('route entry adapter', () => {
     });
 
     it('adapts a profile route to a profile entry regardless of snapshot', () => {
-        const route = parseRoute('/profile');
+        const route = routeFromPathname('/profile');
         const commands = successfulCommands();
 
         const entryNull = adaptRoute(route, null);

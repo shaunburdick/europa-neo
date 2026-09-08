@@ -35,7 +35,7 @@ describe('WelcomeScreen component', () => {
         const img = screen.container.querySelector('img');
         expect(img).not.toBeNull();
         expect(img?.getAttribute('alt')).toBe('Europa Neo');
-        expect(img?.getAttribute('src')).toBe('assets/brand/europa-neo-lockup-dark.svg');
+        expect(img?.getAttribute('src')).toBe('/assets/brand/europa-neo-lockup-dark.svg');
     });
 
     test('renders the tagline text (AC-003)', async () => {

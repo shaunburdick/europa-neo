@@ -64,7 +64,7 @@ export function WelcomeScreen(): JSX.Element {
         >
             {/* Brand lockup — FR-002: <img> with alt, not inline SVG. */}
             <img
-                src="assets/brand/europa-neo-lockup-dark.svg"
+                src="/assets/brand/europa-neo-lockup-dark.svg"
                 alt="Europa Neo"
                 style={{
                     maxWidth: '80vw',

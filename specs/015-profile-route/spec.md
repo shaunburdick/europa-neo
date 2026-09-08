@@ -4,7 +4,9 @@
 
 **Created**: 2026-09-01
 
-**Status**: Implemented (2026-09-02)
+**Last Updated**: 2026-09-07 (v1.1 — routing-migration note, issue #75)
+
+**Status**: Implemented (2026-09-02); v1.1 Clarifications note added 2026-09-07 (TanStack Router migration, issue #75)
 
 **Input**: User description: "Dedicated `/profile` route for name/handle setup, replacing the inline lobby identity card. Returning players see 'Welcome back, {handle}' with a Continue button. New players see the full handle-setting form. Match-join without identity redirects to `/profile?returnTo=<encoded-match-url>` — stateless, no storage."
 
@@ -228,7 +230,17 @@ The following are explicitly **not** part of this feature:
 
 ## Clarifications Applied
 
-*None yet — this spec is at v1.0 draft. Clarifications will be documented here during Phase 3.*
+### v1.1 (2026-09-07) — TanStack Router migration (issue #75)
+
+Feature 013 v1.1 migrates the console's hand-rolled routing layer (`parseRoute`/`adaptRoute`/`executeRouteEntry` in `packages/console/src/routing/`) to `@tanstack/react-router`. This amendment records the impact on this spec's routing references:
+
+- **FR-001, FR-012 (route classification)**: The requirement that `parseRoute()` recognize `/profile` and return `{ kind: 'profile', pathname: '/profile' }` is preserved in behavior but superseded in mechanism — the TanStack Router route tree MUST classify `/profile` identically (feature 013 FR-021). The `Route` union's `profile` variant remains the authoritative type contract.
+- **FR-002, FR-013 (route adaptation)**: The requirement that `adaptRoute()` map the `profile` kind to a `RouteEntry` `{ kind: 'profile', route }` with `executeRouteEntry()` returning `null` (no I/O) is preserved in behavior; the migration MUST keep the profile entry as a no-I/O terminal entry (feature 013 FR-023).
+- **FR-004, FR-005 (returnTo)**: The `returnTo` query parameter migrates to TanStack Router typed search params (feature 013 FR-024). The safety contract is unchanged: relative-pathname-only, decode-failure/unsafe values treated as absent, fallback to `/lobby`.
+- **FR-010 (auto-navigate after naming)**: The post-submit navigation to the decoded `returnTo` (or `/lobby`) MUST continue to work through the router's navigation API; observable behavior is unchanged.
+- **Implementation Note 2 (returnTo captures pathname only)**: The pathname-only capture rule remains in force; TanStack Router's typed search params MUST NOT reintroduce query-bearing `returnTo` values.
+
+All other requirements of this spec (profile view states, handle validation, accessibility, design-system usage) are unaffected by the routing migration.
 
 ## Implementation Notes
 

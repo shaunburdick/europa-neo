@@ -1,12 +1,12 @@
 # Feature Specification: Console Semantic URL Routing
 
-**Feature Branch**: `issue-35-semantic-url-scheme`
-**Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment)
+**Feature Branch**: `issue-35-semantic-url-scheme` (original); `issue-75-console-router` (v1.1 TanStack Router migration)
+**Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment), Feature 015 (profile route), Feature 017 (welcome landing screen)
 **Created**: 2026-08-30
-**Last Updated**: 2026-08-31 (v1.0)
-**Version**: 1.0
-**Status**: Implemented (2026-08-31)
-**GitHub Issue**: #35
+**Last Updated**: 2026-09-07 (v1.1)
+**Version**: 1.1
+**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75)
+**GitHub Issue**: #35 (original); #75 (v1.1 migration)
 
 ## Problem Statement
 
@@ -78,6 +78,22 @@ The browser-visible path is the routing authority. Production URLs do not carry 
 - **FR-018**: Shortcut failures, stale state, transport failures, and expired reconnect state MUST provide accessible retry and/or return-to-lobby actions without exposing opaque identifiers or credentials.
 - **FR-019**: Route notices, transitions, and controls MUST retain keyboard operation, semantic names/statuses, visible focus, contrast, and live announcements consistent with WCAG 2.2 AA goals and existing console/lobby behavior.
 
+### v1.1 — TanStack Router migration (issue #75)
+
+The following requirements amend this spec to cover the migration of the console's hand-rolled routing layer (`packages/console/src/routing/route.ts` + `route-adapter.ts`, plus the route-resolution orchestration in `lobby-runtime.tsx` and `main.tsx`) to TanStack Router. They preserve every behavioral contract established by FR-001..FR-019; the migration is an implementation-layer change, not a route-contract change.
+
+- **FR-020**: The console MUST adopt `@tanstack/react-router` (v1.x, current stable line) as its routing library, replacing the hand-rolled `parseRoute`/`adaptRoute`/`executeRouteEntry` layer as the production route-selection mechanism. Route definitions MUST be code-based (an explicit route tree), not file-based, matching the current `parseRoute` classification style.
+- **FR-021**: The route tree MUST define the five canonical route shapes — `welcome` (`/`), `lobby` (`/lobby`), `profile` (`/profile`), and `match` (`/match/<matchId>` with explicit `join` and `spectate` sub-routes) — with browser-visible path shapes, match-ID decoding, and intent semantics identical to FR-001..FR-006.
+- **FR-022**: Match-ID validation MUST preserve all six rejection reasons — `malformed-encoding`, `empty-match-id`, `decoded-slash`, `unsafe-character`, `wrong-segment-count`, `unsupported-path` — with identical classification for identical input (determinism, NFR-007). The existing `RouteRejection` union and its test coverage MUST remain the authoritative classification contract.
+- **FR-023**: Route-entry adaptation against authoritative lobby snapshots MUST preserve all eight entry kinds — `redirect`, `welcome`, `lobby`, `profile`, `resolve`, `player`, `spectator`, `unavailable` — with identical eligibility rules (adaptive open→player, in-progress→spectator, explicit intents never downgraded, full/unavailable recovers without silent action change). The existing `RouteEntry` union and its test coverage MUST remain the authoritative adaptation contract.
+- **FR-024**: Search-param handling MUST migrate to TanStack Router's typed search-param validation for production search params (notably `returnTo` on `/profile`), replacing the ad hoc `window.location.search` reads in the profile view and lobby runtime. The `returnTo` safety contract (FR-005 of feature 015: relative-pathname-only, unsafe values treated as absent) MUST be preserved exactly.
+- **FR-025**: The `?ws=` transport override (read by `resolveLobbyServerUrl`) and the `?live`/`?match=`/`?name=`/`?token=` direct-match E2E seam (read by `live-runtime.tsx` via `window.__europaTestMatch` or query params) MUST be preserved for the direct-match E2E path. The `?e2e` test-only harness MUST remain unchanged (FR-011). Production routing MUST continue to ignore these query values for route classification (FR-010).
+- **FR-026**: Nested/layout routes MUST be used where the lobby runtime currently manually orchestrates route resolution — the lobby connection/identity context MUST become a layout route wrapping the `lobby`, `profile`, and `match` views — while preserving the existing view-mode gating, deep-link interstitial, deferred route resolution (identity + connection gates), and `returnTo` round-trip semantics.
+- **FR-027**: Loader/caching patterns introduced by the migration MUST NOT change route-entry authority: a match route MUST still resolve against the authoritative lobby snapshot before any player/spectator leg attaches, and a missing snapshot MUST still produce `resolve` (no premature match connection). Any loader cache MUST be invalidated by snapshot changes, not by wall-clock or navigation alone.
+- **FR-028**: The migration MUST preserve the deep-link join/spectate semantics (FR-004..FR-006), the unnamed-identity redirects to `/profile?returnTo=<pathname>` (feature 015 US3), the welcome-screen route semantics (feature 017 FR-010/FR-011), and the unknown-route recovery to `/lobby` with the accessible "Page not found. Returning to lobby." notice (FR-012).
+- **FR-029**: The migration MUST NOT change browser-visible URL shapes, Back/Forward behavior, reload behavior, bookmarkability, or the redirect-history-loop guard (FR-013). The `europa:pathchange`/`popstate` observation currently in `lobby-runtime.tsx` MAY be replaced by TanStack Router's navigation lifecycle, but observable route/state behavior MUST be identical.
+- **FR-030**: The migration MUST keep the production browser-delivered bundle under the existing budget (current ~81 KB gz < 150 KB over `dist/assets`, per feature 005 Implementation Note 4), accounting for the added router dependency. If the router dependency pushes the bundle over budget, the implementation MUST tree-shake or lazy-load route chunks to stay under it.
+
 ## Non-Functional Requirements
 
 - **NFR-001 (Reliability)**: In 10/10 direct-load trials for each supported path, the intended state is reached without a server 404 or blank page.
@@ -87,6 +103,8 @@ The browser-visible path is the routing authority. Production URLs do not carry 
 - **NFR-005 (Self-hosting)**: Native and Docker launches MUST expose one origin/port for HTTP, semantic deep links, `/version`, and WebSocket upgrades.
 - **NFR-006 (Accessibility)**: Existing console/lobby accessibility suites MUST remain green and new recovery/transition states MUST have keyboard and automated accessibility coverage.
 - **NFR-007 (Determinism)**: Route parsing/classification MUST be pure for identical input, and `?e2e` MUST remain isolated from production networking.
+- **NFR-008 (Migration compatibility, v1.1)**: The TanStack Router migration MUST keep every existing console suite green — unit, component, a11y, E2E, perf, determinism, parity, conformance, keepalive — and MUST keep `pnpm verify` green across all phases. Where a test imports the current `src/routing/route` or `src/routing/route-adapter` module surface, the migration MUST either preserve that surface as a thin compatibility layer or update the tests in the same change set (specs stay truthful, constitution IV).
+- **NFR-009 (Dependency licensing, v1.1)**: `@tanstack/react-router` and any loader-caching dependency MUST carry permissive licenses (MIT/BSD/Apache-2.0/ISC) per the constitution's open-source licensing constraint, and MUST NOT introduce vendor lock-in or proprietary services.
 
 ## Edge Cases
 
@@ -101,6 +119,14 @@ The browser-visible path is the routing authority. Production URLs do not carry 
 - Refresh with a valid reconnect credential uses existing storage/session behavior without adding credentials to the URL; cleared storage follows fresh-guest behavior.
 - Direct deep links serve the SPA shell; missing assets and genuine server failures use existing error handling, not a fabricated match page.
 - HTTPS retains secure same-origin WebSocket behavior and adds no insecure fallback.
+
+### v1.1 — Migration edge cases (issue #75)
+
+- A `?ws=` transport override riding on a semantic path (e.g., `/lobby?ws=wss://...`) MUST continue to be honored by `resolveLobbyServerUrl` and MUST NOT affect route classification (FR-010, FR-025).
+- A `?live`/`?match=`/`?name=`/`?token=` query riding on a production path MUST NOT mount the live runtime or override the path's match identity (FR-010); only the direct-match E2E seam (`window.__europaTestMatch` or the legacy query path through `live-runtime.tsx`) MAY consume them (FR-025).
+- TanStack Router's typed search-param validation MUST reject unsafe `returnTo` values (external URLs, `//` prefixes, `..` traversal) exactly as the current `readReturnTo` safety check does — unsafe values are treated as absent (feature 015 FR-005).
+- A route transition that TanStack Router handles internally MUST still trigger the lobby runtime's deferred-resolution gates (identity `named` + connection `ready`); a route change while a gate holds MUST defer, not consume, the attempt (feature 015 Implementation Note 1).
+- The `europa:pathchange` custom event and `popstate` observation MAY be removed once TanStack Router's navigation lifecycle covers the same transitions; any test asserting the custom event MUST be updated in the same change set.
 
 ## Examples
 
@@ -134,6 +160,12 @@ These links contain no `?live`, `?ws`, `name`, `token`, guest ID, or opaque sess
 - [ ] **AC-009**: Security tests prove IDs cannot cause traversal, slash injection, cross-match selection, credential leakage, or unauthorized claims.
 - [ ] **AC-010**: Keyboard-only and automated WCAG checks cover recovery, shortcut failure, announcements, focus, and spectator read-only controls.
 - [ ] **AC-011**: Back/Forward and refresh restore expected semantic route/state without a redirect loop.
+- [ ] **AC-012 (v1.1)**: The TanStack Router route tree classifies all supported path shapes and rejects malformed/unknown shapes with the same six `RouteRejection` reasons as the pre-migration parser (FR-022).
+- [ ] **AC-013 (v1.1)**: Route-entry adaptation against lobby snapshots produces the same eight `RouteEntry` kinds with the same eligibility rules as the pre-migration adapter (FR-023).
+- [ ] **AC-014 (v1.1)**: The `?ws=`/`?live=`/`?match=` direct-match E2E seam and the `?e2e` harness pass unchanged after the migration (FR-025, FR-011).
+- [ ] **AC-015 (v1.1)**: The `returnTo` deep-link round-trip (unnamed visitor → `/profile?returnTo=<pathname>` → named → back to match route) works identically through TanStack Router's typed search params (FR-024, FR-028).
+- [ ] **AC-016 (v1.1)**: The production browser-delivered bundle stays under 150 KB gz over `dist/assets` with the router dependency included (FR-030).
+- [ ] **AC-017 (v1.1)**: All existing console suites (unit, component, a11y, E2E, perf, determinism, parity, conformance, keepalive) pass and `pnpm verify` is green (NFR-008).
 
 ## Out of Scope
 
@@ -143,6 +175,9 @@ These links contain no `?live`, `?ws`, `name`, `token`, guest ID, or opaque sess
 - New lobby features, match history, ratings, chat, or private-match behavior.
 - Touch/mobile-specific navigation design beyond preserving accessible responsive layout.
 - Retaining `?live` as a production compatibility mode; historical migration notes may mention its removal.
+- (v1.1) Changing the browser-visible route contract, the six match-ID rejection reasons, the eight route-entry kinds, deep-link semantics, or the `returnTo` safety contract — the migration preserves these exactly.
+- (v1.1) Introducing new routes, route params, or search params beyond what FR-001..FR-019 and features 015/017 already define.
+- (v1.1) Server-side routing, SSR, or static route pre-rendering; the console remains a client-side SPA behind the existing single-port SPA fallback (FR-014).
 
 ## Assumptions
 
@@ -168,6 +203,23 @@ No unresolved clarification remains:
 | 6 | Deep-link hosting | Native and Docker single-port handlers serve SPA shell for canonical paths and unknown paths while preserving API/assets/WS handling. | FR-012, FR-014 |
 | 7 | Shareable-link UX | Stable routing is in scope; invitation/share controls and access policy belong to issue #34. | Out of Scope |
 
+### Session 2026-09-07 — TanStack Router migration rulings (v1.1, issue #75)
+
+The following decisions are recorded from the issue's acceptance criteria, the existing route contract, and product-owner rulings on open questions.
+
+| # | Ambiguity | Resolution | Requirement(s) |
+|---|---|---|---|
+| 1 | Router library adoption | `@tanstack/react-router` v1.x (current stable line, verified 2026-09-07: v1.170.33) replaces the hand-rolled routing layer; code-based route tree, not file-based. | FR-020 |
+| 2 | Route contract preservation | All five canonical route shapes, six match-ID rejection reasons, and eight route-entry kinds are preserved exactly; the migration is implementation-layer only. | FR-021, FR-022, FR-023 |
+| 3 | `?ws=`/`?live=`/`?match=` seam | The direct-match E2E compatibility seam is preserved (issue acceptance criteria); `?e2e` remains unchanged and test-only. | FR-025, FR-011 |
+| 4 | `returnTo` handling | Migrates to TanStack Router typed search params with the existing safety contract (relative-pathname-only; unsafe → absent) preserved exactly. | FR-024, FR-028 |
+| 5 | Nested/layout routes | The lobby connection/identity context becomes a layout route wrapping lobby/profile/match views; deferred-resolution gates (identity + connection) preserved. | FR-026 |
+| 6 | Loader/caching | Route entry MUST still resolve against the authoritative lobby snapshot before any match connection; caches invalidate on snapshot change. | FR-027 |
+| 7 | Bundle budget | Production browser-delivered bundle stays under 150 KB gz over `dist/assets` with the router dependency included. | FR-030 |
+| 8 | Public module surface | **Full Replacement.** `parseRoute`/`adaptRoute`/`executeRouteEntry` functions and `Route`/`RouteEntry`/`RouteRejection` types are fully replaced by TanStack Router's route tree and typed definitions. Existing `tests/unit/routing/*` suites are rewritten in the same change set to test the new routing surface. | NFR-008 |
+| 9 | SWR loader caching scope | **Defer.** The `?swr` library is NOT added as a dependency. Loader/caching is handled by TanStack Router's built-in loader caching (if applicable) or deferred to a future change. No new external caching dependency. | FR-027, FR-030 |
+| 10 | `?ws=` seam vs. typed search params | **Keep it untyped.** The `?ws=` transport override stays as an untyped escape hatch read by `resolveLobbyServerUrl` outside the router. It is NOT declared as a TanStack typed search param. The `?e2e` flag also stays untyped and unchanged. | FR-024, FR-025 |
+
 ## Dependencies & Cross-Spec Impact
 
 | Spec | Relation | Truthfulness update |
@@ -178,6 +230,8 @@ No unresolved clarification remains:
 | 007 player manual | Documentation impact | Launch/join guidance moves from query links to semantic paths; gameplay text is unchanged. |
 | 009 versioning | Preserved | `/version` remains outside SPA route fallback. |
 | 012 design system | Preserved | Existing lobby/console focus, contrast, and notice styling applies. |
+| 015 profile route | Consumed/amended (v1.1) | `/profile` route and `returnTo` semantics preserved through the router migration; `parseRoute`/`adaptRoute` references superseded by the TanStack Router route tree (see 015 Clarifications v1.1). |
+| 017 welcome landing | Consumed/amended (v1.1) | `/` welcome route semantics preserved through the router migration; `parseRoute`/`adaptRoute` references superseded (see 017 Clarifications v1.1). |
 
 ## Implementation Notes
 
@@ -187,3 +241,19 @@ No unresolved clarification remains:
 - Apply SPA fallback only after `/version`, known assets, WebSocket upgrade handling, and traversal checks.
 - Add a guard for retired production `?live` references while allowing historical clarification text and unchanged `?e2e` references.
 - Any implementation change affecting launch/join guidance updates applicable README/manual content in the same change set.
+
+### v1.1 — TanStack Router migration notes (issue #75)
+
+- The migration replaces the route-selection *mechanism*, not the route *contract*. `route.ts`'s `parseRoute` classification (six rejection reasons) and `route-adapter.ts`'s `adaptRoute`/`executeRouteEntry` adaptation (eight entry kinds) are the authoritative behavioral contracts; the TanStack Router route tree must reproduce them (FR-021..FR-023). The module surface itself is fully replaced — `parseRoute`/`adaptRoute`/`executeRouteEntry` and the `Route`/`RouteEntry`/`RouteRejection` types are removed, and existing `tests/unit/routing/*` suites are rewritten to test the new routing surface (clarification #8).
+- `main.tsx`'s `bootstrapProductionRoute` currently performs the initial route classification and mounts welcome/lobby/live runtimes; the migration moves this decision into the TanStack Router tree while preserving the `?e2e` branch and the `window.__europaTestMatch` direct-match seam (FR-025).
+- `lobby-runtime.tsx`'s `usePathname`/`patchHistoryForPathChanges` (`europa:pathchange` custom event) and its `popstate` listener MAY be replaced by TanStack Router's navigation lifecycle, but the deferred-resolution gates (identity `named` + connection `ready`) and the one-shot redirect guards MUST be preserved (FR-026, FR-028).
+- The `?ws=` transport override is consumed by `resolveLobbyServerUrl` in `state/lobby-view.ts`; it stays as an untyped escape hatch outside the router's typed search-param surface (clarification #10). The migration must not break this read path.
+- The direct-match E2E seam (`live-runtime.tsx` reading `?live`/`?match=`/`?name=`/`?token=` or `window.__europaTestMatch`) is a test-only compatibility path, not a production launch path; the migration must keep it reachable for the E2E fixtures that use it (FR-025).
+- Bundle budget: `@tanstack/react-router` adds a real dependency weight; the implementation should verify the gzipped `dist/assets` payload stays under 150 KB (FR-030) and prefer lazy route chunks for the welcome screen and match views if needed.
+
+## Change Log
+
+| Version | Date | Change |
+|---|---|---|
+| 1.0 | 2026-08-31 | Initial spec (issue #35): semantic URL scheme, route contract, FR-001..FR-019. |
+| 1.1 | 2026-09-07 | Amendment (issue #75): TanStack Router migration of the hand-rolled routing layer. Added FR-020..FR-030, NFR-008..NFR-009, AC-012..AC-017, migration edge cases, Clarifications session 2026-09-07 (items 8–10 resolved: full module surface replacement, SWR deferred, `?ws=` stays untyped), and this change log. Status remains NOT Implemented for the v1.1 amendment. |

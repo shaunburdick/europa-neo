@@ -23,56 +23,8 @@ export type Route =
       }
     | { readonly kind: 'unknown'; readonly pathname: string; readonly reason: RouteRejection };
 
-const MATCH_PREFIX = 'match';
 const JOIN_SUFFIX = 'join';
 const SPECTATE_SUFFIX = 'spectate';
-
-/**
- * Classifies a pathname without consulting query parameters or browser state.
- *
- * The original pathname is retained on every result so callers can keep the
- * browser-visible URL authoritative. A match ID is decoded exactly once and
- * only the decoded value is returned for authoritative lookup.
- */
-export function parseRoute(pathname: string): Route {
-    if (pathname === '/') {
-        return { kind: 'welcome', pathname };
-    }
-
-    if (pathname === '/lobby') {
-        return { kind: 'lobby', pathname };
-    }
-
-    if (pathname === '/profile') {
-        return { kind: 'profile', pathname };
-    }
-
-    const segments = pathname.split('/').slice(1);
-    if (segments[0] !== MATCH_PREFIX) {
-        return unknown(pathname, 'unsupported-path');
-    }
-
-    if (segments[1] === undefined || segments[1] === '') {
-        return unknown(pathname, 'empty-match-id');
-    }
-
-    const intent = determineIntent(segments);
-    if (intent === undefined) {
-        return unknown(pathname, segments.length === 3 ? 'unsupported-path' : 'wrong-segment-count');
-    }
-
-    const decodedMatchId = decodeMatchSegment(segments[1]);
-    if (!decodedMatchId.ok) {
-        return unknown(pathname, decodedMatchId.reason);
-    }
-
-    return {
-        kind: 'match',
-        pathname,
-        matchId: decodedMatchId.value,
-        intent,
-    };
-}
 
 /** Builds the canonical public lobby URL for an origin. */
 export function buildLobbyUrl(origin: string): string {
@@ -133,23 +85,19 @@ function normalizeOrigin(origin: string): string {
     return parsedOrigin.origin;
 }
 
-function determineIntent(segments: string[]): MatchRouteIntent | undefined {
-    if (segments.length === 2) {
-        return 'adaptive';
-    }
-
-    if (segments.length === 3 && segments[2] === JOIN_SUFFIX) {
-        return 'join';
-    }
-
-    if (segments.length === 3 && segments[2] === SPECTATE_SUFFIX) {
-        return 'spectate';
-    }
-
-    return undefined;
-}
-
-function decodeMatchSegment(
+/**
+ * Validates and decodes a raw URL segment representing a match ID.
+ *
+ * Combines URI decoding with safety validation in a single call. Returns a
+ * discriminated union so callers can branch on success/failure without
+ * exceptions. This is the canonical entry point for match-ID validation and
+ * is exported for direct use by the TanStack Router route tree (FR-022).
+ *
+ * @param segment The raw, URL-encoded match-ID segment from the pathname.
+ * @returns `{ ok: true, value }` with the decoded ID on success, or
+ *   `{ ok: false, reason }` with a `RouteRejection` on failure.
+ */
+export function validateMatchId(
     segment: string,
 ): { readonly ok: true; readonly value: string } | { readonly ok: false; readonly reason: RouteRejection } {
     let decoded: string;
@@ -184,8 +132,4 @@ function validateDecodedMatchId(matchId: string): RouteRejection | undefined {
     }
 
     return undefined;
-}
-
-function unknown(pathname: string, reason: RouteRejection): Route {
-    return { kind: 'unknown', pathname, reason };
 }
