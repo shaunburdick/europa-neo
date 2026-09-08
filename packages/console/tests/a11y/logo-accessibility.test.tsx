@@ -30,7 +30,7 @@
  * Runs in Vitest Browser Mode per vitest.config.browser.ts.
  */
 
-import type { LobbyRevision, LobbySnapshot } from '@europa/matchmaking';
+import type { LobbyRevision, LobbySnapshot, RosterSnapshot } from '@europa/matchmaking';
 import { afterEach, describe, expect, test } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
@@ -94,6 +94,7 @@ function queryOrThrow<T extends Element>(container: ParentNode, selector: string
 type StateHandler = (connection: LobbyConnectionState) => void;
 type IdentityHandler = (identity: import('@europa/matchmaking').IdentityState) => void;
 type SnapshotHandler = (snapshot: ClientSnapshot) => void;
+type RosterHandler = (snapshot: RosterSnapshot) => void;
 type ErrorHandler = (report: LobbyErrorReport) => void;
 
 class FakeTransport implements LobbyTransport {
@@ -103,6 +104,7 @@ class FakeTransport implements LobbyTransport {
     private readonly stateHandlers = new Set<StateHandler>();
     private readonly identityHandlers = new Set<IdentityHandler>();
     private readonly snapshotHandlers = new Set<SnapshotHandler>();
+    private readonly rosterHandlers = new Set<RosterHandler>();
     private readonly errorHandlers = new Set<ErrorHandler>();
 
     connect(): Promise<void> {
@@ -161,6 +163,8 @@ class FakeTransport implements LobbyTransport {
             snapshot: null,
             lastAppliedRevision: null,
             reconnectAttempt: 0,
+            roster: [],
+            rosterRevision: null,
         };
     }
 
@@ -182,6 +186,13 @@ class FakeTransport implements LobbyTransport {
         this.snapshotHandlers.add(handler);
         return () => {
             this.snapshotHandlers.delete(handler);
+        };
+    }
+
+    onRoster(handler: RosterHandler): () => void {
+        this.rosterHandlers.add(handler);
+        return () => {
+            this.rosterHandlers.delete(handler);
         };
     }
 
