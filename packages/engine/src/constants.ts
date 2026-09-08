@@ -5,64 +5,25 @@
  * (constitution Principle V; spec SC-005 "every numeric rule is defined
  * in one tunable-constants location").
  *
- * If you find yourself wanting to add a `const FOO = 7` to a resolution
- * rule — stop. Add it here instead. Downstream consumers (the server's
- * matchmaker, scenario-test scripts, future balance mod support) all
- * import this one object.
+ * The `EngineConstants` type and `ENGINE_CONSTANTS` value now live in
+ * `@europa/core` (issue #96) to break the engine ↔ terrain devDependency
+ * cycle. This file re-exports them for backward compatibility — all
+ * engine-internal imports continue to work unchanged.
  *
- * Values are sourced from:
- *   - spec.md functional requirements (FR-004, FR-007, FR-009, FR-011,
- *     FR-012, FR-013, FR-014) — cited inline below
- *   - data-model.md (city / cell capacity, decay, reserves step)
- *   - research.md §8 (tick rate)
- *
- * All values are integers in JS `number` (safe up to 2^53; we never
- * approach that on a 32×32 board — see `research.md` §6).
+ * If you find yourself wanting to add a `const FOO = 7` to a
+ * resolution rule — stop. Add it to `@europa/core`'s `ENGINE_CONSTANTS`
+ * instead. Downstream consumers (the server's matchmaker, scenario-test
+ * scripts, future balance mod support) all import this one object.
  */
 
-import type { EngineConstants } from './contracts/engine-api';
+export type { EngineConstants } from '@europa/core';
 
 /**
  * Engine rule constants. Imported by every resolution rule module.
- * See `contracts/engine-api.ts` `EngineConstants` for the type contract
- * and JSDoc per field.
+ * Re-exported from `@europa/core` (issue #96). See core's
+ * `flow-rate.ts` for the type contract and JSDoc per field.
  */
-export const ENGINE_CONSTANTS: EngineConstants = {
-    // FR-004: each owned city adds `productionRate` troops per tick until
-    // the city cell is saturated at `cityCapacity`.
-    productionRate: 1,
-    cityCapacity: 30,
-    // FR-011: non-city cells cap at `cellCapacity` (saturation cap on
-    // flow / combat accumulations). v1 sets this equal to cityCapacity.
-    cellCapacity: 30,
-    // FR-009: troops lost per tick when a cell is unfed (no friendly
-    // inflow AND no city source).
-    decayPerTick: 1,
-    // FR-007: elevation-gradient pipe flow. The rate along a pipe is a
-    // linear function of the elevation change Δ = dstElev − srcElev:
-    //   downhill (Δ < 0): flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)
-    //   flat (Δ = 0):     flowBase
-    //   uphill (Δ > 0):   max(0, flowBase − flowSlopeStep × |Δ|)
-    // The cap bounds the DOWNHILL bonus only; the uphill handicap is
-    // uncapped (asymmetric cap per PM ruling R-1), so an uphill pipe
-    // stalls (moves 0) at Δ ≥ flowBase / flowSlopeStep = 7. A stalled
-    // pipe remains laid and legal (US1 AC-5). flowBase = 7 keeps pipe
-    // flow functional out-of-the-box (re-validated against smoothed
-    // terrain in spec 001 Clarifications v1.2).
-    flowBase: 7,
-    flowSlopeStep: 1,
-    flowSlopeDeltaCap: 5,
-    // FR-013: paratroop cost is `2 × N` at the source, `N` lands at the
-    // target. We model the per-trooper cost; the `2×` ratio is the
-    // resolution rule (multiply by 2 at use-site).
-    paratroopCost: 10,
-    // FR-014: gun cost (per shot) and damage (per hit). Costs come off
-    // the source; damage comes off target occupants regardless of owner.
-    gunCost: 5,
-    gunDamage: 2,
-    // Consumed by feature 002 (fog). Chebyshev radius in cells.
-    visibilityRadiusDefault: 4,
-};
+export { ENGINE_CONSTANTS } from '@europa/core';
 
 /**
  * Default wall-clock tick interval. The engine itself is wall-clock-free

@@ -158,31 +158,14 @@ export declare function hashWorld(world: Readonly<World>): string;
 
 // ----------------------------------------------------------------------------
 // Constants (single tunable-constants location, SC-005)
+//
+// `EngineConstants` type and `ENGINE_CONSTANTS` value now live in
+// `@europa/core` (issue #96) to break the engine ↔ terrain devDependency
+// cycle. Re-exported here for backward compatibility.
 // ----------------------------------------------------------------------------
 
-export interface EngineConstants {
-  /** Troops produced per city per tick (FR-004). */
-  readonly productionRate: number;
-  /** Saturation capacity per city (FR-004). */
-  readonly cityCapacity: number;
-  /** Saturation capacity per non-city cell (FR-011). */
-  readonly cellCapacity: number;
-  /** Troops lost per tick when a cell is unfed (FR-009). */
-  readonly decayPerTick: number;
-  /** Base troops per tick moving along a flat pipe (FR-007). */
-  readonly flowBase: number;
-  /** Troops added/subtracted per unit of elevation change (FR-007). */
-  readonly flowSlopeStep: number;
-  /** Caps the downhill bonus (FR-007). */
-  readonly flowSlopeDeltaCap: number;
-  /** Troops spent per trooper landed via paratroop (FR-013). */
-  readonly paratroopCost: number;
-  /** Troops spent per gun shot (FR-014). */
-  readonly gunCost: number;
-  /** Troops lost per gun hit (FR-014). */
-  readonly gunDamage: number;
-  /** Sensor radius default (consumed by feature 002). */
-  readonly visibilityRadiusDefault: number;
-}
+import type { EngineConstants } from '@europa/core';
+
+export type { EngineConstants } from '@europa/core';
 
 export declare const ENGINE_CONSTANTS: EngineConstants;

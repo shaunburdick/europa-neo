@@ -2,10 +2,10 @@
  * Public surface of the `@europa/core` package.
  *
  * Shared foundation for `@europa/engine` and `@europa/terrain`:
- * core game types, deterministic PRNG, pipe-flow formula, and the
- * API version constant. This package has zero workspace dependencies
- * so it always builds first, resolving the engine ↔ terrain circular
- * dependency (issue #93).
+ * core game types, deterministic PRNG, pipe-flow formula, engine
+ * constants, and the API version constant. This package has zero
+ * workspace dependencies so it always builds first, resolving the
+ * engine ↔ terrain circular dependency (issue #93, #96).
  *
  * Downstream consumers should continue importing from `@europa/engine`
  * or `@europa/terrain` — both re-export these types from their own
@@ -45,5 +45,5 @@ export { createRng, createRngFromString, hashSeed } from './rng';
 // Pipe-flow formula and constants (shared by engine + terrain)
 // ----------------------------------------------------------------------------
 
-export type { FlowConstants } from './flow-rate';
-export { DEFAULT_FLOW_CONSTANTS, flowRateForDelta } from './flow-rate';
+export type { EngineConstants, FlowConstants } from './flow-rate';
+export { DEFAULT_FLOW_CONSTANTS, ENGINE_CONSTANTS, flowRateForDelta } from './flow-rate';
