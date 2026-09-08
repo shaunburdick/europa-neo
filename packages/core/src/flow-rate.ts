@@ -64,10 +64,7 @@ export const DEFAULT_FLOW_CONSTANTS: FlowConstants = {
  *                  when omitted).
  * @returns Troops moved per tick along the pipe (≥ 0; 0 = stall).
  */
-export function flowRateForDelta(
-    delta: number,
-    constants: FlowConstants = DEFAULT_FLOW_CONSTANTS,
-): number {
+export function flowRateForDelta(delta: number, constants: FlowConstants = DEFAULT_FLOW_CONSTANTS): number {
     const { flowBase, flowSlopeStep, flowSlopeDeltaCap } = constants;
     if (delta < 0) {
         // Downhill: bonus scales with the drop, capped at flowSlopeDeltaCap.
