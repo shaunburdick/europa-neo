@@ -23,7 +23,14 @@
  * without fake timers.
  */
 
-import type { LobbyErrorCode, LobbySnapshot } from '@europa/matchmaking';
+import type {
+    LobbyErrorCode,
+    LobbySnapshot,
+    RosterDelta,
+    RosterEntry,
+    RosterRevision,
+    RosterSnapshot,
+} from '@europa/matchmaking';
 import type { LobbyConnectionState } from '../net/ws-lobby-client';
 import type { RouteEntry } from '../routing/route-adapter';
 import type { MatchId } from './types';
@@ -146,6 +153,24 @@ export interface LobbyFailure {
 }
 
 // ----------------------------------------------------------------------------
+// Roster state (feature 023)
+// ----------------------------------------------------------------------------
+
+/**
+ * Lobby roster state (feature 023 T-031). Maintains the current
+ * player list, the last-applied roster revision, and a connected
+ * flag for degraded-state detection (US5).
+ */
+export interface RosterState {
+    /** Current roster entries in deterministic order (FR-006). */
+    readonly players: ReadonlyArray<RosterEntry>;
+    /** Last-applied roster revision (stale-revision protection, FR-004). */
+    readonly revision: RosterRevision | null;
+    /** Whether a roster snapshot has been received (false = degraded). */
+    readonly connected: boolean;
+}
+
+// ----------------------------------------------------------------------------
 // The state value
 // ----------------------------------------------------------------------------
 
@@ -239,6 +264,12 @@ export interface LobbyState {
      * cleared by choosing Play/Spectate or returning to the lobby.
      */
     readonly deepLinkInterstitial: DeepLinkInterstitial | null;
+
+    /**
+     * Lobby roster state (feature 023 T-032). Tracks the current
+     * player presence list, revision, and connection status.
+     */
+    readonly roster: RosterState;
 }
 
 // ----------------------------------------------------------------------------
@@ -331,4 +362,14 @@ export type LobbyAction =
      * Deep-link interstitial dismissed (issue #34, FR-029). Cleared
      * when the user chooses Play/Spectate or returns to the lobby.
      */
-    | { readonly kind: 'lobbyDeepLinkInterstitialDismissed' };
+    | { readonly kind: 'lobbyDeepLinkInterstitialDismissed' }
+    /**
+     * Full roster snapshot applied upstream (feature 023 T-034).
+     * Replaces the roster state wholesale.
+     */
+    | { readonly kind: 'lobbyRosterSnapshot'; readonly snapshot: RosterSnapshot }
+    /**
+     * Incremental roster delta applied upstream (feature 023 T-034).
+     * Changes are merged into the existing roster.
+     */
+    | { readonly kind: 'lobbyRosterDelta'; readonly delta: RosterDelta };

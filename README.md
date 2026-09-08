@@ -35,6 +35,7 @@ You land on Europa with a handful of nanobot production facilities (**cities**).
 | 005 client console                       | `@europa/console`                          | ✅ Implemented |
 | 006 match lifecycle & matchmaking        | `@europa/matchmaking`                      | ✅ Implemented |
 | 010 public lobby & match browser         | `@europa/matchmaking`/`@europa/networking`/`@europa/console` | ✅ Implemented |
+| 023 lobby presence roster                | `@europa/matchmaking`/`@europa/networking`/`@europa/console` | ✅ Implemented |
 | 013 semantic URL routing                  | `@europa/console`/host runtime                    | ⏳ Implementation in progress — final gates pending |
 
 An integration wave proved the full production path end-to-end: console UI ⇄ browser WebSocket client ⇄ match server ⇄ matchmaking-bound engine + terrain + fog, with two seats playing through the real wire protocol.
@@ -120,8 +121,9 @@ pnpm host
 both the console UI and the WebSocket match server on the same origin
 (`http://localhost:8080/` + `ws://localhost:8080`, FR-017: one `http.Server`,
 one `EXPOSE`, one port mapping, same-origin WS). The default is an empty
-public lobby at `/lobby`: choose a guest handle, create a game, or browse and
-join/spectate an available public match. It does not create a match at startup.
+public lobby at `/lobby`: choose a guest handle, create a game, browse and
+join/spectate an available public match, or see who is online in the
+**presence roster**. It does not create a match at startup.
 Use `pnpm host --create` for the explicit two-seat quick flow. The console also
 has a deterministic stub board when opened without a server, for renderer work
 only.

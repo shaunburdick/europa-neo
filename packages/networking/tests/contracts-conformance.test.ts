@@ -1,7 +1,7 @@
 /**
  * Contract Conformance Test — Feature 004 Polish (T050)
  *
- * Enforces the networking package's three contract-discipline rules:
+ * Enforces the networking package's contract-discipline rules:
  *
  *   (a) **Byte-identity** — every local contract copy under
  *       `src/contracts/` is BYTE-identical to its source-of-truth at
@@ -31,6 +31,14 @@
  *       + `lobby-types.md`) via an independent transcription pinned by
  *       mutual-assignability aliases, and the `LobbyEvent` variant set
  *       stays exhaustively classified.
+ *
+ *   (e) **Feature 023 roster wire conformance** — the additive roster
+ *       types (`RosterEntry`, `RosterStatus`, `RosterRevision`,
+ *       `RosterSnapshot`, `RosterChange`, `RosterDelta`) and the two
+ *       `LobbyEvent` roster variants declared in `network-types.ts`
+ *       stay structurally identical to the matchmaking package's local
+ *       mirrors. The roster contract is design-source-of-truth at
+ *       `specs/023-lobby-roster/contracts/roster-wire.md`.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -64,6 +72,12 @@ import type {
     OrderSubmissionPayload,
     PingPayload,
     PongPayload,
+    RosterChange,
+    RosterDelta,
+    RosterEntry,
+    RosterRevision,
+    RosterSnapshot,
+    RosterStatus,
     SnapshotPayload,
     TerminalPayload,
     TickBroadcastPayload,
@@ -97,6 +111,13 @@ function repoPath(relativePath: string): string {
  * witness.
  */
 type AssertMutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+
+/**
+ * Absence witness: `true` only when key `K` is NOT a property of `T`.
+ * Assigning `never` to a `true`-annotated const fails the program, so
+ * adding a forbidden field flips this from `true` to an error.
+ */
+type AssertKeyAbsent<K extends string, T> = K extends keyof T ? never : true;
 
 type OrderConforms = AssertMutuallyAssignable<Order, OrderReexport>;
 type MatchResultConforms = AssertMutuallyAssignable<MatchResult, MatchResultReexport>;
@@ -318,6 +339,30 @@ type DocLobbyErrorCode =
     | 'server_restarted'
     | 'internal_error';
 
+type DocRosterStatus = 'in_lobby' | 'in_game' | 'spectating';
+
+interface DocRosterEntry {
+    readonly handle: string;
+    readonly status: DocRosterStatus;
+}
+
+type DocRosterRevision = number & { readonly __brand: 'RosterRevision' };
+
+interface DocRosterSnapshot {
+    readonly revision: DocRosterRevision;
+    readonly players: ReadonlyArray<DocRosterEntry>;
+}
+
+interface DocRosterChange {
+    readonly handle: string;
+    readonly status: DocRosterStatus;
+}
+
+interface DocRosterDelta {
+    readonly revision: DocRosterRevision;
+    readonly changes: ReadonlyArray<DocRosterChange>;
+}
+
 type DocLobbyEvent =
     | { readonly kind: 'identity'; readonly identity: DocIdentityState }
     | { readonly kind: 'snapshot'; readonly snapshot: DocLobbySnapshot }
@@ -331,7 +376,9 @@ type DocLobbyEvent =
           // mirroring matchmaking's `LobbyError.detail` so clients can
           // render field-specific actionable text from code + detail.
           readonly detail?: Readonly<Record<string, string | number | boolean>>;
-      };
+      }
+    | { readonly kind: 'roster'; readonly roster: DocRosterSnapshot }
+    | { readonly kind: 'rosterDelta'; readonly delta: DocRosterDelta };
 
 /** Transcription of lobby-wire.md's eight payload shapes. */
 interface DocLobbyWireShapes {
@@ -406,8 +453,8 @@ type IdentityStateGuestIdConforms = AssertMutuallyAssignable<
 
 const IDENTITY_STATE_GUEST_ID_CONFORMS: IdentityStateGuestIdConforms = true;
 
-/** The four documented `LobbyEvent` variant kinds. */
-const LOBBY_EVENT_KINDS = ['identity', 'snapshot', 'actionAccepted', 'error'] as const;
+/** The six documented `LobbyEvent` variant kinds. */
+const LOBBY_EVENT_KINDS = ['identity', 'snapshot', 'actionAccepted', 'error', 'roster', 'rosterDelta'] as const;
 
 /**
  * Compile-time exhaustiveness guard over `LobbyEvent` variants: adding a
@@ -427,6 +474,10 @@ function lobbyEventKindLabel(event: LobbyEvent): string {
             return 'actionAccepted';
         case 'error':
             return 'error';
+        case 'roster':
+            return 'roster';
+        case 'rosterDelta':
+            return 'rosterDelta';
         default: {
             const unreachable: never = event;
             return unreachable;
@@ -457,7 +508,7 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
         expect(new Set(lobbyKinds).size).toBe(8);
     });
 
-    it('the LobbyEvent union is exhaustively classified over its four variants', () => {
+    it('the LobbyEvent union is exhaustively classified over its six variants', () => {
         const samples: ReadonlyArray<LobbyEvent> = [
             {
                 kind: 'identity',
@@ -485,6 +536,23 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
                 // error events (field-specific feedback, spec US3 AC-4).
                 detail: { handle: 'Nova' },
             },
+            {
+                kind: 'roster',
+                roster: {
+                    revision: 1 as RosterRevision,
+                    players: [
+                        { handle: 'Alice', status: 'in_lobby' },
+                        { handle: 'Bob', status: 'in_game' },
+                    ],
+                },
+            },
+            {
+                kind: 'rosterDelta',
+                delta: {
+                    revision: 2 as RosterRevision,
+                    changes: [{ handle: 'Alice', status: 'spectating' }],
+                },
+            },
         ];
         const labels = samples.map((event) => lobbyEventKindLabel(event));
         expect(labels).toEqual([...LOBBY_EVENT_KINDS]);
@@ -502,5 +570,70 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
         const identityStateKeys: ReadonlyArray<string> = ['handle', 'hasIdentity', 'guestPlayerId'];
         expect(claimKeys).toContain('guestPlayerId');
         expect(identityStateKeys).toContain('guestPlayerId');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// (e) Feature 023 roster wire conformance. The roster types declared in
+// `network-types.ts` are pinned against an INDEPENDENT transcription of
+// the design source of truth (`specs/023-lobby-roster/contracts/roster-wire.md`)
+// via mutual-assignability aliases. The six roster type names are also
+// verified structurally identical to the matchmaking package's local
+// mirror — drift between the two copies is caught here.
+// ---------------------------------------------------------------------------
+
+/** Per-type mutual assignability between networking's roster types and the doc transcription. */
+type RosterStatusConforms = AssertMutuallyAssignable<RosterStatus, DocRosterStatus>;
+type RosterEntryConforms = AssertMutuallyAssignable<RosterEntry, DocRosterEntry>;
+type RosterRevisionConforms = AssertMutuallyAssignable<RosterRevision, DocRosterRevision>;
+type RosterSnapshotConforms = AssertMutuallyAssignable<RosterSnapshot, DocRosterSnapshot>;
+type RosterChangeConforms = AssertMutuallyAssignable<RosterChange, DocRosterChange>;
+type RosterDeltaConforms = AssertMutuallyAssignable<RosterDelta, DocRosterDelta>;
+
+const ROSTER_STATUS_CONFORMS: RosterStatusConforms = true;
+const ROSTER_ENTRY_CONFORMS: RosterEntryConforms = true;
+const ROSTER_REVISION_CONFORMS: RosterRevisionConforms = true;
+const ROSTER_SNAPSHOT_CONFORMS: RosterSnapshotConforms = true;
+const ROSTER_CHANGE_CONFORMS: RosterChangeConforms = true;
+const ROSTER_DELTA_CONFORMS: RosterDeltaConforms = true;
+
+/**
+ * Roster types MUST carry exactly {handle, status} per entry — no
+ * opaque IDs, no match IDs, no tokens. This absence witness fails
+ * to compile if a forbidden field is added to `RosterEntry`.
+ */
+type RosterEntryHasNoMatchId = AssertKeyAbsent<'matchId', RosterEntry>;
+type RosterEntryHasNoToken = AssertKeyAbsent<'sessionToken', RosterEntry>;
+type RosterEntryHasNoPlayerId = AssertKeyAbsent<'playerId', RosterEntry>;
+
+const ROSTER_ENTRY_HAS_NO_MATCH_ID: RosterEntryHasNoMatchId = true;
+const ROSTER_ENTRY_HAS_NO_TOKEN: RosterEntryHasNoToken = true;
+const ROSTER_ENTRY_HAS_NO_PLAYER_ID: RosterEntryHasNoPlayerId = true;
+
+/**
+ * RosterChange MUST be structurally identical to RosterEntry (same
+ * {handle, status} shape) — the spec defines them as the same fields.
+ */
+type RosterChangeMatchesEntry = AssertMutuallyAssignable<RosterChange, RosterEntry>;
+const ROSTER_CHANGE_MATCHES_ENTRY: RosterChangeMatchesEntry = true;
+
+describe('feature 023 roster wire conformance', () => {
+    it('roster types conform to the roster-wire.md transcription', () => {
+        expect(ROSTER_STATUS_CONFORMS).toBe(true);
+        expect(ROSTER_ENTRY_CONFORMS).toBe(true);
+        expect(ROSTER_REVISION_CONFORMS).toBe(true);
+        expect(ROSTER_SNAPSHOT_CONFORMS).toBe(true);
+        expect(ROSTER_CHANGE_CONFORMS).toBe(true);
+        expect(ROSTER_DELTA_CONFORMS).toBe(true);
+    });
+
+    it('roster entries contain exactly {handle, status} — no match identity', () => {
+        expect(ROSTER_ENTRY_HAS_NO_MATCH_ID).toBe(true);
+        expect(ROSTER_ENTRY_HAS_NO_TOKEN).toBe(true);
+        expect(ROSTER_ENTRY_HAS_NO_PLAYER_ID).toBe(true);
+    });
+
+    it('RosterChange and RosterEntry are structurally identical', () => {
+        expect(ROSTER_CHANGE_MATCHES_ENTRY).toBe(true);
     });
 });

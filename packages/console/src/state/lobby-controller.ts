@@ -34,7 +34,7 @@
  * the server remains authoritative for identity and seat resolution.
  */
 
-import type { LobbySnapshot } from '@europa/matchmaking';
+import type { LobbySnapshot, RosterSnapshot } from '@europa/matchmaking';
 import type { LobbyMatchSettings } from '@europa/networking';
 
 import { LobbyActionRejectedError, type LobbyErrorReport, type WsLobbyClient } from '../net/ws-lobby-client';
@@ -67,6 +67,7 @@ export type LobbyTransport = Pick<
     | 'onStateChange'
     | 'onIdentity'
     | 'onSnapshot'
+    | 'onRoster'
     | 'onError'
 >;
 
@@ -231,6 +232,16 @@ export function createLobbyController(args: LobbyControllerArgs): LobbyControlle
                 kind: 'lobbyFailureReported',
                 failure: { source: 'server', code: report.code, message: report.message, detail: report.detail },
             });
+        }),
+    );
+
+    // T-037: wire roster events to dispatch. The transport's onRoster
+    // handler receives the FULL current roster snapshot (after delta
+    // merge on the transport side), so we dispatch the snapshot action
+    // which replaces the roster state wholesale.
+    track(
+        transport.onRoster((snapshot: RosterSnapshot) => {
+            store.dispatch({ kind: 'lobbyRosterSnapshot', snapshot });
         }),
     );
 

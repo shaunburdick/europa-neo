@@ -263,6 +263,60 @@ export interface LobbyError {
 // Lobby events (server → browser push channel)
 // ----------------------------------------------------------------------------
 
+// ----------------------------------------------------------------------------
+// Lobby roster types (feature 023 — lobby roster)
+// ----------------------------------------------------------------------------
+
+/**
+ * Player status in the lobby roster (feature 023 FR-009).
+ * Derived from seat/spectator association:
+ * `in_game` > `spectating` > `in_lobby`.
+ */
+export type RosterStatus = 'in_lobby' | 'in_game' | 'spectating';
+
+/**
+ * A single entry in the lobby roster. Exactly `{handle, status}` —
+ * no opaque IDs, no match IDs, no tokens. The server never emits
+ * anything else (feature 023).
+ */
+export interface RosterEntry {
+    readonly handle: string;
+    readonly status: RosterStatus;
+}
+
+/**
+ * Monotonic roster revision counter. Starts at 1, increments by 1
+ * for every roster mutation. NEVER resets — not on server restart,
+ * not on any lifecycle event (feature 023 FR-004).
+ */
+export type RosterRevision = number & { readonly __brand: 'RosterRevision' };
+
+/**
+ * Full roster snapshot. Sent on subscribe and periodically.
+ */
+export interface RosterSnapshot {
+    readonly revision: RosterRevision;
+    readonly players: ReadonlyArray<RosterEntry>;
+}
+
+/**
+ * A single roster change (addition or status update).
+ * Deltas do NOT carry explicit removals — removals are confirmed
+ * by subsequent full snapshots (feature 023 FR-003).
+ */
+export interface RosterChange {
+    readonly handle: string;
+    readonly status: RosterStatus;
+}
+
+/**
+ * Incremental roster update. Carries changes since the last broadcast.
+ */
+export interface RosterDelta {
+    readonly revision: RosterRevision;
+    readonly changes: ReadonlyArray<RosterChange>;
+}
+
 /**
  * One server-pushed lobby event. Discriminated on `kind` (string
  * discriminator, additive-friendly — mirrors networking's envelope
@@ -320,4 +374,6 @@ export type LobbyEvent =
            * needs no specifics or an older server sent none.
            */
           readonly detail?: Readonly<Record<string, string | number | boolean>>;
-      };
+      }
+    | { readonly kind: 'roster'; readonly roster: RosterSnapshot }
+    | { readonly kind: 'rosterDelta'; readonly delta: RosterDelta };

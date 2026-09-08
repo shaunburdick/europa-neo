@@ -81,6 +81,10 @@ import type {
     LobbyRevision,
     LobbySnapshot,
     MatchId,
+    RosterDelta,
+    RosterEntry,
+    RosterRevision,
+    RosterSnapshot,
 } from '@europa/matchmaking';
 import type { LobbyMatchSettings, NetworkPayload, ProtocolEnvelope, SequenceNumber } from '@europa/networking';
 import { encodeFrame, NETWORK_API_VERSION, tryDecodeFrame, validateVersion } from '@europa/networking/browser';
@@ -117,6 +121,13 @@ const SOCKET_CLOSE_NORMAL = 1000;
 const SOCKET_CLOSE_PROTOCOL_ERROR = 1008;
 /** Backoff growth factor (classic exponential doubling). */
 const BACKOFF_MULTIPLIER = 2;
+/**
+ * Timeout (ms) after subscribe before the roster is considered
+ * degraded (feature 023 FR-016, US5 AC-1). If no full roster
+ * snapshot arrives within this window, the roster state is marked
+ * as disconnected so the UI can display "Presence unavailable".
+ */
+const DEFAULT_ROSTER_DEGRADED_TIMEOUT_MS = 5_000;
 
 // ----------------------------------------------------------------------------
 // Public types
@@ -159,6 +170,10 @@ export interface WsLobbyClientState {
     readonly lastAppliedRevision: LobbyRevision | null;
     /** Current retry attempt index (0 while connected). */
     readonly reconnectAttempt: number;
+    /** Current roster entries in deterministic order (feature 023 T-029). */
+    readonly roster: ReadonlyArray<RosterEntry>;
+    /** Last-applied roster revision, or `null` before the first snapshot. */
+    readonly rosterRevision: RosterRevision | null;
 }
 
 /**
@@ -236,6 +251,11 @@ export interface WsLobbyClientOptions {
     readonly autoReconnect?: boolean;
     /** Test seam: claim-id minting. Defaults to Web Crypto (see lobby-storage). */
     readonly claimIdFactory?: () => GuestPlayerId;
+    /**
+     * Timeout (ms) after subscribe before the roster is considered
+     * degraded. Default {@link DEFAULT_ROSTER_DEGRADED_TIMEOUT_MS}.
+     */
+    readonly rosterDegradedTimeoutMs?: number;
 }
 
 /**
@@ -278,6 +298,12 @@ export interface WsLobbyClient {
     onIdentity(handler: (identity: IdentityState) => void): () => void;
     /** Subscribe to APPLIED (revision-gated) snapshots; returns the unsubscribe function. */
     onSnapshot(handler: (snapshot: LobbySnapshot) => void): () => void;
+    /**
+     * Subscribe to roster updates (full snapshots and merged deltas);
+     * returns the unsubscribe function. The handler receives the
+     * CURRENT roster entries after the event has been applied.
+     */
+    onRoster(handler: (snapshot: RosterSnapshot) => void): () => void;
     /** Subscribe to uncorrelated actionable errors; returns the unsubscribe function. */
     onError(handler: (report: LobbyErrorReport) => void): () => void;
 }
@@ -396,6 +422,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     const reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? DEFAULT_RECONNECT_MAX_DELAY_MS;
     const maxReconnectAttempts = options.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
     const autoReconnect = options.autoReconnect ?? true;
+    const rosterDegradedTimeoutMs = options.rosterDegradedTimeoutMs ?? DEFAULT_ROSTER_DEGRADED_TIMEOUT_MS;
     const newSocket =
         options.webSocketFactory ??
         ((url: string) => {
@@ -434,6 +461,12 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     let snapshotState: LobbySnapshot | null = null;
     let lastAppliedRevision: LobbyRevision | null = null;
 
+    /** Roster state (feature 023 T-029). */
+    let rosterEntries: ReadonlyArray<RosterEntry> = [];
+    let lastRosterRevision: RosterRevision | null = null;
+    /** Handle for the degraded-roster timeout timer (T-030). */
+    let rosterDegradedTimer: unknown;
+
     const pendingActions = new Map<LobbyActionId, PendingAction>();
     let connectResolve: (() => void) | null = null;
     let connectReject: ((error: Error) => void) | null = null;
@@ -441,6 +474,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     const stateHandlers = new Set<(state: LobbyConnectionState) => void>();
     const identityHandlers = new Set<(identity: IdentityState) => void>();
     const snapshotHandlers = new Set<(snapshot: LobbySnapshot) => void>();
+    const rosterHandlers = new Set<(snapshot: RosterSnapshot) => void>();
     const errorHandlers = new Set<(report: LobbyErrorReport) => void>();
 
     // -- Logging + privacy choke point ------------------------------------------
@@ -678,6 +712,32 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         }
     }
 
+    function stopRosterDegradedTimer(): void {
+        if (rosterDegradedTimer !== undefined) {
+            scheduler.clearTimeout(rosterDegradedTimer);
+            rosterDegradedTimer = undefined;
+        }
+    }
+
+    /**
+     * Arm the degraded-roster timeout. If no full roster snapshot
+     * arrives within the window, mark the roster as disconnected
+     * (T-030). Arms after subscribe; cleared on the first full
+     * roster snapshot.
+     */
+    function armRosterDegradedTimer(): void {
+        stopRosterDegradedTimer();
+        rosterDegradedTimer = scheduler.setTimeout(() => {
+            rosterDegradedTimer = undefined;
+            if (lastRosterRevision === null) {
+                // Still no snapshot — degrade.
+                log('warn', 'roster degraded: no snapshot within timeout', {});
+                rosterEntries = [];
+                notifyRosterHandlers();
+            }
+        }, rosterDegradedTimeoutMs);
+    }
+
     /** Exponential backoff: `base * 2^(attempt-1)`, capped. Deterministic (no jitter). */
     function backoffDelayMs(attempt: number): number {
         const raw = reconnectBaseDelayMs * BACKOFF_MULTIPLIER ** (attempt - 1);
@@ -838,6 +898,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         attemptEpoch += 1;
         stopEstablishTimer();
         stopHeartbeat();
+        stopRosterDegradedTimer();
         greeted = false;
         phase = null;
         flushPendings(error);
@@ -890,6 +951,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         phase = null;
         stopEstablishTimer();
         stopHeartbeat();
+        stopRosterDegradedTimer();
         greeted = false;
         setState('failed');
     }
@@ -965,6 +1027,12 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             case 'error':
                 handleLobbyError(event);
                 return;
+            case 'roster':
+                applyRosterSnapshot(event.roster);
+                return;
+            case 'rosterDelta':
+                applyRosterDelta(event.delta);
+                return;
             default:
                 // Unrecognized additive variant: ignored (tolerance rule).
                 return;
@@ -1035,6 +1103,11 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         // server's current snapshot whatever its revision — this is
         // what makes a RESTARTED server's low revisions applicable.
         lastAppliedRevision = null;
+        // T-028: reset roster revision baseline so the new server's
+        // fresh snapshot is adopted instead of being starved.
+        lastRosterRevision = null;
+        rosterEntries = [];
+        armRosterDegradedTimer();
         void sendCorrelatedAction<void>('lobbySubscribe', (actionId) => ({ actionId }), 'subscribe', {
             requireReady: false,
         })
@@ -1073,6 +1146,85 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         // The first snapshot after subscribe IS the subscribe answer
         // (the wire snapshot carries no actionId of its own).
         settleFirstPending('subscribe', { ok: true, value: undefined });
+    }
+
+    // -- Roster event handling (feature 023 T-026/T-027/T-028) -------
+
+    /**
+     * Build a synthetic RosterSnapshot from the current local roster
+     * state for handler notification.
+     */
+    function buildCurrentRosterSnapshot(): RosterSnapshot {
+        return {
+            revision: (lastRosterRevision ?? 0) as RosterRevision,
+            players: rosterEntries,
+        };
+    }
+
+    /** Notify all roster handlers with the current roster state. */
+    function notifyRosterHandlers(): void {
+        const snapshot = buildCurrentRosterSnapshot();
+        for (const handler of rosterHandlers) {
+            handler(snapshot);
+        }
+    }
+
+    /**
+     * Apply a full roster snapshot: replaces local roster state
+     * unconditionally (T-026, FR-003/FR-005). Clears the degraded
+     * timer on the first full snapshot.
+     */
+    function applyRosterSnapshot(snapshot: RosterSnapshot): void {
+        // T-028: discard snapshots with revision ≤ last-seen.
+        if (lastRosterRevision !== null && snapshot.revision <= lastRosterRevision) {
+            log('debug', 'stale roster snapshot discarded', {
+                received: snapshot.revision,
+                applied: lastRosterRevision,
+            });
+            return;
+        }
+        lastRosterRevision = snapshot.revision;
+        rosterEntries = snapshot.players;
+        stopRosterDegradedTimer();
+        log('debug', 'roster snapshot applied', {
+            revision: snapshot.revision,
+            entries: snapshot.players.length,
+        });
+        notifyRosterHandlers();
+    }
+
+    /**
+     * Merge a roster delta into local state (T-027, FR-003). Each
+     * change replaces the matching entry (by handle) or adds a new
+     * one. Absent handles are NOT removed — stale entries persist
+     * until the next full snapshot.
+     */
+    function applyRosterDelta(delta: RosterDelta): void {
+        // T-028: discard deltas with revision ≤ last-seen.
+        if (lastRosterRevision !== null && delta.revision <= lastRosterRevision) {
+            log('debug', 'stale roster delta discarded', {
+                received: delta.revision,
+                applied: lastRosterRevision,
+            });
+            return;
+        }
+        lastRosterRevision = delta.revision;
+        // Merge each change into the local roster.
+        const next = [...rosterEntries];
+        for (const change of delta.changes) {
+            const idx = next.findIndex((e) => e.handle === change.handle);
+            if (idx >= 0) {
+                next[idx] = change;
+            } else {
+                next.push(change);
+            }
+        }
+        rosterEntries = next;
+        log('debug', 'roster delta applied', {
+            revision: delta.revision,
+            changes: delta.changes.length,
+        });
+        notifyRosterHandlers();
     }
 
     /**
@@ -1176,6 +1328,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             stopReconnectTimer();
             stopEstablishTimer();
             stopHeartbeat();
+            stopRosterDegradedTimer();
             greeted = false;
             phase = null;
             flushPendings(new LobbyTransportError('ws-lobby-client: disconnected locally'));
@@ -1246,6 +1399,8 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 snapshot: snapshotState,
                 lastAppliedRevision,
                 reconnectAttempt,
+                roster: rosterEntries,
+                rosterRevision: lastRosterRevision,
             };
         },
 
@@ -1267,6 +1422,13 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             snapshotHandlers.add(handler);
             return () => {
                 snapshotHandlers.delete(handler);
+            };
+        },
+
+        onRoster(handler: (snapshot: RosterSnapshot) => void): () => void {
+            rosterHandlers.add(handler);
+            return () => {
+                rosterHandlers.delete(handler);
             };
         },
 

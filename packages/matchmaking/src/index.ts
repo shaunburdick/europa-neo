@@ -144,6 +144,12 @@ export type {
     LobbySnapshot,
     LobbyStatus,
     PublicLobbyEntry,
+    RosterChange,
+    RosterDelta,
+    RosterEntry,
+    RosterRevision,
+    RosterSnapshot,
+    RosterStatus,
 } from './contracts/lobby-types';
 
 export { makeError } from './errors';

@@ -84,6 +84,7 @@ export const INITIAL_LOBBY_STATE: LobbyState = {
     superseded: false,
     failure: null,
     deepLinkInterstitial: null,
+    roster: { players: [], revision: null, connected: false },
 };
 
 /** Session-level failure payload for the terminal `'failed'` connection state. */
@@ -166,12 +167,25 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                 return { ...state, connection: action.connection, failure: null };
             }
             if (action.connection === 'failed') {
-                return { ...state, connection: action.connection, failure: CONNECTION_FAILED_FAILURE };
+                return {
+                    ...state,
+                    connection: action.connection,
+                    failure: CONNECTION_FAILED_FAILURE,
+                    roster: { players: [], revision: null, connected: false },
+                };
             }
             if (action.connection === 'disconnected') {
                 return { ...state, connection: action.connection, failure: CONNECTION_LOST_FAILURE };
             }
-            // idle/connecting/reconnecting/closed: transient or explicit;
+            if (action.connection === 'idle') {
+                // T-036: reset roster on idle (explicit disconnect / fresh start).
+                return {
+                    ...state,
+                    connection: action.connection,
+                    roster: { players: [], revision: null, connected: false },
+                };
+            }
+            // connecting/reconnecting/closed: transient or explicit;
             // neither sets nor clears a failure banner.
             return { ...state, connection: action.connection };
         }
@@ -260,5 +274,37 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                 ...state,
                 deepLinkInterstitial: null,
             };
+
+        // -- Roster (feature 023 T-035) -----------------------------------
+        case 'lobbyRosterSnapshot':
+            return {
+                ...state,
+                roster: {
+                    players: action.snapshot.players,
+                    revision: action.snapshot.revision,
+                    connected: true,
+                },
+            };
+
+        case 'lobbyRosterDelta': {
+            // Merge delta changes into the existing roster entries.
+            const next = [...state.roster.players];
+            for (const change of action.delta.changes) {
+                const idx = next.findIndex((e) => e.handle === change.handle);
+                if (idx >= 0) {
+                    next[idx] = change;
+                } else {
+                    next.push(change);
+                }
+            }
+            return {
+                ...state,
+                roster: {
+                    players: next,
+                    revision: action.delta.revision,
+                    connected: true,
+                },
+            };
+        }
     }
 }

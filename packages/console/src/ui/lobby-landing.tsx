@@ -41,6 +41,7 @@ import { BrandedFooter } from './branded-footer';
 import { LobbyCreateForm, type LobbyCreateFormValues } from './lobby-create-form';
 import { connectionLabel, describeSnapshotChange } from './lobby-labels';
 import { LobbyMatchList } from './lobby-match-list';
+import { RosterCard } from './lobby-roster-card';
 
 /** Props for {@link LobbyLanding}. */
 export interface LobbyLandingProps {
@@ -310,6 +311,7 @@ export function LobbyLanding({
                             actionStatus={state.actions.createMatch}
                             onCreate={onCreate}
                         />
+                        <RosterCard roster={state.roster} ownHandle={state.handle} />
                     </div>
                     <LobbyMatchList
                         entries={entries}
@@ -321,11 +323,11 @@ export function LobbyLanding({
                         onSpectate={onSpectate}
                     />
                 </div>
-            </main>
-            {/* Branded footer (spec 012 addendum T-031, FR-023): the single
+                {/* Branded footer (spec 012 addendum T-031, FR-023): the single
            shared home for the app name + version + GitHub link, mounted at
            the lobby view root so it appears on every landing state. */}
-            <BrandedFooter />
+                <BrandedFooter />
+            </main>
         </>
     );
 }

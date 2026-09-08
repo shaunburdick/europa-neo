@@ -1358,9 +1358,18 @@ describe('lobby transport integration (feature 010 T-013)', () => {
         const bobId = adoptedId(bob);
         const dianaId = adoptedId(diana);
 
-        // Participant handles do not ride the lobby projection.
-        expect(dianaStream.includes('Alice')).toBe(false);
-        expect(dianaStream.includes('Bob')).toBe(false);
+        // Participant handles do not ride the lobby projection EXCEPT
+        // through roster events, which legitimately broadcast handles to
+        // all lobby subscribers (feature 023). Strip roster events before
+        // scanning the raw wire stream for identity leakage.
+        const stripRoster = (text: string): string =>
+            text
+                .split('\n')
+                .filter((line) => !line.includes('"kind":"roster"') && !line.includes('"kind":"rosterDelta"'))
+                .join('\n');
+        const dianaNonRoster = stripRoster(dianaStream);
+        expect(dianaNonRoster.includes('Alice')).toBe(false);
+        expect(dianaNonRoster.includes('Bob')).toBe(false);
 
         // Positive correlation: each stream carries its owner's ID on the
         // directed identity channel. IDs are non-secret reference data.

@@ -477,7 +477,7 @@ export function App({
             : { x: 0.5, y: 0.5 };
 
     return (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             {/* Skip link is the first Tab stop (WCAG 2.4.1 Bypass Blocks;
           Q-A04 order: skip-link → map → hud → order-bar[US2]). The id
           matches KeyboardNavigator's TabbableRegion id. */}
@@ -658,6 +658,6 @@ export function App({
            view (the former HUD version span was consolidated into this). */}
             <BrandedFooter />
             <div ref={liveHostRef} />
-        </>
+        </div>
     );
 }
