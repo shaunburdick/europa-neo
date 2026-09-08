@@ -172,7 +172,7 @@ export function LobbyLanding({
     const entries = state.snapshot?.entries ?? [];
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <>
             {/* Skip link is the first Tab stop (WCAG 2.4.1), mirroring
           the match view's contract. */}
             <a id="skip-link" className="skip-link" href="#main">
@@ -323,11 +323,11 @@ export function LobbyLanding({
                         onSpectate={onSpectate}
                     />
                 </div>
-            </main>
-            {/* Branded footer (spec 012 addendum T-031, FR-023): the single
+                {/* Branded footer (spec 012 addendum T-031, FR-023): the single
            shared home for the app name + version + GitHub link, mounted at
            the lobby view root so it appears on every landing state. */}
-            <BrandedFooter />
-        </div>
+                <BrandedFooter />
+            </main>
+        </>
     );
 }

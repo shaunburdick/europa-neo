@@ -719,6 +719,7 @@ body {
     margin: 0 auto;
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
     gap: var(--europa-spacing-lg);
     padding: 1.5rem var(--europa-spacing-lg) 3rem;
 }
