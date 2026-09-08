@@ -48,7 +48,8 @@ You see only what your troops can sense: a band of surrounding cells moves with 
 10. [Fog of war — what you can and cannot see](./fog-of-war.md)
 11. [Controls — complete pointer and keyboard reference](./controls.md)
 12. [Reading the screen — lobby, match HUD, and status meanings](./reading-the-screen.md)
-13. [Numbers — every shipped tunable in one auditable table](./numbers.md)
+13. [The roster — who is online, status meanings, real-time updates](./roster.md)
+14. [Numbers — every shipped tunable in one auditable table](./numbers.md)
 
 New players should read [Lobby](./lobby.md), [Quick start](./quick-start.md), and [Objective](./objective.md) first; keep [Controls](./controls.md) open in a second tab during your first match.
 

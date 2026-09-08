@@ -7,7 +7,7 @@
 **Last Updated**: 2026-09-08
 **Version**: 1.0
 
-**Status**: Draft
+**Status**: Implemented (2026-09-08)
 
 **Input**: GitHub issue #28 — add a presence roster to the lobby showing every active player's handle and current status.
 

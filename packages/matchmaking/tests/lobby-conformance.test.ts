@@ -70,6 +70,12 @@ import type {
     IdentityState as WireIdentityState,
     LobbyEvent as WireLobbyEvent,
     PublicLobbyEntry as WirePublicLobbyEntry,
+    RosterChange as WireRosterChange,
+    RosterDelta as WireRosterDelta,
+    RosterEntry as WireRosterEntry,
+    RosterRevision as WireRosterRevision,
+    RosterSnapshot as WireRosterSnapshot,
+    RosterStatus as WireRosterStatus,
 } from '@europa/networking';
 // Terrain's authoritative generation settings — the declaration the
 // feature-010 wire mirror must stay identical to (see (d) below).
@@ -196,7 +202,7 @@ type CodeTableCoversUnionExactly = AssertMutuallyAssignable<
 const CODE_TABLE_COVERS_UNION_EXACTLY: CodeTableCoversUnionExactly = true;
 
 /**
- * Exhaustive witness for the `LobbyEvent` union: each of the four
+ * Exhaustive witness for the `LobbyEvent` union: each of the six
  * documented kinds must be handled, so adding or removing a variant
  * without updating this switch fails the program (the `never` guard
  * collapses).
@@ -211,6 +217,10 @@ function lobbyEventWitness(event: LobbyTypes.LobbyEvent): string {
             return `accepted:${event.actionId}:${event.transition}`;
         case 'error':
             return `error:${event.code}${event.actionId === undefined ? '' : `:${event.actionId}`}`;
+        case 'roster':
+            return `roster:${event.roster.revision}:${event.roster.players.length}`;
+        case 'rosterDelta':
+            return `rosterDelta:${event.delta.revision}:${event.delta.changes.length}`;
         default: {
             const unreachable: never = event;
             return unreachable;
@@ -346,6 +356,24 @@ type IdentityStateGuestIdMirrors = AssertMutuallyAssignable<
     WireIdentityState['guestPlayerId']
 >;
 const IDENTITY_STATE_GUEST_ID_MIRRORS: IdentityStateGuestIdMirrors = true;
+
+// Cross-package roster-mirror conformance (feature 023): matchmaking
+// declares roster types locally (`src/contracts/lobby-types.ts`) so
+// the facade stays type-only toward upstream at runtime, but
+// structurally they are MIRRORS of networking's canonical wire
+// declarations. Drift in EITHER direction fails this program.
+type WireRosterStatusMirrorConforms = AssertMutuallyAssignable<LobbyTypes.RosterStatus, WireRosterStatus>;
+type WireRosterEntryMirrorConforms = AssertMutuallyAssignable<LobbyTypes.RosterEntry, WireRosterEntry>;
+type WireRosterRevisionMirrorConforms = AssertMutuallyAssignable<LobbyTypes.RosterRevision, WireRosterRevision>;
+type WireRosterSnapshotMirrorConforms = AssertMutuallyAssignable<LobbyTypes.RosterSnapshot, WireRosterSnapshot>;
+type WireRosterChangeMirrorConforms = AssertMutuallyAssignable<LobbyTypes.RosterChange, WireRosterChange>;
+type WireRosterDeltaMirrorConforms = AssertMutuallyAssignable<LobbyTypes.RosterDelta, WireRosterDelta>;
+const WIRE_ROSTER_STATUS_MIRROR_CONFORMS: WireRosterStatusMirrorConforms = true;
+const WIRE_ROSTER_ENTRY_MIRROR_CONFORMS: WireRosterEntryMirrorConforms = true;
+const WIRE_ROSTER_REVISION_MIRROR_CONFORMS: WireRosterRevisionMirrorConforms = true;
+const WIRE_ROSTER_SNAPSHOT_MIRROR_CONFORMS: WireRosterSnapshotMirrorConforms = true;
+const WIRE_ROSTER_CHANGE_MIRROR_CONFORMS: WireRosterChangeMirrorConforms = true;
+const WIRE_ROSTER_DELTA_MIRROR_CONFORMS: WireRosterDeltaMirrorConforms = true;
 
 // ---------------------------------------------------------------------------
 // (e) Privacy envelope (bearer credentials / authority fields in projections)
@@ -590,6 +618,20 @@ const SAMPLE_EVENTS: ReadonlyArray<LobbyTypes.LobbyEvent> = [
         transition: 'waiting',
     },
     { kind: 'error', code: 'match_full', message: 'the last open seat was claimed' },
+    {
+        kind: 'roster',
+        roster: {
+            revision: 1 as LobbyTypes.RosterRevision,
+            players: [{ handle: 'Alice', status: 'in_lobby' }],
+        },
+    },
+    {
+        kind: 'rosterDelta',
+        delta: {
+            revision: 2 as LobbyTypes.RosterRevision,
+            changes: [{ handle: 'Alice', status: 'in_game' }],
+        },
+    },
 ];
 
 describe('feature 010 lobby contract witnesses (T-001)', () => {
@@ -631,6 +673,12 @@ describe('feature 010 lobby contract witnesses (T-001)', () => {
         expect(SPECTATOR_TARGET_HAS_NO_TOKEN).toBe(true);
         expect(SPECTATOR_TARGET_HAS_NO_SEAT).toBe(true);
         expect(SPECTATOR_TARGET_HAS_NO_PLAYER_ID).toBe(true);
+        expect(WIRE_ROSTER_STATUS_MIRROR_CONFORMS).toBe(true);
+        expect(WIRE_ROSTER_ENTRY_MIRROR_CONFORMS).toBe(true);
+        expect(WIRE_ROSTER_REVISION_MIRROR_CONFORMS).toBe(true);
+        expect(WIRE_ROSTER_SNAPSHOT_MIRROR_CONFORMS).toBe(true);
+        expect(WIRE_ROSTER_CHANGE_MIRROR_CONFORMS).toBe(true);
+        expect(WIRE_ROSTER_DELTA_MIRROR_CONFORMS).toBe(true);
     });
 
     it('the error-code table covers exactly the ten documented codes', () => {
@@ -643,6 +691,8 @@ describe('feature 010 lobby contract witnesses (T-001)', () => {
             'snapshot:1:0',
             'accepted:1:waiting',
             'error:match_full',
+            'roster:1:1',
+            'rosterDelta:2:1',
         ]);
     });
 });
