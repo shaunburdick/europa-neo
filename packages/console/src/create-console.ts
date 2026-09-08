@@ -18,7 +18,7 @@
  * contracts/console-api.ts.
  */
 
-import type { Console, ConsoleConfig, ConsoleDeps } from '../contracts/console-api';
+import type { Console, ConsoleConfig, ConsoleDeps } from './contracts/console-api';
 import { ConsoleRuntime } from './runtime';
 import type {
     ActionId,

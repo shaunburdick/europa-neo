@@ -133,13 +133,13 @@
         },
         {
             // Contract mirror formatting is protected by byte-identity tests.
-            "includes": ["contracts/**"],
+            "includes": ["src/contracts/**"],
             "formatter": { "enabled": false },
             "assist": { "actions": { "source": { "organizeImports": "off" } } }
         },
         {
             // QoLSettings preserves the public contract's established acronym spelling.
-            "includes": ["contracts/console-types.ts"],
+            "includes": ["src/contracts/console-types.ts"],
             "linter": {
                 "rules": {
                     "style": {
@@ -152,9 +152,9 @@
         {
             // Contract mirrors retain upstream array and import shapes verbatim.
             "includes": [
-                "contracts/console-api.ts",
-                "contracts/console-state.ts",
-                "contracts/console-to-networking.ts"
+                "src/contracts/console-api.ts",
+                "src/contracts/console-state.ts",
+                "src/contracts/console-to-networking.ts"
             ],
             "linter": {
                 "rules": {

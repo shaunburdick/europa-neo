@@ -37,6 +37,7 @@
 import { createElement, type JSX, StrictMode, useSyncExternalStore } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
+import { LiveRegionAnnouncer } from './a11y/live-region';
 import {
     type ConsoleConfig,
     type ConsoleDeps,
@@ -45,8 +46,7 @@ import {
     type ConsoleRuntime as ConsoleRuntimeContract,
     type ConsoleSoundPlayer,
     NULL_LOGGER,
-} from '../contracts/console-api';
-import { LiveRegionAnnouncer } from './a11y/live-region';
+} from './contracts/console-api';
 import { createConsoleClient } from './net/client';
 import { App } from './render/App';
 import { ErrorBoundary } from './render/ErrorBoundary';

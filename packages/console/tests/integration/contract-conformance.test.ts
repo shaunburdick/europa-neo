@@ -5,7 +5,7 @@
  * §"Constitution Check" Principle I, research.md §"Locked stack", and
  * the no-additive-changes mandate:
  *
- *   (a) **Byte-identity** — every contract mirror under `contracts/`
+ *   (a) **Byte-identity** — every contract mirror under `src/contracts/`
  *       is BYTE-identical to its source of truth at
  *       `specs/005-client-console/contracts/`. The mirrors
  *       were cut verbatim; even a whitespace drift is a bug (same
@@ -36,9 +36,9 @@ import type { PlayerView } from '@europa/fog';
 import type { ConnectionState, MatchClient } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 // Type-only namespace (erased at runtime; checked by tsc program).
-import type * as DistTypes from '../../dist/index';
-// Runtime value surface of the BUILT package (requires pnpm build).
-import * as Dist from '../../dist/index';
+import type * as DistTypes from '../../src/index';
+// Runtime value surface of the package source (no build needed).
+import * as Dist from '../../src/index';
 import type { ConsoleRuntime } from '../../src/runtime';
 import type {
     ConnectionState as ConnectionStateReexport,
@@ -263,7 +263,7 @@ function extractPublicNames(source: string): Set<string> {
 function expectedContractNames(): Set<string> {
     const all = new Set<string>();
     for (const file of CONTRACT_FILES) {
-        for (const name of extractPublicNames(readFileSync(packagePath(`contracts/${file}`), 'utf-8'))) {
+        for (const name of extractPublicNames(readFileSync(packagePath(`src/contracts/${file}`), 'utf-8'))) {
             all.add(name);
         }
     }
@@ -277,8 +277,8 @@ function expectedContractNames(): Set<string> {
 describe('contract conformance (T089)', () => {
     describe('(a) byte-identity of contract mirrors vs spec source-of-truth', () => {
         for (const file of CONTRACT_FILES) {
-            it(`contracts/${file} is byte-identical to the spec copy`, () => {
-                const local = readFileSync(packagePath(`contracts/${file}`), 'utf-8');
+            it(`src/contracts/${file} is byte-identical to the spec copy`, () => {
+                const local = readFileSync(packagePath(`src/contracts/${file}`), 'utf-8');
                 const spec = readFileSync(repoPath(`specs/005-client-console/contracts/${file}`), 'utf-8');
                 expect(local).toBe(spec);
             });

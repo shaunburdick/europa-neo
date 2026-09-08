@@ -38,6 +38,11 @@ describe('shouldSkipFile()', () => {
         expect(shouldSkipFile('docs/manual/assets/brand/site.webmanifest')).toBe(true);
     });
 
+    it('excludes contract mirrors (byte-identical spec source-of-truth)', () => {
+        expect(shouldSkipFile('packages/console/src/contracts/console-types.ts')).toBe(true);
+        expect(shouldSkipFile('packages/console/src/contracts/console-api.ts')).toBe(true);
+    });
+
     it('does NOT exclude non-brand assets under docs/manual/', () => {
         expect(shouldSkipFile('docs/manual/assets/some-file.svg')).toBe(false);
         expect(shouldSkipFile('docs/manual/images/logo.png')).toBe(false);

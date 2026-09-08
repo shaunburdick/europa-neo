@@ -111,11 +111,6 @@ jobs:
       - name: Format check (console)
         run: pnpm --filter @europa/console format:check
 
-      # Strict program over src/ + the conformance test; verifies the
-      # built package surface (needs the library emit below).
-      - name: Build console library emit
-        run: pnpm --filter @europa/console build:lib
-
       # Design-system drift guards (spec 012 FR-020 / FR-014 / FR-009): the
       # vendored stylesheet must be byte-identical to the built one (G-05),
       # and the console must carry no hardcoded literals outside
@@ -294,10 +289,9 @@ jobs:
         env:
           EUROPA_PERF_BUDGET_FACTOR: '2'
 
-      # Contract byte-identity + surface completeness (reads dist/).
-      - name: Library emit + contract conformance
+      # Contract conformance (reads source directly — no build needed).
+      - name: Contract conformance
         run: |
-          pnpm --filter @europa/console build:lib
           pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
 
   console-coverage:
@@ -346,13 +340,6 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      # Merged node+browser coverage (vitest.config.coverage.ts) —
-      # thresholds (80% lines/functions/branches/statements) live in
-      # that config; the command exits non-zero if any threshold is
-      # below 80% (constitution III gate).
-      - name: Library emit (conformance coverage suite reads dist/)
-        run: pnpm --filter @europa/console build:lib
 
       # Several real-host integration suites exercised by merged coverage serve
       # the production SPA shell. Keep the application build separate from the

@@ -101,6 +101,11 @@ export function shouldSkipFile(relPath: string): boolean {
     if (relPath.startsWith('docs/manual/assets/brand/')) {
         return true;
     }
+    // Contract mirrors — hex color constants are byte-identical spec
+    // source-of-truth values, not styling decisions
+    if (relPath.includes('contracts/')) {
+        return true;
+    }
     return false;
 }
 

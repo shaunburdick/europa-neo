@@ -19,7 +19,7 @@
  *   - reconnectBackoffBaseMs 500 · reconnectBackoffCapMs 30000
  */
 
-export { CONSOLE_CONSTANTS } from '../contracts/console-api';
+export { CONSOLE_CONSTANTS } from './contracts/console-api';
 
 export {
     CONSOLE_API_VERSION,
@@ -29,4 +29,4 @@ export {
     DEFAULT_QOL_SETTINGS,
     SPECTATOR_COLOR,
     SUBCELL_RANGE,
-} from '../contracts/console-types';
+} from './contracts/console-types';

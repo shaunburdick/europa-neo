@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { ConsoleConfig, ConsoleDeps } from '../../contracts/console-api';
+import type { ConsoleConfig, ConsoleDeps } from '../../src/contracts/console-api';
 import { createConsole } from '../../src/create-console';
 import { createConsoleClient } from '../../src/net/client';
 import { ConsoleRuntime } from '../../src/runtime';
