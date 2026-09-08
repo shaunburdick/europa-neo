@@ -38,7 +38,7 @@
     "overrides": [
         {
             // Contract mirrors are linted, but formatting is disabled to preserve byte identity.
-            "includes": ["packages/*/src/contracts/**/*.ts", "packages/console/contracts/**/*.ts"],
+            "includes": ["packages/*/src/contracts/**/*.ts"],
             "formatter": {
                 "enabled": false
             },

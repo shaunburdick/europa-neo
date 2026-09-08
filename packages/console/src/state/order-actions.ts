@@ -25,7 +25,7 @@
  * pending-order table self-heals on the next ack for a newer action.
  */
 
-import { NULL_LOGGER } from '../../contracts/console-api';
+import { NULL_LOGGER } from '../contracts/console-api';
 import { netEventFromEnvelope } from '../net/envelope-to-event';
 import type { ConsoleStore } from './store';
 import type { ActionId, ConsoleClient, ConsoleLogger, Order, ReducerEffect, SequenceNumber } from './types';

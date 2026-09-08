@@ -218,7 +218,7 @@ export type {
     ConsoleRuntime as ConsoleRuntimeContract,
     ConsoleSoundPlayer,
     ReplayTape,
-} from '../contracts/console-api';
+} from './contracts/console-api';
 
 // ----------------------------------------------------------------------------
 // Tunable constants + defaults (single source of truth: contracts/)

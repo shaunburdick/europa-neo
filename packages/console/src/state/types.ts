@@ -57,7 +57,7 @@ export type {
     RenderFeedback,
     ScreenPoint,
     SubcellPosition,
-} from '../../contracts/console-types';
+} from '../contracts/console-types';
 
 export {
     CONSOLE_API_VERSION,
@@ -67,29 +67,29 @@ export {
     DEFAULT_QOL_SETTINGS,
     SPECTATOR_COLOR,
     SUBCELL_RANGE,
-} from '../../contracts/console-types';
+} from '../contracts/console-types';
 
 // ----------------------------------------------------------------------------
 // Reducer-surface types (from the state contract mirror)
 // ----------------------------------------------------------------------------
 
-export type { ConsoleLogger } from '../../contracts/console-api';
-export { CONSOLE_CONSTANTS, NULL_LOGGER } from '../../contracts/console-api';
+export type { ConsoleLogger } from '../contracts/console-api';
+export { CONSOLE_CONSTANTS, NULL_LOGGER } from '../contracts/console-api';
 export type {
     ConsoleAction,
     NetEvent,
     ReduceOptions,
     ReducerEffect,
     SoundClip,
-} from '../../contracts/console-state';
+} from '../contracts/console-state';
 export type {
     ConsoleClient,
     ConsoleClientConfig,
     ConsoleClientDeps,
     ConsoleClientState,
     EnvelopeContext,
-} from '../../contracts/console-to-networking';
-export { DEFAULT_CONSOLE_CLIENT_CONFIG } from '../../contracts/console-to-networking';
+} from '../contracts/console-to-networking';
+export { DEFAULT_CONSOLE_CLIENT_CONFIG } from '../contracts/console-to-networking';
 
 // ----------------------------------------------------------------------------
 // Engine types (type-only — NO runtime import of @europa/engine)
