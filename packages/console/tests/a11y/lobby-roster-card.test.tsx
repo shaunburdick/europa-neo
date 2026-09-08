@@ -123,8 +123,9 @@ describe('RosterCard a11y', () => {
         const roster = rosterOf([entry('Alice', 'in_game')]);
         const screen = await render(<RosterCard roster={roster} ownHandle={null} />);
 
-        // The visually-hidden span carries the status for screen readers.
-        const srText = screen.container.querySelector('.europa-visually-hidden');
+        // The visually-hidden span inside the roster entry carries the status for screen readers.
+        // Use a scoped selector to avoid matching the live-region announcement div.
+        const srText = screen.container.querySelector('.europa-lobby__roster-entry .europa-visually-hidden');
         expect(srText).not.toBeNull();
         expect(srText?.textContent).toBe('In game');
 
