@@ -10,10 +10,11 @@
  * supply. FR-012 introduces reserves (0..9 → 0..90%): the reserved
  * count is held in the cell before any outward flow or decay.
  *
- * **Decay rule**:
+ * **Decay rule** (Clarifications v1.7 — pipe topology, not tally):
  *   - For each cell with `count > 0`:
- *     - If the inflow tally shows a non-zero entry for the cell's
- *       owner (friendly inflow), skip — no decay.
+ *     - If a same-owner neighbor has a pipe pointing toward this cell
+ *       (pipe topology check), skip — no decay. The pipe must be owned
+ *       by the same player as the cell (enemy pipes don't prevent decay).
  *     - Otherwise, subtract `decayPerTick` (integer), clamping at the
  *       reserves floor.
  *     - When count reaches 0, owner becomes 0 (null).
@@ -45,8 +46,6 @@ import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents } from '../events';
 import type { Board, TickEvents, WorldState } from '../types';
 
-const PLAYERS = 4;
-
 /**
  * Resolve one tick of decay across the board. Pure.
  *
@@ -55,13 +54,13 @@ const PLAYERS = 4;
  * @param constants       Engine rule constants (uses `decayPerTick`).
  * @param tickNumber      Tick number (reserved for future events; the
  *                        current implementation emits no events).
- * @param inflowTally     Optional per-cell per-owner inflow tally written
- *                        by `resolveFlow`. Encoding: slot
- *                        `(cellIdx * 4) + (playerId - 1)` is the count of
- *                        troops that player sent into that cell this tick.
+ * @param hasIncomingSameOwnerPipe  Optional per-cell flag: 1 if any neighbor
+ *                        has a pipe pointing toward this cell AND that
+ *                        neighbor is owned by the same player. Computed from
+ *                        pipeMasks and troopOwners by the tick orchestrator.
  *                        When omitted, every cell is treated as having no
- *                        friendly inflow (i.e., decay applies to all
- *                        non-zero cells).
+ *                        same-owner incoming pipe (i.e., decay applies to
+ *                        all non-zero cells).
  * @param reservedFloors  Optional per-cell fixed reserves floor. When
  *                        supplied, slot `[idx]` is the minimum count the
  *                        cell can decay to (FR-012 invariant). When
@@ -75,7 +74,7 @@ export function resolveDecay(
     board: Readonly<Board>,
     constants: EngineConstants,
     tickNumber: number,
-    inflowTally?: Readonly<Uint32Array>,
+    hasIncomingSameOwnerPipe?: Readonly<Uint8Array>,
     reservedFloors?: Readonly<Uint32Array>,
 ): { state: WorldState; events: TickEvents } {
     // `tickNumber` is reserved for future event emission.
@@ -89,7 +88,7 @@ export function resolveDecay(
     const newCounts: Uint32Array = new Uint32Array(state.troopCounts);
     const newOwners: Uint8Array = new Uint8Array(state.troopOwners);
 
-    const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * PLAYERS;
+    const pipeCheckAvailable = hasIncomingSameOwnerPipe !== undefined && hasIncomingSameOwnerPipe.length >= n;
     const floorsAvailable = reservedFloors !== undefined && reservedFloors.length >= n;
 
     for (let idx = 0; idx < n; idx++) {
@@ -111,11 +110,11 @@ export function resolveDecay(
             continue;
         }
 
-        // Friendly-inflow check.
-        if (tallyAvailable) {
-            const tally = inflowTally as Uint32Array;
-            const inflowFromOwner = tally[idx * PLAYERS + (owner - 1)] ?? 0;
-            if (inflowFromOwner > 0) {
+        // Pipe-topology check (Clarifications v1.7): a cell is "fed" if
+        // any same-owner neighbor has a pipe pointing toward it. Enemy
+        // pipes don't prevent decay — only your own supply network counts.
+        if (pipeCheckAvailable) {
+            if ((hasIncomingSameOwnerPipe as Uint8Array)[idx] !== 0) {
                 continue;
             }
         }
