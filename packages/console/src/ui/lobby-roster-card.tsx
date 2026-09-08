@@ -26,7 +26,7 @@
 
 import type { RosterEntry, RosterStatus } from '@europa/matchmaking';
 import type { JSX } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import type { RosterState } from '../state/lobby-state';
 
@@ -250,18 +250,3 @@ function RosterEntryRow({ entry, isOwn }: { readonly entry: RosterEntry; readonl
         </li>
     );
 }
-
-// -- useId polyfill (React 18 compat) ----------------------------------------
-
-/**
- * Stable unique ID hook. Uses React 19's `useId` when available,
- * falling back to a counter-based ID for React 18.
- */
-function useId(): string {
-    // React 19 has useId; React 18 does not. We use a simple counter
-    // since the lobby has a small, fixed number of ID-requiring elements.
-    const [id] = useState(() => `europa-roster-${String(counter++)}`);
-    return id;
-}
-
-let counter = 0;
