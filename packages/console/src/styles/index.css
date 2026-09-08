@@ -1317,6 +1317,151 @@ body {
     min-width: 0;
 }
 
+/* ==================================================================
+ * Lobby roster card (feature 023)
+ *
+ * Styling for the presence roster displayed on the lobby landing page.
+ * Uses europa-* design tokens; follows the existing lobby card pattern.
+ * Status dot colors: green (in_lobby), amber (in_game), blue
+ * (spectating) — all paired with text labels (WCAG 1.4.1).
+ * Reduced motion: no transitions on status changes (FR-019).
+ * ================================================================== */
+
+/* Card container: inherits .europa-lobby__card base; modifier is a
+   hook for roster-specific overrides only. */
+.europa-lobby__card--roster {
+    position: relative;
+}
+
+/* Entry list: compact vertical stack with no default list styling. */
+.europa-lobby__roster-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Single roster entry row: handle left, status badge right. */
+.europa-lobby__roster-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--europa-spacing-sm);
+    padding: var(--europa-spacing-xs) var(--europa-spacing-sm);
+    border-bottom: var(--europa-borders-width) var(--europa-borders-style) var(--europa-color-border);
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-primary);
+    transition: background-color var(--europa-motion-transition-fast);
+}
+
+.europa-lobby__roster-entry:last-child {
+    border-bottom: none;
+}
+
+.europa-lobby__roster-entry:hover {
+    background-color: var(--europa-color-surface-raised);
+}
+
+/* Own entry highlight: subtle accent tint to distinguish "you". */
+.europa-lobby__roster-entry--own {
+    background-color: var(--europa-color-surface-raised);
+}
+
+/* Handle text: allow long handles to truncate gracefully. */
+.europa-lobby__roster-entry-handle {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-xs);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+/* "(you)" indicator: muted accent color, smaller than the handle. */
+.europa-lobby__roster-you {
+    color: var(--europa-color-accent);
+    font-size: var(--europa-typography-size-xs);
+    font-weight: 400;
+    flex-shrink: 0;
+}
+
+/* Status badge container: dot + text, aligned right. */
+.europa-lobby__roster-entry-status {
+    display: flex;
+    align-items: center;
+    gap: var(--europa-spacing-xs);
+    flex-shrink: 0;
+    font-size: var(--europa-typography-size-xs);
+    color: var(--europa-color-text-muted);
+}
+
+/* Status dot: 8px circle, color-coded by status.
+   Green = in_lobby, amber = in_game, blue = spectating.
+   All colors are ≥ 3:1 contrast against the surface background
+   (WCAG 1.4.3) and are paired with text labels (WCAG 1.4.1). */
+.europa-lobby__roster-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.europa-lobby__roster-status-dot--in_lobby {
+    background-color: var(--europa-color-success, #059669);
+}
+
+.europa-lobby__roster-status-dot--in_game {
+    background-color: var(--europa-color-warning, #f59e0b);
+}
+
+.europa-lobby__roster-status-dot--spectating {
+    background-color: var(--europa-color-info, #3b82f6);
+}
+
+/* Status text label: visible on desktop, hidden on very narrow
+   screens where only the dot is sufficient. */
+.europa-lobby__roster-entry-status-text {
+    white-space: nowrap;
+}
+
+/* Degraded state: "Presence unavailable" message. */
+.europa-lobby__roster-degraded {
+    padding: var(--europa-spacing-sm) 0;
+}
+
+.europa-lobby__roster-degraded-title {
+    margin: 0 0 var(--europa-spacing-xs);
+    font-size: var(--europa-typography-size-sm);
+    font-weight: 600;
+    color: var(--europa-color-text-secondary);
+}
+
+.europa-lobby__roster-degraded-message {
+    margin: 0;
+    font-size: var(--europa-typography-size-xs);
+    color: var(--europa-color-text-muted);
+}
+
+/* Empty roster: muted text when connected but no players. */
+.europa-lobby__roster-empty {
+    margin: 0;
+    padding: var(--europa-spacing-sm) 0;
+    font-size: var(--europa-typography-size-sm);
+    color: var(--europa-color-text-muted);
+}
+
+/* Reduced motion (FR-019): disable all transitions for users
+   who prefer reduced motion. Roster updates instantly. */
+@media (prefers-reduced-motion: reduce) {
+    .europa-lobby__roster-entry {
+        transition: none;
+    }
+}
+
 /*
  * Match-context chrome (entered from the lobby): a slim bar above the
  * unchanged game UI carrying the leave control. Fills 100vh with no

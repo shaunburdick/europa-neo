@@ -41,6 +41,7 @@ import { BrandedFooter } from './branded-footer';
 import { LobbyCreateForm, type LobbyCreateFormValues } from './lobby-create-form';
 import { connectionLabel, describeSnapshotChange } from './lobby-labels';
 import { LobbyMatchList } from './lobby-match-list';
+import { RosterCard } from './lobby-roster-card';
 
 /** Props for {@link LobbyLanding}. */
 export interface LobbyLandingProps {
@@ -154,6 +155,34 @@ export function LobbyLanding({
             announcer.announce(change, 'polite');
         }
     }, [state.snapshot, announcer]);
+
+    // T-044: Roster change announcements via the shared announcer.
+    // Announce when the roster player count changes (joins/leaves)
+    // or when the roster connection degrades. Coalesced by the
+    // announcer's 500 ms debounce window.
+    const prevRosterCountRef = useRef(state.roster.players.length);
+    const prevRosterConnectedRef = useRef(state.roster.connected);
+    useEffect(() => {
+        const prevCount = prevRosterCountRef.current;
+        const prevConnected = prevRosterConnectedRef.current;
+        prevRosterCountRef.current = state.roster.players.length;
+        prevRosterConnectedRef.current = state.roster.connected;
+
+        if (announcer === undefined) {
+            return;
+        }
+
+        // Degraded transition.
+        if (prevConnected && !state.roster.connected) {
+            announcer.announce('Presence data is not connected.', 'polite');
+            return;
+        }
+
+        // Count change.
+        if (state.roster.connected && state.roster.players.length !== prevCount) {
+            announcer.announce(`Players online: ${String(state.roster.players.length)}.`, 'polite');
+        }
+    }, [state.roster.connected, state.roster.players.length, announcer]);
 
     // -- Derived availability -------------------------------------------
 
@@ -310,6 +339,7 @@ export function LobbyLanding({
                             actionStatus={state.actions.createMatch}
                             onCreate={onCreate}
                         />
+                        <RosterCard roster={state.roster} ownHandle={state.handle} />
                     </div>
                     <LobbyMatchList
                         entries={entries}
