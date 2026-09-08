@@ -31,16 +31,16 @@
  *
  * **Stall-threshold coupling (fails loudly on retune)**: the edge rule
  * reads the stall threshold from `ENGINE_CONSTANTS` via
- * `flowRateForDelta` (feature 001 FR-007), never from a hard-coded
- * literal. A future retune of `flowBase` / `flowSlopeStep` shifts the
- * threshold and moves the measured mean — the suite sits ~4.5pp above
- * the 50% floor, so a retune that narrows flow-viable traversal fails
- * this suite loudly (spec 003 Clarifications v1.3, cross-feature
- * coupling; spec 001 plan.md R-2).
+ * `flowRateForDelta` (imported from `@europa/core`, issue #96; feature
+ * 001 FR-007), never from a hard-coded literal. A future retune of
+ * `flowBase` / `flowSlopeStep` shifts the threshold and moves the
+ * measured mean — the suite sits ~4.5pp above the 50% floor, so a
+ * retune that narrows flow-viable traversal fails this suite loudly
+ * (spec 003 Clarifications v1.3, cross-feature coupling; spec 001
+ * plan.md R-2).
  */
 
-import { flowRateForDelta } from '@europa/core';
-import { ENGINE_CONSTANTS } from '@europa/engine';
+import { ENGINE_CONSTANTS, flowRateForDelta } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';

@@ -31,7 +31,6 @@
     },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
-        "@europa/engine": "workspace:*",
         "@vitest/coverage-v8": "^4.1.11",
         "tsup": "catalog:",
         "typescript": "catalog:",
