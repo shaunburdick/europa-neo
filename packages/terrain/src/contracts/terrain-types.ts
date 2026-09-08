@@ -176,7 +176,7 @@ export interface GenerationSettings {
 
   /**
    * Maximum number of regeneration attempts on validation failure.
-   * Default 5. Safe range: `[1, 10]`. Spec FR-007: "bounded
+   * Default 15. Safe range: `[1, 20]`. Spec FR-007: "bounded
    * retries."
    */
   readonly maxRegenAttempts: number;
@@ -207,7 +207,7 @@ export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   symmetryStrategy: 'point',
   minCityWaterDistance: 3,
   minCityCityDistance: 5,
-  maxRegenAttempts: 5,
+  maxRegenAttempts: 15,
   terrainSmoothing: 4,
 } as const;
 
@@ -332,6 +332,10 @@ export type Violation =
       readonly waterRatio: number;
       readonly min: number;
       readonly max: number;
+    }
+  | {
+      readonly kind: 'flow_isolated_cities';
+      readonly component: ReadonlyArray<Coord>;
     };
 
 /**

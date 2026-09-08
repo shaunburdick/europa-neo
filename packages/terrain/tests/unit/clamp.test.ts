@@ -192,11 +192,10 @@ describe('clamp (US3 / FR-008)', () => {
             expect(clampMaxRegenAttempts(-2)).toBe(MAX_REGEN_ATTEMPTS_MIN);
         });
         it('clamps above the upper bound down to the upper bound', () => {
-            // NOTE: maxRegenAttempts upper bound is 10 per data-model §2
-            // (NOT 16 — the prompt's draft had [1, 16]; PM-mediated
-            // correction committed in m0099–m0100).
-            expect(clampMaxRegenAttempts(11)).toBe(MAX_REGEN_ATTEMPTS_MAX);
-            expect(clampMaxRegenAttempts(16)).toBe(MAX_REGEN_ATTEMPTS_MAX);
+            // NOTE: maxRegenAttempts upper bound is 20 per data-model §2
+            // (raised from 10 to 20 to support INV-16 retry headroom).
+            expect(clampMaxRegenAttempts(21)).toBe(MAX_REGEN_ATTEMPTS_MAX);
+            expect(clampMaxRegenAttempts(50)).toBe(MAX_REGEN_ATTEMPTS_MAX);
             expect(clampMaxRegenAttempts(100)).toBe(MAX_REGEN_ATTEMPTS_MAX);
         });
     });

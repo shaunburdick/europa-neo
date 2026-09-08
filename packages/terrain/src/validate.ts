@@ -1,7 +1,7 @@
 /**
  * Board Validator — Feature 003
  *
- * Runs all 15 invariants enumerated in `data-model.md` §11 against
+ * Runs all 16 invariants enumerated in `data-model.md` §11 against
  * a generated `Board` and produces a `ValidationReport` with any
  * `Violation`s. Used by `generateBoard` internally (on every retry
  * attempt) and exposed for tests and feature 006 to pre-check
@@ -26,14 +26,19 @@
  *   INV-13 Water ratio in [0.02, 0.25] and within ±10% of target
  *   INV-14 Elevation variance > 0
  *   INV-15 Water forms ≥ 1 connected pool of size ≥ 4
+ *   INV-16 BFS over flow-viable edges: every city reaches every
+ *          other city via edges where at least one traversal direction
+ *          moves > 0 troops/tick (pipe unidirectional viability).
  *
  * **Performance**: O(W·H) for the symmetry + cell-shape checks,
- * O(C·W·H) for the BFS in INV-12, O(C²) for the pair-wise distance
- * checks in INV-11. For a 32×32 / 2-city board the validator runs
- * in well under 1 ms on the reference platform.
+ * O(C·W·H) for the BFS in INV-12, O(C·W·H) for the BFS in INV-16,
+ * O(C²) for the pair-wise distance checks in INV-11. For a 32×32 /
+ * 2-city board the validator runs in well under 1 ms on the reference
+ * platform.
  */
 
 import type { Board, CityPlacement, Coord, PlayerId } from '@europa/core';
+import { ENGINE_CONSTANTS, flowRateForDelta } from '@europa/engine';
 
 import { partnerPlayer } from './city-symmetry';
 import {
@@ -118,6 +123,71 @@ function bfsLandReachable(board: Board, start: Coord): Set<number> {
             }
             const cell = board.cells[ni];
             if (cell?.terrain !== 'land') {
+                continue;
+            }
+            reachable.add(ni);
+            queue.push(ni);
+        }
+    }
+    return reachable;
+}
+
+/**
+ * Is the undirected land edge (src → dst) flow-viable in at least
+ * ONE direction? A pipe is a bidirectional conduit; troops only need
+ * to flow one way for the edge to be usable. The binding constraint
+ * is the uphill direction (stall threshold `flowBase / flowSlopeStep`,
+ * read live from `ENGINE_CONSTANTS`).
+ *
+ * @param srcElevation Elevation of the source cell.
+ * @param dstElevation Elevation of the destination cell.
+ * @returns `true` when at least one traversal direction moves > 0 troops/tick.
+ */
+function isFlowViableEdge(srcElevation: number, dstElevation: number): boolean {
+    const delta = dstElevation - srcElevation;
+    return flowRateForDelta(delta, ENGINE_CONSTANTS) > 0 || flowRateForDelta(-delta, ENGINE_CONSTANTS) > 0;
+}
+
+/**
+ * BFS over flow-viable land edges starting from `start`. Returns
+ * the set of reachable land cells (as linear indices). An edge is
+ * traversable when at least one direction moves > 0 troops/tick.
+ */
+function bfsFlowViableReachable(board: Board, start: Coord): Set<number> {
+    const { width, height } = board;
+    const reachable = new Set<number>();
+    const queue: number[] = [start.y * width + start.x];
+    reachable.add(queue[0] as number);
+    while (queue.length > 0) {
+        const idx = queue.shift();
+        if (idx === undefined) {
+            break;
+        }
+        const cell = board.cells[idx];
+        if (!cell) {
+            break;
+        }
+        const y = Math.floor(idx / width);
+        const x = idx - y * width;
+        const neighbors: ReadonlyArray<readonly [number, number]> = [
+            [x, y - 1],
+            [x, y + 1],
+            [x - 1, y],
+            [x + 1, y],
+        ];
+        for (const [nx, ny] of neighbors) {
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+                continue;
+            }
+            const ni = ny * width + nx;
+            if (reachable.has(ni)) {
+                continue;
+            }
+            const neighborCell = board.cells[ni];
+            if (neighborCell?.terrain !== 'land') {
+                continue;
+            }
+            if (!isFlowViableEdge(cell.elevation, neighborCell.elevation)) {
                 continue;
             }
             reachable.add(ni);
@@ -466,6 +536,25 @@ export function validateBoard(
                 const idx = city.cell.y * width + city.cell.x;
                 if (!reachable.has(idx)) {
                     violations.push({ kind: 'isolated_cities', component: [city.cell] });
+                    break;
+                }
+            }
+        }
+    }
+
+    // INV-16: Flow-viable city connectivity. Every city must reach
+    // every other city via flow-viable edges (unidirectional pipe
+    // viability). This catches maps where land connectivity (INV-12)
+    // passes but extreme elevation gradients block pipe flow,
+    // rendering the map unplayable.
+    if (hasCities) {
+        const [first] = board.cities;
+        if (first) {
+            const reachable = bfsFlowViableReachable(board, first.cell);
+            for (const city of board.cities) {
+                const idx = city.cell.y * width + city.cell.x;
+                if (!reachable.has(idx)) {
+                    violations.push({ kind: 'flow_isolated_cities', component: [city.cell] });
                     break;
                 }
             }

@@ -471,13 +471,13 @@ importers:
       '@europa/core':
         specifier: workspace:*
         version: link:../core
+      '@europa/engine':
+        specifier: workspace:*
+        version: link:../engine
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.9
-      '@europa/engine':
-        specifier: workspace:*
-        version: link:../engine
       '@vitest/coverage-v8':
         specifier: ^4.1.11
         version: 4.1.11(@vitest/browser@4.1.11)(vitest@4.1.11)

@@ -8,7 +8,7 @@
  *   - The request is invalid (e.g., unknown `symmetryStrategy`,
  *     `boardSize < 8`, `playerCount` outside `[2, 4]`).
  *   - Regeneration retries are exhausted without producing a valid
- *     map (spec FR-007 "bounded retries"; default `maxRegenAttempts = 5`).
+ *     map (spec FR-007 "bounded retries"; default `maxRegenAttempts = 15`).
  *
  * Throwing rather than returning a `Result` is a deliberate choice
  * (see `data-model.md` §6): the loudest possible signal that something
