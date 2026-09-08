@@ -49,60 +49,60 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 describe('biomeZoneForElevation (spec 024 FR-005, AC-020)', () => {
-    test('elevation 0 → zone 0 (Ice Plains)', () => {
+    test('elevation 0 → zone 0 (Smooth Ice)', () => {
         const result = biomeZoneForElevation(0);
         expect(result.zone).toBe(0);
-        expect(result.hue).toBe(195);
-        expect(result.saturationPct).toBe(30);
-        expect(result.lightness).toBe(15);
+        expect(result.hue).toBe(210);
+        expect(result.saturationPct).toBe(65);
+        expect(result.lightness).toBe(38);
     });
 
     test('elevation 80 → zone 0 max lightness', () => {
         const result = biomeZoneForElevation(80);
         expect(result.zone).toBe(0);
-        expect(result.lightness).toBe(28);
+        expect(result.lightness).toBe(52);
     });
 
     test('elevation 81 → zone 1 (Fractured Ice)', () => {
         const result = biomeZoneForElevation(81);
         expect(result.zone).toBe(1);
-        expect(result.hue).toBe(210);
-        expect(result.saturationPct).toBe(35);
-        expect(result.lightness).toBe(10);
+        expect(result.hue).toBe(170);
+        expect(result.saturationPct).toBe(55);
+        expect(result.lightness).toBe(26);
     });
 
     test('elevation 160 → zone 1 max lightness', () => {
         const result = biomeZoneForElevation(160);
         expect(result.zone).toBe(1);
-        expect(result.lightness).toBe(22);
+        expect(result.lightness).toBe(40);
     });
 
     test('elevation 161 → zone 2 (Rocky Outcrops)', () => {
         const result = biomeZoneForElevation(161);
         expect(result.zone).toBe(2);
-        expect(result.hue).toBe(200);
-        expect(result.saturationPct).toBe(15);
-        expect(result.lightness).toBe(20);
+        expect(result.hue).toBe(30);
+        expect(result.saturationPct).toBe(55);
+        expect(result.lightness).toBe(30);
     });
 
     test('elevation 208 → zone 2 max lightness', () => {
         const result = biomeZoneForElevation(208);
         expect(result.zone).toBe(2);
-        expect(result.lightness).toBe(35);
+        expect(result.lightness).toBe(42);
     });
 
-    test('elevation 209 → zone 3 (Peaks)', () => {
+    test('elevation 209 → zone 3 (Ice Peaks)', () => {
         const result = biomeZoneForElevation(209);
         expect(result.zone).toBe(3);
-        expect(result.hue).toBe(220);
-        expect(result.saturationPct).toBe(8);
-        expect(result.lightness).toBe(60);
+        expect(result.hue).toBe(200);
+        expect(result.saturationPct).toBe(15);
+        expect(result.lightness).toBe(80);
     });
 
     test('elevation 255 → zone 3 max lightness', () => {
         const result = biomeZoneForElevation(255);
         expect(result.zone).toBe(3);
-        expect(result.lightness).toBe(78);
+        expect(result.lightness).toBe(95);
     });
 
     test('negative elevation clamps to zone 0', () => {
@@ -124,15 +124,15 @@ describe('biomeZoneForElevation (spec 024 FR-005, AC-020)', () => {
     });
 
     test('lightness interpolates linearly within each zone', () => {
-        // Zone 0 midpoint: (15+28)/2 = 21.5 → 22
+        // Zone 0 midpoint: (38+52)/2 = 45
         const mid0 = biomeZoneForElevation(40);
-        expect(mid0.lightness).toBeGreaterThanOrEqual(15);
-        expect(mid0.lightness).toBeLessThanOrEqual(28);
+        expect(mid0.lightness).toBeGreaterThanOrEqual(38);
+        expect(mid0.lightness).toBeLessThanOrEqual(52);
 
-        // Zone 1 midpoint: (10+22)/2 = 16
+        // Zone 1 midpoint: (26+40)/2 = 33
         const mid1 = biomeZoneForElevation(120);
-        expect(mid1.lightness).toBeGreaterThanOrEqual(10);
-        expect(mid1.lightness).toBeLessThanOrEqual(22);
+        expect(mid1.lightness).toBeGreaterThanOrEqual(26);
+        expect(mid1.lightness).toBeLessThanOrEqual(40);
     });
 });
 
@@ -188,24 +188,24 @@ describe('landBandIndex (spec 024 FR-002)', () => {
 });
 
 describe('landBandColor (spec 024 FR-003)', () => {
-    test('zone 0 has hue 195 (icy cyan)', () => {
+    test('zone 0 has hue 210 (blue)', () => {
         const hsl = parseHsl(landBandColor(0));
-        expect(hsl.hue).toBe(195);
-    });
-
-    test('zone 1 has hue 210 (deep blue)', () => {
-        const hsl = parseHsl(landBandColor(1));
         expect(hsl.hue).toBe(210);
     });
 
-    test('zone 2 has hue 200 (blue-gray)', () => {
-        const hsl = parseHsl(landBandColor(2));
-        expect(hsl.hue).toBe(200);
+    test('zone 1 has hue 170 (teal)', () => {
+        const hsl = parseHsl(landBandColor(1));
+        expect(hsl.hue).toBe(170);
     });
 
-    test('zone 3 has hue 220 (cool white)', () => {
+    test('zone 2 has hue 30 (orange)', () => {
+        const hsl = parseHsl(landBandColor(2));
+        expect(hsl.hue).toBe(30);
+    });
+
+    test('zone 3 has hue 200 (light blue)', () => {
         const hsl = parseHsl(landBandColor(3));
-        expect(hsl.hue).toBe(220);
+        expect(hsl.hue).toBe(200);
     });
 
     test('band index clamps below 0 to zone 0', () => {
@@ -235,18 +235,18 @@ describe('terrainColor (spec 024 FR-004, AC-022)', () => {
         expect(terrainColor('water', 255)).toBe(WATER_COLOR);
     });
 
-    test('land at elevation 0 returns Ice Plains hue', () => {
+    test('land at elevation 0 returns Smooth Ice hue', () => {
         const hsl = parseHsl(terrainColor('land', 0));
-        expect(hsl.hue).toBe(195);
-        expect(hsl.sat).toBe(30);
-        expect(hsl.light).toBe(15);
+        expect(hsl.hue).toBe(210);
+        expect(hsl.sat).toBe(65);
+        expect(hsl.light).toBe(38);
     });
 
-    test('land at elevation 255 returns Peaks hue', () => {
+    test('land at elevation 255 returns Ice Peaks hue', () => {
         const hsl = parseHsl(terrainColor('land', 255));
-        expect(hsl.hue).toBe(220);
-        expect(hsl.sat).toBe(8);
-        expect(hsl.light).toBe(78);
+        expect(hsl.hue).toBe(200);
+        expect(hsl.sat).toBe(15);
+        expect(hsl.light).toBe(95);
     });
 
     test('out-of-range elevations clamp', () => {
