@@ -24,8 +24,8 @@
  * → byte-identical output on every run.
  */
 
+import { flowRateForDelta } from '@europa/core';
 import type { EngineConstants } from '../contracts/engine-api';
-import { flowRateForDelta } from '../flow-rate';
 import type { Board, WorldState } from '../types';
 
 // Pipe direction bitmasks (must match the contract's WorldState docs).

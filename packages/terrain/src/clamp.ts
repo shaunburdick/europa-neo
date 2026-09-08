@@ -19,7 +19,7 @@
  *   | `citiesPerPlayer`    | integer | `[1,    4]`   |
  *   | `minCityWaterDistance` | integer | `[1,    6]` |
  *   | `minCityCityDistance` | integer | `[2,   10]`   |
- *   | `maxRegenAttempts`   | integer | `[1,   10]`   |
+ *   | `maxRegenAttempts`   | integer | `[1,   20]`   |
  *   | `terrainSmoothing`   | integer | `[0,    8]`   |
  *
  * The float clamps use `Math.max(min, Math.min(max, value))`. The
@@ -73,9 +73,9 @@ export const MIN_CITY_WATER_DISTANCE_MAX = 6;
 export const MIN_CITY_CITY_DISTANCE_MIN = 2;
 export const MIN_CITY_CITY_DISTANCE_MAX = 10;
 
-/** `maxRegenAttempts` safe range. Integers in `[1, 10]`. */
+/** `maxRegenAttempts` safe range. Integers in `[1, 20]`. */
 export const MAX_REGEN_ATTEMPTS_MIN = 1;
-export const MAX_REGEN_ATTEMPTS_MAX = 10;
+export const MAX_REGEN_ATTEMPTS_MAX = 20;
 
 /** `terrainSmoothing` safe range. Integers in `[0, 8]` (FR-010). */
 export const TERRAIN_SMOOTHING_MIN = 0;
@@ -184,12 +184,11 @@ export function clampMinCityCityDistance(v: number): number {
 }
 
 /**
- * Clamp `maxRegenAttempts` to the integer range `[1, 10]`. Non-integer
+ * Clamp `maxRegenAttempts` to the integer range `[1, 20]`. Non-integer
  * inputs are floored after clamping.
  *
- * **Per `data-model.md` §2**: the safe range is `[1, 10]`, NOT
- * `[1, 16]` (the prompt's draft said `[1, 16]`; PM-mediated correction
- * committed in `m0099`–`m0100`).
+ * **Per `data-model.md` §2**: the safe range is `[1, 20]` (raised from
+ * `[1, 10]` to support INV-16 retry headroom).
  *
  * @param v The input value (any number).
  * @returns An integer in `[MAX_REGEN_ATTEMPTS_MIN, MAX_REGEN_ATTEMPTS_MAX]`.

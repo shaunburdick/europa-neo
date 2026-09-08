@@ -21,9 +21,9 @@
  * and easy to verify.
  */
 
+import { flowRateForDelta } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
-import { flowRateForDelta } from '../../src/flow-rate';
 import { getCell } from '../../src/read';
 import type { Board, MatchConfig, Order, PlayerId } from '../../src/types';
 import { runScenario } from '../fixtures/scenarios';

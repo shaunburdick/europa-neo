@@ -68,7 +68,7 @@ User-tunable knobs for the generator. All fields have safe defaults
 | `symmetryStrategy` | `SymmetryStrategy` | `'point'` | `'point'` (only) | v1 only supports 180° rotational. Field is here for forward compatibility. |
 | `minCityWaterDistance` | `number` (int) | `3` | `[1, 6]` | Min Chebyshev distance from a city to any water cell (FR-005). |
 | `minCityCityDistance` | `number` (int) | `5` | `[2, 10]` | Min Chebyshev distance between any two cities (FR-005). |
-| `maxRegenAttempts` | `number` (int) | `5` | `[1, 10]` | Bounded retries on invalid output (FR-007). |
+| `maxRegenAttempts` | `number` (int) | `15` | `[1, 20]` | Bounded retries on invalid output (FR-007). |
 | `terrainSmoothing` | `number` (int) | `4` | `[0, 8]` | Deterministic post-process smoothing passes over the elevation field (FR-010, Clarifications v1.3). `0` = no smoothing (pre-smoothing output, byte-identical); each pass reduces adjacent-cell elevation differences. Surfaced via `effectiveSettings`. |
 
 ### `SymmetryStrategy` (closed enum, v1 only allows `'point'`)
@@ -103,7 +103,7 @@ contract validator rejects anything else with a `GenerationError`.
   clamp-don't-reject philosophy. The normalized value drives placement,
   validation, and `effectiveSettings` (2p/4p requests are unaffected).
 - `minCityWaterDistance`, `minCityCityDistance`: clamped to safe ranges.
-- `maxRegenAttempts`: clamped to `[1, 10]`. Higher = wasteful retries.
+- `maxRegenAttempts`: clamped to `[1, 20]`. Higher = wasteful retries.
 - `terrainSmoothing`: clamped to `[0, 8]` (integer). `0` = no smoothing
   (byte-identical to pre-smoothing output); values above 8 are clamped
   to 8. The pass is a pure function of the elevation field + setting —
@@ -407,6 +407,7 @@ its own output. They map 1:1 to the spec's user stories and FRs.
 | INV-13 | Water ratio within `[0.02, 0.25]` (and within ±10% of target) | US3 AC-1, FR-008 | balance |
 | INV-14 | Elevation variance `> 0` (no fully flat map) | US3 AC-2 | balance |
 | INV-15 | Water forms ≥ 1 connected pool of size `≥ 4` (no scattered single cells) | FR-003 | unit (water) |
+| INV-16 | BFS over flow-viable land edges from any city reaches every other city (unidirectional pipe viability: `flowRateForDelta(delta, ENGINE_CONSTANTS) > 0` OR `flowRateForDelta(-delta, ENGINE_CONSTANTS) > 0` for each traversed edge — at least one direction must move troops) | US4 AC-1 | unit (validate) |
 
 If any of these fail after `maxRegenAttempts` retries, throw `GenerationError`.
 

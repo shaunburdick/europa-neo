@@ -1,7 +1,7 @@
 /**
  * Validate Board Tests — Feature 003
  *
- * Verifies the 15 invariants enumerated in `data-model.md` §11
+ * Verifies the 16 invariants enumerated in `data-model.md` §11
  * (INV-1..INV-15) and the corresponding `Violation.kind` values
  * produced by `validateBoard`.
  *
@@ -106,9 +106,9 @@ function buildGeneratedBoard(size: number): Board {
     return buildBoard(elev, water, size, size);
 }
 
-describe('validate (15 invariants per data-model.md §11)', () => {
+describe('validate (16 invariants per data-model.md §11)', () => {
     describe('valid baseline', () => {
-        it('a real generated Board passes all 15 invariants', () => {
+        it('a real generated Board passes all 16 invariants', () => {
             const board = buildValidBoard();
             const report = validateBoard(board, PASSING_SETTINGS, 2);
             expect(report.valid).toBe(true);
