@@ -83,7 +83,7 @@ function createSlopePlayerView(): PlayerView {
         cell(1, 0, 50),
         cell(2, 0, 100),
         cell(3, 0, 103),
-        cell(4, 0, 107),
+        cell(4, 0, 180),
         cell(1, 1, 100, new Set(['N'])),
         cell(2, 1, 100, new Set(['N'])),
         cell(3, 1, 100, new Set(['N'])),
