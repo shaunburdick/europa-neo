@@ -21,8 +21,8 @@ import type { RosterEntry } from '@europa/matchmaking';
 import { afterEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
-import type { RosterState } from '../../src/state/lobby-state';
-import { RosterCard, rosterHeadingText, rosterStatusLabel } from '../../src/ui/lobby-roster-card';
+import type { RosterState } from '../../../src/state/lobby-state';
+import { RosterCard, rosterHeadingText, rosterStatusLabel } from '../../../src/ui/lobby-roster-card';
 import '../../../src/styles/index.css';
 
 afterEach(() => {
