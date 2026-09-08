@@ -116,10 +116,10 @@ export {
 // World lifecycle (US1)
 // ----------------------------------------------------------------------------
 
+export type { FlowConstants } from '@europa/core';
+export { flowRateForDelta } from '@europa/core';
 export { applyCommand } from './applyCommand';
 export { createWorld } from './create';
-export { flowRateForDelta } from '@europa/core';
-export type { FlowConstants } from '@europa/core';
 export { isTerminal, tick } from './tick';
 export { validateCommand } from './validate';
 
