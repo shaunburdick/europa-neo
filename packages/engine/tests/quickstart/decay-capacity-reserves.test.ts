@@ -61,9 +61,16 @@ describe('quickstart Q-007 — decay: city is exempt (self-feeding)', () => {
 
 describe('quickstart Q-007 — mutual feeding sustains indefinitely', () => {
     it('two friendly cells with pipes to each other sustain each other', () => {
-        // Two P1 cities connected via pipes through a shared neighbor.
-        // The shared neighbor (1,2) receives inflow from both, so it has
-        // friendly inflow and is exempt from decay.
+        // Two P1 cities pipe into a shared neighbor (1,2). The neighbor
+        // receives friendly inflow, so it is exempt from decay and
+        // accumulates troops until it reaches cellCapacity. Once full,
+        // the cities' flows are blocked and the neighbor oscillates at
+        // capacity (decay −1 on a blocked tick, refill +1 on the next) —
+        // it never decays away.
+        //
+        // The cities themselves are city cells (decay-exempt) and
+        // TRANSFER their production out (Clarifications v1.6), so they
+        // stay near zero rather than accumulating 20 troops each.
         const board = buildSmallBoard(8, [
             [1, 1, 1],
             [1, 3, 1],
@@ -74,15 +81,24 @@ describe('quickstart Q-007 — mutual feeding sustains indefinitely', () => {
             { atTick: 0, order: pipeOrder(1, 3, 'N', 1) }, // city (1,3) → (1,2)
         ];
         const { finalWorld } = runScenario(cfg, board, orders, 20);
-        // Both cities exempt from decay → 20 troops each.
-        expect(getCell(finalWorld, 1, 1).troopCount).toBe(20);
-        expect(getCell(finalWorld, 1, 3).troopCount).toBe(20);
-        // (1,2) may receive inflow from both cities. Since both cities
-        // pipe into (1,2), the inflow tally will show P1 inflow at (1,2)
-        // and the decay phase treats (1,2) as exempt (it has friendly
-        // inflow). Whatever troops end up there, the cell is not decaying.
-        const cell12 = getCell(finalWorld, 1, 2);
-        expect(cell12.troopCount).toBeGreaterThanOrEqual(0);
+        const city11 = getCell(finalWorld, 1, 1).troopCount;
+        const city13 = getCell(finalWorld, 1, 3).troopCount;
+        const cell12 = getCell(finalWorld, 1, 2).troopCount;
+
+        // The shared neighbor is sustained at capacity — friendly inflow
+        // prevents runaway decay.
+        expect(cell12).toBeGreaterThanOrEqual(ENGINE_CONSTANTS.cellCapacity - 1);
+
+        // Conservation (issue #99): total troops never exceed production
+        // (2 cities × productionRate × 20 ticks). The pre-fix copy bug
+        // created troops from nothing; this pins the transfer semantics.
+        const total = city11 + city13 + cell12;
+        const produced = 2 * ENGINE_CONSTANTS.productionRate * 20;
+        expect(total).toBeLessThanOrEqual(produced);
+        // Decay only ever reduces the total (the neighbor loses at most
+        // 1 per tick when blocked at capacity), so it is also bounded
+        // below by production minus the worst case.
+        expect(total).toBeGreaterThanOrEqual(produced - 20);
     });
 });
 
