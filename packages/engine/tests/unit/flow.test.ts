@@ -257,9 +257,9 @@ describe('resolveFlow — FR-006 pipe support', () => {
         expect(out.troopCounts[eIdx]).toBe(12);
         expect(out.troopCounts[sIdx]).toBe(6);
         expect(out.troopCounts[wIdx]).toBe(0);
-        // Source fully depleted → owner cleared (Clarifications v1.6).
+        // Source fully depleted → owner preserved (Clarifications v1.8).
         expect(out.troopCounts[srcIdx]).toBe(0);
-        expect(out.troopOwners[srcIdx]).toBe(0);
+        expect(out.troopOwners[srcIdx]).toBe(1);
         // Conservation: total on the board is unchanged (30 in, 30 out).
         let total = 0;
         for (const c of out.troopCounts) {
@@ -457,10 +457,10 @@ describe('resolveFlow — source depletion (Clarifications v1.6)', () => {
         const out = resolveFlow(state, board, TEST_CONSTANTS);
         expect(out.troopCounts[1]).toBe(5);
         expect(out.troopCounts[0]).toBe(0);
-        expect(out.troopOwners[0]).toBe(0); // source emptied → owner cleared
+        expect(out.troopOwners[0]).toBe(1); // source emptied → owner preserved (v1.8)
     });
 
-    it('source reaching 0 clears its owner (null cell)', () => {
+    it('source reaching 0 preserves its owner (Clarifications v1.8)', () => {
         // Source has exactly 12 troops; the pipe rate is 12. All move.
         const elevMap: ReadonlyArray<readonly [number, number]> = [
             [10, 0],
@@ -473,7 +473,7 @@ describe('resolveFlow — source depletion (Clarifications v1.6)', () => {
         const out = resolveFlow(state, board, TEST_CONSTANTS);
         expect(out.troopCounts[1]).toBe(12);
         expect(out.troopCounts[0]).toBe(0);
-        expect(out.troopOwners[0]).toBe(0);
+        expect(out.troopOwners[0]).toBe(1); // owner preserved even at 0 (v1.8)
     });
 
     it('reserves floor protects the source from depleting below the floor (FR-012)', () => {

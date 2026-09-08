@@ -22,7 +22,9 @@
  * directions), so a 4-way pipe correctly depletes the source across all
  * four directions. A source with reserves (FR-012) is protected: the
  * reserve floor (`srcCount × reservesPct / 10`) is computed per-transfer
- * so the source never flows below that floor.
+ * so the source never flows below that floor. Owner is preserved even
+ * when a source is depleted — the pipe was placed by that player and
+ * still "belongs" to them (Clarifications v1.8).
  *
  * All arithmetic is integer (the gradient formula in `flow-rate.ts` is
  * integer-only); no floats.
@@ -174,7 +176,8 @@ export function resolveFlow(
  * Troops are TRANSFERRED, not copied (Clarifications v1.6): the source
  * cell is decremented by the amount actually delivered to the
  * destination. The source's reserves floor (FR-012) protects a
- * percentage of the source stack from flowing out.
+ * percentage of the source stack from flowing out. Owner is preserved
+ * even when the source is depleted (Clarifications v1.8).
  */
 function transfer(params: TransferParams): void {
     const { board, x, y, dx, dy, srcOwner, constants, cap, newCounts, newOwners, reservesPct, tally, committedTally } =
@@ -251,8 +254,6 @@ function transfer(params: TransferParams): void {
 
     // Deduct from the source (Clarifications v1.6 — transfer, not copy).
     newCounts[srcIdx] = (srcCount - deduct) >>> 0;
-    // If the source hit 0, its owner becomes 0 (null).
-    if (newCounts[srcIdx] === 0) {
-        newOwners[srcIdx] = 0;
-    }
+    // Owner is preserved even when depleted — the pipe was placed by
+    // this player and still "belongs" to them (Clarifications v1.8).
 }

@@ -196,11 +196,12 @@ export function tick(world: Readonly<World>): TickResult {
     }
 
     // Compute per-cell pipe-topology check for decay exemption
-    // (Clarifications v1.7): a cell is "fed" if any same-owner neighbor
-    // has a pipe pointing toward it. Enemy pipes don't prevent decay.
-    // Uses post-capture owners for the cell (combat/capture may change
-    // ownership) but pre-flow owners for neighbors (flow depletion sets
-    // owners to 0, but the pipe was still set by that player).
+    // (Clarifications v1.7 + v1.8): a cell is "fed" if any same-owner
+    // neighbor has a pipe pointing toward it. Enemy pipes don't prevent
+    // decay. Uses post-capture owners for both the cell and its
+    // neighbors — owner is preserved even when a source is depleted by
+    // flow (Clarifications v1.8), so post-flow owners correctly reflect
+    // who placed the pipe.
     const hasIncomingSameOwnerPipe = new Uint8Array(n);
     for (let idx = 0; idx < n; idx++) {
         const owner = state.troopOwners[idx] ?? 0;
@@ -215,7 +216,7 @@ export function tick(world: Readonly<World>): TickResult {
         // A pipe from the north: neighbor at (x, y-1) must have S_BIT.
         if (y > 0) {
             const northIdx = (y - 1) * w + x;
-            const northOwner = preFlowState.troopOwners[northIdx] ?? 0;
+            const northOwner = state.troopOwners[northIdx] ?? 0;
             if (northOwner === owner && (state.pipeMasks[northIdx] ?? 0) & S_BIT) {
                 hasIncomingSameOwnerPipe[idx] = 1;
                 continue;
@@ -224,7 +225,7 @@ export function tick(world: Readonly<World>): TickResult {
         // A pipe from the east: neighbor at (x+1, y) must have W_BIT.
         if (x + 1 < w) {
             const eastIdx = y * w + (x + 1);
-            const eastOwner = preFlowState.troopOwners[eastIdx] ?? 0;
+            const eastOwner = state.troopOwners[eastIdx] ?? 0;
             if (eastOwner === owner && (state.pipeMasks[eastIdx] ?? 0) & W_BIT) {
                 hasIncomingSameOwnerPipe[idx] = 1;
                 continue;
@@ -233,7 +234,7 @@ export function tick(world: Readonly<World>): TickResult {
         // A pipe from the south: neighbor at (x, y+1) must have N_BIT.
         if (y + 1 < w) {
             const southIdx = (y + 1) * w + x;
-            const southOwner = preFlowState.troopOwners[southIdx] ?? 0;
+            const southOwner = state.troopOwners[southIdx] ?? 0;
             if (southOwner === owner && (state.pipeMasks[southIdx] ?? 0) & N_BIT) {
                 hasIncomingSameOwnerPipe[idx] = 1;
                 continue;
@@ -242,7 +243,7 @@ export function tick(world: Readonly<World>): TickResult {
         // A pipe from the west: neighbor at (x-1, y) must have E_BIT.
         if (x > 0) {
             const westIdx = y * w + (x - 1);
-            const westOwner = preFlowState.troopOwners[westIdx] ?? 0;
+            const westOwner = state.troopOwners[westIdx] ?? 0;
             if (westOwner === owner && (state.pipeMasks[westIdx] ?? 0) & E_BIT) {
                 hasIncomingSameOwnerPipe[idx] = 1;
             }
