@@ -403,7 +403,7 @@ export class MapCanvas {
             // Triangles point OUTWARD from cell center toward the pipe
             // direction — matching the original Europa rules: "lines
             // originating near the center of a cell and pointing in the
-            // direction of the desired troops flow" (issue #101).
+            // direction of the desired troops flow" (GH issue 101).
             if (direction === 'N') {
                 ctx.moveTo(midX - size, midY);
                 ctx.lineTo(midX + size, midY);

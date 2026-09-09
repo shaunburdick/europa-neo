@@ -131,7 +131,7 @@ body {
 
 /* N/S pipes: use --europa-pipe-tri for both width and depth
    (unified sizing, issue #43). Triangles point OUTWARD from cell
-   center toward the pipe direction (issue #101). */
+   center toward the pipe direction (GH issue 101). */
 .europa-pipe--N {
     top: calc(50% - var(--europa-pipe-tri));
     left: calc(50% - var(--europa-pipe-tri));

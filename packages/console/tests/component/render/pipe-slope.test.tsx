@@ -153,18 +153,16 @@ describe('pipe slope color-coding (005 FR-013)', () => {
 
                     /**
                      * Sample a pixel inside the north-facing pipe triangle.
-                     * Uses a point 1px below the cell top edge (the triangle
-                     * base) — this is the widest part of the triangle and
-                     * gives a solid fill color even for tiny triangles
-                     * (intensity=0).  The true centroid (h/3 from base) sits
-                     * in a region only ~2.7px wide for the smallest triangles,
-                     * where sub-pixel anti-aliasing produces colour drift.
+                     * After issue #101, triangles point outward from cell
+                     * center — the base sits at midY (cell center) and the
+                     * apex extends upward. Sampling 1px above the base
+                     * (midY - 1) lands safely in the solid fill region.
                      */
                     const samplePipe = (cellX: number, cellY: number): Uint8ClampedArray | undefined => {
                         const px = cellX * zoom + zoom / 2 + offX;
-                        // 1px below the cell top = inside the north triangle
-                        // at its widest point.
-                        const py = cellY * zoom + 1 + offY;
+                        // 1px above the cell center = inside the north triangle
+                        // at its widest point (the base).
+                        const py = cellY * zoom + zoom / 2 - 1 + offY;
                         return ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
                     };
                     // Downhill (Δ=-50, intensity=1)
@@ -213,21 +211,22 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     // Centroid of (4,1) north triangle: NO fill — terrain color, not stalled.
-                    // Uses 1/3 from base (true centroid) for the hollow check.
+                    // After issue #101, triangle base is at midY (cell center),
+                    // apex extends upward. Centroid = 1/3 from base toward apex.
                     const stalledSize = zoom * 0.16;
                     const centroidOffsetY = (stalledSize * 1.6) / 3;
                     const centroid = ctx?.getImageData(
                         Math.round(4 * zoom + zoom / 2 + offX),
-                        Math.round(1 * zoom + centroidOffsetY + offY),
+                        Math.round(1 * zoom + zoom / 2 - centroidOffsetY + offY),
                         1,
                         1,
                     ).data;
                     if (centroid === undefined) return false;
                     if (closeTo(centroid, stalledRgb)) return false; // must NOT be stalled color
-                    // Midpoint of top edge: stroke IS present.
+                    // At the triangle base (midY): stroke IS present.
                     const edge = ctx?.getImageData(
                         Math.round(4 * zoom + zoom / 2 + offX),
-                        Math.round(1 * zoom + offY),
+                        Math.round(1 * zoom + zoom / 2 + offY),
                         1,
                         1,
                     ).data;
@@ -315,6 +314,8 @@ describe('pipe slope color-coding (005 FR-013)', () => {
 
         const boardPx = BOARD_SIZE * zoom;
         const downhillRgb = hexToRgb(PIPE_DOWNHILL_COLOR);
+        // After issue #101, triangle base is at midY, apex upward.
+        // Centroid = 1/3 height from base toward apex.
         const centroidY = (downhillSize * 1.6) / 3;
 
         // Poll for the expected pixel state with recalculated offsets.
@@ -329,7 +330,8 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
                     const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     const px = 1 * zoom + zoom / 2 + offX;
-                    const py = 1 * zoom + centroidY + offY;
+                    // After issue #101, sample from midY upward (centroid).
+                    const py = 1 * zoom + zoom / 2 - centroidY + offY;
                     const pixel = ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
                     if (pixel === undefined) return false;
                     return closeTo(pixel, downhillRgb);
