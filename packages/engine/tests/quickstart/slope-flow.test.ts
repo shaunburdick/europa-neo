@@ -1,6 +1,6 @@
 /**
  * Quickstart Q-003 — Slope flow respects elevation — Feature 001, T030
- * (rewritten for issue #30; source-depletion assertions for issue #99)
+ * (rewritten for issue #50 / equal-split model, Clarifications v1.9)
  *
  * Builds three boards with identical source-cell elevations and
  * identical pipe orders, varying only the destination cell's elevation.
@@ -9,10 +9,10 @@
  *
  * Expected rates are derived from `ENGINE_CONSTANTS` via
  * `flowRateForDelta` (the single source of the FR-007 formula):
- *   downhill Δ=−10 → flowRateForDelta(−10, ENGINE_CONSTANTS) = 12
- *   flat Δ=0       → flowRateForDelta(0, ENGINE_CONSTANTS) = 7
- *   uphill Δ=+40   → flowRateForDelta(40, ENGINE_CONSTANTS) = 4
- *   uphill Δ=+100  → flowRateForDelta(100, ENGINE_CONSTANTS) = 0 (stall)
+ *   downhill delta=−10 → flowRateForDelta(−10, perPipe=12, ENGINE_CONSTANTS) = 17
+ *   flat delta=0       → flowRateForDelta(0, perPipe=12, ENGINE_CONSTANTS) = 12
+ *   uphill delta=+40   → flowRateForDelta(40, perPipe=12, ENGINE_CONSTANTS) = 0 (stall)
+ *   uphill delta=+100  → flowRateForDelta(100, perPipe=12, ENGINE_CONSTANTS) = 0 (stall)
  *
  * The source city is seeded to `cityCapacity` (30) troops before the
  * tick so the pipe rate is observable — with the Clarifications v1.6
@@ -104,11 +104,11 @@ function runSeededTick(board: Board): World {
 
 describe('quickstart Q-003 — slope factor ordering', () => {
     it('downhill destination gains > flat destination gains > uphill destination', () => {
-        // With the shipped gradient constants (flowBase=7, flowDownhillStep=1,
-        // flowUphillStep=1, flowSlopeDeltaCap=5, flowUphillCap=80):
-        // - downhill source (10) → destination (0) gains flowRateForDelta(−10) = 12
-        // - flat source (5) → destination (5) gains flowRateForDelta(0) = 7
-        // - uphill source (0) → destination (40) gains flowRateForDelta(+40) = 4
+        // With the shipped equal-split constants (flowRate=12,
+        // flowDownhillStep=1, flowUphillStep=1, flowSlopeDeltaCap=5):
+        // - downhill source (10) → destination (0) gains flowRateForDelta(−10, 12) = 17
+        // - flat source (5) → destination (5) gains flowRateForDelta(0, 12) = 12
+        // - uphill source (0) → destination (40) gains flowRateForDelta(+40, 12) = 0 (stall)
         const downhill: Board = buildTwoCellSlopeBoard(10, 0);
         const flat: Board = buildTwoCellSlopeBoard(5, 5);
         const uphill: Board = buildTwoCellSlopeBoard(0, 40);
@@ -121,7 +121,7 @@ describe('quickstart Q-003 — slope factor ordering', () => {
         const flatCount = getCell(flatWorld, 4, 3).troopCount;
         const upCount = getCell(upWorld, 4, 3).troopCount;
 
-        // Strict ordering: downhill > flat > uphill (12 > 7 > 4).
+        // Strict ordering: downhill > flat > uphill (17 > 12 > 0).
         expect(downCount).toBeGreaterThan(flatCount);
         expect(flatCount).toBeGreaterThan(upCount);
 
@@ -133,7 +133,7 @@ describe('quickstart Q-003 — slope factor ordering', () => {
     });
 
     it('flow respects ENGINE_CONSTANTS gradient rates (explicit value assertion)', () => {
-        // Each tick moves exactly `flowRateForDelta(delta, ENGINE_CONSTANTS)`
+        // Each tick moves exactly `flowRateForDelta(delta, perPipe, ENGINE_CONSTANTS)`
         // troops along the pipe (clamped to capacity and source
         // availability). Verify the explicit value, deriving the expected
         // count from the constants via the exported formula — this pins
@@ -143,17 +143,19 @@ describe('quickstart Q-003 — slope factor ordering', () => {
         const finalWorld = runSeededTick(downhill);
         const dest = getCell(finalWorld, 4, 3);
         const srcElev = 10;
-        const expected = flowRateForDelta(dest.cell.elevation - srcElev, ENGINE_CONSTANTS);
+        const perPipe = ENGINE_CONSTANTS.flowRate; // single pipe → perPipe = flowRate
+        const expected = flowRateForDelta(dest.cell.elevation - srcElev, perPipe, ENGINE_CONSTANTS);
         expect(dest.troopCount).toBe(expected);
-        // Pin the shipped values explicitly: Δ=−10 → 12 (capped bonus).
-        expect(expected).toBe(12);
+        // Pin the shipped values explicitly: delta=−10 → 17 (capped bonus).
+        expect(expected).toBe(17);
     });
 
     it('uphill Δ=100 stalls: destination gains 0 troops (US1 AC-5)', () => {
         const uphill: Board = buildTwoCellSlopeBoard(0, 100);
         const finalWorld = runSeededTick(uphill);
         const dest = getCell(finalWorld, 4, 3);
-        expect(flowRateForDelta(100, ENGINE_CONSTANTS)).toBe(0);
+        const perPipe = ENGINE_CONSTANTS.flowRate;
+        expect(flowRateForDelta(100, perPipe, ENGINE_CONSTANTS)).toBe(0);
         expect(dest.troopCount).toBe(0);
         // Stall is a legal, persistent state: the pipe remains laid.
         expect(getCell(finalWorld, 3, 3).pipes.has('E')).toBe(true);
