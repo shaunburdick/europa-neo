@@ -1,115 +1,48 @@
 # Europa Neo
 
-A modern, open-source, self-hostable reimplementation of **Europa** — the groundbreaking 1990s Java applet game of real-time nanobot warfare on Jupiter's icy moon.
+Real-time nanobot warfare on Jupiter's icy moon — rebuilt for the modern web.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Current release: **v0.2.0**
 
-## What is this?
+## What is Europa Neo?
 
-In the late 1990s, [Europa](https://web.archive.org/web/1999*/games.dangerous-minds.net) let two players wage real-time war across the surface of Europa from their browsers — years before "browser game" meant anything. Players commanded colonies of self-replicating nanobots: cities produced troops, pipes directed their flow across a hostile landscape, and paratroopers and artillery broke stalemates. Fog of war meant you only ever saw what your nanobots could sense.
+Europa Neo is a modern, open-source reimplementation of **Europa**, the groundbreaking 1990s Java applet game of real-time nanobot warfare. Two to four commanders land on Europa with self-replicating nanobot colonies: cities produce troops, pipes direct their flow across a hostile landscape, and fog of war means you only ever see what your nanobots can sense.
 
-**Europa Neo** rebuilds that experience for the modern web:
+It is a faithful rebuild of the original core loop — cities, pipes, combat, paratroopers, guns — with a modernized interface and none of the 1990s friction. Everything runs in the browser over WebSockets against a server-authoritative, deterministic simulation, so matches are fair, replayable, and testable.
 
-- **TypeScript everywhere** — Node.js server, browser client
-- **Server-authoritative deterministic simulation** — replayable, testable, fair
-- **Real-time multiplayer over WebSockets** — discoverable public matches in a lobby
-- **Faithful core loop, modernized UX** — cities, pipes, fog of war, paratroopers, guns; none of the 1990s friction
-- **Self-hostable** — run your own server for your friends
+Europa Neo is **self-hostable**: run your own server for your friends, on your own machine or your own network. No accounts, no cloud dependency, no telemetry.
 
-## Game concept (the 60-second version)
+New to the game? Read the [player manual](https://shaunburdick.github.io/europa-neo/) — it covers getting into a match, the objective, the full rules with real numbers, and a complete controls reference.
 
-You land on Europa with a handful of nanobot production facilities (**cities**). Cities produce troops until saturated. You direct troops between cells with **pipes** — downhill flows fast, uphill is slow. Cut off from supply, troops **decay**. Where opposing flows meet, nanobots fight to mutual attrition — bigger forces win. **Paratroopers** (2 spent per 1 landed) hop gaps and sever enemy pipes; **guns** shell anything in range, friend or foe. You see only what your troops sense — no radar memory, no cheating. Last commander standing wins.
+## Host a game
 
-## Project status
+### Docker (easiest)
 
-**v1 core implementation is complete.** The project follows [spec-driven development](https://github.com/github/spec-kit) via spec-kit. Feature 013's semantic routing is available on this branch, but its final validation gates are still pending; the status below distinguishes shipped features from work still under review.
-
-| Feature                                  | Package                                    | Status          |
-| ---------------------------------------- | ------------------------------------------ | --------------- |
-| 001 core game engine                     | `@europa/engine`                           | ✅ Implemented |
-| 002 fog of war & visibility              | `@europa/fog`                              | ✅ Implemented |
-| 003 procedural terrain generation        | `@europa/terrain`                          | ✅ Implemented |
-| 004 multiplayer networking               | `@europa/networking`                       | ✅ Implemented |
-| 005 client console                       | `@europa/console`                          | ✅ Implemented |
-| 006 match lifecycle & matchmaking        | `@europa/matchmaking`                      | ✅ Implemented |
-| 010 public lobby & match browser         | `@europa/matchmaking`/`@europa/networking`/`@europa/console` | ✅ Implemented |
-| 023 lobby presence roster                | `@europa/matchmaking`/`@europa/networking`/`@europa/console` | ✅ Implemented |
-| 013 semantic URL routing                  | `@europa/console`/host runtime                    | ⏳ Implementation in progress — final gates pending |
-
-An integration wave proved the full production path end-to-end: console UI ⇄ browser WebSocket client ⇄ match server ⇄ matchmaking-bound engine + terrain + fog, with two seats playing through the real wire protocol.
-
-Across the monorepo: **more than 1,200 automated tests** (the exact count varies by selected package/configuration), six per-package CI workflows, and ≥80% coverage gates on every metric in every package.
-
-Feature specifications live in `specs/`; the governing principles are in `.specify/memory/constitution.md`.
-
-## Repository layout
-
-```
-europa-source/          Trimmed documentation subset of the original game site (reference material)
-  └── games.dangerous-minds.net/Europa/html/Europa/
-      ├── rules.html    Original mechanics (authoritative gameplay reference)
-      ├── controls.html Original control scheme
-      └── …             Strategy, rating system, background docs + images
-.specify/               Spec-kit tooling: constitution, feature specs, templates, scripts
-packages/               pnpm workspace — all first-party code
-  ├── engine/           @europa/engine      Deterministic tick simulation: cities, pipes, combat, decay, paratroopers, guns, victory
-  ├── terrain/          @europa/terrain     Seed-reproducible, point-symmetric procedural map generation
-  ├── fog/              @europa/fog         Per-player sensor horizons with strict no-memory redaction
-  ├── networking/       @europa/networking  Authoritative WebSocket protocol, tick scheduling, reconnection, spectating
-  ├── matchmaking/      @europa/matchmaking Sessions, public/private matches, lobby, rematch, forfeit policy
-  └── console/          @europa/console     React satellite-view client console (renderer + original control scheme + QoL)
-```
-
-## Development
-
-This project is developed agent-first but human-governed: AI agents do the heavy lifting under a constitution (`AGENTS.md` at the repo root defines the working rules). Humans review at every phase gate.
-
-pnpm 11 workspace on Node ≥ 22 (the adopted Biome configuration requires Node 22):
+No Node toolchain required — just Docker Engine with Compose v2:
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm build        # all six packages in dependency order:
-                  #   engine → terrain → fog → networking → matchmaking → console (vite bundle)
-pnpm test         # every package's suite
+docker compose up --build
 ```
 
-Workspace-wide `lint`, `typecheck`, and `coverage` scripts exist too; any single package can be driven directly, e.g.:
+The lobby is at <http://localhost:8080/lobby>. One firewall rule is enough: the container exposes a single port serving both the UI and the WebSocket connection.
 
-```bash
-pnpm --filter @europa/engine test
-pnpm --filter @europa/console coverage
-```
+Published images are available without a local build: `ghcr.io/shaunburdick/europa-neo:edge` (latest `main`) and `ghcr.io/shaunburdick/europa-neo:vX.Y.Z` (release tags).
 
-### Lint and formatting
+Useful environment variables:
 
-The repository adopts the published [`biome-config-shaunburdick`](https://www.npmjs.com/package/biome-config-shaunburdick)
-configuration through the root `biome.jsonc`; package configs inherit it. Run
-`pnpm lint` for the lint baseline and `pnpm format:check` to check the adopted
-four-space/120-column repository style. Bulk autofixes are intentionally not
-used for the migration. See
-[`.specify/biome-migration.md`](.specify/biome-migration.md) for the policy,
-package order, and exit criteria.
+| Env var | Default | Purpose |
+|---|---|---|
+| `HOST_PORT` | `8080` | Single port for HTTP + WebSocket |
+| `HOST_PUBLIC_HOST` | `localhost` | Advertised host for join URLs |
+| `HOST_PUBLIC_URL` | — | Absolute public URL base (e.g. behind a reverse proxy) |
 
-Console extras:
+Run `pnpm host --help` for the full list of flags and variables.
 
-- The Playwright E2E suites need Chromium once: from `packages/console`, run `pnpm exec playwright install chromium`.
-- The production bundle carries a gzip budget (~80 KB observed against a hard 150 KB limit), enforced by the self-host check: `pnpm --filter @europa/console test:selfhost`.
+### From source (Node.js)
 
-## Player manual
-
-New to the game? The [player manual](https://shaunburdick.github.io/europa-neo/)
-teaches everything: getting into a match, the objective, mechanics with the real
-numbers, and a complete controls reference. It is plain Markdown in-repo at
-[`docs/manual/index.md`](docs/manual/index.md) — readable on the published site
-or straight from a checkout.
-
-Fork owners: publishing uses GitHub Actions; enable it once via
-Settings → Pages → Source = "GitHub Actions" (see
-`.github/workflows/pages-deploy.yml`).
-
-## Quick start
+For developers who want to build from source — pnpm 11 workspace on Node ≥ 22:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -117,156 +50,39 @@ pnpm build
 pnpm host
 ```
 
-`pnpm host` starts a single `http.Server` on `HOST_PORT` (default `8080`) serving
-both the console UI and the WebSocket match server on the same origin
-(`http://localhost:8080/` + `ws://localhost:8080`, FR-017: one `http.Server`,
-one `EXPOSE`, one port mapping, same-origin WS). The default is an empty
-public lobby at `/lobby`: choose a guest handle, create a game, browse and
-join/spectate an available public match, or see who is online in the
-**presence roster**. It does not create a match at startup.
-Use `pnpm host --create` for the explicit two-seat quick flow. The console also
-has a deterministic stub board when opened without a server, for renderer work
-only.
+The lobby is at <http://localhost:8080/lobby>.
 
-Production navigation uses readable paths:
+### LAN hosting
 
-| Path | Purpose |
-|---|---|
-| `/lobby` | Browse public matches, create a match, or choose Join/Spectate. |
-| `/match/<id>` | Open a match; waiting matches use player entry and running matches use read-only spectation. |
-| `/match/<id>/join` | Request player entry for a specific waiting match. |
-| `/match/<id>/spectate` | Open a specific running match read-only, without a seat. |
-
-The root path redirects to `/lobby`. Shared paths contain only the match ID;
-the browser establishes identity and transport details through the application
-session rather than the address bar.
-
-The host is loopback-safe by default. For a local-area network match, bind
-explicitly and advertise the address players can reach:
+To play with friends on your local network, bind to all interfaces and advertise the address players can reach:
 
 ```bash
 HOST_BIND_HOST=0.0.0.0 HOST_PUBLIC_HOST=192.168.1.20 pnpm host
 ```
 
-The equivalent flags are `--bind-host HOST` and `--public-host HOST` (port
-remains configurable with `--port` / `HOST_PORT`). A wildcard bind requires
-an explicit public host. Direct internet
-exposure is not supported: a public deployment still needs a TLS-terminating
-reverse proxy, rate limiting, and origin controls.
+Direct internet exposure is not supported: a public deployment needs a TLS-terminating reverse proxy, rate limiting, and origin controls.
 
-### Shareable match links and public URL
+## Game basics
 
-Every match has a canonical `/match/<match-id>` URL. The in-game **Copy link**
-action copies this URL to the clipboard with visible confirmation. Private
-matches are joinable and spectatable only through the shareable link — they do
-not appear in the lobby list. Public matches show a quieter copy-link button
-since the lobby listing is also an entry path.
+You land on Europa with a handful of nanobot production facilities (**cities**). Cities produce troops until saturated. You direct troops between cells with **pipes** — downhill flows fast, uphill is slow. Cut off from supply, troops **decay**. Where opposing flows meet, nanobots fight to mutual attrition — bigger forces win. **Paratroopers** (2 spent per 1 landed) hop gaps and sever enemy pipes; **guns** shell anything in range, friend or foe. You see only what your troops sense — no radar memory, no cheating. Last commander standing wins.
 
-For self-hosted setups behind a reverse proxy, use `--public-url` or
-`HOST_PUBLIC_URL` so the host script prints absolute join URLs in its terminal
-output:
+Read the full [player manual](https://shaunburdick.github.io/europa-neo/) for controls, strategy, and the complete rules.
 
-```bash
---public-url https://game.example.com
-HOST_PUBLIC_URL=https://game.example.com pnpm host
-```
+## Project status
 
-The value must be an absolute HTTP or HTTPS origin (no trailing path, query, or
-fragment). When omitted, the host constructs URLs from `publicHost:port`.
+The core game is complete and playable end-to-end: lobby, matchmaking, live multiplayer matches, and victory conditions all work through the real wire protocol. The project follows [spec-driven development](https://github.com/github/spec-kit) — every feature is specified, planned, and tested before it ships, with feature specs living in `specs/`.
 
-### Docker quick start (single port)
+Current work is tracked on [GitHub issues](https://github.com/shaunburdick/europa-neo/issues).
 
-No Node toolchain required — just Docker Engine + Compose v2. From a fresh
-clone:
+The monorepo carries **more than 1,300 automated tests across 7 packages**, with ≥80% coverage gates on every metric and six per-package CI workflows.
 
-```bash
-docker compose up --build   # first run builds the image; later `docker compose up` suffices
-# lobby at http://localhost:8080/lobby — single http.Server on HOST_PORT: static UI + /version + WS
-```
+## Contributing
 
-One firewall/ingress rule is enough: the container exposes a single port
-(`EXPOSE 8080`, mapped as `${HOST_PORT:-8080}:${HOST_PORT:-8080}`) and the
-browser connects to the same origin without a transport override.
-The same container also serves the semantic match entry paths (`/match/<id>`,
-`/match/<id>/join`, and `/match/<id>/spectate`) through the SPA fallback; direct
-loads and refreshes do not require a second listener.
+Contributions are welcome — bug reports, feature ideas, documentation, and code. The project is **agent-first but human-governed**: AI agents do the heavy lifting under a written constitution, and humans review at every phase gate.
 
-| Env var | Default | Purpose |
-|---|---|---|
-| `HOST_PORT` | `8080` | Single `http.Server` port for HTTP + WebSocket (one knob controls both). |
-| `HOST_BIND_HOST` | `0.0.0.0` (compose) / `127.0.0.1` (native) | Interface to bind. Compose defaults wide because Docker's `ports:` is the ingress. |
-| `HOST_PUBLIC_HOST` | `localhost` (when loopback) else `bindHost` | Advertised host for banner and join URLs. Required when `HOST_BIND_HOST` is wildcard. |
-| `HOST_PUBLIC_URL` | `http://publicHost:port` | Absolute public URL base for terminal join URLs (e.g., behind a reverse proxy). Must be an HTTP/HTTPS origin. |
-
-Examples:
-
-```bash
-HOST_PORT=9090 docker compose up --build          # HTTP+WS on 9090
-HOST_PUBLIC_HOST=example.com docker compose up    # advertise example.com behind a reverse proxy
-```
-
-`docker compose down` resets the
-in-memory lobby and matches; restarting gives a fresh lobby.
-
-Published images (no local build): `ghcr.io/shaunburdick/europa-neo:edge`
-(`main`) and `ghcr.io/shaunburdick/europa-neo:vX.Y.Z` (release tags) are
-built by CI and pullable with `docker compose pull`.
-
-### Lobby, identity, and recovery
-
-The lobby gives each browser an ephemeral guest identity and asks for a
-user-facing handle. Handles are trimmed for comparison, unique among active
-sessions case-insensitively, and limited to 1–24 Unicode code points after
-trimming with at least one non-whitespace character. Accepted handles contain
-no control characters, no bidirectional formatting controls, and no unpaired
-surrogates; well-formed emoji counts as one code point. Accepted casing is
-shown in the lobby and on occupied match seats; handles can be renamed while
-the identity remains active and the server propagates the new label into
-future match, seat, waiting view, order attribution, and participant labels
-without changing the underlying identity association. Handles are overlaid at
-the networking boundary and do not mutate engine simulation state. This
-is not an account system: browser storage and the server process hold the
-state in memory only. Clearing browser storage or restarting the host starts a
-fresh identity, handle set, lobby, and match set.
-
-The server is authoritative for identity-to-seat association. Client input
-cannot choose another player's seat or attribute orders to another player.
-Player views remain fog-filtered; spectators receive full-visibility,
-read-only views and have no seat or order permissions. The lobby distinguishes
-**Loading public matches…** from **No public matches right now — create one
-to get started**, and public waiting matches offer **Join** while running
-matches offer **Spectate**; collected matches are not history.
-
-Temporary disconnects use the existing reconnect grace window. A valid
-reconnect credential within that window restores the original seat, handle,
-view, and order authority. Expired, unknown, or mismatched credentials do not
-reassign a connection. Guest identity IDs and gameplay `PlayerId` values are
-non-secret correlation data, not credentials or authority, and may appear in
-URLs, wire payloads, views, logs, and diagnostics where useful. Labels are
-handle-first: the accepted handle is the preferred UI label, with a generic label
-or the relevant ID as a fallback when no handle exists. Only a valid bearer
-credential can resume a seat; host diagnostics continue to omit bearer
-credentials (`sessionToken` and `reconnectToken`). Private-match existence and
-fog-of-war boundaries remain protected.
-
-`GET /version` on the single-port origin returns application and protocol versions:
-
-```bash
-curl http://localhost:8080/version
-```
-
-The normal lobby derives its WebSocket endpoint from the page host. Normal host
-output uses the lobby and semantic match paths, and does not place identity,
-transport, or credential material in the URL. The `?e2e` query documented in the
-console package is reserved for automated test harnesses and is not a
-production launch path.
-Guest/player IDs are non-secret correlation data and may appear in approved
-diagnostics or contract examples, but match IDs and guest/player IDs are not
-bearer credentials. Bearer session and reconnect tokens remain excluded from
-public app URLs, logs, diagnostics, and documentation examples. The direct
-`?live` route is historical test compatibility, not a production launch path.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for prerequisites, the development workflow, and code quality standards.
 
 ## Credits & licensing
 
-- The original **Europa** was created by **Alex Nicolaou** and **Jay Steele** (University of Waterloo, ~1999), whose design this project celebrates. The archived source in `europa-source/` remains © Alex Nicolaou under the SOS Simple Open Source License v1.03 — it is included unmodified as reference material.
-- Europa Neo's new code is an independent reimplementation from documented behavior, not a derivative of the original Java code. It is released under the [MIT License](LICENSE), while `europa-source/` remains © Alex Nicolaou under the SOS Simple Open Source License v1.03 as unmodified reference material.
+- The original **Europa** was created by **Alex Nicolaou** and **Jay Steele** (University of Waterloo, ~1999), whose design this project celebrates. The archived source in `europa-source/` remains © Alex Nicolaou under the SOS Simple Open Source License v1.03 — it is included unmodified as reference material only.
+- Europa Neo's code is an independent reimplementation from documented behavior, not a derivative of the original Java code. It is released under the [MIT License](LICENSE).

@@ -1,0 +1,21 @@
+# Code owners — required reviewers for pull requests.
+# See https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository-for-github-with-code-owners
+
+# Default owner for everything
+* @shaunburdick
+
+# Documentation
+/docs/manual/ @shaunburdick
+/README.md @shaunburdick
+/CONTRIBUTING.md @shaunburdick
+/CONTRIBUTORS.md @shaunburdick
+
+# Specifications (source of truth for behavior)
+/specs/ @shaunburdick
+/.specify/ @shaunburdick
+
+# CI and release automation
+/.github/workflows/ @shaunburdick
+
+# Reference material — never modified
+/europa-source/ @shaunburdick
