@@ -35,7 +35,7 @@ No Node toolchain required — just Docker Engine with Compose v2:
 docker compose up --build
 ```
 
-The lobby is at <http://localhost:8080/lobby>. One firewall rule is enough: the container exposes a single port serving both the UI and the WebSocket connection.
+The public lobby is at <http://localhost:8080/lobby> — players pick a guest handle to join, no accounts required. One firewall rule is enough: the container exposes a single port serving both the UI and the WebSocket connection.
 
 Published images are available without a local build: `ghcr.io/shaunburdick/europa-neo:edge` (latest `main`) and `ghcr.io/shaunburdick/europa-neo:vX.Y.Z` (release tags).
 
