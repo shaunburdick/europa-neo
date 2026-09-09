@@ -1,21 +1,31 @@
 /**
- * Flow resolution phase — Feature 001, T023 (rewritten for issue #30)
+ * Flow resolution phase — Feature 001, T023 (rewritten for issue #30,
+ * equal-split model from issue #50 / Clarifications v1.9)
  *
  * Pure `resolveFlow(state, board, constants): WorldState`.
  *
  * For each cell with outgoing pipes (encoded in `state.pipeMasks`):
- *   1. Compute destination cell from N/E/S/W bit.
- *   2. Reject out-of-board or water destinations (FR-002).
- *   3. Compute the elevation delta (`dest.elev - src.elev`).
- *   4. Rate = `flowRateForDelta(elevDelta, constants)` (FR-007):
- *        downhill → `flowBase + flowDownhillStep × min(|Δ|, flowSlopeDeltaCap)`
- *        flat     → `flowBase`
- *        uphill   → `ceil(flowBase × (flowUphillCap − |Δ|) / flowUphillCap)`
- *                   — stalls at Δ ≥ flowUphillCap (legal no-op, US1 AC-5)
- *   5. Clamp the destination's new count at `cellCapacity` (FR-011).
- *   6. Transfer troops from source to destination (Clarifications v1.6):
+ *   1. Count outgoing pipes via popcount; compute `perPipe` =
+ *      `floor(flowRate / numPipes)`.
+ *   2. Compute destination cell from N/E/S/W bit.
+ *   3. Reject out-of-board or water destinations (FR-002).
+ *   4. Compute the elevation delta (`dest.elev - src.elev`).
+ *   5. Rate = `flowRateForDelta(elevDelta, base, constants)` (FR-007):
+ *        `base = min(perPipe, floor(available / remainingPipes))`
+ *        where `available = srcCount − reserveFloor`.
+ *        Downhill → bonus; flat → base; uphill → penalty (may stall).
+ *   6. Clamp the destination's new count at `cellCapacity` (FR-011).
+ *   7. Transfer troops from source to destination (Clarifications v1.6):
  *      source cells ARE decremented by the amount actually transferred.
  *      This is a transfer, not a copy — troop counts are conserved.
+ *
+ * **Equal-split model** (Clarifications v1.9): the total outflow budget
+ * per cell per tick is the tunable constant `flowRate`. Each outgoing
+ * pipe receives an equal share: `perPipe = floor(flowRate / numPipes)`.
+ * When the source has fewer troops than `flowRate` (scarcity), troops
+ * are split equally across pipes: `base = min(perPipe, available /
+ * remainingPipes)` where `remainingPipes` decreases after each pipe.
+ * The elevation gradient modifies each pipe's share individually.
  *
  * **Source depletion** (Clarifications v1.6): each pipe direction reads
  * the source's current count from `newCounts` (accumulated across prior
@@ -30,8 +40,9 @@
  * integer-only); no floats.
  *
  * **Determinism** (FR-017): cell iteration is row-major; direction
- * iteration is N→E→S→W (fixed bit order). No randomness; same input
- * → byte-identical output on every run.
+ * iteration is N→E→S→W (fixed bit order). Pipe index within a cell is
+ * tied to this fixed iteration order, ensuring deterministic `remainingPipes`
+ * decrements. No randomness; same input → byte-identical output.
  */
 
 import { flowRateForDelta } from '@europa/core';
@@ -43,6 +54,20 @@ const N_BIT = 0x01;
 const E_BIT = 0x02;
 const S_BIT = 0x04;
 const W_BIT = 0x08;
+
+/**
+ * Count the number of set bits in a pipe mask (Hamming weight).
+ * Used to compute the equal-split `numPipes` for a source cell.
+ * Input is a Uint8 (0..15), so the result is always 0..4.
+ */
+function popcount(mask: number): number {
+    let count = 0;
+    if ((mask & N_BIT) !== 0) count++;
+    if ((mask & E_BIT) !== 0) count++;
+    if ((mask & S_BIT) !== 0) count++;
+    if ((mask & W_BIT) !== 0) count++;
+    return count;
+}
 
 interface TransferParams {
     board: Readonly<Board>;
@@ -65,17 +90,30 @@ interface TransferParams {
      * to compute total forces for each side.
      */
     committedTally: Uint32Array | null;
+    /** Total number of outgoing pipes on the source cell (popcount of mask). */
+    numPipes: number;
+    /** Equal-share per pipe before elevation adjustment: `floor(flowRate / numPipes)`. */
+    perPipe: number;
+    /** 0-based index of the current pipe within the N→E→S→W iteration. */
+    pipeIndex: number;
+    /** Reserve floor for the source cell, computed before the iteration. */
+    reserveFloor: number;
 }
 
 /**
- * Resolve one tick of pipe flow. Transfers troops from source cells to
+ * Resolve one tick of pipe flow using the equal-split model
+ * (Clarifications v1.9). Transfers troops from source cells to
  * destination cells (Clarifications v1.6 — troop conservation).
+ *
+ * Each source cell's total outflow budget is `flowRate`, split equally
+ * among outgoing pipes. The elevation gradient modifies each pipe's
+ * share individually. Under scarcity (fewer troops than `flowRate`),
+ * the budget is further reduced to `min(perPipe, available / remainingPipes)`.
  *
  * @param state              Current world state (NOT mutated).
  * @param board              Board with cell elevations and terrain.
- * @param constants          Engine rule constants (flowBase, flowDownhillStep,
- *                           flowUphillStep, flowSlopeDeltaCap, flowUphillCap,
- *                           cellCapacity).
+ * @param constants          Engine rule constants (flowRate, flowDownhillStep,
+ *                           flowUphillStep, flowSlopeDeltaCap, cellCapacity).
  * @param inflowTally        Optional per-cell per-owner inflow tally. When
  *                           supplied, slot `(cellIdx * 4) + (playerId - 1)` is
  *                           incremented by the count of troops that player
@@ -120,6 +158,14 @@ export function resolveFlow(
             continue;
         }
 
+        // Equal-split model (Clarifications v1.9): count outgoing pipes,
+        // compute the per-pipe budget, and pre-compute the reserve floor
+        // so each transfer() call can apply the per-pipe share formula.
+        const numPipes = popcount(mask);
+        const perPipe = Math.floor(constants.flowRate / numPipes);
+        const reservePct = state.reservesPct[idx] ?? 0;
+        const reserveFloor = reservePct > 0 ? Math.ceil((srcCount * reservePct) / 10) : 0;
+
         const x = idx % w;
         const y = Math.floor(idx / w);
         const params: TransferParams = {
@@ -136,28 +182,37 @@ export function resolveFlow(
             reservesPct: state.reservesPct,
             tally: tallyAvailable ? (inflowTally as Uint32Array) : null,
             committedTally: committedTallyAvailable ? (committedFlowTally as Uint32Array) : null,
+            numPipes,
+            perPipe,
+            pipeIndex: 0,
+            reserveFloor,
         };
 
         // Iterate directions in fixed order (N, E, S, W) for determinism.
+        // pipeIndex is incremented after each direction to track remainingPipes.
         if ((mask & N_BIT) !== 0) {
             params.dx = 0;
             params.dy = -1;
             transfer(params);
+            params.pipeIndex++;
         }
         if ((mask & E_BIT) !== 0) {
             params.dx = 1;
             params.dy = 0;
             transfer(params);
+            params.pipeIndex++;
         }
         if ((mask & S_BIT) !== 0) {
             params.dx = 0;
             params.dy = 1;
             transfer(params);
+            params.pipeIndex++;
         }
         if ((mask & W_BIT) !== 0) {
             params.dx = -1;
             params.dy = 0;
             transfer(params);
+            params.pipeIndex++;
         }
     }
 
@@ -177,12 +232,30 @@ export function resolveFlow(
  * Troops are TRANSFERRED, not copied (Clarifications v1.6): the source
  * cell is decremented by the amount actually delivered to the
  * destination. The source's reserves floor (FR-012) protects a
- * percentage of the source stack from flowing out. Owner is preserved
- * even when the source is depleted (Clarifications v1.8).
+ * percentage of the source stack from flowing out. Under scarcity,
+ * the per-pipe share is reduced to `min(perPipe, available / remainingPipes)`.
+ * Owner is preserved even when the source is depleted (Clarifications v1.8).
  */
 function transfer(params: TransferParams): void {
-    const { board, x, y, dx, dy, srcOwner, constants, cap, newCounts, newOwners, reservesPct, tally, committedTally } =
-        params;
+    const {
+        board,
+        x,
+        y,
+        dx,
+        dy,
+        srcOwner,
+        constants,
+        cap,
+        newCounts,
+        newOwners,
+        reservesPct,
+        tally,
+        committedTally,
+        numPipes,
+        perPipe,
+        pipeIndex,
+        reserveFloor,
+    } = params;
     const nx = x + dx;
     const ny = y + dy;
     const w = board.width;
@@ -198,16 +271,12 @@ function transfer(params: TransferParams): void {
         return; // water impassable (FR-002)
     }
 
-    // Compute the elevation delta and the gradient flow rate (FR-007).
+    // Compute the elevation delta (FR-007).
     const srcCell = board.cells[y * w + x];
     if (srcCell === undefined) {
         return;
     }
     const elevDelta = dstCell.elevation - srcCell.elevation;
-    const moved = flowRateForDelta(elevDelta, constants);
-    if (moved === 0) {
-        return; // stall (uphill Δ ≥ flowUphillCap) — legal no-op
-    }
 
     // Check source availability BEFORE writing the destination
     // (Clarifications v1.6 — transfer, not copy). Read the CURRENT
@@ -222,10 +291,21 @@ function transfer(params: TransferParams): void {
     // from flowing out. Computed per-transfer against the current count
     // so a multi-pipe source never dips below its floor.
     const reservePct = reservesPct[srcIdx] ?? 0;
-    const reserveFloor = reservePct > 0 ? Math.ceil((srcCount * reservePct) / 10) : 0;
-    const maxDeductable = srcCount > reserveFloor ? srcCount - reserveFloor : 0;
+    const reserveFloorCurrent = reservePct > 0 ? Math.ceil((srcCount * reservePct) / 10) : 0;
+    const maxDeductable = srcCount > reserveFloorCurrent ? srcCount - reserveFloorCurrent : 0;
     if (maxDeductable === 0) {
         return; // all troops reserved — nothing can flow
+    }
+
+    // Equal-split model (Clarifications v1.9): compute the per-pipe
+    // share, applying source depletion under scarcity. `remainingPipes`
+    // accounts for pipes already processed in the N→E→S→W iteration.
+    const remainingPipes = numPipes - pipeIndex;
+    const available = srcCount > reserveFloor ? srcCount - reserveFloor : 0;
+    const base = Math.min(perPipe, Math.floor(available / remainingPipes));
+    const moved = flowRateForDelta(elevDelta, base, constants);
+    if (moved === 0) {
+        return; // stall (uphill penalty exhausted the base) — legal no-op
     }
 
     // Record committed flow BEFORE headroom clamping — used by combat
