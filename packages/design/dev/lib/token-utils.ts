@@ -168,6 +168,11 @@ export function buildTokenGroups(): ReadonlyArray<TokenGroup> {
             if (rawValue === undefined) {
                 continue;
             }
+            // Skip non-primitive values (arrays, objects like biomeZones)
+            // that cannot be rendered as CSS values.
+            if (typeof rawValue !== 'string' && typeof rawValue !== 'number') {
+                continue;
+            }
             const leafKebab = toKebabCase(leafKey);
             const cssVar = `--europa-${groupKebab}-${leafKebab}`;
             const cssValue = typeof rawValue === 'number' ? String(rawValue) : rawValue;

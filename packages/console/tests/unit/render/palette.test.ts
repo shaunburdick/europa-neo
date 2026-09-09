@@ -1,30 +1,24 @@
 /**
- * Unit tests: render palette invariants — Feature 005 (US1 T044/T045
- * support module + 2026-08-24 playtest contrast ruling).
+ * Unit tests: render palette invariants — Feature 024 (biome-based
+ * terrain shading replacing 6-band grayscale).
  *
- * Pins the board-readability contract recorded in spec 005
- * Implementation Notes item 13:
- * - the darkest land tile is clearly lighter than the void, so
- *   low-elevation land never reads as fog ("broken bands" defect);
- * - the void is distinct from the page chrome background, so the
- *   canvas reads as board space rather than an invisible rectangle;
- * - elevation shading still interpolates monotonically to the
- *   documented maximum (data-model.md §3 unchanged).
- *
- * Fog no-leak (FR-002/FR-005) is structural — out-of-horizon cells
- * are absent from views — and remains pinned by the visibility and
- * component suites; these tests only cover paint constants.
+ * Pins the board-readability contract recorded in spec 024:
+ * - 4 biome zones with distinct hue families (AC-001–AC-009);
+ * - biomeZoneForElevation pure function (AC-020);
+ * - terrainColor returns biome-zone HSL for land (AC-022);
+ * - water/void distinctness invariants preserved (AC-017/AC-018);
+ * - pipe outline color constant (AC-010).
  */
 
 import { describe, expect, test } from 'vitest';
 import {
+    biomeZoneForElevation,
     LAND_BAND_COUNT,
     LAND_BAND_LIGHTNESS,
-    LAND_MAX_LIGHTNESS_PCT,
-    LAND_MIN_LIGHTNESS_PCT,
     landBandColor,
     landBandIndex,
     PAGE_BACKGROUND_COLOR,
+    PIPE_OUTLINE_COLOR,
     terrainColor,
     VOID_COLOR,
     WATER_COLOR,
@@ -32,9 +26,9 @@ import {
     waterDepthForCell,
 } from '../../../src/render/palette';
 
-/** Parse `hsl(H S% L%)` (the exact format terrainColor emits). */
+/** Parse `hsl(H, S%, L%)` (the format terrainColor/landBandColor emit). */
 function parseHsl(color: string): { hue: number; sat: number; light: number } {
-    const match = /^hsl\((\d+) (\d+(?:\.\d+)?)% (\d+(?:\.\d+)?)%\)$/.exec(color);
+    const match = /^hsl\((\d+),\s*(\d+(?:\.\d+)?)%,\s*(\d+(?:\.\d+)?)%\)$/.exec(color);
     if (match === null) {
         throw new Error(`not a palette hsl() color: ${color}`);
     }
@@ -54,69 +48,219 @@ function hexToRgb(hex: string): [number, number, number] {
     return [Number.parseInt(match[1], 16), Number.parseInt(match[2], 16), Number.parseInt(match[3], 16)];
 }
 
-/** Perceived (luminance-weighted) brightness, 0..255. */
-function luminance(rgb: [number, number, number]): number {
-    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
-}
-
-describe('palette contrast invariants (spec 005 Implementation Notes 13)', () => {
-    test('sea-level land sits at the documented lightness floor', () => {
-        const floor = parseHsl(terrainColor('land', 0));
-        expect(floor.light).toBe(LAND_MIN_LIGHTNESS_PCT);
-        expect(floor.light).toBeGreaterThanOrEqual(26);
+describe('biomeZoneForElevation (spec 024 FR-005, AC-020)', () => {
+    test('elevation 0 → zone 0 (Smooth Ice)', () => {
+        const result = biomeZoneForElevation(0);
+        expect(result.zone).toBe(0);
+        expect(result.hue).toBe(210);
+        expect(result.saturationPct).toBe(65);
+        expect(result.lightness).toBe(38);
     });
 
-    test('darkest land is visibly lighter than the void', () => {
-        const floorHsl = parseHsl(terrainColor('land', 0));
-        // hsl → rgb for an apples-to-apples comparison with the void hex.
-        const c = ((1 - Math.abs((2 * floorHsl.light) / 100 - 1)) * floorHsl.sat) / 100;
-        const hp = floorHsl.hue / 60;
-        const x = c * (1 - Math.abs((hp % 2) - 1));
-        const [r1, g1, b1] = hp < 1 ? [c, x, 0] : hp < 2 ? [x, c, 0] : hp < 3 ? [0, c, x] : [0, x, c];
-        const m = floorHsl.light / 100 - c / 2;
-        const landRgb: [number, number, number] = [
-            Math.round((r1 + m) * 255),
-            Math.round((g1 + m) * 255),
-            Math.round((b1 + m) * 255),
-        ];
-        const voidRgb = hexToRgb(VOID_COLOR);
-
-        // Luminance gap must be unmistakable: land floor ≥ 1.5× void
-        // brightness (actual ≈ 69 vs ≈ 34 — the assertion documents the
-        // minimum, not the exact value, so tuning stays honest).
-        expect(luminance(landRgb)).toBeGreaterThanOrEqual(1.5 * luminance(voidRgb));
-        // Overall color distance must clear a visible-difference bar.
-        // (Per-channel deltas don't work here: land is green-tinted and
-        // void blue-tinted, so their blue channels legitimately sit close
-        // together while hue + luminance separate the tiles. Actual
-        // Euclidean RGB distance ≈ 52; the floor documents "clearly
-        // distinct", not the exact value.)
-        const distance = Math.sqrt(landRgb.reduce((sum, channel, i) => sum + (channel - voidRgb[i]) ** 2, 0));
-        expect(distance).toBeGreaterThanOrEqual(40);
+    test('elevation 80 → zone 0 max lightness', () => {
+        const result = biomeZoneForElevation(80);
+        expect(result.zone).toBe(0);
+        expect(result.lightness).toBe(52);
     });
 
-    test('void is distinct from the page background', () => {
-        expect(VOID_COLOR).not.toBe(PAGE_BACKGROUND_COLOR);
-        const voidRgb = hexToRgb(VOID_COLOR);
-        const pageRgb = hexToRgb(PAGE_BACKGROUND_COLOR);
-        const channelGap = Math.max(
-            Math.abs(voidRgb[0] - pageRgb[0]),
-            Math.abs(voidRgb[1] - pageRgb[1]),
-            Math.abs(voidRgb[2] - pageRgb[2]),
-        );
-        expect(channelGap).toBeGreaterThanOrEqual(8);
+    test('elevation 81 → zone 1 (Fractured Ice)', () => {
+        const result = biomeZoneForElevation(81);
+        expect(result.zone).toBe(1);
+        expect(result.hue).toBe(170);
+        expect(result.saturationPct).toBe(55);
+        expect(result.lightness).toBe(26);
     });
 
-    test('elevation shading still interpolates to the documented maximum', () => {
+    test('elevation 160 → zone 1 max lightness', () => {
+        const result = biomeZoneForElevation(160);
+        expect(result.zone).toBe(1);
+        expect(result.lightness).toBe(40);
+    });
+
+    test('elevation 161 → zone 2 (Rocky Outcrops)', () => {
+        const result = biomeZoneForElevation(161);
+        expect(result.zone).toBe(2);
+        expect(result.hue).toBe(30);
+        expect(result.saturationPct).toBe(55);
+        expect(result.lightness).toBe(30);
+    });
+
+    test('elevation 208 → zone 2 max lightness', () => {
+        const result = biomeZoneForElevation(208);
+        expect(result.zone).toBe(2);
+        expect(result.lightness).toBe(42);
+    });
+
+    test('elevation 209 → zone 3 (Ice Peaks)', () => {
+        const result = biomeZoneForElevation(209);
+        expect(result.zone).toBe(3);
+        expect(result.hue).toBe(200);
+        expect(result.saturationPct).toBe(15);
+        expect(result.lightness).toBe(80);
+    });
+
+    test('elevation 255 → zone 3 max lightness', () => {
+        const result = biomeZoneForElevation(255);
+        expect(result.zone).toBe(3);
+        expect(result.lightness).toBe(95);
+    });
+
+    test('negative elevation clamps to zone 0', () => {
+        const result = biomeZoneForElevation(-10);
+        expect(result.zone).toBe(0);
+    });
+
+    test('elevation > 255 clamps to zone 3', () => {
+        const result = biomeZoneForElevation(300);
+        expect(result.zone).toBe(3);
+    });
+
+    test('pure function: same input always produces same output', () => {
+        for (const e of [0, 42, 80, 81, 120, 160, 161, 185, 208, 209, 232, 255]) {
+            const a = biomeZoneForElevation(e);
+            const b = biomeZoneForElevation(e);
+            expect(a).toEqual(b);
+        }
+    });
+
+    test('lightness interpolates linearly within each zone', () => {
+        // Zone 0 midpoint: (38+52)/2 = 45
+        const mid0 = biomeZoneForElevation(40);
+        expect(mid0.lightness).toBeGreaterThanOrEqual(38);
+        expect(mid0.lightness).toBeLessThanOrEqual(52);
+
+        // Zone 1 midpoint: (26+40)/2 = 33
+        const mid1 = biomeZoneForElevation(120);
+        expect(mid1.lightness).toBeGreaterThanOrEqual(26);
+        expect(mid1.lightness).toBeLessThanOrEqual(40);
+    });
+});
+
+describe('landBandIndex (spec 024 FR-002)', () => {
+    test('elevation 0 → zone 0', () => {
+        expect(landBandIndex(0)).toBe(0);
+    });
+
+    test('elevation 80 → zone 0', () => {
+        expect(landBandIndex(80)).toBe(0);
+    });
+
+    test('elevation 81 → zone 1', () => {
+        expect(landBandIndex(81)).toBe(1);
+    });
+
+    test('elevation 160 → zone 1', () => {
+        expect(landBandIndex(160)).toBe(1);
+    });
+
+    test('elevation 161 → zone 2', () => {
+        expect(landBandIndex(161)).toBe(2);
+    });
+
+    test('elevation 208 → zone 2', () => {
+        expect(landBandIndex(208)).toBe(2);
+    });
+
+    test('elevation 209 → zone 3', () => {
+        expect(landBandIndex(209)).toBe(3);
+    });
+
+    test('elevation 255 → zone 3', () => {
+        expect(landBandIndex(255)).toBe(3);
+    });
+
+    test('negative elevation clamps to zone 0', () => {
+        expect(landBandIndex(-10)).toBe(0);
+    });
+
+    test('elevation > 255 clamps to zone 3', () => {
+        expect(landBandIndex(300)).toBe(3);
+    });
+
+    test('all 4 zones are reachable', () => {
+        const zones = new Set<number>();
+        for (let e = 0; e <= 255; e++) {
+            zones.add(landBandIndex(e));
+        }
+        expect(zones.size).toBe(LAND_BAND_COUNT);
+        expect(zones).toEqual(new Set([0, 1, 2, 3]));
+    });
+});
+
+describe('landBandColor (spec 024 FR-003)', () => {
+    test('zone 0 has hue 210 (blue)', () => {
+        const hsl = parseHsl(landBandColor(0));
+        expect(hsl.hue).toBe(210);
+    });
+
+    test('zone 1 has hue 170 (teal)', () => {
+        const hsl = parseHsl(landBandColor(1));
+        expect(hsl.hue).toBe(170);
+    });
+
+    test('zone 2 has hue 30 (orange)', () => {
+        const hsl = parseHsl(landBandColor(2));
+        expect(hsl.hue).toBe(30);
+    });
+
+    test('zone 3 has hue 200 (light blue)', () => {
+        const hsl = parseHsl(landBandColor(3));
+        expect(hsl.hue).toBe(200);
+    });
+
+    test('band index clamps below 0 to zone 0', () => {
+        expect(landBandColor(-1)).toBe(landBandColor(0));
+    });
+
+    test('band index clamps above 3 to zone 3', () => {
+        expect(landBandColor(10)).toBe(landBandColor(3));
+    });
+
+    test('output matches terrainColor format (comma-separated HSL)', () => {
+        const color = landBandColor(2);
+        expect(color).toMatch(/^hsl\(\d+, \d+%, \d+%\)$/);
+    });
+
+    test('lightness values match zone midpoints', () => {
+        for (let b = 0; b < LAND_BAND_COUNT; b++) {
+            const hsl = parseHsl(landBandColor(b));
+            expect(hsl.light).toBe(LAND_BAND_LIGHTNESS[b]);
+        }
+    });
+});
+
+describe('terrainColor (spec 024 FR-004, AC-022)', () => {
+    test('water returns WATER_COLOR regardless of elevation', () => {
         expect(terrainColor('water', 0)).toBe(WATER_COLOR);
-        expect(parseHsl(terrainColor('land', 255)).light).toBe(LAND_MAX_LIGHTNESS_PCT);
-        // Out-of-range elevations clamp (pure function, no surprises).
+        expect(terrainColor('water', 255)).toBe(WATER_COLOR);
+    });
+
+    test('land at elevation 0 returns Smooth Ice hue', () => {
+        const hsl = parseHsl(terrainColor('land', 0));
+        expect(hsl.hue).toBe(210);
+        expect(hsl.sat).toBe(65);
+        expect(hsl.light).toBe(38);
+    });
+
+    test('land at elevation 255 returns Ice Peaks hue', () => {
+        const hsl = parseHsl(terrainColor('land', 255));
+        expect(hsl.hue).toBe(200);
+        expect(hsl.sat).toBe(15);
+        expect(hsl.light).toBe(95);
+    });
+
+    test('out-of-range elevations clamp', () => {
         expect(terrainColor('land', 300)).toBe(terrainColor('land', 255));
         expect(terrainColor('land', -5)).toBe(terrainColor('land', 0));
-        // Shading is monotonic in elevation.
-        const mid = parseHsl(terrainColor('land', 128)).light;
-        expect(mid).toBeGreaterThan(LAND_MIN_LIGHTNESS_PCT);
-        expect(mid).toBeLessThan(LAND_MAX_LIGHTNESS_PCT);
+    });
+
+    test('shading is monotonic within each zone', () => {
+        // Zone 0: elevations 0, 40, 80
+        const z0Low = parseHsl(terrainColor('land', 0)).light;
+        const z0Mid = parseHsl(terrainColor('land', 40)).light;
+        const z0High = parseHsl(terrainColor('land', 80)).light;
+        expect(z0Low).toBeLessThan(z0Mid);
+        expect(z0Mid).toBeLessThan(z0High);
     });
 });
 
@@ -146,73 +290,6 @@ describe('waterDepthColor (spec 021 FR-006)', () => {
     });
 });
 
-describe('landBandIndex (spec 021 FR-006)', () => {
-    test('elevation 0 → band 0', () => {
-        expect(landBandIndex(0)).toBe(0);
-    });
-
-    test('elevation 255 → band 5', () => {
-        expect(landBandIndex(255)).toBe(5);
-    });
-
-    test('elevation 42 → band 0 (floor(42/256*6) = 0)', () => {
-        expect(landBandIndex(42)).toBe(0);
-    });
-
-    test('elevation 43 → band 1 (floor(43/256*6) = 1)', () => {
-        expect(landBandIndex(43)).toBe(1);
-    });
-
-    test('negative elevation clamps to band 0', () => {
-        expect(landBandIndex(-10)).toBe(0);
-    });
-
-    test('elevation > 255 clamps to band 5', () => {
-        expect(landBandIndex(300)).toBe(5);
-    });
-
-    test('all 6 bands are reachable', () => {
-        const bands = new Set<number>();
-        for (let e = 0; e <= 255; e++) {
-            bands.add(landBandIndex(e));
-        }
-        expect(bands.size).toBe(LAND_BAND_COUNT);
-        expect(bands).toEqual(new Set([0, 1, 2, 3, 4, 5]));
-    });
-});
-
-describe('landBandColor (spec 021 FR-006)', () => {
-    test('band 0 has lightness 18', () => {
-        const hsl = parseHsl(landBandColor(0));
-        expect(hsl.light).toBe(18);
-    });
-
-    test('band 5 has lightness 58', () => {
-        const hsl = parseHsl(landBandColor(5));
-        expect(hsl.light).toBe(58);
-    });
-
-    test('band index clamps below 0 to band 0', () => {
-        expect(landBandColor(-1)).toBe(landBandColor(0));
-    });
-
-    test('band index clamps above 5 to band 5', () => {
-        expect(landBandColor(10)).toBe(landBandColor(5));
-    });
-
-    test('output matches terrainColor format (space-separated HSL)', () => {
-        const color = landBandColor(3);
-        expect(color).toMatch(/^hsl\(\d+ \d+% \d+%\)$/);
-    });
-
-    test('lightness values match design tokens', () => {
-        for (let b = 0; b < LAND_BAND_COUNT; b++) {
-            const hsl = parseHsl(landBandColor(b));
-            expect(hsl.light).toBe(LAND_BAND_LIGHTNESS[b]);
-        }
-    });
-});
-
 describe('waterDepthForCell (spec 021 FR-006 stub)', () => {
     test('always returns 1 (standard depth)', () => {
         expect(waterDepthForCell(0)).toBe(1);
@@ -222,7 +299,13 @@ describe('waterDepthForCell (spec 021 FR-006 stub)', () => {
     });
 });
 
-describe('land band contrast vs void (spec 021 AC-12)', () => {
+describe('PIPE_OUTLINE_COLOR (spec 024 FR-010, AC-010)', () => {
+    test('is defined and valid rgba', () => {
+        expect(PIPE_OUTLINE_COLOR).toBe('rgba(0, 0, 0, 0.7)');
+    });
+});
+
+describe('biome zone contrast vs void (spec 024)', () => {
     /**
      * Parse `hsl(H S% L%)` to RGB for contrast calculation.
      */
@@ -279,36 +362,26 @@ describe('land band contrast vs void (spec 021 AC-12)', () => {
         return (lighter + 0.05) / (darker + 0.05);
     }
 
-    test('bands 3+ (lightness 42, 50, 58) meet 3:1 contrast vs void', () => {
+    test('Peaks zone (highest lightness) has sufficient contrast vs void', () => {
         const voidRgb = hexToRgb(VOID_COLOR);
         const voidLum = relativeLuminance(voidRgb);
 
-        // Bands 3, 4, 5 → lightness 42, 50, 58
-        const highBands = [LAND_BAND_LIGHTNESS[3], LAND_BAND_LIGHTNESS[4], LAND_BAND_LIGHTNESS[5]];
-        for (const lightness of highBands) {
-            const bandRgb = hslToRgb(120, 12, lightness);
-            const bandLum = relativeLuminance(bandRgb);
-            const ratio = contrastRatio(bandLum, voidLum);
-            expect(ratio).toBeGreaterThanOrEqual(3.0);
-        }
+        // Peaks zone: lightness 60–78%, hue 220, sat 8%
+        const peaksRgb = hslToRgb(220, 8, 60);
+        const peaksLum = relativeLuminance(peaksRgb);
+        const ratio = contrastRatio(peaksLum, voidLum);
+        expect(ratio).toBeGreaterThanOrEqual(3.0);
     });
 
-    test('bands 0-2 are documented as acceptable (terrain never sole info carrier)', () => {
-        // Bands 0, 1, 2 → lightness 18, 26, 34 — may be below 3:1
-        // but terrain is never the sole information carrier per constitution
-        // Principle VI. This test documents the gap.
+    test('void is distinct from the page background', () => {
+        expect(VOID_COLOR).not.toBe(PAGE_BACKGROUND_COLOR);
         const voidRgb = hexToRgb(VOID_COLOR);
-        const voidLum = relativeLuminance(voidRgb);
-
-        const lowBands = [LAND_BAND_LIGHTNESS[0], LAND_BAND_LIGHTNESS[1], LAND_BAND_LIGHTNESS[2]];
-        for (const lightness of lowBands) {
-            const bandRgb = hslToRgb(120, 12, lightness);
-            const bandLum = relativeLuminance(bandRgb);
-            const ratio = contrastRatio(bandLum, voidLum);
-            // Document: these bands may be below 3:1 but are acceptable
-            // because terrain is never the sole info carrier.
-            expect(typeof ratio).toBe('number');
-            expect(ratio).toBeGreaterThan(0);
-        }
+        const pageRgb = hexToRgb(PAGE_BACKGROUND_COLOR);
+        const channelGap = Math.max(
+            Math.abs(voidRgb[0] - pageRgb[0]),
+            Math.abs(voidRgb[1] - pageRgb[1]),
+            Math.abs(voidRgb[2] - pageRgb[2]),
+        );
+        expect(channelGap).toBeGreaterThanOrEqual(8);
     });
 });

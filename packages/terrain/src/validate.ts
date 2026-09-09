@@ -136,7 +136,7 @@ function bfsLandReachable(board: Board, start: Coord): Set<number> {
  * Is the undirected land edge (src → dst) flow-viable in at least
  * ONE direction? A pipe is a bidirectional conduit; troops only need
  * to flow one way for the edge to be usable. The binding constraint
- * is the uphill direction (stall threshold `flowBase / flowSlopeStep`,
+ * is the uphill direction (stall threshold `flowUphillCap`,
  * read live from `ENGINE_CONSTANTS`).
  *
  * @param srcElevation Elevation of the source cell.

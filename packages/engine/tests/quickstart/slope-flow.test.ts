@@ -11,7 +11,8 @@
  * `flowRateForDelta` (the single source of the FR-007 formula):
  *   downhill Δ=−10 → flowRateForDelta(−10, ENGINE_CONSTANTS) = 12
  *   flat Δ=0       → flowRateForDelta(0, ENGINE_CONSTANTS) = 7
- *   uphill Δ=+10   → flowRateForDelta(10, ENGINE_CONSTANTS) = 0 (stall)
+ *   uphill Δ=+40   → flowRateForDelta(40, ENGINE_CONSTANTS) = 4
+ *   uphill Δ=+100  → flowRateForDelta(100, ENGINE_CONSTANTS) = 0 (stall)
  *
  * The source city is seeded to `cityCapacity` (30) troops before the
  * tick so the pipe rate is observable — with the Clarifications v1.6
@@ -103,14 +104,14 @@ function runSeededTick(board: Board): World {
 
 describe('quickstart Q-003 — slope factor ordering', () => {
     it('downhill destination gains > flat destination gains > uphill destination', () => {
-        // With the shipped gradient constants (flowBase=7, flowSlopeStep=1,
-        // flowSlopeDeltaCap=5):
+        // With the shipped gradient constants (flowBase=7, flowDownhillStep=1,
+        // flowUphillStep=1, flowSlopeDeltaCap=5, flowUphillCap=80):
         // - downhill source (10) → destination (0) gains flowRateForDelta(−10) = 12
         // - flat source (5) → destination (5) gains flowRateForDelta(0) = 7
-        // - uphill source (0) → destination (10) gains flowRateForDelta(+10) = 0 (stall)
+        // - uphill source (0) → destination (40) gains flowRateForDelta(+40) = 4
         const downhill: Board = buildTwoCellSlopeBoard(10, 0);
         const flat: Board = buildTwoCellSlopeBoard(5, 5);
-        const uphill: Board = buildTwoCellSlopeBoard(0, 10);
+        const uphill: Board = buildTwoCellSlopeBoard(0, 40);
 
         const downWorld = runSeededTick(downhill);
         const flatWorld = runSeededTick(flat);
@@ -120,7 +121,7 @@ describe('quickstart Q-003 — slope factor ordering', () => {
         const flatCount = getCell(flatWorld, 4, 3).troopCount;
         const upCount = getCell(upWorld, 4, 3).troopCount;
 
-        // Strict ordering: downhill > flat > uphill (12 > 7 > 0).
+        // Strict ordering: downhill > flat > uphill (12 > 7 > 4).
         expect(downCount).toBeGreaterThan(flatCount);
         expect(flatCount).toBeGreaterThan(upCount);
 
@@ -128,7 +129,7 @@ describe('quickstart Q-003 — slope factor ordering', () => {
         // exactly what the destination gained.
         expect(getCell(downWorld, 3, 3).troopCount).toBe(ENGINE_CONSTANTS.cityCapacity - downCount);
         expect(getCell(flatWorld, 3, 3).troopCount).toBe(ENGINE_CONSTANTS.cityCapacity - flatCount);
-        expect(getCell(upWorld, 3, 3).troopCount).toBe(ENGINE_CONSTANTS.cityCapacity); // stall → no loss
+        expect(getCell(upWorld, 3, 3).troopCount).toBe(ENGINE_CONSTANTS.cityCapacity - upCount);
     });
 
     it('flow respects ENGINE_CONSTANTS gradient rates (explicit value assertion)', () => {
@@ -148,11 +149,11 @@ describe('quickstart Q-003 — slope factor ordering', () => {
         expect(expected).toBe(12);
     });
 
-    it('uphill Δ=10 stalls: destination gains 0 troops (US1 AC-5)', () => {
-        const uphill: Board = buildTwoCellSlopeBoard(0, 10);
+    it('uphill Δ=100 stalls: destination gains 0 troops (US1 AC-5)', () => {
+        const uphill: Board = buildTwoCellSlopeBoard(0, 100);
         const finalWorld = runSeededTick(uphill);
         const dest = getCell(finalWorld, 4, 3);
-        expect(flowRateForDelta(10, ENGINE_CONSTANTS)).toBe(0);
+        expect(flowRateForDelta(100, ENGINE_CONSTANTS)).toBe(0);
         expect(dest.troopCount).toBe(0);
         // Stall is a legal, persistent state: the pipe remains laid.
         expect(getCell(finalWorld, 3, 3).pipes.has('E')).toBe(true);

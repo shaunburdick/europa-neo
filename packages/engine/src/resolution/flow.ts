@@ -8,10 +8,10 @@
  *   2. Reject out-of-board or water destinations (FR-002).
  *   3. Compute the elevation delta (`dest.elev - src.elev`).
  *   4. Rate = `flowRateForDelta(elevDelta, constants)` (FR-007):
- *        downhill → `flowBase + flowSlopeStep × min(|Δ|, flowSlopeDeltaCap)`
+ *        downhill → `flowBase + flowDownhillStep × min(|Δ|, flowSlopeDeltaCap)`
  *        flat     → `flowBase`
- *        uphill   → `max(0, flowBase − flowSlopeStep × |Δ|)` — stalls at
- *                   Δ ≥ flowBase / flowSlopeStep (legal no-op, US1 AC-5)
+ *        uphill   → `ceil(flowBase × (flowUphillCap − |Δ|) / flowUphillCap)`
+ *                   — stalls at Δ ≥ flowUphillCap (legal no-op, US1 AC-5)
  *   5. Clamp the destination's new count at `cellCapacity` (FR-011).
  *   6. Transfer troops from source to destination (Clarifications v1.6):
  *      source cells ARE decremented by the amount actually transferred.
@@ -73,8 +73,9 @@ interface TransferParams {
  *
  * @param state              Current world state (NOT mutated).
  * @param board              Board with cell elevations and terrain.
- * @param constants          Engine rule constants (flowBase, flowSlopeStep,
- *                           flowSlopeDeltaCap, cellCapacity).
+ * @param constants          Engine rule constants (flowBase, flowDownhillStep,
+ *                           flowUphillStep, flowSlopeDeltaCap, flowUphillCap,
+ *                           cellCapacity).
  * @param inflowTally        Optional per-cell per-owner inflow tally. When
  *                           supplied, slot `(cellIdx * 4) + (playerId - 1)` is
  *                           incremented by the count of troops that player
@@ -205,7 +206,7 @@ function transfer(params: TransferParams): void {
     const elevDelta = dstCell.elevation - srcCell.elevation;
     const moved = flowRateForDelta(elevDelta, constants);
     if (moved === 0) {
-        return; // stall (uphill Δ ≥ flowBase / flowSlopeStep) — legal no-op
+        return; // stall (uphill Δ ≥ flowUphillCap) — legal no-op
     }
 
     // Check source availability BEFORE writing the destination

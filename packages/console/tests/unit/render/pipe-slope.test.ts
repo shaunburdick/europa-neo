@@ -3,12 +3,12 @@
  *
  * Pins the console-side mirror of the engine's flow formula
  * (`pipeFlowRate`) and the renderer's slope classification
- * (`classifyPipeSlope`) to the PM-confirmed formula (R-1 — asymmetric
- * cap): downhill bonus capped at `flowSlopeDeltaCap`, uphill handicap
- * uncapped, stall at Δ ≥ `flowBase / flowSlopeStep` = 7.
+ * (`classifyPipeSlope`) to the spec 024 v1.3 formula (FR-051):
+ * downhill bonus capped at `flowSlopeDeltaCap`, uphill linear scale
+ * to 0 at `flowUphillCap`, stall at Δ ≥ flowUphillCap (80).
  *
- * Expected values are hardcoded per the spec's own listing (spec 001
- * v1.2 / 005 v1.2); the drift test (`slope-drift.test.ts`) pins the
+ * Expected values are hardcoded per the spec's own listing (spec 024
+ * v1.3 FR-051); the drift test (`slope-drift.test.ts`) pins the
  * mirror against `ENGINE_CONSTANTS` / `flowRateForDelta` so a future
  * retune fails loudly here too.
  */
@@ -26,20 +26,24 @@ describe('PIPE_SLOPE_CONSTANTS (005 FR-013 mirror)', () => {
     test('mirrors the engine flow constants exactly', () => {
         expect(PIPE_SLOPE_CONSTANTS).toEqual({
             flowBase: 7,
-            flowSlopeStep: 1,
+            flowDownhillStep: 1,
+            flowUphillStep: 1,
             flowSlopeDeltaCap: 5,
+            flowUphillCap: 80,
         });
     });
 
-    test('exposes the three documented fields as numbers', () => {
+    test('exposes the five documented fields as numbers', () => {
         expect(typeof PIPE_SLOPE_CONSTANTS.flowBase).toBe('number');
-        expect(typeof PIPE_SLOPE_CONSTANTS.flowSlopeStep).toBe('number');
+        expect(typeof PIPE_SLOPE_CONSTANTS.flowDownhillStep).toBe('number');
+        expect(typeof PIPE_SLOPE_CONSTANTS.flowUphillStep).toBe('number');
         expect(typeof PIPE_SLOPE_CONSTANTS.flowSlopeDeltaCap).toBe('number');
+        expect(typeof PIPE_SLOPE_CONSTANTS.flowUphillCap).toBe('number');
     });
 });
 
-describe('pipeFlowRate (formula mirror, R-1 asymmetric cap)', () => {
-    test('downhill (Δ < 0): base + step × min(|Δ|, cap) — 8/9/10/11/12', () => {
+describe('pipeFlowRate (formula mirror, spec 024 v1.3 FR-051)', () => {
+    test('downhill (Δ < 0): base + downhillStep × min(|Δ|, cap) — 8/9/10/11/12', () => {
         expect(pipeFlowRate(-1, PIPE_SLOPE_CONSTANTS)).toBe(8);
         expect(pipeFlowRate(-2, PIPE_SLOPE_CONSTANTS)).toBe(9);
         expect(pipeFlowRate(-3, PIPE_SLOPE_CONSTANTS)).toBe(10);
@@ -57,19 +61,20 @@ describe('pipeFlowRate (formula mirror, R-1 asymmetric cap)', () => {
         expect(pipeFlowRate(0, PIPE_SLOPE_CONSTANTS)).toBe(7);
     });
 
-    test('uphill flowing (Δ = 1..6): uncapped handicap — 6/5/4/3/2/1', () => {
-        expect(pipeFlowRate(1, PIPE_SLOPE_CONSTANTS)).toBe(6);
-        expect(pipeFlowRate(2, PIPE_SLOPE_CONSTANTS)).toBe(5);
-        expect(pipeFlowRate(3, PIPE_SLOPE_CONSTANTS)).toBe(4);
-        expect(pipeFlowRate(4, PIPE_SLOPE_CONSTANTS)).toBe(3);
-        expect(pipeFlowRate(5, PIPE_SLOPE_CONSTANTS)).toBe(2);
-        expect(pipeFlowRate(6, PIPE_SLOPE_CONSTANTS)).toBe(1);
+    test('uphill flowing (Δ = 1..79): linear scale from 7 to 1', () => {
+        // ceil(7 × (80 − Δ) / 80)
+        expect(pipeFlowRate(1, PIPE_SLOPE_CONSTANTS)).toBe(7); // ceil(6.9125)
+        expect(pipeFlowRate(10, PIPE_SLOPE_CONSTANTS)).toBe(7); // ceil(6.125)
+        expect(pipeFlowRate(20, PIPE_SLOPE_CONSTANTS)).toBe(6); // ceil(5.25)
+        expect(pipeFlowRate(40, PIPE_SLOPE_CONSTANTS)).toBe(4); // ceil(3.5)
+        expect(pipeFlowRate(60, PIPE_SLOPE_CONSTANTS)).toBe(2); // ceil(1.75)
+        expect(pipeFlowRate(73, PIPE_SLOPE_CONSTANTS)).toBe(1); // ceil(0.6125)
+        expect(pipeFlowRate(79, PIPE_SLOPE_CONSTANTS)).toBe(1); // ceil(0.0875)
     });
 
-    test('uphill stalls at Δ ≥ 7 — 0', () => {
-        expect(pipeFlowRate(7, PIPE_SLOPE_CONSTANTS)).toBe(0);
-        expect(pipeFlowRate(8, PIPE_SLOPE_CONSTANTS)).toBe(0);
-        expect(pipeFlowRate(10, PIPE_SLOPE_CONSTANTS)).toBe(0);
+    test('uphill stalls at Δ ≥ 80 — 0', () => {
+        expect(pipeFlowRate(80, PIPE_SLOPE_CONSTANTS)).toBe(0);
+        expect(pipeFlowRate(81, PIPE_SLOPE_CONSTANTS)).toBe(0);
         expect(pipeFlowRate(100, PIPE_SLOPE_CONSTANTS)).toBe(0);
     });
 });
@@ -85,15 +90,15 @@ describe('classifyPipeSlope (005 FR-013)', () => {
         expect(classifyPipeSlope(0, 0, PIPE_SLOPE_CONSTANTS)).toBe('flat');
     });
 
-    test('uphill flowing: Δ = 1..6 (rate > 0)', () => {
+    test('uphill flowing: Δ = 1..79 (rate > 0)', () => {
         expect(classifyPipeSlope(100, 101, PIPE_SLOPE_CONSTANTS)).toBe('uphill');
-        expect(classifyPipeSlope(100, 103, PIPE_SLOPE_CONSTANTS)).toBe('uphill');
-        expect(classifyPipeSlope(100, 106, PIPE_SLOPE_CONSTANTS)).toBe('uphill');
+        expect(classifyPipeSlope(100, 140, PIPE_SLOPE_CONSTANTS)).toBe('uphill');
+        expect(classifyPipeSlope(100, 179, PIPE_SLOPE_CONSTANTS)).toBe('uphill');
     });
 
-    test('stalled: uphill with flow rate 0 (Δ ≥ 7)', () => {
-        expect(classifyPipeSlope(100, 107, PIPE_SLOPE_CONSTANTS)).toBe('stalled');
-        expect(classifyPipeSlope(100, 120, PIPE_SLOPE_CONSTANTS)).toBe('stalled');
+    test('stalled: uphill with flow rate 0 (Δ ≥ 80)', () => {
+        expect(classifyPipeSlope(100, 180, PIPE_SLOPE_CONSTANTS)).toBe('stalled');
+        expect(classifyPipeSlope(100, 200, PIPE_SLOPE_CONSTANTS)).toBe('stalled');
         expect(classifyPipeSlope(0, 255, PIPE_SLOPE_CONSTANTS)).toBe('stalled');
     });
 
@@ -143,23 +148,23 @@ describe('pipeIntensity (issue #43)', () => {
         expect(pipeIntensity(100, 0, 'downhill', C)).toBe(1);
     });
 
-    test('uphill intensity scales linearly with Δ up to stall point', () => {
-        // stallPoint = flowBase / flowSlopeStep = 7
-        // Δ=1 → 1/7 ≈ 0.142857…
-        expect(pipeIntensity(100, 101, 'uphill', C)).toBe(1 / 7);
-        // Δ=2 → 2/7
-        expect(pipeIntensity(100, 102, 'uphill', C)).toBe(2 / 7);
-        // Δ=3 → 3/7
-        expect(pipeIntensity(100, 103, 'uphill', C)).toBe(3 / 7);
-        // Δ=6 → 6/7
-        expect(pipeIntensity(100, 106, 'uphill', C)).toBe(6 / 7);
-        // Δ=7 → 7/7 = 1.0 (saturates at stall point)
-        expect(pipeIntensity(100, 107, 'uphill', C)).toBe(1);
+    test('uphill intensity scales linearly with Δ up to flowUphillCap', () => {
+        // Normalized by flowUphillCap = 80
+        // Δ=1 → 1/80 = 0.0125
+        expect(pipeIntensity(100, 101, 'uphill', C)).toBe(1 / 80);
+        // Δ=2 → 2/80 = 0.025
+        expect(pipeIntensity(100, 102, 'uphill', C)).toBe(2 / 80);
+        // Δ=40 → 40/80 = 0.5
+        expect(pipeIntensity(100, 140, 'uphill', C)).toBe(40 / 80);
+        // Δ=79 → 79/80 = 0.9875
+        expect(pipeIntensity(100, 179, 'uphill', C)).toBe(79 / 80);
+        // Δ=80 → 80/80 = 1.0 (saturates at flowUphillCap)
+        expect(pipeIntensity(100, 180, 'uphill', C)).toBe(1);
     });
 
-    test('uphill intensity saturates at 1 for Δ > stall point', () => {
-        expect(pipeIntensity(100, 108, 'uphill', C)).toBe(1);
-        expect(pipeIntensity(100, 200, 'uphill', C)).toBe(1);
+    test('uphill intensity saturates at 1 for Δ > flowUphillCap', () => {
+        expect(pipeIntensity(100, 181, 'uphill', C)).toBe(1);
+        expect(pipeIntensity(100, 280, 'uphill', C)).toBe(1);
     });
 
     test('flat → intensity 0', () => {
@@ -167,7 +172,7 @@ describe('pipeIntensity (issue #43)', () => {
     });
 
     test('stalled → intensity 0', () => {
-        expect(pipeIntensity(100, 107, 'stalled', C)).toBe(0);
+        expect(pipeIntensity(100, 180, 'stalled', C)).toBe(0);
     });
 
     test('fog fallback (dstElev=null) → intensity 0', () => {

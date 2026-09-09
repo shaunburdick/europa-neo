@@ -39,6 +39,7 @@ import {
     landBandIndex,
     PIPE_DOWNHILL_COLOR,
     PIPE_FLAT_COLOR,
+    PIPE_OUTLINE_COLOR,
     PIPE_STALLED_COLOR,
     PIPE_UPHILL_COLOR,
     terrainColor,
@@ -52,9 +53,6 @@ import type { PipeSlope } from './pipe-slope';
 
 /** Fraction of the cell size used as the troop-disc radius. */
 const UNIT_RADIUS_RATIO = 0.32;
-
-/** Fraction of the cell size used for pipe triangle extent. */
-const PIPE_SIZE_RATIO = 0.16;
 
 /** Inset fraction for the city outline square. */
 const CITY_INSET_RATIO = 0.12;
@@ -245,7 +243,7 @@ export class MapCanvas {
 
         // Sub-pass 1e: batched contour hints — ALL contour diagonal lines
         // collected into a single path and stroked once (was hundreds of
-        // individual strokes). Band ≥ 3 only.
+        // individual strokes). Zone ≥ 2 only (Rocky Outcrops + Peaks).
         const contourStep = 6;
         // design-exception: canvas fallback
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.10)';
@@ -253,8 +251,8 @@ export class MapCanvas {
         ctx.beginPath();
         for (const info of mapView.cells.values()) {
             if (info.terrain !== 'land') continue;
-            const band = landBandIndex(info.elevation);
-            if (band < 3) continue;
+            const zone = landBandIndex(info.elevation);
+            if (zone < 2) continue;
             const x = info.coord.x * zoom;
             const y = info.coord.y * zoom;
             for (let offset = -zoom; offset < zoom * 2; offset += contourStep) {
@@ -380,49 +378,71 @@ export class MapCanvas {
     /** Draw outward-pointing pipe triangles at the cell's edges.
      *  Triangle size scales with intensity (issue #43): smaller at
      *  low intensity, full size at high intensity. Stalled pipes
-     *  remain full size with hollow stroke (existing behavior). */
+     *  remain full size with hollow stroke (existing behavior).
+     *  Every pipe triangle gets a dark outline (spec 024 FR-010) to
+     *  guarantee contrast against any biome background. */
     private drawPipes(ctx: CanvasRenderingContext2D, info: CellRenderInfo, zoom: number): void {
-        const baseSize = zoom * PIPE_SIZE_RATIO;
         const x = info.coord.x * zoom;
         const y = info.coord.y * zoom;
         const midX = x + zoom / 2;
         const midY = y + zoom / 2;
+        // Maximum depth = center to cell edge (zoom / 2).
+        const maxDepth = zoom / 2;
         for (const direction of info.pipes) {
             // Slope classification precomputed by buildMapView (005
             // FR-013); a missing entry (defensive) renders flat.
             const slope = info.pipeSlopes.get(direction) ?? 'flat';
-            // Intensity scales triangle size (issue #43): 0.4 at
-            // intensity=0, 1.0 at intensity=1. Stalled pipes use
-            // full size (hollow is the signal, not size).
+            // Intensity scales triangle depth (issue #43): 30% at
+            // intensity=0, 100% at intensity=1. Stalled pipes use
+            // fixed smaller depth (hollow is the signal, not size).
             const intensity = info.pipeIntensities.get(direction) ?? 0;
-            const size = slope === 'stalled' ? baseSize : baseSize * (0.4 + intensity * 0.6);
+            const depthFactor = slope === 'stalled' ? 0.3 : 0.3 + intensity * 0.7;
+            const depth = maxDepth * depthFactor;
+            // Base half-width = 30% of depth (matches CSS clip-path).
+            const baseHalf = depth * 0.3;
             ctx.beginPath();
+            // Triangles point OUTWARD from cell center toward the pipe
+            // direction — matching the original Europa rules: "lines
+            // originating near the center of a cell and pointing in the
+            // direction of the desired troops flow" (GH issue 101).
             if (direction === 'N') {
-                ctx.moveTo(midX - size, y);
-                ctx.lineTo(midX + size, y);
-                ctx.lineTo(midX, y + size * 1.6);
+                ctx.moveTo(midX - baseHalf, midY);
+                ctx.lineTo(midX + baseHalf, midY);
+                ctx.lineTo(midX, midY - depth);
             } else if (direction === 'S') {
-                ctx.moveTo(midX - size, y + zoom);
-                ctx.lineTo(midX + size, y + zoom);
-                ctx.lineTo(midX, y + zoom - size * 1.6);
+                ctx.moveTo(midX - baseHalf, midY);
+                ctx.lineTo(midX + baseHalf, midY);
+                ctx.lineTo(midX, midY + depth);
             } else if (direction === 'W') {
-                ctx.moveTo(x, midY - size);
-                ctx.lineTo(x, midY + size);
-                ctx.lineTo(x + size * 1.6, midY);
+                ctx.moveTo(midX, midY - baseHalf);
+                ctx.lineTo(midX, midY + baseHalf);
+                ctx.lineTo(midX - depth, midY);
             } else {
-                ctx.moveTo(x + zoom, midY - size);
-                ctx.lineTo(x + zoom, midY + size);
-                ctx.lineTo(x + zoom - size * 1.6, midY);
+                ctx.moveTo(midX, midY - baseHalf);
+                ctx.lineTo(midX, midY + baseHalf);
+                ctx.lineTo(midX + depth, midY);
             }
             ctx.closePath();
             if (slope === 'stalled') {
-                // Hollow treatment (005 FR-013): outline-only triangle
-                // in the stalled color — visually distinct from the
-                // filled triangles of flowing pipes.
+                // Hollow treatment (005 FR-013): thick dark outline
+                // + colored inner stroke (spec 024 FR-010).
+                ctx.strokeStyle = PIPE_OUTLINE_COLOR;
+                ctx.lineWidth = Math.max(2, zoom * 0.08);
+                ctx.stroke();
                 ctx.strokeStyle = pipeSlopeColor(slope);
                 ctx.lineWidth = Math.max(1.5, zoom * 0.06);
                 ctx.stroke();
             } else {
+                // Dark outline first, then colored fill (spec 024 FR-010).
+                // Skip the outline for very small pipes (low intensity)
+                // where the stroke width overwhelms the triangle interior,
+                // producing muddy blended pixels instead of a clean color.
+                const outlineWidth = Math.max(1, zoom * 0.04);
+                if (depth > outlineWidth * 3) {
+                    ctx.strokeStyle = PIPE_OUTLINE_COLOR;
+                    ctx.lineWidth = outlineWidth;
+                    ctx.stroke();
+                }
                 ctx.fillStyle = pipeSlopeColor(slope);
                 ctx.fill();
             }
@@ -455,7 +475,7 @@ export class MapCanvas {
     /**
      * Adjust the brightness of a color string by a percentage.
      *
-     * Parses hex (`#rrggbb`, `#rrggbbaa`), HSL (`hsl(H S% L%)`), and
+     * Parses hex (`#rrggbb`, `#rrggbbaa`), HSL (`hsl(H, S%, L%)`), and
      * HSLA (`hsla(H, S%, L%, A)`) strings, adjusts the lightness/brightness
      * component, and returns the adjusted string. rgb/rgba strings are
      * returned unchanged (can't adjust reliably).
@@ -472,13 +492,13 @@ export class MapCanvas {
         if (!color) return '';
         // Return rgb/rgba strings unchanged — can't parse reliably.
         if (color.startsWith('rgb')) return color;
-        // Handle HSL strings: hsl(H S% L%) or hsl(H, S%, L%) or hsla variants.
+        // Handle HSL strings: hsl(H, S%, L%) or hsl(H S% L%) or hsla variants.
         const hslMatch = /^hsla?\(\s*(\d+)[,\s]+(\d+)%[,\s]+(\d+)%(?:[,\s/]+[\d.]+%?)?\s*\)$/i.exec(color);
         if (hslMatch) {
             const h = Number(hslMatch[1]);
             const s = Number(hslMatch[2]);
             const l = Math.max(0, Math.min(100, Math.round(Number(hslMatch[3]) + percent)));
-            return color.startsWith('hsla') ? `hsla(${h}, ${s}%, ${l}%, 1)` : `hsl(${h} ${s}% ${l}%)`;
+            return color.startsWith('hsla') ? `hsla(${h}, ${s}%, ${l}%, 1)` : `hsl(${h}, ${s}%, ${l}%)`;
         }
         // Handle hex strings: #rgb, #rrggbb, #rrggbbaa.
         const hex = color.replace('#', '');

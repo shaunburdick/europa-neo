@@ -7,14 +7,15 @@
  * SC-005 "every numeric rule is defined in one tunable-constants
  * location").
  *
- * Formula (PM-confirmed ruling R-1 — asymmetric cap):
- *   delta < 0 (downhill): flowBase + flowSlopeStep × min(|delta|, flowSlopeDeltaCap)
+ * Formula (spec 024 v1.3 FR-051 — separate uphill/downhill slopes):
+ *   delta < 0 (downhill): flowBase + flowDownhillStep × min(|delta|, flowSlopeDeltaCap)
  *   delta = 0 (flat):     flowBase
- *   delta > 0 (uphill):   max(0, flowBase − flowSlopeStep × |delta|)
+ *   delta > 0 (uphill):   ceil(flowBase × (flowUphillCap − delta) / flowUphillCap)
  *
- * The cap bounds the DOWNHILL bonus only; the uphill handicap is
- * uncapped, so an uphill pipe stalls (returns 0) at
- * delta ≥ flowBase / flowSlopeStep (7 with the shipped constants).
+ * The cap bounds the DOWNHILL bonus; the uphill handicap scales linearly
+ * from flowBase (at delta=1) to 0 (at delta=flowUphillCap). Pipes stall
+ * (return 0) at delta ≥ flowUphillCap (80 with the shipped constants),
+ * aligning with the biome zone flow-viability rules (spec 024 FR-050).
  * A stalled pipe remains laid and legal (US1 AC-5).
  *
  * Pure, integer arithmetic, deterministic (FR-017).
@@ -34,10 +35,14 @@
 export interface FlowConstants {
     /** Base troops per tick moving along a flat pipe (FR-007). */
     readonly flowBase: number;
-    /** Troops added/subtracted per unit of elevation change (FR-007). */
-    readonly flowSlopeStep: number;
-    /** Caps the downhill bonus (FR-007). */
+    /** Per-unit downhill bonus multiplier (replaces `flowSlopeStep`). */
+    readonly flowDownhillStep: number;
+    /** Per-unit uphill penalty multiplier (replaces `flowSlopeStep`). */
+    readonly flowUphillStep: number;
+    /** Caps the downhill bonus, in elevation steps (FR-007). */
     readonly flowSlopeDeltaCap: number;
+    /** Maximum flowable uphill delta; pipes stall at delta ≥ this value (spec 024 FR-051). */
+    readonly flowUphillCap: number;
 }
 
 /**
@@ -79,8 +84,10 @@ export interface EngineConstants extends FlowConstants {
  */
 export const DEFAULT_FLOW_CONSTANTS: FlowConstants = {
     flowBase: 7,
-    flowSlopeStep: 1,
+    flowDownhillStep: 1,
+    flowUphillStep: 1,
     flowSlopeDeltaCap: 5,
+    flowUphillCap: 80,
 } as const;
 
 /**
@@ -109,8 +116,10 @@ export const ENGINE_CONSTANTS: EngineConstants = {
     decayPerTick: 1,
     // FR-007: elevation-gradient pipe flow.
     flowBase: 7,
-    flowSlopeStep: 1,
+    flowDownhillStep: 1,
+    flowUphillStep: 1,
     flowSlopeDeltaCap: 5,
+    flowUphillCap: 80,
     // FR-013: paratroop cost is `2 × N` at the source, `N` lands at the
     // target. We model the per-trooper cost; the `2×` ratio is the
     // resolution rule (multiply by 2 at use-site).
@@ -137,14 +146,18 @@ export const ENGINE_CONSTANTS: EngineConstants = {
  * @returns Troops moved per tick along the pipe (≥ 0; 0 = stall).
  */
 export function flowRateForDelta(delta: number, constants: FlowConstants = DEFAULT_FLOW_CONSTANTS): number {
-    const { flowBase, flowSlopeStep, flowSlopeDeltaCap } = constants;
+    const { flowBase, flowDownhillStep, flowSlopeDeltaCap, flowUphillCap } = constants;
     if (delta < 0) {
         // Downhill: bonus scales with the drop, capped at flowSlopeDeltaCap.
-        return flowBase + flowSlopeStep * Math.min(-delta, flowSlopeDeltaCap);
+        return flowBase + flowDownhillStep * Math.min(-delta, flowSlopeDeltaCap);
     }
     if (delta > 0) {
-        // Uphill: uncapped handicap; stalls at delta ≥ flowBase / flowSlopeStep.
-        return Math.max(0, flowBase - flowSlopeStep * delta);
+        // Uphill: linear scale from flowBase to 0 over [1, flowUphillCap].
+        // Pipes stall (return 0) at delta ≥ flowUphillCap.
+        if (delta >= flowUphillCap) {
+            return 0;
+        }
+        return Math.ceil((flowBase * (flowUphillCap - delta)) / flowUphillCap);
     }
     return flowBase;
 }

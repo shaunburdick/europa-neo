@@ -33,17 +33,13 @@
   --europa-color-info-bg: #302311;
   --europa-color-info-border: #5b461d;
   --europa-color-info-hover: #e8c35e;
-  --europa-color-land-band-count: 6;
-  --europa-color-land-hue: 120;
-  --europa-color-land-max-lightness-pct: 62;
-  --europa-color-land-min-lightness-pct: 26;
-  --europa-color-land-saturation-pct: 12;
   --europa-color-overlay-soft: rgba(26, 34, 51, 0.6);
   --europa-color-overlay-strong: rgba(26, 34, 51, 0.75);
   /* page-bg: the outermost page background (lobby, manual pages) */
   --europa-color-page-bg: #0b0f19;
   --europa-color-pipe-downhill: #059669;
   --europa-color-pipe-flat: #f59e0b;
+  --europa-color-pipe-outline: rgba(0, 0, 0, 0.7);
   --europa-color-pipe-stalled: #9ca3af;
   --europa-color-pipe-uphill: #dc2626;
   --europa-color-red: #dc2626;

@@ -11,14 +11,15 @@
  * asserts equality. A future retune of the engine constants fails
  * loudly in the console suite (spec 005 Clarifications v1.2).
  *
- * Formula (PM-confirmed ruling R-1 — asymmetric cap):
- *   delta < 0 (downhill): flowBase + flowSlopeStep × min(|delta|, flowSlopeDeltaCap)
+ * Formula (spec 024 v1.3 FR-051 — separate uphill/downhill slopes):
+ *   delta < 0 (downhill): flowBase + flowDownhillStep × min(|delta|, flowSlopeDeltaCap)
  *   delta = 0 (flat):     flowBase
- *   delta > 0 (uphill):   max(0, flowBase − flowSlopeStep × |delta|)
+ *   delta > 0 (uphill):   ceil(flowBase × (flowUphillCap − delta) / flowUphillCap)
  *
- * The cap bounds the DOWNHILL bonus only; the uphill handicap is
- * uncapped, so an uphill pipe stalls (rate 0) at
- * delta ≥ flowBase / flowSlopeStep (7 with the shipped constants).
+ * The cap bounds the DOWNHILL bonus; the uphill handicap scales linearly
+ * from flowBase (at delta=1) to 0 (at delta=flowUphillCap). Pipes stall
+ * (return 0) at delta ≥ flowUphillCap (80 with the shipped constants),
+ * aligning with the biome zone flow-viability rules (spec 024 FR-050).
  * A stalled pipe remains laid and legal (feature 001 US1 AC-5).
  *
  * Pure, integer arithmetic, deterministic.
@@ -44,10 +45,14 @@ export type PipeSlope = 'downhill' | 'flat' | 'uphill' | 'stalled';
 export interface PipeSlopeConstants {
     /** Base troops moved per tick on a flat pipe (engine `flowBase`). */
     readonly flowBase: number;
-    /** Per-elevation-step rate change (engine `flowSlopeStep`). */
-    readonly flowSlopeStep: number;
+    /** Per-unit downhill bonus multiplier (engine `flowDownhillStep`). */
+    readonly flowDownhillStep: number;
+    /** Per-unit uphill penalty multiplier (engine `flowUphillStep`). */
+    readonly flowUphillStep: number;
     /** Cap on the downhill bonus, in elevation steps (engine `flowSlopeDeltaCap`). */
     readonly flowSlopeDeltaCap: number;
+    /** Maximum flowable uphill delta; pipes stall at delta ≥ this value (engine `flowUphillCap`). */
+    readonly flowUphillCap: number;
 }
 
 /**
@@ -56,8 +61,10 @@ export interface PipeSlopeConstants {
  */
 export const PIPE_SLOPE_CONSTANTS: PipeSlopeConstants = {
     flowBase: 7,
-    flowSlopeStep: 1,
+    flowDownhillStep: 1,
+    flowUphillStep: 1,
     flowSlopeDeltaCap: 5,
+    flowUphillCap: 80,
 };
 
 /**
@@ -70,14 +77,18 @@ export const PIPE_SLOPE_CONSTANTS: PipeSlopeConstants = {
  * @returns Troops moved per tick along the pipe (≥ 0; 0 = stall).
  */
 export function pipeFlowRate(delta: number, constants: PipeSlopeConstants): number {
-    const { flowBase, flowSlopeStep, flowSlopeDeltaCap } = constants;
+    const { flowBase, flowDownhillStep, flowSlopeDeltaCap, flowUphillCap } = constants;
     if (delta < 0) {
         // Downhill: bonus scales with the drop, capped at flowSlopeDeltaCap.
-        return flowBase + flowSlopeStep * Math.min(-delta, flowSlopeDeltaCap);
+        return flowBase + flowDownhillStep * Math.min(-delta, flowSlopeDeltaCap);
     }
     if (delta > 0) {
-        // Uphill: uncapped handicap; stalls at delta ≥ flowBase / flowSlopeStep.
-        return Math.max(0, flowBase - flowSlopeStep * delta);
+        // Uphill: linear scale from flowBase to 0 over [1, flowUphillCap].
+        // Pipes stall (return 0) at delta ≥ flowUphillCap.
+        if (delta >= flowUphillCap) {
+            return 0;
+        }
+        return Math.ceil((flowBase * (flowUphillCap - delta)) / flowUphillCap);
     }
     return flowBase;
 }
@@ -105,7 +116,7 @@ export function classifyPipeSlope(srcElev: number, dstElev: number | null, const
         return 'downhill';
     }
     if (delta > 0) {
-        // Uphill with flow rate 0 (delta ≥ flowBase / flowSlopeStep)
+        // Uphill with flow rate 0 (delta ≥ flowUphillCap)
         // is a stalled pipe — visually distinct hollow treatment.
         return pipeFlowRate(delta, constants) === 0 ? 'stalled' : 'uphill';
     }
@@ -118,7 +129,7 @@ export function classifyPipeSlope(srcElev: number, dstElev: number | null, const
  * Intensity encodes how steep the elevation gradient is, scaled to
  * the maximum meaningful delta for each slope class:
  *   - Downhill: |Δ| / flowSlopeDeltaCap (capped at 1).
- *   - Uphill:   Δ / (flowBase / flowSlopeStep) (capped at 1).
+ *   - Uphill:   Δ / flowUphillCap (capped at 1).
  *   - Flat/stalled/fog: 0 (no visual intensity — flat pipes have
  *     no gradient signal; stalled pipes use the hollow treatment
  *     as their signal instead).
@@ -144,7 +155,6 @@ export function pipeIntensity(
         // |Δ| normalized by the downhill cap; saturates at 1.
         return Math.min(Math.abs(delta), constants.flowSlopeDeltaCap) / constants.flowSlopeDeltaCap;
     }
-    // slope === 'uphill': Δ normalized by the stall point; saturates at 1.
-    const stallPoint = constants.flowBase / constants.flowSlopeStep;
-    return Math.min(delta, stallPoint) / stallPoint;
+    // slope === 'uphill': Δ normalized by the uphill cap; saturates at 1.
+    return Math.min(delta, constants.flowUphillCap) / constants.flowUphillCap;
 }

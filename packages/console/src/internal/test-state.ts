@@ -115,7 +115,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     readonly reservesPercent: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
     readonly cityOwner: 1 | 2 | null;
 }> = [
-    // Row 8: contested border — P1 city with pipes + reserves.
+    // Row 8: contested border — P1 city with pipes + reserves (zone 0: Smooth Ice).
     {
         coord: pt(3, 8),
         cell: c(3, 8, 40, 'land'),
@@ -127,7 +127,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(4, 8),
-        cell: c(4, 8, 60, 'land'),
+        cell: c(4, 8, 55, 'land'),
         troopCount: 12,
         troopOwner: 1,
         pipes: setOf(),
@@ -136,14 +136,14 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(5, 8),
-        cell: c(5, 8, 90, 'land'),
+        cell: c(5, 8, 65, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
         reservesPercent: 0,
         cityOwner: null,
     },
-    // Row 9: river band (water).
+    // Row 9: river band (water) + Fractured Ice cells.
     {
         coord: pt(2, 9),
         cell: c(2, 9, 0, 'water'),
@@ -164,7 +164,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(4, 9),
-        cell: c(4, 9, 10, 'land'),
+        cell: c(4, 9, 100, 'land'),
         troopCount: 5,
         troopOwner: 2,
         pipes: setOf('W'),
@@ -180,10 +180,10 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
         reservesPercent: 3,
         cityOwner: null,
     },
-    // Row 10: highlands + P2 city.
+    // Row 10: Rocky Outcrops + P2 city.
     {
         coord: pt(2, 10),
-        cell: c(2, 10, 200, 'land'),
+        cell: c(2, 10, 170, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -192,7 +192,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(3, 10),
-        cell: c(3, 10, 230, 'land'),
+        cell: c(3, 10, 190, 'land'),
         troopCount: 21,
         troopOwner: 1,
         pipes: setOf('S', 'E'),
@@ -201,7 +201,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(4, 10),
-        cell: c(4, 10, 180, 'land'),
+        cell: c(4, 10, 200, 'land'),
         troopCount: 18,
         troopOwner: 2,
         pipes: setOf(),
@@ -210,17 +210,17 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(5, 10),
-        cell: c(5, 10, 150, 'land'),
+        cell: c(5, 10, 180, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
         reservesPercent: 0,
         cityOwner: null,
     },
-    // Rows 11–13: open ground filling out the horizon.
+    // Rows 11–13: Ice Peaks + mixed elevations filling the horizon.
     {
         coord: pt(3, 11),
-        cell: c(3, 11, 70, 'land'),
+        cell: c(3, 11, 220, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -229,7 +229,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(4, 11),
-        cell: c(4, 11, 80, 'land'),
+        cell: c(4, 11, 240, 'land'),
         troopCount: 2,
         troopOwner: 1,
         pipes: setOf(),
@@ -238,7 +238,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(5, 11),
-        cell: c(5, 11, 95, 'land'),
+        cell: c(5, 11, 210, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -247,7 +247,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(6, 11),
-        cell: c(6, 11, 110, 'land'),
+        cell: c(6, 11, 250, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -256,7 +256,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(3, 12),
-        cell: c(3, 12, 55, 'land'),
+        cell: c(3, 12, 25, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -265,7 +265,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(4, 12),
-        cell: c(4, 12, 65, 'land'),
+        cell: c(4, 12, 90, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -274,7 +274,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(5, 12),
-        cell: c(5, 12, 75, 'land'),
+        cell: c(5, 12, 140, 'land'),
         troopCount: 14,
         troopOwner: 2,
         pipes: setOf('N'),
@@ -283,7 +283,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(6, 12),
-        cell: c(6, 12, 85, 'land'),
+        cell: c(6, 12, 165, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -292,7 +292,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(3, 13),
-        cell: c(3, 13, 30, 'land'),
+        cell: c(3, 13, 15, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -301,7 +301,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(4, 13),
-        cell: c(4, 13, 35, 'land'),
+        cell: c(4, 13, 110, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),
@@ -310,7 +310,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
     },
     {
         coord: pt(5, 13),
-        cell: c(5, 13, 45, 'land'),
+        cell: c(5, 13, 230, 'land'),
         troopCount: 0,
         troopOwner: null,
         pipes: setOf(),

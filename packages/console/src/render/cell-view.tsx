@@ -148,12 +148,12 @@ export function CellView({
             {[...info.pipes].map((direction) => {
                 const slope = info.pipeSlopes.get(direction) ?? 'flat';
                 const intensity = info.pipeIntensities.get(direction) ?? 0;
-                // Compute intensity-scaled triangle size (issue #43).
-                // Min = max(2.4px, zoom * 0.06) so pipes stay visible at low zoom.
-                // Max = 6px (full size at intensity=1).
-                // Stalled pipes use a fixed smaller size (no intensity variation).
-                const minSize = Math.max(2.4, zoom * 0.06);
-                const triSize = slope === 'stalled' ? minSize : minSize + intensity * (6 - minSize);
+                // Compute intensity-scaled triangle depth (issue #43).
+                // --pipe-tri-depth is a CSS percentage: 50% = tip at cell edge.
+                // Min depth = 15% at low intensity, max = 50% at full intensity.
+                // Stalled pipes use a fixed smaller depth (hollow is the signal).
+                const minDepth = 15;
+                const triDepth = slope === 'stalled' ? minDepth : minDepth + intensity * (50 - minDepth);
                 return (
                     <span
                         key={direction}
@@ -162,7 +162,7 @@ export function CellView({
                         data-slope={slope}
                         style={
                             {
-                                '--europa-pipe-tri': `${triSize}px`,
+                                '--pipe-tri-depth': `${triDepth}%`,
                                 '--pipe-zoom': `${zoom}px`,
                             } as React.CSSProperties
                         }

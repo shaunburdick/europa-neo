@@ -3,8 +3,8 @@
  *
  * Covers:
  *   - FR-007: elevation-gradient flow — exact per-tick rates for
- *     downhill (capped bonus), flat, and uphill (uncapped handicap,
- *     stall at Δ ≥ flowBase / flowSlopeStep)
+ *     downhill (capped bonus), flat, and uphill (linear scale,
+ *     stall at Δ ≥ flowUphillCap = 80)
  *   - US1 AC-5: a stalled uphill pipe remains laid and legal
  *   - FR-006: 4-way pipe support, exclusive mode
  *   - Water-target rejection (flow into water is a no-op)
@@ -15,10 +15,11 @@
  * tests exercise the pure resolution function in isolation.
  *
  * TEST_CONSTANTS uses the shipped gradient shape (flowBase=7,
- * flowSlopeStep=1, flowSlopeDeltaCap=5) so the exact-rate assertions
- * pin the PM-confirmed formula (R-1 asymmetric cap): downhill
- * `base + step × min(|Δ|, cap)`, flat `base`, uphill
- * `max(0, base − step × |Δ|)`.
+ * flowDownhillStep=1, flowUphillStep=1, flowSlopeDeltaCap=5,
+ * flowUphillCap=80) so the exact-rate assertions pin the PM-confirmed
+ * formula (spec 024 v1.3 FR-051): downhill
+ * `base + downhillStep × min(|Δ|, cap)`, flat `base`, uphill
+ * `ceil(base × (cap − Δ) / cap)`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -28,15 +29,17 @@ import type { Board, WorldState } from '../../src/types';
 import { buildBoardWithElevation, buildSmallBoard } from '../fixtures/board';
 
 // Synthetic constants matching the shipped gradient shape so exact
-// per-tick rates are observable and pinned to the R-1 formula.
+// per-tick rates are observable and pinned to the FR-051 formula.
 const TEST_CONSTANTS: EngineConstants = {
     productionRate: 1,
     cityCapacity: 30,
     cellCapacity: 30,
     decayPerTick: 1,
     flowBase: 7,
-    flowSlopeStep: 1,
+    flowDownhillStep: 1,
+    flowUphillStep: 1,
     flowSlopeDeltaCap: 5,
+    flowUphillCap: 80,
     paratroopCost: 10,
     gunCost: 5,
     gunDamage: 2,
@@ -130,7 +133,7 @@ describe('resolveFlow — FR-007 gradient slope rates', () => {
         expect(out.troopCounts[1]).toBe(7);
     });
 
-    it('uphill Δ=1 moves flowBase − step×1 = 6 troops', () => {
+    it('uphill Δ=1 moves ceil(flowBase × (cap−1) / cap) = 7 troops', () => {
         const elevMap: ReadonlyArray<readonly [number, number]> = [
             [4, 0],
             [5, 0],
@@ -140,13 +143,26 @@ describe('resolveFlow — FR-007 gradient slope rates', () => {
         setPipe(state, 8, 0, 0, E, 30, 1);
 
         const out = resolveFlow(state, board, TEST_CONSTANTS);
-        expect(out.troopCounts[1]).toBe(6);
+        expect(out.troopCounts[1]).toBe(7);
     });
 
-    it('uphill Δ=6 moves flowBase − step×6 = 1 troop', () => {
+    it('uphill Δ=40 moves ceil(7×40/80) = 4 troops (moderate uphill)', () => {
         const elevMap: ReadonlyArray<readonly [number, number]> = [
             [0, 0],
-            [6, 0],
+            [40, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        setPipe(state, 8, 0, 0, E, 30, 1);
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        expect(out.troopCounts[1]).toBe(4);
+    });
+
+    it('uphill Δ=73 moves ceil(7×7/80) = 1 troop (near stall)', () => {
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [0, 0],
+            [73, 0],
         ];
         const board: Board = buildBoardWithElevation(8, elevMap, []);
         const state = emptyState(8);
@@ -156,11 +172,11 @@ describe('resolveFlow — FR-007 gradient slope rates', () => {
         expect(out.troopCounts[1]).toBe(1);
     });
 
-    it('uphill Δ=7 stalls (0 troops) and the pipe remains laid and legal (US1 AC-5)', () => {
-        // Δ = +7 reaches the stall threshold flowBase / flowSlopeStep = 7.
+    it('uphill Δ=80 stalls (0 troops) and the pipe remains laid and legal (US1 AC-5)', () => {
+        // Δ = +80 reaches the stall threshold flowUphillCap = 80.
         const elevMap: ReadonlyArray<readonly [number, number]> = [
             [0, 0],
-            [7, 0],
+            [80, 0],
         ];
         const board: Board = buildBoardWithElevation(8, elevMap, []);
         const state = emptyState(8);
@@ -176,9 +192,22 @@ describe('resolveFlow — FR-007 gradient slope rates', () => {
         expect(out.troopCounts[0]).toBe(30);
     });
 
+    it('uphill Δ=100 also stalls (beyond flowUphillCap)', () => {
+        const elevMap: ReadonlyArray<readonly [number, number]> = [
+            [0, 0],
+            [100, 0],
+        ];
+        const board: Board = buildBoardWithElevation(8, elevMap, []);
+        const state = emptyState(8);
+        setPipe(state, 8, 0, 0, E, 30, 1);
+
+        const out = resolveFlow(state, board, TEST_CONSTANTS);
+        expect(out.troopCounts[1]).toBe(0);
+    });
+
     it('downhill > flat > uphill ordering holds for identical source stacks', () => {
         // Three boards; same pipe order (E); same source count. With the
-        // gradient constants the ordering is strict: 12 > 7 > 0.
+        // gradient constants the ordering is strict: 12 > 7 > 4.
         const downhill = buildBoardWithElevation(
             8,
             [
@@ -199,7 +228,7 @@ describe('resolveFlow — FR-007 gradient slope rates', () => {
             8,
             [
                 [0, 0],
-                [10, 0],
+                [40, 0],
             ],
             [],
         );
@@ -216,7 +245,7 @@ describe('resolveFlow — FR-007 gradient slope rates', () => {
 
         expect(downDest).toBe(12);
         expect(flatDest).toBe(7);
-        expect(upDest).toBe(0);
+        expect(upDest).toBe(4);
         expect(downDest).toBeGreaterThan(flatDest);
         expect(flatDest).toBeGreaterThan(upDest);
     });
