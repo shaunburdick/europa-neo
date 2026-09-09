@@ -109,14 +109,14 @@ describe('buildMapView pipeIntensities (issue #43)', () => {
         });
         const info = mv.cells.get('1,1');
         expect(info).toBeDefined();
-        expect(info?.pipeIntensities.get('N')).toBe(3 / 80);
+        expect(info?.pipeIntensities.get('N')).toBe(3 / 12);
     });
 
     test('stalled pipe has intensity 0', () => {
-        // src at (1,1) elev 100, dst at (1,0) elev 180 → stalled (Δ ≥ flowUphillCap = 80)
+        // src at (1,1) elev 100, dst at (1,0) elev 112 → stalled (Δ ≥ flowRate = 12)
         const mv = buildMapView({
             id: 'mv-4' as MapViewId,
-            view: view([cell({ x: 1, y: 0 }, 180), cell({ x: 1, y: 1 }, 100, new Set(['N']))]),
+            view: view([cell({ x: 1, y: 0 }, 112), cell({ x: 1, y: 1 }, 100, new Set(['N']))]),
             camera: DEFAULT_CAMERA,
             hover: null,
             selection: null,
