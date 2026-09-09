@@ -11,6 +11,14 @@
  * This file is informational — the real implementation lives in the
  * console package. Drift between this mirror and the shipped module
  * is a bug.
+ *
+ * Equal-split model (spec 001 Clarifications v1.9):
+ *   The total outflow budget per cell per tick is `flowRate` (default 12).
+ *   Each pipe receives `perPipe = floor(flowRate / numPipes)` before
+ *   elevation adjustment. The formula modifies each pipe's share:
+ *     delta < 0 (downhill): perPipe + flowDownhillStep × min(|delta|, flowSlopeDeltaCap)
+ *     delta = 0 (flat):     perPipe
+ *     delta > 0 (uphill):   max(0, perPipe − flowUphillStep × |delta|)
  */
 
 /**
@@ -31,16 +39,31 @@ export type PipeSlope = 'downhill' | 'flat' | 'uphill' | 'stalled';
  * the console src graph. Pinned by the slope drift test.
  */
 export interface PipeSlopeConstants {
-    readonly flowBase: number;
-    readonly flowSlopeStep: number;
+    /** Total outflow budget per cell per tick (engine `flowRate`). */
+    readonly flowRate: number;
+    /** Per-unit downhill bonus multiplier (engine `flowDownhillStep`). */
+    readonly flowDownhillStep: number;
+    /** Per-unit uphill penalty multiplier (engine `flowUphillStep`). */
+    readonly flowUphillStep: number;
+    /** Cap on the downhill bonus, in elevation steps (engine `flowSlopeDeltaCap`). */
     readonly flowSlopeDeltaCap: number;
 }
 
 /**
  * Console-side mirror of the engine's flow formula (spec 001 FR-007).
  * Must agree with `flowRateForDelta` for every delta (drift-pinned).
+ *
+ * @param delta     `dstElev − srcElev` (negative = downhill,
+ *                  zero = flat, positive = uphill).
+ * @param perPipe   Equal-share amount before elevation adjustment.
+ * @param constants The console-side constants mirror.
+ * @returns Troops moved per tick along the pipe (≥ 0; 0 = stall).
  */
-export declare function pipeFlowRate(delta: number, constants: PipeSlopeConstants): number;
+export declare function pipeFlowRate(
+    delta: number,
+    perPipe: number,
+    constants: PipeSlopeConstants,
+): number;
 
 /**
  * Classify one pipe's slope from the source and destination
@@ -61,7 +84,7 @@ export declare function classifyPipeSlope(
 ): PipeSlope;
 
 /**
- * Shipped mirror values (must equal the three `ENGINE_CONSTANTS`
+ * Shipped mirror values (must equal the `ENGINE_CONSTANTS` flow
  * fields; drift test asserts equality).
  */
 export declare const PIPE_SLOPE_CONSTANTS: PipeSlopeConstants;
