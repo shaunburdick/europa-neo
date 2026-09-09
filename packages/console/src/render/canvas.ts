@@ -54,9 +54,6 @@ import type { PipeSlope } from './pipe-slope';
 /** Fraction of the cell size used as the troop-disc radius. */
 const UNIT_RADIUS_RATIO = 0.32;
 
-/** Fraction of the cell size used for pipe triangle extent. */
-const PIPE_SIZE_RATIO = 0.16;
-
 /** Inset fraction for the city outline square. */
 const CITY_INSET_RATIO = 0.12;
 
@@ -385,41 +382,45 @@ export class MapCanvas {
      *  Every pipe triangle gets a dark outline (spec 024 FR-010) to
      *  guarantee contrast against any biome background. */
     private drawPipes(ctx: CanvasRenderingContext2D, info: CellRenderInfo, zoom: number): void {
-        const baseSize = zoom * PIPE_SIZE_RATIO;
         const x = info.coord.x * zoom;
         const y = info.coord.y * zoom;
         const midX = x + zoom / 2;
         const midY = y + zoom / 2;
+        // Maximum depth = center to cell edge (zoom / 2).
+        const maxDepth = zoom / 2;
         for (const direction of info.pipes) {
             // Slope classification precomputed by buildMapView (005
             // FR-013); a missing entry (defensive) renders flat.
             const slope = info.pipeSlopes.get(direction) ?? 'flat';
-            // Intensity scales triangle size (issue #43): 0.4 at
-            // intensity=0, 1.0 at intensity=1. Stalled pipes use
-            // full size (hollow is the signal, not size).
+            // Intensity scales triangle depth (issue #43): 30% at
+            // intensity=0, 100% at intensity=1. Stalled pipes use
+            // fixed smaller depth (hollow is the signal, not size).
             const intensity = info.pipeIntensities.get(direction) ?? 0;
-            const size = slope === 'stalled' ? baseSize : baseSize * (0.4 + intensity * 0.6);
+            const depthFactor = slope === 'stalled' ? 0.3 : 0.3 + intensity * 0.7;
+            const depth = maxDepth * depthFactor;
+            // Base half-width = 30% of depth (matches CSS clip-path).
+            const baseHalf = depth * 0.3;
             ctx.beginPath();
             // Triangles point OUTWARD from cell center toward the pipe
             // direction — matching the original Europa rules: "lines
             // originating near the center of a cell and pointing in the
             // direction of the desired troops flow" (GH issue 101).
             if (direction === 'N') {
-                ctx.moveTo(midX - size, midY);
-                ctx.lineTo(midX + size, midY);
-                ctx.lineTo(midX, midY - size * 1.6);
+                ctx.moveTo(midX - baseHalf, midY);
+                ctx.lineTo(midX + baseHalf, midY);
+                ctx.lineTo(midX, midY - depth);
             } else if (direction === 'S') {
-                ctx.moveTo(midX - size, midY);
-                ctx.lineTo(midX + size, midY);
-                ctx.lineTo(midX, midY + size * 1.6);
+                ctx.moveTo(midX - baseHalf, midY);
+                ctx.lineTo(midX + baseHalf, midY);
+                ctx.lineTo(midX, midY + depth);
             } else if (direction === 'W') {
-                ctx.moveTo(midX, midY - size);
-                ctx.lineTo(midX, midY + size);
-                ctx.lineTo(midX - size * 1.6, midY);
+                ctx.moveTo(midX, midY - baseHalf);
+                ctx.lineTo(midX, midY + baseHalf);
+                ctx.lineTo(midX - depth, midY);
             } else {
-                ctx.moveTo(midX, midY - size);
-                ctx.lineTo(midX, midY + size);
-                ctx.lineTo(midX + size * 1.6, midY);
+                ctx.moveTo(midX, midY - baseHalf);
+                ctx.lineTo(midX, midY + baseHalf);
+                ctx.lineTo(midX + depth, midY);
             }
             ctx.closePath();
             if (slope === 'stalled') {
@@ -437,7 +438,7 @@ export class MapCanvas {
                 // where the stroke width overwhelms the triangle interior,
                 // producing muddy blended pixels instead of a clean color.
                 const outlineWidth = Math.max(1, zoom * 0.04);
-                if (size * 1.6 > outlineWidth * 3) {
+                if (depth > outlineWidth * 3) {
                     ctx.strokeStyle = PIPE_OUTLINE_COLOR;
                     ctx.lineWidth = outlineWidth;
                     ctx.stroke();

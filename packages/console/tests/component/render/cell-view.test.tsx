@@ -159,10 +159,9 @@ describe('CellView (T040 / data-model §3)', () => {
         const east = el.querySelector('.europa-pipe--E');
         expect(north).not.toBeNull();
         expect(east).not.toBeNull();
-        // The N triangle is drawn with a top border (pointing up from center).
-        expect(parseFloat(getComputedStyle(north as Element).borderTopWidth)).toBeGreaterThan(0);
-        // The E triangle is drawn with a left border (pointing right from center).
-        expect(parseFloat(getComputedStyle(east as Element).borderLeftWidth)).toBeGreaterThan(0);
+        // N/E triangles rendered via clip-path + background (no CSS borders).
+        expect(getComputedStyle(north as Element).clipPath).toContain('polygon');
+        expect(getComputedStyle(east as Element).clipPath).toContain('polygon');
         // No S/W indicators for directions that are not piped.
         expect(el.querySelector('.europa-pipe--S')).toBeNull();
         expect(el.querySelector('.europa-pipe--W')).toBeNull();

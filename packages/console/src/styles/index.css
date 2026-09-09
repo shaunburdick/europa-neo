@@ -95,22 +95,21 @@ body {
     z-index: 2;
 }
 
-/* Pipe indicators: CSS border triangles pinned to the cell edges.
-   The span itself is zero-size; its borders form the triangle.
+/* Pipe indicators: clip-path triangles spanning center to cell edge.
+   The span fills the cell; clip-path carves the visible triangle.
    Slope-based coloring via data-slope attribute selectors using
    the canonical pipe design tokens (issue #43).
-   Intensity encoded as triangle size via --europa-pipe-tri CSS
-   custom property (set inline by cell-view.tsx per zoom level). */
+   Depth set via --pipe-tri-depth CSS custom property (50% default =
+   center to edge; overridden inline by cell-view.tsx per zoom). */
 .europa-pipe {
     position: absolute;
-    width: 0;
-    height: 0;
-    border-style: solid;
-    /* Default triangle size; overridden inline per pipe by cell-view.tsx. */
-    --europa-pipe-tri: 6px;
-    /* Dark outline around CSS border-triangles to guarantee contrast
-       against any biome background (spec 024 FR-021, AC-016).
-       Matches the Canvas renderer's stroke outline (FR-010). */
+    inset: 0;
+    /* Default depth = 50% (center to edge); overridden inline per pipe. */
+    --pipe-tri-depth: 50%;
+    /* Dark outline via drop-shadow to guarantee contrast against any
+       biome background (spec 024 FR-021, AC-016). Matches the Canvas
+       renderer's stroke outline (FR-010). filter applies after
+       clip-path so the shadow hugs the visible triangle shape. */
     filter: drop-shadow(0 0 1px var(--europa-color-pipe-outline));
 }
 
@@ -129,36 +128,45 @@ body {
     --europa-pipe-color: var(--europa-color-pipe-stalled);
 }
 
-/* N/S pipes: use --europa-pipe-tri for both width and depth
-   (unified sizing, issue #43). Triangles point OUTWARD from cell
-   center toward the pipe direction (GH issue 101). */
+/* Pipe triangles: clip-path spans center to cell edge.
+   Triangles point OUTWARD from cell center toward the pipe
+   direction (GH issue 101). --pipe-tri-depth controls how far
+   the tip reaches (50% = edge, default). Base width = 60% of
+   depth for a balanced arrow shape. */
 .europa-pipe--N {
-    top: calc(50% - var(--europa-pipe-tri));
-    left: calc(50% - var(--europa-pipe-tri));
-    border-width: var(--europa-pipe-tri) var(--europa-pipe-tri) 0 var(--europa-pipe-tri);
-    border-color: var(--europa-pipe-color) transparent transparent transparent;
+    clip-path: polygon(
+        calc(50% - var(--pipe-tri-depth) * 0.3) 50%,
+        calc(50% + var(--pipe-tri-depth) * 0.3) 50%,
+        50% calc(50% - var(--pipe-tri-depth))
+    );
+    background: var(--europa-pipe-color);
 }
 
 .europa-pipe--S {
-    bottom: calc(50% - var(--europa-pipe-tri));
-    left: calc(50% - var(--europa-pipe-tri));
-    border-width: 0 var(--europa-pipe-tri) var(--europa-pipe-tri) var(--europa-pipe-tri);
-    border-color: transparent transparent var(--europa-pipe-color) transparent;
+    clip-path: polygon(
+        calc(50% - var(--pipe-tri-depth) * 0.3) 50%,
+        calc(50% + var(--pipe-tri-depth) * 0.3) 50%,
+        50% calc(50% + var(--pipe-tri-depth))
+    );
+    background: var(--europa-pipe-color);
 }
 
-/* E/W pipes: use --europa-pipe-tri for both width and depth. */
 .europa-pipe--W {
-    left: calc(50% - var(--europa-pipe-tri));
-    top: calc(50% - var(--europa-pipe-tri));
-    border-width: var(--europa-pipe-tri) var(--europa-pipe-tri) var(--europa-pipe-tri) 0;
-    border-color: transparent var(--europa-pipe-color) transparent transparent;
+    clip-path: polygon(
+        50% calc(50% - var(--pipe-tri-depth) * 0.3),
+        50% calc(50% + var(--pipe-tri-depth) * 0.3),
+        calc(50% - var(--pipe-tri-depth)) 50%
+    );
+    background: var(--europa-pipe-color);
 }
 
 .europa-pipe--E {
-    right: calc(50% - var(--europa-pipe-tri));
-    top: calc(50% - var(--europa-pipe-tri));
-    border-width: var(--europa-pipe-tri) 0 var(--europa-pipe-tri) var(--europa-pipe-tri);
-    border-color: transparent transparent transparent var(--europa-pipe-color);
+    clip-path: polygon(
+        50% calc(50% - var(--pipe-tri-depth) * 0.3),
+        50% calc(50% + var(--pipe-tri-depth) * 0.3),
+        calc(50% + var(--pipe-tri-depth)) 50%
+    );
+    background: var(--europa-pipe-color);
 }
 
 /* City marker dot (redundant with the city outline inline style). */

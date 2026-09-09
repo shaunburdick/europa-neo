@@ -1,6 +1,5 @@
 import type React from 'react';
 import { EuropaElevationSwatch } from '../../../src/components';
-import { TOKENS } from '../../../src/tokens';
 
 /**
  * Biome zone metadata — names and flow behavior for each elevation band.
@@ -36,9 +35,7 @@ export function ElevationSwatchDemo(): React.ReactElement {
                         <EuropaElevationSwatch elevation={Math.round((zone.example / 255) * 100)} />
                         <div>
                             <strong>{zone.name}</strong>
-                            <span style={{ color: '#9ca3af', marginLeft: '0.5rem' }}>
-                                elev {zone.range}
-                            </span>
+                            <span style={{ color: '#9ca3af', marginLeft: '0.5rem' }}>elev {zone.range}</span>
                             <br />
                             <span style={{ color: '#e5e7eb', fontSize: '0.85em' }}>{zone.flow}</span>
                         </div>
