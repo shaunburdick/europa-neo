@@ -1,6 +1,15 @@
 # Europa Neo
 
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/manual/assets/brand/europa-neo-lockup-dark.svg">
+  <img alt="Europa Neo" src="docs/manual/assets/brand/europa-neo-lockup-light.svg" width="360">
+</picture>
+
 Real-time nanobot warfare on Jupiter's icy moon — rebuilt for the modern web.
+
+</div>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
