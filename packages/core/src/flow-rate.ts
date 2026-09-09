@@ -182,8 +182,10 @@ export function flowRateForDelta(
  *
  * Encapsulates the full per-pipe computation: equal division of the
  * `flowRate` budget, source depletion under scarcity, and elevation
- * gradient modification. This is the single entry point that the
- * engine's `resolveFlow` calls for each pipe direction.
+ * gradient modification. This is a convenience API for external consumers
+ * (scenario scripts, balance tuning, terrain validation). The engine's
+ * `resolveFlow` inlines the same logic for performance (perPipe is reused
+ * across all pipe directions from a single source cell).
  *
  * @param srcCount     Current source troop count (from `newCounts`).
  * @param numPipes     Total outgoing pipes on the source cell.

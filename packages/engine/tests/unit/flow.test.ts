@@ -797,16 +797,18 @@ describe('resolveFlow — source depletion (Clarifications v1.6)', () => {
     it('multi-pipe source depletes across directions in N→E→S→W order', () => {
         // Source at (4,4) elevation 10, all neighbors elevation 5 (delta=−5).
         // perPipe = floor(12/4) = 3. rate = 3 + 1×5 = 8 per pipe.
-        // Source has 30 troops with reserves = 1 (10%). The reserve floor
-        // is recomputed per-transfer against the current count:
-        //   N: srcCount=30, floor=ceil(30×1/10)=3, available=27,
+        // Source has 30 troops with reserves = 1 (10%).
+        // Outer reserveFloor = ceil(30×1/10) = 3 (computed once from original srcCount).
+        // The `available` in the equal-split formula uses this outer floor:
+        //   N: srcCount=30, available=30−3=27, remaining=4,
         //      base=min(3,floor(27/4))=3, rate=8, send=8 → src=22
-        //   E: srcCount=22, floor=ceil(22×1/10)=3, available=19,
+        //   E: srcCount=22, available=22−3=19, remaining=3,
         //      base=min(3,floor(19/3))=3, rate=8, send=8 → src=14
-        //   S: srcCount=14, floor=ceil(14×1/10)=2, available=12,
-        //      base=min(3,floor(12/2))=3, rate=8, send=8 → src=6
-        //   W: srcCount=6, floor=ceil(6×1/10)=1, available=5,
-        //      base=min(3,floor(5/1))=3, rate=8, send=5 → src=1
+        //   S: srcCount=14, available=14−3=11, remaining=2,
+        //      base=min(3,floor(11/2))=3, rate=8, send=8 → src=6
+        //   W: srcCount=6, available=6−3=3, remaining=1,
+        //      base=min(3,floor(3/1))=3, rate=8, send=5 → src=1
+        // (maxDeductable also clamps: min(8, 6−3)=3 for W, so send=5 not 8)
         const size = 8;
         const cells = Array.from({ length: size * size }, (_, i) => {
             const cx = i % size;
