@@ -1,5 +1,5 @@
 /**
- * Elevation-gradient pipe flow rate — shared foundation
+ * Elevation-gradient pipe flow rate — shared foundation (equal-split model)
  *
  * The single source of the pipe-flow formula and its tunable constants.
  * Both `@europa/engine` and `@europa/terrain` import from here so the
@@ -7,18 +7,27 @@
  * SC-005 "every numeric rule is defined in one tunable-constants
  * location").
  *
- * Formula (spec 024 v1.3 FR-051 — separate uphill/downhill slopes):
- *   delta < 0 (downhill): flowBase + flowDownhillStep × min(|delta|, flowSlopeDeltaCap)
- *   delta = 0 (flat):     flowBase
- *   delta > 0 (uphill):   ceil(flowBase × (flowUphillCap − delta) / flowUphillCap)
+ * Equal-split model (spec 001 Clarifications v1.9):
+ *   The total outflow budget per cell per tick is the tunable constant
+ *   `flowRate` (default 12). Each outgoing pipe receives an equal share:
+ *     perPipe = floor(flowRate / numPipes)
  *
- * The cap bounds the DOWNHILL bonus; the uphill handicap scales linearly
- * from flowBase (at delta=1) to 0 (at delta=flowUphillCap). Pipes stall
- * (return 0) at delta ≥ flowUphillCap (80 with the shipped constants),
- * aligning with the biome zone flow-viability rules (spec 024 FR-050).
- * A stalled pipe remains laid and legal (US1 AC-5).
+ *   When the source has fewer troops than `flowRate` (scarcity), troops
+ *   are split equally across pipes:
+ *     each pipe receives min(perPipe, available / remainingPipes)
+ *   where `available = srcCount − reserveFloor` and `remainingPipes`
+ *   decreases after each pipe is processed.
  *
- * Pure, integer arithmetic, deterministic (FR-017).
+ *   The elevation gradient modifies each pipe's share individually:
+ *     delta < 0 (downhill): perPipe + flowDownhillStep × min(|delta|, flowSlopeDeltaCap)
+ *     delta = 0 (flat):     perPipe
+ *     delta > 0 (uphill):   max(0, perPipe − flowUphillStep × |delta|)
+ *
+ *   Pipes stall (return 0) when the formula produces 0; the stall
+ *   threshold is `perPipe / flowUphillStep` (varies by pipe count).
+ *   A stalled pipe remains laid and legal (US1 AC-5).
+ *
+ * Pure integer arithmetic, deterministic (FR-017).
  */
 
 // ---------------------------------------------------------------------------
@@ -33,16 +42,17 @@
  * devDependency for tests).
  */
 export interface FlowConstants {
-    /** Base troops per tick moving along a flat pipe (FR-007). */
-    readonly flowBase: number;
-    /** Per-unit downhill bonus multiplier (replaces `flowSlopeStep`). */
+    /**
+     * Total outflow budget per cell per tick, split equally among
+     * outgoing pipes (FR-007, Clarifications v1.9). Default 12.
+     */
+    readonly flowRate: number;
+    /** Per-unit downhill bonus multiplier. */
     readonly flowDownhillStep: number;
-    /** Per-unit uphill penalty multiplier (replaces `flowSlopeStep`). */
+    /** Per-unit uphill penalty multiplier. */
     readonly flowUphillStep: number;
     /** Caps the downhill bonus, in elevation steps (FR-007). */
     readonly flowSlopeDeltaCap: number;
-    /** Maximum flowable uphill delta; pipes stall at delta ≥ this value (spec 024 FR-051). */
-    readonly flowUphillCap: number;
 }
 
 /**
@@ -83,11 +93,10 @@ export interface EngineConstants extends FlowConstants {
  * (same field names, same types), so callers can pass either.
  */
 export const DEFAULT_FLOW_CONSTANTS: FlowConstants = {
-    flowBase: 7,
+    flowRate: 12,
     flowDownhillStep: 1,
     flowUphillStep: 1,
     flowSlopeDeltaCap: 5,
-    flowUphillCap: 80,
 } as const;
 
 /**
@@ -114,12 +123,14 @@ export const ENGINE_CONSTANTS: EngineConstants = {
     // FR-009: troops lost per tick when a cell is unfed (no friendly
     // inflow AND no city source).
     decayPerTick: 1,
-    // FR-007: elevation-gradient pipe flow.
-    flowBase: 7,
+    // FR-007: elevation-gradient pipe flow (equal-split model, v1.9).
+    // `flowRate` is the total outflow budget per cell per tick, split
+    // equally among outgoing pipes. Elevation gradient modifies each
+    // pipe's share individually.
+    flowRate: 12,
     flowDownhillStep: 1,
     flowUphillStep: 1,
     flowSlopeDeltaCap: 5,
-    flowUphillCap: 80,
     // FR-013: paratroop cost is `2 × N` at the source, `N` lands at the
     // target. We model the per-trooper cost; the `2×` ratio is the
     // resolution rule (multiply by 2 at use-site).
@@ -137,27 +148,64 @@ export const ENGINE_CONSTANTS: EngineConstants = {
 // ---------------------------------------------------------------------------
 
 /**
- * Troops moved per tick along one pipe for a given elevation change.
+ * Elevation-modified per-pipe flow rate.
  *
- * @param delta     `dstElev − srcElev` (negative = downhill,
- *                  zero = flat, positive = uphill).
+ * Applies the elevation gradient to a base per-pipe share and returns
+ * the effective troops moved per tick along one pipe.
+ *
+ * @param delta    `dstElev − srcElev` (negative = downhill,
+ *                 zero = flat, positive = uphill).
+ * @param perPipe  Equal-share amount before elevation adjustment.
  * @param constants Flow-rule constants (defaults to `DEFAULT_FLOW_CONSTANTS`
  *                  when omitted).
  * @returns Troops moved per tick along the pipe (≥ 0; 0 = stall).
  */
-export function flowRateForDelta(delta: number, constants: FlowConstants = DEFAULT_FLOW_CONSTANTS): number {
-    const { flowBase, flowDownhillStep, flowSlopeDeltaCap, flowUphillCap } = constants;
+export function flowRateForDelta(
+    delta: number,
+    perPipe: number,
+    constants: FlowConstants = DEFAULT_FLOW_CONSTANTS,
+): number {
+    const { flowDownhillStep, flowUphillStep, flowSlopeDeltaCap } = constants;
     if (delta < 0) {
         // Downhill: bonus scales with the drop, capped at flowSlopeDeltaCap.
-        return flowBase + flowDownhillStep * Math.min(-delta, flowSlopeDeltaCap);
+        return perPipe + flowDownhillStep * Math.min(-delta, flowSlopeDeltaCap);
     }
     if (delta > 0) {
-        // Uphill: linear scale from flowBase to 0 over [1, flowUphillCap].
-        // Pipes stall (return 0) at delta ≥ flowUphillCap.
-        if (delta >= flowUphillCap) {
-            return 0;
-        }
-        return Math.ceil((flowBase * (flowUphillCap - delta)) / flowUphillCap);
+        // Uphill: penalty scales with the climb; stall at 0.
+        return Math.max(0, perPipe - flowUphillStep * delta);
     }
-    return flowBase;
+    return perPipe;
+}
+
+/**
+ * Resolve the per-pipe transfer amount using the equal-split model.
+ *
+ * Encapsulates the full per-pipe computation: equal division of the
+ * `flowRate` budget, source depletion under scarcity, and elevation
+ * gradient modification. This is a convenience API for external consumers
+ * (scenario scripts, balance tuning, terrain validation). The engine's
+ * `resolveFlow` inlines the same logic for performance (perPipe is reused
+ * across all pipe directions from a single source cell).
+ *
+ * @param srcCount     Current source troop count (from `newCounts`).
+ * @param numPipes     Total outgoing pipes on the source cell.
+ * @param pipeIndex    0-based index of this pipe (for remaining-pipes calc).
+ * @param reserveFloor Source's reserve floor (computed before call).
+ * @param delta        `dstElev − srcElev`.
+ * @param constants    Flow-rule constants.
+ * @returns Troops to transfer along this pipe (≥ 0).
+ */
+export function resolveFlowAmount(
+    srcCount: number,
+    numPipes: number,
+    pipeIndex: number,
+    reserveFloor: number,
+    delta: number,
+    constants: FlowConstants,
+): number {
+    const perPipe = Math.floor(constants.flowRate / numPipes);
+    const remainingPipes = numPipes - pipeIndex;
+    const available = srcCount > reserveFloor ? srcCount - reserveFloor : 0;
+    const base = Math.min(perPipe, Math.floor(available / remainingPipes));
+    return flowRateForDelta(delta, base, constants);
 }

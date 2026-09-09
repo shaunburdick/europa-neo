@@ -38,7 +38,7 @@
  */
 
 import type { Board, CityPlacement, Coord, PlayerId } from '@europa/core';
-import { flowRateForDelta } from '@europa/core';
+import { ENGINE_CONSTANTS, flowRateForDelta } from '@europa/core';
 
 import { partnerPlayer } from './city-symmetry';
 import {
@@ -135,9 +135,16 @@ function bfsLandReachable(board: Board, start: Coord): Set<number> {
 /**
  * Is the undirected land edge (src → dst) flow-viable in at least
  * ONE direction? A pipe is a bidirectional conduit; troops only need
- * to flow one way for the edge to be usable. The binding constraint
- * is the uphill direction (stall threshold `flowUphillCap`,
- * read live from `ENGINE_CONSTANTS`).
+ * to flow one way for the edge to be usable.
+ *
+ * **Single-pipe assumption**: the terrain validator checks structural
+ * viability, not actual in-game throughput. It uses `perPipe = flowRate`
+ * (i.e. a cell with a single outgoing pipe gets the full budget) —
+ * the most permissive case. Stall occurs when
+ * `|delta| ≥ flowRate / flowUphillStep` (currently 12 with shipped
+ * constants). A more restrictive assumption (e.g. 4-pipe average)
+ * would reject maps that are playable with fewer pipes, so the
+ * permissive bound is the correct engineering choice for map validation.
  *
  * @param srcElevation Elevation of the source cell.
  * @param dstElevation Elevation of the destination cell.
@@ -145,7 +152,10 @@ function bfsLandReachable(board: Board, start: Coord): Set<number> {
  */
 function isFlowViableEdge(srcElevation: number, dstElevation: number): boolean {
     const delta = dstElevation - srcElevation;
-    return flowRateForDelta(delta) > 0 || flowRateForDelta(-delta) > 0;
+    return (
+        flowRateForDelta(delta, ENGINE_CONSTANTS.flowRate, ENGINE_CONSTANTS) > 0 ||
+        flowRateForDelta(-delta, ENGINE_CONSTANTS.flowRate, ENGINE_CONSTANTS) > 0
+    );
 }
 
 /**

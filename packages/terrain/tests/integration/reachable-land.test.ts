@@ -15,12 +15,12 @@
  *     `DEFAULT_GENERATION_SETTINGS` — smoothing default 4).
  *   - For each map, BFS from every starting city over LAND cells only.
  *   - An edge is flow-viable when the pipe can carry troops in BOTH
- *     directions: `flowRateForDelta(delta, ENGINE_CONSTANTS) > 0` AND
- *     `flowRateForDelta(-delta, ENGINE_CONSTANTS) > 0`, where
- *     `delta = dstElevation − srcElevation`. Pipes are bidirectional
- *     conduits, so the uphill direction is the binding constraint: the
- *     edge is traversable iff `|delta| < flowUphillCap`
- *     (the stall threshold, 80 with the shipped constants). This matches
+ *     directions: `flowRateForDelta(delta, ENGINE_CONSTANTS.flowRate, ENGINE_CONSTANTS) > 0`
+ *     AND the same for `-delta`, where `delta = dstElevation − srcElevation`.
+ *     Pipes are bidirectional conduits, so the uphill direction is the
+ *     binding constraint: the edge is traversable iff
+ *     `|delta| < flowRate / flowUphillStep`
+ *     (the stall threshold, 12 with the shipped constants). This matches
  *     the empirical grounding in spec 003 v1.3 — a directional-only
  *     edge rule measures ~84% (downhill edges of any height stay
  *     traversable), while the bidirectional rule measures ~54.5%,
@@ -63,8 +63,12 @@ const NEIGHBOR_DELTAS = [
  * Is the undirected land edge (src → dst) flow-viable in BOTH
  * directions? A pipe is a bidirectional conduit, so a cell is only
  * flow-reachable when the pipe can carry troops each way — the uphill
- * direction is the binding constraint (stall threshold `flowUphillCap`,
- * read live from `ENGINE_CONSTANTS`).
+ * direction is the binding constraint (stall threshold
+ * `flowRate / flowUphillStep`, read live from `ENGINE_CONSTANTS`).
+ *
+ * Uses `perPipe = ENGINE_CONSTANTS.flowRate` (single-pipe assumption,
+ * the most permissive case for map validation — matching the terrain
+ * validator's INV-16 check).
  *
  * @param srcElevation Elevation of the source cell.
  * @param dstElevation Elevation of the destination cell.
@@ -72,7 +76,10 @@ const NEIGHBOR_DELTAS = [
  */
 function isFlowViableEdge(srcElevation: number, dstElevation: number): boolean {
     const delta = dstElevation - srcElevation;
-    return flowRateForDelta(delta, ENGINE_CONSTANTS) > 0 && flowRateForDelta(-delta, ENGINE_CONSTANTS) > 0;
+    return (
+        flowRateForDelta(delta, ENGINE_CONSTANTS.flowRate, ENGINE_CONSTANTS) > 0 &&
+        flowRateForDelta(-delta, ENGINE_CONSTANTS.flowRate, ENGINE_CONSTANTS) > 0
+    );
 }
 
 describe('US4 AC-1 reachable land (200 maps, mean flow-viable fraction ≥ 50%)', () => {
