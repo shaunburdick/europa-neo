@@ -202,6 +202,12 @@ Feature 013 replaces the former query-selected live-entry description with seman
 - **Minimap viewport rectangle**: uses existing `viewportRect` helper; enhanced styling for the sidebar context.
 - **Spectator**: same layout; order controls inert (structural invariant — no store, no order bridge).
 
+### v1.18 (2026-09-09) — String PlayerId identity association (issue #74)
+
+- **Identity association updated**: the console associates player identity using the string `PlayerId` received from the server via `JoinAckPayload.playerId`. The `guestPlayerId` branding may be reused or merged with the new string type.
+- **Fog computePlayerView**: the fog module's `computePlayerView` function accepts the string `PlayerId` as its player argument. Implementation (Chebyshev horizon, structural redaction) is unchanged.
+- **No UI change**: the player ID is an internal identifier not directly shown to users. Handle display and identity card rendering are unaffected.
+
 ## Implementation Notes (2026-08-23, Phase 8 Polish)
 
 - **FR-013 amended**: pipes now encode normalized intensity (0–1) as triangle size/thickness in addition to the three-color slope scheme. Intensity is computed per pipe direction from the elevation delta: downhill = `min(|Δ|, flowSlopeDeltaCap) / flowSlopeDeltaCap`; uphill = `min(Δ, flowBase / flowSlopeStep) / (flowBase / flowSlopeStep)`; flat/stalled/fog = 0. Triangle size ranges from 40% (intensity=0, min `max(2.4px, zoom*0.06)`) to 100% (intensity=1, 6px at default zoom). Stalled pipes are fixed size (no intensity variation — the hollow treatment is the signal). The prior "no intensity scaling" rationale (v1.2) is superseded: the PO confirmed that intensity encoding improves slope readability at all zoom levels.

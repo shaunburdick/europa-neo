@@ -326,3 +326,16 @@ Cell has 5 troops (P2). P1 sends 20 via pipe. All 20 enter (headroom 25). `commi
 - **US1 AC-2 updated**: a saturated city with an eastward pipe into an empty cell transfers `floor(flowRate / 1)` = 12 troops each tick (equal-split, single pipe), so the source depletes by 12 per tick and the destination accumulates the received amount.
 - **US1 AC-5 updated**: the stall threshold is now expressed as the elevation delta where the effective per-pipe amount reaches 0 (`Δelev ≥ perPipe / flowUphillStep`). With `flowRate = 12` and a single pipe, `perPipe = 12`, so stall at Δ ≥ 12. With 2 pipes, `perPipe = 6`, so stall at Δ ≥ 6. The threshold varies by pipe count — this is a deliberate design choice.
 - **Test updates in the same change set**: `tests/unit/flow.test.ts` (all `TEST_CONSTANTS` assertions updated for equal-split formula; new "equal-split" suite covering 1/2/3/4-pipe split scenarios with充足 and scarce sources; new "plateau flow" suite verifying chain-tip behavior; conservation assertions updated to account for equal-split depletion), `tests/quickstart/slope-flow.test.ts` (Q-003 expected values updated for equal-split rates).
+
+### v1.10 (2026-09-09) — Branded string PlayerId (issue #74)
+
+- **FR-020 added**: `PlayerId` is a branded string type (`string & { readonly __brand: 'PlayerId' }`) defined in `@europa/core`. A helper function `toPlayerId(value: string): PlayerId` provides safe creation. The numeric union `1 | 2 | 3 | 4` is removed.
+- **FR-021 added**: The matchmaking server generates unique `PlayerId` values at match creation using a cryptographically secure random generator (recommended: NanoID, 12 characters, URL-safe alphabet). IDs are unique within match scope and generated outside the deterministic tick loop.
+- **FR-017 clarified**: Determinism is preserved by sorting orders lexicographically on the string `PlayerId` (then by `kind`). The sort comparator is `a.playerId.localeCompare(b.playerId) || a.kind.localeCompare(b.kind)`.
+- **FR-018 clarified**: Order batches are sorted by string `PlayerId` ascending (lexicographic), then by `kind` alphabetically.
+- **Contract change (breaking)**: `PlayerId` type changes from numeric union to branded string. `createWorld` accepts player IDs as part of configuration. `getPlayer` performs lookup by string ID rather than array indexing. Binary serialization uses length-prefixed UTF-8 format (1 byte length + N bytes string).
+- **Acceptance criteria added**:
+  - AC-16: `PlayerId` is a branded string type; no numeric literal `1|2|3|4` remains in public contract.
+  - AC-17: `createWorld` accepts player IDs; engine never derives ID from array index.
+  - AC-18: Order resolution uses lexicographic sort on string ID; byte-identical determinism (SC-001) preserved.
+  - AC-19: Serialization round-trips correctly for string IDs.

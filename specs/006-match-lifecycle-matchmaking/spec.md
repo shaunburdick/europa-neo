@@ -281,3 +281,10 @@ Contracts were updated in the same change set wherever behavior changed.
   unchanged. `MatchId` is a non-secret routing/admission reference, not a
   session or reconnect bearer credential. It may be shared as the private join
   reference, but knowledge of it alone grants no seat, order, or view authority.
+
+### v1.3 (2026-09-09) — Server-side PlayerId generation (issue #74)
+
+- **ID generation at match creation**: the matchmaking server generates a unique `PlayerId` for each seat at match creation time, not at the filling→running transition. The `toPlayerId(seatIndex + 1)` helper is removed.
+- **Seat.playerId lifecycle**: `seat.playerId` is set to the generated string ID when the seat is created, remains null for unfilled seats, and carries the ID from creation onward once filled.
+- **Determinism preserved**: ID generation happens outside the deterministic tick loop (server-side at match creation). The engine receives IDs via `createWorld` configuration and uses them for order sorting (lexicographic) and player lookup.
+- **No contract change**: the `SeatAssignment` payload shape is unchanged (string `PlayerId` instead of numeric). Matchmaking's internal seat record carries the string ID.

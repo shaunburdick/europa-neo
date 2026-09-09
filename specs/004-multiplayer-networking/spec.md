@@ -128,3 +128,9 @@ As an observer, I want to attach to a running match as a spectator and receive f
 - Guest identity IDs and gameplay `PlayerId` values may be carried in wire payloads and diagnostics for correlation. They do not change authorization or fog filtering. `sessionToken` and `reconnectToken` remain bearer credentials and MUST NOT be logged or placed in risky URLs/documentation examples.
 - `MatchId` is a non-secret routing/admission reference, not a session or reconnect bearer credential. A client that knows one may attempt admission to the corresponding private match, but the ID alone grants no seat, order, or view authority; the server still resolves admission, seat ownership, orders, and fog-filtered views. Unknown-ID handling remains generic so private-match existence is not enumerable.
 - The bearer-credential URL rule applies to public application URLs and documentation, logs, and diagnostics. The temporary/local `pnpm host` operator flow is a narrow exception: it may print tokenized join URLs for local seat handoff. Those URLs remain bearer secrets and this operator convenience does not authorize credential-bearing URLs elsewhere.
+
+### v1.5 (2026-09-09) — String PlayerId on wire (issue #74)
+
+- **`NETWORK_API_VERSION` bumped** (breaking): the wire protocol version increments to reflect the change from numeric to string `PlayerId`. Old clients using numeric IDs are rejected at the version check (FR-004). No backward-compatibility shim is required (pre-1.0 software).
+- **Payload updates**: `JoinAckPayload.playerId`, `SnapshotPayload.playerId`, `SeatAssignment.playerId`, `AttachPlayerRequest.playerId`, and `DetachPlayerRequest.playerId` all carry string `PlayerId` values (null for spectators).
+- **No semantic change**: the wire format change is purely typographic (number → string). Order submission, tick broadcasting, fog filtering, and reconnection semantics are unchanged.

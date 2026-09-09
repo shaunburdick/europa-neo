@@ -31,15 +31,28 @@
  * Current engine API version. Increment on any breaking change to the
  * shared type surface. Both engine and terrain pin-check this at startup;
  * bumping forces a coordinated update across all consumers.
+ *
+ * v0.2.0 — PlayerId changed from numeric `1|2|3|4` to branded string
+ * (issue #74). Breaking type change; all downstream consumers must update.
  */
-export const ENGINE_API_VERSION = '0.1.0' as const;
+export const ENGINE_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Branded primitives
 // ----------------------------------------------------------------------------
 
-/** Player identifier; 1..4 (spec FR-019: 2–4 players). */
-export type PlayerId = 1 | 2 | 3 | 4;
+/**
+ * Stable server-generated player identifier (spec FR-020/FR-021).
+ *
+ * A branded string type — plain strings cannot be assigned to `PlayerId`
+ * without going through `toPlayerId()` or `generatePlayerId()`. This
+ * prevents accidental use of unvalidated strings as player identifiers.
+ *
+ * IDs are 12-character NanoID strings (alphanumeric, URL-safe) generated
+ * by the server at match start. They are independent of seat index,
+ * enabling reconnect-by-id and spectator-to-player promotion.
+ */
+export type PlayerId = string & { readonly __brand: 'PlayerId' };
 
 /** Cardinal direction a pipe can face. */
 export type Direction = 'N' | 'E' | 'S' | 'W';
@@ -91,11 +104,15 @@ export interface Cell {
 }
 
 /**
- * Where a city is placed. `owner` is the starting player (FR-005).
+ * Where a city is placed. `owner` is the starting player's numeric index
+ * (1-based; FR-005). Terrain generates these with numeric indices — it
+ * has no concept of string PlayerIds. The engine's `createWorld` maps
+ * numeric owners to internal 0-based indices for `WorldState` arrays.
  */
 export interface CityPlacement {
     readonly cell: Coord;
-    readonly owner: PlayerId;
+    /** Numeric player index (1-based). Not a PlayerId — terrain is ID-agnostic. */
+    readonly owner: number;
 }
 
 /**
