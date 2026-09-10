@@ -3,8 +3,8 @@
 **Feature Branch**: `issue-5-docker-support` (spec directory `011-docker-selfhost-single-port`, next available ID per `create-new-feature.sh`)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle & matchmaking), Feature 010 (public lobby & match browser), Feature 009 (shared app versioning)
 **Created**: 2026-08-26
-**Last Updated**: 2026-08-30 (v1.1)
-**Version**: 1.1
+**Last Updated**: 2026-09-10 (v1.2)
+**Version**: 1.2
 **Status**: Implemented (2026-08-27); route details superseded by Feature 013
 **GitHub Issue**: #5
 **Input**: Product-owner request — "Binding decision: self-hostable by default. Today that means Node ≥22 + pnpm + pnpm build + pnpm host. Provide a container path so self-hosters don't need a toolchain." Single-port topology per 2026-08-26 decision.
@@ -213,6 +213,17 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 - Manual publishing (README) or draft `release-notes/` handling — governed by spec 009 FR-013's release workflow.
 
 ## Clarifications
+
+### Session 2026-09-10 — Runtime minimization security remediation (v1.2)
+
+The final image is an explicit artifact allowlist, not a copied workspace or a
+runtime package installation. The build emits `packages/console/dist/host/host.js`,
+an ESM bundle containing the host's workspace and `ws` runtime closure. The final
+stage copies only `index.html`, `assets/`, and that host bundle; it removes
+Corepack/pnpm shims, uses `USER node`, and starts direct `node`. Runtime images
+therefore contain no `node_modules`, source TypeScript, declarations, source maps,
+test directories, `tsx`, pnpm, or Corepack. Docker smoke verification asserts
+these boundaries in addition to functional HTTP/WebSocket checks.
 
 ### Session 2026-08-30 — Semantic deep-link fallback (v1.1)
 

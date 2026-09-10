@@ -70,7 +70,7 @@ describe('HelpOverlay component', () => {
             await render(<HelpOverlay {...DEFAULT_PROPS} />);
             expect(document.body.textContent).toContain('Learn More');
             const link = document.querySelector(
-                'a[href*="shaunburdick.github.io/europa-neo/manual"]',
+                'a[href="https://shaunburdick.github.io/europa-neo/"]',
             ) as HTMLAnchorElement;
             expect(link).not.toBeNull();
             expect(link.target).toBe('_blank');

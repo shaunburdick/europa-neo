@@ -261,7 +261,7 @@ test.describe('help overlay', () => {
 
         await page.keyboard.press('?');
 
-        const link = page.locator('a[href*="shaunburdick.github.io/europa-neo/manual"]');
+        const link = page.locator('a[href="https://shaunburdick.github.io/europa-neo/"]');
         await expect(link).toBeVisible();
         await expect(link).toHaveAttribute('target', '_blank');
         await expect(link).toHaveAttribute('rel', 'noopener noreferrer');

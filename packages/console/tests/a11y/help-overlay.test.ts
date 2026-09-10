@@ -85,6 +85,6 @@ describe('help overlay a11y acceptance', () => {
         const link = document.querySelector('a[rel="noopener noreferrer"]') as HTMLAnchorElement;
         expect(link).not.toBeNull();
         expect(link.target).toBe('_blank');
-        expect(link.href).toContain('shaunburdick.github.io/europa-neo/manual');
+        expect(link.href).toBe('https://shaunburdick.github.io/europa-neo/');
     });
 });

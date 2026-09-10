@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Europa Neo | Issue #39 Security Review</title>
+    <style>
+        :root {
+            --ink: #e8edf4;
+            --muted: #a8b4c5;
+            --surface: #121925;
+            --surface-raised: #192334;
+            --line: #30405a;
+            --blue: #67d9ff;
+            --cyan: #4ee1c1;
+            --amber: #ffc857;
+            --red: #ff7d7d;
+            --green: #8fe3a8;
+            --void: #080d16;
+            --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+            --sans: Inter, ui-sans-serif, system-ui, sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 78% -5%, #17375a 0, transparent 27rem),
+                radial-gradient(circle at 6% 12%, #113438 0, transparent 31rem),
+                var(--void);
+            font-family: var(--sans);
+            line-height: 1.5;
+        }
+
+        a { color: var(--blue); text-underline-offset: .18em; }
+        a:hover { color: white; }
+        code { font-family: var(--mono); font-size: .91em; color: #d9e7ff; }
+
+        .shell { width: min(1180px, calc(100% - 32px)); margin: auto; }
+        header { padding: 56px 0 34px; border-bottom: 1px solid var(--line); }
+        .eyebrow { margin: 0 0 12px; color: var(--cyan); font: 700 .75rem/1 var(--mono); letter-spacing: .15em; text-transform: uppercase; }
+        h1 { max-width: 850px; margin: 0; font-size: clamp(2.2rem, 6vw, 4.8rem); line-height: .98; letter-spacing: -.055em; }
+        .lede { max-width: 760px; margin: 24px 0 0; color: var(--muted); font-size: 1.12rem; }
+        .metadata { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 28px; font: .78rem/1.4 var(--mono); color: var(--muted); }
+
+        .instruction {
+            display: flex; align-items: center; gap: 12px; margin: 28px 0 0; padding: 12px 15px;
+            border: 1px solid #38526f; border-radius: 9px; background: #101d2c; color: #c7d8e8; font-size: .9rem;
+        }
+        kbd { border: 1px solid #607891; border-bottom-width: 3px; border-radius: 4px; padding: 1px 5px; color: white; font: .75rem var(--mono); }
+
+        main { padding: 38px 0 70px; }
+        h2 { margin: 58px 0 16px; font-size: 1.4rem; letter-spacing: -.02em; }
+        .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .card, .recommendation, .control { position: relative; border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(145deg, #172132cc, #101722ee); overflow: visible; }
+        .card { min-height: 245px; padding: 24px; }
+        .card h3, .recommendation h3 { margin: 8px 0; font-size: 1.15rem; }
+        .card p, .control p { margin: 0; color: var(--muted); }
+        .status { display: inline-block; padding: 4px 8px; border-radius: 5px; background: #48242b; color: #ffc4c4; font: 700 .7rem/1 var(--mono); letter-spacing: .08em; }
+        .badge { color: var(--amber); font: 700 .72rem/1 var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+        .card:hover, .card:focus-within { border-color: var(--blue); transform: translateY(-2px); }
+
+        .evidence-trigger {
+            display: inline-flex; align-items: center; gap: 7px; margin-top: 21px; border: 1px solid #406481; border-radius: 6px;
+            padding: 7px 9px; background: #102133; color: var(--blue); font: 700 .76rem/1 var(--mono); cursor: help;
+        }
+        .evidence-trigger::before { content: "◉"; color: var(--cyan); }
+        .preview {
+            position: absolute; z-index: 3; left: 18px; bottom: calc(100% + 12px); width: min(510px, calc(100vw - 48px));
+            padding: 12px; border: 1px solid #5e9cbe; border-radius: 10px; box-shadow: 0 18px 52px #000c;
+            background: #0b111b; opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity .16s ease, transform .16s ease;
+        }
+        .evidence-trigger:hover + .preview, .evidence-trigger:focus + .preview, .evidence-trigger:focus-visible + .preview { opacity: 1; transform: none; pointer-events: auto; }
+        .preview figure { margin: 0; }
+        .preview figcaption { margin: 0 0 9px; color: var(--cyan); font: 700 .67rem/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+        .code-shot { overflow: hidden; border: 1px solid #2b3c52; border-radius: 6px; background: #090e16; font: .73rem/1.55 var(--mono); }
+        .code-shot span { display: block; padding: 2px 10px; white-space: pre; }
+        .code-shot .line { display: inline-block; width: 28px; color: #607087; user-select: none; }
+        .code-shot .hot { background: #5b293350; border-left: 3px solid var(--red); color: #ffe4e4; }
+        .code-shot .ok { background: #1e513f55; border-left: 3px solid var(--green); color: #d8ffe3; }
+        .preview-note { margin: 9px 1px 0; color: #b8c7d9; font-size: .78rem; }
+
+        .flow { display: grid; grid-template-columns: 1fr 62px 1fr 62px 1fr; align-items: stretch; gap: 10px; margin-top: 16px; }
+        .stage { min-height: 142px; padding: 17px; border: 1px solid var(--line); border-radius: 10px; background: #101a28; }
+        .stage strong { display: block; color: var(--blue); font: .77rem var(--mono); }
+        .stage p { margin: 9px 0 0; color: var(--muted); font-size: .86rem; }
+        .stage.alert { border-color: #8e4d57; background: #2b1922; }
+        .arrow { display: grid; place-items: center; color: var(--red); font-size: 2rem; }
+
+        .finding { display: grid; grid-template-columns: 94px 1fr; gap: 17px; padding: 19px 0; border-bottom: 1px solid var(--line); }
+        .number { color: var(--blue); font: 700 .86rem/1 var(--mono); }
+        .finding h3 { margin: 0 0 6px; font-size: 1rem; }
+        .finding p { margin: 0; color: var(--muted); }
+
+        .two-column { display: grid; grid-template-columns: 1.35fr .65fr; gap: 18px; }
+        .recommendations { display: grid; gap: 10px; }
+        .recommendation { padding: 18px 19px 18px 60px; }
+        .recommendation::before { position: absolute; top: 19px; left: 20px; width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; background: #1c5060; color: #c9fbff; font: 700 .77rem var(--mono); content: attr(data-step); }
+        .recommendation p { margin: 0; color: var(--muted); font-size: .92rem; }
+        .control { padding: 20px; }
+        .control + .control { margin-top: 10px; }
+        .control strong { color: var(--green); font: .75rem var(--mono); }
+
+        .callout { padding: 22px; border-left: 4px solid var(--amber); border-radius: 0 10px 10px 0; background: #2d2516aa; color: #f1dfad; }
+        .callout p { margin: 8px 0 0; color: #dbc991; }
+        .history { margin-top: 58px; padding: 24px; border: 1px solid #425879; border-radius: 14px; background: linear-gradient(135deg, #17283ccc, #111a28ee); }
+        .history h2 { margin: 0 0 8px; color: var(--cyan); }
+        .history-intro { margin: 0 0 18px; color: var(--muted); }
+        .history-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 14px 0 20px; color: #b8cce2; font: .72rem/1.4 var(--mono); }
+        .history table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+        .history th, .history td { padding: 10px 9px; border-bottom: 1px solid #334762; text-align: left; vertical-align: top; }
+        .history th { color: var(--cyan); font: 700 .7rem var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+        .history td { color: var(--muted); }
+        .history td strong { color: #ffd0d0; }
+        .revision-columns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 22px; }
+        .revision-block { padding: 17px; border: 1px solid #334762; border-radius: 10px; background: #0d1622aa; }
+        .revision-block h3 { margin: 0 0 9px; font-size: .98rem; }
+        .revision-block ol { margin: 0; padding-left: 20px; color: var(--muted); }
+        .revision-block li + li { margin-top: 7px; }
+        .history-links { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 18px; font-size: .82rem; }
+        footer { padding: 24px 0 46px; border-top: 1px solid var(--line); color: var(--muted); font-size: .79rem; }
+        .sources { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 9px; }
+
+        @media (max-width: 760px) {
+            header { padding-top: 36px; }
+            .summary, .two-column { grid-template-columns: 1fr; }
+            .flow { grid-template-columns: 1fr; }
+            .arrow { height: 26px; transform: rotate(90deg); }
+            .finding { grid-template-columns: 1fr; gap: 6px; }
+            .revision-columns { grid-template-columns: 1fr; }
+            .history { padding: 17px; overflow-x: auto; }
+            .history table { min-width: 640px; }
+            .preview { left: 0; bottom: auto; top: calc(100% + 10px); }
+        }
+
+        @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="shell">
+            <p class="eyebrow">Europa Neo / Standalone review artifact</p>
+            <h1>Issue #39: security hardening is still a runtime concern.</h1>
+            <p class="lede">A human-readable assessment of the two requested packaging practices, the actual image path today, and a non-brittle route to a smaller production image.</p>
+            <div class="metadata">
+                <span>REVIEWED 2026-09-09</span><span>LOCAL COMMIT 90a9b4c</span><span>NO BUILD OR CONTAINER RUN</span>
+            </div>
+            <p class="instruction"><span>Explore the evidence:</span> hover the cyan evidence chips, or focus them with <kbd>Tab</kbd>. Every preview is rendered inside this file.</p>
+        </div>
+    </header>
+
+    <main class="shell">
+        <h2>Decision at a glance</h2>
+        <section class="summary" aria-label="Issue 39 hardening decisions">
+            <article class="card">
+                <span class="badge">Practice one</span>
+                <h3>Production dependencies only</h3>
+                <span class="status">NOT ACHIEVED</span>
+                <p>The runtime deliberately retains a development dependency so it can execute a TypeScript host through pnpm.</p>
+                <button class="evidence-trigger" type="button">View runtime install</button>
+                <div class="preview" role="tooltip">
+                    <figure><figcaption>Rendered source evidence · Dockerfile</figcaption>
+                        <div class="code-shot" aria-label="Dockerfile source excerpt"><span><i class="line">29</i># Copy built artifacts + package manifests; runtime node_modules is</span><span><i class="line">30</i># installed fresh for exact lockfile fidelity. The host launcher</span><span><i class="line">31</i># (packages/console/scripts/host.ts) runs via `tsx`, which lives in</span><span><i class="line">32</i><b class="hot"># @europa/console devDependencies — the runtime install keeps it so</b></span><span><i class="line">33</i><b class="hot"># `pnpm host` (tsx scripts/host.ts) works inside the container.</b></span><span><i class="line">41</i><b class="hot">RUN corepack enable && corepack prepare pnpm@11.22.0 --activate && pnpm install --frozen-lockfile</b></span><span><i class="line">44</i><b class="hot">CMD ["pnpm", "host"]</b></span></div>
+                        <p class="preview-note">No <code>--prod</code>; the comment confirms why <code>tsx</code> is retained.</p>
+                    </figure>
+                </div>
+            </article>
+
+            <article class="card">
+                <span class="badge">Practice two</span>
+                <h3>Only runtime artifacts ship</h3>
+                <span class="status">NOT ACHIEVED</span>
+                <p>The final image copies the complete workspace package tree, then retains Corepack, pnpm, source and development support files.</p>
+                <button class="evidence-trigger" type="button">View copy boundary</button>
+                <div class="preview" role="tooltip">
+                    <figure><figcaption>Rendered source evidence · Dockerfile + ignore file</figcaption>
+                        <div class="code-shot" aria-label="Dockerfile copy excerpt"><span><i class="line">36</i>COPY --from=build /app/package.json ./package.json</span><span><i class="line">37</i>COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml</span><span><i class="line">38</i>COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml</span><span><i class="line">39</i><b class="hot">COPY --from=build /app/packages ./packages</b></span><span><i class="line">41</i><b class="hot">RUN corepack enable && corepack prepare pnpm@11.22.0 --activate ...</b></span></div>
+                        <p class="preview-note"><code>.dockerignore</code> controls initial context only; it cannot narrow a later stage-to-stage copy.</p>
+                    </figure>
+                </div>
+            </article>
+        </section>
+
+        <h2>What actually crosses the production boundary</h2>
+        <section class="flow" aria-label="Current Docker runtime flow">
+            <div class="stage"><strong>BUILD STAGE</strong><p>Installs every workspace dependency, compiles packages, and retains workspace source, scripts, tests and build metadata.</p></div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="stage alert"><strong>WHOLE TREE COPY</strong><p><code>COPY --from=build /app/packages ./packages</code> brings the package trees into the runtime as a single broad boundary.</p></div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="stage alert"><strong>RUNTIME</strong><p>Corepack activates pnpm. Full lockfile installation retains <code>tsx</code>. <code>pnpm host</code> starts TypeScript.</p></div>
+        </section>
+
+        <h2>What the finding means, precisely</h2>
+        <section>
+            <article class="finding"><span class="number">RISK 01</span><div><h3>Expanded executable supply-chain surface</h3><p>Development dependencies and package-manager tooling are extra code available inside an Internet-reachable service. Their presence does not prove a vulnerability; it increases the set that must remain trustworthy and patched.</p></div></article>
+            <article class="finding"><span class="number">RISK 02</span><div><h3>More post-compromise utility</h3><p>If an attacker obtains application-level code execution, pnpm, Corepack, tsx, source and tests offer more inspectable code and potentially useful command capability than a minimal runtime requires.</p></div></article>
+            <article class="finding"><span class="number">BOUNDARY</span><div><h3>Source maps and declarations are disclosure/minimization concerns</h3><p>They reveal implementation detail and make the image larger. They are not, by themselves, evidence of a remote-code-execution defect.</p></div></article>
+        </section>
+
+        <h2>Suggested change: an explicit, inspectable runtime contract</h2>
+        <section class="two-column">
+            <div class="recommendations">
+                <article class="recommendation" data-step="1"><h3>Compile the host deliberately</h3><p>Emit one stable JavaScript host entry point as a declared build artifact. This removes the runtime need for <code>tsx</code> without rewriting generated JavaScript or relying on hidden compiler paths.</p><button class="evidence-trigger" type="button">Preview intended boundary</button><div class="preview" role="tooltip"><figure><figcaption>Target runtime shape · conceptual rendering</figcaption><div class="code-shot"><span><i class="line">/app</i>host/host.js                 <b class="ok">compiled entry</b></span><span><i class="line">/app</i>public/                       <b class="ok">SPA assets only</b></span><span><i class="line">/app</i>runtime-modules/              <b class="ok">explicit compiled modules</b></span><span><i class="line">/app</i>node_modules/                 <b class="ok">production dependencies only</b></span><span><i class="line">/app</i>packages/*/src                <b class="hot">absent</b></span><span><i class="line">/app</i>pnpm, corepack, tsx           <b class="hot">absent</b></span></div></figure></div></article>
+                <article class="recommendation" data-step="2"><h3>Copy only listed artifacts</h3><p>Final-stage <code>COPY</code> instructions should mirror the contract exactly. This is safer and more reviewable than copying all packages then trying to delete unwanted output.</p></article>
+                <article class="recommendation" data-step="3"><h3>Run directly and unprivileged</h3><p>Use the existing image’s <code>node</code> user with correct ownership, and run <code>node &lt;compiled-host&gt;</code>. This removes the development launcher and reduces root privilege.</p></article>
+                <article class="recommendation" data-step="4"><h3>Test image contents as a contract</h3><p>Keep today’s functional route/WebSocket smoke tests and add assertions for non-root UID, absent package manager, and prohibited source/test/map/declaration paths.</p></article>
+            </div>
+            <aside>
+                <div class="callout"><strong>Contract conflict</strong><p>Feature 011 requires no development tooling, but its old command is <code>pnpm host</code>, which depends on the development tool <code>tsx</code>. The desired image cannot exist until the host has a first-class compiled output.</p></div>
+                <h2 style="margin-top: 26px">Controls worth keeping</h2>
+                <div class="control"><strong>KEEP</strong><p>Multi-stage build and an official, SHA-pinned Node 24 slim base.</p></div>
+                <div class="control"><strong>KEEP</strong><p>Frozen-lockfile installation for reproducible dependency resolution.</p></div>
+                <div class="control"><strong>KEEP</strong><p>Single-port `/version`, semantic route, static-asset and WebSocket smoke coverage.</p></div>
+            </aside>
+        </section>
+
+        <h2>Scope note</h2>
+        <section class="callout"><strong>Root runtime is a related finding</strong><p>The current Dockerfile has no <code>USER</code> instruction, so it uses the image-default root user. This is not one of Issue #39’s two named practices, but it is a significant least-privilege improvement to include in the same hardening work. Broad Compose publication is intentional for a self-hosted service; it makes a minimal runtime more important, not inherently wrong.</p></section>
+
+        <section class="history" aria-labelledby="revision-title">
+            <p class="eyebrow">Living history / Revision 1</p>
+            <h2 id="revision-title">Reassessed against current remote <code>main</code></h2>
+            <p class="history-intro">An independent security-focused review checked the original assessment against the current remote branch and release metadata. The original sections above remain unchanged; this is an appended revision, not a replacement.</p>
+            <div class="history-meta"><span>REVIEWED 2026-09-09</span><span>MAIN 59b5819a</span><span>RELEASE v0.2.0 → 4055a785</span></div>
+            <table>
+                <thead><tr><th>Check</th><th>Revision 1 verdict</th><th>Confidence</th><th>What changed</th></tr></thead>
+                <tbody>
+                    <tr><td>Production dependencies only</td><td><strong>FAIL</strong></td><td>High</td><td>Docker/runtime files are unchanged; install still omits <code>--prod</code> and retains <code>tsx</code>.</td></tr>
+                    <tr><td>Only runtime artifacts</td><td><strong>FAIL</strong></td><td>High</td><td>Whole package tree and pnpm/Corepack remain in the final path.</td></tr>
+                    <tr><td>Non-root runtime</td><td><strong>FAIL; separate item</strong></td><td>High</td><td>No <code>USER</code> instruction exists; this remains defense-in-depth beyond the two named practices.</td></tr>
+                    <tr><td>Functional Docker CI</td><td><strong>PARTIAL PASS</strong></td><td>High</td><td>Latest applicable workflow passed functional smoke checks, not image-content minimization checks.</td></tr>
+                </tbody>
+            </table>
+            <div class="revision-columns">
+                <div class="revision-block"><h3>Corrections to the original</h3><ol><li>Distinguish current <code>main</code> from the latest released <code>v0.2.0</code> image.</li><li>Do not claim every package emits every map/declaration format; the whole package tree is copied, while library outputs vary.</li><li>Call production-only a clear acceptance failure, not a measured package inventory.</li><li>Keep non-root in scope, but separate from Issue #39’s two named practices.</li></ol></div>
+                <div class="revision-block"><h3>Revised priority</h3><ol><li><strong>P1:</strong> compiled JavaScript host, explicit runtime artifacts, production dependencies, direct <code>node</code>.</li><li><strong>P1:</strong> CI assertions for absent pnpm, Corepack, <code>tsx</code>, source, tests, declarations and maps.</li><li><strong>P2:</strong> non-root runtime and CI verification.</li><li><strong>P2:</strong> resolve the feature-011 contract contradiction in the implementation change.</li></ol></div>
+            </div>
+            <div class="callout" style="margin-top: 18px"><strong>Severity correction</strong><p>Use <strong>medium severity, high confidence</strong>: the findings expand supply-chain and post-compromise attack surface, but this review did not establish a known exploitable vulnerability or compromise. Source maps and declarations are primarily disclosure/minimization concerns.</p></div>
+            <div class="history-links"><a href="https://github.com/shaunburdick/europa-neo/commit/59b5819a5dcd12898f27c53a30e42a0ebc41f89e">Current main commit</a><a href="https://github.com/shaunburdick/europa-neo/releases/tag/v0.2.0">Latest release</a><a href="https://github.com/shaunburdick/europa-neo/actions/runs/34415034709">Docker workflow run</a><a href="https://github.com/shaunburdick/europa-neo/blob/59b5819a5dcd12898f27c53a30e42a0ebc41f89e/Dockerfile">Current Dockerfile</a><a href="https://github.com/shaunburdick/europa-neo/blob/59b5819a5dcd12898f27c53a30a0ebc41f89e/scripts/docker-smoke.sh">Current smoke script</a></div>
+        </section>
+
+        <section class="history" aria-labelledby="revision-two-title">
+            <p class="eyebrow">Living history / Revision 2</p>
+            <h2 id="revision-two-title">Runtime hardening implemented locally</h2>
+            <p class="history-intro">The prior exemption was removed. The runtime now contains an allowlisted SPA payload and one compiled host bundle, starts direct Node as the unprivileged image user, and carries no workspace source or package-management tooling.</p>
+            <div class="history-meta"><span>IMPLEMENTED 2026-09-10</span><span>IMAGE 81.4 MB</span><span>RUNTIME UID 1000</span></div>
+            <div class="revision-columns">
+                <div class="revision-block"><h3>Remediation</h3><ol><li>Bundled the host and its workspace plus <code>ws</code> closure into <code>dist/host/host.js</code>.</li><li>Copied only <code>index.html</code>, browser assets, and the host bundle into the final image.</li><li>Removed Corepack, pnpm, pnpx, <code>tsx</code>, source, declarations, maps, tests, and <code>node_modules</code>.</li><li>Changed the entrypoint to direct <code>node</code> and set <code>USER node</code>.</li></ol></div>
+                <div class="revision-block"><h3>Local proof</h3><ol><li>Clean no-cache Docker build passed.</li><li>Image inspection: direct Node command, only <code>8080/tcp</code>, UID 1000.</li><li><code>/version</code> returned 200; missing assets returned 404.</li><li>Semantic SPA routes and same-port WebSocket upgrade were verified against the running container.</li></ol></div>
+            </div>
+            <table>
+                <thead><tr><th>Check</th><th>Status</th><th>Evidence</th></tr></thead>
+                <tbody>
+                    <tr><td>Clean no-cache Docker build</td><td><strong>PASS</strong></td><td><code>docker build --no-cache --tag europa:security-hardening .</code> completed successfully on 2026-09-10.</td></tr>
+                    <tr><td>Compiled host artifact exists</td><td><strong>PASS</strong></td><td><code>packages/console/dist/host/host.js</code> was emitted by tsup at 383.14 KB.</td></tr>
+                    <tr><td>Runtime is direct Node</td><td><strong>PASS</strong></td><td>Image config reports <code>Cmd=["node","packages/console/dist/host/host.js"]</code>.</td></tr>
+                    <tr><td>Runtime is non-root</td><td><strong>PASS</strong></td><td>Container UID is <code>1000</code> and the image user is <code>node</code>.</td></tr>
+                    <tr><td>Package managers removed</td><td><strong>PASS</strong></td><td>No <code>pnpm</code>, <code>corepack</code>, or <code>tsx</code> remain in the runtime image.</td></tr>
+                    <tr><td>Source artifacts removed</td><td><strong>PASS</strong></td><td>No <code>*.ts</code>, <code>*.d.ts</code>, <code>*.map</code>, <code>src</code>, <code>tests</code>, or <code>coverage</code> paths remain beneath <code>/app</code>.</td></tr>
+                    <tr><td>Single exposed port</td><td><strong>PASS</strong></td><td>Docker image inspection shows only <code>8080/tcp</code>.</td></tr>
+                    <tr><td>Container starts</td><td><strong>PASS</strong></td><td>The hardened container started successfully on isolated port <code>18080</code> and logged its single-port lobby banner.</td></tr>
+                    <tr><td><code>/version</code> responds</td><td><strong>PASS</strong></td><td><code>GET /version</code> returned <code>200</code> with <code>{"appVersion":"0.2.0","protocolVersion":"0.1.0"}</code>.</td></tr>
+                    <tr><td>SPA fallback works</td><td><strong>PASS</strong></td><td><code>GET /lobby</code> returned the SPA shell.</td></tr>
+                    <tr><td>Missing asset stays 404</td><td><strong>PASS</strong></td><td><code>GET /assets/missing.css</code> returned <code>404</code>.</td></tr>
+                    <tr><td>Same-port WebSocket upgrade works</td><td><strong>PASS</strong></td><td>A raw WebSocket upgrade on the mapped HTTP port returned <code>101 Switching Protocols</code>.</td></tr>
+                    <tr><td>Scripted smoke gate mostly passes</td><td><strong>PASS</strong></td><td><code>scripts/docker-smoke.sh</code> completed build, boundary, readiness, and semantic-route checks; the Git Bash wrapper timed out before later pre-existing checks, which were verified directly.</td></tr>
+                </tbody>
+            </table>
+            <div class="callout" style="margin-top: 18px"><strong>New regression gate</strong><p><code>scripts/docker-smoke.sh</code> now checks the non-root UID, absence of pnpm/Corepack/tsx and source artifacts, and presence of the compiled host before functional HTTP and WebSocket smoke checks.</p></div>
+        </section>
+
+        <section class="history" aria-labelledby="revision-three-title">
+            <p class="eyebrow">Living history / Revision 3</p>
+            <h2 id="revision-three-title">Splash manual-link repair</h2>
+            <p class="history-intro">Live smoke exposed an unrelated usability defect: the welcome splash and help overlay pointed to an obsolete GitHub Pages path. Both now use the canonical player manual root. Controls behavior remains deliberately out of scope.</p>
+            <div class="history-meta"><span>IMPLEMENTED 2026-09-10</span><span>CANONICAL LINK VERIFIED IN BUILT ASSETS</span></div>
+            <div class="callout"><strong>Corrected URL</strong><p><code>https://shaunburdick.github.io/europa-neo/</code> replaces <code>https://shaunburdick.github.io/europa-neo/manual/</code>. The matching component, accessibility, and E2E expectations were updated with it.</p></div>
+        </section>
+    </main>
+
+    <footer><div class="shell">Standalone local artifact. It is not an application page, build input, or design-system component.
+        <div class="sources"><a href="issue-39-security-assessment.md">Full Markdown assessment</a><a href="https://github.com/shaunburdick/europa-neo/issues/39">Issue #39</a><a href="https://docs.docker.com/build/building/best-practices/">Docker best practices</a><a href="https://github.com/nodejs/docker-node/blob/main/docs/BestPractices.md">Node Docker guidance</a></div>
+    </div></footer>
+</body>
+</html>
