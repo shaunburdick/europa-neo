@@ -1146,8 +1146,22 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 identity: withOwnerId(projected, guest.value),
             });
             // Feature 023: update the roster entry's handle (preserve
-            // status). The new handle re-derives the entry in-place.
-            updateRosterEntry(guest.value, handle);
+            // status). Use the normalized handle from the projection for
+            // consistency with establishIdentity. After a successful
+            // setHandle the handle is always non-null, but the type is
+            // string | null — guard for TypeScript.
+            if (projected.handle !== null) {
+                updateRosterEntry(guest.value, projected.handle);
+                // Handle renames require a full roster snapshot: deltas
+                // match by handle, so a rename adds the new handle but
+                // cannot express removal of the old handle. A full
+                // snapshot replaces the entire roster, eliminating the
+                // stale entry. (Related: issue #112 for proper
+                // roster-by-player-ID tracking.)
+                if (previousHandle !== null && previousHandle !== projected.handle) {
+                    broadcastRosterSnapshot();
+                }
+            }
             return { ok: true, data: projected };
         },
 
