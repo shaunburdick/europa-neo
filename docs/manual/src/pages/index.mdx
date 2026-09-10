@@ -11,6 +11,8 @@ This manual is the complete reference for Europa Neo — a real-time strategy ga
 
 Before you play, open the [public lobby](./lobby) at `/lobby` and choose a temporary guest handle. You can rename it later; other players see this handle instead of private system details, and no account is required.
 
+Matches use readable paths: `/match/<match-id>/join` requests a player seat, `/match/<match-id>/spectate` opens read-only spectating, and `/match/<match-id>` chooses the appropriate action for the match state. These paths contain the match ID only; your guest identity and reconnect session stay in the browser and are not credentials in the address. Guest/player IDs are non-secret correlation data, not credentials; the manual does not expose bearer credentials. Match IDs identify matches, while guest/player IDs identify participants.
+
 <EuropaCard>
 
 **Tip:** New to real-time strategy? Start with [Lobby](./lobby), [Quick start](./quick-start), and [Objective](./objective) — and keep [Controls](./controls) open in a second tab during your first match.
@@ -32,6 +34,8 @@ You see only what your troops can sense: a band of surrounding cells moves with 
 - Desktop browsers with a mouse and keyboard (touch screens are not supported).
 - English only.
 - Public matches discovered and entered through the landing lobby. The browser flow ships end-to-end for two, three, or four players.
+- Private matches joinable only via shareable `/match/<match-id>` links.
+- Shareable match links: every match has a **Copy link** action; private matches show it prominently, public matches show it subtly.
 - A fixed four-color player palette (red, blue, green, orange-gold).
 
 ## Table of contents
@@ -48,7 +52,8 @@ You see only what your troops can sense: a band of surrounding cells moves with 
 10. [Fog of war — what you can and cannot see](./fog-of-war)
 11. [Controls — complete pointer and keyboard reference](./controls)
 12. [Reading the screen — lobby, match HUD, and status meanings](./reading-the-screen)
-13. [Numbers — every shipped tunable in one auditable table](./numbers)
+13. [The roster — who is online, status meanings, real-time updates](./roster)
+14. [Numbers — every shipped tunable in one auditable table](./numbers)
 
 New players should read [Lobby](./lobby), [Quick start](./quick-start), and [Objective](./objective) first; keep [Controls](./controls) open in a second tab during your first match.
 
