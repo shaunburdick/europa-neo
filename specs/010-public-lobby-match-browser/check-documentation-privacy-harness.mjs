@@ -16,10 +16,10 @@ import path from 'node:path';
 
 const checkerPath = path.join(path.dirname(new URL(import.meta.url).pathname), 'check-documentation-privacy.mjs');
 const playerSurfaces = [
-    'docs/manual/index.md',
-    'docs/manual/quick-start.md',
-    'docs/manual/reading-the-screen.md',
-    'docs/manual/lobby.md',
+    'docs/manual/src/pages/index.mdx',
+    'docs/manual/src/pages/quick-start.mdx',
+    'docs/manual/src/pages/reading-the-screen.mdx',
+    'docs/manual/src/pages/lobby.mdx',
 ];
 const implementationSurfaces = [
     'README.md',
@@ -38,10 +38,10 @@ const identityFixture = 'guestPlayerId: guest-player-42; playerId: player-17; ma
 
 /** Return the minimum text needed for one approved surface. */
 function baselineText(relativePath) {
-    if (relativePath === 'docs/manual/index.md') {
+    if (relativePath === 'docs/manual/src/pages/index.mdx') {
         return `# Manual\nChoose a handle. ${identityFixture}`;
     }
-    if (relativePath === 'docs/manual/lobby.md') {
+    if (relativePath === 'docs/manual/src/pages/lobby.mdx') {
         return `# Lobby\nSpectator guidance and in-memory lifecycle. ${identityFixture}`;
     }
     if (relativePath === 'README.md') {

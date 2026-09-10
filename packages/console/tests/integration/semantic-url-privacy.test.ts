@@ -123,8 +123,8 @@ describe('semantic URL production-surface guard', () => {
         expect(productionRoots.some((root) => historicalPath === root || historicalPath.startsWith(`${root}/`))).toBe(
             false,
         );
-        expect(isAllowedHistoricalNote('docs/manual/quick-start.md', historicalNote)).toBe(true);
-        expect(isAllowedHistoricalNote('docs/manual/quick-start.md', historicalQueryPrefix)).toBe(true);
+        expect(isAllowedHistoricalNote('docs/manual/src/pages/quick-start.mdx', historicalNote)).toBe(true);
+        expect(isAllowedHistoricalNote('docs/manual/src/pages/quick-start.mdx', historicalQueryPrefix)).toBe(true);
         expect(isAllowedHistoricalNote('README.md', historicalNote)).toBe(false);
     });
 
