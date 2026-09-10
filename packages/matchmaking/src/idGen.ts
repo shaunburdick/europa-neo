@@ -19,9 +19,9 @@
  * Pure module apart from the CSPRNG call: no I/O, no clock reads.
  */
 
+import { generatePlayerId } from '@europa/core';
 import type { PlayerId } from '@europa/engine';
 import type { MatchId } from '@europa/networking';
-import { generatePlayerId } from '@europa/core';
 import type { PlayerSessionId } from '../contracts/match-types';
 import { getRandomValues, randomUUID } from './crypto';
 

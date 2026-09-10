@@ -29,9 +29,10 @@
  * Principle II).
  */
 
-import type { Board, MatchConfig, Order, World } from '@europa/engine';
+import type { Board, MatchConfig, Order, PlayerId, World } from '@europa/engine';
 import { applyCommand, createWorld, ENGINE_CONSTANTS, isTerminal, tick } from '@europa/engine';
 import type { EngineSession, MatchSettings } from '../contracts/match-types';
+import { newPlayerId } from './idGen';
 
 /**
  * Build the engine `MatchConfig` for a starting match: player-facing
@@ -44,10 +45,10 @@ import type { EngineSession, MatchSettings } from '../contracts/match-types';
  * @returns A frozen `MatchConfig` ready for `createWorld` and
  *   `registerMatch`.
  */
-export function buildMatchConfig(settings: MatchSettings, seed: number): MatchConfig {
+export function buildMatchConfig(settings: MatchSettings, seed: number, playerIds?: readonly PlayerId[]): MatchConfig {
     return Object.freeze({
         boardSize: settings.boardSize,
-        playerCount: settings.playerCount,
+        playerIds: playerIds ?? Array.from({ length: settings.playerCount }, () => newPlayerId()),
         tickIntervalMs: settings.tickIntervalMs,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
