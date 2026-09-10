@@ -352,7 +352,7 @@ export interface MapView {
    * announcement (future feature 006 extension; v1 console uses
    * a fixed palette defined in `DEFAULT_PLAYER_COLORS`).
    */
-  readonly playerColors: Readonly<Record<PlayerId, string>>;
+  readonly playerColors: ReadonlyMap<PlayerId, string>;
   /**
    * Transient effect markers the renderer should draw on top of
    * the base layer (combat flashes, capture highlights, recent
@@ -535,12 +535,23 @@ export const DEFAULT_CAMERA: CameraState = {
  *   - Player 3: emerald-600 `#059669`
  *   - Player 4: amber-600  `#d97706`
  */
-export const DEFAULT_PLAYER_COLORS: Readonly<Record<PlayerId, string>> = {
-  1: '#dc2626',
-  2: '#2563eb',
-  3: '#059669',
-  4: '#d97706',
-};
+/**
+ * Default per-player color palette (indexed by seat position).
+ * The reducer builds the concrete `PlayerId → color` map from the
+ * server's `players` array at join time using this palette.
+ *
+ * Palette (Tailwind v3 hex, chosen by hand — no runtime dependency):
+ *   - Seat 1: red-600    `#dc2626`
+ *   - Seat 2: blue-600   `#2563eb`
+ *   - Seat 3: emerald-600 `#059669`
+ *   - Seat 4: amber-600  `#d97706`
+ */
+export const DEFAULT_PLAYER_COLOR_PALETTE: ReadonlyArray<string> = [
+  '#dc2626',
+  '#2563eb',
+  '#059669',
+  '#d97706',
+];
 
 /**
  * Fallback color for spectators (no player ID).
@@ -680,13 +691,14 @@ export interface ConsoleSession {
   readonly matchId: MatchId | null;
   readonly sessionToken: SessionToken | null;
   readonly playerId: PlayerId | null;
+  readonly seat: number | null;
   readonly displayName: string;
-  /** Display names of other players in the match. Index by `PlayerId - 1`. */
+  /** Display names of other players in the match. Index by seat order. */
   readonly opponents: ReadonlyArray<string>;
   /**
    * Bidirectional map from `PlayerId` to display name. Populated from
    * the server's `players` array on join; used by the game-over modal
-   * and terminal announcement to resolve numeric IDs to handles.
+   * and terminal announcement to resolve string IDs to handles.
    * Empty before the `joined` event arrives.
    */
   readonly playerNames: ReadonlyMap<PlayerId, string>;

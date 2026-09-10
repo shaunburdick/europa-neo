@@ -24,6 +24,9 @@ import type {
     TickEvents,
 } from '../../src/state/types';
 
+/** Default test PlayerId — a branded string for player 1. */
+const P1 = 'test-player-1' as PlayerId;
+
 /** Arguments for {@link buildCellView}; everything has a sane default. */
 export interface BuildCellViewArgs {
     readonly coord: Coord;
@@ -92,7 +95,7 @@ export interface BuildPlayerViewArgs {
 export function buildPlayerView(args: BuildPlayerViewArgs): PlayerView {
     const config: MatchConfig = {
         boardSize: args.width,
-        playerCount: 2,
+        playerIds: [P1, 'test-player-2' as PlayerId],
         tickIntervalMs: 250,
         seed: args.seed ?? 0,
         visibilityRadius: 2,
@@ -105,7 +108,7 @@ export function buildPlayerView(args: BuildPlayerViewArgs): PlayerView {
         errors: [],
     };
     return {
-        player: args.playerId ?? 1,
+        player: args.playerId ?? P1,
         tick: args.tick ?? 0,
         visibleCells: args.visibleCells ?? [],
         events: args.tickEvents ?? emptyEvents,

@@ -249,7 +249,7 @@ export function serializeMapView(mapView: MapView): SerializedMapView {
                 reservesPct: info.reservesPct,
                 changedThisTick: info.changedThisTick,
             })),
-        playerColors: Object.fromEntries(Object.entries(mapView.playerColors).sort(([a], [b]) => a.localeCompare(b))),
+        playerColors: Object.fromEntries([...mapView.playerColors.entries()].sort(([a], [b]) => a.localeCompare(b))),
         effects: mapView.effects.map((effect) => ({
             kind: effect.kind,
             cell: effect.cell,
@@ -346,6 +346,15 @@ export function runDeterminismScenario(): ScenarioRun {
             prevView: prevFrame,
             nowMs,
             viewportOffset: { x: 0, y: 0 },
+            playerColors:
+                state.session.playerNames.size > 0
+                    ? new Map(
+                          [...state.session.playerNames.keys()].map((id, i) => [
+                              id,
+                              ['#dc2626', '#2563eb', '#059669', '#d97706'][i % 4]!,
+                          ]),
+                      )
+                    : new Map(),
         });
         frames.push(serializeMapView(frame));
         prevFrame = frame;

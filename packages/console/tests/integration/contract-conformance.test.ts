@@ -158,7 +158,7 @@ const DIST_TYPE_WITNESS = {
     DEFAULT_CAMERA: null as unknown as typeof DistTypes.DEFAULT_CAMERA,
     DEFAULT_CONSOLE_CLIENT_CONFIG: null as unknown as typeof DistTypes.DEFAULT_CONSOLE_CLIENT_CONFIG,
     DEFAULT_INPUT_MAPPING: null as unknown as typeof DistTypes.DEFAULT_INPUT_MAPPING,
-    DEFAULT_PLAYER_COLORS: null as unknown as typeof DistTypes.DEFAULT_PLAYER_COLORS,
+    DEFAULT_PLAYER_COLOR_PALETTE: null as unknown as typeof DistTypes.DEFAULT_PLAYER_COLOR_PALETTE,
     DEFAULT_QOL_SETTINGS: null as unknown as typeof DistTypes.DEFAULT_QOL_SETTINGS,
     Direction: null as unknown as DistTypes.Direction,
     EnvelopeContext: null as unknown as DistTypes.EnvelopeContext,
@@ -299,7 +299,7 @@ describe('contract conformance (T089)', () => {
         });
 
         it('the Order union exposes exactly the eight documented variants', () => {
-            const player = 1 as PlayerId;
+            const player = 'test-player-1' as PlayerId;
             expect(orderVariantWitness({ kind: 'setPipe', player, cell: { x: 1, y: 2 }, direction: 'N' })).toBe(
                 'setPipe:1,2:N',
             );
@@ -326,7 +326,7 @@ describe('contract conformance (T089)', () => {
             expect(typeof Dist.ConsoleRuntime).toBe('function');
             expect(Dist.CONSOLE_API_VERSION).toBeTypeOf('string');
             expect(Object.keys(Dist.CONSOLE_CONSTANTS).length).toBeGreaterThan(0);
-            expect(Object.keys(Dist.DEFAULT_PLAYER_COLORS)).toHaveLength(4);
+            expect(Dist.DEFAULT_PLAYER_COLOR_PALETTE).toHaveLength(4);
         });
     });
 });

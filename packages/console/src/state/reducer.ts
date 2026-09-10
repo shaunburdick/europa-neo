@@ -30,7 +30,7 @@
  * status surface), FR-010 (spectator read-only), FR-011 (QoL).
  */
 
-import { CONSOLE_CONSTANTS, DEFAULT_CAMERA, DEFAULT_QOL_SETTINGS } from '../config';
+import { CONSOLE_CONSTANTS, DEFAULT_CAMERA, DEFAULT_PLAYER_COLOR_PALETTE, DEFAULT_QOL_SETTINGS } from '../config';
 import { actionToOrder } from './action-to-order';
 import { formatActionConfirmation, formatRejection } from './format';
 import type {
@@ -143,6 +143,7 @@ export const INITIAL_CONSOLE_STATE: ConsoleState = {
         matchId: null,
         sessionToken: null,
         playerId: null,
+        seat: null,
         displayName: '',
         opponents: [],
         playerNames: new Map(),
@@ -469,6 +470,16 @@ function reduceNetEvent(
                     playerNames.set(player.id, player.displayName);
                 }
             }
+            // Derive the local seat index (1-based) from the players
+            // array order, and build a deterministic PlayerId→color map
+            // using the palette.
+            const seatIndex = event.players.findIndex((p) => p.id === event.playerId);
+            const seat = seatIndex >= 0 ? seatIndex + 1 : null;
+            const playerColors = new Map<PlayerId, string>();
+            for (let i = 0; i < event.players.length; i++) {
+                const colorIndex = i % DEFAULT_PLAYER_COLOR_PALETTE.length;
+                playerColors.set(event.players[i]!.id, DEFAULT_PLAYER_COLOR_PALETTE[colorIndex]!);
+            }
             return {
                 state: {
                     ...state,
@@ -478,6 +489,7 @@ function reduceNetEvent(
                         ...state.session,
                         sessionToken: event.sessionToken,
                         playerId: event.playerId,
+                        seat,
                         displayName: ownName ?? state.session.displayName,
                         opponents: event.players.filter((p) => p.id !== event.playerId).map((p) => p.displayName),
                         playerNames,

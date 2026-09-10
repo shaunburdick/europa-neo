@@ -32,7 +32,7 @@ export interface CellViewProps {
     /** Active camera — supplies the cell size (zoom) in CSS pixels. */
     readonly camera: CameraState;
     /** Per-player cosmetic colors (MapView.playerColors). */
-    readonly playerColors: Readonly<Record<PlayerId, string>>;
+    readonly playerColors: ReadonlyMap<PlayerId, string>;
     /**
      * Optional player name map from the session state. When present,
      * the cell's aria-label resolves the owner's display name instead
@@ -177,7 +177,7 @@ export function CellView({
                     style={{
                         backgroundColor: CHIP_BACKGROUND,
                         color: CHIP_TEXT,
-                        borderColor: playerColors[info.owner] ?? CHIP_TEXT,
+                        borderColor: (info.owner !== null ? playerColors.get(info.owner) : undefined) ?? CHIP_TEXT,
                         // Scale font size proportionally with zoom so the badge
                         // maintains its aspect ratio at all zoom levels (issue #76).
                         fontSize: `${Math.max(9, Math.round(zoom * 0.34))}px`,

@@ -17,10 +17,10 @@
  * labels.
  *
  * Reconstruction rule: `opponents` holds the other players' display
- * names in ascending PlayerId order (reducer `joined` arm), and the
- * local seat — when seated — is `playerId`. Walking seats `1..N` and
+ * names in ascending seat order (reducer `joined` arm), and the
+ * local seat — when seated — is `session.seat`. Walking seats `1..N` and
  * drawing non-local names from the opponents queue in order rebuilds
- * the exact server ordering deterministically. A spectator (`playerId
+ * the exact server ordering deterministically. A spectator (`seat
  * === null`) has no local seat, so every seat maps straight from the
  * queue; the spectator fold stores ALL participants in `opponents`
  * (ascending), matching FR-023's "spectator views MAY expose all
@@ -31,7 +31,7 @@ import type { ConsoleSession } from '../state/types';
 
 /** One rendered seat row: 1-based seat number plus its label source. */
 export interface SeatLabel {
-    /** 1-based seat number (engine `PlayerId` domain). */
+    /** 1-based seat number. */
     readonly seat: number;
     /**
      * The server-provided display value for this seat, or `null` when
@@ -56,8 +56,8 @@ export interface SeatLabel {
  * @returns One {@link SeatLabel} per seat, ascending.
  */
 export function deriveSeatLabels(session: ConsoleSession): ReadonlyArray<SeatLabel> {
-    const { playerId, displayName, opponents } = session;
-    const seated = playerId !== null;
+    const { seat, displayName, opponents } = session;
+    const seated = seat !== null;
     const seatCount = opponents.length + (seated ? 1 : 0);
     if (seatCount === 0) {
         return [];
@@ -65,14 +65,14 @@ export function deriveSeatLabels(session: ConsoleSession): ReadonlyArray<SeatLab
 
     const labels: SeatLabel[] = [];
     let opponentIndex = 0;
-    for (let seat = 1; seat <= seatCount; seat++) {
-        if (seated && seat === playerId) {
-            labels.push({ seat, name: displayName.length > 0 ? displayName : null, isLocal: true });
+    for (let s = 1; s <= seatCount; s++) {
+        if (seated && s === seat) {
+            labels.push({ seat: s, name: displayName.length > 0 ? displayName : null, isLocal: true });
             continue;
         }
         const name = opponents[opponentIndex];
         opponentIndex += 1;
-        labels.push({ seat, name: name !== undefined && name.length > 0 ? name : null, isLocal: false });
+        labels.push({ seat: s, name: name !== undefined && name.length > 0 ? name : null, isLocal: false });
     }
     return labels;
 }

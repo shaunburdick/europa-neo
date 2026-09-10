@@ -267,7 +267,7 @@ test('first console sees the waiting room while filling; auto-start clears it', 
         // succeeds while the roster is incomplete (fixed seed ⇒ fixed
         // board), and bind seat 1 to Alice's matchmaking token.
         buildLobbySession(matchId, 2026_0823).register(server);
-        server.attachPlayer({ matchId, playerId: 1 as PlayerId, sessionToken: aliceToken });
+        server.attachPlayer({ matchId, playerId: 'test-seat-1' as PlayerId, sessionToken: aliceToken });
 
         // -- First console joins the UNFILLED match --------------------------
         const aliceContext = await browser.newContext();

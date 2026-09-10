@@ -50,8 +50,8 @@ import { formatWaitingMessage, isAwaitingMatchStart } from '../state/awaiting-st
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
-import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
-import { DEFAULT_PLAYER_COLORS, SPECTATOR_COLOR } from '../state/types';
+import type { ConsoleState, CursorTarget, MapView, MapViewId, PlayerId, ReservesPct } from '../state/types';
+import { DEFAULT_PLAYER_COLOR_PALETTE, SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
 import { Sidebar } from '../ui/sidebar';
 import { TargetingOverlay } from '../ui/targeting-overlay';
@@ -223,6 +223,12 @@ export function App({
         if (view === null) {
             return null;
         }
+        // Build a deterministic PlayerId→color map from the palette.
+        const playerIds = [...resolvedState.session.playerNames.keys()];
+        const playerColors = new Map<PlayerId, string>();
+        for (let i = 0; i < playerIds.length; i++) {
+            playerColors.set(playerIds[i]!, DEFAULT_PLAYER_COLOR_PALETTE[i % DEFAULT_PLAYER_COLOR_PALETTE.length]!);
+        }
         return buildMapView({
             id: `mv-${view.tick}` as MapViewId,
             view,
@@ -233,6 +239,7 @@ export function App({
             prevView: lastMapViewRef.current,
             nowMs: performance.now(),
             viewportOffset,
+            playerColors,
         });
     }, [resolvedState, viewportOffset]);
     useEffect(() => {
@@ -643,7 +650,7 @@ export function App({
                         playerName={resolvedState.session.displayName}
                         playerColor={
                             resolvedState.session.playerId !== null
-                                ? DEFAULT_PLAYER_COLORS[resolvedState.session.playerId]
+                                ? (mapView?.playerColors.get(resolvedState.session.playerId) ?? SPECTATOR_COLOR)
                                 : SPECTATOR_COLOR
                         }
                         matchStatus={resolvedState.status}

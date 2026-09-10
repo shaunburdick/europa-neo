@@ -19,7 +19,7 @@
  * renderer paints their pixels as void (fog FR-002).
  */
 
-import { CONSOLE_CONSTANTS, DEFAULT_PLAYER_COLORS } from '../config';
+import { CONSOLE_CONSTANTS } from '../config';
 import { classifyPipeSlope, PIPE_SLOPE_CONSTANTS, type PipeSlope, pipeIntensity } from '../render/pipe-slope';
 import { diffCellChanges } from './diff';
 import type {
@@ -32,6 +32,7 @@ import type {
     MapLabel,
     MapView,
     MapViewId,
+    PlayerId,
     PlayerView,
 } from './types';
 
@@ -170,6 +171,8 @@ export interface BuildMapViewArgs {
      * origin of the visible area's top-left corner (issue #76).
      */
     readonly viewportOffset: { readonly x: number; readonly y: number };
+    /** Per-player color map (built by reducer from palette at join time). */
+    readonly playerColors: ReadonlyMap<PlayerId, string>;
 }
 
 /**
@@ -183,7 +186,7 @@ export interface BuildMapViewArgs {
  * @returns The immutable `MapView` the renderer paints.
  */
 export function buildMapView(args: BuildMapViewArgs): MapView {
-    const { id, view, camera, hover, selection, exclusiveMode, prevView, nowMs, viewportOffset } = args;
+    const { id, view, camera, hover, selection, exclusiveMode, prevView, nowMs, viewportOffset, playerColors } = args;
 
     // 1. Convert visible cells and index them by coord key.
     const rawCells = new Map<string, CellRenderInfo>();
@@ -258,7 +261,7 @@ export function buildMapView(args: BuildMapViewArgs): MapView {
         width: size,
         height: size,
         cells,
-        playerColors: DEFAULT_PLAYER_COLORS,
+        playerColors,
         effects,
         labels,
         camera,

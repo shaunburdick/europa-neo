@@ -22,8 +22,8 @@ describe('deriveSeatLabels (FR-020)', () => {
         expect(deriveSeatLabels(INITIAL_CONSOLE_STATE.session)).toEqual([]);
     });
 
-    it('maps seat 1 to the local player and seat 2 to the opponent for playerId 1', () => {
-        const labels = deriveSeatLabels(sessionOf({ playerId: 1, displayName: 'Nova', opponents: ['Orion'] }));
+    it('maps seat 1 to the local player and seat 2 to the opponent', () => {
+        const labels = deriveSeatLabels(sessionOf({ seat: 1, displayName: 'Nova', opponents: ['Orion'] }));
         expect(labels).toEqual([
             { seat: 1, name: 'Nova', isLocal: true },
             { seat: 2, name: 'Orion', isLocal: false },
@@ -31,7 +31,7 @@ describe('deriveSeatLabels (FR-020)', () => {
     });
 
     it('keeps server seat order when the local player sits at seat 2', () => {
-        const labels = deriveSeatLabels(sessionOf({ playerId: 2, displayName: 'Orion', opponents: ['Nova'] }));
+        const labels = deriveSeatLabels(sessionOf({ seat: 2, displayName: 'Orion', opponents: ['Nova'] }));
         expect(labels).toEqual([
             { seat: 1, name: 'Nova', isLocal: false },
             { seat: 2, name: 'Orion', isLocal: true },
@@ -39,7 +39,7 @@ describe('deriveSeatLabels (FR-020)', () => {
     });
 
     it('reconstructs a middle seat correctly for three players', () => {
-        const labels = deriveSeatLabels(sessionOf({ playerId: 2, displayName: 'Mid', opponents: ['First', 'Third'] }));
+        const labels = deriveSeatLabels(sessionOf({ seat: 2, displayName: 'Mid', opponents: ['First', 'Third'] }));
         expect(labels).toEqual([
             { seat: 1, name: 'First', isLocal: false },
             { seat: 2, name: 'Mid', isLocal: true },
@@ -48,7 +48,7 @@ describe('deriveSeatLabels (FR-020)', () => {
     });
 
     it('maps every seat from opponents for a spectator (no local seat)', () => {
-        const labels = deriveSeatLabels(sessionOf({ playerId: null, displayName: '', opponents: ['Nova', 'Orion'] }));
+        const labels = deriveSeatLabels(sessionOf({ seat: null, displayName: '', opponents: ['Nova', 'Orion'] }));
         expect(labels).toEqual([
             { seat: 1, name: 'Nova', isLocal: false },
             { seat: 2, name: 'Orion', isLocal: false },
@@ -56,7 +56,7 @@ describe('deriveSeatLabels (FR-020)', () => {
     });
 
     it('renders null placeholders for empty names while keeping seat numbering', () => {
-        const labels = deriveSeatLabels(sessionOf({ playerId: 1, displayName: '', opponents: [''] }));
+        const labels = deriveSeatLabels(sessionOf({ seat: 1, displayName: '', opponents: [''] }));
         expect(labels).toEqual([
             { seat: 1, name: null, isLocal: true },
             { seat: 2, name: null, isLocal: false },
@@ -66,7 +66,7 @@ describe('deriveSeatLabels (FR-020)', () => {
 
     it('passes hostile-but-valid handles through verbatim (no sanitization)', () => {
         const labels = deriveSeatLabels(
-            sessionOf({ playerId: 1, displayName: 'מִיכָאֵל \u202Ereversed', opponents: ['\u0645\u062D\u0645\u062F'] }),
+            sessionOf({ seat: 1, displayName: 'מִיכָאֵל \u202Ereversed', opponents: ['\u0645\u062D\u0645\u062F'] }),
         );
         expect(labels[0]?.name).toBe('מִיכָאֵל \u202Ereversed');
         expect(labels[1]?.name).toBe('\u0645\u062D\u0645\u062F');

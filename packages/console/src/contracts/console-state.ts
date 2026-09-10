@@ -306,6 +306,7 @@ export declare function buildMapView(args: {
   readonly prevView: import('./console-types').MapView;
   readonly nowMs: number;
   readonly viewportOffset: { readonly x: number; readonly y: number };
+  readonly playerColors: ReadonlyMap<import('@europa/engine').PlayerId, string>;
 }): import('./console-types').MapView;
 
 /**

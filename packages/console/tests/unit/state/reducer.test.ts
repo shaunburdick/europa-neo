@@ -21,6 +21,10 @@ import type { ConsoleState, PlayerAction, PlayerId, PlayerView } from '../../../
 
 const NOW = 10_000;
 
+/** Test PlayerIds — branded strings for deterministic tests. */
+const P1 = 'test-player-1' as PlayerId;
+const P2 = 'test-player-2' as PlayerId;
+
 /** Live seated state (the only shape that can issue orders). */
 function live(): ConsoleState {
     return {
@@ -28,18 +32,18 @@ function live(): ConsoleState {
         status: 'live',
         inputEnabled: true,
         latestView: view(1),
-        session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1 },
+        session: { ...INITIAL_CONSOLE_STATE.session, playerId: P1, seat: 1 },
     };
 }
 
 /** Minimal fog view at a given tick. */
 function view(tick: number): PlayerView {
     return {
-        player: 1,
+        player: P1,
         tick,
         visibleCells: [],
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
-        config: { boardSize: 16, playerCount: 2, tickIntervalMs: 250, seed: 0, visibilityRadius: 2 },
+        config: { boardSize: 16, playerIds: [P1, P2], tickIntervalMs: 250, seed: 0, visibilityRadius: 2 },
     };
 }
 
@@ -80,7 +84,7 @@ describe('reducer: PlayerAction arms (Q-U01)', () => {
         expect(effects).toHaveLength(2);
         expect(effects[0]?.kind).toBe('sendOrder');
         if (effects[0]?.kind === 'sendOrder') {
-            expect(effects[0].order.player).toBe(1);
+            expect(effects[0].order.player).toBe(P1);
             expect(effects[0].actionId).toBeGreaterThan(0);
         }
         expect(effects[1]).toEqual({
@@ -132,11 +136,11 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
         const { state } = step(step(live(), { kind: 'connecting', matchId: 'm-1' }).state, {
             kind: 'joined',
             sessionToken: 'tok' as never,
-            playerId: 2,
+            playerId: P2,
             view: view(9),
             players: [
-                { id: 1, displayName: 'A' },
-                { id: 2, displayName: 'B' },
+                { id: P1, displayName: 'A' },
+                { id: P2, displayName: 'B' },
             ],
         });
         expect(state.status).toBe('live');
@@ -180,11 +184,11 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
     it('terminal ends the match; socketClosed/reconnecting surface the gap', () => {
         const over = step(live(), {
             kind: 'terminal',
-            result: { kind: 'win', winner: 2, tick: 1247, reason: 'last_standing' },
+            result: { kind: 'win', winner: P2, tick: 1247, reason: 'last_standing' },
         }).state;
         expect(over.status).toBe('game_over');
         expect(over.inputEnabled).toBe(false);
-        expect(over.matchResult).toEqual({ kind: 'win', winner: 2, tick: 1247, reason: 'last_standing' });
+        expect(over.matchResult).toEqual({ kind: 'win', winner: P2, tick: 1247, reason: 'last_standing' });
 
         const closed = step(live(), { kind: 'socketClosed', code: 1006, reason: 'abnormal' }).state;
         expect(closed.status).toBe('reconnecting');
@@ -201,7 +205,7 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
     it('terminal stores matchResult from a win event (AC-001)', () => {
         const { state } = step(live(), {
             kind: 'terminal',
-            result: { kind: 'win', winner: 1, tick: 500, reason: 'last_standing' },
+            result: { kind: 'win', winner: P1, tick: 500, reason: 'last_standing' },
         });
         expect(state.matchResult).not.toBeNull();
         expect(state.matchResult?.kind).toBe('win');
@@ -227,9 +231,11 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
     it('terminal produces result-aware announce text for win (FR-012)', () => {
         const { effects } = step(live(), {
             kind: 'terminal',
-            result: { kind: 'win', winner: 2, tick: 100, reason: 'all_surrendered' },
+            result: { kind: 'win', winner: P2, tick: 100, reason: 'all_surrendered' },
         });
-        expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Player 2 wins!', politeness: 'assertive' }]);
+        expect(effects).toEqual([
+            { kind: 'announce', text: 'Match over. Player test-player-2 wins!', politeness: 'assertive' },
+        ]);
     });
 
     it('terminal produces result-aware announce text for draw (FR-012)', () => {
@@ -258,13 +264,13 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
         // must survive the socketClosed event.
         const over = step(live(), {
             kind: 'terminal',
-            result: { kind: 'win', winner: 1, tick: 100, reason: 'last_standing' },
+            result: { kind: 'win', winner: P1, tick: 100, reason: 'last_standing' },
         }).state;
         expect(over.status).toBe('game_over');
 
         const afterClose = step(over, { kind: 'socketClosed', code: 1006, reason: 'abnormal' }).state;
         expect(afterClose.status).toBe('game_over');
-        expect(afterClose.matchResult).toEqual({ kind: 'win', winner: 1, tick: 100, reason: 'last_standing' });
+        expect(afterClose.matchResult).toEqual({ kind: 'win', winner: P1, tick: 100, reason: 'last_standing' });
     });
 
     it('socketClosed still transitions live state to reconnecting (unchanged behavior)', () => {
@@ -277,18 +283,19 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
             ...live(),
             session: {
                 ...live().session,
-                playerId: 1 as PlayerId,
+                playerId: P1,
+                seat: 1,
                 displayName: 'Shaun',
                 opponents: ['Chrome'],
                 playerNames: new Map<PlayerId, string>([
-                    [1 as PlayerId, 'Shaun'],
-                    [2 as PlayerId, 'Chrome'],
+                    [P1, 'Shaun'],
+                    [P2, 'Chrome'],
                 ]),
             },
         };
         const { effects } = step(seated, {
             kind: 'terminal',
-            result: { kind: 'win', winner: 2, tick: 100, reason: 'last_standing' },
+            result: { kind: 'win', winner: P2, tick: 100, reason: 'last_standing' },
         });
         // Winner is player 2 (Chrome), so the announce text uses the name.
         expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Chrome wins!', politeness: 'assertive' }]);
@@ -299,18 +306,19 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
             ...live(),
             session: {
                 ...live().session,
-                playerId: 1 as PlayerId,
+                playerId: P1,
+                seat: 1,
                 displayName: 'Shaun',
                 opponents: ['Chrome'],
                 playerNames: new Map<PlayerId, string>([
-                    [1 as PlayerId, 'Shaun'],
-                    [2 as PlayerId, 'Chrome'],
+                    [P1, 'Shaun'],
+                    [P2, 'Chrome'],
                 ]),
             },
         };
         const { effects } = step(seated, {
             kind: 'terminal',
-            result: { kind: 'win', winner: 1, tick: 200, reason: 'last_standing' },
+            result: { kind: 'win', winner: P1, tick: 200, reason: 'last_standing' },
         });
         // Winner is player 1 (Shaun — the local player).
         expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Shaun wins!', politeness: 'assertive' }]);
@@ -319,10 +327,12 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
     it('terminal announce text falls back to Player N when session is absent', () => {
         const { effects } = step(live(), {
             kind: 'terminal',
-            result: { kind: 'win', winner: 2, tick: 100, reason: 'all_surrendered' },
+            result: { kind: 'win', winner: P2, tick: 100, reason: 'all_surrendered' },
         });
         // live() has empty displayName and no opponents → fallback.
-        expect(effects).toEqual([{ kind: 'announce', text: 'Match over. Player 2 wins!', politeness: 'assertive' }]);
+        expect(effects).toEqual([
+            { kind: 'announce', text: 'Match over. Player test-player-2 wins!', politeness: 'assertive' },
+        ]);
     });
 
     it('error events land in feedback with an assertive announcement', () => {
@@ -343,7 +353,7 @@ describe('reducer invariants (data-model §17)', () => {
         for (const event of [
             { kind: 'socketClosed', code: 1006, reason: 'x' },
             { kind: 'pong', clientTimeMs: 1, serverTimeMs: 2 },
-            { kind: 'terminal', result: { kind: 'win', winner: 1, tick: 10, reason: 'last_standing' } },
+            { kind: 'terminal', result: { kind: 'win', winner: P1, tick: 10, reason: 'last_standing' } },
         ] as const) {
             ({ state } = step(state, event));
             expect(state.inputEnabled).toBe(state.status === 'live');
@@ -374,7 +384,7 @@ describe('reducer invariants (data-model §17)', () => {
                 rejections,
                 {
                     actionId: i + 1,
-                    order: { kind: 'surrender', player: 1 },
+                    order: { kind: 'surrender', player: P1 },
                     reason: 'not_owner' as never,
                     atTick: i,
                 },

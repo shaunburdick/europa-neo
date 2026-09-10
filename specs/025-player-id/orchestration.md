@@ -40,17 +40,33 @@ Replace `PlayerId = 1 | 2 | 3 | 4` with branded string type via NanoID 12-char. 
 ### Wave 4 — Engine Tests — ✅ Complete (56 failing tests fixed as part of Wave 3)
 - T-021: Update engine unit tests (combat, terminal, tick, serialize, validate, replay, cli, quickstart) — ✅
 
-### Wave 5 — Fog (parallel with Wave 6) — ⏳ Pending
-- T-025 through T-027
+### Wave 5 — Fog (parallel with Wave 6) — ✅ Complete (84/84 pass)
+- T-025: computePlayerView signature — ✅
+- T-026: computeVisibleSet registry — ✅
+- T-027: Fog tests — ✅
 
-### Wave 6 — Matchmaking (parallel with Wave 5) — ⏳ Pending
-- T-028 through T-034
+### Wave 6 — Matchmaking (parallel with Wave 5) — ✅ Complete (no new failures)
+- T-028: newPlayerId() — ✅
+- T-029: Remove toPlayerId() — ✅
+- T-030: transitionFillingToRunning — ✅
+- T-031: autoStart — ✅
+- T-032: seatAssignmentFor — ✅
+- T-033: Contracts — ✅
+- T-034: Matchmaking tests — ✅
 
-### Wave 7 — Networking — ⏳ Pending
-- T-035 through T-044
+### Wave 7 — Networking — ✅ Complete (250/250 pass)
+- T-035: NETWORK_API_VERSION 0.2.0 — ✅
+- T-036: MatchChannel.seats string keys — ✅
+- T-037: drainOrdersForTick localeCompare — ✅
+- T-038: connections() string sort — ✅
+- T-039: handleJoinMatch — ✅
+- T-040: restoreReconnectedSeat — ✅
+- T-041: seatBuffer string keys — ✅
+- T-042: reconnect.ts — ✅
+- T-043: ids.ts generatePlayerId — ✅
+- T-044: Networking tests — ✅
 
-### Wave 8 — Console — ⏳ Pending
-- T-045 through T-048
+### Wave 8 — Console — 🔄 In Progress
 
 ### Wave 9 — Integration + PR — ⏳ Pending
 - T-049 through T-053

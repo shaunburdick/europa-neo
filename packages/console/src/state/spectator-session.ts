@@ -70,6 +70,7 @@ export function initialSpectatorState(matchId: MatchId): ConsoleState {
             matchId,
             sessionToken: null,
             playerId: null,
+            seat: null,
             displayName: '',
             opponents: [],
             playerNames: new Map(),

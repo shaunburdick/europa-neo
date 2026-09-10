@@ -8,6 +8,9 @@
 
 import type { Coord, Direction, Order, PlayerId, ReservesPct } from '../../src/state/types';
 
+/** Default test PlayerId for order fixtures. */
+const DEFAULT_PLAYER = 'test-player-1' as PlayerId;
+
 /**
  * Build an order of exactly the requested kind. The generic return
  * type means `buildOrder('setPipe', { direction: 'N' })` type-checks
@@ -25,7 +28,7 @@ export function buildOrder<K extends Order['kind']>(
     kind: K,
     overrides?: Partial<Extract<Order, { kind: K }>>,
 ): Extract<Order, { kind: K }> {
-    const player = 1 as PlayerId;
+    const player = DEFAULT_PLAYER;
     const origin: Coord = { x: 0, y: 0 };
     let base: Extract<Order, { kind: K }>;
     switch (kind) {

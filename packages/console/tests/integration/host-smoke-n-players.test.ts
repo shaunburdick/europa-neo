@@ -534,9 +534,10 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
         legs.push(leg);
     }
 
-    // Every seat joined with its own distinct id (1..N).
-    const ids = legs.map((leg) => leg.playerId).sort((a, b) => a - b);
-    expect(ids).toEqual(Array.from({ length: playerCount }, (_, i) => (i + 1) as PlayerId));
+    // Every seat joined with its own distinct PlayerId.
+    const ids = legs.map((leg) => leg.playerId);
+    expect(ids).toHaveLength(playerCount);
+    expect(new Set(ids).size).toBe(playerCount);
 
     // Ticks flowed to every seat (join snapshot + at least one tick).
     for (const leg of legs) {
