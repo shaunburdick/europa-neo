@@ -653,27 +653,31 @@ guard (G-04) fails with `file:line` on anything else.
 
 ### 4.2 Vendoring rule — the manual consumes the same file (FR-013 / FR-014)
 
-The shared stylesheet reaches the Pages deployment by being **vendored into the manual tree** as
-`docs/manual/assets/design.css`: a byte-identical, checked-in copy produced deterministically by
-`pnpm --filter @europa/design build` (sorted keys, LF, UTF-8, no BOM, no timestamp). Because the copy
-lives *inside* `docs/manual`, the Pages workflow needs no widening: `actions/jekyll-build-pages` keeps
-`source: ./docs/manual` and the uploaded artifact remains exactly the rendered `docs/manual` tree, so
-artifact contents stay auditable from that tree alone (FR-013, G-09).
-`docs/manual/_layouts/default.html` loads it with
-`<link rel="stylesheet" href="{{ '/assets/design.css' | relative_url }}">`.
+The shared stylesheet reaches the Pages deployment by being **vendored into the manual tree** as two
+byte-identical, checked-in copies produced deterministically by `pnpm --filter @europa/design build`
+(sorted keys, LF, UTF-8, no BOM, no timestamp):
+- `docs/manual/public/design.css` — the copy the Astro site actually serves (`ManualLayout.astro`
+  links `/europa-neo/design.css`, which Astro resolves from `public/`).
+- `docs/manual/assets/design.css` — the G-05 byte-identity target retained for the design system's
+  vendoring guard.
+
+Because the copies live *inside* `docs/manual`, the Pages workflow needs no widening: the Astro build
+outputs only rendered manual HTML under `docs/manual/dist`, and the uploaded artifact remains exactly
+that tree, so artifact contents stay auditable from it alone (FR-013, G-09).
 
 CI asserts byte identity —
-`sha256(packages/design/dist/design.css) === sha256(docs/manual/assets/design.css)` — and fails with
-both hashes plus the remediation `run pnpm --filter @europa/design build` when the copy is stale
-(G-05). A symlink is not acceptable: Pages builds from a fresh checkout and would not follow a link
-out of the scoped source.
+`sha256(packages/design/dist/design.css) === sha256(docs/manual/public/design.css) ===
+sha256(docs/manual/assets/design.css)` — and fails with every hash plus the remediation
+`run pnpm --filter @europa/design build` when either copy is stale (G-05). A symlink is not
+acceptable: Pages builds from a fresh checkout and would not follow a link out of the scoped source.
 
 ### 4.3 No external theme, no CDN (FR-015 / NFR-002)
 
-The manual's Markdown-to-HTML path adds no external dependency. A Jekyll layout or include that pulls
-the vendored `assets/design.css` is allowed; a theme gem or a CDN `<link>` is not, and no font is
-fetched or bundled — the system's only type stack is the platform stack in § 1.2. If the vendored asset
-is ever missing, the manual must still render as readable unstyled HTML and CI must flag the absence.
+The manual's MDX-to-HTML path adds no external dependency. The Astro layout pulls the vendored
+`public/design.css` from the manual's own tree; an Astro theme, a theme gem, or a CDN `<link>` is
+not, and no font is fetched or bundled — the system's only type stack is the platform stack in § 1.2.
+If the vendored asset is ever missing, the manual must still render as readable unstyled HTML and CI
+must flag the absence.
 
 ### 4.4 Documented exceptions
 

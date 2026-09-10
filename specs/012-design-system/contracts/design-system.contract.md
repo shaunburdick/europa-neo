@@ -114,12 +114,12 @@ Each leaf carries its CSS variable name as the `cssVar` mapping (the JS key is t
 
 ---
 
-## 2. Stylesheet surface — `dist/design.css` / `docs/manual/assets/design.css`
+## 2. Stylesheet surface — `dist/design.css` / `docs/manual/{assets,public}/design.css`
 
 ### 2.1 Determinism contract
 
 * The file is LF-only, UTF-8, no BOM, no timestamp comment. Keys are emitted in locale-insensitive lexicographic order. Repeated builds from the same `tokens.ts` are byte-identical (SC-003 hash).
-* `docs/manual/assets/design.css` is the tracked vendored copy of this file. `sha256(dist/design.css) === sha256(docs/manual/assets/design.css)` at every commit (G-05). The vendor step (`packages/design/scripts/vendor-to-docs.ts`) is idempotent.
+* `docs/manual/assets/design.css` and `docs/manual/public/design.css` are the tracked vendored copies of this file (the Astro manual serves the `public/` copy). `sha256(dist/design.css) === sha256(docs/manual/assets/design.css) === sha256(docs/manual/public/design.css)` at every commit (G-05). The vendor step (`packages/design/scripts/vendor-to-docs.ts`) is idempotent.
 
 ### 2.2 CSS variable layer
 
@@ -251,7 +251,7 @@ This contract is byte-compared by the same invariant suite described in [`data-m
 | G-02 | Token rows in `DESIGN.md` ↔ `TOKENS` leaves |
 | G-03 | Component rows in `DESIGN.md` ↔ `.europa-*` selectors in `dist/design.css` |
 | G-04 | `packages/console/src/**` + `docs/manual/**` disallow list |
-| G-05 | `sha256(dist/design.css) === sha256(docs/manual/assets/design.css)` |
+| G-05 | `sha256(dist/design.css) === sha256(docs/manual/assets/design.css) === sha256(docs/manual/public/design.css)` |
 | G-06 | `DESIGN.md` header = `@europa/design` version = `APP_VERSION` = all `package.json`s |
 | G-07 | Computed-style contrast assertions for every pairing in `DESIGN.md` a11y table |
 | G-08 | `pnpm build:assets` gzip budget < 150 KB (console browser payload) |
