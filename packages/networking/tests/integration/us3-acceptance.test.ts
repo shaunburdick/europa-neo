@@ -141,7 +141,7 @@ describe('US3 acceptance (late-join spectating)', () => {
             // corner never leaks into a player view — FR-005 / SC-004).
             const playerFrame = await h.clients[0].nextMessage('tick');
             const playerView = (playerFrame.payload as unknown as TickBroadcastPayload).view;
-            expect(playerView.player).toBe(1);
+            expect(playerView.player).toBe(h.match.matchConfig.playerIds[0]);
             expect(playerView.visibleCells.length).toBeLessThan(TOTAL_CELLS);
             expect(hasCell(playerView, FOGGED_COORD)).toBe(false);
         } finally {

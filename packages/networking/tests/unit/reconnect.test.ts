@@ -27,7 +27,7 @@ function matchId(n: number): MatchId {
     return toBranded<MatchId>(`match-${String(n).padStart(3, '0')}`);
 }
 function playerId(n: number): PlayerId {
-    return n as PlayerId;
+    return toBranded<PlayerId>(`player-${String(n).padStart(3, '0')}`);
 }
 
 describe('ReconnectRegistry', () => {

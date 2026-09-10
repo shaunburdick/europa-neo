@@ -68,7 +68,7 @@ export function buildTickBroadcast(
 
     for (const connection of channel.connections()) {
         const spectator = connection.role === 'spectator';
-        // Null seat ⇒ spectator: stamp the no-seat sentinel (0) so the
+        // Null seat ⇒ spectator: stamp the no-seat sentinel so the
         // view can never be misread as a real player's — same sentinel
         // the join-time snapshot carries (`SPECTATOR_VIEW_SEAT`). Fog's
         // spectator branch ignores the seat either way.

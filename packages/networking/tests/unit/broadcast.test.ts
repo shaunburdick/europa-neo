@@ -63,6 +63,7 @@ function channelWithTwoPlayers(): {
     connA: Connection;
     connB: Connection;
     sockets: [MockWebSocket, MockWebSocket];
+    playerIds: [PlayerId, PlayerId];
 } {
     const match = scriptedMatch({ boardSize: 8 });
     const channel = new MatchChannel({
@@ -71,16 +72,17 @@ function channelWithTwoPlayers(): {
         matchConfig: match.matchConfig,
     });
 
+    const [playerIdA, playerIdB] = match.matchConfig.playerIds;
     const socketA = new MockWebSocket();
     const socketB = new MockWebSocket();
     const connA = new Connection({ socket: socketA, role: 'player', nowMs: 0 });
     const connB = new Connection({ socket: socketB, role: 'player', nowMs: 0 });
-    connA.markJoined('token-a', 1, match.matchId);
-    connB.markJoined('token-b', 2, match.matchId);
-    channel.attachSeat(1, 'token-a', connA);
-    channel.attachSeat(2, 'token-b', connB);
+    connA.markJoined('token-a', playerIdA, match.matchId);
+    connB.markJoined('token-b', playerIdB, match.matchId);
+    channel.attachSeat(playerIdA, 'token-a', connA);
+    channel.attachSeat(playerIdB, 'token-b', connB);
 
-    return { channel, connA, connB, sockets: [socketA, socketB] };
+    return { channel, connA, connB, sockets: [socketA, socketB], playerIds: [playerIdA, playerIdB] };
 }
 
 describe('buildTickBroadcast + sendTickBroadcast', () => {
@@ -97,7 +99,7 @@ describe('buildTickBroadcast + sendTickBroadcast', () => {
     });
 
     it('each tick.view is the fog-filtered PlayerView for that player', () => {
-        const { channel, connA, connB, sockets } = channelWithTwoPlayers();
+        const { channel, connA, connB, sockets, playerIds } = channelWithTwoPlayers();
         const fog = stubFog({ marker: 'v1' });
         channel.recordTick();
 
@@ -109,8 +111,8 @@ describe('buildTickBroadcast + sendTickBroadcast', () => {
         if (frameA?.type !== 'tick' || frameB?.type !== 'tick') {
             throw new Error('expected tick frames on both connections');
         }
-        expect(frameA.payload.view.player).toBe(1);
-        expect(frameB.payload.view.player).toBe(2);
+        expect(frameA.payload.view.player).toBe(playerIds[0]);
+        expect(frameB.payload.view.player).toBe(playerIds[1]);
     });
 
     it('with no intervening orders, a byte-identical second tick is skipped per connection', () => {

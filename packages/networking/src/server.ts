@@ -372,7 +372,7 @@ export function createMatchServer(
             // Skipped connections (byte-identical view) recompute the same
             // content so their ring stays dense.
             const world = channel.engineSession.world();
-            for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
+            for (const playerId of [...channel.seats.keys()].sort((a, b) => a.localeCompare(b))) {
                 const seat = channel.seats.get(playerId);
                 if (!seat) {
                     continue;
@@ -985,15 +985,24 @@ export function createMatchServer(
             }
         } else if (payload.requestedSeat !== undefined && payload.requestedSeat !== null) {
             // Contract types `requestedSeat` as a plain number (wire-friendly);
-            // seat keys are branded PlayerIds over the same value domain.
-            const seat = channel.seats.get(payload.requestedSeat as PlayerId);
-            if (!seat) {
+            // seats are now keyed by string PlayerId. Resolve the 1-based
+            // index into the alphabetically-sorted seat list to find the
+            // target binding.
+            const sortedSeats = [...channel.seats.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+            const idx = payload.requestedSeat - 1;
+            if (idx < 0 || idx >= sortedSeats.length) {
                 connection.sendError('match_full', `seat ${String(payload.requestedSeat)} is not bound`);
                 return;
             }
-            target = { playerId: seat.playerId, token: seat.sessionToken };
+            const entry = sortedSeats[idx];
+            if (!entry) {
+                connection.sendError('match_full', `seat ${String(payload.requestedSeat)} is not bound`);
+                return;
+            }
+            const [seatKey, seat] = entry;
+            target = { playerId: seatKey, token: seat.sessionToken };
         } else {
-            for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
+            for (const playerId of [...channel.seats.keys()].sort((a, b) => a.localeCompare(b))) {
                 const seat = channel.seats.get(playerId);
                 if (seat && seat.connection === null) {
                     target = { playerId: seat.playerId, token: seat.sessionToken };

@@ -120,14 +120,17 @@ describe('legacy gameplay client on a lobby-wired server (NFR-004)', () => {
 
         // Seat claim: exactly the feature-004 ack shape.
         const ack = joinAckOf(legacy.socket);
-        expect(ack.playerId).toBe(1);
+        expect(ack.playerId).toBe(match.matchConfig.playerIds[0]);
         expect(ack.sessionToken.length).toBeGreaterThan(0);
         expect(ack.players).toHaveLength(2);
         expect(ack.tick).toBe(0);
 
         // Orders still accepted into the pipeline (synchronous gate).
         const before = server.stats().totalOrdersAccepted;
-        sendRaw(legacy.socket, plainEnvelope('order', { order: { kind: 'surrender', player: 1 } }));
+        sendRaw(
+            legacy.socket,
+            plainEnvelope('order', { order: { kind: 'surrender', player: match.matchConfig.playerIds[0] } }),
+        );
         expect(server.stats().totalOrdersAccepted).toBe(before + 1);
 
         // Heartbeat unchanged.
@@ -248,12 +251,15 @@ describe('mixed lobby-era client (both families on one socket)', () => {
         const snapshots = lobbyEvents(client.socket).filter((event) => event.kind === 'snapshot');
         expect(snapshots).toHaveLength(1);
         const ack = joinAckOf(client.socket);
-        expect(ack.playerId).toBe(2);
+        expect(ack.playerId).toBe(match.matchConfig.playerIds[1]);
 
         // Gameplay authority intact after lobby usage: the order gate
         // accepts (its bucket is independent of the lobby bucket).
         const before = server.stats().totalOrdersAccepted;
-        sendRaw(client.socket, plainEnvelope('order', { order: { kind: 'surrender', player: 2 } }));
+        sendRaw(
+            client.socket,
+            plainEnvelope('order', { order: { kind: 'surrender', player: match.matchConfig.playerIds[1] } }),
+        );
         expect(server.stats().totalOrdersAccepted).toBe(before + 1);
         expect(transportErrors(client.socket)).toHaveLength(0);
     });

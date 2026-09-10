@@ -264,14 +264,15 @@ export class MatchChannel {
      * Drain the pending queue in the engine's canonical order —
      * ascending `(playerId, kind)` per engine FR-018 — returning the
      * sorted batch and emptying the queue. Ties beyond `(playerId, kind)`
-     * keep insertion order (V8 sorts are stable).
+     * keep insertion order (V8 sorts are stable). PlayerId comparison
+     * uses `localeCompare` for string-typed identifiers.
      *
      * @returns The sorted, drained batch.
      */
     drainOrdersForTick(): PendingOrder[] {
         const sorted = [...this.pendingOrders].sort((a, b) => {
             if (a.playerId !== b.playerId) {
-                return a.playerId - b.playerId;
+                return a.playerId.localeCompare(b.playerId);
             }
             return a.order.kind.localeCompare(b.order.kind);
         });
@@ -297,7 +298,7 @@ export class MatchChannel {
      */
     connections(): Connection[] {
         const result: Connection[] = [];
-        for (const playerId of [...this.seats.keys()].sort((a, b) => a - b)) {
+        for (const playerId of [...this.seats.keys()].sort((a, b) => a.localeCompare(b))) {
             const connection = this.seats.get(playerId)?.connection;
             if (connection) {
                 result.push(connection);

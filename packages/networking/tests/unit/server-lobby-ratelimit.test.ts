@@ -142,11 +142,14 @@ describe('lobby flood leaves the gameplay path untouched', () => {
             plainEnvelope('joinMatch', { matchId: match.matchId, role: 'player', displayName: 'Flooded' }),
         );
         const ack = required(framesOfType(player.socket, 'joinAck')[0], 'joinAck');
-        expect((ack.payload as { readonly playerId: number | null }).playerId).toBe(1);
+        expect((ack.payload as { readonly playerId: string | null }).playerId).toBe(match.matchConfig.playerIds[0]);
 
         // Order accepted into the pipeline despite the empty lobby bucket.
         const before = server.stats().totalOrdersAccepted;
-        sendRaw(player.socket, plainEnvelope('order', { order: { kind: 'surrender', player: 1 } }));
+        sendRaw(
+            player.socket,
+            plainEnvelope('order', { order: { kind: 'surrender', player: match.matchConfig.playerIds[0] } }),
+        );
         expect(server.stats().totalOrdersAccepted).toBe(before + 1);
 
         // Heartbeat still answered.

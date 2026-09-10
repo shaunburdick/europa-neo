@@ -75,7 +75,7 @@ describe('rate limiting (FR-010, US1 AC-3, T048)', () => {
                 // elapsed computation for THIS submission, making the whole
                 // burst wall-clock-independent (see module doc).
                 connection.rateBucket.lastRefillAtMs = Date.now() + 60_000;
-                client.order(scriptedPipeOrder(1, i));
+                client.order(scriptedPipeOrder(match.matchConfig.playerIds[0], 0, i));
             }
 
             // Protocol rejections are immediate synchronous error frames —

@@ -104,10 +104,13 @@ function expectedVisibleKeys(world: Readonly<World>, player: PlayerId): Set<numb
     const radius = world.config.visibilityRadius;
     const seen = new Set<number>();
     const { troopCounts, troopOwners } = world.state;
+    // Convert string PlayerId to 1-based numeric index for Uint8Array comparison.
+    // troopOwners uses 1-based indices (0 = neutral), matching the sorted registry position + 1.
+    const numericPlayer = world.playerRegistry.indexOfId(player) + 1;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            if ((troopOwners[idx] ?? 0) !== player) {
+            if ((troopOwners[idx] ?? 0) !== numericPlayer) {
                 continue;
             }
             if ((troopCounts[idx] ?? 0) <= 0) {
@@ -189,7 +192,12 @@ describe.each([3, 4] as const)('SC-004 networking fog-leakage for N=%i players (
             // Positive control: a spectator order must be rejected read-only. The
             // rejection rides an `error` frame (not an `orderAck`), so it never
             // consumes the tick read cursor below.
-            spectator.order({ kind: 'setPipe', player: 1 as PlayerId, cell: { x: 1, y: 1 }, direction: 'S' });
+            spectator.order({
+                kind: 'setPipe',
+                player: match.matchConfig.playerIds[0],
+                cell: { x: 1, y: 1 },
+                direction: 'S',
+            });
 
             // Synchronize on the first broadcast so every seat is observing a
             // live match before the audited 500-tick window begins.
@@ -223,7 +231,7 @@ describe.each([3, 4] as const)('SC-004 networking fog-leakage for N=%i players (
                 players.forEach((client, index) => {
                     client.order({
                         kind: t % 2 === 0 ? 'setPipe' : 'clearPipe',
-                        player: (index + 1) as PlayerId,
+                        player: match.matchConfig.playerIds[index],
                         cell: HOME_CELLS[index] ?? HOME_CELLS[0],
                         ...(t % 2 === 0 ? { direction: 'S' as const } : {}),
                     });
@@ -266,7 +274,7 @@ describe.each([3, 4] as const)('SC-004 networking fog-leakage for N=%i players (
                 // (a) Per-player leakage: every delivered cell must lie inside the
                 // recipient's independent VisibleSet.
                 for (let p = 0; p < playerCount; p++) {
-                    const player = (p + 1) as PlayerId;
+                    const player = match.matchConfig.playerIds[p];
                     const expected = expectedVisibleKeys(world, player);
                     const view = (frames[p].payload as TickBroadcastPayload).view;
                     for (const cell of view.visibleCells) {

@@ -87,7 +87,7 @@ function buildScriptedBoard(size: number, playerCount: 2 | 3 | 4): Board {
     const cities: CityPlacement[] = [];
     for (let seat = 1; seat <= playerCount; seat++) {
         const home = resolveHome(size, HOME_COORDS[seat - 1] as readonly [number, number]);
-        cities.push({ cell: { x: home.x, y: home.y }, owner: seat as PlayerId });
+        cities.push({ cell: { x: home.x, y: home.y }, owner: seat });
     }
 
     return {
@@ -222,9 +222,17 @@ export function scriptedMatch(options: ScriptedMatchOptions = {}): ScriptedMatch
     scriptedMatchCounter += 1;
     const matchId = toBranded<MatchId>(`match-scripted-${String(scriptedMatchCounter).padStart(4, '0')}`);
 
+    // Generate deterministic player IDs — fixed per seat position, NOT
+    // dependent on the counter, so the same match config produces the same
+    // PlayerIds across multiple scriptedMatch() calls (required by
+    // determinism tests that compare tick streams across independent runs).
+    const playerIds: PlayerId[] = Array.from({ length: playerCount }, (_, i) =>
+        toBranded<PlayerId>(`player-${String(i + 1).padStart(4, '0')}`),
+    );
+
     const matchConfig: MatchConfig = Object.freeze({
         boardSize,
-        playerCount,
+        playerIds: Object.freeze(playerIds),
         tickIntervalMs: tickRateMs,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -245,7 +253,8 @@ export function scriptedMatch(options: ScriptedMatchOptions = {}): ScriptedMatch
 /**
  * Bind every seat of a scripted match on a `Server` via
  * `attachPlayer`, generating a v4 UUID token per seat when none is
- * supplied. Returns the tokens used (index = playerId − 1).
+ * supplied. Returns the tokens used (index = player index in the
+ * match config's `playerIds` array).
  *
  * @param server The (real or fake) networking `Server`.
  * @param match  A match built by {@link scriptedMatch}.
@@ -259,12 +268,13 @@ export function attachPlayersForMatch(
     tokens?: readonly SessionToken[],
 ): readonly SessionToken[] {
     const used: SessionToken[] = [];
-    for (let i = 0; i < match.matchConfig.playerCount; i++) {
+    const { playerIds } = match.matchConfig;
+    for (let i = 0; i < playerIds.length; i++) {
         const provided = tokens?.[i];
         const token = provided ?? generateSessionToken();
         server.attachPlayer({
             matchId: match.matchId,
-            playerId: (i + 1) as PlayerId,
+            playerId: playerIds[i],
             sessionToken: token,
         });
         used.push(token);

@@ -104,7 +104,7 @@ describe('SC-005 sustained-cadence soak (T049)', () => {
                 // Scripted load: one order every 5th tick, stopped early
                 // enough that its ack lands inside the collection window.
                 if (tickNumber % ORDER_EVERY_N_TICKS === 0 && tickNumber <= 35) {
-                    client.order(scriptedPipeOrder(1, submittedSeqs.length));
+                    client.order(scriptedPipeOrder(match.matchConfig.playerIds[0], 0, submittedSeqs.length));
                     nextOrderSeq += 1;
                     submittedSeqs.push(nextOrderSeq);
                 }

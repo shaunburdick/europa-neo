@@ -6,8 +6,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { generateConnectionId, generateSessionToken, toBranded } from '../../src/ids';
-import type { ConnectionId, SessionToken } from '../../src/types';
+import { generateConnectionId, generatePlayerId, generateSessionToken, toBranded } from '../../src/ids';
+import type { ConnectionId, PlayerId, SessionToken } from '../../src/types';
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -53,5 +53,41 @@ describe('toBranded', () => {
     it('is the single crossing point for every brand kind', () => {
         const matchLike = toBranded<ConnectionId>('conn-x');
         expect(matchLike).toBe('conn-x');
+    });
+});
+
+const NANO_ALPHABET = /^[A-Za-z0-9]{12}$/;
+
+describe('generatePlayerId', () => {
+    it('produces a 12-char alphanumeric string by default', () => {
+        const id = generatePlayerId();
+        expect(id).toHaveLength(12);
+        expect(NANO_ALPHABET.test(id)).toBe(true);
+    });
+
+    it('accepts a custom length', () => {
+        expect(generatePlayerId(8)).toHaveLength(8);
+        expect(generatePlayerId(24)).toHaveLength(24);
+    });
+
+    it('produces distinct ids across calls', () => {
+        const seen = new Set<string>();
+        for (let i = 0; i < 100; i++) {
+            seen.add(generatePlayerId());
+        }
+        expect(seen.size).toBe(100);
+    });
+
+    it('throws RangeError for non-positive-integer lengths', () => {
+        expect(() => generatePlayerId(0)).toThrow(RangeError);
+        expect(() => generatePlayerId(-1)).toThrow(RangeError);
+        expect(() => generatePlayerId(1.5)).toThrow(RangeError);
+        expect(() => generatePlayerId(NaN)).toThrow(RangeError);
+        expect(() => generatePlayerId(Infinity)).toThrow(RangeError);
+    });
+
+    it('returns a branded PlayerId type', () => {
+        const id: PlayerId = generatePlayerId();
+        expect(typeof id).toBe('string');
     });
 });

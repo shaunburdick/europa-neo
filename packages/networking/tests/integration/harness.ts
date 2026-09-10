@@ -203,12 +203,14 @@ export function wireShape(value: unknown): unknown {
  * (no combat in this script), so acceptance never depends on how
  * earlier orders reshaped the board.
  *
- * @param seat  Player id (1-based).
+ * @param playerId Player id (string PlayerId from match config).
+ * @param seatIndex 0-based seat index (for cell position lookup).
  * @param index Loop index selecting kind + direction cycle.
  * @returns An engine-valid pipe order anchored at that seat's city.
  */
 export function scriptedPipeOrder(
-    seat: 1 | 2,
+    playerId: PlayerId,
+    seatIndex: number,
     index: number,
 ): {
     kind: 'setPipe' | 'clearPipe';
@@ -221,6 +223,6 @@ export function scriptedPipeOrder(
     const kind = index % 2 === 0 ? 'setPipe' : 'clearPipe';
     // Seat cities on the 8×8 board: P1 (1,1), P2 (6,6). City cells are
     // permanently owned sources; their neighbors are flat land.
-    const cell = seat === 1 ? { x: 1, y: 1 } : { x: 6, y: 6 };
-    return { kind, player: seat as PlayerId, cell, direction };
+    const cell = seatIndex === 0 ? { x: 1, y: 1 } : { x: 6, y: 6 };
+    return { kind, player: playerId, cell, direction };
 }

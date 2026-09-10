@@ -327,7 +327,10 @@ describe('server.close() drains every tracked connection (feature 010 defect)', 
                 requestedSeat: 1,
             });
             const joinAck = await client.nextMessage('joinAck');
-            expect(joinAck.payload).toMatchObject({ playerId: 1, sessionToken: tokens[0] });
+            expect(joinAck.payload).toMatchObject({
+                playerId: match.matchConfig.playerIds[0],
+                sessionToken: tokens[0],
+            });
 
             // …then layer lobby activity on TOP of the live seat (the
             // mixed state: matchId bound AND lobby presence).

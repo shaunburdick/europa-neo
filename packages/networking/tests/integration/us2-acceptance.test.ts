@@ -91,14 +91,16 @@ describe('US2 acceptance (reconnection with state resync)', () => {
             const snapshot = await returning.nextMessage('snapshot');
             expect(snapshot.type).toBe('snapshot');
             const snap = snapshot.payload as unknown as TickBroadcastPayload;
-            expect(snap.view.player).toBe(1);
+            expect(snap.view.player).toBe(h.match.matchConfig.playerIds[0]);
             expect(snap.view.visibleCells.length).toBeGreaterThan(0);
             expect(snap.tick).toBeGreaterThanOrEqual(prevTick);
 
             // …and the snapshot equals fog's direct computation for the
             // restored seat over the authoritative world (wire-shape compare;
             // any cross-seat leak would fail the equality).
-            const expected = wireShape(computePlayerView(h.match.engineSession.world(), 1));
+            const expected = wireShape(
+                computePlayerView(h.match.engineSession.world(), h.match.matchConfig.playerIds[0]),
+            );
             expect(wireShape(snap.view)).toEqual(expected);
 
             // …then subsequent tick deltas. The prescribed resync order is
@@ -179,7 +181,9 @@ describe('US2 acceptance (reconnection with state resync)', () => {
             });
             const snapshot = await returning.nextMessage('snapshot');
             expect(snapshot.type).toBe('snapshot');
-            expect((snapshot.payload as unknown as { view: { player: number } }).view.player).toBe(1);
+            expect((snapshot.payload as unknown as { view: { player: string } }).view.player).toBe(
+                h.match.matchConfig.playerIds[0],
+            );
 
             // Matchmaking saw exactly one reclaim.
             await waitForCondition(() => events.reconnected.length === 1);
@@ -243,7 +247,7 @@ describe('US2 acceptance (reconnection with state resync)', () => {
             await waitForCondition(() => events.expired.length === 1);
             expect(events.expired[0]).toEqual({
                 sessionToken: tokens[1] as SessionToken,
-                playerId: 2,
+                playerId: match.matchConfig.playerIds[1],
             });
 
             // The seat is detached: presenting the stale token now fails —

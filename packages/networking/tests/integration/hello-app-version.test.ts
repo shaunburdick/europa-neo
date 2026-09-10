@@ -200,7 +200,7 @@ describe('hello-ack appVersion (feature 009 T-003, FR-003/FR-004, SC-003)', () =
                 readonly payload?: { readonly playerId?: unknown; readonly sessionToken?: unknown };
             };
             expect(joinAck.type).toBe('joinAck');
-            expect(joinAck.payload?.playerId).toBe(1);
+            expect(typeof joinAck.payload?.playerId).toBe('string');
             expect(typeof joinAck.payload?.sessionToken).toBe('string');
             expect(socket.closes).toEqual([]);
         } finally {

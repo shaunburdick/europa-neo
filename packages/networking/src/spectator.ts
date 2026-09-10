@@ -28,21 +28,22 @@ import type { Connection } from './connection';
 import type { FogFactory, MatchmakerBridge } from './contracts/network-api';
 import type { ConnectionId, PlayerId, SessionToken, SnapshotPayload } from './contracts/network-types';
 import { NetworkError } from './errors';
-import { generateSessionToken } from './ids';
+import { generateSessionToken, toBranded } from './ids';
 import type { MatchChannel } from './match-channel';
 
 /**
  * Seat sentinel stamped into spectator views. Fog's spectator branch
  * ignores the player entirely (full board, unfiltered events — see
  * fog's `playerView.ts` US3 path), but `PlayerView.player` still
- * carries whatever seat id it was handed. The engine's `PlayerId`
- * domain is 1..4, so `0` is the out-of-domain "no seat" marker: a
- * client can never mistake a spectator view for a real player's.
+ * carries whatever seat id it was handed. The sentinel is a
+ * deterministic string that cannot collide with any real NanoID
+ * PlayerId (real IDs are 12-char alphanumeric from `generatePlayerId`);
+ * a client can never mistake a spectator view for a real player's.
  * Mirrored by `buildTickBroadcast`'s null-seat fallback so a
  * spectator's join-time snapshot and its subsequent tick views carry
  * the same sentinel.
  */
-export const SPECTATOR_VIEW_SEAT = 0 as PlayerId;
+export const SPECTATOR_VIEW_SEAT = toBranded<PlayerId>('__spectator__');
 
 /** Dependencies for the spectator attach/detach pipeline. */
 export interface SpectatorDeps {

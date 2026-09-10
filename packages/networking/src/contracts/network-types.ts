@@ -43,7 +43,7 @@ import type { PlayerId } from '@europa/engine';
  *     `ProtocolEnvelope.version`). Server rejects mismatched major versions
  *     per feature 004 FR-004.
  */
-export const NETWORK_API_VERSION = '0.1.0' as const;
+export const NETWORK_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Branded primitives

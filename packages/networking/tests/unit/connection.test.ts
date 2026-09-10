@@ -83,7 +83,7 @@ describe('Connection', () => {
         socket.receiveInbound(
             encodeFrame({
                 type: 'ping',
-                version: '0.2.0',
+                version: '0.1.0',
                 seq: 1 as SequenceNumber,
                 payload: { clientTimeMs: 0 },
             }),
@@ -191,7 +191,11 @@ describe('Connection', () => {
                 joinedClosed += 1;
             },
         });
-        joined.markJoined(toBranded<SessionToken>('token'), 1 as PlayerId, toBranded<MatchId>('match'));
+        joined.markJoined(
+            toBranded<SessionToken>('token'),
+            toBranded<PlayerId>('player-001'),
+            toBranded<MatchId>('match'),
+        );
 
         joined.closeIdleTimeout();
 

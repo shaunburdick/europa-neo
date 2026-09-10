@@ -77,7 +77,7 @@ function wrapTerminating(inner: EngineSession, terminalAfterTicks: number): Engi
     let advances = 0;
     const result = {
         kind: 'win' as const,
-        winner: 1 as PlayerId,
+        winner: toBranded<PlayerId>('winner-001'),
         get tick() {
             return advances;
         },
@@ -183,8 +183,8 @@ describe('createMatchServer', () => {
         const joinA = await clientA.nextMessage('joinAck');
         const joinB = await clientB.nextMessage('joinAck');
 
-        expect(joinA.payload).toMatchObject({ playerId: 1, sessionToken: tokens[0] });
-        expect(joinB.payload).toMatchObject({ playerId: 2, sessionToken: tokens[1] });
+        expect(joinA.payload).toMatchObject({ playerId: match.matchConfig.playerIds[0], sessionToken: tokens[0] });
+        expect(joinB.payload).toMatchObject({ playerId: match.matchConfig.playerIds[1], sessionToken: tokens[1] });
 
         const stats = server.stats();
         expect(stats.activeMatches).toBe(1);
@@ -297,13 +297,13 @@ describe('createMatchServer — management ops', () => {
         expect(() =>
             server.attachPlayer({
                 matchId: toBranded<MatchId>('ghost'),
-                playerId: 1 as PlayerId,
+                playerId: toBranded<PlayerId>('ghost-player'),
                 sessionToken: generateSessionToken(),
             }),
         ).toThrow(/unknown match/);
 
         const token = generateSessionToken();
-        server.attachPlayer({ matchId: match.matchId, playerId: 2 as PlayerId, sessionToken: token });
+        server.attachPlayer({ matchId: match.matchId, playerId: match.matchConfig.playerIds[1], sessionToken: token });
 
         // Token-addressed detach (playerId omitted).
         expect(() => server.detachPlayer({ matchId: match.matchId, sessionToken: token })).not.toThrow();
@@ -382,7 +382,7 @@ describe('createMatchServer — protocol edges', () => {
         const client = connectMockClient(server);
         client.hello();
         await client.nextMessage('helloAck');
-        client.order({ kind: 'surrender', player: 1 as PlayerId });
+        client.order({ kind: 'surrender', player: toBranded<PlayerId>('order-player') });
 
         const err = await client.nextMessage('error');
         expect(err.payload.code).toBe('protocol_sequence_error');
@@ -455,7 +455,7 @@ describe('createMatchServer — protocol edges', () => {
             await third.nextMessage('helloAck');
             third.joinMatch(match.matchId, 'player', { reconnectToken: tokens[1] });
             const join = await third.nextMessage('joinAck');
-            expect(join.payload.playerId).toBe(2);
+            expect(join.payload.playerId).toBe(match.matchConfig.playerIds[1]);
         }
 
         await server.close();
@@ -480,9 +480,9 @@ describe('createMatchServer — protocol edges', () => {
         }
 
         one.joinMatch(match.matchId, 'player');
-        expect((await one.nextMessage('joinAck')).payload.playerId).toBe(1);
+        expect((await one.nextMessage('joinAck')).payload.playerId).toBe(match.matchConfig.playerIds[0]);
         two.joinMatch(match.matchId, 'player');
-        expect((await two.nextMessage('joinAck')).payload.playerId).toBe(2);
+        expect((await two.nextMessage('joinAck')).payload.playerId).toBe(match.matchConfig.playerIds[1]);
 
         three.joinMatch(match.matchId, 'player');
         const full = await three.nextMessage('error');
@@ -524,7 +524,7 @@ describe('createMatchServer — protocol edges', () => {
         // …and the connection is unpoisoned: a valid join still works.
         one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
         const ack = await one.nextMessage('joinAck');
-        expect(ack.payload.playerId).toBe(1);
+        expect(ack.payload.playerId).toBe(match.matchConfig.playerIds[0]);
 
         await server.close();
     });
@@ -537,8 +537,8 @@ describe('createMatchServer — protocol edges', () => {
             engineSession: wrapTerminating(inner.engineSession, terminalAtTick),
         };
 
-        const claimed: Array<{ playerId: number }> = [];
-        const terminals: Array<{ matchId: MatchId; winner: number }> = [];
+        const claimed: Array<{ playerId: PlayerId }> = [];
+        const terminals: Array<{ matchId: MatchId; winner: PlayerId }> = [];
         const deps = withBridge(realDeps(), {
             onSeatClaimed: (event) => {
                 claimed.push({ playerId: event.playerId });
@@ -567,7 +567,9 @@ describe('createMatchServer — protocol edges', () => {
             c.joinMatch(match.matchId, 'player');
             await c.nextMessage('joinAck');
         }
-        expect(claimed.sort((a, b) => a.playerId - b.playerId)).toEqual([{ playerId: 1 }, { playerId: 2 }]);
+        expect(claimed.sort((a, b) => a.playerId.localeCompare(b.playerId)).map((c) => c.playerId)).toEqual(
+            match.matchConfig.playerIds.slice(0, 2).sort((a, b) => a.localeCompare(b)),
+        );
 
         const t1 = await one.nextMessage('terminal');
         const t2 = await two.nextMessage('terminal');
@@ -576,7 +578,7 @@ describe('createMatchServer — protocol edges', () => {
 
         // Exactly one bridge callback despite further scheduler fires.
         await waitFor(50);
-        expect(terminals).toEqual([{ matchId: match.matchId, winner: 1 }]);
+        expect(terminals).toEqual([{ matchId: match.matchId, winner: toBranded<PlayerId>('winner-001') }]);
         expect(one.socket.sentFrames.filter((f) => f.type === 'terminal')).toHaveLength(1);
 
         await server.close();
@@ -634,7 +636,7 @@ describe('createMatchServer — protocol edges', () => {
 
         // Burst well past the 1-token bucket: some accept, rest drop.
         for (let i = 0; i < 5; i++) {
-            one.order({ kind: 'clearAllPipes', player: 1 as PlayerId, cell: { x: 1, y: 1 } });
+            one.order({ kind: 'clearAllPipes', player: match.matchConfig.playerIds[0], cell: { x: 1, y: 1 } });
         }
         await one.nextMessage('orderAck'); // at least the first landed
 
