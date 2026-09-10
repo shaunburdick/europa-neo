@@ -31,6 +31,7 @@
 
 import { EuropaBanner } from '@europa/design/components';
 import type { PublicLobbyEntry } from '@europa/matchmaking';
+import { Link } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 
@@ -254,16 +255,12 @@ export function LobbyLanding({
                             You have an active match {state.activeMatchId.slice(0, 8)}…. It is marked "Your match" in
                             the list below.
                         </span>
-                        <a
+                        <Link
+                            to={`/match/${state.activeMatchId}`}
                             className="europa-lobby__button europa-lobby__button--secondary europa-lobby__button--sm europa-focus-ring"
-                            href={`/match/${state.activeMatchId}`}
-                            onClick={(event) => {
-                                event.preventDefault();
-                                window.history.pushState(window.history.state, '', `/match/${state.activeMatchId}`);
-                            }}
                         >
                             Resume
-                        </a>
+                        </Link>
                     </div>
                 ) : null}
                 <div className="europa-lobby__grid">
@@ -294,16 +291,9 @@ export function LobbyLanding({
                                 </div>
                             </div>
                             {state.identityStatus !== 'restoring' ? (
-                                <a
-                                    className="europa-lobby__profile-link europa-focus-ring"
-                                    href="/profile"
-                                    onClick={(event) => {
-                                        event.preventDefault();
-                                        window.history.pushState(window.history.state, '', '/profile');
-                                    }}
-                                >
+                                <Link to="/profile" className="europa-lobby__profile-link europa-focus-ring">
                                     {state.identityStatus === 'named' ? 'Manage profile' : 'Choose a name'}
-                                </a>
+                                </Link>
                             ) : null}
                         </section>
                         <LobbyCreateForm

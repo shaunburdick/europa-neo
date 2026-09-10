@@ -38,9 +38,7 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-// ----------------------------------------------------------------------------
-// Fixtures
-// ----------------------------------------------------------------------------
+// ─── Fixtures ───────────────────────────────────────────────────────────────
 
 const MATCH_A = 'aaaaaaaa-0000-4000-8000-000000000000' as MatchId;
 const MATCH_B = 'bbbbbbbb-0000-4000-8000-000000000000' as MatchId;
@@ -300,8 +298,7 @@ describe('LobbyLanding (smoke)', () => {
         expect(links).toHaveLength(0);
     });
 
-    test('clicking "Manage profile" navigates to /profile via pushState', async () => {
-        const pushState = vi.spyOn(window.history, 'pushState');
+    test('clicking "Manage profile" navigates to /profile via Link', async () => {
         const state = stateOf({
             connection: 'ready',
             identityStatus: 'named',
@@ -310,9 +307,7 @@ describe('LobbyLanding (smoke)', () => {
         });
         const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
         const link = screen.getByRole('link', { name: 'Manage profile' }).element() as HTMLAnchorElement;
-        await link.click();
-        expect(pushState).toHaveBeenCalledTimes(1);
-        expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/profile');
+        expect(link.getAttribute('href')).toBe('/profile');
     });
 
     test('no identity input form is present in the lobby landing', async () => {

@@ -49,6 +49,7 @@
  */
 
 import type { PublicLobbyEntry } from '@europa/matchmaking';
+import { useNavigate } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -218,6 +219,7 @@ export interface LobbyRootProps {
  */
 export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }: LobbyRootProps): JSX.Element {
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
+    const navigate = useNavigate();
 
     // Shared hidden live regions (App.tsx pattern). Runtime-owned so
     // announcements SURVIVE the lobby⇄match view swap.
@@ -286,7 +288,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
             controller.store.dispatch({ kind: 'lobbyDeepLinkInterstitialDismissed' });
         }
         if (window.location.pathname !== '/lobby') {
-            window.history.replaceState(window.history.state, '', '/lobby');
+            void navigate({ to: '/lobby', replace: true });
         }
         if (state.viewMode === 'match') {
             void controller.leaveMatch();
@@ -402,8 +404,8 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         if (state.identityStatus !== 'unnamed') return;
         const route = classifyPathname(window.location.pathname);
         if (route.kind !== 'match') return;
-        const returnTo = encodeURIComponent(window.location.pathname);
-        window.history.replaceState(window.history.state, '', `/profile?returnTo=${returnTo}`);
+        const returnTo = window.location.pathname;
+        void navigate({ to: '/profile', search: { returnTo }, replace: true });
     }, [state.identityStatus]);
 
     // Successful actions initiated from the lobby get one canonical semantic
@@ -425,7 +427,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         const pathname = new URL(path).pathname;
         completedNavigationPathRef.current = pathname;
         if (window.location.pathname !== pathname) {
-            window.history.pushState(window.history.state, '', pathname);
+            void navigate({ to: pathname });
         }
         // Do not put the newly-written path back through route resolution.
         // The command already succeeded and its target may have changed state
@@ -445,7 +447,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                 // mistake a later Back traversal for its original push.
                 completedNavigationPathRef.current = null;
                 if (window.location.pathname !== '/lobby') {
-                    window.history.pushState(window.history.state, '', '/lobby');
+                    void navigate({ to: '/lobby' });
                 }
                 announcer?.announce('Returned to the lobby.', 'polite');
             }
