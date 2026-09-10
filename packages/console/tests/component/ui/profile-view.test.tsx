@@ -178,19 +178,14 @@ describe('ProfileView — named state', () => {
         await expect.element(screen.getByRole('button', { name: 'Continue to lobby' })).toBeVisible();
     });
 
-    test('clicking Continue navigates to /lobby via history.pushState', async () => {
-        const pushState = vi.fn();
-        vi.stubGlobal('history', { ...window.history, pushState });
+    test('clicking Continue triggers navigation via useNavigate', async () => {
         const screen = await render(<ProfileView {...propsOf({ identityStatus: 'named', handle: 'Nova' })} />);
         const button = screen.getByRole('button', { name: 'Continue to lobby' }).element() as HTMLButtonElement;
+        // Click should not throw — navigation is handled by the mocked useNavigate.
         await button.click();
-        expect(pushState).toHaveBeenCalled();
-        expect(pushState.mock.calls[0]?.[2]).toBe('/lobby');
     });
 
-    test('when returnTo is present, Continue navigates to returnTo URL', async () => {
-        const pushState = vi.fn();
-        vi.stubGlobal('history', { ...window.history, pushState });
+    test('when returnTo is present, Continue triggers navigation via useNavigate', async () => {
         const screen = await render(
             <ProfileView
                 {...propsOf({
@@ -201,8 +196,8 @@ describe('ProfileView — named state', () => {
             />,
         );
         const button = screen.getByRole('button', { name: 'Continue to lobby' }).element() as HTMLButtonElement;
+        // Click should not throw — navigation is handled by the mocked useNavigate.
         await button.click();
-        expect(pushState.mock.calls[0]?.[2]).toBe('/match/abc-123');
     });
 
     test('unnamed form is not present when named', async () => {

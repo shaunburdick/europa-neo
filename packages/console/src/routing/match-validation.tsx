@@ -17,7 +17,7 @@
  * @module
  */
 
-import { redirect } from '@tanstack/react-router';
+import { Link, redirect } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 import type { RouteRejection } from './route';
@@ -139,9 +139,9 @@ export function MatchIdValidationError({ error, reset }: MatchIdValidationErrorP
                     <button type="button" className="europa-lobby__button europa-focus-ring" onClick={reset}>
                         Try again
                     </button>
-                    <a href="/lobby" className="europa-lobby__button europa-focus-ring">
+                    <Link to="/lobby" className="europa-lobby__button europa-focus-ring">
                         Return to lobby
-                    </a>
+                    </Link>
                 </div>
             </section>
         </main>

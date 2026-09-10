@@ -21,7 +21,7 @@
  * @module
  */
 
-import { useParams } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { useSyncExternalStore } from 'react';
 import type { MatchId } from '../state/types';
@@ -40,6 +40,7 @@ export function MatchSpectateRoute(): JSX.Element | null {
     const matchId = rawMatchId as MatchId;
     const { controller, wsUrl, announcer } = useLobbyLayout();
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
+    const navigate = useNavigate();
 
     // -- Render match leg (viewMode === 'match') ----------------------------
     if (state.viewMode === 'match') {
@@ -67,18 +68,18 @@ export function MatchSpectateRoute(): JSX.Element | null {
                 onLeave={() => {
                     void controller.leaveMatch().then((result) => {
                         if (result.ok) {
-                            window.history.pushState(window.history.state, '', '/lobby');
+                            void navigate({ to: '/lobby' });
                             announcer?.announce('Returned to the lobby.', 'polite');
                         }
                     });
                 }}
                 onRouteFailure={() => {
-                    window.history.pushState(window.history.state, '', '/lobby');
+                    void navigate({ to: '/lobby' });
                 }}
                 onReturnToLobby={() => {
                     void controller.leaveMatch().then((result) => {
                         if (result.ok) {
-                            window.history.pushState(window.history.state, '', '/lobby');
+                            void navigate({ to: '/lobby' });
                             announcer?.announce('Returned to the lobby.', 'polite');
                         }
                     });

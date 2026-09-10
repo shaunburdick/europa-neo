@@ -34,6 +34,7 @@
  */
 
 import { EuropaButton, EuropaCard, EuropaPage, EuropaStack, EuropaWaiting } from '@europa/design/components';
+import { useNavigate } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 
@@ -76,6 +77,7 @@ export function ProfileView({
     const [localError, setLocalError] = useState<string | null>(null);
     const [editing, setEditing] = useState(false);
     const headingRef = useRef<HTMLHeadingElement>(null);
+    const navigate = useNavigate();
 
     const headingId = useId();
     const fieldName = useId();
@@ -103,7 +105,7 @@ export function ProfileView({
         if (named && wasUnnamedRef.current) {
             wasUnnamedRef.current = false;
             const target = returnTo ?? '/lobby';
-            window.history.pushState(window.history.state, '', target);
+            void navigate({ to: target });
         }
     }, [named, returnTo]);
 
@@ -127,10 +129,10 @@ export function ProfileView({
         onSubmitHandle(verdict.value);
     }
 
-    /** Navigate to returnTo or /lobby via history.pushState. */
+    /** Navigate to returnTo or /lobby. */
     function navigateToTarget(): void {
         const target = returnTo ?? '/lobby';
-        window.history.pushState(window.history.state, '', target);
+        void navigate({ to: target });
     }
 
     /** Enter edit mode, pre-filling the draft with the current handle. */

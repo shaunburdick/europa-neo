@@ -16,4 +16,38 @@
  * registration.
  */
 
+import { createElement } from 'react';
+import { vi } from 'vitest';
+
 import '@europa/design/dist/design.css';
+
+/**
+ * Mock TanStack Router's `Link` and `useNavigate` for component tests.
+ *
+ * - `Link` renders a plain `<a>` tag with the correct `href`.
+ * - `useNavigate` returns a function that delegates to the real
+ *   `window.history.pushState` / `replaceState` so that spies on
+ *   those methods still work. This preserves test compatibility
+ *   with the pre-conversion assertion patterns.
+ */
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@tanstack/react-router')>();
+    return {
+        ...actual,
+        Link: (props: { to: string; children: React.ReactNode; [key: string]: unknown }) => {
+            const { to, children, ...rest } = props;
+            return createElement('a', { href: to, ...rest }, children);
+        },
+        useNavigate: () => {
+            return (opts: { to: string; replace?: boolean; search?: Record<string, string> }) => {
+                let url = opts.to;
+                if (opts.search !== undefined) {
+                    const params = new URLSearchParams(opts.search);
+                    url += `?${params.toString()}`;
+                }
+                const method = opts.replace ? 'replaceState' : 'pushState';
+                window.history[method](window.history.state, '', url);
+            };
+        },
+    };
+});

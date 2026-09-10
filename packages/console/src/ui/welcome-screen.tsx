@@ -25,6 +25,7 @@
  * @module
  */
 
+import { Link } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -103,8 +104,8 @@ export function WelcomeScreen(): JSX.Element {
                 </p>
 
                 {/* Primary CTA: Play — FR-004: styled &lt;a&gt; with europa tokens. */}
-                <a
-                    href="/lobby"
+                <Link
+                    to="/lobby"
                     className="europa-focus-ring"
                     style={{
                         display: 'inline-flex',
@@ -124,7 +125,7 @@ export function WelcomeScreen(): JSX.Element {
                     }}
                 >
                     Play
-                </a>
+                </Link>
 
                 {/* Secondary links — FR-005: external links with target="_blank". */}
                 <nav
