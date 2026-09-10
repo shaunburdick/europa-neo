@@ -66,10 +66,13 @@ Replace `PlayerId = 1 | 2 | 3 | 4` with branded string type via NanoID 12-char. 
 - T-043: ids.ts generatePlayerId — ✅
 - T-044: Networking tests — ✅
 
-### Wave 8 — Console — 🔄 In Progress
+### Wave 8 — Console — ✅ Complete (68/68 pass, pre-existing failures noted)
+- T-045: ws-match-client.ts — ✅
+- T-046: reducer/store — ✅
+- T-047: computePlayerView calls — ✅
+- T-048: Console tests — ✅
 
-### Wave 9 — Integration + PR — ⏳ Pending
-- T-049 through T-053
+### Wave 9 — Integration + PR — 🔄 In Progress
 
 ## Decisions & Rationale
 - 2026-09-09: NanoID 12-char over UUID — compact, URL-safe, collision-resistant for match-scale

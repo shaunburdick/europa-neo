@@ -91,7 +91,7 @@ class FakeWebSocket {
 
     deliver(type: string, payload: unknown): void {
         serverSeq += 1;
-        const envelope = { type, version: '0.1.0', seq: serverSeq, payload };
+        const envelope = { type, version: '0.2.0', seq: serverSeq, payload };
         this.receive(JSON.stringify(envelope));
     }
 
@@ -355,7 +355,7 @@ async function establish(revision = 1): Promise<FakeWebSocket> {
         throw new Error('no socket created');
     }
     socket.open();
-    socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'conn-1', heartbeatIntervalMs: 60_000 });
+    socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'conn-1', heartbeatIntervalMs: 60_000 });
     socket.deliverLobby(identityEvent(null));
     await settlePromises(); // let the subscribe .then chain run its course later
     socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(revision) });
@@ -390,7 +390,7 @@ describe('establish cycle', () => {
         socket.open();
         expect(sentEnvelope(socket, 0).type).toBe('hello');
 
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         const identityFrame = sentEnvelope(socket, 1);
         expect(identityFrame.type).toBe('lobbyIdentity');
         const claim = identityFrame.payload.claim as Record<string, unknown>;
@@ -462,7 +462,7 @@ describe('claim persistence', () => {
         const connecting = harness.client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socket.deliverLobby(identityEvent('Nova'));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
@@ -540,7 +540,7 @@ describe('claim persistence', () => {
         const connecting = harness.client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socket.deliverLobby(identityEvent('Nova'));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
@@ -562,7 +562,7 @@ describe('claim persistence', () => {
         const connecting = harness.client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socket.deliverLobby(identityEvent('Nova'));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
@@ -600,7 +600,7 @@ describe('server-issued identity adoption (feature 010 Clarifications v1.6)', ()
             throw new Error('no retry socket created');
         }
         nextSocket.open();
-        nextSocket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c2', heartbeatIntervalMs: 60_000 });
+        nextSocket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c2', heartbeatIntervalMs: 60_000 });
         const claimFrame = sentEnvelope(nextSocket, 1);
         const claim = claimFrame.payload.claim as Record<string, unknown>;
         expect(claim.guestPlayerId).toBe(SERVER_ID);
@@ -612,7 +612,7 @@ describe('server-issued identity adoption (feature 010 Clarifications v1.6)', ()
         const connecting = harness.client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         // Named session established WITHOUT any delivered id…
         socket.deliverLobby(identityEvent('Nova'));
         await settlePromises();
@@ -659,7 +659,7 @@ describe('server-issued identity adoption (feature 010 Clarifications v1.6)', ()
         const connecting = client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socket.deliverLobby(identityEvent(null, SERVER_ID));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
@@ -762,7 +762,7 @@ describe('action correlation', () => {
         const connecting = client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socket.deliverLobby(identityEvent(null));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
@@ -809,7 +809,7 @@ describe('action correlation', () => {
         const connecting = client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socket.deliverLobby(identityEvent(null));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
@@ -864,7 +864,7 @@ describe('snapshot revision gating', () => {
         const reconnecting = harness.client.state();
         expect(reconnecting.connection).toBe('reconnecting');
         socketB.open();
-        socketB.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c2', heartbeatIntervalMs: 60_000 });
+        socketB.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c2', heartbeatIntervalMs: 60_000 });
         socketB.deliverLobby(identityEvent(null));
         await settlePromises();
         // Post-restart the server's revisions restarted from 1.
@@ -892,7 +892,7 @@ describe('disconnect / retry state machine', () => {
         harness.scheduler.advance(500);
         const socketB = FakeWebSocket.instances[1];
         socketB.open();
-        socketB.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c2', heartbeatIntervalMs: 60_000 });
+        socketB.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c2', heartbeatIntervalMs: 60_000 });
         const identityFrame = sentEnvelope(socketB, 1);
         expect(identityFrame.type).toBe('lobbyIdentity');
         expect((identityFrame.payload.claim as Record<string, unknown>).guestPlayerId).toBe(CLAIM_A);
@@ -993,7 +993,7 @@ describe('privacy — no bearer credential leakage in URLs, logs, or errors', ()
         const first = client.connect('ws://lobby.example:8080/ws');
         const socketA = FakeWebSocket.instances[0];
         socketA.open();
-        socketA.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socketA.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socketA.deliverLobby(identityEvent('Nova'));
         await settlePromises();
         socketA.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
@@ -1025,7 +1025,7 @@ describe('privacy — no bearer credential leakage in URLs, logs, or errors', ()
         const connecting = client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socket.deliverLobby(identityEvent('Nova'));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
@@ -1062,7 +1062,7 @@ describe('privacy — no bearer credential leakage in URLs, logs, or errors', ()
         const connecting = client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.deliver('helloAck', { protocolVersion: '0.1.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
+        socket.deliver('helloAck', { protocolVersion: '0.2.0', connectionId: 'c1', heartbeatIntervalMs: 60_000 });
         socket.deliverLobby(identityEvent(null));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });

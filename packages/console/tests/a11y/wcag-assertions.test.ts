@@ -477,7 +477,7 @@ describe('WCAG 2.3.3 — reduced motion', () => {
                     },
                 ],
             ]),
-            playerColors: { 1: '#dc2626' },
+            playerColors: new Map([[1, '#dc2626']]),
             effects: [
                 { kind: 'combat', cell: { x: 0, y: 0 }, expiresAtMs: Number.MAX_SAFE_INTEGER },
             ] satisfies readonly MapEffect[],

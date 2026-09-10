@@ -13,15 +13,21 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
 import '../../../src/styles/index.css';
-import { DEFAULT_CAMERA, DEFAULT_PLAYER_COLORS } from '../../../src/config';
+import { DEFAULT_CAMERA } from '../../../src/config';
 import { CellView } from '../../../src/render/cell-view';
-import type { CellRenderInfo } from '../../../src/state/types';
+import type { CellRenderInfo, PlayerId } from '../../../src/state/types';
+
+/** Minimal player-color map for CellView tests. */
+const TEST_PLAYER_COLORS: ReadonlyMap<PlayerId, string> = new Map([
+    ['1' as PlayerId, '#dc2626'],
+    ['2' as PlayerId, '#2563eb'],
+]);
 
 /** Render one cell and return its root element. */
 async function renderCell(info: CellRenderInfo): Promise<HTMLElement> {
     const screen = await render(
         <div role="row">
-            <CellView info={info} camera={DEFAULT_CAMERA} playerColors={DEFAULT_PLAYER_COLORS} />
+            <CellView info={info} camera={DEFAULT_CAMERA} playerColors={TEST_PLAYER_COLORS} />
         </div>,
     );
     const el = screen.container.querySelector('[role="gridcell"]');

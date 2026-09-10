@@ -93,7 +93,10 @@ function tolerateDuplicateRegistration(server: Server): Server {
  * @param seed Fixed seed (deterministic board).
  * @returns A `register` thunk that hands the session to the server.
  */
-function buildLobbySession(matchId: MatchId, seed: number): {
+function buildLobbySession(
+    matchId: MatchId,
+    seed: number,
+): {
     readonly register: (server: Server) => void;
     readonly playerIds: readonly PlayerId[];
 } {

@@ -98,7 +98,7 @@ function rosterDeltas(delivered: Delivery[]): RosterDelta[] {
         .filter((d): d is RosterDelta => d !== undefined);
 }
 
-function rosterEventsFor(delivered: Delivery[], connectionId: ConnectionId): LobbyEvent[] {
+function _rosterEventsFor(delivered: Delivery[], connectionId: ConnectionId): LobbyEvent[] {
     return delivered
         .filter((d) => d.connectionId === connectionId && (d.event.kind === 'roster' || d.event.kind === 'rosterDelta'))
         .map((d) => d.event);

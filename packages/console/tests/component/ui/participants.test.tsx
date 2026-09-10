@@ -35,7 +35,7 @@ describe('ParticipantStrip (smoke)', () => {
     });
 
     test('labels each seat with its server handle and marks the local seat', async () => {
-        const session = sessionOf({ playerId: 2, displayName: 'Orion', opponents: ['Nova'] });
+        const session = sessionOf({ playerId: 2, seat: 2, displayName: 'Orion', opponents: ['Nova'] });
         const screen = await render(<ParticipantStrip session={session} />);
         const region = screen.container.querySelector('[data-europa-participants]');
         expect(region).not.toBeNull();
@@ -51,7 +51,7 @@ describe('ParticipantStrip (smoke)', () => {
     });
 
     test('every server-provided name is bidi-isolated inside <bdi>', async () => {
-        const session = sessionOf({ playerId: null, displayName: '', opponents: ['Nova', 'מִיכָאֵל'] });
+        const session = sessionOf({ opponents: ['Nova', 'מִיכָאֵל'] });
         const screen = await render(<ParticipantStrip session={session} />);
         const isolated = screen.container.querySelectorAll('bdi');
         expect(isolated).toHaveLength(2);
@@ -60,7 +60,7 @@ describe('ParticipantStrip (smoke)', () => {
     });
 
     test('uses the authoritative player correlation for seat placement and a neutral name fallback', async () => {
-        const session = sessionOf({ playerId: 2, displayName: '', opponents: ['Nova'] });
+        const session = sessionOf({ playerId: 2, seat: 2, displayName: '', opponents: ['Nova'] });
         const screen = await render(<ParticipantStrip session={session} />);
         const seats = screen.container.querySelectorAll('[data-europa-seat]');
         expect(seats[0]?.textContent).toContain('Nova');

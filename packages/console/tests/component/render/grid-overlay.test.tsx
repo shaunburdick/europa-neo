@@ -31,6 +31,7 @@ function mapViewFrom(view: ReturnType<typeof buildPlayerView>): MapView {
         prevView: null,
         nowMs: 0,
         viewportOffset: { x: 0, y: 0 },
+        playerColors: new Map(),
     });
 }
 

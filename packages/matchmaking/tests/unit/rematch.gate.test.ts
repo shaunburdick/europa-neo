@@ -15,9 +15,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { MatchId, SeatAssignment } from '../../contracts/match-types';
+import type { MatchId, PlayerId, SeatAssignment } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
-import type { PlayerId } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';

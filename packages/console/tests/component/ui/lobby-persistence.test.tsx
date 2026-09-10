@@ -40,7 +40,7 @@ import { LobbyRootWithLayout as LobbyRoot } from '../../fixtures/lobby-layout-wr
 
 /** Minimal constants shared with the scripted server. */
 const SERVER_URL = 'ws://lobby.test:8080';
-const WIRE_VERSION = '0.1.0';
+const WIRE_VERSION = '0.2.0';
 
 /** Minimal WebSocket double: records outbound frames, exposes drivers. */
 class FakeSocket {

@@ -1262,7 +1262,9 @@ describe('lobby transport integration (feature 010 T-013)', () => {
         if (seatA === null || seatB === null) {
             throw new Error('seats were not assigned to attached players');
         }
-        expect(new Set([seatA, seatB])).toEqual(new Set([1, 2]));
+        expect(typeof seatA).toBe('string');
+        expect(typeof seatB).toBe('string');
+        expect(seatA).not.toBe(seatB);
 
         // -- Spectator attaches through the lobby + read-only path --------
         const cara = await establishNamedClient(stack.url, 'Cara');

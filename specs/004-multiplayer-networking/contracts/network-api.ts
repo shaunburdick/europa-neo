@@ -634,6 +634,15 @@ export interface Server {
   registerMatch(req: RegisterMatchRequest): void;
 
   /**
+   * Get the playerIds from an already-registered match's config.
+   * Returns `null` if the match is not registered.
+   *
+   * Used by autoStart to reconcile playerIds when a lobby-style
+   * pre-registration already created the channel.
+   */
+  getRegisteredPlayerIds(matchId: MatchId): readonly import('@europa/engine').PlayerId[] | null;
+
+  /**
    * Remove a match. Closes all connections for the match (clean
    * `1001` close), releases the engine session, cancels any pending
    * grace timers. Called by the matchmaker on explicit teardown

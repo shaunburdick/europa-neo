@@ -80,10 +80,13 @@ export function createPlayerRegistry(ids: readonly PlayerId[]): PlayerRegistry {
     // Pre-compute sorted order (stable localeCompare on ASCII alphanumeric).
     const sortedIds = Object.freeze([...ids].sort((a, b) => a.localeCompare(b)));
 
-    // Build index map (O(1) lookup).
+    // Build index map (O(1) lookup) — positions in the SORTED array,
+    // so indexOfId(i) is the inverse of idAtIndex(i): the 1-based
+    // values stored in WorldState cityOwners/troopOwners match the
+    // sorted order, not the original insertion order.
     const indexMap = new Map<string, number>();
-    for (let i = 0; i < ids.length; i++) {
-        const id = ids[i];
+    for (let i = 0; i < sortedIds.length; i++) {
+        const id = sortedIds[i];
         if (id !== undefined) {
             indexMap.set(id, i);
         }
