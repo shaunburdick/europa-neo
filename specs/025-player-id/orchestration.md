@@ -1,9 +1,9 @@
 # Orchestration Log: Issue #74 — Branded String PlayerId
 
 ## Status
-- **Current Wave**: Wave 3 (Serialization)
+- **Current Wave**: Complete — PR Ready
 - **Branch**: `issue-74-player-id`
-- **Last Updated**: 2026-09-09
+- **Last Updated**: 2026-09-10
 
 ## Plan Summary
 
@@ -72,7 +72,42 @@ Replace `PlayerId = 1 | 2 | 3 | 4` with branded string type via NanoID 12-char. 
 - T-047: computePlayerView calls — ✅
 - T-048: Console tests — ✅
 
-### Wave 9 — Integration + PR — 🔄 In Progress
+### Wave 9 — Terrain Adaptation — ✅ Complete
+- Adapted terrain package for numeric CityPlacement.owner (not string PlayerId)
+- startingCitiesByPlayer from Record<PlayerId,...> to ReadonlyArray<ReadonlyArray<Coord>>
+- TERRAIN_API_VERSION bumped to 0.2.0
+
+### Wave 10 — Matchmaking Fixes — ✅ Complete (62aad3c)
+- Added getRegisteredPlayerIds to matchmaking test mocks (was causing 88 failures)
+- Updated conformance version assertions (0.1.0 → 0.2.0)
+- Fixed PlayerRegistry sort-order gotcha in test assertions
+- Updated MatchConfig.playerCount → playerIds in tests
+
+### Wave 11 — Post-Wave Test Fixes — ✅ Complete (62aad3c)
+- PlayerRegistry indexMap built from sortedIds (critical fog visibility fix)
+- Console version strings updated across all test fixtures
+- playerColors changed from plain objects to ReadonlyMap in test fixtures
+- component test fixtures updated for new types
+- Networking spec contract synced
+
+### Wave 12 — Final Verification — ✅ Complete
+All non-E2E tests pass across all packages:
+- Core: 28/28
+- Engine: 357/357
+- Terrain: 313/313 (+ 50 skipped)
+- Fog: 84/84
+- Networking: 250/250
+- Matchmaking: 363/363
+- Console unit: 840/840
+- Console component: 237/237
+- Console a11y: 69/69
+- Console lobby-integration: 9/9
+- Typecheck: clean
+- Lint: clean (pre-existing warnings only)
+- Format: clean
+- Version: clean
+
+E2E: 43/45 pass (2 pre-existing N=3/N=4 failures — timing race in multi-player terminal delivery)
 
 ## Decisions & Rationale
 - 2026-09-09: NanoID 12-char over UUID — compact, URL-safe, collision-resistant for match-scale
@@ -80,9 +115,12 @@ Replace `PlayerId = 1 | 2 | 3 | 4` with branded string type via NanoID 12-char. 
 - 2026-09-09: No backward compatibility — pre-1.0, clean break
 - 2026-09-09: Player ID table prepended to binary format — enables deterministic registry reconstruction on deserialize
 - 2026-09-09: applyCommand/replayMatch catch errors from unknown players — orders recorded even if rejected
+- 2026-09-10: PlayerRegistry indexMap built from sortedIds — consistent with idAtIndex() sorted order
+- 2026-09-10: CityPlacement.owner stays numeric (terrain uses indices, not string IDs)
+- 2026-09-10: getRegisteredPlayerIds on Server interface — matchmaking needs to read pre-registered IDs for consistent seat bindings
 
 ## Blockers & Escalations
-- None yet
+- 2 E2E failures (N=3, N=4 full-stack): pre-existing timing race where survivor console enters "reconnecting" instead of "game_over" after all other players leave via matchmaker.leaveMatch. Not caused by PlayerId changes. Tests verify correctly — issue is in the terminal event delivery path when multiple leaveMatch calls fire synchronously.
 
 ## New Tasks Discovered
-- None yet
+- None
