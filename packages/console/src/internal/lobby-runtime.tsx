@@ -209,6 +209,8 @@ export interface LobbyRootProps {
     readonly initialRoute?: Extract<Route, { readonly kind: 'match' }> | undefined;
     /** Recovery notice selected by bootstrap for an unknown pathname. */
     readonly initialNoticeKind?: RouteNoticeKind | undefined;
+    /** Router-aware handoff for successful lobby actions. */
+    readonly onNavigateToMatch?: (matchId: MatchId, intent: 'create' | 'join' | 'spectate') => void;
 }
 
 /**
@@ -216,7 +218,13 @@ export interface LobbyRootProps {
  * outcome announcements, and the lobby/match view gate. Exported for
  * component tests (the mount entry wires it identically).
  */
-export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }: LobbyRootProps): JSX.Element {
+export function LobbyRoot({
+    controller,
+    wsUrl,
+    initialRoute,
+    initialNoticeKind,
+    onNavigateToMatch,
+}: LobbyRootProps): JSX.Element {
     const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
 
     // Shared hidden live regions (App.tsx pattern). Runtime-owned so
@@ -425,14 +433,18 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         const pathname = new URL(path).pathname;
         completedNavigationPathRef.current = pathname;
         if (window.location.pathname !== pathname) {
-            window.history.pushState(window.history.state, '', pathname);
+            if (onNavigateToMatch !== undefined) {
+                onNavigateToMatch(matchId, pending);
+            } else {
+                window.history.pushState(window.history.state, '', pathname);
+            }
         }
         // Do not put the newly-written path back through route resolution.
         // The command already succeeded and its target may have changed state
         // (for example, the final joiner starts the match immediately).
         // Back/Forward remains the explicit re-resolution boundary.
         pendingNavigationRef.current = null;
-    }, [state.activeMatchId, state.viewMode]);
+    }, [onNavigateToMatch, state.activeMatchId, state.viewMode]);
 
     function leaveMatch(): void {
         void controller.leaveMatch().then((result) => {

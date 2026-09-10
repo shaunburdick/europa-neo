@@ -135,7 +135,22 @@ const lobbyRoute = createRoute({
  */
 function LobbyRoute(): JSX.Element {
     const { controller, wsUrl } = useLobbyLayout();
-    return <LobbyRoot controller={controller} wsUrl={wsUrl} />;
+    const navigate = useNavigate();
+    return (
+        <LobbyRoot
+            controller={controller}
+            wsUrl={wsUrl}
+            onNavigateToMatch={(matchId, intent) => {
+                if (intent === 'create') {
+                    void navigate({ to: '/match/$matchId', params: { matchId } });
+                } else if (intent === 'join') {
+                    void navigate({ to: '/match/$matchId/join', params: { matchId } });
+                } else {
+                    void navigate({ to: '/match/$matchId/spectate', params: { matchId } });
+                }
+            }}
+        />
+    );
 }
 
 /**
