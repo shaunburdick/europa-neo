@@ -65,7 +65,7 @@ function assertValid3pResult(result: ReturnType<typeof generateBoard>, boardSize
 
     // startingCitiesByPlayer mirrors the board exactly.
     for (const city of board.cities) {
-        const list = startingCitiesByPlayer[city.owner];
+        const list = startingCitiesByPlayer[city.owner - 1];
         expect(list).toBeDefined();
         expect(
             list.some((c) => c.x === city.cell.x && c.y === city.cell.y),

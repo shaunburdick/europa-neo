@@ -38,7 +38,7 @@
  * Mirrors the engine's `ENGINE_API_VERSION` discipline: every consumer
  * pin-check at startup, incrementing forces a coordinated update.
  */
-export const TERRAIN_API_VERSION = '0.1.0' as const;
+export const TERRAIN_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Engine types (re-exported for convenience, not re-defined)
@@ -278,11 +278,10 @@ export interface TerrainGenerationResult {
   readonly effectiveSeed: MapSeed;
   /**
    * Per-player city coordinates. Redundant with `board.cities` but
-   * exposed for symmetry checks and for tests. Index is `PlayerId - 1`.
+   * exposed for symmetry checks and for tests. Index is 0-based
+   * (index 0 = player 1, index 1 = player 2, etc.).
    */
-  readonly startingCitiesByPlayer: Readonly<
-    Record<PlayerId, ReadonlyArray<Coord>>
-  >;
+  readonly startingCitiesByPlayer: ReadonlyArray<ReadonlyArray<Coord>>;
   /**
    * The `GenerationSettings` actually used by the generator after
    * out-of-range fields were clamped to their safe ranges per FR-008.

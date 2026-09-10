@@ -28,7 +28,7 @@
  *   - Same `(req, rng-state)` → identical output, byte-for-byte.
  */
 
-import type { Board, CityPlacement, PlayerId } from '@europa/core';
+import type { Board, CityPlacement } from '@europa/core';
 
 import { buildBoard } from './board';
 import { getPlayerBand } from './city-band';
@@ -191,16 +191,16 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         //   - 2p: P1 (partner is P2)
         //   - 3p: P1 (partner is P3), P2 (self-symmetric)
         //   - 4p: P1 (partner is P4), P2 (partner is P3)
-        const primaryPlayers: readonly PlayerId[] = (() => {
+        const primaryPlayers: readonly number[] = (() => {
             if (req.playerCount === 2) {
-                return [1 as PlayerId];
+                return [1];
             }
             if (req.playerCount === THREE_PLAYER_COUNT) {
-                return [1 as PlayerId, 2 as PlayerId];
+                return [1, 2];
             }
-            return [1 as PlayerId, 2 as PlayerId]; // 4p
+            return [1, 2]; // 4p
         })();
-        const placedCities: Array<{ cell: { x: number; y: number }; owner: PlayerId }> = [];
+        const placedCities: Array<{ cell: { x: number; y: number }; owner: number }> = [];
         for (const pid of primaryPlayers) {
             const band = getPlayerBand(pid, req.playerCount, req.boardSize, req.boardSize);
             const attemptCitiesRng = deriveSubstream(citiesRng);
@@ -251,16 +251,14 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         // Validate. If valid, return immediately.
         const report = validateBoard(boardWithCities, settings, req.playerCount);
         if (report.valid) {
-            const startingCitiesByPlayer: Record<PlayerId, ReadonlyArray<{ x: number; y: number }>> = {
-                1: [],
-                2: [],
-                3: [],
-                4: [],
-            };
+            const startingCitiesByPlayer: Array<ReadonlyArray<{ x: number; y: number }>> = Array.from(
+                { length: req.playerCount },
+                () => [],
+            );
             for (const c of cityPlacements) {
-                const arr = startingCitiesByPlayer[c.owner];
-                if (arr) {
-                    (arr as Array<{ x: number; y: number }>).push(c.cell);
+                const idx = c.owner - 1;
+                if (idx >= 0 && idx < startingCitiesByPlayer.length) {
+                    (startingCitiesByPlayer[idx] as Array<{ x: number; y: number }>).push(c.cell);
                 }
             }
             return {

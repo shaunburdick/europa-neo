@@ -63,7 +63,6 @@
 import type {
   Board,
   Coord,
-  PlayerId,
 } from '@europa/core';
 
 import type {
@@ -195,7 +194,7 @@ export declare function _placeCities(args: {
   readonly playerCount: 2 | 3 | 4;
   readonly settings: Readonly<GenerationSettings>;
   readonly rng: Rng;
-}): ReadonlyArray<{ readonly cell: Coord; readonly owner: PlayerId }>;
+}): ReadonlyArray<{ readonly cell: Coord; readonly owner: number }>;
 
 // ----------------------------------------------------------------------------
 // Constants

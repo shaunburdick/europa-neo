@@ -50,11 +50,11 @@ describe('generateBoard', () => {
                 settings: DEFAULT_GENERATION_SETTINGS,
             };
             const result = generateBoard(req);
-            // Each player has exactly 1 city.
+            // Each player has exactly 1 city. Index 0 = player 1, index 1 = player 2.
+            expect(result.startingCitiesByPlayer[0]?.length).toBe(1);
             expect(result.startingCitiesByPlayer[1]?.length).toBe(1);
-            expect(result.startingCitiesByPlayer[2]?.length).toBe(1);
-            expect(result.startingCitiesByPlayer[3]?.length).toBe(0);
-            expect(result.startingCitiesByPlayer[4]?.length).toBe(0);
+            expect(result.startingCitiesByPlayer[2]).toBeUndefined();
+            expect(result.startingCitiesByPlayer[3]).toBeUndefined();
         });
     });
 

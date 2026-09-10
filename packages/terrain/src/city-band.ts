@@ -25,7 +25,6 @@
  */
 
 import { FOUR_PLAYER_COUNT, MIN_PLAYER_COUNT, THIRD_PLAYER_ID, THREE_PLAYER_COUNT } from './constants';
-import type { PlayerId } from './contracts/terrain-types';
 
 /**
  * Spawn band for a given player. A rectangular region of the map
@@ -47,7 +46,7 @@ export interface Band {
  * @param height      Board height.
  * @returns The inclusive rectangular band for this player.
  */
-export function getPlayerBand(playerId: PlayerId, playerCount: 2 | 3 | 4, width: number, height: number): Band {
+export function getPlayerBand(playerId: number, playerCount: 2 | 3 | 4, width: number, height: number): Band {
     if (playerCount === MIN_PLAYER_COUNT) {
         // Two horizontal bands.
         const halfH = Math.floor(height / 2);
@@ -71,7 +70,7 @@ export function getPlayerBand(playerId: PlayerId, playerCount: 2 | 3 | 4, width:
             case FOUR_PLAYER_COUNT:
                 return { xMin: halfW, xMax: width - 1, yMin: halfH, yMax: height - 1 };
             default:
-                // Unreachable (PlayerId is 1..4).
+                // Unreachable (playerId is 1..4).
                 return { xMin: 0, xMax: width - 1, yMin: 0, yMax: height - 1 };
         }
     }

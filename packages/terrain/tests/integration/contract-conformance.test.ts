@@ -13,7 +13,7 @@
  * 001's `createWorld` from consuming the terrain output.
  */
 
-import type { MatchConfig } from '@europa/core';
+import type { MatchConfig, PlayerId } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 
 import { assertBoardMatchesConfig } from '../../src/board';
@@ -37,7 +37,7 @@ describe('contract conformance (Q-T08, engine ↔ terrain gate)', () => {
             const result = generateBoard(req);
             const config: MatchConfig = {
                 boardSize: 32,
-                playerCount: 2,
+                playerIds: ['test1' as PlayerId, 'test2' as PlayerId],
                 tickIntervalMs: 250,
                 seed,
                 visibilityRadius: 2,

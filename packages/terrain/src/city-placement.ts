@@ -32,7 +32,7 @@
  * cells with equal Chebyshev distance to the center.
  */
 
-import type { Coord, GenerationSettings, PlayerId, Rng } from './contracts/terrain-types';
+import type { Coord, GenerationSettings, Rng } from './contracts/terrain-types';
 
 interface Band {
     readonly xMin: number;
@@ -43,7 +43,7 @@ interface Band {
 
 interface CityPlacementLocal {
     readonly cell: Coord;
-    readonly owner: PlayerId;
+    readonly owner: number;
 }
 
 /**
@@ -223,7 +223,7 @@ export function placeCitiesInBand(
     band: Band,
     settings: Readonly<GenerationSettings>,
     rng: Rng,
-    owner: PlayerId,
+    owner: number,
     count: number = settings.citiesPerPlayer,
     existing: ReadonlyArray<Coord> = [],
     mirrorAware: boolean = false,

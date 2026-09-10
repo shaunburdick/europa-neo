@@ -37,7 +37,7 @@
  * platform.
  */
 
-import type { Board, CityPlacement, Coord, PlayerId } from '@europa/core';
+import type { Board, CityPlacement, Coord } from '@europa/core';
 import { ENGINE_CONSTANTS, flowRateForDelta } from '@europa/core';
 
 import { partnerPlayer } from './city-symmetry';
@@ -618,7 +618,4 @@ export function validateBoard(
     };
 }
 
-// Re-export the PlayerId type to keep the import graph aligned
-// (used in type narrowing above; needed when the city-symmetry
-// pass is type-checked strictly).
-export type { PlayerId };
+// partnerPlayer is used above for INV-9 validation (see city-symmetry.ts).

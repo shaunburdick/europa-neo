@@ -23,16 +23,16 @@
  */
 
 import { FOURTH_PLAYER_ID, THIRD_PLAYER_ID, THREE_PLAYER_COUNT } from './constants';
-import type { Coord, PlayerId } from './contracts/terrain-types';
+import type { Coord } from './contracts/terrain-types';
 
 interface InputCity {
     readonly cell: Coord;
-    readonly owner: PlayerId;
+    readonly owner: number;
 }
 
 interface OutputCity {
     readonly cell: Coord;
-    readonly owner: PlayerId;
+    readonly owner: number;
 }
 
 /**
@@ -46,13 +46,13 @@ interface OutputCity {
  * produces (issue #2: a private copy drifted and rejected every
  * valid 3-player board).
  */
-export function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
+export function partnerPlayer(p: number, playerCount: 2 | 3 | 4): number {
     if (playerCount === 2) {
         return p === 1 ? 2 : 1;
     }
     if (playerCount === THREE_PLAYER_COUNT) {
         if (p === 1) {
-            return THIRD_PLAYER_ID as PlayerId;
+            return THIRD_PLAYER_ID;
         }
         if (p === THIRD_PLAYER_ID) {
             return 1;
@@ -61,10 +61,10 @@ export function partnerPlayer(p: PlayerId, playerCount: 2 | 3 | 4): PlayerId {
     }
     // playerCount === 4
     if (p === 1) {
-        return FOURTH_PLAYER_ID as PlayerId;
+        return FOURTH_PLAYER_ID;
     }
     if (p === 2) {
-        return THIRD_PLAYER_ID as PlayerId;
+        return THIRD_PLAYER_ID;
     }
     if (p === THIRD_PLAYER_ID) {
         return 2;
@@ -98,7 +98,7 @@ export function enforceCitySymmetry(
     // at the partner coord with the partner owner, we don't add a
     // duplicate. This handles the case where the caller placed
     // cities for multiple players and the partners are already there.
-    const lookupKey = (cell: Coord, owner: PlayerId): string => `${String(cell.x)},${String(cell.y)},${String(owner)}`;
+    const lookupKey = (cell: Coord, owner: number): string => `${String(cell.x)},${String(cell.y)},${String(owner)}`;
     const existing = new Set<string>();
     for (const city of placed) {
         existing.add(lookupKey(city.cell, city.owner));
