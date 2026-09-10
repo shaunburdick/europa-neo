@@ -35,7 +35,7 @@ You can give up at any time during a live match:
 2. A confirmation dialog appears ("Surrender? Your cities fall under enemy control and you join as a spectator. This cannot be undone.").
 3. Click **Confirm surrender** to end your participation, or **Cancel** (or press Escape) to back out with no order sent.
 
-Surrendering takes effect immediately: your forces are put out of action and you flip from commander to spectator — you can keep watching the board, but you can issue no further orders. With you out of the fight, the match continues for the remaining players; if you were the last to leave, the surviving commander is declared the winner and the match wraps up with the end-of-match announcement. The confirmation step is deliberate: a stray click cannot eliminate you.
+Surrendering takes effect immediately: your forces are removed from the board and you flip from commander to spectator — you can keep watching the board, but you can issue no further orders. Any orders you had already queued are discarded. With you out of the fight, the match continues for the remaining players; if you were the last to leave, the surviving commander is declared the winner and the match wraps up with the end-of-match announcement. The confirmation step is deliberate: a stray click cannot eliminate you.
 
 ## Draw by mutual elimination
 
@@ -58,4 +58,3 @@ Learn how armies are built and lost: [Cities and troops](./cities-and-troops.md)
 ---
 
 [Back to contents](./index.md)
-

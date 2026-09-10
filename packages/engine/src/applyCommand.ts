@@ -88,11 +88,9 @@ export function applyCommand(
         return { world, result };
     }
 
-    // Surrender applies immediately (FR-016): mark the player eliminated
-    // and return. The next tick() will detect the terminal condition via
-    // resolveTerminal (which emits the EliminationEvent for the tick
-    // pipeline). Surrender is NOT staged in pendingOrders — its effect is
-    // durable in the returned world, no tick drain required.
+    // Surrender applies immediately (FR-016): remove the player's forces and
+    // discard only that player's queued orders. The next tick detects the
+    // terminal condition; other players' queued orders remain intact.
     if (cmd.kind === 'surrender') {
         const nextWorld = markSurrendered(world, cmd.player);
         return { world: nextWorld, result: { ok: true } };
@@ -107,8 +105,8 @@ export function applyCommand(
 }
 
 /**
- * Return a new `World` with the given player's status set to
- * `'eliminated'` (FR-016). All other fields are unchanged. Pure.
+ * Return a new `World` with the given player's status and forces cleared
+ * (FR-016). Other players' state remains unchanged. Pure.
  *
  * The player is identified by `PlayerId`; the function throws if no
  * matching player is found (this is unreachable when called from
@@ -117,14 +115,26 @@ export function applyCommand(
  */
 function markSurrendered(world: Readonly<World>, player: PlayerId): World {
     const updatedPlayers: Player[] = world.players.map((p) =>
-        p.id === player ? { ...p, status: 'eliminated' as const } : p,
+        p.id === player ? { ...p, status: 'eliminated' as const, citiesOwned: 0, troopsHeld: 0 } : p,
     );
+    const troopCounts = new Uint32Array(world.state.troopCounts);
+    const troopOwners = new Uint8Array(world.state.troopOwners);
+    const pipeMasks = new Uint8Array(world.state.pipeMasks);
+    const cityOwners = new Uint8Array(world.state.cityOwners);
+    for (let i = 0; i < troopOwners.length; i += 1) {
+        if (troopOwners[i] === player || cityOwners[i] === player) {
+            troopCounts[i] = 0;
+            troopOwners[i] = 0;
+            cityOwners[i] = 0;
+            pipeMasks[i] = 0;
+        }
+    }
     const nextWorld: World = {
         ...world,
         players: Object.freeze(updatedPlayers),
+        state: { ...world.state, troopCounts, troopOwners, pipeMasks, cityOwners },
     };
-    // Preserve the pendingOrders side-table if present.
-    const pending = readPendingOrders(world);
+    const pending = readPendingOrders(world).filter((order) => order.player !== player);
     if (pending.length > 0) {
         return withPendingOrders(nextWorld, pending);
     }

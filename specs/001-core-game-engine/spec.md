@@ -123,7 +123,7 @@ As a player, I want the game to declare a winner when all opponents surrender or
 - **FR-013**: Paratroop commands MUST cost 2 troops per 1 trooper landed, MUST have maximum range of 2 cells (Chebyshev distance), and MUST clear the destination cell's pipe configuration on landing.
 - **FR-014**: Gun commands MUST cost troops (tunable), MUST damage troops occupying the destination cell at tick time regardless of owner (friendly fire), and MUST NOT move any troops to the destination.
 - **FR-015**: The engine MUST detect terminal conditions: a player is eliminated when they hold zero troops AND zero cities; the match ends when fewer than two players remain.
-- **FR-016**: Surrender MUST immediately mark the player eliminated (forces removed or rendered inert per plan decision).
+- **FR-016**: Surrender MUST immediately mark the player eliminated and remove or render inert all of that player's active forces. The implementation clears the player's troop and city ownership, troop counts, and pipes immediately; already-staged orders from that player are discarded.
 - **FR-017**: The simulation MUST be deterministic: fixed tick rate, integer (or fixed-point) arithmetic only, no wall-clock reads inside tick logic, and command application in a well-defined total order.
 - **FR-018**: The engine MUST accept ordered command batches per tick (set/clear pipes, set reserves, paratroop, gun, surrender) and validate them against pre-tick state, rejecting invalid orders without state corruption.
 - **FR-019**: The engine MUST support 2–4 players per match (the original supported 2/3/4-player games).
