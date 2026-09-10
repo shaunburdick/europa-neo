@@ -36,6 +36,7 @@
  * 005 Clarifications v1.1.
  */
 
+import { type PlayerId, toPlayerId } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CAMERA } from '../../src/config';
 import { MapCanvas } from '../../src/render/canvas';
@@ -262,6 +263,10 @@ function buildFullBoardMapView(): MapView {
         prevView: null,
         nowMs: 250,
         viewportOffset: { x: 0, y: 0 },
+        playerColors: new Map<PlayerId, string>([
+            [toPlayerId('1'), '#dc2626'],
+            [toPlayerId('2'), '#2563eb'],
+        ]),
     });
 }
 
@@ -271,7 +276,7 @@ function liveState(): ConsoleState {
         ...INITIAL_CONSOLE_STATE,
         status: 'live',
         inputEnabled: true,
-        session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1 },
+        session: { ...INITIAL_CONSOLE_STATE.session, playerId: toPlayerId('1') },
     };
 }
 
