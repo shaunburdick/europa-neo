@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-24
 
-**Last Updated**: 2026-08-30
+**Last Updated**: 2026-09-10
 
-**Version**: 1.3
+**Version**: 1.4
 
 **Status**: Implemented (2026-08-30)
 
@@ -102,7 +102,7 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 
 **Acceptance Scenarios**:
 
-1. **Given** a push to `main` changing files under the manual directory, **When** the workflow runs, **Then** the Pages deployment completes with Jekyll-rendered HTML.
+1. **Given** a push to `main` changing files under the manual directory, **When** the workflow runs, **Then** the Pages deployment completes with Astro-rendered HTML.
 2. **Given** a push to `main` touching only package source, **When** CI runs, **Then** the Pages workflow does not deploy (path filter).
 3. **Given** a fork where Pages was never enabled, **When** the workflow runs, **Then** it fails visibly with the documented one-time remedy (set Pages source to "GitHub Actions").
 
@@ -124,7 +124,7 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 
 **Content & location**
 
-- **FR-001**: The manual MUST live in-repo as plain Markdown under `docs/manual/`, with `docs/manual/index.md` as the entry page; no static-site generator, build step, or client-side JavaScript is required to author or read it. The repo README MUST link to both the published site and the raw Markdown.
+- **FR-001**: The manual MUST live in-repo as an Astro static site under `docs/manual/` (the `@europa/manual` package), with MDX pages under `docs/manual/src/pages/` and `docs/manual/src/pages/index.mdx` as the entry page. The MDX source is readable as Markdown without a build step, and the published site is rendered HTML served from GitHub Pages. The repo README MUST link to both the published site and the repository's manual source.
 - **FR-002**: All content MUST describe the game as implemented in this repository. Where sources conflict, the implemented feature specs (001–006) and shipped code win over the original archive; zero prose may be copied from `europa-source/` (SOS license — reference material only).
 - **FR-003**: The manual MUST contain an objective section covering: victory by last-player-standing (a player is eliminated at zero troops AND zero cities), surrender (with its confirm step and transition to spectator view), and draw by mutual elimination.
  - **FR-004**: The manual MUST contain a getting-into-a-match section describing the v1 join flow: matches are reached via shareable semantic paths carrying the match id (for example, `/match/<id>/join` or `/match/<id>/spectate`); display names identify seats; reconnect state remains in the browser session rather than the URL; an unfilled match shows the waiting-for-opponent overlay until auto-start; reopening one's own path within the grace window reclaims the seat; disconnecting beyond the grace window forfeits.
@@ -135,20 +135,20 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 - **FR-008**: The manual MUST describe the board: square grid (default 32×32), elevation-shaded terrain, impassable water pools, fair maps — point-symmetric terrain with equal starting cities per player and guaranteed land routes between them — and the per-match terrain-smoothing setting (`terrainSmoothing`, default 4, range 0–8): what it does (gentler elevation changes, more viable cross-map routes), that 0 means no smoothing, and that match hosts can adjust it when creating a match.
 - **FR-009**: The manual MUST contain a reading-the-screen guide covering every console status value (`idle`, `connecting`, `live`, `reconnecting`, `expired`, `spectating`, `game_over`) in plain language, plus the tick counter, minimap navigation, order bar, reserves panel, transient feedback messages, waiting-for-opponent overlay, reconnecting banner, surrender modal, and the end-of-match announcement.
 - **FR-010**: The manual MUST include a numbers appendix table listing every player-facing tunable exactly as shipped (engine constants, tick cadence of 250 ms ≈ 4 ticks/second, default board size, vision radius, per-player colors, camera zoom bounds), each traceable to `ENGINE_CONSTANTS` / shipped defaults. The pipe-flow rows MUST list `flowBase`, `flowSlopeStep`, `flowSlopeDeltaCap`, and the resulting per-tick rates for downhill, flat, uphill, and stalled pipes (feature 001 FR-007, Clarifications v1.2). The terrain rows MUST list `terrainSmoothing` (default 4, range 0–8) traceable to `DEFAULT_GENERATION_SETTINGS` (feature 003 FR-010).
-- **FR-011**: The manual itself MUST be accessible: semantic Markdown rendered to semantic HTML (one h1 per page, hierarchical headings, tables with header rows, alt text on any image, descriptive link text), readable and navigable without JavaScript.
+- **FR-011**: The manual itself MUST be accessible: semantic MDX rendered to semantic HTML (one h1 per page, hierarchical headings, tables with header rows, alt text on any image, descriptive link text), readable and navigable without JavaScript.
 - **FR-012**: Any change set that alters gameplay behavior documented by the manual MUST update the manual in the same change set (constitution IV "specs stay truthful," extended to player-facing docs).
-- **FR-017**: The manual index page (`docs/manual/index.md`) MUST close with a footer line stating the application version the manual documents (e.g., "*This manual documents Europa Neo v0.0.1.*"); the version string MUST stay in lockstep with the shipped `APP_VERSION` (enforced by feature 009-shared-app-versioning's drift check), and version-bearing updates ride in the same change set as the change that moves them (FR-012 discipline).
+- **FR-017**: The manual index page (`docs/manual/src/pages/index.mdx`) MUST close with a footer line stating the application version the manual documents (e.g., "*This manual documents Europa Neo v0.0.1.*"); the version string MUST stay in lockstep with the shipped `APP_VERSION` (enforced by feature 009-shared-app-versioning's drift check), and version-bearing updates ride in the same change set as the change that moves them (FR-012 discipline).
 
 **Publishing**
 
 - **FR-013**: A GitHub Actions workflow MUST publish the manual on push to `main` when the change touches the manual directory (path filter), plus a manual `workflow_dispatch` trigger for republishing on demand.
-- **FR-014**: The workflow MUST use the official Pages action pattern — checkout → configure-pages → jekyll-build-pages (source scoped to the manual directory) → upload-pages-artifact → deploy-pages — with the deploy job holding `pages: write` + `id-token: write` permissions and targeting the `github-pages` environment; actions pinned to major version tags. The deployment MUST serve rendered HTML (Jekyll's default Markdown conversion), not raw `.md` downloads.
+- **FR-014**: The workflow MUST use the official Pages action pattern — checkout → configure-pages → Astro build (`pnpm --filter @europa/manual build`) → upload-pages-artifact → deploy-pages — with the deploy job holding `pages: write` + `id-token: write` permissions and targeting the `github-pages` environment; actions pinned to commit SHAs with version comments. The deployment MUST serve rendered HTML (Astro's static output), not raw `.md` or `.mdx` downloads.
 - **FR-015**: The deployed artifact MUST contain only the manual directory — repository source, packages, specs, and workflows MUST NOT be part of the published site.
 - **FR-016**: The workflow file MUST document (in comments) the one-time repository prerequisite: Settings → Pages → Source set to "GitHub Actions", which cannot be automated with the default `GITHUB_TOKEN`.
 
 ### Key Entities *(include if feature involves data)*
 
-- **ManualPage**: one Markdown file under `docs/manual/`; single h1, focused topic, linked from the index.
+- **ManualPage**: one MDX file under `docs/manual/src/pages/`; single h1, focused topic, linked from the index.
 - **ControlReferenceTable**: the controls page's authoritative tables; audited row-by-row against the shipped `DEFAULT_INPUT_MAPPING` and HUD components.
 - **NumbersAppendix**: the appendix table mapping each player-facing value to its shipped constant.
 - **PagesWorkflow**: the publishing workflow; trigger paths, official action chain, permissions, artifact scope.
@@ -167,7 +167,7 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 ## Assumptions
 
 - English-only in v1; translations are future work.
-- Multi-page structure (~13 focused pages + index) chosen over one long page for navigability; still generator-free per the product owner's plain-Markdown decision.
+- Multi-page structure (15 pages: index + 14 content pages) chosen over one long page for navigability; the Astro static-site generator (feature 015) is the rendering vehicle, superseding the original plain-Markdown decision.
 - Default `github.io` Pages URL; custom domains/CDN are out of scope.
 - No screenshots in v1: they rot quickly and violate simplicity-over-cleverness; text and tables carry the content. Screenshots may be added later if playtesting proves the need.
 - The workflow runs on `ubuntu-latest` with the default `GITHUB_TOKEN`; no secrets required.
@@ -185,23 +185,25 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 
 ## Manual Content Outline
 
-The manual consists of these pages under `docs/manual/` (one-line purpose each):
+The manual consists of these MDX pages under `docs/manual/src/pages/` (one-line purpose each):
 
 | # | Page | Purpose |
 | --- | --- | --- |
-| 1 | `index.md` | Welcome, 60-second game concept, table of contents linking every page, version footer |
-| 2 | `quick-start.md` | From link to first orders: opening a join URL, display name, waiting overlay, first safe things to try |
-| 3 | `objective.md` | How to win, how players are eliminated, surrendering, draws |
-| 4 | `the-board.md` | Grid, elevation shading and its effect on pipe flow, impassable water, fair symmetric maps |
-| 5 | `cities-and-troops.md` | City production, saturation caps, capturing enemy cities |
-| 6 | `pipes.md` | Region targeting, four directions, exclusive mode, slope gradient (downhill bonus / uphill handicap / stall), feeding and decay |
-| 7 | `combat.md` | Attrition in plain language, when to attack, mutual-feeding stalemates |
-| 8 | `special-weapons.md` | Paratroopers (cost, range, pipe-cutting) and guns (cost, damage, friendly fire) |
-| 9 | `reserves.md` | Holding troops in place, why reserves beat hoarding in open cells |
-| 10 | `fog-of-war.md` | Sensor radius, no memory, what enemies see, spectating |
-| 11 | `controls.md` | Complete pointer + keyboard reference tables (the most-revisited page) |
-| 12 | `reading-the-screen.md` | HUD tour: status chip values, tick counter, minimap, order bar, reserves panel, feedback, overlays, game over |
-| 13 | `numbers.md` | Appendix: every shipped tunable in one auditable table |
+| 1 | `index.mdx` | Welcome, 60-second game concept, table of contents linking every page, version footer |
+| 2 | `quick-start.mdx` | From link to first orders: opening a join URL, display name, waiting overlay, first safe things to try |
+| 3 | `objective.mdx` | How to win, how players are eliminated, surrendering, draws |
+| 4 | `the-board.mdx` | Grid, elevation shading and its effect on pipe flow, impassable water, fair symmetric maps |
+| 5 | `cities-and-troops.mdx` | City production, saturation caps, capturing enemy cities |
+| 6 | `pipes.mdx` | Region targeting, four directions, exclusive mode, slope gradient (downhill bonus / uphill handicap / stall), feeding and decay |
+| 7 | `combat.mdx` | Attrition in plain language, when to attack, mutual-feeding stalemates |
+| 8 | `special-weapons.mdx` | Paratroopers (cost, range, pipe-cutting) and guns (cost, damage, friendly fire) |
+| 9 | `reserves.mdx` | Holding troops in place, why reserves beat hoarding in open cells |
+| 10 | `fog-of-war.mdx` | Sensor radius, no memory, what enemies see, spectating |
+| 11 | `controls.mdx` | Complete pointer + keyboard reference tables (the most-revisited page) |
+| 12 | `reading-the-screen.mdx` | HUD tour: status chip values, tick counter, minimap, order bar, reserves panel, feedback, overlays, game over |
+| 13 | `numbers.mdx` | Appendix: every shipped tunable in one auditable table |
+| 14 | `lobby.mdx` | The lobby: choosing a handle, creating/finding matches, shareable match links, leaving and reconnecting |
+| 15 | `roster.mdx` | The roster: who is online, status values, how presence updates |
 
 ## Clarifications
 
@@ -218,6 +220,8 @@ Decisions recorded here for cheap veto:
 - **Rendering**: Jekyll default conversion via the official
   `actions/jekyll-build-pages` step — raw `.md` uploaded without Jekyll would
   download instead of render; FR-014 makes rendered HTML explicit.
+  **SUPERSEDED by feature 015 (Astro migration, 2026-09-01)** — the manual
+  is now an Astro static site; see Clarifications v1.4.
 - **Trigger scoping**: path filter on the manual directory +
   `workflow_dispatch` — mirrors the repo's existing path-gated CI convention;
   FR-013.
@@ -281,6 +285,26 @@ Decisions recorded here for cheap veto:
   values + `terrainSmoothing` row), `docs/manual/pipes.md` (flow
   table updated to the v1.2 rates), and `docs/manual/index.md`
   (60-second version's terrain phrasing if it mentions roughness).
-  These pages land with the engine + terrain changes in the
-  implementation change set; this spec amendment is the requirement
-  record.
+These pages land with the engine + terrain changes in the
+   implementation change set; this spec amendment is the requirement
+   record.
+
+### v1.4 (2026-09-10) — Astro migration reality (feature 015)
+
+- **FR-001, FR-011, FR-014, FR-017, Key Entities, Assumptions, and the
+  Manual Content Outline amended**: the manual is an Astro + MDX static
+  site (`@europa/manual`), not plain Markdown rendered by Jekyll. Pages
+  live under `docs/manual/src/pages/` as `.mdx`; the index entry page is
+  `docs/manual/src/pages/index.mdx`; the publishing chain is checkout →
+  configure-pages → `pnpm --filter @europa/manual build` →
+  upload-pages-artifact → deploy-pages. The outline gains the two
+  post-spec-007 pages (`lobby.mdx`, `roster.mdx`) for 15 total.
+- **v1.0 "Rendering" decision superseded**: Jekyll is gone; the Astro
+  migration (feature 015) replaced it. The rendered-HTML guarantee
+  (FR-014) is unchanged in intent.
+- **Required manual-page updates (FR-012 — same change set as this
+  amendment)**: the stale root `.md` files were deleted and their content
+  reconciled into the `.mdx` pages (roster page added, lobby share-link
+  section, index readable-paths paragraph); guardrails re-pointed at the
+  `.mdx` paths (spec 010 privacy check, version-drift path filter,
+  no-literals + semantic-url-privacy fixtures).

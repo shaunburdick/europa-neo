@@ -24,8 +24,6 @@ on:
     branches: [main]
     paths:
       - 'docs/manual/**'
-      - 'docs/manual/assets/design.css'
-      - 'docs/manual/_layouts/**'
       - 'DESIGN.md'
       - 'packages/design/**'
       - 'pnpm-lock.yaml'

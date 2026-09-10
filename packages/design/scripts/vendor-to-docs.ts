@@ -3,14 +3,16 @@
  * (spec 012 FR-014 / spec 015 T-017).
  *
  * Copies `packages/design/dist/design.css` → `docs/manual/assets/design.css`
- * as a byte-identical, checked-in vendored asset and stages the selected brand
- * distribution files under `docs/manual/assets/brand/` so the Jekyll build
- * (`actions/jekyll-build-pages` `source: ./docs/manual`) serves the
- * shared stylesheet without widening artifact scope.
+ * and `docs/manual/public/design.css` as byte-identical, checked-in vendored
+ * assets and stages the selected brand distribution files under
+ * `docs/manual/assets/brand/`. The Astro manual serves `public/design.css`
+ * (ManualLayout.astro links `/europa-neo/design.css`); `assets/design.css`
+ * is the G-05 byte-identity target retained for the design system's
+ * vendoring guard.
  *
  * Deterministic: raw byte copy (no re-encoding, no timestamp, no BOM).
  * Idempotent — running twice produces identical output and hashes. The
- * file is written with LF-ending bytes from the source, UTF-8.
+ * files are written with LF-ending bytes from the source, UTF-8.
  *
  * The package build invokes this script after generating the CSS and brand
  * distribution. The explicit `stage:manual` alias exposes the same
@@ -37,22 +39,27 @@ function resolveRepoRoot(): string {
 }
 
 /**
- * Copy the built stylesheet to the vendored docs path, byte-identically.
+ * Copy the built stylesheet to the vendored docs paths, byte-identically.
  *
  * @param repoRoot - Absolute path to the repository root (defaults to resolved root).
- * @returns Absolute path to the vendored file.
+ * @returns Absolute path to the first vendored file (assets/design.css).
  */
 export async function vendorToDocs(repoRoot: string = resolveRepoRoot()): Promise<string> {
     const sourcePath = path.join(repoRoot, 'packages', 'design', 'dist', 'design.css');
-    const targetPath = path.join(repoRoot, 'docs', 'manual', 'assets', 'design.css');
     const bytes = await readFile(sourcePath);
-    await mkdir(path.dirname(targetPath), { recursive: true });
-    await writeFile(targetPath, bytes);
+    const targets = [
+        path.join(repoRoot, 'docs', 'manual', 'assets', 'design.css'),
+        path.join(repoRoot, 'docs', 'manual', 'public', 'design.css'),
+    ];
+    for (const targetPath of targets) {
+        await mkdir(path.dirname(targetPath), { recursive: true });
+        await writeFile(targetPath, bytes);
+    }
     await stageBrandToDocs({
         distributionDirectory: path.join(repoRoot, 'packages', 'design', 'dist', 'brand'),
         targetDirectory: path.join(repoRoot, 'docs', 'manual', 'assets', 'brand'),
     });
-    return targetPath;
+    return targets[0];
 }
 
 /** Options for the package-distribution-to-manual brand staging boundary. */

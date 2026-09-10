@@ -32,10 +32,10 @@ import process from 'node:process';
 
 const root = process.cwd();
 const playerSurfaces = [
-    'docs/manual/index.md',
-    'docs/manual/quick-start.md',
-    'docs/manual/reading-the-screen.md',
-    'docs/manual/lobby.md',
+    'docs/manual/src/pages/index.mdx',
+    'docs/manual/src/pages/quick-start.mdx',
+    'docs/manual/src/pages/reading-the-screen.mdx',
+    'docs/manual/src/pages/lobby.mdx',
 ];
 const implementationSurfaces = [
     'README.md',
@@ -50,9 +50,9 @@ const implementationSurfaces = [
 ];
 
 const requiredPlayerTerms = [
-    ['docs/manual/index.md', /handle/i, 'manual handle guidance'],
-    ['docs/manual/lobby.md', /spectat/i, 'spectator guidance'],
-    ['docs/manual/lobby.md', /in-memory|restart/i, 'lifecycle boundary'],
+    ['docs/manual/src/pages/index.mdx', /handle/i, 'manual handle guidance'],
+    ['docs/manual/src/pages/lobby.mdx', /spectat/i, 'spectator guidance'],
+    ['docs/manual/src/pages/lobby.mdx', /in-memory|restart/i, 'lifecycle boundary'],
 ];
 const requiredImplementationTerms = [
     ['README.md', /public lobby/i, 'public lobby behavior'],

@@ -12,7 +12,7 @@ import { HEX_LITERAL, isAllowListed, RGBA_LITERAL, scanContent, shouldSkipFile }
 describe('shouldSkipFile()', () => {
     it('allows normal source files', () => {
         expect(shouldSkipFile('packages/console/src/app.tsx')).toBe(false);
-        expect(shouldSkipFile('docs/manual/index.md')).toBe(true); // .md excluded
+        expect(shouldSkipFile('docs/manual/src/pages/index.mdx')).toBe(true); // .mdx excluded
     });
 
     it('excludes vendored design.css under docs/manual/', () => {
@@ -21,7 +21,7 @@ describe('shouldSkipFile()', () => {
     });
 
     it('excludes Markdown documentation files', () => {
-        expect(shouldSkipFile('docs/manual/pages/combat.md')).toBe(true);
+        expect(shouldSkipFile('docs/manual/src/pages/combat.mdx')).toBe(true);
         expect(shouldSkipFile('docs/manual/guide/controls.mdx')).toBe(true);
     });
 

@@ -22,8 +22,6 @@ on:
       - 'packages/version/**'
       - 'packages/design/**'
       - 'DESIGN.md'
-      - 'docs/manual/assets/design.css'
-      - 'docs/manual/_layouts/**'
   pull_request:
     branches: [main]
     paths:
@@ -45,8 +43,6 @@ on:
       - 'packages/version/**'
       - 'packages/design/**'
       - 'DESIGN.md'
-      - 'docs/manual/assets/design.css'
-      - 'docs/manual/_layouts/**'
   workflow_dispatch:
 
 concurrency:
