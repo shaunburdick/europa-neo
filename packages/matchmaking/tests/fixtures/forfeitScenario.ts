@@ -11,7 +11,7 @@
  * Pure test helper: no I/O, no timers (fake clock via closure).
  */
 
-import type { Board, Cell, CityPlacement, PlayerId } from '@europa/engine';
+import type { Board, Cell, CityPlacement, MatchConfig, PlayerId } from '@europa/engine';
 import type { Logger, SessionToken } from '@europa/networking';
 
 import type { MatchId, SeatIndex } from '../../contracts/match-types';
@@ -96,6 +96,19 @@ function makeFixture(args: MakerArgs): ForfeitFixture {
         createdAtMs: clockMs - 100,
     });
 
+    // Build engine config first to obtain the generated string PlayerIds,
+    // so seat records and event payloads reference the same IDs the engine
+    // world registers (PlayerId is now a branded string, not a number).
+    let config: MatchConfig | undefined;
+    let playerIds: readonly PlayerId[];
+    if (args.status === 'running') {
+        config = buildMatchConfig(settings, 987654321);
+        playerIds = config.playerIds;
+    } else {
+        // Filling path: seats have null playerId; no engine interaction.
+        playerIds = [];
+    }
+
     const alice = createPlayerSession({
         displayName: 'Alice',
         randomId: () => '11111111-1111-4111-8111-111111111111',
@@ -113,7 +126,7 @@ function makeFixture(args: MakerArgs): ForfeitFixture {
             playerSessionId: alice.playerSessionId,
             displayName: 'Alice',
             sessionToken: ALICE_TOKEN,
-            playerId: args.status === 'running' ? (1 as PlayerId) : null,
+            playerId: args.status === 'running' ? (playerIds[0] ?? null) : null,
             connectedAtMs: clockMs - 100,
         }),
         createSeatRecord({
@@ -121,7 +134,7 @@ function makeFixture(args: MakerArgs): ForfeitFixture {
             playerSessionId: bob.playerSessionId,
             displayName: 'Bob',
             sessionToken: BOB_TOKEN,
-            playerId: args.status === 'running' ? (2 as PlayerId) : null,
+            playerId: args.status === 'running' ? (playerIds[1] ?? null) : null,
             connectedAtMs: clockMs - 100,
         }),
     ];
@@ -135,8 +148,7 @@ function makeFixture(args: MakerArgs): ForfeitFixture {
     bob.currentSeatIndex = 1 as SeatIndex;
     bob.currentSessionToken = BOB_TOKEN;
 
-    if (args.status === 'running') {
-        const config = buildMatchConfig(settings, 987654321);
+    if (args.status === 'running' && config !== undefined) {
         match.engineConfig = config;
         match.engineSession = buildEngineSession(config, scriptedBoard(8, 2));
         match.startedAtMs = clockMs - 50;

@@ -33,7 +33,7 @@ describe('Q-M01: create + join public 2-player match', () => {
 
         const { matchId, seatAssignment: aliceSeat } = create.data;
         expect(aliceSeat.seatIndex).toBe(0);
-        expect(aliceSeat.playerId).toBe(1);
+        expect(typeof aliceSeat.playerId).toBe('string');
         expect(aliceSeat.displayName).toBe('Alice');
 
         // Step 2: Lobby contains the new match
@@ -60,7 +60,7 @@ describe('Q-M01: create + join public 2-player match', () => {
 
         const { seatAssignment: bobSeat } = join.data;
         expect(bobSeat.seatIndex).toBe(1);
-        expect(bobSeat.playerId).toBe(2);
+        expect(typeof bobSeat.playerId).toBe('string');
 
         // Step 4: Match is now 'running'; networking was driven
         expect(server.registerMatchCalls).toHaveLength(1);

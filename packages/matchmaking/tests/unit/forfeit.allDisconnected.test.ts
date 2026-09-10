@@ -12,7 +12,6 @@
  * Test descriptions cite the requirement they pin.
  */
 
-import type { PlayerId } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { handleSeatExpired } from '../../src/forfeit';
@@ -23,9 +22,11 @@ import { makeRunningForfeitFixture, SILENT_LOGGER } from '../fixtures/forfeitSce
 describe('all-disconnected teardown (US5 AC-2 / T056)', () => {
     it('US5 AC-1: with one survivor the match continues running — no teardown', () => {
         const fx = makeRunningForfeitFixture();
+        const aliceSeat = fx.match.seats.get(0);
+        expect(aliceSeat).toBeDefined();
 
         const result = handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: aliceSeat?.playerId ?? null },
             { store: fx.store, server: fx.server, logger: SILENT_LOGGER },
             fx.nowMs(),
         );
@@ -40,14 +41,19 @@ describe('all-disconnected teardown (US5 AC-2 / T056)', () => {
         const fx = makeRunningForfeitFixture();
         const ctx = { store: fx.store, server: fx.server, logger: SILENT_LOGGER };
 
+        const aliceSeat = fx.match.seats.get(0);
+        const bobSeat = fx.match.seats.get(1);
+        expect(aliceSeat).toBeDefined();
+        expect(bobSeat).toBeDefined();
+
         handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: aliceSeat?.playerId ?? null },
             ctx,
             fx.nowMs(),
         );
         fx.advanceMs(1000);
         const final = handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.bobToken, playerId: 2 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.bobToken, playerId: bobSeat?.playerId ?? null },
             ctx,
             fx.nowMs(),
         );

@@ -36,7 +36,7 @@ describe('matchmaker — 3-player public auto-start (issue #2 regression)', () =
         }
         const { matchId, seatAssignment: aliceSeat } = create.data;
         expect(aliceSeat.seatIndex).toBe(0);
-        expect(aliceSeat.playerId).toBe(1);
+        expect(typeof aliceSeat.playerId).toBe('string');
 
         // The lobby lists it as a filling 3p match.
         const lobbyBefore = matchmaker.listPublicMatches();
@@ -56,7 +56,7 @@ describe('matchmaker — 3-player public auto-start (issue #2 regression)', () =
             return;
         }
         expect(bob.data.seatAssignment.seatIndex).toBe(1);
-        expect(bob.data.seatAssignment.playerId).toBe(2);
+        expect(typeof bob.data.seatAssignment.playerId).toBe('string');
 
         // Carol's join fills the last seat and fires auto-start — the
         // exact call site that threw GenerationError before the fix.
@@ -66,13 +66,15 @@ describe('matchmaker — 3-player public auto-start (issue #2 regression)', () =
             return;
         }
         expect(carol.data.seatAssignment.seatIndex).toBe(2);
-        expect(carol.data.seatAssignment.playerId).toBe(3);
+        expect(typeof carol.data.seatAssignment.playerId).toBe('string');
 
         // Networking was driven once, with all three seats attached in
         // seat order and spectators enabled.
         expect(server.registerMatchCalls).toHaveLength(1);
         expect(server.attachPlayerCalls).toHaveLength(3);
-        expect(server.attachPlayerCalls.map((call) => call.playerId)).toEqual([1, 2, 3]);
+        for (const call of server.attachPlayerCalls) {
+            expect(typeof call.playerId).toBe('string');
+        }
         expect(server.enableSpectatorsCalls).toEqual([matchId]);
 
         // Each attach carries the matching seat's session token.
@@ -83,11 +85,11 @@ describe('matchmaker — 3-player public auto-start (issue #2 regression)', () =
         ]);
 
         // The board inside the registered engine session satisfies the
-        // 3p contract: six starting cities, two per player, and a
-        // playerCount of 3 in the engine config.
+        // 3p contract: six starting cities, two per player, and three
+        // playerIds in the engine config.
         const world = server.lastEngineSession?.world();
         expect(world).toBeDefined();
-        expect(world?.config.playerCount).toBe(3);
+        expect(world?.config.playerIds).toHaveLength(3);
         const cities = world?.board.cities ?? [];
         expect(cities).toHaveLength(6);
         const perPlayer = new Map<number, number>();

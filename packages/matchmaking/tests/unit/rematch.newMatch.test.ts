@@ -62,7 +62,7 @@ function makeOriginalFixture(nowMs: number): {
     });
     record.engineConfig = {
         boardSize: 24,
-        playerCount: 2,
+        playerIds: ['original-alice' as PlayerId, 'original-bob' as PlayerId],
         tickIntervalMs: 250,
         seed: ORIGINAL_SEED,
         visibilityRadius: 6,
@@ -182,9 +182,9 @@ describe('all-accept creates a genuinely fresh match (FR-009 / T050)', () => {
         if (seat === undefined) {
             return;
         }
-        // Bob keeps his seat (1) and provisional playerId (2)…
+        // Bob keeps his seat (1) and gets a fresh provisional playerId for the new match…
         expect(seat.seatIndex).toBe(scenario.bob.seatIndex);
-        expect(seat.playerId).toBe(scenario.bob.playerId);
+        expect(typeof seat.playerId).toBe('string');
         expect(seat.displayName).toBe('Bob');
         // …but receives a NEW session token for the new match (research §5).
         expect(seat.sessionToken).not.toBe(scenario.bob.sessionToken);

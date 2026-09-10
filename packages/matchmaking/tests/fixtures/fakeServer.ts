@@ -23,6 +23,7 @@
  * no-op listen/close).
  */
 
+import type { PlayerId } from '@europa/engine';
 import type {
     AttachPlayerRequest,
     ConnectionId,
@@ -104,6 +105,11 @@ export class FakeServer {
         };
     }
 
+    /** No pre-registered playerIds: the fake has no lobby-style pre-registration. */
+    getRegisteredPlayerIds(_matchId: MatchId): readonly PlayerId[] | null {
+        return null;
+    }
+
     /** Logger for tests that need to hand one onward. */
     get logger(): Logger {
         return this.nullLogger;
@@ -167,7 +173,7 @@ export class FakeServer {
         matchId: MatchId;
         connectionId: ConnectionId;
         sessionToken: SessionToken;
-        playerId: 1 | 2 | 3 | 4 | null;
+        playerId: PlayerId | null;
         role: ConnectionRole;
     }): void {
         this.handlers.onSeatClaimed?.(args);
@@ -184,7 +190,7 @@ export class FakeServer {
     }
 
     /** Fire `onSeatExpired` with the given payload. */
-    fireOnSeatExpired(args: { matchId: MatchId; sessionToken: SessionToken; playerId: 1 | 2 | 3 | 4 | null }): void {
+    fireOnSeatExpired(args: { matchId: MatchId; sessionToken: SessionToken; playerId: PlayerId | null }): void {
         this.handlers.onSeatExpired?.(args);
     }
 

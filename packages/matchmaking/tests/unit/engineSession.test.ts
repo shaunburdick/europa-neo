@@ -9,7 +9,7 @@
  * freezes the engine-facing shape.
  */
 
-import type { Board, Cell, CityPlacement } from '@europa/engine';
+import type { Board, Cell, CityPlacement, PlayerId } from '@europa/engine';
 import { ENGINE_CONSTANTS } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
 
@@ -45,13 +45,14 @@ const SETTINGS: MatchSettings = DEFAULT_MATCH_SETTINGS;
 describe('buildMatchConfig', () => {
     it('maps settings + seed onto the frozen engine config', () => {
         const config = buildMatchConfig(SETTINGS, 1234);
-        expect(config).toEqual({
-            boardSize: SETTINGS.boardSize,
-            playerCount: SETTINGS.playerCount,
-            tickIntervalMs: SETTINGS.tickIntervalMs,
-            seed: 1234,
-            visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
-        });
+        expect(config.boardSize).toBe(SETTINGS.boardSize);
+        expect(config.playerIds).toHaveLength(SETTINGS.playerCount);
+        for (const pid of config.playerIds) {
+            expect(typeof pid).toBe('string');
+        }
+        expect(config.tickIntervalMs).toBe(SETTINGS.tickIntervalMs);
+        expect(config.seed).toBe(1234);
+        expect(config.visibilityRadius).toBe(ENGINE_CONSTANTS.visibilityRadiusDefault);
     });
 
     it('freezes the config against later mutation', () => {
@@ -77,11 +78,16 @@ describe('buildEngineSession', () => {
     it('threads submit through applyCommand and advance through tick', () => {
         const config = buildMatchConfig({ ...SETTINGS, boardSize: 8 }, 7);
         const session = buildEngineSession(config, scriptedBoard(8, 2));
+        // Engine's playerRegistry sorts IDs — city at (1,1) has owner: 1
+        // which corresponds to the first SORTED PlayerId.
+        const sortedIds = [...config.playerIds].sort((a, b) => a.localeCompare(b));
+        const firstPlayer = sortedIds[0] as PlayerId;
+        expect(firstPlayer).toBeDefined();
 
-        // Player 1 lays a pipe east from their home city (FR-018 order set).
+        // Player at sorted position 0 lays a pipe east from their home city (FR-018 order set).
         const submitted = session.submit({
             kind: 'setPipe',
-            player: 1,
+            player: firstPlayer,
             cell: { x: 1, y: 1 },
             direction: 'E',
         });
@@ -98,15 +104,15 @@ describe('buildEngineSession', () => {
     it('surfaces terminal results through status()', () => {
         const config = buildMatchConfig({ ...SETTINGS, boardSize: 8 }, 7);
         const session = buildEngineSession(config, scriptedBoard(8, 2));
-
-        // Surrender player 2 → player 1 is last standing → terminal.
-        session.submit({ kind: 'surrender', player: 2 });
+        // Surrender the second sorted player → first sorted player wins.
+        const sortedIds = [...config.playerIds].sort((a, b) => a.localeCompare(b));
+        session.submit({ kind: 'surrender', player: sortedIds[1] as PlayerId });
 
         const terminal = session.status();
         expect(terminal).toBeDefined();
         expect(terminal?.kind).toBe('win');
         if (terminal?.kind === 'win') {
-            expect(terminal.winner).toBe(1);
+            expect(terminal.winner).toBe(sortedIds[0]);
         }
 
         // advance() past the boundary is frozen-once-terminal.

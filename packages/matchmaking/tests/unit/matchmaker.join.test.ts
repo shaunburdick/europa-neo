@@ -40,7 +40,7 @@ describe('joinMatch — last seat fills (US1 AC-2)', () => {
             return;
         }
         expect(join.data.seatAssignment.seatIndex).toBe(1);
-        expect(join.data.seatAssignment.playerId).toBe(2);
+        expect(typeof join.data.seatAssignment.playerId).toBe('string');
         expect(join.data.seatAssignment.displayName).toBe('Bob');
         expect(join.data.matchId).toBe(matchId);
         expect(join.data.joinPath).toBe(`/join/${matchId}`);
@@ -60,13 +60,13 @@ describe('joinMatch — last seat fills (US1 AC-2)', () => {
         expect(registration?.engineSession).toBeTruthy();
         expect(typeof registration?.engineSession.world()).toBe('object');
         expect(registration?.matchConfig.boardSize).toBe(32);
-        expect(registration?.matchConfig.playerCount).toBe(2);
+        expect(registration?.matchConfig.playerIds).toHaveLength(2);
         expect(Number.isInteger(registration?.matchConfig.seed)).toBe(true);
 
         // Per-seat attach in seat order with the issued tokens.
         expect(server.attachPlayerCalls).toHaveLength(2);
-        expect(server.attachPlayerCalls[0]?.playerId).toBe(1);
-        expect(server.attachPlayerCalls[1]?.playerId).toBe(2);
+        expect(typeof server.attachPlayerCalls[0]?.playerId).toBe('string');
+        expect(typeof server.attachPlayerCalls[1]?.playerId).toBe('string');
 
         // Spectators enabled exactly once.
         expect(server.enableSpectatorsCalls).toEqual([matchId]);

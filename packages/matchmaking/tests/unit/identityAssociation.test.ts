@@ -265,8 +265,8 @@ describe('transition matrix: association persists through every path (FR-019)', 
         expect(aliceSeat.handle).toBe('Nova');
         expect(bobSeat.guestPlayerId).toBe(bob.guestPlayerId);
         expect(bobSeat.handle).toBe('Orion');
-        expect(aliceSeat.playerId).toBe(1);
-        expect(bobSeat.playerId).toBe(2);
+        expect(typeof aliceSeat.playerId).toBe('string');
+        expect(typeof bobSeat.playerId).toBe('string');
         // Session bindings intact after auto-start.
         expect(alice.session.currentMatchId).toBe(match.matchId);
         expect(alice.session.currentSeatIndex).toBe(0);
@@ -304,9 +304,11 @@ describe('transition matrix: association persists through every path (FR-019)', 
             'status',
         ]);
         expect(results.finalPlayers.map((p) => p.displayName)).toEqual(['Alice', 'Bob']);
-        expect(results.finalPlayers.map((p) => p.id)).toEqual([1, 2]);
-        expect(serialized(results)).toContain('"id":1');
-        expect(serialized(results)).toContain('"id":2');
+        const finalIds = results.finalPlayers.map((p) => p.id);
+        expect(finalIds).toHaveLength(2);
+        for (const id of finalIds) {
+            expect(typeof id).toBe('string');
+        }
     });
 
     it('collection keeps internal records inert and out of every projection', () => {
@@ -329,7 +331,7 @@ describe('transition matrix: association persists through every path (FR-019)', 
         const server = new FakeServer();
 
         const result = handleSeatExpired(
-            { matchId: match.matchId, sessionToken: aliceSeat.sessionToken, playerId: 1 },
+            { matchId: match.matchId, sessionToken: aliceSeat.sessionToken, playerId: aliceSeat.playerId },
             { store, server, logger: SILENT_LOGGER },
             CLOCK_MS + 60_000,
         );
@@ -575,7 +577,7 @@ describe('exposure audit: public payloads preserve safe correlation data', () =>
                 'seatIndex',
                 'sessionToken',
             ]);
-            expect(created.data.seatAssignment.playerId).toBe(1);
+            expect(typeof created.data.seatAssignment.playerId).toBe('string');
         }
 
         const matchId = created.ok ? created.data.matchId : null;
@@ -592,7 +594,7 @@ describe('exposure audit: public payloads preserve safe correlation data', () =>
                 'seatIndex',
                 'sessionToken',
             ]);
-            expect(joined.data.seatAssignment.playerId).toBe(2);
+            expect(typeof joined.data.seatAssignment.playerId).toBe('string');
         }
         matchmaker.close();
     });

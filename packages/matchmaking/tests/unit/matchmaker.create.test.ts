@@ -36,7 +36,7 @@ describe('createMatch — happy path', () => {
         expect(data.seatAssignment).toEqual({
             playerSessionId: expect.any(String),
             seatIndex: 0,
-            playerId: 1,
+            playerId: expect.any(String),
             sessionToken: expect.any(String),
             displayName: 'Alice',
         });

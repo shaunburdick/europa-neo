@@ -23,13 +23,19 @@ import { FakeServer } from '../fixtures/fakeServer';
 import { makeRunningForfeitFixture, SILENT_LOGGER } from '../fixtures/forfeitScenario';
 
 describe('grace-window expiry triggers deterministically (SC-004 / T057)', () => {
+    /** Extract a seat's PlayerId from the fixture, failing the test if missing. */
+    function seatPlayerId(fx: ReturnType<typeof makeRunningForfeitFixture>, index: number): PlayerId {
+        const pid = fx.match.seats.get(index)?.playerId;
+        expect(pid).toBeDefined();
+        return pid as PlayerId;
+    }
     it('the forfeit stamp equals the injected clock reading — no skew', () => {
         const fx = makeRunningForfeitFixture();
         fx.advanceMs(1234);
         const handledAtMs = fx.nowMs();
 
         handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: seatPlayerId(fx, 0) },
             { store: fx.store, server: fx.server, logger: SILENT_LOGGER },
             handledAtMs,
         );
@@ -42,7 +48,7 @@ describe('grace-window expiry triggers deterministically (SC-004 / T057)', () =>
             const fx = makeRunningForfeitFixture();
 
             const result = handleSeatExpired(
-                { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+                { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: seatPlayerId(fx, 0) },
                 { store: fx.store, server: fx.server, logger: SILENT_LOGGER },
                 fx.nowMs(),
             );
@@ -50,7 +56,8 @@ describe('grace-window expiry triggers deterministically (SC-004 / T057)', () =>
             // Every single drop must trigger — 10/10 (SC-004).
             expect(result?.outcome).toBe('surrendered');
             const world = fx.match.engineSession?.world();
-            expect(world?.players[0]?.status).toBe('eliminated');
+            const alicePlayer = world?.players.find((p) => p.id === fx.match.seats.get(0)?.playerId);
+            expect(alicePlayer?.status).toBe('eliminated');
             expect(fx.server.detachPlayerCalls).toHaveLength(1);
         }
     });
@@ -74,7 +81,8 @@ describe('grace-window expiry triggers deterministically (SC-004 / T057)', () =>
                 playerId: created.data.seatAssignment.playerId,
             });
 
-            expect(server.lastEngineSession?.world().players[0]?.status).toBe('eliminated');
+            const eliminated = server.lastEngineSession?.world().players.filter((p) => p.status === 'eliminated') ?? [];
+            expect(eliminated).toHaveLength(1);
             expect(server.detachPlayerCalls).toHaveLength(1);
             void joined;
             matchmaker.close();

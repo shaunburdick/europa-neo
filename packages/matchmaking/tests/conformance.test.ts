@@ -109,7 +109,7 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
 
         // The config snapshot travels alongside (version checks + telemetry).
         const config = registration?.matchConfig;
-        expect(config?.playerCount).toBe(2);
+        expect(config?.playerIds).toHaveLength(2);
         expect(config?.visibilityRadius).toBeDefined();
 
         matchmaker.close();
@@ -134,16 +134,29 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
             return realSubmit(order);
         };
 
+        const registration = server.registerMatchCalls[0];
+        if (registration === undefined) {
+            throw new Error('fixture: no registerMatch call recorded');
+        }
+        const alicePlayerId = registration.matchConfig.playerIds[0];
+        if (alicePlayerId === undefined) {
+            throw new Error('fixture: no playerIds in matchConfig');
+        }
+
         server.fireOnSeatExpired({
             matchId,
             sessionToken: aliceToken,
-            playerId: 1 satisfies PlayerId,
+            playerId: alicePlayerId,
         });
 
-        expect(submitted).toEqual([{ kind: 'surrender', player: 1 }]);
+        expect(submitted).toHaveLength(1);
+        expect(submitted[0]?.kind).toBe('surrender');
+        expect(typeof (submitted[0] as { player: unknown }).player).toBe('string');
         // Behavioral cross-check: the engine (FR-016 single source of
         // truth for elimination) marked the surrendered player eliminated.
-        expect(session?.world().players[0]?.status).toBe('eliminated');
+        const surrenderedPlayerId = (submitted[0] as { player: string }).player;
+        const surrenderedPlayer = session?.world().players.find((p) => p.id === surrenderedPlayerId);
+        expect(surrenderedPlayer?.status).toBe('eliminated');
 
         matchmaker.close();
     });
@@ -167,14 +180,14 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
         expect(registration.displayNames).toEqual(['Alice', 'Bob']);
         expect(registration.matchId).toBe(matchId);
 
-        // (d) one attach per seat, in seat order, playerId = seatIndex + 1.
+        // (d) one attach per seat, in seat order, each with a string playerId.
         expect(server.attachPlayerCalls).toHaveLength(2);
         const [firstAttach, secondAttach] = server.attachPlayerCalls;
         if (firstAttach === undefined || secondAttach === undefined) {
             throw new Error('fixture: missing attachPlayer calls');
         }
-        expect(firstAttach.playerId).toBe(1);
-        expect(secondAttach.playerId).toBe(2);
+        expect(typeof firstAttach.playerId).toBe('string');
+        expect(typeof secondAttach.playerId).toBe('string');
         expect(firstAttach.sessionToken).toBe(aliceToken);
         expect(secondAttach.sessionToken).toBe(bobToken);
         expect(new Set(server.attachPlayerCalls.map((call) => call.matchId))).toEqual(new Set([matchId]));
@@ -199,7 +212,7 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
         }
         expect(detach.matchId).toBe(matchId);
         expect(detach.sessionToken).toBe(aliceToken);
-        expect(detach.playerId).toBe(1);
+        expect(typeof detach.playerId).toBe('string');
         expect('reason' in detach).toBe(false);
 
         matchmaker.close();
@@ -291,12 +304,12 @@ describe('conformance: feature 012 board-size defaults mirror + no wire version 
         expect(contractSource).toContain(shippedLiteral);
     });
 
-    it('no wire/API version bump — MATCHMAKING_API_VERSION, NETWORK_API_VERSION, ENGINE_API_VERSION remain 0.1.0', () => {
-        // Feature 012 is explicitly out-of-scope for any wire/protocol bump.
-        // A silent bump would force unnecessary client updates. Pin the three
-        // versions that MUST stay unchanged (verified vs main: all 0.1.0).
+    it('MATCHMAKING_API_VERSION remains 0.1.0; NETWORK/ENGINE versions track their packages', () => {
+        // MATCHMAKING_API_VERSION is stable (no wire bump for feature 012).
+        // NETWORK and ENGINE versions were bumped to 0.2.0 for the PlayerId
+        // migration (issue #74) which changed the branded string identity type.
         expect(MATCHMAKING_API_VERSION).toBe('0.1.0');
-        expect(NETWORK_API_VERSION).toBe('0.1.0');
-        expect(ENGINE_API_VERSION).toBe('0.1.0');
+        expect(NETWORK_API_VERSION).toBe('0.2.0');
+        expect(ENGINE_API_VERSION).toBe('0.2.0');
     });
 });

@@ -182,7 +182,8 @@ for (const N of PLAYER_COUNTS) {
             expect(match?.status).toBe('running');
             // The engine is the single source of truth for elimination.
             const world = server.lastEngineSession?.world();
-            expect(world?.players[seats[0].seatIndex]?.status).toBe('eliminated');
+            const eliminated = world?.players.filter((p) => p.status === 'eliminated') ?? [];
+            expect(eliminated).toHaveLength(1);
             const alive = world?.players.filter((player) => player.status === 'alive').length ?? 0;
             expect(alive).toBe(N - 1);
             expect(alive).toBeGreaterThanOrEqual(2);
