@@ -105,6 +105,10 @@ export function computeVisibleSet(world: Readonly<World>, player: PlayerId, visi
     const { width, height } = world.board;
     const radius = resolveRadius(visibilityRadius, world);
 
+    // Resolve the string PlayerId to the numeric index used in the
+    // WorldState typed arrays (Uint8Array stores 0-based indices).
+    const playerIndex = world.playerRegistry.indexOfId(player);
+
     // Fresh zero-init mask per call — the structural no-memory rule
     // (FR-004): there is no recall state anywhere in the pipeline.
     const mask = createMask(width, height);
@@ -115,7 +119,9 @@ export function computeVisibleSet(world: Readonly<World>, player: PlayerId, visi
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            if ((troopOwners[idx] ?? 0) !== player) {
+            // troopOwners stores 0-based numeric indices (0 = no owner,
+            // 1 = player at index 0, etc.).
+            if ((troopOwners[idx] ?? 0) !== playerIndex + 1) {
                 continue;
             }
             if ((troopCounts[idx] ?? 0) <= 0) {

@@ -46,8 +46,39 @@ import {
     type WorldState,
 } from '@europa/engine';
 
+/**
+ * Brand a raw string as a `PlayerId`. Test-only — mirrors
+ * `@europa/core`'s `toPlayerId` to avoid adding a direct dependency
+ * from `@europa/fog` to `@europa/core` (the fog package only peers
+ * `@europa/engine`).
+ */
+function toPlayerId(raw: string): PlayerId {
+    return raw as PlayerId;
+}
+
 /** Minimum board size used across the fog's quickstart tests. */
 const MIN_BOARD_SIZE = 8;
+
+/**
+ * Well-known deterministic PlayerId values for fog tests.
+ * These are valid branded strings (not NanoIDs) — deterministic
+ * so test assertions can compare against them.
+ */
+export const TEST_PLAYER_IDS = {
+    1: toPlayerId('TestPlayer1'),
+    2: toPlayerId('TestPlayer2'),
+    3: toPlayerId('TestPlayer3'),
+    4: toPlayerId('TestPlayer4'),
+} as const;
+
+/** Build an array of N player IDs from the well-known test constants. */
+function playerIdsForCount(n: 2 | 3 | 4): PlayerId[] {
+    const ids: PlayerId[] = [];
+    for (let i = 1; i <= n; i++) {
+        ids.push(TEST_PLAYER_IDS[i as keyof typeof TEST_PLAYER_IDS]);
+    }
+    return ids;
+}
 
 /**
  * Build a flat, all-land, elevation-0 `Board` with the given
@@ -65,7 +96,7 @@ const MIN_BOARD_SIZE = 8;
  *         is not a valid `PlayerId`, or two cities share a
  *         cell.
  */
-function buildFlatBoard(size: number, cities: ReadonlyArray<readonly [x: number, y: number, owner: PlayerId]>): Board {
+function buildFlatBoard(size: number, cities: ReadonlyArray<readonly [x: number, y: number, owner: number]>): Board {
     if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
         throw new Error(`buildFlatBoard: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
     }
@@ -125,7 +156,7 @@ function buildFlatBoard(size: number, cities: ReadonlyArray<readonly [x: number,
 function buildMatchConfig(size: number, playerCount: 2 | 3 | 4, seed = 42): MatchConfig {
     return Object.freeze({
         boardSize: size,
-        playerCount,
+        playerIds: playerIdsForCount(playerCount),
         tickIntervalMs: 250,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -137,14 +168,15 @@ function buildMatchConfig(size: number, playerCount: 2 | 3 | 4, seed = 42): Matc
  * Returns a new `WorldState` (does not mutate the input).
  * Cities are not touched.
  *
- * @param state  The `WorldState` to clone and modify.
- * @param width  Board width (for bounds checks).
- * @param size   Square board dimension (= width = height).
- * @param troops Each tuple: `[x, y, playerId, count]`.
- *               `count` MUST be a positive integer; `count = 0`
- *               is rejected (a "zero-troop" stack is by
- *               definition not a viewer and is the spec's "no
- *               memory" test edge case — see Q-F03).
+ * @param state    The `WorldState` to clone and modify.
+ * @param width    Board width (for bounds checks).
+ * @param size     Square board dimension (= width = height).
+ * @param troops   Each tuple: `[x, y, playerId, count]`.
+ *                 `count` MUST be a positive integer; `count = 0`
+ *                 is rejected (a "zero-troop" stack is by
+ *                 definition not a viewer and is the spec's "no
+ *                 memory" test edge case — see Q-F03).
+ * @param registry The PlayerRegistry for resolving PlayerId to index.
  * @returns New `WorldState` with the same arrays as `state`
  *         except `troopCounts` and `troopOwners` mutated to
  *         reflect the placements.
@@ -153,6 +185,7 @@ function placeTroops(
     state: WorldState,
     size: number,
     troops: ReadonlyArray<readonly [x: number, y: number, player: PlayerId, count: number]>,
+    registry: { indexOfId(id: PlayerId): number },
 ): WorldState {
     const newCounts = new Uint32Array(state.troopCounts);
     const newOwners = new Uint8Array(state.troopOwners);
@@ -164,17 +197,16 @@ function placeTroops(
         if (tx < 0 || tx >= size || ty < 0 || ty >= size) {
             throw new Error(`placeTroops: troop [${tx}, ${ty}] out of bounds for size ${size}`);
         }
-        if (player !== 1 && player !== 2 && player !== 3 && player !== 4) {
-            throw new Error(`placeTroops: troop player must be 1..4 (got ${String(player)})`);
-        }
         if (!Number.isInteger(count) || count <= 0) {
             throw new Error(
                 `placeTroops: troop count must be a positive integer (got ${String(count)} at [${tx}, ${ty}])`,
             );
         }
         const idx = ty * size + tx;
+        // Convert PlayerId to 1-based numeric index for the Uint8Array.
+        const ownerByte = registry.indexOfId(player) + 1;
         newCounts[idx] = count;
-        newOwners[idx] = player;
+        newOwners[idx] = ownerByte;
     }
 
     return {
@@ -237,7 +269,7 @@ export function buildWorldWithTroops(
     seed = 42,
 ): World {
     const base = buildSmallWorld(size, playerCount, seed);
-    const newState = placeTroops(base.state, size, troops);
+    const newState = placeTroops(base.state, size, troops, base.playerRegistry);
     return {
         ...base,
         state: newState,
@@ -267,7 +299,7 @@ export function buildWorldWithTroops(
  */
 export function buildWorldWithCities(
     size: number,
-    cities: ReadonlyArray<readonly [x: number, y: number, player: PlayerId]>,
+    cities: ReadonlyArray<readonly [x: number, y: number, owner: number]>,
     playerCount: 2 | 3 | 4 = 2,
     seed = 42,
 ): World {
@@ -337,7 +369,7 @@ export function buildWorldWithWater(
     if (troops.length === 0) {
         return base;
     }
-    const newState = placeTroops(base.state, size, troops);
+    const newState = placeTroops(base.state, size, troops, base.playerRegistry);
     return { ...base, state: newState };
 }
 
@@ -360,7 +392,7 @@ export function withVisibilityRadius(world: World, radius: number): World {
         ...world,
         config: Object.freeze({
             boardSize: world.config.boardSize,
-            playerCount: world.config.playerCount,
+            playerIds: [...world.config.playerIds],
             tickIntervalMs: world.config.tickIntervalMs,
             seed: world.config.seed,
             visibilityRadius: radius,

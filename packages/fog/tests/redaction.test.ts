@@ -28,13 +28,16 @@ import { tick } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
 import { computePlayerView } from '../src/playerView';
 import { chebyshevDisk } from '../src/range';
-import { buildWorldWithTroops, withVisibilityRadius } from './fixtures/world';
+import { buildWorldWithTroops, TEST_PLAYER_IDS, withVisibilityRadius } from './fixtures/world';
 
 /** Quickstart scenario radius (Chebyshev range 3). */
 const RADIUS = 3;
 
 /** Tick count per plan.md's protocol-level assertion. */
 const TICKS = 500;
+
+const P1 = TEST_PLAYER_IDS[1];
+const P2 = TEST_PLAYER_IDS[2];
 
 /** Placement tuple: `[x, y, player, count]`. */
 type Placement = readonly [number, number, PlayerId, number];
@@ -52,7 +55,8 @@ function applyPlacements(world: Readonly<World>, placements: readonly Placement[
     const owners = new Uint8Array(size * size);
     const counts = new Uint32Array(size * size);
     for (const [x, y, player, count] of placements) {
-        owners[y * size + x] = player;
+        // Resolve PlayerId to 1-based owner byte for the Uint8Array.
+        owners[y * size + x] = world.playerRegistry.indexOfId(player) + 1;
         counts[y * size + x] = count;
     }
     return { ...world, state: { ...world.state, troopOwners: owners, troopCounts: counts } };
@@ -60,22 +64,25 @@ function applyPlacements(world: Readonly<World>, placements: readonly Placement[
 
 /**
  * Independent visibility oracle: scan the raw state arrays for
- * player-1 viewers (owner === 1 && count > 0), union their
+ * player-1 viewers (owner === playerIndex && count > 0), union their
  * bounds-clipped Chebyshev disks, sort row-major. Shares NO code
  * with `computeVisibleSet` beyond the fixture-level disk helper.
  *
- * @param world  The world snapshot to audit.
+ * @param world       The world snapshot to audit.
+ * @param playerIndex The 0-based numeric index of the player.
  * @returns Row-major, duplicate-free `Coord[]` of expected cells.
  */
-function expectedVisibleCoords(world: Readonly<World>): Coord[] {
+function expectedVisibleCoords(world: Readonly<World>, playerIndex: number): Coord[] {
     const { width, height } = world.board;
     const seen = new Set<number>();
     const out: Coord[] = [];
     const { troopCounts, troopOwners } = world.state;
+    // Owner byte in troopOwners is 1-based (0 = no owner).
+    const ownerByte = playerIndex + 1;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            if ((troopOwners[idx] ?? 0) !== 1) {
+            if ((troopOwners[idx] ?? 0) !== ownerByte) {
                 continue;
             }
             if ((troopCounts[idx] ?? 0) <= 0) {
@@ -102,27 +109,27 @@ describe('SC-001 protocol-level redaction over a 500-tick scripted match', () =>
         // engine never eliminates anyone mid-run.
         const scripts: readonly (readonly Placement[])[] = [
             [
-                [8, 8, 1, 4],
-                [3, 3, 2, 2],
+                [8, 8, P1, 4],
+                [3, 3, P2, 2],
             ],
             [
-                [10, 10, 1, 4],
-                [5, 5, 2, 2],
+                [10, 10, P1, 4],
+                [5, 5, P2, 2],
             ],
             [
-                [8, 8, 1, 4],
-                [12, 12, 1, 6],
-                [3, 3, 2, 2],
+                [8, 8, P1, 4],
+                [12, 12, P1, 6],
+                [3, 3, P2, 2],
             ],
             [
-                [8, 8, 1, 0], // destroyed by "combat"
-                [12, 12, 1, 6],
-                [14, 14, 2, 2],
+                [8, 8, P1, 0], // destroyed by "combat"
+                [12, 12, P1, 6],
+                [14, 14, P2, 2],
             ],
             [
-                [0, 15, 1, 9], // respawns at the far corner
-                [12, 12, 1, 6],
-                [14, 14, 2, 2],
+                [0, 15, P1, 9], // respawns at the far corner
+                [12, 12, P1, 6],
+                [14, 14, P2, 2],
             ],
         ];
 
@@ -131,6 +138,9 @@ describe('SC-001 protocol-level redaction over a 500-tick scripted match', () =>
         let totalCellsObserved = 0;
         let leakedCells = 0;
         let leakedEvents = 0;
+
+        // Resolve P1's 0-based index once (the world's registry is stable).
+        const p1Index = world.playerRegistry.indexOfId(P1);
 
         for (let t = 0; t < TICKS; t++) {
             // Scripted change every 10 ticks (cycle through the scripts).
@@ -146,10 +156,10 @@ describe('SC-001 protocol-level redaction over a 500-tick scripted match', () =>
             world = nextWorld;
 
             // Per-tick independent oracle (knows nothing about other ticks).
-            const expected = expectedVisibleCoords(world);
+            const expected = expectedVisibleCoords(world, p1Index);
             const expectedKeys = new Set(expected.map((c) => c.y * world.board.width + c.x));
 
-            const view = computePlayerView(world, 1, { events });
+            const view = computePlayerView(world, P1, { events });
 
             // (a) Zero leakage — exact set equality against the oracle.
             expect(view.visibleCells).toHaveLength(expected.length);

@@ -50,7 +50,7 @@ import { computeVisibleSet } from './visibleSet';
 function snapshotConfig(config: Readonly<MatchConfig>): MatchConfig {
     return {
         boardSize: config.boardSize,
-        playerCount: config.playerCount,
+        playerIds: [...config.playerIds],
         tickIntervalMs: config.tickIntervalMs,
         seed: config.seed,
         visibilityRadius: config.visibilityRadius,

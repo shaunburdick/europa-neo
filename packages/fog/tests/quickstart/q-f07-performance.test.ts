@@ -22,7 +22,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { computePlayerView } from '../../src/index';
-import { buildWorldWithTroops, withVisibilityRadius } from '../fixtures/world';
+import { buildWorldWithTroops, TEST_PLAYER_IDS, withVisibilityRadius } from '../fixtures/world';
 
 /** Measured calls per round; larger samples stabilize the median. */
 const TRIALS = 200;
@@ -49,14 +49,17 @@ const MEDIAN_BUDGET_MS = 1.0;
  */
 const P99_GUARD_MS = 10.0;
 
+const P1 = TEST_PLAYER_IDS[1];
+const P2 = TEST_PLAYER_IDS[2];
+
 describe('Q-F07 — visibility performance (SC-004)', () => {
     it(`median of ${TRIALS} computePlayerView calls on 32×32 stays under ${MEDIAN_BUDGET_MS} ms (p99 < ${P99_GUARD_MS} ms guard)`, () => {
         const world = withVisibilityRadius(
             buildWorldWithTroops(
                 32,
                 [
-                    [8, 8, 1, 5],
-                    [20, 20, 2, 7],
+                    [8, 8, P1, 5],
+                    [20, 20, P2, 7],
                 ],
                 2,
             ),
@@ -65,7 +68,7 @@ describe('Q-F07 — visibility performance (SC-004)', () => {
 
         // Warm-up (JIT + allocator steady state) — not counted.
         for (let i = 0; i < WARMUP_CALLS; i++) {
-            computePlayerView(world, 1);
+            computePlayerView(world, P1);
         }
 
         const roundMedians: number[] = [];
@@ -75,7 +78,7 @@ describe('Q-F07 — visibility performance (SC-004)', () => {
             const samples: number[] = new Array(TRIALS);
             for (let i = 0; i < TRIALS; i++) {
                 const start = performance.now();
-                computePlayerView(world, 1);
+                computePlayerView(world, P1);
                 samples[i] = performance.now() - start;
             }
             samples.sort((a, b) => a - b);

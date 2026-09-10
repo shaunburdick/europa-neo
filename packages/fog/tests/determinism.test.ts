@@ -2,7 +2,7 @@
  * Determinism Integration Test — Feature 002, FR-007 + SC-001 micro-check (T029)
  *
  * Per quickstart.md §2 Q-F06: 100 trials on a 32×32 world with three
- * friendly stacks; `hashPlayerView(computePlayerView(world, 1))` is
+ * friendly stacks; `hashPlayerView(computePlayerView(world, P1))` is
  * byte-identical across all 100 runs. Cross-player determinism: each
  * player's hash is stable across runs even though it differs from the
  * other player's hash (disjoint horizons).
@@ -13,10 +13,13 @@
 import { describe, expect, it } from 'vitest';
 import { computePlayerView, hashPlayerView } from '../src/index';
 import { SEED_C0FFEE } from './fixtures/seeds';
-import { buildWorldWithTroops, withVisibilityRadius } from './fixtures/world';
+import { buildWorldWithTroops, TEST_PLAYER_IDS, withVisibilityRadius } from './fixtures/world';
 
 /** Trial count per the user's speed directive (≤ 200 loops). */
 const TRIALS = 100;
+
+const P1 = TEST_PLAYER_IDS[1];
+const P2 = TEST_PLAYER_IDS[2];
 
 describe('fog determinism (FR-007, SC-001)', () => {
     it('hashes are byte-identical across 100 runs on a 32×32 three-stack world', () => {
@@ -24,9 +27,9 @@ describe('fog determinism (FR-007, SC-001)', () => {
             buildWorldWithTroops(
                 32,
                 [
-                    [8, 8, 1, 5],
-                    [16, 16, 1, 3],
-                    [24, 24, 2, 7],
+                    [8, 8, P1, 5],
+                    [16, 16, P1, 3],
+                    [24, 24, P2, 7],
                 ],
                 2,
                 SEED_C0FFEE,
@@ -34,10 +37,10 @@ describe('fog determinism (FR-007, SC-001)', () => {
             4,
         );
 
-        const baseline = hashPlayerView(computePlayerView(world, 1));
+        const baseline = hashPlayerView(computePlayerView(world, P1));
         expect(baseline).toMatch(/^[0-9a-f]{16}$/);
         for (let i = 0; i < TRIALS; i++) {
-            const hash = hashPlayerView(computePlayerView(world, 1));
+            const hash = hashPlayerView(computePlayerView(world, P1));
             expect(hash, `run ${String(i)} diverged`).toBe(baseline);
         }
     });
@@ -47,8 +50,8 @@ describe('fog determinism (FR-007, SC-001)', () => {
             buildWorldWithTroops(
                 32,
                 [
-                    [8, 8, 1, 5],
-                    [24, 24, 2, 7],
+                    [8, 8, P1, 5],
+                    [24, 24, P2, 7],
                 ],
                 2,
                 SEED_C0FFEE,
@@ -56,13 +59,13 @@ describe('fog determinism (FR-007, SC-001)', () => {
             4,
         );
 
-        const p1Baseline = hashPlayerView(computePlayerView(world, 1));
-        const p2Baseline = hashPlayerView(computePlayerView(world, 2));
+        const p1Baseline = hashPlayerView(computePlayerView(world, P1));
+        const p2Baseline = hashPlayerView(computePlayerView(world, P2));
         expect(p1Baseline).not.toBe(p2Baseline);
 
         for (let i = 0; i < TRIALS; i++) {
-            expect(hashPlayerView(computePlayerView(world, 1))).toBe(p1Baseline);
-            expect(hashPlayerView(computePlayerView(world, 2))).toBe(p2Baseline);
+            expect(hashPlayerView(computePlayerView(world, P1))).toBe(p1Baseline);
+            expect(hashPlayerView(computePlayerView(world, P2))).toBe(p2Baseline);
         }
     });
 });

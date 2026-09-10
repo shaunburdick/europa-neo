@@ -14,25 +14,34 @@
 
 import { describe, expect, it } from 'vitest';
 import { computePlayerView, isVisible } from '../../src/index';
-import { buildSmallWorld, buildWorldWithTroops, buildWorldWithWater, withVisibilityRadius } from '../fixtures/world';
+import {
+    buildSmallWorld,
+    buildWorldWithTroops,
+    buildWorldWithWater,
+    TEST_PLAYER_IDS,
+    withVisibilityRadius,
+} from '../fixtures/world';
 
 /** Quickstart scenario radius (Chebyshev range 3). */
 const RADIUS = 3;
 
+const P1 = TEST_PLAYER_IDS[1];
+const P2 = TEST_PLAYER_IDS[2];
+
 describe('Q-F08 — edge cases', () => {
     it('player with 0 troops sees nothing', () => {
-        const world = withVisibilityRadius(buildWorldWithTroops(16, [[8, 8, 2, 5]]), RADIUS);
-        expect(computePlayerView(world, 1).visibleCells).toHaveLength(0);
+        const world = withVisibilityRadius(buildWorldWithTroops(16, [[8, 8, P2, 5]]), RADIUS);
+        expect(computePlayerView(world, P1).visibleCells).toHaveLength(0);
     });
 
     it('player with 0 cities and 0 troops sees nothing', () => {
         const world = withVisibilityRadius(buildSmallWorld(16, 2), RADIUS);
-        expect(computePlayerView(world, 1).visibleCells).toHaveLength(0);
+        expect(computePlayerView(world, P1).visibleCells).toHaveLength(0);
     });
 
     it('viewer at (0,0) on 16×16 clips to a 4×4 corner disk — no out-of-bounds leak', () => {
-        const world = withVisibilityRadius(buildWorldWithTroops(16, [[0, 0, 1, 3]]), RADIUS);
-        const view = computePlayerView(world, 1);
+        const world = withVisibilityRadius(buildWorldWithTroops(16, [[0, 0, P1, 3]]), RADIUS);
+        const view = computePlayerView(world, P1);
         expect(view.visibleCells).toHaveLength(16);
         for (const cell of view.visibleCells) {
             expect(cell.coord.x).toBeGreaterThanOrEqual(0);
@@ -43,8 +52,8 @@ describe('Q-F08 — edge cases', () => {
     });
 
     it('viewer at (31,31) on 32×32 clips to a 4×4 corner disk', () => {
-        const world = withVisibilityRadius(buildWorldWithTroops(32, [[31, 31, 1, 3]]), RADIUS);
-        const view = computePlayerView(world, 1);
+        const world = withVisibilityRadius(buildWorldWithTroops(32, [[31, 31, P1, 3]]), RADIUS);
+        const view = computePlayerView(world, P1);
         expect(view.visibleCells).toHaveLength(16);
         for (const cell of view.visibleCells) {
             expect(cell.coord.x).toBeGreaterThanOrEqual(32 - 1 - RADIUS);
@@ -64,11 +73,11 @@ describe('Q-F08 — edge cases', () => {
                     { x: 8, y: 8 },
                     { x: 9, y: 8 },
                 ],
-                [[8, 8, 1, 5]],
+                [[8, 8, P1, 5]],
             ),
             RADIUS,
         );
-        const view = computePlayerView(world, 1);
+        const view = computePlayerView(world, P1);
 
         // The full radius-3 disk is visible despite standing on water…
         expect(view.visibleCells).toHaveLength(49);

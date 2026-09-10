@@ -37,7 +37,7 @@ import { tick } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
 import { computePlayerView } from '../src/playerView';
 import { chebyshevDisk } from '../src/range';
-import { buildWorldWithTroops, withVisibilityRadius } from './fixtures/world';
+import { buildWorldWithTroops, TEST_PLAYER_IDS, withVisibilityRadius } from './fixtures/world';
 
 /** 012 default board size. `64` is a known-broken terrain size — out of scope. */
 const BOARD = 48;
@@ -50,6 +50,14 @@ const RADIUS = 4;
 
 /** Production cadence under test (informational; no real timers in this audit). */
 const CADENCE_MS = 250;
+
+/** Well-known PlayerId values matching the test fixture's registry for up to 4 players. */
+const PLAYER_IDS: readonly PlayerId[] = [
+    TEST_PLAYER_IDS[1],
+    TEST_PLAYER_IDS[2],
+    TEST_PLAYER_IDS[3],
+    TEST_PLAYER_IDS[4],
+];
 
 /** Placement tuple: `[x, y, player, count]`. */
 type Placement = readonly [number, number, PlayerId, number];
@@ -70,26 +78,30 @@ type Placement = readonly [number, number, PlayerId, number];
 function frameForTick(t: number, playerCount: number): Placement[] {
     const band = Math.floor(BOARD / playerCount);
     const placements: Placement[] = [];
-    for (let p = 1; p <= playerCount; p++) {
-        const baseY = (p - 1) * band;
-        const x1 = (t * 3 + p * 2) % BOARD;
+    for (let p = 0; p < playerCount; p++) {
+        const playerId = PLAYER_IDS[p] ?? PLAYER_IDS[0];
+        if (playerId === undefined) {
+            continue;
+        }
+        const baseY = p * band;
+        const x1 = (t * 3 + (p + 1) * 2) % BOARD;
         const y1 = baseY + (t % band);
-        const x2 = (t * 3 + 20 + p * 2) % BOARD;
+        const x2 = (t * 3 + 20 + (p + 1) * 2) % BOARD;
         const y2 = baseY + ((t + 5) % band);
-        placements.push([x1, y1, p as PlayerId, 12]);
-        placements.push([x2, y2, p as PlayerId, 12]);
+        placements.push([x1, y1, playerId, 12]);
+        placements.push([x2, y2, playerId, 12]);
     }
     // Battle frame: pull player 2's stack next to player 1's (distance 2).
     if (t % 50 === 25 && playerCount >= 2) {
         const bx = (t * 3 + 1 * 2) % BOARD;
         const by = (1 - 1) * band + (t % band);
-        placements.push([(bx + 2) % BOARD, by, 2 as PlayerId, 12]);
+        placements.push([(bx + 2) % BOARD, by, PLAYER_IDS[1] ?? PLAYER_IDS[0], 12]);
     }
     // Battle frame (4p): pull player 4's stack next to player 3's (distance 2).
     if (t % 50 === 25 && playerCount >= 4) {
         const bx = (t * 3 + 3 * 2) % BOARD;
         const by = (3 - 1) * band + (t % band);
-        placements.push([(bx + 2) % BOARD, by, 4 as PlayerId, 12]);
+        placements.push([(bx + 2) % BOARD, by, PLAYER_IDS[3] ?? PLAYER_IDS[0], 12]);
     }
     return placements;
 }
@@ -108,7 +120,8 @@ function applyPlacements(world: Readonly<World>, placements: readonly Placement[
     const owners = new Uint8Array(size * size);
     const counts = new Uint32Array(size * size);
     for (const [x, y, player, count] of placements) {
-        owners[y * size + x] = player;
+        // Resolve PlayerId to 1-based owner byte for the Uint8Array.
+        owners[y * size + x] = world.playerRegistry.indexOfId(player) + 1;
         counts[y * size + x] = count;
     }
     return { ...world, state: { ...world.state, troopOwners: owners, troopCounts: counts } };
@@ -116,25 +129,27 @@ function applyPlacements(world: Readonly<World>, placements: readonly Placement[
 
 /**
  * Independent visibility oracle: scan the raw state arrays for `player`
- * viewers (owner === player && count > 0), union their bounds-clipped
+ * viewers (owner === playerIndex && count > 0), union their bounds-clipped
  * Chebyshev disks (radius from `world.config.visibilityRadius`), sort
  * row-major. Shares NO code with `computeVisibleSet` beyond the
  * fixture-level disk helper.
  *
- * @param world  The world snapshot to audit.
- * @param player The recipient player.
+ * @param world       The world snapshot to audit.
+ * @param playerIndex The 0-based numeric index of the player.
  * @returns Row-major, duplicate-free `Coord[]` of expected cells.
  */
-function expectedVisibleCoords(world: Readonly<World>, player: PlayerId): Coord[] {
+function expectedVisibleCoords(world: Readonly<World>, playerIndex: number): Coord[] {
     const { width, height } = world.board;
     const radius = world.config.visibilityRadius;
     const seen = new Set<number>();
     const out: Coord[] = [];
     const { troopCounts, troopOwners } = world.state;
+    // Owner byte in troopOwners is 1-based (0 = no owner).
+    const ownerByte = playerIndex + 1;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            if ((troopOwners[idx] ?? 0) !== player) {
+            if ((troopOwners[idx] ?? 0) !== ownerByte) {
                 continue;
             }
             if ((troopCounts[idx] ?? 0) <= 0) {
@@ -177,10 +192,13 @@ describe.each([3, 4] as const)('SC-004 fog isolation for N=%i players (012 T024a
         );
 
         // Warm-up (JIT + allocator steady state) — not measured.
-        for (let p = 1; p <= playerCount; p++) {
-            computePlayerView(world, p as PlayerId);
+        for (let p = 0; p < playerCount; p++) {
+            const playerId = PLAYER_IDS[p] ?? PLAYER_IDS[0];
+            if (playerId !== undefined) {
+                computePlayerView(world, playerId);
+            }
         }
-        computePlayerView(world, 1 as PlayerId, { spectator: true });
+        computePlayerView(world, PLAYER_IDS[0] ?? PLAYER_IDS[1], { spectator: true });
 
         let totalCellsObserved = 0;
         let leakedCells = 0;
@@ -198,13 +216,16 @@ describe.each([3, 4] as const)('SC-004 fog isolation for N=%i players (012 T024a
             world = nextWorld;
 
             const start = performance.now();
-            for (let p = 1; p <= playerCount; p++) {
-                const player = p as PlayerId;
+            for (let p = 0; p < playerCount; p++) {
+                const playerId = PLAYER_IDS[p] ?? PLAYER_IDS[0];
+                if (playerId === undefined) {
+                    continue;
+                }
                 // Independent oracle (knows nothing about computePlayerView).
-                const expected = expectedVisibleCoords(world, player);
+                const expected = expectedVisibleCoords(world, p);
                 const expectedKeys = new Set(expected.map((c) => c.y * world.board.width + c.x));
 
-                const view = computePlayerView(world, player, { events });
+                const view = computePlayerView(world, playerId, { events });
 
                 // (a) Zero leakage — exact set equality against the oracle.
                 expect(view.visibleCells).toHaveLength(expected.length);
@@ -221,7 +242,7 @@ describe.each([3, 4] as const)('SC-004 fog isolation for N=%i players (012 T024a
             // transport-layer guarantee, 004 SC-002).
             const beforeCounts = checksum(world.state.troopCounts);
             const beforeOwners = checksum(world.state.troopOwners);
-            const spectatorView = computePlayerView(world, 1 as PlayerId, { spectator: true });
+            const spectatorView = computePlayerView(world, PLAYER_IDS[0] ?? PLAYER_IDS[1], { spectator: true });
             expect(checksum(world.state.troopCounts)).toBe(beforeCounts);
             expect(checksum(world.state.troopOwners)).toBe(beforeOwners);
             if (spectatorView.visibleCells.length === BOARD * BOARD) {
