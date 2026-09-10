@@ -142,7 +142,7 @@ interface LiveHandleView {
                     readonly reservesPercent: number;
                 }>;
             } | null;
-            readonly session: { readonly playerId: number | null };
+            readonly session: { readonly playerId: string | null };
             readonly feedback: ReadonlyArray<{ readonly kind: string; readonly text: string }>;
         };
     };
@@ -154,7 +154,7 @@ interface LiveHandleView {
 async function readLive(page: Page): Promise<{
     status: string;
     connection: string;
-    playerId: number | null;
+    playerId: string | null;
     tick: number;
     bootError: string | null;
     cells: Array<{ x: number; y: number; cityOwner: number | null; reserves: number }>;
@@ -464,13 +464,25 @@ for (const N of [3, 4]) {
 
                 // The survivor is the host (seat 0). Its console must
                 // surface the terminal result (showResults / game_over).
-                const winnerPage = pages[playerIds.indexOf(seated[0].playerId)];
+                // With branded string PlayerIds the server assigns pages to
+                // seats in alphabetical playerId order, so we cannot predict
+                // which page index corresponds to the host seat. Poll ALL
+                // pages — exactly one should reach game_over.
                 await expect
-                    .poll(async () => (await readLive(winnerPage))?.status, {
-                        timeout: 15_000,
-                        intervals: [50, 100, 250],
-                    })
-                    .toBe('game_over', `survivor console reaches game_over (N=${N})`);
+                    .poll(
+                        async () => {
+                            for (const page of pages) {
+                                const live = await readLive(page);
+                                if (live?.status === 'game_over') return true;
+                            }
+                            return false;
+                        },
+                        {
+                            timeout: 15_000,
+                            intervals: [50, 100, 250],
+                        },
+                    )
+                    .toBe(true, `survivor console reaches game_over (N=${N})`);
 
                 // Zero page errors across the whole conversation.
                 expect(errors).toEqual([]);
