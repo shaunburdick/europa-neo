@@ -29,7 +29,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { MatchId, SessionToken } from '../../contracts/match-types';
+import type { MatchId, PlayerId, SessionToken } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import type { MatchmakerCompositionSeam } from '../../src/matchmaker';
 import { createMatchmaker } from '../../src/matchmaker';
@@ -317,7 +317,7 @@ describe('leaveMatch — terminal phases and error table', () => {
 
         h.server.fireOnMatchTerminal({
             matchId,
-            result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'player-1' as PlayerId, tick: 42, reason: 'last_standing' },
             tick: 42,
         });
         expect(h.seam.getMatch(matchId)?.status).toBe('finished');

@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { MatchId, SeatAssignment } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
+import type { PlayerId } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
@@ -146,7 +147,7 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
         }
         server.fireOnMatchTerminal({
             matchId: created.data.matchId,
-            result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'player-1' as PlayerId, tick: 42, reason: 'last_standing' },
             tick: 42,
         });
 
@@ -177,7 +178,7 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
         });
         running.server.fireOnMatchTerminal({
             matchId: running.matchId,
-            result: { kind: 'win', winner: 2, tick: 9, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'player-2' as PlayerId, tick: 9, reason: 'last_standing' },
             tick: 9,
         });
 

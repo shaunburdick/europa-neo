@@ -43,7 +43,7 @@ import type { MatchResultsRecord, MatchSettings, MatchVisibility, PlayerId, Seat
 import type { GuestPlayerId } from './contracts/lobby-types';
 import type { MatchStatusChangedEvent } from './eventBus';
 import { createStatusBus } from './eventBus';
-import { newMatchSeed } from './idGen';
+import { newMatchSeed, newPlayerId } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
 import { createMatchRecord } from './internal/matchRecord';
 import type { PlayerSession } from './internal/playerSession';
@@ -58,20 +58,6 @@ export type StatusEmitter = (event: MatchStatusChangedEvent) => void;
 export type { MatchStatusChangedEvent } from './eventBus';
 // Re-exported so lifecycle consumers (and tests) have one import site.
 export { createStatusBus };
-
-/**
- * Narrow a seat-derived number into the engine's `PlayerId` union
- * without a blind cast. Seat order maps 1:1 to player ids in v1
- * (`playerId = seatIndex + 1`); anything outside 1..4 is a caller bug.
- *
- * Shared with `matchmaker.ts` so the guard exists exactly once.
- */
-export function toPlayerId(value: number): PlayerId {
-    if (value === 1 || value === 2 || value === 3 || value === 4) {
-        return value;
-    }
-    throw new Error(`matchLifecycle: computed playerId ${String(value)} is outside 1..4`);
-}
 
 /**
  * Emit a transition event when an emitter was supplied. Keeps every
@@ -200,8 +186,8 @@ export function addSeatToFillingMatch(
 /**
  * Atomically transition `filling → running` (FR-007): stores the
  * engine session, stamps the start time, finalizes every seat's
- * `playerId` (`seatIndex + 1`, matching the provisional values
- * already published via `SeatAssignment`), and emits the
+ * `playerId` via `newPlayerId()` (FR-021: server generates stable
+ * string identifiers at match start, not at seat fill), and emits the
  * `MatchStatusChanged` event.
  *
  * @param match - A match currently in the `'filling'` state.
@@ -222,7 +208,7 @@ export function transitionFillingToRunning(
     }
 
     for (const seat of match.seats.values()) {
-        seat.playerId = toPlayerId(seat.seatIndex + 1);
+        seat.playerId = newPlayerId();
     }
     match.engineSession = engineSession;
     match.startedAtMs = startedAtMs;

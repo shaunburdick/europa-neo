@@ -12,7 +12,7 @@
  * Pure test helper: no I/O, no timers.
  */
 
-import type { MatchId, MatchVisibility, SeatAssignment } from '../../contracts/match-types';
+import type { MatchId, MatchVisibility, PlayerId, SeatAssignment } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { createMatchmaker } from '../../src/matchmaker';
@@ -76,7 +76,7 @@ export function makeFinished2pScenario(args?: FinishedScenarioArgs): RematchScen
     const { matchId } = created.data;
     server.fireOnMatchTerminal({
         matchId,
-        result: { kind: 'win', winner: 1, tick, reason: 'last_standing' },
+        result: { kind: 'win', winner: 'player-1' as PlayerId, tick, reason: 'last_standing' },
         tick,
     });
 

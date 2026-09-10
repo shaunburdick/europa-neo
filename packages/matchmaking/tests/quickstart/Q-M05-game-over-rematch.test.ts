@@ -15,6 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { PlayerId } from '../../contracts/match-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 
@@ -48,7 +49,7 @@ describe('Q-M05: game over → rematch handshake', () => {
             tick: 1234,
             result: {
                 kind: 'win',
-                winner: 1,
+                winner: 'player-1' as PlayerId,
                 tick: 1234,
                 reason: 'last_standing',
             },

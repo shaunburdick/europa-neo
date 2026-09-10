@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { MatchId, SessionToken } from '../../contracts/match-types';
+import type { MatchId, PlayerId, SessionToken } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
@@ -211,7 +211,7 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
         }
         server.fireOnMatchTerminal({
             matchId: created.data.matchId,
-            result: { kind: 'win', winner: 1, tick: 7, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'player-1' as PlayerId, tick: 7, reason: 'last_standing' },
             tick: 7,
         });
 

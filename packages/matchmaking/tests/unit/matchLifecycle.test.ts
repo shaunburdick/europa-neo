@@ -11,6 +11,7 @@
 import type { EngineSession, MatchId } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
+import type { PlayerId } from '../../contracts/match-types';
 import { DEFAULT_MATCH_SETTINGS, type MatchResultsRecord } from '../../contracts/match-types';
 import { createPlayerSession } from '../../src/internal/playerSession';
 import {
@@ -18,7 +19,6 @@ import {
     createMatchRecordWithCreator,
     createStatusBus,
     type MatchStatusChangedEvent,
-    toPlayerId,
     transitionFillingToRunning,
     transitionRunningToFinished,
     transitionToCollected,
@@ -107,20 +107,6 @@ describe('createStatusBus', () => {
     });
 });
 
-describe('toPlayerId', () => {
-    it('accepts every valid engine player id', () => {
-        expect(toPlayerId(1)).toBe(1);
-        expect(toPlayerId(2)).toBe(2);
-        expect(toPlayerId(3)).toBe(3);
-        expect(toPlayerId(4)).toBe(4);
-    });
-
-    it('throws on values outside the 1..4 engine contract', () => {
-        expect(() => toPlayerId(0)).toThrow(/outside 1\.\.4/);
-        expect(() => toPlayerId(5)).toThrow(/outside 1\.\.4/);
-    });
-});
-
 describe('createMatchRecordWithCreator', () => {
     it('FR-002/FR-004: creates a filling record with the creator in seat 0', () => {
         const { match, creatorSeat, creator } = makeFillingMatch();
@@ -206,9 +192,15 @@ describe('transitionFillingToRunning', () => {
         expect(updated.status).toBe('running');
         expect(updated.engineSession).toBe(session);
         expect(updated.startedAtMs).toBe(3_000);
-        // Seat playerIds are finalized (seatIndex + 1) at the transition.
-        expect(match.seats.get(0 as SeatIndex)?.playerId).toBe(1);
-        expect(match.seats.get(1 as SeatIndex)?.playerId).toBe(2);
+        // Seat playerIds are finalized as server-generated strings at the transition.
+        const seat0Id = match.seats.get(0 as SeatIndex)?.playerId;
+        const seat1Id = match.seats.get(1 as SeatIndex)?.playerId;
+        expect(typeof seat0Id).toBe('string');
+        expect(typeof seat1Id).toBe('string');
+        expect(seat0Id).not.toBeNull();
+        expect(seat1Id).not.toBeNull();
+        // Distinct seats get distinct PlayerIds.
+        expect(seat0Id).not.toBe(seat1Id);
     });
 
     it('FR-012: emits a filling→running MatchStatusChanged event', () => {
@@ -242,18 +234,18 @@ describe('transitionRunningToFinished', () => {
             matchId: match.matchId,
             tick: 42,
             effectiveSeed: 7,
-            result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'player-a' as PlayerId, tick: 42, reason: 'last_standing' },
             finalBoardHash: 'deadbeef',
             finalPlayers: [
                 {
-                    id: 1,
+                    id: 'player-a' as PlayerId,
                     displayName: 'Alice',
                     status: 'alive',
                     finalTroops: 10,
                     finalCities: 1,
                 },
                 {
-                    id: 2,
+                    id: 'player-b' as PlayerId,
                     displayName: 'Bob',
                     status: 'eliminated',
                     finalTroops: 0,
@@ -283,7 +275,7 @@ describe('transitionRunningToFinished', () => {
                 matchId: match.matchId,
                 tick: 1,
                 effectiveSeed: 7,
-                result: { kind: 'win', winner: 1, tick: 1, reason: 'last_standing' },
+                result: { kind: 'win', winner: 'player-a' as PlayerId, tick: 1, reason: 'last_standing' },
                 finalBoardHash: 'h',
                 finalPlayers: [],
             },
@@ -303,7 +295,7 @@ describe('transitionRunningToFinished', () => {
                     matchId: match.matchId,
                     tick: 1,
                     effectiveSeed: 7,
-                    result: { kind: 'win', winner: 1, tick: 1, reason: 'last_standing' },
+                    result: { kind: 'win', winner: 'player-a' as PlayerId, tick: 1, reason: 'last_standing' },
                     finalBoardHash: 'h',
                     finalPlayers: [],
                 },

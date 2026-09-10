@@ -19,7 +19,9 @@
  * Pure module apart from the CSPRNG call: no I/O, no clock reads.
  */
 
+import type { PlayerId } from '@europa/engine';
 import type { MatchId } from '@europa/networking';
+import { generatePlayerId } from '@europa/core';
 import type { PlayerSessionId } from '../contracts/match-types';
 import { getRandomValues, randomUUID } from './crypto';
 
@@ -55,6 +57,23 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
  */
 export function newMatchId(): MatchId {
     return toBranded<MatchId>(randomUUID());
+}
+
+/**
+ * Mint a fresh engine `PlayerId` — a 12-character alphanumeric NanoID
+ * string branded as `PlayerId` (FR-020/FR-021). Delegates to
+ * `@europa/core`'s `generatePlayerId()`, the single authoritative
+ * implementation.
+ *
+ * PlayerIds are generated at match start (the `filling → running`
+ * transition) and are identity artifacts, never simulation inputs
+ * (constitution Principle II). They are non-secret, stable for the
+ * match's lifetime, and independent of seat index.
+ *
+ * @returns A new branded `PlayerId` string.
+ */
+export function newPlayerId(): PlayerId {
+    return generatePlayerId();
 }
 
 /**

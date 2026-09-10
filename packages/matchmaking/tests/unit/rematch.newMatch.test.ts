@@ -38,7 +38,7 @@ const RESULTS_STUB = {
     matchId: ORIGINAL_ID,
     tick: 1,
     effectiveSeed: ORIGINAL_SEED,
-    result: { kind: 'win', winner: 1 as const, tick: 1, reason: 'last_standing' },
+    result: { kind: 'win', winner: 'player-1' as PlayerId, tick: 1, reason: 'last_standing' },
     finalBoardHash: 'stub',
     finalPlayers: [],
 };

@@ -249,7 +249,7 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
 
         bridge?.onMatchTerminal?.({
             matchId: created.data.matchId,
-            result: { kind: 'win', winner: 2, tick: 7, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'player-2' as PlayerId, tick: 7, reason: 'last_standing' },
             tick: 7,
         });
         expect(matchmaker.stats().finishedMatches).toBe(1);

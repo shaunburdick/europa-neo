@@ -162,7 +162,7 @@ export interface MatchTerminalOverrides {
 export function matchTerminalEvent(overrides: MatchTerminalOverrides = {}): MatchTerminalEvent {
     const result: MatchResult = overrides.result ?? {
         kind: 'win',
-        winner: 1 as PlayerId,
+        winner: 'player-1' as PlayerId,
         tick: overrides.tick ?? 100,
         reason: 'last_standing',
     };

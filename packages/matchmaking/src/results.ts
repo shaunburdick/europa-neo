@@ -22,6 +22,7 @@
 import type { PlayerId, World } from '@europa/engine';
 import type { MatchId } from '@europa/networking';
 import type { MatchResultsRecord } from '../contracts/match-types';
+import { newPlayerId } from './idGen';
 import type { SeatRecord } from './internal/seatRecord';
 
 /** FNV-1a 32-bit offset basis and prime. */
@@ -76,7 +77,9 @@ export function buildMatchResultsRecord(args: BuildResultsArgs): MatchResultsRec
         .map((seat) => {
             const player = world.players[seat.seatIndex];
             return {
-                id: (seat.playerId ?? ((seat.seatIndex + 1) as PlayerId)) as PlayerId,
+                // Defensive fallback: seat.playerId is always non-null after
+                // the filling → running transition, but guard for safety.
+                id: seat.playerId ?? newPlayerId(),
                 displayName: seat.displayName,
                 status: player?.status ?? 'eliminated',
                 finalTroops: player?.troopsHeld ?? 0,

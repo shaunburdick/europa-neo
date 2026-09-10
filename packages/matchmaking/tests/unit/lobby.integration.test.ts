@@ -250,7 +250,7 @@ describe('lifecycle fan-out over the composed stack (R-006)', () => {
         // two triggers, one visible change, ONE bump.
         stack.server.fireOnMatchTerminal({
             matchId: created.matchId,
-            result: { kind: 'win', winner: 1 as PlayerId, tick: 7, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'player-1' as PlayerId, tick: 7, reason: 'last_standing' },
             tick: 7,
         });
         expect(pushedRevisions(stack.delivered)).toEqual([2, 3, 4]);

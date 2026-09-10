@@ -284,7 +284,7 @@ describe('transition matrix: association persists through every path (FR-019)', 
         const results = buildMatchResultsRecord({
             matchId: match.matchId,
             world,
-            result: { kind: 'victory', winner: 1 as PlayerId },
+            result: { kind: 'victory', winner: 'player-1' as PlayerId },
             seats: match.seats,
         });
         transitionRunningToFinished(match, results, CLOCK_MS);

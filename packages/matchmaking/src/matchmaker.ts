@@ -96,7 +96,7 @@ import { buildEngineSession, buildMatchConfig } from './engineSession';
 import { makeError } from './errors';
 import type { MatchStatusListener, StatusEventBus } from './eventBus';
 import { handleSeatExpired } from './forfeit';
-import { newMatchSeed } from './idGen';
+import { newMatchSeed, newPlayerId } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
 import { createPlayerSession } from './internal/playerSession';
 import type { SeatRecord } from './internal/seatRecord';
@@ -106,7 +106,6 @@ import {
     createMatchRecordWithCreator,
     createRematchMatchRecord,
     createStatusBus,
-    toPlayerId,
     transitionFillingToRunning,
     transitionRunningToFinished,
     transitionToCollected,
@@ -475,7 +474,9 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
     /**
      * Build the public result payload for a seated player (contract:
-     * provisional `playerId = seatIndex + 1` while filling).
+     * provisional `playerId` is a server-generated string assigned
+     * during filling; the final authoritative id is set at the
+     * `filling → running` transition).
      */
     function seatAssignmentFor(
         seatIndex: SeatIndex,
@@ -486,7 +487,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         return Object.freeze({
             playerSessionId: playerSessionId as SeatAssignment['playerSessionId'],
             seatIndex,
-            playerId: toPlayerId(seatIndex + 1),
+            playerId: newPlayerId(),
             sessionToken,
             displayName,
         });
@@ -561,11 +562,12 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             displayNames: orderedSeats.map((seat) => seat.handle ?? seat.displayName),
         });
 
-        // Attach in seat order so playerId n maps to seatIndex n - 1.
+        // Attach in seat order so each seat gets its own generated PlayerId.
         for (const [index, seat] of orderedSeats.entries()) {
+            void index; // seat order is the iteration order; index used only for positional clarity
             server.attachPlayer({
                 matchId: match.matchId,
-                playerId: toPlayerId(index + 1),
+                playerId: newPlayerId(),
                 sessionToken: seat.sessionToken,
             });
         }
