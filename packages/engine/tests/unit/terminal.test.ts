@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { applyCommand } from '../../src/applyCommand';
+import { applyCommand, readPendingOrders } from '../../src/applyCommand';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { resolveTerminal } from '../../src/resolution/terminal';
 import { isTerminal, tick } from '../../src/tick';
@@ -195,6 +195,37 @@ describe('isTerminal', () => {
 });
 
 describe('applyCommand — surrender (FR-016)', () => {
+    it('surrender clears the player forces and only that player pending orders', () => {
+        const size = 8;
+        const board = buildSmallBoard(size, [
+            [1, 1, 1],
+            [2, 2, 2],
+            [6, 6, 2],
+        ]);
+        let world = buildWorld(size, board, emptyState(size), [
+            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 20 },
+            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 30 },
+        ]);
+        placeStack(world.state, size, 1, 1, 1, 20);
+        placeStack(world.state, size, 2, 2, 2, 30);
+        world.state.cityOwners[1 * size + 1] = 1;
+        world.state.cityOwners[2 * size + 2] = 2;
+        world.state.pipeMasks[2 * size + 2] = 1;
+
+        const stagedP1 = applyCommand(world, { kind: 'setReserves', player: 1, cell: { x: 1, y: 1 }, percent: 1 });
+        const stagedP2 = applyCommand(stagedP1.world, { kind: 'setReserves', player: 2, cell: { x: 2, y: 2 }, percent: 2 });
+        const surrendered = applyCommand(stagedP2.world, { kind: 'surrender', player: 2 }).world;
+
+        expect(surrendered.players.find((p) => p.id === 2)).toMatchObject({ status: 'eliminated', citiesOwned: 0, troopsHeld: 0 });
+        expect(surrendered.state.troopCounts[2 * size + 2]).toBe(0);
+        expect(surrendered.state.troopOwners[2 * size + 2]).toBe(0);
+        expect(surrendered.state.cityOwners[2 * size + 2]).toBe(0);
+        expect(surrendered.state.pipeMasks[2 * size + 2]).toBe(0);
+        expect(surrendered.state.troopCounts[1 * size + 1]).toBe(20);
+        expect(readPendingOrders(surrendered)).toHaveLength(1);
+        expect(readPendingOrders(surrendered)[0]?.player).toBe(1);
+    });
+
     it('surrender marks player as eliminated immediately and emits EliminationEvent', () => {
         const size = 8;
         const board: Board = buildSmallBoard(size, [

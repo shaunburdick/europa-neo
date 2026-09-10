@@ -179,7 +179,7 @@ export interface OrderGun {
   readonly target: Coord;
 }
 
-/** Surrender: marks player eliminated, forces inert (FR-016). */
+/** Surrender: immediately eliminates the player and renders their forces inert (FR-016). */
 export interface OrderSurrender {
   readonly kind: 'surrender';
   readonly player: PlayerId;
