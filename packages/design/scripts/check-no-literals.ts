@@ -151,7 +151,7 @@ export async function runNoLiteralsCheck(repoRoot: string = resolveRepoRoot()): 
     }
     const violations: LiteralViolation[] = [];
     for (const abs of files) {
-        const rel = path.relative(repoRoot, abs);
+        const rel = path.relative(repoRoot, abs).split(path.sep).join('/');
         if (shouldSkipFile(rel)) {
             continue;
         }

@@ -34,20 +34,28 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST_PORT=8080
 
-COPY --from=build /app/packages/console/dist  ./packages/console/dist
-COPY --from=build /app/packages/console/scripts ./packages/console/scripts
-COPY --from=build /app/packages ./packages
-# Runtime prod deps (prefer pnpm --prod --frozen-lockfile inside runtime stage for exact fidelity)
-RUN corepack enable && pnpm install --prod --frozen-lockfile
+# Copy an allowlisted browser payload plus the bundled server entry. The
+# bundle contains its workspace and ws runtime closure, so no node_modules or
+# package manager is needed in the final image.
+COPY --from=build --chown=node:node /runtime/console ./packages/console/dist
+RUN rm -f /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx
+USER node
 
 EXPOSE 8080
-CMD ["pnpm", "host"]
+CMD ["node", "packages/console/dist/host/host.js"]
 ```
 
 - Base MUST be the same `node:24-slim@sha256:` as build stage.
-- Runtime copies built artifacts + production `node_modules` ONLY. It MUST NOT contain devDependencies, test dirs (`tests/`, `coverage/`, `.playwright`), source TypeScript not transpiled, `.git`, `docs`, `specs`, IDE files.
+- Runtime copies an allowlisted browser payload (`index.html` + `assets/`) and
+  compiled `host/host.js` only. The host bundle contains its runtime closure,
+  so the final image has no `node_modules`, pnpm, Corepack, or `tsx`. It MUST
+  NOT contain devDependencies, test dirs (`tests/`, `coverage/`, `.playwright`),
+  source TypeScript, declarations, source maps, `.git`, `docs`, `specs`, or IDE
+  files.
 - `EXPOSE 8080` — single port (variable at `docker run` via `HOST_PORT`, but Dockerfile declares the default).
-- `CMD` runs the single-port host (`pnpm host` → `tsx scripts/host.ts` → one `http.Server` on `HOST_PORT`).
+- `CMD` runs the compiled single-port host directly through Node (`node
+  packages/console/dist/host/host.js` → one `http.Server` on `HOST_PORT`).
+- Runtime MUST use the image's unprivileged `node` user.
 - Image MUST report the correct release identity:
 
   ```bash

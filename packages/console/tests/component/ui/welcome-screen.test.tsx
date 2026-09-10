@@ -26,7 +26,7 @@ afterEach(() => {
     cleanup();
 });
 
-const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/manual/';
+const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/';
 const GITHUB_URL = 'https://github.com/shaunburdick/europa-neo';
 
 describe('WelcomeScreen component', () => {

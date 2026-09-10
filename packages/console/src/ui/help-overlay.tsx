@@ -78,7 +78,7 @@ const KEYBOARD_SHORTCUTS: ReadonlyArray<{ readonly keys: string; readonly action
 ];
 
 /** The player manual URL (FR-006). */
-const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/manual/';
+const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/';
 
 /**
  * The help overlay modal. Renders inside an `EuropaModal` React

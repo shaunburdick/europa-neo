@@ -31,7 +31,7 @@ import { createRoot } from 'react-dom/client';
 import { BrandedFooter } from './branded-footer';
 
 /** Canonical GitHub Pages URL for the player manual (FR-005). */
-const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/manual/';
+const MANUAL_URL = 'https://shaunburdick.github.io/europa-neo/';
 
 /** Canonical public repository URL (FR-005). */
 const GITHUB_URL = 'https://github.com/shaunburdick/europa-neo';

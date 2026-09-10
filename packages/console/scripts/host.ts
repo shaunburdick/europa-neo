@@ -60,8 +60,14 @@ import {
 } from './host-config';
 import { handleVersionRoute } from './version-route';
 
-/** Package root (this script lives in `<root>/scripts/`). */
-const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
+/**
+ * Package root for both supported launch forms: source (`scripts/host.ts` via
+ * tsx) and the production bundle (`dist/host/host.js` via node).
+ */
+const PACKAGE_ROOT =
+    path.basename(import.meta.dirname) === 'scripts'
+        ? path.resolve(import.meta.dirname, '..')
+        : path.resolve(import.meta.dirname, '..', '..');
 
 /** Built console SPA served to players' browsers. */
 const DIST_DIR = path.join(PACKAGE_ROOT, 'dist');

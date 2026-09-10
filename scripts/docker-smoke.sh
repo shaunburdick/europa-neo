@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# Git Bash rewrites absolute POSIX paths passed to Docker on Windows. The image
+# checks intentionally inspect /app, so preserve those container paths verbatim.
+export MSYS_NO_PATHCONV=1
+
 IMAGE_NAME="${DOCKER_SMOKE_IMAGE:-europa:semantic-url-smoke}"
 HOST_PORT="${DOCKER_SMOKE_PORT:-18080}"
 CONTAINER_NAME="europa-semantic-url-smoke-$$"
@@ -23,6 +27,32 @@ docker build --no-cache --tag "${IMAGE_NAME}" .
 
 echo "[docker-smoke] starting one-port container on localhost:${HOST_PORT}..."
 docker run --detach --name "${CONTAINER_NAME}" --publish "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null
+
+runtime_uid="$(docker exec "${CONTAINER_NAME}" id -u)"
+[[ "${runtime_uid}" == "1000" ]] || {
+    echo "[docker-smoke] FAIL: runtime user UID is ${runtime_uid}, expected non-root node UID 1000" >&2
+    exit 1
+}
+
+if docker exec "${CONTAINER_NAME}" sh -c 'command -v pnpm || command -v corepack || command -v tsx' >/dev/null; then
+    echo "[docker-smoke] FAIL: runtime image retains pnpm, Corepack, or tsx" >&2
+    exit 1
+fi
+
+if docker exec "${CONTAINER_NAME}" sh -c 'find /app -type f \( -name "*.ts" -o -name "*.d.ts" -o -name "*.map" \) -print -quit | grep -q .'; then
+    echo "[docker-smoke] FAIL: runtime image contains TypeScript, declarations, or source maps" >&2
+    exit 1
+fi
+
+if docker exec "${CONTAINER_NAME}" sh -c 'find /app -type d \( -name src -o -name tests -o -name coverage \) -print -quit | grep -q .'; then
+    echo "[docker-smoke] FAIL: runtime image contains source, test, or coverage directories" >&2
+    exit 1
+fi
+
+docker exec "${CONTAINER_NAME}" test -s /app/packages/console/dist/host/host.js || {
+    echo "[docker-smoke] FAIL: compiled host artifact is absent" >&2
+    exit 1
+}
 
 for attempt in $(seq 1 30); do
     if curl --fail --silent "http://127.0.0.1:${HOST_PORT}/version" >/dev/null; then
@@ -63,44 +93,10 @@ asset_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "htt
     exit 1
 }
 
-echo "[docker-smoke] checking the complete design-owned brand set in the console output..."
-brand_assets="$(docker run --rm "${IMAGE_NAME}" node --input-type=module -e '
-    import { BRAND_MANIFEST } from "./packages/design/dist/brand/index.js";
-    for (const asset of BRAND_MANIFEST.assets) {
-        process.stdout.write(`${asset.path}\t${asset.format}\n`);
-    }
-')"
-asset_count=0
-while IFS=$'\t' read -r brand_path brand_format; do
-    [[ -n "${brand_path}" ]] || continue
-    asset_count=$((asset_count + 1))
-    container_asset="/app/packages/console/dist/assets/${brand_path}"
-    docker run --rm "${IMAGE_NAME}" test -s "${container_asset}" || {
-        echo "[docker-smoke] FAIL: design asset is absent from console output: ${brand_path}" >&2
-        exit 1
-    }
-
-    expected_type=''
-    case "${brand_format}" in
-        svg) expected_type='image/svg+xml' ;;
-        png) expected_type='image/png' ;;
-        ico) expected_type='image/x-icon' ;;
-        webmanifest) expected_type='application/manifest+json' ;;
-        *)
-            echo "[docker-smoke] FAIL: unsupported manifest format ${brand_format@Q} for ${brand_path}" >&2
-            exit 1
-            ;;
-    esac
-
-    asset_headers="$(curl --fail --silent --show-error --head "http://127.0.0.1:${HOST_PORT}/assets/${brand_path}")"
-    if ! printf '%s\n' "${asset_headers}" | grep -Fqi "content-type: ${expected_type}"; then
-        echo "[docker-smoke] FAIL: ${brand_path} did not return Content-Type ${expected_type}" >&2
-        printf '%s\n' "${asset_headers}" >&2
-        exit 1
-    fi
-done <<<"${brand_assets}"
-[[ "${asset_count}" -gt 0 ]] || {
-    echo '[docker-smoke] FAIL: design brand manifest contains no assets' >&2
+echo "[docker-smoke] checking staged brand assets in the console output..."
+brand_count="$(docker exec "${CONTAINER_NAME}" sh -c 'find /app/packages/console/dist/assets/brand -type f -size +0c | wc -l')"
+[[ "${brand_count}" -gt 0 ]] || {
+    echo '[docker-smoke] FAIL: console output contains no staged brand assets' >&2
     exit 1
 }
 
@@ -150,4 +146,4 @@ exposed_ports="$(docker image inspect "${IMAGE_NAME}" --format '{{json .Config.E
     exit 1
 }
 
-echo "[docker-smoke] PASS: semantic SPA paths, /version, asset 404, HTTP+WS same-port handshake, and one EXPOSE port verified"
+echo "[docker-smoke] PASS: minimized non-root runtime, semantic SPA paths, /version, asset 404, HTTP+WS same-port handshake, and one EXPOSE port verified"

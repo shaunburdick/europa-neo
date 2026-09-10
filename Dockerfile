@@ -17,8 +17,13 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
+# Keep the browser payload separate from TypeScript declarations emitted by the
+# console package build. The runtime needs only the SPA entry page and assets.
+RUN mkdir -p /runtime/console && cp /app/packages/console/dist/index.html /runtime/console/ && cp -R /app/packages/console/dist/assets /runtime/console/assets && cp -R /app/packages/console/dist/host /runtime/console/host
 
 # Stage 2 — runtime (minimal) — 24.x — latest LTS Aug 2026
+# The bundled host has no runtime node_modules. Copy only browser assets and
+# the server entry point; no source, tests, package manager, or dev tooling.
 FROM node:24-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
@@ -26,19 +31,11 @@ ENV HOST_PORT=8080
 ENV HOST_BIND_HOST=0.0.0.0
 ENV HOST_PUBLIC_HOST=localhost
 
-# Copy built artifacts + package manifests; runtime node_modules is
-# installed fresh for exact lockfile fidelity. The host launcher
-# (packages/console/scripts/host.ts) runs via `tsx`, which lives in
-# @europa/console devDependencies — the runtime install keeps it so
-# `pnpm host` (tsx scripts/host.ts) works inside the container. If a
-# future build compiles the host to JS, this can switch to
-# `pnpm install --prod`.
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=build /app/packages ./packages
-
-RUN corepack enable && corepack prepare pnpm@11.22.0 --activate && pnpm install --frozen-lockfile
+COPY --from=build --chown=node:node /runtime/console ./packages/console/dist
+# Corepack is present in the Node base image but unused by this direct-node
+# runtime. Remove its shims so a compromised process cannot invoke it.
+RUN rm -f /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx
+USER node
 
 EXPOSE 8080
-CMD ["pnpm", "host"]
+CMD ["node", "packages/console/dist/host/host.js"]
