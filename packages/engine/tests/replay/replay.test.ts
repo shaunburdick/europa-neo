@@ -106,7 +106,11 @@ describe('replayMatch', () => {
         const expectedHash = hashWorld(world as Readonly<World>);
 
         // Build a fixture with that one order at tick 0.
-        const fixture = buildFixture(createWorld(CONFIG, BOARD), [{ tick: 0, playerId: 'test-p1' as PlayerId, order }], 1);
+        const fixture = buildFixture(
+            createWorld(CONFIG, BOARD),
+            [{ tick: 0, playerId: 'test-p1' as PlayerId, order }],
+            1,
+        );
 
         const result = replayMatch(fixture, BOARD);
         expect(result.hash).toBe(expectedHash);

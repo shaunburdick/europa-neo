@@ -24,7 +24,7 @@ const VALID_FIXTURE = {
     seed: 12345,
     settings: {
         boardSize: 32,
-    playerCount: 2,
+        playerIds: ['test-p1', 'test-p2'],
         tickIntervalMs: 250,
         seed: 12345,
         visibilityRadius: 6,
@@ -40,12 +40,18 @@ const VALID_FIXTURE = {
         maxRegenAttempts: 5,
         terrainSmoothing: 4,
     },
-    playerIds: ['test-p1', 'test-p2'],
-    orders: [{ tick: 0, playerId: 'test-p1', order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' } }],
+    playerCount: 2,
+    orders: [
+        {
+            tick: 0,
+            playerId: 'test-p1',
+            order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' },
+        },
+    ],
     terminalTick: 100,
-    terminalResult: { kind: 'win', winner: 1, tick: 100, reason: 'last_standing' },
+    terminalResult: { kind: 'win', winner: 'test-p1' as PlayerId, tick: 100, reason: 'last_standing' },
     finalStateHash: 'a1b2c3d4',
-    engineVersion: '0.1.0',
+    engineVersion: '0.2.0',
 };
 
 describe('validateFixture', () => {
@@ -59,7 +65,7 @@ describe('validateFixture', () => {
         expect(fixture.orders).toHaveLength(1);
         expect(fixture.terminalTick).toBe(100);
         expect(fixture.finalStateHash).toBe('a1b2c3d4');
-        expect(fixture.engineVersion).toBe('0.1.0');
+        expect(fixture.engineVersion).toBe('0.2.0');
     });
 
     it('accepts an empty orders array', () => {
@@ -189,17 +195,27 @@ describe('validateFixture', () => {
     });
 
     it('rejects orders with missing tick', () => {
-        const orders = [{ playerId: 'test-p1', order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' } }];
+        const orders = [
+            {
+                playerId: 'test-p1',
+                order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' },
+            },
+        ];
         expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'tick' must be a number");
     });
 
     it('rejects orders with missing playerId', () => {
-        const orders = [{ tick: 0, order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' } }];
-        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'playerId' must be a number");
+        const orders = [
+            {
+                tick: 0,
+                order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'playerId' must be a string");
     });
 
     it('rejects orders with missing order object', () => {
-        const orders = [{ tick: 0, playerId: 1 }];
+        const orders = [{ tick: 0, playerId: 'test-p1' }];
         expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'order' must be an object");
     });
 

@@ -16,8 +16,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-import { createRng } from '@europa/core';
+import { createRng, generatePlayerId } from '@europa/core';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
 import { applyCommand } from '../src/applyCommand';
 import { createWorld } from '../src/create';
@@ -98,10 +97,12 @@ function main(): void {
     }
 
     // Generate board.
+    const playerCount = 2;
+    const playerIds: PlayerId[] = Array.from({ length: playerCount }, () => generatePlayerId());
     const rng = createRng(args.seed);
     const { board } = generateBoard({
         boardSize: 32,
-        playerCount: 2,
+        playerCount: playerCount as 2 | 3 | 4,
         seed: args.seed,
         rng,
         settings: terrainSettings,
@@ -110,7 +111,7 @@ function main(): void {
     // Create world and replay.
     const config: MatchConfig = {
         boardSize: 32,
-        playerCount: 2,
+        playerIds,
         tickIntervalMs: 250,
         seed: args.seed,
         visibilityRadius: 6,
@@ -124,8 +125,13 @@ function main(): void {
     for (let t = 0; t <= maxTick; t++) {
         const tickOrders = orders.filter((o) => o.tick === t);
         for (const { order } of tickOrders) {
-            const result = applyCommand(world, order);
-            world = result.world;
+            try {
+                const result = applyCommand(world, order);
+                world = result.world;
+            } catch {
+                // Ignore invalid orders (unknown player, out of bounds, etc.).
+                // The order is still recorded in the fixture for documentation.
+            }
         }
 
         const tickResult = tick(world);
@@ -146,7 +152,7 @@ function main(): void {
         seed: args.seed,
         settings: config,
         terrainSettings,
-        playerCount: config.playerCount,
+        playerCount: config.playerIds.length,
         orders,
         terminalTick,
         terminalResult,

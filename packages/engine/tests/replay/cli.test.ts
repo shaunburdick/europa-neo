@@ -176,7 +176,11 @@ describe('CLI integration', () => {
         writeFileSync(
             ordersPath,
             JSON.stringify([
-                { tick: 0, playerId: 1, order: { kind: 'setReserves', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, percent: 5 } },
+                {
+                    tick: 0,
+                    playerId: 'test-p1',
+                    order: { kind: 'setReserves', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, percent: 5 },
+                },
             ]),
             'utf-8',
         );

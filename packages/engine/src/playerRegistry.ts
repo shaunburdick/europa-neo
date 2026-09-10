@@ -93,7 +93,9 @@ export function createPlayerRegistry(ids: readonly PlayerId[]): PlayerRegistry {
         idAtIndex(i: number): PlayerId {
             const id = sortedIds[i];
             if (id === undefined) {
-                throw new Error(`PlayerRegistry.idAtIndex: index ${String(i)} out of range (size ${String(sortedIds.length)})`);
+                throw new Error(
+                    `PlayerRegistry.idAtIndex: index ${String(i)} out of range (size ${String(sortedIds.length)})`,
+                );
             }
             return id;
         },

@@ -21,8 +21,8 @@
  */
 
 import { hashSeed } from '@europa/core';
-import type { Board, Cell, CityPlacement, MatchConfig, Player, PlayerId, Terrain, World, WorldState } from './types';
 import { createPlayerRegistry } from './playerRegistry';
+import type { Board, Cell, CityPlacement, MatchConfig, Player, PlayerId, Terrain, World, WorldState } from './types';
 
 /** Minimum board dimension the engine accepts (per data-model.md §1). */
 export const MIN_BOARD_SIZE = 8;

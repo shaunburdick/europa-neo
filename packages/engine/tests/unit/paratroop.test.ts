@@ -100,7 +100,9 @@ describe('resolveParatroop — FR-013 2:1 cost + landing + range', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(100 - TWO_N);
@@ -113,7 +115,9 @@ describe('resolveParatroop — FR-013 2:1 cost + landing + range', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(100 - TWO_N);
@@ -127,7 +131,9 @@ describe('resolveParatroop — FR-013 2:1 cost + landing + range', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 30);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 3 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 3 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(30 - TWO_N + N);
@@ -139,7 +145,9 @@ describe('resolveParatroop — FR-013 2:1 cost + landing + range', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         placeStack(state, size, 4, 3, 0, 0, 0x0f);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.pipeMasks[idx(size, 4, 3)]).toBe(0);
@@ -150,7 +158,9 @@ describe('resolveParatroop — FR-013 2:1 cost + landing + range', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100, 0x02);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.state.pipeMasks[idx(size, 3, 3)]).toBe(0x02);
     });
@@ -177,7 +187,9 @@ describe('resolveParatroop — validation: paratroop into water fails validation
         });
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toHaveLength(1);
         expect(result.errors[0]?.reason.kind).toBe('water_target');
@@ -192,7 +204,9 @@ describe('resolveParatroop — validation: source insufficient', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, TWO_N - 1);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toHaveLength(1);
         expect(result.errors[0]?.reason.kind).toBe('no_source_troops');
@@ -205,7 +219,9 @@ describe('resolveParatroop — validation: source insufficient', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 0);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toHaveLength(1);
         expect(result.errors[0]?.reason.kind).toBe('no_source_troops');
@@ -218,7 +234,9 @@ describe('resolveParatroop — validation: range too far', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 6, y: 3 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 6, y: 3 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toHaveLength(1);
         expect(result.errors[0]?.reason.kind).toBe('paratroop_range');
@@ -230,7 +248,9 @@ describe('resolveParatroop — validation: range too far', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 6, y: 6 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 6, y: 6 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toHaveLength(1);
         expect(result.errors[0]?.reason.kind).toBe('paratroop_range');
@@ -243,7 +263,9 @@ describe('resolveParatroop — validation: not-owner', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 2, 100);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toHaveLength(1);
         expect(result.errors[0]?.reason.kind).toBe('not_owner');
@@ -260,7 +282,9 @@ describe('resolveParatroop — Edge Case: reserves > count holds all', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         state.reservesPct[idx(size, 3, 3)] = 9;
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors.length).toBeGreaterThan(0);
         expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(100);
@@ -272,7 +296,9 @@ describe('resolveParatroop — Edge Case: reserves > count holds all', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 200);
         state.reservesPct[idx(size, 3, 3)] = 9;
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(200 - TWO_N);
@@ -287,7 +313,9 @@ describe('resolveParatroop — branch coverage: edge cases', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, TWO_N);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(0);
@@ -312,7 +340,9 @@ describe('resolveParatroop — branch coverage: edge cases', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 99, y: 99 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 99, y: 99 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors.length).toBe(1);
         expect(result.state).toBe(state);
@@ -323,7 +353,9 @@ describe('resolveParatroop — branch coverage: edge cases', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 3, y: 3 }, direction: 'E' }];
+        const orders: Order[] = [
+            { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 3, y: 3 }, direction: 'E' },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state).toBe(state);
@@ -336,7 +368,9 @@ describe('resolveParatroop — branch coverage: edge cases', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         placeStack(state, size, 3, 4, 0, CONSTANTS.cellCapacity);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 3, y: 4 } },
+        ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         // Target clamped at cellCapacity.
@@ -351,7 +385,9 @@ describe('resolveParatroop — determinism', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         placeStack(state, size, 4, 3, 0, 0, 0x0f);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } },
+        ];
         const reference = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         for (let i = 0; i < 100; i++) {
             const next = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
@@ -370,7 +406,9 @@ describe('resolveParatroop — determinism', () => {
         const countsBefore = Array.from(state.troopCounts);
         const ownersBefore = Array.from(state.troopOwners);
         const pipesBefore = Array.from(state.pipeMasks);
-        const orders: Order[] = [{ kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } }];
+        const orders: Order[] = [
+            { kind: 'paratroop', player: 'test-p1' as PlayerId, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } },
+        ];
         resolveParatroop(state, board, CONSTANTS, orders, REGISTRY);
         expect(Array.from(state.troopCounts)).toEqual(countsBefore);
         expect(Array.from(state.troopOwners)).toEqual(ownersBefore);

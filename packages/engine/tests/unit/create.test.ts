@@ -18,7 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createWorld } from '../../src/create';
-import type { Board, MatchConfig, PlayerId } from '../../src/types';
+import type { Board, MatchConfig } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 
 const baseConfig: MatchConfig = {
@@ -149,7 +149,9 @@ describe('createWorld — FR-019 player count', () => {
 
     it('rejects playerIds with more than 4 entries', () => {
         const board = buildSmallBoard(8, []);
-        expect(() => createWorld({ ...baseConfig, playerIds: ['test-p1', 'test-p2', 'test-p3', 'test-p4', 'test-p5'] }, board)).toThrow(/playerIds/);
+        expect(() =>
+            createWorld({ ...baseConfig, playerIds: ['test-p1', 'test-p2', 'test-p3', 'test-p4', 'test-p5'] }, board),
+        ).toThrow(/playerIds/);
     });
 
     it('rejects fractional city owner values', () => {

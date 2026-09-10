@@ -37,7 +37,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { PlayerId,  EngineConstants } from '../../src/contracts/engine-api';
+import type { EngineConstants, PlayerId } from '../../src/contracts/engine-api';
 import { createPlayerRegistry } from '../../src/playerRegistry';
 import { resolveCombat } from '../../src/resolution/combat';
 import type { Board, WorldState } from '../../src/types';
@@ -280,11 +280,11 @@ describe('resolveCombat — three-way (3 owners, all-equal stack)', () => {
         // First event: P1 vs P2. Second: P1 vs P3. Both winner=P1.
         const e1 = out.events.combat[0];
         const e2 = out.events.combat[1];
-        expect(e1?.attacker).toBe(1);
-        expect(e1?.winner).toBe(1);
+        expect(e1?.attacker).toBe('test-p1');
+        expect(e1?.winner).toBe('test-p1');
         expect(e1?.defenderLoss).toBe(100);
-        expect(e2?.attacker).toBe(1);
-        expect(e2?.winner).toBe(1);
+        expect(e2?.attacker).toBe('test-p1');
+        expect(e2?.winner).toBe('test-p1');
         expect(e2?.defenderLoss).toBe(100);
     });
 
@@ -320,8 +320,8 @@ describe('resolveCombat — symmetry regardless of order-issuing player', () => 
         inflow(stateB, tallyB, size, 4, 4, 2, 200);
         inflow(stateB, tallyB, size, 4, 4, 1, 50);
 
-        const outA = resolveCombat(stateA, boardA, CONSTANTS, TICK, tallyA);
-        const outB = resolveCombat(stateB, boardA, CONSTANTS, TICK, tallyB);
+        const outA = resolveCombat(stateA, boardA, CONSTANTS, TICK, REGISTRY, tallyA);
+        const outB = resolveCombat(stateB, boardA, CONSTANTS, TICK, REGISTRY, tallyB);
 
         // In A: cell (4,4) holds 30 for P1 (winner, clamped to cellCapacity).
         // In B: cell (4,4) holds 30 for P2 (winner, clamped to cellCapacity).
@@ -377,8 +377,8 @@ describe('resolveCombat — determinism', () => {
         inflow(state, tally, size, 4, 4, 1, 100);
         inflow(state, tally, size, 4, 4, 2, 100);
 
-        const r1 = resolveCombat(state, board, CONSTANTS, 1, tally);
-        const r2 = resolveCombat(state, board, CONSTANTS, 99, tally);
+        const r1 = resolveCombat(state, board, CONSTANTS, 1, REGISTRY, tally);
+        const r2 = resolveCombat(state, board, CONSTANTS, 99, REGISTRY, tally);
         expect(r1.events.combat[0]?.tick).toBe(1);
         expect(r2.events.combat[0]?.tick).toBe(99);
     });
@@ -488,10 +488,11 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         const preCounts = new Uint32Array(n);
         const tally = new Uint32Array(n * 4);
         const idx = cellY * size + cellX;
-        preOwners[idx] = garrisonOwner;
+        preOwners[idx] = garrisonOwner === 0 ? 0 : REGISTRY.indexOfId(garrisonOwner) + 1;
         preCounts[idx] = garrisonCount;
         for (const f of flows) {
-            tally[idx * 4 + (f.player - 1)] = f.count;
+            const playerIdx = REGISTRY.indexOfId(f.player);
+            tally[idx * 4 + playerIdx] = f.count;
         }
         return {
             preFlowState: { troopOwners: preOwners, troopCounts: preCounts },
@@ -517,7 +518,7 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             size,
             4,
             4,
-            2,
+            'test-p2' as PlayerId,
             30, // garrison: P2 with 30
             [{ player: 'test-p1' as PlayerId, count: 14 }], // P1 committed 14
         );
@@ -556,7 +557,7 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             size,
             4,
             4,
-            2,
+            'test-p2' as PlayerId,
             20, // garrison: P2 with 20
             [{ player: 'test-p1' as PlayerId, count: 15 }], // P1 committed 15
         );
@@ -594,7 +595,7 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             size,
             4,
             4,
-            1,
+            'test-p1' as PlayerId,
             10, // garrison: P1 with 10
             [
                 { player: 'test-p1' as PlayerId, count: 7 },
@@ -668,7 +669,7 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         state.troopOwners[idx] = 2;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 15, [
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 'test-p2' as PlayerId, 15, [
             { player: 'test-p1' as PlayerId, count: 10 },
         ]);
 
@@ -681,11 +682,11 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             expect(ev).toEqual({
                 tick: TICK,
                 cell: { x: 4, y: 4 },
-                attacker: 1,
-                defender: 2,
+                attacker: 'test-p1',
+                defender: 'test-p2',
                 attackerLoss: 10,
                 defenderLoss: 10,
-                winner: 2,
+                winner: 'test-p2',
                 attackerTotal: 10,
                 defenderTotal: 15,
             });
@@ -702,14 +703,32 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         state.troopOwners[idx] = 2;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 25, [
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 'test-p2' as PlayerId, 25, [
             { player: 'test-p1' as PlayerId, count: 12 },
             { player: 'test-p3' as PlayerId, count: 8 },
         ]);
 
-        const reference = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
+        const reference = resolveCombat(
+            state,
+            board,
+            CONSTANTS,
+            TICK,
+            REGISTRY,
+            tally,
+            committedFlowTally,
+            preFlowState,
+        );
         for (let i = 0; i < 1000; i++) {
-            const next = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
+            const next = resolveCombat(
+                state,
+                board,
+                CONSTANTS,
+                TICK,
+                REGISTRY,
+                tally,
+                committedFlowTally,
+                preFlowState,
+            );
             expect(Array.from(next.state.troopCounts)).toEqual(Array.from(reference.state.troopCounts));
             expect(Array.from(next.state.troopOwners)).toEqual(Array.from(reference.state.troopOwners));
             expect(next.events.combat.length).toBe(reference.events.combat.length);

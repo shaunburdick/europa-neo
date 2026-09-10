@@ -19,7 +19,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { tick } from '../../src/tick';
-import type { MatchConfig, PlayerId } from '../../src/types';
+import type { MatchConfig } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 import { runScenario } from '../fixtures/scenarios';
 
@@ -100,7 +100,7 @@ describe('4-player engine (FR-019 smoke)', () => {
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 10);
         expect(finalWorld.players.length).toBe(4);
-        expect(finalWorld.players.map((p) => p.id)).toEqual([1, 2, 3, 4]);
+        expect(finalWorld.players.map((p) => p.id)).toEqual(['test-p1', 'test-p2', 'test-p3', 'test-p4']);
         expect(finalWorld.tick).toBe(10);
     });
 

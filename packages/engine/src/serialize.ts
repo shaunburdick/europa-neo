@@ -43,8 +43,8 @@
  * cryptographic hash (don't use for security-sensitive checksums).
  */
 
+import { createPlayerRegistry } from './playerRegistry';
 import type { Board, CityPlacement, Player, PlayerId, PlayerStatus, World } from './types';
-import { createPlayerRegistry, type PlayerRegistry } from './playerRegistry';
 
 // ----------------------------------------------------------------------------
 // Constants
@@ -146,7 +146,7 @@ function readEngineApiVersion(): string {
 function importVersion(): string {
     // Static literal — kept in sync with `contracts/engine-types.ts`.
     // Drift is caught by `tests/contracts-drift.test.ts`.
-    return '0.1.0';
+    return '0.2.0';
 }
 
 function encodeVersionHeader(): { versionBytes: Uint8Array; versionLen: number } {
@@ -203,14 +203,25 @@ function encodePayload(world: Readonly<World>): Uint8Array {
         1 + // visibilityRadius
         4 * 4 + // rngState[4]
         1 + // player count (sanity)
-        4 + // total payload length prefix
+        4 + // reserved slot
         0;
 
-    // Compute players block size.
+    // Compute player ID table size:
+    //   [1 byte: player count]
+    //   Per player: [1 byte: id string length] [N bytes: ASCII id string]
+    let playerIdTableLen = 1; // 1 byte for player count
+    const playerIdBytes: Uint8Array[] = [];
+    for (const player of world.players) {
+        const idBytes = encodeAscii(player.id);
+        playerIdBytes.push(idBytes);
+        playerIdTableLen += 1 + idBytes.length; // length prefix + string bytes
+    }
+
+    // Compute players block size (per-player records using 0-based table index).
     let playersLen = 0;
     for (const p of world.players) {
         const nameBytes = encodeAscii(p.displayName);
-        playersLen += 1 + 1 + 1 + 4 + 1 + nameBytes.length; // id, status, citiesOwned(1 byte), troopsHeld(4), nameLen, name
+        playersLen += 1 + 1 + 1 + 4 + 1 + nameBytes.length; // tableIndex, status, citiesOwned(1 byte), troopsHeld(4), nameLen, name
     }
 
     // Cities block.
@@ -219,7 +230,7 @@ function encodePayload(world: Readonly<World>): Uint8Array {
     // Cells block: n * (4 + 1 + 1 + 1 + 1) = n * 8 bytes.
     const cellsBlockLen = n * 8;
 
-    const total = headerLen + playersLen + citiesBlockLen + cellsBlockLen;
+    const total = headerLen + playerIdTableLen + playersLen + citiesBlockLen + cellsBlockLen;
     const out = new Uint8Array(total);
     const dv = new DataView(out.buffer);
     let p = 0;
@@ -242,9 +253,25 @@ function encodePayload(world: Readonly<World>): Uint8Array {
     dv.setUint32(p, 0, true);
     p += 4;
 
-    // Players. Serialize numeric index (1-based) for backward-compatible format.
-    for (const player of world.players) {
-        out[p++] = (world.playerRegistry.indexOfId(player.id) + 1) & 0xff;
+    // Player ID table: [count] [len₀ id₀] [len₁ id₁] ...
+    out[p++] = world.players.length & 0xff;
+    for (let i = 0; i < world.players.length; i++) {
+        const idBytes = playerIdBytes[i];
+        if (idBytes === undefined) {
+            throw new Error(`encodePayload: missing ID bytes for player ${String(i)}`);
+        }
+        out[p++] = idBytes.length & 0xff;
+        out.set(idBytes, p);
+        p += idBytes.length;
+    }
+
+    // Players. Serialize 0-based table index for the serialized id field.
+    for (let i = 0; i < world.players.length; i++) {
+        const player = world.players[i];
+        if (player === undefined) {
+            throw new Error(`encodePayload: missing player at index ${String(i)}`);
+        }
+        out[p++] = i & 0xff; // 0-based table index
         out[p++] = encodePlayerStatus(player.status);
         out[p++] = player.citiesOwned & 0xff;
         dv.setUint32(p, player.troopsHeld >>> 0, true);
@@ -306,16 +333,47 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         );
     }
 
-    // Players. The serialized format uses numeric indices; generate
-    // string PlayerIds for the registry. Wave 3 will update the binary
-    // format to use length-prefixed string IDs.
+    // Player ID table: [count] [len₀ id₀] [len₁ id₁] ...
+    if (bytes.length < p + 1) {
+        throw new EngineFormatError('player ID table count truncated');
+    }
+    const tableCount = bytes[p++] ?? 0;
+    if (tableCount !== playersLen) {
+        throw new EngineFormatError(
+            `player ID table count mismatch (table=${String(tableCount)}, players=${String(playersLen)})`,
+        );
+    }
+
+    const tableIds: PlayerId[] = [];
+    for (let i = 0; i < tableCount; i++) {
+        if (bytes.length < p + 1) {
+            throw new EngineFormatError(`player ID table entry ${String(i)} length truncated`);
+        }
+        const idLen = bytes[p++] ?? 0;
+        if (bytes.length < p + idLen) {
+            throw new EngineFormatError(`player ID table entry ${String(i)} string truncated`);
+        }
+        const id = decodeAscii(bytes.subarray(p, p + idLen)) as PlayerId;
+        p += idLen;
+        tableIds.push(id);
+    }
+
+    // Build the PlayerRegistry from the deserialized IDs.
+    const playerRegistry = createPlayerRegistry(tableIds);
+
+    // Players. Each record uses a 0-based table index.
     const players: Player[] = [];
-    const deserializedIds: PlayerId[] = [];
     for (let i = 0; i < playersLen; i++) {
-        const numericId = bytes[p++] ?? 0;
-        // Generate a deterministic string ID from the numeric index.
-        const id = `deser-${String(numericId)}-${String(i)}` as PlayerId;
-        deserializedIds.push(id);
+        const tableIndex = bytes[p++] ?? 0;
+        if (tableIndex >= tableIds.length) {
+            throw new EngineFormatError(
+                `player ${String(i)} table index ${String(tableIndex)} out of range (table size ${String(tableIds.length)})`,
+            );
+        }
+        const id = tableIds[tableIndex];
+        if (id === undefined) {
+            throw new EngineFormatError(`player ${String(i)} table index ${String(tableIndex)} resolves to undefined`);
+        }
         const statusByte = bytes[p++] ?? 0;
         const status = decodePlayerStatus(statusByte);
         const citiesOwned = bytes[p++] ?? 0;
@@ -335,9 +393,6 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
             troopsHeld,
         });
     }
-
-    // Build the PlayerRegistry from the deserialized IDs.
-    const playerRegistry = createPlayerRegistry(deserializedIds);
 
     // Cities.
     if (bytes.length < p + 2) {
@@ -397,7 +452,7 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
     return {
         config: {
             boardSize,
-            playerIds: deserializedIds,
+            playerIds: tableIds,
             tickIntervalMs: 250, // not serialized; default
             seed,
             visibilityRadius,

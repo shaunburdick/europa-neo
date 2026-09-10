@@ -18,7 +18,7 @@ import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createPlayerRegistry } from '../../src/playerRegistry';
 import { resolveTerminal } from '../../src/resolution/terminal';
 import { isTerminal, tick } from '../../src/tick';
-import type { Board, MatchConfig, Player, PlayerId, World, WorldState } from '../../src/types';
+import type { Board, Player, PlayerId, World, WorldState } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 
 const CONSTANTS = ENGINE_CONSTANTS;
@@ -76,7 +76,7 @@ describe('resolveTerminal — FR-015 elimination when zero troops AND zero citie
         const result = resolveTerminal(state, players, CONSTANTS, 0, REGISTRY);
         expect(result.events.eliminations).toHaveLength(1);
         expect(result.events.eliminations[0]?.reason).toBe('no_troops_no_cities');
-        expect(result.events.eliminations[0]?.player).toBe(2);
+        expect(result.events.eliminations[0]?.player).toBe('test-p2');
     });
 
     it('does NOT eliminate when player has troops', () => {
@@ -122,8 +122,8 @@ describe('resolveTerminal — FR-015 elimination when zero troops AND zero citie
         // After tick: P2 lost its city and troops (e.g. via capture + combat).
         const state2 = emptyState(size);
         placeStack(state2, size, 3, 3, 1, 100);
-        const result = resolveTerminal(state2, players, CONSTANTS, 1);
-        const p2 = result.players.find((p) => p.id === 2);
+        const result = resolveTerminal(state2, players, CONSTANTS, 1, REGISTRY);
+        const p2 = result.players.find((p) => p.id === 'test-p2');
         expect(p2?.status).toBe('eliminated');
     });
 });
@@ -142,7 +142,7 @@ describe('resolveTerminal — terminal detection', () => {
         expect(result.terminal).toBeDefined();
         expect(result.terminal?.kind).toBe('win');
         if (result.terminal?.kind === 'win') {
-            expect(result.terminal.winner).toBe(1);
+            expect(result.terminal.winner).toBe('test-p1');
             expect(result.terminal.reason).toBe('last_standing');
         }
     });
@@ -211,7 +211,7 @@ describe('applyCommand — surrender (FR-016)', () => {
         ]);
         const r = applyCommand(world0, { kind: 'surrender', player: 'test-p2' as PlayerId });
         expect(r.result.ok).toBe(true);
-        const p2 = r.world.players.find((p) => p.id === 2);
+        const p2 = r.world.players.find((p) => p.id === 'test-p2');
         expect(p2?.status).toBe('eliminated');
     });
 
@@ -288,7 +288,7 @@ describe('tick — frozen-once-terminal', () => {
         expect(tickResult.terminal).toBeDefined();
         expect(tickResult.terminal?.kind).toBe('win');
         if (tickResult.terminal?.kind === 'win') {
-            expect(tickResult.terminal.winner).toBe(1);
+            expect(tickResult.terminal.winner).toBe('test-p1');
         }
     });
 });

@@ -24,7 +24,7 @@ import {
     hashWorld,
     serializeWorld,
 } from '../../src/serialize';
-import type { PlayerId,  MatchConfig } from '../../src/types';
+import type { MatchConfig, PlayerId } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 import { runScenario } from '../fixtures/scenarios';
 
@@ -172,7 +172,7 @@ describe('deserializeWorld error handling', () => {
     it('throws EngineFormatError on player-count mismatch', () => {
         // Build a buffer with a valid header but a payload whose declared
         // playerCount (header byte) doesn't match the playersLen byte.
-        const versionBytes = [0x30, 0x2e, 0x31, 0x2e, 0x30]; // "0.1.0"
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
         const buf = new Uint8Array([
             0x00,
             0x00,
@@ -216,65 +216,71 @@ describe('deserializeWorld error handling', () => {
 
     it('throws EngineFormatError on invalid player status byte', () => {
         // Valid header + valid playerCount match but invalid status byte for P1.
-        const versionBytes = [0x30, 0x2e, 0x31, 0x2e, 0x30]; // "0.1.0"
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
         const buf = new Uint8Array([
             0x00,
             0x00,
             versionBytes.length,
             ...versionBytes,
-            8,
-            2,
+            8, // boardSize
+            2, // playerCount
             0,
             0,
             0,
-            0,
+            0, // tick
             1,
             0,
             0,
-            0,
-            4,
-            0,
-            0,
+            0, // seed
+            4, // visibilityRadius
             0,
             0,
             0,
+            0, // rngState[0]
             0,
             0,
             0,
+            0, // rngState[1]
             0,
             0,
             0,
+            0, // rngState[2]
             0,
             0,
             0,
+            0, // rngState[3]
+            2, // playersLen
             0,
             0,
+            0,
+            0, // reserved
+            // Player ID table:
+            2, // table count
             2,
-            0,
-            0,
-            0,
-            0,
+            0x41,
+            0x42, // "AB"
+            2,
+            0x43,
+            0x44, // "CD"
             // Player 1:
-            1,
+            0, // tableIndex
             0xff, // INVALID status byte
             0,
             0,
             0,
-            0,
-            0,
+            0, // citiesOwned + troopsHeld
             1,
-            0x41,
+            0x41, // nameLen=1, "A"
             // Player 2:
-            2,
-            0x01,
+            1, // tableIndex
+            0x01, // status (alive)
             0,
             0,
             0,
-            0,
-            0,
+            0, // citiesOwned + troopsHeld
             1,
-            0x42,
-            // Cities:
+            0x42, // nameLen=1, "B"
+            // Cities: 0
             0,
             0,
             // Cells: 64 × 8 = 512 bytes
@@ -284,65 +290,73 @@ describe('deserializeWorld error handling', () => {
     });
 
     it('throws EngineFormatError when cities block is truncated', () => {
-        const versionBytes = [0x30, 0x2e, 0x31, 0x2e, 0x30]; // "0.1.0"
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
         const buf = new Uint8Array([
             0x00,
             0x00,
             versionBytes.length,
             ...versionBytes,
-            8,
+            8, // boardSize
+            2, // playerCount
+            0,
+            0,
+            0,
+            0, // tick
+            1,
+            0,
+            0,
+            0, // seed
+            4, // visibilityRadius
+            0,
+            0,
+            0,
+            0, // rngState[0]
+            0,
+            0,
+            0,
+            0, // rngState[1]
+            0,
+            0,
+            0,
+            0, // rngState[2]
+            0,
+            0,
+            0,
+            0, // rngState[3]
+            2, // playersLen
+            0,
+            0,
+            0,
+            0, // reserved
+            // Player ID table:
+            2, // table count
             2,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0,
-            0,
-            0,
-            4,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            2,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0x01,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1,
             0x41,
+            0x42, // "AB"
             2,
-            0x01,
+            0x43,
+            0x44, // "CD"
+            // Player 1:
+            0, // tableIndex
+            0x01, // status (alive)
             0,
             0,
             0,
+            0, // citiesOwned + troopsHeld
+            1,
+            0x41, // nameLen=1, "A"
+            // Player 2:
+            1, // tableIndex
+            0x01, // status (alive)
             0,
+            0,
+            0,
+            0, // citiesOwned + troopsHeld
+            1,
+            0x42, // nameLen=1, "B"
+            // Cities: truncated — cityCount says 1, but only 2 bytes (missing owner)
             0,
             1,
-            0x42,
-            // Cities:
-            0,
-            1, // cityCount = 1
             0,
             0, // truncated — missing owner
         ]);
@@ -350,64 +364,73 @@ describe('deserializeWorld error handling', () => {
     });
 
     it('throws EngineFormatError when cells block is truncated', () => {
-        const versionBytes = [0x30, 0x2e, 0x31, 0x2e, 0x30]; // "0.1.0"
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
         const buf = new Uint8Array([
             0x00,
             0x00,
             versionBytes.length,
             ...versionBytes,
-            8,
+            8, // boardSize
+            2, // playerCount
+            0,
+            0,
+            0,
+            0, // tick
+            1,
+            0,
+            0,
+            0, // seed
+            4, // visibilityRadius
+            0,
+            0,
+            0,
+            0, // rngState[0]
+            0,
+            0,
+            0,
+            0, // rngState[1]
+            0,
+            0,
+            0,
+            0, // rngState[2]
+            0,
+            0,
+            0,
+            0, // rngState[3]
+            2, // playersLen
+            0,
+            0,
+            0,
+            0, // reserved
+            // Player ID table:
+            2, // table count
             2,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0,
-            0,
-            0,
-            4,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            2,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0x01,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1,
             0x41,
+            0x42, // "AB"
             2,
-            0x01,
+            0x43,
+            0x44, // "CD"
+            // Player 1:
+            0, // tableIndex
+            0x01, // status (alive)
             0,
             0,
             0,
-            0,
-            0,
+            0, // citiesOwned + troopsHeld
             1,
-            0x42,
+            0x41, // nameLen=1, "A"
+            // Player 2:
+            1, // tableIndex
+            0x01, // status (alive)
             0,
-            0, // 0 cities
+            0,
+            0,
+            0, // citiesOwned + troopsHeld
+            1,
+            0x42, // nameLen=1, "B"
+            // 0 cities
+            0,
+            0,
             // Cells: only 4 bytes, but should be 64 × 8 = 512
             0,
             0,
@@ -419,7 +442,7 @@ describe('deserializeWorld error handling', () => {
 
     it('throws EngineFormatError when payload header is truncated (short buffer after valid version)', () => {
         // Valid version header, but payload is shorter than the full payload header (24 bytes).
-        const versionBytes = [0x30, 0x2e, 0x31, 0x2e, 0x30]; // "0.1.0"
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
         const buf = new Uint8Array([
             0x00,
             0x00,
@@ -435,118 +458,283 @@ describe('deserializeWorld error handling', () => {
     });
 
     it('throws EngineFormatError when city count block is truncated', () => {
-        const versionBytes = [0x30, 0x2e, 0x31, 0x2e, 0x30]; // "0.1.0"
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
         // Valid header + valid players + truncated cities block (no room for the 2-byte city count).
         const buf = new Uint8Array([
             0x00,
             0x00,
             versionBytes.length,
             ...versionBytes,
-            8,
+            8, // boardSize
+            2, // playerCount
+            0,
+            0,
+            0,
+            0, // tick
+            1,
+            0,
+            0,
+            0, // seed
+            4, // visibilityRadius
+            0,
+            0,
+            0,
+            0, // rngState[0]
+            0,
+            0,
+            0,
+            0, // rngState[1]
+            0,
+            0,
+            0,
+            0, // rngState[2]
+            0,
+            0,
+            0,
+            0, // rngState[3]
+            2, // playersLen
+            0,
+            0,
+            0,
+            0, // reserved
+            // Player ID table:
+            2, // table count
             2,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0,
-            0,
-            0,
-            4,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            2,
-            0,
-            0,
-            0,
-            0,
-            1,
-            0x01,
-            0,
-            0,
-            0,
-            0,
-            0,
-            1,
             0x41,
+            0x42, // "AB"
             2,
-            0x01,
+            0x43,
+            0x44, // "CD"
+            // Player 1:
+            0, // tableIndex
+            0x01, // status (alive)
             0,
             0,
             0,
-            0,
-            0,
+            0, // citiesOwned + troopsHeld
             1,
-            0x42,
+            0x41, // nameLen=1, "A"
+            // Player 2:
+            1, // tableIndex
+            0x01, // status (alive)
+            0,
+            0,
+            0,
+            0, // citiesOwned + troopsHeld
+            1,
+            0x42, // nameLen=1, "B"
             // Missing city-count bytes here.
         ]);
         expect(() => deserializeWorld(buf)).toThrow(EngineFormatError);
     });
 
     it('throws EngineFormatError when a player name is truncated', () => {
-        const versionBytes = [0x30, 0x2e, 0x31, 0x2e, 0x30]; // "0.1.0"
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
         const buf = new Uint8Array([
             0x00,
             0x00,
             versionBytes.length,
             ...versionBytes,
-            8,
-            2,
+            8, // boardSize
+            2, // playerCount
             0,
             0,
             0,
-            0,
+            0, // tick
             1,
             0,
             0,
-            0,
-            4,
-            0,
-            0,
+            0, // seed
+            4, // visibilityRadius
             0,
             0,
             0,
+            0, // rngState[0]
             0,
             0,
             0,
+            0, // rngState[1]
             0,
             0,
             0,
+            0, // rngState[2]
             0,
             0,
             0,
+            0, // rngState[3]
+            2, // playersLen
             0,
             0,
+            0,
+            0, // reserved
+            // Player ID table:
+            2, // table count
             2,
-            0,
-            0,
-            0,
-            0,
+            0x41,
+            0x42, // "AB"
+            2,
+            0x43,
+            0x44, // "CD"
             // Player 1 with name length 10 but only 2 bytes follow.
-            1,
-            0x01,
+            0, // tableIndex
+            0x01, // status (alive)
             0,
             0,
             0,
-            0,
-            0,
+            0, // citiesOwned + troopsHeld
             10, // claims 10-byte name
             0x41,
             0x42, // only 2 bytes provided
+        ]);
+        expect(() => deserializeWorld(buf)).toThrow(EngineFormatError);
+    });
+
+    it('throws EngineFormatError when player ID table count is truncated', () => {
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
+        const buf = new Uint8Array([
+            0x00,
+            0x00,
+            versionBytes.length,
+            ...versionBytes,
+            8, // boardSize
+            2, // playerCount
+            0,
+            0,
+            0,
+            0, // tick
+            1,
+            0,
+            0,
+            0, // seed
+            4, // visibilityRadius
+            0,
+            0,
+            0,
+            0, // rngState[0..3]
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2, // playersLen
+            0,
+            0,
+            0,
+            0, // reserved
+            // Player ID table: missing count byte
+        ]);
+        expect(() => deserializeWorld(buf)).toThrow(EngineFormatError);
+    });
+
+    it('throws EngineFormatError when player ID table entry is truncated', () => {
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
+        const buf = new Uint8Array([
+            0x00,
+            0x00,
+            versionBytes.length,
+            ...versionBytes,
+            8, // boardSize
+            2, // playerCount
+            0,
+            0,
+            0,
+            0, // tick
+            1,
+            0,
+            0,
+            0, // seed
+            4, // visibilityRadius
+            0,
+            0,
+            0,
+            0, // rngState[0..3]
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2, // playersLen
+            0,
+            0,
+            0,
+            0, // reserved
+            // Player ID table:
+            2, // table count
+            5, // claims 5-byte ID but buffer ends
+        ]);
+        expect(() => deserializeWorld(buf)).toThrow(EngineFormatError);
+    });
+
+    it('throws EngineFormatError when player table index is out of range', () => {
+        const versionBytes = [0x30, 0x2e, 0x32, 0x2e, 0x30]; // "0.2.0"
+        const buf = new Uint8Array([
+            0x00,
+            0x00,
+            versionBytes.length,
+            ...versionBytes,
+            8, // boardSize
+            2, // playerCount
+            0,
+            0,
+            0,
+            0, // tick
+            1,
+            0,
+            0,
+            0, // seed
+            4, // visibilityRadius
+            0,
+            0,
+            0,
+            0, // rngState[0..3]
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2, // playersLen
+            0,
+            0,
+            0,
+            0, // reserved
+            // Player ID table:
+            2, // table count
+            2,
+            0x41,
+            0x42, // "AB"
+            2,
+            0x43,
+            0x44, // "CD"
+            // Player 1: tableIndex 5 is out of range
+            5, // tableIndex (OUT OF RANGE)
+            0x01, // status (alive)
+            0,
+            0,
+            0,
+            0, // citiesOwned + troopsHeld
+            1,
+            0x41, // nameLen=1, "A"
         ]);
         expect(() => deserializeWorld(buf)).toThrow(EngineFormatError);
     });

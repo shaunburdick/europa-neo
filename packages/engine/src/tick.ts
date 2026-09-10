@@ -124,7 +124,13 @@ export function tick(world: Readonly<World>): TickResult {
     // its own kind).
     const paratroopOrders = sorted.filter((o): o is Extract<Order, { kind: 'paratroop' }> => o.kind === 'paratroop');
     if (paratroopOrders.length > 0) {
-        const paraResult = resolveParatroop(state, world.board, ENGINE_CONSTANTS, paratroopOrders, world.playerRegistry);
+        const paraResult = resolveParatroop(
+            state,
+            world.board,
+            ENGINE_CONSTANTS,
+            paratroopOrders,
+            world.playerRegistry,
+        );
         ({ state } = paraResult);
         for (const e of paraResult.errors) {
             events = { ...events, errors: [...events.errors, e] };

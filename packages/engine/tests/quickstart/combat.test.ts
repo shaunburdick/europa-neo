@@ -49,8 +49,8 @@ describe('quickstart Q-006 — combat attrition', () => {
             [6, 6, 2],
         ]);
         const orders = [
-            { atTick: 0, order: eastPipe(1, 1, 1) },
-            { atTick: 0, order: eastPipe(6, 6, 2) },
+            { atTick: 0, order: eastPipe(1, 1, 'test-p1' as PlayerId) },
+            { atTick: 0, order: eastPipe(6, 6, 'test-p2' as PlayerId) },
         ];
         const { events } = runScenario(cfg, board, orders, 1);
         // No troop collisions in this minimal setup (each city only feeds

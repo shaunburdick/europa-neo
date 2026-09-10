@@ -70,8 +70,8 @@ function validateOrders(orders: unknown[], label: string): void {
         if (!('tick' in entry) || typeof entry.tick !== 'number') {
             throw new Error(`Invalid ${label}: order at index ${i}: 'tick' must be a number`);
         }
-        if (!('playerId' in entry) || typeof entry.playerId !== 'number') {
-            throw new Error(`Invalid ${label}: order at index ${i}: 'playerId' must be a number`);
+        if (!('playerId' in entry) || typeof entry.playerId !== 'string') {
+            throw new Error(`Invalid ${label}: order at index ${i}: 'playerId' must be a string`);
         }
         if (
             !('order' in entry) ||

@@ -25,7 +25,7 @@ import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createWorld } from '../../src/create';
 import { tick } from '../../src/tick';
-import type { MatchConfig, PlayerId } from '../../src/types';
+import type { MatchConfig } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 
 const cfg: MatchConfig = {

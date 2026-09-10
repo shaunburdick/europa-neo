@@ -79,11 +79,12 @@ export function checkVersionMismatch(fixtureVersion: string): string | null {
  */
 export function replayMatch(fixture: Fixture, board: Board): ReplayResult {
     // 1. Create the initial world from the regenerated board.
-    // Generate deterministic string PlayerIds from the fixture's playerCount.
-    const playerIds: PlayerId[] = Array.from(
-        { length: fixture.playerCount },
-        (_, i) => `fixture-p${String(i + 1)}` as PlayerId,
-    );
+    // Use settings.playerIds if present (v0.2.0+ fixtures), otherwise
+    // generate deterministic string PlayerIds from the fixture's playerCount.
+    const playerIds: PlayerId[] =
+        fixture.settings.playerIds !== undefined
+            ? [...fixture.settings.playerIds]
+            : Array.from({ length: fixture.playerCount }, (_, i) => `fixture-p${String(i + 1)}` as PlayerId);
     const config: MatchConfig = {
         boardSize: fixture.settings.boardSize,
         playerIds,
@@ -101,8 +102,13 @@ export function replayMatch(fixture: Fixture, board: Board): ReplayResult {
         // Apply all orders recorded for this tick.
         const orders = ordersByTick.get(t) ?? [];
         for (const record of orders) {
-            const result = applyCommand(world, record.order as Order);
-            world = result.world;
+            try {
+                const result = applyCommand(world, record.order as Order);
+                world = result.world;
+            } catch {
+                // Ignore invalid orders (unknown player, out of bounds, etc.).
+                // The order is still recorded in the fixture for documentation.
+            }
         }
 
         // Advance the world by one tick.

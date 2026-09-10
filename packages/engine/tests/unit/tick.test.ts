@@ -143,11 +143,22 @@ describe('applyCommand — pipe commands', () => {
                 direction: Direction;
             };
         }> = [
-            { atTick: 0, order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'E' } },
-            { atTick: 0, order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'N' } },
+            {
+                atTick: 0,
+                order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'E' },
+            },
+            {
+                atTick: 0,
+                order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'N' },
+            },
             {
                 atTick: 1,
-                order: { kind: 'setPipesExclusive', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'S' },
+                order: {
+                    kind: 'setPipesExclusive',
+                    player: 'test-p1' as PlayerId,
+                    cell: { x: 1, y: 1 },
+                    direction: 'S',
+                },
             },
         ];
         const { finalWorld } = runScenario(cfg, board, pipeOrders, 2);
@@ -248,11 +259,17 @@ describe('applyCommand — pipe commands', () => {
             }).result.ok,
         ).toBe(true);
         expect(
-            applyCommand(w0, { kind: 'gun', player: 'test-p1' as PlayerId, source: { x: 1, y: 1 }, target: { x: 2, y: 1 } }).result.ok,
+            applyCommand(w0, {
+                kind: 'gun',
+                player: 'test-p1' as PlayerId,
+                source: { x: 1, y: 1 },
+                target: { x: 2, y: 1 },
+            }).result.ok,
         ).toBe(true);
-        expect(applyCommand(w0, { kind: 'setReserves', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, percent: 3 }).result.ok).toBe(
-            true,
-        );
+        expect(
+            applyCommand(w0, { kind: 'setReserves', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, percent: 3 })
+                .result.ok,
+        ).toBe(true);
         expect(applyCommand(w0, { kind: 'surrender', player: 'test-p2' as PlayerId }).result.ok).toBe(true);
     });
 });
@@ -311,8 +328,8 @@ describe('tick — orchestrator', () => {
         const recorded = events[0]?.appliedOrders ?? [];
         expect(recorded.length).toBe(2);
         // Player 1 first, then player 2.
-        expect(recorded[0]?.order.player).toBe(1);
-        expect(recorded[1]?.order.player).toBe(2);
+        expect(recorded[0]?.order.player).toBe('test-p1');
+        expect(recorded[1]?.order.player).toBe('test-p2');
     });
 
     it('paratroop/gun tiebreak: same player + same kind sorted by source coord', () => {
