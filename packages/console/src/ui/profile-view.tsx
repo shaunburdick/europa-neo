@@ -10,7 +10,9 @@
  *      (`validateHandleDraft`) and server error display
  *      (`describeActionError`) (FR-006).
  *   3. **named** — "Welcome back, {handle}" card with a Continue
- *      button that navigates to `returnTo` or `/lobby` (FR-007).
+ *      button that navigates to `returnTo` or `/lobby` (FR-007),
+ *      plus a "Change name" option that reveals the handle form
+ *      for editing the existing handle.
  *
  * After a successful handle submission the view auto-navigates to
  * `returnTo` or `/lobby` (FR-010) — no manual Continue click required
@@ -33,7 +35,7 @@
 
 import { EuropaButton, EuropaCard, EuropaPage, EuropaStack, EuropaWaiting } from '@europa/design/components';
 import type { JSX } from 'react';
-import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import type { LobbyActionStatus, LobbyIdentityStatus } from '../state/lobby-state';
 import { validateHandleDraft } from './lobby-handle';
@@ -72,6 +74,7 @@ export function ProfileView({
 }: ProfileViewProps): JSX.Element {
     const [draft, setDraft] = useState('');
     const [localError, setLocalError] = useState<string | null>(null);
+    const [editing, setEditing] = useState(false);
     const headingRef = useRef<HTMLHeadingElement>(null);
 
     const headingId = useId();
@@ -95,6 +98,7 @@ export function ProfileView({
     // setup), not on initial mount when already named (e.g. the
     // "Manage profile" entry path).
     const wasUnnamedRef = useRef(!named);
+    const prevHandleRef = useRef(handle);
     useEffect(() => {
         if (named && wasUnnamedRef.current) {
             wasUnnamedRef.current = false;
@@ -102,6 +106,14 @@ export function ProfileView({
             window.history.pushState(window.history.state, '', target);
         }
     }, [named, returnTo]);
+
+    // Reset editing mode when the handle changes (successful update).
+    useEffect(() => {
+        if (handle !== prevHandleRef.current) {
+            prevHandleRef.current = handle;
+            setEditing(false);
+        }
+    }, [handle]);
 
     /** Validate locally, then hand the raw draft to the caller. */
     function submit(event: FormEvent<HTMLFormElement>): void {
@@ -120,6 +132,19 @@ export function ProfileView({
         const target = returnTo ?? '/lobby';
         window.history.pushState(window.history.state, '', target);
     }
+
+    /** Enter edit mode, pre-filling the draft with the current handle. */
+    const enterEditMode = useCallback(() => {
+        setDraft(handle ?? '');
+        setLocalError(null);
+        setEditing(true);
+    }, [handle]);
+
+    /** Cancel editing and reset local state. */
+    const cancelEdit = useCallback(() => {
+        setEditing(false);
+        setLocalError(null);
+    }, []);
 
     const errorMessage = localError ?? (actionStatus.error !== null ? describeActionError(actionStatus.error) : null);
 
@@ -176,19 +201,68 @@ export function ProfileView({
                 <EuropaCard>
                     <EuropaStack>
                         {named ? (
-                            /* FR-007: named state — welcome card with Continue button */
-                            <>
-                                <p data-europa-identity-status="named">
-                                    Welcome back, <bdi className="europa-lobby__handle">{handle}</bdi>
-                                </p>
-                                <EuropaButton
-                                    type="button"
-                                    data-europa-continue-to-lobby="true"
-                                    onClick={navigateToTarget}
-                                >
-                                    Continue to lobby
-                                </EuropaButton>
-                            </>
+                            editing ? (
+                                /* FR-007: named state — edit form for changing handle */
+                                <>
+                                    <p data-europa-identity-status="named">Update your display name</p>
+                                    <form className="europa-lobby__form" onSubmit={submit}>
+                                        <label className="europa-lobby__field-label" htmlFor={fieldName}>
+                                            Display name
+                                        </label>
+                                        <input
+                                            id={fieldName}
+                                            className="europa-lobby__input europa-focus-ring"
+                                            type="text"
+                                            value={draft}
+                                            onChange={(event) => {
+                                                setDraft(event.target.value);
+                                                if (localError !== null) {
+                                                    setLocalError(null);
+                                                }
+                                            }}
+                                            disabled={saving}
+                                            aria-invalid={errorMessage !== null}
+                                            aria-describedby={
+                                                errorMessage !== null ? `${errorId} ${statusId}` : statusId
+                                            }
+                                            autoComplete="off"
+                                        />
+                                        {errorMessage !== null ? (
+                                            <p className="europa-lobby__error" id={errorId} role="alert">
+                                                {errorMessage}
+                                            </p>
+                                        ) : null}
+                                        <EuropaButton type="submit" disabled={saving} data-europa-submit-handle="true">
+                                            {saving ? 'Saving…' : 'Update name'}
+                                        </EuropaButton>
+                                        <EuropaButton
+                                            type="button"
+                                            variant="secondary"
+                                            disabled={saving}
+                                            onClick={cancelEdit}
+                                        >
+                                            Cancel
+                                        </EuropaButton>
+                                    </form>
+                                </>
+                            ) : (
+                                /* FR-007: named state — welcome card with Continue + Change name */
+                                <>
+                                    <p data-europa-identity-status="named">
+                                        Welcome back, <bdi className="europa-lobby__handle">{handle}</bdi>
+                                    </p>
+                                    <EuropaButton
+                                        type="button"
+                                        data-europa-continue-to-lobby="true"
+                                        onClick={navigateToTarget}
+                                    >
+                                        Continue to lobby
+                                    </EuropaButton>
+                                    <EuropaButton type="button" variant="secondary" onClick={enterEditMode}>
+                                        Change name
+                                    </EuropaButton>
+                                </>
+                            )
                         ) : (
                             /* FR-006: unnamed state — handle input form */
                             <>
