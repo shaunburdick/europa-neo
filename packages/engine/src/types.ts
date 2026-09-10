@@ -65,6 +65,7 @@ export type {
     Player,
     // Branded primitives
     PlayerId,
+    PlayerRegistry,
     PlayerStatus,
     ReservesPct,
     // PRNG

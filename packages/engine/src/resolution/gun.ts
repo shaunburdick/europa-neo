@@ -33,6 +33,7 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents } from '../events';
+import type { PlayerRegistry } from '../playerRegistry';
 import type { Board, Order, TickEvents, ValidationError, WorldState } from '../types';
 
 interface GunResolutionResult {
@@ -59,6 +60,7 @@ export function resolveGun(
     board: Readonly<Board>,
     constants: EngineConstants,
     orders: readonly Order[],
+    registry: PlayerRegistry,
 ): GunResolutionResult {
     // Lazy allocation: only allocate fresh typed arrays when an order
     // actually modifies state. This preserves input `state` reference
@@ -110,7 +112,9 @@ export function resolveGun(
 
         // Ownership check: source must be owned by player.
         const sourceOwner = newOwners === null ? (state.troopOwners[sourceIdx] ?? 0) : (newOwners[sourceIdx] ?? 0);
-        if (sourceOwner !== order.player) {
+        // Resolve string PlayerId to 1-based numeric index for WorldState comparison.
+        const playerIndex = registry.indexOfId(order.player) + 1;
+        if (sourceOwner !== playerIndex) {
             errors.push({ order, reason: { kind: 'not_owner', coord: sourceCoord } });
             continue;
         }

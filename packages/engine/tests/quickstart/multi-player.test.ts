@@ -6,7 +6,7 @@
  * end-to-end."
  *
  * This test confirms that the engine's lifecycle (`createWorld` + `tick`)
- * works for `playerCount: 3` and `playerCount: 4` — a smoke test
+ * works for `playerIds: ['test-p1', 'test-p2', 'test-p3']` and `playerIds: ['test-p1', 'test-p2', 'test-p3', 'test-p4']` — a smoke test
  * ensuring the contract holds even though v1 doesn't ship
  * 3/4-player end-to-end gameplay (no matchmaking, no UI for the
  * extra players).
@@ -26,7 +26,7 @@ import { runScenario } from '../fixtures/scenarios';
 function build3PlayerConfig(seed: number): MatchConfig {
     return {
         boardSize: 12,
-        playerCount: 3,
+        playerIds: ['test-p1', 'test-p2', 'test-p3'],
         tickIntervalMs: 250,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -36,7 +36,7 @@ function build3PlayerConfig(seed: number): MatchConfig {
 function build4PlayerConfig(seed: number): MatchConfig {
     return {
         boardSize: 16,
-        playerCount: 4,
+        playerIds: ['test-p1', 'test-p2', 'test-p3', 'test-p4'],
         tickIntervalMs: 250,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -44,27 +44,27 @@ function build4PlayerConfig(seed: number): MatchConfig {
 }
 
 describe('3-player engine (FR-019 smoke)', () => {
-    it('createWorld + tick succeeds for playerCount: 3', () => {
+    it('createWorld + tick succeeds for 3 players', () => {
         const cfg = build3PlayerConfig(1);
         const board = buildSmallBoard(12, [
-            [1, 1, 1 as PlayerId],
-            [10, 1, 2 as PlayerId],
-            [5, 10, 3 as PlayerId],
+            [1, 1, 1],
+            [10, 1, 2],
+            [5, 10, 3],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 10);
         expect(finalWorld.players.length).toBe(3);
-        expect(finalWorld.players[0]?.id).toBe(1);
-        expect(finalWorld.players[1]?.id).toBe(2);
-        expect(finalWorld.players[2]?.id).toBe(3);
+        expect(finalWorld.players[0]?.id).toBe('test-p1');
+        expect(finalWorld.players[1]?.id).toBe('test-p2');
+        expect(finalWorld.players[2]?.id).toBe('test-p3');
         expect(finalWorld.tick).toBe(10);
     });
 
     it('3-player tick advances by exactly 1 per call', () => {
         const cfg = build3PlayerConfig(2);
         const board = buildSmallBoard(12, [
-            [1, 1, 1 as PlayerId],
-            [10, 1, 2 as PlayerId],
-            [5, 10, 3 as PlayerId],
+            [1, 1, 1],
+            [10, 1, 2],
+            [5, 10, 3],
         ]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 0);
         const r = tick(w0);
@@ -76,9 +76,9 @@ describe('3-player engine (FR-019 smoke)', () => {
     it('3-player board has 3 cities with distinct owners', () => {
         const cfg = build3PlayerConfig(3);
         const board = buildSmallBoard(12, [
-            [1, 1, 1 as PlayerId],
-            [10, 1, 2 as PlayerId],
-            [5, 10, 3 as PlayerId],
+            [1, 1, 1],
+            [10, 1, 2],
+            [5, 10, 3],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 5);
         const owners = new Set<number>();
@@ -90,13 +90,13 @@ describe('3-player engine (FR-019 smoke)', () => {
 });
 
 describe('4-player engine (FR-019 smoke)', () => {
-    it('createWorld + tick succeeds for playerCount: 4', () => {
+    it('createWorld + tick succeeds for 4 players', () => {
         const cfg = build4PlayerConfig(1);
         const board = buildSmallBoard(16, [
-            [1, 1, 1 as PlayerId],
-            [14, 1, 2 as PlayerId],
-            [1, 14, 3 as PlayerId],
-            [14, 14, 4 as PlayerId],
+            [1, 1, 1],
+            [14, 1, 2],
+            [1, 14, 3],
+            [14, 14, 4],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 10);
         expect(finalWorld.players.length).toBe(4);
@@ -107,10 +107,10 @@ describe('4-player engine (FR-019 smoke)', () => {
     it('4-player tick advances by exactly 1 per call', () => {
         const cfg = build4PlayerConfig(2);
         const board = buildSmallBoard(16, [
-            [1, 1, 1 as PlayerId],
-            [14, 1, 2 as PlayerId],
-            [1, 14, 3 as PlayerId],
-            [14, 14, 4 as PlayerId],
+            [1, 1, 1],
+            [14, 1, 2],
+            [1, 14, 3],
+            [14, 14, 4],
         ]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 0);
         const r = tick(w0);
@@ -120,10 +120,10 @@ describe('4-player engine (FR-019 smoke)', () => {
     it('4-player board has 4 cities with distinct owners', () => {
         const cfg = build4PlayerConfig(3);
         const board = buildSmallBoard(16, [
-            [1, 1, 1 as PlayerId],
-            [14, 1, 2 as PlayerId],
-            [1, 14, 3 as PlayerId],
-            [14, 14, 4 as PlayerId],
+            [1, 1, 1],
+            [14, 1, 2],
+            [1, 14, 3],
+            [14, 14, 4],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 5);
         const owners = new Set<number>();

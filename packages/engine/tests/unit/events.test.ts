@@ -37,8 +37,8 @@ import type {
 const COMBAT: CombatEvent = {
     tick: 1,
     cell: { x: 0, y: 0 },
-    attacker: 1 as PlayerId,
-    defender: 2 as PlayerId,
+    attacker: 'test-p1' as PlayerId,
+    defender: 'test-p2' as PlayerId,
     attackerLoss: 5,
     defenderLoss: 5,
     winner: 'tie',
@@ -50,19 +50,19 @@ const CAPTURE: CaptureEvent = {
     tick: 1,
     cell: { x: 1, y: 2 },
     fromOwner: null,
-    toOwner: 1 as PlayerId,
+    toOwner: 'test-p1' as PlayerId,
     isCity: true,
 };
 
 const ELIM: EliminationEvent = {
     tick: 2,
-    player: 2 as PlayerId,
+    player: 'test-p2' as PlayerId,
     reason: 'no_troops_no_cities',
 };
 
 const ORDER: Order = {
     kind: 'setPipe',
-    player: 1 as PlayerId,
+    player: 'test-p1' as PlayerId,
     cell: { x: 3, y: 3 },
     direction: 'E',
 };

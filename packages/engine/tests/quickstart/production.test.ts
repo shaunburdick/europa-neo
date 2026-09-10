@@ -16,7 +16,7 @@ import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 1,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -33,7 +33,7 @@ describe('quickstart Q-002 — production saturates', () => {
         const cell = getCell(finalWorld, 1, 1);
         const expected = Math.min(10 * ENGINE_CONSTANTS.productionRate, ENGINE_CONSTANTS.cityCapacity);
         expect(cell.troopCount).toBe(expected);
-        expect(cell.troopOwner).toBe(1);
+        expect(cell.troopOwner).toBe('test-p1');
     });
 
     it('after 1 tick, city contains productionRate troops', () => {

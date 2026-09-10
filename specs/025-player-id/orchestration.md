@@ -11,11 +11,13 @@ Replace `PlayerId = 1 | 2 | 3 | 4` with branded string type via NanoID 12-char. 
 
 ## Task Wave Progress
 
-### Wave 1 — Core Types — 🔄 In Progress
-- T-001: Change PlayerId type to branded string
-- T-002: Add generatePlayerId() (NanoID 12-char)
-- T-003: Bump ENGINE_API_VERSION 0.1.0 → 0.2.0
-- T-004: Update @europa/core tests
+### Wave 1 — Core Types — ✅ Complete (9b58dfe)
+- T-001: Change PlayerId type to branded string — ✅
+- T-002: Add generatePlayerId() (NanoID 12-char) — ✅
+- T-003: Bump ENGINE_API_VERSION 0.1.0 → 0.2.0 — ✅
+- T-004: Update @europa/core tests (28/28 pass) — ✅
+
+### Wave 2 — Engine Internals — 🔄 In Progress
 
 ### Wave 2 — Engine Internals — ⏳ Pending
 - T-005 through T-016

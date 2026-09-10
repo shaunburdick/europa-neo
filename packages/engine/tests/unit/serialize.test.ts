@@ -16,6 +16,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createWorld } from '../../src/create';
+import { createPlayerRegistry } from '../../src/playerRegistry';
 import {
     deserializeWorld,
     EngineFormatError,
@@ -23,13 +24,13 @@ import {
     hashWorld,
     serializeWorld,
 } from '../../src/serialize';
-import type { MatchConfig } from '../../src/types';
+import type { PlayerId,  MatchConfig } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 1,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -569,20 +570,20 @@ describe('serializeWorld — status encoding branches', () => {
                     terrain: 'land' as const,
                 })),
                 cities: [
-                    { cell: { x: 1, y: 1 }, owner: 1 as PlayerId },
-                    { cell: { x: 6, y: 6 }, owner: 2 as PlayerId },
+                    { cell: { x: 1, y: 1 }, owner: 1 },
+                    { cell: { x: 6, y: 6 }, owner: 2 },
                 ],
             },
             players: [
                 {
-                    id: 1 as PlayerId,
+                    id: 'test-p1' as PlayerId,
                     displayName: 'P1',
                     status,
                     citiesOwned: 0,
                     troopsHeld: 0,
                 },
                 {
-                    id: 2 as PlayerId,
+                    id: 'test-p2' as PlayerId,
                     displayName: 'P2',
                     status: 'alive' as const,
                     citiesOwned: 1,
@@ -598,6 +599,7 @@ describe('serializeWorld — status encoding branches', () => {
             },
             rngSeed: 1,
             rngState: new Uint32Array([1, 2, 3, 4]),
+            playerRegistry: createPlayerRegistry(['test-p1', 'test-p2'] as PlayerId[]),
         };
     }
 

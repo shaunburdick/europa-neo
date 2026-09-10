@@ -25,7 +25,7 @@ import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 1,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -33,11 +33,11 @@ const cfg: MatchConfig = {
 
 describe('applyCommand — pipe commands', () => {
     it('setPipe on owned cell stages the order and returns ok:true', () => {
-        const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[1, 1, 1]]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 0);
         const r = applyCommand(w0, {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             direction: 'E',
         });
@@ -48,13 +48,13 @@ describe('applyCommand — pipe commands', () => {
 
     it('setPipe on enemy cell returns not_owner rejection', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 0);
         const r = applyCommand(w0, {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 6, y: 6 }, // player 2's cell
             direction: 'E',
         });
@@ -82,12 +82,12 @@ describe('applyCommand — pipe commands', () => {
             width: size,
             height: size,
             cells: Object.freeze(cells),
-            cities: Object.freeze([{ cell: { x: 2, y: 0 }, owner: 1 as PlayerId }]),
+            cities: Object.freeze([{ cell: { x: 2, y: 0 }, owner: 1 }]),
         });
         const { finalWorld: w0 } = runScenario(cfg, board, [], 1);
         const r = applyCommand(w0, {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 2, y: 0 },
             direction: 'E',
         });
@@ -98,11 +98,11 @@ describe('applyCommand — pipe commands', () => {
     });
 
     it('setPipe to OOB destination returns out_of_bounds rejection', () => {
-        const board = buildSmallBoard(8, [[7, 0, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[7, 0, 1]]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 1);
         const r = applyCommand(w0, {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 7, y: 0 },
             direction: 'E',
         });
@@ -113,11 +113,11 @@ describe('applyCommand — pipe commands', () => {
     });
 
     it('setPipe on OOB source returns out_of_bounds rejection', () => {
-        const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[1, 1, 1]]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 0);
         const r = applyCommand(w0, {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 99, y: 0 },
             direction: 'E',
         });
@@ -131,8 +131,8 @@ describe('applyCommand — pipe commands', () => {
         // P2 has a city too — US5 terminal detection would otherwise freeze
         // the world after tick 0.
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const pipeOrders: Array<{
             atTick: number;
@@ -143,11 +143,11 @@ describe('applyCommand — pipe commands', () => {
                 direction: Direction;
             };
         }> = [
-            { atTick: 0, order: { kind: 'setPipe', player: 1, cell: { x: 1, y: 1 }, direction: 'E' } },
-            { atTick: 0, order: { kind: 'setPipe', player: 1, cell: { x: 1, y: 1 }, direction: 'N' } },
+            { atTick: 0, order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'E' } },
+            { atTick: 0, order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'N' } },
             {
                 atTick: 1,
-                order: { kind: 'setPipesExclusive', player: 1, cell: { x: 1, y: 1 }, direction: 'S' },
+                order: { kind: 'setPipesExclusive', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'S' },
             },
         ];
         const { finalWorld } = runScenario(cfg, board, pipeOrders, 2);
@@ -160,15 +160,15 @@ describe('applyCommand — pipe commands', () => {
 
     it('clearAllPipes removes all pipes from a cell', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const orders = [
             {
                 atTick: 0,
                 order: {
                     kind: 'setPipe' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     direction: 'E' as Direction,
                 },
@@ -177,14 +177,14 @@ describe('applyCommand — pipe commands', () => {
                 atTick: 0,
                 order: {
                     kind: 'setPipe' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     direction: 'N' as Direction,
                 },
             },
             {
                 atTick: 1,
-                order: { kind: 'clearAllPipes' as const, player: 1 as PlayerId, cell: { x: 1, y: 1 } },
+                order: { kind: 'clearAllPipes' as const, player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 } },
             },
         ];
         const { finalWorld } = runScenario(cfg, board, orders, 2);
@@ -193,15 +193,15 @@ describe('applyCommand — pipe commands', () => {
 
     it('clearPipe removes a single direction', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const orders = [
             {
                 atTick: 0,
                 order: {
                     kind: 'setPipe' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     direction: 'E' as Direction,
                 },
@@ -210,7 +210,7 @@ describe('applyCommand — pipe commands', () => {
                 atTick: 0,
                 order: {
                     kind: 'setPipe' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     direction: 'N' as Direction,
                 },
@@ -219,7 +219,7 @@ describe('applyCommand — pipe commands', () => {
                 atTick: 1,
                 order: {
                     kind: 'clearPipe' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     direction: 'E' as Direction,
                 },
@@ -235,31 +235,31 @@ describe('applyCommand — pipe commands', () => {
         // P2 has a city too — otherwise US5 terminal detection eliminates P2
         // and freezes the world. Run enough ticks for P1 to accumulate troops.
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 30);
         expect(
             applyCommand(w0, {
                 kind: 'paratroop',
-                player: 1,
+                player: 'test-p1' as PlayerId,
                 source: { x: 1, y: 1 },
                 target: { x: 2, y: 1 },
             }).result.ok,
         ).toBe(true);
         expect(
-            applyCommand(w0, { kind: 'gun', player: 1, source: { x: 1, y: 1 }, target: { x: 2, y: 1 } }).result.ok,
+            applyCommand(w0, { kind: 'gun', player: 'test-p1' as PlayerId, source: { x: 1, y: 1 }, target: { x: 2, y: 1 } }).result.ok,
         ).toBe(true);
-        expect(applyCommand(w0, { kind: 'setReserves', player: 1, cell: { x: 1, y: 1 }, percent: 3 }).result.ok).toBe(
+        expect(applyCommand(w0, { kind: 'setReserves', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, percent: 3 }).result.ok).toBe(
             true,
         );
-        expect(applyCommand(w0, { kind: 'surrender', player: 2 as PlayerId }).result.ok).toBe(true);
+        expect(applyCommand(w0, { kind: 'surrender', player: 'test-p2' as PlayerId }).result.ok).toBe(true);
     });
 });
 
 describe('tick — orchestrator', () => {
     it('drains staged orders: same order staged on two ticks only applies once', () => {
-        const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[1, 1, 1]]);
         // Stage setPipe E at tick 0, but call tick twice. The pipe is
         // consumed on the first tick; the second tick has nothing to do.
         const orders = [
@@ -267,7 +267,7 @@ describe('tick — orchestrator', () => {
                 atTick: 0,
                 order: {
                     kind: 'setPipe' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     direction: 'E' as Direction,
                 },
@@ -282,8 +282,8 @@ describe('tick — orchestrator', () => {
 
     it('orders from different players are sorted deterministically', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         // Stage player 2's order BEFORE player 1's in the array. The
         // tick() pipeline must apply them in PlayerId-ascending order.
@@ -292,7 +292,7 @@ describe('tick — orchestrator', () => {
                 atTick: 0,
                 order: {
                     kind: 'setPipe' as const,
-                    player: 2 as PlayerId,
+                    player: 'test-p2' as PlayerId,
                     cell: { x: 6, y: 6 },
                     direction: 'W' as Direction,
                 },
@@ -301,7 +301,7 @@ describe('tick — orchestrator', () => {
                 atTick: 0,
                 order: {
                     kind: 'setPipe' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     direction: 'E' as Direction,
                 },
@@ -321,21 +321,21 @@ describe('tick — orchestrator', () => {
         // same player, same kind, same cell; tieBreak descends into
         // pickDirection.
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const w0 = createWorld(cfg, board);
         // Stage N first, then E — sort should re-order to E first.
         const stage1 = applyCommand(w0, {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             direction: 'N',
         });
         expect(stage1.result.ok).toBe(true);
         const stage2 = applyCommand(stage1.world, {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             direction: 'E',
         });
@@ -355,15 +355,15 @@ describe('tick — orchestrator', () => {
         // tiebreak sorts by source coord (exercising the `source` branch
         // of pickCoord on lines 287-291 of tick.ts).
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const pipeOrders = [
             {
                 atTick: 0,
                 order: {
                     kind: 'setPipe' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     direction: 'E' as Direction,
                 },
@@ -376,7 +376,7 @@ describe('tick — orchestrator', () => {
         // effective sort positions) but same source.
         const stage1 = applyCommand(warmed, {
             kind: 'paratroop',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             source: { x: 2, y: 1 },
             target: { x: 2, y: 2 },
         });
@@ -385,7 +385,7 @@ describe('tick — orchestrator', () => {
         // targeted yet.
         const stage2 = applyCommand(stage1.world, {
             kind: 'paratroop',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             source: { x: 2, y: 1 },
             target: { x: 3, y: 1 },
         });
@@ -407,8 +407,8 @@ describe('tick — orchestrator', () => {
         // branch (surrender has no coord/direction). Two surrenders from
         // the same player+kind should sort stably (0 from tieBreak).
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         // Surrender is applied immediately, but we can still observe that
         // tick() doesn't crash when a surrender is staged alongside another
@@ -416,7 +416,7 @@ describe('tick — orchestrator', () => {
         // surrender's no-coord semantics).
         const stage1 = applyCommand(createWorld(cfg, board), {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             direction: 'E',
         });
@@ -432,12 +432,12 @@ describe('tick — orchestrator', () => {
         // Two setPipe orders with identical player, kind, cell, AND
         // direction should sort stably (tieBreak returns 0).
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const stage1 = applyCommand(createWorld(cfg, board), {
             kind: 'setPipe',
-            player: 1,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             direction: 'E',
         });
@@ -451,8 +451,8 @@ describe('tick — orchestrator', () => {
     it('isTerminal returns undefined for non-terminal US1 worlds', () => {
         // P2 must have a city too — otherwise terminal detection fires.
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 5);
         expect(isTerminal(finalWorld)).toBeUndefined();
@@ -461,8 +461,8 @@ describe('tick — orchestrator', () => {
     it('tick advances world.tick by exactly 1', () => {
         // P2 must have a city too — otherwise terminal detection freezes the world.
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 0);
         const r1 = tick(w0);
@@ -477,8 +477,8 @@ describe('tick — orchestrator', () => {
         // eliminated). The other three are staged and applied by their
         // dedicated resolution phases in tick.ts.
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         // Run enough ticks for P1 to accumulate troops (gun/paratroop need
         // a populated source).
@@ -488,14 +488,14 @@ describe('tick — orchestrator', () => {
                 atTick: 0,
                 order: {
                     kind: 'surrender' as const,
-                    player: 2 as PlayerId,
+                    player: 'test-p2' as PlayerId,
                 },
             },
             {
                 atTick: 0,
                 order: {
                     kind: 'paratroop' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     source: { x: 1, y: 1 },
                     target: { x: 2, y: 2 },
                 },
@@ -504,7 +504,7 @@ describe('tick — orchestrator', () => {
                 atTick: 0,
                 order: {
                     kind: 'gun' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     source: { x: 1, y: 1 },
                     target: { x: 6, y: 6 },
                 },
@@ -513,7 +513,7 @@ describe('tick — orchestrator', () => {
                 atTick: 0,
                 order: {
                     kind: 'setReserves' as const,
-                    player: 1 as PlayerId,
+                    player: 'test-p1' as PlayerId,
                     cell: { x: 1, y: 1 },
                     percent: 3 as const,
                 },

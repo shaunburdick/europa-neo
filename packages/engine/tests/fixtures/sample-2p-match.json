@@ -3,7 +3,7 @@
     "seed": 42,
     "settings": {
         "boardSize": 32,
-        "playerCount": 2,
+        "playerIds": ["fixture-p1", "fixture-p2"],
         "tickIntervalMs": 250,
         "seed": 42,
         "visibilityRadius": 6

@@ -31,7 +31,8 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushCaptureEvent } from '../events';
-import type { Board, CaptureEvent, PlayerId, TickEvents, WorldState } from '../types';
+import type { PlayerRegistry } from '../playerRegistry';
+import type { Board, CaptureEvent, TickEvents, WorldState } from '../types';
 
 /**
  * Resolve one tick of city captures across the board. Pure.
@@ -50,6 +51,7 @@ export function resolveCapture(
     board: Readonly<Board>,
     constants: EngineConstants,
     tickNumber: number,
+    registry: PlayerRegistry,
 ): { state: WorldState; events: TickEvents } {
     // `constants` is reserved for future tunables; silence unused-arg lint.
     void constants;
@@ -81,8 +83,8 @@ export function resolveCapture(
         const ev: CaptureEvent = {
             tick: tickNumber,
             cell: idxToCoord(idx, board.width),
-            fromOwner: cityOwner as PlayerId,
-            toOwner: occupant as PlayerId,
+            fromOwner: registry.idAtIndex(cityOwner - 1),
+            toOwner: registry.idAtIndex(occupant - 1),
             isCity: true,
         };
         events = pushCaptureEvent(events, ev);

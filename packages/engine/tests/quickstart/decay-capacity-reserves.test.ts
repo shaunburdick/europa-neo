@@ -29,7 +29,7 @@ import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 0xa17ec0de,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -77,8 +77,8 @@ describe('quickstart Q-007 — mutual feeding sustains indefinitely', () => {
             [6, 6, 2],
         ]);
         const orders = [
-            { atTick: 0, order: pipeOrder(1, 1, 'S', 1) }, // city (1,1) → (1,2)
-            { atTick: 0, order: pipeOrder(1, 3, 'N', 1) }, // city (1,3) → (1,2)
+            { atTick: 0, order: pipeOrder(1, 1, 'S', 'test-p1') }, // city (1,1) → (1,2)
+            { atTick: 0, order: pipeOrder(1, 3, 'N', 'test-p1') }, // city (1,3) → (1,2)
         ];
         const { finalWorld } = runScenario(cfg, board, orders, 20);
         const city11 = getCell(finalWorld, 1, 1).troopCount;
@@ -115,7 +115,7 @@ describe('quickstart Q-007 — reserves 30% holds the floor', () => {
             [6, 6, 2],
         ]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 1);
-        const reservesR = applyCommand(w0, reservesOrder(1, 1, 3, 1));
+        const reservesR = applyCommand(w0, reservesOrder(1, 1, 3, 'test-p1'));
         expect(reservesR.result.ok).toBe(true);
         // Run another tick; the cell should still be producing (no observable
         // difference on a city cell).

@@ -44,6 +44,7 @@
  */
 
 import type { Board, CityPlacement, Player, PlayerId, PlayerStatus, World } from './types';
+import { createPlayerRegistry, type PlayerRegistry } from './playerRegistry';
 
 // ----------------------------------------------------------------------------
 // Constants
@@ -225,7 +226,7 @@ function encodePayload(world: Readonly<World>): Uint8Array {
 
     // Header.
     out[p++] = w & 0xff;
-    out[p++] = world.config.playerCount & 0xff;
+    out[p++] = world.playerRegistry.size & 0xff;
     dv.setUint32(p, world.tick >>> 0, true);
     p += 4;
     dv.setUint32(p, world.rngSeed >>> 0, true);
@@ -241,9 +242,9 @@ function encodePayload(world: Readonly<World>): Uint8Array {
     dv.setUint32(p, 0, true);
     p += 4;
 
-    // Players.
+    // Players. Serialize numeric index (1-based) for backward-compatible format.
     for (const player of world.players) {
-        out[p++] = player.id & 0xff;
+        out[p++] = (world.playerRegistry.indexOfId(player.id) + 1) & 0xff;
         out[p++] = encodePlayerStatus(player.status);
         out[p++] = player.citiesOwned & 0xff;
         dv.setUint32(p, player.troopsHeld >>> 0, true);
@@ -305,10 +306,16 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         );
     }
 
-    // Players.
+    // Players. The serialized format uses numeric indices; generate
+    // string PlayerIds for the registry. Wave 3 will update the binary
+    // format to use length-prefixed string IDs.
     const players: Player[] = [];
+    const deserializedIds: PlayerId[] = [];
     for (let i = 0; i < playersLen; i++) {
-        const id = (bytes[p++] ?? 0) as PlayerId;
+        const numericId = bytes[p++] ?? 0;
+        // Generate a deterministic string ID from the numeric index.
+        const id = `deser-${String(numericId)}-${String(i)}` as PlayerId;
+        deserializedIds.push(id);
         const statusByte = bytes[p++] ?? 0;
         const status = decodePlayerStatus(statusByte);
         const citiesOwned = bytes[p++] ?? 0;
@@ -329,6 +336,9 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         });
     }
 
+    // Build the PlayerRegistry from the deserialized IDs.
+    const playerRegistry = createPlayerRegistry(deserializedIds);
+
     // Cities.
     if (bytes.length < p + 2) {
         throw new EngineFormatError('city count truncated');
@@ -342,7 +352,7 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         }
         cities.push({
             cell: { x: bytes[p++] ?? 0, y: bytes[p++] ?? 0 },
-            owner: (bytes[p++] ?? 0) as PlayerId,
+            owner: bytes[p++] ?? 0,
         });
     }
 
@@ -387,7 +397,7 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
     return {
         config: {
             boardSize,
-            playerCount: playerCount as 2 | 3 | 4,
+            playerIds: deserializedIds,
             tickIntervalMs: 250, // not serialized; default
             seed,
             visibilityRadius,
@@ -404,6 +414,7 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         },
         rngSeed: seed,
         rngState,
+        playerRegistry,
     };
 }
 

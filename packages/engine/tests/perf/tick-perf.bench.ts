@@ -30,7 +30,7 @@ import { buildSmallBoard } from '../fixtures/board';
 
 const cfg: MatchConfig = {
     boardSize: 32,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 0xc0ffee,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -43,8 +43,8 @@ const WARMUP_ITERATIONS = 50;
 describe('SC-004 — tick performance', () => {
     it('median tick duration < 10 ms on a default 32x32 board', () => {
         const board = buildSmallBoard(SIZE, [
-            [5, 5, 1 as PlayerId],
-            [26, 26, 2 as PlayerId],
+            [5, 5, 1],
+            [26, 26, 2],
         ]);
         let world = createWorld(cfg, board);
 
@@ -76,7 +76,7 @@ describe('SC-004 — tick performance', () => {
         // (which permits warn/error but warns on log). This is the
         // conventional pattern for benchmark output.
         console.warn(
-            `[tick-perf] board=${String(SIZE)}x${String(SIZE)} players=${String(cfg.playerCount)} iters=${String(ITERATIONS)} ` +
+            `[tick-perf] board=${String(SIZE)}x${String(SIZE)} players=${String(cfg.playerIds.length)} iters=${String(ITERATIONS)} ` +
                 `min=${min.toFixed(2)}ms median=${median.toFixed(2)}ms mean=${mean.toFixed(2)}ms ` +
                 `p95=${p95.toFixed(2)}ms max=${max.toFixed(2)}ms`,
         );

@@ -15,12 +15,14 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../../src/applyCommand';
 import { ENGINE_CONSTANTS } from '../../src/constants';
+import { createPlayerRegistry } from '../../src/playerRegistry';
 import { resolveTerminal } from '../../src/resolution/terminal';
 import { isTerminal, tick } from '../../src/tick';
-import type { Board, MatchConfig, Player, World, WorldState } from '../../src/types';
+import type { Board, MatchConfig, Player, PlayerId, World, WorldState } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 
 const CONSTANTS = ENGINE_CONSTANTS;
+const REGISTRY = createPlayerRegistry(['test-p1', 'test-p2'] as PlayerId[]);
 
 function emptyState(size: number): WorldState {
     const n = size * size;
@@ -40,20 +42,22 @@ function placeStack(state: WorldState, size: number, x: number, y: number, owner
 }
 
 function buildWorld(size: number, board: Board, state: WorldState, players: readonly Player[]): World {
+    const playerIds = players.map((p) => p.id);
     return {
         config: {
             boardSize: size,
-            playerCount: players.length as 2 | 3 | 4,
+            playerIds,
             tickIntervalMs: 250,
             seed: 1,
             visibilityRadius: CONSTANTS.visibilityRadiusDefault,
-        } as MatchConfig,
+        },
         tick: 0,
         board,
         players,
         state,
         rngSeed: 1,
         rngState: new Uint32Array([1, 2, 3, 4]),
+        playerRegistry: createPlayerRegistry(playerIds),
     };
 }
 
@@ -66,10 +70,10 @@ describe('resolveTerminal — FR-015 elimination when zero troops AND zero citie
         // P1 has 100 troops → not eliminated.
         // P2 had 50 troops (per prevPlayers) but now has 0 → eliminated.
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 0, troopsHeld: 50 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 0, troopsHeld: 50 },
         ];
-        const result = resolveTerminal(state, players, CONSTANTS, 0);
+        const result = resolveTerminal(state, players, CONSTANTS, 0, REGISTRY);
         expect(result.events.eliminations).toHaveLength(1);
         expect(result.events.eliminations[0]?.reason).toBe('no_troops_no_cities');
         expect(result.events.eliminations[0]?.player).toBe(2);
@@ -82,10 +86,10 @@ describe('resolveTerminal — FR-015 elimination when zero troops AND zero citie
         placeStack(state, size, 3, 3, 1, 50);
         placeStack(state, size, 5, 3, 2, 30);
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 50 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 0, troopsHeld: 30 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 50 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 0, troopsHeld: 30 },
         ];
-        const result = resolveTerminal(state, players, CONSTANTS, 0);
+        const result = resolveTerminal(state, players, CONSTANTS, 0, REGISTRY);
         expect(result.events.eliminations).toHaveLength(0);
         expect(result.terminal).toBeUndefined();
     });
@@ -98,10 +102,10 @@ describe('resolveTerminal — FR-015 elimination when zero troops AND zero citie
         state.cityOwners[3 * size + 3] = 2; // P2 owns a city at (3,3)
         // P2 had a city previously (citiesOwned=1) and now still has it.
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 50 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 50 },
         ];
-        const result = resolveTerminal(state, players, CONSTANTS, 0);
+        const result = resolveTerminal(state, players, CONSTANTS, 0, REGISTRY);
         expect(result.events.eliminations).toHaveLength(0);
         expect(result.terminal).toBeUndefined();
     });
@@ -112,8 +116,8 @@ describe('resolveTerminal — FR-015 elimination when zero troops AND zero citie
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 50 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 50 },
         ];
         // After tick: P2 lost its city and troops (e.g. via capture + combat).
         const state2 = emptyState(size);
@@ -131,10 +135,10 @@ describe('resolveTerminal — terminal detection', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
-            { id: 2, displayName: 'P2', status: 'eliminated', citiesOwned: 0, troopsHeld: 0 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'eliminated', citiesOwned: 0, troopsHeld: 0 },
         ];
-        const result = resolveTerminal(state, players, CONSTANTS, 0);
+        const result = resolveTerminal(state, players, CONSTANTS, 0, REGISTRY);
         expect(result.terminal).toBeDefined();
         expect(result.terminal?.kind).toBe('win');
         if (result.terminal?.kind === 'win') {
@@ -150,10 +154,10 @@ describe('resolveTerminal — terminal detection', () => {
         // P1 had 50 troops previously, now 0. P2 had 30 previously, now 0.
         // Both eliminated.
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 50 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 30 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 50 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 30 },
         ];
-        const result = resolveTerminal(state, players, CONSTANTS, 0);
+        const result = resolveTerminal(state, players, CONSTANTS, 0, REGISTRY);
         expect(result.terminal).toBeDefined();
         expect(result.terminal?.kind).toBe('draw');
         if (result.terminal?.kind === 'draw') {
@@ -171,8 +175,8 @@ describe('isTerminal', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 0, troopsHeld: 30 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 0, troopsHeld: 30 },
         ];
         const world = buildWorld(size, board, state, players);
         expect(isTerminal(world)).toBeUndefined();
@@ -184,8 +188,8 @@ describe('isTerminal', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
-            { id: 2, displayName: 'P2', status: 'eliminated', citiesOwned: 0, troopsHeld: 0 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 100 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'eliminated', citiesOwned: 0, troopsHeld: 0 },
         ];
         const world = buildWorld(size, board, state, players);
         const r = isTerminal(world);
@@ -202,10 +206,10 @@ describe('applyCommand — surrender (FR-016)', () => {
             [6, 6, 2],
         ]);
         const world0 = buildWorld(size, board, emptyState(size), [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
         ]);
-        const r = applyCommand(world0, { kind: 'surrender', player: 2 });
+        const r = applyCommand(world0, { kind: 'surrender', player: 'test-p2' as PlayerId });
         expect(r.result.ok).toBe(true);
         const p2 = r.world.players.find((p) => p.id === 2);
         expect(p2?.status).toBe('eliminated');
@@ -218,12 +222,12 @@ describe('applyCommand — surrender (FR-016)', () => {
             [6, 6, 2],
         ]);
         const world0 = buildWorld(size, board, emptyState(size), [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
         ]);
-        const r1 = applyCommand(world0, { kind: 'surrender', player: 2 });
+        const r1 = applyCommand(world0, { kind: 'surrender', player: 'test-p2' as PlayerId });
         expect(r1.result.ok).toBe(true);
-        const r2 = applyCommand(r1.world, { kind: 'surrender', player: 2 });
+        const r2 = applyCommand(r1.world, { kind: 'surrender', player: 'test-p2' as PlayerId });
         expect(r2.result.ok).toBe(false);
         if (!r2.result.ok) {
             expect(r2.result.reason.kind).toBe('already_surrendered');
@@ -244,8 +248,8 @@ describe('tick — frozen-once-terminal', () => {
         state.cityOwners[1 * size + 1] = 1;
         state.cityOwners[6 * size + 6] = 2;
         const players: Player[] = [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 100 },
-            { id: 2, displayName: 'P2', status: 'eliminated', citiesOwned: 1, troopsHeld: 0 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 100 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'eliminated', citiesOwned: 1, troopsHeld: 0 },
         ];
         const world0 = buildWorld(size, board, state, players);
 
@@ -269,14 +273,14 @@ describe('tick — frozen-once-terminal', () => {
             [6, 6, 2],
         ]);
         let world = buildWorld(size, board, emptyState(size), [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
+            { id: 'test-p1' as PlayerId, displayName: 'P1', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
+            { id: 'test-p2' as PlayerId, displayName: 'P2', status: 'alive', citiesOwned: 1, troopsHeld: 0 },
         ]);
         // Add cities to state.
         world.state.cityOwners[1 * size + 1] = 1;
         world.state.cityOwners[6 * size + 6] = 2;
         // Surrender P2.
-        const r = applyCommand(world, { kind: 'surrender', player: 2 });
+        const r = applyCommand(world, { kind: 'surrender', player: 'test-p2' as PlayerId });
         world = r.world as World;
 
         // Tick: should detect terminal.

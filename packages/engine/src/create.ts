@@ -22,6 +22,7 @@
 
 import { hashSeed } from '@europa/core';
 import type { Board, Cell, CityPlacement, MatchConfig, Player, PlayerId, Terrain, World, WorldState } from './types';
+import { createPlayerRegistry } from './playerRegistry';
 
 /** Minimum board dimension the engine accepts (per data-model.md §1). */
 export const MIN_BOARD_SIZE = 8;
@@ -63,9 +64,15 @@ export function createWorld(config: MatchConfig, board: Board): World {
         );
     }
 
-    // ---- Player count (FR-019) -------------------------------------------
-    if (!Number.isInteger(config.playerCount) || config.playerCount < MIN_PLAYERS || config.playerCount > MAX_PLAYERS) {
-        throw new Error(`createWorld: config.playerCount must be 2, 3, or 4 (got ${String(config.playerCount)})`);
+    // ---- Player IDs (FR-019, FR-020) ------------------------------------
+    if (
+        !Array.isArray(config.playerIds) ||
+        config.playerIds.length < MIN_PLAYERS ||
+        config.playerIds.length > MAX_PLAYERS
+    ) {
+        throw new Error(
+            `createWorld: config.playerIds must be an array of ${String(MIN_PLAYERS)}–${String(MAX_PLAYERS)} strings (got length ${String(config.playerIds?.length ?? 0)})`,
+        );
     }
 
     // ---- Per-cell invariants (INV-1..INV-4) ------------------------------
@@ -108,9 +115,9 @@ export function createWorld(config: MatchConfig, board: Board): World {
                 `createWorld: city at [${String(cx)},${String(cy)}] is out of bounds for ${String(board.width)}×${String(board.height)}`,
             );
         }
-        if (!Number.isInteger(city.owner) || city.owner < 1 || city.owner > MAX_PLAYERS) {
+        if (!Number.isInteger(city.owner) || city.owner < 1 || city.owner > config.playerIds.length) {
             throw new Error(
-                `createWorld: city at [${String(cx)},${String(cy)}] owner must be 1..4 (got ${String(city.owner)})`,
+                `createWorld: city at [${String(cx)},${String(cy)}] owner must be 1..${String(config.playerIds.length)} (got ${String(city.owner)})`,
             );
         }
         const key = cy * board.width + cx;
@@ -146,6 +153,11 @@ export function createWorld(config: MatchConfig, board: Board): World {
     }
 
     // ---- Players ---------------------------------------------------------
+    // Build the PlayerRegistry mapping string IDs ↔ numeric indices.
+    // City `owner` values are 1-based numeric indices (terrain contract);
+    // `owner - 1` maps to the 0-based registry index.
+    const playerRegistry = createPlayerRegistry(config.playerIds);
+
     // Initialize per-player `citiesOwned` from `board.cities` so the
     // tick-0 Player snapshot is accurate. Without this, `citiesOwned`
     // would be 0 until the first tick's resolveTerminal recomputed it —
@@ -153,11 +165,12 @@ export function createWorld(config: MatchConfig, board: Board): World {
     // happens in `tick()`'s production + flow phases.)
     const citiesOwnedByPlayer = new Map<PlayerId, number>();
     for (const city of board.cities) {
-        citiesOwnedByPlayer.set(city.owner, (citiesOwnedByPlayer.get(city.owner) ?? 0) + 1);
+        const id = playerRegistry.idAtIndex(city.owner - 1);
+        citiesOwnedByPlayer.set(id, (citiesOwnedByPlayer.get(id) ?? 0) + 1);
     }
     const players: Player[] = [];
-    for (let i = 0; i < config.playerCount; i++) {
-        const id = (i + 1) as PlayerId;
+    for (let i = 0; i < config.playerIds.length; i++) {
+        const id = playerRegistry.idAtIndex(i);
         players.push({
             id,
             displayName: `Player ${String(id)}`,
@@ -179,6 +192,7 @@ export function createWorld(config: MatchConfig, board: Board): World {
         state,
         rngSeed: config.seed >>> 0,
         rngState,
+        playerRegistry,
     };
 
     return world;

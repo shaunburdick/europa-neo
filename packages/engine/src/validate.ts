@@ -44,6 +44,15 @@
 import { ENGINE_CONSTANTS } from './constants';
 import type { CellView, CommandResult, Coord, Direction, Order, PlayerId, ValidationError, World } from './types';
 
+/**
+ * Resolve a string PlayerId to a 1-based numeric index for WorldState
+ * array comparisons. The registry stores 0-based indices; we return
+ * 1-based because `troopOwners`/`cityOwners` use 1-based values.
+ */
+function resolvePlayerIndex(world: Readonly<World>, player: PlayerId): number {
+    return world.playerRegistry.indexOfId(player) + 1;
+}
+
 const DIRECTION_OFFSETS: Readonly<Record<Direction, readonly [number, number]>> = {
     N: [0, -1],
     E: [1, 0],
@@ -252,7 +261,9 @@ function validateSourceOwnership(world: Readonly<World>, cell: Coord, player: Pl
     const idx = cell.y * w + cell.x;
     const troopOwner = world.state.troopOwners[idx] ?? 0;
     const cityOwner = world.state.cityOwners[idx] ?? 0;
-    if (troopOwner !== player && cityOwner !== player) {
+    // Resolve string PlayerId to 1-based numeric index for WorldState comparison.
+    const playerIndex = resolvePlayerIndex(world, player);
+    if (troopOwner !== playerIndex && cityOwner !== playerIndex) {
         return fail({ kind: 'not_owner', coord: cell });
     }
     return { ok: true };

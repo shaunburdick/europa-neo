@@ -15,13 +15,13 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { getCell } from '../../src/read';
-import type { MatchConfig, Order } from '../../src/types';
+import type { MatchConfig, Order, PlayerId } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 1,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -30,7 +30,7 @@ const cfg: MatchConfig = {
 /**
  * Build a pipe order from `(x, y)` to its east neighbor.
  */
-function eastPipe(x: number, y: number, player: 1 | 2): Order {
+function eastPipe(x: number, y: number, player: PlayerId): Order {
     return { kind: 'setPipe', player, cell: { x, y }, direction: 'E' };
 }
 

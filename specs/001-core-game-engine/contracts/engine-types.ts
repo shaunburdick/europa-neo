@@ -36,9 +36,10 @@
 
 import type { Board, Cell, CityPlacement, Coord, Direction, MatchConfig, PlayerId, Rng, Terrain } from '@europa/core';
 import { ENGINE_API_VERSION } from '@europa/core';
+import type { PlayerRegistry } from '../playerRegistry';
 
 export { ENGINE_API_VERSION };
-export type { Board, Cell, CityPlacement, Coord, Direction, MatchConfig, PlayerId, Rng, Terrain };
+export type { Board, Cell, CityPlacement, Coord, Direction, MatchConfig, PlayerId, PlayerRegistry, Rng, Terrain };
 
 // ----------------------------------------------------------------------------
 // Engine-specific branded primitives
@@ -94,12 +95,14 @@ export interface World {
   /** Monotonic tick number; ≥ 0. */
   readonly tick: number;
   readonly board: Board;
-  readonly players: ReadonlyArray<Player>; // index by PlayerId - 1
+  readonly players: ReadonlyArray<Player>;
   readonly state: WorldState;
   /** Seed used to initialize the engine's PRNG (sfc32). uint32. */
   readonly rngSeed: number;
   /** Serialized sfc32 state (4× uint32). For advanced replays. */
   readonly rngState: Readonly<Uint32Array>;
+  /** Bidirectional mapping between string PlayerIds and numeric indices. */
+  readonly playerRegistry: PlayerRegistry;
 }
 
 // ----------------------------------------------------------------------------
@@ -208,7 +211,7 @@ export type ValidationError =
   | { kind: 'no_source_troops';  coord: Coord }
   | { kind: 'already_surrendered'; player: PlayerId }
   | { kind: 'invalid_percent';   percent: number }
-  | { kind: 'unknown_player';    player: number }
+  | { kind: 'unknown_player';    player: PlayerId }
   | { kind: 'match_terminal' };
 
 export type CommandResult =

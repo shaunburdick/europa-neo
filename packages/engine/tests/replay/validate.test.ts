@@ -16,6 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { validateFixture } from '../../src/replay/validate';
+import type { PlayerId } from '../../src/types';
 
 /** A minimal valid fixture for reuse across tests. */
 const VALID_FIXTURE = {
@@ -23,7 +24,7 @@ const VALID_FIXTURE = {
     seed: 12345,
     settings: {
         boardSize: 32,
-        playerCount: 2,
+    playerCount: 2,
         tickIntervalMs: 250,
         seed: 12345,
         visibilityRadius: 6,
@@ -39,8 +40,8 @@ const VALID_FIXTURE = {
         maxRegenAttempts: 5,
         terrainSmoothing: 4,
     },
-    playerCount: 2,
-    orders: [{ tick: 0, playerId: 1, order: { kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'E' } }],
+    playerIds: ['test-p1', 'test-p2'],
+    orders: [{ tick: 0, playerId: 'test-p1', order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' } }],
     terminalTick: 100,
     terminalResult: { kind: 'win', winner: 1, tick: 100, reason: 'last_standing' },
     finalStateHash: 'a1b2c3d4',
@@ -188,12 +189,12 @@ describe('validateFixture', () => {
     });
 
     it('rejects orders with missing tick', () => {
-        const orders = [{ playerId: 1, order: { kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'E' } }];
+        const orders = [{ playerId: 'test-p1', order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' } }];
         expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'tick' must be a number");
     });
 
     it('rejects orders with missing playerId', () => {
-        const orders = [{ tick: 0, order: { kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'E' } }];
+        const orders = [{ tick: 0, order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 0, y: 0 }, direction: 'E' } }];
         expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'playerId' must be a number");
     });
 

@@ -44,7 +44,8 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushCombatEvent } from '../events';
-import type { Board, CombatEvent, PlayerId, TickEvents, WorldState } from '../types';
+import type { PlayerRegistry } from '../playerRegistry';
+import type { Board, CombatEvent, TickEvents, WorldState } from '../types';
 
 const PLAYERS = 4;
 
@@ -79,6 +80,7 @@ export function resolveCombat(
     board: Readonly<Board>,
     constants: EngineConstants,
     tickNumber: number,
+    registry: PlayerRegistry,
     inflowTally?: Readonly<Uint32Array>,
     committedFlowTally?: Readonly<Uint32Array>,
     preFlowState?: Readonly<{ troopOwners: Uint8Array; troopCounts: Uint32Array }>,
@@ -108,11 +110,12 @@ export function resolveCombat(
             const garrisonCount = preCounts[idx] ?? 0;
 
             // Build the set of players who committed flow to this cell.
-            const committedPlayers: Array<{ owner: PlayerId; count: number }> = [];
+            // `owner` is a 1-based numeric index (not a string PlayerId).
+            const committedPlayers: Array<{ owner: number; count: number }> = [];
             for (let p = 1; p <= PLAYERS; p++) {
                 const c = committed[idx * PLAYERS + (p - 1)] ?? 0;
                 if (c > 0) {
-                    committedPlayers.push({ owner: p as PlayerId, count: c });
+                    committedPlayers.push({ owner: p, count: c });
                 }
             }
 
@@ -125,7 +128,7 @@ export function resolveCombat(
                 contested = committedPlayers.some((p) => p.owner !== garrisonOwner);
                 // Add garrison to the participants if it exists (for total-force calc).
                 if (!committedPlayers.some((p) => p.owner === garrisonOwner)) {
-                    committedPlayers.push({ owner: garrisonOwner as PlayerId, count: 0 });
+                    committedPlayers.push({ owner: garrisonOwner, count: 0 });
                 }
             } else {
                 // Empty cell before flow. Contested if multiple players committed.
@@ -147,14 +150,15 @@ export function resolveCombat(
                 }
 
                 // Determine logical attacker/defender and their total forces.
-                let logicalAttacker: PlayerId;
-                let logicalDefender: PlayerId;
+                // Internal numeric indices (1-based) for state mutation.
+                let logicalAttacker: number;
+                let logicalDefender: number;
                 let attackerTotalForce: number;
                 let defenderTotalForce: number;
 
                 if (garrisonOwner !== 0) {
                     // Garrison exists: logical defender = garrison owner.
-                    logicalDefender = garrisonOwner as PlayerId;
+                    logicalDefender = garrisonOwner;
                     logicalAttacker = a.owner === garrisonOwner ? b.owner : a.owner;
                     const defenderCommitted = committed[idx * PLAYERS + (garrisonOwner - 1)] ?? 0;
                     defenderTotalForce = garrisonCount + defenderCommitted;
@@ -175,17 +179,17 @@ export function resolveCombat(
                 // 1:1 attrition: damage = min(attackerTotal, defenderTotal).
                 const damage = Math.min(attackerTotalForce, defenderTotalForce);
 
-                // Event labeling: attacker = lower PlayerId (deterministic symmetry).
-                const eventAttacker: PlayerId = a.owner < b.owner ? a.owner : b.owner;
-                const eventDefender: PlayerId = a.owner < b.owner ? b.owner : a.owner;
+                // Event labeling: attacker = lower numeric owner (deterministic symmetry).
+                const eventAttackerNum = a.owner < b.owner ? a.owner : b.owner;
+                const eventDefenderNum = a.owner < b.owner ? b.owner : a.owner;
 
                 // Winner: whoever has the higher total (or 'tie' if equal).
-                const winner: PlayerId | 'tie' =
+                const winnerNum =
                     attackerTotalForce > defenderTotalForce
                         ? logicalAttacker
                         : defenderTotalForce > attackerTotalForce
                           ? logicalDefender
-                          : 'tie';
+                          : 0; // 0 = tie
 
                 // Remaining troops after 1:1 attrition.
                 const attackerRemaining = (attackerTotalForce - damage) >>> 0;
@@ -205,14 +209,15 @@ export function resolveCombat(
                     newOwners[idx] = 0;
                 }
 
+                // Convert numeric indices to string PlayerIds for the event.
                 const ev: CombatEvent = {
                     tick: tickNumber,
                     cell: idxToCoord(idx, board.width),
-                    attacker: eventAttacker,
-                    defender: eventDefender,
+                    attacker: registry.idAtIndex(eventAttackerNum - 1),
+                    defender: registry.idAtIndex(eventDefenderNum - 1),
                     attackerLoss: damage,
                     defenderLoss: damage,
-                    winner,
+                    winner: winnerNum === 0 ? 'tie' : registry.idAtIndex(winnerNum - 1),
                     attackerTotal: attackerTotalForce,
                     defenderTotal: defenderTotalForce,
                 };
@@ -245,11 +250,11 @@ export function resolveCombat(
                     const ev: CombatEvent = {
                         tick: tickNumber,
                         cell: idxToCoord(idx, board.width),
-                        attacker: domPlayer.owner,
-                        defender: o.owner,
+                        attacker: registry.idAtIndex(domPlayer.owner - 1),
+                        defender: registry.idAtIndex(o.owner - 1),
                         attackerLoss: 0, // dominant retains all in 3-way+
                         defenderLoss: o.count,
-                        winner: domPlayer.owner,
+                        winner: registry.idAtIndex(domPlayer.owner - 1),
                         attackerTotal: domPlayer.count,
                         defenderTotal: o.count,
                     };
@@ -258,13 +263,13 @@ export function resolveCombat(
             }
         } else if (tallyAvailable) {
             // Legacy path: detect from inflow tally (used in unit tests
-            // without preFlowState).
+            // without preFlowState). Internal numeric indices.
             const tally = inflowTally as Uint32Array;
-            const ownersAtCell: Array<{ owner: PlayerId; count: number }> = [];
+            const ownersAtCell: Array<{ owner: number; count: number }> = [];
             for (let p = 1; p <= PLAYERS; p++) {
                 const c = tally[idx * PLAYERS + (p - 1)] ?? 0;
                 if (c > 0) {
-                    ownersAtCell.push({ owner: p as PlayerId, count: c });
+                    ownersAtCell.push({ owner: p, count: c });
                 }
             }
             if (ownersAtCell.length <= 1) {
@@ -294,35 +299,36 @@ export function resolveCombat(
                     continue;
                 }
                 const damage = Math.min(dom.count, other.count);
-                const attackerLabel: PlayerId = dom.owner < other.owner ? dom.owner : other.owner;
-                const defenderLabel: PlayerId = dom.owner < other.owner ? other.owner : dom.owner;
-                const winner: PlayerId | 'tie' = dom.count > other.count ? dom.owner : 'tie';
+                const attackerNum = dom.owner < other.owner ? dom.owner : other.owner;
+                const defenderNum = dom.owner < other.owner ? other.owner : dom.owner;
+                const winnerNum = dom.count > other.count ? dom.owner : 0; // 0 = tie
 
-                const attackerCount = attackerLabel === dom.owner ? dom.count : other.count;
-                const defenderCount = defenderLabel === dom.owner ? dom.count : other.count;
+                const attackerCount = attackerNum === dom.owner ? dom.count : other.count;
+                const defenderCount = defenderNum === dom.owner ? dom.count : other.count;
                 const attackerRemaining = (attackerCount - damage) >>> 0;
                 const defenderRemaining = (defenderCount - damage) >>> 0;
                 if (attackerRemaining > defenderRemaining) {
                     // Clamp to cellCapacity (FR-011 invariant).
                     newCounts[idx] = Math.min(attackerRemaining, constants.cellCapacity);
-                    newOwners[idx] = attackerLabel;
+                    newOwners[idx] = attackerNum;
                 } else if (defenderRemaining > attackerRemaining) {
                     // Clamp to cellCapacity (FR-011 invariant).
                     newCounts[idx] = Math.min(defenderRemaining, constants.cellCapacity);
-                    newOwners[idx] = defenderLabel;
+                    newOwners[idx] = defenderNum;
                 } else {
                     newCounts[idx] = 0;
                     newOwners[idx] = 0;
                 }
 
+                // Convert numeric indices to string PlayerIds for the event.
                 const ev: CombatEvent = {
                     tick: tickNumber,
                     cell: idxToCoord(idx, board.width),
-                    attacker: attackerLabel,
-                    defender: defenderLabel,
+                    attacker: registry.idAtIndex(attackerNum - 1),
+                    defender: registry.idAtIndex(defenderNum - 1),
                     attackerLoss: damage,
                     defenderLoss: damage,
-                    winner,
+                    winner: winnerNum === 0 ? 'tie' : registry.idAtIndex(winnerNum - 1),
                     attackerTotal: attackerCount,
                     defenderTotal: defenderCount,
                 };
@@ -335,14 +341,15 @@ export function resolveCombat(
                     if (o.owner === dom.owner) {
                         continue;
                     }
+                    // Convert numeric indices to string PlayerIds for the event.
                     const ev: CombatEvent = {
                         tick: tickNumber,
                         cell: idxToCoord(idx, board.width),
-                        attacker: dom.owner,
-                        defender: o.owner,
+                        attacker: registry.idAtIndex(dom.owner - 1),
+                        defender: registry.idAtIndex(o.owner - 1),
                         attackerLoss: 0,
                         defenderLoss: o.count,
-                        winner: dom.owner,
+                        winner: registry.idAtIndex(dom.owner - 1),
                         attackerTotal: dom.count,
                         defenderTotal: o.count,
                     };

@@ -129,7 +129,7 @@ export function validateFixture(data: unknown): Fixture {
     }
     const settings = obj['settings'] as Record<string, unknown>;
     assertField(settings, 'boardSize', 'number', 'fixture.settings');
-    assertField(settings, 'playerCount', 'number', 'fixture.settings');
+    assertField(settings, 'playerIds', 'array', 'fixture.settings');
     assertField(settings, 'tickIntervalMs', 'number', 'fixture.settings');
     assertField(settings, 'seed', 'number', 'fixture.settings');
     assertField(settings, 'visibilityRadius', 'number', 'fixture.settings');

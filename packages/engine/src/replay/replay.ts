@@ -24,7 +24,7 @@ import { applyCommand } from '../applyCommand';
 import { createWorld } from '../create';
 import { hashWorld } from '../serialize';
 import { tick as engineTick } from '../tick';
-import type { Board, MatchConfig, Order, World } from '../types';
+import type { Board, MatchConfig, Order, PlayerId, World } from '../types';
 import { ENGINE_API_VERSION } from '../types';
 import type { Fixture, OrderRecord, ReplayResult } from './types';
 
@@ -79,9 +79,14 @@ export function checkVersionMismatch(fixtureVersion: string): string | null {
  */
 export function replayMatch(fixture: Fixture, board: Board): ReplayResult {
     // 1. Create the initial world from the regenerated board.
+    // Generate deterministic string PlayerIds from the fixture's playerCount.
+    const playerIds: PlayerId[] = Array.from(
+        { length: fixture.playerCount },
+        (_, i) => `fixture-p${String(i + 1)}` as PlayerId,
+    );
     const config: MatchConfig = {
         boardSize: fixture.settings.boardSize,
-        playerCount: fixture.settings.playerCount as 2 | 3 | 4,
+        playerIds,
         tickIntervalMs: fixture.settings.tickIntervalMs,
         seed: fixture.seed,
         visibilityRadius: fixture.settings.visibilityRadius,

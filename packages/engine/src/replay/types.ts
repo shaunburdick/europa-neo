@@ -42,7 +42,7 @@ export interface Fixture {
     readonly settings: MatchConfig;
     /** Terrain generation settings for board reconstruction. */
     readonly terrainSettings: GenerationSettings;
-    /** Player count (redundant with `settings.playerCount`, explicit for quick inspection). */
+    /** Player count (derived from `settings.playerIds.length`). */
     readonly playerCount: number;
     /** Applied orders in tick-ascending, playerId-ascending, kind-alphabetical order. */
     readonly orders: ReadonlyArray<OrderRecord>;

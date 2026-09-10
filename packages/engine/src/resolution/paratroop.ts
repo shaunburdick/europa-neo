@@ -35,7 +35,8 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents } from '../events';
-import type { Board, Coord, Order, PlayerId, TickEvents, ValidationError, WorldState } from '../types';
+import type { PlayerRegistry } from '../playerRegistry';
+import type { Board, Coord, Order, TickEvents, ValidationError, WorldState } from '../types';
 import { validateCommand } from '../validate';
 
 const PARATROOP_MAX_RANGE = 2;
@@ -62,6 +63,7 @@ export function resolveParatroop(
     board: Readonly<Board>,
     constants: EngineConstants,
     orders: readonly Order[],
+    registry: PlayerRegistry,
 ): {
     state: WorldState;
     events: TickEvents;
@@ -152,7 +154,9 @@ export function resolveParatroop(
 
         // Ownership check: source must be owned by player (troopOwners).
         const sourceOwner = newOwners[sourceIdx] ?? 0;
-        if (sourceOwner !== order.player) {
+        // Resolve string PlayerId to 1-based numeric index for WorldState comparison.
+        const playerIndex = registry.indexOfId(order.player) + 1;
+        if (sourceOwner !== playerIndex) {
             errors.push({ order, reason: { kind: 'not_owner', coord: sourceCoord } });
             continue;
         }
@@ -179,7 +183,7 @@ export function resolveParatroop(
         const cap = constants.cellCapacity >>> 0;
         const finalTargetCount = newTargetCount > cap ? cap : newTargetCount;
         newCounts[targetIdx] = finalTargetCount;
-        newOwners[targetIdx] = order.player as PlayerId;
+        newOwners[targetIdx] = playerIndex;
 
         // Clear destination pipes (FR-013).
         newPipes[targetIdx] = 0;

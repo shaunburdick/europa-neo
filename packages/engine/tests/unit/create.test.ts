@@ -23,7 +23,7 @@ import { buildSmallBoard } from '../fixtures/board';
 
 const baseConfig: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 0xc0ffee,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -32,8 +32,8 @@ const baseConfig: MatchConfig = {
 describe('createWorld — FR-001 square grid', () => {
     it('produces a world with width === height === config.boardSize', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const world = createWorld(baseConfig, board);
         expect(world.board.width).toBe(8);
@@ -92,71 +92,69 @@ describe('createWorld — FR-002 cities on land', () => {
             width: w,
             height: w,
             cells: Object.freeze(cells),
-            cities: Object.freeze([{ cell: { x: 0, y: 0 }, owner: 1 as PlayerId }]),
+            cities: Object.freeze([{ cell: { x: 0, y: 0 }, owner: 1 }]),
         });
         expect(() => createWorld(baseConfig, board)).toThrow(/water|land/i);
     });
 
     it('accepts cities placed on land cells (sanity)', () => {
         const board = buildSmallBoard(8, [
-            [0, 0, 1 as PlayerId],
-            [7, 7, 2 as PlayerId],
+            [0, 0, 1],
+            [7, 7, 2],
         ]);
         expect(() => createWorld(baseConfig, board)).not.toThrow();
     });
 });
 
 describe('createWorld — FR-019 player count', () => {
-    it('accepts playerCount = 2', () => {
+    it('accepts 2 players', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
-        const cfg: MatchConfig = { ...baseConfig, playerCount: 2 };
+        const cfg: MatchConfig = { ...baseConfig, playerIds: ['test-p1', 'test-p2'] };
         const world = createWorld(cfg, board);
         expect(world.players.length).toBe(2);
-        expect(world.players[0]?.id).toBe(1);
-        expect(world.players[1]?.id).toBe(2);
+        expect(world.players[0]?.id).toBe('test-p1');
+        expect(world.players[1]?.id).toBe('test-p2');
     });
 
-    it('accepts playerCount = 3', () => {
+    it('accepts 3 players', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
-            [6, 1, 3 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
+            [6, 1, 3],
         ]);
-        const cfg: MatchConfig = { ...baseConfig, playerCount: 3 };
+        const cfg: MatchConfig = { ...baseConfig, playerIds: ['test-p1', 'test-p2', 'test-p3'] };
         const world = createWorld(cfg, board);
         expect(world.players.length).toBe(3);
     });
 
-    it('accepts playerCount = 4', () => {
+    it('accepts 4 players', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
-            [6, 1, 3 as PlayerId],
-            [1, 6, 4 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
+            [6, 1, 3],
+            [1, 6, 4],
         ]);
-        const cfg: MatchConfig = { ...baseConfig, playerCount: 4 };
+        const cfg: MatchConfig = { ...baseConfig, playerIds: ['test-p1', 'test-p2', 'test-p3', 'test-p4'] };
         const world = createWorld(cfg, board);
         expect(world.players.length).toBe(4);
     });
 
-    it('rejects playerCount outside {2, 3, 4}', () => {
+    it('rejects playerIds with fewer than 2 entries', () => {
         const board = buildSmallBoard(8, []);
-        expect(() => createWorld({ ...baseConfig, playerCount: 1 as 2 }, board)).toThrow(/playerCount/);
-        expect(() => createWorld({ ...baseConfig, playerCount: 5 as 4 }, board)).toThrow(/playerCount/);
+        expect(() => createWorld({ ...baseConfig, playerIds: ['test-p1'] }, board)).toThrow(/playerIds/);
     });
 
-    it('rejects fractional playerCount values', () => {
+    it('rejects playerIds with more than 4 entries', () => {
         const board = buildSmallBoard(8, []);
-        const fractionalPlayerCount = 2.5 as unknown as MatchConfig['playerCount'];
-        expect(() => createWorld({ ...baseConfig, playerCount: fractionalPlayerCount }, board)).toThrow(/playerCount/);
+        expect(() => createWorld({ ...baseConfig, playerIds: ['test-p1', 'test-p2', 'test-p3', 'test-p4', 'test-p5'] }, board)).toThrow(/playerIds/);
     });
 
     it('rejects fractional city owner values', () => {
         const board = buildSmallBoard(8, []);
-        const fractionalOwner = 1.5 as unknown as PlayerId;
+        const fractionalOwner = 1.5 as unknown as number;
         const boardWithFractionalOwner: Board = Object.freeze({
             ...board,
             cities: Object.freeze([{ cell: { x: 1, y: 1 }, owner: fractionalOwner }]),
@@ -169,8 +167,8 @@ describe('createWorld — FR-019 player count', () => {
 describe('createWorld — initial state', () => {
     it('city cells are populated in cityOwners; non-city cells are 0', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const world = createWorld(baseConfig, board);
         const idx1 = 1 * 8 + 1; // (1,1)
@@ -192,8 +190,8 @@ describe('createWorld — initial state', () => {
 
     it('all non-city cells have owner=null and count=0', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const world = createWorld(baseConfig, board);
         for (let i = 0; i < world.state.troopCounts.length; i++) {
@@ -206,7 +204,7 @@ describe('createWorld — initial state', () => {
     });
 
     it('all cells start with zero pipe masks and zero reserves', () => {
-        const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[1, 1, 1]]);
         const world = createWorld(baseConfig, board);
         for (let i = 0; i < world.state.pipeMasks.length; i++) {
             expect(world.state.pipeMasks[i]).toBe(0);
@@ -226,12 +224,12 @@ describe('createWorld — initial state', () => {
 
     it('players array indexed by PlayerId (players[id-1].id === id)', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const world = createWorld(baseConfig, board);
-        expect(world.players[0]?.id).toBe(1);
-        expect(world.players[1]?.id).toBe(2);
+        expect(world.players[0]?.id).toBe('test-p1');
+        expect(world.players[1]?.id).toBe('test-p2');
         for (const p of world.players) {
             expect(p.status).toBe('alive');
             expect(p.troopsHeld).toBe(0);
@@ -245,8 +243,8 @@ describe('createWorld — initial state', () => {
 describe('createWorld — determinism', () => {
     it('same (config, board) → byte-identical initial world', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const w1 = createWorld(baseConfig, board);
         const w2 = createWorld(baseConfig, board);
@@ -324,7 +322,7 @@ describe('createWorld — negative validation', () => {
                     terrain: 'land' as const,
                 })),
             ),
-            cities: Object.freeze([{ cell: { x: 99, y: 0 }, owner: 1 as PlayerId }]),
+            cities: Object.freeze([{ cell: { x: 99, y: 0 }, owner: 1 }]),
         });
         expect(() => createWorld(baseConfig, board)).toThrow();
     });

@@ -34,7 +34,7 @@ const BOARD = buildSmallBoard(8, [
 /** Default match config for 8x8 board. */
 const CONFIG: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 42,
     visibilityRadius: 6,
@@ -97,7 +97,7 @@ describe('replayMatch', () => {
         let world = createWorld(CONFIG, BOARD);
         const order: Order = {
             kind: 'setPipe',
-            player: 1 as PlayerId,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             direction: 'E',
         };
@@ -106,7 +106,7 @@ describe('replayMatch', () => {
         const expectedHash = hashWorld(world as Readonly<World>);
 
         // Build a fixture with that one order at tick 0.
-        const fixture = buildFixture(createWorld(CONFIG, BOARD), [{ tick: 0, playerId: 1 as PlayerId, order }], 1);
+        const fixture = buildFixture(createWorld(CONFIG, BOARD), [{ tick: 0, playerId: 'test-p1' as PlayerId, order }], 1);
 
         const result = replayMatch(fixture, BOARD);
         expect(result.hash).toBe(expectedHash);
@@ -118,13 +118,13 @@ describe('replayMatch', () => {
         let world = createWorld(CONFIG, BOARD);
         const order1: Order = {
             kind: 'setPipe',
-            player: 1 as PlayerId,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             direction: 'E',
         };
         const order2: Order = {
             kind: 'setPipe',
-            player: 2 as PlayerId,
+            player: 'test-p2' as PlayerId,
             cell: { x: 6, y: 6 },
             direction: 'W',
         };
@@ -137,8 +137,8 @@ describe('replayMatch', () => {
         const fixture = buildFixture(
             createWorld(CONFIG, BOARD),
             [
-                { tick: 0, playerId: 1 as PlayerId, order: order1 },
-                { tick: 0, playerId: 2 as PlayerId, order: order2 },
+                { tick: 0, playerId: 'test-p1' as PlayerId, order: order1 },
+                { tick: 0, playerId: 'test-p2' as PlayerId, order: order2 },
             ],
             1,
         );
@@ -153,7 +153,7 @@ describe('replayMatch', () => {
         let world = createWorld(CONFIG, BOARD);
         const order1: Order = {
             kind: 'setPipe',
-            player: 1 as PlayerId,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             direction: 'E',
         };
@@ -162,7 +162,7 @@ describe('replayMatch', () => {
 
         const order2: Order = {
             kind: 'setReserves',
-            player: 1 as PlayerId,
+            player: 'test-p1' as PlayerId,
             cell: { x: 1, y: 1 },
             percent: 5,
         };
@@ -173,8 +173,8 @@ describe('replayMatch', () => {
         const fixture = buildFixture(
             createWorld(CONFIG, BOARD),
             [
-                { tick: 0, playerId: 1 as PlayerId, order: order1 },
-                { tick: 1, playerId: 1 as PlayerId, order: order2 },
+                { tick: 0, playerId: 'test-p1' as PlayerId, order: order1 },
+                { tick: 1, playerId: 'test-p1' as PlayerId, order: order2 },
             ],
             2,
         );

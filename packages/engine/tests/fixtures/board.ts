@@ -19,7 +19,7 @@
  * fail loud, easy-to-diagnose test failures.
  */
 
-import type { Board, Cell, CityPlacement, PlayerId } from '../../src/types';
+import type { Board, Cell, CityPlacement } from '../../src/types';
 
 /** Minimum board size used across the engine's quickstart tests. */
 const MIN_BOARD_SIZE = 8;
@@ -38,7 +38,7 @@ const MIN_BOARD_SIZE = 8;
  */
 export function buildSmallBoard(
     size: number,
-    cities: ReadonlyArray<readonly [x: number, y: number, owner: PlayerId]>,
+    cities: ReadonlyArray<readonly [x: number, y: number, owner: number]>,
 ): Board {
     if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
         throw new Error(`buildSmallBoard: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
@@ -103,7 +103,7 @@ export function buildSmallBoard(
 export function buildBoardWithElevation(
     size: number,
     elevationMap: ReadonlyArray<readonly [number, number]>,
-    cities: ReadonlyArray<readonly [x: number, y: number, owner: PlayerId]>,
+    cities: ReadonlyArray<readonly [x: number, y: number, owner: number]>,
 ): Board {
     if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
         throw new Error(`buildBoardWithElevation: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);

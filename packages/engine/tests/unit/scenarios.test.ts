@@ -22,7 +22,7 @@ import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 42,
     visibilityRadius: 4,
@@ -32,8 +32,8 @@ describe('runScenario — sanity', () => {
     it('with no orders, cities produce each tick', () => {
         // Include a P2 city so US5 terminal detection doesn't freeze the match.
         const board = buildSmallBoard(8, [
-            [0, 0, 1 as PlayerId],
-            [7, 7, 2 as PlayerId],
+            [0, 0, 1],
+            [7, 7, 2],
         ]);
         const tickCount = 5;
         const { finalWorld, events } = runScenario(cfg, board, [], tickCount);
@@ -58,8 +58,8 @@ describe('runScenario — sanity', () => {
 
     it('with no orders, multiple cities each produce independently', () => {
         const board = buildSmallBoard(8, [
-            [0, 0, 1 as PlayerId],
-            [7, 7, 2 as PlayerId],
+            [0, 0, 1],
+            [7, 7, 2],
         ]);
         const tickCount = 3;
         const { finalWorld } = runScenario(cfg, board, [], tickCount);
@@ -77,8 +77,8 @@ describe('runScenario — sanity', () => {
         // Lower the test cap to keep the test fast.
         const cap = ENGINE_CONSTANTS.cityCapacity;
         const board = buildSmallBoard(8, [
-            [0, 0, 1 as PlayerId],
-            [7, 7, 2 as PlayerId],
+            [0, 0, 1],
+            [7, 7, 2],
         ]);
         // Run more ticks than needed to saturate.
         const overSaturate = cap + 5;
@@ -90,12 +90,12 @@ describe('runScenario — sanity', () => {
 describe('runScenario — order staging', () => {
     it('records an order staged at tick 0 in the first tick events', () => {
         const board = buildSmallBoard(8, [
-            [0, 0, 1 as PlayerId],
-            [7, 7, 2 as PlayerId],
+            [0, 0, 1],
+            [7, 7, 2],
         ]);
         const order = {
             kind: 'setPipe' as const,
-            player: 1 as PlayerId,
+            player: 'test-p1' as PlayerId,
             cell: { x: 0, y: 0 },
             direction: 'E' as const,
         };
@@ -116,12 +116,12 @@ describe('runScenario — order staging', () => {
 
     it('records an order staged at a later tick in the right event', () => {
         const board = buildSmallBoard(8, [
-            [0, 0, 1 as PlayerId],
-            [7, 7, 2 as PlayerId],
+            [0, 0, 1],
+            [7, 7, 2],
         ]);
         const order = {
             kind: 'clearAllPipes' as const,
-            player: 1 as PlayerId,
+            player: 'test-p1' as PlayerId,
             cell: { x: 0, y: 0 },
         };
         const { events } = runScenario(cfg, board, [{ atTick: 2, order }], 4);

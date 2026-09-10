@@ -37,10 +37,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { EngineConstants } from '../../src/contracts/engine-api';
+import type { PlayerId,  EngineConstants } from '../../src/contracts/engine-api';
+import { createPlayerRegistry } from '../../src/playerRegistry';
 import { resolveCombat } from '../../src/resolution/combat';
 import type { Board, WorldState } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+
+const REGISTRY = createPlayerRegistry(['test-p1', 'test-p2', 'test-p3', 'test-p4'] as PlayerId[]);
 
 const CONSTANTS: EngineConstants = {
     productionRate: 1,
@@ -104,7 +107,7 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         inflow(state, tally, size, 4, 4, 1, 100);
         inflow(state, tally, size, 4, 4, 2, 100);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         // Both eliminated (count → 0, owner → 0).
         expect(out.state.troopCounts[4 * size + 4]).toBe(0);
         expect(out.state.troopOwners[4 * size + 4]).toBe(0);
@@ -118,7 +121,7 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         inflow(state, tally, size, 4, 4, 1, 100);
         inflow(state, tally, size, 4, 4, 2, 100);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
@@ -130,8 +133,8 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         expect(ev.winner).toBe('tie');
         expect(ev.tick).toBe(TICK);
         // Attacker is the lower PlayerId (deterministic tiebreak).
-        expect(ev.attacker).toBe(1);
-        expect(ev.defender).toBe(2);
+        expect(ev.attacker).toBe('test-p1');
+        expect(ev.defender).toBe('test-p2');
         // Total-force: each side committed 100.
         expect(ev.attackerTotal).toBe(100);
         expect(ev.defenderTotal).toBe(100);
@@ -145,7 +148,7 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         inflow(state, tally, size, 4, 4, 1, 200);
         inflow(state, tally, size, 4, 4, 2, 50);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         // Winner's remaining (150) exceeds cellCapacity (30) → clamped.
         expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
@@ -159,7 +162,7 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         inflow(state, tally, size, 4, 4, 1, 200);
         inflow(state, tally, size, 4, 4, 2, 50);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
@@ -168,9 +171,9 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         }
         expect(ev.attackerLoss).toBe(50);
         expect(ev.defenderLoss).toBe(50);
-        expect(ev.winner).toBe(1);
-        expect(ev.attacker).toBe(1);
-        expect(ev.defender).toBe(2);
+        expect(ev.winner).toBe('test-p1');
+        expect(ev.attacker).toBe('test-p1');
+        expect(ev.defender).toBe('test-p2');
         // Total-force: P1 committed 200, P2 committed 50.
         expect(ev.attackerTotal).toBe(200);
         expect(ev.defenderTotal).toBe(50);
@@ -184,7 +187,7 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         inflow(state, tally, size, 4, 4, 1, 100);
         inflow(state, tally, size, 4, 4, 2, 100);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
         if (ev === undefined) {
@@ -207,7 +210,7 @@ describe('resolveCombat — single-sided & empty cells', () => {
         const countsBefore = Array.from(state.troopCounts);
         const ownersBefore = Array.from(state.troopOwners);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.events.combat.length).toBe(0);
         expect(Array.from(out.state.troopCounts)).toEqual(countsBefore);
         expect(Array.from(out.state.troopOwners)).toEqual(ownersBefore);
@@ -223,7 +226,7 @@ describe('resolveCombat — single-sided & empty cells', () => {
         const countsBefore = Array.from(state.troopCounts);
         const ownersBefore = Array.from(state.troopOwners);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.events.combat.length).toBe(0);
         expect(Array.from(out.state.troopCounts)).toEqual(countsBefore);
         expect(Array.from(out.state.troopOwners)).toEqual(ownersBefore);
@@ -239,7 +242,7 @@ describe('resolveCombat — single-sided & empty cells', () => {
         inflow(state, tally, size, 0, 0, 1, 30); // bystander
         inflow(state, tally, size, 7, 7, 2, 20); // bystander
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.state.troopCounts[0 * size + 0]).toBe(30);
         expect(out.state.troopCounts[7 * size + 7]).toBe(20);
         expect(out.state.troopOwners[0 * size + 0]).toBe(1);
@@ -257,7 +260,7 @@ describe('resolveCombat — three-way (3 owners, all-equal stack)', () => {
         inflow(state, tally, size, 4, 4, 2, 100);
         inflow(state, tally, size, 4, 4, 3, 100);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         // Dominant count (100) exceeds cellCapacity (30) → clamped.
         expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
@@ -272,7 +275,7 @@ describe('resolveCombat — three-way (3 owners, all-equal stack)', () => {
         inflow(state, tally, size, 4, 4, 2, 100);
         inflow(state, tally, size, 4, 4, 3, 100);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.events.combat.length).toBe(2);
         // First event: P1 vs P2. Second: P1 vs P3. Both winner=P1.
         const e1 = out.events.combat[0];
@@ -294,7 +297,7 @@ describe('resolveCombat — three-way (3 owners, all-equal stack)', () => {
         inflow(state, tally, size, 4, 4, 2, 100);
         inflow(state, tally, size, 4, 4, 3, 100);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         // Dominant count (200) exceeds cellCapacity (30) → clamped.
         expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
@@ -339,9 +342,9 @@ describe('resolveCombat — determinism', () => {
         inflow(state, tally, size, 4, 4, 2, 50);
         inflow(state, tally, size, 4, 4, 3, 100);
 
-        const reference = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const reference = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         for (let i = 0; i < 1000; i++) {
-            const next = resolveCombat(state, board, CONSTANTS, TICK, tally);
+            const next = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
             expect(Array.from(next.state.troopCounts)).toEqual(Array.from(reference.state.troopCounts));
             expect(Array.from(next.state.troopOwners)).toEqual(Array.from(reference.state.troopOwners));
             expect(next.events.combat.length).toBe(reference.events.combat.length);
@@ -359,7 +362,7 @@ describe('resolveCombat — determinism', () => {
         const ownersBefore = Array.from(state.troopOwners);
         const tallyBefore = Array.from(tally);
 
-        resolveCombat(state, board, CONSTANTS, TICK, tally);
+        resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
 
         expect(Array.from(state.troopCounts)).toEqual(countsBefore);
         expect(Array.from(state.troopOwners)).toEqual(ownersBefore);
@@ -390,7 +393,7 @@ describe('resolveCombat — defensive / boundary', () => {
         inflow(state, tally, size, 4, 4, 1, 1);
         inflow(state, tally, size, 4, 4, 2, 100);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         // Winner's remaining (99) exceeds cellCapacity (30) → clamped.
         expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         // Total-force model without preFlowState: dominant-owner fallback.
@@ -413,7 +416,7 @@ describe('resolveCombat — defensive / boundary', () => {
         inflow(state, tally, size, 4, 4, 1, 1);
         inflow(state, tally, size, 4, 4, 2, 1);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(0);
         expect(out.state.troopOwners[4 * size + 4]).toBe(0);
         // Verify CombatEvent totals: equal forces → tie.
@@ -437,7 +440,7 @@ describe('resolveCombat — defensive / boundary', () => {
         inflow(state, tally, size, 4, 4, 1, 100);
         inflow(state, tally, size, 4, 4, 2, 100);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.state.pipeMasks[0]).toBe(0x05);
         expect(out.state.cityOwners[10]).toBe(1);
         expect(out.state.reservesPct[20]).toBe(3);
@@ -516,10 +519,10 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             4,
             2,
             30, // garrison: P2 with 30
-            [{ player: 1, count: 14 }], // P1 committed 14
+            [{ player: 'test-p1' as PlayerId, count: 14 }], // P1 committed 14
         );
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
@@ -528,7 +531,7 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             expect(ev.defenderTotal).toBe(30); // P2 garrison + 0 committed
             expect(ev.attackerLoss).toBe(14);
             expect(ev.defenderLoss).toBe(14);
-            expect(ev.winner).toBe(2); // P2 survives (30-14=16 > 0)
+            expect(ev.winner).toBe('test-p2'); // P2 survives (30-14=16 > 0)
         }
         // P2 retains cell with 16 troops.
         expect(out.state.troopCounts[idx]).toBe(16);
@@ -555,10 +558,10 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             4,
             2,
             20, // garrison: P2 with 20
-            [{ player: 1, count: 15 }], // P1 committed 15
+            [{ player: 'test-p1' as PlayerId, count: 15 }], // P1 committed 15
         );
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
@@ -594,12 +597,12 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             1,
             10, // garrison: P1 with 10
             [
-                { player: 1, count: 7 },
-                { player: 2, count: 7 },
+                { player: 'test-p1' as PlayerId, count: 7 },
+                { player: 'test-p2' as PlayerId, count: 7 },
             ],
         );
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
@@ -633,12 +636,12 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             0,
             0, // no garrison
             [
-                { player: 1, count: 20 },
-                { player: 2, count: 12 },
+                { player: 'test-p1' as PlayerId, count: 20 },
+                { player: 'test-p2' as PlayerId, count: 12 },
             ],
         );
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
@@ -649,7 +652,7 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
             expect(ev.defenderTotal).toBe(12);
             expect(ev.attackerLoss).toBe(12);
             expect(ev.defenderLoss).toBe(12);
-            expect(ev.winner).toBe(1); // P1 retains 8
+            expect(ev.winner).toBe('test-p1'); // P1 retains 8
         }
         expect(out.state.troopCounts[idx]).toBe(8);
         expect(out.state.troopOwners[idx]).toBe(1);
@@ -666,10 +669,10 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
 
         const tally = emptyTally(size);
         const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 15, [
-            { player: 1, count: 10 },
+            { player: 'test-p1' as PlayerId, count: 10 },
         ]);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
         expect(ev).toBeDefined();
@@ -700,13 +703,13 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
 
         const tally = emptyTally(size);
         const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 25, [
-            { player: 1, count: 12 },
-            { player: 3, count: 8 },
+            { player: 'test-p1' as PlayerId, count: 12 },
+            { player: 'test-p3' as PlayerId, count: 8 },
         ]);
 
-        const reference = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+        const reference = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
         for (let i = 0; i < 1000; i++) {
-            const next = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
+            const next = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally, committedFlowTally, preFlowState);
             expect(Array.from(next.state.troopCounts)).toEqual(Array.from(reference.state.troopCounts));
             expect(Array.from(next.state.troopOwners)).toEqual(Array.from(reference.state.troopOwners));
             expect(next.events.combat.length).toBe(reference.events.combat.length);
@@ -736,7 +739,7 @@ describe('resolveCombat — cellCapacity clamping (FR-011)', () => {
         inflow(state, tally, size, 4, 4, 1, 40);
         inflow(state, tally, size, 4, 4, 2, 10);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
     });
@@ -751,7 +754,7 @@ describe('resolveCombat — cellCapacity clamping (FR-011)', () => {
         inflow(state, tally, size, 4, 4, 1, 41);
         inflow(state, tally, size, 4, 4, 2, 10);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
     });
@@ -767,7 +770,7 @@ describe('resolveCombat — cellCapacity clamping (FR-011)', () => {
         inflow(state, tally, size, 4, 4, 2, 10);
         inflow(state, tally, size, 4, 4, 3, 10);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(30);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
         // Two losers eliminated.
@@ -784,7 +787,7 @@ describe('resolveCombat — cellCapacity clamping (FR-011)', () => {
         inflow(state, tally, size, 4, 4, 1, 39);
         inflow(state, tally, size, 4, 4, 2, 10);
 
-        const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
+        const out = resolveCombat(state, board, CONSTANTS, TICK, REGISTRY, tally);
         expect(out.state.troopCounts[4 * size + 4]).toBe(29);
         expect(out.state.troopOwners[4 * size + 4]).toBe(1);
     });

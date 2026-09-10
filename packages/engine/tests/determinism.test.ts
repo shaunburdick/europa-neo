@@ -30,7 +30,7 @@ import { runScenario } from './fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: ['test-p1', 'test-p2'],
     tickIntervalMs: 250,
     seed: 0xdeadbeef,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -43,8 +43,8 @@ describe('SC-001 — determinism (Q-004 acceptance)', () => {
     it('two independent 10k-tick runs produce byte-identical serialized worlds', () => {
         // P1 + P2 each have a city (US5 would otherwise freeze P2).
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         // A handful of pipe orders at tick 0 (every direction, both
         // players) to exercise the flow phase deterministically. After
@@ -62,11 +62,11 @@ describe('SC-001 — determinism (Q-004 acceptance)', () => {
         }> = [
             {
                 atTick: 0,
-                order: { kind: 'setPipe', player: 1, cell: { x: 1, y: 1 }, direction: 'E' },
+                order: { kind: 'setPipe', player: 'test-p1' as PlayerId, cell: { x: 1, y: 1 }, direction: 'E' },
             },
             {
                 atTick: 0,
-                order: { kind: 'setPipe', player: 2, cell: { x: 6, y: 6 }, direction: 'W' },
+                order: { kind: 'setPipe', player: 'test-p2' as PlayerId, cell: { x: 6, y: 6 }, direction: 'W' },
             },
         ];
 

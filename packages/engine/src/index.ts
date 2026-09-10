@@ -70,6 +70,7 @@ export type {
     Player,
     // Branded primitives
     PlayerId,
+    PlayerRegistry,
     PlayerStatus,
     // Branded primitives
     ReservesPct,
