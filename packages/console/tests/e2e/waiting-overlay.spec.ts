@@ -25,7 +25,7 @@
  * join window; the fill + assertions happen well inside it.
  */
 
-import { createRng } from '@europa/core';
+import { createRng, generatePlayerId } from '@europa/core';
 import { applyCommand, createWorld, ENGINE_CONSTANTS, isTerminal, tick } from '@europa/engine';
 import { computePlayerView } from '@europa/fog';
 import { createMatchmaker } from '@europa/matchmaking';
@@ -93,7 +93,10 @@ function tolerateDuplicateRegistration(server: Server): Server {
  * @param seed Fixed seed (deterministic board).
  * @returns A `register` thunk that hands the session to the server.
  */
-function buildLobbySession(matchId: MatchId, seed: number): { readonly register: (server: Server) => void } {
+function buildLobbySession(matchId: MatchId, seed: number): {
+    readonly register: (server: Server) => void;
+    readonly playerIds: readonly PlayerId[];
+} {
     const rng = createRng(seed);
     const generation = generateBoard({
         boardSize: BOARD_SIZE,
@@ -102,9 +105,10 @@ function buildLobbySession(matchId: MatchId, seed: number): { readonly register:
         rng,
         settings: DEFAULT_GENERATION_SETTINGS,
     });
+    const playerIds = Array.from({ length: 2 }, () => generatePlayerId());
     const matchConfig: MatchConfig = Object.freeze({
         boardSize: BOARD_SIZE,
-        playerCount: 2,
+        playerIds,
         tickIntervalMs: TICK_MS,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -134,6 +138,7 @@ function buildLobbySession(matchId: MatchId, seed: number): { readonly register:
         register: (server: Server): void => {
             server.registerMatch({ matchId, engineSession, matchConfig });
         },
+        playerIds,
     };
 }
 
@@ -266,8 +271,9 @@ test('first console sees the waiting room while filling; auto-start clears it', 
         // Lobby-host style: register the arena pre-fill so the wire join
         // succeeds while the roster is incomplete (fixed seed ⇒ fixed
         // board), and bind seat 1 to Alice's matchmaking token.
-        buildLobbySession(matchId, 2026_0823).register(server);
-        server.attachPlayer({ matchId, playerId: 'test-seat-1' as PlayerId, sessionToken: aliceToken });
+        const lobby = buildLobbySession(matchId, 2026_0823);
+        lobby.register(server);
+        server.attachPlayer({ matchId, playerId: lobby.playerIds[0], sessionToken: aliceToken });
 
         // -- First console joins the UNFILLED match --------------------------
         const aliceContext = await browser.newContext();

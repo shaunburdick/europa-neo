@@ -254,7 +254,8 @@ for (const N of [3, 4]) {
                     return;
                 }
                 const { matchId } = created.data;
-                expect(created.data.seatAssignment.playerId).toBe(1);
+                expect(typeof created.data.seatAssignment.playerId).toBe('string');
+                expect(created.data.seatAssignment.playerId.length).toBeGreaterThan(0);
 
                 // The public lobby projection lists the filling match with the
                 // correct capacity chrome (FR-003 / lobby facade).
@@ -340,7 +341,11 @@ for (const N of [3, 4]) {
                 }
                 const seated = await Promise.all(pages.map((page) => readLiveOrThrow(page)));
                 const playerIds = seated.map((live) => live.playerId);
-                expect(new Set(playerIds)).toEqual(new Set(Array.from({ length: N }, (_, i) => i + 1)));
+                const uniqueIds = new Set(playerIds);
+                expect(uniqueIds.size).toBe(N);
+                for (const pid of playerIds) {
+                    expect(typeof pid).toBe('string');
+                }
 
                 // -- Ticks flow to all seats within 2 s of final join -------------
                 // (fixed 250 ms cadence; the early economy is still changing, so
@@ -457,9 +462,9 @@ for (const N of [3, 4]) {
                     expect(left.ok).toBe(true);
                 }
 
-                // The survivor is the host (seat 0 → playerId 1). Its console must
+                // The survivor is the host (seat 0). Its console must
                 // surface the terminal result (showResults / game_over).
-                const winnerPage = pages[playerIds.indexOf(1)];
+                const winnerPage = pages[playerIds.indexOf(seated[0].playerId)];
                 await expect
                     .poll(async () => (await readLive(winnerPage))?.status, {
                         timeout: 15_000,

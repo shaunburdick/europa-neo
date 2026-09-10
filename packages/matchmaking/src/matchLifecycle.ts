@@ -202,13 +202,15 @@ export function transitionFillingToRunning(
     engineSession: EngineSession,
     startedAtMs: number,
     emit?: StatusEmitter,
+    enginePlayerIds?: readonly PlayerId[],
 ): MatchRecord {
     if (match.status !== 'filling') {
         throw new Error(`matchLifecycle: illegal transition ${match.status} → running for match ${match.matchId}`);
     }
 
-    for (const seat of match.seats.values()) {
-        seat.playerId = newPlayerId();
+    const orderedSeats = [...match.seats.values()];
+    for (let i = 0; i < orderedSeats.length; i++) {
+        orderedSeats[i]!.playerId = enginePlayerIds?.[i] ?? newPlayerId();
     }
     match.engineSession = engineSession;
     match.startedAtMs = startedAtMs;

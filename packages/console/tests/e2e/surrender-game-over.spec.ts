@@ -241,7 +241,8 @@ test('2-player surrender: both players see correct game-over result', async ({ b
             return;
         }
         const { matchId } = created.data;
-        expect(created.data.seatAssignment.playerId).toBe(1);
+        expect(typeof created.data.seatAssignment.playerId).toBe('string');
+        expect(created.data.seatAssignment.playerId.length).toBeGreaterThan(0);
 
         const filled = matchmaker.joinMatch({ matchId, displayName: 'Winner' });
         expect(filled.ok).toBe(true);
@@ -281,7 +282,9 @@ test('2-player surrender: both players see correct game-over result', async ({ b
 
         const surrendererSeated = await readLiveOrThrow(surrenderer);
         const winnerSeated = await readLiveOrThrow(winner);
-        expect(new Set([surrendererSeated.playerId, winnerSeated.playerId])).toEqual(new Set([1, 2]));
+        expect(surrendererSeated.playerId).not.toBe(winnerSeated.playerId);
+        expect(typeof surrendererSeated.playerId).toBe('string');
+        expect(typeof winnerSeated.playerId).toBe('string');
 
         // -- Ticks flow to both seats -------------------------------------------
         await waitUntil(surrenderer, (live) => live.tick >= 3, 'Surrenderer receives ticks');

@@ -244,7 +244,8 @@ test('two consoles drive one live match end-to-end over the real stack', async (
             return;
         }
         const { matchId } = created.data;
-        expect(created.data.seatAssignment.playerId).toBe(1);
+        expect(typeof created.data.seatAssignment.playerId).toBe('string');
+        expect(created.data.seatAssignment.playerId.length).toBeGreaterThan(0);
 
         const filled = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
         expect(filled.ok).toBe(true);
@@ -283,7 +284,9 @@ test('two consoles drive one live match end-to-end over the real stack', async (
         await waitUntil(bob, (live) => live.status === 'live', 'Bob reaches live');
         const aliceSeated = await readLiveOrThrow(alice);
         const bobSeated = await readLiveOrThrow(bob);
-        expect(new Set([aliceSeated.playerId, bobSeated.playerId])).toEqual(new Set([1, 2]));
+        expect(aliceSeated.playerId).not.toBe(bobSeated.playerId);
+        expect(typeof aliceSeated.playerId).toBe('string');
+        expect(typeof bobSeated.playerId).toBe('string');
 
         // -- Ticks flow to both seats (fog-filtered broadcasts) --------------
         // Note: the early economy reaches a fixed point (city troop growth

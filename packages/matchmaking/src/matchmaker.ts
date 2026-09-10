@@ -517,7 +517,10 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     function autoStart(match: MatchRecord): void {
         const seed = match.initialSeed ?? newMatchSeed();
         match.initialSeed = seed;
-        const engineConfig = buildMatchConfig(match.settings, seed);
+        // Generate player IDs once — shared between engine config, seat
+        // attachment, and the filling→running transition.
+        const playerIds = Array.from({ length: match.settings.playerCount }, () => newPlayerId());
+        const engineConfig = buildMatchConfig(match.settings, seed, playerIds);
         const rng = rngFactory(seed);
 
         const generation = generateBoard({
@@ -562,19 +565,24 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             displayNames: orderedSeats.map((seat) => seat.handle ?? seat.displayName),
         });
 
-        // Attach in seat order so each seat gets its own generated PlayerId.
+        // Check if registration was absorbed by an existing lobby-style
+        // pre-registration. If so, use the existing channel's playerIds
+        // so seat bindings stay consistent with the pre-registered world.
+        const existingPlayerIds = server.getRegisteredPlayerIds(match.matchId);
+        const effectivePlayerIds = existingPlayerIds ?? playerIds;
+
+        // Attach in seat order, using the same player IDs from the engine config.
         for (const [index, seat] of orderedSeats.entries()) {
-            void index; // seat order is the iteration order; index used only for positional clarity
             server.attachPlayer({
                 matchId: match.matchId,
-                playerId: newPlayerId(),
+                playerId: effectivePlayerIds[index]!,
                 sessionToken: seat.sessionToken,
             });
         }
 
         server.enableSpectators(match.matchId);
 
-        transitionFillingToRunning(match, engineSession, now(), bus.emit);
+        transitionFillingToRunning(match, engineSession, now(), bus.emit, effectivePlayerIds);
     }
 
     /**

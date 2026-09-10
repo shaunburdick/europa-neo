@@ -1513,6 +1513,11 @@ export function createMatchServer(
             resyncBuffers.delete(matchId);
         },
 
+        getRegisteredPlayerIds(matchId: MatchId): readonly PlayerId[] | null {
+            const channel = channels.get(matchId);
+            return channel?.matchConfig.playerIds ?? null;
+        },
+
         attachPlayer(req: AttachPlayerRequest): void {
             requireChannel(req.matchId).attachSeat(req.playerId, req.sessionToken);
         },
