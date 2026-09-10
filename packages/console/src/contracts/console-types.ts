@@ -350,7 +350,7 @@ export interface MapView {
    * Per-player cosmetic color used for owner/city markers. Indexed
    * by `PlayerId`. Comes from the matchmaker / display-name
    * announcement (future feature 006 extension; v1 console uses
-   * a fixed palette defined in `DEFAULT_PLAYER_COLORS`).
+   * a fixed palette defined in `DEFAULT_PLAYER_COLOR_PALETTE`).
    */
   readonly playerColors: ReadonlyMap<PlayerId, string>;
   /**
