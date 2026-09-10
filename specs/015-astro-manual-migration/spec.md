@@ -1,8 +1,8 @@
 # Feature 015: Astro Migration for Player Manual
 
 > Version: 1.1
-> Last Updated: 2026-09-01
-> Status: Draft
+> Last Updated: 2026-09-10
+> Status: Implemented (2026-09-10)
 > Dependencies: Feature 007 (Player Manual — Implemented), Feature 012 (Design System — Implemented)
 
 ## Problem Statement
@@ -420,3 +420,30 @@ export default defineConfig({
 | VitePress | Vue-oriented; our components are framework-agnostic; VitePress's opinionated layout conflicts with the design system |
 | Keep Jekyll, add components via `<script>` | Jekyll's Markdown pipeline doesn't support JSX; components would need raw HTML tags in Markdown, which is fragile |
 | Plain Vite (no framework) | Loses Astro's content collections, MDX integration, and `withastro/action` — would need a custom build pipeline |
+
+## Implementation Notes
+
+- **Deployment chain (FR-025 divergence)**: the shipped workflow does NOT
+  use `withastro/action@v6`. It keeps the repo's existing official Pages
+  chain — checkout → configure-pages → `pnpm --filter @europa/manual build`
+  → upload-pages-artifact → deploy-pages — because the monorepo needs the
+  design package built and staged (`pnpm --filter @europa/design build` +
+  `stage:manual`) before the Astro build, which `withastro/action` cannot
+  express. The chain is SHA-pinned per NFR-006. FR-025's
+  `withastro/action@v6` requirement is superseded by this record.
+- **Page count (AC-004 / AC-025)**: the manual ships 15 pages, not 14 —
+  `roster.mdx` was added post-migration (PR #104 content) and is included
+  in this change set's cleanup.
+- **Vendored stylesheet (FR-006 / AC-005)**: `docs/manual/public/design.css`
+  is the served copy (Astro `public/`), and `docs/manual/assets/design.css`
+  is retained as the design system's G-05 byte-identity target. Both are
+  byte-identical to `packages/design/dist/design.css`; the vendoring script
+  now emits both, and the G-05 guard checks both.
+- **Jekyll artifacts removed**: `docs/manual/_layouts/**` never existed in
+  the Astro layout; the stale path-filter entries for it and for
+  `docs/manual/assets/design.css` were removed from pages-deploy.yml,
+  client-ci.yml, and version-drift.yml per FR-027 (subsumed by
+  `docs/manual/**`).
+- **Spec 007 amended in the same change set**: FR-001/FR-011/FR-014/FR-017,
+  Key Entities, Assumptions, and the Manual Content Outline now describe the
+  Astro reality (spec 007 v1.4).
