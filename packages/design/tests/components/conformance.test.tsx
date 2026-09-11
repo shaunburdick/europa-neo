@@ -250,9 +250,9 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         expectStyles: [{ prop: 'color', value: TOKENS.color.playerColor3 }],
     },
     {
-        name: 'EuropaFogOverlay renders an aria-hidden overlay (no catalog class)',
+        name: 'EuropaFogOverlay renders an aria-hidden overlay with europa-fog-overlay class',
         element: <EuropaFogOverlay />,
-        expectNoClass: true,
+        expectClasses: ['europa-fog-overlay'],
         expectAttr: { 'aria-hidden': 'true' },
     },
     {
