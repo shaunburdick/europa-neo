@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-31
 
-**Status**: Implemented (2026-09-01; Amended 2026-09-03 — React component conversion, issue #65; Completed 2026-09-04)
+**Status**: Implemented (2026-09-01; Amended 2026-09-03 — React component conversion, issue #65; Completed 2026-09-04; Bug fixes 2026-09-11 — issues #148, #149)
 
 **GitHub Issue**: #41 (original); #65 (this amendment)
 
@@ -296,6 +296,20 @@ Product-owner decisions confirmed — do not relitigate:
 - **Q3 — Peer dependency**: `@europa/design` gains `react` as a peer dependency (`">=18"`). Consumer supplies React. This changes the package's current "zero external dependencies" property — documented in the Constitution Deviation Notice above and in FR-006.
 - **Q4 — Full manual migration scope**: The entire Astro manual migration is in scope. This means scaffolding `@astrojs/react` in the Astro project (`docs/manual/`), converting all ~200 `<europa-*>` MDX usages to imported React components, and testing the build. See FR-020–FR-022.
 - **Q5 — Remove per-component bundle budget**: Remove the 15 KB `dist/components.js` gzipped budget. Keep the console's overall browser-payload gzip budget check. The new components budget is 20 KB gzipped (FR-027).
+
+### v1.3 (2026-09-11) — Bug fixes and refinements (issues #148, #149)
+
+#### FR-002 amended — FogOverlay implementation
+
+The `EuropaFogOverlay` game-specific primitive (FR-002) previously returned a bare `<div aria-hidden="true" />` with no styling — a stub that failed to deliver the semi-transparent fog-of-war overlay defined by spec 014 FR-002. The component now renders a styled semi-transparent overlay using the `--europa-color-fog` token from `@europa/design`. Visibility is controlled by the `visible` prop (default `true`): when `false`, the overlay renders nothing. Accessibility remains `aria-hidden="true"` (purely visual). This is a corrective implementation of the existing FR-002, not a new requirement.
+
+#### FR-011 amended — Modal backdrop ARIA repair
+
+The modal backdrop previously used `role="button"` with `tabIndex={-1}` wrapping the `role="dialog"` element — an invalid ARIA nesting that triggered `nested-interactive` axe violations. The backdrop is now a plain `<div>` with `onClick` handling and no interactive ARIA role. The dialog element retains `role="dialog"`, `aria-modal="true"`, and `aria-labelledby`. This is a corrective repair of the existing FR-011 accessibility contract, not a new requirement.
+
+#### FR-031 clarified — Browser-mode integration tests implemented
+
+FR-031 required integration tests for the `EuropaModal` focus trap. The spec's intent is now fully satisfied: browser-mode (Vitest Browser Mode) integration tests cover (a) Tab/Shift+Tab cycling within the modal, (b) Escape calling `onClose` and restoring focus, (c) backdrop click calling `onClose`, (d) `open` prop toggling, (e) focus cannot escape to elements behind the modal, and (f) focus returns to the trigger element on close. These tests are wired into CI via the console's existing browser-mode test pipeline. The orphaned `vitest.config.browser.ts` that previously existed without a CI entrypoint has been integrated.
 
 ## Constitution Alignment
 

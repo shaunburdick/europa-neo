@@ -162,6 +162,15 @@ describe('typography token additions (Feature 062 FR-004)', () => {
     });
 });
 
+describe('player color tokens', () => {
+    it('pins the four canonical player ownership hex values', () => {
+        expect(TOKENS.color.playerColor1).toBe('#dc2626');
+        expect(TOKENS.color.playerColor2).toBe('#2563eb');
+        expect(TOKENS.color.playerColor3).toBe('#059669');
+        expect(TOKENS.color.playerColor4).toBe('#d97706');
+    });
+});
+
 describe('focus ring token additions (Feature 062 FR-005)', () => {
     it('defines the two new focus ring tokens', () => {
         expect(TOKENS.focusRing.darkColor).toBe('#111827');

@@ -1,177 +1,258 @@
-# Implementation Plan: React Component Conversion of `@europa/design` (Issue #65)
+# Implementation Plan: Design System Fixes (Issues #148 + #149)
 
-**Branch**: `issue-65-react-components` (spec-kit feature `014-shared-ui-components`) | **Date**: 2026-09-03 | **Spec**: [`specs/014-shared-ui-components/spec.md`](./spec.md)
+**Branch**: `design-fixes` (spec-kit feature `014-shared-ui-components`) | **Date**: 2026-09-11 | **Spec**: [`specs/014-shared-ui-components/spec.md`](./spec.md)
 
-**Input**: Amended feature specification (Clarifications v1.2, issue #65) — full replacement of the 20 `@europa/design` web components with React components; React as a peer dependency; full Astro manual migration; new 20 KB bundle budget on `dist/components/index.js`.
+**Input**: Amended feature specification (Clarifications v1.3, issues #148 + #149) — single-source player colors, FogOverlay implementation, modal backdrop ARIA repair, browser-mode focus-trap test wiring, guard test strengthening, a11y exclusion removal.
 
 ---
 
 ## Summary
 
-Convert all 20 `@europa/design` components (13 generic + 7 game) from framework-agnostic web components (`customElements.define`, Shadow/Light DOM) to **React components** (function components + hooks). This is a **full replacement** (Q1) — no dual coexistence, no web-component registration remains. The React component API maps props **1:1** from the existing attributes (Q2), React is a **peer dependency** `>=18` (Q3), the **full Astro manual migration** is in scope (Q4), and the per-component 15 KB budget is replaced by a single **20 KB budget** on `dist/components/index.js` (Q5).
+Two coupled design system fixes that address token drift, incomplete component implementations, and test infrastructure gaps:
 
-The conversion preserves the exact DOM output, catalog classes, and accessibility obligations of the current components so the console and manual render identically (SC-003). The `@europa/design/components` subpath export surface is preserved and adapted to export React components. The console's 6 in-scope `ui/` files swap inline class-name patterns for the new React components; the 8 out-of-scope files are untouched. The Astro manual's ~71 MDX `<europa-*>` usages migrate to imported React components via `@astrojs/react`.
+1. **Issue #148**: The design system is not yet the single source of truth for player ownership colors. `DEFAULT_PLAYER_COLORS` in `console-types.ts` defines P1–P4 hex values while three design primitives (`city-marker`, `player-badge`, `troop-chip`) maintain divergent `PLAYER_COLORS` maps using unrelated token keys (`accent`, `city` instead of dedicated player-color tokens). The `FogOverlay` component is a stub returning a bare `<div>` with no styling. Guard tests need strengthening to scan design sources and verify component props.
 
-**Constitution deviation (documented in spec)**: Principle IV ("Specs as Documentation") is overridden for this feature — the spec's "no specific rendering libraries" rule is waived because `@europa/design` is `private: true` with no external consumers and both consumers (console + manual) are React-capable. All other principles (I strict TS, III ≥80% coverage, V simplicity, VI accessibility) remain binding.
+2. **Issue #149**: The modal backdrop has invalid `role="button"` + `tabIndex={-1}` creating nested-interactive axe violations. Browser-mode integration tests exist as config (`vitest.config.browser.ts`) but are not wired into CI. The console's a11y suite carries a `nested-interactive` exclusion that should be removable once the backdrop is fixed.
 
 ---
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.6 (strict) / Node 22 / pnpm 11.22 workspaces — same as every sibling package. React 19.2.0 (catalog) is the runtime; React is a **peer dependency** `>=18` (Q3).
+**What's broken**:
 
-**Primary Dependencies**:
-- **Runtime `peerDependencies`** (new): `react: ">=18"`, `react-dom: ">=18"` (Q3). Zero runtime `dependencies` preserved (FR-024, NFR-006) — the components depend only on React + the same-package `TOKENS` import.
-- **Tooling (devDependencies, all catalog versions)**:
-  - `@testing-library/react` `^16.3.2` + `@testing-library/dom` `^10.0.0` (RTL 16 requires it separately) — React component tests.
-  - `@testing-library/jest-dom` `^7.0.1` — DOM matchers.
-  - `@testing-library/user-event` `^14.6.7` — user-centric interaction.
-  - `vitest-browser-react` `^2.2.0` (already catalog) — browser-mode React render for the modal focus-trap integration tests.
-  - Existing `happy-dom` `^20.11.6`, `@vitest/browser` `^4.1.0`, `@vitest/browser-playwright` `^4.1.0`, `tsup`, `tsx`, `typescript`, `vitest`, `biome` catalog versions.
-- **Manual (docs/manual)**: add `@astrojs/react` `^6.0.5` (compatible with Astro `^7.2.10`; supports React 19 peer deps) + `react`/`react-dom`/`@types/react`/`@types/react-dom` catalog versions.
+- **Player color drift**: Three separate `PLAYER_COLORS` maps in `city-marker.tsx`, `player-badge.tsx`, and `troop-chip.tsx` map P1–P4 to `TOKENS.color.accent`/`city`/`green`/`blue` — tokens named for other purposes. `console-types.ts` line 538 uses `#dc2626`/`#2563eb`/`#059669`/`#d97706` directly. No `playerColor1`–`playerColor4` tokens exist. The manual (`numbers.mdx` lines 76–79) renders `EuropaPlayerBadge` which gets its color from the divergent `player-badge.tsx` map (accent for P1, not red).
 
-**Storage**: N/A — no persistence. The component source is tracked TypeScript; `dist/components/index.{js,d.ts}` are build artifacts.
+- **FogOverlay stub**: `fog-overlay.tsx` returns `<div aria-hidden="true" />` with no CSS classes, no background color, no visual treatment. The spec (FR-002) requires a styled semi-transparent overlay using the `--europa-color-fog` / `overlaySoft` token.
 
-**Testing**: Vitest 4.1 + `@vitest/coverage-v8` (≥80% on every metric for new testable logic, constitution Principle III). Split:
-- `vitest.config.ts` (node + `environment: 'happy-dom'`) — per-component React unit tests (FR-027), game-primitive tests (FR-029), conformance test (FR-030, rewritten for React props).
-- `vitest.config.browser.ts` (Playwright Chromium + `vitest-browser-react`) — modal integration tests (FR-028: focus trap, Escape, focus restore).
-- Existing console suites (unit, component, a11y, e2e) verify the migration is visually invisible (FR-018, SC-003).
-- Manual build (`pnpm build` in `docs/manual`) verifies the Astro migration compiles + renders (Q4).
+- **Modal backdrop ARIA**: `modal.tsx` lines 122–128 render the backdrop with `role="button"` and `tabIndex={-1}`, creating an invalid ARIA pattern: a `role="button"` element wrapping a `role="dialog"` triggers `nested-interactive` axe violations. The backdrop should be a plain `<div>` with only `onClick`.
+
+- **Browser tests orphaned**: `vitest.config.browser.ts` exists but `package.json` has no `test:browser` script, and no CI workflow step runs it. Focus-trap integration tests cannot execute in CI.
+
+- **a11y exclusion**: `help-overlay.test.ts` line 48 passes `['nested-interactive']` to suppress the axe violation that the modal backdrop fix will eliminate.
+
+**What the fix looks like**:
+
+- Add `playerColor1`–`playerColor4` tokens to `TOKENS.color` (canonical hex values).
+- Add CSS variables `--europa-color-player-1` through `--europa-color-player-4`.
+- Rewrite game primitives' local maps to use `TOKENS.color.playerColorN` instead of `accent`/`city`.
+- Make `DEFAULT_PLAYER_COLORS` in `console-types.ts` derive from the design tokens.
+- Implement `FogOverlay` with `europa-fog-overlay` class + `overlaySoft` background.
+- Remove `role="button"`, `tabIndex={-1}`, and `onKeyDown` from modal backdrop.
+- Add `test:browser` script to design `package.json`.
+- Add browser-mode test step to `client-ci.yml`.
+- Remove `nested-interactive` exclusion from `help-overlay.test.ts`.
+- Extend no-literals guard to scan `packages/design/src/` (excluding `tokens.ts`).
+- Strengthen component-catalog guard to check props documentation.
 
 ---
 
-## Architecture
+## Constitution Alignment
 
-### 1. `@europa/design` package — React component layer
+| Principle | Status | Notes |
+| --- | --- | --- |
+| I. Type Safety | ✅ | All new tokens typed, no `any`, no suppressions |
+| III. Tested (≥80%) | ✅ | New tokens get token-value tests; FogOverlay gets styled-output tests; modal gets a11y tests without exclusions |
+| IV. Specs as Documentation | ✅ | Specs 005, 007, 012, 014 already amended (Clarifications v1.3/v1.4) |
+| V. Simplicity | ✅ | Player colors become 4 additive tokens reusing existing hex values; FogOverlay is one styled div; modal fix removes code |
+| VI. Accessibility | ✅ | Modal backdrop ARIA repair eliminates `nested-interactive` violation; FogOverlay gets `aria-hidden="true"` |
+| VII. Self-hostable | ✅ | No new dependencies |
 
-The `src/components/` tree is rewritten from web components to React function components. The directory structure is preserved so the `./components` subpath export (`./dist/components/index.d.ts` → `./dist/components/index.js`) keeps working:
+---
 
+## Architecture Decisions
+
+### D-1: Player color canonical location — `@europa/design` tokens
+
+**Decision**: Add `playerColor1`–`playerColor4` to `TOKENS.color` in `packages/design/src/tokens.ts`.
+
+**Rationale**: The design system (spec 012) is already the single source of truth for all visual tokens. Player colors are visual tokens. `console-types.ts` `DEFAULT_PLAYER_COLORS` will re-export from design tokens (it lives in a contract-mirror file excluded from no-literals scans, so it may keep hex literals for byte-identity — OR it imports from design; the contract mirror exclusion makes either safe). Game primitives (`city-marker`, `player-badge`, `troop-chip`) will import from `TOKENS.color.playerColorN` instead of their local maps.
+
+**Alternatives considered**:
+- *Import from console into design*: Circular-risky; console depends on design, not vice versa. Rejected.
+- *Keep `DEFAULT_PLAYER_COLORS` as canonical, import into design*: Would create a design→console dependency, violating the zero-downstream-deps invariant. Rejected.
+- *Shared third package*: Over-engineered for 4 color values. Rejected.
+
+### D-2: Game primitive color maps — replace with token imports
+
+**Decision**: Delete the component-local `PLAYER_COLORS` / `OWNER_COLORS` maps from `city-marker.tsx`, `player-badge.tsx`, and `troop-chip.tsx`. Each component reads `TOKENS.color.playerColorN` directly via a simple lookup.
+
+**Rationale**: The local maps exist because dedicated player-color tokens didn't exist. With tokens in place, the maps are redundant indirection that risks drift.
+
+### D-3: FogOverlay styling — CSS class + token background
+
+**Decision**: Add a `europa-fog-overlay` CSS class to `design.css` using `background: var(--europa-color-overlay-soft)`. The component renders `<div className="europa-fog-overlay" aria-hidden="true" />`.
+
+**Rationale**: Follows the existing catalog pattern — components compose `europa-*` CSS classes. The `overlaySoft` token (`rgba(26, 34, 51, 0.6)`) is the existing semi-transparent overlay color already used by the console for fog-like overlays. Adding a dedicated class keeps the component a thin wrapper (Principle V).
+
+### D-4: Modal backdrop — plain div, no interactive role
+
+**Decision**: Remove `role="button"`, `tabIndex={-1}`, and the `handleBackdropKeyDown` handler from the backdrop `<div>`. Keep only `className="europa-modal-backdrop"` and `onClick={handleBackdropClick}`.
+
+**Rationale**: The backdrop is not an interactive element — it is a click-target for dismissing the modal. ARIA `role="button"` implies keyboard operability and focus management that the backdrop does not need (Escape is handled at the document level by the dialog's `handleKeyDown`). Removing the role eliminates the `nested-interactive` violation (a `role="button"` inside which a `role="dialog"` exists creates the nesting issue). The `onKeyDown` handler was a no-op satisfying a lint rule for `role="button"` elements — removing the role removes the lint obligation.
+
+### D-5: Browser test wiring — add to design package + CI
+
+**Decision**: Add `"test:browser": "vitest run --config vitest.config.browser.ts"` to `packages/design/package.json`. Add a `design-browser-test` job to `client-ci.yml` that installs Playwright Chromium and runs `pnpm --filter @europa/design test:browser`.
+
+**Rationale**: The config already exists. Wiring it into CI ensures focus-trap integration tests run on every PR. Placing the job in `client-ci.yml` (which already covers `packages/design/**` in its paths filter) keeps all design-system checks in one workflow.
+
+### D-6: No-literals guard scope — extend to design src
+
+**Decision**: Add `packages/design/src` to the no-literals scan targets in `check-no-literals.ts`, excluding `tokens.ts` (the canonical literal source) and `styles/` (generated CSS modules).
+
+**Rationale**: Currently the guard only scans `packages/console/src` and `docs/manual`. Design component source files should also be free of hardcoded literals — they should import from `TOKENS`. Extending the scan catches drift early. `tokens.ts` is excluded because it IS the literal source by design.
+
+### D-7: Component-catalog guard — add props documentation check
+
+**Decision**: Extend `check-component-catalog.ts` to verify that each exported component has a props interface documented in `DESIGN.md` § 2.
+
+**Rationale**: The current guard only checks tag-name set equality. Strengthening it to verify props coverage ensures the design contract stays complete as components evolve.
+
+---
+
+## File-by-File Change Plan
+
+### `packages/design/src/tokens.ts` — add player color tokens
+
+Add to `TOKENS.color` (alphabetical insertion):
 ```
-packages/design/src/components/
-├── index.ts              # barrel: exports all 20 React components + shared types
-├── generic/              # 13 generic React components
-│   ├── badge.tsx
-│   ├── banner.tsx
-│   ├── button.tsx
-│   ├── card.tsx
-│   ├── chip.tsx
-│   ├── container.tsx
-│   ├── grid.tsx
-│   ├── modal.tsx
-│   ├── page.tsx
-│   ├── plate.tsx
-│   ├── stack.tsx
-│   ├── typography.tsx
-│   └── waiting.tsx
-└── game/                 # 7 game React components
-    ├── city-marker.tsx
-    ├── elevation-swatch.tsx
-    ├── fog-overlay.tsx
-    ├── pipe-slope.tsx
-    ├── player-badge.tsx
-    ├── reserve-indicator.tsx
-    └── troop-chip.tsx
+playerColor1: '#dc2626',  // P1: red-600
+playerColor2: '#2563eb',  // P2: blue-600
+playerColor3: '#059669',  // P3: emerald-600
+playerColor4: '#d97706',  // P4: amber-600
 ```
 
-**Deleted** (web-component infrastructure, no longer needed):
-- `src/components/base.ts` (`EuropaElement`, `ensureShadowRoot`, adopted stylesheet)
-- `src/components/register.ts` (idempotent `register()`)
-- `src/components/registry.ts` (`REGISTRY` array)
-- `tests/setup-element-internals.ts` (happy-dom `attachInternals` polyfill)
+### `packages/design/src/components/game/city-marker.tsx` — use player tokens
 
-**Component shape** (all function components, no class components):
-- Each component is a named function component (e.g. `EuropaButton`) that renders the same DOM as its web-component predecessor, applying the same `europa-*` catalog classes.
-- **Props map 1:1 from attributes** (Q2). Boolean attributes (`disabled`, `open`, `visible`, `reduced-motion`) become boolean props; numeric attributes (`count`, `owner`, `elevation`, `percent`) become number props; string attributes (`variant`, `size`, `title`, `message`, `direction`, `name`, `type`, `aria-label`) become string props.
-- **Children**: generic components project children via React `children` (replacing `<slot>`). Game primitives render leaf elements with no children.
-- **Events**: `modal`'s `europa-close` event becomes an `onClose` callback prop (Q2 — events map to React callback props).
-- **A11y obligations preserved** (FR-011/FR-012/FR-013/FR-014): `role="dialog"`, `aria-modal`, `aria-labelledby`, focus trap, Escape close, focus restore (modal); `role="status"`/`role="alert"` + `aria-live` (banner); native `<button>` (button); `role="img"` + `aria-label` (game primitives); `aria-hidden` (fog-overlay); live-region + `prefers-reduced-motion` (waiting).
-- **`PipeSlopeDirection` type** (`'downhill' | 'flat' | 'uphill' | 'stalled'`) exported from `pipe-slope.tsx` is preserved and re-exported from the barrel (it is consumed by the console's `pipe-slope.ts` mirror + drift test).
+Replace local `PLAYER_COLORS` map with direct token lookup:
+```typescript
+const PLAYER_COLOR_KEYS = {
+    1: TOKENS.color.playerColor1,
+    2: TOKENS.color.playerColor2,
+    3: TOKENS.color.playerColor3,
+    4: TOKENS.color.playerColor4,
+} as const;
+```
 
-### 2. Styling
+### `packages/design/src/components/game/player-badge.tsx` — use player tokens
 
-The React components apply the same `europa-*` catalog classes as their web-component predecessors. Because React renders **light DOM** (no shadow boundary), the global `dist/design.css` stylesheet applies directly — no `adoptedStyleSheets`, no constructed `CSSStyleSheet`, no `catalog-styles.ts` generated module needed for the components. The `:root` token block and class rules in `dist/design.css` remain the single styling source (contract unchanged, still loaded by console + manual).
+Same pattern as city-marker: replace local map with `TOKENS.color.playerColorN` lookup.
 
-**Note**: `src/styles/catalog-styles.ts` (gitignored generated module) and the `build-css.ts --emit-module` step become **unnecessary** for components. However, `dist/design.css` is still required for the console + manual global stylesheet. The `build-css.ts` script's module-emission path can be removed or left inert — **decision: remove the `--emit-module` path and `catalog-styles.ts` generation** since no shadow roots remain to adopt it (simplicity, Principle V). The full CSS pass (`dist/design.css`) is retained.
+### `packages/design/src/components/game/troop-chip.tsx` — use player tokens
 
-### 3. Console migration (6 in-scope files)
+Same pattern: replace `OWNER_COLORS` map with `TOKENS.color.playerColorN` lookup.
 
-The console's 6 in-scope `ui/` files swap inline `className="europa-*"` patterns for the new React components:
+### `packages/design/src/components/game/fog-overlay.tsx` — implement styling
 
-| File | Components used |
-| --- | --- |
-| `branded-footer.tsx` | `EuropaTypography`, `EuropaContainer` |
-| `waiting-overlay.tsx` | `EuropaWaiting` (replaces inline spinner + live region) |
-| `lobby-landing.tsx` | `EuropaPage`, `EuropaStack`, `EuropaCard`, `EuropaButton`, `EuropaTypography` |
-| `lobby-create-form.tsx` | `EuropaCard`, `EuropaButton`, `EuropaTypography`, `EuropaBanner` |
-| `lobby-identity-card.tsx` | `EuropaCard`, `EuropaButton`, `EuropaTypography`, `EuropaBadge` |
-| `lobby-match-list.tsx` | `EuropaCard`, `EuropaButton`, `EuropaTypography`, `EuropaBadge`, `EuropaChip` |
+Replace bare `<div aria-hidden="true" />` with:
+```tsx
+<div className="europa-fog-overlay" aria-hidden="true" />
+```
 
-**Console infra removed**:
-- `src/custom-elements.d.ts` (JSX intrinsics for `europa-page`/`card`/`stack`/`typography`)
-- `src/global.d.ts` (JSX intrinsics for `europa-button`/`banner`/`waiting`)
-- `import { register } from '@europa/design/components'` in `src/main.tsx` line 1
+### `packages/design/src/styles/design.css` (generated) — add fog-overlay class
 
-The 8 out-of-scope files (order-bar, reserves-panel, targeting-overlay, seat-labels, participants, route-notice, lobby-labels, lobby-handle) are untouched.
+Add rule:
+```css
+.europa-fog-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--europa-color-overlay-soft);
+    pointer-events: none;
+}
+```
 
-### 4. Astro manual migration (Q4 — full migration)
+Note: `design.css` is generated by `build-css.ts`. The class definition needs to be added to the CSS source that the build step reads. Need to trace the CSS generation pipeline to find where catalog classes are defined.
 
-`docs/manual/` migrates all ~71 MDX `<europa-*>` usages to imported React components:
+### `packages/design/src/components/generic/modal.tsx` — fix backdrop ARIA
 
-- **`docs/manual/package.json`**: add `@astrojs/react` `^6.0.5` + `react`/`react-dom`/`@types/react`/`@types/react-dom` (catalog versions).
-- **`docs/manual/astro.config.mjs`**: add `react()` to the `integrations` array (alongside existing `mdx()`).
-- **`docs/manual/src/layouts/ManualLayout.astro`**: remove the `<script>` that calls `register()` from `@europa/design/components`.
-- **MDX pages** (14 files): each `<europa-*>` usage becomes an imported React component. The MDX frontmatter imports the component from `@europa/design/components` and uses it as `<EuropaChip count={30} />` etc. The vendored `public/design.css` + `assets/design.css` (8 `<europa-*>` matches) are **not** component usages — they are CSS class references and stay as-is.
+Remove from the backdrop `<div>`:
+- `role="button"`
+- `tabIndex={-1}`
+- `onKeyDown={handleBackdropKeyDown}`
 
-**Astro + React rendering note**: `@astrojs/react` renders React components server-side (SSR) by default and hydrates on the client. The React components must be **SSR-safe** (no `window`/`document` access at render time). The current web components are not SSR-safe (they touch `customElements`/`document`); the React conversion naturally fixes this — a key benefit. The `modal`'s focus trap and `waiting`'s live region must guard DOM access to effects (client-only), not render.
+Delete the `handleBackdropKeyDown` function entirely.
 
-### 5. Guards and contracts
+### `packages/design/package.json` — add test:browser script
 
-- **`scripts/check-component-catalog.ts` (G-10)**: currently reads `registry.ts` as text via regex and asserts `DESIGN.md` § 2 entries match. Since `registry.ts` is deleted, **rewrite** G-10 to read the React barrel (`src/components/index.ts`) or a new source-of-truth export list, and assert `DESIGN.md` § 2 entries match.
-- **`scripts/check-bundle-size.ts`**: currently targets `dist/components.js` at 15 KB. **Rewrite** to target `dist/components/index.js` at **20 KB** (Q5, `BUNDLE_BUDGET_BYTES = 20_480`).
-- **`DESIGN.md` § 2**: the "Web components (spec 014)" section is rewritten to document the React component catalog (props, children, events, a11y obligations) instead of web-component tags/attributes/slots. The § 2 table is the normative binding contract (G-10 target).
-- **`contracts/web-components.contract.md`**: rewritten as `contracts/react-components.contract.md` documenting the React export surface (component names, prop interfaces, children, events) + `DESIGN.md` § 2 contract shape.
+Add to `scripts`:
+```json
+"test:browser": "vitest run --config vitest.config.browser.ts"
+```
 
-### 6. Order of operations
+### `packages/design/tests/no-literals.test.ts` — add design-src scan tests
 
-1. **Foundation**: package.json peer deps + test tooling, tsconfig JSX lib, tsup config, vitest configs, delete web-component infra (`base.ts`, `register.ts`, `registry.ts`, `setup-element-internals.ts`).
-2. **Generic components** (13): convert each to React + unit test.
-3. **Game components** (7): convert each to React + unit test.
-4. **Conformance + modal integration tests**: rewrite for React props.
-5. **Guards + DESIGN.md § 2 + contracts**: rewrite G-10, bundle budget, DESIGN.md, contract doc.
-6. **Console migration** (6 files): swap to React components, remove intrinsics + `register()` import.
-7. **Astro manual migration** (Q4): add `@astrojs/react`, remove `register()` script, convert MDX usages.
-8. **Verification**: `pnpm verify` (typecheck, lint, format, all package tests, browser tests, E2E, selfhost, design guards, conformance), manual build, coverage ≥80%.
+Add test cases verifying `shouldSkipFile` returns `false` for `packages/design/src/components/game/city-marker.tsx` and `true` for `packages/design/src/tokens.ts`.
 
----
+### `packages/design/scripts/check-no-literals.ts` — extend scan scope
 
-## Key Decisions (from Clarifications v1.2 — do NOT relitigate)
+Add `packages/design/src` to the `targets` array in `runNoLiteralsCheck`, with exclusions for `tokens.ts` and `styles/` in `shouldSkipFile`.
 
-| # | Decision |
-| --- | --- |
-| Q1 | **Full replacement** — no dual coexistence of web components and React components. |
-| Q2 | **React component API**, props 1:1 from attributes; events map to callback props. |
-| Q3 | **React as peer dependency** `>=18`. |
-| Q4 | **Full Astro manual migration** in scope. |
-| Q5 | Remove 15 KB per-component budget; new **20 KB budget** on `dist/components/index.js`. |
+### `packages/design/tests/components/game/fog-overlay.test.tsx` — extend tests
 
----
+Add test cases:
+- Assert the overlay has class `europa-fog-overlay`.
+- Assert the overlay has `aria-hidden="true"`.
+- Assert the overlay has a non-empty inline style or computed background (visual treatment proof).
 
-## Risks and Mitigations
+### `packages/design/tests/components/modal.integration.test.tsx` — add a11y tests
 
-- **SSR safety (manual)**: React components must not touch `window`/`document` at render. Mitigation: DOM access confined to `useEffect`/event handlers; verified by the manual's `astro build` (SSR render) + console browser tests.
-- **Modal focus trap**: the current web-component trap is rewritten for React. Mitigation: `vitest-browser-react` integration tests (FR-028) cover focus trap, Escape, focus restore in real Chromium.
-- **happy-dom gaps**: `attachInternals` polyfill removed (no longer needed); `assignedNodes`/slot behavior irrelevant (no slots). RTL + happy-dom covers structural assertions; browser-mode covers interactive behavior.
-- **Bundle budget**: React components share React runtime (peer dep, not bundled), so 20 KB on `dist/components/index.js` is achievable. Verified by rewritten `check-bundle-size.ts`.
-- **`lobby-identity-card.tsx` location**: listed as in-scope but not found via glob — verify its actual path during implementation; if absent, note and confirm scope.
+Add test cases:
+- Assert backdrop has no `role` attribute.
+- Assert backdrop has no `tabIndex` attribute.
+- Assert `role="dialog"` is on the `.europa-modal` element.
+- Assert `aria-modal="true"` is present.
+- Assert `aria-labelledby` points to the title.
+
+### `packages/console/tests/a11y/help-overlay.test.ts` — remove exclusion
+
+Remove `['nested-interactive']` from the `expectNoDomA11yViolations` call on line 48.
+
+### `.github/workflows/client-ci.yml` — add design browser test job
+
+Add a `design-browser-test` job after `console-lint`:
+```yaml
+design-browser-test:
+    name: Browser-mode tests (design)
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@...
+      - uses: pnpm/setup@...
+      - name: Build @europa/design
+        run: pnpm --filter @europa/design build
+      - name: Cache Playwright browsers
+        uses: actions/cache@...
+      - name: Install Playwright Chromium
+        run: pnpm --filter @europa/design exec playwright install --with-deps chromium
+      - name: Browser-mode tests (design)
+        run: pnpm --filter @europa/design test:browser
+```
+
+### `packages/design/scripts/check-component-catalog.ts` — strengthen props check
+
+Extend `extractDocumentedTags` or add a new function to verify that each exported component's props interface is documented in the DESIGN.md table.
+
+### `DESIGN.md` — update token table + component catalog
+
+- Add `playerColor1`–`playerColor4` rows to the § 1.1 token table with hex values and a11y pairings.
+- Add `europa-fog-overlay` to the § 2 component catalog with class, usage, and a11y notes.
+
+### `docs/manual/src/pages/numbers.mdx` — canonical palette reference
+
+Update the player-color rows (lines 76–79) to reference `TOKENS.color.playerColorN` instead of `DEFAULT_PLAYER_COLORS[N]`, ensuring the manual documents the design token as the source.
 
 ---
 
 ## Verification (acceptance criteria)
 
-- `pnpm verify` green (typecheck, lint, format, all package tests, browser tests, E2E, selfhost, design guards, conformance).
-- `@europa/design` coverage ≥80% on every metric (Principle III).
-- `check:component-catalog` (G-10) green against rewritten `DESIGN.md` § 2.
-- `check:bundle-size` green at 20 KB on `dist/components/index.js` (Q5).
-- Console suites green (unit, component, a11y, e2e) — migration visually invisible (FR-018, SC-003).
-- `docs/manual` `pnpm build` succeeds (Q4) — Astro SSR renders React components; no `register()` script.
-- No web-component registration code remains anywhere in `@europa/design` (Q1).
+- `pnpm verify` green across all packages.
+- `pnpm --filter @europa/design test:browser` green — modal focus-trap tests pass in real Chromium.
+- `pnpm --filter @europa/design check:no-literals` green — design component sources have no stray literals.
+- `pnpm --filter @europa/design check:component-catalog` green — all exports documented in DESIGN.md § 2.
+- Console `test:a11y` green WITHOUT the `nested-interactive` exclusion.
+- `TOKENS.color.playerColor1` through `playerColor4` match `DEFAULT_PLAYER_COLORS` values (verified by token test).
+- FogOverlay renders with `europa-fog-overlay` class and `aria-hidden="true"`.
+- All game primitives (`city-marker`, `player-badge`, `troop-chip`) use `TOKENS.color.playerColorN` — no local color maps remain.
+- DESIGN.md § 1.1 and § 2 updated in the same change set.

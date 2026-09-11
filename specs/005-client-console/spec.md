@@ -189,6 +189,10 @@ Feature 013 replaces the former query-selected live-entry description with seman
 - **Slope mirror drift**: the console's slope classification thresholds mirror `ENGINE_CONSTANTS` (feature 001 FR-007); a drift test importing `@europa/engine` constants pins the mirror (the console already imports engine types for `MapView` construction), so a future retune fails loudly in the console suite.
 - **Fog edge case**: a pipe whose destination is outside the visibility horizon renders in the flat color (no slope claim). Practically unreachable for a player's own pipes — a pipe's destination is always within the owner's sensor horizon — but specified defensively.
 
+### v1.5 (2026-09-11) — a11y exclusion removal (issue #149)
+
+- **A11y test exclusion removed**: the `packages/console/tests/a11y/help-overlay.test.ts` previously excluded the `nested-interactive` axe rule to mask an invalid ARIA pattern in the modal backdrop (spec 014 FR-011). With the backdrop ARIA repair shipped (issue #149), the exclusion is removed and the `nested-interactive` check now runs unconditionally against the console's axe suite. This is a corrective removal of a temporary suppression — no new acceptance criteria; the existing a11y gate (constitution Principle VI) now covers the pattern that was previously masked.
+
 ### v1.4 (2026-09-05) — Right sidebar layout + zoom range expansion (issue #76)
 
 - **FR-014 through FR-023 added**: two-column layout (board left, sidebar right), sidebar section list, zoom range 100%–300% with default 100%, keyboard shortcuts `+`/`=`/`-`/`_`/`Home`, minimap viewport rectangle, full viewport (no scroll), spectator parity, sidebar owned by `App`, toasts on right side over sidebar.

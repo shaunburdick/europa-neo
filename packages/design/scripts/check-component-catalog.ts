@@ -5,6 +5,10 @@
  * barrel has a corresponding entry in `DESIGN.md` section 2 (the React
  * component table), and vice versa. Fails naming the missing or extra tag.
  *
+ * Also warns (without failing) when a documented component has an empty or
+ * placeholder-only Props column, so props documentation gaps surface
+ * incrementally.
+ *
  * The React component subsection in DESIGN.md § 2 does not exist until Wave 6
  * (T-067). When run before that wave the script correctly reports all
  * exported tags as "missing in DESIGN.md" — that is the expected initial
@@ -30,6 +34,14 @@ export interface ComponentCatalogResult {
     readonly missing: string[];
     /** Tags present in DESIGN.md § 2 but absent from barrel exports. */
     readonly extra: string[];
+}
+
+/** Result of the props-documentation check. */
+export interface PropsDocumentationResult {
+    /** True when every documented component has a non-empty Props column. */
+    readonly ok: boolean;
+    /** Documented component names with missing or placeholder-only Props. */
+    readonly incomplete: string[];
 }
 
 /**
@@ -139,6 +151,59 @@ export function extractDocumentedTags(designMd: string): string[] {
 }
 
 /**
+ * Check that every documented React component in DESIGN.md § 2 has a
+ * non-empty Props column. Returns the list of components whose Props cell
+ * is missing, empty, or contains only a placeholder like "—".
+ *
+ * This is a **warning-only** check — it does not fail the build, allowing
+ * incremental enforcement.
+ *
+ * @param designMd - Full text of DESIGN.md.
+ * @returns Result with `ok` flag and list of component names with incomplete Props documentation.
+ */
+export function checkPropsDocumentation(designMd: string): PropsDocumentationResult {
+    const subsectionStart = designMd.indexOf('### React components (spec 014)');
+    if (subsectionStart === -1) {
+        return { ok: true, incomplete: [] };
+    }
+
+    const afterStart = designMd.slice(subsectionStart);
+    const hrIndex = afterStart.indexOf('\n---');
+    const section3Index = designMd.indexOf('## 3.', subsectionStart);
+
+    let endOffset: number;
+    if (hrIndex !== -1) {
+        endOffset = subsectionStart + hrIndex;
+    } else if (section3Index !== -1) {
+        endOffset = section3Index;
+    } else {
+        endOffset = designMd.length;
+    }
+
+    const subsectionText = designMd.slice(subsectionStart, endOffset);
+
+    // Match table rows: | `ComponentName` | ...props... | ... |
+    // The Props column is the second column (index 1 after split on `|`).
+    const rowPattern = /^\|\s*`([Ee]uropa[A-Za-z][A-Za-z0-9]*|europa-[a-z][a-z0-9-]*)`\s*\|([^|]*)\|/gm;
+    const incomplete: string[] = [];
+
+    for (const match of subsectionText.matchAll(rowPattern)) {
+        const rawName = match[1];
+        const propsCell = (match[2] ?? '').trim();
+        if (rawName === undefined) continue;
+
+        const name = rawName.startsWith('europa-') ? rawName : rawName;
+        // Consider empty, "—", or whitespace-only as incomplete.
+        const stripped = propsCell.replace(/[`*\s]/g, '').toLowerCase();
+        if (stripped === '' || stripped === '—' || stripped === '-') {
+            incomplete.push(name);
+        }
+    }
+
+    return { ok: incomplete.length === 0, incomplete };
+}
+
+/**
  * Resolve the path to the React barrel `src/components/index.ts` relative
  * to the package root.
  */
@@ -151,6 +216,11 @@ function resolveBarrelPath(): string {
 function resolveRepoRoot(): string {
     const scriptDir = path.dirname(fileURLToPath(import.meta.url));
     return path.resolve(scriptDir, '..', '..', '..');
+}
+
+/** Resolve the absolute path to DESIGN.md in the repository root. */
+function resolveDesignMdPath(): string {
+    return path.join(resolveRepoRoot(), 'DESIGN.md');
 }
 
 /**
@@ -198,11 +268,16 @@ export function checkComponentCatalog(
 
 /**
  * CLI entry point: print every discrepancy and exit non-zero on mismatch.
+ * Also warns (without failing) when documented components lack Props info.
  * Extracted so the failure path is unit-testable (constitution III).
  *
  * @param check - Check to run (defaults to {@link checkComponentCatalog}).
+ * @param propsCheck - Props documentation check (defaults to {@link checkPropsDocumentation}).
  */
-export function runMain(check: () => ComponentCatalogResult = checkComponentCatalog): void {
+export function runMain(
+    check: () => ComponentCatalogResult = checkComponentCatalog,
+    propsCheck: (md: string) => PropsDocumentationResult = checkPropsDocumentation,
+): void {
     const result = check();
     if (!result.ok) {
         for (const tag of result.missing) {
@@ -212,6 +287,19 @@ export function runMain(check: () => ComponentCatalogResult = checkComponentCata
             console.error(`in DESIGN.md but not exported: ${tag}`);
         }
         process.exit(1);
+    }
+
+    // Warning-only props documentation check.
+    try {
+        const designMd = readFileSync(resolveDesignMdPath(), 'utf8');
+        const propsResult = propsCheck(designMd);
+        if (!propsResult.ok) {
+            for (const name of propsResult.incomplete) {
+                console.warn(`props documentation incomplete: ${name}`);
+            }
+        }
+    } catch {
+        // If DESIGN.md cannot be read, skip the props check silently.
     }
 }
 

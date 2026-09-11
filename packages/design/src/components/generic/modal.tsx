@@ -106,25 +106,21 @@ export function EuropaModal({ open = false, title, children, actions, onClose }:
 
     if (!open) return null;
 
-    const handleBackdropClick = (e: React.MouseEvent) => {
+    const handleBackdropInteract = (e: React.MouseEvent | React.KeyboardEvent) => {
         if (e.target === e.currentTarget) {
-            onClose?.();
+            if (e.type === 'click' || ('key' in e && e.key === 'Enter')) {
+                onClose?.();
+            }
         }
     };
 
-    const handleBackdropKeyDown = (_e: React.KeyboardEvent) => {
-        // Escape is handled at the document level (handleKeyDown) to avoid double-fire.
-        // This handler exists to satisfy the a11y lint rule requiring keyboard events
-        // alongside click events on role="button" elements.
-    };
-
     return (
+        // biome-ignore lint/a11y/noStaticElementInteractions: backdrop intentionally non-interactive (role="presentation") but needs click handler for close-on-backdrop UX
         <div
             className="europa-modal-backdrop"
-            role="button"
-            tabIndex={-1}
-            onClick={handleBackdropClick}
-            onKeyDown={handleBackdropKeyDown}
+            role="presentation"
+            onClick={handleBackdropInteract}
+            onKeyDown={handleBackdropInteract}
         >
             <div
                 ref={dialogRef}

@@ -5,9 +5,11 @@ import { EuropaFogOverlay } from '../../../src/components/game/fog-overlay.js';
 /**
  * Tests for the {@link EuropaFogOverlay} React component (spec 014, FR-014).
  *
- * The component renders a single `<div aria-hidden="true">` overlay when
- * visible, or nothing when hidden. The overlay is purely visual:
- * `aria-hidden="true"` ensures screen readers never announce it.
+ * The component renders a single `<div class="europa-fog-overlay"
+ * aria-hidden="true">` overlay when visible, or nothing when hidden.
+ * The overlay is purely visual: `aria-hidden="true"` ensures screen
+ * readers never announce it. The `.europa-fog-overlay` catalog class
+ * applies `position: absolute; inset: 0; background: var(--europa-color-overlay-soft)`.
  *
  * The `visible` prop defaults to `true` — the overlay is shown unless
  * `visible={false}` is explicitly passed.
@@ -16,12 +18,20 @@ import { EuropaFogOverlay } from '../../../src/components/game/fog-overlay.js';
  * - Default visibility: overlay rendered when `visible` is absent.
  * - Hidden when `visible={false}` (renders nothing).
  * - Toggle behavior when `visible` prop changes.
+ * - Catalog class presence for styling.
  */
 describe('EuropaFogOverlay', () => {
     it('renders the overlay div by default', () => {
         const { container } = render(<EuropaFogOverlay />);
         const overlay = container.querySelector('div[aria-hidden="true"]');
         expect(overlay).not.toBeNull();
+    });
+
+    it('applies the europa-fog-overlay catalog class', () => {
+        const { container } = render(<EuropaFogOverlay />);
+        const overlay = container.querySelector('.europa-fog-overlay');
+        expect(overlay).not.toBeNull();
+        expect(overlay).toHaveAttribute('aria-hidden', 'true');
     });
 
     it('renders nothing when visible is false', () => {
@@ -42,5 +52,12 @@ describe('EuropaFogOverlay', () => {
         rerender(<EuropaFogOverlay visible={true} />);
         overlay = container.querySelector('div[aria-hidden="true"]');
         expect(overlay).not.toBeNull();
+    });
+
+    it('has a non-empty className for catalog styling', () => {
+        const { container } = render(<EuropaFogOverlay />);
+        const overlay = container.querySelector('.europa-fog-overlay');
+        expect(overlay).not.toBeNull();
+        expect(overlay?.getAttribute('class')).toBe('europa-fog-overlay');
     });
 });

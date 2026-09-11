@@ -3,23 +3,22 @@ import { TOKENS } from '../../tokens.js';
 /**
  * Component-local player-color map (plan D-7).
  *
- * Reuses existing `TOKENS.color.*` values — zero new hex literals,
- * zero new token variables. Unknown or absent player falls back to
- * `textMuted`.
+ * Each player maps to the dedicated `playerColorN` token (spec 012 FR-023,
+ * issue #148). Unknown or absent player falls back to `textMuted`.
  *
- * | Player | Token key   | Hex value   |
- * | ------ | ----------- | ----------- |
- * | 1      | accent      | #f59e0b     |
- * | 2      | city        | #fbbf24     |
- * | 3      | green       | #059669     |
- * | 4      | blue        | #2563eb     |
- * | *      | textMuted   | #9ca3af     |
+ * | Player | Token key     | Hex value   |
+ * | ------ | ------------- | ----------- |
+ * | 1      | playerColor1  | #dc2626     |
+ * | 2      | playerColor2  | #2563eb     |
+ * | 3      | playerColor3  | #059669     |
+ * | 4      | playerColor4  | #d97706     |
+ * | *      | textMuted     | #9ca3af     |
  */
 const PLAYER_COLORS: Record<number, string> = {
-    1: TOKENS.color.accent,
-    2: TOKENS.color.city,
-    3: TOKENS.color.green,
-    4: TOKENS.color.blue,
+    1: TOKENS.color.playerColor1,
+    2: TOKENS.color.playerColor2,
+    3: TOKENS.color.playerColor3,
+    4: TOKENS.color.playerColor4,
 };
 
 /**

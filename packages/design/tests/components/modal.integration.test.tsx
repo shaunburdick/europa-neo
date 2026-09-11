@@ -23,4 +23,42 @@ describe('EuropaModal (integration)', () => {
         );
         expect(screen.getByText('OK')).not.toBeNull();
     });
+
+    it('backdrop has role="presentation" (invalid role="button" removed)', () => {
+        const { container } = render(
+            <EuropaModal open title="Test">
+                Content
+            </EuropaModal>,
+        );
+        const backdrop = container.querySelector('.europa-modal-backdrop');
+        expect(backdrop).not.toBeNull();
+        expect(backdrop?.getAttribute('role')).toBe('presentation');
+        expect(backdrop?.hasAttribute('tabIndex')).toBe(false);
+    });
+
+    it('dialog has role="dialog" and aria-modal="true"', () => {
+        const { container } = render(
+            <EuropaModal open title="Test">
+                Content
+            </EuropaModal>,
+        );
+        const dialog = container.querySelector('.europa-modal');
+        expect(dialog).not.toBeNull();
+        expect(dialog?.getAttribute('role')).toBe('dialog');
+        expect(dialog?.getAttribute('aria-modal')).toBe('true');
+    });
+
+    it('aria-labelledby references the title element', () => {
+        const { container } = render(
+            <EuropaModal open title="Confirm Action">
+                Content
+            </EuropaModal>,
+        );
+        const dialog = container.querySelector('.europa-modal');
+        const labelledBy = dialog?.getAttribute('aria-labelledby');
+        expect(labelledBy).not.toBeNull();
+        const titleEl = document.querySelector(`#${labelledBy ?? ''}`);
+        expect(titleEl).not.toBeNull();
+        expect(titleEl?.textContent).toBe('Confirm Action');
+    });
 });

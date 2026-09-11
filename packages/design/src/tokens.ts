@@ -96,6 +96,14 @@ export const TOKENS = {
         pipeOutline: 'rgba(0, 0, 0, 0.7)',
         pipeStalled: '#9ca3af',
         pipeUphill: '#dc2626',
+        /** Player 1 ownership color — red-600. */
+        playerColor1: '#dc2626',
+        /** Player 2 ownership color — blue-600. */
+        playerColor2: '#2563eb',
+        /** Player 3 ownership color — emerald-600. */
+        playerColor3: '#059669',
+        /** Player 4 ownership color — amber-600. */
+        playerColor4: '#d97706',
         red: '#dc2626',
         success: '#059669',
         successActive: '#1b7154',

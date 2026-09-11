@@ -17,6 +17,9 @@
  *     table in `numbers.mdx`; the manual's styling is exclusively the vendored
  *     catalog CSS + catalog classes, so documentation pages never carry a
  *     styling literal to tokenize).
+ *   - `packages/design/src/**` EXCLUDING token definitions (`tokens.ts` — the
+ *     canonical hex/rgba source) and generated styles (`styles/` —
+ *     token-derived CSS custom properties).
  *
  * Exposed as `pnpm --filter @europa/design check:no-literals`.
  */
@@ -75,6 +78,10 @@ export function scanContent(content: string, relPath: string): ReadonlyArray<Lit
         if (isAllowListed(line) || isAllowListed(prevLine)) {
             continue;
         }
+        // JSDoc comment lines contain reference hex values, not styling literals
+        if (/^\s*\*[\s*]/.test(line) || /^\s*\/\*\*/.test(line)) {
+            continue;
+        }
         violations.push({ file: relPath, line: i + 1, text: line.trim() });
     }
     return violations;
@@ -99,6 +106,26 @@ export function shouldSkipFile(relPath: string): boolean {
     // Generated brand assets (SVGs, PNGs, ICO, webmanifest) — hex colors are
     // legitimate brand values, not styling literals
     if (relPath.startsWith('docs/manual/assets/brand/')) {
+        return true;
+    }
+    // Design token definitions — the canonical hex/rgba source
+    if (relPath.includes('packages/design/src/tokens.ts')) {
+        return true;
+    }
+    // Brand colour definitions — canonical artwork colours (not UI tokens)
+    if (relPath.includes('packages/design/src/brand/colors.ts')) {
+        return true;
+    }
+    // Generated catalog stylesheet — contains token-derived CSS custom properties
+    if (relPath.includes('packages/design/src/styles/')) {
+        return true;
+    }
+    // Brand master SVGs — hex colors are brand values, not styling literals
+    if (relPath.includes('packages/design/src/brand/masters/')) {
+        return true;
+    }
+    // Brand preview HTML — hex colors are brand display values
+    if (relPath.includes('packages/design/src/brand/preview.html')) {
         return true;
     }
     // Contract mirrors — hex color constants are byte-identical spec
@@ -144,7 +171,11 @@ export interface NoLiteralsResult {
  * @returns Violations found (empty when clean).
  */
 export async function runNoLiteralsCheck(repoRoot: string = resolveRepoRoot()): Promise<NoLiteralsResult> {
-    const targets = [path.join(repoRoot, 'packages', 'console', 'src'), path.join(repoRoot, 'docs', 'manual')];
+    const targets = [
+        path.join(repoRoot, 'packages', 'console', 'src'),
+        path.join(repoRoot, 'docs', 'manual'),
+        path.join(repoRoot, 'packages', 'design', 'src'),
+    ];
     const files: string[] = [];
     for (const target of targets) {
         await walk(target, repoRoot, files);
