@@ -41,11 +41,7 @@ async function bootOpenOverlay(): Promise<void> {
 describe('help overlay a11y acceptance', () => {
     test('(a) zero axe violations with the overlay up', async () => {
         await bootOpenOverlay();
-        // Exclude 'nested-interactive': the React EuropaModal backdrop has
-        // role="button" (source regression from the web-component conversion)
-        // which creates a nested-interactive violation with the dialog
-        // inside. tracked for remediation in the component source.
-        await expectNoDomA11yViolations(document, ['nested-interactive']);
+        await expectNoDomA11yViolations(document);
     });
 
     test('(b) europa-modal has role="dialog" and aria-modal="true"', async () => {
