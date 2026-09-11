@@ -100,11 +100,10 @@ function bfsLandReachable(board: Board, start: Coord): Set<number> {
     const reachable = new Set<number>();
     const queue: number[] = [start.y * width + start.x];
     reachable.add(queue[0] as number);
-    while (queue.length > 0) {
-        const idx = queue.shift();
-        if (idx === undefined) {
-            break;
-        }
+    let head = 0;
+    while (head < queue.length) {
+        const idx = queue[head] as number;
+        head++;
         const y = Math.floor(idx / width);
         const x = idx - y * width;
         const neighbors: ReadonlyArray<readonly [number, number]> = [
@@ -168,11 +167,10 @@ function bfsFlowViableReachable(board: Board, start: Coord): Set<number> {
     const reachable = new Set<number>();
     const queue: number[] = [start.y * width + start.x];
     reachable.add(queue[0] as number);
-    while (queue.length > 0) {
-        const idx = queue.shift();
-        if (idx === undefined) {
-            break;
-        }
+    let head = 0;
+    while (head < queue.length) {
+        const idx = queue[head] as number;
+        head++;
         const cell = board.cells[idx];
         if (!cell) {
             break;
@@ -227,11 +225,10 @@ function waterPoolStats(board: Board): { largestPool: number; numPools: number }
             let poolSize = 0;
             const queue: number[] = [i];
             visited[i] = 1;
-            while (queue.length > 0) {
-                const idx = queue.shift();
-                if (idx === undefined) {
-                    break;
-                }
+            let head = 0;
+            while (head < queue.length) {
+                const idx = queue[head] as number;
+                head++;
                 poolSize++;
                 const cy = Math.floor(idx / width);
                 const cx = idx - cy * width;
