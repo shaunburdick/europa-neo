@@ -36,24 +36,13 @@ on:
             - ".github/workflows/release.yml"
     pull_request:
         branches: [main]
-        paths-ignore:
-            - "**.md"
-            - "specs/**"
-            - ".specify/**"
-            - "LICENSE"
-            - ".vscode/**"
-            - "docs/**"
-            - "europa-source/**"
-            - ".opencode/**"
-            - ".github/workflows/engine-ci.yml"
-            - ".github/workflows/fog-ci.yml"
-            - ".github/workflows/terrain-ci.yml"
-            - ".github/workflows/network-ci.yml"
-            - ".github/workflows/matchmaking-ci.yml"
-            - ".github/workflows/client-ci.yml"
-            - ".github/workflows/version-drift.yml"
-            - ".github/workflows/pages-deploy.yml"
-            - ".github/workflows/release.yml"
+        # PRs are NOT paths-ignore-filtered: the "Build and Push Docker Image
+        # (linux/amd64)" and "Validate Docker Compose and semantic routes"
+        # checks are required to pass before merge, so they must report on
+        # every PR. The `changes` job below gates them via job-level `if:`
+        # skips, which report "skipped" and satisfy the required check (see
+        # docs.github.com troubleshooting-required-status-checks). The
+        # push-to-main paths-ignore above keeps post-merge runs efficient.
     workflow_dispatch:
 
 # Job-level permissions below add only the GHCR/attestation scopes required by
@@ -70,9 +59,58 @@ env:
     IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+    # Detects whether this workflow's relevant paths changed on the PR. The
+    # heavy jobs below gate on this output; when they skip, the check reports
+    # "skipped" (a successful status) so the required check is satisfied.
+    # dorny/paths-filter reads changed files via the REST API on PRs and
+    # diffs against the previous commit on push. This job must never fail: a
+    # failure would skip its dependents silently (dependent-job-skip).
+    changes:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: read
+        outputs:
+            changed: ${{ steps.filter.outputs.changed }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+
+            # dorny/paths-filter: on PRs it reads changed files via the REST
+            # API (no git history needed); on push it diffs against the
+            # previous commit. 'every' + '**' + negated patterns reproduces
+            # the old paths-ignore semantics: run unless EVERY changed file
+            # is on the ignore list.
+            - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.3
+              id: filter
+              with:
+                  predicate-quantifier: 'every'
+                  filters: |
+                      changed:
+                          - '**'
+                          - '!**.md'
+                          - '!specs/**'
+                          - '!.specify/**'
+                          - '!LICENSE'
+                          - '!.vscode/**'
+                          - '!docs/**'
+                          - '!europa-source/**'
+                          - '!.opencode/**'
+                          - '!.github/workflows/engine-ci.yml'
+                          - '!.github/workflows/fog-ci.yml'
+                          - '!.github/workflows/terrain-ci.yml'
+                          - '!.github/workflows/network-ci.yml'
+                          - '!.github/workflows/matchmaking-ci.yml'
+                          - '!.github/workflows/client-ci.yml'
+                          - '!.github/workflows/version-drift.yml'
+                          - '!.github/workflows/pages-deploy.yml'
+                          - '!.github/workflows/release.yml'
     validate:
         name: Validate Docker Compose and semantic routes
-        if: github.repository == 'shaunburdick/europa-neo'
+        if: github.repository == 'shaunburdick/europa-neo' && needs.changes.outputs.changed == 'true'
+        needs: [changes]
         runs-on: ubuntu-24.04
         permissions:
             contents: read
@@ -86,8 +124,8 @@ jobs:
 
     build-amd64:
         name: Build and Push Docker Image (linux/amd64)
-        if: github.repository == 'shaunburdick/europa-neo'
-        needs: [validate]
+        if: github.repository == 'shaunburdick/europa-neo' && needs.changes.outputs.changed == 'true'
+        needs: [changes, validate]
         runs-on: ubuntu-24.04
         permissions:
             contents: read
