@@ -36,24 +36,13 @@ on:
             - ".github/workflows/release.yml"
     pull_request:
         branches: [main]
-        paths-ignore:
-            - "**.md"
-            - "specs/**"
-            - ".specify/**"
-            - "LICENSE"
-            - ".vscode/**"
-            - "docs/**"
-            - "europa-source/**"
-            - ".opencode/**"
-            - ".github/workflows/engine-ci.yml"
-            - ".github/workflows/fog-ci.yml"
-            - ".github/workflows/terrain-ci.yml"
-            - ".github/workflows/network-ci.yml"
-            - ".github/workflows/matchmaking-ci.yml"
-            - ".github/workflows/client-ci.yml"
-            - ".github/workflows/version-drift.yml"
-            - ".github/workflows/pages-deploy.yml"
-            - ".github/workflows/release.yml"
+        # PRs are NOT paths-ignore-filtered: the "Build and Push Docker Image
+        # (linux/amd64)" and "Validate Docker Compose and semantic routes"
+        # checks are required to pass before merge, so they must report on
+        # every PR. The `changes` job below gates them via job-level `if:`
+        # skips, which report "skipped" and satisfy the required check (see
+        # docs.github.com troubleshooting-required-status-checks). The
+        # push-to-main paths-ignore above keeps post-merge runs efficient.
     workflow_dispatch:
 
 # Job-level permissions below add only the GHCR/attestation scopes required by
@@ -70,9 +59,52 @@ env:
     IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+    changes:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            changed: ${{ steps.diff.outputs.changed }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+
+            - name: Detect relevant changes
+              id: diff
+              run: |
+                  base="${{ github.event.pull_request.base.sha }}"
+                  if [[ -z "$base" ]]; then
+                      # push to main / workflow_dispatch: no PR base — run everything.
+                      echo "changed=true" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  if ! files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"; then
+                      # Diff unavailable — conservative: run everything.
+                      echo "changed=true" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  # Mirrors the push-trigger paths-ignore above: run unless
+                  # EVERY changed file is on the ignore list.
+                  ignored() {
+                      case "$1" in
+                          *.md|specs/*|.specify/*|LICENSE|.vscode/*|docs/*|europa-source/*|.opencode/*|.github/workflows/engine-ci.yml|.github/workflows/fog-ci.yml|.github/workflows/terrain-ci.yml|.github/workflows/network-ci.yml|.github/workflows/matchmaking-ci.yml|.github/workflows/client-ci.yml|.github/workflows/version-drift.yml|.github/workflows/pages-deploy.yml|.github/workflows/release.yml) return 0 ;;
+                          *) return 1 ;;
+                      esac
+                  }
+                  while IFS= read -r f; do
+                      [[ -z "$f" ]] && continue
+                      if ! ignored "$f"; then
+                          echo "changed=true" >> "$GITHUB_OUTPUT"
+                          exit 0
+                      fi
+                  done <<< "$files"
+                  echo "changed=false" >> "$GITHUB_OUTPUT"
+
     validate:
         name: Validate Docker Compose and semantic routes
-        if: github.repository == 'shaunburdick/europa-neo'
+        if: github.repository == 'shaunburdick/europa-neo' && needs.changes.outputs.changed == 'true'
+        needs: [changes]
         runs-on: ubuntu-24.04
         permissions:
             contents: read
@@ -86,8 +118,8 @@ jobs:
 
     build-amd64:
         name: Build and Push Docker Image (linux/amd64)
-        if: github.repository == 'shaunburdick/europa-neo'
-        needs: [validate]
+        if: github.repository == 'shaunburdick/europa-neo' && needs.changes.outputs.changed == 'true'
+        needs: [changes, validate]
         runs-on: ubuntu-24.04
         permissions:
             contents: read

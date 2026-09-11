@@ -17,22 +17,13 @@ on:
       - 'packages/fog/**'
       - 'packages/logging/**'
       - 'packages/version/**'
+  # PRs are NOT path-filtered here: every required check must report on every
+  # PR. The `changes` job below gates the heavy jobs via job-level `if:`
+  # skips, which report "skipped" and satisfy the required check (see
+  # docs.github.com troubleshooting-required-status-checks). The push-to-main
+  # paths filter above keeps post-merge runs efficient.
   pull_request:
     branches: [main]
-    paths:
-      - 'packages/networking/**'
-      - 'packages/core/**'
-      - '.github/workflows/network-ci.yml'
-      - 'specs/004-multiplayer-networking/**'
-      - 'pnpm-workspace.yaml'
-      - 'pnpm-lock.yaml'
-      - 'package.json'
-      - 'tsconfig.base.json'
-      - 'biome.jsonc'
-      - 'packages/engine/**'
-      - 'packages/fog/**'
-      - 'packages/logging/**'
-      - 'packages/version/**'
   workflow_dispatch:
 
 concurrency:
@@ -45,8 +36,44 @@ permissions:
   contents: read
 
 jobs:
+  # Detects whether this workflow's relevant paths changed on the PR. The
+  # heavy jobs below gate on this output; when they skip, the check reports
+  # "skipped" (a successful status) so the required check is satisfied.
+  # This job must NEVER fail: a failure would skip its dependents silently
+  # (dependent-job-skip), letting required checks pass without running.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Detect relevant changes
+        id: diff
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [[ -z "$base" ]]; then
+            # push to main / workflow_dispatch: no PR base — run everything.
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"; then
+            # Diff unavailable — conservative: run everything.
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if printf '%s\n' "$files" | grep -qE '^(packages/(networking|core|engine|fog|logging|version)/|specs/004-multiplayer-networking/|\.github/workflows/network-ci\.yml$|pnpm-workspace\.yaml$|pnpm-lock\.yaml$|package\.json$|tsconfig\.base\.json$|biome\.jsonc$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   network-lint:
     name: Lint (networking)
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -84,6 +111,8 @@ jobs:
 
   network-test:
     name: Test (networking)
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -115,6 +144,8 @@ jobs:
 
   network-coverage:
     name: Coverage gate (networking ≥ 80%)
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

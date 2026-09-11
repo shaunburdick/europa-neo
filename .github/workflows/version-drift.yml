@@ -1,8 +1,12 @@
 name: Version Drift
 
-# FR-009 CI half: guards every shared app-version surface. The paths
-# filter IS the correctness argument — if none of these changed, drift
-# among them is impossible; if any changes, the check runs.
+# FR-009 CI half: guards every shared app-version surface. The push-to-main
+# paths filter keeps post-merge runs efficient (drift among the guarded
+# surfaces is impossible if none of them changed). PRs are NOT path-filtered:
+# this check is required to pass before merge, so it must report on every PR.
+# The `changes` job below gates the drift check via a job-level `if:` skip,
+# which reports "skipped" and satisfies the required check (see
+# docs.github.com troubleshooting-required-status-checks).
 on:
   push:
     branches: [main]
@@ -19,17 +23,6 @@ on:
       - '.github/workflows/version-drift.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'package.json'
-      - 'packages/**/package.json'
-      - 'packages/design/package.json'
-      - 'packages/design/src/**'
-      - 'packages/version/**'
-      - 'README.md'
-      - 'DESIGN.md'
-      - 'docs/manual/src/pages/index.mdx'
-      - 'docs/manual/src/layouts/ManualLayout.astro'
-      - '.github/workflows/version-drift.yml'
   workflow_dispatch:
 
 concurrency:
@@ -42,8 +35,40 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Detect relevant changes
+        id: diff
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [[ -z "$base" ]]; then
+            # push to main / workflow_dispatch: no PR base — run everything.
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"; then
+            # Diff unavailable — conservative: run everything.
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if printf '%s\n' "$files" | grep -qE '^(package\.json$|packages/design/src/|packages/version/|README\.md$|DESIGN\.md$|docs/manual/src/pages/index\.mdx$|docs/manual/src/layouts/ManualLayout\.astro$|\.github/workflows/version-drift\.yml$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   version-drift:
     name: Shared app version drift check
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
