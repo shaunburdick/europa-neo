@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildTickBroadcast, sendTickBroadcast } from '../../src/broadcast';
+import { buildTickBroadcast, sendTickBroadcast, viewsEqual } from '../../src/broadcast';
 import { Connection } from '../../src/connection';
 import type { FogFactory } from '../../src/contracts/network-api';
 import { MatchChannel } from '../../src/match-channel';
@@ -89,7 +89,7 @@ describe('buildTickBroadcast + sendTickBroadcast', () => {
         const fog = stubFog({ marker: 'v1' });
         channel.recordTick();
 
-        const broadcast = buildTickBroadcast(channel, { fog }, 100);
+        const { broadcast } = buildTickBroadcast(channel, { fog }, 100);
         sendTickBroadcast(channel, [connA, connB], broadcast, 101);
 
         expect(sockets[0]?.sentFrames.filter((f) => f.type === 'tick')).toHaveLength(1);
@@ -101,7 +101,7 @@ describe('buildTickBroadcast + sendTickBroadcast', () => {
         const fog = stubFog({ marker: 'v1' });
         channel.recordTick();
 
-        const broadcast = buildTickBroadcast(channel, { fog }, 100);
+        const { broadcast } = buildTickBroadcast(channel, { fog }, 100);
         sendTickBroadcast(channel, [connA, connB], broadcast, 101);
 
         const frameA = sockets[0]?.sentFrames.find((f) => f.type === 'tick');
@@ -119,15 +119,15 @@ describe('buildTickBroadcast + sendTickBroadcast', () => {
 
         channel.recordTick();
         const first = buildTickBroadcast(channel, { fog }, 100);
-        sendTickBroadcast(channel, [connA, connB], first, 101);
+        sendTickBroadcast(channel, [connA, connB], first.broadcast, 101);
 
         channel.recordTick();
         const second = buildTickBroadcast(channel, { fog }, 200);
-        expect(second.get(connA.id)).toBe('skip');
-        expect(second.get(connB.id)).toBe('skip');
+        expect(second.broadcast.get(connA.id)).toBe('skip');
+        expect(second.broadcast.get(connB.id)).toBe('skip');
 
         const beforeA = sockets[0]?.sentFrames.length ?? 0;
-        const sentCount = sendTickBroadcast(channel, [connA, connB], second, 201);
+        const sentCount = sendTickBroadcast(channel, [connA, connB], second.broadcast, 201);
         expect(sentCount).toBe(0);
         expect(sockets[0]?.sentFrames.length).toBe(beforeA);
     });
@@ -138,15 +138,15 @@ describe('buildTickBroadcast + sendTickBroadcast', () => {
         const fog = stubFog(state);
 
         channel.recordTick();
-        sendTickBroadcast(channel, [connA, connB], buildTickBroadcast(channel, { fog }, 100), 101);
+        sendTickBroadcast(channel, [connA, connB], buildTickBroadcast(channel, { fog }, 100).broadcast, 101);
 
         // The order changed the world → fog output changes.
         state.marker = 'after';
         channel.recordTick();
         const second = buildTickBroadcast(channel, { fog }, 200);
-        expect(second.get(connA.id)).not.toBe('skip');
-        expect(second.get(connB.id)).not.toBe('skip');
-        sendTickBroadcast(channel, [connA, connB], second, 201);
+        expect(second.broadcast.get(connA.id)).not.toBe('skip');
+        expect(second.broadcast.get(connB.id)).not.toBe('skip');
+        sendTickBroadcast(channel, [connA, connB], second.broadcast, 201);
 
         expect(sockets[0]?.sentFrames.filter((f) => f.type === 'tick')).toHaveLength(2);
         expect(sockets[1]?.sentFrames.filter((f) => f.type === 'tick')).toHaveLength(2);
@@ -160,7 +160,7 @@ describe('buildTickBroadcast + sendTickBroadcast', () => {
         channel.recordTick();
         channel.recordTick();
 
-        sendTickBroadcast(channel, [connA], buildTickBroadcast(channel, { fog }, 5), 6);
+        sendTickBroadcast(channel, [connA], buildTickBroadcast(channel, { fog }, 5).broadcast, 6);
 
         const frame = sockets[0]?.sentFrames.find((f) => f.type === 'tick');
         if (frame?.type !== 'tick') {
@@ -168,5 +168,198 @@ describe('buildTickBroadcast + sendTickBroadcast', () => {
         }
         expect(frame.payload.tick).toBe(channel.tickCounter);
         expect(frame.payload.tick).toBe(3);
+    });
+});
+
+// ----------------------------------------------------------------------------
+// viewsEqual (FR-020: zero-allocation structural comparison)
+// ----------------------------------------------------------------------------
+
+describe('viewsEqual', () => {
+    it('returns true for identical views', () => {
+        const view = stubView(1, 10, 'same');
+        expect(viewsEqual(view, view)).toBe(true);
+    });
+
+    it('returns true for structurally equal views with different tick', () => {
+        const a = stubView(1, 10, 'same');
+        const b = stubView(1, 99, 'same');
+        // viewsEqual ignores the tick field (wire payload stamp is authoritative).
+        expect(viewsEqual(a, b)).toBe(true);
+    });
+
+    it('returns false when player differs', () => {
+        const a = stubView(1, 10, 'same');
+        const b = stubView(2, 10, 'same');
+        expect(viewsEqual(a, b)).toBe(false);
+    });
+
+    it('returns false when visibleCells length differs', () => {
+        const a: PlayerView = {
+            ...stubView(1, 10, 'x'),
+            visibleCells: [
+                {
+                    coord: { x: 0, y: 0 },
+                    cell: { x: 0, y: 0, terrain: 'land', elevation: 0 },
+                    troopCount: 2,
+                    troopOwner: 1,
+                    pipes: new Set(),
+                    reservesPercent: 0,
+                    cityOwner: null,
+                },
+            ],
+        };
+        const b: PlayerView = {
+            ...stubView(1, 10, 'x'),
+            visibleCells: [],
+        };
+        expect(viewsEqual(a, b)).toBe(false);
+    });
+
+    it('returns false when a cell field differs', () => {
+        const base: PlayerView = stubView(1, 10, 'x');
+        const baseCell = base.visibleCells[0];
+        if (!baseCell) {
+            throw new Error('expected at least one visible cell in base view');
+        }
+        const modified: PlayerView = {
+            ...base,
+            visibleCells: [
+                {
+                    ...baseCell,
+                    troopCount: 999,
+                },
+            ],
+        };
+        expect(viewsEqual(base, modified)).toBe(false);
+    });
+
+    it('returns false when pipes (Set) differ', () => {
+        const a: PlayerView = {
+            ...stubView(1, 10, 'x'),
+            visibleCells: [
+                {
+                    coord: { x: 0, y: 0 },
+                    cell: { x: 0, y: 0, terrain: 'land', elevation: 0 },
+                    troopCount: 2,
+                    troopOwner: 1,
+                    pipes: new Set(['N' as const]),
+                    reservesPercent: 0,
+                    cityOwner: null,
+                },
+            ],
+        };
+        const b: PlayerView = {
+            ...stubView(1, 10, 'x'),
+            visibleCells: [
+                {
+                    coord: { x: 0, y: 0 },
+                    cell: { x: 0, y: 0, terrain: 'land', elevation: 0 },
+                    troopCount: 2,
+                    troopOwner: 1,
+                    pipes: new Set(['S' as const]),
+                    reservesPercent: 0,
+                    cityOwner: null,
+                },
+            ],
+        };
+        expect(viewsEqual(a, b)).toBe(false);
+    });
+
+    it('returns true when pipes (Set) are equal but in different order', () => {
+        const a: PlayerView = {
+            ...stubView(1, 10, 'x'),
+            visibleCells: [
+                {
+                    coord: { x: 0, y: 0 },
+                    cell: { x: 0, y: 0, terrain: 'land', elevation: 0 },
+                    troopCount: 2,
+                    troopOwner: 1,
+                    pipes: new Set(['N' as const, 'E' as const]),
+                    reservesPercent: 0,
+                    cityOwner: null,
+                },
+            ],
+        };
+        const b: PlayerView = {
+            ...stubView(1, 10, 'x'),
+            visibleCells: [
+                {
+                    coord: { x: 0, y: 0 },
+                    cell: { x: 0, y: 0, terrain: 'land', elevation: 0 },
+                    troopCount: 2,
+                    troopOwner: 1,
+                    pipes: new Set(['E' as const, 'N' as const]),
+                    reservesPercent: 0,
+                    cityOwner: null,
+                },
+            ],
+        };
+        expect(viewsEqual(a, b)).toBe(true);
+    });
+
+    it('returns false when events array lengths differ', () => {
+        const a = stubView(1, 10, 'x');
+        const b: PlayerView = {
+            ...a,
+            events: {
+                combat: [
+                    {
+                        tick: 1,
+                        cell: { x: 0, y: 0 },
+                        attacker: 1,
+                        defender: 2,
+                        attackerLoss: 1,
+                        defenderLoss: 1,
+                        winner: 1 as PlayerId,
+                        attackerTotal: 5,
+                        defenderTotal: 5,
+                    },
+                ],
+                captures: [],
+                eliminations: [],
+                appliedOrders: [],
+                errors: [],
+            },
+        };
+        expect(viewsEqual(a, b)).toBe(false);
+    });
+
+    it('returns false when config differs', () => {
+        const a = stubView(1, 10, 'x');
+        const b: PlayerView = {
+            ...a,
+            config: { ...a.config, boardSize: 16 },
+        };
+        expect(viewsEqual(a, b)).toBe(false);
+    });
+});
+
+// ----------------------------------------------------------------------------
+// Broadcast view cache (FR-018)
+// ----------------------------------------------------------------------------
+
+describe('buildTickBroadcast view cache', () => {
+    it('returns a view cache with entries for each player and spectator', () => {
+        const { channel } = channelWithTwoPlayers();
+        const fog = stubFog({ marker: 'v1' });
+        channel.recordTick();
+
+        const { viewCache } = buildTickBroadcast(channel, { fog }, 100);
+        expect(viewCache['1']).toBeDefined();
+        expect(viewCache['2']).toBeDefined();
+    });
+
+    it('cache entry for a player matches the view sent to that player', () => {
+        const { channel, connA } = channelWithTwoPlayers();
+        const fog = stubFog({ marker: 'v1' });
+        channel.recordTick();
+
+        const { broadcast, viewCache } = buildTickBroadcast(channel, { fog }, 100);
+        const payload = broadcast.get(connA.id);
+        expect(payload).not.toBe('skip');
+        if (payload !== 'skip' && payload !== undefined) {
+            expect(viewCache['1']).toBe(payload.view);
+        }
     });
 });

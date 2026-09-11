@@ -176,8 +176,8 @@ export { createTickClock } from './clock';
 // pipelines, stats, and the server orchestrator (T034)
 // ----------------------------------------------------------------------------
 
-export type { BroadcastDeps } from './broadcast';
-export { buildTickBroadcast, sendTickBroadcast } from './broadcast';
+export type { BroadcastDeps, BroadcastResult, BroadcastViewCache } from './broadcast';
+export { buildTickBroadcast, sendTickBroadcast, viewsEqual } from './broadcast';
 export type {
     ConnectionOptions,
     ConnectionSocket,

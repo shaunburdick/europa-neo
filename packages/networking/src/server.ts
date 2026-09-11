@@ -491,8 +491,11 @@ export function createMatchServer(
                 channel.recordTick();
 
                 // 3. Fog-filtered broadcast with skip-send deltas.
+                // FR-018: buildTickBroadcast computes each unique view once
+                // and returns a per-tick view cache for reuse by the resync
+                // path (FR-019).
                 const liveConnections = channel.connections();
-                const broadcast = buildTickBroadcast(channel, { fog: deps.fog }, nowMs);
+                const { broadcast, viewCache } = buildTickBroadcast(channel, { fog: deps.fog }, nowMs);
                 const sentCount = sendTickBroadcast(channel, liveConnections, broadcast, nowMs);
                 for (let i = 0; i < sentCount; i++) {
                     statsCounter.recordFrameSent('tick');
@@ -501,19 +504,30 @@ export function createMatchServer(
                 // 3.5 Retain each seat's boundary view for reconnect resync
                 // (US2 AC-1). Seats without a live connection keep recording —
                 // their buffer must bridge the absence window on reconnect.
-                // Skipped connections (byte-identical view) recompute the same
-                // content so their ring stays dense.
-                const world = channel.engineSession.world();
+                // FR-019: reuse cached view instead of recomputing via the fog
+                // factory when available (same tick, same seat).
                 for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
                     const seat = channel.seats.get(playerId);
                     if (!seat) {
                         continue;
                     }
                     const payload = seat.connection ? broadcast.get(seat.connection.id) : undefined;
-                    const view =
-                        payload && payload !== 'skip'
-                            ? payload.view
-                            : deps.fog.computePlayerView({ world, playerId, spectator: false });
+                    let view: import('@europa/fog').PlayerView;
+                    if (payload && payload !== 'skip') {
+                        // Connected and sent: use the broadcast payload's view.
+                        view = payload.view;
+                    } else {
+                        // Disconnected or skipped: reuse the per-tick cache.
+                        const cacheKey = playerId.toString();
+                        const cached = viewCache[cacheKey];
+                        view =
+                            cached ??
+                            deps.fog.computePlayerView({
+                                world: channel.engineSession.world(),
+                                playerId,
+                                spectator: false,
+                            });
+                    }
                     seatBuffer(channel.matchId, playerId).push(channel.tickCounter, view);
                 }
 
