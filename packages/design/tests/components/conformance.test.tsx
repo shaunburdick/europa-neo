@@ -214,21 +214,21 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
 
     // ── Game-specific primitives (7) ─────────────────────────────────────
     {
-        name: 'EuropaTroopChip owner=1 uses the accent token color',
+        name: 'EuropaTroopChip owner=1 uses the playerColor1 token color',
         element: <EuropaTroopChip count={1} owner={1} />,
         expectClasses: ['europa-chip'],
         expectStyles: [
-            { prop: 'borderColor', value: TOKENS.color.accent },
-            { prop: 'color', value: TOKENS.color.accent },
+            { prop: 'borderColor', value: TOKENS.color.playerColor1 },
+            { prop: 'color', value: TOKENS.color.playerColor1 },
         ],
     },
     {
-        name: 'EuropaCityMarker owner=2 uses the city token color (no catalog class)',
+        name: 'EuropaCityMarker owner=2 uses the playerColor2 token color (no catalog class)',
         element: <EuropaCityMarker owner={2} />,
         expectNoClass: true,
         expectStyles: [
-            { prop: 'backgroundColor', value: TOKENS.color.city },
-            { prop: 'borderColor', value: TOKENS.color.city },
+            { prop: 'backgroundColor', value: TOKENS.color.playerColor2 },
+            { prop: 'borderColor', value: TOKENS.color.playerColor2 },
         ],
     },
     {
@@ -244,10 +244,10 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         expectStyles: [{ prop: 'backgroundColor', value: 'hsl(200, 15%, 95%)' }],
     },
     {
-        name: 'EuropaPlayerBadge player=3 uses the green token color',
+        name: 'EuropaPlayerBadge player=3 uses the playerColor3 token color',
         element: <EuropaPlayerBadge player={3} />,
         expectClasses: ['europa-badge'],
-        expectStyles: [{ prop: 'color', value: TOKENS.color.green }],
+        expectStyles: [{ prop: 'color', value: TOKENS.color.playerColor3 }],
     },
     {
         name: 'EuropaFogOverlay renders an aria-hidden overlay (no catalog class)',
