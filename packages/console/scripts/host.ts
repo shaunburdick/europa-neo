@@ -688,6 +688,35 @@ process.on('SIGTERM', () => {
     });
 });
 
+// Issue #122 P0: last-resort process-level error handlers. These are
+// the final safety net — they log but do NOT mask the defect. After
+// logging, the process exits with a non-zero code so process managers
+// (PM2, systemd, Docker) restart it. These handlers should never fire
+// in practice because the per-channel tick containment (server.ts)
+// catches engine/fog/broadcast throws before they reach the event loop;
+// but if an uncaught exception or unhandled rejection slips through,
+// this ensures the failure is observable rather than silently lost.
+process.on('uncaughtException', (error: Error) => {
+    logger.error('uncaught exception — shutting down', {
+        name: error.name,
+        message: sanitizeLogText(error.message),
+        stack: sanitizeLogText(error.stack ?? ''),
+    });
+    process.exitCode = 1;
+    void shutdown().then(() => {
+        process.exit(1);
+    });
+});
+process.on('unhandledRejection', (reason: unknown) => {
+    logger.error('unhandled rejection — shutting down', {
+        reason: sanitizeLogText(String(reason)),
+    });
+    process.exitCode = 1;
+    void shutdown().then(() => {
+        process.exit(1);
+    });
+});
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
     main().catch((error: unknown) => {
         process.exitCode = 1;

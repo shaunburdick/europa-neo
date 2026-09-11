@@ -339,71 +339,98 @@ export function createMatchServer(
                 continue;
             }
 
-            // 1. Drain pending orders through the engine; ack each outcome.
-            const outcomes = applyOrdersAtTickBoundary(channel);
-            for (const outcome of outcomes) {
-                const connection = channel.seats.get(outcome.playerId)?.connection;
-                if (!connection) {
-                    continue;
+            // Issue #122 P0: per-channel error containment. Any throw
+            // inside the tick pipeline (engine, fog, broadcast) is caught,
+            // logged, and the channel is terminated. Other matches and the
+            // heartbeat/grace sweeps continue unaffected — a single
+            // channel's defect must not become a full-host outage.
+            try {
+                // 1. Drain pending orders through the engine; ack each outcome.
+                const outcomes = applyOrdersAtTickBoundary(channel);
+                for (const outcome of outcomes) {
+                    const connection = channel.seats.get(outcome.playerId)?.connection;
+                    if (!connection) {
+                        continue;
+                    }
+                    const payload: OrderAckPayload = {
+                        seq: outcome.submittedAtSeq as SequenceNumber,
+                        result: outcome.result,
+                    };
+                    connection.send(envelopeOf('orderAck', payload), nowMs);
+                    statsCounter.recordFrameSent('orderAck');
                 }
-                const payload: OrderAckPayload = {
-                    seq: outcome.submittedAtSeq as SequenceNumber,
-                    result: outcome.result,
-                };
-                connection.send(envelopeOf('orderAck', payload), nowMs);
-                statsCounter.recordFrameSent('orderAck');
-            }
 
-            // 2. Advance the simulation one boundary.
-            channel.engineSession.advance();
-            channel.recordTick();
+                // 2. Advance the simulation one boundary.
+                channel.engineSession.advance();
+                channel.recordTick();
 
-            // 3. Fog-filtered broadcast with skip-send deltas.
-            const liveConnections = channel.connections();
-            const broadcast = buildTickBroadcast(channel, { fog: deps.fog }, nowMs);
-            const sentCount = sendTickBroadcast(channel, liveConnections, broadcast, nowMs);
-            for (let i = 0; i < sentCount; i++) {
-                statsCounter.recordFrameSent('tick');
-            }
-
-            // 3.5 Retain each seat's boundary view for reconnect resync
-            // (US2 AC-1). Seats without a live connection keep recording —
-            // their buffer must bridge the absence window on reconnect.
-            // Skipped connections (byte-identical view) recompute the same
-            // content so their ring stays dense.
-            const world = channel.engineSession.world();
-            for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
-                const seat = channel.seats.get(playerId);
-                if (!seat) {
-                    continue;
+                // 3. Fog-filtered broadcast with skip-send deltas.
+                const liveConnections = channel.connections();
+                const broadcast = buildTickBroadcast(channel, { fog: deps.fog }, nowMs);
+                const sentCount = sendTickBroadcast(channel, liveConnections, broadcast, nowMs);
+                for (let i = 0; i < sentCount; i++) {
+                    statsCounter.recordFrameSent('tick');
                 }
-                const payload = seat.connection ? broadcast.get(seat.connection.id) : undefined;
-                const view =
-                    payload && payload !== 'skip'
-                        ? payload.view
-                        : deps.fog.computePlayerView({ world, playerId, spectator: false });
-                seatBuffer(channel.matchId, playerId).push(channel.tickCounter, view);
-            }
 
-            // 4. Terminal check (cheap post-tick status read).
-            const terminal = channel.engineSession.status();
-            if (terminal && !channel.terminalSent) {
-                channel.terminalSent = true;
-                const payload: TerminalPayload = { result: terminal };
-                for (const connection of liveConnections) {
-                    connection.send(envelopeOf('terminal', payload), nowMs);
-                    connection.markTerminal();
-                    statsCounter.recordFrameSent('terminal');
+                // 3.5 Retain each seat's boundary view for reconnect resync
+                // (US2 AC-1). Seats without a live connection keep recording —
+                // their buffer must bridge the absence window on reconnect.
+                // Skipped connections (byte-identical view) recompute the same
+                // content so their ring stays dense.
+                const world = channel.engineSession.world();
+                for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
+                    const seat = channel.seats.get(playerId);
+                    if (!seat) {
+                        continue;
+                    }
+                    const payload = seat.connection ? broadcast.get(seat.connection.id) : undefined;
+                    const view =
+                        payload && payload !== 'skip'
+                            ? payload.view
+                            : deps.fog.computePlayerView({ world, playerId, spectator: false });
+                    seatBuffer(channel.matchId, playerId).push(channel.tickCounter, view);
                 }
-                deps.matchmaker.onMatchTerminal?.({
+
+                // 4. Terminal check (cheap post-tick status read).
+                const terminal = channel.engineSession.status();
+                if (terminal && !channel.terminalSent) {
+                    channel.terminalSent = true;
+                    const payload: TerminalPayload = { result: terminal };
+                    for (const connection of liveConnections) {
+                        connection.send(envelopeOf('terminal', payload), nowMs);
+                        connection.markTerminal();
+                        statsCounter.recordFrameSent('terminal');
+                    }
+                    deps.matchmaker.onMatchTerminal?.({
+                        matchId: channel.matchId,
+                        result: terminal,
+                        tick: channel.tickCounter,
+                    });
+                    // No reconnect after terminal: drop the retained replay.
+                    for (const buffer of resyncBuffers.get(channel.matchId)?.values() ?? []) {
+                        buffer.clear();
+                    }
+                }
+            } catch (error) {
+                // Issue #122: contain the error — log it, terminate the
+                // channel, close all its connections, and continue to the
+                // next match. The heartbeat and grace sweeps below are
+                // unaffected.
+                deps.logger.error('tick pipeline error — terminating match', {
                     matchId: channel.matchId,
-                    result: terminal,
+                    error: String(error),
                     tick: channel.tickCounter,
                 });
-                // No reconnect after terminal: drop the retained replay.
-                for (const buffer of resyncBuffers.get(channel.matchId)?.values() ?? []) {
-                    buffer.clear();
+                channel.terminalSent = true;
+                for (const connection of channel.connections()) {
+                    connection.close(
+                        NETWORK_TRANSPORT_CONSTANTS.goingAwayCloseCode,
+                        'match terminated due to internal error',
+                    );
                 }
+                // Clean up resync buffers for the failed match.
+                resyncBuffers.get(channel.matchId)?.clear();
+                resyncBuffers.delete(channel.matchId);
             }
         }
 
@@ -1006,11 +1033,7 @@ export function createMatchServer(
             const nowMs = Date.now();
             for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
                 const seat = channel.seats.get(playerId);
-                if (
-                    seat &&
-                    seat.connection === null &&
-                    !reconnectRegistry.hasActiveBinding(seat.sessionToken, nowMs)
-                ) {
+                if (seat && seat.connection === null && !reconnectRegistry.hasActiveBinding(seat.sessionToken, nowMs)) {
                     target = { playerId: seat.playerId, token: seat.sessionToken };
                     break;
                 }

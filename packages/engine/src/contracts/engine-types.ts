@@ -209,6 +209,8 @@ export type ValidationError =
   | { kind: 'already_surrendered'; player: PlayerId }
   | { kind: 'invalid_percent';   percent: number }
   | { kind: 'unknown_player';    player: number }
+  | { kind: 'unknown_order' }
+  | { kind: 'invalid_direction'; direction: string }
   | { kind: 'match_terminal' };
 
 export type CommandResult =

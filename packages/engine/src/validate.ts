@@ -44,6 +44,8 @@
 import { ENGINE_CONSTANTS } from './constants';
 import type { CellView, CommandResult, Coord, Direction, Order, PlayerId, ValidationError, World } from './types';
 
+const VALID_DIRECTIONS: ReadonlySet<string> = new Set<string>(['N', 'E', 'S', 'W']);
+
 const DIRECTION_OFFSETS: Readonly<Record<Direction, readonly [number, number]>> = {
     N: [0, -1],
     E: [1, 0],
@@ -54,19 +56,79 @@ const DIRECTION_OFFSETS: Readonly<Record<Direction, readonly [number, number]>> 
 const PARATROOP_MAX_RANGE = 2;
 
 /**
+ * Check that an order (received via `as Order` cast from the wire)
+ * has its critical fields present. When an order arrives with a known
+ * `kind` but missing required fields (e.g., `{ kind: 'paratroop' }`
+ * without `source`/`target`), the switch arms would dereference
+ * `undefined` and crash. This guard catches those cases before the
+ * switch.
+ *
+ * @param cmd The order to check (already narrowed to `Order` by the switch).
+ * @returns `true` if the critical fields for the order's kind exist.
+ */
+function hasRequiredFields(cmd: Order): boolean {
+    if (typeof cmd !== 'object' || cmd === null || typeof cmd.kind !== 'string') {
+        return false;
+    }
+    switch (cmd.kind) {
+        case 'setPipe':
+        case 'clearPipe':
+        case 'setPipesExclusive':
+            return cmd.cell !== undefined && cmd.direction !== undefined && cmd.player !== undefined;
+        case 'clearAllPipes':
+            return cmd.cell !== undefined && cmd.player !== undefined;
+        case 'setReserves':
+            return cmd.cell !== undefined && cmd.percent !== undefined && cmd.player !== undefined;
+        case 'paratroop':
+            return cmd.source !== undefined && cmd.target !== undefined && cmd.player !== undefined;
+        case 'gun':
+            return cmd.source !== undefined && cmd.target !== undefined && cmd.player !== undefined;
+        case 'surrender':
+            return cmd.player !== undefined;
+        default:
+            return false;
+    }
+}
+
+/**
  * Validate an order against the world without staging it.
  *
  * @returns `{ ok: true }` if the order is valid or
  *          `{ ok: false, reason }` with a typed `ValidationError`.
  */
 export function validateCommand(world: Readonly<World>, cmd: Order): CommandResult {
+    // Defensive: when an `Order` arrives from the wire via `as Order`
+    // cast, TypeScript's type narrowing does not protect against
+    // runtime undefined fields. The networking layer's
+    // `validateOrderShape` catches most cases, but a partially-valid
+    // order (known kind, missing field) can still reach here. Check
+    // critical fields early to prevent `undefined.x` crashes.
+    if (!hasRequiredFields(cmd)) {
+        return fail({ kind: 'unknown_order' });
+    }
+
     switch (cmd.kind) {
-        case 'setPipe':
+        case 'setPipe': {
+            const dirCheck = validateDirection(cmd.direction);
+            if (!dirCheck.ok) {
+                return dirCheck;
+            }
             return validateSetPipe(world, cmd.cell, cmd.direction, cmd.player);
-        case 'clearPipe':
+        }
+        case 'clearPipe': {
+            const dirCheck = validateDirection(cmd.direction);
+            if (!dirCheck.ok) {
+                return dirCheck;
+            }
             return validateClearPipe(world, cmd.cell, cmd.player);
-        case 'setPipesExclusive':
+        }
+        case 'setPipesExclusive': {
+            const dirCheck = validateDirection(cmd.direction);
+            if (!dirCheck.ok) {
+                return dirCheck;
+            }
             return validateSourceOwnership(world, cmd.cell, cmd.player);
+        }
         case 'clearAllPipes':
             return validateSourceOwnership(world, cmd.cell, cmd.player);
         case 'setReserves':
@@ -77,6 +139,8 @@ export function validateCommand(world: Readonly<World>, cmd: Order): CommandResu
             return validateGun(world, cmd.source, cmd.target, cmd.player);
         case 'surrender':
             return validateSurrender(world, cmd.player);
+        default:
+            return fail({ kind: 'unknown_order' });
     }
 }
 
@@ -260,6 +324,18 @@ function validateSourceOwnership(world: Readonly<World>, cell: Coord, player: Pl
 
 function fail(reason: ValidationError): CommandResult {
     return { ok: false, reason };
+}
+
+/**
+ * Validate that a direction value is one of the four cardinal
+ * directions. Catches bogus direction strings that would cause
+ * `DIRECTION_OFFSETS` lookup to return `undefined`.
+ */
+function validateDirection(direction: string): CommandResult {
+    if (!VALID_DIRECTIONS.has(direction)) {
+        return fail({ kind: 'invalid_direction', direction });
+    }
+    return { ok: true };
 }
 
 /**
