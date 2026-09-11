@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-24
 
-**Last Updated**: 2026-09-10
+**Last Updated**: 2026-09-11
 
-**Version**: 1.4
+**Version**: 1.5
 
 **Status**: Implemented (2026-08-30)
 
@@ -288,6 +288,11 @@ Decisions recorded here for cheap veto:
 These pages land with the engine + terrain changes in the
    implementation change set; this spec amendment is the requirement
    record.
+
+### v1.5 (2026-09-11) — Canonical player-color palette for manual badges (issue #148)
+
+- **FR-010 amended**: the numbers appendix MUST list the canonical player-color palette (`playerColor1` through `playerColor4`) from `@europa/design` tokens, not the divergent copies that previously lived in console contracts or manual inline styles. All manual pages that render player-color badges (e.g., city ownership indicators, troop chips) MUST derive their colors from the design token values (`#dc2626`, `#2563eb`, `#059669`, `#d97706`), ensuring visual consistency between the console, the manual, and the design system.
+- **Required manual-page updates (FR-012 — same change set as this amendment)**: `docs/manual/numbers.mdx` gains the player-color palette rows; `docs/manual/the-board.mdx` and any MDX page rendering player-color badges reference the design tokens rather than inline hex literals. This amendment is the requirement record; the implementation change set carries the page updates.
 
 ### v1.4 (2026-09-10) — Astro migration reality (feature 015)
 
