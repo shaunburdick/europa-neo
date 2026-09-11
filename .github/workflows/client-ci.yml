@@ -166,6 +166,30 @@ jobs:
       - name: Typecheck conformance program
         run: pnpm --filter @europa/console typecheck:conformance
 
+  design-browser-test:
+    name: Browser-mode tests (design)
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Build @europa/design
+        run: pnpm --filter @europa/design build
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @europa/design exec playwright install chromium
+
+      - name: Browser-mode tests (design — focus-trap, a11y)
+        run: pnpm --filter @europa/design test:browser
+
   console-test:
     name: Test suites (console — node)
     needs: [changes]
