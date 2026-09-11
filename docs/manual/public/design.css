@@ -42,6 +42,10 @@
   --europa-color-pipe-outline: rgba(0, 0, 0, 0.7);
   --europa-color-pipe-stalled: #9ca3af;
   --europa-color-pipe-uphill: #dc2626;
+  --europa-color-player-color1: #dc2626;
+  --europa-color-player-color2: #2563eb;
+  --europa-color-player-color3: #059669;
+  --europa-color-player-color4: #d97706;
   --europa-color-red: #dc2626;
   --europa-color-success: #059669;
   --europa-color-success-active: #1b7154;
@@ -504,6 +508,14 @@
     font-size: var(--europa-typography-size-xs);
     font-weight: 700;
     line-height: var(--europa-typography-line-height-normal);
+}
+
+/* ── 7b. Fog Overlay — semi-transparent fog-of-war indicator ───── */
+.europa-fog-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--europa-color-overlay-soft);
+    pointer-events: none;
 }
 
 /* ── 8. Modal — backdrop / dialog / title / body / actions / button ───── */
