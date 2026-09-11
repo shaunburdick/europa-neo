@@ -26,6 +26,7 @@
  * every test.
  */
 
+import { NETWORK_API_VERSION } from '@europa/networking/browser';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 import { LOBBY_STORAGE_KEY } from '../../../src/net/lobby-storage';
@@ -40,7 +41,7 @@ import { LobbyRootWithLayout as LobbyRoot } from '../../fixtures/lobby-layout-wr
 
 /** Minimal constants shared with the scripted server. */
 const SERVER_URL = 'ws://lobby.test:8080';
-const WIRE_VERSION = '0.1.0';
+const WIRE_VERSION = NETWORK_API_VERSION;
 
 /** Minimal WebSocket double: records outbound frames, exposes drivers. */
 class FakeSocket {

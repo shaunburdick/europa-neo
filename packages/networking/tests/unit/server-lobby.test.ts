@@ -532,7 +532,7 @@ describe('lobby rate limiting (audit item 7)', () => {
         for (let i = 0; i < 60; i++) {
             sendLobby(flooded.socket, 'lobbyIdentity', lobbyIdentityPayload());
         }
-        const limited = transportErrors(flooded.socket).filter((error) => error.code === 'rate_limited');
+        const limited = transportErrors(flooded.socket).filter((error) => error.code === 'client_rate_limited');
         expect(limited.length).toBeGreaterThanOrEqual(3);
         // Rejected frames never reached the facade (each unknown claim
         // would otherwise mint a registry identity server-side).

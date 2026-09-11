@@ -43,6 +43,7 @@
 
 import { readPendingOrders, withPendingOrders } from './applyCommand';
 import { ENGINE_CONSTANTS } from './constants';
+import { createTickScratchBuffers } from './create';
 import { emptyTickEvents, pushAppliedOrder } from './events';
 import { resolveCapture } from './resolution/capture';
 import { resolveCombat } from './resolution/combat';
@@ -61,11 +62,10 @@ import type {
     Order,
     TickEvents,
     TickResult,
+    TickScratchBuffers,
     World,
     WorldState,
 } from './types';
-
-const PLAYERS = 4;
 
 // Pipe mask bits (must match flow.ts / read.ts).
 const N_BIT = 0x01;
@@ -79,6 +79,30 @@ const DIRECTION_BITS: Readonly<Record<Direction, number>> = Object.freeze({
     S: S_BIT,
     W: W_BIT,
 });
+
+// ---- Scratch buffer reuse (FR-03, SC-006) --------------------------------
+//
+// Pre-allocated typed arrays are stored per-World in a WeakMap so that
+// consecutive ticks on the same world reuse the same buffers. The
+// buffers are zeroed (fill(0)) before each phase to prevent stale data
+// from leaking across ticks. This eliminates per-tick heap allocations
+// in the flow, combat, and decay resolvers.
+const scratchBuffers = new WeakMap<World, TickScratchBuffers>();
+
+/**
+ * Retrieve or create scratch buffers for the given world. Buffers are
+ * cached per-world so consecutive ticks reuse the same allocations.
+ * Created lazily on first tick; subsequent ticks reuse the cached
+ * buffers (which are zeroed before each phase).
+ */
+function getOrCreateScratch(world: World): TickScratchBuffers {
+    let buf = scratchBuffers.get(world);
+    if (buf === undefined) {
+        buf = createTickScratchBuffers(world.board.width, world.board.height);
+        scratchBuffers.set(world, buf);
+    }
+    return buf;
+}
 
 /**
  * Advance the world by one tick. Pure.
@@ -114,6 +138,10 @@ export function tick(world: Readonly<World>): TickResult {
 
     const n = world.board.width * world.board.height;
 
+    // Retrieve pre-allocated scratch buffers (FR-03, SC-006). These are
+    // reused across ticks via WeakMap caching and zeroed before each phase.
+    const scratch = getOrCreateScratch(world);
+
     // ---- Phase 1: production ----------------------------------------------
     state = resolveProduction(state, world.board, ENGINE_CONSTANTS);
 
@@ -147,25 +175,29 @@ export function tick(world: Readonly<World>): TickResult {
     // ---- Capture pre-flow snapshot (total-force combat) --------------------
     // Snapshot troopOwners/troopCounts BEFORE flow so combat can identify
     // the garrison owner (pre-flow) vs attacker (post-flow last-writer).
-    const preFlowState = {
-        troopOwners: new Uint8Array(state.troopOwners),
-        troopCounts: new Uint32Array(state.troopCounts),
-    };
+    // Uses pre-allocated scratch buffers instead of per-tick allocations.
+    scratch.preFlowOwners.set(state.troopOwners);
+    scratch.preFlowCounts.set(state.troopCounts);
 
     // ---- Phase 4: flow (populates inflow tally + committed flow tally) ----
-    const inflowTally = new Uint32Array(n * PLAYERS);
-    const committedFlowTally = new Uint32Array(n * PLAYERS);
-    state = resolveFlow(state, world.board, ENGINE_CONSTANTS, inflowTally, committedFlowTally);
+    // Zero the tally buffers before flow phase to prevent stale data.
+    scratch.inflowTally.fill(0);
+    scratch.committedFlowTally.fill(0);
+    state = resolveFlow(state, world.board, ENGINE_CONSTANTS, scratch.inflowTally, scratch.committedFlowTally, scratch);
 
     // ---- Phase 5: combat (total-force model) ------------------------------
+    // Zero combat output buffers before the phase.
+    scratch.combatNewCounts.fill(0);
+    scratch.combatNewOwners.fill(0);
     const combatResult = resolveCombat(
         state,
         world.board,
         ENGINE_CONSTANTS,
         world.tick,
-        inflowTally,
-        committedFlowTally,
-        preFlowState,
+        scratch.inflowTally,
+        scratch.committedFlowTally,
+        { troopOwners: scratch.preFlowOwners, troopCounts: scratch.preFlowCounts },
+        scratch,
     );
     ({ state } = combatResult);
     events = {
@@ -184,14 +216,14 @@ export function tick(world: Readonly<World>): TickResult {
     // ---- Phase 7: decay --------------------------------------------------
     // Populate the per-cell reserves floor (FR-012) from the post-capture
     // state: `reservesPct` of the current count is held in the cell and
-    // decay cannot reduce the stack below it. Previously this array was
-    // allocated but never populated, so reserves had no effect on decay.
-    const reservedFloors = new Uint32Array(n);
+    // decay cannot reduce the stack below it. Uses pre-allocated buffer.
     for (let i = 0; i < n; i++) {
         const count = state.troopCounts[i] ?? 0;
         const reservesPct = state.reservesPct[i] ?? 0;
         if (reservesPct > 0 && count > 0) {
-            reservedFloors[i] = Math.ceil((count * reservesPct) / 10);
+            scratch.reservedFloors[i] = Math.ceil((count * reservesPct) / 10);
+        } else {
+            scratch.reservedFloors[i] = 0;
         }
     }
 
@@ -201,53 +233,52 @@ export function tick(world: Readonly<World>): TickResult {
     // decay. Uses post-capture owners for both the cell and its
     // neighbors — owner is preserved even when a source is depleted by
     // flow (Clarifications v1.8), so post-flow owners correctly reflect
-    // who placed the pipe.
-    const hasIncomingSameOwnerPipe = new Uint8Array(n);
+    // who placed the pipe. Uses pre-allocated buffer.
     for (let idx = 0; idx < n; idx++) {
         const owner = state.troopOwners[idx] ?? 0;
         if (owner === 0) {
+            scratch.hasIncomingSameOwnerPipe[idx] = 0;
             continue; // neutral — decay check will skip anyway
         }
         const x = idx % world.board.width;
         const y = Math.floor(idx / world.board.width);
         const w = world.board.width;
 
+        let found = false;
         // Check each neighbor for pipes pointing toward this cell.
         // A pipe from the north: neighbor at (x, y-1) must have S_BIT.
-        if (y > 0) {
+        if (y > 0 && !found) {
             const northIdx = (y - 1) * w + x;
             const northOwner = state.troopOwners[northIdx] ?? 0;
             if (northOwner === owner && (state.pipeMasks[northIdx] ?? 0) & S_BIT) {
-                hasIncomingSameOwnerPipe[idx] = 1;
-                continue;
+                found = true;
             }
         }
         // A pipe from the east: neighbor at (x+1, y) must have W_BIT.
-        if (x + 1 < w) {
+        if (x + 1 < w && !found) {
             const eastIdx = y * w + (x + 1);
             const eastOwner = state.troopOwners[eastIdx] ?? 0;
             if (eastOwner === owner && (state.pipeMasks[eastIdx] ?? 0) & W_BIT) {
-                hasIncomingSameOwnerPipe[idx] = 1;
-                continue;
+                found = true;
             }
         }
         // A pipe from the south: neighbor at (x, y+1) must have N_BIT.
-        if (y + 1 < w) {
+        if (y + 1 < w && !found) {
             const southIdx = (y + 1) * w + x;
             const southOwner = state.troopOwners[southIdx] ?? 0;
             if (southOwner === owner && (state.pipeMasks[southIdx] ?? 0) & N_BIT) {
-                hasIncomingSameOwnerPipe[idx] = 1;
-                continue;
+                found = true;
             }
         }
         // A pipe from the west: neighbor at (x-1, y) must have E_BIT.
-        if (x > 0) {
+        if (x > 0 && !found) {
             const westIdx = y * w + (x - 1);
             const westOwner = state.troopOwners[westIdx] ?? 0;
             if (westOwner === owner && (state.pipeMasks[westIdx] ?? 0) & E_BIT) {
-                hasIncomingSameOwnerPipe[idx] = 1;
+                found = true;
             }
         }
+        scratch.hasIncomingSameOwnerPipe[idx] = found ? 1 : 0;
     }
 
     const decayResult = resolveDecay(
@@ -255,8 +286,8 @@ export function tick(world: Readonly<World>): TickResult {
         world.board,
         ENGINE_CONSTANTS,
         world.tick,
-        hasIncomingSameOwnerPipe,
-        reservedFloors,
+        scratch.hasIncomingSameOwnerPipe,
+        scratch.reservedFloors,
     );
     ({ state } = decayResult);
     events = {

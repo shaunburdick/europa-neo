@@ -30,6 +30,9 @@
 // '@europa/engine'` without reaching into the contracts directory.
 // (The actual constant value `ENGINE_CONSTANTS` is re-exported by
 // `constants.ts`; only the type lives here.)
+import type { EngineConstants as EngineConstantsType } from './contracts/engine-api';
+import type { Board as BoardType } from './contracts/engine-types';
+
 export type { EngineConstants } from './contracts/engine-api';
 export type {
     AppliedOrderRecord,
@@ -84,3 +87,122 @@ export type {
 // Principle IV). Re-exported under the same name so callers can do
 // `import { ENGINE_API_VERSION } from '@europa/engine'`.
 export { ENGINE_API_VERSION } from './contracts/engine-types';
+
+/**
+ * Pre-allocated scratch buffers for the tick pipeline (FR-03, SC-006).
+ *
+ * Allocated once per match at board construction time; zeroed in-place
+ * before each tick phase. Eliminates per-tick heap allocations in the
+ * flow, combat, and decay resolvers.
+ *
+ * **Lifecycle**: created by {@link createTickScratchBuffers}, attached
+ * to the `World` via a WeakMap keyed by the world object. Retrieved by
+ * `tick()` on each call and passed through to the resolution pipeline.
+ * The buffers are NOT part of the serialized world — they are
+ * ephemeral scratch space that does not affect determinism.
+ *
+ * @see specs/004-multiplayer-networking/data-model-hardening-perf.md §3
+ */
+export interface TickScratchBuffers {
+    /**
+     * Per-cell per-owner inflow tally (n × PLAYERS).
+     * Written by flow, read by combat. Zeroed before flow phase.
+     */
+    inflowTally: Uint32Array;
+
+    /**
+     * Per-cell per-owner committed-flow tally (n × PLAYERS).
+     * Written by flow, read by combat. Zeroed before flow phase.
+     */
+    committedFlowTally: Uint32Array;
+
+    /**
+     * Pre-flow troop owners snapshot (n).
+     * Written before flow, read by combat. Populated from state before flow.
+     */
+    preFlowOwners: Uint8Array;
+
+    /**
+     * Pre-flow troop counts snapshot (n).
+     * Written before flow, read by combat. Populated from state before flow.
+     */
+    preFlowCounts: Uint32Array;
+
+    /**
+     * Per-cell reserves floor (n).
+     * Written before decay, read by decay. Computed from post-capture state.
+     */
+    reservedFloors: Uint32Array;
+
+    /**
+     * Per-cell same-owner incoming pipe flag (n).
+     * Written before decay, read by decay. Computed from pipeMasks + owners.
+     */
+    hasIncomingSameOwnerPipe: Uint8Array;
+
+    /**
+     * Flow output counts buffer (n).
+     * Written by flow as the new troopCounts. Read by combat.
+     * Zeroed before flow phase.
+     */
+    flowNewCounts: Uint32Array;
+
+    /**
+     * Flow output owners buffer (n).
+     * Written by flow as the new troopOwners. Read by combat.
+     * Zeroed before flow phase.
+     */
+    flowNewOwners: Uint8Array;
+
+    /**
+     * Combat output counts buffer (n).
+     * Written by combat as the post-attrition troopCounts.
+     * Zeroed before combat phase.
+     */
+    combatNewCounts: Uint32Array;
+
+    /**
+     * Combat output owners buffer (n).
+     * Written by combat as the post-attrition troopOwners.
+     * Zeroed before combat phase.
+     */
+    combatNewOwners: Uint8Array;
+
+    /**
+     * Reusable TransferParams pool (4 entries — max pipes per cell).
+     * Each entry is reset in-place before use by the flow resolver.
+     */
+    transferParams: TransferParams[];
+
+    /**
+     * Per-cell committed-players pool (n × PLAYERS × 2, interleaved
+     * owner+count pairs). Written by combat during total-force
+     * resolution. Zeroed before combat phase.
+     */
+    committedPlayersPool: Uint32Array;
+}
+
+/**
+ * Parameters for a single pipe transfer within the flow resolver.
+ * Reused from the pool in {@link TickScratchBuffers.transferParams}
+ * to avoid per-transfer allocations.
+ */
+export interface TransferParams {
+    board: BoardType;
+    x: number;
+    y: number;
+    dx: number;
+    dy: number;
+    srcOwner: number;
+    constants: EngineConstantsType;
+    cap: number;
+    newCounts: Uint32Array;
+    newOwners: Uint8Array;
+    reservesPct: Readonly<Uint8Array>;
+    tally: Uint32Array | null;
+    committedTally: Uint32Array | null;
+    numPipes: number;
+    perPipe: number;
+    pipeIndex: number;
+    reserveFloor: number;
+}

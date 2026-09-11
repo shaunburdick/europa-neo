@@ -47,7 +47,7 @@
 
 import { flowRateForDelta } from '@europa/core';
 import type { EngineConstants } from '../contracts/engine-api';
-import type { Board, WorldState } from '../types';
+import type { Board, TickScratchBuffers, TransferParams, WorldState } from '../types';
 
 // Pipe direction bitmasks (must match the contract's WorldState docs).
 const N_BIT = 0x01;
@@ -67,37 +67,6 @@ function popcount(mask: number): number {
     if ((mask & S_BIT) !== 0) count++;
     if ((mask & W_BIT) !== 0) count++;
     return count;
-}
-
-interface TransferParams {
-    board: Readonly<Board>;
-    x: number;
-    y: number;
-    dx: number;
-    dy: number;
-    srcOwner: number;
-    constants: EngineConstants;
-    cap: number;
-    newCounts: Uint32Array;
-    newOwners: Uint8Array;
-    /** Per-cell reserves percentage (0..9 → 0..90%), FR-012. */
-    reservesPct: Readonly<Uint8Array>;
-    /** Optional inflow tally to populate (null when tally is not supplied). */
-    tally: Uint32Array | null;
-    /**
-     * Optional committed-flow tally to populate (null when not supplied).
-     * Records raw pipe flow BEFORE headroom clamping — used by combat
-     * to compute total forces for each side.
-     */
-    committedTally: Uint32Array | null;
-    /** Total number of outgoing pipes on the source cell (popcount of mask). */
-    numPipes: number;
-    /** Equal-share per pipe before elevation adjustment: `floor(flowRate / numPipes)`. */
-    perPipe: number;
-    /** 0-based index of the current pipe within the N→E→S→W iteration. */
-    pipeIndex: number;
-    /** Reserve floor for the source cell, computed before the iteration. */
-    reserveFloor: number;
 }
 
 /**
@@ -123,6 +92,11 @@ interface TransferParams {
  * @param committedFlowTally Required per-cell per-owner committed-flow tally.
  *                           Records raw pipe flow BEFORE headroom clamping.
  *                           Used by resolveCombat to compute total forces.
+ * @param scratch            Optional pre-allocated scratch buffers (FR-03,
+ *                           SC-006). When provided, reuses `flowNewCounts`,
+ *                           `flowNewOwners`, and `transferParams` from the
+ *                           pool instead of allocating fresh arrays. Caller
+ *                           MUST zero the buffers before calling.
  * @returns A fresh `WorldState` with updated troopCounts/troopOwners.
  *          Source cells are decremented by the amount transferred;
  *          destination cells are incremented. Troop counts are conserved.
@@ -133,19 +107,31 @@ export function resolveFlow(
     constants: EngineConstants,
     inflowTally?: Uint32Array,
     committedFlowTally?: Uint32Array,
+    scratch?: TickScratchBuffers,
 ): WorldState {
     const w = board.width;
     const n = w * w;
 
     // Start with copies; transfer() will modify both source (decrement)
     // and destination (increment) cells as troops move along pipes.
-    const newCounts = new Uint32Array(state.troopCounts);
-    const newOwners = new Uint8Array(state.troopOwners);
+    // When scratch buffers are provided, reuse them to avoid per-tick
+    // heap allocations (FR-03, SC-006).
+    const newCounts = scratch !== undefined ? scratch.flowNewCounts : new Uint32Array(state.troopCounts);
+    const newOwners = scratch !== undefined ? scratch.flowNewOwners : new Uint8Array(state.troopOwners);
+    // When using scratch, copy initial state into the pre-allocated buffers.
+    if (scratch !== undefined) {
+        newCounts.set(state.troopCounts);
+        newOwners.set(state.troopOwners);
+    }
 
     const cap = constants.cellCapacity >>> 0;
 
     const tallyAvailable = inflowTally !== undefined && inflowTally.length >= n * 4;
     const committedTallyAvailable = committedFlowTally !== undefined && committedFlowTally.length >= n * 4;
+
+    // Use the scratch transfer params pool when available; otherwise
+    // allocate fresh objects per source cell (legacy path for tests).
+    const pool = scratch?.transferParams;
 
     for (let idx = 0; idx < n; idx++) {
         const mask = state.pipeMasks[idx] ?? 0;
@@ -168,25 +154,48 @@ export function resolveFlow(
 
         const x = idx % w;
         const y = Math.floor(idx / w);
-        const params: TransferParams = {
-            board,
-            x,
-            y,
-            dx: 0,
-            dy: 0,
-            srcOwner,
-            constants,
-            cap,
-            newCounts,
-            newOwners,
-            reservesPct: state.reservesPct,
-            tally: tallyAvailable ? (inflowTally as Uint32Array) : null,
-            committedTally: committedTallyAvailable ? (committedFlowTally as Uint32Array) : null,
-            numPipes,
-            perPipe,
-            pipeIndex: 0,
-            reserveFloor,
-        };
+
+        // Get or create TransferParams: reuse from pool when available.
+        // Pool always has 4 entries (MAX_PIPES_PER_CELL) from createTickScratchBuffers.
+        const params: TransferParams =
+            pool !== undefined
+                ? (pool[0] as TransferParams)
+                : {
+                      board,
+                      x,
+                      y,
+                      dx: 0,
+                      dy: 0,
+                      srcOwner,
+                      constants,
+                      cap,
+                      newCounts,
+                      newOwners,
+                      reservesPct: state.reservesPct,
+                      tally: tallyAvailable ? (inflowTally as Uint32Array) : null,
+                      committedTally: committedTallyAvailable ? (committedFlowTally as Uint32Array) : null,
+                      numPipes,
+                      perPipe,
+                      pipeIndex: 0,
+                      reserveFloor,
+                  };
+
+        // Reset params fields in-place for this source cell.
+        params.board = board;
+        params.x = x;
+        params.y = y;
+        params.srcOwner = srcOwner;
+        params.constants = constants;
+        params.cap = cap;
+        params.newCounts = newCounts;
+        params.newOwners = newOwners;
+        params.reservesPct = state.reservesPct;
+        params.tally = tallyAvailable ? (inflowTally as Uint32Array) : null;
+        params.committedTally = committedTallyAvailable ? (committedFlowTally as Uint32Array) : null;
+        params.numPipes = numPipes;
+        params.perPipe = perPipe;
+        params.pipeIndex = 0;
+        params.reserveFloor = reserveFloor;
 
         // Iterate directions in fixed order (N, E, S, W) for determinism.
         // pipeIndex is incremented after each direction to track remainingPipes.

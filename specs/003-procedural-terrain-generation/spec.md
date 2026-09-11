@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-08-30)
+**Status**: Implemented (2026-08-30; BFS performance fix 2026-09-11)
 
 **Input**: User description: "GeoMorph-inspired procedural map generation producing balanced, symmetric boards with elevation, water pools, and fair city placement; seed-reproducible."
 
@@ -110,6 +110,7 @@ As a player, I want maps whose elevation changes are gentle enough that pipe net
 - **SC-002**: 100% of emitted maps pass symmetry, connectivity, and distribution validation (generator never ships an invalid map); verified by the 200-map balance suite.
 - **SC-003**: A default 32×32 / 2-player map generates in under 1 second including validation retries.
 - **SC-004**: Statistical suite over 100 seeds shows water coverage and elevation variance within configured bounds on every map; the suite runs with the default `terrainSmoothing` (4) and additionally asserts the US4 AC-1 reachable-land floor (≥ 50% mean) and US4 AC-3/AC-4 determinism across the smoothing range.
+- **SC-005**: The validator BFS (both INV-12 land connectivity and INV-16 flow-viable connectivity) MUST complete a full 32×32 board traversal in under 1 ms (measured via `performance.now()` in the test harness). This is a regression guard for the head-cursor BFS fix in Clarifications v1.5.
 
 ## Assumptions
 
@@ -144,3 +145,14 @@ As a player, I want maps whose elevation changes are gentle enough that pipe net
 - **Design**: INV-16 is a BFS over flow-viable edges (same algorithm as the US4 AC-1 test in `reachable-land.test.ts`). An edge is traversable when `flowRateForDelta(delta, ENGINE_CONSTANTS) > 0` OR `flowRateForDelta(-delta, ENGINE_CONSTANTS) > 0` (unidirectional: at least one pipe direction must move troops; the stall threshold is `flowBase / flowSlopeStep = 7` with the shipped constants). The check runs after INV-12 (land connectivity) and uses the new `flow_isolated_cities` kind in the `Violation` union.
 - **Performance**: O(C·W·H) for the BFS, same as INV-12. Negligible impact on generation time.
 - **Backward compatibility**: existing seeds/fixtures that pass INV-16 are unaffected. Seeds that previously passed INV-1..INV-15 but fail INV-16 will now trigger regeneration — this is the intended behavior (those maps were unplayable).
+
+### v1.5 (2026-09-11) — BFS performance fix (issue #135, code review I-28 Thread T-14)
+
+Rationale: code review identified that the terrain validator's BFS implementations (INV-12 land connectivity and INV-16 flow-viable connectivity) use `Array.shift()` to dequeue from the BFS frontier. `Array.shift()` is O(n) per call (it re-indexes every remaining element), making the overall BFS O(n²) instead of O(n). On a 32×32 board (1024 cells), this is measurable; on larger boards it becomes a bottleneck.
+
+- **Fix**: replace `Array.shift()` with a head-cursor approach: maintain an integer `head` index into the frontier array and increment it instead of shifting. The array grows at the tail (push) and the cursor advances at the head (increment), making each dequeue O(1). The BFS remains O(V + E) overall.
+- **Applies to both BFS paths**: INV-12 (land connectivity) and INV-16 (flow-viable connectivity) both use the same BFS pattern and are both updated. The US4 AC-1 reachable-land test (which also uses BFS) is updated identically.
+- **No behavioral change**: the BFS algorithm's output is identical — the same cells are visited in the same order (BFS order is determined by neighbor iteration, not by the dequeue mechanism). Determinism (FR-006) and byte-identical regeneration (SC-001) are unaffected.
+- **No contract change**: this is an internal performance optimization. The generator's public API (`generateBoard`, `TerrainGenerationResult`, `ValidationReport`) is unchanged.
+- **Performance target**: SC-003 (default 32×32 / 2-player map generates in under 1 second) remains unchanged. The BFS fix reduces the validator's contribution to generation time; the overall budget is unaffected because BFS is a fraction of total generation time (fBm + smoothing + city placement dominate).
+- **Test expectations**: all existing validation tests pass unchanged. A new SC-05 is added: the validator BFS (both INV-12 and INV-16) MUST complete a full 32×32 board traversal in under 1 ms (measured via `performance.now()` in the test harness); this is a regression guard for future BFS modifications.

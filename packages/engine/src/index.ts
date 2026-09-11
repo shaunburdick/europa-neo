@@ -81,6 +81,10 @@ export type {
     TickEvents,
     // Terminal
     TickResult,
+    // Scratch buffers (FR-03, SC-006)
+    TickScratchBuffers,
+    // Transfer params for flow resolver pool
+    TransferParams,
     // Results
     ValidationError,
     // World
@@ -119,7 +123,7 @@ export {
 export type { FlowConstants } from '@europa/core';
 export { flowRateForDelta } from '@europa/core';
 export { applyCommand } from './applyCommand';
-export { createWorld } from './create';
+export { createTickScratchBuffers, createWorld } from './create';
 export { isTerminal, tick } from './tick';
 export { validateCommand } from './validate';
 

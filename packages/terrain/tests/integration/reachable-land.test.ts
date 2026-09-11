@@ -117,11 +117,10 @@ describe('US4 AC-1 reachable land (200 maps, mean flow-viable fraction ≥ 50%)'
                     queue.push(startIdx);
                 }
             }
-            while (queue.length > 0) {
-                const cur = queue.shift();
-                if (cur === undefined) {
-                    break;
-                }
+            let head = 0;
+            while (head < queue.length) {
+                const cur = queue[head] as number;
+                head++;
                 const cx = cur % Size;
                 const cy = Math.floor(cur / Size);
                 const srcCell = board.cells[cur];

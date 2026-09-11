@@ -11,10 +11,10 @@ import { isNetworkError, NetworkError } from '../../src/errors';
 
 describe('NetworkError', () => {
     it('is an Error carrying code and message', () => {
-        const err = new NetworkError('rate_limited', 'too many orders');
+        const err = new NetworkError('client_rate_limited', 'too many orders');
         expect(err).toBeInstanceOf(Error);
         expect(err.name).toBe('NetworkError');
-        expect(err.code).toBe('rate_limited');
+        expect(err.code).toBe('client_rate_limited');
         expect(err.message).toBe('too many orders');
     });
 
@@ -44,15 +44,15 @@ describe('NetworkError', () => {
 
 describe('isNetworkError', () => {
     it('returns true for NetworkError instances', () => {
-        expect(isNetworkError(new NetworkError('rate_limited', 'x'))).toBe(true);
+        expect(isNetworkError(new NetworkError('client_rate_limited', 'x'))).toBe(true);
     });
 
     it('returns false for plain Errors and non-errors', () => {
         expect(isNetworkError(new Error('plain'))).toBe(false);
-        expect(isNetworkError('rate_limited')).toBe(false);
+        expect(isNetworkError('client_rate_limited')).toBe(false);
         expect(isNetworkError(null)).toBe(false);
         expect(isNetworkError(undefined)).toBe(false);
-        expect(isNetworkError({ code: 'rate_limited' })).toBe(false);
+        expect(isNetworkError({ code: 'client_rate_limited' })).toBe(false);
     });
 
     it('narrows the type in catch blocks', () => {

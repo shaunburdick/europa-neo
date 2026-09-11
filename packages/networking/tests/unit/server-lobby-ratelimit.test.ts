@@ -72,7 +72,7 @@ describe('lobby token bucket recovery (T-011)', () => {
         for (let i = 0; i < FLOOD_SIZE; i++) {
             sendLobby(socket, 'lobbyIdentity', lobbyIdentityPayload({ claim: buildIdentityClaim() }));
         }
-        const limited = transportErrors(socket).filter((error) => error.code === 'rate_limited');
+        const limited = transportErrors(socket).filter((error) => error.code === 'client_rate_limited');
         expect(limited.length).toBeGreaterThanOrEqual(FLOOD_SIZE - LOBBY_CAPACITY);
         // Every frame is accounted for: routed or rejected, none lost.
         expect(fake.identityCalls.length + limited.length).toBe(FLOOD_SIZE);
@@ -87,7 +87,7 @@ describe('lobby token bucket recovery (T-011)', () => {
         for (let i = 0; i < 10; i++) {
             sendLobby(socket, 'lobbyIdentity', lobbyIdentityPayload({ claim: buildIdentityClaim() }));
         }
-        const newLimited = transportErrors(socket).filter((error) => error.code === 'rate_limited');
+        const newLimited = transportErrors(socket).filter((error) => error.code === 'client_rate_limited');
         expect(newLimited).toHaveLength(limited.length); // nothing new was rejected
         expect(fake.identityCalls.length).toBe(routedBefore + 10);
     });
@@ -107,7 +107,7 @@ describe('lobby token bucket recovery (T-011)', () => {
         // …and their count stayed at the bucket ceiling (+ small slack
         // for timer granularity during the synchronous loop).
         expect(routedClaims.length).toBeLessThanOrEqual(LOBBY_CAPACITY + 5);
-        expect(transportErrors(socket).some((error) => error.code === 'rate_limited')).toBe(true);
+        expect(transportErrors(socket).some((error) => error.code === 'client_rate_limited')).toBe(true);
     });
 });
 
@@ -133,7 +133,7 @@ describe('lobby flood leaves the gameplay path untouched', () => {
         for (let i = 0; i < FLOOD_SIZE; i++) {
             sendLobby(player.socket, 'lobbyIdentity', lobbyIdentityPayload());
         }
-        expect(transportErrors(player.socket).some((error) => error.code === 'rate_limited')).toBe(true);
+        expect(transportErrors(player.socket).some((error) => error.code === 'client_rate_limited')).toBe(true);
 
         // Gameplay seat claim: NOT rate-limited (separate bucket), fully
         // acknowledged with the claimed seat.
@@ -156,7 +156,7 @@ describe('lobby flood leaves the gameplay path untouched', () => {
 
         // And the only rejections on this wire are the lobby flood's.
         for (const error of transportErrors(player.socket)) {
-            expect(error.code).toBe('rate_limited');
+            expect(error.code).toBe('client_rate_limited');
         }
 
         await server.close();

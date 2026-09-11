@@ -43,7 +43,7 @@ import type { PlayerId } from '@europa/engine';
  *     `ProtocolEnvelope.version`). Server rejects mismatched major versions
  *     per feature 004 FR-004.
  */
-export const NETWORK_API_VERSION = '0.1.0' as const;
+export const NETWORK_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Branded primitives
@@ -201,7 +201,7 @@ export interface ServerConnection {
  *   - Refill rate = `maxOrdersPerSecond` tokens per second.
  *   - Each accepted order consumes 1 token.
  *   - Excess orders are dropped with an `ErrorPayload` of code
- *     `'rate_limited'` and do not advance the world's pending-order queue.
+ *     `'client_rate_limited'` and do not advance the world's pending-order queue.
  *
  * Networking-side only. Heartbeats and snapshots do NOT consume tokens.
  */
@@ -372,8 +372,8 @@ export interface HelloAckPayload {
  * - **New session** (no `reconnectToken`): server assigns a new
  *   `PlayerId` seat in the requested match. Subject to match capacity
  *   (2–4 per engine contract; v1 ships 2). Fails with
- *   `ErrorPayload` codes `'match_full'` / `'match_not_found'` /
- *   `'match_not_joinable'`.
+ *   `ErrorPayload` code `'match_not_joinable'` (FR-016 anti-oracle
+ *   collapse: not found, full, or seat taken).
  *
  * - **Reconnect** (with `reconnectToken`): server validates the token,
  *   restores the seat, sends a fresh `SnapshotPayload`. Fails with
@@ -544,21 +544,43 @@ export interface ErrorPayload {
  * minor bump is wire-breaking, and additive error codes are safely
  * ignored by clients' default error branches.
  */
+/**
+ * Base type for all protocol-level error codes. Both the networking
+ * `ErrorCode` union and lobby error code unions extend this type.
+ * Provides a shared surface for generic error-handling code that
+ * does not need to distinguish subprotocol-specific codes.
+ *
+ * FR-017: shared base type with `client_` prefix convention.
+ */
+export type ProtocolErrorCode = string;
+
+/**
+ * Shared protocol error codes. All protocol-level rejections use one
+ * of these codes. Client-originated errors use `client_` prefix;
+ * server-originated errors are unprefixed.
+ *
+ * FR-017: shared base type with `client_` prefix convention.
+ * FR-016: match-existence errors collapsed to `match_not_joinable`.
+ */
 export type ErrorCode =
-  | 'version_mismatch' // FR-004
-  | 'malformed_payload' // JSON parse / schema validation failed
-  | 'unknown_message_kind' // envelope.type not in MessageKind
-  | 'protocol_sequence_error' // e.g., order before joinMatch
-  | 'match_not_found' // private-match lookup miss (US3 FR-006)
-  | 'match_full' // all seats taken
-  | 'match_not_joinable' // already running without open seats
-  | 'token_invalid' // reconnect token unknown
-  | 'token_expired' // reconnect window elapsed
-  | 'token_mismatch' // reconnect token valid but bound to a different match
-  | 'seat_taken' // another connection claimed this seat first
-  | 'rate_limited' // FR-010
-  | 'spectator_readonly' // spectator tried to submit an order
-  | 'internal_error'; // catch-all; logged on the server
+  // Version/protocol errors (server-originated, unprefixed)
+  | 'version_mismatch'           // FR-004
+  | 'malformed_payload'          // JSON parse / schema validation failed
+  | 'unknown_message_kind'       // envelope.type not in MessageKind
+  | 'protocol_sequence_error'    // e.g., order before joinMatch
+  // Client-originated errors (client_ prefix)
+  | 'client_rate_limited'        // FR-010 (was 'rate_limited')
+  | 'client_payload_too_large'   // FR-010 frame exceeds maxPayload
+  // Match admission errors (collapsed — FR-016 anti-oracle)
+  | 'match_not_joinable'         // unified: not found, full, seat taken, disabled
+  // Authentication errors (bearer-credential related — not collapsed)
+  | 'token_invalid'              // reconnect token unknown
+  | 'token_expired'              // reconnect window elapsed
+  | 'token_mismatch'             // reconnect token valid but wrong match
+  // Authorization errors
+  | 'spectator_readonly'         // spectator tried to submit an order
+  // Server errors
+  | 'internal_error';            // catch-all; logged on the server
 
 // ----------------------------------------------------------------------------
 // Feature 010 — Public lobby & match browser (additive wire family)

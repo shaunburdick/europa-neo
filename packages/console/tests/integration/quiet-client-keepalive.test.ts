@@ -37,6 +37,7 @@ import {
     createMatchServer,
     type Logger,
     type MatchmakerBridge,
+    NETWORK_API_VERSION,
     NETWORK_DEFAULT_CONFIG,
     NULL_LOGGER,
     type ServerDeps,
@@ -159,7 +160,7 @@ class RawSeat {
     }
 
     send(type: string, payload: Record<string, unknown>): void {
-        this.socket.send(JSON.stringify({ type, version: '0.1.0', seq: 1, payload }));
+        this.socket.send(JSON.stringify({ type, version: NETWORK_API_VERSION, seq: 1, payload }));
     }
 
     /** Next inbound envelope (or a synthetic 'closed' marker on close). */
@@ -262,7 +263,7 @@ describe('quiet-but-alive clients survive the idle sweep (Bug 2 guard)', () => {
         // window — proving this fixture detects a broken keepalive.
         const seat = new RawSeat(stack.url);
         await seat.open();
-        seat.send('hello', { protocolVersion: '0.1.0' });
+        seat.send('hello', { protocolVersion: NETWORK_API_VERSION });
         const helloAck = await seat.next();
         expect(helloAck.type).toBe('helloAck');
         seat.send('joinMatch', {

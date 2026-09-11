@@ -83,9 +83,8 @@ export function acceptOrder(
         );
     }
 
-    if (!connection.takeToken(nowMs)) {
-        return reject(new NetworkError('rate_limited', 'order rate limit exceeded'));
-    }
+    // T010: rate limiting is now handled at the handleEnvelope level
+    // (all-frame bucket). No per-order token consumption here.
 
     // Issue #121 P0: validate order shape at the wire boundary BEFORE
     // enqueuing. A shape-invalid order (unknown kind, missing fields,

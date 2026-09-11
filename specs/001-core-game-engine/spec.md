@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-09-07)
+**Status**: Implemented (2026-09-07; hot-path allocation reuse 2026-09-11)
 
 **Input**: User description: "Deterministic tick-based simulation of the original Europa gameplay: grid terrain with elevation and water, cities producing nanobot troops, pipes directing troop flow, attrition combat, decay, cell capacity with reserves, paratroopers, guns, and last-player-standing victory."
 
@@ -149,6 +149,7 @@ As a player, I want the game to declare a winner when all opponents surrender or
 - **SC-003**: Game-logic modules maintain ≥80% test coverage (constitution gate).
 - **SC-004**: A full tick of a default-size board (32×32, 2 players) completes in under 10 ms on commodity hardware, supporting smooth real-time play.
 - **SC-005**: Every numeric rule (production, decay, attrition, costs, ranges) is defined in one tunable-constants location, not scattered through logic.
+- **SC-006**: A V8 heap-profile snapshot of 1000 consecutive ticks on a populated 32×32 board MUST show zero allocations in the `tick()` function body (allocations in setup/teardown outside `tick()` are permitted). This is a regression guard for the scratch-buffer reuse in Clarifications v1.10.
 
 ## Assumptions
 
@@ -326,3 +327,13 @@ Cell has 5 troops (P2). P1 sends 20 via pipe. All 20 enter (headroom 25). `commi
 - **US1 AC-2 updated**: a saturated city with an eastward pipe into an empty cell transfers `floor(flowRate / 1)` = 12 troops each tick (equal-split, single pipe), so the source depletes by 12 per tick and the destination accumulates the received amount.
 - **US1 AC-5 updated**: the stall threshold is now expressed as the elevation delta where the effective per-pipe amount reaches 0 (`Δelev ≥ perPipe / flowUphillStep`). With `flowRate = 12` and a single pipe, `perPipe = 12`, so stall at Δ ≥ 12. With 2 pipes, `perPipe = 6`, so stall at Δ ≥ 6. The threshold varies by pipe count — this is a deliberate design choice.
 - **Test updates in the same change set**: `tests/unit/flow.test.ts` (all `TEST_CONSTANTS` assertions updated for equal-split formula; new "equal-split" suite covering 1/2/3/4-pipe split scenarios with充足 and scarce sources; new "plateau flow" suite verifying chain-tip behavior; conservation assertions updated to account for equal-split depletion), `tests/quickstart/slope-flow.test.ts` (Q-003 expected values updated for equal-split rates).
+
+### v1.10 (2026-09-11) — Hot-path allocation reuse (issue #135, code review I-28 Thread T-14)
+
+Rationale: code review identified per-tick allocation of typed arrays, per-cell `committedPlayers`, and per-source `TransferParams` as garbage-collection pressure on the hot path. With 250 ms tick cadence, every allocation that can be avoided reduces GC pauses and improves SC-004 compliance.
+
+- **FR-03 added** — scratch buffer reuse: the engine tick MUST reuse pre-allocated scratch buffers across ticks rather than allocating new typed arrays, `committedPlayers` maps, and `TransferParams` objects per tick. Specifically: (a) the `newCounts` / `troopOwners` arrays used during flow resolution MUST be pre-allocated at board construction time and zeroed in-place before each tick (not re-created); (b) `committedFlowTally` (FR-008 side-channel) and `inflowTally` MUST be similarly reused; (c) `TransferParams` objects (used per-source-pipe during flow) MUST be drawn from a pre-allocated pool sized to the maximum pipe count per cell (4 directions × N cells); (d) `committedPlayers` per cell (used by combat) MUST be a fixed-size per-cell array sized to `playerCount`, allocated once at board construction and cleared in-place each tick.
+- **Determinism preserved**: in-place zeroing produces identical results to fresh allocation because the engine reads every cell position exactly once per phase (flow, combat, capture, decay). No stale data can leak between phases. Byte-identical determinism (SC-001) is unaffected.
+- **Performance target**: the per-tick allocation cost (excluding the one-time board-construction allocation) MUST be zero. This is verifiable by profiling — the tick function must not allocate on the V8 heap after the first tick. SC-004 (tick < 10 ms) remains the pass/fail criterion; the allocation reuse is a means to that end, not a separate metric.
+- **No contract change**: this is an internal performance optimization. The engine's public API (`tick`, `applyCommand`, `TickResult`, `GameState`) is unchanged. Callers see identical behavior.
+- **Test expectations**: SC-001 determinism tests are unchanged. A new SC-006 is added: a V8 heap-profile snapshot of 1000 consecutive ticks on a populated 32×32 board MUST show zero allocations in the `tick()` function body (allocations in setup/teardown outside `tick()` are permitted).

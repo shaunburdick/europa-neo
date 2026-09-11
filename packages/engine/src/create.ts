@@ -21,7 +21,20 @@
  */
 
 import { hashSeed } from '@europa/core';
-import type { Board, Cell, CityPlacement, MatchConfig, Player, PlayerId, Terrain, World, WorldState } from './types';
+import type {
+    Board,
+    Cell,
+    CityPlacement,
+    EngineConstants,
+    MatchConfig,
+    Player,
+    PlayerId,
+    Terrain,
+    TickScratchBuffers,
+    TransferParams,
+    World,
+    WorldState,
+} from './types';
 
 /** Minimum board dimension the engine accepts (per data-model.md §1). */
 export const MIN_BOARD_SIZE = 8;
@@ -188,3 +201,66 @@ export function createWorld(config: MatchConfig, board: Board): World {
 // (consumers read Terrain via `types.ts`; this module re-asserts the
 // type union inline so a future change to Terrain can be detected here).
 export type { Cell, Terrain };
+
+/**
+ * Engine player count constant — matches the maximum number of players
+ * supported by the engine (FR-019). Used to size per-player scratch
+ * buffers (inflowTally, committedFlowTally, committedPlayersPool).
+ */
+const PLAYERS = 4;
+
+/**
+ * Maximum number of outgoing pipes per cell (N, E, S, W).
+ * Used to size the TransferParams pool.
+ */
+const MAX_PIPES_PER_CELL = 4;
+
+/**
+ * Allocate pre-allocated scratch buffers for the tick pipeline (FR-03,
+ * SC-006). Called once per match at board construction time.
+ *
+ * All typed arrays are sized for the given board dimensions and zeroed.
+ * The `transferParams` pool is pre-populated with 4 reusable objects
+ * (one per possible outgoing pipe direction). Subsequent ticks reuse
+ * these buffers via `fill(0)` and in-place field resets, eliminating
+ * per-tick heap allocations.
+ *
+ * @param width  Board width in cells.
+ * @param height Board height in cells.
+ * @returns Fresh, zeroed `TickScratchBuffers` ready for the first tick.
+ */
+export function createTickScratchBuffers(width: number, height: number): TickScratchBuffers {
+    const n = width * height;
+    return {
+        inflowTally: new Uint32Array(n * PLAYERS),
+        committedFlowTally: new Uint32Array(n * PLAYERS),
+        preFlowOwners: new Uint8Array(n),
+        preFlowCounts: new Uint32Array(n),
+        reservedFloors: new Uint32Array(n),
+        hasIncomingSameOwnerPipe: new Uint8Array(n),
+        flowNewCounts: new Uint32Array(n),
+        flowNewOwners: new Uint8Array(n),
+        combatNewCounts: new Uint32Array(n),
+        combatNewOwners: new Uint8Array(n),
+        transferParams: Array.from({ length: MAX_PIPES_PER_CELL }, () => ({
+            board: {} as Board, // placeholder — reset before each use
+            x: 0,
+            y: 0,
+            dx: 0,
+            dy: 0,
+            srcOwner: 0,
+            constants: {} as EngineConstants,
+            cap: 0,
+            newCounts: new Uint32Array(0),
+            newOwners: new Uint8Array(0),
+            reservesPct: new Uint8Array(0),
+            tally: null,
+            committedTally: null,
+            numPipes: 0,
+            perPipe: 0,
+            pipeIndex: 0,
+            reserveFloor: 0,
+        })) as TransferParams[],
+        committedPlayersPool: new Uint32Array(n * PLAYERS * 2),
+    };
+}

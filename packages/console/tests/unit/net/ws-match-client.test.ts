@@ -15,6 +15,7 @@
  *   - malformed-frame tolerance.
  */
 
+import { NETWORK_API_VERSION } from '@europa/networking';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createConsoleClient } from '../../../src/net/client';
@@ -81,7 +82,7 @@ class FakeWebSocket {
         serverSeq += 1;
         const envelope = {
             type,
-            version: '0.1.0',
+            version: NETWORK_API_VERSION,
             seq: serverSeq as SequenceNumber,
             payload,
         } as unknown as ProtocolEnvelope<NetworkPayload>;
@@ -104,7 +105,7 @@ function greetedClient(): {
     void client.connect('ws://test');
     socket.open();
     socket.deliver('helloAck', {
-        protocolVersion: '0.1.0',
+        protocolVersion: NETWORK_API_VERSION,
         connectionId: 'conn-1',
         heartbeatIntervalMs: 5000,
     });
@@ -152,10 +153,10 @@ describe('WsMatchClient handshake', () => {
         const hello = sentEnvelope(socket, 0);
         expect(hello.type).toBe('hello');
         expect(hello.seq).toBe(1);
-        expect(hello.payload).toMatchObject({ protocolVersion: '0.1.0' });
+        expect(hello.payload).toMatchObject({ protocolVersion: NETWORK_API_VERSION });
 
         socket.deliver('helloAck', {
-            protocolVersion: '0.1.0',
+            protocolVersion: NETWORK_API_VERSION,
             connectionId: 'c-77',
             heartbeatIntervalMs: 4000,
         });
@@ -345,7 +346,7 @@ describe('adapter ↔ wire-seq correlation (integration-wave regression)', () =>
         const connecting = client.connect();
         socket.open();
         socket.deliver('helloAck', {
-            protocolVersion: '0.1.0',
+            protocolVersion: NETWORK_API_VERSION,
             connectionId: 'c-1',
             heartbeatIntervalMs: 5000,
         });
@@ -378,7 +379,7 @@ describe('adapter ↔ wire-seq correlation (integration-wave regression)', () =>
         const event = netEventFromEnvelope(
             {
                 type: 'orderAck',
-                version: '0.1.0',
+                version: NETWORK_API_VERSION,
                 seq: 9 as SequenceNumber,
                 payload: { seq: ackEnvelope.seq, result: { ok: true } },
             } as ProtocolEnvelope<NetworkPayload>,
@@ -451,7 +452,7 @@ describe('WsMatchClient wire-view rehydration (live-wire defect fix)', () => {
         void client.connect('ws://rehydrate-join');
         socket.open();
         socket.deliver('helloAck', {
-            protocolVersion: '0.1.0',
+            protocolVersion: NETWORK_API_VERSION,
             connectionId: 'c-rh',
             heartbeatIntervalMs: 5000,
         });
@@ -486,7 +487,7 @@ describe('WsMatchClient wire-view rehydration (live-wire defect fix)', () => {
         void client.connect('ws://rehydrate-rejoin');
         socket.open();
         socket.deliver('helloAck', {
-            protocolVersion: '0.1.0',
+            protocolVersion: NETWORK_API_VERSION,
             connectionId: 'c-rh2',
             heartbeatIntervalMs: 5000,
         });
@@ -544,7 +545,7 @@ describe('WsMatchClient lifecycle end states', () => {
         void client.connect('ws://hb');
         socket.open();
         socket.deliver('helloAck', {
-            protocolVersion: '0.1.0',
+            protocolVersion: NETWORK_API_VERSION,
             connectionId: 'c-hb',
             heartbeatIntervalMs: 5000,
         });

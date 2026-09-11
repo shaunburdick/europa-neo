@@ -105,7 +105,7 @@ export interface ServerConfig {
   readonly reconnectGraceMs: number;
   /**
    * Per-connection order rate limit (orders/second). Default `10`.
-   * Excess orders are dropped with `'rate_limited'` error per FR-010.
+   * Excess orders are dropped with `'client_rate_limited'` error per FR-010.
    * Heartbeats and snapshots do not consume tokens.
    */
   readonly ordersPerSecond: number;
@@ -135,6 +135,40 @@ export interface ServerConfig {
    * log spam from per-tick frames.
    */
   readonly verboseLogging: boolean;
+
+  /**
+   * Maximum total concurrent WebSocket connections. When reached,
+   * new upgrade requests are rejected with HTTP 429 (FR-012).
+   * Default: 1000.
+   */
+  readonly maxGlobalConnections: number;
+
+  /**
+   * Maximum concurrent WebSocket connections from a single IP.
+   * When reached, new upgrade requests from that IP are rejected
+   * with HTTP 429 (FR-012). Default: 10.
+   */
+  readonly maxPerIpConnections: number;
+
+  /**
+   * Allowed WebSocket origins. When non-empty, connections from
+   * origins not in this set are rejected with HTTP 403 (FR-013).
+   * Empty = all origins allowed (dev default). Deployments behind
+   * a reverse proxy SHOULD set this to the deployed origin.
+   */
+  readonly allowedOrigins: ReadonlySet<string>;
+
+  /**
+   * Maximum length for player display names (handles). Names
+   * exceeding this are rejected at handshake (FR-015). Default: 32.
+   */
+  readonly maxHandleLength: number;
+
+  /**
+   * Maximum length for guest identity strings. Identities
+   * exceeding this are rejected at handshake (FR-015). Default: 128.
+   */
+  readonly maxIdentityLength: number;
 }
 
 /**
@@ -152,6 +186,11 @@ export const NETWORK_DEFAULT_CONFIG: ServerConfig = {
   maxConcurrentMatches: 64,
   wsIdleTimeoutMs: 30_000,
   verboseLogging: false,
+  maxGlobalConnections: 1000,
+  maxPerIpConnections: 10,
+  allowedOrigins: new Set<string>(),
+  maxHandleLength: 32,
+  maxIdentityLength: 128,
 } as const;
 
 // ----------------------------------------------------------------------------
