@@ -46,15 +46,15 @@ describe('EuropaPlayerBadge', () => {
     it('reflects the player color token on the inline style', () => {
         render(<EuropaPlayerBadge player={1} />);
         const badge = screen.getByRole('img');
-        expect(badge).toHaveStyle({ color: TOKENS.color.accent });
+        expect(badge).toHaveStyle({ color: TOKENS.color.playerColor1 });
     });
 
     it('maps each player to its token color', () => {
         const cases: Array<[number, string]> = [
-            [1, TOKENS.color.accent],
-            [2, TOKENS.color.city],
-            [3, TOKENS.color.green],
-            [4, TOKENS.color.blue],
+            [1, TOKENS.color.playerColor1],
+            [2, TOKENS.color.playerColor2],
+            [3, TOKENS.color.playerColor3],
+            [4, TOKENS.color.playerColor4],
         ];
 
         for (const [player, expected] of cases) {
