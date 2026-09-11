@@ -112,19 +112,10 @@ export function EuropaModal({ open = false, title, children, actions, onClose }:
         }
     };
 
-    const handleBackdropKeyDown = (_e: React.KeyboardEvent) => {
-        // Escape is handled at the document level (handleKeyDown) to avoid double-fire.
-        // This handler exists to satisfy the a11y lint rule requiring keyboard events
-        // alongside click events on role="button" elements.
-    };
-
     return (
         <div
             className="europa-modal-backdrop"
-            role="button"
-            tabIndex={-1}
             onClick={handleBackdropClick}
-            onKeyDown={handleBackdropKeyDown}
         >
             <div
                 ref={dialogRef}
