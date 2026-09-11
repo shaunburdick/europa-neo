@@ -48,6 +48,7 @@
         "check:contrast-notes": "tsx scripts/check-contrast-notes.ts",
         "check:brand-types": "tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck tests/brand/package-surface.types.ts",
         "test": "vitest run",
+        "test:browser": "vitest run --config vitest.config.browser.ts",
         "test:watch": "vitest",
         "lint": "biome check .",
         "format": "biome format --write .",
