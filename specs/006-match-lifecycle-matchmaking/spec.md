@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-21
 
-**Last Updated**: 2026-08-30 (v1.2; identity-visibility correction)
+**Last Updated**: 2026-09-11 (v1.3; error-code alignment with spec 004)
 
-**Version**: 1.2
+**Version**: 1.3
 
 **Status**: Implemented
 
@@ -281,3 +281,13 @@ Contracts were updated in the same change set wherever behavior changed.
   unchanged. `MatchId` is a non-secret routing/admission reference, not a
   session or reconnect bearer credential. It may be shared as the private join
   reference, but knowledge of it alone grants no seat, order, or view authority.
+
+### v1.3 (2026-09-11) — Error-code alignment with spec 004 admission hardening (issue #151)
+
+Rationale: spec 004 v1.5 collapses match-existence error codes (`match_not_found`, `match_full`, `seat_taken`, `match_not_joinable`) into a single `match_not_joinable` on the gameplay path and introduces a shared `ProtocolErrorCode` base type with `client_` prefix for client-originated errors. Spec 006's matchmaking error surface must align with these changes.
+
+- **FR-006 amended**: the previous FR-006 specified that unknown IDs be rejected "without revealing whether a private match exists." This is now achieved by the broader error-code collapsing in spec 004 FR-016: all admission-failure modes (unknown match, full match, seat taken, not joinable) return `match_not_joinable`. The specific text "unknown IDs MUST be rejected without revealing whether a private match exists" remains correct but is now enforced by the unified code rather than by matching specific error strings.
+- **LobbyErrorCode alignment**: matchmaking's `LobbyErrorCode` union (currently a closed set of lobby-domain codes like `invalid_request`, `identity_invalid`, `match_not_found`, etc.) MUST be updated to: (a) use the shared `ProtocolErrorCode` base type from spec 004 FR-017, and (b) replace `match_not_found` with `match_not_joinable` to match the collapsed gameplay-path code. The `client_` prefix convention applies to client-originated lobby errors (e.g., `client_invalid_request` becomes `invalid_request` if it is server-originated — the `client_` prefix is reserved for rate-limit, payload-size, and similar transport-level rejections defined in spec 004).
+- **`leaveMatch` error codes updated**: the `leaveMatch` method (Implementation Notes, v1.2 `leaveMatch` section) currently returns `match_not_found` for unknown IDs and `session_invalid` for token mismatches. After this change: unknown IDs return `match_not_joinable`; `session_invalid` remains (it is a credential error, not an admission error, and does not leak match existence).
+- **Conformance test update**: the matchmaking conformance suite's error-code assertions MUST be updated to expect `match_not_joinable` where `match_not_found` was previously asserted on admission paths. The `leaveMatch` conformance test updates accordingly.
+- **No new FRs**: the error-code alignment is a clarification of existing FR-006 semantics, not new functionality. The FR numbering in spec 006 is unchanged.
