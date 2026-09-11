@@ -517,6 +517,7 @@ removes unused components from the production bundle (guarded by G-10 and the bu
 | --- | --- | --- | --- | --- | --- |
 | `EuropaButton` | `variant` (primary/secondary/ghost/success/warning/error/info), `size` (sm/lg), `disabled`, `type`, `aria-label` | `ReactNode` (label) | none | native `<button>` (FR-013), keyboard-operable, focus-visible ring | `<EuropaButton variant="primary">Save</EuropaButton>` |
 | `EuropaCard` | none | `ReactNode` | none | host supplies heading structure | `<EuropaCard><h3>Title</h3><p>Content</p></EuropaCard>` |
+| `EuropaFogOverlay` | `visible` (`boolean`, default `true`) | — | — | `<div class="europa-fog-overlay" aria-hidden="true">` when visible; `null` when hidden. Semi-transparent fog overlay using `overlaySoft` token. | `<EuropaFogOverlay />` |
 | `EuropaPlate` | none | `ReactNode` | none | host supplies heading structure | `<EuropaPlate><p>Content</p></EuropaPlate>` |
 | `EuropaModal` | `open` (boolean), `title` (string), `onClose` (() → void) | `ReactNode` (body), `actions` slot via named child | `onClose` (Escape/backdrop) | `role="dialog"`, `aria-modal`, `aria-labelledby`, focus trap, Escape close, focus restore (FR-011) | `<EuropaModal open title="Confirm" onClose={handleClose}><p>Are you sure?</p><EuropaButton onClick={confirm}>Yes</EuropaButton></EuropaModal>` |
 | `EuropaChip` | `count` (number) | none | none | text content is the value | `<EuropaChip count={12} />` |
