@@ -166,6 +166,28 @@ jobs:
       - name: Typecheck conformance program
         run: pnpm --filter @europa/console typecheck:conformance
 
+      - name: Orphaned vitest config guard
+        run: |
+          # Find all vitest config files
+          configs=$(find packages -name 'vitest.config*.ts' -not -path '*/node_modules/*' | sort)
+          orphaned=0
+          for config in $configs; do
+            pkg_dir=$(dirname "$config")
+            config_basename=$(basename "$config")
+            # Check if any npm script in the package references this config
+            if ! grep -q "$config_basename" "$pkg_dir/package.json" 2>/dev/null; then
+              # Also check if any CI workflow references it
+              if ! grep -rq "$config_basename" .github/workflows/ 2>/dev/null; then
+                echo "::error::Orphaned vitest config: $config (not referenced by any npm script or CI workflow)"
+                orphaned=1
+              fi
+            fi
+          done
+          if [ "$orphaned" -eq 1 ]; then
+            exit 1
+          fi
+          echo "All vitest configs are referenced."
+
   design-browser-test:
     name: Browser-mode tests (design)
     needs: [changes]
@@ -189,6 +211,48 @@ jobs:
 
       - name: Browser-mode tests (design — focus-trap, a11y)
         run: pnpm --filter @europa/design test:browser
+
+  design-coverage:
+    name: Coverage gate (design ≥ 80%)
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Build @europa/design
+        run: pnpm --filter @europa/design build
+
+      - name: Coverage (design)
+        run: pnpm --filter @europa/design coverage
+
+  version-coverage:
+    name: Coverage gate (version ≥ 80%)
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Build @europa/version
+        run: pnpm --filter @europa/version build
+
+      - name: Coverage (version)
+        run: pnpm --filter @europa/version coverage
 
   console-test:
     name: Test suites (console — node)
