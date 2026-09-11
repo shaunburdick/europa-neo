@@ -141,8 +141,11 @@ describe('listPublicMatches — mutation snapshot (US2 AC-3 / SC-003)', () => {
             }),
         );
 
+        // A 2/2 filling match (all seats filled but not yet started) is
+        // excluded from the lobby — no free seats exist, so it is not
+        // joinable (issue #126).
         const after = listPublicMatches([match], 62_000);
-        expect(after[0]?.seatsFilled).toBe(2);
+        expect(after).toHaveLength(0);
     });
 
     it('FR-005 / SC-003: a record transitioning filling → running drops out on the next call', () => {
@@ -226,5 +229,26 @@ describe('projectLobbyEntry — FR-004 / FR-005 / data-model §12', () => {
         // hostless record can only exist through external corruption.
         const match = makeMatch('public', 0);
         expect(projectLobbyEntry(match, 2_000)).toBeNull();
+    });
+
+    it('issue #126: excludes a full-but-unstarted non-rematch filling match from the lobby', () => {
+        // A filling match with all seats filled but no initialSeed
+        // (normal create that filled up) is not joinable — no free
+        // seats — and must not appear in the lobby projection.
+        const match = makeMatch('public', 2);
+        // initialSeed is null by default (normal create, not rematch)
+        expect(match.initialSeed).toBeNull();
+        expect(projectLobbyEntry(match, 2_000)).toBeNull();
+    });
+
+    it('issue #126: a rematch-created filling match (initialSeed set) IS projected', () => {
+        // Rematch matches are born with all seats pre-filled and an
+        // initialSeed set at creation — they sit in 'filling' until
+        // original participants reconnect, and the lobby must list them.
+        const match = makeMatch('public', 2);
+        match.initialSeed = 42;
+        const entry = projectLobbyEntry(match, 2_000);
+        expect(entry).not.toBeNull();
+        expect(entry?.seatsFilled).toBe(2);
     });
 });
