@@ -840,10 +840,10 @@ describe('resolveCombat — garrison in 3-way+ combat (issue #130)', () => {
         state.troopOwners[idx] = 2; // last writer
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4, 1, 30,
-            [{ player: 2, count: 15 }, { player: 3, count: 10 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 1, 30, [
+            { player: 2, count: 15 },
+            { player: 3, count: 10 },
+        ]);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         // P1 dominates with total force 30 vs P2(15) and P3(10).
@@ -872,10 +872,11 @@ describe('resolveCombat — garrison in 3-way+ combat (issue #130)', () => {
         state.troopOwners[idx] = 2;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4, 1, 10,
-            [{ player: 1, count: 5 }, { player: 2, count: 12 }, { player: 3, count: 8 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 1, 10, [
+            { player: 1, count: 5 },
+            { player: 2, count: 12 },
+            { player: 3, count: 8 },
+        ]);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.state.troopCounts[idx]).toBe(15);
@@ -898,10 +899,10 @@ describe('resolveCombat — garrison in 3-way+ combat (issue #130)', () => {
         state.troopOwners[idx] = 1;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4, 1, 5,
-            [{ player: 2, count: 20 }, { player: 3, count: 10 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 1, 5, [
+            { player: 2, count: 20 },
+            { player: 3, count: 10 },
+        ]);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.state.troopCounts[idx]).toBe(20);
@@ -927,10 +928,10 @@ describe('resolveCombat — garrison in 3-way+ combat (issue #130)', () => {
         state.troopOwners[idx] = 2;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4, 1, 25,
-            [{ player: 2, count: 10 }, { player: 3, count: 5 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 1, 25, [
+            { player: 2, count: 10 },
+            { player: 3, count: 5 },
+        ]);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         // P1 retains 25 troops.
@@ -939,9 +940,7 @@ describe('resolveCombat — garrison in 3-way+ combat (issue #130)', () => {
         // Conservation: winner troops + sum of defenderLosses = total pre-combat.
         const totalPreCombat = 25 + 10 + 5;
         const winnerTroops = out.state.troopCounts[idx];
-        const totalLosses = out.events.combat.reduce(
-            (sum, ev) => sum + (ev?.defenderLoss ?? 0), 0,
-        );
+        const totalLosses = out.events.combat.reduce((sum, ev) => sum + (ev?.defenderLoss ?? 0), 0);
         expect(winnerTroops + totalLosses).toBe(totalPreCombat);
     });
 
@@ -957,10 +956,11 @@ describe('resolveCombat — garrison in 3-way+ combat (issue #130)', () => {
         state.troopOwners[idx] = 2;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4, 1, 25,
-            [{ player: 2, count: 15 }, { player: 3, count: 10 }, { player: 4, count: 5 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 1, 25, [
+            { player: 2, count: 15 },
+            { player: 3, count: 10 },
+            { player: 4, count: 5 },
+        ]);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.state.troopCounts[idx]).toBe(25);
@@ -986,10 +986,10 @@ describe('resolveCombat — garrison in 3-way+ combat (issue #130)', () => {
         state.troopOwners[idx] = 1;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4, 2, 25,
-            [{ player: 1, count: 15 }, { player: 3, count: 15 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 2, 25, [
+            { player: 1, count: 15 },
+            { player: 3, count: 15 },
+        ]);
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.state.troopCounts[idx]).toBe(25);
@@ -1009,10 +1009,10 @@ describe('resolveCombat — garrison in 3-way+ combat (issue #130)', () => {
         state.troopOwners[idx] = 1;
 
         const tally = emptyTally(size);
-        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(
-            size, 4, 4, 1, 30,
-            [{ player: 2, count: 15 }, { player: 3, count: 10 }],
-        );
+        const { preFlowState, committedFlowTally } = buildPreFlowAndCommitted(size, 4, 4, 1, 30, [
+            { player: 2, count: 15 },
+            { player: 3, count: 10 },
+        ]);
 
         const reference = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         for (let i = 0; i < 1000; i++) {

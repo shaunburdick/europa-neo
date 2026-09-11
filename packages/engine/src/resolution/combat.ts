@@ -128,8 +128,7 @@ export function resolveCombat(
                 // committed flow from the garrison owner. This is critical for
                 // 3-way+ dominance comparison — without the real count, the garrison
                 // always loses even when it has the most troops (issue #130).
-                const garrisonCommitted =
-                    (committed[idx * PLAYERS + (garrisonOwner - 1)] as number) ?? 0;
+                const garrisonCommitted = (committed[idx * PLAYERS + (garrisonOwner - 1)] as number) ?? 0;
                 const garrisonTotalForce = garrisonCount + garrisonCommitted;
                 const existingEntry = committedPlayers.find((p) => p.owner === garrisonOwner);
                 if (existingEntry !== undefined) {
