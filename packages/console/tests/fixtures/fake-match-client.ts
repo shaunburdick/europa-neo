@@ -7,16 +7,16 @@
  * correlation map shape the shipped adapter exposes, so the order
  * bridge (T056) can be exercised end-to-end.
  *
- * Lives under `src/internal/` (not `tests/fixtures/`) because the E2E
- * demo runtime (`main.tsx`'s `?e2e` branch) injects it at runtime —
- * src cannot import from tests/ (tsconfig excludes).
+ * Lives under `tests/fixtures/` — test-only infrastructure. The E2E
+ * demo runtime (`main.tsx`'s `?e2e` branch) imports it via the
+ * `@test-fixtures` path alias.
  *
  * Deterministic: no timers, no randomness.
  *
  * @internal Test scaffolding; never part of the production boot path.
  */
 
-import type { ActionId, ConsoleClient, NetworkPayload, Order, ProtocolEnvelope, SequenceNumber } from '../state/types';
+import type { ActionId, ConsoleClient, NetworkPayload, Order, ProtocolEnvelope, SequenceNumber } from '../../src/state/types';
 
 /** One recorded outbound order. */
 export interface RecordedOrder {

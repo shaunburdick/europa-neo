@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, test, vi } from 'vitest';
-import { FakeMatchClient } from '../../../src/internal/fake-match-client';
+import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import {
     buildHotkeyTable,
     findHotkeyCollisions,

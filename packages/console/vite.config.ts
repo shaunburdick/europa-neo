@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react';
+import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -18,6 +19,11 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
     plugins: [react()],
+    resolve: {
+        alias: {
+            '@test-fixtures': resolve(__dirname, 'tests/fixtures'),
+        },
+    },
     server: {
         port: Number(process.env.EUROPA_E2E_PORT || 5173),
     },

@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { FakeMatchClient } from '../../../src/internal/fake-match-client';
+import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { HotkeyController } from '../../../src/qol/hotkeys';
 import { ZOOM_WHEEL_STEP } from '../../../src/qol/zoom';
 import { createOrderBridge } from '../../../src/state/order-actions';

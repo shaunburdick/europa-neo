@@ -26,7 +26,7 @@ import { describe, expect, test } from 'vitest';
 import { CONSOLE_CONSTANTS } from '../../../src/config';
 import { translateKey } from '../../../src/input/order-draft';
 import { buildReservesAction, resolveReservePercent } from '../../../src/input/order-reserves';
-import { FakeMatchClient } from '../../../src/internal/fake-match-client';
+import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { liveLabels } from '../../../src/render/label-overlay';
 import { buildMapView, coordKey } from '../../../src/state/build-map-view';
 import { createOrderBridge } from '../../../src/state/order-actions';

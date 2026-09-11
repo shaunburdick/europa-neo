@@ -15,7 +15,7 @@ import { describe, expect, test } from 'vitest';
 import { DEFAULT_CAMERA } from '../../../src/config';
 import { hitTest } from '../../../src/input/hit-test';
 import { fireParatroop } from '../../../src/input/order-paratroop';
-import { FakeMatchClient } from '../../../src/internal/fake-match-client';
+import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { createOrderBridge } from '../../../src/state/order-actions';
 import type { ConsoleStore } from '../../../src/state/store';
 import { createConsoleStore } from '../../../src/state/store';

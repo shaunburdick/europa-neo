@@ -5,7 +5,10 @@
         "jsx": "react-jsx",
         "jsxImportSource": "react",
         "lib": ["ES2022", "DOM", "DOM.Iterable"],
-        "types": ["vite/client", "node"]
+        "types": ["vite/client", "node"],
+        "paths": {
+            "@test-fixtures/*": ["./tests/fixtures/*"]
+        }
     },
     "include": ["src/**/*", "tests/integration/contract-conformance.test.ts"],
     "exclude": ["dist", "node_modules", "coverage"]
