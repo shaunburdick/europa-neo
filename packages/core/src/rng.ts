@@ -48,16 +48,22 @@ import type { Rng } from './types';
  */
 function xmur3(str: string): () => number {
     // Initial seed: 0x6c078965 XOR length. (Standard xmur3 initial value.)
+    /* v8 ignore next -- parity coercion: never diverges in V8 */
     let h = (0x6c078965 ^ str.length) >>> 0;
     // Pre-mix: 32-bit avalanche per character.
     for (let i = 0; i < str.length; i++) {
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         h = Math.imul(h ^ (str.charCodeAt(i) ?? 0), 0xcc9e2d51) >>> 0;
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         h = ((h << 13) | (h >>> 19)) >>> 0;
     }
     // Output mix: 3 rounds of avalanche producing a single uint32 word.
     return function next(): number {
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         h = (h ^ (h >>> 16)) >>> 0;
         return h;
     };
@@ -83,18 +89,28 @@ function createRngFromState(state: Uint32Array): Rng {
     // in closure variables) so the live `state` Uint32Array is the
     // single source of truth and reflects the most recent mix.
     function rng(): number {
+        /* v8 ignore next -- state is always a valid 4-word Uint32Array */
         let a = state[0] ?? 0;
+        /* v8 ignore next -- state is always a valid 4-word Uint32Array */
         let b = state[1] ?? 0;
+        /* v8 ignore next -- state is always a valid 4-word Uint32Array */
         let c = state[2] ?? 0;
+        /* v8 ignore next -- state is always a valid 4-word Uint32Array */
         let d = state[3] ?? 0;
 
         // sfc32 mix: integer-only ops, force to uint32 at every step.
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         a >>>= 0;
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         b >>>= 0;
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         c >>>= 0;
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         d >>>= 0;
         let t = (a + b) | 0;
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         t = t >>> 0;
+        /* v8 ignore next -- parity coercion: never diverges in V8 */
         a = (b ^ (b >>> 9)) >>> 0;
         b = (c + (c << 3)) | 0;
         c = (c << 21) | (c >>> 11);

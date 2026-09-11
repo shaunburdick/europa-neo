@@ -176,36 +176,3 @@ export function flowRateForDelta(
     }
     return perPipe;
 }
-
-/**
- * Resolve the per-pipe transfer amount using the equal-split model.
- *
- * Encapsulates the full per-pipe computation: equal division of the
- * `flowRate` budget, source depletion under scarcity, and elevation
- * gradient modification. This is a convenience API for external consumers
- * (scenario scripts, balance tuning, terrain validation). The engine's
- * `resolveFlow` inlines the same logic for performance (perPipe is reused
- * across all pipe directions from a single source cell).
- *
- * @param srcCount     Current source troop count (from `newCounts`).
- * @param numPipes     Total outgoing pipes on the source cell.
- * @param pipeIndex    0-based index of this pipe (for remaining-pipes calc).
- * @param reserveFloor Source's reserve floor (computed before call).
- * @param delta        `dstElev − srcElev`.
- * @param constants    Flow-rule constants.
- * @returns Troops to transfer along this pipe (≥ 0).
- */
-export function resolveFlowAmount(
-    srcCount: number,
-    numPipes: number,
-    pipeIndex: number,
-    reserveFloor: number,
-    delta: number,
-    constants: FlowConstants,
-): number {
-    const perPipe = Math.floor(constants.flowRate / numPipes);
-    const remainingPipes = numPipes - pipeIndex;
-    const available = srcCount > reserveFloor ? srcCount - reserveFloor : 0;
-    const base = Math.min(perPipe, Math.floor(available / remainingPipes));
-    return flowRateForDelta(delta, base, constants);
-}

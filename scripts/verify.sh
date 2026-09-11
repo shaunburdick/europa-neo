@@ -77,6 +77,7 @@ echo ""
 
 # Phase 10: Other package tests (mirrors other CI workflows)
 echo "--- Phase 10: Other package tests ---"
+pnpm --filter @europa/core test
 pnpm --filter @europa/engine test
 pnpm --filter @europa/terrain test
 pnpm --filter @europa/fog test

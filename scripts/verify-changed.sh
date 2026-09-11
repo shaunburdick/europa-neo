@@ -76,6 +76,7 @@ changed_files() {
 map_file_to_pkg() {
     local f="$1"
     case "$f" in
+        packages/core/*)       echo "core" ;;
         packages/engine/*)      echo "engine" ;;
         packages/terrain/*)     echo "terrain" ;;
         packages/fog/*)         echo "fog" ;;
@@ -89,7 +90,7 @@ map_file_to_pkg() {
     esac
 }
 
-VALID_SCOPES="engine terrain fog networking matchmaking version design console docs"
+VALID_SCOPES="core engine terrain fog networking matchmaking version design console docs"
 
 declare -A SEEN
 CHANGED_PKGS=()
@@ -152,7 +153,7 @@ fi
 if [[ "$AMBIGUOUS" == true ]]; then
     echo "=== verify-changed: ambiguous changes detected — running fast full-suite (Tiers A+B+C, skipping slow console browser/E2E/selfhost — CI covers those) ==="
     # Treat every package as changed so Tier B covers all of them.
-    CHANGED_PKGS=(engine terrain fog networking matchmaking version design console)
+    CHANGED_PKGS=(core engine terrain fog networking matchmaking version design console)
     HAS_LIB=true
     HAS_CONSOLE=true
     HAS_DOCS=false
