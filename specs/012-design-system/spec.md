@@ -288,6 +288,11 @@ As a contributor or maintainer, I want a single `pnpm dev` page that combines th
 - **FR-018 same-change-set obligation**: the implementation change set updates `DESIGN.md` in the same commit as the tokens (FR-018 sync rule) and carries this companion note; the console no-literals guard (G-04) fails until the tokens exist.
 - **Additive (minor) per DESIGN.md § 6**: adding tokens is a minor change — no migration note needed, no version bump, no FR text altered.
 
+### v1.4 (2026-09-11) — Player color token single-sourcing (issue #148)
+
+- **Player ownership colors added to token table**: the design system is now the single source of truth for player ownership colors across all packages. Previously, `DEFAULT_PLAYER_COLORS` in `packages/console/src/contracts/console-types.ts` defined `#dc2626` (Player 1), `#2563eb` (Player 2), `#059669` (Player 3), and `#d97706` (Player 4) while design primitives and the manual had divergent copies. These four colors are now documented in the `DESIGN.md` token table as `playerColor1` through `playerColor4`, and design components (e.g., `EuropaPlayerBadge`, `EuropaTroopChip`) MUST derive player colors from these tokens rather than duplicating the hex values.
+- **Additive (minor) per DESIGN.md § 6**: adding tokens is a minor change — no migration note needed, no version bump, no FR text altered. The existing `FR-003` color list is amended to include the player-color tokens; the FR text is not reprinted here because the token table is the authoritative reference.
+
 ### v1.3 (2026-09-04) — Unified dev page (issue #68)
 
 - **Unified dev page replaces preview + playground**: `packages/design/preview/` (static HTML token documentation, 39 tests) and `packages/design/playground/` (live React component demos, no tests) are merged into a single dev page served by `pnpm dev`. The standalone preview file is no longer needed because the unified page serves the same content dynamically. No new dependencies are introduced — the page uses Vite + React (already the playground's stack) with hash-based routing (no router library).
