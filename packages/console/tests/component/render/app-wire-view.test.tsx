@@ -18,6 +18,7 @@
  * Runs in Vitest Browser Mode per vitest.config.browser.ts.
  */
 
+import { NETWORK_API_VERSION } from '@europa/networking';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
@@ -63,7 +64,7 @@ class WireWebSocket {
         serverSeq += 1;
         const envelope = {
             type,
-            version: '0.1.0',
+            version: NETWORK_API_VERSION,
             seq: serverSeq as SequenceNumber,
             payload,
         } as unknown as ProtocolEnvelope<NetworkPayload>;
@@ -134,7 +135,7 @@ async function bootLiveConsole(): Promise<Boot> {
     const connecting = client.connect();
     socket.onopen?.();
     socket.deliver('helloAck', {
-        protocolVersion: '0.1.0',
+        protocolVersion: NETWORK_API_VERSION,
         connectionId: 'c-1',
         heartbeatIntervalMs: 5000,
     });
