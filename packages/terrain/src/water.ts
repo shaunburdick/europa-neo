@@ -118,13 +118,20 @@ export function extractWater(elev: Uint8Array, width: number, height: number, wa
             water[pair.b] = 1;
         }
     }
-    // If waterCount is odd, also mark the next-lowest pair's
-    // "extra" cell. (We pick the cell with the lower linear index
-    // in the pair.)
+    // If waterCount is odd, mark the entire next pair (both cells)
+    // to maintain 180° symmetry (INV-5). Marking only one cell of a
+    // pair would break the symmetry invariant and cause the validator
+    // to reject the board, deterministically exhausting retries for
+    // every board size where floor(waterRatio × cells) is odd.
+    // This adds one extra cell (count = waterCount + 1), which stays
+    // within the water ratio tolerance bounds.
     if (waterCount % 2 === 1 && markedPairs < pairs.length) {
         const extra = pairs[markedPairs];
         if (extra) {
             water[extra.a] = 1;
+            if (extra.b !== extra.a) {
+                water[extra.b] = 1;
+            }
         }
     }
     return water;

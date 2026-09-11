@@ -22,6 +22,7 @@ import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';
 import { generateElevationMap } from '../../src/elevation';
+import { generateBoard } from '../../src/generate';
 import { _extractWater, extractWater } from '../../src/water';
 import { engineSfc32 } from '../fixtures/seeds';
 
@@ -192,5 +193,116 @@ describe('water', () => {
                 expect(poolCount).toBeGreaterThanOrEqual(1);
             }
         });
+    });
+
+    describe('INV-5 symmetry sweep (odd and even waterCount)', () => {
+        // Sweep board sizes and water ratios that produce BOTH odd and
+        // even waterCount values. The fix for issue #124 ensures that
+        // extractWater always produces a symmetric mask — both cells of
+        // every 180°-rotated pair share the same water/land classification.
+
+        const boardSizes = [8, 16, 24, 32, 48, 64];
+        const waterRatios = [0.02, 0.05, 0.1, 0.15, 0.2, 0.25];
+
+        for (const size of boardSizes) {
+            for (const ratio of waterRatios) {
+                const total = size * size;
+                const waterCount = Math.floor(ratio * total);
+                const parityLabel = waterCount % 2 === 0 ? 'even' : 'odd';
+
+                it(`symmetric mask for ${size}x${size} ratio=${ratio} waterCount=${waterCount} (${parityLabel})`, () => {
+                    // Build a synthetic elevation field with enough variation
+                    // to exercise the pair-sorting logic.
+                    const elev = new Uint8Array(total);
+                    for (let i = 0; i < total; i++) {
+                        // Diagonal gradient + wrapping for variation
+                        const y = Math.floor(i / size);
+                        const x = i - y * size;
+                        elev[i] = ((x + y) * 7 + x * y) & 0xff & 0xff;
+                    }
+
+                    const water = extractWater(elev, size, size, ratio);
+
+                    // INV-5: 180° rotational symmetry. For every cell i,
+                    // its partner at (width-1-x, height-1-y) must have the
+                    // same water classification.
+                    for (let y = 0; y < size; y++) {
+                        for (let x = 0; x < size; x++) {
+                            const idx = y * size + x;
+                            const partnerIdx = (size - 1 - y) * size + (size - 1 - x);
+                            expect(water[idx]).toBe(water[partnerIdx]);
+                        }
+                    }
+                });
+            }
+        }
+    });
+
+    describe('generateBoard sweep (contract board sizes, no GenerationError)', () => {
+        // Prove that generateBoard succeeds for every supported
+        // (boardSize, waterRatio) in the contract range. This catches
+        // the parity bug where odd waterCount caused deterministic
+        // symmetry violations and retries-exhausted errors.
+        //
+        // Uses the default waterRatio (0.10) across all sizes, plus
+        // targeted ratios that produce odd waterCount for key sizes
+        // (the exact scenario that triggered the parity bug).
+
+        const contractSizes = [8, 16, 24, 32, 48, 64, 80, 96, 112, 128];
+
+        // Default ratio sweep — covers all sizes
+        for (const size of contractSizes) {
+            it(`generates valid board for ${size}x${size} waterRatio=0.10 (default)`, () => {
+                const req = {
+                    boardSize: size,
+                    playerCount: 2 as const,
+                    seed: 42,
+                    rng: engineSfc32(42),
+                    settings: DEFAULT_GENERATION_SETTINGS,
+                };
+                const result = generateBoard(req);
+                expect(result.board.width).toBe(size);
+                expect(result.board.height).toBe(size);
+                expect(result.board.cells.length).toBe(size * size);
+                expect(result.board.cities.length).toBe(2);
+            });
+        }
+
+        // Targeted odd-waterCount ratios. For each key size, pick a
+        // waterRatio that makes floor(ratio × size²) odd:
+        //   16×16=256: 0.10 → 25 (odd)
+        //   32×32=1024: 0.15 → 153 (odd)
+        //   48×48=2304: 0.05 → 115 (odd)
+        //   64×64=4096: 0.10 → 409 (odd)
+        //   96×96=9216: 0.15 → 1382 (even), 0.10 → 921 (odd)
+        //   128×128=16384: 0.05 → 819 (odd)
+        const oddParityCases: Array<[number, number]> = [
+            [16, 0.1],
+            [32, 0.15],
+            [48, 0.05],
+            [64, 0.1],
+            [96, 0.1],
+            [128, 0.05],
+        ];
+
+        for (const [size, ratio] of oddParityCases) {
+            const total = size * size;
+            const waterCount = Math.floor(ratio * total);
+            it(`generates valid board for ${size}x${size} waterRatio=${ratio} (waterCount=${waterCount}, odd)`, () => {
+                const settings = { ...DEFAULT_GENERATION_SETTINGS, waterRatio: ratio };
+                const req = {
+                    boardSize: size,
+                    playerCount: 2 as const,
+                    seed: 42,
+                    rng: engineSfc32(42),
+                    settings,
+                };
+                const result = generateBoard(req);
+                expect(result.board.width).toBe(size);
+                expect(result.board.height).toBe(size);
+                expect(result.board.cells.length).toBe(size * size);
+                expect(result.board.cities.length).toBe(2);
+            });
+        }
     });
 });
