@@ -124,8 +124,23 @@ export function resolveCombat(
                 // Cell had a garrison. Contested if any non-garrison player committed.
                 contested = committedPlayers.some((p) => p.owner !== garrisonOwner);
                 // Add garrison to the participants if it exists (for total-force calc).
-                if (!committedPlayers.some((p) => p.owner === garrisonOwner)) {
-                    committedPlayers.push({ owner: garrisonOwner as PlayerId, count: 0 });
+                // The count is the garrison's total force: pre-flow troops + any
+                // committed flow from the garrison owner. This is critical for
+                // 3-way+ dominance comparison — without the real count, the garrison
+                // always loses even when it has the most troops (issue #130).
+                const garrisonCommitted =
+                    (committed[idx * PLAYERS + (garrisonOwner - 1)] as number) ?? 0;
+                const garrisonTotalForce = garrisonCount + garrisonCommitted;
+                const existingEntry = committedPlayers.find((p) => p.owner === garrisonOwner);
+                if (existingEntry !== undefined) {
+                    // Garrison owner already committed flow — add garrison count
+                    // to their existing entry so the total force is correct.
+                    existingEntry.count = garrisonTotalForce;
+                } else {
+                    committedPlayers.push({
+                        owner: garrisonOwner as PlayerId,
+                        count: garrisonTotalForce,
+                    });
                 }
             } else {
                 // Empty cell before flow. Contested if multiple players committed.
