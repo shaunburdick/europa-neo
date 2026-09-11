@@ -48,8 +48,31 @@ describe('shouldSkipFile()', () => {
         expect(shouldSkipFile('docs/manual/images/logo.png')).toBe(false);
     });
 
-    it('does NOT exclude files outside docs/manual/', () => {
-        expect(shouldSkipFile('packages/design/src/tokens.ts')).toBe(false);
+    it('does NOT exclude design component source files', () => {
+        expect(shouldSkipFile('packages/design/src/components/game/city-marker.tsx')).toBe(false);
+        expect(shouldSkipFile('packages/design/src/components/generic/button.ts')).toBe(false);
+    });
+
+    it('excludes design token definitions (canonical hex/rgba source)', () => {
+        expect(shouldSkipFile('packages/design/src/tokens.ts')).toBe(true);
+    });
+
+    it('excludes generated catalog stylesheet', () => {
+        expect(shouldSkipFile('packages/design/src/styles/catalog.css')).toBe(true);
+        expect(shouldSkipFile('packages/design/src/styles/catalog-styles.ts')).toBe(true);
+    });
+
+    it('excludes brand colour definitions (canonical artwork colours)', () => {
+        expect(shouldSkipFile('packages/design/src/brand/colors.ts')).toBe(true);
+    });
+
+    it('excludes brand master SVGs and preview HTML', () => {
+        expect(shouldSkipFile('packages/design/src/brand/masters/lockup.svg')).toBe(true);
+        expect(shouldSkipFile('packages/design/src/brand/masters/lockup-mono.svg')).toBe(true);
+        expect(shouldSkipFile('packages/design/src/brand/preview.html')).toBe(true);
+    });
+
+    it('does NOT exclude other design brand files', () => {
         expect(shouldSkipFile('packages/design/assets/brand/icon.svg')).toBe(false);
     });
 });
@@ -96,6 +119,24 @@ describe('scanContent()', () => {
     it('skips lines with no literals', () => {
         const violations = scanContent('const x = 42;\nreturn x;', 'test.ts');
         expect(violations).toHaveLength(0);
+    });
+
+    it('allows JSDoc comment lines containing hex reference values', () => {
+        const content = ' * | 1      | playerColor1  | #dc2626     |\n * | 2      | playerColor2  | #2563eb     |';
+        const violations = scanContent(content, 'component.tsx');
+        expect(violations).toHaveLength(0);
+    });
+
+    it('allows JSDoc opening lines with rgba references', () => {
+        const content = '/** The `overlaySoft` token (`rgba(26, 34, 51, 0.6)`) provides… */';
+        const violations = scanContent(content, 'component.tsx');
+        expect(violations).toHaveLength(0);
+    });
+
+    it('still detects hex literals in non-JSDoc code', () => {
+        const content = 'const c = "#3b82f6";\n// not a JSDoc line';
+        const violations = scanContent(content, 'component.tsx');
+        expect(violations).toHaveLength(1);
     });
 });
 
