@@ -72,6 +72,10 @@ export function formatRejection(reason: ValidationError): string {
             return 'Unknown player';
         case 'match_terminal':
             return 'The match is already over';
+        case 'unknown_order':
+            return 'Invalid order';
+        case 'invalid_direction':
+            return 'Invalid pipe direction';
         default:
             return reason;
     }
