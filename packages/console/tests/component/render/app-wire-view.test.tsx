@@ -18,7 +18,7 @@
  * Runs in Vitest Browser Mode per vitest.config.browser.ts.
  */
 
-import { NETWORK_API_VERSION } from '@europa/networking';
+import { NETWORK_API_VERSION } from '@europa/networking/browser';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 

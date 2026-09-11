@@ -26,7 +26,7 @@
  * every test.
  */
 
-import { NETWORK_API_VERSION } from '@europa/networking';
+import { NETWORK_API_VERSION } from '@europa/networking/browser';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 import { LOBBY_STORAGE_KEY } from '../../../src/net/lobby-storage';
