@@ -185,7 +185,7 @@ jobs:
         run: pnpm --filter @europa/design build
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @europa/design exec playwright install chromium
+        run: pnpm --filter @europa/design exec npx playwright install chromium
 
       - name: Browser-mode tests (design — focus-trap, a11y)
         run: pnpm --filter @europa/design test:browser
