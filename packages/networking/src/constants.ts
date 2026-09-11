@@ -49,7 +49,7 @@ export interface NetworkConstants {
     readonly defaultReconnectGraceMs: number;
     /**
      * Per-connection order rate limit (orders/second) before
-     * `'rate_limited'` rejections kick in (FR-010).
+     * `'client_rate_limited'` rejections kick in (FR-010).
      */
     readonly defaultOrdersPerSecond: number;
     /**
@@ -93,6 +93,14 @@ export interface NetworkConstants {
      * audit mandatory item 7).
      */
     readonly defaultLobbyMessagesPerSecond: number;
+    /** Global connection cap (FR-012). */
+    readonly defaultMaxGlobalConnections: number;
+    /** Per-IP connection cap (FR-012). */
+    readonly defaultMaxPerIpConnections: number;
+    /** Handle length cap (FR-015). */
+    readonly defaultMaxHandleLength: number;
+    /** Identity length cap (FR-015). */
+    readonly defaultMaxIdentityLength: number;
 }
 
 /**
@@ -111,6 +119,10 @@ export const NETWORK_CONSTANTS: NetworkConstants = {
     defaultMaxFrameBytes: 16_384,
     replayRingBufferTicks: 16,
     defaultLobbyMessagesPerSecond: 20,
+    defaultMaxGlobalConnections: 1000,
+    defaultMaxPerIpConnections: 10,
+    defaultMaxHandleLength: 32,
+    defaultMaxIdentityLength: 128,
 } as const;
 
 /** Internal WebSocket lifecycle and time-conversion constants. */

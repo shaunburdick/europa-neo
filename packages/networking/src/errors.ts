@@ -17,14 +17,20 @@
  * Pure module: no I/O, no clock reads, no randomness.
  */
 
-import type { ErrorCode } from './contracts/network-types';
+import type { ErrorCode, ProtocolErrorCode } from './contracts/network-types';
 
 /**
- * Alias of the contract's closed `ErrorCode` union, re-declared under
- * a networking-module name so call sites can annotate with the same
- * union without importing from the contracts path directly. Adding a
- * code = minor version bump of `NETWORK_API_VERSION` (additive but
- * documented — see `ErrorCode` JSDoc in the contract).
+ * Re-export the shared base error code type. Call sites that need
+ * a generic error-code annotation without the full `ErrorCode` union
+ * import this instead.
+ */
+export type { ProtocolErrorCode };
+
+/**
+ * Networking-module-specific error code alias. Narrows the base
+ * `ProtocolErrorCode` to the transport-level `ErrorCode` union for
+ * internal type safety. Call sites that handle both transport and
+ * lobby errors use `ProtocolErrorCode` for the broader surface.
  */
 export type NetworkErrorCode = ErrorCode;
 

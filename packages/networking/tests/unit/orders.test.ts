@@ -46,9 +46,8 @@ function pipeOrder(player: 1 | 2): Order {
 }
 
 describe('acceptOrder', () => {
-    it('accepts a valid order, decrements the bucket by 1, and enqueues the full triple', () => {
+    it('accepts a valid order and enqueues the full triple', () => {
         const { channel, connection } = joinedPlayerChannel();
-        const before = connection.rateBucket.tokens;
         const order = pipeOrder(1);
 
         // The client envelope carried seq 4 on its way in.
@@ -56,7 +55,6 @@ describe('acceptOrder', () => {
         const result = acceptOrder(channel, connection, order, 1_000);
 
         expect(result.ok).toBe(true);
-        expect(connection.rateBucket.tokens).toBe(before - 1);
         expect(channel.pendingOrders).toHaveLength(1);
         const [pending] = channel.pendingOrders;
         expect(pending?.playerId).toBe(1);
@@ -64,9 +62,12 @@ describe('acceptOrder', () => {
         expect(pending?.submittedAtSeq).toBe(4);
     });
 
-    it('rejects the 11th rapid order with a protocol-level rate_limited error', () => {
-        const { channel, connection, socket } = joinedPlayerChannel();
+    it('does not rate-limit orders (T010: rate limiting moved to handleEnvelope)', () => {
+        const { channel, connection } = joinedPlayerChannel();
 
+        // acceptOrder no longer consumes tokens — that happens at the
+        // handleEnvelope level (T010 all-frame rate limiting). Verify
+        // that all 11 orders are accepted without rate-limit rejection.
         let rejected: string | undefined;
         for (let i = 1; i <= 11; i++) {
             connection.noteClientSeq(i);
@@ -76,31 +77,24 @@ describe('acceptOrder', () => {
             }
         }
 
-        expect(rejected).toBe('rate_limited');
-        // Burst capacity 10 accepted; nothing extra queued.
-        expect(channel.pendingOrders).toHaveLength(10);
-        // Protocol-level rejection rides an error frame, not an orderAck.
-        const errorFrame = socket.sentFrames.find((frame) => frame.type === 'error');
-        expect(errorFrame?.payload).toMatchObject({ code: 'rate_limited' });
+        expect(rejected).toBeUndefined();
+        expect(channel.pendingOrders).toHaveLength(11);
     });
 
-    it('refills the bucket lazily as wall time passes between orders', () => {
+    it('accepts orders without rate-limiting (T010: rate limiting moved to handleEnvelope)', () => {
         const { channel, connection } = joinedPlayerChannel();
 
-        // Drain the entire burst at t=0.
-        for (let i = 1; i <= 10; i++) {
-            connection.noteClientSeq(i);
-            expect(acceptOrder(channel, connection, pipeOrder(1), 0).ok).toBe(true);
-        }
-        // 1 second later, 5 tokens have refilled: exactly 5 more fit.
+        // acceptOrder no longer consumes tokens — all orders are accepted
+        // regardless of timing (rate limiting is at the handleEnvelope level).
         let accepted = 0;
-        for (let i = 11; i <= 16; i++) {
+        for (let i = 1; i <= 16; i++) {
             connection.noteClientSeq(i);
-            if (acceptOrder(channel, connection, pipeOrder(1), 1_000).ok) {
+            if (acceptOrder(channel, connection, pipeOrder(1), 0).ok) {
                 accepted += 1;
             }
         }
-        expect(accepted).toBe(5);
+        expect(accepted).toBe(16);
+        expect(channel.pendingOrders).toHaveLength(16);
     });
 
     it.each(['disconnected', 'expired', 'closed'] as const)(

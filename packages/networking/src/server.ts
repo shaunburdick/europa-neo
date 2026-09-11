@@ -211,6 +211,16 @@ const CLIENT_TO_SERVER_KINDS: ReadonlySet<MessageKind> = new Set<MessageKind>([
     'lobbyLeave',
 ]);
 
+/**
+ * Check whether a message kind belongs to the feature-010 lobby family.
+ * Lobby messages have their own dedicated rate-limit bucket in
+ * {@link allowLobbyMessage} and are exempt from the all-frame rate
+ * limiter (T010).
+ */
+function isLobbyKind(kind: MessageKind): boolean {
+    return kind.startsWith('lobby');
+}
+
 // ----------------------------------------------------------------------------
 // createMatchServer
 // ----------------------------------------------------------------------------
@@ -243,6 +253,8 @@ export function createMatchServer(
 } {
     const channels = new Map<MatchId, MatchChannel>();
     const connections = new Map<ConnectionId, Connection>();
+    /** Per-IP connection count for FR-012 admission caps. */
+    const perIpCounts = new Map<string, number>();
     let closed = false;
     let listening = false;
     /** Externally owned server for single-port deployment (011 FR-002); never created or closed here. */
@@ -307,6 +319,120 @@ export function createMatchServer(
             activeConnections += channel.spectators.size;
         }
         return { activeMatches: channels.size, activeConnections };
+    }
+
+    // ------------------------------------------------------------------
+    // Admission control (FR-012 connection caps, FR-013 origin validation)
+    // ------------------------------------------------------------------
+
+    /**
+     * Extract the client IP from an HTTP upgrade request, normalizing
+     * IPv4-mapped IPv6 addresses (`::ffff:127.0.0.1` → `127.0.0.1`).
+     *
+     * @param request The HTTP upgrade request.
+     * @returns The normalized client IP string, or `null` if unavailable.
+     */
+    function extractClientIp(request: import('node:http').IncomingMessage): string | null {
+        const raw = request.socket.remoteAddress;
+        if (!raw) {
+            return null;
+        }
+        // Strip IPv6 prefix for dual-stack hosts.
+        return raw.startsWith('::ffff:') ? raw.slice(7) : raw;
+    }
+
+    /**
+     * Pre-upgrade admission gate: check global + per-IP connection caps
+     * and origin allowlist. Returns `true` when the upgrade may proceed;
+     * `false` after sending the appropriate HTTP rejection (socket is
+     * destroyed and the caller must return).
+     *
+     * @param request The HTTP upgrade request.
+     * @param socket  The raw TCP socket (for rejection + destroy).
+     * @returns `true` when admission is allowed.
+     */
+    function checkAdmission(request: import('node:http').IncomingMessage, socket: import('node:net').Socket): boolean {
+        // FR-012: global connection cap.
+        if (connections.size >= config.maxGlobalConnections) {
+            deps.logger.warn('connection rejected: global cap reached', {
+                connections: connections.size,
+                max: config.maxGlobalConnections,
+            });
+            socket.write(
+                'HTTP/1.1 429 Too Many Requests\r\n' +
+                    'Retry-After: 1\r\n' +
+                    'Content-Length: 0\r\n' +
+                    'Connection: close\r\n\r\n',
+            );
+            socket.destroy();
+            return false;
+        }
+
+        // FR-012: per-IP connection cap.
+        const ip = extractClientIp(request);
+        if (ip !== null) {
+            const count = perIpCounts.get(ip) ?? 0;
+            if (count >= config.maxPerIpConnections) {
+                deps.logger.warn('connection rejected: per-IP cap reached', {
+                    ip,
+                    count,
+                    max: config.maxPerIpConnections,
+                });
+                socket.write(
+                    'HTTP/1.1 429 Too Many Requests\r\n' +
+                        'Retry-After: 1\r\n' +
+                        'Content-Length: 0\r\n' +
+                        'Connection: close\r\n\r\n',
+                );
+                socket.destroy();
+                return false;
+            }
+        }
+
+        // FR-013: origin allowlist (when non-empty).
+        if (config.allowedOrigins.size > 0) {
+            const origin = request.headers.origin;
+            if (!origin || !config.allowedOrigins.has(origin)) {
+                deps.logger.warn('connection rejected: origin not allowed', {
+                    origin: origin ?? '(missing)',
+                });
+                socket.write('HTTP/1.1 403 Forbidden\r\n' + 'Content-Length: 0\r\n' + 'Connection: close\r\n\r\n');
+                socket.destroy();
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Increment the per-IP connection count. Called after a successful
+     * upgrade.
+     *
+     * @param request The HTTP upgrade request.
+     */
+    function incrementIpCount(request: import('node:http').IncomingMessage): void {
+        const ip = extractClientIp(request);
+        if (ip !== null) {
+            perIpCounts.set(ip, (perIpCounts.get(ip) ?? 0) + 1);
+        }
+    }
+
+    /**
+     * Decrement the per-IP connection count. Called on socket close.
+     *
+     * @param request The HTTP upgrade request (captured at upgrade time).
+     */
+    function decrementIpCount(request: import('node:http').IncomingMessage): void {
+        const ip = extractClientIp(request);
+        if (ip !== null) {
+            const count = perIpCounts.get(ip) ?? 0;
+            if (count <= 1) {
+                perIpCounts.delete(ip);
+            } else {
+                perIpCounts.set(ip, count - 1);
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -650,7 +776,7 @@ export function createMatchServer(
         if (bucket.tokens < 1) {
             // Secrecy note (audit item 5): the rejection names no kind,
             // handle, or claim content — just the policy violation.
-            connection.sendError('rate_limited', 'lobby message rate limit exceeded');
+            connection.sendError('client_rate_limited', 'lobby message rate limit exceeded');
             return false;
         }
         bucket.tokens -= 1;
@@ -920,9 +1046,26 @@ export function createMatchServer(
             return;
         }
 
+        // FR-015: reject handles exceeding the configured maximum length.
+        // Hard reject — no silent truncation.
+        if (payload.displayName.length > config.maxHandleLength) {
+            connection.sendError('client_payload_too_large', 'displayName exceeds maximum length');
+            return;
+        }
+
+        // FR-015: reject identity strings exceeding the configured maximum.
+        // The reconnectToken is an identity credential; validate its length
+        // when present.
+        if (payload.reconnectToken !== undefined && payload.reconnectToken.length > config.maxIdentityLength) {
+            connection.sendError('client_payload_too_large', 'reconnectToken exceeds maximum length');
+            return;
+        }
+
         const channel = channels.get(payload.matchId);
         if (!channel) {
-            connection.sendError('match_not_found', `unknown match ${payload.matchId}`);
+            // FR-016 anti-oracle: all admission failures return the same
+            // code. Do NOT echo the raw match ID.
+            connection.sendError('match_not_joinable', 'match is not joinable');
             return;
         }
 
@@ -998,8 +1141,7 @@ export function createMatchServer(
                 return;
             }
             // Unknown to the registry → fall through to the US1 seat scan
-            // (covers tokens for seats that never disconnected, surfacing
-            // `seat_taken` for a live holder rather than a bogus miss).
+            // (covers tokens for seats that never disconnected).
             for (const seat of channel.seats.values()) {
                 if (seat.sessionToken === payload.reconnectToken) {
                     target = { playerId: seat.playerId, token: seat.sessionToken };
@@ -1015,14 +1157,16 @@ export function createMatchServer(
             // seat keys are branded PlayerIds over the same value domain.
             const seat = channel.seats.get(payload.requestedSeat as PlayerId);
             if (!seat) {
-                connection.sendError('match_full', `seat ${String(payload.requestedSeat)} is not bound`);
+                // FR-016 anti-oracle: unified admission error.
+                connection.sendError('match_not_joinable', 'match is not joinable');
                 return;
             }
             // Issue #123 P0: reject if the seat's token is held in the
             // reconnect grace window — only the token owner may reclaim
             // it through the registry path above.
             if (reconnectRegistry.hasActiveBinding(seat.sessionToken, Date.now())) {
-                connection.sendError('seat_taken', 'seat is within the reconnect grace window');
+                // FR-016 anti-oracle: unified admission error.
+                connection.sendError('match_not_joinable', 'match is not joinable');
                 return;
             }
             target = { playerId: seat.playerId, token: seat.sessionToken };
@@ -1039,14 +1183,16 @@ export function createMatchServer(
                 }
             }
             if (!target) {
-                connection.sendError('match_full', 'no open seats');
+                // FR-016 anti-oracle: unified admission error.
+                connection.sendError('match_not_joinable', 'match is not joinable');
                 return;
             }
         }
 
         const existing = channel.seats.get(target.playerId);
         if (existing?.connection && existing.connection !== connection) {
-            connection.sendError('seat_taken', 'another connection holds this seat');
+            // FR-016 anti-oracle: unified admission error.
+            connection.sendError('match_not_joinable', 'match is not joinable');
             return;
         }
 
@@ -1109,7 +1255,8 @@ export function createMatchServer(
     function restoreReconnectedSeat(connection: Connection, binding: ReconnectBinding): void {
         const channel = channels.get(binding.matchId);
         if (!channel) {
-            connection.sendError('match_not_found', `unknown match ${binding.matchId}`);
+            // FR-016 anti-oracle: unified admission error.
+            connection.sendError('match_not_joinable', 'match is not joinable');
             return;
         }
         const seat = channel.seats.get(binding.playerId);
@@ -1118,7 +1265,8 @@ export function createMatchServer(
             return;
         }
         if (seat.connection && seat.connection !== connection) {
-            connection.sendError('seat_taken', 'another connection holds this seat');
+            // FR-016 anti-oracle: unified admission error.
+            connection.sendError('match_not_joinable', 'match is not joinable');
             return;
         }
 
@@ -1188,7 +1336,7 @@ export function createMatchServer(
             statsCounter.recordOrderAccepted();
         } else {
             statsCounter.recordOrderRejected();
-            if (result.error.code === 'rate_limited') {
+            if (result.error.code === 'client_rate_limited') {
                 statsCounter.recordRateLimitDrop();
             }
         }
@@ -1197,11 +1345,34 @@ export function createMatchServer(
     /**
      * Central inbound-envelope dispatcher wired into every Connection.
      *
+     * T010 all-frame rate limiting: every inbound frame (ping, lobby
+     * messages, order) consumes one token from the connection's rate
+     * bucket. Exempt frames: `hello` (must always succeed as session
+     * entry point) and `joinMatch` (session-essential — a client must
+     * be able to join even when its bucket is empty).
+     *
      * @param connection The sending connection.
      * @param envelope   Decoded, schema-valid envelope.
      */
     function handleEnvelope(connection: Connection, envelope: ProtocolEnvelope<NetworkPayload>): void {
         statsCounter.recordFrameReceived(envelope.type);
+
+        // T010: all-frame rate limiting. Every inbound frame consumes
+        // one token from the connection's rate bucket. Exempt:
+        //   - hello/joinMatch: session-essential (client must be able
+        //     to handshake and join even with an empty bucket).
+        //   - lobby*: have their own dedicated bucket in allowLobbyMessage.
+        if (
+            envelope.type !== 'hello' &&
+            envelope.type !== 'joinMatch' &&
+            !isLobbyKind(envelope.type) &&
+            !connection.takeToken(Date.now())
+        ) {
+            connection.sendError('client_rate_limited', 'frame rate limit exceeded');
+            statsCounter.recordRateLimitDrop();
+            return;
+        }
+
         switch (envelope.type) {
             case 'hello': {
                 // `ProtocolEnvelope` correlates type↔payload only at the wire
@@ -1322,6 +1493,12 @@ export function createMatchServer(
     function handleDisconnect(connection: Connection): void {
         connections.delete(connection.id);
         lobbyBuckets.delete(connection.id);
+        // FR-012: release per-IP connection slot.
+        const upgradeRequest = connectionToRequest.get(connection.id);
+        if (upgradeRequest) {
+            decrementIpCount(upgradeRequest);
+            connectionToRequest.delete(connection.id);
+        }
         if (lobbyInstance !== null) {
             try {
                 lobbyInstance.connectionClosed(connection.id);
@@ -1391,8 +1568,13 @@ export function createMatchServer(
         maxPayload: NETWORK_CONSTANTS.defaultMaxFrameBytes,
     });
 
-    wss.on('connection', (socket: WsWebSocket) => {
-        attachConnection(new WsSocketAdapter(socket));
+    /** Map from connection ID to the HTTP upgrade request (for per-IP tracking). */
+    const connectionToRequest = new Map<ConnectionId, import('node:http').IncomingMessage>();
+
+    wss.on('connection', (socket: WsWebSocket, request: import('node:http').IncomingMessage) => {
+        const connection = attachConnection(new WsSocketAdapter(socket));
+        // Capture the upgrade request for per-IP count decrement on close.
+        connectionToRequest.set(connection.id, request);
     });
 
     /**
@@ -1461,7 +1643,11 @@ export function createMatchServer(
             // `upgrade` delegation that bridges `ws` onto it.
             if (externalHttpServer) {
                 upgradeHandler = (request, socket, head) => {
+                    if (!checkAdmission(request, socket)) {
+                        return;
+                    }
                     wss.handleUpgrade(request, socket, head, (ws) => {
+                        incrementIpCount(request);
                         wss.emit('connection', ws, request);
                     });
                 };
@@ -1480,7 +1666,11 @@ export function createMatchServer(
             }
             internalHttpServer = createHttpServer();
             upgradeHandler = (request, socket, head) => {
+                if (!checkAdmission(request, socket)) {
+                    return;
+                }
                 wss.handleUpgrade(request, socket, head, (ws) => {
+                    incrementIpCount(request);
                     wss.emit('connection', ws, request);
                 });
             };

@@ -218,11 +218,11 @@ describe('version policy for lobby frames (FR-004)', () => {
         const server = wiredLobbyServer(fake);
         const { socket } = connectClient(server);
 
-        // '0.1.99' shares the '0.1' boundary with NETWORK_API_VERSION:
+        // '0.2.99' shares the '0.2' boundary with NETWORK_API_VERSION:
         // graceful acceptance, full routing.
         sendJson(socket, {
             type: 'lobbySubscribe',
-            version: '0.1.99',
+            version: '0.2.99',
             seq: 1,
             payload: { actionId: 5 },
         });
@@ -299,7 +299,7 @@ describe('dispatcher default-arm direction diagnostics (F-4 complement)', () => 
             ['snapshot', { tick: 1, view: {} }],
             ['orderAck', { seq: 1, result: { ok: true } }],
             ['pong', { clientTimeMs: 1, serverTimeMs: 2 }],
-            ['error', { code: 'rate_limited', message: 'x' }],
+            ['error', { code: 'client_rate_limited', message: 'x' }],
             ['lobbyEvent', { event: { kind: 'identity', identity: { handle: null, hasIdentity: true } } }],
         ];
         let seq = 1;

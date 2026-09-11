@@ -83,7 +83,7 @@ describe('rate limiting (FR-010, US1 AC-3, T048)', () => {
             const errorFrames = socket.sentFrames.filter((f) => f.type === 'error');
             expect(errorFrames).toHaveLength(EXPECTED_REJECTS);
             for (const frame of errorFrames) {
-                expect((frame.payload as ErrorPayload).code).toBe('rate_limited');
+                expect((frame.payload as ErrorPayload).code).toBe('client_rate_limited');
             }
             // Outbound server seqs stay contiguous across the rejections
             // (helloAck=1, joinAck=2, then the five error frames): rejected
