@@ -35,37 +35,38 @@ jobs:
   # Detects whether this workflow's relevant paths changed on the PR. The
   # heavy jobs below gate on this output; when they skip, the check reports
   # "skipped" (a successful status) so the required check is satisfied.
-  # This job must NEVER fail: a failure would skip its dependents silently
-  # (dependent-job-skip), letting required checks pass without running.
+  # dorny/paths-filter reads changed files via the REST API on PRs and
+  # diffs against the previous commit on push. This job must never fail: a
+  # failure would skip its dependents silently (dependent-job-skip).
   changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      changed: ${{ steps.diff.outputs.changed }}
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Detect relevant changes
-        id: diff
-        run: |
-          base="${{ github.event.pull_request.base.sha }}"
-          if [[ -z "$base" ]]; then
-            # push to main / workflow_dispatch: no PR base — run everything.
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if ! files="$(git diff --name-only "$base"...HEAD 2>/dev/null)"; then
-            # Diff unavailable — conservative: run everything.
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if printf '%s\n' "$files" | grep -qE '^(packages/(engine|core)/|specs/001-core-game-engine/|\.github/workflows/engine-ci\.yml$|pnpm-workspace\.yaml$|pnpm-lock\.yaml$|package\.json$|tsconfig\.base\.json$|biome\.jsonc$)'; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
 
+      # dorny/paths-filter: on PRs it reads changed files via the REST API
+      # (no git history needed); on push it diffs against the previous
+      # commit. Filters mirror the old workflow-level paths lists.
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.3
+        id: filter
+        with:
+          filters: |
+            changed:
+              - 'packages/engine/**'
+              - 'packages/core/**'
+              - '.github/workflows/engine-ci.yml'
+              - 'specs/001-core-game-engine/**'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'tsconfig.base.json'
+              - 'biome.jsonc'
   engine-lint:
     name: Lint (engine)
     needs: [changes]
