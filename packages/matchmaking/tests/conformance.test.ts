@@ -291,12 +291,14 @@ describe('conformance: feature 012 board-size defaults mirror + no wire version 
         expect(contractSource).toContain(shippedLiteral);
     });
 
-    it('no wire/API version bump — MATCHMAKING_API_VERSION, NETWORK_API_VERSION, ENGINE_API_VERSION remain 0.1.0', () => {
-        // Feature 012 is explicitly out-of-scope for any wire/protocol bump.
-        // A silent bump would force unnecessary client updates. Pin the three
-        // versions that MUST stay unchanged (verified vs main: all 0.1.0).
+    it('wire/API version pin — MATCHMAKING_API_VERSION and ENGINE_API_VERSION remain 0.1.0; NETWORK_API_VERSION bumped to 0.2.0 (breaking error-code change)', () => {
+        // MATCHMAKING_API_VERSION and ENGINE_API_VERSION: Feature 012 is
+        // explicitly out-of-scope for any wire/protocol bump — a silent bump
+        // would force unnecessary client updates.
+        // NETWORK_API_VERSION: intentionally bumped to 0.2.0 as part of the
+        // error-code breaking change (FR-017/FR-016).
         expect(MATCHMAKING_API_VERSION).toBe('0.1.0');
-        expect(NETWORK_API_VERSION).toBe('0.1.0');
+        expect(NETWORK_API_VERSION).toBe('0.2.0');
         expect(ENGINE_API_VERSION).toBe('0.1.0');
     });
 });
