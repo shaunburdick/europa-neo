@@ -122,8 +122,8 @@ describe('validateCommand — unknown order kinds', () => {
         ];
         for (const order of orders) {
             const result = validateCommand(world, order as Order);
-            // result must be an object with `ok` boolean — never undefined.
-            expect(result).toBeDefined();
+            // result must be an object with `ok` boolean — never undefined
+            // (validateCommand always returns CommandResult, never undefined).
             expect(typeof result).toBe('object');
             expect(typeof result.ok).toBe('boolean');
         }

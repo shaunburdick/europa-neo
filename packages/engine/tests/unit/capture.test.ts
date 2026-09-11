@@ -99,7 +99,6 @@ describe('resolveCapture — FR-005 city capture', () => {
         const out = resolveCapture(state, board, CONSTANTS, TICK);
         expect(out.events.captures.length).toBe(1);
         const ev = out.events.captures[0];
-        expect(ev).toBeDefined();
         if (ev === undefined) {
             return;
         }
