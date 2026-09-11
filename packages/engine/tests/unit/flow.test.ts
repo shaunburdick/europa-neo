@@ -535,7 +535,7 @@ describe('resolveFlow — plateau flow', () => {
         }
 
         // Tick 1: only cell 0 has troops → sends 12 east.
-        let state = makeLineState();
+        const state = makeLineState();
         let out = resolveFlow(state, board, TEST_CONSTANTS);
         expect(out.troopCounts[0]).toBe(18); // 30 − 12
         expect(out.troopCounts[1]).toBe(12); // received 12

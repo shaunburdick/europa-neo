@@ -44,7 +44,7 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushCombatEvent } from '../events';
-import type { Board, CombatEvent, PlayerId, TickEvents, WorldState } from '../types';
+import type { Board, CombatEvent, PlayerId, TickEvents, TickScratchBuffers, WorldState } from '../types';
 
 const PLAYERS = 4;
 
@@ -69,6 +69,11 @@ const PLAYERS = 4;
  * @param preFlowState       Snapshot of troopOwners/troopCounts taken before
  *                           resolveFlow ran. Used to identify the garrison
  *                           owner and count for total-force comparison.
+ * @param scratch            Optional pre-allocated scratch buffers (FR-03,
+ *                           SC-006). When provided, reuses `combatNewCounts`,
+ *                           `combatNewOwners`, and `committedPlayersPool`
+ *                           instead of allocating fresh arrays. Caller MUST
+ *                           zero the output buffers before calling.
  * @returns A fresh `WorldState` with post-attrition counts/owners, plus
  *          a `TickEvents` value carrying the `CombatEvent`s in
  *          deterministic order (ascending PlayerId of attacker, then
@@ -82,12 +87,19 @@ export function resolveCombat(
     inflowTally?: Readonly<Uint32Array>,
     committedFlowTally?: Readonly<Uint32Array>,
     preFlowState?: Readonly<{ troopOwners: Uint8Array; troopCounts: Uint32Array }>,
+    scratch?: TickScratchBuffers,
 ): { state: WorldState; events: TickEvents } {
     const n = board.width * board.height;
 
-    // Allocate fresh typed arrays (immutable update).
-    const newCounts = new Uint32Array(state.troopCounts);
-    const newOwners = new Uint8Array(state.troopOwners);
+    // Allocate fresh typed arrays (immutable update). When scratch
+    // buffers are provided, reuse them to avoid per-tick allocations.
+    const newCounts = scratch !== undefined ? scratch.combatNewCounts : new Uint32Array(state.troopCounts);
+    const newOwners = scratch !== undefined ? scratch.combatNewOwners : new Uint8Array(state.troopOwners);
+    // When using scratch, copy initial state into the pre-allocated buffers.
+    if (scratch !== undefined) {
+        newCounts.set(state.troopCounts);
+        newOwners.set(state.troopOwners);
+    }
 
     let events: TickEvents = emptyTickEvents();
 
