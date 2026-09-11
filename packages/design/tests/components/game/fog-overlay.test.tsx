@@ -53,4 +53,11 @@ describe('EuropaFogOverlay', () => {
         overlay = container.querySelector('div[aria-hidden="true"]');
         expect(overlay).not.toBeNull();
     });
+
+    it('has a non-empty className for catalog styling', () => {
+        const { container } = render(<EuropaFogOverlay />);
+        const overlay = container.querySelector('.europa-fog-overlay');
+        expect(overlay).not.toBeNull();
+        expect(overlay?.getAttribute('class')).toBe('europa-fog-overlay');
+    });
 });
