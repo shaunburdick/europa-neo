@@ -15,9 +15,8 @@
  *   - malformed-frame tolerance.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
 import { NETWORK_API_VERSION } from '@europa/networking';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createConsoleClient } from '../../../src/net/client';
 import { netEventFromEnvelope } from '../../../src/net/envelope-to-event';
