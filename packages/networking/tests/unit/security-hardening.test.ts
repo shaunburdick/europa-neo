@@ -10,6 +10,9 @@
  *   - Error code conformance (mirrors byte-identical, union exhaustiveness)
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { computePlayerView } from '@europa/fog';
 import type { ErrorPayload, MatchId } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
@@ -261,9 +264,27 @@ describe('Security Hardening', () => {
             await server.close();
         });
 
-        it('removed ErrorCode values are absent from both contract mirrors', () => {
-            const removedCodes = ['match_not_found', 'match_full', 'seat_taken', 'rate_limited'];
-            expect(removedCodes).toHaveLength(4);
+        it('removed ErrorCode values are absent from the contract source', () => {
+            // Read the contract source and extract the ErrorCode union block to
+            // verify the removed codes do not appear as string literals. This
+            // catches accidental reintroduction at the source level.
+            const contractPath = resolve(__dirname, '../../src/contracts/network-types.ts');
+            const source = readFileSync(contractPath, 'utf-8');
+
+            // Extract only the ErrorCode union (not LobbyErrorCode which
+            // legitimately contains 'match_not_found' and 'match_full').
+            const unionMatch = source.match(/export\s+type\s+ErrorCode\s*=\s*([\s\S]*?);\s*\n/);
+            expect(unionMatch).not.toBeNull();
+            const unionBlock = unionMatch?.[1] ?? '';
+
+            const removedCodes = ['match_not_found', 'match_full', 'seat_taken', 'rate_limited'] as const;
+
+            for (const code of removedCodes) {
+                // Match the code as a quoted string literal, skipping comments
+                const escaped = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const codeLineRegex = new RegExp(`^[^/]*'${escaped}'`, 'm');
+                expect(unionBlock).not.toMatch(codeLineRegex);
+            }
         });
     });
 });
