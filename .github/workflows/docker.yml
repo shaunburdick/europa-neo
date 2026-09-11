@@ -80,11 +80,13 @@ jobs:
 
             # dorny/paths-filter: on PRs it reads changed files via the REST
             # API (no git history needed); on push it diffs against the
-            # previous commit. Filters mirror the old paths-ignore list.
+            # previous commit. 'every' + '**' + negated patterns reproduces
+            # the old paths-ignore semantics: run unless EVERY changed file
+            # is on the ignore list.
             - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.3
               id: filter
               with:
-                  predicate-quantifier: 'some-with-excludes'
+                  predicate-quantifier: 'every'
                   filters: |
                       changed:
                           - '**'
