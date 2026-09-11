@@ -991,11 +991,26 @@ export function createMatchServer(
                 connection.sendError('match_full', `seat ${String(payload.requestedSeat)} is not bound`);
                 return;
             }
+            // Issue #123 P0: reject if the seat's token is held in the
+            // reconnect grace window — only the token owner may reclaim
+            // it through the registry path above.
+            if (reconnectRegistry.hasActiveBinding(seat.sessionToken, Date.now())) {
+                connection.sendError('seat_taken', 'seat is within the reconnect grace window');
+                return;
+            }
             target = { playerId: seat.playerId, token: seat.sessionToken };
         } else {
+            // Issue #123 P0: tokenless scan must skip seats whose tokens
+            // are held in the reconnect grace window — only the token
+            // owner may reclaim them through the registry path above.
+            const nowMs = Date.now();
             for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
                 const seat = channel.seats.get(playerId);
-                if (seat && seat.connection === null) {
+                if (
+                    seat &&
+                    seat.connection === null &&
+                    !reconnectRegistry.hasActiveBinding(seat.sessionToken, nowMs)
+                ) {
                     target = { playerId: seat.playerId, token: seat.sessionToken };
                     break;
                 }

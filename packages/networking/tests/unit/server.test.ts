@@ -650,6 +650,168 @@ describe('createMatchServer — protocol edges', () => {
 });
 
 // ----------------------------------------------------------------------------
+// Issue #123 P0: seat admission gate — tokenless joins must not claim
+// grace-window seats
+// ----------------------------------------------------------------------------
+
+describe('createMatchServer — seat admission (issue #123 P0)', () => {
+    /**
+     * Disconnect a joined client by closing its mock socket. The
+     * server's close handler registers the seat in the reconnect
+     * registry and nulls the seat's connection — placing it inside the
+     * grace window.
+     */
+    function disconnectClient(client: ScriptedClient): void {
+        client.socket.close(1000, 'test disconnect');
+    }
+
+    it('tokenless join against a grace-window seat returns seat_taken or match_full, not joinAck', async () => {
+        const server = createMatchServer(testServerConfig(), realDeps());
+        const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+        server.registerMatch({
+            matchId: match.matchId,
+            engineSession: match.engineSession,
+            matchConfig: match.matchConfig,
+        });
+        const tokens = attachPlayersForMatch(server, match);
+
+        // Client A joins seat 1, then disconnects — seat enters grace window.
+        const alice = connectMockClient(server);
+        alice.hello();
+        await alice.nextMessage('helloAck');
+        alice.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        await alice.nextMessage('joinAck');
+        disconnectClient(alice);
+
+        // Wait for close handler to propagate.
+        await new Promise((resolve) => setTimeout(resolve, 5));
+
+        // Client B tries tokenless join — seat 1 is in grace window but
+        // seat 2 is genuinely unclaimed, so Bob claims seat 2.
+        const bob = connectMockClient(server);
+        bob.hello();
+        await bob.nextMessage('helloAck');
+        bob.joinMatch(match.matchId, 'player');
+        const ack = await bob.nextMessage('joinAck');
+        expect(ack.payload.playerId).toBe(2);
+
+        // Now both seats are occupied. Disconnect Bob too → both in grace window.
+        disconnectClient(bob);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+
+        // Client C tries tokenless — no open seats (both in grace window).
+        const carol = connectMockClient(server);
+        carol.hello();
+        await carol.nextMessage('helloAck');
+        carol.joinMatch(match.matchId, 'player');
+        const err = await carol.nextMessage('error');
+        expect(err.payload.code).toBe('match_full');
+
+        // Client C also cannot claim seat 1 via requestedSeat (grace window).
+        carol.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        const taken = await carol.nextMessage('error');
+        expect(taken.payload.code).toBe('seat_taken');
+
+        // Legitimate reconnect with Alice's original token still works.
+        const aliceReturn = connectMockClient(server);
+        aliceReturn.hello();
+        await aliceReturn.nextMessage('helloAck');
+        aliceReturn.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
+        const snapshot = await aliceReturn.nextMessage('snapshot');
+        expect(snapshot.type).toBe('snapshot');
+
+        await server.close();
+    });
+
+    it('tokenless join skips all grace-window seats; only truly open seats are claimed', async () => {
+        const server = createMatchServer(testServerConfig(), realDeps());
+        const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+        server.registerMatch({
+            matchId: match.matchId,
+            engineSession: match.engineSession,
+            matchConfig: match.matchConfig,
+        });
+        const tokens = attachPlayersForMatch(server, match);
+
+        // Both seats have tokens bound (from attachPlayersForMatch) but no
+        // connection — this is the pre-join state. Seats without active
+        // reconnect bindings ARE open for tokenless join.
+
+        // Client A joins seat 1.
+        const alice = connectMockClient(server);
+        alice.hello();
+        await alice.nextMessage('helloAck');
+        alice.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        await alice.nextMessage('joinAck');
+
+        // Client B joins seat 2.
+        const bob = connectMockClient(server);
+        bob.hello();
+        await bob.nextMessage('helloAck');
+        bob.joinMatch(match.matchId, 'player', { requestedSeat: 2 });
+        await bob.nextMessage('joinAck');
+
+        // Both disconnect — both seats enter grace window.
+        disconnectClient(alice);
+        disconnectClient(bob);
+
+        // Wait for close handlers to propagate.
+        await new Promise((resolve) => setTimeout(resolve, 5));
+
+        // Client C tries tokenless — both seats are in grace window → match_full.
+        const carol = connectMockClient(server);
+        carol.hello();
+        await carol.nextMessage('helloAck');
+        carol.joinMatch(match.matchId, 'player');
+        const err = await carol.nextMessage('error');
+        expect(err.payload.code).toBe('match_full');
+
+        // Legitimate reconnect still works for seat 1.
+        const aliceReturn = connectMockClient(server);
+        aliceReturn.hello();
+        await aliceReturn.nextMessage('helloAck');
+        aliceReturn.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
+        const snap = await aliceReturn.nextMessage('snapshot');
+        expect(snap.type).toBe('snapshot');
+
+        await server.close();
+    });
+
+    it('token-presented join for a grace-window seat returns seat_taken (not joinAck)', async () => {
+        const server = createMatchServer(testServerConfig(), realDeps());
+        const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+        server.registerMatch({
+            matchId: match.matchId,
+            engineSession: match.engineSession,
+            matchConfig: match.matchConfig,
+        });
+        attachPlayersForMatch(server, match);
+
+        // Client A joins seat 1, then disconnects.
+        const alice = connectMockClient(server);
+        alice.hello();
+        await alice.nextMessage('helloAck');
+        alice.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        await alice.nextMessage('joinAck');
+        disconnectClient(alice);
+
+        // Wait for close handler to propagate.
+        await new Promise((resolve) => setTimeout(resolve, 5));
+
+        // Attacker presents the stolen token for seat 1 via requestedSeat
+        // — should be rejected because the seat is in the grace window.
+        const attacker = connectMockClient(server);
+        attacker.hello();
+        await attacker.nextMessage('helloAck');
+        attacker.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        const err = await attacker.nextMessage('error');
+        expect(err.payload.code).toBe('seat_taken');
+
+        await server.close();
+    });
+});
+
+// ----------------------------------------------------------------------------
 // Idle-client staleness sweep (FR-009 first clause — review S1)
 // ----------------------------------------------------------------------------
 

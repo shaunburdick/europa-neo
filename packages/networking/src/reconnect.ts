@@ -147,6 +147,24 @@ export class ReconnectRegistry {
     }
 
     /**
+     * Non-destructive check: does this token have a live (non-expired)
+     * binding in the grace window? Used by the server's seat-admission
+     * gate to prevent tokenless or token-presented joins from claiming
+     * a seat whose owner is within the reconnect window.
+     *
+     * @param sessionToken Token to probe.
+     * @param nowMs        Caller-provided epoch ms.
+     * @returns `true` when a valid (non-expired) binding exists.
+     */
+    hasActiveBinding(sessionToken: SessionToken, nowMs: number): boolean {
+        const binding = this.bindings.get(sessionToken);
+        if (!binding) {
+            return false;
+        }
+        return nowMs - binding.registeredAtMs < this.graceMs;
+    }
+
+    /**
      * Scheduler-sweep entry point: remove every binding whose grace
      * window has lapsed and return them for `MatchmakerBridge.onSeatExpired`
      * dispatch (the server then detaches each seat per the disconnect
