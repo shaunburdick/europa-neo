@@ -546,6 +546,12 @@ describe('propagateHandleRename sweeps accepted renames (FR-019)', () => {
 describe('exposure audit: public payloads preserve safe correlation data', () => {
     it('lobby projections expose discovery data without private identity associations', () => {
         const { match } = makeSeatedFillingMatch();
+        // A fully-seated filling match with initialSeed === null is
+        // excluded from the lobby (issue #126: full-but-unstarted
+        // matches are not joinable). Set initialSeed to simulate a
+        // rematch-created match so the projection exercises the lobby
+        // entry shape.
+        match.initialSeed = 42;
 
         const entry = projectLobbyEntry(match, CLOCK_MS);
         expect(entry).not.toBeNull();

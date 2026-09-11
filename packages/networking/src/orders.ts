@@ -27,6 +27,7 @@ import type { Connection } from './connection';
 import type { NetworkPayload, Order, PlayerId, ProtocolEnvelope } from './contracts/network-types';
 import { NetworkError } from './errors';
 import type { MatchChannel } from './match-channel';
+import { validateOrderShape } from './validate';
 
 // ----------------------------------------------------------------------------
 // acceptOrder
@@ -84,6 +85,21 @@ export function acceptOrder(
 
     if (!connection.takeToken(nowMs)) {
         return reject(new NetworkError('rate_limited', 'order rate limit exceeded'));
+    }
+
+    // Issue #121 P0: validate order shape at the wire boundary BEFORE
+    // enqueuing. A shape-invalid order (unknown kind, missing fields,
+    // invalid direction) would cause `validateCommand`'s switch to fall
+    // through to the default arm returning `{ ok: false, reason:
+    // { kind: 'unknown_order' } }`, but we catch it here earlier to
+    // give the client a clear `malformed_payload` error.
+    try {
+        validateOrderShape(order);
+    } catch (error) {
+        if (error instanceof NetworkError) {
+            return reject(error);
+        }
+        return reject(new NetworkError('malformed_payload', String(error)));
     }
 
     const { playerId } = connection;

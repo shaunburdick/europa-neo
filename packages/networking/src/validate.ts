@@ -1,5 +1,5 @@
 /**
- * Envelope Schema Validation — Feature 004
+ * Envelope + Order Shape Validation — Feature 004 + Issue #121
  *
  * The runtime schema guard for every inbound frame (FR-003: the wire
  * carries exactly the declared message kinds — the twelve gameplay
@@ -7,7 +7,7 @@
  * envelope carries a schema `version` and major-version mismatch is
  * rejected gracefully).
  *
- * Two layers of checking:
+ * Three layers of checking:
  *   1. **Envelope shape** — object with a known `type` discriminator,
  *      a non-empty `version` string, a positive-integer `seq` in the
  *      uint32 range, and an object `payload`.
@@ -17,6 +17,12 @@
  *      `array`). Deep semantic validation (e.g., is this `Order`
  *      actually executable?) is deliberately NOT done here — that is
  *      the engine's job at order-application time.
+ *   3. **Order shape guard** (Issue #121) — the `order` payload's
+ *      inner `order` field is validated for known kind membership
+ *      and per-kind required fields. This catches shape-invalid
+ *      orders (e.g., `{ kind: 'bogus' }`, `{}`, missing fields)
+ *      at the wire boundary BEFORE they reach the engine, preventing
+ *      `undefined` dereferences in `validateCommand`'s switch.
  *
  * All rejections throw `NetworkError` with code `'malformed_payload'`
  * except version drift, which gets its own non-throwing helper
@@ -157,6 +163,134 @@ const MAX_UINT32 = 0xffff_ffff;
  */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+// ----------------------------------------------------------------------------
+// Order shape guard (Issue #121) — validates the inner `order` field
+// of an `order` envelope at the wire boundary, BEFORE it reaches the
+// engine. Prevents `undefined` dereferences in `validateCommand`'s
+// switch when the order kind is unknown or required fields are missing.
+// ----------------------------------------------------------------------------
+
+/** Known order kinds (closed set, matches engine's `Order` union). */
+const ORDER_KINDS: ReadonlySet<string> = new Set<string>([
+    'setPipe',
+    'clearPipe',
+    'setPipesExclusive',
+    'clearAllPipes',
+    'setReserves',
+    'paratroop',
+    'gun',
+    'surrender',
+]);
+
+/** Valid cardinal directions for pipe orders. */
+const VALID_DIRECTIONS: ReadonlySet<string> = new Set<string>(['N', 'E', 'S', 'W']);
+
+/**
+ * Field spec for order shape validation. `optional` fields are
+ * checked only when present.
+ */
+interface OrderFieldSpec {
+    readonly key: string;
+    readonly kind: 'string' | 'number' | 'object';
+    readonly optional?: boolean;
+}
+
+function orderField(key: string, kind: 'string' | 'number' | 'object', optional?: boolean): OrderFieldSpec {
+    return optional === true ? { key, kind, optional: true } : { key, kind };
+}
+
+/** Required fields per order kind (subset that `validateCommand` dereferences). */
+const ORDER_FIELDS: Readonly<Record<string, readonly OrderFieldSpec[]>> = {
+    setPipe: [orderField('player', 'number'), orderField('cell', 'object'), orderField('direction', 'string')],
+    clearPipe: [orderField('player', 'number'), orderField('cell', 'object'), orderField('direction', 'string')],
+    setPipesExclusive: [
+        orderField('player', 'number'),
+        orderField('cell', 'object'),
+        orderField('direction', 'string'),
+    ],
+    clearAllPipes: [orderField('player', 'number'), orderField('cell', 'object')],
+    setReserves: [orderField('player', 'number'), orderField('cell', 'object'), orderField('percent', 'number')],
+    paratroop: [orderField('player', 'number'), orderField('source', 'object'), orderField('target', 'object')],
+    gun: [orderField('player', 'number'), orderField('source', 'object'), orderField('target', 'object')],
+    surrender: [orderField('player', 'number')],
+};
+
+/**
+ * Validate the shape of the inner `order` field within an `order`
+ * envelope payload. Catches:
+ *   - Non-object values (`{}`, `null`, arrays, primitives)
+ *   - Unknown `kind` values (`{ kind: 'bogus' }`, `{ kind: 123 }`)
+ *   - Missing required fields (e.g., `{ kind: 'setPipe' }` with no `player`)
+ *   - Wrong field types (e.g., `player: 'x'` instead of a number)
+ *   - Invalid direction values (`direction: 'X'` for pipe orders)
+ *
+ * Does NOT do semantic validation (is the cell in bounds? is the
+ * player the owner?) — that remains the engine's job.
+ *
+ * @param orderValue The raw `order` field from the envelope payload.
+ * @throws NetworkError with code `'malformed_payload'` on any violation.
+ */
+export function validateOrderShape(orderValue: unknown): void {
+    if (!isPlainObject(orderValue)) {
+        throw malformed('order must be a JSON object');
+    }
+
+    const { kind } = orderValue;
+
+    if (typeof kind !== 'string' || !ORDER_KINDS.has(kind)) {
+        throw malformed('order.kind must be a known Order kind', {
+            received: typeof kind === 'string' ? kind : typeof kind,
+        });
+    }
+
+    const fields = ORDER_FIELDS[kind];
+    if (fields === undefined) {
+        // Unreachable: every ORDER_KINDS entry has a fields entry.
+        throw malformed(`no field spec for order kind "${kind}"`);
+    }
+
+    for (const spec of fields) {
+        const value = orderValue[spec.key];
+        if (value === undefined) {
+            if (spec.optional) {
+                continue;
+            }
+            throw malformed(`order.${spec.key} is required for ${kind} orders`);
+        }
+        if (value === null) {
+            throw malformed(`order.${spec.key} must not be null for ${kind} orders`);
+        }
+        switch (spec.kind) {
+            case 'string':
+                if (typeof value !== 'string') {
+                    throw malformed(`order.${spec.key} must be a string for ${kind} orders`);
+                }
+                break;
+            case 'number':
+                if (typeof value !== 'number') {
+                    throw malformed(`order.${spec.key} must be a number for ${kind} orders`);
+                }
+                break;
+            case 'object':
+                if (!isPlainObject(value)) {
+                    throw malformed(`order.${spec.key} must be an object for ${kind} orders`);
+                }
+                break;
+        }
+    }
+
+    // Direction validation for pipe orders.
+    if (kind === 'setPipe' || kind === 'clearPipe' || kind === 'setPipesExclusive') {
+        const dirKey = 'direction';
+        const dir = orderValue[dirKey];
+        if (typeof dir === 'string' && !VALID_DIRECTIONS.has(dir)) {
+            throw malformed(`order.direction must be one of N, E, S, W for ${kind} orders`, {
+                received: dir,
+            });
+        }
+    }
 }
 
 /**

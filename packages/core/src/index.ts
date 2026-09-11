@@ -46,4 +46,4 @@ export { createRng, createRngFromString, hashSeed } from './rng';
 // ----------------------------------------------------------------------------
 
 export type { EngineConstants, FlowConstants } from './flow-rate';
-export { DEFAULT_FLOW_CONSTANTS, ENGINE_CONSTANTS, flowRateForDelta, resolveFlowAmount } from './flow-rate';
+export { DEFAULT_FLOW_CONSTANTS, ENGINE_CONSTANTS, flowRateForDelta } from './flow-rate';

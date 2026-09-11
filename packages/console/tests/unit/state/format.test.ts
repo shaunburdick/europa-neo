@@ -4,7 +4,7 @@
  *
  * The code-quality-reviewer checkpoint flagged `format.ts` coverage
  * (54.5% statements / 39.1% branches): the FR-007 screen-reader
- * rejection path had no direct lock. This table pins ALL NINE
+ * rejection path had no direct lock. This table pins ALL ELEVEN
  * `ValidationError` variants to their exact user-facing messages, so
  * a wording regression or a missed union member fails loudly.
  * Exhaustiveness is compile-enforced too: adding a variant without a
@@ -19,7 +19,7 @@ import { formatActionConfirmation, formatRejection } from '../../../src/state/fo
 import type { PlayerAction, ValidationError } from '../../../src/state/types';
 
 /**
- * The nine-variant rejection message table. Every row must map a
+ * The eleven-variant rejection message table. Every row must map a
  * distinct `ValidationError` kind to its exact FR-007 string.
  */
 const REJECTION_MESSAGES: ReadonlyArray<{
@@ -47,6 +47,8 @@ const REJECTION_MESSAGES: ReadonlyArray<{
     },
     { reason: { kind: 'unknown_player' }, message: 'Unknown player' },
     { reason: { kind: 'match_terminal' }, message: 'The match is already over' },
+    { reason: { kind: 'unknown_order' }, message: 'Invalid order' },
+    { reason: { kind: 'invalid_direction', direction: 'X' }, message: 'Invalid pipe direction' },
 ];
 
 describe('formatRejection (FR-007 screen-reader path)', () => {
@@ -54,10 +56,10 @@ describe('formatRejection (FR-007 screen-reader path)', () => {
         expect(formatRejection(reason)).toBe(message);
     });
 
-    it('covers all nine ValidationError kinds with human-readable prose', () => {
-        expect(REJECTION_MESSAGES).toHaveLength(9);
+    it('covers all eleven ValidationError kinds with human-readable prose', () => {
+        expect(REJECTION_MESSAGES).toHaveLength(11);
         const kinds = new Set(REJECTION_MESSAGES.map((row) => row.reason.kind));
-        expect(kinds.size).toBe(9);
+        expect(kinds.size).toBe(11);
         // No engine jargon leaks through: every message is prose (contains
         // a space) and none merely echoes the raw kind name.
         for (const row of REJECTION_MESSAGES) {

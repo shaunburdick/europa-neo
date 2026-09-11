@@ -35,6 +35,19 @@ export function projectLobbyEntry(match: MatchRecord, nowMs: number): LobbyEntry
     if (match.visibility !== 'public' || match.status !== 'filling') {
         return null;
     }
+    // A full-but-unstarted match (all seats filled but auto-start has
+    // not yet transitioned to 'running') is NOT joinable — no free
+    // seats exist. Exclude it from the lobby projection so clients
+    // cannot attempt to join a match that would immediately reject
+    // them with 'match_full'.
+    //
+    // Exception: rematch-created matches are born with all seats
+    // pre-filled and an initialSeed set at creation — they sit in
+    // 'filling' until original participants reconnect, and the lobby
+    // must list them so those participants can find and rejoin.
+    if (match.seats.size >= match.settings.playerCount && match.status === 'filling' && match.initialSeed === null) {
+        return null;
+    }
     const host = match.seats.get(0);
     if (host === undefined) {
         // Unreachable via the create path (the creator occupies seat 0

@@ -60,7 +60,7 @@ import { createRng } from '@europa/core';
 import type { MatchResult } from '@europa/engine';
 import { NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { MatchmakerBridge, Server, SessionToken } from '@europa/networking';
-import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
+import { DEFAULT_GENERATION_SETTINGS, generateBoard, validateSettings } from '@europa/terrain';
 import type {
     CreateMatchRequest,
     CreateMatchResult,
@@ -182,7 +182,11 @@ function validateDisplayName(name: string, min: number, max: number): string | n
  */
 interface SettingsRejection {
     /** Dotted path of the rejected knob (e.g., `settings.playerCount`). */
-    readonly field: 'settings.playerCount' | 'settings.boardSize' | 'settings.tickIntervalMs';
+    readonly field:
+        | 'settings.playerCount'
+        | 'settings.boardSize'
+        | 'settings.tickIntervalMs'
+        | 'settings.terrainSettings';
     /** Short human-readable rejection reason (safe to forward to clients). */
     readonly reason: string;
 }
@@ -233,6 +237,23 @@ function resolveSettings(
         ...DEFAULT_GENERATION_SETTINGS,
         ...partial?.terrainSettings,
     };
+
+    // Validate the merged terrain settings shape BEFORE accepting the
+    // create. Malformed terrain settings (NaN, non-integer octaves,
+    // invalid symmetryStrategy) would otherwise survive into autoStart
+    // and throw inside generateBoard, leaving the match in a broken
+    // filling state that consumes the capacity budget.
+    try {
+        validateSettings(terrainSettings);
+    } catch {
+        return {
+            ok: false,
+            rejection: {
+                field: 'settings.terrainSettings' as SettingsRejection['field'],
+                reason: 'invalid terrain settings shape',
+            },
+        };
+    }
 
     return {
         ok: true,
@@ -512,67 +533,86 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
      * pre-minted `initialSeed` (FR-009); normal creates mint theirs
      * here — both store it back on the record so a match has exactly
      * one seed for its lifetime.
+     *
+     * Returns a Result so the caller can handle failures without
+     * leaving the match in a broken filling state.
      */
-    function autoStart(match: MatchRecord): void {
-        const seed = match.initialSeed ?? newMatchSeed();
-        match.initialSeed = seed;
-        const engineConfig = buildMatchConfig(match.settings, seed);
-        const rng = rngFactory(seed);
+    function autoStart(
+        match: MatchRecord,
+    ): { readonly ok: true } | { readonly ok: false; readonly error: MatchmakerError } {
+        try {
+            const seed = match.initialSeed ?? newMatchSeed();
+            match.initialSeed = seed;
+            const engineConfig = buildMatchConfig(match.settings, seed);
+            const rng = rngFactory(seed);
 
-        const generation = generateBoard({
-            boardSize: match.settings.boardSize,
-            playerCount: match.settings.playerCount,
-            seed,
-            rng,
-            settings: match.settings.terrainSettings,
-        });
-        logger.debug('matchmaker: board generated', {
-            matchId: match.matchId,
-            effectiveSeed: generation.effectiveSeed,
-        });
-
-        const engineSession = buildEngineSession(engineConfig, generation.board);
-
-        // Resolve seats once, in seat order, for both the display-name
-        // snapshot below and the attach loop (the same seat-missing guard
-        // the loop always carried).
-        const orderedSeats: SeatRecord[] = [];
-        for (let index = 0; index < match.settings.playerCount; index++) {
-            const seat = match.seats.get(index as SeatIndex);
-            if (seat === undefined) {
-                throw new Error(`matchmaker: seat ${String(index)} missing at auto-start`);
-            }
-            orderedSeats.push(seat);
-        }
-
-        // Feature 010 FR-020/SC-008: hand networking each seat's
-        // authoritative label — the accepted-handle snapshot, falling back
-        // to the cosmetic name for legacy/unnamed seats — so joinAck
-        // players carry real handles. The names travel at the REGISTRATION
-        // boundary only: they are never pushed into the engine world
-        // (engine displayNames are ASCII-by-convention and pinned by
-        // determinism fixtures; arbitrary Unicode handles are valid per
-        // FR-004). Rename propagation to in-flight registrations remains a
-        // documented limitation — the snapshot is taken as-is at start.
-        server.registerMatch({
-            matchId: match.matchId,
-            engineSession,
-            matchConfig: engineConfig,
-            displayNames: orderedSeats.map((seat) => seat.handle ?? seat.displayName),
-        });
-
-        // Attach in seat order so playerId n maps to seatIndex n - 1.
-        for (const [index, seat] of orderedSeats.entries()) {
-            server.attachPlayer({
-                matchId: match.matchId,
-                playerId: toPlayerId(index + 1),
-                sessionToken: seat.sessionToken,
+            const generation = generateBoard({
+                boardSize: match.settings.boardSize,
+                playerCount: match.settings.playerCount,
+                seed,
+                rng,
+                settings: match.settings.terrainSettings,
             });
+            logger.debug('matchmaker: board generated', {
+                matchId: match.matchId,
+                effectiveSeed: generation.effectiveSeed,
+            });
+
+            const engineSession = buildEngineSession(engineConfig, generation.board);
+
+            // Resolve seats once, in seat order, for both the display-name
+            // snapshot below and the attach loop (the same seat-missing guard
+            // the loop always carried).
+            const orderedSeats: SeatRecord[] = [];
+            for (let index = 0; index < match.settings.playerCount; index++) {
+                const seat = match.seats.get(index as SeatIndex);
+                if (seat === undefined) {
+                    throw new Error(`matchmaker: seat ${String(index)} missing at auto-start`);
+                }
+                orderedSeats.push(seat);
+            }
+
+            // Feature 010 FR-020/SC-008: hand networking each seat's
+            // authoritative label — the accepted-handle snapshot, falling back
+            // to the cosmetic name for legacy/unnamed seats — so joinAck
+            // players carry real handles. The names travel at the REGISTRATION
+            // boundary only: they are never pushed into the engine world
+            // (engine displayNames are ASCII-by-convention and pinned by
+            // determinism fixtures; arbitrary Unicode handles are valid per
+            // FR-004). Rename propagation to in-flight registrations remains a
+            // documented limitation — the snapshot is taken as-is at start.
+            server.registerMatch({
+                matchId: match.matchId,
+                engineSession,
+                matchConfig: engineConfig,
+                displayNames: orderedSeats.map((seat) => seat.handle ?? seat.displayName),
+            });
+
+            // Attach in seat order so playerId n maps to seatIndex n - 1.
+            for (const [index, seat] of orderedSeats.entries()) {
+                server.attachPlayer({
+                    matchId: match.matchId,
+                    playerId: toPlayerId(index + 1),
+                    sessionToken: seat.sessionToken,
+                });
+            }
+
+            server.enableSpectators(match.matchId);
+
+            transitionFillingToRunning(match, engineSession, now(), bus.emit);
+            return { ok: true };
+        } catch (err) {
+            // Any throw during the autoStart critical section (board
+            // generation, engine session construction, networking
+            // registration) is caught and returned as a recoverable
+            // error. The caller rolls back the seat/session so the
+            // match returns to its pre-join state.
+            const message = err instanceof Error ? err.message : 'auto-start failed';
+            return {
+                ok: false,
+                error: makeError('internal_error', `auto-start failed: ${message}`),
+            };
         }
-
-        server.enableSpectators(match.matchId);
-
-        transitionFillingToRunning(match, engineSession, now(), bus.emit);
     }
 
     /**
@@ -806,6 +846,11 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
             const settings = resolvedSettings.settings;
 
+            // Run lazy sweeps before the capacity check so stale
+            // matches (expired rematch windows, TTL'd empty/finished
+            // matches) are collected first — prevents capacity
+            // exhaustion by accumulated dead records.
+            runLazySweeps();
             const activeMatches = store.listMatches().filter((m) => m.status !== 'collected').length;
             if (activeMatches >= resolved.maxConcurrentMatches) {
                 return {
@@ -940,7 +985,24 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
             const started = match.seats.size >= match.settings.playerCount;
             if (started) {
-                autoStart(match);
+                const startResult = autoStart(match);
+                if (!startResult.ok) {
+                    // Roll back: remove the just-added seat, delete the
+                    // joiner's session, and refresh the match activity
+                    // timestamp so the still-filling match gets a full
+                    // empty-match TTL window. The match returns to its
+                    // pre-join state (filling with N-1 seats); if the
+                    // settings are inherently broken the empty-match
+                    // sweep will eventually collect it.
+                    match.seats.delete(freeSeat);
+                    store.deleteSession(session.playerSessionId);
+                    match.lastActivityAtMs = now();
+                    logger.warn('matchmaker: auto-start failed; seat rolled back', {
+                        matchId: match.matchId,
+                        error: startResult.error.message,
+                    });
+                    return { ok: false, error: startResult.error };
+                }
             }
 
             const links = joinLinks(match);

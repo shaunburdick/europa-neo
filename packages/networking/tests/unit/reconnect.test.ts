@@ -139,4 +139,42 @@ describe('ReconnectRegistry', () => {
         expect(registry.lookup(token(9), 149)).not.toHaveProperty('expired');
         expect(registry.lookup(token(9), 150)).toEqual({ expired: true });
     });
+
+    it('hasActiveBinding returns true for a live binding, false after expiry or for unknown tokens', () => {
+        const registry = new ReconnectRegistry(10_000);
+        registry.register(token(10), connId(10), playerId(10), matchId(10), 0);
+
+        // Within the grace window → active.
+        expect(registry.hasActiveBinding(token(10), 5_000)).toBe(true);
+
+        // Unknown token → not active.
+        expect(registry.hasActiveBinding(token(999), 5_000)).toBe(false);
+
+        // At the grace boundary → expired → not active.
+        expect(registry.hasActiveBinding(token(10), 10_000)).toBe(false);
+
+        // Expired but not yet swept → still not active.
+        expect(registry.hasActiveBinding(token(10), 20_000)).toBe(false);
+    });
+
+    it('hasActiveBinding is non-destructive (does not consume the binding)', () => {
+        const registry = new ReconnectRegistry(10_000);
+        registry.register(token(11), connId(11), playerId(11), matchId(11), 0);
+
+        // Probe multiple times — all return true.
+        expect(registry.hasActiveBinding(token(11), 1_000)).toBe(true);
+        expect(registry.hasActiveBinding(token(11), 2_000)).toBe(true);
+
+        // Binding is still there (lookup still returns it).
+        expect(registry.lookup(token(11), 3_000)).not.toBeNull();
+        expect(registry.lookup(token(11), 3_000)).not.toHaveProperty('expired');
+
+        // consume still works after hasActiveBinding probes.
+        const consumed = registry.consume(token(11), 4_000);
+        expect(consumed).not.toBeNull();
+        expect(consumed).not.toHaveProperty('expired');
+
+        // Now hasActiveBinding returns false.
+        expect(registry.hasActiveBinding(token(11), 5_000)).toBe(false);
+    });
 });

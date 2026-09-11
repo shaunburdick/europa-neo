@@ -1,0 +1,106 @@
+name: Core CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/core/**'
+      - '.github/workflows/core-ci.yml'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - 'biome.jsonc'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/core/**'
+      - '.github/workflows/core-ci.yml'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - 'biome.jsonc'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+# Minimal permissions: contents:read is enough for typecheck/lint/test/build.
+# No jobs need write access; we don't push artifacts or publish.
+permissions:
+  contents: read
+
+jobs:
+  core-lint:
+    name: Lint (core)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Typecheck (core)
+        run: pnpm --filter @europa/core typecheck
+
+      - name: Lint (core)
+        run: pnpm --filter @europa/core lint
+
+      - name: Format check (core)
+        run: pnpm --filter @europa/core format:check
+
+  core-test:
+    name: Test (core)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Build (core)
+        run: pnpm --filter @europa/core build
+
+      - name: Test (core)
+        run: pnpm --filter @europa/core test
+
+  core-coverage:
+    name: Coverage gate (core ≥ 80%)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Build (core)
+        run: pnpm --filter @europa/core build
+
+      - name: Coverage (core)
+        run: pnpm --filter @europa/core coverage
+
+      # Coverage thresholds (80% lines/functions/branches/statements) are
+      # enforced by vitest config at packages/core/vitest.config.ts.
+      # The command exits non-zero if any threshold is below 80%.
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-coverage
+          path: packages/core/coverage/
+          retention-days: 14
