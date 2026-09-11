@@ -3,14 +3,15 @@ import { TOKENS } from '../../tokens.js';
 /**
  * Component-local player-color map for game primitives.
  *
- * Reuses existing `TOKENS.color.*` values — no new token variables and no new
- * hex literals (FR-010, plan decision D-7).
+ * Each player maps to the dedicated `playerColorN` token (spec 012 FR-023,
+ * issue #148). These tokens are the single source of truth for player
+ * ownership colors; no other file should hardcode player-color hex values.
  */
 const PLAYER_COLORS: Record<number, string> = {
-    1: TOKENS.color.accent,
-    2: TOKENS.color.city,
-    3: TOKENS.color.green,
-    4: TOKENS.color.blue,
+    1: TOKENS.color.playerColor1,
+    2: TOKENS.color.playerColor2,
+    3: TOKENS.color.playerColor3,
+    4: TOKENS.color.playerColor4,
 };
 
 /**

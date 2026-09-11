@@ -45,17 +45,17 @@ describe('EuropaCityMarker', () => {
         render(<EuropaCityMarker owner={2} />);
         const marker = screen.getByRole('img');
         expect(marker).toHaveStyle({
-            backgroundColor: TOKENS.color.city,
-            borderColor: TOKENS.color.city,
+            backgroundColor: TOKENS.color.playerColor2,
+            borderColor: TOKENS.color.playerColor2,
         });
     });
 
     it('maps each player 1–4 to its token color', () => {
         const expected: Array<[number, string]> = [
-            [1, TOKENS.color.accent],
-            [2, TOKENS.color.city],
-            [3, TOKENS.color.green],
-            [4, TOKENS.color.blue],
+            [1, TOKENS.color.playerColor1],
+            [2, TOKENS.color.playerColor2],
+            [3, TOKENS.color.playerColor3],
+            [4, TOKENS.color.playerColor4],
         ];
 
         for (const [owner, color] of expected) {
