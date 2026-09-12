@@ -98,11 +98,11 @@ shim or weaken a validator to make an old fixture pass.
   bytes depend only on seed/size/player-count/settings, not ID values; include
   valid IDs with different ordering and ensure the same starting-city slots are
   produced.
-- [ ] **T021**: [P] Update fog implementation/contracts in
+- [x] **T021**: [P] Update fog implementation/contracts in
   `packages/fog/src/playerView.ts`, `visibleSet.ts`, and related types to resolve
   universal IDs through the authoritative engine registry before visibility
   computation; unknown/forged IDs must fail closed.
-- [ ] **T022**: [P] Update fog tests under `packages/fog/tests/` for valid ID views,
+- [x] **T022**: [P] Update fog tests under `packages/fog/tests/` for valid ID views,
   unknown/forged IDs, reconnect/seat reassignment view association, spectator
   null handling, and zero hidden-state leakage; retain ≥80% coverage.
 - [ ] **T023**: Run terrain/fog source-to-spec contract drift and strict conformance

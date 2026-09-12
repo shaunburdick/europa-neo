@@ -22,6 +22,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { computePlayerView } from '../../src/index';
+import { P1, P2 } from '../fixtures/ids';
 import { buildWorldWithTroops, withVisibilityRadius } from '../fixtures/world';
 
 /** Measured calls per round; larger samples stabilize the median. */
@@ -55,8 +56,8 @@ describe('Q-F07 — visibility performance (SC-004)', () => {
             buildWorldWithTroops(
                 32,
                 [
-                    [8, 8, 1, 5],
-                    [20, 20, 2, 7],
+                    [8, 8, P1, 5],
+                    [20, 20, P2, 7],
                 ],
                 2,
             ),
@@ -65,7 +66,7 @@ describe('Q-F07 — visibility performance (SC-004)', () => {
 
         // Warm-up (JIT + allocator steady state) — not counted.
         for (let i = 0; i < WARMUP_CALLS; i++) {
-            computePlayerView(world, 1);
+            computePlayerView(world, P1);
         }
 
         const roundMedians: number[] = [];
@@ -75,7 +76,7 @@ describe('Q-F07 — visibility performance (SC-004)', () => {
             const samples: number[] = new Array(TRIALS);
             for (let i = 0; i < TRIALS; i++) {
                 const start = performance.now();
-                computePlayerView(world, 1);
+                computePlayerView(world, P1);
                 samples[i] = performance.now() - start;
             }
             samples.sort((a, b) => a - b);

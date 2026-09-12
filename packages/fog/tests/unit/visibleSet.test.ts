@@ -14,10 +14,13 @@
  *   - Viewers with `troopCount === 0` are excluded (destroyed stack).
  *   - Cities do NOT project vision (spec US1 Edge Case "city
  *     ownership").
+ *   - Universal IDs resolve through the authoritative registry;
+ *     unknown/forged/malformed/numeric IDs fail closed (issue #74).
  */
 
 import { describe, expect, it } from 'vitest';
-import { computeVisibleSet } from '../../src/visibleSet';
+import { computeVisibleSet, resolvePlayerOwnerByte } from '../../src/visibleSet';
+import { FORGED_ID, MALFORMED_ID, NUMERIC_ID, P1, P2 } from '../fixtures/ids';
 import { disjointDisks, expectedChebyshevDisk } from '../fixtures/view';
 import { buildWorldWithCities, buildWorldWithTroops } from '../fixtures/world';
 
@@ -31,23 +34,23 @@ const RADIUS = 3;
 
 describe('computeVisibleSet (US1)', () => {
     it('lone stack at (8,8) on 16×16 sees exactly its 49-cell Chebyshev disk', () => {
-        const world = buildWorldWithTroops(16, [[8, 8, 1, 5]]);
-        const visible = computeVisibleSet(world, 1, RADIUS);
+        const world = buildWorldWithTroops(16, [[8, 8, P1, 5]]);
+        const visible = computeVisibleSet(world, P1, RADIUS);
 
         const expected = expectedChebyshevDisk({ x: 8, y: 8 }, RADIUS, 16, 16);
         expect(visible.visibleCells).toHaveLength(49);
         expect(visible.visibleCells).toEqual(expected);
-        expect(visible.player).toBe(1);
+        expect(visible.player).toBe(P1);
         expect(visible.tick).toBe(world.tick);
     });
 
     it('two disjoint friendly stacks union to the sum of their disks', () => {
         // (3,3) and (12,12) on 16×16 with radius 4 are far apart.
         const world = buildWorldWithTroops(16, [
-            [3, 3, 1, 2],
-            [12, 12, 1, 2],
+            [3, 3, P1, 2],
+            [12, 12, P1, 2],
         ]);
-        const visible = computeVisibleSet(world, 1, RADIUS);
+        const visible = computeVisibleSet(world, P1, RADIUS);
 
         const diskA = expectedChebyshevDisk({ x: 3, y: 3 }, RADIUS, 16, 16);
         const diskB = expectedChebyshevDisk({ x: 12, y: 12 }, RADIUS, 16, 16);
@@ -63,8 +66,8 @@ describe('computeVisibleSet (US1)', () => {
     });
 
     it('stack at (0,0) clips to a 4×4 corner disk with no out-of-bounds leak', () => {
-        const world = buildWorldWithTroops(16, [[0, 0, 1, 3]]);
-        const visible = computeVisibleSet(world, 1, RADIUS);
+        const world = buildWorldWithTroops(16, [[0, 0, P1, 3]]);
+        const visible = computeVisibleSet(world, P1, RADIUS);
 
         expect(visible.visibleCells).toHaveLength(16);
         for (const coord of visible.visibleCells) {
@@ -77,10 +80,10 @@ describe('computeVisibleSet (US1)', () => {
 
     it('output is row-major with no duplicates', () => {
         const world = buildWorldWithTroops(16, [
-            [4, 4, 1, 1],
-            [10, 10, 1, 1],
+            [4, 4, P1, 1],
+            [10, 10, P1, 1],
         ]);
-        const visible = computeVisibleSet(world, 1, RADIUS);
+        const visible = computeVisibleSet(world, P1, RADIUS);
 
         let lastKey = -1;
         const seen = new Set<number>();
@@ -97,12 +100,12 @@ describe('computeVisibleSet (US1)', () => {
         // The fixture rejects count ≤ 0 placements, so simulate a
         // destroyed stack by cloning state and zeroing the count — the
         // same mutation path combat takes in the engine.
-        const base = buildWorldWithTroops(16, [[8, 8, 1, 5]]);
+        const base = buildWorldWithTroops(16, [[8, 8, P1, 5]]);
         const counts = new Uint32Array(base.state.troopCounts);
         counts[8 * 16 + 8] = 0;
         const world = { ...base, state: { ...base.state, troopCounts: counts } };
 
-        const visible = computeVisibleSet(world, 1, RADIUS);
+        const visible = computeVisibleSet(world, P1, RADIUS);
         expect(visible.visibleCells).toHaveLength(0);
     });
 
@@ -110,10 +113,10 @@ describe('computeVisibleSet (US1)', () => {
         // Player 1's view must not include cells beyond player 1's own
         // disks even when player 2 has stacks elsewhere.
         const world = buildWorldWithTroops(16, [
-            [8, 8, 1, 5],
-            [15, 15, 2, 9],
+            [8, 8, P1, 5],
+            [15, 15, P2, 9],
         ]);
-        const visible = computeVisibleSet(world, 1, RADIUS);
+        const visible = computeVisibleSet(world, P1, RADIUS);
 
         const expected = expectedChebyshevDisk({ x: 8, y: 8 }, RADIUS, 16, 16);
         expect(visible.visibleCells).toEqual(expected);
@@ -125,30 +128,66 @@ describe('computeVisibleSet (US1)', () => {
             [8, 8, 1],
             [3, 3, 2],
         ]);
-        const visible = computeVisibleSet(world, 1, RADIUS);
+        const visible = computeVisibleSet(world, P1, RADIUS);
         expect(visible.visibleCells).toHaveLength(0);
     });
 
     it('omitting the radius falls back to the match config radius', () => {
-        const world = buildWorldWithTroops(16, [[8, 8, 1, 5]]);
-        const explicit = computeVisibleSet(world, 1, world.config.visibilityRadius);
-        const defaulted = computeVisibleSet(world, 1);
+        const world = buildWorldWithTroops(16, [[8, 8, P1, 5]]);
+        const explicit = computeVisibleSet(world, P1, world.config.visibilityRadius);
+        const defaulted = computeVisibleSet(world, P1);
         expect(defaulted).toEqual(explicit);
     });
 
     it('matches engine signed 32-bit normalization at the upper boundary', () => {
-        const world = buildWorldWithTroops(16, [[8, 8, 1, 5]]);
+        const world = buildWorldWithTroops(16, [[8, 8, P1, 5]]);
 
-        expect(computeVisibleSet(world, 1, 2_147_483_647).visibleCells).toHaveLength(256);
-        expect(computeVisibleSet(world, 1, 2_147_483_648).visibleCells).toEqual([{ x: 8, y: 8 }]);
+        expect(computeVisibleSet(world, P1, 2_147_483_647).visibleCells).toHaveLength(256);
+        expect(computeVisibleSet(world, P1, 2_147_483_648).visibleCells).toEqual([{ x: 8, y: 8 }]);
     });
 
     it('matches engine normalization for negative and fractional radii', () => {
-        const world = buildWorldWithTroops(16, [[8, 8, 1, 5]]);
+        const world = buildWorldWithTroops(16, [[8, 8, P1, 5]]);
 
-        expect(computeVisibleSet(world, 1, -1).visibleCells).toEqual([{ x: 8, y: 8 }]);
-        expect(computeVisibleSet(world, 1, 1.9).visibleCells).toHaveLength(9);
+        expect(computeVisibleSet(world, P1, -1).visibleCells).toEqual([{ x: 8, y: 8 }]);
+        expect(computeVisibleSet(world, P1, 1.9).visibleCells).toHaveLength(9);
         // Values below signed 32-bit range wrap before the engine's clamp.
-        expect(computeVisibleSet(world, 1, -2_147_483_649).visibleCells).toHaveLength(256);
+        expect(computeVisibleSet(world, P1, -2_147_483_649).visibleCells).toHaveLength(256);
+    });
+
+    it('resolves IDs through the authoritative registry (round-trip owner byte)', () => {
+        const world = buildWorldWithTroops(16, [[8, 8, P2, 5]]);
+        // P2 is the second fixture identity; the registry reports byte 2.
+        expect(resolvePlayerOwnerByte(world, P2)).toBe(2);
+        expect(resolvePlayerOwnerByte(world, P1)).toBe(1);
+        expect(resolvePlayerOwnerByte(world, FORGED_ID)).toBeNull();
+        expect(resolvePlayerOwnerByte(world, MALFORMED_ID)).toBeNull();
+        expect(resolvePlayerOwnerByte(world, NUMERIC_ID)).toBeNull();
+    });
+
+    it('fails closed for unknown, forged, malformed, and numeric IDs', () => {
+        const world = buildWorldWithTroops(16, [[8, 8, P1, 5]]);
+
+        for (const forged of [FORGED_ID, MALFORMED_ID, NUMERIC_ID]) {
+            const visible = computeVisibleSet(world, forged, RADIUS);
+            expect(visible.visibleCells).toHaveLength(0);
+            // The requested ID is echoed for correlation, but no seat
+            // was selected and no cell was disclosed.
+            expect(visible.player).toBe(forged);
+        }
+
+        // A registered neighbour still resolves normally (fail-closed is
+        // targeted, not a blanket denial).
+        expect(computeVisibleSet(world, P1, RADIUS).visibleCells).toHaveLength(49);
+    });
+
+    it('a forged ID never inherits another seat’s horizon', () => {
+        const world = buildWorldWithTroops(16, [[8, 8, P1, 5]]);
+        const valid = computeVisibleSet(world, P1, RADIUS);
+        const forged = computeVisibleSet(world, FORGED_ID, RADIUS);
+
+        expect(valid.visibleCells).toHaveLength(49);
+        expect(forged.visibleCells).toHaveLength(0);
+        expect(forged.visibleCells).not.toEqual(valid.visibleCells);
     });
 });

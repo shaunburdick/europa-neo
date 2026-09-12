@@ -5,18 +5,29 @@
  * snapshot and a player, it returns every cell within Chebyshev range
  * `visibilityRadius` of ANY of that player's troop stacks.
  *
+ * Identity resolution (spec v1.5 FR-010, issue #74): the caller passes
+ * a universal 12-character `PlayerId` string. The engine stores owners
+ * as private **1-based dense bytes** (`0` = neutral, `k` = the player
+ * at registry index `k - 1`), so fog resolves the public ID through
+ * `world.playerRegistry` *before* any visibility computation and never
+ * compares a string to a raw byte. Unknown, forged, malformed, or
+ * numeric IDs resolve to `null` and **fail closed** — an empty visible
+ * set is returned, never a fallback seat, index `0`, or coercion. The
+ * same authority rule is applied by `computePlayerView`.
+ *
  * Algorithm (per `research.md` §1 and `contracts/fog-api.ts` JSDoc):
- *   1. Iterate `world.state.troopOwners` row-major (y outer, x inner);
- *      collect viewers where `troopOwners[i] === player &&
+ *   1. Resolve `player` → 1-based owner byte via the world registry.
+ *   2. Iterate `world.state.troopOwners` row-major (y outer, x inner);
+ *      collect viewers where `troopOwners[i] === ownerByte &&
  *      troopCounts[i] > 0`. Cities do NOT project vision (spec US1
  *      Edge Case "city ownership") — vision derives from troop
  *      presence only.
- *   2. Allocate a fresh binary `FogMask` (zero-init) per call — the
+ *   3. Allocate a fresh binary `FogMask` (zero-init) per call — the
  *      no-memory rule (spec FR-004 / US2): nothing survives between
  *      calls, so previously seen cells can never leak into the output.
- *   3. For each viewer, mark every cell within Chebyshev range using
+ *   4. For each viewer, mark every cell within Chebyshev range using
  *      the engine's `cellsInRange` (bounds-clipped, row-major order).
- *   4. Iterate the mask row-major and emit each marked cell's `Coord`.
+ *   5. Iterate the mask row-major and emit each marked cell's `Coord`.
  *
  * Determinism (spec FR-007): identical `(world, player,
  * visibilityRadius)` produces byte-identical output. Row-major
@@ -79,6 +90,30 @@ function resolveRadius(visibilityRadius: number | undefined, world: Readonly<Wor
 }
 
 /**
+ * Resolve a universal `PlayerId` to the engine's private 1-based dense
+ * owner byte used by `WorldState.troopOwners` / `WorldState.cityOwners`.
+ *
+ * This is fog's single audited identity-resolution seam (spec v1.5
+ * FR-010, issue #74): every visibility computation routes through the
+ * world's authoritative `PlayerRegistry`. Fog never compares a
+ * `PlayerId` string to a raw owner byte, never infers an index from
+ * array position or seat, and never coerces a numeric value.
+ *
+ * An unknown, forged, malformed, or numeric ID is *not* registered, so
+ * the lookup returns `null` and callers fail closed.
+ *
+ * @param world  The world snapshot whose registry is authoritative.
+ * @param player The candidate universal player ID (may be forged or
+ *               malformed at runtime).
+ * @returns The 1-based dense owner byte, or `null` when the ID is not
+ *          a registered canonical player.
+ */
+export function resolvePlayerOwnerByte(world: Readonly<World>, player: PlayerId): number | null {
+    const index = world.playerRegistry.indexOfId(player);
+    return index === null ? null : index + 1;
+}
+
+/**
  * Compute the per-player `VisibleSet` for one tick. Pure.
  *
  * The result is the union of the Chebyshev disks (radius
@@ -88,21 +123,41 @@ function resolveRadius(visibilityRadius: number | undefined, world: Readonly<Wor
  * project nothing; cities alone project nothing (spec US1 Edge
  * Cases).
  *
+ * Fail-closed identity rule (spec v1.5 FR-010): `player` is resolved
+ * through the world's authoritative `PlayerRegistry` **before** any
+ * board scan. An unknown, forged, malformed, or numeric ID yields an
+ * empty `visibleCells` list — never a fallback seat or index `0`, and
+ * never hidden state. A registered ID that simply has no troops sees
+ * the same empty set through the ordinary horizon rule.
+ *
  * JSDoc references: FR-001 (per-player visible set from troop
  * positions), FR-007 (deterministic), FR-008 (uniform radius),
- * US1 AC-1 (lone stack horizon), US1 AC-2 (multi-stack union).
+ * FR-010 (authoritative resolution), US1 AC-1 (lone stack horizon),
+ * US1 AC-2 (multi-stack union).
  *
  * @param world            The current `World` snapshot (from
  *                         `tick()`).
- * @param player           The player whose visibility is computed.
+ * @param player           The universal player ID whose visibility is
+ *                         computed.
  * @param visibilityRadius Sensor radius in cells (Chebyshev).
  *                         Optional; defaults to
  *                         `world.config.visibilityRadius`.
  * @returns A `VisibleSet` containing every cell visible to `player`
- *         this tick, row-major, no duplicates.
+ *         this tick, row-major, no duplicates (empty when the ID is
+ *         not registered).
  */
 export function computeVisibleSet(world: Readonly<World>, player: PlayerId, visibilityRadius?: number): VisibleSet {
     const { width, height } = world.board;
+
+    // Resolve the universal ID through the authoritative engine
+    // registry BEFORE any visibility computation. Unknown/forged/
+    // malformed/numeric -> fail closed with no cells and no seat
+    // fallback (spec FR-010).
+    const ownerByte = resolvePlayerOwnerByte(world, player);
+    if (ownerByte === null) {
+        return { player, tick: world.tick, visibleCells: [] };
+    }
+
     const radius = resolveRadius(visibilityRadius, world);
 
     // Fresh zero-init mask per call — the structural no-memory rule
@@ -115,7 +170,7 @@ export function computeVisibleSet(world: Readonly<World>, player: PlayerId, visi
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            if ((troopOwners[idx] ?? 0) !== player) {
+            if ((troopOwners[idx] ?? 0) !== ownerByte) {
                 continue;
             }
             if ((troopCounts[idx] ?? 0) <= 0) {
