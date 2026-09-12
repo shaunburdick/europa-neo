@@ -1032,9 +1032,13 @@ export function createMatchServer(
     }
 
     /**
-     * Handle `joinMatch`: resolve the requested seat (token > requested
-     * seat > first open seat), bind it, ack with a fresh snapshot, and
-     * notify matchmaking.
+     * Handle `joinMatch`: resolve the target seat from the connection's
+     * bound bearer token (reconnect registry, then seat scan) or, for a
+     * tokenless new session, the lowest open seat in canonical UTF-16
+     * order; bind it, ack with a fresh snapshot, and notify matchmaking.
+     * A client-supplied identity can never select or claim a seat
+     * (issue #74 FR-022 — `requestedSeat` was removed in the 0.3.0 wire
+     * break).
      *
      * @param connection Requesting connection (must be greeted).
      * @param payload    Client's join request.
@@ -1122,7 +1126,9 @@ export function createMatchServer(
             return;
         }
 
-        // Resolve the target seat: explicit token > requested seat > first open.
+        // Resolve the target seat: bearer token (reconnect registry, then
+        // seat scan) > lowest open seat in canonical UTF-16 order. A
+        // client-supplied identity is never consulted.
         let target: { playerId: PlayerId; token: SessionToken } | undefined;
         if (payload.reconnectToken !== undefined) {
             // US2 reconnect path: the registry is the source of truth for

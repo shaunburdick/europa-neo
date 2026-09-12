@@ -39,8 +39,8 @@ import { describe, expect, it } from 'vitest';
 import { createMatchServer } from '../../src/server';
 import type { TickBroadcastPayload } from '../../src/types';
 import type { ScriptedClient } from '../fixtures/conn';
-import { attachPlayersForMatch, scriptedMatch } from '../fixtures/match';
-import { connectMockClient, realDeps, testServerConfig } from './harness';
+import { attachPlayersForMatch, playerIdForSlot, scriptedMatch } from '../fixtures/match';
+import { connectMockClient, realDeps, seatToken, testServerConfig } from './harness';
 
 /** 012 default board size. `64` is a known-broken terrain size — out of scope. */
 const BOARD = 48;
@@ -90,10 +90,15 @@ function chebyshevDisk(center: Coord, radius: number, width: number, height: num
 }
 
 /**
- * Independent visibility oracle: scan the raw state arrays for `player` viewers
- * (owner === player && count > 0), union their bounds-clipped Chebyshev disks
- * (radius from `world.config.visibilityRadius`), return the row-major key set.
- * Shares NO code with `computePlayerView` beyond the fixture-level disk helper.
+ * Independent visibility oracle: scan the raw state arrays for viewers of
+ * `player` (owner byte === that player's dense registry encoding && count > 0),
+ * union their bounds-clipped Chebyshev disks (radius from
+ * `world.config.visibilityRadius`), return the row-major key set. Shares NO code
+ * with `computePlayerView` beyond the fixture-level disk helper.
+ *
+ * The owner byte is the registry's 1-based dense encoding (`denseIndex + 1`,
+ * `0` = neutral), NOT the `PlayerId` itself (issue #74) — resolve the dense
+ * index through `world.playerRegistry`.
  *
  * @param world  The authoritative world snapshot to audit.
  * @param player The recipient player.
@@ -104,10 +109,15 @@ function expectedVisibleKeys(world: Readonly<World>, player: PlayerId): Set<numb
     const radius = world.config.visibilityRadius;
     const seen = new Set<number>();
     const { troopCounts, troopOwners } = world.state;
+    const dense = world.playerRegistry.indexOfId(player);
+    if (dense === null) {
+        return seen;
+    }
+    const ownerByte = dense + 1;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            if ((troopOwners[idx] ?? 0) !== player) {
+            if ((troopOwners[idx] ?? 0) !== ownerByte) {
                 continue;
             }
             if ((troopCounts[idx] ?? 0) <= 0) {
@@ -155,7 +165,7 @@ async function startNPlayerMatch(playerCount: 3 | 4): Promise<{
         matchConfig: match.matchConfig,
     });
     server.enableSpectators(match.matchId);
-    attachPlayersForMatch(server, match);
+    const tokens = attachPlayersForMatch(server, match);
 
     const players: ScriptedClient[] = [];
     for (let i = 0; i < playerCount; i++) {
@@ -170,7 +180,9 @@ async function startNPlayerMatch(playerCount: 3 | 4): Promise<{
     await spectator.nextMessage('helloAck');
 
     for (let i = 0; i < playerCount; i++) {
-        players[i].joinMatch(match.matchId, 'player', { requestedSeat: i + 1 });
+        // Issue #74: a client never names a seat. The bound bearer token
+        // resolves the exact seat; the old `requestedSeat` field is gone.
+        players[i].joinMatch(match.matchId, 'player', { reconnectToken: seatToken(tokens, i + 1) });
         await players[i].nextMessage('joinAck');
     }
     spectator.joinMatch(match.matchId, 'spectator');
@@ -188,8 +200,15 @@ describe.each([3, 4] as const)('SC-004 networking fog-leakage for N=%i players (
         try {
             // Positive control: a spectator order must be rejected read-only. The
             // rejection rides an `error` frame (not an `orderAck`), so it never
-            // consumes the tick read cursor below.
-            spectator.order({ kind: 'setPipe', player: 1 as PlayerId, cell: { x: 1, y: 1 }, direction: 'S' });
+            // consumes the tick read cursor below. The order carries a canonical
+            // identity (issue #74) so it reaches the spectator gate rather than
+            // failing wire validation first.
+            spectator.order({
+                kind: 'setPipe',
+                player: playerIdForSlot(match.playerIds, 1),
+                cell: { x: 1, y: 1 },
+                direction: 'S',
+            });
 
             // Synchronize on the first broadcast so every seat is observing a
             // live match before the audited 500-tick window begins.
@@ -223,7 +242,7 @@ describe.each([3, 4] as const)('SC-004 networking fog-leakage for N=%i players (
                 players.forEach((client, index) => {
                     client.order({
                         kind: t % 2 === 0 ? 'setPipe' : 'clearPipe',
-                        player: (index + 1) as PlayerId,
+                        player: playerIdForSlot(match.playerIds, index + 1),
                         cell: HOME_CELLS[index] ?? HOME_CELLS[0],
                         ...(t % 2 === 0 ? { direction: 'S' as const } : {}),
                     });
@@ -266,7 +285,7 @@ describe.each([3, 4] as const)('SC-004 networking fog-leakage for N=%i players (
                 // (a) Per-player leakage: every delivered cell must lie inside the
                 // recipient's independent VisibleSet.
                 for (let p = 0; p < playerCount; p++) {
-                    const player = (p + 1) as PlayerId;
+                    const player = playerIdForSlot(match.playerIds, p + 1);
                     const expected = expectedVisibleKeys(world, player);
                     const view = (frames[p].payload as TickBroadcastPayload).view;
                     for (const cell of view.visibleCells) {
@@ -324,6 +343,20 @@ describe.each([3, 4] as const)('SC-004 networking fog-leakage for N=%i players (
                 (f) => f.type === 'error' && (f.payload as { code: string }).code === 'spectator_readonly',
             );
             expect(readonlyRejections.length, 'spectator order rejection (positive control)').toBeGreaterThanOrEqual(1);
+
+            // Positive control: player orders MUST have been accepted. Without
+            // this, the zero-leakage audit above could silently no-op against an
+            // idle match — exactly what happened while the scripted orders still
+            // carried numeric identities (all rejected at the wire boundary).
+            const playerAccepted = players.reduce(
+                (count, client) =>
+                    count +
+                    client.socket.sentFrames.filter(
+                        (f) => f.type === 'orderAck' && (f.payload as { result: { ok: boolean } }).result.ok === true,
+                    ).length,
+                0,
+            );
+            expect(playerAccepted, 'player orders accepted (positive control)').toBeGreaterThan(0);
 
             // (c) Per-tick fog compute budget (004 SC-005 measurement protocol):
             // median < 25 ms, generous p99 < 100 ms guard.

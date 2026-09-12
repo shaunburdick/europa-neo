@@ -303,6 +303,61 @@
     the only remaining guard failure is `packages/console/` (Wave 7) — not
     suppressed or excluded.
 
+- **Wave 6.5 — review remediation (networking + matchmaking findings, R001–R006)**:
+  post-Wave-6 code review items fixed before Wave 7 begins. No behavioral
+  `spec.md` semantics changed, no rule weakened, no console/README touched
+  (Wave 7/8 own those). Console remains the only identity-guard failure.
+  - **R001 (B1 blocker)** — `packages/matchmaking/tests/conformance.test.ts`
+    still pinned `NETWORK_API_VERSION === '0.2.0'` after Wave 6 bumped the wire
+    to `0.3.0`, failing CI. Reproduced red (`expected '0.3.0' to be '0.2.0'`),
+    then updated the assertion, test name, and comment to `0.3.0` and documented
+    that matchmaking/engine (`0.2.0`) and networking (`0.3.0`) live on
+    independent pre-1.0 breaking boundaries that need not be equal.
+    `test:conformance` 7/7 green.
+  - **R002 (B2 blocker)** — `MatchChannel.joinAckPlayers()` overlaid
+    `displayNames` by registry array position, but `world.players` is in
+    canonical UTF-16 registry order while `displayNames` is seat
+    (`matchConfig.playerIds`) order; reverse-lexical seat lists got swapped
+    handles. Fix resolves each player's seat via
+    `matchConfig.playerIds.indexOf(player.id)` (pass-through when absent).
+    New `matchChannel.test.ts` regression with deliberately reverse-lexical
+    `playerIds` + per-seat names, **proven failing pre-fix** then green;
+    method/field/`MatchChannelInit` docs corrected to seat-order semantics.
+  - **R003 (F1)** — `fog-leakage-n-players.test.ts` still sent the removed
+    `requestedSeat` and numeric `(index+1) as PlayerId` orders; every order was
+    rejected `malformed_payload`, so the 500-tick zero-leakage audit silently
+    no-oped. Migrated to `attachPlayersForMatch` bound tokens and canonical
+    `playerIdForSlot` identities; the independent oracle now resolves the dense
+    owner byte through `world.playerRegistry` instead of comparing the raw byte
+    to a `PlayerId`; and a positive-control assertion now requires player
+    `orderAck`s to be accepted, so the audit cannot regress to a no-op.
+    `connection.test.ts:194` numeric cast → `parsePlayerId('Player000001')`.
+  - **R004 (F2)** — corrected stale `server.ts` join-seat comments (no
+    requested-seat resolution since #74), the `broadcast.ts` view-cache comment
+    (`playerId.toString()` → canonical `PlayerId`), tightened `validate.ts`'s
+    optional `guestPlayerId` to reject `null` (absent or canonical only), and
+    reworded `specs/004-multiplayer-networking/data-model.md` §4.4
+    `SeatRecord.playerId` to the canonical 12-char universal ID.
+  - **R005 (F3)** — added negative tests for the optional-identity branches
+    (`claim` not an object; `guestPlayerId` null; `handle` not a string) and the
+    non-string `validateVersion` path; removed the unreachable non-nullable
+    `FieldKind` `'player-id'` case in `validateEnvelope` (only
+    `OrderFieldSpec` uses that kind) rather than leave dead, uncovered code.
+  - **R006 (optional evaluation)** — reserving `SPECTATOR_VIEW_PLAYER_ID`
+    (`Spectator001`) against matchmaking generation was evaluated and
+    deliberately NOT implemented: allocation is CSPRNG over 2^72 values, the
+    sentinel is never registered in a match, and fog's `{ spectator: true }`
+    branch ignores it, so a collision carries no authority or leakage risk;
+    reserving would invert the package dependency direction for no benefit.
+  - **Verification**: networking typecheck, lint, `format:check`, tsup build
+    (JS + DTS) clean; **324 tests / 35 files passing** (was 319 — +1 B2
+    regression, +4 validate/version negatives minus none), coverage
+    91.31 / 83.46 / 97.66 / 91.34 (stmts/branches/funcs/lines), all ≥80%;
+    matchmaking `test:conformance` 7/7; identity-migration guard shows
+    **console-only** violations (2 × `as GuestPlayerId` in
+    `console/src/net/lobby-storage.ts:218,227` — Wave 7); `git diff --check`
+    clean.
+
 ## Waves
 
 1. Baseline and forbidden-pattern inventory.

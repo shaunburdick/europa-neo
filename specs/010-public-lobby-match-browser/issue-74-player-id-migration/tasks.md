@@ -209,6 +209,52 @@ added, and no behavioral `spec.md` was modified.
   frame-cap, and integration suites; assert numeric clients are rejected before
   payload parsing and bearer credentials are never exposed.
 
+## Wave 6.5 — Review remediation (networking + matchmaking findings)
+
+Post-Wave-6 code review remediation. Scope limited to the discovered findings;
+no behavioral `spec.md` semantics changed, no rule weakened, no console/README
+work (Wave 7 owns console). Every blocker reproduced as failing before the fix.
+
+- [x] **R001 (B1 — cross-package version witness)**: `matchmaking/tests/
+  conformance.test.ts` still pinned `NETWORK_API_VERSION === '0.2.0'` (Wave 6
+  bumped it to `0.3.0`), failing CI. Reproduced red, updated the assertion +
+  description/comment to `0.3.0`, and documented that matchmaking/engine
+  (`0.2.0`) and networking (`0.3.0`) are independent pre-1.0 breaking
+  boundaries not required to be equal. Conformance 7/7 green.
+- [x] **R002 (B2 — `joinAckPlayers` seat/registry order)**: display names were
+  overlaid by registry array index; `world.players` is canonical UTF-16 order
+  while `displayNames` is seat order, so reverse-lexical `playerIds` mislabeled
+  identities. Now each player resolves its seat via
+  `matchConfig.playerIds.indexOf(player.id)` (unchanged when absent). Added a
+  reverse-lexical regression test in `matchChannel.test.ts` — proven failing
+  pre-fix (`Alpha`/`Bravo` swapped) then green. Doc comments on the method,
+  the field, and `MatchChannelInit` corrected.
+- [x] **R003 (F1 — degraded N-player fog audit)**: `fog-leakage-n-players.test.ts`
+  used the removed `requestedSeat` and numeric `(index+1) as PlayerId` orders,
+  all rejected `malformed_payload`, so the 500-tick zero-leakage audit silently
+  no-oped. Migrated to `attachPlayersForMatch` bound tokens + canonical
+  `playerIdForSlot` identities; the independent oracle now resolves the dense
+  owner byte via `world.playerRegistry`; added a positive control asserting
+  player `orderAck`s ARE accepted. Also fixed `connection.test.ts:194`
+  (`1 as PlayerId` → `parsePlayerId('Player000001')`).
+- [x] **R004 (F2 — stale comments/typing)**: corrected the two `server.ts`
+  join-seat comments (no requested-seat resolution), the `broadcast.ts` view-cache
+  comment (`playerId.toString()` → canonical `PlayerId`), tightened
+  `validate.ts` optional-identity `guestPlayerId` to reject `null`, and reworded
+  `specs/004-multiplayer-networking/data-model.md` §4.4 `SeatRecord.playerId`
+  to the canonical 12-char universal ID.
+- [x] **R005 (F3 — security-sensitive branch coverage)**: added negative tests
+  for the optional-identity branches (`claim` not an object, `guestPlayerId`
+  `null`, `handle` not a string) and the non-string `validateVersion` path;
+  removed the unreachable non-nullable `FieldKind` `'player-id'` branch from
+  `validateEnvelope` (only `OrderFieldSpec` uses it) rather than leave dead code.
+- [x] **R006 (optional evaluation — spectator sentinel reservation)**: evaluated
+  reserving `SPECTATOR_VIEW_PLAYER_ID` (`Spectator001`) against matchmaking
+  generation. Not implemented: allocation is CSPRNG over 2^72 values, the
+  sentinel is never registered in a match and fog's `{ spectator: true }` branch
+  ignores it, so collision carries no authority or leakage risk; reserving would
+  invert the dependency direction for no security benefit. Report only.
+
 ## Wave 7 — Console state, UI, and mounted routing
 
 - [ ] **T036**: [P] Update console contracts/state/reducer/net adapters in
@@ -263,4 +309,5 @@ added, and no behavioral `spec.md` was modified.
   T030–T035) plus mounted router behavior.
 - T041–T045 depend on all implementation waves.
 
-**Total**: 45 tasks across 9 waves (Wave 0 baseline, Waves 1–8 delivery).
+**Total**: 45 tasks across 9 waves (Wave 0 baseline, Waves 1–8 delivery) plus
+the Wave 4.5 and Wave 6.5 review-remediation checklists (R001–R006).

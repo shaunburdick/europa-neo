@@ -195,7 +195,7 @@ export function viewsEqual(a: PlayerView, b: PlayerView): boolean {
 
 /**
  * Per-tick view cache returned by {@link buildTickBroadcast}. Keys are
- * `playerId.toString()` for seated players, `'spectator'` for
+ * the canonical `PlayerId` string for seated players, `'spectator'` for
  * spectators. The cache is valid only for the tick during which it was
  * built — callers MUST NOT retain it across tick boundaries.
  *

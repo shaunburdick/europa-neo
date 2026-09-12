@@ -298,14 +298,17 @@ describe('conformance: feature 012 board-size defaults mirror + no wire version 
         expect(contractSource).toContain(shippedLiteral);
     });
 
-    it('API version pin — MATCHMAKING_API_VERSION + ENGINE_API_VERSION bumped to 0.2.0 for the universal PlayerId break; NETWORK_API_VERSION still 0.2.0', () => {
-        // Issue #74 (T027) breaks the matchmaking/engine identity surface:
+    it('API version pin — MATCHMAKING_API_VERSION + ENGINE_API_VERSION 0.2.0, NETWORK_API_VERSION 0.3.0 (independent pre-1.0 boundaries)', () => {
+        // Issue #74 breaks the matchmaking/engine identity surface (T027):
         // `SeatAssignment.playerId` (and every engine identity field) becomes
         // a canonical 12-character string, so matchmaking and engine bump
-        // their pre-1.0 minor version. Networking's own breaking wire bump
-        // lands in Wave 6 (T030).
+        // their shared pre-1.0 minor to 0.2.0. Networking owns a SEPARATE
+        // wire-protocol version whose own breaking bump landed in Wave 6
+        // (T030): 0.2.0 → 0.3.0. The two versions track independent
+        // compatibility boundaries and are NOT required to be equal — each
+        // package's line breaks only for its own consumers.
         expect(MATCHMAKING_API_VERSION).toBe('0.2.0');
-        expect(NETWORK_API_VERSION).toBe('0.2.0');
+        expect(NETWORK_API_VERSION).toBe('0.3.0');
         expect(ENGINE_API_VERSION).toBe('0.2.0');
     });
 });

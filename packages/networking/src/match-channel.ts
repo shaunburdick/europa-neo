@@ -69,7 +69,8 @@ export interface MatchChannelInit {
     readonly engineSession: EngineSession;
     readonly matchConfig: MatchConfig;
     /**
-     * Optional per-seat display names (index = PlayerId - 1) from the
+     * Optional per-seat display names in engine placement-slot order
+     * (index `i` labels `matchConfig.playerIds[i]`) from the
      * registration request (feature 010 FR-020/SC-008). Absent for
      * legacy feature-006 registrations → stored empty, and
      * {@link MatchChannel.joinAckPlayers} passes the engine roster
@@ -95,8 +96,9 @@ export class MatchChannel {
     /** Frozen config snapshot (tick-rate check + telemetry). */
     readonly matchConfig: MatchConfig;
     /**
-     * Registration-time seat-label snapshot (feature 010 FR-020/SC-008),
-     * indexed by PlayerId - 1. Empty for legacy registrations. Held as a
+     * Registration-time seat-label snapshot (feature 010 FR-020/SC-008)
+     * in engine placement-slot order (`index i` ↔ `matchConfig.playerIds[i]`).
+     * Empty for legacy registrations. Held as a
      * channel-level snapshot — NOT written into the engine world — so
      * engine state stays byte-deterministic under its ASCII-only
      * serialize convention while arbitrary (Unicode) handles still reach
@@ -143,10 +145,16 @@ export class MatchChannel {
      * entry is a shallow copy so wire encoding can never alias engine
      * state.
      *
-     * Overlay rule: seat `i` (PlayerId - 1) takes {@link MatchChannel.displayNames}[i]
-     * when present; indices beyond either array's end keep the engine's
-     * own value. Legacy channels (no names registered) return the engine
-     * roster verbatim — byte-for-byte the pre-feature-010 behavior.
+     * Overlay rule: each engine player is located in seat/placement
+     * order via `matchConfig.playerIds.indexOf(player.id)`, then takes
+     * {@link MatchChannel.displayNames}[seatIndex] when present. The
+     * engine roster (`world.players`) is in canonical UTF-16 registry
+     * order, which is NOT necessarily seat order (issue #74: IDs are
+     * client-independent strings), so an index-by-array-position
+     * overlay would attach the wrong handle to the wrong identity.
+     * Players absent from `playerIds` (or with no registered name)
+     * keep the engine's own value. Legacy channels (no names
+     * registered) return the engine roster verbatim.
      *
      * @returns The roster for `JoinAckPayload.players`.
      */
@@ -155,8 +163,12 @@ export class MatchChannel {
         if (this.displayNames.length === 0) {
             return worldPlayers;
         }
-        return worldPlayers.map((player, index) => {
-            const name = this.displayNames[index];
+        return worldPlayers.map((player) => {
+            const seatIndex = this.matchConfig.playerIds.indexOf(player.id);
+            if (seatIndex < 0) {
+                return player;
+            }
+            const name = this.displayNames[seatIndex];
             // exactOptionalPropertyTypes: pass the engine entry through
             // rather than build a copy with an explicit undefined name.
             return name === undefined ? player : { ...player, displayName: name };

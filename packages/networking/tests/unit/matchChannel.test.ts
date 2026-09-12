@@ -8,6 +8,8 @@
  * (never numeric subtraction or `localeCompare`).
  */
 
+import { parsePlayerId } from '@europa/core';
+
 import { describe, expect, it } from 'vitest';
 
 import { Connection } from '../../src/connection';
@@ -163,5 +165,32 @@ describe('MatchChannel', () => {
         channel.recordTick();
         channel.recordTick();
         expect(channel.tickCounter).toBe(2);
+    });
+
+    it('joinAckPlayers labels each player by its own seat, not canonical registry order (issue #74 B2)', () => {
+        // Deliberately reverse-lexical placement: seat 1's id is lexically
+        // GREATER than seat 2's, so the engine's canonical UTF-16 registry
+        // order (`world.players`) is the INVERSE of seat/placement order.
+        // Overlaying displayNames by registry index would swap the labels.
+        const seatOne = parsePlayerId('Player000002');
+        const seatTwo = parsePlayerId('Player000001');
+        const match = scriptedMatch({
+            playerIds: [seatOne, seatTwo],
+            displayNames: ['Alpha', 'Bravo'],
+        });
+        const channel = new MatchChannel({
+            matchId: match.matchId,
+            engineSession: match.engineSession,
+            matchConfig: match.matchConfig,
+            displayNames: match.displayNames,
+        });
+
+        // Registry order is canonical (seatTwo's id first), proving the
+        // fixture actually exercises the seat-order ≠ registry-order case.
+        expect(channel.engineSession.world().players.map((p) => p.id)).toEqual([seatTwo, seatOne]);
+
+        const nameById = new Map(channel.joinAckPlayers().map((player) => [player.id, player.displayName]));
+        expect(nameById.get(seatOne)).toBe('Alpha');
+        expect(nameById.get(seatTwo)).toBe('Bravo');
     });
 });

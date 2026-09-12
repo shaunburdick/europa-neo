@@ -101,11 +101,13 @@ export function isKnownMessageKind(value: string): boolean {
 /**
  * Cheap primitive checks for per-kind payload fields. `any` means
  * presence-only (used for fields that are legitimately null or deeply
- * validated elsewhere). `player-id` / `nullable-player-id` assert the
- * canonical 12-character identity string (issue #74) — numeric JSON
- * values are rejected.
+ * validated elsewhere). `nullable-player-id` asserts the canonical
+ * 12-character identity string when non-null (issue #74) — numeric JSON
+ * values are rejected. The non-nullable `'player-id'` variant exists only
+ * on `OrderFieldSpec` (order `player` fields); no top-level payload field
+ * requires a non-null identity today, so it is intentionally absent here.
  */
-type FieldKind = 'string' | 'number' | 'object' | 'array' | 'any' | 'player-id' | 'nullable-player-id';
+type FieldKind = 'string' | 'number' | 'object' | 'array' | 'any' | 'nullable-player-id';
 
 interface FieldSpec {
     readonly key: string;
@@ -416,11 +418,6 @@ export function validateEnvelope(value: unknown): asserts value is ProtocolEnvel
                     throw malformed(`payload.${spec.key} must be an array for ${type} messages`);
                 }
                 break;
-            case 'player-id':
-                if (!isPlayerId(fieldValue)) {
-                    throw malformed(`payload.${spec.key} must be a canonical PlayerId for ${type} messages`);
-                }
-                break;
         }
     }
 
@@ -456,7 +453,7 @@ function validateOptionalIdentityFields(type: MessageKind, payload: Record<strin
         throw malformed('payload.claim must be an object for lobbyIdentity messages');
     }
     const { guestPlayerId } = claim;
-    if (guestPlayerId !== undefined && guestPlayerId !== null && !isPlayerId(guestPlayerId)) {
+    if (guestPlayerId !== undefined && !isPlayerId(guestPlayerId)) {
         throw malformed('payload.claim.guestPlayerId must be a canonical GuestPlayerId when present');
     }
     const { handle } = claim;

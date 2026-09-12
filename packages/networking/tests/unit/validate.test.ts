@@ -227,6 +227,39 @@ describe('validateEnvelope — per-kind required fields', () => {
         };
         expect(() => validateEnvelope(canonicalClaim)).not.toThrow();
     });
+
+    it('rejects a non-object lobby identity claim', () => {
+        const badClaim = {
+            type: 'lobbyIdentity',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { claim: 'not-an-object' },
+        };
+        expect(() => validateEnvelope(badClaim)).toThrow(/payload\.claim must be an object/);
+    });
+
+    it('rejects a null lobby identity claim guestPlayerId', () => {
+        // issue #74 FR-021: the advisory claim is either ABSENT or a
+        // canonical identity string. `null` is neither — reject it at the
+        // wire boundary rather than letting it reach identity resolution.
+        const nullClaim = {
+            type: 'lobbyIdentity',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { claim: { guestPlayerId: null } },
+        };
+        expect(() => validateEnvelope(nullClaim)).toThrow(/canonical GuestPlayerId/);
+    });
+
+    it('rejects a non-string lobby identity claim handle', () => {
+        const badHandle = {
+            type: 'lobbyIdentity',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { claim: { handle: 7 } },
+        };
+        expect(() => validateEnvelope(badHandle)).toThrow(/claim\.handle must be a string/);
+    });
 });
 
 describe('validateVersion', () => {
@@ -264,5 +297,18 @@ describe('validateVersion', () => {
     it('treats unparseable versions as mismatches, not crashes', () => {
         expect(validateVersion('').ok).toBe(false);
         expect(validateVersion('garbage').ok).toBe(false);
+    });
+
+    it('rejects a non-string version without throwing (defensive runtime guard)', () => {
+        // The signature is `string`, but the version is read from decoded
+        // remote JSON. Double-assert only to reach this runtime branch — no
+        // `any` and no suppressions.
+        const nonString = 42 as unknown as string;
+        const result = validateVersion(nonString);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('version_mismatch');
+            expect(result.error.detail).toEqual({ expected: NETWORK_API_VERSION, received: '42' });
+        }
     });
 });
