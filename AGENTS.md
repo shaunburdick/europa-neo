@@ -17,6 +17,8 @@ This file governs any AI agent (primary or subagent) doing work in this reposito
 
 ## Governing documents (read in this order)
 
+> **Staleness note**: This table is manually maintained. If you add, rename, or remove a spec, update this table in the same change set. Canonical directory listing: `ls specs/`.
+
 | Document | Role |
 | --- | --- |
 | `AGENTS.md` (this file) | Agent working rules + project state |
@@ -45,18 +47,11 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 ## Current state
 
-- **Branch**: `main` post-MVP merge — all new work on feature branches off `main`; never commit to `main` directly
-- **Monorepo**: 10 packages, 13 CI workflows, ~3,000+ automated tests. Known tradeoff: repo-wide typechecking gap (each package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs — do NOT fix casually).
-- **Specs**: All 15 specs (001–015) Implemented.
-- **Open GitHub issues**: #2, #3, #4, #5, #6, #12, #13, #15, #25, #27, #30, #35, #39, #41, #74, #76, #81, #82, #83, #84, #112, #115, #125, #127, #129, #132, #133, #134, #136, #137, #138, #140, #141, #142, #143, #144, #145, #146, #147, #150, #152, #153
-
-### Spec status
-
-All specs Implemented: 001 core engine, 002 fog-of-war, 003 terrain generation, 004 networking, 005 console, 006 matchmaking, 007 player manual, 008 CI workflows, 009 app versioning, 010 lobby browser, 011 Docker self-host, 012 design system, 013 semantic routing, 014 structured logging, 015 developer debugging.
-
-### Biome migration
-
-Complete. Root config layers `biome-config-shaunburdick@1.0.0` over repo style; requires Biome `>=2.5.0 <3`, Node `>=22`. Per-package exception policies documented in `.specify/biome-migration.md`. Required checks: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`.
+- **Branch**: `main` post-MVP merge — all new work on feature branches off `main`; never commit to `main` directly.
+- **Monorepo**: 10 packages, 13 CI workflows. Known tradeoff: repo-wide typechecking gap (each package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs — do NOT fix casually).
+- **Specs**: All 15 specs (001–015) Implemented. See `specs/` for the full list.
+- **Open work**: see [GitHub issues](https://github.com/shaunburdick/europa-neo/issues) for the current backlog.
+- **Style**: Biome `>=2.5.0 <3`, Node `>=22`. Root config layers `biome-config-shaunburdick@1.0.0`. Per-package exception policies in `.specify/biome-migration.md`.
 
 ## Workflow rules
 
