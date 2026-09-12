@@ -348,6 +348,7 @@ export interface FogFactory {
     readonly world: import('@europa/engine').World;
     readonly playerId: import('@europa/engine').PlayerId;
     readonly spectator: boolean;
+    readonly events?: import('@europa/engine').TickEvents;
   }): import('@europa/fog').PlayerView;
 }
 
