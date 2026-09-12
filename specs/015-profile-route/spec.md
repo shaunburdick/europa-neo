@@ -7,7 +7,7 @@
 **Created**: 2026-09-01
 
 
-**Status**: Implemented (2026-09-02); v1.1 Clarifications note added 2026-09-07 (TanStack Router migration, issue #75)
+**Status**: Implemented (2026-09-02); v1.1 Clarifications note added 2026-09-07 (TanStack Router migration, issue #75); universal PlayerId round-trip implemented (2026-09-12, issue #74)
 
 **Input**: User description: "Dedicated `/profile` route for name/handle setup, replacing the inline lobby identity card. Returning players see 'Welcome back, {handle}' with a Continue button. New players see the full handle-setting form. Match-join without identity redirects to `/profile?returnTo=<encoded-match-url>` — stateless, no storage."
 

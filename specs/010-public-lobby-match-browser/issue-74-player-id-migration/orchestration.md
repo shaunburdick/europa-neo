@@ -2,8 +2,11 @@
 
 ## Live state
 
-- **Phase**: delivery complete (Waves 0–8); pre-PR code-quality + security
-  review remediation in progress on this branch.
+- **Phase**: PR open — https://github.com/shaunburdick/europa-neo/pull/159 (all CI
+  checks green). Waves 0–8 complete; independent pre-PR code-quality
+  (PASS-WITH-NITS) and security (PASS-WITH-FINDINGS) reviews completed and all
+  merge-blocking findings remediated (`b3f4133`). Tracking checkboxes reconciled
+  post-review. Merging is the owner's decision.
 - **Coordination anchor**: Feature 010 existing directory, nested planning bundle.
 - **Branch**: `issue-74-numeric-playerid`.
 - **Task count**: 45, T001–T045.

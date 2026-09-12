@@ -5,7 +5,7 @@
 **Created**: 2026-08-30
 **Last Updated**: 2026-09-11 (v1.3; 12-character identity contract)
 **Version**: 1.3
-**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75)
+**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74)
 **GitHub Issue**: #35 (original); #75 (v1.1 migration)
 
 ## Problem Statement

@@ -6,7 +6,7 @@
 **Last Updated**: 2026-09-12 (v1.6; FR-010 spectator authority carve-out)
 **Version**: 1.6
 
-**Status**: Implemented
+**Status**: Implemented (2026-09-12; universal PlayerId amendment implemented — issue #74)
 
 **Input**: User description: "Per-player visibility horizon derived from troop positions; no memory of previously seen terrain; unseen areas are unknown (black); server never reveals hidden information to clients."
 

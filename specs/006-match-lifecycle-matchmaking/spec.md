@@ -8,7 +8,7 @@
 
 **Version**: 1.6
 
-**Status**: Implemented
+**Status**: Implemented (2026-09-12; universal PlayerId allocation + credential separation implemented — issue #74)
 
 **Input**: User description: "Lobby-lite flow from arrival to battle: pick a display name, browse/create matches, auto-start when players are seated, play to conclusion, see results, rematch. No persistent accounts in v1."
 

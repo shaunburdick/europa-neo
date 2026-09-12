@@ -6,7 +6,7 @@
 **Last Updated**: 2026-09-11 (v1.8; 12-character identity boundary)
 **Version**: 1.8
 
-**Status**: Implemented (2026-08-30; BFS performance fix 2026-09-11)
+**Status**: Implemented (2026-08-30; BFS performance fix 2026-09-11; identity-agnostic numeric slots implemented 2026-09-12 — issue #74)
 
 **Input**: User description: "GeoMorph-inspired procedural map generation producing balanced, symmetric boards with elevation, water pools, and fair city placement; seed-reproducible."
 

@@ -6,7 +6,7 @@
 **Last Updated**: 2026-09-11 (v1.9; 12-character universal player identity)
 **Version**: 1.9
 
-**Status**: Implemented
+**Status**: Implemented (2026-09-12; universal PlayerId wire migration implemented — issue #74)
 
 **Input**: User description: "Server-authoritative WebSocket protocol connecting clients to running matches: command submission, per-tick state broadcast with fog-of-war filtering, delta sync, and reconnection handling."
 

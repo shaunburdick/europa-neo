@@ -23,22 +23,22 @@ shim or weaken a validator to make an old fixture pass.
 
 ## Wave 1 — Shared identity primitive (core)
 
-- [ ] **T004**: [P] Add the branded `PlayerId` type and canonical constants to
+- [x] **T004**: [P] Add the branded `PlayerId` type and canonical constants to
   `packages/core/src/player-id.ts`, update `packages/core/src/types.ts` and
   `packages/core/src/index.ts`, and bump the coordinated shared API version as
   required by the amended contracts; document that IDs are not credentials.
-- [ ] **T005**: [P] Implement canonical runtime validation and parsing in
+- [x] **T005**: [P] Implement canonical runtime validation and parsing in
   `packages/core/src/player-id.ts` for exact length/alphabet/regex, rejecting
   numbers and all non-canonical values with typed errors.
-- [ ] **T006**: [P] Implement injectable CSPRNG rejection sampling in
+- [x] **T006**: [P] Implement injectable CSPRNG rejection sampling in
   `packages/core/src/player-id.ts`; use the platform CSPRNG in production, avoid
   modulo bias, bound collision retries at the registry caller, and fail closed
   on entropy/source failure. Do not call it from tick/replay code.
-- [ ] **T007**: [P] Add `packages/core/tests/unit/player-id.test.ts` covering valid and
+- [x] **T007**: [P] Add `packages/core/tests/unit/player-id.test.ts` covering valid and
   invalid vectors, exact 72-bit output shape, rejection-sampling boundary values,
   deterministic injected-byte vectors, entropy failure, and absence of a direct
   runtime `nanoid` dependency.
-- [ ] **T008**: [P] Update core package contract/typecheck witnesses and README
+- [x] **T008**: [P] Update core package contract/typecheck witnesses and README
   identity documentation; prove strict typecheck and ≥80% coverage for the new
   identity logic without test-only casts that bypass validation.
 

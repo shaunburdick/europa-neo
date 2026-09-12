@@ -6,7 +6,7 @@
 **Last Updated**: 2026-09-11 (v1.13; 12-character universal player identity)
 **Version**: 1.13
 
-**Status**: Implemented (2026-09-07; hot-path allocation reuse 2026-09-11)
+**Status**: Implemented (2026-09-07; hot-path allocation reuse 2026-09-11; universal PlayerId amendment implemented 2026-09-12 — issue #74)
 
 **Input**: User description: "Deterministic tick-based simulation of the original Europa gameplay: grid terrain with elevation and water, cities producing nanobot troops, pipes directing troop flow, attrition combat, decay, cell capacity with reserves, paratroopers, guns, and last-player-standing victory."
 
