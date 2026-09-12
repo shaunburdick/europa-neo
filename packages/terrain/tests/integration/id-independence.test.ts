@@ -19,6 +19,9 @@
  *   3. No canonical ID value appears anywhere in the serialized board.
  *   4. Reordering / renaming the valid IDs changes only the caller-owned
  *      slot → ID mapping, never the board or its slots.
+ *   5. A positive control proves `hashBoard` is genuinely sensitive to
+ *      real generation inputs (seed, player count), so the "identical
+ *      bytes" assertions above cannot pass vacuously.
  *
  * If any assertion here fails, an ID has leaked into terrain's
  * deterministic output and byte-identical regeneration is at risk.
@@ -188,5 +191,40 @@ describe('terrain ID-independence (issue #74 FR-011)', () => {
             minted,
         );
         expect(mapped.every((entry) => entry.id !== undefined && isPlayerId(entry.id))).toBe(true);
+    });
+
+    it('positive control: the board hash IS sensitive to seed and player count', () => {
+        // Without this control, "same hash across ID orderings" would be
+        // vacuous — every ordering feeds the identical request, so it would
+        // pass even if `hashBoard` returned a constant. Changing a real
+        // generation input MUST change the hash.
+        const base = generate({ playerCount: 2, seed: 42, label: 'base' });
+        const otherSeed = generate({ playerCount: 2, seed: 43, label: 'other seed' });
+        const otherCount = generate({ playerCount: 3, seed: 42, label: 'other count' });
+
+        expect(hashBoard(otherSeed.board)).not.toBe(hashBoard(base.board));
+        expect(hashBoard(otherCount.board)).not.toBe(hashBoard(base.board));
+    });
+
+    it('ignores even accidentally-supplied ID fields at runtime', () => {
+        // Terrain's request type has no identity field, but a JS caller (or a
+        // future refactor) could still smuggle one in. The generator must
+        // ignore it: output bytes are unchanged. This is the runtime negative
+        // control behind FR-011's "terrain is identity-agnostic" claim.
+        const case2p: Case = { playerCount: 2, seed: 42, label: '2p' };
+        const requestWithIds = {
+            boardSize: BOARD_SIZE,
+            playerCount: case2p.playerCount,
+            seed: case2p.seed,
+            rng: engineSfc32(case2p.seed),
+            settings: DEFAULT_GENERATION_SETTINGS,
+            // Extraneous identity fields a caller might mistakenly attach:
+            playerIds: ORDER_FORWARD,
+            playerId: ORDER_FORWARD[0],
+        };
+
+        const withIds = generateBoard(requestWithIds);
+        const without = generate(case2p);
+        expect(hashBoard(withIds.board)).toBe(hashBoard(without.board));
     });
 });

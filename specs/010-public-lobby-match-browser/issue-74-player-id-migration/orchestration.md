@@ -505,6 +505,106 @@
     spec-010 SC-010 reload-scenario gap. The interim reconnect E2E was replaced
     by the deterministic wire-level proof so T040 does not ship a failing spec.
 
+- **Wave 8 — docs audit + repository guards (T041, T042) — this change set**.
+  No production behavior changed; only docs, contract-mirror version literals,
+  and guard/conformance tests.
+  - **T041 — documentation audit**:
+    - `packages/networking/README.md`: replaced the removed
+      `SPECTATOR_VIEW_SEAT` export with the shipped `SPECTATOR_VIEW_PLAYER_ID`
+      (canonical `PlayerId` sentinel); corrected `NETWORK_API_VERSION`
+      `'0.1.0'` → `'0.3.0'`; rewrote the FR-004 example to the current
+      `0.3.x` boundary (`0.3.0` rejects `0.2.x`/`0.1.x`, gate before payload
+      parsing); refreshed the stale test count (177 → 325 tests / 35 files) and
+      the determinism note (canonical `PlayerId` allocation is the matchmaker's
+      trust boundary, also outside the tick).
+    - **Contract-mirror contradiction fixed**: `console-api.ts` still shipped
+      `CONSOLE_API_VERSION = '0.3.0'` while the exported value in
+      `console-types.ts` is `'0.4.0'`, and its comment claimed a conformance
+      test asserted the two literals match — no such test existed. Replaced the
+      stale literal and corrected the comment (documenting the issue #74 bump)
+      in BOTH byte-identical mirrors (`packages/console/src/contracts/` +
+      `specs/005-client-console/contracts/`); the value was never imported by
+      runtime code, so no app behavior changed. The missing assertion now exists
+      (console conformance, below).
+    - **Host-operator URL contradiction fixed**: `host.ts` and the manual
+      claimed the `--create` banner prints per-seat **tokenized** URLs, but the
+      shipped `printCreateBanner` emits tokenless `/match/<matchId>` links (and
+      `host-collapse-tdd.test.ts` already pins
+      `not.toMatch(/[?&](?:live|ws|match|name|token)=?/i)`). Corrected the
+      `host.ts` header comment and `docs/manual/src/pages/quick-start.mdx`
+      (also added the required `--create` flag to the documented command, which
+      otherwise only prints the lobby URL per FR-017). Spec 010's narrow
+      local-host tokenized-URL exception remains permitted by policy but is not
+      used by the shipped script.
+  - **T042 — repository guards**:
+    - **`no runtime nanoid dependency`** (extended
+      `packages/core/tests/identity-migration-guard.test.ts`; runs in core-ci):
+      the existing import half (`no-nanoid-import`, all src + tests) plus a new
+      dependency half reading every `packages/*/package.json` + root manifest
+      and failing on `nanoid` in any of `dependencies`/`devDependencies`/
+      `peerDependencies`/`optionalDependencies`. Synthetic fail input: adding
+      `"nanoid": "^3.3.0"` to `packages/version/package.json` reproduced
+      `expected [ Array(1) ] to deeply equal []`; reverted (lockfile restored).
+      The pure `nanoidDependencySections` helper additionally self-tests each
+      section plus clean/malformed manifests.
+    - **`no bearer credential in documentation URLs`** (same suite; core-ci):
+      scans the root README, `DESIGN.md`, every package README, and the player
+      manual pages for `[?&](sessionToken|reconnectToken|access_token|auth|token)=`.
+      Synthetic fail input: a `?token=leaked` comment in the root README
+      reproduced the failure; reverted. Regex self-tested against
+      token-bearing and credential-free URLs.
+    - **`localeCompare` enforcement scope** (same suite; core-ci): asserts the
+      Wave 0 rule is `sourceOnly` + build-exempt and that authoritative modules
+      (`engine/src/tick.ts`, `networking/src/server.ts`,
+      `networking/src/match-channel.ts`, `matchmaking/.../lobbyService.ts`) are
+      classified as scanned while `scripts/`, `dev/`, and `*.config.ts` are
+      exempt — proving the existing rule genuinely protects server/engine code.
+    - **Cross-package API-version boundary witness** (console
+      `tests/integration/contract-conformance.test.ts`; runs in client-ci, whose
+      path filter covers every workspace package, so a bump anywhere fails this
+      test instead of hiding behind a per-package workflow): pins
+      `ENGINE_API_VERSION` 0.2.0 · `TERRAIN_API_VERSION` 0.2.0 ·
+      `FOG_API_VERSION` 0.1.0 · `MATCHMAKING_API_VERSION` 0.2.0 ·
+      `NETWORK_API_VERSION` 0.3.0 · `CONSOLE_API_VERSION` 0.4.0 as imported
+      runtime constants AND as literals in each canonical source file. Synthetic
+      fail input: temporarily changing `TERRAIN_API_VERSION` to `'0.2.1'`
+      reproduced `"TERRAIN_API_VERSION: source … declares 0.2.1, public value is
+      0.2.0"`; reverted (terrain mirror byte-identity re-verified). The pure
+      `findVersionDrift` helper self-tests a synthetic bump and a missing entry.
+      Also adds the previously-claimed console two-literal assertion.
+    - **Bearer tokens never in error payloads** (networking
+      `tests/unit/security-hardening.test.ts`; network-ci): a well-formed but
+      unbound reconnect credential must be rejected without being reflected in
+      any `error` frame. Complements the existing logger-scan and console
+      privacy suites; no output changed.
+    - **No ID-derived terrain output** (terrain
+      `tests/integration/id-independence.test.ts`; terrain-ci): the existing
+      suite was strengthened against tautology with a positive control (the
+      board hash IS sensitive to seed and player count, so "identical across ID
+      orderings" is not vacuous) and a runtime negative control (extraneous
+      `playerIds`/`playerId` fields on the generation request are ignored).
+    - **Replay**: no new machinery — the existing engine
+      `serialization-conformance.test.ts` + `tests/replay/*` guards already
+      prove explicit IDs round-trip and replay byte-identically (Wave 3).
+  - **Verification (scoped; T045 owns the full gates)**: core guard 21/21 (was
+    13), core suite 119/119; terrain id-independence 9/9; networking
+    security-hardening 12/12 and full networking suite 325/325; console
+    contract-conformance 13/13 (was 9). `pnpm typecheck` clean on core, terrain,
+    networking, console; console `typecheck:conformance` clean. `format:check`
+    + `lint` clean on all four touched packages (one core lint warning fixed by
+    switching to `Object.hasOwn`). No suppressions; no `any`.
+  - **Notable**: the doc/credential guard shares the established repo-guard
+    placement (core CI scans all packages/READMEs, as the identity guard
+    already does); the version witness is deliberately in client-ci because its
+    path filter spans every package. Both are documented as the T042 answer to
+    the "don't hide behind path-gated CI" requirement.
+  - **PM-notable finding (report-only, not fixed)**: historical feature-006
+    `tasks.md`/`quickstart.md` and a few other pre-#74 spec quickstarts still
+    show numeric identity fixtures (`seatAssignment: { playerId: 1 }` etc.).
+    They are planning artifacts superseded by the amended `spec.md`/
+    `data-model.md`/`contracts`, outside T041's package-README/contract-comment
+    scope; flag if a docs sweep should rewrite all historical spec examples.
+
 ## Waves
 
 1. Baseline and forbidden-pattern inventory.

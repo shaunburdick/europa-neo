@@ -580,10 +580,14 @@ export const CONSOLE_CONSTANTS: ConsoleConstants = {
 /**
  * Console API version. Kept as a standalone literal (not imported
  * from console-types.ts) so this file stays dependency-free at
- * runtime; a conformance test asserts the two literals match.
+ * runtime; the console conformance suite asserts this literal matches
+ * the exported `CONSOLE_API_VERSION` in console-types.ts.
  * Increment on any breaking change to the public surface.
  *
  * 0.3.0 (issue #76): `minCellPx` raised 16 → 32 — zoom range is now
  * 100%–300% (the board is always fully visible at minimum zoom).
+ * 0.4.0 (issue #74): universal identity migration — `ConsoleSession`
+ * keys participants by the server-issued `PlayerId` and the numeric
+ * `DEFAULT_PLAYER_COLORS` record is replaced by `PLAYER_COLOR_PALETTE`.
  */
-export const CONSOLE_API_VERSION = '0.3.0' as const;
+export const CONSOLE_API_VERSION = '0.4.0' as const;

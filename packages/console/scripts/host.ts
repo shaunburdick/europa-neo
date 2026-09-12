@@ -18,19 +18,19 @@
  * the matchmaker exists.
  *
  * `--create` retains the pre-lobby quick-test experience: auto-create +
- * fill a public 2-player match (which auto-starts it) and print two
- * clickable join URLs.
+ * fill a public N-player match (which auto-starts it) and print one
+ * clickable semantic join URL per seat.
  *
  * Seat claiming needs nothing beyond the semantic match path: a tokenless
  * wire `joinMatch` claims the first open seat in ascending playerId order.
  * Reconnect credentials remain in browser storage and are never put in a
- * generated URL.
+ * generated URL — the printed `--create` URLs carry the match id only.
  *
  * Privacy boundary (spec 010 NFR-003/FR-024): host diagnostics NEVER
  * echo guestPlayerIds, session tokens, or reconnect tokens; free-form
  * wire-derived text is sanitized through `sanitizeLogText` before it
- * reaches a log line. The only tokens ever printed are the deliberate
- * `--create` seat URLs themselves (the product of that mode).
+ * reaches a log line. No bearer credential is ever printed; the narrow
+ * spec 010 local-host tokenized-URL exception is not used by this script.
  *
  * CLI:
  *   pnpm host [--create] [--port N] [--bind-host HOST] [--public-host HOST]

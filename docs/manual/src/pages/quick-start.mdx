@@ -75,13 +75,13 @@ If the server restarts, its in-memory lobby and guest sessions reset. Reload, ch
 
 ## Hosting a multi-player match (self-host)
 
-If you run Europa Neo yourself, the single-command host boots one web server on `http://localhost:8080/` and prints a join URL for each seat. For a 3-player game on the 48×48 board:
+If you run Europa Neo yourself, the single-command host boots one web server on `http://localhost:8080/` and serves the lobby. To pre-create a filled match and print a join URL for each seat, add `--create`. For a 3-player game on the 48×48 board:
 
 ```bash
-pnpm host --players 3 --board-size 48
+pnpm host --create --players 3 --board-size 48
 ```
 
-This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). These printed URLs may include a per-seat bearer credential for this temporary/local operator flow. Treat them as secrets: anyone who obtains one may attempt to reclaim that seat during the grace window. This exception is not a general rule for public app URLs, logs, diagnostics, or documentation examples. Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
+This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). Every printed URL uses the canonical semantic match path `/match/<matchId>` and contains the match ID only: no handle, session token, reconnect token, or other bearer credential. Reconnect credentials stay in each player's own browser storage. Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
 
 ---
 

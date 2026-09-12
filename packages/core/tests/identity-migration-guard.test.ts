@@ -301,6 +301,85 @@ function patternByName(name: string): PatternCheck {
 }
 
 // ---------------------------------------------------------------------------
+// Repository dependency guard (T042)
+// ---------------------------------------------------------------------------
+
+/** Manifest sections that must never declare `nanoid` directly. */
+const DEPENDENCY_SECTIONS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const;
+
+/**
+ * Return the dependency sections of a parsed package manifest that
+ * declare `nanoid` as a direct dependency.
+ *
+ * Direct-dependency prohibition (not just imports) matters because a
+ * devDependency or peerDependency would still place the package in the
+ * install graph, where a future import could reintroduce it. The
+ * repository has its own injectable CSPRNG in `@europa/core`, so no
+ * package needs it in any section.
+ *
+ * Pure so it can be proven against synthetic manifests (the guard's
+ * required self-test) as well as the real ones.
+ *
+ * @param manifest - A parsed `package.json`, or any value.
+ * @returns The offending section names in declaration order.
+ */
+function nanoidDependencySections(manifest: unknown): string[] {
+    if (manifest === null || typeof manifest !== 'object') {
+        return [];
+    }
+    const record = manifest as Record<string, unknown>;
+    const offenders: string[] = [];
+    for (const section of DEPENDENCY_SECTIONS) {
+        const deps = record[section];
+        if (deps !== null && typeof deps === 'object' && Object.hasOwn(deps, 'nanoid')) {
+            offenders.push(section);
+        }
+    }
+    return offenders;
+}
+
+// ---------------------------------------------------------------------------
+// Credential-in-example guard (T042)
+// ---------------------------------------------------------------------------
+
+/**
+ * Query-string credential parameters that must never appear in a
+ * documentation example URL. Session and reconnect tokens are bearer
+ * credentials; a URL containing one leaks seat authority (spec 010
+ * narrows the only exception to the local `pnpm host` operator flow,
+ * which is script output, not a documented example).
+ */
+const CREDENTIAL_URL_PATTERN = /[?&](?:sessionToken|reconnectToken|access_token|auth|token)=/i;
+
+/**
+ * Collect the user/developer-facing Markdown documents that must not
+ * embed a bearer credential in an example URL: the root README, the
+ * living design contract, every package README, and the player manual
+ * pages. Planning artifacts under `specs/` are intentionally excluded —
+ * they discuss the credential policy in prose rather than shipping
+ * copy-paste examples.
+ *
+ * @returns Absolute paths to existing documentation files.
+ */
+function getDocumentationFiles(): string[] {
+    const files: string[] = [join(REPO_ROOT, 'README.md'), join(REPO_ROOT, 'DESIGN.md')];
+    for (const pkg of PACKAGES) {
+        files.push(join(REPO_ROOT, 'packages', pkg, 'README.md'));
+    }
+    const manualDir = join(REPO_ROOT, 'docs', 'manual', 'src', 'pages');
+    try {
+        for (const entry of readdirSync(manualDir)) {
+            if (entry.endsWith('.mdx') || entry.endsWith('.md')) {
+                files.push(join(manualDir, entry));
+            }
+        }
+    } catch {
+        // Manual is not present in every checkout shape — skip.
+    }
+    return files;
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -409,5 +488,120 @@ describe('Identity migration guard — pattern table self-test (N4)', () => {
     it('does not treat a comment marker inside a string as a comment', () => {
         const line = "const url = 'https://example.com';";
         expect(stripComments(line)).toBe(line);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// T042: no runtime nanoid dependency (dependency + import guard)
+//
+// The import half already lives in the PATTERNS table above
+// (`no-nanoid-import`, scanned against every package source AND test
+// file). The dependency half is separate because a declared-but-unused
+// dependency still enters the install graph. Both halves must fail on
+// a synthetic bad input.
+// ---------------------------------------------------------------------------
+
+describe('no runtime nanoid dependency (T042)', () => {
+    const manifests = ['package.json', ...PACKAGES.map((pkg) => `packages/${pkg}/package.json`)];
+
+    it('no workspace manifest declares nanoid in any dependency section', () => {
+        const offenders: string[] = [];
+        for (const relativePath of manifests) {
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(readFileSync(join(REPO_ROOT, relativePath), 'utf-8'));
+            } catch {
+                // A package directory without a manifest is not an offender.
+                continue;
+            }
+            for (const section of nanoidDependencySections(parsed)) {
+                offenders.push(`${relativePath} → ${section}`);
+            }
+        }
+        expect(offenders, 'nanoid must never be a direct runtime dependency of any workspace package').toEqual([]);
+    });
+
+    it('self-test: flags nanoid in every dependency section', () => {
+        for (const section of DEPENDENCY_SECTIONS) {
+            expect(nanoidDependencySections({ [section]: { nanoid: '^3.0.0' } })).toEqual([section]);
+        }
+    });
+
+    it('self-test: passes clean and malformed manifests', () => {
+        expect(nanoidDependencySections({ dependencies: { '@europa/core': 'workspace:*' } })).toEqual([]);
+        expect(nanoidDependencySections({})).toEqual([]);
+        expect(nanoidDependencySections(null)).toEqual([]);
+        expect(nanoidDependencySections('not a manifest')).toEqual([]);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// T042: bearer credentials never appear in documented example URLs
+// ---------------------------------------------------------------------------
+
+describe('no bearer credential in documentation URLs (T042)', () => {
+    it('no README/manual document embeds a token query parameter', () => {
+        const offenders: string[] = [];
+        for (const filePath of getDocumentationFiles()) {
+            let content: string;
+            try {
+                content = readFileSync(filePath, 'utf-8');
+            } catch {
+                // Only existing documents are scanned (the root README and
+                // DESIGN.md always exist; this tolerates a trimmed checkout).
+                continue;
+            }
+            for (const [index, line] of content.split('\n').entries()) {
+                const match = CREDENTIAL_URL_PATTERN.exec(line);
+                if (match) {
+                    offenders.push(`  ${relative(REPO_ROOT, filePath)}:${index + 1} — "${match[0]}"`);
+                }
+            }
+        }
+        if (offenders.length > 0) {
+            expect.fail(
+                `\n${offenders.length} documented URL(s) embed a bearer credential:\n${offenders.join('\n')}\n\nRule: session/reconnect tokens are secrets and must not appear in documentation example URLs (spec 010).`,
+            );
+        }
+    });
+
+    it('self-test: flags token-bearing URLs and passes credential-free ones', () => {
+        expect(CREDENTIAL_URL_PATTERN.test('https://host/match/m-1?token=abc')).toBe(true);
+        expect(CREDENTIAL_URL_PATTERN.test('https://host/match/m-1&sessionToken=abc')).toBe(true);
+        expect(CREDENTIAL_URL_PATTERN.test('https://host/match/m-1?reconnectToken=abc')).toBe(true);
+        expect(CREDENTIAL_URL_PATTERN.test('https://host/match/m-1?plain=1')).toBe(false);
+        expect(CREDENTIAL_URL_PATTERN.test('/match/<match-id>/join')).toBe(false);
+        expect(CREDENTIAL_URL_PATTERN.test('no token here')).toBe(false);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// T042: the authoritative-order rule genuinely covers server/engine code
+//
+// The `no-locale-compare-authoritative` rule is only meaningful if the
+// files it claims to protect are actually scanned. Build utilities and
+// test files are intentionally exempt; authoritative runtime modules
+// must never be classified as build files.
+// ---------------------------------------------------------------------------
+
+describe('localeCompare rule enforcement scope (T042)', () => {
+    const pattern = patternByName('no-locale-compare-authoritative');
+
+    it('is a source-only rule with a build-utility exemption', () => {
+        expect(pattern.sourceOnly).toBe(true);
+        expect(pattern.buildExempt).toBe(true);
+    });
+
+    it('classifies authoritative server/engine modules as scanned (not build)', () => {
+        expect(isBuildFile(join(REPO_ROOT, 'packages/engine/src/tick.ts'))).toBe(false);
+        expect(isBuildFile(join(REPO_ROOT, 'packages/networking/src/server.ts'))).toBe(false);
+        expect(isBuildFile(join(REPO_ROOT, 'packages/networking/src/match-channel.ts'))).toBe(false);
+        expect(isBuildFile(join(REPO_ROOT, 'packages/matchmaking/src/internal/lobbyService.ts'))).toBe(false);
+    });
+
+    it('classifies scripts/dev/config files as exempt', () => {
+        expect(isBuildFile(join(REPO_ROOT, 'packages/engine/scripts/capture.ts'))).toBe(true);
+        expect(isBuildFile(join(REPO_ROOT, 'packages/design/dev/vite.config.ts'))).toBe(true);
+        expect(isBuildFile(join(REPO_ROOT, 'packages/console/vitest.config.ts'))).toBe(true);
     });
 });

@@ -371,5 +371,35 @@ describe('Security Hardening', () => {
 
             await server.close();
         });
+
+        it('never echoes a presented bearer token in an error payload', async () => {
+            const server = createMatchServer(testServerConfig(), realDeps());
+            const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+            server.registerMatch({
+                matchId: match.matchId,
+                engineSession: match.engineSession,
+                matchConfig: match.matchConfig,
+            });
+
+            // A real, well-formed credential that is bound to no seat in
+            // this match: the server must reject without echoing it back
+            // on the wire (a reflected credential in an error payload is a
+            // leak that survives even when logs are clean).
+            const presented = generateSessionToken();
+            const client = connectMockClient(server);
+            client.hello();
+            await client.nextMessage('helloAck');
+            client.joinMatch(match.matchId, 'player', { reconnectToken: presented });
+            const error = await client.nextMessage('error');
+
+            expect(JSON.stringify(error.payload)).not.toContain(presented);
+            const allErrorPayloads = client.socket.sentFrames
+                .filter((frame) => frame.type === 'error')
+                .map((frame) => JSON.stringify(frame.payload))
+                .join('\n');
+            expect(allErrorPayloads).not.toContain(presented);
+
+            await server.close();
+        });
     });
 });

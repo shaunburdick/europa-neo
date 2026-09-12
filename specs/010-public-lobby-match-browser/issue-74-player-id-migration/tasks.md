@@ -294,11 +294,11 @@ work (Wave 7 owns console). Every blocker reproduced as failing before the fix.
 
 ## Wave 8 — Cross-feature security, documentation, and final gates
 
-- [ ] **T041**: [P] Audit and update package READMEs, contract comments, and
+- [x] **T041**: [P] Audit and update package READMEs, contract comments, and
   developer docs for universal IDs versus bearer credentials; remove stale numeric
   identity claims and ensure no credentials appear in examples, logs, or risky
   URLs.
-- [ ] **T042**: [P] Add/refresh repository conformance, version, privacy/security,
+- [x] **T042**: [P] Add/refresh repository conformance, version, privacy/security,
   replay, and no-runtime-nanoid guards; include tests for no `localeCompare` in
   authoritative paths and no ID-derived terrain output.
 - [ ] **T043**: Run package-specific coverage and strict typecheck programs for
