@@ -90,11 +90,11 @@ shim or weaken a validator to make an old fixture pass.
 
 ## Wave 4 — Terrain and fog boundaries
 
-- [ ] **T019**: [P] Keep terrain contracts and implementation ID-agnostic in
+- [x] **T019**: [P] Keep terrain contracts and implementation ID-agnostic in
   `packages/terrain/src/` and its contract mirrors; use dense numeric placement
   slots only, remove accidental `PlayerId` imports, and document caller-owned
   mapping.
-- [ ] **T020**: [P] Update terrain tests and fixtures to prove generated board
+- [x] **T020**: [P] Update terrain tests and fixtures to prove generated board
   bytes depend only on seed/size/player-count/settings, not ID values; include
   valid IDs with different ordering and ensure the same starting-city slots are
   produced.
@@ -105,7 +105,7 @@ shim or weaken a validator to make an old fixture pass.
 - [x] **T022**: [P] Update fog tests under `packages/fog/tests/` for valid ID views,
   unknown/forged IDs, reconnect/seat reassignment view association, spectator
   null handling, and zero hidden-state leakage; retain ≥80% coverage.
-- [ ] **T023**: Run terrain/fog source-to-spec contract drift and strict conformance
+- [x] **T023**: Run terrain/fog source-to-spec contract drift and strict conformance
   programs; update only implementation mirrors/tests required by the approved
   amendments, not the behavioral specs.
 

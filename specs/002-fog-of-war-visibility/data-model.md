@@ -72,10 +72,25 @@ player's horizon. Not exported; lives only inside `visibleSet.ts`.
 
 ### Definition (the only "is a viewer" rule)
 
+Identity resolution is server-authoritative (spec v1.5 FR-010, issue
+#74): the caller passes a universal `PlayerId` string, which fog first
+resolves to the engine's private 1-based dense owner byte through the
+world's `PlayerRegistry`. Fog never compares a `PlayerId` string to a
+raw owner byte and never infers an owner from array position or seat.
+An unknown, forged, malformed, or numeric ID resolves to `null` and
+callers **fail closed** (empty visible set, never a fallback seat).
+
 ```ts
-function isViewer(world: Readonly<World>, player: PlayerId, index: number): boolean {
+// 1. Resolve the universal ID authoritatively (null when not registered).
+function resolvePlayerOwnerByte(world: Readonly<World>, player: PlayerId): number | null {
+  const index = world.playerRegistry.indexOfId(player);
+  return index === null ? null : index + 1;
+}
+
+// 2. A cell is a viewer iff its dense owner byte matches and it has troops.
+function isViewer(world: Readonly<World>, ownerByte: number, index: number): boolean {
   return (
-    world.state.troopOwners[index] === player &&
+    world.state.troopOwners[index] === ownerByte &&
     world.state.troopCounts[index] > 0
   );
 }
@@ -315,10 +330,10 @@ config — should never happen in production).
           │ derives from                                    └───────┬────────┘
           ▼                                                        │
    ┌──────────────────────────────────────┐                        │ handed to
-   │  world.state.troopOwners (filtered)  │                        ▼
-   │  world.state.troopCounts             │               ┌──────────────────┐
-   │  condition: owner === player &&      │               │ feature 004      │
-   │  count > 0                            │               │ (networking)     │
+   │  resolve PlayerId → owner byte via   │                        ▼
+   │  world.playerRegistry (FR-010), then │               ┌──────────────────┐
+   │  filter by dense owner byte and      │               │ feature 004      │
+   │  troopCount > 0 (fail closed if null)│               │ (networking)     │
    └──────────────────────────────────────┘               └──────────────────┘
 ```
 
@@ -362,6 +377,13 @@ config — should never happen in production).
    event whose `cell` is in the player's visibleCells.
 6. **No leakage**: no `PlayerView` field references any cell, player,
    troop, pipe, or city outside the player's horizon (FR-003).
+7. **Authoritative identity resolution (FR-010)**: an unknown, forged,
+   malformed, or numeric `player` resolves to `null` through the world's
+   `PlayerRegistry` and yields an empty `PlayerView` (no cells, no
+   events) — never a fallback seat, index `0`, or coercion. Spectator
+   views remain identity-independent (FR-009: IDs are correlation
+   metadata, not authority, so an unresolved spectator target still
+   receives the full board).
 
 ---
 
