@@ -2,7 +2,8 @@
 
 ## Live state
 
-- **Phase**: 6 implementation in progress.
+- **Phase**: delivery complete (Waves 0–8); pre-PR code-quality + security
+  review remediation in progress on this branch.
 - **Coordination anchor**: Feature 010 existing directory, nested planning bundle.
 - **Branch**: `issue-74-numeric-playerid`.
 - **Task count**: 45, T001–T045.

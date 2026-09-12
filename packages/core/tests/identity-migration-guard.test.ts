@@ -6,7 +6,9 @@
  *
  *   1. Direct runtime `nanoid` imports (CSPRNG must be injected, never imported)
  *   2. Numeric `PlayerId` literal casts (`as PlayerId`) in SOURCE files
- *      (test files are excluded — they need numeric fixtures during transition)
+ *      (the migration is complete: tests are excluded because they may brand
+ *      adversarial or deliberately-invalid values for negative coverage;
+ *      runtime source must never derive identity from a numeric cast)
  *   3. Authoritative `localeCompare` in runtime ordering paths
  *      (build scripts and tests are excluded)
  *   4. `GuestPlayerId` numeric literal assignments in source
@@ -223,8 +225,9 @@ interface PatternCheck {
     readonly regex: RegExp;
     /**
      * If true, this pattern is ONLY checked against source files (src/),
-     * not test files. Use for patterns that are expected in test fixtures
-     * during the transition period.
+     * not test files. Test files legitimately brand adversarial or
+     * deliberately-invalid values as `PlayerId` for negative coverage;
+     * runtime source must never derive a public identity from a numeric cast.
      */
     readonly sourceOnly: boolean;
     /** If true, build/script files are exempt from this check. */
@@ -242,12 +245,27 @@ interface PatternCheck {
  */
 const NANOID_MODULE = 'nanoid';
 
+/**
+ * A `nanoid` module specifier: the bare package OR a subpath variant
+ * (`nanoid/non-secure`, `nanoid/url-alphabet`, …). Shared by the import
+ * rule and the dependency rule so both catch the same set of variants.
+ *
+ * @param value - A module specifier or dependency key.
+ * @returns True when the value names `nanoid` or one of its subpaths.
+ */
+function isNanoidSpecifier(value: string): boolean {
+    return value === NANOID_MODULE || value.startsWith(`${NANOID_MODULE}/`);
+}
+
 const PATTERNS: ReadonlyArray<PatternCheck> = [
     {
         name: 'no-nanoid-import',
         description:
             'Direct runtime nanoid imports are forbidden. The CSPRNG must be injected, never imported directly.',
-        regex: /from\s+['"]nanoid['"]|require\(\s*['"]nanoid['"]\s*\)/,
+        // Covers static `from 'nanoid'`, CommonJS `require('nanoid')`, dynamic
+        // `import('nanoid')`, bare side-effect `import 'nanoid'`, and every
+        // subpath variant of all four.
+        regex: /(?:from\s+|require\(\s*|import\(\s*|import\s+)['"]nanoid(?:\/[^'"]*)?['"]/,
         sourceOnly: false,
         buildExempt: false,
         badSample: `import { nanoid } from '${NANOID_MODULE}';`,
@@ -309,7 +327,7 @@ const DEPENDENCY_SECTIONS = ['dependencies', 'devDependencies', 'peerDependencie
 
 /**
  * Return the dependency sections of a parsed package manifest that
- * declare `nanoid` as a direct dependency.
+ * declare `nanoid` (or a subpath variant) as a direct dependency.
  *
  * Direct-dependency prohibition (not just imports) matters because a
  * devDependency or peerDependency would still place the package in the
@@ -331,7 +349,7 @@ function nanoidDependencySections(manifest: unknown): string[] {
     const offenders: string[] = [];
     for (const section of DEPENDENCY_SECTIONS) {
         const deps = record[section];
-        if (deps !== null && typeof deps === 'object' && Object.hasOwn(deps, 'nanoid')) {
+        if (deps !== null && typeof deps === 'object' && Object.keys(deps).some(isNanoidSpecifier)) {
             offenders.push(section);
         }
     }
@@ -524,6 +542,39 @@ describe('no runtime nanoid dependency (T042)', () => {
     it('self-test: flags nanoid in every dependency section', () => {
         for (const section of DEPENDENCY_SECTIONS) {
             expect(nanoidDependencySections({ [section]: { nanoid: '^3.0.0' } })).toEqual([section]);
+        }
+    });
+
+    it('self-test: flags nanoid subpath variants consistently', () => {
+        expect(nanoidDependencySections({ dependencies: { [`${NANOID_MODULE}/non-secure`]: '^3.0.0' } })).toEqual([
+            'dependencies',
+        ]);
+        expect(nanoidDependencySections({ devDependencies: { [`${NANOID_MODULE}/url-alphabet`]: '^3.0.0' } })).toEqual([
+            'devDependencies',
+        ]);
+        expect(isNanoidSpecifier(NANOID_MODULE)).toBe(true);
+        expect(isNanoidSpecifier(`${NANOID_MODULE}/non-secure`)).toBe(true);
+    });
+
+    it('self-test: import rule catches subpath and dynamic-import specifiers', () => {
+        const pattern = patternByName('no-nanoid-import');
+        // Build the specifiers from NANOID_MODULE so this test file's own
+        // source never contains a literal forbidden specifier (the rule
+        // scans tests too).
+        const flagged = [
+            `import { nanoid } from '${NANOID_MODULE}/non-secure';`,
+            `export { nanoid } from '${NANOID_MODULE}/url-alphabet';`,
+            `import '${NANOID_MODULE}/url-alphabet';`,
+            `const { nanoid } = await import('${NANOID_MODULE}');`,
+            `const { nanoid } = await import('${NANOID_MODULE}/non-secure');`,
+            `const nanoid = require('${NANOID_MODULE}/non-secure');`,
+        ];
+        for (const sample of flagged) {
+            expect(pattern.regex.exec(stripComments(sample)), sample).not.toBeNull();
+        }
+        const clean = ["import { randomBytes } from 'node:crypto';", "import { nanoid } from 'my-nanoid';"];
+        for (const sample of clean) {
+            expect(pattern.regex.exec(stripComments(sample)), sample).toBeNull();
         }
     });
 

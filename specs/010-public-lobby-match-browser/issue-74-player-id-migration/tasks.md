@@ -7,16 +7,16 @@ shim or weaken a validator to make an old fixture pass.
 
 ## Wave 0 — Baseline and inventory
 
-- [ ] **T001**: Capture the clean baseline on the delivery branch: `git status`,
+- [x] **T001**: Capture the clean baseline on the delivery branch: `git status`,
   package versions, current API versions, `pnpm verify:changed --full` (or the
   repository-approved equivalent), and existing numeric-identity search results;
   record results in `quickstart.md` without modifying approved specs.
-- [ ] **T002**: Build a typed inventory of every public numeric `PlayerId`,
+- [x] **T002**: Build a typed inventory of every public numeric `PlayerId`,
   `GuestPlayerId`, owner, winner, seat, replay, serializer, wire, fixture, and
   router handoff surface; classify each as public identity, dense index, seat
   coordinate, or negative test. Store the inventory in the implementation PR
   description and use it as the review checklist.
-- [ ] **T003**: Add/confirm a repository guard that rejects direct runtime
+- [x] **T003**: Add/confirm a repository guard that rejects direct runtime
   `nanoid` imports, numeric public identity declarations, authoritative
   `localeCompare`, and credential-bearing identity substitutions without
   suppressions; prove the guard fails on representative bad examples.
@@ -132,15 +132,20 @@ added, and no behavioral `spec.md` was modified.
   comments with a token-aware scanner, so `/*x*/ const id = seat as PlayerId;`
   is caught and commented-out code no longer false-positives. A table self-test
   proves every rule flags its synthetic bad sample and passes its clean sample.
-- [ ] **N5 (branded placement slot)**: DEFERRED / non-blocking — see
-  `orchestration.md`.
-- [ ] **N6 (`index + 1` dense-byte duplication)**: DEFERRED / non-blocking — see
-  `orchestration.md`.
+- [ ] **N5 (branded placement slot)**: DEFERRED / non-blocking — placement
+  slots are coordinates, not identities; a nominal brand adds conversions for no
+  security benefit. Runnable rationale in `orchestration.md` (Wave 4.5).
+- [ ] **N6 (`index + 1` dense-byte duplication)**: DEFERRED / non-blocking — the
+  invariant is documented in `playerRegistry.ts`; centralizing it would refactor
+  the registry/byte boundary across engine resolvers for no behavior change.
+  Runnable rationale in `orchestration.md` (Wave 4.5).
 - [x] **N7 (terrain doc)**: the `startingCitiesByPlayer` contract JSDoc now
   states the record always carries keys `1..4` with unused slots empty,
   matching `generate.ts`; both contract mirrors updated identically.
-- [ ] **N8 (console handle-first labels)**: DEFERRED — Wave 7 not started; see
-  `orchestration.md`.
+- [x] **N8 (console handle-first labels)**: DONE — landed in Wave 7/T037.
+  Participant rows key/render by canonical `PlayerId` with `<bdi>`-isolated
+  server names and a raw-ID fallback (never a fabricated "Player N"); see
+  `orchestration.md` Wave 7.
 - [x] **S1 (doc accuracy)**: `plan.md` and `contracts/identity-contract.md`
   reworded to the shipped model (9 bytes bit-packed into 12 six-bit groups;
   rejection only at the candidate/collision level).

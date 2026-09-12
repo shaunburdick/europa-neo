@@ -204,10 +204,10 @@ export function clearStoredClaim(storage: LobbyStorage | null): void {
 //
 // The universal `GuestPlayerId` is issued by the server (matchmaking is
 // the identity authority) and delivered on the directed `identity` lobby
-// event. The browser NEVER synthesizes an identity: a first connect
-// presents an advisory claim with no `guestPlayerId`, and subsequent
-// connects present the canonical value the server previously delivered
-// (adopted by `ws-lobby-client.ts`, which is the only writer of that
-// field). There is therefore no `randomUUID`/hex minting helper here —
-// see `specs/010-public-lobby-match-browser` Clarifications v1.6 and the
+// event. The browser never mints an identity: a first connect presents
+// an empty advisory claim, and subsequent connects present the canonical
+// value the server previously delivered (adopted by
+// `ws-lobby-client.ts`, which is the only writer of that field). There
+// is therefore no `randomUUID`/hex minting helper here — see
+// `specs/010-public-lobby-match-browser` Clarifications v1.6 and the
 // issue #74 identity contract.

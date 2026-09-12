@@ -24,8 +24,10 @@
  *   6. ID-only denial over the real wire → a bare canonical id is not a
  *      credential (`token_invalid`) and a forged order identity is denied
  *      (`order_player_mismatch`);
- *   7. reconnect → the seat's canonical identity and view association are
- *      preserved across a page reload.
+ *   7. reconnect → the seat's canonical identity and fog view association
+ *      are restored over the raw wire when the seat credential is
+ *      re-presented (page-reload rebinding is a known accepted limitation,
+ *      not covered here).
  *
  * Determinism discipline: no arbitrary sleeps — every wait polls an
  * observable DOM/store/wire condition; the tick cadence is fixed.

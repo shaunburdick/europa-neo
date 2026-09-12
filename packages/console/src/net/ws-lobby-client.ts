@@ -274,7 +274,7 @@ export interface WsLobbyClient {
     connect(url: string): Promise<void>;
     /** Close explicitly (cancels retry loops; the persisted claim survives for reload-resume). */
     disconnect(): void;
-    /** Forget the persisted claim + handle (explicit identity leave); next connect mints fresh. */
+    /** Forget the persisted claim + handle (explicit identity leave); next connect presents an empty advisory claim. */
     forgetIdentity(): void;
     /** Claim or rename the identity's public handle (FR-004/FR-005). */
     setHandle(handle: string): Promise<IdentityState>;
@@ -592,8 +592,10 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     /**
      * Drop the claim everywhere (storage + memory + handle) after the
      * server signals it is dead (`identity_expired`/`server_restarted`)
-     * or the visitor explicitly forgets. The NEXT establish cycle mints
-     * a fresh claim automatically.
+     * or the visitor explicitly forgets. The browser never mints a
+     * replacement: the NEXT establish cycle presents an empty advisory
+     * claim and adopts the server-issued id from the directed `identity`
+     * event.
      */
     function invalidateClaim(reason: string): void {
         clearStoredClaim(storage);

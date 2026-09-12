@@ -10,6 +10,8 @@
  * `nowMs`; no clock reads anywhere in the module under test.
  */
 
+import { parsePlayerId } from '@europa/core';
+
 import { describe, expect, it } from 'vitest';
 
 import { toBranded } from '../../src/ids';
@@ -26,8 +28,13 @@ function connId(n: number): ConnectionId {
 function matchId(n: number): MatchId {
     return toBranded<MatchId>(`match-${String(n).padStart(3, '0')}`);
 }
+/**
+ * Canonical 12-char identity (`Player` + zero-padded slot). Built through
+ * the real `parsePlayerId` validator so every reconnect fixture exercises
+ * the same canonical shape production uses — no numeric cast.
+ */
 function playerId(n: number): PlayerId {
-    return n as PlayerId;
+    return parsePlayerId(`Player${String(n).padStart(6, '0')}`);
 }
 
 describe('ReconnectRegistry', () => {

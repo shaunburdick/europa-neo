@@ -93,6 +93,34 @@ describe('applySpectatorEnvelope', () => {
         expect(next.session.sessionToken).toBeNull();
     });
 
+    it('orders participants by placement slot even when the roster order differs', () => {
+        // The engine roster arrives in canonical UTF-16 order
+        // ([TEST_PLAYER_1, TEST_PLAYER_2]) while the placement slots are
+        // deliberately reversed ([TEST_PLAYER_2, TEST_PLAYER_1]). A naive
+        // players.map(...) would emit [P1, P2] — the seat order must win.
+        const reversedView: PlayerView = {
+            ...view(3),
+            config: {
+                boardSize: 32,
+                playerIds: [TEST_PLAYER_2, TEST_PLAYER_1],
+                tickIntervalMs: 250,
+                seed: 7,
+                visibilityRadius: 4,
+            },
+        };
+        const joinAck = envelope('joinAck', {
+            sessionToken: 'bearer-token-value',
+            playerId: null,
+            view: reversedView,
+            tick: 3,
+            players: players(),
+        });
+
+        const next = applySpectatorEnvelope(initialSpectatorState(MATCH), joinAck, NOW);
+        expect(next.session.participants.map((entry) => entry.id)).toEqual([TEST_PLAYER_2, TEST_PLAYER_1]);
+        expect(next.session.participants.map((entry) => entry.name)).toEqual(['Orion', 'Nova']);
+    });
+
     it('a PLAYER join ack (non-null seat) is ignored — spectators never adopt seats', () => {
         const state = initialSpectatorState(MATCH);
         const playerJoin = envelope('joinAck', {

@@ -81,7 +81,7 @@ If you run Europa Neo yourself, the single-command host boots one web server on 
 pnpm host --create --players 3 --board-size 48
 ```
 
-This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). Every printed URL uses the canonical semantic match path `/match/<matchId>` and contains the match ID only: no handle, session token, reconnect token, or other bearer credential. Reconnect credentials stay in each player's own browser storage. Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
+This creates a public 3-player match that auto-starts when the third seat is claimed, and prints three join URLs — all served from the single `8080` port (there is no second port). Every printed URL uses the canonical semantic match path `/match/<matchId>` and contains the match ID only: no handle and no bearer credential of any kind. Reconnect credentials stay in each player's own browser storage. Omit `--board-size` and the host picks the default for the player count (3p → 48). See the project README for the full self-hosting guide.
 
 ---
 

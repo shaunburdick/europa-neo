@@ -1,7 +1,7 @@
 # Quickstart and Acceptance Checklist: Issue #74
 
-This document is a Phase 6 validation recipe. It intentionally contains no
-implementation result claims until delivery is complete.
+This document is a Phase 6 validation recipe. Delivery is complete; the
+per-task results and gate evidence are recorded in the sections below.
 
 ## Focused checks by wave
 

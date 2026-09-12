@@ -125,7 +125,7 @@ export interface LobbyController {
     connect(): Promise<LobbyCommandResult>;
     /** Close explicitly (cancels retry loops; the persisted claim survives). */
     disconnect(): void;
-    /** Forget the persisted identity claim; the next connect mints fresh. */
+    /** Forget the persisted identity claim; the next connect sends an empty advisory claim and adopts the server-issued id. */
     forgetIdentity(): void;
     /** Claim or rename the display handle (FR-004/FR-005). */
     setHandle(handle: string): Promise<LobbyCommandResult>;
