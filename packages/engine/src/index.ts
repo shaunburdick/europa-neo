@@ -13,8 +13,8 @@
  *
  * The names in each `export { ... }` block are sorted alphabetically
  * (Biome `organizeImports` rule). The conceptual grouping lives in
- * the JSDoc above and in the source-of-truth contracts at
- * `specs/001-core-game-engine/contracts/`.
+ * the JSDoc above and in the source-of-truth contracts in
+ * `src/contracts/`.
  *
  * Custom error classes (`EngineVersionMismatchError`,
  * `EngineFormatError`) are also re-exported so callers can match on

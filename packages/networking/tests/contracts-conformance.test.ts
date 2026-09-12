@@ -3,46 +3,42 @@
  *
  * Enforces the networking package's contract-discipline rules:
  *
- *   (a) **Byte-identity** — every local contract copy under
- *       `src/contracts/` is BYTE-identical to its source-of-truth at
- *       `specs/004-multiplayer-networking/contracts/`
- *       (stricter than the engine's semantic compare: for feature 004
- *       the mirrors were cut verbatim, so even a whitespace drift is
- *       a bug). Local copies exist because `tsc`'s `rootDir: ./src`
- *       rejects imports from outside the package.
- *
  *   (b) **Type conformance** — the engine-mirrored wire types
- *       (`Order`, `MatchResult`) and the fog-derived view type
- *       (`PlayerView`) re-exported through `src/types.ts` are mutually
+ *       ("Order", "MatchResult") and the fog-derived view type
+ *       ("PlayerView") re-exported through "src/types.ts" are mutually
  *       assignable with their canonical declarations. Any field drift
- *       anywhere along the re-export chain fails `pnpm typecheck`.
+ *       anywhere along the re-export chain fails "pnpm typecheck".
  *
- *   (c) **Union exhaustiveness** — the `NetworkPayload` union covers
+ *   (c) **Union exhaustiveness** — the "NetworkPayload" union covers
  *       exactly the twenty documented payload interfaces (one per
- *       `MessageKind`, no extras), and every kind-to-payload mapping
- *       stays exhaustive under future edits (the `never` guard in the
+ *       "MessageKind", no extras), and every kind-to-payload mapping
+ *       stays exhaustive under future edits (the "never" guard in the
  *       runtime classifier fails to compile when a kind is added
  *       without updating the map).
  *
- *   (d) **Feature 010 lobby wire conformance** — the additive `lobby*`
- *       family declared in `network-types.ts` stays structurally
+ *   (d) **Feature 010 lobby wire conformance** — the additive "lobby*"
+ *       family declared in "network-types.ts" stays structurally
  *       conformant to its design source of truth
- *       (`specs/010-public-lobby-match-browser/contracts/lobby-wire.md`
- *       + `lobby-types.md`) via an independent transcription pinned by
- *       mutual-assignability aliases, and the `LobbyEvent` variant set
+ *       ("specs/010-public-lobby-match-browser/contracts/lobby-wire.md"
+ *       + "lobby-types.md") via an independent transcription pinned by
+ *       mutual-assignability aliases, and the "LobbyEvent" variant set
  *       stays exhaustively classified.
  *
  *   (e) **Feature 023 roster wire conformance** — the additive roster
- *       types (`RosterEntry`, `RosterStatus`, `RosterRevision`,
- *       `RosterSnapshot`, `RosterChange`, `RosterDelta`) and the two
- *       `LobbyEvent` roster variants declared in `network-types.ts`
+ *       types ("RosterEntry", "RosterStatus", "RosterRevision",
+ *       "RosterSnapshot", "RosterChange", "RosterDelta") and the two
+ *       "LobbyEvent" roster variants declared in "network-types.ts"
  *       stay structurally identical to the matchmaking package's local
  *       mirrors. The roster contract is design-source-of-truth at
- *       `specs/010-public-lobby-match-browser/contracts/roster-wire.md`.
+ *       "specs/010-public-lobby-match-browser/contracts/roster-wire.md".
+ *
+ * NOTE: Part (a) -- byte-identity comparisons between src/contracts/
+ * and specs/004-multiplayer-networking/contracts/ -- was removed
+ * because the spec-side .ts files no longer exist. The package
+ * copies in each package's src/contracts/ are now the sole source of
+ * truth.
  */
 
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import type { MatchResult, Order } from '@europa/engine';
 import type { PlayerView } from '@europa/fog';
 import { describe, expect, it } from 'vitest';
@@ -88,12 +84,6 @@ import type {
     PlayerView as PlayerViewReexport,
 } from '../src/types';
 
-/** Resolve a path relative to the monorepo root. */
-function repoPath(relativePath: string): string {
-    // packages/networking/tests/contracts-conformance.test.ts → 3 levels up.
-    return resolve(__dirname, '..', '..', '..', relativePath);
-}
-
 // ---------------------------------------------------------------------------
 // (b) Compile-time type conformance. Mutual assignability proves set
 // equality for unions and field-for-field equality for objects: if any
@@ -101,21 +91,21 @@ function repoPath(relativePath: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Mutual-assignability witness: `true` exactly when A and B are
+ * Mutual-assignability witness: "true" exactly when A and B are
  * mutually assignable (set equality for unions, field-for-field
  * equality for objects). The nested conditional form avoids the
- * circular-constraint error (TS2313) a two-parameter `extends` pair
+ * circular-constraint error (TS2313) a two-parameter "extends" pair
  * raises under a strict tsc program — vitest strips types so the
  * defect only surfaces in dedicated compile checks; this is the same
- * known-good shape as matchmaking's `tests/lobby-conformance.test.ts`
+ * known-good shape as matchmaking's "tests/lobby-conformance.test.ts"
  * witness.
  */
 type AssertMutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
 
 /**
- * Absence witness: `true` only when key `K` is NOT a property of `T`.
- * Assigning `never` to a `true`-annotated const fails the program, so
- * adding a forbidden field flips this from `true` to an error.
+ * Absence witness: "true" only when key "K" is NOT a property of "T".
+ * Assigning "never" to a "true"-annotated const fails the program, so
+ * adding a forbidden field flips this from "true" to an error.
  */
 type AssertKeyAbsent<K extends string, T> = K extends keyof T ? never : true;
 
@@ -130,7 +120,7 @@ const PLAYER_VIEW_CONFORMS: PlayerViewConforms = true;
 // ---------------------------------------------------------------------------
 // (c) Compile-time union exhaustiveness. The documented one-payload-
 // per-kind map must be mutually assignable with the union: a payload
-// missing from `NetworkPayload`, or an extra union member without a
+// missing from "NetworkPayload", or an extra union member without a
 // documented kind, breaks one of the two directions.
 // ---------------------------------------------------------------------------
 
@@ -188,8 +178,8 @@ const ALL_KINDS: readonly MessageKind[] = [
 
 /**
  * Runtime classifier with a compile-time exhaustiveness guard: adding
- * a `MessageKind` without a case here turns `kind` into `never` in the
- * default branch and fails `pnpm typecheck`.
+ * a "MessageKind" without a case here turns "kind" into "never" in the
+ * default branch and fails "pnpm typecheck".
  *
  * @param kind Any protocol message kind.
  * @returns A stable label for the kind.
@@ -246,20 +236,6 @@ function kindLabel(kind: MessageKind): string {
 }
 
 describe('contract conformance (T050)', () => {
-    describe('(a) byte-identity of local contract mirrors vs spec source-of-truth', () => {
-        const contractFiles = ['network-types.ts', 'network-api.ts', 'matchmaking-to-networking.ts'] as const;
-
-        for (const file of contractFiles) {
-            it(`src/contracts/${file} is byte-identical to the spec copy`, async () => {
-                const [local, spec] = await Promise.all([
-                    readFile(repoPath(`packages/networking/src/contracts/${file}`), 'utf-8'),
-                    readFile(repoPath(`specs/004-multiplayer-networking/contracts/${file}`), 'utf-8'),
-                ]);
-                expect(local).toBe(spec);
-            });
-        }
-    });
-
     it('(b) engine/fog wire types re-exported from src/types.ts conform to the canonical declarations', () => {
         // Compile-time proof lives in the aliases above; these runtime
         // assertions keep them "used" so linters stay quiet.
@@ -274,7 +250,7 @@ describe('contract conformance (T050)', () => {
 
         // Runtime corroboration: every documented kind classifies, the
         // classifier's switch stays exhaustive (a missing case would fail
-        // typecheck via the `never` guard), and the labels are unique —
+        // typecheck via the "never" guard), and the labels are unique —
         // one payload body per kind, no aliases.
         const labels = ALL_KINDS.map((kind) => kindLabel(kind));
         expect(labels).toHaveLength(20);
@@ -373,7 +349,7 @@ type DocLobbyEvent =
           readonly code: DocLobbyErrorCode;
           readonly message: string;
           // Optional machine-readable detail (field name → message/value),
-          // mirroring matchmaking's `LobbyError.detail` so clients can
+          // mirroring matchmaking's "LobbyError.detail" so clients can
           // render field-specific actionable text from code + detail.
           readonly detail?: Readonly<Record<string, string | number | boolean>>;
       }
@@ -387,8 +363,8 @@ interface DocLobbyWireShapes {
     lobbySubscribe: { readonly actionId: DocLobbyActionId };
     lobbyCreate: {
         readonly actionId: DocLobbyActionId;
-        // Transcribes `Partial<MatchSettings>`: top-level fields optional,
-        // `terrainSettings` complete when present (mirrors matchmaking's
+        // Transcribes "Partial<MatchSettings>": top-level fields optional,
+        // "terrainSettings" complete when present (mirrors matchmaking's
         // MatchSettings/GenerationSettings structure exactly).
         readonly settings?: {
             readonly playerCount?: 2 | 3 | 4;
@@ -418,8 +394,7 @@ interface DocLobbyWireShapes {
  * the doc transcription. NOTE on precision: structural assignability pins
  * required fields, field types, and union variants; it cannot detect a
  * newly added OPTIONAL field on one side (a TypeScript exactness limit).
- * Byte-identity between the two contract copies plus review against the
- * design docs covers that residual gap.
+ * Review against the design docs covers that residual gap.
  */
 type LobbyWireConforms = {
     readonly [K in keyof KindToPayload & keyof DocLobbyWireShapes]: AssertMutuallyAssignable<
@@ -443,7 +418,7 @@ const LOBBY_WIRE_CONFORMS: LobbyWireConforms = {
  * Sharp-edge pin for the v1.6 OPTIONAL delivery field (feature 010
  * Clarifications v1.6): plain mutual assignability cannot see a missing
  * or retyped OPTIONAL field, so this indexed-access witness fails to
- * typecheck while the contract's `IdentityState.guestPlayerId` and the
+ * typecheck while the contract's "IdentityState.guestPlayerId" and the
  * doc transcription disagree in existence, optionality, or brand.
  */
 type IdentityStateGuestIdConforms = AssertMutuallyAssignable<
@@ -453,16 +428,16 @@ type IdentityStateGuestIdConforms = AssertMutuallyAssignable<
 
 const IDENTITY_STATE_GUEST_ID_CONFORMS: IdentityStateGuestIdConforms = true;
 
-/** The six documented `LobbyEvent` variant kinds. */
+/** The six documented "LobbyEvent" variant kinds. */
 const LOBBY_EVENT_KINDS = ['identity', 'snapshot', 'actionAccepted', 'error', 'roster', 'rosterDelta'] as const;
 
 /**
- * Compile-time exhaustiveness guard over `LobbyEvent` variants: adding a
- * variant without a case here fails `pnpm typecheck` via the `never`
+ * Compile-time exhaustiveness guard over "LobbyEvent" variants: adding a
+ * variant without a case here fails "pnpm typecheck" via the "never"
  * branch.
  *
  * @param event Any lobby event.
- * @returns The event's `kind` label.
+ * @returns The event's "kind" label.
  */
 function lobbyEventKindLabel(event: LobbyEvent): string {
     switch (event.kind) {
@@ -575,8 +550,8 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
 
 // ---------------------------------------------------------------------------
 // (e) Feature 023 roster wire conformance. The roster types declared in
-// `network-types.ts` are pinned against an INDEPENDENT transcription of
-// the design source of truth (`specs/010-public-lobby-match-browser/contracts/roster-wire.md`)
+// "network-types.ts" are pinned against an INDEPENDENT transcription of
+// the design source of truth ("specs/010-public-lobby-match-browser/contracts/roster-wire.md")
 // via mutual-assignability aliases. The six roster type names are also
 // verified structurally identical to the matchmaking package's local
 // mirror — drift between the two copies is caught here.
@@ -600,7 +575,7 @@ const ROSTER_DELTA_CONFORMS: RosterDeltaConforms = true;
 /**
  * Roster types MUST carry exactly {handle, status} per entry — no
  * opaque IDs, no match IDs, no tokens. This absence witness fails
- * to compile if a forbidden field is added to `RosterEntry`.
+ * to compile if a forbidden field is added to "RosterEntry".
  */
 type RosterEntryHasNoMatchId = AssertKeyAbsent<'matchId', RosterEntry>;
 type RosterEntryHasNoToken = AssertKeyAbsent<'sessionToken', RosterEntry>;

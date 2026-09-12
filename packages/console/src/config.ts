@@ -2,13 +2,12 @@
  * Console tunable constants + defaults — Feature 005 (T019).
  *
  * Single import point for every tunable number and default table the
- * console uses. Per PM Directive #1, the VALUES live in the contract
- * mirrors (`contracts/console-api.ts` §"Constants" and
- * `contracts/console-types.ts`), which are byte-identical to the
- * source-of-truth spec contracts under
- * `specs/005-client-console/contracts/`. This module
- * re-exports them instead of redeclaring, so there is exactly one
- * place a constant can drift: the contract itself.
+ * console uses. Per PM Directive #1, the VALUES live in the contracts
+ * (`contracts/console-api.ts` §"Constants" and
+ * `contracts/console-types.ts`), which are the canonical source of
+ * truth, documented in `specs/005-client-console/spec.md`.
+ * This module re-exports them instead of redeclaring, so there is
+ * exactly one place a constant can drift: the contract itself.
  *
  * Values (data-model.md §15 / tasks.md T019):
  *   - defaultCellPx 32 · minCellPx 32 · maxCellPx 96 (camera clamp,
