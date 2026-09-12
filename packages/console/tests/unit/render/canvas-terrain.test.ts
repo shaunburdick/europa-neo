@@ -224,9 +224,8 @@ describe('MapCanvas pipe outlines (spec 024 FR-010, AC-010)', () => {
         // FR-010: stroke (outline) must be called before fill (colored).
         const strokeIdx = ctx.stroke.mock.invocationCallOrder[0];
         const fillIdx = ctx.fill.mock.invocationCallOrder[0];
-        expect(strokeIdx).toBeDefined();
         expect(fillIdx).toBeDefined();
-        expect(strokeIdx).toBeLessThan(fillIdx!);
+        expect(strokeIdx).toBeLessThan(fillIdx as number);
 
         // Outline color must be PIPE_OUTLINE_COLOR (dark, guaranteed contrast).
         expect(ctx.strokeStyle).toBe(PIPE_OUTLINE_COLOR);

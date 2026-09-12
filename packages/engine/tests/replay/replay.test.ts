@@ -187,7 +187,7 @@ describe('replayMatch', () => {
     it('returns the final world in the result', () => {
         const fixture = buildFixture(createWorld(CONFIG, BOARD), [], 5);
         const result = replayMatch(fixture, BOARD);
-        expect(result.finalWorld).toBeDefined();
+        // ReplayResult.finalWorld is non-optional — assert content directly.
         expect((result.finalWorld as World).tick).toBe(5);
     });
 

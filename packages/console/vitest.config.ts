@@ -38,10 +38,7 @@ export default defineConfig({
                 'src/create-console.ts',
                 'src/config.ts',
             ],
-            // src/internal/**: DOM-bound entry points (live-runtime.tsx,
-            // lobby-runtime.tsx) covered by integration/E2E suites, not
-            // happy-dom unit tests.
-            exclude: ['src/main.tsx', 'src/internal/**', '**/*.d.ts'],
+            exclude: ['src/main.tsx', '**/*.d.ts'],
             thresholds: {
                 lines: 80,
                 functions: 80,

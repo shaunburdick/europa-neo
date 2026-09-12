@@ -27,4 +27,17 @@ describe('EuropaBanner', () => {
         const banner = container.querySelector('[role="status"]');
         expect(banner).not.toHaveClass('europa-banner--alert');
     });
+
+    it('appends a custom className when provided', () => {
+        const { container } = render(<EuropaBanner className="custom-banner">Extra</EuropaBanner>);
+        const banner = container.querySelector('.europa-banner');
+        expect(banner).toHaveClass('europa-banner', 'europa-banner--status', 'custom-banner');
+    });
+
+    it('does not append extra class segment when className is absent', () => {
+        const { container } = render(<EuropaBanner>No extra</EuropaBanner>);
+        const banner = container.querySelector('.europa-banner');
+        // className should be 'europa-banner europa-banner--status' with no trailing space
+        expect(banner?.className).toBe('europa-banner europa-banner--status');
+    });
 });

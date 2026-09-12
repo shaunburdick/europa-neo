@@ -10,7 +10,7 @@
  * mount handshake including connection-failure resilience.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { ConsoleConfig, ConsoleDeps } from '../../src/contracts/console-api';
 import { createConsole } from '../../src/create-console';
@@ -370,10 +370,11 @@ describe('ConsoleRuntime (T086)', () => {
             const container = document.createElement('div');
             document.body.append(container);
             await runtime.mountInto(container);
-            // React 19 commits concurrently — flush the scheduler before
-            // asserting on the DOM.
-            await new Promise((resolve) => setTimeout(resolve, 50));
-            expect(container.querySelector('#main')).not.toBeNull();
+            // React 19 commits concurrently — poll until the DOM reflects
+            // the committed tree rather than sleeping a fixed duration.
+            await vi.waitFor(() => {
+                expect(container.querySelector('#main')).not.toBeNull();
+            });
             expect(container.querySelector('#skip-link')).not.toBeNull();
             await runtime.teardown();
             container.remove();

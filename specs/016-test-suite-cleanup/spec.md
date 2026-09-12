@@ -1,8 +1,8 @@
 # Feature 016: Test Suite Cleanup
 
-> Version: 1.0
-> Last Updated: 2026-09-02
-> Status: Approved (Phase 3 complete — clarifications applied)
+> Version: 1.1
+> Last Updated: 2026-09-11
+> Status: Implemented (2026-09-11)
 > Dependencies: None (touches all packages but introduces no new code)
 
 ## Problem Statement
@@ -13,6 +13,8 @@ The Europa Neo monorepo has accumulated 331 test files containing approximately 
 
 2. **Maintenance burden**: Many test files exist in dense clusters (37 matchmaking unit files, 27 networking unit files, 19 terrain unit files) where they overlap significantly in what they exercise. Tests that assert implementation details (internal function calls, exact call counts, private state mutations) create false-positive failures when code is refactored, forcing developers to rewrite tests even when behavior is preserved. This slows development velocity — the opposite of what tests should do.
 
+3. **Infrastructure duplication and bloat**: E2E harness code, transport fakes, and fixture generators are copy-pasted across packages instead of shared. A 1.7 MB golden fixture (`golden-1000-tick.json`) is committed to the repo and compared byte-for-byte every determinism run — the fixture can be regenerated from deterministic scenario code, making the committed blob unnecessary. Timer-based sleeps (`setTimeout` for condition polling) appear in unit tests, creating flaky, slow, and unfalsifiable assertions.
+
 The goal is **aggressive reduction**: cut test count, reduce execution time, and simplify maintenance while preserving the constitution's ≥80% coverage gate on game logic (Constitution III). This is a subtractive effort — no new test infrastructure, no new test categories.
 
 ## User Stories
@@ -21,6 +23,9 @@ The goal is **aggressive reduction**: cut test count, reduce execution time, and
 - As a **contributor**, I want **tests that survive refactoring** so that I can restructure code without rewriting test assertions.
 - As a **contributor**, I want **CI to complete quickly** so that I get feedback before switching context.
 - As a **maintainer**, I want **a smaller test surface** so that adding new features doesn't continuously push CI toward timeout limits.
+- As a **contributor**, I want **shared E2E/transport/fixture helpers** so that I don't duplicate test infrastructure across packages.
+- As a **maintainer**, I want **the determinism golden fixture replaced with a digest** so that a 1.7 MB blob doesn't bloat the repo while preserving the zero-divergence guarantee.
+- As a **contributor**, I want **no `setTimeout`-for-condition in unit tests** so that tests are deterministic, fast, and don't produce false passes on slow machines.
 
 ## Functional Requirements
 
@@ -83,6 +88,18 @@ The goal is **aggressive reduction**: cut test count, reduce execution time, and
 
 - **FR-021**: The `Coverage gate (console ≥ 80%)` job runs separately from `Test suites (console)` — verify that coverage collection overhead is not duplicating test execution. If the coverage job re-runs the same tests that the test job already ran, consolidate them.
 
+### Test Infrastructure Consolidation (v1.1 — Issue #131)
+
+- **FR-022**: Extract shared E2E test helpers (transport fakes, match-client mocks, fixture loaders, setup/teardown utilities) into a shared location (e.g., `packages/console/tests/helpers/` or a `test-utils` package). All packages that currently copy-paste E2E harness code must import from the shared location. The shared helpers must be typed (no `any`) and covered by at least one integration test that proves the helpers work end-to-end.
+
+- **FR-023**: Replace the 1.7 MB committed golden fixture (`packages/console/tests/fixtures/golden-1000-tick.json`) with a deterministic hash loaded in `beforeAll`. The scenario code (`tests/fixtures/determinism-scenario.ts`) is already pure and deterministic — run it in `beforeAll`, hash the output (SHA-256 or equivalent), and compare against a stored hash constant. The stored hash must be a small string (64 bytes), not a 1.7 MB blob. The generation script (`scripts/generate-determinism-golden.ts`) must be updated to emit the hash instead of the full JSON, or deleted if no longer needed.
+
+- **FR-024**: Audit all `setTimeout`-based condition polling in unit tests (excluding E2E and browser-mode tests where real timers are necessary). Replace `setTimeout(fn, N)` patterns with Vitest's `vi.advanceTimersByTime()` or `vi.useFakeTimers()` where the codebase already uses fake timers, or with polled `vi.waitFor()` / `assert.waitFor()` with a maximum retry count and timeout. No unit test may rely on wall-clock `setTimeout` for condition satisfaction.
+
+- **FR-025**: Audit test files for unfalsifiable assertions — assertions that pass regardless of code behavior (e.g., `expect(result).toBeDefined()` after a function that always returns a value, `expect(true).toBe(true)`, assertions inside `try/catch` that swallow errors). Remove or fix each one. Every assertion must be capable of failing if the code under test is broken.
+
+- **FR-026**: Relocate test-only modules (files that exist solely to support tests and are imported only by test files) from `src/` into `tests/` or a dedicated `test-utils/` directory. This keeps the production source tree clean and makes it explicit which files are test infrastructure. Files like `src/internal/test-state.ts` (if it exists solely for test support) are candidates.
+
 ## Non-Functional Requirements
 
 - **Reliability**: Test reduction must not introduce regressions. Every removed test must be justified in the PR description with reference to FR-001 through FR-006, and the remaining tests must prove equivalent coverage through the ≥80% gate.
@@ -102,16 +119,26 @@ The goal is **aggressive reduction**: cut test count, reduce execution time, and
 - [ ] **AC-009**: `pnpm typecheck`, `pnpm lint`, `pnpm format:check` all pass after cleanup.
 - [ ] **AC-010**: The full `pnpm test` (all packages) passes after cleanup — zero test failures.
 
+### Test Infrastructure Consolidation (v1.1)
+
+- [ ] **AC-011**: Shared E2E helpers exist in a single location and are imported by all packages that previously copy-pasted E2E harness code. No duplicate E2E setup/teardown logic remains.
+- [ ] **AC-012**: The `golden-1000-tick.json` file (1.7 MB) is deleted from the repo. The determinism test passes by running the scenario in `beforeAll` and comparing a hash against a stored constant (≤100 bytes).
+- [ ] **AC-013**: Zero `setTimeout`-for-condition patterns remain in unit test files (files under `tests/unit/`). Browser-mode and E2E tests may use real timers where appropriate.
+- [ ] **AC-014**: Zero unfalsifiable assertions remain — every `expect()` call in the test suite is capable of failing if the code under test is broken. Audit results documented in PR description.
+- [ ] **AC-015**: Test-only modules are relocated from `src/` to `tests/` or `test-utils/`. No file in `src/` is imported exclusively by test files.
+- [ ] **AC-016**: `pnpm coverage` still reports ≥80% on all four metrics for every package after infrastructure changes.
+
 ## Out of Scope
 
 The following are explicitly **not** part of this feature:
 
 - **New test infrastructure**: No new test runners, no new test frameworks, no new mocking libraries. This is a subtractive effort using existing tooling.
 - **Test parallelization infrastructure**: While FR-020 evaluates parallelization, implementing a new parallel test runner (e.g., splitting Vitest projects across workers) is out of scope — only job-level parallelization in CI YAML is in scope.
-- **Code changes to source files**: This feature only modifies test files and CI configuration. No production code changes.
+- **Code changes to source files**: This feature only modifies test files and CI configuration. No production code changes. (Exception: relocating test-only modules from `src/` to `tests/` per FR-026.)
 - **Coverage threshold changes**: The 80% constitution gate is not being lowered. If anything, the goal is to prove that fewer, better tests can maintain the same coverage.
 - **Test quality improvements for retained tests**: This feature removes bad tests; it does not rewrite or improve retained tests. Test quality improvements are a separate concern.
 - **Other CI workflows**: Only `client-ci.yml` is in scope. Other workflows (engine-ci, terrain-ci, fog-ci, network-ci, matchmaking-ci) may benefit from similar cleanup but are not targeted.
+- **Coverage-gate correctness** (a11y glob fix, src/internal inclusion, design/version coverage jobs, orphaned config detection): covered by spec 008 amendment (v1.1).
 
 ## Edge Cases
 
@@ -219,3 +246,10 @@ The `client-ci.yml` workflow splits into three parallel console jobs:
 - Merged node+browser coverage with ≥80% threshold
 - Independent Playwright install
 - Target timeout: 6 minutes
+
+## Change Log
+
+| Version | Date       | Change                                                                                          | Reason                                             |
+|---------|------------|-------------------------------------------------------------------------------------------------|----------------------------------------------------|
+| v1.1    | 2026-09-11 | Added FR-022–FR-026, AC-011–AC-016, new user stories, expanded Problem Statement, updated Out of Scope | Test infrastructure consolidation (issue #131, I-26) |
+| v1.0    | 2026-09-02 | Initial spec: FR-001–FR-021, AC-001–AC-010, CI job structure                                    | Test reduction baseline                             |

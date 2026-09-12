@@ -22,7 +22,28 @@ export default defineConfig({
         coverage: {
             provider: 'v8',
             include: ['src/**/*'],
-            exclude: ['src/main.tsx', 'src/internal/**', '**/*.d.ts'],
+            exclude: [
+                'src/main.tsx',
+                '**/*.d.ts',
+                // Untestable: DOM-bound entry point exercised only by real-socket integration and E2E suites.
+                'src/internal/live-runtime.tsx',
+                // Untestable: DOM-bound production mount for /lobby, /match/:id routes.
+                'src/internal/lobby-runtime.tsx',
+                // Untestable: Dev-server demo mount — only exercised by the Vite dev server.
+                'src/internal/demo-runtime.tsx',
+                // Untestable: TanStack Router layout route — requires real router context + lobby state.
+                'src/internal/lobby-layout.tsx',
+                // Untestable: TanStack Router match layout — requires real router context + lobby state.
+                'src/internal/match-layout.tsx',
+                // Untestable: TanStack Router index route — requires real router context + lobby state.
+                'src/internal/match-adaptive-route.tsx',
+                // Untestable: TanStack Router join route — requires real router context + lobby state.
+                'src/internal/match-join-route.tsx',
+                // Untestable: TanStack Router spectate route — requires real router context + lobby state.
+                'src/internal/match-spectate-route.tsx',
+                // Untestable: TanStack Router profile route — requires real router context + lobby state.
+                'src/internal/profile-route.tsx',
+            ],
             thresholds: {
                 lines: 80,
                 functions: 80,
@@ -64,7 +85,7 @@ export default defineConfig({
                     },
                     include: [
                         'tests/component/**/*.test.tsx',
-                        'tests/a11y/**/*.test.ts',
+                        'tests/a11y/**/*.test.{ts,tsx}',
                         // Perf timing tests are excluded from the coverage
                         // session: v8 instrumentation adds per-call overhead
                         // that inflates paint budgets. Q-P01 is already

@@ -11,6 +11,11 @@ export default defineConfig({
         environment: 'happy-dom',
         setupFiles: ['./tests/setup.ts'],
         include: ['tests/{brand,components}/**/*.test.{ts,tsx}', 'tests/*.test.{ts,tsx}'],
+        // Brand integration tests (cross-surface, drift) require the console's
+        // dist/ to exist — they verify byte-identity between design and consumer
+        // packages. These are integration gates, not design source coverage, and
+        // are already covered by the console-coverage CI job.
+        exclude: ['tests/brand/cross-surface.test.ts', 'tests/brand/drift.test.ts'],
         passWithNoTests: true,
         coverage: {
             provider: 'v8',

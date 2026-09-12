@@ -1,52 +1,36 @@
 /**
- * Determinism integration test — Feature 005 (T090, SC-002).
+ * Determinism integration test — Feature 005 (T090, SC-002) / Issue #131 (T-010).
  *
  * Re-runs the scripted 1000-tick scenario through the REAL pipeline
  * (tick NetEvent → reducer → PlayerAction → reducer → buildMapView)
- * and asserts the serialized frame array is byte-identical to the
- * committed golden fixture `tests/fixtures/golden-1000-tick.json`
- * (plus the final ConsoleState snapshot).
+ * and asserts the SHA-256 hash of the serialized output matches the
+ * committed golden constant.
+ *
+ * The golden hash replaces the former 1.7 MB JSON blob: same
+ * zero-divergence guarantee, ~700x smaller diff footprint.
  *
  * Zero divergence is the spec bar: any intentional change to the
- * render pipeline requires regenerating the fixture via
- * `scripts/generate-determinism-golden.ts` and diff-reviewing it.
+ * render pipeline requires regenerating the hash via
+ * `scripts/generate-determinism-golden.ts`.
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-
-import { runDeterminismScenario, SCENARIO_TICKS, type ScenarioRun } from '../fixtures/determinism-scenario';
-
-interface GoldenFixture {
-    readonly meta: { readonly ticks: number; readonly boardSize: number; readonly tickMs: number };
-    readonly frames: ScenarioRun['frames'];
-    readonly finalState: ScenarioRun['finalState'];
-}
-
-const GOLDEN_PATH = resolve(__dirname, '..', 'fixtures', 'golden-1000-tick.json');
+import { GOLDEN_HASH, GOLDEN_TICKS } from '../fixtures/determinism-golden-hash';
+import { runDeterminismScenario, SCENARIO_TICKS } from '../fixtures/determinism-scenario';
 
 describe('determinism: 1000-tick scripted match (T090 / SC-002)', () => {
-    const run = runDeterminismScenario();
-    let golden: GoldenFixture;
+    it('produces a deterministic hash matching the golden constant', () => {
+        expect(GOLDEN_TICKS).toBe(SCENARIO_TICKS);
 
-    it('the golden fixture exists and covers 1000 ticks', () => {
-        golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf-8')) as GoldenFixture;
-        expect(golden.meta.ticks).toBe(SCENARIO_TICKS);
-        expect(golden.frames).toHaveLength(SCENARIO_TICKS);
-    });
-
-    it('every rendered frame matches the golden fixture byte-for-byte', () => {
+        const run = runDeterminismScenario();
         expect(run.frames.length).toBe(SCENARIO_TICKS);
-        // Stringify once and compare whole arrays: a single divergent
-        // byte anywhere fails (zero-divergence bar, not per-field).
-        expect(JSON.stringify(run.frames)).toBe(JSON.stringify(golden.frames));
-    });
 
-    it('the final ConsoleState matches the golden fixture', () => {
-        if (golden === undefined) {
-            golden = JSON.parse(readFileSync(GOLDEN_PATH, 'utf-8')) as GoldenFixture;
-        }
-        expect(JSON.stringify(run.finalState)).toBe(JSON.stringify(golden.finalState));
+        const hash = createHash('sha256')
+            .update(JSON.stringify(run.frames))
+            .update(JSON.stringify(run.finalState))
+            .digest('hex');
+
+        expect(hash).toBe(GOLDEN_HASH);
     });
 });

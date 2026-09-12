@@ -121,7 +121,6 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
         if (ev === undefined) {
             return;
         }
@@ -162,7 +161,6 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
         if (ev === undefined) {
             return;
         }
@@ -186,7 +184,6 @@ describe('resolveCombat — FR-008 attrition (2-way)', () => {
 
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally);
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
         if (ev === undefined) {
             return;
         }
@@ -398,11 +395,11 @@ describe('resolveCombat — defensive / boundary', () => {
         expect(out.state.troopOwners[4 * size + 4]).toBe(2);
         // Verify CombatEvent totals.
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
-        if (ev !== undefined) {
-            expect(ev.attackerTotal).toBe(1);
-            expect(ev.defenderTotal).toBe(100);
+        if (ev === undefined) {
+            return;
         }
+        expect(ev.attackerTotal).toBe(1);
+        expect(ev.defenderTotal).toBe(100);
     });
 
     it('1v1: both eliminated', () => {
@@ -418,12 +415,12 @@ describe('resolveCombat — defensive / boundary', () => {
         expect(out.state.troopOwners[4 * size + 4]).toBe(0);
         // Verify CombatEvent totals: equal forces → tie.
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
-        if (ev !== undefined) {
-            expect(ev.attackerTotal).toBe(1);
-            expect(ev.defenderTotal).toBe(1);
-            expect(ev.winner).toBe('tie');
+        if (ev === undefined) {
+            return;
         }
+        expect(ev.attackerTotal).toBe(1);
+        expect(ev.defenderTotal).toBe(1);
+        expect(ev.winner).toBe('tie');
     });
 
     it('does not modify unrelated state arrays (pipeMasks, cityOwners, reservesPct)', () => {
@@ -522,14 +519,14 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
-        if (ev !== undefined) {
-            expect(ev.attackerTotal).toBe(14); // P1 committed
-            expect(ev.defenderTotal).toBe(30); // P2 garrison + 0 committed
-            expect(ev.attackerLoss).toBe(14);
-            expect(ev.defenderLoss).toBe(14);
-            expect(ev.winner).toBe(2); // P2 survives (30-14=16 > 0)
+        if (ev === undefined) {
+            return;
         }
+        expect(ev.attackerTotal).toBe(14); // P1 committed
+        expect(ev.defenderTotal).toBe(30); // P2 garrison + 0 committed
+        expect(ev.attackerLoss).toBe(14);
+        expect(ev.defenderLoss).toBe(14);
+        expect(ev.winner).toBe(2); // P2 survives (30-14=16 > 0)
         // P2 retains cell with 16 troops.
         expect(out.state.troopCounts[idx]).toBe(16);
         expect(out.state.troopOwners[idx]).toBe(2);
@@ -561,13 +558,13 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
-        if (ev !== undefined) {
-            expect(ev.attackerTotal).toBe(15);
-            expect(ev.defenderTotal).toBe(20);
-            expect(ev.attackerLoss).toBe(15);
-            expect(ev.defenderLoss).toBe(15);
+        if (ev === undefined) {
+            return;
         }
+        expect(ev.attackerTotal).toBe(15);
+        expect(ev.defenderTotal).toBe(20);
+        expect(ev.attackerLoss).toBe(15);
+        expect(ev.defenderLoss).toBe(15);
         // P2 survives (20-15=5 > 0), P1 eliminated.
         expect(out.state.troopCounts[idx]).toBe(5);
         expect(out.state.troopOwners[idx]).toBe(2);
@@ -602,13 +599,13 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
-        if (ev !== undefined) {
-            expect(ev.attackerTotal).toBe(7); // P2 committed
-            expect(ev.defenderTotal).toBe(17); // P1 garrison(10) + committed(7)
-            expect(ev.attackerLoss).toBe(7);
-            expect(ev.defenderLoss).toBe(7);
+        if (ev === undefined) {
+            return;
         }
+        expect(ev.attackerTotal).toBe(7); // P2 committed
+        expect(ev.defenderTotal).toBe(17); // P1 garrison(10) + committed(7)
+        expect(ev.attackerLoss).toBe(7);
+        expect(ev.defenderLoss).toBe(7);
         // P1 survives (17-7=10), P2 eliminated.
         expect(out.state.troopCounts[idx]).toBe(10);
         expect(out.state.troopOwners[idx]).toBe(1);
@@ -641,16 +638,16 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
-        if (ev !== undefined) {
-            // Dominant-owner model: P1 committed 20, P2 committed 12.
-            // attacker = lower PlayerId = P1, defender = P2.
-            expect(ev.attackerTotal).toBe(20);
-            expect(ev.defenderTotal).toBe(12);
-            expect(ev.attackerLoss).toBe(12);
-            expect(ev.defenderLoss).toBe(12);
-            expect(ev.winner).toBe(1); // P1 retains 8
+        if (ev === undefined) {
+            return;
         }
+        // Dominant-owner model: P1 committed 20, P2 committed 12.
+        // attacker = lower PlayerId = P1, defender = P2.
+        expect(ev.attackerTotal).toBe(20);
+        expect(ev.defenderTotal).toBe(12);
+        expect(ev.attackerLoss).toBe(12);
+        expect(ev.defenderLoss).toBe(12);
+        expect(ev.winner).toBe(1); // P1 retains 8
         expect(out.state.troopCounts[idx]).toBe(8);
         expect(out.state.troopOwners[idx]).toBe(1);
     });
@@ -672,21 +669,21 @@ describe('resolveCombat — total-force model (preFlowState + committedFlowTally
         const out = resolveCombat(state, board, CONSTANTS, TICK, tally, committedFlowTally, preFlowState);
         expect(out.events.combat.length).toBe(1);
         const ev = out.events.combat[0];
-        expect(ev).toBeDefined();
-        if (ev !== undefined) {
-            // Exact payload verification.
-            expect(ev).toEqual({
-                tick: TICK,
-                cell: { x: 4, y: 4 },
-                attacker: 1,
-                defender: 2,
-                attackerLoss: 10,
-                defenderLoss: 10,
-                winner: 2,
-                attackerTotal: 10,
-                defenderTotal: 15,
-            });
+        if (ev === undefined) {
+            return;
         }
+        // Exact payload verification.
+        expect(ev).toEqual({
+            tick: TICK,
+            cell: { x: 4, y: 4 },
+            attacker: 1,
+            defender: 2,
+            attackerLoss: 10,
+            defenderLoss: 10,
+            winner: 2,
+            attackerTotal: 10,
+            defenderTotal: 15,
+        });
     });
 
     it('T-026: determinism — same input × 1000 calls → byte-identical output (AC-7)', () => {

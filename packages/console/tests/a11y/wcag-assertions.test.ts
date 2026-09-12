@@ -29,7 +29,6 @@ import { createElement } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
-
 import { FakeMatchClient } from '../../src/internal/fake-match-client';
 import { App } from '../../src/render/App';
 import { MapCanvas } from '../../src/render/canvas';
