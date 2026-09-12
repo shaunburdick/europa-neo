@@ -240,9 +240,16 @@ export interface BroadcastResult {
  * @param deps    Injected fog factory.
  * @param _nowMs  Reserved for future heartbeat stamping (keeps the
  *                pure signature symmetric with `sendTickBroadcast`).
+ * @param events  The tick's events from `advance()` — passed through
+ *                to fog for proper filtering (issue #143).
  * @returns The broadcast map and per-tick view cache.
  */
-export function buildTickBroadcast(channel: MatchChannel, deps: BroadcastDeps, _nowMs?: number): BroadcastResult {
+export function buildTickBroadcast(
+    channel: MatchChannel,
+    deps: BroadcastDeps,
+    _nowMs?: number,
+    events?: import('@europa/engine').TickEvents,
+): BroadcastResult {
     const world = channel.engineSession.world();
     const broadcast = new Map<ConnectionId, TickBroadcastPayload | 'skip'>();
     const viewCache: BroadcastViewCache = {};
@@ -254,7 +261,12 @@ export function buildTickBroadcast(channel: MatchChannel, deps: BroadcastDeps, _
         // target the join-time snapshot carries (`SPECTATOR_VIEW_PLAYER_ID`).
         // Fog's spectator branch ignores the target either way.
         const playerId: PlayerId = connection.playerId ?? SPECTATOR_VIEW_PLAYER_ID;
-        const view = deps.fog.computePlayerView({ world, playerId, spectator });
+        const view = deps.fog.computePlayerView({
+            world,
+            playerId,
+            spectator,
+            ...(events !== undefined && { events }),
+        });
 
         // Cache by player id or 'spectator' (FR-018/FR-019).
         const cacheKey = spectator ? 'spectator' : playerId;
