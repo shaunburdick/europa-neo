@@ -13,8 +13,8 @@
  * and drains orders.
  */
 
-import type { MatchConfig, Player } from '@europa/engine';
-import { compareUtf16 } from '@europa/engine';
+import type { MatchConfig, Player, TickEvents } from '@europa/engine';
+import { compareUtf16, emptyTickEvents } from '@europa/engine';
 
 import type { Connection } from './connection';
 import { NETWORK_TRANSPORT_CONSTANTS } from './constants';
@@ -121,6 +121,18 @@ export class MatchChannel {
     spectatorsAllowed = false;
     /** Set once the terminal payload has been delivered. */
     terminalSent = false;
+    /** Events from the most recent advance() call. */
+    private _lastTickEvents: TickEvents = emptyTickEvents();
+
+    /** Events from the most recent tick (for resync/reconnect paths). */
+    get lastTickEvents(): Readonly<TickEvents> {
+        return this._lastTickEvents;
+    }
+
+    /** Store events from advance() (called from server.ts). */
+    setLastTickEvents(events: TickEvents): void {
+        this._lastTickEvents = events;
+    }
 
     /**
      * @param init See {@link MatchChannelInit}.

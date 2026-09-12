@@ -488,7 +488,8 @@ export function createMatchServer(
                 }
 
                 // 2. Advance the simulation one boundary.
-                channel.engineSession.advance();
+                const advanceResult = channel.engineSession.advance();
+                channel.setLastTickEvents(advanceResult.events);
                 channel.recordTick();
 
                 // 3. Fog-filtered broadcast with skip-send deltas.
@@ -496,7 +497,12 @@ export function createMatchServer(
                 // and returns a per-tick view cache for reuse by the resync
                 // path (FR-019).
                 const liveConnections = channel.connections();
-                const { broadcast, viewCache } = buildTickBroadcast(channel, { fog: deps.fog }, nowMs);
+                const { broadcast, viewCache } = buildTickBroadcast(
+                    channel,
+                    { fog: deps.fog },
+                    nowMs,
+                    advanceResult.events,
+                );
                 const sentCount = sendTickBroadcast(channel, liveConnections, broadcast, nowMs);
                 for (let i = 0; i < sentCount; i++) {
                     statsCounter.recordFrameSent('tick');
@@ -527,6 +533,7 @@ export function createMatchServer(
                                 world: channel.engineSession.world(),
                                 playerId,
                                 spectator: false,
+                                events: channel.lastTickEvents,
                             });
                     }
                     seatBuffer(channel.matchId, playerId).push(channel.tickCounter, view);
@@ -1289,6 +1296,7 @@ export function createMatchServer(
             world: channel.engineSession.world(),
             playerId: binding.playerId,
             spectator: false,
+            events: channel.lastTickEvents,
         });
         const snapshotPayload: SnapshotPayload = { tick: channel.tickCounter, view };
         connection.send(envelopeOf('snapshot', snapshotPayload));

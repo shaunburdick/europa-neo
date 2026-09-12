@@ -179,7 +179,7 @@ export function computePlayerView(
         player,
         tick: world.tick,
         visibleCells,
-        events: filterTickEvents(world, visible.visibleCells, tickEvents, false),
+        events: filterTickEvents(world, visible.visibleCells, tickEvents, false, player),
         config,
     };
 }
