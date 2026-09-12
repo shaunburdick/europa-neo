@@ -152,17 +152,18 @@ A single React component: the mapping from a component name to its prop interfac
 | Prop | Type | Default | Notes |
 |------|------|---------|-------|
 | `count` | `number` | — | Troop count. |
-| `owner` | `1 \| 2 \| 3 \| 4` | — | Player 1–4; maps to `OWNER_COLORS`. |
+| `color` | `string` | `TOKENS.color.textMuted` | CSS color for text + border; caller supplies the player color. |
 
-**catalogClasses**: `europa-chip` (+ owner color). **events**: none. **a11y**: `role="img"`, `aria-label` from count+owner (FR-014).
+**catalogClasses**: `europa-chip` (+ caller color). **events**: none. **a11y**: `role="img"`, `aria-label` from count alone (FR-014).
 
 ### 3.2 `EuropaCityMarker`
 
 | Prop | Type | Default | Notes |
 |------|------|---------|-------|
-| `owner` | `1 \| 2 \| 3 \| 4` | — | Player 1–4. |
+| `color` | `string` | `TOKENS.color.textMuted` | CSS color fill; caller supplies the player color. |
+| `label` | `string` | `'city'` | Caller-supplied accessible name. |
 
-**catalogClasses**: `europa-city-marker`. **events**: none. **a11y**: `role="img"`, `aria-label` from owner (FR-014).
+**catalogClasses**: `europa-city-marker`. **events**: none. **a11y**: `role="img"`, `aria-label` from `label` (FR-014).
 
 ### 3.3 `EuropaPipeSlope`
 
@@ -186,10 +187,10 @@ A single React component: the mapping from a component name to its prop interfac
 
 | Prop | Type | Default | Notes |
 |------|------|---------|-------|
-| `player` | `1 \| 2 \| 3 \| 4` | — | Player 1–4. |
-| `name` | `string` | — | Optional player name. |
+| `name` | `string` | — | Player display name; also the accessible name. |
+| `color` | `string` | `TOKENS.color.textMuted` | CSS color for the badge text; caller supplies the player color. |
 
-**catalogClasses**: `europa-player-badge`. **events**: none. **a11y**: `role="img"`, `aria-label` from player+name (FR-014).
+**catalogClasses**: `europa-player-badge`. **events**: none. **a11y**: `role="img"`, `aria-label` equal to `name` (FR-014).
 
 ### 3.6 `EuropaFogOverlay`
 

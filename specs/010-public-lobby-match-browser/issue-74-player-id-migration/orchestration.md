@@ -415,6 +415,24 @@
     with player identities (only generic components), so nothing is broken today;
     migrating design's owner props to `PlayerId` (or removing the numeric
     contract) is a separate design-owned change.
+  - **Design-scope follow-up (2026-09-12) — COMPLETE (no new task ID)**: the
+    cross-package finding above is closed. The three identity-bearing game
+    primitives in `@europa/design` are now identity-agnostic: `EuropaTroopChip`
+    takes `count` + optional `color`; `EuropaCityMarker` takes optional `color`
+    + optional `label`; `EuropaPlayerBadge` takes required `name` + optional
+    `color`. The numeric `owner`/`player` union is deleted, `aria-label`s no
+    longer fabricate "player N", and the package keeps zero `@europa/core`
+    dependency. Truthful spec/docs updated in the same change set: spec 014
+    v1.4 (Clarifications + FR-002/FR-014/edge-case text), its
+    `data-model.md`/`react-components.contract.md` mirrors, `DESIGN.md` § 2,
+    spec 012 v1.5 companion note, and the manual MDX pages (`numbers`,
+    `combat`, `special-weapons`) which now pass `TOKENS.color.playerColor*` via
+    the `color` prop. Dev-page demos migrated too. Verified: design typecheck,
+    lint, `format:check`, build, node suite 381/381 + browser 7/7, coverage
+    92.8% stmts / 84.93% branches / 100% funcs / 96.37% lines (all ≥80),
+    G-10 catalog + no-literals + bundle (5,392 B gzip) + vendor-identity +
+    contrast-notes guards green, and `astro build` 15/15 pages. No console
+    source change (console imports only generic components).
   - **Verification**: console typecheck + `typecheck:conformance`, lint,
     `format:check`, and build clean; node-mode coverage suite green (1,185 tests)
     at 89.52% stmts / 83.04% branches / 86.77% funcs / 89.53% lines (all ≥80%);

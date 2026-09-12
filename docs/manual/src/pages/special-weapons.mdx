@@ -4,6 +4,7 @@ title: Special Weapons
 ---
 
 import { EuropaTroopChip, EuropaBanner } from '@europa/design/components';
+import { TOKENS } from '@europa/design/tokens';
 
 # Special weapons
 
@@ -15,8 +16,8 @@ A paratroop order lifts troops out of a cell you own and drops them on a nearby 
 
 | Property | Value |
 | --- | --- |
-| Cost | **<EuropaTroopChip count="20" owner="1"></EuropaTroopChip> 20 troops removed from the source cell** |
-| Landed | **<EuropaTroopChip count="10" owner="1"></EuropaTroopChip> 10 troops arrive at the target** (paratroops cost twice what lands) |
+| Cost | **<EuropaTroopChip count="20" color={TOKENS.color.playerColor1}></EuropaTroopChip> 20 troops removed from the source cell** |
+| Landed | **<EuropaTroopChip count="10" color={TOKENS.color.playerColor1}></EuropaTroopChip> 10 troops arrive at the target** (paratroops cost twice what lands) |
 | Range | At most 2 cells away (in any direction, counting diagonals) |
 | Target | Land cells only — water cannot be targeted |
 | Side effect | **Every pipe in the target cell is cleared** on arrival |
@@ -39,8 +40,8 @@ A gun shot trades troops for fixed damage at a distance.
 
 | Property | Value |
 | --- | --- |
-| Cost | **<EuropaTroopChip count="5" owner="1"></EuropaTroopChip> 5 troops per shot**, removed from the source cell |
-| Damage | **<EuropaTroopChip count="2" owner="2"></EuropaTroopChip> 2 troops destroyed in the target cell** |
+| Cost | **<EuropaTroopChip count="5" color={TOKENS.color.playerColor1}></EuropaTroopChip> 5 troops per shot**, removed from the source cell |
+| Damage | **<EuropaTroopChip count="2" color={TOKENS.color.playerColor2}></EuropaTroopChip> 2 troops destroyed in the target cell** |
 | Range | At most 2 cells away (counting diagonals) |
 
 Guns do not move troops and do not capture anything — they are pure destruction. Use them to shave down a defender before a push or finish a wounded stack.

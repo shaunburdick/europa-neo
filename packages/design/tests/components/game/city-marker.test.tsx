@@ -4,45 +4,42 @@ import { EuropaCityMarker } from '../../../src/components/game/city-marker.js';
 import { TOKENS } from '../../../src/tokens.js';
 
 /**
- * Tests for the {@link EuropaCityMarker} React component (spec 014, FR-009 /
- * FR-010 / FR-014).
+ * Tests for the {@link EuropaCityMarker} React component (spec 014 v1.4,
+ * issue #74).
  *
  * The component renders a `<span role="img">` marker whose inline
- * `backgroundColor`/`borderColor` reflect the owning player's color.
- * The `owner` prop (player 1–4) selects the color; an unknown owner falls
- * back to `TOKENS.color.textMuted`. The `aria-label` is derived from the
- * owner (e.g. "1 city").
+ * `backgroundColor`/`borderColor` reflect the caller-supplied `color` prop.
+ * It is identity-agnostic: the caller resolves a canonical `PlayerId` to a
+ * color and (optionally) an accessible `label`. An absent color falls back to
+ * `TOKENS.color.textMuted`; an absent label falls back to `'city'`.
  *
  * Covered:
- * - `aria-label` generation from the `owner` prop.
- * - The inline style reflects the correct token color.
- * - `role="img"` is present on the rendered span.
- * - Fallback to muted color for unknown/absent owners.
+ * - Default and caller-supplied `aria-label` values (never a player number).
+ * - The inline style reflects the `color` prop.
+ * - Fallback to the muted token for an absent color.
+ * - `role="img"` present on the rendered span.
  */
 describe('EuropaCityMarker', () => {
     it('renders a span with role="img"', () => {
-        render(<EuropaCityMarker owner={1} />);
+        render(<EuropaCityMarker color={TOKENS.color.playerColor1} />);
         const marker = screen.getByRole('img');
         expect(marker).toBeDefined();
     });
 
-    it('derives the aria-label from the owner prop', () => {
-        render(<EuropaCityMarker owner={1} />);
+    it('defaults the aria-label to "city"', () => {
+        render(<EuropaCityMarker color={TOKENS.color.playerColor1} />);
         const marker = screen.getByRole('img');
-        expect(marker).toHaveAttribute('aria-label', '1 city');
+        expect(marker).toHaveAttribute('aria-label', 'city');
     });
 
-    it('sets correct aria-label for each player', () => {
-        for (const owner of [1, 2, 3, 4] as const) {
-            const { unmount } = render(<EuropaCityMarker owner={owner} />);
-            const marker = screen.getByRole('img');
-            expect(marker).toHaveAttribute('aria-label', `${owner} city`);
-            unmount();
-        }
+    it('uses a caller-supplied accessible label', () => {
+        render(<EuropaCityMarker color={TOKENS.color.playerColor2} label="Alice's city" />);
+        const marker = screen.getByRole('img');
+        expect(marker).toHaveAttribute('aria-label', "Alice's city");
     });
 
-    it('applies the player color to the inline style', () => {
-        render(<EuropaCityMarker owner={2} />);
+    it('applies the caller-supplied color to the inline style', () => {
+        render(<EuropaCityMarker color={TOKENS.color.playerColor2} />);
         const marker = screen.getByRole('img');
         expect(marker).toHaveStyle({
             backgroundColor: TOKENS.color.playerColor2,
@@ -50,24 +47,30 @@ describe('EuropaCityMarker', () => {
         });
     });
 
-    it('maps each player 1–4 to its token color', () => {
-        const expected: Array<[number, string]> = [
-            [1, TOKENS.color.playerColor1],
-            [2, TOKENS.color.playerColor2],
-            [3, TOKENS.color.playerColor3],
-            [4, TOKENS.color.playerColor4],
+    it('accepts each canonical player-color token', () => {
+        const cases: ReadonlyArray<readonly [string, string]> = [
+            ['playerColor1', TOKENS.color.playerColor1],
+            ['playerColor2', TOKENS.color.playerColor2],
+            ['playerColor3', TOKENS.color.playerColor3],
+            ['playerColor4', TOKENS.color.playerColor4],
         ];
 
-        for (const [owner, color] of expected) {
-            const { unmount } = render(<EuropaCityMarker owner={owner as 1 | 2 | 3 | 4} />);
+        for (const [name, color] of cases) {
+            const { unmount } = render(<EuropaCityMarker color={color} />);
             const marker = screen.getByRole('img');
-            expect(marker).toHaveStyle({ backgroundColor: color, borderColor: color });
+            expect(marker, `expected ${name} to apply`).toHaveStyle({ backgroundColor: color, borderColor: color });
             unmount();
         }
     });
 
+    it('accepts any CSS color string, not just design tokens', () => {
+        render(<EuropaCityMarker color="rgb(1, 2, 3)" />);
+        const marker = screen.getByRole('img');
+        expect(marker).toHaveStyle({ backgroundColor: 'rgb(1, 2, 3)', borderColor: 'rgb(1, 2, 3)' });
+    });
+
     it('has inline-block display with 24x24 dimensions', () => {
-        render(<EuropaCityMarker owner={1} />);
+        render(<EuropaCityMarker color={TOKENS.color.playerColor1} />);
         const marker = screen.getByRole('img') as HTMLElement;
         expect(marker.style.display).toBe('inline-block');
         expect(marker.style.width).toBe('24px');
@@ -75,10 +78,9 @@ describe('EuropaCityMarker', () => {
         expect(marker.style.borderRadius).toBe('2px');
     });
 
-    it('falls back to textMuted color for an unknown owner', () => {
-        // Cast to exercise the ?? fallback branch when PLAYER_COLORS[owner] is undefined
-        const { container } = render(<EuropaCityMarker owner={99 as unknown as 1 | 2 | 3 | 4} />);
-        const marker = container.querySelector('[role="img"]');
+    it('falls back to textMuted color when color is absent', () => {
+        render(<EuropaCityMarker />);
+        const marker = screen.getByRole('img');
         expect(marker).toHaveStyle({
             backgroundColor: TOKENS.color.textMuted,
             borderColor: TOKENS.color.textMuted,
