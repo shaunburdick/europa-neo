@@ -63,9 +63,37 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 6. **Pre-push verification gate**: before pushing to a PR branch, run `pnpm verify` (or `bash scripts/verify.sh`) — the single source of truth for CI-equivalent local verification. For faster iteration on a single package, `pnpm verify:changed` (or `bash scripts/verify-changed.sh`) runs the relevant subset. Git hooks enforce this automatically: `.husky/pre-push` runs `pnpm verify:changed`.
 7. **CI must pass before merge**: no PR may be merged with failing CI checks. There are never "preexisting" test failures — if CI was green before your branch and is red after, your changes caused it. Fix failures in your branch before requesting review.
 
+## Agent skills
+
+Repo-local skills live in `.agents/skills/` and are auto-discovered by agents working in this repo — contributors do **not** need to install anything globally. Eleven skills are version-controlled here:
+
+- **Hand-written for this repo** (repo-specific, not published elsewhere):
+  - `app-explorer` — browser exploration/verification of the running app
+  - `design-system` — `@europa/design` component + token usage rules
+  - `server-manager` — PM2 lifecycle for dev servers
+- **Installed via `npx skills`** (published upstream; tracked by `skills-lock.json` at the repo root):
+  - `git-safety` — branch protection, commit conventions, no history rewrites
+  - `code-quality` — no lint suppressions, type safety, pre-commit checklist
+  - `spec-driven-development` — the six-phase spec-driven workflow
+  - `spec-kit` — spec-kit CLI reference (`.specify/`, `/speckit.*` commands)
+  - `github-actions` — secure workflow authoring (SHA pinning, least privilege)
+  - `web-component-design` — custom elements / Shadow DOM / slots (used by `@europa/design`)
+  - `accessibility` — WCAG 2.2 audit workflow
+  - `test-reviewer` — test quality review guidance
+
+**Keeping skills current**: when an upstream skill changes (e.g. `shaunburdick/skills`), refresh the vendored copies in the same change set:
+
+```bash
+npx skills update -y        # refresh installed skills + skills-lock.json
+```
+
+Commit the updated `.agents/skills/**` and `skills-lock.json` together. Stale vendored skills are bugs, like stale specs.
+
 ## Browser automation with agent-browser
 
 The project uses `agent-browser` (v0.36+) for visual verification, exploratory testing, and live-smoke checks against the running app. It drives real Chromium via CDP — no Playwright or Puppeteer dependency.
+
+**Install once** (global CLI, not a repo skill): `npm i -g agent-browser && agent-browser install`
 
 ### Starting the app
 

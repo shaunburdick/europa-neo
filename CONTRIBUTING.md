@@ -66,6 +66,15 @@ This project is **spec-driven**: no code without an approved spec, no implementa
 - **Commits**: use conventional commits (`feat:`, `fix:`, `docs:`, `chore:`, …). **All commits must be signed** — configure GPG or SSH signing in your Git client and enable "Vigilant mode" in your GitHub settings so commits are marked Verified. Unsigned commits show as Unverified and may be rejected by branch protection. See [Signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits). Never rewrite history.
 - **Pre-push verification**: run `pnpm verify` (or `bash scripts/verify.sh`) before pushing — it is the single source of truth for CI-equivalent local verification (typecheck, lint, format, all package tests, browser-mode tests, E2E, selfhost checks, design system guards, and conformance programs). For faster iteration on a single package, `pnpm verify:changed` auto-detects changed packages vs `origin/main` (override with `VERIFY_BASE`). A `.husky/pre-push` hook enforces this automatically; `git push --no-verify` is the escape hatch, used sparingly — CI still gates the PR.
 
+## Agent tooling
+
+This project is agent-first: AI agents do the heavy lifting under the rules in [AGENTS.md](AGENTS.md). If you use an AI coding agent, the repo-local skills in `.agents/skills/` are auto-discovered — no global setup required. They encode the git-safety, code-quality, spec-driven-development, and design-system rules above, so agent behavior matches the written standards. The `npx skills`-installed subset is tracked by `skills-lock.json` at the repo root; refresh them with `npx skills update` and commit the updated `.agents/skills/**` + lockfile together.
+
+Two global CLIs are also worth installing if you'll do UI verification or GitHub work with an agent:
+
+- `agent-browser` — browser automation for visual verification and exploratory testing (`npm i -g agent-browser && agent-browser install`)
+- `gh` — GitHub CLI for PRs, issues, and CI status (`brew install gh` or per [cli.github.com](https://cli.github.com))
+
 ## Pull requests
 
 - Open PRs against `main` from your feature branch. Reference the related issue in the PR title or description (e.g. `feat(console): add minimap zoom` closes #42).

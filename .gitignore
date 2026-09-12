@@ -49,7 +49,7 @@ europa-source/
 
 # Agent tooling
 .agents/*
-# ...except the repo-local server-manager skill, which is version-controlled
+# ...except the repo-local skills (hand-written + npx skills installs), which are version-controlled
 !.agents/skills/
 !.agents/skills/**
 

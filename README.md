@@ -89,7 +89,7 @@ The monorepo carries **more than 2,500 automated tests across 10 packages**, wit
 
 Contributions are welcome — bug reports, feature ideas, documentation, and code. The project is **agent-first but human-governed**: AI agents do the heavy lifting under a written constitution, and humans review at every phase gate.
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for prerequisites, the development workflow, and code quality standards.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for prerequisites, the development workflow, and code quality standards. If you use an AI coding agent, the repo-local skills in `.agents/skills/` are auto-discovered — no global setup required.
 
 ## Credits & licensing
 
