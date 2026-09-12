@@ -6,7 +6,7 @@
 **Last Updated**: 2026-09-12 (v1.9; issue #143 switch appliedOrders/errors from redaction to exclusion)
 **Version**: 1.9
 
-**Status**: Implemented (2026-09-12; universal PlayerId amendment implemented — issue #74)
+**Status**: Implemented (2026-09-12; issue #143 event filtering fix — all 5 TickEvents categories filtered per FR-012)
 
 **Input**: User description: "Per-player visibility horizon derived from troop positions; no memory of previously seen terrain; unseen areas are unknown (black); server never reveals hidden information to clients."
 
