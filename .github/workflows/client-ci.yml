@@ -217,7 +217,7 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -227,8 +227,35 @@ jobs:
           cache: true
           require-lockfile: true
 
+      - name: Build @europa/version (workspace dependency)
+        run: pnpm --filter @europa/version build
+
+      - name: Build @europa/core (workspace dependency)
+        run: pnpm --filter @europa/core build
+
+      - name: Build @europa/engine (workspace dependency)
+        run: pnpm --filter @europa/engine build
+
+      - name: Build @europa/terrain (workspace dependency)
+        run: pnpm --filter @europa/terrain build
+
+      - name: Build @europa/fog (workspace dependency)
+        run: pnpm --filter @europa/fog build
+
+      - name: Build @europa/networking (workspace dependency)
+        run: pnpm --filter @europa/networking build
+
+      - name: Build @europa/matchmaking (workspace dependency)
+        run: pnpm --filter @europa/matchmaking build
+
       - name: Build @europa/design
         run: pnpm --filter @europa/design build
+
+      # The cross-surface brand-identity test verifies that console staged
+      # brand assets are byte-identical to the design distribution — it
+      # needs packages/console/dist/assets/brand/ to exist.
+      - name: Build @europa/console (brand asset staging)
+        run: pnpm --filter @europa/console build
 
       - name: Coverage (design)
         run: pnpm --filter @europa/design coverage
