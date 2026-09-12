@@ -3,8 +3,8 @@
 **Feature Branch**: `002-fog-of-war-visibility`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-12 (v1.8; issue #143 event filtering for all TickEvents categories)
-**Version**: 1.8
+**Last Updated**: 2026-09-12 (v1.9; issue #143 switch appliedOrders/errors from redaction to exclusion)
+**Version**: 1.9
 
 **Status**: Implemented (2026-09-12; universal PlayerId amendment implemented — issue #74)
 
@@ -82,8 +82,8 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 - **FR-012**: The event filter MUST process ALL five `TickEvents` categories through visibility rules before delivery to each non-spectator player's view:
   - **`combat` and `captures`**: only include events where the event's `cell` is in the player's visible set (existing behavior).
   - **`eliminations`**: include all events unconditionally (no cell coordinates; does not leak fog state).
-  - **`appliedOrders`**: include a record if and only if the order's `player` field matches the viewer OR at least one cell referenced by the order (any `cell`, `source`, or `target` field) is in the player's visible set. For included records, any cell coordinate field referencing a cell outside the visible set MUST be redacted (replaced with a sentinel value, e.g., `null`, or removed from the payload).
-  - **`errors`**: include a record if and only if at least one cell referenced by the order (any `cell`, `source`, or `target` field) is in the player's visible set OR the `ValidationError` variant contains no cell coordinates (i.e., `already_surrendered`, `invalid_percent`, `unknown_player`, `unknown_order`, `invalid_direction`, or `match_terminal`). For included records, any cell coordinate field referencing a cell outside the visible set MUST be redacted.
+  - **`appliedOrders`**: include a record if and only if the order's `player` field matches the viewer AND all cells referenced by the order (any `cell`, `source`, or `target` field) are in the player's visible set. If any referenced cell is outside the visible set, the entire record is excluded (dropped from the payload).
+  - **`errors`**: include a record if and only if all cells referenced by the order (any `cell`, `source`, or `target` field) are in the player's visible set OR the `ValidationError` variant contains no cell coordinates (i.e., `already_surrendered`, `invalid_percent`, `unknown_player`, `unknown_order`, `invalid_direction`, or `match_terminal`). If any referenced cell is outside the visible set, the entire record is excluded (dropped from the payload).
   - Spectators receive unfiltered events per FR-006.
 
 ### Key Entities *(include if feature involves data)*
@@ -97,7 +97,7 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 
 ### Measurable Outcomes
 
-- **SC-001**: Protocol-level test suite proves zero hidden-state leakage across a scripted 500-tick match. The audit covers all five `TickEvents` categories (`combat`, `captures`, `eliminations`, `appliedOrders`, `errors`) using real order types (`setPipe`, `clearPipe`, `setPipesExclusive`, `clearAllPipes`, `setReserves`, `paratroop`, `gun`, `surrender`) and real `ValidationError` variants. Every payload is audited against independently computed VisibleSets; `appliedOrders` and `errors` records referencing out-of-horizon cells are verified as either excluded or redacted.
+- **SC-001**: Protocol-level test suite proves zero hidden-state leakage across a scripted 500-tick match. The audit covers all five `TickEvents` categories (`combat`, `captures`, `eliminations`, `appliedOrders`, `errors`) using real order types (`setPipe`, `clearPipe`, `setPipesExclusive`, `clearAllPipes`, `setReserves`, `paratroop`, `gun`, `surrender`) and real `ValidationError` variants. Every payload is audited against independently computed VisibleSets; `appliedOrders` and `errors` records referencing out-of-horizon cells are verified as excluded (entire record dropped from the payload).
 - **SC-002**: Visibility updates take effect on the same tick boundary as the troop movement/destruction that caused them.
 - **SC-003**: Given/When/Then scenarios from Stories 1–3 pass as automated tests.
 - **SC-004**: Computing visibility for a default 32×32 board adds <1 ms per player per tick. Verified by benchmark: after a 50-call warmup, the best of three 200-call rounds must show median wall-clock time <1 ms, with a p99 <10 ms regression guard (raw p99 over small samples is dominated by shared-CI-runner scheduler jitter, so the median carries the budget and p99 only guards against algorithmic blowups).
@@ -143,3 +143,8 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 
 - **FR-012** introduced: the event filter must apply visibility rules to all five `TickEvents` categories (`combat`, `captures`, `eliminations`, `appliedOrders`, `errors`) before delivery to non-spectator players. `appliedOrders` records are conditionally included based on cell visibility and owner matching; `errors` records are conditionally included based on cell visibility or error-variant type; out-of-horizon cell coordinates are redacted from included records. `eliminations` are included unconditionally (no cell coordinates). Spectators continue to receive unfiltered events (FR-006).
 - **SC-001** updated: the protocol-level redaction audit now explicitly covers all five event categories with real order types and `ValidationError` variants.
+
+### v1.9 (2026-09-12) — Switch appliedOrders/errors from redaction to exclusion (issue #143)
+
+- **FR-012 amended**: `appliedOrders` records are now included only if the order's player matches the viewer AND all referenced cells are in the visible set — if any referenced cell is outside the visible set, the entire record is excluded (dropped from the payload). `errors` records are included only if all referenced cells are in the visible set OR the `ValidationError` variant contains no cell coordinates — if any referenced cell is outside the visible set, the entire record is excluded. This is simpler and consistent with how `combat`/`captures` work: if you can't see the cell, the event is meaningless to you.
+- **SC-001 updated**: audit now verifies records are excluded (not redacted) from the payload.
