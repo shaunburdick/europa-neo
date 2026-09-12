@@ -81,7 +81,37 @@
   (later waves). PM-notable: the tighter replay fixture typing flushed out a
   pre-existing stale `visibilityRadiusDefault` field in
   `tests/unit/scratch-buffers.test.ts` (tests are excluded from `tsc`), now fixed;
-  and the sample fixture + README hash were regenerated for the new layout.
+   and the sample fixture + README hash were regenerated for the new layout.
+
+- **Wave 4 — complete (terrain + fog boundaries, T019–T023)**:
+  - **Terrain (T019–T020)** — `49b7fbb` + `17484f3`: `@europa/terrain` is now
+    identity-agnostic. `CityPlacement.owner` and `startingCitiesByPlayer` keys
+    are 1-based dense numeric placement slots; the branded `PlayerId`
+    re-export was dropped; both contract mirrors, `types.ts`, README, and the
+    `terrain-to-engine.ts` proposal mirror were aligned to the numeric-slot
+    boundary (FR-011). New `tests/integration/id-independence.test.ts` proves
+    generated board bytes depend only on seed/size/player-count/settings, not
+    on ID values (same starting-city slots across different valid ID orderings).
+    Terrain 427 tests green.
+  - **Fog (T021–T022)** — `9058504`: every visibility computation resolves the
+    universal `PlayerId` through `world.playerRegistry` via the single audited
+    seam `resolvePlayerOwnerByte` **before** any board scan; unknown, forged,
+    malformed, or numeric IDs fail closed to an empty visible set/view (never a
+    fallback seat), spectator views stay identity-independent, and reconnect/
+    seat reassignment preserve correct view association (spec v1.5
+    FR-010/FR-011). New `tests/unit/player-identity.test.ts` plus migrated
+    fixtures. Fog 100 tests green.
+  - **T023** — `88a91c2`: re-ran the terrain/fog source-to-spec contract-drift
+    and strict-conformance programs and both strict typechecks — all green; the
+    repo-level identity guard shows **zero terrain/fog violations** (remaining
+    failures are the later networking/matchmaking/console waves). No
+    implementation mirror or test change was required by the approved
+    amendments. Reconciled the flagged non-behavioral planning docs per AGENTS
+    rule 4: `specs/003.../data-model.md` (`CityPlacement.owner` /
+    `startingCitiesByPlayer` documented as numeric placement slots; removed the
+    stale `PlayerId = 1 | 2 | 3 | 4` union and stale `engine-types.ts`
+    provenance) and `specs/002.../data-model.md` (authoritative registry
+    resolution per FR-010, fail-closed invariant). Ticked T019–T023.
 
 ## Waves
 
