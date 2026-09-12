@@ -70,8 +70,8 @@ function validateOrders(orders: unknown[], label: string): void {
         if (!('tick' in entry) || typeof entry.tick !== 'number') {
             throw new Error(`Invalid ${label}: order at index ${i}: 'tick' must be a number`);
         }
-        if (!('playerId' in entry) || typeof entry.playerId !== 'number') {
-            throw new Error(`Invalid ${label}: order at index ${i}: 'playerId' must be a number`);
+        if (!('playerId' in entry) || typeof entry.playerId !== 'string') {
+            throw new Error(`Invalid ${label}: order at index ${i}: 'playerId' must be a string`);
         }
         if (
             !('order' in entry) ||
@@ -129,7 +129,15 @@ export function validateFixture(data: unknown): Fixture {
     }
     const settings = obj['settings'] as Record<string, unknown>;
     assertField(settings, 'boardSize', 'number', 'fixture.settings');
-    assertField(settings, 'playerCount', 'number', 'fixture.settings');
+    assertField(settings, 'playerIds', 'array', 'fixture.settings');
+    const fixtureIds = settings['playerIds'];
+    if (Array.isArray(fixtureIds)) {
+        for (let i = 0; i < fixtureIds.length; i++) {
+            if (typeof fixtureIds[i] !== 'string') {
+                throw new Error(`Invalid fixture.settings: 'playerIds[${i}]' must be a string`);
+            }
+        }
+    }
     assertField(settings, 'tickIntervalMs', 'number', 'fixture.settings');
     assertField(settings, 'seed', 'number', 'fixture.settings');
     assertField(settings, 'visibilityRadius', 'number', 'fixture.settings');

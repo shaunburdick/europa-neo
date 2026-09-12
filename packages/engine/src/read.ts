@@ -66,10 +66,10 @@ export function getCell(world: Readonly<World>, x: number, y: number): CellView 
         coord: { x, y },
         cell,
         troopCount: world.state.troopCounts[idx] ?? 0,
-        troopOwner: ownerByte === 0 ? null : (ownerByte as PlayerId),
+        troopOwner: ownerByte === 0 ? null : world.playerRegistry.requireIdAt(ownerByte - 1),
         pipes,
         reservesPercent: reservesByte as ReservesPct,
-        cityOwner: cityByte === 0 ? null : (cityByte as PlayerId),
+        cityOwner: cityByte === 0 ? null : world.playerRegistry.requireIdAt(cityByte - 1),
     };
 }
 
@@ -136,13 +136,21 @@ export function neighborsOf(
 }
 
 /**
- * Player lookup by `PlayerId` (1-indexed; `players[id - 1]`).
+ * Player lookup by canonical `PlayerId` via the world's registry.
+ *
+ * @param world - The world to read.
+ * @param id - A canonical, registered `PlayerId`.
+ * @returns The matching `Player`.
+ * @throws {Error} When `id` is unknown, forged, or malformed.
  */
 export function getPlayer(world: Readonly<World>, id: PlayerId): Player {
-    const idx = id - 1;
+    const idx = world.playerRegistry.indexOfId(id);
+    if (idx === null) {
+        throw new Error(`getPlayer: no player with id "${id}"`);
+    }
     const player = world.players[idx];
     if (player === undefined) {
-        throw new Error(`getPlayer: no player with id ${String(id)}`);
+        throw new Error(`getPlayer: registry index ${String(idx)} has no player`);
     }
     return player;
 }

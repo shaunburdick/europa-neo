@@ -10,10 +10,10 @@
  * **Versioned binary format**:
  *
  *   bytes 0..N        : version header (2 magic bytes + 1 length byte +
- *                       N ASCII chars), e.g. `\x00\x00\x05 0.1.0`.
+ *                       N ASCII chars), e.g. `\x00\x00\x05 0.2.0`.
  *   bytes N+1..       : payload (little-endian integers, see below)
  *
- *   Payload layout:
+ *   Payload layout (issue #74: identities are an explicit canonical table):
  *     - 1 byte  : board width (boardSize)
  *     - 1 byte  : playerCount
  *     - 4 bytes : tick number (uint32 LE)
@@ -25,13 +25,19 @@
  *     - 4 bytes : rng state[3] (uint32 LE)
  *     - 1 byte  : player count (sanity)
  *     - 4 bytes : reserved (currently 0; future-proofing)
- *     - per-player record (PlayerId, status, citiesOwned, troopsHeld,
- *       displayName length + UTF-8 bytes)
+ *     - 1 byte  : ID table count (must equal playerCount)
+ *     - per-ID  : 1 byte length + UTF-8/ASCII ID bytes (canonical order)
+ *     - per-player record (table index, status, citiesOwned, troopsHeld,
+ *       displayName length + ASCII bytes)
  *     - 2 bytes : city count
- *     - per-city record (x, y, owner)
+ *     - per-city record (x, y, owner placement slot)
  *     - n*n cells: 4 bytes troopCounts + 1 byte troopOwners +
  *                   1 byte pipeMasks + 1 byte reservesPct +
  *                   1 byte cityOwners
+ *
+ * Owner bytes are private 1-based registry dense indexes; the ID table
+ * is the only identity carrier and is canonicalized with the explicit
+ * UTF-16 comparator by `createPlayerRegistry`.
  *
  * **Determinism** (FR-017): integer-only ops; no float encoding; fixed
  * field order; little-endian everywhere. Same `World` → byte-identical
@@ -43,7 +49,11 @@
  * cryptographic hash (don't use for security-sensitive checksums).
  */
 
+import { parsePlayerId } from '@europa/core';
+import type { PlayerRegistry } from './playerRegistry';
+import { createPlayerRegistry } from './playerRegistry';
 import type { Board, CityPlacement, Player, PlayerId, PlayerStatus, World } from './types';
+import { ENGINE_API_VERSION } from './types';
 
 // ----------------------------------------------------------------------------
 // Constants
@@ -127,32 +137,20 @@ export function hashWorld(world: Readonly<World>): string {
 // Version header
 // ----------------------------------------------------------------------------
 
-/** Read the engine API version from the contracts barrel. */
+/** Read the engine API version from the single authoritative constant. */
 function readEngineApiVersion(): string {
-    // ENGINE_API_VERSION is a `const` exported from the engine types
-    // contract. We re-import the string here rather than hardcoding it
-    // so a version bump is automatically reflected in serialization.
-    // The import is dynamic to avoid a hard module dependency that
-    // would cycle through index.ts during testing.
-    return importVersion();
-}
-
-/**
- * Indirect lookup of ENGINE_API_VERSION. Wrapped in a function so we
- * can swap the implementation in tests if needed (but we don't right
- * now — this is just a defense against future tooling additions).
- */
-function importVersion(): string {
-    // Static literal — kept in sync with `contracts/engine-types.ts`.
-    // Drift is caught by `tests/contracts-drift.test.ts`.
-    return '0.1.0';
+    // `ENGINE_API_VERSION` is the one source of truth (declared in
+    // `@europa/core`, re-exported by the engine contract). Never hard-code
+    // a version literal here — drift is caught by `tests/contracts-drift.test.ts`
+    // and the identity-migration guard.
+    return ENGINE_API_VERSION;
 }
 
 function encodeVersionHeader(): { versionBytes: Uint8Array; versionLen: number } {
-    const version = importVersion();
+    const version = readEngineApiVersion();
     const ascii = encodeAscii(version);
     // 1-byte length prefix + ASCII bytes. Length is capped at 255
-    // (one byte); current version `"0.1.0"` is 5 bytes.
+    // (one byte); current version `"0.2.0"` is 5 bytes.
     if (ascii.length > 255) {
         throw new Error(`serializeWorld: ENGINE_API_VERSION too long (${String(ascii.length)} bytes)`);
     }
@@ -190,6 +188,7 @@ function decodeVersionHeader(bytes: Uint8Array): { version: string; versionLen: 
 
 function encodePayload(world: Readonly<World>): Uint8Array {
     const { board } = world;
+    const { playerRegistry } = world;
     const w = board.width;
     const n = w * w;
 
@@ -202,14 +201,25 @@ function encodePayload(world: Readonly<World>): Uint8Array {
         1 + // visibilityRadius
         4 * 4 + // rngState[4]
         1 + // player count (sanity)
-        4 + // total payload length prefix
+        4 + // reserved slot
         0;
 
-    // Compute players block size.
+    // Canonical ID table (issue #74): count byte + per-ID length + bytes.
+    // The registry owns the canonical UTF-16 order; serialize that order.
+    const tableIds = playerRegistry.ids;
+    const idBytes: Uint8Array[] = [];
+    let idTableLen = 1; // table count byte
+    for (const id of tableIds) {
+        const bytes = encodeAscii(id);
+        idBytes.push(bytes);
+        idTableLen += 1 + bytes.length;
+    }
+
+    // Players block: table index, status, citiesOwned, troopsHeld(4), name.
     let playersLen = 0;
     for (const p of world.players) {
         const nameBytes = encodeAscii(p.displayName);
-        playersLen += 1 + 1 + 1 + 4 + 1 + nameBytes.length; // id, status, citiesOwned(1 byte), troopsHeld(4), nameLen, name
+        playersLen += 1 + 1 + 1 + 4 + 1 + nameBytes.length;
     }
 
     // Cities block.
@@ -218,14 +228,14 @@ function encodePayload(world: Readonly<World>): Uint8Array {
     // Cells block: n * (4 + 1 + 1 + 1 + 1) = n * 8 bytes.
     const cellsBlockLen = n * 8;
 
-    const total = headerLen + playersLen + citiesBlockLen + cellsBlockLen;
+    const total = headerLen + idTableLen + playersLen + citiesBlockLen + cellsBlockLen;
     const out = new Uint8Array(total);
     const dv = new DataView(out.buffer);
     let p = 0;
 
     // Header.
     out[p++] = w & 0xff;
-    out[p++] = world.config.playerCount & 0xff;
+    out[p++] = playerRegistry.count & 0xff;
     dv.setUint32(p, world.tick >>> 0, true);
     p += 4;
     dv.setUint32(p, world.rngSeed >>> 0, true);
@@ -241,9 +251,21 @@ function encodePayload(world: Readonly<World>): Uint8Array {
     dv.setUint32(p, 0, true);
     p += 4;
 
-    // Players.
+    // Canonical ID table.
+    out[p++] = tableIds.length & 0xff;
+    for (const bytes of idBytes) {
+        out[p++] = bytes.length & 0xff;
+        out.set(bytes, p);
+        p += bytes.length;
+    }
+
+    // Players. The identity field is a 0-based index into the ID table.
     for (const player of world.players) {
-        out[p++] = player.id & 0xff;
+        const tableIndex = playerRegistry.indexOfId(player.id);
+        if (tableIndex === null) {
+            throw new Error(`encodePayload: player "${player.id}" is not registered`);
+        }
+        out[p++] = tableIndex & 0xff;
         out[p++] = encodePlayerStatus(player.status);
         out[p++] = player.citiesOwned & 0xff;
         dv.setUint32(p, player.troopsHeld >>> 0, true);
@@ -254,7 +276,7 @@ function encodePayload(world: Readonly<World>): Uint8Array {
         p += nameBytes.length;
     }
 
-    // Cities.
+    // Cities. `owner` is a 1-based terrain placement slot (numeric).
     dv.setUint16(p, board.cities.length, true);
     p += 2;
     for (const city of board.cities) {
@@ -305,10 +327,54 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         );
     }
 
-    // Players.
+    // Canonical ID table (issue #74). Each entry is validated with
+    // `parsePlayerId` and the table itself is validated by
+    // `createPlayerRegistry` (canonical form, 2–4 entries, uniqueness).
+    if (bytes.length < p + 1) {
+        throw new EngineFormatError('player id table count truncated');
+    }
+    const tableCount = bytes[p++] ?? 0;
+    if (tableCount !== playersLen) {
+        throw new EngineFormatError(
+            `player id table count mismatch (table=${String(tableCount)}, players=${String(playersLen)})`,
+        );
+    }
+    const tableIds: PlayerId[] = [];
+    for (let i = 0; i < tableCount; i++) {
+        if (bytes.length < p + 1) {
+            throw new EngineFormatError(`player id table entry ${String(i)} length truncated`);
+        }
+        const idLen = bytes[p++] ?? 0;
+        if (bytes.length < p + idLen) {
+            throw new EngineFormatError(`player id table entry ${String(i)} truncated`);
+        }
+        const raw = decodeAscii(bytes.subarray(p, p + idLen));
+        p += idLen;
+        try {
+            tableIds.push(parsePlayerId(raw));
+        } catch (cause) {
+            throw new EngineFormatError(
+                `player id table entry ${String(i)} is not a canonical player id: ${String(cause)}`,
+            );
+        }
+    }
+    let playerRegistry: PlayerRegistry;
+    try {
+        playerRegistry = createPlayerRegistry(tableIds);
+    } catch (cause) {
+        throw new EngineFormatError(`player id table is invalid: ${String(cause)}`);
+    }
+
+    // Players. The identity field is a 0-based index into the ID table.
     const players: Player[] = [];
     for (let i = 0; i < playersLen; i++) {
-        const id = (bytes[p++] ?? 0) as PlayerId;
+        const tableIndex = bytes[p++] ?? 0;
+        const id = playerRegistry.idAt(tableIndex);
+        if (id === null) {
+            throw new EngineFormatError(
+                `player ${String(i)} table index ${String(tableIndex)} out of range (table size ${String(tableCount)})`,
+            );
+        }
         const statusByte = bytes[p++] ?? 0;
         const status = decodePlayerStatus(statusByte);
         const citiesOwned = bytes[p++] ?? 0;
@@ -329,7 +395,7 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         });
     }
 
-    // Cities.
+    // Cities. `owner` is a 1-based terrain placement slot (numeric).
     if (bytes.length < p + 2) {
         throw new EngineFormatError('city count truncated');
     }
@@ -342,7 +408,7 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         }
         cities.push({
             cell: { x: bytes[p++] ?? 0, y: bytes[p++] ?? 0 },
-            owner: (bytes[p++] ?? 0) as PlayerId,
+            owner: bytes[p++] ?? 0,
         });
     }
 
@@ -387,7 +453,7 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
     return {
         config: {
             boardSize,
-            playerCount: playerCount as 2 | 3 | 4,
+            playerIds: tableIds,
             tickIntervalMs: 250, // not serialized; default
             seed,
             visibilityRadius,
@@ -404,6 +470,7 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         },
         rngSeed: seed,
         rngState,
+        playerRegistry,
     };
 }
 

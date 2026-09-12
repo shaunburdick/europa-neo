@@ -3,7 +3,7 @@
     "seed": 42,
     "settings": {
         "boardSize": 32,
-        "playerCount": 2,
+        "playerIds": ["PLAYER000001", "PLAYER000002"],
         "tickIntervalMs": 250,
         "seed": 42,
         "visibilityRadius": 6
@@ -23,6 +23,6 @@
     "orders": [],
     "terminalTick": 1,
     "terminalResult": null,
-    "finalStateHash": "52d4a5c3",
-    "engineVersion": "0.1.0"
+    "finalStateHash": "fc7ab765",
+    "engineVersion": "0.2.0"
 }

@@ -17,13 +17,25 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { createRng } from '@europa/core';
+import { createRng, parsePlayerId } from '@europa/core';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard } from '@europa/terrain';
 import { applyCommand } from '../src/applyCommand';
 import { createWorld } from '../src/create';
 import { ENGINE_API_VERSION, hashWorld, isTerminal, tick } from '../src/index';
 import type { GenerationSettings } from '../src/replay/types';
 import type { MatchConfig, Order, PlayerId } from '../src/types';
+
+/**
+ * Deterministic canonical identities for captured fixtures.
+ *
+ * Capture is an identity trust boundary: it must supply explicit,
+ * canonical 12-character IDs (issue #74). Orders referenced by the input
+ * JSON must use these exact values.
+ */
+const CAPTURE_PLAYER_IDS: readonly PlayerId[] = Object.freeze([
+    parsePlayerId('PLAYER000001'),
+    parsePlayerId('PLAYER000002'),
+]);
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -110,7 +122,7 @@ function main(): void {
     // Create world and replay.
     const config: MatchConfig = {
         boardSize: 32,
-        playerCount: 2,
+        playerIds: CAPTURE_PLAYER_IDS,
         tickIntervalMs: 250,
         seed: args.seed,
         visibilityRadius: 6,
@@ -146,7 +158,7 @@ function main(): void {
         seed: args.seed,
         settings: config,
         terrainSettings,
-        playerCount: config.playerCount,
+        playerCount: config.playerIds.length,
         orders,
         terminalTick,
         terminalResult,

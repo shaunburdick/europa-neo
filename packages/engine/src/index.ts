@@ -70,6 +70,8 @@ export type {
     Player,
     // Branded primitives
     PlayerId,
+    // ID ↔ dense-index registry (issue #74)
+    PlayerRegistry,
     PlayerStatus,
     // Branded primitives
     ReservesPct,
@@ -102,6 +104,18 @@ export { ENGINE_API_VERSION } from './types';
 // ----------------------------------------------------------------------------
 
 export { DEFAULT_TICK_INTERVAL_MS, ENGINE_CONSTANTS } from './constants';
+
+// ----------------------------------------------------------------------------
+// Player identity registry (issue #74)
+// ----------------------------------------------------------------------------
+
+export type { DensePlayerIndex } from './playerRegistry';
+export {
+    compareUtf16,
+    createPlayerRegistry,
+    MAX_PLAYERS_PER_MATCH,
+    MIN_PLAYERS_PER_MATCH,
+} from './playerRegistry';
 
 // ----------------------------------------------------------------------------
 // TickEvents builders (pure, immutable)

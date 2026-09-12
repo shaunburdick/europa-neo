@@ -44,27 +44,27 @@ shim or weaken a validator to make an old fixture pass.
 
 ## Wave 2 — Engine registry and deterministic public model
 
-- [ ] **T009**: Implement `packages/engine/src/playerRegistry.ts` with immutable
+- [x] **T009**: Implement `packages/engine/src/playerRegistry.ts` with immutable
   ID↔dense-index maps, canonical validation, duplicate rejection, explicit
   UTF-16 code-unit comparator, and checked lookup APIs; add public exports and
   method documentation.
-- [ ] **T010**: Replace engine public numeric identity fields in
+- [x] **T010**: Replace engine public numeric identity fields in
   `packages/engine/src/contracts/engine-types.ts`, `src/types.ts`, `src/create.ts`,
   `src/read.ts`, `src/tick.ts`, and resolution modules with `PlayerId`, while
   keeping typed-array indexes private behind the registry.
-- [ ] **T011**: Update engine ownership, event, terminal, combat, capture, gun,
+- [x] **T011**: Update engine ownership, event, terminal, combat, capture, gun,
   paratroop, validation, and deterministic order paths to resolve IDs through the
   registry; remove arithmetic/index assumptions and all authoritative
   `localeCompare` uses.
-- [ ] **T012**: Add registry and resolver tests under
+- [x] **T012**: Add registry and resolver tests under
   `packages/engine/tests/unit/` for bijection, insertion-order independence,
   seat/index reassignment, unknown IDs, duplicate IDs, forged IDs, and explicit
   UTF-16 ordering (including punctuation edge cases).
-- [ ] **T013**: Replace numeric engine fixtures in
+- [x] **T013**: Replace numeric engine fixtures in
   `packages/engine/tests/fixtures/`, quickstarts, unit suites, performance
   harnesses, and scenario builders with deterministic valid explicit IDs; retain
   numeric values only as explicit rejection tests.
-- [ ] **T014**: Preserve and extend engine determinism tests in
+- [x] **T014**: Preserve and extend engine determinism tests in
   `packages/engine/tests/determinism.test.ts` and `tests/replay/` so explicit IDs
   are required, host locale cannot change ordering, and identical scripted inputs
   remain byte-identical.

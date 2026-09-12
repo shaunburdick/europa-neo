@@ -21,6 +21,7 @@
  */
 
 import { hashSeed } from '@europa/core';
+import { createPlayerRegistry } from './playerRegistry';
 import type {
     Board,
     Cell,
@@ -38,8 +39,6 @@ import type {
 
 /** Minimum board dimension the engine accepts (per data-model.md §1). */
 export const MIN_BOARD_SIZE = 8;
-const MIN_PLAYERS = 2;
-const MAX_PLAYERS = 4;
 const MAX_ELEVATION = 255;
 
 /**
@@ -51,7 +50,7 @@ const MAX_ELEVATION = 255;
  * @returns Frozen initial `World` (immutable from the caller's side).
  * @throws if the board is not square, doesn't match `config.boardSize`,
  *         has a city on a water cell, has out-of-bounds cities, or
- *         `config.playerCount` is outside {2, 3, 4}.
+ *         `config.playerIds` is not a list of 2–4 canonical unique IDs.
  */
 export function createWorld(config: MatchConfig, board: Board): World {
     // ---- Board structural invariants (FR-001) ----------------------------
@@ -76,9 +75,26 @@ export function createWorld(config: MatchConfig, board: Board): World {
         );
     }
 
-    // ---- Player count (FR-019) -------------------------------------------
-    if (!Number.isInteger(config.playerCount) || config.playerCount < MIN_PLAYERS || config.playerCount > MAX_PLAYERS) {
-        throw new Error(`createWorld: config.playerCount must be 2, 3, or 4 (got ${String(config.playerCount)})`);
+    // ---- Player identities (FR-019, FR-020) ------------------------------
+    // The caller supplies explicit canonical IDs; the engine never derives
+    // identity from array position or seat. `createPlayerRegistry`
+    // validates canonical form, length ∈ [2, 4], and uniqueness, and
+    // establishes the canonical UTF-16 dense order.
+    if (!Array.isArray(config.playerIds)) {
+        throw new Error('createWorld: config.playerIds must be an array of 2–4 canonical player ids');
+    }
+    const playerRegistry = createPlayerRegistry(config.playerIds);
+
+    // Terrain placement-slot order → explicit ID. Slot `k` (1-based) maps
+    // to `playerIds[k - 1]`; the registry's dense index may differ because
+    // it is UTF-16 sorted.
+    const slotToId: PlayerId[] = [];
+    for (let i = 0; i < config.playerIds.length; i++) {
+        const id = config.playerIds[i];
+        if (id === undefined) {
+            throw new Error(`createWorld: config.playerIds[${String(i)}] is missing`);
+        }
+        slotToId.push(id);
     }
 
     // ---- Per-cell invariants (INV-1..INV-4) ------------------------------
@@ -121,9 +137,9 @@ export function createWorld(config: MatchConfig, board: Board): World {
                 `createWorld: city at [${String(cx)},${String(cy)}] is out of bounds for ${String(board.width)}×${String(board.height)}`,
             );
         }
-        if (!Number.isInteger(city.owner) || city.owner < 1 || city.owner > MAX_PLAYERS) {
+        if (!Number.isInteger(city.owner) || city.owner < 1 || city.owner > slotToId.length) {
             throw new Error(
-                `createWorld: city at [${String(cx)},${String(cy)}] owner must be 1..4 (got ${String(city.owner)})`,
+                `createWorld: city at [${String(cx)},${String(cy)}] owner must be a 1-based placement slot in 1..${String(slotToId.length)} (got ${String(city.owner)})`,
             );
         }
         const key = cy * board.width + cx;
@@ -152,10 +168,20 @@ export function createWorld(config: MatchConfig, board: Board): World {
         cityOwners: new Uint8Array(n), // 0 = no city
     };
 
-    // Populate cityOwners from board.cities.
+    // Populate cityOwners from board.cities. Terrain speaks 1-based
+    // placement slots; convert each slot to the registry's dense index
+    // and store `denseIndex + 1` to preserve 0 = no-city.
     for (const city of board.cities) {
         const idx = city.cell.y * board.width + city.cell.x;
-        state.cityOwners[idx] = city.owner;
+        const id = slotToId[city.owner - 1];
+        if (id === undefined) {
+            throw new Error(`createWorld: city at [${String(city.cell.x)},${String(city.cell.y)}] has no player id`);
+        }
+        const dense = playerRegistry.indexOfId(id);
+        if (dense === null) {
+            throw new Error(`createWorld: city owner "${id}" is not registered`);
+        }
+        state.cityOwners[idx] = dense + 1;
     }
 
     // ---- Players ---------------------------------------------------------
@@ -166,14 +192,20 @@ export function createWorld(config: MatchConfig, board: Board): World {
     // happens in `tick()`'s production + flow phases.)
     const citiesOwnedByPlayer = new Map<PlayerId, number>();
     for (const city of board.cities) {
-        citiesOwnedByPlayer.set(city.owner, (citiesOwnedByPlayer.get(city.owner) ?? 0) + 1);
+        const ownerId = slotToId[city.owner - 1];
+        if (ownerId === undefined) {
+            continue;
+        }
+        citiesOwnedByPlayer.set(ownerId, (citiesOwnedByPlayer.get(ownerId) ?? 0) + 1);
     }
+    // Players are built in canonical registry order so the world is
+    // independent of the caller's ID insertion order.
     const players: Player[] = [];
-    for (let i = 0; i < config.playerCount; i++) {
-        const id = (i + 1) as PlayerId;
+    for (let i = 0; i < playerRegistry.count; i++) {
+        const id = playerRegistry.requireIdAt(i);
         players.push({
             id,
-            displayName: `Player ${String(id)}`,
+            displayName: id,
             status: 'alive',
             citiesOwned: citiesOwnedByPlayer.get(id) ?? 0,
             troopsHeld: 0,
@@ -192,6 +224,7 @@ export function createWorld(config: MatchConfig, board: Board): World {
         state,
         rngSeed: config.seed >>> 0,
         rngState,
+        playerRegistry,
     };
 
     return world;

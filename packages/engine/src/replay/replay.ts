@@ -78,10 +78,12 @@ export function checkVersionMismatch(fixtureVersion: string): string | null {
  * @throws If the engine encounters an error during replay.
  */
 export function replayMatch(fixture: Fixture, board: Board): ReplayResult {
-    // 1. Create the initial world from the regenerated board.
+    // 1. Create the initial world from the regenerated board. Identities
+    //    come only from the fixture's explicit `settings.playerIds` — the
+    //    replay path never synthesizes or derives an ID (FR-021/FR-022).
     const config: MatchConfig = {
         boardSize: fixture.settings.boardSize,
-        playerCount: fixture.settings.playerCount as 2 | 3 | 4,
+        playerIds: fixture.settings.playerIds,
         tickIntervalMs: fixture.settings.tickIntervalMs,
         seed: fixture.seed,
         visibilityRadius: fixture.settings.visibilityRadius,

@@ -30,8 +30,9 @@ import { resolveCombat } from '../../src/resolution/combat';
 import { resolveFlow } from '../../src/resolution/flow';
 import { serializeWorld } from '../../src/serialize';
 import { tick } from '../../src/tick';
-import type { MatchConfig, PlayerId, World } from '../../src/types';
+import type { MatchConfig, World } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, playerIds, TEST_REGISTRY as REGISTRY } from '../fixtures/ids';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,7 +41,7 @@ import { buildSmallBoard } from '../fixtures/board';
 const BOARD_SIZE = 32;
 const TWO_PLAYER_CFG: MatchConfig = {
     boardSize: BOARD_SIZE,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xcafebabe,
     visibilityRadiusDefault: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -51,11 +52,11 @@ const TWO_PLAYER_CFG: MatchConfig = {
  * Exercises flow, combat, and decay phases.
  */
 function buildPopulatedBoard(): ReturnType<typeof buildSmallBoard> {
-    const cities: Array<[number, number, PlayerId]> = [
-        [2, 2, 1 as PlayerId],
-        [29, 29, 2 as PlayerId],
-        [2, 29, 1 as PlayerId],
-        [29, 2, 2 as PlayerId],
+    const cities: Array<[number, number, number]> = [
+        [2, 2, 1],
+        [29, 29, 2],
+        [2, 29, 1],
+        [29, 2, 2],
     ];
     return buildSmallBoard(BOARD_SIZE, cities);
 }
@@ -70,13 +71,13 @@ function createPopulatedWorld(): World {
 
     // Stage pipe orders for both players at tick 0.
     const pipeOrders = [
-        { kind: 'setPipe' as const, player: 1 as PlayerId, cell: { x: 2, y: 2 }, direction: 'E' as const },
-        { kind: 'setPipe' as const, player: 1 as PlayerId, cell: { x: 2, y: 2 }, direction: 'S' as const },
-        { kind: 'setPipe' as const, player: 2 as PlayerId, cell: { x: 29, y: 29 }, direction: 'W' as const },
-        { kind: 'setPipe' as const, player: 2 as PlayerId, cell: { x: 29, y: 29 }, direction: 'N' as const },
+        { kind: 'setPipe' as const, player: PLAYER_1, cell: { x: 2, y: 2 }, direction: 'E' as const },
+        { kind: 'setPipe' as const, player: PLAYER_1, cell: { x: 2, y: 2 }, direction: 'S' as const },
+        { kind: 'setPipe' as const, player: PLAYER_2, cell: { x: 29, y: 29 }, direction: 'W' as const },
+        { kind: 'setPipe' as const, player: PLAYER_2, cell: { x: 29, y: 29 }, direction: 'N' as const },
         // Cross-pipes to trigger combat
-        { kind: 'setPipe' as const, player: 1 as PlayerId, cell: { x: 2, y: 29 }, direction: 'E' as const },
-        { kind: 'setPipe' as const, player: 2 as PlayerId, cell: { x: 29, y: 2 }, direction: 'W' as const },
+        { kind: 'setPipe' as const, player: PLAYER_1, cell: { x: 2, y: 29 }, direction: 'E' as const },
+        { kind: 'setPipe' as const, player: PLAYER_2, cell: { x: 29, y: 2 }, direction: 'W' as const },
     ];
 
     for (const order of pipeOrders) {
@@ -119,12 +120,12 @@ describe('SC-006 — determinism after refactor', () => {
 
             // Stage pipe orders.
             const orders = [
-                { kind: 'setPipe' as const, player: 1 as PlayerId, cell: { x: 2, y: 2 }, direction: 'E' as const },
-                { kind: 'setPipe' as const, player: 1 as PlayerId, cell: { x: 2, y: 2 }, direction: 'S' as const },
-                { kind: 'setPipe' as const, player: 2 as PlayerId, cell: { x: 29, y: 29 }, direction: 'W' as const },
-                { kind: 'setPipe' as const, player: 2 as PlayerId, cell: { x: 29, y: 29 }, direction: 'N' as const },
-                { kind: 'setPipe' as const, player: 1 as PlayerId, cell: { x: 2, y: 29 }, direction: 'E' as const },
-                { kind: 'setPipe' as const, player: 2 as PlayerId, cell: { x: 29, y: 2 }, direction: 'W' as const },
+                { kind: 'setPipe' as const, player: PLAYER_1, cell: { x: 2, y: 2 }, direction: 'E' as const },
+                { kind: 'setPipe' as const, player: PLAYER_1, cell: { x: 2, y: 2 }, direction: 'S' as const },
+                { kind: 'setPipe' as const, player: PLAYER_2, cell: { x: 29, y: 29 }, direction: 'W' as const },
+                { kind: 'setPipe' as const, player: PLAYER_2, cell: { x: 29, y: 29 }, direction: 'N' as const },
+                { kind: 'setPipe' as const, player: PLAYER_1, cell: { x: 2, y: 29 }, direction: 'E' as const },
+                { kind: 'setPipe' as const, player: PLAYER_2, cell: { x: 29, y: 2 }, direction: 'W' as const },
             ];
 
             for (const order of orders) {
@@ -253,7 +254,17 @@ describe('SC-006 — scratch buffer reuse', () => {
         scratch.combatNewCounts.fill(0);
         scratch.combatNewOwners.fill(0);
 
-        const out1 = resolveCombat(state, board, ENGINE_CONSTANTS, 0, undefined, undefined, undefined, scratch);
+        const out1 = resolveCombat(
+            state,
+            board,
+            ENGINE_CONSTANTS,
+            0,
+            REGISTRY,
+            undefined,
+            undefined,
+            undefined,
+            scratch,
+        );
 
         expect(out1.state.troopCounts).toBe(scratch.combatNewCounts);
         expect(out1.state.troopOwners).toBe(scratch.combatNewOwners);

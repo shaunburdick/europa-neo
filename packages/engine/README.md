@@ -49,6 +49,7 @@ Enforces the 80% threshold (lines / functions / branches / statements) per the c
 The minimal smoke REPL mirrors `quickstart.md` §3 — create a world, stage a pipe order, tick once, inspect the result:
 
 ```ts
+import { parsePlayerId } from '@europa/core';
 import {
   applyCommand,
   createWorld,
@@ -67,15 +68,19 @@ const board = {
     terrain: 'land' as const,
   })),
   cities: [
-    { cell: { x: 1, y: 1 }, owner: 1 }, // P1's city
-    { cell: { x: 6, y: 6 }, owner: 2 }, // P2's city
+    { cell: { x: 1, y: 1 }, owner: 1 }, // slot 1 → playerIds[0]
+    { cell: { x: 6, y: 6 }, owner: 2 }, // slot 2 → playerIds[1]
   ],
 };
 
-// 2. Create the initial world.
+// 2. Create the initial world. Identities are explicit, canonical, and
+//    server-issued (issue #74) — the engine never derives them from seat
+//    or array position.
+const P1 = parsePlayerId('PLAYER000001');
+const P2 = parsePlayerId('PLAYER000002');
 const config = {
   boardSize: 8,
-  playerCount: 2,
+  playerIds: [P1, P2],
   tickIntervalMs: 250,
   seed: 1,
   visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -85,7 +90,7 @@ let world = createWorld(config, board);
 // 3. Stage a pipe order on P1's city.
 const staged = applyCommand(world, {
   kind: 'setPipe',
-  player: 1,
+  player: P1,
   cell: { x: 1, y: 1 },
   direction: 'E',
 });
@@ -146,14 +151,14 @@ Replays the fixture and overwrites the `finalStateHash` field with the engine's 
 {
   "version": 1,
   "seed": 42,
-  "settings": { "boardSize": 32, "playerCount": 2, "tickIntervalMs": 250, "seed": 42, "visibilityRadius": 6 },
+  "settings": { "boardSize": 32, "playerIds": ["PLAYER000001", "PLAYER000002"], "tickIntervalMs": 250, "seed": 42, "visibilityRadius": 6 },
   "terrainSettings": { "waterRatio": 0.1, "roughness": 0.5, "octaves": 4, "citiesPerPlayer": 1, "symmetryStrategy": "point", "minCityWaterDistance": 3, "minCityCityDistance": 5, "maxRegenAttempts": 5, "terrainSmoothing": 4 },
   "playerCount": 2,
   "orders": [],
   "terminalTick": 1,
   "terminalResult": null,
-  "finalStateHash": "52d4a5c3",
-  "engineVersion": "0.1.0"
+  "finalStateHash": "fc7ab765",
+  "engineVersion": "0.2.0"
 }
 ```
 
@@ -180,7 +185,7 @@ The engine is **deterministic by contract** (spec FR-017, SC-001):
 - No `Math.random()` — all randomness comes from a per-match `sfc32` PRNG seeded with `MatchConfig.seed`.
 - No trig (`Math.sin`, `Math.cos`, etc.) in state updates.
 - Integer-only arithmetic (`Math.imul`, `>>>` 0 coercion).
-- Fixed iteration order (row-major cell traversal, fixed direction bit order, fixed order-application sort by `PlayerId` ascending then `kind` alphabetical).
+- Fixed iteration order (row-major cell traversal, fixed direction bit order, fixed order-application sort by canonical UTF-16 `PlayerId` code units, then `kind` alphabetical).
 
 Two runs with the same `(MatchConfig, Board, Order[])` input produce **byte-identical** `World` outputs, verified by `tests/determinism.test.ts` (10,000-tick scenario).
 

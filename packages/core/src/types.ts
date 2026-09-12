@@ -106,11 +106,21 @@ export interface Cell {
 }
 
 /**
- * Where a city is placed. `owner` is the starting player (FR-005).
+ * Where a city is placed.
+ *
+ * `owner` is a **1-based numeric placement slot** (FR-005) — terrain is
+ * intentionally identity-agnostic (issue #74, data-model §4). It has no
+ * concept of the canonical string `PlayerId`; it assigns dense slots for
+ * symmetry and placement only.
+ *
+ * The engine's `createWorld` maps each slot to the explicit
+ * `MatchConfig.playerIds[slot - 1]` at the identity boundary. Changing
+ * the ID list never changes terrain output.
  */
 export interface CityPlacement {
     readonly cell: Coord;
-    readonly owner: PlayerId;
+    /** 1-based dense placement slot (not a `PlayerId`). */
+    readonly owner: number;
 }
 
 /**
@@ -131,8 +141,17 @@ export interface Board {
 export interface MatchConfig {
     /** Square board dimension. Default 32 (spec Assumptions). */
     readonly boardSize: number;
-    /** Player count. v1 ships 2; engine supports 2–4 (FR-019, AGENTS.md). */
-    readonly playerCount: 2 | 3 | 4;
+    /**
+     * Explicit canonical player identities for this match, in terrain
+     * placement-slot order (index 0 = slot 1). Length MUST be 2–4
+     * (FR-019); the engine derives player count from `playerIds.length`.
+     *
+     * These are server-issued, branded 12-character identities
+     * (FR-020) — never seat indexes, array positions, or handles. The
+     * engine never synthesizes them; the caller supplies them at the
+     * identity boundary.
+     */
+    readonly playerIds: readonly PlayerId[];
     /** Tick interval (ms). Default 250 → 4 Hz. Engine itself does not read this. */
     readonly tickIntervalMs: number;
     /** Seed for the engine's PRNG (sfc32). uint32. */

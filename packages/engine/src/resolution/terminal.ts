@@ -28,6 +28,8 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushEliminationEvent } from '../events';
+import type { PlayerRegistry } from '../playerRegistry';
+import { compareUtf16 } from '../playerRegistry';
 import type { EliminationEvent, MatchResult, Player, PlayerId, TickEvents, WorldState } from '../types';
 
 interface TerminalResolutionResult {
@@ -48,6 +50,8 @@ interface TerminalResolutionResult {
  * @param constants    Engine rule constants (reserved for future
  *                     tunables; unused today).
  * @param tickNumber   Tick number to stamp on every emitted EliminationEvent.
+ * @param registry     ID ↔ dense-index registry used to resolve the
+ *                     internal owner bytes into canonical `PlayerId`s.
  * @returns `{ players, events, terminal? }`.
  */
 export function resolveTerminal(
@@ -55,11 +59,13 @@ export function resolveTerminal(
     prevPlayers: readonly Player[],
     constants: EngineConstants,
     tickNumber: number,
+    registry: PlayerRegistry,
 ): TerminalResolutionResult {
     void constants;
 
     // Recompute troopsHeld + citiesOwned per player from `state` (the
-    // post-decay snapshot).
+    // post-decay snapshot). Owner bytes are 1-based dense indexes; resolve
+    // them to canonical IDs via the registry.
     const troopsByPlayer = new Map<PlayerId, number>();
     const citiesByPlayer = new Map<PlayerId, number>();
     for (let i = 0; i < state.troopCounts.length; i++) {
@@ -67,16 +73,18 @@ export function resolveTerminal(
         if (owner === 0) {
             continue;
         }
-        const prev = troopsByPlayer.get(owner as PlayerId) ?? 0;
-        troopsByPlayer.set(owner as PlayerId, prev + (state.troopCounts[i] ?? 0));
+        const id = registry.requireIdAt(owner - 1);
+        const prev = troopsByPlayer.get(id) ?? 0;
+        troopsByPlayer.set(id, prev + (state.troopCounts[i] ?? 0));
     }
     for (let i = 0; i < state.cityOwners.length; i++) {
         const owner = state.cityOwners[i] ?? 0;
         if (owner === 0) {
             continue;
         }
-        const prev = citiesByPlayer.get(owner as PlayerId) ?? 0;
-        citiesByPlayer.set(owner as PlayerId, prev + 1);
+        const id = registry.requireIdAt(owner - 1);
+        const prev = citiesByPlayer.get(id) ?? 0;
+        citiesByPlayer.set(id, prev + 1);
     }
 
     let events: TickEvents = emptyTickEvents();
@@ -126,9 +134,10 @@ export function resolveTerminal(
         });
     }
 
-    // Count alive players in ascending PlayerId order (deterministic).
+    // Count alive players in canonical UTF-16 `PlayerId` order
+    // (deterministic, locale-independent).
     const alive = updatedPlayers.filter((p) => p.status === 'alive');
-    alive.sort((a, b) => a.id - b.id);
+    alive.sort((a, b) => compareUtf16(a.id, b.id));
 
     let terminal: MatchResult | undefined;
     if (alive.length === 0) {

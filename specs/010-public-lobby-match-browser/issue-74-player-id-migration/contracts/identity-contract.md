@@ -28,7 +28,8 @@ permitted.
 
 ## Test vectors
 
-Valid: `A0b_-9XyZ12`, `------------`, `____________`, `aBcDeF012_-`.
+Valid (all exactly 12 characters): `A0b_-9XyZ120`, `------------`, `____________`, `aBcDeF012_-x`.
 
 Invalid: `1234`, `1234567890123`, `12345678901!`, `guest-0001`, `A BcDeF012_-`,
-`éBcDeF012_-`, numeric `1`, `null`, and objects.
+`éBcDeF012_-`, numeric `1`, `null`, and objects. Also invalid: the 11-character
+near-misses `A0b_-9XyZ12` and `aBcDeF012_-`.
