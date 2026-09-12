@@ -337,7 +337,14 @@ export function createLobbyController(args: LobbyControllerArgs): LobbyControlle
             // seat via reconnectToken in the wire join.
             const seatSessionToken = transport.lastSeatSessionToken();
             store.dispatch({ kind: 'lobbyActionSucceeded', action: kind, transition });
-            if (knownMatchId !== null) {
+            // Record the server-issued seat bearer token on EVERY
+            // seat-granting command, including `createMatch` whose match
+            // id is not known eagerly. The match leg needs it to claim
+            // its OWN seat via the wire join's `reconnectToken`; a
+            // tokenless join selects the lowest open seat in canonical
+            // UTF-16 `PlayerId` order (issue #74 FR-022), which is not
+            // necessarily the creator's seat once identities are opaque.
+            if (knownMatchId !== null || seatSessionToken !== null) {
                 store.dispatch({
                     kind: 'lobbyEnteredMatch',
                     matchId: knownMatchId,

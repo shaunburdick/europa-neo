@@ -78,7 +78,8 @@ describe('applySpectatorEnvelope', () => {
         const next = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
         expect(next.status).toBe('spectating');
         expect(next.latestView?.tick).toBe(3);
-        // Participants are keyed by server identity, in roster order.
+        // Participants are keyed by server identity, in terrain
+        // placement-slot (seat) order — never registry order.
         expect(next.session.participants).toEqual([
             { id: TEST_PLAYER_1, name: 'Nova', isLocal: false },
             { id: TEST_PLAYER_2, name: 'Orion', isLocal: false },

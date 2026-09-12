@@ -605,6 +605,65 @@
     `data-model.md`/`contracts`, outside T041's package-README/contract-comment
     scope; flag if a docs sweep should rewrite all historical spec examples.
 
+- **Wave 8 — final verification (T043/T044/T045) — COMPLETE (this change set)**.
+  All three tasks ticked; the branch is green and ready for PR/security +
+  code-quality review.
+  - **T043** — per-package coverage + strict typechecks: every package ≥80% on
+    all four metrics (core 100/100/100/100 · engine 96.08/86.19/99.14/95.93 ·
+    terrain 96.16/88.5/98.33/96.11 · fog 97.18/89.69/95.23/96.96 · matchmaking
+    95.77/87.8/96.13/96.06 · networking 91.31/83.46/97.66/91.34 · console
+    89.65/83.36/86.75/89.66 merged · design 92.8/84.93/100/96.37 · version
+    100×4 · logging 96.55/92/88.88/100); all ten `tsc --noEmit` programs +
+    matchmaking/console conformance green. No suppression, exclusion, `any`, or
+    weakened assertion added.
+  - **T044** — real-wire + browser acceptance: console E2E **52/52**
+    (`EUROPA_E2E_PORT=5199`, workers=2) incl. identity-migration, full-stack fog
+    isolation, terminal, lobby lifecycle, semantic routing. Real-wire:
+    networking version-mismatch 2/2 + security-hardening 12/12; matchmaking
+    rematch/autostart/playerId lifecycle 36/36. Live `pnpm host` smoke via
+    `agent-browser`: create → canonical `/match/<id>` waiting room; unnamed
+    deep-link `/profile` round-trip → interstitial → join; auto-start; fog
+    isolation (25 vs 1,024 cells; host top-left city `(0,0)`, joiner
+    bottom-right `(31,31)`); participant labels `Seat 1: Host (you)` /
+    `Seat 2: Joiner` keyed by canonical IDs (`H5axA7LZoYq-`,
+    `E6urjLA0rj61`). Screenshots in `__screenshots__/`.
+  - **Migration-exposed defects fixed** (no rule weakened):
+    1. **Creator seat-token handoff** (`console/src/state/lobby-controller.ts`):
+       `runSeatCommand` skipped `lobbyEnteredMatch` when the match id was not
+       eagerly known, so the **create** flow never recorded the server-issued
+       seat bearer token. The creator's leg joined tokenlessly; with opaque
+       canonical IDs the server's tokenless scan selects the lowest open seat in
+       UTF-16 order — which can be another player's seat (`match_not_joinable` /
+       seat swap). Reproduced 4/6→5/8 red; fixed by recording the token on every
+       seat-granting command; stress 8/8 green; regression test in
+       `lobby-controller.test.ts` proven red pre-fix.
+    2. **Spectator participant order** (`console/src/state/spectator-session.ts`):
+       built participants in engine registry (UTF-16) order, making the visible
+       seat order random and inconsistent with the player reducer. Shared
+       `orderParticipants`/`humanHandleOf` extracted to
+       `console/src/state/participant-order.ts` and used by both legs.
+    3. **Unmigrated perf fixture** (`console/tests/integration/perf.test.ts`):
+       numeric `player`/`playerCount` view without `config.playerIds` crashed
+       `buildMapView` (caught by `pnpm verify` Phase 8). Migrated to
+       `TEST_PLAYER_1/2`.
+  - **T045** — full gates: `pnpm typecheck` · `pnpm lint` · `pnpm format:check` ·
+    `pnpm build` · `EUROPA_E2E_PORT=5199 pnpm verify` (**"All verification checks
+    passed"**) · `pnpm version:check` · `git diff --check` — all green. Diff
+    review: identity guard 21/21; console contract-conformance 13/13
+    (byte-identical mirrors; coordinated versions ENGINE 0.2.0 · TERRAIN 0.2.0 ·
+    FOG 0.1.0 · MATCHMAKING 0.2.0 · NETWORK 0.3.0 · CONSOLE 0.4.0); no
+    debug/TODO leakage; no credential leakage. All issue-74 contract acceptance
+    criteria covered.
+  - **Known accepted limitation (reported, not fixed)**: full-page reload of a
+    LIVE match does not rebind the seat (`lastCapturedSeatSessionToken` is
+    in-memory — pre-existing feature-019; the #146 auth boundary governs the
+    lobby-identity race). The supported reconnect path is proven.
+  - **Report-only finding (pre-existing, deferred by T042)**: historical pre-#74
+    quickstarts (`specs/004.../quickstart.md`, `specs/001.../quickstart.md`) still
+    show numeric identity in illustrative snippets that reference removed APIs
+    and non-existent test paths; superseded by each feature's amended
+    spec/data-model/contracts. Flagged for the PM rather than guessed at.
+
 ## Waves
 
 1. Baseline and forbidden-pattern inventory.

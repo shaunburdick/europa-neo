@@ -33,15 +33,14 @@
 import { CONSOLE_CONSTANTS, DEFAULT_CAMERA, DEFAULT_QOL_SETTINGS } from '../config';
 import { actionToOrder } from './action-to-order';
 import { formatActionConfirmation, formatRejection } from './format';
+import { humanHandleOf, orderParticipants } from './participant-order';
 import type {
     ActionId,
     ConsoleAction,
-    ConsoleParticipant,
     ConsoleState,
     FeedbackMessage,
     MatchResult,
     Order,
-    Player,
     PlayerAction,
     PlayerId,
     ReduceOptions,
@@ -392,60 +391,6 @@ function orderCellOf(action: PlayerAction): import('@europa/engine').Coord {
 // ----------------------------------------------------------------------------
 // NetEvent branch
 // ----------------------------------------------------------------------------
-
-/**
- * Extract a real human handle from a server roster entry, or `null`
- * when the entry carries no handle. The engine's `Player.displayName`
- * is the raw `PlayerId` placeholder (issue #74 Wave 2) unless the
- * matchmaker overlaid a registered handle, so the placeholder is
- * rejected here — the ID is the fallback label, never a handle. Pure.
- *
- * @param player Server roster entry.
- * @returns The registered handle, or `null`.
- */
-function humanHandleOf(player: Player): string | null {
-    if (player.displayName === '' || player.displayName === player.id) {
-        return null;
-    }
-    return player.displayName;
-}
-
-/**
- * Order the server roster into terrain placement-slot (seat) order,
- * keyed by each participant's server-issued `PlayerId`. Players absent
- * from `playerIds` are appended in roster order so a defensive server
- * shape still renders every known participant. Pure.
- *
- * @param playerIds The view's placement-slot identity order.
- * @param players The server roster (engine registry order).
- * @param localId The local viewer's identity, or `null` for spectators.
- */
-function orderParticipants(
-    playerIds: readonly PlayerId[],
-    players: readonly Player[],
-    localId: PlayerId | null,
-): ReadonlyArray<ConsoleParticipant> {
-    const byId = new Map<PlayerId, Player>();
-    for (const player of players) {
-        byId.set(player.id, player);
-    }
-    const ordered: ConsoleParticipant[] = [];
-    const seen = new Set<PlayerId>();
-    for (const id of playerIds) {
-        const player = byId.get(id);
-        if (player === undefined) {
-            continue;
-        }
-        seen.add(id);
-        ordered.push({ id, name: humanHandleOf(player), isLocal: id === localId });
-    }
-    for (const player of players) {
-        if (!seen.has(player.id)) {
-            ordered.push({ id: player.id, name: humanHandleOf(player), isLocal: player.id === localId });
-        }
-    }
-    return ordered;
-}
 
 /**
  * Build a result-aware announcement string for the terminal event.

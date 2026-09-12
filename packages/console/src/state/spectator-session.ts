@@ -37,6 +37,7 @@
  */
 
 import { DEFAULT_CAMERA, DEFAULT_QOL_SETTINGS } from '../config';
+import { humanHandleOf, orderParticipants } from './participant-order';
 import { appendFeedback } from './reducer';
 import type { ConsoleState, FeedbackMessage, MatchId, NetworkPayload, PlayerView, ProtocolEnvelope } from './types';
 
@@ -105,14 +106,19 @@ export function applySpectatorEnvelope(
                 return state;
             }
             const playerNames = new Map<import('@europa/engine').PlayerId, string>();
-            const participants: Array<import('./types').ConsoleParticipant> = [];
             for (const player of payload.players) {
                 const handle = humanHandleOf(player);
                 if (handle !== null) {
                     playerNames.set(player.id, handle);
                 }
-                participants.push({ id: player.id, name: handle, isLocal: false });
             }
+            // FR-023: all participants, keyed by the server-issued
+            // identity and presented in terrain placement-slot (seat)
+            // order — the SAME order the player reducer uses, never the
+            // engine's internal canonical UTF-16 registry order (issue
+            // #74: canonical IDs are opaque, so registry order must not
+            // leak into the visible seat ordering).
+            const participants = orderParticipants(payload.view.config.playerIds, payload.players, null);
             return {
                 ...state,
                 status: 'spectating',
@@ -204,21 +210,6 @@ export function withNotice(state: ConsoleState, text: string, nowMs: number): Co
         ttlMs: Number.MAX_SAFE_INTEGER,
     };
     return { ...state, feedback: appendFeedback(state.feedback, message, nowMs) };
-}
-
-/**
- * Extract a real human handle from a server roster entry, or `null`
- * when the entry carries only the engine's raw-ID placeholder (issue
- * #74). Mirrors the player reducer's helper. Pure.
- *
- * @param player Server roster entry.
- * @returns The registered handle, or `null`.
- */
-function humanHandleOf(player: import('@europa/engine').Player): string | null {
-    if (player.displayName === '' || player.displayName === player.id) {
-        return null;
-    }
-    return player.displayName;
 }
 
 /**

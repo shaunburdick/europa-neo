@@ -301,18 +301,25 @@ work (Wave 7 owns console). Every blocker reproduced as failing before the fix.
 - [x] **T042**: [P] Add/refresh repository conformance, version, privacy/security,
   replay, and no-runtime-nanoid guards; include tests for no `localeCompare` in
   authoritative paths and no ID-derived terrain output.
-- [ ] **T043**: Run package-specific coverage and strict typecheck programs for
+- [x] **T043**: Run package-specific coverage and strict typecheck programs for
   core, engine, terrain, fog, matchmaking, networking, and console; fix code
-  rather than adding lint/type suppressions.
-- [ ] **T044**: Run real-wire integration and browser acceptance against the
+  rather than adding lint/type suppressions. Every package ≥80% on all four
+  metrics (plus design/version/logging); all typechecks + conformance programs
+  green. Evidence in `quickstart.md` §T043.
+- [x] **T044**: Run real-wire integration and browser acceptance against the
   mounted self-host stack, including old-major/numeric rejection, reconnect,
   fog isolation, terminal/rematch, and canonical routing; capture evidence in
-  `quickstart.md`.
-- [ ] **T045**: Run `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm build`,
-  `pnpm verify`, and `pnpm version:check`; run `git diff --check`, review the
-  complete diff for source/spec/contract drift, and hand the branch to security
-  and code-quality review. Do not commit as part of this planning/implementation
-  handoff.
+  `quickstart.md`. Console E2E 52/52; live `pnpm host` smoke (create/join/
+  spectate/unnamed deep link; fog isolation 25 vs 1,024 cells; canonical IDs).
+  Two migration-exposed defects fixed (creator seat-token handoff; spectator
+  participant order) + the unmigrated perf fixture. Evidence in
+  `quickstart.md` §T044.
+- [x] **T045**: Run `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm build`,
+  `pnpm verify`, `pnpm version:check`, and `git diff --check`; run
+  `git diff --check`, review the complete diff for source/spec/contract drift,
+  and hand the branch to security and code-quality review. All gates green
+  (`pnpm verify` = "All verification checks passed"). Evidence + diff-review
+  findings/disposition in `quickstart.md` §T045.
 
 ## Dependency summary
 
