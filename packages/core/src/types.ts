@@ -23,6 +23,8 @@
  *     `@europa/terrain`.
  */
 
+import type { PlayerId } from './player-id';
+
 // ----------------------------------------------------------------------------
 // Version
 // ----------------------------------------------------------------------------
@@ -31,15 +33,28 @@
  * Current engine API version. Increment on any breaking change to the
  * shared type surface. Both engine and terrain pin-check this at startup;
  * bumping forces a coordinated update across all consumers.
+ *
+ * `0.1.0` → `0.2.0` (issue #74, feature 001 v1.13): `PlayerId` changed
+ * from the numeric union `1 | 2 | 3 | 4` to the branded 12-character
+ * identity string, a breaking change to every public engine contract
+ * that carries player identity. Pre-1.0 breaking changes take a minor
+ * bump (the same convention networking used for `NETWORK_API_VERSION`).
  */
-export const ENGINE_API_VERSION = '0.1.0' as const;
+export const ENGINE_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Branded primitives
 // ----------------------------------------------------------------------------
 
-/** Player identifier; 1..4 (spec FR-019: 2–4 players). */
-export type PlayerId = 1 | 2 | 3 | 4;
+/**
+ * Player identifier — branded 12-character server-issued identity
+ * (feature 001 v1.13, issue #74). The canonical type, constants, and
+ * validators live in `./player-id`; re-exported here so existing
+ * `import type { PlayerId } from './types'` call sites keep working.
+ *
+ * A `PlayerId` is non-secret correlation metadata, never a credential.
+ */
+export type { PlayerId } from './player-id';
 
 /** Cardinal direction a pipe can face. */
 export type Direction = 'N' | 'E' | 'S' | 'W';

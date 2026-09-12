@@ -30,7 +30,18 @@ import { describe, expect, it } from 'vitest';
 // ---------------------------------------------------------------------------
 
 /** Packages to scan (all workspace packages with src/ directories). */
-const PACKAGES = ['core', 'engine', 'terrain', 'fog', 'networking', 'matchmaking', 'console', 'design', 'version', 'logging'] as const;
+const PACKAGES = [
+    'core',
+    'engine',
+    'terrain',
+    'fog',
+    'networking',
+    'matchmaking',
+    'console',
+    'design',
+    'version',
+    'logging',
+] as const;
 
 /** Repo root (3 levels up from packages/core/tests/). */
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -84,7 +95,7 @@ function getSourceFiles(): string[] {
     return files;
 }
 
-/** Collect test files (packages/*/tests/) across all packages. */
+/** Collect test files (packages/<pkg>/tests/) across all packages. */
 function getTestFiles(): string[] {
     const files: string[] = [];
     for (const pkg of PACKAGES) {
