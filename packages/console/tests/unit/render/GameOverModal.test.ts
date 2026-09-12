@@ -12,6 +12,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../../src/render/App';
 import { GameOverModal } from '../../../src/render/GameOverModal';
 import type { MatchResult, PlayerId } from '../../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
+
+/** Canonical fallback title when no handle is registered. */
+const NO_HANDLE_TITLE = `${TEST_PLAYER_1} wins!`;
 
 let container: HTMLDivElement;
 
@@ -44,7 +48,7 @@ function renderModal(props: {
 /** A win result for testing. */
 const winResult: MatchResult = {
     kind: 'win',
-    winner: 1,
+    winner: TEST_PLAYER_1,
     tick: 1247,
     reason: 'last_standing',
 };
@@ -70,7 +74,7 @@ describe('GameOverModal', () => {
     it('renders correct title for win result (AC-002)', () => {
         renderModal({ open: true, result: winResult, onReturnToLobby: vi.fn() });
         const title = document.getElementById('gameover-title');
-        expect(title?.textContent).toBe('Player 1 wins!');
+        expect(title?.textContent).toBe(NO_HANDLE_TITLE);
     });
 
     it('renders correct body text for win with last_standing reason (AC-002)', () => {
@@ -147,7 +151,7 @@ describe('GameOverModal', () => {
     it('win with all_surrendered reason shows correct text', () => {
         const result: MatchResult = {
             kind: 'win',
-            winner: 2,
+            winner: TEST_PLAYER_2,
             tick: 300,
             reason: 'all_surrendered',
         };
@@ -167,8 +171,8 @@ describe('GameOverModal', () => {
 
     it('shows display name instead of numeric ID when playerNames is provided', () => {
         const names = new Map<PlayerId, string>([
-            [1, 'Shaun'],
-            [2, 'Chrome'],
+            [TEST_PLAYER_1, 'Shaun'],
+            [TEST_PLAYER_2, 'Chrome'],
         ]);
         renderModal({ open: true, result: winResult, onReturnToLobby: vi.fn(), playerNames: names });
         const title = document.getElementById('gameover-title');
@@ -176,23 +180,23 @@ describe('GameOverModal', () => {
     });
 
     it('falls back to Player N when playerNames does not contain the winner', () => {
-        const names = new Map<PlayerId, string>([[2, 'Chrome']]);
+        const names = new Map<PlayerId, string>([[TEST_PLAYER_2, 'Chrome']]);
         renderModal({ open: true, result: winResult, onReturnToLobby: vi.fn(), playerNames: names });
         const title = document.getElementById('gameover-title');
-        expect(title?.textContent).toBe('Player 1 wins!');
+        expect(title?.textContent).toBe(NO_HANDLE_TITLE);
     });
 
     it('falls back to Player N when playerNames is absent (backward compat)', () => {
         renderModal({ open: true, result: winResult, onReturnToLobby: vi.fn() });
         const title = document.getElementById('gameover-title');
-        expect(title?.textContent).toBe('Player 1 wins!');
+        expect(title?.textContent).toBe(NO_HANDLE_TITLE);
     });
 
     it('shows display name for winner ID 2', () => {
-        const result: MatchResult = { kind: 'win', winner: 2, tick: 300, reason: 'all_surrendered' };
+        const result: MatchResult = { kind: 'win', winner: TEST_PLAYER_2, tick: 300, reason: 'all_surrendered' };
         const names = new Map<PlayerId, string>([
-            [1, 'Shaun'],
-            [2, 'Chrome'],
+            [TEST_PLAYER_1, 'Shaun'],
+            [TEST_PLAYER_2, 'Chrome'],
         ]);
         renderModal({ open: true, result, onReturnToLobby: vi.fn(), playerNames: names });
         const title = document.getElementById('gameover-title');
@@ -234,7 +238,7 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
                 sessionToken: null,
                 playerId: null,
                 displayName: '',
-                opponents: [],
+                participants: [],
                 playerNames: new Map(),
             },
             inputEnabled: false,
@@ -248,7 +252,7 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
     }
 
     it('does NOT render GameOverModal when onReturnToLobby is absent (AC-009)', () => {
-        const winResult: MatchResult = { kind: 'win', winner: 1, tick: 100, reason: 'last_standing' };
+        const winResult: MatchResult = { kind: 'win', winner: TEST_PLAYER_1, tick: 100, reason: 'last_standing' };
         renderAppWithGameState('game_over', winResult);
         expect(document.querySelector('.europa-modal-backdrop')).toBeNull();
     });
@@ -261,23 +265,23 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
 
     it('does NOT render GameOverModal when status is not game_over', () => {
         const onReturnToLobby = vi.fn();
-        const winResult: MatchResult = { kind: 'win', winner: 1, tick: 100, reason: 'last_standing' };
+        const winResult: MatchResult = { kind: 'win', winner: TEST_PLAYER_1, tick: 100, reason: 'last_standing' };
         renderAppWithGameState('live', winResult, onReturnToLobby);
         expect(document.querySelector('.europa-modal-backdrop')).toBeNull();
     });
 
     it('renders GameOverModal when all three conditions are met (AC-010)', () => {
         const onReturnToLobby = vi.fn();
-        const winResult: MatchResult = { kind: 'win', winner: 1, tick: 100, reason: 'last_standing' };
+        const winResult: MatchResult = { kind: 'win', winner: TEST_PLAYER_1, tick: 100, reason: 'last_standing' };
         renderAppWithGameState('game_over', winResult, onReturnToLobby);
         expect(document.querySelector('.europa-modal-backdrop')).not.toBeNull();
         const title = document.getElementById('gameover-title');
-        expect(title?.textContent).toBe('Player 1 wins!');
+        expect(title?.textContent).toBe(NO_HANDLE_TITLE);
     });
 
     it('passes display names to GameOverModal from session state', () => {
         const onReturnToLobby = vi.fn();
-        const winResult: MatchResult = { kind: 'win', winner: 2, tick: 100, reason: 'last_standing' };
+        const winResult: MatchResult = { kind: 'win', winner: TEST_PLAYER_2, tick: 100, reason: 'last_standing' };
         const state = {
             status: 'game_over',
             matchResult: winResult,
@@ -299,12 +303,15 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
             session: {
                 matchId: null,
                 sessionToken: null,
-                playerId: 1 as import('../../../src/state/types').PlayerId,
+                playerId: TEST_PLAYER_1,
                 displayName: 'Shaun',
-                opponents: ['Chrome'],
+                participants: [
+                    { id: TEST_PLAYER_1, name: 'Shaun', isLocal: true },
+                    { id: TEST_PLAYER_2, name: 'Chrome', isLocal: false },
+                ],
                 playerNames: new Map([
-                    [1 as import('../../../src/state/types').PlayerId, 'Shaun'],
-                    [2 as import('../../../src/state/types').PlayerId, 'Chrome'],
+                    [TEST_PLAYER_1, 'Shaun'],
+                    [TEST_PLAYER_2, 'Chrome'],
                 ]),
             },
             inputEnabled: false,

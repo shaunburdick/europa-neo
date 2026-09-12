@@ -257,20 +257,32 @@ work (Wave 7 owns console). Every blocker reproduced as failing before the fix.
 
 ## Wave 7 — Console state, UI, and mounted routing
 
-- [ ] **T036**: [P] Update console contracts/state/reducer/net adapters in
+- [x] **T036**: [P] Update console contracts/state/reducer/net adapters in
   `packages/console/src/contracts/`, `state/`, and `net/` to key ownership,
   colors, names, participants, terminal, and rematch state by server `PlayerId`,
-  never numeric seat or handle text.
-- [ ] **T037**: [P] Update console render/UI paths (`render/`, `ui/`, sidebar,
+  never numeric seat or handle text. (`ConsoleSession.participants` replaces the
+  seat-ordered `opponents` list; `PLAYER_COLOR_PALETTE` replaces the numeric
+  `DEFAULT_PLAYER_COLORS` and colors resolve from `PlayerConfig.playerIds`; the
+  lobby client no longer mints identity — it presents an empty advisory claim
+  and adopts+persists the server-issued canonical id.)
+- [x] **T037**: [P] Update console render/UI paths (`render/`, `ui/`, sidebar,
   labels, minimap, modal, and spectator components) for handle-first labels with
   ID fallback; preserve accessibility semantics and spectator inert controls.
-- [ ] **T038**: [P] Update `packages/console/src/routing/` and mounted runtime
+  (Participants keyed by `PlayerId` with `data-europa-player-id`; aria label /
+  modal / terminal fall back to the canonical ID, never a fabricated "Player N".)
+- [x] **T038**: [P] Update `packages/console/src/routing/` and mounted runtime
   handoffs so create/join/spectate/share-link flows use the canonical TanStack
   Router tree, defer until connection/identity readiness as required, and do not
-  use raw history mutation or legacy direct mounting.
-- [ ] **T039**: Update console fixtures, deterministic golden data, component/a11y
+  use raw history mutation or legacy direct mounting. (Verified: all handoffs
+  already use the mounted router; the `connection === 'ready'` AND
+  `identityStatus === 'named'` gates are intact, final pathname + mounted view
+  preserved; no `src/routing/` source change required.)
+- [x] **T039**: Update console fixtures, deterministic golden data, component/a11y
   tests, and unit tests to use explicit valid IDs; add forged-ID ownership and
   ID-preservation tests for reconnect, terminal, rematch, and spectator state.
+  (New `tests/unit/state/identity-authority.test.ts`; golden hash regenerated via
+  `scripts/generate-determinism-golden.ts` after the identity-keyed session
+  serialization changed.)
 - [ ] **T040**: Add browser E2E coverage for create, join, spectate, share-link,
   unnamed profile round-trip, final canonical URL, mounted view, two-seat ID
   preservation, and ID-only order/view denial.

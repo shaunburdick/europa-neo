@@ -31,6 +31,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parsePlayerId } from '@europa/core';
 import type { Order, World } from '@europa/engine';
 import type { PlayerView } from '@europa/fog';
 import type { ConnectionState, MatchClient } from '@europa/networking';
@@ -44,7 +45,6 @@ import type {
     ConnectionState as ConnectionStateReexport,
     MatchClient as MatchClientReexport,
     Order as OrderReexport,
-    PlayerId,
     PlayerView as PlayerViewReexport,
     World as WorldReexport,
 } from '../../src/state/types';
@@ -144,6 +144,7 @@ const DIST_TYPE_WITNESS = {
     ConsoleClientState: null as unknown as DistTypes.ConsoleClientState,
     ConsoleConfig: null as unknown as DistTypes.ConsoleConfig,
     ConsoleConnectionStatus: null as unknown as DistTypes.ConsoleConnectionStatus,
+    ConsoleParticipant: null as unknown as DistTypes.ConsoleParticipant,
     ConsoleConstants: null as unknown as DistTypes.ConsoleConstants,
     ConsoleDeps: null as unknown as DistTypes.ConsoleDeps,
     ConsoleFeatureFlags: null as unknown as DistTypes.ConsoleFeatureFlags,
@@ -158,7 +159,6 @@ const DIST_TYPE_WITNESS = {
     DEFAULT_CAMERA: null as unknown as typeof DistTypes.DEFAULT_CAMERA,
     DEFAULT_CONSOLE_CLIENT_CONFIG: null as unknown as typeof DistTypes.DEFAULT_CONSOLE_CLIENT_CONFIG,
     DEFAULT_INPUT_MAPPING: null as unknown as typeof DistTypes.DEFAULT_INPUT_MAPPING,
-    DEFAULT_PLAYER_COLORS: null as unknown as typeof DistTypes.DEFAULT_PLAYER_COLORS,
     DEFAULT_QOL_SETTINGS: null as unknown as typeof DistTypes.DEFAULT_QOL_SETTINGS,
     Direction: null as unknown as DistTypes.Direction,
     EnvelopeContext: null as unknown as DistTypes.EnvelopeContext,
@@ -178,6 +178,7 @@ const DIST_TYPE_WITNESS = {
     OrderAckPayload: null as unknown as DistTypes.OrderAckPayload,
     OrderSubmissionPayload: null as unknown as DistTypes.OrderSubmissionPayload,
     PlayerAction: null as unknown as DistTypes.PlayerAction,
+    PLAYER_COLOR_PALETTE: null as unknown as typeof DistTypes.PLAYER_COLOR_PALETTE,
     PlayerId: null as unknown as DistTypes.PlayerId,
     PlayerView: null as unknown as DistTypes.PlayerView,
     PointerBinding: null as unknown as DistTypes.PointerBinding,
@@ -299,7 +300,7 @@ describe('contract conformance (T089)', () => {
         });
 
         it('the Order union exposes exactly the eight documented variants', () => {
-            const player = 1 as PlayerId;
+            const player = parsePlayerId('TestPlayer01');
             expect(orderVariantWitness({ kind: 'setPipe', player, cell: { x: 1, y: 2 }, direction: 'N' })).toBe(
                 'setPipe:1,2:N',
             );
@@ -326,7 +327,7 @@ describe('contract conformance (T089)', () => {
             expect(typeof Dist.ConsoleRuntime).toBe('function');
             expect(Dist.CONSOLE_API_VERSION).toBeTypeOf('string');
             expect(Object.keys(Dist.CONSOLE_CONSTANTS).length).toBeGreaterThan(0);
-            expect(Object.keys(Dist.DEFAULT_PLAYER_COLORS)).toHaveLength(4);
+            expect(Dist.PLAYER_COLOR_PALETTE).toHaveLength(4);
         });
     });
 });

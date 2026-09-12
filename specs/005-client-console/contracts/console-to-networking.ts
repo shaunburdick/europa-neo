@@ -164,11 +164,6 @@ export interface ConsoleClientConfig {
    * (e.g., after the player picks a match from a lobby).
    */
   readonly matchId?: MatchId;
-  /**
-   * Optional requested seat. Server picks the lowest open seat
-   * if omitted.
-   */
-  readonly requestedSeat?: number;
   /** Whether to auto-reconnect on socket close. Default `true`. */
   readonly autoReconnect?: boolean;
   /**

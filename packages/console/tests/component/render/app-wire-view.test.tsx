@@ -29,6 +29,7 @@ import { createOrderBridge } from '../../../src/state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../../../src/state/reducer';
 import { type ConsoleStore, createConsoleStore } from '../../../src/state/store';
 import type { NetworkPayload, ProtocolEnvelope, ReducerEffect, SequenceNumber } from '../../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
 // Scripted server: emits REAL wire JSON (Set-typed fields as arrays)
@@ -82,7 +83,7 @@ function wireCell(x: number, y: number, pipes: string[]): Record<string, unknown
         coord: { x, y },
         cell: { x, y, elevation: 60, terrain: 'land' },
         troopCount: 12,
-        troopOwner: 1,
+        troopOwner: TEST_PLAYER_1,
         pipes,
         reservesPercent: 0,
         cityOwner: null,
@@ -92,11 +93,17 @@ function wireCell(x: number, y: number, pipes: string[]): Record<string, unknown
 /** Minimal PlayerView as serialized on the wire (array pipes inside). */
 function wireView(tick: number, cells: Record<string, unknown>[]): Record<string, unknown> {
     return {
-        player: 1,
+        player: TEST_PLAYER_1,
         tick,
         visibleCells: cells,
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
-        config: { boardSize: 32, playerCount: 2, tickIntervalMs: 250, seed: 0, visibilityRadius: 2 },
+        config: {
+            boardSize: 32,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
+            tickIntervalMs: 250,
+            seed: 0,
+            visibilityRadius: 2,
+        },
     };
 }
 
@@ -145,7 +152,7 @@ async function bootLiveConsole(): Promise<Boot> {
     // Join snapshot WITH a pipe-bearing cell, wire-shaped (array!).
     socket.deliver('joinAck', {
         sessionToken: 'tok-1',
-        playerId: 1,
+        playerId: TEST_PLAYER_1,
         view: wireView(1, [wireCell(5, 5, ['E'])]),
         tick: 1,
         players: [],

@@ -9,6 +9,8 @@
  * determinism test T083 consumes {@link scriptedTick}).
  */
 
+import { parsePlayerId } from '@europa/core';
+
 import { INITIAL_CONSOLE_STATE, reduce } from '../../src/state/reducer';
 import type {
     CellView,
@@ -23,6 +25,16 @@ import type {
     ReservesPct,
     TickEvents,
 } from '../../src/state/types';
+
+/**
+ * Canonical deterministic test identities (issue #74). Exact 12-char
+ * `[A-Za-z0-9_-]` values so every fixture exercises the real canonical
+ * validator; engine/console code never accepts a numeric identity.
+ */
+export const TEST_PLAYER_1: PlayerId = parsePlayerId('TestPlayer01');
+export const TEST_PLAYER_2: PlayerId = parsePlayerId('TestPlayer02');
+export const TEST_PLAYER_3: PlayerId = parsePlayerId('TestPlayer03');
+export const TEST_PLAYER_4: PlayerId = parsePlayerId('TestPlayer04');
 
 /** Arguments for {@link buildCellView}; everything has a sane default. */
 export interface BuildCellViewArgs {
@@ -75,8 +87,10 @@ export interface BuildPlayerViewArgs {
     readonly visibleCells?: readonly CellView[];
     /** View tick. Default 0. */
     readonly tick?: number;
-    /** Owning player of this view. Default 1. */
+    /** Owning player of this view. Default {@link TEST_PLAYER_1}. */
     readonly playerId?: PlayerId;
+    /** Player identities in placement-slot order. Default the first two. */
+    readonly playerIds?: readonly PlayerId[];
     /** Match seed for the embedded MatchConfig. Default 0. */
     readonly seed?: number;
     /** Tick events block. Default: all-empty events. */
@@ -92,7 +106,7 @@ export interface BuildPlayerViewArgs {
 export function buildPlayerView(args: BuildPlayerViewArgs): PlayerView {
     const config: MatchConfig = {
         boardSize: args.width,
-        playerCount: 2,
+        playerIds: args.playerIds ?? [TEST_PLAYER_1, TEST_PLAYER_2],
         tickIntervalMs: 250,
         seed: args.seed ?? 0,
         visibilityRadius: 2,
@@ -105,7 +119,7 @@ export function buildPlayerView(args: BuildPlayerViewArgs): PlayerView {
         errors: [],
     };
     return {
-        player: args.playerId ?? 1,
+        player: args.playerId ?? TEST_PLAYER_1,
         tick: args.tick ?? 0,
         visibleCells: args.visibleCells ?? [],
         events: args.tickEvents ?? emptyEvents,

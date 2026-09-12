@@ -31,6 +31,7 @@
  * only `{ guestPlayerIdClaim, handle }` under a namespaced key").
  */
 
+import { isGuestPlayerId } from '@europa/core';
 import type { GuestPlayerId } from '@europa/matchmaking';
 
 /**
@@ -45,13 +46,16 @@ export const REDACTION_MARKER = '[redacted]';
 
 /**
  * The persisted non-secret resume claim (data-model.md §4), distinct from
- * session/reconnect bearer credentials. `handle` is the
- * last SERVER-accepted display handle (`null` until the visitor picks
- * a valid one); it is advisory input on restore — the server record
- * always wins.
+ * session/reconnect bearer credentials. `guestPlayerId` is `null` until
+ * the SERVER issues the universal identity (issue #74: the browser never
+ * mints one); after the directed `identity` event delivers it, the client
+ * adopts and persists it here. `handle` is the last SERVER-accepted
+ * display handle (`null` until the visitor picks a valid one); both
+ * fields are advisory input on restore — the server record always wins.
  */
 export interface StoredLobbyClaim {
-    readonly guestPlayerId: GuestPlayerId;
+    /** Server-issued universal identity, or `null` before first delivery. */
+    readonly guestPlayerId: GuestPlayerId | null;
     readonly handle: string | null;
 }
 
@@ -67,26 +71,26 @@ export interface LobbyStorage {
 }
 
 /**
- * Minimal structural view of the Web Crypto surface used to mint
- * claim ids. Declared locally (instead of using the DOM `Crypto`
- * type) so tests can inject deterministic fakes and so the fallback
- * chain below degrades gracefully when only `getRandomValues` exists.
+ * Shape guard for one parsed claim record (post-JSON validation).
+ *
+ * The identity is validated with the canonical
+ * {@link isGuestPlayerId} validator (issue #74) — never a
+ * `length > 0` proxy. `null` is the legitimate pre-allocation state and
+ * is accepted; any other non-canonical value (including `undefined`,
+ * numbers, or wrong-length strings) is rejected so corrupted or
+ * tampered storage is treated as a first visit.
+ *
+ * @param value Parsed JSON value.
+ * @returns `true` when the value is a well-formed stored claim.
  */
-export interface GuestClaimIdCrypto {
-    readonly randomUUID?: (() => string) | undefined;
-    readonly getRandomValues?: ((array: Uint8Array) => Uint8Array) | undefined;
-}
-
-/** Shape guard for one parsed claim record (post-JSON validation). */
 function isStoredLobbyClaim(value: unknown): value is StoredLobbyClaim {
     if (typeof value !== 'object' || value === null) {
         return false;
     }
     const candidate = value as Partial<StoredLobbyClaim>;
     const { guestPlayerId, handle } = candidate;
-    return (
-        typeof guestPlayerId === 'string' && guestPlayerId.length > 0 && (handle === null || typeof handle === 'string')
-    );
+    const identityValid = guestPlayerId === null || isGuestPlayerId(guestPlayerId);
+    return identityValid && (handle === null || typeof handle === 'string');
 }
 
 /**
@@ -194,37 +198,16 @@ export function clearStoredClaim(storage: LobbyStorage | null): void {
     }
 }
 
-/** Hex alphabet width for the `getRandomValues` fallback (bits/4). */
-const FALLBACK_HEX_BYTE_PAIRS = 16;
-
-/**
- * Mint a fresh opaque claim id. Preference order:
- *
- *   1. `crypto.randomUUID()` (CSPRNG UUID v4 — every evergreen browser
- *      and Node ≥ 19 in secure contexts),
- *   2. 16 bytes from `crypto.getRandomValues` rendered as hex,
- *   3. otherwise throw: a runtime with NO Web Crypto at all cannot
- *      produce collision-resistant identity claims, and failing loudly
- *      beats silently reusing a predictable id.
- *
- * The result is an uncorrelated random string — it carries no meaning,
- * which is exactly what FR-024's opacity requires.
- *
- * @param cryptoProvider Crypto source; defaults to `globalThis.crypto`.
- *   Tests inject deterministic fakes.
- */
-export function mintGuestClaimId(cryptoProvider: GuestClaimIdCrypto = globalThis.crypto): GuestPlayerId {
-    if (typeof cryptoProvider.randomUUID === 'function') {
-        return cryptoProvider.randomUUID() as GuestPlayerId;
-    }
-    if (typeof cryptoProvider.getRandomValues === 'function') {
-        const bytes = new Uint8Array(FALLBACK_HEX_BYTE_PAIRS);
-        cryptoProvider.getRandomValues(bytes);
-        let hex = '';
-        for (const byte of bytes) {
-            hex += byte.toString(16).padStart(2, '0');
-        }
-        return hex as GuestPlayerId;
-    }
-    throw new Error('lobby-storage: no Web Crypto provider available to mint a guest claim id');
-}
+// ----------------------------------------------------------------------------
+// No client-side identity minting (issue #74)
+// ----------------------------------------------------------------------------
+//
+// The universal `GuestPlayerId` is issued by the server (matchmaking is
+// the identity authority) and delivered on the directed `identity` lobby
+// event. The browser NEVER synthesizes an identity: a first connect
+// presents an advisory claim with no `guestPlayerId`, and subsequent
+// connects present the canonical value the server previously delivered
+// (adopted by `ws-lobby-client.ts`, which is the only writer of that
+// field). There is therefore no `randomUUID`/hex minting helper here —
+// see `specs/010-public-lobby-match-browser` Clarifications v1.6 and the
+// issue #74 identity contract.

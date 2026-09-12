@@ -19,7 +19,7 @@
  * renderer paints their pixels as void (fog FR-002).
  */
 
-import { CONSOLE_CONSTANTS, DEFAULT_PLAYER_COLORS } from '../config';
+import { CONSOLE_CONSTANTS, PLAYER_COLOR_PALETTE } from '../config';
 import { classifyPipeSlope, PIPE_SLOPE_CONSTANTS, type PipeSlope, pipeIntensity } from '../render/pipe-slope';
 import { diffCellChanges } from './diff';
 import type {
@@ -32,6 +32,7 @@ import type {
     MapLabel,
     MapView,
     MapViewId,
+    PlayerId,
     PlayerView,
 } from './types';
 
@@ -53,6 +54,27 @@ export function keyToCoord(key: string): Coord {
     const x = Number.parseInt(key.slice(0, commaIndex), 10);
     const y = Number.parseInt(key.slice(commaIndex + 1), 10);
     return { x, y };
+}
+
+/**
+ * Assign the fixed palette to the server-issued `PlayerId`s in terrain
+ * placement-slot order (`PlayerView.config.playerIds`). Identity is the
+ * key; the slot index only chooses a cosmetic color. Palette entries
+ * repeat if a board ever carried more players than colors (the engine
+ * caps at 4). Pure.
+ *
+ * @param playerIds Player identities in placement-slot order.
+ * @returns ID → CSS color map for owner/city rendering.
+ */
+export function playerColorsFor(playerIds: readonly PlayerId[]): Readonly<Record<PlayerId, string>> {
+    const colors: Record<PlayerId, string> = {};
+    playerIds.forEach((id, index) => {
+        const color = PLAYER_COLOR_PALETTE[index % PLAYER_COLOR_PALETTE.length];
+        if (color !== undefined) {
+            colors[id] = color;
+        }
+    });
+    return colors;
 }
 
 /**
@@ -258,7 +280,7 @@ export function buildMapView(args: BuildMapViewArgs): MapView {
         width: size,
         height: size,
         cells,
-        playerColors: DEFAULT_PLAYER_COLORS,
+        playerColors: playerColorsFor(view.config.playerIds),
         effects,
         labels,
         camera,

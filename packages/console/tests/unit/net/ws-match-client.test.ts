@@ -22,6 +22,7 @@ import { createConsoleClient } from '../../../src/net/client';
 import { netEventFromEnvelope } from '../../../src/net/envelope-to-event';
 import { createWsMatchClient } from '../../../src/net/ws-match-client';
 import type { NetworkPayload, ProtocolEnvelope, SequenceNumber } from '../../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
 // Scripted fake WebSocket
@@ -125,7 +126,7 @@ async function joinedClient(): Promise<{
     });
     parts.socket.deliver('joinAck', {
         sessionToken: 'tok-1' as never,
-        playerId: 1 as never,
+        playerId: TEST_PLAYER_1,
         view: { tick: 0, visibleCells: [] } as never,
         tick: 0,
         players: [],
@@ -210,7 +211,7 @@ describe('WsMatchClient seat claim', () => {
 
         socket.deliver('joinAck', {
             sessionToken: 'tok-9' as never,
-            playerId: 2 as never,
+            playerId: TEST_PLAYER_2,
             view: { tick: 3, visibleCells: [] } as never,
             tick: 3,
             players: [],
@@ -219,7 +220,7 @@ describe('WsMatchClient seat claim', () => {
         const snapshot = client.state();
         expect(snapshot.connection).toBe('joined');
         expect(snapshot.sessionToken).toBe('tok-9');
-        expect(snapshot.playerId).toBe(2);
+        expect(snapshot.playerId).toBe(TEST_PLAYER_2);
         expect(snapshot.matchId).toBe('m-9');
         expect(snapshot.lastTick).toBe(3);
     });
@@ -235,7 +236,7 @@ describe('WsMatchClient seat claim', () => {
         expect(sentEnvelope(socket, 1).payload).toMatchObject({ reconnectToken: 'tok-old' });
         socket.deliver('joinAck', {
             sessionToken: 'tok-old' as never,
-            playerId: 1 as never,
+            playerId: TEST_PLAYER_1,
             view: { tick: 0, visibleCells: [] } as never,
             tick: 0,
             players: [],
@@ -279,13 +280,13 @@ describe('WsMatchClient orders + inbound stream', () => {
         const { client, socket } = await joinedClient();
         const first = client.sendOrder({
             kind: 'setReserves',
-            player: 1 as never,
+            player: TEST_PLAYER_1,
             cell: { x: 1, y: 1 },
             percent: 7 as never,
         });
         const second = client.sendOrder({
             kind: 'setReserves',
-            player: 1 as never,
+            player: TEST_PLAYER_1,
             cell: { x: 1, y: 1 },
             percent: 0 as never,
         });
@@ -329,7 +330,7 @@ describe('WsMatchClient orders + inbound stream', () => {
 
     it('sendOrder requires a joined seat', async () => {
         const { client } = greetedClient();
-        await expect(client.sendOrder({ kind: 'surrender', player: 1 as never })).rejects.toThrow(/joined/);
+        await expect(client.sendOrder({ kind: 'surrender', player: TEST_PLAYER_1 })).rejects.toThrow(/joined/);
     });
 });
 
@@ -354,7 +355,7 @@ describe('adapter ↔ wire-seq correlation (integration-wave regression)', () =>
         const joining = client.joinMatch();
         socket.deliver('joinAck', {
             sessionToken: 't' as never,
-            playerId: 1 as never,
+            playerId: TEST_PLAYER_1,
             view: { tick: 0, visibleCells: [] } as never,
             tick: 0,
             players: [],
@@ -363,7 +364,7 @@ describe('adapter ↔ wire-seq correlation (integration-wave regression)', () =>
 
         void client.sendOrder(42, {
             kind: 'setReserves',
-            player: 1 as never,
+            player: TEST_PLAYER_1,
             cell: { x: 1, y: 1 },
             percent: 7 as never,
         });
@@ -405,7 +406,7 @@ describe('WsMatchClient wire-view rehydration (live-wire defect fix)', () => {
             coord: { x, y },
             cell: { x, y, elevation: 60, terrain: 'land' },
             troopCount: 12,
-            troopOwner: 1,
+            troopOwner: TEST_PLAYER_1,
             pipes,
             reservesPercent: 0,
             cityOwner: null,
@@ -415,11 +416,17 @@ describe('WsMatchClient wire-view rehydration (live-wire defect fix)', () => {
     /** Minimal PlayerView shape as it looks ON THE WIRE (array pipes). */
     function wireView(tick: number, cells: Record<string, unknown>[]): Record<string, unknown> {
         return {
-            player: 1,
+            player: TEST_PLAYER_1,
             tick,
             visibleCells: cells,
             events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
-            config: { boardSize: 32, playerCount: 2, tickIntervalMs: 250, seed: 0, visibilityRadius: 2 },
+            config: {
+                boardSize: 32,
+                playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
+                tickIntervalMs: 250,
+                seed: 0,
+                visibilityRadius: 2,
+            },
         };
     }
 
@@ -469,7 +476,7 @@ describe('WsMatchClient wire-view rehydration (live-wire defect fix)', () => {
         });
         socket.deliver('joinAck', {
             sessionToken: 'tok-rh' as never,
-            playerId: 1 as never,
+            playerId: TEST_PLAYER_1,
             view: wireView(2, [wireCell(3, 4, ['S'])]),
             tick: 2,
             players: [],
@@ -569,7 +576,7 @@ describe('WsMatchClient lifecycle end states', () => {
         client.onConnectionChanged((state) => {
             transitions.push(state);
         });
-        const pending = client.sendOrder({ kind: 'surrender', player: 1 as never });
+        const pending = client.sendOrder({ kind: 'surrender', player: TEST_PLAYER_1 });
         socket.transportClose(1006);
         await expect(pending).rejects.toThrow(/closed/);
         expect(client.state().connection).toBe('disconnected');

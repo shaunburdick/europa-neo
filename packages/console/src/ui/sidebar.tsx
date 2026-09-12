@@ -150,7 +150,7 @@ export function Sidebar({
                         {session.displayName.length > 0
                             ? session.displayName
                             : session.playerId !== null
-                              ? `Player ${String(session.playerId)}`
+                              ? session.playerId
                               : 'Spectator'}
                     </span>
                 </Tooltip>

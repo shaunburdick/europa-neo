@@ -358,6 +358,70 @@
     `console/src/net/lobby-storage.ts:218,227` — Wave 7); `git diff --check`
     clean.
 
+- **Wave 7 — complete (console state, UI, and mounted routing, T036–T039)**:
+  the console now keys every identity surface by the server-issued
+  `PlayerId`; the browser never mints identity.
+  - **T036 (contracts/state/net)**:
+    - `ConsoleSession` drops the seat-ordered `opponents: string[]` and gains
+      `participants: ReadonlyArray<ConsoleParticipant>` (`{ id, name, isLocal }`
+      in placement-slot order) + `playerNames: ReadonlyMap<PlayerId, string>`
+      (only real handles — the engine's raw-ID placeholder is deliberately
+      omitted so the ID can render as the fallback, never as a handle).
+    - `DEFAULT_PLAYER_COLORS: Record<PlayerId, string>` (numeric keys 1–4)
+      replaced by `PLAYER_COLOR_PALETTE: ReadonlyArray<string>`; `buildMapView`
+      builds `playerColors` from `PlayerView.config.playerIds` (new
+      `playerColorsFor`), so colors are keyed by ID, never seat.
+    - `CONSOLE_API_VERSION` 0.3.0 → 0.4.0 (breaking public-session surface).
+    - `ConsoleClientConfig.requestedSeat?: number` removed from both the local
+      contract mirror and `specs/005-client-console/contracts/` (byte-identity
+      conformance preserved; the wire field was already removed in Wave 6).
+    - Reducer `joined` keys participants by ID in `view.config.playerIds` order
+      and stores only real handles; `resolveName`/label fallbacks return the
+      canonical ID (no fabricated "Player N"); spectator fold mirrors this.
+    - **Guest-ID lifecycle end state**: `lobby-storage.ts` no longer mints
+      (`mintGuestClaimId`/`GuestClaimIdCrypto` deleted); `StoredLobbyClaim.guestPlayerId`
+      is `GuestPlayerId | null` and is validated with the canonical
+      `isGuestPlayerId` (not `length > 0`). First connect sends
+      `lobbyIdentity` with an EMPTY claim; the server allocates and returns the
+      id on the directed `identity` event; the client adopts + persists it and
+      re-presents it on later connects as advisory correlation only. `hasClaim`
+      now means "a server-issued id is known". `@europa/core` added as a direct
+      console dependency for the canonical validator.
+  - **T037 (render/UI)**: participant rows key/render by `PlayerId`
+    (`data-europa-player-id`), every server name/ID is `<bdi>`-isolated, sidebar
+    "You:", cell aria labels, and the game-over winner all fall back to the
+    canonical ID; help-overlay player color resolves from the live
+    `MapView.playerColors`. Spectator inert controls unchanged (FR-021); a11y
+    semantics preserved (a11y suite 69/69).
+  - **T038 (routing/handoffs)**: verified-only. Create/join/spectate/share-link
+    handoffs already run through the mounted TanStack Router tree; the
+    `connection === 'ready'` AND `identityStatus === 'named'` deferred-resolution
+    gates (feature 015 live-smoke fix) are intact; no raw `history` mutation and
+    no legacy direct mounting. No `src/routing/` source change was needed.
+  - **T039 (tests)**: all console fixtures migrated to canonical explicit IDs
+    (`TEST_PLAYER_1..4` via `parsePlayerId`); the wire-shaped test frames now
+    carry canonical identities (the real 0.3.0 validator rejects numeric
+    `playerId`, which is why the pre-wave suites timed out). New
+    `tests/unit/state/identity-authority.test.ts` pins forged/mismatched-ID
+    order denial + ID preservation across reconnect, tick, terminal, rematch,
+    and spectator state. The 1000-tick determinism golden hash was **regenerated**
+    with `scripts/generate-determinism-golden.ts` (the identity-keyed session
+    serialization legitimately changed the hashed output); the test re-runs
+    green and is stable.
+  - **Cross-package finding (report only, not fixed)**: `@europa/design`'s game
+    primitives (`EuropaTroopChip`, `EuropaCityMarker`) still model `owner` as a
+    numeric `1 | 2 | 3 | 4` and `specs/014-shared-ui-components/spec.md` still
+    documents that shape truthfully. The console does not use those primitives
+    with player identities (only generic components), so nothing is broken today;
+    migrating design's owner props to `PlayerId` (or removing the numeric
+    contract) is a separate design-owned change.
+  - **Verification**: console typecheck + `typecheck:conformance`, lint,
+    `format:check`, and build clean; node-mode coverage suite green (1,185 tests)
+    at 89.52% stmts / 83.04% branches / 86.77% funcs / 89.53% lines (all ≥80%);
+    browser component 237/237; a11y 69/69; identity-migration guard reports
+    **ZERO console violations** (the whole repository guard is now green).
+    E2E (T040) was out of scope for this dispatch.
+
 ## Waves
 
 1. Baseline and forbidden-pattern inventory.

@@ -22,8 +22,9 @@
  *
  * Authority + privacy rules mirrored from the player path:
  *   - names come only from the server's `players` array (FR-023:
- *     spectators MAY see all participant handles), stored ascending in
- *     `session.opponents` so {@link ./seat-labels} renders them;
+ *     spectators MAY see all participant handles), stored as
+ *     `session.participants` keyed by the server-issued identity so
+ *     {@link ./seat-labels} renders them;
  *   - `playerId` stays `null` forever (a spectator joinAck whose
  *     `playerId` is non-null is IGNORED defensively — a spectator
  *     connection never adopts a seat);
@@ -71,7 +72,7 @@ export function initialSpectatorState(matchId: MatchId): ConsoleState {
             sessionToken: null,
             playerId: null,
             displayName: '',
-            opponents: [],
+            participants: [],
             playerNames: new Map(),
         },
         inputEnabled: false,
@@ -104,10 +105,13 @@ export function applySpectatorEnvelope(
                 return state;
             }
             const playerNames = new Map<import('@europa/engine').PlayerId, string>();
+            const participants: Array<import('./types').ConsoleParticipant> = [];
             for (const player of payload.players) {
-                if (player.displayName !== '') {
-                    playerNames.set(player.id, player.displayName);
+                const handle = humanHandleOf(player);
+                if (handle !== null) {
+                    playerNames.set(player.id, handle);
                 }
+                participants.push({ id: player.id, name: handle, isLocal: false });
             }
             return {
                 ...state,
@@ -115,9 +119,10 @@ export function applySpectatorEnvelope(
                 latestView: payload.view,
                 session: {
                     ...state.session,
-                    // FR-023: all participant handles, ascending seat order
-                    // (the engine's players array is indexed by PlayerId - 1).
-                    opponents: payload.players.map((player) => player.displayName),
+                    // FR-023: all participants, keyed by the server-issued
+                    // identity (the engine's players array is in canonical
+                    // UTF-16 registry order).
+                    participants,
                     playerNames,
                 },
             };
@@ -202,26 +207,41 @@ export function withNotice(state: ConsoleState, text: string, nowMs: number): Co
 }
 
 /**
- * Resolve a `PlayerId` to a display name using session state. Falls
- * back to "Player N" when the name is absent or empty. Pure.
+ * Extract a real human handle from a server roster entry, or `null`
+ * when the entry carries only the engine's raw-ID placeholder (issue
+ * #74). Mirrors the player reducer's helper. Pure.
+ *
+ * @param player Server roster entry.
+ * @returns The registered handle, or `null`.
+ */
+function humanHandleOf(player: import('@europa/engine').Player): string | null {
+    if (player.displayName === '' || player.displayName === player.id) {
+        return null;
+    }
+    return player.displayName;
+}
+
+/**
+ * Resolve a `PlayerId` to a human handle using session state. Falls
+ * back to the canonical ID when no handle is known — never a numeric
+ * seat number. Pure.
  *
  * Mirrors the `resolveName` helper in the player reducer.
  *
- * @param id The player's numeric id.
+ * @param id The player's canonical identity.
  * @param playerNames Name map from the session state.
  */
 function resolveName(
     id: import('@europa/engine').PlayerId,
     playerNames?: ReadonlyMap<import('@europa/engine').PlayerId, string>,
 ): string {
-    return playerNames?.get(id) ?? `Player ${String(id)}`;
+    return playerNames?.get(id) ?? id;
 }
 
 /**
  * One-line summary of a terminal result for the feedback surface.
- * Resolves the winner's display name when available; falls back to
- * "Player N". Id-free.
- * Pure.
+ * Resolves the winner's handle when available; falls back to the
+ * canonical server-issued ID. Pure.
  *
  * @param result The engine's terminal match result.
  * @param playerNames Name map from the session state (optional for

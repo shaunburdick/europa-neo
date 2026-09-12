@@ -18,6 +18,7 @@ import { INITIAL_CONSOLE_STATE } from '../../../src/state/reducer';
 import type { ConsoleSession } from '../../../src/state/types';
 import { ParticipantStrip } from '../../../src/ui/participants';
 import '../../../src/styles/index.css';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 afterEach(() => {
     cleanup();
@@ -35,7 +36,13 @@ describe('ParticipantStrip (smoke)', () => {
     });
 
     test('labels each seat with its server handle and marks the local seat', async () => {
-        const session = sessionOf({ playerId: 2, displayName: 'Orion', opponents: ['Nova'] });
+        const session = sessionOf({
+            playerId: TEST_PLAYER_2,
+            participants: [
+                { id: TEST_PLAYER_1, name: 'Nova', isLocal: false },
+                { id: TEST_PLAYER_2, name: 'Orion', isLocal: true },
+            ],
+        });
         const screen = await render(<ParticipantStrip session={session} />);
         const region = screen.container.querySelector('[data-europa-participants]');
         expect(region).not.toBeNull();
@@ -51,7 +58,13 @@ describe('ParticipantStrip (smoke)', () => {
     });
 
     test('every server-provided name is bidi-isolated inside <bdi>', async () => {
-        const session = sessionOf({ playerId: null, displayName: '', opponents: ['Nova', 'מִיכָאֵל'] });
+        const session = sessionOf({
+            playerId: null,
+            participants: [
+                { id: TEST_PLAYER_1, name: 'Nova', isLocal: false },
+                { id: TEST_PLAYER_2, name: 'מִיכָאֵל', isLocal: false },
+            ],
+        });
         const screen = await render(<ParticipantStrip session={session} />);
         const isolated = screen.container.querySelectorAll('bdi');
         expect(isolated).toHaveLength(2);
@@ -59,13 +72,22 @@ describe('ParticipantStrip (smoke)', () => {
         expect(isolated[1]?.textContent).toBe('מִיכָאֵל');
     });
 
-    test('uses the authoritative player correlation for seat placement and a neutral name fallback', async () => {
-        const session = sessionOf({ playerId: 2, displayName: '', opponents: ['Nova'] });
+    test('uses the authoritative identity for seat placement and an ID fallback when unnamed', async () => {
+        const session = sessionOf({
+            playerId: TEST_PLAYER_2,
+            participants: [
+                { id: TEST_PLAYER_1, name: 'Nova', isLocal: false },
+                { id: TEST_PLAYER_2, name: null, isLocal: true },
+            ],
+        });
         const screen = await render(<ParticipantStrip session={session} />);
         const seats = screen.container.querySelectorAll('[data-europa-seat]');
         expect(seats[0]?.textContent).toContain('Nova');
         expect(seats[0]?.textContent).not.toContain('(you)');
-        expect(seats[1]?.textContent).toContain('—');
+        // The unnamed local participant falls back to the canonical ID.
+        expect(seats[1]?.textContent).toContain(TEST_PLAYER_2);
         expect(seats[1]?.textContent).toContain('(you)');
+        // Identity is exposed as a data attribute, keyed by ID not seat.
+        expect(seats[1]?.getAttribute('data-europa-player-id')).toBe(TEST_PLAYER_2);
     });
 });

@@ -17,27 +17,34 @@ import {
     initialSpectatorState,
     withNotice,
 } from '../../../src/state/spectator-session';
-import type { NetworkPayload, PlayerView, ProtocolEnvelope } from '../../../src/state/types';
+import type { NetworkPayload, PlayerId, PlayerView, ProtocolEnvelope } from '../../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 const NOW = 5_000;
 const MATCH = 'm-1' as import('../../../src/state/types').MatchId;
 
-/** Minimal fog view at a tick (spectator views carry player 0 sentinel). */
+/** Minimal fog view at a tick (spectator views are identity-independent). */
 function view(tick: number): PlayerView {
     return {
-        player: 0,
+        player: TEST_PLAYER_1,
         tick,
         visibleCells: [],
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
-        config: { boardSize: 32, playerCount: 2, tickIntervalMs: 250, seed: 7, visibilityRadius: 4 },
+        config: {
+            boardSize: 32,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
+            tickIntervalMs: 250,
+            seed: 7,
+            visibilityRadius: 4,
+        },
     };
 }
 
 /** Engine-shaped players with authoritative display values. */
-function players(): ReadonlyArray<{ readonly id: number; readonly displayName: string }> {
+function players(): ReadonlyArray<{ readonly id: PlayerId; readonly displayName: string }> {
     return [
-        { id: 1, displayName: 'Nova' },
-        { id: 2, displayName: 'Orion' },
+        { id: TEST_PLAYER_1, displayName: 'Nova' },
+        { id: TEST_PLAYER_2, displayName: 'Orion' },
     ];
 }
 
@@ -67,11 +74,15 @@ describe('applySpectatorEnvelope', () => {
         expect(state.inputEnabled).toBe(false);
     });
 
-    it('attach flips to spectating, installs the server view, and records ALL handles ascending', () => {
+    it('attach flips to spectating, installs the server view, and records ALL handles', () => {
         const next = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
         expect(next.status).toBe('spectating');
         expect(next.latestView?.tick).toBe(3);
-        expect(next.session.opponents).toEqual(['Nova', 'Orion']);
+        // Participants are keyed by server identity, in roster order.
+        expect(next.session.participants).toEqual([
+            { id: TEST_PLAYER_1, name: 'Nova', isLocal: false },
+            { id: TEST_PLAYER_2, name: 'Orion', isLocal: false },
+        ]);
         // FR-024/NFR-003 posture: no seat is ever adopted.
         expect(next.session.playerId).toBeNull();
     });
@@ -85,7 +96,7 @@ describe('applySpectatorEnvelope', () => {
         const state = initialSpectatorState(MATCH);
         const playerJoin = envelope('joinAck', {
             sessionToken: 't',
-            playerId: 1,
+            playerId: TEST_PLAYER_1,
             view: view(9),
             tick: 9,
             players: players(),
@@ -105,7 +116,7 @@ describe('applySpectatorEnvelope', () => {
         let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
         state = applySpectatorEnvelope(
             state,
-            envelope('terminal', { result: { kind: 'win', winner: 2, tick: 12, reason: 'last_standing' } }),
+            envelope('terminal', { result: { kind: 'win', winner: TEST_PLAYER_2, tick: 12, reason: 'last_standing' } }),
             NOW,
         );
         expect(state.status).toBe('game_over');
@@ -116,10 +127,10 @@ describe('applySpectatorEnvelope', () => {
         let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
         state = applySpectatorEnvelope(
             state,
-            envelope('terminal', { result: { kind: 'win', winner: 1, tick: 50, reason: 'last_standing' } }),
+            envelope('terminal', { result: { kind: 'win', winner: TEST_PLAYER_1, tick: 50, reason: 'last_standing' } }),
             NOW,
         );
-        expect(state.matchResult).toEqual({ kind: 'win', winner: 1, tick: 50, reason: 'last_standing' });
+        expect(state.matchResult).toEqual({ kind: 'win', winner: TEST_PLAYER_1, tick: 50, reason: 'last_standing' });
     });
 
     it('terminal stores matchResult for draw events', () => {
@@ -147,21 +158,21 @@ describe('applySpectatorEnvelope', () => {
         let state = applySpectatorEnvelope(initialSpectatorState(MATCH), spectatorJoinAck(), NOW);
         state = applySpectatorEnvelope(
             state,
-            envelope('terminal', { result: { kind: 'win', winner: 2, tick: 12, reason: 'last_standing' } }),
+            envelope('terminal', { result: { kind: 'win', winner: TEST_PLAYER_2, tick: 12, reason: 'last_standing' } }),
             NOW,
         );
         expect(state.feedback).toHaveLength(1);
         expect(state.feedback[0]?.text).toBe('Match over — Orion wins!');
     });
 
-    it('terminal falls back to "Player N" when no name is available', () => {
+    it('terminal falls back to the canonical ID when no name is available', () => {
         // No joinAck → no playerNames populated
         const state = applySpectatorEnvelope(
             initialSpectatorState(MATCH),
-            envelope('terminal', { result: { kind: 'win', winner: 1, tick: 10, reason: 'last_standing' } }),
+            envelope('terminal', { result: { kind: 'win', winner: TEST_PLAYER_1, tick: 10, reason: 'last_standing' } }),
             NOW,
         );
-        expect(state.feedback.at(-1)?.text).toBe('Match over — Player 1 wins!');
+        expect(state.feedback.at(-1)?.text).toBe(`Match over — ${TEST_PLAYER_1} wins!`);
     });
 
     it('server errors land as feedback notices', () => {

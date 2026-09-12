@@ -83,7 +83,7 @@ connects to it.
 
 **Expected behavior**:
 - A match begins with a randomly-generated 32×32 board.
-- The player is player 1 (red by `DEFAULT_PLAYER_COLORS`).
+- The local player is the first `PlayerView.config.playerIds` entry (red via `PLAYER_COLOR_PALETTE`).
 - Player 2 has a starting city on the opposite side.
 - The console renders the board, your city, and the cells within
   your visibility horizon.
