@@ -53,7 +53,7 @@ describe('joinMatch — private match via shareable id (US3 AC-2)', () => {
         }
         expect(joined.data.matchId).toBe(matchId);
         expect(joined.data.seatAssignment.seatIndex).toBe(1);
-        expect(joined.data.seatAssignment.playerId).toBe(2);
+        expect(joined.data.seatAssignment.playerId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 
         // The last seat filled → identical auto-start sequence as public.
         expect(server.registerMatchCalls).toHaveLength(1);

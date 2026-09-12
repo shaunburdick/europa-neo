@@ -38,6 +38,10 @@
 // single branded type rather than redefining it (same ruling as
 // `contracts/match-types.ts`). Type-only import: erased at compile time,
 // keeping the package free of runtime upstream dependencies.
+// `GuestPlayerId` is core-owned (issue #74): the universal 12-character
+// server-issued identity brand single-sourced from `@europa/core`. Type-only
+// import keeps this contract module runtime-free.
+import type { GuestPlayerId } from '@europa/core';
 import type { MatchId } from '@europa/networking';
 
 // ----------------------------------------------------------------------------
@@ -45,14 +49,21 @@ import type { MatchId } from '@europa/networking';
 // ----------------------------------------------------------------------------
 
 /**
- * Unique, non-semantic identifier of one ephemeral `GuestPlayerIdentity`
- * (spec FR-002/FR-024). Minted server-side and usable as non-secret
- * correlation metadata, including in safe views, traces, or diagnostics.
- * Handles are preferred for display; this identifier is never a bearer
- * credential or a user-selectable identity. Branded so it cannot silently flow
- * into a `string` field meant for display (handles, match ids, tokens).
+ * Unique, non-secret 12-character identifier of one ephemeral
+ * `GuestPlayerIdentity` (spec FR-002/FR-024, issue #74 v1.11). This is the
+ * universal player identity: the same value flows into the engine
+ * `PlayerId`, match seats, wire payloads, and rematch records. Minted
+ * server-side and usable as non-secret correlation metadata, including in
+ * safe views, traces, diagnostics, and URLs. Handles are preferred for
+ * display; this identifier is NEVER a bearer credential or a
+ * user-selectable identity — privileged actions require the applicable
+ * session/reconnect proof.
+ *
+ * Re-exported from `@europa/core` (the single canonical brand/validator)
+ * rather than redeclared, so lobby, engine, and wire identity values are
+ * structurally one type.
  */
-export type GuestPlayerId = string & { readonly __brand: 'GuestPlayerId' };
+export type { GuestPlayerId };
 
 /**
  * Monotonic lobby-list revision (spec FR-013). Every create/fill/start/

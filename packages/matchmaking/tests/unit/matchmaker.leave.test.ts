@@ -255,9 +255,12 @@ describe('leaveMatch — running phase delegates to the forfeit policy', () => {
         expect(left.ok).toBe(true);
 
         // FR-016: the engine is the single source of truth for elimination.
+        // Resolve by universal id (dense order is UTF-16, not seat order).
         const world = h.server.lastEngineSession?.world();
-        expect(world?.players[1]?.status).toBe('eliminated');
-        expect(world?.players[0]?.status).toBe('alive');
+        const bobPlayerId = h.seam.getMatch(matchId)?.seats.get(1)?.playerId;
+        const alicePlayerId = h.seam.getMatch(matchId)?.seats.get(0)?.playerId;
+        expect(world?.players.find((player) => player.id === bobPlayerId)?.status).toBe('eliminated');
+        expect(world?.players.find((player) => player.id === alicePlayerId)?.status).toBe('alive');
 
         // The seat carries the forfeit stamp; the match keeps running.
         const match = h.seam.getMatch(matchId);
@@ -296,7 +299,7 @@ describe('leaveMatch — running phase delegates to the forfeit policy', () => {
         const { matchId, aliceToken } = startTwoPlayer(h);
 
         // Grace expiry forfeits Alice through the bridge...
-        h.server.fireOnSeatExpired({ matchId, sessionToken: aliceToken, playerId: 1 });
+        h.server.fireOnSeatExpired({ matchId, sessionToken: aliceToken, playerId: 'EventPlyr001' as never });
         expect(h.seam.getMatch(matchId)?.seats.get(0)?.forfeitedAtMs).not.toBeNull();
 
         // ...then a voluntary leave with the dead token succeeds trivially.
@@ -317,7 +320,7 @@ describe('leaveMatch — terminal phases and error table', () => {
 
         h.server.fireOnMatchTerminal({
             matchId,
-            result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 42, reason: 'last_standing' },
             tick: 42,
         });
         expect(h.seam.getMatch(matchId)?.status).toBe('finished');

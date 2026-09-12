@@ -76,7 +76,7 @@ export function makeFinished2pScenario(args?: FinishedScenarioArgs): RematchScen
     const { matchId } = created.data;
     server.fireOnMatchTerminal({
         matchId,
-        result: { kind: 'win', winner: 1, tick, reason: 'last_standing' },
+        result: { kind: 'win', winner: created.data.seatAssignment.playerId, tick, reason: 'last_standing' },
         tick,
     });
 

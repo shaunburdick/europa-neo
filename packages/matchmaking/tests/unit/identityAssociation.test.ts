@@ -132,7 +132,8 @@ function makeSeatedFillingMatch(store = createStore()): {
 /** Transition a seated filling match to `'running'` on a real engine session. */
 function startMatch(match: ReturnType<typeof createMatchRecordWithCreator>['match']): void {
     const seed = 987654321;
-    const config = buildMatchConfig(match.settings, seed);
+    const playerIds = [...match.seats.values()].sort((a, b) => a.seatIndex - b.seatIndex).map((seat) => seat.playerId);
+    const config = buildMatchConfig(match.settings, seed, playerIds);
     const engineSession = buildEngineSession(config, scriptedBoard(match.settings.boardSize, 2));
     transitionFillingToRunning(match, engineSession, CLOCK_MS);
 }
@@ -168,7 +169,7 @@ describe('record factories carry the association additively (T-006)', () => {
             playerSessionId: '11111111-1111-4111-8111-111111111111' as PlayerSessionId,
             displayName: 'Alice',
             sessionToken: 'aaaaaaaa-0000-4000-8000-00000000000a' as SessionToken,
-            playerId: null,
+            playerId: 'SeatLegacy01' as PlayerId,
             connectedAtMs: CLOCK_MS,
         });
         expect(legacy.guestPlayerId).toBeNull();
@@ -182,7 +183,7 @@ describe('record factories carry the association additively (T-006)', () => {
             handle: 'Orion',
             guestPlayerId: guestId,
             sessionToken: 'bbbbbbbb-0000-4000-8000-00000000000b' as SessionToken,
-            playerId: null,
+            playerId: 'SeatGuest001' as PlayerId,
             connectedAtMs: CLOCK_MS,
         });
         expect(identified.guestPlayerId).toBe(guestId);
@@ -265,8 +266,10 @@ describe('transition matrix: association persists through every path (FR-019)', 
         expect(aliceSeat.handle).toBe('Nova');
         expect(bobSeat.guestPlayerId).toBe(bob.guestPlayerId);
         expect(bobSeat.handle).toBe('Orion');
-        expect(aliceSeat.playerId).toBe(1);
-        expect(bobSeat.playerId).toBe(2);
+        // One universal id per guest, copied from each session at claim time
+        // (never seatIndex + 1) and stable across the transition.
+        expect(aliceSeat.playerId).toBe(alice.session.playerId);
+        expect(bobSeat.playerId).toBe(bob.session.playerId);
         // Session bindings intact after auto-start.
         expect(alice.session.currentMatchId).toBe(match.matchId);
         expect(alice.session.currentSeatIndex).toBe(0);
@@ -284,7 +287,7 @@ describe('transition matrix: association persists through every path (FR-019)', 
         const results = buildMatchResultsRecord({
             matchId: match.matchId,
             world,
-            result: { kind: 'victory', winner: 1 as PlayerId },
+            result: { kind: 'victory', winner: aliceSeat.playerId },
             seats: match.seats,
         });
         transitionRunningToFinished(match, results, CLOCK_MS);
@@ -304,9 +307,9 @@ describe('transition matrix: association persists through every path (FR-019)', 
             'status',
         ]);
         expect(results.finalPlayers.map((p) => p.displayName)).toEqual(['Alice', 'Bob']);
-        expect(results.finalPlayers.map((p) => p.id)).toEqual([1, 2]);
-        expect(serialized(results)).toContain('"id":1');
-        expect(serialized(results)).toContain('"id":2');
+        expect(results.finalPlayers.map((p) => p.id)).toEqual([aliceSeat.playerId, bobSeat.playerId]);
+        expect(serialized(results)).toContain(`"id":${JSON.stringify(aliceSeat.playerId)}`);
+        expect(serialized(results)).toContain(`"id":${JSON.stringify(bobSeat.playerId)}`);
     });
 
     it('collection keeps internal records inert and out of every projection', () => {
@@ -329,7 +332,7 @@ describe('transition matrix: association persists through every path (FR-019)', 
         const server = new FakeServer();
 
         const result = handleSeatExpired(
-            { matchId: match.matchId, sessionToken: aliceSeat.sessionToken, playerId: 1 },
+            { matchId: match.matchId, sessionToken: aliceSeat.sessionToken, playerId: aliceSeat.playerId },
             { store, server, logger: SILENT_LOGGER },
             CLOCK_MS + 60_000,
         );
@@ -581,7 +584,8 @@ describe('exposure audit: public payloads preserve safe correlation data', () =>
                 'seatIndex',
                 'sessionToken',
             ]);
-            expect(created.data.seatAssignment.playerId).toBe(1);
+            // The universal id is a canonical 12-character string, not 1.
+            expect(created.data.seatAssignment.playerId).toMatch(/^[A-Za-z0-9_-]{12}$/);
         }
 
         const matchId = created.ok ? created.data.matchId : null;
@@ -598,7 +602,9 @@ describe('exposure audit: public payloads preserve safe correlation data', () =>
                 'seatIndex',
                 'sessionToken',
             ]);
-            expect(joined.data.seatAssignment.playerId).toBe(2);
+            expect(joined.data.seatAssignment.playerId).toMatch(/^[A-Za-z0-9_-]{12}$/);
+            // Distinct players get distinct universal identities.
+            expect(joined.data.seatAssignment.playerId).not.toBe(created.data.seatAssignment.playerId);
         }
         matchmaker.close();
     });

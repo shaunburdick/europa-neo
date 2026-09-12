@@ -23,6 +23,7 @@
  * no-op listen/close).
  */
 
+import type { PlayerId } from '@europa/core';
 import type {
     AttachPlayerRequest,
     ConnectionId,
@@ -167,7 +168,7 @@ export class FakeServer {
         matchId: MatchId;
         connectionId: ConnectionId;
         sessionToken: SessionToken;
-        playerId: 1 | 2 | 3 | 4 | null;
+        playerId: PlayerId | null;
         role: ConnectionRole;
     }): void {
         this.handlers.onSeatClaimed?.(args);
@@ -184,7 +185,7 @@ export class FakeServer {
     }
 
     /** Fire `onSeatExpired` with the given payload. */
-    fireOnSeatExpired(args: { matchId: MatchId; sessionToken: SessionToken; playerId: 1 | 2 | 3 | 4 | null }): void {
+    fireOnSeatExpired(args: { matchId: MatchId; sessionToken: SessionToken; playerId: PlayerId | null }): void {
         this.handlers.onSeatExpired?.(args);
     }
 

@@ -146,7 +146,7 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
         }
         server.fireOnMatchTerminal({
             matchId: created.data.matchId,
-            result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 42, reason: 'last_standing' },
             tick: 42,
         });
 
@@ -177,7 +177,7 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
         });
         running.server.fireOnMatchTerminal({
             matchId: running.matchId,
-            result: { kind: 'win', winner: 2, tick: 9, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'WinnerPlyr02' as never, tick: 9, reason: 'last_standing' },
             tick: 9,
         });
 

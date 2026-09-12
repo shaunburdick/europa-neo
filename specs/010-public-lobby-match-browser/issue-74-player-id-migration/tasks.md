@@ -159,27 +159,27 @@ added, and no behavioral `spec.md` was modified.
 
 ## Wave 5 — Matchmaking identity lifecycle
 
-- [ ] **T024**: Implement the matchmaking ID allocation boundary in
+- [x] **T024**: Implement the matchmaking ID allocation boundary in
   `packages/matchmaking/src/idGen.ts` and identity registry internals using the
   core generator, active uniqueness set, bounded collision retry, and fail-closed
   result; remove seat-index-derived identity.
-- [ ] **T025**: Propagate one universal ID through
+- [x] **T025**: Propagate one universal ID through
   `guestPlayerIdentity.ts`, `seatRecord.ts`, `playerSession.ts`, `matchRecord.ts`,
   `matchLifecycle.ts`, `matchmaker.ts`, `engineSession.ts`, `rematch.ts`, and
   results; preserve it over reconnect, reassignment, terminal, and accepted
   rematch while the guest identity remains active.
-- [ ] **T026**: Enforce credential separation in matchmaking APIs: ID-only
+- [x] **T026**: Enforce credential separation in matchmaking APIs: ID-only
   identity mutation, admission, eviction, forfeit, order, and view operations
   must fail; session/reconnect proof remains required and client claims remain
   advisory.
-- [ ] **T027**: Update matchmaking contracts under
+- [x] **T027**: Update matchmaking contracts under
   `packages/matchmaking/contracts/` and `src/contracts/`, including seat
   assignment, match results, rematch, lobby identity, and shared error types;
   synchronize spec mirrors via conformance tests.
-- [ ] **T028**: Replace matchmaking numeric identity fixtures in
+- [x] **T028**: Replace matchmaking numeric identity fixtures in
   `packages/matchmaking/tests/fixtures/`, unit, quickstart, acceptance, and soak
   suites with valid deterministic IDs; add explicit negative numeric cases.
-- [ ] **T029**: Add lifecycle tests for create→fill→start, active uniqueness,
+- [x] **T029**: Add lifecycle tests for create→fill→start, active uniqueness,
   forced collision retry/exhaustion, reconnect grace, seat reassignment,
   terminal result, rematch identity preservation, storage/server expiry, and
   ID-only credential attacks.

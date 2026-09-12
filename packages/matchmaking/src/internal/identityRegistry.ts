@@ -35,9 +35,11 @@
  * injected `now` / `randomId` dependencies (constitution Principle II).
  */
 
+import type { PlayerId } from '@europa/core';
+import { DEFAULT_PLAYER_ID_MAX_ATTEMPTS, PlayerIdCollisionError, parseGuestPlayerId } from '@europa/core';
 import type { Result } from '../contracts/lobby-api';
 import type { GuestIdentityClaim, GuestPlayerId, IdentityState, LobbyError } from '../contracts/lobby-types';
-import { randomUUID } from '../crypto';
+import { allocateGuestPlayerId } from '../idGen';
 
 import { createGuestPlayerIdentity, type GuestPlayerIdentity } from './guestPlayerIdentity';
 import { makeLobbyError, normalizeHandleKey, validateHandle } from './handleValidation';
@@ -62,8 +64,21 @@ export const IDENTITY_GRACE_MS_DEFAULT = 60_000;
 
 /** Injectable dependencies; every field defaults for production use. */
 export interface IdentityRegistryDeps {
-    /** Injected opaque-id generator (deterministic in tests). */
+    /**
+     * Deterministic CANONICAL-id factory (tests only). When supplied, each
+     * call must return a valid 12-character canonical id; invalid values
+     * fail closed via the canonical validator, and a repeated value is a
+     * collision retried within {@linkcode maxIdAttempts}. When omitted,
+     * production allocation uses the shared `@europa/core` CSPRNG generator
+     * with active-set rejection sampling.
+     */
     readonly randomId?: () => string;
+    /**
+     * Bounded candidate-retry budget for id allocation (both the injected
+     * factory and the CSPRNG path). Defaults to
+     * `DEFAULT_PLAYER_ID_MAX_ATTEMPTS`.
+     */
+    readonly maxIdAttempts?: number;
     /** Injected wall-clock provider in epoch ms (deterministic in tests). */
     readonly now?: () => number;
     /** Reconnect grace window in ms (see {@linkcode IDENTITY_GRACE_MS_DEFAULT}). */
@@ -106,14 +121,16 @@ export interface IdentityRegistry {
 
     /**
      * Resolve a browser's resume claim into the caller's identity
-     * (US1 AC-3). A claim matching a held identity within grace
-     * reactivates it (same id, same server-held handle); any absent,
-     * expired, or forged claim silently yields a FRESH identity. The
-     * claim's `handle` field is advisory and never overrides the
-     * server record. A successful restore may let the lobby associate the
-     * connection with this ephemeral identity; it does not grant a match
-     * seat, order, reconnect-token, or fog-view authority. Runs the expiry
-     * sweep first, so an expired claimant frees its handle before the lookup.
+     * (US1 AC-3). A claim matching an identity currently in its reconnect
+     * GRACE window reactivates it (same id, same server-held handle); any
+     * absent, expired, forged, or already-ACTIVE claim silently yields a
+     * FRESH identity, so a bare id can never evict an active holder
+     * (spec 006 FR-016, spec 010 v1.11). The claim's `handle` field is
+     * advisory and never overrides the server record. A successful restore
+     * may let the lobby associate the connection with this ephemeral
+     * identity; it does not grant a match seat, order, reconnect-token, or
+     * fog-view authority. Runs the expiry sweep first, so an expired
+     * claimant frees its handle before the lookup.
      */
     restoreIdentity(claim: GuestIdentityClaim | undefined): IdentityRestoreOutcome;
 
@@ -131,6 +148,16 @@ export interface IdentityRegistry {
      *   are caller invariant breaches, not recoverable failures.
      */
     setHandle(id: GuestPlayerId, rawHandle: string): Result<string, LobbyError>;
+
+    /**
+     * Whether a held identity is currently in its reconnect grace window
+     * (disconnected but not yet expired/released). Used by the facade to
+     * decide whether a reconnect should reactivate an identity without
+     * minting a stray replacement. Unknown ids are `false`.
+     *
+     * @throws When the registry is closed.
+     */
+    isInGrace(id: GuestPlayerId): boolean;
 
     /**
      * Mark the identity disconnected, starting (or restarting) its
@@ -198,7 +225,8 @@ export interface IdentityRegistry {
  *   normalized key → owner id).
  */
 export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): IdentityRegistry {
-    const randomId = deps.randomId ?? (() => randomUUID());
+    const injectedIdFactory = deps.randomId;
+    const maxIdAttempts = deps.maxIdAttempts ?? DEFAULT_PLAYER_ID_MAX_ATTEMPTS;
     const now = deps.now ?? Date.now;
     const graceMs = deps.graceMs ?? IDENTITY_GRACE_MS_DEFAULT;
 
@@ -252,15 +280,40 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
         return released;
     }
 
+    /**
+     * Allocate one canonical universal identity (issue #74, T024/T037).
+     *
+     * Production uses the shared `@europa/core` CSPRNG generator with the
+     * registry's live ACTIVE-set as the rejection predicate and a bounded
+     * retry budget; exhaustion fails closed (never a duplicate). The
+     * deterministic test seam validates every injected value through the
+     * canonical parser (so numeric/legacy fixtures fail loudly) and applies
+     * the same bounded retry.
+     *
+     * @returns A fresh canonical `GuestPlayerId` not currently held.
+     * @throws {InvalidPlayerIdError} When the injected factory returns a
+     *   non-canonical value.
+     * @throws {PlayerIdCollisionError} When the retry budget is exhausted.
+     */
+    function allocateIdentityId(): GuestPlayerId {
+        if (injectedIdFactory !== undefined) {
+            for (let attempt = 0; attempt < maxIdAttempts; attempt++) {
+                const candidate = parseGuestPlayerId(injectedIdFactory());
+                if (!identities.has(candidate)) {
+                    return candidate;
+                }
+            }
+            throw new PlayerIdCollisionError(maxIdAttempts);
+        }
+        return allocateGuestPlayerId({
+            isActive: (candidate: PlayerId) => identities.has(parseGuestPlayerId(candidate)),
+            maxAttempts: maxIdAttempts,
+        });
+    }
+
     /** Mint, register, and return a fresh unnamed identity (shared by create/restore). */
     function mintIdentity(): GuestPlayerIdentity {
-        const id = randomId() as GuestPlayerId;
-        if (identities.has(id)) {
-            // Loud failure beats a silent duplicate: with the default
-            // generator collisions are impossible; with an injected
-            // test generator they mean the fixture is miswired.
-            throw new Error('identityRegistry: guest player id collision');
-        }
+        const id = allocateIdentityId();
         const record = createGuestPlayerIdentity({ id, nowMs: now() });
         identities.set(record.id, record);
         return record;
@@ -278,13 +331,19 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
             const claimedId = claim?.guestPlayerId;
             if (claimedId !== undefined) {
                 const existing = identities.get(claimedId);
-                if (existing !== undefined) {
+                // Credential separation (spec 006 FR-016, spec 010 v1.11):
+                // a bare id is advisory and never authorizes taking over an
+                // ACTIVE identity. Only an identity already in its own
+                // reconnect grace window may be resumed by its returning
+                // owner; an active-holder claim mints fresh below instead of
+                // evicting the incumbent.
+                if (existing !== undefined && existing.status === 'grace') {
                     existing.status = 'active';
                     existing.disconnectedAtMs = null;
                     return { identity: existing, restored: true };
                 }
             }
-            // Unknown/stale/forged/expired claim: establishment cannot
+            // Unknown/stale/forged/expired/active claim: establishment cannot
             // fail — mint fresh and ignore the claim entirely. The
             // claim's handle field is advisory and never consulted.
             return { identity: mintIdentity(), restored: false };
@@ -319,6 +378,12 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
             record.handleKey = key;
             handleOwners.set(key, id);
             return { ok: true, data: validated.data };
+        },
+
+        isInGrace(id: GuestPlayerId): boolean {
+            assertOpen();
+            const record = identities.get(id);
+            return record !== undefined && record.status === 'grace';
         },
 
         disconnect(id: GuestPlayerId): void {

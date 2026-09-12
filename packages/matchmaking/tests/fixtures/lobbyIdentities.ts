@@ -37,15 +37,16 @@ import type { GuestIdentityClaim, GuestPlayerId, IdentityState, LobbyErrorCode }
 let guestPlayerIdCounter = 0;
 
 /**
- * Mint a fresh opaque `GuestPlayerId`. Deterministic within a process
- * (`guest-0001`, `guest-0002`, …); tests that need absolute stability
- * should pass explicit ids into builders instead of relying on call
- * order. The value is non-semantic by construction — safe to use in
+ * Mint a fresh CANONICAL `GuestPlayerId` (issue #74): exactly 12
+ * characters from the canonical alphabet, deterministic within a process
+ * (`Plyr00000001`, `Plyr00000002`, …). Tests that need absolute
+ * stability should pass explicit ids into builders instead of relying on
+ * call order. The value is non-semantic by construction — safe to use in
  * leakage assertions precisely because it never belongs in a view.
  */
 export function nextGuestPlayerId(): GuestPlayerId {
     guestPlayerIdCounter += 1;
-    return `guest-${String(guestPlayerIdCounter).padStart(4, '0')}` as GuestPlayerId;
+    return `Plyr${String(guestPlayerIdCounter).padStart(8, '0')}` as GuestPlayerId;
 }
 
 // ----------------------------------------------------------------------------

@@ -75,7 +75,7 @@ describe('subscribeStatus — FR-012 transition access', () => {
 
         h.server.fireOnMatchTerminal({
             matchId,
-            result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 42, reason: 'last_standing' },
             tick: 42,
         }); // running→finished
 

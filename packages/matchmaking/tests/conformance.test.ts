@@ -85,6 +85,8 @@ function startTwoPlayerMatch(server: FakeServer) {
         matchId: created.data.matchId,
         aliceToken: created.data.seatAssignment.sessionToken,
         bobToken: joined.data.seatAssignment.sessionToken,
+        alicePlayerId: created.data.seatAssignment.playerId,
+        bobPlayerId: joined.data.seatAssignment.playerId,
     };
 }
 
@@ -107,9 +109,10 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
         const world = session?.world();
         expect(world?.players).toHaveLength(2);
 
-        // The config snapshot travels alongside (version checks + telemetry).
+        // The config snapshot travels alongside (version checks + telemetry);
+        // player count is now expressed by the explicit universal id list.
         const config = registration?.matchConfig;
-        expect(config?.playerCount).toBe(2);
+        expect(config?.playerIds).toHaveLength(2);
         expect(config?.visibilityRadius).toBeDefined();
 
         matchmaker.close();
@@ -117,7 +120,7 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
 
     it('(b) forfeit submits OrderSurrender { kind: "surrender", player } via engineSession.submit', () => {
         const server = new FakeServer();
-        const { matchmaker, matchId, aliceToken } = startTwoPlayerMatch(server);
+        const { matchmaker, matchId, aliceToken, alicePlayerId } = startTwoPlayerMatch(server);
 
         const session = server.lastEngineSession;
         if (session === undefined) {
@@ -137,20 +140,23 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
         server.fireOnSeatExpired({
             matchId,
             sessionToken: aliceToken,
-            playerId: 1 satisfies PlayerId,
+            // Advisory only: the forfeit policy uses the seat's universal id.
+            playerId: alicePlayerId satisfies PlayerId,
         });
 
-        expect(submitted).toEqual([{ kind: 'surrender', player: 1 }]);
+        // The surrendered id is the SEAT's universal id (not seatIndex + 1).
+        expect(submitted).toEqual([{ kind: 'surrender', player: alicePlayerId }]);
         // Behavioral cross-check: the engine (FR-016 single source of
         // truth for elimination) marked the surrendered player eliminated.
-        expect(session?.world().players[0]?.status).toBe('eliminated');
+        const eliminated = session.world().players.find((player) => player.id === alicePlayerId);
+        expect(eliminated?.status).toBe('eliminated');
 
         matchmaker.close();
     });
 
     it('(c)+(d) registerMatch/attachPlayer carry the canonical request shapes per seat', () => {
         const server = new FakeServer();
-        const { matchmaker, matchId, aliceToken, bobToken } = startTwoPlayerMatch(server);
+        const { matchmaker, matchId, aliceToken, bobToken, alicePlayerId, bobPlayerId } = startTwoPlayerMatch(server);
 
         // (c) exactly one registration with the documented fields. The
         // array element type IS networking's canonical RegisterMatchRequest
@@ -167,14 +173,15 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
         expect(registration.displayNames).toEqual(['Alice', 'Bob']);
         expect(registration.matchId).toBe(matchId);
 
-        // (d) one attach per seat, in seat order, playerId = seatIndex + 1.
+        // (d) one attach per seat, in seat order, carrying each seat's
+        // universal id (never seatIndex + 1).
         expect(server.attachPlayerCalls).toHaveLength(2);
         const [firstAttach, secondAttach] = server.attachPlayerCalls;
         if (firstAttach === undefined || secondAttach === undefined) {
             throw new Error('fixture: missing attachPlayer calls');
         }
-        expect(firstAttach.playerId).toBe(1);
-        expect(secondAttach.playerId).toBe(2);
+        expect(firstAttach.playerId).toBe(alicePlayerId);
+        expect(secondAttach.playerId).toBe(bobPlayerId);
         expect(firstAttach.sessionToken).toBe(aliceToken);
         expect(secondAttach.sessionToken).toBe(bobToken);
         expect(new Set(server.attachPlayerCalls.map((call) => call.matchId))).toEqual(new Set([matchId]));
@@ -184,9 +191,9 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
 
     it("(e) detachPlayer carries networking's real DetachRequest shape (no reason field)", () => {
         const server = new FakeServer();
-        const { matchmaker, matchId, aliceToken } = startTwoPlayerMatch(server);
+        const { matchmaker, matchId, aliceToken, alicePlayerId } = startTwoPlayerMatch(server);
 
-        server.fireOnSeatExpired({ matchId, sessionToken: aliceToken, playerId: 1 });
+        server.fireOnSeatExpired({ matchId, sessionToken: aliceToken, playerId: alicePlayerId });
 
         expect(server.detachPlayerCalls).toHaveLength(1);
         // Compile-time pin to the SHIPPED shape: DetachRequest is
@@ -199,7 +206,7 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
         }
         expect(detach.matchId).toBe(matchId);
         expect(detach.sessionToken).toBe(aliceToken);
-        expect(detach.playerId).toBe(1);
+        expect(detach.playerId).toBe(alicePlayerId);
         expect('reason' in detach).toBe(false);
 
         matchmaker.close();
@@ -249,7 +256,7 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
 
         bridge?.onMatchTerminal?.({
             matchId: created.data.matchId,
-            result: { kind: 'win', winner: 2, tick: 7, reason: 'last_standing' },
+            result: { kind: 'win', winner: joined.data.seatAssignment.playerId, tick: 7, reason: 'last_standing' },
             tick: 7,
         });
         expect(matchmaker.stats().finishedMatches).toBe(1);
@@ -291,14 +298,14 @@ describe('conformance: feature 012 board-size defaults mirror + no wire version 
         expect(contractSource).toContain(shippedLiteral);
     });
 
-    it('wire/API version pin — MATCHMAKING_API_VERSION and ENGINE_API_VERSION remain 0.1.0; NETWORK_API_VERSION bumped to 0.2.0 (breaking error-code change)', () => {
-        // MATCHMAKING_API_VERSION and ENGINE_API_VERSION: Feature 012 is
-        // explicitly out-of-scope for any wire/protocol bump — a silent bump
-        // would force unnecessary client updates.
-        // NETWORK_API_VERSION: intentionally bumped to 0.2.0 as part of the
-        // error-code breaking change (FR-017/FR-016).
-        expect(MATCHMAKING_API_VERSION).toBe('0.1.0');
+    it('API version pin — MATCHMAKING_API_VERSION + ENGINE_API_VERSION bumped to 0.2.0 for the universal PlayerId break; NETWORK_API_VERSION still 0.2.0', () => {
+        // Issue #74 (T027) breaks the matchmaking/engine identity surface:
+        // `SeatAssignment.playerId` (and every engine identity field) becomes
+        // a canonical 12-character string, so matchmaking and engine bump
+        // their pre-1.0 minor version. Networking's own breaking wire bump
+        // lands in Wave 6 (T030).
+        expect(MATCHMAKING_API_VERSION).toBe('0.2.0');
         expect(NETWORK_API_VERSION).toBe('0.2.0');
-        expect(ENGINE_API_VERSION).toBe('0.1.0');
+        expect(ENGINE_API_VERSION).toBe('0.2.0');
     });
 });

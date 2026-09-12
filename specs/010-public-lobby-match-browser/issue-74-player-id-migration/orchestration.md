@@ -186,6 +186,62 @@
     (un-migrated waves; not suppressed or excluded). Typecheck, lint, and
     format:check clean on core/engine/fog/terrain.
 
+- **Wave 5 — complete (matchmaking identity lifecycle, T024–T029)**:
+  - **T024 allocation boundary**: `src/idGen.ts` gains
+    `allocatePlayerId`/`allocateGuestPlayerId` over `@europa/core`'s CSPRNG
+    generator (active-uniqueness predicate + bounded retry + fail-closed
+    `PlayerIdCollisionError`/`PlayerIdEntropyError`). The identity registry
+    mints canonical ids: production via the core generator with the live
+    identity map as the active set; tests via an injected canonical factory
+    that validates every value through `parseGuestPlayerId` (numeric/legacy
+    fixtures now fail loudly) and applies the same bounded retry. The
+    seat-index gate `toPlayerId(value)` and every `seatIndex + 1` identity
+    site are deleted.
+  - **T025 one universal id**: `PlayerSession.playerId` (allocated once at the
+    identity boundary; equals the lobby `GuestPlayerId` when
+    lobby-originated) is copied verbatim into `SeatRecord.playerId` at claim
+    time, fed as `MatchConfig.playerIds` in seat/placement order, attached to
+    networking per seat, used for the engine `OrderSurrender`, and preserved
+    into terminal results and accepted rematches. `results.ts` now resolves
+    standings through `world.playerRegistry` (dense order is UTF-16, NOT seat
+    order) instead of `world.players[seatIndex]`.
+  - **T026 credential separation**: `restoreIdentity` only resumes an
+    identity already in its own reconnect GRACE window; a bare claim against
+    an ACTIVE identity mints a fresh identity instead of evicting the
+    incumbent. The lobby facade short-circuits same-connection refresh and
+    only reactivates grace identities on seat reconnect. Negative tests prove
+    an id presented as a session/reconnect token fails
+    (`leaveMatch`/`requestRematch`/`acceptRematch`/`declineRematch` →
+    `session_invalid`; `joinMatch` reconnect → `match_not_found`). Residual
+    hardening (a dedicated resume secret so a bare id cannot resume a
+    grace-window identity) is tracked by GitHub issue #146; the behavioral
+    specs were not modified.
+  - **T027 contracts**: `MATCHMAKING_API_VERSION` 0.1.0 → 0.2.0 (pre-1.0
+    breaking identity surface), `SeatAssignment.playerId` documented as the
+    universal id, and the spec-006 contract mirror updated in lock-step; the
+    stale `ENGINE_API_VERSION === '0.1.0'` conformance assertion now pins
+    `0.2.0`. The roster display sort uses the shared explicit `compareUtf16`
+    instead of `localeCompare`.
+  - **T028 fixtures**: all matchmaking fixtures/unit/quickstart/acceptance/soak
+    suites migrated to valid deterministic canonical ids; negative numeric
+    cases added (injected `randomId: () => '1'` → `InvalidPlayerIdError`).
+  - **T029 tests**: new `tests/unit/idGen.test.ts` (canonical output, active-set
+    redraw, exhaustion, entropy failure) and
+    `tests/unit/playerIdLifecycle.test.ts` (one universal id through
+    create→fill→start→terminal→rematch; ID-only credential attacks; no
+    active-holder eviction).
+  - **Verification**: matchmaking typecheck, lint, format:check, build,
+    conformance typecheck all green; 389 tests passing; coverage
+    95.77/87.8/96.13/96.06 (stmts/branches/funcs/lines), all ≥80%. The
+    repository identity guard reports **zero `packages/matchmaking/`
+    violations**; the only remaining guard failures are networking (Wave 6)
+    and console (Wave 7) — not suppressed or excluded.
+  - **Environment note**: the un-migrated networking package's DTS build fails
+    on `MatchConfig.playerCount` (Wave 6 owns that fix), so matchmaking's
+    typecheck/build used declarations emitted from networking source
+    (`tsc --emitDeclarationOnly`; build artifacts only — no networking source
+    touched).
+
 ## Waves
 
 1. Baseline and forbidden-pattern inventory.
