@@ -18,7 +18,7 @@
  *     closed: no cells and no events (FR-010, issue #74).
  */
 
-import type { TickEvents } from '@europa/engine';
+import type { PlayerId, TickEvents } from '@europa/engine';
 
 import { getCell } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
@@ -110,6 +110,25 @@ describe('computePlayerView (US1)', () => {
         expect(view.player).toBe(P1);
         expect(view.tick).toBe(world.tick);
         expect(view.config).toEqual(world.config);
+    });
+
+    it('copies the identity list so a view cannot mutate authoritative world config (N1)', () => {
+        const world = withVisibilityRadius(buildWorldWithTroops(16, [[8, 8, P1, 5]]), RADIUS);
+        const original = [...world.config.playerIds];
+        const view = computePlayerView(world, P1);
+
+        // The snapshot must own a distinct array instance, not alias the
+        // engine's retained (unfrozen) `config.playerIds`.
+        expect(view.config.playerIds).not.toBe(world.config.playerIds);
+        expect(view.config.playerIds).toEqual(original);
+
+        // Mutating the view's config (the payload consumer's handle to
+        // it) must not be able to reach the world's authoritative config.
+        const mutable = view.config.playerIds as PlayerId[];
+        mutable[0] = P2;
+        expect(view.config.playerIds[0]).toBe(P2);
+        expect(world.config.playerIds).toEqual(original);
+        expect(world.config.playerIds[0]).toBe(P1);
     });
 
     it('filters cell-level events outside the horizon and keeps in-horizon ones', () => {

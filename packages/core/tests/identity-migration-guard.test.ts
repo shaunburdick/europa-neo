@@ -115,6 +115,105 @@ function isBuildFile(filePath: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Token-aware comment stripping (N4)
+// ---------------------------------------------------------------------------
+
+/** Lexer states used by {@link stripComments}. */
+type ScanState = 'code' | 'line-comment' | 'block-comment' | 'single-quote' | 'double-quote' | 'template';
+
+/**
+ * Blank out `//` line comments and block comments while preserving all
+ * code and string contents.
+ *
+ * Comment spans are replaced with spaces and newlines are preserved, so
+ * line numbers and column offsets stay stable for diagnostics. Crucially,
+ * code that precedes or follows an **inline** comment is retained and
+ * still scanned: the previous implementation skipped any line whose first
+ * non-space characters were `//`, `*`, or `/*`, which let
+ * `/*x*\/ const id = seat as PlayerId;` evade the guard entirely.
+ *
+ * String literals are intentionally preserved (the `no-nanoid-import`
+ * rule must see the module specifier), so the scanner tracks quote state
+ * and does not treat `//` or `/*` inside a string as a comment.
+ *
+ * @param source - Raw TypeScript/TSX source text.
+ * @returns Equivalent text with comment spans replaced by spaces.
+ */
+function stripComments(source: string): string {
+    let out = '';
+    let state: ScanState = 'code';
+    for (let i = 0; i < source.length; i++) {
+        const ch = source[i] ?? '';
+        const next = source[i + 1] ?? '';
+        switch (state) {
+            case 'code': {
+                if (ch === '/' && next === '/') {
+                    state = 'line-comment';
+                    out += '  ';
+                    i += 1;
+                } else if (ch === '/' && next === '*') {
+                    state = 'block-comment';
+                    out += '  ';
+                    i += 1;
+                } else if (ch === "'") {
+                    state = 'single-quote';
+                    out += ch;
+                } else if (ch === '"') {
+                    state = 'double-quote';
+                    out += ch;
+                } else if (ch === '`') {
+                    state = 'template';
+                    out += ch;
+                } else {
+                    out += ch;
+                }
+                break;
+            }
+            case 'line-comment': {
+                if (ch === '\n') {
+                    state = 'code';
+                    out += ch;
+                } else {
+                    out += ' ';
+                }
+                break;
+            }
+            case 'block-comment': {
+                if (ch === '*' && next === '/') {
+                    state = 'code';
+                    out += '  ';
+                    i += 1;
+                } else {
+                    out += ch === '\n' ? '\n' : ' ';
+                }
+                break;
+            }
+            case 'single-quote':
+            case 'double-quote':
+            case 'template': {
+                out += ch;
+                if (ch === '\\') {
+                    // Preserve the escaped code unit verbatim so an
+                    // escaped quote cannot prematurely close the literal.
+                    if (i + 1 < source.length) {
+                        out += source[i + 1] ?? '';
+                        i += 1;
+                    }
+                } else if (
+                    (state === 'single-quote' && ch === "'") ||
+                    (state === 'double-quote' && ch === '"') ||
+                    (state === 'template' && ch === '`')
+                ) {
+                    state = 'code';
+                }
+                break;
+            }
+        }
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
 // Pattern definitions
 // ---------------------------------------------------------------------------
 
@@ -130,7 +229,18 @@ interface PatternCheck {
     readonly sourceOnly: boolean;
     /** If true, build/script files are exempt from this check. */
     readonly buildExempt: boolean;
+    /** A synthetic snippet that MUST match `regex` (self-test, N4). */
+    readonly badSample: string;
+    /** A synthetic snippet that MUST NOT match `regex` (self-test, N4). */
+    readonly cleanSample: string;
 }
+
+/**
+ * Package name built at runtime so this guard's own self-test samples do
+ * not themselves trip the `no-nanoid-import` rule when this test file is
+ * scanned (the pattern is not source-only).
+ */
+const NANOID_MODULE = 'nanoid';
 
 const PATTERNS: ReadonlyArray<PatternCheck> = [
     {
@@ -140,6 +250,8 @@ const PATTERNS: ReadonlyArray<PatternCheck> = [
         regex: /from\s+['"]nanoid['"]|require\(\s*['"]nanoid['"]\s*\)/,
         sourceOnly: false,
         buildExempt: false,
+        badSample: `import { nanoid } from '${NANOID_MODULE}';`,
+        cleanSample: "import { randomBytes } from 'node:crypto';",
     },
     {
         name: 'no-numeric-player-id-cast',
@@ -148,6 +260,8 @@ const PATTERNS: ReadonlyArray<PatternCheck> = [
         regex: /as\s+PlayerId\b/,
         sourceOnly: true,
         buildExempt: false,
+        badSample: 'const id = seat as PlayerId;',
+        cleanSample: 'const id = parsePlayerId(value);',
     },
     {
         name: 'no-locale-compare-authoritative',
@@ -156,6 +270,8 @@ const PATTERNS: ReadonlyArray<PatternCheck> = [
         regex: /\.localeCompare\s*\(/,
         sourceOnly: true,
         buildExempt: true,
+        badSample: 'ids.sort((a, b) => a.localeCompare(b));',
+        cleanSample: 'ids.sort((a, b) => compareUtf16(a, b));',
     },
     {
         name: 'no-numeric-guest-player-id',
@@ -164,8 +280,25 @@ const PATTERNS: ReadonlyArray<PatternCheck> = [
         regex: /as\s+GuestPlayerId\b/,
         sourceOnly: true,
         buildExempt: false,
+        badSample: 'const id = value as GuestPlayerId;',
+        cleanSample: 'const id = parseGuestPlayerId(value);',
     },
 ];
+
+/**
+ * Look up a pattern by name, failing loudly if the table and the tests
+ * have drifted apart.
+ *
+ * @param name - The `PatternCheck.name` to resolve.
+ * @returns The matching pattern definition.
+ */
+function patternByName(name: string): PatternCheck {
+    const found = PATTERNS.find((pattern) => pattern.name === name);
+    if (found === undefined) {
+        throw new Error(`test setup: no pattern named '${name}'`);
+    }
+    return found;
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -194,24 +327,21 @@ describe('Identity migration guard (issue #74)', () => {
                     }
 
                     const content = readFileSync(filePath, 'utf-8');
-                    const lines = content.split('\n');
+                    // Strip comments token-aware (N4) so code adjacent to
+                    // an inline comment is still scanned, while genuinely
+                    // commented-out code is ignored. Line numbering is
+                    // preserved by `stripComments`.
+                    const lines = stripComments(content).split('\n');
 
                     for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i];
-                        const trimmed = line.trimStart();
-
-                        // Skip single-line comments and block comment lines
-                        if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) {
-                            continue;
-                        }
-
+                        const line = lines[i] ?? '';
                         const match = pattern.regex.exec(line);
                         if (match) {
                             violations.push({
                                 file: relative(REPO_ROOT, filePath),
                                 line: i + 1,
                                 match: match[0],
-                                context: trimmed.slice(0, 120),
+                                context: line.trim().slice(0, 120),
                             });
                         }
                     }
@@ -228,4 +358,56 @@ describe('Identity migration guard (issue #74)', () => {
             });
         });
     }
+});
+
+// ---------------------------------------------------------------------------
+// Table self-tests (N4)
+//
+// These prove the guard's own machinery, independent of the (still-red)
+// repository scan: every rule must flag its synthetic bad sample and pass
+// its synthetic clean sample, and comment handling must be token-aware so
+// inline comments cannot hide code and commented-out code cannot produce
+// false positives.
+// ---------------------------------------------------------------------------
+
+describe('Identity migration guard — pattern table self-test (N4)', () => {
+    for (const pattern of PATTERNS) {
+        it(`detects bad / passes clean: ${pattern.name}`, () => {
+            expect(
+                pattern.regex.exec(stripComments(pattern.badSample)),
+                `bad sample for '${pattern.name}' was not detected`,
+            ).not.toBeNull();
+            expect(
+                pattern.regex.exec(stripComments(pattern.cleanSample)),
+                `clean sample for '${pattern.name}' falsely matched`,
+            ).toBeNull();
+        });
+    }
+
+    it('catches code that shares a line with an inline block comment', () => {
+        const pattern = patternByName('no-numeric-player-id-cast');
+        // The bypass this guards against: a leading `/*x*/` used to make
+        // the scanner skip the whole line.
+        expect(pattern.regex.exec(stripComments('/*x*/ const id = seat as PlayerId;'))).not.toBeNull();
+        expect(pattern.regex.exec(stripComments('const id = seat as PlayerId; /* tail */'))).not.toBeNull();
+    });
+
+    it('ignores genuinely commented-out code', () => {
+        const pattern = patternByName('no-numeric-player-id-cast');
+        expect(pattern.regex.exec(stripComments('// const id = seat as PlayerId;'))).toBeNull();
+        expect(pattern.regex.exec(stripComments('/* const id = seat as PlayerId; */'))).toBeNull();
+        // A `*`-prefixed line is only a comment CONTINUATION; inside a
+        // real block comment the whole span is stripped.
+        expect(pattern.regex.exec(stripComments('/*\n * const id = seat as PlayerId;\n */'))).toBeNull();
+    });
+
+    it('preserves the exact line count so diagnostics stay accurate', () => {
+        const source = 'a\n// comment\nb\n/* multi\nline */ c\nd';
+        expect(stripComments(source).split('\n')).toHaveLength(source.split('\n').length);
+    });
+
+    it('does not treat a comment marker inside a string as a comment', () => {
+        const line = "const url = 'https://example.com';";
+        expect(stripComments(line)).toBe(line);
+    });
 });

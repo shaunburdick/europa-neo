@@ -44,11 +44,14 @@ system, a new runtime dependency, or a compatibility shim for numeric clients.
 ### 3.1 Identity authority
 
 `@europa/core` owns the shared branded `PlayerId` type, canonical validator, and
-small CSPRNG generator. The generator consumes 9 random bytes at a time and uses
-rejection sampling to avoid modulo bias when mapping bytes to the 64-character
-alphabet. The API accepts an injected CSPRNG source for tests and uses the
-platform CSPRNG in production. Generation is outside the engine tick and replay
-paths.
+small CSPRNG generator. The generator consumes 9 random bytes at a time and
+bit-packs them into 12 six-bit symbol indices. The 64-symbol alphabet divides a
+byte exactly (256 = 4 × 64), so every symbol has four preimages, no byte is
+rejected, and no modulo bias is possible. Rejection sampling applies at the
+candidate level: an active (colliding) candidate is rejected and redrawn within
+a bounded retry budget, then fails closed. The API accepts an injected CSPRNG
+source for tests and uses the platform CSPRNG in production. Generation is
+outside the engine tick and replay paths.
 
 `GuestPlayerId` is structurally branded with the same canonical representation at
 the lobby boundary. The matchmaker is the authority that creates an active guest

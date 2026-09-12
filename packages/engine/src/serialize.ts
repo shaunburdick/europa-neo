@@ -68,8 +68,10 @@
  *
  * Encode fails loudly ({@link EngineSerializationError}) rather than
  * substituting anything: unknown/unregistered IDs, non-canonical player
- * arrays, non-ASCII display names, out-of-range owner bytes, and
- * out-of-range board/cell fields are all rejected.
+ * arrays, non-ASCII display names, out-of-range owner bytes,
+ * out-of-range board/cell fields, out-of-range player
+ * `citiesOwned`/`troopsHeld` values, and a `config.seed`/`rngSeed`
+ * divergence are all rejected.
  *
  * Decode rejects, with {@link EngineFormatError} (or
  * {@link EngineFormatVersionMismatchError}), every malformed, duplicate,
@@ -122,6 +124,9 @@ const MAX_U8 = 0xff;
 
 /** Maximum value the two-byte city count can hold. */
 const MAX_U16 = 0xffff;
+
+/** Maximum value a little-endian uint32 field can hold. */
+const MAX_U32 = 0xffffffff;
 
 /** Maximum reserves percentage value stored ×10 (FR-012: 0–90%). */
 const MAX_RESERVES_PCT = 9;
@@ -382,8 +387,19 @@ function encodePayload(world: Readonly<World>): Uint8Array {
         throw new EngineSerializationError(`tick must be a non-negative integer (got ${String(world.tick)})`);
     }
     const tickIntervalMs = world.config.tickIntervalMs;
-    if (!Number.isInteger(tickIntervalMs) || tickIntervalMs < 0 || tickIntervalMs > 0xffffffff) {
+    if (!Number.isInteger(tickIntervalMs) || tickIntervalMs < 0 || tickIntervalMs > MAX_U32) {
         throw new EngineSerializationError(`config.tickIntervalMs must be a uint32 (got ${String(tickIntervalMs)})`);
+    }
+    // The format stores a single 32-bit seed field. `createWorld` derives
+    // `rngSeed` from `config.seed`, and decode restores BOTH from that one
+    // field, so an encode-time divergence would silently rewrite one of
+    // them. Reject it loudly instead (S4).
+    const normalizedSeed = world.config.seed >>> 0;
+    const normalizedRngSeed = world.rngSeed >>> 0;
+    if (normalizedSeed !== normalizedRngSeed) {
+        throw new EngineSerializationError(
+            `config.seed (${String(world.config.seed)}) and rngSeed (${String(world.rngSeed)}) must agree: the payload stores one seed and decode restores both from it`,
+        );
     }
     const visibilityRadius = world.config.visibilityRadius;
     if (!Number.isInteger(visibilityRadius) || visibilityRadius < 0 || visibilityRadius > MAX_U8) {
@@ -432,6 +448,20 @@ function encodePayload(world: Readonly<World>): Uint8Array {
         if (player === undefined) {
             throw new EngineSerializationError(`players[${String(i)}] is missing`);
         }
+        // N2: the one-byte `citiesOwned` and uint32 `troopsHeld` fields
+        // are narrowed on write; validate the range explicitly so encode
+        // fails loudly instead of silently truncating a value that decode
+        // could never restore (losslessness guarantee).
+        if (!Number.isInteger(player.citiesOwned) || player.citiesOwned < 0 || player.citiesOwned > MAX_U8) {
+            throw new EngineSerializationError(
+                `players[${String(i)}].citiesOwned must be an integer in [0, ${String(MAX_U8)}] (got ${String(player.citiesOwned)})`,
+            );
+        }
+        if (!Number.isInteger(player.troopsHeld) || player.troopsHeld < 0 || player.troopsHeld > MAX_U32) {
+            throw new EngineSerializationError(
+                `players[${String(i)}].troopsHeld must be a uint32 (got ${String(player.troopsHeld)})`,
+            );
+        }
         const nameBytes = encodeAscii(player.displayName, `players[${String(i)}].displayName`);
         if (nameBytes.length > MAX_U8) {
             throw new EngineSerializationError(`players[${String(i)}].displayName exceeds ${String(MAX_U8)} bytes`);
@@ -478,7 +508,7 @@ function encodePayload(world: Readonly<World>): Uint8Array {
     out[p++] = playerCount & 0xff;
     dv.setUint32(p, world.tick >>> 0, true);
     p += 4;
-    dv.setUint32(p, world.rngSeed >>> 0, true);
+    dv.setUint32(p, normalizedRngSeed, true);
     p += 4;
     dv.setUint32(p, tickIntervalMs >>> 0, true);
     p += 4;
@@ -741,17 +771,21 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
     for (let k = 0; k < playerCount; k++) {
         slotOrder.push(reader.u8(`slot order[${String(k)}]`));
     }
-    const slotProblem = permutationProblem(slotOrder, playerCount);
-    if (slotProblem !== null) {
-        throw new EngineFormatError(`slot order is not a permutation: ${slotProblem}`);
-    }
-    const playerIds: PlayerId[] = slotOrder.map((index) => {
+    // Resolve each slot to its table entry first. This range guard is
+    // what rejects an out-of-range slot index; duplicates and any other
+    // non-permutation are then rejected by `permutationProblem` below.
+    const playerIds: PlayerId[] = [];
+    for (const index of slotOrder) {
         const id = tableIds[index];
         if (id === undefined) {
             throw new EngineFormatError(`slot order references missing table index ${String(index)}`);
         }
-        return id;
-    });
+        playerIds.push(id);
+    }
+    const slotProblem = permutationProblem(slotOrder, playerCount);
+    if (slotProblem !== null) {
+        throw new EngineFormatError(`slot order is not a permutation: ${slotProblem}`);
+    }
 
     // Player records. Record `i` must reference table index `i` (players
     // are in canonical registry order), which also proves every table
@@ -759,14 +793,17 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
     const players: Player[] = [];
     for (let i = 0; i < playerCount; i++) {
         const tableIndex = reader.u8(`player ${String(i)} table index`);
+        // Resolve first: an out-of-range table index is rejected by the
+        // registry lookup, then a valid-but-misordered index is rejected
+        // by the canonical-order check.
+        const id = playerRegistry.idAt(tableIndex);
+        if (id === null) {
+            throw new EngineFormatError(`player ${String(i)} table index ${String(tableIndex)} is out of range`);
+        }
         if (tableIndex !== i) {
             throw new EngineFormatError(
                 `player ${String(i)} references table index ${String(tableIndex)}; records must be in canonical registry order`,
             );
-        }
-        const id = playerRegistry.idAt(tableIndex);
-        if (id === null) {
-            throw new EngineFormatError(`player ${String(i)} table index ${String(tableIndex)} is out of range`);
         }
         const status = decodePlayerStatus(reader.u8(`player ${String(i)} status`));
         const citiesOwned = reader.u8(`player ${String(i)} citiesOwned`);
@@ -889,11 +926,17 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
  * `0..count-1`, or `null` when it is. Shared by encode and decode so both
  * sides agree on exactly what a valid table/slot map is.
  *
+ * Exported only so the unit suite can exercise every rejection branch
+ * (wrong length, non-integer, out-of-range, duplicate) directly; it is
+ * **not** part of the engine's public surface and is deliberately absent
+ * from `src/index.ts`.
+ *
+ * @internal
  * @param values Candidate index list.
  * @param count Expected length and exclusive upper bound.
  * @returns A failure description, or `null`.
  */
-function permutationProblem(values: readonly number[], count: number): string | null {
+export function permutationProblem(values: readonly number[], count: number): string | null {
     if (values.length !== count) {
         return `expected ${String(count)} entries, got ${String(values.length)}`;
     }

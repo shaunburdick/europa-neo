@@ -47,21 +47,28 @@ import { computeVisibleSet, resolvePlayerOwnerByte } from './visibleSet';
 
 /**
  * Extract a plain, owned snapshot of the match config for the view
- * payload. The engine's config is already frozen; copying it here
- * decouples the payload's lifetime from the world's (the payload may
- * outlive the tick that produced it once networking serializes it).
+ * payload. The engine retains the caller's config (and its `playerIds`
+ * array) by reference and never freezes either, so this snapshot
+ * deep-copies the identity list rather than aliasing it: a consumer of
+ * the returned view must not be able to mutate authoritative world
+ * config through the payload. The payload may also outlive the tick
+ * that produced it once networking serializes it, so owned values are
+ * the correct ownership boundary.
  *
- * @param config The engine's frozen match config.
- * @returns A structurally identical `MatchConfig` snapshot.
+ * @param config The engine's match config (retained by reference, not
+ *               frozen).
+ * @returns A structurally identical `MatchConfig` snapshot with an
+ *          independent `playerIds` array.
  */
 function snapshotConfig(config: Readonly<MatchConfig>): MatchConfig {
     return {
         boardSize: config.boardSize,
-        // Universal player identities are shared, not copied: the
-        // engine's `MatchConfig` is frozen and the array is readonly,
-        // so aliasing it keeps the view allocation-free while remaining
-        // immutable to callers.
-        playerIds: config.playerIds,
+        // Copy the identity list (N1): the engine stores this array by
+        // reference and does not freeze it, so aliasing would let any
+        // holder of the returned `PlayerView` corrupt authoritative
+        // world config. The list is a fixed 2–4 entries; the copy is
+        // cheap and restores the intended payload immutability.
+        playerIds: [...config.playerIds],
         tickIntervalMs: config.tickIntervalMs,
         seed: config.seed,
         visibilityRadius: config.visibilityRadius,

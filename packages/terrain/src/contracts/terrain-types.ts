@@ -294,9 +294,11 @@ export interface TerrainGenerationResult {
    * Per-player city coordinates. Redundant with `board.cities` but
    * exposed for symmetry checks and for tests.
    *
-   * Keyed by **1-based dense numeric placement slot** (`1..playerCount`),
-   * NOT by canonical `PlayerId` (issue #74, FR-011). Terrain is
-   * identity-agnostic: the caller maps each slot to
+   * Keyed by **1-based dense numeric placement slot**, NOT by canonical
+   * `PlayerId` (issue #74, FR-011). The record is always initialized for
+   * slots `1..4` (the engine's maximum player count), so it carries keys
+   * `1..4`; slots above `playerCount` are present with empty arrays.
+   * Terrain is identity-agnostic: the caller maps each slot to
    * `MatchConfig.playerIds[slot - 1]` at the engine/matchmaking identity
    * boundary, so changing the ID list never changes this output.
    */

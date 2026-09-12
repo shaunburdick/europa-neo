@@ -10,10 +10,12 @@ PLAYER_ID_PATTERN = /^[A-Za-z0-9_-]{12}$/
 ```
 
 The exported type is opaque/branded. Runtime validation is mandatory at every
-input boundary. The generator is server-side and uses a platform CSPRNG with
-rejection sampling. It retries active-set collisions and fails closed when the
-configured retry budget is exhausted. No direct runtime `nanoid` import is
-permitted.
+input boundary. The generator is server-side and uses a platform CSPRNG: it
+bit-packs 9 random bytes into 12 six-bit symbol indices (256 = 4 × 64, so the
+mapping is exactly uniform and no byte is rejected). Rejection sampling happens
+at the candidate level — an active-set collision is rejected and redrawn, and
+the generator fails closed when the bounded retry budget is exhausted. No
+direct runtime `nanoid` import is permitted.
 
 ## Required API behavior
 

@@ -18,7 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createWorld } from '../../src/create';
-import type { Board, MatchConfig } from '../../src/types';
+import type { Board, Cell, CityPlacement, MatchConfig, PlayerId } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 import { PLAYER_1, PLAYER_2, PLAYER_5, playerIds } from '../fixtures/ids';
 
@@ -329,5 +329,98 @@ describe('createWorld — negative validation', () => {
             cities: Object.freeze([{ cell: { x: 99, y: 0 }, owner: 1 }]),
         });
         expect(() => createWorld(baseConfig, board)).toThrow();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Structural negative validation (coverage of every createWorld guard)
+// ---------------------------------------------------------------------------
+
+/** 8×8 all-land cell block matching `baseConfig.boardSize`. */
+function validCells(): Cell[] {
+    return Array.from({ length: 64 }, (_, i) => ({
+        x: i % 8,
+        y: Math.floor(i / 8),
+        elevation: 0,
+        terrain: 'land' as const,
+    }));
+}
+
+describe('createWorld — structural guard coverage', () => {
+    it('rejects a cell array whose length disagrees with width×height', () => {
+        const board: Board = { width: 8, height: 8, cells: validCells().slice(0, 10), cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/cells.length/);
+    });
+
+    it('rejects a non-array playerIds list', () => {
+        const board: Board = { width: 8, height: 8, cells: validCells(), cities: [] };
+        const config: MatchConfig = { ...baseConfig, playerIds: 'nope' as unknown as readonly PlayerId[] };
+        expect(() => createWorld(config, board)).toThrow(/playerIds must be an array/);
+    });
+
+    it('rejects a missing (sparse) cell at an index', () => {
+        const cells = new Array<Cell>(64);
+        const board: Board = { width: 8, height: 8, cells, cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/missing cell at index 0/);
+    });
+
+    it('rejects a cell with out-of-range elevation', () => {
+        const cells = validCells();
+        cells[0] = { x: 0, y: 0, elevation: 256, terrain: 'land' };
+        const board: Board = { width: 8, height: 8, cells, cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/elevation must be an integer in \[0, 255\]/);
+    });
+
+    it('rejects an unknown terrain value', () => {
+        const cells = validCells();
+        cells[0] = { x: 0, y: 0, elevation: 0, terrain: 'lava' as unknown as Cell['terrain'] };
+        const board: Board = { width: 8, height: 8, cells, cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/terrain must be 'land' or 'water'/);
+    });
+
+    it('rejects a cell with coordinates outside the board', () => {
+        const cells = validCells();
+        cells[0] = { x: 99, y: 0, elevation: 0, terrain: 'land' };
+        const board: Board = { width: 8, height: 8, cells, cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/out of bounds/);
+    });
+
+    it('rejects a missing (sparse) city entry', () => {
+        const cities = new Array<CityPlacement>(1);
+        const board: Board = { width: 8, height: 8, cells: validCells(), cities };
+        expect(() => createWorld(baseConfig, board)).toThrow(/missing city at index 0/);
+    });
+
+    it('rejects fractional city coordinates', () => {
+        const board: Board = {
+            width: 8,
+            height: 8,
+            cells: validCells(),
+            cities: [{ cell: { x: 1.5, y: 1 }, owner: 1 }],
+        };
+        expect(() => createWorld(baseConfig, board)).toThrow(/coords must be integers/);
+    });
+
+    it('rejects a city owner above the player count', () => {
+        const board: Board = {
+            width: 8,
+            height: 8,
+            cells: validCells(),
+            cities: [{ cell: { x: 1, y: 1 }, owner: 5 }],
+        };
+        expect(() => createWorld(baseConfig, board)).toThrow(/owner must be a 1-based placement slot/);
+    });
+
+    it('rejects duplicate cities on the same cell', () => {
+        const board: Board = {
+            width: 8,
+            height: 8,
+            cells: validCells(),
+            cities: [
+                { cell: { x: 1, y: 1 }, owner: 1 },
+                { cell: { x: 1, y: 1 }, owner: 2 },
+            ],
+        };
+        expect(() => createWorld(baseConfig, board)).toThrow(/duplicate city/);
     });
 });

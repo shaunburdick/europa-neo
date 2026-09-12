@@ -388,3 +388,160 @@ describe('validateFixture — explicit identity strictness (issue #74)', () => {
         expect(fixture.terminalResult).toBeNull();
     });
 });
+
+// ---------------------------------------------------------------------------
+// Error-branch coverage — every reachable strictness guard
+// ---------------------------------------------------------------------------
+
+describe('validateFixture — error-branch coverage (issue #74 strictness surfaces)', () => {
+    it('rejects a non-integer settings.boardSize', () => {
+        const settings = { ...VALID_FIXTURE.settings, boardSize: 8.5 };
+        expect(() => validateFixture({ ...VALID_FIXTURE, settings })).toThrow(/'boardSize' must be an integer/);
+    });
+
+    it('rejects a settings.boardSize below the engine minimum', () => {
+        const settings = { ...VALID_FIXTURE.settings, boardSize: 4 };
+        expect(() => validateFixture({ ...VALID_FIXTURE, settings })).toThrow(/'boardSize' must be in \[8, 255\]/);
+    });
+
+    it('rejects a non-object cell coordinate', () => {
+        const orders = [
+            { tick: 0, playerId: PLAYER_1, order: { kind: 'setPipe', player: PLAYER_1, cell: 5, direction: 'E' } },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(
+            /expected an object with integer 'x' and 'y'/,
+        );
+    });
+
+    it("rejects a non-integer cell 'y'", () => {
+        const orders = [
+            {
+                tick: 0,
+                playerId: PLAYER_1,
+                order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 0, y: 1.5 }, direction: 'E' },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(/'y' must be an integer/);
+    });
+
+    it('rejects an order whose inner player is not canonical', () => {
+        const orders = [
+            {
+                tick: 0,
+                playerId: PLAYER_1,
+                order: { kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'E' },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(/'player' must be a canonical player id/);
+    });
+
+    it('rejects an invalid pipe direction', () => {
+        const orders = [
+            {
+                tick: 0,
+                playerId: PLAYER_1,
+                order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 0, y: 0 }, direction: 'X' },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(/'direction' must be one of N, E, S, W/);
+    });
+
+    it('accepts a clearAllPipes order', () => {
+        const orders = [
+            { tick: 0, playerId: PLAYER_1, order: { kind: 'clearAllPipes', player: PLAYER_1, cell: { x: 0, y: 0 } } },
+        ];
+        expect(validateFixture({ ...VALID_FIXTURE, orders }).orders[0]?.order.kind).toBe('clearAllPipes');
+    });
+
+    it('accepts a setReserves order and rejects an out-of-range percent', () => {
+        const good = [
+            {
+                tick: 0,
+                playerId: PLAYER_1,
+                order: { kind: 'setReserves', player: PLAYER_1, cell: { x: 0, y: 0 }, percent: 5 },
+            },
+        ];
+        expect(validateFixture({ ...VALID_FIXTURE, orders: good }).orders).toHaveLength(1);
+
+        const bad = [
+            {
+                tick: 0,
+                playerId: PLAYER_1,
+                order: { kind: 'setReserves', player: PLAYER_1, cell: { x: 0, y: 0 }, percent: 10 },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders: bad })).toThrow(
+            /'percent' must be an integer in \[0, 9\]/,
+        );
+    });
+
+    it('accepts paratroop and gun orders', () => {
+        for (const kind of ['paratroop', 'gun'] as const) {
+            const orders = [
+                {
+                    tick: 0,
+                    playerId: PLAYER_1,
+                    order: { kind, player: PLAYER_1, source: { x: 0, y: 0 }, target: { x: 1, y: 1 } },
+                },
+            ];
+            expect(validateFixture({ ...VALID_FIXTURE, orders }).orders).toHaveLength(1);
+        }
+    });
+
+    it('accepts a surrender order', () => {
+        const orders = [{ tick: 0, playerId: PLAYER_1, order: { kind: 'surrender', player: PLAYER_1 } }];
+        expect(validateFixture({ ...VALID_FIXTURE, orders }).orders).toHaveLength(1);
+    });
+
+    it('rejects a non-object terminalResult', () => {
+        expect(() => validateFixture({ ...VALID_FIXTURE, terminalResult: 5 })).toThrow(
+            /'terminalResult' must be an object or null/,
+        );
+    });
+
+    it('rejects a terminalResult with an invalid tick', () => {
+        expect(() =>
+            validateFixture({
+                ...VALID_FIXTURE,
+                terminalResult: { kind: 'win', winner: PLAYER_1, tick: -1, reason: 'last_standing' },
+            }),
+        ).toThrow(/'terminalResult.tick' must be a non-negative integer/);
+    });
+
+    it('rejects a win with an invalid reason', () => {
+        expect(() =>
+            validateFixture({
+                ...VALID_FIXTURE,
+                terminalResult: { kind: 'win', winner: PLAYER_1, tick: 1, reason: 'nope' },
+            }),
+        ).toThrow(/'terminalResult.reason' must be 'last_standing' or 'all_surrendered'/);
+    });
+
+    it('rejects a draw with an invalid reason', () => {
+        expect(() =>
+            validateFixture({
+                ...VALID_FIXTURE,
+                terminalResult: { kind: 'draw', tick: 1, reason: 'surrender' },
+            }),
+        ).toThrow(/'terminalResult.reason' must be 'mutual_elimination' for a draw/);
+    });
+
+    it('rejects a non-integer playerCount', () => {
+        expect(() => validateFixture({ ...VALID_FIXTURE, playerCount: 2.5 })).toThrow(
+            /'playerCount' must be an integer/,
+        );
+    });
+
+    it('rejects a non-object terrainSettings', () => {
+        expect(() => validateFixture({ ...VALID_FIXTURE, terrainSettings: [] })).toThrow(
+            /'terrainSettings' must be object/,
+        );
+    });
+
+    it('rejects a non-point symmetry strategy', () => {
+        const terrainSettings = { ...VALID_FIXTURE.terrainSettings, symmetryStrategy: 'mirror' };
+        expect(() => validateFixture({ ...VALID_FIXTURE, terrainSettings })).toThrow(
+            /'symmetryStrategy' must be 'point'/,
+        );
+    });
+});

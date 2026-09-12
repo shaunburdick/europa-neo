@@ -101,17 +101,90 @@
     seat reassignment preserve correct view association (spec v1.5
     FR-010/FR-011). New `tests/unit/player-identity.test.ts` plus migrated
     fixtures. Fog 100 tests green.
-  - **T023** — `88a91c2`: re-ran the terrain/fog source-to-spec contract-drift
-    and strict-conformance programs and both strict typechecks — all green; the
-    repo-level identity guard shows **zero terrain/fog violations** (remaining
-    failures are the later networking/matchmaking/console waves). No
-    implementation mirror or test change was required by the approved
-    amendments. Reconciled the flagged non-behavioral planning docs per AGENTS
-    rule 4: `specs/003.../data-model.md` (`CityPlacement.owner` /
-    `startingCitiesByPlayer` documented as numeric placement slots; removed the
-    stale `PlayerId = 1 | 2 | 3 | 4` union and stale `engine-types.ts`
-    provenance) and `specs/002.../data-model.md` (authoritative registry
-    resolution per FR-010, fail-closed invariant). Ticked T019–T023.
+   - **T023** — `88a91c2`: re-ran the terrain/fog source-to-spec contract-drift
+     and strict-conformance programs and both strict typechecks — all green; the
+     repo-level identity guard shows **zero terrain/fog violations** (remaining
+     failures are the later networking/matchmaking/console waves). No
+     implementation mirror or test change was required by the approved
+     amendments. Reconciled the flagged non-behavioral planning docs per AGENTS
+     rule 4: `specs/003.../data-model.md` (`CityPlacement.owner` /
+     `startingCitiesByPlayer` documented as numeric placement slots; removed the
+     stale `PlayerId = 1 | 2 | 3 | 4` union and stale `engine-types.ts`
+     provenance) and `specs/002.../data-model.md` (authoritative registry
+     resolution per FR-010, fail-closed invariant). Ticked T019–T023.
+
+- **Wave 4.5 — review remediation (code-quality review of the Wave 1–4
+  foundation)**: reviewed the identity foundation before Wave 5. **Verdict:
+  remediation applied for every blocking finding; three findings deferred as
+  non-blocking (recorded below).** No behavioral `spec.md` touched, no rule
+  weakened, no allowlist/suppression added, and the not-yet-migrated packages
+  (`networking`, `matchmaking`, `console`) were not modified.
+  - **Fixed**:
+    - **N1 (fog aliasing)** — `fog/src/playerView.ts` `snapshotConfig` now
+      `[...config.playerIds]`; the "engine config is frozen" comment was false
+      (the engine retains the caller's array by reference and never freezes
+      it). `fog/tests/unit/playerView.test.ts` adds a mutation-isolation test
+      (reference inequality + world config unchanged after mutating the view).
+    - **N2 (serializer losslessness)** — `engine/src/serialize.ts` validates
+      `citiesOwned` ∈ [0,255] and `troopsHeld` as uint32 before writing
+      (`EngineSerializationError`); the previous `& 0xff` / `>>> 0` narrowing
+      was silent. Tests cover both bounds and non-integers.
+    - **N3 (test integrity)** — `serialize.test.ts`'s `TABLE_START` corrected
+      from a wrong literal `33` to a derived
+      `versionHeaderLen + 32 + 1` (= 41 for `ENGINE_API_VERSION` 0.2.0), with an
+      assertion that the sliced bytes are the canonical ID table.
+    - **N4 (guard integrity)** — `core/tests/identity-migration-guard.test.ts`
+      replaces the line-prefix comment skip with a token-aware comment stripper
+      (`stripComments`); `/*x*/ const id = seat as PlayerId;` is now caught and
+      commented-out code no longer false-positives. Added a PATTERNS-table
+      self-test (bad sample must match, clean sample must not) plus explicit
+      inline-comment/string-lexing tests. Existing rule semantics unchanged.
+    - **N7 (terrain doc)** — terrain `startingCitiesByPlayer` JSDoc now says the
+      record always carries keys `1..4` (unused slots empty), matching
+      `generate.ts`; both contract mirrors updated byte-identically.
+    - **S1 (doc accuracy)** — `plan.md` and `contracts/identity-contract.md`
+      reworded to the shipped model: 9 bytes are bit-packed into 12 six-bit
+      groups (256 = 4 × 64, so no byte is rejected); rejection sampling is
+      candidate/collision-level only.
+    - **S3 (contract truthfulness)** — fog `computeVisibleSet` and
+      `computePlayerView` public docs (local + spec mirrors, verified
+      byte-identical) document authoritative `PlayerRegistry` resolution and
+      fail-closed unknown/forged/numeric IDs.
+    - **S4 (round-trip)** — `serialize.ts` rejects an encode-time
+      `config.seed`/`rngSeed` divergence (one seed field is stored and decode
+      restores both); tests cover the mismatch and the uint32-normalization-
+      equal case.
+    - **Coverage** — added decode/encode error-branch tests for
+      `serialize.ts`, `replay/validate.ts`, and `create.ts`. `permutationProblem`
+      is exported `@internal` (absent from the barrel) so its length/non-integer/
+      out-of-range/duplicate branches are unit-testable; decode guards were
+      reordered so the missing-table-index and out-of-range-player-index paths
+      are reachable (behavior unchanged — same errors, still fail closed).
+  - **Deferred / non-blocking** (deliberately not fixed in this change set):
+    - **N5 (branded placement slot)**: the terrain↔engine boundary intentionally
+      uses plain dense `number` placement slots (FR-011 identity-agnostic).
+      Introducing a nominal `PlacementSlot` brand would add a new shared type and
+      conversions across both packages for no security benefit — slots are
+      coordinates, not identities. Semantics are already documented; deferred to
+      avoid scope creep in the foundation.
+    - **N6 (`index + 1` dense-byte duplication)**: the 1-based byte encoding
+      (`index + 1`, `0` = neutral) recurs in `create.ts`, `serialize.ts`, and
+      fog's `resolvePlayerOwnerByte`. Centralizing it refactors the registry/byte
+      boundary across engine resolver modules that Waves 5–7 are still
+      migrating; the invariant is documented in `playerRegistry.ts`. Deferred as
+      non-blocking.
+    - **N8 (console handle-first labels)**: the console package is out of scope
+      for this change set (Wave 7 not started); handle-first labeling with ID
+      fallback is an explicit Wave 7/T037 task and must land with the console
+      state migration. Deferred to its wave.
+  - **Verification** (all four boundary packages built in dependency order):
+    engine 518 tests green (coverage 96.08/86.19/99.14/95.93; `serialize.ts`
+    97.65/87.66/96.66/97.53, `create.ts` 94.04/92.42/100/93.75,
+    `replay/validate.ts` 96.61/93.37/100/96.57); fog 101 green (contract-drift
+    mirror pair byte-identical); terrain 427 green; core 108 pass with the
+    **3 expected** guard failures confined to networking/matchmaking/console
+    (un-migrated waves; not suppressed or excluded). Typecheck, lint, and
+    format:check clean on core/engine/fog/terrain.
 
 ## Waves
 

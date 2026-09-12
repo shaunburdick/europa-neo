@@ -109,6 +109,54 @@ shim or weaken a validator to make an old fixture pass.
   programs; update only implementation mirrors/tests required by the approved
   amendments, not the behavioral specs.
 
+## Wave 4.5 — Review remediation (code-quality review of the Wave 1–4 foundation)
+
+Reviewed the identity-migration foundation before Wave 5 begins. All blocking
+findings are fixed; the three deferred items below are non-blocking and their
+rationale is recorded in `orchestration.md`. No rule was weakened, no allowlist
+added, and no behavioral `spec.md` was modified.
+
+- [x] **N1 (fog aliasing)**: `packages/fog/src/playerView.ts` `snapshotConfig`
+  now copies `playerIds` (`[...config.playerIds]`) instead of aliasing the
+  engine's retained, unfrozen array; the false "config is frozen" comment is
+  corrected. `tests/unit/playerView.test.ts` proves a view consumer cannot
+  mutate authoritative world config (reference inequality + mutation check).
+- [x] **N2 (serializer lossless claim)**: `serialize.ts` validates
+  `citiesOwned` ∈ [0,255] and `troopsHeld` as uint32 at encode time, throwing
+  `EngineSerializationError` instead of narrowing silently; tests cover both
+  bounds and non-integer values.
+- [x] **N3 (test integrity)**: `serialize.test.ts` derives `TABLE_START` from the
+  actual version-header length + fixed payload prefix (32) + table-count byte
+  (41 for `0.2.0`) and asserts the slice really is the canonical ID table.
+- [x] **N4 (guard integrity)**: `identity-migration-guard.test.ts` strips
+  comments with a token-aware scanner, so `/*x*/ const id = seat as PlayerId;`
+  is caught and commented-out code no longer false-positives. A table self-test
+  proves every rule flags its synthetic bad sample and passes its clean sample.
+- [ ] **N5 (branded placement slot)**: DEFERRED / non-blocking — see
+  `orchestration.md`.
+- [ ] **N6 (`index + 1` dense-byte duplication)**: DEFERRED / non-blocking — see
+  `orchestration.md`.
+- [x] **N7 (terrain doc)**: the `startingCitiesByPlayer` contract JSDoc now
+  states the record always carries keys `1..4` with unused slots empty,
+  matching `generate.ts`; both contract mirrors updated identically.
+- [ ] **N8 (console handle-first labels)**: DEFERRED — Wave 7 not started; see
+  `orchestration.md`.
+- [x] **S1 (doc accuracy)**: `plan.md` and `contracts/identity-contract.md`
+  reworded to the shipped model (9 bytes bit-packed into 12 six-bit groups;
+  rejection only at the candidate/collision level).
+- [x] **S3 (contract truthfulness)**: fog `computeVisibleSet` /
+  `computePlayerView` public contract docs (local + spec mirrors, byte-
+  identical) document authoritative registry resolution and fail-closed
+  unknown/forged IDs.
+- [x] **S4 (round-trip)**: `serialize.ts` rejects a `config.seed`/`rngSeed`
+  divergence at encode time; tests cover the mismatch and the
+  uint32-normalization-equal case.
+- [x] **Coverage**: added decode/encode error-branch tests for `serialize.ts`,
+  `replay/validate.ts`, and `create.ts`. Engine metrics now: `serialize.ts`
+  97.65/87.66/96.66/97.53, `create.ts` 94.04/92.42/100/93.75,
+  `replay/validate.ts` 96.61/93.37/100/96.57 (statements/branches/functions/
+  lines), all ≥80%.
+
 ## Wave 5 — Matchmaking identity lifecycle
 
 - [ ] **T024**: Implement the matchmaking ID allocation boundary in
