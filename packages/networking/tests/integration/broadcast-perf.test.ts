@@ -6,9 +6,25 @@
  * on a 32×32 2-player board with 4 connections (2 players + 2
  * spectators).
  *
- * Uses `performance.now()` to measure elapsed time. Includes a
- * determinism assertion (output identical across runs). Issue #74:
- * identity is the canonical string `PlayerId`.
+ * Methodology (shared-CI hardening, issue #74 follow-up): the original
+ * test timed a SINGLE tick, so any JIT/GC/scheduler stall on a
+ * contended runner was captured verbatim (observed CI readings of
+ * 5.5–6.5 ms against a ~0.4 ms local median). Following the feature 002
+ * SC-004 remediation — see `packages/fog/tests/quickstart/
+ * q-f07-performance.test.ts` — each round measures `TRIALS_PER_ROUND`
+ * ticks and reports their MEDIAN; the assertion carries the MINIMUM of
+ * the per-round medians. Best-of-rounds absorbs runner contention while
+ * a genuine regression raises every round's median and still fails.
+ * The 5 ms SC-005 budget is unchanged.
+ *
+ * Every measured tick clears `channel.lastSentView` first, forcing the
+ * full fog + encode + send recompute (never the `'skip'` delta path) —
+ * the same work production performs whenever a view changes. A final
+ * un-cleared build asserts the skip path still collapses unchanged
+ * views, proving the measurement genuinely exercised recomputation.
+ *
+ * Includes a determinism assertion (output identical across runs).
+ * Issue #74: identity is the canonical string `PlayerId`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -25,9 +41,46 @@ import { scriptedMatch } from '../fixtures/match';
 /** The budget: broadcast phase must complete within this (ms). */
 const BROADCAST_BUDGET_MS = 5;
 
+/** Connections per match under test: 2 players + 2 spectators. */
+const CONNECTIONS_PER_TICK = 4;
+
+/** Unmeasured warm-up ticks (JIT + allocator steady state) before timing. */
+const WARMUP_TICKS = 5;
+
+/** Measured ticks per round; larger samples stabilize the median (≥ 15). */
+const TRIALS_PER_ROUND = 21;
+
+/**
+ * Measurement rounds. The full networking suite runs files in parallel,
+ * so any single round can be inflated by scheduler contention — a
+ * property of the runner, not the broadcast path. Best-of-rounds
+ * absorbs that noise (feature 002 SC-004 precedent).
+ */
+const ROUNDS = 3;
+
+/**
+ * Regression-guard ceiling for the per-round p95. Raw high percentiles
+ * over small samples are dominated by shared-runner stalls, so this
+ * carries no spec budget — a genuine pipeline blowup exceeds it by
+ * orders of magnitude, keeping the guard useful.
+ */
+const P95_GUARD_MS = 20;
+
 /** Slot identities used by the 32×32 fixture. */
 const P1 = 'Player000001' as PlayerId;
 const P2 = 'Player000002' as PlayerId;
+
+/**
+ * Nearest-rank percentile over a pre-sorted sample array. Mirrors the
+ * helper in `tests/integration/perf.test.ts`.
+ *
+ * @param sorted Ascending sample array (must be non-empty).
+ * @param p      Percentile in `[0, 1]`.
+ * @returns The sample at the nearest-rank position.
+ */
+function percentile(sorted: readonly number[], p: number): number {
+    return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] ?? 0;
+}
 
 /** A minimal valid PlayerView for the 32×32 board stub. */
 function stubView32(player: PlayerId, tick: number): PlayerView {
@@ -140,25 +193,78 @@ describe('Broadcast performance (T027)', () => {
         const { channel, connections } = channelWithFourConnections();
         const fog = stubFog32();
 
-        // Warm up: one tick to populate any JIT caches.
+        // Warm up: several ticks to populate JIT caches and the allocator
+        // before any measurement (unmeasured).
+        for (let i = 0; i < WARMUP_TICKS; i++) {
+            channel.recordTick();
+            channel.lastSentView.clear();
+            const warmup = buildTickBroadcast(channel, { fog }, i);
+            sendTickBroadcast(channel, connections, warmup.broadcast, i + 1);
+        }
+
+        const roundMedians: number[] = [];
+        const roundP95s: number[] = [];
+        const summaries: string[] = [];
+        // Number of measured ticks that did NOT reach all four connections —
+        // must stay zero (proves each measurement forced a full recompute).
+        let nonFullRecomputes = 0;
+
+        for (let round = 0; round < ROUNDS; round++) {
+            const samples: number[] = [];
+            for (let i = 0; i < TRIALS_PER_ROUND; i++) {
+                // Clear lastSentView to force a full recompute on the
+                // measured tick (never the 'skip' delta path).
+                channel.lastSentView.clear();
+                channel.recordTick();
+                const startMs = performance.now();
+                const result = buildTickBroadcast(channel, { fog }, 1000 + round * TRIALS_PER_ROUND + i);
+                const sentCount = sendTickBroadcast(
+                    channel,
+                    connections,
+                    result.broadcast,
+                    1001 + round * TRIALS_PER_ROUND + i,
+                );
+                samples.push(performance.now() - startMs);
+                if (sentCount !== CONNECTIONS_PER_TICK) {
+                    nonFullRecomputes += 1;
+                }
+            }
+
+            samples.sort((a, b) => a - b);
+            const min = samples[0] ?? 0;
+            const median = percentile(samples, 0.5);
+            const p95 = percentile(samples, 0.95);
+            const max = samples[samples.length - 1] ?? 0;
+            roundMedians.push(median);
+            roundP95s.push(p95);
+            summaries.push(
+                `round ${String(round)}: min=${min.toFixed(3)}ms median=${median.toFixed(3)}ms ` +
+                    `p95=${p95.toFixed(3)}ms max=${max.toFixed(3)}ms`,
+            );
+        }
+
+        const summary = summaries.join(' | ');
+
+        // Sanity: every measured tick performed the full 4-connection send.
+        expect(nonFullRecomputes).toBe(0);
+
+        // Budget gate: the best (least-contended) round median must be under
+        // the 5 ms SC-005 budget. A genuine regression raises every round's
+        // median, so the minimum-of-medians still fails.
+        expect(Math.min(...roundMedians), summary).toBeLessThan(BROADCAST_BUDGET_MS);
+
+        // Regression guard (no spec budget): catch a genuine pipeline blowup.
+        expect(Math.min(...roundP95s), summary).toBeLessThan(P95_GUARD_MS);
+
+        // Cross-tick delta behavior still holds: an unchanged view built
+        // WITHOUT clearing the cache collapses to 'skip' for every
+        // connection — the contrast proving the measured ticks above were
+        // genuine recomputes, not cached skips.
         channel.recordTick();
-        const warmup = buildTickBroadcast(channel, { fog }, 0);
-        sendTickBroadcast(channel, connections, warmup.broadcast, 1);
-        // Clear lastSentView to force a full recompute on the measured tick.
-        channel.lastSentView.clear();
-
-        // Measure: broadcast phase = buildTickBroadcast + sendTickBroadcast.
-        channel.recordTick();
-        const startMs = performance.now();
-        const result = buildTickBroadcast(channel, { fog }, 100);
-        const sentCount = sendTickBroadcast(channel, connections, result.broadcast, 101);
-        const elapsedMs = performance.now() - startMs;
-
-        // All 4 connections should have received a tick (first real tick).
-        expect(sentCount).toBe(4);
-
-        // Budget gate: broadcast phase < 5 ms.
-        expect(elapsedMs).toBeLessThan(BROADCAST_BUDGET_MS);
+        const skipped = buildTickBroadcast(channel, { fog }, 99_999);
+        for (const conn of connections) {
+            expect(skipped.broadcast.get(conn.id)).toBe('skip');
+        }
     });
 
     it('determinism: two identical ticks produce byte-identical broadcast maps', () => {
