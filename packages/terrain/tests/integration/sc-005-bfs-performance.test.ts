@@ -15,7 +15,7 @@
  * against accidental behavioral changes.
  */
 
-import type { Board, CityPlacement, Coord, PlayerId } from '@europa/core';
+import type { Board, CityPlacement, Coord } from '@europa/core';
 import { ENGINE_CONSTANTS, flowRateForDelta } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 
@@ -88,8 +88,8 @@ function buildValidBoard(): Board {
     }
     const p2Cell: Coord = { x: SIZE - 1 - p1Cell.x, y: SIZE - 1 - p1Cell.y };
     const cities: CityPlacement[] = [
-        { cell: p1Cell, owner: 1 as PlayerId },
-        { cell: p2Cell, owner: 2 as PlayerId },
+        { cell: p1Cell, owner: 1 },
+        { cell: p2Cell, owner: 2 },
     ];
     return { ...board, cities };
 }

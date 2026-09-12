@@ -28,7 +28,7 @@
  *   - Same `(req, rng-state)` → identical output, byte-for-byte.
  */
 
-import type { Board, CityPlacement, PlayerId } from '@europa/core';
+import type { Board, CityPlacement } from '@europa/core';
 
 import { buildBoard } from './board';
 import { getPlayerBand } from './city-band';
@@ -187,20 +187,21 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         // `citiesPerPlayer × playerCount` and the symmetry invariant
         // (INV-9) is satisfied by construction.
         //
-        // Primary players:
-        //   - 2p: P1 (partner is P2)
-        //   - 3p: P1 (partner is P3), P2 (self-symmetric)
-        //   - 4p: P1 (partner is P4), P2 (partner is P3)
-        const primaryPlayers: readonly PlayerId[] = (() => {
+        // Primary players (dense 1-based placement slots; terrain is
+        // identity-agnostic — issue #74, FR-011):
+        //   - 2p: slot 1 (partner is slot 2)
+        //   - 3p: slot 1 (partner is slot 3), slot 2 (self-symmetric)
+        //   - 4p: slot 1 (partner is slot 4), slot 2 (partner is slot 3)
+        const primaryPlayers: readonly number[] = (() => {
             if (req.playerCount === 2) {
-                return [1 as PlayerId];
+                return [1];
             }
             if (req.playerCount === THREE_PLAYER_COUNT) {
-                return [1 as PlayerId, 2 as PlayerId];
+                return [1, 2];
             }
-            return [1 as PlayerId, 2 as PlayerId]; // 4p
+            return [1, 2]; // 4p
         })();
-        const placedCities: Array<{ cell: { x: number; y: number }; owner: PlayerId }> = [];
+        const placedCities: Array<{ cell: { x: number; y: number }; owner: number }> = [];
         for (const pid of primaryPlayers) {
             const band = getPlayerBand(pid, req.playerCount, req.boardSize, req.boardSize);
             const attemptCitiesRng = deriveSubstream(citiesRng);
@@ -251,7 +252,10 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
         // Validate. If valid, return immediately.
         const report = validateBoard(boardWithCities, settings, req.playerCount);
         if (report.valid) {
-            const startingCitiesByPlayer: Record<PlayerId, ReadonlyArray<{ x: number; y: number }>> = {
+            // Keyed by 1-based dense numeric placement slot (never a
+            // canonical `PlayerId`; issue #74, FR-011). The caller maps
+            // each slot to `MatchConfig.playerIds[slot - 1]`.
+            const startingCitiesByPlayer: Record<number, Array<{ x: number; y: number }>> = {
                 1: [],
                 2: [],
                 3: [],
@@ -260,7 +264,7 @@ export function generateBoard(req: Readonly<TerrainGenerationRequest>): TerrainG
             for (const c of cityPlacements) {
                 const arr = startingCitiesByPlayer[c.owner];
                 if (arr) {
-                    (arr as Array<{ x: number; y: number }>).push(c.cell);
+                    arr.push(c.cell);
                 }
             }
             return {

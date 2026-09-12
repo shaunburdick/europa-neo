@@ -16,6 +16,14 @@
  *   - 004 (networking)     → serializes `Board` over wire (via engine).
  *   - 005 (console)        → reads `Board` cells for rendering.
  *
+ * **Identity-agnostic boundary (issue #74, FR-011)**: terrain neither
+ * accepts, stores, emits, nor orders canonical `PlayerId` values. City
+ * placement uses dense 1-based numeric slots (`CityPlacement.owner`,
+ * `startingCitiesByPlayer` keys), and the caller (engine/matchmaking)
+ * owns the explicit mapping from those slots to universal `PlayerId`
+ * values. A different valid ID list with the same seed, board size,
+ * player count, and settings therefore produces byte-identical terrain.
+ *
  * Versioning: breaking changes bump `TERRAIN_API_VERSION` and update
  * downstream consumers in the same change set (constitution Principle
  * IV: specs as documentation; stale contracts are bugs).
@@ -37,8 +45,15 @@
  *
  * Mirrors the engine's `ENGINE_API_VERSION` discipline: every consumer
  * pin-check at startup, incrementing forces a coordinated update.
+ *
+ * `0.1.0` → `0.2.0` (issue #74, feature 003 v1.8): terrain became fully
+ * identity-agnostic. `CityPlacement.owner` and `startingCitiesByPlayer`
+ * keys are dense 1-based numeric placement slots (never branded
+ * `PlayerId` strings), and the canonical `PlayerId` re-export was
+ * removed from the terrain surface. Pre-1.0 breaking changes take a
+ * minor bump, coordinated with `ENGINE_API_VERSION` 0.2.0.
  */
-export const TERRAIN_API_VERSION = '0.1.0' as const;
+export const TERRAIN_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Engine types (re-exported for convenience, not re-defined)
@@ -53,7 +68,6 @@ import type {
   Cell,
   CityPlacement,
   Coord,
-  PlayerId,
 } from '@europa/core';
 import { ENGINE_API_VERSION as _ENGINE_API_VERSION_REF } from '@europa/core';
 
@@ -278,10 +292,16 @@ export interface TerrainGenerationResult {
   readonly effectiveSeed: MapSeed;
   /**
    * Per-player city coordinates. Redundant with `board.cities` but
-   * exposed for symmetry checks and for tests. Index is `PlayerId - 1`.
+   * exposed for symmetry checks and for tests.
+   *
+   * Keyed by **1-based dense numeric placement slot** (`1..playerCount`),
+   * NOT by canonical `PlayerId` (issue #74, FR-011). Terrain is
+   * identity-agnostic: the caller maps each slot to
+   * `MatchConfig.playerIds[slot - 1]` at the engine/matchmaking identity
+   * boundary, so changing the ID list never changes this output.
    */
   readonly startingCitiesByPlayer: Readonly<
-    Record<PlayerId, ReadonlyArray<Coord>>
+    Record<number, ReadonlyArray<Coord>>
   >;
   /**
    * The `GenerationSettings` actually used by the generator after
@@ -430,8 +450,12 @@ export class GenerationError extends Error {
 
 /**
  * Re-export the engine types that terrain's public surface depends on,
- * so consumers can `import { Board, Cell, Coord, PlayerId } from
+ * so consumers can `import { Board, Cell, Coord } from
  * '@europa/terrain'` without taking a direct dependency on
  * `@europa/engine` for read-only types.
+ *
+ * Deliberately NOT re-exported: `PlayerId`. Terrain is identity-agnostic
+ * (issue #74, FR-011); canonical identities stay in `@europa/core` and
+ * are mapped to terrain's numeric slots only at the caller boundary.
  */
-export type { Board, Cell, CityPlacement, Coord, PlayerId };
+export type { Board, Cell, CityPlacement, Coord };

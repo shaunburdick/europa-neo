@@ -63,7 +63,6 @@
 import type {
   Board,
   Coord,
-  PlayerId,
 } from '@europa/core';
 
 import type {
@@ -186,6 +185,10 @@ export declare function _extractWater(
  * @internal
  * Place cities per player in spawn bands, mirrored. Returns a flat
  * array of `{ cell, owner }` suitable for `Board.cities`.
+ *
+ * `owner` is a **1-based dense numeric placement slot**, never a
+ * canonical `PlayerId` (issue #74, FR-011): terrain is identity-agnostic
+ * and the caller owns the slot → ID mapping.
  */
 export declare function _placeCities(args: {
   readonly elev: Uint8Array;
@@ -195,7 +198,7 @@ export declare function _placeCities(args: {
   readonly playerCount: 2 | 3 | 4;
   readonly settings: Readonly<GenerationSettings>;
   readonly rng: Rng;
-}): ReadonlyArray<{ readonly cell: Coord; readonly owner: PlayerId }>;
+}): ReadonlyArray<{ readonly cell: Coord; readonly owner: number }>;
 
 // ----------------------------------------------------------------------------
 // Constants

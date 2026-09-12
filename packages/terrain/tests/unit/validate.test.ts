@@ -18,7 +18,7 @@
  * (with `cities: []`). US2 will add city-specific failing cases.
  */
 
-import type { Board, Cell, CityPlacement, Coord, PlayerId } from '@europa/core';
+import type { Board, Cell, CityPlacement, Coord } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 import { buildBoard } from '../../src/board';
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';
@@ -87,8 +87,8 @@ function buildValidBoard(): Board {
     // P2 city at 180°-rotated coord.
     const p2Cell: Coord = { x: SIZE - 1 - p1Cell.x, y: SIZE - 1 - p1Cell.y };
     const cities: CityPlacement[] = [
-        { cell: p1Cell, owner: 1 as PlayerId },
-        { cell: p2Cell, owner: 2 as PlayerId },
+        { cell: p1Cell, owner: 1 },
+        { cell: p2Cell, owner: 2 },
     ];
     return { ...board, cities };
 }
@@ -232,7 +232,7 @@ describe('validate (16 invariants per data-model.md §11)', () => {
         it('fails when city count is wrong (hand-constructed)', () => {
             const board = buildValidBoard();
             // Add 1 city — expected 2×1 = 2.
-            const cities: CityPlacement[] = [{ cell: { x: 1, y: 1 }, owner: 1 as PlayerId }];
+            const cities: CityPlacement[] = [{ cell: { x: 1, y: 1 }, owner: 1 }];
             const mutated: Board = { ...board, cities };
             const report = validateBoard(mutated, PASSING_SETTINGS, 2);
             expect(report.valid).toBe(false);
@@ -253,8 +253,8 @@ describe('validate (16 invariants per data-model.md §11)', () => {
             }
             expect(waterCell).not.toBeNull();
             const cities: CityPlacement[] = [
-                { cell: waterCell as Coord, owner: 1 as PlayerId },
-                { cell: { x: 0, y: 0 }, owner: 2 as PlayerId },
+                { cell: waterCell as Coord, owner: 1 },
+                { cell: { x: 0, y: 0 }, owner: 2 },
             ];
             const mutated: Board = { ...board, cities };
             const report = validateBoard(mutated, PASSING_SETTINGS, 2);
@@ -267,7 +267,7 @@ describe('validate (16 invariants per data-model.md §11)', () => {
         it('fails when a city has no partner at the 180° coord', () => {
             const board = buildValidBoard();
             const cities: CityPlacement[] = [
-                { cell: { x: 1, y: 1 }, owner: 1 as PlayerId },
+                { cell: { x: 1, y: 1 }, owner: 1 },
                 // No partner at (30, 30).
             ];
             const mutated: Board = { ...board, cities };
@@ -285,12 +285,12 @@ describe('validate (16 invariants per data-model.md §11)', () => {
             // P1 ↔ P3 pairs (opposite owners) + one self-symmetric P2
             // pair (same owner on both ends).
             const cities: CityPlacement[] = [
-                { cell: { x: 2, y: 2 }, owner: 1 as PlayerId },
-                { cell: { x: SIZE - 3, y: SIZE - 3 }, owner: 3 as PlayerId },
-                { cell: { x: 10, y: 5 }, owner: 1 as PlayerId },
-                { cell: { x: SIZE - 11, y: SIZE - 6 }, owner: 3 as PlayerId },
-                { cell: { x: 5, y: 15 }, owner: 2 as PlayerId },
-                { cell: { x: SIZE - 6, y: SIZE - 16 }, owner: 2 as PlayerId },
+                { cell: { x: 2, y: 2 }, owner: 1 },
+                { cell: { x: SIZE - 3, y: SIZE - 3 }, owner: 3 },
+                { cell: { x: 10, y: 5 }, owner: 1 },
+                { cell: { x: SIZE - 11, y: SIZE - 6 }, owner: 3 },
+                { cell: { x: 5, y: 15 }, owner: 2 },
+                { cell: { x: SIZE - 6, y: SIZE - 16 }, owner: 2 },
             ];
             const withCities: Board = { ...board, cities };
             const report = validateBoard(withCities, { ...PASSING_SETTINGS, citiesPerPlayer: 2 }, 3);
@@ -302,8 +302,8 @@ describe('validate (16 invariants per data-model.md §11)', () => {
             // P1's partner must be owned by P3 in a 3-player layout;
             // owner 2 here is wrong and must be flagged.
             const cities: CityPlacement[] = [
-                { cell: { x: 2, y: 2 }, owner: 1 as PlayerId },
-                { cell: { x: SIZE - 3, y: SIZE - 3 }, owner: 2 as PlayerId },
+                { cell: { x: 2, y: 2 }, owner: 1 },
+                { cell: { x: SIZE - 3, y: SIZE - 3 }, owner: 2 },
             ];
             const withCities: Board = { ...board, cities };
             const report = validateBoard(withCities, PASSING_SETTINGS, 3);
@@ -317,7 +317,7 @@ describe('validate (16 invariants per data-model.md §11)', () => {
             const size = 33;
             const board = buildGeneratedBoard(size);
             const center = (size - 1) / 2;
-            const cities: CityPlacement[] = [{ cell: { x: center, y: center }, owner: 2 as PlayerId }];
+            const cities: CityPlacement[] = [{ cell: { x: center, y: center }, owner: 2 }];
             const withCities: Board = { ...board, cities };
             const report = validateBoard(withCities, PASSING_SETTINGS, 3);
             expect(report.violations.some((v) => v.kind === 'asymmetry')).toBe(false);
@@ -339,9 +339,9 @@ describe('validate (16 invariants per data-model.md §11)', () => {
             const cities: CityPlacement[] = [
                 {
                     cell: { x: (waterCell as Coord).x + 1, y: (waterCell as Coord).y },
-                    owner: 1 as PlayerId,
+                    owner: 1,
                 },
-                { cell: { x: 0, y: 0 }, owner: 2 as PlayerId },
+                { cell: { x: 0, y: 0 }, owner: 2 },
             ];
             const mutated: Board = { ...board, cities };
             const report = validateBoard(mutated, PASSING_SETTINGS, 2);
@@ -354,8 +354,8 @@ describe('validate (16 invariants per data-model.md §11)', () => {
         it('fails when two cities are too close (hand-constructed)', () => {
             const board = buildValidBoard();
             const cities: CityPlacement[] = [
-                { cell: { x: 1, y: 1 }, owner: 1 as PlayerId },
-                { cell: { x: 2, y: 1 }, owner: 2 as PlayerId }, // distance 1
+                { cell: { x: 1, y: 1 }, owner: 1 },
+                { cell: { x: 2, y: 1 }, owner: 2 }, // distance 1
             ];
             const mutated: Board = { ...board, cities };
             const report = validateBoard(mutated, PASSING_SETTINGS, 2);
@@ -386,8 +386,8 @@ describe('validate (16 invariants per data-model.md §11)', () => {
             cells[20 * SIZE + 26] = { x: 26, y: 20, elevation: 100, terrain: 'land' };
             const board: Board = { width: SIZE, height: SIZE, cells, cities: [] };
             const cities: CityPlacement[] = [
-                { cell: { x: 5, y: 20 }, owner: 1 as PlayerId },
-                { cell: { x: 26, y: 20 }, owner: 2 as PlayerId },
+                { cell: { x: 5, y: 20 }, owner: 1 },
+                { cell: { x: 26, y: 20 }, owner: 2 },
             ];
             const mutated: Board = { ...board, cities };
             const report = validateBoard(mutated, PASSING_SETTINGS, 2);
