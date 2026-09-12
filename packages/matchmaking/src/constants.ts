@@ -38,9 +38,9 @@ export const MATCHMAKING_CONSTANTS: MatchmakerConstants = {
 /**
  * Default board size per player count (FR-001 — single source).
  *
- * Canonical defaults — byte-identical to the informational mirror at
- * `specs/012-3-4-player-support/contracts/board-size-defaults.ts` and to
- * `BOARD_SIZE_DEFAULTS` in `../contracts/match-types.ts`.
+ * Canonical defaults — the single source of truth, documented in
+ * `specs/006-match-lifecycle-matchmaking/spec.md`, and also
+ * defined in `BOARD_SIZE_DEFAULTS` in `../contracts/match-types.ts`.
  *
  * Single source for FR-001: lobby create form (FR-002) and host CLI
  * implied size (FR-011) import this map from `@europa/matchmaking`.

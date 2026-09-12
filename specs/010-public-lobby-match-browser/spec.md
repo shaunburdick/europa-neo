@@ -3,8 +3,8 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-09-11 (v1.11; 12-character universal player identity)
-**Version**: 1.11
+**Last Updated**: 2026-09-12 (v1.12; issue #139 spec consolidation)
+**Version**: 1.12
 **Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74); URL routing superseded by Feature 013
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
@@ -392,3 +392,38 @@ normative requirements above:
 - **FR-037**: The server MUST enforce active ID uniqueness and MUST reject or retry collisions; clients cannot choose or replace another identity's ID.
 - **FR-038**: The ID MUST be non-secret correlation data; every privileged action requires its existing server-bound session/reconnect proof.
 - **FR-039**: Share-link create/join/spectate handoffs MUST use the mounted router and end at the canonical `/match/<matchId>` route with the matching mounted view.
+
+### v1.12 (2026-09-12) — Issue #139 spec consolidation (absorbed features 023, 015-profile, 012-3-4)
+
+- **Absorbed feature 023 (lobby roster, issue #62) — presence and roster**:
+  - **023-FR-001**: The lobby MUST display a roster of connected players (handle + presence status) in a dedicated roster card.
+  - **023-FR-002**: The server MUST emit a `roster` event on the existing `lobbyEvent` frame (no new frame type, no wire-version bump).
+  - **023-FR-003**: The roster payload MUST be a `RosterSnapshot` with `{ revision, players: [{ handle, status }] }`.
+  - **023-FR-004**: `status` MUST be one of `in_lobby | in_game | spectating`.
+  - **023-FR-005**: A separate `rosterRevision` counter MUST increment on every roster change and MUST never reset during a server session.
+  - **023-FR-006**: The server MUST send a full roster snapshot on connect and on every change (periodic full snapshot ≥ 60 s as a safety net).
+  - **023-FR-007**: Roster entries MUST be ordered deterministically (handle, then ID) — never by connection order.
+  - **023-FR-008**: Roster events MUST be lobby-only (never delivered inside a match).
+  - **023-FR-009**: A player's roster status MUST be derived from authoritative match state (in-game when seated in a live match, spectating when in a spectator session).
+  - **023-FR-010**: The roster MUST NOT leak private-match information (no match IDs, no private-match membership).
+  - **023-FR-011**: The server MUST debounce roster broadcasts with a 500 ms anti-flap window.
+  - **023-FR-012**: The console roster card MUST render handle + status with "(you)" marking the local identity.
+  - **023-FR-013**: The roster card header MUST read "Players online (N)".
+  - **023-FR-014**: When the roster is unavailable (no server), the card MUST show "Presence unavailable" and never crash.
+  - **023-FR-015**: Roster UI MUST be accessible (semantic list, aria-live for changes) and honor reduced motion.
+  - **023-FR-016**: The manual MUST document the roster (roster.md page) and the README notes the feature.
+  - **023-FR-017**: The wire contract MUST be documented in `contracts/roster-wire.md` (moved from the absorbed feature directory into `010/contracts/` in the same change set).
+  - **023-FR-018**: The roster MUST NOT be used for matchmaking decisions (display-only).
+  - **023-FR-019**: Roster events MUST be ignored by clients that do not implement the roster (forward-compatible).
+  - **023-FR-020**: The roster MUST NOT include handles that fail validation (invalid handles are rejected server-side).
+  - **023-FR-021**: The roster MUST update within 1 second of a presence change (anti-flap window included).
+  - **023-FR-022**: The roster MUST be deterministic across reconnects (same revision sequence for the same event order).
+- **Absorbed feature 015-profile (identity onboarding, issue #49) — lobby identity surface**:
+  - **015-FR-011**: The lobby MUST display a compact identity card (handle + "Manage profile" link) instead of the full inline identity form; the full form lives on `/profile`.
+  - **015-FR-017**: The server MUST create a guest identity (universal `PlayerId`) on first handle set and restore it on subsequent visits while storage persists.
+  - **015-FR-018**: Clearing browser storage MUST end the identity lifecycle (no durable recovery promised).
+  - **015-FR-019**: The ID MUST NOT be proof of possession; privileged lobby actions require the server-bound session credential.
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — lobby create/list chrome**:
+  - **012-FR-002**: The lobby create form MUST pre-select the board size from the 012-FR-001 defaults by chosen player count (2p → 32, 3p/4p → 48) and allow an explicit 32 | 48 override; it MUST NOT silently overwrite a user-chosen size when the player count changes.
+  - **012-FR-003**: The lobby match list MUST show occupancy/capacity text (e.g., "2/4 players"), a board-size label, and lifecycle status per FR-006/FR-007; private matches are never listed.
+- **Contract move note**: the absorbed feature's `contracts/roster-wire.md` is relocated to `010/contracts/` (same change set); the networking conformance suite's byte-identity check re-points at the new path.

@@ -1,10 +1,10 @@
 # Feature Specification: Console Semantic URL Routing
 
 **Feature Branch**: `issue-35-semantic-url-scheme` (original); `issue-75-console-router` (v1.1 TanStack Router migration)
-**Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment), Feature 015 (profile route), Feature 017 (welcome landing screen)
+**Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment), Feature 015 (profile route), Feature 017 (welcome landing screen) — Features 015 and 017 are absorbed into this spec by issue #139 consolidation (v1.4); their requirements are folded in below.
 **Created**: 2026-08-30
-**Last Updated**: 2026-09-11 (v1.3; 12-character identity contract)
-**Version**: 1.3
+**Last Updated**: 2026-09-12 (v1.4; issue #139 consolidation)
+**Version**: 1.4
 **Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74)
 **GitHub Issue**: #35 (original); #75 (v1.1 migration)
 
@@ -47,8 +47,9 @@ The browser-visible path is the routing authority. Production URLs do not carry 
 
 | Input path | Required behavior |
 |---|---|
-| `/` | Redirect to `/lobby` without creating a match or connecting to a match. |
+| `/` | Serve the welcome landing screen (feature 017): logo, tagline, Play CTA; no match connection. |
 | `/lobby` | Mount the existing public lobby runtime. |
+| `/profile` | Identity onboarding (feature 015): unnamed → handle form; named → welcome card + continue; restoring → indicator. Optional relative-path-only `returnTo` query param for match-join redirects. |
 | `/match/<matchId>` | Resolve authoritative state: waiting with an open player seat uses player entry; in-progress uses read-only spectation. Full/unavailable state recovers without silently changing action. |
 | `/match/<matchId>/join` | Request player entry for exactly this match. On failure, show an actionable error and provide lobby recovery. |
 | `/match/<matchId>/spectate` | Request read-only spectator entry for exactly this match. On failure, show an actionable error and provide lobby recovery. |
@@ -257,9 +258,44 @@ The following decisions are recorded from the issue's acceptance criteria, the e
 - The direct-match E2E seam (`live-runtime.tsx` reading `?live`/`?match=`/`?name=`/`?token=` or `window.__europaTestMatch`) is a test-only compatibility path, not a production launch path; the migration must keep it reachable for the E2E fixtures that use it (FR-025).
 - Bundle budget: `@tanstack/react-router` adds a real dependency weight; the implementation should verify the gzipped `dist/assets` payload stays under 150 KB (FR-030) and prefer lazy route chunks for the welcome screen and match views if needed.
 
+### v1.4 (2026-09-12) — Issue #139 spec consolidation (absorbed features 017, 015-profile)
+
+- **Absorbed feature 017 (welcome landing screen, issue #53)**:
+  - **017-FR-001**: `/` MUST serve a welcome/landing page (logo, tagline, Play CTA) instead of redirecting to `/lobby`. (Superseded in mechanism: the route type was renamed `root` → `welcome` and the adapter returns `{ kind: 'welcome' }` as a terminal entry; FR-002's redirect rule is replaced by this serving rule.)
+  - **017-FR-002**: The page MUST be static with zero runtime dependencies (no match connection, no lobby runtime).
+  - **017-FR-003**: The page MUST show the logo lockup (dark variant).
+  - **017-FR-004**: The page MUST show the tagline.
+  - **017-FR-005**: The Play CTA MUST be a styled link to `/lobby`.
+  - **017-FR-006**: Secondary links MUST include the Player Manual (GitHub Pages) and the GitHub repository.
+  - **017-FR-007**: The page MUST be responsive (mobile-first).
+  - **017-FR-008**: The page MUST use the dark theme tokens.
+  - **017-FR-009**: The page MUST be accessible (semantic landmarks, focus order, contrast).
+  - **017-FR-010**: The lobby unnamed-identity redirect MUST be scoped to `/lobby` only. (Superseded in mechanism: 013 FR-021 already defers match-route resolution until identity is named; the welcome page is terminal and never redirects.)
+  - **017-FR-011**: The page MUST be lazy-loaded. (Superseded in mechanism: 013 FR-023's lazy route chunks cover the welcome screen.)
+  - **017-FR-012**: The page MUST be tested in browser E2E. (Superseded in mechanism: 013 FR-028's E2E coverage includes the welcome route.)
+- **Absorbed feature 015-profile (identity onboarding, issue #49) — routing/view**:
+  - **015-FR-001**: `/profile` MUST be a dedicated route (not a lobby view mode).
+  - **015-FR-002**: The route MUST render the identity form when unnamed.
+  - **015-FR-003**: The route MUST render a welcome card + continue when named.
+  - **015-FR-004**: The route MUST render a restoring indicator while identity is being restored.
+  - **015-FR-005**: The route MUST accept an optional `returnTo` query param (relative path only) for match-join redirects.
+  - **015-FR-006**: `returnTo` MUST be validated (pathname-only, no query inside the captured value, no double-decode).
+  - **015-FR-007**: After identity is set, the route MUST navigate to `returnTo` when present, else `/lobby`.
+  - **015-FR-008**: The route MUST be stateless (zero reducer changes, zero new view modes).
+  - **015-FR-009**: The route MUST use design-system components.
+  - **015-FR-010**: The route MUST be accessible (labels, focus, aria-live for the restoring indicator).
+  - **015-FR-012**: The lobby MUST link to `/profile` ("Manage profile").
+  - **015-FR-013**: Match-route resolution MUST defer until `connection === 'ready'` AND `identityStatus === 'named'` (deferred without consuming the attempt; spectators defer coherently).
+  - **015-FR-014**: Unnamed deep-link join MUST round-trip through `/profile` with `returnTo` and resume the join.
+  - **015-FR-015**: The profile route MUST NOT create a match connection.
+  - **015-FR-016**: The profile route MUST be tested in browser E2E (unnamed deep-link round-trip).
+  - **015-FR-020**: The profile route MUST be reachable from the lobby identity card.
+
 ## Change Log
 
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-08-31 | Initial spec (issue #35): semantic URL scheme, route contract, FR-001..FR-019. |
 | 1.1 | 2026-09-07 | Amendment (issue #75): TanStack Router migration of the hand-rolled routing layer. Added FR-020..FR-030, NFR-008..NFR-009, AC-012..AC-017, migration edge cases, Clarifications session 2026-09-07 (items 8–10 resolved: full module surface replacement, SWR deferred, `?ws=` stays untyped), and this change log. Status remains NOT Implemented for the v1.1 amendment. |
+| 1.3 | 2026-09-11 | Amendment (issue #74): mounted-router handoff and 12-character identity contract. Added FR-031..FR-033, Clarifications v1.3. |
+| 1.4 | 2026-09-12 | Amendment (issue #139): spec consolidation — absorbed features 017 (welcome landing screen) and 015 (profile route). Added the v1.4 amendment section, route-contract updates (`/` serves the welcome page, `/profile` added), and the Dependencies note. |

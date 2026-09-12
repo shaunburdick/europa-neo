@@ -1,8 +1,8 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-09-11 (v1.6; 12-character universal player identity)
-**Version**: 1.6
+**Last Updated**: 2026-09-12 (v1.7; issue #139 spec consolidation)
+**Version**: 1.7
 
 **Created**: 2026-08-21
 
@@ -414,3 +414,66 @@ suite result. Coverage remains gated at ≥80% on every metric.
 - **FR-024**: Console ownership MUST resolve from the server-authoritative 12-character universal ID, never numeric seat position or handle text; forged IDs cannot issue orders or select views.
 - **FR-025**: Active reconnect, terminal, and rematch flows MUST preserve the same universal ID.
 - **FR-026**: Create, join, and spectate handoffs, including shareable links, MUST use the mounted router and assert both canonical URL and mounted view.
+
+### v1.7 (2026-09-12) — Issue #139 spec consolidation (absorbed features 018, 019, 021, 012-3-4, 024, 043)
+
+- **Absorbed feature 018 (in-match help overlay, issue #67)**:
+  - **018-FR-001**: A help button in the match HUD opens an in-match help overlay.
+  - **018-FR-002**: The `?` key toggles the overlay; `Escape` closes it.
+  - **018-FR-003**: The overlay MUST contain: objective, controls, and special-weapons sections.
+  - **018-FR-004**: The overlay MUST include a symbol legend (city, troop, pipe, fog, reserves).
+  - **018-FR-005**: The overlay MUST list all keyboard shortcuts from the controls mapping.
+  - **018-FR-006**: The overlay MUST link to the player manual (external).
+  - **018-FR-007**: The overlay MUST show the current match context (board size, player count, seat).
+  - **018-FR-008**: The toggle MUST be a true toggle (same action opens and closes).
+  - **018-FR-009**: The overlay MUST NOT block gameplay (non-modal, dismissible).
+  - **018-FR-010**: A tooltip system MUST explain HUD controls on hover/focus.
+  - **018-FR-011**: Tooltips MUST attach to: reserves slider, surrender button, zoom controls, minimap, and help button.
+  - **018-FR-012**: Tooltips MUST use design-system tokens and match the overlay styling.
+  - **018-FR-013**: The overlay MUST be usable on mobile (touch-friendly close, no hover dependency).
+  - **018-FR-014**: The overlay MUST meet WCAG 2.2 AA (focus management, aria, contrast).
+  - **018-FR-015**: The overlay MUST be lazy-loaded (< 5 KB gzip) and never block first paint.
+  - **018-FR-016**: The overlay MUST be dismissible by clicking outside.
+- **Absorbed feature 019 (game-over modal, issue #70)**:
+  - **019-FR-001**: The console MUST expose `ConsoleState.matchResult` (winner ID, reason, final tick).
+  - **019-FR-002**: A `GameOverModal` MUST render when `matchResult` is set.
+  - **019-FR-003**: The modal MUST show the winner (handle or "Player N") and the victory reason.
+  - **019-FR-004**: The modal MUST show the final tick number.
+  - **019-FR-005**: The modal MUST NOT be dismissible by clicking outside or pressing Escape.
+  - **019-FR-006**: The modal MUST offer a "Return to Lobby" action.
+  - **019-FR-007**: The modal MUST be announced via aria-live (polite).
+  - **019-FR-008**: The modal MUST render above all other UI (highest z-index).
+  - **019-FR-009**: The modal MUST be keyboard-accessible (focus trapped, Enter activates).
+  - **019-FR-010**: The modal MUST show the player's own result (win/loss) distinctly.
+  - **019-FR-011**: The modal MUST NOT appear during reconnect or waiting states.
+  - **019-FR-012**: The modal MUST be a design-system component (no raw HTML).
+  - **019-FR-013**: The modal MUST be tested in browser E2E (win and loss paths).
+  - **019-FR-014**: The modal MUST be responsive (usable at mobile widths).
+  - **019-FR-015**: The console MUST expose an `onReturnToLobby` prop for the modal's action.
+- **Absorbed feature 021 (tile visual redesign, issue #71)**:
+  - **021-FR-001**: The canvas MUST render water, land, city, and void tiles with the new palette.
+  - **021-FR-002**: Nine new design tokens MUST be added (water/land/city/void base + variants).
+  - **021-FR-003**: The palette MUST be pure functions of elevation (no per-tile state).
+  - **021-FR-004**: The DOM overlay MUST remain unchanged (no new DOM per tile).
+  - **021-FR-005**: The minimap MUST use the same palette as the main board.
+  - **021-FR-006**: The palette MUST be exported from `@europa/design` for reuse.
+  - **021-FR-007**: The palette MUST be deterministic (same elevation → same color).
+  - **021-FR-008**: The palette MUST be tested (unit + visual regression).
+  - **021-FR-009**: The palette MUST meet contrast requirements for city/void boundaries.
+  - **021-FR-010**: The palette MUST be documented in DESIGN.md.
+  - **021-FR-011**: The palette MUST be additive (no existing token removed).
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — console**:
+  - **012-FR-005**: The waiting-for-opponent overlay MUST be player-count-aware: "Waiting for N−1 more players… (1/N)" for N ∈ {2, 3, 4}, auto-start at 2 s after full, and the polite live-region announcement fires once.
+  - **012-FR-006**: Console geometry (zoom range, sidebar layout, minimap) MUST remain unchanged for 3–4 players; only the board size and seat count vary.
+- **Absorbed feature 024 (biome-based terrain shading, issue #148/#149) — canvas/console**:
+  - **024-FR-010**: Pipe triangles MUST gain a dark outline for visibility on all biomes.
+  - **024-FR-011**: Land tiles MUST render biome-based gradients (4 zones).
+  - **024-FR-012**: Contour hints MUST render on zones 2–3 (`rgba(0,0,0,0.10)`).
+  - **024-FR-013**: The inner shadow on land tiles MUST remain unchanged.
+  - **024-FR-014**: Pipe slope indicator colors MUST remain unchanged (#059669 downhill / #f59e0b flat / #dc2626 uphill / #9ca3af stalled).
+  - **024-FR-020**: The DOM overlay MUST remain transparent (no background).
+  - **024-FR-021**: `.europa-pipe` MUST apply `drop-shadow(0 0 1px rgba(0,0,0,0.7))`.
+  - **024-FR-040**: The minimap MUST inherit the biome colors from the main board.
+  - **024-FR-041**: The elevation swatch MUST show 4 zones (one per biome).
+  - **024-FR-052**: `classifyPipeSlope` MUST classify stalled when delta > 80 (matching 024-FR-051's stall cap).
+- **Absorbed feature 043 (pipe slope colors)**: no `spec.md` exists (plan/quickstart/tasks only); its substance is already covered by 005 FR-013 and 007 FR-006/FR-010. The directory is deleted; this note records the absorption.

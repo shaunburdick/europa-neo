@@ -1,0 +1,68 @@
+# Spec Consolidation Guard — runs the consolidation checker on PRs that touch
+# specs or the checker script. The `changes` job gates the verify job via a
+# job-level `if:` skip, which reports "skipped" and satisfies the required
+# check (see docs.github.com troubleshooting-required-status-checks).
+name: Spec Consolidation Guard
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'specs/**'
+      - 'scripts/check-spec-consolidation.ts'
+      - 'scripts/verify.sh'
+      - '.github/workflows/spec-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Detects whether this workflow's relevant paths changed on the PR. The
+  # heavy jobs below gate on this output; when they skip, the check reports
+  # "skipped" (a successful status) so the required check is satisfied.
+  # dorny/paths-filter reads changed files via the REST API on PRs and
+  # diffs against the previous commit on push. This job must never fail: a
+  # failure would skip its dependents silently (dependent-job-skip).
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # dorny/paths-filter: on PRs it reads changed files via the REST API
+      # (no git history needed); on push it diffs against the previous
+      # commit. Filters mirror the old workflow-level paths lists.
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.3
+        id: filter
+        with:
+          filters: |
+            changed:
+              - 'specs/**'
+              - 'scripts/check-spec-consolidation.ts'
+              - 'scripts/verify.sh'
+              - '.github/workflows/spec-guard.yml'
+
+  verify:
+    name: Spec consolidation check
+    needs: [changes]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Run spec consolidation checker
+        run: pnpm exec tsx scripts/check-spec-consolidation.ts

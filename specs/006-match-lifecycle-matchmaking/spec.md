@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-21
 
-**Last Updated**: 2026-09-11 (v1.6; 12-character NanoID-style identity lifecycle)
+**Last Updated**: 2026-09-12 (v1.7; issue #139 spec consolidation)
 
-**Version**: 1.6
+**Version**: 1.7
 
 **Status**: Implemented (2026-09-12; universal PlayerId allocation + credential separation implemented — issue #74)
 
@@ -302,3 +302,10 @@ Rationale: spec 004 v1.5 collapses match-existence error codes (`match_not_found
 - **FR-015**: The ID MUST persist through active reconnect, seat reassignment, and accepted rematch, and MUST be unique among active identities; collisions MUST retry or fail closed.
 - **FR-016**: A bare ID MUST NOT authorize identity mutation, admission, eviction, forfeit, orders, or views; those operations require server-bound proof of possession.
 - **FR-017**: Two-player browser create/join/spectate and share-link flows MUST finish through the canonical mounted router paths.
+
+### v1.7 (2026-09-12) — Issue #139 spec consolidation (absorbed feature 012-3-4)
+
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — board-size defaults and validation**:
+  - **012-FR-001**: Matchmaking MUST default the board size by player count: 2 players → 32×32, 3 players → 48×48, 4 players → 48×48. The single source of truth is a `BOARD_SIZE_DEFAULTS` map (`{ 2: 32, 3: 48, 4: 48 }`) in `@europa/matchmaking`; `DEFAULT_MATCH_SETTINGS.boardSize` remains 32 (the 2-player default). Per Clarifications v1.1, 64×64 is temporarily disabled; the allowed set is 32 | 48, and the map is the authoritative default source. The `contracts/board-size-defaults.ts` mirror moves from the absorbed feature directory into `006/contracts/` in the same change set.
+  - **012-FR-004**: Matchmaking validation MUST continue to accept exactly 2, 3, or 4 players and reject other counts with `invalid_request` plus a `detail` message. Auto-start fires 2 seconds after the match is full, for every player count. No validation behavior changes.
+- **Contract move note**: the absorbed feature's `contracts/board-size-defaults.ts` is relocated to `006/contracts/` (same change set); the conformance suite's byte-identity check re-points at the new path.

@@ -19,7 +19,7 @@
  *   - `validateMatchId` from `src/routing/route`
  *   - `adaptRoute`, `executeRouteEntry` from `src/routing/route-adapter`
  *
- * @see specs/013-console-semantic-url-scheme/spec.md  FR-006, FR-007
+ * @see specs/013-semantic-url-routing/spec.md  FR-006, FR-007
  */
 
 import { describe, expect, test } from 'vitest';

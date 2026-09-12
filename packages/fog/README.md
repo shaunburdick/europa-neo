@@ -50,7 +50,7 @@ Produces `dist/index.js` (ESM) and `dist/index.d.ts` (types) via `tsup`.
 pnpm --filter @europa/fog test
 ```
 
-Runs the full Vitest suite (107 tests at last count, ~1 s). Coverage
+Runs the full Vitest suite (101 tests at last count, ~1 s). Coverage
 thresholds are 80% on every metric (constitution Principle III merge
 gate):
 

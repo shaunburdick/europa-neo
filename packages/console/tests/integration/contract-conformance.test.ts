@@ -5,12 +5,6 @@
  * §"Constitution Check" Principle I, research.md §"Locked stack", and
  * the no-additive-changes mandate:
  *
- *   (a) **Byte-identity** — every contract mirror under `src/contracts/`
- *       is BYTE-identical to its source of truth at
- *       `specs/005-client-console/contracts/`. The mirrors
- *       were cut verbatim; even a whitespace drift is a bug (same
- *       strictness as feature 004's conformance suite).
- *
  *   (b) **Type conformance** — the engine's 8-variant `Order` union,
  *       the fog `PlayerView`, networking's `ConnectionState` and
  *       `MatchClient`, and the engine `World` re-exported through
@@ -27,6 +21,15 @@
  *       type-only exports via the indexed-access witness list, which
  *       fails `typecheck:conformance` if any name is missing or
  *       misspelled). Requires `pnpm build` first.
+ *
+ *   (d) **Cross-package API-version boundary witness** — every shipped
+ *       API-version constant is pinned in ONE place and stays in
+ *       lock-step across runtime values and source-file literals.
+ *
+ * NOTE: Part (a) -- byte-identity comparisons between src/contracts/
+ * and specs/005-client-console/contracts/ -- was removed because the
+ * spec-side .ts files no longer exist. The package copies in
+ * each package's src/contracts/ are now the sole source of truth.
  */
 
 import { readFileSync } from 'node:fs';
@@ -281,16 +284,6 @@ function expectedContractNames(): Set<string> {
 // ---------------------------------------------------------------------------
 
 describe('contract conformance (T089)', () => {
-    describe('(a) byte-identity of contract mirrors vs spec source-of-truth', () => {
-        for (const file of CONTRACT_FILES) {
-            it(`src/contracts/${file} is byte-identical to the spec copy`, () => {
-                const local = readFileSync(packagePath(`src/contracts/${file}`), 'utf-8');
-                const spec = readFileSync(repoPath(`specs/005-client-console/contracts/${file}`), 'utf-8');
-                expect(local).toBe(spec);
-            });
-        }
-    });
-
     describe('(b) upstream types re-exported from src/state/types conform', () => {
         it('engine/fog/networking declarations are mutually assignable with canon', () => {
             // Compile-time proof lives in the aliases above (enforced by

@@ -3,8 +3,8 @@
 **Feature Branch**: `003-procedural-terrain-generation`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-11 (v1.8; 12-character identity boundary)
-**Version**: 1.8
+**Last Updated**: 2026-09-12 (v1.9; issue #139 spec consolidation)
+**Version**: 1.9
 
 **Status**: Implemented (2026-08-30; BFS performance fix 2026-09-11; identity-agnostic numeric slots implemented 2026-09-12 — issue #74)
 
@@ -163,3 +163,8 @@ Rationale: code review identified that the terrain validator's BFS implementatio
 
 - Terrain generation remains deterministic over `(seed, board size, player count, settings)` and is intentionally independent of universal identity generation. City bands and starting-city outputs may use dense player-slot indexes internally; the engine/matchmaker owns the explicit mapping from those slots to universal `PlayerId` values.
 - **FR-011**: Terrain MUST NOT derive, persist, serialize, or sort universal IDs, and changing an ID MUST NOT change a generated board for the same seed/settings/player count. The mapping to starting cities is supplied authoritatively by the caller.
+
+### v1.9 (2026-09-12) — Issue #139 spec consolidation (absorbed feature 012-3-4)
+
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — terrain conformance**:
+  - **012-FR-008**: Terrain generation MUST remain point-symmetric (180° rotation), deterministic, and connectivity-valid for 3-player and 4-player matches on the default 48×48 board. The generator's public API is unchanged; the parameterized board sizes (32 | 48 | 64) and the v1.2 normalization rules (`normalizedCitiesPerPlayer` rounding 3p city counts up to even, `partnerPlayer(owner, playerCount)` mirror-aware placement) already cover the 3p/4p cases. This is a conformance note — no new terrain behavior is introduced.

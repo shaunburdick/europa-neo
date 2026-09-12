@@ -34,24 +34,15 @@
  *       interface — non-conforming handlers fail `pnpm typecheck`).
  */
 
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-
 import type { Order, PlayerId } from '@europa/engine';
 import { ENGINE_API_VERSION } from '@europa/engine';
 import type { EngineSession, MatchmakerBridge } from '@europa/networking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
-import { BOARD_SIZE_DEFAULTS as mirrorBoardSizeDefaults } from '../../../specs/012-3-4-player-support/contracts/board-size-defaults';
 import { MATCHMAKING_API_VERSION } from '../contracts/match-types';
-import { BOARD_SIZE_DEFAULTS as shippedBoardSizeDefaults } from '../src/constants';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../src/index';
 import { FakeServer } from './fixtures/fakeServer';
-
-function repoPath(relativePath: string): string {
-    return resolve(__dirname, '..', '..', '..', relativePath);
-}
 
 /**
  * A FakeServer that captures the bridge under the CANONICAL
@@ -265,46 +256,14 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
     });
 });
 
-describe('conformance: feature 012 board-size defaults mirror + no wire version bump (T006)', () => {
-    it('BOARD_SIZE_DEFAULTS mirror at specs/012-3-4-player-support/contracts/board-size-defaults.ts is byte-identical to shipped constant', async () => {
-        // Runtime value byte-identity: JSON serialization proves key order and
-        // literal values are identical across the informational spec mirror
-        // and the shipped single source. Prevents drift between docs and
-        // product (spec Out of Scope: no wire bump — map is internal only).
-        const expectedJson = JSON.stringify({ 2: 32, 3: 48, 4: 48 });
-        expect(JSON.stringify(shippedBoardSizeDefaults)).toBe(expectedJson);
-        expect(JSON.stringify(mirrorBoardSizeDefaults)).toBe(expectedJson);
-        expect(JSON.stringify(mirrorBoardSizeDefaults)).toBe(JSON.stringify(shippedBoardSizeDefaults));
-
-        // Deep equality corroboration.
-        expect(mirrorBoardSizeDefaults).toEqual(shippedBoardSizeDefaults);
-
-        // File-level byte-identity guard: the exported map literal must appear
-        // verbatim in both the spec mirror and the shipped source (catches
-        // whitespace/order/comment drift that deepEqual would miss).
-        const shippedLiteral =
-            'export const BOARD_SIZE_DEFAULTS: BoardSizeDefault = {\n    2: 32,\n    3: 48,\n    4: 48,\n} as const;';
-        const [mirrorSource, shippedSource] = await Promise.all([
-            readFile(repoPath('specs/012-3-4-player-support/contracts/board-size-defaults.ts'), 'utf-8'),
-            readFile(repoPath('packages/matchmaking/src/constants.ts'), 'utf-8'),
-        ]);
-        expect(mirrorSource).toContain(shippedLiteral);
-        expect(shippedSource).toContain(shippedLiteral);
-
-        // Contract copy in packages/matchmaking/contracts/match-types.ts must
-        // carry the same literal (the single-source discipline: both contract
-        // and constant declare the map; drift between them is a bug).
-        const contractSource = await readFile(repoPath('packages/matchmaking/contracts/match-types.ts'), 'utf-8');
-        expect(contractSource).toContain(shippedLiteral);
-    });
-
+describe('conformance: API version pin (T006)', () => {
     it('API version pin — MATCHMAKING_API_VERSION + ENGINE_API_VERSION 0.2.0, NETWORK_API_VERSION 0.3.0 (independent pre-1.0 boundaries)', () => {
         // Issue #74 breaks the matchmaking/engine identity surface (T027):
         // `SeatAssignment.playerId` (and every engine identity field) becomes
         // a canonical 12-character string, so matchmaking and engine bump
         // their shared pre-1.0 minor to 0.2.0. Networking owns a SEPARATE
         // wire-protocol version whose own breaking bump landed in Wave 6
-        // (T030): 0.2.0 → 0.3.0. The two versions track independent
+        // (T030): 0.2.0 -> 0.3.0. The two versions track independent
         // compatibility boundaries and are NOT required to be equal — each
         // package's line breaks only for its own consumers.
         expect(MATCHMAKING_API_VERSION).toBe('0.2.0');

@@ -3,8 +3,8 @@
 **Feature Branch**: `002-fog-of-war-visibility`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-12 (v1.6; FR-010 spectator authority carve-out)
-**Version**: 1.6
+**Last Updated**: 2026-09-12 (v1.7; issue #139 spec consolidation)
+**Version**: 1.7
 
 **Status**: Implemented (2026-09-12; universal PlayerId amendment implemented — issue #74)
 
@@ -127,3 +127,8 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 - **Player path**: identity resolution is authoritative and fail-closed. An unknown, forged, malformed, absent, or otherwise unresolved ID yields no view and discloses no hidden state; it MUST NOT select another viewer, fall back to a seat/index, or obtain a view.
 - **Spectator/read-only path**: authority derives from the server session's read-only flag, not from the supplied ID. An unknown, forged, malformed, or absent ID does not itself deny the full-board view — the ID is correlation metadata only (FR-009). The spectator session remains read-only (FR-006), and no ID grants spectator or order authority.
 - **Consistency**: this matches the implemented `computePlayerView` spectator path (`options.spectator === true` returns the full board regardless of whether the passed ID resolves) and the feature's data model (spectator carve-out). No engine, fog, networking, or console behavior changes; this is a behavioral-spec correction only.
+
+### v1.7 (2026-09-12) — Issue #139 spec consolidation (absorbed feature 012-3-4)
+
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — fog conformance**:
+  - **012-FR-009**: Fog-of-war visibility MUST remain correct for 3–4 player matches. The Chebyshev horizon (≤ 4), structural redaction, and spectator read-only rules are player-count-agnostic; no fog behavior changes. The 500-tick scripted-match leakage audit (SC-001 protocol) extends from 2-player to 3-player and 4-player scripted matches, and the zero-leakage invariant holds for every player count. This is a conformance note — the fog package's public API and `FOG_API_VERSION` are unchanged.

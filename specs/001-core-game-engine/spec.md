@@ -3,8 +3,8 @@
 **Feature Branch**: `001-core-game-engine`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-11 (v1.13; 12-character universal player identity)
-**Version**: 1.13
+**Last Updated**: 2026-09-12 (v1.14; issue #139 spec consolidation)
+**Version**: 1.14
 
 **Status**: Implemented (2026-09-07; hot-path allocation reuse 2026-09-11; universal PlayerId amendment implemented 2026-09-12 — issue #74)
 
@@ -350,3 +350,12 @@ Rationale: code review identified per-tick allocation of typed arrays, per-cell 
 - **FR-020**: Public engine contracts, events, replays, and serialization MUST use explicit branded IDs; numeric IDs MUST be rejected.
 - **FR-021**: Replay and determinism fixtures MUST supply explicit IDs and produce byte-identical results independent of host locale.
 - **FR-022**: Seat/index reassignment MUST preserve the ID; malformed, duplicate, missing, or extra identity-table entries MUST fail closed.
+
+### v1.14 (2026-09-12) — Issue #139 spec consolidation (absorbed features 012-3-4, 024)
+
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — engine conformance**:
+  - **012-FR-007**: The engine's FR-019 support for 2–4 players is exercised end-to-end by the 3–4 player feature. No numeric rule, order set, victory condition (FR-015/FR-016), or constants file changes — only test coverage extends to 3p/4p scripted wins. Elimination remains "zero troops AND zero cities"; last-player-standing ends the match; surrender is immediate elimination; deterministic integer math invariant holds.
+- **Absorbed feature 024 (biome-based terrain shading, issue #148/#149) — flow viability rules**:
+  - **024-FR-050**: The pipe flow formula MUST implement biome-aware flow viability rules. The elevation delta between source and destination determines flow behavior: same biome (delta < 40) always flowable at full rate; +1 biome uphill (delta 40–80) flowable but slower; +2 biomes uphill (delta > 80) stalled at zero flow; downhill (delta < 0) always fast flow at full rate + downhill bonus. Terrain color directly communicates pipe viability.
+  - **024-FR-051**: The engine flow formula in `@europa/core` (`flowRateForDelta`) MUST support an uphill stall cap: `downhill: flowBase + flowDownhillStep × min(|delta|, flowSlopeDeltaCap)`; `flat: flowBase`; `uphill: max(0, flowBase − flowUphillStep × min(delta, flowUphillCap))`. New constants replace the current `flowSlopeStep` with directional parameters: `flowBase: 7`, `flowDownhillStep: 1`, `flowUphillStep: 1`, `flowSlopeDeltaCap: 5`, `flowUphillCap: 73` (stalls at delta = 7 + 73 = 80). The engine's `ENGINE_CONSTANTS` and the console's `PIPE_SLOPE_CONSTANTS` mirror MUST both be updated.
+  - **024-FR-053**: The engine's `flowRateForDelta` function in `@europa/core` MUST accept the expanded `FlowConstants` interface (with `flowDownhillStep`, `flowUphillStep`, `flowUphillCap` fields). The `DEFAULT_FLOW_CONSTANTS` and `ENGINE_CONSTANTS` objects MUST be updated with the new field values. The existing `flowSlopeStep` field is removed and replaced by the directional variants.
