@@ -5,7 +5,6 @@
  * (frames + finalState). Any change to the render pipeline will
  * produce a different hash; regenerate after intentional changes.
  */
-import { createHash } from 'node:crypto';
 
 // Regenerate: pnpm --filter @europa/console exec tsx scripts/generate-determinism-golden.ts
 export const GOLDEN_HASH = '381517f4ec1eefe46090c1ad382676ac54785d149abebb8315376838de78c76b';

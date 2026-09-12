@@ -16,7 +16,14 @@
  * @internal Test scaffolding; never part of the production boot path.
  */
 
-import type { ActionId, ConsoleClient, NetworkPayload, Order, ProtocolEnvelope, SequenceNumber } from '../../src/state/types';
+import type {
+    ActionId,
+    ConsoleClient,
+    NetworkPayload,
+    Order,
+    ProtocolEnvelope,
+    SequenceNumber,
+} from '../../src/state/types';
 
 /** One recorded outbound order. */
 export interface RecordedOrder {
