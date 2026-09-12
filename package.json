@@ -23,6 +23,7 @@
         "replay:capture": "tsx packages/engine/scripts/capture.ts",
         "replay:run": "tsx packages/engine/scripts/run.ts",
         "replay:update": "tsx packages/engine/scripts/update.ts",
+        "guard:config": "tsx scripts/check-orphaned-vitest-configs.ts",
         "verify": "bash scripts/verify.sh",
         "verify:changed": "bash scripts/verify-changed.sh",
         "prepare": "husky"
@@ -32,6 +33,7 @@
         "biome-config-shaunburdick": "catalog:",
         "@vitest/coverage-v8": "^4.1.11",
         "typescript": "catalog:",
-        "husky": "catalog:"
+        "husky": "catalog:",
+        "tsx": "catalog:"
     }
 }

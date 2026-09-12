@@ -167,26 +167,7 @@ jobs:
         run: pnpm --filter @europa/console typecheck:conformance
 
       - name: Orphaned vitest config guard
-        run: |
-          # Find all vitest config files
-          configs=$(find packages -name 'vitest.config*.ts' -not -path '*/node_modules/*' | sort)
-          orphaned=0
-          for config in $configs; do
-            pkg_dir=$(dirname "$config")
-            config_basename=$(basename "$config")
-            # Check if any npm script in the package references this config
-            if ! grep -q "$config_basename" "$pkg_dir/package.json" 2>/dev/null; then
-              # Also check if any CI workflow references it
-              if ! grep -rq "$config_basename" .github/workflows/ 2>/dev/null; then
-                echo "::error::Orphaned vitest config: $config (not referenced by any npm script or CI workflow)"
-                orphaned=1
-              fi
-            fi
-          done
-          if [ "$orphaned" -eq 1 ]; then
-            exit 1
-          fi
-          echo "All vitest configs are referenced."
+        run: pnpm guard:config
 
   design-browser-test:
     name: Browser-mode tests (design)
