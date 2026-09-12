@@ -3,8 +3,8 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-09-06 (v1.8; issue #34 shareable-match-links amendment)
-**Version**: 1.8
+**Last Updated**: 2026-09-11 (v1.11; 12-character universal player identity)
+**Version**: 1.11
 **Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06); URL routing superseded by Feature 013
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
@@ -273,7 +273,7 @@ No interactive clarification questions were required. The approved decisions res
 
 ### Session 2026-08-26 — Claim provenance / identity-event delivery channel (v1.6)
 
-- **The gap (verified)**: FR-002 has the server assign each visitor an opaque GuestPlayerId and FR-003 has the browser store it locally so a reload restores the active identity within the reconnect grace window — but NO server→client channel carried that id. `IdentityState` was id-free in both canonical contract copies, `GuestIdentityClaim.guestPlayerId` was documented as "previously issued to this browser", and nothing ever issued/delivered it: on claim-miss the registry minted a server-side UUID that never reached the browser, so reload-restore could never work end-to-end.
+- **The gap (verified)**: FR-002 has the server assign each visitor an opaque GuestPlayerId and FR-003 has the browser store it locally so a reload restores the active identity within the reconnect grace window — but NO server→client channel carried that id. `IdentityState` was id-free in both canonical contract copies, `GuestIdentityClaim.guestPlayerId` was documented as "previously issued to this browser", and nothing ever issued/delivered it: on claim-miss the registry minted a server-side opaque ID that never reached the browser, so reload-restore could never work end-to-end.
 - **PM ruling (2026-08-26, final)**: `IdentityState` gains an ADDITIVE OPTIONAL `guestPlayerId?: GuestPlayerId` in BOTH canonical contract copies (matchmaking's `lobby-types.ts` and networking's wire mirror; no `NETWORK_API_VERSION` bump — same additive ruling pattern as v1.3's `detail`). The directed `identity` `LobbyEvent` becomes THE FR-003 delivery channel: the lobby facade populates the AUTHENTICATED owner's id when projecting identity state for that event (`establishIdentity`, `setHandle`, and every restore path), and the dispatcher forwards it verbatim — directed delivery to exactly ONE connection, the owner's. This mirrors feature-004's sessionToken delivery precedent.
 - **Witness-envelope change**: identity IDs are non-secret and may be carried by projections and correlation surfaces. Compile-time witnesses continue to enforce shape compatibility; runtime checks must still verify that IDs do not grant authority, expose credentials, enumerate private matches, or bypass fog filtering.
 - **Client contract**: browsers persist the server-delivered id (replacing any local bootstrap mint — the local mint remains first-frame bootstrap only) so reload-restore works end-to-end; clients MUST tolerate the field's absence (older servers).
@@ -381,3 +381,14 @@ normative requirements above:
   `joinLinks()` returns absolute `joinUrl` when configured. The canonical
   URL scheme is `/match/<matchId>` (plan decision D8); the matchmaker's
   `joinPath` stays as `/join/<matchId>` for backward compatibility.
+
+### v1.11 (2026-09-11) — 12-character NanoID-style universal identity lifecycle (issue #74)
+
+- The opaque server-generated `GuestPlayerId` is the universal player identity used by lobby, match seats, engine, wire, console, and rematch records. It persists through active reload/reconnect and rematch; it is lost on storage clear, server restart, expiry, or collection.
+- The ID is non-secret correlation data, never a bearer credential. Lobby actions, seat claims, handle changes, orders, and views require server-bound session/reconnect proof; a client-supplied ID cannot impersonate another identity.
+- The server uses the exact alphabet `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-` and length 12 (72 bits), with CSPRNG generation, canonical validation `^[A-Za-z0-9_-]{12}$`, active uniqueness, and collision retry/fail-closed behavior. UI remains handle-first; IDs are fallback/correlation labels only. Future account linking is a separate boundary and is not defined here.
+- A small internal rejection-sampling generator is preferred over a new runtime dependency: current manifests have no direct `nanoid` dependency; installed `nanoid@3.3.18` is only transitive through Vite/PostCSS. This honors the constitution's simplicity, licensing, and self-hosting constraints while avoiding reliance on a tooling dependency.
+- **FR-036**: The universal ID MUST remain unchanged from lobby identity through seat, match, reconnect, terminal, and accepted rematch while the guest identity is active.
+- **FR-037**: The server MUST enforce active ID uniqueness and MUST reject or retry collisions; clients cannot choose or replace another identity's ID.
+- **FR-038**: The ID MUST be non-secret correlation data; every privileged action requires its existing server-bound session/reconnect proof.
+- **FR-039**: Share-link create/join/spectate handoffs MUST use the mounted router and end at the canonical `/match/<matchId>` route with the matching mounted view.

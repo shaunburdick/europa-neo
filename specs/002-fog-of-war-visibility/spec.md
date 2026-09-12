@@ -3,8 +3,8 @@
 **Feature Branch**: `002-fog-of-war-visibility`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-08-30 (v1.2; identity-visibility correction)
-**Version**: 1.2
+**Last Updated**: 2026-09-11 (v1.5; 12-character universal player identity)
+**Version**: 1.5
 
 **Status**: Implemented
 
@@ -112,3 +112,10 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 - `sessionToken` and `reconnectToken` remain bearer credentials and are not view
   data; identity IDs never substitute for those credentials or for a
   server-authorized seat.
+
+### v1.5 (2026-09-11) — 12-character NanoID-style universal player identity (issue #74)
+
+- Visibility APIs accept the branded universal `PlayerId` string. Dense numeric indexes may be used only after server-authoritative ID resolution.
+- An ID may accompany an authorized view for correlation, but an unknown or forged ID MUST NOT select another viewer, obtain a view, grant spectator/order authority, or disclose hidden state.
+- **FR-010**: Visibility APIs MUST resolve the universal ID authoritatively and MUST reject unknown or forged IDs without returning hidden state.
+- **FR-011**: Reconnect and seat reassignment MUST preserve each player's correct view association for explicit 12-character universal IDs.

@@ -3,6 +3,8 @@
 **Feature Branch**: `001-core-game-engine`
 
 **Created**: 2026-08-21
+**Last Updated**: 2026-09-11 (v1.13; 12-character universal player identity)
+**Version**: 1.13
 
 **Status**: Implemented (2026-09-07; hot-path allocation reuse 2026-09-11)
 
@@ -337,3 +339,14 @@ Rationale: code review identified per-tick allocation of typed arrays, per-cell 
 - **Performance target**: the per-tick allocation cost (excluding the one-time board-construction allocation) MUST be zero. This is verifiable by profiling — the tick function must not allocate on the V8 heap after the first tick. SC-004 (tick < 10 ms) remains the pass/fail criterion; the allocation reuse is a means to that end, not a separate metric.
 - **No contract change**: this is an internal performance optimization. The engine's public API (`tick`, `applyCommand`, `TickResult`, `GameState`) is unchanged. Callers see identical behavior.
 - **Test expectations**: SC-001 determinism tests are unchanged. A new SC-006 is added: a V8 heap-profile snapshot of 1000 consecutive ticks on a populated 32×32 board MUST show zero allocations in the `tick()` function body (allocations in setup/teardown outside `tick()` are permitted).
+
+### v1.13 (2026-09-11) — 12-character NanoID-style universal player identity (issue #74)
+
+- `PlayerId` is a branded opaque 12-character NanoID-style string supplied by the server. It is the same value as the active lobby `GuestPlayerId`; the engine MUST never derive it from seat position, array index, or display handle. Numeric slots may remain internal only.
+- The engine MAY retain dense numeric indices for hot-path arrays, but MUST preserve an explicit bijection between indices and IDs. Public APIs, events, serialized state, replays, and fog inputs use the ID. Reassignment of a seat/index never changes it.
+- IDs use the exact URL-safe alphabet `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-` (64 symbols), exactly 12 characters (72 bits), generated uniformly from a server CSPRNG outside tick logic. A generated collision MUST be retried or fail closed, never silently reused. IDs are not ordering tokens.
+- Canonical validation is exactly `^[A-Za-z0-9_-]{12}$`; malformed, non-canonical, numeric, or duplicate IDs are rejected. At one million cumulative anonymous IDs, the approximate birthday collision probability is approximately 1.1×10^-10; active uniqueness checks and collision retries remain mandatory. A small internal rejection-sampling generator is preferred over adding a runtime dependency: the repository has no direct `nanoid` dependency, and its observed `nanoid@3.3.18` is only transitive through Vite/PostCSS. This follows constitution simplicity, licensing, and self-hosting rules.
+- Any total order involving IDs MUST use an explicit UTF-16 code-unit comparator, never locale-dependent comparison. Replay fixtures MUST provide explicit IDs/settings; serialization MUST preserve the mapping and reject malformed, duplicate, missing, or extra IDs.
+- **FR-020**: Public engine contracts, events, replays, and serialization MUST use explicit branded IDs; numeric IDs MUST be rejected.
+- **FR-021**: Replay and determinism fixtures MUST supply explicit IDs and produce byte-identical results independent of host locale.
+- **FR-022**: Seat/index reassignment MUST preserve the ID; malformed, duplicate, missing, or extra identity-table entries MUST fail closed.

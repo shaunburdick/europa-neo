@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-21
 
-**Last Updated**: 2026-09-11 (v1.3; error-code alignment with spec 004)
+**Last Updated**: 2026-09-11 (v1.6; 12-character NanoID-style identity lifecycle)
 
-**Version**: 1.3
+**Version**: 1.6
 
 **Status**: Implemented
 
@@ -291,3 +291,14 @@ Rationale: spec 004 v1.5 collapses match-existence error codes (`match_not_found
 - **`leaveMatch` error codes updated**: the `leaveMatch` method (Implementation Notes, v1.2 `leaveMatch` section) currently returns `match_not_found` for unknown IDs and `session_invalid` for token mismatches. After this change: unknown IDs return `match_not_joinable`; `session_invalid` remains (it is a credential error, not an admission error, and does not leak match existence).
 - **Conformance test update**: the matchmaking conformance suite's error-code assertions MUST be updated to expect `match_not_joinable` where `match_not_found` was previously asserted on admission paths. The `leaveMatch` conformance test updates accordingly.
 - **No new FRs**: the error-code alignment is a clarification of existing FR-006 semantics, not new functionality. The FR numbering in spec 006 is unchanged.
+
+### v1.6 (2026-09-11) — 12-character NanoID-style identity lifecycle and seat binding (issue #74)
+
+- The server-generated `GuestPlayerId` is the universal `PlayerId`: one value is created for a new guest identity and propagated unchanged through lobby, waiting match, seat, engine, wire, console, terminal result, and reconnect-grace state. Handles are labels only.
+- The ID persists across reload/reconnect, seat release/reassignment, and accepted rematches while the ephemeral guest identity remains active. Clearing browser storage, server restart, expiry/collection, or retirement ends the v1 lifecycle; no durable recovery is promised.
+- Future accounts may link to an existing guest identity at an explicit future boundary. Account migration, cross-device recovery, historical merge, and replacement-ID policy are out of scope and must not be guessed here.
+- IDs are non-secret correlation references. Admission and privileged operations require the applicable session/reconnect bearer credential; shareable links contain match IDs only.
+- **FR-014**: Matchmaking MUST atomically assign one active 12-character NanoID-style universal ID per guest identity/seat and pass explicit IDs into engine initialization; it MUST NOT use `seatIndex + 1`.
+- **FR-015**: The ID MUST persist through active reconnect, seat reassignment, and accepted rematch, and MUST be unique among active identities; collisions MUST retry or fail closed.
+- **FR-016**: A bare ID MUST NOT authorize identity mutation, admission, eviction, forfeit, orders, or views; those operations require server-bound proof of possession.
+- **FR-017**: Two-player browser create/join/spectate and share-link flows MUST finish through the canonical mounted router paths.

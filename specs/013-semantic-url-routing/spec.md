@@ -3,8 +3,8 @@
 **Feature Branch**: `issue-35-semantic-url-scheme` (original); `issue-75-console-router` (v1.1 TanStack Router migration)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking), Feature 009 (shared app versioning), Feature 010 (public lobby and match browser), Feature 011 (single-port self-host deployment), Feature 015 (profile route), Feature 017 (welcome landing screen)
 **Created**: 2026-08-30
-**Last Updated**: 2026-09-07 (v1.1)
-**Version**: 1.1
+**Last Updated**: 2026-09-11 (v1.3; 12-character identity contract)
+**Version**: 1.3
 **Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75)
 **GitHub Issue**: #35 (original); #75 (v1.1 migration)
 
@@ -237,6 +237,12 @@ The following decisions are recorded from the issue's acceptance criteria, the e
 
 - Prefer one pure route parser and one explicit route-to-runtime adapter over scattered pathname checks; library/API choice is plan-phase work.
 - Keep match identity in the route adapter and pass it to existing lobby commands. Never reintroduce query-derived names or reconnect tokens.
+
+### v1.3 (2026-09-11) — Mounted-router handoff and 12-character identity contract (issue #74)
+
+- **FR-031**: Successful lobby create, join, and spectate actions, including shareable-link joins, MUST navigate via the mounted TanStack Router route tree; raw `history.pushState` handoffs are non-conforming.
+- **FR-032**: The canonical final URL MUST be `/match/<matchId>` (or its explicit intent path while resolving), and the mounted view MUST correspond to it. Tests MUST assert both URL and rendered leg, including final-seat auto-start and unnamed deep-link onboarding.
+- **FR-033**: Universal player identity MUST come from server/session state, never route params or query strings; routes carry match identity only and no bearer credential.
 - Generate host links from origin plus semantic paths only; do not print credentials.
 - Apply SPA fallback only after `/version`, known assets, WebSocket upgrade handling, and traversal checks.
 - Add a guard for retired production `?live` references while allowing historical clarification text and unchanged `?e2e` references.

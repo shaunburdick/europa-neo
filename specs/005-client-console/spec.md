@@ -1,6 +1,8 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
+**Last Updated**: 2026-09-11 (v1.6; 12-character universal player identity)
+**Version**: 1.6
 
 **Created**: 2026-08-21
 
@@ -403,3 +405,12 @@ truthful).
 Historical validation counts are configuration-specific and intentionally
 not a current total; run the package commands above for the authoritative
 suite result. Coverage remains gated at ≥80% on every metric.
+
+### v1.6 (2026-09-11) — 12-character universal player identity (issue #74)
+
+- Console identity association MUST use the server-authoritative universal `PlayerId` string, equal to the lobby `GuestPlayerId`; it MUST not infer ownership from numeric seat position or handle text. Display continues to prefer accepted handles.
+- A player view, reconnect, terminal state, and rematch MUST retain the same ID while the guest identity is active. The ID alone MUST never authorize orders, reconnect, or view access.
+- Lobby create/join/spectate completion, including shareable-link entry, MUST navigate through the mounted router's canonical route tree (`/match/<id>`, with explicit intent paths where applicable), not raw history mutation. Browser acceptance tests must assert final URL and mounted view.
+- **FR-024**: Console ownership MUST resolve from the server-authoritative 12-character universal ID, never numeric seat position or handle text; forged IDs cannot issue orders or select views.
+- **FR-025**: Active reconnect, terminal, and rematch flows MUST preserve the same universal ID.
+- **FR-026**: Create, join, and spectate handoffs, including shareable links, MUST use the mounted router and assert both canonical URL and mounted view.
