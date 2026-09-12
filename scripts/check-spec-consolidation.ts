@@ -78,7 +78,8 @@ for (const [prefix, dirs] of prefixCount) {
 }
 
 // --- (b) Implemented without plan/tasks (FR-014) ---
-const implementedRegex = /Status:\s*Implemented/;
+// Matches both plain `Status: Implemented` and markdown-bold `**Status**: Implemented`.
+const implementedRegex = /\*{0,2}Status\*{0,2}:\s*Implemented/;
 
 for (const entry of specEntries) {
     const specMd = join(SPECS_DIR, entry, 'spec.md');
