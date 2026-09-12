@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "accessibility": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "skillPath": "skills/accessibility/SKILL.md",
+      "computedHash": "612f913bcb03f0787b103c848cd7664b676a9aaf31f25d3270cc69cf5caaab95"
+    },
+    "code-quality": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/code-quality/SKILL.md",
+      "computedHash": "a367c73f22ce216aac4b2c5f8b6f056915fe0023ae0c915f57323e0a4a2367d5"
+    },
+    "git-safety": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/git-safety/SKILL.md",
+      "computedHash": "8bedcb1b9c924b5559ff010e0c3c0fd45d96e0175f4096c9a7a62c6c29d9308b"
+    },
+    "github-actions": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/github-actions/SKILL.md",
+      "computedHash": "551796d8aa010db3ac3e5b18afe1e51465a093d08950886016927685e1982515"
+    },
+    "spec-driven-development": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/spec-driven-development/SKILL.md",
+      "computedHash": "cd1433524e247d3e7aa3617a54290fec2fa7793dac3a142ec2f13a0af262dc3f"
+    },
+    "spec-kit": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/spec-kit/SKILL.md",
+      "computedHash": "3e4cc9909dcb0bc139aa7ea8ba231d70a10cea9ec53cf921715bcf888e8c9386"
+    },
+    "test-reviewer": {
+      "source": "pertrai1/eslint-plugin-llm-core",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/test-reviewer/SKILL.md",
+      "computedHash": "9e105819e99322f2c9551758e97c44e45ef080efab32eaa0c845ba2cadf8c76d"
+    },
+    "web-component-design": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-component-design/SKILL.md",
+      "computedHash": "e8c80b833496050af9cb2c7701ad2f629962e1c184b0dec0f0c78d310e6e64cd"
+    }
+  }
+}
