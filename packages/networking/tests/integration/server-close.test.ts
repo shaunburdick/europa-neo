@@ -319,15 +319,15 @@ describe('server.close() drains every tracked connection (feature 010 defect)', 
             expect(port).toBeDefined();
             const { client, connectionId } = await connectAndGreet(required(port, 'bound port'));
 
-            // Join seat 1 over the real wire…
+            // Join slot 1 over the real wire…
             client.send('joinMatch', {
                 matchId: match.matchId,
                 role: 'player',
                 displayName: 'Nova',
-                requestedSeat: 1,
+                reconnectToken: tokens[0],
             });
             const joinAck = await client.nextMessage('joinAck');
-            expect(joinAck.payload).toMatchObject({ playerId: 1, sessionToken: tokens[0] });
+            expect(joinAck.payload).toMatchObject({ playerId: match.playerIds[0], sessionToken: tokens[0] });
 
             // …then layer lobby activity on TOP of the live seat (the
             // mixed state: matchId bound AND lobby presence).
@@ -370,7 +370,7 @@ describe('server.close() drains every tracked connection (feature 010 defect)', 
                 engineSession: match.engineSession,
                 matchConfig: match.matchConfig,
             });
-            attachPlayersForMatch(server, match);
+            const tokens = attachPlayersForMatch(server, match);
 
             const port = server.__boundPortForTest();
             expect(port).toBeDefined();
@@ -380,7 +380,7 @@ describe('server.close() drains every tracked connection (feature 010 defect)', 
                 matchId: match.matchId,
                 role: 'player',
                 displayName: 'Alpha',
-                requestedSeat: 1,
+                reconnectToken: tokens[0],
             });
             await client.nextMessage('joinAck');
 

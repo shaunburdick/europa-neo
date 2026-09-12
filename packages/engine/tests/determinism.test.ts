@@ -21,16 +21,19 @@
  * and quick tests on PRs; this one runs on push to main only.
  */
 
+import { parsePlayerId } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../src/constants';
+import { createWorld } from '../src/create';
 import { serializeWorld } from '../src/serialize';
 import type { Direction, MatchConfig, PlayerId } from '../src/types';
 import { buildSmallBoard } from './fixtures/board';
+import { PLAYER_1, PLAYER_2, playerIds } from './fixtures/ids';
 import { runScenario } from './fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xdeadbeef,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -43,8 +46,8 @@ describe('SC-001 — determinism (Q-004 acceptance)', () => {
     it('two independent 10k-tick runs produce byte-identical serialized worlds', () => {
         // P1 + P2 each have a city (US5 would otherwise freeze P2).
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         // A handful of pipe orders at tick 0 (every direction, both
         // players) to exercise the flow phase deterministically. After
@@ -62,11 +65,11 @@ describe('SC-001 — determinism (Q-004 acceptance)', () => {
         }> = [
             {
                 atTick: 0,
-                order: { kind: 'setPipe', player: 1, cell: { x: 1, y: 1 }, direction: 'E' },
+                order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 1, y: 1 }, direction: 'E' },
             },
             {
                 atTick: 0,
-                order: { kind: 'setPipe', player: 2, cell: { x: 6, y: 6 }, direction: 'W' },
+                order: { kind: 'setPipe', player: PLAYER_2, cell: { x: 6, y: 6 }, direction: 'W' },
             },
         ];
 
@@ -90,4 +93,44 @@ describe('SC-001 — determinism (Q-004 acceptance)', () => {
         expect(b.finalWorld.state.cityOwners).toEqual(a.finalWorld.state.cityOwners);
         expect(b.finalWorld.players).toEqual(a.finalWorld.players);
     }, 60_000 /* 60s timeout — 10k ticks can take ~10s on slower CI */);
+});
+
+describe('SC-001 — explicit identity requirements (issue #74, T014)', () => {
+    it('createWorld requires an explicit canonical unique playerIds list', () => {
+        const board = buildSmallBoard(8, []);
+        expect(() => createWorld({ ...cfg, playerIds: [] }, board)).toThrow(/playerIds/);
+        expect(() => createWorld({ ...cfg, playerIds: [PLAYER_1, PLAYER_2, PLAYER_1] }, board)).toThrow(/duplicate/);
+        expect(() => createWorld({ ...cfg, playerIds: ['short' as unknown as PlayerId, PLAYER_2] }, board)).toThrow(
+            /canonical/,
+        );
+        expect(() => createWorld({ ...cfg, playerIds: [1 as unknown as PlayerId, PLAYER_2] }, board)).toThrow(
+            /canonical/,
+        );
+    });
+
+    it('order application is ordered by explicit UTF-16 code units, not locale', () => {
+        // 'A' (0x41) sorts before 'a' (0x61) by code unit. `localeCompare`
+        // can order these differently depending on host locale, so this
+        // pins the locale-independent comparator used by the tick sort.
+        const upper = parsePlayerId('AAAAAAAAAAAA');
+        const lower = parsePlayerId('aaaaaaaaaaaa');
+        const edgeCfg: MatchConfig = { ...cfg, playerIds: [lower, upper] };
+        const board = buildSmallBoard(8, [
+            [1, 1, 1], // slot 1 → lower
+            [6, 6, 2], // slot 2 → upper
+        ]);
+        const orders = [
+            {
+                atTick: 0,
+                order: { kind: 'setPipe' as const, player: lower, cell: { x: 1, y: 1 }, direction: 'E' as const },
+            },
+            {
+                atTick: 0,
+                order: { kind: 'setPipe' as const, player: upper, cell: { x: 6, y: 6 }, direction: 'W' as const },
+            },
+        ];
+        const { events } = runScenario(edgeCfg, board, orders, 1);
+        const applied = events[0]?.appliedOrders ?? [];
+        expect(applied.map((r) => r.order.player)).toEqual([upper, lower]);
+    });
 });

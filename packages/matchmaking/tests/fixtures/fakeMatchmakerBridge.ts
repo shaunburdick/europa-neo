@@ -58,7 +58,7 @@ import type {
     RequestRematchRequest,
     RequestRematchResult,
 } from '../../contracts/matchmaking-api';
-import { buildSeatAssignment, nextLobbyMatchId, nextSessionToken } from './lobbySnapshots';
+import { buildSeatAssignment, nextLobbyMatchId, nextPlayerId, nextSessionToken } from './lobbySnapshots';
 
 /**
  * Assert a plain string into a branded string type (mirrors
@@ -105,7 +105,7 @@ export function seatClaimedEvent(overrides: SeatClaimedOverrides = {}): SeatClai
         matchId: overrides.matchId ?? nextLobbyMatchId(),
         connectionId: overrides.connectionId ?? nextConnectionId(),
         sessionToken: overrides.sessionToken ?? nextSessionToken(),
-        playerId: overrides.playerId ?? (1 as PlayerId),
+        playerId: overrides.playerId ?? nextPlayerId(),
         role: overrides.role ?? ('player' as ConnectionRole),
     });
 }
@@ -147,7 +147,7 @@ export function seatExpiredEvent(overrides: SeatExpiredOverrides = {}): SeatExpi
     return Object.freeze({
         matchId: overrides.matchId ?? nextLobbyMatchId(),
         sessionToken: overrides.sessionToken ?? nextSessionToken(),
-        playerId: overrides.playerId ?? (1 as PlayerId),
+        playerId: overrides.playerId ?? nextPlayerId(),
     });
 }
 
@@ -162,7 +162,7 @@ export interface MatchTerminalOverrides {
 export function matchTerminalEvent(overrides: MatchTerminalOverrides = {}): MatchTerminalEvent {
     const result: MatchResult = overrides.result ?? {
         kind: 'win',
-        winner: 1 as PlayerId,
+        winner: nextPlayerId(),
         tick: overrides.tick ?? 100,
         reason: 'last_standing',
     };

@@ -45,6 +45,7 @@ import { readPendingOrders, withPendingOrders } from './applyCommand';
 import { ENGINE_CONSTANTS } from './constants';
 import { createTickScratchBuffers } from './create';
 import { emptyTickEvents, pushAppliedOrder } from './events';
+import { compareUtf16 } from './playerRegistry';
 import { resolveCapture } from './resolution/capture';
 import { resolveCombat } from './resolution/combat';
 import { resolveDecay } from './resolution/decay';
@@ -152,7 +153,13 @@ export function tick(world: Readonly<World>): TickResult {
     // its own kind).
     const paratroopOrders = sorted.filter((o): o is Extract<Order, { kind: 'paratroop' }> => o.kind === 'paratroop');
     if (paratroopOrders.length > 0) {
-        const paraResult = resolveParatroop(state, world.board, ENGINE_CONSTANTS, paratroopOrders);
+        const paraResult = resolveParatroop(
+            state,
+            world.board,
+            ENGINE_CONSTANTS,
+            paratroopOrders,
+            world.playerRegistry,
+        );
         ({ state } = paraResult);
         for (const e of paraResult.errors) {
             events = { ...events, errors: [...events.errors, e] };
@@ -165,7 +172,7 @@ export function tick(world: Readonly<World>): TickResult {
     // ownership — friendly fire is real.
     const gunOrders = sorted.filter((o): o is Extract<Order, { kind: 'gun' }> => o.kind === 'gun');
     if (gunOrders.length > 0) {
-        const gunResult = resolveGun(state, world.board, ENGINE_CONSTANTS, gunOrders);
+        const gunResult = resolveGun(state, world.board, ENGINE_CONSTANTS, gunOrders, world.playerRegistry);
         ({ state } = gunResult);
         for (const e of gunResult.errors) {
             events = { ...events, errors: [...events.errors, e] };
@@ -194,6 +201,7 @@ export function tick(world: Readonly<World>): TickResult {
         world.board,
         ENGINE_CONSTANTS,
         world.tick,
+        world.playerRegistry,
         scratch.inflowTally,
         scratch.committedFlowTally,
         { troopOwners: scratch.preFlowOwners, troopCounts: scratch.preFlowCounts },
@@ -206,7 +214,7 @@ export function tick(world: Readonly<World>): TickResult {
     };
 
     // ---- Phase 6: capture ------------------------------------------------
-    const captureResult = resolveCapture(state, world.board, ENGINE_CONSTANTS, world.tick);
+    const captureResult = resolveCapture(state, world.board, ENGINE_CONSTANTS, world.tick, world.playerRegistry);
     ({ state } = captureResult);
     events = {
         ...events,
@@ -303,7 +311,7 @@ export function tick(world: Readonly<World>): TickResult {
     // Use `world.players` (pre-tick snapshot) for the status baseline;
     // resolveTerminal recomputes troops/cities from `state` and marks
     // newly eliminated players.
-    const terminalResult = resolveTerminal(state, world.players, ENGINE_CONSTANTS, world.tick);
+    const terminalResult = resolveTerminal(state, world.players, ENGINE_CONSTANTS, world.tick, world.playerRegistry);
     events = {
         ...events,
         eliminations: [...events.eliminations, ...terminalResult.events.eliminations],
@@ -369,15 +377,18 @@ export function isTerminal(world: Readonly<World>): MatchResult | undefined {
 
 /**
  * Comparator that establishes a total order on orders for deterministic
- * application (FR-017): ascending PlayerId, then alphabetical `kind`,
- * then a stable secondary on the rest of the payload (cell, then
- * direction).
+ * application (FR-017): canonical UTF-16 `PlayerId` order, then
+ * alphabetical `kind`, then a stable secondary on the rest of the
+ * payload (cell, then direction).
+ *
+ * Uses the explicit code-unit comparator, never `localeCompare`, so the
+ * order is identical on every host locale (FR-021).
  */
 function sortOrdersDeterministic(orders: readonly Order[]): readonly Order[] {
     const copy = [...orders];
     copy.sort((a, b) => {
         if (a.player !== b.player) {
-            return a.player - b.player;
+            return compareUtf16(a.player, b.player);
         }
         if (a.kind !== b.kind) {
             return a.kind < b.kind ? -1 : 1;

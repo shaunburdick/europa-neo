@@ -71,6 +71,7 @@
 
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 
+import { isPlayerId } from '@europa/core';
 import { computePlayerView } from '@europa/fog';
 import type { GuestPlayerId, LobbyEvent, MatchId } from '@europa/matchmaking';
 import {
@@ -659,7 +660,9 @@ async function establishNamedClient(
     await bootstrap.open();
     bootstrap.send('hello', { protocolVersion: NETWORK_API_VERSION });
     await bootstrap.next((frame) => frame.type === 'helloAck', 'bootstrap helloAck');
-    bootstrap.send('lobbyIdentity', { claim: { guestPlayerId: crypto.randomUUID() as GuestPlayerId } });
+    // First contact presents NO id (issue #74): the server allocates the
+    // canonical identity and delivers it on the directed identity event.
+    bootstrap.send('lobbyIdentity', { claim: {} });
     const established = await bootstrap.nextLobbyEvent('bootstrap identity establishment');
     if (established.kind !== 'identity' || established.identity.guestPlayerId === undefined) {
         throw new Error('bootstrap connection received no server-delivered guest id');
@@ -918,9 +921,8 @@ describe('lobby transport integration (feature 010 T-013)', () => {
         await racer.open();
         racer.send('hello', { protocolVersion: NETWORK_API_VERSION });
         await racer.next((frame) => frame.type === 'helloAck', 'helloAck');
-        racer.send('lobbyIdentity', {
-            claim: { guestPlayerId: crypto.randomUUID() as GuestPlayerId },
-        });
+        // First contact presents NO id (issue #74); the server allocates it.
+        racer.send('lobbyIdentity', { claim: {} });
         await racer.nextLobbyEvent('raw identity establishment');
         racer.send('lobbySetHandle', { handle: 'Racer', actionId: 1 });
         await racer.nextLobbyEvent('raw handle confirmation');
@@ -1262,7 +1264,9 @@ describe('lobby transport integration (feature 010 T-013)', () => {
         if (seatA === null || seatB === null) {
             throw new Error('seats were not assigned to attached players');
         }
-        expect(new Set([seatA, seatB])).toEqual(new Set([1, 2]));
+        // Seats are server-issued canonical identities, distinct per seat.
+        expect(new Set([seatA, seatB]).size).toBe(2);
+        expect(isPlayerId(seatA) && isPlayerId(seatB)).toBe(true);
 
         // -- Spectator attaches through the lobby + read-only path --------
         const cara = await establishNamedClient(stack.url, 'Cara');

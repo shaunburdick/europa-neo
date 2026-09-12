@@ -67,6 +67,12 @@ jobs:
       - name: Build Astro site
         run: pnpm --filter @europa/manual build
 
+      # Docs-privacy guard (010 FR-014 / NFR-003), same check pages-deploy.yml
+      # runs at ship time. Running it here means a credential/identity leak
+      # into the manual fails the PR instead of the post-merge Pages deploy.
+      - name: Documentation privacy check
+        run: node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
+
       - name: Cache Playwright browsers
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

@@ -35,11 +35,12 @@ import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createWorld } from '../../src/create';
 import { getCell } from '../../src/read';
 import { tick } from '../../src/tick';
-import type { Board, MatchConfig, Order, PlayerId, World } from '../../src/types';
+import type { Board, MatchConfig, Order, World } from '../../src/types';
+import { PLAYER_1, playerIds } from '../fixtures/ids';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xfeed,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -48,7 +49,7 @@ const cfg: MatchConfig = {
 /** Pipe order: player 1 pipes east from (3, 3) into (4, 3). */
 const pipeOrder: Order = {
     kind: 'setPipe',
-    player: 1,
+    player: PLAYER_1,
     cell: { x: 3, y: 3 },
     direction: 'E',
 };
@@ -73,7 +74,7 @@ function buildTwoCellSlopeBoard(srcElev: number, dstElev: number): Board {
         width: SIZE,
         height: SIZE,
         cells: Object.freeze(cells),
-        cities: Object.freeze([{ cell: { x: 3, y: 3 }, owner: 1 as PlayerId }]),
+        cities: Object.freeze([{ cell: { x: 3, y: 3 }, owner: 1 }]),
     });
 }
 

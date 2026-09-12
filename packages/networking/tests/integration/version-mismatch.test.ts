@@ -4,16 +4,17 @@
  * FR-004 end-to-end through the real server dispatch path
  * (`ScriptedClient` → `Connection.handleInbound` → `handleEnvelope`):
  *
- *   - A `hello` claiming protocol version `0.1.0` is rejected with a
+ *   - A `hello` claiming protocol version `0.2.0` is rejected with a
  *     `version_mismatch` error frame and the socket is closed with
  *     code 1008 ("policy violation").
- *   - A `hello` claiming `0.2.5` (patch drift within the same minor)
+ *   - A `hello` claiming `0.3.5` (patch drift within the same minor)
  *     is accepted — the handshake completes with a `helloAck`.
  *
  * Version ruling (Wave 6B-1, honored here): pre-1.0 minors are the
- * BREAKING boundary — `0.1.0` is major drift from `0.2.0`, so only
- * `0.2.x` variants interoperate. The unit suite proves the comparator;
- * this suite proves the wire consequences (error frame + ws close).
+ * BREAKING boundary — `0.2.0` is major drift from `0.3.0` (issue #74's
+ * identity break), so only `0.3.x` variants interoperate. The unit
+ * suite proves the comparator; this suite proves the wire consequences
+ * (error frame + ws close).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -25,18 +26,18 @@ import { attachPlayersForMatch, scriptedMatch } from '../fixtures/match';
 import { connectMockClient, realDeps, startJoinedMatch, testServerConfig } from './harness';
 
 describe('version-mismatch enforcement (FR-004, T047)', () => {
-    it('a hello offering 0.1.0 receives a version_mismatch error and the socket closes with 1008', async () => {
+    it('a hello offering 0.2.0 (old numeric-identity boundary) receives a version_mismatch error and closes 1008', async () => {
         const h = await startJoinedMatch();
         try {
             // A fresh connection that has not yet greeted the server.
             const client = connectMockClient(h.server);
-            client.hello('0.1.0');
+            client.hello('0.2.0');
 
             // The rejection rides an `error` frame back before the close.
             const error = await client.nextMessage('error');
             const payload = error.payload as ErrorPayload;
             expect(payload.code).toBe('version_mismatch');
-            expect(payload.detail).toMatchObject({ received: '0.1.0' });
+            expect(payload.detail).toMatchObject({ received: '0.2.0' });
 
             // FR-004's "gracefully" means: tell the client why, THEN close
             // with the policy-violation code (not an abrupt TCP reset).
@@ -52,8 +53,8 @@ describe('version-mismatch enforcement (FR-004, T047)', () => {
         }
     });
 
-    it('a hello offering 0.1.5 (same-minor patch drift) is accepted with a helloAck', async () => {
-        // Purpose-built harness (not `startJoinedMatch`): seat 2 must stay
+    it('a hello offering 0.3.5 (same-minor patch drift) is accepted with a helloAck', async () => {
+        // Purpose-built harness (not `startJoinedMatch`): slot 2 must stay
         // open so the drift-tolerant client can prove full functionality
         // by claiming it after the accepted handshake.
         const server = createMatchServer(testServerConfig(), realDeps());
@@ -65,18 +66,18 @@ describe('version-mismatch enforcement (FR-004, T047)', () => {
                 engineSession: match.engineSession,
                 matchConfig: match.matchConfig,
             });
-            attachPlayersForMatch(server, match);
+            const tokens = attachPlayersForMatch(server, match);
 
-            // Seat 1 goes to a current-version client.
+            // Slot 1 goes to a current-version client.
             const seat1 = connectMockClient(server);
             seat1.hello();
             await seat1.nextMessage('helloAck');
-            seat1.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+            seat1.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
             await seat1.nextMessage('joinAck');
 
-            // The patch-drifted client negotiates cleanly and joins seat 2.
+            // The patch-drifted client negotiates cleanly and joins slot 2.
             const client = connectMockClient(server);
-            client.hello('0.2.5');
+            client.hello('0.3.5');
 
             const ack = await client.nextMessage('helloAck');
             const payload = ack.payload as HelloAckPayload;
@@ -85,9 +86,9 @@ describe('version-mismatch enforcement (FR-004, T047)', () => {
             expect(payload.protocolVersion).toBe(NETWORK_API_VERSION);
             expect(client.socket.closes).toEqual([]);
 
-            client.joinMatch(match.matchId, 'player', { requestedSeat: 2 });
+            client.joinMatch(match.matchId, 'player', { reconnectToken: tokens[1] });
             const joinAck = await client.nextMessage('joinAck');
-            expect((joinAck.payload as { playerId: number | null }).playerId).toBe(2);
+            expect((joinAck.payload as { playerId: string | null }).playerId).toBe(match.playerIds[1]);
         } finally {
             await server.close();
         }

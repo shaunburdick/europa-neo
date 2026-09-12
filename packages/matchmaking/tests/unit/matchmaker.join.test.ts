@@ -26,7 +26,7 @@ function makeOpenMatch() {
     if (!created.ok) {
         throw new Error('fixture create failed');
     }
-    return { server, matchmaker, matchId: created.data.matchId };
+    return { server, matchmaker, matchId: created.data.matchId, creatorPlayerId: created.data.seatAssignment.playerId };
 }
 
 describe('joinMatch — last seat fills (US1 AC-2)', () => {
@@ -40,7 +40,8 @@ describe('joinMatch — last seat fills (US1 AC-2)', () => {
             return;
         }
         expect(join.data.seatAssignment.seatIndex).toBe(1);
-        expect(join.data.seatAssignment.playerId).toBe(2);
+        // Universal identity (canonical 12-char string), not numeric 2.
+        expect(join.data.seatAssignment.playerId).toMatch(/^[A-Za-z0-9_-]{12}$/);
         expect(join.data.seatAssignment.displayName).toBe('Bob');
         expect(join.data.matchId).toBe(matchId);
         expect(join.data.joinPath).toBe(`/join/${matchId}`);
@@ -48,10 +49,13 @@ describe('joinMatch — last seat fills (US1 AC-2)', () => {
     });
 
     it('FR-007: atomically starts the engine — register ×1, attach ×2, spectators on', () => {
-        const { server, matchmaker, matchId } = makeOpenMatch();
+        const { server, matchmaker, matchId, creatorPlayerId } = makeOpenMatch();
 
         const join = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
         expect(join.ok).toBe(true);
+        if (!join.ok) {
+            return;
+        }
 
         // One registerMatch carrying a real engine session + frozen config.
         expect(server.registerMatchCalls).toHaveLength(1);
@@ -60,13 +64,14 @@ describe('joinMatch — last seat fills (US1 AC-2)', () => {
         expect(registration?.engineSession).toBeTruthy();
         expect(typeof registration?.engineSession.world()).toBe('object');
         expect(registration?.matchConfig.boardSize).toBe(32);
-        expect(registration?.matchConfig.playerCount).toBe(2);
+        expect(registration?.matchConfig.playerIds).toHaveLength(2);
         expect(Number.isInteger(registration?.matchConfig.seed)).toBe(true);
 
-        // Per-seat attach in seat order with the issued tokens.
+        // Per-seat attach in seat order with the issued tokens, carrying
+        // each seat's universal id.
         expect(server.attachPlayerCalls).toHaveLength(2);
-        expect(server.attachPlayerCalls[0]?.playerId).toBe(1);
-        expect(server.attachPlayerCalls[1]?.playerId).toBe(2);
+        expect(server.attachPlayerCalls[0]?.playerId).toBe(creatorPlayerId);
+        expect(server.attachPlayerCalls[1]?.playerId).toBe(join.data.seatAssignment.playerId);
 
         // Spectators enabled exactly once.
         expect(server.enableSpectatorsCalls).toEqual([matchId]);

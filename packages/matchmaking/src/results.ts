@@ -19,7 +19,7 @@
  * Pure module: no clock reads, no randomness (constitution Principle II).
  */
 
-import type { PlayerId, World } from '@europa/engine';
+import type { World } from '@europa/engine';
 import type { MatchId } from '@europa/networking';
 import type { MatchResultsRecord } from '../contracts/match-types';
 import type { SeatRecord } from './internal/seatRecord';
@@ -74,9 +74,14 @@ export function buildMatchResultsRecord(args: BuildResultsArgs): MatchResultsRec
     const finalPlayers = [...seats.values()]
         .sort((a, b) => a.seatIndex - b.seatIndex)
         .map((seat) => {
-            const player = world.players[seat.seatIndex];
+            // Resolve the seat's universal id through the engine's
+            // authoritative registry — `world.players` is in canonical
+            // dense order, NOT seat order, so indexing by `seatIndex`
+            // would misattribute standings.
+            const dense = world.playerRegistry.indexOfId(seat.playerId);
+            const player = dense === null ? undefined : world.players[dense];
             return {
-                id: (seat.playerId ?? ((seat.seatIndex + 1) as PlayerId)) as PlayerId,
+                id: seat.playerId,
                 displayName: seat.displayName,
                 status: player?.status ?? 'eliminated',
                 finalTroops: player?.troopsHeld ?? 0,

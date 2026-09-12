@@ -24,7 +24,7 @@ import { INITIAL_CONSOLE_STATE } from '../../src/state/reducer';
 import { createConsoleStore } from '../../src/state/store';
 import type { ConsoleState } from '../../src/state/types';
 import '../../src/styles/index.css';
-import { buildCellView, buildPlayerView } from '../fixtures/player-view';
+import { buildCellView, buildPlayerView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../fixtures/player-view';
 import { expectNoDomA11yViolations } from '../setup-a11y-dom';
 
 afterEach(() => {
@@ -46,22 +46,29 @@ async function bootAwaitingConsole(): Promise<void> {
             width: 10,
             height: 10,
             tick: 0,
-            playerId: 1,
+            playerId: TEST_PLAYER_1,
             visibleCells: [
                 buildCellView({
                     coord: { x: 5, y: 5 },
                     elevation: 60,
                     troops: 12,
-                    owner: 1,
+                    owner: TEST_PLAYER_1,
                     isCity: true,
                     reservesPct: 5,
                 }),
-                buildCellView({ coord: { x: 5, y: 6 }, elevation: 45, troops: 3, owner: 1 }),
+                buildCellView({ coord: { x: 5, y: 6 }, elevation: 45, troops: 3, owner: TEST_PLAYER_1 }),
             ],
         }),
-        // A 2-player context: one opponent means capacity = 2, so the
+        // A 2-player context: two participants means capacity = 2, so the
         // N-aware headline resolves to "Waiting for 1 more player… (1/2)".
-        session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1, opponents: ['Opponent'] },
+        session: {
+            ...INITIAL_CONSOLE_STATE.session,
+            playerId: TEST_PLAYER_1,
+            participants: [
+                { id: TEST_PLAYER_1, name: 'Nova', isLocal: true },
+                { id: TEST_PLAYER_2, name: 'Opponent', isLocal: false },
+            ],
+        },
     };
     await render(createElement(App, { store: createConsoleStore(state) }));
 }

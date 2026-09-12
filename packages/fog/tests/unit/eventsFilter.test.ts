@@ -9,11 +9,16 @@
  *   - `errors` (no `cell`) always kept.
  *   - `spectator: true` returns events unchanged (same reference).
  *   - Emission order is preserved within each category.
+ *
+ * Event identities use canonical universal `PlayerId` fixtures
+ * (issue #74); the filter itself is identity-agnostic and only
+ * inspects cell coordinates.
  */
 
 import type { TickEvents } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
 import { filterTickEvents } from '../../src/eventsFilter';
+import { P1, P2, P3 } from '../fixtures/ids';
 import { buildSmallWorld } from '../fixtures/world';
 
 /** 16×16 empty world — geometry only, no troops needed for filtering. */
@@ -42,20 +47,20 @@ describe('filterTickEvents', () => {
         const inside = {
             tick: 0,
             cell: { x: 8, y: 8 },
-            attacker: 1,
-            defender: 2,
+            attacker: P1,
+            defender: P2,
             attackerLoss: 1,
             defenderLoss: 0,
-            winner: 1 as const,
+            winner: P1,
         };
         const outside = {
             tick: 0,
             cell: { x: 0, y: 0 },
-            attacker: 2,
-            defender: 1,
+            attacker: P2,
+            defender: P1,
             attackerLoss: 0,
             defenderLoss: 2,
-            winner: 2 as const,
+            winner: P2,
         };
         const result = filterTickEvents(world, VISIBLE_CELLS, eventsWith({ combat: [inside, outside] }), false);
         expect(result.combat).toEqual([inside]);
@@ -66,14 +71,14 @@ describe('filterTickEvents', () => {
             tick: 3,
             cell: { x: 9, y: 9 },
             fromOwner: null,
-            toOwner: 1 as const,
+            toOwner: P1,
             isCity: false,
         };
         const outside = {
             tick: 3,
             cell: { x: 15, y: 15 },
-            fromOwner: 2 as const,
-            toOwner: 1 as const,
+            fromOwner: P2,
+            toOwner: P1,
             isCity: true,
         };
         const result = filterTickEvents(world, VISIBLE_CELLS, eventsWith({ captures: [outside, inside] }), false);
@@ -82,17 +87,15 @@ describe('filterTickEvents', () => {
 
     it('always keeps player-level events (eliminations, appliedOrders, errors)', () => {
         const events = eventsWith({
-            eliminations: [{ tick: 5, player: 3, reason: 'surrendered' }],
+            eliminations: [{ tick: 5, player: P3, reason: 'surrendered' }],
             appliedOrders: [
                 {
                     tick: 5,
                     order: {
-                        kind: 'move',
-                        units: 1,
-                        path: [
-                            { x: 1, y: 1 },
-                            { x: 2, y: 1 },
-                        ],
+                        kind: 'setReserves',
+                        player: P1,
+                        cell: { x: 1, y: 1 },
+                        percent: 5,
                     },
                     result: { ok: true },
                 },
@@ -113,8 +116,8 @@ describe('filterTickEvents', () => {
                 {
                     tick: 0,
                     cell: { x: 0, y: 0 },
-                    attacker: 1,
-                    defender: 2,
+                    attacker: P1,
+                    defender: P2,
                     attackerLoss: 0,
                     defenderLoss: 0,
                     winner: 'tie',
@@ -131,8 +134,8 @@ describe('filterTickEvents', () => {
                 {
                     tick: 0,
                     cell: { x: 7, y: 7 },
-                    attacker: 1,
-                    defender: 2,
+                    attacker: P1,
+                    defender: P2,
                     attackerLoss: 0,
                     defenderLoss: 0,
                     winner: 'tie',
@@ -147,29 +150,29 @@ describe('filterTickEvents', () => {
         const first = {
             tick: 0,
             cell: { x: 8, y: 8 },
-            attacker: 1,
-            defender: 2,
+            attacker: P1,
+            defender: P2,
             attackerLoss: 1,
             defenderLoss: 0,
-            winner: 1 as const,
+            winner: P1,
         };
         const second = {
             tick: 0,
             cell: { x: 9, y: 9 },
-            attacker: 2,
-            defender: 1,
+            attacker: P2,
+            defender: P1,
             attackerLoss: 0,
             defenderLoss: 1,
-            winner: 2 as const,
+            winner: P2,
         };
         const thirdOutside = {
             tick: 0,
             cell: { x: 0, y: 15 },
-            attacker: 1,
-            defender: 2,
+            attacker: P1,
+            defender: P2,
             attackerLoss: 2,
             defenderLoss: 0,
-            winner: 1 as const,
+            winner: P1,
         };
         const result = filterTickEvents(
             world,

@@ -35,8 +35,8 @@ export interface CellViewProps {
     readonly playerColors: Readonly<Record<PlayerId, string>>;
     /**
      * Optional player name map from the session state. When present,
-     * the cell's aria-label resolves the owner's display name instead
-     * of the raw "Player N" fallback.
+     * the cell's aria-label resolves the owner's handle, falling back
+     * to the canonical server-issued ID.
      */
     readonly playerNames?: ReadonlyMap<PlayerId, string> | undefined;
     /**
@@ -61,15 +61,16 @@ export interface CellViewProps {
  * `Cell (5, 7), 32 troops, Nova, city, pipes: N, E` — segments
  * omitted when not applicable (`city` only for cities, `pipes:` only
  * when the cell has pipes, owner rendered as `unowned` when empty).
- * When a `playerNames` map is supplied, the owner's display name
- * replaces the raw "Player N" fallback. Pure.
+ * When a `playerNames` map is supplied, the owner's handle is used,
+ * falling back to the canonical server-issued ID (never a fabricated
+ * "Player N"). Pure.
  *
  * @param info The cell's render data.
  * @param playerNames Optional name map from the session state.
  */
 export function formatCellAriaLabel(info: CellRenderInfo, playerNames?: ReadonlyMap<PlayerId, string>): string {
     const parts: string[] = [`Cell (${info.coord.x}, ${info.coord.y})`, `${info.troops} troops`];
-    parts.push(info.owner !== null ? (playerNames?.get(info.owner) ?? `Player ${String(info.owner)}`) : 'unowned');
+    parts.push(info.owner !== null ? (playerNames?.get(info.owner) ?? info.owner) : 'unowned');
     if (info.isCity) {
         parts.push('city');
     }

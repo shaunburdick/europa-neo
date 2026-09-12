@@ -8,6 +8,7 @@
  *
  * Test descriptions cite the requirement they pin.
  */
+import type { PlayerId } from '@europa/core';
 import type { EngineSession, MatchId } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
@@ -18,11 +19,14 @@ import {
     createMatchRecordWithCreator,
     createStatusBus,
     type MatchStatusChangedEvent,
-    toPlayerId,
     transitionFillingToRunning,
     transitionRunningToFinished,
     transitionToCollected,
 } from '../../src/matchLifecycle';
+
+/** Deterministic universal identities (issue #74) — no seat arithmetic. */
+const ALICE_ID = 'AlicePlyr001' as PlayerId;
+const BOB_ID = 'BobPlyr00001' as PlayerId;
 
 /** Deterministic id/clock fixtures — no CSPRNG, no wall clock. */
 let seq = 0;
@@ -60,6 +64,7 @@ function makeFillingMatch(): {
         displayName: 'Alice',
         randomId: fakeRandomId,
         now: () => 1_000,
+        playerId: ALICE_ID,
     });
     const created = createMatchRecordWithCreator({
         settings: DEFAULT_MATCH_SETTINGS,
@@ -107,20 +112,6 @@ describe('createStatusBus', () => {
     });
 });
 
-describe('toPlayerId', () => {
-    it('accepts every valid engine player id', () => {
-        expect(toPlayerId(1)).toBe(1);
-        expect(toPlayerId(2)).toBe(2);
-        expect(toPlayerId(3)).toBe(3);
-        expect(toPlayerId(4)).toBe(4);
-    });
-
-    it('throws on values outside the 1..4 engine contract', () => {
-        expect(() => toPlayerId(0)).toThrow(/outside 1\.\.4/);
-        expect(() => toPlayerId(5)).toThrow(/outside 1\.\.4/);
-    });
-});
-
 describe('createMatchRecordWithCreator', () => {
     it('FR-002/FR-004: creates a filling record with the creator in seat 0', () => {
         const { match, creatorSeat, creator } = makeFillingMatch();
@@ -140,7 +131,9 @@ describe('createMatchRecordWithCreator', () => {
         // Credentials come from the injected deterministic factories.
         expect(creatorSeat.playerSessionId).toBe(creator.playerSessionId);
         expect(creatorSeat.sessionToken).toMatch(/^[0-9a-f-]{36}$/);
-        expect(creatorSeat.playerId).toBeNull();
+        // Universal identity fixed at claim time, never seatIndex + 1.
+        expect(creatorSeat.playerId).toBe(ALICE_ID);
+        expect(creatorSeat.playerId).toBe(creator.playerId);
         // The creator's session is bound to the match + seat + token.
         expect(creator.currentMatchId).toBe(match.matchId);
         expect(creator.currentSeatIndex).toBe(0);
@@ -171,6 +164,7 @@ describe('addSeatToFillingMatch', () => {
             displayName: 'Bob',
             randomId: fakeRandomId,
             now: () => 1_000,
+            playerId: BOB_ID,
         });
 
         const { match: updated, seat } = addSeatToFillingMatch(match, joiner, 1, 2_000);
@@ -197,6 +191,7 @@ describe('transitionFillingToRunning', () => {
             displayName: 'Bob',
             randomId: fakeRandomId,
             now: () => 1_000,
+            playerId: BOB_ID,
         });
         addSeatToFillingMatch(match, joiner, 1, 2_000);
         const session = stubEngineSession();
@@ -206,9 +201,10 @@ describe('transitionFillingToRunning', () => {
         expect(updated.status).toBe('running');
         expect(updated.engineSession).toBe(session);
         expect(updated.startedAtMs).toBe(3_000);
-        // Seat playerIds are finalized (seatIndex + 1) at the transition.
-        expect(match.seats.get(0 as SeatIndex)?.playerId).toBe(1);
-        expect(match.seats.get(1 as SeatIndex)?.playerId).toBe(2);
+        // Seat playerIds are the universal identities fixed at claim time;
+        // the transition does not (and must not) reassign them.
+        expect(match.seats.get(0 as SeatIndex)?.playerId).toBe(ALICE_ID);
+        expect(match.seats.get(1 as SeatIndex)?.playerId).toBe(BOB_ID);
     });
 
     it('FR-012: emits a filling→running MatchStatusChanged event', () => {
@@ -242,18 +238,18 @@ describe('transitionRunningToFinished', () => {
             matchId: match.matchId,
             tick: 42,
             effectiveSeed: 7,
-            result: { kind: 'win', winner: 1, tick: 42, reason: 'last_standing' },
+            result: { kind: 'win', winner: ALICE_ID, tick: 42, reason: 'last_standing' },
             finalBoardHash: 'deadbeef',
             finalPlayers: [
                 {
-                    id: 1,
+                    id: ALICE_ID,
                     displayName: 'Alice',
                     status: 'alive',
                     finalTroops: 10,
                     finalCities: 1,
                 },
                 {
-                    id: 2,
+                    id: BOB_ID,
                     displayName: 'Bob',
                     status: 'eliminated',
                     finalTroops: 0,
@@ -283,7 +279,7 @@ describe('transitionRunningToFinished', () => {
                 matchId: match.matchId,
                 tick: 1,
                 effectiveSeed: 7,
-                result: { kind: 'win', winner: 1, tick: 1, reason: 'last_standing' },
+                result: { kind: 'win', winner: ALICE_ID, tick: 1, reason: 'last_standing' },
                 finalBoardHash: 'h',
                 finalPlayers: [],
             },
@@ -303,7 +299,7 @@ describe('transitionRunningToFinished', () => {
                     matchId: match.matchId,
                     tick: 1,
                     effectiveSeed: 7,
-                    result: { kind: 'win', winner: 1, tick: 1, reason: 'last_standing' },
+                    result: { kind: 'win', winner: ALICE_ID, tick: 1, reason: 'last_standing' },
                     finalBoardHash: 'h',
                     finalPlayers: [],
                 },

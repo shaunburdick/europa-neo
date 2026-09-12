@@ -22,6 +22,7 @@
  * world in a closure cell and threads it through.
  */
 
+import { parsePlayerId } from '@europa/core';
 import {
     applyCommand,
     type Board,
@@ -45,6 +46,35 @@ const MIN_BOARD_SIZE = 8;
 
 /** Default display names, indexed by seat order. */
 const DEFAULT_DISPLAY_NAMES: readonly string[] = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
+
+/**
+ * Deterministic canonical player identities for scripted matches,
+ * indexed by placement slot (slot `k` = `SCRIPTED_PLAYER_IDS[k - 1]`).
+ * Validated through the canonical parser so a fixture typo fails loudly
+ * instead of producing an invalid identity at engine construction.
+ */
+export const SCRIPTED_PLAYER_IDS: readonly PlayerId[] = [
+    parsePlayerId('Player000001'),
+    parsePlayerId('Player000002'),
+    parsePlayerId('Player000003'),
+    parsePlayerId('Player000004'),
+];
+
+/**
+ * Resolve a 1-based placement slot to a canonical identity, failing
+ * loudly outside `1..playerCount`.
+ *
+ * @param playerIds The match's explicit identity list (slot order).
+ * @param slot      1-based placement slot.
+ * @returns The identity at that slot.
+ */
+export function playerIdForSlot(playerIds: readonly PlayerId[], slot: number): PlayerId {
+    const id = playerIds[slot - 1];
+    if (id === undefined) {
+        throw new Error(`playerIdForSlot: no identity for slot ${String(slot)}`);
+    }
+    return id;
+}
 
 /** Home coordinates per player seat (deterministic corner placements). */
 const HOME_COORDS: ReadonlyArray<readonly [x: number, y: number]> = [
@@ -87,7 +117,7 @@ function buildScriptedBoard(size: number, playerCount: 2 | 3 | 4): Board {
     const cities: CityPlacement[] = [];
     for (let seat = 1; seat <= playerCount; seat++) {
         const home = resolveHome(size, HOME_COORDS[seat - 1] as readonly [number, number]);
-        cities.push({ cell: { x: home.x, y: home.y }, owner: seat as PlayerId });
+        cities.push({ cell: { x: home.x, y: home.y }, owner: seat });
     }
 
     return {
@@ -101,16 +131,25 @@ function buildScriptedBoard(size: number, playerCount: 2 | 3 | 4): Board {
 /**
  * Place each player's opening troop stack adjacent to their home
  * city (offset +1 on x) so stacks never sit on city cells.
+ *
+ * The typed-array owner byte is the registry's 1-based dense encoding
+ * (`denseIndex + 1`, `0` = neutral), so the stack is resolved through
+ * the world's authoritative registry rather than assuming placement
+ * slot == dense index.
  */
-function placeOpeningStacks(world: World, size: number, playerCount: 2 | 3 | 4): World {
+function placeOpeningStacks(world: World, playerIds: readonly PlayerId[], size: number, playerCount: 2 | 3 | 4): World {
     const counts = new Uint32Array(world.state.troopCounts);
     const owners = new Uint8Array(world.state.troopOwners);
 
-    for (let seat = 1; seat <= playerCount; seat++) {
-        const home = resolveHome(size, HOME_COORDS[seat - 1] as readonly [number, number]);
+    for (let slot = 1; slot <= playerCount; slot++) {
+        const home = resolveHome(size, HOME_COORDS[slot - 1] as readonly [number, number]);
         const idx = home.y * size + (home.x + 1);
+        const dense = world.playerRegistry.indexOfId(playerIdForSlot(playerIds, slot));
+        if (dense === null) {
+            throw new Error(`placeOpeningStacks: slot ${String(slot)} identity is not registered`);
+        }
         counts[idx] = STACK_COUNT;
-        owners[idx] = seat;
+        owners[idx] = dense + 1;
     }
 
     return {
@@ -179,14 +218,23 @@ export interface ScriptedMatchOptions {
     readonly seed?: number;
     /** Display names per seat; defaults to Alpha/Bravo/Charlie/Delta. */
     readonly displayNames?: readonly string[];
+    /**
+     * Explicit canonical identities in placement-slot order. Defaults
+     * to the first `playerCount` entries of {@link SCRIPTED_PLAYER_IDS}.
+     * Tests that need UTF-16 order to differ from insertion order pass
+     * an explicit, deliberately ordered list.
+     */
+    readonly playerIds?: readonly PlayerId[];
 }
 
-/** The four-tuple `registerMatch` + `attachPlayer` consume. */
+/** The `registerMatch` + `attachPlayer` inputs a scripted match drives. */
 export interface ScriptedMatch {
     readonly matchId: MatchId;
     readonly engineSession: EngineSession;
     readonly matchConfig: MatchConfig;
     readonly displayNames: readonly string[];
+    /** Canonical identities in placement-slot order (slot `k` = `playerIds[k-1]`). */
+    readonly playerIds: readonly PlayerId[];
 }
 
 let scriptedMatchCounter = 0;
@@ -195,8 +243,9 @@ let scriptedMatchCounter = 0;
  * Build a deterministic, real-engine scripted match.
  *
  * @param options See {@link ScriptedMatchOptions}.
- * @returns The match id, wrapped engine session, frozen config, and
- *          display names — ready for `server.registerMatch`.
+ * @returns The match id, wrapped engine session, frozen config,
+ *          display names, and explicit canonical identities — ready
+ *          for `server.registerMatch`.
  * @throws If `boardSize` is not an integer ≥ 8 or `playerCount`
  *         is outside 2..4.
  */
@@ -206,6 +255,7 @@ export function scriptedMatch(options: ScriptedMatchOptions = {}): ScriptedMatch
     const tickRateMs = options.tickRateMs ?? 250;
     const seed = options.seed ?? 42;
     const displayNames = options.displayNames ?? DEFAULT_DISPLAY_NAMES.slice(0, playerCount);
+    const playerIds = options.playerIds ?? SCRIPTED_PLAYER_IDS.slice(0, playerCount);
 
     if (!Number.isInteger(boardSize) || boardSize < MIN_BOARD_SIZE) {
         throw new Error(`scriptedMatch: boardSize must be an integer ≥ ${MIN_BOARD_SIZE} (got ${String(boardSize)})`);
@@ -218,13 +268,18 @@ export function scriptedMatch(options: ScriptedMatchOptions = {}): ScriptedMatch
             `scriptedMatch: displayNames length must equal playerCount (${String(playerCount)}, got ${String(displayNames.length)})`,
         );
     }
+    if (playerIds.length !== playerCount) {
+        throw new Error(
+            `scriptedMatch: playerIds length must equal playerCount (${String(playerCount)}, got ${String(playerIds.length)})`,
+        );
+    }
 
     scriptedMatchCounter += 1;
     const matchId = toBranded<MatchId>(`match-scripted-${String(scriptedMatchCounter).padStart(4, '0')}`);
 
     const matchConfig: MatchConfig = Object.freeze({
         boardSize,
-        playerCount,
+        playerIds: Object.freeze([...playerIds]),
         tickIntervalMs: tickRateMs,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -232,20 +287,21 @@ export function scriptedMatch(options: ScriptedMatchOptions = {}): ScriptedMatch
 
     const board = buildScriptedBoard(boardSize, playerCount);
     const baseWorld = createWorld(matchConfig, board);
-    const world = { ...baseWorld, state: placeOpeningStacks(baseWorld, boardSize, playerCount) };
+    const world = { ...baseWorld, state: placeOpeningStacks(baseWorld, playerIds, boardSize, playerCount) };
 
     return {
         matchId,
         engineSession: wrapEngineSession(world),
         matchConfig,
         displayNames,
+        playerIds,
     };
 }
 
 /**
  * Bind every seat of a scripted match on a `Server` via
  * `attachPlayer`, generating a v4 UUID token per seat when none is
- * supplied. Returns the tokens used (index = playerId − 1).
+ * supplied. Returns the tokens used (index = placement slot − 1).
  *
  * @param server The (real or fake) networking `Server`.
  * @param match  A match built by {@link scriptedMatch}.
@@ -259,12 +315,12 @@ export function attachPlayersForMatch(
     tokens?: readonly SessionToken[],
 ): readonly SessionToken[] {
     const used: SessionToken[] = [];
-    for (let i = 0; i < match.matchConfig.playerCount; i++) {
+    for (let i = 0; i < match.playerIds.length; i++) {
         const provided = tokens?.[i];
         const token = provided ?? generateSessionToken();
         server.attachPlayer({
             matchId: match.matchId,
-            playerId: (i + 1) as PlayerId,
+            playerId: playerIdForSlot(match.playerIds, i + 1),
             sessionToken: token,
         });
         used.push(token);

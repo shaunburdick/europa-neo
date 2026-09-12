@@ -69,7 +69,7 @@ the outside; mutated only by `reduce()` (pure function declared in
 | `feedback` | `ReadonlyArray<FeedbackMessage>` | `[]` | Transient HUD messages ("Sent → Acknowledged", "Pipe N at (5, 7)"). TTL-cleared. |
 | `rejectedOrders` | `ReadonlyArray<RejectedOrder>` | `[]` | Recent order rejections. Capped at `CONSOLE_CONSTANTS.maxRejectedOrders` (default 10). |
 | `qol` | `QoLSettings` | `DEFAULT_QOL_SETTINGS` | Sound, animation, theme, etc. |
-| `session` | `ConsoleSession` | `INITIAL_CONSOLE_SESSION` | Match id, session token, player id, display name, opponents. |
+| `session` | `ConsoleSession` | `INITIAL_CONSOLE_SESSION` | Match id, session token, server-issued player id, display name, participants (ID-keyed). |
 | `inputEnabled` | `boolean` | `false` | Whether pointer + keyboard input is currently accepted. `true` only when `status === 'live'`. |
 | `exclusiveMode` | `boolean` | `false` | Whether the next pipe click is exclusive (replaces all) instead of toggle. |
 
@@ -119,7 +119,7 @@ The full state machine is the union of:
   rejectedOrders: [],
   qol: DEFAULT_QOL_SETTINGS,
   session: { matchId: null, sessionToken: null, playerId: null,
-             displayName: '', opponents: [] },
+             displayName: '', participants: [], playerNames: new Map() },
   inputEnabled: false,
   exclusiveMode: false,
 }
@@ -141,7 +141,7 @@ frame. The runtime derives it from `ConsoleState` on every
 | `tick` | `number` | The tick this view is for. From `latestView.tick`. |
 | `width`, `height` | `number` | Board dimensions in cells. |
 | `cells` | `ReadonlyMap<string, CellRenderInfo>` | `coordKey(coord) → CellRenderInfo` for every visible cell. Cells outside the horizon are NOT present. |
-| `playerColors` | `Readonly<Record<PlayerId, string>>` | Per-player cosmetic color (hex string). v1 uses `DEFAULT_PLAYER_COLORS`; v2 takes from matchmaking. |
+| `playerColors` | `Readonly<Record<PlayerId, string>>` | Per-player cosmetic color (hex string), keyed by server `PlayerId` and assigned from the ordered `PLAYER_COLOR_PALETTE` in `PlayerView.config.playerIds` (placement-slot) order. |
 | `effects` | `ReadonlyArray<MapEffect>` | Transient effects to paint (combat flash, paratroop trail). |
 | `labels` | `ReadonlyArray<MapLabel>` | Transient labels (e.g., "70%" after a reserve change). |
 | `camera` | `CameraState` | Zoom + pan. |
@@ -411,9 +411,10 @@ feature 004's join-ack payload plus cosmetic fields.
 |-------|------|-------------|
 | `matchId` | `MatchId \| null` | The match the console is in. `null` before `joinMatch`. |
 | `sessionToken` | `SessionToken \| null` | Reconnect token. `null` before `joinMatch`. |
-| `playerId` | `PlayerId \| null` | The local player id. `null` for spectators. |
-| `displayName` | `string` | Cosmetic. |
-| `opponents` | `ReadonlyArray<string>` | Display names of other players (length = `playerCount - 1`). Used by the HUD lobby strip. |
+| `playerId` | `PlayerId \| null` | The local server-issued identity. `null` for spectators. |
+| `displayName` | `string` | The local player's server-accepted handle, or `''` when unnamed (the canonical ID is the fallback label). |
+| `participants` | `ReadonlyArray<ConsoleParticipant>` | Every participant in placement-slot order, keyed by the server-issued `PlayerId` (`{ id, name, isLocal }`). Replaces the former seat-ordered `opponents` string list (issue #74). Used by the HUD lobby strip. |
+| `playerNames` | `ReadonlyMap<PlayerId, string>` | Server-provided human handles keyed by `PlayerId` (only real handles; the engine's raw-ID placeholder is omitted so the ID can render as the fallback label). |
 
 ---
 

@@ -31,9 +31,15 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parsePlayerId } from '@europa/core';
 import type { Order, World } from '@europa/engine';
+import { ENGINE_API_VERSION } from '@europa/engine';
 import type { PlayerView } from '@europa/fog';
+import { FOG_API_VERSION } from '@europa/fog';
+import { MATCHMAKING_API_VERSION } from '@europa/matchmaking/contracts/match-types';
 import type { ConnectionState, MatchClient } from '@europa/networking';
+import { NETWORK_API_VERSION } from '@europa/networking';
+import { TERRAIN_API_VERSION } from '@europa/terrain';
 import { describe, expect, it } from 'vitest';
 // Type-only namespace (erased at runtime; checked by tsc program).
 import type * as DistTypes from '../../src/index';
@@ -44,7 +50,6 @@ import type {
     ConnectionState as ConnectionStateReexport,
     MatchClient as MatchClientReexport,
     Order as OrderReexport,
-    PlayerId,
     PlayerView as PlayerViewReexport,
     World as WorldReexport,
 } from '../../src/state/types';
@@ -144,6 +149,7 @@ const DIST_TYPE_WITNESS = {
     ConsoleClientState: null as unknown as DistTypes.ConsoleClientState,
     ConsoleConfig: null as unknown as DistTypes.ConsoleConfig,
     ConsoleConnectionStatus: null as unknown as DistTypes.ConsoleConnectionStatus,
+    ConsoleParticipant: null as unknown as DistTypes.ConsoleParticipant,
     ConsoleConstants: null as unknown as DistTypes.ConsoleConstants,
     ConsoleDeps: null as unknown as DistTypes.ConsoleDeps,
     ConsoleFeatureFlags: null as unknown as DistTypes.ConsoleFeatureFlags,
@@ -158,7 +164,6 @@ const DIST_TYPE_WITNESS = {
     DEFAULT_CAMERA: null as unknown as typeof DistTypes.DEFAULT_CAMERA,
     DEFAULT_CONSOLE_CLIENT_CONFIG: null as unknown as typeof DistTypes.DEFAULT_CONSOLE_CLIENT_CONFIG,
     DEFAULT_INPUT_MAPPING: null as unknown as typeof DistTypes.DEFAULT_INPUT_MAPPING,
-    DEFAULT_PLAYER_COLORS: null as unknown as typeof DistTypes.DEFAULT_PLAYER_COLORS,
     DEFAULT_QOL_SETTINGS: null as unknown as typeof DistTypes.DEFAULT_QOL_SETTINGS,
     Direction: null as unknown as DistTypes.Direction,
     EnvelopeContext: null as unknown as DistTypes.EnvelopeContext,
@@ -178,6 +183,7 @@ const DIST_TYPE_WITNESS = {
     OrderAckPayload: null as unknown as DistTypes.OrderAckPayload,
     OrderSubmissionPayload: null as unknown as DistTypes.OrderSubmissionPayload,
     PlayerAction: null as unknown as DistTypes.PlayerAction,
+    PLAYER_COLOR_PALETTE: null as unknown as typeof DistTypes.PLAYER_COLOR_PALETTE,
     PlayerId: null as unknown as DistTypes.PlayerId,
     PlayerView: null as unknown as DistTypes.PlayerView,
     PointerBinding: null as unknown as DistTypes.PointerBinding,
@@ -299,7 +305,7 @@ describe('contract conformance (T089)', () => {
         });
 
         it('the Order union exposes exactly the eight documented variants', () => {
-            const player = 1 as PlayerId;
+            const player = parsePlayerId('TestPlayer01');
             expect(orderVariantWitness({ kind: 'setPipe', player, cell: { x: 1, y: 2 }, direction: 'N' })).toBe(
                 'setPipe:1,2:N',
             );
@@ -326,7 +332,112 @@ describe('contract conformance (T089)', () => {
             expect(typeof Dist.ConsoleRuntime).toBe('function');
             expect(Dist.CONSOLE_API_VERSION).toBeTypeOf('string');
             expect(Object.keys(Dist.CONSOLE_CONSTANTS).length).toBeGreaterThan(0);
-            expect(Object.keys(Dist.DEFAULT_PLAYER_COLORS)).toHaveLength(4);
+            expect(Dist.PLAYER_COLOR_PALETTE).toHaveLength(4);
         });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// (d) Cross-package API-version boundary witness (issue #74 T042)
+//
+// Every shipped API-version constant is pinned in ONE place. This suite
+// runs in `client-ci.yml`, whose path filter includes every workspace
+// package, so a bump in any package fails this test instead of hiding
+// behind a path-gated per-package workflow. The values are checked both
+// as imported runtime constants AND as literals in their canonical
+// source files, so the public value and the single source cannot drift
+// apart.
+// ---------------------------------------------------------------------------
+
+/** The expected shipped API version for every cross-package surface. */
+const EXPECTED_API_VERSIONS: Readonly<Record<string, string>> = {
+    ENGINE_API_VERSION: '0.2.0',
+    TERRAIN_API_VERSION: '0.2.0',
+    FOG_API_VERSION: '0.1.0',
+    MATCHMAKING_API_VERSION: '0.2.0',
+    NETWORK_API_VERSION: '0.3.0',
+    CONSOLE_API_VERSION: '0.4.0',
+};
+
+/** Canonical source file declaring each API-version literal. */
+const API_VERSION_SOURCES: Readonly<Record<string, string>> = {
+    ENGINE_API_VERSION: 'packages/core/src/types.ts',
+    TERRAIN_API_VERSION: 'packages/terrain/src/contracts/terrain-types.ts',
+    FOG_API_VERSION: 'packages/fog/src/contracts/fog-types.ts',
+    MATCHMAKING_API_VERSION: 'packages/matchmaking/contracts/match-types.ts',
+    NETWORK_API_VERSION: 'packages/networking/src/contracts/network-types.ts',
+    CONSOLE_API_VERSION: 'packages/console/src/contracts/console-types.ts',
+};
+
+/** The runtime values imported through each package's public surface. */
+const OBSERVED_API_VERSIONS: Readonly<Record<string, string>> = {
+    ENGINE_API_VERSION,
+    TERRAIN_API_VERSION,
+    FOG_API_VERSION,
+    MATCHMAKING_API_VERSION,
+    NETWORK_API_VERSION,
+    CONSOLE_API_VERSION: Dist.CONSOLE_API_VERSION,
+};
+
+/**
+ * Compare observed API versions against the expected map, returning a
+ * drift line per mismatch. Pure, so the mandatory self-test can prove
+ * it detects a synthetic bump rather than trivially returning `[]`.
+ *
+ * @param observed - The version actually projected by each surface.
+ * @param expected - The pinned expected version for each surface.
+ * @returns One human-readable line per drift; empty when in lock-step.
+ */
+function findVersionDrift(
+    observed: Readonly<Record<string, string>>,
+    expected: Readonly<Record<string, string>>,
+): string[] {
+    const drift: string[] = [];
+    for (const [surface, want] of Object.entries(expected)) {
+        const got = observed[surface];
+        if (got !== want) {
+            drift.push(`${surface}: expected ${want}, got ${String(got)}`);
+        }
+    }
+    return drift;
+}
+
+/**
+ * Extract the `export const <name> = '<version>' as const;` literal
+ * from a canonical source file.
+ *
+ * @param relativePath - Path relative to the monorepo root.
+ * @param name - The exported constant name.
+ * @returns The literal version, or `undefined` when not found.
+ */
+function versionLiteralIn(relativePath: string, name: string): string | undefined {
+    const source = readFileSync(repoPath(relativePath), 'utf-8');
+    const pattern = new RegExp(`export const ${name} = '([^']+)' as const;`);
+    return pattern.exec(source)?.[1];
+}
+
+describe('(d) cross-package API-version boundary witness (issue #74 T042)', () => {
+    it('every shipped API version matches the pinned cross-package map', () => {
+        expect(findVersionDrift(OBSERVED_API_VERSIONS, EXPECTED_API_VERSIONS)).toEqual([]);
+    });
+
+    it('each runtime constant matches its canonical source-file literal', () => {
+        const drift: string[] = [];
+        for (const [surface, relativePath] of Object.entries(API_VERSION_SOURCES)) {
+            const literal = versionLiteralIn(relativePath, surface);
+            const observed = OBSERVED_API_VERSIONS[surface];
+            if (literal !== observed) {
+                drift.push(
+                    `${surface}: source ${relativePath} declares ${String(literal)}, public value is ${String(observed)}`,
+                );
+            }
+        }
+        expect(drift).toEqual([]);
+    });
+
+    it('self-test: findVersionDrift flags a synthetic bump', () => {
+        expect(findVersionDrift({ A: '1.0.0' }, { A: '1.0.0' })).toEqual([]);
+        expect(findVersionDrift({ A: '1.1.0' }, { A: '1.0.0' })).toEqual(['A: expected 1.0.0, got 1.1.0']);
+        expect(findVersionDrift({}, { A: '1.0.0' })).toEqual(['A: expected 1.0.0, got undefined']);
     });
 });

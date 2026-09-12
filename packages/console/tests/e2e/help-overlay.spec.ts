@@ -129,8 +129,14 @@ test.describe('help overlay', () => {
     let matchmaker: ReturnType<typeof createMatchmaker>;
     let port: number;
     let matchId: string;
+    let seatToken: string;
 
-    test.beforeAll(async () => {
+    // A fresh match per test: the shared 2-seat match of a `beforeAll`
+    // cannot serve parallel tests (once the seats are claimed/grace-held,
+    // later tokenless joins get `match_not_joinable`). Each test gets its
+    // own stack and its OWN matchmaking session token, so the page always
+    // reaches the same seat deterministically.
+    test.beforeEach(async () => {
         ({ httpServer, server, matchmaker } = buildStack());
         await new Promise<void>((resolve, reject) => {
             httpServer.once('error', reject);
@@ -145,32 +151,43 @@ test.describe('help overlay', () => {
             displayName: 'TestPlayer',
             settings: { playerCount: 2, boardSize: 32, tickIntervalMs: TICK_MS },
         });
-        expect(created.ok).toBe(true);
         if (!created.ok) {
-            return;
+            throw new Error(`createMatch failed: ${created.error.code}`);
         }
         matchId = created.data.matchId;
+        seatToken = created.data.seatAssignment.sessionToken;
 
         const filled = matchmaker.joinMatch({ matchId, displayName: 'Opponent' });
-        expect(filled.ok).toBe(true);
+        if (!filled.ok) {
+            throw new Error(`joinMatch failed: ${filled.error.code}`);
+        }
     });
 
-    test.afterAll(async () => {
-        server.close();
-        httpServer.close();
+    test.afterEach(async () => {
+        await server.close();
+        await new Promise<void>((resolve) => {
+            httpServer.close(() => resolve());
+        });
+        await matchmaker.close();
     });
 
-    /** Open the match view in a fresh page. */
+    /** Open the match view in a fresh page, bound to the first seat's token. */
     async function openMatchPage(page: Page): Promise<void> {
         await page.addInitScript(
-            ({ wsUrl, matchId, displayName }) => {
+            ({ wsUrl, matchId, displayName, reconnectToken }) => {
                 (window as unknown as { __europaTestMatch: object }).__europaTestMatch = {
                     wsUrl,
                     matchId,
                     displayName,
+                    reconnectToken,
                 };
             },
-            { wsUrl: `ws://127.0.0.1:${String(port)}`, matchId, displayName: 'TestPlayer' },
+            {
+                wsUrl: `ws://127.0.0.1:${String(port)}`,
+                matchId,
+                displayName: 'TestPlayer',
+                reconnectToken: seatToken,
+            },
         );
         await page.goto(`/match/${encodeURIComponent(matchId)}/join`);
         await waitUntil(page, (live) => live.status === 'live', 'player reaches live');

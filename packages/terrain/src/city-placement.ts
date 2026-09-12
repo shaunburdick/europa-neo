@@ -32,7 +32,7 @@
  * cells with equal Chebyshev distance to the center.
  */
 
-import type { Coord, GenerationSettings, PlayerId, Rng } from './contracts/terrain-types';
+import type { Coord, GenerationSettings, Rng } from './contracts/terrain-types';
 
 interface Band {
     readonly xMin: number;
@@ -43,7 +43,8 @@ interface Band {
 
 interface CityPlacementLocal {
     readonly cell: Coord;
-    readonly owner: PlayerId;
+    /** 1-based dense numeric placement slot (never a canonical `PlayerId`). */
+    readonly owner: number;
 }
 
 /**
@@ -189,7 +190,10 @@ function buildManhattanWaterField(water: Uint8Array, width: number, height: numb
  * @param band      Spawn band for this player.
  * @param settings  Generation settings (citiesPerPlayer, min distances).
  * @param rng       PRNG (used only for tie-breaking).
- * @param owner     The player ID to assign to these cities.
+ * @param owner     The 1-based dense numeric placement slot to assign
+ *                  to these cities. Terrain is identity-agnostic
+ *                  (issue #74, FR-011): this is never a canonical
+ *                  `PlayerId`; the caller maps slots to IDs.
  * @param count     How many cities to place. Defaults to
  *                  `settings.citiesPerPlayer`. Callers pass a smaller
  *                  count for self-symmetric players whose mirror
@@ -223,7 +227,7 @@ export function placeCitiesInBand(
     band: Band,
     settings: Readonly<GenerationSettings>,
     rng: Rng,
-    owner: PlayerId,
+    owner: number,
     count: number = settings.citiesPerPlayer,
     existing: ReadonlyArray<Coord> = [],
     mirrorAware: boolean = false,

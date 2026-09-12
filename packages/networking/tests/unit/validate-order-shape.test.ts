@@ -19,6 +19,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Connection } from '../../src/connection';
+import { NETWORK_API_VERSION } from '../../src/constants';
 import { MatchChannel } from '../../src/match-channel';
 import { acceptOrder } from '../../src/orders';
 import type { Order } from '../../src/types';
@@ -46,7 +47,7 @@ function joinedPlayerChannel(): {
         nowMs: 0,
         rateLimit: RATE_5S_BURST2,
     });
-    connection.markJoined('token-1', 1, match.matchId);
+    connection.markJoined('token-1', match.playerIds[0] ?? null, match.matchId);
     return { channel, connection, socket };
 }
 
@@ -81,38 +82,38 @@ describe('validateOrderShape — rejects malformed orders', () => {
     });
 
     it('rejects { kind: "setPipe" } with missing cell', () => {
-        expect(() => validateOrderShape({ kind: 'setPipe', player: 1, direction: 'N' })).toThrow(
+        expect(() => validateOrderShape({ kind: 'setPipe', player: 'Player000001', direction: 'N' })).toThrow(
             /order\.cell is required for setPipe/,
         );
     });
 
     it('rejects { kind: "setPipe" } with missing direction', () => {
-        expect(() => validateOrderShape({ kind: 'setPipe', player: 1, cell: { x: 0, y: 0 } })).toThrow(
+        expect(() => validateOrderShape({ kind: 'setPipe', player: 'Player000001', cell: { x: 0, y: 0 } })).toThrow(
             /order\.direction is required for setPipe/,
         );
     });
 
     it('rejects { kind: "setPipe" } with direction "X"', () => {
-        expect(() => validateOrderShape({ kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'X' })).toThrow(
-            /order\.direction must be one of N, E, S, W/,
-        );
+        expect(() =>
+            validateOrderShape({ kind: 'setPipe', player: 'Player000001', cell: { x: 0, y: 0 }, direction: 'X' }),
+        ).toThrow(/order\.direction must be one of N, E, S, W/);
     });
 
     it('rejects { kind: "setPipe" } with direction "north"', () => {
         expect(() =>
-            validateOrderShape({ kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'north' }),
+            validateOrderShape({ kind: 'setPipe', player: 'Player000001', cell: { x: 0, y: 0 }, direction: 'north' }),
         ).toThrow(/order\.direction must be one of N, E, S, W/);
     });
 
     it('rejects { kind: "setPipe" } with direction "" (empty string)', () => {
-        expect(() => validateOrderShape({ kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: '' })).toThrow(
-            /order\.direction must be one of N, E, S, W/,
-        );
+        expect(() =>
+            validateOrderShape({ kind: 'setPipe', player: 'Player000001', cell: { x: 0, y: 0 }, direction: '' }),
+        ).toThrow(/order\.direction must be one of N, E, S, W/);
     });
 
     it('rejects { kind: "clearPipe" } with invalid direction', () => {
         expect(() =>
-            validateOrderShape({ kind: 'clearPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'Z' }),
+            validateOrderShape({ kind: 'clearPipe', player: 'Player000001', cell: { x: 0, y: 0 }, direction: 'Z' }),
         ).toThrow(/order\.direction must be one of N, E, S, W/);
     });
 
@@ -120,7 +121,7 @@ describe('validateOrderShape — rejects malformed orders', () => {
         expect(() =>
             validateOrderShape({
                 kind: 'setPipesExclusive',
-                player: 1,
+                player: 'Player000001',
                 cell: { x: 0, y: 0 },
                 direction: 'down',
             }),
@@ -129,76 +130,96 @@ describe('validateOrderShape — rejects malformed orders', () => {
 
     it('rejects { kind: "setReserves" } with non-number percent', () => {
         expect(() =>
-            validateOrderShape({ kind: 'setReserves', player: 1, cell: { x: 0, y: 0 }, percent: '5' }),
+            validateOrderShape({ kind: 'setReserves', player: 'Player000001', cell: { x: 0, y: 0 }, percent: '5' }),
         ).toThrow(/order\.percent must be a number/);
     });
 
     it('rejects { kind: "paratroop" } with missing target', () => {
-        expect(() => validateOrderShape({ kind: 'paratroop', player: 1, source: { x: 0, y: 0 } })).toThrow(
+        expect(() => validateOrderShape({ kind: 'paratroop', player: 'Player000001', source: { x: 0, y: 0 } })).toThrow(
             /order\.target is required for paratroop/,
         );
     });
 
     it('rejects { kind: "gun" } with missing source', () => {
-        expect(() => validateOrderShape({ kind: 'gun', player: 1, target: { x: 0, y: 0 } })).toThrow(
+        expect(() => validateOrderShape({ kind: 'gun', player: 'Player000001', target: { x: 0, y: 0 } })).toThrow(
             /order\.source is required for gun/,
         );
     });
 
-    it('rejects { kind: "surrender" } with non-number player', () => {
-        expect(() => validateOrderShape({ kind: 'surrender', player: '1' })).toThrow(/order\.player must be a number/);
+    it('rejects { kind: "surrender" } with a numeric player', () => {
+        expect(() => validateOrderShape({ kind: 'surrender', player: 1 })).toThrow(
+            /order\.player must be a canonical PlayerId/,
+        );
+    });
+
+    it('rejects { kind: "surrender" } with a malformed string player', () => {
+        expect(() => validateOrderShape({ kind: 'surrender', player: 'not-an-id' })).toThrow(
+            /order\.player must be a canonical PlayerId/,
+        );
     });
 });
 
 describe('validateOrderShape — accepts valid orders', () => {
     it('accepts a valid setPipe order', () => {
         expect(() =>
-            validateOrderShape({ kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'N' }),
+            validateOrderShape({ kind: 'setPipe', player: 'Player000001', cell: { x: 0, y: 0 }, direction: 'N' }),
         ).not.toThrow();
     });
 
     it('accepts a valid clearPipe order', () => {
         expect(() =>
-            validateOrderShape({ kind: 'clearPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'E' }),
+            validateOrderShape({ kind: 'clearPipe', player: 'Player000001', cell: { x: 0, y: 0 }, direction: 'E' }),
         ).not.toThrow();
     });
 
     it('accepts a valid setPipesExclusive order', () => {
         expect(() =>
-            validateOrderShape({ kind: 'setPipesExclusive', player: 1, cell: { x: 0, y: 0 }, direction: 'S' }),
+            validateOrderShape({
+                kind: 'setPipesExclusive',
+                player: 'Player000001',
+                cell: { x: 0, y: 0 },
+                direction: 'S',
+            }),
         ).not.toThrow();
     });
 
     it('accepts a valid clearAllPipes order', () => {
-        expect(() => validateOrderShape({ kind: 'clearAllPipes', player: 1, cell: { x: 0, y: 0 } })).not.toThrow();
+        expect(() =>
+            validateOrderShape({ kind: 'clearAllPipes', player: 'Player000001', cell: { x: 0, y: 0 } }),
+        ).not.toThrow();
     });
 
     it('accepts a valid setReserves order', () => {
         expect(() =>
-            validateOrderShape({ kind: 'setReserves', player: 1, cell: { x: 0, y: 0 }, percent: 5 }),
+            validateOrderShape({ kind: 'setReserves', player: 'Player000001', cell: { x: 0, y: 0 }, percent: 5 }),
         ).not.toThrow();
     });
 
     it('accepts a valid paratroop order', () => {
         expect(() =>
-            validateOrderShape({ kind: 'paratroop', player: 1, source: { x: 0, y: 0 }, target: { x: 1, y: 1 } }),
+            validateOrderShape({
+                kind: 'paratroop',
+                player: 'Player000001',
+                source: { x: 0, y: 0 },
+                target: { x: 1, y: 1 },
+            }),
         ).not.toThrow();
     });
 
     it('accepts a valid gun order', () => {
         expect(() =>
-            validateOrderShape({ kind: 'gun', player: 1, source: { x: 0, y: 0 }, target: { x: 1, y: 1 } }),
+            validateOrderShape({ kind: 'gun', player: 'Player000001', source: { x: 0, y: 0 }, target: { x: 1, y: 1 } }),
         ).not.toThrow();
     });
 
     it('accepts a valid surrender order', () => {
-        expect(() => validateOrderShape({ kind: 'surrender', player: 1 })).not.toThrow();
+        expect(() => validateOrderShape({ kind: 'surrender', player: 'Player000001' })).not.toThrow();
     });
 
     it('accepts all four cardinal directions for setPipe', () => {
         for (const dir of ['N', 'E', 'S', 'W']) {
             expect(() =>
-                validateOrderShape({ kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: dir }),
+                validateOrderShape({ kind: 'setPipe', player: 'Player000001', cell: { x: 0, y: 0 }, direction: dir }),
             ).not.toThrow();
         }
     });
@@ -245,7 +266,7 @@ describe('acceptOrder — rejects malformed orders via validateOrderShape', () =
     it('rejects { kind: "setPipe" } with missing direction', () => {
         const { channel, connection } = joinedPlayerChannel();
         connection.noteClientSeq(1);
-        const order = { kind: 'setPipe', player: 1, cell: { x: 0, y: 0 } } as unknown as Order;
+        const order = { kind: 'setPipe', player: 'Player000001', cell: { x: 0, y: 0 } } as unknown as Order;
         const result = acceptOrder(channel, connection, order, 1000);
         expect(result.ok).toBe(false);
         if (!result.ok) {
@@ -258,7 +279,7 @@ describe('acceptOrder — rejects malformed orders via validateOrderShape', () =
         connection.noteClientSeq(1);
         const order = {
             kind: 'setPipe',
-            player: 1,
+            player: 'Player000001',
             cell: { x: 0, y: 0 },
             direction: 'X',
         } as unknown as Order;
@@ -285,7 +306,7 @@ describe('acceptOrder — rejects malformed orders via validateOrderShape', () =
         expect(channel.pendingOrders).toHaveLength(0);
 
         connection.noteClientSeq(2);
-        const validOrder: Order = { kind: 'setPipe', player: 1, cell: { x: 3, y: 3 }, direction: 'N' };
+        const validOrder: Order = { kind: 'setPipe', player: 'Player000001', cell: { x: 3, y: 3 }, direction: 'N' };
         const result = acceptOrder(channel, connection, validOrder, 1001);
         expect(result.ok).toBe(true);
         expect(channel.pendingOrders).toHaveLength(1);
@@ -303,7 +324,7 @@ describe('server survives malformed order frames', () => {
         // but validateOrderShape rejects the inner order.
         const bogusOrderEnvelope = {
             type: 'order',
-            version: '0.1.0',
+            version: NETWORK_API_VERSION,
             seq: 1,
             payload: {
                 order: { kind: 'bogus' },
@@ -321,16 +342,22 @@ describe('server survives malformed order frames', () => {
         // Each of these should be rejected before reaching the engine.
         const cases: Array<{ description: string; order: unknown }> = [
             { description: 'setPipe without player', order: { kind: 'setPipe', cell: { x: 0, y: 0 }, direction: 'N' } },
-            { description: 'setPipe without cell', order: { kind: 'setPipe', player: 1, direction: 'N' } },
-            { description: 'setPipe without direction', order: { kind: 'setPipe', player: 1, cell: { x: 0, y: 0 } } },
+            { description: 'setPipe without cell', order: { kind: 'setPipe', player: 'Player000001', direction: 'N' } },
+            {
+                description: 'setPipe without direction',
+                order: { kind: 'setPipe', player: 'Player000001', cell: { x: 0, y: 0 } },
+            },
             {
                 description: 'clearPipe without player',
                 order: { kind: 'clearPipe', cell: { x: 0, y: 0 }, direction: 'N' },
             },
-            { description: 'clearPipe without cell', order: { kind: 'clearPipe', player: 1, direction: 'N' } },
+            {
+                description: 'clearPipe without cell',
+                order: { kind: 'clearPipe', player: 'Player000001', direction: 'N' },
+            },
             {
                 description: 'clearPipe without direction',
-                order: { kind: 'clearPipe', player: 1, cell: { x: 0, y: 0 } },
+                order: { kind: 'clearPipe', player: 'Player000001', cell: { x: 0, y: 0 } },
             },
             {
                 description: 'setPipesExclusive without player',
@@ -338,22 +365,25 @@ describe('server survives malformed order frames', () => {
             },
             {
                 description: 'setPipesExclusive without cell',
-                order: { kind: 'setPipesExclusive', player: 1, direction: 'N' },
+                order: { kind: 'setPipesExclusive', player: 'Player000001', direction: 'N' },
             },
             {
                 description: 'setPipesExclusive without direction',
-                order: { kind: 'setPipesExclusive', player: 1, cell: { x: 0, y: 0 } },
+                order: { kind: 'setPipesExclusive', player: 'Player000001', cell: { x: 0, y: 0 } },
             },
             { description: 'clearAllPipes without player', order: { kind: 'clearAllPipes', cell: { x: 0, y: 0 } } },
-            { description: 'clearAllPipes without cell', order: { kind: 'clearAllPipes', player: 1 } },
+            { description: 'clearAllPipes without cell', order: { kind: 'clearAllPipes', player: 'Player000001' } },
             {
                 description: 'setReserves without player',
                 order: { kind: 'setReserves', cell: { x: 0, y: 0 }, percent: 5 },
             },
-            { description: 'setReserves without cell', order: { kind: 'setReserves', player: 1, percent: 5 } },
+            {
+                description: 'setReserves without cell',
+                order: { kind: 'setReserves', player: 'Player000001', percent: 5 },
+            },
             {
                 description: 'setReserves without percent',
-                order: { kind: 'setReserves', player: 1, cell: { x: 0, y: 0 } },
+                order: { kind: 'setReserves', player: 'Player000001', cell: { x: 0, y: 0 } },
             },
             {
                 description: 'paratroop without player',
@@ -361,18 +391,24 @@ describe('server survives malformed order frames', () => {
             },
             {
                 description: 'paratroop without source',
-                order: { kind: 'paratroop', player: 1, target: { x: 1, y: 1 } },
+                order: { kind: 'paratroop', player: 'Player000001', target: { x: 1, y: 1 } },
             },
             {
                 description: 'paratroop without target',
-                order: { kind: 'paratroop', player: 1, source: { x: 0, y: 0 } },
+                order: { kind: 'paratroop', player: 'Player000001', source: { x: 0, y: 0 } },
             },
             {
                 description: 'gun without player',
                 order: { kind: 'gun', source: { x: 0, y: 0 }, target: { x: 1, y: 1 } },
             },
-            { description: 'gun without source', order: { kind: 'gun', player: 1, target: { x: 1, y: 1 } } },
-            { description: 'gun without target', order: { kind: 'gun', player: 1, source: { x: 0, y: 0 } } },
+            {
+                description: 'gun without source',
+                order: { kind: 'gun', player: 'Player000001', target: { x: 1, y: 1 } },
+            },
+            {
+                description: 'gun without target',
+                order: { kind: 'gun', player: 'Player000001', source: { x: 0, y: 0 } },
+            },
             { description: 'surrender without player', order: { kind: 'surrender' } },
         ];
 

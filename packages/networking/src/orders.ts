@@ -107,6 +107,18 @@ export function acceptOrder(
         return reject(new NetworkError('internal_error', 'joined connection has no seat binding'));
     }
 
+    // FR-022 (issue #74): the order's identity is client-supplied and
+    // MUST match the server-bound seat. A valid-looking ID from another
+    // player can never authorize an order — the engine would otherwise
+    // apply it as that player (order.player drives ownership checks).
+    if (order.player !== playerId) {
+        return reject(
+            new NetworkError('malformed_payload', 'order.player does not match the connection’s bound identity', {
+                reason: 'order_player_mismatch',
+            }),
+        );
+    }
+
     const submittedAtSeq = connection.lastClientSeq;
     channel.enqueueOrder(playerId, order, submittedAtSeq);
 

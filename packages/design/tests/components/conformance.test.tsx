@@ -214,8 +214,8 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
 
     // ── Game-specific primitives (7) ─────────────────────────────────────
     {
-        name: 'EuropaTroopChip owner=1 uses the playerColor1 token color',
-        element: <EuropaTroopChip count={1} owner={1} />,
+        name: 'EuropaTroopChip color=playerColor1 uses the supplied token color',
+        element: <EuropaTroopChip count={1} color={TOKENS.color.playerColor1} />,
         expectClasses: ['europa-chip'],
         expectStyles: [
             { prop: 'borderColor', value: TOKENS.color.playerColor1 },
@@ -223,8 +223,8 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         ],
     },
     {
-        name: 'EuropaCityMarker owner=2 uses the playerColor2 token color (no catalog class)',
-        element: <EuropaCityMarker owner={2} />,
+        name: 'EuropaCityMarker color=playerColor2 uses the supplied token color (no catalog class)',
+        element: <EuropaCityMarker color={TOKENS.color.playerColor2} />,
         expectNoClass: true,
         expectStyles: [
             { prop: 'backgroundColor', value: TOKENS.color.playerColor2 },
@@ -244,8 +244,8 @@ const SCENARIOS: ReadonlyArray<Scenario> = [
         expectStyles: [{ prop: 'backgroundColor', value: 'hsl(200, 15%, 95%)' }],
     },
     {
-        name: 'EuropaPlayerBadge player=3 uses the playerColor3 token color',
-        element: <EuropaPlayerBadge player={3} />,
+        name: 'EuropaPlayerBadge name+color renders the badge with the supplied token color',
+        element: <EuropaPlayerBadge name="P3" color={TOKENS.color.playerColor3} />,
         expectClasses: ['europa-badge'],
         expectStyles: [{ prop: 'color', value: TOKENS.color.playerColor3 }],
     },

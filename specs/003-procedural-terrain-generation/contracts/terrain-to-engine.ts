@@ -30,7 +30,7 @@
  *     trusts it but still sanity-checks city-on-land on `createWorld`).
  */
 
-import type { Board, MatchConfig, PlayerId } from '@europa/engine';
+import type { Board, MatchConfig } from '@europa/engine';
 import type {
   GenerationSettings,
   Rng,
@@ -88,11 +88,15 @@ export interface TerrainGenerationRequest {
  *
  * This type already exists in `engine-to-terrain.ts` and is unchanged.
  * Mirror here for self-containment.
+ *
+ * Identity-agnostic (issue #74, FR-011): `startingCitiesByPlayer` is keyed
+ * by 1-based dense numeric placement slot, never a canonical `PlayerId`.
+ * The engine owns the slot → `MatchConfig.playerIds[slot - 1]` mapping.
  */
 export interface TerrainGenerationResult_Amended extends TerrainGenerationResult {
   readonly board: Board;
   readonly effectiveSeed: number;
-  readonly startingCitiesByPlayer: Readonly<Record<PlayerId, ReadonlyArray<{ x: number; y: number }>>>;
+  readonly startingCitiesByPlayer: Readonly<Record<number, ReadonlyArray<{ x: number; y: number }>>>;
 }
 
 // ----------------------------------------------------------------------------

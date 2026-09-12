@@ -1,8 +1,8 @@
 /**
  * Seat-label derivation — feature 010 (T-016, FR-020/FR-023).
  *
- * Pure, DOM-free derivation of per-seat participant labels from the
- * console session (the reducer's projection of the server-authoritative
+ * Pure, DOM-free derivation of per-participant labels from the console
+ * session (the reducer's projection of the server-authoritative
  * `JoinAckPayload.players` array). The UI renders these verbatim inside
  * `<bdi>` isolation; this module never touches strings beyond passing
  * them through — handles are hostile-but-valid and are NOT sanitized,
@@ -11,79 +11,65 @@
  * Authority rule (spec FR-020): labels come ONLY from
  * `ConsoleState.session` — which the reducer fills exclusively from the
  * server's join ack (`players` + assigned `playerId`). No client-side
- * guesswork or transport reads. Handles are preferred labels; a server-
- * resolved player ID is non-secret correlation data and may be used as a
- * fallback or displayed where useful. Bearer credentials never belong in
- * labels.
+ * guesswork or transport reads. Handles are preferred labels; the
+ * server-issued universal `PlayerId` is the fallback (issue #74: IDs are
+ * non-secret correlation data, never credentials) and is never rendered
+ * as a handle when one exists.
  *
- * Reconstruction rule: `opponents` holds the other players' display
- * names in ascending PlayerId order (reducer `joined` arm), and the
- * local seat — when seated — is `playerId`. Walking seats `1..N` and
- * drawing non-local names from the opponents queue in order rebuilds
- * the exact server ordering deterministically. A spectator (`playerId
- * === null`) has no local seat, so every seat maps straight from the
- * queue; the spectator fold stores ALL participants in `opponents`
- * (ascending), matching FR-023's "spectator views MAY expose all
- * participant handles".
+ * Identity rule (issue #74): a participant is keyed by its server-issued
+ * `PlayerId`, never by a numeric seat or by the handle text.
+ * `session.participants` arrives in terrain placement-slot order, so the
+ * 1-based `seat` field below is a presentation coordinate only. The local
+ * participant is identified by `isLocal` (computed from `session.playerId`
+ * in the reducer); a spectator has no local participant.
  */
 
-import type { ConsoleSession } from '../state/types';
+import type { ConsoleSession, PlayerId } from '../state/types';
 
-/** One rendered seat row: 1-based seat number plus its label source. */
+/** One rendered participant row: identity + presentation seat number. */
 export interface SeatLabel {
-    /** 1-based seat number (engine `PlayerId` domain). */
+    /** Server-issued universal identity for this participant. */
+    readonly id: PlayerId;
+    /** 1-based presentation seat number (not identity). */
     readonly seat: number;
     /**
-     * The server-provided display value for this seat, or `null` when
-     * unknown (seat occupancy/names not yet delivered). Rendered inside
-     * `<bdi>` by the caller; when absent, the caller may use a generic
-     * fallback rather than inventing a server identity here.
+     * The participant's preferred server-provided handle, or `null` when
+     * no handle is known. The caller falls back to {@link SeatLabel.id}
+     * when this is `null`.
      */
     readonly name: string | null;
-    /** Whether this seat belongs to the local viewer. */
+    /** Whether this participant is the local viewer. */
     readonly isLocal: boolean;
 }
 
 /**
- * Derive per-seat labels from the session. Pure.
+ * Derive per-participant labels from the session. Pure.
  *
- * Returns an empty array while no names are known at all (pre-join),
- * so callers can skip rendering the strip entirely. Seats whose names
- * are unknown still appear (with `name: null`) once ANY naming data
- * exists, keeping seat numbering stable across the join boundary.
+ * Returns an empty array while no participants are known (pre-join), so
+ * callers can skip rendering the strip entirely. Participants without a
+ * handle still appear (with `name: null`), keeping seat numbering stable
+ * across the join boundary.
  *
  * @param session The console session (server-authoritative projection).
- * @returns One {@link SeatLabel} per seat, ascending.
+ * @returns One {@link SeatLabel} per participant, in placement-slot order.
  */
 export function deriveSeatLabels(session: ConsoleSession): ReadonlyArray<SeatLabel> {
-    const { playerId, displayName, opponents } = session;
-    const seated = playerId !== null;
-    const seatCount = opponents.length + (seated ? 1 : 0);
-    if (seatCount === 0) {
-        return [];
-    }
-
-    const labels: SeatLabel[] = [];
-    let opponentIndex = 0;
-    for (let seat = 1; seat <= seatCount; seat++) {
-        if (seated && seat === playerId) {
-            labels.push({ seat, name: displayName.length > 0 ? displayName : null, isLocal: true });
-            continue;
-        }
-        const name = opponents[opponentIndex];
-        opponentIndex += 1;
-        labels.push({ seat, name: name !== undefined && name.length > 0 ? name : null, isLocal: false });
-    }
-    return labels;
+    return session.participants.map((participant, index) => ({
+        id: participant.id,
+        seat: index + 1,
+        name: participant.name,
+        isLocal: participant.isLocal,
+    }));
 }
 
 /**
- * Whether any seat carries a usable label — the strip's render gate.
- * Pure; mirrors {@link deriveSeatLabels}' empty/unnamed handling so
- * the component stays a dumb renderer.
+ * Whether the strip has anything to render — the render gate. Every
+ * participant always has a usable label (the handle when present, else
+ * the canonical ID fallback), so this is exactly "at least one
+ * participant is known". Pure.
  *
- * @param labels The derived seat labels.
+ * @param labels The derived participant labels.
  */
 export function hasVisibleLabels(labels: ReadonlyArray<SeatLabel>): boolean {
-    return labels.some((label) => label.name !== null);
+    return labels.length > 0;
 }

@@ -58,8 +58,8 @@ export function lobbyFailure(
     return Object.freeze(detail === undefined ? { code, message } : { code, message, detail });
 }
 
-/** A distinctive non-secret guest id for directed-delivery assertions. */
-export const NON_SECRET_GUEST_ID = 'guest-correlation-0f3e5a' as GuestIdentityClaim['guestPlayerId'];
+/** A distinctive non-secret canonical guest id for directed-delivery assertions. */
+export const NON_SECRET_GUEST_ID = 'Guest0000001' as GuestIdentityClaim['guestPlayerId'];
 
 /**
  * Build a successful `LobbyMatchTarget` (mirror of matchmaking's

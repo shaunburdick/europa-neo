@@ -87,4 +87,12 @@ pnpm --filter @europa/version test
 pnpm --filter @europa/design test
 echo ""
 
+# Phase 11: Documentation privacy guard (010 FR-014 / NFR-003). Mirrors the
+# pages-deploy.yml build step and manual-ci.yml so a credential/identity
+# leak into the manual or an approved implementation surface is caught
+# before merge, not after the post-merge Pages deploy.
+echo "--- Phase 11: Documentation privacy guard ---"
+node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
+echo ""
+
 echo "=== All verification checks passed ==="

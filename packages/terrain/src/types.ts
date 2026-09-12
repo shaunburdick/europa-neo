@@ -18,14 +18,18 @@
  * `DEFAULT_GENERATION_SETTINGS` constant) are runtime artifacts exposed
  * from the contract; the rest are types erased at compile time.
  *
- * Engine types (`Board`, `Cell`, `CityPlacement`, `Coord`, `PlayerId`)
- * are imported `import type` from `@europa/engine` so terrain does not
- * take a runtime dependency on the engine (see `engine-to-terrain.ts`
- * boundary rule: "terrain does not import anything from `@europa/engine`
- * at runtime"). The only runtime engine export terrain touches is
- * `createRng` (re-exported by the engine barrel and consumed via
- * `rng-adapter.ts`); even that is `import type`-only at this module
- * boundary.
+ * Engine types (`Board`, `Cell`, `CityPlacement`, `Coord`) are imported
+ * `import type` from `@europa/core` so terrain does not take a runtime
+ * dependency on the engine (see `engine-to-terrain.ts` boundary rule:
+ * "terrain does not import anything from `@europa/engine` at runtime").
+ * The only runtime engine export terrain touches is `createRng`
+ * (re-exported by the engine barrel and consumed via `rng-adapter.ts`);
+ * even that is `import type`-only at this module boundary.
+ *
+ * Terrain is identity-agnostic (issue #74, FR-011): it deliberately does
+ * NOT re-export the branded `PlayerId`. `CityPlacement.owner` and
+ * `startingCitiesByPlayer` keys are dense 1-based numeric placement
+ * slots; the caller owns the slot → canonical-ID mapping.
  */
 
 // Engine types terrain consumes. Imported `import type` so they're
@@ -37,7 +41,6 @@ export type {
     Cell,
     CityPlacement,
     Coord,
-    PlayerId,
 } from '@europa/core';
 // Re-export the `TerrainConstants` interface from the API contract so
 // downstream packages can do `import type { TerrainConstants } from

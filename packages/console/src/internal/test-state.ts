@@ -17,8 +17,14 @@
  * rendered output is byte-stable across test runs and demo boots.
  */
 
+import { parsePlayerId } from '@europa/core';
+
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
-import type { ConsoleState, PlayerView } from '../state/types';
+import type { ConsoleState, PlayerId, PlayerView } from '../state/types';
+
+/** Canonical demo identities (issue #74: identities are server-issued strings). */
+const DEMO_PLAYER_ONE: PlayerId = parsePlayerId('DemoPlayer01');
+const DEMO_PLAYER_TWO: PlayerId = parsePlayerId('DemoPlayer02');
 
 /** Module-level injected state (the T048 seam). */
 let injectedState: ConsoleState | null = null;
@@ -82,13 +88,13 @@ export const DEMO_BOARD_SIZE = 16;
  */
 export function createDemoPlayerView(): PlayerView {
     return {
-        player: 1,
+        player: DEMO_PLAYER_ONE,
         tick: 42,
         visibleCells: DEMO_VISIBLE_CELLS.map((cell) => ({ ...cell })),
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: DEMO_BOARD_SIZE,
-            playerCount: 2,
+            playerIds: [DEMO_PLAYER_ONE, DEMO_PLAYER_TWO],
             tickIntervalMs: 250,
             seed: 0,
             visibilityRadius: 2,
@@ -110,26 +116,26 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
         readonly terrain: 'land' | 'water';
     };
     readonly troopCount: number;
-    readonly troopOwner: 1 | 2 | null;
+    readonly troopOwner: PlayerId | null;
     readonly pipes: ReadonlySet<'N' | 'E' | 'S' | 'W'>;
     readonly reservesPercent: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-    readonly cityOwner: 1 | 2 | null;
+    readonly cityOwner: PlayerId | null;
 }> = [
     // Row 8: contested border — P1 city with pipes + reserves (zone 0: Smooth Ice).
     {
         coord: pt(3, 8),
         cell: c(3, 8, 40, 'land'),
         troopCount: 32,
-        troopOwner: 1,
+        troopOwner: DEMO_PLAYER_ONE,
         pipes: setOf('N', 'E'),
         reservesPercent: 7,
-        cityOwner: 1,
+        cityOwner: DEMO_PLAYER_ONE,
     },
     {
         coord: pt(4, 8),
         cell: c(4, 8, 55, 'land'),
         troopCount: 12,
-        troopOwner: 1,
+        troopOwner: DEMO_PLAYER_ONE,
         pipes: setOf(),
         reservesPercent: 0,
         cityOwner: null,
@@ -166,7 +172,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
         coord: pt(4, 9),
         cell: c(4, 9, 100, 'land'),
         troopCount: 5,
-        troopOwner: 2,
+        troopOwner: DEMO_PLAYER_TWO,
         pipes: setOf('W'),
         reservesPercent: 0,
         cityOwner: null,
@@ -175,7 +181,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
         coord: pt(5, 9),
         cell: c(5, 9, 120, 'land'),
         troopCount: 8,
-        troopOwner: 1,
+        troopOwner: DEMO_PLAYER_ONE,
         pipes: setOf(),
         reservesPercent: 3,
         cityOwner: null,
@@ -194,7 +200,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
         coord: pt(3, 10),
         cell: c(3, 10, 190, 'land'),
         troopCount: 21,
-        troopOwner: 1,
+        troopOwner: DEMO_PLAYER_ONE,
         pipes: setOf('S', 'E'),
         reservesPercent: 9,
         cityOwner: null,
@@ -203,10 +209,10 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
         coord: pt(4, 10),
         cell: c(4, 10, 200, 'land'),
         troopCount: 18,
-        troopOwner: 2,
+        troopOwner: DEMO_PLAYER_TWO,
         pipes: setOf(),
         reservesPercent: 0,
-        cityOwner: 2,
+        cityOwner: DEMO_PLAYER_TWO,
     },
     {
         coord: pt(5, 10),
@@ -231,7 +237,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
         coord: pt(4, 11),
         cell: c(4, 11, 240, 'land'),
         troopCount: 2,
-        troopOwner: 1,
+        troopOwner: DEMO_PLAYER_ONE,
         pipes: setOf(),
         reservesPercent: 0,
         cityOwner: null,
@@ -276,7 +282,7 @@ const DEMO_VISIBLE_CELLS: ReadonlyArray<{
         coord: pt(5, 12),
         cell: c(5, 12, 140, 'land'),
         troopCount: 14,
-        troopOwner: 2,
+        troopOwner: DEMO_PLAYER_TWO,
         pipes: setOf('N'),
         reservesPercent: 0,
         cityOwner: null,

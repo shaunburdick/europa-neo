@@ -21,13 +21,14 @@
  *
  * Responsibilities owned here (per task T-012):
  *
- *   - **Claim/handle persistence** — the guest player ID correlation value +
- *     last accepted handle live in local storage (`lobby-storage.ts`)
- *     and are presented on every establish cycle. The LOCAL mint is
- *     first-frame bootstrap only: the server's directed `identity`
- *     event carries the AUTHORITATIVE id (feature 010 Clarifications
- *     v1.6 — the FR-003 delivery channel), and this client adopts it,
- *     replacing any locally minted value, so a reload restores the
+ *   - **Claim/handle persistence** — the server-issued guest player ID
+ *     (non-secret correlation value) + last accepted handle live in
+ *     local storage (`lobby-storage.ts`) and are presented on every
+ *     establish cycle. The browser NEVER mints an identity (issue #74):
+ *     the first connect presents a claim with no `guestPlayerId`, the
+ *     server's directed `identity` event carries the AUTHORITATIVE id
+ *     (feature 010 Clarifications v1.6 — the FR-003 delivery channel),
+ *     and this client adopts + persists it, so a reload restores the
  *     ACTIVE identity within the reconnect grace window. Storage
  *     failures degrade to an in-memory-only session.
  *     `forgetIdentity()` is the explicit leave; `lobbyLeave`
@@ -92,7 +93,6 @@ import {
     clearStoredClaim,
     type LobbyStorage,
     loadStoredClaim,
-    mintGuestClaimId,
     REDACTION_MARKER,
     resolveLobbyStorage,
     type StoredLobbyClaim,
@@ -162,7 +162,12 @@ export interface WsLobbyClientState {
     readonly connection: LobbyConnectionState;
     /** Server-confirmed handle (`null` until the identity picked a valid one). */
     readonly handle: string | null;
-    /** Whether a resume claim exists (in memory or persisted). Never the claim itself. */
+    /**
+     * Whether a server-issued identity id is known (adopted from the
+     * directed `identity` event and persisted). The id itself is never
+     * exposed here. `false` until the server first issues one — the
+     * browser never mints identity (issue #74).
+     */
     readonly hasClaim: boolean;
     /** Latest APPLIED lobby snapshot (revision-gated), or `null` before the first baseline. */
     readonly snapshot: LobbySnapshot | null;
@@ -249,8 +254,6 @@ export interface WsLobbyClientOptions {
     readonly maxReconnectAttempts?: number;
     /** Automatic re-establish loop on transport loss. Default `true`. */
     readonly autoReconnect?: boolean;
-    /** Test seam: claim-id minting. Defaults to Web Crypto (see lobby-storage). */
-    readonly claimIdFactory?: () => GuestPlayerId;
     /**
      * Timeout (ms) after subscribe before the roster is considered
      * degraded. Default {@link DEFAULT_ROSTER_DEGRADED_TIMEOUT_MS}.
@@ -271,7 +274,7 @@ export interface WsLobbyClient {
     connect(url: string): Promise<void>;
     /** Close explicitly (cancels retry loops; the persisted claim survives for reload-resume). */
     disconnect(): void;
-    /** Forget the persisted claim + handle (explicit identity leave); next connect mints fresh. */
+    /** Forget the persisted claim + handle (explicit identity leave); next connect presents an empty advisory claim. */
     forgetIdentity(): void;
     /** Claim or rename the identity's public handle (FR-004/FR-005). */
     setHandle(handle: string): Promise<IdentityState>;
@@ -429,7 +432,6 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             // Platform default; the indirection exists purely for tests.
             return new WebSocket(url);
         });
-    const mintClaimId = options.claimIdFactory ?? (() => mintGuestClaimId());
 
     // -- Mutable protocol state -------------------------------------------------
     let connection: LobbyConnectionState = 'idle';
@@ -547,11 +549,15 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     const storage: LobbyStorage | null = options.storage !== undefined ? options.storage : resolveLobbyStorage();
 
     /**
-     * Guarantee an in-memory claim, restoring from storage or minting
-     * fresh as needed. Called at the top of every establish cycle so a
-     * forgotten/expired claim self-heals before the next presentation.
-     * Every value that passes through is registered with
-     * {@link knownIdentityClaims} for the redaction choke point.
+     * Guarantee an in-memory claim. Restores a persisted claim when one
+     * exists; otherwise starts from an EMPTY claim (no `guestPlayerId`)
+     * because the browser never mints identity (issue #74) — the server
+     * allocates the universal ID and the directed `identity` event
+     * delivers it for adoption below. Called at the top of every
+     * establish cycle so a forgotten/expired claim self-heals before the
+     * next presentation. Every non-null identity that passes through is
+     * registered with {@link knownIdentityClaims} for the redaction
+     * choke point.
      */
     function ensureClaim(): StoredLobbyClaim {
         if (currentClaim !== null) {
@@ -559,16 +565,14 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         }
         const restored = loadStoredClaim(storage);
         if (restored !== null) {
-            knownIdentityClaims.add(restored.guestPlayerId);
+            if (restored.guestPlayerId !== null) {
+                knownIdentityClaims.add(restored.guestPlayerId);
+            }
             currentClaim = restored;
             confirmedHandle = restored.handle;
             return restored;
         }
-        const fresh: StoredLobbyClaim = { guestPlayerId: mintClaimId(), handle: null };
-        knownIdentityClaims.add(fresh.guestPlayerId);
-        if (!saveStoredClaim(fresh, storage) && storage !== null) {
-            log('warn', 'claim persistence failed (storage unavailable or full)', {});
-        }
+        const fresh: StoredLobbyClaim = { guestPlayerId: null, handle: null };
         currentClaim = fresh;
         confirmedHandle = null;
         return fresh;
@@ -588,8 +592,10 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     /**
      * Drop the claim everywhere (storage + memory + handle) after the
      * server signals it is dead (`identity_expired`/`server_restarted`)
-     * or the visitor explicitly forgets. The NEXT establish cycle mints
-     * a fresh claim automatically.
+     * or the visitor explicitly forgets. The browser never mints a
+     * replacement: the NEXT establish cycle presents an empty advisory
+     * claim and adopts the server-issued id from the directed `identity`
+     * event.
      */
     function invalidateClaim(reason: string): void {
         clearStoredClaim(storage);
@@ -632,11 +638,17 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         return true;
     }
 
-    /** Build the advisory wire claim (exactOptionalPropertyTypes: omit null handle). */
+    /**
+     * Build the advisory wire claim. The canonical identity is omitted
+     * entirely until the server has issued one (issue #74: the wire
+     * validator rejects an explicit `null`, and a first connect carries
+     * no identity), as is an unset handle
+     * (exactOptionalPropertyTypes).
+     */
     function wireClaim(claim: StoredLobbyClaim): GuestIdentityClaim {
-        return claim.handle === null
-            ? { guestPlayerId: claim.guestPlayerId }
-            : { guestPlayerId: claim.guestPlayerId, handle: claim.handle };
+        const identity = claim.guestPlayerId === null ? {} : { guestPlayerId: claim.guestPlayerId };
+        const handle = claim.handle === null ? {} : { handle: claim.handle };
+        return { ...identity, ...handle };
     }
 
     // -- State + listener plumbing --------------------------------------------------
@@ -1395,7 +1407,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             return {
                 connection,
                 handle: confirmedHandle,
-                hasClaim: currentClaim !== null,
+                hasClaim: currentClaim !== null && currentClaim.guestPlayerId !== null,
                 snapshot: snapshotState,
                 lastAppliedRevision,
                 reconnectAttempt,

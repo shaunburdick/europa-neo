@@ -19,7 +19,7 @@
  * fail loud, easy-to-diagnose test failures.
  */
 
-import type { Board, Cell, CityPlacement, PlayerId } from '../../src/types';
+import type { Board, Cell, CityPlacement } from '../../src/types';
 
 /** Minimum board size used across the engine's quickstart tests. */
 const MIN_BOARD_SIZE = 8;
@@ -29,16 +29,17 @@ const MIN_BOARD_SIZE = 8;
  * placements. Use for tests that don't exercise slope.
  *
  * @param size   Square board dimension (≥ 8). Cities MUST be in-bounds.
- * @param cities Each tuple: `[x, y, owner]`. All owners must be valid
- *               PlayerId (1..4). Duplicate placements on the same cell
- *               are rejected.
+ * @param cities Each tuple: `[x, y, owner]` where `owner` is a 1-based
+ *                dense placement slot (1..4) — terrain is identity-agnostic
+ *                and the engine maps the slot to `config.playerIds`. Duplicate
+ *                placements on the same cell are rejected.
  * @returns Frozen `Board` ready to pass to `createWorld`.
  * @throws If `size < 8`, any city is out of bounds, any owner is not
- *         a valid PlayerId, or two cities share a cell.
+ *         an integer in 1..4, or two cities share a cell.
  */
 export function buildSmallBoard(
     size: number,
-    cities: ReadonlyArray<readonly [x: number, y: number, owner: PlayerId]>,
+    cities: ReadonlyArray<readonly [x: number, y: number, owner: number]>,
 ): Board {
     if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
         throw new Error(`buildSmallBoard: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);
@@ -103,7 +104,7 @@ export function buildSmallBoard(
 export function buildBoardWithElevation(
     size: number,
     elevationMap: ReadonlyArray<readonly [number, number]>,
-    cities: ReadonlyArray<readonly [x: number, y: number, owner: PlayerId]>,
+    cities: ReadonlyArray<readonly [x: number, y: number, owner: number]>,
 ): Board {
     if (!Number.isInteger(size) || size < MIN_BOARD_SIZE) {
         throw new Error(`buildBoardWithElevation: size must be an integer ≥ ${MIN_BOARD_SIZE} (got ${size})`);

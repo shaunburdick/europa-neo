@@ -28,7 +28,6 @@ export type {
     GenerationSettings,
     MapSeed,
     MapStats,
-    PlayerId,
     Rng,
     SymmetryStrategy,
     TerrainConstants,

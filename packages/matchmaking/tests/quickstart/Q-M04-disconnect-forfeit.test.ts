@@ -66,7 +66,7 @@ describe('Q-M04: disconnect forfeit', () => {
         // with an OrderSurrender for Alice — observable as Alice's
         // immediate elimination in the engine world (FR-016).
         const world = engineSession?.world();
-        expect(world?.players[0]?.status).toBe('eliminated');
+        expect(world?.players.find((player) => player.id === aliceSeat.playerId)?.status).toBe('eliminated');
 
         // Step 3: Matchmaker called server.detachPlayer for Alice.
         expect(server.detachPlayerCalls).toHaveLength(1);

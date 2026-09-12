@@ -56,7 +56,8 @@
  * method's JSDoc and spec 006 Implementation Notes for the phase table.
  */
 
-import { createRng } from '@europa/core';
+import type { PlayerId } from '@europa/core';
+import { createRng, parsePlayerId } from '@europa/core';
 import type { MatchResult } from '@europa/engine';
 import { NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { MatchmakerBridge, Server, SessionToken } from '@europa/networking';
@@ -96,7 +97,7 @@ import { buildEngineSession, buildMatchConfig } from './engineSession';
 import { makeError } from './errors';
 import type { MatchStatusListener, StatusEventBus } from './eventBus';
 import { handleSeatExpired } from './forfeit';
-import { newMatchSeed } from './idGen';
+import { allocatePlayerId, newMatchSeed } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
 import { createPlayerSession } from './internal/playerSession';
 import type { SeatRecord } from './internal/seatRecord';
@@ -106,7 +107,6 @@ import {
     createMatchRecordWithCreator,
     createRematchMatchRecord,
     createStatusBus,
-    toPlayerId,
     transitionFillingToRunning,
     transitionRunningToFinished,
     transitionToCollected,
@@ -495,21 +495,38 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     // -- Internal operations ---------------------------------------------------
 
     /**
-     * Build the public result payload for a seated player (contract:
-     * provisional `playerId = seatIndex + 1` while filling).
+     * Build the public result payload for a seated player. The
+     * `playerId` is the seat's universal identity, fixed at claim time
+     * (issue #74 T025) — never `seatIndex + 1`.
      */
-    function seatAssignmentFor(
-        seatIndex: SeatIndex,
-        playerSessionId: string,
-        sessionToken: SessionToken,
-        displayName: string,
-    ): SeatAssignment {
+    function seatAssignmentFor(seat: SeatRecord): SeatAssignment {
         return Object.freeze({
-            playerSessionId: playerSessionId as SeatAssignment['playerSessionId'],
-            seatIndex,
-            playerId: toPlayerId(seatIndex + 1),
-            sessionToken,
-            displayName,
+            playerSessionId: seat.playerSessionId,
+            seatIndex: seat.seatIndex,
+            playerId: seat.playerId,
+            sessionToken: seat.sessionToken,
+            displayName: seat.displayName,
+        });
+    }
+
+    /**
+     * Resolve the universal identity for a new session/seat at the
+     * matchmaking trust boundary (issue #74 T024/T025).
+     *
+     * A lobby-originated request carries the server-resolved guest id; that
+     * SAME value becomes the engine `PlayerId`. Legacy direct callers get a
+     * fresh canonical id, allocated with an active-uniqueness predicate over
+     * the matchmaker's live sessions (bounded retry; core fails closed).
+     *
+     * @param guestPlayerId - Server-resolved lobby identity, when present.
+     * @returns The session/seat universal identity.
+     */
+    function resolveUniversalPlayerId(guestPlayerId: string | undefined): PlayerId {
+        if (guestPlayerId !== undefined) {
+            return parsePlayerId(guestPlayerId);
+        }
+        return allocatePlayerId({
+            isActive: (candidate) => store.listSessions().some((session) => session.playerId === candidate),
         });
     }
 
@@ -543,8 +560,25 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         try {
             const seed = match.initialSeed ?? newMatchSeed();
             match.initialSeed = seed;
-            const engineConfig = buildMatchConfig(match.settings, seed);
             const rng = rngFactory(seed);
+
+            // Resolve seats once, in seat order, for the explicit engine
+            // player ids, the display-name snapshot below, and the attach
+            // loop (the same seat-missing guard the loop always carried).
+            const orderedSeats: SeatRecord[] = [];
+            for (let index = 0; index < match.settings.playerCount; index++) {
+                const seat = match.seats.get(index as SeatIndex);
+                if (seat === undefined) {
+                    throw new Error(`matchmaker: seat ${String(index)} missing at auto-start`);
+                }
+                orderedSeats.push(seat);
+            }
+
+            // One universal id per seat, in terrain placement-slot order
+            // (issue #74 T025): the engine maps city slot k to
+            // `playerIds[k - 1]`, so seat order IS placement order.
+            const playerIds = orderedSeats.map((seat) => seat.playerId);
+            const engineConfig = buildMatchConfig(match.settings, seed, playerIds);
 
             const generation = generateBoard({
                 boardSize: match.settings.boardSize,
@@ -559,18 +593,6 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             });
 
             const engineSession = buildEngineSession(engineConfig, generation.board);
-
-            // Resolve seats once, in seat order, for both the display-name
-            // snapshot below and the attach loop (the same seat-missing guard
-            // the loop always carried).
-            const orderedSeats: SeatRecord[] = [];
-            for (let index = 0; index < match.settings.playerCount; index++) {
-                const seat = match.seats.get(index as SeatIndex);
-                if (seat === undefined) {
-                    throw new Error(`matchmaker: seat ${String(index)} missing at auto-start`);
-                }
-                orderedSeats.push(seat);
-            }
 
             // Feature 010 FR-020/SC-008: hand networking each seat's
             // authoritative label — the accepted-handle snapshot, falling back
@@ -588,11 +610,13 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 displayNames: orderedSeats.map((seat) => seat.handle ?? seat.displayName),
             });
 
-            // Attach in seat order so playerId n maps to seatIndex n - 1.
-            for (const [index, seat] of orderedSeats.entries()) {
+            // Attach each seat with its universal identity; networking
+            // resolves the connection from the bearer token, never from an
+            // index or client-supplied id (issue #74 T026).
+            for (const seat of orderedSeats) {
                 server.attachPlayer({
                     matchId: match.matchId,
-                    playerId: toPlayerId(index + 1),
+                    playerId: seat.playerId,
                     sessionToken: seat.sessionToken,
                 });
             }
@@ -860,10 +884,12 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
 
             const atMs = now();
+            const universalPlayerId = resolveUniversalPlayerId(req.guestPlayerId);
             const session = createPlayerSession({
                 displayName,
                 randomId,
                 now,
+                playerId: universalPlayerId,
                 // Feature 010 FR-019 (R-005): the server-resolved registry
                 // values ride into the session; absent fields store null
                 // (legacy flows). Conditional spreads honor
@@ -873,7 +899,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             });
             store.putSession(session);
 
-            const { match } = createMatchRecordWithCreator({
+            const { match, creatorSeat } = createMatchRecordWithCreator({
                 settings,
                 visibility: req.visibility,
                 creator: session,
@@ -891,12 +917,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 matchId: match.matchId,
                 joinPath: links.joinPath,
                 joinUrl: links.joinUrl,
-                seatAssignment: seatAssignmentFor(
-                    0 as SeatIndex,
-                    session.playerSessionId,
-                    session.currentSessionToken as SessionToken,
-                    displayName,
-                ),
+                seatAssignment: seatAssignmentFor(creatorSeat),
             };
             logger.info('matchmaker: match created', {
                 matchId: match.matchId,
@@ -970,10 +991,12 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
 
             const atMs = now();
+            const universalPlayerId = resolveUniversalPlayerId(req.guestPlayerId);
             const session = createPlayerSession({
                 displayName,
                 randomId,
                 now,
+                playerId: universalPlayerId,
                 // Feature 010 FR-019 (R-005): same server-resolved
                 // identity pass-through as `createMatch` (absent → null).
                 ...(req.guestPlayerId === undefined ? {} : { guestPlayerId: req.guestPlayerId }),
@@ -981,7 +1004,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             });
             store.putSession(session);
 
-            addSeatToFillingMatch(match, session, freeSeat, atMs);
+            const { seat: joinSeat } = addSeatToFillingMatch(match, session, freeSeat, atMs);
 
             const started = match.seats.size >= match.settings.playerCount;
             if (started) {
@@ -1010,12 +1033,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 matchId: match.matchId,
                 joinPath: links.joinPath,
                 joinUrl: links.joinUrl,
-                seatAssignment: seatAssignmentFor(
-                    freeSeat,
-                    session.playerSessionId,
-                    session.currentSessionToken as SessionToken,
-                    displayName,
-                ),
+                seatAssignment: seatAssignmentFor(joinSeat),
             };
             logger.info(started ? 'matchmaker: match started' : 'matchmaker: seat filled', {
                 matchId: match.matchId,
@@ -1274,12 +1292,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 ok: true,
                 allAccepted: true,
                 newMatchId: newMatch.matchId,
-                newSeatAssignment: seatAssignmentFor(
-                    callerSeat.seatIndex,
-                    callerSeat.playerSessionId,
-                    callerSeat.sessionToken as SessionToken,
-                    callerSeat.displayName,
-                ),
+                newSeatAssignment: seatAssignmentFor(callerSeat),
             };
         },
 

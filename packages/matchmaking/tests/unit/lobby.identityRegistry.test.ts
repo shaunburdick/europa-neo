@@ -56,12 +56,12 @@ function manualClock(): { readonly now: () => number; readonly advanceBy: (ms: n
     };
 }
 
-/** Deterministic opaque-id generator (`alpha-1`, `alpha-2`, …). */
+/** Deterministic CANONICAL-id generator (`alphaxxx0001`, `alphaxxx0002`, …). */
 function sequenceIds(prefix: string): () => string {
     let counter = 0;
     return () => {
         counter += 1;
-        return `${prefix}-${counter}`;
+        return `${prefix.slice(0, 8).padEnd(8, 'x')}${String(counter).padStart(4, '0')}`;
     };
 }
 
@@ -373,15 +373,19 @@ describe('restoreIdentity — persistent resume claims', () => {
         expect(registry.projectIdentity(identity.id)).toEqual({ handle: 'Nova', hasIdentity: true });
     });
 
-    it('returns the same identity for a claim on an already-active session (second tab, no duplicate)', () => {
+    it('does NOT restore an already-ACTIVE identity from a bare claim (issue #74 T026 credential separation)', () => {
         const { registry } = createTestRegistry('guest');
         const identity = createNamedIdentity(registry, 'Nova');
 
         const outcome = registry.restoreIdentity(buildIdentityClaim({ guestPlayerId: identity.id }));
 
-        expect(outcome.restored).toBe(true);
-        expect(outcome.identity.id).toBe(identity.id);
-        expect(registry.stats().identities).toBe(1);
+        // A bare id is advisory correlation metadata, never proof: the
+        // active holder is untouched and the claimant receives a fresh
+        // identity (no takeover, no eviction).
+        expect(outcome.restored).toBe(false);
+        expect(outcome.identity.id).not.toBe(identity.id);
+        expect(registry.stats().identities).toBe(2);
+        expect(registry.projectIdentity(identity.id)).toEqual({ handle: 'Nova', hasIdentity: true });
     });
 });
 

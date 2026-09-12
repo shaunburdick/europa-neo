@@ -24,11 +24,12 @@
  *       measurement protocol), covering all `N` player views plus the
  *       spectator view per tick.
  *
- * The engine's `tick()` advances state; scripted placements between
- * ticks use the same typed-array clone-mutation path combat and
- * movement use, and are re-applied every tick so no player is ever
- * eliminated mid-run (decay/combat cannot accumulate). A summary rides
- * on the final assertion message instead of console output.
+ * Scripted placements carry universal `PlayerId`s (issue #74) and are
+ * resolved to the engine's private 1-based dense owner bytes through
+ * the world's authoritative registry. The engine's `tick()` advances
+ * state; re-applied every tick so no player is ever eliminated mid-run.
+ * A summary rides on the final assertion message instead of console
+ * output.
  */
 
 import type { Coord, PlayerId, World } from '@europa/engine';
@@ -37,6 +38,7 @@ import { tick } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
 import { computePlayerView } from '../src/playerView';
 import { chebyshevDisk } from '../src/range';
+import { PLAYER_IDS } from './fixtures/ids';
 import { buildWorldWithTroops, withVisibilityRadius } from './fixtures/world';
 
 /** 012 default board size. `64` is a known-broken terrain size — out of scope. */
@@ -55,6 +57,40 @@ const CADENCE_MS = 250;
 type Placement = readonly [number, number, PlayerId, number];
 
 /**
+ * Resolve a 1-based seat index to its canonical fixture identity.
+ * Seats are presentation coordinates, never identity; the `PlayerId`
+ * is what flows through terrain placement, the registry, and fog.
+ *
+ * @param seat 1-based seat index (1..playerCount).
+ * @returns The canonical fixture `PlayerId` for that seat.
+ * @throws {Error} When `seat` is outside the fixture identity list.
+ */
+function seatId(seat: number): PlayerId {
+    const id = PLAYER_IDS[seat - 1];
+    if (id === undefined) {
+        throw new Error(`seatId: no fixture identity for seat ${String(seat)}`);
+    }
+    return id;
+}
+
+/**
+ * Resolve a universal ID to the engine's private 1-based dense owner
+ * byte via the world's authoritative registry.
+ *
+ * @param world  World snapshot whose registry is authoritative.
+ * @param player Registered universal ID.
+ * @returns The 1-based dense owner byte.
+ * @throws {Error} When the ID is not registered.
+ */
+function ownerByte(world: Readonly<World>, player: PlayerId): number {
+    const index = world.playerRegistry.indexOfId(player);
+    if (index === null) {
+        throw new Error(`ownerByte: "${player}" is not registered`);
+    }
+    return index + 1;
+}
+
+/**
  * Build a full placement list for all `playerCount` players for a given
  * tick. Each player gets two marching stacks confined to a disjoint
  * horizontal band so no two enemy stacks ever share a cell (no combat
@@ -71,25 +107,26 @@ function frameForTick(t: number, playerCount: number): Placement[] {
     const band = Math.floor(BOARD / playerCount);
     const placements: Placement[] = [];
     for (let p = 1; p <= playerCount; p++) {
+        const player = seatId(p);
         const baseY = (p - 1) * band;
         const x1 = (t * 3 + p * 2) % BOARD;
         const y1 = baseY + (t % band);
         const x2 = (t * 3 + 20 + p * 2) % BOARD;
         const y2 = baseY + ((t + 5) % band);
-        placements.push([x1, y1, p as PlayerId, 12]);
-        placements.push([x2, y2, p as PlayerId, 12]);
+        placements.push([x1, y1, player, 12]);
+        placements.push([x2, y2, player, 12]);
     }
     // Battle frame: pull player 2's stack next to player 1's (distance 2).
     if (t % 50 === 25 && playerCount >= 2) {
         const bx = (t * 3 + 1 * 2) % BOARD;
         const by = (1 - 1) * band + (t % band);
-        placements.push([(bx + 2) % BOARD, by, 2 as PlayerId, 12]);
+        placements.push([(bx + 2) % BOARD, by, seatId(2), 12]);
     }
     // Battle frame (4p): pull player 4's stack next to player 3's (distance 2).
     if (t % 50 === 25 && playerCount >= 4) {
         const bx = (t * 3 + 3 * 2) % BOARD;
         const by = (3 - 1) * band + (t % band);
-        placements.push([(bx + 2) % BOARD, by, 4 as PlayerId, 12]);
+        placements.push([(bx + 2) % BOARD, by, seatId(4), 12]);
     }
     return placements;
 }
@@ -108,7 +145,7 @@ function applyPlacements(world: Readonly<World>, placements: readonly Placement[
     const owners = new Uint8Array(size * size);
     const counts = new Uint32Array(size * size);
     for (const [x, y, player, count] of placements) {
-        owners[y * size + x] = player;
+        owners[y * size + x] = ownerByte(world, player);
         counts[y * size + x] = count;
     }
     return { ...world, state: { ...world.state, troopOwners: owners, troopCounts: counts } };
@@ -116,25 +153,26 @@ function applyPlacements(world: Readonly<World>, placements: readonly Placement[
 
 /**
  * Independent visibility oracle: scan the raw state arrays for `player`
- * viewers (owner === player && count > 0), union their bounds-clipped
- * Chebyshev disks (radius from `world.config.visibilityRadius`), sort
- * row-major. Shares NO code with `computeVisibleSet` beyond the
- * fixture-level disk helper.
+ * viewers (owner === resolved byte && count > 0), union their
+ * bounds-clipped Chebyshev disks (radius from
+ * `world.config.visibilityRadius`), sort row-major. Shares NO code with
+ * `computeVisibleSet` beyond the fixture-level disk helper.
  *
  * @param world  The world snapshot to audit.
- * @param player The recipient player.
+ * @param player The recipient universal ID.
  * @returns Row-major, duplicate-free `Coord[]` of expected cells.
  */
 function expectedVisibleCoords(world: Readonly<World>, player: PlayerId): Coord[] {
     const { width, height } = world.board;
     const radius = world.config.visibilityRadius;
+    const viewerByte = ownerByte(world, player);
     const seen = new Set<number>();
     const out: Coord[] = [];
     const { troopCounts, troopOwners } = world.state;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            if ((troopOwners[idx] ?? 0) !== player) {
+            if ((troopOwners[idx] ?? 0) !== viewerByte) {
                 continue;
             }
             if ((troopCounts[idx] ?? 0) <= 0) {
@@ -178,9 +216,9 @@ describe.each([3, 4] as const)('SC-004 fog isolation for N=%i players (012 T024a
 
         // Warm-up (JIT + allocator steady state) — not measured.
         for (let p = 1; p <= playerCount; p++) {
-            computePlayerView(world, p as PlayerId);
+            computePlayerView(world, seatId(p));
         }
-        computePlayerView(world, 1 as PlayerId, { spectator: true });
+        computePlayerView(world, seatId(1), { spectator: true });
 
         let totalCellsObserved = 0;
         let leakedCells = 0;
@@ -199,7 +237,7 @@ describe.each([3, 4] as const)('SC-004 fog isolation for N=%i players (012 T024a
 
             const start = performance.now();
             for (let p = 1; p <= playerCount; p++) {
-                const player = p as PlayerId;
+                const player = seatId(p);
                 // Independent oracle (knows nothing about computePlayerView).
                 const expected = expectedVisibleCoords(world, player);
                 const expectedKeys = new Set(expected.map((c) => c.y * world.board.width + c.x));
@@ -221,7 +259,7 @@ describe.each([3, 4] as const)('SC-004 fog isolation for N=%i players (012 T024a
             // transport-layer guarantee, 004 SC-002).
             const beforeCounts = checksum(world.state.troopCounts);
             const beforeOwners = checksum(world.state.troopOwners);
-            const spectatorView = computePlayerView(world, 1 as PlayerId, { spectator: true });
+            const spectatorView = computePlayerView(world, seatId(1), { spectator: true });
             expect(checksum(world.state.troopCounts)).toBe(beforeCounts);
             expect(checksum(world.state.troopOwners)).toBe(beforeOwners);
             if (spectatorView.visibleCells.length === BOARD * BOARD) {

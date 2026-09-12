@@ -38,8 +38,8 @@ export interface GridOverlayProps {
     readonly mapView: MapView;
     /**
      * Optional player name map from the session state. When present,
-     * cell aria-labels resolve the owner's display name instead of the
-     * raw "Player N" fallback.
+     * cell aria-labels resolve the owner's handle, falling back to the
+     * canonical server-issued ID.
      */
     readonly playerNames?: ReadonlyMap<PlayerId, string> | undefined;
     /**

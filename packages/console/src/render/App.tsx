@@ -51,7 +51,7 @@ import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
-import { DEFAULT_PLAYER_COLORS, SPECTATOR_COLOR } from '../state/types';
+import { SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
 import { Sidebar } from '../ui/sidebar';
 import { TargetingOverlay } from '../ui/targeting-overlay';
@@ -449,10 +449,10 @@ export function App({
 
     // N-aware waiting copy (FR-005): prefer the authoritative lobby
     // entry when the runtime supplies it; otherwise fall back to the
-    // join-assignment (session.opponents.length + 1 = total players,
+    // join-assignment (session.participants.length = total players,
     // local seat = 1 filled). Capacity is never read from the tick
     // payload — research §2.
-    const waitingCapacityResolved = waitingCapacity ?? resolvedState.session.opponents.length + 1;
+    const waitingCapacityResolved = waitingCapacity ?? Math.max(1, resolvedState.session.participants.length);
     const waitingSeatsFilledResolved = waitingSeatsFilled ?? 1;
     const waitingChrome =
         awaitingStart && waitingCapacityResolved > 0
@@ -617,8 +617,9 @@ export function App({
             {/* Game-over results modal (Feature 019 FR-008): renders
                 when the match is over with a result and the host
                 provides the return-to-lobby callback. The playerNames
-                map resolves numeric PlayerIds to display names so the
-                modal shows the winner's handle instead of a raw number. */}
+                map resolves server-issued PlayerIds to handles so the
+                modal shows the winner's handle, falling back to the
+                canonical ID. */}
             {resolvedState.status === 'game_over' &&
             resolvedState.matchResult !== null &&
             onReturnToLobby !== undefined ? (
@@ -640,14 +641,18 @@ export function App({
                             helpButtonRef.current?.focus();
                         }}
                         tick={mapView?.tick ?? null}
-                        playerName={resolvedState.session.displayName}
+                        playerName={
+                            resolvedState.session.displayName.length > 0
+                                ? resolvedState.session.displayName
+                                : (resolvedState.session.playerId ?? 'Spectator')
+                        }
                         playerColor={
                             resolvedState.session.playerId !== null
-                                ? DEFAULT_PLAYER_COLORS[resolvedState.session.playerId]
+                                ? (mapView?.playerColors[resolvedState.session.playerId] ?? SPECTATOR_COLOR)
                                 : SPECTATOR_COLOR
                         }
                         matchStatus={resolvedState.status}
-                        playerCount={resolvedState.session.opponents.length + 1}
+                        playerCount={resolvedState.session.participants.length}
                     />
                 </Suspense>
             ) : null}

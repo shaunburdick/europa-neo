@@ -13,15 +13,20 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
 import '../../../src/styles/index.css';
-import { DEFAULT_CAMERA, DEFAULT_PLAYER_COLORS } from '../../../src/config';
+import { DEFAULT_CAMERA } from '../../../src/config';
 import { CellView } from '../../../src/render/cell-view';
+import { playerColorsFor } from '../../../src/state/build-map-view';
 import type { CellRenderInfo } from '../../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
+
+/** Per-player colors for the fixture identities. */
+const TEST_PLAYER_COLORS = playerColorsFor([TEST_PLAYER_1, TEST_PLAYER_2]);
 
 /** Render one cell and return its root element. */
 async function renderCell(info: CellRenderInfo): Promise<HTMLElement> {
     const screen = await render(
         <div role="row">
-            <CellView info={info} camera={DEFAULT_CAMERA} playerColors={DEFAULT_PLAYER_COLORS} />
+            <CellView info={info} camera={DEFAULT_CAMERA} playerColors={TEST_PLAYER_COLORS} />
         </div>,
     );
     const el = screen.container.querySelector('[role="gridcell"]');
@@ -102,9 +107,9 @@ describe('CellView (T040 / data-model §3)', () => {
             elevation: 40,
             terrain: 'land',
             troops: 10,
-            owner: 1,
+            owner: TEST_PLAYER_1,
             isCity: true,
-            cityOwner: 1,
+            cityOwner: TEST_PLAYER_1,
             pipes: new Set(),
             pipeSlopes: new Map(),
             pipeIntensities: new Map(),
@@ -116,7 +121,7 @@ describe('CellView (T040 / data-model §3)', () => {
             elevation: 40,
             terrain: 'land',
             troops: 10,
-            owner: 1,
+            owner: TEST_PLAYER_1,
             isCity: false,
             cityOwner: null,
             pipes: new Set(),
@@ -139,7 +144,7 @@ describe('CellView (T040 / data-model §3)', () => {
             elevation: 50,
             terrain: 'land',
             troops: 7,
-            owner: 1,
+            owner: TEST_PLAYER_1,
             isCity: false,
             cityOwner: null,
             pipes: new Set(['N', 'E']),
@@ -173,7 +178,7 @@ describe('CellView (T040 / data-model §3)', () => {
             elevation: 50,
             terrain: 'land',
             troops: 7,
-            owner: 1,
+            owner: TEST_PLAYER_1,
             isCity: false,
             cityOwner: null,
             pipes: new Set(['N', 'E']),
@@ -208,7 +213,7 @@ describe('CellView (T040 / data-model §3)', () => {
             elevation: 60,
             terrain: 'land',
             troops: 12,
-            owner: 1,
+            owner: TEST_PLAYER_1,
             isCity: false,
             cityOwner: null,
             pipes: new Set(),

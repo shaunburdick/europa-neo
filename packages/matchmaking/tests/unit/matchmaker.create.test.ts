@@ -36,7 +36,8 @@ describe('createMatch — happy path', () => {
         expect(data.seatAssignment).toEqual({
             playerSessionId: expect.any(String),
             seatIndex: 0,
-            playerId: 1,
+            // Universal identity: canonical 12-char string, never numeric 1.
+            playerId: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
             sessionToken: expect.any(String),
             displayName: 'Alice',
         });

@@ -38,7 +38,7 @@ const RESULTS_STUB = {
     matchId: ORIGINAL_ID,
     tick: 1,
     effectiveSeed: ORIGINAL_SEED,
-    result: { kind: 'win', winner: 1 as const, tick: 1, reason: 'last_standing' },
+    result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 1, reason: 'last_standing' },
     finalBoardHash: 'stub',
     finalPlayers: [],
 };
@@ -62,7 +62,7 @@ function makeOriginalFixture(nowMs: number): {
     });
     record.engineConfig = {
         boardSize: 24,
-        playerCount: 2,
+        playerIds: ['AlicePlyr001', 'BobPlyr00001'],
         tickIntervalMs: 250,
         seed: ORIGINAL_SEED,
         visibilityRadius: 6,
@@ -70,6 +70,7 @@ function makeOriginalFixture(nowMs: number): {
 
     const alice: PlayerSession = {
         playerSessionId: 'p-alice' as PlayerSessionId,
+        playerId: 'AlicePlyr001' as PlayerId,
         displayName: 'Alice',
         currentMatchId: record.matchId,
         currentSeatIndex: 0,
@@ -79,6 +80,7 @@ function makeOriginalFixture(nowMs: number): {
     };
     const bob: PlayerSession = {
         playerSessionId: 'p-bob' as PlayerSessionId,
+        playerId: 'BobPlyr00001' as PlayerId,
         displayName: 'Bob',
         currentMatchId: record.matchId,
         currentSeatIndex: 1,
@@ -93,7 +95,7 @@ function makeOriginalFixture(nowMs: number): {
             playerSessionId: alice.playerSessionId,
             displayName: 'Alice',
             sessionToken: alice.currentSessionToken,
-            playerId: 1 as PlayerId,
+            playerId: 'AlicePlyr001' as PlayerId,
             connectedAtMs: nowMs - 1000,
         }),
     );
@@ -104,7 +106,7 @@ function makeOriginalFixture(nowMs: number): {
             playerSessionId: bob.playerSessionId,
             displayName: 'Bob',
             sessionToken: bob.currentSessionToken,
-            playerId: 2 as PlayerId,
+            playerId: 'BobPlyr00001' as PlayerId,
             connectedAtMs: nowMs - 1000,
         }),
     );

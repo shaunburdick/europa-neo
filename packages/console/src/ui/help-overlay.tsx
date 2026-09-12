@@ -39,11 +39,11 @@ export interface HelpOverlayProps {
     readonly tick: number | null;
     /** Player display name (from `resolvedState.session.displayName`). */
     readonly playerName: string;
-    /** Player color hex (from `DEFAULT_PLAYER_COLORS`). */
+    /** Player color hex (resolved from the live `MapView.playerColors`). */
     readonly playerColor: string;
     /** Current connection status (from `resolvedState.status`). */
     readonly matchStatus: string;
-    /** Total player count (opponents + 1). */
+    /** Total participant count (server roster). */
     readonly playerCount: number;
 }
 

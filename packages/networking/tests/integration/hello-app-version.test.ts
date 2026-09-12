@@ -151,7 +151,7 @@ describe('hello-ack appVersion (feature 009 T-003, FR-003/FR-004, SC-003)', () =
                 engineSession: match.engineSession,
                 matchConfig: match.matchConfig,
             });
-            attachPlayersForMatch(server, match);
+            const tokens = attachPlayersForMatch(server, match);
 
             const socket = new MockWebSocket();
             injectSocket(server, socket);
@@ -179,7 +179,8 @@ describe('hello-ack appVersion (feature 009 T-003, FR-003/FR-004, SC-003)', () =
             expect(typeof ackEnvelope.payload?.heartbeatIntervalMs).toBe('number');
 
             // The tolerated handshake remains fully functional: the same
-            // raw peer claims seat 1 and receives its joinAck.
+            // raw peer claims its seat with the bound bearer token and
+            // receives its joinAck.
             socket.receiveInbound(
                 JSON.stringify({
                     type: 'joinMatch',
@@ -189,7 +190,7 @@ describe('hello-ack appVersion (feature 009 T-003, FR-003/FR-004, SC-003)', () =
                         matchId: match.matchId,
                         role: 'player',
                         displayName: 'OldClient',
-                        requestedSeat: 1,
+                        reconnectToken: tokens[0],
                     },
                 }),
             );
@@ -200,7 +201,7 @@ describe('hello-ack appVersion (feature 009 T-003, FR-003/FR-004, SC-003)', () =
                 readonly payload?: { readonly playerId?: unknown; readonly sessionToken?: unknown };
             };
             expect(joinAck.type).toBe('joinAck');
-            expect(joinAck.payload?.playerId).toBe(1);
+            expect(joinAck.payload?.playerId).toBe(match.playerIds[0]);
             expect(typeof joinAck.payload?.sessionToken).toBe('string');
             expect(socket.closes).toEqual([]);
         } finally {

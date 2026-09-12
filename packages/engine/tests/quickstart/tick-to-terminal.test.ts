@@ -19,11 +19,12 @@ import { alivePlayers, getCell, getPlayer } from '../../src/read';
 import { tick } from '../../src/tick';
 import type { MatchConfig } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, playerIds } from '../fixtures/ids';
 import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xc0ffee,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -49,7 +50,7 @@ describe('quickstart Q-001 — tick loop end-to-end', () => {
             atTick: 0,
             order: {
                 kind: 'setPipe' as const,
-                player: 1 as const,
+                player: PLAYER_1,
                 cell: { x: 1, y: 1 },
                 direction: 'E' as const,
             },
@@ -85,9 +86,9 @@ describe('quickstart Q-001 — tick loop end-to-end', () => {
             [6, 6, 2],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 2);
-        expect(alivePlayers(finalWorld)).toEqual([1, 2]);
-        expect(getPlayer(finalWorld, 1).status).toBe('alive');
-        expect(getPlayer(finalWorld, 2).status).toBe('alive');
+        expect(alivePlayers(finalWorld)).toEqual([PLAYER_1, PLAYER_2]);
+        expect(getPlayer(finalWorld, PLAYER_1).status).toBe('alive');
+        expect(getPlayer(finalWorld, PLAYER_2).status).toBe('alive');
     });
 
     it('production adds ENGINE_CONSTANTS.productionRate per tick to each city', () => {
@@ -99,7 +100,7 @@ describe('quickstart Q-001 — tick loop end-to-end', () => {
         const cell = getCell(finalWorld, 1, 1);
         // 3 ticks * 1 production/tick = 3 (no cap yet).
         expect(cell.troopCount).toBe(3);
-        expect(cell.troopOwner).toBe(1);
+        expect(cell.troopOwner).toBe(PLAYER_1);
     });
 
     it('tick() is callable directly on a created world', () => {

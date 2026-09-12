@@ -174,6 +174,10 @@ pnpm -r --filter './packages/*' typecheck
 pnpm lint
 pnpm format:check
 pnpm --filter @europa/design check:no-literals
+# Documentation privacy guard (010 FR-014 / NFR-003): a cheap static scan of
+# the manual + approved implementation surfaces. It reads READMEs, specs, and
+# manual pages, so it can regress from any change — run it unconditionally.
+node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
 echo ""
 
 # Tier B: Per-package tests for changed library packages.

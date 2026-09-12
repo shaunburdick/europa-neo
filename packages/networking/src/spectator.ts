@@ -24,6 +24,8 @@
  * caller, mirroring the `orders.ts` convention).
  */
 
+import { parsePlayerId } from '@europa/core';
+
 import type { Connection } from './connection';
 import type { FogFactory, MatchmakerBridge } from './contracts/network-api';
 import type { ConnectionId, PlayerId, SessionToken, SnapshotPayload } from './contracts/network-types';
@@ -32,17 +34,22 @@ import { generateSessionToken } from './ids';
 import type { MatchChannel } from './match-channel';
 
 /**
- * Seat sentinel stamped into spectator views. Fog's spectator branch
- * ignores the player entirely (full board, unfiltered events — see
- * fog's `playerView.ts` US3 path), but `PlayerView.player` still
- * carries whatever seat id it was handed. The engine's `PlayerId`
- * domain is 1..4, so `0` is the out-of-domain "no seat" marker: a
- * client can never mistake a spectator view for a real player's.
- * Mirrored by `buildTickBroadcast`'s null-seat fallback so a
- * spectator's join-time snapshot and its subsequent tick views carry
- * the same sentinel.
+ * Reserved canonical `PlayerId` stamped into spectator views as the
+ * correlation target. Fog's spectator branch ignores the identity
+ * entirely (full board, unfiltered events — see fog's `playerView.ts`
+ * US3 path), but `PlayerView.player` is typed `PlayerId` and must carry
+ * a well-formed value. This constant is deliberately NOT derived from a
+ * seat, index, or numeric sentinel: it is parsed through the canonical
+ * validator so it satisfies the same `[A-Za-z0-9_-]{12}` contract as
+ * every real identity, and it is never registered in any match.
+ *
+ * It is non-secret correlation metadata with no authority: a spectator
+ * session is granted by the server's read-only binding, never by this
+ * value. Mirrored by `buildTickBroadcast`'s null-seat fallback and
+ * `sendJoinAck` so a spectator's join-time snapshot and its subsequent
+ * tick views carry the same target.
  */
-export const SPECTATOR_VIEW_SEAT = 0 as PlayerId;
+export const SPECTATOR_VIEW_PLAYER_ID: PlayerId = parsePlayerId('Spectator001');
 
 /** Dependencies for the spectator attach/detach pipeline. */
 export interface SpectatorDeps {
@@ -105,12 +112,12 @@ export function attachSpectator(
     channel.addSpectator(connection);
 
     // FR-006: fog's `{ spectator: true }` branch decodes EVERY cell and
-    // skips event redaction; the seat argument is ignored by that path
-    // (see `SPECTATOR_VIEW_SEAT`).
+    // skips event redaction; the target argument is ignored by that path
+    // (see `SPECTATOR_VIEW_PLAYER_ID`).
     const world = channel.engineSession.world();
     const view = deps.fog.computePlayerView({
         world,
-        playerId: SPECTATOR_VIEW_SEAT,
+        playerId: SPECTATOR_VIEW_PLAYER_ID,
         spectator: true,
     });
 

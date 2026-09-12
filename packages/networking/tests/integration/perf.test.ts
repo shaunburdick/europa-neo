@@ -36,7 +36,7 @@ import { describe, expect, it } from 'vitest';
 import { createMatchServer } from '../../src/server';
 import type { OrderAckPayload } from '../../src/types';
 import { attachPlayersForMatch, scriptedMatch } from '../fixtures/match';
-import { connectMockClient, realDeps, scriptedPipeOrder, testServerConfig } from './harness';
+import { connectMockClient, realDeps, scriptedPipeOrder, seatToken, testServerConfig } from './harness';
 
 /** The production cadence under test (4 Hz). */
 const TICK_MS = 250;
@@ -81,12 +81,12 @@ describe('SC-005 sustained-cadence soak (T049)', () => {
                 engineSession: match.engineSession,
                 matchConfig: match.matchConfig,
             });
-            attachPlayersForMatch(server, match);
+            const tokens = attachPlayersForMatch(server, match);
 
             const client = connectMockClient(server);
             client.hello();
             await client.nextMessage('helloAck');
-            client.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+            client.joinMatch(match.matchId, 'player', { reconnectToken: seatToken(tokens, 1) });
             await client.nextMessage('joinAck');
 
             const tickNumbers: number[] = [];
@@ -104,7 +104,7 @@ describe('SC-005 sustained-cadence soak (T049)', () => {
                 // Scripted load: one order every 5th tick, stopped early
                 // enough that its ack lands inside the collection window.
                 if (tickNumber % ORDER_EVERY_N_TICKS === 0 && tickNumber <= 35) {
-                    client.order(scriptedPipeOrder(1, submittedSeqs.length));
+                    client.order(scriptedPipeOrder(match.playerIds, 1, submittedSeqs.length));
                     nextOrderSeq += 1;
                     submittedSeqs.push(nextOrderSeq);
                 }

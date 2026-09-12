@@ -12,20 +12,20 @@
  * Test descriptions cite the requirement they pin.
  */
 
-import type { PlayerId } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
+
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { handleSeatExpired } from '../../src/forfeit';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
-import { makeRunningForfeitFixture, SILENT_LOGGER } from '../fixtures/forfeitScenario';
+import { ALICE_PLAYER_ID, BOB_PLAYER_ID, makeRunningForfeitFixture, SILENT_LOGGER } from '../fixtures/forfeitScenario';
 
 describe('all-disconnected teardown (US5 AC-2 / T056)', () => {
     it('US5 AC-1: with one survivor the match continues running — no teardown', () => {
         const fx = makeRunningForfeitFixture();
 
         const result = handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: ALICE_PLAYER_ID },
             { store: fx.store, server: fx.server, logger: SILENT_LOGGER },
             fx.nowMs(),
         );
@@ -41,13 +41,13 @@ describe('all-disconnected teardown (US5 AC-2 / T056)', () => {
         const ctx = { store: fx.store, server: fx.server, logger: SILENT_LOGGER };
 
         handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: ALICE_PLAYER_ID },
             ctx,
             fx.nowMs(),
         );
         fx.advanceMs(1000);
         const final = handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.bobToken, playerId: 2 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.bobToken, playerId: BOB_PLAYER_ID },
             ctx,
             fx.nowMs(),
         );

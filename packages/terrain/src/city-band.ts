@@ -25,7 +25,6 @@
  */
 
 import { FOUR_PLAYER_COUNT, MIN_PLAYER_COUNT, THIRD_PLAYER_ID, THREE_PLAYER_COUNT } from './constants';
-import type { PlayerId } from './contracts/terrain-types';
 
 /**
  * Spawn band for a given player. A rectangular region of the map
@@ -41,27 +40,29 @@ export interface Band {
 /**
  * Compute the spawn band for a given player.
  *
- * @param playerId    The player (1..4).
+ * @param slot        The 1-based dense numeric placement slot (1..4).
+ *                    Never a canonical `PlayerId` — terrain is
+ *                    identity-agnostic (issue #74, FR-011).
  * @param playerCount Number of players (2, 3, or 4).
  * @param width       Board width.
  * @param height      Board height.
  * @returns The inclusive rectangular band for this player.
  */
-export function getPlayerBand(playerId: PlayerId, playerCount: 2 | 3 | 4, width: number, height: number): Band {
+export function getPlayerBand(slot: number, playerCount: 2 | 3 | 4, width: number, height: number): Band {
     if (playerCount === MIN_PLAYER_COUNT) {
         // Two horizontal bands.
         const halfH = Math.floor(height / 2);
-        if (playerId === 1) {
+        if (slot === 1) {
             return { xMin: 0, xMax: width - 1, yMin: 0, yMax: halfH - 1 };
         }
-        // playerId === 2
+        // slot === 2
         return { xMin: 0, xMax: width - 1, yMin: halfH, yMax: height - 1 };
     }
     if (playerCount === FOUR_PLAYER_COUNT) {
         // Four quadrants.
         const halfW = Math.floor(width / 2);
         const halfH = Math.floor(height / 2);
-        switch (playerId) {
+        switch (slot) {
             case 1:
                 return { xMin: 0, xMax: halfW - 1, yMin: 0, yMax: halfH - 1 };
             case MIN_PLAYER_COUNT:
@@ -71,18 +72,18 @@ export function getPlayerBand(playerId: PlayerId, playerCount: 2 | 3 | 4, width:
             case FOUR_PLAYER_COUNT:
                 return { xMin: halfW, xMax: width - 1, yMin: halfH, yMax: height - 1 };
             default:
-                // Unreachable (PlayerId is 1..4).
+                // Unreachable (slot is 1..4).
                 return { xMin: 0, xMax: width - 1, yMin: 0, yMax: height - 1 };
         }
     }
     // playerCount === 3: three horizontal bands.
     const thirdH = Math.floor(height / THREE_PLAYER_COUNT);
-    if (playerId === 1) {
+    if (slot === 1) {
         return { xMin: 0, xMax: width - 1, yMin: 0, yMax: thirdH - 1 };
     }
-    if (playerId === THIRD_PLAYER_ID) {
+    if (slot === THIRD_PLAYER_ID) {
         return { xMin: 0, xMax: width - 1, yMin: height - thirdH, yMax: height - 1 };
     }
-    // playerId === 2 (middle band).
+    // slot === 2 (middle band).
     return { xMin: 0, xMax: width - 1, yMin: thirdH, yMax: height - thirdH - 1 };
 }

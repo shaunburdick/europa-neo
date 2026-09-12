@@ -9,6 +9,7 @@
  * freezes the engine-facing shape.
  */
 
+import type { PlayerId } from '@europa/core';
 import type { Board, Cell, CityPlacement } from '@europa/engine';
 import { ENGINE_CONSTANTS } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
@@ -16,6 +17,11 @@ import { describe, expect, it } from 'vitest';
 import type { MatchSettings } from '../../contracts/match-types';
 import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import { buildEngineSession, buildMatchConfig } from '../../src/engineSession';
+
+/** Deterministic canonical universal ids (issue #74) in seat order. */
+const ALICE = 'AlicePlyr001' as PlayerId;
+const BOB = 'BobPlyr00001' as PlayerId;
+const PLAYER_IDS = [ALICE, BOB] as const satisfies readonly PlayerId[];
 
 /** Flat all-land 8×8 board with one home city per player (deterministic). */
 function scriptedBoard(size: number, playerCount: 2 | 3 | 4): Board {
@@ -43,26 +49,31 @@ function scriptedBoard(size: number, playerCount: 2 | 3 | 4): Board {
 const SETTINGS: MatchSettings = DEFAULT_MATCH_SETTINGS;
 
 describe('buildMatchConfig', () => {
-    it('maps settings + seed onto the frozen engine config', () => {
-        const config = buildMatchConfig(SETTINGS, 1234);
+    it('maps settings + seed + explicit player ids onto the frozen engine config', () => {
+        const config = buildMatchConfig(SETTINGS, 1234, PLAYER_IDS);
         expect(config).toEqual({
             boardSize: SETTINGS.boardSize,
-            playerCount: SETTINGS.playerCount,
+            playerIds: [ALICE, BOB],
             tickIntervalMs: SETTINGS.tickIntervalMs,
             seed: 1234,
             visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
         });
     });
 
-    it('freezes the config against later mutation', () => {
-        const config = buildMatchConfig(SETTINGS, 1);
+    it('rejects a playerIds length that does not match settings.playerCount', () => {
+        expect(() => buildMatchConfig(SETTINGS, 1, [ALICE])).toThrow(/expected 2 playerIds/);
+    });
+
+    it('freezes the config (and its playerIds) against later mutation', () => {
+        const config = buildMatchConfig(SETTINGS, 1, PLAYER_IDS);
         expect(Object.isFrozen(config)).toBe(true);
+        expect(Object.isFrozen(config.playerIds)).toBe(true);
     });
 });
 
 describe('buildEngineSession', () => {
     it('starts from a world matching the given config and board', () => {
-        const config = buildMatchConfig({ ...SETTINGS, boardSize: 8 }, 7);
+        const config = buildMatchConfig({ ...SETTINGS, boardSize: 8 }, 7, PLAYER_IDS);
         const session = buildEngineSession(config, scriptedBoard(8, 2));
 
         const world = session.world();
@@ -75,13 +86,13 @@ describe('buildEngineSession', () => {
     });
 
     it('threads submit through applyCommand and advance through tick', () => {
-        const config = buildMatchConfig({ ...SETTINGS, boardSize: 8 }, 7);
+        const config = buildMatchConfig({ ...SETTINGS, boardSize: 8 }, 7, PLAYER_IDS);
         const session = buildEngineSession(config, scriptedBoard(8, 2));
 
         // Player 1 lays a pipe east from their home city (FR-018 order set).
         const submitted = session.submit({
             kind: 'setPipe',
-            player: 1,
+            player: ALICE,
             cell: { x: 1, y: 1 },
             direction: 'E',
         });
@@ -96,17 +107,17 @@ describe('buildEngineSession', () => {
     });
 
     it('surfaces terminal results through status()', () => {
-        const config = buildMatchConfig({ ...SETTINGS, boardSize: 8 }, 7);
+        const config = buildMatchConfig({ ...SETTINGS, boardSize: 8 }, 7, PLAYER_IDS);
         const session = buildEngineSession(config, scriptedBoard(8, 2));
 
         // Surrender player 2 → player 1 is last standing → terminal.
-        session.submit({ kind: 'surrender', player: 2 });
+        session.submit({ kind: 'surrender', player: BOB });
 
         const terminal = session.status();
         expect(terminal).toBeDefined();
         expect(terminal?.kind).toBe('win');
         if (terminal?.kind === 'win') {
-            expect(terminal.winner).toBe(1);
+            expect(terminal.winner).toBe(ALICE);
         }
 
         // advance() past the boundary is frozen-once-terminal.

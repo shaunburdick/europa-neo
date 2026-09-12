@@ -3,8 +3,10 @@
 **Feature Branch**: `003-procedural-terrain-generation`
 
 **Created**: 2026-08-21
+**Last Updated**: 2026-09-11 (v1.8; 12-character identity boundary)
+**Version**: 1.8
 
-**Status**: Implemented (2026-08-30; BFS performance fix 2026-09-11)
+**Status**: Implemented (2026-08-30; BFS performance fix 2026-09-11; identity-agnostic numeric slots implemented 2026-09-12 — issue #74)
 
 **Input**: User description: "GeoMorph-inspired procedural map generation producing balanced, symmetric boards with elevation, water pools, and fair city placement; seed-reproducible."
 
@@ -156,3 +158,8 @@ Rationale: code review identified that the terrain validator's BFS implementatio
 - **No contract change**: this is an internal performance optimization. The generator's public API (`generateBoard`, `TerrainGenerationResult`, `ValidationReport`) is unchanged.
 - **Performance target**: SC-003 (default 32×32 / 2-player map generates in under 1 second) remains unchanged. The BFS fix reduces the validator's contribution to generation time; the overall budget is unaffected because BFS is a fraction of total generation time (fBm + smoothing + city placement dominate).
 - **Test expectations**: all existing validation tests pass unchanged. A new SC-05 is added: the validator BFS (both INV-12 and INV-16) MUST complete a full 32×32 board traversal in under 1 ms (measured via `performance.now()` in the test harness); this is a regression guard for future BFS modifications.
+
+### v1.8 (2026-09-11) — 12-character NanoID-style identity boundary (issue #74)
+
+- Terrain generation remains deterministic over `(seed, board size, player count, settings)` and is intentionally independent of universal identity generation. City bands and starting-city outputs may use dense player-slot indexes internally; the engine/matchmaker owns the explicit mapping from those slots to universal `PlayerId` values.
+- **FR-011**: Terrain MUST NOT derive, persist, serialize, or sort universal IDs, and changing an ID MUST NOT change a generated board for the same seed/settings/player count. The mapping to starting cities is supplied authoritatively by the caller.

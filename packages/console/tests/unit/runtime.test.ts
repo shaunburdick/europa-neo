@@ -25,6 +25,7 @@ import type {
     QoLSettings,
     SessionToken,
 } from '../../state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -227,7 +228,7 @@ describe('ConsoleRuntime (T086)', () => {
         runtime.apply({
             kind: 'joined',
             sessionToken: 'tok' as SessionToken,
-            playerId: 1,
+            playerId: TEST_PLAYER_1,
             view: emptyView(),
             players: [],
         });
@@ -250,8 +251,8 @@ describe('ConsoleRuntime (T086)', () => {
                 inputStops: 0,
             }),
         });
-        const first = runtime.sendWireOrder({ kind: 'surrender', player: 1 });
-        const second = runtime.sendWireOrder({ kind: 'surrender', player: 1 });
+        const first = runtime.sendWireOrder({ kind: 'surrender', player: TEST_PLAYER_1 });
+        const second = runtime.sendWireOrder({ kind: 'surrender', player: TEST_PLAYER_1 });
         expect(first).not.toBe(second);
         expect([first, second] as ActionId[]).toHaveLength(new Set([first, second]).size);
         await Promise.resolve();
@@ -486,7 +487,7 @@ describe('createConsole (T087)', () => {
                 inputStops: 0,
             }),
         );
-        const id: ActionId = europa.sendOrder({ kind: 'surrender', player: 1 });
+        const id: ActionId = europa.sendOrder({ kind: 'surrender', player: TEST_PLAYER_1 });
         expect(typeof id).toBe('number');
         expect(id).toBeGreaterThan(0);
     });
@@ -499,13 +500,13 @@ describe('createConsole (T087)', () => {
 /** Minimal fog view for seeding joined states. */
 function emptyView(): import('../../state/types').PlayerView {
     return {
-        player: 1,
+        player: TEST_PLAYER_1,
         tick: 1,
         visibleCells: [],
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: 16,
-            playerCount: 2,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
             tickIntervalMs: 250,
             seed: 0,
             visibilityRadius: 2,

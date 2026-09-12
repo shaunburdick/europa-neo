@@ -30,7 +30,7 @@
 import type { ConnectionId, MatchId } from '@europa/networking';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { JoinPath, PlayerId, SeatIndex } from '../../contracts/match-types';
+import type { JoinPath, SeatIndex } from '../../contracts/match-types';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type {
     GuestPlayerId,
@@ -69,15 +69,15 @@ function tickClock(ms = 1): number {
     return clockMs;
 }
 
-/** Sequential opaque-id generator handed to the identity registry. */
+/** Sequential canonical-id generator handed to the identity registry. */
 function fakeRandomId(): string {
     idSeq += 1;
-    return `g-${idSeq}`;
+    return `Plyr${String(idSeq).padStart(8, '0')}`;
 }
 
-/** The n-th minted guest id (registry ids are `g-<seq>` by construction). */
+/** The n-th minted guest id (registry ids are `Plyr<seq>` by construction). */
 function guest(n: number): GuestPlayerId {
-    return `g-${n}` as GuestPlayerId;
+    return `Plyr${String(n).padStart(8, '0')}` as GuestPlayerId;
 }
 
 /** One recorded outbound delivery from the facade under test. */
@@ -192,7 +192,9 @@ describe('establishIdentity', () => {
         const first = freshConnection(service);
         expectOk(service.setHandle(first.connectionId, 'Nova'));
 
-        // Simulate the transport dropping the connection: grace begins.
+        // Simulate the transport dropping the FIRST connection: its identity
+        // enters the reconnect grace window.
+        service.connectionClosed(first.connectionId);
         const second = freshConnection(service);
         expectOk(service.setHandle(second.connectionId, 'Other'));
 
@@ -206,7 +208,7 @@ describe('establishIdentity', () => {
     it('silently mints a FRESH identity for a forged/unknown claim (never throws)', () => {
         const { service } = buildHarness();
         const forged = service.establishIdentity(
-            { guestPlayerId: 'g-does-not-exist' as GuestPlayerId, handle: 'Ghost' },
+            { guestPlayerId: 'ForgedId0001' as GuestPlayerId, handle: 'Ghost' },
             nextConnectionId(),
         );
         // Establishment cannot fail; the stale claim is ignored entirely —
@@ -225,14 +227,19 @@ describe('establishIdentity', () => {
         expect(late).toEqual({ handle: null, hasIdentity: true });
     });
 
-    it('evicts a predecessor connection when the same identity re-establishes', () => {
+    it('does NOT evict an active holder on a bare claim — the claimant gets a fresh identity (issue #74 T026)', () => {
         const { service } = buildHarness();
         const first = freshConnection(service);
-        const rebind = service.establishIdentity({ guestPlayerId: first.guestId }, nextConnectionId());
+        expectOk(service.setHandle(first.connectionId, 'Nova'));
 
+        // A bare `guestPlayerId` is non-secret correlation data, never proof:
+        // claiming the incumbent's ACTIVE id yields a fresh identity instead
+        // of hijacking/evicting the live holder (spec 006 FR-016).
+        const rebind = service.establishIdentity({ guestPlayerId: first.guestId }, nextConnectionId());
         expect(rebind).toEqual({ handle: null, hasIdentity: true });
-        // The old connection no longer resolves to anything actionable.
-        expectErr(service.setHandle(first.connectionId, 'Nova'), 'identity_invalid');
+
+        // The incumbent keeps its identity and handle.
+        expectOk(service.setHandle(first.connectionId, 'Nova2'));
     });
 
     it('re-establishing a DIFFERENT identity on a connection releases the old one to grace (F-8)', () => {
@@ -333,10 +340,12 @@ describe('setHandle', () => {
 
         // Spec edge case: " Nova ", "nova", "NOVA" all conflict.
         expectErr(service.setHandle(other.connectionId, 'NOVA'), 'handle_taken');
-        // The incumbent is untouched: restoring it by claim still shows the
-        // original accepted casing.
-        const incumbent = service.establishIdentity({ guestPlayerId: nova.guestId }, nextConnectionId());
-        expect(incumbent).toEqual({ handle: 'Nova', hasIdentity: true });
+        // A bare claim cannot evict/rename the ACTIVE incumbent (issue #74
+        // T026): the claimant gets a fresh identity...
+        const claimant = service.establishIdentity({ guestPlayerId: nova.guestId }, nextConnectionId());
+        expect(claimant).toEqual({ handle: null, hasIdentity: true });
+        // ...and the incumbent still owns its original accepted casing.
+        expectOk(service.setHandle(nova.connectionId, 'Nova'));
     });
 
     it('allows a case-only rename by the same owner', () => {
@@ -489,7 +498,7 @@ describe('public projection', () => {
                 matchId: created.matchId,
                 joinPath: `/join/${created.matchId}` as JoinPath,
                 joinUrl: null,
-                seatAssignment: buildSeatAssignment({ seatIndex: 1 as SeatIndex, playerId: 2 as PlayerId }),
+                seatAssignment: buildSeatAssignment({ seatIndex: 1 as SeatIndex }),
             },
         });
         expectOk(service.join(guestConn.connectionId, created.matchId));

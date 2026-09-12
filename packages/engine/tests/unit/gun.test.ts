@@ -21,10 +21,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
+import { createPlayerRegistry } from '../../src/playerRegistry';
 import { resolveGun } from '../../src/resolution/gun';
-import type { Board, Order, PlayerId, World, WorldState } from '../../src/types';
+import type { Board, Order, World, WorldState } from '../../src/types';
 import { validateCommand } from '../../src/validate';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, playerIds, TEST_REGISTRY as REGISTRY } from '../fixtures/ids';
 
 const CONSTANTS = ENGINE_CONSTANTS;
 
@@ -49,7 +51,7 @@ function buildWorld(size: number, board: Board, state: WorldState): World {
     return {
         config: {
             boardSize: size,
-            playerCount: 2,
+            playerIds: playerIds(2),
             tickIntervalMs: 250,
             seed: 1,
             visibilityRadius: CONSTANTS.visibilityRadiusDefault,
@@ -57,12 +59,13 @@ function buildWorld(size: number, board: Board, state: WorldState): World {
         tick: 0,
         board,
         players: [
-            { id: 1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 0 },
-            { id: 2, displayName: 'P2', status: 'alive', citiesOwned: 0, troopsHeld: 0 },
+            { id: PLAYER_1, displayName: 'P1', status: 'alive', citiesOwned: 0, troopsHeld: 0 },
+            { id: PLAYER_2, displayName: 'P2', status: 'alive', citiesOwned: 0, troopsHeld: 0 },
         ],
         state,
         rngSeed: 1,
         rngState: new Uint32Array([1, 2, 3, 4]),
+        playerRegistry: createPlayerRegistry(playerIds(2)),
     };
 }
 
@@ -73,8 +76,8 @@ describe('resolveGun — FR-014 cost + damage + no movement', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100); // source: P1, 100 troops
         placeStack(state, size, 5, 3, 2, 50); // target: P2, 50 troops (enemy)
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         // Source loses gunCost.
         expect(result.state.troopCounts[3 * size + 3]).toBe(100 - CONSTANTS.gunCost);
@@ -90,8 +93,8 @@ describe('resolveGun — FR-014 cost + damage + no movement', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         placeStack(state, size, 5, 3, 0, 0); // empty target
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         // Source loses gunCost.
         expect(result.state.troopCounts[3 * size + 3]).toBe(100 - CONSTANTS.gunCost);
@@ -108,8 +111,8 @@ describe('resolveGun — Edge Case: gun at empty cell only spends source troops'
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         // target is empty.
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[3 * size + 3]).toBe(100 - CONSTANTS.gunCost);
         expect(result.state.troopCounts[3 * size + 5]).toBe(0);
@@ -123,8 +126,8 @@ describe('resolveGun — validation: source insufficient', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, CONSTANTS.gunCost - 1);
         placeStack(state, size, 5, 3, 2, 50);
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toHaveLength(1);
         expect(result.errors[0]?.reason.kind).toBe('no_source_troops');
         expect(result.state.troopCounts[3 * size + 3]).toBe(CONSTANTS.gunCost - 1);
@@ -137,8 +140,8 @@ describe('resolveGun — validation: source insufficient', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 0);
         placeStack(state, size, 5, 3, 2, 50);
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toHaveLength(1);
         expect(result.errors[0]?.reason.kind).toBe('no_source_troops');
     });
@@ -151,8 +154,8 @@ describe('resolveGun — friendly fire', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         placeStack(state, size, 5, 3, 1, 50); // friendly target
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[3 * size + 3]).toBe(100 - CONSTANTS.gunCost);
         expect(result.state.troopCounts[3 * size + 5]).toBe(50 - CONSTANTS.gunDamage);
@@ -166,8 +169,8 @@ describe('resolveGun — friendly fire', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         placeStack(state, size, 5, 3, 2, 50);
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[3 * size + 5]).toBe(50 - CONSTANTS.gunDamage);
         expect(result.state.troopOwners[3 * size + 5]).toBe(2);
@@ -179,8 +182,8 @@ describe('resolveGun — friendly fire', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         placeStack(state, size, 5, 3, 2, 1); // only 1 troop, less than gunDamage (2)
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[3 * size + 5]).toBe(0);
         expect(result.state.troopOwners[3 * size + 5]).toBe(0);
@@ -196,7 +199,7 @@ describe('resolveGun — validation', () => {
         const world = buildWorld(size, board, state);
         const r = validateCommand(world, {
             kind: 'gun',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 3, y: 3 },
             target: { x: 99, y: 99 },
         });
@@ -214,7 +217,7 @@ describe('resolveGun — validation', () => {
         const world = buildWorld(size, board, state);
         const r = validateCommand(world, {
             kind: 'gun',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 3, y: 3 },
             target: { x: 5, y: 3 },
         });
@@ -232,7 +235,7 @@ describe('resolveGun — validation', () => {
         const world = buildWorld(size, board, state);
         const r = validateCommand(world, {
             kind: 'gun',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 3, y: 3 },
             target: { x: 5, y: 3 },
         });
@@ -250,7 +253,7 @@ describe('resolveGun — validation', () => {
         const world = buildWorld(size, board, state);
         const r = validateCommand(world, {
             kind: 'gun',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 3, y: 3 },
             target: { x: 5, y: 3 },
         });
@@ -267,8 +270,8 @@ describe('resolveGun — branch coverage: edge cases', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, CONSTANTS.gunCost);
         placeStack(state, size, 5, 3, 2, 50);
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[3 * size + 3]).toBe(0);
         expect(result.state.troopOwners[3 * size + 3]).toBe(0);
@@ -281,7 +284,7 @@ describe('resolveGun — branch coverage: edge cases', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         const orders: Order[] = [];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state).toBe(state); // same reference
     });
@@ -292,8 +295,8 @@ describe('resolveGun — branch coverage: edge cases', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 99, y: 99 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 99, y: 99 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors.length).toBe(1);
         expect(result.state).toBe(state);
     });
@@ -304,8 +307,8 @@ describe('resolveGun — branch coverage: edge cases', () => {
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
-        const orders: Order[] = [{ kind: 'setPipe', player: 1, cell: { x: 3, y: 3 }, direction: 'E' }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'setPipe', player: PLAYER_1, cell: { x: 3, y: 3 }, direction: 'E' }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state).toBe(state);
     });
@@ -322,8 +325,8 @@ describe('resolveGun — branch coverage: edge cases', () => {
         state.reservesPct[3 * size + 3] = 9;
         // Floor = 50 - floor(50 * 1 / 10) = 50 - 5 = 45.
         // Usable above floor = 5. gunCost = 5. 5 >= 5 → ok.
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const result = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const result = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[3 * size + 3]).toBe(45); // 50 - 5
     });
@@ -336,10 +339,10 @@ describe('resolveGun — determinism', () => {
         const state = emptyState(size);
         placeStack(state, size, 3, 3, 1, 100);
         placeStack(state, size, 5, 3, 2, 50);
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        const reference = resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        const reference = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         for (let i = 0; i < 100; i++) {
-            const next = resolveGun(state, board, CONSTANTS, orders);
+            const next = resolveGun(state, board, CONSTANTS, orders, REGISTRY);
             expect(Array.from(next.state.troopCounts)).toEqual(Array.from(reference.state.troopCounts));
             expect(Array.from(next.state.troopOwners)).toEqual(Array.from(reference.state.troopOwners));
         }
@@ -353,8 +356,8 @@ describe('resolveGun — determinism', () => {
         placeStack(state, size, 5, 3, 2, 50);
         const countsBefore = Array.from(state.troopCounts);
         const ownersBefore = Array.from(state.troopOwners);
-        const orders: Order[] = [{ kind: 'gun', player: 1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
-        resolveGun(state, board, CONSTANTS, orders);
+        const orders: Order[] = [{ kind: 'gun', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 5, y: 3 } }];
+        resolveGun(state, board, CONSTANTS, orders, REGISTRY);
         expect(Array.from(state.troopCounts)).toEqual(countsBefore);
         expect(Array.from(state.troopOwners)).toEqual(ownersBefore);
     });

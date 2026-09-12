@@ -15,13 +15,14 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { getCell } from '../../src/read';
-import type { MatchConfig, Order } from '../../src/types';
+import type { MatchConfig, Order, PlayerId } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, playerIds } from '../fixtures/ids';
 import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 1,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -30,7 +31,7 @@ const cfg: MatchConfig = {
 /**
  * Build a pipe order from `(x, y)` to its east neighbor.
  */
-function eastPipe(x: number, y: number, player: 1 | 2): Order {
+function eastPipe(x: number, y: number, player: PlayerId): Order {
     return { kind: 'setPipe', player, cell: { x, y }, direction: 'E' };
 }
 
@@ -49,8 +50,8 @@ describe('quickstart Q-006 — combat attrition', () => {
             [6, 6, 2],
         ]);
         const orders = [
-            { atTick: 0, order: eastPipe(1, 1, 1) },
-            { atTick: 0, order: eastPipe(6, 6, 2) },
+            { atTick: 0, order: eastPipe(1, 1, PLAYER_1) },
+            { atTick: 0, order: eastPipe(6, 6, PLAYER_2) },
         ];
         const { events } = runScenario(cfg, board, orders, 1);
         // No troop collisions in this minimal setup (each city only feeds

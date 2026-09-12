@@ -17,7 +17,8 @@ import { describe, expect, it } from 'vitest';
 import { Connection } from '../../src/connection';
 import { MatchChannel } from '../../src/match-channel';
 import { createMatchServer } from '../../src/server';
-import { attachSpectator, detachSpectator, SPECTATOR_VIEW_SEAT, type SpectatorDeps } from '../../src/spectator';
+import { attachSpectator, detachSpectator, SPECTATOR_VIEW_PLAYER_ID, type SpectatorDeps } from '../../src/spectator';
+import type { PlayerId } from '../../src/types';
 import { MockWebSocket } from '../fixtures/conn';
 import { scriptedMatch } from '../fixtures/match';
 import { connectMockClient, realDeps, TEST_TICK_MS, testServerConfig } from '../integration/harness';
@@ -39,7 +40,7 @@ function wireShape(value: unknown): unknown {
 /** Matchmaker bridge spy recording the US3 presence events. */
 interface BridgeEvents {
     claimed: Array<{
-        playerId: number | null;
+        playerId: PlayerId | null;
         role: string;
         sessionToken: string;
         connectionId: string;
@@ -116,14 +117,14 @@ describe('attachSpectator', () => {
         // authoritative world (static world in a unit fixture → exact
         // wire-shape equality holds).
         const expected = wireShape(
-            computePlayerView(channel.engineSession.world(), SPECTATOR_VIEW_SEAT, {
+            computePlayerView(channel.engineSession.world(), SPECTATOR_VIEW_PLAYER_ID, {
                 spectator: true,
             }),
         );
         expect(wireShape(result.snapshot.view)).toEqual(expected);
 
-        // No-seat sentinel on the view; null seat on the connection.
-        expect(result.snapshot.view.player).toBe(SPECTATOR_VIEW_SEAT);
+        // No-seat correlation sentinel on the view; null seat on the connection.
+        expect(result.snapshot.view.player).toBe(SPECTATOR_VIEW_PLAYER_ID);
         expect(connection.role).toBe('spectator');
         expect(connection.state()).toBe('joined');
         expect(connection.playerId).toBeNull();

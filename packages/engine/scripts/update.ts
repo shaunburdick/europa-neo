@@ -77,7 +77,7 @@ function main(): void {
     };
     const { board } = generateBoard({
         boardSize: fixture.settings.boardSize,
-        playerCount: fixture.settings.playerCount as 2 | 3 | 4,
+        playerCount: fixture.playerCount,
         seed: fixture.seed,
         rng,
         settings: terrainSettings,

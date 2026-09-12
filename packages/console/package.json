@@ -40,6 +40,7 @@
         "coverage": "vitest run --config vitest.config.coverage.ts --coverage"
     },
     "dependencies": {
+        "@europa/core": "workspace:*",
         "@europa/design": "workspace:*",
         "@europa/engine": "workspace:*",
         "@europa/fog": "workspace:*",
@@ -56,7 +57,6 @@
     "devDependencies": {
         "@axe-core/playwright": "catalog:",
         "@biomejs/biome": "catalog:",
-        "@europa/core": "workspace:*",
         "axe-core": "catalog:",
         "@playwright/test": "catalog:",
         "@resvg/resvg-js": "catalog:",

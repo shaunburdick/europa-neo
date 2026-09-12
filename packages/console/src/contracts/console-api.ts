@@ -59,6 +59,8 @@ import type {
   QoLSettings,
 } from './console-types';
 
+import { CONSOLE_API_VERSION } from './console-types';
+
 import type {
   ActionId,
   ConsoleAction,
@@ -578,12 +580,8 @@ export const CONSOLE_CONSTANTS: ConsoleConstants = {
 };
 
 /**
- * Console API version. Kept as a standalone literal (not imported
- * from console-types.ts) so this file stays dependency-free at
- * runtime; a conformance test asserts the two literals match.
- * Increment on any breaking change to the public surface.
- *
- * 0.3.0 (issue #76): `minCellPx` raised 16 → 32 — zoom range is now
- * 100%–300% (the board is always fully visible at minimum zoom).
+ * Re-export the canonical `CONSOLE_API_VERSION` from `console-types.ts`
+ * (the single source of truth) so consumers can import it from either
+ * contract file.
  */
-export const CONSOLE_API_VERSION = '0.3.0' as const;
+export { CONSOLE_API_VERSION };

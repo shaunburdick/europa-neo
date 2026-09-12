@@ -13,13 +13,23 @@
  * 001's `createWorld` from consuming the terrain output.
  */
 
-import type { MatchConfig } from '@europa/core';
+import type { MatchConfig, PlayerId } from '@europa/core';
+import { parsePlayerId } from '@europa/core';
 import { describe, expect, it } from 'vitest';
 
 import { assertBoardMatchesConfig } from '../../src/board';
 import { DEFAULT_GENERATION_SETTINGS } from '../../src/constants';
 import { generateBoard } from '../../src/generate';
 import { engineSfc32, goldenSeeds } from '../fixtures/seeds';
+
+/**
+ * Canonical caller-owned identities for the conformance check. Terrain
+ * never consumes these; the `MatchConfig` carries them so the engine ↔
+ * terrain boundary fixture matches the real identity contract
+ * (`MatchConfig.playerIds`, issue #74). Proves the caller maps terrain's
+ * numeric slots to IDs without terrain knowing the IDs (FR-011).
+ */
+const PLAYER_IDS: readonly PlayerId[] = [parsePlayerId('AAAAAAAAAAAA'), parsePlayerId('BBBBBBBBBBBB')];
 
 describe('contract conformance (Q-T08, engine ↔ terrain gate)', () => {
     // 1000-board loop exceeds the default 5s timeout under coverage
@@ -37,7 +47,7 @@ describe('contract conformance (Q-T08, engine ↔ terrain gate)', () => {
             const result = generateBoard(req);
             const config: MatchConfig = {
                 boardSize: 32,
-                playerCount: 2,
+                playerIds: PLAYER_IDS,
                 tickIntervalMs: 250,
                 seed,
                 visibilityRadius: 2,

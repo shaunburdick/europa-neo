@@ -18,8 +18,10 @@
  *
  * The engine's `tick()` advances state; scripted placements between
  * ticks use the same typed-array clone mutation path combat and
- * movement use. A summary (`cells observed / leaked: 0`) rides on
- * the final assertion message instead of console output.
+ * movement use, resolving universal IDs to the engine's private
+ * 1-based dense owner bytes via the authoritative registry. A summary
+ * (`cells observed / leaked: 0`) rides on the final assertion message
+ * instead of console output.
  */
 
 import type { Coord, PlayerId, World } from '@europa/engine';
@@ -28,6 +30,7 @@ import { tick } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
 import { computePlayerView } from '../src/playerView';
 import { chebyshevDisk } from '../src/range';
+import { P1, P2 } from './fixtures/ids';
 import { buildWorldWithTroops, withVisibilityRadius } from './fixtures/world';
 
 /** Quickstart scenario radius (Chebyshev range 3). */
@@ -38,6 +41,23 @@ const TICKS = 500;
 
 /** Placement tuple: `[x, y, player, count]`. */
 type Placement = readonly [number, number, PlayerId, number];
+
+/**
+ * Resolve a universal ID to the engine's private 1-based dense owner
+ * byte (the same encoding the engine's resolution reads/writes).
+ *
+ * @param world  World snapshot whose registry is authoritative.
+ * @param player Registered universal ID.
+ * @returns The 1-based dense owner byte.
+ * @throws {Error} When the ID is not registered (test-author bug).
+ */
+function ownerByte(world: Readonly<World>, player: PlayerId): number {
+    const index = world.playerRegistry.indexOfId(player);
+    if (index === null) {
+        throw new Error(`ownerByte: "${player}" is not registered`);
+    }
+    return index + 1;
+}
 
 /**
  * Rebuild a world's troop arrays from an explicit placement list
@@ -52,7 +72,7 @@ function applyPlacements(world: Readonly<World>, placements: readonly Placement[
     const owners = new Uint8Array(size * size);
     const counts = new Uint32Array(size * size);
     for (const [x, y, player, count] of placements) {
-        owners[y * size + x] = player;
+        owners[y * size + x] = ownerByte(world, player);
         counts[y * size + x] = count;
     }
     return { ...world, state: { ...world.state, troopOwners: owners, troopCounts: counts } };
@@ -60,22 +80,24 @@ function applyPlacements(world: Readonly<World>, placements: readonly Placement[
 
 /**
  * Independent visibility oracle: scan the raw state arrays for
- * player-1 viewers (owner === 1 && count > 0), union their
- * bounds-clipped Chebyshev disks, sort row-major. Shares NO code
- * with `computeVisibleSet` beyond the fixture-level disk helper.
+ * `player` viewers (owner === resolved byte && count > 0), union their
+ * bounds-clipped Chebyshev disks, sort row-major. Shares NO code with
+ * `computeVisibleSet` beyond the fixture-level disk helper.
  *
  * @param world  The world snapshot to audit.
+ * @param player The recipient universal ID.
  * @returns Row-major, duplicate-free `Coord[]` of expected cells.
  */
-function expectedVisibleCoords(world: Readonly<World>): Coord[] {
+function expectedVisibleCoords(world: Readonly<World>, player: PlayerId): Coord[] {
     const { width, height } = world.board;
+    const viewerByte = ownerByte(world, player);
     const seen = new Set<number>();
     const out: Coord[] = [];
     const { troopCounts, troopOwners } = world.state;
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = y * width + x;
-            if ((troopOwners[idx] ?? 0) !== 1) {
+            if ((troopOwners[idx] ?? 0) !== viewerByte) {
                 continue;
             }
             if ((troopCounts[idx] ?? 0) <= 0) {
@@ -102,27 +124,27 @@ describe('SC-001 protocol-level redaction over a 500-tick scripted match', () =>
         // engine never eliminates anyone mid-run.
         const scripts: readonly (readonly Placement[])[] = [
             [
-                [8, 8, 1, 4],
-                [3, 3, 2, 2],
+                [8, 8, P1, 4],
+                [3, 3, P2, 2],
             ],
             [
-                [10, 10, 1, 4],
-                [5, 5, 2, 2],
+                [10, 10, P1, 4],
+                [5, 5, P2, 2],
             ],
             [
-                [8, 8, 1, 4],
-                [12, 12, 1, 6],
-                [3, 3, 2, 2],
+                [8, 8, P1, 4],
+                [12, 12, P1, 6],
+                [3, 3, P2, 2],
             ],
             [
-                [8, 8, 1, 0], // destroyed by "combat"
-                [12, 12, 1, 6],
-                [14, 14, 2, 2],
+                [8, 8, P1, 0], // destroyed by "combat"
+                [12, 12, P1, 6],
+                [14, 14, P2, 2],
             ],
             [
-                [0, 15, 1, 9], // respawns at the far corner
-                [12, 12, 1, 6],
-                [14, 14, 2, 2],
+                [0, 15, P1, 9], // respawns at the far corner
+                [12, 12, P1, 6],
+                [14, 14, P2, 2],
             ],
         ];
 
@@ -146,10 +168,10 @@ describe('SC-001 protocol-level redaction over a 500-tick scripted match', () =>
             world = nextWorld;
 
             // Per-tick independent oracle (knows nothing about other ticks).
-            const expected = expectedVisibleCoords(world);
+            const expected = expectedVisibleCoords(world, P1);
             const expectedKeys = new Set(expected.map((c) => c.y * world.board.width + c.x));
 
-            const view = computePlayerView(world, 1, { events });
+            const view = computePlayerView(world, P1, { events });
 
             // (a) Zero leakage — exact set equality against the oracle.
             expect(view.visibleCells).toHaveLength(expected.length);

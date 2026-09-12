@@ -78,11 +78,11 @@ The barrel `src/components/index.ts` exports exactly these 20 named React compon
 
 | Component | Props | Children | Events | A11y obligations |
 | --- | --- | --- | --- | --- |
-| `EuropaTroopChip` | `count` (number), `owner` (1–4) | none | none | `role="img"`, `aria-label` from count+owner (FR-014) |
-| `EuropaCityMarker` | `owner` (1–4) | none | none | `role="img"`, `aria-label` from owner (FR-014) |
+| `EuropaTroopChip` | `count` (number), `color` (string, optional CSS color) | none | none | `role="img"`, `aria-label` from count alone (FR-014) |
+| `EuropaCityMarker` | `color` (string, optional CSS color), `label` (string, optional accessible name) | none | none | `role="img"`, `aria-label` from `label`, default `"city"` (FR-014) |
 | `EuropaPipeSlope` | `direction` (`downhill`/`flat`/`uphill`/`stalled`) | none | none | `role="img"`, `aria-label` from direction (FR-014) |
 | `EuropaElevationSwatch` | `elevation` (0–100) | none | none | `role="img"`, `aria-label` with elevation value (FR-014) |
-| `EuropaPlayerBadge` | `player` (1–4), `name` (optional) | none | none | `role="img"`, `aria-label` from player+name (FR-014) |
+| `EuropaPlayerBadge` | `name` (string, required), `color` (string, optional CSS color) | none | none | `role="img"`, `aria-label` equal to `name` (FR-014) |
 | `EuropaFogOverlay` | `visible` (bool, default true) | none | none | `aria-hidden="true"` (FR-014) |
 | `EuropaReserveIndicator` | `percent` (0–90 step 10) | none | none | `role="img"`, `aria-label` with percentage (FR-014) |
 

@@ -26,7 +26,7 @@ import { createMatchServer } from '../../src/server';
 import type { ErrorPayload, OrderAckPayload } from '../../src/types';
 import { MockWebSocket, ScriptedClient } from '../fixtures/conn';
 import { attachPlayersForMatch, scriptedMatch } from '../fixtures/match';
-import { realDeps, scriptedPipeOrder, testServerConfig } from './harness';
+import { realDeps, scriptedPipeOrder, seatToken, testServerConfig } from './harness';
 
 /** Burst size under test: capacity + 5 (five deterministic rejects). */
 const BURST_ORDERS = 25;
@@ -52,7 +52,7 @@ describe('rate limiting (FR-010, US1 AC-3, T048)', () => {
                 engineSession: match.engineSession,
                 matchConfig: match.matchConfig,
             });
-            attachPlayersForMatch(server, match);
+            const tokens = attachPlayersForMatch(server, match);
 
             // Connect through the mock seam, keeping the server-side
             // Connection handle so the test can drive the bucket's clock.
@@ -62,7 +62,7 @@ describe('rate limiting (FR-010, US1 AC-3, T048)', () => {
 
             client.hello();
             await client.nextMessage('helloAck');
-            client.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+            client.joinMatch(match.matchId, 'player', { reconnectToken: seatToken(tokens, 1) });
             await client.nextMessage('joinAck');
 
             // Bucket sanity: capacity and opening balance follow the config.
@@ -75,7 +75,7 @@ describe('rate limiting (FR-010, US1 AC-3, T048)', () => {
                 // elapsed computation for THIS submission, making the whole
                 // burst wall-clock-independent (see module doc).
                 connection.rateBucket.lastRefillAtMs = Date.now() + 60_000;
-                client.order(scriptedPipeOrder(1, i));
+                client.order(scriptedPipeOrder(match.playerIds, 1, i));
             }
 
             // Protocol rejections are immediate synchronous error frames —

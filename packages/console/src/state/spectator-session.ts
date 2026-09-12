@@ -22,8 +22,9 @@
  *
  * Authority + privacy rules mirrored from the player path:
  *   - names come only from the server's `players` array (FR-023:
- *     spectators MAY see all participant handles), stored ascending in
- *     `session.opponents` so {@link ./seat-labels} renders them;
+ *     spectators MAY see all participant handles), stored as
+ *     `session.participants` keyed by the server-issued identity so
+ *     {@link ./seat-labels} renders them;
  *   - `playerId` stays `null` forever (a spectator joinAck whose
  *     `playerId` is non-null is IGNORED defensively — a spectator
  *     connection never adopts a seat);
@@ -36,6 +37,7 @@
  */
 
 import { DEFAULT_CAMERA, DEFAULT_QOL_SETTINGS } from '../config';
+import { humanHandleOf, orderParticipants } from './participant-order';
 import { appendFeedback } from './reducer';
 import type { ConsoleState, FeedbackMessage, MatchId, NetworkPayload, PlayerView, ProtocolEnvelope } from './types';
 
@@ -71,7 +73,7 @@ export function initialSpectatorState(matchId: MatchId): ConsoleState {
             sessionToken: null,
             playerId: null,
             displayName: '',
-            opponents: [],
+            participants: [],
             playerNames: new Map(),
         },
         inputEnabled: false,
@@ -105,19 +107,28 @@ export function applySpectatorEnvelope(
             }
             const playerNames = new Map<import('@europa/engine').PlayerId, string>();
             for (const player of payload.players) {
-                if (player.displayName !== '') {
-                    playerNames.set(player.id, player.displayName);
+                const handle = humanHandleOf(player);
+                if (handle !== null) {
+                    playerNames.set(player.id, handle);
                 }
             }
+            // FR-023: all participants, keyed by the server-issued
+            // identity and presented in terrain placement-slot (seat)
+            // order — the SAME order the player reducer uses, never the
+            // engine's internal canonical UTF-16 registry order (issue
+            // #74: canonical IDs are opaque, so registry order must not
+            // leak into the visible seat ordering).
+            const participants = orderParticipants(payload.view.config.playerIds, payload.players, null);
             return {
                 ...state,
                 status: 'spectating',
                 latestView: payload.view,
                 session: {
                     ...state.session,
-                    // FR-023: all participant handles, ascending seat order
-                    // (the engine's players array is indexed by PlayerId - 1).
-                    opponents: payload.players.map((player) => player.displayName),
+                    // FR-023: all participants, keyed by the server-issued
+                    // identity (the engine's players array is in canonical
+                    // UTF-16 registry order).
+                    participants,
                     playerNames,
                 },
             };
@@ -202,26 +213,26 @@ export function withNotice(state: ConsoleState, text: string, nowMs: number): Co
 }
 
 /**
- * Resolve a `PlayerId` to a display name using session state. Falls
- * back to "Player N" when the name is absent or empty. Pure.
+ * Resolve a `PlayerId` to a human handle using session state. Falls
+ * back to the canonical ID when no handle is known — never a numeric
+ * seat number. Pure.
  *
  * Mirrors the `resolveName` helper in the player reducer.
  *
- * @param id The player's numeric id.
+ * @param id The player's canonical identity.
  * @param playerNames Name map from the session state.
  */
 function resolveName(
     id: import('@europa/engine').PlayerId,
     playerNames?: ReadonlyMap<import('@europa/engine').PlayerId, string>,
 ): string {
-    return playerNames?.get(id) ?? `Player ${String(id)}`;
+    return playerNames?.get(id) ?? id;
 }
 
 /**
  * One-line summary of a terminal result for the feedback surface.
- * Resolves the winner's display name when available; falls back to
- * "Player N". Id-free.
- * Pure.
+ * Resolves the winner's handle when available; falls back to the
+ * canonical server-issued ID. Pure.
  *
  * @param result The engine's terminal match result.
  * @param playerNames Name map from the session state (optional for

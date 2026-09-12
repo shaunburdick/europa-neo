@@ -35,7 +35,7 @@ export function hashBoard(board: Readonly<Board>): string {
     for (const city of board.cities) {
         step(city.cell.x);
         step(city.cell.y);
-        step(city.owner as number);
+        step(city.owner);
     }
     let h = lo ^ Math.imul(hi, 0x9e3779b1);
     h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;

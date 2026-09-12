@@ -150,6 +150,7 @@
  * via `deps.now` / the registry's `randomId` (constitution Principle II).
  */
 
+import { compareUtf16 } from '@europa/engine';
 import { NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { ConnectionId, Logger, MatchId, MatchmakerBridge } from '@europa/networking';
 import type { MatchmakerError, MatchSettings, SeatAssignment } from '../../contracts/match-types';
@@ -529,7 +530,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
      */
     function buildSortedRosterEntries(): ReadonlyArray<RosterEntry> {
         const entries = [...roster.values()];
-        entries.sort((a, b) => a.handle.toLowerCase().localeCompare(b.handle.toLowerCase()));
+        // Explicit UTF-16 code-unit ordering (issue #74 T027): host locale
+        // must never change authoritative output. This is presentation-only
+        // (roster display), but the shared comparator keeps it deterministic.
+        entries.sort((a, b) => compareUtf16(a.handle.toLowerCase(), b.handle.toLowerCase()));
         return Object.freeze(entries);
     }
 
@@ -988,7 +992,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 return;
             }
             const guestId = guestOf(event.connectionId);
-            if (guestId !== undefined) {
+            // Only a grace-window identity needs reactivating; an already
+            // active identity must not be re-minted (issue #74 T026).
+            if (guestId !== undefined && registry.isInGrace(guestId)) {
                 registry.restoreIdentity({ guestPlayerId: guestId });
             }
             recomputeAndPublish();
@@ -1072,18 +1078,35 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
     const service: LobbyService & LobbyConnectionTeardown = {
         establishIdentity(claim: GuestIdentityClaim | undefined, connectionId: ConnectionId): IdentityState {
             assertOpen();
-            const { identity } = registry.restoreIdentity(claim);
-            // Re-establishment overwrite (review F-8): a connection bound to
-            // a DIFFERENT guest releases that guest exactly as a transport
-            // close would (grace + immediate spectator release) instead of
-            // orphaning it active forever. Restoring the SAME identity is
-            // the ordinary refresh flow and starts no spurious grace.
             const previous = connections.get(connectionId);
-            if (previous !== undefined && previous !== identity.id) {
-                releaseConnection(connectionId);
+            const claimed = claim?.guestPlayerId;
+            let activeId: GuestPlayerId;
+            if (
+                previous !== undefined &&
+                claimed !== undefined &&
+                claimed === previous &&
+                !registry.isInGrace(previous)
+            ) {
+                // Same-connection refresh of an already-ACTIVE identity
+                // (review F-8): keep it in place. A bare claim must never
+                // mint a replacement or start a spurious grace window.
+                activeId = previous;
+            } else {
+                // Grace-only restore: a bare id for an ACTIVE identity mints
+                // a fresh identity instead of evicting the incumbent (spec
+                // 006 FR-016 / spec 010 v1.11 credential separation).
+                const identityRestore = registry.restoreIdentity(claim);
+                // Re-establishment overwrite (review F-8): a connection bound
+                // to a DIFFERENT guest releases that guest exactly as a
+                // transport close would (grace + immediate spectator release)
+                // instead of orphaning it active forever.
+                if (previous !== undefined && previous !== identityRestore.identity.id) {
+                    releaseConnection(connectionId);
+                }
+                bindConnection(connectionId, identityRestore.identity.id);
+                activeId = identityRestore.identity.id;
             }
-            bindConnection(connectionId, identity.id);
-            const projected = registry.projectIdentity(identity.id);
+            const projected = registry.projectIdentity(activeId);
             const state: IdentityState = projected ?? Object.freeze({ handle: null, hasIdentity: true });
             logger.info('lobbyService: player joined lobby', {
                 handle: projected !== undefined && projected.handle !== null ? sanitizeLogText(projected.handle) : null,
@@ -1092,16 +1115,16 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             deliverEvent(connectionId, {
                 kind: 'identity',
                 // FR-003 delivery channel (spec Clarifications v1.6): the
-                // The directed event carries the owner's non-secret ID for
+                // directed event carries the owner's non-secret ID for
                 // correlation, and the sink routes it to THIS connection.
                 // The return value above remains the facade's safe projection.
-                identity: projected === undefined ? state : withOwnerId(projected, identity.id),
+                identity: projected === undefined ? state : withOwnerId(projected, activeId),
             });
             // Feature 023 FR-008/FR-009: add or update the roster entry.
             // Players without a handle (not yet onboarded) are excluded
             // from the roster entirely (v1.1).
             if (projected?.handle !== undefined && projected.handle !== null) {
-                updateRosterEntry(identity.id, projected.handle);
+                updateRosterEntry(activeId, projected.handle);
             }
             return state;
         },

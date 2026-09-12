@@ -29,6 +29,7 @@ import {
     PIPE_UPHILL_COLOR,
 } from '../../../src/render/palette';
 import type { CellView, Direction, PlayerView } from '../../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
@@ -91,13 +92,13 @@ function createSlopePlayerView(): PlayerView {
         cell(5, 1, 100, new Set(['N'])),
     ];
     return {
-        player: 1,
+        player: TEST_PLAYER_1,
         tick: 1,
         visibleCells,
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: BOARD_SIZE,
-            playerCount: 2,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
             tickIntervalMs: 250,
             seed: 0,
             visibilityRadius: 2,

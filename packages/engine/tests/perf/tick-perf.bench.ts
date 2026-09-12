@@ -25,12 +25,13 @@ import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createWorld } from '../../src/create';
 import { tick } from '../../src/tick';
-import type { MatchConfig, PlayerId } from '../../src/types';
+import type { MatchConfig } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { playerIds } from '../fixtures/ids';
 
 const cfg: MatchConfig = {
     boardSize: 32,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xc0ffee,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -43,8 +44,8 @@ const WARMUP_ITERATIONS = 50;
 describe('SC-004 — tick performance', () => {
     it('median tick duration < 10 ms on a default 32x32 board', () => {
         const board = buildSmallBoard(SIZE, [
-            [5, 5, 1 as PlayerId],
-            [26, 26, 2 as PlayerId],
+            [5, 5, 1],
+            [26, 26, 2],
         ]);
         let world = createWorld(cfg, board);
 

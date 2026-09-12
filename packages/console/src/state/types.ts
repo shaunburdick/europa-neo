@@ -7,7 +7,7 @@
  *  1. Re-export everything declared in the console's own contract
  *     mirror (`contracts/console-types.ts`) — both the types and the
  *     runtime constants (`CONSOLE_API_VERSION`, `SUBCELL_RANGE`,
- *     `DEFAULT_CAMERA`, `DEFAULT_PLAYER_COLORS`, `DEFAULT_QOL_SETTINGS`,
+ *     `DEFAULT_CAMERA`, `PLAYER_COLOR_PALETTE`, `DEFAULT_QOL_SETTINGS`,
  *     `DEFAULT_INPUT_MAPPING`). The contracts directory is the source
  *     of truth; this file never re-declares.
  *
@@ -41,6 +41,7 @@ export type {
     CellRegion,
     CellRenderInfo,
     ConsoleConnectionStatus,
+    ConsoleParticipant,
     ConsoleSession,
     ConsoleState,
     CursorTarget,
@@ -63,8 +64,8 @@ export {
     CONSOLE_API_VERSION,
     DEFAULT_CAMERA,
     DEFAULT_INPUT_MAPPING,
-    DEFAULT_PLAYER_COLORS,
     DEFAULT_QOL_SETTINGS,
+    PLAYER_COLOR_PALETTE,
     SPECTATOR_COLOR,
     SUBCELL_RANGE,
 } from '../contracts/console-types';

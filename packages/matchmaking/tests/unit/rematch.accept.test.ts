@@ -211,7 +211,7 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
         }
         server.fireOnMatchTerminal({
             matchId: created.data.matchId,
-            result: { kind: 'win', winner: 1, tick: 7, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 7, reason: 'last_standing' },
             tick: 7,
         });
 

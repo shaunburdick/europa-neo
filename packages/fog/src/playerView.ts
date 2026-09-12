@@ -20,6 +20,13 @@
  * placeholder type. In-horizon cells are fully exposed (terrain,
  * elevation, troop count/owner, pipes, reserves, city owner).
  *
+ * Identity resolution (spec v1.5 FR-010, issue #74): the horizon path
+ * resolves the universal `PlayerId` through the world's authoritative
+ * engine registry *before* computing anything. An unknown, forged,
+ * malformed, or numeric ID fails closed to an empty view (no cells and
+ * no events), never a fallback seat. The spectator path is
+ * identity-independent by contract — see below.
+ *
  * Events source: the engine's `World` does not carry events — they
  * are produced alongside each world by `tick()` (`TickResult.events`,
  * mirrored as `EngineTickOutput`). Callers pass the current tick's
@@ -32,25 +39,36 @@
  */
 
 import type { CellView, MatchConfig, PlayerId, TickEvents, World } from '@europa/engine';
-import { forEachCell, getCell } from '@europa/engine';
+import { emptyTickEvents, forEachCell, getCell } from '@europa/engine';
 
 import { filterTickEvents } from './eventsFilter';
 import type { ComputePlayerViewOptions, PlayerView } from './types';
-import { computeVisibleSet } from './visibleSet';
+import { computeVisibleSet, resolvePlayerOwnerByte } from './visibleSet';
 
 /**
  * Extract a plain, owned snapshot of the match config for the view
- * payload. The engine's config is already frozen; copying it here
- * decouples the payload's lifetime from the world's (the payload may
- * outlive the tick that produced it once networking serializes it).
+ * payload. The engine retains the caller's config (and its `playerIds`
+ * array) by reference and never freezes either, so this snapshot
+ * deep-copies the identity list rather than aliasing it: a consumer of
+ * the returned view must not be able to mutate authoritative world
+ * config through the payload. The payload may also outlive the tick
+ * that produced it once networking serializes it, so owned values are
+ * the correct ownership boundary.
  *
- * @param config The engine's frozen match config.
- * @returns A structurally identical `MatchConfig` snapshot.
+ * @param config The engine's match config (retained by reference, not
+ *               frozen).
+ * @returns A structurally identical `MatchConfig` snapshot with an
+ *          independent `playerIds` array.
  */
 function snapshotConfig(config: Readonly<MatchConfig>): MatchConfig {
     return {
         boardSize: config.boardSize,
-        playerCount: config.playerCount,
+        // Copy the identity list (N1): the engine stores this array by
+        // reference and does not freeze it, so aliasing would let any
+        // holder of the returned `PlayerView` corrupt authoritative
+        // world config. The list is a fixed 2–4 entries; the copy is
+        // cheap and restores the intended payload immutability.
+        playerIds: [...config.playerIds],
         tickIntervalMs: config.tickIntervalMs,
         seed: config.seed,
         visibilityRadius: config.visibilityRadius,
@@ -77,17 +95,29 @@ function snapshotConfig(config: Readonly<MatchConfig>): MatchConfig {
  *   - The server is responsible for marking the session read-only
  *     (feature 004 concern, not fog's).
  *
+ * Spectator null/unresolved target (FR-009 / FR-010): spectator
+ * authority is granted by the *server session*, never by the ID. A
+ * spectator may therefore have no registered player association (a
+ * null/unresolved target ID), and still receives the full board — the
+ * non-secret ID is correlation metadata and cannot grant access. This
+ * is deliberately different from the horizon path, where an
+ * unresolved ID fails closed. A forged ID used with
+ * `{ spectator: false }` (or omitted) yields an empty view.
+ *
  * JSDoc references: FR-002, FR-003, FR-005 (redaction), FR-006
- * (spectator), US1 AC-3 (enemy in/out of horizon), US3 AC-1
- * (surrendered player sees everything).
+ * (spectator), FR-009 (IDs are metadata, not authority), FR-010
+ * (authoritative resolution), US1 AC-3 (enemy in/out of horizon),
+ * US3 AC-1 (surrendered player sees everything).
  *
  * @param world    The current `World` snapshot (from `tick()`).
- * @param player   The player whose view is being computed (or the
- *                 player the spectator session is observing).
+ * @param player   The universal player ID whose view is being computed
+ *                 (or the spectator session's correlation target,
+ *                 which need not be registered).
  * @param options  Optional flags: `{ spectator: true }` for
  *                 full-board views; `events` supplies the current
  *                 tick's `TickEvents` (defaults to empty).
- * @returns        A `PlayerView` ready for serialization.
+ * @returns        A `PlayerView` ready for serialization (empty when a
+ *                 non-spectator ID is not registered).
  */
 export function computePlayerView(
     world: Readonly<World>,
@@ -95,16 +125,12 @@ export function computePlayerView(
     options?: ComputePlayerViewOptions,
 ): PlayerView {
     const config = snapshotConfig(world.config);
-    const tickEvents: Readonly<TickEvents> = options?.events ?? {
-        combat: [],
-        captures: [],
-        eliminations: [],
-        appliedOrders: [],
-        errors: [],
-    };
+    const tickEvents: Readonly<TickEvents> = options?.events ?? emptyTickEvents();
 
     // ------------------------------------------------------------------
     // Spectator path (US3 / FR-006): full board, unfiltered events.
+    // Identity-independent: the read-only session flag is the
+    // authority, so an unresolved/null target still sees everything.
     // Function-level dispatch only — the PlayerView type is unchanged.
     // ------------------------------------------------------------------
     if (options?.spectator === true) {
@@ -126,7 +152,22 @@ export function computePlayerView(
 
     // ------------------------------------------------------------------
     // Horizon path (US1): structural redaction.
+    //
+    // Fail-closed identity rule (FR-010): resolve the universal ID
+    // through the authoritative registry BEFORE computing. An unknown,
+    // forged, malformed, or numeric ID yields no cells AND no events
+    // (not even player-level ones), so nothing hidden is disclosed.
     // ------------------------------------------------------------------
+    if (resolvePlayerOwnerByte(world, player) === null) {
+        return {
+            player,
+            tick: world.tick,
+            visibleCells: [],
+            events: emptyTickEvents(),
+            config,
+        };
+    }
+
     const visible = computeVisibleSet(world, player);
 
     const visibleCells: CellView[] = [];

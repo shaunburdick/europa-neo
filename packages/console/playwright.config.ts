@@ -26,6 +26,14 @@ export default defineConfig({
     retries: process.env.CI ? 2 : 0,
     workers: process.env.CI ? 2 : undefined,
     reporter: process.env.CI ? 'github' : 'list',
+    /**
+     * Polling assertions (`toHaveURL`, `toBeVisible`, `toHaveText`, …)
+     * run against the real ticking stack with several Chromium contexts
+     * per worker. The 5 s Playwright default is too tight under that load
+     * and produced spurious failures in the lobby suite; the explicit
+     * `expect.poll` calls carry their own timeouts and are unaffected.
+     */
+    expect: { timeout: 15_000 },
     use: {
         baseURL: BASE,
         trace: 'retain-on-failure',

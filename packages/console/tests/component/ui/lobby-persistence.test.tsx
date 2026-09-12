@@ -8,15 +8,16 @@
  * (`LobbyRoot` over the REAL `createWsLobbyClient`) twice against a
  * scripted in-page fake server and asserts the reload-restore flow:
  *
- *   1. First visit: a fresh browser mints a local bootstrap claim, the
- *      server issues its OWN opaque id and delivers it through the
- *      directed `identity` event (spec Clarifications v1.6 channel),
- *      the client adopts + persists it, and a handle chosen through
- *      the form is confirmed.
+ *   1. First visit: a fresh browser presents an advisory claim with NO
+ *      identity (issue #74 — the browser never mints one), the server
+ *      issues its OWN canonical id and delivers it through the directed
+ *      `identity` event (spec Clarifications v1.6 channel), the client
+ *      adopts + persists it, and a handle chosen through the form is
+ *      confirmed.
  *   2. "Reload": a brand-new client + controller over the SAME
  *      browser storage re-mounts the landing, presents the STORED
- *      claim (server-delivered id — not a new mint), and the landing
- *      restores to `named` showing the handle without re-entry.
+ *      claim (server-issued id), and the landing restores to `named`
+ *      showing the handle without re-entry.
  *
  * No real sockets: the WebSocket is injected (`webSocketFactory`) and
  * every frame is exchanged synchronously with the scripted server.
@@ -80,9 +81,10 @@ interface WireFrame {
 
 /**
  * One-session fake lobby server: resolves presented claims against an
- * in-memory registry, delivers directed identity events carrying ITS
- * OWN opaque id (v1.6), settles renames with a fresh directed event,
- * and answers subscribe with an empty baseline snapshot.
+ * in-memory registry, ISSUES its own canonical id when a client presents
+ * none (issue #74 — clients never mint), delivers directed identity
+ * events carrying that id (v1.6), settles renames with a fresh directed
+ * event, and answers subscribe with an empty baseline snapshot.
  */
 class ScriptedLobbyServer {
     /** Registry of guest id → accepted handle (`null` while unnamed). */
@@ -90,6 +92,8 @@ class ScriptedLobbyServer {
 
     private sessionGuestId: string | null = null;
     private snapshotSeq = 0;
+    /** Monotonic source of canonical server-issued ids. */
+    private issuedCounter = 0;
 
     constructor(
         private readonly socket: FakeSocket,
@@ -99,6 +103,12 @@ class ScriptedLobbyServer {
         socket.onSend = (raw) => {
             this.accept(raw);
         };
+    }
+
+    /** Mint a canonical 12-character server identity. */
+    private issueGuestId(): string {
+        this.issuedCounter += 1;
+        return `SrvGuest${String(this.issuedCounter).padStart(4, '0')}`;
     }
 
     /** The guest id this server issued for the current session. */
@@ -118,13 +128,16 @@ class ScriptedLobbyServer {
                 });
                 return;
             case 'lobbyIdentity': {
-                const claim = frame.payload.claim as { guestPlayerId: string; handle?: string };
-                // Unknown claims mint a FRESH server-side identity whose
-                // id reaches the browser only through the directed event.
-                if (!this.registry.has(claim.guestPlayerId)) {
-                    this.registry.set(claim.guestPlayerId, null);
+                const claim = frame.payload.claim as { guestPlayerId?: string; handle?: string };
+                // A first visit presents NO id (issue #74): the server
+                // issues its own. A known presented id is restored.
+                const presented = claim.guestPlayerId;
+                const resolved =
+                    presented !== undefined && this.registry.has(presented) ? presented : this.issueGuestId();
+                if (!this.registry.has(resolved)) {
+                    this.registry.set(resolved, null);
                 }
-                this.sessionGuestId = claim.guestPlayerId;
+                this.sessionGuestId = resolved;
                 this.deliverIdentity();
                 return;
             }
@@ -225,7 +238,7 @@ afterEach(() => {
 });
 
 describe('lobby identity persistence across a page remount (US1/FR-003)', () => {
-    test('first visit mints locally, adopts the server-delivered id, and persists the named claim', async () => {
+    test('first visit presents no identity, adopts the server-issued id, and persists the named claim', async () => {
         const first = await mountFreshLanding();
 
         // Pre-connect posture: restoring (the persisted-claim question is open).

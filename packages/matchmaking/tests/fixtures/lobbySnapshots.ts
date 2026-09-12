@@ -60,6 +60,7 @@ let revisionCounter = 0;
 let actionIdCounter = 0;
 let playerSessionCounter = 0;
 let tokenCounter = 0;
+let playerIdCounter = 0;
 
 /**
  * Mint a fresh lobby-projected `MatchId` (`match-lobby-0001`, …).
@@ -93,6 +94,16 @@ export function nextPlayerSessionId(): PlayerSessionId {
 export function nextSessionToken(): SessionToken {
     tokenCounter += 1;
     return toBranded<SessionToken>(`token-${String(tokenCounter).padStart(4, '0')}`);
+}
+
+/**
+ * Mint a fresh deterministic CANONICAL `PlayerId` (issue #74): exactly
+ * 12 alphabet characters (`Pidr00000001`, …). Fixtures must never use
+ * numeric or short ids — the contracts reject them.
+ */
+export function nextPlayerId(): PlayerId {
+    playerIdCounter += 1;
+    return toBranded<PlayerId>(`Pidr${String(playerIdCounter).padStart(8, '0')}`);
 }
 
 // ----------------------------------------------------------------------------
@@ -227,7 +238,7 @@ export function buildSeatAssignment(overrides: SeatAssignmentOverrides = {}): Se
     return Object.freeze({
         playerSessionId: overrides.playerSessionId ?? nextPlayerSessionId(),
         seatIndex: overrides.seatIndex ?? (0 as SeatIndex),
-        playerId: overrides.playerId ?? (1 as PlayerId),
+        playerId: overrides.playerId ?? nextPlayerId(),
         sessionToken: overrides.sessionToken ?? nextSessionToken(),
         displayName: overrides.displayName ?? 'Nova',
     });

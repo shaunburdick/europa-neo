@@ -14,8 +14,8 @@
  *     damage. The bigger total retains the difference; the smaller is
  *     eliminated. Equal totals → mutual destruction (`winner: 'tie'`).
  *   - **Three-way (or more)**: dominant owner (highest count, ties
- *     broken by ascending PlayerId) keeps their original count and
- *     absorbs the cell. All non-dominant owners are eliminated.
+ *     broken by ascending dense owner index) keeps their original count
+ *     and absorbs the cell. All non-dominant owners are eliminated.
  *     One `CombatEvent` is emitted per (winner, loser) pair so
  *     consumers can see every engagement.
  *
@@ -31,9 +31,9 @@
  *
  * Determinism:
  *   - Row-major iteration; deterministic per-cell owner collection
- *     sorted by ascending PlayerId.
+ *     sorted by ascending dense owner index (canonical UTF-16 ID order).
  *   - Integer math only (`Math.imul`, `>>> 0`); no float drift.
- *   - CombatEvent.attacker is always the lower PlayerId; defender is
+ *   - CombatEvent.attacker is always the lower dense owner; defender is
  *     the higher. This keeps the 2-sided payload symmetric regardless
  *     of which player initiated the flow (per spec Edge Case).
  *
@@ -44,6 +44,7 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushCombatEvent } from '../events';
+import type { PlayerRegistry } from '../playerRegistry';
 import type { Board, CombatEvent, PlayerId, TickEvents, TickScratchBuffers, WorldState } from '../types';
 
 const PLAYERS = 4;
@@ -58,6 +59,9 @@ const PLAYERS = 4;
  *                           `cell.troops ≤ cellCapacity` after resolution
  *                           (FR-011 invariant, Clarifications v1.5).
  * @param tickNumber         Tick number to stamp on every emitted CombatEvent.
+ * @param registry           ID ↔ dense-index registry. All internal owner
+ *                           values are 1-based dense indexes; events are
+ *                           resolved to canonical `PlayerId`s through it.
  * @param inflowTally        Optional per-cell per-owner inflow tally written by
  *                           `resolveFlow`. Packed: slot `(cellIdx * 4) +
  *                           (playerId - 1)` is the count of troops that player
@@ -84,6 +88,7 @@ export function resolveCombat(
     board: Readonly<Board>,
     constants: EngineConstants,
     tickNumber: number,
+    registry: PlayerRegistry,
     inflowTally?: Readonly<Uint32Array>,
     committedFlowTally?: Readonly<Uint32Array>,
     preFlowState?: Readonly<{ troopOwners: Uint8Array; troopCounts: Uint32Array }>,
@@ -120,11 +125,12 @@ export function resolveCombat(
             const garrisonCount = preCounts[idx] ?? 0;
 
             // Build the set of players who committed flow to this cell.
-            const committedPlayers: Array<{ owner: PlayerId; count: number }> = [];
+            // `owner` is a 1-based dense owner byte (not a string ID).
+            const committedPlayers: Array<{ owner: number; count: number }> = [];
             for (let p = 1; p <= PLAYERS; p++) {
                 const c = committed[idx * PLAYERS + (p - 1)] ?? 0;
                 if (c > 0) {
-                    committedPlayers.push({ owner: p as PlayerId, count: c });
+                    committedPlayers.push({ owner: p, count: c });
                 }
             }
 
@@ -149,7 +155,7 @@ export function resolveCombat(
                     existingEntry.count = garrisonTotalForce;
                 } else {
                     committedPlayers.push({
-                        owner: garrisonOwner as PlayerId,
+                        owner: garrisonOwner,
                         count: garrisonTotalForce,
                     });
                 }
@@ -162,7 +168,8 @@ export function resolveCombat(
                 continue;
             }
 
-            // Sort by PlayerId ascending (deterministic).
+            // Sort by 1-based owner byte ascending (deterministic; matches
+            // the registry's canonical UTF-16 ID order).
             committedPlayers.sort((a, b) => a.owner - b.owner);
 
             if (committedPlayers.length === 2) {
@@ -173,14 +180,15 @@ export function resolveCombat(
                 }
 
                 // Determine logical attacker/defender and their total forces.
-                let logicalAttacker: PlayerId;
-                let logicalDefender: PlayerId;
+                // Internal numeric owner bytes (1-based).
+                let logicalAttacker: number;
+                let logicalDefender: number;
                 let attackerTotalForce: number;
                 let defenderTotalForce: number;
 
                 if (garrisonOwner !== 0) {
                     // Garrison exists: logical defender = garrison owner.
-                    logicalDefender = garrisonOwner as PlayerId;
+                    logicalDefender = garrisonOwner;
                     logicalAttacker = a.owner === garrisonOwner ? b.owner : a.owner;
                     const defenderCommitted = committed[idx * PLAYERS + (garrisonOwner - 1)] ?? 0;
                     defenderTotalForce = garrisonCount + defenderCommitted;
@@ -201,16 +209,16 @@ export function resolveCombat(
                 // 1:1 attrition: damage = min(attackerTotal, defenderTotal).
                 const damage = Math.min(attackerTotalForce, defenderTotalForce);
 
-                // Event labeling: attacker = lower PlayerId (deterministic symmetry).
-                const eventAttacker: PlayerId = a.owner < b.owner ? a.owner : b.owner;
-                const eventDefender: PlayerId = a.owner < b.owner ? b.owner : a.owner;
+                // Event labeling: attacker = lower owner byte (deterministic symmetry).
+                const eventAttackerByte = a.owner < b.owner ? a.owner : b.owner;
+                const eventDefenderByte = a.owner < b.owner ? b.owner : a.owner;
 
                 // Winner: whoever has the higher total (or 'tie' if equal).
                 const winner: PlayerId | 'tie' =
                     attackerTotalForce > defenderTotalForce
-                        ? logicalAttacker
+                        ? registry.requireIdAt(logicalAttacker - 1)
                         : defenderTotalForce > attackerTotalForce
-                          ? logicalDefender
+                          ? registry.requireIdAt(logicalDefender - 1)
                           : 'tie';
 
                 // Remaining troops after 1:1 attrition.
@@ -234,8 +242,8 @@ export function resolveCombat(
                 const ev: CombatEvent = {
                     tick: tickNumber,
                     cell: idxToCoord(idx, board.width),
-                    attacker: eventAttacker,
-                    defender: eventDefender,
+                    attacker: registry.requireIdAt(eventAttackerByte - 1),
+                    defender: registry.requireIdAt(eventDefenderByte - 1),
                     attackerLoss: damage,
                     defenderLoss: damage,
                     winner,
@@ -271,11 +279,11 @@ export function resolveCombat(
                     const ev: CombatEvent = {
                         tick: tickNumber,
                         cell: idxToCoord(idx, board.width),
-                        attacker: domPlayer.owner,
-                        defender: o.owner,
+                        attacker: registry.requireIdAt(domPlayer.owner - 1),
+                        defender: registry.requireIdAt(o.owner - 1),
                         attackerLoss: 0, // dominant retains all in 3-way+
                         defenderLoss: o.count,
-                        winner: domPlayer.owner,
+                        winner: registry.requireIdAt(domPlayer.owner - 1),
                         attackerTotal: domPlayer.count,
                         defenderTotal: o.count,
                     };
@@ -284,13 +292,13 @@ export function resolveCombat(
             }
         } else if (tallyAvailable) {
             // Legacy path: detect from inflow tally (used in unit tests
-            // without preFlowState).
+            // without preFlowState). Owners are 1-based dense owner bytes.
             const tally = inflowTally as Uint32Array;
-            const ownersAtCell: Array<{ owner: PlayerId; count: number }> = [];
+            const ownersAtCell: Array<{ owner: number; count: number }> = [];
             for (let p = 1; p <= PLAYERS; p++) {
                 const c = tally[idx * PLAYERS + (p - 1)] ?? 0;
                 if (c > 0) {
-                    ownersAtCell.push({ owner: p as PlayerId, count: c });
+                    ownersAtCell.push({ owner: p, count: c });
                 }
             }
             if (ownersAtCell.length <= 1) {
@@ -320,22 +328,22 @@ export function resolveCombat(
                     continue;
                 }
                 const damage = Math.min(dom.count, other.count);
-                const attackerLabel: PlayerId = dom.owner < other.owner ? dom.owner : other.owner;
-                const defenderLabel: PlayerId = dom.owner < other.owner ? other.owner : dom.owner;
-                const winner: PlayerId | 'tie' = dom.count > other.count ? dom.owner : 'tie';
+                const attackerNum = dom.owner < other.owner ? dom.owner : other.owner;
+                const defenderNum = dom.owner < other.owner ? other.owner : dom.owner;
+                const winner: PlayerId | 'tie' = dom.count > other.count ? registry.requireIdAt(dom.owner - 1) : 'tie';
 
-                const attackerCount = attackerLabel === dom.owner ? dom.count : other.count;
-                const defenderCount = defenderLabel === dom.owner ? dom.count : other.count;
+                const attackerCount = attackerNum === dom.owner ? dom.count : other.count;
+                const defenderCount = defenderNum === dom.owner ? dom.count : other.count;
                 const attackerRemaining = (attackerCount - damage) >>> 0;
                 const defenderRemaining = (defenderCount - damage) >>> 0;
                 if (attackerRemaining > defenderRemaining) {
                     // Clamp to cellCapacity (FR-011 invariant).
                     newCounts[idx] = Math.min(attackerRemaining, constants.cellCapacity);
-                    newOwners[idx] = attackerLabel;
+                    newOwners[idx] = attackerNum;
                 } else if (defenderRemaining > attackerRemaining) {
                     // Clamp to cellCapacity (FR-011 invariant).
                     newCounts[idx] = Math.min(defenderRemaining, constants.cellCapacity);
-                    newOwners[idx] = defenderLabel;
+                    newOwners[idx] = defenderNum;
                 } else {
                     newCounts[idx] = 0;
                     newOwners[idx] = 0;
@@ -344,8 +352,8 @@ export function resolveCombat(
                 const ev: CombatEvent = {
                     tick: tickNumber,
                     cell: idxToCoord(idx, board.width),
-                    attacker: attackerLabel,
-                    defender: defenderLabel,
+                    attacker: registry.requireIdAt(attackerNum - 1),
+                    defender: registry.requireIdAt(defenderNum - 1),
                     attackerLoss: damage,
                     defenderLoss: damage,
                     winner,
@@ -364,11 +372,11 @@ export function resolveCombat(
                     const ev: CombatEvent = {
                         tick: tickNumber,
                         cell: idxToCoord(idx, board.width),
-                        attacker: dom.owner,
-                        defender: o.owner,
+                        attacker: registry.requireIdAt(dom.owner - 1),
+                        defender: registry.requireIdAt(o.owner - 1),
                         attackerLoss: 0,
                         defenderLoss: o.count,
-                        winner: dom.owner,
+                        winner: registry.requireIdAt(dom.owner - 1),
                         attackerTotal: dom.count,
                         defenderTotal: o.count,
                     };

@@ -2,14 +2,16 @@ import type React from 'react';
 import { TOKENS } from '../../../src/tokens';
 
 /**
- * Player identity colors — maps player 1–4 to their canonical token colors.
- * These are the same values used by {@link EuropaPlayerBadge}.
+ * Player identity colors — the canonical `playerColor1`–`playerColor4` tokens
+ * callers pass to the identity-agnostic game primitives
+ * (`EuropaPlayerBadge`, `EuropaTroopChip`, `EuropaCityMarker`) via their
+ * `color` prop (issue #74).
  */
 const PLAYER_COLOR_ENTRIES: ReadonlyArray<{ player: number; color: string }> = [
-    { player: 1, color: TOKENS.color.accent },
-    { player: 2, color: TOKENS.color.city },
-    { player: 3, color: TOKENS.color.green },
-    { player: 4, color: TOKENS.color.blue },
+    { player: 1, color: TOKENS.color.playerColor1 },
+    { player: 2, color: TOKENS.color.playerColor2 },
+    { player: 3, color: TOKENS.color.playerColor3 },
+    { player: 4, color: TOKENS.color.playerColor4 },
 ];
 
 /**

@@ -5,7 +5,7 @@ integer-only map generator producing engine-ready `Board` values for
 feature 001 (the core game engine).
 
 The package is **library-only** (`packages/terrain`), depends on no runtime
-dependencies outside `@europa/engine` *types*, and ships a single public
+dependencies outside `@europa/core` *types*, and ships a single public
 function (`generateBoard`) plus a set of pure helpers exposed for testing.
 
 > **Determinism is non-negotiable** (constitution Principle II). The
@@ -24,10 +24,18 @@ pnpm install
 ```
 
 This builds the engine package and links the terrain package via
-`workspace:*`. Terrain depends on the engine for the `Board`, `Cell`,
-`CityPlacement`, `Coord`, `PlayerId`, and `MatchConfig` types and for
-the `Rng` (sfc32) PRNG factory — terrain **consumes** the engine's
-PRNG instance, never constructs its own.
+`workspace:*`. Terrain depends on `@europa/core` for the `Board`, `Cell`,
+`CityPlacement`, `Coord`, and `MatchConfig` types and for the `Rng`
+(sfc32) PRNG factory — terrain **consumes** the engine's PRNG instance,
+never constructs its own.
+
+> **Identity-agnostic (issue #74, FR-011)**: terrain neither accepts,
+> stores, nor emits canonical `PlayerId` values. `CityPlacement.owner`
+> and `startingCitiesByPlayer` are keyed by dense 1-based numeric
+> placement slots; the caller (engine/matchmaking) maps each slot to
+> `MatchConfig.playerIds[slot - 1]`. A different valid ID list with the
+> same seed, board size, player count, and settings produces byte-identical
+> terrain.
 
 ## Build
 
@@ -118,7 +126,7 @@ the source-of-truth contract lives at
 | `assertBoardMatchesConfig(board, config)` | Structural conformance check (engine ↔ terrain gate). |
 | `DEFAULT_GENERATION_SETTINGS` | Default `GenerationSettings`. |
 | `TERRAIN_CONSTANTS` | Tunable numeric rules (elevation range, board size range). |
-| `TERRAIN_API_VERSION` | `'0.1.0'` — pin-check at consumer startup. |
+| `TERRAIN_API_VERSION` | `'0.2.0'` — pin-check at consumer startup. |
 
 ### US3 clamping helpers (FR-008)
 

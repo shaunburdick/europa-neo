@@ -501,8 +501,16 @@ React function components that integrate naturally with React's virtual DOM and 
 `EuropaTypography`, `EuropaWaiting`, `EuropaButton`, `EuropaModal`) and 7 game primitives
 (`EuropaTroopChip`, `EuropaCityMarker`, `EuropaPipeSlope`, `EuropaElevationSwatch`,
 `EuropaPlayerBadge`, `EuropaFogOverlay`, `EuropaReserveIndicator`) are React function components.
-Props map 1:1 from the former web-component attributes — `variant`, `size`, `count`, `owner`, etc.
+Props map 1:1 from the former web-component attributes — `variant`, `size`, `count`, `color`, etc.
 are all typed React props. Children are passed via the standard `children` prop (no slots).
+
+**Identity-agnostic game primitives (issue #74).** Player identity in Europa Neo is an opaque,
+server-issued canonical `PlayerId` string — there is no numeric `1 | 2 | 3 | 4` identity. The
+presentational primitives therefore do **not** model player ordering: `EuropaTroopChip`,
+`EuropaCityMarker`, and `EuropaPlayerBadge` accept an explicit `color` (any CSS color string, in
+practice a caller-resolved `TOKENS.color.playerColor*` token) and, where a label is needed, a
+caller-supplied name. The caller owns the identity → color/label mapping; the design package has no
+dependency on `@europa/core` and never inspects a `PlayerId`.
 
 **Styling.** Components apply `europa-*` CSS classes to the elements they render, so the same
 catalog CSS rules (§ 2 above) apply. `dist/design.css` is loaded as a global stylesheet by the
@@ -529,11 +537,11 @@ removes unused components from the production bundle (guarded by G-10 and the bu
 | `EuropaStack` | none | `ReactNode` (items) | none | layout only | `<EuropaStack><div>A</div><div>B</div></EuropaStack>` |
 | `EuropaContainer` | none | `ReactNode` | none | layout only | `<EuropaContainer><p>Content</p></EuropaContainer>` |
 | `EuropaPage` | none | `ReactNode` | none | layout only, DOM order = reading order | `<EuropaPage><h1>Title</h1><p>Body</p></EuropaPage>` |
-| `EuropaTroopChip` | `count` (string), `owner` (player 1–4) | none | none | `role="img"`, `aria-label` from count+owner (FR-014) | `<EuropaTroopChip count="12" owner={1} />` |
-| `EuropaCityMarker` | `owner` (player 1–4) | none | none | `role="img"`, `aria-label` from owner (FR-014) | `<EuropaCityMarker owner={2} />` |
+| `EuropaTroopChip` | `count` (number), `color` (CSS color string, optional) | none | none | `role="img"`, `aria-label` from count alone (FR-014) | `<EuropaTroopChip count={12} color={TOKENS.color.playerColor1} />` |
+| `EuropaCityMarker` | `color` (CSS color string, optional), `label` (accessible name, optional) | none | none | `role="img"`, `aria-label` from `label` (default `"city"`) (FR-014) | `<EuropaCityMarker color={TOKENS.color.playerColor2} label="Alice's city" />` |
 | `EuropaPipeSlope` | `direction` (downhill/flat/uphill/stalled) | none | none | `role="img"`, `aria-label` from direction (FR-014) | `<EuropaPipeSlope direction="downhill" />` |
 | `EuropaElevationSwatch` | `elevation` (0–100) | none | none | `role="img"`, `aria-label` with elevation value (FR-014) | `<EuropaElevationSwatch elevation={42} />` |
-| `EuropaPlayerBadge` | `player` (1–4), `name` (optional) | none | none | `role="img"`, `aria-label` from player+name (FR-014) | `<EuropaPlayerBadge player={1} name="Alice" />` |
+| `EuropaPlayerBadge` | `name` (string, required), `color` (CSS color string, optional) | none | none | `role="img"`, `aria-label` = caller-supplied `name` (FR-014) | `<EuropaPlayerBadge name="Alice" color={TOKENS.color.playerColor1} />` |
 | `EuropaFogOverlay` | `visible` (boolean, default true) | none | none | `aria-hidden="true"` (FR-014) | `<EuropaFogOverlay />` |
 | `EuropaReserveIndicator` | `percent` (0–90 step 10) | none | none | `role="img"`, `aria-label` with percentage (FR-014) | `<EuropaReserveIndicator percent={30} />` |
 

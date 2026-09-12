@@ -7,19 +7,14 @@
  * JSON and unknown message kinds reply `error` and stay open).
  */
 
+import { parsePlayerId } from '@europa/core';
+
 import { describe, expect, it } from 'vitest';
 import { Connection } from '../../src/connection';
 import { NETWORK_API_VERSION } from '../../src/constants';
 import { encodeFrame } from '../../src/frame';
 import { toBranded } from '../../src/ids';
-import type {
-    MatchId,
-    NetworkPayload,
-    PlayerId,
-    ProtocolEnvelope,
-    SequenceNumber,
-    SessionToken,
-} from '../../src/types';
+import type { MatchId, NetworkPayload, ProtocolEnvelope, SequenceNumber, SessionToken } from '../../src/types';
 import { MockWebSocket } from '../fixtures/conn';
 
 /** Build a well-formed outbound envelope with a placeholder seq. */
@@ -191,7 +186,7 @@ describe('Connection', () => {
                 joinedClosed += 1;
             },
         });
-        joined.markJoined(toBranded<SessionToken>('token'), 1 as PlayerId, toBranded<MatchId>('match'));
+        joined.markJoined(toBranded<SessionToken>('token'), parsePlayerId('Player000001'), toBranded<MatchId>('match'));
 
         joined.closeIdleTimeout();
 

@@ -15,13 +15,14 @@
 
 import { describe, expect, it } from 'vitest';
 import { alivePlayers, cellsInRange, forEachCell, getCell, getPlayer, neighborsOf } from '../../src/read';
-import type { MatchConfig, PlayerId } from '../../src/types';
+import type { MatchConfig } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, playerIds, UNKNOWN_PLAYER } from '../fixtures/ids';
 import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 1,
     visibilityRadius: 4,
@@ -29,7 +30,7 @@ const cfg: MatchConfig = {
 
 describe('getCell', () => {
     it('decodes pipe masks into Set<Direction>', () => {
-        const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[1, 1, 1]]);
         // Use the engine directly to set pipes (runScenario's pipe order
         // requires the cell to have troops for the (legacy Phase-2) sanity
         // test path, but real applyCommand validates ownership).
@@ -44,15 +45,15 @@ describe('getCell', () => {
             [
                 {
                     atTick: 0,
-                    order: { kind: 'setPipe', player: 1, cell: { x: 1, y: 1 }, direction: 'E' },
+                    order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 1, y: 1 }, direction: 'E' },
                 },
                 {
                     atTick: 0,
-                    order: { kind: 'setPipe', player: 1, cell: { x: 1, y: 1 }, direction: 'N' },
+                    order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 1, y: 1 }, direction: 'N' },
                 },
                 {
                     atTick: 0,
-                    order: { kind: 'setPipe', player: 1, cell: { x: 1, y: 1 }, direction: 'W' },
+                    order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 1, y: 1 }, direction: 'W' },
                 },
             ],
             1,
@@ -66,18 +67,18 @@ describe('getCell', () => {
 
     it('returns cityOwner matching cityOwners state slot', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 1);
-        expect(getCell(finalWorld, 1, 1).cityOwner).toBe(1);
-        expect(getCell(finalWorld, 6, 6).cityOwner).toBe(2);
+        expect(getCell(finalWorld, 1, 1).cityOwner).toBe(PLAYER_1);
+        expect(getCell(finalWorld, 6, 6).cityOwner).toBe(PLAYER_2);
         // Non-city cell
         expect(getCell(finalWorld, 0, 0).cityOwner).toBeNull();
     });
 
     it('returns null troopOwner for cells with no troops', () => {
-        const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[1, 1, 1]]);
         const { finalWorld } = runScenario(cfg, board, [], 1);
         expect(getCell(finalWorld, 0, 0).troopOwner).toBeNull();
         expect(getCell(finalWorld, 0, 0).troopCount).toBe(0);
@@ -183,26 +184,26 @@ describe('neighborsOf', () => {
 describe('getPlayer + alivePlayers', () => {
     it('getPlayer returns the player indexed by PlayerId-1', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 1);
-        expect(getPlayer(finalWorld, 1).id).toBe(1);
-        expect(getPlayer(finalWorld, 2).id).toBe(2);
+        expect(getPlayer(finalWorld, PLAYER_1).id).toBe(PLAYER_1);
+        expect(getPlayer(finalWorld, PLAYER_2).id).toBe(PLAYER_2);
     });
 
     it('getPlayer throws on unknown player id', () => {
-        const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[1, 1, 1]]);
         const { finalWorld } = runScenario(cfg, board, [], 0);
-        expect(() => getPlayer(finalWorld, 9 as PlayerId)).toThrow();
+        expect(() => getPlayer(finalWorld, UNKNOWN_PLAYER)).toThrow();
     });
 
     it('alivePlayers returns all player ids when all are alive', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const { finalWorld } = runScenario(cfg, board, [], 1);
-        expect(alivePlayers(finalWorld)).toEqual([1, 2]);
+        expect(alivePlayers(finalWorld)).toEqual([PLAYER_1, PLAYER_2]);
     });
 });

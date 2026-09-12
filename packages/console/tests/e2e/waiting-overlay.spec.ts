@@ -25,7 +25,7 @@
  * join window; the fill + assertions happen well inside it.
  */
 
-import { createRng } from '@europa/core';
+import { createRng, parseGuestPlayerId, parsePlayerId } from '@europa/core';
 import { applyCommand, createWorld, ENGINE_CONSTANTS, isTerminal, tick } from '@europa/engine';
 import { computePlayerView } from '@europa/fog';
 import { createMatchmaker } from '@europa/matchmaking';
@@ -91,20 +91,25 @@ function tolerateDuplicateRegistration(server: Server): Server {
  *
  * @param matchId The match to host.
  * @param seed Fixed seed (deterministic board).
+ * @param playerIds Canonical universal ids in seat/placement order.
  * @returns A `register` thunk that hands the session to the server.
  */
-function buildLobbySession(matchId: MatchId, seed: number): { readonly register: (server: Server) => void } {
+function buildLobbySession(
+    matchId: MatchId,
+    seed: number,
+    playerIds: readonly PlayerId[],
+): { readonly register: (server: Server) => void } {
     const rng = createRng(seed);
     const generation = generateBoard({
         boardSize: BOARD_SIZE,
-        playerCount: 2,
+        playerCount: playerIds.length,
         seed,
         rng,
         settings: DEFAULT_GENERATION_SETTINGS,
     });
     const matchConfig: MatchConfig = Object.freeze({
         boardSize: BOARD_SIZE,
-        playerCount: 2,
+        playerIds: Object.freeze([...playerIds]),
         tickIntervalMs: TICK_MS,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -257,6 +262,12 @@ test('first console sees the waiting room while filling; auto-start clears it', 
             return;
         }
         const { matchId } = created.data;
+        // Canonical identities, in seat/placement order: the host's
+        // server-allocated id plus the id Bob's matchmaker join will
+        // reuse (passed below as the server-resolved guest identity so
+        // auto-start's engine config carries the same value).
+        const alicePlayerId = created.data.seatAssignment.playerId;
+        const bobPlayerId = parsePlayerId('Bob000000001');
         // Matchmaking minted seat 1's token at create time; the harness
         // binds the SAME token on the wire so auto-start's attachPlayer is
         // an idempotent re-bind (never a seat theft) and Alice's URL can
@@ -264,10 +275,11 @@ test('first console sees the waiting room while filling; auto-start clears it', 
         const aliceToken = created.data.seatAssignment.sessionToken;
 
         // Lobby-host style: register the arena pre-fill so the wire join
-        // succeeds while the roster is incomplete (fixed seed ⇒ fixed
-        // board), and bind seat 1 to Alice's matchmaking token.
-        buildLobbySession(matchId, 2026_0823).register(server);
-        server.attachPlayer({ matchId, playerId: 1 as PlayerId, sessionToken: aliceToken });
+        // succeeds while the roster is incomplete (fixed seed + fixed
+        // canonical ids ⇒ fixed board), and bind seat 1 to Alice's
+        // matchmaking token.
+        buildLobbySession(matchId, 2026_0823, [alicePlayerId, bobPlayerId]).register(server);
+        server.attachPlayer({ matchId, playerId: alicePlayerId, sessionToken: aliceToken });
 
         // -- First console joins the UNFILLED match --------------------------
         const aliceContext = await browser.newContext();
@@ -295,7 +307,11 @@ test('first console sees the waiting room while filling; auto-start clears it', 
         await expect(alice.locator('.europa-waiting__text')).toHaveText('Waiting for 1 more player… (1/2)');
 
         // -- Second seat fills via matchmaking ⇒ auto-start ------------------
-        const filled = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
+        const filled = matchmaker.joinMatch({
+            matchId,
+            displayName: 'Bob',
+            guestPlayerId: parseGuestPlayerId(bobPlayerId),
+        });
         expect(filled.ok).toBe(true);
         const bobToken = filled.data.seatAssignment.sessionToken;
 

@@ -29,6 +29,7 @@
 
 import { createServer as createHttpServer, type Server as HttpServer, get as httpGet } from 'node:http';
 
+import { isPlayerId } from '@europa/core';
 import { computePlayerView } from '@europa/fog';
 import { createLobbyService, createMatchmaker, type Matchmaker, type ReservesPct } from '@europa/matchmaking';
 import {
@@ -534,9 +535,13 @@ async function runNPlayerSmoke(playerCount: 2 | 3 | 4, boardSize: 32 | 48): Prom
         legs.push(leg);
     }
 
-    // Every seat joined with its own distinct id (1..N).
-    const ids = legs.map((leg) => leg.playerId).sort((a, b) => a - b);
-    expect(ids).toEqual(Array.from({ length: playerCount }, (_, i) => (i + 1) as PlayerId));
+    // Every seat joined with its own distinct, canonical server-issued id.
+    const ids = legs.map((leg) => leg.playerId).sort();
+    expect(ids).toHaveLength(playerCount);
+    expect(new Set(ids).size).toBe(playerCount);
+    for (const id of ids) {
+        expect(isPlayerId(id)).toBe(true);
+    }
 
     // Ticks flowed to every seat (join snapshot + at least one tick).
     for (const leg of legs) {

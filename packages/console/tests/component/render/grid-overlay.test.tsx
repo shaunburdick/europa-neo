@@ -15,7 +15,7 @@ import { DEFAULT_CAMERA } from '../../../src/config';
 import { GridOverlay } from '../../../src/render/grid-overlay';
 import { buildMapView } from '../../../src/state/build-map-view';
 import type { MapView, MapViewId } from '../../../src/state/types';
-import { buildCellView, buildPlayerView } from '../../fixtures/player-view';
+import { buildCellView, buildPlayerView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
@@ -95,7 +95,7 @@ describe('GridOverlay (T039 / Q-B03, Q-B04, Q-A01)', () => {
                 buildCellView({
                     coord: { x: 5, y: 7 },
                     troops: 32,
-                    owner: 1,
+                    owner: TEST_PLAYER_1,
                     isCity: true,
                     pipes: new Set(['N', 'E']),
                     reservesPct: 7,
@@ -107,7 +107,7 @@ describe('GridOverlay (T039 / Q-B03, Q-B04, Q-A01)', () => {
         const label = screen.container.querySelector('#europa-cell-5-7')?.getAttribute('aria-label');
         expect(label).toContain('(5, 7)');
         expect(label).toContain('32 troops');
-        expect(label).toContain('Player 1');
+        expect(label).toContain(TEST_PLAYER_1);
         expect(label).toContain('city');
         expect(label).toContain('pipes: N, E');
     });
@@ -171,12 +171,12 @@ describe('GridOverlay (T039 / Q-B03, Q-B04, Q-A01)', () => {
                 buildCellView({
                     coord: { x: 5, y: 7 },
                     troops: 32,
-                    owner: 1,
+                    owner: TEST_PLAYER_1,
                     isCity: true,
                     pipes: new Set(['N', 'E']),
                     reservesPct: 7,
                 }),
-                buildCellView({ coord: { x: 2, y: 3 }, terrain: 'water', troops: 5, owner: 2 }),
+                buildCellView({ coord: { x: 2, y: 3 }, terrain: 'water', troops: 5, owner: TEST_PLAYER_2 }),
                 buildCellView({ coord: { x: 8, y: 8 }, elevation: 200 }),
             ],
         });

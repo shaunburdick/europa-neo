@@ -26,9 +26,9 @@ import type {
     CombatEvent,
     EliminationEvent,
     Order,
-    PlayerId,
     ValidationError,
 } from '../../src/types';
+import { PLAYER_1, PLAYER_2 } from '../fixtures/ids';
 
 // ----------------------------------------------------------------------------
 // Test fixtures
@@ -37,8 +37,8 @@ import type {
 const COMBAT: CombatEvent = {
     tick: 1,
     cell: { x: 0, y: 0 },
-    attacker: 1 as PlayerId,
-    defender: 2 as PlayerId,
+    attacker: PLAYER_1,
+    defender: PLAYER_2,
     attackerLoss: 5,
     defenderLoss: 5,
     winner: 'tie',
@@ -50,19 +50,19 @@ const CAPTURE: CaptureEvent = {
     tick: 1,
     cell: { x: 1, y: 2 },
     fromOwner: null,
-    toOwner: 1 as PlayerId,
+    toOwner: PLAYER_1,
     isCity: true,
 };
 
 const ELIM: EliminationEvent = {
     tick: 2,
-    player: 2 as PlayerId,
+    player: PLAYER_2,
     reason: 'no_troops_no_cities',
 };
 
 const ORDER: Order = {
     kind: 'setPipe',
-    player: 1 as PlayerId,
+    player: PLAYER_1,
     cell: { x: 3, y: 3 },
     direction: 'E',
 };

@@ -78,6 +78,10 @@ export interface ForfeitFixture {
 const ALICE_TOKEN = 'aaaaaaaa-0000-4000-8000-00000000000a' as SessionToken;
 const BOB_TOKEN = 'bbbbbbbb-0000-4000-8000-00000000000b' as SessionToken;
 
+/** Deterministic canonical universal identities (issue #74) for the 1v1 fixture. */
+export const ALICE_PLAYER_ID = 'AlicePlyr001' as PlayerId;
+export const BOB_PLAYER_ID = 'BobPlyr00001' as PlayerId;
+
 interface MakerArgs {
     /** `'running'` attaches a real engine session; `'filling'` does not. */
     readonly status: 'running' | 'filling';
@@ -100,11 +104,13 @@ function makeFixture(args: MakerArgs): ForfeitFixture {
         displayName: 'Alice',
         randomId: () => '11111111-1111-4111-8111-111111111111',
         now: nowMs,
+        playerId: ALICE_PLAYER_ID,
     });
     const bob = createPlayerSession({
         displayName: 'Bob',
         randomId: () => '22222222-2222-4222-8222-222222222222',
         now: nowMs,
+        playerId: BOB_PLAYER_ID,
     });
 
     const seats: SeatRecord[] = [
@@ -113,7 +119,7 @@ function makeFixture(args: MakerArgs): ForfeitFixture {
             playerSessionId: alice.playerSessionId,
             displayName: 'Alice',
             sessionToken: ALICE_TOKEN,
-            playerId: args.status === 'running' ? (1 as PlayerId) : null,
+            playerId: alice.playerId,
             connectedAtMs: clockMs - 100,
         }),
         createSeatRecord({
@@ -121,7 +127,7 @@ function makeFixture(args: MakerArgs): ForfeitFixture {
             playerSessionId: bob.playerSessionId,
             displayName: 'Bob',
             sessionToken: BOB_TOKEN,
-            playerId: args.status === 'running' ? (2 as PlayerId) : null,
+            playerId: bob.playerId,
             connectedAtMs: clockMs - 100,
         }),
     ];
@@ -136,7 +142,7 @@ function makeFixture(args: MakerArgs): ForfeitFixture {
     bob.currentSessionToken = BOB_TOKEN;
 
     if (args.status === 'running') {
-        const config = buildMatchConfig(settings, 987654321);
+        const config = buildMatchConfig(settings, 987654321, [alice.playerId, bob.playerId]);
         match.engineConfig = config;
         match.engineSession = buildEngineSession(config, scriptedBoard(8, 2));
         match.startedAtMs = clockMs - 50;

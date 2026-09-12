@@ -161,7 +161,7 @@ describe('Issue #126 — no filling match with a full seat set is projected join
         // Finish the match via terminal event.
         server.fireOnMatchTerminal({
             matchId: created.data.matchId,
-            result: { kind: 'victory', winner: 1 },
+            result: { kind: 'victory', winner: 'WinnerPlyr01' as never },
             tick: 100,
         });
 

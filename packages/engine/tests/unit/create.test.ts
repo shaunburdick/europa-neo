@@ -18,12 +18,13 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createWorld } from '../../src/create';
-import type { Board, MatchConfig, PlayerId } from '../../src/types';
+import type { Board, Cell, CityPlacement, MatchConfig, PlayerId } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, PLAYER_5, playerIds } from '../fixtures/ids';
 
 const baseConfig: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xc0ffee,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -32,8 +33,8 @@ const baseConfig: MatchConfig = {
 describe('createWorld — FR-001 square grid', () => {
     it('produces a world with width === height === config.boardSize', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const world = createWorld(baseConfig, board);
         expect(world.board.width).toBe(8);
@@ -92,71 +93,72 @@ describe('createWorld — FR-002 cities on land', () => {
             width: w,
             height: w,
             cells: Object.freeze(cells),
-            cities: Object.freeze([{ cell: { x: 0, y: 0 }, owner: 1 as PlayerId }]),
+            cities: Object.freeze([{ cell: { x: 0, y: 0 }, owner: 1 }]),
         });
         expect(() => createWorld(baseConfig, board)).toThrow(/water|land/i);
     });
 
     it('accepts cities placed on land cells (sanity)', () => {
         const board = buildSmallBoard(8, [
-            [0, 0, 1 as PlayerId],
-            [7, 7, 2 as PlayerId],
+            [0, 0, 1],
+            [7, 7, 2],
         ]);
         expect(() => createWorld(baseConfig, board)).not.toThrow();
     });
 });
 
-describe('createWorld — FR-019 player count', () => {
-    it('accepts playerCount = 2', () => {
+describe('createWorld — FR-019 player identities', () => {
+    it('accepts 2 explicit canonical player ids', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
-        const cfg: MatchConfig = { ...baseConfig, playerCount: 2 };
+        const cfg: MatchConfig = { ...baseConfig, playerIds: playerIds(2) };
         const world = createWorld(cfg, board);
         expect(world.players.length).toBe(2);
-        expect(world.players[0]?.id).toBe(1);
-        expect(world.players[1]?.id).toBe(2);
+        expect(world.players[0]?.id).toBe(PLAYER_1);
+        expect(world.players[1]?.id).toBe(PLAYER_2);
     });
 
-    it('accepts playerCount = 3', () => {
+    it('accepts 3 explicit canonical player ids', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
-            [6, 1, 3 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
+            [6, 1, 3],
         ]);
-        const cfg: MatchConfig = { ...baseConfig, playerCount: 3 };
+        const cfg: MatchConfig = { ...baseConfig, playerIds: playerIds(3) };
         const world = createWorld(cfg, board);
         expect(world.players.length).toBe(3);
     });
 
-    it('accepts playerCount = 4', () => {
+    it('accepts 4 explicit canonical player ids', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
-            [6, 1, 3 as PlayerId],
-            [1, 6, 4 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
+            [6, 1, 3],
+            [1, 6, 4],
         ]);
-        const cfg: MatchConfig = { ...baseConfig, playerCount: 4 };
+        const cfg: MatchConfig = { ...baseConfig, playerIds: playerIds(4) };
         const world = createWorld(cfg, board);
         expect(world.players.length).toBe(4);
     });
 
-    it('rejects playerCount outside {2, 3, 4}', () => {
+    it('rejects a playerIds list outside 2..4 entries', () => {
         const board = buildSmallBoard(8, []);
-        expect(() => createWorld({ ...baseConfig, playerCount: 1 as 2 }, board)).toThrow(/playerCount/);
-        expect(() => createWorld({ ...baseConfig, playerCount: 5 as 4 }, board)).toThrow(/playerCount/);
+        expect(() => createWorld({ ...baseConfig, playerIds: [] }, board)).toThrow(/playerIds/);
+        expect(() => createWorld({ ...baseConfig, playerIds: [...playerIds(4), PLAYER_5] }, board)).toThrow(
+            /playerIds/,
+        );
     });
 
-    it('rejects fractional playerCount values', () => {
+    it('rejects duplicate player ids', () => {
         const board = buildSmallBoard(8, []);
-        const fractionalPlayerCount = 2.5 as unknown as MatchConfig['playerCount'];
-        expect(() => createWorld({ ...baseConfig, playerCount: fractionalPlayerCount }, board)).toThrow(/playerCount/);
+        expect(() => createWorld({ ...baseConfig, playerIds: [PLAYER_1, PLAYER_1] }, board)).toThrow(/duplicate/);
     });
 
     it('rejects fractional city owner values', () => {
         const board = buildSmallBoard(8, []);
-        const fractionalOwner = 1.5 as unknown as PlayerId;
+        const fractionalOwner = 1.5;
         const boardWithFractionalOwner: Board = Object.freeze({
             ...board,
             cities: Object.freeze([{ cell: { x: 1, y: 1 }, owner: fractionalOwner }]),
@@ -169,8 +171,8 @@ describe('createWorld — FR-019 player count', () => {
 describe('createWorld — initial state', () => {
     it('city cells are populated in cityOwners; non-city cells are 0', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const world = createWorld(baseConfig, board);
         const idx1 = 1 * 8 + 1; // (1,1)
@@ -192,8 +194,8 @@ describe('createWorld — initial state', () => {
 
     it('all non-city cells have owner=null and count=0', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const world = createWorld(baseConfig, board);
         for (let i = 0; i < world.state.troopCounts.length; i++) {
@@ -206,7 +208,7 @@ describe('createWorld — initial state', () => {
     });
 
     it('all cells start with zero pipe masks and zero reserves', () => {
-        const board = buildSmallBoard(8, [[1, 1, 1 as PlayerId]]);
+        const board = buildSmallBoard(8, [[1, 1, 1]]);
         const world = createWorld(baseConfig, board);
         for (let i = 0; i < world.state.pipeMasks.length; i++) {
             expect(world.state.pipeMasks[i]).toBe(0);
@@ -224,14 +226,14 @@ describe('createWorld — initial state', () => {
         expect(world.rngState.length).toBe(4);
     });
 
-    it('players array indexed by PlayerId (players[id-1].id === id)', () => {
+    it('players array is in canonical registry order (not seat arithmetic)', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const world = createWorld(baseConfig, board);
-        expect(world.players[0]?.id).toBe(1);
-        expect(world.players[1]?.id).toBe(2);
+        expect(world.players[0]?.id).toBe(PLAYER_1);
+        expect(world.players[1]?.id).toBe(PLAYER_2);
         for (const p of world.players) {
             expect(p.status).toBe('alive');
             expect(p.troopsHeld).toBe(0);
@@ -245,8 +247,8 @@ describe('createWorld — initial state', () => {
 describe('createWorld — determinism', () => {
     it('same (config, board) → byte-identical initial world', () => {
         const board = buildSmallBoard(8, [
-            [1, 1, 1 as PlayerId],
-            [6, 6, 2 as PlayerId],
+            [1, 1, 1],
+            [6, 6, 2],
         ]);
         const w1 = createWorld(baseConfig, board);
         const w2 = createWorld(baseConfig, board);
@@ -324,8 +326,101 @@ describe('createWorld — negative validation', () => {
                     terrain: 'land' as const,
                 })),
             ),
-            cities: Object.freeze([{ cell: { x: 99, y: 0 }, owner: 1 as PlayerId }]),
+            cities: Object.freeze([{ cell: { x: 99, y: 0 }, owner: 1 }]),
         });
         expect(() => createWorld(baseConfig, board)).toThrow();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Structural negative validation (coverage of every createWorld guard)
+// ---------------------------------------------------------------------------
+
+/** 8×8 all-land cell block matching `baseConfig.boardSize`. */
+function validCells(): Cell[] {
+    return Array.from({ length: 64 }, (_, i) => ({
+        x: i % 8,
+        y: Math.floor(i / 8),
+        elevation: 0,
+        terrain: 'land' as const,
+    }));
+}
+
+describe('createWorld — structural guard coverage', () => {
+    it('rejects a cell array whose length disagrees with width×height', () => {
+        const board: Board = { width: 8, height: 8, cells: validCells().slice(0, 10), cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/cells.length/);
+    });
+
+    it('rejects a non-array playerIds list', () => {
+        const board: Board = { width: 8, height: 8, cells: validCells(), cities: [] };
+        const config: MatchConfig = { ...baseConfig, playerIds: 'nope' as unknown as readonly PlayerId[] };
+        expect(() => createWorld(config, board)).toThrow(/playerIds must be an array/);
+    });
+
+    it('rejects a missing (sparse) cell at an index', () => {
+        const cells = new Array<Cell>(64);
+        const board: Board = { width: 8, height: 8, cells, cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/missing cell at index 0/);
+    });
+
+    it('rejects a cell with out-of-range elevation', () => {
+        const cells = validCells();
+        cells[0] = { x: 0, y: 0, elevation: 256, terrain: 'land' };
+        const board: Board = { width: 8, height: 8, cells, cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/elevation must be an integer in \[0, 255\]/);
+    });
+
+    it('rejects an unknown terrain value', () => {
+        const cells = validCells();
+        cells[0] = { x: 0, y: 0, elevation: 0, terrain: 'lava' as unknown as Cell['terrain'] };
+        const board: Board = { width: 8, height: 8, cells, cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/terrain must be 'land' or 'water'/);
+    });
+
+    it('rejects a cell with coordinates outside the board', () => {
+        const cells = validCells();
+        cells[0] = { x: 99, y: 0, elevation: 0, terrain: 'land' };
+        const board: Board = { width: 8, height: 8, cells, cities: [] };
+        expect(() => createWorld(baseConfig, board)).toThrow(/out of bounds/);
+    });
+
+    it('rejects a missing (sparse) city entry', () => {
+        const cities = new Array<CityPlacement>(1);
+        const board: Board = { width: 8, height: 8, cells: validCells(), cities };
+        expect(() => createWorld(baseConfig, board)).toThrow(/missing city at index 0/);
+    });
+
+    it('rejects fractional city coordinates', () => {
+        const board: Board = {
+            width: 8,
+            height: 8,
+            cells: validCells(),
+            cities: [{ cell: { x: 1.5, y: 1 }, owner: 1 }],
+        };
+        expect(() => createWorld(baseConfig, board)).toThrow(/coords must be integers/);
+    });
+
+    it('rejects a city owner above the player count', () => {
+        const board: Board = {
+            width: 8,
+            height: 8,
+            cells: validCells(),
+            cities: [{ cell: { x: 1, y: 1 }, owner: 5 }],
+        };
+        expect(() => createWorld(baseConfig, board)).toThrow(/owner must be a 1-based placement slot/);
+    });
+
+    it('rejects duplicate cities on the same cell', () => {
+        const board: Board = {
+            width: 8,
+            height: 8,
+            cells: validCells(),
+            cities: [
+                { cell: { x: 1, y: 1 }, owner: 1 },
+                { cell: { x: 1, y: 1 }, owner: 2 },
+            ],
+        };
+        expect(() => createWorld(baseConfig, board)).toThrow(/duplicate city/);
     });
 });

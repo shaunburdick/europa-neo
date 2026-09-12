@@ -201,7 +201,7 @@ export { createMatchServer } from './server';
 // ----------------------------------------------------------------------------
 
 export type { AttachSpectatorResult, SpectatorDeps } from './spectator';
-export { attachSpectator, detachSpectator, SPECTATOR_VIEW_SEAT } from './spectator';
+export { attachSpectator, detachSpectator, SPECTATOR_VIEW_PLAYER_ID } from './spectator';
 export { StatsCounter } from './stats';
 
 // ----------------------------------------------------------------------------

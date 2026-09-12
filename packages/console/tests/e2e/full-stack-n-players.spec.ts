@@ -138,11 +138,11 @@ interface LiveHandleView {
                 readonly player: number;
                 readonly visibleCells: ReadonlyArray<{
                     readonly coord: { readonly x: number; readonly y: number };
-                    readonly cityOwner: number | null;
+                    readonly cityOwner: string | null;
                     readonly reservesPercent: number;
                 }>;
             } | null;
-            readonly session: { readonly playerId: number | null };
+            readonly session: { readonly playerId: string | null };
             readonly feedback: ReadonlyArray<{ readonly kind: string; readonly text: string }>;
         };
     };
@@ -154,10 +154,10 @@ interface LiveHandleView {
 async function readLive(page: Page): Promise<{
     status: string;
     connection: string;
-    playerId: number | null;
+    playerId: string | null;
     tick: number;
     bootError: string | null;
-    cells: Array<{ x: number; y: number; cityOwner: number | null; reserves: number }>;
+    cells: Array<{ x: number; y: number; cityOwner: string | null; reserves: number }>;
 } | null> {
     return page.evaluate(() => {
         const handle = (window as unknown as { __europaLive?: LiveHandleView }).__europaLive;
@@ -254,7 +254,9 @@ for (const N of [3, 4]) {
                     return;
                 }
                 const { matchId } = created.data;
-                expect(created.data.seatAssignment.playerId).toBe(1);
+                // Server-allocated canonical identity for the host seat.
+                const hostId = created.data.seatAssignment.playerId;
+                expect(hostId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 
                 // The public lobby projection lists the filling match with the
                 // correct capacity chrome (FR-003 / lobby facade).
@@ -285,14 +287,19 @@ for (const N of [3, 4]) {
 
                 // -- N-1 distinct guests fill the remaining seats -------------------
                 const joinTokens: string[] = [];
+                const seatIds: string[] = [hostId];
+                const seatTokens: string[] = [created.data.seatAssignment.sessionToken];
                 for (let seat = 1; seat < N; seat++) {
                     const joined = matchmaker.joinMatch({ matchId, displayName: `P${String(seat + 1)}` });
                     expect(joined.ok).toBe(true);
                     if (!joined.ok) {
                         return;
                     }
+                    seatIds.push(joined.data.seatAssignment.playerId);
                     joinTokens.push(joined.data.seatAssignment.sessionToken);
+                    seatTokens.push(joined.data.seatAssignment.sessionToken);
                 }
+                expect(new Set(seatIds).size).toBe(N);
 
                 // Auto-start registered the engine session with the live server.
                 const stats = server.stats();
@@ -309,17 +316,23 @@ for (const N of [3, 4]) {
 
                 // -- N real browser consoles join through semantic match routes ----
                 const errors: string[] = [];
-                const openConsole = async (name: string): Promise<Page> => {
+                const openConsole = async (name: string, sessionToken: string): Promise<Page> => {
                     const context = await browser.newContext();
                     await context.addInitScript(
-                        ({ wsUrl, matchId, displayName }) => {
+                        ({ wsUrl, matchId, displayName, reconnectToken }) => {
                             (window as unknown as { __europaTestMatch: object }).__europaTestMatch = {
                                 wsUrl,
                                 matchId,
                                 displayName,
+                                reconnectToken,
                             };
                         },
-                        { wsUrl: `ws://127.0.0.1:${String(port)}`, matchId, displayName: name },
+                        {
+                            wsUrl: `ws://127.0.0.1:${String(port)}`,
+                            matchId,
+                            displayName: name,
+                            reconnectToken: sessionToken,
+                        },
                     );
                     const page = await context.newPage();
                     page.on('pageerror', (error) => {
@@ -331,16 +344,19 @@ for (const N of [3, 4]) {
 
                 const pages: Page[] = [];
                 for (let seat = 0; seat < N; seat++) {
-                    pages.push(await openConsole(`P${String(seat + 1)}`));
+                    pages.push(await openConsole(`P${String(seat + 1)}`, seatTokens[seat] ?? ''));
                 }
 
-                // All seats reach 'live' with distinct assigned seats.
+                // All seats reach 'live' with their own server-assigned identity.
                 for (const page of pages) {
                     await waitUntil(page, (live) => live.status === 'live', `seat reaches live (N=${N})`);
                 }
                 const seated = await Promise.all(pages.map((page) => readLiveOrThrow(page)));
                 const playerIds = seated.map((live) => live.playerId);
-                expect(new Set(playerIds)).toEqual(new Set(Array.from({ length: N }, (_, i) => i + 1)));
+                // Each console carries exactly the canonical id of the seat
+                // its matchmaking session token was issued for (in seat
+                // order) — no numeric seat index, no duplicate, no swap.
+                expect(playerIds).toEqual(seatIds);
 
                 // -- Ticks flow to all seats within 2 s of final join -------------
                 // (fixed 250 ms cadence; the early economy is still changing, so
@@ -457,9 +473,9 @@ for (const N of [3, 4]) {
                     expect(left.ok).toBe(true);
                 }
 
-                // The survivor is the host (seat 0 → playerId 1). Its console must
+                // The survivor is the host (seat 0's identity). Its console must
                 // surface the terminal result (showResults / game_over).
-                const winnerPage = pages[playerIds.indexOf(1)];
+                const winnerPage = pages[playerIds.indexOf(hostId)];
                 await expect
                     .poll(async () => (await readLive(winnerPage))?.status, {
                         timeout: 15_000,

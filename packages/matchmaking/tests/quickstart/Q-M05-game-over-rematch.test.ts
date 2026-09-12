@@ -48,7 +48,7 @@ describe('Q-M05: game over → rematch handshake', () => {
             tick: 1234,
             result: {
                 kind: 'win',
-                winner: 1,
+                winner: 'WinnerPlyr01' as never,
                 tick: 1234,
                 reason: 'last_standing',
             },

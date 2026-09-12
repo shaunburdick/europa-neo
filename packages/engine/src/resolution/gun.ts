@@ -33,6 +33,7 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents } from '../events';
+import type { PlayerRegistry } from '../playerRegistry';
 import type { Board, Order, TickEvents, ValidationError, WorldState } from '../types';
 
 interface GunResolutionResult {
@@ -52,6 +53,8 @@ interface GunResolutionResult {
  *                  per shot.
  * @param orders    The staged gun orders to apply. Other order kinds
  *                  are silently ignored.
+ * @param registry  ID ↔ dense-index registry; the order's `player` is
+ *                  resolved to its 1-based owner byte through it.
  * @returns `{ state, events, errors }`.
  */
 export function resolveGun(
@@ -59,6 +62,7 @@ export function resolveGun(
     board: Readonly<Board>,
     constants: EngineConstants,
     orders: readonly Order[],
+    registry: PlayerRegistry,
 ): GunResolutionResult {
     // Lazy allocation: only allocate fresh typed arrays when an order
     // actually modifies state. This preserves input `state` reference
@@ -109,8 +113,13 @@ export function resolveGun(
         const targetIdx = targetCoord.y * w + targetCoord.x;
 
         // Ownership check: source must be owned by player.
+        const playerIndex = registry.indexOfId(order.player);
+        if (playerIndex === null) {
+            errors.push({ order, reason: { kind: 'unknown_player', player: order.player } });
+            continue;
+        }
         const sourceOwner = newOwners === null ? (state.troopOwners[sourceIdx] ?? 0) : (newOwners[sourceIdx] ?? 0);
-        if (sourceOwner !== order.player) {
+        if (sourceOwner !== playerIndex + 1) {
             errors.push({ order, reason: { kind: 'not_owner', coord: sourceCoord } });
             continue;
         }

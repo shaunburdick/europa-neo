@@ -34,23 +34,23 @@ export interface GameOverModalProps {
     readonly onReturnToLobby: () => void;
     /**
      * Optional map from `PlayerId` to display name. When provided, the
-     * modal shows the winner's name (e.g. "Shaun wins!") instead of
-     * the raw numeric ID. Falls back to "Player N" when the map is
-     * absent or does not contain the winner's key.
+     * modal shows the winner's handle (e.g. "Shaun wins!") instead of
+     * the canonical ID. Falls back to the ID when the map is absent or
+     * does not contain the winner's key.
      */
     readonly playerNames?: ReadonlyMap<PlayerId, string>;
 }
 
 /**
- * Resolve a `PlayerId` to a human-readable display name. Falls back
- * to "Player N" when the name map is absent or does not contain the
- * key. Pure.
+ * Resolve a `PlayerId` to a human-readable label. Uses the handle when
+ * known, else the canonical ID fallback — never a fabricated "Player N"
+ * seat number. Pure.
  *
- * @param id The player's numeric id.
+ * @param id The player's canonical identity.
  * @param playerNames Optional name map from the session state.
  */
 function resolvePlayerName(id: PlayerId, playerNames?: ReadonlyMap<PlayerId, string>): string {
-    return playerNames?.get(id) ?? `Player ${String(id)}`;
+    return playerNames?.get(id) ?? id;
 }
 
 /**

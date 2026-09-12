@@ -19,13 +19,14 @@ import { applyCommand } from '../../src/applyCommand';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { createWorld } from '../../src/create';
 import { getCell } from '../../src/read';
-import type { MatchConfig, Order, PlayerId, World } from '../../src/types';
+import type { MatchConfig, Order, World } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, playerIds } from '../fixtures/ids';
 import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xfeed1234,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -54,7 +55,7 @@ describe('quickstart Q-008 — paratroop 2:1 cost + destination pipe clear', () 
         ]);
         const paratroopOrder: Order = {
             kind: 'paratroop',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 1, y: 1 },
             target: { x: 1, y: 3 },
         };
@@ -67,7 +68,7 @@ describe('quickstart Q-008 — paratroop 2:1 cost + destination pipe clear', () 
         // the test robust to ENGINE_CONSTANTS changes).
         expect(getCell(finalWorld, 1, 3).troopCount).toBeGreaterThanOrEqual(1);
         // Destination owner = source's player (paratroopers flip ownership).
-        expect(getCell(finalWorld, 1, 3).troopOwner).toBe(1);
+        expect(getCell(finalWorld, 1, 3).troopOwner).toBe(PLAYER_1);
     });
 
     it('paratroop clears destination pipeMasks (FR-013)', () => {
@@ -80,13 +81,13 @@ describe('quickstart Q-008 — paratroop 2:1 cost + destination pipe clear', () 
         const orders: Array<{ atTick: number; order: Order }> = [
             {
                 atTick: 29,
-                order: { kind: 'setPipe', player: 2 as PlayerId, cell: { x: 1, y: 3 }, direction: 'E' },
+                order: { kind: 'setPipe', player: PLAYER_2, cell: { x: 1, y: 3 }, direction: 'E' },
             },
             {
                 atTick: 30,
                 order: {
                     kind: 'paratroop',
-                    player: 1 as PlayerId,
+                    player: PLAYER_1,
                     source: { x: 1, y: 1 },
                     target: { x: 1, y: 3 },
                 },
@@ -108,7 +109,7 @@ describe('quickstart Q-008 — paratroop validation rejections', () => {
         const { finalWorld: w0 } = runScenario(cfg, board, [], 30);
         const r = applyCommand(w0, {
             kind: 'paratroop',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 1, y: 1 },
             target: { x: 7, y: 7 }, // Chebyshev distance = 6
         });
@@ -137,14 +138,14 @@ describe('quickstart Q-008 — paratroop validation rejections', () => {
             height: size,
             cells: Object.freeze(cells),
             cities: Object.freeze([
-                { cell: { x: 1, y: 1 }, owner: 1 as PlayerId },
-                { cell: { x: 6, y: 6 }, owner: 2 as PlayerId },
+                { cell: { x: 1, y: 1 }, owner: 1 },
+                { cell: { x: 6, y: 6 }, owner: 2 },
             ]),
         });
         const { finalWorld: w0 } = runScenario(cfg, board, [], 30);
         const r = applyCommand(w0, {
             kind: 'paratroop',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 1, y: 1 },
             target: { x: 3, y: 3 },
         });
@@ -169,7 +170,7 @@ describe('quickstart Q-008 — gun friendly fire', () => {
         ]);
         const gunOrder: Order = {
             kind: 'gun',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 1, y: 1 },
             target: { x: 1, y: 3 },
         };
@@ -178,7 +179,7 @@ describe('quickstart Q-008 — gun friendly fire', () => {
         // Target (1,3) loses gunDamage (=2) from its 30-troop stack.
         expect(getCell(finalWorld, 1, 3).troopCount).toBe(30 - ENGINE_CONSTANTS.gunDamage);
         // Owner unchanged (still P1 — friendly fire doesn't change ownership).
-        expect(getCell(finalWorld, 1, 3).troopOwner).toBe(1);
+        expect(getCell(finalWorld, 1, 3).troopOwner).toBe(PLAYER_1);
         // Source (1,1) loses gunCost.
         expect(getCell(finalWorld, 1, 1).troopCount).toBe(30 - ENGINE_CONSTANTS.gunCost);
         // No validation errors.
@@ -192,7 +193,7 @@ describe('quickstart Q-008 — gun friendly fire', () => {
         ]);
         const gunOrder: Order = {
             kind: 'gun',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             source: { x: 1, y: 1 },
             target: { x: 1, y: 3 },
         };

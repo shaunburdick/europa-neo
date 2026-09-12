@@ -51,6 +51,7 @@ import type {
     PlayerView,
     ReservesPct,
 } from '../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../fixtures/player-view';
 
 /** Paint budget: half a 60 fps frame (16.67 ms), in milliseconds. */
 const PAINT_BUDGET_MS = 8;
@@ -228,21 +229,21 @@ function buildFullBoardView(): PlayerView {
                     terrain: (x + y) % 9 === 0 ? 'water' : 'land',
                 },
                 troopCount: (x + y) % 40,
-                troopOwner: (x + y) % 2 === 0 ? 1 : 2,
+                troopOwner: (x + y) % 2 === 0 ? TEST_PLAYER_1 : TEST_PLAYER_2,
                 pipes: new Set([(y % 2 === 0 ? 'S' : 'N') as 'N' | 'S']),
                 reservesPercent: ((x + y) % 10) as ReservesPct,
-                cityOwner: (x + y) % 17 === 0 ? 1 : null,
+                cityOwner: (x + y) % 17 === 0 ? TEST_PLAYER_1 : null,
             });
         }
     }
     return {
-        player: 1,
+        player: TEST_PLAYER_1,
         tick: 1,
         visibleCells,
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: PERF_BOARD,
-            playerCount: 2,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
             tickIntervalMs: 250,
             seed: 0,
             visibilityRadius: 2,
@@ -271,7 +272,7 @@ function liveState(): ConsoleState {
         ...INITIAL_CONSOLE_STATE,
         status: 'live',
         inputEnabled: true,
-        session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1 },
+        session: { ...INITIAL_CONSOLE_STATE.session, playerId: TEST_PLAYER_1 },
     };
 }
 
@@ -333,7 +334,7 @@ describe('perf budgets (T091 / SC-003)', () => {
         const view = buildFullBoardView();
         const order = {
             kind: 'paratroop',
-            player: 1,
+            player: TEST_PLAYER_1,
             source: { x: 3, y: 8 },
             target: { x: 4, y: 9 },
         } as const;
@@ -341,7 +342,7 @@ describe('perf budgets (T091 / SC-003)', () => {
         const result = benchmark({
             name: 'localPreflightOrder(paratroop)',
             run: () => {
-                const rejection = localPreflightOrder(order, view, 1);
+                const rejection = localPreflightOrder(order, view, TEST_PLAYER_1);
                 sink += rejection === null ? 1 : 0;
             },
             warmup: 50,

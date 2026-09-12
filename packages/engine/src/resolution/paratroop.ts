@@ -35,7 +35,8 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents } from '../events';
-import type { Board, Coord, Order, PlayerId, TickEvents, ValidationError, WorldState } from '../types';
+import type { PlayerRegistry } from '../playerRegistry';
+import type { Board, Coord, Order, TickEvents, ValidationError, WorldState } from '../types';
 import { validateCommand } from '../validate';
 
 const PARATROOP_MAX_RANGE = 2;
@@ -51,6 +52,8 @@ const PARATROOP_MAX_RANGE = 2;
  * @param orders    The staged paratroop orders to apply. Other order
  *                  kinds are silently ignored (callers filter by kind
  *                  before invoking this resolver).
+ * @param registry  ID ↔ dense-index registry; the order's `player` is
+ *                  resolved to its 1-based owner byte through it.
  * @returns `{ state, events, errors }`. `state` is the post-resolution
  *          world state with new typed arrays (immutable update).
  *          `errors` carries the typed `ValidationError` for every
@@ -62,6 +65,7 @@ export function resolveParatroop(
     board: Readonly<Board>,
     constants: EngineConstants,
     orders: readonly Order[],
+    registry: PlayerRegistry,
 ): {
     state: WorldState;
     events: TickEvents;
@@ -150,9 +154,15 @@ export function resolveParatroop(
             newPipes = new Uint8Array(state.pipeMasks);
         }
 
-        // Ownership check: source must be owned by player (troopOwners).
+        // Ownership check: source must be owned by the issuing player.
+        // Resolve the canonical ID to its 0-based dense index.
+        const playerIndex = registry.indexOfId(order.player);
+        if (playerIndex === null) {
+            errors.push({ order, reason: { kind: 'unknown_player', player: order.player } });
+            continue;
+        }
         const sourceOwner = newOwners[sourceIdx] ?? 0;
-        if (sourceOwner !== order.player) {
+        if (sourceOwner !== playerIndex + 1) {
             errors.push({ order, reason: { kind: 'not_owner', coord: sourceCoord } });
             continue;
         }
@@ -179,7 +189,7 @@ export function resolveParatroop(
         const cap = constants.cellCapacity >>> 0;
         const finalTargetCount = newTargetCount > cap ? cap : newTargetCount;
         newCounts[targetIdx] = finalTargetCount;
-        newOwners[targetIdx] = order.player as PlayerId;
+        newOwners[targetIdx] = playerIndex + 1;
 
         // Clear destination pipes (FR-013).
         newPipes[targetIdx] = 0;

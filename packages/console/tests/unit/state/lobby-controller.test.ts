@@ -62,6 +62,8 @@ class FakeTransport implements LobbyTransport {
     joinOutcome: (() => Promise<'waiting' | 'match'>) | null = null;
     spectateOutcome: (() => Promise<'waiting' | 'match'>) | null = null;
     leaveOutcome: (() => Promise<void>) | null = null;
+    /** Scripted server-issued seat bearer token (issue #74 creator handoff). */
+    seatSessionToken: string | null = null;
 
     private readonly stateHandlers = new Set<StateHandler>();
     private readonly identityHandlers = new Set<IdentityHandler>();
@@ -126,7 +128,7 @@ class FakeTransport implements LobbyTransport {
     }
 
     lastSeatSessionToken(): string | null {
-        return null;
+        return this.seatSessionToken;
     }
 
     state(): WsLobbyClientState {
@@ -478,6 +480,36 @@ describe('command lifecycle', () => {
 
         transport.deliverSnapshot(snapshotOf(5, MATCH_A));
         expect(controller.store.getState().activeMatchId).toBe(MATCH_A);
+        controller.dispose();
+    });
+
+    it('create success records the creator seat token so its leg claims its OWN seat', async () => {
+        // Issue #74 regression: the creator's match id is not known eagerly,
+        // so the create flow must still record the server-issued seat bearer
+        // token. Without it the creator's match leg joins tokenlessly and the
+        // server selects the lowest open seat in canonical UTF-16 order —
+        // which may be another player's seat once identities are opaque.
+        const transport = new FakeTransport();
+        const controller = createLobbyController({ transport, url: LOBBY_URL });
+        transport.seatSessionToken = 'creator-seat-bearer';
+
+        const result = await controller.createMatch();
+        expect(result).toEqual({ ok: true, transition: 'waiting' });
+        const state = controller.store.getState();
+        expect(state.viewMode).toBe('match');
+        expect(state.activeMatchId).toBeNull(); // snapshot still supplies the id
+        expect(state.seatSessionToken).toBe('creator-seat-bearer');
+        controller.dispose();
+    });
+
+    it('create success without a seat token still flips the view (legacy/unnamed transport)', async () => {
+        const transport = new FakeTransport();
+        const controller = createLobbyController({ transport, url: LOBBY_URL });
+
+        const result = await controller.createMatch();
+        expect(result).toEqual({ ok: true, transition: 'waiting' });
+        expect(controller.store.getState().viewMode).toBe('match');
+        expect(controller.store.getState().seatSessionToken).toBeNull();
         controller.dispose();
     });
 
