@@ -29,10 +29,10 @@ function tickClock(ms = 1): number {
 }
 function fakeRandomId(): string {
     idSeq += 1;
-    return `g-${idSeq}`;
+    return `Plyr${String(idSeq).padStart(8, '0')}`;
 }
 function guest(n: number): GuestPlayerId {
-    return `g-${n}` as GuestPlayerId;
+    return `Plyr${String(n).padStart(8, '0')}` as GuestPlayerId;
 }
 
 interface Delivery {

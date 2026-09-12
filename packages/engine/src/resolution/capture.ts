@@ -31,7 +31,8 @@
 
 import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushCaptureEvent } from '../events';
-import type { Board, CaptureEvent, PlayerId, TickEvents, WorldState } from '../types';
+import type { PlayerRegistry } from '../playerRegistry';
+import type { Board, CaptureEvent, TickEvents, WorldState } from '../types';
 
 /**
  * Resolve one tick of city captures across the board. Pure.
@@ -41,6 +42,8 @@ import type { Board, CaptureEvent, PlayerId, TickEvents, WorldState } from '../t
  * @param constants  Engine rule constants (reserved for future tunables;
  *                   unused today).
  * @param tickNumber Tick number to stamp on every emitted CaptureEvent.
+ * @param registry   ID ↔ dense-index registry used to resolve the
+ *                   internal owner bytes into canonical `PlayerId`s.
  * @returns A fresh `WorldState` with cityOwners updated to reflect
  *          captures, plus a `TickEvents` value carrying the
  *          CaptureEvents in deterministic row-major order.
@@ -50,6 +53,7 @@ export function resolveCapture(
     board: Readonly<Board>,
     constants: EngineConstants,
     tickNumber: number,
+    registry: PlayerRegistry,
 ): { state: WorldState; events: TickEvents } {
     // `constants` is reserved for future tunables; silence unused-arg lint.
     void constants;
@@ -81,8 +85,8 @@ export function resolveCapture(
         const ev: CaptureEvent = {
             tick: tickNumber,
             cell: idxToCoord(idx, board.width),
-            fromOwner: cityOwner as PlayerId,
-            toOwner: occupant as PlayerId,
+            fromOwner: registry.requireIdAt(cityOwner - 1),
+            toOwner: registry.requireIdAt(occupant - 1),
             isCity: true,
         };
         events = pushCaptureEvent(events, ev);

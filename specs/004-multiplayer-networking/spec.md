@@ -3,10 +3,10 @@
 **Feature Branch**: `004-multiplayer-networking`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-11 (v1.6; admission hardening + hot-path performance)
-**Version**: 1.6
+**Last Updated**: 2026-09-11 (v1.9; 12-character universal player identity)
+**Version**: 1.9
 
-**Status**: Implemented
+**Status**: Implemented (2026-09-12; universal PlayerId wire migration implemented — issue #74)
 
 **Input**: User description: "Server-authoritative WebSocket protocol connecting clients to running matches: command submission, per-tick state broadcast with fog-of-war filtering, delta sync, and reconnection handling."
 
@@ -161,3 +161,14 @@ Rationale: code review identified four hot-path performance bottlenecks — per-
 - **FR-020 added** — structural view comparison for delta encoding. When computing per-tick deltas (FR-006), the server MUST use structural comparison (field-by-field equality check on the view objects) rather than JSON.stringify-based comparison. JSON.stringify comparison allocates a string per cell per tick; structural comparison operates on the typed arrays directly and short-circuits on the first difference.
 - **No contract change**: these are internal performance optimizations. The wire protocol, `TickDelta`, `Snapshot`, and `ProtocolMessage` types are unchanged. Callers see identical behavior with lower latency.
 - **Performance target**: at production cadence (250 ms ticks) with a 32×32 2-player board, the broadcast phase (fog computation + delta encoding + serialization for all connections) MUST complete in under 5 ms total (SC-005 budget). The resync path MUST complete in under 10 ms (SC-003 unchanged).
+
+### v1.9 (2026-09-11) — 12-character NanoID-style universal player identity and authentication boundary (issue #74)
+
+- Gameplay `playerId` fields, seat assignments, order attribution, snapshots, deltas, events, and reconnect associations carry the universal 12-character NanoID-style string equal to the lobby `GuestPlayerId`; numeric IDs are invalid. Spectators remain `null` where nullable.
+- `sessionToken`/`reconnectToken` remain separate bearer credentials. The universal ID is never accepted as proof of possession, seat claim, reconnect credential, or authorization input; client claims are advisory and server resolution is authoritative.
+- `NETWORK_API_VERSION` receives a breaking major-version bump. Mismatched versions are rejected before payload interpretation; no numeric compatibility shim or mixed-version gameplay channel exists. Both contract mirrors and fixtures change together.
+- **FR-021**: Gameplay identity fields MUST use canonical 12-character NanoID-style strings; numeric identity payloads MUST be rejected.
+- **FR-022**: A universal ID MUST NOT authenticate, claim a seat, reconnect, submit orders, or select a view without the server-bound bearer credential.
+- **FR-023**: The major wire-version bump MUST reject old-version/numeric clients before payload interpretation; no compatibility shim is required.
+- **FR-024**: Authoritative ID ordering MUST use explicit UTF-16 code-unit comparison and round-trip byte-stably.
+- **FR-025**: The canonical accepted form is exactly `[A-Za-z0-9_-]{12}` (72 bits). The server MUST generate IDs with CSPRNG-backed rejection sampling; collisions retry or fail closed. The identifier is not a time/order token, and no runtime `nanoid` dependency is required because it is absent from direct package manifests.

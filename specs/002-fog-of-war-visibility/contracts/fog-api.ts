@@ -90,9 +90,13 @@ export type {
  *
  * Algorithm (see `research.md` §1, `plan.md` "Visibility pipeline"):
  *
- *   1. Iterate `world.state.troopOwners` row-major; collect every cell
- *      where `troopOwner === player && troopCount > 0` (the "viewers").
- *      Cities alone do NOT project vision (spec Edge Case).
+ *   1. Resolve the universal `player` ID through the world's
+ *      authoritative `PlayerRegistry` to its private 1-based owner byte.
+ *      An unknown, forged, malformed, or numeric ID fails closed to an
+ *      empty `VisibleSet` (spec FR-010). Then iterate
+ *      `world.state.troopOwners` row-major; collect every cell whose
+ *      owner byte matches that player with `troopCount > 0` (the
+ *      "viewers"). Cities alone do NOT project vision (spec Edge Case).
  *   2. Allocate a `FogMask` (Uint8Array, length `width * height`,
  *      zero-init). Allocated fresh every tick (no-memory rule).
  *   3. For each viewer cell, mark every cell within Chebyshev range
@@ -109,7 +113,12 @@ export type {
  * The signature here MUST match that declaration byte-for-byte.
  *
  * @param world              The current `World` snapshot (from `tick()`).
- * @param player             The player whose visibility is being computed.
+ * @param player             The universal player ID whose visibility is
+ *                           being computed. It is resolved through the
+ *                           world's authoritative `PlayerRegistry`
+ *                           before any board scan; an unknown, forged,
+ *                           malformed, or numeric ID fails closed to an
+ *                           empty set (spec FR-010).
  * @param visibilityRadius   Sensor radius in cells (Chebyshev). Typically
  *                           `world.config.visibilityRadius`.
  * @returns                  A `VisibleSet` containing every cell visible
@@ -158,8 +167,14 @@ export declare function computeVisibleSet(
  * (100 runs) and `tests/redaction.test.ts` (500-tick scripted match).
  *
  * @param world    The current `World` snapshot (from `tick()`).
- * @param player   The player whose view is being computed (or the player
- *                 the spectator session is observing).
+ * @param player   The universal player ID whose view is being computed.
+ *                 A horizon view resolves it through the world's
+ *                 authoritative `PlayerRegistry` before computing; an
+ *                 unknown, forged, malformed, or numeric ID fails closed
+ *                 to an empty view (spec FR-010). For spectator sessions
+ *                 the ID is correlation metadata only — the server's
+ *                 read-only session flag is the authority — so an
+ *                 unregistered target still receives the full board.
  * @param options  Optional flags. `{ spectator: true }` for full-board
  *                 views. Default: `{ spectator: false }`.
  * @returns        A `PlayerView` ready for serialization.

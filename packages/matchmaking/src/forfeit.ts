@@ -149,7 +149,10 @@ export function handleSeatExpired(
         return null;
     }
 
-    const playerId = seat.playerId ?? event.playerId;
+    // Seat identity is authoritative (issue #74): the seat's universal
+    // `playerId` was fixed at claim time, so the networking event's
+    // `playerId` is only corroborating metadata, never a fallback identity.
+    const playerId = seat.playerId;
 
     if (match.status === 'filling') {
         // Inline seat release (dispatch ruling 3): no engine session yet,
@@ -180,22 +183,6 @@ export function handleSeatExpired(
             matchId: event.matchId,
         });
         return null;
-    }
-
-    if (playerId === null) {
-        // Seated players always carry a playerId once running; a null here
-        // means networking could not bind one — mark + detach without an
-        // engine order (nothing to surrender for an unbound connection).
-        seat.forfeitedAtMs = nowMs;
-        ctx.server.detachPlayer({
-            matchId: match.matchId,
-            playerId: null,
-            sessionToken: event.sessionToken,
-        });
-        ctx.logger.warn('forfeit: expired seat had no bound playerId', {
-            matchId: match.matchId,
-        });
-        return { match, remainingPlayers: countAlive(match), outcome: 'surrendered' };
     }
 
     // The engine is the single source of truth for elimination (FR-016):

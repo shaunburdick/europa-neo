@@ -7,5 +7,5 @@
  */
 
 // Regenerate: pnpm --filter @europa/console exec tsx scripts/generate-determinism-golden.ts
-export const GOLDEN_HASH = '381517f4ec1eefe46090c1ad382676ac54785d149abebb8315376838de78c76b';
+export const GOLDEN_HASH = '314e1365449a4a5fad3c0207cee6d86a6322e291d0b5cd310eb3c40a64cd71b5';
 export const GOLDEN_TICKS = 1000;

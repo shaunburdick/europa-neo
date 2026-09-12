@@ -33,6 +33,7 @@
 import { CONSOLE_CONSTANTS, DEFAULT_CAMERA, DEFAULT_QOL_SETTINGS } from '../config';
 import { actionToOrder } from './action-to-order';
 import { formatActionConfirmation, formatRejection } from './format';
+import { humanHandleOf, orderParticipants } from './participant-order';
 import type {
     ActionId,
     ConsoleAction,
@@ -144,7 +145,7 @@ export const INITIAL_CONSOLE_STATE: ConsoleState = {
         sessionToken: null,
         playerId: null,
         displayName: '',
-        opponents: [],
+        participants: [],
         playerNames: new Map(),
     },
     inputEnabled: false,
@@ -395,11 +396,11 @@ function orderCellOf(action: PlayerAction): import('@europa/engine').Coord {
  * Build a result-aware announcement string for the terminal event.
  * Used by both the player reducer and the screen-reader announcer
  * (FR-012). Resolves the winner's `PlayerId` to a display name when
- * session data is available, falling back to the raw numeric ID.
- * Pure — no side effects.
+ * session data is available, falling back to the canonical ID. Pure —
+ * no side effects.
  *
  * @param result The engine's terminal match result, or `null` defensively.
- * @param session The console session carrying seat + opponent data.
+ * @param session The console session carrying participant + name data.
  */
 function terminalAnnouncementText(
     result: MatchResult | null,
@@ -421,15 +422,15 @@ function terminalAnnouncementText(
 }
 
 /**
- * Resolve a `PlayerId` to a display name using session state. Falls
- * back to "Player N" when session data is absent or the name is
- * empty. Pure.
+ * Resolve a `PlayerId` to a human handle using session state. Falls
+ * back to the canonical ID when no handle was registered — never to a
+ * fabricated "Player N" seat number. Pure.
  *
- * @param id The player's numeric id.
+ * @param id The player's canonical identity.
  * @param session Optional console session data.
  */
 function resolveName(id: PlayerId, session?: { readonly playerNames: ReadonlyMap<PlayerId, string> }): string {
-    return session?.playerNames.get(id) ?? `Player ${String(id)}`;
+    return session?.playerNames.get(id) ?? id;
 }
 
 /**
@@ -457,18 +458,25 @@ function reduceNetEvent(
             return { state, effects: [] };
 
         case 'joined': {
-            // Feature 010 (T-016, FR-020): the local seat's label is the
-            // SERVER's own echo of this player's accepted handle (the
-            // players array entry at our assigned seat) — never a
-            // client-side assertion. Falls back to the prior value when
-            // the server omits the entry.
-            const ownName = event.players.find((player) => player.id === event.playerId)?.displayName;
+            // Feature 010 (T-016, FR-020) + issue #74: identity is the
+            // server-issued `PlayerId`; handles are the preferred label
+            // and the canonical ID is the fallback. The engine roster's
+            // `displayName` is the raw ID placeholder unless the
+            // matchmaker overlaid a real registered handle
+            // (`MatchChannel.joinAckPlayers`), so only real handles are
+            // recorded — the ID is never mistaken for a handle.
+            const ownPlayer = event.players.find((player) => player.id === event.playerId);
             const playerNames = new Map<PlayerId, string>();
             for (const player of event.players) {
-                if (player.displayName !== '') {
-                    playerNames.set(player.id, player.displayName);
+                const handle = humanHandleOf(player);
+                if (handle !== null) {
+                    playerNames.set(player.id, handle);
                 }
             }
+            // Participants in terrain placement-slot (seat) order, keyed
+            // by the server identity — never by array position or handle.
+            const participants = orderParticipants(event.view.config.playerIds, event.players, event.playerId);
+            const ownHandle = ownPlayer === undefined ? null : humanHandleOf(ownPlayer);
             return {
                 state: {
                     ...state,
@@ -478,8 +486,8 @@ function reduceNetEvent(
                         ...state.session,
                         sessionToken: event.sessionToken,
                         playerId: event.playerId,
-                        displayName: ownName ?? state.session.displayName,
-                        opponents: event.players.filter((p) => p.id !== event.playerId).map((p) => p.displayName),
+                        displayName: ownHandle ?? state.session.displayName,
+                        participants,
                         playerNames,
                     },
                 },

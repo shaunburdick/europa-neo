@@ -51,9 +51,9 @@ Produces `dist/index.js` (ESM) and `dist/index.d.ts` (types) via `tsup`.
 pnpm --filter @europa/networking test
 ```
 
-Runs the full Vitest suite (177 tests at last count, ~10 s — dominated
-by the 10 s SC-005 cadence soak). Coverage thresholds are 80% on every
-metric (constitution Principle III merge gate):
+Runs the full Vitest suite (325 tests across 35 files at last count —
+dominated by the SC-005 cadence soak). Coverage thresholds are 80% on
+every metric (constitution Principle III merge gate):
 
 ```bash
 pnpm --filter @europa/networking coverage
@@ -150,7 +150,7 @@ the source-of-truth contracts live at
 | `MatchChannel` | Per-match seats, pending-order queue, canonical drain (FR-018), resync buffers. |
 | `acceptOrder` / `applyOrdersAtTickBoundary` | Order validation → enqueue → boundary application pipeline. |
 | `buildTickBroadcast` / `sendTickBroadcast` | Per-player view assembly + fan-out. |
-| `attachSpectator` / `detachSpectator` / `SPECTATOR_VIEW_SEAT` | US3 spectator plumbing (full-board view, unfiltered events). |
+| `attachSpectator` / `detachSpectator` / `SPECTATOR_VIEW_PLAYER_ID` | US3 spectator plumbing (full-board view, unfiltered events; the sentinel is a canonical `PlayerId`, never a numeric seat). |
 | `ReconnectRegistry` / `ResyncBuffer` | US2 seat reclaim within the grace window + catch-up replay. |
 | `StatsCounter` | Monotonic counter primitive behind `ServerStats`. |
 
@@ -205,7 +205,7 @@ as correlation fields when they do not disclose hidden state or grant authority.
 
 | Symbol | Purpose |
 |--------|---------|
-| `NETWORK_API_VERSION` | `'0.1.0'` — pin-check at consumer startup. |
+| `NETWORK_API_VERSION` | `'0.3.0'` — pin-check at consumer startup (issue #74 breaking identity bump). |
 | `NETWORK_CONSTANTS` | Tunable numeric rules (seq bounds, close codes, buffer caps). |
 | `NETWORK_DEFAULT_CONFIG` | Default `ServerConfig`: 250 ms ticks, 5 s heartbeat, 60 s reconnect grace, 10 orders/s + 2× burst, 64 concurrent matches. |
 | `NULL_LOGGER` | The default no-op logger. |
@@ -217,8 +217,11 @@ as correlation fields when they do not disclose hidden state or grant authority.
 - **Version policy (FR-004)**: clients hello with
   `payload.protocolVersion`; mismatches get an `error`
   (`version_mismatch`) frame followed by close `1008`. Pre-1.0, any
-  minor bump is breaking (`0.1.x` compatible with `0.1.x`; `0.2.0`
-  rejects `0.1.x`).
+  minor bump is breaking (`0.3.x` compatible with `0.3.x`; `0.3.0`
+  rejects `0.2.x` and `0.1.x`). The gate runs before payload
+  interpretation, so an old-boundary frame carrying a now-invalid
+  numeric identity is rejected as `version_mismatch`, not
+  `malformed_payload`.
 - **Order path**: submissions are validated, rate-limited
   (token bucket: `ordersPerSecond` refill, `rateLimitBurstFactor`
   burst), enqueued, and applied at the next tick boundary in canonical
@@ -246,7 +249,9 @@ as correlation fields when they do not disclose hidden state or grant authority.
    ascending `(playerId, kind)` — identical inputs produce identical
    simulations regardless of network arrival order (FR-018).
 3. **Identity randomness is quarantined**: CSPRNG output appears only
-   in session tokens/connection IDs, never in engine state.
+   in session tokens/connection IDs, never in engine simulation state.
+   Canonical `PlayerId` allocation is the matchmaker's own trust
+   boundary (feature 006), also deliberately outside the tick.
 4. **Single constants location**: every tunable number lives in
    `NETWORK_CONSTANTS` / `NETWORK_DEFAULT_CONFIG`.
 

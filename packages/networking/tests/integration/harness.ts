@@ -14,7 +14,7 @@ import { computePlayerView } from '@europa/fog';
 
 import { NETWORK_DEFAULT_CONFIG } from '../../src/contracts/network-api';
 import { createMatchServer } from '../../src/server';
-import type { ServerConfig, ServerDeps } from '../../src/types';
+import type { Server, ServerConfig, ServerDeps, SessionToken } from '../../src/types';
 import { NULL_LOGGER } from '../../src/types';
 import { MockWebSocket, ScriptedClient } from '../fixtures/conn';
 import { attachPlayersForMatch, type ScriptedMatch, scriptedMatch } from '../fixtures/match';
@@ -77,21 +77,26 @@ export function stubFogDeps(): ServerDeps {
             },
         },
         fog: {
-            computePlayerView: ({ world, playerId }) => ({
-                player: playerId,
-                tick: world.tick,
-                visibleCells: [
-                    {
-                        coord: { x: 0, y: 0 },
-                        cell: { x: 0, y: 0, elevation: 0, terrain: 'land' },
-                        troopCount: world.tick * 10 + playerId,
-                        troopOwner: playerId,
-                        pipes: new Set(),
-                        reservesPercent: 0,
-                        cityOwner: null,
-                    },
-                ],
-            }),
+            computePlayerView: ({ world, playerId }) => {
+                // Dense index (0-based) keys the deterministic content so
+                // the stub stays a pure function of (tick, identity slot).
+                const dense = world.playerRegistry.indexOfId(playerId) ?? 0;
+                return {
+                    player: playerId,
+                    tick: world.tick,
+                    visibleCells: [
+                        {
+                            coord: { x: 0, y: 0 },
+                            cell: { x: 0, y: 0, elevation: 0, terrain: 'land' },
+                            troopCount: world.tick * 10 + dense,
+                            troopOwner: playerId,
+                            pipes: new Set(),
+                            reservesPercent: 0,
+                            cityOwner: null,
+                        },
+                    ],
+                };
+            },
         },
         matchmaker: {},
         logger: NULL_LOGGER,
@@ -119,6 +124,22 @@ export function injectSocket(server: Server, socket: MockWebSocket): void {
 }
 
 /**
+ * Resolve a placement slot's bound session token, failing loudly when
+ * the slot has no attached seat.
+ *
+ * @param tokens Token list in placement-slot order.
+ * @param slot   1-based placement slot.
+ * @returns The seat's bearer token.
+ */
+export function seatToken(tokens: readonly SessionToken[], slot: number): SessionToken {
+    const token = tokens[slot - 1];
+    if (token === undefined) {
+        throw new Error(`seatToken: no token for slot ${String(slot)}`);
+    }
+    return token;
+}
+
+/**
  * Attach a fresh {@link MockWebSocket} to the server's test seam and
  * return a {@link ScriptedClient} speaking through it.
  *
@@ -135,15 +156,19 @@ export function connectMockClient(server: Server): ScriptedClient {
 export interface JoinedHarness {
     readonly server: ReturnType<typeof createMatchServer>;
     readonly match: ScriptedMatch;
-    /** Session tokens by seat order (index = playerId − 1). */
+    /** Session tokens by placement-slot order (index = slot − 1). */
     readonly tokens: readonly string[];
-    /** Joined player clients, index 0 = seat 1. */
+    /** Joined player clients, index 0 = slot 1. */
     readonly clients: [ScriptedClient, ScriptedClient];
 }
 
 /**
  * Boot a ticking server with one registered 2-player scripted match,
  * both seats attached, and both clients through hello → joinMatch.
+ *
+ * Each client joins with its seat's bound bearer token (issue #74: a
+ * client-supplied seat/identity is never accepted), which resolves the
+ * exact seat deterministically.
  *
  * @param deps Server dependencies. Defaults to real engine + real fog
  *             (acceptance suite); pass {@link stubFogDeps} for the
@@ -170,8 +195,8 @@ export async function startJoinedMatch(deps: ServerDeps = realDeps()): Promise<J
     client2.hello();
     await client1.nextMessage('helloAck');
     await client2.nextMessage('helloAck');
-    client1.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
-    client2.joinMatch(match.matchId, 'player', { requestedSeat: 2 });
+    client1.joinMatch(match.matchId, 'player', { reconnectToken: seatToken(tokens, 1) });
+    client2.joinMatch(match.matchId, 'player', { reconnectToken: seatToken(tokens, 2) });
     await client1.nextMessage('joinAck');
     await client2.nextMessage('joinAck');
 
@@ -196,19 +221,21 @@ export function wireShape(value: unknown): unknown {
 }
 
 /**
- * Deterministic always-valid order for a seat, varying only by loop
- * index. Even iterations set a pipe from the seat's home city, odd
- * iterations clear it — two kinds per player exercise the FR-018
- * `(playerId, kind)` drain sort, and city ownership is permanent
- * (no combat in this script), so acceptance never depends on how
- * earlier orders reshaped the board.
+ * Deterministic always-valid order for a placement slot, varying only
+ * by loop index. Even iterations set a pipe from the slot's home city,
+ * odd iterations clear it — two kinds per player exercise the FR-018
+ * `(playerId, kind)` drain sort, and city ownership is permanent (no
+ * combat in this script), so acceptance never depends on how earlier
+ * orders reshaped the board.
  *
- * @param seat  Player id (1-based).
- * @param index Loop index selecting kind + direction cycle.
- * @returns An engine-valid pipe order anchored at that seat's city.
+ * @param playerIds The match's explicit identities in slot order.
+ * @param slot      Placement slot (1 or 2 on the 8×8 scripted board).
+ * @param index     Loop index selecting kind + direction cycle.
+ * @returns An engine-valid pipe order anchored at that slot's city.
  */
 export function scriptedPipeOrder(
-    seat: 1 | 2,
+    playerIds: readonly PlayerId[],
+    slot: 1 | 2,
     index: number,
 ): {
     kind: 'setPipe' | 'clearPipe';
@@ -219,8 +246,12 @@ export function scriptedPipeOrder(
     const directions = ['N', 'E', 'S', 'W'] as const;
     const direction = directions[index % directions.length] as 'N' | 'E' | 'S' | 'W';
     const kind = index % 2 === 0 ? 'setPipe' : 'clearPipe';
-    // Seat cities on the 8×8 board: P1 (1,1), P2 (6,6). City cells are
-    // permanently owned sources; their neighbors are flat land.
-    const cell = seat === 1 ? { x: 1, y: 1 } : { x: 6, y: 6 };
-    return { kind, player: seat as PlayerId, cell, direction };
+    // Slot cities on the 8×8 board: slot 1 (1,1), slot 2 (6,6). City
+    // cells are permanently owned sources; their neighbors are flat land.
+    const cell = slot === 1 ? { x: 1, y: 1 } : { x: 6, y: 6 };
+    const player = playerIds[slot - 1];
+    if (player === undefined) {
+        throw new Error(`scriptedPipeOrder: no identity for slot ${String(slot)}`);
+    }
+    return { kind, player, cell, direction };
 }

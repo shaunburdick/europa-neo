@@ -42,8 +42,18 @@ import type { PlayerId } from '@europa/engine';
  *   - Every envelope carries a `version` field (matches engine's
  *     `ProtocolEnvelope.version`). Server rejects mismatched major versions
  *     per feature 004 FR-004.
+ *
+ * Change trail:
+ *   - `0.2.0` → `0.3.0` (issue #74): gameplay identity fields became
+ *     canonical 12-character `PlayerId` strings (numeric IDs are
+ *     rejected); `JoinMatchPayload.requestedSeat` was removed so a
+ *     client-supplied identity can never select or claim a seat — seat
+ *     admission is resolved solely from the bound bearer credential or
+ *     server assignment. Pre-1.0 semver makes the minor the BREAKING
+ *     boundary (`breakingBoundary`), so every `0.2.x` client is
+ *     rejected before payload interpretation.
  */
-export const NETWORK_API_VERSION = '0.2.0' as const;
+export const NETWORK_API_VERSION = '0.3.0' as const;
 
 // ----------------------------------------------------------------------------
 // Branded primitives
@@ -369,32 +379,28 @@ export interface HelloAckPayload {
 /**
  * Client → Server seat claim. Two modes:
  *
- * - **New session** (no `reconnectToken`): server assigns a new
- *   `PlayerId` seat in the requested match. Subject to match capacity
- *   (2–4 per engine contract; v1 ships 2). Fails with
- *   `ErrorPayload` code `'match_not_joinable'` (FR-016 anti-oracle
- *   collapse: not found, full, or seat taken).
+ * - **New session** (no `reconnectToken`): the server assigns the
+ *   lowest open seat and returns its canonical `PlayerId` in the
+ *   `joinAck`. Subject to match capacity (2–4 per engine contract; v1
+ *   ships 2). Fails with `ErrorPayload` code `'match_not_joinable'`
+ *   (FR-016 anti-oracle collapse: not found, full, or seat taken). The
+ *   client never names the seat or the identity it wants: a supplied
+ *   ID must not claim or select a seat (FR-022).
  *
- * - **Reconnect** (with `reconnectToken`): server validates the token,
- *   restores the seat, sends a fresh `SnapshotPayload`. Fails with
- *   `'token_invalid'` / `'token_expired'` / `'token_mismatch'`.
+ * - **Reconnect** (with `reconnectToken`): server validates the bearer
+ *   token, restores the server-bound seat, and sends a fresh
+ *   `SnapshotPayload`. Fails with `'token_invalid'` /
+ *   `'token_expired'` / `'token_mismatch'`.
  *
  * `role` distinguishes player (claim a seat) from spectator (attach
  * without a seat). Spectator attach uses the same payload without a
- * `reconnectToken` and without `requestedSeat`.
+ * `reconnectToken`.
  */
 export interface JoinMatchPayload {
   readonly matchId: MatchId;
   readonly role: ConnectionRole;
-  /** Opaque token from a prior `JoinAckPayload`. Absent for new sessions. */
+  /** Opaque bearer token from a prior `JoinAckPayload`. Absent for new sessions. */
   readonly reconnectToken?: SessionToken;
-  /**
-   * Requested seat (1..playerCount — the engine's 1-based `PlayerId`
-   * domain, which is also the server's seat-key domain). Only honored
-   * for new player sessions; matchmaking may assign differently. The
-   * server picks the lowest open seat if omitted.
-   */
-  readonly requestedSeat?: number;
   /** Cosmetic display name for the session (matchmaking spec FR-001). */
   readonly displayName: string;
 }
@@ -404,10 +410,10 @@ export interface JoinMatchPayload {
  * successful join. Transitions state `greeted` → `joined` (or
  * `rejoined`).
  *
- * `sessionToken` is the value the client must present to reconnect.
- * `playerId` is the assigned seat (null for spectators). `snapshot`
- * is the initial full-state PlayerView (or full-board view for
- * spectators), per FR-006.
+ * `sessionToken` is the bearer value the client must present to
+ * reconnect. `playerId` is the server-resolved canonical identity
+ * (`null` for spectators). `snapshot` is the initial full-state
+ * PlayerView (or full-board view for spectators), per FR-006.
  */
 export interface JoinAckPayload {
   readonly sessionToken: SessionToken;

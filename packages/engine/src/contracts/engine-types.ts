@@ -36,9 +36,10 @@
 
 import type { Board, Cell, CityPlacement, Coord, Direction, MatchConfig, PlayerId, Rng, Terrain } from '@europa/core';
 import { ENGINE_API_VERSION } from '@europa/core';
+import type { PlayerRegistry } from '../playerRegistry';
 
 export { ENGINE_API_VERSION };
-export type { Board, Cell, CityPlacement, Coord, Direction, MatchConfig, PlayerId, Rng, Terrain };
+export type { Board, Cell, CityPlacement, Coord, Direction, MatchConfig, PlayerId, PlayerRegistry, Rng, Terrain };
 
 // ----------------------------------------------------------------------------
 // Engine-specific branded primitives
@@ -58,13 +59,19 @@ export type ReservesPct = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
  * Per-cell runtime state. Stored as flat `TypedArray`s for tick performance.
  * Consumers normally use the read helpers in engine-api.ts; this type is
  * exposed so feature 004 can serialize the world without copying.
+ *
+ * Owner slots are **private 1-based dense indexes** (issue #74):
+ * `0` = neutral / no owner, `k` in `1..N` = the player at
+ * `World.playerRegistry` dense index `k - 1`. Public APIs resolve them
+ * back to canonical `PlayerId` strings; callers must never treat a byte
+ * as an ID or derive one arithmetically.
  */
 export interface WorldState {
   readonly troopCounts: Uint32Array;   // w*h; integer ≥ 0
-  readonly troopOwners: Uint8Array;    // w*h; 0=neutral, 1..4=PlayerId
+  readonly troopOwners: Uint8Array;    // w*h; 0=neutral, 1..N=registry dense index + 1
   readonly pipeMasks: Uint8Array;      // w*h; N=0x01, E=0x02, S=0x04, W=0x08
   readonly reservesPct: Uint8Array;    // w*h; 0..9 (×10 at use-site)
-  readonly cityOwners: Uint8Array;     // w*h; 0=no city; 1..4=PlayerId
+  readonly cityOwners: Uint8Array;     // w*h; 0=no city, 1..N=registry dense index + 1
 }
 
 // ----------------------------------------------------------------------------
@@ -94,12 +101,19 @@ export interface World {
   /** Monotonic tick number; ≥ 0. */
   readonly tick: number;
   readonly board: Board;
-  readonly players: ReadonlyArray<Player>; // index by PlayerId - 1
+  /** Players in canonical registry order; look one up via `playerRegistry`. */
+  readonly players: ReadonlyArray<Player>;
   readonly state: WorldState;
   /** Seed used to initialize the engine's PRNG (sfc32). uint32. */
   readonly rngSeed: number;
   /** Serialized sfc32 state (4× uint32). For advanced replays. */
   readonly rngState: Readonly<Uint32Array>;
+  /**
+   * The world's immutable ID ↔ dense-index registry. Every conversion
+   * between public `PlayerId` strings and the private owner bytes in
+   * `state` goes through this value.
+   */
+  readonly playerRegistry: PlayerRegistry;
 }
 
 // ----------------------------------------------------------------------------
@@ -208,7 +222,7 @@ export type ValidationError =
   | { kind: 'no_source_troops';  coord: Coord }
   | { kind: 'already_surrendered'; player: PlayerId }
   | { kind: 'invalid_percent';   percent: number }
-  | { kind: 'unknown_player';    player: number }
+  | { kind: 'unknown_player';    player: PlayerId }
   | { kind: 'unknown_order' }
   | { kind: 'invalid_direction'; direction: string }
   | { kind: 'match_terminal' };

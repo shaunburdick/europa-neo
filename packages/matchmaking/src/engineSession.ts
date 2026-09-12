@@ -29,25 +29,40 @@
  * Principle II).
  */
 
+import type { PlayerId } from '@europa/core';
 import type { Board, MatchConfig, Order, World } from '@europa/engine';
 import { applyCommand, createWorld, ENGINE_CONSTANTS, isTerminal, tick } from '@europa/engine';
 import type { EngineSession, MatchSettings } from '../contracts/match-types';
 
 /**
  * Build the engine `MatchConfig` for a starting match: player-facing
- * settings plus the fresh uint32 seed and the engine-owned default
- * sensor radius (single tunable location:
+ * settings plus the explicit universal `playerIds` (issue #74, T025) and
+ * the engine-owned default sensor radius (single tunable location:
  * `ENGINE_CONSTANTS.visibilityRadiusDefault`).
+ *
+ * `playerIds` is in terrain placement-slot order (index 0 = slot 1,
+ * i.e. seat order): the engine maps each city slot to
+ * `playerIds[slot - 1]`. The matchmaker supplies each seat's stored
+ * universal ID — never `seatIndex + 1` — so the lobby, engine, results,
+ * and rematch all share one identity.
  *
  * @param settings - Validated match settings from the stored record.
  * @param seed - Fresh uint32 seed minted by the matchmaker at start.
+ * @param playerIds - Explicit canonical IDs in seat/placement order.
  * @returns A frozen `MatchConfig` ready for `createWorld` and
  *   `registerMatch`.
+ * @throws {Error} When `playerIds.length` does not equal
+ *   `settings.playerCount`.
  */
-export function buildMatchConfig(settings: MatchSettings, seed: number): MatchConfig {
+export function buildMatchConfig(settings: MatchSettings, seed: number, playerIds: readonly PlayerId[]): MatchConfig {
+    if (playerIds.length !== settings.playerCount) {
+        throw new Error(
+            `engineSession: expected ${String(settings.playerCount)} playerIds, received ${String(playerIds.length)}`,
+        );
+    }
     return Object.freeze({
         boardSize: settings.boardSize,
-        playerCount: settings.playerCount,
+        playerIds: Object.freeze([...playerIds]),
         tickIntervalMs: settings.tickIntervalMs,
         seed,
         visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,

@@ -26,16 +26,17 @@
  * the factory's arguments (constitution Principle II).
  */
 
-import type { PlayerId } from '@europa/engine';
+import type { PlayerId } from '@europa/core';
 import type { SessionToken } from '@europa/networking';
 import type { PlayerSessionId, SeatIndex } from '../../contracts/match-types';
 import type { GuestPlayerId } from '../contracts/lobby-types';
 
 /**
- * One occupied seat. `playerId` (the engine-facing 1..playerCount id)
- * is assigned when the match transitions to `running`; during
- * `'filling'` it is provisionally `seatIndex + 1` per
- * `SeatAssignment.playerId` in the contract.
+ * One occupied seat. `playerId` is the seat holder's universal
+ * 12-character identity (issue #74, T025): it is assigned ONCE when the
+ * seat is claimed (copied from the holder's session) and never derived
+ * from `seatIndex` or reassigned — seat indexes remain lifecycle
+ * coordinates only.
  */
 export interface SeatRecord {
     /** Position in seat order, `0 <= seatIndex < playerCount`. */
@@ -65,8 +66,12 @@ export interface SeatRecord {
     handle: string | null;
     /** Bearer token for reconnect; UUID v4 (feature 004 boundary). */
     readonly sessionToken: SessionToken;
-    /** Engine PlayerId; non-null once the match is `running`. */
-    playerId: PlayerId | null;
+    /**
+     * The seat holder's universal identity (the session's `playerId`),
+     * fixed at claim time. Same value flows into `MatchConfig.playerIds`,
+     * engine events, terminal results, and accepted rematches.
+     */
+    readonly playerId: PlayerId;
     /** Epoch ms the seat was claimed. */
     readonly connectedAtMs: number;
     /** Epoch ms of forfeit (`onSeatExpired`); terminal for the seat. */
@@ -86,10 +91,11 @@ export interface CreateSeatRecordArgs {
     /** Bearer token issued for this seat. */
     readonly sessionToken: SessionToken;
     /**
-     * Engine PlayerId, or `null` while the match is still `'filling'`
-     * (assigned at the atomic `filling → running` transition, FR-004).
+     * The holder's universal identity, copied from the session at claim
+     * time (issue #74 T025). Required — seat-index-derived identity is
+     * forbidden.
      */
-    readonly playerId: PlayerId | null;
+    readonly playerId: PlayerId;
     /** Epoch ms the seat is being claimed. */
     readonly connectedAtMs: number;
     /**
@@ -109,7 +115,7 @@ export interface CreateSeatRecordArgs {
 /**
  * Create a seat record with clean forfeit state.
  *
- * @param args - Seat position, credentials, optional provisional
+ * @param args - Seat position, credentials, the holder's universal
  *   `playerId`, the claim timestamp, and the optional identity/handle
  *   snapshot (feature 010).
  * @returns A fresh `SeatRecord` with `forfeitedAtMs` unset.

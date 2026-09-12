@@ -10,6 +10,7 @@ import { describe, expect, test } from 'vitest';
 import { DEFAULT_CAMERA } from '../../../src/config';
 import { buildMapView } from '../../../src/state/build-map-view';
 import type { CellView, Coord, Direction, MapViewId, PlayerView } from '../../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 /** Minimal CellView factory. */
 function cell(coord: Coord, elevation: number, pipes: ReadonlySet<Direction> = new Set(), troopCount = 0): CellView {
@@ -17,7 +18,7 @@ function cell(coord: Coord, elevation: number, pipes: ReadonlySet<Direction> = n
         coord,
         cell: { x: coord.x, y: coord.y, elevation, terrain: 'land' },
         troopCount,
-        troopOwner: troopCount > 0 ? 1 : null,
+        troopOwner: troopCount > 0 ? TEST_PLAYER_1 : null,
         pipes,
         reservesPercent: 0,
         cityOwner: null,
@@ -27,13 +28,13 @@ function cell(coord: Coord, elevation: number, pipes: ReadonlySet<Direction> = n
 /** Minimal PlayerView factory. */
 function view(cells: CellView[]): PlayerView {
     return {
-        player: 1,
+        player: TEST_PLAYER_1,
         tick: 1,
         visibleCells: cells,
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: 8,
-            playerCount: 2,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
             tickIntervalMs: 250,
             seed: 0,
             visibilityRadius: 2,

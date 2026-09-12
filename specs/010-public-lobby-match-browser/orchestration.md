@@ -70,9 +70,12 @@ fog-of-war boundaries remain protected.
   or explicitly labelled historical inventory text. The one stale test comment
   naming a “no-ID rendering scan” was corrected to describe handle preference
   and safe identity correlation; no test assertion or runtime source changed.
-- The approved local `pnpm host` tokenized-URL exception remains documented as
-  a narrow operator convenience. Those URLs remain bearer secrets and are not
-  generalized to public app URLs, logs, diagnostics, or documentation.
+- The approved local `pnpm host` tokenized-URL exception remains permitted by
+  policy as a narrow operator convenience, but the shipped script no longer
+  uses it: `printCreateBanner` emits tokenless `/match/<matchId>` links. Should
+  a host ever emit tokenized URLs by choice, those URLs remain bearer secrets
+  and are not generalized to public app URLs, logs, diagnostics, or
+  documentation.
 - Documentation/privacy checker: PASS (4 player-facing and 9
   implementation/spec surfaces). Executable checker harness: PASS (4 forbidden
   examples rejected).
@@ -109,9 +112,11 @@ fog-of-war boundaries remain protected.
   non-enumeration, and fog boundaries; FR-026/027 preserve documentation
   coverage and the in-memory lifecycle; NFR-003/004 remain satisfied.
 - **Compatibility ruling:** no gameplay behavior or protocol version changed.
-  The only URL exception is the explicitly approved local `pnpm host`
-  tokenized seat-handoff output; those bearer URLs remain secrets and are not
-  emitted by general app URLs, logs, diagnostics, or documentation.
+  The local `pnpm host` tokenized seat-handoff output is the only approved URL
+  exception, and the shipped `printCreateBanner` does not use it (it emits
+  tokenless `/match/<matchId>` links). Should a host emit tokenized URLs, they
+  remain secrets and are not emitted by general app URLs, logs, diagnostics, or
+  documentation.
 - **Planning-artifact ruling:** Phase 4–5 artifacts are planning/tracking
   records. Source, tests, checker, and documentation edits are Phase 6 work
   represented by the C-task list.

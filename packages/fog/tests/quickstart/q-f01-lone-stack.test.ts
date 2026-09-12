@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { computeVisibleSet } from '../../src/index';
+import { P1 } from '../fixtures/ids';
 import { expectedChebyshevDisk } from '../fixtures/view';
 import { buildWorldWithTroops, withVisibilityRadius } from '../fixtures/world';
 
@@ -19,8 +20,8 @@ const RADIUS = 3;
 
 describe('Q-F01 — lone stack sees its full Chebyshev horizon', () => {
     it('one stack at (8,8) on a 16×16 board sees exactly the 49 cells in Chebyshev range 3', () => {
-        const world = withVisibilityRadius(buildWorldWithTroops(16, [[8, 8, 1, 5]]), RADIUS);
-        const visible = computeVisibleSet(world, 1);
+        const world = withVisibilityRadius(buildWorldWithTroops(16, [[8, 8, P1, 5]]), RADIUS);
+        const visible = computeVisibleSet(world, P1);
 
         const expected = expectedChebyshevDisk({ x: 8, y: 8 }, RADIUS, 16, 16);
         expect(visible.visibleCells).toEqual(expected);
@@ -31,12 +32,12 @@ describe('Q-F01 — lone stack sees its full Chebyshev horizon', () => {
         // (3,3) spans [0..6]², (12,12) spans [9..15]² — disjoint.
         const world = withVisibilityRadius(
             buildWorldWithTroops(16, [
-                [3, 3, 1, 2],
-                [12, 12, 1, 2],
+                [3, 3, P1, 2],
+                [12, 12, P1, 2],
             ]),
             RADIUS,
         );
-        const visible = computeVisibleSet(world, 1);
+        const visible = computeVisibleSet(world, P1);
         expect(visible.visibleCells).toHaveLength(49 * 2);
     });
 });

@@ -26,9 +26,11 @@ import type {
     MapView,
     MapViewId,
     PlayerAction,
+    PlayerId,
     PlayerView,
     ReservesPct,
 } from '../../src/state/types';
+import { TEST_PLAYER_1, TEST_PLAYER_2 } from './player-view';
 
 /** Board edge length for the scripted match. */
 export const SCENARIO_BOARD_SIZE = 16;
@@ -52,17 +54,17 @@ const CLUSTER: ReadonlyArray<{
     readonly elevation: number;
     readonly terrain: 'land' | 'water';
     readonly troops: number;
-    readonly owner: 1 | 2 | null;
+    readonly owner: PlayerId | null;
     readonly isCity: boolean;
 }> = [
-    { coord: { x: 3, y: 8 }, elevation: 40, terrain: 'land', troops: 32, owner: 1, isCity: true },
-    { coord: { x: 4, y: 8 }, elevation: 60, terrain: 'land', troops: 12, owner: 1, isCity: false },
+    { coord: { x: 3, y: 8 }, elevation: 40, terrain: 'land', troops: 32, owner: TEST_PLAYER_1, isCity: true },
+    { coord: { x: 4, y: 8 }, elevation: 60, terrain: 'land', troops: 12, owner: TEST_PLAYER_1, isCity: false },
     { coord: { x: 3, y: 9 }, elevation: 0, terrain: 'water', troops: 0, owner: null, isCity: false },
-    { coord: { x: 4, y: 9 }, elevation: 10, terrain: 'land', troops: 5, owner: 2, isCity: false },
-    { coord: { x: 3, y: 10 }, elevation: 90, terrain: 'land', troops: 21, owner: 1, isCity: false },
-    { coord: { x: 4, y: 10 }, elevation: 180, terrain: 'land', troops: 18, owner: 2, isCity: true },
+    { coord: { x: 4, y: 9 }, elevation: 10, terrain: 'land', troops: 5, owner: TEST_PLAYER_2, isCity: false },
+    { coord: { x: 3, y: 10 }, elevation: 90, terrain: 'land', troops: 21, owner: TEST_PLAYER_1, isCity: false },
+    { coord: { x: 4, y: 10 }, elevation: 180, terrain: 'land', troops: 18, owner: TEST_PLAYER_2, isCity: true },
     { coord: { x: 3, y: 11 }, elevation: 70, terrain: 'land', troops: 0, owner: null, isCity: false },
-    { coord: { x: 4, y: 11 }, elevation: 80, terrain: 'land', troops: 2, owner: 1, isCity: false },
+    { coord: { x: 4, y: 11 }, elevation: 80, terrain: 'land', troops: 2, owner: TEST_PLAYER_1, isCity: false },
 ];
 
 /** Pipes present at tick 0 (the tick-1 diff has something to clear). */
@@ -94,17 +96,17 @@ export function buildScenarioView(tick: number): PlayerView {
         pipes: new Set(
             INITIAL_PIPES.some((p) => p.x === entry.coord.x && p.y === entry.coord.y) ? (['N'] as Direction[]) : [],
         ),
-        reservesPercent: (entry.owner === 1 ? drift : 0) as ReservesPct,
+        reservesPercent: (entry.owner === TEST_PLAYER_1 ? drift : 0) as ReservesPct,
         cityOwner: entry.isCity ? entry.owner : null,
     }));
     return {
-        player: 1,
+        player: TEST_PLAYER_1,
         tick,
         visibleCells,
         events:
             tick % 50 === 0
                 ? {
-                      combat: [{ at: { x: 4, y: 9 }, attacker: 1, defender: 2 }],
+                      combat: [{ at: { x: 4, y: 9 }, attacker: TEST_PLAYER_1, defender: TEST_PLAYER_2 }],
                       captures: [],
                       eliminations: [],
                       appliedOrders: [],
@@ -113,7 +115,7 @@ export function buildScenarioView(tick: number): PlayerView {
                 : { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: SCENARIO_BOARD_SIZE,
-            playerCount: 2,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
             tickIntervalMs: SCENARIO_TICK_MS,
             seed: 0,
             visibilityRadius: 2,
@@ -173,9 +175,9 @@ export interface SerializedMapView {
         readonly elevation: number;
         readonly terrain: string;
         readonly troops: number;
-        readonly owner: number | null;
+        readonly owner: string | null;
         readonly isCity: boolean;
-        readonly cityOwner: number | null;
+        readonly cityOwner: string | null;
         readonly pipes: readonly string[];
         readonly reservesPct: number;
         readonly changedThisTick: boolean;
@@ -212,9 +214,13 @@ export interface SerializedConsoleState {
     readonly session: {
         readonly matchId: string | null;
         readonly sessionToken: string | null;
-        readonly playerId: number | null;
+        readonly playerId: string | null;
         readonly displayName: string;
-        readonly opponents: readonly string[];
+        readonly participants: ReadonlyArray<{
+            readonly id: string;
+            readonly name: string | null;
+            readonly isLocal: boolean;
+        }>;
     };
     readonly feedbackCount: number;
     readonly rejectedOrders: ReadonlyArray<{
@@ -283,7 +289,11 @@ export function serializeConsoleState(state: ConsoleState): SerializedConsoleSta
             sessionToken: state.session.sessionToken,
             playerId: state.session.playerId,
             displayName: state.session.displayName,
-            opponents: state.session.opponents,
+            participants: state.session.participants.map((participant) => ({
+                id: participant.id,
+                name: participant.name,
+                isLocal: participant.isLocal,
+            })),
         },
         feedbackCount: state.feedback.length,
         rejectedOrders: state.rejectedOrders.map((rejection) => ({
@@ -315,7 +325,7 @@ export function runDeterminismScenario(): ScenarioRun {
         ...INITIAL_CONSOLE_STATE,
         status: 'live',
         inputEnabled: true,
-        session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1 },
+        session: { ...INITIAL_CONSOLE_STATE.session, playerId: TEST_PLAYER_1 },
     };
     let prevFrame: MapView | null = null;
     const frames: SerializedMapView[] = [];

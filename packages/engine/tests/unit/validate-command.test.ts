@@ -14,9 +14,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../../src/applyCommand';
-import type { Order, PlayerId, World } from '../../src/types';
+import type { Order, World } from '../../src/types';
 import { validateCommand } from '../../src/validate';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, playerIds } from '../fixtures/ids';
 import { runScenario } from '../fixtures/scenarios';
 
 // ---------------------------------------------------------------------------
@@ -25,14 +26,14 @@ import { runScenario } from '../fixtures/scenarios';
 
 const DEFAULT_CONFIG = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 42,
     visibilityRadius: 4,
 };
 
-function makeWorld(extraCities: ReadonlyArray<readonly [x: number, y: number, owner: PlayerId]> = []): World {
-    const board = buildSmallBoard(8, [[0, 0, 1 as PlayerId], [7, 7, 2 as PlayerId], ...extraCities]);
+function makeWorld(extraCities: ReadonlyArray<readonly [x: number, y: number, owner: number]> = []): World {
+    const board = buildSmallBoard(8, [[0, 0, 1], [7, 7, 2], ...extraCities]);
     const { finalWorld } = runScenario(DEFAULT_CONFIG, board, [], 0);
     return finalWorld;
 }
@@ -139,7 +140,7 @@ describe('validateCommand — invalid direction', () => {
         const world = makeWorld();
         const order: Order = {
             kind: 'setPipe',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             cell: { x: 0, y: 0 },
             direction: 'X' as unknown as 'N' | 'E' | 'S' | 'W',
         };
@@ -154,7 +155,7 @@ describe('validateCommand — invalid direction', () => {
         const world = makeWorld();
         const order: Order = {
             kind: 'clearPipe',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             cell: { x: 0, y: 0 },
             direction: '' as unknown as 'N' | 'E' | 'S' | 'W',
         };
@@ -169,7 +170,7 @@ describe('validateCommand — invalid direction', () => {
         const world = makeWorld();
         const order: Order = {
             kind: 'setPipesExclusive',
-            player: 1 as PlayerId,
+            player: PLAYER_1,
             cell: { x: 0, y: 0 },
             direction: 'north' as unknown as 'N' | 'E' | 'S' | 'W',
         };

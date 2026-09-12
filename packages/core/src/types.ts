@@ -23,6 +23,8 @@
  *     `@europa/terrain`.
  */
 
+import type { PlayerId } from './player-id';
+
 // ----------------------------------------------------------------------------
 // Version
 // ----------------------------------------------------------------------------
@@ -31,15 +33,28 @@
  * Current engine API version. Increment on any breaking change to the
  * shared type surface. Both engine and terrain pin-check this at startup;
  * bumping forces a coordinated update across all consumers.
+ *
+ * `0.1.0` → `0.2.0` (issue #74, feature 001 v1.13): `PlayerId` changed
+ * from the numeric union `1 | 2 | 3 | 4` to the branded 12-character
+ * identity string, a breaking change to every public engine contract
+ * that carries player identity. Pre-1.0 breaking changes take a minor
+ * bump (the same convention networking used for `NETWORK_API_VERSION`).
  */
-export const ENGINE_API_VERSION = '0.1.0' as const;
+export const ENGINE_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Branded primitives
 // ----------------------------------------------------------------------------
 
-/** Player identifier; 1..4 (spec FR-019: 2–4 players). */
-export type PlayerId = 1 | 2 | 3 | 4;
+/**
+ * Player identifier — branded 12-character server-issued identity
+ * (feature 001 v1.13, issue #74). The canonical type, constants, and
+ * validators live in `./player-id`; re-exported here so existing
+ * `import type { PlayerId } from './types'` call sites keep working.
+ *
+ * A `PlayerId` is non-secret correlation metadata, never a credential.
+ */
+export type { PlayerId } from './player-id';
 
 /** Cardinal direction a pipe can face. */
 export type Direction = 'N' | 'E' | 'S' | 'W';
@@ -91,11 +106,21 @@ export interface Cell {
 }
 
 /**
- * Where a city is placed. `owner` is the starting player (FR-005).
+ * Where a city is placed.
+ *
+ * `owner` is a **1-based numeric placement slot** (FR-005) — terrain is
+ * intentionally identity-agnostic (issue #74, data-model §4). It has no
+ * concept of the canonical string `PlayerId`; it assigns dense slots for
+ * symmetry and placement only.
+ *
+ * The engine's `createWorld` maps each slot to the explicit
+ * `MatchConfig.playerIds[slot - 1]` at the identity boundary. Changing
+ * the ID list never changes terrain output.
  */
 export interface CityPlacement {
     readonly cell: Coord;
-    readonly owner: PlayerId;
+    /** 1-based dense placement slot (not a `PlayerId`). */
+    readonly owner: number;
 }
 
 /**
@@ -116,8 +141,17 @@ export interface Board {
 export interface MatchConfig {
     /** Square board dimension. Default 32 (spec Assumptions). */
     readonly boardSize: number;
-    /** Player count. v1 ships 2; engine supports 2–4 (FR-019, AGENTS.md). */
-    readonly playerCount: 2 | 3 | 4;
+    /**
+     * Explicit canonical player identities for this match, in terrain
+     * placement-slot order (index 0 = slot 1). Length MUST be 2–4
+     * (FR-019); the engine derives player count from `playerIds.length`.
+     *
+     * These are server-issued, branded 12-character identities
+     * (FR-020) — never seat indexes, array positions, or handles. The
+     * engine never synthesizes them; the caller supplies them at the
+     * identity boundary.
+     */
+    readonly playerIds: readonly PlayerId[];
     /** Tick interval (ms). Default 250 → 4 Hz. Engine itself does not read this. */
     readonly tickIntervalMs: number;
     /** Seed for the engine's PRNG (sfc32). uint32. */

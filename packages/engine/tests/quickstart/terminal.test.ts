@@ -14,13 +14,14 @@ import { applyCommand } from '../../src/applyCommand';
 import { ENGINE_CONSTANTS } from '../../src/constants';
 import { getPlayer } from '../../src/read';
 import { isTerminal } from '../../src/tick';
-import type { MatchConfig, Order, PlayerId } from '../../src/types';
+import type { MatchConfig, Order } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, playerIds } from '../fixtures/ids';
 import { runScenario } from '../fixtures/scenarios';
 
 const cfg: MatchConfig = {
     boardSize: 8,
-    playerCount: 2,
+    playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xdeadbeef,
     visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
@@ -32,7 +33,7 @@ describe('quickstart Q-005 — last-standing win via surrender', () => {
             [1, 1, 1],
             [6, 6, 2],
         ]);
-        const surrenderOrder: Order = { kind: 'surrender', player: 2 as PlayerId };
+        const surrenderOrder: Order = { kind: 'surrender', player: PLAYER_2 };
         const orders = [{ atTick: 0, order: surrenderOrder }];
         const { finalWorld } = runScenario(cfg, board, orders, 1);
         // Tick 0 ran: the surrender applied (P2 marked eliminated), the
@@ -40,11 +41,11 @@ describe('quickstart Q-005 — last-standing win via surrender', () => {
         expect(isTerminal(finalWorld)).toBeDefined();
         expect(isTerminal(finalWorld)?.kind).toBe('win');
         if (isTerminal(finalWorld)?.kind === 'win') {
-            expect(isTerminal(finalWorld)?.winner).toBe(1);
+            expect(isTerminal(finalWorld)?.winner).toBe(PLAYER_1);
             expect(isTerminal(finalWorld)?.reason).toBe('last_standing');
         }
         // P2 marked eliminated in the final world.
-        expect(getPlayer(finalWorld, 2).status).toBe('eliminated');
+        expect(getPlayer(finalWorld, PLAYER_2).status).toBe('eliminated');
     });
 });
 
@@ -56,15 +57,15 @@ describe('quickstart Q-005 — surrender triggers opponent win', () => {
         ]);
         const { finalWorld: w0 } = runScenario(cfg, board, [], 5);
         // After 5 ticks both players are alive.
-        expect(getPlayer(w0, 1).status).toBe('alive');
-        expect(getPlayer(w0, 2).status).toBe('alive');
+        expect(getPlayer(w0, PLAYER_1).status).toBe('alive');
+        expect(getPlayer(w0, PLAYER_2).status).toBe('alive');
 
         // Stage surrender for P2 on tick 5.
-        const r = applyCommand(w0, { kind: 'surrender', player: 2 as PlayerId });
+        const r = applyCommand(w0, { kind: 'surrender', player: PLAYER_2 });
         expect(r.result.ok).toBe(true);
         // The returned world has P2 marked eliminated (FR-016: immediately).
-        expect(getPlayer(r.world, 2).status).toBe('eliminated');
-        expect(getPlayer(r.world, 1).status).toBe('alive');
+        expect(getPlayer(r.world, PLAYER_2).status).toBe('eliminated');
+        expect(getPlayer(r.world, PLAYER_1).status).toBe('alive');
         // But isTerminal is NOT yet set (no tick has run to detect it).
         // Wait — actually isTerminal is a pre-tick check that DOES detect
         // the terminal state. After surrender, the world IS terminal
@@ -81,17 +82,17 @@ describe('quickstart Q-005 — surrender triggers opponent win', () => {
             [1, 1, 1],
             [6, 6, 2],
         ]);
-        const surrenderOrder: Order = { kind: 'surrender', player: 2 as PlayerId };
+        const surrenderOrder: Order = { kind: 'surrender', player: PLAYER_2 };
         const { finalWorld } = runScenario(cfg, board, [{ atTick: 5, order: surrenderOrder }], 6);
         // After tick 5 (surrender applied) + tick 6 (terminal detection),
         // the world is terminal.
         expect(isTerminal(finalWorld)).toBeDefined();
         expect(isTerminal(finalWorld)?.kind).toBe('win');
         if (isTerminal(finalWorld)?.kind === 'win') {
-            expect(isTerminal(finalWorld)?.winner).toBe(1);
+            expect(isTerminal(finalWorld)?.winner).toBe(PLAYER_1);
         }
         // Sanity: P2 is eliminated in the final world.
-        expect(getPlayer(finalWorld, 2).status).toBe('eliminated');
+        expect(getPlayer(finalWorld, PLAYER_2).status).toBe('eliminated');
     });
 });
 
@@ -115,8 +116,8 @@ describe('quickstart Q-005 — mutual elimination → draw', () => {
             [6, 6, 2],
         ]);
         const orders = [
-            { atTick: 0, order: { kind: 'surrender' as const, player: 1 as PlayerId } },
-            { atTick: 0, order: { kind: 'surrender' as const, player: 2 as PlayerId } },
+            { atTick: 0, order: { kind: 'surrender' as const, player: PLAYER_1 } },
+            { atTick: 0, order: { kind: 'surrender' as const, player: PLAYER_2 } },
         ];
         const { finalWorld } = runScenario(cfg, board, orders, 1);
         const result = isTerminal(finalWorld);

@@ -34,9 +34,9 @@ import type {
 } from './contracts/network-types';
 import type { NetworkErrorDetail } from './errors';
 import { isNetworkError } from './errors';
-import { encodeFrame, tryDecodeFrame } from './frame';
+import { encodeFrame, parseFrameJson } from './frame';
 import { generateConnectionId } from './ids';
-import { isKnownMessageKind, validateVersion } from './validate';
+import { isKnownMessageKind, validateEnvelope, validateVersion } from './validate';
 
 // ----------------------------------------------------------------------------
 // Socket seam
@@ -517,9 +517,12 @@ export class Connection {
     // ---------------------------------------------------------------------------
 
     /**
-     * Decode, validate, and route one inbound frame. Malformed frames
-     * reply with an `error` envelope and keep the connection open except
-     * for major-version drift, which closes with 1008 (FR-004).
+     * Decode, validate, and route one inbound frame. The FR-004 version
+     * gate runs BEFORE envelope/payload validation (issue #74): an
+     * old-major numeric client is rejected without its payload being
+     * interpreted. Malformed frames reply with an `error` envelope and
+     * keep the connection open except for major-version drift, which
+     * closes with 1008 (FR-004).
      *
      * @param text Raw frame text.
      */
@@ -529,23 +532,36 @@ export class Connection {
         }
         this.receivedSinceSweep = true;
 
-        const decoded = tryDecodeFrame(text);
-        if (!decoded.ok) {
-            this.replyDecodeFailure(text, decoded.error);
+        let parsed: unknown;
+        try {
+            parsed = parseFrameJson(text);
+        } catch (error) {
+            this.replyDecodeFailure(text, error);
             return;
         }
 
-        const { envelope } = decoded;
-        this.clientSeqSeen = envelope.seq;
+        // Version gate first: read the raw `version` without interpreting
+        // any payload. A non-string/absent version falls through to the
+        // schema validator, which reports it as `malformed_payload`.
+        const receivedVersion = readEnvelopeVersion(parsed);
+        if (receivedVersion !== undefined) {
+            const version = validateVersion(receivedVersion);
+            if (!version.ok) {
+                this.sendError(version.error.code, version.error.message, version.error.detail);
+                this.close(NETWORK_TRANSPORT_CONSTANTS.policyViolationCloseCode, 'policy violation');
+                return;
+            }
+        }
 
-        const version = validateVersion(envelope.version);
-        if (!version.ok) {
-            this.sendError(version.error.code, version.error.message, version.error.detail);
-            this.close(NETWORK_TRANSPORT_CONSTANTS.policyViolationCloseCode, 'policy violation');
+        try {
+            validateEnvelope(parsed);
+        } catch (error) {
+            this.replyDecodeFailure(text, error);
             return;
         }
 
-        this.onEnvelopeFn?.(this, envelope);
+        this.clientSeqSeen = parsed.seq;
+        this.onEnvelopeFn?.(this, parsed);
     }
 
     /**
@@ -574,6 +590,24 @@ export class Connection {
 // ----------------------------------------------------------------------------
 // Module-level helpers
 // ----------------------------------------------------------------------------
+
+/**
+ * Read the raw `version` string from a parsed frame without validating
+ * the envelope or interpreting its payload. Used by the FR-004 version
+ * gate so old-major clients are rejected before payload validation.
+ * Absent, non-string, and empty values return `undefined` and fall
+ * through to the schema validator's `malformed_payload` rejection.
+ *
+ * @param parsed A parsed JSON value.
+ * @returns The non-empty version string, or `undefined`.
+ */
+function readEnvelopeVersion(parsed: unknown): string | undefined {
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return undefined;
+    }
+    const { version } = parsed as Record<string, unknown>;
+    return typeof version === 'string' && version.length > 0 ? version : undefined;
+}
 
 /**
  * Check whether a raw frame parses to an object carrying a string

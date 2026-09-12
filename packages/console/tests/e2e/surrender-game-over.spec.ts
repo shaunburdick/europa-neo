@@ -108,17 +108,17 @@ interface LiveHandleView {
                 readonly player: number;
                 readonly visibleCells: ReadonlyArray<{
                     readonly coord: { readonly x: number; readonly y: number };
-                    readonly cityOwner: number | null;
+                    readonly cityOwner: string | null;
                     readonly reservesPercent: number;
                 }>;
             } | null;
             readonly session: {
-                readonly playerId: number | null;
-                readonly playerNames: ReadonlyMap<number, string>;
+                readonly playerId: string | null;
+                readonly playerNames: ReadonlyMap<string, string>;
             };
             readonly matchResult: {
                 readonly kind: string;
-                readonly winner?: number;
+                readonly winner?: string;
                 readonly tick?: number;
             } | null;
             readonly feedback: ReadonlyArray<{ readonly kind: string; readonly text: string }>;
@@ -132,11 +132,11 @@ interface LiveHandleView {
 async function readLive(page: Page): Promise<{
     status: string;
     connection: string;
-    playerId: number | null;
+    playerId: string | null;
     tick: number;
     bootError: string | null;
-    matchResult: { kind: string; winner?: number; tick?: number } | null;
-    playerNames: Record<number, string>;
+    matchResult: { kind: string; winner?: string; tick?: number } | null;
+    playerNames: Record<string, string>;
 } | null> {
     return page.evaluate(() => {
         const handle = (window as unknown as { __europaLive?: LiveHandleView }).__europaLive;
@@ -144,7 +144,7 @@ async function readLive(page: Page): Promise<{
             return null;
         }
         const state = handle.store.getState();
-        const names: Record<number, string> = {};
+        const names: Record<string, string> = {};
         for (const [id, name] of state.session.playerNames) {
             names[id] = name;
         }
@@ -241,10 +241,18 @@ test('2-player surrender: both players see correct game-over result', async ({ b
             return;
         }
         const { matchId } = created.data;
-        expect(created.data.seatAssignment.playerId).toBe(1);
+        // Server-allocated canonical identity for the surrenderer seat.
+        const surrendererId = created.data.seatAssignment.playerId;
+        expect(surrendererId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 
         const filled = matchmaker.joinMatch({ matchId, displayName: 'Winner' });
         expect(filled.ok).toBe(true);
+        if (!filled.ok) {
+            return;
+        }
+        const winnerId = filled.data.seatAssignment.playerId;
+        expect(winnerId).toMatch(/^[A-Za-z0-9_-]{12}$/);
+        expect(winnerId).not.toBe(surrendererId);
 
         // Auto-start registered the engine session with the live server.
         const stats = server.stats();
@@ -252,17 +260,23 @@ test('2-player surrender: both players see correct game-over result', async ({ b
 
         // -- Two real browser consoles join through the semantic match route ----
         const errors: string[] = [];
-        const openConsole = async (name: string): Promise<Page> => {
+        const openConsole = async (name: string, sessionToken: string): Promise<Page> => {
             const context = await browser.newContext();
             await context.addInitScript(
-                ({ wsUrl, matchId, displayName }) => {
+                ({ wsUrl, matchId, displayName, reconnectToken }) => {
                     (window as unknown as { __europaTestMatch: object }).__europaTestMatch = {
                         wsUrl,
                         matchId,
                         displayName,
+                        reconnectToken,
                     };
                 },
-                { wsUrl: `ws://127.0.0.1:${String(port)}`, matchId, displayName: name },
+                {
+                    wsUrl: `ws://127.0.0.1:${String(port)}`,
+                    matchId,
+                    displayName: name,
+                    reconnectToken: sessionToken,
+                },
             );
             const page = await context.newPage();
             page.on('pageerror', (error) => {
@@ -272,16 +286,21 @@ test('2-player surrender: both players see correct game-over result', async ({ b
             return page;
         };
 
-        const surrenderer = await openConsole('Surrenderer');
-        const winner = await openConsole('Winner');
+        // Bind each console to its intended seat via the matchmaking-issued
+        // session token. Tokenless joins take the lowest open seat in
+        // canonical UTF-16 id order, which would NOT map page order to seat
+        // identity once ids are opaque strings.
+        const surrenderer = await openConsole('Surrenderer', created.data.seatAssignment.sessionToken);
+        const winner = await openConsole('Winner', filled.data.seatAssignment.sessionToken);
 
-        // Both seats reach 'live' with distinct assigned seats.
+        // Both seats reach 'live' with their own server-assigned identity.
         await waitUntil(surrenderer, (live) => live.status === 'live', 'Surrenderer reaches live');
         await waitUntil(winner, (live) => live.status === 'live', 'Winner reaches live');
 
         const surrendererSeated = await readLiveOrThrow(surrenderer);
         const winnerSeated = await readLiveOrThrow(winner);
-        expect(new Set([surrendererSeated.playerId, winnerSeated.playerId])).toEqual(new Set([1, 2]));
+        expect(surrendererSeated.playerId).toBe(surrendererId);
+        expect(winnerSeated.playerId).toBe(winnerId);
 
         // -- Ticks flow to both seats -------------------------------------------
         await waitUntil(surrenderer, (live) => live.tick >= 3, 'Surrenderer receives ticks');
@@ -371,14 +390,6 @@ test('2-player surrender: both players see correct game-over result', async ({ b
         });
         expect(surrendererWaitingVisible).toBe(false);
         expect(winnerWaitingVisible).toBe(false);
-
-        // --- Diagnostic: print state for debugging ---
-        const diagS = await readLiveOrThrow(surrenderer);
-        const diagW = await readLiveOrThrow(winner);
-        // eslint-disable-next-line no-console
-        console.log('[surrender-e2e] Surrenderer final:', JSON.stringify(diagS, null, 2));
-        // eslint-disable-next-line no-console
-        console.log('[surrender-e2e] Winner final:', JSON.stringify(diagW, null, 2));
 
         // Zero page errors across the whole conversation.
         expect(errors).toEqual([]);

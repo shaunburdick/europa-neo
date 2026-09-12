@@ -296,7 +296,7 @@ describe('matchmaker — bridge soft binding', () => {
                 matchId: '00000000-0000-4000-8000-000000000000' as MatchId,
                 connectionId: 'conn-1',
                 sessionToken: '00000000-0000-4000-8000-000000000001' as never,
-                playerId: 1,
+                playerId: 'EventPlyr001' as never,
                 role: 'player',
             }),
         ).not.toThrow();

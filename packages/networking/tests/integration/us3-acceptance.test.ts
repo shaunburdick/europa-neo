@@ -16,7 +16,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { createMatchServer } from '../../src/server';
-import type { JoinAckPayload, Order, ProtocolEnvelope, SessionToken, TickBroadcastPayload } from '../../src/types';
+import type {
+    JoinAckPayload,
+    Order,
+    PlayerId,
+    ProtocolEnvelope,
+    SessionToken,
+    TickBroadcastPayload,
+} from '../../src/types';
 import { scriptedMatch } from '../fixtures/match';
 import { connectMockClient, realDeps, startJoinedMatch, TEST_TICK_MS, testServerConfig } from './harness';
 
@@ -38,7 +45,7 @@ function hasCell(view: TickBroadcastPayload['view'], coord: Readonly<{ x: number
 
 /** Matchmaker bridge spy recording the US3 presence events. */
 interface SpectatorEvents {
-    claimed: Array<{ playerId: number | null; role: string; sessionToken: string }>;
+    claimed: Array<{ playerId: PlayerId | null; role: string; sessionToken: string }>;
     disconnected: Array<{ sessionToken: SessionToken }>;
 }
 
@@ -141,7 +148,7 @@ describe('US3 acceptance (late-join spectating)', () => {
             // corner never leaks into a player view — FR-005 / SC-004).
             const playerFrame = await h.clients[0].nextMessage('tick');
             const playerView = (playerFrame.payload as unknown as TickBroadcastPayload).view;
-            expect(playerView.player).toBe(1);
+            expect(playerView.player).toBe(h.match.playerIds[0]);
             expect(playerView.visibleCells.length).toBeLessThan(TOTAL_CELLS);
             expect(hasCell(playerView, FOGGED_COORD)).toBe(false);
         } finally {
@@ -159,7 +166,7 @@ describe('US3 acceptance (late-join spectating)', () => {
 
             const order: Order = {
                 kind: 'setPipe',
-                player: 1,
+                player: h.match.playerIds[0],
                 cell: { x: 5, y: 5 },
                 direction: 'N',
             };

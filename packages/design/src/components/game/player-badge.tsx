@@ -1,64 +1,50 @@
 import { TOKENS } from '../../tokens.js';
 
 /**
- * Component-local player-color map (plan D-7).
- *
- * Each player maps to the dedicated `playerColorN` token (spec 012 FR-023,
- * issue #148). Unknown or absent player falls back to `textMuted`.
- *
- * | Player | Token key     | Hex value   |
- * | ------ | ------------- | ----------- |
- * | 1      | playerColor1  | #dc2626     |
- * | 2      | playerColor2  | #2563eb     |
- * | 3      | playerColor3  | #059669     |
- * | 4      | playerColor4  | #d97706     |
- * | *      | textMuted     | #9ca3af     |
- */
-const PLAYER_COLORS: Record<number, string> = {
-    1: TOKENS.color.playerColor1,
-    2: TOKENS.color.playerColor2,
-    3: TOKENS.color.playerColor3,
-    4: TOKENS.color.playerColor4,
-};
-
-/**
  * Props for the {@link EuropaPlayerBadge} component.
  */
 export interface EuropaPlayerBadgeProps {
-    /** Player number (1–4) selecting the badge color. */
-    player: 1 | 2 | 3 | 4;
-    /** Optional display name. When absent or empty, falls back to "P{n}". */
-    name?: string;
+    /**
+     * The player's display name. It is also used verbatim as the badge's
+     * accessible name. Required: the badge no longer fabricates a `P{n}`
+     * fallback from a numeric seat/identity (issue #74) — callers own the
+     * label, which is typically a handle or the canonical identity.
+     */
+    name: string;
+    /**
+     * CSS color used for the badge text. The caller supplies the player's
+     * identity color — typically a `TOKENS.color.playerColor*` value. When
+     * absent, the badge falls back to `TOKENS.color.textMuted`.
+     */
+    color?: string;
 }
 
 /**
- * A game-specific player badge with the player's identity color and an
- * accessible label.
+ * A game-specific player badge with a caller-supplied identity color and
+ * accessible name.
  *
  * Renders a `<span class="europa-badge" role="img">` whose inline `color`
- * reflects the player's identity color and whose `aria-label` combines the
- * player number with an optional name. When no name is provided, falls back
- * to "P{n}".
+ * comes from the `color` prop and whose text content and `aria-label` are the
+ * caller-supplied `name`. The component is identity-agnostic: a canonical
+ * `PlayerId` is resolved to a display name and color by the caller, keeping
+ * identity-to-color and identity-to-label policy out of the presentational
+ * layer (issue #74). When no color is supplied the badge falls back to the
+ * muted text token.
  *
- * Accessibility (FR-014): `role="img"` with computed `aria-label`.
+ * Accessibility: `role="img"` with a computed `aria-label` equal to the
+ * caller-supplied `name` — never a fabricated "player N".
  *
  * @example
  * ```tsx
- * <EuropaPlayerBadge player={1} name="Alice" />
- * <EuropaPlayerBadge player={3} />
+ * <EuropaPlayerBadge name="Alice" color={TOKENS.color.playerColor1} />
+ * <EuropaPlayerBadge name="Bob" />
  * ```
  */
-export function EuropaPlayerBadge({ player, name }: EuropaPlayerBadgeProps) {
-    const color = PLAYER_COLORS[player] ?? TOKENS.color.textMuted;
-    const displayText = name && name !== '' ? name : `P${player}`;
+export function EuropaPlayerBadge({ name, color }: EuropaPlayerBadgeProps) {
+    const resolvedColor = color ?? TOKENS.color.textMuted;
     return (
-        <span
-            className="europa-badge"
-            role="img"
-            aria-label={name && name !== '' ? `player ${player}: ${name}` : `player ${player}`}
-            style={{ color }}
-        >
-            {displayText}
+        <span className="europa-badge" role="img" aria-label={name} style={{ color: resolvedColor }}>
+            {name}
         </span>
     );
 }

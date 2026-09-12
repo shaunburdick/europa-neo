@@ -29,9 +29,9 @@ import { App } from '../../../src/render/App';
 import { formatWaitingMessage } from '../../../src/state/awaiting-start';
 import { INITIAL_CONSOLE_STATE } from '../../../src/state/reducer';
 import { type ConsoleStore, createConsoleStore } from '../../../src/state/store';
-import type { ConsoleState, PlayerId } from '../../../src/state/types';
+import type { ConsoleState } from '../../../src/state/types';
 import { WAITING_FOR_OPPONENT_MESSAGE } from '../../../src/ui/waiting-overlay';
-import { buildPlayerView } from '../../fixtures/player-view';
+import { buildPlayerView, TEST_PLAYER_1 } from '../../fixtures/player-view';
 import { expectNoDomA11yViolations } from '../../setup-a11y-dom';
 import '../../../src/styles/index.css';
 
@@ -295,7 +295,7 @@ describe('N-aware waiting overlay (feature 012 FR-005, T016)', () => {
                 // 'game_over'; the overlay must retire, never stack.
                 const result: import('@europa/engine').MatchResult = {
                     kind: 'win',
-                    winner: 1 as PlayerId,
+                    winner: TEST_PLAYER_1,
                     tick: 5,
                     reason: 'last_standing',
                 };

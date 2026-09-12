@@ -28,6 +28,7 @@
  *     echoes a locally known identity reference.
  */
 
+import { parseGuestPlayerId } from '@europa/core';
 import type { GuestPlayerId, IdentityState, LobbyEvent, LobbyRevision, MatchId } from '@europa/matchmaking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -213,17 +214,13 @@ function capturingLogger(entries: LogEntry[]): LobbyClientLogger {
 // Fixtures
 // ----------------------------------------------------------------------------
 
-const CLAIM_A = 'claim-0001' as GuestPlayerId;
-const CLAIM_B = 'claim-0002' as GuestPlayerId;
-
-/** Sequential claim-id factory: first call CLAIM_A, second CLAIM_B, … */
-function sequentialClaimFactory(): () => GuestPlayerId {
-    let n = 0;
-    return () => {
-        n += 1;
-        return `claim-${String(n).padStart(4, '0')}` as GuestPlayerId;
-    };
-}
+/**
+ * Canonical server-issued identities (issue #74). The browser never
+ * mints identity; `identityEvent(handle, id)` models the directed
+ * `identity` lobby event that delivers the server's authoritative id.
+ */
+const SERVER_ID_A = parseGuestPlayerId('Guest0000001');
+const SERVER_ID_B = parseGuestPlayerId('Guest0000002');
 
 function snapshot(revision: number, matchId: string | null = null): LobbySnapshot {
     return {
@@ -331,7 +328,6 @@ function createHarness(options: HarnessOptions = {}): Harness {
             maxReconnectAttempts: options.maxReconnectAttempts ?? 6,
             verboseLogging: options.verbose ?? true,
             logger: capturingLogger(logs),
-            claimIdFactory: sequentialClaimFactory(),
         }),
     };
     harness.client.onError((report) => {
@@ -349,8 +345,13 @@ function createHarness(options: HarnessOptions = {}): Harness {
     return harness;
 }
 
-/** Drive one full establish cycle on the CURRENT socket; resolves when 'ready'. */
-async function establish(revision = 1): Promise<FakeWebSocket> {
+/**
+ * Drive one full establish cycle on the CURRENT socket; resolves when
+ * 'ready'. By default the server delivers {@link SERVER_ID_A} on the
+ * directed `identity` event; pass `null` to model an older server that
+ * omits the id.
+ */
+async function establish(revision = 1, serverId: GuestPlayerId | null = SERVER_ID_A): Promise<FakeWebSocket> {
     const socket = FakeWebSocket.instances[FakeWebSocket.instances.length - 1];
     if (!(socket instanceof FakeWebSocket)) {
         throw new Error('no socket created');
@@ -361,7 +362,7 @@ async function establish(revision = 1): Promise<FakeWebSocket> {
         connectionId: 'conn-1',
         heartbeatIntervalMs: 60_000,
     });
-    socket.deliverLobby(identityEvent(null));
+    socket.deliverLobby(identityEvent(null, serverId ?? undefined));
     await settlePromises(); // let the subscribe .then chain run its course later
     socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(revision) });
     await settlePromises();
@@ -402,10 +403,13 @@ describe('establish cycle', () => {
         });
         const identityFrame = sentEnvelope(socket, 1);
         expect(identityFrame.type).toBe('lobbyIdentity');
+        // First connect presents an EMPTY advisory claim: the browser
+        // never mints identity (issue #74).
         const claim = identityFrame.payload.claim as Record<string, unknown>;
-        expect(claim.guestPlayerId).toBe(CLAIM_A);
+        expect(claim.guestPlayerId).toBeUndefined();
+        expect(claim.handle).toBeUndefined();
 
-        socket.deliverLobby(identityEvent(null));
+        socket.deliverLobby(identityEvent(null, SERVER_ID_A));
         await settlePromises();
         expect(sentEnvelope(socket, 2).type).toBe('lobbySubscribe');
 
@@ -442,23 +446,23 @@ describe('establish cycle', () => {
 });
 
 describe('claim persistence', () => {
-    it('mints + persists a fresh claim on first visit', async () => {
+    it('adopts + persists the server-issued id on first visit', async () => {
         const { storage } = await readyHarness();
         const stored = JSON.parse(storage.read() ?? '') as StoredLobbyClaim;
-        expect(stored.guestPlayerId).toBe(CLAIM_A);
+        expect(stored.guestPlayerId).toBe(SERVER_ID_A);
         expect(stored.handle).toBeNull();
     });
 
     it('restores the persisted claim + handle on reload (new client instance)', async () => {
         const storage = new MemoryStorage();
-        storage.seed(JSON.stringify({ guestPlayerId: 'claim-777', handle: 'Nova' }));
+        storage.seed(JSON.stringify({ guestPlayerId: SERVER_ID_A, handle: 'Nova' }));
         const harness = createHarness({ storage });
         const connecting = harness.client.connect('ws://lobby');
         const socket = await establish();
 
         const identityFrame = sentEnvelope(socket, 1);
         const claim = identityFrame.payload.claim as Record<string, unknown>;
-        expect(claim.guestPlayerId).toBe('claim-777');
+        expect(claim.guestPlayerId).toBe(SERVER_ID_A);
         expect(claim.handle).toBe('Nova');
         await connecting;
         // The server's directed identity event is authoritative for the
@@ -476,7 +480,7 @@ describe('claim persistence', () => {
             connectionId: 'c1',
             heartbeatIntervalMs: 60_000,
         });
-        socket.deliverLobby(identityEvent('Nova'));
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
         await connecting;
@@ -486,15 +490,19 @@ describe('claim persistence', () => {
         expect(harness.client.state().handle).toBe('Nova');
     });
 
-    it('treats corrupted stored JSON as a first visit (fresh mint)', async () => {
+    it('treats corrupted stored JSON as a first visit (empty claim, then adoption)', async () => {
         const storage = new MemoryStorage();
         storage.seed('{oops');
         const harness = createHarness({ storage });
         const connecting = harness.client.connect('ws://lobby');
         const socket = await establish();
         await connecting;
+        // The pre-adoption wire claim carried no id…
         const claim = sentEnvelope(socket, 1).payload.claim as Record<string, unknown>;
-        expect(claim.guestPlayerId).toBe(CLAIM_A);
+        expect(claim.guestPlayerId).toBeUndefined();
+        // …and the server-issued id was adopted + persisted.
+        const stored = JSON.parse(storage.read() ?? '') as StoredLobbyClaim;
+        expect(stored.guestPlayerId).toBe(SERVER_ID_A);
     });
 
     it('survives unwritable storage (private mode) with an in-memory session', async () => {
@@ -531,10 +539,11 @@ describe('claim persistence', () => {
         expect(harness.client.state().hasClaim).toBe(false);
 
         const reconnecting = harness.client.connect('ws://lobby');
-        await establish();
+        // The fresh session's server issues a DIFFERENT id.
+        await establish(1, SERVER_ID_B);
         await reconnecting;
         const secondClaim = JSON.parse(harness.storage.read() ?? '') as StoredLobbyClaim;
-        expect(secondClaim.guestPlayerId).toBe(CLAIM_B);
+        expect(secondClaim.guestPlayerId).toBe(SERVER_ID_B);
     });
 
     it('clears the claim on an uncorrelated server_restarted error and reports it', async () => {
@@ -584,7 +593,7 @@ describe('claim persistence', () => {
             connectionId: 'c1',
             heartbeatIntervalMs: 60_000,
         });
-        socket.deliverLobby(identityEvent('Nova'));
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
         await connecting;
@@ -598,24 +607,28 @@ describe('claim persistence', () => {
 });
 
 describe('server-issued identity adoption (feature 010 Clarifications v1.6)', () => {
-    it('replaces the local bootstrap mint with the server-delivered id and persists it', async () => {
-        const SERVER_ID = 'srv-issued-777' as GuestPlayerId;
-        const { scheduler, storage, socket } = await readyHarness();
-        // The establish cycle above used identityEvent(null) — no id —
-        // so the local mint (CLAIM_A) is still the claim. Now the server
-        // delivers ITS authoritative id.
-        socket.deliverLobby(identityEvent(null, SERVER_ID));
+    it('adopts the server-delivered id and persists it', async () => {
+        // Establish against an OLDER server that omits the id, so no
+        // identity exists yet.
+        const harness = createHarness();
+        const connecting = harness.client.connect('ws://lobby');
+        const socket = await establish(1, null);
+        await connecting;
+        expect(harness.client.state().hasClaim).toBe(false);
+        expect(harness.storage.read()).toBeNull();
+
+        // Now the server delivers ITS authoritative id.
+        socket.deliverLobby(identityEvent(null, SERVER_ID_A));
         await settlePromises();
 
-        const stored = JSON.parse(storage.read() ?? '') as StoredLobbyClaim;
-        expect(stored.guestPlayerId).toBe(SERVER_ID);
-        expect(stored.guestPlayerId).not.toBe(CLAIM_A);
-        expect(storage.read()).toContain(SERVER_ID);
+        const stored = JSON.parse(harness.storage.read() ?? '') as StoredLobbyClaim;
+        expect(stored.guestPlayerId).toBe(SERVER_ID_A);
+        expect(harness.storage.read()).toContain(SERVER_ID_A);
 
         // The adopted id is presented on the NEXT establish cycle
         // (reload-restore, FR-003 end-to-end).
         socket.transportClose(1006);
-        scheduler.advance(500); // first backoff delay
+        harness.scheduler.advance(500); // first backoff delay
         const nextSocket = FakeWebSocket.instances[FakeWebSocket.instances.length - 1];
         if (!(nextSocket instanceof FakeWebSocket)) {
             throw new Error('no retry socket created');
@@ -628,11 +641,10 @@ describe('server-issued identity adoption (feature 010 Clarifications v1.6)', ()
         });
         const claimFrame = sentEnvelope(nextSocket, 1);
         const claim = claimFrame.payload.claim as Record<string, unknown>;
-        expect(claim.guestPlayerId).toBe(SERVER_ID);
+        expect(claim.guestPlayerId).toBe(SERVER_ID_A);
     });
 
     it('keeps a server-delivered successor id when the presented claim was unknown (no wipe on handle drop)', async () => {
-        const SERVER_ID = 'srv-successor-888' as GuestPlayerId;
         const harness = createHarness();
         const connecting = harness.client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
@@ -652,24 +664,26 @@ describe('server-issued identity adoption (feature 010 Clarifications v1.6)', ()
         // …then the server restarts: fresh identity, delivered id, null
         // handle. The delivery IS the fresh start — the successor id must
         // SURVIVE (not be invalidated by the handle-drop heuristic).
-        socket.deliverLobby(identityEvent(null, SERVER_ID));
+        socket.deliverLobby(identityEvent(null, SERVER_ID_B));
         await settlePromises();
 
         const stored = JSON.parse(harness.storage.read() ?? '') as StoredLobbyClaim;
-        expect(stored.guestPlayerId).toBe(SERVER_ID);
+        expect(stored.guestPlayerId).toBe(SERVER_ID_B);
         expect(stored.handle).toBeNull();
         expect(harness.client.state().hasClaim).toBe(true);
     });
 
-    it('tolerates identity events without an id (older servers): the local mint stands', async () => {
-        const { client, storage } = await readyHarness();
-        expect(client.state().hasClaim).toBe(true);
-        const stored = JSON.parse(storage.read() ?? '') as StoredLobbyClaim;
-        expect(stored.guestPlayerId).toBe(CLAIM_A);
+    it('tolerates identity events without an id (older servers): no identity is adopted', async () => {
+        const harness = createHarness();
+        const connecting = harness.client.connect('ws://lobby');
+        await establish(1, null);
+        await connecting;
+        expect(harness.client.state().connection).toBe('ready');
+        expect(harness.client.state().hasClaim).toBe(false);
+        expect(harness.storage.read()).toBeNull();
     });
 
     it('defensively scrubs known identity references from hostile text output', async () => {
-        const SERVER_ID = 'srv-secret-999' as GuestPlayerId;
         const logs: LogEntry[] = [];
         const clientErrors: LobbyErrorReport[] = [];
         const scheduler = new ManualScheduler();
@@ -680,7 +694,6 @@ describe('server-issued identity adoption (feature 010 Clarifications v1.6)', ()
             scheduler,
             verboseLogging: true,
             logger: capturingLogger(logs),
-            claimIdFactory: sequentialClaimFactory(),
         });
         client.onError((report) => {
             clientErrors.push(report);
@@ -693,18 +706,17 @@ describe('server-issued identity adoption (feature 010 Clarifications v1.6)', ()
             connectionId: 'c1',
             heartbeatIntervalMs: 60_000,
         });
-        socket.deliverLobby(identityEvent(null, SERVER_ID));
+        socket.deliverLobby(identityEvent(null, SERVER_ID_A));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
         await connecting;
 
-        // Hostile-server drill with both locally known identity references:
-        // the stale local mint (CLAIM_A) and adopted server id (SERVER_ID).
+        // Hostile-server drill with the adopted server id.
         socket.deliverLobby({
             kind: 'error',
             code: 'internal_error',
-            message: `registry exploded for ${SERVER_ID} (was ${CLAIM_A}?)`,
-            detail: { hint: `token=${SERVER_ID}`, attempts: 2 },
+            message: `registry exploded for ${SERVER_ID_A}`,
+            detail: { hint: `token=${SERVER_ID_A}`, attempts: 2 },
         });
         await settlePromises();
 
@@ -790,7 +802,6 @@ describe('action correlation', () => {
             storage,
             scheduler,
             actionTimeoutMs: 50,
-            claimIdFactory: sequentialClaimFactory(),
         });
         const connecting = client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
@@ -841,7 +852,6 @@ describe('action correlation', () => {
             storage,
             scheduler,
             actionTimeoutMs: 50,
-            claimIdFactory: sequentialClaimFactory(),
         });
         const connecting = client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];
@@ -944,7 +954,7 @@ describe('disconnect / retry state machine', () => {
         });
         const identityFrame = sentEnvelope(socketB, 1);
         expect(identityFrame.type).toBe('lobbyIdentity');
-        expect((identityFrame.payload.claim as Record<string, unknown>).guestPlayerId).toBe(CLAIM_A);
+        expect((identityFrame.payload.claim as Record<string, unknown>).guestPlayerId).toBe(SERVER_ID_A);
     });
 
     it('doubles the backoff per attempt up to the cap, then fails terminally', async () => {
@@ -1037,7 +1047,6 @@ describe('privacy — no bearer credential leakage in URLs, logs, or errors', ()
             webSocketFactory: factory,
             storage,
             scheduler,
-            claimIdFactory: sequentialClaimFactory(),
         });
         const first = client.connect('ws://lobby.example:8080/ws');
         const socketA = FakeWebSocket.instances[0];
@@ -1070,7 +1079,6 @@ describe('privacy — no bearer credential leakage in URLs, logs, or errors', ()
             scheduler,
             verboseLogging: true,
             logger: capturingLogger(logs),
-            claimIdFactory: sequentialClaimFactory(),
         });
         client.onError((report) => {
             clientErrors.push(report);
@@ -1083,16 +1091,16 @@ describe('privacy — no bearer credential leakage in URLs, logs, or errors', ()
             connectionId: 'c1',
             heartbeatIntervalMs: 60_000,
         });
-        socket.deliverLobby(identityEvent('Nova'));
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A));
         await settlePromises();
         socket.deliverLobby({ kind: 'snapshot', snapshot: snapshot(1) });
         await connecting;
 
-        // Server-authored text ECHOING the secret back (hostile-server drill).
+        // Server-authored text ECHOING the adopted id back (hostile drill).
         socket.deliverLobby({
             kind: 'error',
             code: 'internal_error',
-            message: `registry exploded for ${CLAIM_A} while holding ${CLAIM_A}`,
+            message: `registry exploded for ${SERVER_ID_A} while holding ${SERVER_ID_A}`,
         });
         await settlePromises();
 
@@ -1114,7 +1122,6 @@ describe('privacy — no bearer credential leakage in URLs, logs, or errors', ()
             storage,
             scheduler,
             actionTimeoutMs: 40,
-            claimIdFactory: sequentialClaimFactory(),
         });
         const connecting = client.connect('ws://lobby');
         const socket = FakeWebSocket.instances[0];

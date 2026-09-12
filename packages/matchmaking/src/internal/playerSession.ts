@@ -26,9 +26,12 @@
  * injected `now` / `randomId` dependencies (constitution Principle II).
  */
 
+import type { PlayerId } from '@europa/core';
+import { parsePlayerId } from '@europa/core';
 import type { MatchId, SessionToken } from '@europa/networking';
 import type { PlayerSessionId, SeatIndex } from '../../contracts/match-types';
 import type { GuestPlayerId } from '../contracts/lobby-types';
+import { allocatePlayerId } from '../idGen';
 
 /**
  * Ephemeral per-player matchmaking state. A session is in at most one
@@ -38,6 +41,18 @@ import type { GuestPlayerId } from '../contracts/lobby-types';
 export interface PlayerSession {
     /** Matchmaking-owned identity (§2 of the data model). */
     readonly playerSessionId: PlayerSessionId;
+    /**
+     * The session's universal player identity (issue #74, T025): one
+     * canonical 12-character ID used unchanged by the lobby, the seat,
+     * `MatchConfig.playerIds`, the engine, terminal results, and rematch.
+     * For a lobby-originated session this is the SAME value as
+     * {@link guestPlayerId}; for a legacy direct feature-006 session it is
+     * freshly allocated at creation. It persists for the session's lifetime
+     * (reconnect/seat reassignment never reallocate it).
+     *
+     * Non-secret correlation metadata, never a bearer credential.
+     */
+    readonly playerId: PlayerId;
     /**
      * Cosmetic name the player chose (FR-001). No uniqueness check:
      * duplicate display names are allowed by design (spec edge case
@@ -89,6 +104,14 @@ export interface CreatePlayerSessionArgs {
     /** Injected wall-clock provider in epoch ms. */
     readonly now: () => number;
     /**
+     * The session's explicit universal identity (issue #74, T025). The
+     * matchmaker computes it at the identity boundary (the lobby guest id,
+     * or a freshly allocated ID for legacy flows) and passes it here so the
+     * SAME value can be handed to `MatchConfig.playerIds`. Omit to derive
+     * it from {@link guestPlayerId} or allocate a fresh canonical ID.
+     */
+    readonly playerId?: PlayerId;
+    /**
      * Server-resolved lobby identity to associate (feature 010 FR-019).
      * Omit for legacy feature-006 flows; stored as `null`. MUST come
      * from the server's identity registry — never from client input.
@@ -111,8 +134,14 @@ export interface CreatePlayerSessionArgs {
 export function createPlayerSession(args: CreatePlayerSessionArgs): PlayerSession {
     const { displayName, now, randomId } = args;
     const createdAtMs = now();
+    // One universal identity per session: an explicit value wins, otherwise
+    // the lobby guest id (same value, re-branded through validation), and
+    // finally a fresh canonical allocation for legacy direct callers.
+    const playerId =
+        args.playerId ?? (args.guestPlayerId === undefined ? allocatePlayerId() : parsePlayerId(args.guestPlayerId));
     return {
         playerSessionId: randomId() as PlayerSessionId,
+        playerId,
         displayName,
         guestPlayerId: args.guestPlayerId ?? null,
         acceptedHandle: args.acceptedHandle ?? null,

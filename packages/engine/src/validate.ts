@@ -316,7 +316,11 @@ function validateSourceOwnership(world: Readonly<World>, cell: Coord, player: Pl
     const idx = cell.y * w + cell.x;
     const troopOwner = world.state.troopOwners[idx] ?? 0;
     const cityOwner = world.state.cityOwners[idx] ?? 0;
-    if (troopOwner !== player && cityOwner !== player) {
+    const playerByte = resolvePlayerByte(world, player);
+    if (playerByte === null) {
+        return fail({ kind: 'unknown_player', player });
+    }
+    if (troopOwner !== playerByte && cityOwner !== playerByte) {
         return fail({ kind: 'not_owner', coord: cell });
     }
     return { ok: true };
@@ -324,6 +328,23 @@ function validateSourceOwnership(world: Readonly<World>, cell: Coord, player: Pl
 
 function fail(reason: ValidationError): CommandResult {
     return { ok: false, reason };
+}
+
+/**
+ * Resolve a canonical `PlayerId` to its 1-based owner byte for direct
+ * comparison against `WorldState.troopOwners` / `cityOwners`.
+ *
+ * Returns `null` when the ID is not registered (unknown/forged), so the
+ * caller can fail closed with `unknown_player` instead of silently
+ * treating the cell as unowned.
+ *
+ * @param world - Current world (owns the registry).
+ * @param player - The order's claimed identity.
+ * @returns The 1-based dense owner byte, or `null` when unregistered.
+ */
+function resolvePlayerByte(world: Readonly<World>, player: PlayerId): number | null {
+    const index = world.playerRegistry.indexOfId(player);
+    return index === null ? null : index + 1;
 }
 
 /**

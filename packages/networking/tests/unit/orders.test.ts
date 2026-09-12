@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { Connection } from '../../src/connection';
 import { MatchChannel } from '../../src/match-channel';
 import { acceptOrder } from '../../src/orders';
-import type { Order } from '../../src/types';
+import type { Order, PlayerId } from '../../src/types';
 import { MockWebSocket } from '../fixtures/conn';
 import { scriptedMatch } from '../fixtures/match';
 
@@ -23,6 +23,7 @@ function joinedPlayerChannel(): {
     channel: MatchChannel;
     connection: Connection;
     socket: MockWebSocket;
+    playerId: PlayerId;
 } {
     const match = scriptedMatch();
     const channel = new MatchChannel({
@@ -37,18 +38,22 @@ function joinedPlayerChannel(): {
         nowMs: 0,
         rateLimit: RATE_5S_BURST2,
     });
-    connection.markJoined('token-1', 1, match.matchId);
-    return { channel, connection, socket };
+    const playerId = match.playerIds[0];
+    if (playerId === undefined) {
+        throw new Error('joinedPlayerChannel: fixture has no player ids');
+    }
+    connection.markJoined('token-1', playerId, match.matchId);
+    return { channel, connection, socket, playerId };
 }
 
-function pipeOrder(player: 1 | 2): Order {
+function pipeOrder(player: PlayerId): Order {
     return { kind: 'setPipe', player, cell: { x: 3, y: 3 }, direction: 'N' };
 }
 
 describe('acceptOrder', () => {
     it('accepts a valid order and enqueues the full triple', () => {
-        const { channel, connection } = joinedPlayerChannel();
-        const order = pipeOrder(1);
+        const { channel, connection, playerId } = joinedPlayerChannel();
+        const order = pipeOrder(playerId);
 
         // The client envelope carried seq 4 on its way in.
         connection.noteClientSeq(4);
@@ -57,13 +62,34 @@ describe('acceptOrder', () => {
         expect(result.ok).toBe(true);
         expect(channel.pendingOrders).toHaveLength(1);
         const [pending] = channel.pendingOrders;
-        expect(pending?.playerId).toBe(1);
+        expect(pending?.playerId).toBe(playerId);
         expect(pending?.order).toEqual(order);
         expect(pending?.submittedAtSeq).toBe(4);
     });
 
+    it('rejects an order whose player identity is not the bound seat (issue #74 FR-022)', () => {
+        const { channel, connection, playerId } = joinedPlayerChannel();
+        // A valid-looking ID belonging to another player cannot authorize an
+        // order: the server binds authorship to the connection's seat.
+        const forged: Order = {
+            kind: 'setPipe',
+            player: 'Player000002' as PlayerId,
+            cell: { x: 3, y: 3 },
+            direction: 'N',
+        };
+        expect(forged.player).not.toBe(playerId);
+        connection.noteClientSeq(1);
+        const result = acceptOrder(channel, connection, forged, 0);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('malformed_payload');
+            expect(result.error.detail?.reason).toBe('order_player_mismatch');
+        }
+        expect(channel.pendingOrders).toHaveLength(0);
+    });
+
     it('does not rate-limit orders (T010: rate limiting moved to handleEnvelope)', () => {
-        const { channel, connection } = joinedPlayerChannel();
+        const { channel, connection, playerId } = joinedPlayerChannel();
 
         // acceptOrder no longer consumes tokens — that happens at the
         // handleEnvelope level (T010 all-frame rate limiting). Verify
@@ -71,7 +97,7 @@ describe('acceptOrder', () => {
         let rejected: string | undefined;
         for (let i = 1; i <= 11; i++) {
             connection.noteClientSeq(i);
-            const result = acceptOrder(channel, connection, pipeOrder(1), 500);
+            const result = acceptOrder(channel, connection, pipeOrder(playerId), 500);
             if (!result.ok) {
                 rejected = result.error.code;
             }
@@ -82,14 +108,14 @@ describe('acceptOrder', () => {
     });
 
     it('accepts orders without rate-limiting (T010: rate limiting moved to handleEnvelope)', () => {
-        const { channel, connection } = joinedPlayerChannel();
+        const { channel, connection, playerId } = joinedPlayerChannel();
 
         // acceptOrder no longer consumes tokens — all orders are accepted
         // regardless of timing (rate limiting is at the handleEnvelope level).
         let accepted = 0;
         for (let i = 1; i <= 16; i++) {
             connection.noteClientSeq(i);
-            if (acceptOrder(channel, connection, pipeOrder(1), 0).ok) {
+            if (acceptOrder(channel, connection, pipeOrder(playerId), 0).ok) {
                 accepted += 1;
             }
         }
@@ -100,7 +126,7 @@ describe('acceptOrder', () => {
     it.each(['disconnected', 'expired', 'closed'] as const)(
         'rejects orders from a %s connection with protocol_sequence_error',
         (state) => {
-            const { channel, connection } = joinedPlayerChannel();
+            const { channel, connection, playerId } = joinedPlayerChannel();
             if (state === 'disconnected') {
                 connection.markDisconnected();
             } else if (state === 'expired') {
@@ -110,7 +136,7 @@ describe('acceptOrder', () => {
                 connection.close(1000, 'test');
             }
 
-            const result = acceptOrder(channel, connection, pipeOrder(1), 0);
+            const result = acceptOrder(channel, connection, pipeOrder(playerId), 0);
 
             expect(result.ok).toBe(false);
             if (!result.ok) {
@@ -131,7 +157,7 @@ describe('acceptOrder', () => {
         const spectator = new Connection({ socket, role: 'spectator', nowMs: 0 });
         spectator.markJoined('token-s', null, match.matchId);
 
-        const result = acceptOrder(channel, spectator, pipeOrder(1), 0);
+        const result = acceptOrder(channel, spectator, pipeOrder(match.playerIds[0] as PlayerId), 0);
 
         expect(result.ok).toBe(false);
         if (!result.ok) {

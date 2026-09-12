@@ -19,6 +19,8 @@
  * Pure module apart from the CSPRNG call: no I/O, no clock reads.
  */
 
+import type { GuestPlayerId, PlayerId, RandomBytesSource } from '@europa/core';
+import { DEFAULT_PLAYER_ID_MAX_ATTEMPTS, generatePlayerId, parseGuestPlayerId } from '@europa/core';
 import type { MatchId } from '@europa/networking';
 import type { PlayerSessionId } from '../contracts/match-types';
 import { getRandomValues, randomUUID } from './crypto';
@@ -37,6 +39,80 @@ import { getRandomValues, randomUUID } from './crypto';
 function toBranded<T extends string>(value: string): T {
     return value as T;
 }
+
+// ----------------------------------------------------------------------------
+// Universal player identity allocation (issue #74, T024)
+// ----------------------------------------------------------------------------
+
+/**
+ * Options for {@link allocatePlayerId}.
+ *
+ * All fields are optional: the production default draws from the platform
+ * CSPRNG through `@europa/core`'s generator, while tests inject a
+ * deterministic byte source and/or a bounded retry budget.
+ */
+export interface AllocatePlayerIdOptions {
+    /**
+     * Predicate returning `true` for a candidate already present in the
+     * caller's ACTIVE id set. The core generator redraws on a collision and
+     * fails closed once `maxAttempts` is exhausted.
+     */
+    readonly isActive?: (candidate: PlayerId) => boolean;
+    /** Deterministic byte source for tests; defaults to the platform CSPRNG. */
+    readonly source?: RandomBytesSource;
+    /**
+     * Bounded candidate-retry budget. Defaults to
+     * `DEFAULT_PLAYER_ID_MAX_ATTEMPTS`. Must be a positive integer.
+     */
+    readonly maxAttempts?: number;
+}
+
+/**
+ * The matchmaking ID allocation boundary (issue #74, T024).
+ *
+ * Delegates to `@europa/core`'s canonical CSPRNG generator — one small
+ * audited primitive shared by every package — while supplying the
+ * caller's active-uniqueness predicate and bounded retry budget. The
+ * generator never returns a colliding value; exhaustion (or unavailable
+ * entropy) fails closed with a typed `@europa/core` error rather than a
+ * duplicate or weak value.
+ *
+ * Allocation happens only at server trust boundaries (identity mint,
+ * seat claim) and NEVER inside engine tick/replay code or seeded
+ * simulation RNG (constitution Principle II).
+ *
+ * @param options - Optional active-set predicate, byte source, retry budget.
+ * @returns A fresh canonical `PlayerId`.
+ * @throws {PlayerIdError} On an invalid `maxAttempts`.
+ * @throws {PlayerIdEntropyError} When entropy cannot be obtained.
+ * @throws {PlayerIdCollisionError} When the retry budget is exhausted.
+ */
+export function allocatePlayerId(options: AllocatePlayerIdOptions = {}): PlayerId {
+    return generatePlayerId(
+        options.source,
+        options.isActive,
+        options.maxAttempts === undefined ? undefined : { maxAttempts: options.maxAttempts },
+    );
+}
+
+/**
+ * Allocate the lobby-branded universal identity. Structurally identical to
+ * {@link allocatePlayerId} but returns the distinct `GuestPlayerId` brand,
+ * validating (never casting) the generated value at the single audited
+ * crossing point.
+ *
+ * @param options - Optional active-set predicate, byte source, retry budget.
+ * @returns A fresh canonical `GuestPlayerId`.
+ * @throws {PlayerIdError} On an invalid `maxAttempts`.
+ * @throws {PlayerIdEntropyError} When entropy cannot be obtained.
+ * @throws {PlayerIdCollisionError} When the retry budget is exhausted.
+ */
+export function allocateGuestPlayerId(options: AllocatePlayerIdOptions = {}): GuestPlayerId {
+    return parseGuestPlayerId(allocatePlayerId(options));
+}
+
+/** Default bounded retry budget re-exported for registry callers/tests. */
+export { DEFAULT_PLAYER_ID_MAX_ATTEMPTS };
 
 /**
  * Case-insensitive RFC 9562 §5.4 UUID v4 shape: version nibble `4`,

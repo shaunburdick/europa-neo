@@ -24,7 +24,6 @@ export type {
     Coord,
     Direction,
     MatchConfig,
-    PlayerId,
     Rng,
     Terrain,
 } from './types';
@@ -34,6 +33,28 @@ export type {
 // ----------------------------------------------------------------------------
 
 export { ENGINE_API_VERSION } from './types';
+
+// ----------------------------------------------------------------------------
+// Canonical player identity (issue #74)
+// ----------------------------------------------------------------------------
+
+export type { GeneratePlayerIdOptions, GuestPlayerId, PlayerId, RandomBytesSource } from './player-id';
+export {
+    DEFAULT_PLAYER_ID_MAX_ATTEMPTS,
+    generatePlayerId,
+    InvalidPlayerIdError,
+    isGuestPlayerId,
+    isPlayerId,
+    PLAYER_ID_ALPHABET,
+    PLAYER_ID_BITS,
+    PLAYER_ID_LENGTH,
+    PLAYER_ID_PATTERN,
+    PlayerIdCollisionError,
+    PlayerIdEntropyError,
+    PlayerIdError,
+    parseGuestPlayerId,
+    parsePlayerId,
+} from './player-id';
 
 // ----------------------------------------------------------------------------
 // Deterministic PRNG (sfc32 + xmur3 helpers)

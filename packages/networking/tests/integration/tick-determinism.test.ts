@@ -40,8 +40,8 @@ async function runTickStream(): Promise<string[]> {
     const h = await startJoinedMatch(stubFogDeps());
     try {
         for (let i = 0; i < TICKS; i++) {
-            const order1 = scriptedPipeOrder(1, i);
-            const order2 = scriptedPipeOrder(2, i);
+            const order1 = scriptedPipeOrder(h.match.playerIds, 1, i);
+            const order2 = scriptedPipeOrder(h.match.playerIds, 2, i);
 
             // Submit both orders, pinning each to its ack by sequence number.
             const submitted1 = h.clients[0].order(order1);

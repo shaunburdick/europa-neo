@@ -362,7 +362,7 @@ export class MapCanvas {
         ctx.fillStyle = CHIP_BACKGROUND;
         ctx.fill();
         // Owner color ring around the disc (FR-001 owner colors); the
-        // accessible name carries "Player N" so color is not the only
+        // accessible name carries the handle/ID so color is not the only
         // carrier of ownership.
         ctx.strokeStyle = mapView.playerColors[info.owner] ?? CHIP_TEXT;
         ctx.lineWidth = Math.max(1.5, zoom * 0.05);

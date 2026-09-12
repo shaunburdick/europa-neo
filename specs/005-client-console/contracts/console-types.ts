@@ -93,12 +93,22 @@
  *
  * 0.3.0 (issue #76): `DEFAULT_CAMERA.minZoom` raised 16 → 32 — zoom
  * range is now 100%–300% (board always fully visible at min zoom).
+ *
+ * 0.4.0 (issue #74): universal identity migration. `ConsoleSession`
+ * keys participants by the server-issued `PlayerId` (`participants`
+ * replaces the seat-ordered `opponents` string list), and the numeric
+ * `DEFAULT_PLAYER_COLORS` record is replaced by the ordered
+ * `PLAYER_COLOR_PALETTE` (per-player colors resolve from
+ * `PlayerView.config.playerIds`). Handles remain preferred labels with
+ * the canonical ID as fallback.
  */
-export const CONSOLE_API_VERSION = '0.3.0' as const;
+export const CONSOLE_API_VERSION = '0.4.0' as const;
 
 // ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)
 // ----------------------------------------------------------------------------
+
+import { TOKENS } from '@europa/design';
 
 import type {
   CellView,
@@ -347,10 +357,11 @@ export interface MapView {
    */
   readonly cells: ReadonlyMap<string, CellRenderInfo>;
   /**
-   * Per-player cosmetic color used for owner/city markers. Indexed
-   * by `PlayerId`. Comes from the matchmaker / display-name
-   * announcement (future feature 006 extension; v1 console uses
-   * a fixed palette defined in `DEFAULT_PLAYER_COLORS`).
+   * Per-player cosmetic color used for owner/city markers, keyed by
+   * the server-issued `PlayerId`. Built by `buildMapView` from
+   * `PlayerView.config.playerIds` (placement-slot order) against the
+   * fixed {@link PLAYER_COLOR_PALETTE}; never derived from a numeric
+   * seat/index.
    */
   readonly playerColors: Readonly<Record<PlayerId, string>>;
   /**
@@ -523,24 +534,24 @@ export const DEFAULT_CAMERA: CameraState = {
 };
 
 /**
- * Default per-player color palette (Tailwind-ish hex strings, no CDN
- * required). Keys are `PlayerId` (1..4 — the engine supports 2–4
- * players by contract). Chosen for hue + lightness separation so
+ * Ordered per-player color palette (derived from `@europa/design`
+ * tokens — the single source of truth for the palette). Colors are
+ * assigned to the server-issued `PlayerId`s in
+ * `PlayerView.config.playerIds` (terrain placement-slot) order, one
+ * palette entry per slot; the engine supports 2–4 players by contract,
+ * so entries 0–3 suffice. Chosen for hue + lightness separation so
  * colorblind players can distinguish owners (research.md §6); the
  * `ownerColorRing` QoL setting adds a redundant shape signal on top.
  *
- * Palette (Tailwind v3 hex, chosen by hand — no runtime dependency):
- *   - Player 1: red-600    `#dc2626`
- *   - Player 2: blue-600   `#2563eb`
- *   - Player 3: emerald-600 `#059669`
- *   - Player 4: amber-600  `#d97706`
+ * Values match Tailwind v3 hex naming (red-600, blue-600,
+ * emerald-600, amber-600).
  */
-export const DEFAULT_PLAYER_COLORS: Readonly<Record<PlayerId, string>> = {
-  1: '#dc2626',
-  2: '#2563eb',
-  3: '#059669',
-  4: '#d97706',
-};
+export const PLAYER_COLOR_PALETTE: ReadonlyArray<string> = [
+    TOKENS.color.playerColor1,
+    TOKENS.color.playerColor2,
+    TOKENS.color.playerColor3,
+    TOKENS.color.playerColor4,
+];
 
 /**
  * Fallback color for spectators (no player ID).
@@ -672,6 +683,24 @@ export const DEFAULT_QOL_SETTINGS: QoLSettings = {
 };
 
 /**
+ * One participant in the match, keyed by the server-issued universal
+ * `PlayerId` (never a numeric seat or a handle string). Ordered in the
+ * session by terrain placement-slot (seat) order for display.
+ */
+export interface ConsoleParticipant {
+  /** Server-issued canonical 12-character identity. */
+  readonly id: PlayerId;
+  /**
+   * Preferred human handle from the server roster, or `null` when the
+   * server supplied none. The ID is the fallback label; it is never
+   * rendered as a handle when a handle exists.
+   */
+  readonly name: string | null;
+  /** Whether this participant is the local viewer. */
+  readonly isLocal: boolean;
+}
+
+/**
  * Console session metadata. Persisted across reconnects so the
  * user can rejoin without re-entering the match id (the token is
  * the source of truth; the display name is cosmetic).
@@ -681,13 +710,21 @@ export interface ConsoleSession {
   readonly sessionToken: SessionToken | null;
   readonly playerId: PlayerId | null;
   readonly displayName: string;
-  /** Display names of other players in the match. Index by `PlayerId - 1`. */
-  readonly opponents: ReadonlyArray<string>;
   /**
-   * Bidirectional map from `PlayerId` to display name. Populated from
-   * the server's `players` array on join; used by the game-over modal
-   * and terminal announcement to resolve numeric IDs to handles.
-   * Empty before the `joined` event arrives.
+   * Every participant in terrain placement-slot (seat) order, keyed by
+   * the server-issued `PlayerId`. Identity is the ID; the seat index
+   * is presentation-only. Replaces the former seat-ordered `opponents`
+   * string list, which keyed identity by position.
+   */
+  readonly participants: ReadonlyArray<ConsoleParticipant>;
+  /**
+   * Map from universal `PlayerId` to the server-provided human handle.
+   * Populated from the server's `players` array on join; only real
+   * handles are stored (the engine's raw-ID placeholder is omitted so
+   * the fallback can render the ID without pretending it is a handle).
+   * Used by the game-over modal, cell labels, and terminal
+   * announcement to resolve IDs to handles. Empty before the `joined`
+   * event arrives.
    */
   readonly playerNames: ReadonlyMap<PlayerId, string>;
 }

@@ -62,12 +62,14 @@ let actionIdCounter = 0;
 let matchIdCounter = 0;
 
 /**
- * Mint a fresh opaque wire `GuestPlayerId` (`guest-0001`, …).
- * Deterministic within a process; non-semantic by construction.
+ * Mint a fresh canonical wire `GuestPlayerId` (`Guest0000001`, …).
+ * Exactly 12 characters from the canonical alphabet (issue #74), so it
+ * passes wire-level identity validation. Deterministic within a
+ * process; non-semantic by construction.
  */
 export function nextGuestPlayerId(): GuestPlayerId {
     guestPlayerIdCounter += 1;
-    return `guest-${String(guestPlayerIdCounter).padStart(4, '0')}` as GuestPlayerId;
+    return `Guest${String(guestPlayerIdCounter).padStart(7, '0')}` as GuestPlayerId;
 }
 
 /** Mint a fresh wire `MatchId` for lobby entries (`match-wire-0001`, …). */

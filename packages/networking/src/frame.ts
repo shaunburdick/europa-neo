@@ -56,6 +56,25 @@ export function encodeFrame(envelope: ProtocolEnvelope<NetworkPayload>): string 
 }
 
 /**
+ * Parse a frame's raw text into a JSON value WITHOUT validating its
+ * envelope shape. Exists so the connection layer can apply the FR-004
+ * version gate BEFORE payload interpretation (issue #74: an old-major
+ * numeric client must be rejected without its payload being inspected).
+ *
+ * @param raw The raw frame text received from the socket.
+ * @returns The parsed JSON value.
+ * @throws NetworkError with code `'malformed_payload'` when the text is
+ *         not valid JSON.
+ */
+export function parseFrameJson(raw: string): unknown {
+    try {
+        return JSON.parse(raw);
+    } catch {
+        throw new NetworkError('malformed_payload', 'frame is not valid JSON');
+    }
+}
+
+/**
  * Parse and validate an inbound frame. Throws on any problem — use
  * `tryDecodeFrame` at message-handler boundaries where a reply-and-
  * continue policy is desired instead of exception propagation.
@@ -67,12 +86,7 @@ export function encodeFrame(envelope: ProtocolEnvelope<NetworkPayload>): string 
  *         (`validateEnvelope`).
  */
 export function decodeFrame(raw: string): ProtocolEnvelope<NetworkPayload> {
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch {
-        throw new NetworkError('malformed_payload', 'frame is not valid JSON');
-    }
+    const parsed = parseFrameJson(raw);
     validateEnvelope(parsed);
     return parsed;
 }

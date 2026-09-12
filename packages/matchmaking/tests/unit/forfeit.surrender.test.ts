@@ -24,20 +24,25 @@
  * Test descriptions cite the requirement they pin.
  */
 
-import type { PlayerId } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
+
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { handleSeatExpired } from '../../src/forfeit';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
-import { makeFillingForfeitFixture, makeRunningForfeitFixture, SILENT_LOGGER } from '../fixtures/forfeitScenario';
+import {
+    ALICE_PLAYER_ID,
+    makeFillingForfeitFixture,
+    makeRunningForfeitFixture,
+    SILENT_LOGGER,
+} from '../fixtures/forfeitScenario';
 
 describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)', () => {
     it('US5 AC-1: expiry submits surrender for the seat and the engine marks it', () => {
         const fx = makeRunningForfeitFixture();
 
         const result = handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: ALICE_PLAYER_ID },
             { store: fx.store, server: fx.server, logger: SILENT_LOGGER },
             fx.nowMs(),
         );
@@ -50,7 +55,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
         // The engine applied the order: Alice is eliminated in the world
         // (FR-016 — surrender marks the player eliminated immediately).
         const world = fx.match.engineSession?.world();
-        expect(world?.players[0]?.status).toBe('eliminated');
+        expect(world?.players.find((player) => player.id === ALICE_PLAYER_ID)?.status).toBe('eliminated');
         // One player (Bob) remains alive.
         expect(result.remainingPlayers).toBe(1);
     });
@@ -60,7 +65,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
         fx.advanceMs(555);
 
         handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: ALICE_PLAYER_ID },
             { store: fx.store, server: fx.server, logger: SILENT_LOGGER },
             fx.nowMs(),
         );
@@ -73,7 +78,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
         const fx = makeRunningForfeitFixture();
 
         handleSeatExpired(
-            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: 1 as PlayerId },
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: ALICE_PLAYER_ID },
             { store: fx.store, server: fx.server, logger: SILENT_LOGGER },
             fx.nowMs(),
         );
@@ -82,7 +87,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
         const [detach] = fx.server.detachPlayerCalls;
         expect(detach?.matchId).toBe(fx.match.matchId);
         expect(detach?.sessionToken).toBe(fx.aliceToken);
-        expect(detach?.playerId).toBe(1);
+        expect(detach?.playerId).toBe(ALICE_PLAYER_ID);
     });
 
     it('FR-010: double-fire for the same seat is an idempotent no-op', () => {
@@ -91,7 +96,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
         const event = {
             matchId: fx.match.matchId,
             sessionToken: fx.aliceToken,
-            playerId: 1 as PlayerId,
+            playerId: ALICE_PLAYER_ID,
         };
 
         const first = handleSeatExpired(event, ctx, fx.nowMs());
@@ -130,7 +135,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
                 {
                     matchId: '00000000-0000-4000-8000-000000000000' as never,
                     sessionToken: fx.aliceToken,
-                    playerId: 1 as PlayerId,
+                    playerId: ALICE_PLAYER_ID,
                 },
                 ctx,
                 fx.nowMs(),
@@ -141,7 +146,7 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
                 {
                     matchId: fx.match.matchId,
                     sessionToken: '99999999-9999-4999-8999-999999999999' as never,
-                    playerId: 1 as PlayerId,
+                    playerId: ALICE_PLAYER_ID,
                 },
                 ctx,
                 fx.nowMs(),
@@ -170,7 +175,8 @@ describe('forfeit policy injects OrderSurrender on seat expiry (FR-010 / T055)',
         });
 
         const world = engineSession?.world();
-        expect(world?.players[0]?.status).toBe('eliminated');
+        const surrenderedId = created.data.seatAssignment.playerId;
+        expect(world?.players.find((player) => player.id === surrenderedId)?.status).toBe('eliminated');
         expect(server.detachPlayerCalls).toHaveLength(1);
         expect(server.detachPlayerCalls[0]?.sessionToken).toBe(created.data.seatAssignment.sessionToken);
         void joined;

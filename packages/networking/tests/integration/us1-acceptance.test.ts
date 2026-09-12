@@ -22,7 +22,12 @@ describe('US1 acceptance (authoritative match channel)', () => {
         try {
             // The first order this client submits carries seq 1 (per-client
             // monotonic sequence starts at 1).
-            h.clients[0].order({ kind: 'setPipe', player: 1, cell: { x: 2, y: 1 }, direction: 'S' });
+            h.clients[0].order({
+                kind: 'setPipe',
+                player: h.match.playerIds[0],
+                cell: { x: 2, y: 1 },
+                direction: 'S',
+            });
 
             // Ack arrives at the next tick boundary, before that boundary's
             // broadcast (pipeline order: drain → ack → advance → send).
@@ -74,8 +79,8 @@ describe('US1 acceptance (authoritative match channel)', () => {
             // in wire shape (Sets → sorted arrays), so any cross-seat leak
             // (SC-004 violation) would fail this equality.
             const world = h.match.engineSession.world();
-            const expected1 = wireShape(computePlayerView(world, 1));
-            const expected2 = wireShape(computePlayerView(world, 2));
+            const expected1 = wireShape(computePlayerView(world, h.match.playerIds[0]));
+            const expected2 = wireShape(computePlayerView(world, h.match.playerIds[1]));
             expect(wireShape((lastTick1 as { view: unknown }).view)).toEqual(expected1);
             expect(wireShape((lastTick2 as { view: unknown }).view)).toEqual(expected2);
         } finally {
@@ -94,7 +99,12 @@ describe('US1 acceptance (authoritative match channel)', () => {
             // setPipe on a neutral cell: schema-valid, engine-invalid
             // (`not_owner`) — exercises the engine-level rejection path,
             // which rides `orderAck` with a failed CommandResult.
-            h.clients[0].order({ kind: 'setPipe', player: 1, cell: { x: 5, y: 5 }, direction: 'N' });
+            h.clients[0].order({
+                kind: 'setPipe',
+                player: h.match.playerIds[0],
+                cell: { x: 5, y: 5 },
+                direction: 'N',
+            });
 
             const ack = await h.clients[0].nextMessage('orderAck');
             const ackPayload = ack.payload as { seq: number; result: { ok: boolean; reason?: unknown } };

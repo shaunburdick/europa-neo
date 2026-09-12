@@ -72,15 +72,15 @@ function matchmakerRandomId(): string {
     return `mm-${String(matchmakerSeq).padStart(12, '0')}`;
 }
 
-/** Sequential id generator for REGISTRY guest ids (independent counter). */
+/** Sequential canonical-id generator for REGISTRY guest ids (independent counter). */
 function guestRandomId(): string {
     guestSeq += 1;
-    return `guest-${String(guestSeq).padStart(4, '0')}`;
+    return `Plyr${String(guestSeq).padStart(8, '0')}`;
 }
 
-/** The n-th minted guest id (registry ids are `guest-NNNN` by construction). */
+/** The n-th minted guest id (registry ids are `Plyr<seq>` by construction). */
 function guest(n: number): GuestPlayerId {
-    return `guest-${String(n).padStart(4, '0')}` as GuestPlayerId;
+    return `Plyr${String(n).padStart(8, '0')}` as GuestPlayerId;
 }
 
 /** One recorded outbound delivery from the facade under test. */
@@ -250,7 +250,7 @@ describe('lifecycle fan-out over the composed stack (R-006)', () => {
         // two triggers, one visible change, ONE bump.
         stack.server.fireOnMatchTerminal({
             matchId: created.matchId,
-            result: { kind: 'win', winner: 1 as PlayerId, tick: 7, reason: 'last_standing' },
+            result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 7, reason: 'last_standing' },
             tick: 7,
         });
         expect(pushedRevisions(stack.delivered)).toEqual([2, 3, 4]);

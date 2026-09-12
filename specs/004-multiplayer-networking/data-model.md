@@ -345,7 +345,7 @@ interface SeatRecord {
 
 | Field | Purpose |
 |-------|---------|
-| `playerId` | The seat's stable player number |
+| `playerId` | The seat's canonical 12-character universal `PlayerId` (allocated once by matchmaking; never a numeric seat index) |
 | `sessionToken` | Issued by matchmaking at lobby entry; opaque to networking |
 | `connection` | The currently-attached WebSocket, or `null` if disconnected |
 | `disconnectedAtMs` | Epoch ms of last disconnect; `null` if currently connected. Used to compute remaining grace. |

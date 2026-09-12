@@ -31,6 +31,7 @@ import type { EngineConstants } from '../../src/contracts/engine-api';
 import { resolveCapture } from '../../src/resolution/capture';
 import type { Board, WorldState } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
+import { PLAYER_1, PLAYER_2, TEST_REGISTRY as REGISTRY } from '../fixtures/ids';
 
 // Production constants — capture doesn't read any of these today, but
 // the signature requires an EngineConstants so we pass the real one.
@@ -86,7 +87,7 @@ describe('resolveCapture — FR-005 city capture', () => {
         const state = emptyState(size);
         place(state, size, 3, 3, 2, 100, 1);
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.state.cityOwners[3 * size + 3]).toBe(2);
     });
 
@@ -96,7 +97,7 @@ describe('resolveCapture — FR-005 city capture', () => {
         const state = emptyState(size);
         place(state, size, 3, 3, 2, 100, 1);
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.events.captures.length).toBe(1);
         const ev = out.events.captures[0];
         if (ev === undefined) {
@@ -104,8 +105,8 @@ describe('resolveCapture — FR-005 city capture', () => {
         }
         expect(ev.tick).toBe(TICK);
         expect(ev.cell).toEqual({ x: 3, y: 3 });
-        expect(ev.fromOwner).toBe(1);
-        expect(ev.toOwner).toBe(2);
+        expect(ev.fromOwner).toBe(PLAYER_1);
+        expect(ev.toOwner).toBe(PLAYER_2);
         expect(ev.isCity).toBe(true);
     });
 
@@ -118,7 +119,7 @@ describe('resolveCapture — FR-005 city capture', () => {
         const state = emptyState(size);
         place(state, size, 3, 3, 2, 150, 1);
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.state.troopCounts[3 * size + 3]).toBe(150);
         expect(out.state.troopOwners[3 * size + 3]).toBe(2);
         expect(out.state.cityOwners[3 * size + 3]).toBe(2);
@@ -133,7 +134,7 @@ describe('resolveCapture — FR-005 city capture', () => {
         const state = emptyState(size);
         place(state, size, 3, 3, 2, 17, 1);
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.state.troopCounts[3 * size + 3]).toBe(17);
     });
 });
@@ -146,7 +147,7 @@ describe('resolveCapture — no-capture cases', () => {
         const state = emptyState(size);
         place(state, size, 3, 3, 1, 30, 1);
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.events.captures.length).toBe(0);
         // City owner unchanged.
         expect(out.state.cityOwners[3 * size + 3]).toBe(1);
@@ -159,7 +160,7 @@ describe('resolveCapture — no-capture cases', () => {
         const state = emptyState(size);
         place(state, size, 3, 3, 2, 50, null);
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.events.captures.length).toBe(0);
         // Cell still has no city.
         expect(out.state.cityOwners[3 * size + 3]).toBe(0);
@@ -171,7 +172,7 @@ describe('resolveCapture — no-capture cases', () => {
         const state = emptyState(size);
         const before = Array.from(state.cityOwners);
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.events.captures.length).toBe(0);
         expect(Array.from(out.state.cityOwners)).toEqual(before);
     });
@@ -184,7 +185,7 @@ describe('resolveCapture — no-capture cases', () => {
         const state = emptyState(size);
         place(state, size, 3, 3, 2, 25, 2);
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.events.captures.length).toBe(0);
         expect(out.state.cityOwners[3 * size + 3]).toBe(2);
     });
@@ -199,7 +200,7 @@ describe('resolveCapture — no-capture cases', () => {
         state.cityOwners[3 * size + 3] = 1;
         // troopCounts and troopOwners remain 0 (neutral).
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.events.captures.length).toBe(0);
         expect(out.state.cityOwners[3 * size + 3]).toBe(1);
     });
@@ -216,7 +217,7 @@ describe('resolveCapture — multiple captures', () => {
         place(state, size, 1, 1, 2, 100, 1); // P2 captured P1's city
         place(state, size, 6, 6, 1, 100, 2); // P1 captured P2's city
 
-        const out = resolveCapture(state, board, CONSTANTS, TICK);
+        const out = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         expect(out.events.captures.length).toBe(2);
         expect(out.state.cityOwners[1 * size + 1]).toBe(2);
         expect(out.state.cityOwners[6 * size + 6]).toBe(1);
@@ -236,7 +237,7 @@ describe('resolveCapture — determinism & purity', () => {
         place(state, size, 3, 3, 2, 100, 1);
         const before = Array.from(state.cityOwners);
 
-        resolveCapture(state, board, CONSTANTS, TICK);
+        resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
 
         expect(Array.from(state.cityOwners)).toEqual(before);
     });
@@ -251,9 +252,9 @@ describe('resolveCapture — determinism & purity', () => {
         place(state, size, 1, 1, 2, 100, 1);
         place(state, size, 6, 6, 1, 100, 2);
 
-        const reference = resolveCapture(state, board, CONSTANTS, TICK);
+        const reference = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
         for (let i = 0; i < 1000; i++) {
-            const next = resolveCapture(state, board, CONSTANTS, TICK);
+            const next = resolveCapture(state, board, CONSTANTS, TICK, REGISTRY);
             expect(Array.from(next.state.cityOwners)).toEqual(Array.from(reference.state.cityOwners));
             expect(next.events.captures.length).toBe(reference.events.captures.length);
         }

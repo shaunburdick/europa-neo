@@ -61,7 +61,7 @@ import { DEFAULT_GENERATION_SETTINGS } from '@europa/terrain';
  * Mirrors the engine's `ENGINE_API_VERSION` and networking's
  * `NETWORK_API_VERSION` discipline: every consumer pin-checks at startup.
  */
-export const MATCHMAKING_API_VERSION = '0.1.0' as const;
+export const MATCHMAKING_API_VERSION = '0.2.0' as const;
 
 // ----------------------------------------------------------------------------
 // Re-exports (canonical types from upstream packages)
@@ -273,8 +273,13 @@ export interface SeatAssignment {
   /** Position in seat order (0..playerCount-1). */
   readonly seatIndex: SeatIndex;
   /**
-   * Engine PlayerId (1..playerCount). Assigned once the match transitions
-   * to `'running'`; for `'filling'` matches this is `seatIndex + 1`.
+   * Universal server-issued 12-character `PlayerId` (issue #74, spec 006
+   * FR-014/FR-015). Fixed when the seat is claimed — the SAME value as the
+   * holder's lobby `GuestPlayerId` when lobby-originated, otherwise a fresh
+   * canonical allocation. It is never `seatIndex + 1`, and it is fed
+   * unchanged into `MatchConfig.playerIds`, engine events, terminal
+   * results, and accepted rematches. Non-secret correlation metadata, not a
+   * bearer credential.
    */
   readonly playerId: PlayerId;
   /** Networking-bound token for reconnect. UUID v4 (feature 004 boundary). */

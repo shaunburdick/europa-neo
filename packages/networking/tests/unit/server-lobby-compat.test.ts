@@ -21,12 +21,13 @@
  *
  * Real engine sessions (`scriptedMatch`) + real fog so joinAck views
  * are genuine; mock sockets keep everything synchronous and
- * deterministic.
+ * deterministic. Issue #74: seat admission resolves the bound bearer
+ * token; the canonical identity rides the joinAck.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import type { MatchId, SessionToken } from '../../src/types';
+import type { MatchId, PlayerId, SessionToken } from '../../src/types';
 import type { MockWebSocket } from '../fixtures/conn';
 import { FakeLobbyService } from '../fixtures/fakeLobbyService';
 import {
@@ -55,27 +56,39 @@ import { attachPlayersForMatch, scriptedMatch } from '../fixtures/match';
 // Shared scenario helpers
 // ---------------------------------------------------------------------------
 
-/** Register a small deterministic match with pre-bound seats. */
-function registerMatch(server: LobbyTestServer): ReturnType<typeof scriptedMatch> {
+/** Register a small deterministic match with pre-bound seats + tokens. */
+function registerMatch(server: LobbyTestServer): {
+    match: ReturnType<typeof scriptedMatch>;
+    tokens: readonly SessionToken[];
+} {
     const match = scriptedMatch({ boardSize: 8, tickRateMs: 10 });
     server.registerMatch({
         matchId: match.matchId,
         engineSession: match.engineSession,
         matchConfig: match.matchConfig,
     });
-    attachPlayersForMatch(server, match);
-    return match;
+    const tokens = attachPlayersForMatch(server, match);
+    return { match, tokens };
 }
 
-/** Gameplay join request for a seat (lowest open when no seat given). */
-function joinMatch(socket: MockWebSocket, matchId: MatchId, requestedSeat?: number): void {
+/** Resolve a placement slot's token, failing loudly when absent. */
+function tokenFor(tokens: readonly SessionToken[], slot: number): SessionToken {
+    const token = tokens[slot - 1];
+    if (token === undefined) {
+        throw new Error(`tokenFor: no token for slot ${String(slot)}`);
+    }
+    return token;
+}
+
+/** Gameplay join request presenting the seat's bound bearer token. */
+function joinMatch(socket: MockWebSocket, matchId: MatchId, reconnectToken: SessionToken): void {
     sendRaw(
         socket,
         plainEnvelope('joinMatch', {
             matchId,
             role: 'player',
             displayName: 'Legacy',
-            ...(requestedSeat === undefined ? {} : { requestedSeat }),
+            reconnectToken,
         }),
     );
 }
@@ -83,7 +96,7 @@ function joinMatch(socket: MockWebSocket, matchId: MatchId, requestedSeat?: numb
 /** Structural slice of a decoded joinAck payload (typed narrowing). */
 interface ObservedJoinAck {
     readonly sessionToken: SessionToken;
-    readonly playerId: number | null;
+    readonly playerId: PlayerId | null;
     readonly tick: number;
     readonly players: ReadonlyArray<unknown>;
 }
@@ -113,21 +126,21 @@ describe('legacy gameplay client on a lobby-wired server (NFR-004)', () => {
     it('gets the full pre-lobby flow with zero lobby traffic and a cold facade', () => {
         const fake = new FakeLobbyService();
         const server = wiredLobbyServer(fake);
-        const match = registerMatch(server);
+        const { match, tokens } = registerMatch(server);
 
         const legacy = connectClient(server);
-        joinMatch(legacy.socket, match.matchId, 1);
+        joinMatch(legacy.socket, match.matchId, tokenFor(tokens, 1));
 
         // Seat claim: exactly the feature-004 ack shape.
         const ack = joinAckOf(legacy.socket);
-        expect(ack.playerId).toBe(1);
+        expect(ack.playerId).toBe(match.playerIds[0]);
         expect(ack.sessionToken.length).toBeGreaterThan(0);
         expect(ack.players).toHaveLength(2);
         expect(ack.tick).toBe(0);
 
         // Orders still accepted into the pipeline (synchronous gate).
         const before = server.stats().totalOrdersAccepted;
-        sendRaw(legacy.socket, plainEnvelope('order', { order: { kind: 'surrender', player: 1 } }));
+        sendRaw(legacy.socket, plainEnvelope('order', { order: { kind: 'surrender', player: match.playerIds[0] } }));
         expect(server.stats().totalOrdersAccepted).toBe(before + 1);
 
         // Heartbeat unchanged.
@@ -146,10 +159,10 @@ describe('legacy gameplay client on a lobby-wired server (NFR-004)', () => {
     it('never observes another connection lobby activity (stream isolation)', () => {
         const fake = new FakeLobbyService();
         const server = wiredLobbyServer(fake);
-        const match = registerMatch(server);
+        const { match, tokens } = registerMatch(server);
 
         const legacy = connectClient(server);
-        joinMatch(legacy.socket, match.matchId, 1);
+        joinMatch(legacy.socket, match.matchId, tokenFor(tokens, 1));
         joinAckOf(legacy.socket); // drain the joinAck
 
         // A neighbor does loud lobby business on the same server.
@@ -167,9 +180,9 @@ describe('legacy gameplay client on a lobby-wired server (NFR-004)', () => {
     it('reconnects through the untouched feature-004 path while lobby teardown fires invisibly', () => {
         const fake = new FakeLobbyService();
         const server = wiredLobbyServer(fake);
-        const match = registerMatch(server);
+        const { match, tokens } = registerMatch(server);
         const owner = connectClient(server);
-        joinMatch(owner.socket, match.matchId, 1);
+        joinMatch(owner.socket, match.matchId, tokenFor(tokens, 1));
         const { sessionToken } = joinAckOf(owner.socket);
         const ownerConnectionId = (
             required(framesOfType(owner.socket, 'helloAck')[0], 'helloAck').payload as {
@@ -222,12 +235,12 @@ describe('mixed lobby-era client (both families on one socket)', () => {
         // be asserted content-wise, not just kind-wise.
         fake.identityToDeliver = buildIdentityState({ handle: 'Nova' });
         const server = wiredLobbyServer(fake);
-        const match = registerMatch(server);
+        const { match, tokens } = registerMatch(server);
 
         const client = connectClient(server);
         sendLobby(client.socket, 'lobbyIdentity', lobbyIdentityPayload());
         sendLobby(client.socket, 'lobbySetHandle', lobbySetHandlePayload('Nova'));
-        joinMatch(client.socket, match.matchId, 2);
+        joinMatch(client.socket, match.matchId, tokenFor(tokens, 2));
         sendLobby(client.socket, 'lobbySubscribe', lobbySubscribePayload());
         sendRaw(client.socket, plainEnvelope('ping', { clientTimeMs: 55 }));
 
@@ -248,12 +261,12 @@ describe('mixed lobby-era client (both families on one socket)', () => {
         const snapshots = lobbyEvents(client.socket).filter((event) => event.kind === 'snapshot');
         expect(snapshots).toHaveLength(1);
         const ack = joinAckOf(client.socket);
-        expect(ack.playerId).toBe(2);
+        expect(ack.playerId).toBe(match.playerIds[1]);
 
         // Gameplay authority intact after lobby usage: the order gate
         // accepts (its bucket is independent of the lobby bucket).
         const before = server.stats().totalOrdersAccepted;
-        sendRaw(client.socket, plainEnvelope('order', { order: { kind: 'surrender', player: 2 } }));
+        sendRaw(client.socket, plainEnvelope('order', { order: { kind: 'surrender', player: match.playerIds[1] } }));
         expect(server.stats().totalOrdersAccepted).toBe(before + 1);
         expect(transportErrors(client.socket)).toHaveLength(0);
     });
@@ -261,12 +274,12 @@ describe('mixed lobby-era client (both families on one socket)', () => {
     it('reclaims its seat with the gameplay token after heavy lobby activity', () => {
         const fake = new FakeLobbyService();
         const server = wiredLobbyServer(fake);
-        const match = registerMatch(server);
+        const { match, tokens } = registerMatch(server);
 
         const first = connectClient(server);
         sendLobby(first.socket, 'lobbyIdentity', lobbyIdentityPayload());
         sendLobby(first.socket, 'lobbySubscribe', lobbySubscribePayload());
-        joinMatch(first.socket, match.matchId, 1);
+        joinMatch(first.socket, match.matchId, tokenFor(tokens, 1));
         const { sessionToken } = joinAckOf(first.socket);
         expect(snapshotRevisions(first.socket)).toEqual([7]); // scripted baseline
 

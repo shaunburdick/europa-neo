@@ -5,8 +5,10 @@
 **Spec**: `specs/003-procedural-terrain-generation/spec.md`
 
 > All entities live in `packages/terrain/src/` and are re-exported via
-> `@europa/terrain`. Type-only imports come from `@europa/engine`
-> (`Board`, `Cell`, `CityPlacement`, `Coord`, `PlayerId`).
+> `@europa/terrain`. Type-only imports come from `@europa/core`
+> (`Board`, `Cell`, `CityPlacement`, `Coord`); terrain deliberately does
+> **not** import, re-export, or consume the branded `PlayerId`
+> (issue #74, FR-011).
 >
 > Generated values (`Board`, `Cell[]`, `CityPlacement[]`) are deeply
 > readonly. The terrain package never mutates engine types.
@@ -161,9 +163,9 @@ A 32×32 board with `waterRatio: 0.10`, `roughness: 0.5`, `octaves: 4`,
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `board` | `Board` | The engine-ready terrain definition. See `engine-types.ts`. |
+| `board` | `Board` | The engine-ready terrain definition (see §7). |
 | `effectiveSeed` | `number` (uint32) | The seed actually used (may differ from input if retries happened). FR-009. |
-| `startingCitiesByPlayer` | `Readonly<Record<PlayerId, ReadonlyArray<{ x: number; y: number }>>>` | Per-player city coords. Redundant with `board.cities` (the engine reads `board.cities` directly) but exposed for spec-mandated symmetry checks. |
+| `startingCitiesByPlayer` | `Readonly<Record<number, ReadonlyArray<{ x: number; y: number }>>>` | City coords keyed by **1-based dense numeric placement slot**, never by a `PlayerId` (issue #74, FR-011). Redundant with `board.cities` (the engine reads `board.cities` directly) but exposed for spec-mandated symmetry checks. The caller maps slot `k` to `MatchConfig.playerIds[k - 1]`. |
 
 ### Validation rules (SC-002)
 
@@ -247,11 +249,12 @@ Throwing (rather than returning `{ ok: false }`) is intentional:
 ## 7. Reused engine types (no changes)
 
 The terrain package produces a `Board` whose shape is **already fully
-defined** by feature 001's `engine-types.ts`. We re-declare the relevant
-fields here for the reader's convenience, but the canonical source of
-truth is the engine contract.
+defined** by the shared foundation types in `@europa/core` (re-exported
+by feature 001's `engine-types.ts`). We re-declare the relevant fields
+here for the reader's convenience, but the canonical source of truth is
+the shared contract.
 
-### `Board` (from `engine-types.ts`)
+### `Board` (from `@europa/core`)
 
 | Field | Type | Constraints | Notes |
 |-------|------|-------------|-------|
@@ -260,7 +263,7 @@ truth is the engine contract.
 | `cells` | `ReadonlyArray<Cell>` | length `=== width*height` | Row-major. |
 | `cities` | `ReadonlyArray<CityPlacement>` | per-player, on land | From terrain's city-placement phase. |
 
-### `Cell` (from `engine-types.ts`)
+### `Cell` (from `@europa/core`)
 
 | Field | Type | Constraints | Notes |
 |-------|------|-------------|-------|
@@ -269,23 +272,34 @@ truth is the engine contract.
 | `elevation` | `number` (int) | `0..255` | From fBm noise. |
 | `terrain` | `'land' \| 'water'` | | From threshold-flood. |
 
-### `CityPlacement` (from `engine-types.ts`)
+### `CityPlacement` (from `@europa/core`)
 
 | Field | Type | Constraints | Notes |
 |-------|------|-------------|-------|
 | `cell` | `Coord` | on land cell | |
-| `owner` | `PlayerId` | 1..4 | |
+| `owner` | `number` (int) | 1-based dense placement slot | **Not** a `PlayerId` (issue #74, FR-011). Terrain assigns slots for symmetry/placement only; the engine maps slot `k` to `MatchConfig.playerIds[k - 1]` at the identity boundary. Changing the ID list never changes the generated board. |
 
-### `Coord` (from `engine-types.ts`)
+### `Coord` (from `@europa/core`)
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `x` | `number` (int) | |
 | `y` | `number` (int) | |
 
-### `PlayerId` (from `engine-types.ts`)
+### `PlayerId` (from `@europa/core`) — *not used by terrain*
 
-`type PlayerId = 1 | 2 | 3 | 4;`
+```ts
+type PlayerId = string & { readonly __brand: 'PlayerId' };
+```
+
+A branded 12-character server-issued identity (feature 001 v1.13,
+issue #74) — **not** a numeric union and **not** a credential. Terrain is
+identity-agnostic (FR-011): it neither imports nor re-exports
+`PlayerId`. `CityPlacement.owner` and the `startingCitiesByPlayer` keys
+are dense 1-based numeric placement slots; the caller owns the explicit
+slot → `MatchConfig.playerIds[slot - 1]` mapping, and changing the ID
+list never changes generated terrain for the same seed, board size,
+player count, and settings.
 
 ---
 
@@ -364,9 +378,9 @@ TerrainGenerationResult
   │    ├─ cells: ReadonlyArray<Cell>
   │    │    └─ { x, y, elevation, terrain }
   │    └─ cities: ReadonlyArray<CityPlacement>
-  │         └─ { cell: Coord, owner: PlayerId }
+  │         └─ { cell: Coord, owner: number }  // 1-based placement slot
   ├─ effectiveSeed
-  └─ startingCitiesByPlayer: Record<PlayerId, Coord[]>
+  └─ startingCitiesByPlayer: Record<number, Coord[]>  // keyed by slot
 
   [side-channel, for tests / debug]
   ValidationReport

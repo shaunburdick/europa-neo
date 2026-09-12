@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-31
 
-**Status**: Implemented (2026-09-01; Amended 2026-09-03 — React component conversion, issue #65; Completed 2026-09-04; Bug fixes 2026-09-11 — issues #148, #149)
+**Status**: Implemented (2026-09-01; Amended 2026-09-03 — React component conversion, issue #65; Completed 2026-09-04; Bug fixes 2026-09-11 — issues #148, #149; Amended 2026-09-12 — identity-decoupled game primitive colors, issue #74)
 
 **GitHub Issue**: #41 (original); #65 (this amendment)
 
@@ -70,7 +70,7 @@ As a player manual author, I want to import `{ EuropaChip, EuropaElevationSwatch
 
 ### User Story 3 — Game-Specific Primitives Available as React Components (Priority: P2)
 
-As a manual author writing about game mechanics, I want to compose inline diagrams using `<EuropaTroopChip count={5} owner={1} />` and `<EuropaCityMarker owner={2} />` so that I can illustrate troop deployments, city ownership, and pipe slopes in documentation without creating custom images.
+As a manual author writing about game mechanics, I want to compose inline diagrams using `<EuropaTroopChip count={5} color={TOKENS.color.playerColor1} />` and `<EuropaCityMarker color={TOKENS.color.playerColor2} />` so that I can illustrate troop deployments, city ownership, and pipe slopes in documentation without creating custom images.
 
 **Why this priority**: Enables richer, data-driven illustrations in the manual. P2 because it builds on the generic component foundation from US1.
 
@@ -78,7 +78,7 @@ As a manual author writing about game mechanics, I want to compose inline diagra
 
 **Acceptance Scenarios**:
 
-1. **Given** `<EuropaTroopChip count={12} owner={1} />`, **When** it renders, **Then** the chip shows "12" with the correct player-1 fill color, has `role="img"` and `aria-label="12 troops, player 1"`, and matches the `.europa-chip` computed styles.
+1. **Given** `<EuropaTroopChip count={12} color={TOKENS.color.playerColor1} />`, **When** it renders, **Then** the chip shows "12" with the supplied color on its text and border, has `role="img"` and `aria-label="12 troops"`, and matches the `.europa-chip` computed styles.
 2. **Given** `<EuropaPipeSlope direction="downhill" />`, **When** it renders, **Then** the indicator shows the green downhill triangle with `aria-label="Downhill flow"` and the correct token color `var(--europa-color-pipe-downhill)`.
 3. **Given** `<EuropaElevationSwatch elevation={42} />`, **When** it renders, **Then** the swatch shows a color from the land elevation band (computed from `landMinLightnessPct` to `landMaxLightnessPct`) with `aria-label="Elevation 42"`.
 
@@ -104,7 +104,7 @@ As a maintainer, I want every React component documented in `DESIGN.md` section 
 - **No children provided**: components that render content from children (e.g., `EuropaCard`, `EuropaStack`) must handle `undefined`/`null` children gracefully — render the structural wrapper with no content, no errors.
 - **Dynamic children**: components must work when children change between renders (React handles this naturally via reconciliation — no manual DOM updates needed, unlike the old `connectedCallback`/`attributeChangedCallback` pattern).
 - **React 18 consumers**: while React 19 is the primary target (it handles custom elements natively), these are now plain React components — they work identically in React 18. The peer dependency range should be `react >= 18`.
-- **Attribute vs prop for complex values**: `owner` (number), `count` (number), `elevation` (number) are passed as typed React props, not string attributes. No string-to-number coercion needed inside the component — the props interface enforces types.
+- **Attribute vs prop for complex values**: `count` (number), `color` (CSS color string), `elevation` (number) are passed as typed React props, not string attributes. No string-to-number coercion needed inside the component — the props interface enforces types. Player identity is deliberately **not** a prop: under issue #74 a `PlayerId` is an opaque canonical string, so the caller resolves it to a `color`/`name` before rendering these primitives.
 - **Server-side rendering**: React components SSR naturally — they render to HTML during `astro build` or `next build`. No `connectedCallback` lifecycle concerns. The Astro manual's `output: 'static'` mode generates HTML at build time.
 - **Styling delivery**: `design.css` remains the single stylesheet file, loaded by the consumer. React components compose the same `europa-*` CSS classes. No `adoptedStyleSheets`, no Shadow DOM, no constructed stylesheets.
 
@@ -130,11 +130,11 @@ As a maintainer, I want every React component documented in `DESIGN.md` section 
   - `EuropaPage` — renders a `<div>` with `.europa-page`. Props: `children`, `className`.
 
 - **FR-002**: `@europa/design/components` MUST export React component functions for the following game-specific visual primitives. These are composable, data-driven components for use in the manual (inline diagrams) and potentially the console:
-  - `EuropaTroopChip` — renders a `.europa-chip` styled for troop counts. Props: `count` (`number`), `owner` (`1 | 2 | 3 | 4`). Accessibility: `role="img"`, `aria-label` computed from count and owner.
-  - `EuropaCityMarker` — renders a city ownership indicator. Props: `owner` (`1 | 2 | 3 | 4`). Accessibility: `role="img"`, `aria-label` from owner.
+  - `EuropaTroopChip` — renders a `.europa-chip` styled for troop counts. Props: `count` (`number`), `color` (`string`, optional — CSS color; falls back to the muted token). Accessibility: `role="img"`, `aria-label` computed from count alone.
+  - `EuropaCityMarker` — renders a city ownership indicator. Props: `color` (`string`, optional — CSS color; falls back to the muted token), `label` (`string`, optional accessible name; defaults to `'city'`). Accessibility: `role="img"`, `aria-label` from `label`.
   - `EuropaPipeSlope` — renders a pipe flow direction indicator. Props: `direction` (`'downhill' | 'flat' | 'uphill' | 'stalled'`). Uses token colors. Accessibility: `role="img"`, `aria-label` from direction.
   - `EuropaElevationSwatch` — renders a terrain elevation color swatch. Props: `elevation` (`number`, 0–100). Color computed from the land elevation band tokens. Accessibility: `role="img"`, `aria-label` with elevation value.
-  - `EuropaPlayerBadge` — renders a player identity badge. Props: `player` (`1 | 2 | 3 | 4`), `name` (`string`, optional). Accessibility: `role="img"`, `aria-label` from player and name.
+  - `EuropaPlayerBadge` — renders a player identity badge. Props: `name` (`string`, required — display and accessible name), `color` (`string`, optional — CSS color; falls back to the muted token). Accessibility: `role="img"`, `aria-label` equal to `name`.
   - `EuropaFogOverlay` — renders a fog-of-war visual indicator (semi-transparent overlay). Props: `visible` (`boolean`, default `true`). Accessibility: `aria-hidden="true"` (purely visual).
   - `EuropaReserveIndicator` — renders a reserve-percentage display. Props: `percent` (`number`, 0–90 step 10). Accessibility: `role="img"`, `aria-label` with percentage.
 
@@ -310,6 +310,16 @@ The modal backdrop previously used `role="button"` with `tabIndex={-1}` wrapping
 #### FR-031 clarified — Browser-mode integration tests implemented
 
 FR-031 required integration tests for the `EuropaModal` focus trap. The spec's intent is now fully satisfied: browser-mode (Vitest Browser Mode) integration tests cover (a) Tab/Shift+Tab cycling within the modal, (b) Escape calling `onClose` and restoring focus, (c) backdrop click calling `onClose`, (d) `open` prop toggling, (e) focus cannot escape to elements behind the modal, and (f) focus returns to the trigger element on close. These tests are wired into CI via the console's existing browser-mode test pipeline. The orphaned `vitest.config.browser.ts` that previously existed without a CI entrypoint has been integrated.
+
+### v1.4 (2026-09-12) — Identity-decoupled game primitive colors (issue #74)
+
+Under issue #74, player identity became an opaque, server-issued canonical 12-character `PlayerId` string; numeric `1 | 2 | 3 | 4` identities were removed from every public contract. The three identity-bearing game primitives (`EuropaTroopChip`, `EuropaCityMarker`, `EuropaPlayerBadge`) previously exposed numeric identity props (`owner` / `player`) and internally mapped them to `playerColor1`–`playerColor4` tokens. That shape is now removed.
+
+- **FR-002 amended — explicit `color`, no identity union**: `EuropaTroopChip` takes `count: number` and an optional `color: string` (any CSS color). `EuropaCityMarker` takes an optional `color: string` and an optional `label: string` accessible name. `EuropaPlayerBadge` takes a required `name: string` and an optional `color: string`. An absent `color` falls back to `TOKENS.color.textMuted`. The `owner`/`player` numeric unions are deleted.
+- **Rationale**: a presentational library should not own identity → color ordering. The caller (manual, dev page, or any future consumer) resolves a `PlayerId` to a display name and a `TOKENS.color.playerColor*` value. This keeps `@europa/design` free of any `@europa/core` dependency and honors the issue #74 rule that numeric identities must not remain in public contracts.
+- **FR-014 amended — label-independent accessible names**: `EuropaTroopChip`'s `aria-label` derives from the count alone (`"12 troops"`); `EuropaCityMarker`'s derives from `label` (default `"city"`); `EuropaPlayerBadge`'s equals the caller-supplied `name`. No primitive fabricates a `"player N"` label. `role="img"` is retained on all three.
+- **Additive vs breaking**: this is a **breaking** prop change (pre-1.0 minor per the repository's versioning boundary). It ships with the issue #74 change set; the spec, `DESIGN.md` § 2, the contract mirror, `data-model.md`, and the Astro manual are updated in the same change set (constitution Principle IV).
+- **Callers updated in the same change set**: the Astro manual MDX (`numbers`, `combat`, `special-weapons`) now imports `TOKENS` and passes `color`/`name`; the design dev page demos do the same. The console does not use these primitives with player identities (only generic components), so no console source change was required.
 
 ## Constitution Alignment
 

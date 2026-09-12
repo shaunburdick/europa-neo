@@ -39,7 +39,7 @@ import { createOrderBridge } from '../../src/state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../../src/state/store';
 import type { Direction, MapEffect, MapView, ReducerEffect } from '../../src/state/types';
 import '../../src/styles/index.css';
-import { buildCellView, buildPlayerView } from '../fixtures/player-view';
+import { buildCellView, buildPlayerView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
 // Shared boot helpers
@@ -59,17 +59,17 @@ async function bootInteractiveConsole(): Promise<InteractiveBoot> {
     const view = buildPlayerView({
         width: 10,
         height: 10,
-        playerId: 1,
+        playerId: TEST_PLAYER_1,
         visibleCells: [
             buildCellView({
                 coord: { x: 5, y: 5 },
                 elevation: 60,
                 troops: 12,
-                owner: 1,
+                owner: TEST_PLAYER_1,
                 isCity: true,
                 pipes: new Set<Direction>(['E']),
             }),
-            buildCellView({ coord: { x: 5, y: 6 }, elevation: 45, troops: 3, owner: 1 }),
+            buildCellView({ coord: { x: 5, y: 6 }, elevation: 45, troops: 3, owner: TEST_PLAYER_1 }),
             buildCellView({ coord: { x: 4, y: 5 }, terrain: 'water' }),
         ],
     });
@@ -96,9 +96,12 @@ async function bootInteractiveConsole(): Promise<InteractiveBoot> {
             session: {
                 matchId: null,
                 sessionToken: null,
-                playerId: 1,
+                playerId: TEST_PLAYER_1,
                 displayName: 'Player 1',
-                opponents: ['Player 2'],
+                participants: [
+                    { id: TEST_PLAYER_1, name: 'Player 1', isLocal: true },
+                    { id: TEST_PLAYER_2, name: 'Player 2', isLocal: false },
+                ],
                 playerNames: new Map(),
             },
             exclusiveMode: false,
@@ -297,7 +300,7 @@ describe('WCAG 2.5.7 — keyboard pipe order', () => {
         expect(client.orders).toHaveLength(1);
         expect(client.orders[0]?.order).toEqual({
             kind: 'setPipe',
-            player: 1,
+            player: TEST_PLAYER_1,
             cell: { x: 5, y: 5 },
             direction: 'N',
         });
@@ -467,16 +470,18 @@ describe('WCAG 2.3.3 — reduced motion', () => {
                         elevation: 100,
                         terrain: 'land',
                         troops: 3,
-                        owner: 1,
+                        owner: TEST_PLAYER_1,
                         isCity: false,
                         cityOwner: null,
                         pipes: new Set(),
+                        pipeSlopes: new Map(),
+                        pipeIntensities: new Map(),
                         reservesPct: 0,
                         changedThisTick: false,
                     },
                 ],
             ]),
-            playerColors: { 1: '#dc2626' },
+            playerColors: { [TEST_PLAYER_1]: '#dc2626' },
             effects: [
                 { kind: 'combat', cell: { x: 0, y: 0 }, expiresAtMs: Number.MAX_SAFE_INTEGER },
             ] satisfies readonly MapEffect[],
@@ -560,7 +565,7 @@ describe('WCAG 2.4.3 — surrender modal focus trap', () => {
 describe('WCAG 2.4.3 — game-over modal focus trap', () => {
     test('game-over modal traps focus on the single Return to Lobby button', async () => {
         const onReturnToLobby = vi.fn();
-        const winResult = { kind: 'win' as const, winner: 1, tick: 100, reason: 'last_standing' as const };
+        const winResult = { kind: 'win' as const, winner: TEST_PLAYER_1, tick: 100, reason: 'last_standing' as const };
         await render(createElement(GameOverModal, { open: true, result: winResult, onReturnToLobby }));
 
         const button = document.querySelector<HTMLButtonElement>('.europa-modal__button');
@@ -583,7 +588,12 @@ describe('WCAG 2.4.3 — game-over modal focus trap', () => {
     });
 
     test('game-over modal has correct ARIA dialog attributes', async () => {
-        const winResult = { kind: 'win' as const, winner: 2, tick: 500, reason: 'all_surrendered' as const };
+        const winResult = {
+            kind: 'win' as const,
+            winner: TEST_PLAYER_2,
+            tick: 500,
+            reason: 'all_surrendered' as const,
+        };
         await render(createElement(GameOverModal, { open: true, result: winResult, onReturnToLobby: vi.fn() }));
 
         const dialog = document.querySelector('[role="dialog"]');
@@ -593,7 +603,7 @@ describe('WCAG 2.4.3 — game-over modal focus trap', () => {
         expect(dialog?.getAttribute('aria-describedby')).toBe('gameover-body');
 
         const title = document.getElementById('gameover-title');
-        expect(title?.textContent).toBe('Player 2 wins!');
+        expect(title?.textContent).toBe(`${TEST_PLAYER_2} wins!`);
 
         const body = document.getElementById('gameover-body');
         expect(body?.textContent).toContain('Reason: all surrendered');

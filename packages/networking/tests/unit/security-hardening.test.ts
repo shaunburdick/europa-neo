@@ -14,11 +14,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { computePlayerView } from '@europa/fog';
-import type { ErrorPayload, MatchId } from '@europa/networking';
+import type { ErrorPayload, MatchId, PlayerId } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
 import { NETWORK_API_VERSION } from '../../src/constants';
 import { NETWORK_DEFAULT_CONFIG } from '../../src/contracts/network-api';
+import { generateSessionToken } from '../../src/ids';
 import { createMatchServer } from '../../src/server';
 import type { Server, ServerDeps } from '../../src/types';
 import { NULL_LOGGER } from '../../src/types';
@@ -155,7 +156,7 @@ describe('Security Hardening', () => {
 
             // Fill all seats with real connections so no open seat remains.
             const tokens = attachPlayersForMatch(server, match);
-            for (let i = 0; i < match.matchConfig.playerCount; i++) {
+            for (let i = 0; i < match.playerIds.length; i++) {
                 const c = connectMockClient(server);
                 c.hello();
                 await c.nextMessage('helloAck');
@@ -185,22 +186,28 @@ describe('Security Hardening', () => {
                 matchConfig: match.matchConfig,
             });
 
-            // Pre-bind seats so they exist in the channel.
-            attachPlayersForMatch(server, match);
+            // Pre-bind exactly ONE seat so the match has a single claimable
+            // seat; a client never selects a seat by identity (issue #74).
+            const onlyToken = generateSessionToken();
+            server.attachPlayer({
+                matchId: match.matchId,
+                playerId: match.playerIds[0] as PlayerId,
+                sessionToken: onlyToken,
+            });
 
-            // Fill seat 1 with a real connection.
+            // Fill the only seat with a real connection.
             const c1 = connectMockClient(server);
             c1.hello();
             await c1.nextMessage('helloAck');
-            c1.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+            c1.joinMatch(match.matchId, 'player', { reconnectToken: onlyToken });
             await c1.nextMessage('joinAck');
 
-            // Another client tries to claim the same seat — should get
-            // match_not_joinable (not seat_taken).
+            // Another client tries a tokenless join — no open seat remains
+            // (the only seat is occupied) → match_not_joinable.
             const c2 = connectMockClient(server);
             c2.hello();
             await c2.nextMessage('helloAck');
-            c2.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+            c2.joinMatch(match.matchId, 'player');
             const error = await c2.nextMessage('error');
             expect(error.payload.code).toBe('match_not_joinable');
 
@@ -242,8 +249,8 @@ describe('Security Hardening', () => {
     // T012: Error code conformance
     // -----------------------------------------------------------------------
     describe('error code conformance', () => {
-        it('NETWORK_API_VERSION is 0.2.0', () => {
-            expect(NETWORK_API_VERSION).toBe('0.2.0');
+        it('NETWORK_API_VERSION is 0.3.0 (issue #74 breaking identity bump)', () => {
+            expect(NETWORK_API_VERSION).toBe('0.3.0');
         });
 
         it('ErrorCode union does not contain removed codes', async () => {
@@ -285,6 +292,114 @@ describe('Security Hardening', () => {
                 const codeLineRegex = new RegExp(`^[^/]*'${escaped}'`, 'm');
                 expect(unionBlock).not.toMatch(codeLineRegex);
             }
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // T030/T035: the version gate precedes payload interpretation
+    // -----------------------------------------------------------------------
+    describe('version gate precedes payload interpretation (FR-023)', () => {
+        it('an old-boundary frame carrying a now-invalid numeric identity payload is rejected as version_mismatch', async () => {
+            const server = createMatchServer(testServerConfig(), realDeps());
+            const client = connectMockClient(server);
+
+            // 0.2.0 boundary + a joinAck whose playerId is numeric (invalid
+            // under 0.3.0). If payload validation ran first this would be
+            // malformed_payload; the version gate must win.
+            client.socket.receiveInbound(
+                JSON.stringify({
+                    type: 'joinAck',
+                    version: '0.2.0',
+                    seq: 1,
+                    payload: { sessionToken: 't', playerId: 1, view: {}, tick: 0, players: [] },
+                }),
+            );
+
+            const err = await client.nextMessage('error');
+            expect(err.payload.code).toBe('version_mismatch');
+            expect((err.payload.detail as Record<string, string>).received).toBe('0.2.0');
+            expect(client.socket.closes).toEqual([{ code: 1008, reason: 'policy violation' }]);
+
+            await server.close();
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // T035: bearer credentials never reach the logger
+    // -----------------------------------------------------------------------
+    describe('credential separation (FR-022)', () => {
+        it('never writes session or reconnect tokens to the logger', async () => {
+            const records: string[] = [];
+            const capturingLogger = {
+                debug: (message: string, context?: unknown) =>
+                    records.push(JSON.stringify({ level: 'debug', message, context })),
+                info: (message: string, context?: unknown) =>
+                    records.push(JSON.stringify({ level: 'info', message, context })),
+                warn: (message: string, context?: unknown) =>
+                    records.push(JSON.stringify({ level: 'warn', message, context })),
+                error: (message: string, context?: unknown) =>
+                    records.push(JSON.stringify({ level: 'error', message, context })),
+            };
+
+            const server = createMatchServer(testServerConfig(), {
+                ...realDeps(),
+                logger: capturingLogger,
+            });
+            const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+            server.registerMatch({
+                matchId: match.matchId,
+                engineSession: match.engineSession,
+                matchConfig: match.matchConfig,
+            });
+            const tokens = attachPlayersForMatch(server, match);
+
+            const client = connectMockClient(server);
+            client.hello();
+            await client.nextMessage('helloAck');
+            client.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
+            await client.nextMessage('joinAck');
+
+            // A malformed frame and a transport close exercise the warning
+            // paths too; neither may leak the token.
+            client.socket.receiveInbound('not json');
+            client.socket.close(1001, 'bye');
+
+            const joined = records.join('\n');
+            for (const token of tokens) {
+                expect(joined).not.toContain(token);
+            }
+
+            await server.close();
+        });
+
+        it('never echoes a presented bearer token in an error payload', async () => {
+            const server = createMatchServer(testServerConfig(), realDeps());
+            const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+            server.registerMatch({
+                matchId: match.matchId,
+                engineSession: match.engineSession,
+                matchConfig: match.matchConfig,
+            });
+
+            // A real, well-formed credential that is bound to no seat in
+            // this match: the server must reject without echoing it back
+            // on the wire (a reflected credential in an error payload is a
+            // leak that survives even when logs are clean).
+            const presented = generateSessionToken();
+            const client = connectMockClient(server);
+            client.hello();
+            await client.nextMessage('helloAck');
+            client.joinMatch(match.matchId, 'player', { reconnectToken: presented });
+            const error = await client.nextMessage('error');
+
+            expect(JSON.stringify(error.payload)).not.toContain(presented);
+            const allErrorPayloads = client.socket.sentFrames
+                .filter((frame) => frame.type === 'error')
+                .map((frame) => JSON.stringify(frame.payload))
+                .join('\n');
+            expect(allErrorPayloads).not.toContain(presented);
+
+            await server.close();
         });
     });
 });

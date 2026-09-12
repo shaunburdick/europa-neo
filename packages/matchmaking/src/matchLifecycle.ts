@@ -39,7 +39,7 @@
  */
 
 import type { EngineSession, MatchId } from '@europa/networking';
-import type { MatchResultsRecord, MatchSettings, MatchVisibility, PlayerId, SeatIndex } from '../contracts/match-types';
+import type { MatchResultsRecord, MatchSettings, MatchVisibility, SeatIndex } from '../contracts/match-types';
 import type { GuestPlayerId } from './contracts/lobby-types';
 import type { MatchStatusChangedEvent } from './eventBus';
 import { createStatusBus } from './eventBus';
@@ -58,20 +58,6 @@ export type StatusEmitter = (event: MatchStatusChangedEvent) => void;
 export type { MatchStatusChangedEvent } from './eventBus';
 // Re-exported so lifecycle consumers (and tests) have one import site.
 export { createStatusBus };
-
-/**
- * Narrow a seat-derived number into the engine's `PlayerId` union
- * without a blind cast. Seat order maps 1:1 to player ids in v1
- * (`playerId = seatIndex + 1`); anything outside 1..4 is a caller bug.
- *
- * Shared with `matchmaker.ts` so the guard exists exactly once.
- */
-export function toPlayerId(value: number): PlayerId {
-    if (value === 1 || value === 2 || value === 3 || value === 4) {
-        return value;
-    }
-    throw new Error(`matchLifecycle: computed playerId ${String(value)} is outside 1..4`);
-}
 
 /**
  * Emit a transition event when an emitter was supplied. Keeps every
@@ -139,7 +125,9 @@ export function createMatchRecordWithCreator(args: CreateMatchRecordWithCreatorA
         handle: creator.acceptedHandle,
         displayName: creator.displayName,
         sessionToken,
-        playerId: null, // finalized at the filling → running transition
+        // The universal identity is fixed at claim time (issue #74 T025) —
+        // never derived from the seat index.
+        playerId: creator.playerId,
         connectedAtMs: nowMs,
     });
     match.seats.set(creatorSeat.seatIndex, creatorSeat);
@@ -180,7 +168,8 @@ export function addSeatToFillingMatch(
         handle: joiner.acceptedHandle,
         displayName: joiner.displayName,
         sessionToken,
-        playerId: null, // finalized at the filling → running transition
+        // Universal identity fixed at claim time (issue #74 T025).
+        playerId: joiner.playerId,
         connectedAtMs: nowMs,
     });
     match.seats.set(seatIndex, seat);
@@ -199,10 +188,10 @@ export function addSeatToFillingMatch(
 
 /**
  * Atomically transition `filling → running` (FR-007): stores the
- * engine session, stamps the start time, finalizes every seat's
- * `playerId` (`seatIndex + 1`, matching the provisional values
- * already published via `SeatAssignment`), and emits the
- * `MatchStatusChanged` event.
+ * engine session, stamps the start time, and emits the
+ * `MatchStatusChanged` event. Seat `playerId`s are NOT touched here —
+ * each seat's universal identity was fixed at claim time (issue #74
+ * T025), so start can never reassign identity.
  *
  * @param match - A match currently in the `'filling'` state.
  * @param engineSession - The constructed engine session handle.
@@ -221,9 +210,6 @@ export function transitionFillingToRunning(
         throw new Error(`matchLifecycle: illegal transition ${match.status} → running for match ${match.matchId}`);
     }
 
-    for (const seat of match.seats.values()) {
-        seat.playerId = toPlayerId(seat.seatIndex + 1);
-    }
     match.engineSession = engineSession;
     match.startedAtMs = startedAtMs;
     match.status = 'running';
@@ -373,7 +359,9 @@ export function createRematchMatchRecord(args: CreateRematchMatchRecordArgs): {
             handle: participant.session.acceptedHandle,
             displayName: participant.session.displayName,
             sessionToken,
-            playerId: null, // finalized at the filling → running transition
+            // Accepted rematch preserves the SAME universal identity from the
+            // participant's session (issue #74 T025 / FR-036).
+            playerId: participant.session.playerId,
             connectedAtMs: nowMs,
         });
         match.seats.set(seat.seatIndex, seat);

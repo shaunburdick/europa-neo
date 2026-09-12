@@ -14,15 +14,23 @@
  *   2. **Per-kind payload fields** — required fields present per the
  *      payload definitions in `contracts/network-types.ts`, with
  *      cheap primitive type checks (`string` / `number` / `object` /
- *      `array`). Deep semantic validation (e.g., is this `Order`
- *      actually executable?) is deliberately NOT done here — that is
- *      the engine's job at order-application time.
+ *      `array`) plus canonical player-identity checks for identity
+ *      fields. Deep semantic validation (e.g., is this `Order`
+ *      actually executable? does this identity match the connection's
+ *      seat binding?) is deliberately NOT done here — engine registry
+ *      resolution and connection authorization handle that.
  *   3. **Order shape guard** (Issue #121) — the `order` payload's
  *      inner `order` field is validated for known kind membership
  *      and per-kind required fields. This catches shape-invalid
  *      orders (e.g., `{ kind: 'bogus' }`, `{}`, missing fields)
  *      at the wire boundary BEFORE they reach the engine, preventing
  *      `undefined` dereferences in `validateCommand`'s switch.
+ *
+ * Identity fields (issue #74): every `player` field in an order and the
+ * advisory `guestPlayerId` on a lobby identity claim MUST be a canonical
+ * 12-character `PlayerId` string. Numeric JSON values (or malformed
+ * strings) are rejected here, before domain interpretation, so a numeric
+ * client can never reach the engine or matchmaking registries.
  *
  * All rejections throw `NetworkError` with code `'malformed_payload'`
  * except version drift, which gets its own non-throwing helper
@@ -31,6 +39,8 @@
  *
  * Pure module: no I/O, no clock reads, no randomness.
  */
+
+import { isPlayerId } from '@europa/core';
 
 import { NETWORK_API_VERSION } from './constants';
 import type { MessageKind, NetworkPayload, ProtocolEnvelope } from './contracts/network-types';
@@ -90,11 +100,14 @@ export function isKnownMessageKind(value: string): boolean {
 
 /**
  * Cheap primitive checks for per-kind payload fields. `any` means
- * presence-only (used for fields that are legitimately nullable or
- * deeply validated elsewhere, e.g., `JoinAckPayload.playerId` which
- * is `null` for spectators).
+ * presence-only (used for fields that are legitimately null or deeply
+ * validated elsewhere). `nullable-player-id` asserts the canonical
+ * 12-character identity string when non-null (issue #74) — numeric JSON
+ * values are rejected. The non-nullable `'player-id'` variant exists only
+ * on `OrderFieldSpec` (order `player` fields); no top-level payload field
+ * requires a non-null identity today, so it is intentionally absent here.
  */
-type FieldKind = 'string' | 'number' | 'object' | 'array' | 'any';
+type FieldKind = 'string' | 'number' | 'object' | 'array' | 'any' | 'nullable-player-id';
 
 interface FieldSpec {
     readonly key: string;
@@ -108,9 +121,11 @@ function field(key: string, kind: FieldKind): FieldSpec {
 /**
  * Required fields per message kind, transcribed from the payload
  * interfaces in `contracts/network-types.ts`. Optional fields
- * (`reconnectToken`, `requestedSeat`, `clientInfo`, `detail`,
+ * (`reconnectToken`, `clientInfo`, `detail`,
  * `LobbyIdentityPayload.claim`, `LobbyCreatePayload.settings`) are
  * intentionally absent — their absence never invalidates a frame.
+ * Optional IDENTITY fields are validated separately by
+ * {@link validateOptionalIdentityFields}.
  */
 const PAYLOAD_FIELDS: Readonly<Record<MessageKind, readonly FieldSpec[]>> = {
     // Client → Server
@@ -134,7 +149,7 @@ const PAYLOAD_FIELDS: Readonly<Record<MessageKind, readonly FieldSpec[]>> = {
     ],
     joinAck: [
         field('sessionToken', 'string'),
-        field('playerId', 'any'), // null for spectators
+        field('playerId', 'nullable-player-id'), // null for spectators
         field('view', 'object'),
         field('tick', 'number'),
         field('players', 'array'),
@@ -189,32 +204,38 @@ const VALID_DIRECTIONS: ReadonlySet<string> = new Set<string>(['N', 'E', 'S', 'W
 
 /**
  * Field spec for order shape validation. `optional` fields are
- * checked only when present.
+ * checked only when present. `player-id` asserts a canonical
+ * 12-character `PlayerId` string (issue #74); numeric values are
+ * rejected.
  */
 interface OrderFieldSpec {
     readonly key: string;
-    readonly kind: 'string' | 'number' | 'object';
+    readonly kind: 'string' | 'number' | 'object' | 'player-id';
     readonly optional?: boolean;
 }
 
-function orderField(key: string, kind: 'string' | 'number' | 'object', optional?: boolean): OrderFieldSpec {
+function orderField(
+    key: string,
+    kind: 'string' | 'number' | 'object' | 'player-id',
+    optional?: boolean,
+): OrderFieldSpec {
     return optional === true ? { key, kind, optional: true } : { key, kind };
 }
 
 /** Required fields per order kind (subset that `validateCommand` dereferences). */
 const ORDER_FIELDS: Readonly<Record<string, readonly OrderFieldSpec[]>> = {
-    setPipe: [orderField('player', 'number'), orderField('cell', 'object'), orderField('direction', 'string')],
-    clearPipe: [orderField('player', 'number'), orderField('cell', 'object'), orderField('direction', 'string')],
+    setPipe: [orderField('player', 'player-id'), orderField('cell', 'object'), orderField('direction', 'string')],
+    clearPipe: [orderField('player', 'player-id'), orderField('cell', 'object'), orderField('direction', 'string')],
     setPipesExclusive: [
-        orderField('player', 'number'),
+        orderField('player', 'player-id'),
         orderField('cell', 'object'),
         orderField('direction', 'string'),
     ],
-    clearAllPipes: [orderField('player', 'number'), orderField('cell', 'object')],
-    setReserves: [orderField('player', 'number'), orderField('cell', 'object'), orderField('percent', 'number')],
-    paratroop: [orderField('player', 'number'), orderField('source', 'object'), orderField('target', 'object')],
-    gun: [orderField('player', 'number'), orderField('source', 'object'), orderField('target', 'object')],
-    surrender: [orderField('player', 'number')],
+    clearAllPipes: [orderField('player', 'player-id'), orderField('cell', 'object')],
+    setReserves: [orderField('player', 'player-id'), orderField('cell', 'object'), orderField('percent', 'number')],
+    paratroop: [orderField('player', 'player-id'), orderField('source', 'object'), orderField('target', 'object')],
+    gun: [orderField('player', 'player-id'), orderField('source', 'object'), orderField('target', 'object')],
+    surrender: [orderField('player', 'player-id')],
 };
 
 /**
@@ -223,7 +244,7 @@ const ORDER_FIELDS: Readonly<Record<string, readonly OrderFieldSpec[]>> = {
  *   - Non-object values (`{}`, `null`, arrays, primitives)
  *   - Unknown `kind` values (`{ kind: 'bogus' }`, `{ kind: 123 }`)
  *   - Missing required fields (e.g., `{ kind: 'setPipe' }` with no `player`)
- *   - Wrong field types (e.g., `player: 'x'` instead of a number)
+ *   - Wrong field types (e.g., `player: 1` instead of a canonical string)
  *   - Invalid direction values (`direction: 'X'` for pipe orders)
  *
  * Does NOT do semantic validation (is the cell in bounds? is the
@@ -276,6 +297,11 @@ export function validateOrderShape(orderValue: unknown): void {
             case 'object':
                 if (!isPlainObject(value)) {
                     throw malformed(`order.${spec.key} must be an object for ${kind} orders`);
+                }
+                break;
+            case 'player-id':
+                if (!isPlayerId(value)) {
+                    throw malformed(`order.${spec.key} must be a canonical PlayerId for ${kind} orders`);
                 }
                 break;
         }
@@ -354,8 +380,18 @@ export function validateEnvelope(value: unknown): asserts value is ProtocolEnvel
             throw malformed(`payload.${spec.key} is required for ${type} messages`);
         }
         if (spec.kind === 'any') {
-            // Presence-only: null is legitimate (e.g., JoinAckPayload.playerId
-            // is null for spectator seats).
+            // Presence-only: any JSON value is acceptable.
+            continue;
+        }
+        if (spec.kind === 'nullable-player-id') {
+            // Null is legitimate (e.g. JoinAckPayload.playerId for a
+            // spectator seat); any non-null value must be canonical.
+            if (fieldValue === null) {
+                continue;
+            }
+            if (!isPlayerId(fieldValue)) {
+                throw malformed(`payload.${spec.key} must be a canonical PlayerId or null for ${type} messages`);
+            }
             continue;
         }
         if (fieldValue === null) {
@@ -383,6 +419,46 @@ export function validateEnvelope(value: unknown): asserts value is ProtocolEnvel
                 }
                 break;
         }
+    }
+
+    // Optional identity fields (issue #74 FR-021): present values are
+    // still canonical; numeric values are rejected before domain
+    // interpretation.
+    validateOptionalIdentityFields(type, payload);
+}
+
+/**
+ * Validate optional identity fields that are not required for the
+ * envelope to be well-formed but MUST be canonical when present.
+ *
+ * Covered today:
+ *   - `lobbyIdentity.claim.guestPlayerId` — the advisory resume claim
+ *     (feature 010). A numeric or malformed value is a `malformed_payload`
+ *     rejection at the wire boundary; the server still resolves identity
+ *     authoritatively and never trusts the claim.
+ *
+ * @param type    The validated envelope kind.
+ * @param payload The validated payload object.
+ * @throws NetworkError with code `'malformed_payload'` on violation.
+ */
+function validateOptionalIdentityFields(type: MessageKind, payload: Record<string, unknown>): void {
+    if (type !== 'lobbyIdentity') {
+        return;
+    }
+    const { claim } = payload;
+    if (claim === undefined) {
+        return;
+    }
+    if (!isPlainObject(claim)) {
+        throw malformed('payload.claim must be an object for lobbyIdentity messages');
+    }
+    const { guestPlayerId } = claim;
+    if (guestPlayerId !== undefined && !isPlayerId(guestPlayerId)) {
+        throw malformed('payload.claim.guestPlayerId must be a canonical GuestPlayerId when present');
+    }
+    const { handle } = claim;
+    if (handle !== undefined && typeof handle !== 'string') {
+        throw malformed('payload.claim.handle must be a string when present');
     }
 }
 
@@ -412,8 +488,8 @@ function breakingBoundary(version: string): string {
 /**
  * Compare a received protocol version against `NETWORK_API_VERSION`
  * by BREAKING BOUNDARY only (FR-004: drift within the same boundary is
- * accepted gracefully — e.g., `0.1.5` after `0.1.0`; cross-boundary
- * drift is rejected — e.g., `0.2.0` or `1.0.0` against `0.1.0`, since
+ * accepted gracefully — e.g., `0.3.5` after `0.3.0`; cross-boundary
+ * drift is rejected — e.g., `0.2.0` or `1.0.0` against `0.3.0`, since
  * pre-1.0 minors are the compatibility line). Non-string input and
  * unparseable versions are treated as mismatches rather than thrown
  * exceptions so the caller can always respond with a polite

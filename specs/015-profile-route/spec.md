@@ -1,12 +1,13 @@
 # Feature Specification: Profile Route & Identity Onboarding
 
 **Feature Branch**: `015-profile-route`
+**Last Updated**: 2026-09-11 (v1.3; 12-character identity lifecycle boundary)
+**Version**: 1.3
 
 **Created**: 2026-09-01
 
-**Last Updated**: 2026-09-07 (v1.1 — routing-migration note, issue #75)
 
-**Status**: Implemented (2026-09-02); v1.1 Clarifications note added 2026-09-07 (TanStack Router migration, issue #75)
+**Status**: Implemented (2026-09-02); v1.1 Clarifications note added 2026-09-07 (TanStack Router migration, issue #75); universal PlayerId round-trip implemented (2026-09-12, issue #74)
 
 **Input**: User description: "Dedicated `/profile` route for name/handle setup, replacing the inline lobby identity card. Returning players see 'Welcome back, {handle}' with a Continue button. New players see the full handle-setting form. Match-join without identity redirects to `/profile?returnTo=<encoded-match-url>` — stateless, no storage."
 
@@ -269,3 +270,13 @@ All other requirements of this spec (profile view states, handle validation, acc
    `decodeURIComponent`), so a query riding on the deep link (e.g. a transport-override query in
    test harnesses) decoded into a `://` sequence inside the captured value and was rightly rejected
    as unsafe — silently dead-ending the returnTo round-trip. The pathname cannot trip that check.
+
+### v1.3 (2026-09-11) — 12-character universal identity lifecycle (issue #74)
+
+- Profile onboarding creates or restores the same server-generated universal `GuestPlayerId`/`PlayerId` used by lobby and match seats. Handle changes never create a new ID.
+- Browser storage and active reconnect/rematch preserve the ID; storage clearing, server restart, and expiry/collection create a new guest identity. No account persistence or cross-device recovery is implied.
+- The ID is non-secret metadata, not proof of identity. Profile, lobby, join, order, and reconnect operations require their existing server-bound session/reconnect credential; an ID in a URL or form cannot claim another identity.
+- **FR-017**: Profile onboarding MUST create or restore the server-generated universal ID used by lobby and match seats; handle changes MUST NOT create a new ID.
+- **FR-018**: Storage clear, server restart, and expiry/collection MUST end the v1 guest lifecycle; no account persistence or cross-device recovery is implied.
+- **FR-019**: The ID MUST NOT prove possession; profile, lobby, join, order, and reconnect operations require existing server-bound credentials.
+- **FR-020**: Unnamed deep-link onboarding MUST preserve the mounted-router return trip, and forged ID claims without token possession MUST be denied.
