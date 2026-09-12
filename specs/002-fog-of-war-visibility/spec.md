@@ -3,8 +3,8 @@
 **Feature Branch**: `002-fog-of-war-visibility`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-11 (v1.5; 12-character universal player identity)
-**Version**: 1.5
+**Last Updated**: 2026-09-12 (v1.6; FR-010 spectator authority carve-out)
+**Version**: 1.6
 
 **Status**: Implemented
 
@@ -77,6 +77,8 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 - **FR-007**: Visibility computation MUST be deterministic and part of the engine core (same inputs → same visible sets), testable headlessly.
 - **FR-008**: Sensor radius MUST apply uniformly to all players (no asymmetric vision in v1).
 - **FR-009**: Player IDs and guest identity IDs are identity metadata, not hidden game state. They MAY accompany an otherwise authorized view, but MUST NOT grant access to or disclose cells, terrain, troops, events, or other fog-filtered state.
+- **FR-010**: Visibility APIs MUST resolve the universal `PlayerId` authoritatively against the server's player registry before producing a view. On the player (non-spectator) path, an unknown, forged, malformed, absent, or otherwise unresolved ID MUST fail closed — no view is produced and no cells, terrain, troops, events, or other fog-filtered state are disclosed. On the spectator/read-only path, authority is granted by the server session's read-only flag rather than by the ID, so an unknown, forged, malformed, or absent ID MUST NOT by itself deny the full-board view; the ID is correlation metadata only (FR-009), and the session MUST remain read-only (FR-006).
+- **FR-011**: Reconnect and seat reassignment MUST preserve each player's correct view association for explicit 12-character universal IDs.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -117,5 +119,11 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 
 - Visibility APIs accept the branded universal `PlayerId` string. Dense numeric indexes may be used only after server-authoritative ID resolution.
 - An ID may accompany an authorized view for correlation, but an unknown or forged ID MUST NOT select another viewer, obtain a view, grant spectator/order authority, or disclose hidden state.
-- **FR-010**: Visibility APIs MUST resolve the universal ID authoritatively and MUST reject unknown or forged IDs without returning hidden state.
-- **FR-011**: Reconnect and seat reassignment MUST preserve each player's correct view association for explicit 12-character universal IDs.
+- **FR-010** and **FR-011** were introduced by this amendment and are recorded normatively in Functional Requirements above. (FR-010's fail-closed rule was scoped to the player path and the spectator carve-out made explicit in v1.6.)
+
+### v1.6 (2026-09-12) — Spectator authority is session-scoped, not ID-scoped (issue #74 review finding S2)
+
+- **Refinement**: FR-010 previously stated an unqualified rule ("reject unknown or forged IDs without returning hidden state") that literally conflicted with the implemented spectator behavior (FR-006 / US3). FR-010 now documents the two paths explicitly.
+- **Player path**: identity resolution is authoritative and fail-closed. An unknown, forged, malformed, absent, or otherwise unresolved ID yields no view and discloses no hidden state; it MUST NOT select another viewer, fall back to a seat/index, or obtain a view.
+- **Spectator/read-only path**: authority derives from the server session's read-only flag, not from the supplied ID. An unknown, forged, malformed, or absent ID does not itself deny the full-board view — the ID is correlation metadata only (FR-009). The spectator session remains read-only (FR-006), and no ID grants spectator or order authority.
+- **Consistency**: this matches the implemented `computePlayerView` spectator path (`options.spectator === true` returns the full board regardless of whether the passed ID resolves) and the feature's data model (spectator carve-out). No engine, fog, networking, or console behavior changes; this is a behavioral-spec correction only.
