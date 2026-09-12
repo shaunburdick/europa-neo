@@ -16,13 +16,13 @@
  */
 
 import { describe, expect, test } from 'vitest';
+import { FakeMatchClient } from '../../../src/internal/fake-match-client';
 import { HotkeyController } from '../../../src/qol/hotkeys';
 import { ZOOM_WHEEL_STEP } from '../../../src/qol/zoom';
 import { createOrderBridge } from '../../../src/state/order-actions';
 import type { ConsoleStore } from '../../../src/state/store';
 import { createConsoleStore } from '../../../src/state/store';
 import type { Direction, ReducerEffect } from '../../../src/state/types';
-import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
 
 /** Live store around an 8×8 board with a default camera. */

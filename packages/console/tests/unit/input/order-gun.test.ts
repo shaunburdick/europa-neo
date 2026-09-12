@@ -13,11 +13,11 @@ import { describe, expect, test } from 'vitest';
 import { DEFAULT_CAMERA } from '../../../src/config';
 import { hitTest } from '../../../src/input/hit-test';
 import { fireGun } from '../../../src/input/order-gun';
+import { FakeMatchClient } from '../../../src/internal/fake-match-client';
 import { createOrderBridge } from '../../../src/state/order-actions';
 import type { ConsoleStore } from '../../../src/state/store';
 import { createConsoleStore } from '../../../src/state/store';
 import type { CursorTarget, Direction, ReducerEffect } from '../../../src/state/types';
-import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
 
 /** Board around anchor (10, 10): land NE ring 2, water SE, enemy E. */

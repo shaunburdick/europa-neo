@@ -17,11 +17,11 @@ import { describe, expect, test } from 'vitest';
 import { DEFAULT_CAMERA } from '../../../src/config';
 import { hitTest, regionFromSubcell } from '../../../src/input/hit-test';
 import { decideRegionClick, pipePresentInDirection, RegionSelectController } from '../../../src/input/region-select';
+import { FakeMatchClient } from '../../../src/internal/fake-match-client';
 import { createOrderBridge } from '../../../src/state/order-actions';
 import type { ConsoleStore } from '../../../src/state/store';
 import { createConsoleStore } from '../../../src/state/store';
 import type { CursorTarget, Direction, PlayerView } from '../../../src/state/types';
-import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
 
 /** A friendly cell with an existing east pipe (toggle target). */

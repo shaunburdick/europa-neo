@@ -29,6 +29,7 @@ import { createElement } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
+import { FakeMatchClient } from '../../src/internal/fake-match-client';
 import { App } from '../../src/render/App';
 import { MapCanvas } from '../../src/render/canvas';
 import { cellElementId } from '../../src/render/cell-view';
@@ -37,7 +38,6 @@ import { SurrenderModal } from '../../src/render/SurrenderModal';
 import { createOrderBridge } from '../../src/state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../../src/state/store';
 import type { Direction, MapEffect, MapView, ReducerEffect } from '../../src/state/types';
-import { FakeMatchClient } from '../fixtures/fake-match-client';
 import '../../src/styles/index.css';
 import { buildCellView, buildPlayerView } from '../fixtures/player-view';
 
