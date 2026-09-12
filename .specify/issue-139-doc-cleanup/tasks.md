@@ -14,7 +14,7 @@
 
 ## Wave 1 — Structural Consolidation [SEQUENTIAL]
 
-- [ ] T-003: **Fold contracts into parents and delete 14 consolidated spec dirs**
+- [x] T-003: **Fold contracts into parents and delete 14 consolidated spec dirs**
   - **Contract moves** (4 `git mv`):
     1. `specs/012-3-4-player-support/contracts/board-size-defaults.ts` → `specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults.ts`
     2. `specs/023-lobby-roster/contracts/roster-wire.md` → `specs/010-public-lobby-match-browser/contracts/roster-wire.md`
@@ -42,7 +42,7 @@
   - Commit: `chore(specs): fold contracts into parents and delete 14 consolidated spec dirs`
   - Verify: `pnpm --filter @europa/matchmaking test` + `pnpm --filter @europa/networking test` + `pnpm typecheck` all green. `ls specs/` shows 15 dirs (001–013, 020, 022).
 
-- [ ] T-004: **Renumber 020→014 and 022→015**
+- [x] T-004: **Renumber 020→014 and 022→015**
   - `git mv specs/020-structured-logging specs/014-structured-logging`
   - `git mv specs/022-developer-debugging specs/015-developer-debugging`
   - Fix self-reference: `specs/015-developer-debugging/tasks.md` line 3 — old path → new path.
@@ -54,13 +54,13 @@
 
 All tasks below are parallel-safe (different files) but depend on Wave 1.
 
-- [ ] T-005 [P]: **Fix broken spec path reference in console routing test**
+- [x] T-005 [P]: **Fix broken spec path reference in console routing test**
   - File: `packages/console/tests/unit/routing/semantic-route-guards.test.ts` line 22.
   - Change: `specs/013-console-semantic-url-scheme/spec.md` → `specs/013-semantic-url-routing/spec.md`.
   - Commit (combine with T-006/T-007/T-008 or own commit): `docs: fix spec path references in tests and docs`
   - Verify: `pnpm --filter @europa/console test:unit` green.
 
-- [ ] T-006 [P]: **Refresh package READMEs and contributing guide**
+- [x] T-006 [P]: **Refresh package READMEs and contributing guide**
   - Run test suites to record actual counts:
     - `pnpm --filter @europa/engine test` → record count
     - `pnpm --filter @europa/fog test` → record count
@@ -80,7 +80,7 @@ All tasks below are parallel-safe (different files) but depend on Wave 1.
   - Commit: `docs: refresh package READMEs and contributing guide`
   - Verify: `pnpm lint` + `pnpm format:check` green.
 
-- [ ] T-007 [P]: **Purge legacy .specify references**
+- [x] T-007 [P]: **Purge legacy .specify references**
   - `.specify/pm-handoff.md` lines 22-25: update `specs/001-006/spec.md` range → list surviving specs or `specs/NNN-*/spec.md`.
   - `packages/engine/src/contracts/README.md` line 11: "`.specify/` directory" → "the spec contracts directory".
   - `packages/fog/src/contracts/README.md` lines 11, 37: "`.specify/...`" → "specs/002-fog-of-war-visibility/contracts/".
@@ -88,13 +88,13 @@ All tasks below are parallel-safe (different files) but depend on Wave 1.
   - Commit: `chore: purge legacy .specify references`
   - Verify: `grep -rn "\.specify/" packages/engine/src/contracts/README.md packages/fog/src/contracts/README.md packages/terrain/src/contracts/README.md` returns no hits for the old pattern.
 
-- [ ] T-008 [P]: **Normalize status lines to bold format**
+- [x] T-008 [P]: **Normalize status lines to bold format**
   - `specs/008-ci-workflows/spec.md` line 5: `> Status:` → `**Status**:`
   - `specs/014-structured-logging/spec.md` line 5: `> Status:` → `**Status**:`
   - Commit: `docs(specs): normalize status lines to bold`
   - Verify: `grep -rn "^> Status" specs/*/spec.md` returns zero hits.
 
-- [ ] T-009 [P]: **Rewrite AGENTS.md with lean current state**
+- [x] T-009 [P]: **Rewrite AGENTS.md with lean current state**
   - Drop the wave-by-wave implementation changelog (~100 lines).
   - Keep: project vision, binding decisions, governing-docs table (ALL 15 specs), constitution summary, workflow rules, browser automation, environment notes, restart procedure.
   - Current state: 10 packages, 13 workflows, ~3,000+ tests, 15 specs (001–015 all Implemented).
@@ -106,7 +106,7 @@ All tasks below are parallel-safe (different files) but depend on Wave 1.
 
 ## Wave 3 — CI Guard [SEQUENTIAL]
 
-- [ ] T-010: **Write spec-consolidation guard script**
+- [x] T-010: **Write spec-consolidation guard script**
   - Create `scripts/check-spec-consolidation.ts` (model on `scripts/check-orphaned-vitest-configs.ts`).
   - Four checks per FR-013..FR-017:
     - (a) Duplicate numeric prefixes: scan `specs/NNN-*` dirs, extract prefix, fail if any repeats.
@@ -118,7 +118,7 @@ All tasks below are parallel-safe (different files) but depend on Wave 1.
   - Commit: `ci: add spec-consolidation guard script`
   - Verify: `pnpm exec tsx scripts/check-spec-consolidation.ts` exits 0 on consolidated tree.
 
-- [ ] T-011: **Wire guard into verify.sh and verify-changed.sh**
+- [x] T-011: **Wire guard into verify.sh and verify-changed.sh**
   - `scripts/verify.sh`: add Phase 12 after Phase 11:
     ```
     # Phase 12: Spec consolidation guard (008 FR-013..FR-017)
@@ -130,7 +130,7 @@ All tasks below are parallel-safe (different files) but depend on Wave 1.
   - Commit (combine with T-010 or T-012): `ci: wire spec guard into verify scripts`
   - Verify: `bash scripts/verify.sh` runs Phase 12 without error (among all phases).
 
-- [ ] T-012: **Add spec-guard workflow**
+- [x] T-012: **Add spec-guard workflow**
   - Create `.github/workflows/spec-guard.yml` modeled on `manual-ci.yml`:
     - `on: pull_request: branches: [main]` + `workflow_dispatch`.
     - `changes` job: dorny/paths-filter for `specs/**`, `scripts/check-spec-consolidation.ts`, `scripts/verify.sh`, `.github/workflows/spec-guard.yml`.
@@ -141,7 +141,7 @@ All tasks below are parallel-safe (different files) but depend on Wave 1.
 
 ## Wave 4 — Final Verification + PR
 
-- [ ] T-013: **Guard negative verification**
+- [x] T-013: **Guard negative verification**
   - Prove guard catches each violation class:
     1. Temporarily create `specs/999-duplicate/spec.md` alongside any `099-*` dir (if exists) or alongside another `999-*` — prove (a) fails. Revert.
     2. Remove `plan.md` from any Implemented spec temporarily — prove (b) fails. Revert.
@@ -150,7 +150,7 @@ All tasks below are parallel-safe (different files) but depend on Wave 1.
   - Run `pnpm exec tsx scripts/check-spec-consolidation.ts` — confirm exits 0, confirm <10s.
   - Verify: all 4 negative tests pass; guard passes on clean tree.
 
-- [ ] T-014: **Final verification and PR preparation**
+- [x] T-014: **Final verification and PR preparation**
   - Run `pnpm verify` (full suite) — all green.
   - Post-consolidation structural audit:
     - 15 numbered dirs under `specs/`: confirmed.
