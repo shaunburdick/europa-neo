@@ -434,6 +434,9 @@ importers:
 
   packages/networking:
     dependencies:
+      '@europa/core':
+        specifier: workspace:*
+        version: link:../core
       '@europa/engine':
         specifier: workspace:*
         version: link:../engine

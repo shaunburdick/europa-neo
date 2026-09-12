@@ -172,9 +172,10 @@ export interface MatchmakingRegisterMatch {
   readonly engineSession: import('./network-api').EngineSession;
   readonly matchConfig: import('@europa/engine').MatchConfig;
   /**
-   * Per-player display names (index = PlayerId - 1). Length MUST
-   * equal `matchConfig.playerCount`. Networking forwards these in
-   * `JoinAckPayload.players` so the console can render the lobby strip.
+   * Per-player display names, in engine placement-slot order
+   * (index `i` labels the player at `matchConfig.playerIds[i]`). Length
+   * MUST equal `matchConfig.playerIds.length`. Networking forwards these
+   * in `JoinAckPayload.players` so the console can render the lobby strip.
    */
   readonly displayNames: ReadonlyArray<string>;
 }

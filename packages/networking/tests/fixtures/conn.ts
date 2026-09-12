@@ -216,15 +216,16 @@ export class ScriptedClient {
      *
      * @param matchId Target match.
      * @param role    Player or spectator. Default `'player'`.
-     * @param opts    Optional reconnect token, requested seat, and
-     *                display name (default `'Player'`).
+     * @param opts    Optional reconnect token and display name (default
+     *                `'Player'`). A client never names a seat or an
+     *                identity: seat admission is resolved from the
+     *                bearer token or server assignment (issue #74).
      */
     joinMatch(
         matchId: MatchId,
         role: ConnectionRole = 'player',
         opts: {
             readonly reconnectToken?: SessionToken;
-            readonly requestedSeat?: number;
             readonly displayName?: string;
         } = {},
     ): ProtocolEnvelope<NetworkPayload> {
@@ -233,7 +234,6 @@ export class ScriptedClient {
             readonly role: ConnectionRole;
             readonly displayName: string;
             readonly reconnectToken?: SessionToken;
-            readonly requestedSeat?: number;
         } = {
             matchId,
             role,
@@ -241,9 +241,6 @@ export class ScriptedClient {
         };
         if (opts.reconnectToken !== undefined) {
             payload.reconnectToken = opts.reconnectToken;
-        }
-        if (opts.requestedSeat !== undefined) {
-            payload.requestedSeat = opts.requestedSeat;
         }
         return this.put('joinMatch', payload);
     }

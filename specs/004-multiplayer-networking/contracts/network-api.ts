@@ -482,9 +482,9 @@ export type LobbyResult<TSuccess> = [undefined] extends [TSuccess]
 export interface LobbySeatAssignment {
   /** Matchmaking-owned session identity. */
   readonly playerSessionId: LobbyPlayerSessionId;
-  /** Position in seat order (0..playerCount-1). */
+  /** Position in seat order (0..playerCount-1). A lifecycle coordinate, not an identity. */
   readonly seatIndex: number;
-  /** Engine seat (1..playerCount); `seatIndex + 1` while filling. */
+  /** The server-issued universal identity for this seat (canonical 12-char `PlayerId`). */
   readonly playerId: import('@europa/engine').PlayerId;
   /** Networking-bound token for reconnect (feature 004 boundary). */
   readonly sessionToken: SessionToken;
@@ -735,15 +735,16 @@ export interface RegisterMatchRequest {
   /** Config snapshot for the match (used for version checks + telemetry). */
   readonly matchConfig: import('@europa/engine').MatchConfig;
   /**
-   * Optional per-seat display names, indexed by `PlayerId - 1`. When
+   * Optional per-seat display names, in engine placement-slot order
+   * (index `i` labels the player at `matchConfig.playerIds[i]`). When
    * present, networking overlays these onto the `JoinAckPayload.players`
    * roster's `displayName` fields WITHOUT touching the engine world
    * (feature 010 FR-020/SC-008: authoritative seat labels travel at the
    * registration boundary; engine state stays byte-deterministic and
    * ASCII-by-convention). Length SHOULD equal
-   * `matchConfig.playerCount`; indices without a name keep the engine's
-   * own value. Omitted (legacy feature-006 callers) → the engine world's
-   * placeholders are sent verbatim.
+   * `matchConfig.playerIds.length`; indices without a name keep the
+   * engine's own value. Omitted (legacy feature-006 callers) → the
+   * engine world's placeholders are sent verbatim.
    */
   readonly displayNames?: ReadonlyArray<string>;
 }

@@ -50,6 +50,7 @@
 
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 
+import { compareUtf16 } from '@europa/engine';
 import { APP_VERSION } from '@europa/version';
 import { WebSocketServer, type WebSocket as WsWebSocket } from 'ws';
 
@@ -105,7 +106,7 @@ import { MatchChannel } from './match-channel';
 import { acceptOrder, applyOrdersAtTickBoundary } from './orders';
 import { type ReconnectBinding, ReconnectRegistry } from './reconnect';
 import { ResyncBuffer } from './resync';
-import { attachSpectator, detachSpectator, SPECTATOR_VIEW_SEAT } from './spectator';
+import { attachSpectator, detachSpectator, SPECTATOR_VIEW_PLAYER_ID } from './spectator';
 import { StatsCounter } from './stats';
 import { validateVersion } from './validate';
 
@@ -506,7 +507,7 @@ export function createMatchServer(
                 // their buffer must bridge the absence window on reconnect.
                 // FR-019: reuse cached view instead of recomputing via the fog
                 // factory when available (same tick, same seat).
-                for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
+                for (const playerId of [...channel.seats.keys()].sort(compareUtf16)) {
                     const seat = channel.seats.get(playerId);
                     if (!seat) {
                         continue;
@@ -1013,7 +1014,7 @@ export function createMatchServer(
             world: channel.engineSession.world(),
             // Null seat (spectator) uses the out-of-domain sentinel, same as
             // buildTickBroadcast's fallback — never a fabricated real seat.
-            playerId: playerId ?? SPECTATOR_VIEW_SEAT,
+            playerId: playerId ?? SPECTATOR_VIEW_PLAYER_ID,
             spectator,
         });
         const payload: JoinAckPayload = {
@@ -1166,30 +1167,19 @@ export function createMatchServer(
                 connection.sendError('token_invalid', 'no seat bound to that session token');
                 return;
             }
-        } else if (payload.requestedSeat !== undefined && payload.requestedSeat !== null) {
-            // Contract types `requestedSeat` as a plain number (wire-friendly);
-            // seat keys are branded PlayerIds over the same value domain.
-            const seat = channel.seats.get(payload.requestedSeat as PlayerId);
-            if (!seat) {
-                // FR-016 anti-oracle: unified admission error.
-                connection.sendError('match_not_joinable', 'match is not joinable');
-                return;
-            }
-            // Issue #123 P0: reject if the seat's token is held in the
-            // reconnect grace window — only the token owner may reclaim
-            // it through the registry path above.
-            if (reconnectRegistry.hasActiveBinding(seat.sessionToken, Date.now())) {
-                // FR-016 anti-oracle: unified admission error.
-                connection.sendError('match_not_joinable', 'match is not joinable');
-                return;
-            }
-            target = { playerId: seat.playerId, token: seat.sessionToken };
         } else {
-            // Issue #123 P0: tokenless scan must skip seats whose tokens
-            // are held in the reconnect grace window — only the token
-            // owner may reclaim them through the registry path above.
+            // New session: the server (never the client) selects the
+            // lowest open seat in canonical UTF-16 PlayerId order. A
+            // client-supplied identity cannot request or claim a seat
+            // (issue #74 FR-022; `requestedSeat` was removed in the
+            // 0.3.0 wire break).
+            //
+            // Issue #123 P0: the tokenless scan must skip seats whose
+            // tokens are held in the reconnect grace window — only the
+            // token owner may reclaim them through the registry path
+            // above.
             const nowMs = Date.now();
-            for (const playerId of [...channel.seats.keys()].sort((a, b) => a - b)) {
+            for (const playerId of [...channel.seats.keys()].sort(compareUtf16)) {
                 const seat = channel.seats.get(playerId);
                 if (seat && seat.connection === null && !reconnectRegistry.hasActiveBinding(seat.sessionToken, nowMs)) {
                     target = { playerId: seat.playerId, token: seat.sessionToken };

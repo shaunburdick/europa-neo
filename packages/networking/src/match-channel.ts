@@ -14,6 +14,8 @@
  */
 
 import type { MatchConfig, Player } from '@europa/engine';
+import { compareUtf16 } from '@europa/engine';
+
 import type { Connection } from './connection';
 import { NETWORK_TRANSPORT_CONSTANTS } from './constants';
 import type { EngineSession } from './contracts/network-api';
@@ -263,17 +265,20 @@ export class MatchChannel {
     /**
      * Drain the pending queue in the engine's canonical order —
      * ascending `(playerId, kind)` per engine FR-018 — returning the
-     * sorted batch and emptying the queue. Ties beyond `(playerId, kind)`
-     * keep insertion order (V8 sorts are stable).
+     * sorted batch and emptying the queue. Identity comparison uses the
+     * shared explicit UTF-16 code-unit comparator (FR-024), never
+     * numeric subtraction or locale collation. Ties beyond
+     * `(playerId, kind)` keep insertion order (V8 sorts are stable).
      *
      * @returns The sorted, drained batch.
      */
     drainOrdersForTick(): PendingOrder[] {
         const sorted = [...this.pendingOrders].sort((a, b) => {
-            if (a.playerId !== b.playerId) {
-                return a.playerId - b.playerId;
+            const byPlayer = compareUtf16(a.playerId, b.playerId);
+            if (byPlayer !== 0) {
+                return byPlayer;
             }
-            return a.order.kind.localeCompare(b.order.kind);
+            return compareUtf16(a.order.kind, b.order.kind);
         });
         this.pendingOrders.length = 0;
         return sorted;
@@ -290,20 +295,22 @@ export class MatchChannel {
 
     /**
      * Every live connection in the channel: seated players first (by
-     * player id), then spectators (by connection id) — a stable iteration
-     * order for deterministic broadcast construction.
+     * canonical PlayerId UTF-16 order), then spectators (by connection
+     * id) — a stable iteration order for deterministic broadcast
+     * construction. Both orders use the shared explicit UTF-16 code-unit
+     * comparator so host locale can never change the drain result.
      *
      * @returns Ordered array of live connections.
      */
     connections(): Connection[] {
         const result: Connection[] = [];
-        for (const playerId of [...this.seats.keys()].sort((a, b) => a - b)) {
+        for (const playerId of [...this.seats.keys()].sort(compareUtf16)) {
             const connection = this.seats.get(playerId)?.connection;
             if (connection) {
                 result.push(connection);
             }
         }
-        for (const connectionId of [...this.spectators.keys()].sort()) {
+        for (const connectionId of [...this.spectators.keys()].sort(compareUtf16)) {
             const connection = this.spectators.get(connectionId);
             if (connection) {
                 result.push(connection);

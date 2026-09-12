@@ -7,7 +7,8 @@
  * spectators).
  *
  * Uses `performance.now()` to measure elapsed time. Includes a
- * determinism assertion (output identical across runs).
+ * determinism assertion (output identical across runs). Issue #74:
+ * identity is the canonical string `PlayerId`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -16,12 +17,17 @@ import { buildTickBroadcast, sendTickBroadcast } from '../../src/broadcast';
 import { Connection } from '../../src/connection';
 import type { FogFactory } from '../../src/contracts/network-api';
 import { MatchChannel } from '../../src/match-channel';
+import { SPECTATOR_VIEW_PLAYER_ID } from '../../src/spectator';
 import type { PlayerId, PlayerView } from '../../src/types';
 import { MockWebSocket } from '../fixtures/conn';
 import { scriptedMatch } from '../fixtures/match';
 
 /** The budget: broadcast phase must complete within this (ms). */
 const BROADCAST_BUDGET_MS = 5;
+
+/** Slot identities used by the 32×32 fixture. */
+const P1 = 'Player000001' as PlayerId;
+const P2 = 'Player000002' as PlayerId;
 
 /** A minimal valid PlayerView for the 32×32 board stub. */
 function stubView32(player: PlayerId, tick: number): PlayerView {
@@ -38,7 +44,7 @@ function stubView32(player: PlayerId, tick: number): PlayerView {
                     coord: { x, y },
                     cell: { x, y, elevation: (x + y) % 5, terrain: 'land' as const },
                     troopCount: (x + y) % 10,
-                    troopOwner: ((x + y) % 2 === 0 ? player : 0) as PlayerId,
+                    troopOwner: (x + y) % 2 === 0 ? player : null,
                     pipes: new Set(['N', 'E'] as const),
                     reservesPercent: (x % 10) as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9,
                     cityOwner: x === 0 && y === 0 ? player : null,
@@ -54,7 +60,7 @@ function stubView32(player: PlayerId, tick: number): PlayerView {
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: 32,
-            playerCount: 2,
+            playerIds: [P1, P2],
             tickIntervalMs: 250,
             seed: 42,
             visibilityRadius: 3,
@@ -66,7 +72,7 @@ function stubView32(player: PlayerId, tick: number): PlayerView {
 function stubFog32(): FogFactory {
     return {
         computePlayerView({ world, playerId, spectator }) {
-            return spectator ? stubView32(1, world.tick) : stubView32(playerId, world.tick);
+            return spectator ? stubView32(SPECTATOR_VIEW_PLAYER_ID, world.tick) : stubView32(playerId, world.tick);
         },
     };
 }
@@ -75,6 +81,7 @@ function stubFog32(): FogFactory {
 function channelWithFourConnections(): {
     channel: MatchChannel;
     connections: Connection[];
+    ids: [PlayerId, PlayerId];
     sockets: MockWebSocket[];
 } {
     const match = scriptedMatch({ boardSize: 32 });
@@ -85,22 +92,27 @@ function channelWithFourConnections(): {
     });
     channel.spectatorsAllowed = true;
 
+    const [p1, p2] = match.playerIds;
+    if (p1 === undefined || p2 === undefined) {
+        throw new Error('channelWithFourConnections: fixture missing player ids');
+    }
+
     const sockets: MockWebSocket[] = [];
     const connections: Connection[] = [];
 
     // Player 1
     const socketA = new MockWebSocket();
     const connA = new Connection({ socket: socketA, role: 'player', nowMs: 0 });
-    connA.markJoined('token-a', 1, match.matchId);
-    channel.attachSeat(1, 'token-a', connA);
+    connA.markJoined('token-a', p1, match.matchId);
+    channel.attachSeat(p1, 'token-a', connA);
     sockets.push(socketA);
     connections.push(connA);
 
     // Player 2
     const socketB = new MockWebSocket();
     const connB = new Connection({ socket: socketB, role: 'player', nowMs: 0 });
-    connB.markJoined('token-b', 2, match.matchId);
-    channel.attachSeat(2, 'token-b', connB);
+    connB.markJoined('token-b', p2, match.matchId);
+    channel.attachSeat(p2, 'token-b', connB);
     sockets.push(socketB);
     connections.push(connB);
 
@@ -120,7 +132,7 @@ function channelWithFourConnections(): {
     sockets.push(socketD);
     connections.push(connD);
 
-    return { channel, connections, sockets };
+    return { channel, connections, ids: [p1, p2], sockets };
 }
 
 describe('Broadcast performance (T027)', () => {
@@ -172,15 +184,15 @@ describe('Broadcast performance (T027)', () => {
     });
 
     it('view cache keys match expected player ids and spectators', () => {
-        const { channel } = channelWithFourConnections();
+        const { channel, ids } = channelWithFourConnections();
         const fog = stubFog32();
 
         channel.recordTick();
         const result = buildTickBroadcast(channel, { fog }, 100);
 
-        // Player ids 1 and 2, plus 'spectator'.
-        expect(result.viewCache['1']).toBeDefined();
-        expect(result.viewCache['2']).toBeDefined();
+        // Player ids plus 'spectator'.
+        expect(result.viewCache[ids[0]]).toBeDefined();
+        expect(result.viewCache[ids[1]]).toBeDefined();
         expect(result.viewCache.spectator).toBeDefined();
     });
 });

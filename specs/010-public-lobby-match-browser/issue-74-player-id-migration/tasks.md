@@ -186,25 +186,25 @@ added, and no behavioral `spec.md` was modified.
 
 ## Wave 6 — Networking breaking wire migration
 
-- [ ] **T030**: Bump `NETWORK_API_VERSION` at the approved breaking major boundary
+- [x] **T030**: Bump `NETWORK_API_VERSION` at the approved breaking major boundary
   and update both canonical networking contract copies plus all version witnesses;
   keep application version checks independent.
-- [ ] **T031**: Update networking types/validators in
+- [x] **T031**: Update networking types/validators in
   `packages/networking/src/contracts/`, `validate.ts`, `frame.ts`, `orders.ts`,
   `match-channel.ts`, `connection.ts`, `reconnect.ts`, `broadcast.ts`,
   `spectator.ts`, and `server.ts` so gameplay identity fields are canonical
   strings and numeric values are rejected before domain interpretation.
-- [ ] **T032**: Preserve authoritative server resolution: join, order, snapshot,
+- [x] **T032**: Preserve authoritative server resolution: join, order, snapshot,
   reconnect, spectator, and terminal paths must derive identity from bound
   session/reconnect credentials; a supplied ID must never authenticate or select
   another view.
-- [ ] **T033**: Replace all authoritative numeric sorting in networking with the
+- [x] **T033**: Replace all authoritative numeric sorting in networking with the
   shared explicit UTF-16 comparator; add tests with IDs whose lexical order
   differs from seat/insertion order and prove byte-stable drains/broadcasts.
-- [ ] **T034**: Update networking source/spec mirrors and conformance programs for
+- [x] **T034**: Update networking source/spec mirrors and conformance programs for
   the new major version, all identity unions, nullable spectator fields, and
   old-client rejection; retain exact mirror equality where required.
-- [ ] **T035**: Update networking fixtures and tests, including server, lobby,
+- [x] **T035**: Update networking fixtures and tests, including server, lobby,
   reconnect, rate-limit, validation, security-hardening, version-mismatch,
   frame-cap, and integration suites; assert numeric clients are rejected before
   payload parsing and bearer credentials are never exposed.

@@ -16,7 +16,7 @@ import { computePlayerView } from '@europa/fog';
 import { describe, expect, it } from 'vitest';
 
 import { createMatchServer } from '../../src/server';
-import type { SessionToken, TickBroadcastPayload } from '../../src/types';
+import type { PlayerId, SessionToken, TickBroadcastPayload } from '../../src/types';
 import { attachPlayersForMatch, type ScriptedMatch, scriptedMatch } from '../fixtures/match';
 import { connectMockClient, realDeps, startJoinedMatch, TEST_TICK_MS, testServerConfig, wireShape } from './harness';
 
@@ -24,7 +24,7 @@ import { connectMockClient, realDeps, startJoinedMatch, TEST_TICK_MS, testServer
 interface SeatEvents {
     disconnected: SessionToken[];
     reconnected: SessionToken[];
-    expired: Array<{ sessionToken: SessionToken; playerId: number | null }>;
+    expired: Array<{ sessionToken: SessionToken; playerId: PlayerId | null }>;
 }
 
 function recordingBridge(): { events: SeatEvents; deps: ReturnType<typeof realDeps> } {
@@ -91,14 +91,14 @@ describe('US2 acceptance (reconnection with state resync)', () => {
             const snapshot = await returning.nextMessage('snapshot');
             expect(snapshot.type).toBe('snapshot');
             const snap = snapshot.payload as unknown as TickBroadcastPayload;
-            expect(snap.view.player).toBe(1);
+            expect(snap.view.player).toBe(h.match.playerIds[0]);
             expect(snap.view.visibleCells.length).toBeGreaterThan(0);
             expect(snap.tick).toBeGreaterThanOrEqual(prevTick);
 
             // …and the snapshot equals fog's direct computation for the
             // restored seat over the authoritative world (wire-shape compare;
             // any cross-seat leak would fail the equality).
-            const expected = wireShape(computePlayerView(h.match.engineSession.world(), 1));
+            const expected = wireShape(computePlayerView(h.match.engineSession.world(), h.match.playerIds[0]));
             expect(wireShape(snap.view)).toEqual(expected);
 
             // …then subsequent tick deltas. The prescribed resync order is
@@ -179,7 +179,9 @@ describe('US2 acceptance (reconnection with state resync)', () => {
             });
             const snapshot = await returning.nextMessage('snapshot');
             expect(snapshot.type).toBe('snapshot');
-            expect((snapshot.payload as unknown as { view: { player: number } }).view.player).toBe(1);
+            expect((snapshot.payload as unknown as { view: { player: PlayerId } }).view.player).toBe(
+                h.match.playerIds[0],
+            );
 
             // Matchmaking saw exactly one reclaim.
             await waitForCondition(() => events.reconnected.length === 1);
@@ -213,8 +215,8 @@ describe('US2 acceptance (reconnection with state resync)', () => {
         dropper.hello();
         await survivor.nextMessage('helloAck');
         await dropper.nextMessage('helloAck');
-        survivor.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
-        dropper.joinMatch(match.matchId, 'player', { requestedSeat: 2 });
+        survivor.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
+        dropper.joinMatch(match.matchId, 'player', { reconnectToken: tokens[1] });
         await survivor.nextMessage('joinAck');
         await dropper.nextMessage('joinAck');
 
@@ -243,7 +245,7 @@ describe('US2 acceptance (reconnection with state resync)', () => {
             await waitForCondition(() => events.expired.length === 1);
             expect(events.expired[0]).toEqual({
                 sessionToken: tokens[1] as SessionToken,
-                playerId: 2,
+                playerId: match.playerIds[1],
             });
 
             // The seat is detached: presenting the stale token now fails —

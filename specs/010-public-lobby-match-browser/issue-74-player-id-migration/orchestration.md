@@ -242,6 +242,67 @@
     (`tsc --emitDeclarationOnly`; build artifacts only — no networking source
     touched).
 
+- **Wave 6 — complete (networking breaking wire migration, T030–T035)**:
+  - **T030 version boundary**: `NETWORK_API_VERSION` `0.2.0` → `0.3.0` in both
+    byte-identical canonical contract copies. Under `validateVersion`'s
+    `breakingBoundary()` (pre-1.0 minors are the breaking line), boundary
+    `0.2` ≠ `0.3`, so every old numeric client is rejected with
+    `version_mismatch` + close 1008. Proven end-to-end: a `hello` offering
+    `0.2.0` is rejected (integration) and `0.3.5` same-boundary drift is
+    accepted. The application/release version is untouched.
+  - **Version gate before payload**: `connection.handleInbound` now parses JSON,
+    applies the FR-004 version gate, and only THEN runs envelope/payload
+    validation (`frame.ts` exposes `parseFrameJson`). A `0.2.0` frame carrying
+    a now-invalid numeric identity payload is rejected as `version_mismatch`
+    (not `malformed_payload`) — pinned by the new security-hardening test.
+    Empty/absent/non-string versions still fall through to `malformed_payload`
+    (existing pinned behavior preserved).
+  - **T031 identity fields**: `JoinMatchPayload.requestedSeat` REMOVED (a
+    client-supplied identity can no longer select or claim a seat); the
+    wire validator now requires canonical 12-char identities for every order
+    `player` field and for an optional lobby `claim.guestPlayerId`, rejecting
+    numeric JSON before domain interpretation; `joinAck.playerId` accepts only
+    a canonical id or `null`; `SPECTATOR_VIEW_SEAT = 0 as PlayerId` replaced by
+    `SPECTATOR_VIEW_PLAYER_ID = parsePlayerId('Spectator001')`;
+    `viewsEqual` compares the ordered `playerIds` config (was the removed
+    `playerCount`); the spectator view-cache key is the identity string.
+  - **T032 authoritative resolution**: seat admission resolves the bound
+    bearer token (registry/reconnect) or assigns the lowest open seat in
+    UTF-16 order — never a client-supplied id. `acceptOrder` rejects an order
+    whose `player` differs from the connection's bound identity
+    (`malformed_payload`, detail reason `order_player_mismatch`). New security
+    tests: a bare canonical id offered as a reconnect token → `token_invalid`;
+    an order authored as another player → rejected; tokenless joins cannot take
+    grace-window seats. Spectator/terminal/snapshot paths already derive from
+    the connection binding.
+  - **T033 ordering**: all authoritative sorting uses the shared
+    `compareUtf16` from `@europa/engine` (drain `(playerId, kind)`,
+    `connections()` seat/spectator iteration, server seat scans); the
+    `order.kind.localeCompare` tiebreak is gone. Tests pin reverse-lexical
+    insertion drains and insertion-independent `connections()` ordering; the
+    existing tick-determinism suite still proves byte-identical streams.
+  - **T034 mirrors/conformance**: all three networking contract mirrors
+    (`network-types.ts`, `network-api.ts`, `matchmaking-to-networking.ts`)
+    remain BYTE-identical to `specs/004-multiplayer-networking/contracts/`;
+    the conformance suite's byte-identity, union-exhaustiveness, and
+    mutual-assignability witnesses pass. `@europa/core` added as a direct
+    dependency for canonical identity validation (workspace-internal, zero
+    third-party deps).
+  - **T035 fixtures/tests**: every networking fixture/test migrated to explicit
+    canonical identities (`SCRIPTED_PLAYER_IDS`, `nextGuestPlayerId` →
+    `Guest0000001`, `NON_SECRET_GUEST_ID` → `Guest0000001`); the integration
+    harness joins via bound tokens and exposes `seatToken`/`playerIdForSlot`.
+    New/updated negative coverage: numeric/old-version rejection before payload
+    parsing, order-identity mismatch, id-as-token denial, and
+    credential-never-logged (capturing logger).
+  - **Verification**: networking typecheck, lint, `format:check`, and tsup build
+    (JS + DTS) clean — the previous `MatchConfig.playerCount` DTS failure is
+    resolved. 319 tests across 35 files pass; coverage
+    90.57 / 82.42 / 97.07 / 90.59 (stmts/branches/funcs/lines), all ≥80%. The
+    identity-migration guard reports **zero `packages/networking/` violations**;
+    the only remaining guard failure is `packages/console/` (Wave 7) — not
+    suppressed or excluded.
+
 ## Waves
 
 1. Baseline and forbidden-pattern inventory.

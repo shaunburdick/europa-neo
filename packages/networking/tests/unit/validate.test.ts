@@ -17,7 +17,7 @@ import { validateEnvelope, validateVersion } from '../../src/validate';
 const VALID_PAYLOADS: Readonly<Record<MessageKind, Record<string, unknown>>> = {
     hello: { protocolVersion: NETWORK_API_VERSION },
     joinMatch: { matchId: 'match-1', role: 'player', displayName: 'Player' },
-    order: { order: { kind: 'surrender', player: 1 } },
+    order: { order: { kind: 'surrender', player: 'Player000001' } },
     ping: { clientTimeMs: 0 },
     // Feature 010 lobby family (additive; shapes per contracts/network-types.ts).
     lobbyIdentity: {},
@@ -34,7 +34,7 @@ const VALID_PAYLOADS: Readonly<Record<MessageKind, Record<string, unknown>>> = {
     },
     joinAck: {
         sessionToken: 'token-1',
-        playerId: 1,
+        playerId: 'Player000001',
         view: { visibleCells: [] },
         tick: 0,
         players: [],
@@ -199,6 +199,34 @@ describe('validateEnvelope — per-kind required fields', () => {
         };
         expect(() => validateEnvelope(spectatorJoin)).not.toThrow();
     });
+
+    it('rejects a numeric playerId on joinAck before domain interpretation', () => {
+        const numericJoinAck = {
+            type: 'joinAck',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { ...VALID_PAYLOADS.joinAck, playerId: 1 },
+        };
+        expect(() => validateEnvelope(numericJoinAck)).toThrow(/canonical PlayerId/);
+    });
+
+    it('rejects a numeric lobby identity claim but accepts a canonical one', () => {
+        const numericClaim = {
+            type: 'lobbyIdentity',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { claim: { guestPlayerId: 2 } },
+        };
+        expect(() => validateEnvelope(numericClaim)).toThrow(/canonical GuestPlayerId/);
+
+        const canonicalClaim = {
+            type: 'lobbyIdentity',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { claim: { guestPlayerId: 'Player000002', handle: 'Nova' } },
+        };
+        expect(() => validateEnvelope(canonicalClaim)).not.toThrow();
+    });
 });
 
 describe('validateVersion', () => {
@@ -208,9 +236,9 @@ describe('validateVersion', () => {
 
     it('accepts patch drift within the same 0.x boundary (FR-004 graceful)', () => {
         // Pre-1.0 semver: the MINOR component is the compatibility line,
-        // so 0.2.x variants interoperate (spec T047: "0.2.5" accepted).
-        expect(validateVersion('0.2.5')).toEqual({ ok: true });
-        expect(validateVersion('0.2.99')).toEqual({ ok: true });
+        // so 0.3.x variants interoperate (spec T047: "0.3.5" accepted).
+        expect(validateVersion('0.3.5')).toEqual({ ok: true });
+        expect(validateVersion('0.3.99')).toEqual({ ok: true });
     });
 
     it('rejects major drift with a version_mismatch NetworkError', () => {
@@ -226,9 +254,10 @@ describe('validateVersion', () => {
     });
 
     it('rejects cross-minor 0.x drift as a breaking boundary (FR-004, spec T021/T047)', () => {
-        // "0.1.0" is MAJOR drift from "0.2.0" per the spec's own examples:
+        // "0.2.0" is MAJOR drift from "0.3.0" per the spec's own examples:
         // pre-1.0 minors are the breaking boundary.
-        expect(validateVersion('0.1.0').ok).toBe(false);
+        expect(validateVersion('0.2.0').ok).toBe(false);
+        expect(validateVersion('0.2.5').ok).toBe(false);
         expect(validateVersion('0.99.99').ok).toBe(false);
     });
 

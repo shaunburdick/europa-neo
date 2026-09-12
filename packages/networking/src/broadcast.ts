@@ -42,7 +42,7 @@ import type {
     TickBroadcastPayload,
 } from './contracts/network-types';
 import type { MatchChannel } from './match-channel';
-import { SPECTATOR_VIEW_SEAT } from './spectator';
+import { SPECTATOR_VIEW_PLAYER_ID } from './spectator';
 
 // ----------------------------------------------------------------------------
 // viewsEqual (FR-020: zero-allocation structural comparison)
@@ -99,13 +99,35 @@ function cellViewsEqual(a: CellView, b: CellView): boolean {
 }
 
 /**
+ * Element-wise equality for two readonly string arrays (here: the
+ * match's ordered canonical `playerIds`). Length first, then
+ * short-circuiting comparison. Zero allocation.
+ *
+ * @param a First array.
+ * @param b Second array.
+ * @returns `true` when both arrays carry the same values in the same order.
+ */
+function stringArraysEqual(a: readonly string[], b: readonly string[]): boolean {
+    if (a.length !== b.length) {
+        return false;
+    }
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * Structural equality check for `PlayerView` (FR-020: zero allocation).
  *
- * Compares `player`, `config`, `events` (length of each array), and
- * `visibleCells` (length + per-cell field-by-field equality with
- * Set-aware pipe comparison). Short-circuits on the first difference.
- * Omits the embedded `tick` field — the wire payload's tick stamp is
- * `payload.tick` (the channel counter), not the view's own tick.
+ * Compares `player`, `config` (including the ordered `playerIds` list),
+ * `events` (length of each array), and `visibleCells` (length + per-cell
+ * field-by-field equality with Set-aware pipe comparison). Short-circuits
+ * on the first difference. Omits the embedded `tick` field — the wire
+ * payload's tick stamp is `payload.tick` (the channel counter), not the
+ * view's own tick.
  *
  * @param a First player view.
  * @param b Second player view.
@@ -114,7 +136,8 @@ function cellViewsEqual(a: CellView, b: CellView): boolean {
 export function viewsEqual(a: PlayerView, b: PlayerView): boolean {
     if (a.player !== b.player) return false;
 
-    // Config comparison: all fields are plain numbers/strings.
+    // Config comparison: numbers/strings plus the ordered `playerIds`
+    // identity list (the engine derives player count from its length).
     // Defensive: some test stubs may omit `config`; treat both-missing
     // as equal and one-missing as unequal (matches the fingerprint
     // behavior where both produced identical JSON for the same shape).
@@ -123,10 +146,10 @@ export function viewsEqual(a: PlayerView, b: PlayerView): boolean {
     if (ac && bc) {
         if (
             ac.boardSize !== bc.boardSize ||
-            ac.playerCount !== bc.playerCount ||
             ac.tickIntervalMs !== bc.tickIntervalMs ||
             ac.seed !== bc.seed ||
-            ac.visibilityRadius !== bc.visibilityRadius
+            ac.visibilityRadius !== bc.visibilityRadius ||
+            !stringArraysEqual(ac.playerIds, bc.playerIds)
         ) {
             return false;
         }
@@ -226,15 +249,15 @@ export function buildTickBroadcast(channel: MatchChannel, deps: BroadcastDeps, _
 
     for (const connection of channel.connections()) {
         const spectator = connection.role === 'spectator';
-        // Null seat ⇒ spectator: stamp the no-seat sentinel (0) so the
-        // view can never be misread as a real player's — same sentinel
-        // the join-time snapshot carries (`SPECTATOR_VIEW_SEAT`). Fog's
-        // spectator branch ignores the seat either way.
-        const playerId: PlayerId = connection.playerId ?? SPECTATOR_VIEW_SEAT;
+        // Null seat ⇒ spectator: stamp the reserved spectator correlation
+        // id so the view can never be misread as a real player's — same
+        // target the join-time snapshot carries (`SPECTATOR_VIEW_PLAYER_ID`).
+        // Fog's spectator branch ignores the target either way.
+        const playerId: PlayerId = connection.playerId ?? SPECTATOR_VIEW_PLAYER_ID;
         const view = deps.fog.computePlayerView({ world, playerId, spectator });
 
         // Cache by player id or 'spectator' (FR-018/FR-019).
-        const cacheKey = spectator ? 'spectator' : playerId.toString();
+        const cacheKey = spectator ? 'spectator' : playerId;
         viewCache[cacheKey] = view;
 
         const previous = channel.lastSentView.get(connection.id);

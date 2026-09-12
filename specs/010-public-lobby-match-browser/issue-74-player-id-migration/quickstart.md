@@ -155,3 +155,46 @@ in any `package.json` dependencies or devDependencies. Clean baseline.
 Record command, package, test count, coverage percentages, protocol version,
 browser/E2E result, security result, and any environment cleanup (ports or
 servers). A passing focused suite does not replace the final `pnpm verify` gate.
+
+## Wave 6 evidence — networking breaking wire migration (captured 2026-09-12)
+
+**Commands run** (`packages/networking` unless noted):
+
+```bash
+pnpm --filter @europa/networking typecheck     # clean
+pnpm --filter @europa/networking lint          # clean (biome check, 68 files)
+pnpm --filter @europa/networking format:check  # clean (65 files)
+pnpm --filter @europa/networking build         # ESM + DTS success (browser 9.8 KB, index 85.5 KB)
+pnpm --filter @europa/networking test          # 319 passed (35 files)
+pnpm --filter @europa/networking coverage      # 90.57 / 82.42 / 97.07 / 90.59
+pnpm --filter @europa/core exec vitest run tests/identity-migration-guard.test.ts
+```
+
+**Protocol version**: `NETWORK_API_VERSION` bumped `0.2.0` → `0.3.0`. The
+breaking boundary is the pre-1.0 minor, so `0.2.x` clients are rejected. Proof:
+integration `version-mismatch.test.ts` — `hello('0.2.0')` → `version_mismatch`
+error + close `1008`; `hello('0.3.5')` → `helloAck`. New security-hardening test
+proves the gate precedes payload validation: a `0.2.0` frame carrying a numeric
+`joinAck.playerId` is rejected as `version_mismatch` (not `malformed_payload`).
+
+**Identity field changes**: `JoinMatchPayload.requestedSeat` removed (client
+cannot select/claim a seat); order `player` and lobby `claim.guestPlayerId`
+validated as canonical 12-char ids (numeric rejected at the wire boundary);
+`joinAck.playerId` canonical-or-null; `SPECTATOR_VIEW_SEAT` (numeric cast)
+replaced by `SPECTATOR_VIEW_PLAYER_ID` (parsed canonical sentinel);
+`viewsEqual` compares the ordered `playerIds` config.
+
+**Credential separation**: `acceptOrder` rejects an order whose `player` is not
+the connection's bound identity (`order_player_mismatch`); a bare canonical id
+offered as a `reconnectToken` → `token_invalid`; tokenless joins skip
+grace-window seats. Capturing-logger test proves session/reconnect tokens never
+reach the logger.
+
+**Contract mirrors**: `src/contracts/{network-types,network-api,matchmaking-to-networking}.ts`
+remain byte-identical to `specs/004-multiplayer-networking/contracts/` (pinned by
+`contracts-conformance.test.ts`, which passes).
+
+**Guard status**: the repository identity guard reports **zero
+`packages/networking/` violations**. The only remaining failure is
+`packages/console/src/net/lobby-storage.ts` (Wave 7) — the guard was neither
+suppressed nor excluded.

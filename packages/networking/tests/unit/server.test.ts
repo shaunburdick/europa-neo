@@ -5,6 +5,10 @@
  * register → attach → join → stats; idempotent close/listen). Uses
  * the real engine + fog via the fixtures and drives clients through
  * `MockWebSocket` + `ScriptedClient` — no TCP port is opened.
+ *
+ * Issue #74: seats are keyed by canonical 12-character `PlayerId`
+ * strings; a client never names a seat. Admission resolves the bound
+ * bearer token, or the server assigns the lowest open seat.
  */
 
 import { computePlayerView } from '@europa/fog';
@@ -38,6 +42,15 @@ function testServerConfig(): ServerConfigShape {
 /** Local alias to avoid a second import of the config type. */
 type ServerConfigShape = Parameters<typeof createMatchServer>[0];
 
+/** Resolve a placement slot's bound token, failing loudly when absent. */
+function tokenFor(tokens: readonly SessionToken[], slot: number): SessionToken {
+    const token = tokens[slot - 1];
+    if (token === undefined) {
+        throw new Error(`tokenFor: no token for slot ${String(slot)}`);
+    }
+    return token;
+}
+
 /** Small sleep helper for bounded waits. */
 function waitFor(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -69,15 +82,15 @@ function injectRawFrame(socket: MockWebSocket, envelope: ProtocolEnvelope<never>
 }
 
 /**
- * Wrap an engine session so `status()` reports a win for player 1
- * after N advances — lets tests exercise the terminal fan-out without
- * playing a real match to elimination.
+ * Wrap an engine session so `status()` reports a win for the slot-1
+ * identity after N advances — lets tests exercise the terminal fan-out
+ * without playing a real match to elimination.
  */
-function wrapTerminating(inner: EngineSession, terminalAfterTicks: number): EngineSession {
+function wrapTerminating(inner: EngineSession, terminalAfterTicks: number, winner: PlayerId): EngineSession {
     let advances = 0;
     const result = {
         kind: 'win' as const,
-        winner: 1 as PlayerId,
+        winner,
         get tick() {
             return advances;
         },
@@ -170,6 +183,7 @@ describe('createMatchServer', () => {
             matchConfig: match.matchConfig,
         });
         const tokens = attachPlayersForMatch(server, match);
+        const [p1, p2] = match.playerIds;
 
         // Two clients connect (mock injection seam) and complete the handshake.
         const clientA = connectMockClient(server);
@@ -178,13 +192,13 @@ describe('createMatchServer', () => {
         clientB.hello();
         await clientA.nextMessage('helloAck');
         await clientB.nextMessage('helloAck');
-        clientA.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
-        clientB.joinMatch(match.matchId, 'player', { requestedSeat: 2 });
+        clientA.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
+        clientB.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 2) });
         const joinA = await clientA.nextMessage('joinAck');
         const joinB = await clientB.nextMessage('joinAck');
 
-        expect(joinA.payload).toMatchObject({ playerId: 1, sessionToken: tokens[0] });
-        expect(joinB.payload).toMatchObject({ playerId: 2, sessionToken: tokens[1] });
+        expect(joinA.payload).toMatchObject({ playerId: p1, sessionToken: tokenFor(tokens, 1) });
+        expect(joinB.payload).toMatchObject({ playerId: p2, sessionToken: tokenFor(tokens, 2) });
 
         const stats = server.stats();
         expect(stats.activeMatches).toBe(1);
@@ -268,11 +282,11 @@ describe('createMatchServer — management ops', () => {
             engineSession: match.engineSession,
             matchConfig: match.matchConfig,
         });
-        attachPlayersForMatch(server, match);
+        const tokens = attachPlayersForMatch(server, match);
         const client = connectMockClient(server);
         client.hello();
         await client.nextMessage('helloAck');
-        client.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        client.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         await client.nextMessage('joinAck');
 
         server.unregisterMatch(match.matchId);
@@ -293,17 +307,18 @@ describe('createMatchServer — management ops', () => {
             engineSession: match.engineSession,
             matchConfig: match.matchConfig,
         });
+        const p2 = match.playerIds[1] as PlayerId;
 
         expect(() =>
             server.attachPlayer({
                 matchId: toBranded<MatchId>('ghost'),
-                playerId: 1 as PlayerId,
+                playerId: match.playerIds[0] as PlayerId,
                 sessionToken: generateSessionToken(),
             }),
         ).toThrow(/unknown match/);
 
         const token = generateSessionToken();
-        server.attachPlayer({ matchId: match.matchId, playerId: 2 as PlayerId, sessionToken: token });
+        server.attachPlayer({ matchId: match.matchId, playerId: p2, sessionToken: token });
 
         // Token-addressed detach (playerId omitted).
         expect(() => server.detachPlayer({ matchId: match.matchId, sessionToken: token })).not.toThrow();
@@ -382,7 +397,7 @@ describe('createMatchServer — protocol edges', () => {
         const client = connectMockClient(server);
         client.hello();
         await client.nextMessage('helloAck');
-        client.order({ kind: 'surrender', player: 1 as PlayerId });
+        client.order({ kind: 'surrender', player: 'Player000001' as PlayerId });
 
         const err = await client.nextMessage('error');
         expect(err.payload.code).toBe('protocol_sequence_error');
@@ -410,7 +425,7 @@ describe('createMatchServer — protocol edges', () => {
             type: 'tick',
             version: NETWORK_API_VERSION,
             seq: 1,
-            payload: { tick: 1, view: { player: 1, tick: 1, visibleCells: [] } },
+            payload: { tick: 1, view: { player: 'Player000001', tick: 1, visibleCells: [] } },
         });
 
         const err = await client.nextMessage('error');
@@ -437,14 +452,16 @@ describe('createMatchServer — protocol edges', () => {
         await first.nextMessage('helloAck');
         await second.nextMessage('helloAck');
 
-        first.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        first.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         await first.nextMessage('joinAck');
 
-        second.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        // A second connection presenting the SAME bound token cannot displace
+        // the live seat holder.
+        second.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         const taken = await second.nextMessage('error');
         expect(taken.payload.code).toBe('match_not_joinable');
 
-        second.joinMatch(match.matchId, 'player', { reconnectToken: 'bogus-token' });
+        second.joinMatch(match.matchId, 'player', { reconnectToken: 'bogus-token' as SessionToken });
         const invalid = await second.nextMessage('error');
         expect(invalid.payload.code).toBe('token_invalid');
 
@@ -453,9 +470,9 @@ describe('createMatchServer — protocol edges', () => {
             const third = connectMockClient(server);
             third.hello();
             await third.nextMessage('helloAck');
-            third.joinMatch(match.matchId, 'player', { reconnectToken: tokens[1] });
+            third.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 2) });
             const join = await third.nextMessage('joinAck');
-            expect(join.payload.playerId).toBe(2);
+            expect(join.payload.playerId).toBe(match.playerIds[1]);
         }
 
         await server.close();
@@ -480,9 +497,9 @@ describe('createMatchServer — protocol edges', () => {
         }
 
         one.joinMatch(match.matchId, 'player');
-        expect((await one.nextMessage('joinAck')).payload.playerId).toBe(1);
+        expect((await one.nextMessage('joinAck')).payload.playerId).toBe(match.playerIds[0]);
         two.joinMatch(match.matchId, 'player');
-        expect((await two.nextMessage('joinAck')).payload.playerId).toBe(2);
+        expect((await two.nextMessage('joinAck')).payload.playerId).toBe(match.playerIds[1]);
 
         three.joinMatch(match.matchId, 'player');
         const full = await three.nextMessage('error');
@@ -499,7 +516,7 @@ describe('createMatchServer — protocol edges', () => {
             engineSession: match.engineSession,
             matchConfig: match.matchConfig,
         });
-        attachPlayersForMatch(server, match);
+        const tokens = attachPlayersForMatch(server, match);
 
         const one = connectMockClient(server);
         one.hello();
@@ -521,10 +538,10 @@ describe('createMatchServer — protocol edges', () => {
         // The malformed attempt claimed no seat…
         expect(server.stats().activeConnections).toBe(0);
 
-        // …and the connection is unpoisoned: a valid join still works.
-        one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        // …and the connection is unpoisoned: a valid token join still works.
+        one.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         const ack = await one.nextMessage('joinAck');
-        expect(ack.payload.playerId).toBe(1);
+        expect(ack.payload.playerId).toBe(match.playerIds[0]);
 
         await server.close();
     });
@@ -532,13 +549,14 @@ describe('createMatchServer — protocol edges', () => {
     it('terminal results fan out once per connection and fire onMatchTerminal exactly once', async () => {
         const terminalAtTick = 3;
         const inner = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
+        const winner = inner.playerIds[0] as PlayerId;
         const match = {
             ...inner,
-            engineSession: wrapTerminating(inner.engineSession, terminalAtTick),
+            engineSession: wrapTerminating(inner.engineSession, terminalAtTick, winner),
         };
 
-        const claimed: Array<{ playerId: number }> = [];
-        const terminals: Array<{ matchId: MatchId; winner: number }> = [];
+        const claimed: Array<{ playerId: PlayerId | null }> = [];
+        const terminals: Array<{ matchId: MatchId; winner: PlayerId | null }> = [];
         const deps = withBridge(realDeps(), {
             onSeatClaimed: (event) => {
                 claimed.push({ playerId: event.playerId });
@@ -567,7 +585,7 @@ describe('createMatchServer — protocol edges', () => {
             c.joinMatch(match.matchId, 'player');
             await c.nextMessage('joinAck');
         }
-        expect(claimed.sort((a, b) => a.playerId - b.playerId)).toEqual([{ playerId: 1 }, { playerId: 2 }]);
+        expect(claimed.map((c) => c.playerId).sort()).toEqual([...match.playerIds].sort());
 
         const t1 = await one.nextMessage('terminal');
         const t2 = await two.nextMessage('terminal');
@@ -576,7 +594,7 @@ describe('createMatchServer — protocol edges', () => {
 
         // Exactly one bridge callback despite further scheduler fires.
         await waitFor(50);
-        expect(terminals).toEqual([{ matchId: match.matchId, winner: 1 }]);
+        expect(terminals).toEqual([{ matchId: match.matchId, winner }]);
         expect(one.socket.sentFrames.filter((f) => f.type === 'terminal')).toHaveLength(1);
 
         await server.close();
@@ -602,12 +620,12 @@ describe('createMatchServer — protocol edges', () => {
         const one = connectMockClient(server);
         one.hello();
         await one.nextMessage('helloAck');
-        one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        one.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         await one.nextMessage('joinAck');
 
         one.socket.close(1001, 'client hangup');
         await waitForCondition(() => disconnected.length === 1);
-        expect(disconnected).toEqual([tokens[0]]);
+        expect(disconnected).toEqual([tokenFor(tokens, 1)]);
 
         await server.close();
     });
@@ -624,17 +642,18 @@ describe('createMatchServer — protocol edges', () => {
             engineSession: match.engineSession,
             matchConfig: match.matchConfig,
         });
-        attachPlayersForMatch(server, match);
+        const tokens = attachPlayersForMatch(server, match);
 
         const one = connectMockClient(server);
         one.hello();
         await one.nextMessage('helloAck');
-        one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        one.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         await one.nextMessage('joinAck');
 
         // Burst well past the 1-token bucket: some accept, rest drop.
+        const p1 = match.playerIds[0] as PlayerId;
         for (let i = 0; i < 5; i++) {
-            one.order({ kind: 'clearAllPipes', player: 1 as PlayerId, cell: { x: 1, y: 1 } });
+            one.order({ kind: 'clearAllPipes', player: p1, cell: { x: 1, y: 1 } });
         }
         await one.nextMessage('orderAck'); // at least the first landed
 
@@ -651,7 +670,8 @@ describe('createMatchServer — protocol edges', () => {
 
 // ----------------------------------------------------------------------------
 // Issue #123 P0: seat admission gate — tokenless joins must not claim
-// grace-window seats
+// grace-window seats. Issue #74: a client-supplied identity never
+// selects or claims a seat at all.
 // ----------------------------------------------------------------------------
 
 describe('createMatchServer — seat admission (issue #123 P0)', () => {
@@ -665,8 +685,10 @@ describe('createMatchServer — seat admission (issue #123 P0)', () => {
         client.socket.close(1000, 'test disconnect');
     }
 
-    it('tokenless join against a grace-window seat returns match_not_joinable, not joinAck', async () => {
-        const server = createMatchServer(testServerConfig(), realDeps());
+    /** Boot a 2-player match with both seats attached; returns tokens. */
+    async function startTwoSeatMatch(
+        server: Server,
+    ): Promise<{ matchId: MatchId; tokens: readonly SessionToken[]; playerIds: readonly PlayerId[] }> {
         const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
         server.registerMatch({
             matchId: match.matchId,
@@ -674,26 +696,32 @@ describe('createMatchServer — seat admission (issue #123 P0)', () => {
             matchConfig: match.matchConfig,
         });
         const tokens = attachPlayersForMatch(server, match);
+        return { matchId: match.matchId, tokens, playerIds: match.playerIds };
+    }
 
-        // Client A joins seat 1, then disconnects — seat enters grace window.
+    it('tokenless join against a grace-window seat returns match_not_joinable, not joinAck', async () => {
+        const server = createMatchServer(testServerConfig(), realDeps());
+        const { matchId, tokens, playerIds } = await startTwoSeatMatch(server);
+
+        // Client A joins slot 1, then disconnects — seat enters grace window.
         const alice = connectMockClient(server);
         alice.hello();
         await alice.nextMessage('helloAck');
-        alice.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        alice.joinMatch(matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         await alice.nextMessage('joinAck');
         disconnectClient(alice);
 
         // Wait for close handler to propagate.
         await new Promise((resolve) => setTimeout(resolve, 5));
 
-        // Client B tries tokenless join — seat 1 is in grace window but
-        // seat 2 is genuinely unclaimed, so Bob claims seat 2.
+        // Client B tries tokenless join — slot 1 is in the grace window but
+        // slot 2 is genuinely unclaimed, so Bob claims slot 2.
         const bob = connectMockClient(server);
         bob.hello();
         await bob.nextMessage('helloAck');
-        bob.joinMatch(match.matchId, 'player');
+        bob.joinMatch(matchId, 'player');
         const ack = await bob.nextMessage('joinAck');
-        expect(ack.payload.playerId).toBe(2);
+        expect(ack.payload.playerId).toBe(playerIds[1]);
 
         // Now both seats are occupied. Disconnect Bob too → both in grace window.
         disconnectClient(bob);
@@ -703,20 +731,21 @@ describe('createMatchServer — seat admission (issue #123 P0)', () => {
         const carol = connectMockClient(server);
         carol.hello();
         await carol.nextMessage('helloAck');
-        carol.joinMatch(match.matchId, 'player');
+        carol.joinMatch(matchId, 'player');
         const err = await carol.nextMessage('error');
         expect(err.payload.code).toBe('match_not_joinable');
 
-        // Client C also cannot claim seat 1 via requestedSeat (grace window).
-        carol.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
-        const taken = await carol.nextMessage('error');
-        expect(taken.payload.code).toBe('match_not_joinable');
+        // A bare canonical ID offered as a token is NOT a credential: the
+        // server rejects it (FR-022 credential separation).
+        carol.joinMatch(matchId, 'player', { reconnectToken: playerIds[0] as unknown as SessionToken });
+        const forged = await carol.nextMessage('error');
+        expect(forged.payload.code).toBe('token_invalid');
 
         // Legitimate reconnect with Alice's original token still works.
         const aliceReturn = connectMockClient(server);
         aliceReturn.hello();
         await aliceReturn.nextMessage('helloAck');
-        aliceReturn.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
+        aliceReturn.joinMatch(matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         const snapshot = await aliceReturn.nextMessage('snapshot');
         expect(snapshot.type).toBe('snapshot');
 
@@ -725,30 +754,20 @@ describe('createMatchServer — seat admission (issue #123 P0)', () => {
 
     it('tokenless join skips all grace-window seats; only truly open seats are claimed', async () => {
         const server = createMatchServer(testServerConfig(), realDeps());
-        const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
-        server.registerMatch({
-            matchId: match.matchId,
-            engineSession: match.engineSession,
-            matchConfig: match.matchConfig,
-        });
-        const tokens = attachPlayersForMatch(server, match);
+        const { matchId, tokens } = await startTwoSeatMatch(server);
 
-        // Both seats have tokens bound (from attachPlayersForMatch) but no
-        // connection — this is the pre-join state. Seats without active
-        // reconnect bindings ARE open for tokenless join.
-
-        // Client A joins seat 1.
+        // Both seats have tokens bound but no connection — this is the
+        // pre-join state. Seats without active reconnect bindings ARE open.
         const alice = connectMockClient(server);
         alice.hello();
         await alice.nextMessage('helloAck');
-        alice.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        alice.joinMatch(matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         await alice.nextMessage('joinAck');
 
-        // Client B joins seat 2.
         const bob = connectMockClient(server);
         bob.hello();
         await bob.nextMessage('helloAck');
-        bob.joinMatch(match.matchId, 'player', { requestedSeat: 2 });
+        bob.joinMatch(matchId, 'player', { reconnectToken: tokenFor(tokens, 2) });
         await bob.nextMessage('joinAck');
 
         // Both disconnect — both seats enter grace window.
@@ -762,22 +781,22 @@ describe('createMatchServer — seat admission (issue #123 P0)', () => {
         const carol = connectMockClient(server);
         carol.hello();
         await carol.nextMessage('helloAck');
-        carol.joinMatch(match.matchId, 'player');
+        carol.joinMatch(matchId, 'player');
         const err = await carol.nextMessage('error');
         expect(err.payload.code).toBe('match_not_joinable');
 
-        // Legitimate reconnect still works for seat 1.
+        // Legitimate reconnect still works for slot 1.
         const aliceReturn = connectMockClient(server);
         aliceReturn.hello();
         await aliceReturn.nextMessage('helloAck');
-        aliceReturn.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
+        aliceReturn.joinMatch(matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
         const snap = await aliceReturn.nextMessage('snapshot');
         expect(snap.type).toBe('snapshot');
 
         await server.close();
     });
 
-    it('token-presented join for a grace-window seat returns match_not_joinable (not joinAck)', async () => {
+    it('a tokenless join against a single grace-window seat is match_not_joinable (grace protection)', async () => {
         const server = createMatchServer(testServerConfig(), realDeps());
         const match = scriptedMatch({ boardSize: 8, tickRateMs: TEST_TICK_MS });
         server.registerMatch({
@@ -785,25 +804,25 @@ describe('createMatchServer — seat admission (issue #123 P0)', () => {
             engineSession: match.engineSession,
             matchConfig: match.matchConfig,
         });
-        attachPlayersForMatch(server, match);
+        const token = generateSessionToken();
+        server.attachPlayer({ matchId: match.matchId, playerId: match.playerIds[0] as PlayerId, sessionToken: token });
 
-        // Client A joins seat 1, then disconnects.
+        // Client A joins the only seat, then disconnects.
         const alice = connectMockClient(server);
         alice.hello();
         await alice.nextMessage('helloAck');
-        alice.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        alice.joinMatch(match.matchId, 'player', { reconnectToken: token });
         await alice.nextMessage('joinAck');
         disconnectClient(alice);
 
         // Wait for close handler to propagate.
         await new Promise((resolve) => setTimeout(resolve, 5));
 
-        // Attacker presents the stolen token for seat 1 via requestedSeat
-        // — should be rejected because the seat is in the grace window.
+        // A tokenless attacker cannot claim the grace-window seat.
         const attacker = connectMockClient(server);
         attacker.hello();
         await attacker.nextMessage('helloAck');
-        attacker.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+        attacker.joinMatch(match.matchId, 'player');
         const err = await attacker.nextMessage('error');
         expect(err.payload.code).toBe('match_not_joinable');
 
@@ -860,7 +879,7 @@ describe('createMatchServer — idle-client staleness (FR-009)', () => {
             const one = connectMockClient(server);
             one.hello();
             await one.nextMessage('helloAck');
-            one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+            one.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
             await one.nextMessage('joinAck');
 
             // Sweep-anchor semantics: the FIRST sweep after inbound traffic
@@ -877,7 +896,7 @@ describe('createMatchServer — idle-client staleness (FR-009)', () => {
 
             // The close rode the TRANSPORT-LOSS lifecycle: matchmaking heard
             // onSeatDisconnected…
-            expect(disconnected).toEqual([tokens[0]]);
+            expect(disconnected).toEqual([tokenFor(tokens, 1)]);
 
             // …and the token entered the reconnect registry — a fresh client
             // presenting it gets the full US2 resync (snapshot), proving the
@@ -885,7 +904,7 @@ describe('createMatchServer — idle-client staleness (FR-009)', () => {
             const returning = connectMockClient(server);
             returning.hello();
             await returning.nextMessage('helloAck');
-            returning.joinMatch(match.matchId, 'player', { reconnectToken: tokens[0] });
+            returning.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
             const snapshot = await returning.nextMessage('snapshot');
             expect(snapshot.type).toBe('snapshot');
         } finally {
@@ -895,12 +914,12 @@ describe('createMatchServer — idle-client staleness (FR-009)', () => {
     });
 
     it('a client sending heartbeats within the idle window is not reaped (review S1 control)', async () => {
-        const { server, match } = await startIdleSweepServer({});
+        const { server, match, tokens } = await startIdleSweepServer({});
         try {
             const one = connectMockClient(server);
             one.hello();
             await one.nextMessage('helloAck');
-            one.joinMatch(match.matchId, 'player', { requestedSeat: 1 });
+            one.joinMatch(match.matchId, 'player', { reconnectToken: tokenFor(tokens, 1) });
             await one.nextMessage('joinAck');
 
             // Ping every fire: each inbound frame marks the connection live,
