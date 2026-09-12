@@ -133,11 +133,11 @@ interface LiveHandleView {
                 readonly player: number;
                 readonly visibleCells: ReadonlyArray<{
                     readonly coord: { readonly x: number; readonly y: number };
-                    readonly cityOwner: number | null;
+                    readonly cityOwner: string | null;
                     readonly reservesPercent: number;
                 }>;
             } | null;
-            readonly session: { readonly playerId: number | null };
+            readonly session: { readonly playerId: string | null };
             readonly feedback: ReadonlyArray<{ readonly kind: string; readonly text: string }>;
         };
     };
@@ -149,10 +149,10 @@ interface LiveHandleView {
 async function readLive(page: Page): Promise<{
     status: string;
     connection: string;
-    playerId: number | null;
+    playerId: string | null;
     tick: number;
     bootError: string | null;
-    cells: Array<{ x: number; y: number; cityOwner: number | null; reserves: number }>;
+    cells: Array<{ x: number; y: number; cityOwner: string | null; reserves: number }>;
 } | null> {
     return page.evaluate(() => {
         const handle = (window as unknown as { __europaLive?: LiveHandleView }).__europaLive;
@@ -244,10 +244,19 @@ test('two consoles drive one live match end-to-end over the real stack', async (
             return;
         }
         const { matchId } = created.data;
-        expect(created.data.seatAssignment.playerId).toBe(1);
+        // Server-allocated canonical identity — 12 chars from the
+        // `[A-Za-z0-9_-]` alphabet, never a numeric seat index.
+        const aliceId = created.data.seatAssignment.playerId;
+        expect(aliceId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 
         const filled = matchmaker.joinMatch({ matchId, displayName: 'Bob' });
         expect(filled.ok).toBe(true);
+        if (!filled.ok) {
+            return;
+        }
+        const bobId = filled.data.seatAssignment.playerId;
+        expect(bobId).toMatch(/^[A-Za-z0-9_-]{12}$/);
+        expect(bobId).not.toBe(aliceId);
 
         // Auto-start registered the engine session with the live server.
         const stats = server.stats();
@@ -255,17 +264,23 @@ test('two consoles drive one live match end-to-end over the real stack', async (
 
         // -- Two real browser consoles join through the semantic match route --------
         const errors: string[] = [];
-        const openConsole = async (name: string): Promise<Page> => {
+        const openConsole = async (name: string, sessionToken: string): Promise<Page> => {
             const context = await browser.newContext();
             await context.addInitScript(
-                ({ wsUrl, matchId, displayName }) => {
+                ({ wsUrl, matchId, displayName, reconnectToken }) => {
                     (window as unknown as { __europaTestMatch: object }).__europaTestMatch = {
                         wsUrl,
                         matchId,
                         displayName,
+                        reconnectToken,
                     };
                 },
-                { wsUrl: `ws://127.0.0.1:${String(port)}`, matchId, displayName: name },
+                {
+                    wsUrl: `ws://127.0.0.1:${String(port)}`,
+                    matchId,
+                    displayName: name,
+                    reconnectToken: sessionToken,
+                },
             );
             const page = await context.newPage();
             page.on('pageerror', (error) => {
@@ -275,15 +290,21 @@ test('two consoles drive one live match end-to-end over the real stack', async (
             return page;
         };
 
-        const alice = await openConsole('Alice');
-        const bob = await openConsole('Bob');
+        // Bind each console to its intended seat via the matchmaking-issued
+        // session token (a tokenless join would take the lowest open seat in
+        // canonical UTF-16 id order, decoupling page order from identity).
+        const alice = await openConsole('Alice', created.data.seatAssignment.sessionToken);
+        const bob = await openConsole('Bob', filled.data.seatAssignment.sessionToken);
 
-        // Both seats reach 'live' with distinct assigned seats (joinAck path).
+        // Both seats reach 'live' with EXACTLY their own server-assigned
+        // identity — no seat-index derivation, no swap.
         await waitUntil(alice, (live) => live.status === 'live', 'Alice reaches live');
         await waitUntil(bob, (live) => live.status === 'live', 'Bob reaches live');
         const aliceSeated = await readLiveOrThrow(alice);
         const bobSeated = await readLiveOrThrow(bob);
-        expect(new Set([aliceSeated.playerId, bobSeated.playerId])).toEqual(new Set([1, 2]));
+        expect(aliceSeated.playerId).toBe(aliceId);
+        expect(bobSeated.playerId).toBe(bobId);
+        expect(aliceSeated.playerId).not.toBe(bobSeated.playerId);
 
         // -- Ticks flow to both seats (fog-filtered broadcasts) --------------
         // Note: the early economy reaches a fixed point (city troop growth

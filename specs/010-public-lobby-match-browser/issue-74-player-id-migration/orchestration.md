@@ -422,6 +422,71 @@
     **ZERO console violations** (the whole repository guard is now green).
     E2E (T040) was out of scope for this dispatch.
 
+- **Wave 7 — E2E coverage (T040) complete** (browser E2E for the universal
+  identity migration). All stale E2E fixtures caused by the numeric→canonical
+  migration are migrated, and a new focused spec proves the mounted-path
+  behaviors. **Console E2E: 52/52 passed** at the CI worker count
+  (`EUROPA_E2E_PORT=5199 playwright test --workers=2`); console `biome check .`
+  (241 files) and `tsc --noEmit` clean.
+  - **Stale-fixture migrations** (no production source touched):
+    - `waiting-overlay.spec.ts`: the harness now builds a canonical
+      `MatchConfig.playerIds` (host id + a fixed canonical second id) and binds
+      Alice's server-allocated id; Bob's matchmaker join passes the SAME
+      canonical id as `guestPlayerId` so auto-start's engine config matches the
+      pre-registered session. Removed the `1 as PlayerId` `attachPlayer`.
+    - `full-stack.spec.ts` / `full-stack-n-players.spec.ts`: canonical id
+      assertions (`{12}` alphabet) replace numeric literals; consoles join by
+      their matchmaking-issued **session tokens** (not tokenless) so each page
+      is bound to its exact seat — the assertions now prove `aliceId`/`bobId`
+      and per-seat equality rather than a set of small integers.
+    - `surrender-game-over.spec.ts`: canonical winner id assertions,
+      token-bound console joins (tokenless joins take the lowest open seat in
+      UTF-8 order once ids are opaque, which would let the two pages swap
+      seats), and removal of the debug `console.log` block + its eslint
+      suppressions.
+    - `help-overlay.spec.ts`: was sharing one 2-seat match across 9 parallel
+      tests (only 2 console joins can succeed; the rest hit
+      `match_not_joinable`). Now each test boots its own stack + match and joins
+      with that match's seat token.
+    - `playwright.config.ts`: default assertion timeout 5 s → 15 s (the suite
+      runs several real ticking servers + Chromium contexts per worker; the 5 s
+      default produced spurious polling failures).
+  - **New `tests/e2e/identity-migration.spec.ts` (7 cases)**, all on the real
+    mounted production path (lobby facade ⇄ real matchmaker ⇄ real server ⇄
+    engine/terrain/fog):
+    1. create ends on the bare canonical `/match/<id>` URL with the mounted
+       waiting view and a matching `activeMatchId`;
+    2. join by id ends on `/match/<id>/join` with the mounted pre-start view
+       (4-player, so no auto-start race);
+    3. spectate ends on `/match/<id>/spectate` with disabled order controls and
+       **no player store** (`__europaLive` absent — zero order authority by
+       construction), full 32×32 spectator board;
+    4. share-link: the copied `/match/<id>` re-enters the canonical mounted
+       route as the participant (no interstitial, URL unchanged by the copy);
+    5. unnamed deep link → `/profile?returnTo=…` (pathname-only) → naming
+       returns → interstitial → mounted waiting view;
+    6. a bare canonical id offered as a reconnect credential ⇒ `token_invalid`;
+       a forged order identity (valid-looking order authored as the other seat)
+       ⇒ `malformed_payload` + `detail.reason === 'order_player_mismatch'`
+       (raw real WebSocket driver);
+    7. reconnect with the seat credential restores the same `PlayerId` and fog
+       view association (`snapshot.view.player`), after the server processes the
+       dropped connection.
+    - Two-seat id↔seat association without swap is additionally pinned by the
+      now-token-bound `full-stack.spec.ts`.
+  - **Observation (report-only, not patched): full-page reload of a LIVE match
+    does not preserve the seat identity/view association.** The reload drops
+    the in-memory seat bearer token (`ws-lobby-client` keeps
+    `lastCapturedSeatSessionToken` in a module variable; `resumeMatch`
+    dispatches `lobbyEnteredMatch` without a token), so the reloaded match leg
+    joins tokenless and the server's tokenless scan (lowest open seat in UTF-8
+    order, skipping grace-held seats) either fails or selects a different seat.
+    The supported reconnect path — presenting the seat `reconnectToken` — is
+    proven preserved (case 7 and `full-stack.spec.ts`). This is outside the
+    `#74` identity surface (no production change made); flagged for the PM as a
+    spec-010 SC-010 reload-scenario gap. The interim reconnect E2E was replaced
+    by the deterministic wire-level proof so T040 does not ship a failing spec.
+
 ## Waves
 
 1. Baseline and forbidden-pattern inventory.

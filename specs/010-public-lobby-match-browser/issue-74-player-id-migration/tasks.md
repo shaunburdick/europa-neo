@@ -283,9 +283,14 @@ work (Wave 7 owns console). Every blocker reproduced as failing before the fix.
   (New `tests/unit/state/identity-authority.test.ts`; golden hash regenerated via
   `scripts/generate-determinism-golden.ts` after the identity-keyed session
   serialization changed.)
-- [ ] **T040**: Add browser E2E coverage for create, join, spectate, share-link,
+- [x] **T040**: Add browser E2E coverage for create, join, spectate, share-link,
   unnamed profile round-trip, final canonical URL, mounted view, two-seat ID
-  preservation, and ID-only order/view denial.
+  preservation, and ID-only order/view denial. Landed the stale-fixture
+  migration (waiting-overlay `playerIds`/canonical `attachPlayer`, full-stack,
+  N-player, surrender token-bound joins, help-overlay per-test stacks) plus the
+  new `tests/e2e/identity-migration.spec.ts` (7 cases). Console E2E 52/52 green
+  at the CI worker count; see `orchestration.md` for scope, evidence, and the
+  full-page-reload observation.
 
 ## Wave 8 — Cross-feature security, documentation, and final gates
 
