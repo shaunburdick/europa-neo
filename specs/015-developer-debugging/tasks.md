@@ -1,6 +1,6 @@
-# Tasks: Developer Debugging Tools (Feature 022)
+# Tasks: Developer Debugging Tools (Feature 015)
 
-**Input**: Design documents from `/specs/022-developer-debugging/`
+**Input**: Design documents from `/specs/015-developer-debugging/`
 **Prerequisites**: plan.md (approved), spec.md (approved)
 
 ## Format: `[ID] [P?] [Story] Description`
