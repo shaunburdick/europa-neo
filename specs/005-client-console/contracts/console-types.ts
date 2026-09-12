@@ -108,6 +108,8 @@ export const CONSOLE_API_VERSION = '0.4.0' as const;
 // Engine / fog / networking types (re-exported for convenience, not re-defined)
 // ----------------------------------------------------------------------------
 
+import { TOKENS } from '@europa/design';
+
 import type {
   CellView,
   Coord,
@@ -532,21 +534,24 @@ export const DEFAULT_CAMERA: CameraState = {
 };
 
 /**
- * Ordered per-player color palette (Tailwind-ish hex strings, no CDN
- * required). Colors are assigned to the server-issued `PlayerId`s in
+ * Ordered per-player color palette (derived from `@europa/design`
+ * tokens — the single source of truth for the palette). Colors are
+ * assigned to the server-issued `PlayerId`s in
  * `PlayerView.config.playerIds` (terrain placement-slot) order, one
  * palette entry per slot; the engine supports 2–4 players by contract,
  * so entries 0–3 suffice. Chosen for hue + lightness separation so
  * colorblind players can distinguish owners (research.md §6); the
  * `ownerColorRing` QoL setting adds a redundant shape signal on top.
  *
- * Palette (Tailwind v3 hex, chosen by hand — no runtime dependency):
- *   - Slot 1: red-600     `#dc2626`
- *   - Slot 2: blue-600    `#2563eb`
- *   - Slot 3: emerald-600 `#059669`
- *   - Slot 4: amber-600   `#d97706`
+ * Values match Tailwind v3 hex naming (red-600, blue-600,
+ * emerald-600, amber-600).
  */
-export const PLAYER_COLOR_PALETTE: ReadonlyArray<string> = ['#dc2626', '#2563eb', '#059669', '#d97706'];
+export const PLAYER_COLOR_PALETTE: ReadonlyArray<string> = [
+    TOKENS.color.playerColor1,
+    TOKENS.color.playerColor2,
+    TOKENS.color.playerColor3,
+    TOKENS.color.playerColor4,
+];
 
 /**
  * Fallback color for spectators (no player ID).
