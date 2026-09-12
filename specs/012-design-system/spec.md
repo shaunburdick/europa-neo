@@ -307,6 +307,52 @@ As a contributor or maintainer, I want a single `pnpm dev` page that combines th
 - **Token documentation reads from source at runtime**: FR-035 ensures the dev page imports `TOKENS` from `src/tokens.ts` (the same import path the preview and playground already use) rather than maintaining a static copy. This means adding/removing tokens in source immediately reflects on the dev page.
 - **Existing tests migrate or are replaced**: the preview page's 39 tests (`tests/preview.test.ts`) are either migrated to cover the unified page's token documentation sections or replaced by equivalent tests. The playground has no tests to migrate. New tests cover: sidebar navigation, hash routing, theme toggle persistence, responsive layout, and token dynamic rendering (SC-013–SC-017).
 
+### v1.6 (2026-09-12) — Issue #139 spec consolidation (absorbed features 014, 015-logo, 062, 024 design-token FRs)
+
+- **Absorbed feature 014 (shared UI components, issue #41/#65) — React conversion**:
+  - All 20 `@europa/design` web components were converted to React function components: 13 generic (Shadow DOM → React, props 1:1 from attributes) + 7 game primitives (Light DOM → React, TOKENS inline styles). Zero external web-component infrastructure remains (`base.ts`, `register.ts`, `registry.ts`, `setup-element-internals.ts` deleted; `customElements.define` + `register()` calls removed).
+  - `@europa/design` gains `react`/`react-dom` peer dependencies (`>=18`). The G-10 guard was rewritten for the React barrel (PascalCase + kebab-case matching). DESIGN.md §2 documents the React components.
+  - **Constitution-deviation notice (PO-approved, issue #65)**: the framework-agnostic web-component decision is superseded by React function components. The two-tier DOM model (Shadow DOM + slots for the 13 generic components; Light DOM leaves for the 7 game primitives) remains binding per spec 014 Clarifications v1.1 — never reparent React-managed nodes.
+- **Absorbed feature 015-logo (logo assets, issue #48)**:
+  - **015-FR-001**: The lockup/emblem SVG inventory lives in `packages/design` (source of truth).
+  - **015-FR-002**: Variants: lockup-dark, lockup-light, emblem-only, favicon.
+  - **015-FR-003**: The favicon MUST be generated from the emblem (ICO/APNG/PWA sizes).
+  - **015-FR-004**: The share preview image MUST be generated from the lockup.
+  - **015-FR-005**: Brand exports MUST be available from `@europa/design/brand`.
+  - **015-FR-006**: The console MUST use the brand assets (welcome page, lobby header).
+  - **015-FR-007**: The manual MUST use the brand assets (header, footer).
+  - **015-FR-008**: The host page MUST use the brand assets.
+  - **015-FR-009**: The Docker image MUST include the brand assets.
+  - **015-FR-010**: DESIGN.md MUST document the brand assets.
+  - **015-FR-011**: Automated validation MUST check asset presence and format.
+  - **015-FR-012**: The logo MUST have accessible alt text.
+  - **015-FR-013**: The logo MUST not be a focus target (decorative).
+  - **015-FR-014**: The logo MUST honor reduced motion (no animation).
+  - **015-FR-015**: The logo MUST be responsive (scales without distortion).
+  - **015-FR-016**: The logo MUST be tested in browser E2E.
+  - **015-FR-017**: The logo MUST be versioned with the design package.
+  - **015-FR-018**: The logo MUST be documented in the manual.
+  - **015-FR-019**: The logo MUST be included in the design system's test suite.
+- **Absorbed feature 062 (design polish, issue #62)** — condensed phase-by-phase summary (FR-001..FR-047 incl. FR-040a):
+  - Foundation tokens (FR-001..FR-010): additive tokens only; zero new runtime dependencies; ≤ 5 KB new CSS; < 150 KB gzip bundle budget.
+  - Console polish (FR-011..FR-020): spacing/typography/color alignment across lobby, match, and profile surfaces.
+  - New components (FR-021..FR-030): banner, chip, grid, waiting, badge, container, stack, plate, page, card — all from existing tokens.
+  - Responsive (FR-031..FR-035): mobile-first breakpoints, touch targets ≥ 44 px, no horizontal scroll.
+  - Page layouts (FR-036..FR-040a): lobby, match, profile, welcome, and error layouts use the design-system primitives.
+  - Preview page (FR-041..FR-044): unified dev page documents all tokens and components.
+  - Docs-DX (FR-045..FR-047): DESIGN.md living contract, token table, component gallery.
+- **Absorbed feature 024 (biome-based terrain shading, issue #148/#149) — design tokens**:
+  - **024-FR-001**: Four biome zones (lowland, midland, highland, peak) replace the single land hue; each zone has `hue`, `saturationPct`, and `lightnessRange`.
+  - **024-FR-002**: `landHue`, `landSaturationPct`, and `landBandLightness` tokens are replaced by the biome zone tokens.
+  - **024-FR-003**: `landBandIndex(elevation)` MUST return 0–3 (zone index).
+  - **024-FR-004**: `biomeZoneForElevation(elevation)` MUST return the zone descriptor.
+  - **024-FR-005**: `LAND_BAND_COUNT` changes from 6 to 4.
+  - **024-FR-006**: The `biomeZones` array MUST be a design token (single source).
+  - **024-FR-007**: DESIGN.md MUST document the biome zones and their token names.
+  - **024-FR-030**: The palette module MUST be pure (elevation → color, no state).
+  - **024-FR-031**: The palette MUST be deterministic (same elevation → same color).
+  - **024-FR-032**: The palette MUST be exported from `@europa/design` for console and manual reuse.
+
 ## Addendum — Branded Footer (sidecar, in PR #31)
 
 A product-owner follow-up to the design system: ensure the app name, version, and GitHub link appear on **every** page of both the UI and the documentation. This reuses the `@europa/design` catalog (it is the reason the sidecar rides in PR #31) and adds no new visual language.

@@ -3,8 +3,8 @@
 **Feature Branch**: `issue-5-docker-support` (spec directory `011-docker-selfhost-single-port`, next available ID per `create-new-feature.sh`)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle & matchmaking), Feature 010 (public lobby & match browser), Feature 009 (shared app versioning)
 **Created**: 2026-08-26
-**Last Updated**: 2026-08-30 (v1.1)
-**Version**: 1.1
+**Last Updated**: 2026-09-12 (v1.2; issue #139 spec consolidation)
+**Version**: 1.2
 **Status**: Implemented (2026-08-27); route details superseded by Feature 013
 **GitHub Issue**: #5
 **Input**: Product-owner request — "Binding decision: self-hostable by default. Today that means Node ≥22 + pnpm + pnpm build + pnpm host. Provide a container path so self-hosters don't need a toolchain." Single-port topology per 2026-08-26 decision.
@@ -259,3 +259,9 @@ Constitution alignment: Principle VII (self-hostable by default — single proce
 - `pnpm` inside Docker via corepack vs standalone `pnpm` image is a plan-phase choice; either satisfies the frozen-lockfile build.
 - The exact lint/typecheck gates for `Dockerfile`/`docker-compose.yml` (e.g. `hadolint`, `compose config` validation) are plan-phase choices.
 - Multi-platform (`arm64`) blocking vs non-blocking is finalized at plan time and documented in the workflow header before implementation begins.
+
+### v1.2 (2026-09-12) — Issue #139 spec consolidation (absorbed feature 012-3-4)
+
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — host CLI flags**:
+  - **012-FR-011**: The `pnpm host` launcher (`packages/console/scripts/host.ts`) MUST accept `--players N` (alias `--player-count`, env `HOST_PLAYER_COUNT`, default 2) and `--board-size S` (alias `--boardSize`, env `HOST_BOARD_SIZE`). The board-size default is implied from the 012-FR-001 map by player count (2p → 32, 3p/4p → 48), not always 32. The number of printed join URLs equals `playerCount`; URLs are semantic `/match/<matchId>/join` paths and never contain credentials. Invalid values fail fast with an actionable message; 64×64 is temporarily disabled with a message pointing at the allowed set (32 | 48).
+  - **012-FR-012**: `HOST_STATIC_PORT` / `--static-port` remain unsupported: the single-port topology (FR-004) is unchanged, and the launcher MUST continue to fail loudly if a second port is requested.

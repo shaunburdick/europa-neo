@@ -3,8 +3,8 @@
 **Feature Branch**: `004-multiplayer-networking`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-11 (v1.9; 12-character universal player identity)
-**Version**: 1.9
+**Last Updated**: 2026-09-12 (v1.10; issue #139 spec consolidation)
+**Version**: 1.10
 
 **Status**: Implemented (2026-09-12; universal PlayerId wire migration implemented — issue #74)
 
@@ -172,3 +172,8 @@ Rationale: code review identified four hot-path performance bottlenecks — per-
 - **FR-023**: The major wire-version bump MUST reject old-version/numeric clients before payload interpretation; no compatibility shim is required.
 - **FR-024**: Authoritative ID ordering MUST use explicit UTF-16 code-unit comparison and round-trip byte-stably.
 - **FR-025**: The canonical accepted form is exactly `[A-Za-z0-9_-]{12}` (72 bits). The server MUST generate IDs with CSPRNG-backed rejection sampling; collisions retry or fail closed. The identifier is not a time/order token, and no runtime `nanoid` dependency is required because it is absent from direct package manifests.
+
+### v1.10 (2026-09-12) — Issue #139 spec consolidation (absorbed feature 012-3-4)
+
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — networking conformance**:
+  - **012-FR-010**: The wire protocol MUST remain player-count-agnostic for 3–4 player matches. No envelope, codec, or `NETWORK_API_VERSION` change is required; the 250 ms tick cadence and the per-tick broadcast budget (< 15 ms for all connections) hold for N ∈ {3, 4} on the default 48×48 board. The conformance suite extends its scripted-match determinism and cadence-stability protocols to 3p/4p. This is a conformance note — no wire behavior changes.

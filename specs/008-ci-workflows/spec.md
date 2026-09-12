@@ -1,7 +1,7 @@
 # Spec: CI Workflow Hardening
 
-> Version: 1.1
-> Last Updated: 2026-09-11
+> Version: 1.2
+> Last Updated: 2026-09-12
 > Status: Implemented (2026-09-11)
 > GitHub Issue: #3 (original), #131 (coverage-gate integrity)
 > Dependencies: None
@@ -46,6 +46,43 @@ Beyond trigger correctness, the coverage-gate infrastructure has systemic integr
 
 - **FR-012**: The design package's `vitest.config.browser.ts` must be referenced by a CI job (the `design-browser-test` job in `client-ci.yml` already runs `pnpm --filter @europa/design test:browser`, which uses this config — verify the linkage is explicit and document it).
 
+### Spec-Consolidation Integrity (v1.2 — Issue #139)
+
+- **FR-013**: A CI guard MUST fail if any two spec directories share the same numeric prefix (e.g., `012-3-4-player-support` and `012-design-system`). Duplicate prefixes are forbidden after consolidation.
+- **FR-014**: A CI guard MUST fail if a spec directory is marked `**Status**: Implemented` but lacks `tasks.md` and `plan.md` (or their spec-kit equivalents). Implemented specs must carry their full planning trail.
+- **FR-015**: A CI guard MUST fail if a spec directory exists without a `spec.md` (e.g., `043-pipe-slope-colors`). Spec directories must contain their spec.
+- **FR-016**: A CI guard MUST fail if any tracked file references the legacy `.specify/features/` path (the pre-migration layout). This is the standing regression check from the specs-layout migration (issue #12).
+- **FR-017**: The guard MUST be implemented as a script modeled on `scripts/check-orphaned-vitest-configs.ts`, wired into `scripts/verify.sh` and a path-gated workflow, and MUST complete in under 10 seconds.
+
+### Test-Suite Integrity (v1.2 — Issue #139, absorbed feature 016)
+
+- **016-FR-001**: Remove tests that assert implementation details (internal function names, call counts, private helpers) rather than public behavior.
+- **016-FR-002**: Remove tests that duplicate coverage already provided by higher-level suites (unit tests that re-test what integration/E2E tests cover).
+- **016-FR-003**: Remove snapshot tests that add no value beyond asserting the snapshot itself.
+- **016-FR-004**: Remove type-level tests that only re-assert TypeScript's own type checking.
+- **016-FR-005**: Remove re-export tests that only assert a symbol is re-exported.
+- **016-FR-006**: Remove tests for stale or removed behavior (tests that pass only because the behavior they test no longer exists).
+- **016-FR-007**: Retain tests that verify public API contracts, game-critical logic, E2E flows, and accessibility.
+- **016-FR-008**: Reduce the console package's test count by 40–50% (from ~1,300 to ~700–800) without reducing coverage below the ≥80% gate.
+- **016-FR-009**: Reduce matchmaking, networking, and design package test counts by 30–40%.
+- **016-FR-010**: Reduce engine, terrain, and fog package test counts by 20–30%.
+- **016-FR-011**: The console CI job MUST complete in under 4 minutes (currently ~10 minutes); restore a job `timeout-minutes` guard.
+- **016-FR-012**: Add Playwright browser caching to the console CI job.
+- **016-FR-013**: Split `client-ci.yml` into three jobs: `console-test` (~3 min), `console-e2e` (~6 min), `console-coverage` (~6 min).
+- **016-FR-014**: Extract shared E2E helpers (match creation, join, board assertions) into a single module.
+- **016-FR-015**: Replace the committed golden fixture `tests/fixtures/golden-1000-tick.json` (1.7 MB) with a SHA-256 hash check; regenerate the fixture on demand.
+- **016-FR-016**: Replace fake-timer tests with real-timer tests where the timing behavior is the subject under test.
+- **016-FR-017**: Remove tests with unfalsifiable assertions (e.g., `expect(true).toBe(true)`, empty mocks).
+- **016-FR-018**: Move test-only modules out of `src/` into `tests/` (or a dedicated test-support directory).
+- **016-FR-019**: Every removed test MUST be justified in the PR description (removal log).
+- **016-FR-020**: The removal MUST NOT reduce coverage below the ≥80% gate on any metric in any package.
+- **016-FR-021**: The removal MUST NOT remove any test that covers a documented FR or SC.
+- **016-FR-022**: The removal MUST NOT remove any E2E test that covers a user-facing flow.
+- **016-FR-023**: The removal MUST NOT remove any accessibility test.
+- **016-FR-024**: The removal MUST NOT remove any determinism test.
+- **016-FR-025**: The removal MUST NOT remove any conformance test (contract mirrors, wire byte-identity).
+- **016-FR-026**: The removal MUST NOT remove any test that caught a real bug (each removal candidate is checked against the bug-fix history).
+
 ## Non-Functional Requirements
 
 ### Original (v1.0)
@@ -80,6 +117,11 @@ Beyond trigger correctness, the coverage-gate infrastructure has systemic integr
 - [ ] **AC-011**: A CI step or script detects orphaned `vitest.config*.ts` files (not referenced by any npm script or workflow) and fails CI if any exist. Currently, zero orphaned configs exist after the fix.
 - [ ] **AC-012**: `packages/design/vitest.config.browser.ts` is explicitly referenced by the `design-browser-test` CI job (via the `test:browser` npm script) — verify the chain: CI job → npm script → vitest config file.
 - [ ] **AC-013**: `pnpm coverage` in the console package reports coverage for `src/internal/` files (non-zero hit counts for files in that directory).
+- [ ] **AC-014**: The spec-consolidation guard fails on a duplicate spec-number prefix, an Implemented spec without `tasks.md`/`plan.md`, a spec directory without `spec.md`, and a tracked file referencing the legacy `.specify/features/` path.
+- [ ] **AC-015**: The spec-consolidation guard passes on the consolidated tree (zero violations) and completes in under 10 seconds.
+- [ ] **AC-016**: The spec-consolidation guard is wired into `scripts/verify.sh` and a path-gated workflow.
+- [ ] **AC-017**: The test-suite reduction targets are met: console 40–50% fewer tests, matchmaking/networking/design 30–40% fewer, engine/terrain/fog 20–30% fewer, with coverage ≥80% on every metric in every package.
+- [ ] **AC-018**: The console CI job completes in under 4 minutes with the three-way split (`console-test` / `console-e2e` / `console-coverage`) and Playwright caching in place.
 
 ## Out of Scope
 
@@ -88,8 +130,8 @@ The following are explicitly **not** part of this feature:
 - Composite action to DRY up shared setup steps (separate issue)
 - Major version bumps (checkout v4→v7, setup-node v6→v7) — defer to separate PR
 - `pnpm/setup` successor migration (pnpm v11+ path) — separate issue
-- Test infrastructure de-duplication (E2E helpers, golden fixture replacement) — covered by spec 016 amendment
-- Test count reduction — covered by spec 016
+- Test infrastructure de-duplication (E2E helpers, golden fixture replacement) — covered by the v1.2 Test-Suite Integrity section
+- Test count reduction — covered by the v1.2 Test-Suite Integrity section
 - Coverage threshold changes (the 80% gate is not being lowered or raised)
 
 ## Edge Cases
@@ -104,5 +146,6 @@ The following are explicitly **not** part of this feature:
 
 | Version | Date       | Change                                                                                          | Reason                                             |
 |---------|------------|-------------------------------------------------------------------------------------------------|----------------------------------------------------|
+| v1.2    | 2026-09-12 | Added FR-013–FR-017 (spec-consolidation integrity), FR-001–FR-026 of absorbed feature 016 (test-suite integrity), AC-014–AC-018; absorbed feature 016 (issue #139) | Spec consolidation + test-suite reduction (issue #139) |
 | v1.1    | 2026-09-11 | Added FR-007–FR-012, NFR-004–NFR-006, AC-007–AC-013, expanded Problem Statement and US5–US6     | Coverage-gate integrity gaps (issue #131, I-26)     |
 | v1.0    | 2026-08-21 | Initial spec: FR-001–FR-006, NFR-001–NFR-003, AC-001–AC-006                                    | CI trigger/hardening baseline (issue #3)            |
