@@ -121,7 +121,7 @@ The engine ships with a deterministic match capture/replay harness for debugging
 pnpm replay:capture --seed 42 --out fixture.json
 ```
 
-Records a headless match's seed, settings, and order sequence to a JSON fixture file. Accepts `--settings <path>` and `--orders <path>` for custom terrain settings and scripted orders.
+Records a headless match's seed, settings, and order sequence to a JSON fixture file. Accepts `--player-ids <id1,id2,...>` (2–4 explicit canonical 12-character ids; default `PLAYER000001,PLAYER000002`), `--settings <path>`, and `--orders <path>` for custom identities, terrain settings, and scripted orders. Every recorded order's `playerId` must be one of the configured ids — numeric, malformed, or unknown-player values exit with code 2.
 
 ### Replay a captured match
 
@@ -157,7 +157,7 @@ Replays the fixture and overwrites the `finalStateHash` field with the engine's 
   "orders": [],
   "terminalTick": 1,
   "terminalResult": null,
-  "finalStateHash": "fc7ab765",
+  "finalStateHash": "0aafe88f",
   "engineVersion": "0.2.0"
 }
 ```

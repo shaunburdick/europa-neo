@@ -161,8 +161,11 @@ export {
 export {
     deserializeWorld,
     EngineFormatError,
+    EngineFormatVersionMismatchError,
+    EngineSerializationError,
     EngineVersionMismatchError,
     hashWorld,
+    SERIALIZE_FORMAT_VERSION,
     serializeWorld,
 } from './serialize';
 
@@ -170,7 +173,7 @@ export {
 // Replay (Feature 022 — developer debugging tools)
 // ----------------------------------------------------------------------------
 
-export type { Fixture, GenerationSettings, OrderRecord, ReplayResult } from './replay';
+export type { Fixture, GenerationSettings, OrderRecord, PlayerCount, ReplayResult } from './replay';
 export {
     checkVersionMismatch,
     replayMatch,

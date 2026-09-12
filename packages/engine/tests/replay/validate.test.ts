@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { validateFixture } from '../../src/replay/validate';
-import { PLAYER_1, playerIds } from '../fixtures/ids';
+import { PLAYER_1, PLAYER_2, playerIds, UNKNOWN_PLAYER } from '../fixtures/ids';
 
 /** A minimal valid fixture for reuse across tests. */
 const VALID_FIXTURE = {
@@ -49,7 +49,7 @@ const VALID_FIXTURE = {
         },
     ],
     terminalTick: 100,
-    terminalResult: { kind: 'win', winner: 1, tick: 100, reason: 'last_standing' },
+    terminalResult: { kind: 'win', winner: PLAYER_1, tick: 100, reason: 'last_standing' },
     finalStateHash: 'a1b2c3d4',
     engineVersion: '0.2.0',
 };
@@ -198,14 +198,16 @@ describe('validateFixture', () => {
         const orders = [
             { playerId: PLAYER_1, order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 0, y: 0 }, direction: 'E' } },
         ];
-        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'tick' must be a number");
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'tick' must be a non-negative integer");
     });
 
     it('rejects orders with missing playerId', () => {
         const orders = [
             { tick: 0, order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 0, y: 0 }, direction: 'E' } },
         ];
-        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'playerId' must be a string");
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(
+            "'playerId' must be a canonical 12-character player id",
+        );
     });
 
     it('rejects orders with missing order object', () => {
@@ -226,15 +228,19 @@ describe('validateFixture', () => {
     });
 
     it('rejects settings.playerIds containing a numeric entry', () => {
-        const settings = { ...VALID_FIXTURE.settings, playerIds: [1] };
-        expect(() => validateFixture({ ...VALID_FIXTURE, settings })).toThrow("'playerIds[0]' must be a string");
+        const settings = { ...VALID_FIXTURE.settings, playerIds: [1, PLAYER_2] };
+        expect(() => validateFixture({ ...VALID_FIXTURE, settings })).toThrow(
+            "'playerIds[0]' must be a canonical 12-character player id",
+        );
     });
 
     it('rejects orders whose playerId is numeric', () => {
         const orders = [
             { tick: 0, playerId: 1, order: { kind: 'setPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'E' } },
         ];
-        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow("'playerId' must be a string");
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(
+            "'playerId' must be a canonical 12-character player id",
+        );
     });
 
     it('rejects terrainSettings with missing waterRatio', () => {
@@ -247,5 +253,138 @@ describe('validateFixture', () => {
     it('rejects multiple missing fields (fails on first)', () => {
         const { version: _v, seed: _s, ...rest } = VALID_FIXTURE;
         expect(() => validateFixture(rest)).toThrow("missing 'version'");
+    });
+});
+
+describe('validateFixture — explicit identity strictness (issue #74)', () => {
+    it('rejects a playerIds list with the wrong length', () => {
+        const settings = { ...VALID_FIXTURE.settings, playerIds: [PLAYER_1] };
+        expect(() => validateFixture({ ...VALID_FIXTURE, settings })).toThrow(/must contain 2–4 ids/);
+    });
+
+    it('rejects duplicate playerIds', () => {
+        const settings = { ...VALID_FIXTURE.settings, playerIds: [PLAYER_1, PLAYER_1] };
+        expect(() => validateFixture({ ...VALID_FIXTURE, settings })).toThrow(/duplicates/);
+    });
+
+    it('rejects a playerId of the wrong length', () => {
+        const settings = { ...VALID_FIXTURE.settings, playerIds: ['PLAYER00001', PLAYER_2] };
+        expect(() => validateFixture({ ...VALID_FIXTURE, settings })).toThrow(/canonical 12-character/);
+    });
+
+    it('rejects a playerId with a disallowed character', () => {
+        const settings = { ...VALID_FIXTURE.settings, playerIds: ['PLAYER00000!', PLAYER_2] };
+        expect(() => validateFixture({ ...VALID_FIXTURE, settings })).toThrow(/canonical 12-character/);
+    });
+
+    it('rejects a playerCount that disagrees with playerIds.length', () => {
+        expect(() => validateFixture({ ...VALID_FIXTURE, playerCount: 3 })).toThrow(
+            /must equal settings.playerIds.length/,
+        );
+    });
+
+    it('rejects an order whose playerId is canonical but not registered', () => {
+        const orders = [
+            {
+                tick: 0,
+                playerId: UNKNOWN_PLAYER,
+                order: { kind: 'setPipe', player: UNKNOWN_PLAYER, cell: { x: 0, y: 0 }, direction: 'E' },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(/unknown player id/);
+    });
+
+    it('rejects an order whose inner player is not registered', () => {
+        const orders = [
+            {
+                tick: 0,
+                playerId: PLAYER_1,
+                order: { kind: 'setPipe', player: UNKNOWN_PLAYER, cell: { x: 0, y: 0 }, direction: 'E' },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(/unknown player id/);
+    });
+
+    it("rejects an order whose playerId disagrees with the order's player", () => {
+        const orders = [
+            {
+                tick: 0,
+                playerId: PLAYER_1,
+                order: { kind: 'setPipe', player: PLAYER_2, cell: { x: 0, y: 0 }, direction: 'E' },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(/does not match/);
+    });
+
+    it('rejects an unknown order kind', () => {
+        const orders = [{ tick: 0, playerId: PLAYER_1, order: { kind: 'warpDrive', player: PLAYER_1 } }];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(/'kind' must be a known order kind/);
+    });
+
+    it('rejects a malformed order cell', () => {
+        const orders = [
+            {
+                tick: 0,
+                playerId: PLAYER_1,
+                order: { kind: 'setPipe', player: PLAYER_1, cell: { x: 1.5, y: 0 }, direction: 'E' },
+            },
+        ];
+        expect(() => validateFixture({ ...VALID_FIXTURE, orders })).toThrow(/'x' must be an integer/);
+    });
+
+    it('accepts a win terminalResult whose winner is a registered id', () => {
+        const fixture = validateFixture({
+            ...VALID_FIXTURE,
+            terminalResult: { kind: 'win', winner: PLAYER_2, tick: 50, reason: 'all_surrendered' },
+        });
+        expect(fixture.terminalResult).toEqual({
+            kind: 'win',
+            winner: PLAYER_2,
+            tick: 50,
+            reason: 'all_surrendered',
+        });
+    });
+
+    it('accepts a draw terminalResult', () => {
+        const fixture = validateFixture({
+            ...VALID_FIXTURE,
+            terminalResult: { kind: 'draw', tick: 9, reason: 'mutual_elimination' },
+        });
+        expect(fixture.terminalResult).toEqual({ kind: 'draw', tick: 9, reason: 'mutual_elimination' });
+    });
+
+    it('rejects a numeric terminalResult winner', () => {
+        expect(() =>
+            validateFixture({
+                ...VALID_FIXTURE,
+                terminalResult: { kind: 'win', winner: 1, tick: 1, reason: 'last_standing' },
+            }),
+        ).toThrow(/winner' must be a registered player id/);
+    });
+
+    it('rejects a terminalResult winner outside the fixture player list', () => {
+        expect(() =>
+            validateFixture({
+                ...VALID_FIXTURE,
+                terminalResult: { kind: 'win', winner: UNKNOWN_PLAYER, tick: 1, reason: 'last_standing' },
+            }),
+        ).toThrow(/winner' must be a registered player id/);
+    });
+
+    it('rejects an unknown terminalResult kind', () => {
+        expect(() => validateFixture({ ...VALID_FIXTURE, terminalResult: { kind: 'stalemate', tick: 1 } })).toThrow(
+            /'terminalResult.kind' must be 'win' or 'draw'/,
+        );
+    });
+
+    it('accepts a null terminalResult', () => {
+        const fixture = validateFixture({ ...VALID_FIXTURE, terminalResult: null });
+        expect(fixture.terminalResult).toBeNull();
+    });
+
+    it('accepts a missing terminalResult', () => {
+        const { terminalResult: _t, ...rest } = VALID_FIXTURE;
+        const fixture = validateFixture(rest);
+        expect(fixture.terminalResult).toBeNull();
     });
 });

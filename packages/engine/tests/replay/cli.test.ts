@@ -193,4 +193,79 @@ describe('CLI integration', () => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout.trim()).toMatch(/^PASS \d+ ticks$/);
     });
+
+    it('capture accepts explicit canonical --player-ids', () => {
+        const fixturePath = join(tmpDir, 'custom-ids.json');
+        const result = runScript(CAPTURE_SCRIPT, [
+            '--seed',
+            '42',
+            '--player-ids',
+            'AAAAAAAAAAAA,BBBBBBBBBBBB',
+            '--out',
+            fixturePath,
+        ]);
+        expect(result.exitCode).toBe(0);
+
+        const fixture = JSON.parse(readFileSync(fixturePath, 'utf-8')) as {
+            settings: { playerIds: string[] };
+            playerCount: number;
+        };
+        expect(fixture.settings.playerIds).toEqual(['AAAAAAAAAAAA', 'BBBBBBBBBBBB']);
+        expect(fixture.playerCount).toBe(2);
+
+        // The same fixture replays cleanly.
+        const run = runScript(RUN_SCRIPT, [fixturePath]);
+        expect(run.exitCode).toBe(0);
+    });
+
+    it('capture rejects a numeric --player-ids entry', () => {
+        const result = runScript(CAPTURE_SCRIPT, [
+            '--seed',
+            '42',
+            '--player-ids',
+            '1,2',
+            '--out',
+            join(tmpDir, 'x.json'),
+        ]);
+        expect(result.exitCode).toBe(2);
+        expect(result.stderr).toContain('canonical 12-character player id');
+    });
+
+    it('capture rejects duplicate --player-ids', () => {
+        const result = runScript(CAPTURE_SCRIPT, [
+            '--seed',
+            '42',
+            '--player-ids',
+            'AAAAAAAAAAAA,AAAAAAAAAAAA',
+            '--out',
+            join(tmpDir, 'x.json'),
+        ]);
+        expect(result.exitCode).toBe(2);
+        expect(result.stderr).toContain('duplicate');
+    });
+
+    it('capture rejects an order referencing an unknown player id', () => {
+        const ordersPath = join(tmpDir, 'unknown-player.json');
+        writeFileSync(
+            ordersPath,
+            JSON.stringify([
+                {
+                    tick: 0,
+                    playerId: 'ZZZZZZZZZZZZ',
+                    order: { kind: 'setReserves', player: 'ZZZZZZZZZZZZ', cell: { x: 1, y: 1 }, percent: 5 },
+                },
+            ]),
+            'utf-8',
+        );
+        const result = runScript(CAPTURE_SCRIPT, [
+            '--seed',
+            '42',
+            '--orders',
+            ordersPath,
+            '--out',
+            join(tmpDir, 'x.json'),
+        ]);
+        expect(result.exitCode).toBe(2);
+        expect(result.stderr).toContain('must be one of the configured player ids');
+    });
 });

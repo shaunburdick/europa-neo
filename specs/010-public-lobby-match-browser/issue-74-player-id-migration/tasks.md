@@ -71,19 +71,19 @@ shim or weaken a validator to make an old fixture pass.
 
 ## Wave 3 — Engine serialization and replay
 
-- [ ] **T015**: [P] Define and implement the ID-table serialization format in
+- [x] **T015**: [P] Define and implement the ID-table serialization format in
   `packages/engine/src/serialize.ts`, including canonical table ordering,
   explicit table-index references, version handling, and strict malformed,
   duplicate, missing, extra, numeric, and inconsistent-reference rejection.
-- [ ] **T016**: [P] Update `packages/engine/src/replay/types.ts`, `replay/replay.ts`,
+- [x] **T016**: [P] Update `packages/engine/src/replay/types.ts`, `replay/replay.ts`,
   `replay/validate.ts`, `scripts/capture.ts`, `scripts/run.ts`, and
   `scripts/update.ts` so replay fixtures and captured sessions always carry
   explicit valid IDs; never synthesize temporary IDs during decode or replay.
-- [ ] **T017**: [P] Extend `packages/engine/tests/unit/serialize.test.ts` and
+- [x] **T017**: [P] Extend `packages/engine/tests/unit/serialize.test.ts` and
   `tests/replay/*.test.ts` for round-trip bytes, canonical table permutation,
   malformed/duplicate/missing/extra/numeric rejection, unknown-player commands,
   and replay identity preservation through terminal state.
-- [ ] **T018**: Add a serialization/replay conformance witness that compares source
+- [x] **T018**: Add a serialization/replay conformance witness that compares source
   contracts under `packages/engine/src/contracts/` with
   `specs/001-core-game-engine/contracts/`, including the new identity table and
   version boundary.

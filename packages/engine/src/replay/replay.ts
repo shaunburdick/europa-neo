@@ -1,5 +1,5 @@
 /**
- * Match Replay — Feature 022 (Developer Debugging Tools)
+ * Match Replay — Feature 022 (Developer Debugging Tools) + issue #74
  *
  * Pure function that replays a captured match fixture through the
  * engine. Takes a pre-generated board and a fixture, creates the world,
@@ -14,6 +14,12 @@
  * at the call site (CLI scripts), not inside this function, so the
  * engine package has no runtime dependency on the terrain package.
  *
+ * **Identity (issue #74)**: the replay path consumes the fixture's
+ * explicit `settings.playerIds` verbatim. It never synthesizes,
+ * derives, or substitutes an ID. A fixture whose recorded count or
+ * order identities are inconsistent with `settings.playerIds` fails
+ * closed before the first tick.
+ *
  * **Engine version mismatch**: when the fixture's `engineVersion`
  * differs from the current `ENGINE_API_VERSION`, a warning is emitted
  * but the replay still runs (the engine's determinism guarantees hold
@@ -24,7 +30,7 @@ import { applyCommand } from '../applyCommand';
 import { createWorld } from '../create';
 import { hashWorld } from '../serialize';
 import { tick as engineTick } from '../tick';
-import type { Board, MatchConfig, Order, World } from '../types';
+import type { Board, MatchConfig, World } from '../types';
 import { ENGINE_API_VERSION } from '../types';
 import type { Fixture, OrderRecord, ReplayResult } from './types';
 
@@ -47,6 +53,37 @@ function groupOrdersByTick(orders: ReadonlyArray<OrderRecord>): Map<number, Orde
         bucket.push(record);
     }
     return map;
+}
+
+/**
+ * Reject a fixture whose identities are internally inconsistent before
+ * any tick runs. This is a fail-closed defense for callers that invoke
+ * `replayMatch` directly with an already-typed (unvalidated-at-runtime)
+ * fixture.
+ *
+ * @param fixture The fixture about to be replayed.
+ * @throws {Error} When `playerCount` disagrees with the explicit list, or
+ *         an order references a player outside that list.
+ */
+function assertReplayIdentities(fixture: Fixture): void {
+    const ids = fixture.settings.playerIds;
+    if (ids.length !== fixture.playerCount) {
+        throw new Error(
+            `replayMatch: fixture.playerCount (${String(fixture.playerCount)}) does not match settings.playerIds.length (${String(ids.length)})`,
+        );
+    }
+    const registered = new Set<string>(ids);
+    for (let i = 0; i < fixture.orders.length; i++) {
+        const record = fixture.orders[i];
+        if (record === undefined) {
+            throw new Error(`replayMatch: fixture.orders[${String(i)}] is missing`);
+        }
+        if (!registered.has(record.playerId) || !registered.has(record.order.player)) {
+            throw new Error(
+                `replayMatch: fixture.orders[${String(i)}] references a player id outside settings.playerIds`,
+            );
+        }
+    }
 }
 
 /**
@@ -75,9 +112,12 @@ export function checkVersionMismatch(fixtureVersion: string): string | null {
  * @param fixture The validated fixture to replay.
  * @param board The regenerated Board matching the fixture's seed and settings.
  * @returns The final world, its hash, and the tick count.
- * @throws If the engine encounters an error during replay.
+ * @throws {Error} When the fixture's identities are internally inconsistent
+ *         or the engine encounters an error during replay.
  */
 export function replayMatch(fixture: Fixture, board: Board): ReplayResult {
+    assertReplayIdentities(fixture);
+
     // 1. Create the initial world from the regenerated board. Identities
     //    come only from the fixture's explicit `settings.playerIds` — the
     //    replay path never synthesizes or derives an ID (FR-021/FR-022).
@@ -98,7 +138,7 @@ export function replayMatch(fixture: Fixture, board: Board): ReplayResult {
         // Apply all orders recorded for this tick.
         const orders = ordersByTick.get(t) ?? [];
         for (const record of orders) {
-            const result = applyCommand(world, record.order as Order);
+            const result = applyCommand(world, record.order);
             world = result.world;
         }
 
@@ -108,7 +148,7 @@ export function replayMatch(fixture: Fixture, board: Board): ReplayResult {
     }
 
     // 4. Compute final hash.
-    const hash = hashWorld(world as Readonly<World>);
+    const hash = hashWorld(world);
 
     return {
         finalWorld: world,

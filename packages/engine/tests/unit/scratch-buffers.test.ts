@@ -44,7 +44,7 @@ const TWO_PLAYER_CFG: MatchConfig = {
     playerIds: playerIds(2),
     tickIntervalMs: 250,
     seed: 0xcafebabe,
-    visibilityRadiusDefault: ENGINE_CONSTANTS.visibilityRadiusDefault,
+    visibilityRadius: ENGINE_CONSTANTS.visibilityRadiusDefault,
 };
 
 /**

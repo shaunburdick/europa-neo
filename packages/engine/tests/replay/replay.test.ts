@@ -20,11 +20,11 @@ import { createWorld } from '../../src/create';
 import { checkVersionMismatch, replayMatch } from '../../src/replay/replay';
 import type { Fixture, OrderRecord } from '../../src/replay/types';
 import { hashWorld } from '../../src/serialize';
-import { tick } from '../../src/tick';
+import { isTerminal, tick } from '../../src/tick';
 import type { MatchConfig, Order, World } from '../../src/types';
 import { ENGINE_API_VERSION } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
-import { PLAYER_1, PLAYER_2, playerIds } from '../fixtures/ids';
+import { PLAYER_1, PLAYER_2, playerIds, UNKNOWN_PLAYER } from '../fixtures/ids';
 
 /** A minimal 8x8 board with two cities (P1 and P2). */
 const BOARD = buildSmallBoard(8, [
@@ -67,11 +67,11 @@ function buildFixture(
             maxRegenAttempts: 5,
             terrainSmoothing: 4,
         },
-        playerCount: world.config.playerIds.length,
+        playerCount: 2,
         orders,
         terminalTick,
         terminalResult: null,
-        finalStateHash: hashWorld(world as Readonly<World>),
+        finalStateHash: hashWorld(world),
         engineVersion: ENGINE_API_VERSION,
     };
 }
@@ -83,7 +83,7 @@ describe('replayMatch', () => {
         for (let i = 0; i < 10; i++) {
             world = tick(world).world;
         }
-        const expectedHash = hashWorld(world as Readonly<World>);
+        const expectedHash = hashWorld(world);
 
         // Build a fixture with empty orders for 10 ticks.
         const fixture = buildFixture(createWorld(CONFIG, BOARD), [], 10);
@@ -104,7 +104,7 @@ describe('replayMatch', () => {
         };
         world = applyCommand(world, order).world;
         world = tick(world).world;
-        const expectedHash = hashWorld(world as Readonly<World>);
+        const expectedHash = hashWorld(world);
 
         // Build a fixture with that one order at tick 0.
         const fixture = buildFixture(createWorld(CONFIG, BOARD), [{ tick: 0, playerId: PLAYER_1, order }], 1);
@@ -132,7 +132,7 @@ describe('replayMatch', () => {
         world = applyCommand(world, order1).world;
         world = applyCommand(world, order2).world;
         world = tick(world).world;
-        const expectedHash = hashWorld(world as Readonly<World>);
+        const expectedHash = hashWorld(world);
 
         // Build a fixture with both orders at tick 0.
         const fixture = buildFixture(
@@ -169,7 +169,7 @@ describe('replayMatch', () => {
         };
         world = applyCommand(world, order2).world;
         world = tick(world).world;
-        const expectedHash = hashWorld(world as Readonly<World>);
+        const expectedHash = hashWorld(world);
 
         const fixture = buildFixture(
             createWorld(CONFIG, BOARD),
@@ -197,7 +197,7 @@ describe('replayMatch', () => {
         const result1 = replayMatch(fixture, BOARD);
         const result2 = replayMatch(fixture, BOARD);
         expect(result1.hash).toBe(result2.hash);
-        expect(result1.hash).toBe(hashWorld(result1.finalWorld as Readonly<World>));
+        expect(result1.hash).toBe(hashWorld(result1.finalWorld));
     });
 });
 
@@ -210,5 +210,78 @@ describe('checkVersionMismatch', () => {
         const msg = checkVersionMismatch('0.0.999');
         expect(msg).toContain("fixture engine version '0.0.999'");
         expect(msg).toContain(`current '${ENGINE_API_VERSION}'`);
+    });
+});
+
+describe('replayMatch — identity preservation through terminal state', () => {
+    it('replays a surrender to a P1 win and preserves both explicit ids', () => {
+        // Drive the reference world to a terminal state via surrender at
+        // tick 0; the opponent (PLAYER_1) wins on the same tick.
+        let reference = createWorld(CONFIG, BOARD);
+        const surrender: Order = { kind: 'surrender', player: PLAYER_2 };
+        reference = applyCommand(reference, surrender).world;
+        reference = tick(reference).world;
+        const terminal = isTerminal(reference);
+        expect(terminal?.kind).toBe('win');
+        const expectedHash = hashWorld(reference);
+
+        const fixture: Fixture = {
+            ...buildFixture(createWorld(CONFIG, BOARD), [], 1),
+            orders: [{ tick: 0, playerId: PLAYER_2, order: surrender }],
+            terminalResult: terminal ?? null,
+            finalStateHash: expectedHash,
+        };
+
+        const result = replayMatch(fixture, BOARD);
+
+        // Byte-identical outcome.
+        expect(result.hash).toBe(expectedHash);
+
+        // Explicit ids survive through the terminal state.
+        expect(result.finalWorld.playerRegistry.ids).toEqual([PLAYER_1, PLAYER_2]);
+        expect(result.finalWorld.players.map((p) => p.id)).toEqual([PLAYER_1, PLAYER_2]);
+        expect(result.finalWorld.config.playerIds).toEqual([PLAYER_1, PLAYER_2]);
+
+        const replayedTerminal = isTerminal(result.finalWorld);
+        expect(replayedTerminal?.kind).toBe('win');
+        if (replayedTerminal?.kind === 'win') {
+            expect(replayedTerminal.winner).toBe(PLAYER_1);
+        }
+    });
+
+    it('preserves a non-canonical placement-slot order through replay', () => {
+        const board = buildSmallBoard(8, [
+            [1, 1, 1],
+            [6, 6, 2],
+        ]);
+        // Slot 1 = PLAYER_2, slot 2 = PLAYER_1.
+        const reversed: MatchConfig = { ...CONFIG, playerIds: [PLAYER_2, PLAYER_1] };
+        const reference = createWorld(reversed, board);
+        const fixture: Fixture = { ...buildFixture(reference, [], 3), settings: reversed };
+
+        const result = replayMatch(fixture, board);
+        expect(result.finalWorld.config.playerIds).toEqual([PLAYER_2, PLAYER_1]);
+        expect(result.finalWorld.playerRegistry.ids).toEqual([PLAYER_1, PLAYER_2]);
+    });
+});
+
+describe('replayMatch — fail-closed identity checks', () => {
+    it('throws when playerCount disagrees with settings.playerIds.length', () => {
+        const fixture: Fixture = { ...buildFixture(createWorld(CONFIG, BOARD), [], 1), playerCount: 3 };
+        expect(() => replayMatch(fixture, BOARD)).toThrow(/playerCount/);
+    });
+
+    it('throws when an order references an unregistered player id', () => {
+        const order: Order = {
+            kind: 'setPipe',
+            player: UNKNOWN_PLAYER,
+            cell: { x: 1, y: 1 },
+            direction: 'E',
+        };
+        const fixture: Fixture = {
+            ...buildFixture(createWorld(CONFIG, BOARD), [], 1),
+            orders: [{ tick: 0, playerId: UNKNOWN_PLAYER, order }],
+        };
+        expect(() => replayMatch(fixture, BOARD)).toThrow(/outside settings.playerIds/);
     });
 });

@@ -60,6 +60,29 @@
   - `PlayerId` → branded string breaks typecheck across all packages until each
     wave migrates its usage. Repo-wide `pnpm verify` stays red by design mid-migration.
 
+- **Wave 3 — complete (engine serialization + replay, T015–T018)**: strict,
+  canonical, lossless ID-table serialization in `packages/engine/src/serialize.ts`.
+  Payload now carries an independent `SERIALIZE_FORMAT_VERSION` byte, a canonical
+  strictly-ascending ID table, a placement-slot→table-index map (`slotOrder`), and
+  `tickIntervalMs`; the old redundant `reserved`/`playersLen` fields are gone. Decode
+  is bounds-checked (no silent `?? 0` fallback), rejects malformed/duplicate/
+  missing/extra/numeric/non-canonical/permuted tables, out-of-range slot/record
+  references, invalid status/name bytes, out-of-range city/cell owner bytes,
+  invalid pipe/reserve fields, and trailing bytes. Encode fails loudly
+  (`EngineSerializationError`) rather than substituting. Replay fixtures are
+  strictly validated (canonical 2–4 unique IDs, `playerCount` equality, registered
+  order players) and `replayMatch` refuses inconsistent identities before ticking.
+  `scripts/capture.ts` gains `--player-ids` and rejects unknown/numeric players.
+  Engine 456 tests passing (was 398); coverage 92.6% stmts / 81.21% branches /
+  99.15% fns / 92.31% lines; typecheck, lint, format, build, contract-drift, and
+  the new `serialization-conformance.test.ts` (contract-mirror set + version
+  boundary + identity table) all green. Guard: **zero `packages/engine/`
+  violations**; remaining guard failures are networking/matchmaking/console
+  (later waves). PM-notable: the tighter replay fixture typing flushed out a
+  pre-existing stale `visibilityRadiusDefault` field in
+  `tests/unit/scratch-buffers.test.ts` (tests are excluded from `tsc`), now fixed;
+  and the sample fixture + README hash were regenerated for the new layout.
+
 ## Waves
 
 1. Baseline and forbidden-pattern inventory.

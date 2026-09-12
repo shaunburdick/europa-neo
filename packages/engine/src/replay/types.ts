@@ -10,9 +10,20 @@
  * Fixture format version starts at 1. The `version` field enables
  * forward-compatible schema evolution without breaking existing
  * fixtures (NFR-005).
+ *
+ * **Identity (issue #74)**: identities are explicit canonical
+ * `PlayerId` strings. The fixture never carries numeric identity
+ * values, and the replay path never synthesizes a temporary ID — it
+ * consumes `settings.playerIds` exactly as supplied.
  */
 
-import type { MatchConfig, Order, PlayerId, World } from '../types';
+import type { MatchConfig, MatchResult, Order, PlayerId, World } from '../types';
+
+/**
+ * The only legal player counts (engine FR-019). Narrowed so callers
+ * (e.g. terrain's `generateBoard`) never need a type assertion.
+ */
+export type PlayerCount = 2 | 3 | 4;
 
 /**
  * A single recorded order in a fixture. Each order captures the tick
@@ -38,18 +49,26 @@ export interface Fixture {
     readonly version: number;
     /** PRNG seed (uint32). */
     readonly seed: number;
-    /** Engine match configuration. */
+    /**
+     * Engine match configuration. `settings.playerIds` MUST be an
+     * explicit list of 2–4 canonical, unique `PlayerId` values in
+     * terrain placement-slot order.
+     */
     readonly settings: MatchConfig;
     /** Terrain generation settings for board reconstruction. */
     readonly terrainSettings: GenerationSettings;
-    /** Player count (redundant with `settings.playerIds.length`, explicit for quick inspection). */
-    readonly playerCount: number;
+    /**
+     * Player count. Derived from `settings.playerIds.length` and
+     * validated for equality by {@link validateFixture}; retained as an
+     * explicit, quick-inspection field.
+     */
+    readonly playerCount: PlayerCount;
     /** Applied orders in tick-ascending, playerId-ascending, kind-alphabetical order. */
     readonly orders: ReadonlyArray<OrderRecord>;
     /** Tick at which the match ended. */
     readonly terminalTick: number;
     /** Terminal match result, or null if the match didn't terminate. */
-    readonly terminalResult: unknown;
+    readonly terminalResult: MatchResult | null;
     /** 8-char hex FNV-1a hash of the final world state. */
     readonly finalStateHash: string;
     /** `ENGINE_API_VERSION` at capture time. */
