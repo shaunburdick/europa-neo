@@ -8,7 +8,7 @@ type contracts. The spec-side source of truth lives at
 
 The terrain package's `tsconfig.json` declares `rootDir: "./src"` and
 `include: ["src/**/*"]`. Importing TypeScript files from outside
-`./src` (e.g., `.specify/...`) violates `rootDir` and trips the
+`./src` (e.g., `specs/003-procedural-terrain-generation/contracts/`) violates `rootDir` and trips the
 compiler's "files must be under rootDir" check. Rather than relax that
 constraint (which is a constitution-friendly boundary for monorepo
 package layout), the engine-side precedent (see
@@ -27,7 +27,7 @@ later wave if drift becomes a recurring problem.
 
 When the spec contract changes:
 
-1. Update the spec file (`.specify/.../contracts/*.ts`) first.
+1. Update the spec file (`specs/003-procedural-terrain-generation/contracts/*.ts`) first.
 2. Copy the spec file into the corresponding local file in this
    directory in the same change set.
 3. Never edit one side without the other.

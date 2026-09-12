@@ -118,9 +118,9 @@ export {
  * contract re-export above — the barrel deliberately re-exports no
  * *values* from contract modules, keeping the compiled bundle free of
  * runtime upstream imports (research.md §9: zero runtime deps). The
- * lobby shapes mirror
- * `specs/010-public-lobby-match-browser/contracts/` shape-for-shape;
- * networking's wire mirrors are structurally compatible by design, but
+ * lobby shapes are the canonical source of truth, documented in
+ * `specs/010-public-lobby-match-browser/spec.md`.
+ * Networking's wire mirrors are structurally compatible by design, but
  * THESE declarations are the server-side source of truth consumers
  * should import. The lobby RUNTIME (identity registry, facade
  * implementation, transport wiring) lands with later tasks and will be

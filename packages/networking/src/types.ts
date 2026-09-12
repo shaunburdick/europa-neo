@@ -1,20 +1,15 @@
 /**
  * Networking Public Type Surface — Feature 004
  *
- * Thin re-export module. The contracts in `src/contracts/` are local
- * copies of the canonical spec contracts at
- * `specs/004-multiplayer-networking/contracts/`. The local
- * copies exist because `tsc`'s `rootDir: ./src` rejects imports from
- * outside the package (see fog's `src/types.ts` for the precedent and
- * rationale). The copies are byte-identical to the spec files from
- * day one; drift is a bug caught by the Polish-phase conformance test
- * (tasks.md T050).
+ * Thin re-export module. The contracts in `src/contracts/` are the
+ * canonical source of truth for networking's public types, documented in
+ * `specs/004-multiplayer-networking/spec.md`.
  *
  * **No new types are invented here** — see the contracts for the
  * canonical definitions, JSDoc, and rationale. Per constitution
- * Principle IV (specs as documentation), the contract is
- * authoritative; if a type here diverges from the contract, the
- * contract wins.
+ * Principle IV (specs as documentation), the contracts are
+ * authoritative; if a type here diverges from the contracts, the
+ * contracts win.
  *
  * Engine types (`World`, `Order`, `PlayerId`, …) are imported
  * `import type` so networking does not take a runtime dependency on

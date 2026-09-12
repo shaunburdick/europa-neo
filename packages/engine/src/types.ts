@@ -1,18 +1,17 @@
 /**
  * Engine Public Type Surface — Feature 001
  *
- * Thin re-export module. The contract in
- * `specs/001-core-game-engine/contracts/engine-types.ts` is the
+ * Thin re-export module. The contracts in `src/contracts/` are the
  * source of truth for every public type; this module re-exports them so
  * downstream packages can import from `@europa/engine` and so the engine
  * package's own source can import from a local path (avoids a runtime
  * dependency on a not-yet-existing `@europa/shared` package).
  *
- * **No new types are invented here** — see the contract for the canonical
+ * **No new types are invented here** — see the contracts for the canonical
  * definitions, JSDoc, and rationale. Per constitution Principle IV
- * (specs as documentation) and `research.md` §10, the contract is
- * authoritative; if a type here diverges from the contract, the contract
- * wins.
+ * (specs as documentation) and `research.md` §10, the contracts are
+ * authoritative; if a type here diverges from the contracts, the
+ * contracts win.
  *
  * The value export (`ENGINE_API_VERSION`) is the only runtime artifact
  * exposed from the contract; the rest are types erased at compile time.

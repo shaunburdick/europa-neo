@@ -83,7 +83,7 @@ The core game is complete and playable end-to-end: lobby, matchmaking, live mult
 
 Current work is tracked on [GitHub issues](https://github.com/shaunburdick/europa-neo/issues).
 
-The monorepo carries **more than 1,300 automated tests across 7 packages**, with ≥80% coverage gates on every metric and six per-package CI workflows.
+The monorepo carries **more than 2,500 automated tests across 10 packages**, with ≥80% coverage gates on every metric and 13 CI workflows.
 
 ## Contributing
 

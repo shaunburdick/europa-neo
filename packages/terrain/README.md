@@ -23,11 +23,11 @@ From the monorepo root:
 pnpm install
 ```
 
-This builds the engine package and links the terrain package via
+This builds the core package and links the terrain package via
 `workspace:*`. Terrain depends on `@europa/core` for the `Board`, `Cell`,
 `CityPlacement`, `Coord`, and `MatchConfig` types and for the `Rng`
-(sfc32) PRNG factory — terrain **consumes** the engine's PRNG instance,
-never constructs its own.
+(sfc32) PRNG factory — terrain **consumes** the caller-supplied PRNG
+instance (from `@europa/core`), never constructs its own.
 
 > **Identity-agnostic (issue #74, FR-011)**: terrain neither accepts,
 > stores, nor emits canonical `PlayerId` values. `CityPlacement.owner`
@@ -51,7 +51,7 @@ Produces `dist/index.js` (ESM) and `dist/index.d.ts` (types) via `tsup`.
 pnpm --filter @europa/terrain test
 ```
 
-Runs the full Vitest suite (223 tests at last count). Coverage thresholds
+Runs the full Vitest suite (429 tests at last count). Coverage thresholds
 are 80% on every metric (constitution Principle III merge gate):
 
 ```bash

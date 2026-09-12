@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-24
 
-**Last Updated**: 2026-09-11
+**Last Updated**: 2026-09-12 (v1.6; issue #139 spec consolidation)
 
-**Version**: 1.5
+**Version**: 1.6
 
 **Status**: Implemented (2026-08-30)
 
@@ -313,3 +313,10 @@ These pages land with the engine + terrain changes in the
   section, index readable-paths paragraph); guardrails re-pointed at the
   `.mdx` paths (spec 010 privacy check, version-drift path filter,
   no-literals + semantic-url-privacy fixtures).
+
+### v1.6 (2026-09-12) — Issue #139 spec consolidation (absorbed features 015-astro, 012-3-4)
+
+- **Absorbed feature 015-astro (Astro manual migration)**: zero unique FRs — the migration was already absorbed by v1.4 (2026-09-10). This amendment records that fact; no new requirements are added.
+- **Absorbed feature 012-3-4 (3–4 player support, issue #6) — manual updates**:
+  - **012-FR-013**: The player manual MUST be updated in the SAME change set as the 3–4 player feature: board-size defaults by player count (2p → 32, 3p/4p → 48), match capacity/occupancy wording, waiting-for-opponent pluralization, host CLI flags (`--players`, `--board-size`), and the numbers appendix gains an N>2 row. This is redundant with FR-012's same-change-set rule but is recorded here because the absorbed feature stated it independently.
+  - **012-FR-014**: The manual MUST document the credential boundary: no `SessionToken`/`reconnectToken`/credential-bearing URLs appear in any page; tokenized join URLs are a narrow operator convenience and the bearer secret is never placed in a URL; `PlayerId`s are non-secret correlation data. The existing semantic-url-privacy guardrails already enforce this; the manual's share-link sections state it explicitly.

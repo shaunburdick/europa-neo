@@ -1,24 +1,29 @@
-# Contracts — issue #30 (Elevation-Gradient Pipe Flow + Terrain Smoothing + Slope Color-Coding)
+# Contracts — Core Game Engine
 
-This directory holds the engine's canonical contract mirrors plus informational mirrors for the new surfaces this change set introduces.
+This directory contains specification documentation for the engine's boundary contracts.
 
-## Canonical engine contracts (updated during implementation)
+## Source of truth
 
-| File | Status | Notes |
-| --- | --- | --- |
-| `engine-api.ts` | **UPDATED in the implementation change set** | `EngineConstants` drops `flowDownhillFactor`/`flowUphillFactor`, gains `flowSlopeStep`/`flowSlopeDeltaCap` (spec 001 FR-007, Clarifications v1.1/v1.2). The local copy at `packages/engine/src/contracts/engine-api.ts` changes in the same commit; the engine's `contracts-drift.test.ts` (semantic diff) fails until both are in sync. |
-| `engine-types.ts` | unchanged | No type surface change. |
+TypeScript contract definitions live in `packages/engine/src/contracts/`. This directory holds the readable documentation describing what those contracts mean, their boundary rules, and versioning policy.
 
-## Informational mirrors (new — this change set)
+## Contract files (documentation)
 
-These document additive internal shapes that the implementation will ship. They are **informational**: they mirror the package sources and must stay semantically identical to them (drift is a bug, caught by the existing semantic-diff conformance tests and the new slope drift test).
+This directory currently contains no standalone `.md` contract documents. The engine's contract surface is fully defined in `packages/engine/src/contracts/`:
 
-| File | Mirrors | Drift pin |
-| --- | --- | --- |
-| `flow-rate.ts` | `flowRateForDelta(delta, constants)` exported from `@europa/engine` | Engine unit tests + terrain reachable-land suite + console slope drift test all consume the real function |
-| `pipe-slope.ts` | Console `src/render/pipe-slope.ts` (`PIPE_SLOPE_CONSTANTS`, `pipeFlowRate`, `classifyPipeSlope`, `PipeSlope`) | Console `tests/unit/render/slope-drift.test.ts` pins the mirror against `ENGINE_CONSTANTS`/`flowRateForDelta` |
-| `terrain-smoothing.ts` | `smoothElevation(elev, size, passes)` from `@europa/terrain` + `GenerationSettings.terrainSmoothing` | Terrain unit + integration suites (determinism, symmetry, k=0 byte-identity) |
+- `engine-types.ts` — core game types
+- `engine-api.ts` — engine API surface and constants
+- `engine-to-matchmaking.ts` — engine → matchmaking boundary
+- `engine-to-terrain.ts` — engine → terrain boundary
+- `engine-to-fog.ts` — engine → fog boundary
+- `engine-to-networking.ts` — engine → networking boundary
+- `flow-rate.ts` — flow rate computation
+- `pipe-slope.ts` — pipe slope classification
+- `terrain-smoothing.ts` — terrain smoothing
 
-## Version discipline
+## How to update
 
-No `ENGINE_API_VERSION` / `TERRAIN_API_VERSION` / `CONSOLE_API_VERSION` / wire-version bump. The `EngineConstants` field swap is internal to the engine's own constants type (no downstream package constructs `EngineConstants`); `GenerationSettings.terrainSmoothing` and `CellRenderInfo.pipeSlopes` are additive fields. All changes are enforced by the existing conformance machinery, not by protocol versions.
+When the engine's contract types change:
+
+1. Update `packages/engine/src/contracts/` (the implementation)
+2. Update this documentation to reflect the change
+3. Run `pnpm verify` to confirm no breakage

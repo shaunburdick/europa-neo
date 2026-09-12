@@ -178,6 +178,9 @@ pnpm --filter @europa/design check:no-literals
 # the manual + approved implementation surfaces. It reads READMEs, specs, and
 # manual pages, so it can regress from any change — run it unconditionally.
 node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
+# Spec consolidation guard (008 FR-013..FR-017): verifies specs follow
+# the consolidation rules. Cheap static check, same rationale as privacy guard.
+pnpm exec tsx scripts/check-spec-consolidation.ts
 echo ""
 
 # Tier B: Per-package tests for changed library packages.

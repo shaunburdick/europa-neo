@@ -42,7 +42,7 @@ europa-source/          Trimmed documentation subset of the original game site (
       ├── rules.html    Original mechanics (authoritative gameplay reference)
       ├── controls.html Original control scheme
       └── …             Strategy, rating system, background docs + images
-.specify/               Spec-kit tooling: constitution, feature specs, templates, scripts
+.specify/               Spec-kit tooling: constitution, templates, scripts
 specs/                  Feature specifications (the source of truth for behavior)
 docs/manual/            Player manual (Astro + MDX site, published to GitHub Pages)
 packages/               pnpm workspace — all first-party code
@@ -69,7 +69,7 @@ This project is **spec-driven**: no code without an approved spec, no implementa
 ## Pull requests
 
 - Open PRs against `main` from your feature branch. Reference the related issue in the PR title or description (e.g. `feat(console): add minimap zoom` closes #42).
-- CI must pass before merge — per-package workflows (engine, terrain, fog, networking, matchmaking, console, logging, manual) plus shared Docker, Pages, release, and version-drift checks. If CI was green before your branch and is red after, your changes caused it.
+- CI must pass before merge — per-package workflows (core, engine, terrain, fog, networking, matchmaking, console, logging, manual) plus shared Docker, Pages, release, and version-drift checks. If CI was green before your branch and is red after, your changes caused it.
 - PRs require a clean review before merge. Address review feedback in new commits; do not amend pushed commits.
 - Keep PRs focused — one feature or fix per PR. Large features are delivered in waves via the orchestration process described in the feature spec.
 
@@ -92,7 +92,7 @@ Europa Neo uses a shared design system (`@europa/design`) for consistent visuals
 
 ## CI
 
-- Per-package CI workflows (engine, terrain, fog, networking, matchmaking, console, logging, manual) plus shared workflows for Docker, GitHub Pages, releases, and version drift.
+- Per-package CI workflows (core, engine, terrain, fog, networking, matchmaking, console, logging, manual) plus shared workflows for Docker, GitHub Pages, releases, and version drift.
 - `main` is branch-protected: no direct pushes, no PRs with failing checks.
 - There are never "preexisting" test failures — if CI was green before your branch and is red after, your changes caused it. Fix failures in your branch before requesting review.
 

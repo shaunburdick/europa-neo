@@ -5,7 +5,7 @@ artwork. The package is private and is not published to a registry.
 
 - **Package**: `packages/design` → `@europa/design` (`private: true`)
 - **Design contract**: [`DESIGN.md`](../../DESIGN.md) at the repository root
-- **Brand specification**: [`specs/015-logo-assets/spec.md`](../../specs/015-logo-assets/spec.md)
+- **Brand specification**: [`specs/012-design-system/spec.md`](../../specs/012-design-system/spec.md)
 - **Brand masters**: `src/brand/masters/`
 - **Generated distribution**: `dist/brand/`
 

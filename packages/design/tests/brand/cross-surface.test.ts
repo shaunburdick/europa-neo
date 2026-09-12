@@ -11,7 +11,7 @@
  *   - Docker: Dockerfile and docker-smoke.sh contain the expected brand
  *     integration patterns
  *
- * @see specs/015-logo-assets/spec.md — FR-012, FR-013, FR-014, FR-017, AC-006, AC-007
+ * @see specs/012-design-system/spec.md — FR-012, FR-013, FR-014, FR-017, AC-006, AC-007
  */
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';

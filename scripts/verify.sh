@@ -95,4 +95,9 @@ echo "--- Phase 11: Documentation privacy guard ---"
 node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs
 echo ""
 
+# Phase 12: Spec consolidation guard (008 FR-013..FR-017)
+echo "--- Phase 12: Spec consolidation guard ---"
+pnpm exec tsx scripts/check-spec-consolidation.ts
+echo ""
+
 echo "=== All verification checks passed ==="

@@ -1,74 +1,29 @@
 /**
  * Engine-Conformance Test — Feature 002 (T039)
  *
- * Enforces the engine ↔ fog boundary rule (`engine-to-fog.ts`):
+ * Enforces the engine ↔ fog boundary rule ("engine-to-fog.ts"):
  *
- *   (a) The `engine-to-fog.ts` mirror in `packages/fog/src/contracts/`
- *       is byte-identical to the spec's feature-002 copy, and its
- *       "verbatim mirror" section is semantically identical to
- *       feature 001's canonical contract (comments and the one
- *       documented import-path adaptation are normalized away).
- *   (b) Fog's re-declared `VisibleSet` / `PlayerView` types are
+ *   (b) Fog's re-declared "VisibleSet" / "PlayerView" types are
  *       structurally assignable from the contract originals
  *       (compile-time mutual-assignability assertions — any field
- *       drift fails `pnpm typecheck`).
- *   (c) The implemented `computeVisibleSet` signature conforms to
- *       the declaration in `engine-to-fog.ts` (same parameter names,
+ *       drift fails "pnpm typecheck").
+ *   (c) The implemented "computeVisibleSet" signature conforms to
+ *       the declaration in "engine-to-fog.ts" (same parameter names,
  *       same return type; enforced by assigning the implementation
  *       to the declared function type at compile time).
+ *
+ * NOTE: Parts (a) and (a2) -- byte-identical file comparisons between
+ * src/contracts/engine-to-fog.ts and the spec-side copies -- were
+ * removed because the spec-side .ts files no longer exist. The
+ * package copies in each package's src/contracts/ are now the sole
+ * source of truth.
  */
 
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type * as Contract from '../src/contracts/engine-to-fog';
 import * as fog from '../src/index';
 import type { PlayerView, VisibleSet } from '../src/types';
-
-/** Resolve a path relative to the monorepo root. */
-function repoPath(relativePath: string): string {
-    // packages/fog/tests/conformance.test.ts → 3 levels up = repo root.
-    return resolve(__dirname, '..', '..', '..', relativePath);
-}
-
-/** Strip comments + collapse whitespace for semantic comparison. */
-function normalize(source: string): string {
-    return source
-        .split('\n')
-        .filter((line) => {
-            const t = line.trim();
-            return !(t.startsWith('//') || t.startsWith('/*') || t.startsWith('*') || t.endsWith('*/'));
-        })
-        .join('\n')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-/**
- * Normalize the one documented import-path adaptation between
- * feature 001's canonical file (`./engine-types`, private to the
- * engine package) and fog's mirror (`@europa/engine`).
- */
-function normalizeImportPaths(source: string): string {
-    return source.replace(/'\.\/engine-types'/g, "'<ENGINE_TYPES>'").replace(/'@europa\/engine'/g, "'<ENGINE_TYPES>'");
-}
-
-/**
- * Extract the section between the verbatim-mirror markers so the
- * wrapper comments fog adds around the mirror don't count as drift.
- * The slice starts at the END of the BEGIN-marker line so the
- * marker comment itself is excluded.
- */
-function verbatimSection(source: string): string {
-    const begin = source.indexOf('Begin verbatim mirror');
-    const end = source.indexOf('End verbatim mirror');
-    if (begin === -1 || end === -1) {
-        return source;
-    }
-    const contentStart = source.indexOf('\n', begin);
-    return source.slice(contentStart === -1 ? begin : contentStart + 1, end);
-}
 
 // ---------------------------------------------------------------------------
 // (b) Compile-time structural conformance. If any field drifts between
@@ -85,26 +40,6 @@ const VISIBLE_SET_CONFORMS: VisibleSetConforms = true;
 const PLAYER_VIEW_CONFORMS: PlayerViewConforms = true;
 
 describe('engine ↔ fog conformance (T039)', () => {
-    it('(a) local engine-to-fog.ts mirror is byte-identical to the spec copy', async () => {
-        const [local, spec] = await Promise.all([
-            readFile(repoPath('packages/fog/src/contracts/engine-to-fog.ts'), 'utf-8'),
-            readFile(repoPath('specs/002-fog-of-war-visibility/contracts/engine-to-fog.ts'), 'utf-8'),
-        ]);
-        expect(local).toBe(spec);
-    });
-
-    it('(a2) the verbatim-mirror section matches feature 001\u2019s canonical contract semantically', async () => {
-        const [mirror, canonical] = await Promise.all([
-            readFile(repoPath('packages/fog/src/contracts/engine-to-fog.ts'), 'utf-8'),
-            readFile(repoPath('specs/001-core-game-engine/contracts/engine-to-fog.ts'), 'utf-8'),
-        ]);
-        const mirrorNorm = normalizeImportPaths(normalize(verbatimSection(mirror)));
-        const canonicalNorm = normalizeImportPaths(normalize(verbatimSection(canonical)));
-        // The only permitted difference is the import path adaptation
-        // ('./engine-types' → '@europa/engine'), normalized above.
-        expect(mirrorNorm).toBe(canonicalNorm);
-    });
-
     it('(b) fog re-declared types are mutually assignable with the contract originals', () => {
         // Compile-time proof lives in the type aliases above; this
         // runtime assertion keeps them "used" so linters stay quiet.

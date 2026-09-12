@@ -1,6 +1,6 @@
 # Plan: Coverage-Gate Integrity + Test Infrastructure Consolidation
 
-**Feature**: 008-ci-workflows (v1.1) + 016-test-suite-cleanup (v1.1)
+**Feature**: 008-ci-workflows (v1.2, absorbed 016-test-suite-cleanup)
 **GitHub Issue**: #131
 **Date**: 2026-09-11
 **Branch**: `issue-131-coverate-gate-integrity`

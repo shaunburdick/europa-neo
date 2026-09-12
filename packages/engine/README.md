@@ -34,7 +34,7 @@ See [`dist/index.d.ts`](./dist/index.d.ts) after `pnpm build` for the resolved t
 pnpm --filter @europa/engine test
 ```
 
-Runs the full test suite (≈280 tests across unit, quickstart, determinism, multi-player, perf, and contract-drift suites).
+Runs the full test suite (518 tests across unit, quickstart, determinism, multi-player, perf, and contract-drift suites).
 
 ## Coverage
 

@@ -1,7 +1,7 @@
 /**
  * Component tests — welcome landing screen (Feature 017).
  *
- * Covers AC-002 through AC-015 from specs/017-welcome-landing-screen/spec.md:
+ * Covers AC-002 through AC-015 from specs/013-semantic-url-routing/spec.md:
  *   - Logo display with alt text (AC-002)
  *   - Tagline text (AC-003)
  *   - Play link with /lobby href (AC-004)

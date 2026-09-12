@@ -8,7 +8,7 @@ canonical source of truth lives at
 
 TypeScript's `tsc` compiler rejects imports from outside the engine
 package's `rootDir: "./src"`. The canonical contracts live in the
-`.specify/` directory (which is outside `packages/engine/`), so the
+`specs/` directory (which is outside `packages/engine/`), so the
 engine package can't import them directly without changing the project
 structure.
 

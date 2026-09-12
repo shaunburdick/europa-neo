@@ -2,17 +2,14 @@
  * Fog Public Type Surface — Feature 002
  *
  * Thin re-export module. The contracts in
- * `packages/fog/src/contracts/fog-types.ts` are local copies of the
- * canonical spec contracts at
- * `specs/002-fog-of-war-visibility/contracts/fog-types.ts`.
- * The local copies exist because `tsc`'s `rootDir: ./src` rejects
- * imports from outside the package; see `src/contracts/README.md` for
- * the full rationale and the engine-side precedent.
+ * `packages/fog/src/contracts/fog-types.ts` are the canonical source of
+ * truth for fog's public types, documented in
+ * `specs/002-fog-of-war-visibility/spec.md`.
  *
  * **No new types are invented here** — see the contracts for the
  * canonical definitions, JSDoc, and rationale. Per constitution
- * Principle IV (specs as documentation), the contract is authoritative;
- * if a type here diverges from the contract, the contract wins.
+ * Principle IV (specs as documentation), the contracts are authoritative;
+ * if a type here diverges from the contracts, the contracts win.
  *
  * The single value exports (`FOG_API_VERSION`, the `FOG_MASK_*`
  * sentinels, `ENGINE_API_VERSION_REF`) are runtime artifacts exposed

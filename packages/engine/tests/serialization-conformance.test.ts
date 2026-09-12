@@ -1,31 +1,24 @@
 /**
  * Serialization / Replay Conformance Witness — Issue #74 Wave 3 (T018)
  *
- * Compares the engine's local contract copies (`packages/engine/src/contracts/`)
- * against the canonical spec contracts (`specs/001-core-game-engine/contracts/`)
- * and pins the two boundaries that make serialization/replay strict:
+ * Pins the two boundaries that make serialization/replay strict:
  *
- *   1. **Contract mirror conformance** — every local `.ts` contract file has
- *      a spec twin and is semantically identical (whitespace-normalized).
- *      This is a directory-level superset of the hand-listed pairs in
- *      `contracts-drift.test.ts`: adding a local contract file without a
- *      spec mirror fails here.
- *   2. **Identity-table surface** — the `engine-types.ts` contract declares
+ *   1. **Identity-table surface** — the `engine-types.ts` contract declares
  *      the explicit registry/ID-table surface (`PlayerRegistry`,
  *      `playerRegistry`, `PlayerId`, `playerIds`).
- *   3. **Version boundary** — the contract sources `ENGINE_API_VERSION` from
+ *   2. **Version boundary** — the contract sources `ENGINE_API_VERSION` from
  *      `@europa/core`, the serialization/replay source contains no hardcoded
  *      semantic-version literal, and the payload `SERIALIZE_FORMAT_VERSION`
  *      is a distinct, positive layout version whose mismatch is rejected
  *      independently of the API-version header.
  *
- * If this test fires, treat the spec contract as the source of truth and
- * synchronize the local copy (or, for a genuine contract change, bump
- * `ENGINE_API_VERSION`/`SERIALIZE_FORMAT_VERSION` deliberately and update
- * both copies in the same change set).
+ * NOTE: Test (1) from the original suite — "every local contract .ts file
+ * has a semantically-equal spec twin" — was removed because the spec-side
+ * .ts files no longer exist. The package copies in
+ * packages/engine/src/contracts/ are now the sole source of truth.
  */
 
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createWorld } from '../src/create';
@@ -46,11 +39,6 @@ function repoPath(relativePath: string): string {
     return resolve(__dirname, '..', '..', '..', relativePath);
 }
 
-/** Collapse whitespace for a semantic (layout-insensitive) comparison. */
-function normalize(source: string): string {
-    return source.replace(/\s+/g, ' ').trim();
-}
-
 /**
  * Remove block and line comments so a source scan only sees executable
  * code (documentation examples of version strings must not trip the
@@ -60,37 +48,18 @@ function stripComments(source: string): string {
     return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 }
 
-const LOCAL_CONTRACTS_DIR = 'packages/engine/src/contracts';
-const SPEC_CONTRACTS_DIR = 'specs/001-core-game-engine/contracts';
-
-describe('serialization/replay conformance — contract mirrors', () => {
-    it('every local contract .ts file has a semantically-equal spec twin', async () => {
-        const entries = await readdir(repoPath(LOCAL_CONTRACTS_DIR));
-        const localTs = entries.filter((name) => name.endsWith('.ts'));
-        expect(localTs.length).toBeGreaterThan(0);
-
-        for (const name of localTs) {
-            const [localContent, specContent] = await Promise.all([
-                readFile(repoPath(`${LOCAL_CONTRACTS_DIR}/${name}`), 'utf-8'),
-                readFile(repoPath(`${SPEC_CONTRACTS_DIR}/${name}`), 'utf-8'),
-            ]);
-            expect(normalize(localContent), `contract mirror '${name}' drifted from the spec`).toBe(
-                normalize(specContent),
-            );
-        }
-    });
-
+describe('serialization/replay conformance — contract surface', () => {
     it('the engine-types contract declares the explicit identity-table surface', async () => {
-        const specTypes = await readFile(repoPath(`${SPEC_CONTRACTS_DIR}/engine-types.ts`), 'utf-8');
+        const localTypes = await readFile(repoPath('packages/engine/src/contracts/engine-types.ts'), 'utf-8');
         for (const token of ['PlayerId', 'PlayerRegistry', 'playerRegistry', 'MatchConfig']) {
-            expect(specTypes, `engine-types.ts must declare '${token}'`).toContain(token);
+            expect(localTypes, `engine-types.ts must declare '${token}'`).toContain(token);
         }
     });
 
     it('the engine-types contract sources the version boundary from @europa/core', async () => {
-        const specTypes = await readFile(repoPath(`${SPEC_CONTRACTS_DIR}/engine-types.ts`), 'utf-8');
-        expect(specTypes).toContain("from '@europa/core'");
-        expect(specTypes).toContain('ENGINE_API_VERSION');
+        const localTypes = await readFile(repoPath('packages/engine/src/contracts/engine-types.ts'), 'utf-8');
+        expect(localTypes).toContain("from '@europa/core'");
+        expect(localTypes).toContain('ENGINE_API_VERSION');
     });
 
     it('serialization and replay sources contain no hardcoded semantic-version literal', async () => {

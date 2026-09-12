@@ -1,7 +1,7 @@
 /**
  * Deterministic N-Player Terrain Audit — Feature 012 / T023
  *
- * SC-003 / FR-008 (specs/012-3-4-player-support/spec.md, research.md §3).
+ * SC-003 / FR-008 (specs/003-procedural-terrain-generation/spec.md, research.md §3).
  *
  * Audits `generateBoard` (terrain package, 003 Clarifications v1.2) across
  * the full N-parameter grid required by SC-003:

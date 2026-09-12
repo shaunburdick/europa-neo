@@ -2,17 +2,14 @@
  * Terrain Public Type Surface — Feature 003
  *
  * Thin re-export module. The contracts in
- * `packages/terrain/src/contracts/terrain-types.ts` are local copies of
- * the canonical spec contracts at
- * `specs/003-procedural-terrain-generation/contracts/terrain-types.ts`.
- * The local copies exist because `tsc`'s `rootDir: ./src` rejects
- * imports from outside the package; see `src/contracts/README.md` for
- * the full rationale and the engine-side precedent.
+ * `packages/terrain/src/contracts/terrain-types.ts` are the canonical
+ * source of truth for terrain's public types, documented in
+ * `specs/003-procedural-terrain-generation/spec.md`.
  *
  * **No new types are invented here** — see the contracts for the
  * canonical definitions, JSDoc, and rationale. Per constitution
- * Principle IV (specs as documentation), the contract is authoritative;
- * if a type here diverges from the contract, the contract wins.
+ * Principle IV (specs as documentation), the contracts are authoritative;
+ * if a type here diverges from the contracts, the contracts win.
  *
  * The single value exports (`TERRAIN_API_VERSION`, the
  * `DEFAULT_GENERATION_SETTINGS` constant) are runtime artifacts exposed
