@@ -16,13 +16,13 @@
  *  - DEFAULT_MATCH_SETTINGS.boardSize remains 32 (API compat — additive map)
  *  - frozen / as const immutability semantics (runtime check, lenient)
  *  - informational mirror at
- *    `specs/012-3-4-player-support/contracts/board-size-defaults.ts`
+ *    `specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults.ts`
  *    is byte-identical to the shipped constant (prevents drift)
  */
 
 import { describe, expect, it } from 'vitest';
 
-import { BOARD_SIZE_DEFAULTS as mirrorMap } from '../../../../specs/012-3-4-player-support/contracts/board-size-defaults';
+import { BOARD_SIZE_DEFAULTS as mirrorMap } from '../../../../specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults';
 import { BOARD_SIZE_DEFAULTS as contractMap, DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import { BOARD_SIZE_DEFAULTS as constantsMap } from '../../src/constants';
 import { BOARD_SIZE_DEFAULTS as publicMap } from '../../src/index';
@@ -142,7 +142,7 @@ describe('BOARD_SIZE_DEFAULTS — FR-001 single source (T005)', () => {
         expect(JSON.stringify(publicMap)).toBe(JSON.stringify(EXPECTED_TABLE));
     });
 
-    it('mirror at specs/012-3-4-player-support/contracts/board-size-defaults.ts is byte-identical to shipped constant (drift guard)', () => {
+    it('mirror at specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults.ts is byte-identical to shipped constant (drift guard)', () => {
         // The spec mirror exists so reviewers can see the table without
         // chasing the implementation. It must never drift from the shipped
         // constant — a drift would mean docs and product disagree.

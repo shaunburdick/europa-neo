@@ -599,7 +599,7 @@ export type BoardSizeDefault = Readonly<Record<PlayerCount, UiBoardSize>>;
 
 /**
  * Canonical defaults — byte-identical to the informational mirror at
- * `specs/012-3-4-player-support/contracts/board-size-defaults.ts`.
+ * `specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults.ts`.
  *
  * Single source for FR-001: used by lobby create form (FR-002) and host
  * CLI implied size (FR-011). `DEFAULT_MATCH_SETTINGS.boardSize` stays

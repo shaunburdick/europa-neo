@@ -43,7 +43,7 @@ import type { EngineSession, MatchmakerBridge } from '@europa/networking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
-import { BOARD_SIZE_DEFAULTS as mirrorBoardSizeDefaults } from '../../../specs/012-3-4-player-support/contracts/board-size-defaults';
+import { BOARD_SIZE_DEFAULTS as mirrorBoardSizeDefaults } from '../../../specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults';
 import { MATCHMAKING_API_VERSION } from '../contracts/match-types';
 import { BOARD_SIZE_DEFAULTS as shippedBoardSizeDefaults } from '../src/constants';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../src/index';
@@ -266,7 +266,7 @@ describe('conformance: matchmaker uses upstream types at documented call sites',
 });
 
 describe('conformance: feature 012 board-size defaults mirror + no wire version bump (T006)', () => {
-    it('BOARD_SIZE_DEFAULTS mirror at specs/012-3-4-player-support/contracts/board-size-defaults.ts is byte-identical to shipped constant', async () => {
+    it('BOARD_SIZE_DEFAULTS mirror at specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults.ts is byte-identical to shipped constant', async () => {
         // Runtime value byte-identity: JSON serialization proves key order and
         // literal values are identical across the informational spec mirror
         // and the shipped single source. Prevents drift between docs and
@@ -285,7 +285,7 @@ describe('conformance: feature 012 board-size defaults mirror + no wire version 
         const shippedLiteral =
             'export const BOARD_SIZE_DEFAULTS: BoardSizeDefault = {\n    2: 32,\n    3: 48,\n    4: 48,\n} as const;';
         const [mirrorSource, shippedSource] = await Promise.all([
-            readFile(repoPath('specs/012-3-4-player-support/contracts/board-size-defaults.ts'), 'utf-8'),
+            readFile(repoPath('specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults.ts'), 'utf-8'),
             readFile(repoPath('packages/matchmaking/src/constants.ts'), 'utf-8'),
         ]);
         expect(mirrorSource).toContain(shippedLiteral);

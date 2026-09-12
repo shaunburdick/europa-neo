@@ -38,7 +38,7 @@
  *       `LobbyEvent` roster variants declared in `network-types.ts`
  *       stay structurally identical to the matchmaking package's local
  *       mirrors. The roster contract is design-source-of-truth at
- *       `specs/023-lobby-roster/contracts/roster-wire.md`.
+ *       `specs/010-public-lobby-match-browser/contracts/roster-wire.md`.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -576,7 +576,7 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
 // ---------------------------------------------------------------------------
 // (e) Feature 023 roster wire conformance. The roster types declared in
 // `network-types.ts` are pinned against an INDEPENDENT transcription of
-// the design source of truth (`specs/023-lobby-roster/contracts/roster-wire.md`)
+// the design source of truth (`specs/010-public-lobby-match-browser/contracts/roster-wire.md`)
 // via mutual-assignability aliases. The six roster type names are also
 // verified structurally identical to the matchmaking package's local
 // mirror — drift between the two copies is caught here.

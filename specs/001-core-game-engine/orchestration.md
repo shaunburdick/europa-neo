@@ -1,54 +1,35 @@
-# Orchestration Log: Equal-Split Pipe Flow (issue #50)
+# Orchestration Log: Issue #139 — Spec Consolidation
 
 ## Status
-- **Current Wave**: Complete
-- **Branch**: `issue-50-percentage-based-flow`
-- **Last Updated**: 2026-09-09
+- **Current Wave**: Wave 1 (T-003)
+- **Branch**: issue-139-doc-cleanup
+- **Last Updated**: 2026-09-12
 
 ## Plan Summary
-Cross-package behavioral change to the flow formula: replace fixed-rate flow (`flowBase=7`) with equal-split model (`flowRate=12` budget split equally among outgoing pipes). Affects `@europa/core` (source of truth), `@europa/engine` (flow resolution), `@europa/terrain` (viability check), `@europa/console` (rendering mirror). 33 tasks across 10 waves.
+One-time spec consolidation: merge 29 spec dirs → 15, fix cross-refs, refresh READMEs, normalize status lines, rewrite AGENTS.md lean, add CI guard. Plan at `.specify/issue-139-doc-cleanup/plan.md`.
 
 ## Task Wave Progress
 
-### Wave 1 — Core formula (`@europa/core`) — ✅ Complete
-- [x] T-001: Refactor `FlowConstants` interface
-- [x] T-002: Refactor `flowRateForDelta` signature
-- [x] T-003: Add `resolveFlowAmount` function
+### Wave 0 — Commit Planner Amendments — ✅ Complete
+- [x] T-001: Commit 12 amended specs (`68493d7`)
+- [x] T-002: Coordination artifacts (`e3a4214`)
 
-### Wave 2 — Engine flow resolution — ✅ Complete
-- [x] T-004: Update `resolveFlow`
-- [x] T-005: Update `transfer()`
+### Wave 1 — Structural Consolidation — 🔄 In Progress
+- [ ] T-003: Contract moves + dir deletions + cross-ref updates (1 big commit)
+- [ ] T-004: Renumber 020→014, 022→015
 
-### Wave 3 — Engine tests — ✅ Complete
-- [x] T-006–T-012
+### Wave 2 — Cross-refs, READMEs, Purge, Status, AGENTS.md — ⏳ Pending
+- [ ] T-005–T-009 (parallel)
 
-### Wave 4 — Engine test constants [P] — ✅ Complete
-- [x] T-013, T-014, T-015
+### Wave 3 — CI Guard — ⏳ Pending
+- [ ] T-010–T-012
 
-### Wave 5 — Console mirror [P] — ✅ Complete
-- [x] T-016–T-020
-
-### Wave 6 — Console tests — ✅ Complete
-- [x] T-021, T-022
-
-### Wave 7 — Terrain [P] — ✅ Complete
-- [x] T-023, T-024
-
-### Wave 8 — Contracts [P] — ✅ Complete
-- [x] T-025, T-026
-
-### Wave 9 — Design tokens [P] — ✅ Complete
-- [x] T-027
-
-### Wave 10 — Final verification — ✅ Complete
-- [x] T-028–T-033
+### Wave 4 — Final Verification + PR — ⏳ Pending
+- [ ] T-013–T-014
 
 ## Decisions & Rationale
-- 2026-09-09: `flowRate=12` chosen as total outflow budget; empirical analysis shows 93.6% edge viability with 1-pipe assumption (Δ<12), 87.5% of edges have Δ<10. Old Δ≥80 threshold was unreachable (max Δ=29 after smoothing).
-- 2026-09-09: `flowUphillCap` removed; stall threshold now computed as `perPipe / flowUphillStep`.
+- 2026-09-12: Wave 0 committed by PM directly (coordination artifacts, not code)
+- 2026-09-12: T-003 delegated to modern-architect-engineer (complex multi-file consolidation)
 
 ## Blockers & Escalations
-- None
-
-## New Tasks Discovered
 - None
