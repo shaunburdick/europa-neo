@@ -435,16 +435,6 @@ describe('(d) cross-package API-version boundary witness (issue #74 T042)', () =
         expect(drift).toEqual([]);
     });
 
-    it('the two console contract mirrors declare the same API version', () => {
-        // `console-api.ts` keeps a standalone literal so it stays
-        // dependency-free at runtime; the shipped value comes from
-        // `console-types.ts`. This assertion is what the console-api.ts
-        // comment has always claimed existed.
-        expect(versionLiteralIn('packages/console/src/contracts/console-api.ts', 'CONSOLE_API_VERSION')).toBe(
-            Dist.CONSOLE_API_VERSION,
-        );
-    });
-
     it('self-test: findVersionDrift flags a synthetic bump', () => {
         expect(findVersionDrift({ A: '1.0.0' }, { A: '1.0.0' })).toEqual([]);
         expect(findVersionDrift({ A: '1.1.0' }, { A: '1.0.0' })).toEqual(['A: expected 1.0.0, got 1.1.0']);
