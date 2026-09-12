@@ -82,4 +82,23 @@ describe('EuropaPlayerBadge', () => {
         const badge = screen.getByText('P2');
         expect(badge).toBeDefined();
     });
+
+    it('falls back to textMuted color for an unknown player', () => {
+        // Cast to exercise the ?? fallback branch when PLAYER_COLORS[player] is undefined
+        const { container } = render(<EuropaPlayerBadge player={99 as unknown as 1 | 2 | 3 | 4} />);
+        const badge = container.querySelector('[role="img"]');
+        expect(badge).toHaveStyle({ color: TOKENS.color.textMuted });
+    });
+
+    it('falls back to P{n} display text for an unknown player', () => {
+        const { container } = render(<EuropaPlayerBadge player={99 as unknown as 1 | 2 | 3 | 4} />);
+        const badge = container.querySelector('[role="img"]');
+        expect(badge?.textContent).toBe('P99');
+    });
+
+    it('uses the fallback aria-label for an unknown player with no name', () => {
+        const { container } = render(<EuropaPlayerBadge player={99 as unknown as 1 | 2 | 3 | 4} />);
+        const badge = container.querySelector('[role="img"]');
+        expect(badge).toHaveAttribute('aria-label', 'player 99');
+    });
 });

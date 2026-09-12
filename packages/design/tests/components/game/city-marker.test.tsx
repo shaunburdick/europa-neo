@@ -74,4 +74,14 @@ describe('EuropaCityMarker', () => {
         expect(marker.style.height).toBe('24px');
         expect(marker.style.borderRadius).toBe('2px');
     });
+
+    it('falls back to textMuted color for an unknown owner', () => {
+        // Cast to exercise the ?? fallback branch when PLAYER_COLORS[owner] is undefined
+        const { container } = render(<EuropaCityMarker owner={99 as unknown as 1 | 2 | 3 | 4} />);
+        const marker = container.querySelector('[role="img"]');
+        expect(marker).toHaveStyle({
+            backgroundColor: TOKENS.color.textMuted,
+            borderColor: TOKENS.color.textMuted,
+        });
+    });
 });
