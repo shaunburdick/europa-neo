@@ -26,7 +26,6 @@ import { describe, expect, test } from 'vitest';
 import { CONSOLE_CONSTANTS } from '../../../src/config';
 import { translateKey } from '../../../src/input/order-draft';
 import { buildReservesAction, resolveReservePercent } from '../../../src/input/order-reserves';
-import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { liveLabels } from '../../../src/render/label-overlay';
 import { buildMapView, coordKey } from '../../../src/state/build-map-view';
 import { createOrderBridge } from '../../../src/state/order-actions';
@@ -34,6 +33,7 @@ import { reduce } from '../../../src/state/reducer';
 import type { ConsoleStore } from '../../../src/state/store';
 import { createConsoleStore } from '../../../src/state/store';
 import type { CameraState, Direction, MapView, PlayerView, ReducerEffect } from '../../../src/state/types';
+import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
 
 /** The focused friendly cell shared by every scenario. */

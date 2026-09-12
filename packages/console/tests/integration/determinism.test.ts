@@ -16,9 +16,8 @@
 
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-
-import { runDeterminismScenario, SCENARIO_TICKS } from '../fixtures/determinism-scenario';
 import { GOLDEN_HASH, GOLDEN_TICKS } from '../fixtures/determinism-golden-hash';
+import { runDeterminismScenario, SCENARIO_TICKS } from '../fixtures/determinism-scenario';
 
 describe('determinism: 1000-tick scripted match (T090 / SC-002)', () => {
     it('produces a deterministic hash matching the golden constant', () => {

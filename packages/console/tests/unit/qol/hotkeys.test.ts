@@ -15,7 +15,6 @@
  */
 
 import { describe, expect, test, vi } from 'vitest';
-import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import {
     buildHotkeyTable,
     findHotkeyCollisions,
@@ -27,6 +26,7 @@ import type { ConsoleStore } from '../../../src/state/store';
 import { createConsoleStore } from '../../../src/state/store';
 import type { Direction, InputMapping, ReducerEffect } from '../../../src/state/types';
 import { DEFAULT_INPUT_MAPPING } from '../../../src/state/types';
+import { FakeMatchClient } from '../../fixtures/fake-match-client';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
 
 /** Every key string the default mapping binds (single chars + chords). */

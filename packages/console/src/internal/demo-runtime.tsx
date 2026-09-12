@@ -18,6 +18,7 @@
  * sanctioned `performance.now()` boundary.
  */
 
+import { FakeMatchClient } from '@test-fixtures/fake-match-client';
 import type { JSX } from 'react';
 import { StrictMode, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -25,7 +26,6 @@ import { App } from '../render/App';
 import { createOrderBridge } from '../state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
 import type { NetworkPayload, PlayerView, ProtocolEnvelope, ReducerEffect, SequenceNumber } from '../state/types';
-import { FakeMatchClient } from '@test-fixtures/fake-match-client';
 import { createDemoPlayerView, createStubConsoleState } from './test-state';
 
 /** The window-global handle Playwright specs read. */
