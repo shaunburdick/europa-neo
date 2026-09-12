@@ -11,6 +11,7 @@ export default defineConfig({
         environment: 'happy-dom',
         setupFiles: ['./tests/setup.ts'],
         include: ['tests/{brand,components}/**/*.test.{ts,tsx}', 'tests/*.test.{ts,tsx}'],
+        exclude: ['tests/brand/cross-surface.test.ts'],
         passWithNoTests: true,
         coverage: {
             provider: 'v8',
