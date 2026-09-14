@@ -1,0 +1,4 @@
+# Commit-message hygiene (spec 008 v1.3): lint every commit message with
+# commitlint — conventional commits + no bot co-author trailers (Copilot/
+# Claude). Mirrors the commitlint.yml CI gate locally.
+pnpm exec commitlint --edit "$1"

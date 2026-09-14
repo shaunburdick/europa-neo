@@ -62,6 +62,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 5. **Licensing hygiene**: never copy code from `europa-source/` (SOS license, © Alex Nicolaou). It is reference material only — reimplement from documented behavior. The archive is a trimmed documentation subset; never modify files under `europa-source/`.
 6. **Pre-push verification gate**: before pushing to a PR branch, run `pnpm verify` (or `bash scripts/verify.sh`) — the single source of truth for CI-equivalent local verification. For faster iteration on a single package, `pnpm verify:changed` (or `bash scripts/verify-changed.sh`) runs the relevant subset. Git hooks enforce this automatically: `.husky/pre-push` runs `pnpm verify:changed`.
 7. **CI must pass before merge**: no PR may be merged with failing CI checks. There are never "preexisting" test failures — if CI was green before your branch and is red after, your changes caused it. Fix failures in your branch before requesting review.
+8. **Commit hygiene**: commitlint enforces conventional commits and forbids bot co-author trailers (`Co-authored-by: Copilot` / `Co-authored-by: Claude`) via `.husky/commit-msg` and the `commitlint.yml` CI workflow (spec 008 v1.3). GitHub's squash-merge preserves branch-commit trailers into `main`, putting bots on the Contributors list — never add them, and never bypass the hook with `--no-verify`.
 
 ## Agent skills
 

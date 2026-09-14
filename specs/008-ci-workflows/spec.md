@@ -1,7 +1,7 @@
 # Spec: CI Workflow Hardening
 
-> Version: 1.2
-> Last Updated: 2026-09-12
+> Version: 1.3
+> Last Updated: 2026-09-14
 **Status**: Implemented (2026-09-11)
 > GitHub Issue: #3 (original), #131 (coverage-gate integrity)
 > Dependencies: None
@@ -83,6 +83,15 @@ Beyond trigger correctness, the coverage-gate infrastructure has systemic integr
 - **016-FR-025**: The removal MUST NOT remove any conformance test (contract mirrors, wire byte-identity).
 - **016-FR-026**: The removal MUST NOT remove any test that caught a real bug (each removal candidate is checked against the bug-fix history).
 
+### Commit-Message Hygiene (v1.3 — bot co-author trailers)
+
+- **FR-018**: A commitlint configuration MUST exist at the repo root that extends `@commitlint/config-conventional` (enforcing the Constitution's Conventional Commits rule) AND adds a custom rule forbidding bot co-author trailers. The custom rule MUST reject any commit message containing a `Co-authored-by:` trailer whose name matches Copilot or Claude (case-insensitive, any casing/version suffix, e.g. `Claude Opus 4.5`). Rationale: GitHub's squash-merge preserves co-author trailers from branch commits, which put bot accounts on the repository's Contributors list.
+- **FR-019**: A husky `commit-msg` hook MUST run commitlint on every local commit (via `pnpm exec commitlint --edit "$1"`), so a commit with a non-conventional message or a bot co-author trailer is rejected at commit time.
+- **FR-020**: A CI workflow MUST lint the PR title with commitlint on every pull request to `main`. The PR title becomes the squash-merge commit subject, so it must satisfy the same rules as a local commit header.
+- **FR-021**: The same CI workflow MUST lint every non-merge commit in the PR range (`base.sha..head.sha`) with commitlint, catching bot co-author trailers in branch commits before GitHub's squash-merge can preserve them into `main`. Merge commits MUST be excluded from the lint (their messages are not conventional).
+- **FR-022**: The commitlint configuration MUST be a TypeScript file (`commitlint.config.ts`) consistent with the repo's TS-first tooling, and the dependencies (`@commitlint/cli`, `@commitlint/config-conventional`) MUST be pinned in the pnpm catalog and root `devDependencies`.
+- **FR-023**: The commitlint CI workflow MUST follow the existing hardening patterns: SHA-pinned actions with version comments, `concurrency` group, `workflow_dispatch`, and `contents: read` permissions. It MUST NOT be path-gated — commit hygiene applies to every PR regardless of which files changed.
+
 ## Non-Functional Requirements
 
 ### Original (v1.0)
@@ -96,6 +105,11 @@ Beyond trigger correctness, the coverage-gate infrastructure has systemic integr
 - **NFR-004**: Coverage gate changes must not increase CI wall-clock time by more than 60 seconds per new job. The `design-coverage` and `version-coverage` jobs should run in parallel with existing jobs, not sequentially.
 - **NFR-005**: The orphaned-config guard must complete in under 10 seconds (it is a grep/find operation, not a test suite).
 - **NFR-006**: All coverage threshold assertions must use Vitest's built-in `coverage.thresholds` (already in place per config) — no separate threshold-checking scripts.
+
+### Commit-Message Hygiene (v1.3)
+
+- **NFR-007**: The commitlint CI workflow MUST complete in under 60 seconds (it is a lint pass, not a test suite).
+- **NFR-008**: The commitlint CI workflow MUST NOT require write permissions or publish artifacts — `contents: read` only.
 
 ## Acceptance Criteria
 
@@ -123,6 +137,14 @@ Beyond trigger correctness, the coverage-gate infrastructure has systemic integr
 - [ ] **AC-017**: The test-suite reduction targets are met: console 40–50% fewer tests, matchmaking/networking/design 30–40% fewer, engine/terrain/fog 20–30% fewer, with coverage ≥80% on every metric in every package.
 - [ ] **AC-018**: The console CI job completes in under 4 minutes with the three-way split (`console-test` / `console-e2e` / `console-coverage`) and Playwright caching in place.
 
+### Commit-Message Hygiene (v1.3)
+
+- [ ] **AC-019**: `pnpm exec commitlint` passes on a conventional commit message and fails on a non-conventional one (e.g. `fixup! foo` or a missing type).
+- [ ] **AC-020**: commitlint fails on a message containing `Co-authored-by: Copilot <...>` or `Co-authored-by: Claude <...>` (any casing, any version suffix).
+- [ ] **AC-021**: `.husky/commit-msg` exists and runs commitlint; a local commit with a bot co-author trailer is rejected.
+- [ ] **AC-022**: The `commitlint.yml` CI workflow lints the PR title and every non-merge PR commit; a PR whose title or any branch commit contains a bot co-author trailer fails CI.
+- [ ] **AC-023**: The commitlint workflow runs on every PR to `main` (not path-gated), completes in under 60 seconds, and uses SHA-pinned actions with version comments.
+
 ## Out of Scope
 
 The following are explicitly **not** part of this feature:
@@ -146,6 +168,7 @@ The following are explicitly **not** part of this feature:
 
 | Version | Date       | Change                                                                                          | Reason                                             |
 |---------|------------|-------------------------------------------------------------------------------------------------|----------------------------------------------------|
+| v1.3    | 2026-09-14 | Added FR-018–FR-023, NFR-007–NFR-008, AC-019–AC-023 (commit-message hygiene: commitlint in husky + CI) | Bot co-author trailers (Copilot/Claude) reached main via squash-merge and polluted the Contributors list |
 | v1.2    | 2026-09-12 | Added FR-013–FR-017 (spec-consolidation integrity), FR-001–FR-026 of absorbed feature 016 (test-suite integrity), AC-014–AC-018; absorbed feature 016 (issue #139) | Spec consolidation + test-suite reduction (issue #139) |
 | v1.1    | 2026-09-11 | Added FR-007–FR-012, NFR-004–NFR-006, AC-007–AC-013, expanded Problem Statement and US5–US6     | Coverage-gate integrity gaps (issue #131, I-26)     |
 | v1.0    | 2026-08-21 | Initial spec: FR-001–FR-006, NFR-001–NFR-003, AC-001–AC-006                                    | CI trigger/hardening baseline (issue #3)            |
