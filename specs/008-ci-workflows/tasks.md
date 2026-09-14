@@ -279,3 +279,42 @@ Depends on all previous waves.
   - `specs/008-ci-workflows/spec.md`: flip status to `Implemented`
   - `specs/016-test-suite-cleanup/spec.md`: flip status to `Implemented`
   - Commit: `docs(specs): mark 008 v1.1 and 016 v1.1 as Implemented`
+
+---
+
+## v1.3 — Commit-Message Hygiene (commitlint)
+
+Depends on: spec v1.3 amendment (FR-018–FR-023).
+
+- [ ] T-026: **Add commitlint dependencies**
+  - Add `@commitlint/cli: ^21.2.2` and `@commitlint/config-conventional: ^21.2.2` to the `catalog` in `pnpm-workspace.yaml`
+  - Add both to root `devDependencies` in `package.json` (catalog: references)
+  - Run `pnpm install` to update the lockfile
+
+- [ ] T-027: **Create `commitlint.config.ts`** (FR-018, FR-022)
+  - `extends: ['@commitlint/config-conventional']`
+  - Plugin rule `no-bot-coauthors`: reject `Co-authored-by:` trailers naming Copilot or Claude (case-insensitive, any casing/version suffix), matched against `parsed.raw`
+  - Wire rule as `'no-bot-coauthors': [2, 'always']`
+  - `export default` (ESM repo)
+
+- [ ] T-028: **Add `.husky/commit-msg` hook** (FR-019)
+  - Content: `pnpm exec commitlint --edit "$1"`
+  - Executable bit set (husky v9 requires it)
+
+- [ ] T-029: **Create `.github/workflows/commitlint.yml`** (FR-020, FR-021, FR-023)
+  - Trigger: `pull_request` (branches: [main]) + `workflow_dispatch`; NOT path-gated
+  - `concurrency` group + `contents: read` permissions
+  - Job `lint-pr-title`: `echo "$PR_TITLE" | pnpm exec commitlint`
+  - Job `lint-pr-commits`: `git rev-list --no-merges "$BASE..$HEAD"` loop, `git show -s --format=%B | pnpm exec commitlint` per commit, `::error::` annotations on failure
+  - SHA-pinned actions with version comments (checkout v7.0.1, pnpm/setup v2.1.0 — same pins as spec-guard.yml)
+
+- [ ] T-030: **Update AGENTS.md workflow rules**
+  - Add a bullet documenting commitlint enforcement (conventional commits + no bot co-author trailers) in the Workflow rules section
+
+- [ ] T-031: **Verify locally** (AC-019, AC-020, AC-021)
+  - Good message passes; non-conventional fails; Copilot trailer fails; Claude trailer fails
+  - `pnpm verify:changed` passes
+
+- [ ] T-032: **Update spec status + commit**
+  - Verify spec 008 v1.3 change log entry present
+  - Commit: `feat(ci): enforce commit hygiene with commitlint in husky and CI (spec 008 v1.3)`

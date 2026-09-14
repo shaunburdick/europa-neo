@@ -1,0 +1,73 @@
+# Commit Message Hygiene — lints PR titles and PR commits with commitlint.
+#
+# Why: GitHub's squash-merge preserves `Co-authored-by:` trailers from branch
+# commits into the squash commit, which puts bot accounts (Copilot/Claude) on
+# the repository's Contributors list. The PR title becomes the squash commit
+# subject. Linting both here blocks the server-side path before merge; the
+# husky commit-msg hook covers the local path.
+#
+# Not path-gated: commit hygiene applies to every PR regardless of which files
+# changed. Both jobs are fast lint passes (<60s), not test suites.
+name: Commit Message Hygiene
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint-pr-title:
+    name: Lint PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Lint PR title with commitlint
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$PR_TITLE" | pnpm exec commitlint
+
+  lint-pr-commits:
+    name: Lint PR commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: 'node@22'
+          cache: true
+          require-lockfile: true
+
+      - name: Lint every non-merge commit in the PR range
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS= read -r sha; do
+            if ! git show -s --format=%B "$sha" | pnpm exec commitlint; then
+              echo "::error::Commit $sha failed commitlint (conventional format or bot co-author trailer)"
+              failed=1
+            fi
+          done < <(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA")
+          exit "$failed"

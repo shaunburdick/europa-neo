@@ -150,3 +150,46 @@
 | IV. Specs as Documentation | Both specs amended in the same change set (v1.1) |
 | V. Simplicity | Orphaned-config guard is a simple grep loop; golden fixture replacement is one hash comparison |
 | VI. Accessibility | No a11y tests removed; a11y glob fix ensures ALL a11y tests are measured |
+
+---
+
+## v1.3 — Commit-Message Hygiene (commitlint in husky + CI)
+
+**Date**: 2026-09-14
+**Branch**: `008-commitlint-git-hygiene`
+**Trigger**: Bot co-author trailers (`Co-authored-by: Copilot`, `Co-authored-by: Claude`) reached `main` via GitHub's squash-merge, which preserves co-author trailers from branch commits — putting bot accounts on the repository's Contributors list. History rewrite removed them; this change prevents recurrence.
+
+### Technical Context
+
+- **Root cause**: The trailer entered `main` through a server-side squash merge (PR #159), NOT a local commit. A local `commit-msg` hook alone cannot prevent this — the squash commit is created on GitHub's servers.
+- **Two-layer defense**:
+  1. **Local** (husky `commit-msg`): rejects bad messages at commit time on any machine.
+  2. **CI** (`commitlint.yml` on every PR to `main`): lints the PR title (which becomes the squash commit subject) and every non-merge commit in the PR range (whose trailers GitHub preserves into the squash commit). This blocks the server-side path before merge.
+- **Tooling**: commitlint `@commitlint/cli` + `@commitlint/config-conventional` v21.2.2 (latest stable, verified via npm registry 2026-09-14). commitlint v21 loads `commitlint.config.ts` natively (jiti-based TS loader). The repo is ESM (`"type": "module"`), so the config uses `export default`.
+- **CI install pattern**: `pnpm/setup@703c52...` (v2.1.0) runs `pnpm install` by default (`install: true` input) — verified from the action's `action.yml`. No explicit install step needed, matching all existing workflows.
+
+### Architecture Decisions
+
+**AD-003: Custom commitlint rule forbids bot co-author trailers by name, not by email domain**
+
+- **Decision**: A plugin rule `no-bot-coauthors` matches `Co-authored-by:\s*(?:GitHub\s+)?(?:Copilot|Claude)\b` case-insensitively against the raw message (`parsed.raw`).
+- **Rationale**: The actual trailers used `Copilot <223556219+Copilot@users.noreply.github.com>` and multiple Claude variants (`noreply@anthropic.com`, Opus-suffixed names). Matching the name covers all email domains and future variants; matching the full raw message (not just `parsed.footer`) also catches trailers after GitHub's `---------` squash separator. Human co-authors remain allowed — only bot names are forbidden.
+
+**AD-004: CI lints every non-merge PR commit individually, not via `commitlint --from/--to`**
+
+- **Decision**: The `lint-pr-commits` job loops `git rev-list --no-merges "$BASE..$HEAD"` and pipes each commit's message (`git show -s --format=%B`) into `pnpm exec commitlint`.
+- **Rationale**: `commitlint --from X --to Y` includes merge commits, whose messages ("Merge branch 'main' into …") are not conventional and would fail spuriously. The `--no-merges` loop lints exactly the commits whose trailers GitHub preserves into the squash commit. The PR title is linted separately (it becomes the squash subject).
+
+**AD-005: No commitlint in the pre-push hook**
+
+- **Decision**: The existing `.husky/pre-push` (which runs `pnpm verify:changed`) is left unchanged; commitlint lives in `commit-msg` (local) and CI (server-side).
+- **Rationale**: The `commit-msg` hook already covers every locally-created commit; the CI job covers the server-side squash path. A pre-push range-lint loop would duplicate both with added complexity (empty commits, new-branch ranges) — Constitution V (Simplicity Over Cleverness).
+
+### Local Verification (v1.3)
+
+1. `pnpm exec commitlint --edit HEAD` — passes on a conventional message
+2. `echo "feat(x): bad trailer" | pnpm exec commitlint` — passes (no trailer)
+3. `printf 'feat(x): bot trailer\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n' | pnpm exec commitlint` — FAILS (AC-020)
+4. `printf 'feat(x): claude trailer\n\nCo-authored-by: Claude <noreply@anthropic.com>\n' | pnpm exec commitlint` — FAILS (AC-020)
+5. `echo "not conventional" | pnpm exec commitlint` — FAILS (AC-019)
+6. `pnpm verify:changed` — full targeted suite passes

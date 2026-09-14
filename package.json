@@ -32,6 +32,9 @@
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "biome-config-shaunburdick": "catalog:",
+        "@commitlint/cli": "catalog:",
+        "@commitlint/config-conventional": "catalog:",
+        "@commitlint/types": "catalog:",
         "@vitest/coverage-v8": "^4.1.11",
         "typescript": "catalog:",
         "husky": "catalog:",
