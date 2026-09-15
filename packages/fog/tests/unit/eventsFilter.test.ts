@@ -519,7 +519,7 @@ describe('filterTickEvents', () => {
             expect(result.errors).toHaveLength(1);
         });
 
-        it('includes error with invalid_percent variant (no cell refs)', () => {
+        it('includes error with invalid_percent variant when order cell is visible', () => {
             const order = {
                 kind: 'setReserves' as const,
                 player: P1,
@@ -532,6 +532,21 @@ describe('filterTickEvents', () => {
             });
             const result = filterTickEvents(world, VISIBLE_CELLS, events, false);
             expect(result.errors).toHaveLength(1);
+        });
+
+        it('excludes error with non-cell reason when order cell is outside horizon', () => {
+            const order = {
+                kind: 'setPipe' as const,
+                player: P1,
+                cell: { x: 0, y: 0 },
+                direction: 'north' as const,
+            };
+            const reason = { kind: 'invalid_percent' as const, percent: 55 };
+            const events = eventsWith({
+                errors: [{ order, reason }],
+            });
+            const result = filterTickEvents(world, VISIBLE_CELLS, events, false);
+            expect(result.errors).toHaveLength(0);
         });
 
         it('includes error with unknown_player variant (no cell refs)', () => {

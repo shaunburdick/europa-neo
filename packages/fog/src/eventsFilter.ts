@@ -12,8 +12,9 @@
  *       (a) `record.order.player === player`, AND
  *       (b) ALL cell coordinates referenced by the order are visible.
  *   - `errors` records are included only when:
- *       ALL cell coordinates referenced by the validation error are
- *       visible (non-cell-carrying variants are always included).
+ *       ALL cell coordinates referenced by BOTH the order and the
+ *       validation error are visible (non-cell-carrying error variants
+ *       still require their order's cells to be visible).
  *   - `eliminations` pass through unfiltered (player-level, not
  *     bound to a specific cell).
  *   - `spectator === true` short-circuits: events are returned
@@ -140,8 +141,9 @@ function allCoordsVisible(coords: readonly Coord[], visible: Set<number>, width:
  * are visible (FR-012).
  *
  * `errors` records are included only when all cell coordinates
- * referenced by the validation error are visible; non-cell-carrying
- * error variants are always included (FR-012).
+ * referenced by BOTH the order and the validation error are visible;
+ * non-cell-carrying error variants still require their order's cells
+ * to be visible (FR-012).
  *
  * `eliminations` pass through unfiltered (player-level, not bound
  * to a specific cell).
@@ -205,10 +207,13 @@ export function filterTickEvents(
         return allCoordsVisible(orderCoords(record.order), visible, width);
     });
 
-    // FR-012: errors — include when all referenced cells are visible
-    // (non-cell-carrying variants always pass).
-    const errors = events.errors.filter(({ reason }) => {
-        const coords = validationErrorCoords(reason);
+    // FR-012: errors — include when all referenced cells from BOTH the
+    // order and the validation error reason are visible. Non-cell-carrying
+    // error variants produce no coords from `reason`, but the `order`
+    // itself may still reference out-of-horizon cells (e.g. setPipe with
+    // a cell outside the visible set).
+    const errors = events.errors.filter(({ order, reason }) => {
+        const coords = [...orderCoords(order), ...validationErrorCoords(reason)];
         if (coords.length === 0) {
             return true;
         }
