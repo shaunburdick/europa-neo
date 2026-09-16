@@ -16,8 +16,8 @@ file disagree, this file is right — fix the code and land both in the same com
 > **How to bump**: version is lockstep per spec 009 FR-009/FR-010 and spec 012 FR-020. Bump
 > `packages/version/src/app-version.ts` (`APP_VERSION`), every `package.json#version` (root + each
 > `packages/*/package.json`), and this header in one `chore(release): vX.Y.Z` commit — the same
-> chore convention `version:check` / `version-drift.yml` enforces. The drift regex is
-> `/Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/` (research R8); CI fails naming every disagreeing surface.
+> chore convention `version:check` / `version-drift.yml` enforces. The drift matcher requires the
+> visible quoted Markdown header `> **Version**: `X.Y.Z``; CI fails naming every disagreeing surface.
 
 ---
 

@@ -48,7 +48,8 @@
  *   naming the file — rather than a thrown error, so one bad file cannot
  *   hide the state of the others (FR-009: report everything).
  * - A missing `<root>/packages/` directory yields zero workspace
- *   observations (nothing there is guarded).
+ *   observations (nothing there is guarded). Other directory-read failures
+ *   are thrown so infrastructure errors cannot be mistaken for a clean check.
  * - A `packages/<dir>/` directory WITHOUT a `package.json` is skipped: it
  *   is not a workspace package, so FR-009 does not guard it. Other read
  *   failures on an existing workspace `package.json` (e.g., it is a
@@ -101,12 +102,12 @@ export const MANUAL_LAYOUT_FOOTER_PATTERN = /<span>v(\d+\.\d+\.\d+)<\/span>/m;
  * `DESIGN.md` version header line (spec 012 FR-020 / contracts §5):
  * `> **Version**: `0.1.0``. Capture group 1 is the raw semver WITHOUT the
  * display backticks, ready for direct equality comparison against
- * `APP_VERSION`. The pattern tolerates the quoted or unquoted form and also
- * matches the `<!-- Version: 0.1.0 -->` HTML-comment fallback present in the
- * file, so either marker pins the value. The regex is the canonical G-06
- * marker defined in `specs/012-design-system/contracts/design-system.contract.md`.
+ * `APP_VERSION`. The pattern intentionally requires the visible quoted
+ * Markdown header and ignores HTML-comment fallbacks or unrelated prose.
+ * The regex is the canonical G-06 marker defined in
+ * `specs/012-design-system/contracts/design-system.contract.md`.
  */
-export const DESIGN_VERSION_PATTERN = /Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/m;
+export const DESIGN_VERSION_PATTERN = /^>\s*\*\*Version\*\*:\s*`(\d+\.\d+\.\d+)`/m;
 
 /** The only field this package cares about in a parsed `package.json`. */
 interface PackageJsonShape {
@@ -199,15 +200,18 @@ async function readSurface(
  *
  * @param packagesDir - Absolute path to the `packages/` directory.
  * @returns One observation per workspace package (possibly zero).
- * @throws Only for genuinely unexpected `readdir` failures (absence is handled).
+ * @throws For genuinely unexpected `readdir` failures (absence is handled).
  */
 async function gatherWorkspacePackages(packagesDir: string): Promise<VersionSource[]> {
     let entries: Awaited<ReturnType<typeof readdir>>;
     try {
         entries = await readdir(packagesDir, { withFileTypes: true });
-    } catch {
-        // No packages/ directory: nothing there is guarded (module docs).
-        return [];
+    } catch (error) {
+        if (isEnoent(error)) {
+            // No packages/ directory: nothing there is guarded (module docs).
+            return [];
+        }
+        throw error;
     }
 
     const packageDirs = entries

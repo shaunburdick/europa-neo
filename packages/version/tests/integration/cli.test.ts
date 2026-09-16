@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
     CONSTANT_SOURCE_FILE,
+    DESIGN_VERSION_PATTERN,
     formatMismatchLine,
     gatherVersionSources,
     MANUAL_INDEX_FOOTER_PATTERN,
@@ -401,6 +402,14 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
         expect(sources.filter((source) => source.kind === 'workspace-package')).toEqual([]);
     });
 
+    it('throws for a non-ENOENT packages directory read failure', async () => {
+        const root = await trackedFixtureRoot('invalid-packages');
+        await mkdir(root, { recursive: true });
+        await writeFile(path.join(root, 'packages'), 'not a directory\n');
+
+        await expect(gatherVersionSources(root, APP_VERSION)).rejects.toMatchObject({ code: 'ENOTDIR' });
+    });
+
     it('skips package-less directories but reports unreadable workspace package.json files as null', async () => {
         const root = await trackedFixtureRoot('weird-packages');
         await mkdir(path.join(root, 'packages', 'plain'), { recursive: true });
@@ -447,6 +456,26 @@ describe('gatherVersionSources extraction details (in-process; feeds coverage)',
         expect(afterRemoval.find((source) => source.kind === 'readme')).toMatchObject({ version: null });
         expect(afterRemoval.find((source) => source.kind === 'manual-index')).toMatchObject({ version: null });
         expect(afterRemoval.find((source) => source.kind === 'manual-layout')).toMatchObject({ version: null });
+    });
+
+    it('DESIGN.md extraction requires the visible version header', async () => {
+        expect(DESIGN_VERSION_PATTERN.exec('Version: `9.9.9`')?.[1]).toBeUndefined();
+        expect(DESIGN_VERSION_PATTERN.exec('> **Version**: `0.2.0` <!-- Version: 9.9.9 -->')?.[1]).toBe('0.2.0');
+        expect(DESIGN_VERSION_PATTERN.exec('> **Version**: 9.9.9')?.[1]).toBeUndefined();
+    });
+
+    it('the visible DESIGN.md version wins over a current HTML comment', async () => {
+        const root = await trackedFixtureRoot('design-header-drift');
+        await seedAgreeingTree(root, APP_VERSION);
+        await writeFile(
+            path.join(root, 'DESIGN.md'),
+            `# Fixture design system\n\n> **Version**: \`0.0.0\` <!-- Version: ${APP_VERSION} -->\n`,
+        );
+
+        const report = checkVersionDrift(await gatherVersionSources(root, APP_VERSION));
+
+        expect(report.ok).toBe(false);
+        expect(report.mismatches).toContainEqual({ file: 'DESIGN.md', expected: APP_VERSION, actual: '0.0.0' });
     });
 
     it('the constant observation carries the caller-supplied version under the fixed label', async () => {
