@@ -1,12 +1,38 @@
 # Implementation Plan: One-Command Self-Host Packaging (Docker) — Single-Port Deployment
 
-**Branch**: `issue-5-docker-support` | **Date**: 2026-08-26 | **Spec**: [spec.md](./spec.md) v1.0 + product-owner gate 2026-08-26 (Node 24 LTS)  
+**Branch**: `016-docker-runtime-hardening` | **Date**: 2026-09-16 | **Spec**: [spec.md](./spec.md) v1.4 runtime-hardening CI conformance
 **Dependencies**: 004 networking, 005 console, 006 matchmaking, 010 lobby, 009 versioning  
 **Research**: [research.md](./research.md) | **Data Model**: [data-model.md](./data-model.md) | **Contracts**: [contracts/](./contracts/) | **Quickstart**: [quickstart.md](./quickstart.md)
 
 ## Summary
 
 Collapse the self-host deployment from two local servers (`ws://:8080` + `http://:5173`) to ONE `http.Server` on `HOST_PORT` (default 8080) serving HTTP (`dist/` + `/version` + SPA fallback) and WebSocket upgrades from the same port, package it as a reproducible multi-stage Docker image on the latest LTS Node base (`node:24-slim`, confirmed Active LTS 2025-10-28→2028-04-30), add a one-command `docker-compose.yml` (single port mapping + 3-env passthrough), a `.dockerignore`, a GHCR publish workflow (`:edge` on `main`, `:vX.Y.Z` on release tags), and migrate the console client to same-origin WebSocket fallback with hard errors for removed two-port flags. No wire-protocol or game-logic change.
+
+### v1.3 security-only amendment
+
+Replace the runtime workspace install with an explicit artifact allowlist. The
+build creates one standalone ESM host bundle containing its workspace and `ws`
+closure. The final stage copies only the SPA `index.html`, SPA assets, and host
+bundle; runs direct `node` as the base image's `node` user; and ships no package
+manager, `tsx`, `node_modules`, source, declarations, maps, tests, or coverage.
+Preserve all existing runtime behavior and smoke assertions, including per-format
+brand MIME checks. No Windows compatibility, UI, design, manual, onboarding, or
+workflow behavior changes are in scope.
+
+### v1.4 CI conformance amendment
+
+The Docker workflow's validation job checks out source only, but Docker smoke
+uses the design brand manifest to assert every generated runtime asset's MIME
+type. Because generated `dist/` is intentionally ignored, the job must set up
+Node 24, use `pnpm install --frozen-lockfile`, and build only `@europa/design`
+before the smoke test. This is a test prerequisite, not an image input: the
+Dockerfile remains self-contained and continues to build its own artifacts.
+
+The artifact-only final image intentionally has no `packages/version` runtime
+module. Its supported release identity check is `GET /version`; update the image
+contract accordingly. Normalize stale `node:22-slim` wording to the approved,
+pinned `node:24-slim` decision in `research.md`. These documentation and CI
+repairs are required for PR readiness and do not alter application behavior.
 
 ## Technical Context
 

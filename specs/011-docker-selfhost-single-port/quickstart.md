@@ -1,6 +1,6 @@
 # Quickstart: One-Command Self-Host Packaging (Docker) — Single-Port Deployment
 
-**Branch**: `issue-5-docker-support` | **Spec**: [spec.md](./spec.md) v1.0 + Node 24 gate | **Plan**: [plan.md](./plan.md)
+**Branch**: `016-docker-runtime-hardening` | **Spec**: [spec.md](./spec.md) v1.3 runtime image hardening | **Plan**: [plan.md](./plan.md)
 
 All commands assume a fresh clone on a host with Docker Engine + Compose v2 (and with no Node toolchain for Q-D01). Every Q-D step maps to a spec success criterion.
 
@@ -149,14 +149,23 @@ Validates: FR-009 (single-server fixtures), NFR-005 (no protocol change, determi
 ```bash
 docker build -t europa:size-check .
 docker images europa:size-check --format '{{.Repository}}:{{.Tag}} {{.Size}}'  # record compressed size; well under 1 GB (expect 180–420 MB uncompressed on amd64)
-docker run --rm europa:size-check node -e "console.log(JSON.stringify(require('./packages/version/src/app-version').APP_VERSION))" # APP_VERSION ping
+docker image inspect europa:size-check --format 'user={{.Config.User}} cmd={{json .Config.Cmd}}'  # node + direct host.js
+docker run --rm --entrypoint sh europa:size-check -eu -c '
+  test "$(id -u)" -ne 0
+  for command in corepack npm npx pnpm pnpx tsx; do ! command -v "$command"; done
+  test ! -e /app/node_modules
+  test -s /app/packages/console/dist/host/host.js
+' # artifact-only non-root boundary
+docker run --rm -p 8080:8080 -d --name europa-check europa:size-check
+sleep 3 && curl -s http://localhost:8080/version | jq . # APP_VERSION ping
+docker rm -f europa-check
 
 # Rebuild determinism:
 docker build -t europa:size-check2 . && docker run --rm europa:size-check sha256sum /app/packages/console/dist/index.html | head
 # Compare dist payload hash between two builds from same commit — MUST match.
 ```
 
-Validates: NFR-002 (runtime stage minimal — no devDeps/source/tests), NFR-003 (byte-equivalent `dist/` + `/version` on rebuild), SC-008 (size recorded and under stated bound).
+Validates: NFR-002 (artifact-only, non-root runtime with no package tooling/devDeps/source/tests), NFR-003 (byte-equivalent `dist/` + `/version` on rebuild), SC-008 (size recorded and under stated bound).
 
 ## Other gates (run before every commit)
 

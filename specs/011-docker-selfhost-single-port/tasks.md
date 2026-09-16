@@ -139,6 +139,66 @@
 
 ---
 
+## Phase 9: Runtime Image Hardening (v1.3 security-only amendment)
+
+**Purpose**: Replace the final-stage workspace install with a verified artifact
+allowlist, without changing application behavior, Docker topology, publishing, or
+platform-specific compatibility.
+
+- [x] T038 Add the console production-host bundle configuration and build step:
+  emit a non-splitting Node ESM bundle into `packages/console/dist/host/` after
+  Vite assets are built; include `@europa/*` and `ws`; omit declarations and
+  source maps; preserve the existing native `tsx scripts/host.ts` developer path.
+- [x] T039 Adapt host package-root resolution so both source execution and the
+  compiled `dist/host/host.js` locate the sibling SPA `dist/` directory; add
+  focused tests for both launch layouts where practical.
+- [x] T040 Change `Dockerfile` final stage to stage and copy only console
+  `index.html`, `assets/`, and host bundle; remove runtime installation and start
+  direct Node as `USER node`. Do not change image base, environment contract,
+  exposed port, compose, or publishing workflow.
+- [x] T041 Extend `scripts/docker-smoke.sh` to assert the non-root runtime and
+  absence of package tooling, source, declarations, source maps, tests, and
+  coverage, while retaining every pre-existing HTTP, SPA, brand MIME, asset-404,
+  WebSocket, and single-port assertion.
+- [x] T042 Update the Docker image contract and quickstart security checks to
+  match the compiled-host artifact boundary; do not modify player manual,
+  onboarding documents, UI, design tooling, or Windows-specific logic.
+- [x] T043 Verify the isolated host bundle, Docker build, compose config, Docker
+  smoke, direct `/version` and WebSocket behavior, package tests, lint, typecheck,
+  formatting, and the repository verification gate. Record the image size and
+  final-image inspection results.
+
+**Checkpoint**: The final image starts direct Node as UID 1000, retains the
+single-port HTTP/WebSocket behavior, and contains only the documented allowlisted
+application artifacts.
+
+---
+
+## Phase 10: PR-Readiness Conformance Repair (v1.4)
+
+**Purpose**: Repair review-identified Docker CI and documentation drift without
+changing the hardened runtime boundary or application behavior.
+
+- [x] T044 Make the Docker validation job self-sufficient from a clean checkout:
+  set up Node 24, run a frozen install, and build only `@europa/design` before
+  `scripts/docker-smoke.sh` reads its generated brand manifest. Document that
+  this is a smoke-test prerequisite and not a Docker runtime dependency.
+- [x] T045 Replace the stale runtime `packages/version` verification command in
+  the Docker image contract with the supported running-container `/version`
+  check; explain why the workspace package is intentionally absent.
+- [x] T046 Normalize remaining Spec 011 Node-base wording to the approved pinned
+  `node:24-slim` decision in `research.md`, preserving Node `>=22` only where it
+  describes the non-container development engine floor.
+- [x] T047 Verify workflow YAML, frozen installation, Docker smoke from a
+  clean-artifact state, full `pnpm verify`, and final diff/contract review before
+  creating the local PR-preparation checkpoint commit.
+
+**Checkpoint**: Docker CI no longer depends on ignored checkout artifacts, the
+image contract has a valid artifact-only release probe, and all Docker base-image
+references agree on Node 24.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase dependencies

@@ -60,8 +60,18 @@ import {
 } from './host-config';
 import { handleVersionRoute } from './version-route';
 
-/** Package root (this script lives in `<root>/scripts/`). */
-const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
+/**
+ * Locate the console package for both supported entry layouts: source
+ * (`scripts/host.ts`) for local development and `dist/host/host.js` for the
+ * container's standalone production bundle.
+ */
+function resolvePackageRoot(entryDirectory: string): string {
+    const sourceRoot = path.resolve(entryDirectory, '..');
+    return existsSync(path.join(sourceRoot, 'package.json')) ? sourceRoot : path.resolve(entryDirectory, '..', '..');
+}
+
+/** Console package root in either the source or bundled host layout. */
+const PACKAGE_ROOT = resolvePackageRoot(import.meta.dirname);
 
 /** Built console SPA served to players' browsers. */
 const DIST_DIR = path.join(PACKAGE_ROOT, 'dist');

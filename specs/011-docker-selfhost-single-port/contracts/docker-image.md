@@ -34,27 +34,28 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST_PORT=8080
 
-COPY --from=build /app/packages/console/dist  ./packages/console/dist
-COPY --from=build /app/packages/console/scripts ./packages/console/scripts
-COPY --from=build /app/packages ./packages
-# Runtime prod deps (prefer pnpm --prod --frozen-lockfile inside runtime stage for exact fidelity)
-RUN corepack enable && pnpm install --prod --frozen-lockfile
+COPY --from=build --chown=node:node /runtime/console ./packages/console/dist
+USER node
 
 EXPOSE 8080
-CMD ["pnpm", "host"]
+CMD ["node", "packages/console/dist/host/host.js"]
 ```
 
 - Base MUST be the same `node:24-slim@sha256:` as build stage.
-- Runtime copies built artifacts + production `node_modules` ONLY. It MUST NOT contain devDependencies, test dirs (`tests/`, `coverage/`, `.playwright`), source TypeScript not transpiled, `.git`, `docs`, `specs`, IDE files.
+- Runtime copies an explicit allowlist: console `index.html`, console `assets/`, and compiled `host/host.js`. Its host bundle contains the workspace and `ws` runtime closure, so the final image has no `node_modules` or package-manager/tooling binaries (`npm`, `npx`, pnpm, Corepack, pnpx, or `tsx`). It MUST NOT contain devDependencies, test dirs (`tests/`, `coverage/`, `.playwright`), source TypeScript, declarations, source maps, `.git`, `docs`, `specs`, or IDE files.
 - `EXPOSE 8080` — single port (variable at `docker run` via `HOST_PORT`, but Dockerfile declares the default).
-- `CMD` runs the single-port host (`pnpm host` → `tsx scripts/host.ts` → one `http.Server` on `HOST_PORT`).
+- `CMD` runs the compiled single-port host directly through Node (`node packages/console/dist/host/host.js` → one `http.Server` on `HOST_PORT`).
+- Runtime MUST execute as the image's unprivileged `node` user.
 - Image MUST report the correct release identity:
 
   ```bash
-  docker run --rm IMAGE node -e "require('./packages/version/dist/app-version').APP_VERSION" | grep -q 0.1.0
   curl -s http://localhost:8080/version | jq -e '.appVersion == "0.1.0" and .protocolVersion != null'
   # WebSocket helloAck.appVersion also equals APP_VERSION (US4 AC3 is checked by compose-level test)
   ```
+
+  The final image deliberately excludes `packages/version` and all workspace
+  source. `/version` is therefore the supported release-identity probe; do not
+  add a runtime workspace import merely to inspect the version.
 
 ### Reproducibility
 
