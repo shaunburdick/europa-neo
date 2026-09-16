@@ -223,7 +223,7 @@ The living contract at the repo root `DESIGN.md` carries a machine-readable vers
 > **Version**: `0.1.0`
 ```
 
-* The drift helper extracts it with `/Version:\s*`?(?<v>\d+\.\d+\.\d+)`?/` — quoted and unquoted both match, but the canonical formatting above is required to pass `biome format:check`.
+* The drift helper extracts the visible marker with `/^>\s*\*\*Version\*\*:\s*`(\d+\.\d+\.\d+)`/m`; only the canonical quoted Markdown header is guarded, so unrelated prose or HTML comments cannot satisfy the check.
 * The value must equal `packages/design/package.json#version` equals `packages/version/src/app-version.ts` `APP_VERSION` equals every `packages/*/package.json#version` at HEAD (INV-D5 / G-06). `pnpm version:check` (extended to read `DESIGN.md` + `packages/design/package.json`) fails naming every disagreeing file, per spec 009's existing message convention.
 * `packages/design/README.md` is a short prose file that states "The authoritative design contract is `DESIGN.md` at the repo root." and **contains no competing token/component tables** (FR-017 last sentence). Presence of a second table is a drift failure.
 
@@ -266,4 +266,3 @@ A missing enumeration here is a drift source — the contract's "no orphan" inva
 * Light-theme variant — variable names are frozen; values are the variable part. A later `html[data-theme="light"] { --europa-color-page-bg: … }` block is additive and does not rename selectors (spec FR-019). No light stylesheet ships in this feature.
 * Storybook / visual-regression service — verification is via computed-style assertions + hash checks + human QA (spec Out of Scope).
 * Theme engine / CSS-in-JS / runtime theming — `dist/design.css` is static at build/serve time.
-
