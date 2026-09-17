@@ -1,6 +1,6 @@
 # Implementation Plan: One-Command Self-Host Packaging (Docker) — Single-Port Deployment
 
-**Branch**: `016-docker-runtime-hardening` | **Date**: 2026-09-16 | **Spec**: [spec.md](./spec.md) v1.4 runtime-hardening CI conformance
+**Branch**: `016-docker-runtime-hardening` | **Date**: 2026-09-16 | **Spec**: [spec.md](./spec.md) v1.6 deferred runtime research decisions
 **Dependencies**: 004 networking, 005 console, 006 matchmaking, 010 lobby, 009 versioning  
 **Research**: [research.md](./research.md) | **Data Model**: [data-model.md](./data-model.md) | **Contracts**: [contracts/](./contracts/) | **Quickstart**: [quickstart.md](./quickstart.md)
 
@@ -164,6 +164,10 @@ COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
+# The console build orders its outputs as Vite SPA, generated assets,
+# standalone `build:host` bundle, then final TypeScript emit. `build:host`
+# writes `dist/host/host.js` without cleaning the completed SPA tree.
+
 # Stage 2 — runtime (minimal)
 FROM node:24-slim@sha256:<pinned> AS runtime # 24.x — latest LTS Aug 2026
 WORKDIR /app
@@ -183,6 +187,11 @@ CMD ["pnpm", "host"]
 ```
 
 *Exact `COPY --from=build` list is tuned at implementation to include `packages/*/dist/` plus `packages/version` and any asset `packages/console/build-assets.ts` outputs. The invariant is runtime copies built artifacts + production node_modules only; source TypeScript not shipped.*
+
+The host recognizes two entry layouts only: native source execution resolves
+from `<package-root>/scripts`, while the bundled image entry resolves from
+`<package-root>/dist/host` and requires sibling `dist/index.html`. An invalid
+layout throws an actionable startup error rather than guessing a package root.
 
 **`.dockerignore` (repo root)**:
 
@@ -265,6 +274,10 @@ Default compose bind is `0.0.0.0:8080` (wide because docker's port mapping is th
 | Build gate | `docker build` + `docker compose config -q` | Dockerfile syntax, compose spec, `EXPOSE` count. |
 | Manual gate | Per quickstart.md Q-D01..Q-D08 | Fresh-clone compose → two-seat lobby flow; same-origin without `?ws=`; `HOST_*` env overrides; stale-flag hard error; image `/version` == `APP_VERSION`. |
 
+`scripts/docker-smoke.sh` additionally requires Node on the invoking host to
+read the generated design brand manifest. This is a validation-tool prerequisite,
+not a requirement for the Docker-only compose deployment.
+
 Coverage: ≥80% on every metric for new host/config/client logic (constitution III); existing suites must stay green.
 
 ### 10. File surface (authoritative)
@@ -321,4 +334,5 @@ See [quickstart.md](./quickstart.md) Q-D01..Q-D08 mapping each FR/SC/NFR to a co
 
 - Private registry / Docker Hub push, Helm/K8s manifests, in-container TLS/ACME, secrets, persistence, chat/ratings, per-package independent versioning.
 - Any `ServerConfig` tuning-constant change beyond `httpServer`; lifecycle timers remain authority of matchmaking/engine.
-- Bumping dev `engines` to `>=24` if not proven needed during implementation — deferred until Node 22 EOL approaches (2027-04-30).
+- Unifying the Node 22-compatible development/bundle baseline with the Node 24 Docker base — deferred to [Issue #167](https://github.com/shaunburdick/europa-neo/issues/167) for research and project-owner discussion; this plan makes no Node-version change.
+- Replacing the pinned `node:24-slim` runtime with a distroless image — deferred to [Issue #168](https://github.com/shaunburdick/europa-neo/issues/168) for threat, operational, self-hostability, and future-goals analysis; this plan makes no runtime-base change.

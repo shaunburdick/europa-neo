@@ -3,8 +3,8 @@
 **Feature Branch**: `issue-5-docker-support` (spec directory `011-docker-selfhost-single-port`, next available ID per `create-new-feature.sh`)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle & matchmaking), Feature 010 (public lobby & match browser), Feature 009 (shared app versioning)
 **Created**: 2026-08-26
-**Last Updated**: 2026-09-16 (v1.4; runtime hardening CI conformance)
-**Version**: 1.4
+**Last Updated**: 2026-09-17 (v1.6; deferred runtime research decisions)
+**Version**: 1.6
 **Status**: Implemented (2026-08-27); route details superseded by Feature 013
 **GitHub Issue**: #5
 **Input**: Product-owner request — "Binding decision: self-hostable by default. Today that means Node ≥22 + pnpm + pnpm build + pnpm host. Provide a container path so self-hosters don't need a toolchain." Single-port topology per 2026-08-26 decision.
@@ -143,6 +143,7 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 - **FR-011**: The repository MUST include a `docker-compose.yml` at the repo root that maps the single container port (`HOST_PORT:HOST_PORT` or `8080:8080` default), passes through `HOST_PORT`/`HOST_BIND_HOST`/`HOST_PUBLIC_HOST` env vars (with defaults), and starts correctly with `docker compose up` (and `docker compose up --build` on first run). One-command remains `docker compose up` — no extra setup steps required beyond Docker itself.
 - **FR-012**: The repository MUST include a `.dockerignore` that excludes `node_modules`, test directories (`coverage`, Playwright artifacts), `docs`, `.git`, and other local artifacts (e.g. `dist` output when not produced in-build, IDE files). The ignore file MUST NOT break multi-stage semantics (the build stage produces `dist/` internally; the runtime stage copies from the build stage, not the host context).
 - **FR-013**: Environment variables honored by the image/host at runtime MUST be exactly `HOST_PORT`, `HOST_BIND_HOST`, `HOST_PUBLIC_HOST` (plus any future image-level passthrough documented in the Dockerfile/compose). `HOST_STATIC_PORT` MUST NOT be honored by any surface (Docker or native).
+- **FR-013a**: The host launcher MUST validate both supported package layouts before serving: source execution at `<package-root>/scripts/host.ts` and bundled execution at `<package-root>/dist/host/host.js` with sibling SPA `dist/index.html`. Any other layout MUST fail at startup with an actionable error naming both supported layouts.
 
 #### GHCR Publish
 
@@ -177,6 +178,7 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 - **NFR-005 (Compatibility)**: No wire protocol / frame / contract change. `NETWORK_API_VERSION` is unchanged. The `?ws=` override remains valid for tests/operators. Existing `full-stack` and `lobby-transport` integration tests continue to pass over the single-port fixture with ephemeral ports.
 - **NFR-006 (Operational simplicity)**: One exposed port, one port mapping, one env var for the port, one origin for WS. Overriding the port changes BOTH HTTP and WS together (no split). Docs describe exactly one firewall/ingress rule.
 - **NFR-007 (CI cost)**: GHCR publish does not run on every PR push (only `main` and `v*` tags); it does not block faster per-package CI jobs. `amd64` is mandatory; `arm64` inclusion is best-effort and documented as blocking or non-blocking per the stretch-goal ruling below.
+- **NFR-008 (Build and smoke-test boundaries)**: The console build MUST produce the browser SPA and standalone host bundle as distinct artifacts: Vite build, generated assets, `build:host`, then final TypeScript emit. `scripts/docker-smoke.sh` MAY use the invoking host's Node runtime to read the generated design brand manifest; this validation prerequisite does not apply to `docker compose up` self-hosting.
 
 ## Success Criteria
 
@@ -280,6 +282,21 @@ Constitution alignment: Principle VII (self-hostable by default — single proce
 - `pnpm` inside Docker via corepack vs standalone `pnpm` image is a plan-phase choice; either satisfies the frozen-lockfile build.
 - The exact lint/typecheck gates for `Dockerfile`/`docker-compose.yml` (e.g. `hadolint`, `compose config` validation) are plan-phase choices.
 - Multi-platform (`arm64`) blocking vs non-blocking is finalized at plan time and documented in the workflow header before implementation begins.
+
+### Deferred research decisions
+
+The following questions were raised during PR #165 review and are intentionally
+not implementation work for this feature:
+
+| Question | Current determination | Follow-up |
+|---|---|---|
+| Should Node 22 and Node 24 be unified across development, CI, Docker, and bundle targets? | Keep the current split for now: Docker build/runtime use Node 24; project development compatibility and the host bundle target remain Node 22-compatible. First determine whether unification is actually necessary, including the possibility of supporting additional versions. | [Issue #167](https://github.com/shaunburdick/europa-neo/issues/167) — future research and Shaun/project-owner discussion. |
+| Should the runtime move from pinned `node:24-slim` to a distroless Node image? | Defer adoption. The current image already provides a tested, non-root, artifact-only runtime. First establish whether distroless provides a meaningful project benefit and fits self-hostability, troubleshooting, and future development goals. | [Issue #168](https://github.com/shaunburdick/europa-neo/issues/168) — future research and Shaun/project-owner discussion. |
+
+The distroless question originated from the PR #165 inline review comment asking
+whether there was a better base image than removing npm/Corepack. It is tracked
+separately because answering it requires a broader deployment and maintenance
+decision, not merely a correction to this PR.
 
 ### v1.2 (2026-09-12) — Issue #139 spec consolidation (absorbed feature 012-3-4)
 

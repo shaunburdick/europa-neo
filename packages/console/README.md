@@ -20,7 +20,8 @@ pnpm install
 | Script                | Purpose                                                              |
 | --------------------- | -------------------------------------------------------------------- |
 | `dev`                 | Vite dev server on :5173 (`?e2e` boots the Playwright harness)       |
-| `build`               | typecheck → vite build → asset pipeline → tsc library emit           |
+| `build`               | typecheck → Vite browser build → asset pipeline → host bundle → TypeScript emit |
+| `build:host`          | Bundles the Docker-only Node launcher into `dist/host/host.js`       |
 | `build:lib`           | Library emit only (`tsc` + flatten `dist/src` → `dist`)              |
 | `build:assets`        | SVG→PNG sprites + sound copy into `public/`                          |
 | `test:unit`           | Unit tests (node/happy-dom): reducer, input math, QoL primitives     |
@@ -99,6 +100,12 @@ integrator must reconnect with the credential supplied for that seat to reclaim
 it within the grace window.
 
 ### Run the local lobby (`pnpm host`)
+
+The production build has two outputs: Vite produces the browser SPA under
+`dist/`, while `build:host` produces `dist/host/host.js`, the standalone Node
+launcher used only by the Docker runtime. The host bundle runs after Vite and
+asset generation so it sits beside the completed SPA, and before the final
+TypeScript emit, which remains the last build step.
 
 One command boots the whole stack — matchmaker + match server on `:8080` and
 the built console served from `dist/` on the single HOST_PORT (default `:8080`) — with an empty public lobby:

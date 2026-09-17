@@ -1,6 +1,6 @@
 # Tasks: One-Command Self-Host Packaging (Docker) — Single-Port Deployment
 
-**Feature Branch**: `issue-5-docker-support` | **Spec**: [spec.md](./spec.md) v1.0 + Node 24 gate | **Plan**: [plan.md](./plan.md) | **Research**: [research.md](./research.md)  
+**Feature Branch**: `issue-5-docker-support` | **Spec**: [spec.md](./spec.md) v1.6 deferred runtime research decisions | **Plan**: [plan.md](./plan.md) | **Research**: [research.md](./research.md)
 **Principles**: Constitution I–VII hold; WG: Node 24 LTS base verified per [research.md Finding 1](./research.md); no new runtime dep; no wire change.
 
 **Organization**: Phases are dependency-ordered. Tasks marked `[P]` touch disjoint files and may run in parallel when their phase's prerequisites are done. Tasks marked `[Story]` trace to US1..US5. Check off with `- [x]`. All six per-feature plans require no code during phases 4–5 — tasks describe the work Phase 6 WILL do; Phase 4–5 commit is doc-only.
@@ -134,6 +134,24 @@
   mapped HTTP port, including the single-port mapping assertion.
 - The build-amd64 job now uses `contents: read`; required package/provenance
   permissions are retained. Wave 5 documentation work is intentionally excluded.
+
+### PR #165 review remediation — ✅ complete (2026-09-17)
+
+- [x] T048 Document the distinct `build:host` artifact and its exact build
+  ordering: Vite SPA, generated assets, host bundle, then final TypeScript emit.
+- [x] T049 Validate native source and bundled host package-root layouts; fail
+  fast with an actionable error for invalid layouts, with focused tests for both
+  supported layouts and a missing bundled SPA.
+- [x] T050 Document that `scripts/docker-smoke.sh` requires Node on its
+  invoking host to read the generated design brand manifest, while `docker
+  compose up` itself remains Docker-only.
+
+- [x] T051 Record the Node-version unification question as future research in
+  [Issue #167](https://github.com/shaunburdick/europa-neo/issues/167); no current
+  Node requirement or target changes.
+- [x] T052 Record the distroless-runtime evaluation as future research in
+  [Issue #168](https://github.com/shaunburdick/europa-neo/issues/168); no current
+  runtime-base changes.
 
 **Checkpoint**: README doctrine done; `pnpm version:check` independent of Docker; manual drift check is documented as executed.
 

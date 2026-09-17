@@ -1,6 +1,6 @@
 # Quickstart: One-Command Self-Host Packaging (Docker) — Single-Port Deployment
 
-**Branch**: `016-docker-runtime-hardening` | **Spec**: [spec.md](./spec.md) v1.3 runtime image hardening | **Plan**: [plan.md](./plan.md)
+**Branch**: `016-docker-runtime-hardening` | **Spec**: [spec.md](./spec.md) v1.6 deferred runtime research decisions | **Plan**: [plan.md](./plan.md)
 
 All commands assume a fresh clone on a host with Docker Engine + Compose v2 (and with no Node toolchain for Q-D01). Every Q-D step maps to a spec success criterion.
 
@@ -9,7 +9,10 @@ All commands assume a fresh clone on a host with Docker Engine + Compose v2 (and
 ## Prerequisites
 
 - Docker Engine + `docker compose` v2 (`docker compose version` prints `v2.*`)
-- No Node/pnpm required for containerized runs
+- No Node/pnpm required for `docker compose up` containerized runs. The
+  repository's `scripts/docker-smoke.sh` validation additionally requires Node
+  on the invoking host because it reads the generated design brand manifest to
+  verify every image asset and MIME type.
 
 ## Q-D01 — One-command lobby (fresh-clone, no Node) → SC-001
 
@@ -165,7 +168,7 @@ docker build -t europa:size-check2 . && docker run --rm europa:size-check sha256
 # Compare dist payload hash between two builds from same commit — MUST match.
 ```
 
-Validates: NFR-002 (artifact-only, non-root runtime with no package tooling/devDeps/source/tests), NFR-003 (byte-equivalent `dist/` + `/version` on rebuild), SC-008 (size recorded and under stated bound).
+Validates: NFR-002 (artifact-only, non-root runtime with no package tooling/devDeps/source/tests), NFR-003 (byte-equivalent `dist/` + `/version` on rebuild), SC-008 (size recorded and under stated bound). The image contains a browser SPA and a distinct standalone host bundle at `dist/host/host.js`; the latter is the container entry artifact.
 
 ## Other gates (run before every commit)
 
