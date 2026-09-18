@@ -1,3 +1,5 @@
+import { sanitizeLogText } from './sanitize';
+
 /**
  * Log severity levels in ascending order of importance.
  *
@@ -136,7 +138,7 @@ function formatPrettyContext(ctx: Readonly<Record<string, unknown>>): string {
     }
     const body = entries
         .map(([key, value]) => {
-            const formatted = typeof value === 'string' ? `"${value}"` : String(value);
+            const formatted = typeof value === 'string' ? `"${sanitizeLogText(value)}"` : String(value);
             return `${key}: ${formatted}`;
         })
         .join(', ');
@@ -206,7 +208,7 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
         if (format === 'pretty') {
             const levelPad = msgLevel.toUpperCase().padEnd(8, ' ');
             const ctxStr = formatPrettyContext(contextFields);
-            const line = `[${timestamp}] ${levelPad} ${message}${ctxStr}\n`;
+            const line = `[${timestamp}] ${levelPad} ${sanitizeLogText(message)}${ctxStr}\n`;
             dest(line);
         } else {
             const envelope: Record<string, unknown> = {
