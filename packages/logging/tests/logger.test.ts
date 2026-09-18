@@ -525,7 +525,7 @@ describe('createLogger', () => {
             // text is plain ASCII and passes through sanitizeLogText.
             expect(first(lines)).toContain('normal  [31mred [0m');
             // Raw ESC character must not survive
-            expect(first(lines)).not.toMatch(/\x1b/);
+            expect(first(lines)).not.toContain('\x1b');
         });
 
         it('sanitizes string context values with \\r\\n', () => {
