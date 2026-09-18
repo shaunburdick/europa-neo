@@ -3,9 +3,13 @@
  * Unicode `Cc` category (C0 controls U+0000–U+001F plus C1 controls
  * U+007F–U+009F) includes newline, tab, and ESC, so stripping it
  * prevents log forging (smuggled extra lines) and terminal escape
- * attacks from any wire-derived text a diagnostic might echo.
+ * attacks from any wire-derived text a diagnostic might echo. The
+ * `Cf` category (format characters) includes bidi controls
+ * (U+202A–U+202E, U+2066–U+2069), soft hyphen (U+00AD), and word
+ * joiner (U+2060) — these can be abused for log forging or terminal
+ * escape injection when echoed verbatim.
  */
-const LOG_CONTROL_CHARS = /\p{Cc}/gu;
+const LOG_CONTROL_CHARS = /[\p{Cc}\p{Cf}]/gu;
 
 /** Hard cap for echoed free-form text so one huge field cannot flood the log. */
 const LOG_TEXT_MAX_LENGTH = 200;
