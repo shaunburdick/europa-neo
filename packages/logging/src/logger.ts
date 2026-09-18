@@ -174,6 +174,9 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
 
     const stdout = opts?.stdout ?? ((data: string) => process.stdout.write(data));
 
+    /** Track whether JSON.stringify has already failed for one-time diagnostics. */
+    let stringifyFailed = false;
+
     /**
      * Write a single log line if the severity meets the threshold.
      *
@@ -214,7 +217,17 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
             if (Object.keys(contextFields).length > 0) {
                 envelope['context'] = contextFields;
             }
-            dest(`${JSON.stringify(envelope)}\n`);
+            try {
+                dest(`${JSON.stringify(envelope)}\n`);
+            } catch (err) {
+                if (!stringifyFailed) {
+                    stringifyFailed = true;
+                    const detail = err instanceof Error ? err.message : String(err);
+                    stderr(`[logging] JSON.stringify failed on context, using fallback: ${detail}\n`);
+                }
+                delete envelope['context'];
+                dest(`${JSON.stringify(envelope)}\n`);
+            }
         }
     }
 
