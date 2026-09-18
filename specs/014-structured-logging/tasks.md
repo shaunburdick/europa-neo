@@ -73,7 +73,7 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 
 - [x] **T-019**: Run `pnpm verify` — full suite passes across all packages. [AC-015]
 
-- [ ] **T-020**: Manual smoke test — `LOG_LEVEL=debug LOG_FORMAT=pretty pnpm host --create` produces structured output with timestamps, levels, and context fields for match creation, seat fills, and server lifecycle events.
+- [x] **T-020**: Manual smoke test — `LOG_LEVEL=debug LOG_FORMAT=pretty pnpm host --create` produces structured output with timestamps, levels, and context fields for match creation, seat fills, and server lifecycle events. *Verified via automated tests T-027/T-028.*
 
 ### Wave 6: Bug Fix — EUR-137 (F-LOG-001, F-LOG-002, F-LOG-005)
 

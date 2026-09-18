@@ -138,8 +138,9 @@ function formatPrettyContext(ctx: Readonly<Record<string, unknown>>): string {
     }
     const body = entries
         .map(([key, value]) => {
-            const formatted = typeof value === 'string' ? `"${sanitizeLogText(value)}"` : String(value);
-            return `${key}: ${formatted}`;
+            const formatted =
+                typeof value === 'string' ? `"${sanitizeLogText(value)}"` : sanitizeLogText(String(value));
+            return `${sanitizeLogText(key)}: ${formatted}`;
         })
         .join(', ');
     return ` { ${body} }`;
@@ -225,7 +226,7 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
                 if (!stringifyFailed) {
                     stringifyFailed = true;
                     const detail = err instanceof Error ? err.message : String(err);
-                    stderr(`[logging] JSON.stringify failed on context, using fallback: ${detail}\n`);
+                    stderr(`[logging] JSON.stringify failed on context, using fallback: ${sanitizeLogText(detail)}\n`);
                 }
                 delete envelope['context'];
                 dest(`${JSON.stringify(envelope)}\n`);

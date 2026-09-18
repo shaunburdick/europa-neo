@@ -55,13 +55,13 @@ Server-side processes (the host launcher, matchmaking, networking, and engine or
 - [ ] **AC-013**: A test verifies log-level filtering (message below threshold produces no output).
 - [ ] **AC-014**: A test verifies pretty-print format matches the expected human-readable pattern.
 - [ ] **AC-015**: `pnpm verify` passes across all packages (no regressions from the interface migration).
-- [ ] **AC-016**: A test verifies that `JSON.stringify` failure on cyclic context values does not throw — the logger produces a valid log line with fallback context `{}` (or no context in pretty mode). [F-LOG-001]
-- [ ] **AC-017**: A test verifies that `JSON.stringify` failure on BigInt context values does not throw — the logger produces a valid log line with fallback context. [F-LOG-001]
-- [ ] **AC-018**: A test verifies that `JSON.stringify` failure on a context value whose `toJSON()` throws does not throw — the logger produces a valid log line with fallback context. [F-LOG-001]
-- [ ] **AC-019**: A test verifies that in pretty mode, a message containing `\n` (newline) or `\x1b[31m` (ANSI escape) is sanitized — output contains no raw newlines or escape sequences. [F-LOG-002]
-- [ ] **AC-020**: A test verifies that in pretty mode, a string context value containing `\r\n` (CRLF) or bidi overrides (U+202E) is sanitized — output contains no raw control or format characters. [F-LOG-002]
-- [ ] **AC-021**: A test verifies that `sanitizeLogText` strips `\p{Cf}` characters (bidi isolates, soft hyphen, word joiner) in addition to `\p{Cc}` control characters. [F-LOG-002]
-- [ ] **AC-022**: The `Logger` interface `ctx` parameter type is `Readonly<Record<string, unknown>>` — callers may pass `LogContext`-typed objects without type errors. [F-LOG-005]
+- [x] **AC-016**: A test verifies that `JSON.stringify` failure on cyclic context values does not throw — the logger produces a valid log line with fallback context `{}` (or no context in pretty mode). [F-LOG-001]
+- [x] **AC-017**: A test verifies that `JSON.stringify` failure on BigInt context values does not throw — the logger produces a valid log line with fallback context. [F-LOG-001]
+- [x] **AC-018**: A test verifies that `JSON.stringify` failure on a context value whose `toJSON()` throws does not throw — the logger produces a valid log line with fallback context. [F-LOG-001]
+- [x] **AC-019**: A test verifies that in pretty mode, a message containing `\n` (newline) or `\x1b[31m` (ANSI escape) is sanitized — output contains no raw newlines or escape sequences. [F-LOG-002]
+- [x] **AC-020**: A test verifies that in pretty mode, a string context value containing `\r\n` (CRLF) or bidi overrides (U+202E) is sanitized — output contains no raw control or format characters. [F-LOG-002]
+- [x] **AC-021**: A test verifies that `sanitizeLogText` strips `\p{Cf}` characters (bidi isolates, soft hyphen, word joiner) in addition to `\p{Cc}` control characters. [F-LOG-002]
+- [x] **AC-022**: The `Logger` interface `ctx` parameter type is `Readonly<Record<string, unknown>>` — callers may pass `LogContext`-typed objects without type errors. [F-LOG-005]
 
 ## Out of Scope
 

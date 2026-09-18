@@ -493,6 +493,32 @@ describe('createLogger', () => {
             const warnings = stderrLines.filter((line) => line.includes('[logging] JSON.stringify failed'));
             expect(warnings).toHaveLength(1);
         });
+
+        it('sanitizes diagnostic warning when toJSON() throws with newline in message', () => {
+            const stderrLines: string[] = [];
+            const stdoutLines: string[] = [];
+            const stdout = (data: string) => {
+                stdoutLines.push(data);
+            };
+            const stderr = (data: string) => {
+                stderrLines.push(data);
+            };
+            const logger = createLogger({ format: 'json', stdout, stderr });
+
+            const throwingObj = {
+                toJSON: () => {
+                    throw new Error('line1\nline2');
+                },
+            };
+            logger.info('test', { bad: throwingObj });
+
+            expect(stdoutLines).toHaveLength(1);
+            expect(stderrLines).toHaveLength(1);
+            expect(stderrLines[0]).toContain('[logging] JSON.stringify failed');
+            // The newline in the error message must be sanitized
+            expect(stderrLines[0]).not.toContain('line1\nline2');
+            expect(stderrLines[0]).toContain('line1 line2');
+        });
     });
 
     describe('Pretty-mode sanitization (EUR-137)', () => {
@@ -554,6 +580,54 @@ describe('createLogger', () => {
             expect(lines).toHaveLength(1);
             expect(first(lines)).toContain('normal dlrow');
             expect(first(lines)).not.toContain('\u202E');
+        });
+
+        it('sanitizes context key containing newline', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'pretty', stdout });
+
+            logger.info('msg', { 'key\ninjected': 'val' });
+
+            expect(lines).toHaveLength(1);
+            // The newline in the key must be replaced with a space
+            expect(first(lines)).toContain('key injected');
+            expect(first(lines)).not.toContain('\ninjected');
+        });
+
+        it('sanitizes context key containing ANSI escape sequence', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'pretty', stdout });
+
+            logger.info('msg', { '\x1b[31mredKey\x1b[0m': 'val' });
+
+            expect(lines).toHaveLength(1);
+            // The ESC character must be stripped; remaining text passes through
+            expect(first(lines)).not.toContain('\x1b');
+            expect(first(lines)).toContain('[31mredKey [0m');
+        });
+
+        it('sanitizes context value with hostile toString()', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'pretty', stdout });
+
+            const hostile = {
+                toString: () => '\x1b[31mred\x1b[0m',
+            };
+            logger.info('msg', { bad: hostile });
+
+            expect(lines).toHaveLength(1);
+            // toString() result is sanitized — no raw ESC
+            expect(first(lines)).not.toContain('\x1b');
+            expect(first(lines)).toContain('[31mred [0m');
         });
     });
 });
