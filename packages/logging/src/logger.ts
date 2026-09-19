@@ -1,3 +1,5 @@
+import { sanitizeLogText } from './sanitize';
+
 /**
  * Log severity levels in ascending order of importance.
  *
@@ -136,8 +138,9 @@ function formatPrettyContext(ctx: Readonly<Record<string, unknown>>): string {
     }
     const body = entries
         .map(([key, value]) => {
-            const formatted = typeof value === 'string' ? `"${value}"` : String(value);
-            return `${key}: ${formatted}`;
+            const formatted =
+                typeof value === 'string' ? `"${sanitizeLogText(value)}"` : sanitizeLogText(String(value));
+            return `${sanitizeLogText(key)}: ${formatted}`;
         })
         .join(', ');
     return ` { ${body} }`;
@@ -174,6 +177,9 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
 
     const stdout = opts?.stdout ?? ((data: string) => process.stdout.write(data));
 
+    /** Track whether JSON.stringify has already failed for one-time diagnostics. */
+    let stringifyFailed = false;
+
     /**
      * Write a single log line if the severity meets the threshold.
      *
@@ -203,7 +209,7 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
         if (format === 'pretty') {
             const levelPad = msgLevel.toUpperCase().padEnd(8, ' ');
             const ctxStr = formatPrettyContext(contextFields);
-            const line = `[${timestamp}] ${levelPad} ${message}${ctxStr}\n`;
+            const line = `[${timestamp}] ${levelPad} ${sanitizeLogText(message)}${ctxStr}\n`;
             dest(line);
         } else {
             const envelope: Record<string, unknown> = {
@@ -214,7 +220,17 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
             if (Object.keys(contextFields).length > 0) {
                 envelope['context'] = contextFields;
             }
-            dest(`${JSON.stringify(envelope)}\n`);
+            try {
+                dest(`${JSON.stringify(envelope)}\n`);
+            } catch (err) {
+                if (!stringifyFailed) {
+                    stringifyFailed = true;
+                    const detail = err instanceof Error ? err.message : String(err);
+                    stderr(`[logging] JSON.stringify failed on context, using fallback: ${sanitizeLogText(detail)}\n`);
+                }
+                delete envelope['context'];
+                dest(`${JSON.stringify(envelope)}\n`);
+            }
         }
     }
 
