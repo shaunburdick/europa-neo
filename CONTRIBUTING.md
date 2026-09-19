@@ -92,11 +92,52 @@ This project is **agent-first but human-governed**. AI coding agents are a core 
 - **Responding to PR comments as a human**: Do not use AI to write replies to review comments that pretend to be from a human contributor. If an AI drafted the code, the human author is responsible for all communication.
 - **Making product decisions**: AI implements; humans decide scope, priority, and behavior tradeoffs.
 - **Bypassing review gates**: AI-generated code goes through the same review process as human-written code. No self-approvals.
-- **Adding AI co-author trailers**: Never add `Co-authored-by: Copilot`, `Co-authored-by: Claude`, or similar bot attribution to commits. This is enforced by commitlint.
+- **Adding AI co-author trailers**: Never add `Co-authored-by: Copilot`, `Co-authored-by: Claude`, or similar bot attribution to commits. This is enforced by commitlint. Use `Generated-By:` instead (see below).
 
 ### Attribution
 
-If AI significantly contributed to a change, mention it naturally in the PR description — "Implemented with AI assistance" or similar. The goal is transparency, not ceremony.
+All AI-generated content must include a `Generated-By:` trailer to provide transparency. This follows the Apache Software Foundation's convention and aligns with EU AI Act Article 50 disclosure requirements.
+
+**Format**:
+
+```
+Generated-By: <agent-name> (model: <model-name>)
+```
+
+**Where to include it**:
+
+| Surface        | How                                                                 |
+| -------------- | ------------------------------------------------------------------- |
+| Git commits    | Auto-appended by the `prepare-commit-msg` hook in OpenCode sessions |
+| PR body        | Include as a footer: `---\nGenerated-By: agent-name (model: ...)`     |
+| PR comments    | Include as a footer at the bottom of the comment                    |
+| GitHub issues  | Include as a footer in the issue body                               |
+
+**Example PR body**:
+
+```markdown
+## Summary
+
+Add minimap zoom controls to the console.
+
+## Test plan
+
+- Verified zoom in/out with mouse wheel
+- Checked keyboard shortcuts (+/−)
+- Tested at mobile viewport
+
+---
+
+Generated-By: modern-architect-engineer (model: opencode-go/mimo-v2.5)
+```
+
+The `Author:` field (git config, GitHub account) always contains the human operator. `Generated-By:` identifies the AI agent only.
+
+### When NOT to attribute
+
+- **Human commits**: Never add `Generated-By:` to commits made by humans
+- **Human-authored PRs**: Never add the footer to PRs written entirely by humans
+- **Bot actions**: Dependabot, GitHub Actions, and other bots have their own attribution mechanisms
 
 ## Pull requests
 
