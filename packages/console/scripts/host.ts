@@ -41,7 +41,7 @@
  * simulation logic here (constitution Principle II).
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { readFile, realpath } from 'node:fs/promises';
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
@@ -60,8 +60,42 @@ import {
 } from './host-config';
 import { handleVersionRoute } from './version-route';
 
-/** Package root (this script lives in `<root>/scripts/`). */
-const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
+/**
+ * Locate the console package for both supported entry layouts: source
+ * (`scripts/host.ts`) for local development and `dist/host/host.js` for the
+ * container's standalone production bundle.
+ */
+export function resolvePackageRoot(entryDirectory: string): string {
+    const sourceRoot = path.resolve(entryDirectory, '..');
+    const sourceLauncher = path.join(entryDirectory, 'host.ts');
+    if (
+        path.basename(entryDirectory) === 'scripts' &&
+        existsSync(path.join(sourceRoot, 'package.json')) &&
+        existsSync(sourceLauncher) &&
+        statSync(sourceLauncher).isFile()
+    ) {
+        return sourceRoot;
+    }
+
+    const bundleRoot = path.resolve(entryDirectory, '..', '..');
+    const bundledLauncher = path.join(entryDirectory, 'host.js');
+    if (
+        path.basename(entryDirectory) === 'host' &&
+        path.basename(path.resolve(entryDirectory, '..')) === 'dist' &&
+        existsSync(path.join(bundleRoot, 'dist', 'index.html')) &&
+        existsSync(bundledLauncher) &&
+        statSync(bundledLauncher).isFile()
+    ) {
+        return bundleRoot;
+    }
+
+    throw new Error(
+        `host: unsupported package-root layout for "${entryDirectory}"; expected <package-root>/scripts/host.ts or <package-root>/dist/host/host.js`,
+    );
+}
+
+/** Console package root in either the source or bundled host layout. */
+const PACKAGE_ROOT = resolvePackageRoot(import.meta.dirname);
 
 /** Built console SPA served to players' browsers. */
 const DIST_DIR = path.join(PACKAGE_ROOT, 'dist');

@@ -3,8 +3,8 @@
 **Feature Branch**: `issue-5-docker-support` (spec directory `011-docker-selfhost-single-port`, next available ID per `create-new-feature.sh`)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle & matchmaking), Feature 010 (public lobby & match browser), Feature 009 (shared app versioning)
 **Created**: 2026-08-26
-**Last Updated**: 2026-09-12 (v1.2; issue #139 spec consolidation)
-**Version**: 1.2
+**Last Updated**: 2026-09-17 (v1.6; deferred runtime research decisions)
+**Version**: 1.6
 **Status**: Implemented (2026-08-27); route details superseded by Feature 013
 **GitHub Issue**: #5
 **Input**: Product-owner request — "Binding decision: self-hostable by default. Today that means Node ≥22 + pnpm + pnpm build + pnpm host. Provide a container path so self-hosters don't need a toolchain." Single-port topology per 2026-08-26 decision.
@@ -109,7 +109,7 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 - **`.dockerignore` completeness**: Build context excludes `node_modules`, test dirs, `docs`, `.git`, and local artifacts so the image stays reproducible and small; the ignore file does not exclude the built `dist/` when the build stage produces it internally (multi-stage copy semantics apply).
 - **GHCR auth**: Publish job uses `GITHUB_TOKEN` with minimal `packages: write` + `contents: read`; forks cannot publish (workflow is tag/`main` on the canonical repo only).
 - **Multi-platform stretch**: `amd64` is mandatory; `arm64` is best-effort and the workflow documents whether it is included per trigger (failure to build `arm64` does not block `amd64` if the stretch goal is explicitly marked as non-blocking — otherwise it is required).
-- **Image size**: Base is `node:22-slim`; runtime stage copies built artifacts only (no `node_modules` dev deps, no source, no test harnesses).
+- **Image size**: Base is the pinned latest-LTS `node:24-slim`; runtime stage copies the explicit artifact allowlist only (no `node_modules`, source, test harnesses, or package tooling).
 - **Shallow clone / detached build**: The image's version comes from compiled `APP_VERSION` (`@europa/version`), not `git describe`, so Docker builds are reproducible from any checkout depth.
 - **Docs drift check untouched**: `pnpm version:check` (`@europa/version` lockstep FR-009) remains independent of Docker surfaces; no new package versions are introduced by this feature.
 
@@ -138,11 +138,12 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 #### Docker Packaging
 
 - **FR-010**: The repository MUST include a multi-stage `Dockerfile` at the repo root:
-  - Build stage: `node:22-slim` (pinned digest or explicit tag with comment), installs `pnpm` (via corepack or pinned `pnpm` image), `pnpm install --frozen-lockfile` with workspace deps, `pnpm build` of all workspace packages producing `packages/console/dist/` and the host launcher.
-  - Runtime stage: `node:22-slim` (same base), copies built artifacts only (`packages/console/dist/`, `packages/*/dist/`, `packages/version`, compiled `host` entry) — no `node_modules` dev deps, no source, no test dirs. `CMD` runs the host launcher (`node packages/console/scripts/host.ts` or its compiled form via `pnpm host`) on the single `HOST_PORT`. `EXPOSE 8080` (single port; override at runtime via `HOST_PORT` and `docker compose` mapping).
+  - Build stage: `node:24-slim` pinned by digest, installs `pnpm` via Corepack, runs `pnpm install --frozen-lockfile` with workspace deps, then `pnpm build` of all workspace packages producing `packages/console/dist/` and the host launcher.
+  - Runtime stage: same pinned Node base, copies an explicit allowlist only: console SPA `index.html`, SPA `assets/`, and a compiled standalone host entry with its workspace and WebSocket closure. It contains no workspace source, `node_modules`, package manager, `tsx`, test directories, declarations, or source maps. It starts directly with `node` as an unprivileged user on the single `HOST_PORT`. `EXPOSE 8080` (single port; override at runtime via `HOST_PORT` and `docker compose` mapping).
 - **FR-011**: The repository MUST include a `docker-compose.yml` at the repo root that maps the single container port (`HOST_PORT:HOST_PORT` or `8080:8080` default), passes through `HOST_PORT`/`HOST_BIND_HOST`/`HOST_PUBLIC_HOST` env vars (with defaults), and starts correctly with `docker compose up` (and `docker compose up --build` on first run). One-command remains `docker compose up` — no extra setup steps required beyond Docker itself.
 - **FR-012**: The repository MUST include a `.dockerignore` that excludes `node_modules`, test directories (`coverage`, Playwright artifacts), `docs`, `.git`, and other local artifacts (e.g. `dist` output when not produced in-build, IDE files). The ignore file MUST NOT break multi-stage semantics (the build stage produces `dist/` internally; the runtime stage copies from the build stage, not the host context).
 - **FR-013**: Environment variables honored by the image/host at runtime MUST be exactly `HOST_PORT`, `HOST_BIND_HOST`, `HOST_PUBLIC_HOST` (plus any future image-level passthrough documented in the Dockerfile/compose). `HOST_STATIC_PORT` MUST NOT be honored by any surface (Docker or native).
+- **FR-013a**: The host launcher MUST validate both supported package layouts before serving: source execution at `<package-root>/scripts/host.ts` and bundled execution at `<package-root>/dist/host/host.js` with sibling SPA `dist/index.html`. Any other layout MUST fail at startup with an actionable error naming both supported layouts.
 
 #### GHCR Publish
 
@@ -164,19 +165,20 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 - **Deployment**: The single-process self-hosted unit: one `http.Server` on `HOST_PORT` serving static UI + `/version` + WS upgrades. Configured by `HOST_PORT`/`HOST_BIND_HOST`/`HOST_PUBLIC_HOST`.
 - **SinglePortServer**: The `http.Server` instance that is owned by the host launcher and shared between the static handler (`serveStatic`+`handleVersionRoute`) and the networking `WebSocketServer(noServer:true)` upgrade path.
 - **NetworkingSeam**: The attachment point in `@europa/networking` (`ServerConfig.httpServer?` / `attachToHttpServer()` or equivalent) that binds `wss.handleUpgrade` to an externally-owned server without changing the wire protocol.
-- **DockerImage**: Multi-stage build artifact (`node:22-slim` build + `node:22-slim` runtime), `EXPOSE 8080`, `CMD` launches the single-port host.
+- **DockerImage**: Multi-stage build artifact (`node:24-slim` build + `node:24-slim` runtime), `EXPOSE 8080`, `CMD` launches the single-port host.
 - **ComposeProject**: The `docker-compose.yml` project mapping one host port to one container port with passthrough env vars; `docker compose up` is the one-command entry point.
 - **PublishedImage**: `ghcr.io/shaunburdick/europa-neo:{edge|vX.Y.Z}` produced by the publish workflow on `main` and `v*` tag pushes.
 
 ## Non-Functional Requirements
 
 - **NFR-001 (Startup responsiveness)**: From `docker compose up` of a cached image on a typical self-host (broadband + local SSD), the lobby MUST be reachable at `http://localhost:8080/` within a short startup window on the order of seconds (image cold-pull is excluded; include a visible progress/ready log line indicating the single port so the operator knows when to open the browser).
-- **NFR-002 (Image size & attack surface)**: Runtime stage MUST be minimal: `node:22-slim` + built artifacts only. No devDependencies, no source, no test harnesses, no extra package managers. Image size is documented as the compressed `docker images` size on `amd64` for the `edge` build (see SC).
-- **NFR-003 (Reproducibility)**: A clean `docker build` from the same commit MUST produce a byte-equivalent application payload inside the image (same `APP_VERSION` at `/version`, same `dist/` content) and the build MUST be reproducible across hosts given the same `node:22-slim` digest and `--frozen-lockfile` inputs.
+- **NFR-002 (Image size & attack surface)**: Runtime stage MUST be an explicit artifact allowlist: pinned Node slim base + SPA entry/assets + compiled standalone host only. It MUST contain no devDependencies, workspace source, `node_modules`, test harnesses, declarations, source maps, or package-manager/tooling binaries, and MUST execute as a non-root user. Image size is documented as the compressed `docker images` size on `amd64` for the `edge` build (see SC).
+- **NFR-003 (Reproducibility)**: A clean `docker build` from the same commit MUST produce a byte-equivalent application payload inside the image (same `APP_VERSION` at `/version`, same `dist/` content) and the build MUST be reproducible across hosts given the same `node:24-slim` digest and `--frozen-lockfile` inputs.
 - **NFR-004 (Security)**: The single `http.Server` MUST retain existing static-UI hardening: path-traversal guard (`isPathInside` + `realpath` containment), `STATIC_SECURITY_HEADERS` baseline, `/version` security headers, no credential-bearing public-app URL acceptance, and no bearer-token leakage in logs. Non-secret player/guest IDs may appear in logs for correlation; private-match existence, authorization, and fog boundaries remain those of spec 010 (NFR-003/FR-024). Narrow exception: the temporary/local `pnpm host` operator flow may print tokenized join URLs for local seat handoff; those bearer URLs must not be generalized to public app URLs, logs, diagnostics, or documentation examples and must be treated as secrets by the operator.
 - **NFR-005 (Compatibility)**: No wire protocol / frame / contract change. `NETWORK_API_VERSION` is unchanged. The `?ws=` override remains valid for tests/operators. Existing `full-stack` and `lobby-transport` integration tests continue to pass over the single-port fixture with ephemeral ports.
 - **NFR-006 (Operational simplicity)**: One exposed port, one port mapping, one env var for the port, one origin for WS. Overriding the port changes BOTH HTTP and WS together (no split). Docs describe exactly one firewall/ingress rule.
 - **NFR-007 (CI cost)**: GHCR publish does not run on every PR push (only `main` and `v*` tags); it does not block faster per-package CI jobs. `amd64` is mandatory; `arm64` inclusion is best-effort and documented as blocking or non-blocking per the stretch-goal ruling below.
+- **NFR-008 (Build and smoke-test boundaries)**: The console build MUST produce the browser SPA and standalone host bundle as distinct artifacts: Vite build, generated assets, `build:host`, then final TypeScript emit. `scripts/docker-smoke.sh` MAY use the invoking host's Node runtime to read the generated design brand manifest; this validation prerequisite does not apply to `docker compose up` self-hosting.
 
 ## Success Criteria
 
@@ -189,13 +191,13 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 - **SC-005 — Image satisfies self-hostable checklist** — The published or locally-built `ghcr.io/shaunburdick/europa-neo:edge` (or `docker build` image) reports (a) `curl -s http://localhost:HOST_PORT/version | jq .` returns `{appVersion, protocolVersion}` with `appVersion === APP_VERSION` and (b) the WebSocket hello-ack's `appVersion` equals the same `APP_VERSION` (same checks as feature 009 SC-002/SC-003 but against the containerized server). `docker images` compressed size for `linux/amd64` is recorded and under a documented "reasonable" bound (see SC-008).
 - **SC-006 — GHCR publish green** — A `v*` tag push publishes `ghcr.io/shaunburdick/europa-neo:vX.Y.Z` and a `main` push publishes `:edge`; both are pullable and the publish workflow run is green with SHA-pinned actions and least-privilege permissions (`packages: write`, `contents: read`). Verified by inspecting Actions logs and a pull-and-run on a second host.
 - **SC-007 — Fixtures green on single-port** — `tests/e2e/full-stack.spec.ts` and `tests/integration/lobby-transport.test.ts` (and their imported lobby fixtures) pass on the new single-server fixtures with `port: 0` + `__boundPortForTest()`, including deterministic two-seat ticks and fog-filtered view assertions.
-- **SC-008 — Image size & reproducibility bound** — The built image's compressed size on `linux/amd64` is measured and recorded in the implementation PR description and (optionally) in docs; it sits below a stated bound that demonstrates runtime-stage minimalism (e.g. well under 1 GB; the reviewed OSS expectation for `node:22-slim` + Vite `dist/` is on the order of 200–400 MB uncompressed, documented precisely at implementation time). Rebuilding from the same commit digest yields an image whose `/version` and `dist/` payload hash matches the first.
+- **SC-008 — Image size & reproducibility bound** — The built image's compressed size on `linux/amd64` is measured and recorded in the implementation PR description and (optionally) in docs; it sits below a stated bound that demonstrates runtime-stage minimalism (e.g. well under 1 GB; the reviewed OSS expectation for `node:24-slim` + Vite `dist/` is on the order of 200–400 MB uncompressed, documented precisely at implementation time). Rebuilding from the same commit digest yields an image whose `/version` and `dist/` payload hash matches the first.
 
 ## Assumptions
 
 - Docker Engine + Compose v2 are available on the operator's host. The repo's `docker-compose.yml` is Compose-spec compatible (no v1 `docker-compose` legacy).
-- Node 22 and pnpm remain the build toolchain inside the image (constitution VII + biome `>=2.5.0` requirement). The host operator never installs them when using Docker.
-- Base image is `node:22-slim` (Debian slim) for both stages unless a lighter `alpine` variant is explicitly chosen at plan time and documented; `slim` is the safe default because `alpine` needs `libc` compatibility auditing for `ws`/`vite` native deps (none today, but not assumed).
+- Node 24 and pnpm remain the build toolchain inside the image (constitution VII + biome `>=2.5.0` requirement). The host operator never installs them when using Docker.
+- Base image is pinned `node:24-slim` (Debian slim) for both stages unless a lighter `alpine` variant is explicitly chosen at plan time and documented; `slim` is the safe default because `alpine` needs `libc` compatibility auditing for `ws`/`vite` native deps (none today, but not assumed).
 - The app version surface is unchanged by Docker packaging (`@europa/version` lockstep FR-009). Docker does not mint versions; it packages whatever `APP_VERSION` the commit carries.
 - Network exposure is plain HTTP + WS on `HOST_PORT`. TLS termination remains a reverse-proxy concern (spec 004/009 assumption retained).
 - Published images target `ghcr.io/shaunburdick/europa-neo` (lowercase owner). GHCR is the distribution registry; Docker Hub or other registries are out of scope.
@@ -218,6 +220,27 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 
 Feature 013 is authoritative for application route shapes and retires the direct `?live` compatibility path. This feature's single-port requirement remains authoritative for serving the SPA shell on `/lobby` and semantic match paths, while `/version`, known assets, and WebSocket upgrades continue to bypass SPA fallback. The same-origin WebSocket rule is preserved; `?e2e` remains test-only and unchanged.
 
+### Session 2026-09-15 — Runtime image hardening (v1.3)
+
+The final stage is not a workspace installation environment. The build emits a
+single ESM host bundle containing the `@europa/*` workspace closure and `ws`; the
+final stage copies only that bundle and the browser payload. It runs direct `node`
+as an unprivileged user. npm, npx, Corepack, pnpm, pnpx, `tsx`, `node_modules`,
+TypeScript source, declarations, source maps, tests, and coverage are forbidden in
+the final image. Docker smoke coverage must prove these negative boundaries while preserving
+existing HTTP, SPA, asset MIME, and same-port WebSocket checks. Windows-specific
+compatibility and unrelated application, design, manual, and onboarding work are
+out of scope.
+
+### Session 2026-09-16 — CI conformance and documentation drift (v1.4)
+
+Docker validation runs from a clean checkout, so its brand-MIME smoke assertion
+MUST first build the design manifest from tracked source with Node 24 and a
+frozen lockfile; it MUST NOT depend on ignored host `dist/` output. Release
+identity in the artifact-only image is probed through `/version`, not an absent
+workspace package. All Docker-base references use the pinned `node:24-slim`
+decision documented in `research.md`.
+
 ### Session 2026-08-26 — Binding product decision: single-port canonical (v1.0 — no open questions)
 
 No interactive clarification loop was required — the product owner asserted the topology as a binding decision that eliminates the usual open question:
@@ -230,7 +253,7 @@ No interactive clarification loop was required — the product owner asserted th
 
 - **(Resolved 2026-08-26)** Console fallback SHALL be `${location.protocol==="https:"?"wss":"ws"}://${location.host}` when `?ws=` is absent on the canonical `/lobby` and semantic match paths (`state/lobby-view.ts:resolveLobbyServerUrl`). This is the correct fallback because `HOST_PORT` is now the origin's port — `location.host` already carries it. The retired query-selected live entry is not supported; `?e2e` remains test-only and explicit `?ws=` remains a validated test/operator override. Tests/E2E fixtures keep `port: 0` ephemeral semantics but now on the single server (`__boundPortForTest()`).
 
-- **(Resolved 2026-08-26)** Dockerfile is multi-stage: build stage (`node:22-slim` + pnpm: install workspace deps → build all packages → produce `packages/console/dist/` + host entry), runtime stage (`node:22-slim`: copy built artifacts only, `CMD` runs the host). `EXPOSE 8080` (the single host port, override via `HOST_PORT`). GHCR image is `ghcr.io/shaunburdick/europa-neo`; triggers are `v*` tag pushes → versioned image, `main` push → `:edge`. SHA-pinned actions, least-privilege (`packages: write`, `contents: read`). Multi-platform stretch goal is `amd64` mandatory, `arm64` best-effort — the spec deliberately does not require `arm64` blocking until plan time.
+- **(Resolved 2026-08-26; updated 2026-09-16)** Dockerfile is multi-stage: build stage (`node:24-slim` + pnpm: install workspace deps → build all packages → produce `packages/console/dist/` + host entry), runtime stage (`node:24-slim`: copy the explicit runtime artifact allowlist, `CMD` runs the host). `EXPOSE 8080` (the single host port, override via `HOST_PORT`). GHCR image is `ghcr.io/shaunburdick/europa-neo`; triggers are `v*` tag pushes → versioned image, `main` push → `:edge`. SHA-pinned actions, least-privilege (`packages: write`, `contents: read`). Multi-platform stretch goal is `amd64` mandatory, `arm64` best-effort — the spec deliberately does not require `arm64` blocking until plan time.
 
 - **(Resolved 2026-08-26)** Documentation: README gains a section showing `docker compose up` → lobby on `http://localhost:8080/` (single port). No manual update required per spec 007 FR-012 trigger check (gameplay unchanged), but the same change set performs that check. This resolves the "do we update the player manual?" ambiguity without adding docs work that would violate the FR-012 trigger semantics.
 
@@ -255,10 +278,25 @@ Constitution alignment: Principle VII (self-hostable by default — single proce
 
 ## Implementation Notes (to be filled during planning)
 
-- Base-image choice (`node:22-slim` vs `-alpine`) and digest pinning are plan-phase decisions; this spec mandates `node:22-slim` as the default.
+- Base-image choice (`node:24-slim` vs `-alpine`) and digest pinning are plan-phase decisions; this spec mandates the latest-LTS `node:24-slim` as the default.
 - `pnpm` inside Docker via corepack vs standalone `pnpm` image is a plan-phase choice; either satisfies the frozen-lockfile build.
 - The exact lint/typecheck gates for `Dockerfile`/`docker-compose.yml` (e.g. `hadolint`, `compose config` validation) are plan-phase choices.
 - Multi-platform (`arm64`) blocking vs non-blocking is finalized at plan time and documented in the workflow header before implementation begins.
+
+### Deferred research decisions
+
+The following questions were raised during PR #165 review and are intentionally
+not implementation work for this feature:
+
+| Question | Current determination | Follow-up |
+|---|---|---|
+| Should Node 22 and Node 24 be unified across development, CI, Docker, and bundle targets? | Keep the current split for now: Docker build/runtime use Node 24; project development compatibility and the host bundle target remain Node 22-compatible. First determine whether unification is actually necessary, including the possibility of supporting additional versions. | [Issue #167](https://github.com/shaunburdick/europa-neo/issues/167) — future research and Shaun/project-owner discussion. |
+| Should the runtime move from pinned `node:24-slim` to a distroless Node image? | Defer adoption. The current image already provides a tested, non-root, artifact-only runtime. First establish whether distroless provides a meaningful project benefit and fits self-hostability, troubleshooting, and future development goals. | [Issue #168](https://github.com/shaunburdick/europa-neo/issues/168) — future research and Shaun/project-owner discussion. |
+
+The distroless question originated from the PR #165 inline review comment asking
+whether there was a better base image than removing npm/Corepack. It is tracked
+separately because answering it requires a broader deployment and maintenance
+decision, not merely a correction to this PR.
 
 ### v1.2 (2026-09-12) — Issue #139 spec consolidation (absorbed feature 012-3-4)
 
