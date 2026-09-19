@@ -1,0 +1,41 @@
+#!/usr/bin/env sh
+# prepare-commit-msg — auto-append Generated-By trailer for OpenCode/AI commits
+#
+# Checks for OPENCODE=1 or AGENT=1 environment variables (set
+# automatically by OpenCode/OpenChamber). If present, appends a
+# Generated-By trailer. If absent (human terminal commit), exits silently.
+
+commit_msg_file="$1"
+commit_source="${2:-}"
+
+# Skip for merge, squash, and amend commits (not regular commits)
+case "${commit_source}" in
+  merge|squash|commit)
+    exit 0
+    ;;
+esac
+
+# Check if this is an OpenCode/AI session
+if [ "${OPENCODE:-}" != "1" ] && [ "${AGENT:-}" != "1" ]; then
+  exit 0
+fi
+
+# Skip if trailer already exists (avoid duplicates on amend)
+if grep -q "^Generated-By:" "$commit_msg_file"; then
+  exit 0
+fi
+
+# Build the attribution string
+agent="${OPENCODE_AGENT:-}"
+model="${OPENCODE_MODEL:-}"
+
+if [ -n "$agent" ] && [ -n "$model" ]; then
+  attribution="${agent} (model: ${model})"
+elif [ -n "$agent" ]; then
+  attribution="$agent"
+else
+  attribution="opencode"
+fi
+
+# Append trailer
+printf "\nGenerated-By: %s\n" "$attribution" >> "$commit_msg_file"

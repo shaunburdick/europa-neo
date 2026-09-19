@@ -75,12 +75,85 @@ Two global CLIs are also worth installing if you'll do UI verification or GitHub
 - `agent-browser` — browser automation for visual verification and exploratory testing (`npm i -g agent-browser && agent-browser install`)
 - `gh` — GitHub CLI for PRs, issues, and CI status (`brew install gh` or per [cli.github.com](https://cli.github.com))
 
+## AI usage policy
+
+This project is **agent-first but human-governed**. AI coding agents are a core part of the workflow, but there are clear boundaries.
+
+### Allowed
+
+- **Writing code**: Use AI to implement features, fix bugs, write tests, and generate boilerplate.
+- **Opening PRs**: AI agents can branch, commit, and open pull requests under the standard workflow.
+- **Drafting specs and plans**: AI can produce specifications, architecture plans, and task breakdowns.
+- **Code review assistance**: AI can review code for quality, security, and adherence to project standards.
+- **Documentation**: AI can write and update docs, including specs, READMEs, and inline comments.
+
+### Not allowed
+
+- **Responding to PR comments as a human**: Do not use AI to write replies to review comments that pretend to be from a human contributor. If an AI drafted the code, the human author is responsible for all communication.
+- **Making product decisions**: AI implements; humans decide scope, priority, and behavior tradeoffs.
+- **Bypassing review gates**: AI-generated code goes through the same review process as human-written code. No self-approvals.
+- **Adding AI co-author trailers**: Never add `Co-authored-by: Copilot`, `Co-authored-by: Claude`, or similar bot attribution to commits. This is enforced by commitlint. Use `Generated-By:` instead (see below).
+
+### Attribution
+
+All AI-generated content must include a `Generated-By:` trailer to provide transparency. This follows the Apache Software Foundation's convention and aligns with EU AI Act Article 50 disclosure requirements.
+
+**Format**:
+
+```
+Generated-By: <agent-name> (model: <model-name>)
+```
+
+**Where to include it**:
+
+| Surface        | How                                                                 |
+| -------------- | ------------------------------------------------------------------- |
+| Git commits    | Auto-appended by the `prepare-commit-msg` hook in OpenCode sessions |
+| PR body        | Include as a footer: `---\nGenerated-By: agent-name (model: ...)`     |
+| PR comments    | Include as a footer at the bottom of the comment                    |
+| GitHub issues  | Include as a footer in the issue body                               |
+
+**Example PR body**:
+
+```markdown
+## Summary
+
+Add minimap zoom controls to the console.
+
+## Test plan
+
+- Verified zoom in/out with mouse wheel
+- Checked keyboard shortcuts (+/−)
+- Tested at mobile viewport
+
+---
+
+Generated-By: modern-architect-engineer (model: opencode-go/mimo-v2.5)
+```
+
+The `Author:` field (git config, GitHub account) always contains the human operator. `Generated-By:` identifies the AI agent only.
+
+### When NOT to attribute
+
+- **Human commits**: Never add `Generated-By:` to commits made by humans
+- **Human-authored PRs**: Never add the footer to PRs written entirely by humans
+- **Bot actions**: Dependabot, GitHub Actions, and other bots have their own attribution mechanisms
+
 ## Pull requests
 
 - Open PRs against `main` from your feature branch. Reference the related issue in the PR title or description (e.g. `feat(console): add minimap zoom` closes #42).
 - CI must pass before merge — per-package workflows (core, engine, terrain, fog, networking, matchmaking, console, logging, manual) plus shared Docker, Pages, release, and version-drift checks. If CI was green before your branch and is red after, your changes caused it.
 - PRs require a clean review before merge. Address review feedback in new commits; do not amend pushed commits.
 - Keep PRs focused — one feature or fix per PR. Large features are delivered in waves via the orchestration process described in the feature spec.
+
+### What reviewers look for
+
+- Adherence to the [constitution](.specify/memory/constitution.md) (type safety, determinism, test coverage, simplicity)
+- Specs updated if behavior changed
+- Player manual updated if gameplay docs changed (spec 007 FR-012)
+- No lint suppressions, no `any` types, no `@ts-ignore`
+- Conventional commit messages
+- CI is green
 
 ## Design system
 

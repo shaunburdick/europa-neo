@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "projectActions": [
+    {
+      "id": "host",
+      "name": "Host server",
+      "command": "pnpm host",
+      "icon": "server",
+      "autoOpenUrl": true
+    },
+    {
+      "id": "test",
+      "name": "All tests",
+      "command": "pnpm test",
+      "icon": "flask"
+    },
+    {
+      "id": "verify",
+      "name": "Verify (changed)",
+      "command": "pnpm verify:changed",
+      "icon": "lint"
+    },
+    {
+      "id": "manual",
+      "name": "Player manual",
+      "command": "pnpm --filter @europa/manual dev",
+      "icon": "code",
+      "autoOpenUrl": true
+    }
+  ],
+  "plansDir": "specs"
+}
