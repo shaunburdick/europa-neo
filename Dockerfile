@@ -17,6 +17,9 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
+# The normal console build produces browser/library artifacts only. Build the
+# deployment-only Node host explicitly so local package builds stay independent.
+RUN pnpm --filter @europa/console build:host
 
 # Stage the runtime allowlist. The final image receives only this browser
 # payload and standalone Node host; it never receives workspace source or an
@@ -35,10 +38,8 @@ ENV HOST_BIND_HOST=0.0.0.0
 ENV HOST_PUBLIC_HOST=localhost
 
 COPY --from=build --chown=node:node /runtime/console ./packages/console/dist
-# The runtime executes a bundled host directly with Node. Remove base-image
-# package tooling so it cannot be used to alter the artifact-only runtime.
-RUN rm -rf /usr/local/lib/node_modules/corepack /usr/local/lib/node_modules/npm \
-    && rm -f /usr/local/bin/corepack /usr/local/bin/npm /usr/local/bin/npx
+# The application payload is allowlisted above. Retain trusted Node-base tools
+# rather than deleting fixed base-image paths that may change between releases.
 USER node
 
 EXPOSE 8080

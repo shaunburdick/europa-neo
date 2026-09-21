@@ -35,7 +35,7 @@ docker run --rm --entrypoint sh "${IMAGE_NAME}" -eu -c '
     done
     forbidden="$(find /app \( -name "*.ts" -o -name "*.tsx" -o -name "*.d.ts" -o -name "*.map" -o -name tests -o -name coverage -o -name .playwright \) -print)"
     [ -z "$forbidden" ] || { echo "forbidden source/build artifacts found:" >&2; echo "$forbidden" >&2; exit 1; }
-    for command in corepack npm npx pnpm pnpx tsx; do
+    for command in pnpm pnpx tsx; do
         command -v "$command" >/dev/null 2>&1 && { echo "$command is present" >&2; exit 1; }
     done
     [ -s /app/packages/console/dist/index.html ]

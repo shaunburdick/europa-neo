@@ -19,7 +19,7 @@
         "clean": "rm -rf dist",
         "dev": "vite",
         "host": "tsx scripts/host.ts",
-        "build": "tsc --noEmit && vite build && tsx scripts/build-assets.ts && pnpm build:host && tsc",
+        "build": "tsc --noEmit && vite build && tsx scripts/build-assets.ts && tsc",
         "build:assets": "tsx scripts/build-assets.ts",
         "build:host": "tsup --config host.tsup.config.ts",
         "test": "vitest",

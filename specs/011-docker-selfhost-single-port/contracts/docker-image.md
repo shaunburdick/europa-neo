@@ -24,7 +24,7 @@ RUN pnpm build
 - Base image MUST be `node:24-slim` (or `node:24.12.0-slim` at implementation, with SHA digest pin and `# 24.x — latest LTS Aug 2026` comment).
 - Package manager activation MUST be via `corepack` reading `package.json#packageManager` (no `npm i -g pnpm`).
 - Install MUST use `--frozen-lockfile` and MUST fail when lockfile mismatches.
-- Build MUST be `pnpm build` across all workspaces (engine→terrain→fog→networking→matchmaking→console→version), producing `packages/console/dist/` and host launcher.
+- Build MUST run `pnpm build` across all workspaces (engine→terrain→fog→networking→matchmaking→console→version), then explicitly run `pnpm --filter @europa/console build:host`. The ordinary console build produces browser/library artifacts; the explicit Docker-only host step produces `packages/console/dist/host/host.js`.
 
 ### Stage 2 — `runtime`
 
@@ -42,7 +42,7 @@ CMD ["node", "packages/console/dist/host/host.js"]
 ```
 
 - Base MUST be the same `node:24-slim@sha256:` as build stage.
-- Runtime copies an explicit allowlist: console `index.html`, console `assets/`, and compiled `host/host.js`. Its host bundle contains the workspace and `ws` runtime closure, so the final image has no `node_modules` or package-manager/tooling binaries (`npm`, `npx`, pnpm, Corepack, pnpx, or `tsx`). It MUST NOT contain devDependencies, test dirs (`tests/`, `coverage/`, `.playwright`), source TypeScript, declarations, source maps, `.git`, `docs`, `specs`, or IDE files.
+- Runtime copies an explicit application allowlist: console `index.html`, console `assets/`, and compiled `host/host.js`. Its host bundle contains the workspace and `ws` runtime closure, so the final image has no `node_modules` or application tooling (`pnpm`, `pnpx`, or `tsx`). Trusted utilities supplied by the pinned Node base (such as npm, npx, and Corepack) are retained rather than removed through fragile fixed paths. It MUST NOT contain devDependencies, test dirs (`tests/`, `coverage/`, `.playwright`), source TypeScript, declarations, source maps, `.git`, `docs`, `specs`, or IDE files.
 - `EXPOSE 8080` — single port (variable at `docker run` via `HOST_PORT`, but Dockerfile declares the default).
 - `CMD` runs the compiled single-port host directly through Node (`node packages/console/dist/host/host.js` → one `http.Server` on `HOST_PORT`).
 - Runtime MUST execute as the image's unprivileged `node` user.

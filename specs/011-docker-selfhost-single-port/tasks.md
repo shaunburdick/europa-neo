@@ -155,6 +155,19 @@
 
 **Checkpoint**: README doctrine done; `pnpm version:check` independent of Docker; manual drift check is documented as executed.
 
+### PR #165 follow-up remediation — ✅ complete (2026-09-21)
+
+- [x] T053 Keep the normal console build independent of Docker-only host
+  bundling; require Docker to invoke `build:host` explicitly after `pnpm build`.
+- [x] T054 Remove fragile fixed-path deletion of Node-base package utilities;
+  retain the explicit application-artifact allowlist and update smoke checks to
+  reject only application tooling (`pnpm`, `pnpx`, `tsx`) and workspace artifacts.
+- [x] T055 Retain the Docker CI explanation for the design-manifest prerequisite
+  and align Spec 011, its image contract, plan, quickstart, and console README.
+- [x] T056 Run focused console builds, host-layout tests, Docker smoke, and the
+  changed-file verification gate; inspect the runtime image and review the final
+  local diff before responding to the review.
+
 ---
 
 ## Phase 9: Runtime Image Hardening (v1.3 security-only amendment)

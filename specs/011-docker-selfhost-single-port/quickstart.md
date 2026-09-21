@@ -155,7 +155,7 @@ docker images europa:size-check --format '{{.Repository}}:{{.Tag}} {{.Size}}'  #
 docker image inspect europa:size-check --format 'user={{.Config.User}} cmd={{json .Config.Cmd}}'  # node + direct host.js
 docker run --rm --entrypoint sh europa:size-check -eu -c '
   test "$(id -u)" -ne 0
-  for command in corepack npm npx pnpm pnpx tsx; do ! command -v "$command"; done
+  for command in pnpm pnpx tsx; do ! command -v "$command"; done
   test ! -e /app/node_modules
   test -s /app/packages/console/dist/host/host.js
 ' # artifact-only non-root boundary
@@ -168,7 +168,7 @@ docker build -t europa:size-check2 . && docker run --rm europa:size-check sha256
 # Compare dist payload hash between two builds from same commit — MUST match.
 ```
 
-Validates: NFR-002 (artifact-only, non-root runtime with no package tooling/devDeps/source/tests), NFR-003 (byte-equivalent `dist/` + `/version` on rebuild), SC-008 (size recorded and under stated bound). The image contains a browser SPA and a distinct standalone host bundle at `dist/host/host.js`; the latter is the container entry artifact.
+Validates: NFR-002 (artifact-only, non-root runtime with no application tooling/devDeps/source/tests), NFR-003 (byte-equivalent `dist/` + `/version` on rebuild), SC-008 (size recorded and under stated bound). The image contains a browser SPA and a distinct standalone host bundle at `dist/host/host.js`; the latter is the container entry artifact. Tools supplied by the pinned Node base are intentionally not removed.
 
 ## Other gates (run before every commit)
 

@@ -1,6 +1,6 @@
 # Implementation Plan: One-Command Self-Host Packaging (Docker) — Single-Port Deployment
 
-**Branch**: `016-docker-runtime-hardening` | **Date**: 2026-09-16 | **Spec**: [spec.md](./spec.md) v1.6 deferred runtime research decisions
+**Branch**: `016-docker-runtime-hardening` | **Date**: 2026-09-21 | **Spec**: [spec.md](./spec.md) v1.7 explicit deployment host artifact
 **Dependencies**: 004 networking, 005 console, 006 matchmaking, 010 lobby, 009 versioning  
 **Research**: [research.md](./research.md) | **Data Model**: [data-model.md](./data-model.md) | **Contracts**: [contracts/](./contracts/) | **Quickstart**: [quickstart.md](./quickstart.md)
 
@@ -12,9 +12,11 @@ Collapse the self-host deployment from two local servers (`ws://:8080` + `http:/
 
 Replace the runtime workspace install with an explicit artifact allowlist. The
 build creates one standalone ESM host bundle containing its workspace and `ws`
-closure. The final stage copies only the SPA `index.html`, SPA assets, and host
-bundle; runs direct `node` as the base image's `node` user; and ships no package
-manager, `tsx`, `node_modules`, source, declarations, maps, tests, or coverage.
+closure. Docker creates that host bundle explicitly, after the ordinary workspace
+build, so normal console builds remain independent. The final stage copies only
+the SPA `index.html`, SPA assets, and host bundle; runs direct `node` as the base
+image's `node` user; and ships no application tooling, `tsx`, `node_modules`,
+source, declarations, maps, tests, or coverage.
 Preserve all existing runtime behavior and smoke assertions, including per-format
 brand MIME checks. No Windows compatibility, UI, design, manual, onboarding, or
 workflow behavior changes are in scope.
@@ -37,7 +39,7 @@ repairs are required for PR readiness and do not alter application behavior.
 ## Technical Context
 
 - **Language/runtime**: TypeScript strict mode, Node LTS (Docker: `node:24-slim` Debian bookworm; dev engines stay `>=22.0.0` per [research.md](./research.md) Finding 1).
-- **Package manager**: pnpm 11.22.0 via `corepack` inside Docker; `pnpm install --frozen-lockfile` + `pnpm build` of all workspaces (engine → terrain → fog → networking → matchmaking → console (vite) → version).
+- **Package manager**: pnpm 11.22.0 via `corepack` inside Docker; `pnpm install --frozen-lockfile` + `pnpm build` of all workspaces (engine → terrain → fog → networking → matchmaking → console (vite) → version), followed by explicit `pnpm --filter @europa/console build:host` for the Docker-only host bundle.
 - **Primary deps**: `ws@^8.21.3` (only runtime dep in networking, `noServer: true` already), `vite@^6` + `@vitejs/plugin-react` 6.x, React 19, `tsx` for host runner. No new runtime dependency.
 - **Storage**: in-memory only (constitution VII). Matches/lobby/identities/sessions remain ephemeral — restart resets them; Docker does not add persistence.
 - **Testing**: Vitest 4 (unit/integration/coverage), Playwright E2E (full-stack two-seat proof + keepalive), `docker build` + `docker compose config -q` gates, curl-based version checks.
@@ -163,10 +165,10 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
+RUN pnpm --filter @europa/console build:host
 
-# The console build orders its outputs as Vite SPA, generated assets,
-# standalone `build:host` bundle, then final TypeScript emit. `build:host`
-# writes `dist/host/host.js` without cleaning the completed SPA tree.
+# `build:host` is a Docker-only deployment artifact. It writes
+# `dist/host/host.js` without cleaning the completed SPA tree.
 
 # Stage 2 — runtime (minimal)
 FROM node:24-slim@sha256:<pinned> AS runtime # 24.x — latest LTS Aug 2026
