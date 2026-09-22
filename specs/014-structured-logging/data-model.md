@@ -24,18 +24,15 @@ export interface Logger {
 ```typescript
 /**
  * Typed context fields for structured log lines.
- * Callers pass typed context objects; the logger spreads them into the output.
+ * Structurally identical to Record<string, unknown> — callers may use
+ * this type for ergonomic context objects, or pass ad-hoc records.
  */
 export type LogContext = {
-  matchId?: string;
-  playerId?: string;
-  tick?: number;
-  event?: string;
-  [key: string]: unknown;
+  readonly [key: string]: unknown;
 };
 ```
 
-**Note**: `LogContext` is a convenience type for callers. The `Logger` interface accepts `Record<string, unknown>` — callers may use `LogContext` or pass ad-hoc objects.
+**Note (v1.1)**: `LogContext` is now structurally identical to `Record<string, unknown>` and is compatible with the `Logger` interface's `ctx` parameter. The Logger interface accepts `Readonly<Record<string, unknown>>` — callers may use `LogContext` or pass ad-hoc objects. The named properties (`matchId`, `playerId`, `tick`, `event`) from v1.0 were removed — they were illustrative examples, not enforced constraints.
 
 ### LogLevel (internal)
 
@@ -86,10 +83,10 @@ export function createLogger(opts?: {
   level?: string;
   /** Override LOG_FORMAT env var. Default: process.env.LOG_FORMAT ?? 'json' */
   format?: string;
-  /** Override stdout writer. Default: process.stdout.write.bind(process.stdout) */
-  stdout?: (chunk: string) => boolean;
-  /** Override stderr writer. Default: process.stderr.write.bind(process.stderr) */
-  stderr?: (chunk: string) => boolean;
+  /** Override stdout writer. Default: process.stdout.write.bind(process.stdout). Fire-and-forget. */
+  stdout?: (chunk: string) => void;
+  /** Override stderr writer. Default: process.stderr.write.bind(process.stderr). Fire-and-forget. */
+  stderr?: (chunk: string) => void;
 }): Logger;
 ```
 
@@ -99,23 +96,27 @@ export function createLogger(opts?: {
 - Invalid `LOG_LEVEL` → default to `"info"` + one stderr warning
 - Invalid `LOG_FORMAT` → default to `"json"` + one stderr warning
 - Context fields with reserved names (`timestamp`, `level`, `message`) are stripped from context subkey
+- Writer return type is `void` — fire-and-forget, no backpressure handling
+- **Fail-soft (v1.1)**: When `JSON.stringify` throws on context values, falls back to `{}` (JSON mode) or omits context (pretty mode). One diagnostic warning emitted to stderr on first failure per instance.
 
 ### sanitizeLogText(text, maxLength?)
 
 ```typescript
 /**
  * Make wire-derived text safe to interpolate into a diagnostics line:
- * control characters become spaces, result is trimmed and length-capped.
+ * control characters and format characters become spaces, result is
+ * trimmed and length-capped.
  *
  * @param text      Raw text (error messages, handles, any untrusted string).
- * @param maxLength Truncation cap (default 200).
+ * @param maxLength Truncation cap (default {@link LOG_TEXT_MAX_LENGTH}).
  * @returns Sanitized single-line text.
  */
 export function sanitizeLogText(text: string, maxLength?: number): string;
 ```
 
 **Migrated from**: `packages/console/scripts/host-config.ts` line 79.
-**Behavior**: Identical — control chars (`\p{Cc}`) → spaces, trim, truncate to maxLength with ellipsis.
+**Behavior (v1.1)**: Control chars (`\p{Cc}`) and format chars (`\p{Cf}`, including bidi isolates U+202A–U+202E, U+2066–U+2069, soft hyphen U+00AD, word joiner U+2060) → spaces, trim, truncate to maxLength with ellipsis.
+**Pretty-mode usage (v1.1)**: In pretty mode, the logger applies `sanitizeLogText()` to the message string and all string-valued context fields before interpolation — preventing log forging and terminal escape injection.
 
 ## Exported Barrel (`src/index.ts`)
 

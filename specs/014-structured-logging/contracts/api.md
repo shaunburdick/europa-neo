@@ -10,7 +10,7 @@ The package exports five symbols from its barrel (`src/index.ts`):
 | `LogContext` | type (alias) | Typed context fields for structured log lines |
 | `createLogger` | function | Factory returning a Logger that writes JSON or pretty lines |
 | `NULL_LOGGER` | const (Logger) | No-op logger — calling any method produces no output |
-| `sanitizeLogText` | function | Control-char stripping, trimming, truncation for untrusted text |
+| `sanitizeLogText` | function | Control-char (`\p{Cc}`) and format-char (`\p{Cf}`) stripping, trimming, truncation for untrusted text |
 
 ## Interface Contract: Logger
 
@@ -23,8 +23,9 @@ interface Logger {
 }
 ```
 
-**Methods**: Each accepts a string message and an optional context object.
+**Methods**: Each accepts a string message and an optional context object. Callers may pass `LogContext`-typed objects — `LogContext` is structurally identical to `Record<string, unknown>` and is compatible with this interface.
 **Behavior**: debug/info → stdout; warn/error → stderr. Below-threshold calls are silently dropped (no serialization).
+**Pretty-mode sanitization (v1.1)**: In pretty mode, the logger applies `sanitizeLogText()` to the message and all string context values before interpolation. This prevents log forging and terminal escape injection.
 **Side effects**: Synchronous `process.stdout.write` / `process.stderr.write` only. No async, no buffering, no events.
 
 ## Factory Contract: createLogger
@@ -33,14 +34,18 @@ interface Logger {
 function createLogger(opts?: {
   level?: string;      // override LOG_LEVEL env var
   format?: string;     // override LOG_FORMAT env var
-  stdout?: (chunk: string) => boolean;  // override stdout writer
-  stderr?: (chunk: string) => boolean;  // override stderr writer
+  stdout?: (chunk: string) => void;  // override stdout writer (fire-and-forget)
+  stderr?: (chunk: string) => void;  // override stderr writer (fire-and-forget)
 }): Logger;
 ```
+
+**Writer return type**: `void` — the logger is fire-and-forget; it does not inspect the writer's return value. `process.stdout.write` returns `boolean` (backpressure), but the logger ignores it. Writer overrides (primarily for testing) return `void` for simplicity.
 
 **Env var behavior**:
 - `LOG_LEVEL`: default `"info"`, invalid → `"info"` + one stderr warning
 - `LOG_FORMAT`: default `"json"`, invalid → `"json"` + one stderr warning
+
+**Fail-soft serialization (v1.1)**: When `JSON.stringify` throws on context values (cyclic references, BigInt, throwing `toJSON()`), the logger catches the exception and falls back to `{}` for the context key in JSON mode, or omits context in pretty mode. A single diagnostic warning is emitted to stderr on the first failure per logger instance.
 
 **Output format (JSON)**:
 ```json
@@ -49,8 +54,10 @@ function createLogger(opts?: {
 
 **Output format (pretty)**:
 ```
-[<timestamp>] <LEVEL_PAD8>  <msg> {<ctx>}
+[<timestamp>] <LEVEL_PAD8>  <sanitized-msg> {<sanitized-ctx>}
 ```
+
+In pretty mode, the message and all string context values are passed through `sanitizeLogText()` before interpolation — control characters (`\p{Cc}`) and format characters (`\p{Cf}`, including bidi isolates) are stripped.
 
 ## Re-export Contract (networking backward compat)
 

@@ -41,9 +41,23 @@ The project's constitution demands simplicity (Principle V), zero unnecessary de
 
 ## Reference: sanitizeLogText()
 
-The function is moved from `packages/console/scripts/host-config.ts` (line 79) to `@europa/logging`. Behavior is identical:
+The function is moved from `packages/console/scripts/host-config.ts` (line 79) to `@europa/logging`. Behavior (expanded in v1.1):
 - Control characters (`\p{Cc}`) replaced with spaces
+- Format characters (`\p{Cf}`) replaced with spaces — includes bidi isolates (U+202A–U+202E, U+2066–U+2069), soft hyphen (U+00AD), word joiner (U+2060)
 - Trimmed
 - Truncated to `maxLength` (default 200) with ellipsis
 
 This is a pure function with no dependencies — ideal for extraction.
+
+## Reference: Fail-soft JSON.stringify (v1.1)
+
+`JSON.stringify` throws on cyclic references, BigInt values, and objects whose `toJSON()` throws. The logger wraps the serialization in a try/catch — on failure, context falls back to `{}` (JSON mode) or is omitted (pretty mode). One diagnostic warning is emitted to stderr on the first failure per logger instance. The log line is always written regardless of serialization outcome.
+
+## Reference: Pretty-mode sanitization (v1.1)
+
+In pretty mode, the logger applies `sanitizeLogText()` to the message string and all string-valued context fields before interpolation. This prevents:
+- **Log forging**: injected `\n` or `\r\n` creating fake log entries
+- **Terminal escape injection**: ESC sequences (e.g., `\x1b[31m` for red text) or CSI sequences
+- **Bidi spoofing**: bidi override characters (U+202E) reordering displayed text
+
+JSON mode is machine-parseable and does not need this treatment — callers are responsible for ensuring context values are safe for structured consumption.
