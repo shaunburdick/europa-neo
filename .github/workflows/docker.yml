@@ -119,15 +119,12 @@ jobs:
             - name: Checkout
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-            # docker-smoke reads the design-owned brand manifest to verify every
-            # generated asset and MIME type in the built image. dist/ is ignored,
-            # so build that narrow prerequisite from the checked-out source rather
-            # than relying on a developer artifact being present on the runner.
             - name: Set up Node.js
               uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
               with:
                   node-version: "24"
 
+            # Including a design build because the smoke test validates design assets exist
             - name: Build Docker smoke-test manifest prerequisite
               run: |
                   corepack enable
