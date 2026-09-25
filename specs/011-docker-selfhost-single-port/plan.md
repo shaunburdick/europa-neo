@@ -1,6 +1,6 @@
 # Implementation Plan: One-Command Self-Host Packaging (Docker) — Single-Port Deployment
 
-**Branch**: `issue-5-docker-support` | **Date**: 2026-08-26 | **Spec**: [spec.md](./spec.md) v1.0 + product-owner gate 2026-08-26 (Node 24 LTS)  
+**Branch**: `016-docker-runtime-hardening` | **Date**: 2026-09-21 | **Spec**: [spec.md](./spec.md) v1.7 explicit deployment host artifact
 **Dependencies**: 004 networking, 005 console, 006 matchmaking, 010 lobby, 009 versioning  
 **Research**: [research.md](./research.md) | **Data Model**: [data-model.md](./data-model.md) | **Contracts**: [contracts/](./contracts/) | **Quickstart**: [quickstart.md](./quickstart.md)
 
@@ -8,10 +8,38 @@
 
 Collapse the self-host deployment from two local servers (`ws://:8080` + `http://:5173`) to ONE `http.Server` on `HOST_PORT` (default 8080) serving HTTP (`dist/` + `/version` + SPA fallback) and WebSocket upgrades from the same port, package it as a reproducible multi-stage Docker image on the latest LTS Node base (`node:24-slim`, confirmed Active LTS 2025-10-28→2028-04-30), add a one-command `docker-compose.yml` (single port mapping + 3-env passthrough), a `.dockerignore`, a GHCR publish workflow (`:edge` on `main`, `:vX.Y.Z` on release tags), and migrate the console client to same-origin WebSocket fallback with hard errors for removed two-port flags. No wire-protocol or game-logic change.
 
+### v1.3 security-only amendment
+
+Replace the runtime workspace install with an explicit artifact allowlist. The
+build creates one standalone ESM host bundle containing its workspace and `ws`
+closure. Docker creates that host bundle explicitly, after the ordinary workspace
+build, so normal console builds remain independent. The final stage copies only
+the SPA `index.html`, SPA assets, and host bundle; runs direct `node` as the base
+image's `node` user; and ships no application tooling, `tsx`, `node_modules`,
+source, declarations, maps, tests, or coverage.
+Preserve all existing runtime behavior and smoke assertions, including per-format
+brand MIME checks. No Windows compatibility, UI, design, manual, onboarding, or
+workflow behavior changes are in scope.
+
+### v1.4 CI conformance amendment
+
+The Docker workflow's validation job checks out source only, but Docker smoke
+uses the design brand manifest to assert every generated runtime asset's MIME
+type. Because generated `dist/` is intentionally ignored, the job must set up
+Node 24, use `pnpm install --frozen-lockfile`, and build only `@europa/design`
+before the smoke test. This is a test prerequisite, not an image input: the
+Dockerfile remains self-contained and continues to build its own artifacts.
+
+The artifact-only final image intentionally has no `packages/version` runtime
+module. Its supported release identity check is `GET /version`; update the image
+contract accordingly. Normalize stale `node:22-slim` wording to the approved,
+pinned `node:24-slim` decision in `research.md`. These documentation and CI
+repairs are required for PR readiness and do not alter application behavior.
+
 ## Technical Context
 
 - **Language/runtime**: TypeScript strict mode, Node LTS (Docker: `node:24-slim` Debian bookworm; dev engines stay `>=22.0.0` per [research.md](./research.md) Finding 1).
-- **Package manager**: pnpm 11.22.0 via `corepack` inside Docker; `pnpm install --frozen-lockfile` + `pnpm build` of all workspaces (engine → terrain → fog → networking → matchmaking → console (vite) → version).
+- **Package manager**: pnpm 11.22.0 via `corepack` inside Docker; `pnpm install --frozen-lockfile` + `pnpm build` of all workspaces (engine → terrain → fog → networking → matchmaking → console (vite) → version), followed by explicit `pnpm --filter @europa/console build:host` for the Docker-only host bundle.
 - **Primary deps**: `ws@^8.21.3` (only runtime dep in networking, `noServer: true` already), `vite@^6` + `@vitejs/plugin-react` 6.x, React 19, `tsx` for host runner. No new runtime dependency.
 - **Storage**: in-memory only (constitution VII). Matches/lobby/identities/sessions remain ephemeral — restart resets them; Docker does not add persistence.
 - **Testing**: Vitest 4 (unit/integration/coverage), Playwright E2E (full-stack two-seat proof + keepalive), `docker build` + `docker compose config -q` gates, curl-based version checks.
@@ -137,6 +165,10 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
+RUN pnpm --filter @europa/console build:host
+
+# `build:host` is a Docker-only deployment artifact. It writes
+# `dist/host/host.js` without cleaning the completed SPA tree.
 
 # Stage 2 — runtime (minimal)
 FROM node:24-slim@sha256:<pinned> AS runtime # 24.x — latest LTS Aug 2026
@@ -157,6 +189,11 @@ CMD ["pnpm", "host"]
 ```
 
 *Exact `COPY --from=build` list is tuned at implementation to include `packages/*/dist/` plus `packages/version` and any asset `packages/console/build-assets.ts` outputs. The invariant is runtime copies built artifacts + production node_modules only; source TypeScript not shipped.*
+
+The host recognizes two entry layouts only: native source execution resolves
+from `<package-root>/scripts`, while the bundled image entry resolves from
+`<package-root>/dist/host` and requires sibling `dist/index.html`. An invalid
+layout throws an actionable startup error rather than guessing a package root.
 
 **`.dockerignore` (repo root)**:
 
@@ -239,6 +276,10 @@ Default compose bind is `0.0.0.0:8080` (wide because docker's port mapping is th
 | Build gate | `docker build` + `docker compose config -q` | Dockerfile syntax, compose spec, `EXPOSE` count. |
 | Manual gate | Per quickstart.md Q-D01..Q-D08 | Fresh-clone compose → two-seat lobby flow; same-origin without `?ws=`; `HOST_*` env overrides; stale-flag hard error; image `/version` == `APP_VERSION`. |
 
+`scripts/docker-smoke.sh` additionally requires Node on the invoking host to
+read the generated design brand manifest. This is a validation-tool prerequisite,
+not a requirement for the Docker-only compose deployment.
+
 Coverage: ≥80% on every metric for new host/config/client logic (constitution III); existing suites must stay green.
 
 ### 10. File surface (authoritative)
@@ -295,4 +336,5 @@ See [quickstart.md](./quickstart.md) Q-D01..Q-D08 mapping each FR/SC/NFR to a co
 
 - Private registry / Docker Hub push, Helm/K8s manifests, in-container TLS/ACME, secrets, persistence, chat/ratings, per-package independent versioning.
 - Any `ServerConfig` tuning-constant change beyond `httpServer`; lifecycle timers remain authority of matchmaking/engine.
-- Bumping dev `engines` to `>=24` if not proven needed during implementation — deferred until Node 22 EOL approaches (2027-04-30).
+- Unifying the Node 22-compatible development/bundle baseline with the Node 24 Docker base — deferred to [Issue #167](https://github.com/shaunburdick/europa-neo/issues/167) for research and project-owner discussion; this plan makes no Node-version change.
+- Replacing the pinned `node:24-slim` runtime with a distroless image — deferred to [Issue #168](https://github.com/shaunburdick/europa-neo/issues/168) for threat, operational, self-hostability, and future-goals analysis; this plan makes no runtime-base change.
