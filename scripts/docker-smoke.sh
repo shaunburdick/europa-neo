@@ -21,6 +21,28 @@ echo "[docker-smoke] building ${IMAGE_NAME} from a clean context..."
 # missing design→console staging step.
 docker build --no-cache --tag "${IMAGE_NAME}" .
 
+image_user="$(docker image inspect "${IMAGE_NAME}" --format '{{.Config.User}}')"
+[[ "${image_user}" == "node" ]] || {
+    echo "[docker-smoke] FAIL: image user is ${image_user:-<empty>}, expected node" >&2
+    exit 1
+}
+
+echo "[docker-smoke] checking the runtime artifact allowlist..."
+docker run --rm --entrypoint sh "${IMAGE_NAME}" -eu -c '
+    [ "$(id -u)" -ne 0 ] || { echo "container runs as root" >&2; exit 1; }
+    for path in /app/node_modules /app/.pnpm /app/.npm /app/.corepack /app/.git /app/.github /app/.vscode /app/.idea /app/docs /app/specs; do
+        [ ! -e "$path" ] || { echo "forbidden artifact present: $path" >&2; exit 1; }
+    done
+    forbidden="$(find /app \( -name "*.ts" -o -name "*.tsx" -o -name "*.d.ts" -o -name "*.map" -o -name tests -o -name coverage -o -name .playwright \) -print)"
+    [ -z "$forbidden" ] || { echo "forbidden source/build artifacts found:" >&2; echo "$forbidden" >&2; exit 1; }
+    for command in pnpm pnpx tsx; do
+        command -v "$command" >/dev/null 2>&1 && { echo "$command is present" >&2; exit 1; }
+    done
+    [ -s /app/packages/console/dist/index.html ]
+    [ -d /app/packages/console/dist/assets ]
+    [ -s /app/packages/console/dist/host/host.js ]
+'
+
 echo "[docker-smoke] starting one-port container on localhost:${HOST_PORT}..."
 docker run --detach --name "${CONTAINER_NAME}" --publish "${HOST_PORT}:8080" "${IMAGE_NAME}" >/dev/null
 
@@ -64,11 +86,9 @@ asset_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "htt
 }
 
 echo "[docker-smoke] checking the complete design-owned brand set in the console output..."
-brand_assets="$(docker run --rm "${IMAGE_NAME}" node --input-type=module -e '
+brand_assets="$(node --input-type=module -e '
     import { BRAND_MANIFEST } from "./packages/design/dist/brand/index.js";
-    for (const asset of BRAND_MANIFEST.assets) {
-        process.stdout.write(`${asset.path}\t${asset.format}\n`);
-    }
+    for (const asset of BRAND_MANIFEST.assets) process.stdout.write(`${asset.path}\t${asset.format}\n`);
 ')"
 asset_count=0
 while IFS=$'\t' read -r brand_path brand_format; do
@@ -150,4 +170,4 @@ exposed_ports="$(docker image inspect "${IMAGE_NAME}" --format '{{json .Config.E
     exit 1
 }
 
-echo "[docker-smoke] PASS: semantic SPA paths, /version, asset 404, HTTP+WS same-port handshake, and one EXPOSE port verified"
+echo "[docker-smoke] PASS: non-root artifact-only runtime, semantic SPA paths, /version, asset 404, HTTP+WS same-port handshake, and one EXPOSE port verified"
