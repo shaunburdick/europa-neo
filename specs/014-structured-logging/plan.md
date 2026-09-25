@@ -84,6 +84,22 @@ Server-side processes use raw `process.stdout.write`/`process.stderr.write` via 
 
 **Rationale**: The console package's `NULL_LOGGER` (in `contracts/console-api.ts`) implements `ConsoleLogger`, not `Logger` — these are different interfaces. The console `ConsoleLogger` is a browser-side interface with different semantics. This is out of scope per the spec's "client-side logging untouched" exclusion.
 
+### D8 (v1.1): Fail-soft JSON.stringify on context values
+
+**Rationale**: `JSON.stringify` throws on cyclic references, BigInt values, and objects whose `toJSON()` throws. Rather than letting these propagate (crashing the caller), the logger catches the exception, falls back to `{}` for context (JSON mode) or omits context (pretty mode), and emits one diagnostic warning to stderr. This is fail-soft — the log line is always written. The warning is throttled to one per logger instance (not per call) to avoid flood.
+
+### D9 (v1.1): Pretty-mode sanitization of message and string context values
+
+**Rationale**: The pretty-print path previously interpolated message and string context values raw — no `sanitizeLogText()` applied. This allowed log forging (injected newlines creating fake log entries) and terminal escape injection (ESC sequences, bidi overrides). The fix applies `sanitizeLogText()` to the message and all string-valued context fields before interpolation in pretty mode only (JSON mode is machine-parseable and doesn't need this).
+
+### D10 (v1.1): Extended character class for sanitizeLogText — `\p{Cf}` stripping
+
+**Rationale**: The original `\p{Cc}` regex only stripped control characters (newline, tab, ESC). Format characters (`\p{Cf}`) — bidi isolates (U+202A–U+202E, U+2066–U+2069), soft hyphen (U+00AD), word joiner (U+2060) — can cause visual spoofing in terminals via bidi text reordering. Extending to `[\p{Cc}\p{Cf}]` catches all dangerous non-printing characters.
+
+### D11 (v1.1): Writer return type is `void`, not `boolean`
+
+**Rationale**: The spec contracts originally declared writer return types as `boolean` (matching `process.stdout.write`'s actual return). In practice, the logger is fire-and-forget — it never inspects the return value. The implementation uses `void` return types for simplicity, and the spec is updated to match. This avoids confusion about whether the logger handles backpressure.
+
 ## File Structure
 
 ```

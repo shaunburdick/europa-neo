@@ -62,3 +62,27 @@ describe('sanitizeLogText', () => {
         expect(result.endsWith('…')).toBe(true);
     });
 });
+
+describe('p{Cf} format character stripping', () => {
+    it('replaces bidi override (U+202E) with space', () => {
+        expect(sanitizeLogText('left\u202Erighthanded')).toBe('left righthanded');
+    });
+
+    it('replaces bidi isolate (U+2066) with space', () => {
+        expect(sanitizeLogText('before\u2066after')).toBe('before after');
+    });
+
+    it('replaces soft hyphen (U+00AD) with space', () => {
+        expect(sanitizeLogText('soft\u00ADhyphen')).toBe('soft hyphen');
+    });
+
+    it('replaces word joiner (U+2060) with space', () => {
+        expect(sanitizeLogText('word\u2060joiner')).toBe('word joiner');
+    });
+
+    it('strips mixed \\p{Cc} and \\p{Cf} characters', () => {
+        // \r (Cc), \u202E (Cf), \n (Cc), \u00AD (Cf)
+        const input = 'a\rb\u202Ec\nd\u00ADe';
+        expect(sanitizeLogText(input)).toBe('a b c d e');
+    });
+});
