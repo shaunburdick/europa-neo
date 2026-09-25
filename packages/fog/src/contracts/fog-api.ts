@@ -151,10 +151,13 @@ export declare function computeVisibleSet(
  * Redaction rule (spec FR-002 / FR-003):
  *   - Cells outside the player's horizon are **absent** from
  *     `visibleCells` (not present as "redacted" placeholders).
- *   - Cell-level `TickEvents` (combat, capture) whose `cell` is outside
- *     the horizon are dropped.
- *   - Player-level `TickEvents` (`EliminationEvent`, `AppliedOrderRecord`,
- *     `errors`) are kept always — they are not cell-bound.
+ *   - `combat` and `captures` events whose `cell` is outside the horizon
+ *     are dropped.
+ *   - `appliedOrders` are filtered by player match AND cell visibility.
+ *   - `errors` are filtered by cell visibility of both the order and the
+ *     validation error reason.
+ *   - `eliminations` pass through unfiltered (player-level, not
+ *     cell-bound).
  *
  * Spectator mode (`options.spectator === true`, spec US3 / FR-006):
  *   - `visibleCells` contains every cell on the board (full board state).
@@ -255,9 +258,18 @@ export declare function visibleCellAt(
 // ----------------------------------------------------------------------------
 
 /**
- * Filter `TickEvents` to remove cell-level events whose cell is outside
- * the player's horizon. Player-level events (`EliminationEvent`,
- * `AppliedOrderRecord`, `errors`) are kept regardless.
+ * Filter `TickEvents` to remove events whose referenced cells are
+ * outside the player's horizon (FR-003, FR-012).
+ *
+ * Filtering rules per category:
+ *   - `combat`: kept only when the event's `cell` is visible.
+ *   - `captures`: kept only when the event's `cell` is visible.
+ *   - `appliedOrders`: kept only when the order's player matches the
+ *     viewer AND all cell coordinates referenced by the order are
+ *     visible.
+ *   - `errors`: kept only when all cell coordinates referenced by
+ *     BOTH the order and the validation error reason are visible.
+ *   - `eliminations`: always kept (player-level, not cell-bound).
  *
  * Exposed primarily for tests; `computePlayerView` calls this
  * internally. Feature 004 should NOT need to call this directly —
@@ -270,6 +282,9 @@ export declare function visibleCellAt(
  *                      (row-major, no duplicates).
  * @param events        The unfiltered `TickEvents` to filter.
  * @param spectator     If `true`, return `events` unchanged.
+ * @param player        The viewer's `PlayerId` — required for
+ *                      `appliedOrders` filtering (orders from other
+ *                      players are never shown to this viewer).
  * @returns             A new `TickEvents` object with cell-level events
  *                      dropped for out-of-horizon cells.
  */
@@ -278,6 +293,7 @@ export declare function filterTickEvents(
   visibleCells: ReadonlyArray<Coord>,
   events: Readonly<import('@europa/engine').TickEvents>,
   spectator: boolean,
+  player?: PlayerId,
 ): Readonly<import('@europa/engine').TickEvents>;
 
 // ----------------------------------------------------------------------------

@@ -47,6 +47,8 @@ Useful environment variables:
 | `HOST_PUBLIC_HOST` | `localhost` | Advertised host for join URLs |
 | `HOST_PUBLIC_URL` | — | Absolute public URL base (e.g. behind a reverse proxy) |
 
+Version bumps must update the root and workspace `package.json` files, `packages/version/src/app-version.ts`, this release line, `docs/manual/src/pages/index.mdx`, `docs/manual/src/layouts/ManualLayout.astro`, and the `DESIGN.md` version header together. Run `pnpm version:check` before submitting a release bump.
+
 Run `pnpm host --help` for the full list of flags and variables.
 
 ### From source (Node.js)

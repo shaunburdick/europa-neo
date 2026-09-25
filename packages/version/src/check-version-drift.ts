@@ -31,6 +31,16 @@ export type VersionSourceKind =
     | 'manual-layout'
     | 'design-md';
 
+/** Every non-workspace surface the gatherer must observe exactly once. */
+export const REQUIRED_VERSION_SOURCE_KINDS: readonly VersionSourceKind[] = [
+    'root-package',
+    'constant',
+    'readme',
+    'manual-index',
+    'manual-layout',
+    'design-md',
+];
+
 /** One extracted version observation handed to {@link checkVersionDrift}. */
 export interface VersionSource {
     /** Which guarded surface this observation came from. */
@@ -79,10 +89,11 @@ export interface DriftReport {
  * - A `constant` source whose own version is `null` is **not ok**, again
  *   with no mismatch entries (a mismatch needs an `expected` string,
  *   which does not exist here).
- * - More than one `constant` source is a caller contract violation and
- *   throws: the gatherer emits exactly one.
- * - Zero non-constant sources alongside a valid constant is vacuously
- *   ok — the checker compares exactly what it is given.
+ * - More than one required non-workspace source of the same kind is a caller
+ *   contract violation and throws: the gatherer emits exactly one.
+ * - Every required non-workspace surface must be present exactly once. A
+ *   missing observation is represented as a mismatch naming its canonical
+ *   file, rather than allowing a partial input to pass vacuously.
  *
  * @param sources - Extracted version observations, ideally one per guarded surface.
  * @returns The aggregate report; `mismatches` preserves input order so downstream output is stable.
@@ -95,6 +106,13 @@ export function checkVersionDrift(sources: readonly VersionSource[]): DriftRepor
         throw new Error(`checkVersionDrift requires exactly one 'constant' source, received ${constants.length}`);
     }
 
+    for (const kind of REQUIRED_VERSION_SOURCE_KINDS) {
+        const count = sources.filter((source) => source.kind === kind).length;
+        if (count > 1) {
+            throw new Error(`checkVersionDrift requires exactly one '${kind}' source, received ${count}`);
+        }
+    }
+
     // Under noUncheckedIndexedAccess this read is `VersionSource | undefined`,
     // which folds the zero-constants case into the same guard.
     const constant = constants[0];
@@ -104,6 +122,22 @@ export function checkVersionDrift(sources: readonly VersionSource[]): DriftRepor
 
     const expected = constant.version;
     const mismatches: DriftMismatch[] = [];
+
+    const requiredFiles: Record<VersionSourceKind, string> = {
+        'root-package': 'package.json',
+        'workspace-package': '',
+        constant: 'packages/version/src/app-version.ts',
+        readme: 'README.md',
+        'manual-index': 'docs/manual/src/pages/index.mdx',
+        'manual-layout': 'docs/manual/src/layouts/ManualLayout.astro',
+        'design-md': 'DESIGN.md',
+    };
+    for (const kind of REQUIRED_VERSION_SOURCE_KINDS) {
+        const matching = sources.filter((source) => source.kind === kind);
+        if (matching.length === 0) {
+            mismatches.push({ file: requiredFiles[kind], expected, actual: null });
+        }
+    }
 
     for (const source of sources) {
         // The constant defines `expected`; it cannot disagree with itself,

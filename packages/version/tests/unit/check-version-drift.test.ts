@@ -34,8 +34,8 @@ function constantSource(version: string | null): VersionSource {
 }
 
 /**
- * Full five-surface fixture set in gather order: root package, two
- * workspace packages, the constant, and both doc surfaces — all agreeing.
+ * Full guarded fixture set in gather order: root package, two workspace
+ * packages, the constant, and all documentation surfaces — all agreeing.
  */
 function agreeableSources(): VersionSource[] {
     return [
@@ -45,6 +45,8 @@ function agreeableSources(): VersionSource[] {
         constantSource(V),
         { kind: 'readme', file: 'README.md', version: V },
         { kind: 'manual-index', file: 'docs/manual/src/pages/index.mdx', version: V },
+        { kind: 'manual-layout', file: 'docs/manual/src/layouts/ManualLayout.astro', version: V },
+        { kind: 'design-md', file: 'DESIGN.md', version: V },
     ];
 }
 
@@ -60,17 +62,23 @@ describe('checkVersionDrift', () => {
         it('accepts agreement regardless of kind — equality is the only criterion', () => {
             // A doc line extracted to the same raw token as the constant is
             // fine even though the kinds differ; no per-kind comparison rules.
-            const report = checkVersionDrift([constantSource(V), { kind: 'readme', file: 'README.md', version: V }]);
+            const report = checkVersionDrift(agreeableSources());
 
             expect(report.ok).toBe(true);
             expect(report.mismatches).toEqual([]);
         });
 
-        it('is vacuously ok when only the constant is supplied', () => {
+        it('rejects a partial observation set by naming missing required surfaces', () => {
             const report = checkVersionDrift([constantSource(V)]);
 
-            expect(report.ok).toBe(true);
-            expect(report.mismatches).toEqual([]);
+            expect(report.ok).toBe(false);
+            expect(report.mismatches).toEqual([
+                { file: 'package.json', expected: V, actual: null },
+                { file: 'README.md', expected: V, actual: null },
+                { file: 'docs/manual/src/pages/index.mdx', expected: V, actual: null },
+                { file: 'docs/manual/src/layouts/ManualLayout.astro', expected: V, actual: null },
+                { file: 'DESIGN.md', expected: V, actual: null },
+            ]);
         });
     });
 
@@ -192,6 +200,12 @@ describe('checkVersionDrift', () => {
             expect(() => checkVersionDrift([constantSource(V), constantSource(V)])).toThrowError(
                 /exactly one 'constant' source/,
             );
+        });
+
+        it('duplicate required document sources throw as a caller contract violation', () => {
+            expect(() =>
+                checkVersionDrift([...agreeableSources(), { kind: 'readme', file: 'README-copy.md', version: V }]),
+            ).toThrowError(/exactly one 'readme' source/);
         });
     });
 
