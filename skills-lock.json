@@ -7,6 +7,12 @@
       "skillPath": "skills/accessibility/SKILL.md",
       "computedHash": "612f913bcb03f0787b103c848cd7664b676a9aaf31f25d3270cc69cf5caaab95"
     },
+    "ai-attribution": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/ai-attribution/SKILL.md",
+      "computedHash": "78433c937e53639c6976d527f2d07c205ffbf9402b2ef2222d662c6a92fb3f24"
+    },
     "code-quality": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
@@ -36,6 +42,12 @@
       "sourceType": "github",
       "skillPath": "skills/spec-kit/SKILL.md",
       "computedHash": "3e4cc9909dcb0bc139aa7ea8ba231d70a10cea9ec53cf921715bcf888e8c9386"
+    },
+    "style": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/style/SKILL.md",
+      "computedHash": "2c5e7e5233f900f534f6657066fd2ef976216ccd4716bf993b8d223214230712"
     },
     "test-reviewer": {
       "source": "pertrai1/eslint-plugin-llm-core",
