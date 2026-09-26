@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Husky hook wrapper — husky runs hooks with `sh -e`, but the attribution
+# script uses bash syntax ([[ ]], local). Delegate to bash explicitly.
+exec bash "$(dirname "$0")/../.agents/skills/git-safety/scripts/prepare-commit-msg" "$@"

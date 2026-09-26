@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# prepare-commit-msg — auto-append Generated-By trailer for AI commits
+#
+# Install:
+#   HOOK_DIR=$(git config core.hooksPath 2>/dev/null || echo .git/hooks)
+#   cp .agents/skills/git-safety/scripts/prepare-commit-msg "$HOOK_DIR/prepare-commit-msg"
+#   chmod +x "$HOOK_DIR/prepare-commit-msg"
+#
+# Note: If core.hooksPath is set (e.g., Husky sets it to .husky/_/),
+# install there instead of .git/hooks/. Check with:
+#   git config core.hooksPath
+#
+# Detection model (full matrix: references/attribution-detection.md):
+#   - Harnesses that self-identify via env vars are auto-detected:
+#     AI_AGENT, AGENT, OPENCODE, OPENCODE_CLIENT, OPENCODE_AGENT,
+#     OPENCODE_MODEL, CLAUDE_CODE, CLAUDE_CODE_ENTRYPOINT, CURSOR_AGENT,
+#     GEMINI_CLI, CODEX_SANDBOX, AUGMENT_AGENT, CLINE_ACTIVE.
+#     Values are checked as non-empty, NOT "== 1": Goose sets AGENT=goose,
+#     Amp sets AGENT=amp.
+#   - OpenCode v2 sets NO AI marker. Its agents claim the commit explicitly:
+#       git-agent-commit ...   # or
+#       AI_AGENT=opencode OPENCODE_AGENT=... OPENCODE_MODEL=... git commit ...
+#   - OPENCODE_TERMINAL=1 is set on EVERY OpenCode pty (agent tool shells
+#     AND the human TUI terminal). It NEVER triggers attribution, but emits
+#     a stderr warning when present without a claim, so a silent miss is
+#     impossible and a human commit is never misattributed.
+#
+# Agent name and model resolution (cross-harness):
+#   - Agent name: OPENCODE_AGENT (opencode only); otherwise the AI_AGENT /
+#     AGENT value itself is the agent name per the agents.md#136 standard,
+#     unless it is a boolean marker ("1"/"true") or the canonical claim
+#     value "opencode".
+#   - Model: OPENCODE_MODEL (opencode) or ANTHROPIC_MODEL (claude-code, when
+#     the harness exports it); other harnesses expose no model var today.
+#   - Fallback: the harness name. Attributed only when a harness is detected.
+#
+# The block between the "AI Commit Attribution" markers is self-contained;
+# existing hooks can extract and append it (see SKILL.md):
+#   sed -n '/^# --- AI Commit Attribution/,/^# --- end AI Commit Attribution/p' \
+#     .agents/skills/git-safety/scripts/prepare-commit-msg >> "$HOOK_PATH"
+
+set -euo pipefail
+
+# --- AI Commit Attribution (added by git-safety skill) ---
+commit_msg_file="${1:-}"
+commit_source="${2:-}"
+
+# Defensive: git always passes the message file as $1, but never fail a
+# commit over a missing argument.
+if [[ -z "$commit_msg_file" ]]; then
+  exit 0
+fi
+
+# Skip merge and squash commits; amend commits are still attributed when the
+# existing message does not already contain a trailer.
+# commit_source values: "message" (-m), "template" (-t), "merge", "squash", "commit" (amend)
+case "${commit_source}" in
+  merge|squash)
+    exit 0
+    ;;
+esac
+
+# Echo the harness name when an AI session is detected, or nothing.
+detect_harness() {
+  if [[ -n "${AI_AGENT:-}" ]]; then
+    # "opencode" is the canonical claim value (see SKILL.md); other values
+    # are treated as the AI_AGENT standard without a known harness name.
+    if [[ "${AI_AGENT}" == "opencode" ]]; then
+      echo "opencode"
+    else
+      echo "ai-agent"
+    fi
+  elif [[ -n "${AGENT:-}" ]]; then
+    # Goose and Amp adopted the AGENT convention with non-"1" values.
+    case "${AGENT}" in
+      goose) echo "goose" ;;
+      amp)   echo "amp" ;;
+      *)     echo "agent" ;;
+    esac
+  elif [[ -n "${OPENCODE:-}" ]] || [[ -n "${OPENCODE_CLIENT:-}" ]]; then
+    echo "opencode"
+  elif [[ -n "${CLAUDE_CODE:-}" ]] || [[ -n "${CLAUDE_CODE_ENTRYPOINT:-}" ]]; then
+    echo "claude-code"
+  elif [[ -n "${CURSOR_AGENT:-}" ]]; then
+    echo "cursor"
+  elif [[ -n "${GEMINI_CLI:-}" ]]; then
+    echo "gemini-cli"
+  elif [[ -n "${CODEX_SANDBOX:-}" ]]; then
+    echo "codex"
+  elif [[ -n "${AUGMENT_AGENT:-}" ]]; then
+    echo "augment"
+  elif [[ -n "${CLINE_ACTIVE:-}" ]]; then
+    echo "cline"
+  elif [[ -n "${OPENCODE_AGENT:-}" ]] || [[ -n "${OPENCODE_MODEL:-}" ]]; then
+    # An explicit claim alone is a sufficient signal (OpenCode v2).
+    echo "opencode"
+  fi
+}
+
+harness="$(detect_harness)"
+
+# Resolve the agent name, harness-aware:
+#   - opencode harness: the OPENCODE_AGENT claim var is the sub-agent name.
+#   - otherwise: the AI_AGENT / AGENT value itself is the agent name per the
+#     emerging standard (agents.md#136) — except boolean markers ("1"/"true")
+#     and the canonical claim value "opencode", which mean "harness only".
+resolve_agent() {
+  if [[ "$harness" == "opencode" ]] && [[ -n "${OPENCODE_AGENT:-}" ]]; then
+    printf '%s\n' "${OPENCODE_AGENT}"
+    return
+  fi
+  local value=""
+  if [[ -n "${AI_AGENT:-}" ]]; then
+    value="${AI_AGENT}"
+  elif [[ -n "${AGENT:-}" ]]; then
+    value="${AGENT}"
+  fi
+  case "$value" in
+    ""|1|true|opencode) ;;          # marker / boolean / canonical → no override
+    *)                   printf '%s\n' "$value" ;;
+  esac
+}
+
+# Resolve the model, harness-scoped. Only vars confirmed present in the
+# harness's tool subprocess env are consulted; nothing is fabricated.
+resolve_model() {
+  case "$harness" in
+    opencode)    printf '%s\n' "${OPENCODE_MODEL:-}" ;;
+    claude-code) printf '%s\n' "${ANTHROPIC_MODEL:-}" ;;
+  esac
+}
+
+if [[ -n "$harness" ]]; then
+  # Skip if trailer already exists (avoid duplicates on amend).
+  if ! grep -q "^Generated-By:" "$commit_msg_file"; then
+    agent="$(resolve_agent)"
+    model="$(resolve_model)"
+    if [[ -n "$agent" ]] && [[ -n "$model" ]]; then
+      attribution="${agent} (model: ${model})"
+    elif [[ -n "$agent" ]]; then
+      attribution="$agent"
+    elif [[ -n "$model" ]]; then
+      # Agent unknown but harness known: attribute the harness with its model
+      # (e.g. claude-code exporting ANTHROPIC_MODEL).
+      attribution="${harness} (model: ${model})"
+    else
+      attribution="$harness"
+    fi
+    printf "\nGenerated-By: %s\n" "$attribution" >> "$commit_msg_file"
+  fi
+elif [[ "${OPENCODE_TERMINAL:-}" == "1" ]]; then
+  # OpenCode v2 pty without a claim: agent tool shell OR human TUI terminal.
+  # Never attribute (would misattribute the human); never fail the commit;
+  # make the historical silent failure visible instead.
+  printf '%s\n' \
+    "prepare-commit-msg: commit made in an OpenCode session without an AI attribution claim." \
+    "  If this commit was created by an AI agent, claim it with:" \
+    "    git-agent-commit -m \"...\"   # or: AI_AGENT=opencode git commit -m \"...\"" \
+    "  (Set OPENCODE_AGENT and OPENCODE_MODEL for rich attribution.)" \
+    >&2
+fi
+# --- end AI Commit Attribution ---
+
+exit 0

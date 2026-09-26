@@ -23,6 +23,7 @@ This file governs any AI agent (primary or subagent) doing work in this reposito
 | --- | --- |
 | `AGENTS.md` (this file) | Agent working rules + project state |
 | `.specify/memory/constitution.md` | Non-negotiable engineering principles |
+| `CONTRIBUTING.md` | Team collaboration norms, AI usage policy, and contribution workflow |
 | `specs/001-core-game-engine/spec.md` | Core game engine — deterministic tick simulation |
 | `specs/002-fog-of-war-visibility/spec.md` | Fog of war & visibility computation |
 | `specs/003-procedural-terrain-generation/spec.md` | Procedural terrain generation |
