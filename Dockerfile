@@ -17,8 +17,19 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
+# The normal console build produces browser/library artifacts only. Build the
+# deployment-only Node host explicitly so local package builds stay independent.
+RUN pnpm --filter @europa/console build:host
 
-# Stage 2 — runtime (minimal) — 24.x — latest LTS Aug 2026
+# Stage the runtime allowlist. The final image receives only this browser
+# payload and standalone Node host; it never receives workspace source or an
+# installed package manager/dependency tree.
+RUN mkdir -p /runtime/console \
+    && cp packages/console/dist/index.html /runtime/console/index.html \
+    && cp -R packages/console/dist/assets /runtime/console/assets \
+    && cp -R packages/console/dist/host /runtime/console/host
+
+# Stage 2 — runtime (explicit artifact allowlist) — 24.x — latest LTS Aug 2026
 FROM node:24-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
@@ -26,19 +37,10 @@ ENV HOST_PORT=8080
 ENV HOST_BIND_HOST=0.0.0.0
 ENV HOST_PUBLIC_HOST=localhost
 
-# Copy built artifacts + package manifests; runtime node_modules is
-# installed fresh for exact lockfile fidelity. The host launcher
-# (packages/console/scripts/host.ts) runs via `tsx`, which lives in
-# @europa/console devDependencies — the runtime install keeps it so
-# `pnpm host` (tsx scripts/host.ts) works inside the container. If a
-# future build compiles the host to JS, this can switch to
-# `pnpm install --prod`.
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=build /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=build /app/packages ./packages
-
-RUN corepack enable && corepack prepare pnpm@11.22.0 --activate && pnpm install --frozen-lockfile
+COPY --from=build --chown=node:node /runtime/console ./packages/console/dist
+# The application payload is allowlisted above. Retain trusted Node-base tools
+# rather than deleting fixed base-image paths that may change between releases.
+USER node
 
 EXPOSE 8080
-CMD ["pnpm", "host"]
+CMD ["node", "packages/console/dist/host/host.js"]

@@ -1,6 +1,6 @@
 # Tasks: One-Command Self-Host Packaging (Docker) — Single-Port Deployment
 
-**Feature Branch**: `issue-5-docker-support` | **Spec**: [spec.md](./spec.md) v1.0 + Node 24 gate | **Plan**: [plan.md](./plan.md) | **Research**: [research.md](./research.md)  
+**Feature Branch**: `issue-5-docker-support` | **Spec**: [spec.md](./spec.md) v1.6 deferred runtime research decisions | **Plan**: [plan.md](./plan.md) | **Research**: [research.md](./research.md)
 **Principles**: Constitution I–VII hold; WG: Node 24 LTS base verified per [research.md Finding 1](./research.md); no new runtime dep; no wire change.
 
 **Organization**: Phases are dependency-ordered. Tasks marked `[P]` touch disjoint files and may run in parallel when their phase's prerequisites are done. Tasks marked `[Story]` trace to US1..US5. Check off with `- [x]`. All six per-feature plans require no code during phases 4–5 — tasks describe the work Phase 6 WILL do; Phase 4–5 commit is doc-only.
@@ -135,7 +135,98 @@
 - The build-amd64 job now uses `contents: read`; required package/provenance
   permissions are retained. Wave 5 documentation work is intentionally excluded.
 
+### PR #165 review remediation — ✅ complete (2026-09-17)
+
+- [x] T048 Document the distinct `build:host` artifact and its exact build
+  ordering: Vite SPA, generated assets, host bundle, then final TypeScript emit.
+- [x] T049 Validate native source and bundled host package-root layouts; fail
+  fast with an actionable error for invalid layouts, with focused tests for both
+  supported layouts and a missing bundled SPA.
+- [x] T050 Document that `scripts/docker-smoke.sh` requires Node on its
+  invoking host to read the generated design brand manifest, while `docker
+  compose up` itself remains Docker-only.
+
+- [x] T051 Record the Node-version unification question as future research in
+  [Issue #167](https://github.com/shaunburdick/europa-neo/issues/167); no current
+  Node requirement or target changes.
+- [x] T052 Record the distroless-runtime evaluation as future research in
+  [Issue #168](https://github.com/shaunburdick/europa-neo/issues/168); no current
+  runtime-base changes.
+
 **Checkpoint**: README doctrine done; `pnpm version:check` independent of Docker; manual drift check is documented as executed.
+
+### PR #165 follow-up remediation — ✅ complete (2026-09-21)
+
+- [x] T053 Keep the normal console build independent of Docker-only host
+  bundling; require Docker to invoke `build:host` explicitly after `pnpm build`.
+- [x] T054 Remove fragile fixed-path deletion of Node-base package utilities;
+  retain the explicit application-artifact allowlist and update smoke checks to
+  reject only application tooling (`pnpm`, `pnpx`, `tsx`) and workspace artifacts.
+- [x] T055 Retain the Docker CI explanation for the design-manifest prerequisite
+  and align Spec 011, its image contract, plan, quickstart, and console README.
+- [x] T056 Run focused console builds, host-layout tests, Docker smoke, and the
+  changed-file verification gate; inspect the runtime image and review the final
+  local diff before responding to the review.
+
+---
+
+## Phase 9: Runtime Image Hardening (v1.3 security-only amendment)
+
+**Purpose**: Replace the final-stage workspace install with a verified artifact
+allowlist, without changing application behavior, Docker topology, publishing, or
+platform-specific compatibility.
+
+- [x] T038 Add the console production-host bundle configuration and build step:
+  emit a non-splitting Node ESM bundle into `packages/console/dist/host/` after
+  Vite assets are built; include `@europa/*` and `ws`; omit declarations and
+  source maps; preserve the existing native `tsx scripts/host.ts` developer path.
+- [x] T039 Adapt host package-root resolution so both source execution and the
+  compiled `dist/host/host.js` locate the sibling SPA `dist/` directory; add
+  focused tests for both launch layouts where practical.
+- [x] T040 Change `Dockerfile` final stage to stage and copy only console
+  `index.html`, `assets/`, and host bundle; remove runtime installation and start
+  direct Node as `USER node`. Do not change image base, environment contract,
+  exposed port, compose, or publishing workflow.
+- [x] T041 Extend `scripts/docker-smoke.sh` to assert the non-root runtime and
+  absence of package tooling, source, declarations, source maps, tests, and
+  coverage, while retaining every pre-existing HTTP, SPA, brand MIME, asset-404,
+  WebSocket, and single-port assertion.
+- [x] T042 Update the Docker image contract and quickstart security checks to
+  match the compiled-host artifact boundary; do not modify player manual,
+  onboarding documents, UI, design tooling, or Windows-specific logic.
+- [x] T043 Verify the isolated host bundle, Docker build, compose config, Docker
+  smoke, direct `/version` and WebSocket behavior, package tests, lint, typecheck,
+  formatting, and the repository verification gate. Record the image size and
+  final-image inspection results.
+
+**Checkpoint**: The final image starts direct Node as UID 1000, retains the
+single-port HTTP/WebSocket behavior, and contains only the documented allowlisted
+application artifacts.
+
+---
+
+## Phase 10: PR-Readiness Conformance Repair (v1.4)
+
+**Purpose**: Repair review-identified Docker CI and documentation drift without
+changing the hardened runtime boundary or application behavior.
+
+- [x] T044 Make the Docker validation job self-sufficient from a clean checkout:
+  set up Node 24, run a frozen install, and build only `@europa/design` before
+  `scripts/docker-smoke.sh` reads its generated brand manifest. Document that
+  this is a smoke-test prerequisite and not a Docker runtime dependency.
+- [x] T045 Replace the stale runtime `packages/version` verification command in
+  the Docker image contract with the supported running-container `/version`
+  check; explain why the workspace package is intentionally absent.
+- [x] T046 Normalize remaining Spec 011 Node-base wording to the approved pinned
+  `node:24-slim` decision in `research.md`, preserving Node `>=22` only where it
+  describes the non-container development engine floor.
+- [x] T047 Verify workflow YAML, frozen installation, Docker smoke from a
+  clean-artifact state, full `pnpm verify`, and final diff/contract review before
+  creating the local PR-preparation checkpoint commit.
+
+**Checkpoint**: Docker CI no longer depends on ignored checkout artifacts, the
+image contract has a valid artifact-only release probe, and all Docker base-image
+references agree on Node 24.
 
 ---
 

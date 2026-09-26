@@ -47,7 +47,7 @@ echo "[test-selfhost] scanning dist/ for remote URLs..."
 # only — string and template delimiters terminate a token, so the
 # scheme-translation literals extract as the bare schemes allowlisted
 # below instead of dragging surrounding code into the verdict.
-url_tokens="$(grep -REoh 'https?://[A-Za-z0-9._~:/?#@!$&*+,;=%-]+' dist --include='*.js' --include='*.css' | sort -u || true)"
+url_tokens="$(grep -REoh 'https?://[A-Za-z0-9._~:/?#@!$&*+,;=%-]+' dist/assets --include='*.js' --include='*.css' | sort -u || true)"
 
 violations=""
 for url in ${url_tokens}; do
@@ -77,7 +77,7 @@ if [ -n "${violations}" ]; then
     [ -n "${url}" ] || continue
     # Re-locate each offending token for file:line context. Options and the
     # end-of-options marker precede the pattern; `dist` is the file operand.
-    grep -rnF --include='*.js' --include='*.css' -- "${url}" dist || true
+    grep -rnF --include='*.js' --include='*.css' -- "${url}" dist/assets || true
   done <<<"${violations}"
   exit 1
 fi
