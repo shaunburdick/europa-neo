@@ -317,6 +317,46 @@ describe('tick — orchestrator', () => {
         expect(recorded[1]?.order.player).toBe(PLAYER_2);
     });
 
+    it('keeps successful mixed pipe and deferred orders in global sorted order', () => {
+        const board = buildSmallBoard(8, [
+            [1, 1, 1],
+            [6, 6, 2],
+        ]);
+        const { finalWorld: warmed } = runScenario(cfg, board, [], 30);
+        const orders = [
+            {
+                kind: 'setPipe' as const,
+                player: PLAYER_1,
+                cell: { x: 1, y: 1 },
+                direction: 'E' as Direction,
+            },
+            {
+                kind: 'paratroop' as const,
+                player: PLAYER_1,
+                source: { x: 1, y: 1 },
+                target: { x: 2, y: 2 },
+            },
+            {
+                kind: 'gun' as const,
+                player: PLAYER_1,
+                source: { x: 1, y: 1 },
+                target: { x: 6, y: 6 },
+            },
+        ];
+
+        // Stage in reverse kind order so tick() must reorder the queue.
+        let staged = warmed;
+        for (const order of orders) {
+            const result = applyCommand(staged, order);
+            expect(result.result.ok).toBe(true);
+            staged = result.world;
+        }
+
+        const result = tick(staged);
+        expect(result.events.errors).toEqual([]);
+        expect(result.events.appliedOrders.map((record) => record.order.kind)).toEqual(['gun', 'paratroop', 'setPipe']);
+    });
+
     it('matches deferred outcomes by occurrence, not equivalent order identity', () => {
         const board = buildSmallBoard(8, [
             [1, 1, 1],
