@@ -146,12 +146,24 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
 /**
  * Structured logger for ALL host launcher output — diagnostics and the
  * human-facing startup banners alike (spec 014 AC-009: no raw
- * stdout/stderr taps). Reads LOG_LEVEL/LOG_FORMAT from env.
+ * stdout/stderr taps). Reads LOG_LEVEL from env.
+ *
+ * The FORMAT default is TTY-aware (spec 011 banner contract): an
+ * explicit `LOG_FORMAT` always wins; otherwise a terminal
+ * (`process.stdout.isTTY`) gets the human-readable aligned banner
+ * (`pretty`), while a piped/redirected stdout gets machine-parseable
+ * `json` lines (Docker, PM2, CI, `2>&1 | tee`). An invalid explicit
+ * value falls back to `json` with one warning — handled once inside
+ * `createLogger`, never duplicated here. `process.stdout.isTTY` is the
+ * single discriminator shared with `host-config.ts`, whose stderr-bound
+ * errors ride the same per-logger format flag.
  *
  * `info` writes to stdout and `error`/`warn` to stderr, so the banner
  * keeps its original channel while gaining timestamps and levels.
  */
-const logger = createLogger();
+const logger = createLogger({
+    format: process.env['LOG_FORMAT'] ?? (process.stdout.isTTY ? 'pretty' : 'json'),
+});
 
 // ---------------------------------------------------------------------------
 // CLI parsing

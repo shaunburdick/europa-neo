@@ -526,6 +526,48 @@ describe('createLogger', () => {
             expect(stderrLines[0]).not.toContain('line1\nline2');
             expect(stderrLines[0]).toContain('line1 line2');
         });
+
+        it('still writes the log line when the thrown stringify error has a throwing message accessor', () => {
+            const stderrLines: string[] = [];
+            const stdoutLines: string[] = [];
+            const stdout = (data: string) => {
+                stdoutLines.push(data);
+            };
+            const stderr = (data: string) => {
+                stderrLines.push(data);
+            };
+            const logger = createLogger({ format: 'json', stdout, stderr });
+
+            // An `Error` whose `message` getter throws: reading
+            // `err.message` for the diagnostic must not escape the catch
+            // and swallow the log line (spec 014: a log line is always
+            // written, even when the failure diagnostic itself fails).
+            const hostileError = new Error('never readable');
+            Object.defineProperty(hostileError, 'message', {
+                configurable: true,
+                get() {
+                    throw new Error('message accessor exploded');
+                },
+            });
+            const throwingObj = {
+                toJSON: () => {
+                    throw hostileError;
+                },
+            };
+            logger.info('test', { bad: throwingObj });
+
+            // The log line itself survives with the empty-context fallback.
+            expect(stdoutLines).toHaveLength(1);
+            const parsed = JSON.parse(first(stdoutLines)) as Record<string, unknown>;
+            expect(parsed['level']).toBe('info');
+            expect(parsed['message']).toBe('test');
+            expect(parsed).toHaveProperty('context', {});
+            // The diagnostic is still emitted, using the never-throwing
+            // coercion fallback for the unreadable error.
+            expect(stderrLines).toHaveLength(1);
+            expect(stderrLines[0]).toContain('[logging] JSON.stringify failed');
+            expect(stderrLines[0]).toContain('[unknown error]');
+        });
     });
 
     describe('Pretty-mode sanitization (EUR-137)', () => {

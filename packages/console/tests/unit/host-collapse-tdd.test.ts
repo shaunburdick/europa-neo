@@ -1,6 +1,40 @@
 import { describe, expect, it, vi } from 'vitest';
+
+/**
+ * Pin `LOG_FORMAT=json` (and clear `LOG_LEVEL`) BEFORE `scripts/host.ts`
+ * is imported — it builds its module-level logger at import time, and
+ * the launcher's format default is now TTY-aware (`process.stdout.isTTY`
+ * → `pretty`). This suite asserts the JSON envelope of the banner, so
+ * the env is pinned here (`vi.hoisted` runs before the imports below)
+ * instead of depending on the ambient terminal/env. See the same pin in
+ * `host-config.test.ts` for the details; the restore runs once the
+ * import below has evaluated (`createLogger()` captured the values).
+ */
+const restoreLogEnv = vi.hoisted(() => {
+    const previousFormat = process.env['LOG_FORMAT'];
+    const previousLevel = process.env['LOG_LEVEL'];
+    process.env['LOG_FORMAT'] = 'json';
+    delete process.env['LOG_LEVEL'];
+    return () => {
+        if (previousFormat === undefined) {
+            delete process.env['LOG_FORMAT'];
+        } else {
+            process.env['LOG_FORMAT'] = previousFormat;
+        }
+        if (previousLevel === undefined) {
+            delete process.env['LOG_LEVEL'];
+        } else {
+            process.env['LOG_LEVEL'] = previousLevel;
+        }
+    };
+});
+
 import { printCreateBanner, printLobbyBanner, resolveConfig } from '../../scripts/host';
 import type { HostConfig } from '../../scripts/host-config';
+
+// The launcher logger was just built with the pinned env above — put
+// the ambient values back so no sibling suite inherits the pin.
+restoreLogEnv();
 
 /**
  * TDD for host single-port collapse (T007).
@@ -99,7 +133,8 @@ describe('host single-port collapse — TDD (T007)', () => {
         // (the newline now closes the log line, not the message itself).
         expect(text).toMatch(/→ http:\/\/localhost:8080\/lobby/);
         // AC-009: banner output flows through the structured logger, so every
-        // line carries the default LOG_FORMAT=json envelope (level + timestamp).
+        // line carries the LOG_FORMAT=json envelope pinned at import (level +
+        // timestamp); the launcher's own default is the TTY-aware heuristic.
         expect(text).toMatch(/"level":"info","message":"/);
         // Must not mention staticPort
         expect(text).not.toMatch(/staticPort/i);

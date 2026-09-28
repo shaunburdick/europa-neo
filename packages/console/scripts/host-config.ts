@@ -79,8 +79,16 @@ const ALLOWED_BOARD_SIZES: readonly (32 | 48 | 64)[] = [32, 48] as const;
  * `host: …` text intact inside the log envelope. Created at import time
  * from LOG_LEVEL/LOG_FORMAT; the default writer resolves
  * `process.stderr.write` per call, so tests can still spy on the stream.
+ *
+ * The format default mirrors `host.ts` exactly (explicit `LOG_FORMAT`
+ * wins, else `pretty` on a TTY and `json` when piped/redirected —
+ * `process.stdout.isTTY` is the shared discriminator even though these
+ * errors go to stderr, because the format flag is per-logger). Invalid
+ * explicit values fall back to `json` inside `createLogger`.
  */
-const logger = createLogger();
+const logger = createLogger({
+    format: process.env['LOG_FORMAT'] ?? (process.stdout.isTTY ? 'pretty' : 'json'),
+});
 
 /**
  * Bracket an IPv6 literal host for URL embedding; any other host value

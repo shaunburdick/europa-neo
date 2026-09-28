@@ -357,7 +357,13 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
                 } catch (err) {
                     if (!stringifyFailed) {
                         stringifyFailed = true;
-                        const detail = err instanceof Error ? err.message : coerceToString(err, '[unknown error]');
+                        // coerceToString (never throws) instead of reading
+                        // `err.message` directly: an Error subclass whose
+                        // `message` accessor throws would otherwise escape
+                        // this catch, hit the last-resort guard, and DROP
+                        // the log line — violating spec 014's "a log line
+                        // is always written" fail-soft edge case.
+                        const detail = coerceToString(err, '[unknown error]');
                         stderr(
                             `[logging] JSON.stringify failed on context, using fallback: ${sanitizeLogText(detail)}\n`,
                         );
