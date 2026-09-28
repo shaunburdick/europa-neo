@@ -86,3 +86,20 @@ describe('p{Cf} format character stripping', () => {
         expect(sanitizeLogText(input)).toBe('a b c d e');
     });
 });
+
+describe('Zl/Zp line separator stripping', () => {
+    it('replaces LINE SEPARATOR (U+2028) with space', () => {
+        // Not Cc/Cf — a narrower pattern would miss it — but U+2028
+        // still terminates a line in every log viewer.
+        expect(sanitizeLogText('line\u2028break')).toBe('line break');
+    });
+
+    it('replaces PARAGRAPH SEPARATOR (U+2029) with space', () => {
+        expect(sanitizeLogText('para\u2029graph')).toBe('para graph');
+    });
+
+    it('strips U+2028/U+2029 alongside control characters', () => {
+        const input = 'a\u2028b\u2029c\nd';
+        expect(sanitizeLogText(input)).toBe('a b c d');
+    });
+});

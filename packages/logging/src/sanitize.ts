@@ -1,15 +1,25 @@
 /**
- * Characters that must never survive into a launcher log line: the
- * Unicode `Cc` category (C0 controls U+0000–U+001F plus C1 controls
- * U+007F–U+009F) includes newline, tab, and ESC, so stripping it
- * prevents log forging (smuggled extra lines) and terminal escape
- * attacks from any wire-derived text a diagnostic might echo. The
- * `Cf` category (format characters) includes bidi controls
- * (U+202A–U+202E, U+2066–U+2069), soft hyphen (U+00AD), and word
- * joiner (U+2060) — these can be abused for log forging or terminal
- * escape injection when echoed verbatim.
+ * Characters that must never survive into a launcher log line:
+ *
+ * - The Unicode `Cc` category (C0 controls U+0000–U+001F plus C1 controls
+ *   U+007F–U+009F) includes newline, tab, and ESC, so stripping it
+ *   prevents log forging (smuggled extra lines) and terminal escape
+ *   attacks from any wire-derived text a diagnostic might echo.
+ * - The `Cf` category (format characters) includes bidi controls
+ *   (U+202A–U+202E, U+2066–U+2069), soft hyphen (U+00AD), and word
+ *   joiner (U+2060) — these can be abused for log forging or terminal
+ *   escape injection when echoed verbatim.
+ * - `Zl` (LINE SEPARATOR, U+2028) and `Zp` (PARAGRAPH SEPARATOR,
+ *   U+2029) are separator categories, not control or format
+ *   characters, so a `\p{Cc}`/`\p{Cf}`-only pattern misses them — yet
+ *   they are line terminators for every log viewer, terminal, and
+ *   line-splitting consumer, so a smuggled U+2028 forges a new log
+ *   line exactly like `\n`. They are also unsafe to echo verbatim:
+ *   unescaped U+2028/U+2029 were illegal inside JavaScript string
+ *   literals until ES2019 (the JSON superset), so a consumer that
+ *   re-embeds a log line into JS source breaks on them.
  */
-const LOG_CONTROL_CHARS = /[\p{Cc}\p{Cf}]/gu;
+const LOG_CONTROL_CHARS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 
 /** Hard cap for echoed free-form text so one huge field cannot flood the log. */
 const LOG_TEXT_MAX_LENGTH = 200;

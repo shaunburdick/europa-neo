@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '../src/logger';
 import { createLogger } from '../src/logger';
 
@@ -30,6 +30,7 @@ describe('createLogger', () => {
     });
 
     afterEach(() => {
+        vi.unstubAllEnvs();
         process.env = originalEnv;
     });
 
@@ -413,7 +414,9 @@ describe('createLogger', () => {
             const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
             expect(parsed.level).toBe('info');
             expect(parsed.message).toBe('test');
-            expect(parsed).not.toHaveProperty('context');
+            // Failure fallback: context key present but empty (vs. absent
+            // when the caller passed no context at all).
+            expect(parsed).toHaveProperty('context', {});
         });
 
         it('handles BigInt context value without throwing', () => {
@@ -429,7 +432,9 @@ describe('createLogger', () => {
             const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
             expect(parsed.level).toBe('info');
             expect(parsed.message).toBe('test');
-            expect(parsed).not.toHaveProperty('context');
+            // Failure fallback: context key present but empty (vs. absent
+            // when the caller passed no context at all).
+            expect(parsed).toHaveProperty('context', {});
         });
 
         it('handles throwing toJSON() without throwing', () => {
@@ -450,7 +455,9 @@ describe('createLogger', () => {
             const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
             expect(parsed.level).toBe('info');
             expect(parsed.message).toBe('test');
-            expect(parsed).not.toHaveProperty('context');
+            // Failure fallback: context key present but empty (vs. absent
+            // when the caller passed no context at all).
+            expect(parsed).toHaveProperty('context', {});
         });
 
         it('emits diagnostic warning to stderr on first serialization failure', () => {
@@ -628,6 +635,210 @@ describe('createLogger', () => {
             // toString() result is sanitized — no raw ESC
             expect(first(lines)).not.toContain('\x1b');
             expect(first(lines)).toContain('[31mred [0m');
+        });
+    });
+
+    describe('Fail-soft boundaries (EUR-137)', () => {
+        it('renders [unprintable] when a context value has a hostile toString()', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'pretty', stdout });
+            const hostile = {
+                toString: () => {
+                    throw new Error('hostile toString');
+                },
+            };
+
+            expect(() => logger.info('msg', { bad: hostile })).not.toThrow();
+
+            expect(lines).toHaveLength(1);
+            expect(first(lines)).toContain('{ bad: [unprintable] }');
+        });
+
+        it('renders [unprintable message] when the message object has a hostile toString()', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'json', stdout });
+            const hostileMessage = {
+                toString: () => {
+                    throw new Error('hostile message');
+                },
+            };
+
+            expect(() => (logger as unknown as Logger).info(hostileMessage as unknown as string)).not.toThrow();
+
+            expect(lines).toHaveLength(1);
+            const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
+            expect(parsed).toHaveProperty('message', '[unprintable message]');
+            expect(parsed.level).toBe('info');
+        });
+
+        it('renders [unprintable message] when the message object has a hostile Symbol.toPrimitive', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'json', stdout });
+            const hostileMessage = {
+                [Symbol.toPrimitive]: () => {
+                    throw new Error('hostile toPrimitive');
+                },
+            };
+
+            expect(() => (logger as unknown as Logger).info(hostileMessage as unknown as string)).not.toThrow();
+
+            expect(lines).toHaveLength(1);
+            const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
+            expect(parsed).toHaveProperty('message', '[unprintable message]');
+        });
+
+        it('falls back to an empty context when the context object has a throwing getter', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'json', stdout });
+            const hostileCtx = {
+                get boom(): string {
+                    throw new Error('hostile getter');
+                },
+            };
+
+            expect(() => logger.info('msg', hostileCtx)).not.toThrow();
+
+            expect(lines).toHaveLength(1);
+            const parsed = JSON.parse(first(lines)) as Record<string, unknown>;
+            expect(parsed).toHaveProperty('message', 'msg');
+            // Failure fallback: context key present but empty (vs. absent
+            // when the caller passed no context at all).
+            expect(parsed).toHaveProperty('context', {});
+        });
+
+        it('renders no context when the context object has a throwing getter in pretty mode', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'pretty', stdout });
+            const hostileCtx = {
+                get boom(): string {
+                    throw new Error('hostile getter');
+                },
+            };
+
+            expect(() => logger.info('msg', hostileCtx)).not.toThrow();
+
+            expect(lines).toHaveLength(1);
+            expect(first(lines)).toContain('msg');
+            expect(first(lines)).not.toContain('{');
+        });
+
+        it('does not propagate errors from a throwing writer in JSON mode', () => {
+            const throwingWriter = (data: string): void => {
+                throw new Error(`sink down: ${data}`);
+            };
+            const logger = createLogger({
+                format: 'json',
+                stdout: throwingWriter,
+                stderr: throwingWriter,
+                level: 'debug',
+            });
+
+            expect(() => logger.debug('d')).not.toThrow();
+            expect(() => logger.info('i')).not.toThrow();
+            expect(() => logger.warn('w')).not.toThrow();
+            expect(() => logger.error('e')).not.toThrow();
+        });
+
+        it('does not propagate errors from a throwing writer in pretty mode', () => {
+            const throwingWriter = (data: string): void => {
+                throw new Error(`sink down: ${data}`);
+            };
+            const logger = createLogger({
+                format: 'pretty',
+                stdout: throwingWriter,
+                stderr: throwingWriter,
+                level: 'debug',
+            });
+
+            expect(() => logger.debug('d')).not.toThrow();
+            expect(() => logger.info('i')).not.toThrow();
+            expect(() => logger.warn('w')).not.toThrow();
+            expect(() => logger.error('e')).not.toThrow();
+        });
+
+        it('does not propagate errors from a throwing writer during startup warnings', () => {
+            const throwingWriter = (data: string): void => {
+                throw new Error(`sink down: ${data}`);
+            };
+
+            expect(() =>
+                createLogger({ level: 'verbose', format: 'xml', stdout: throwingWriter, stderr: throwingWriter }),
+            ).not.toThrow();
+        });
+
+        it('swallows an unexpected internal failure instead of throwing at the caller', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'json', stdout });
+            // Force a failure on a path no fallback owns: the last-resort
+            // guard must swallow it and drop the line, never propagate.
+            const toISOString = vi.spyOn(Date.prototype, 'toISOString').mockImplementation(() => {
+                throw new Error('clock broken');
+            });
+            try {
+                expect(() => logger.info('msg')).not.toThrow();
+            } finally {
+                toISOString.mockRestore();
+            }
+
+            expect(lines).toHaveLength(0);
+        });
+    });
+
+    describe('Hostile diagnostic env values (EUR-137)', () => {
+        it('sanitizes an invalid LOG_LEVEL value containing newline and ANSI escapes', () => {
+            const stderrLines: string[] = [];
+            const stderr = (data: string) => {
+                stderrLines.push(data);
+            };
+            vi.stubEnv('LOG_LEVEL', 'verbose\n\x1b[31mforged\x1b[0m');
+
+            createLogger({ format: 'json', stdout: () => {}, stderr });
+
+            expect(stderrLines).toHaveLength(1);
+            const warning = first(stderrLines);
+            expect(warning).toContain('unknown LOG_LEVEL');
+            expect(warning).toContain('"verbose  [31mforged [0m"');
+            expect(warning).toContain('defaulting to "info"');
+            // Exactly one newline — the warning's own terminator. The
+            // forged newline and ESC must not survive sanitization.
+            expect(warning.split('\n')).toHaveLength(2);
+            expect(warning).not.toContain('\x1b');
+        });
+
+        it('sanitizes an invalid LOG_FORMAT value containing a newline', () => {
+            const stderrLines: string[] = [];
+            const stderr = (data: string) => {
+                stderrLines.push(data);
+            };
+            vi.stubEnv('LOG_FORMAT', 'xml\nforged line');
+
+            createLogger({ stdout: () => {}, stderr });
+
+            expect(stderrLines).toHaveLength(1);
+            const warning = first(stderrLines);
+            expect(warning).toContain('unknown LOG_FORMAT');
+            expect(warning).toContain('"xml forged line"');
+            expect(warning).toContain('defaulting to "json"');
+            // Exactly one newline — the warning's own terminator.
+            expect(warning.split('\n')).toHaveLength(2);
         });
     });
 });
