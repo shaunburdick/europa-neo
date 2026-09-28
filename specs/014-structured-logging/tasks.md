@@ -18,7 +18,7 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 
 - [x] **T-004**: Implement `src/null-logger.ts` — `NULL_LOGGER` constant (no-op Logger). Identical to current `packages/networking/src/contracts/network-api.ts` line 600. [Core — FR-007]
 
-- [x] **T-005**: Implement `src/types.ts` — `LogContext` type alias. [Core — FR-010]
+- [x] **T-005**: Implement `src/types.ts` — `LogContext` type alias. [Core — FR-010] *(Reconciled v1.2: `src/types.ts` never existed — `LogContext` lives in `src/logger.ts`.)*
 
 - [x] **T-006**: Implement `src/index.ts` — public barrel exporting `Logger` (type), `LogContext` (type), `createLogger`, `NULL_LOGGER`, `sanitizeLogText`. [Core — FR-011]
 
@@ -85,7 +85,7 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 
 - [x] **T-024**: Update `packages/logging/src/logger.ts` — ensure `Logger` interface `ctx` parameter type is `Readonly<Record<string, unknown>>` (already the case). Verify that `LogContext` (from `./logger` or `./types`) is compatible — callers can pass `LogContext`-typed objects without type errors. No code change needed if already compatible; document in JSDoc. [F-LOG-005, AC-022]
 
-- [x] **T-025**: Update `packages/logging/src/types.ts` — simplify `LogContext` to `{ readonly [key: string]: unknown }` (remove illustrative named properties `matchId`, `playerId`, `tick`, `event`). These were never enforced and the Logger interface accepts `Record<string, unknown>` anyway. [F-LOG-005]
+- [x] **T-025**: Update `packages/logging/src/types.ts` — simplify `LogContext` to `{ readonly [key: string]: unknown }` (remove illustrative named properties `matchId`, `playerId`, `tick`, `event`). These were never enforced and the Logger interface accepts `Record<string, unknown>` anyway. [F-LOG-005] *(No-op: `src/types.ts` does not exist — `LogContext` was already correct in `src/logger.ts`.)*
 
 - [x] **T-026**: Update `packages/logging/src/logger.ts` — change `CreateLoggerOptions.stdout` and `CreateLoggerOptions.stderr` writer types from `(data: string) => boolean` to `(data: string) => void` to match the actual `process.stdout.write` / `process.stderr.write` usage (fire-and-forget). Update JSDoc accordingly. [F-LOG-005]
 
@@ -110,3 +110,17 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 - [x] **T-029**: Run `pnpm --filter @europa/logging test` — all new tests pass, coverage ≥ 80%. Verify no regressions in existing tests. [AC-010]
 
 - [x] **T-030**: Run `pnpm verify` — full suite passes across all packages. No regressions from the bug fix changes. [AC-015]
+
+### Wave 7: Review round 2 — fail-soft hardening, U+2028/U+2029, AC-009 (v1.2)
+
+- [x] **T-031**: Close the four fail-soft escape paths in `packages/logging/src/logger.ts` — (a) guard message/context-value string coercion → `[unprintable message]` / `[unprintable]`, (b) abandon contexts whose getters/proxies throw → `context: {}` (JSON) / no braces (pretty), (c) swallow throwing writers silently (including startup diagnostics), (d) last-resort guard around the whole write body. Emit `context: {}` (present-but-empty) on `JSON.stringify` failure so consumers can distinguish failure from "caller passed no context". [FR-012, commit 03f5c7e]
+
+- [x] **T-032**: Sanitize invalid `LOG_LEVEL`/`LOG_FORMAT` startup diagnostics — pass the raw env value through `sanitizeLogText()` before interpolation (bounded, no raw newline/ANSI/bidi). [NFR: Security, edge cases, commit 03f5c7e]
+
+- [x] **T-033**: Extend `LOG_CONTROL_CHARS` in `packages/logging/src/sanitize.ts` to `/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu` — strip U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR; add tests in `tests/sanitize.test.ts`. [FR-008, commit 03f5c7e]
+
+- [x] **T-034**: Migrate `say()`/`complain()` to the structured logger — zero remaining call sites repo-wide, refresh the stale `say()` precedent reference in docs. [AC-009, commits dc1bef8, c9e5392]
+
+- [x] **T-035**: Spec/doc reconciliation — fix the nonexistent `./types` barrel reference in data-model.md (real `src/index.ts` block restored), document the v1.2 behaviors (FR-012, edge cases, clarifications 11–14), verify and check off AC-001–AC-015 against the codebase, bump spec to v1.2. [spec 014]
+
+**Wave 7 verification**: `pnpm --filter @europa/logging coverage` → 98.85% stmts / 93.1% branches / 95.83% funcs / 100% lines (72/72 tests pass); full `pnpm verify` green on this branch.

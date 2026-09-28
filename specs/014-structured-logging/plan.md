@@ -86,19 +86,23 @@ Server-side processes use raw `process.stdout.write`/`process.stderr.write` via 
 
 ### D8 (v1.1): Fail-soft JSON.stringify on context values
 
-**Rationale**: `JSON.stringify` throws on cyclic references, BigInt values, and objects whose `toJSON()` throws. Rather than letting these propagate (crashing the caller), the logger catches the exception, falls back to `{}` for context (JSON mode) or omits context (pretty mode), and emits one diagnostic warning to stderr. This is fail-soft — the log line is always written. The warning is throttled to one per logger instance (not per call) to avoid flood.
+**Rationale**: `JSON.stringify` throws on cyclic references, BigInt values, and objects whose `toJSON()` throws. Rather than letting these propagate (crashing the caller), the logger catches the exception, falls back to `context: {}` in JSON mode (the key's presence distinguishes "serialization failed" from "caller passed no context"; pretty mode never serializes, so an unreadable context there renders with no braces), and emits one diagnostic warning to stderr. This is fail-soft — the log line is always written. The warning is throttled to one per logger instance (not per call) to avoid flood.
 
 ### D9 (v1.1): Pretty-mode sanitization of message and string context values
 
 **Rationale**: The pretty-print path previously interpolated message and string context values raw — no `sanitizeLogText()` applied. This allowed log forging (injected newlines creating fake log entries) and terminal escape injection (ESC sequences, bidi overrides). The fix applies `sanitizeLogText()` to the message and all string-valued context fields before interpolation in pretty mode only (JSON mode is machine-parseable and doesn't need this).
 
-### D10 (v1.1): Extended character class for sanitizeLogText — `\p{Cf}` stripping
+### D10 (v1.1; extended v1.2): Extended character class for sanitizeLogText — `\p{Cf}` and `\p{Zl}`/`\p{Zp}` stripping
 
-**Rationale**: The original `\p{Cc}` regex only stripped control characters (newline, tab, ESC). Format characters (`\p{Cf}`) — bidi isolates (U+202A–U+202E, U+2066–U+2069), soft hyphen (U+00AD), word joiner (U+2060) — can cause visual spoofing in terminals via bidi text reordering. Extending to `[\p{Cc}\p{Cf}]` catches all dangerous non-printing characters.
+**Rationale**: The original `\p{Cc}` regex only stripped control characters (newline, tab, ESC). Format characters (`\p{Cf}`) — bidi isolates (U+202A–U+202E, U+2066–U+2069), soft hyphen (U+00AD), word joiner (U+2060) — can cause visual spoofing in terminals via bidi text reordering. In v1.2 the class was extended again to `[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]`: line/paragraph separators (U+2028/U+2029) are neither control nor format characters, yet every log viewer treats them as line terminators, so a smuggled separator forges a log line exactly like `\n`.
 
 ### D11 (v1.1): Writer return type is `void`, not `boolean`
 
 **Rationale**: The spec contracts originally declared writer return types as `boolean` (matching `process.stdout.write`'s actual return). In practice, the logger is fire-and-forget — it never inspects the return value. The implementation uses `void` return types for simplicity, and the spec is updated to match. This avoids confusion about whether the logger handles backpressure.
+
+### D12 (v1.2): Fail-soft invariant hardened — `logger.*()` never throws
+
+**Rationale**: Review found residual escape paths where a hostile caller-side object could still throw out of a log call: `String()` coercion of the message, `Object.entries()` on a context with throwing getters/proxy traps, and an injected writer that throws. Each path now degrades — `[unprintable message]`/`[unprintable]` placeholders, `context: {}` (JSON) / no braces (pretty), and swallow-everything sink wrappers (including startup diagnostics) — with a last-resort guard around the whole write body. Env diagnostics also run the raw value through `sanitizeLogText()` so a hostile `LOG_LEVEL`/`LOG_FORMAT` cannot forge the warning line.
 
 ## File Structure
 
@@ -111,10 +115,9 @@ packages/logging/
 ├── biome.jsonc           # extends ../../biome.jsonc
 ├── src/
 │   ├── index.ts          # public barrel
-│   ├── logger.ts         # Logger interface, createLogger factory
+│   ├── logger.ts         # Logger, LogContext, CreateLoggerOptions, LogLevel, createLogger factory
 │   ├── null-logger.ts    # NULL_LOGGER constant
-│   ├── sanitize.ts       # sanitizeLogText function
-│   └── types.ts          # LogContext type
+│   └── sanitize.ts       # sanitizeLogText function
 └── tests/
     ├── logger.test.ts    # createLogger unit tests
     ├── null-logger.test.ts  # NULL_LOGGER no-op tests

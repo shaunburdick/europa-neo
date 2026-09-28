@@ -1,9 +1,9 @@
 # Orchestration Log: EUR-137 — Logging Fail-Soft & Sanitize
 
 ## Status
-- **Current Wave**: Complete
+- **Current Wave**: Complete (review round 2 / Wave 7 also complete)
 - **Branch**: issue-EUR-137-quick-pangolin
-- **Last Updated**: 2026-09-17
+- **Last Updated**: 2026-09-28
 - **PR**: https://github.com/shaunburdick/europa-neo/pull/169
 
 ## Plan Summary
@@ -30,6 +30,13 @@ Bug fix in `@europa/logging` (spec 014, v1.1). Three issues: (1) JSON.stringify 
 - [x] T-029: pnpm --filter @europa/logging test — 54/54 pass
 - [x] T-030: pnpm verify — all checks pass
 
+### Wave 7 — Review round 2 (PR #169 findings) — ✅ Complete (2026-09-28)
+- [x] T-031: Fail-soft escape-path hardening (4 paths) + `context: {}` fallback — 03f5c7e
+- [x] T-032: Env diagnostic sanitization (LOG_LEVEL/LOG_FORMAT) — 03f5c7e
+- [x] T-033: U+2028/U+2029 sanitizer extension — 03f5c7e
+- [x] T-034: say()/complain() migration (AC-009) — dc1bef8, c9e5392
+- [x] T-035: Spec/doc reconciliation, AC-001–AC-015 checkoff, spec bump to v1.2
+
 ## Decisions & Rationale
 - 2026-09-17: Chose \p{Cf} stripping (all format chars) over narrower bidi-only — broadest safety, negligible perf cost
 - 2026-09-17: Writer return type = void (spec changed to match impl) — simpler, fire-and-forget logger
@@ -45,6 +52,7 @@ Bug fix in `@europa/logging` (spec 014, v1.1). Three issues: (1) JSON.stringify 
 
 ## Review Findings
 - Code review: **Approve** — no blockers, 2 nits (pre-existing `useLiteralKeys` infos on bracket notation, consistent with file style)
+- Review round 2 (2026-09-28): stale barrel export (`./types`) in data-model.md, sanitizer charset missing U+2028/U+2029, fail-soft escape paths open, AC-001–AC-015 unchecked — all resolved (Wave 7), spec bumped to v1.2
 
 ## Verification
 - **Last gate result**: pass — `pnpm verify` all checks green
