@@ -317,6 +317,29 @@ describe('tick — orchestrator', () => {
         expect(recorded[1]?.order.player).toBe(PLAYER_2);
     });
 
+    it('matches deferred outcomes by occurrence, not equivalent order identity', () => {
+        const board = buildSmallBoard(8, [
+            [1, 1, 1],
+            [6, 6, 2],
+        ]);
+        const { finalWorld: warmed } = runScenario(cfg, board, [], 30);
+        let staged = warmed;
+        const gun = { kind: 'gun' as const, player: PLAYER_1, source: { x: 1, y: 1 }, target: { x: 2, y: 1 } };
+        const orderCount = Math.floor((warmed.state.troopCounts[1 * 8 + 1] ?? 0) / ENGINE_CONSTANTS.gunCost) + 1;
+        for (let i = 0; i < orderCount; i++) {
+            const result = applyCommand(staged, gun);
+            expect(result.result.ok).toBe(true);
+            staged = result.world;
+        }
+
+        const result = tick(staged);
+        expect(result.events.errors.filter((error) => error.order.kind === 'gun')).toHaveLength(1);
+        expect(result.events.appliedOrders.filter((record) => record.order.kind === 'gun')).toHaveLength(
+            orderCount - 1,
+        );
+        expect(result.events.appliedOrders.every((record) => record.result.ok)).toBe(true);
+    });
+
     it('paratroop/gun tiebreak: same player + same kind sorted by source coord', () => {
         // Exercise pickCoord's 'source' branch (lines 287-291 in tick.ts).
         // Use setPipe on the same owned cell with DIFFERENT directions —
