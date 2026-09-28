@@ -103,6 +103,16 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
         }
     }
 
+    describe('CLI failures route through the structured logger (014 AC-009)', () => {
+        it('writes the unchanged host: message inside a logger error envelope to stderr', () => {
+            const { result, stderr } = run(['--players', '5']);
+            expect(result).toBeNull();
+            // Default LOG_FORMAT=json: the level + message envelope wraps the
+            // human-readable text verbatim, so downstream greps still match.
+            expect(stderr).toMatch(/"level":"error","message":"host: --players must be 2, 3, or 4/);
+        });
+    });
+
     describe('playerCount resolution (4 sources: flag / alias / env / default)', () => {
         it('defaults to 2 when no flag and no env (implied board 32)', () => {
             expect(run([]).result).toMatchObject({ playerCount: 2, boardSize: 32 });

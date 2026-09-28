@@ -95,7 +95,12 @@ describe('host single-port collapse — TDD (T007)', () => {
         expect(text).toMatch(/Match server.*:8080/);
         expect(text).toMatch(/Console UI.*:8080/);
         expect(text).not.toMatch(/:5173/);
-        expect(text).toMatch(/→ http:\/\/localhost:8080\/lobby\n/);
+        // Message text is preserved verbatim; only the logger envelope wraps it
+        // (the newline now closes the log line, not the message itself).
+        expect(text).toMatch(/→ http:\/\/localhost:8080\/lobby/);
+        // AC-009: banner output flows through the structured logger, so every
+        // line carries the default LOG_FORMAT=json envelope (level + timestamp).
+        expect(text).toMatch(/"level":"info","message":"/);
         // Must not mention staticPort
         expect(text).not.toMatch(/staticPort/i);
         spy.mockRestore();

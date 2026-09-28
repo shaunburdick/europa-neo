@@ -143,19 +143,15 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
 // Structured logger (feature 020 — replaces raw say/complain helpers)
 // ---------------------------------------------------------------------------
 
-/** Structured logger for host diagnostics. Reads LOG_LEVEL/LOG_FORMAT from env. */
-const logger = createLogger();
-
 /**
- * Write a line to stdout (human-facing banner output).
+ * Structured logger for ALL host launcher output — diagnostics and the
+ * human-facing startup banners alike (spec 014 AC-009: no raw
+ * stdout/stderr taps). Reads LOG_LEVEL/LOG_FORMAT from env.
  *
- * This function is retained for the startup banner — formatted
- * user-facing display text, not diagnostic logging. Diagnostic
- * messages go through the structured logger.
+ * `info` writes to stdout and `error`/`warn` to stderr, so the banner
+ * keeps its original channel while gaining timestamps and levels.
  */
-function say(line: string): void {
-    process.stdout.write(`${line}\n`);
-}
+const logger = createLogger();
 
 // ---------------------------------------------------------------------------
 // CLI parsing
@@ -472,7 +468,7 @@ export function prepareMatch(
     const seatTokens: string[] = [created.data.seatAssignment.sessionToken];
     // Seat 1 is filled by createMatch; announce progress while N-1 remain.
     if (playerCount > 1) {
-        say(formatWaitingMessage(1, playerCount));
+        logger.info(formatWaitingMessage(1, playerCount));
     }
     for (let seat = 2; seat <= playerCount; seat += 1) {
         const filled = matchmaker.joinMatch({
@@ -486,7 +482,7 @@ export function prepareMatch(
         seatTokens.push(filled.data.seatAssignment.sessionToken);
         // Announce remaining seats until the match is full.
         if (seat < playerCount) {
-            say(formatWaitingMessage(seat, playerCount));
+            logger.info(formatWaitingMessage(seat, playerCount));
         }
     }
     return {
@@ -527,19 +523,19 @@ function urlHostOf(publicHost: string): string {
 export function printLobbyBanner(port: number, publicHost: string, publicUrl?: string): void {
     const host = urlHostOf(publicHost);
     const lobbyUrl = publicUrl !== undefined ? `${publicUrl}/lobby` : `http://${host}:${String(port)}/lobby`;
-    say('');
-    say(`  Version      : v${APP_VERSION}`);
-    say('  Mode         : lobby (visitors create/join matches in the browser)');
-    say(`  Match server : ws://${host}:${String(port)}`);
-    say(`  Console UI   : http://${host}:${String(port)}`);
-    say('');
-    say('  Open the lobby in a browser:');
-    say('');
-    say(`  → ${lobbyUrl}`);
-    say('');
-    say('  Matches and guest identities are in-memory only — restarting resets the lobby.');
-    say('  Ctrl-C to stop.');
-    say('');
+    logger.info('');
+    logger.info(`  Version      : v${APP_VERSION}`);
+    logger.info('  Mode         : lobby (visitors create/join matches in the browser)');
+    logger.info(`  Match server : ws://${host}:${String(port)}`);
+    logger.info(`  Console UI   : http://${host}:${String(port)}`);
+    logger.info('');
+    logger.info('  Open the lobby in a browser:');
+    logger.info('');
+    logger.info(`  → ${lobbyUrl}`);
+    logger.info('');
+    logger.info('  Matches and guest identities are in-memory only — restarting resets the lobby.');
+    logger.info('  Ctrl-C to stop.');
+    logger.info('');
 }
 
 /**
@@ -560,26 +556,26 @@ export function printCreateBanner(port: number, publicHost: string, match: Prepa
     const wsUrl = `ws://${host}:${String(port)}`;
     const baseUrl = publicUrl ?? `http://${host}:${String(port)}`;
     const matchUrl = `${baseUrl}/match/${encodeURIComponent(match.matchId)}`;
-    say('');
-    say(`  Version      : v${APP_VERSION}`);
-    say(
+    logger.info('');
+    logger.info(`  Version      : v${APP_VERSION}`);
+    logger.info(
         `  Mode         : explicit-create (--create) — pre-created public ${String(match.playerCount)}P match (board ${String(match.boardSize)})`,
     );
-    say(`  Match server : ${wsUrl}`);
-    say(`  Console UI   : http://${host}:${String(port)}`);
-    say(`  Lobby        : http://${host}:${String(port)}/lobby`);
-    say(`  Match id     : ${match.matchId}`);
-    say('');
-    say(`  Open in ${String(match.playerCount)} browser tabs:`);
-    say('');
+    logger.info(`  Match server : ${wsUrl}`);
+    logger.info(`  Console UI   : http://${host}:${String(port)}`);
+    logger.info(`  Lobby        : http://${host}:${String(port)}/lobby`);
+    logger.info(`  Match id     : ${match.matchId}`);
+    logger.info('');
+    logger.info(`  Open in ${String(match.playerCount)} browser tabs:`);
+    logger.info('');
     for (let i = 0; i < match.seatTokens.length; i += 1) {
         const seat = i + 1;
         const name = seatName(seat);
-        say(`  Player ${String(seat)} (${name}) → ${matchUrl}`);
+        logger.info(`  Player ${String(seat)} (${name}) → ${matchUrl}`);
     }
-    say('');
-    say('  Ctrl-C to stop.');
-    say('');
+    logger.info('');
+    logger.info('  Ctrl-C to stop.');
+    logger.info('');
 }
 
 // ---------------------------------------------------------------------------
