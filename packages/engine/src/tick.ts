@@ -9,7 +9,8 @@
  * **Phase pipeline (US1 + US2 + US3 + US4 + US5)**:
  *   0. Drain staged orders, sort by PlayerId ascending then `kind`
  *      alphabetical, apply each (pipe commands mutate `pipeMasks`),
- *      record successes in `events.appliedOrders`.
+ *      stage records; deferred resolution decides which records were
+ *      successful and emits only those in `events.appliedOrders`.
  *   1. `resolveProduction` — each owned city adds `productionRate`
  *      troops up to `cityCapacity`.
  *   2. `resolveParatroop` (US4) — paratroop commands spend 2N from
@@ -131,9 +132,10 @@ export function tick(world: Readonly<World>): TickResult {
     const pending = readPendingOrders(world);
     const sorted = sortOrdersDeterministic(pending);
 
+    const stagedRecords: AppliedOrderRecord[] = [];
     for (const order of sorted) {
         const record = applyStagedOrder(order, world.tick, state, world.board);
-        events = pushAppliedOrder(events, record.record);
+        stagedRecords.push(record.record);
         state = record.nextState;
     }
 
@@ -176,6 +178,21 @@ export function tick(world: Readonly<World>): TickResult {
         ({ state } = gunResult);
         for (const e of gunResult.errors) {
             events = { ...events, errors: [...events.errors, e] };
+        }
+    }
+
+    // Deferred resolvers return the original staged order in each rejection.
+    // Keep the staged records' deterministic order, but do not report a
+    // deferred order as applied when its resolution rejected it.
+    const rejectedDeferredOrders = new Set<Order>();
+    for (const error of events.errors) {
+        if (error.order.kind === 'paratroop' || error.order.kind === 'gun') {
+            rejectedDeferredOrders.add(error.order);
+        }
+    }
+    for (const record of stagedRecords) {
+        if (!rejectedDeferredOrders.has(record.order)) {
+            events = pushAppliedOrder(events, record);
         }
     }
 

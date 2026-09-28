@@ -263,6 +263,7 @@ export interface EliminationEvent {
   readonly reason: 'no_troops_no_cities' | 'surrendered' | 'forfeit';
 }
 
+/** An order that completed successfully during this tick. */
 export interface AppliedOrderRecord {
   readonly tick: number;
   readonly order: Order;

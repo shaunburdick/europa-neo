@@ -15,9 +15,10 @@
  * non-determinism. Every helper here returns a new `TickEvents` object
  * with fresh arrays; the input is never touched.
  *
- * The `errors` field carries failed orders (validation rejections);
- * `appliedOrders` carries successful ones. Order of pushes is preserved
- * (last-pushed = last-seen), so resolution order is observable.
+ * The `errors` field carries failed orders (validation rejections), while
+ * `appliedOrders` carries only orders that completed successfully. Order of
+ * applied-order pushes is preserved (last-pushed = last-seen), so the
+ * deterministic order is observable.
  */
 
 import type {
@@ -76,8 +77,8 @@ export function pushEliminationEvent(events: TickEvents, e: EliminationEvent): T
 }
 
 /**
- * Append a successfully applied order (or its validation error, for
- * records where the same field carries both — see `AppliedOrderRecord`).
+ * Append an order that completed successfully. Rejected orders belong in
+ * `errors`, not in `appliedOrders`.
  */
 export function pushAppliedOrder(events: TickEvents, r: AppliedOrderRecord): TickEvents {
     return { ...events, appliedOrders: [...events.appliedOrders, r] };
