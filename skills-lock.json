@@ -11,13 +11,13 @@
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/ai-attribution/SKILL.md",
-      "computedHash": "78433c937e53639c6976d527f2d07c205ffbf9402b2ef2222d662c6a92fb3f24"
+      "computedHash": "6491f78e2fa72997af3858d46237d69d516c2194790816ddf1c039c58bd830dc"
     },
     "biome-config-shaunburdick": {
       "source": "shaunburdick/style",
       "sourceType": "github",
       "skillPath": ".agents/skills/biome-config-shaunburdick/SKILL.md",
-      "computedHash": "c18fdc7d7959a42f7547e8a677728702fa65913cdfa95a38bd527f8ba068843a"
+      "computedHash": "4fc8dbef1a88970a7fd3cf200ceeaae1ddb137555897fcd63e967375a764d545"
     },
     "code-quality": {
       "source": "shaunburdick/skills",
@@ -29,7 +29,7 @@
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/git-safety/SKILL.md",
-      "computedHash": "851264bd040eb9c467c2b7bd61f4374192caf71f4e7623091f322aa514411ed9"
+      "computedHash": "b4d7e5a711032df47678427ef0a4d62157e4b7b0e8087fa77350c1ab53cb587f"
     },
     "github-actions": {
       "source": "shaunburdick/skills",

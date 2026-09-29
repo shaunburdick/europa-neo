@@ -5,11 +5,38 @@ skill under the 500-line guidance. **Agents MUST read this file before the
 first commit, push, sync, or pull-request creation in a session.**
 
 Before any commit, push, synchronization, or pull-request creation, run the
-following preflight checks in order. Each check has a binary continue/stop
-outcome. If any check stops, do not proceed to the next — resolve or escalate
-the blocker first.
+preflight checks **that apply to the operation you are about to perform**,
+in order. Each check has a binary continue/stop outcome. If any check stops,
+do not proceed to the next — resolve or escalate the blocker first.
+
+## Which Checks Apply Where
+
+Checks are operation-scoped: several of them reason about state that does
+not exist until later in the workflow — a remote counterpart (checks 3, 6),
+an upstream to compare against (check 4), or commits beyond the base (checks
+5, 7). Before the first push those checks have nothing to measure, and the
+one they would measure is exactly the operation in flight. Run the row for
+your operation:
+
+| Operation              | Checks                                                  |
+| ---------------------- | ------------------------------------------------------- |
+| **Commit**             | 1 (tree), 2 (protected branch)                          |
+| **Push / sync**        | 1, 2, 3 (branch present), 4 (divergence)                |
+| **PR create**          | 1, 2, 3, 4, 5 (relative to base), 6 (published), 7 (has commits) |
+
+Each check below repeats its own scope as an **Applies to** line. That line
+is the rule; this table is the index.
+
+The practical consequence: **a first commit on a fresh local branch runs
+checks 1 and 2 only.** Never stop that commit because the branch is
+unpublished (checks 3, 4, 6) or because `base..HEAD` is still empty (check
+5) — both statements are true by definition until you commit and push, so
+they are not defects at commit time.
 
 ## 1. Working-Tree Status Check
+
+**Applies to:** every operation. (A `sync`/rebase refuses a dirty tree, and
+unrelated changes are a hazard before any mutation.)
 
 Verify the working tree is clean or appropriately staged:
 
@@ -19,14 +46,17 @@ git status --porcelain
 
 - **Valid case**: Output is empty (clean tree) or shows only staged changes
   relevant to the current task. **Continue**.
-- **Failure case**: Output shows unstaged or untracked changes unrelated to the
-  current task. **Stop** — the working tree is dirty and may include unintended
-  modifications.
+- **Failure case**: Output shows unstaged or untracked changes unrelated to
+  the current task. **Stop** — the working tree is dirty and may include
+  unintended modifications.
 - **Next action**: Ask the user whether to stash, commit, or discard the
   unrelated changes before proceeding. Never auto-reset or auto-stash without
   explicit user confirmation.
 
 ## 2. Protected-Branch Check
+
+**Applies to:** every operation. Nothing is committed, pushed, or proposed
+for merge from a protected branch.
 
 Verify the current branch is not a protected branch:
 
@@ -44,6 +74,11 @@ git branch --show-current
 
 ## 3. Local and Remote Branch Presence Check
 
+**Applies to:** push, sync, and PR creation only. **Skip before a first
+commit on a fresh local branch** — the remote counterpart does not exist yet
+by design, and requiring one would block the standard
+feature-branch → commit → push workflow.
+
 Verify the current branch exists both locally and on the remote:
 
 ```bash
@@ -58,11 +93,17 @@ git ls-remote --heads origin "$(git branch --show-current)"
   and on the remote. **Continue**.
 - **Failure case**: `git ls-remote` returns empty — the branch has no remote
   counterpart. **Stop** — the branch is unpublished.
-- **Next action**: Inform the user that PR creation requires a published branch.
-  Request an explicit user-approved push: `git push -u origin
-  $(git branch --show-current)`. Do not push without user confirmation.
+- **Next action**: The branch is not published. For PR creation, tell the user
+  a published branch is required. For a push, request an explicit user-approved
+  `git push -u origin $(git branch --show-current)`. Never push without user
+  confirmation.
 
 ## 4. Local-vs-Remote Divergence Check
+
+**Applies to:** push, sync, and PR creation only. **Skip before a first
+commit (and before the first push)** — a branch with no upstream yet has
+nothing to compare against, so the comparison is undefined rather than
+failed.
 
 Verify the local branch is not diverged from its remote tracking branch:
 
@@ -82,6 +123,12 @@ git rev-list --left-right --count HEAD...@{upstream}
 
 ## 5. Relative-to-Base Check
 
+**Applies to:** PR creation only. This check answers "what will the PR
+contain?", and that question is not yet defined before the first commit:
+`base..HEAD` is `0` for every fresh branch, so running this at commit time
+would stop the very commit that satisfies it. A push does not need the count
+either — there is nothing to review until a PR is opened.
+
 Verify the branch has at least one commit relative to its merge base:
 
 ```bash
@@ -100,6 +147,9 @@ git rev-list --count main..HEAD
 
 ## 6. Unpublished Branch Stop
 
+**Applies to:** PR creation only — this gate exists to decide whether to
+invoke `gh pr create`.
+
 A combined gate that stops PR creation when the branch cannot be published:
 
 - **Condition**: No remote branch exists (check 3) OR no commits are visible
@@ -110,6 +160,8 @@ A combined gate that stops PR creation when the branch cannot be published:
   exact missing condition.
 
 ## 7. No-Commit Stop
+
+**Applies to:** PR creation only.
 
 A combined gate that stops PR creation when there is nothing to review:
 

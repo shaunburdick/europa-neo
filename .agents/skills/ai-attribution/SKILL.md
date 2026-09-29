@@ -4,7 +4,7 @@ description: "Load when creating commits, PRs, issues, or comments that need AI 
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # AI Attribution
@@ -44,7 +44,8 @@ Generated-By: my-agent (model: my-model)
 ```
 
 This format aligns with the Apache Software Foundation's `Generated-by`
-convention and is parseable via `git log --trailer=Generated-By`.
+convention and is parseable with git's own trailer formatter:
+`git log --format='%(trailers:key=Generated-By)'`.
 
 ## Surface-Specific Instructions
 
@@ -188,7 +189,8 @@ This convention supports compliance with EU AI Act Article 50 transparency
 obligations (enforceable August 2, 2026):
 
 - **Article 50(2)**: Machine-readable marking — the `Generated-By:` trailer
-  is parseable by tools (`git log --trailer=Generated-By`)
+  is parseable by any git-trailer-aware tool
+  (`git log --format='%(trailers:key=Generated-By)'`)
 - **Article 50(5)**: Clear and distinguishable — the footer is visible in
   PR bodies, comments, and issue descriptions
 
@@ -240,8 +242,8 @@ surfaces beyond commits rather than loading both sections into context.
 To find all AI-generated content across surfaces:
 
 ```bash
-# Git commits
-git log --trailer=Generated-By --oneline
+# Git commits — hash, attribution, subject (attributed commits only)
+git log --format='%h%x09%(trailers:key=Generated-By,valueonly,separator=)%x09%s' | awk -F'\t' '$2 != ""'
 
 # PRs with attribution (requires gh CLI)
 gh pr list --json body --jq '.[] | select(.body | contains("Generated-By"))'

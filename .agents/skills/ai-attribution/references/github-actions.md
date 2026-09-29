@@ -62,19 +62,41 @@ To also check commit messages for attribution trailers:
 ```yaml
 - name: Check out repository
   uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v5.0.0
+  with:
+    # base..head spans commits the default single-commit fetch omits,
+    # so a shallow clone makes `git log "$BASE_SHA..$HEAD_SHA"` fail
+    fetch-depth: 0
 
 - name: Check commit messages
   run: |
-    BASE=${{ github.event.pull_request.base.sha }}
-    HEAD=${{ github.event.pull_request.head.sha }}
-    if git log "$BASE..HEAD" --format='%B' | grep -q '^Generated-By:'; then
+    if git log "$BASE_SHA..$HEAD_SHA" --format='%B' | grep -q '^Generated-By:'; then
       echo "Found Generated-By in commits"
       # Apply label via gh CLI
-      gh pr edit ${{ github.event.pull_request.number }} --add-label ai-generated
+      gh pr edit "$PR_NUMBER" --add-label ai-generated
     fi
   env:
+    BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    PR_NUMBER: ${{ github.event.pull_request.number }}
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+Two details in that example are deliberate:
+
+- **Context values travel through `env:`** and are referenced as shell
+  variables — never interpolated into `run:`. The three values here are two
+  SHAs and a number, so they are not exploitable as written, but `run:` is
+  shell and the next line pasted into this block may well be a PR title,
+  branch name, or body. The `github-actions` skill's script-injection rule is
+  categorical for exactly that reason.
+- **`fetch-depth: 0`** — `actions/checkout` fetches a single commit by
+  default, so `$BASE_SHA` would not exist locally and the `git log` range
+  would fail instead of listing the PR's commits.
+
+One known limitation: on `pull_request` from a fork the token is read-only,
+so `gh pr edit` fails there. Label fork PRs from a `pull_request_target`
+workflow that never checks out or executes PR code — see the
+`github-actions` skill before reaching for that trigger.
 
 The action references above are pinned to immutable commit SHAs. Update both
 the SHA and its version comment together when upgrading them; see the

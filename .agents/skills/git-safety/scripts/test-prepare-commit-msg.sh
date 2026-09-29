@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # test-prepare-commit-msg.sh — functional tests for scripts/prepare-commit-msg.
 #
-# Covers acceptance criteria AC-1..AC-9 from
-# specs/001-agent-attribution-detection/spec.md plus the cross-harness
-# agent-name/model extension (FR-009/FR-010, amendment A2):
+# Self-contained: each case states its input and expected output, so nothing
+# needs looking up elsewhere — a shipped skill never has a spec document to
+# point at. The signal matrix behind these cases is in
+# ../references/attribution-detection.md, which does ship with the skill.
+# AC-n labels are stable IDs for reading test output, not citations.
+#
+# Detection + attribution matrix:
 #   AC-1  AI_AGENT=opencode            → Generated-By: opencode
 #   AC-2  AGENT=goose                  → Generated-By: goose
 #   AC-3  CLAUDE_CODE=1                → Generated-By: claude-code
@@ -13,16 +17,20 @@
 #   AC-7  merge/squash commit source   → hook skips regardless of env
 #   AC-8  AI_AGENT + OPENCODE_AGENT/MODEL → rich attribution
 #   AC-9  git-agent-commit wrapper     → byte-identical trailer
-# plus (amendment A2):
+# Cross-harness agent name + model:
 #   AC-2c AGENT=whatever               → Generated-By: whatever
 #   AC-3b CLAUDE_CODE=1 + ANTHROPIC_MODEL → claude-code (model: ...)
 #   AC-5b ANTHROPIC_MODEL alone        → no trailer (model var is not a marker)
 #   AC-8c AI_AGENT=custom-name         → Generated-By: custom-name
 #   AC-8d AI_AGENT=1 (boolean)         → Generated-By: ai-agent (fallback)
 #   AC-8e AI_AGENT=opencode + OPENCODE_MODEL → opencode (model: ...)
-# plus (amendment A3): AC-18a..d check-hook.sh install-currency smoke tests
-# plus (amendment A4): AC-18e..f hybrid-install detection (stale attribution
-#     code outside the block flagged; comment-only mentions not flagged)
+# Hook install currency (check-hook.sh):
+#   AC-18a..d install-currency smoke tests
+# Hybrid installs:
+#   AC-18e..f stale attribution code outside the block flagged;
+#             comment-only mentions not flagged
+# Message-file edge cases:
+#   AC-19  no trailing newline before the trailer → git still parses it
 #
 # Requires: bash 3.2+, git, coreutils. No other dependencies.
 #
@@ -77,7 +85,11 @@ run_case() { # run_case <name> <expected-trailer|-> <expect-warn|0|1> <env...> g
   local out trailer warned=0 status problems=""
   out="$(env "${UNSET[@]}" "$@" 2>&1)"
   status=$?
-  trailer="$(git log -1 --format=%B | grep -m1 '^Generated-By:' || true)"
+  # Assert structurally: git's own trailer parser must accept the trailer.
+  # A plain message grep would pass even when the trailer shares a paragraph
+  # with the body, which git does not treat as a trailer at all.
+  trailer="$(git log -1 --format=%B | git interpret-trailers --parse \
+    | grep -m1 '^Generated-By:' || true)"
   grep -q "without an AI attribution claim" <<<"$out" && warned=1
 
   [[ "$status" -eq 0 ]] || problems="commit exited $status; "
@@ -111,7 +123,7 @@ run_case "AC-8  rich attribution"       "Generated-By: my-agent (model: my-model
   AI_AGENT=opencode OPENCODE_AGENT=my-agent OPENCODE_MODEL=my-model git commit --allow-empty -m "test: ac8"
 run_case "AC-8b OPENCODE_AGENT alone"   "Generated-By: my-agent"           0 OPENCODE_AGENT=my-agent git commit --allow-empty -m "test: ac8b"
 
-# Amendment A2 — cross-harness agent name + model attribution (FR-009/FR-010)
+# Cross-harness agent name + model attribution:
 run_case "AC-3b claude-code + model"    "Generated-By: claude-code (model: claude-opus-4-6)" 0 \
   CLAUDE_CODE=1 ANTHROPIC_MODEL=claude-opus-4-6 git commit --allow-empty -m "test: ac3b"
 run_case "AC-3c claude entrypoint+model" "Generated-By: claude-code (model: claude-sonnet-4-6)" 0 \
@@ -152,7 +164,26 @@ fi
 run_case "AC-9  wrapper parity" "Generated-By: my-agent (model: my-model)" 0 \
   OPENCODE_AGENT=my-agent OPENCODE_MODEL=my-model "$WRAPPER" --allow-empty -m "test: ac9"
 
-# AC-18a..f: check-hook.sh install-currency smoke tests (amendments A3/A4)
+# AC-19: message file with no trailing newline. Without the hook's guard the
+# appended trailer lands in the body's paragraph and git rejects it outright,
+# so assert with git's parser rather than a message grep (which would pass).
+msg_no_nl="$TMP/.git/msg-no-newline"
+printf 'fix: message with no trailing newline' > "$msg_no_nl"
+hook_status=0
+env "${UNSET[@]}" AI_AGENT=opencode "$HOOK" "$msg_no_nl" message >/dev/null 2>&1 \
+  || hook_status=$?
+parsed="$(git interpret-trailers --parse "$msg_no_nl" 2>/dev/null \
+  | grep -m1 '^Generated-By:' || true)"
+if [[ "$hook_status" -ne 0 ]]; then
+  report no "AC-19 no trailing newline" "hook exited $hook_status"
+elif [[ "$parsed" == "Generated-By: opencode" ]]; then
+  report ok "AC-19 no trailing newline"
+else
+  report no "AC-19 no trailing newline" \
+    "git parsed '${parsed:-<nothing>}' — trailer is invisible to git"
+fi
+
+# AC-18a..f: check-hook.sh install-currency smoke tests
 # a: full-copy install (as done above) is detected as current
 if "$CHECK" "$TMP/.git/hooks/prepare-commit-msg" >/dev/null 2>&1; then
   report ok "AC-18a full-copy install current"

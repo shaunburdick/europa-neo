@@ -1,6 +1,9 @@
 ---
 name: biome-config-shaunburdick
 description: Install, set up, and debug the biome-config-shaunburdick Biome config (v1) — the Rust-based alternative to eslint-config-shaunburdick. Use when `biome check` fails with a rule you don't recognize, when adding Biome to a project, when deciding between Biome and the ESLint config, when upgrading @biomejs/biome and getting new errors, or when a nursery rule changes. Covers the three layers, the nursery-rule stability risk, version pinning via biome migrate, and what has no Biome equivalent.
+metadata:
+  author: shaunburdick
+  version: "1.0.1"
 ---
 
 # biome-config-shaunburdick

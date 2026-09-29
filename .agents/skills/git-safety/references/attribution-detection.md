@@ -76,7 +76,7 @@ falsely added.
 ## Agent Name and Model Resolution
 
 Beyond harness detection, the hook resolves an **agent name** and a **model**
-for the trailer (amendment A2, FR-009/FR-010).
+for the trailer.
 
 Agent name precedence (first match wins):
 
@@ -120,16 +120,31 @@ Trailer forms, in precedence order:
 
 ## Parsing Attribution
 
-Find all AI-generated commits:
+Read trailers with git's own parser, `%(trailers:key=...)`, rather than
+grepping the message. It is case-insensitive on the key and only counts lines
+git actually accepts as trailers, so a `Generated-By:` quoted in prose or a
+subject does not match. `--grep='^Generated-By:'` looks equivalent but is
+case-sensitive *and* matches any line that starts with that text whether or
+not git considers it a trailer — both failure modes are easy to hit.
+
+Find all AI-generated commits — hash, attribution, subject:
 
 ```bash
-git log --trailer=Generated-By --oneline
+git log --format='%h%x09%(trailers:key=Generated-By,valueonly,separator=)%x09%s' \
+  | awk -F'\t' '$2 != ""'
 ```
 
-Extract unique agents/models:
+The `separator=` is load-bearing: with no trailer the placeholder emits an
+empty string, and with one it emits the value **plus a newline**, which would
+split the record across two lines. `separator=` drops that newline so the
+three fields stay on one line; `awk` then keeps only records whose trailer
+field is non-empty.
+
+Extract unique agents/models — the `sed` drops the empty records emitted for
+commits with no trailer, which would otherwise rank as the top "agent":
 
 ```bash
-git log --format='%(trailers:valueonly,separator=%x2C,unfold,separator=%x2Ckey=Generated-By)' | sort | uniq -c | sort -rn
+git log --format='%(trailers:key=Generated-By,valueonly)' | sed '/^$/d' | sort | uniq -c | sort -rn
 ```
 
 ## Ecosystem Status

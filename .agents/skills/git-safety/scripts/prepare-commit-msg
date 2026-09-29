@@ -146,6 +146,14 @@ if [[ -n "$harness" ]]; then
     else
       attribution="$harness"
     fi
+    # Terminate the message's last line first. If the file has no trailing
+    # newline, the "\n" below would only end the prose line, leaving body and
+    # trailer in a single paragraph — git then does not parse it as a trailer
+    # at all, and the attribution is invisible to `git interpret-trailers`
+    # and anything else reading trailers.
+    if [[ -n "$(tail -c 1 "$commit_msg_file")" ]]; then
+      printf '\n' >> "$commit_msg_file"
+    fi
     printf "\nGenerated-By: %s\n" "$attribution" >> "$commit_msg_file"
   fi
 elif [[ "${OPENCODE_TERMINAL:-}" == "1" ]]; then
