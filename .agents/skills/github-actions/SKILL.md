@@ -411,9 +411,3 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.cloudflare-api-token }}
 ```
-
-## Related Skills
-
-- **[ai-attribution](../ai-attribution/)**: Provides the optional
-  `Generated-By` convention and reference workflow for labeling
-  AI-attributed pull requests.

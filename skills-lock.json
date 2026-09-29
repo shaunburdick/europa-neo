@@ -11,19 +11,19 @@
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/code-quality/SKILL.md",
-      "computedHash": "c0ea7437c186e403315c5a1e83fd8bfdd08c48a766c27d0c49d3ac0758045647"
+      "computedHash": "a367c73f22ce216aac4b2c5f8b6f056915fe0023ae0c915f57323e0a4a2367d5"
     },
     "git-safety": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/git-safety/SKILL.md",
-      "computedHash": "851264bd040eb9c467c2b7bd61f4374192caf71f4e7623091f322aa514411ed9"
+      "computedHash": "8bedcb1b9c924b5559ff010e0c3c0fd45d96e0175f4096c9a7a62c6c29d9308b"
     },
     "github-actions": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/github-actions/SKILL.md",
-      "computedHash": "f975192382719f4f6b71dd9d6735932d8cdfd7bba957b76c307619a25f514536"
+      "computedHash": "551796d8aa010db3ac3e5b18afe1e51465a093d08950886016927685e1982515"
     },
     "spec-driven-development": {
       "source": "shaunburdick/skills",
