@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# git-agent-commit — commit with an explicit AI attribution claim.
+#
+# OpenCode v2 (anomalyco/opencode) sets no AI-session env marker, and each
+# bash tool call spawns a fresh login shell, so session-start exports do not
+# persist to a later `git commit`. Use this wrapper (or the inline env form)
+# so the prepare-commit-msg hook can attribute the commit:
+#
+#   git-agent-commit -m "feat: add widget"
+#   # identical inline form:
+#   AI_AGENT=opencode git commit -m "feat: add widget"
+#
+# Rich attribution (optional):
+#   OPENCODE_AGENT="my-agent" OPENCODE_MODEL="my-model" \
+#     git-agent-commit -m "feat: add widget"
+#
+# Install once per machine:
+#   cp .agents/skills/git-safety/scripts/git-agent-commit ~/.local/bin/
+#   chmod +x ~/.local/bin/git-agent-commit
+#
+# All arguments pass through to `git commit` unchanged.
+
+set -euo pipefail
+
+export AI_AGENT="${AI_AGENT:-opencode}"
+
+exec git commit "$@"
