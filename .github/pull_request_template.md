@@ -10,11 +10,13 @@ Bad: "We need better PR hygiene." (that's motivation, not summary)
 
 <!--
 Why does this change need to happen? What problem does it solve or what
-feature does it enable? Reference the GitHub issue it closes.
-If there's no issue, explain the context that led to this change.
+feature does it enable? Reference the GitHub issue it closes with a
+"Closes #<issue-number>" line right after this comment block — replace
+the placeholder with the real number, or delete the line if there is no
+issue. If there's no issue, explain the context that led to this change.
 -->
 
-Closes #
+Closes #<issue-number>
 
 ## Changes
 
