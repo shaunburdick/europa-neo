@@ -1,0 +1,4 @@
+# AI commit attribution (git-safety skill): husky dispatches user hooks with
+# `sh` (see .husky/_/h), but the attribution script is bash (pipefail, [[ ]]).
+# Exec bash so detection and trailer append behave correctly.
+exec bash "$(git rev-parse --show-toplevel)/.agents/skills/git-safety/scripts/prepare-commit-msg" "$@"

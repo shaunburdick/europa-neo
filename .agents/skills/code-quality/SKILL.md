@@ -1,10 +1,10 @@
 ---
 name: code-quality
-description: "Enforces non-negotiable code quality standards for AI coding agents. Covers linting rules (no suppressions — ever), type safety (no `any` in TypeScript, no `# type: ignore` in Python), and a mandatory pre-commit verification protocol. Load this skill proactively whenever writing, editing, or reviewing code — don't wait to be asked. Ensures consistent quality gates across all languages and coding agents."
+description: "Enforces non-negotiable code quality standards for AI coding agents. Covers linting rules (no suppressions — ever), type safety (no `any` in TypeScript, no `# type: ignore` in Python), tooling discipline (choosing edit tools, reading tool errors), and a mandatory pre-commit verification protocol. Load this skill proactively whenever writing, editing, or reviewing code — don't wait to be asked. Ensures consistent quality gates across all languages and coding agents."
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Code Quality Standards
@@ -81,6 +81,64 @@ Weak types are deferred bugs. Use the type system fully in whatever language you
 - ✅ Use `TypedDict`, `dataclass`, or `pydantic` models for structured data
 - ✅ Use `Any` from `typing` only as a last resort with a comment explaining why
 
+## Tooling Discipline
+
+The general rule, in every harness: **match the tool to the size and certainty
+of the change, and read the whole error before acting on it.**
+
+### Prefer tools whose failure modes are small
+
+An edit tool that verifies your `oldString` still matches will fail when the
+file moved underneath you. One that replaces the file wholesale will not.
+Choose accordingly:
+
+| Change | Prefer | Because |
+| --- | --- | --- |
+| Whole file, or most of it | full-file write | No content matching, so nothing to fail on |
+| Small, well-understood region | targeted edit | Cheapest and most reviewable |
+| Applying a diff you did not author | patch, with care | Verifies context; fails when context is stale |
+
+The last row is the one to watch. A verified-patch tool's dominant failure is
+"could not find the expected lines," which means the file changed since you
+read it. Re-read the file and re-derive the change rather than retrying the
+same patch — the retry costs a call and fails identically.
+
+### Read the error, not the payload
+
+Some harnesses return tool errors as a serialized envelope with a short
+message wrapped inside a larger object that may echo your full arguments back.
+A single missing argument can produce over a kilobyte of diagnostics.
+
+- Read the **message** field and stop there
+- Do not re-send the same call with a guess at a fix
+- Do not let an error payload stand in for a re-read of the file — the file you
+  saw before the call is not necessarily the file on disk now
+
+### Know what the tool surface actually is
+
+Tool names are versioned and do get renamed. A directive written against an
+older name silently does nothing rather than erroring usefully. Before
+documenting a tool in a directive or writing one into a script, confirm it
+exists in the current version.
+
+<details>
+<summary>OpenCode v2 reference (measured 2026-09-27)</summary>
+
+| Retired (v1) | Current (v2) | Notes |
+| --- | --- | --- |
+| `apply_patch` | `edit`, `write`, `patch` | `edit` 3.1% error rate, `patch` 20.6% |
+| `task` | `subagent` | `subagent(agent=, description=, prompt=)`; `description` is required, `prompt` is no longer positional. Adds `sessionID` and `background`. |
+| `bash` | `shell` | `bash` still resolves, but `shell` is current |
+
+`edit` was the best-behaved write tool measured (25 errors in 818 calls, 95%
+CI [2.1%, 4.5%]). `patch` was 7 in 34, but that interval is [10.3%, 36.8%] —
+too wide to call better or worse than v1's `apply_patch`, which sat at 26.8%.
+
+`edit` errors arrive as a JSON envelope that echoes the full argument object
+back, including file content. Read `message` only.
+
+</details>
+
 ## Task Complete & Pre-Commit Checklist
 
 A task isn't done until it's ready to commit. Run through this once before every commit:
@@ -103,6 +161,7 @@ A task isn't done until it's ready to commit. Run through this once before every
 - [ ] The specific change was manually verified end-to-end
 - [ ] Edge cases tested
 - [ ] Related functionality still works
+- [ ] No failed tool call was retried without first re-reading the target file
 
 **Diff review:**
 - [ ] No debug code, `console.log`, or `print` statements left behind
