@@ -13,6 +13,12 @@
       "skillPath": "skills/ai-attribution/SKILL.md",
       "computedHash": "78433c937e53639c6976d527f2d07c205ffbf9402b2ef2222d662c6a92fb3f24"
     },
+    "biome-config-shaunburdick": {
+      "source": "shaunburdick/style",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/biome-config-shaunburdick/SKILL.md",
+      "computedHash": "c18fdc7d7959a42f7547e8a677728702fa65913cdfa95a38bd527f8ba068843a"
+    },
     "code-quality": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
