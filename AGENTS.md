@@ -67,7 +67,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 ## Agent skills
 
-Repo-local skills live in `.agents/skills/` and are auto-discovered by agents working in this repo — contributors do **not** need to install anything globally. Eleven skills are version-controlled here:
+Repo-local skills live in `.agents/skills/` and are auto-discovered by agents working in this repo — contributors do **not** need to install anything globally. Thirteen skills are version-controlled here:
 
 - **Hand-written for this repo** (repo-specific, not published elsewhere):
   - `app-explorer` — browser exploration/verification of the running app
@@ -75,7 +75,9 @@ Repo-local skills live in `.agents/skills/` and are auto-discovered by agents wo
   - `server-manager` — PM2 lifecycle for dev servers
 - **Installed via `npx skills`** (published upstream; tracked by `skills-lock.json` at the repo root):
   - `git-safety` — branch protection, commit conventions, no history rewrites
+  - `ai-attribution` — `Generated-By` attribution across commits, PRs, issues, comments
   - `code-quality` — no lint suppressions, type safety, pre-commit checklist
+  - `style` — code style configuration and formatting standards
   - `spec-driven-development` — the six-phase spec-driven workflow
   - `spec-kit` — spec-kit CLI reference (`.specify/`, `/speckit.*` commands)
   - `github-actions` — secure workflow authoring (SHA pinning, least privilege)

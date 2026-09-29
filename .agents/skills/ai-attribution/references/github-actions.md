@@ -65,16 +65,20 @@ To also check commit messages for attribution trailers:
 
 - name: Check commit messages
   run: |
-    BASE=${{ github.event.pull_request.base.sha }}
-    HEAD=${{ github.event.pull_request.head.sha }}
-    if git log "$BASE..HEAD" --format='%B' | grep -q '^Generated-By:'; then
+    if git log "$BASE_SHA..$HEAD_SHA" --format='%B' | grep -q '^Generated-By:'; then
       echo "Found Generated-By in commits"
       # Apply label via gh CLI
-      gh pr edit ${{ github.event.pull_request.number }} --add-label ai-generated
+      gh pr edit "$PR_NUMBER" --add-label ai-generated
     fi
   env:
+    BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    PR_NUMBER: ${{ github.event.pull_request.number }}
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+Context values are passed through `env` rather than interpolated directly
+into `run:`, matching the `github-actions` skill's script-injection rules.
 
 The action references above are pinned to immutable commit SHAs. Update both
 the SHA and its version comment together when upgrading them; see the

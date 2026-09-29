@@ -29,6 +29,18 @@ and a footer in pull request bodies:
 Generated-By: <agent-name> (model: <model-id>)
 ```
 
+The model-bearing form above is canonical. When the agent's harness does
+not expose a model identifier (for example Goose, Cursor, or Codex), the
+`prepare-commit-msg` hook falls back to the forms below rather than
+fabricating a model:
+
+```
+Generated-By: <agent-name>          # agent known, model unavailable
+Generated-By: <harness-name>        # harness known, agent unknown
+```
+
+Every form is machine-readable via `git log --trailer=Generated-By`.
+
 ## Compliance
 
 This convention supports transparency obligations under EU AI Act

@@ -1,6 +1,6 @@
 ## Summary
 
-<!-- 
+<!--
 Write 1-2 sentences describing what this PR does, not why.
 Good: "Adds a PR template with AI disclosure checklist."
 Bad: "We need better PR hygiene." (that's motivation, not summary)
@@ -8,7 +8,7 @@ Bad: "We need better PR hygiene." (that's motivation, not summary)
 
 ## Motivation
 
-<!-- 
+<!--
 Why does this change need to happen? What problem does it solve or what
 feature does it enable? Reference the GitHub issue it closes.
 If there's no issue, explain the context that led to this change.
@@ -18,7 +18,7 @@ Closes #
 
 ## Changes
 
-<!-- 
+<!--
 Bullet the key changes. Group by area if the PR touches multiple systems.
 Focus on what changed, not how it was implemented (that's in the code).
 Example:
@@ -30,7 +30,7 @@ Example:
 
 ## Test plan
 
-<!-- 
+<!--
 How can reviewers verify this change works? Be specific.
 Include commands to run, routes to visit, or manual steps to perform.
 The first checkbox is almost always checked — run `pnpm verify` before pushing.

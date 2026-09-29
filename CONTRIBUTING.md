@@ -104,6 +104,18 @@ All AI-generated content must include a `Generated-By:` trailer to provide trans
 Generated-By: <agent-name> (model: <model-name>)
 ```
 
+This model-bearing form is canonical. Some agent harnesses do not expose a
+model identifier; in that case the `prepare-commit-msg` hook emits a
+fallback rather than fabricating a model:
+
+```
+Generated-By: <agent-name>          # agent known, model unavailable
+Generated-By: <harness-name>        # harness known, agent unknown
+```
+
+When you add the footer manually (PR bodies, comments, issues), use the
+canonical form with your actual agent name and model ID.
+
 **Where to include it**:
 
 | Surface        | How                                                                 |
