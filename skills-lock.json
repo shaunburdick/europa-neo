@@ -7,23 +7,35 @@
       "skillPath": "skills/accessibility/SKILL.md",
       "computedHash": "612f913bcb03f0787b103c848cd7664b676a9aaf31f25d3270cc69cf5caaab95"
     },
+    "ai-attribution": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/ai-attribution/SKILL.md",
+      "computedHash": "6491f78e2fa72997af3858d46237d69d516c2194790816ddf1c039c58bd830dc"
+    },
+    "biome-config-shaunburdick": {
+      "source": "shaunburdick/style",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/biome-config-shaunburdick/SKILL.md",
+      "computedHash": "4fc8dbef1a88970a7fd3cf200ceeaae1ddb137555897fcd63e967375a764d545"
+    },
     "code-quality": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/code-quality/SKILL.md",
-      "computedHash": "a367c73f22ce216aac4b2c5f8b6f056915fe0023ae0c915f57323e0a4a2367d5"
+      "computedHash": "c0ea7437c186e403315c5a1e83fd8bfdd08c48a766c27d0c49d3ac0758045647"
     },
     "git-safety": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/git-safety/SKILL.md",
-      "computedHash": "8bedcb1b9c924b5559ff010e0c3c0fd45d96e0175f4096c9a7a62c6c29d9308b"
+      "computedHash": "b4d7e5a711032df47678427ef0a4d62157e4b7b0e8087fa77350c1ab53cb587f"
     },
     "github-actions": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/github-actions/SKILL.md",
-      "computedHash": "551796d8aa010db3ac3e5b18afe1e51465a093d08950886016927685e1982515"
+      "computedHash": "f975192382719f4f6b71dd9d6735932d8cdfd7bba957b76c307619a25f514536"
     },
     "spec-driven-development": {
       "source": "shaunburdick/skills",
@@ -36,6 +48,12 @@
       "sourceType": "github",
       "skillPath": "skills/spec-kit/SKILL.md",
       "computedHash": "3e4cc9909dcb0bc139aa7ea8ba231d70a10cea9ec53cf921715bcf888e8c9386"
+    },
+    "style": {
+      "source": "shaunburdick/skills",
+      "sourceType": "github",
+      "skillPath": "skills/style/SKILL.md",
+      "computedHash": "8c5fd91cd5eda98b7f9534882837bb7ffb9091f2c53a53f4a4c8b147faa5a7de"
     },
     "test-reviewer": {
       "source": "pertrai1/eslint-plugin-llm-core",

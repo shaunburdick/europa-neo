@@ -23,6 +23,7 @@ This file governs any AI agent (primary or subagent) doing work in this reposito
 | --- | --- |
 | `AGENTS.md` (this file) | Agent working rules + project state |
 | `.specify/memory/constitution.md` | Non-negotiable engineering principles |
+| `CONTRIBUTING.md` | Team collaboration norms, AI usage policy, and contribution workflow |
 | `specs/001-core-game-engine/spec.md` | Core game engine — deterministic tick simulation |
 | `specs/002-fog-of-war-visibility/spec.md` | Fog of war & visibility computation |
 | `specs/003-procedural-terrain-generation/spec.md` | Procedural terrain generation |
@@ -66,7 +67,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 ## Agent skills
 
-Repo-local skills live in `.agents/skills/` and are auto-discovered by agents working in this repo — contributors do **not** need to install anything globally. Eleven skills are version-controlled here:
+Repo-local skills live in `.agents/skills/` and are auto-discovered by agents working in this repo — contributors do **not** need to install anything globally. Fourteen skills are version-controlled here:
 
 - **Hand-written for this repo** (repo-specific, not published elsewhere):
   - `app-explorer` — browser exploration/verification of the running app
@@ -74,7 +75,10 @@ Repo-local skills live in `.agents/skills/` and are auto-discovered by agents wo
   - `server-manager` — PM2 lifecycle for dev servers
 - **Installed via `npx skills`** (published upstream; tracked by `skills-lock.json` at the repo root):
   - `git-safety` — branch protection, commit conventions, no history rewrites
+  - `ai-attribution` — `Generated-By` attribution across commits, PRs, issues, comments
   - `code-quality` — no lint suppressions, type safety, pre-commit checklist
+  - `style` — code style configuration and formatting standards
+  - `biome-config-shaunburdick` — Biome config setup, rule diagnosis, nursery-rule caveats
   - `spec-driven-development` — the six-phase spec-driven workflow
   - `spec-kit` — spec-kit CLI reference (`.specify/`, `/speckit.*` commands)
   - `github-actions` — secure workflow authoring (SHA pinning, least privilege)
