@@ -7,12 +7,6 @@
       "skillPath": "skills/accessibility/SKILL.md",
       "computedHash": "612f913bcb03f0787b103c848cd7664b676a9aaf31f25d3270cc69cf5caaab95"
     },
-    "biome-config-shaunburdick": {
-      "source": "shaunburdick/style",
-      "sourceType": "github",
-      "skillPath": ".agents/skills/biome-config-shaunburdick/SKILL.md",
-      "computedHash": "c18fdc7d7959a42f7547e8a677728702fa65913cdfa95a38bd527f8ba068843a"
-    },
     "code-quality": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
