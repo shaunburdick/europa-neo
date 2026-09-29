@@ -31,10 +31,10 @@ Bug fix in `@europa/logging` (spec 014, v1.1). Three issues: (1) JSON.stringify 
 - [x] T-030: pnpm verify — all checks pass
 
 ### Wave 7 — Review round 2 (PR #169 findings) — ✅ Complete (2026-09-28)
-- [x] T-031: Fail-soft escape-path hardening (4 paths) + `context: {}` fallback — 03f5c7e
-- [x] T-032: Env diagnostic sanitization (LOG_LEVEL/LOG_FORMAT) — 03f5c7e
-- [x] T-033: U+2028/U+2029 sanitizer extension — 03f5c7e
-- [x] T-034: say()/complain() migration (AC-009) — dc1bef8, c9e5392
+- [x] T-031: Fail-soft escape-path hardening (4 paths) + `context: {}` fallback — PR #169
+- [x] T-032: Env diagnostic sanitization (LOG_LEVEL/LOG_FORMAT) — PR #169
+- [x] T-033: U+2028/U+2029 sanitizer extension — PR #169
+- [x] T-034: say()/complain() migration (AC-009) — PR #169
 - [x] T-035: Spec/doc reconciliation, AC-001–AC-015 checkoff, spec bump to v1.2
 
 ## Decisions & Rationale

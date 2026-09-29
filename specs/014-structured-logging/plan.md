@@ -2,6 +2,8 @@
 
 ## Technical Context
 
+*(v1.0 technical context — historical: `say()`/`complain()` have since been migrated to `createLogger()`, the duplicate `NULL_LOGGER` definitions were consolidated into `@europa/logging`, and the host passes `createLogger()` on `ServerDeps` — PR #169. The description below is the as-found state.)*
+
 Server-side processes use raw `process.stdout.write`/`process.stderr.write` via `say()`/`complain()` helpers — unstructured text with no log levels, timestamps, or machine-parseable context. The networking and matchmaking packages accept a `Logger` interface but default to `NULL_LOGGER` (a no-op), so structured diagnostics are silently swallowed in production. Three duplicate `NULL_LOGGER` definitions exist across the codebase.
 
 **Goal**: Create `@europa/logging` — a zero-dependency private workspace package providing a structured JSON logger, the canonical `Logger` interface, `NULL_LOGGER`, and `sanitizeLogText()`.

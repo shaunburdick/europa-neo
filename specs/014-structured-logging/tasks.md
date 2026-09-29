@@ -113,13 +113,13 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 
 ### Wave 7: Review round 2 — fail-soft hardening, U+2028/U+2029, AC-009 (v1.2)
 
-- [x] **T-031**: Close the four fail-soft escape paths in `packages/logging/src/logger.ts` — (a) guard message/context-value string coercion → `[unprintable message]` / `[unprintable]`, (b) abandon contexts whose getters/proxies throw → `context: {}` (JSON) / no braces (pretty), (c) swallow throwing writers silently (including startup diagnostics), (d) last-resort guard around the whole write body. Emit `context: {}` (present-but-empty) on `JSON.stringify` failure so consumers can distinguish failure from "caller passed no context". [FR-012, commit 03f5c7e]
+- [x] **T-031**: Close the four fail-soft escape paths in `packages/logging/src/logger.ts` — (a) guard message/context-value string coercion → `[unprintable message]` / `[unprintable]`, (b) abandon contexts whose getters/proxies throw → `context: {}` (JSON) / no braces (pretty), (c) swallow throwing writers silently (including startup diagnostics), (d) last-resort guard around the whole write body. Emit `context: {}` (present-but-empty) on `JSON.stringify` failure so consumers can distinguish failure from "caller passed no context". [FR-012, PR #169]
 
-- [x] **T-032**: Sanitize invalid `LOG_LEVEL`/`LOG_FORMAT` startup diagnostics — pass the raw env value through `sanitizeLogText()` before interpolation (bounded, no raw newline/ANSI/bidi). [NFR: Security, edge cases, commit 03f5c7e]
+- [x] **T-032**: Sanitize invalid `LOG_LEVEL`/`LOG_FORMAT` startup diagnostics — pass the raw env value through `sanitizeLogText()` before interpolation (bounded, no raw newline/ANSI/bidi). [NFR: Security, edge cases, PR #169]
 
-- [x] **T-033**: Extend `LOG_CONTROL_CHARS` in `packages/logging/src/sanitize.ts` to `/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu` — strip U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR; add tests in `tests/sanitize.test.ts`. [FR-008, commit 03f5c7e]
+- [x] **T-033**: Extend `LOG_CONTROL_CHARS` in `packages/logging/src/sanitize.ts` to `/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu` — strip U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR; add tests in `tests/sanitize.test.ts`. [FR-008, PR #169]
 
-- [x] **T-034**: Migrate `say()`/`complain()` to the structured logger — zero remaining call sites repo-wide, refresh the stale `say()` precedent reference in docs. [AC-009, commits dc1bef8, c9e5392]
+- [x] **T-034**: Migrate `say()`/`complain()` to the structured logger — zero remaining call sites repo-wide, refresh the stale `say()` precedent reference in docs. [AC-009, PR #169]
 
 - [x] **T-035**: Spec/doc reconciliation — fix the nonexistent `./types` barrel reference in data-model.md (real `src/index.ts` block restored), document the v1.2 behaviors (FR-012, edge cases, clarifications 11–14), verify and check off AC-001–AC-015 against the codebase, bump spec to v1.2. [spec 014]
 

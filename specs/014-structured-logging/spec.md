@@ -7,6 +7,8 @@
 
 ## Problem Statement
 
+*(v1.0 problem statement — historical: `say()`/`complain()` have since been migrated to the structured logger (`createLogger()`) and the duplicate `NULL_LOGGER` definitions consolidated into `@europa/logging` — PR #169. The line/call counts below are as-found v1.0 values.)*
+
 Server-side processes (the host launcher, matchmaking, networking, and engine orchestration) use raw `process.stdout.write`/`process.stderr.write` via `say()`/`complain()` helpers — unstructured text lines with no log levels, no timestamps, no machine-parseable context. This makes production debugging difficult: there is no way to filter logs by severity, correlate events across subsystems, or pipe structured output to log aggregators. The host script (`packages/console/scripts/host.ts`, 689 lines) has ~18 `complain()` calls for CLI validation and runtime errors, plus ~10 `say()` calls for informational output — all plain text. The networking and matchmaking packages accept a `Logger` interface but default to `NULL_LOGGER` (a no-op), so structured diagnostics are silently swallowed in production.
 
 ## User Stories
@@ -49,7 +51,7 @@ Server-side processes (the host launcher, matchmaking, networking, and engine or
 - [x] **AC-006**: `sanitizeLogText()` behaves identically to the current implementation in `host-config.ts` (control char replacement, trimming, truncation). *Verified: `host-config.ts` re-exports logging's implementation (identical by construction); trim/truncate behavior byte-identical to the pre-migration host-config function (regex since extended with `\p{Cf}`/`\p{Zl}`/`\p{Zp}` — supersets `\p{Cc}`, see FR-008).*
 - [x] **AC-007**: The networking package re-exports `Logger`, `NULL_LOGGER` from `@europa/logging` — existing import paths (`@europa/networking`) continue to resolve.
 - [x] **AC-008**: The matchmaking package's two local `NULL_LOGGER` definitions are replaced with imports from `@europa/logging` (or `@europa/networking`).
-- [x] **AC-009**: The host launcher uses `createLogger()` for all output — zero remaining `say()`/`complain()` calls (replaced with `logger.info`/`logger.error`/`logger.warn`). *Verified 2026-09-28: zero `say()`/`complain()` call sites repo-wide (commits dc1bef8, c9e5392).*
+- [x] **AC-009**: The host launcher uses `createLogger()` for all output — zero remaining `say()`/`complain()` calls (replaced with `logger.info`/`logger.error`/`logger.warn`). *Verified 2026-09-28: zero `say()`/`complain()` call sites repo-wide (PR #169).*
 - [x] **AC-010**: Test coverage ≥ 80% on all metrics (statements, branches, functions, lines) for `@europa/logging`.
 - [x] **AC-011**: A test verifies that `logger.info()` writes to stdout with correct JSON structure.
 - [x] **AC-012**: A test verifies that `logger.error()` writes to stderr with correct JSON structure.
