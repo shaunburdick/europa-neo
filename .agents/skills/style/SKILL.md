@@ -1,10 +1,10 @@
 ---
 name: style
-description: Set up code style configuration for a project. Installs the right linting and formatting rules based on the repo's GitHub org — @shaunburdick's personal config for shaunburdick/* repos, the org's own style repo for other orgs, or standard recommended defaults as a fallback. Load this skill when setting up a new project, when asked to "add linting", "set up code style", "configure eslint", "add prettier", "set up formatting", "configure editorconfig", or "standardize code style" — even if the user doesn't mention a specific tool by name.
+description: Set up code style configuration for a project. Installs the right linting and formatting rules based on the repo's GitHub org — @shaunburdick's personal config for shaunburdick/* repos, the org's own style repo for other orgs, or standard recommended defaults as a fallback. Load this skill when setting up a new project, when asked to "add linting", "set up code style", "configure eslint", "configure biome", "add prettier", "set up formatting", "configure editorconfig", or "standardize code style" — even if the user doesn't mention a specific tool by name.
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Style Setup
@@ -29,7 +29,24 @@ Install @shaunburdick's personal style configuration from [github.com/shaunburdi
 
 2. Fetch and follow the install instructions in the root `README.md` at `https://raw.githubusercontent.com/shaunburdick/style/main/README.md`
 
-3. If the project contains JavaScript or TypeScript files (look for `.js`, `.mjs`, `.cjs`, `.ts`, `.tsx`, `.jsx` files, or a `package.json`), also fetch and follow the install instructions in `https://raw.githubusercontent.com/shaunburdick/style/main/eslint/README.md`
+3. If the project contains JavaScript or TypeScript files (look for `.js`, `.mjs`, `.cjs`, `.ts`, `.tsx`, `.jsx` files, or a `package.json`), pick **one** of the two linter configs — they are alternatives, never both:
+
+   - **`eslint-config-shaunburdick`** — the default for JS/TS. Choose it when the project wants or needs anything ESLint-specific: the `llm-core` agentic guardrails, JSDoc rules, the `security` plugin, promise discipline, the naming denylist, or `max-inline-disables`. None of those have a Biome equivalent. Requires Node.js >=20.19 and ESLint >=10 (flat config only).
+   - **`biome-config-shaunburdick`** — one Rust tool for linting + formatting + import organization in the same house style, when none of the ESLint-only features above matter. Requires Node.js >=22 and `@biomejs/biome` >=2.5 <3 — a higher Node floor than the ESLint config.
+
+   If neither clearly fits, ask the user rather than choosing silently.
+
+4. Hand off to the matching package skill — it owns the setup steps, layer ordering, rule-group map for diagnosing unfamiliar lint errors, and the graduated disable flow:
+
+   - **Preferred — install it** so it stays available in future sessions:
+     ```sh
+     npx skills add shaunburdick/style --skill eslint-config-shaunburdick
+     ```
+     (use `biome-config-shaunburdick` instead if that config was chosen), then load the installed skill and follow it.
+   - **Fallback — read it live**: fetch `https://raw.githubusercontent.com/shaunburdick/style/main/.agents/skills/<skill-name>/SKILL.md` and follow it. When it links to `references/*.md`, resolve each link against `https://raw.githubusercontent.com/shaunburdick/style/main/.agents/skills/<skill-name>/references/` — never against the local project, where those files do not exist.
+   - **Last resort — package READMEs**: if neither handoff path works, fetch and follow `https://raw.githubusercontent.com/shaunburdick/style/main/eslint/README.md` or `https://raw.githubusercontent.com/shaunburdick/style/main/biome/README.md` for install instructions.
+
+5. Always tell the user which linter config was chosen (ESLint or Biome) and which handoff path was used (installed skill or live fetch) so there are no surprises.
 
 ---
 

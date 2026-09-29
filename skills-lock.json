@@ -17,13 +17,13 @@
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/code-quality/SKILL.md",
-      "computedHash": "a367c73f22ce216aac4b2c5f8b6f056915fe0023ae0c915f57323e0a4a2367d5"
+      "computedHash": "c0ea7437c186e403315c5a1e83fd8bfdd08c48a766c27d0c49d3ac0758045647"
     },
     "git-safety": {
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/git-safety/SKILL.md",
-      "computedHash": "3e173b9e03c36db141e26aa64d2a29f5596afd6044fcc407b2477580b2cddadc"
+      "computedHash": "851264bd040eb9c467c2b7bd61f4374192caf71f4e7623091f322aa514411ed9"
     },
     "github-actions": {
       "source": "shaunburdick/skills",
@@ -47,7 +47,7 @@
       "source": "shaunburdick/skills",
       "sourceType": "github",
       "skillPath": "skills/style/SKILL.md",
-      "computedHash": "2c5e7e5233f900f534f6657066fd2ef976216ccd4716bf993b8d223214230712"
+      "computedHash": "8c5fd91cd5eda98b7f9534882837bb7ffb9091f2c53a53f4a4c8b147faa5a7de"
     },
     "test-reviewer": {
       "source": "pertrai1/eslint-plugin-llm-core",

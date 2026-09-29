@@ -9,17 +9,6 @@ following preflight checks in order. Each check has a binary continue/stop
 outcome. If any check stops, do not proceed to the next — resolve or escalate
 the blocker first.
 
-**Which checks apply where**:
-
-| Operation                | Checks                                        |
-| ------------------------ | --------------------------------------------- |
-| Commit                   | 1 (tree), 2 (protected branch), 5 (relative)  |
-| Push / sync / PR create  | All checks, including 3, 4, 6, and 7          |
-
-Checks 3 and 4 require a remote counterpart, so they only apply once a push
-is intended. A branch's **first commit on a fresh local branch** runs checks
-1, 2, and 5 only — never stop a first commit for an unpublished branch.
-
 ## 1. Working-Tree Status Check
 
 Verify the working tree is clean or appropriately staged:
@@ -55,10 +44,6 @@ git branch --show-current
 
 ## 3. Local and Remote Branch Presence Check
 
-> **Scope**: push, sync, and PR creation only. Skip this check before a
-> first commit on a fresh local branch — the remote counterpart does not
-> exist yet by design.
-
 Verify the current branch exists both locally and on the remote:
 
 ```bash
@@ -78,9 +63,6 @@ git ls-remote --heads origin "$(git branch --show-current)"
   $(git branch --show-current)`. Do not push without user confirmation.
 
 ## 4. Local-vs-Remote Divergence Check
-
-> **Scope**: push, sync, and PR creation only. Skip this check before a
-> first commit — a fresh local branch has no upstream to compare against.
 
 Verify the local branch is not diverged from its remote tracking branch:
 

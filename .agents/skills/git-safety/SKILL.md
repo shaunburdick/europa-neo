@@ -249,8 +249,10 @@ bash .agents/skills/git-safety/scripts/check-hook.sh
 
 Output: `CURRENT` (exit 0) when the installed block matches the shipped
 script; `OUTDATED` (exit 1) with exact remediation commands when the hook is
-missing, not executable, or its attribution block differs (e.g. after a
-skill update). The checker covers both install modes below.
+missing, not executable, its attribution block differs (e.g. after a
+skill update), or stale attribution logic sits outside the block — a
+hybrid install where the stale copy runs first and wins. The checker
+covers both install modes below.
 
 **Common hook managers and their paths:**
 
@@ -315,8 +317,8 @@ echo "AI_AGENT=${AI_AGENT:-unset} OPENCODE_AGENT=${OPENCODE_AGENT:-unset} OPENCO
 ```
 
 Run the skill's functional tests (covers AC-1..AC-19, incl. the A2
-cross-harness agent/model cases and the A3 currency-check smoke tests, from
-the feature spec):
+cross-harness agent/model cases, the A3 currency-check smoke tests, and the
+A4 hybrid-install detection cases, from the feature spec):
 
 ```bash
 bash .agents/skills/git-safety/scripts/test-prepare-commit-msg.sh

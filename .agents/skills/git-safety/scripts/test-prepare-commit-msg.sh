@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # test-prepare-commit-msg.sh — functional tests for scripts/prepare-commit-msg.
 #
-# Covers acceptance criteria AC-1..AC-9 (signal matrix and expected outputs
-# documented in references/attribution-detection.md) plus the cross-harness
+# Covers acceptance criteria AC-1..AC-9 from
+# specs/001-agent-attribution-detection/spec.md plus the cross-harness
 # agent-name/model extension (FR-009/FR-010, amendment A2):
 #   AC-1  AI_AGENT=opencode            → Generated-By: opencode
 #   AC-2  AGENT=goose                  → Generated-By: goose
@@ -21,6 +21,8 @@
 #   AC-8d AI_AGENT=1 (boolean)         → Generated-By: ai-agent (fallback)
 #   AC-8e AI_AGENT=opencode + OPENCODE_MODEL → opencode (model: ...)
 # plus (amendment A3): AC-18a..d check-hook.sh install-currency smoke tests
+# plus (amendment A4): AC-18e..f hybrid-install detection (stale attribution
+#     code outside the block flagged; comment-only mentions not flagged)
 #
 # Requires: bash 3.2+, git, coreutils. No other dependencies.
 #
@@ -150,7 +152,7 @@ fi
 run_case "AC-9  wrapper parity" "Generated-By: my-agent (model: my-model)" 0 \
   OPENCODE_AGENT=my-agent OPENCODE_MODEL=my-model "$WRAPPER" --allow-empty -m "test: ac9"
 
-# AC-18a..d: check-hook.sh install-currency smoke tests (amendment A3)
+# AC-18a..f: check-hook.sh install-currency smoke tests (amendments A3/A4)
 # a: full-copy install (as done above) is detected as current
 if "$CHECK" "$TMP/.git/hooks/prepare-commit-msg" >/dev/null 2>&1; then
   report ok "AC-18a full-copy install current"
@@ -184,6 +186,39 @@ if "$CHECK" "$TMP/existing-hook" >/dev/null 2>&1; then
   report ok "AC-18d appended install current"
 else
   report no "AC-18d appended install current" "check-hook.sh rejected an appended-block install"
+fi
+
+# e: a hybrid install — stale pre-marker attribution code with the current
+#    block appended behind it — is flagged OUTDATED (it would win the race
+#    at commit time and drop the model detail)
+cat > "$TMP/hybrid-hook" <<'LEGACY'
+#!/bin/sh
+# legacy full-copy hook, pre-dating the marker block
+if [ "${OPENCODE:-}" = "1" ] || [ "${AGENT:-}" = "1" ]; then
+  if ! grep -q "^Generated-By:" "$1"; then
+    printf "\nGenerated-By: opencode\n" >> "$1"
+  fi
+fi
+LEGACY
+sed -n '/^# --- AI Commit Attribution/,/^# --- end AI Commit Attribution/p' "$HOOK" >> "$TMP/hybrid-hook"
+chmod +x "$TMP/hybrid-hook"
+hybrid_out="$("$CHECK" "$TMP/hybrid-hook" 2>&1)"
+hybrid_rc=$?
+if [[ $hybrid_rc -eq 1 ]] && grep -qi "stale attribution logic" <<<"$hybrid_out"; then
+  report ok "AC-18e hybrid stale hook flagged"
+else
+  report no "AC-18e hybrid stale hook flagged" "expected exit 1 + stale-logic OUTDATED, got exit $hybrid_rc: ${hybrid_out:-<no output>}"
+fi
+
+# f: a pre-existing hook that merely MENTIONS Generated-By in a comment is
+#    still a legitimate appended install → CURRENT (no false positive)
+printf '#!/bin/sh\n# appends the Generated-By trailer when configured\nexit 0\n' > "$TMP/comment-hook"
+sed -n '/^# --- AI Commit Attribution/,/^# --- end AI Commit Attribution/p' "$HOOK" >> "$TMP/comment-hook"
+chmod +x "$TMP/comment-hook"
+if comment_out="$("$CHECK" "$TMP/comment-hook" 2>&1)"; then
+  report ok "AC-18f comment mention still current"
+else
+  report no "AC-18f comment mention still current" "check-hook.sh flagged a comment-only mention: $comment_out"
 fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"

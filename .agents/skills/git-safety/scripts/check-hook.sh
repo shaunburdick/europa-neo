@@ -10,6 +10,13 @@
 # Comparison is a content hash (git hash-object), not a version string, so
 # ANY drift in the block is caught without remembering to bump a version.
 #
+# A third gate rejects HYBRID installs: attribution CODE left outside the
+# markers (typically an older full copy of this hook with the current
+# block appended behind it) runs before the current block, writes its own
+# less-complete trailer first, and wins — the current block's dedupe check
+# then skips. Only non-comment lines outside the block trigger it, so a
+# pre-existing hook that merely mentions Generated-By in prose is fine.
+#
 # Usage:
 #   check-hook.sh [HOOK_PATH]   # default: resolve via core.hooksPath
 #
@@ -89,6 +96,26 @@ if [[ "$(hash_block "$HOOK_PATH")" != "$(hash_block "$SHIPPED")" ]]; then
   printf '      # append the current block:\n'
   printf "      sed -n '/^# --- AI Commit Attribution/,/^# --- end AI Commit Attribution/p' \"%s\" >> \"%s\"\n" "$SHIPPED" "$HOOK_PATH"
   printf '      bash -n "%s" && echo "hook syntax OK"\n' "$HOOK_PATH"
+  exit 1
+fi
+
+# 4b. Hybrid detection — attribution code outside the marker block
+outside_code="$(
+  {
+    sed -n "1,/${BLOCK_START}/p" "$HOOK_PATH"
+    sed -n "/${BLOCK_END}/,\$p" "$HOOK_PATH"
+  } | grep -v '^[[:space:]]*#' | grep 'Generated-By' || true
+)"
+if [[ -n "$outside_code" ]]; then
+  printf 'OUTDATED — %s carries stale attribution logic outside the AI Commit Attribution block\n' "$HOOK_PATH"
+  printf '  A stale copy (e.g. an older full hook with the current block appended behind\n'
+  printf '  it) runs before the current block, writes its own trailer first, and the\n'
+  printf '  current block then skips — silently dropping the agent/model details.\n'
+  printf '  First offending line:\n'
+  printf '    %s\n' "$(printf '%s\n' "$outside_code" | head -n 1)"
+  printf '  Re-install fresh (the shipped script is self-contained):\n'
+  printf '    cp "%s" "%s"\n' "$SHIPPED" "$HOOK_PATH"
+  printf '    chmod +x "%s"\n' "$HOOK_PATH"
   exit 1
 fi
 
