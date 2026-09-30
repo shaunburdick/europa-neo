@@ -410,7 +410,7 @@ function buildStack(
                 // server memoizes its own reference internally — a boot
                 // where nobody ever opens the lobby leaves this null and
                 // needs no facade shutdown at all.
-                const facade = createLobbyService({ matchmaker, deliver: sink.deliver });
+                const facade = createLobbyService({ matchmaker, deliver: sink.deliver, logger });
                 wiring.lobby = facade;
                 return facade;
             },
@@ -429,7 +429,10 @@ function buildStack(
             bound = { ...bound, ...bridge };
         },
     });
-    const matchmaker = createMatchmaker(publicBaseUrl !== undefined ? { publicBaseUrl } : {}, { server: bindable });
+    const matchmaker = createMatchmaker(publicBaseUrl !== undefined ? { publicBaseUrl } : {}, {
+        server: bindable,
+        logger,
+    });
     wiring.matchmaker = matchmaker;
     return { server, matchmaker, lobbyFacade: () => wiring.lobby };
 }
