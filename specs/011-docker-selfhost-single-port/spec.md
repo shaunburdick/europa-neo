@@ -3,8 +3,8 @@
 **Feature Branch**: `issue-5-docker-support` (spec directory `011-docker-selfhost-single-port`, next available ID per `create-new-feature.sh`)
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle & matchmaking), Feature 010 (public lobby & match browser), Feature 009 (shared app versioning)
 **Created**: 2026-08-26
-**Last Updated**: 2026-09-21 (v1.7; explicit deployment host artifact)
-**Version**: 1.7
+**Last Updated**: 2026-09-28 (v1.8; TTY-aware launcher banner format)
+**Version**: 1.8
 **Status**: Implemented (2026-08-27); route details superseded by Feature 013
 **GitHub Issue**: #5
 **Input**: Product-owner request — "Binding decision: self-hostable by default. Today that means Node ≥22 + pnpm + pnpm build + pnpm host. Provide a container path so self-hosters don't need a toolchain." Single-port topology per 2026-08-26 decision.
@@ -99,6 +99,7 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 ### Edge Cases
 
 - **No second port**: Setting `HOST_STATIC_PORT` or passing `--static-port` produces an explicit "unsupported" error instead of opening a second listener.
+- **Banner format follows the output sink**: on a terminal the launcher prints the aligned human-readable banner (`pretty`); when stdout is piped/redirected (Docker compose attach, PM2, CI, `| tee`) each banner line is one JSON envelope (spec 014) whose `message` carries the same banner text — so `grep "Console UI   : http://localhost:8080"` matches in both formats. An explicit `LOG_FORMAT=pretty|json` forces either form in both directions; an unknown value falls back to `json` with one warning (spec 014 FR-005, resolved once inside `createLogger`).
 - **Port in use**: `HOST_PORT` already bound on the host produces an `EADDRINUSE`-style actionable message; Docker's port mapping conflict surfaces the host-side equivalent.
 - **Invalid env**: Non-integer, out-of-range (not 1–65535), or empty `HOST_PORT` fails fast; blank/unset keeps default 8080 (not "port 0"). Malformed `HOST_BIND_HOST`/`HOST_PUBLIC_HOST` characters are rejected before listening.
 - **Wildcard without advertisement**: `HOST_BIND_HOST=0.0.0.0` or `::` without `HOST_PUBLIC_HOST` is rejected — same rule as the existing host script.
@@ -123,7 +124,7 @@ As a newcomer reading the README, I want a Docker quick-start that tells me "run
 - **FR-002**: `@europa/networking` MUST expose a seam for single-port operation: `ServerConfig`/`ServerDeps` (or equivalent) MUST accept an externally-owned `http.Server`, OR the server MUST expose an `attachToHttpServer(httpServer)` operation. When an external server is supplied, `listen()` MUST NOT create/destroy it and `close()` MUST NOT close it (ownership stays with the host). The WebSocket server MUST use `noServer: true` and attach its `upgrade` listener to the supplied server; no protocol/frame/contract change (feature 004 FR-001..FR-011 unchanged).
 - **FR-003**: `packages/console/scripts/host.ts` MUST create exactly one `http.Server` at boot: its `request` handler MUST serve `dist/` (with the existing SPA fallback, MIME map, path-traversal guard, and `STATIC_SECURITY_HEADERS`) plus the existing `/version` security handling before fallback; its `upgrade` handler MUST delegate to the networking server's `handleUpgrade` (or equivalent) path.
 - **FR-004**: The existing two-port configuration MUST be removed: `HOST_STATIC_PORT` (env) and `--static-port` (CLI) MUST no longer be accepted. Passing or setting either MUST fail fast with an actionable error message naming the removed option (no silent ignore, no fallback to a second port).
-- **FR-005**: The canonical single-port configuration MUST be: flag `--port N` / env `HOST_PORT` (default `8080`), env `HOST_BIND_HOST` (default `127.0.0.1`; wildcard hosts require `HOST_PUBLIC_HOST`), env `HOST_PUBLIC_HOST` (advertised host for banner/join URLs; defaults to `localhost` when binding loopback, otherwise to `bindHost`). The host script's banner/log lines and join/lobby URLs MUST reflect the single `HOST_PORT` for both HTTP and WS (i.e., `http://host:HOST_PORT/` and `ws(s)://host:HOST_PORT`).
+- **FR-005**: The canonical single-port configuration MUST be: flag `--port N` / env `HOST_PORT` (default `8080`), env `HOST_BIND_HOST` (default `127.0.0.1`; wildcard hosts require `HOST_PUBLIC_HOST`), env `HOST_PUBLIC_HOST` (advertised host for banner/join URLs; defaults to `localhost` when binding loopback, otherwise to `bindHost`). The host script's banner/log lines and join/lobby URLs MUST reflect the single `HOST_PORT` for both HTTP and WS (i.e., `http://host:HOST_PORT/` and `ws(s)://host:HOST_PORT`). The launcher's log FORMAT default is TTY-aware: an explicit `LOG_FORMAT` always wins; otherwise stdout attached to a terminal renders the human-readable aligned banner (`pretty`) and piped/redirected stdout (Docker, PM2, CI) renders one JSON envelope per line (`json`). The banner TEXT — the single-port assertions above — is identical in both formats; only the envelope differs (see `contracts/host-env.md` "Stdout / banner contract"; logger semantics remain spec 014's).
 
 #### Console Client — Same-Origin Fallback
 
@@ -314,3 +315,8 @@ decision, not merely a correction to this PR.
 - **Absorbed feature 012-3-4 (3–4 player support, issue #6) — host CLI flags**:
   - **012-FR-011**: The `pnpm host` launcher (`packages/console/scripts/host.ts`) MUST accept `--players N` (alias `--player-count`, env `HOST_PLAYER_COUNT`, default 2) and `--board-size S` (alias `--boardSize`, env `HOST_BOARD_SIZE`). The board-size default is implied from the 012-FR-001 map by player count (2p → 32, 3p/4p → 48), not always 32. The number of printed join URLs equals `playerCount`; URLs are semantic `/match/<matchId>/join` paths and never contain credentials. Invalid values fail fast with an actionable message; 64×64 is temporarily disabled with a message pointing at the allowed set (32 | 48).
   - **012-FR-012**: `HOST_STATIC_PORT` / `--static-port` remain unsupported: the single-port topology (FR-004) is unchanged, and the launcher MUST continue to fail loudly if a second port is requested.
+
+### v1.8 (2026-09-28) — TTY-aware launcher banner format
+
+- **FR-005 amended**: the launcher's log FORMAT default now follows the output sink — explicit `LOG_FORMAT` wins, else `pretty` when `process.stdout.isTTY` (aligned human-readable banner) and `json` when stdout is piped/redirected (Docker, PM2, CI). The spec 014 logger itself is unchanged; only the launcher's default choice is new, and invalid explicit values still fall back to `json` with one warning inside `createLogger`. Banner TEXT (single-port assertions) is identical in both formats — only the envelope differs.
+- Reconciled `contracts/host-env.md` ("Stdout / banner contract" now documents the selection rule with verified TTY and piped examples) and `quickstart.md` Q-D01 (compose output is piped → JSON envelopes whose `message` carries the banner text). Console tests pin `LOG_FORMAT=json`/`LOG_LEVEL` at module import instead of depending on the runner's TTY.

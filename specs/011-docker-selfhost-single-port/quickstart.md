@@ -19,7 +19,10 @@ All commands assume a fresh clone on a host with Docker Engine + Compose v2 (and
 ```bash
 git clone https://github.com/shaunburdick/europa-neo /tmp/europa-fresh && cd /tmp/europa-fresh
 docker compose up --build
-# Expect: banner showing "Match server : ws://localhost:8080" and "Console UI : http://localhost:8080"
+# Expect: banner showing "Match server : ws://localhost:8080" and "Console UI   : http://localhost:8080"
+# Compose output is piped (no container TTY), so each banner line is a JSON envelope whose "message" field
+# carries that exact text; on a terminal (`pnpm host` in a TTY) the same banner renders as aligned plain text.
+# LOG_FORMAT=pretty|json forces either form in both directions (TTY-aware default, spec 011 v1.3).
 # Open http://localhost:8080/ in TWO browser profiles → lobby loads → create a public 2P match in profile 1 → join in profile 2 → both reach 'live' → first ticks flow → order acks return (setReserves on own city → "success" feedback)
 # Stop: docker compose down  (resets in-memory lobby/matches; restart gives a fresh lobby — spec US1 AC3)
 ```

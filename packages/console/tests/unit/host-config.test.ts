@@ -1,4 +1,39 @@
 import { describe, expect, it, vi } from 'vitest';
+
+/**
+ * Pin `LOG_FORMAT=json` (and clear `LOG_LEVEL`) BEFORE the launcher
+ * modules are imported.
+ *
+ * `scripts/host.ts` and `scripts/host-config.ts` build their
+ * module-level loggers at import time, and the launcher's format
+ * default is now TTY-aware (`process.stdout.isTTY` → `pretty`). These
+ * suites assert the JSON envelope and the info-level banner lines, so
+ * the env is pinned here (`vi.hoisted` runs before the imports below)
+ * instead of hoping the runner has no TTY and no ambient LOG_* set.
+ *
+ * Returns a restore callback: `createLogger()` captures level/format at
+ * call time, so the ambient values can be put back as soon as the
+ * imports above have evaluated — nothing else in this file re-reads them.
+ */
+const restoreLogEnv = vi.hoisted(() => {
+    const previousFormat = process.env['LOG_FORMAT'];
+    const previousLevel = process.env['LOG_LEVEL'];
+    process.env['LOG_FORMAT'] = 'json';
+    delete process.env['LOG_LEVEL'];
+    return () => {
+        if (previousFormat === undefined) {
+            delete process.env['LOG_FORMAT'];
+        } else {
+            process.env['LOG_FORMAT'] = previousFormat;
+        }
+        if (previousLevel === undefined) {
+            delete process.env['LOG_LEVEL'];
+        } else {
+            process.env['LOG_LEVEL'] = previousLevel;
+        }
+    };
+});
+
 import { resolveConfig } from '../../scripts/host';
 import {
     isPathInside,
@@ -8,6 +43,10 @@ import {
     STATIC_SECURITY_HEADERS,
     sanitizeLogText,
 } from '../../scripts/host-config';
+
+// The launcher loggers were just built with the pinned env above — put
+// the ambient values back so no sibling suite inherits the pin.
+restoreLogEnv();
 
 describe('host configuration security helpers', () => {
     it('does not confuse a sibling directory with a child path', () => {
@@ -102,6 +141,17 @@ describe('N-player host config resolution (012 FR-011/FR-012)', () => {
             errSpy.mockRestore();
         }
     }
+
+    describe('CLI failures route through the structured logger (014 AC-009)', () => {
+        it('writes the unchanged host: message inside a logger error envelope to stderr', () => {
+            const { result, stderr } = run(['--players', '5']);
+            expect(result).toBeNull();
+            // LOG_FORMAT is pinned to json at import (hoisted pin at the top
+            // of this file): the level + message envelope wraps the
+            // human-readable text verbatim, so downstream greps still match.
+            expect(stderr).toMatch(/"level":"error","message":"host: --players must be 2, 3, or 4/);
+        });
+    });
 
     describe('playerCount resolution (4 sources: flag / alias / env / default)', () => {
         it('defaults to 2 when no flag and no env (implied board 32)', () => {

@@ -5,7 +5,7 @@
  * Gathers every guarded surface from a repository tree, compares them
  * against the compiled-in `APP_VERSION` constant, prints one
  * `mismatch:` line per offending file to stderr (via `process.stderr.write`,
- * following the host.ts `say()` precedent — no `console`), and exits:
+ * following the host launcher's no-`console` precedent), and exits:
  *
  * - `0`  — every guarded surface agrees with the constant.
  * - `1`  — at least one surface disagrees (each named on stderr).

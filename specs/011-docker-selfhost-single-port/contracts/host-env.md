@@ -27,14 +27,46 @@ Silent ignore or fallback to second port is a review failure.
 
 ### Stdout / banner contract
 
-The host banner MUST show a single port for both HTTP and WS, e.g.:
+**Format selection — TTY-aware (v1.3)**: the launcher builds its module-level logger (`createLogger` in `scripts/host.ts` and `scripts/host-config.ts`) with:
+
+```ts
+format: process.env['LOG_FORMAT'] ?? (process.stdout.isTTY ? 'pretty' : 'json')
+```
+
+| Condition | Format | Result |
+|---|---|---|
+| `LOG_FORMAT` set | that value | Explicit `pretty`/`json` wins over the TTY heuristic in BOTH directions. An unknown value falls back to `json` with one warning — resolved once inside `createLogger` (spec 014 FR-005), never duplicated in the launcher. |
+| stdout attached to a terminal | `pretty` | Human-readable aligned banner (example below) — the primary one-command self-host surface. |
+| stdout piped/redirected (Docker compose, PM2, CI, `\| tee`) | `json` | One spec 014 envelope per banner line; `message` carries the exact banner text (leading indent preserved), so a grep for `Match server : ws://host:PORT` matches in EITHER format. |
+
+`process.stdout.isTTY` is the single discriminator — even for `host-config.ts` validation failures, which are written to stderr: the format flag is per-logger, not per-stream.
+
+Terminal / `LOG_FORMAT=pretty` (actual launcher output):
+
+```
+[2026-09-28T18:54:30.005Z] INFO     Version      : v0.2.0
+[2026-09-28T18:54:30.005Z] INFO     Mode         : lobby (visitors create/join matches in the browser)
+[2026-09-28T18:54:30.005Z] INFO     Match server : ws://localhost:8080
+[2026-09-28T18:54:30.005Z] INFO     Console UI   : http://localhost:8080
+[2026-09-28T18:54:30.005Z] INFO     → http://localhost:8080/lobby
+```
+
+Piped / `LOG_FORMAT=json` (same banner, same order):
+
+```
+{"timestamp":"2026-09-28T18:54:42.006Z","level":"info","message":"  Version      : v0.2.0"}
+{"timestamp":"2026-09-28T18:54:42.006Z","level":"info","message":"  Match server : ws://localhost:8080"}
+{"timestamp":"2026-09-28T18:54:42.006Z","level":"info","message":"  Console UI   : http://localhost:8080"}
+```
+
+In BOTH formats the host banner MUST show a single port for both HTTP and WS (the aligned column block survives the pretty renderer's leading-indent trim because the label padding is internal):
 
 ```
 Version      : v0.1.0
 Mode         : lobby (visitors create/join matches in the browser)
 Match server : ws://localhost:8080
 Console UI   : http://localhost:8080
-→ http://localhost:8080/
+→ http://localhost:8080/lobby
 ```
 
 (`https://` → `wss://` symmetry when `publicHost` terminates TLS downstream.)
@@ -42,8 +74,10 @@ Console UI   : http://localhost:8080
 `--create` mode's join URLs MUST carry the same origin:
 
 ```
-Player 1 → http://localhost:8080/match/<matchId>/join
+Player 1 (P1) → http://localhost:8080/match/<matchId>
 ```
+
+(the semantic `/match/<matchId>` path — no `/join` suffix, no credentials; spec 013 route shape).
 
 Log plumbing (`onSeatClaimed`, `onMatchTerminal`) is unchanged; no extra port is mentioned.
 

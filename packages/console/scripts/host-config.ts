@@ -1,6 +1,7 @@
 /** Configuration and security helpers for the local/LAN host launcher. */
 
 import { isAbsolute, relative } from 'node:path';
+import { createLogger } from '@europa/logging';
 import { BOARD_SIZE_DEFAULTS } from '@europa/matchmaking';
 
 export { sanitizeLogText } from '@europa/logging';
@@ -70,10 +71,24 @@ const ALLOWED_PLAYER_COUNTS: readonly (2 | 3 | 4)[] = [2, 3, 4] as const;
 // 64 is temporarily disabled (terrain issue #26) — accepted set is 32|48.
 const ALLOWED_BOARD_SIZES: readonly (32 | 48 | 64)[] = [32, 48] as const;
 
-/** Write a line to stderr (launcher diagnostics). */
-function complain(line: string): void {
-    process.stderr.write(`${line}\n`);
-}
+/**
+ * Structured logger for CLI parse/validation failures (spec 014 AC-009).
+ *
+ * Module-level, matching `host.ts` — every rejection here aborts startup,
+ * so messages go through `logger.error` (stderr) with the human-readable
+ * `host: …` text intact inside the log envelope. Created at import time
+ * from LOG_LEVEL/LOG_FORMAT; the default writer resolves
+ * `process.stderr.write` per call, so tests can still spy on the stream.
+ *
+ * The format default mirrors `host.ts` exactly (explicit `LOG_FORMAT`
+ * wins, else `pretty` on a TTY and `json` when piped/redirected —
+ * `process.stdout.isTTY` is the shared discriminator even though these
+ * errors go to stderr, because the format flag is per-logger). Invalid
+ * explicit values fall back to `json` inside `createLogger`.
+ */
+const logger = createLogger({
+    format: process.env['LOG_FORMAT'] ?? (process.stdout.isTTY ? 'pretty' : 'json'),
+});
 
 /**
  * Bracket an IPv6 literal host for URL embedding; any other host value
@@ -100,7 +115,7 @@ function parsePort(raw: string | undefined, label: string): number | null | unde
     }
     const value = Number.parseInt(raw, 10);
     if (!Number.isInteger(value) || value < 1 || value > 65_535) {
-        complain(`host: ${label} must be an integer between 1 and 65535 (got "${raw}")`);
+        logger.error(`host: ${label} must be an integer between 1 and 65535 (got "${raw}")`);
         return undefined;
     }
     return value;
@@ -115,7 +130,7 @@ function parsePort(raw: string | undefined, label: string): number | null | unde
 function parsePlayerCount(raw: string): 2 | 3 | 4 | undefined {
     const value = Number.parseInt(raw, 10);
     if (!Number.isInteger(value) || (value !== 2 && value !== 3 && value !== 4)) {
-        complain(`host: --players must be 2, 3, or 4 (got "${raw}")`);
+        logger.error(`host: --players must be 2, 3, or 4 (got "${raw}")`);
         return undefined;
     }
     return value;
@@ -132,17 +147,17 @@ function parsePlayerCount(raw: string): 2 | 3 | 4 | undefined {
 function parseBoardSize(raw: string): 32 | 48 | undefined {
     const value = Number.parseInt(raw, 10);
     if (!Number.isInteger(value)) {
-        complain(`host: --board-size must be 32 or 48 (got "${raw}")`);
+        logger.error(`host: --board-size must be 32 or 48 (got "${raw}")`);
         return undefined;
     }
     if (value === 64) {
-        complain(
+        logger.error(
             'host: --board-size 64 is temporarily disabled — 64×64 generation is unreliable (terrain issue #26 pending fix)',
         );
         return undefined;
     }
     if (value !== 32 && value !== 48) {
-        complain(`host: --board-size must be 32 or 48 (got "${raw}")`);
+        logger.error(`host: --board-size must be 32 or 48 (got "${raw}")`);
         return undefined;
     }
     return value;
@@ -161,16 +176,16 @@ function parsePublicUrl(raw: string): string | undefined {
     try {
         parsed = new URL(raw);
     } catch {
-        complain(`host: --public-url must be an absolute URL (got "${raw}")`);
+        logger.error(`host: --public-url must be an absolute URL (got "${raw}")`);
         return undefined;
     }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        complain(`host: --public-url must use http or https (got "${raw}")`);
+        logger.error(`host: --public-url must use http or https (got "${raw}")`);
         return undefined;
     }
     // Reject URLs with a path, query, or fragment — only origin is valid.
     if (parsed.pathname !== '/' || parsed.search !== '' || parsed.hash !== '') {
-        complain(`host: --public-url must be an origin only, no path/query/hash (got "${raw}")`);
+        logger.error(`host: --public-url must be an origin only, no path/query/hash (got "${raw}")`);
         return undefined;
     }
     // Strip trailing slash for consistent concatenation.
@@ -201,7 +216,7 @@ export function resolveConfig(
     // FR-012: second-port surface stays removed — fail fast when present.
     const staticEnv = environment.HOST_STATIC_PORT;
     if (staticEnv !== undefined && staticEnv !== '') {
-        complain(
+        logger.error(
             'host: --static-port / HOST_STATIC_PORT no longer supported — the server uses a single port (HOST_PORT / --port); no second listener',
         );
         return null;
@@ -227,7 +242,7 @@ export function resolveConfig(
 
         // Second-port rejection — both --static-port and --static-port=... forms.
         if (flag === '--static-port') {
-            complain(
+            logger.error(
                 'host: --static-port / HOST_STATIC_PORT no longer supported — the server uses a single port (HOST_PORT / --port); no second listener',
             );
             return null;
@@ -236,7 +251,7 @@ export function resolveConfig(
         if (flag === '--players' || flag === '--player-count') {
             const raw = inline ?? args[i + 1];
             if (raw === undefined || raw === '') {
-                complain(`host: ${flag} requires a value`);
+                logger.error(`host: ${flag} requires a value`);
                 return null;
             }
             playersFlagRaw = raw;
@@ -249,7 +264,7 @@ export function resolveConfig(
         if (flag === '--board-size' || flag === '--boardSize') {
             const raw = inline ?? args[i + 1];
             if (raw === undefined || raw === '') {
-                complain(`host: ${flag} requires a value`);
+                logger.error(`host: ${flag} requires a value`);
                 return null;
             }
             boardSizeFlagRaw = raw;
@@ -265,7 +280,7 @@ export function resolveConfig(
                 return null;
             }
             if (parsed === null) {
-                complain(`host: ${flag} requires a value`);
+                logger.error(`host: ${flag} requires a value`);
                 return null;
             }
             port = parsed;
@@ -278,11 +293,11 @@ export function resolveConfig(
         if (flag === '--bind-host' || flag === '--public-host') {
             const value = inline ?? args[i + 1];
             if (value === undefined || value === '') {
-                complain(`host: ${flag} requires a value`);
+                logger.error(`host: ${flag} requires a value`);
                 return null;
             }
             if (/[^\w.:[\]-]/u.test(value)) {
-                complain(`host: ${flag} contains invalid characters`);
+                logger.error(`host: ${flag} contains invalid characters`);
                 return null;
             }
             if (flag === '--bind-host') {
@@ -298,7 +313,7 @@ export function resolveConfig(
 
         if (flag === '--create') {
             if (inline !== undefined) {
-                complain('host: --create does not take a value');
+                logger.error('host: --create does not take a value');
                 return null;
             }
             continue;
@@ -307,7 +322,7 @@ export function resolveConfig(
         if (flag === '--public-url') {
             const value = inline ?? args[i + 1];
             if (value === undefined || value === '') {
-                complain('host: --public-url requires a value');
+                logger.error('host: --public-url requires a value');
                 return null;
             }
             publicUrlRaw = value;
@@ -317,7 +332,7 @@ export function resolveConfig(
             continue;
         }
 
-        complain(
+        logger.error(
             `host: unknown argument "${arg}" (supported: --create, --port N, --bind-host HOST, --public-host HOST, --public-url URL, --players N, --player-count N, --board-size S, --boardSize S)`,
         );
         return null;
@@ -328,7 +343,7 @@ export function resolveConfig(
     }
 
     if (isWildcardHost(bindHost) && publicHost === undefined) {
-        complain('host: --public-host or HOST_PUBLIC_HOST is required when binding a wildcard address');
+        logger.error('host: --public-host or HOST_PUBLIC_HOST is required when binding a wildcard address');
         return null;
     }
 
@@ -353,7 +368,7 @@ export function resolveConfig(
     // Validate that the defaults map actually contains the resolved playerCount
     // (defensive — BOARD_SIZE_DEFAULTS is typed for 2|3|4).
     if (!ALLOWED_PLAYER_COUNTS.includes(playerCount)) {
-        complain(`host: --players must be 2, 3, or 4 (got "${String(playerCount)}")`);
+        logger.error(`host: --players must be 2, 3, or 4 (got "${String(playerCount)}")`);
         return null;
     }
 
@@ -375,14 +390,14 @@ export function resolveConfig(
         const implied = BOARD_SIZE_DEFAULTS[playerCount];
         // BOARD_SIZE_DEFAULTS is 32|48 (64 temporarily disabled), so this is always valid.
         if (implied !== 32 && implied !== 48) {
-            complain(`host: --board-size must be 32 or 48 (got "${String(implied)}")`);
+            logger.error(`host: --board-size must be 32 or 48 (got "${String(implied)}")`);
             return null;
         }
         boardSize = implied;
     }
 
     if (!ALLOWED_BOARD_SIZES.includes(boardSize)) {
-        complain(`host: --board-size must be 32 or 48 (got "${String(boardSize)}")`);
+        logger.error(`host: --board-size must be 32 or 48 (got "${String(boardSize)}")`);
         return null;
     }
 
