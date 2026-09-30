@@ -9,7 +9,8 @@
  * **Phase pipeline (US1 + US2 + US3 + US4 + US5)**:
  *   0. Drain staged orders, sort by PlayerId ascending then `kind`
  *      alphabetical, apply each (pipe commands mutate `pipeMasks`),
- *      record successes in `events.appliedOrders`.
+ *      stage records; deferred resolution returns successful occurrence
+ *      indexes, and only those records are emitted in sorted order.
  *   1. `resolveProduction` — each owned city adds `productionRate`
  *      troops up to `cityCapacity`.
  *   2. `resolveParatroop` (US4) — paratroop commands spend 2N from
@@ -131,9 +132,10 @@ export function tick(world: Readonly<World>): TickResult {
     const pending = readPendingOrders(world);
     const sorted = sortOrdersDeterministic(pending);
 
-    for (const order of sorted) {
+    const stagedRecords: Array<{ record: AppliedOrderRecord; sortedIndex: number }> = [];
+    for (const [sortedIndex, order] of sorted.entries()) {
         const record = applyStagedOrder(order, world.tick, state, world.board);
-        events = pushAppliedOrder(events, record.record);
+        stagedRecords.push({ record: record.record, sortedIndex });
         state = record.nextState;
     }
 
@@ -151,7 +153,15 @@ export function tick(world: Readonly<World>): TickResult {
     // them. Filter to paratroop orders only — other kinds are silently
     // ignored (callers stage orders of any kind; the resolver handles
     // its own kind).
-    const paratroopOrders = sorted.filter((o): o is Extract<Order, { kind: 'paratroop' }> => o.kind === 'paratroop');
+    const paratroopOrders: Array<Extract<Order, { kind: 'paratroop' }>> = [];
+    const paratroopSortedIndices: number[] = [];
+    for (const [sortedIndex, order] of sorted.entries()) {
+        if (order.kind === 'paratroop') {
+            paratroopOrders.push(order);
+            paratroopSortedIndices.push(sortedIndex);
+        }
+    }
+    let successfulParatroopIndices: ReadonlyArray<number> = [];
     if (paratroopOrders.length > 0) {
         const paraResult = resolveParatroop(
             state,
@@ -161,6 +171,7 @@ export function tick(world: Readonly<World>): TickResult {
             world.playerRegistry,
         );
         ({ state } = paraResult);
+        successfulParatroopIndices = paraResult.successfulOrderIndices;
         for (const e of paraResult.errors) {
             events = { ...events, errors: [...events.errors, e] };
         }
@@ -170,12 +181,40 @@ export function tick(world: Readonly<World>): TickResult {
     // Runs BEFORE flow so gun damage applies to current-tick occupants
     // (FR-014 "at tick time"). Damage is applied regardless of target
     // ownership — friendly fire is real.
-    const gunOrders = sorted.filter((o): o is Extract<Order, { kind: 'gun' }> => o.kind === 'gun');
+    const gunOrders: Array<Extract<Order, { kind: 'gun' }>> = [];
+    const gunSortedIndices: number[] = [];
+    for (const [sortedIndex, order] of sorted.entries()) {
+        if (order.kind === 'gun') {
+            gunOrders.push(order);
+            gunSortedIndices.push(sortedIndex);
+        }
+    }
+    let successfulGunIndices: ReadonlyArray<number> = [];
     if (gunOrders.length > 0) {
         const gunResult = resolveGun(state, world.board, ENGINE_CONSTANTS, gunOrders, world.playerRegistry);
         ({ state } = gunResult);
+        successfulGunIndices = gunResult.successfulOrderIndices;
         for (const e of gunResult.errors) {
             events = { ...events, errors: [...events.errors, e] };
+        }
+    }
+
+    // Deferred resolvers report successful occurrences, not order object
+    // identity. This keeps equivalent orders distinct while the final pass
+    // preserves the single deterministic sorted sequence.
+    const successfulDeferredIndices = new Set<number>();
+    for (const index of successfulParatroopIndices) {
+        const sortedIndex = paratroopSortedIndices[index];
+        if (sortedIndex !== undefined) successfulDeferredIndices.add(sortedIndex);
+    }
+    for (const index of successfulGunIndices) {
+        const sortedIndex = gunSortedIndices[index];
+        if (sortedIndex !== undefined) successfulDeferredIndices.add(sortedIndex);
+    }
+    for (const record of stagedRecords) {
+        const deferred = record.record.order.kind === 'paratroop' || record.record.order.kind === 'gun';
+        if (!deferred || successfulDeferredIndices.has(record.sortedIndex)) {
+            events = pushAppliedOrder(events, record.record);
         }
     }
 

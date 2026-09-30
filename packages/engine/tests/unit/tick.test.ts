@@ -317,6 +317,69 @@ describe('tick — orchestrator', () => {
         expect(recorded[1]?.order.player).toBe(PLAYER_2);
     });
 
+    it('keeps successful mixed pipe and deferred orders in global sorted order', () => {
+        const board = buildSmallBoard(8, [
+            [1, 1, 1],
+            [6, 6, 2],
+        ]);
+        const { finalWorld: warmed } = runScenario(cfg, board, [], 30);
+        const orders = [
+            {
+                kind: 'setPipe' as const,
+                player: PLAYER_1,
+                cell: { x: 1, y: 1 },
+                direction: 'E' as Direction,
+            },
+            {
+                kind: 'paratroop' as const,
+                player: PLAYER_1,
+                source: { x: 1, y: 1 },
+                target: { x: 2, y: 2 },
+            },
+            {
+                kind: 'gun' as const,
+                player: PLAYER_1,
+                source: { x: 1, y: 1 },
+                target: { x: 6, y: 6 },
+            },
+        ];
+
+        // Stage in reverse kind order so tick() must reorder the queue.
+        let staged = warmed;
+        for (const order of orders) {
+            const result = applyCommand(staged, order);
+            expect(result.result.ok).toBe(true);
+            staged = result.world;
+        }
+
+        const result = tick(staged);
+        expect(result.events.errors).toEqual([]);
+        expect(result.events.appliedOrders.map((record) => record.order.kind)).toEqual(['gun', 'paratroop', 'setPipe']);
+    });
+
+    it('matches deferred outcomes by occurrence, not equivalent order identity', () => {
+        const board = buildSmallBoard(8, [
+            [1, 1, 1],
+            [6, 6, 2],
+        ]);
+        const { finalWorld: warmed } = runScenario(cfg, board, [], 30);
+        let staged = warmed;
+        const gun = { kind: 'gun' as const, player: PLAYER_1, source: { x: 1, y: 1 }, target: { x: 2, y: 1 } };
+        const orderCount = Math.floor((warmed.state.troopCounts[1 * 8 + 1] ?? 0) / ENGINE_CONSTANTS.gunCost) + 1;
+        for (let i = 0; i < orderCount; i++) {
+            const result = applyCommand(staged, gun);
+            expect(result.result.ok).toBe(true);
+            staged = result.world;
+        }
+
+        const result = tick(staged);
+        expect(result.events.errors.filter((error) => error.order.kind === 'gun')).toHaveLength(1);
+        expect(result.events.appliedOrders.filter((record) => record.order.kind === 'gun')).toHaveLength(
+            orderCount - 1,
+        );
+        expect(result.events.appliedOrders.every((record) => record.result.ok)).toBe(true);
+    });
+
     it('paratroop/gun tiebreak: same player + same kind sorted by source coord', () => {
         // Exercise pickCoord's 'source' branch (lines 287-291 in tick.ts).
         // Use setPipe on the same owned cell with DIFFERENT directions —
@@ -527,5 +590,48 @@ describe('tick — orchestrator', () => {
         expect(applyCommand(warmed, orders[1]?.order as never).result.ok).toBe(true);
         expect(applyCommand(warmed, orders[2]?.order as never).result.ok).toBe(true);
         expect(applyCommand(warmed, orders[3]?.order as never).result.ok).toBe(true);
+    });
+
+    it('records a deferred order only after resolution succeeds', () => {
+        const board = buildSmallBoard(8, [
+            [1, 1, 1],
+            [6, 6, 2],
+        ]);
+        const { finalWorld: warmed } = runScenario(cfg, board, [], 1);
+        const sourceIdx = 1 * 8 + 1;
+        const constrained = {
+            ...warmed,
+            state: {
+                ...warmed.state,
+                troopCounts: new Uint32Array(warmed.state.troopCounts),
+            },
+        };
+        constrained.state.troopCounts[sourceIdx] = 20;
+
+        const first = applyCommand(constrained, {
+            kind: 'paratroop',
+            player: PLAYER_1,
+            source: { x: 1, y: 1 },
+            target: { x: 2, y: 1 },
+        });
+        expect(first.result.ok).toBe(true);
+        const second = applyCommand(first.world, {
+            kind: 'paratroop',
+            player: PLAYER_1,
+            source: { x: 1, y: 1 },
+            target: { x: 2, y: 2 },
+        });
+        expect(second.result.ok).toBe(true);
+
+        const result = tick(second.world);
+        expect(result.events.appliedOrders.map((record) => record.order)).toEqual([
+            expect.objectContaining({ kind: 'paratroop', target: { x: 2, y: 1 } }),
+        ]);
+        expect(result.events.errors).toEqual([
+            expect.objectContaining({
+                order: expect.objectContaining({ kind: 'paratroop', target: { x: 2, y: 2 } }),
+                reason: { kind: 'no_source_troops', coord: { x: 1, y: 1 } },
+            }),
+        ]);
     });
 });

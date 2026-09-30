@@ -59,6 +59,8 @@ const PARATROOP_MAX_RANGE = 2;
  *          `errors` carries the typed `ValidationError` for every
  *          rejected order (FR-018 surface). `events` is currently
  *          empty (no paratroop-specific events in v1).
+ *          `successfulOrderIndices` identifies successful occurrences in the
+ *          supplied order array, rather than relying on object identity.
  */
 export function resolveParatroop(
     state: Readonly<WorldState>,
@@ -70,6 +72,7 @@ export function resolveParatroop(
     state: WorldState;
     events: TickEvents;
     errors: ReadonlyArray<{ order: Order; reason: ValidationError }>;
+    successfulOrderIndices: ReadonlyArray<number>;
 } {
     // Lazy allocation: only allocate fresh typed arrays when an order
     // actually modifies state. This preserves the input `state`
@@ -80,6 +83,7 @@ export function resolveParatroop(
     let newPipes: Uint8Array | null = null;
 
     const errors: Array<{ order: Order; reason: ValidationError }> = [];
+    const successfulOrderIndices: number[] = [];
 
     const w = board.width;
     void board.height; // height = width for square boards; explicit read for parity
@@ -89,7 +93,7 @@ export function resolveParatroop(
     const paratroopN = constants.paratroopCost >>> 0;
     const sourceSpend = Math.imul(paratroopN, 2) >>> 0;
 
-    for (const order of orders) {
+    for (const [orderIndex, order] of orders.entries()) {
         if (order.kind !== 'paratroop') {
             continue; // ignore non-paratroop orders
         }
@@ -193,12 +197,13 @@ export function resolveParatroop(
 
         // Clear destination pipes (FR-013).
         newPipes[targetIdx] = 0;
+        successfulOrderIndices.push(orderIndex);
     }
 
     // If we made no changes, return the input state unchanged so
     // reference identity is preserved for callers that check no-op.
     if (newCounts === null) {
-        return { state, events: emptyTickEvents(), errors };
+        return { state, events: emptyTickEvents(), errors, successfulOrderIndices };
     }
 
     return {
@@ -211,6 +216,7 @@ export function resolveParatroop(
         },
         events: emptyTickEvents(),
         errors,
+        successfulOrderIndices,
     };
 }
 

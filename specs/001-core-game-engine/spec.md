@@ -3,8 +3,8 @@
 **Feature Branch**: `001-core-game-engine`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-12 (v1.14; issue #139 spec consolidation)
-**Version**: 1.14
+**Last Updated**: 2026-09-28 (v1.15; issue #134 truthful applied orders)
+**Version**: 1.15
 
 **Status**: Implemented (2026-09-07; hot-path allocation reuse 2026-09-11; universal PlayerId amendment implemented 2026-09-12 — issue #74)
 
@@ -129,6 +129,7 @@ As a player, I want the game to declare a winner when all opponents surrender or
 - **FR-017**: The simulation MUST be deterministic: fixed tick rate, integer (or fixed-point) arithmetic only, no wall-clock reads inside tick logic, and command application in a well-defined total order.
 - **FR-018**: The engine MUST accept ordered command batches per tick (set/clear pipes, set reserves, paratroop, gun, surrender) and validate them against pre-tick state, rejecting invalid orders without state corruption.
 - **FR-019**: The engine MUST support 2–4 players per match (the original supported 2/3/4-player games).
+- **FR-023**: `TickEvents.appliedOrders` MUST contain only orders whose deferred resolution completed successfully; deferred orders rejected during resolution MUST appear only in `TickEvents.errors`, while successful records retain the deterministic applied-order ordering.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -359,3 +360,8 @@ Rationale: code review identified per-tick allocation of typed arrays, per-cell 
   - **024-FR-050**: The pipe flow formula MUST implement biome-aware flow viability rules. The elevation delta between source and destination determines flow behavior: same biome (delta < 40) always flowable at full rate; +1 biome uphill (delta 40–80) flowable but slower; +2 biomes uphill (delta > 80) stalled at zero flow; downhill (delta < 0) always fast flow at full rate + downhill bonus. Terrain color directly communicates pipe viability.
   - **024-FR-051**: The engine flow formula in `@europa/core` (`flowRateForDelta`) MUST support an uphill stall cap: `downhill: flowBase + flowDownhillStep × min(|delta|, flowSlopeDeltaCap)`; `flat: flowBase`; `uphill: max(0, flowBase − flowUphillStep × min(delta, flowUphillCap))`. New constants replace the current `flowSlopeStep` with directional parameters: `flowBase: 7`, `flowDownhillStep: 1`, `flowUphillStep: 1`, `flowSlopeDeltaCap: 5`, `flowUphillCap: 73` (stalls at delta = 7 + 73 = 80). The engine's `ENGINE_CONSTANTS` and the console's `PIPE_SLOPE_CONSTANTS` mirror MUST both be updated.
   - **024-FR-053**: The engine's `flowRateForDelta` function in `@europa/core` MUST accept the expanded `FlowConstants` interface (with `flowDownhillStep`, `flowUphillStep`, `flowUphillCap` fields). The `DEFAULT_FLOW_CONSTANTS` and `ENGINE_CONSTANTS` objects MUST be updated with the new field values. The existing `flowSlopeStep` field is removed and replaced by the directional variants.
+
+### v1.15 (2026-09-28) — Truthful applied-order events (issue #134)
+
+- Phase 0 may stage records for all accepted orders so the existing deterministic ordering is retained, but `appliedOrders` is emitted only after deferred paratroop and gun resolution has completed.
+- A deferred order rejected at tick resolution is emitted in `errors` and is omitted from `appliedOrders`; successful deferred orders remain in their sorted order. The `AppliedOrderRecord` shape and engine API version are unchanged.

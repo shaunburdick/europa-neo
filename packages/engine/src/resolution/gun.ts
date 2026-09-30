@@ -40,6 +40,7 @@ interface GunResolutionResult {
     state: WorldState;
     events: TickEvents;
     errors: ReadonlyArray<{ order: Order; reason: ValidationError }>;
+    successfulOrderIndices: ReadonlyArray<number>;
 }
 
 /**
@@ -55,7 +56,9 @@ interface GunResolutionResult {
  *                  are silently ignored.
  * @param registry  ID ↔ dense-index registry; the order's `player` is
  *                  resolved to its 1-based owner byte through it.
- * @returns `{ state, events, errors }`.
+ * @returns The updated state, events, validation errors, and the positions
+ *          of successfully applied orders in the supplied order array
+ *          (`successfulOrderIndices`).
  */
 export function resolveGun(
     state: Readonly<WorldState>,
@@ -71,13 +74,14 @@ export function resolveGun(
     let newOwners: Uint8Array | null = null;
 
     const errors: Array<{ order: Order; reason: ValidationError }> = [];
+    const successfulOrderIndices: number[] = [];
 
     const w = board.width;
     void board.height; // explicit read for parity with other resolvers
     const gunCost = constants.gunCost >>> 0;
     const gunDamage = constants.gunDamage >>> 0;
 
-    for (const order of orders) {
+    for (const [orderIndex, order] of orders.entries()) {
         if (order.kind !== 'gun') {
             continue; // ignore non-gun orders
         }
@@ -161,11 +165,12 @@ export function resolveGun(
             // Otherwise owner unchanged (friendly fire: ownership persists).
         }
         // Target was empty: no damage applied (still spends source troops).
+        successfulOrderIndices.push(orderIndex);
     }
 
     // If no order modified state, return input reference unchanged.
     if (newCounts === null) {
-        return { state, events: emptyTickEvents(), errors };
+        return { state, events: emptyTickEvents(), errors, successfulOrderIndices };
     }
 
     return {
@@ -178,6 +183,7 @@ export function resolveGun(
         },
         events: emptyTickEvents(),
         errors,
+        successfulOrderIndices,
     };
 }
 
