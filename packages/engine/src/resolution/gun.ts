@@ -56,9 +56,9 @@ interface GunResolutionResult {
  *                  are silently ignored.
  * @param registry  ID ↔ dense-index registry; the order's `player` is
  *                  resolved to its 1-based owner byte through it.
- * @returns `{ state, events, errors }`.
- *          `successfulOrderIndices` identifies successful occurrences in the
- *          supplied order array, avoiding object-identity matching.
+ * @returns The updated state, events, validation errors, and the positions
+ *          of successfully applied orders in the supplied order array
+ *          (`successfulOrderIndices`).
  */
 export function resolveGun(
     state: Readonly<WorldState>,
