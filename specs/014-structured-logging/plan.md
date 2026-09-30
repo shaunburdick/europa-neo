@@ -80,7 +80,7 @@ Server-side processes use raw `process.stdout.write`/`process.stderr.write` via 
 
 ### D6: NULL_LOGGER consolidation — matchmaking imports from logging
 
-**Rationale**: Two duplicate `NULL_LOGGER` definitions in `packages/matchmaking/src/internal/lobbyService.ts` (line 180) and `packages/matchmaking/src/matchmaker.ts` (line 158) are replaced with imports from `@europa/logging` (or `@europa/networking`'s re-export). This eliminates the three-way duplication (FR-007, AC-008).
+**Rationale**: Two duplicate `NULL_LOGGER` definitions in `packages/matchmaking/src/internal/lobbyService.ts` and `packages/matchmaking/src/matchmaker.ts` are replaced with imports from `@europa/logging` (or `@europa/networking`'s re-export). This eliminates the three-way duplication (FR-007, AC-008).
 
 ### D7: Console package's `NULL_LOGGER` is NOT touched
 
@@ -90,9 +90,9 @@ Server-side processes use raw `process.stdout.write`/`process.stderr.write` via 
 
 **Rationale**: `JSON.stringify` throws on cyclic references, BigInt values, and objects whose `toJSON()` throws. Rather than letting these propagate (crashing the caller), the logger catches the exception, falls back to `context: {}` in JSON mode (the key's presence distinguishes "serialization failed" from "caller passed no context"; pretty mode never serializes, so an unreadable context there renders with no braces), and emits one diagnostic warning to stderr. This is fail-soft — the log line is always written. The warning is throttled to one per logger instance (not per call) to avoid flood.
 
-### D9 (v1.1): Pretty-mode sanitization of message and string context values
+### D9 (v1.1): Pretty-mode sanitization of message, context keys, and context values
 
-**Rationale**: The pretty-print path previously interpolated message and string context values raw — no `sanitizeLogText()` applied. This allowed log forging (injected newlines creating fake log entries) and terminal escape injection (ESC sequences, bidi overrides). The fix applies `sanitizeLogText()` to the message and all string-valued context fields before interpolation in pretty mode only (JSON mode is machine-parseable and doesn't need this).
+**Rationale**: The pretty-print path previously interpolated message and context raw — no `sanitizeLogText()` applied. This allowed log forging (injected newlines creating fake log entries) and terminal escape injection (ESC sequences, bidi overrides). The fix applies `sanitizeLogText()` to the message, every context key, and every rendered context value before interpolation in pretty mode only (strings are quoted then sanitized, non-strings stringified then sanitized; JSON mode is machine-parseable and doesn't need this).
 
 ### D10 (v1.1; extended v1.2): Extended character class for sanitizeLogText — `\p{Cf}` and `\p{Zl}`/`\p{Zp}` stripping
 

@@ -125,7 +125,7 @@ export function sanitizeLogText(text: string, maxLength?: number): string;
 
 **Migrated from**: `packages/console/scripts/host-config.ts` line 79.
 **Behavior (v1.2)**: Control chars (`\p{Cc}`), format chars (`\p{Cf}`, including bidi isolates U+202A–U+202E, U+2066–U+2069, soft hyphen U+00AD, word joiner U+2060), and line/paragraph separators (`\p{Zl}` U+2028 / `\p{Zp}` U+2029) → spaces, trim, truncate to maxLength with ellipsis. Regex: `/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu`. The separators are not control or format characters, but log viewers treat them as line terminators — a smuggled U+2028/U+2029 forges a log line like `\n`.
-**Pretty-mode usage (v1.1)**: In pretty mode, the logger applies `sanitizeLogText()` to the message string and all string-valued context fields before interpolation — preventing log forging and terminal escape injection. Invalid `LOG_LEVEL`/`LOG_FORMAT` startup warnings also pass the raw value through `sanitizeLogText()` (v1.2).
+**Pretty-mode usage (v1.1)**: In pretty mode, the logger applies `sanitizeLogText()` to the message string, every context key, and every rendered context value before interpolation — strings are quoted then sanitized, non-strings stringified then sanitized (hostile coercions render as `[unprintable]`) — preventing log forging and terminal escape injection. Invalid `LOG_LEVEL`/`LOG_FORMAT` startup warnings also pass the raw value through `sanitizeLogText()` (v1.2).
 
 ## Exported Barrel (`src/index.ts`)
 

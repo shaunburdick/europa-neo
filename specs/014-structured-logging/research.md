@@ -57,7 +57,7 @@ Final regex: `/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu`. This is a pure function with no d
 
 ## Reference: Pretty-mode sanitization (v1.1)
 
-In pretty mode, the logger applies `sanitizeLogText()` to the message string and all string-valued context fields before interpolation. This prevents:
+In pretty mode, the logger applies `sanitizeLogText()` to the message string, every context key, and every rendered context value before interpolation (strings quoted then sanitized; non-strings stringified then sanitized). This prevents:
 - **Log forging**: injected `\n` or `\r\n` creating fake log entries
 - **Terminal escape injection**: ESC sequences (e.g., `\x1b[31m` for red text) or CSI sequences
 - **Bidi spoofing**: bidi override characters (U+202E) reordering displayed text

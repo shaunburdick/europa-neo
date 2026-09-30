@@ -16,7 +16,7 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 
 - [x] **T-003**: Implement `src/sanitize.ts` — move `sanitizeLogText()` from `packages/console/scripts/host-config.ts` (line 79). Copy the function verbatim: `LOG_CONTROL_CHARS` regex, `LOG_TEXT_MAX_LENGTH` constant, the `sanitizeLogText` function. Zero behavior changes. [Core — FR-008]
 
-- [x] **T-004**: Implement `src/null-logger.ts` — `NULL_LOGGER` constant (no-op Logger). Identical to current `packages/networking/src/contracts/network-api.ts` line 600. [Core — FR-007]
+- [x] **T-004**: Implement `src/null-logger.ts` — `NULL_LOGGER` constant (no-op Logger). Identical to the definition formerly in `packages/networking/src/contracts/network-api.ts` (now a re-export from `@europa/logging`). [Core — FR-007]
 
 - [x] **T-005**: Implement `src/types.ts` — `LogContext` type alias. [Core — FR-010] *(Reconciled v1.2: `src/types.ts` never existed — `LogContext` lives in `src/logger.ts`.)*
 
@@ -122,5 +122,7 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 - [x] **T-034**: Migrate `say()`/`complain()` to the structured logger — zero remaining call sites repo-wide, refresh the stale `say()` precedent reference in docs. [AC-009, PR #169]
 
 - [x] **T-035**: Spec/doc reconciliation — fix the nonexistent `./types` barrel reference in data-model.md (real `src/index.ts` block restored), document the v1.2 behaviors (FR-012, edge cases, clarifications 11–14), verify and check off AC-001–AC-015 against the codebase, bump spec to v1.2. [spec 014]
+
+- [x] **T-036**: FR-009 wiring completion — `buildStack()` in `packages/console/scripts/host.ts` now passes the `createLogger()` logger to `MatchmakerDeps.logger` and `LobbyServiceDeps.logger` (previously only `ServerDeps.logger` was wired). *Verified: server + matchmaker + lobby wired — PR #169.* [FR-009, PR #169]
 
 **Wave 7 verification**: `pnpm --filter @europa/logging coverage` → 98.85% stmts / 93.1% branches / 95.83% funcs / 100% lines (72/72 tests pass); full `pnpm verify` green on this branch.
