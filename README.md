@@ -63,6 +63,8 @@ pnpm host
 
 The lobby is at <http://localhost:8080/lobby>.
 
+The startup banner is plain aligned text on a TTY and JSON lines when piped or redirected; `LOG_FORMAT=pretty` forces plain output anywhere.
+
 ### LAN hosting
 
 To play with friends on your local network, bind to all interfaces and advertise the address players can reach:

@@ -18,6 +18,12 @@ describe('native host route security boundary', () => {
         host = spawn('pnpm', ['exec', 'tsx', 'scripts/host.ts', '--port', String(port)], {
             cwd: process.cwd(),
             stdio: ['ignore', 'pipe', 'pipe'],
+            // Pin the logger env for the child: waitForPort waits for an
+            // info-level banner line, so an ambient LOG_LEVEL/LOG_FORMAT in
+            // the parent environment must not suppress or reshape it (the
+            // launcher default is TTY-aware, but this child's stdout is a
+            // pipe either way).
+            env: { ...process.env, LOG_FORMAT: 'json', LOG_LEVEL: 'info' },
         });
         await waitForPort(collectOutput(host), port);
     }, 15_000);

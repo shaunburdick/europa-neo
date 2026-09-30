@@ -98,7 +98,7 @@ Exact formats the drift checker pins (defined here so tasks and checker agree):
 ### 7. Logging taps (FR-005)
 
 - Networking (structured seam): `deps.logger.info` at server boot (`appVersion` alongside host/port details) and on each successful seat join (`appVersion` + seat/player details) — unit-tested with a captured fake logger, matching the existing `Logger` injection pattern.
-- Host (human-facing seam): the `pnpm host` banner gains a `Version : v0.0.1` line and the seat-join tap includes the version, because production runs with `NULL_LOGGER` and the launcher's own output *is* the operator-visible log.
+- Host (human-facing seam): the `pnpm host` banner gains a `Version : v0.0.1` line and the seat-join tap includes the version — originally because production ran with `NULL_LOGGER` and the launcher's own output *was* the operator-visible log (since migrated — PR #169: the banner and seat-join tap emit through `createLogger()`, which is wired into `ServerDeps.logger`, `MatchmakerDeps.logger`, and `LobbyServiceDeps.logger`, so production no longer runs `NULL_LOGGER`).
 
 ### 8. Lockstep bump
 

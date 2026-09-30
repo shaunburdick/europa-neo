@@ -62,3 +62,44 @@ describe('sanitizeLogText', () => {
         expect(result.endsWith('…')).toBe(true);
     });
 });
+
+describe('p{Cf} format character stripping', () => {
+    it('replaces bidi override (U+202E) with space', () => {
+        expect(sanitizeLogText('left\u202Erighthanded')).toBe('left righthanded');
+    });
+
+    it('replaces bidi isolate (U+2066) with space', () => {
+        expect(sanitizeLogText('before\u2066after')).toBe('before after');
+    });
+
+    it('replaces soft hyphen (U+00AD) with space', () => {
+        expect(sanitizeLogText('soft\u00ADhyphen')).toBe('soft hyphen');
+    });
+
+    it('replaces word joiner (U+2060) with space', () => {
+        expect(sanitizeLogText('word\u2060joiner')).toBe('word joiner');
+    });
+
+    it('strips mixed \\p{Cc} and \\p{Cf} characters', () => {
+        // \r (Cc), \u202E (Cf), \n (Cc), \u00AD (Cf)
+        const input = 'a\rb\u202Ec\nd\u00ADe';
+        expect(sanitizeLogText(input)).toBe('a b c d e');
+    });
+});
+
+describe('Zl/Zp line separator stripping', () => {
+    it('replaces LINE SEPARATOR (U+2028) with space', () => {
+        // Not Cc/Cf — a narrower pattern would miss it — but U+2028
+        // still terminates a line in every log viewer.
+        expect(sanitizeLogText('line\u2028break')).toBe('line break');
+    });
+
+    it('replaces PARAGRAPH SEPARATOR (U+2029) with space', () => {
+        expect(sanitizeLogText('para\u2029graph')).toBe('para graph');
+    });
+
+    it('strips U+2028/U+2029 alongside control characters', () => {
+        const input = 'a\u2028b\u2029c\nd';
+        expect(sanitizeLogText(input)).toBe('a b c d');
+    });
+});

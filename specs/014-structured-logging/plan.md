@@ -2,6 +2,8 @@
 
 ## Technical Context
 
+*(v1.0 technical context — historical: `say()`/`complain()` have since been migrated to `createLogger()`, the duplicate `NULL_LOGGER` definitions were consolidated into `@europa/logging`, and the host passes `createLogger()` on `ServerDeps` — PR #169. The description below is the as-found state.)*
+
 Server-side processes use raw `process.stdout.write`/`process.stderr.write` via `say()`/`complain()` helpers — unstructured text with no log levels, timestamps, or machine-parseable context. The networking and matchmaking packages accept a `Logger` interface but default to `NULL_LOGGER` (a no-op), so structured diagnostics are silently swallowed in production. Three duplicate `NULL_LOGGER` definitions exist across the codebase.
 
 **Goal**: Create `@europa/logging` — a zero-dependency private workspace package providing a structured JSON logger, the canonical `Logger` interface, `NULL_LOGGER`, and `sanitizeLogText()`.
@@ -78,11 +80,31 @@ Server-side processes use raw `process.stdout.write`/`process.stderr.write` via 
 
 ### D6: NULL_LOGGER consolidation — matchmaking imports from logging
 
-**Rationale**: Two duplicate `NULL_LOGGER` definitions in `packages/matchmaking/src/internal/lobbyService.ts` (line 180) and `packages/matchmaking/src/matchmaker.ts` (line 158) are replaced with imports from `@europa/logging` (or `@europa/networking`'s re-export). This eliminates the three-way duplication (FR-007, AC-008).
+**Rationale**: Two duplicate `NULL_LOGGER` definitions in `packages/matchmaking/src/internal/lobbyService.ts` and `packages/matchmaking/src/matchmaker.ts` are replaced with imports from `@europa/logging` (or `@europa/networking`'s re-export). This eliminates the three-way duplication (FR-007, AC-008).
 
 ### D7: Console package's `NULL_LOGGER` is NOT touched
 
 **Rationale**: The console package's `NULL_LOGGER` (in `contracts/console-api.ts`) implements `ConsoleLogger`, not `Logger` — these are different interfaces. The console `ConsoleLogger` is a browser-side interface with different semantics. This is out of scope per the spec's "client-side logging untouched" exclusion.
+
+### D8 (v1.1): Fail-soft JSON.stringify on context values
+
+**Rationale**: `JSON.stringify` throws on cyclic references, BigInt values, and objects whose `toJSON()` throws. Rather than letting these propagate (crashing the caller), the logger catches the exception, falls back to `context: {}` in JSON mode (the key's presence distinguishes "serialization failed" from "caller passed no context"; pretty mode never serializes, so an unreadable context there renders with no braces), and emits one diagnostic warning to stderr. This is fail-soft — the log line is always written. The warning is throttled to one per logger instance (not per call) to avoid flood.
+
+### D9 (v1.1): Pretty-mode sanitization of message, context keys, and context values
+
+**Rationale**: The pretty-print path previously interpolated message and context raw — no `sanitizeLogText()` applied. This allowed log forging (injected newlines creating fake log entries) and terminal escape injection (ESC sequences, bidi overrides). The fix applies `sanitizeLogText()` to the message, every context key, and every rendered context value before interpolation in pretty mode only (strings are quoted then sanitized, non-strings stringified then sanitized; JSON mode is machine-parseable and doesn't need this).
+
+### D10 (v1.1; extended v1.2): Extended character class for sanitizeLogText — `\p{Cf}` and `\p{Zl}`/`\p{Zp}` stripping
+
+**Rationale**: The original `\p{Cc}` regex only stripped control characters (newline, tab, ESC). Format characters (`\p{Cf}`) — bidi isolates (U+202A–U+202E, U+2066–U+2069), soft hyphen (U+00AD), word joiner (U+2060) — can cause visual spoofing in terminals via bidi text reordering. In v1.2 the class was extended again to `[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]`: line/paragraph separators (U+2028/U+2029) are neither control nor format characters, yet every log viewer treats them as line terminators, so a smuggled separator forges a log line exactly like `\n`.
+
+### D11 (v1.1): Writer return type is `void`, not `boolean`
+
+**Rationale**: The spec contracts originally declared writer return types as `boolean` (matching `process.stdout.write`'s actual return). In practice, the logger is fire-and-forget — it never inspects the return value. The implementation uses `void` return types for simplicity, and the spec is updated to match. This avoids confusion about whether the logger handles backpressure.
+
+### D12 (v1.2): Fail-soft invariant hardened — `logger.*()` never throws
+
+**Rationale**: Review found residual escape paths where a hostile caller-side object could still throw out of a log call: `String()` coercion of the message, `Object.entries()` on a context with throwing getters/proxy traps, and an injected writer that throws. Each path now degrades — `[unprintable message]`/`[unprintable]` placeholders, `context: {}` (JSON) / no braces (pretty), and swallow-everything sink wrappers (including startup diagnostics) — with a last-resort guard around the whole write body. Env diagnostics also run the raw value through `sanitizeLogText()` so a hostile `LOG_LEVEL`/`LOG_FORMAT` cannot forge the warning line.
 
 ## File Structure
 
@@ -95,10 +117,9 @@ packages/logging/
 ├── biome.jsonc           # extends ../../biome.jsonc
 ├── src/
 │   ├── index.ts          # public barrel
-│   ├── logger.ts         # Logger interface, createLogger factory
+│   ├── logger.ts         # Logger, LogContext, CreateLoggerOptions, LogLevel, createLogger factory
 │   ├── null-logger.ts    # NULL_LOGGER constant
-│   ├── sanitize.ts       # sanitizeLogText function
-│   └── types.ts          # LogContext type
+│   └── sanitize.ts       # sanitizeLogText function
 └── tests/
     ├── logger.test.ts    # createLogger unit tests
     ├── null-logger.test.ts  # NULL_LOGGER no-op tests
