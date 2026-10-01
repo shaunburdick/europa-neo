@@ -119,8 +119,8 @@ non-enumeration and fog-of-war redaction are not reclassified as ID secrecy.
 
 ## C-008 residual sweep (2026-08-31)
 
-The tracked repository-wide residual sweep was run after commits `d788bab` and
-`81c9fe5`. It found no remaining active normative contradiction: non-secret
+The tracked repository-wide residual sweep was run after the implementation
+changes. It found no remaining active normative contradiction: non-secret
 guest/player IDs are permitted for correlation, handles remain preferred in UI,
 and private-match existence, server authority, fog filtering, and bearer-token
 protection remain explicit. Remaining old-policy phrases are confined to the

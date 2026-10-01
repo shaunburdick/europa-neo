@@ -259,8 +259,9 @@ export interface ServerDeps {
    */
   readonly lobby?: LobbyServiceSource;
   /**
-   * Logger. Default is a no-op (`() => {}`). Pass `console.log` in
-   * dev, pino/winston in production.
+   * Logger supplied by the host. Production hosts should use
+   * `createLogger()` from `@europa/logging`, whose defaults are
+   * `LOG_LEVEL=info` and `LOG_FORMAT=json`; tests may use `NULL_LOGGER`.
    */
   readonly logger: Logger;
   /**
@@ -628,8 +629,9 @@ export interface LobbyServiceSource {
 
 /**
  * Minimal logger interface. Networking never calls `console.*`
- * directly; the host provides a logger. The default in production
- * is pino; in tests a no-op.
+ * directly; the host provides a logger. The production default is
+ * `createLogger()` from `@europa/logging` (`LOG_LEVEL=info`,
+ * `LOG_FORMAT=json`); tests may use `NULL_LOGGER`.
  *
  * Re-exported from `@europa/logging` — the canonical definition
  * lives there to avoid circular dependencies.
@@ -808,9 +810,11 @@ export interface ServerStats {
  * @example
  * ```ts
  * import { createMatchServer, NETWORK_DEFAULT_CONFIG } from '@europa/networking';
+ * import { createLogger } from '@europa/logging';
  * import { createMatchSession } from '@europa/engine';
  * import { computePlayerView } from '@europa/fog';
  *
+ * const logger = createLogger();
  * const server = createMatchServer(
  *   { ...NETWORK_DEFAULT_CONFIG, port: 9090 },
  *   {
@@ -818,7 +822,7 @@ export interface ServerStats {
  *     fog: { computePlayerView: ({ world, playerId, spectator }) =>
  *             computePlayerView(world, playerId, { spectator }) },
  *     matchmaker: { onSeatExpired: (e) => logger.warn('expired', e) },
- *     logger: console,
+ *     logger,
  *   },
  * );
  *

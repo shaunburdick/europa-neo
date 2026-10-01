@@ -4,7 +4,7 @@
 
 **Issues**: #151 (admission hardening + existence oracle) + #135 (hot-path performance)
 
-**Input**: Specs amended at `e97c8e5`. Code review findings I-20 Thread T-09 (security) and I-28 Thread T-14 (performance).
+**Input**: Specs amended before this plan. Code review findings I-20 Thread T-09 (security) and I-28 Thread T-14 (performance).
 
 ---
 
@@ -27,7 +27,7 @@ Both are spec-amended (spec 004 v1.6, spec 001 v1.10, spec 003 v1.5, spec 006 v1
 | **I. Type Safety** | All new types use branded primitives and closed unions. No `any`. Error codes are a shared `ProtocolErrorCode` base type. |
 | **II. Server-Authoritative Deterministic** | Security hardening is transport-layer only — never touches simulation state. Performance changes preserve byte-identical determinism (engine scratch buffers are zeroed in-place; fog view reuse is semantically identical). |
 | **III. Tested Game Logic** | ≥80% coverage maintained. Security hardening adds rate-limit, connection-cap, origin-validation, and error-collapse tests. Performance adds allocation-regression and perf-budget tests. |
-| **IV. Specs as Documentation** | All four specs amended in the same change set as the plan (committed at `e97c8e5`). |
+| **IV. Specs as Documentation** | All four specs amended in the same change set as the plan. |
 | **V. Simplicity Over Cleverness** | Head-cursor BFS is simpler than the array-shift approach. Token-bucket rate limiting is unchanged (already simple). Broadcast view reuse uses a straightforward cache. |
 | **VI. Accessibility** | N/A — no UI changes. |
 | **VII. Self-Hostable** | Connection caps are configurable with sane defaults. Origin validation defaults to open for local dev. |

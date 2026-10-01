@@ -201,8 +201,8 @@ suppressed nor excluded.
 
 ## Wave 8 evidence — final verification (T043–T045, captured 2026-09-12)
 
-Branch `issue-74-numeric-playerid` at the Wave 8 change set (T041/T042 committed
-at `e4955a2`; T043–T045 this change set).
+Branch `issue-74-numeric-playerid` at the Wave 8 change set (T041/T042 completed
+before T043–T045 in this change set).
 
 ### T043 — per-package coverage + strict typechecks
 
@@ -322,7 +322,7 @@ pnpm version:check    # clean
 git diff --check      # clean
 ```
 
-**Diff review** (`git diff a4db782...HEAD`, 296 files + this change set):
+**Diff review** (complete feature diff: 296 files including this change set):
 repository identity guard 21/21; console cross-package contract-conformance
 13/13 (byte-identical contract mirrors + coordinated API versions:
 ENGINE 0.2.0 · TERRAIN 0.2.0 · FOG 0.1.0 · MATCHMAKING 0.2.0 · NETWORK 0.3.0 ·

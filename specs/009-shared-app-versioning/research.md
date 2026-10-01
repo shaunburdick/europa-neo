@@ -2,7 +2,7 @@
 
 **Branch**: `009-shared-app-versioning` | **Date**: 2026-08-25 | **Spec**: [./spec.md](./spec.md) | **Issue**: #11
 
-Brief research record backing the plan's decisions. Every claim below was verified against the working tree on this branch (commit `f1b89d4`).
+Brief research record backing the plan's decisions. Every claim below was verified against the working tree on this branch.
 
 ---
 

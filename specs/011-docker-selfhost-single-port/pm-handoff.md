@@ -35,7 +35,7 @@ Medium-large (35 tasks) — PM drives Phase 6 orchestration directly (orchestrat
 - 2026-08-26: arm64 deferred — publish is `linux/amd64` only. Supersedes plan D8 / tasks T029 arm64 non-blocking text. Future issue will add arm64 if needed.
 
 ## Current state (update as waves land)
-- Phases 1–5 complete (spec + plan committed `d0e71f9`).
+- Phases 1–5 complete.
 - Phase 6 Wave 1 (Foundational) pending dispatch.
 
 ## How to resume

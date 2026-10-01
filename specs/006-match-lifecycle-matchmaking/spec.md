@@ -151,7 +151,7 @@ As a player, I want abandoned matches to resolve sensibly — my opponent wins a
 
 ### v1.1 (2026-08-21) — Visibility types and shareable join links
 
-Resolved ambiguities from the initial v1.0 draft around how players find matches and how private play is supported. See commit `1ed3233` for the full diff.
+Resolved ambiguities from the initial v1.0 draft around how players find matches and how private play is supported.
 
 - **Q1 — Lobby scope**: Is the lobby the only way to find a match?
   - **Resolution**: No. Matches carry a visibility type (`public` or `private`) chosen at creation. Lobby lists public matches only; private matches are discoverable exclusively via their server-assigned match ID / shareable join URL. See US2, US3, FR-002, FR-003, FR-005, FR-006.

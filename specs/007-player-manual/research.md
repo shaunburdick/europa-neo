@@ -46,7 +46,7 @@ Known deliberate divergences from the original (document-what-ships, don't apolo
 
 ---
 
-## §3 Exact shipped values (verified 2026-08-24 on `001-europa-core` @ `1d81a03`)
+## §3 Exact shipped values (verified 2026-08-24)
 
 ### Engine (`ENGINE_CONSTANTS`)
 

@@ -2,7 +2,7 @@
 
 ## Status
 - **Current Wave**: 2 (of 5)
-- **Branch**: `009-shared-app-versioning` (off `main` @ f760f3b)
+- **Branch**: `009-shared-app-versioning` (off `main`)
 - **Last Updated**: 2026-08-25
 - **Mode**: PM-driven orchestration; PO granted full delegation through PR-ready ("Dispatch and finish it up, let me know when a PR is ready") — NO per-wave user gates; single checkpoint at PR-open. Push + `gh pr create` authorized at that point; merging stays PO's decision.
 
@@ -12,41 +12,41 @@ Private zero-dep `@europa/version` workspace package exporting `APP_VERSION`; ad
 ## Task Wave Progress
 
 ### Wave 1 — Foundation — ✅ Complete (2026-08-25)
-- [x] T-001 scaffold `@europa/version` — `3195d9e` (8 files; build/lint/test/typecheck green; import proof prints 0.0.0)
-- [x] T-002 pure drift-checker fn + unit tests — `1270b13` (14 tests; coverage 100% on every metric; extra exported types VersionSourceKind/DriftMismatch + barrel pin test — additive, approved)
+- [x] T-001 scaffold `@europa/version` (8 files; build/lint/test/typecheck green; import proof prints 0.0.0)
+- [x] T-002 pure drift-checker fn + unit tests (14 tests; coverage 100% on every metric; extra exported types VersionSourceKind/DriftMismatch + barrel pin test — additive, approved)
 - Wave-close verification: `pnpm --filter @europa/version test` → 14 passed
 
 ### Wave 2 — Consumers — ✅ Complete (2026-08-25), integration verified
-- [x] T-003 wire field — `c5c147c` (both contract copies byte-identical one commit; conformance 5/5; networking 188 green; console mirrors confirmed no-change-needed)
-- [x] T-004 /version endpoint — `1128423` (route module + tests; coverage 100%×4; real-socket smoke GET 200 byte-exact / POST 405)
-- [x] T-005 HUD footer — `2a6421c` (+ dep + lockfile; #9ca3af on #111827 = 6.99:1 AA; component 44 / a11y 23 green)
-- [x] T-006 docs + AGENTS scrub — `f3e65cc` (grep targets 1 hit each at v0.0.0; #6 line scrubbed incl. resolved-blocker drop — orchestrator-directed deviation recorded)
+- [x] T-003 wire field (both contract copies byte-identical; conformance 5/5; networking 188 green; console mirrors confirmed no-change-needed)
+- [x] T-004 /version endpoint (route module + tests; coverage 100%×4; real-socket smoke GET 200 byte-exact / POST 405)
+- [x] T-005 HUD footer (+ dep + lockfile; #9ca3af on #111827 = 6.99:1 AA; component 44 / a11y 23 green)
+- [x] T-006 docs + AGENTS scrub (grep targets 1 hit each at v0.0.0; #6 line scrubbed incl. resolved-blocker drop — orchestrator-directed deviation recorded)
 - Integration: stray symlink `packages/version/version` removed; `pnpm install` normalized; typecheck + format:check green; console 266/44/23 green
-- PM-notable: commit attribution split (host.ts hunk rode `2a6421c`, documented in `1128423`) — end-state correct, no rewrite
+- PM-notable: commit attribution was split across changes (host.ts hunk documented separately) — end-state correct, no rewrite
 - PM decision for T-010: flip reading-the-screen.md example `(for example, v0.0.0)` → v0.0.1 inside the bump commit (zero staleness, FR-012 discipline)
 
 ### Wave 3 — Enforcement & companion specs — ✅ Complete (2026-08-25), integration verified
-- [x] T-007 drift CLI — `68de397` (gatherer split into scripts/gather-version-sources.ts — no-deps constraint, console precedent; exit 2=usage; coverage 100%×4 incl. gather logic; `pnpm version:check` exit 0 + spawn-proven)
-- [x] T-008 logging taps — `dd51307` (boot + seat-claim taps; host banner aligned + seat tap v-suffixed; networking 191 green)
-- [x] T-009 companion specs — `86598df` (004: FR-004 note + Key Entities + Clarifications v1.2; 005: FR-012 + Impl Notes 15; 007: FR-017 + header bump + Clarifications v1.1)
+- [x] T-007 drift CLI — gatherer split into scripts/gather-version-sources.ts — no-deps constraint, console precedent; exit 2=usage; coverage 100%×4 incl. gather logic; `pnpm version:check` exit 0 + spawn-proven
+- [x] T-008 logging taps — boot + seat-claim taps; host banner aligned + seat tap v-suffixed; networking 191 green
+- [x] T-009 companion specs — 004: FR-004 note + Key Entities + Clarifications v1.2; 005: FR-012 + Impl Notes 15; 007: FR-017 + header bump + Clarifications v1.1
 - PM ruling: FR-005 covers boot + seat CLAIM only; spectator/reconnect paths stay unlogged (existing onSeatReconnected callback covers visibility; simplicity clause)
 - PM acceptance: data-model.md needs no amendment (never enumerated helloAck fields — verified by T-009)
 - Parallelization deviation: all three dispatched concurrently (file sets provably disjoint) vs tasks.md's serial-first T-007 — dependency logic respected
 
 ### Wave 4 — Lockstep bump + CI gate — ✅ Complete (2026-08-25), integration verified
-- [x] T-010 lockstep bump → 0.0.1 — `ba07690` (12 files single commit incl. reading-the-screen example per Minor-3; all gates green; LIVE SMOKE: banner v0.0.1, GET :5173/version exact JSON, HEAD→405)
-- [x] T-011 version-drift.yml — `2091e26` (YAML valid; shape regex-asserted vs client-ci.yml; paths narrow-by-design — flagged against widening)
+- [x] T-010 lockstep bump → 0.0.1 — 12 files single commit incl. reading-the-screen example per Minor-3; all gates green; LIVE SMOKE: banner v0.0.1, GET :5173/version exact JSON, HEAD→405
+- [x] T-011 version-drift.yml — YAML valid; shape regex-asserted vs client-ci.yml; paths narrow-by-design — flagged against widening
 - Findings: pnpm-lock byte-unchanged by bump (records workspace:* specifiers only); root `pnpm host` footgun discovered → filed as follow-up issue (README docs bug, pre-existing, out of 009 scope)
 
 ### Wave 5 — Verification & state — ✅ Complete (2026-08-25)
 - [x] T-012 attempt 1 — correctly HALTED on red clean-slate gates (tsx missing from version devDeps; phantom stale binary had masked it since T-007). No flips over red gates.
-- [x] Remediation — `11b27f6` tsx devDep declared; wipe→reinstall→36/36 incl. all 10 spawn tests, coverage 100%×4, version:check exit 0
-- [x] T-012 retry — `05e4ffa` gates green (repo total 1,331: engine 297 · terrain 242 · fog 112 · networking 191 · matchmaking 171 · console 282 · version 36); suppression scan zero; Implementation Notes ×5; tasks 12/12 ticked; AGENTS.md entry + #13 line + status list; spec → Implemented (2026-08-25)
-- Final review: code-quality-reviewer **PASS / merge-ready** (one nit: gatherer regex newline-permissive — carry-forward, no ticket); security-auditor **CLEAR** (zero required; recommended no-store → shipped as `dc54797` with live curl proof; timeout-minutes gap → routed to issue #3 by comment)
+- [x] Remediation — declared tsx devDep; wipe→reinstall→36/36 incl. all 10 spawn tests, coverage 100%×4, version:check exit 0
+- [x] T-012 retry — gates green (repo total 1,331: engine 297 · terrain 242 · fog 112 · networking 191 · matchmaking 171 · console 282 · version 36); suppression scan zero; Implementation Notes ×5; tasks 12/12 ticked; AGENTS.md entry + #13 line + status list; spec → Implemented (2026-08-25)
+- Final review: code-quality-reviewer **PASS / merge-ready** (one nit: gatherer regex newline-permissive — carry-forward, no ticket); security-auditor **CLEAR** (zero required; recommended no-store → shipped with live curl proof; timeout-minutes gap → routed to issue #3 by comment)
 
 ## Status: PR OPEN — https://github.com/shaunburdick/europa-neo/pull/14 — ALL 19 CHECKS GREEN (2026-08-25)
 - First CI run red on 3 downstream workflows (TS2307 @europa/version): T-003/T-005 gave networking/console their first version-dep edge; those workflows predate the package and build upstreams explicitly. Local green was an artifact of root typecheck's build-first chain.
-- Fixed `055ae71`: `Build @europa/version` step added to all 9 affected jobs across network/matchmaking/client-ci (leaf-first ordering); proven by wiped-dist simulation incl. negative control reproducing the defect; watch-path extension deliberately left to issue #3.
+- Fixed: added the `Build @europa/version` step to all 9 affected jobs across network/matchmaking/client-ci (leaf-first ordering); proven by wiped-dist simulation incl. negative control reproducing the defect; watch-path extension deliberately left to issue #3.
 - Merging = PO decision. Post-merge: workflow_dispatch live proof of Version Drift; Pages republish automatic.
 
 ## Decisions & Rationale

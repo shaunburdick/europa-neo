@@ -2,7 +2,7 @@
 
 ## Identity-visibility correction (2026-08-30)
 
-The approved correction in commit `ecfcfa5` is a policy/assertion migration,
+The approved correction is a policy/assertion migration,
 not a new feature. Feature 010 remains the canonical owner because it owns the
 identity/lobby checker and affected identity contracts. The implementation must
 distinguish three independent boundaries:
