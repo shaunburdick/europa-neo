@@ -120,6 +120,25 @@ function coerceToString(value: unknown, fallback: string): string {
 }
 
 /**
+ * Render an arbitrary caught value for a log field without ever throwing.
+ * Error messages are preferred over Error.toString() so existing diagnostics
+ * retain their message-only behavior.
+ *
+ * @param error Arbitrary caught value.
+ * @returns A printable message, or `[unprintable]` when inspection fails.
+ */
+export function formatError(error: unknown): string {
+    try {
+        if (error instanceof Error) {
+            return coerceToString(error.message, '[unprintable]');
+        }
+        return coerceToString(error, '[unprintable]');
+    } catch {
+        return '[unprintable]';
+    }
+}
+
+/**
  * Invoke a log sink, swallowing anything it throws.
  *
  * Logging is fail-soft by contract: a broken injected writer (or a

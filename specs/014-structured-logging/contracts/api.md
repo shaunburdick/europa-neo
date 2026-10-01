@@ -2,7 +2,7 @@
 
 ## Public API Surface
 
-The package's documented public surface is five symbols from its barrel (`src/index.ts`); the barrel additionally exports the `CreateLoggerOptions` and `LogLevel` types (see the exact export block below).
+The package's documented public surface is six symbols from its barrel (`src/index.ts`); the barrel additionally exports the `CreateLoggerOptions` and `LogLevel` types (see the exact export block below).
 
 | Export | Kind | Description |
 |--------|------|-------------|
@@ -11,12 +11,13 @@ The package's documented public surface is five symbols from its barrel (`src/in
 | `createLogger` | function | Factory returning a Logger that writes JSON or pretty lines |
 | `NULL_LOGGER` | const (Logger) | No-op logger — calling any method produces no output |
 | `sanitizeLogText` | function | Control-char (`\p{Cc}`), format-char (`\p{Cf}`), and separator-char (`\p{Zl}`/`\p{Zp}`) stripping, trimming, truncation for untrusted text |
+| `formatError` | function | Fail-soft formatting of arbitrary caught values for log fields |
 
 Exact barrel (`src/index.ts`):
 
 ```typescript
 export type { CreateLoggerOptions, LogContext, Logger, LogLevel } from './logger';
-export { createLogger } from './logger';
+export { createLogger, formatError } from './logger';
 export { NULL_LOGGER } from './null-logger';
 export { sanitizeLogText } from './sanitize';
 ```
@@ -37,6 +38,14 @@ interface Logger {
 **Pretty-mode sanitization (v1.1)**: In pretty mode, the logger applies `sanitizeLogText()` to the message and all string context values before interpolation. This prevents log forging and terminal escape injection.
 **Side effects**: Synchronous `process.stdout.write` / `process.stderr.write` only. No async, no buffering, no events.
 **Fail-soft invariant (v1.2)**: No `logger.*()` call ever throws at its caller. Hostile message/context coercions (`toString()`/`valueOf()`/`Symbol.toPrimitive` that throws) render as `[unprintable message]` / `[unprintable]`; a context object whose getters or proxy traps throw is abandoned — JSON mode emits `context: {}`, pretty mode emits no context braces; a writer that throws (injected override or broken stream) is swallowed silently, with no fallback diagnostic; a last-resort guard around the whole write body swallows anything unforeseen. Severity filtering runs before coercion, so dropped messages never touch the caller's object.
+
+## Formatter Contract: formatError
+
+```typescript
+function formatError(err: unknown): string;
+```
+
+The formatter never throws. An `Error` returns its safely coerced `message`, preserving message-only logging. A non-`Error` returns safely coerced `String(err)`. Error detection, message access, or coercion failures return the literal `[unprintable]`.
 
 ## Factory Contract: createLogger
 

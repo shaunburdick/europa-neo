@@ -51,6 +51,7 @@
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 
 import { compareUtf16 } from '@europa/engine';
+import { formatError } from '@europa/logging';
 import { APP_VERSION } from '@europa/version';
 import { WebSocketServer, type WebSocket as WsWebSocket } from 'ws';
 
@@ -566,7 +567,7 @@ export function createMatchServer(
                 // unaffected.
                 deps.logger.error('tick pipeline error — terminating match', {
                     matchId: channel.matchId,
-                    error: String(error),
+                    error: formatError(error),
                     tick: channel.tickCounter,
                 });
                 channel.terminalSent = true;
@@ -698,7 +699,7 @@ export function createMatchServer(
         try {
             lobbyInstance = source.create({ deliver: deliverLobbyEvent });
         } catch (error) {
-            deps.logger.warn('lobby service factory threw; lobby unavailable', { error: String(error) });
+            deps.logger.warn('lobby service factory threw; lobby unavailable', { error: formatError(error) });
             return null;
         }
         return lobbyInstance;
@@ -826,7 +827,7 @@ export function createMatchServer(
         try {
             handler(facade);
         } catch (error) {
-            deps.logger.warn('lobby action threw', { connectionId: connection.id, error: String(error) });
+            deps.logger.warn('lobby action threw', { connectionId: connection.id, error: formatError(error) });
             connection.sendError('internal_error', 'lobby action failed');
         }
     }
@@ -1521,7 +1522,10 @@ export function createMatchServer(
             try {
                 lobbyInstance.connectionClosed(connection.id);
             } catch (error) {
-                deps.logger.warn('lobby connectionClosed threw', { connectionId: connection.id, error: String(error) });
+                deps.logger.warn('lobby connectionClosed threw', {
+                    connectionId: connection.id,
+                    error: formatError(error),
+                });
             }
         }
         const { matchId } = connection;
@@ -1623,7 +1627,7 @@ export function createMatchServer(
         socket.on('error', (error: Error) => {
             deps.logger.warn('socket transport error', {
                 connectionId: connection.id,
-                message: error.message,
+                message: formatError(error),
             });
         });
         connections.set(connection.id, connection);

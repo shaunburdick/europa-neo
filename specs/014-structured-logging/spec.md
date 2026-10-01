@@ -1,8 +1,8 @@
 # Feature 020: Structured Logging for Server Processes
 
-> Version: 1.2
-> Last Updated: 2026-09-30
-**Status**: Implemented (2026-09-17); amended 2026-09-28 (v1.2) for fail-soft hardening, U+2028/U+2029 sanitizer extension, and AC-009 say()/complain() migration
+> Version: 1.3
+> Last Updated: 2026-10-01
+**Status**: Implemented (2026-09-17); amended 2026-10-01 (v1.3) for shared caught-error formatting (issue #175)
 > Dependencies: None
 
 ## Problem Statement
@@ -30,8 +30,9 @@ Server-side processes (the host launcher, matchmaking, networking, and engine or
 - **FR-008**: Move `sanitizeLogText()` from `packages/console/scripts/host-config.ts` into `@europa/logging` as a named export. The host-config.ts file re-exports it for backward compatibility. The function retains its current behavior — control characters (`\p{Cc}`), format characters (`\p{Cf}`, including bidi isolates U+202A–U+202E, U+2066–U+2069, soft hyphen, etc.), and line/paragraph separators (`\p{Zl}`/`\p{Zp}` — U+2028 LINE SEPARATOR and U+2029 PARAGRAPH SEPARATOR) replaced with spaces, trimmed, truncated to a configurable `maxLength` (default 200). The separators are not control or format characters, but every log viewer treats them as line terminators — a smuggled U+2028/U+2029 forges a log line exactly like `\n`. In pretty mode, the logger applies `sanitizeLogText` to the message, every context key, and every rendered context value (strings quoted then sanitized; non-strings stringified then sanitized, hostile coercions rendering as `[unprintable]`) before interpolation, preventing log forging and terminal escape injection.
 - **FR-009**: The host launcher (`packages/console/scripts/host.ts`) is updated to use the structured logger for all `say()` and `complain()` call sites. `say()` calls become `logger.info(...)` and `complain()` calls become `logger.error(...)` (for fatal errors) or `logger.warn(...)` (for validation warnings). The host script's `buildStack()` wires the logger into `ServerDeps.logger` and `MatchmakerDeps.logger`. *Verified: server + matchmaker + lobby wired — PR #169.*
 - **FR-010**: Context fields are typed via an exported `LogContext` type from `@europa/logging`: `{ [key: string]: unknown }`. The `LogContext` type is structurally identical to `Record<string, unknown>` — callers may use `LogContext` to type context objects passed to Logger methods, or pass ad-hoc records. The logger spreads context fields into JSON output or pretty-print inline.
-- **FR-011**: The package exports `createLogger`, `NULL_LOGGER`, `sanitizeLogText`, `Logger`, and `LogContext` (plus the `CreateLoggerOptions` and `LogLevel` types) from its public barrel (`src/index.ts`). The package has zero external dependencies — only Node.js builtins (`process.stdout`, `process.stderr`, `Date`).
+- **FR-011**: The package exports `createLogger`, `NULL_LOGGER`, `sanitizeLogText`, `formatError`, `Logger`, and `LogContext` (plus the `CreateLoggerOptions` and `LogLevel` types) from its public barrel (`src/index.ts`). The package has zero external dependencies — only Node.js builtins (`process.stdout`, `process.stderr`, `Date`).
 - **FR-012** (v1.2, fail-soft invariant): No `logger.debug/info/warn/error()` call ever throws at its caller. Every escape path is caught: (a) a message or context value whose string coercion throws (hostile `toString()`/`valueOf()`/`Symbol.toPrimitive`) renders as the literal `[unprintable message]` (message) or `[unprintable]` (context value); (b) a context object whose accessors throw (hostile getters/proxy traps) is abandoned — JSON mode emits `context: {}`, pretty mode emits no context braces; (c) a writer/sink that throws (injected writer or broken stdout/stderr) is swallowed silently — failures are not reported, because reporting through the same fallible channel could throw again; (d) a last-resort guard around the whole log body swallows anything unforeseen. Severity filtering happens before any coercion, so a dropped message never touches the caller's object.
+- **FR-013** (v1.3, issue #175): Export `formatError(err: unknown): string` from `@europa/logging`. For an `Error`, safely return its message as a string; for non-`Error` values, safely use `String(err)`. If Error detection/message access or coercion throws, return `[unprintable]`. The formatter itself never throws.
 
 ## Non-Functional Requirements
 
@@ -65,6 +66,7 @@ Server-side processes (the host launcher, matchmaking, networking, and engine or
 - [x] **AC-020**: A test verifies that in pretty mode, a string context value containing `\r\n` (CRLF) or bidi overrides (U+202E) is sanitized — output contains no raw control or format characters. [F-LOG-002]
 - [x] **AC-021**: A test verifies that `sanitizeLogText` strips `\p{Cf}` characters (bidi isolates, soft hyphen, word joiner) in addition to `\p{Cc}` control characters. [F-LOG-002]
 - [x] **AC-022**: The `Logger` interface `ctx` parameter type is `Readonly<Record<string, unknown>>` — callers may pass `LogContext`-typed objects without type errors. [F-LOG-005]
+- [x] **AC-023**: `@europa/logging` exports `formatError(err: unknown): string`; normal Errors preserve `err.message`, hostile Error message access and hostile non-Error coercion return `[unprintable]`, and networking/matchmaking/console arbitrary caught-error callsites use it without changing log field shapes. [Issue #175]
 
 ## Out of Scope
 

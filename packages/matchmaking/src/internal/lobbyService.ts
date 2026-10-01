@@ -151,7 +151,7 @@
  */
 
 import { compareUtf16 } from '@europa/engine';
-import { NULL_LOGGER, sanitizeLogText } from '@europa/logging';
+import { formatError, NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { ConnectionId, Logger, MatchId, MatchmakerBridge } from '@europa/networking';
 import type { MatchmakerError, MatchSettings, SeatAssignment } from '../../contracts/match-types';
 import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
@@ -438,7 +438,7 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
         try {
             deliver(connectionId, event);
         } catch (error) {
-            logger.warn('lobbyService: event sink threw; delivery skipped', { error: String(error) });
+            logger.warn('lobbyService: event sink threw; delivery skipped', { error: formatError(error) });
         }
     }
 

@@ -126,3 +126,12 @@ Create `@europa/logging` package, migrate Logger interface + NULL_LOGGER + sanit
 - [x] **T-036**: FR-009 wiring completion — `buildStack()` in `packages/console/scripts/host.ts` now passes the `createLogger()` logger to `MatchmakerDeps.logger` and `LobbyServiceDeps.logger` (previously only `ServerDeps.logger` was wired). *Verified: server + matchmaker + lobby wired — PR #169.* [FR-009, PR #169]
 
 **Wave 7 verification**: `pnpm --filter @europa/logging coverage` → 98.85% stmts / 93.1% branches / 95.83% funcs / 100% lines (72/72 tests pass); full `pnpm verify` green on this branch.
+
+### Wave 8: Shared caught-error formatter (issue #175)
+
+- [x] **T-037**: Add behavior-level tests for `formatError` covering a normal Error, a throwing Error `message` getter, and hostile non-Error string coercion.
+- [x] **T-038**: Implement and export `formatError(err: unknown): string`, backed by the guarded coercion helper, with `[unprintable]` fallback.
+- [x] **T-039**: Migrate the specified arbitrary caught-error coercion callsites in networking, matchmaking, and console while preserving field shapes and console sanitization.
+- [x] **T-040**: Amend spec 014 v1.3 and its API contract with the shared formatter export and behavior contract.
+
+**Wave 8 verification**: Focused package tests passed — logging 78, networking 322, matchmaking 387, and console 928 tests. `pnpm verify:changed` passed (258 files, 3,224 tests). `pnpm verify` passed phases 1–5, then stopped in phase 6 because the Playwright Chromium executable is not installed.
