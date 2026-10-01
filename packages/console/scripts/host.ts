@@ -47,7 +47,7 @@ import { createServer as createHttpServer, type IncomingMessage, type ServerResp
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { computePlayerView } from '@europa/fog';
-import { createLogger, type Logger, sanitizeLogText } from '@europa/logging';
+import { createLogger, formatError, type Logger, sanitizeLogText } from '@europa/logging';
 import { createLobbyService, createMatchmaker, type Matchmaker } from '@europa/matchmaking';
 import { createMatchServer, type MatchmakerBridge, NETWORK_DEFAULT_CONFIG, type ServerDeps } from '@europa/networking';
 import { APP_VERSION } from '@europa/version';
@@ -644,7 +644,7 @@ async function main(): Promise<void> {
         if (error.code === 'EADDRINUSE') {
             logger.error('port already in use', { port: config.port, hint: 'try --port <other>' });
         } else {
-            logger.error('server error', { error: sanitizeLogText(error.message) });
+            logger.error('server error', { error: sanitizeLogText(formatError(error)) });
         }
         process.exitCode = 1;
         void shutdown();
@@ -667,7 +667,7 @@ async function main(): Promise<void> {
         if (code === 'EADDRINUSE') {
             logger.error('port already in use', { port: config.port, hint: 'try --port <other>' });
         } else {
-            logger.error('server failed to start', { error: sanitizeLogText(String(error)) });
+            logger.error('server failed to start', { error: sanitizeLogText(formatError(error)) });
         }
         process.exitCode = 1;
         return;
@@ -744,7 +744,7 @@ process.on('SIGTERM', () => {
 process.on('uncaughtException', (error: Error) => {
     logger.error('uncaught exception — shutting down', {
         name: error.name,
-        message: sanitizeLogText(error.message),
+        message: sanitizeLogText(formatError(error)),
         stack: sanitizeLogText(error.stack ?? ''),
     });
     process.exitCode = 1;
@@ -754,7 +754,7 @@ process.on('uncaughtException', (error: Error) => {
 });
 process.on('unhandledRejection', (reason: unknown) => {
     logger.error('unhandled rejection — shutting down', {
-        reason: sanitizeLogText(String(reason)),
+        reason: sanitizeLogText(formatError(reason)),
     });
     process.exitCode = 1;
     void shutdown().then(() => {
@@ -765,6 +765,6 @@ process.on('unhandledRejection', (reason: unknown) => {
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
     main().catch((error: unknown) => {
         process.exitCode = 1;
-        logger.error('host failed', { error: sanitizeLogText(String(error)) });
+        logger.error('host failed', { error: sanitizeLogText(formatError(error)) });
     });
 }

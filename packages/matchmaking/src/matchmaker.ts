@@ -59,7 +59,7 @@
 import type { PlayerId } from '@europa/core';
 import { createRng, parsePlayerId } from '@europa/core';
 import type { MatchResult } from '@europa/engine';
-import { NULL_LOGGER, sanitizeLogText } from '@europa/logging';
+import { formatError, NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { MatchmakerBridge, Server, SessionToken } from '@europa/networking';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard, validateSettings } from '@europa/terrain';
 import type {
@@ -631,7 +631,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             // registration) is caught and returned as a recoverable
             // error. The caller rolls back the seat/session so the
             // match returns to its pre-join state.
-            const message = err instanceof Error ? err.message : 'auto-start failed';
+            const message = formatError(err);
             return {
                 ok: false,
                 error: makeError('internal_error', `auto-start failed: ${message}`),
