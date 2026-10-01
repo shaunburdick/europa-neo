@@ -59,8 +59,7 @@ fog-of-war boundaries remain protected.
   report.
 - Review HOLD items were remediated: Feature 004 mirrors synchronized, MatchId
   admission wording clarified, stale console comments corrected, checker
-  allow/deny harness added, and ID security assertions updated. Commits
-  `4df2eb3`, `b747764`, `6727836`, and `ffdba6c` landed.
+  allow/deny harness added, and ID security assertions updated.
 
 ## C-008 residual sweep (2026-08-31)
 

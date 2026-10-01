@@ -5,7 +5,7 @@
 - **Phase**: PR open — https://github.com/shaunburdick/europa-neo/pull/159 (all CI
   checks green). Waves 0–8 complete; independent pre-PR code-quality
   (PASS-WITH-NITS) and security (PASS-WITH-FINDINGS) reviews completed and all
-  merge-blocking findings remediated (`b3f4133`). Tracking checkboxes reconciled
+  merge-blocking findings remediated. Tracking checkboxes reconciled
   post-review. Merging is the owner's decision.
 - **Coordination anchor**: Feature 010 existing directory, nested planning bundle.
 - **Branch**: `issue-74-numeric-playerid`.
@@ -13,13 +13,13 @@
 
 ### Progress log
 
-- **Foundation committed** (`9bb035c`): amended specs 001/002/003/004/005/006/010/013/015,
+- **Foundation complete**: amended specs 001/002/003/004/005/006/010/013/015,
   the phase 4–5 coordination bundle, and the Wave 0 guard.
 - **Wave 0 — complete**: baseline recorded in `quickstart.md`; full typed
   inventory in `inventory.md`; guard at `packages/core/tests/identity-migration-guard.test.ts`.
   Guard had a `*/`-in-comment parse defect (never ran) — repaired in Wave 1
   (comment syntax only, logic intact). It now fails as intended until migration lands.
-- **Wave 1 — complete** (`03929c5`): `@europa/core` canonical identity primitive.
+- **Wave 1 — complete**: `@europa/core` canonical identity primitive.
   Branded `PlayerId`/`GuestPlayerId`, exact constants, guards/parsers, injectable
   CSPRNG generator with bounded collision retry and fail-closed entropy.
   `ENGINE_API_VERSION` bumped `0.1.0 → 0.2.0`. Core unit 98 passing; player-id
@@ -88,7 +88,7 @@
    and the sample fixture + README hash were regenerated for the new layout.
 
 - **Wave 4 — complete (terrain + fog boundaries, T019–T023)**:
-  - **Terrain (T019–T020)** — `49b7fbb` + `17484f3`: `@europa/terrain` is now
+  - **Terrain (T019–T020)**: `@europa/terrain` is now
     identity-agnostic. `CityPlacement.owner` and `startingCitiesByPlayer` keys
     are 1-based dense numeric placement slots; the branded `PlayerId`
     re-export was dropped; both contract mirrors, `types.ts`, README, and the
@@ -97,7 +97,7 @@
     generated board bytes depend only on seed/size/player-count/settings, not
     on ID values (same starting-city slots across different valid ID orderings).
     Terrain 427 tests green.
-  - **Fog (T021–T022)** — `9058504`: every visibility computation resolves the
+  - **Fog (T021–T022)**: every visibility computation resolves the
     universal `PlayerId` through `world.playerRegistry` via the single audited
     seam `resolvePlayerOwnerByte` **before** any board scan; unknown, forged,
     malformed, or numeric IDs fail closed to an empty visible set/view (never a
@@ -105,7 +105,7 @@
     seat reassignment preserve correct view association (spec v1.5
     FR-010/FR-011). New `tests/unit/player-identity.test.ts` plus migrated
     fixtures. Fog 100 tests green.
-   - **T023** — `88a91c2`: re-ran the terrain/fog source-to-spec contract-drift
+   - **T023** — re-ran the terrain/fog source-to-spec contract-drift
      and strict-conformance programs and both strict typechecks — all green; the
      repo-level identity guard shows **zero terrain/fog violations** (remaining
      failures are the later networking/matchmaking/console waves). No

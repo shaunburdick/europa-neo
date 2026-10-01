@@ -23,7 +23,7 @@ Per `plan.md` §"Project Structure" (monorepo root). The terrain package lives a
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Bootstrap the `packages/terrain/` package scaffolding on top of feature 001's already-bootstrapped monorepo (root `pnpm-workspace.yaml`, root `tsconfig.base.json`, root `biome.json`, and root `package.json` `catalog:` were landed in feature 001's Phase 1, commit `dd07635` and earlier). No business logic yet.
+**Purpose**: Bootstrap the `packages/terrain/` package scaffolding on top of feature 001's already-bootstrapped monorepo (root `pnpm-workspace.yaml`, root `tsconfig.base.json`, root `biome.json`, and root `package.json` `catalog:` were landed in feature 001's Phase 1). No business logic yet.
 
 **⚠️ NOTE**: Tasks T001–T004 are **verification/audit** tasks only — they confirm feature 001's root configs already expose the pinned versions and workspace registration that terrain will consume. They do NOT rewrite the root files (commit-bound per `git-safety`). Tasks T005–T010 create the new `packages/terrain/` files.
 

@@ -151,7 +151,7 @@ not be created. No application source or tests are changed during phases 4–5.
 # Issue #34: Shareable Match Links — Copy-Link UX & Deep-Link Onboarding
 
 **Branch**: `issue-34-shareable-match-links`
-**Spec amendment**: spec 010 v1.8 (commit `55ead09`)
+**Spec amendment**: spec 010 v1.8
 **Date**: 2026-09-06
 
 ## Summary

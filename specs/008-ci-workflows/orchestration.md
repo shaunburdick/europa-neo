@@ -10,19 +10,19 @@ Fix coverage configurations so they measure what they claim (a11y glob, src/inte
 
 ## Task Wave Progress
 
-### Wave 1 — Coverage Config Fixes — ✅ Complete (commit 9295146)
+### Wave 1 — Coverage Config Fixes — ✅ Complete
 - T-001: Fix a11y glob in vitest.config.coverage.ts ✅
 - T-002: Remove src/internal/** from vitest.config.ts ✅
 - T-003: Remove src/internal/** from vitest.config.browser.ts ✅
 - T-004: Remove src/internal/** from vitest.config.coverage.ts + per-file exclusions ✅
 - T-005: Verify coverage gate passes ✅ (89.27% stmts, 82.77% branches, 86.79% funcs, 89.26% lines)
 
-### Wave 2 — CI Workflow Changes — ✅ Complete (commit c456fcf)
+### Wave 2 — CI Workflow Changes — ✅ Complete
 - T-006: Add design-coverage job ✅
 - T-007: Add version-coverage job ✅
 - T-008: Add orphaned-config guard ✅
 
-### Wave 3 — Golden Fixture Replacement — ✅ Complete (commit a10a16a)
+### Wave 3 — Golden Fixture Replacement — ✅ Complete
 - T-009: Rewrite generate-determinism-golden.ts ✅
 - T-010: Rewrite determinism.test.ts ✅
 - T-011: Delete golden-1000-tick.json ✅ (1.7 MB removed)

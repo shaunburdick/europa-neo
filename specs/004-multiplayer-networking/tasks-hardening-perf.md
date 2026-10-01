@@ -1,7 +1,7 @@
 # Tasks: Admission Hardening (#151) + Hot-Path Performance (#135)
 
 **Input**: Design documents from `specs/004-multiplayer-networking/plan-hardening-perf.md`, `research-hardening-perf.md`, `data-model-hardening-perf.md`
-**Prerequisites**: Specs amended at `e97c8e5` (spec 004 v1.6, spec 001 v1.10, spec 003 v1.5, spec 006 v1.3)
+**Prerequisites**: Specs amended (spec 004 v1.6, spec 001 v1.10, spec 003 v1.5, spec 006 v1.3)
 **Branch**: `networking-fixes`
 
 **Tests**: REQUIRED. Constitution Principle III mandates ≥80% coverage. Each wave ends with a verification checkpoint. Tests are interleaved with implementation.
