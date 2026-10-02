@@ -66,7 +66,7 @@ describe('createLogger', () => {
             expect(parsed.context).toEqual({ matchId: 'm-abc', playerCount: 2 });
         });
 
-        it('sanitizes message and top-level string context values before JSON serialization', () => {
+        it('sanitizes message and serialized context strings, including nested and toJSON values', () => {
             const lines: string[] = [];
             const stdout = (data: string) => {
                 lines.push(data);
@@ -80,7 +80,8 @@ describe('createLogger', () => {
             logger.info(unsafeText, {
                 unsafe: unsafeText,
                 count: 3,
-                nested: { value: 'unchanged' },
+                nested: { value: unsafeText },
+                hostile: { toJSON: () => unsafeText },
             });
 
             const line = first(lines);
@@ -89,7 +90,8 @@ describe('createLogger', () => {
             expect(parsed.context).toEqual({
                 unsafe: sanitizedText,
                 count: 3,
-                nested: { value: 'unchanged' },
+                nested: { value: sanitizedText },
+                hostile: sanitizedText,
             });
             for (const character of unsafeCharacters) {
                 expect(line).not.toContain(character);

@@ -361,16 +361,12 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
                 const ctxStr = formatPrettyContext(contextFields);
                 dest(`[${timestamp}] ${levelPad} ${sanitizeLogText(message)}${ctxStr}\n`);
             } else {
-                const jsonMessage = sanitizeLogText(message);
-                for (const [key, value] of Object.entries(contextFields)) {
-                    if (typeof value === 'string') {
-                        contextFields[key] = sanitizeLogText(value);
-                    }
-                }
+                const sanitizeJsonValue = (_key: string, value: unknown): unknown =>
+                    typeof value === 'string' ? sanitizeLogText(value) : value;
                 const envelope: Record<string, unknown> = {
                     timestamp,
                     level: msgLevel,
-                    message: jsonMessage,
+                    message,
                 };
                 // An unreadable caller context still counts as "context was
                 // provided": emit `{}` rather than omitting the key.
@@ -378,7 +374,7 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
                     envelope['context'] = contextFields;
                 }
                 try {
-                    dest(`${JSON.stringify(envelope)}\n`);
+                    dest(`${JSON.stringify(envelope, sanitizeJsonValue)}\n`);
                 } catch (err) {
                     if (!stringifyFailed) {
                         stringifyFailed = true;
@@ -397,7 +393,7 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
                     // dropping the key, so consumers can distinguish a
                     // serialization failure from "caller passed no context".
                     envelope['context'] = {};
-                    dest(`${JSON.stringify(envelope)}\n`);
+                    dest(`${JSON.stringify(envelope, sanitizeJsonValue)}\n`);
                 }
             }
         } catch {
