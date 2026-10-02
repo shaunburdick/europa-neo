@@ -361,10 +361,16 @@ export function createLogger(opts?: CreateLoggerOptions): Logger {
                 const ctxStr = formatPrettyContext(contextFields);
                 dest(`[${timestamp}] ${levelPad} ${sanitizeLogText(message)}${ctxStr}\n`);
             } else {
+                const jsonMessage = sanitizeLogText(message);
+                for (const [key, value] of Object.entries(contextFields)) {
+                    if (typeof value === 'string') {
+                        contextFields[key] = sanitizeLogText(value);
+                    }
+                }
                 const envelope: Record<string, unknown> = {
                     timestamp,
                     level: msgLevel,
-                    message,
+                    message: jsonMessage,
                 };
                 // An unreadable caller context still counts as "context was
                 // provided": emit `{}` rather than omitting the key.

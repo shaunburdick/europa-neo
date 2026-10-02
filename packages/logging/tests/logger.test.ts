@@ -66,6 +66,36 @@ describe('createLogger', () => {
             expect(parsed.context).toEqual({ matchId: 'm-abc', playerCount: 2 });
         });
 
+        it('sanitizes message and top-level string context values before JSON serialization', () => {
+            const lines: string[] = [];
+            const stdout = (data: string) => {
+                lines.push(data);
+            };
+            const logger = createLogger({ format: 'json', stdout });
+            const unsafeCharacters =
+                '\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069\u2028\u2029\u0085\u00AD\u2060\u009F';
+            const unsafeText = `before${unsafeCharacters}after`;
+            const sanitizedText = `before${' '.repeat([...unsafeCharacters].length)}after`;
+
+            logger.info(unsafeText, {
+                unsafe: unsafeText,
+                count: 3,
+                nested: { value: 'unchanged' },
+            });
+
+            const line = first(lines);
+            const parsed = JSON.parse(line) as Record<string, unknown>;
+            expect(parsed.message).toBe(sanitizedText);
+            expect(parsed.context).toEqual({
+                unsafe: sanitizedText,
+                count: 3,
+                nested: { value: 'unchanged' },
+            });
+            for (const character of unsafeCharacters) {
+                expect(line).not.toContain(character);
+            }
+        });
+
         it('omits context key entirely when no context fields are provided', () => {
             const lines: string[] = [];
             const stdout = (data: string) => {
