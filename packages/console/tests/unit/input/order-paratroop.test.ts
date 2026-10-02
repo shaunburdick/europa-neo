@@ -6,7 +6,7 @@
  *     OrderParatroop with the correct source and target;
  *   · `h` is the alias (both route through the same builder);
  *   · localPreflightOrder rejects out-of-range / water targets BEFORE
- *     sendOrder can be called (no store effect, no wire traffic);
+ *     sendOrder can be called (feedback only, no wire traffic);
  *   · enemy-owned targets are NOT preflight-rejected.
  */
 
@@ -52,7 +52,7 @@ function makeStore(): { readonly store: ConsoleStore; readonly client: FakeMatch
 }
 
 function cursorIn(fx: number, fy: number): CursorTarget {
-    return hitTest({ x: (10 + fx) * DEFAULT_CAMERA.zoom, y: (10 + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA);
+    return hitTest({ x: (10 + fx) * DEFAULT_CAMERA.zoom, y: (10 + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA, 16);
 }
 
 describe('fireParatroop (p / h chain)', () => {
@@ -87,9 +87,13 @@ describe('fireParatroop (p / h chain)', () => {
             reason: { kind: 'water_target', coord: { x: 11, y: 12 } },
         });
         await Promise.resolve();
-        // No feedback appended, no rejection recorded, no wire message.
+        // The local rejection is surfaced without server rejection history or wire traffic.
         expect(client.orders).toHaveLength(0);
-        expect(store.getState().feedback).toEqual(before.feedback);
+        expect(store.getState().feedback).not.toEqual(before.feedback);
+        expect(store.getState().feedback.at(-1)).toMatchObject({
+            text: "Can't target a water cell",
+            kind: 'warning',
+        });
         expect(store.getState().rejectedOrders).toEqual(before.rejectedOrders);
     });
 

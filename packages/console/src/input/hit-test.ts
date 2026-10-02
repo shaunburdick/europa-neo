@@ -63,21 +63,22 @@ export function regionFromDirection(direction: Direction): CellRegion {
  *   cell.x = floor((screen.x + viewportOffset.x) / zoom)
  *   subcellX = ((screen.x + viewportOffset.x) / zoom) - cell.x   // [0, 1)
  *
- * Points left of or above the board origin yield `cell: null` (the
- * cursor is over chrome / void); negative cells are never returned.
+ * Points outside the board yield `cell: null` (the cursor is over
+ * chrome / void); negative cells are never returned.
  *
  * @param screen Screen-space point (CSS pixels, canvas top-left origin).
  * @param camera Current camera (zoom = px per cell, pan = board offset).
+ * @param boardSize Square board width/height in cells. Both axes are
+ *                  restricted to `[0, boardSize)`.
  * @param viewportOffset Board-space offset of the container's top-left
  *                       corner. Accounts for centering when the board
  *                       is smaller than the container (issue #76).
- *                       Defaults to `{-pan.x, -pan.y}` for backward
- *                       compatibility with callers that predate the
- *                       viewport-offset fix.
+ *                       Defaults to `{-pan.x, -pan.y}`.
  */
 export function hitTest(
     screen: ScreenPoint,
     camera: CameraState,
+    boardSize: number,
     viewportOffset?: { readonly x: number; readonly y: number },
 ): CursorTarget {
     // When viewportOffset is not supplied, fall back to the legacy
@@ -91,7 +92,14 @@ export function hitTest(
     const cellX = Math.floor(boardX);
     const cellY = Math.floor(boardY);
 
-    if (cellX < 0 || cellY < 0 || !Number.isFinite(cellX) || !Number.isFinite(cellY)) {
+    if (
+        cellX < 0 ||
+        cellY < 0 ||
+        cellX >= boardSize ||
+        cellY >= boardSize ||
+        !Number.isFinite(cellX) ||
+        !Number.isFinite(cellY)
+    ) {
         return { screen, cell: null, region: null, subcell: null };
     }
 

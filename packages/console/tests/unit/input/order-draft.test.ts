@@ -17,8 +17,9 @@ import { describe, expect, test } from 'vitest';
 
 import { DEFAULT_CAMERA, DEFAULT_INPUT_MAPPING } from '../../../src/config';
 import { hitTest } from '../../../src/input/hit-test';
-import { shouldIgnoreKeyEvent, translateKey } from '../../../src/input/order-draft';
-import type { CursorTarget, Direction, PlayerView } from '../../../src/state/types';
+import { OrderDraftController, shouldIgnoreKeyEvent, translateKey } from '../../../src/input/order-draft';
+import { createConsoleStore } from '../../../src/state/store';
+import type { ConsoleState, CursorTarget, Direction, PlayerView } from '../../../src/state/types';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
 
 /** Friendly anchor cell with an existing north pipe. */
@@ -52,7 +53,7 @@ function liveState(): ConsoleState {
 
 /** Cursor sample hovering fraction `(fx, fy)` inside cell (cx, cy). */
 function cursorIn(cx: number, cy: number, fx: number, fy: number): CursorTarget {
-    return hitTest({ x: (cx + fx) * DEFAULT_CAMERA.zoom, y: (cy + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA);
+    return hitTest({ x: (cx + fx) * DEFAULT_CAMERA.zoom, y: (cy + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA, 16);
 }
 
 const FRESH = 10; // ms — well inside CURSOR_STALE_MS
@@ -164,6 +165,23 @@ describe('paratroop / gun through the preflight chain (US3 interplay)', () => {
             kind: 'ignore',
             reason: 'preflight-rejected',
             detail: { kind: 'water_target', coord: { x: 11, y: 12 } },
+        });
+    });
+
+    test('keyboard preflight rejection uses the standard warning feedback path', () => {
+        const store = createConsoleStore(liveState());
+        const controller = new OrderDraftController(store);
+        controller.notePointer(cursorIn(10, 10, 0.65, 0.85), performance.now());
+        controller.attach();
+        try {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', bubbles: true, cancelable: true }));
+        } finally {
+            controller.dispose();
+        }
+
+        expect(store.getState().feedback.at(-1)).toMatchObject({
+            text: "Can't target a water cell",
+            kind: 'warning',
         });
     });
 

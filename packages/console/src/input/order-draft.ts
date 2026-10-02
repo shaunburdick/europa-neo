@@ -387,6 +387,9 @@ export class OrderDraftController {
         if (outcome.kind === 'action') {
             event.preventDefault();
             this.store.dispatch(outcome.action);
+        } else if (outcome.reason === 'preflight-rejected' && outcome.detail !== undefined) {
+            event.preventDefault();
+            this.store.dispatch({ kind: 'localOrderRejected', reason: outcome.detail });
         }
     }
 }

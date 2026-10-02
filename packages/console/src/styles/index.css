@@ -169,6 +169,22 @@ body {
     background: var(--europa-pipe-color);
 }
 
+/* Stalled pipes use an actual outline path, not a filled triangle with
+   a different color. The SVG has fixed geometry and no filled interior,
+   matching the canvas renderer's hollow triangle treatment. */
+.europa-pipe[data-slope="stalled"] {
+    clip-path: none;
+    background: none;
+}
+
+.europa-pipe__hollow-shape {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
 /* City marker dot (redundant with the city outline inline style). */
 .europa-cell__city-dot {
     position: absolute;

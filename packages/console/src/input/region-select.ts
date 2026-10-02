@@ -237,7 +237,12 @@ export class RegionSelectController {
     private handleMove(event: PointerEvent): void {
         const state = this.store.getState();
         const viewportOffset = this.getViewportOffset();
-        const target = hitTest(this.relativePoint(event), state.camera, viewportOffset);
+        const target = hitTest(
+            this.relativePoint(event),
+            state.camera,
+            state.latestView?.config.boardSize ?? 0,
+            viewportOffset,
+        );
         if (this.onCursor !== undefined) {
             this.onCursor(target, performance.now());
         }
@@ -262,8 +267,16 @@ export class RegionSelectController {
         event.preventDefault();
         const state = this.store.getState();
         const viewportOffset = this.getViewportOffset();
-        const target = hitTest(this.relativePoint(event), state.camera, viewportOffset);
-        const button = BUTTON_BY_INDEX[event.button] ?? 'left';
+        const target = hitTest(
+            this.relativePoint(event),
+            state.camera,
+            state.latestView?.config.boardSize ?? 0,
+            viewportOffset,
+        );
+        const button = BUTTON_BY_INDEX[event.button];
+        if (button === undefined) {
+            return;
+        }
         const decision = decideRegionClick({
             target,
             button,
