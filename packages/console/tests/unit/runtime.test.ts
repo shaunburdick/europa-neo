@@ -25,7 +25,7 @@ import type {
     QoLSettings,
     SessionToken,
 } from '../../state/types';
-import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../fixtures/player-view';
+import { buildCellView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -502,7 +502,10 @@ function emptyView(): import('../../state/types').PlayerView {
     return {
         player: TEST_PLAYER_1,
         tick: 1,
-        visibleCells: [],
+        visibleCells: [
+            buildCellView({ coord: { x: 3, y: 8 }, owner: TEST_PLAYER_1 }),
+            buildCellView({ coord: { x: 3, y: 7 } }),
+        ],
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: 16,

@@ -6,8 +6,9 @@
  *
  *     next = reduce(state, action)
  *
- * The reducer takes a `ConsoleAction` (either a `PlayerAction` or a
- * `NetEvent` from the network layer) and returns the next state.
+ * The reducer takes a `ConsoleAction` (a `PlayerAction`, a `NetEvent`
+ * from the network layer, or a local preflight rejection signal) and
+ * returns the next state.
  *
  * Why a pure reducer?
  *   - Testable without a browser. Unit tests feed actions in and
@@ -152,11 +153,14 @@ export type NetEvent =
 
 /**
  * Discriminated union of every action the reducer accepts. Combines
- * `PlayerAction` (from the input layer) with `NetEvent` (from the
- * network layer). The runtime dispatches one of these per user /
- * network event.
+ * `PlayerAction` (from the input layer), `NetEvent` (from the network
+ * layer), and a local preflight rejection signal for the standard
+ * feedback path.
  */
-export type ConsoleAction = PlayerAction | NetEvent;
+export type ConsoleAction =
+  | PlayerAction
+  | NetEvent
+  | { readonly kind: 'localOrderRejected'; readonly reason: ValidationError };
 
 // ----------------------------------------------------------------------------
 // Reducer effect (side effects the runtime should perform)

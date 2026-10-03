@@ -53,6 +53,7 @@ import type { ConsoleStore } from '../state/store';
 import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
 import { SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
+import { isHelpToggleKey } from '../ui/help-hotkey';
 import { Sidebar } from '../ui/sidebar';
 import { TargetingOverlay } from '../ui/targeting-overlay';
 import { WaitingOverlay } from '../ui/waiting-overlay';
@@ -410,21 +411,7 @@ export function App({
     const helpButtonRef = useRef<HTMLButtonElement | null>(null);
     useEffect(() => {
         const handleHelpToggle = (e: KeyboardEvent): void => {
-            if (e.key !== '?' || e.ctrlKey || e.metaKey || e.altKey) {
-                return;
-            }
-            // Reuse the same guard as the HotkeyController: suppress
-            // when focus is inside interactive chrome (buttons, inputs,
-            // toolbars, contenteditable) so ? inside the modal's close
-            // button doesn't re-toggle.
-            const target = e.target;
-            if (
-                target instanceof Element &&
-                target.closest('button, a, input, textarea, select, [role="toolbar"]') !== null
-            ) {
-                return;
-            }
-            if (target instanceof HTMLElement && target.isContentEditable) {
+            if (!isHelpToggleKey(e)) {
                 return;
             }
             e.preventDefault();

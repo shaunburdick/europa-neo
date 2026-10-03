@@ -53,9 +53,9 @@ describe('zoomedCamera', () => {
         const cursor = { x: 200, y: 140 };
         const next = zoomedCamera(BASE, -100, cursor, BOARD);
         // Board point under the cursor before…
-        const before = hitTest(cursor, BASE);
+        const before = hitTest(cursor, BASE, BOARD.width);
         // …and after.
-        const after = hitTest(cursor, next);
+        const after = hitTest(cursor, next, BOARD.width);
         expect(after.cell).toEqual(before.cell);
         expect(after.subcell?.x).toBeCloseTo(before.subcell?.x ?? 0, 6);
         expect(after.subcell?.y).toBeCloseTo(before.subcell?.y ?? 0, 6);
@@ -107,7 +107,7 @@ describe('hitTest accuracy across zoom levels', () => {
         for (const zoom of [CONSOLE_CONSTANTS.minCellPx, 32, CONSOLE_CONSTANTS.maxCellPx]) {
             const camera: CameraState = { ...BASE, zoom };
             const target = { x: 3.5 * zoom, y: 7.25 * zoom };
-            const result = hitTest(target, camera);
+            const result = hitTest(target, camera, BOARD.width);
             expect(result.cell, `zoom ${zoom}`).toEqual({ x: 3, y: 7 });
             expect(result.subcell?.x).toBeCloseTo(0.5, 6);
             expect(result.subcell?.y).toBeCloseTo(0.25, 6);
@@ -118,7 +118,7 @@ describe('hitTest accuracy across zoom levels', () => {
         const camera: CameraState = pannedCamera(zoomedCamera(BASE, -100, { x: 128, y: 128 }, BOARD), 30, -15, BOARD);
         // Any point on-screen resolves through the current transform.
         const probe = { x: 200, y: 200 };
-        const view = hitTest(probe, camera);
+        const view = hitTest(probe, camera, BOARD.width);
         if (view.cell !== null) {
             // Round trip: forward-map the resolved cell back to screen.
             const screenX = camera.pan.x + (view.cell.x + (view.subcell?.x ?? 0)) * camera.zoom;

@@ -100,10 +100,75 @@ describe('localPreflightOrder (Q-U05)', () => {
     it('rejects pipe/reserves gestures on unowned or unseen cells', () => {
         const onEnemy: Order = { kind: 'setPipe', player: 1, cell: { x: 7, y: 5 }, direction: 'N' };
         expect(localPreflightOrder(onEnemy, VIEW, 1)).toMatchObject({ kind: 'not_owner' });
+        const clearOnEnemy: Order = { kind: 'clearPipe', player: 1, cell: { x: 7, y: 5 }, direction: 'N' };
+        expect(localPreflightOrder(clearOnEnemy, VIEW, 1)).toMatchObject({ kind: 'not_owner' });
+        const unseenClear: Order = { kind: 'clearPipe', player: 1, cell: { x: 0, y: 0 }, direction: 'N' };
+        expect(localPreflightOrder(unseenClear, VIEW, 1)).toMatchObject({ kind: 'out_of_bounds' });
         const unseen: Order = { kind: 'clearAllPipes', player: 1, cell: { x: 0, y: 0 } };
         expect(localPreflightOrder(unseen, VIEW, 1)).toMatchObject({ kind: 'out_of_bounds' });
         const onWater: Order = { kind: 'setPipe', player: 1, cell: { x: 6, y: 5 }, direction: 'N' };
         expect(localPreflightOrder(onWater, WATER_VIEW, 1)).toMatchObject({ kind: 'water_target' });
+    });
+
+    it('rejects a directional pipe whose visible destination is water', () => {
+        const intoWater: Order = { kind: 'setPipe', player: 1, cell: { x: 5, y: 5 }, direction: 'E' };
+        expect(localPreflightOrder(intoWater, WATER_VIEW, 1)).toMatchObject({
+            kind: 'water_target',
+            coord: { x: 6, y: 5 },
+        });
+        const exclusiveIntoWater: Order = {
+            kind: 'setPipesExclusive',
+            player: 1,
+            cell: { x: 5, y: 5 },
+            direction: 'E',
+        };
+        expect(localPreflightOrder(exclusiveIntoWater, WATER_VIEW, 1)).toMatchObject({
+            kind: 'water_target',
+            coord: { x: 6, y: 5 },
+        });
+    });
+
+    it('allows clearing a pipe when its conceptual destination is water or off-board', () => {
+        const intoWater: Order = { kind: 'clearPipe', player: 1, cell: { x: 5, y: 5 }, direction: 'E' };
+        expect(localPreflightOrder(intoWater, WATER_VIEW, 1)).toBeNull();
+
+        const edgeView = viewWith([cell(0, 5, 1, 10)]);
+        const offBoard: Order = { kind: 'clearPipe', player: 1, cell: { x: 0, y: 5 }, direction: 'W' };
+        expect(localPreflightOrder(offBoard, edgeView, 1)).toBeNull();
+    });
+
+    it('still rejects setting a pipe whose destination is off-board', () => {
+        const edgeView = viewWith([cell(0, 5, 1, 10)]);
+        const offBoard: Order = { kind: 'setPipe', player: 1, cell: { x: 0, y: 5 }, direction: 'W' };
+        expect(localPreflightOrder(offBoard, edgeView, 1)).toMatchObject({
+            kind: 'out_of_bounds',
+            coord: { x: -1, y: 5 },
+        });
+        const exclusiveOffBoard: Order = {
+            kind: 'setPipesExclusive',
+            player: 1,
+            cell: { x: 0, y: 5 },
+            direction: 'W',
+        };
+        expect(localPreflightOrder(exclusiveOffBoard, edgeView, 1)).toMatchObject({
+            kind: 'out_of_bounds',
+            coord: { x: -1, y: 5 },
+        });
+    });
+
+    it('rejects reserve orders on water, enemy, neutral, and unseen cells', () => {
+        expect(
+            localPreflightOrder({ kind: 'setReserves', player: 1, cell: { x: 6, y: 5 }, percent: 3 }, WATER_VIEW, 1),
+        ).toMatchObject({ kind: 'water_target' });
+        expect(
+            localPreflightOrder({ kind: 'setReserves', player: 1, cell: { x: 7, y: 5 }, percent: 3 }, VIEW, 1),
+        ).toMatchObject({ kind: 'not_owner' });
+        expect(
+            localPreflightOrder({ kind: 'setReserves', player: 1, cell: { x: 8, y: 5 }, percent: 3 }, VIEW, 1),
+        ).toMatchObject({ kind: 'not_owner' });
+        expect(
+            localPreflightOrder({ kind: 'setReserves', player: 1, cell: { x: 0, y: 0 }, percent: 3 }, VIEW, 1),
+        ).toMatchObject({ kind: 'out_of_bounds' });
     });
 
     it('rejects reserves percentages outside 0..9', () => {
@@ -124,6 +189,21 @@ describe('localPreflightOrder (Q-U05)', () => {
             localPreflightOrder({ kind: 'setPipe', player: 1, cell: { x: 5, y: 5 }, direction: 'N' }, VIEW, 1),
         ).toBeNull();
         expect(localPreflightOrder({ kind: 'surrender', player: 1 }, VIEW, 1)).toBeNull();
+    });
+
+    it('accepts pipe and reserve orders on a city owned without troops', () => {
+        const ownedCity = {
+            ...cell(5, 5, null, 0),
+            cityOwner: 1,
+        };
+        const cityView = viewWith([ownedCity]);
+
+        expect(
+            localPreflightOrder({ kind: 'setPipe', player: 1, cell: { x: 5, y: 5 }, direction: 'N' }, cityView, 1),
+        ).toBeNull();
+        expect(
+            localPreflightOrder({ kind: 'setReserves', player: 1, cell: { x: 5, y: 5 }, percent: 5 }, cityView, 1),
+        ).toBeNull();
     });
 
     it('is fast enough to sit on the input path (<0.1ms budget is perf-tested)', () => {

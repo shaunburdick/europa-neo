@@ -227,13 +227,17 @@ export function buildMapView(args: BuildMapViewArgs): MapView {
         if (info.pipes.size > 0) {
             const pipeSlopes = new Map<Direction, PipeSlope>();
             const pipeIntensities = new Map<Direction, number>();
+            const numPipes = info.pipes.size;
             for (const direction of info.pipes) {
                 const dst = destinationCoord(info.coord, direction);
                 const dstInfo = rawCells.get(coordKey(dst));
                 const dstElev = dstInfo?.elevation ?? null;
-                const slope = classifyPipeSlope(info.elevation, dstElev, PIPE_SLOPE_CONSTANTS);
+                const slope = classifyPipeSlope(info.elevation, dstElev, numPipes, PIPE_SLOPE_CONSTANTS);
                 pipeSlopes.set(direction, slope);
-                pipeIntensities.set(direction, pipeIntensity(info.elevation, dstElev, slope, PIPE_SLOPE_CONSTANTS));
+                pipeIntensities.set(
+                    direction,
+                    pipeIntensity(info.elevation, dstElev, slope, numPipes, PIPE_SLOPE_CONSTANTS),
+                );
             }
             next = { ...next, pipeSlopes, pipeIntensities };
         }

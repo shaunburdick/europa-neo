@@ -33,8 +33,8 @@ import { createOrderBridge } from '../../../src/state/order-actions';
 import { reduce } from '../../../src/state/reducer';
 import type { ConsoleStore } from '../../../src/state/store';
 import { createConsoleStore } from '../../../src/state/store';
-import type { CameraState, Direction, MapView, PlayerView, ReducerEffect } from '../../../src/state/types';
-import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
+import type { CameraState, CellView, Direction, MapView, PlayerView, ReducerEffect } from '../../../src/state/types';
+import { buildCellView, buildPlayerView, createLiveConsoleState, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 /** The focused friendly cell shared by every scenario. */
 const CELL = { x: 5, y: 5 };
@@ -177,6 +177,33 @@ describe('US4 AC-1: pressing 7 issues the order + confirmation', () => {
             cell: CELL,
             percent: 7,
         });
+    });
+
+    test('invalid water and non-owned reserve intents emit no wire order', async () => {
+        const view = makeView(0);
+        const invalidViews: readonly PlayerView[] = [
+            {
+                ...view,
+                visibleCells: view.visibleCells.map((cell) => ({
+                    ...cell,
+                    cell: { ...cell.cell, terrain: 'water' as const },
+                })),
+            },
+            {
+                ...view,
+                visibleCells: view.visibleCells.map((cell: CellView) => ({
+                    ...cell,
+                    troopOwner: TEST_PLAYER_2,
+                    cityOwner: null,
+                })),
+            },
+        ];
+        for (const invalidView of invalidViews) {
+            const { store, client } = makeStore(invalidView);
+            store.dispatch({ kind: 'setReserves', cell: CELL, percent: 7 });
+            await Promise.resolve();
+            expect(client.orders).toHaveLength(0);
+        }
     });
 });
 

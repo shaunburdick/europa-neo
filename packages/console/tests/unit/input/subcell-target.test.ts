@@ -93,7 +93,7 @@ function state(): ConsoleState {
 }
 
 function cursorIn(fx: number, fy: number): CursorTarget {
-    return hitTest({ x: (10 + fx) * DEFAULT_CAMERA.zoom, y: (10 + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA);
+    return hitTest({ x: (10 + fx) * DEFAULT_CAMERA.zoom, y: (10 + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA, 16);
 }
 
 describe('buildAbilityAction (US3 AC-1/2/3)', () => {

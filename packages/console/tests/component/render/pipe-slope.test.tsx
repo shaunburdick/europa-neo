@@ -54,6 +54,11 @@ function closeTo(pixel: Uint8ClampedArray, rgb: [number, number, number], tolera
     );
 }
 
+/** True when two samples have the same RGBA values, including fill/no-fill state. */
+function samePixel(first: Uint8ClampedArray, second: Uint8ClampedArray): boolean {
+    return first[0] === second[0] && first[1] === second[1] && first[2] === second[2] && first[3] === second[3];
+}
+
 /** CellView literal shorthand for the scripted view. */
 function cell(x: number, y: number, elevation: number, pipes: ReadonlySet<Direction> = new Set()): CellView {
     return {
@@ -75,11 +80,11 @@ function cell(x: number, y: number, elevation: number, pipes: ReadonlySet<Direct
  *
  *   src (1,1) elev 100 → dst (1,0) elev  50  Δ=-50  downhill
  *   src (2,1) elev 100 → dst (2,0) elev 100  Δ=  0  flat
- *   src (3,1) elev 100 → dst (3,0) elev 103  Δ=  3  uphill (rate 4)
- *   src (4,1) elev 100 → dst (4,0) elev 107  Δ=  7  stalled (rate 0)
+ *   src (3,1) elev 100 → dst (3,0) elev 103  Δ=  3  uphill (rate 9)
+ *   src (4,1) elev 100 → dst (4,0) elev 180  Δ= 80  stalled (rate 0)
  *   src (5,1) elev 100 → dst (5,0) ABSENT        fog fallback → flat
  */
-function createSlopePlayerView(): PlayerView {
+function createSlopePlayerView(includeStalledPipe = true): PlayerView {
     const visibleCells: CellView[] = [
         cell(1, 0, 50),
         cell(2, 0, 100),
@@ -88,7 +93,7 @@ function createSlopePlayerView(): PlayerView {
         cell(1, 1, 100, new Set(['N'])),
         cell(2, 1, 100, new Set(['N'])),
         cell(3, 1, 100, new Set(['N'])),
-        cell(4, 1, 100, new Set(['N'])),
+        cell(4, 1, 100, includeStalledPipe ? new Set<Direction>(['N']) : new Set<Direction>()),
         cell(5, 1, 100, new Set(['N'])),
     ];
     return {
@@ -106,8 +111,8 @@ function createSlopePlayerView(): PlayerView {
     };
 }
 
-afterEach(() => {
-    cleanup();
+afterEach(async () => {
+    await cleanup();
     clearConsoleStateForTesting();
 });
 
@@ -169,7 +174,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     // Flat (Δ=0, intensity=0)
                     const f = samplePipe(2, 1);
                     if (f === undefined || !closeTo(f, flatRgb)) return false;
-                    // Uphill (Δ=3, intensity=3/7)
+                    // Uphill (Δ=3, intensity=(12-9)/12=0.25)
                     const u = samplePipe(3, 1);
                     if (u === undefined || !closeTo(u, uphillRgb)) return false;
                     // Fog fallback (intensity=0)
@@ -181,7 +186,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
             )
             .toBe(true);
     });
-    test('stalled pipe renders in stalled color at its location', async () => {
+    test('stalled canvas pipe renders an outline with an unfilled center', async () => {
         setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
         const screen = await render(<App />);
 
@@ -196,10 +201,11 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         const { zoom } = DEFAULT_CAMERA;
         const stalledRgb = hexToRgb(PIPE_STALLED_COLOR);
         const boardPx = BOARD_SIZE * zoom;
+        const stalledCenters: Uint8ClampedArray[] = [];
 
-        // Poll for the expected pixel state: the stalled pipe at (4,1)
-        // renders in PIPE_STALLED_COLOR (hollow stroke treatment, but
-        // the stroke dominates at small sizes — verify color presence).
+        // The edge is colored while the triangle centroid shows the
+        // underlying terrain. Compare the same coordinate in a no-pipe
+        // control render because elevation creates a gradient.
         await expect
             .poll(
                 () => {
@@ -217,12 +223,59 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                         1,
                         1,
                     ).data;
-                    if (edge === undefined) return false;
-                    return closeTo(edge, stalledRgb);
+                    const stalledDepth = (zoom / 2) * 0.8;
+                    const centroid = ctx?.getImageData(
+                        Math.round(4 * zoom + zoom / 2 + offX),
+                        Math.round(1 * zoom + zoom / 2 - stalledDepth / 3 + offY),
+                        1,
+                        1,
+                    ).data;
+                    if (edge === undefined || centroid === undefined || !closeTo(edge, stalledRgb)) return false;
+                    stalledCenters.push(new Uint8ClampedArray(centroid));
+                    return true;
                 },
-                { timeout: 5000, message: 'stalled pipe renders in stalled color' },
+                { timeout: 5000, message: 'stalled pipe has a colored outline' },
             )
             .toBe(true);
+
+        await cleanup();
+        setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView(false)));
+        const controlScreen = await render(<App />);
+        await expect.element(controlScreen.getByRole('grid')).toBeInTheDocument();
+        const controlCanvas = controlScreen.container.querySelector('canvas');
+        expect(controlCanvas).not.toBeNull();
+        const controlCtx = controlCanvas?.getContext('2d');
+        expect(controlCtx).not.toBeNull();
+        const controlCenters: Uint8ClampedArray[] = [];
+        await expect
+            .poll(
+                () => {
+                    const curW = controlCanvas?.width ?? 0;
+                    const curH = controlCanvas?.height ?? 0;
+                    if (curW === 0 || curH === 0) return false;
+                    if (Number(controlCanvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
+                    const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
+                    const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
+                    const center = controlCtx?.getImageData(
+                        Math.round(4 * zoom + zoom / 2 + offX),
+                        Math.round(1 * zoom + zoom / 2 - ((zoom / 2) * 0.8) / 3 + offY),
+                        1,
+                        1,
+                    ).data;
+                    if (center === undefined) return false;
+                    controlCenters.push(new Uint8ClampedArray(center));
+                    return true;
+                },
+                { timeout: 5000, message: 'no-pipe control pixel is available' },
+            )
+            .toBe(true);
+
+        const stalledCenter = stalledCenters.at(-1);
+        const controlCenter = controlCenters.at(-1);
+        if (stalledCenter === undefined || controlCenter === undefined) {
+            throw new Error('expected stalled and no-pipe center pixels');
+        }
+        expect(samePixel(stalledCenter, controlCenter)).toBe(true);
     });
 
     test('the booted board passes an axe scan', async () => {
@@ -232,13 +285,13 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         await expectNoDomA11yViolations(document);
     });
 
-    test('DOM pipe spans have data-slope attributes matching their slope class', async () => {
+    test('DOM stalled pipe has a fixed hollow outline distinct from filled flowing triangles', async () => {
         setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
         const screen = await render(<App />);
         await expect.element(screen.getByRole('grid')).toBeInTheDocument();
 
         // Each source cell (row 1) has a single north pipe.
-        const pipeSpans = screen.container.querySelectorAll('.europa-pipe');
+        const pipeSpans = screen.container.querySelectorAll<HTMLSpanElement>('.europa-pipe');
         expect(pipeSpans.length).toBe(5);
 
         // (1,1) → downhill, (2,1) → flat, (3,1) → uphill, (4,1) → stalled, (5,1) → flat (fog)
@@ -247,6 +300,29 @@ describe('pipe slope color-coding (005 FR-013)', () => {
             const span = pipeSpans[i];
             expect(span?.getAttribute('data-slope')).toBe(expectedSlopes[i]);
         }
+        const stalled = pipeSpans.item(3);
+        const flowing = pipeSpans.item(2);
+        if (stalled === null || flowing === null) {
+            throw new Error('expected stalled and flowing pipe elements');
+        }
+        const hollowSvg = stalled.querySelector('svg.europa-pipe__hollow-shape');
+        if (hollowSvg === null) {
+            throw new Error('stalled pipe must contain its outline SVG');
+        }
+        expect(stalled.style.getPropertyValue('--pipe-tri-depth')).toBe('40%');
+        expect(getComputedStyle(stalled).clipPath).toBe('none');
+        expect(getComputedStyle(stalled).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+        expect(getComputedStyle(stalled).filter).not.toBe('none');
+        expect(getComputedStyle(stalled).filter).toBe(getComputedStyle(flowing).filter);
+        const hollowPaths = hollowSvg.querySelectorAll('path');
+        expect(hollowPaths).toHaveLength(2);
+        for (const path of hollowPaths) {
+            expect(path.getAttribute('fill')).toBe('none');
+            expect(path.getAttribute('d')).toContain('L');
+        }
+        expect(flowing.querySelector('svg.europa-pipe__hollow-shape')).toBeNull();
+        expect(getComputedStyle(flowing).clipPath).toContain('polygon');
+        expect(getComputedStyle(flowing).backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
     });
 
     test('pipe spans have --pipe-tri-depth set via inline style (intensity sizing)', async () => {

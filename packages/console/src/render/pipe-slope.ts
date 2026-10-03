@@ -99,24 +99,31 @@ export function pipeFlowRate(delta: number, perPipe: number, constants: PipeSlop
  * @param dstElev   Destination cell elevation, or `null` when the
  *                  destination is outside the visibility horizon
  *                  (fog fallback → `'flat'`, no slope claim).
+ * @param numPipes Number of outgoing pipes on the source cell.
  * @param constants The console-side constants mirror.
  * @returns The slope classification for rendering.
  */
-export function classifyPipeSlope(srcElev: number, dstElev: number | null, constants: PipeSlopeConstants): PipeSlope {
+export function classifyPipeSlope(
+    srcElev: number,
+    dstElev: number | null,
+    numPipes: number,
+    constants: PipeSlopeConstants,
+): PipeSlope {
     if (dstElev === null) {
         // Fog edge case (005 v1.2): unknown destination elevation —
         // render flat without claiming a slope.
         return 'flat';
     }
     const delta = dstElev - srcElev;
+    const perPipe = Math.floor(constants.flowRate / numPipes);
     if (delta < 0) {
         return 'downhill';
     }
     if (delta > 0) {
         // Uphill with flow rate 0 is a stalled pipe — visually
-        // distinct hollow treatment.  For single-pipe classification
-        // perPipe = flowRate, so stall at delta ≥ flowRate.
-        return pipeFlowRate(delta, constants.flowRate, constants) === 0 ? 'stalled' : 'uphill';
+        // distinct hollow treatment. The equal share depends on the
+        // source cell's outgoing pipe count.
+        return pipeFlowRate(delta, perPipe, constants) === 0 ? 'stalled' : 'uphill';
     }
     return 'flat';
 }
@@ -126,8 +133,9 @@ export function classifyPipeSlope(srcElev: number, dstElev: number | null, const
  *
  * Intensity encodes how steep the elevation gradient is, scaled to
  * the maximum meaningful delta for each slope class:
- *   - Downhill: |Δ| / flowSlopeDeltaCap (capped at 1).
- *   - Uphill:   Δ / flowRate (capped at 1).
+ *   - Downhill: (effectivePerPipe − perPipe) /
+ *     (flowDownhillStep × flowSlopeDeltaCap).
+ *   - Uphill:   (perPipe − effectivePerPipe) / perPipe.
  *   - Flat/stalled/fog: 0 (no visual intensity — flat pipes have
  *     no gradient signal; stalled pipes use the hollow treatment
  *     as their signal instead).
@@ -136,6 +144,7 @@ export function classifyPipeSlope(srcElev: number, dstElev: number | null, const
  * @param dstElev   Destination cell elevation, or `null` when outside
  *                  the visibility horizon (fog fallback → 0).
  * @param slope     Pre-classified slope (avoids re-classification).
+ * @param numPipes  Number of outgoing pipes on the source cell.
  * @param constants The console-side constants mirror.
  * @returns Normalized intensity in [0, 1].
  */
@@ -143,16 +152,18 @@ export function pipeIntensity(
     srcElev: number,
     dstElev: number | null,
     slope: PipeSlope,
+    numPipes: number,
     constants: PipeSlopeConstants,
 ): number {
     if (slope === 'flat' || slope === 'stalled' || dstElev === null) {
         return 0;
     }
     const delta = dstElev - srcElev;
+    const perPipe = Math.floor(constants.flowRate / numPipes);
+    const effectivePerPipe = pipeFlowRate(delta, perPipe, constants);
     if (slope === 'downhill') {
-        // |Δ| normalized by the downhill cap; saturates at 1.
-        return Math.min(Math.abs(delta), constants.flowSlopeDeltaCap) / constants.flowSlopeDeltaCap;
+        return (effectivePerPipe - perPipe) / (constants.flowDownhillStep * constants.flowSlopeDeltaCap);
     }
-    // slope === 'uphill': Δ normalized by flowRate; saturates at 1.
-    return Math.min(delta, constants.flowRate) / constants.flowRate;
+    // slope === 'uphill': normalize lost flow against the equal share.
+    return (perPipe - effectivePerPipe) / perPipe;
 }

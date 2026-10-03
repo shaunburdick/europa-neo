@@ -50,7 +50,7 @@ function makeStore(): { readonly store: ConsoleStore; readonly client: FakeMatch
 }
 
 function cursorIn(fx: number, fy: number): CursorTarget {
-    return hitTest({ x: (10 + fx) * DEFAULT_CAMERA.zoom, y: (10 + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA);
+    return hitTest({ x: (10 + fx) * DEFAULT_CAMERA.zoom, y: (10 + fy) * DEFAULT_CAMERA.zoom }, DEFAULT_CAMERA, 16);
 }
 
 describe('fireGun (g / o chain)', () => {
@@ -72,7 +72,7 @@ describe('fireGun (g / o chain)', () => {
         });
     });
 
-    test('water target rejects before sendOrder (no store effect)', async () => {
+    test('water target rejects before sendOrder and surfaces feedback', async () => {
         const { store, client } = makeStore();
         const outcome = fireGun({
             store,

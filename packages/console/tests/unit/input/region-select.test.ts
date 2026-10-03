@@ -7,9 +7,9 @@
  * and the resulting orders reach a FakeMatchClient with the exact
  * wire shape through the store → reducer → bridge pipeline.
  *
- * Enemy-cell clicks emit the action anyway (the engine rejects per
- * FR-006; the client preflight only blocks out-of-range
- * paratroop/gun). Shift+click is reserved for v1.1 (research.md §12)
+ * Pipe and reserve orders are locally preflighted from the visible
+ * state; other server-authoritative facts remain the engine's call.
+ * Shift+click is reserved for v1.1 (research.md §12)
  * and behaves as a plain primary click.
  */
 
@@ -42,7 +42,10 @@ function acceptanceView(): PlayerView {
             }),
             // Friendly plain cell without pipes.
             buildCellView({ coord: { x: 6, y: 5 }, elevation: 40, troops: 4, owner: 1 }),
-            // Enemy-held cell (pipes must still emit; server is authority).
+            // Visible cardinal neighbors allow local pipe preflight.
+            buildCellView({ coord: { x: 6, y: 4 }, elevation: 40 }),
+            buildCellView({ coord: { x: 6, y: 6 }, elevation: 40 }),
+            // Enemy-held cell; local ownership preflight blocks pipe orders.
             buildCellView({ coord: { x: 7, y: 5 }, elevation: 30, troops: 9, owner: 2 }),
         ],
     });
@@ -51,7 +54,7 @@ function acceptanceView(): PlayerView {
 /** Hit-test helper: screen point at fraction `(fx, fy)` inside cell (cx, cy). */
 function targetInCell(cx: number, cy: number, fx: number, fy: number): CursorTarget {
     const { zoom } = DEFAULT_CAMERA;
-    return hitTest({ x: (cx + fx) * zoom, y: (cy + fy) * zoom }, DEFAULT_CAMERA);
+    return hitTest({ x: (cx + fx) * zoom, y: (cy + fy) * zoom }, DEFAULT_CAMERA, 16);
 }
 
 describe('decideRegionClick (US2 AC-1/2)', () => {
@@ -207,13 +210,13 @@ describe('pipePresentInDirection', () => {
  * Store → reducer → bridge → fake-client pipeline: dispatching a
  * region decision's action sends the exact wire Order.
  */
-function makePipeline(): {
+function makePipeline(view: PlayerView = acceptanceView()): {
     store: ConsoleStore;
     client: FakeMatchClient;
 } {
     const client = new FakeMatchClient();
     let forward: ((effect: Parameters<ReturnType<typeof createOrderBridge>['handleEffect']>[0]) => void) | null = null;
-    const store = createConsoleStore(createLiveConsoleState(acceptanceView()), (effect) => {
+    const store = createConsoleStore(createLiveConsoleState(view), (effect) => {
         forward?.(effect);
     });
     const bridge = createOrderBridge({ client, store });
@@ -248,7 +251,7 @@ describe('region click → wire order pipeline (T049 seam)', () => {
         });
     });
 
-    test('enemy-cell clicks emit the order anyway (engine rejects per FR-006)', async () => {
+    test('enemy-cell pipe clicks are blocked by local ownership preflight', async () => {
         const { store, client } = makePipeline();
         const decision = decideRegionClick({
             target: targetInCell(7, 5, 0.75, 0.5), // enemy cell (7,5)
@@ -258,16 +261,9 @@ describe('region click → wire order pipeline (T049 seam)', () => {
             exclusiveMode: false,
             hasExistingPipe: false,
         });
-        expect(decision.kind).toBe('setPipe');
         store.dispatch(decision);
         await Promise.resolve();
-        expect(client.orders).toHaveLength(1);
-        expect(client.orders[0]?.order).toEqual({
-            kind: 'setPipe',
-            player: 1,
-            cell: { x: 7, y: 5 },
-            direction: 'E',
-        });
+        expect(client.orders).toHaveLength(0);
     });
 
     test('exclusive click produces OrderSetPipesExclusive with the clicked direction', async () => {
@@ -288,6 +284,70 @@ describe('region click → wire order pipeline (T049 seam)', () => {
             cell: { x: 5, y: 5 },
             direction: 'E',
         });
+    });
+
+    test('a pipe click into a visible water cell emits no wire order', async () => {
+        const ordinaryView = acceptanceView();
+        const waterView: PlayerView = {
+            ...ordinaryView,
+            visibleCells: ordinaryView.visibleCells.map((cell) =>
+                cell.coord.x === 5 && cell.coord.y === 5
+                    ? { ...cell, pipes: new Set<Direction>() }
+                    : cell.coord.x === 6 && cell.coord.y === 5
+                      ? { ...cell, cell: { ...cell.cell, terrain: 'water' as const } }
+                      : cell,
+            ),
+        };
+        const { store, client } = makePipeline(waterView);
+        const element = document.createElement('div');
+        Object.defineProperty(element, 'getBoundingClientRect', {
+            value: () => ({ left: 0, top: 0, right: 512, bottom: 512, width: 512, height: 512 }),
+        });
+        document.body.append(element);
+        const controller = new RegionSelectController(element, store);
+        const handle = controller.attach();
+        try {
+            element.dispatchEvent(
+                new PointerEvent('pointerdown', {
+                    clientX: (5 + 0.75) * DEFAULT_CAMERA.zoom,
+                    clientY: (5 + 0.5) * DEFAULT_CAMERA.zoom,
+                    button: 0,
+                    bubbles: true,
+                }),
+            );
+            await Promise.resolve();
+            expect(client.orders).toHaveLength(0);
+        } finally {
+            handle.dispose();
+            element.remove();
+        }
+    });
+
+    test('unsupported pointer button values do not toggle or create a pipe order', async () => {
+        const { store, client } = makePipeline();
+        const element = document.createElement('div');
+        Object.defineProperty(element, 'getBoundingClientRect', {
+            value: () => ({ left: 0, top: 0, right: 512, bottom: 512, width: 512, height: 512 }),
+        });
+        document.body.append(element);
+        const controller = new RegionSelectController(element, store);
+        const handle = controller.attach();
+        try {
+            element.dispatchEvent(
+                new PointerEvent('pointerdown', {
+                    clientX: (6 + 0.75) * DEFAULT_CAMERA.zoom,
+                    clientY: (5 + 0.5) * DEFAULT_CAMERA.zoom,
+                    button: 3,
+                    bubbles: true,
+                }),
+            );
+            await Promise.resolve();
+            expect(client.orders).toHaveLength(0);
+            expect(store.getState().selection).toBeNull();
+        } finally {
+            handle.dispose();
+            element.remove();
+        }
     });
 
     test('input disabled (not live) swallows order clicks', async () => {
