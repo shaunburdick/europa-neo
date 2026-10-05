@@ -21,20 +21,22 @@ See [Controls](./controls) for the full command tables.
 
 ## How flow works
 
-Every tick, each pipe delivers troops into the neighboring cell it points at. The delivery rate depends on the slope between the two cells (Δ = destination elevation − source elevation):
+Each cell has a total flow budget of **12 troops per tick**, split evenly among its outgoing pipes: `perPipe = floor(12 / numPipes)`. The slope then adjusts each pipe's share. Here are the per-pipe amounts for a well-supplied source cell (Δ = destination elevation − source elevation):
 
-| Slope | Flow per tick |
-| --- | --- |
-| <EuropaPipeSlope direction="downhill"></EuropaPipeSlope> Downhill (target lower) | 8–12 troops — the steeper the drop, the faster the flow (Δ=1 → 8, Δ≥5 → 12) |
-| <EuropaPipeSlope direction="flat"></EuropaPipeSlope> Flat (equal elevation) | 7 troops |
-| <EuropaPipeSlope direction="uphill"></EuropaPipeSlope> Uphill (target higher) | 6→1 troops — the steeper the climb, the slower the flow (Δ=1 → 6, Δ=6 → 1) |
-| <EuropaPipeSlope direction="stalled"></EuropaPipeSlope> Steep uphill (Δ≥7) | **0 — stalled** |
+| Outgoing pipes | Per-pipe share on flat terrain | Downhill Δ=1 / Δ≥5 | Uphill Δ=1 / stall point |
+| --- | --- | --- | --- |
+| 1 | 12 | 13 / 17 | 11 / Δ≥12 |
+| 2 | 6 | 7 / 11 | 5 / Δ≥6 |
+| 3 | 4 | 5 / 9 | 3 / Δ≥4 |
+| 4 | 3 | 4 / 8 | 2 / Δ≥3 |
 
-Flow never drains the source cell. Only the destination gains troops.
+Downhill adds up to 5 troops per pipe (`flowDownhillStep × min(|Δ|, flowSlopeDeltaCap)`). Uphill subtracts 1 per elevation step (`flowUphillStep × Δ`), down to zero. The stall point therefore depends on how many pipes leave the source cell. These are per-pipe rates; available troops, reserves, and destination capacity can limit what moves in a tick.
+
+Flow is a **transfer, not a copy**: troops sent along a pipe are removed from the source cell as the destination receives them. A source does not keep troops that it has sent.
 
 ### The uphill trap
 
-Uphill pipes are the classic new-player trap. You can lay them, and they appear on the board, but every step of climb costs speed. Gentle uphill pipes still move troops — just slowly. Steep uphill pipes (a climb of 7 or more elevation steps) stall completely and move nothing. A stalled pipe renders as a **hollow triangle** on the board, so you can spot a dead supply line at a glance. When a push stalls for no apparent reason, check whether you asked troops to walk uphill.
+Uphill pipes are the classic new-player trap. You can lay them, and they appear on the board, but every step of climb costs speed. Gentle uphill pipes still move troops — just slowly. A pipe stalls at Δ≥12 with one outgoing pipe, Δ≥6 with two, Δ≥4 with three, or Δ≥3 with four. A stalled pipe renders as a **hollow triangle** on the board, so you can spot a dead supply line at a glance. When a push stalls for no apparent reason, check the source cell's outgoing pipe count as well as the elevation.
 
 ### Two more limits
 
@@ -55,7 +57,7 @@ Each pipe triangle on the board is colored by its slope classification:
 **Intensity** encodes gradient steepness as triangle size. Stronger slopes produce bigger triangles:
 
 - **Downhill intensity**: Δ=1 produces a small triangle; Δ≥5 (the maximum bonus) produces the largest.
-- **Uphill intensity**: Δ=1 produces a small triangle; Δ≥7 (stall point) produces the largest — but stalled pipes are always fixed size with the hollow treatment instead.
+- **Uphill intensity**: size tracks the fraction of the per-pipe share lost to the climb (`min(flowUphillStep × Δ, perPipe) / perPipe`). The same Δ can look steeper when the source has more outgoing pipes; for example, Δ=2 reaches 2/3 intensity with four pipes. Stalled pipes use the fixed-size hollow treatment instead.
 - **Flat pipes** have the smallest triangles (no gradient signal).
 - At low zoom levels, a minimum triangle floor ensures pipes remain visible.
 

@@ -1,8 +1,8 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-02 (v1.8; issue #125 console input and pipe-flow contract correction)
-**Version**: 1.8
+**Last Updated**: 2026-10-05 (v1.9; issue #125 manual and preflight contract clarification)
+**Version**: 1.9
 
 **Created**: 2026-08-21
 
@@ -131,7 +131,7 @@ As a player, I want all HUD controls consolidated into a right sidebar so the ga
 - **FR-003**: The console MUST provide exclusive-pipe input (secondary button and Alt+primary/Alt+key equivalents). Pointer-button values that have no mapped action MUST be ignored and MUST NOT be interpreted as primary/left-click.
 - **FR-004**: The console MUST implement keyboard equivalents: i/j/k/l (N/W/S/E pipes), space (clear cell pipes), p/h (paratroop), g/o (gun), 0–9 (reserves).
 - **FR-005**: Paratroop/gun targeting MUST use the subcell local-map scheme: cursor position within the source cell selects destination within Chebyshev range 2, identical to the original mapping.
-- **FR-006**: The console MUST locally preflight pipe and reserve orders against deterministic validation rules derivable from the current client-visible match state, blocking any such invalid order before wire transmission while treating the server as final authority. This includes blocking pipe orders whose source or destination cell is water; applicable range and ownership validation MUST also be performed locally.
+- **FR-006**: The console MUST locally preflight pipe and reserve orders against deterministic validation rules derivable from the current client-visible match state, blocking any such invalid order before wire transmission while treating the server as final authority. This includes blocking pipe orders whose source or destination cell is water; applicable range and ownership validation MUST also be performed locally. For `setPipesExclusive`, local preflight deliberately applies stricter UX checks than current engine command validation: it rejects an out-of-board or visible-water destination even though the engine does not validate destination bounds or terrain for this order. Preserve this fail-closed console behavior unless the contract is explicitly revised.
 - **FR-007**: The console MUST display transient confirmation of reserve values and surface order rejections as unobtrusive feedback.
 - **FR-008**: The console MUST show connection/match status (connecting, live, reconnecting, surrendered/spectating, game over) at all times.
 - **FR-009**: The console MUST provide surrender (with confirm) transitioning to read-only full-visibility spectation.
@@ -483,3 +483,7 @@ suite result. Coverage remains gated at ≥80% on every metric.
 - **Local input validation**: pipe and reserve orders are preflighted against deterministic rules derivable from client-visible state; invalid water-cell pipe orders are blocked before wire transmission. Board hit-testing rejects coordinates outside `[0, boardSize)`, and unmapped pointer buttons are ignored rather than treated as primary clicks.
 - **Pipe-flow mirror**: slope classification and intensity use the engine's equal-split per-pipe share (`floor(flowRate / numPipes)`) and current flow fields. Drift coverage compares against `ENGINE_CONSTANTS`/`flowRateForDelta`, including the default multi-pipe stall boundaries. The older Clarifications v1.3 uphill intensity formula based on `flowBase / flowSlopeStep` is historical and superseded: current uphill intensity normalizes the difference between the source cell's `perPipe` share and its effective flow (`effectivePerPipe`) against that `perPipe` share, as specified in FR-013. The absorbed 024-FR-052 fixed `delta > 80` threshold remains above as historical context, superseded by feature 001 FR-007.
 - **Stalled indicator and help key**: stalled pipes are outline-only hollow triangles in both DOM and canvas render paths, with tests distinguishing the shape rather than relying on color alone. The `?` help handler shares the keyboard focus guard used by other hotkeys.
+
+### v1.9 (2026-10-05) — Intentional exclusive-pipe preflight policy (issue #125 review)
+
+- **FR-006 clarification**: the console's local preflight for `setPipesExclusive` intentionally rejects out-of-board and visible-water destinations even though current engine validation does not check destination bounds or terrain for that order. This is a stricter, fail-closed console UX policy; changing it requires an explicit contract revision.

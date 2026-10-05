@@ -19,10 +19,12 @@ Every player-facing number in Europa Neo, exactly as shipped. When this table an
 | City saturation cap | <EuropaChip count="30"></EuropaChip> troops | `ENGINE_CONSTANTS.cityCapacity` |
 | Open-cell troop cap | 30 troops | `ENGINE_CONSTANTS.cellCapacity` |
 | Unfed decay | −1 troop/tick | `ENGINE_CONSTANTS.decayPerTick` |
-| Pipe flow, downhill | <EuropaPipeSlope direction="downhill"></EuropaPipeSlope> 8–12 troops/tick per pipe (Δ=1 → 8 … Δ≥5 → 12) | `ENGINE_CONSTANTS.flowBase + flowSlopeStep × min(│Δ│, flowSlopeDeltaCap)` |
-| Pipe flow, flat | <EuropaPipeSlope direction="flat"></EuropaPipeSlope> 7 troops/tick per pipe | `ENGINE_CONSTANTS.flowBase` |
-| Pipe flow, uphill | <EuropaPipeSlope direction="uphill"></EuropaPipeSlope> 6→1 troops/tick per pipe (Δ=1 → 6 … Δ=6 → 1) | `max(0, ENGINE_CONSTANTS.flowBase − flowSlopeStep × │Δ│)` |
-| Pipe flow, stalled | <EuropaPipeSlope direction="stalled"></EuropaPipeSlope> 0 troops/tick (Δ≥7) | `ENGINE_CONSTANTS.flowBase / flowSlopeStep` (stall threshold) |
+| Pipe flow budget | 12 troops/tick per source cell, split among outgoing pipes | `ENGINE_CONSTANTS.flowRate` |
+| Per-pipe share | 1/2/3/4 outgoing pipes → 12/6/4/3 troops before slope adjustment | `floor(flowRate / numPipes)` |
+| Pipe flow, downhill | Per pipe: add `flowDownhillStep × min(|Δ|, flowSlopeDeltaCap)`; at Δ=1 / Δ≥5: 1 pipe 13/17, 2 pipes 7/11, 3 pipes 5/9, 4 pipes 4/8 | `ENGINE_CONSTANTS.flowDownhillStep` (1), `flowSlopeDeltaCap` (5) |
+| Pipe flow, flat | Per pipe: 12/6/4/3 troops for 1/2/3/4 outgoing pipes | `perPipe` |
+| Pipe flow, uphill | Per pipe: subtract `flowUphillStep × Δ`, floored at 0; at Δ=1: 11/5/3/2 for 1/2/3/4 outgoing pipes | `ENGINE_CONSTANTS.flowUphillStep` (1) |
+| Pipe flow, stalled | 0 troops/tick at Δ≥12/6/4/3 for 1/2/3/4 outgoing pipes | `perPipe / flowUphillStep` (stall threshold) |
 
 ## Terrain
 
@@ -36,9 +38,9 @@ These values control the visual triangle size on pipe slopes, not gameplay.
 
 | Value | Shipped value | Constant |
 | --- | --- | --- |
-| Intensity formula (downhill) | `min(│Δ│, flowSlopeDeltaCap) / flowSlopeDeltaCap` → 0–1 | `PIPE_SLOPE_CONSTANTS.flowSlopeDeltaCap` (5) |
-| Intensity formula (uphill) | `min(Δ, flowBase / flowSlopeStep) / (flowBase / flowSlopeStep)` → 0–1 | `PIPE_SLOPE_CONSTANTS.flowBase` (7) / `flowSlopeStep` (1) |
-| Intensity (flat / stalled / fog) | 0 (no visual intensity) | — |
+| Intensity formula (downhill) | `min(│Δ│, flowSlopeDeltaCap) / flowSlopeDeltaCap` → 0–1 | `PIPE_SLOPE_CONSTANTS.flowDownhillStep` (1) and `flowSlopeDeltaCap` (5) |
+| Intensity formula (uphill) | `min(flowUphillStep × Δ, perPipe) / perPipe` → 0–1, where `perPipe = floor(flowRate / numPipes)` | `PIPE_SLOPE_CONSTANTS.flowRate` (12), `flowUphillStep` (1) |
+| Intensity (flat / stalled / fog) | 0 (stalled pipes use the fixed-size hollow treatment) | — |
 | Triangle min size | `max(2.4px, zoom × 0.064)` at intensity=0 (40% of base) | `cell-view.tsx` intensity scaling |
 | Triangle max size | `zoom × 0.16` at intensity=1 (100% of base) | `cell-view.tsx` intensity scaling |
 | Canvas intensity scale | `(0.4 + intensity × 0.6)` × base size | `canvas.ts` `drawPipes` |
