@@ -91,8 +91,11 @@
  * consumer pin-checks at startup; incrementing forces a coordinated
  * update.
  *
- * 0.3.0 (issue #76): `DEFAULT_CAMERA.minZoom` raised 16 → 32 — zoom
- * range is now 100%–300% (board always fully visible at min zoom).
+ * 0.3.0 (issue #76): `DEFAULT_CAMERA.minZoom` raised 16 → 32. The
+ * earlier full-board-visible-at-minimum interpretation of 100% is
+ * superseded: current camera semantics use a measured fit baseline,
+ * retain physical 32–96 CSS-pixel cell bounds, and allow corner-cell
+ * centers to reach viewport center.
  *
  * 0.4.0 (issue #74): universal identity migration. `ConsoleSession`
  * keys participants by the server-issued `PlayerId` (`participants`
@@ -101,8 +104,14 @@
  * `PLAYER_COLOR_PALETTE` (per-player colors resolve from
  * `PlayerView.config.playerIds`). Handles remain preferred labels with
  * the canonical ID as fallback.
+ *
+ * 0.4.1 (camera fit resize correction): while the current camera equals
+ * the last auto-fit-applied camera, resizing reapplies measured fit;
+ * after the camera differs, resizing preserves it. This is a
+ * user-authorized nonbreaking patch marker; public shapes and signatures
+ * are unchanged.
  */
-export const CONSOLE_API_VERSION = '0.4.0' as const;
+export const CONSOLE_API_VERSION = '0.4.1' as const;
 
 // ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)
@@ -411,11 +420,13 @@ export interface MapView {
    */
   readonly exclusiveMode: boolean;
   /**
-   * Viewport offset in board-pixel coordinates — the board-space
-   * origin of the top-left corner of the visible area. Used by the
-   * canvas painter and DOM overlay to position cells relative to the
-   * viewport instead of the full board (issue #76: canvas fills the
-   * container; zoom controls visible cell density).
+   * Board-space viewport origin in cell-pixel units, derived from the
+   * fit-centering origin plus `camera.pan` (with the opposite sign):
+   * `screen = cell * zoom - viewportOffset`. This is distinct from
+   * `camera.pan`, which is a screen-pixel translation applied after
+   * fit-centering. Canvas, DOM overlay, hit testing, and minimap derive
+   * their transforms from this same origin. The canvas fills its
+   * container; zoom changes visible cell density.
    */
   readonly viewportOffset: { readonly x: number; readonly y: number };
 }
@@ -506,25 +517,44 @@ export interface MapLabel {
 }
 
 /**
- * View transform. `zoom` is the pixel size of a cell (so `zoom=32`
- * means each cell is 32×32 CSS pixels); `pan` is the offset in
- * pixels from the board's top-left corner. The renderer maps
- * `board (x, y) → screen (pan.x + x*zoom, pan.y + y*zoom)`.
+ * View transform. `zoom` is the physical CSS-pixel size of a cell
+ * (bounded by 32–96 CSS px). `pan` is the screen-pixel translation
+ * applied to the board after its fit-centering origin; zero keeps the
+ * unpanned board centered on both axes, so its origin may be negative
+ * on overflowing axes. The derived `MapView.viewportOffset` is the
+ * distinct board-space viewport origin, with opposite sign:
+ * `screen = cell * zoom - viewportOffset`. All drawing, hit testing,
+ * and minimap geometry use this derived origin. The percentage baseline
+ * is the dynamic, measured fit zoom once both a ready view and viewport
+ * measurement exist; the effective maximum is min(96px, fitZoom * 3),
+ * so it may be below 300%. At fit, all four corner-cell centers are
+ * pan-able to viewport center within 1 CSS px. Blank margins are allowed.
  */
 export interface CameraState {
-  /** Cell size in CSS pixels. Clamped to [BOARD_MIN_ZOOM, BOARD_MAX_ZOOM]. */
+  /**
+   * Physical cell size in CSS pixels. Clamped to [minZoom, maxZoom]
+   * (32–96 by default), plus the fit-relative effective maximum.
+   */
   readonly zoom: number;
-  /** Top-left offset in CSS pixels. */
+   /** CSS-pixel translation after fit-centering; the shared viewport origin is derived separately. */
   readonly pan: { readonly x: number; readonly y: number };
-  /** Min cell size (CSS pixels). Default 16 (issue #76 FR-017: 50% zoom). */
+  /**
+   * Physical minimum cell size in CSS pixels. Default 32; this can
+   * prevent a complete board fit in small viewports.
+   */
   readonly minZoom: number;
-  /** Max cell size. Default 96 (so a single cell fits the viewport). */
+  /**
+   * Physical maximum cell size in CSS pixels. Default 96; effective
+   * maximum is min(96, fitZoom * 3).
+   */
   readonly maxZoom: number;
 }
 
 /**
- * Default camera state. Picked so a 32×32 board fits in a typical
- * 1024×768 viewport at the default zoom (data-model.md §4).
+ * Default camera seed. The measured fit baseline is initialized once
+ * both a ready view and viewport measurement exist; 32px is the
+ * physical minimum cell size and may not fit the entire board. The
+ * camera shape remains independent of that measured baseline.
  */
 export const DEFAULT_CAMERA: CameraState = {
   zoom: 32,

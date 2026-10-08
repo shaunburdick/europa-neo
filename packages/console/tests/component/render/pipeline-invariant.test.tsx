@@ -22,6 +22,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 
+import { panForCellCenter } from '../../../src/qol/zoom';
 import { App } from '../../../src/render/App';
 import { type ConsoleStore, createConsoleStore } from '../../../src/state/store';
 import { buildCellView, buildPlayerView, createLiveConsoleState } from '../../fixtures/player-view';
@@ -107,8 +108,8 @@ async function waitForTargetingOverlay(): Promise<HTMLElement> {
  * The fit-zoom initialization in App.tsx may set a zoom different from
  * the DEFAULT_CAMERA value, so we always read the actual zoom from the
  * grid's inline width.  The viewport offset is computed from the same
- * formula as src/render/viewport-offset.ts (pan is {0,0} for the
- * initial camera, so the centering branch applies).
+ * centered-origin formula as src/render/viewport-offset.ts (pan is
+ * {0,0} initially).
  */
 function readRenderedGeometry(): {
     readonly zoom: number;
@@ -130,10 +131,8 @@ function readRenderedGeometry(): {
     const zoom = boardPx / BOARD_SIZE;
 
     // Mirrors computeViewportOffset from src/render/viewport-offset.ts.
-    // With initial pan = {0, 0}, the centering branch always applies
-    // when the board is smaller than or equal to the container.
-    const offX = boardPx < containerRect.width ? -(containerRect.width - boardPx) / 2 : 0;
-    const offY = boardPx < containerRect.height ? -(containerRect.height - boardPx) / 2 : 0;
+    const offX = (boardPx - containerRect.width) / 2;
+    const offY = (boardPx - containerRect.height) / 2;
 
     return { zoom, containerRect, viewportOffset: { x: offX, y: offY }, boardPx };
 }
@@ -430,5 +429,63 @@ describe('Zoom change propagates to all layers', () => {
         expect(Math.abs(targetingRect.top - expected.top)).toBeLessThanOrEqual(1);
         expect(Math.abs(afterCellRect.left - targetingRect.left)).toBeLessThanOrEqual(1);
         expect(Math.abs(afterCellRect.top - targetingRect.top)).toBeLessThanOrEqual(1);
+    });
+});
+
+describe('Corner cell navigation across fit and overflow transforms', () => {
+    test('each corner cell center can align with viewport center within 1px', async () => {
+        await page.viewport(1024, 768);
+        const store = makeStore();
+        await render(<App store={store} />);
+        const grid = await waitForGrid();
+        const boardArea = document.querySelector<HTMLElement>('.europa-board-area');
+        if (boardArea === null) {
+            throw new Error('Board area (.europa-board-area) not found');
+        }
+
+        const fitCamera = store.getState().camera;
+        const corners = [
+            { x: 0, y: 0 },
+            { x: BOARD_SIZE - 1, y: 0 },
+            { x: 0, y: BOARD_SIZE - 1 },
+            { x: BOARD_SIZE - 1, y: BOARD_SIZE - 1 },
+        ] as const;
+        const cameras = [fitCamera, { ...fitCamera, zoom: fitCamera.maxZoom }];
+
+        for (const camera of cameras) {
+            for (const cell of corners) {
+                store.dispatch({
+                    kind: 'setCamera',
+                    camera: {
+                        ...camera,
+                        pan: panForCellCenter(cell, camera.zoom, { width: BOARD_SIZE, height: BOARD_SIZE }),
+                    },
+                });
+                const cellElement = grid.querySelector<HTMLElement>(`#europa-cell-${cell.x}-${cell.y}`);
+                expect(cellElement).not.toBeNull();
+                await expect
+                    .poll(() => {
+                        const cellRect = cellElement?.getBoundingClientRect();
+                        const viewportRect = boardArea.getBoundingClientRect();
+                        return cellRect === undefined
+                            ? Number.POSITIVE_INFINITY
+                            : Math.abs(
+                                  cellRect.left + cellRect.width / 2 - (viewportRect.left + viewportRect.width / 2),
+                              );
+                    })
+                    .toBeLessThanOrEqual(1);
+                await expect
+                    .poll(() => {
+                        const cellRect = cellElement?.getBoundingClientRect();
+                        const viewportRect = boardArea.getBoundingClientRect();
+                        return cellRect === undefined
+                            ? Number.POSITIVE_INFINITY
+                            : Math.abs(
+                                  cellRect.top + cellRect.height / 2 - (viewportRect.top + viewportRect.height / 2),
+                              );
+                    })
+                    .toBeLessThanOrEqual(1);
+            }
+        }
     });
 });

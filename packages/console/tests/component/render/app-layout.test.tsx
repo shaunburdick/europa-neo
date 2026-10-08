@@ -142,8 +142,8 @@ describe('Grid overlay alignment with canvas viewportOffset', () => {
         const containerH = (boardArea as HTMLElement).getBoundingClientRect().height;
 
         // Compute expected viewport offset using the actual zoom — mirrors App.tsx useMemo
-        const offX = actualBoardPx < containerW ? -(containerW - actualBoardPx) / 2 : 0;
-        const offY = actualBoardPx < containerH ? -(containerH - actualBoardPx) / 2 : 0;
+        const offX = (actualBoardPx - containerW) / 2;
+        const offY = (actualBoardPx - containerH) / 2;
 
         // GridOverlay negates viewportOffset in its inline transform:
         //   translate(${-viewportOffset.x}px, ${-viewportOffset.y}px)

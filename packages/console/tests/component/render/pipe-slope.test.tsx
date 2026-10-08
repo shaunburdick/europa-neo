@@ -14,6 +14,7 @@
  */
 
 import { afterEach, describe, expect, test } from 'vitest';
+import { page } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { DEFAULT_CAMERA } from '../../../src/config';
 import {
@@ -57,6 +58,31 @@ function closeTo(pixel: Uint8ClampedArray, rgb: [number, number, number], tolera
 /** True when two samples have the same RGBA values, including fill/no-fill state. */
 function samePixel(first: Uint8ClampedArray, second: Uint8ClampedArray): boolean {
     return first[0] === second[0] && first[1] === second[1] && first[2] === second[2] && first[3] === second[3];
+}
+
+interface RenderedBoardGeometry {
+    readonly zoom: number;
+    readonly screenOffsetX: number;
+    readonly screenOffsetY: number;
+}
+
+async function waitForRenderedBoardGeometry(): Promise<RenderedBoardGeometry> {
+    const grid = document.querySelector<HTMLElement>('#map');
+    if (grid === null) {
+        throw new Error('Grid overlay (#map) not found in DOM');
+    }
+    await expect
+        .poll(() => parseFloat(grid.style.width), { message: 'measured fit camera should render' })
+        .toBeGreaterThan(BOARD_SIZE * DEFAULT_CAMERA.minZoom);
+    const transform = grid.style.transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
+    if (transform === null) {
+        throw new Error(`Unexpected grid transform: ${grid.style.transform}`);
+    }
+    return {
+        zoom: parseFloat(grid.style.width) / BOARD_SIZE,
+        screenOffsetX: Number(transform[1]),
+        screenOffsetY: Number(transform[2]),
+    };
 }
 
 /** CellView literal shorthand for the scripted view. */
@@ -118,6 +144,7 @@ afterEach(async () => {
 
 describe('pipe slope color-coding (005 FR-013)', () => {
     test('canvas paints downhill/flat/uphill pipes in their slope colors and fog-unknown as flat', async () => {
+        await page.viewport(1024, 768);
         setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
         const screen = await render(<App />);
 
@@ -131,8 +158,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         const ctx = canvas?.getContext('2d');
         expect(ctx).not.toBeNull();
 
-        const { zoom } = DEFAULT_CAMERA;
-        const boardPx = BOARD_SIZE * zoom;
+        const { zoom, screenOffsetX, screenOffsetY } = await waitForRenderedBoardGeometry();
 
         const downhillRgb = hexToRgb(PIPE_DOWNHILL_COLOR);
         const flatRgb = hexToRgb(PIPE_FLAT_COLOR);
@@ -151,9 +177,6 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     if (curW === 0 || curH === 0) return false;
                     // Wait for at least one paint to complete.
                     if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
-                    const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
-                    const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
-
                     /**
                      * Sample a pixel inside the north-facing pipe triangle.
                      * After issue #101, triangles point outward from cell
@@ -162,10 +185,10 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                      * (midY - 1) lands safely in the solid fill region.
                      */
                     const samplePipe = (cellX: number, cellY: number): Uint8ClampedArray | undefined => {
-                        const px = cellX * zoom + zoom / 2 + offX;
+                        const px = cellX * zoom + zoom / 2 + screenOffsetX;
                         // 1px above the cell center = inside the north triangle
                         // at its widest point (the base).
-                        const py = cellY * zoom + zoom / 2 - 1 + offY;
+                        const py = cellY * zoom + zoom / 2 - 1 + screenOffsetY;
                         return ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
                     };
                     // Downhill (Δ=-50, intensity=1)
@@ -187,6 +210,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
             .toBe(true);
     });
     test('stalled canvas pipe renders an outline with an unfilled center', async () => {
+        await page.viewport(1024, 768);
         setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
         const screen = await render(<App />);
 
@@ -198,9 +222,8 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         const ctx = canvas?.getContext('2d');
         expect(ctx).not.toBeNull();
 
-        const { zoom } = DEFAULT_CAMERA;
+        const { zoom, screenOffsetX, screenOffsetY } = await waitForRenderedBoardGeometry();
         const stalledRgb = hexToRgb(PIPE_STALLED_COLOR);
-        const boardPx = BOARD_SIZE * zoom;
         const stalledCenters: Uint8ClampedArray[] = [];
 
         // The edge is colored while the triangle centroid shows the
@@ -213,20 +236,18 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     const curH = canvas?.height ?? 0;
                     if (curW === 0 || curH === 0) return false;
                     if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
-                    const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
-                    const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     // Sample at the base of the north triangle (midY) where
                     // the stroke is drawn.
                     const edge = ctx?.getImageData(
-                        Math.round(4 * zoom + zoom / 2 + offX),
-                        Math.round(1 * zoom + zoom / 2 + offY),
+                        Math.round(4 * zoom + zoom / 2 + screenOffsetX),
+                        Math.round(1 * zoom + zoom / 2 + screenOffsetY),
                         1,
                         1,
                     ).data;
                     const stalledDepth = (zoom / 2) * 0.8;
                     const centroid = ctx?.getImageData(
-                        Math.round(4 * zoom + zoom / 2 + offX),
-                        Math.round(1 * zoom + zoom / 2 - stalledDepth / 3 + offY),
+                        Math.round(4 * zoom + zoom / 2 + screenOffsetX),
+                        Math.round(1 * zoom + zoom / 2 - stalledDepth / 3 + screenOffsetY),
                         1,
                         1,
                     ).data;
@@ -246,6 +267,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         expect(controlCanvas).not.toBeNull();
         const controlCtx = controlCanvas?.getContext('2d');
         expect(controlCtx).not.toBeNull();
+        const controlGeometry = await waitForRenderedBoardGeometry();
         const controlCenters: Uint8ClampedArray[] = [];
         await expect
             .poll(
@@ -254,11 +276,14 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     const curH = controlCanvas?.height ?? 0;
                     if (curW === 0 || curH === 0) return false;
                     if (Number(controlCanvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
-                    const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
-                    const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
                     const center = controlCtx?.getImageData(
-                        Math.round(4 * zoom + zoom / 2 + offX),
-                        Math.round(1 * zoom + zoom / 2 - ((zoom / 2) * 0.8) / 3 + offY),
+                        Math.round(4 * controlGeometry.zoom + controlGeometry.zoom / 2 + controlGeometry.screenOffsetX),
+                        Math.round(
+                            controlGeometry.zoom +
+                                controlGeometry.zoom / 2 -
+                                ((controlGeometry.zoom / 2) * 0.8) / 3 +
+                                controlGeometry.screenOffsetY,
+                        ),
                         1,
                         1,
                     ).data;
@@ -355,6 +380,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
     });
 
     test('canvas triangle size varies with intensity: downhill (high) > flat (zero)', async () => {
+        await page.viewport(1024, 768);
         setConsoleStateForTesting(createStubConsoleState(createSlopePlayerView()));
         const screen = await render(<App />);
         await expect.element(screen.getByRole('grid')).toBeInTheDocument();
@@ -365,7 +391,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
         const ctx = canvas?.getContext('2d');
         expect(ctx).not.toBeNull();
 
-        const { zoom } = DEFAULT_CAMERA;
+        const { zoom, screenOffsetX, screenOffsetY } = await waitForRenderedBoardGeometry();
         const maxDepth = zoom / 2;
 
         // Downhill (Δ=-50, intensity=1): full depth (100% = maxDepth)
@@ -375,7 +401,6 @@ describe('pipe slope color-coding (005 FR-013)', () => {
 
         expect(downhillDepth).toBeGreaterThan(flatDepth);
 
-        const boardPx = BOARD_SIZE * zoom;
         const downhillRgb = hexToRgb(PIPE_DOWNHILL_COLOR);
         // Sample at the centroid of the north-pointing triangle:
         // base at midY, tip at midY - depth. Centroid = 1/3 from base.
@@ -390,11 +415,9 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     if (curW === 0 || curH === 0) return false;
                     // Wait for at least one paint to complete.
                     if (Number(canvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
-                    const offX = boardPx < curW ? (curW - boardPx) / 2 : 0;
-                    const offY = boardPx < curH ? (curH - boardPx) / 2 : 0;
-                    const px = 1 * zoom + zoom / 2 + offX;
+                    const px = 1 * zoom + zoom / 2 + screenOffsetX;
                     // After issue #101, sample from midY upward (centroid).
-                    const py = 1 * zoom + zoom / 2 - centroidY + offY;
+                    const py = 1 * zoom + zoom / 2 - centroidY + screenOffsetY;
                     const pixel = ctx?.getImageData(Math.round(px), Math.round(py), 1, 1).data;
                     if (pixel === undefined) return false;
                     return closeTo(pixel, downhillRgb);
