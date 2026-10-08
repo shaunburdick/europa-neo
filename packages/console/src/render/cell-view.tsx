@@ -152,9 +152,10 @@ export function CellView({
                 // Compute intensity-scaled triangle depth (issue #43).
                 // --pipe-tri-depth is a CSS percentage: 50% = tip at cell edge.
                 // Min depth = 15% at low intensity, max = 50% at full intensity.
-                // Stalled pipes use a fixed smaller depth (hollow is the signal).
+                // Stalled SVG outlines use fixed 40% geometry, independent of slope intensity.
                 const minDepth = 15;
-                const triDepth = slope === 'stalled' ? minDepth : minDepth + intensity * (50 - minDepth);
+                const triDepth = slope === 'stalled' ? 40 : minDepth + intensity * (50 - minDepth);
+                const hollowPath = hollowTrianglePath(direction);
                 return (
                     <span
                         key={direction}
@@ -167,7 +168,33 @@ export function CellView({
                                 '--pipe-zoom': `${zoom}px`,
                             } as React.CSSProperties
                         }
-                    />
+                    >
+                        {slope === 'stalled' ? (
+                            <svg
+                                aria-hidden="true"
+                                className="europa-pipe__hollow-shape"
+                                viewBox="0 0 100 100"
+                                focusable="false"
+                            >
+                                <path
+                                    className="europa-pipe__hollow-outline"
+                                    d={hollowPath}
+                                    fill="none"
+                                    stroke="var(--europa-color-pipe-outline)"
+                                    strokeWidth="3.2"
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                                <path
+                                    className="europa-pipe__hollow-stroke"
+                                    d={hollowPath}
+                                    fill="none"
+                                    stroke="var(--europa-pipe-color)"
+                                    strokeWidth="1.8"
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            </svg>
+                        ) : null}
+                    </span>
                 );
             })}
             {info.isCity ? <span aria-hidden="true" className="europa-cell__city-dot" /> : null}
@@ -198,4 +225,18 @@ export function CellView({
             ) : null}
         </div>
     );
+}
+
+/** Fixed-depth outward triangle outline path in the cell's 0–100 SVG box. */
+function hollowTrianglePath(direction: Direction): string {
+    switch (direction) {
+        case 'N':
+            return 'M 38 50 L 62 50 L 50 10 Z';
+        case 'E':
+            return 'M 50 38 L 50 62 L 90 50 Z';
+        case 'S':
+            return 'M 38 50 L 62 50 L 50 90 Z';
+        case 'W':
+            return 'M 50 38 L 50 62 L 10 50 Z';
+    }
 }

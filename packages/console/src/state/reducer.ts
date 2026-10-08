@@ -2,8 +2,8 @@
  * The pure console reducer — Feature 005 (T022).
  *
  * Single source of state transitions (data-model.md §1): folds
- * `ConsoleAction`s — every `PlayerAction` gesture plus every
- * `NetEvent` from the network adapter — into the next immutable
+ * `ConsoleAction`s — player gestures, local rejection feedback, and
+ * `NetEvent`s from the network adapter — into the next immutable
  * `ConsoleState`, returning any side effects for the runtime to
  * apply. The reducer never performs I/O itself.
  *
@@ -33,6 +33,7 @@
 import { CONSOLE_CONSTANTS, DEFAULT_CAMERA, DEFAULT_QOL_SETTINGS } from '../config';
 import { actionToOrder } from './action-to-order';
 import { formatActionConfirmation, formatRejection } from './format';
+import { localPreflightOrder } from './local-preflight';
 import { humanHandleOf, orderParticipants } from './participant-order';
 import type {
     ActionId,
@@ -46,6 +47,7 @@ import type {
     ReduceOptions,
     ReducerEffect,
     RejectedOrder,
+    ValidationError,
 } from './types';
 
 // ----------------------------------------------------------------------------
@@ -199,6 +201,26 @@ export function appendRejection(
     return next.slice(-CONSOLE_CONSTANTS.maxRejectedOrders);
 }
 
+/** Reuse the standard warning toast and assertive announcement path. */
+function orderRejectionFeedback(
+    state: ConsoleState,
+    reason: ValidationError,
+    nowMs: number,
+): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
+    const text = formatRejection(reason);
+    return {
+        state: {
+            ...state,
+            feedback: appendFeedback(
+                state.feedback,
+                { text, kind: 'warning', ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs },
+                nowMs,
+            ),
+        },
+        effects: [{ kind: 'announce', text, politeness: 'assertive' }],
+    };
+}
+
 // ----------------------------------------------------------------------------
 // Action discrimination
 // ----------------------------------------------------------------------------
@@ -241,9 +263,8 @@ const NET_EVENT_KINDS: ReadonlySet<NetEventKind> = new Set([
 type NetEvent = Extract<ConsoleAction, { readonly kind: NetEventKind }>;
 
 /**
- * Type guard discriminating NetEvent variants from PlayerAction
- * variants inside the ConsoleAction union. NetEvents carry `kind`
- * values that no PlayerAction uses, so the discriminant set is exact.
+ * Type guard discriminating NetEvent variants inside the ConsoleAction
+ * union. Network discriminants do not overlap with local action kinds.
  */
 function isNetEvent(action: ConsoleAction): action is NetEvent {
     return NET_EVENT_KINDS.has(action.kind as NetEventKind);
@@ -257,7 +278,7 @@ function isNetEvent(action: ConsoleAction): action is NetEvent {
  * Advance the console state by one action. Pure (see module JSDoc).
  *
  * @param state Current state (seed from {@link INITIAL_CONSOLE_STATE}).
- * @param action A player gesture or a network event.
+ * @param action A local console action or a network event.
  * @param options Clock injection (`nowMs`) — required.
  * @returns The next state plus side effects for the runtime.
  */
@@ -277,7 +298,7 @@ export function reduce(
 
     const partial = isNetEvent(action)
         ? reduceNetEvent(baseState, action, nowMs)
-        : reducePlayerAction(baseState, action, nowMs);
+        : reduceLocalAction(baseState, action, nowMs);
 
     // Invariant (data-model.md §17): inputEnabled ⟺ status === 'live'.
     const nextState: ConsoleState = {
@@ -289,18 +310,18 @@ export function reduce(
 }
 
 // ----------------------------------------------------------------------------
-// PlayerAction branch
+// Local action branch
 // ----------------------------------------------------------------------------
 
 /**
- * Handle a PlayerAction. Order-producing gestures require live input:
+ * Handle a local console action. Order-producing gestures require live input:
  * when `status !== 'live'` they are dropped defensively (the input
  * layer should already gate them — FR-006/FR-010). Local-only gestures
  * are always legal.
  */
-function reducePlayerAction(
+function reduceLocalAction(
     state: ConsoleState,
-    action: PlayerAction,
+    action: Exclude<ConsoleAction, NetEvent>,
     nowMs: number,
 ): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
     switch (action.kind) {
@@ -323,6 +344,21 @@ function reducePlayerAction(
             const order = actionToOrder(action, playerId, state.session);
             if (order === null) {
                 return { state, effects: [] };
+            }
+            if (
+                order.kind === 'setPipe' ||
+                order.kind === 'clearPipe' ||
+                order.kind === 'setPipesExclusive' ||
+                order.kind === 'clearAllPipes' ||
+                order.kind === 'setReserves'
+            ) {
+                if (state.latestView === null) {
+                    return { state, effects: [] };
+                }
+                const rejection = localPreflightOrder(order, state.latestView, playerId);
+                if (rejection !== null) {
+                    return orderRejectionFeedback(state, rejection, nowMs);
+                }
             }
             const stamped = stampOrder(order);
             const text = formatActionConfirmation(action, orderCellOf(action));
@@ -358,8 +394,10 @@ function reducePlayerAction(
         }
         case 'setExclusiveMode':
             return { state: { ...state, exclusiveMode: action.enabled }, effects: [] };
+        case 'localOrderRejected':
+            return orderRejectionFeedback(state, action.reason, nowMs);
 
-        // Exhaustiveness guard: an unhandled PlayerAction variant fails
+        // Exhaustiveness guard: an unhandled local action variant fails
         // to compile here (never is assignable to the return type).
         default:
             return action;
@@ -530,7 +568,6 @@ function reduceNetEvent(
             }
             const rejectedOrder = takePendingOrder(event.actionId);
             const { reason } = event.result;
-            const text = formatRejection(reason);
             const withRejection: ConsoleState =
                 rejectedOrder === undefined
                     ? state
@@ -547,17 +584,7 @@ function reduceNetEvent(
                               nowMs,
                           ),
                       };
-            return {
-                state: {
-                    ...withRejection,
-                    feedback: appendFeedback(
-                        withRejection.feedback,
-                        { text, kind: 'warning', ttlMs: CONSOLE_CONSTANTS.feedbackTtlMs },
-                        nowMs,
-                    ),
-                },
-                effects: [{ kind: 'announce', text, politeness: 'assertive' }],
-            };
+            return orderRejectionFeedback(withRejection, reason, nowMs);
         }
 
         case 'terminal': {

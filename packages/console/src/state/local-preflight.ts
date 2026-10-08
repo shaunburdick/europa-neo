@@ -5,9 +5,14 @@
  * fog-filtered `PlayerView` BEFORE sending it over the wire:
  *   - Paratroop / gun: target within Chebyshev distance ≤ 2 of the
  *     source (`SUBCELL_RANGE`) and on a land cell.
- *   - Pipe orders: source cell is land and owned by the issuing
- *     player.
- *   - Reserves: percent in the engine's 0..9 domain.
+ *   - Pipe orders: source cell is visible, land, and owned by the
+ *     issuing player through troop or city ownership; pipe creation /
+ *     exclusive orders stay in bounds and reject visible water
+ *     destinations (fog-unknown terrain is left to the server's final
+ *     validation). Clearing checks only the source because clearing a
+ *     nonexistent pipe is harmless.
+ *   - Reserves: visible land cell owned through troop or city ownership,
+ *     and percent in the engine's 0..9 domain.
  *
  * **This is a UX preflight only** (spec US3 AC-3 + FR-006): it saves
  * an obviously-bogus round-trip; the server remains final authority
@@ -16,11 +21,12 @@
  * time, capture races, etc.).
  *
  * SECURITY-RELEVANT: every branch below must stay exhaustive and
- * fail-closed — an unknown order kind or missing cell data rejects.
+ * fail-closed — unknown kinds and missing source/target data reject;
+ * a fog-unknown set-pipe destination remains server-authoritative.
  */
 
 import { SUBCELL_RANGE } from '../config';
-import type { Coord, Order, PlayerId, PlayerView, ValidationError } from './types';
+import type { Coord, Direction, Order, PlayerId, PlayerView, ValidationError } from './types';
 
 /**
  * Validate an order against the local view. Returns `null` when the
@@ -39,11 +45,11 @@ export function localPreflightOrder(order: Order, view: PlayerView, playerId: Pl
         case 'setPipe':
         case 'clearPipe':
         case 'setPipesExclusive':
-            return preflightPipe(order.cell, view, playerId);
+            return preflightPipe(order, view, playerId);
         case 'clearAllPipes':
-            return preflightPipe(order.cell, view, playerId);
+            return preflightPipe(order, view, playerId);
         case 'setReserves':
-            return preflightReserves(order.percent);
+            return preflightReserves(order.cell, order.percent, view, playerId);
         case 'surrender':
             // Always legal to request; the server decides surrender validity
             // (already-surrendered / terminal states are server-side facts).
@@ -89,9 +95,17 @@ function preflightAttack(source: Coord, target: Coord, view: PlayerView): Valida
 
 /**
  * Shared pipe-order checks: source cell visible, land, and owned by
- * the issuing player. Pure.
+ * the issuing player through troop or city ownership; pipe creation /
+ * exclusive destinations stay in bounds and visible water destinations
+ * are rejected. Clear-pipe only validates its source, matching the
+ * harmless engine clear operation. Pure.
  */
-function preflightPipe(cell: Coord, view: PlayerView, playerId: PlayerId): ValidationError | null {
+function preflightPipe(
+    order: Extract<Order, { readonly kind: 'setPipe' | 'clearPipe' | 'setPipesExclusive' | 'clearAllPipes' }>,
+    view: PlayerView,
+    playerId: PlayerId,
+): ValidationError | null {
+    const { cell } = order;
     const sourceCell = cellAt(view, cell);
     if (sourceCell === undefined) {
         return { kind: 'out_of_bounds', coord: cell };
@@ -99,20 +113,60 @@ function preflightPipe(cell: Coord, view: PlayerView, playerId: PlayerId): Valid
     if (sourceCell.cell.terrain === 'water') {
         return { kind: 'water_target', coord: cell };
     }
-    if (sourceCell.troopOwner !== playerId) {
+    if (sourceCell.troopOwner !== playerId && sourceCell.cityOwner !== playerId) {
         return { kind: 'not_owner', coord: cell };
+    }
+    if (order.kind === 'setPipe' || order.kind === 'setPipesExclusive') {
+        const destination = adjacentCoord(cell, order.direction);
+        if (
+            destination.x < 0 ||
+            destination.y < 0 ||
+            destination.x >= view.config.boardSize ||
+            destination.y >= view.config.boardSize
+        ) {
+            return { kind: 'out_of_bounds', coord: destination };
+        }
+        const destinationCell = cellAt(view, destination);
+        if (destinationCell?.cell.terrain === 'water') {
+            return { kind: 'water_target', coord: destination };
+        }
     }
     return null;
 }
 
 /**
- * Reserves percent domain check (engine `ReservesPct` = 0..9). Pure.
+ * Reserves checks: visible land cell owned by the player through troop
+ * or city ownership, and engine `ReservesPct` domain (0..9). Pure.
  */
-function preflightReserves(percent: number): ValidationError | null {
+function preflightReserves(cell: Coord, percent: number, view: PlayerView, playerId: PlayerId): ValidationError | null {
     if (!Number.isInteger(percent) || percent < 0 || percent > 9) {
         return { kind: 'invalid_percent', percent };
     }
+    const targetCell = cellAt(view, cell);
+    if (targetCell === undefined) {
+        return { kind: 'out_of_bounds', coord: cell };
+    }
+    if (targetCell.cell.terrain === 'water') {
+        return { kind: 'water_target', coord: cell };
+    }
+    if (targetCell.troopOwner !== playerId && targetCell.cityOwner !== playerId) {
+        return { kind: 'not_owner', coord: cell };
+    }
     return null;
+}
+
+/** Neighbor coordinate in the direction of a pipe order. */
+function adjacentCoord(cell: Coord, direction: Direction): Coord {
+    switch (direction) {
+        case 'N':
+            return { x: cell.x, y: cell.y - 1 };
+        case 'E':
+            return { x: cell.x + 1, y: cell.y };
+        case 'S':
+            return { x: cell.x, y: cell.y + 1 };
+        case 'W':
+            return { x: cell.x - 1, y: cell.y };
+    }
 }
 
 /**

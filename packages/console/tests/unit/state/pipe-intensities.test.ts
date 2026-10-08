@@ -113,6 +113,31 @@ describe('buildMapView pipeIntensities (issue #43)', () => {
         expect(info?.pipeIntensities.get('N')).toBe(3 / 12);
     });
 
+    test('uphill intensity uses the source cell equal share for multiple pipes', () => {
+        const mv = buildMapView({
+            id: 'mv-3b' as MapViewId,
+            view: view([
+                cell({ x: 1, y: 0 }, 103),
+                cell({ x: 2, y: 1 }, 106),
+                cell({ x: 1, y: 1 }, 100, new Set(['N', 'E'])),
+            ]),
+            camera: DEFAULT_CAMERA,
+            hover: null,
+            selection: null,
+            exclusiveMode: false,
+            prevView: null,
+            nowMs: 0,
+            viewportOffset: { x: 0, y: 0 },
+        });
+        const info = mv.cells.get('1,1');
+        expect(info?.pipeSlopes.get('N')).toBe('uphill');
+        // perPipe = floor(12 / 2) = 6; Δ=3 leaves 3 troops,
+        // so intensity is (6 - 3) / 6 = 0.5.
+        expect(info?.pipeIntensities.get('N')).toBe(0.5);
+        expect(info?.pipeSlopes.get('E')).toBe('stalled');
+        expect(info?.pipeIntensities.get('E')).toBe(0);
+    });
+
     test('stalled pipe has intensity 0', () => {
         // src at (1,1) elev 100, dst at (1,0) elev 112 → stalled (Δ ≥ flowRate = 12)
         const mv = buildMapView({

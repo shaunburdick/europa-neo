@@ -18,7 +18,7 @@ import {
     reduce,
 } from '../../../src/state/reducer';
 import type { ConsoleState, PlayerAction, PlayerId, PlayerView } from '../../../src/state/types';
-import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
+import { buildCellView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 const NOW = 10_000;
 
@@ -41,7 +41,15 @@ function view(tick: number): PlayerView {
     return {
         player: TEST_PLAYER_1,
         tick,
-        visibleCells: [],
+        visibleCells: [
+            { x: 1, y: 1 },
+            { x: 1, y: 2 },
+            { x: 2, y: 2 },
+            { x: 1, y: 3 },
+            { x: 0, y: 2 },
+            { x: 0, y: 0 },
+            { x: 2, y: 3 },
+        ].map((coord) => buildCellView({ coord, owner: TEST_PLAYER_1 })),
         events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
         config: {
             boardSize: 16,
@@ -100,6 +108,21 @@ describe('reducer: PlayerAction arms (Q-U01)', () => {
         });
         expect(state.feedback).toHaveLength(1);
         expect(state.feedback[0]?.kind).toBe('info');
+    });
+
+    it('surfaces local preflight rejection without sending or recording a server rejection', () => {
+        const { state, effects } = step(live(), {
+            kind: 'setPipe',
+            cell: { x: 0, y: 2 },
+            direction: 'W',
+        });
+
+        expect(state.feedback.at(-1)).toMatchObject({
+            text: 'Target cell is off the board',
+            kind: 'warning',
+        });
+        expect(state.rejectedOrders).toHaveLength(0);
+        expect(effects).toEqual([{ kind: 'announce', text: 'Target cell is off the board', politeness: 'assertive' }]);
     });
 
     it('selectCell / hoverCell / setExclusiveMode are local-only', () => {
@@ -199,7 +222,12 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
         }).state;
         expect(over.status).toBe('game_over');
         expect(over.inputEnabled).toBe(false);
-        expect(over.matchResult).toEqual({ kind: 'win', winner: TEST_PLAYER_2, tick: 1247, reason: 'last_standing' });
+        expect(over.matchResult).toEqual({
+            kind: 'win',
+            winner: TEST_PLAYER_2,
+            tick: 1247,
+            reason: 'last_standing',
+        });
 
         const closed = step(live(), { kind: 'socketClosed', code: 1006, reason: 'abnormal' }).state;
         expect(closed.status).toBe('reconnecting');

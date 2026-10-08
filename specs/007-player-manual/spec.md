@@ -4,9 +4,9 @@
 
 **Created**: 2026-08-24
 
-**Last Updated**: 2026-09-12 (v1.6; issue #139 spec consolidation)
+**Last Updated**: 2026-10-05 (v1.7; issue #125 equal-split pipe-flow manual correction)
 
-**Version**: 1.6
+**Version**: 1.7
 
 **Status**: Implemented (2026-08-30)
 
@@ -134,7 +134,7 @@ As a project owner, I want the manual published to GitHub Pages by a workflow wh
 - **FR-007**: The manual MUST explain fog of war as implemented: vision extends a fixed radius (4 cells, Chebyshev) around each of your stacks, unioned across stacks; enemies appear only inside your horizon; there is no memory — abandoned ground goes dark again; spectators see the whole board but cannot issue orders.
 - **FR-008**: The manual MUST describe the board: square grid (default 32×32), elevation-shaded terrain, impassable water pools, fair maps — point-symmetric terrain with equal starting cities per player and guaranteed land routes between them — and the per-match terrain-smoothing setting (`terrainSmoothing`, default 4, range 0–8): what it does (gentler elevation changes, more viable cross-map routes), that 0 means no smoothing, and that match hosts can adjust it when creating a match.
 - **FR-009**: The manual MUST contain a reading-the-screen guide covering every console status value (`idle`, `connecting`, `live`, `reconnecting`, `expired`, `spectating`, `game_over`) in plain language, plus the tick counter, minimap navigation, order bar, reserves panel, transient feedback messages, waiting-for-opponent overlay, reconnecting banner, surrender modal, and the end-of-match announcement.
-- **FR-010**: The manual MUST include a numbers appendix table listing every player-facing tunable exactly as shipped (engine constants, tick cadence of 250 ms ≈ 4 ticks/second, default board size, vision radius, per-player colors, camera zoom bounds), each traceable to `ENGINE_CONSTANTS` / shipped defaults. The pipe-flow rows MUST list `flowBase`, `flowSlopeStep`, `flowSlopeDeltaCap`, and the resulting per-tick rates for downhill, flat, uphill, and stalled pipes (feature 001 FR-007, Clarifications v1.2). The terrain rows MUST list `terrainSmoothing` (default 4, range 0–8) traceable to `DEFAULT_GENERATION_SETTINGS` (feature 003 FR-010).
+- **FR-010**: The manual MUST include a numbers appendix table listing every player-facing tunable exactly as shipped (engine constants, tick cadence of 250 ms ≈ 4 ticks/second, default board size, vision radius, per-player colors, camera zoom bounds), each traceable to `ENGINE_CONSTANTS` / shipped defaults. Pipe-flow rows MUST list the current `flowRate`, `flowDownhillStep`, `flowUphillStep`, and `flowSlopeDeltaCap` values and formulas, plus resulting per-pipe rates for 1–4 outgoing pipes on downhill, flat, uphill, and stalled terrain, including the pipe-count-dependent stall thresholds from feature 001 FR-007 / Clarifications v1.9. The terrain rows MUST list `terrainSmoothing` (default 4, range 0–8) traceable to `DEFAULT_GENERATION_SETTINGS` (feature 003 FR-010).
 - **FR-011**: The manual itself MUST be accessible: semantic MDX rendered to semantic HTML (one h1 per page, hierarchical headings, tables with header rows, alt text on any image, descriptive link text), readable and navigable without JavaScript.
 - **FR-012**: Any change set that alters gameplay behavior documented by the manual MUST update the manual in the same change set (constitution IV "specs stay truthful," extended to player-facing docs).
 - **FR-017**: The manual index page (`docs/manual/src/pages/index.mdx`) MUST close with a footer line stating the application version the manual documents (e.g., "*This manual documents Europa Neo v0.0.1.*"); the version string MUST stay in lockstep with the shipped `APP_VERSION` (enforced by feature 009-shared-app-versioning's drift check), and version-bearing updates ride in the same change set as the change that moves them (FR-012 discipline).
@@ -320,3 +320,8 @@ These pages land with the engine + terrain changes in the
 - **Absorbed feature 012-3-4 (3–4 player support, issue #6) — manual updates**:
   - **012-FR-013**: The player manual MUST be updated in the SAME change set as the 3–4 player feature: board-size defaults by player count (2p → 32, 3p/4p → 48), match capacity/occupancy wording, waiting-for-opponent pluralization, host CLI flags (`--players`, `--board-size`), and the numbers appendix gains an N>2 row. This is redundant with FR-012's same-change-set rule but is recorded here because the absorbed feature stated it independently.
   - **012-FR-014**: The manual MUST document the credential boundary: no `SessionToken`/`reconnectToken`/credential-bearing URLs appear in any page; tokenized join URLs are a narrow operator convenience and the bearer secret is never placed in a URL; `PlayerId`s are non-secret correlation data. The existing semantic-url-privacy guardrails already enforce this; the manual's share-link sections state it explicitly.
+
+### v1.7 (2026-10-05) — Equal-split pipe-flow manual correction (issue #125)
+
+- **FR-010 updated**: the numbers appendix now follows feature 001 FR-007 / Clarifications v1.9. The former `flowBase`-based rates in the v1.2/v1.3 history are retained as historical records, but are superseded by `flowRate = 12`, the equal per-pipe share `floor(flowRate / numPipes)`, and the current downhill/uphill step constants.
+- **Required manual updates (FR-012)**: `pipes.mdx`, `numbers.mdx`, and `the-board.mdx` document the per-pipe flow rates and pipe-count-dependent uphill stalls (12/6/4/3 elevation steps for 1/2/3/4 outgoing pipes); `pipes.mdx` and `cities-and-troops.mdx` state that pipe flow transfers troops rather than copying them.

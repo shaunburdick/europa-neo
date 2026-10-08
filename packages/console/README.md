@@ -199,9 +199,10 @@ per-seat fog-filtered views.
 - **Labels**: `buildMapView` raises transient "%" labels from reserves
   diffs against the previous view; the label overlay owns TTL pruning.
 - **Local preflight**: out-of-range/water/not-owner orders are
-  rejected locally before sending (outcome-returning and silent on the
-  wire, per research.md §13 #3); server rejections arrive as
-  `orderAck` failures and get reducer feedback.
+  rejected locally before sending; pipe and reserve ownership includes
+  either troop ownership or city ownership (outcome-returning and
+  silent on the wire, per research.md §13 #3); server rejections arrive
+  as `orderAck` failures and get reducer feedback.
 - **Player colors**: `DEFAULT_PLAYER_COLORS` p1/p2 = red/blue-600,
   p3/p4 = emerald/amber-600 (data-model had none).
 - **Minimap**: the viewport rectangle uses the real board-area size

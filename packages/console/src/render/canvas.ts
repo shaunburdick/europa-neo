@@ -375,12 +375,13 @@ export class MapCanvas {
         ctx.fillText(String(info.troops), cx, cy);
     }
 
-    /** Draw outward-pointing pipe triangles at the cell's edges.
-     *  Triangle size scales with intensity (issue #43): smaller at
-     *  low intensity, full size at high intensity. Stalled pipes
-     *  remain full size with hollow stroke (existing behavior).
-     *  Every pipe triangle gets a dark outline (spec 024 FR-010) to
-     *  guarantee contrast against any biome background. */
+    /**
+     * Draw outward-pointing pipe triangles at the cell's edges.
+     * Triangle size scales with intensity (issue #43): smaller at low
+     * intensity, full size at high intensity. Stalled pipes use a fixed
+     * 80%-depth outline with no fill. Every pipe gets a dark outline
+     * (spec 024 FR-010) for contrast against any biome background.
+     */
     private drawPipes(ctx: CanvasRenderingContext2D, info: CellRenderInfo, zoom: number): void {
         const x = info.coord.x * zoom;
         const y = info.coord.y * zoom;
@@ -393,10 +394,10 @@ export class MapCanvas {
             // FR-013); a missing entry (defensive) renders flat.
             const slope = info.pipeSlopes.get(direction) ?? 'flat';
             // Intensity scales triangle depth (issue #43): 30% at
-            // intensity=0, 100% at intensity=1. Stalled pipes use
-            // fixed smaller depth (hollow is the signal, not size).
+            // intensity=0, 100% at intensity=1. Stalled pipes use a
+            // fixed 80% depth so the outline has a visibly hollow center.
             const intensity = info.pipeIntensities.get(direction) ?? 0;
-            const depthFactor = slope === 'stalled' ? 0.3 : 0.3 + intensity * 0.7;
+            const depthFactor = slope === 'stalled' ? 0.8 : 0.3 + intensity * 0.7;
             const depth = maxDepth * depthFactor;
             // Base half-width = 30% of depth (matches CSS clip-path).
             const baseHalf = depth * 0.3;

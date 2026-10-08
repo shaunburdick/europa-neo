@@ -163,10 +163,11 @@ export interface AbilityFireArgs {
 /**
  * Build AND dispatch one ability action against a live store
  * (spec US3 AC-1/2). Shared implementation behind the thin
- * `order-paratroop` / `order-gun` keyboard hooks (T063): `ok`
- * outcomes are dispatched into the store (flowing to the order
- * bridge as a `sendOrder` effect); every other outcome leaves the
- * store untouched and is returned for caller-side feedback.
+ * `order-paratroop` / `order-gun` keyboard hooks (T063): `ok` outcomes
+ * are dispatched into the store (flowing to the order bridge as a
+ * `sendOrder` effect); preflight rejections dispatch the standard local
+ * rejection feedback. Non-rejection outcomes leave the store untouched
+ * and are returned to the caller.
  *
  * @param kind  Which ability to fire.
  * @param args  Store + cursor aim (see {@link AbilityFireArgs}).
@@ -182,6 +183,8 @@ export function fireAbility(kind: AbilityKind, args: AbilityFireArgs): Targeting
     });
     if (outcome.status === 'ok') {
         args.store.dispatch(outcome.action);
+    } else if (outcome.status === 'rejected') {
+        args.store.dispatch({ kind: 'localOrderRejected', reason: outcome.reason });
     }
     return outcome;
 }
