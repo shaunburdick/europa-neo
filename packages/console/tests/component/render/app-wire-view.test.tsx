@@ -223,8 +223,14 @@ describe('live wire views drive the mounted console (rehydration regression)', (
     });
 
     test('consecutive ticks with pipe-bearing cells keep the app alive (freeze regression)', async () => {
-        const { socket } = await bootLiveConsole();
+        const { socket, store } = await bootLiveConsole();
         const board = pinBoardGeometry();
+        // Keep cell (5,5) under the historical test point after camera
+        // initialization centers the overflowing board in its viewport.
+        store.dispatch({
+            kind: 'setCamera',
+            camera: { ...store.getState().camera, pan: { x: 256, y: 256 } },
+        });
 
         // Tick 2 then tick 3, same pipe-bearing cell, unchanged scalars —
         // the exact conditions under which the pre-fix render diff reached

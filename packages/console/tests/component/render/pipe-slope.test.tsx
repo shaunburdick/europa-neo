@@ -277,9 +277,7 @@ describe('pipe slope color-coding (005 FR-013)', () => {
                     if (curW === 0 || curH === 0) return false;
                     if (Number(controlCanvas?.getAttribute('data-paint-count') ?? '0') === 0) return false;
                     const center = controlCtx?.getImageData(
-                        Math.round(
-                            4 * controlGeometry.zoom + controlGeometry.zoom / 2 + controlGeometry.screenOffsetX,
-                        ),
+                        Math.round(4 * controlGeometry.zoom + controlGeometry.zoom / 2 + controlGeometry.screenOffsetX),
                         Math.round(
                             controlGeometry.zoom +
                                 controlGeometry.zoom / 2 -
