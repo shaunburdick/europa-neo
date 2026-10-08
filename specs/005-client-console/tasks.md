@@ -212,8 +212,8 @@ Per `plan.md` §"Project Structure" (monorepo root). The console lives at `packa
 > Write these FIRST; each should FAIL until its corresponding implementation task lands.
 
 - [x] T072 [P] [US5] Write failing unit tests for `hotkeys.ts` in `packages/console/tests/unit/qol/hotkeys.test.ts` — covers Q-U10 (every default key is bound; every binding is unique) + Q-A05: every key in `DEFAULT_INPUT_MAPPING` has a non-null handler; no two bindings share the same key string; the override mechanism (`ConsoleConfig.inputMapping`) replaces the default per-binding
-- [x] T073 [P] [US5] Historical zoom-test task (camera assumptions superseded by v1.8/T118) — originally covered wheel zoom, the then-planned `[12, 96]` clamp, board-edge pan clamp, and input targeting; its old range/clamp assertions are not active requirements.
-- [x] T074 [P] [US5] Historical minimap-test task (viewport/click semantics refined by v1.8/T120–T121) — originally checked a thumbnail, viewport rectangle, and camera jump; current requirements are exact rendered-transform agreement, board-clipped indicator, and cell-center targeting.
+- [x] T073 [P] [US5] Historical zoom-test task (camera assumptions superseded by spec v1.10/T118) — originally covered wheel zoom, the then-planned `[12, 96]` clamp, board-edge pan clamp, and input targeting; its old range/clamp assertions are not active requirements.
+- [x] T074 [P] [US5] Historical minimap-test task (viewport/click semantics refined by spec v1.10/T120–T121) — originally checked a thumbnail, viewport rectangle, and camera jump; current requirements are exact rendered-transform agreement, board-clipped indicator, and cell-center targeting.
 - [x] T075 [P] [US5] Write failing unit tests for `preferences.ts` in `packages/console/tests/unit/qol/preferences.test.ts` — covers the persistence contract (`data-model.md` §9): on remount, the host's `ConsoleConfig.persist` callback fires whenever a QoL setting changes; the initial `ConsoleConfig.qolSettings` overrides the `DEFAULT_QOL_SETTINGS`; the `setQolSettings` method on the `Console` handle (Phase 8) calls the `persist` callback
 - [x] T076 [P] [US5] Write failing unit tests for `reduced-motion.ts` in `packages/console/tests/unit/qol/reduced-motion.test.ts` — covers Q-A07: when `window.matchMedia('(prefers-reduced-motion: reduce)').matches` is true, `MapEffect`s of `kind: 'combat' | 'capture'` are NOT rendered; `MapLabel` TTL animations are skipped; the `effectTtlMs` is treated as 0
 - [x] T077 [P] [US5] Write a11y acceptance test in `packages/console/tests/a11y/us5-acceptance.test.ts` — covers Q-A07 (reduced-motion) + Q-A04 (surrender modal is keyboard-trapped) + Q-A02 (surrender modal axe scan): with `prefers-reduced-motion: reduce`, the `MapEffect` flash duration is 0 ms (verified by querying the rendered element); the surrender modal is a `<dialog>` or has `role="dialog"`, `aria-modal="true"`, and traps focus (Tab cycles between Cancel and Confirm); axe scan finds zero violations on the surrender modal (Q-A02)
@@ -222,8 +222,8 @@ Per `plan.md` §"Project Structure" (monorepo root). The console lives at `packa
 ### Implementation for User Story 5
 
 - [x] T079 [US5] Implement `hotkeys.ts` in `packages/console/src/qol/hotkeys.ts` — the configurable hotkey dispatcher per `research.md` §7: subscribes to `keydown` on the document; looks up each key in `ConsoleConfig.inputMapping` (default: `DEFAULT_INPUT_MAPPING`); routes to the matching handler (pipe toggle, exclusive, paratroop, gun, reserves, surrender, etc.); supports per-key override via `ConsoleConfig.inputOverrides`; respects `inputEnabled`; JSDoc cites FR-004 + research.md §7; depends on T054, T070, T063
-- [x] T080 [US5] Historical zoom/pan implementation task (old board-edge clamp superseded by v1.8/T118) — wheel zoom and pointer-drag pan in `packages/console/src/qol/zoom.ts`; its original clamp prose is not the active pan contract.
-- [x] T081 [US5] Historical minimap implementation task (viewport/click semantics refined by v1.8/T120–T121) — the minimap in `packages/console/src/qol/minimap.tsx`; current requirements are exact rendered-transform agreement, board-clipped viewport indicator, and cell-center targeting.
+- [x] T080 [US5] Historical zoom/pan implementation task (old board-edge clamp superseded by spec v1.10/T118) — wheel zoom and pointer-drag pan in `packages/console/src/qol/zoom.ts`; its original clamp prose is not the active pan contract.
+- [x] T081 [US5] Historical minimap implementation task (viewport/click semantics refined by spec v1.10/T120–T121) — the minimap in `packages/console/src/qol/minimap.tsx`; current requirements are exact rendered-transform agreement, board-clipped viewport indicator, and cell-center targeting.
 - [x] T082 [US5] Implement `preferences.ts` in `packages/console/src/qol/preferences.ts` — the QoL settings persistence per `data-model.md` §9: exposes `loadPreferences(host: ConsoleConfig): QoLSettings` (returns `host.qolSettings ?? DEFAULT_QOL_SETTINGS`) and `savePreferences(settings: QoLSettings, host: ConsoleConfig): void` (calls `host.persist(settings)` if defined); the `Console` handle's `setQolSettings` method (Phase 8) calls `savePreferences` after every change; JSDoc cites data-model §9 persistence contract; depends on T028
 - [x] T083 [US5] Implement `reduced-motion.ts` in `packages/console/src/qol/reduced-motion.ts` — the `prefers-reduced-motion` guard per Q-A07 + `research.md` §6: subscribes to `window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', ...)`; when reduced motion is on, the renderer treats `effectTtlMs` and `labelTtlMs` as 0 (no animation), and the `MapEffect`s of `kind: 'combat' | 'capture'` are skipped entirely; JSDoc cites WCAG 2.3.3 (Animation from Interactions — new in 2.2) + Q-A07; depends on T028, T045, T071
 - [x] T084 [US5] Implement `SurrenderModal.tsx` in `packages/console/src/render/SurrenderModal.tsx` — the surrender confirmation modal per US5 AC-2 + Q-E12: a `<dialog>` or `role="dialog" aria-modal="true"` element; "Cancel" and "Confirm" buttons; focus is trapped (Tab cycles between the two); Escape closes; Enter on Confirm dispatches `{ kind: 'surrender' }`; the modal opens on the `requestSurrenderConfirm` reducer effect; respects the host's `onSurrenderRequest` callback (if provided, the console delegates to the host's modal); JSDoc cites US5 AC-2 + WCAG 2.4.3 (Focus Order); depends on T028, T021
@@ -502,16 +502,17 @@ stay in cell-pixels; only the display is a percentage.
 
 **Checkpoint**: `pnpm test:unit` green; `pnpm typecheck` + `pnpm lint` clean.
 
-## Phase R3: Keyboard zoom shortcuts (FR-018; historical reset binding superseded by v1.8)
+## Phase R3: Keyboard zoom shortcuts (FR-018; historical reset binding superseded by the earlier issue #76 correction, reaffirmed by v1.10)
 
 **Purpose**: The original R3 added the UI-zoom layer. Its `0`-reset
-behavior is historical and superseded by v1.8: `Home` resets to measured
-fit and `0` remains reserve-zero. Interactive-chrome focus suppression
-continues to use `shouldIgnoreKeyEvent`.
+behavior is historical; the earlier issue #76 correction changed reset to `Home`
+and kept `0` as reserve-zero, and active spec v1.10 reaffirms that
+behavior. Interactive-chrome focus suppression continues to use
+`shouldIgnoreKeyEvent`.
 
-- [x] T108 [P] Historical R3 test `tests/unit/qol/hotkeys-zoom.test.ts` — its original `0`-resets-zoom assertion is superseded by v1.8, where `Home` resets to measured fit and `0` remains reserve-zero; the interactive-chrome focus guard remains. FAILS before implementation.
-- [x] T109 Historical R3 implementation in `packages/console/src/qol/hotkeys.ts` — its original `0`-resets-zoom behavior is superseded by v1.8: `Home` resets to measured fit and `0` remains bound to `reserve0`.
-- [x] T110 Historical R3 E2E test `tests/e2e/zoom-shortcuts.spec.ts` — its original `0`-reset assertion is superseded by v1.8; current reset is `Home`, while `0` remains reserve-zero.
+- [x] T108 [P] Historical R3 test `tests/unit/qol/hotkeys-zoom.test.ts` — its original `0`-resets-zoom assertion is superseded by the earlier issue #76 correction, reaffirmed by spec v1.10: `Home` resets to measured fit and `0` remains reserve-zero; the interactive-chrome focus guard remains. FAILS before implementation.
+- [x] T109 Historical R3 implementation in `packages/console/src/qol/hotkeys.ts` — its original `0`-resets-zoom behavior is superseded by the earlier issue #76 correction, reaffirmed by spec v1.10: `Home` resets to measured fit and `0` remains bound to `reserve0`.
+- [x] T110 Historical R3 E2E test `tests/e2e/zoom-shortcuts.spec.ts` — its original `0`-reset assertion is superseded by the earlier issue #76 correction, reaffirmed by spec v1.10; current reset is `Home`, while `0` remains reserve-zero.
 
 **Checkpoint**: `pnpm test:unit` + `pnpm test:e2e` green.
 
