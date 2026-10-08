@@ -7,12 +7,11 @@
  * the camera on the clicked position.
  *
  * Geometry: cells map into the minimap by
- * `scale = SIZE / max(boardWidth, boardHeight)`; the viewport rect is
- * the screen-space window `[-pan/zoom … +viewportSize/zoom]` scaled
- * down. Clicking maps back through the scale and dispatches
- * `{ kind: 'setCamera', camera }` with the pan that centers the
- * clicked cell (`pan = viewportCenter − cell × zoom`, clamped per
- * data-model.md §4 via {@link clampCamera}).
+ * `scale = SIZE / max(boardWidth, boardHeight)`. The viewport rectangle
+ * inverts the shared centered-origin transform and clips to board bounds.
+ * Clicks target a cell center and use the corner-reachable pan formula;
+ * physical zoom remains 32–96 CSS px/cell with effective maximum
+ * `min(96, fitZoom * 3)`.
  *
  * Accessibility: `role="img"` + `aria-label="Minimap"` describe the
  * thumbnail for screen readers; navigation itself remains fully
@@ -24,8 +23,9 @@
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 import { terrainColor, VOID_COLOR } from '../render/palette';
+import { computeViewportOffset } from '../render/viewport-offset';
 import type { CameraState, CellRenderInfo, Coord } from '../state/types';
-import { clampCamera } from './zoom';
+import { clampCamera, panForCellCenter } from './zoom';
 
 /** Minimap edge length in CSS pixels. */
 export const MINIMAP_SIZE_PX = 96;
@@ -66,13 +66,21 @@ export function viewportRect(
         width: board.width * camera.zoom,
         height: board.height * camera.zoom,
     };
-    // `|| 0` normalizes -0 (negative pan of 0) to +0 so snapshots and
-    // deep-equality stay stable.
+    const offset = computeViewportOffset(camera.zoom, camera.pan, board, view.width, view.height);
+    const left = offset.x / camera.zoom;
+    const top = offset.y / camera.zoom;
+    const right = left + view.width / camera.zoom;
+    const bottom = top + view.height / camera.zoom;
+    const x = Math.max(0, Math.min(board.width, left));
+    const y = Math.max(0, Math.min(board.height, top));
+    const clippedRight = Math.max(x, Math.min(board.width, right));
+    const clippedBottom = Math.max(y, Math.min(board.height, bottom));
+    // `|| 0` normalizes -0 for stable snapshots/deep-equality.
     return {
-        x: (-camera.pan.x / camera.zoom) * scale || 0,
-        y: (-camera.pan.y / camera.zoom) * scale || 0,
-        w: (view.width / camera.zoom) * scale,
-        h: (view.height / camera.zoom) * scale,
+        x: x * scale || 0,
+        y: y * scale || 0,
+        w: (clippedRight - x) * scale,
+        h: (clippedBottom - y) * scale,
     };
 }
 
@@ -119,8 +127,7 @@ export function Minimap({
     }, [boardWidth, boardHeight, cells, camera, viewportSize]);
 
     /**
-     * Map a click to its board cell and dispatch the centering camera.
-     * Formula (task T081): `pan = viewportCenter − clickedCell × zoom`.
+     * Map a click to its board cell center and dispatch the centered camera.
      */
     function handleClick(event: React.MouseEvent<HTMLCanvasElement>): void {
         const rect = event.currentTarget.getBoundingClientRect();
@@ -129,19 +136,17 @@ export function Minimap({
         const px = (event.clientX - rect.left) * scaleX;
         const py = (event.clientY - rect.top) * scaleY;
         const scale = minimapScale({ width: boardWidth, height: boardHeight });
-        const cellX = Math.floor(px / scale);
-        const cellY = Math.floor(py / scale);
-        const view = viewportSize ?? {
-            width: boardWidth * camera.zoom,
-            height: boardHeight * camera.zoom,
-        };
+        const cellX = Math.min(boardWidth - 1, Math.max(0, Math.floor(px / scale)));
+        const cellY = Math.min(boardHeight - 1, Math.max(0, Math.floor(py / scale)));
+        const cell = { x: cellX, y: cellY };
+        const pan = panForCellCenter(cell, camera.zoom, {
+            width: boardWidth,
+            height: boardHeight,
+        });
         const next = clampCamera(
             {
                 ...camera,
-                pan: {
-                    x: view.width / 2 - cellX * camera.zoom,
-                    y: view.height / 2 - cellY * camera.zoom,
-                },
+                pan,
             },
             { width: boardWidth, height: boardHeight },
         );
@@ -204,7 +209,12 @@ function paintMinimap(
     // design-exception: canvas fallback — spec Edge Cases § pit
     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
     ctx.lineWidth = 1;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, boardWidth * scale, boardHeight * scale);
+    ctx.clip();
     ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, Math.max(rect.w, 2), Math.max(rect.h, 2));
+    ctx.restore();
 }
 
 /** Re-exported type alias keeping the props surface self-descriptive. */

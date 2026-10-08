@@ -148,8 +148,11 @@ describe('Minimap viewport rect after setCamera (FR-019)', () => {
         // paintMinimap aligns strokes to the pixel grid (+0.5).
         expect(painted.x).toBeCloseTo(expected.x + 0.5, 4);
         expect(painted.y).toBeCloseTo(expected.y + 0.5, 4);
-        // Full-board viewport: the rect keeps covering the minimap.
-        expect(painted.w).toBeCloseTo(MINIMAP_SIZE_PX, 4);
-        expect(painted.h).toBeCloseTo(MINIMAP_SIZE_PX, 4);
+        expect(painted.w).toBeCloseTo(expected.w, 4);
+        expect(painted.h).toBeCloseTo(expected.h, 4);
+        expect(painted.x).toBeGreaterThanOrEqual(0.5);
+        expect(painted.y).toBeGreaterThanOrEqual(0.5);
+        expect(painted.x + painted.w).toBeLessThanOrEqual(MINIMAP_SIZE_PX + 0.5);
+        expect(painted.y + painted.h).toBeLessThanOrEqual(MINIMAP_SIZE_PX + 0.5);
     });
 });

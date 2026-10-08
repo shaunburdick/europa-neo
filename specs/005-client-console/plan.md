@@ -69,7 +69,7 @@ Coverage threshold: 80% lines / 80% functions / 80% branches / 80% statements (V
 **Performance Goals**:
 
 - **SC-003**: order-to-wire-message < 50 ms (input pipeline overhead). Reducer + `sendOrder` round-trip is sub-ms; budget covers React re-render and WebSocket flush.
-- **60 fps render** at default camera (32 px cells, full board visible). Canvas 2D paint of 1024 simple shapes is sub-millisecond.
+- **60 fps render** at the initialized measured-fit camera. Physical cell size remains 32–96 CSS px; small viewports may not fit the whole board because the 32px minimum is binding. Canvas 2D paint of 1024 simple shapes is sub-millisecond.
 - **Memory**: <50 MB heap for a single console instance.
 - **Initial bundle**: <150 KB gzipped (React + Zustand + console core). Sounds and sprites are lazy-loaded after first paint.
 - **First paint**: <500 ms on a 4G connection.
@@ -569,17 +569,27 @@ the current estimate is medium.
 
 ---
 
-# Amendment: Console UI Redesign (issue #76)
+# Historical amendment: Console UI Redesign (issue #76; superseded camera wording)
 
 **Branch**: `issue-76-Console-UI-Redesign` | **Date**: 2026-09-05 | **Spec**: [`specs/005-client-console/spec.md`](./spec.md) (Clarifications v1.4, FR-014..FR-022, Implementation Note 16)
 
-This amendment restructures the shipped match view into a two-column
+This historical amendment restructures the shipped match view into a two-column
 layout (board left, fixed-width right sidebar with all HUD controls),
-expands the zoom range to 50%–300% with a percentage display layer,
-adds keyboard zoom shortcuts, and guarantees spectator parity. It is
+records the former zoom interpretation, adds keyboard zoom shortcuts,
+and guarantees spectator parity. It is
 an **additive/restructuring** change to the already-Implemented feature
 005 — no engine, fog, terrain, or networking changes; no new
 dependencies.
+
+> **Supersession notice (2026-10-07):** The issue #76 camera choices,
+> requirements, clamps, and handoff notes below are retained only as
+> implementation history. Any statement that 100% means full-board
+> visibility, that 100% is a fixed 32px cell, that the minimum is 12/16px,
+> that 300% is always reachable, that `0` resets the zoom, or that the
+> old pan clamp is unchanged
+> is superseded by the active camera policy in the final section below
+> and spec v1.8. The current physical bounds are 32–96 CSS px, 100% is
+> measured `fitZoom`, and effective maximum is `min(96px, fitZoom * 3)`.
 
 ## Scope (from spec FR-014..FR-022)
 
@@ -685,6 +695,47 @@ europa-main (display: flex)
 8. Verify with the full `pnpm verify` gate (typecheck, lint, format,
    all suites, selfhost, conformance).
 
-**Size estimate**: ~400–700 LOC of code + tests. Small-to-medium
+**Size estimate (historical)**: ~400–700 LOC of code + tests. Small-to-medium
 restructuring feature; the architect implements solo with self-review
 against the spec and constitution.
+
+---
+
+## Active camera policy (spec v1.8, 2026-10-07)
+
+This is the governing camera plan and supersedes contradictory issue #76
+history above. Preserve `CameraState`'s public shape and
+`CONSOLE_API_VERSION` 0.4.0; do not change fog, terrain, engine, or
+spectator read-only behavior.
+
+- Keep physical cell-size limits at 32–96 CSS px (`minCellPx = 32`,
+  `maxCellPx = 96`). `defaultCellPx = 32` is a shipped initial seed, not
+  a fixed 100% baseline.
+- `100%` means dynamic measured `fitZoom`, initialized once the ready
+  view and viewport measurement are both available, independent of
+  arrival order. Physical 32px minimum may prevent a full-board fit.
+- Effective maximum is `min(96px, fitZoom * 3)`; do not expand the
+  physical ceiling to guarantee a 300% label.
+- At 100%, any corner cell center can be panned to viewport center
+  within 1 CSS px. Pan must work on fit and overflow axes; empty margins
+  beyond board edges are permitted. A resize after user camera
+  interaction must preserve that camera.
+- Board rendering, hit testing, viewport offset, and minimap geometry
+  use one rendered viewport transform. The minimap indicator is clipped
+  to its intersection with board bounds; a clicked minimap cell targets
+  its center. Blank margins outside board bounds issue neither actions
+  nor wire orders.
+- Keyboard zoom remains `+`/`=` in, `-`/`_` out, and `Home` to reset to
+  100% fit; `0` remains the reserve-zero key.
+
+### Repair sequencing and evidence
+
+The v1.8 follow-up was completed in this order: pure camera geometry and
+deterministic tests; mount-order and resize regression coverage;
+blank-margin input safety; browser verification of corner centering and
+minimap agreement; then final documentation reconciliation (T118–T122).
+The acceptance source is spec v1.8 FR-017, FR-019, FR-027 and US6
+scenarios 9–14. The browser matrix is summarized in the PR description;
+local evidence and screenshot artifacts are ignored and not committed. The
+required numeric assertion was maximum 1 CSS px error for each corner-cell
+center. Historical issue #76 checkpoints were not used as evidence.

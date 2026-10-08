@@ -83,31 +83,40 @@ describe('Minimap (T074)', () => {
 
         const canvas = document.querySelector<HTMLCanvasElement>('.europa-minimap');
         expect(canvas).not.toBeNull();
-        // Click the center of board cell (8, 8): scale = 96/16 = 6, so
-        // (51, 51) minimap px sits safely inside that cell. Expected pan
-        // = viewportCenter − cell × zoom with the default full-board
-        // viewport (512×512): 256 − 8×32 = 0.
+        // Click within cell (8, 8): scale = 96/16 = 6. Camera pan aligns
+        // that cell's center with the viewport center.
         await user.click(canvas, { position: { x: 51, y: 51 } });
 
         expect(onSetCamera).toHaveBeenCalledTimes(1);
         const dispatched = onSetCamera.mock.calls[0]?.[0] as CameraState;
         expect(dispatched.zoom).toBe(CAMERA.zoom);
-        expect(dispatched.pan.x).toBe(0);
-        expect(dispatched.pan.y).toBe(0);
+        expect(dispatched.pan.x).toBe(-16);
+        expect(dispatched.pan.y).toBe(-16);
     });
 
-    test('the dispatched pan is clamped to the visible window', async () => {
+    test('clicking a corner targets its cell center within pan bounds', async () => {
         const { onSetCamera } = await mountMinimap();
         const user = userEvent.setup();
 
         const canvas = document.querySelector<HTMLCanvasElement>('.europa-minimap');
         expect(canvas).not.toBeNull();
-        // Click the extreme top-left corner → unclamped pan would be far
-        // negative; the clamp keeps it ≥ -(maxZoom*2).
+        // Click the top-left cell; its center is reachable at either zoom.
         await user.click(canvas as HTMLCanvasElement, { position: { x: 1, y: 1 } });
         const dispatched = onSetCamera.mock.calls[0]?.[0] as CameraState;
-        expect(dispatched.pan.x).toBeGreaterThanOrEqual(-(CAMERA.maxZoom * 2));
-        expect(dispatched.pan.y).toBeGreaterThanOrEqual(-(CAMERA.maxZoom * 2));
+        expect(dispatched.pan.x).toBe(240);
+        expect(dispatched.pan.y).toBe(240);
+    });
+
+    test('clicking the opposite corner centers its last cell center', async () => {
+        const { onSetCamera } = await mountMinimap();
+        const user = userEvent.setup();
+        const canvas = document.querySelector<HTMLCanvasElement>('.europa-minimap');
+        expect(canvas).not.toBeNull();
+
+        await user.click(canvas as HTMLCanvasElement, { position: { x: 95, y: 95 } });
+        const dispatched = onSetCamera.mock.calls[0]?.[0] as CameraState;
+        expect(dispatched.pan.x).toBe(-240);
+        expect(dispatched.pan.y).toBe(-240);
     });
 });
 
@@ -127,6 +136,20 @@ describe('viewportRect (pure geometry)', () => {
         const partial = viewportRect(CAMERA, { width: 16, height: 16 }, { width: 256, height: 128 });
         expect(partial.w).toBeCloseTo((256 / 32) * (96 / 16), 6);
         expect(partial.h).toBeCloseTo((128 / 32) * (96 / 16), 6);
+        expect(partial.x).toBeCloseTo(24, 6);
+        expect(partial.y).toBeCloseTo(36, 6);
+    });
+
+    test('clips the viewport indicator to board bounds at extreme camera positions', () => {
+        const clipped = viewportRect(
+            { ...CAMERA, pan: { x: -240, y: 240 } },
+            { width: 16, height: 16 },
+            { width: 128, height: 128 },
+        );
+        expect(clipped.x).toBeGreaterThanOrEqual(0);
+        expect(clipped.y).toBeGreaterThanOrEqual(0);
+        expect(clipped.x + clipped.w).toBeLessThanOrEqual(MINIMAP_SIZE_PX);
+        expect(clipped.y + clipped.h).toBeLessThanOrEqual(MINIMAP_SIZE_PX);
     });
 });
 

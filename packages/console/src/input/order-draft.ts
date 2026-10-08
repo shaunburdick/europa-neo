@@ -317,6 +317,23 @@ export function shouldIgnoreKeyEvent(event: {
     return target instanceof HTMLElement && target.isContentEditable;
 }
 
+/** Whether a translated action can produce a match order. */
+export function isOrderProducingAction(action: PlayerAction): boolean {
+    switch (action.kind) {
+        case 'setPipe':
+        case 'clearPipe':
+        case 'setPipesExclusive':
+        case 'clearAllPipes':
+        case 'setReserves':
+        case 'paratroop':
+        case 'gun':
+        case 'surrender':
+            return true;
+        default:
+            return false;
+    }
+}
+
 /**
  * Document-level keydown controller. Keeps the last-known cursor
  * sample (fed by the pointer layer) and dispatches translated actions
@@ -385,6 +402,9 @@ export class OrderDraftController {
             cursorAgeMs: ageMs,
         });
         if (outcome.kind === 'action') {
+            if (this.sample !== null && this.sample.target.cell === null && isOrderProducingAction(outcome.action)) {
+                return;
+            }
             event.preventDefault();
             this.store.dispatch(outcome.action);
         } else if (outcome.reason === 'preflight-rejected' && outcome.detail !== undefined) {

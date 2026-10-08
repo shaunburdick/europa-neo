@@ -6,8 +6,8 @@
  * the input layer (hit-testing, zoom-toward-cursor).
  *
  * The viewport offset is the board-space position of the container's
- * top-left corner. When the board is smaller than the container it
- * centers the board; when the board is larger it follows pan.
+ * top-left corner. Pan is measured from a board-centered origin on
+ * every axis, so fitting boards can expose blank margins at the edges.
  *
  * Coordinate contract (data-model.md §4, extended):
  *   screen = -viewportOffset + cell × zoom   (forward)
@@ -17,30 +17,35 @@
 import type { ScreenPoint } from '../state/types';
 
 /**
- * Compute the viewport offset — the position of board cell (0, 0)
- * in container/screen coordinates. Both the canvas painter and the
- * DOM grid overlay use this to position cells, and the input layer
- * needs it to correctly map screen clicks back to board coordinates.
+ * Compute the board-pixel origin at the viewport's top-left. The
+ * returned viewportOffset has the opposite sign from the screen-space
+ * translation: `screen = cell * zoom - viewportOffset`. Canvas, DOM,
+ * minimap, and input consumers all use this shared origin.
  *
- * When the board is smaller than the container, the offset centers
- * the board. When the board is larger, the offset follows pan
- * (`viewportOffset = -pan`).
+ * The unpanned board is centered on each axis. Pan is then subtracted
+ * from that board-space origin for both fitting and overflowing axes.
+ * Render, hit-test, and minimap share this origin.
  *
  * @param zoom           Camera zoom (cell size in CSS pixels).
  * @param pan            Camera pan offset.
- * @param boardCells     Board dimension in cells (square boards).
+ * @param boardCells     Board dimension in cells (square boards), or
+ *                       explicit dimensions for rectangular geometry.
  * @param containerWidth Container width in CSS pixels.
  * @param containerHeight Container height in CSS pixels.
  */
 export function computeViewportOffset(
     zoom: number,
     pan: ScreenPoint,
-    boardCells: number,
+    boardCells: number | { readonly width: number; readonly height: number },
     containerWidth: number,
     containerHeight: number,
 ): ScreenPoint {
-    const boardPx = boardCells * zoom;
-    const offX = boardPx < containerWidth ? -(containerWidth - boardPx) / 2 : -pan.x;
-    const offY = boardPx < containerHeight ? -(containerHeight - boardPx) / 2 : -pan.y;
-    return { x: offX, y: offY };
+    const width = typeof boardCells === 'number' ? boardCells : boardCells.width;
+    const height = typeof boardCells === 'number' ? boardCells : boardCells.height;
+    // Camera pan is a CSS-pixel translation relative to the centered
+    // board origin; viewportOffset remains board-space for all consumers.
+    return {
+        x: (width * zoom - containerWidth) / 2 - pan.x,
+        y: (height * zoom - containerHeight) / 2 - pan.y,
+    };
 }

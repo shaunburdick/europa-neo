@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-05 (v1.9; issue #125 manual and preflight contract clarification)
-**Version**: 1.9
+**Last Updated**: 2026-10-08 (v1.10; camera fit and corner navigation ruling)
+**Version**: 1.10
 
 **Created**: 2026-08-21
 
-**Status**: Implemented (2026-08-30); URL routing superseded by Feature 013; right-sidebar layout + zoom range expansion added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair implemented on this feature branch, PR review pending; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -92,24 +92,30 @@ As a player, I want modern conveniences — zoom/pan, readable counters, connect
 
 ---
 
-### User Story 6 - Right Sidebar Layout + Zoom Range Expansion (Priority: P1, issue #76)
+### User Story 6 - Right Sidebar Layout + Fit-Based Camera (Priority: P1, issue #76)
 
 As a player, I want all HUD controls consolidated into a right sidebar so the game board receives maximum horizontal space, with zoom controls accessible via mousewheel and keyboard shortcuts.
 
-**Why this priority**: The board is the primary interaction surface; maximizing its viewport directly improves playability. Zoom range expansion (100%–300%) allows close-up precision while the minimap provides overview context.
+**Why this priority**: The board is the primary interaction surface; maximizing its viewport directly improves playability. A measured fit baseline plus bounded close-up zoom supports both orientation and precision while the minimap provides overview context.
 
-**Independent Test**: Can be tested via Playwright E2E: layout assertions (sidebar present, board fills remaining space), zoom range assertions (100%–300% clamped, default 100%), keyboard shortcut assertions (+/=/-/_/Home), and minimap viewport rectangle assertions.
+**Independent Test**: Can be tested via Playwright E2E: layout assertions (sidebar present, board fills remaining space), fit initialization and physical zoom-bound assertions (32–96 CSS px, effective maximum `min(96px, fitZoom * 3)`), keyboard shortcut assertions (+/=/-/_/Home), and minimap viewport-indicator assertions.
 
 **Acceptance Scenarios**:
 
 1. **Given** the match view, **When** the layout renders, **Then** the board occupies the left column and the sidebar occupies the right column, with the header and footer outside the two-column area.
 2. **Given** the sidebar, **When** it renders, **Then** it contains Status (tick counter, player turn, connection), Players (list with color indicators, names, roles), Orders (exclusive/clear toggle with mode label), Reserve (percentage slider + quick-select digit buttons 0–9 mirroring the number keys), Overview (minimap with viewport rectangle), Zoom (level indicator + controls), Surrender button, and Help button — in that vertical order.
 3. **Given** the board at default zoom, **When** the player scrolls the mousewheel over the board, **Then** the board zooms toward the cursor position (scroll up = in, scroll down = out).
-4. **Given** the board at any zoom level, **When** the player presses `+`/`=` or `-`/`_`, **Then** the board zooms in/out by one step, clamped to 100%–300%.
-5. **Given** the board at any zoom level, **When** the player presses `Home`, **Then** the board resets to 100% (default).
+4. **Given** the board at any zoom level, **When** the player presses `+`/`=` or `-`/`_`, **Then** the board zooms in/out by one step, with physical cell size clamped to 32–96 CSS px and effective maximum `min(96px, fitZoom * 3)`.
+5. **Given** the board at any zoom level, **When** the player presses `Home`, **Then** the board resets to 100% measured fit.
 6. **Given** the minimap, **When** the zoom level changes, **Then** the viewport rectangle updates to reflect the visible area at the current zoom.
 7. **Given** a spectator, **When** the layout renders, **Then** the same sidebar layout is shown (read-only; order controls are inert).
 8. **Given** the match view, **When** the player scrolls the mousewheel over the board, **Then** notification toasts appear on the right side (over the sidebar) and never obscure the game board.
+9. **Given** a ready view and a measured board viewport in either arrival order, **When** both are available, **Then** the camera initializes at 100% of the measured fit baseline; neither mount ordering may leave the camera at a stale or unmeasured default.
+10. **Given** the camera is at 100% and the board is ready, **When** the player pans, **Then** the center of each of the four corner cells can be placed at the viewport center with no more than 1 CSS px error, including on axes where the board fits as well as axes where it overflows.
+11. **Given** a camera transform and its main-board viewport, **When** the minimap viewfinder renders, **Then** it depicts that same transform and clips its viewport indicator to the board bounds; clicking a minimap cell targets that cell's center.
+12. **Given** the pointer is in blank margin outside any board edge, **When** the player clicks or presses a board-order key, **Then** no input action and no wire order are produced.
+13. **Given** the player has changed the camera, **When** the board viewport is resized, **Then** the camera is not overwritten by a new fit initialization.
+14. **Given** a viewport whose measured fit size is below 32 CSS px per cell, **When** the fit baseline is applied, **Then** the physical 32 CSS px minimum remains in force and the whole board is not required to fit.
 
 ---
 
@@ -119,8 +125,8 @@ As a player, I want all HUD controls consolidated into a right sidebar so the ga
 - What happens when orders are issued during disconnect? → Console queues nothing silently: inputs are disabled with visible status when offline.
 - What happens at extreme zoom on large boards? → Rendering degrades gracefully (level-of-detail simplification) rather than dropping frames.
 - What happens when two rapid contradictory orders race (toggle then exclusive)? → Both are sent in order; server applies sequentially; console reflects authoritative result after next tick.
-- What happens when the player rapidly scrolls the mousewheel? → Zoom changes are clamped to 100%–300%; no overflow or NaN state.
-- What happens at very small zoom levels? → Minimum zoom is 100% (full board visible); the minimap provides overview context when zoomed in.
+- What happens when the player rapidly scrolls the mousewheel? → Zoom changes are clamped to the 32–96 CSS px physical bounds and the effective maximum `min(96px, fitZoom * 3)`; no overflow or NaN state.
+- What happens when the measured fit size would be below the 32 CSS px physical minimum? → The 32px minimum remains in force; full-board visibility is not guaranteed. The minimap provides overview context.
 
 ## Requirements *(mandatory)*
 
@@ -142,13 +148,14 @@ As a player, I want all HUD controls consolidated into a right sidebar so the ga
 - **FR-014 (issue #76)**: The console MUST render the match view as a two-column layout: the game board in the left column, and a fixed-width right sidebar containing all HUD controls. The header (page title) and shared footer MUST remain outside the two-column area, occupying the top and bottom of the viewport respectively.
 - **FR-015 (issue #76)**: The sidebar MUST contain, in vertical order: Status (tick counter, player turn indicator, connection status), Players (list with color indicators, names, and roles YOU/P2/...), Orders (exclusive/clear mode toggle with mode label), Reserve (percentage slider with quick-select digit buttons 0–9, mirroring the number keys — the engine's reserves domain is 0%–90% in 10% steps, so the originally-proposed 25/50/75/100 presets are unrepresentable and are NOT shipped), Overview (minimap with viewport rectangle), Zoom (level indicator and controls), Surrender button, and Help button.
 - **FR-016 (issue #76)**: The sidebar MUST remain static during board zoom and pan operations; only the board area's transform changes.
-- **FR-017 (issue #76)**: The zoom range MUST be 100% (full board visible) to 300% (close-up), with a default of 100%. The percentage is a display layer over the existing cell-pixel zoom math (e.g., 100% = 32px per cell, 300% = 96px per cell); the underlying `CameraState` values remain in cell-pixels and the existing pan-clamp math is unchanged. The canvas MUST always fill the available board area — zoom changes cell density, not canvas size.
+- **FR-017 (issue #76; v1.10 ruling)**: The physical cell size MUST remain clamped to 32–96 CSS px. `100%` MUST mean the existing dynamic measured-fit baseline (`fitZoom`), initialized once both a ready view and viewport measurement are available, regardless of which arrives first. The effective zoom ceiling MUST be `min(96px, fitZoom * 3)`; it may therefore be below 300% of the current fit baseline. The percentage display MUST be relative to `fitZoom`, not a fixed 32px cell. `CameraState` values and pan offsets remain in CSS-pixel/cell-space terms as defined by the canonical contracts. At 100% fit, panning MUST allow each corner cell center to reach the viewport center within 1 CSS px. Pan MUST work on each axis whether the board fits or overflows, and blank space outside any board edge is allowed. Once the player has changed the camera, a viewport resize MUST NOT overwrite that camera with fit initialization. The canvas MUST fill the available board area; zoom changes cell density, not canvas size.
 - **FR-018 (issue #76)**: The console MUST provide keyboard zoom shortcuts: `+` or `=` zooms in one step, `-` or `_` zooms out one step, `Home` resets to 100%. Shortcuts MUST be suppressed when focus is inside interactive chrome (buttons, inputs, toolbars, contenteditable) — reusing the existing `HotkeyController` focus guard. The `?` help-overlay toggle MUST reuse that same shared key focus guard. (`0` is NOT a zoom shortcut — it remains the `reserve0` digit key per the engine's 0–9 reserves domain.)
-- **FR-019 (issue #76)**: The minimap's viewport rectangle MUST reflect the visible area at the current zoom level and pan position, updated live as the camera changes.
+- **FR-019 (issue #76; v1.10 ruling)**: The minimap MUST use the exact same rendered viewport transform as the main board. Its viewport indicator MUST show only the intersection of that viewport with board bounds. Clicking a minimap cell MUST target its center.
 - **FR-020 (issue #76)**: The layout MUST fill the viewport at `100vw × 100vh` with no page scrolling. The minimum supported viewport width is 768px. The header and footer MUST remain fixed at the top and bottom respectively, never scrolling away.
 - **FR-021 (issue #76)**: The sidebar layout MUST apply equally to player and spectator views. In spectator mode, order-producing controls (Orders, Reserve, Surrender) MUST be rendered as disabled or visually inert; no orders are sent (this is already the structural invariant — spectators have no store, no order bridge, and the adapter refuses orders).
 - **FR-022 (issue #76)**: The sidebar MUST be owned by `App` (not the lobby runtime) so player and spectator share one render path. The match-leg host's slim chrome (title + leave button) remains in `lobby-runtime.tsx`'s `MatchLegHost`.
 - **FR-023 (issue #76)**: Notification toasts (order confirmations, rejections, connection status) MUST appear on the right side of the viewport, overlaying the sidebar area. Toasts MUST never obscure the game board. At worst, a toast covers the bottom sidebar sections (Help/Surrender).
+- **FR-027**: Pointer and order-key input outside the board bounds MUST produce no input action and no wire order; blank camera margins are not board targets.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -356,7 +363,7 @@ truthful).
     propagated into state); component tests assert the real DOM text
     via the imported constant across idle/live/reconnecting states
     (`hud-version.test.tsx`).
-16. **Right sidebar layout + zoom expansion (issue #76)**: the match view restructures into a two-column flex layout: `europa-main` becomes `display: flex` with `europa-board-area` left (flex-grow: 1, fills all available space) and a new `europa-sidebar` right (fixed width, ~280px). The sidebar sections (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) are composed as children of `App`. The existing HUD items currently rendered inline in `App` (`#hud`, `OrderBar`, `ReservesPanel`, `Minimap`, Surrender, Help) are migrated into the sidebar structure. The `BrandedFooter` stays at the view root (below the two-column area). Zoom range: `minZoom=32` (100% of 32, full board visible), `maxZoom=96` (300% of 32). The canvas always fills the available board area — zoom changes cell density, not canvas size. The `ZoomPanController` and `clampCamera` are updated accordingly. Keyboard zoom shortcuts live in `HotkeyController` (one handler, same focus-guard as order shortcuts). The minimap's `viewportRect` is already wired; it updates with the existing camera state subscription. Toasts positioned on the right side, overlaying the sidebar. The layout fills `100vw × 100vh` with no page scrolling; header and footer are fixed at top/bottom. Minimum viewport width is 768px — no responsive stacking needed. Spectator path: `SpectatorMatchLeg` in `lobby-runtime.tsx` renders `App` with `state` prop and no `store`; the sidebar renders with `store === undefined` guards disabling all order-producing controls — no new spectator-specific code needed.
+16. **Historical issue #76 implementation note (camera wording superseded by v1.8)**: the match view restructures into a two-column flex layout: `europa-main` becomes `display: flex` with `europa-board-area` left (flex-grow: 1, fills all available space) and a new `europa-sidebar` right (fixed width, ~280px). The sidebar sections (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) are composed as children of `App`. The existing HUD items currently rendered inline in `App` (`#hud`, `OrderBar`, `ReservesPanel`, `Minimap`, Surrender, Help) are migrated into the sidebar structure. The `BrandedFooter` stays at the view root (below the two-column area). The implementation history recorded `minZoom=32`, `maxZoom=96`, and the original full-board/percentage assumptions; those camera claims are superseded by v1.8 FR-017. The canvas fills the available board area — zoom changes cell density, not canvas size. Keyboard zoom shortcuts live in `HotkeyController` (one handler, same focus-guard as order shortcuts). The minimap viewport follows the current camera. Toasts are positioned over the sidebar. The layout fills `100vw × 100vh` with no page scrolling; spectator order controls remain inert.
 17. **`CONSOLE_API_VERSION` 0.1.0 → 0.2.0 (issue #76)**: raising `minCellPx` 12 → 16 changes the public zoom-clamp surface, so both contract mirrors (`console-api.ts` + `console-types.ts`) bump the API version in the same change set. The wire protocol version is separate and untouched. No test asserts the literal version value; the conformance suite asserts the two mirrors stay byte-identical.
 
 ### Quickstart validation mapping (Q-* → proving suites)
@@ -487,3 +494,9 @@ suite result. Coverage remains gated at ≥80% on every metric.
 ### v1.9 (2026-10-05) — Intentional exclusive-pipe preflight policy (issue #125 review)
 
 - **FR-006 clarification**: the console's local preflight for `setPipesExclusive` intentionally rejects out-of-board and visible-water destinations even though current engine validation does not check destination bounds or terrain for that order. This is a stricter, fail-closed console UX policy; changing it requires an explicit contract revision.
+
+### v1.10 (2026-10-08) — Camera fit and corner navigation
+
+This owner ruling supersedes the earlier issue #76 wording in Clarifications v1.4, Implementation Note 16, and FR-017 that treated 100% as full-board-visible or fixed at 32px, stated 50%/12px/16px minimums, described a `0` zoom reset, or claimed the previous pan clamp was unchanged. The approved behavior is a dynamic measured fit baseline with physical cell-size bounds of 32–96 CSS px, an effective ceiling of `min(96px, fitZoom * 3)`, and camera pan that can center every corner-cell center. The 32px lower bound may prevent the full board from fitting. `Home` resets to the measured 100% fit baseline; `0` remains the reserve-zero key. `CameraState` shape, `CONSOLE_API_VERSION` 0.4.0, and spectator read-only behavior remain unchanged; no fog, terrain, or engine behavior changes. See FR-017, FR-019, FR-027 and US6 scenarios 9–14 for conformance criteria.
+
+- **FR-027**: Pointer and order-key input outside the board bounds MUST produce no input action and no wire order; blank camera margins are not board targets.

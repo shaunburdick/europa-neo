@@ -3,7 +3,9 @@
 **Input**: Design documents from `specs/005-client-console/`
 **Prerequisites**: `plan.md` (required), `spec.md` (required for user stories), `research.md`, `data-model.md`, `contracts/`, `quickstart.md`
 **Branch**: `001-europa-core`
-**Spec**: [spec.md](./spec.md) — 5 user stories (US1 = P1 Satellite Grid Within the Visibility Horizon, US2 = P1 Pipe Commands With Region Targeting, US3 = P2 Paratroop and Gun Targeting, US4 = P2 Reserves Control, US5 = P3 Modern Quality-of-Life Layer) and 11 functional requirements (FR-001..FR-011)
+**Spec**: [spec.md](./spec.md) — active requirements are in v1.8. The camera repair is governed by US6 scenarios 9–14 and FR-017, FR-019, FR-027; its implementation follow-up is listed at the end of this file.
+
+> **Current camera summary (v1.8, 2026-10-07):** Physical cell size is 32–96 CSS px (`minCellPx = 32`, `maxCellPx = 96`); `defaultCellPx = 32` is an initial seed, not the 100% baseline. `100%` is dynamic measured `fitZoom`, initialized after both ready view and viewport measurement exist. Effective maximum is `min(96px, fitZoom * 3)`. `Home` resets to measured fit; `0` remains reserves. Pan can center each corner cell center within 1 CSS px, works on axes where the board fits or overflows, and may show blank margins. The minimap shares the rendered transform, clips the viewport indicator to board bounds, and clicks cell centers. Blank margins cause no action/order; resizing after camera interaction preserves user state.
 
 **Tests**: REQUIRED. Constitution Principle III mandates ≥80% coverage on game logic as a merge gate. Constitution Principle VI mandates WCAG 2.2 AA, so every user story has a dedicated a11y acceptance test. The plan's `quickstart.md` §3–§5 maps every spec FR to at least one test (Q-C01..Q-C03, Q-U01..Q-U10, Q-B01..Q-B08, Q-E01..Q-E15, Q-A01..Q-A08, Q-P01..Q-P04, plus the SC-002 determinism + subcell parity + self-host smoke tests). Tests are interleaved with implementation per the spec-kit template (failing tests first, then impl, then integration). The reducer is targeted at 100% coverage (pure function, free); `localPreflightOrder` is targeted at 100% (security-relevant per `plan.md` "Constitution Check" Principle III); the input mapping table is targeted at 100%; the package-wide floor is 80% (Vitest v8 thresholds).
 
@@ -210,8 +212,8 @@ Per `plan.md` §"Project Structure" (monorepo root). The console lives at `packa
 > Write these FIRST; each should FAIL until its corresponding implementation task lands.
 
 - [x] T072 [P] [US5] Write failing unit tests for `hotkeys.ts` in `packages/console/tests/unit/qol/hotkeys.test.ts` — covers Q-U10 (every default key is bound; every binding is unique) + Q-A05: every key in `DEFAULT_INPUT_MAPPING` has a non-null handler; no two bindings share the same key string; the override mechanism (`ConsoleConfig.inputMapping`) replaces the default per-binding
-- [x] T073 [P] [US5] Write failing unit tests for `zoom.ts` in `packages/console/tests/unit/qol/zoom.test.ts` — covers US5 AC-1: `wheel` events on the canvas dispatch `{ kind: 'setCamera', camera: { zoom: clamped, pan: { x: 0, y: 0 } } }`; zoom is clamped to `[CONSOLE_CONSTANTS.minCellPx, CONSOLE_CONSTANTS.maxCellPx] = [12, 96]`; pan is clamped to keep the board visible (no pan past the board edges per `data-model.md` §4); the input targeting (`hitTest`) remains accurate at every zoom level
-- [x] T074 [P] [US5] Write failing component tests for `minimap.tsx` in `packages/console/tests/component/qol/minimap.test.tsx` — covers US5 AC-1: a small `<canvas>` (or `<svg>`) showing the full board at thumbnail size; the player's viewport (current camera) is highlighted as a rectangle; clicking the minimap centers the camera on the clicked position
+- [x] T073 [P] [US5] Historical zoom-test task (camera assumptions superseded by v1.8/T118) — originally covered wheel zoom, the then-planned `[12, 96]` clamp, board-edge pan clamp, and input targeting; its old range/clamp assertions are not active requirements.
+- [x] T074 [P] [US5] Historical minimap-test task (viewport/click semantics refined by v1.8/T120–T121) — originally checked a thumbnail, viewport rectangle, and camera jump; current requirements are exact rendered-transform agreement, board-clipped indicator, and cell-center targeting.
 - [x] T075 [P] [US5] Write failing unit tests for `preferences.ts` in `packages/console/tests/unit/qol/preferences.test.ts` — covers the persistence contract (`data-model.md` §9): on remount, the host's `ConsoleConfig.persist` callback fires whenever a QoL setting changes; the initial `ConsoleConfig.qolSettings` overrides the `DEFAULT_QOL_SETTINGS`; the `setQolSettings` method on the `Console` handle (Phase 8) calls the `persist` callback
 - [x] T076 [P] [US5] Write failing unit tests for `reduced-motion.ts` in `packages/console/tests/unit/qol/reduced-motion.test.ts` — covers Q-A07: when `window.matchMedia('(prefers-reduced-motion: reduce)').matches` is true, `MapEffect`s of `kind: 'combat' | 'capture'` are NOT rendered; `MapLabel` TTL animations are skipped; the `effectTtlMs` is treated as 0
 - [x] T077 [P] [US5] Write a11y acceptance test in `packages/console/tests/a11y/us5-acceptance.test.ts` — covers Q-A07 (reduced-motion) + Q-A04 (surrender modal is keyboard-trapped) + Q-A02 (surrender modal axe scan): with `prefers-reduced-motion: reduce`, the `MapEffect` flash duration is 0 ms (verified by querying the rendered element); the surrender modal is a `<dialog>` or has `role="dialog"`, `aria-modal="true"`, and traps focus (Tab cycles between Cancel and Confirm); axe scan finds zero violations on the surrender modal (Q-A02)
@@ -220,8 +222,8 @@ Per `plan.md` §"Project Structure" (monorepo root). The console lives at `packa
 ### Implementation for User Story 5
 
 - [x] T079 [US5] Implement `hotkeys.ts` in `packages/console/src/qol/hotkeys.ts` — the configurable hotkey dispatcher per `research.md` §7: subscribes to `keydown` on the document; looks up each key in `ConsoleConfig.inputMapping` (default: `DEFAULT_INPUT_MAPPING`); routes to the matching handler (pipe toggle, exclusive, paratroop, gun, reserves, surrender, etc.); supports per-key override via `ConsoleConfig.inputOverrides`; respects `inputEnabled`; JSDoc cites FR-004 + research.md §7; depends on T054, T070, T063
-- [x] T080 [US5] Implement `zoom.ts` in `packages/console/src/qol/zoom.ts` — the camera zoom + pan per US5 AC-1 + `data-model.md` §4: subscribes to `wheel` (zoom) and `pointerdown` + drag (pan) on the canvas; computes the new `CameraState` with clamping; dispatches `{ kind: 'setCamera', camera }`; pan is clamped to keep the board visible (`pan.x ∈ [-(maxZoom * 2), width * zoom]`, same for y); JSDoc cites US5 AC-1; depends on T028, T045
-- [x] T081 [US5] Implement `minimap.tsx` in `packages/console/src/qol/minimap.tsx` — the small minimap per T074: a `<canvas>` of `96×96` CSS pixels showing the full board; the player's viewport is highlighted as a translucent rectangle; clicking the minimap dispatches `{ kind: 'setCamera', camera: { pan: { x: -clickedX + viewportCenterX, y: -clickedY + viewportCenterY }, zoom: currentZoom } }`; `aria-label="Minimap"` + `role="img"` for screen readers; JSDoc cites US5 AC-1; depends on T028, T045
+- [x] T080 [US5] Historical zoom/pan implementation task (old board-edge clamp superseded by v1.8/T118) — wheel zoom and pointer-drag pan in `packages/console/src/qol/zoom.ts`; its original clamp prose is not the active pan contract.
+- [x] T081 [US5] Historical minimap implementation task (viewport/click semantics refined by v1.8/T120–T121) — the minimap in `packages/console/src/qol/minimap.tsx`; current requirements are exact rendered-transform agreement, board-clipped viewport indicator, and cell-center targeting.
 - [x] T082 [US5] Implement `preferences.ts` in `packages/console/src/qol/preferences.ts` — the QoL settings persistence per `data-model.md` §9: exposes `loadPreferences(host: ConsoleConfig): QoLSettings` (returns `host.qolSettings ?? DEFAULT_QOL_SETTINGS`) and `savePreferences(settings: QoLSettings, host: ConsoleConfig): void` (calls `host.persist(settings)` if defined); the `Console` handle's `setQolSettings` method (Phase 8) calls `savePreferences` after every change; JSDoc cites data-model §9 persistence contract; depends on T028
 - [x] T083 [US5] Implement `reduced-motion.ts` in `packages/console/src/qol/reduced-motion.ts` — the `prefers-reduced-motion` guard per Q-A07 + `research.md` §6: subscribes to `window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', ...)`; when reduced motion is on, the renderer treats `effectTtlMs` and `labelTtlMs` as 0 (no animation), and the `MapEffect`s of `kind: 'combat' | 'capture'` are skipped entirely; JSDoc cites WCAG 2.3.3 (Animation from Interactions — new in 2.2) + Q-A07; depends on T028, T045, T071
 - [x] T084 [US5] Implement `SurrenderModal.tsx` in `packages/console/src/render/SurrenderModal.tsx` — the surrender confirmation modal per US5 AC-2 + Q-E12: a `<dialog>` or `role="dialog" aria-modal="true"` element; "Cancel" and "Confirm" buttons; focus is trapped (Tab cycles between the two); Escape closes; Enter on Confirm dispatches `{ kind: 'surrender' }`; the modal opens on the `requestSurrenderConfirm` reducer effect; respects the host's `onSurrenderRequest` callback (if provided, the console delegates to the host's modal); JSDoc cites US5 AC-2 + WCAG 2.4.3 (Focus Order); depends on T028, T021
@@ -455,12 +457,18 @@ The following items surfaced during tasks drafting that warrant explicit PM atte
 
 **Branch**: `issue-76-Console-UI-Redesign` | **Spec**: [`spec.md`](./spec.md) Clarifications v1.4, FR-014..FR-022, Implementation Note 16
 
+**Historical implementation record — its camera interpretation is superseded by spec v1.8.**
 This amendment restructures the shipped match view into a two-column
 layout (board left, fixed-width right sidebar with all HUD controls),
-expands the zoom range to 50%–300% with a percentage display layer,
-adds keyboard zoom shortcuts, and guarantees spectator parity. It is
+records the former zoom interpretation, adds keyboard zoom shortcuts,
+and guarantees spectator parity. It is
 an **additive/restructuring** change to the already-Implemented feature
 005 — no engine/fog/terrain/networking changes, no new dependencies.
+
+The R2 zoom tasks, old 12/16px minimums, fixed-32px percentage basis,
+0-reset wording, full-board-only assumptions, and unchanged-clamp
+claims below are preserved as history only. They are not active
+requirements. Current camera policy and repair tasks follow.
 
 Tasks continue the T0xx numbering (T098+). Each task targets a specific
 file under `packages/console/`. Tests are written first and must FAIL
@@ -494,15 +502,16 @@ stay in cell-pixels; only the display is a percentage.
 
 **Checkpoint**: `pnpm test:unit` green; `pnpm typecheck` + `pnpm lint` clean.
 
-## Phase R3: Keyboard zoom shortcuts (FR-018)
+## Phase R3: Keyboard zoom shortcuts (FR-018; historical reset binding superseded by v1.8)
 
-**Purpose**: Extend `HotkeyController` with a UI-zoom layer. `+`/`=`
-zooms in, `-`/`_` zooms out, `0` resets to 100%. Suppressed when focus
-is inside interactive chrome (reuses `shouldIgnoreKeyEvent`).
+**Purpose**: The original R3 added the UI-zoom layer. Its `0`-reset
+behavior is historical and superseded by v1.8: `Home` resets to measured
+fit and `0` remains reserve-zero. Interactive-chrome focus suppression
+continues to use `shouldIgnoreKeyEvent`.
 
-- [x] T108 [P] Write the unit test `tests/unit/qol/hotkeys-zoom.test.ts` — assert `+`/`=`/`-`/`_`/`0` dispatch `setCamera` (zoom in/out/reset) and are suppressed when focus is inside interactive chrome. FAILS before implementation.
-- [x] T109 Extend `packages/console/src/qol/hotkeys.ts` — add a UI-zoom layer to `HotkeyController` (one handler, same focus guard). `+`/`=` zoom in, `-`/`_` zoom out, `0` reset to 100%. The `0` zoom-reset is a distinct UI-zoom path (does NOT route through `translateKey`, which would map `0` to `reserve0`); the order-table `reserve0` binding is unchanged.
-- [x] T110 Add the E2E test `tests/e2e/zoom-shortcuts.spec.ts` — press `+`/`-`/`0` and assert the zoom indicator changes (FR-018).
+- [x] T108 [P] Historical R3 test `tests/unit/qol/hotkeys-zoom.test.ts` — its original `0`-resets-zoom assertion is superseded by v1.8, where `Home` resets to measured fit and `0` remains reserve-zero; the interactive-chrome focus guard remains. FAILS before implementation.
+- [x] T109 Historical R3 implementation in `packages/console/src/qol/hotkeys.ts` — its original `0`-resets-zoom behavior is superseded by v1.8: `Home` resets to measured fit and `0` remains bound to `reserve0`.
+- [x] T110 Historical R3 E2E test `tests/e2e/zoom-shortcuts.spec.ts` — its original `0`-reset assertion is superseded by v1.8; current reset is `Home`, while `0` remains reserve-zero.
 
 **Checkpoint**: `pnpm test:unit` + `pnpm test:e2e` green.
 
@@ -535,6 +544,30 @@ and verify spectator parity (FR-021).
 
 1. **`CONSOLE_API_VERSION` bump (T105)**: changing `CONSOLE_CONSTANTS.minCellPx` from 12 to 16 is a behavioral change to a public contract constant (type unchanged). Per the feature 004 "pre-1.0 minor = breaking boundary" precedent, this warrants a bump from `0.1.0` to `0.2.0`. **Decision in this tasks.md**: bump to `0.2.0` in the same change set as T105. **PM action**: confirm the bump is acceptable before landing.
 
-2. **`0` zoom-reset vs `reserve0` collision (T109)**: the default `InputMapping` binds `0` to `reserve0`. The zoom-reset shortcut (`0`) is a distinct UI-zoom path that does NOT route through `translateKey` (which would map `0` to `reserve0`). **Decision in this tasks.md**: the UI-zoom layer checks the focus guard and dispatches `setCamera` directly; the order-table `reserve0` binding is unchanged. This matches the spec's "one handler, same focus guard" wording (Implementation Note 16). **PM action**: confirm this reconciliation is acceptable — a player with a cell selected who presses `0` will reset zoom rather than set reserves to 0%. If the PM prefers `0` to remain reserves-only, the zoom-reset shortcut should be a different key (e.g., `Home` or `Shift+0`).
+2. **`0` zoom-reset vs `reserve0` collision (T109; resolved by v1.8)**: the original R3 task assigned `0` to zoom reset, colliding with the default `reserve0` binding. The v1.8 camera policy supersedes that assignment: `Home` resets to measured fit and `0` remains `reserve0`. No PM action remains for this collision; see the active camera policy and T118–T122.
 
 3. **Sidebar width (~280px)**: the fixed ~280px sidebar reduces the board area on narrow desktops. **Decision in this tasks.md**: FR-020 responsive stacking below 768px handles narrow viewports; the board area flex-grows to fill the remaining space. **PM action**: confirm ~280px is acceptable (matches the spec's "fixed-width" wording).
+
+---
+
+## Camera fit and corner-navigation repair (spec v1.8)
+
+**Active policy**: 100% is the dynamic measured fit baseline, available
+once both a ready view and viewport measurement exist; physical cell
+size remains 32–96 CSS px; effective maximum is
+`min(96px, fitZoom * 3)`. Pan permits each corner cell center to reach
+viewport center within 1 CSS px, including on fit axes, and permits
+blank board-exterior margins. The minimap mirrors the exact rendered
+transform, clips its viewfinder to board bounds, and targets cell
+centers. Blank-margin input produces no action/order. Resize after a
+user camera action preserves the camera. See spec v1.8 FR-017, FR-019,
+FR-027 and scenarios 9–14.
+
+Zoom shortcuts remain `+`/`=` in, `-`/`_` out, and `Home` to reset to
+100% fit; `0` remains the reserve-zero key.
+
+- [x] T118 [P] Add pure camera-geometry helpers and focused unit tests in `packages/console/src/qol/zoom.ts` and `packages/console/tests/unit/qol/zoom.test.ts` — cover the physical [32, 96] bounds, fit-relative percentage conversion and `min(96, fitZoom * 3)` ceiling; assert all four corner cell centers map to viewport center within 1 CSS px, including axes where the board fits and overflows, with no reachability exception.
+- [x] T119 Add component regression tests in `packages/console/tests/component/qol/camera-fit.test.tsx` — exercise both ready-view-before-viewport and viewport-before-ready-view initialization; verify 100% fit is initialized only after both exist; after a camera interaction, resize and assert the user's zoom/pan are not overwritten.
+- [x] T120 [P] Add input-safety tests in `packages/console/tests/unit/input/hit-test.test.ts` and `packages/console/tests/e2e/camera-margins.spec.ts` — clicks and order-key actions in blank margins beyond each board edge produce no input action and no wire order; valid cell input remains accurate under the shared viewport transform.
+- [x] T121 Verify the camera behavior in a real browser with `pnpm --filter @europa/console test:e2e` — measure all four corner-cell centers against viewport center (≤1 CSS px), exercise pan on fit and overflow axes, confirm the minimap viewport indicator agrees with the rendered transform and is clipped to board bounds, and confirm minimap clicks center cells. Record viewport dimensions and observed values in the test report; this is not implied by historical issue #76 results. Same live match/seed `2015532905`, both seats, both CSS viewports, and all measured values are summarized in the PR description; the separate local evidence log and screenshots are ignored and not part of the repository.
+- [x] T122 Reconcile the camera contracts and player manual in `specs/005-client-console/spec.md`, `plan.md`, `tasks.md`, `data-model.md`, `packages/console/src/contracts/console-types.ts`, `packages/console/src/contracts/console-api.ts`, and the manual controls, reading-the-screen, and numbers pages. Preserve `CameraState` shape, API version 0.4.0, and shipped constants; implementation and behavior verification are tracked separately in T118–T121 and are complete on this branch.

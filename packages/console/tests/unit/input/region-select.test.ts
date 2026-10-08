@@ -13,11 +13,12 @@
  * and behaves as a plain primary click.
  */
 
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { DEFAULT_CAMERA } from '../../../src/config';
 import { hitTest, regionFromSubcell } from '../../../src/input/hit-test';
 import { decideRegionClick, pipePresentInDirection, RegionSelectController } from '../../../src/input/region-select';
 import { FakeMatchClient } from '../../../src/internal/fake-match-client';
+import { HotkeyController } from '../../../src/qol/hotkeys';
 import { createOrderBridge } from '../../../src/state/order-actions';
 import type { ConsoleStore } from '../../../src/state/store';
 import { createConsoleStore } from '../../../src/state/store';
@@ -380,6 +381,57 @@ describe('region click → wire order pipeline (T049 seam)', () => {
             expect(client.orders).toHaveLength(0);
         } finally {
             handle.dispose();
+            element.remove();
+        }
+    });
+
+    test.each([
+        { x: 10, y: 320 },
+        { x: 630, y: 320 },
+        { x: 320, y: 10 },
+        { x: 320, y: 630 },
+    ])('pointer and order-key input in blank margin %o emit no action or wire order', async (point) => {
+        const { store, client } = makePipeline();
+        store.dispatch({ kind: 'selectCell', cell: { x: 5, y: 5 } });
+        const element = document.createElement('div');
+        Object.defineProperty(element, 'getBoundingClientRect', {
+            value: () => ({ left: 0, top: 0, right: 640, bottom: 640, width: 640, height: 640 }),
+        });
+        document.body.append(element);
+        const hotkeys = new HotkeyController(store);
+        const region = new RegionSelectController(element, store, {
+            onCursor: (target, atMs) => hotkeys.notePointer(target, atMs),
+        });
+        const regionHandle = region.attach();
+        hotkeys.attach();
+        const dispatch = vi.spyOn(store, 'dispatch');
+        try {
+            // The 16×16 board is centered in the 640×640 viewport; each point
+            // lies beyond a distinct board edge.
+            element.dispatchEvent(
+                new PointerEvent('pointermove', {
+                    clientX: point.x,
+                    clientY: point.y,
+                    button: 0,
+                    bubbles: true,
+                }),
+            );
+            element.dispatchEvent(
+                new PointerEvent('pointerdown', {
+                    clientX: point.x,
+                    clientY: point.y,
+                    button: 0,
+                    bubbles: true,
+                }),
+            );
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'i', bubbles: true }));
+            await Promise.resolve();
+
+            expect(dispatch).not.toHaveBeenCalled();
+            expect(client.orders).toHaveLength(0);
+        } finally {
+            hotkeys.dispose();
+            regionHandle.dispose();
             element.remove();
         }
     });

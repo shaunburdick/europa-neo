@@ -47,10 +47,26 @@ Next to the status chip, **Tick** counts game heartbeats since the match started
 
 ## The minimap
 
-The small map in the HUD mirrors the whole visible board and draws a rectangle showing which part currently fills your main view:
+The small map in the HUD gives an overview of the board. Its viewfinder shows the part of your main viewport that intersects the board; any blank margin outside the board is not part of the minimap indicator:
 
-- **Click anywhere on the minimap** to jump the camera there.
+- **Click a cell on the minimap** to center that cell in the main view.
 - Use it to keep an eye on distant fronts without scrolling.
+
+## Camera and zoom
+
+At **100%**, the board uses its measured fit size. The fit is initialized
+when both the ready board view and viewport measurement are available.
+Physical cell size is limited to 32–96 CSS px; the effective maximum is
+`min(96px, fit size × 3)`, so the percentage ceiling may be below 300%.
+If fitting would require cells smaller than 32px, the physical minimum
+wins and the full board may not fit.
+
+You can pan on either axis whether the board fits or overflows. At 100%,
+each board-corner cell can be centered in the viewport, and blank margins
+outside board edges are allowed; those margins are not board targets and
+have no effect or issue orders. Resizing after you have adjusted the
+camera preserves your camera position and zoom. See [Controls](./controls)
+for camera gestures and keyboard shortcuts.
 
 ## The order bar
 

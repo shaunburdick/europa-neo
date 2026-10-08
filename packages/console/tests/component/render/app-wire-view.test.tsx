@@ -196,8 +196,15 @@ afterEach(() => {
 
 describe('live wire views drive the mounted console (rehydration regression)', () => {
     test('pointerdown on a wire-decoded cell issues the toggle order without crashing', async () => {
-        const { socket } = await bootLiveConsole();
+        const { socket, store } = await bootLiveConsole();
         const board = pinBoardGeometry();
+        // The 32-cell board overflows the pinned 512px viewport at the
+        // physical 32px floor. Pan the centered-origin camera so cell
+        // (5,5) is under the same historical test point.
+        store.dispatch({
+            kind: 'setCamera',
+            camera: { ...store.getState().camera, pan: { x: 256, y: 256 } },
+        });
 
         // East half of (5,5): the join snapshot carried pipes ["E"] as an
         // ARRAY. Pre-fix this very line threw `pipes.has is not a function`
