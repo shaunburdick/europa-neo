@@ -255,8 +255,12 @@ subcellY = ((screen.y + viewportOffset.y) / zoom) - cell.y   // [0, 1)
   the viewport center within 1 CSS px. Pan remains available on both
   axes whether the board fits or overflows; blank space beyond board
   edges is allowed.
-- A viewport resize after a user camera action must not replace the
-  user's camera with a new fit initialization.
+- While the current camera equals the last auto-fit-applied camera, a
+  viewport resize MUST recompute and reapply fit. Once a user camera
+  change makes the camera differ from that value, a resize MUST preserve the
+  changed camera instead of replacing it with fit. This is lifecycle
+  policy; it does not add a field to `CameraState` (see spec.md v1.10
+  FR-017 for the attributed ruling and provenance).
 - `zoom` is clamped to the physical bounds and the fit-relative
   effective maximum. Pan is constrained by corner-center reachability,
   not by a full-board-only clamp.

@@ -588,7 +588,7 @@ dependencies.
 > that 300% is always reachable, that `0` resets the zoom, or that the
 > old pan clamp is unchanged
 > is superseded by the active camera policy in the final section below
-> and spec v1.8. The current physical bounds are 32–96 CSS px, 100% is
+> and spec v1.10. The current physical bounds are 32–96 CSS px, 100% is
 > measured `fitZoom`, and effective maximum is `min(96px, fitZoom * 3)`.
 
 ## Scope (from spec FR-014..FR-022)
@@ -701,12 +701,19 @@ against the spec and constitution.
 
 ---
 
-## Active camera policy (spec v1.8, 2026-10-07)
+## Active camera policy (spec v1.10, 2026-10-08)
 
 This is the governing camera plan and supersedes contradictory issue #76
-history above. Preserve `CameraState`'s public shape and
-`CONSOLE_API_VERSION` 0.4.0; do not change fog, terrain, engine, or
-spectator read-only behavior.
+history above. Preserve `CameraState`'s public shape and signatures. The
+user explicitly superseded T122's preserve-0.4.0 decision and requested
+`CONSOLE_API_VERSION` 0.4.1 as a patch marker for this externally
+observable camera fit/pan behavior correction. This is a user-authorized,
+nonbreaking patch choice, not a breaking migration: the console version
+contract requires bumps for breaking public-surface changes but neither
+requires nor forbids this nonbreaking patch. `APP_VERSION` and
+`NETWORK_API_VERSION` remain unchanged. The final reviewer is asked to
+assess the version choice. Do not change fog, terrain, engine, or spectator
+read-only behavior.
 
 - Keep physical cell-size limits at 32–96 CSS px (`minCellPx = 32`,
   `maxCellPx = 96`). `defaultCellPx = 32` is a shipped initial seed, not
@@ -718,8 +725,14 @@ spectator read-only behavior.
   physical ceiling to guarantee a 300% label.
 - At 100%, any corner cell center can be panned to viewport center
   within 1 CSS px. Pan must work on fit and overflow axes; empty margins
-  beyond board edges are permitted. A resize after user camera
-  interaction must preserve that camera.
+  beyond board edges are permitted. While the current camera equals the
+  last auto-fit-applied camera, a resize MUST recompute and reapply fit.
+  Once a user camera change makes the camera differ from that value, resize MUST
+  preserve the changed camera rather than replace it with fit. This
+  resize nuance is recorded from a user-provided transcription attributed
+  to PR author mwyant; it is not a verified verbatim quotation or
+  independently verified as having been written by that author on the
+  remote PR.
 - Board rendering, hit testing, viewport offset, and minimap geometry
   use one rendered viewport transform. The minimap indicator is clipped
   to its intersection with board bounds; a clicked minimap cell targets
@@ -730,12 +743,18 @@ spectator read-only behavior.
 
 ### Repair sequencing and evidence
 
-The v1.8 follow-up was completed in this order: pure camera geometry and
-deterministic tests; mount-order and resize regression coverage;
-blank-margin input safety; browser verification of corner centering and
-minimap agreement; then final documentation reconciliation (T118–T122).
-The acceptance source is spec v1.8 FR-017, FR-019, FR-027 and US6
-scenarios 9–14. The browser matrix is summarized in the PR description;
-local evidence and screenshot artifacts are ignored and not committed. The
-required numeric assertion was maximum 1 CSS px error for each corner-cell
-center. Historical issue #76 checkpoints were not used as evidence.
+The original camera repair was completed in this order: pure camera
+geometry and deterministic tests; mount-order and resize regression
+coverage; blank-margin input safety; browser verification of corner
+centering and minimap agreement; then documentation reconciliation
+(T118–T122). The active acceptance source is spec v1.10 FR-017, FR-019,
+FR-027 and US6 scenarios 9–14. The browser matrix is summarized in the
+PR description; local evidence and screenshot artifacts are ignored and
+not committed. The required numeric assertion was maximum 1 CSS px error
+for each corner-cell center. Historical issue #76 checkpoints were not
+used as evidence.
+
+That prior evidence does not verify this amendment's mandatory resize
+refit while the camera still equals the last auto-fit-applied camera, nor
+the requested 0.4.1 version target. Focused regression and conformance
+checks are added for those implementation requirements in this follow-up.

@@ -44,13 +44,13 @@ import { CURSOR_STALE_MS } from '../input/subcell-target';
 import { peekInjectedConsoleState } from '../internal/test-state';
 import { HotkeyController } from '../qol/hotkeys';
 import { subscribeReducedMotion } from '../qol/reduced-motion';
-import { useContainerSize } from '../qol/use-container-size';
+import { type ContainerSize, useContainerSize } from '../qol/use-container-size';
 import { effectiveMaxZoom, ZoomPanController } from '../qol/zoom';
 import { formatWaitingMessage, isAwaitingMatchStart } from '../state/awaiting-start';
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
-import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
+import type { CameraState, ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
 import { SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
 import { isHelpToggleKey } from '../ui/help-hotkey';
@@ -125,6 +125,17 @@ interface CursorSample {
     readonly atMs: number;
 }
 
+/** Compare the public camera values without relying on object identity. */
+function sameCamera(left: CameraState, right: CameraState): boolean {
+    return (
+        left.zoom === right.zoom &&
+        left.pan.x === right.pan.x &&
+        left.pan.y === right.pan.y &&
+        left.minZoom === right.minZoom &&
+        left.maxZoom === right.maxZoom
+    );
+}
+
 /**
  * The console root component: canvas + ARIA overlay + HUD + order bar
  * + reserves panel + minimap + live-region mount, driven by the
@@ -156,6 +167,8 @@ export function App({
     const lastMapViewRef = useRef<MapView | null>(null);
     const boardAreaRef = useRef<HTMLDivElement | null>(null);
     const fitInitializedStoreRef = useRef<ConsoleStore | null>(null);
+    const lastAutoFitCameraRef = useRef<CameraState | null>(null);
+    const lastFitBoardSizeRef = useRef<ContainerSize | null>(null);
     const [fitZoom, setFitZoom] = useState(CONSOLE_CONSTANTS.defaultCellPx);
     const [fitLimitedByMin, setFitLimitedByMin] = useState(false);
 
@@ -165,13 +178,11 @@ export function App({
     // board, which lies whenever the visible window is smaller.
     const boardSize = useContainerSize(boardAreaRef);
 
-    // Initialize fit zoom once both independent prerequisites exist.
-    // Later resizes and view ticks must not overwrite user camera state.
+    // Initialize fit once both independent prerequisites exist. Resizes
+    // reapply fit only while the camera still equals the last fit-applied
+    // value; any differing camera state belongs to the user.
     useEffect(() => {
         if (boardSize === null || resolvedState.latestView === null) {
-            return;
-        }
-        if (store !== undefined && fitInitializedStoreRef.current === store) {
             return;
         }
         const latestView = resolvedState.latestView;
@@ -189,21 +200,40 @@ export function App({
         if (store === undefined) {
             return;
         }
-        fitInitializedStoreRef.current = store;
         const { camera } = store.getState();
-        // Preserve a camera set before both fit prerequisites were ready.
-        if (camera.zoom !== CONSOLE_CONSTANTS.minCellPx || camera.pan.x !== 0 || camera.pan.y !== 0) {
-            return;
+        if (fitInitializedStoreRef.current === store) {
+            const lastFitBoardSize = lastFitBoardSizeRef.current;
+            if (
+                lastFitBoardSize === null ||
+                (lastFitBoardSize.width === boardSize.width && lastFitBoardSize.height === boardSize.height)
+            ) {
+                return;
+            }
+            lastFitBoardSizeRef.current = boardSize;
+            const lastAutoFitCamera = lastAutoFitCameraRef.current;
+            if (lastAutoFitCamera === null || !sameCamera(camera, lastAutoFitCamera)) {
+                return;
+            }
+        } else {
+            fitInitializedStoreRef.current = store;
+            lastAutoFitCameraRef.current = null;
+            lastFitBoardSizeRef.current = boardSize;
+            // Preserve a camera set before both fit prerequisites were ready.
+            if (camera.zoom !== CONSOLE_CONSTANTS.minCellPx || camera.pan.x !== 0 || camera.pan.y !== 0) {
+                return;
+            }
         }
+        const fitCamera: CameraState = {
+            ...camera,
+            zoom: clampedFitZoom,
+            minZoom: CONSOLE_CONSTANTS.minCellPx,
+            maxZoom: effectiveMaxZoom(clampedFitZoom),
+        };
         store.dispatch({
             kind: 'setCamera',
-            camera: {
-                ...camera,
-                zoom: clampedFitZoom,
-                minZoom: CONSOLE_CONSTANTS.minCellPx,
-                maxZoom: effectiveMaxZoom(clampedFitZoom),
-            },
+            camera: fitCamera,
         });
+        lastAutoFitCameraRef.current = fitCamera;
     }, [boardSize, resolvedState.latestView, store]);
 
     const measuredFit = useMemo(() => {

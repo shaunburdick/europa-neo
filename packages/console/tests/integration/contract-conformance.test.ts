@@ -349,7 +349,7 @@ const EXPECTED_API_VERSIONS: Readonly<Record<string, string>> = {
     FOG_API_VERSION: '0.1.0',
     MATCHMAKING_API_VERSION: '0.2.0',
     NETWORK_API_VERSION: '0.3.0',
-    CONSOLE_API_VERSION: '0.4.0',
+    CONSOLE_API_VERSION: '0.4.1',
 };
 
 /** Canonical source file declaring each API-version literal. */

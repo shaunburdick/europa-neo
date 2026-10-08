@@ -1,4 +1,4 @@
-/** Fit-camera lifecycle integration tests (spec 005 v1.8 T119). */
+/** Fit-camera lifecycle integration tests (spec 005 v1.10 T119/T123). */
 
 import { afterEach, describe, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
@@ -97,7 +97,36 @@ describe('App fit-camera initialization', () => {
         expectRenderedFitTransform(store.getState().camera);
     });
 
-    test('resizing after camera interaction does not overwrite user zoom or pan', async () => {
+    test('resizes and reapplies fit while the camera still matches the last auto-fit', async () => {
+        await page.viewport(900, 650);
+        const store = readyStore();
+        await render(<App store={store} />);
+        await waitForFit(store);
+        const initialCamera = store.getState().camera;
+        const initialFit = readFitFromViewport().fitZoom;
+        expect(initialCamera.zoom).toBe(initialFit);
+
+        const boardArea = document.querySelector<HTMLElement>('.europa-board-area');
+        if (boardArea === null) {
+            throw new Error('Expected board area to resize');
+        }
+        const beforeWidth = boardArea.getBoundingClientRect().width;
+        await page.viewport(820, 600);
+        await expect
+            .poll(() => boardArea.getBoundingClientRect().width, { message: 'board viewport should resize' })
+            .not.toBe(beforeWidth);
+
+        const resizedFit = readFitFromViewport().fitZoom;
+        expect(resizedFit).not.toBe(initialFit);
+        await expect
+            .poll(() => store.getState().camera.zoom, { message: 'unchanged auto-fit camera should refit' })
+            .toBe(resizedFit);
+        const resizedCamera = store.getState().camera;
+        expect(resizedCamera.maxZoom).toBe(effectiveMaxZoom(resizedFit));
+        expect(resizedCamera.pan).toEqual(initialCamera.pan);
+    });
+
+    test('resizing after an actual camera change preserves user zoom or pan', async () => {
         await page.viewport(900, 650);
         const store = readyStore();
         await render(<App store={store} />);

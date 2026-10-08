@@ -104,8 +104,14 @@
  * `PLAYER_COLOR_PALETTE` (per-player colors resolve from
  * `PlayerView.config.playerIds`). Handles remain preferred labels with
  * the canonical ID as fallback.
+ *
+ * 0.4.1 (camera fit resize correction): while the current camera equals
+ * the last auto-fit-applied camera, resizing reapplies measured fit;
+ * after the camera differs, resizing preserves it. This is a
+ * user-authorized nonbreaking patch marker; public shapes and signatures
+ * are unchanged.
  */
-export const CONSOLE_API_VERSION = '0.4.0' as const;
+export const CONSOLE_API_VERSION = '0.4.1' as const;
 
 // ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)

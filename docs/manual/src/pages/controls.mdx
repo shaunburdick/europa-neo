@@ -80,7 +80,7 @@ Invalid targets are rejected with a short message above the order bar (see [Read
 
 A match starts at 100% of the measured board fit. The fit is measured once both the ready board view and viewport size are available, regardless of which arrives first; <EuropaBadge>Home</EuropaBadge> returns to it. The physical cell-size limits are 32–96 CSS px per cell. The effective maximum is `min(96px, fit size × 3)`, so the percentage ceiling can be below 300% when the fit size is larger than 32px. If the 32px minimum prevents the whole board from fitting, some of it may remain outside the viewport.
 
-Panning works whether the board fits the viewport or overflows it. At 100% fit, you can move any corner cell's center to the center of the viewport; blank space outside a board edge is allowed. Blank margins are not board targets, so clicking there has no effect and issues no order. The minimap shows the part of the viewport that intersects the board, and clicking a minimap cell centers that cell in the main view. After you adjust the camera, resizing the viewport does not reset your camera.
+Panning works whether the board fits the viewport or overflows it. At 100% fit, you can move any corner cell's center to the center of the viewport; blank space outside a board edge is allowed. Blank margins are not board targets, so clicking there has no effect and issues no order. The minimap shows the part of the viewport that intersects the board, and clicking a minimap cell centers that cell in the main view. While the camera remains at its last auto-fit position, resizing recomputes the fit. Once you change the camera from that position, resizing preserves your camera.
 
 ## On-screen buttons
 

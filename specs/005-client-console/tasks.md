@@ -3,9 +3,9 @@
 **Input**: Design documents from `specs/005-client-console/`
 **Prerequisites**: `plan.md` (required), `spec.md` (required for user stories), `research.md`, `data-model.md`, `contracts/`, `quickstart.md`
 **Branch**: `001-europa-core`
-**Spec**: [spec.md](./spec.md) — active requirements are in v1.8. The camera repair is governed by US6 scenarios 9–14 and FR-017, FR-019, FR-027; its implementation follow-up is listed at the end of this file.
+**Spec**: [spec.md](./spec.md) — active requirements are in v1.10. The camera repair is governed by US6 scenarios 9–14 and FR-017, FR-019, FR-027; its completed implementation record is listed at the end of this file.
 
-> **Current camera summary (v1.8, 2026-10-07):** Physical cell size is 32–96 CSS px (`minCellPx = 32`, `maxCellPx = 96`); `defaultCellPx = 32` is an initial seed, not the 100% baseline. `100%` is dynamic measured `fitZoom`, initialized after both ready view and viewport measurement exist. Effective maximum is `min(96px, fitZoom * 3)`. `Home` resets to measured fit; `0` remains reserves. Pan can center each corner cell center within 1 CSS px, works on axes where the board fits or overflows, and may show blank margins. The minimap shares the rendered transform, clips the viewport indicator to board bounds, and clicks cell centers. Blank margins cause no action/order; resizing after camera interaction preserves user state.
+> **Current camera summary (v1.10, 2026-10-08):** Physical cell size is 32–96 CSS px (`minCellPx = 32`, `maxCellPx = 96`); `defaultCellPx = 32` is an initial seed, not the 100% baseline. `100%` is dynamic measured `fitZoom`, initialized after both ready view and viewport measurement exist. Effective maximum is `min(96px, fitZoom * 3)`. `Home` resets to measured fit; `0` remains reserves. Pan can center each corner cell center within 1 CSS px, works on axes where the board fits or overflows, and may show blank margins. The minimap shares the rendered transform, clips the viewport indicator to board bounds, and clicks cell centers. Blank margins cause no action/order. While the current camera equals the last auto-fit-applied camera, resize MUST recompute and reapply fit; once a user camera change makes it differ from that value, resize MUST preserve the changed camera. This resize nuance is from a user-provided transcription attributed to PR author mwyant, not a verified verbatim quote or independently verified as having been written by that author on the remote PR.
 
 **Tests**: REQUIRED. Constitution Principle III mandates ≥80% coverage on game logic as a merge gate. Constitution Principle VI mandates WCAG 2.2 AA, so every user story has a dedicated a11y acceptance test. The plan's `quickstart.md` §3–§5 maps every spec FR to at least one test (Q-C01..Q-C03, Q-U01..Q-U10, Q-B01..Q-B08, Q-E01..Q-E15, Q-A01..Q-A08, Q-P01..Q-P04, plus the SC-002 determinism + subcell parity + self-host smoke tests). Tests are interleaved with implementation per the spec-kit template (failing tests first, then impl, then integration). The reducer is targeted at 100% coverage (pure function, free); `localPreflightOrder` is targeted at 100% (security-relevant per `plan.md` "Constitution Check" Principle III); the input mapping table is targeted at 100%; the package-wide floor is 80% (Vitest v8 thresholds).
 
@@ -457,7 +457,7 @@ The following items surfaced during tasks drafting that warrant explicit PM atte
 
 **Branch**: `issue-76-Console-UI-Redesign` | **Spec**: [`spec.md`](./spec.md) Clarifications v1.4, FR-014..FR-022, Implementation Note 16
 
-**Historical implementation record — its camera interpretation is superseded by spec v1.8.**
+**Historical implementation record — its camera interpretation is superseded by spec v1.10; the intervening v1.8 policy is historical wherever it differs from v1.10.**
 This amendment restructures the shipped match view into a two-column
 layout (board left, fixed-width right sidebar with all HUD controls),
 records the former zoom interpretation, adds keyboard zoom shortcuts,
@@ -544,24 +544,46 @@ and verify spectator parity (FR-021).
 
 1. **`CONSOLE_API_VERSION` bump (T105)**: changing `CONSOLE_CONSTANTS.minCellPx` from 12 to 16 is a behavioral change to a public contract constant (type unchanged). Per the feature 004 "pre-1.0 minor = breaking boundary" precedent, this warrants a bump from `0.1.0` to `0.2.0`. **Decision in this tasks.md**: bump to `0.2.0` in the same change set as T105. **PM action**: confirm the bump is acceptable before landing.
 
-2. **`0` zoom-reset vs `reserve0` collision (T109; resolved by v1.8)**: the original R3 task assigned `0` to zoom reset, colliding with the default `reserve0` binding. The v1.8 camera policy supersedes that assignment: `Home` resets to measured fit and `0` remains `reserve0`. No PM action remains for this collision; see the active camera policy and T118–T122.
+2. **`0` zoom-reset vs `reserve0` collision (T109; resolved by the historical camera policy)**: the original R3 task assigned `0` to zoom reset, colliding with the default `reserve0` binding. The earlier policy resolved that assignment: `Home` resets to measured fit and `0` remains `reserve0`; spec v1.10 reaffirms it. No PM action remains for this collision; see the active camera policy and T118–T122.
 
 3. **Sidebar width (~280px)**: the fixed ~280px sidebar reduces the board area on narrow desktops. **Decision in this tasks.md**: FR-020 responsive stacking below 768px handles narrow viewports; the board area flex-grows to fill the remaining space. **PM action**: confirm ~280px is acceptable (matches the spec's "fixed-width" wording).
 
 ---
 
-## Camera fit and corner-navigation repair (spec v1.8)
+## Historical camera fit and corner-navigation repair (formerly labeled spec v1.8)
 
-**Active policy**: 100% is the dynamic measured fit baseline, available
+The completed T118–T122 tasks are retained as implementation records.
+Earlier v1.8 references for this camera policy are historical and
+superseded; the actual spec v1.8 change-history entry is the console
+input and pipe-flow correction. Those older references do not replace
+the active v1.10 policy below.
+
+**Current policy (spec v1.10)**: 100% is the dynamic measured fit baseline, available
 once both a ready view and viewport measurement exist; physical cell
 size remains 32–96 CSS px; effective maximum is
 `min(96px, fitZoom * 3)`. Pan permits each corner cell center to reach
 viewport center within 1 CSS px, including on fit axes, and permits
 blank board-exterior margins. The minimap mirrors the exact rendered
 transform, clips its viewfinder to board bounds, and targets cell
-centers. Blank-margin input produces no action/order. Resize after a
-user camera action preserves the camera. See spec v1.8 FR-017, FR-019,
-FR-027 and scenarios 9–14.
+centers. Blank-margin input produces no action/order. While the current
+camera equals the last auto-fit-applied camera, resize MUST recompute and
+reapply fit; once a user camera change makes it differ from that value,
+resize MUST preserve the changed camera. This resize nuance is recorded
+from a user-provided transcription attributed to PR author mwyant. It is
+not a verified verbatim quotation or independently verified as having been
+written by that author on the remote PR. See active spec v1.10 FR-017,
+FR-019, FR-027 and scenarios 9–14.
+
+**Version decision (user-authorized target; final review requested)**:
+supersede T122's preserve-0.4.0 decision with `CONSOLE_API_VERSION`
+0.4.1 as a nonbreaking patch marker for this externally observable
+camera fit/pan behavior correction. `CameraState` shape and public
+signatures remain unchanged; this is not a breaking migration. The
+console version contract requires bumps for breaking public-surface
+changes, but does not require or forbid this nonbreaking patch choice.
+`APP_VERSION` and `NETWORK_API_VERSION` remain unchanged. The final
+reviewer is asked to assess the version choice. The canonical constant,
+conformance witness, and player-manual version reference are updated.
 
 Zoom shortcuts remain `+`/`=` in, `-`/`_` out, and `Home` to reset to
 100% fit; `0` remains the reserve-zero key.
@@ -570,4 +592,5 @@ Zoom shortcuts remain `+`/`=` in, `-`/`_` out, and `Home` to reset to
 - [x] T119 Add component regression tests in `packages/console/tests/component/qol/camera-fit.test.tsx` — exercise both ready-view-before-viewport and viewport-before-ready-view initialization; verify 100% fit is initialized only after both exist; after a camera interaction, resize and assert the user's zoom/pan are not overwritten.
 - [x] T120 [P] Add input-safety tests in `packages/console/tests/unit/input/hit-test.test.ts` and `packages/console/tests/e2e/camera-margins.spec.ts` — clicks and order-key actions in blank margins beyond each board edge produce no input action and no wire order; valid cell input remains accurate under the shared viewport transform.
 - [x] T121 Verify the camera behavior in a real browser with `pnpm --filter @europa/console test:e2e` — measure all four corner-cell centers against viewport center (≤1 CSS px), exercise pan on fit and overflow axes, confirm the minimap viewport indicator agrees with the rendered transform and is clipped to board bounds, and confirm minimap clicks center cells. Record viewport dimensions and observed values in the test report; this is not implied by historical issue #76 results. Same live match/seed `2015532905`, both seats, both CSS viewports, and all measured values are summarized in the PR description; the separate local evidence log and screenshots are ignored and not part of the repository.
-- [x] T122 Reconcile the camera contracts and player manual in `specs/005-client-console/spec.md`, `plan.md`, `tasks.md`, `data-model.md`, `packages/console/src/contracts/console-types.ts`, `packages/console/src/contracts/console-api.ts`, and the manual controls, reading-the-screen, and numbers pages. Preserve `CameraState` shape, API version 0.4.0, and shipped constants; implementation and behavior verification are tracked separately in T118–T121 and are complete on this branch.
+- [x] T122 Reconcile the camera contracts and player manual in `specs/005-client-console/spec.md`, `plan.md`, `tasks.md`, `data-model.md`, `packages/console/src/contracts/console-types.ts`, `packages/console/src/contracts/console-api.ts`, and the manual controls, reading-the-screen, and numbers pages. Preserve `CameraState` shape and shipped constants; the original preserve-0.4.0 decision recorded here is historical and is superseded by the active user-authorized 0.4.1 patch target above. T118–T121 verification is complete for the prior repair scope, but does not verify the mandatory resize-refit rule or 0.4.1 target; see T123.
+- [x] T123 Implement the active v1.10 resize rule: resizing recomputes/reapplies fit while the current camera equals the last auto-fit-applied camera, and preserves the camera after a user change makes it differ. Add focused regression coverage for both cases. Update the canonical `CONSOLE_API_VERSION` value and dependent package/version consumers to 0.4.1 as the user-authorized nonbreaking patch marker, without changing `CameraState` shape/signatures, `APP_VERSION`, or `NETWORK_API_VERSION`. The final reviewer is asked to assess the version choice.
