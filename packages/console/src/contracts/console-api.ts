@@ -349,7 +349,11 @@ export interface Console {
   setQolSettings(patch: Partial<QoLSettings>): void;
   /**
    * Update the camera (zoom / pan) programmatically. Used by
-   * tests and by the host's "reset view" button.
+   * tests and by the host's "reset view" button. Cell size remains
+   * physically bounded to 32–96 CSS px by default; 100% is the
+   * measured fit baseline, and the effective maximum is
+   * `min(96px, fitZoom * 3)`. Board drawing and input share the same
+   * viewport coordinate transform.
    */
   setCamera(camera: Partial<CameraState>): void;
     /**
@@ -536,11 +540,14 @@ export interface ConsoleSoundPlayer {
  * lives here.
  */
 export interface ConsoleConstants {
-  /** Default cell size in CSS pixels. */
+  /** Initial/default physical cell size in CSS pixels; 100% uses measured fit. */
   readonly defaultCellPx: number;
-  /** Min cell size in CSS pixels. */
+  /** Physical minimum cell size in CSS pixels (shipped value: 32). */
   readonly minCellPx: number;
-  /** Max cell size in CSS pixels. */
+  /**
+   * Physical maximum cell size in CSS pixels (shipped value: 96);
+   * effective maximum is `min(96, fitZoom * 3)`.
+   */
   readonly maxCellPx: number;
   /** Default feedback message TTL in ms. */
   readonly feedbackTtlMs: number;
@@ -562,8 +569,11 @@ export interface ConsoleConstants {
 
 /**
  * Default console constants (values per data-model.md §15 and
- * tasks.md T019). Single tunable-constants location for the
- * console — mirror of the engine's `ENGINE_CONSTANTS` discipline.
+ * tasks.md T019). Camera cell sizes remain physically bounded to
+ * 32–96 CSS px; 100% uses the dynamic measured fit baseline, and the
+ * effective maximum is min(96px, fitZoom * 3). Single tunable-constants
+ * location for the console — mirror of the engine's `ENGINE_CONSTANTS`
+ * discipline.
  */
 export const CONSOLE_CONSTANTS: ConsoleConstants = {
   defaultCellPx: 32,

@@ -73,7 +73,9 @@ export function regionFromDirection(direction: Direction): CellRegion {
  * @param viewportOffset Board-space offset of the container's top-left
  *                       corner. Accounts for centering when the board
  *                       is smaller than the container (issue #76).
- *                       Defaults to `{-pan.x, -pan.y}`.
+ *                       Defaults to `{-pan.x, -pan.y}` for backward
+ *                       compatibility with callers that predate the
+ *                       viewport-offset fix.
  */
 export function hitTest(
     screen: ScreenPoint,
@@ -88,6 +90,10 @@ export function hitTest(
     const oy = viewportOffset?.y ?? -camera.pan.y;
     const boardX = (screen.x + ox) / camera.zoom;
     const boardY = (screen.y + oy) / camera.zoom;
+
+    if (!Number.isFinite(boardX) || !Number.isFinite(boardY)) {
+        return { screen, cell: null, region: null, subcell: null };
+    }
 
     const cellX = Math.floor(boardX);
     const cellY = Math.floor(boardY);

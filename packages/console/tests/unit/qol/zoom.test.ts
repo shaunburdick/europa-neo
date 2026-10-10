@@ -19,7 +19,15 @@ import { describe, expect, test } from 'vitest';
 
 import { CONSOLE_CONSTANTS } from '../../../src/config';
 import { hitTest } from '../../../src/input/hit-test';
-import { clampCamera, pannedCamera, ZOOM_WHEEL_STEP, zoomedCamera, zoomPercent } from '../../../src/qol/zoom';
+import {
+    clampCamera,
+    effectiveMaxZoom,
+    pannedCamera,
+    ZOOM_WHEEL_STEP,
+    zoomedCamera,
+    zoomPercent,
+} from '../../../src/qol/zoom';
+import { computeViewportOffset } from '../../../src/render/viewport-offset';
 import type { CameraState } from '../../../src/state/types';
 
 /** 16×16 board with the default camera. */
@@ -60,6 +68,20 @@ describe('zoomedCamera', () => {
         expect(after.subcell?.x).toBeCloseTo(before.subcell?.x ?? 0, 6);
         expect(after.subcell?.y).toBeCloseTo(before.subcell?.y ?? 0, 6);
     });
+
+    test('zoom preserves the cursor board point with the centered viewport transform', () => {
+        const viewport = { width: 900, height: 700 };
+        const cursor = { x: 450, y: 350 };
+        const offset = computeViewportOffset(BASE.zoom, BASE.pan, BOARD, viewport.width, viewport.height);
+        const before = hitTest(cursor, BASE, BOARD.width, offset);
+        const next = zoomedCamera(BASE, -100, cursor, BOARD, offset);
+        const nextOffset = computeViewportOffset(next.zoom, next.pan, BOARD, viewport.width, viewport.height);
+        const after = hitTest(cursor, next, BOARD.width, nextOffset);
+
+        expect(after.cell).toEqual(before.cell);
+        expect(after.subcell?.x).toBeCloseTo(before.subcell?.x ?? 0, 6);
+        expect(after.subcell?.y).toBeCloseTo(before.subcell?.y ?? 0, 6);
+    });
 });
 
 describe('pannedCamera + clampCamera', () => {
@@ -68,18 +90,18 @@ describe('pannedCamera + clampCamera', () => {
         expect(next.pan).toEqual({ x: -40, y: 20 });
     });
 
-    test('pan is clamped to keep the board visible', () => {
+    test('pan is clamped to corner-center reachability', () => {
         // Far beyond the window in every direction at once.
         const next = pannedCamera(BASE, -100_000, 100_000, BOARD);
-        expect(next.pan.x).toBe(-(BASE.maxZoom * 2));
-        expect(next.pan.y).toBe(BOARD.height * BASE.zoom);
+        expect(next.pan.x).toBe(-(BOARD.width / 2 - 0.5) * BASE.zoom);
+        expect(next.pan.y).toBe((BOARD.height / 2 - 0.5) * BASE.zoom);
     });
 
     test('clampCamera bounds zoom and both pan axes', () => {
         const clamped = clampCamera({ zoom: 500, minZoom: 32, maxZoom: 96, pan: { x: -9999, y: 9999 } }, BOARD);
         expect(clamped.zoom).toBe(96);
-        expect(clamped.pan.x).toBe(-192);
-        expect(clamped.pan.y).toBe(16 * 96);
+        expect(clamped.pan.x).toBe(-(BOARD.width / 2 - 0.5) * 96);
+        expect(clamped.pan.y).toBe((BOARD.height / 2 - 0.5) * 96);
     });
 });
 
@@ -99,6 +121,14 @@ describe('zoomPercent (FR-017 display layer)', () => {
     test('rounds fractional percentages', () => {
         expect(zoomPercent(33, 32)).toBe(103);
         expect(zoomPercent(31, 32)).toBe(97);
+    });
+});
+
+describe('effectiveMaxZoom (FR-017)', () => {
+    test('is fit-relative but never exceeds the 96 CSS-pixel physical maximum', () => {
+        expect(effectiveMaxZoom(32)).toBe(96);
+        expect(effectiveMaxZoom(24)).toBe(72);
+        expect(effectiveMaxZoom(80)).toBe(96);
     });
 });
 

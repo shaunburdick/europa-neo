@@ -27,7 +27,7 @@
 
 import { createElement } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { FakeMatchClient } from '../../src/internal/fake-match-client';
 import { App } from '../../src/render/App';
@@ -35,6 +35,7 @@ import { MapCanvas } from '../../src/render/canvas';
 import { cellElementId } from '../../src/render/cell-view';
 import { GameOverModal } from '../../src/render/GameOverModal';
 import { SurrenderModal } from '../../src/render/SurrenderModal';
+import { computeViewportOffset } from '../../src/render/viewport-offset';
 import { createOrderBridge } from '../../src/state/order-actions';
 import { type ConsoleStore, createConsoleStore } from '../../src/state/store';
 import type { Direction, MapEffect, MapView, ReducerEffect } from '../../src/state/types';
@@ -120,8 +121,7 @@ async function bootInteractiveConsole(): Promise<InteractiveBoot> {
 /**
  * Dispatch a pointermove at fraction `(fx, fy)` of cell `(cx, cy)`
  * to trigger the targeting overlay's subcell binning. Accounts for
- * the viewport offset that centers the board when it is smaller
- * than the container (issue #76).
+ * the grid's shared rendered transform (including center-origin pan).
  */
 async function movePointerOver(cx: number, cy: number, fx: number, fy: number): Promise<void> {
     const boardArea = document.querySelector('.europa-board-area') as HTMLElement | null;
@@ -129,21 +129,25 @@ async function movePointerOver(cx: number, cy: number, fx: number, fy: number): 
         throw new Error('.europa-board-area not found');
     }
     const rect = boardArea.getBoundingClientRect();
-    // Read the grid overlay's actual dimensions from its inline styles
-    // to compute the viewport offset correctly.
+    // Read actual zoom and translation from the grid so input simulation
+    // uses the same transform as the rendered board on fit/overflow axes.
     const grid = document.getElementById('map') as HTMLElement | null;
-    const gridW = grid !== null ? parseFloat(grid.style.width) : 0;
+    if (grid === null) {
+        throw new Error('#map grid not found');
+    }
+    const gridW = parseFloat(grid.style.width);
     // Derive zoom from the grid width and the board cell count (10 in
     // the standard test fixture).
     const boardCells = 10;
     const zoom = gridW / boardCells;
-    const boardPx = gridW;
-    // Compute viewport offset: centering when board < container.
-    const offX = boardPx < rect.width ? -(rect.width - boardPx) / 2 : 0;
-    const offY = boardPx < rect.height ? -(rect.height - boardPx) / 2 : 0;
-    // Screen position: board origin + cell offset + subcell fraction.
-    const screenX = -offX + (cx + fx) * zoom;
-    const screenY = -offY + (cy + fy) * zoom;
+    const expectedOffset = computeViewportOffset(zoom, { x: 0, y: 0 }, boardCells, rect.width, rect.height);
+    await expect.poll(() => grid.style.transform).toBe(`translate(${-expectedOffset.x}px, ${-expectedOffset.y}px)`);
+    const translation = grid.style.transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
+    if (translation === null) {
+        throw new Error(`Unexpected grid transform: ${grid.style.transform}`);
+    }
+    const screenX = Number(translation[1]) + (cx + fx) * zoom;
+    const screenY = Number(translation[2]) + (cy + fy) * zoom;
     boardArea.dispatchEvent(
         new PointerEvent('pointermove', {
             clientX: rect.left + screenX,
@@ -344,6 +348,7 @@ describe('WCAG 2.4.7 — order bar focus ring contrast', () => {
 
 describe('WCAG 4.1.3 — paratroop overlay announcements', () => {
     test('targeting overlay announces the binned target politely', async () => {
+        await page.viewport(1024, 768);
         const { store } = await bootInteractiveConsole();
         const user = userEvent.setup();
 
@@ -369,6 +374,7 @@ describe('WCAG 4.1.3 — paratroop overlay announcements', () => {
 
 describe('WCAG 4.1.3 — centered posture no-launch announcement', () => {
     test('centered cursor announces the focused cell (no launch)', async () => {
+        await page.viewport(1024, 768);
         await bootInteractiveConsole();
         const user = userEvent.setup();
 

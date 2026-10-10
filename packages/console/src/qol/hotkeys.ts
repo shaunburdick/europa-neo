@@ -37,7 +37,7 @@
  * JSDoc references: FR-004 + research.md §7 + Q-U10.
  */
 
-import { shouldIgnoreKeyEvent, translateKey } from '../input/order-draft';
+import { isOrderProducingAction, shouldIgnoreKeyEvent, translateKey } from '../input/order-draft';
 import { boardCenterScreen, clampCamera, zoomedCamera } from '../qol/zoom';
 import type { ConsoleStore } from '../state/store';
 import type { CameraState, CursorTarget, InputMapping } from '../state/types';
@@ -197,6 +197,9 @@ export class HotkeyController {
      */
     viewportOffset: { readonly x: number; readonly y: number } = { x: 0, y: 0 };
 
+    /** Current 100% measured-fit baseline supplied by App after measurement. */
+    fitZoom: number;
+
     /**
      * @param store   Dispatch target + state source.
      * @param options Optional mapping override (see {@link HotkeyControllerOptions}).
@@ -204,6 +207,7 @@ export class HotkeyController {
     constructor(store: ConsoleStore, options?: HotkeyControllerOptions) {
         this.store = store;
         this.mapping = resolveInputMapping(options?.mapping);
+        this.fitZoom = store.getState().camera.zoom;
     }
 
     /**
@@ -261,6 +265,9 @@ export class HotkeyController {
             mapping: this.mapping,
         });
         if (outcome.kind === 'action') {
+            if (this.sample !== null && this.sample.target.cell === null && isOrderProducingAction(outcome.action)) {
+                return;
+            }
             event.preventDefault();
             this.store.dispatch(outcome.action);
         }
@@ -299,7 +306,7 @@ export class HotkeyController {
         const camera = state.camera;
         let next: CameraState;
         if (reset) {
-            next = clampCamera({ ...camera, zoom: camera.minZoom }, board);
+            next = clampCamera({ ...camera, zoom: this.fitZoom }, board);
         } else {
             next = zoomedCamera(
                 camera,

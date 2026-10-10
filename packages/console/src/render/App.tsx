@@ -38,19 +38,19 @@ import type { JSX } from 'react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { LiveRegionAnnouncer } from '../a11y/live-region';
-import { CONSOLE_CONSTANTS } from '../config';
+import { CONSOLE_CONSTANTS, DEFAULT_CAMERA } from '../config';
 import { RegionSelectController } from '../input/region-select';
 import { CURSOR_STALE_MS } from '../input/subcell-target';
 import { peekInjectedConsoleState } from '../internal/test-state';
 import { HotkeyController } from '../qol/hotkeys';
 import { subscribeReducedMotion } from '../qol/reduced-motion';
-import { useContainerSize } from '../qol/use-container-size';
-import { ZoomPanController } from '../qol/zoom';
+import { type ContainerSize, useContainerSize } from '../qol/use-container-size';
+import { effectiveMaxZoom, ZoomPanController } from '../qol/zoom';
 import { formatWaitingMessage, isAwaitingMatchStart } from '../state/awaiting-start';
 import { buildMapView } from '../state/build-map-view';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import type { ConsoleStore } from '../state/store';
-import type { ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
+import type { CameraState, ConsoleState, CursorTarget, MapView, MapViewId, ReservesPct } from '../state/types';
 import { SPECTATOR_COLOR } from '../state/types';
 import { BrandedFooter } from '../ui/branded-footer';
 import { isHelpToggleKey } from '../ui/help-hotkey';
@@ -125,6 +125,17 @@ interface CursorSample {
     readonly atMs: number;
 }
 
+/** Compare the public camera values without relying on object identity. */
+function sameCamera(left: CameraState, right: CameraState): boolean {
+    return (
+        left.zoom === right.zoom &&
+        left.pan.x === right.pan.x &&
+        left.pan.y === right.pan.y &&
+        left.minZoom === right.minZoom &&
+        left.maxZoom === right.maxZoom
+    );
+}
+
 /**
  * The console root component: canvas + ARIA overlay + HUD + order bar
  * + reserves panel + minimap + live-region mount, driven by the
@@ -155,6 +166,11 @@ export function App({
     // paint path via liveLabels.
     const lastMapViewRef = useRef<MapView | null>(null);
     const boardAreaRef = useRef<HTMLDivElement | null>(null);
+    const fitInitializedStoreRef = useRef<ConsoleStore | null>(null);
+    const lastAutoFitCameraRef = useRef<CameraState | null>(null);
+    const lastFitBoardSizeRef = useRef<ContainerSize | null>(null);
+    const [fitZoom, setFitZoom] = useState(CONSOLE_CONSTANTS.defaultCellPx);
+    const [fitLimitedByMin, setFitLimitedByMin] = useState(false);
 
     // Real container sizing for the minimap's viewport rectangle
     // (integration wave T-I3) and for the canvas viewport offset
@@ -162,41 +178,104 @@ export function App({
     // board, which lies whenever the visible window is smaller.
     const boardSize = useContainerSize(boardAreaRef);
 
-    // Fit-zoom initialization (issue #76 zoom model fix): on the
-    // first tick when boardSize becomes available, compute the zoom
-    // level that makes the whole board visible (100% = fit board to
-    // viewport) and update the camera range so zoom percentages are
-    // relative to this dynamic baseline. Only fires once — when the
-    // camera is still at its defaults (zoom = minCellPx, pan = {0,0}).
+    // Initialize fit once both independent prerequisites exist. Resizes
+    // reapply fit only while the camera still equals the last fit-applied
+    // value; any differing camera state belongs to the user.
     useEffect(() => {
-        if (boardSize === null || store === undefined) {
+        if (boardSize === null || resolvedState.latestView === null) {
             return;
         }
-        const state = store.getState();
-        const { camera, latestView } = state;
-        if (latestView === null) {
-            return;
-        }
-        // Only initialize when camera is still at defaults.
-        if (camera.zoom !== CONSOLE_CONSTANTS.minCellPx || camera.pan.x !== 0 || camera.pan.y !== 0) {
-            return;
-        }
+        const latestView = resolvedState.latestView;
         const boardCells = latestView.config.boardSize;
         if (boardCells <= 0) {
             return;
         }
-        const fitZoom = Math.min(boardSize.width, boardSize.height) / boardCells;
-        const clampedFitZoom = Math.min(CONSOLE_CONSTANTS.maxCellPx, Math.max(CONSOLE_CONSTANTS.minCellPx, fitZoom));
+        const measuredFitZoom = Math.min(boardSize.width, boardSize.height) / boardCells;
+        const clampedFitZoom = Math.min(
+            CONSOLE_CONSTANTS.maxCellPx,
+            Math.max(CONSOLE_CONSTANTS.minCellPx, measuredFitZoom),
+        );
+        setFitZoom(clampedFitZoom);
+        setFitLimitedByMin(measuredFitZoom < CONSOLE_CONSTANTS.minCellPx);
+        if (store === undefined) {
+            return;
+        }
+        const { camera } = store.getState();
+        if (fitInitializedStoreRef.current === store) {
+            const lastFitBoardSize = lastFitBoardSizeRef.current;
+            if (
+                lastFitBoardSize === null ||
+                (lastFitBoardSize.width === boardSize.width && lastFitBoardSize.height === boardSize.height)
+            ) {
+                return;
+            }
+            lastFitBoardSizeRef.current = boardSize;
+            const lastAutoFitCamera = lastAutoFitCameraRef.current;
+            if (lastAutoFitCamera === null || !sameCamera(camera, lastAutoFitCamera)) {
+                return;
+            }
+        } else {
+            fitInitializedStoreRef.current = store;
+            lastAutoFitCameraRef.current = null;
+            lastFitBoardSizeRef.current = boardSize;
+            // Preserve a camera set before both fit prerequisites were ready.
+            if (camera.zoom !== CONSOLE_CONSTANTS.minCellPx || camera.pan.x !== 0 || camera.pan.y !== 0) {
+                return;
+            }
+        }
+        const fitCamera: CameraState = {
+            ...camera,
+            zoom: clampedFitZoom,
+            minZoom: CONSOLE_CONSTANTS.minCellPx,
+            maxZoom: effectiveMaxZoom(clampedFitZoom),
+        };
         store.dispatch({
             kind: 'setCamera',
-            camera: {
-                ...camera,
-                zoom: clampedFitZoom,
-                minZoom: clampedFitZoom,
-                maxZoom: Math.min(CONSOLE_CONSTANTS.maxCellPx, clampedFitZoom * 3),
-            },
+            camera: fitCamera,
         });
-    }, [boardSize, store]);
+        lastAutoFitCameraRef.current = fitCamera;
+    }, [boardSize, resolvedState.latestView, store]);
+
+    const measuredFit = useMemo(() => {
+        const view = resolvedState.latestView;
+        if (boardSize === null || view === null || view.config.boardSize <= 0) {
+            return null;
+        }
+        const rawFitZoom = Math.min(boardSize.width, boardSize.height) / view.config.boardSize;
+        return {
+            zoom: Math.min(CONSOLE_CONSTANTS.maxCellPx, Math.max(CONSOLE_CONSTANTS.minCellPx, rawFitZoom)),
+            limitedByMin: rawFitZoom < CONSOLE_CONSTANTS.minCellPx,
+        };
+    }, [boardSize, resolvedState.latestView]);
+
+    const renderedCamera = useMemo(() => {
+        const camera = resolvedState.camera;
+        const stillAtSeed =
+            camera.zoom === DEFAULT_CAMERA.zoom &&
+            camera.pan.x === DEFAULT_CAMERA.pan.x &&
+            camera.pan.y === DEFAULT_CAMERA.pan.y &&
+            camera.minZoom === DEFAULT_CAMERA.minZoom &&
+            camera.maxZoom === DEFAULT_CAMERA.maxZoom;
+        if (store !== undefined || measuredFit === null || !stillAtSeed) {
+            return camera;
+        }
+        // Static/spectator snapshots have no dispatch sink. Render the
+        // measured default camera locally without mutating that snapshot.
+        return {
+            ...camera,
+            zoom: measuredFit.zoom,
+            minZoom: CONSOLE_CONSTANTS.minCellPx,
+            maxZoom: effectiveMaxZoom(measuredFit.zoom),
+        };
+    }, [resolvedState.camera, store, measuredFit]);
+
+    const renderedState = useMemo(
+        () => (renderedCamera === resolvedState.camera ? resolvedState : { ...resolvedState, camera: renderedCamera }),
+        [resolvedState, renderedCamera],
+    );
+    const renderedFitZoom = store === undefined ? (measuredFit?.zoom ?? fitZoom) : fitZoom;
+    const renderedFitLimitedByMin =
+        store === undefined ? (measuredFit?.limitedByMin ?? fitLimitedByMin) : fitLimitedByMin;
 
     // Viewport offset (issue #76): the board-space origin of the
     // visible area's top-left corner, derived from the container size
@@ -211,13 +290,13 @@ export function App({
             return { x: 0, y: 0 };
         }
         return computeViewportOffset(
-            resolvedState.camera.zoom,
-            resolvedState.camera.pan,
+            renderedCamera.zoom,
+            renderedCamera.pan,
             view.config.boardSize,
             boardSize.width,
             boardSize.height,
         );
-    }, [resolvedState, boardSize]);
+    }, [resolvedState.latestView, renderedCamera, boardSize]);
 
     const mapView = useMemo(() => {
         const view = resolvedState.latestView;
@@ -227,7 +306,7 @@ export function App({
         return buildMapView({
             id: `mv-${view.tick}` as MapViewId,
             view,
-            camera: resolvedState.camera,
+            camera: renderedCamera,
             hover: resolvedState.hover,
             selection: resolvedState.selection,
             exclusiveMode: resolvedState.exclusiveMode,
@@ -235,7 +314,7 @@ export function App({
             nowMs: performance.now(),
             viewportOffset,
         });
-    }, [resolvedState, viewportOffset]);
+    }, [resolvedState, renderedCamera, viewportOffset]);
     useEffect(() => {
         lastMapViewRef.current = mapView;
     }, [mapView]);
@@ -390,6 +469,12 @@ export function App({
         }
     }, [viewportOffset]);
 
+    useEffect(() => {
+        if (hotkeyControllerRef.current !== null) {
+            hotkeyControllerRef.current.fitZoom = fitZoom;
+        }
+    }, [fitZoom]);
+
     // Surrender modal state (US5 T084): opened by the HUD button,
     // delegating to the host when `onSurrenderRequest` is provided.
     // The runtime's programmatic `requestSurrender()` (T087) opens the
@@ -521,11 +606,13 @@ export function App({
                     share one render path. Order-producing controls render
                     disabled/inert when `store === undefined` (FR-021). */}
                 <Sidebar
-                    state={resolvedState}
+                    state={renderedState}
                     selectionReserves={selectionReserves}
                     boardWidth={mapView?.width ?? 0}
                     boardHeight={mapView?.height ?? 0}
                     cells={mapView !== null ? [...mapView.cells.values()] : []}
+                    fitZoom={renderedFitZoom}
+                    fitLimitedByMin={renderedFitLimitedByMin}
                     viewportOffset={viewportOffset}
                     // exactOptionalPropertyTypes: only carry the size when measured.
                     {...(boardSize === null ? {} : { viewportSize: boardSize })}

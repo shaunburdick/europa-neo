@@ -56,6 +56,10 @@ export interface SidebarProps {
     readonly boardHeight: number;
     /** Visible cells for the minimap thumbnail (Overview section). */
     readonly cells: readonly CellRenderInfo[];
+    /** Dynamic 100% measured-fit baseline (not a CameraState field). */
+    readonly fitZoom?: number | undefined;
+    /** True when the physical 32px minimum prevents a full-board fit. */
+    readonly fitLimitedByMin?: boolean | undefined;
     /** Visible container size for the minimap viewport rect. */
     readonly viewportSize?: { readonly width: number; readonly height: number } | undefined;
     /**
@@ -96,6 +100,8 @@ export function Sidebar({
     boardWidth,
     boardHeight,
     cells,
+    fitZoom: measuredFitZoom,
+    fitLimitedByMin = false,
     viewportSize,
     onSetCamera,
     onToggleExclusive,
@@ -108,6 +114,7 @@ export function Sidebar({
     viewportOffset,
 }: SidebarProps): JSX.Element {
     const { status, session, exclusiveMode, inputEnabled, selection, camera } = state;
+    const fitZoom = measuredFitZoom ?? camera.minZoom;
     const hasView = cells.length > 0;
     const board = { width: boardWidth, height: boardHeight };
 
@@ -126,7 +133,7 @@ export function Sidebar({
         onSetCamera(zoomedCamera(camera, 100, boardCenterScreen(camera, board, viewportOffset), board, viewportOffset));
     };
     const zoomReset = (): void => {
-        onSetCamera(clampCamera({ ...camera, zoom: camera.minZoom }, board));
+        onSetCamera(clampCamera({ ...camera, zoom: fitZoom }, board));
     };
 
     return (
@@ -232,8 +239,13 @@ export function Sidebar({
                 <h2 className="europa-sidebar__heading">Zoom</h2>
                 <div className="europa-zoom">
                     <span className="europa-zoom__level" data-europa-zoom-level="true">
-                        {zoomPercent(camera.zoom, camera.minZoom)}%
+                        {zoomPercent(camera.zoom, fitZoom)}%
                     </span>
+                    {fitLimitedByMin ? (
+                        <p className="europa-sidebar__hint" role="note">
+                            Full board does not fit at the 32px minimum.
+                        </p>
+                    ) : null}
                     <fieldset className="europa-zoom__controls" aria-label="Zoom controls">
                         <button
                             type="button"

@@ -97,8 +97,10 @@ The full state machine is the union of:
   ↔ live) → expired | spectating | game_over → closed`.
 - **Input state machine**: `enabled ↔ disabled` based on `status`,
   modals, and explicit host override.
-- **Camera state**: continuous (zoom + pan), clamped to
-  `[minZoom, maxZoom]` and to bounds (no pan past the board edges).
+- **Camera state**: continuous (zoom + pan), clamped to the 32–96 CSS
+  px physical range and the fit-relative effective maximum; pan permits
+  corner-cell centers to reach the viewport center and may expose blank
+  margins beyond board edges.
 - **Selection state**: `null → coord → null`. `Escape` clears.
   Arrow keys move the selection by ±1 in the relevant axis.
 
@@ -206,61 +208,88 @@ The view transform. Pure data.
 | Field | Type | Description |
 |-------|------|-------------|
 | `zoom` | `number` | Cell size in CSS pixels. Clamped to `[minZoom, maxZoom]`. |
-| `pan` | `{ x: number, y: number }` | Top-left offset in CSS pixels. |
-| `minZoom` | `number` | Min cell size (default 16 — 50% of the 32px default, issue #76). |
-| `maxZoom` | `number` | Max cell size (default 96 — 300% of the 32px default, issue #76). |
+| `pan` | `{ x: number, y: number }` | CSS-pixel translation relative to the centered/fit board origin. |
+| `minZoom` | `number` | Physical minimum cell size: 32 CSS px. |
+| `maxZoom` | `number` | Physical maximum cell size: 96 CSS px; the effective percentage ceiling may be lower. |
 
 ### Coordinate mapping
 
 ```
-screen.x = pan.x + cell.x * zoom
-screen.y = pan.y + cell.y * zoom
+baseOrigin = (
+  (viewportWidth - board.width * zoom) / 2,
+  (viewportHeight - board.height * zoom) / 2
+)
+screen = baseOrigin + pan + cell * zoom
+viewportOffset = -(baseOrigin + pan)
 ```
 
-Inverse (for hit-testing):
+`pan` is a screen-pixel translation from the board-centered fit origin,
+including when the board overflows. `viewportOffset` is the board-pixel
+origin at the viewport top-left, with the opposite sign; render and input
+share `screen = cell * zoom - viewportOffset`.
+
+Inverse (for hit-testing; `floor` selects the cell):
 
 ```
-cell.x = floor((screen.x - pan.x) / zoom)
-cell.y = floor((screen.y - pan.y) / zoom)
-subcellX = ((screen.x - pan.x) / zoom) - cell.x   // [0, 1)
-subcellY = ((screen.y - pan.y) / zoom) - cell.y   // [0, 1)
+cell.x = floor((screen.x + viewportOffset.x) / zoom)
+cell.y = floor((screen.y + viewportOffset.y) / zoom)
+subcellX = ((screen.x + viewportOffset.x) / zoom) - cell.x   // [0, 1)
+subcellY = ((screen.y + viewportOffset.y) / zoom) - cell.y   // [0, 1)
 ```
 
-### Pan / zoom constraints
+### Fit baseline and pan / zoom constraints
 
-- `pan.x` is clamped to `[-(maxZoom * 2), boardWidth * zoom]`
-  (i.e., the board can't be panned entirely off-screen).
-- `pan.y` is clamped to `[-(maxZoom * 2), boardHeight * zoom]`.
-- `zoom` is clamped to `[minZoom, maxZoom]`.
+- `fitZoom` is the existing dynamic, measured fit baseline for the ready
+  board view and the available board viewport. It is initialized when
+  both measurements exist, whether the ready view or viewport is
+  available first. It is not an added `CameraState` field.
+- The 100% display/reset value is `fitZoom`; the percentage is relative
+  to this baseline. Physical cell size remains bounded by
+  `minCellPx = 32` and `maxCellPx = 96` CSS px.
+- The effective percentage ceiling is `min(96px, fitZoom * 3)`. It can
+  be below 300% when the fit baseline exceeds 32px. Do not expand the
+  physical 96px ceiling to preserve a 300% percentage label.
+- If the measured fit would require cells smaller than 32px, the 32px
+  physical minimum wins and the entire board need not fit.
+- At 100% fit, each of the four corner cell centers must be pan-able to
+  the viewport center within 1 CSS px. Pan remains available on both
+  axes whether the board fits or overflows; blank space beyond board
+  edges is allowed.
+- While the current camera equals the last auto-fit-applied camera, a
+  viewport resize MUST recompute and reapply fit. Once a user camera
+  change makes the camera differ from that value, a resize MUST preserve the
+  changed camera instead of replacing it with fit. This is lifecycle
+  policy; it does not add a field to `CameraState` (see spec.md v1.10
+  FR-017 for the attributed ruling and provenance).
+- `zoom` is clamped to the physical bounds and the fit-relative
+  effective maximum. Pan is constrained by corner-center reachability,
+  not by a full-board-only clamp.
 
 ### Default
 
 ```ts
 const DEFAULT_CAMERA: CameraState = {
-  zoom: 32,    // 32 px per cell = 100%
+  zoom: 32,    // initial physical cell size; 100% is the measured fit baseline
   pan: { x: 0, y: 0 },
-  minZoom: 16, // 50% of 32 (issue #76)
-  maxZoom: 96, // 300% of 32 (issue #76)
+  minZoom: 32, // physical minimum (CSS px per cell)
+  maxZoom: 96, // physical maximum (CSS px per cell)
 };
 ```
 
-A 32×32 board at default zoom is 1024×1024 CSS pixels — fits
-a typical 1080p viewport with the right sidebar (~280px) on the side.
+A 32×32 board at 32 CSS px per cell is 1024×1024 CSS pixels. The
+measured fit baseline depends on the actual board viewport, and the
+physical lower bound can prevent the whole board fitting.
 
-### Zoom percentage display layer (issue #76)
+### Zoom percentage display (current camera contract)
 
-The sidebar indicator shows the zoom as a percentage of the 32px
-default cell. The percentage is a **display layer** over the
-cell-pixel math — `CameraState.zoom` stays in cell-pixels:
+The sidebar percentage is relative to the current measured `fitZoom`;
+`CameraState.zoom` remains in CSS pixels per cell. The physical range
+is always 32–96 CSS px per cell. For example, if `fitZoom` is 40px,
+100% is 40px and the effective maximum is 96px (240%); if `fitZoom` is
+32px, the effective maximum is 96px (300%).
 
-| Percentage | Cell size (px) |
-|------------|----------------|
-| 50% (min)  | 16 |
-| 100% (default) | 32 |
-| 300% (max) | 96 |
-
-Conversion: `percent = round(zoom / 32 * 100)`. The pan-clamp math
-(`[-(maxZoom*2), boardWidth*zoom]`) is unchanged.
+Conversion: `percent = round(zoom / fitZoom * 100)`. The effective
+maximum cell size is `min(96px, fitZoom * 3)`.
 
 ---
 
@@ -501,9 +530,9 @@ of the engine's `ENGINE_CONSTANTS` discipline):
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| `defaultCellPx` | `32` | Default cell size (= 100%). |
-| `minCellPx` | `16` | Min zoom (50% of 32; was 12 pre-issue-#76). |
-| `maxCellPx` | `96` | Max zoom (300% of 32). |
+| `defaultCellPx` | `32` | Shipped initial cell size; the measured fit baseline is displayed as 100%. |
+| `minCellPx` | `32` | Physical minimum cell size in CSS px. |
+| `maxCellPx` | `96` | Physical maximum cell size in CSS px; effective percentage maximum is `min(96px, fitZoom * 3)`. |
 | `feedbackTtlMs` | `2000` | Feedback message TTL. |
 | `labelTtlMs` | `1500` | MapLabel TTL (e.g., "70%" flash). |
 | `effectTtlMs` | `400` | MapEffect TTL (e.g., combat flash). |
@@ -598,10 +627,23 @@ europa-main (display: flex)
 
 ### Zoom percentage display (FR-017)
 
-The sidebar Zoom section shows `zoom / 32 * 100` percent. The
-underlying `CameraState.zoom` stays in cell-pixels; only the display
-is a percentage. Range: 50% (16px) to 300% (96px), default 100%
-(32px).
+The sidebar Zoom section shows the current physical cell size relative
+to the dynamic measured fit baseline (`fitZoom`). The baseline is
+initialized when both the ready view and viewport measurement exist,
+regardless of mount/measurement order. The physical range is 32–96 CSS
+px per cell; the effective percentage maximum is `min(96px, fitZoom *
+3)`, so it can be below 300%. If fit would require less than 32px per
+cell, the board may not fit entirely.
+
+At 100%, each corner cell center can be moved to the viewport center
+within 1 CSS px. This is true on axes where the board fits and where it
+overflows. User camera state is preserved across a viewport resize once
+the user has interacted with the camera.
+
+The minimap uses the exact main-board viewport transform. Its viewfinder
+is clipped to the intersection of the viewport and board bounds, and a
+minimap cell click targets that cell's center. Blank margins outside
+board bounds are not targets and must produce no action or wire order.
 
 ### Keyboard zoom shortcuts (FR-018)
 
@@ -611,13 +653,11 @@ is a percentage. Range: 50% (16px) to 300% (96px), default 100%
 |-----|--------|
 | `+` or `=` | Zoom in one step |
 | `-` or `_` | Zoom out one step |
-| `0` | Reset to 100% |
+| `Home` | Reset to 100% measured fit |
 
 Suppressed when focus is inside interactive chrome (reuses the
-existing `shouldIgnoreKeyEvent` focus guard). The `0` zoom-reset is a
-distinct UI-zoom path — it does not route through `translateKey` (which
-would map `0` to `reserve0`); the order-table `reserve0` binding is
-unchanged.
+existing `shouldIgnoreKeyEvent` focus guard). `0` remains the
+`reserve0` order binding and is not a zoom shortcut.
 
 ### Responsive (FR-020)
 
