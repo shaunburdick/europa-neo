@@ -13,6 +13,9 @@
  *     flow) for each side; 1:1 attrition with `min(totalA, totalB)`
  *     damage. The bigger total retains the difference; the smaller is
  *     eliminated. Equal totals → mutual destruction (`winner: 'tie'`).
+ *     The math lives in `resolveTwoWayAttrition` (`./attrition.ts`),
+ *     shared verbatim with the paratroop enemy-landing branch so the
+ *     two paths can never drift; roles and event labelling stay here.
  *   - **Three-way (or more)**: dominant owner (highest count, ties
  *     broken by ascending dense owner index) keeps their original count
  *     and absorbs the cell. All non-dominant owners are eliminated.
@@ -46,6 +49,7 @@ import type { EngineConstants } from '../contracts/engine-api';
 import { emptyTickEvents, pushCombatEvent } from '../events';
 import type { PlayerRegistry } from '../playerRegistry';
 import type { Board, CombatEvent, PlayerId, TickEvents, TickScratchBuffers, WorldState } from '../types';
+import { resolveTwoWayAttrition } from './attrition';
 
 const PLAYERS = 4;
 
@@ -206,46 +210,36 @@ export function resolveCombat(
                     }
                 }
 
-                // 1:1 attrition: damage = min(attackerTotal, defenderTotal).
-                const damage = Math.min(attackerTotalForce, defenderTotalForce);
-
                 // Event labeling: attacker = lower owner byte (deterministic symmetry).
                 const eventAttackerByte = a.owner < b.owner ? a.owner : b.owner;
                 const eventDefenderByte = a.owner < b.owner ? b.owner : a.owner;
 
-                // Winner: whoever has the higher total (or 'tie' if equal).
+                // Shared 1:1 attrition core (spec v1.16): damage, tie
+                // semantics, and the FR-011/v1.5 capacity clamp live in
+                // `resolveTwoWayAttrition` — the same helper the paratroop
+                // enemy-landing branch calls. Roles stay at this call site:
+                // garrison owner is the defender (spec v1.4).
+                const outcome = resolveTwoWayAttrition({
+                    attackerOwner: logicalAttacker,
+                    attackerTotal: attackerTotalForce,
+                    defenderOwner: logicalDefender,
+                    defenderTotal: defenderTotalForce,
+                    cellCapacity: constants.cellCapacity,
+                });
+                newCounts[idx] = outcome.winnerCount;
+                newOwners[idx] = outcome.winnerOwner;
+
+                // `winnerOwner === 0` is the mutual-annihilation tie.
                 const winner: PlayerId | 'tie' =
-                    attackerTotalForce > defenderTotalForce
-                        ? registry.requireIdAt(logicalAttacker - 1)
-                        : defenderTotalForce > attackerTotalForce
-                          ? registry.requireIdAt(logicalDefender - 1)
-                          : 'tie';
-
-                // Remaining troops after 1:1 attrition.
-                const attackerRemaining = (attackerTotalForce - damage) >>> 0;
-                const defenderRemaining = (defenderTotalForce - damage) >>> 0;
-
-                if (attackerRemaining > defenderRemaining) {
-                    // Clamp to cellCapacity (FR-011 invariant).
-                    newCounts[idx] = Math.min(attackerRemaining, constants.cellCapacity);
-                    newOwners[idx] = logicalAttacker;
-                } else if (defenderRemaining > attackerRemaining) {
-                    // Clamp to cellCapacity (FR-011 invariant).
-                    newCounts[idx] = Math.min(defenderRemaining, constants.cellCapacity);
-                    newOwners[idx] = logicalDefender;
-                } else {
-                    // Equal remnants (typically both 0) → tie.
-                    newCounts[idx] = 0;
-                    newOwners[idx] = 0;
-                }
+                    outcome.winnerOwner === 0 ? 'tie' : registry.requireIdAt(outcome.winnerOwner - 1);
 
                 const ev: CombatEvent = {
                     tick: tickNumber,
                     cell: idxToCoord(idx, board.width),
                     attacker: registry.requireIdAt(eventAttackerByte - 1),
                     defender: registry.requireIdAt(eventDefenderByte - 1),
-                    attackerLoss: damage,
-                    defenderLoss: damage,
+                    attackerLoss: outcome.damage,
+                    defenderLoss: outcome.damage,
                     winner,
                     attackerTotal: attackerTotalForce,
                     defenderTotal: defenderTotalForce,

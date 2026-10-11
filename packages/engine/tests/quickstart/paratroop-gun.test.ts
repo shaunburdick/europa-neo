@@ -4,6 +4,8 @@
  * End-to-end exercise of US4 (paratroopers + guns) via the full tick
  * pipeline (`runScenario` delegates to `applyCommand` + `tick`):
  *   - Paratroop 2:1 cost + destination pipe clear
+ *   - Paratroop landing on an enemy-held cell resolves as an attack
+ *     (1:1 attrition, no free ownership flip — spec v1.16)
  *   - Out-of-range paratroop rejection (via `applyCommand` preflight)
  *   - Into-water paratroop rejection
  *   - Gun friendly-fire
@@ -96,6 +98,55 @@ describe('quickstart Q-008 — paratroop 2:1 cost + destination pipe clear', () 
         const { finalWorld } = runScenario(cfg, board, orders, 31);
         // Destination's pipeMasks cleared by paratroop.
         expect(finalWorld.state.pipeMasks[3 * 8 + 1]).toBe(0);
+    });
+});
+
+describe('quickstart Q-008 — paratroop landing on an enemy-held cell (US4, AC-5, v1.16)', () => {
+    it('enemy landing: cost 2N paid, 1:1 attrition, garrison keeps the cell, event emitted', () => {
+        // P1 city (1,1), P2 city (3,3) — within paratroop range 2. After
+        // 30 warm-up ticks both cities sit at cityCapacity (30). The
+        // landing at tick 30 resolves as an attack: 10 vs 30.
+        const board = buildSmallBoard(8, [
+            [1, 1, 1],
+            [3, 3, 2],
+        ]);
+        const paratroopOrder: Order = {
+            kind: 'paratroop',
+            player: PLAYER_1,
+            source: { x: 1, y: 1 },
+            target: { x: 3, y: 3 },
+        };
+        const { finalWorld, events } = runScenario(cfg, board, [{ atTick: 30, order: paratroopOrder }], 31);
+        const landing = events[30];
+        expect(landing).toBeDefined();
+
+        // Cost: the source paid 2N.
+        expect(getCell(finalWorld, 1, 1).troopCount).toBe(30 - TWO_N);
+
+        // One CombatEvent with the pre-attrition totals (AC-21).
+        expect(landing?.combat).toEqual([
+            expect.objectContaining({
+                attacker: PLAYER_1,
+                defender: PLAYER_2,
+                attackerTotal: N,
+                defenderTotal: 30,
+                attackerLoss: N,
+                defenderLoss: N,
+                winner: PLAYER_2,
+            }),
+        ]);
+
+        // Attrition: the 30-troop garrison survives at 30 - N and keeps
+        // both the cell and its city — no free flip (AC-19/AC-20).
+        expect(getCell(finalWorld, 3, 3).troopCount).toBe(30 - N);
+        expect(getCell(finalWorld, 3, 3).troopOwner).toBe(PLAYER_2);
+        expect(finalWorld.state.cityOwners[3 * 8 + 3]).toBe(2);
+
+        // A losing landing is still a successfully executed order
+        // (FR-013 + FR-023); no validation errors.
+        expect(landing?.appliedOrders).toHaveLength(1);
+        expect(landing?.appliedOrders[0]?.order.kind).toBe('paratroop');
+        expect(landing?.errors).toEqual([]);
     });
 });
 
