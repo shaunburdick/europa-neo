@@ -432,3 +432,60 @@ plans:
 The engine quickstart stops at "given a world and orders, tick it and
 get a deterministic terminal result back" — the minimum primitive every
 downstream feature builds on.
+
+---
+
+## 6. v1.16 amendment quickstart — serialization terrain + paratroop attack (2026-10-11)
+
+Delta section for the spec v1.16 fix set (issues #136/#132). Scenarios Q-011..Q-014 are the
+manual/CI validation flows for this amendment; the automated suites that implement them are
+enumerated in `plan.md` §7.
+
+### Q-011 — Terrain round-trips (AC-17, FR-026)
+
+Create a world from a seeded board containing water, then assert
+`deserializeWorld(serializeWorld(w))` yields a `board.cells` array where every cell's
+`elevation` and `terrain` equal the source, and `hashWorld` of both worlds is identical.
+
+```bash
+pnpm --filter @europa/engine test -- serialize
+# expect: serialize suite green, incl. "terrain round-trip" test
+```
+
+### Q-012 — Version guards still bite (AC-16, AC-18, FR-024/025)
+
+The conformance suite mutates the header and the payload format byte and asserts the typed
+errors; the strict decode matrix — which lives in the `serialize` unit suite, not the
+conformance suite — carries the new `terrainFlag > 1` case, so both suites must run.
+
+```bash
+pnpm --filter @europa/engine test -- serialization-conformance   # version-boundary mutations
+pnpm --filter @europa/engine test -- unit/serialize              # strict decode matrix
+# expect: both green — format-version mutation at byte 3 + ENGINE_API_VERSION.length,
+#         and the decode-rejection matrix incl. the new `terrainFlag > 1` case
+```
+
+### Q-013 — Paratroop landing on an enemy garrison (AC-19..AC-21, US4 AC-5)
+
+Scripted board: enemy garrison 30 at capacity, N = 10 (cost 20 from source). After one tick:
+garrison 20, owner unchanged, city unchanged, one `CombatEvent(10 vs 30)` with
+`attackerLoss = defenderLoss = 10`, and the losing landing present in `appliedOrders`.
+
+```bash
+pnpm --filter @europa/engine test -- paratroop
+# expect: new enemy-landing suites green (win/loss/tie/city/event/appliedOrders)
+```
+
+### Q-014 — Fixture regeneration (SC-001, FR-026)
+
+After the payload change, regenerate the pinned replay hash and confirm the replay suite
+passes on the new value:
+
+```bash
+tsx packages/engine/scripts/update.ts packages/engine/tests/fixtures/sample-2p-match.json
+# expect: "Updated 0aafe88f → <new hash>"
+pnpm --filter @europa/engine test -- replay determinism
+# expect: green
+```
+
+Full gate before any push: `pnpm verify` (AGENTS.md rule 6).

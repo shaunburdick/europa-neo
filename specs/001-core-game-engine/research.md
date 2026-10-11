@@ -47,7 +47,7 @@ The change points:
 
 ## 4. CombatEvent type analysis
 
-Current `CombatEvent` in `specs/001-core-game-engine/contracts/engine-types.ts`:
+Current `CombatEvent` in `packages/engine/src/contracts/engine-types.ts`:
 ```ts
 interface CombatEvent {
     readonly tick: number;
@@ -70,11 +70,7 @@ Adding `attackerTotal` and `defenderTotal` is additive — existing consumers th
 
 ## 5. Contract drift detection
 
-The engine's `contracts-drift.test.ts` performs a semantic diff between:
-- `packages/engine/src/contracts/engine-types.ts` (local copy)
-- `specs/001-core-game-engine/contracts/engine-types.ts` (spec contract)
-
-Both must be updated in the same commit. The test normalizes whitespace and compares — any divergence fails the suite.
+There is no drift test: `specs/001-core-game-engine/contracts/engine-types.ts` no longer exists on disk, and the old `contracts-drift.test.ts` that diffed it against the package copy is gone (Gate-2 finding 8d). The package contracts in `packages/engine/src/contracts/` are the single source of truth — see `contracts/README.md` — so there is only one surface to update.
 
 ## 6. Determinism guarantees
 
@@ -91,3 +87,31 @@ The determinism test (`tests/determinism.test.ts`) runs two independent 10k-tick
 ## 8. Wire protocol implications
 
 The networking package serializes `TickEvents` which contains `CombatEvent[]`. The wire format uses JSON serialization. Adding fields to `CombatEvent` is additive — the JSON will contain the new fields, and clients that don't know about them will simply ignore them. No wire protocol version bump needed. The `ENGINE_API_VERSION` stays at `0.1.0` because the `CombatEvent` change is additive and the `EngineConstants` type is unchanged.
+
+---
+
+## 9. v1.16 amendment research — serialization terrain + paratroop attack (2026-10-11, issues #136/#132)
+
+Delta section; see `plan.md` for the full plan. All findings verified against the working tree.
+
+### 9.1 Terrain encoding
+
+- **Elevation is provably a `uint8`**: `createWorld` enforces `[0, 255]` (`packages/engine/src/create.ts:106-110`, `MAX_ELEVATION = 255` at `:42`); the terrain pipeline normalizes fbm output to `[0,255]` (`packages/terrain/src/fbm.ts:95-96`) and validates it (INV-3, `packages/terrain/src/validate.ts:14`). One byte suffices; encode rejects anything else rather than truncating (FR-026).
+- **Terrain is not derivable from elevation**: water classification thresholds the lowest-elevation cells and splits ties at the threshold elevation by sorted-index order to hit the exact water count (`packages/terrain/src/water.ts:31-42, 65-66`). Both an `elevation` byte and a `terrainFlag` byte are therefore required per cell.
+- **Append-not-interleave**: the pre-v2 cell record is 8 bytes (`serialize.ts:563-571`, `cellsBlockLen = n * 8` at `:498` as surveyed before this change set); appending the two bytes keeps every existing field's offset, so offset-based decode tests remain valid with a helper update only.
+- **Version split**: `SERIALIZE_FORMAT_VERSION` (`serialize.ts:120`, 1 before this change set → 2 by it) is the layout guard; `ENGINE_API_VERSION` (`packages/core/src/types.ts:43`, `'0.2.0'`) is the public-surface guard. The module's own doc (`serialize.ts:10-24`) exists for exactly this case — layout change without API change → bump the format byte only.
+
+### 9.2 Hash/fixture impact
+
+`hashWorld` is FNV-1a over the serialized bytes (`serialize.ts` module doc §Hash), so any payload change alters every hash. Audit of pinned hashes: `packages/engine/tests/fixtures/sample-2p-match.json` (`finalStateHash: "0aafe88f"`, line 26) plus two more literal occurrences of the same value — the README example (`packages/engine/README.md:160`) and the quickstart Q-014 expect-line (`quickstart.md:483`); **no test consumes the fixture** (Gate-2 finding 8a — `tests/replay/replay.test.ts` computes hashes at runtime). The regeneration path exists and was read: `packages/engine/scripts/update.ts` replays a fixture from seed + terrain settings and rewrites `finalStateHash` in place.
+
+### 9.3 Paratroop enemy-landing resolution point
+
+- Resolution stays in `resolveParatroop` (Phase 2). Verified that same-tick composition with flow combat works because the Phase 5 pre-flow snapshot is captured after Phase 2/3 (`packages/engine/src/tick.ts:221-226`, combat at `:234-248`).
+- Sequential same-target landings are deterministic: orders are sorted once (`tick.ts:133`) and `resolveParatroop` applies them in sequence against its own accumulated `newCounts` (`paratroop.ts:96-201`).
+- `appliedOrders` semantics (Gate-1 finding 6): `tick.ts:214-219` admits a deferred order into `appliedOrders` iff its index is in `successfulParatroopIndices`; `resolveParatroop` records success for every order that reaches the apply step (`paratroop.ts:200`) — combat outcome is irrelevant, so a losing landing is an applied order by construction. Verified; now stated in FR-013 and pinned by a test.
+- City interaction: Phase 6 capture transfers a city only when the post-landing occupant is non-neutral and differs from the city owner (`capture.ts:69-93`, neutral never captures `:76-78`) — the N=G annihilation case correctly leaves the city put.
+
+### 9.4 Shared-attrition extraction feasibility
+
+The two-way attrition core (`combat.ts:209-240`) depends only on four numbers (`attackerTotal`, `defenderTotal`, `cellCapacity`) and two owner bytes; roles-agnostic extraction is behavior-preserving for both call sites. The event-payload labelling (lower owner byte, `combat.ts:212-214`) and role identification (garrison-is-defender, `:189-207`) both stay at the flow-combat call site — the helper carries neither convention (spec v1.4 is authoritative for roles; Gate-1 finding 7).
