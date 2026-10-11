@@ -478,12 +478,14 @@ pnpm --filter @europa/engine test -- paratroop
 
 ### Q-014 — Fixture regeneration (SC-001, FR-026)
 
-After the payload change, regenerate the pinned replay hash and confirm the replay suite
-passes on the new value:
+Q-014 is a **one-shot migration**: it replaced the pre-v2 pin `0aafe88f` with the
+format-v2 hash `82f73922` in this change set. Re-running it on an up-to-date tree is a
+no-op that echoes the current value, then the replay suites confirm it:
 
 ```bash
 tsx packages/engine/scripts/update.ts packages/engine/tests/fixtures/sample-2p-match.json
-# expect: "Updated 0aafe88f → <new hash>"
+# migration run printed: "Updated 0aafe88f → 82f73922"
+# re-running today prints: "Updated 82f73922 → 82f73922" (no-op)
 pnpm --filter @europa/engine test -- replay determinism
 # expect: green
 ```

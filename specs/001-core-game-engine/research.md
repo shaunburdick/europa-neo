@@ -86,7 +86,7 @@ The determinism test (`tests/determinism.test.ts`) runs two independent 10k-tick
 
 ## 8. Wire protocol implications
 
-The networking package serializes `TickEvents` which contains `CombatEvent[]`. The wire format uses JSON serialization. Adding fields to `CombatEvent` is additive — the JSON will contain the new fields, and clients that don't know about them will simply ignore them. No wire protocol version bump needed. The `ENGINE_API_VERSION` stays at `0.1.0` because the `CombatEvent` change is additive and the `EngineConstants` type is unchanged.
+The networking package serializes `TickEvents` which contains `CombatEvent[]`. The wire format uses JSON serialization. Adding fields to `CombatEvent` is additive — the JSON will contain the new fields, and clients that don't know about them will simply ignore them. No wire protocol version bump needed. The `ENGINE_API_VERSION` stays at `0.2.0`, unchanged by this additive change, and the `EngineConstants` type is unchanged.
 
 ---
 
