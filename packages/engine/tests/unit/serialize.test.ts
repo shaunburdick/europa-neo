@@ -7,13 +7,18 @@
  *     runtime state, config (including `tickIntervalMs` and the explicit
  *     placement-slot order of `config.playerIds`), and the canonical ID
  *     table. Re-serializing the decoded world is byte-identical (lossless).
+ *   - Terrain round-trip (v1.16, AC-17): per-cell `elevation` and
+ *     `terrain` (land AND water) survive the wire exactly.
  *   - Version boundaries: a wrong `ENGINE_API_VERSION` header throws
  *     `EngineVersionMismatchError`; a wrong payload format version throws
  *     `EngineFormatVersionMismatchError`.
  *   - Strict ID-table rejection: malformed, duplicate, missing, extra,
  *     numeric, permuted, and inconsistently-referenced tables fail closed.
  *   - Encode strictness: `serializeWorld` refuses to silently corrupt a
- *     non-canonical world (`EngineSerializationError`).
+ *     non-canonical world (`EngineSerializationError`) — including a
+ *     missing cell, an elevation outside `0..255`, and an unknown terrain.
+ *   - Decode strictness (AC-18): malformed cell fields fail closed with
+ *     `EngineFormatError`, including a `terrainFlag` above 1.
  *   - `hashWorld` determinism: same world → same hash; different tick →
  *     different hash; byte-identical buffers for the same world.
  */
@@ -33,7 +38,7 @@ import {
     SERIALIZE_FORMAT_VERSION,
     serializeWorld,
 } from '../../src/serialize';
-import type { CityPlacement, MatchConfig, Player, PlayerId, World } from '../../src/types';
+import type { Cell, CityPlacement, MatchConfig, Player, PlayerId, World } from '../../src/types';
 import { ENGINE_API_VERSION } from '../../src/types';
 import { buildSmallBoard } from '../fixtures/board';
 import { PLAYER_1, PLAYER_2, playerIds, UNKNOWN_PLAYER } from '../fixtures/ids';
@@ -94,6 +99,27 @@ describe('serializeWorld / deserializeWorld round-trip', () => {
         const bytes = serializeWorld(w);
         const restored = deserializeWorld(bytes);
         expect(Array.from(serializeWorld(restored))).toEqual(Array.from(bytes));
+    });
+
+    it('round-trip preserves per-cell elevation and terrain exactly, including water (AC-17)', () => {
+        // Terrain is NOT derivable from elevation (water ties at the
+        // threshold elevation are split by sorted-index order), so both
+        // bytes must round-trip. Cells (1,1) and (6,6) hold cities and
+        // must stay land or createWorld rejects the board.
+        const cells = Array.from({ length: 64 }, (_, i) => ({
+            x: i % 8,
+            y: Math.floor(i / 8),
+            elevation: (i * 4) % 256,
+            terrain: i % 7 === 3 ? ('water' as const) : ('land' as const),
+        }));
+        expect(cells.some((c) => c.terrain === 'water')).toBe(true);
+        expect(cells[9]?.terrain).toBe('land'); // city (1,1)
+        expect(cells[54]?.terrain).toBe('land'); // city (6,6)
+
+        const w = createWorld(cfg, { ...TWO_CITY_BOARD, cells });
+        const restored = deserializeWorld(serializeWorld(w));
+        expect(restored.board.cells).toEqual(w.board.cells);
+        expect(hashWorld(restored)).toBe(hashWorld(w));
     });
 
     it('round-trip preserves a world with non-trivial state (post-tick)', () => {
@@ -266,7 +292,7 @@ function buildPayload(opts: PayloadOptions = {}): number[] {
         p.push(x, y, owner);
     }
 
-    p.push(...(opts.cells ?? new Array<number>(64 * 8).fill(0)));
+    p.push(...(opts.cells ?? new Array<number>(64 * 10).fill(0)));
     if (opts.trailing !== undefined) {
         p.push(...opts.trailing);
     }
@@ -288,15 +314,23 @@ function truncated(count: number): Uint8Array {
     return validBuffer().slice(0, count);
 }
 
-/** Replace the first cell's fields for the cell-range tests. */
+/**
+ * Replace the first cell's fields for the cell-range tests. The cell
+ * record is 10 bytes since wire v2: troopCount(0..3), troopOwner(4),
+ * pipeMask(5), reservesPct(6), cityOwner(7), elevation(8), terrainFlag(9).
+ */
 function cellsWithFirstCell(
-    fields: Partial<Record<'troopOwner' | 'pipeMask' | 'reservesPct' | 'cityOwner', number>>,
+    fields: Partial<
+        Record<'troopOwner' | 'pipeMask' | 'reservesPct' | 'cityOwner' | 'elevation' | 'terrainFlag', number>
+    >,
 ): number[] {
-    const cells = new Array<number>(64 * 8).fill(0);
+    const cells = new Array<number>(64 * 10).fill(0);
     cells[4] = fields.troopOwner ?? 0;
     cells[5] = fields.pipeMask ?? 0;
     cells[6] = fields.reservesPct ?? 0;
     cells[7] = fields.cityOwner ?? 0;
+    cells[8] = fields.elevation ?? 0;
+    cells[9] = fields.terrainFlag ?? 0;
     return cells;
 }
 
@@ -469,6 +503,16 @@ describe('deserializeWorld — city and cell strictness', () => {
     it('rejects a reserves percentage above 9', () => {
         const buffer = bufferOf(buildPayload({ cells: cellsWithFirstCell({ reservesPct: 10 }) }));
         expect(() => deserializeWorld(buffer)).toThrow(/reservesPct 10 exceeds/);
+    });
+
+    it('rejects a terrain flag above 1 (AC-18, wire v2)', () => {
+        const buffer = bufferOf(buildPayload({ cells: cellsWithFirstCell({ terrainFlag: 2 }) }));
+        expect(() => deserializeWorld(buffer)).toThrow(/terrainFlag 2 must be 0 \(land\) or 1 \(water\)/);
+    });
+
+    it('decodes a water terrain flag into a water cell', () => {
+        const buffer = bufferOf(buildPayload({ cells: cellsWithFirstCell({ terrainFlag: 1 }) }));
+        expect(deserializeWorld(buffer).board.cells[0]?.terrain).toBe('water');
     });
 });
 
@@ -722,6 +766,38 @@ describe('serializeWorld — encode strictness', () => {
         expect(() => serializeWorld(worldWith({ state: { ...base.state, reservesPct } }))).toThrow(
             /reservesPct\[0\] = 10 exceeds 9/,
         );
+    });
+
+    it('rejects an elevation outside 0..255 on encode (FR-026)', () => {
+        const base = createWorld(cfg, TWO_CITY_BOARD);
+        const tooHigh = base.board.cells.map((c, i) => (i === 0 ? { ...c, elevation: 256 } : c));
+        expect(() => serializeWorld(worldWith({ board: { ...base.board, cells: tooHigh } }))).toThrow(
+            /board\.cells\[0\]\.elevation must be an integer in \[0, 255\]/,
+        );
+        const negative = base.board.cells.map((c, i) => (i === 0 ? { ...c, elevation: -1 } : c));
+        expect(() => serializeWorld(worldWith({ board: { ...base.board, cells: negative } }))).toThrow(
+            /elevation must be an integer/,
+        );
+    });
+
+    it('rejects an unknown terrain value on encode (FR-026)', () => {
+        const base = createWorld(cfg, TWO_CITY_BOARD);
+        const cells = base.board.cells.map((c, i) =>
+            i === 0 ? { ...c, terrain: 'swamp' as unknown as Cell['terrain'] } : c,
+        );
+        expect(() => serializeWorld(worldWith({ board: { ...base.board, cells } }))).toThrow(
+            /terrain must be 'land' or 'water'/,
+        );
+    });
+
+    it('rejects a missing board cell entry on encode (Gate-2 finding 8b)', () => {
+        // A malformed world must yield the contract error type, not a
+        // TypeError from reading `cells[i].elevation` on undefined.
+        const base = createWorld(cfg, TWO_CITY_BOARD);
+        const attempt = (): Uint8Array =>
+            serializeWorld(worldWith({ board: { ...base.board, cells: base.board.cells.slice(0, 63) } }));
+        expect(attempt).toThrow(/board\.cells\[63\] is missing/);
+        expect(attempt).toThrow(EngineSerializationError);
     });
 });
 
