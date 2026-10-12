@@ -378,6 +378,13 @@ truthful).
      canonical source literal against the imported runtime value.
      Anyone citing this note MUST quote the shipped literal from
      `console-types.ts`, never a historical value from this prose.
+  - **2026-10-11 (issue #129, security sweep)**: the shipped literal
+     moves to **0.5.0** in this change set — the public barrel drops
+     the `@internal` `ConsoleRuntimeContract` re-export (FR-038), a
+     breaking public-surface change on the 0.x minor line. The
+     mechanism above is what forces this sub-entry: the "shipped
+     literal" clause now reads `0.5.0`; `0.4.1` remains the corrected
+     v1.10 history above, and `minCellPx` **32** is unchanged.
 
 ### Quickstart validation mapping (Q-* → proving suites)
 

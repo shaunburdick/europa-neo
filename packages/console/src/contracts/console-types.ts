@@ -110,8 +110,15 @@
  * after the camera differs, resizing preserves it. This is a
  * user-authorized nonbreaking patch marker; public shapes and signatures
  * are unchanged.
+ *
+ * 0.5.0 (issue #129, security sweep): BREAKING public-surface change —
+ * the public barrel no longer exports declarations marked `@internal`;
+ * specifically the `ConsoleRuntime` INTERFACE re-exported as
+ * `ConsoleRuntimeContract` is removed (005 FR-038). The `ConsoleRuntime`
+ * CLASS value export (the embedding surface) is retained. Bumped on the
+ * 0.x minor line per the console contract's breaking-surface rule.
  */
-export const CONSOLE_API_VERSION = '0.4.1' as const;
+export const CONSOLE_API_VERSION = '0.5.0' as const;
 
 // ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)

@@ -214,7 +214,6 @@ export type {
     ConsoleFeatureFlags,
     ConsoleInput,
     ConsoleRenderer,
-    ConsoleRuntime as ConsoleRuntimeContract,
     ConsoleSoundPlayer,
     ReplayTape,
 } from './contracts/console-api';
