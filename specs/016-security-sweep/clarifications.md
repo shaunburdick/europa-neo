@@ -12,6 +12,8 @@ Issue #146 proposed "a separate resume secret … (or require the seat token for
 
 A claim carrying the **matching** resume secret may supersede an active holder (the owner's own reload racing the old socket's close); the superseded connection closes with the existing single-seat re-claim semantics (spec 004 edge case). A bare-id claim never supersedes anything, active or in grace. Rationale: possession of the secret is ownership; closing the stale socket is the desired reload UX and matches the manual's existing "This session moved somewhere else" notice. Landing: spec 010 FR-041, spec 006 FR-018.
 
+**2026-10-12 layering ruling (amends D2's delivery sentence; the "possession = ownership" decision stands)**: supersession is delivered by credential rotation + immediate eviction of the lobby binding and spectator subscription — the rotation is what locks the old holder out of every future restore — not by closing the old socket. Socket severing stays the match-server's single-seat re-claim semantic (spec 004 edge case), a layer the lobby facade has no seam to reach. The user-facing notice is the console's `identity_invalid` failure → `superseded` flag → "This session moved somewhere else" plate, not socket closure. Landed in the 2026-10-12 sub-entries under 006 FR-018 and 010 FR-041.
+
 ### D3 — Regenerate the resume secret on every successful restore
 
 The secret is single-epoch: each successful restore mints the next secret (delivered on the same directed event). Rationale: bounds the replay value of a captured secret to one epoch; cost is one CSPRNG call per restore. Landing: spec 006 FR-018.
