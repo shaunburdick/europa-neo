@@ -19,7 +19,9 @@
  *
  * Order-ack correlation: each `sendOrder` assigns a monotonically
  * increasing `SequenceNumber` and records `seq → actionId`; incoming
- * `orderAck` envelopes resolve through that map (see T031).
+ * `orderAck` envelopes resolve through that map (see T031) and spend
+ * the entry they matched, inside a documented cap with a timeout
+ * prune (005 FR-029).
  */
 
 import type {
@@ -38,6 +40,7 @@ import type {
     SessionToken,
 } from '../state/types';
 import { consoleStatusFromConnectionState } from './connection';
+import { CORRELATION_TIMEOUT_MS, PENDING_CORRELATION_CAP } from './constants';
 import { createWsMatchClient } from './ws-match-client';
 
 // ----------------------------------------------------------------------------
@@ -204,6 +207,15 @@ class ConsoleClientImpl implements ConsoleClient {
     readonly seqToActionId = new Map<SequenceNumber, ActionId>();
 
     /**
+     * Wall-clock stamp per live correlation, for the FR-029 timeout
+     * prune. Kept beside (and cleared with) {@link seqToActionId}
+     * rather than inside it: the contract shape of that map is
+     * `ReadonlyMap<SequenceNumber, ActionId>` and the bridge reads it
+     * live, so its value type must stay an `ActionId`.
+     */
+    private readonly correlationStampedAtMs = new Map<SequenceNumber, number>();
+
+    /**
      * Fallback monotonic SequenceNumber source for outbound orders —
      * used only for inner clients without `lastOrderSeq()` (test
      * doubles); the real browser client reports its true wire seq,
@@ -283,23 +295,98 @@ class ConsoleClientImpl implements ConsoleClient {
         }
         const reported = this.client.lastOrderSeq?.() ?? null;
         if (reported !== null) {
-            this.seqToActionId.set(reported, actionId);
+            this.recordCorrelation(reported, actionId);
             this.log('debug', 'sendOrder', { seq: reported, actionId });
         } else {
             this.nextWireSeq += 1;
             const seq = this.nextWireSeq as SequenceNumber;
-            this.seqToActionId.set(seq, actionId);
+            this.recordCorrelation(seq, actionId);
             this.log('debug', 'sendOrder', { seq, actionId });
         }
         return sent.then(() => undefined);
     }
 
     /**
+     * Register one `seq → actionId` correlation (005 FR-029): prunes
+     * entries that outlived the correlation timeout, then records the
+     * new entry, then evicts oldest-first beyond
+     * {@link PENDING_CORRELATION_CAP}. Growth is therefore bounded and
+     * flat across N acks — never O(N) sends.
+     *
+     * @param seq The wire seq the server will echo in `orderAck`.
+     * @param actionId The console action waiting on that ack.
+     */
+    private recordCorrelation(seq: SequenceNumber, actionId: ActionId): void {
+        this.pruneExpiredCorrelations();
+        this.seqToActionId.set(seq, actionId);
+        this.correlationStampedAtMs.set(seq, Date.now());
+        while (this.seqToActionId.size > PENDING_CORRELATION_CAP) {
+            const oldest = this.seqToActionId.keys().next();
+            if (oldest.done === true) {
+                break;
+            }
+            this.dropCorrelation(oldest.value);
+        }
+    }
+
+    /** Remove one correlation from both tables (idempotent). */
+    private dropCorrelation(seq: SequenceNumber): void {
+        this.seqToActionId.delete(seq);
+        this.correlationStampedAtMs.delete(seq);
+    }
+
+    /**
+     * Drop every correlation older than
+     * {@link CORRELATION_TIMEOUT_MS} (005 FR-029's timeout prune).
+     * Runs lazily on the next send: entries are bounded by the cap
+     * regardless, and a stale ack is worthless the moment its window
+     * has passed. The `Date.now()` read is the sanctioned transport
+     * wall clock (same boundary as the heartbeat's `clientTimeMs`) —
+     * never simulation state.
+     */
+    private pruneExpiredCorrelations(): void {
+        const nowMs = Date.now();
+        for (const [seq, stampedAtMs] of this.correlationStampedAtMs) {
+            if (nowMs - stampedAtMs >= CORRELATION_TIMEOUT_MS) {
+                this.dropCorrelation(seq);
+            }
+        }
+    }
+
+    /**
+     * Consume the correlation an inbound `orderAck` has just spent
+     * (005 FR-029). Runs AFTER the subscriber so the bridge can still
+     * read the entry while it translates the frame; a late or
+     * duplicate ack then finds nothing and correlates to nothing.
+     */
+    private consumeAckCorrelation(envelope: ProtocolEnvelope<NetworkPayload>): void {
+        if (envelope.type !== 'orderAck') {
+            return;
+        }
+        const payload: unknown = envelope.payload;
+        if (typeof payload !== 'object' || payload === null) {
+            return;
+        }
+        const { seq } = payload as { readonly seq?: unknown };
+        if (typeof seq !== 'number') {
+            return;
+        }
+        this.dropCorrelation(seq as SequenceNumber);
+    }
+
+    /**
      * Subscribe to inbound envelopes (mirrors feature 004's onMessage).
      * Returns the unsubscribe function.
+     *
+     * `orderAck` frames consume their correlation AFTER the subscriber
+     * runs, so the translation layer reads a live entry and a repeat
+     * of the same ack finds nothing (005 FR-029).
      */
     onEnvelope(handler: (envelope: ProtocolEnvelope<NetworkPayload>) => void): () => void {
-        return this.client.onMessage(handler);
+        return this.client.onMessage((envelope) => {
+            handler(envelope);
+            this.consumeAckCorrelation(envelope);
+        });
     }
 
     /** Current adapter state snapshot (drives ConsoleState.status). */
@@ -329,7 +416,10 @@ class ConsoleClientImpl implements ConsoleClient {
     /** Explicit close; no more envelopes afterwards. */
     close(): void {
         this.log('debug', 'close', {});
+        // Disconnect + teardown prune (005 FR-029): no correlation
+        // outlives the connection that could have answered it.
         this.seqToActionId.clear();
+        this.correlationStampedAtMs.clear();
         this.client.disconnect();
     }
 

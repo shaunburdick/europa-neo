@@ -11,7 +11,7 @@
  *     envelope passthrough, state snapshotting, close semantics.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createConsoleClient } from '../../../src/net/client';
 import { consoleStatusFromConnectionState } from '../../../src/net/connection';
@@ -314,5 +314,84 @@ describe('createConsoleClient (T029)', () => {
         });
         expect(client.sessionToken()).toBe('tok-9');
         expect(client.playerId()).toBe(3);
+    });
+
+    // -- FR-029: bounded seq → ActionId correlation -------------------------
+
+    /** orderAck envelope for a wire seq, shaped exactly as the codec delivers it. */
+    function ackEnvelope(seq: number): ProtocolEnvelope<NetworkPayload> {
+        return envelope('orderAck', { seq, result: { ok: true } });
+    }
+
+    /** Adapter + inner fake with a bridge-shaped consumer attached. */
+    function correlatingClient(): {
+        inner: ReturnType<typeof makeInner>;
+        client: ReturnType<typeof createConsoleClient>;
+        correlated: number[];
+    } {
+        const inner = makeInner();
+        const client = createConsoleClient(Config, { matchClientFactory: () => inner });
+        const correlated: number[] = [];
+        client.onEnvelope((env) => {
+            const event = netEventFromEnvelope(env, {
+                seqToActionId: client.seqToActionId,
+                connectedAtMs: 0,
+                lastAppliedTick: 0,
+            });
+            if (event?.kind === 'orderAck') {
+                correlated.push(event.actionId);
+            }
+        });
+        return { inner, client, correlated };
+    }
+
+    it('consumes each correlation when its ack arrives (growth stays flat)', async () => {
+        const { inner, client, correlated } = correlatingClient();
+        for (let actionId = 1; actionId <= 5; actionId += 1) {
+            await client.sendOrder(actionId, { kind: 'surrender', player: 1 });
+        }
+        expect(client.seqToActionId.size).toBe(5);
+        for (let seq = 1; seq <= 5; seq += 1) {
+            inner.emit(ackEnvelope(seq));
+        }
+        // Consumed on ack: five acks leave nothing behind, and every ack
+        // still correlated against the entry it consumed.
+        expect(client.seqToActionId.size).toBe(0);
+        expect(correlated).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('a late or duplicate ack never re-correlates a consumed entry', async () => {
+        const { inner, client, correlated } = correlatingClient();
+        await client.sendOrder(11, { kind: 'surrender', player: 1 });
+        inner.emit(ackEnvelope(1));
+        inner.emit(ackEnvelope(1));
+        expect(correlated).toEqual([11]);
+        expect(client.seqToActionId.size).toBe(0);
+    });
+
+    it('bounds live correlations at 64, evicting the oldest first', async () => {
+        const { client } = correlatingClient();
+        for (let actionId = 1; actionId <= 70; actionId += 1) {
+            await client.sendOrder(actionId, { kind: 'surrender', player: 1 });
+        }
+        // FR-029 pins the cap to the reducer's PENDING_ORDERS_CAP = 64;
+        // growth must be bounded, not O(N) sends.
+        expect(client.seqToActionId.size).toBe(64);
+        expect([...client.seqToActionId.keys()]).toEqual(Array.from({ length: 64 }, (_, index) => index + 7));
+    });
+
+    it('drops correlations that outlive the correlation timeout', async () => {
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+        try {
+            const { client } = correlatingClient();
+            await client.sendOrder(1, { kind: 'surrender', player: 1 });
+            expect([...client.seqToActionId.keys()]).toEqual([1]);
+
+            nowSpy.mockReturnValue(1_000_000 + 60_000);
+            await client.sendOrder(2, { kind: 'surrender', player: 1 });
+            expect([...client.seqToActionId.keys()]).toEqual([2]);
+        } finally {
+            nowSpy.mockRestore();
+        }
     });
 });
