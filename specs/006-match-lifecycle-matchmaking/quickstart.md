@@ -679,3 +679,34 @@ If any quickstart scenario fails, the implementer should:
 3. Cross-reference with `data-model.md` (field shapes) and `research.md` (decision rationale).
 4. Fix the matchmaker logic; do NOT silence the test.
 5. Re-run `pnpm test` to confirm no regressions.
+
+---
+
+## 7. Issue #147 fix validation (spec 006 v1.8 / spec 010 v1.13; 2026-10-11)
+
+Validation map for the lifecycle/TTL/capacity/determinism correction PR. The executable checks are the named unit tests in `plan.md` §7; this section is the quick reference for running them and reading the results.
+
+```bash
+pnpm --filter @europa/matchmaking test          # whole suite (must stay green except the re-pinned tests)
+pnpm --filter @europa/matchmaking test tests/unit/lobby.identityRegistry.test.ts   # FR-023 re-pins
+pnpm --filter @europa/matchmaking test tests/unit/matchmaker.join.test.ts          # FR-019 reconnect slice
+pnpm --filter @europa/matchmaking test tests/unit/roster.test.ts                   # 023-FR-007 locale-independent ordering
+pnpm --filter @europa/matchmaking test:soak     # SC-005 must stay green (attribution: all-accept + empty-TTL sweep)
+```
+
+| Check | FR / SC | Expected observable |
+| --- | --- | --- |
+| Q-147-1 sweep then `connectionClosed` | FR-023 | `connectionClosed` after an identity sweep is a no-op: no throw, roster/presence clean, handle freed |
+| Q-147-2 expired then reconnect | FR-023 | stale-claim `establishIdentity` returns a FRESH identity + directed `identity` event; subsequent `setHandle` succeeds; companion case: a swept identity on `onSeatReconnected` releases the ghost connection binding (no throw in `setHandle`) |
+| Q-147-3 reconnect slice | FR-019 (SC-006 standing coverage: Q-M02/Q-M03) | live seat → same `SeatAssignment`, request `displayName` NOT applied to the seat; forfeited/terminal → `session_expired`; unknown token → `match_not_found`; never `seat_taken` |
+| Q-147-4 divergent TTL | FR-020 | `resultsTtlMs=1s < rematchWindowMs=60s`: offer survives past results-TTL; collected by the rematch sweep at window end |
+| Q-147-5 `close()` contract | FR-021 | `unregisterMatch` fired for every residual record once; second `close()` adds none; `stats()` still readable; mutators throw |
+| Q-147-6 capacity on rematch | FR-022 | at capacity, completing `acceptRematch` → `rate_limited` with NO vote recorded; `declineRematch` still succeeds |
+| Q-147-7 displayName hardening | FR-018 | each defect class → `invalid_request` + `detail.reason`; 32 emoji valid / 33 invalid; valid non-ASCII names accepted |
+| Q-147-8 anti-flap seam | 023-FR-011 | injected scheduler receives `(cb, 500)`; cancel invoked on roster removal and `close()`; zero direct `setTimeout` in `src/**` except the default binding |
+| Q-147-9 sweep-then-channel-release | FR-024, SC-007 | all SEVEN collect paths fire `unregisterMatch` at collection time (incl. never-registered `filling` records); registered matches' `FakeServer.stats().activeMatches` returns to pre-registration value (live-set accounting) |
+| Q-147-10 no orphaned sessions | FR-025, SC-008 | lapse / decline / all-forfeited teardown: `stats().activePlayerSessions` back to baseline immediately after collection; all-accept control reports the LIVE rematch's participants (2), never orphaned |
+| Q-147-11 close survives a throwing unregister | FR-021 catch branch | throwing `FakeServer` subclass: `close()` still resolves, state cleared, second close free, failure logged (recording logger, `matchmaker.edges.test.ts:22-32` pattern) |
+| Q-147-12 collection survives a throwing unregister | FR-024 catch branch | throwing subclass: collection still transitions + releases (FR-025 runs after the catch), failure logged |
+
+SC-007/SC-008 are asserted 10/10 per path in the unit tests (deterministic clock; no wall-clock timing anywhere). If Q-147-9's per-path assertion fails on the empty sweep or final-seat leave, the collector skipped FR-024's unconditional firing — the exact regression Gate 1 row 1 closed.
