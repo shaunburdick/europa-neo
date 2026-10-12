@@ -5,10 +5,9 @@
  *   - Cost is 2:1 (paratrooper drops N troops at cost 2N from source).
  *   - Range ≤ 2 Chebyshev.
  *   - Clears destination pipes on landing.
- *   - Enemy-held targets resolve as an ATTACK (spec v1.16): 1:1
- *     attrition via the shared model, owner written only when the
- *     garrison is eliminated, a CombatEvent per landing — row by row
- *     against data-model §11 (AC-19..AC-21).
+ *   - Enemy-held targets resolve as an attack: 1:1 attrition, owner
+ *     written only when the garrison is eliminated, a CombatEvent per
+ *     landing.
  *
  * Covers edge cases:
  *   - "paratroop into water fails validation" — rejected by validateCommand.
@@ -543,10 +542,6 @@ describe('validateCommand — OrderParatroop validation', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// Enemy-landing attack semantics — spec v1.16 (FR-013), data-model §11
-// ---------------------------------------------------------------------------
-
 describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', () => {
     it('win (N > G): attacker occupies with min(N - G, cellCapacity), pipes cleared', () => {
         const size = 8;
@@ -559,7 +554,7 @@ describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', (
         ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY, 0);
         expect(result.errors).toEqual([]);
-        expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(100 - TWO_N); // cost paid
+        expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(100 - TWO_N);
         expect(result.state.troopCounts[idx(size, 4, 3)]).toBe(N - 5);
         expect(result.state.troopOwners[idx(size, 4, 3)]).toBe(1);
         expect(result.state.pipeMasks[idx(size, 4, 3)]).toBe(0);
@@ -575,7 +570,6 @@ describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', (
         const orders: Order[] = [
             { kind: 'paratroop', player: PLAYER_1, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } },
         ];
-        // N - G = 8 would exceed this tight capacity → clamp to 4.
         const tight: typeof CONSTANTS = { ...CONSTANTS, cellCapacity: 4 };
         const result = resolveParatroop(state, board, tight, orders, REGISTRY, 0);
         expect(result.state.troopCounts[idx(size, 4, 3)]).toBe(4);
@@ -594,7 +588,7 @@ describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', (
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY, 7);
         expect(result.errors).toEqual([]);
         expect(result.state.troopCounts[idx(size, 4, 3)]).toBe(15 - N);
-        expect(result.state.troopOwners[idx(size, 4, 3)]).toBe(2); // garrison survives → no flip
+        expect(result.state.troopOwners[idx(size, 4, 3)]).toBe(2);
         expect(result.state.pipeMasks[idx(size, 4, 3)]).toBe(0);
         expect(result.events.combat).toHaveLength(1);
         expect(result.events.combat[0]).toMatchObject({
@@ -632,9 +626,8 @@ describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', (
     });
 
     it('enemy-owned but empty target (v1.8 owner preservation): occupied without a fight', () => {
-        // Flow depletion preserves the owner byte at count 0, so a cell
-        // can be enemy-owned and empty. It is occupied outright; the
-        // emitted event truthfully records a zero-damage engagement.
+        // Flow depletion leaves the owner byte intact at count 0, so a
+        // cell can be enemy-owned yet empty.
         const size = 8;
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
@@ -667,8 +660,7 @@ describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', (
         ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY, 0);
         expect(result.errors).toEqual([]);
-        // Landing 1: 10 vs 15 → garrison 5, owner still 2.
-        // Landing 2: 10 vs 5 → attacker wins with 5, owner 1.
+        // Landing 1 leaves the garrison at 5; landing 2 (10 vs 5) wins with 5.
         expect(result.state.troopCounts[idx(size, 4, 3)]).toBe(N - 5);
         expect(result.state.troopOwners[idx(size, 4, 3)]).toBe(1);
         expect(result.state.troopCounts[idx(size, 3, 3)]).toBe(100 - TWO_N);
@@ -679,8 +671,8 @@ describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', (
     });
 
     it('landing player is always the event attacker, even with the higher owner byte (plan §2 decision 4)', () => {
-        // Flow combat labels the event payload by lower owner byte; a
-        // landing does NOT — the initiating force is the attacker.
+        // Flow combat labels events by lower owner byte; a landing keeps
+        // the initiating force as attacker.
         const size = 8;
         const board: Board = buildSmallBoard(size, []);
         const state = emptyState(size);
@@ -690,7 +682,7 @@ describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', (
             { kind: 'paratroop', player: PLAYER_2, source: { x: 3, y: 3 }, target: { x: 4, y: 3 } },
         ];
         const result = resolveParatroop(state, board, CONSTANTS, orders, REGISTRY, 0);
-        expect(result.state.troopOwners[idx(size, 4, 3)]).toBe(1); // garrison survives
+        expect(result.state.troopOwners[idx(size, 4, 3)]).toBe(1);
         expect(result.events.combat[0]).toMatchObject({
             attacker: PLAYER_2,
             defender: PLAYER_1,
@@ -698,10 +690,6 @@ describe('resolveParatroop — enemy-landing attack (AC-19, data-model §11)', (
         });
     });
 });
-
-// ---------------------------------------------------------------------------
-// Full-tick pipeline: enemy city landing (AC-20, FR-023; plan P-4/P-7)
-// ---------------------------------------------------------------------------
 
 describe('tick pipeline — paratroop landing on an enemy city (AC-19, AC-20, FR-023)', () => {
     const TICK_CFG: MatchConfig = {
@@ -712,7 +700,6 @@ describe('tick pipeline — paratroop landing on an enemy city (AC-19, AC-20, FR
         visibilityRadius: CONSTANTS.visibilityRadiusDefault,
     };
 
-    /** P1 city (1,1) holds a 100-troop source; P2's city (3,3) holds `garrison`. */
     function enemyCityWorld(garrison: number): World {
         const world = createWorld(
             TICK_CFG,
@@ -728,7 +715,6 @@ describe('tick pipeline — paratroop landing on an enemy city (AC-19, AC-20, FR
         return world;
     }
 
-    /** Stage the landing from (1,1) onto the enemy city and run one tick. */
     function landOnEnemyCity(garrison: number) {
         const staged = applyCommand(enemyCityWorld(garrison), {
             kind: 'paratroop',
@@ -743,12 +729,12 @@ describe('tick pipeline — paratroop landing on an enemy city (AC-19, AC-20, FR
     it('win: garrison eliminated, attacker occupies, city transfers in the same tick (AC-20)', () => {
         const result = landOnEnemyCity(5);
         const target = idx(8, 3, 3);
-        // Phase 1 production tops the sub-cap garrison by productionRate
-        // before Phase 2 resolves the landing.
+        // Phase 1 production grows the sub-cap garrison by productionRate
+        // before the landing resolves.
         const garrisonAtLanding = 5 + CONSTANTS.productionRate;
         expect(result.world.state.troopCounts[target]).toBe(N - garrisonAtLanding);
         expect(result.world.state.troopOwners[target]).toBe(1);
-        expect(result.world.state.cityOwners[target]).toBe(1); // Phase 6 capture, same tick
+        expect(result.world.state.cityOwners[target]).toBe(1);
         expect(result.events.captures).toHaveLength(1);
         expect(result.events.captures[0]).toMatchObject({
             fromOwner: PLAYER_2,
@@ -774,8 +760,8 @@ describe('tick pipeline — paratroop landing on an enemy city (AC-19, AC-20, FR
         const result = landOnEnemyCity(garrison);
         const target = idx(8, 3, 3);
         expect(result.world.state.troopCounts[target]).toBe(garrison - N);
-        expect(result.world.state.troopOwners[target]).toBe(2); // owner NOT written
-        expect(result.world.state.cityOwners[target]).toBe(2); // city NOT transferred
+        expect(result.world.state.troopOwners[target]).toBe(2);
+        expect(result.world.state.cityOwners[target]).toBe(2);
         expect(result.events.captures).toEqual([]);
         expect(result.events.combat).toHaveLength(1);
         expect(result.events.combat[0]).toMatchObject({
@@ -786,11 +772,7 @@ describe('tick pipeline — paratroop landing on an enemy city (AC-19, AC-20, FR
             defenderLoss: N,
             winner: PLAYER_2,
         });
-        // Source paid 2N.
         expect(result.world.state.troopCounts[idx(8, 1, 1)]).toBe(100 - TWO_N);
-        // FR-023 + Gate-1 finding 6: a losing landing is still a
-        // successfully executed order; only validation rejections (none
-        // here) belong in errors.
         expect(result.events.errors).toEqual([]);
         expect(result.events.appliedOrders).toHaveLength(1);
         expect(result.events.appliedOrders[0]?.order.kind).toBe('paratroop');

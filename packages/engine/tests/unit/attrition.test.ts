@@ -1,16 +1,3 @@
-/**
- * resolveTwoWayAttrition unit tests — spec 001, Clarifications v1.16
- * (plan P-8; FR-013 landing attacks + FR-008 two-way core).
- *
- * Guards the shared attrition math against regressions in:
- *   - winner determination on both sides (roles are caller-supplied,
- *     so owner bytes are never reordered inside the helper);
- *   - FR-011 / Clarifications v1.5 capacity clamping at the exact
- *     boundary (cap-1 unclamped, cap unchanged, cap+1 clamped);
- *   - tie semantics (equal remnants → winnerOwner 0, winnerCount 0);
- *   - zero-force edges (an empty side loses nothing to damage).
- */
-
 import { describe, expect, it } from 'vitest';
 import { resolveTwoWayAttrition } from '../../src/resolution/attrition';
 
@@ -18,8 +5,8 @@ const CAP = 30;
 
 describe('resolveTwoWayAttrition — winner determination', () => {
     it('attacker wins with the difference when it has the higher total', () => {
-        // Deliberately non-canonical owner bytes (attacker > defender) to
-        // prove the helper never reorders or normalizes roles.
+        // Non-canonical owner bytes (attacker > defender): the helper must
+        // never reorder roles.
         const outcome = resolveTwoWayAttrition({
             attackerOwner: 3,
             attackerTotal: 20,

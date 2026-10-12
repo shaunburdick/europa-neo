@@ -13,9 +13,6 @@
  *     flow) for each side; 1:1 attrition with `min(totalA, totalB)`
  *     damage. The bigger total retains the difference; the smaller is
  *     eliminated. Equal totals → mutual destruction (`winner: 'tie'`).
- *     The math lives in `resolveTwoWayAttrition` (`./attrition.ts`),
- *     shared verbatim with the paratroop enemy-landing branch so the
- *     two paths can never drift; roles and event labelling stay here.
  *   - **Three-way (or more)**: dominant owner (highest count, ties
  *     broken by ascending dense owner index) keeps their original count
  *     and absorbs the cell. All non-dominant owners are eliminated.
@@ -214,11 +211,6 @@ export function resolveCombat(
                 const eventAttackerByte = a.owner < b.owner ? a.owner : b.owner;
                 const eventDefenderByte = a.owner < b.owner ? b.owner : a.owner;
 
-                // Shared 1:1 attrition core (spec v1.16): damage, tie
-                // semantics, and the FR-011/v1.5 capacity clamp live in
-                // `resolveTwoWayAttrition` — the same helper the paratroop
-                // enemy-landing branch calls. Roles stay at this call site:
-                // garrison owner is the defender (spec v1.4).
                 const outcome = resolveTwoWayAttrition({
                     attackerOwner: logicalAttacker,
                     attackerTotal: attackerTotalForce,
@@ -229,7 +221,6 @@ export function resolveCombat(
                 newCounts[idx] = outcome.winnerCount;
                 newOwners[idx] = outcome.winnerOwner;
 
-                // `winnerOwner === 0` is the mutual-annihilation tie.
                 const winner: PlayerId | 'tie' =
                     outcome.winnerOwner === 0 ? 'tie' : registry.requireIdAt(outcome.winnerOwner - 1);
 

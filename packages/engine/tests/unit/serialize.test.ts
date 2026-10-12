@@ -7,8 +7,8 @@
  *     runtime state, config (including `tickIntervalMs` and the explicit
  *     placement-slot order of `config.playerIds`), and the canonical ID
  *     table. Re-serializing the decoded world is byte-identical (lossless).
- *   - Terrain round-trip (v1.16, AC-17): per-cell `elevation` and
- *     `terrain` (land AND water) survive the wire exactly.
+ *   - Terrain round-trip: per-cell `elevation` and `terrain` (land AND
+ *     water) survive the wire exactly.
  *   - Version boundaries: a wrong `ENGINE_API_VERSION` header throws
  *     `EngineVersionMismatchError`; a wrong payload format version throws
  *     `EngineFormatVersionMismatchError`.
@@ -17,7 +17,7 @@
  *   - Encode strictness: `serializeWorld` refuses to silently corrupt a
  *     non-canonical world (`EngineSerializationError`) — including a
  *     missing cell, an elevation outside `0..255`, and an unknown terrain.
- *   - Decode strictness (AC-18): malformed cell fields fail closed with
+ *   - Decode strictness: malformed cell fields fail closed with
  *     `EngineFormatError`, including a `terrainFlag` above 1.
  *   - `hashWorld` determinism: same world → same hash; different tick →
  *     different hash; byte-identical buffers for the same world.
@@ -102,10 +102,9 @@ describe('serializeWorld / deserializeWorld round-trip', () => {
     });
 
     it('round-trip preserves per-cell elevation and terrain exactly, including water (AC-17)', () => {
-        // Terrain is NOT derivable from elevation (water ties at the
-        // threshold elevation are split by sorted-index order), so both
-        // bytes must round-trip. Cells (1,1) and (6,6) hold cities and
-        // must stay land or createWorld rejects the board.
+        // Terrain is not derivable from elevation, so both bytes must
+        // round-trip; city cells must stay land or createWorld rejects
+        // the board.
         const cells = Array.from({ length: 64 }, (_, i) => ({
             x: i % 8,
             y: Math.floor(i / 8),
@@ -316,8 +315,8 @@ function truncated(count: number): Uint8Array {
 
 /**
  * Replace the first cell's fields for the cell-range tests. The cell
- * record is 10 bytes since wire v2: troopCount(0..3), troopOwner(4),
- * pipeMask(5), reservesPct(6), cityOwner(7), elevation(8), terrainFlag(9).
+ * record is 10 bytes: troopCount(0..3), troopOwner(4), pipeMask(5),
+ * reservesPct(6), cityOwner(7), elevation(8), terrainFlag(9).
  */
 function cellsWithFirstCell(
     fields: Partial<
@@ -791,8 +790,6 @@ describe('serializeWorld — encode strictness', () => {
     });
 
     it('rejects a missing board cell entry on encode (Gate-2 finding 8b)', () => {
-        // A malformed world must yield the contract error type, not a
-        // TypeError from reading `cells[i].elevation` on undefined.
         const base = createWorld(cfg, TWO_CITY_BOARD);
         const attempt = (): Uint8Array =>
             serializeWorld(worldWith({ board: { ...base.board, cells: base.board.cells.slice(0, 63) } }));

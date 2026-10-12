@@ -15,10 +15,9 @@
  *      troops up to `cityCapacity`.
  *   2. `resolveParatroop` (US4) — paratroop commands spend 2N from
  *      source and resolve the landing at the target: neutral/same-owner
- *      targets gain N, enemy-held targets resolve 1:1 attrition combat
- *      (CombatEvents merged into `events.combat`), and target pipes
- *      are always cleared. Runs BEFORE flow so paratroopers can clear
- *      pipes before flow reads them.
+ *      targets gain N, enemy-held targets resolve 1:1 attrition combat.
+ *      Target pipes are always cleared. Runs BEFORE flow so paratroopers
+ *      can clear pipes before flow reads them.
  *   3. `resolveGun` (US4) — gun commands spend `gunCost` from source,
  *      damage `gunDamage` from target occupants. Runs BEFORE flow
  *      so gun damage applies to current-tick occupants (FR-014
@@ -176,9 +175,8 @@ export function tick(world: Readonly<World>): TickResult {
         );
         ({ state } = paraResult);
         successfulParatroopIndices = paraResult.successfulOrderIndices;
-        // Enemy landings emit CombatEvents in Phase 2 (spec v1.16);
-        // merge them with the same spread pattern as the combat/capture
-        // phases so TickEvents.combat carries the full tick's battles.
+        // Phase-2 CombatEvents merge here; the combat phase appends to the
+        // same list later in the tick.
         events = {
             ...events,
             combat: [...events.combat, ...paraResult.events.combat],

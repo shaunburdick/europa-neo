@@ -8,12 +8,9 @@
  *   - Spends `2 × N` troops from the source cell, where `N` is the
  *     paratroop count per order (modeled by `constants.paratroopCost`).
  *   - Resolves the landing against the target's state at that moment:
- *     an empty/neutral target is occupied (`+N`, clamped to
- *     `cellCapacity`), a same-owner target is reinforced, and an
- *     ENEMY-held target resolves as an attack under the shared combat
- *     model (`resolveTwoWayAttrition` — 1:1 attrition; ownership
- *     transfers only when the garrison is eliminated, Clarifications
- *     v1.16). Every enemy landing emits a `CombatEvent`.
+ *     neutral/same-owner targets gain `N` (clamped to `cellCapacity`);
+ *     enemy-held targets resolve as 1:1 attrition combat
+ *     (`resolveTwoWayAttrition`) and emit a `CombatEvent`.
  *   - Clears the destination cell's `pipeMasks` (FR-013 — paratroopers
  *     break enemy pipes) regardless of combat outcome.
  *   - Range ≤ 2 Chebyshev (validated via `validateCommand`).
@@ -36,11 +33,10 @@
  * **Errors vs events**: invalid orders are returned in the `errors`
  * array (with the typed `ValidationError` reason per FR-018). Valid
  * orders mutate the state; enemy landings additionally emit a
- * `CombatEvent` (merged into `TickEvents.combat` by `tick.ts`), while
- * neutral/same-owner landings emit nothing — the `AppliedOrderRecord`
- * in `tick.ts` covers the "order was applied" semantics for both. The
- * terminal/elimination phase is the source of `EliminationEvent`
- * emissions, not this module.
+ * `CombatEvent`, while neutral/same-owner landings emit nothing — the
+ * `AppliedOrderRecord` in `tick.ts` covers the "order was applied"
+ * semantics for both. The terminal/elimination phase is the source of
+ * `EliminationEvent` emissions, not this module.
  */
 
 import type { EngineConstants } from '../contracts/engine-api';
@@ -71,8 +67,8 @@ const PARATROOP_MAX_RANGE = 2;
  *          world state with new typed arrays (immutable update).
  *          `errors` carries the typed `ValidationError` for every
  *          rejected order (FR-018 surface). `events.combat` carries one
- *          `CombatEvent` per enemy landing (Clarifications v1.16);
- *          neutral and same-owner landings emit nothing.
+ *          `CombatEvent` per enemy landing; neutral and same-owner
+ *          landings emit nothing.
  *          `successfulOrderIndices` identifies successful occurrences in the
  *          supplied order array, rather than relying on object identity.
  */
@@ -197,9 +193,7 @@ export function resolveParatroop(
             continue;
         }
 
-        // Apply: subtract 2N from source, resolve the landing against the
-        // target's state AT THIS MOMENT (sequential landings see what the
-        // previous one left), clear target pipes.
+        // Apply: subtract 2N from source, resolve the landing at the target, clear target pipes.
         const newSourceCount = sourceCount - sourceSpend;
         newCounts[sourceIdx] = newSourceCount;
         if (newSourceCount === 0) {
@@ -212,10 +206,8 @@ export function resolveParatroop(
         const cap = constants.cellCapacity >>> 0;
 
         if (targetOwner !== 0 && targetOwner !== attackerOwner) {
-            // Enemy-held target: the landing resolves as an ATTACK under
-            // the shared combat model (FR-013, Clarifications v1.16):
-            // N (landed) vs G (garrison), 1:1 attrition, ownership
-            // transfers ONLY when the garrison is eliminated.
+            // Enemy-held: the landing is an attack; ownership transfers
+            // only if the garrison is eliminated.
             const outcome = resolveTwoWayAttrition({
                 attackerOwner,
                 attackerTotal: paratroopN,
@@ -224,8 +216,8 @@ export function resolveParatroop(
                 cellCapacity: cap,
             });
             newCounts[targetIdx] = outcome.winnerCount;
-            // Owner write is suppressed while the garrison survives
-            // (winner stays the defender); mutual annihilation writes 0.
+            // No owner write while the garrison survives (winner stays the
+            // defender); a tie writes 0.
             if (outcome.winnerOwner !== targetOwner) {
                 newOwners[targetIdx] = outcome.winnerOwner;
             }
@@ -241,16 +233,12 @@ export function resolveParatroop(
                 defenderTotal: targetCount,
             });
         } else {
-            // Empty/neutral target: occupy. Same owner: reinforce. In both
-            // cases the owner becomes (or stays) the landing player and
-            // the count is clamped to cellCapacity (FR-011).
             const newTargetCount = targetCount + paratroopN;
             newCounts[targetIdx] = newTargetCount > cap ? cap : newTargetCount;
             newOwners[targetIdx] = attackerOwner;
         }
 
-        // Clear destination pipes (FR-013) — every resolved landing,
-        // regardless of combat outcome.
+        // Clear destination pipes (FR-013).
         newPipes[targetIdx] = 0;
         successfulOrderIndices.push(orderIndex);
     }

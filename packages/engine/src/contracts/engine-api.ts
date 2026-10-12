@@ -143,11 +143,9 @@ export declare function validateCommand(
  *
  * Two independent versions guard the bytes: the ASCII header carries
  * `ENGINE_API_VERSION` (public type surface) and the first payload byte
- * carries `SERIALIZE_FORMAT_VERSION` (wire layout; bumped to 2 by spec
- * 001 v1.16 for per-cell terrain). Encoding is lossless — every `World`
- * field, including per-cell `elevation` and `terrain`, round-trips — and
- * fails loudly with `EngineSerializationError` on any value the wire
- * cannot represent, never by truncating (FR-026).
+ * carries `SERIALIZE_FORMAT_VERSION` (wire layout). Encoding throws
+ * `EngineSerializationError` on any value the wire cannot represent,
+ * never by truncating.
  */
 export declare function serializeWorld(world: Readonly<World>): Uint8Array;
 
@@ -158,17 +156,14 @@ export declare function serializeWorld(world: Readonly<World>): Uint8Array;
  * Throws `EngineVersionMismatchError` when the header's
  * `ENGINE_API_VERSION` differs, `EngineFormatVersionMismatchError` when
  * the payload layout version differs, and `EngineFormatError` on any
- * malformed field (FR-025: strict, never coerced or defaulted). The
- * result is a self-contained `World`: tickable, with terrain intact
- * (FR-026).
+ * malformed field — strict, never coerced or defaulted.
  */
 export declare function deserializeWorld(bytes: Uint8Array): World;
 
 /**
- * Stable FNV-1a hash of the serialized bytes, formatted as 8 lowercase
- * hex chars. It covers the full payload — terrain included since wire
- * v2 (FR-026) — so any state or layout change surfaces here; SC-001
- * byte-identity and the replay fixtures key off it.
+ * Stable hash of the serialized bytes, formatted as 8 lowercase hex
+ * chars. Covers the full payload, so any state or layout change surfaces
+ * here; SC-001 byte-identity and the replay fixtures key off it.
  */
 export declare function hashWorld(world: Readonly<World>): string;
 

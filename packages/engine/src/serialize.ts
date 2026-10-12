@@ -57,8 +57,8 @@
  *     - n*n cells, 10 bytes each: 4 bytes troopCounts +
  *                   1 byte troopOwners + 1 byte pipeMasks +
  *                   1 byte reservesPct + 1 byte cityOwners +
- *                   1 byte elevation (0..255, v2) +
- *                   1 byte terrainFlag (0 = land, 1 = water, v2;
+ *                   1 byte elevation (0..255) +
+ *                   1 byte terrainFlag (0 = land, 1 = water;
  *                   decode rejects > 1)
  *     - (end; trailing bytes are rejected)
  *
@@ -120,9 +120,8 @@ const HEADER_PREFIX = 0x00;
  * History:
  *   - 1: issue #74 canonical ID table + placement-slot order + explicit
  *        format version.
- *   - 2: v1.16 (issue #136) — per-cell terrain: `elevation` +
- *        `terrainFlag` appended to each 8-byte cell record (10 bytes
- *        total). Existing field offsets are unchanged.
+ *   - 2: per-cell terrain — `elevation` + `terrainFlag` appended to each
+ *        cell record (10 bytes; existing field offsets unchanged).
  */
 export const SERIALIZE_FORMAT_VERSION = 2;
 
@@ -567,9 +566,8 @@ function encodePayload(world: Readonly<World>): Uint8Array {
         out[p++] = city.owner & 0xff;
     }
 
-    // Cells. Per-cell terrain (v2) is validated in place so a malformed
-    // world yields the contract error type, not a TypeError — the same
-    // style as the players write loop above.
+    // Cells. Terrain fields are validated in place so a malformed world
+    // throws the contract error type.
     for (let i = 0; i < n; i++) {
         const cell = board.cells[i];
         if (cell === undefined) {
@@ -867,9 +865,9 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         cities.push({ cell: { x, y }, owner });
     }
 
-    // Cells. Per-cell terrain (v2): `elevation` is a bare byte (encode
-    // already rejects anything outside 0..255); `terrainFlag` is
-    // validated here because decode must never coerce an unknown value.
+    // Cells. `terrainFlag` gets an explicit range check because decode
+    // must never coerce an unknown value; `elevation` is already bounded
+    // by the u8 reader.
     const n = boardSize * boardSize;
     const troopCounts = new Uint32Array(n);
     const troopOwners = new Uint8Array(n);
@@ -922,8 +920,6 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         throw new EngineFormatError(`trailing bytes after payload (${String(reader.remaining)} extra)`);
     }
 
-    // Board: dimensions and city placements come from the payload fields;
-    // `cells` carries the decoded terrain (FR-026 — no fabrication).
     const board: Board = {
         width: boardSize,
         height: boardSize,
