@@ -4,7 +4,7 @@
 
 **Input**: `specs/016-security-sweep/spec.md` (17-row amendment manifest) + the amended owning specs, all uncommitted on this branch: 004 v1.11, 005 v1.11, 006 v1.8, 007 v1.8, 010 v1.13 (+ its `data-model.md`), 013 v1.5, 015 v1.1. Decisions: `clarifications.md` D1–D10. Gates: Gate 1 (rounds 1–2 + F-8 re-check) PASS; Gate 2 (round 2) PASS — `challenge-ledger.md`.
 
-**Status**: **APPROVED PLAN** (Gate 2 PASS, 2026-10-11). Phase 5 tasking is in progress; `tasks.md` is an UNAPPROVED DRAFT pending Gate 3.
+**Status**: **APPROVED PLAN** (Gate 2 PASS, 2026-10-11); tasking approved at Gate 3 the same day and Phase 6 completed on `security-sweep` 2026-10-12 (`tasks.md` all checked, `bash scripts/verify.sh` green).
 
 ## Summary
 
@@ -52,7 +52,7 @@ specs/016-security-sweep/
 ├── data-model.md        # Phase 1 output (server record, wire fields, client storage)
 ├── quickstart.md        # verification quickstart
 ├── contracts/           # Phase 1 output (4 interface contracts)
-└── tasks.md             # Phase 5 output (this dispatch; UNAPPROVED DRAFT pending Gate 3)
+└── tasks.md             # Phase 5 output (APPROVED — Gate 3 PASS 2026-10-11)
 ```
 
 ### Source Code (repository root)

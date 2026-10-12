@@ -4,9 +4,9 @@
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle & matchmaking), Feature 007 (player manual), Feature 010 (public lobby & match browser), Feature 013 (semantic URL routing), Feature 015 (developer debugging tools)
 
 **Created**: 2026-10-11
-**Last Updated**: 2026-10-11 (v1.0; amendment manifest for issues #152/#146/#129)
+**Last Updated**: 2026-10-12 (v1.0; amendment manifest for issues #152/#146/#129 — implemented on the branch, verification recorded)
 **Version**: 1.0
-**Status**: Phases 1–4 complete (Gate 1 spec PASS incl. F-8 re-check; Gate 2 plan PASS); Phase 5 tasking drafted (`tasks.md`, pending Gate 3). No amendment in this manifest is yet implemented.
+**Status**: **Implemented on the `security-sweep` branch** — all six phases complete (Gate 1 spec PASS incl. F-8 re-check; Gate 2 plan PASS; Gate 3 tasking APPROVED with product-owner sign-off 2026-10-11); waves W1–W4 (T001–T038) done, `bash scripts/verify.sh` green end-to-end with the agent-browser smoke and spec-007 manual review recorded in `pr-body.md` (2026-10-12). One PR pending for #152/#146/#129.
 
 **Input**: Three P1 `security`-labeled issues from the 2026-09-10 code review — #152 (console WebSocket client robustness), #146 (guest-identity bearer path), #129 (`?ws=` override dead; routing/debug seams) — to be fixed together in ONE pull request.
 
