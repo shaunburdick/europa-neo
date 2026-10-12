@@ -63,6 +63,8 @@ export class FakeServer {
     private readonly randomIdFn: () => string;
     /** Captured matchmaker handlers, merged across `bindMatchmaker` calls. */
     private handlers: Partial<MatchmakerBridge> = {};
+    /** Live registrations: ids added by registerMatch, removed by unregisterMatch (unknown-id no-op). */
+    private readonly liveMatches = new Set<MatchId>();
     /** No-op logger handed to whoever asks. */
     private readonly nullLogger: Logger = {
         debug: () => {},
@@ -92,7 +94,7 @@ export class FakeServer {
     stats(): ServerStats {
         return {
             uptimeMs: 0,
-            activeMatches: this.registerMatchCalls.length - this.unregisterMatchCalls.length,
+            activeMatches: this.liveMatches.size,
             activeConnections: 0,
             totalTicks: 0,
             totalFramesSent: 0,
@@ -115,11 +117,13 @@ export class FakeServer {
     /** Record a registration (matchmaking → networking). */
     registerMatch(req: RegisterMatchRequest): void {
         this.registerMatchCalls.push(req);
+        this.liveMatches.add(req.matchId);
     }
 
     /** Record an unregister teardown (matchmaking → networking). */
     unregisterMatch(matchId: MatchId): void {
         this.unregisterMatchCalls.push(matchId);
+        this.liveMatches.delete(matchId);
     }
 
     /** Record a seat binding (matchmaking → networking). */

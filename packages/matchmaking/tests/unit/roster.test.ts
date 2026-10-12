@@ -620,7 +620,7 @@ describe('T024: Integration — full lobby flow', () => {
         }
     });
 
-    it('roster entries ordered lexicographically by handle', () => {
+    it('roster entries ordered by UTF-16 code units, locale-independent (issue #147 re-pin)', () => {
         const { service, delivered } = buildHarness();
         namedConnection(service, 'zoe');
         const alice = namedConnection(service, 'Alice');
@@ -631,8 +631,27 @@ describe('T024: Integration — full lobby flow', () => {
         const lastSnapshot = snapshots[snapshots.length - 1];
         expect(lastSnapshot).toBeDefined();
         const handles = lastSnapshot?.players.map((p) => p.handle);
-        const sorted = [...handles].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-        expect(handles).toEqual(sorted);
+        // Pinned literal order (UTF-16 code units, lowercased) — never
+        // computed with locale-sensitive collation, so this passes on
+        // every host locale.
+        expect(handles).toEqual(['Alice', 'bob', 'zoe']);
+    });
+
+    it('roster orders non-ASCII handles by UTF-16 code units, locale-independent (issue #147)', () => {
+        const { service, delivered } = buildHarness();
+        namedConnection(service, 'zoe');
+        const asa = namedConnection(service, 'Åsa');
+        namedConnection(service, 'ada');
+        namedConnection(service, '🚀Rocket');
+        service.subscribe(asa.connectionId);
+        const snapshots = rosterSnapshots(delivered);
+        const lastSnapshot = snapshots[snapshots.length - 1];
+        expect(lastSnapshot).toBeDefined();
+        // Lowercased UTF-16 code-unit order pinned as a literal: 'ada' <
+        // 'zoe' < 'åsa' ('å' = U+00E5 sorts after 'z') < '🚀rocket'
+        // (astral surrogate units sort after the BMP). Locale-collation
+        // orders would differ.
+        expect(lastSnapshot?.players.map((p) => p.handle)).toEqual(['ada', 'zoe', 'Åsa', '🚀Rocket']);
     });
 
     it('roster payload contains exactly {handle, status}', () => {
