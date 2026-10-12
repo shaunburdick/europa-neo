@@ -90,14 +90,19 @@ if (isE2E) {
  * TanStack Router-powered application.
  *
  * The controller is created OUTSIDE React (page-lifetime — same
- * discipline as `lobby-runtime`'s `mountLobbyRuntime`): no
- * dispose-on-unmount race with StrictMode's simulated remounts, and
- * `connect()`'s own already-establishing guard makes double
- * invocation harmless.
+ * discipline as `LobbyRoot`'s page-lifetime wiring in
+ * `internal/lobby-runtime.tsx`): no dispose-on-unmount race with
+ * StrictMode's simulated remounts, and `connect()`'s own
+ * already-establishing guard makes double invocation harmless.
  *
  * @param root The SPA mount node.
  */
 function bootstrapProductionRoute(root: HTMLElement): void {
+    // Capture the query BEFORE stripping (013 FR-025): stripping
+    // rewrites the address bar, so the `?ws=` transport override must
+    // be read from the captured string. Correctness MUST NOT depend on
+    // test infrastructure patching `history.replaceState` (AC-018).
+    const bootSearch = window.location.search;
     stripProductionQuery();
 
     // Resolve the lobby server URL. May throw if the transport
@@ -105,7 +110,7 @@ function bootstrapProductionRoute(root: HTMLElement): void {
     // before any identity-bearing lobby connection.
     let wsUrl: string;
     try {
-        wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
+        wsUrl = resolveLobbyServerUrl(bootSearch, window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
         createRoot(root).render(<LobbyConfigurationError message={message} />);
@@ -118,28 +123,19 @@ function bootstrapProductionRoute(root: HTMLElement): void {
     const transport = createWsLobbyClient({});
     const controller = createLobbyController({ transport, url: wsUrl });
 
-    // Expose the store for Playwright lobby E2E assertions (mirrors
-    // live-runtime's `window.__europaLive` pattern). Test-only surface;
-    // production code never reads this.
-    window.__europaLobby = { store: controller.store };
+    if (window.__europaTestOptIn?.lobby === true) {
+        // Test-only handle (005 FR-037, 015 FR-019): installed ONLY
+        // behind the pre-load opt-in sentinel set by test
+        // infrastructure. An unflagged production boot installs no
+        // `__europa*` handle at all; this surface carries the store
+        // only, never a bearer credential.
+        window.__europaLobby = { store: controller.store };
+    }
 
     // Begin the lobby establish cycle. The connection is non-blocking —
     // the router's root layout `beforeLoad` gates child rendering on
     // `connection === 'ready'` and `identityStatus === 'named'`.
     void controller.connect();
-
-    // Guard against TanStack Router's internal history normalization.
-    //
-    // createBrowserHistory (called by RouterCore.update during
-    // createRouter) invokes history.replaceState(state, "") with only
-    // two arguments — no URL. The browser's native behavior is to keep
-    // the current URL, but E2E test infrastructure (preserveWsQueryInHistory)
-    // patches replaceState and converts the missing URL argument from
-    // undefined to the string "undefined", corrupting the pathname.
-    //
-    // This wrapper detects the missing URL and injects the current
-    // location so the router initializes with the correct pathname.
-    guardReplaceStateUrlArgument();
 
     // Build the router with typed context (controller + wsUrl). The
     // root layout route's `beforeLoad` reads the controller store to
@@ -165,38 +161,15 @@ function bootstrapProductionRoute(root: HTMLElement): void {
 /**
  * Remove production query values before any existing runtime can inspect them.
  *
- * The E2E transport override is preserved by the test infrastructure's
- * `preserveWsQueryInHistory` init script, which patches
- * `history.replaceState` to carry the param through.
+ * The `?ws=` transport override is consumed by
+ * {@link bootstrapProductionRoute} from the query string CAPTURED
+ * before this strip runs (013 FR-025) — production correctness never
+ * depends on test infrastructure patching `history.replaceState`.
  */
 function stripProductionQuery(): void {
     if (window.location.search !== '') {
         window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.hash}`);
     }
-}
-
-/**
- * Guard against `history.replaceState` being called without a URL argument.
- *
- * TanStack Router's `createBrowserHistory` calls `replaceState(state, "")`
- * during construction to inject a history key. Browsers treat a missing URL
- * as "keep the current URL", but E2E test infrastructure that patches
- * `replaceState` may convert `undefined` to the literal string `"undefined"`,
- * corrupting the pathname.
- *
- * This function wraps `replaceState` so that a missing URL argument is
- * replaced with the current `window.location.href`, preserving the correct
- * initial location for the router.
- */
-function guardReplaceStateUrlArgument(): void {
-    const currentReplaceState = window.history.replaceState.bind(window.history);
-    window.history.replaceState = (state: unknown, title: string, url?: string | URL | null): void => {
-        if (url === undefined || url === null) {
-            currentReplaceState(state, title, window.location.href);
-        } else {
-            currentReplaceState(state, title, url);
-        }
-    };
 }
 
 /** User-visible failure rendered before any identity-bearing lobby connection. */
@@ -220,6 +193,13 @@ interface EuropaLobbyHandle {
 
 declare global {
     interface Window {
+        /**
+         * Pre-load test opt-in sentinel (005 FR-037, 015 FR-019): test
+         * infrastructure sets this via an init script BEFORE page load;
+         * the production bootstrap installs test handles only when it
+         * is present. Carries no bearer credentials.
+         */
+        __europaTestOptIn?: { readonly lobby?: true };
         __europaLobby?: EuropaLobbyHandle;
     }
 }

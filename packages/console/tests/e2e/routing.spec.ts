@@ -19,6 +19,7 @@ import {
 } from '@europa/networking';
 import { expect, test } from '@playwright/test';
 
+import { preserveWsAndQueryParamsInHistory, preserveWsQueryInHistory } from './helpers/history-patch';
 import { setHandleViaProfile } from './helpers/profile';
 
 const TICK_MS = 250;
@@ -27,52 +28,6 @@ const WAIT_TIMEOUT = 15_000;
 /** Assert the browser-visible path while allowing the test-only ws seam. */
 async function expectPath(page: import('@playwright/test').Page, pathname: string): Promise<void> {
     await expect.poll(() => page.evaluate(() => window.location.pathname)).toBe(pathname);
-}
-
-/** Preserve the test-only transport override across same-document history. */
-function preserveWsQueryInHistory(): void {
-    const preserveWsQuery = (url: string | URL | null): string | URL | null => {
-        if (url === null || !window.location.search.startsWith('?ws=')) return url;
-        const parsed = new URL(String(url), window.location.origin);
-        parsed.search = window.location.search;
-        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    };
-    const replaceState = window.history.replaceState.bind(window.history);
-    const pushState = window.history.pushState.bind(window.history);
-    window.history.replaceState = (state, title, url) => {
-        replaceState(state, title, preserveWsQuery(url));
-    };
-    window.history.pushState = (state, title, url) => {
-        pushState(state, title, preserveWsQuery(url));
-    };
-}
-
-/**
- * Merge-variant of {@link preserveWsQueryInHistory} for the US3 redirect
- * round-trip: the redirect rewrites the URL to `/profile?returnTo=…`, and
- * the plain preserve script would REPLACE that query with the live `?ws=`
- * override — silently dropping `returnTo` and dead-ending the round-trip.
- * Merging keeps BOTH the override and the params the URL already carries.
- */
-function preserveWsAndQueryParamsInHistory(): void {
-    const mergeWsQuery = (url: string | URL | null): string | URL | null => {
-        if (url === null || !window.location.search.startsWith('?ws=')) return url;
-        const parsed = new URL(String(url), window.location.origin);
-        const merged = new URLSearchParams(window.location.search);
-        for (const [key, value] of new URLSearchParams(parsed.search)) {
-            merged.set(key, value);
-        }
-        parsed.search = merged.toString();
-        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    };
-    const replaceState = window.history.replaceState.bind(window.history);
-    const pushState = window.history.pushState.bind(window.history);
-    window.history.replaceState = (state, title, url) => {
-        replaceState(state, title, mergeWsQuery(url));
-    };
-    window.history.pushState = (state, title, url) => {
-        pushState(state, title, mergeWsQuery(url));
-    };
 }
 
 interface Stack {
@@ -148,6 +103,32 @@ test.describe('semantic route browser history', () => {
         // AC-004: Play link navigates to /lobby.
         await page.getByRole('link', { name: 'Play', exact: true }).click();
         await expect(page).toHaveURL(/\/lobby/);
+    });
+
+    test('AC-018: ?ws= override is honored in a production boot with NO history patch (013 FR-025)', async ({
+        page,
+    }) => {
+        const { server, matchmaker } = buildStack();
+        await server.listen();
+        const wsUrl = `ws://127.0.0.1:${String(server.__boundPortForTest())}`;
+        try {
+            // Deliberately NO history init script: the bootstrap must
+            // capture ?ws= BEFORE stripping the production query, so
+            // correctness never depends on a patched
+            // history.replaceState (013 FR-025/AC-018, 015 FR-020).
+            // Pre-fix this boots against the same-origin fallback (the
+            // dev server speaks no lobby WebSocket) and never reaches
+            // the identity gate.
+            await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
+            await expect(page).toHaveURL(/\/profile/, { timeout: WAIT_TIMEOUT });
+            await setHandleViaProfile(page, 'NoPatch');
+            await waitForLobby(page);
+            await expect(page.locator('.europa-lobby__identity-name')).toContainText('NoPatch');
+            expect(await page.evaluate(() => Object.hasOwn(window, '__europaLive'))).toBe(false);
+        } finally {
+            await server.close();
+            await matchmaker.close();
+        }
     });
 
     test('unknown route still redirects to lobby (AC-008)', async ({ page }) => {
