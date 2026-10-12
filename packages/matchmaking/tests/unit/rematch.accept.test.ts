@@ -282,8 +282,6 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
             throw new Error('fixture request failed');
         }
 
-        // The finished original still occupies the single slot, so every
-        // accept vote is refused exactly like a create would be.
         const firstAccept = matchmaker.acceptRematch({
             matchId: created.data.matchId,
             rematchOfferId: requested.rematchOfferId,
@@ -305,8 +303,6 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
         }
         expect(completing.error.code).toBe('rate_limited');
 
-        // The offer survives: the same id comes back, and the refused
-        // votes were never recorded.
         const again = matchmaker.requestRematch({
             matchId: created.data.matchId,
             sessionToken: created.data.seatAssignment.sessionToken,
@@ -314,7 +310,6 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
         expect(again.ok).toBe(true);
         expect(again.ok && again.rematchOfferId).toBe(requested.rematchOfferId);
 
-        // Declining still succeeds at capacity (it frees the slot).
         const declined = matchmaker.declineRematch({
             matchId: created.data.matchId,
             rematchOfferId: requested.rematchOfferId,
@@ -322,7 +317,6 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
         });
         expect(declined.ok).toBe(true);
 
-        // Collection frees the slot: a fresh create succeeds.
         const fresh = matchmaker.createMatch({ visibility: 'public', displayName: 'Cara' });
         expect(fresh.ok).toBe(true);
         matchmaker.close();

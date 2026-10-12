@@ -188,7 +188,6 @@ describe('joinMatch — rejections', () => {
 });
 
 describe('joinMatch — reconnect slice (issue #147 FR-019 / test 3)', () => {
-    /** Create a filled (running) 2-player match; returns handles to both seats. */
     function makeRunningMatch() {
         const server = new FakeServer();
         const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });

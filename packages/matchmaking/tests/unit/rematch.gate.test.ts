@@ -167,10 +167,6 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
     });
 
     it('FR-020: a short resultsTtlMs never destroys a live rematch window (issue #147 test 4)', () => {
-        // Divergent TTLs: results TTL 1s, rematch window 60s. After the
-        // window opens, the results sweep MUST skip the finished match
-        // while the offer is live; the rematch sweep (which runs first)
-        // collects it once the window lapses.
         let clockMs = 4_000_000;
         const now = (): number => clockMs;
         const server = new FakeServer({ now });
@@ -197,8 +193,6 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
             throw new Error('fixture requestRematch failed');
         }
 
-        // 2s later — past resultsTtlMs — the offer window is still open:
-        // the match stays finished and the offer intact.
         clockMs += 2_000;
         const stats = mm.stats();
         expect(stats.finishedMatches).toBe(1);
@@ -213,8 +207,6 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
         expect(again.ok).toBe(true);
         expect(again.ok && again.rematchOfferId).toBe(requested.rematchOfferId);
 
-        // Once the window lapses, the rematch sweep (first in
-        // runLazySweeps) collects it on the next read path.
         clockMs += 60_000;
         const swept = mm.stats();
         expect(swept.finishedMatches).toBe(0);

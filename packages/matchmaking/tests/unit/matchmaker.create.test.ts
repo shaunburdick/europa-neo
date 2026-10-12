@@ -179,7 +179,6 @@ describe('createMatch — validation (FR-001/FR-002)', () => {
 });
 
 describe('displayName hardening — FR-018 (issue #147 test 7)', () => {
-    /** Create a 1/2-filled public match for join-path assertions. */
     function makeOpenMatch() {
         const server = new FakeServer();
         const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
@@ -190,7 +189,6 @@ describe('displayName hardening — FR-018 (issue #147 test 7)', () => {
         return { matchmaker, matchId: created.data.matchId };
     }
 
-    /** Assert create and join both reject `displayName` with the given reason. */
     function expectRejectedOnBothPaths(displayName: string, reason: string): void {
         const createMM = createMatchmaker(MATCHMAKING_CONSTANTS, { server: new FakeServer() });
         const created = createMM.createMatch({ visibility: 'public', displayName });

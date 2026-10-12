@@ -430,8 +430,6 @@ describe('close — shutdown semantics', () => {
 
         const restarted = createTestRegistry('restarted');
         expect(restarted.registry.stats()).toEqual({ identities: 0, reservedHandles: 0 });
-        // The old identity does not carry over: its id is unknown here,
-        // and the registry no longer treats that as an invariant breach.
         expect(() => restarted.registry.disconnect(nextGuestPlayerId())).not.toThrow();
         expect(restarted.registry.stats()).toEqual({ identities: 0, reservedHandles: 0 });
     });

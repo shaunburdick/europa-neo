@@ -38,9 +38,9 @@
  * stack is synchronous except `close()`.
  */
 
-import type { ConnectionId } from '@europa/networking';
+import type { ConnectionId, SessionToken } from '@europa/networking';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { PlayerId } from '../../contracts/match-types';
+import type { MatchId, PlayerId } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type { GuestPlayerId, LobbyError, LobbyErrorCode, LobbyEvent } from '../../src/contracts/lobby-types';
@@ -96,7 +96,6 @@ interface Stack {
     readonly matchmaker: Matchmaker;
     /** The composed facade under test. */
     readonly service: LobbyService & LobbyConnectionTeardown;
-    /** The injected identity registry (sweep assertions). */
     readonly registry: IdentityRegistry;
     /** Every outbound delivery, in order. */
     readonly delivered: Delivery[];
@@ -377,26 +376,18 @@ describe('connectionClosed over the composed stack (R-006)', () => {
     });
 });
 
-// ----------------------------------------------------------------------------
-// FR-023: identity teardown and restore totality (issue #147)
-// ----------------------------------------------------------------------------
 
 describe('identity teardown and restore totality (FR-023 / issue #147)', () => {
     it('sweep then connectionClosed: teardown is a no-op — no throw, roster entry gone, handle freed', () => {
         const stack = buildStack({ graceMs: 1_000 });
         const host = namedConnection(stack.service, 'Nova');
 
-        // Networking reports the seat disconnect: the identity drops to
-        // grace, the connection binding intentionally stays so a valid
-        // reconnect credential can restore it.
         stack.server.fireOnSeatDisconnected({
-            matchId: '00000000-0000-4000-8000-000000000001' as never,
+            matchId: '00000000-0000-4000-8000-000000000001' as MatchId,
             connectionId: host.connectionId,
-            sessionToken: '00000000-0000-4000-8000-000000000002' as never,
+            sessionToken: '00000000-0000-4000-8000-000000000002' as SessionToken,
         });
 
-        // Host identity sweep releases the expired grace record; the
-        // transport close arrives afterwards and must be a total no-op.
         advance(1_000);
         expect(stack.registry.releaseExpired()).toBe(1);
 
@@ -412,16 +403,15 @@ describe('identity teardown and restore totality (FR-023 / issue #147)', () => {
         const stack = buildStack({ graceMs: 1_000 });
         const host = namedConnection(stack.service, 'Nova');
         stack.server.fireOnSeatDisconnected({
-            matchId: '00000000-0000-4000-8000-000000000001' as never,
+            matchId: '00000000-0000-4000-8000-000000000001' as MatchId,
             connectionId: host.connectionId,
-            sessionToken: '00000000-0000-4000-8000-000000000002' as never,
+            sessionToken: '00000000-0000-4000-8000-000000000002' as SessionToken,
         });
         advance(1_000);
         expect(stack.registry.releaseExpired()).toBe(1);
 
         const state = stack.service.establishIdentity({ guestPlayerId: host.guestId }, host.connectionId);
 
-        // Not the ghost: a swept claim silently yields a fresh identity.
         expect(state).toEqual({ handle: null, hasIdentity: true });
         expect(stack.registry.projectIdentity(host.guestId)).toBeUndefined();
         const identityEvents = stack.delivered.filter(
@@ -437,22 +427,19 @@ describe('identity teardown and restore totality (FR-023 / issue #147)', () => {
         const stack = buildStack({ graceMs: 1_000 });
         const host = namedConnection(stack.service, 'Nova');
         stack.server.fireOnSeatDisconnected({
-            matchId: '00000000-0000-4000-8000-000000000001' as never,
+            matchId: '00000000-0000-4000-8000-000000000001' as MatchId,
             connectionId: host.connectionId,
-            sessionToken: '00000000-0000-4000-8000-000000000002' as never,
+            sessionToken: '00000000-0000-4000-8000-000000000002' as SessionToken,
         });
         advance(1_000);
         expect(stack.registry.releaseExpired()).toBe(1);
 
         stack.server.fireOnSeatReconnected({
-            matchId: '00000000-0000-4000-8000-000000000001' as never,
+            matchId: '00000000-0000-4000-8000-000000000001' as MatchId,
             connectionId: host.connectionId,
-            sessionToken: '00000000-0000-4000-8000-000000000002' as never,
+            sessionToken: '00000000-0000-4000-8000-000000000002' as SessionToken,
         });
 
-        // The swept identity is not in grace and no longer exists: the
-        // facade must drop the ghost binding instead of leaving the
-        // connection bound to a dead identity.
         expectErr(stack.service.setHandle(host.connectionId, 'Comet'), 'identity_invalid');
     });
 });

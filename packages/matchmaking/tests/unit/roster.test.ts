@@ -631,9 +631,6 @@ describe('T024: Integration — full lobby flow', () => {
         const lastSnapshot = snapshots[snapshots.length - 1];
         expect(lastSnapshot).toBeDefined();
         const handles = lastSnapshot?.players.map((p) => p.handle);
-        // Pinned literal order (UTF-16 code units, lowercased) — never
-        // computed with locale-sensitive collation, so this passes on
-        // every host locale.
         expect(handles).toEqual(['Alice', 'bob', 'zoe']);
     });
 
@@ -647,10 +644,6 @@ describe('T024: Integration — full lobby flow', () => {
         const snapshots = rosterSnapshots(delivered);
         const lastSnapshot = snapshots[snapshots.length - 1];
         expect(lastSnapshot).toBeDefined();
-        // Lowercased UTF-16 code-unit order pinned as a literal: 'ada' <
-        // 'zoe' < 'åsa' ('å' = U+00E5 sorts after 'z') < '🚀rocket'
-        // (astral surrogate units sort after the BMP). Locale-collation
-        // orders would differ.
         expect(lastSnapshot?.players.map((p) => p.handle)).toEqual(['ada', 'zoe', 'Åsa', '🚀Rocket']);
     });
 
