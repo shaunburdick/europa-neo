@@ -11,15 +11,13 @@
  *   WsMatchClient (native WebSocket, networking's wire codec) →
  *   live createMatchServer → matchmaking-bound engine/terrain/fog
  *
- * Legacy test-seam query parameters (not a production URL contract):
- *   - `ws`    Optional WebSocket URL override (e.g. ws://host:port). When
- *             absent, same-origin fallback `${protocol==='https:'?'wss':'ws'}://${location.host}`
- *             is used (011 single-port FR-006). Explicit overrides still
- *             validated same-host/loopback/no-credentials via
- *             {@link resolveLobbyServerUrl}.
- *   - `match` MatchId to join (required)
- *   - `name`  Display name for the seat claim
- *   - `token` Optional reconnect token (rejoin path)
+ * The direct-match seam (`window.__europaTestMatch`, set by test
+ * infrastructure before load) is the ONLY input: wsUrl, matchId,
+ * displayName, and optional reconnectToken all come from the seam
+ * object. The former `?live`/`?match=`/`?name=`/`?token=` query
+ * consumption is retired (013 FR-025/FR-035): a bearer token in a URL
+ * is prohibited (013 FR-016), and a query-driven boot without the seam
+ * fails loudly instead of mounting.
  *
  * Playwright specs drive orders and read state through the
  * `window.__europaLive` handle exposed here.
@@ -90,16 +88,25 @@ function noopReturnToLobby(): void {
  * @param root The DOM mount node (index.html's `#root`).
  */
 export function mountLiveRuntime(root: HTMLElement): void {
-    const params = new URLSearchParams(window.location.search);
     const seam = window.__europaTestMatch;
-    const matchId = seam?.matchId ?? params.get('match');
-    const displayName = seam?.displayName ?? params.get('name') ?? '';
-    const token = seam?.reconnectToken ?? params.get('token');
+    if (seam === undefined) {
+        // The seam object is the only supported input (013 FR-025:
+        // query consumption retired). A query-driven boot without the
+        // seam fails loudly on the handle instead of mounting.
+        window.__europaLive = {
+            store: undefined as unknown as ConsoleStore,
+            client: undefined as unknown as ConsoleClient,
+            bootError: 'live runtime requires the window.__europaTestMatch seam',
+        };
+        return;
+    }
+    const matchId = seam.matchId;
+    const displayName = seam.displayName;
+    const token = seam.reconnectToken;
 
-    if (matchId === null) {
+    if (matchId === '') {
         // No store to surface feedback through yet; expose the reason on
         // the handle so drivers fail with a diagnostic instead of hanging.
-        // Legacy test seam: a match identifier is required when this helper is mounted directly.
         window.__europaLive = {
             store: undefined as unknown as ConsoleStore,
             client: undefined as unknown as ConsoleClient,
@@ -110,10 +117,11 @@ export function mountLiveRuntime(root: HTMLElement): void {
 
     let safeUrl: string;
     try {
-        // Single-port (011): same-origin fallback when no transport override is present —
-        // same path as lobby-view. Explicit test/operator overrides still hard-error when cross-host
-        // or credential-bearing before client construction (FR-007).
-        safeUrl = seam?.wsUrl ?? resolveLobbyServerUrl(window.location.search, window.location);
+        // Single-port (011): the seam carries the transport; an empty
+        // wsUrl falls back to the same-origin default. The legacy query
+        // parameters are retired (013 FR-025) — this entry reads NO
+        // query, so no `?token=` bearer can reach it (FR-016).
+        safeUrl = seam.wsUrl !== '' ? seam.wsUrl : resolveLobbyServerUrl('', window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
         window.__europaLive = {
