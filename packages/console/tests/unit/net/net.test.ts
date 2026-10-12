@@ -17,6 +17,7 @@ import { createConsoleClient } from '../../../src/net/client';
 import { consoleStatusFromConnectionState } from '../../../src/net/connection';
 import { netEventFromEnvelope } from '../../../src/net/envelope-to-event';
 import type { NetworkPayload, ProtocolEnvelope, SequenceNumber } from '../../../src/state/types';
+import { TEST_PLAYER_1 } from '../../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,16 +54,18 @@ describe('netEventFromEnvelope (T031)', () => {
         const joined = netEventFromEnvelope(
             envelope('joinAck', {
                 sessionToken: 't',
-                playerId: 2,
+                playerId: TEST_PLAYER_1,
                 view: { tick: 1 },
                 players: [],
             }),
             CTX,
         );
-        expect(joined).toMatchObject({ kind: 'joined', playerId: 2 });
+        expect(joined).toMatchObject({ kind: 'joined', playerId: TEST_PLAYER_1 });
+        // Spectator joins carry no seat and no reducer event; their
+        // frames are still wire-shaped (a spectator gets a real view).
         expect(
             netEventFromEnvelope(
-                envelope('joinAck', { sessionToken: 't', playerId: null, view: null, players: [] }),
+                envelope('joinAck', { sessionToken: 't', playerId: null, view: { tick: 1 }, players: [] }),
                 CTX,
             ),
         ).toBeNull();

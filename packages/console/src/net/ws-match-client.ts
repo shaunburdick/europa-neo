@@ -63,6 +63,7 @@ import type {
     SequenceNumber,
     SessionToken,
 } from '../state/types';
+import { inboundFrameDiagnostic } from './inbound-validation';
 import { rehydrateEnvelopeViews } from './rehydrate-wire-views';
 
 // ----------------------------------------------------------------------------
@@ -589,6 +590,15 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                 // owns protocol enforcement, and a bad frame never advances our
                 // state machine.
                 log('warn', 'inbound frame failed validation', { detail: decoded.error.message });
+                return;
+            }
+            // FR-032: structural validation runs BEFORE dispatch — the
+            // codec's schema check cannot see inside `lobbyEvent`, and a
+            // frame that disagrees with its declared kind is dropped with
+            // a diagnostic instead of being translated.
+            const diagnostic = inboundFrameDiagnostic(decoded.envelope);
+            if (diagnostic !== null) {
+                log('warn', 'inbound frame failed structural validation', { detail: diagnostic });
                 return;
             }
             // Decode-boundary rehydration: the wire codec serializes Set-typed

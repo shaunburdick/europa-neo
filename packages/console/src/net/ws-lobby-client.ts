@@ -90,6 +90,7 @@ import type {
 import type { LobbyMatchSettings, NetworkPayload, ProtocolEnvelope, SequenceNumber } from '@europa/networking';
 import { encodeFrame, NETWORK_API_VERSION, tryDecodeFrame, validateVersion } from '@europa/networking/browser';
 import { ESTABLISH_TIMEOUT_MS } from '../contracts/console-types';
+import { inboundFrameDiagnostic } from './inbound-validation';
 import {
     clearStoredClaim,
     type LobbyStorage,
@@ -923,6 +924,17 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 // Malformed inbound frames are dropped; the server owns
                 // protocol enforcement and a bad frame never advances our state.
                 log('warn', 'inbound frame failed validation', { detail: decoded.error.message });
+                return;
+            }
+            // FR-032: structural validation BEFORE dispatch — the codec
+            // accepts any object as `lobbyEvent.event`, so the nested
+            // discriminated variants are validated here. A malformed
+            // frame is dropped with a diagnostic log: it must never
+            // throw out of onmessage, corrupt client state, or sever
+            // the connection (004 FR-010).
+            const diagnostic = inboundFrameDiagnostic(decoded.envelope);
+            if (diagnostic !== null) {
+                log('warn', 'inbound frame failed structural validation', { detail: diagnostic });
                 return;
             }
             handleEnvelope(decoded.envelope);

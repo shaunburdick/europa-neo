@@ -568,6 +568,47 @@ describe('establish timeout (FR-031)', () => {
     });
 });
 
+describe('inbound frame validation (FR-032)', () => {
+    it('drops a malformed nested lobbyEvent with a diagnostic log and keeps the connection', async () => {
+        const { client, socket, logs } = await readyHarness();
+        const before = client.state();
+
+        // The codec accepts this frame (event is an object); only the
+        // console can see that the nested identity payload is garbage.
+        expect(() => socket.deliver('lobbyEvent', { event: { kind: 'identity', identity: null } })).not.toThrow();
+        expect(client.state()).toEqual(before);
+        expect(client.state().connection).toBe('ready');
+        expect(
+            logs.some((entry) => entry.level === 'warn' && entry.msg === 'inbound frame failed structural validation'),
+        ).toBe(true);
+
+        // Drop-don't-sever (004 FR-010): the socket stays usable.
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A));
+        await settlePromises();
+        expect(client.state().handle).toBe('Nova');
+    });
+
+    it('accepts a frame carrying an unknown additive field (forward compatibility)', async () => {
+        const { client, socket } = await readyHarness();
+        socket.deliver('lobbyEvent', {
+            event: {
+                kind: 'identity',
+                identity: {
+                    handle: 'Nova',
+                    hasIdentity: true,
+                    guestPlayerId: SERVER_ID_A,
+                    // Field a LATER wave owns; this era's validator must
+                    // check what it knows and ignore the rest.
+                    resumeSecret: 'rotating-value-from-a-later-wave',
+                },
+            },
+        });
+        await settlePromises();
+        expect(client.state().handle).toBe('Nova');
+        expect(client.state().hasClaim).toBe(true);
+    });
+});
+
 describe('claim persistence', () => {
     it('adopts + persists the server-issued id on first visit', async () => {
         const { storage } = await readyHarness();

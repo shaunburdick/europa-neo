@@ -746,6 +746,39 @@ describe('establish timeout (FR-031)', () => {
     });
 });
 
+describe('inbound frame validation (FR-032)', () => {
+    it('drops a frame whose declared kind does not match its payload, with a log', async () => {
+        const messages: string[] = [];
+        const socket = new FakeWebSocket('ws://validate');
+        const client = createWsMatchClient({
+            webSocketFactory: () => socket,
+            verboseLogging: true,
+            logger: {
+                debug: (msg: string) => messages.push(msg),
+                info: (msg: string) => messages.push(msg),
+                warn: (msg: string) => messages.push(msg),
+                error: (msg: string) => messages.push(msg),
+            },
+        });
+        const connecting = client.connect('ws://validate');
+        connecting.catch(() => undefined);
+        socket.open();
+        socket.deliver('helloAck', {
+            protocolVersion: NETWORK_API_VERSION,
+            connectionId: 'c-val',
+            heartbeatIntervalMs: 0,
+        });
+        const before = client.state();
+        expect(before.connection).toBe('greeted');
+
+        // Codec-valid (event is an object), structurally wrong below it.
+        expect(() => socket.deliver('lobbyEvent', { event: {} })).not.toThrow();
+        expect(client.state()).toEqual(before);
+        expect(messages).toContain('inbound frame failed structural validation');
+        client.disconnect();
+    });
+});
+
 describe('stale-socket guards (FR-034)', () => {
     it('ignores open/message events from a superseded socket', async () => {
         FakeWebSocket.reset();
