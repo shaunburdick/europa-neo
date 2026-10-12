@@ -291,6 +291,10 @@ export interface LobbyConnectionTeardown {
 // Dependencies & factory
 // ----------------------------------------------------------------------------
 
+export type CancelScheduled = () => void;
+
+export type LobbyScheduler = (callback: () => void, delayMs: number) => CancelScheduled;
+
 /**
  * Injectable dependencies for {@linkcode createLobbyService}. Only the
  * matchmaker is required; everything else defaults so production callers
@@ -311,6 +315,8 @@ export interface LobbyServiceDeps {
     readonly now?: () => number;
     /** Reconnect grace window passed to the default registry (ms). */
     readonly graceMs?: number;
+    /** Scheduler seam for the roster anti-flap window (default wraps host timers, as `now` defaults to Date.now). */
+    readonly schedule?: LobbyScheduler;
     /**
      * Outbound event sink — the transport seam (T-010 wires the real
      * WebSocket dispatcher). Called synchronously for every lobby event
@@ -339,6 +345,12 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
     const now = deps.now ?? Date.now;
     const logger = deps.logger ?? NULL_LOGGER;
     const deliver = deps.deliver ?? null;
+    const schedule: LobbyScheduler =
+        deps.schedule ??
+        ((callback, delayMs) => {
+            const handle = setTimeout(callback, delayMs);
+            return () => clearTimeout(handle);
+        });
     const registry =
         deps.registry ??
         createIdentityRegistry({ now, ...(deps.graceMs === undefined ? {} : { graceMs: deps.graceMs }) });
@@ -389,7 +401,7 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
      * status change arrives within the grace window, the timer is reset.
      * Only the final stable state is broadcast when the timer fires.
      */
-    const rosterDebounceTimers = new Map<GuestPlayerId, ReturnType<typeof setTimeout>>();
+    const rosterDebounceCancels = new Map<GuestPlayerId, CancelScheduled>();
 
     /**
      * Pending roster changes during debounce windows. When a timer fires,
@@ -488,22 +500,22 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
 
         // Anti-flap: if a debounce timer is already running, reset it
         // and update the pending entry to the latest state.
-        const existingTimer = rosterDebounceTimers.get(guestId);
-        if (existingTimer !== undefined) {
-            clearTimeout(existingTimer);
+        const existingCancel = rosterDebounceCancels.get(guestId);
+        if (existingCancel !== undefined) {
+            existingCancel();
         }
 
         rosterPendingChanges.set(guestId, entry);
 
-        const timer = setTimeout(() => {
-            rosterDebounceTimers.delete(guestId);
+        const cancel = schedule(() => {
+            rosterDebounceCancels.delete(guestId);
             const pending = rosterPendingChanges.get(guestId);
             if (pending !== undefined) {
                 rosterPendingChanges.delete(guestId);
                 broadcastRosterDelta([pending]);
             }
         }, ANTI_FLAP_GRACE_MS);
-        rosterDebounceTimers.set(guestId, timer);
+        rosterDebounceCancels.set(guestId, cancel);
     }
 
     /**
@@ -513,10 +525,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
      * so clients can detect that something changed.
      */
     function removeRosterEntry(guestId: GuestPlayerId): void {
-        const existingTimer = rosterDebounceTimers.get(guestId);
-        if (existingTimer !== undefined) {
-            clearTimeout(existingTimer);
-            rosterDebounceTimers.delete(guestId);
+        const existingCancel = rosterDebounceCancels.get(guestId);
+        if (existingCancel !== undefined) {
+            existingCancel();
+            rosterDebounceCancels.delete(guestId);
         }
         rosterPendingChanges.delete(guestId);
         roster.delete(guestId);
@@ -1429,10 +1441,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 unsubscribeStatus = null;
             }
             // Feature 023: clear all roster debounce timers and maps.
-            for (const timer of rosterDebounceTimers.values()) {
-                clearTimeout(timer);
+            for (const cancel of rosterDebounceCancels.values()) {
+                cancel();
             }
-            rosterDebounceTimers.clear();
+            rosterDebounceCancels.clear();
             rosterPendingChanges.clear();
             roster.clear();
             connections.clear();
