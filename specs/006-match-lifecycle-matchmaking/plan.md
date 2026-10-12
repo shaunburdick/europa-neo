@@ -2,7 +2,7 @@
 
 **Branch**: `fix/matchmaking-lifecycle` (based on `main` @ `c184d54`)
 **Date**: 2026-10-11
-**Phase**: 4 (Plan) — **UNAPPROVED DRAFT for Gate 2**; no `tasks.md` written for this fix, no code written.
+**Phase**: 6 (Implement) — **complete**: Gates 1/2/3 PASS, `tasks.md` 33/33 done; PR #188 open on `fix/matchmaking-lifecycle`, review fixes in progress.
 **Issue**: #147 `fix(matchmaking): correct lifecycle, TTL, capacity, and determinism` (P1, review 2026-09-10, I-16/T-11)
 **Specs**: `specs/006-match-lifecycle-matchmaking/spec.md` **v1.8** (Gate 1 **PASS**, rounds 1+2 in `challenge-ledger.md`), `specs/010-public-lobby-match-browser/spec.md` **v1.13**, `specs/006-match-lifecycle-matchmaking/data-model.md` (amended v1.8)
 **Supersedes**: `plan-fix-matchmaking-lifecycle.md` (the Gate-1 input draft) — refined into this file and deleted per the dispatch; note the draft was never committed (untracked), so unlike the pre-fix original `plan.md` (recoverable from git history) its text survives only inside this refined plan. Spec 010 gets no plan of its own; its v1.13 clarifications are absorbed here.

@@ -822,8 +822,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
      * would never touch), then results-TTL collection, then empty-match
      * collection.
      */
-    function runLazySweeps(): void {
-        const atMs = now();
+    function runLazySweeps(atMs: number = now()): void {
         sweepExpiredRematches(atMs);
         sweepFinishedResultsTtl(atMs);
         sweepStaleEmptyMatches(atMs);
@@ -833,8 +832,8 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
      * Shared `maxConcurrentMatches` guard (FR-022): sweep first, then refuse
      * creation at the cap — stale records are collected before counting.
      */
-    function enforceCapacity(): { ok: true } | { ok: false; error: MatchmakerError } {
-        runLazySweeps();
+    function enforceCapacity(atMs: number = now()): { ok: true } | { ok: false; error: MatchmakerError } {
+        runLazySweeps(atMs);
         const activeMatches = store.listMatches().filter((m) => m.status !== 'collected').length;
         if (activeMatches >= resolved.maxConcurrentMatches) {
             return {
@@ -1237,6 +1236,10 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
         acceptRematch(req: AcceptRematchRequest): AcceptRematchResult {
             assertOpen();
+            // One clock reading per operation, threaded through the capacity
+            // sweep below: a second reading would let the sweep collect this
+            // match mid-vote when the window lapses between check and vote.
+            const atMs = now();
             // Single existence code path (FR-006 + Q2), as in `leaveMatch`.
             const match = store.getMatch(req.matchId);
             if (match === undefined) {
@@ -1268,10 +1271,10 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             if (eligibility === 'already_voted') {
                 return { ok: false, error: makeError('rematch_already_voted') };
             }
-            if (isWindowClosed(offer, now())) {
+            if (isWindowClosed(offer, atMs)) {
                 return { ok: false, error: makeError('rematch_window_closed') };
             }
-            const capacity = enforceCapacity();
+            const capacity = enforceCapacity(atMs);
             if (!capacity.ok) {
                 return { ok: false, error: capacity.error };
             }
@@ -1299,7 +1302,6 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                     }
                     return { session, seatIndex: s.seatIndex };
                 });
-            const atMs = now();
             const { match: newMatch, seats: newSeats } = createRematchMatchRecord({
                 original: match,
                 participants,

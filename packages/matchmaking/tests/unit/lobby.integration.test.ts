@@ -43,7 +43,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { MatchId } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
-import type { GuestPlayerId, LobbyError, LobbyErrorCode, LobbyEvent } from '../../src/contracts/lobby-types';
+import type {
+    GuestPlayerId,
+    IdentityState,
+    LobbyError,
+    LobbyErrorCode,
+    LobbyEvent,
+} from '../../src/contracts/lobby-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { createIdentityRegistry, type IdentityRegistry } from '../../src/internal/identityRegistry';
 import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';
@@ -172,6 +178,13 @@ function pushedRevisions(delivered: readonly Delivery[]): number[] {
     return delivered
         .filter((d) => d.event.kind === 'snapshot')
         .map((d) => (d.event.kind === 'snapshot' ? d.event.snapshot.revision : -1));
+}
+
+/** Identity states delivered on a connection, in order. */
+function deliveredIdentities(delivered: readonly Delivery[], connectionId: ConnectionId): readonly IdentityState[] {
+    return delivered
+        .filter((d) => d.connectionId === connectionId && d.event.kind === 'identity')
+        .flatMap((d) => (d.event.kind === 'identity' ? [d.event.identity] : []));
 }
 
 beforeEach(() => {
@@ -409,14 +422,15 @@ describe('identity teardown and restore totality (FR-023 / issue #147)', () => {
         advance(1_000);
         expect(stack.registry.releaseExpired()).toBe(1);
 
+        const identitiesBefore = deliveredIdentities(stack.delivered, host.connectionId).length;
+
         const state = stack.service.establishIdentity({ guestPlayerId: host.guestId }, host.connectionId);
 
         expect(state).toEqual({ handle: null, hasIdentity: true });
         expect(stack.registry.projectIdentity(host.guestId)).toBeUndefined();
-        const identityEvents = stack.delivered.filter(
-            (d) => d.connectionId === host.connectionId && d.event.kind === 'identity',
-        );
-        expect(identityEvents.length).toBeGreaterThan(0);
+        const identities = deliveredIdentities(stack.delivered, host.connectionId);
+        expect(identities.length).toBe(identitiesBefore + 1);
+        expect(identities.at(-1)).toMatchObject({ handle: null, hasIdentity: true });
 
         expectOk(stack.service.setHandle(host.connectionId, 'Comet'));
         expect(stack.registry.stats()).toEqual({ identities: 1, reservedHandles: 1 });
