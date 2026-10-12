@@ -65,6 +65,7 @@
 
 import type { Result } from '../contracts/lobby-api';
 import type { LobbyError, LobbyErrorCode } from '../contracts/lobby-types';
+import { classifyTextDefect } from './textDefects';
 
 // ----------------------------------------------------------------------------
 // Tunables
@@ -75,43 +76,6 @@ export const HANDLE_MIN_CHARS = 1;
 
 /** Maximum accepted handle length in Unicode code points (post-trim). */
 export const HANDLE_MAX_CHARS = 24;
-
-/**
- * Matches Unicode category Cc (control characters): C0 range
- * (U+0000–U+001F, which includes interior tabs/newlines — trimming
- * only strips edges), DEL (U+007F), and the C1 range
- * (U+0080–U+009F). Format characters (Cf) deliberately do NOT match —
- * zero-width spaces remain valid content, and the nine bidi controls
- * rejected per Clarifications v1.5 get their own pattern below so
- * each rejection class carries a distinct machine-readable reason.
- */
-const CONTROL_CHARACTER_PATTERN = /\p{Cc}/u;
-
-/**
- * Matches the nine bidirectional formatting controls (spec
- * Clarifications v1.5): U+202A–U+202E (LRE, RLE, PDF, LRO, RLO — the
- * bidi overrides) and U+2066–U+2069 (LRI, RLI, FSI, PDI — the
- * isolates). All are category Cf, so {@linkcode CONTROL_CHARACTER_PATTERN}
- * does not catch them; they are rejected because participant labels
- * are identity (FR-020) and these invisible characters can visually
- * reorder a handle's rendering for other players (spoofing vector).
- * The adjacent line separators U+2028/U+2029 (category Zl) sit just
- * OUTSIDE this range and are NOT covered by this ruling.
- */
-const BIDI_CONTROL_PATTERN = /[\u202A-\u202E\u2066-\u2069]/u;
-
-/**
- * Matches one surrogate code point (category Cs, U+D800–U+DFFF).
- * NEVER applied to a whole handle: with or without the `u` flag a
- * raw-string test cannot tell a lone surrogate from the UTF-16 units
- * of a well-formed astral pair (and would reject every 🚀). Applied
- * PER ELEMENT of an `Array.from` iteration instead — that iteration
- * yields exactly one element per CODE POINT, collapsing well-formed
- * pairs into single astral characters, so any element still matching
- * is necessarily LONE (audit LOW-7: lone surrogates mutate to U+FFFD
- * on UTF-8 encode and corrupt logs/storage downstream).
- */
-const SURROGATE_CODE_POINT_PATTERN = /[\uD800-\uDFFF]/u;
 
 // ----------------------------------------------------------------------------
 // Error construction
@@ -166,13 +130,8 @@ export function makeLobbyError(code: LobbyErrorCode, message: string, detail?: L
  */
 export function validateHandle(raw: string): Result<string, LobbyError> {
     const trimmed = raw.trim();
-    // One code point per element (astral pairs collapse into single
-    // elements) — drives BOTH the length check and the lone-surrogate
-    // scan below.
-    const codePoints = Array.from(trimmed);
-    const charCount = codePoints.length;
-
-    if (charCount < HANDLE_MIN_CHARS) {
+    const defect = classifyTextDefect(raw, HANDLE_MIN_CHARS, HANDLE_MAX_CHARS);
+    if (defect === 'empty') {
         return {
             ok: false,
             error: makeLobbyError('handle_invalid', 'Handle must contain at least one non-whitespace character.', {
@@ -180,17 +139,18 @@ export function validateHandle(raw: string): Result<string, LobbyError> {
             }),
         };
     }
-    if (charCount > HANDLE_MAX_CHARS) {
+    if (defect === 'too_long') {
+        const receivedChars = Array.from(trimmed).length;
         return {
             ok: false,
             error: makeLobbyError(
                 'handle_invalid',
-                `Handle must be at most ${HANDLE_MAX_CHARS} characters (yours is ${charCount}).`,
-                { reason: 'too_long', receivedChars: charCount, maxChars: HANDLE_MAX_CHARS },
+                `Handle must be at most ${HANDLE_MAX_CHARS} characters (yours is ${receivedChars}).`,
+                { reason: 'too_long', receivedChars, maxChars: HANDLE_MAX_CHARS },
             ),
         };
     }
-    if (CONTROL_CHARACTER_PATTERN.test(trimmed)) {
+    if (defect === 'control_character') {
         return {
             ok: false,
             error: makeLobbyError('handle_invalid', 'Handle must not contain control characters.', {
@@ -198,7 +158,7 @@ export function validateHandle(raw: string): Result<string, LobbyError> {
             }),
         };
     }
-    if (BIDI_CONTROL_PATTERN.test(trimmed)) {
+    if (defect === 'bidi_control') {
         return {
             ok: false,
             error: makeLobbyError('handle_invalid', 'Handle must not contain bidirectional formatting characters.', {
@@ -206,8 +166,7 @@ export function validateHandle(raw: string): Result<string, LobbyError> {
             }),
         };
     }
-    const hasLoneSurrogate = codePoints.some((codePoint) => SURROGATE_CODE_POINT_PATTERN.test(codePoint));
-    if (hasLoneSurrogate) {
+    if (defect === 'lone_surrogate') {
         return {
             ok: false,
             error: makeLobbyError('handle_invalid', 'Handle must not contain unpaired surrogate characters.', {

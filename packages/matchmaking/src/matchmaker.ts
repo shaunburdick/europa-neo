@@ -101,6 +101,7 @@ import { allocatePlayerId, newMatchSeed } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
 import { createPlayerSession } from './internal/playerSession';
 import type { SeatRecord } from './internal/seatRecord';
+import { classifyTextDefect, type TextDefectReason } from './internal/textDefects';
 import { listPublicMatches as projectLobby } from './lobby';
 import {
     addSeatToFillingMatch,
@@ -164,14 +165,18 @@ const MAX_BOARD_SIZE = 128;
  * Trims surrounding whitespace first; whitespace-only names are
  * rejected.
  *
- * @returns The trimmed name, or `null` when invalid.
+ * @returns The trimmed name, or the first matching defect reason.
  */
-function validateDisplayName(name: string, min: number, max: number): string | null {
-    const trimmed = name.trim();
-    if (trimmed.length < min || trimmed.length > max) {
-        return null;
+function validateDisplayName(
+    name: string,
+    min: number,
+    max: number,
+): { readonly trimmed: string } | { readonly reason: TextDefectReason } {
+    const defect = classifyTextDefect(name, min, max);
+    if (defect !== null) {
+        return { reason: defect };
     }
-    return trimmed;
+    return { trimmed: name.trim() };
 }
 
 /**
@@ -869,12 +874,16 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 resolved.minDisplayNameLength,
                 resolved.maxDisplayNameLength,
             );
-            if (displayName === null) {
+            if ('reason' in displayName) {
                 return {
                     ok: false,
-                    error: makeError('invalid_request', 'displayName must be 1..32 characters'),
+                    error: makeError('invalid_request', 'displayName must be a valid name within the configured length', {
+                        field: 'displayName',
+                        reason: displayName.reason,
+                    }),
                 };
             }
+            const acceptedDisplayName = displayName.trimmed;
             const resolvedSettings = resolveSettings(req.settings, DEFAULT_MATCH_SETTINGS.boardSize);
             if (!resolvedSettings.ok) {
                 // US3 AC-4 chain: the rejected field travels in `detail`
@@ -899,7 +908,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             const atMs = now();
             const universalPlayerId = resolveUniversalPlayerId(req.guestPlayerId);
             const session = createPlayerSession({
-                displayName,
+                displayName: acceptedDisplayName,
                 randomId,
                 now,
                 playerId: universalPlayerId,
@@ -934,7 +943,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             };
             logger.info('matchmaker: match created', {
                 matchId: match.matchId,
-                handle: sanitizeLogText(displayName),
+                handle: sanitizeLogText(acceptedDisplayName),
                 settings: {
                     playerCount: settings.playerCount,
                     boardSize: settings.boardSize,
@@ -952,12 +961,16 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 resolved.minDisplayNameLength,
                 resolved.maxDisplayNameLength,
             );
-            if (displayName === null) {
+            if ('reason' in displayName) {
                 return {
                     ok: false,
-                    error: makeError('invalid_request', 'displayName must be 1..32 characters'),
+                    error: makeError('invalid_request', 'displayName must be a valid name within the configured length', {
+                        field: 'displayName',
+                        reason: displayName.reason,
+                    }),
                 };
             }
+            const acceptedDisplayName = displayName.trimmed;
 
             // Unknown or invalid MatchIds use the generic, non-enumerating
             // `match_not_found` response. A known private MatchId without a
@@ -1026,7 +1039,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             const atMs = now();
             const universalPlayerId = resolveUniversalPlayerId(req.guestPlayerId);
             const session = createPlayerSession({
-                displayName,
+                displayName: acceptedDisplayName,
                 randomId,
                 now,
                 playerId: universalPlayerId,
@@ -1070,7 +1083,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             };
             logger.info(started ? 'matchmaker: match started' : 'matchmaker: seat filled', {
                 matchId: match.matchId,
-                handle: sanitizeLogText(displayName),
+                handle: sanitizeLogText(acceptedDisplayName),
                 seat: freeSeat,
                 seatsFilled: match.seats.size,
             });

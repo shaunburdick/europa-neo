@@ -178,6 +178,83 @@ describe('createMatch — validation (FR-001/FR-002)', () => {
     });
 });
 
+describe('displayName hardening — FR-018 (issue #147 test 7)', () => {
+    /** Create a 1/2-filled public match for join-path assertions. */
+    function makeOpenMatch() {
+        const server = new FakeServer();
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+        const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+        return { matchmaker, matchId: created.data.matchId };
+    }
+
+    /** Assert create and join both reject `displayName` with the given reason. */
+    function expectRejectedOnBothPaths(displayName: string, reason: string): void {
+        const createMM = createMatchmaker(MATCHMAKING_CONSTANTS, { server: new FakeServer() });
+        const created = createMM.createMatch({ visibility: 'public', displayName });
+        expect(created.ok).toBe(false);
+        if (!created.ok) {
+            expect(created.error.code).toBe('invalid_request');
+            expect(created.error.detail).toMatchObject({ field: 'displayName', reason });
+        }
+        createMM.close();
+
+        const { matchmaker, matchId } = makeOpenMatch();
+        const joined = matchmaker.joinMatch({ matchId, displayName });
+        expect(joined.ok).toBe(false);
+        if (!joined.ok) {
+            expect(joined.error.code).toBe('invalid_request');
+            expect(joined.error.detail).toMatchObject({ field: 'displayName', reason });
+        }
+        matchmaker.close();
+    }
+
+    it('rejects each defect class with the matching detail.reason on create AND join', () => {
+        expectRejectedOnBothPaths('   ', 'empty');
+        expectRejectedOnBothPaths('x'.repeat(33), 'too_long');
+        expectRejectedOnBothPaths('na\u0001me', 'control_character');
+        expectRejectedOnBothPaths('bad\u202Ename', 'bidi_control');
+        expectRejectedOnBothPaths('lone\uD800surrogate', 'lone_surrogate');
+    });
+
+    it('evaluates defects in the documented precedence (too_long wins over class defects)', () => {
+        expectRejectedOnBothPaths(`${'x'.repeat(33)}\u0001`, 'too_long');
+        expectRejectedOnBothPaths('\u0001', 'control_character');
+    });
+
+    it('measures length in code points: 32 emoji valid, 33 rejected', () => {
+        const server = new FakeServer();
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+
+        const valid = matchmaker.createMatch({ visibility: 'public', displayName: '\u{1F680}'.repeat(32) });
+        expect(valid.ok).toBe(true);
+
+        const invalid = matchmaker.createMatch({ visibility: 'public', displayName: '\u{1F680}'.repeat(33) });
+        expect(invalid.ok).toBe(false);
+        if (!invalid.ok) {
+            expect(invalid.error.code).toBe('invalid_request');
+            expect(invalid.error.detail).toMatchObject({ reason: 'too_long' });
+        }
+        matchmaker.close();
+    });
+
+    it('accepts valid non-ASCII names on create AND join', () => {
+        const server = new FakeServer();
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+
+        const created = matchmaker.createMatch({ visibility: 'public', displayName: '\u00C5sa \u{1F680}' });
+        expect(created.ok).toBe(true);
+        if (!created.ok) {
+            return;
+        }
+        const joined = matchmaker.joinMatch({ matchId: created.data.matchId, displayName: 'Zo\u00EB-\u7B2C\u4E09' });
+        expect(joined.ok).toBe(true);
+        matchmaker.close();
+    });
+});
+
 describe('createMatch — capacity (maxConcurrentMatches)', () => {
     it('rejects creation beyond maxConcurrentMatches with rate_limited', () => {
         const server = new FakeServer();
