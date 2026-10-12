@@ -170,3 +170,85 @@ describe('rehydrateEnvelopeViews — wire arrays become real Sets', () => {
         expect(payload.view.visibleCells[0]?.pipes).toBeInstanceOf(Set);
     });
 });
+
+// ----------------------------------------------------------------------------
+// FR-035: copy-on-write, allocation-free no-op path
+// ----------------------------------------------------------------------------
+
+describe('copy-on-write rehydration (FR-035)', () => {
+    /**
+     * Pipe-free cells whose `map` is booby-trapped: `Array#map` always
+     * builds a result array, so calling it on a no-op tick IS the
+     * allocation FR-035 forbids. This is the test's allocation probe —
+     * the tripwire throws with the reason instead of letting a
+     * discarded array hide inside a passing test.
+     *
+     * @param count Number of cells to build.
+     * @returns A `visibleCells` array that fails if anything maps it.
+     */
+    function pipeFreeCells(count: number): Record<string, unknown>[] {
+        const cells: Record<string, unknown>[] = [];
+        for (let index = 0; index < count; index += 1) {
+            cells.push({ coord: { x: index, y: 0 }, cell: { x: index, y: 0, elevation: 60, terrain: 'land' } });
+        }
+        Object.defineProperty(cells, 'map', {
+            value: (): Record<string, unknown>[] => {
+                throw new Error('FR-035 no-op path allocated: Array#map builds a result array');
+            },
+        });
+        return cells;
+    }
+
+    /** A wire-shaped tick envelope whose cells need no repair. */
+    function pipeFreeTick(): ProtocolEnvelope<NetworkPayload> {
+        return {
+            type: 'tick',
+            version: NETWORK_API_VERSION,
+            seq: 1 as SequenceNumber,
+            payload: { tick: 5, view: viewOf(5, pipeFreeCells(4)) },
+        } as unknown as ProtocolEnvelope<NetworkPayload>;
+    }
+
+    test('a pipe-free tick returns the input envelope by reference, allocating nothing', () => {
+        const envelope = pipeFreeTick();
+        // Reference identity AND no allocation: the map tripwire inside
+        // the cells array throws if the no-op path even tries to build
+        // a result array.
+        expect(rehydrateEnvelopeViews(envelope)).toBe(envelope);
+    });
+
+    test('repair copies only the changed spine and never mutates the decoded payload', () => {
+        // Wire form: `pipes` arrives as a sorted ARRAY — the one field
+        // that needs repair.
+        const wired: Record<string, unknown> = { ...cellWithPipes({ x: 1, y: 1 }, new Set()), pipes: ['N'] };
+        const plain = { coord: { x: 2, y: 1 }, cell: { x: 2, y: 1, elevation: 60, terrain: 'land' } };
+        const view = viewOf(7, [wired, plain]);
+        const envelope = {
+            type: 'tick',
+            version: NETWORK_API_VERSION,
+            seq: 7 as SequenceNumber,
+            payload: { tick: 7, view },
+        } as unknown as ProtocolEnvelope<NetworkPayload>;
+        const before = JSON.stringify(envelope);
+
+        const repaired = rehydrateEnvelopeViews(envelope);
+        expect(repaired).not.toBe(envelope);
+
+        const repairedPayload = repaired.payload as unknown as {
+            view: { visibleCells: Array<Record<string, unknown>> };
+        };
+        // Changed spine only: envelope → payload → view → the offending
+        // cell are fresh copies; everything else is shared.
+        expect(repairedPayload).not.toBe(envelope.payload);
+        expect(repairedPayload.view).not.toBe(view);
+        expect(repairedPayload.view.visibleCells).not.toBe(view.visibleCells);
+        expect(repairedPayload.view.visibleCells[0]).not.toBe(view.visibleCells[0]);
+        expect(repairedPayload.view.visibleCells[0]?.pipes).toBeInstanceOf(Set);
+        expect(repairedPayload.view.visibleCells[1]).toBe(view.visibleCells[1]);
+
+        // The decoded payload is never mutated in place.
+        expect(view.visibleCells[0]).toBe(wired);
+        expect(JSON.stringify(envelope)).toBe(before);
+        expect((wired as { pipes: unknown }).pipes).toEqual(['N']);
+    });
+});
