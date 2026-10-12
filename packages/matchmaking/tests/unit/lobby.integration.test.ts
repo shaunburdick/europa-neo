@@ -45,7 +45,7 @@ import type { Matchmaker } from '../../contracts/matchmaking-api';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type { GuestPlayerId, LobbyError, LobbyErrorCode, LobbyEvent } from '../../src/contracts/lobby-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
-import { createIdentityRegistry } from '../../src/internal/identityRegistry';
+import { createIdentityRegistry, type IdentityRegistry } from '../../src/internal/identityRegistry';
 import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';
 import { nextConnectionId } from '../fixtures/fakeMatchmakerBridge';
 import { FakeServer } from '../fixtures/fakeServer';
@@ -96,6 +96,8 @@ interface Stack {
     readonly matchmaker: Matchmaker;
     /** The composed facade under test. */
     readonly service: LobbyService & LobbyConnectionTeardown;
+    /** The injected identity registry (sweep assertions). */
+    readonly registry: IdentityRegistry;
     /** Every outbound delivery, in order. */
     readonly delivered: Delivery[];
 }
@@ -113,20 +115,21 @@ function buildStack(options: { graceMs?: number } = {}): Stack {
         randomId: matchmakerRandomId,
         now: () => clockMs,
     });
+    const registry = createIdentityRegistry({
+        randomId: guestRandomId,
+        now: () => clockMs,
+        ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
+    });
     const delivered: Delivery[] = [];
     const service = createLobbyService({
         matchmaker,
-        registry: createIdentityRegistry({
-            randomId: guestRandomId,
-            now: () => clockMs,
-            ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
-        }),
+        registry,
         now: () => clockMs,
         deliver: (connectionId, event) => {
             delivered.push({ connectionId, event });
         },
     });
-    return { server, matchmaker, service, delivered };
+    return { server, matchmaker, service, registry, delivered };
 }
 
 /** Establish a fresh unnamed identity; returns the connection and its minted guest id. */
@@ -371,6 +374,86 @@ describe('connectionClosed over the composed stack (R-006)', () => {
         expect(restored).toEqual({ handle: 'Watcher', hasIdentity: true });
         expect(expectOk(stack.service.subscribe(backConn)).activeMatchId).toBeNull();
         await stack.service.close();
+    });
+});
+
+// ----------------------------------------------------------------------------
+// FR-023: identity teardown and restore totality (issue #147)
+// ----------------------------------------------------------------------------
+
+describe('identity teardown and restore totality (FR-023 / issue #147)', () => {
+    it('sweep then connectionClosed: teardown is a no-op — no throw, roster entry gone, handle freed', () => {
+        const stack = buildStack({ graceMs: 1_000 });
+        const host = namedConnection(stack.service, 'Nova');
+
+        // Networking reports the seat disconnect: the identity drops to
+        // grace, the connection binding intentionally stays so a valid
+        // reconnect credential can restore it.
+        stack.server.fireOnSeatDisconnected({
+            matchId: '00000000-0000-4000-8000-000000000001' as never,
+            connectionId: host.connectionId,
+            sessionToken: '00000000-0000-4000-8000-000000000002' as never,
+        });
+
+        // Host identity sweep releases the expired grace record; the
+        // transport close arrives afterwards and must be a total no-op.
+        advance(1_000);
+        expect(stack.registry.releaseExpired()).toBe(1);
+
+        expect(() => stack.service.connectionClosed(host.connectionId)).not.toThrow();
+
+        const successor = namedConnection(stack.service, 'Nova');
+        expectOk(stack.service.setHandle(successor.connectionId, 'Nova'));
+        expect(stack.registry.stats()).toEqual({ identities: 1, reservedHandles: 1 });
+        expect(expectOk(stack.service.subscribe(successor.connectionId)).activeMatchId).toBeNull();
+    });
+
+    it('expired then reconnect: stale claim returns a FRESH identity, the identity event is delivered, setHandle succeeds', () => {
+        const stack = buildStack({ graceMs: 1_000 });
+        const host = namedConnection(stack.service, 'Nova');
+        stack.server.fireOnSeatDisconnected({
+            matchId: '00000000-0000-4000-8000-000000000001' as never,
+            connectionId: host.connectionId,
+            sessionToken: '00000000-0000-4000-8000-000000000002' as never,
+        });
+        advance(1_000);
+        expect(stack.registry.releaseExpired()).toBe(1);
+
+        const state = stack.service.establishIdentity({ guestPlayerId: host.guestId }, host.connectionId);
+
+        // Not the ghost: a swept claim silently yields a fresh identity.
+        expect(state).toEqual({ handle: null, hasIdentity: true });
+        expect(stack.registry.projectIdentity(host.guestId)).toBeUndefined();
+        const identityEvents = stack.delivered.filter(
+            (d) => d.connectionId === host.connectionId && d.event.kind === 'identity',
+        );
+        expect(identityEvents.length).toBeGreaterThan(0);
+
+        expectOk(stack.service.setHandle(host.connectionId, 'Comet'));
+        expect(stack.registry.stats()).toEqual({ identities: 1, reservedHandles: 1 });
+    });
+
+    it('expired then onSeatReconnected: the ghost binding is released so a later setHandle is recoverable, not a throw', () => {
+        const stack = buildStack({ graceMs: 1_000 });
+        const host = namedConnection(stack.service, 'Nova');
+        stack.server.fireOnSeatDisconnected({
+            matchId: '00000000-0000-4000-8000-000000000001' as never,
+            connectionId: host.connectionId,
+            sessionToken: '00000000-0000-4000-8000-000000000002' as never,
+        });
+        advance(1_000);
+        expect(stack.registry.releaseExpired()).toBe(1);
+
+        stack.server.fireOnSeatReconnected({
+            matchId: '00000000-0000-4000-8000-000000000001' as never,
+            connectionId: host.connectionId,
+            sessionToken: '00000000-0000-4000-8000-000000000002' as never,
+        });
+
+        // The swept identity is not in grace and no longer exists: the
+        // facade must drop the ghost binding instead of leaving the
+        // connection bound to a dead identity.
+        expectErr(stack.service.setHandle(host.connectionId, 'Comet'), 'identity_invalid');
     });
 });
 

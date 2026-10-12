@@ -996,6 +996,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // active identity must not be re-minted (issue #74 T026).
             if (guestId !== undefined && registry.isInGrace(guestId)) {
                 registry.restoreIdentity({ guestPlayerId: guestId });
+            } else if (guestId !== undefined && registry.projectIdentity(guestId) === undefined) {
+                connections.delete(event.connectionId);
+                subscriptions.delete(event.connectionId);
             }
             recomputeAndPublish();
         },
@@ -1085,7 +1088,8 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 previous !== undefined &&
                 claimed !== undefined &&
                 claimed === previous &&
-                !registry.isInGrace(previous)
+                !registry.isInGrace(previous) &&
+                registry.projectIdentity(previous) !== undefined
             ) {
                 // Same-connection refresh of an already-ACTIVE identity
                 // (review F-8): keep it in place. A bare claim must never
