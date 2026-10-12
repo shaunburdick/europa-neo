@@ -1,13 +1,14 @@
 /**
  * Lobby runtime — feature 010 (T-015).
  *
- * The DEFAULT application entry (mounted by `main.tsx` for canonical and
- * semantic production paths): boots the lobby. The `?e2e` harness is handled
- * separately, and the retired live query is never a production entry.
- * transport + controller once per page, renders the landing view while
- * `viewMode === 'lobby'`, and — after a seat-granting action succeeds
- * — hands off to a match context (`viewMode === 'match'`) that ends in
- * the EXISTING match console, unchanged.
+ * The application ROOT COMPONENT for the lobby/match leg, mounted by
+ * the TanStack route tree (`routing/route-tree.tsx` renders
+ * {@link LobbyRoot} with the page-lifetime controller the production
+ * bootstrap created). The `?e2e` harness is handled separately, and the
+ * retired live query is never a production entry. The former
+ * `mountLobbyRuntime` compat export is retired (013 FR-035); this
+ * module keeps its live consumers — `LobbyRoot` and the match-leg
+ * hosts.
  *
  * Match-leg handoff (plan §2 "one presence per connection" split): the
  * LOBBY connection stays open the whole time (identity, snapshots,
@@ -51,23 +52,18 @@
 import type { PublicLobbyEntry } from '@europa/matchmaking';
 import { useNavigate } from '@tanstack/react-router';
 import type { JSX } from 'react';
-import { StrictMode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { createRoot } from 'react-dom/client';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { createConsoleClient } from '../net/client';
-import { createWsLobbyClient } from '../net/ws-lobby-client';
 import { createWsMatchClient } from '../net/ws-match-client';
 import { App } from '../render/App';
-import { ErrorBoundary } from '../render/ErrorBoundary';
 import type { Route } from '../routing/route';
 import { buildJoinUrl, buildMatchUrl, buildSpectateUrl } from '../routing/route';
 import { adaptRoute } from '../routing/route-adapter';
 import { formatWaitingMessage } from '../state/awaiting-start';
-import { createLobbyController, type LobbyController } from '../state/lobby-controller';
+import type { LobbyController } from '../state/lobby-controller';
 import type { LobbyActionError } from '../state/lobby-state';
-import type { LobbyStore } from '../state/lobby-store';
-import { LobbyServerUrlError, resolveLobbyServerUrl } from '../state/lobby-view';
 import { createOrderBridge } from '../state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import {
@@ -105,83 +101,6 @@ function classifyPathname(pathname: string): Route {
         return { kind: 'match', pathname, matchId: segments[1] ?? '', intent };
     }
     return { kind: 'unknown', pathname, reason: 'unsupported-path' };
-}
-
-// ----------------------------------------------------------------------------
-// Test handle — exposed for Playwright lobby E2E assertions
-// ----------------------------------------------------------------------------
-
-/** Window-global handle for lobby E2E tests (mirrors live-runtime's `__europaLive`). */
-interface EuropaLobbyHandle {
-    /** The lobby store (state assertions). */
-    readonly store: LobbyStore;
-}
-
-declare global {
-    interface Window {
-        __europaLobby?: EuropaLobbyHandle;
-    }
-}
-
-// ----------------------------------------------------------------------------
-// Mount entry
-// ----------------------------------------------------------------------------
-
-/**
- * Mount the public-lobby runtime into `root`.
- *
- * The transport/controller pair lives OUTSIDE React (page lifetime —
- * same discipline as `live-runtime`): no dispose-on-unmount race with
- * StrictMode's simulated remounts, and `connect()`'s own
- * already-establishing guard makes double invocation harmless.
- *
- * @param root The DOM mount node (index.html's `#root`).
- */
-export function mountLobbyRuntime(
-    root: HTMLElement,
-    route?: Extract<Route, { readonly kind: 'match' }>,
-    recoveryKind?: RouteNoticeKind,
-): void {
-    let wsUrl: string;
-    try {
-        wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
-    } catch (error: unknown) {
-        const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
-        createRoot(root).render(<LobbyConfigurationError message={message} />);
-        return;
-    }
-    const transport = createWsLobbyClient({});
-    const controller = createLobbyController({ transport, url: wsUrl });
-
-    // Expose the store for Playwright lobby E2E assertions (mirrors
-    // live-runtime's `window.__europaLive` pattern). Test-only surface;
-    // production code never reads this.
-    window.__europaLobby = { store: controller.store };
-
-    void controller.connect();
-    createRoot(root).render(
-        <StrictMode>
-            <ErrorBoundary>
-                <LobbyRoot
-                    controller={controller}
-                    wsUrl={wsUrl}
-                    initialRoute={route}
-                    initialNoticeKind={recoveryKind}
-                />
-            </ErrorBoundary>
-        </StrictMode>,
-    );
-}
-
-/** User-visible failure rendered before any identity-bearing lobby connection. */
-function LobbyConfigurationError({ message }: { readonly message: string }): JSX.Element {
-    return (
-        <main id="main" className="europa-lobby" role="alert">
-            <h1>Lobby unavailable</h1>
-            <p>{message}</p>
-            <p>Use this page's host for the WebSocket server, or remove the ws override.</p>
-        </main>
-    );
 }
 
 // ----------------------------------------------------------------------------
@@ -394,12 +313,12 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     // FR-005 defines the parameter as a relative pathname, and match
     // routes never carry a query in production — the bootstrap strips
     // it before this runtime mounts, so `pathname + search` was already
-    // pathname-equivalent here. Keeping the search out matters because
-    // `readReturnTo` decodes twice (URLSearchParams + decodeURIComponent),
-    // so a query inside the captured value (e.g. a transport-override
-    // query riding on the deep link) would decode into a `://` sequence
-    // and be rightly rejected as unsafe — silently dead-ending the
-    // returnTo round-trip. The pathname cannot trip that check.
+    // pathname-equivalent here. The canonical `isSafeReturnTo` guard
+    // (013 FR-034) applies exactly ONE decode on the way back, so a
+    // query riding inside the captured value would be rejected as
+    // unsafe rather than silently decoded — keeping the search out
+    // keeps the round-trip deterministic. The pathname cannot trip
+    // that check.
     useEffect(() => {
         if (state.identityStatus !== 'unnamed') return;
         const route = classifyPathname(window.location.pathname);
