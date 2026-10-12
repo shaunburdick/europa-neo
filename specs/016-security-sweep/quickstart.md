@@ -86,12 +86,14 @@ Re-read `docs/manual/lobby.mdx` and `docs/manual/quick-start.mdx` against the im
 
 ## 6. Spec-text riders (don't drop)
 
-- [ ] 005 v1.11: one-sentence FR-028 void-send precision (plan AD-4).
-- [ ] 005 Implementation Note 17 updated to the 0.5.0 end state (dated v1.11 sub-entry; its "MUST quote the shipped literal" clause — Gate 3 Q2, T009).
-- [ ] 013 v1.5 changelog row names the AC-014 amendment + preamble scoping (Gate 2 polish note 1).
-- [ ] 013 Clarifications row 3 one-word supersession marker (polish note 2).
-- [ ] `lobby-storage.ts` JSDoc mirrors `data-model.md` §4 (constitution IV obligation).
-- [ ] `CONSOLE_API_VERSION` conformance pin `'0.5.0'`.
+- [x] 005 v1.11: one-sentence FR-028 void-send precision (plan AD-4). *(T013 — verified in FR-028's shipped text.)*
+- [x] 005 Implementation Note 17 updated to the 0.5.0 end state (dated v1.11 sub-entry; its "MUST quote the shipped literal" clause — Gate 3 Q2, T009). *(T009.)*
+- [x] 013 v1.5 changelog row names the AC-014 amendment + preamble scoping (Gate 2 polish note 1). *(T010.)*
+- [x] 013 Clarifications row 3 one-word supersession marker (polish note 2). *(T010 — "(Superseded by v1.5 FR-025/FR-035…)" at v1.1's direct-match seam note.)*
+- [x] `lobby-storage.ts` JSDoc mirrors `data-model.md` §4 (constitution IV obligation). *(T031 — the `{ guestPlayerIdClaim, resumeSecret, handle }` triple.)*
+- [x] `CONSOLE_API_VERSION` conformance pin `'0.5.0'`. *(T009 — `contract-conformance.test.ts:348`.)*
+
+All six verified against the tree on 2026-10-12; only the checkboxes were outstanding.
 
 ## 7. Commit / PR hygiene
 
