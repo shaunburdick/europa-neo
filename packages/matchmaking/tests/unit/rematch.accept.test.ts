@@ -255,4 +255,76 @@ describe('acceptRematch casts votes on the open offer (FR-009 / US4 AC-2 / T048)
         expect(entry?.visibility).toBe('public');
         matchmaker.close();
     });
+
+    it('FR-022: at maxConcurrentMatches the accept resolution is refused with rate_limited, no vote recorded (issue #147 test 6)', () => {
+        const clockMs = 6_000_000;
+        const now = (): number => clockMs;
+        const server = new FakeServer({ now });
+        const matchmaker = createMatchmaker({ ...MATCHMAKING_CONSTANTS, maxConcurrentMatches: 1 }, { server, now });
+        const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+        const joined = matchmaker.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
+        if (!joined.ok) {
+            throw new Error('fixture join failed');
+        }
+        server.fireOnMatchTerminal({
+            matchId: created.data.matchId,
+            result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 7, reason: 'last_standing' },
+            tick: 7,
+        });
+        const requested = matchmaker.requestRematch({
+            matchId: created.data.matchId,
+            sessionToken: created.data.seatAssignment.sessionToken,
+        });
+        if (!requested.ok) {
+            throw new Error('fixture request failed');
+        }
+
+        // The finished original still occupies the single slot, so every
+        // accept vote is refused exactly like a create would be.
+        const firstAccept = matchmaker.acceptRematch({
+            matchId: created.data.matchId,
+            rematchOfferId: requested.rematchOfferId,
+            sessionToken: created.data.seatAssignment.sessionToken,
+        });
+        expect(firstAccept.ok).toBe(false);
+        if (firstAccept.ok) {
+            return;
+        }
+        expect(firstAccept.error.code).toBe('rate_limited');
+        const completing = matchmaker.acceptRematch({
+            matchId: created.data.matchId,
+            rematchOfferId: requested.rematchOfferId,
+            sessionToken: joined.data.seatAssignment.sessionToken,
+        });
+        expect(completing.ok).toBe(false);
+        if (completing.ok) {
+            return;
+        }
+        expect(completing.error.code).toBe('rate_limited');
+
+        // The offer survives: the same id comes back, and the refused
+        // votes were never recorded.
+        const again = matchmaker.requestRematch({
+            matchId: created.data.matchId,
+            sessionToken: created.data.seatAssignment.sessionToken,
+        });
+        expect(again.ok).toBe(true);
+        expect(again.ok && again.rematchOfferId).toBe(requested.rematchOfferId);
+
+        // Declining still succeeds at capacity (it frees the slot).
+        const declined = matchmaker.declineRematch({
+            matchId: created.data.matchId,
+            rematchOfferId: requested.rematchOfferId,
+            sessionToken: created.data.seatAssignment.sessionToken,
+        });
+        expect(declined.ok).toBe(true);
+
+        // Collection frees the slot: a fresh create succeeds.
+        const fresh = matchmaker.createMatch({ visibility: 'public', displayName: 'Cara' });
+        expect(fresh.ok).toBe(true);
+        matchmaker.close();
+    });
 });

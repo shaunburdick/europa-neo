@@ -839,6 +839,22 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         sweepStaleEmptyMatches(atMs);
     }
 
+    /**
+     * Shared `maxConcurrentMatches` guard (FR-022): sweep first, then refuse
+     * creation at the cap — stale records are collected before counting.
+     */
+    function enforceCapacity(): { ok: true } | { ok: false; error: MatchmakerError } {
+        runLazySweeps();
+        const activeMatches = store.listMatches().filter((m) => m.status !== 'collected').length;
+        if (activeMatches >= resolved.maxConcurrentMatches) {
+            return {
+                ok: false,
+                error: makeError('rate_limited', 'Server is at maximum concurrent matches'),
+            };
+        }
+        return { ok: true };
+    }
+
     // -- Public surface --------------------------------------------------------
 
     const matchmaker: Matchmaker & MatchmakerCompositionSeam = {
@@ -875,17 +891,9 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
             const settings = resolvedSettings.settings;
 
-            // Run lazy sweeps before the capacity check so stale
-            // matches (expired rematch windows, TTL'd empty/finished
-            // matches) are collected first — prevents capacity
-            // exhaustion by accumulated dead records.
-            runLazySweeps();
-            const activeMatches = store.listMatches().filter((m) => m.status !== 'collected').length;
-            if (activeMatches >= resolved.maxConcurrentMatches) {
-                return {
-                    ok: false,
-                    error: makeError('rate_limited', 'Server is at maximum concurrent matches'),
-                };
+            const capacity = enforceCapacity();
+            if (!capacity.ok) {
+                return { ok: false, error: capacity.error };
             }
 
             const atMs = now();
@@ -1261,6 +1269,10 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
             if (isWindowClosed(offer, now())) {
                 return { ok: false, error: makeError('rematch_window_closed') };
+            }
+            const capacity = enforceCapacity();
+            if (!capacity.ok) {
+                return { ok: false, error: capacity.error };
             }
 
             const { allAccepted } = castAcceptVote(offer, voterId);
