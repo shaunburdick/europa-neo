@@ -465,7 +465,11 @@ describe('acceptRematch vs the lazy expiry sweep — the window cannot close mid
         });
 
         expect(bobVote.ok).toBe(true);
-        if (!bobVote.ok || bobVote.newMatchId === undefined) {
+        if (!bobVote.ok) {
+            return;
+        }
+        expect(bobVote.newMatchId).toBeDefined();
+        if (bobVote.newMatchId === undefined) {
             return;
         }
         expect(bobVote.allAccepted).toBe(true);

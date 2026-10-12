@@ -431,6 +431,13 @@ describe('identity teardown and restore totality (FR-023 / issue #147)', () => {
         const identities = deliveredIdentities(stack.delivered, host.connectionId);
         expect(identities.length).toBe(identitiesBefore + 1);
         expect(identities.at(-1)).toMatchObject({ handle: null, hasIdentity: true });
+        const latest = identities.at(-1);
+        expect(latest?.guestPlayerId).toBeDefined();
+        if (latest?.guestPlayerId === undefined) {
+            return;
+        }
+        expect(latest.guestPlayerId).not.toBe(host.guestId);
+        expect(stack.registry.projectIdentity(latest.guestPlayerId)).toBeDefined();
 
         expectOk(stack.service.setHandle(host.connectionId, 'Comet'));
         expect(stack.registry.stats()).toEqual({ identities: 1, reservedHandles: 1 });

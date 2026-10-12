@@ -6,8 +6,8 @@
  * match is visible to the immediately following call (length 1 with no
  * async gap), and once `joinMatch` fills the last seat the very next
  * call shows length 0. The whole mutation→projection sequence runs in
- * one synchronous block; the generous wall-clock guard below only
- * proves no hidden await/tick sneaks in between (CI-safe bound).
+ * one synchronous block; the event-loop-turn marker below proves no
+ * await/tick sneaks in between; the wall clock is a stall backstop.
  *
  * Maps to quickstart.md §Q-M01 (SC-003; FR-005, FR-012).
  */
@@ -19,6 +19,10 @@ import { FakeServer } from '../fixtures/fakeServer';
 
 describe('Q-M01 staleness: lobby reflects mutations within one tick (SC-003)', () => {
     it('shows a created match immediately and drops it immediately when full', () => {
+        let turnMarkerFlushed = false;
+        queueMicrotask(() => {
+            turnMarkerFlushed = true;
+        });
         const server = new FakeServer();
         const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
 
@@ -54,12 +58,12 @@ describe('Q-M01 staleness: lobby reflects mutations within one tick (SC-003)', (
         }
         expect(lobby2.matches).toHaveLength(0);
 
-        // SC-003 wall-clock guard: creation → projection → transition →
-        // projection all happened synchronously (no event-loop turns).
-        // Generous bound keeps this stable on loaded CI runners while still
-        // failing if an await/tick ever slips between the calls above.
+        // SC-003: the marker above never flushed — the whole
+        // creation → projection → transition → projection ran without
+        // yielding; the generous bound is only a stall backstop.
+        expect(turnMarkerFlushed).toBe(false);
         const elapsedMs = performance.now() - startedAtMs;
-        expect(elapsedMs).toBeLessThan(100);
+        expect(elapsedMs).toBeLessThan(1_000);
 
         void matchmaker.close();
     });
