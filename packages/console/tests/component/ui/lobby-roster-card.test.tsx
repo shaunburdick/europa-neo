@@ -36,7 +36,6 @@ afterEach(() => {
 function rosterOf(players: ReadonlyArray<RosterEntry>, connected = true): RosterState {
     return {
         players,
-        revision: connected ? 1 : null,
         connected,
     };
 }
@@ -68,7 +67,6 @@ describe('rosterHeadingText (T-048)', () => {
         expect(
             rosterHeadingText({
                 players: [entry('A'), entry('B'), entry('C')],
-                revision: 1,
                 connected: true,
             }),
         ).toBe('Players online (3)');
@@ -78,7 +76,6 @@ describe('rosterHeadingText (T-048)', () => {
         expect(
             rosterHeadingText({
                 players: [],
-                revision: 1,
                 connected: true,
             }),
         ).toBe('Players online (0)');
@@ -88,7 +85,6 @@ describe('rosterHeadingText (T-048)', () => {
         expect(
             rosterHeadingText({
                 players: [],
-                revision: null,
                 connected: false,
             }),
         ).toBe('Players online (?)');

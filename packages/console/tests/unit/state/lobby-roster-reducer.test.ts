@@ -5,12 +5,8 @@
  * actions:
  *
  *   - `lobbyRosterSnapshot`: replaces roster state wholesale;
- *   - `lobbyRosterDelta`: merges changes into existing roster;
  *   - connection reset (`lobbyConnectionChanged` to `'idle'` /
- *     `'failed'`): clears roster state;
- *   - snapshot replacement (full snapshot overwrites delta-merged state);
- *   - delta merging (add new entry, update existing entry);
- *   - revision gating (stale snapshots/deltas are ignored).
+ *     `'failed'`): clears roster state.
  *
  * No timers, no transport, no randomness — pure reducer folds only.
  */
@@ -35,15 +31,12 @@ function rosterSnapshot(
     };
 }
 
-/** A roster state with players and a revision. */
 function rosterState(
     players: ReadonlyArray<{ readonly handle: string; readonly status: 'in_lobby' | 'in_game' | 'spectating' }>,
-    revision: number | null = 1,
     connected = true,
 ): RosterState {
     return {
         players,
-        revision: revision as unknown as ReturnType<typeof Number> & { readonly __brand: 'RosterRevision' },
         connected,
     };
 }
@@ -99,89 +92,13 @@ describe('lobbyRosterSnapshot', () => {
     it('sets connected to true', () => {
         const disconnectedState = {
             ...NAMED_STATE,
-            roster: rosterState([], null, false),
+            roster: rosterState([], false),
         };
         const state = reduceLobby(disconnectedState, {
             kind: 'lobbyRosterSnapshot',
             snapshot: rosterSnapshot(1, [{ handle: 'Alice', status: 'in_lobby' }]),
         });
         expect(state.roster.connected).toBe(true);
-    });
-});
-
-describe('lobbyRosterDelta', () => {
-    it('adds a new entry to an empty roster', () => {
-        const state = reduceLobby(NAMED_STATE, {
-            kind: 'lobbyRosterDelta',
-            delta: {
-                revision: 2 as unknown as LobbyRevision,
-                changes: [{ handle: 'Alice', status: 'in_lobby' }],
-            },
-        });
-        expect(state.roster.players).toHaveLength(1);
-        expect(state.roster.players[0].handle).toBe('Alice');
-        expect(state.roster.players[0].status).toBe('in_lobby');
-    });
-
-    it('updates an existing entry status', () => {
-        // Start with a snapshot containing Alice in_lobby.
-        let state = reduceLobby(NAMED_STATE, {
-            kind: 'lobbyRosterSnapshot',
-            snapshot: rosterSnapshot(1, [{ handle: 'Alice', status: 'in_lobby' }]),
-        });
-
-        // Apply delta: Alice transitions to in_game.
-        state = reduceLobby(state, {
-            kind: 'lobbyRosterDelta',
-            delta: {
-                revision: 2 as unknown as LobbyRevision,
-                changes: [{ handle: 'Alice', status: 'in_game' }],
-            },
-        });
-
-        expect(state.roster.players).toHaveLength(1);
-        expect(state.roster.players[0].handle).toBe('Alice');
-        expect(state.roster.players[0].status).toBe('in_game');
-    });
-
-    it('adds multiple entries in one delta', () => {
-        const state = reduceLobby(NAMED_STATE, {
-            kind: 'lobbyRosterDelta',
-            delta: {
-                revision: 1 as unknown as LobbyRevision,
-                changes: [
-                    { handle: 'Alice', status: 'in_lobby' },
-                    { handle: 'Bob', status: 'in_game' },
-                    { handle: 'Charlie', status: 'spectating' },
-                ],
-            },
-        });
-        expect(state.roster.players).toHaveLength(3);
-    });
-
-    it('does not remove entries absent from delta', () => {
-        // Start with Alice and Bob.
-        let state = reduceLobby(NAMED_STATE, {
-            kind: 'lobbyRosterSnapshot',
-            snapshot: rosterSnapshot(1, [
-                { handle: 'Alice', status: 'in_lobby' },
-                { handle: 'Bob', status: 'in_lobby' },
-            ]),
-        });
-
-        // Delta only mentions Alice (Bob is absent — should persist).
-        state = reduceLobby(state, {
-            kind: 'lobbyRosterDelta',
-            delta: {
-                revision: 2 as unknown as LobbyRevision,
-                changes: [{ handle: 'Alice', status: 'in_game' }],
-            },
-        });
-
-        expect(state.roster.players).toHaveLength(2);
-        const bob = state.roster.players.find((p) => p.handle === 'Bob');
-        expect(bob).toBeDefined();
-        expect(bob?.status).toBe('in_lobby');
     });
 });
 
@@ -200,7 +117,6 @@ describe('connection reset clears roster', () => {
             connection: 'idle',
         });
         expect(state.roster.players).toHaveLength(0);
-        expect(state.roster.revision).toBeNull();
         expect(state.roster.connected).toBe(false);
     });
 
@@ -215,7 +131,6 @@ describe('connection reset clears roster', () => {
             connection: 'failed',
         });
         expect(state.roster.players).toHaveLength(0);
-        expect(state.roster.revision).toBeNull();
         expect(state.roster.connected).toBe(false);
     });
 
@@ -231,34 +146,6 @@ describe('connection reset clears roster', () => {
         });
         expect(state.roster.players).toHaveLength(1);
         expect(state.roster.connected).toBe(true);
-    });
-});
-
-describe('snapshot replacement after delta merge', () => {
-    it('full snapshot overwrites delta-merged state', () => {
-        // Start with snapshot: Alice.
-        let state = reduceLobby(NAMED_STATE, {
-            kind: 'lobbyRosterSnapshot',
-            snapshot: rosterSnapshot(1, [{ handle: 'Alice', status: 'in_lobby' }]),
-        });
-
-        // Delta: add Bob.
-        state = reduceLobby(state, {
-            kind: 'lobbyRosterDelta',
-            delta: {
-                revision: 2 as unknown as LobbyRevision,
-                changes: [{ handle: 'Bob', status: 'in_lobby' }],
-            },
-        });
-        expect(state.roster.players).toHaveLength(2);
-
-        // Full snapshot: only Charlie (wholesale replacement).
-        state = reduceLobby(state, {
-            kind: 'lobbyRosterSnapshot',
-            snapshot: rosterSnapshot(3, [{ handle: 'Charlie', status: 'in_game' }]),
-        });
-        expect(state.roster.players).toHaveLength(1);
-        expect(state.roster.players[0].handle).toBe('Charlie');
     });
 });
 

@@ -34,7 +34,6 @@ afterEach(() => {
 function rosterOf(players: ReadonlyArray<RosterEntry>, connected = true): RosterState {
     return {
         players,
-        revision: connected ? 1 : null,
         connected,
     };
 }

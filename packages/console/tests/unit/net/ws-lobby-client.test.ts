@@ -29,7 +29,16 @@
  */
 
 import { parseGuestPlayerId } from '@europa/core';
-import type { GuestPlayerId, IdentityState, LobbyEvent, LobbyRevision, MatchId } from '@europa/matchmaking';
+import type {
+    GuestPlayerId,
+    IdentityState,
+    LobbyEvent,
+    LobbyRevision,
+    MatchId,
+    RosterDelta,
+    RosterRevision,
+    RosterSnapshot,
+} from '@europa/matchmaking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LOBBY_STORAGE_KEY, type LobbyStorage, type StoredLobbyClaim } from '../../../src/net/lobby-storage';
@@ -236,6 +245,20 @@ function snapshot(revision: number, matchId: string | null = null): LobbySnapsho
             },
         ],
         activeMatchId: (matchId === null ? null : matchId) as MatchId | null,
+    };
+}
+
+function rosterSnapshot(revision: number, handles: string[]): RosterSnapshot {
+    return {
+        revision: revision as RosterRevision,
+        players: handles.map((handle) => ({ handle, status: 'in_lobby' as const })),
+    };
+}
+
+function rosterDelta(revision: number, handles: string[]): RosterDelta {
+    return {
+        revision: revision as RosterRevision,
+        changes: handles.map((handle) => ({ handle, status: 'in_lobby' as const })),
     };
 }
 
@@ -929,6 +952,30 @@ describe('snapshot revision gating', () => {
         expect(harness.client.state().connection).toBe('ready');
         expect(harness.client.state().lastAppliedRevision).toBe(2 as LobbyRevision);
         expect(harness.snapshots.map((snap) => snap.revision)).toEqual([50, 2]);
+    });
+});
+
+describe('roster delta merge ordering (023-FR-007 client merge)', () => {
+    it('places an unseen delta entry into sorted position', async () => {
+        const { client, socket } = await readyHarness();
+        socket.deliverLobby({ kind: 'roster', roster: rosterSnapshot(1, ['Z']) });
+        socket.deliverLobby({ kind: 'rosterDelta', delta: rosterDelta(2, ['A']) });
+        expect(client.state().roster.map((entry) => entry.handle)).toEqual(['A', 'Z']);
+    });
+
+    it('orders merged entries case-folded (lowercase newcomer precedes capital Z)', async () => {
+        const { client, socket } = await readyHarness();
+        socket.deliverLobby({ kind: 'roster', roster: rosterSnapshot(1, ['Z']) });
+        socket.deliverLobby({ kind: 'rosterDelta', delta: rosterDelta(2, ['a']) });
+        expect(client.state().roster.map((entry) => entry.handle)).toEqual(['a', 'Z']);
+    });
+
+    it('still discards stale-revision roster deltas', async () => {
+        const { client, socket } = await readyHarness();
+        socket.deliverLobby({ kind: 'roster', roster: rosterSnapshot(1, ['Z']) });
+        socket.deliverLobby({ kind: 'rosterDelta', delta: rosterDelta(1, ['A']) });
+        expect(client.state().roster.map((entry) => entry.handle)).toEqual(['Z']);
+        expect(client.state().rosterRevision).toBe(1 as RosterRevision);
     });
 });
 

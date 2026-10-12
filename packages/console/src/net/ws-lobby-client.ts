@@ -72,6 +72,7 @@
  * touch simulation state.
  */
 
+import { compareUtf16 } from '@europa/engine';
 import type {
     GuestIdentityClaim,
     GuestPlayerId,
@@ -1231,6 +1232,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 next.push(change);
             }
         }
+        next.sort((a, b) => compareUtf16(a.handle.toLowerCase(), b.handle.toLowerCase()));
         rosterEntries = next;
         log('debug', 'roster delta applied', {
             revision: delta.revision,

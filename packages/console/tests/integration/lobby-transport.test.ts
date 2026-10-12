@@ -1426,4 +1426,47 @@ describe('lobby transport integration (feature 010 T-013)', () => {
         // …and the accepted handle persisted for reload-restore.
         expect(storage.current()?.handle).toBe('Renamed');
     }, 30_000);
+
+    test('a live join delta yields a roster merged in sorted handle order (023-FR-007)', async () => {
+        const stack = await bootLobbyStack();
+        trackTeardown(stack);
+
+        const observer = await connectLobbyClient(stack.url);
+        await observer.client.setHandle('Zoe');
+        expect(observer.client.state().handle).toBe('Zoe');
+        const snapshotRevision = observer.client.state().rosterRevision;
+        if (snapshotRevision === null) {
+            throw new Error('observer never applied a roster snapshot');
+        }
+        await pollUntil(
+            () =>
+                observer.client.state().rosterRevision !== null &&
+                observer.client.state().rosterRevision > snapshotRevision
+                    ? observer.client.state().roster
+                    : null,
+            "observer's roster reflecting its own handle delta",
+        );
+        expect(observer.client.state().roster.map((entry) => entry.handle)).toEqual(['Zoe']);
+
+        const joiner = new RawSeat(stack.url);
+        trackCloser(() => {
+            joiner.socket.close();
+        });
+        await joiner.open();
+        joiner.send('hello', { protocolVersion: NETWORK_API_VERSION });
+        await joiner.next((frame) => frame.type === 'helloAck', 'joiner helloAck');
+        joiner.send('lobbyIdentity', { claim: {} });
+        await joiner.nextLobbyEvent('joiner identity establishment');
+        joiner.send('lobbySetHandle', { handle: 'Alice', actionId: 1 });
+        await joiner.nextLobbyEventWhere(
+            (event) => event.kind === 'identity' && event.identity.handle === 'Alice',
+            'joiner handle confirmation',
+        );
+
+        await pollUntil(
+            () => (observer.client.state().roster.length === 2 ? observer.client.state().roster : null),
+            "observer's roster absorbing Alice's roster delta",
+        );
+        expect(observer.client.state().roster.map((entry) => entry.handle)).toEqual(['Alice', 'Zoe']);
+    }, 30_000);
 });
