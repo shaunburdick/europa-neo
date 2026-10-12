@@ -3,9 +3,9 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-09-12 (v1.12; issue #139 spec consolidation)
-**Version**: 1.12
-**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74); URL routing superseded by Feature 013
+**Last Updated**: 2026-10-12 (v1.14; issue #153 console roster-order + seat-token clarifications)
+**Version**: 1.14
+**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74; v1.14 review-cleanup clarifications drafted 2026-10-12 — UNAPPROVED; the v1.13 slot is claimed concurrently by PR #188 `fix/matchmaking-lifecycle` and PR #189 `security-sweep`); URL routing superseded by Feature 013
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -427,3 +427,55 @@ normative requirements above:
   - **012-FR-002**: The lobby create form MUST pre-select the board size from the 012-FR-001 defaults by chosen player count (2p → 32, 3p/4p → 48) and allow an explicit 32 | 48 override; it MUST NOT silently overwrite a user-chosen size when the player count changes.
   - **012-FR-003**: The lobby match list MUST show occupancy/capacity text (e.g., "2/4 players"), a board-size label, and lifecycle status per FR-006/FR-007; private matches are never listed.
 - **Contract move note**: the absorbed feature's `contracts/roster-wire.md` is relocated to `010/contracts/` (same change set); the networking conformance suite's byte-identity check re-points at the new path.
+
+### v1.14 (2026-10-12) — Issue #153 console roster ordering and seat-token clarifications
+
+**Concurrency note (PR-2 and PR-3 coordination).** TWO open PRs claim a
+**v1.13** section in this same file: PR #188 (`fix/matchmaking-lifecycle`,
+issue #147 — `compareUtf16` comparator, injected scheduler seam, v1.5 class
+extension) and PR #189 (`security-sweep`, issue #146 — guest-identity resume
+secret, its own FR-040…FR-043). Neither is merged into this branch. This
+section is therefore numbered **v1.14** and appended at end-of-file: all
+three change sets touch the header block (lines 3–8) and append after the
+v1.12 section, so textual conflicts are expected and resolve by keeping
+the clarification sections in numeric order with the header carrying the
+highest version present. Do not renumber this section to claim v1.13, and
+do not merge either PR into this branch to avoid the conflict. The
+duplicate v1.13 claim between #188 and #189 is those PRs' conflict to
+resolve (whichever lands second renumbers or inherits).
+
+- **Citation note.** Issue #153 cites "spec 023 FR-006" for roster
+  ordering; in this file the ordering requirement is **023-FR-007**
+  ("ordered deterministically (handle, then ID) — never by connection
+  order"), while 023-FR-006 is the full-snapshot cadence. Neither text
+  changes here; the issue's quoted wording matches 023-FR-007. The
+  "(handle, then ID)" tiebreak is unreachable (normalized handles are
+  unique, FR-005) and is superseded on the comparator question by the
+  concurrent v1.13 ruling.
+- **023-FR-007 clarified — deterministic order binds the client's merged,
+  displayed roster too.** "Never by connection order" applies to every
+  roster the console presents, not only the server payload: the console's
+  delta merge (transport-level and any store-level roster merge) MUST
+  re-establish the server's order after EVERY delta — case-folded handles
+  compared with the shared `compareUtf16` (per the concurrent v1.13
+  comparator ruling), never `localeCompare` and never arrival order — and
+  the roster card MUST render that array order without a compensating
+  re-sort. A delta introducing a new handle leaves the list ordered
+  (`['Z']` + delta `A` → `['A', 'Z']`), not appended. Absent-handle
+  semantics are unchanged (deltas carry no removals; the next full
+  snapshot confirms removals). This is a conformance repair against
+  existing text — the requirement already stood; the client merge simply
+  violated it — so no server or wire behavior changes.
+- **Seat-session token handoff — end-to-end reading of FR-009 (issue #153's
+  "spec 010 FR-023" cite).** FR-009 reserves the creator's seat and FR-010
+  assigns at most one seat atomically; the console side of that promise is
+  that a seat-granting entry (create or join) presents the seat session
+  token issued with the acceptance on the match leg's wire join. A
+  tokenless join selects the lowest open seat by canonical order, which is
+  not necessarily the seat the lobby reserved, so entering tokenless when
+  a token exists breaks the server-authoritative seat/identity association
+  (FR-023) the views are generated from. Requirement: the token MUST be
+  propagated whenever one was issued. Already satisfied on main (issue
+  #74, #159: `packages/console/src/state/lobby-controller.ts`
+  `runSeatCommand` dispatches the captured token even when the match id is
+  unknown); recorded here as a regression guard, not a behavior change.

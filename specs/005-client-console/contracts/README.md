@@ -8,7 +8,11 @@ TypeScript contract definitions live in `packages/console/src/contracts/`. This 
 
 ## Contract files (documentation)
 
-This directory currently contains no standalone `.md` contract documents. The console package's contract surface is fully defined in `packages/console/src/contracts/`:
+This directory contains:
+
+- `reducer-correlation.md` — `ReduceOptions.correlation` and the store-scoped pending-order/`ActionId` state (spec 005 v1.12 FR-045; draft)
+
+The console package's contract surface is defined in `packages/console/src/contracts/`:
 
 - `console-types.ts` — core console types
 - `console-api.ts` — console API surface

@@ -363,8 +363,10 @@ in a toast region above the board.
 - Created by the reducer (e.g., on a successful order
   submission: `appendFeedback(... { text: 'Sent pipe N at (5, 7)', kind: 'info', ttlMs: 2000 }, nowMs)`).
 - Added to `ConsoleState.feedback`.
-- Removed by the reducer on the next action dispatch when
-  `nowMs - createdAtMs > ttlMs` (lazy cleanup).
+- Removed by the reducer on the next action dispatch **that changes
+  state** when `nowMs - createdAtMs > ttlMs` (lazy cleanup). The v1.12
+  heartbeat no-op short-circuit (FR-045) returns before this prune, so
+  a `pong` dispatch defers it to the next state-changing dispatch.
 - Maximum 5 messages retained; older ones evicted FIFO.
 
 ---
@@ -583,7 +585,7 @@ For each entity, the test suite asserts:
 | `FeedbackMessage` | FIFO eviction at `maxFeedbackMessages`. |
 | `RejectedOrder` | FIFO eviction at `maxRejectedOrders`. |
 | `PlayerAction` → `Order` | Every order-producing variant produces a valid `Order` of the right kind. |
-| `NetEvent` | Every `NetEvent` produces a new `ConsoleState` without throwing. |
+| `NetEvent` | Every `NetEvent` produces a `ConsoleState` without throwing; the heartbeat echo (`pong`, spec v1.12 FR-045) returns the **same** state reference. That guarantee is scoped to `pong` — other no-op arms (e.g. `socketClosed` while `status === 'game_over'`, `reducer.ts:630-632`) still return a freshly built state. |
 
 1000 consecutive ticks of scripted input produce byte-identical
 `MapView` snapshots (SC-002 determinism).
@@ -673,3 +675,74 @@ The sidebar renders identically for player and spectator. When
 (Orders, Reserve, Surrender) render disabled or visually inert. This
 is defense-in-depth for the UI; the structural invariant (no store, no
 order bridge, adapter refuses orders) is the security boundary.
+
+---
+
+## 19. Review-cleanup additions (spec v1.12 / v1.14 — issues #153, #127)
+
+Two entities exist *outside* `ConsoleState` and are introduced by
+`plan.md` §5. One existing lobby-state shape is reduced. §4
+`CameraState` is unchanged — its pan-clamp line
+(`data-model.md:264-266`) is the normative guard for finding
+`F-CON-ST-006`, which is already satisfied on `main`.
+
+### 19.1 ReducerCorrelation (store scope — FR-045)
+
+Per-store mutable correlation state for the pure reducer. It is
+**not** a field of `ConsoleState` (the state shape stays fixed, see
+`reducer.ts:68-69`) and **never** module scope.
+
+| Field | Type | Constraints |
+|-------|------|-------------|
+| `lastActionId` | `number` | Monotonic, starts at `0`; the issued `ActionId` is `lastActionId + 1` (so id `0` is never issued). Unique **within its store** only. |
+| `pendingOrders` | `Map<ActionId, Order>` | Capped at `PENDING_ORDERS_CAP = 64`; oldest-first eviction; an entry is removed when its `orderAck` settles (`takePendingOrder`). |
+
+**Lifecycle**: created by `createConsoleStore` and passed to every
+`reduce(...)` call as `ReduceOptions.correlation?`. A `reduce()` call
+without a bag gets an ephemeral one for that call, so ad-hoc callers
+stay deterministic and no module-level table survives.
+
+**Transitions**: `stampOrder` increments `lastActionId` and registers
+the order; `takePendingOrder` deletes on ack; nothing else mutates it.
+
+**Relationships**: one bag ↔ one `ConsoleStore`; two stores in the same
+module never share counters or pending maps (test N3 in `plan.md` §7.4).
+
+### 19.2 ActiveModal (App-local UI state — FR-042)
+
+Exclusive modal selection for the match view. App-local `useState`, so
+it is deliberately absent from `ConsoleState`.
+
+| Value | Renders | Focus on open | Focus on close |
+|-------|---------|---------------|----------------|
+| `'surrender'` | `SurrenderModal` (`aria-modal="true"`) | Cancel | the control that opened it (FR-009) |
+| `'help'` | `HelpOverlay` (via `EuropaModal`, `aria-modal="true"`) | first control (EuropaModal trap) | the Help control (`App.tsx:713-716`) |
+| `null` | neither | — | — |
+
+**Transitions**: opening one value replaces the current one (the union
+closes the other modal by construction). The game-over modal is **not**
+a member: it renders from `status === 'game_over' && matchResult !==
+null` and takes precedence — while it is up, `activeModal` is forced to
+`null` and the openers are no-ops, so a terminal modal is never
+preempted (019-FR-005/008/011).
+
+**Invariant**: at most one element with `aria-modal="true"` exists in
+the DOM at any time (test N16 in `plan.md` §7.4).
+
+### 19.3 Lobby `RosterState` after F-CON-ST-009 deletion
+
+`RosterState` (`packages/console/src/state/lobby-state.ts:164`) keeps
+`players` and `connected`; the never-read `revision` field (`:167-168`)
+is **removed** together with the never-dispatched `lobbyRosterDelta`
+action. Revision gating lives upstream in the transport
+(`ws-lobby-client.ts:1191-1198, 1216-1223`), which is where the
+ordering guarantee also lives (spec 010 v1.14):
+
+> After every delta merge the transport roster array is sorted by
+> `compareUtf16(a.handle.toLowerCase(), b.handle.toLowerCase())`; the
+> store adopts that array wholesale and the roster card renders array
+> order with no compensating re-sort.
+
+Lobby state is otherwise not modelled in this document (it belongs to
+spec 010 / feature 023); this subsection exists only to record the
+shape change so §17-style invariants stay honest.

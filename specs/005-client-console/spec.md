@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-08 (v1.10; camera fit and corner navigation ruling)
-**Version**: 1.10
+**Last Updated**: 2026-10-12 (v1.12; console review cleanup — issues #153 and #127)
+**Version**: 1.12
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.12 review-cleanup amendment (issues #153 and #127) drafted 2026-10-12 — UNAPPROVED (numbered v1.12 because concurrent PR #189 already claims v1.11 for this file); URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -140,7 +140,7 @@ As a player, I want all HUD controls consolidated into a right sidebar so the ga
 - **FR-006**: The console MUST locally preflight pipe and reserve orders against deterministic validation rules derivable from the current client-visible match state, blocking any such invalid order before wire transmission while treating the server as final authority. This includes blocking pipe orders whose source or destination cell is water; applicable range and ownership validation MUST also be performed locally. For `setPipesExclusive`, local preflight deliberately applies stricter UX checks than current engine command validation: it rejects an out-of-board or visible-water destination even though the engine does not validate destination bounds or terrain for this order. Preserve this fail-closed console behavior unless the contract is explicitly revised.
 - **FR-007**: The console MUST display transient confirmation of reserve values and surface order rejections as unobtrusive feedback.
 - **FR-008**: The console MUST show connection/match status (connecting, live, reconnecting, surrendered/spectating, game over) at all times.
-- **FR-009**: The console MUST provide surrender (with confirm) transitioning to read-only full-visibility spectation.
+- **FR-009**: The console MUST provide surrender (with confirm) transitioning to read-only full-visibility spectation. Closing the confirmation dialog by Confirm, Cancel, or Escape MUST return keyboard focus to the control that opened it.
 - **FR-010**: The console MUST be usable at common desktop resolutions with zoom/pan; all interactive elements reachable by mouse and keyboard alone (accessibility-minded per constitution).
 - **FR-011**: Rendering technology is free within TypeScript/browser standards; the console MUST consume only protocol messages from feature 004 (no direct engine access).
 - **FR-012**: The console MUST render the application version in the HUD status-display area (FR-008's neighborhood) as real DOM text (not canvas): the bundled build constant, `v`-prefixed, visible in all connection states, meeting WCAG 2.2 AA contrast (constitution VI), never intercepting pointer or keyboard interaction, and never displaying a server-supplied value (feature 009-shared-app-versioning).
@@ -156,6 +156,15 @@ As a player, I want all HUD controls consolidated into a right sidebar so the ga
 - **FR-022 (issue #76)**: The sidebar MUST be owned by `App` (not the lobby runtime) so player and spectator share one render path. The match-leg host's slim chrome (title + leave button) remains in `lobby-runtime.tsx`'s `MatchLegHost`.
 - **FR-023 (issue #76)**: Notification toasts (order confirmations, rejections, connection status) MUST appear on the right side of the viewport, overlaying the sidebar area. Toasts MUST never obscure the game board. At worst, a toast covers the bottom sidebar sections (Help/Surrender).
 - **FR-027**: Pointer and order-key input outside the board bounds MUST produce no input action and no wire order; blank camera margins are not board targets.
+- **FR-039 (v1.12)**: Console focus and ARIA integrity MUST hold: (a) activating the skip link MUST move focus into the page's `main` landmark, which MUST be programmatically focusable; (b) board roving focus and `aria-activedescendant` MUST reference only cells actually rendered in the DOM — focus MUST NOT rest on a fog-hidden cell; when a move would land on a fog-hidden cell, focus MUST continue in the direction of travel, one cell at a time, to the first rendered cell, and when the board edge is reached with no rendered cell in that direction focus MUST NOT move; the focused cell MUST show a visible focus indicator; (c) every `aria-describedby`/`aria-labelledby` token set on a console control MUST resolve to an element present in the DOM while that attribute is set; (d) the order palette's command group MUST present as a single Tab stop, with Arrow/Home/End roving focus between its buttons so exactly one command button is in the Tab order at a time.
+- **FR-040 (v1.12)**: Announcements derived from lobby roster snapshots MUST seed a baseline on the first observed snapshot: entries present in that first observation MUST NOT be announced as joined, and no leave announcement may fire against the empty prior baseline; only subsequent differences are announced.
+- **FR-041 (v1.12)**: The in-match help overlay and its toggle (Help button and `?` key) MUST be operable in both player and spectator views, driven by the rendered view state rather than a player store, and the toggle MUST NOT render as an enabled-but-inert control. (Amends 018-FR-001's "help button opens an in-match help overlay" and FR-021 spectator parity.)
+- **FR-042 (v1.12)**: The console's modal surfaces (surrender confirmation, help overlay, game-over modal) MUST be governed by one exclusive modal state: at most one `aria-modal="true"` surface MAY be mounted at a time, and opening one MUST close any other open modal. The game-over modal is terminal (019-FR-005, 019-FR-008) and MUST NOT be preempted or dismissed by another modal opening.
+- **FR-043 (v1.12)**: Console action controls (HUD, sidebar sections, dialogs, lobby actions) MUST be rendered from the design system's shared components rather than ad-hoc button elements, following the 019-FR-012 precedent ("a design-system component, no raw HTML").
+- **FR-044 (v1.12)**: Every server-issued handle or player name rendered by the console MUST be wrapped in a `<bdi>` element so mixed-direction text cannot reorder the surrounding interface text (the direction-safe labeling promise the manual already documents).
+- **FR-045 (v1.12)**: Console state handling MUST be pure and instance-scoped: reducer output MUST depend only on its `(state, action, options)` inputs; the reducer's pending-order correlation table and action-id counter MUST live in store scope, never in module scope shared across stores; the heartbeat echo (`pong`) MUST return the same state reference so subscribers are not notified. That same-reference requirement is scoped to the heartbeat echo specifically (issue #153's acceptance criterion "a heartbeat no-op returns the same state reference"): other no-op arms — for example a `socketClosed` received while `status === 'game_over'` — still return a freshly built state and are NOT covered by this clause. Deferring the reducer's lazy feedback prune is accepted: with the no-op short-circuit in place, expired feedback is pruned on the next dispatch that changes state rather than on every dispatch. Per-connection transport state (wire sequence counters, captured seat-session tokens, seq→actionId correlation maps) is instance-scoped by the concurrent v1.11 hardening (PR #189, its FR-029/FR-033) and MUST NOT regress.
+- **FR-046 (v1.12)**: Match handoff integrity MUST hold: (a) every seat-granting entry path (create, join) MUST propagate the seat session token captured from the server's acceptance to the match leg's wire join — a tokenless join (which selects the lowest open seat) MUST NOT be used when a token was issued; (b) one handoff MUST mount exactly one match leg, including lobby-initiated spectate; (c) a match-leg boot failure MUST surface through the recoverable-failure path (spec 010 FR-018/FR-033 — a visible message with a return action) and MUST NOT be swallowed by a silent no-op.
+- **FR-047 (v1.12)**: Input and camera controller lifecycles MUST be idempotent: attaching a controller twice MUST NOT double-register its listeners (one wheel notch still produces one zoom step), and dispose MUST be safe to call repeatedly and MUST remove every listener it registered.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -528,4 +537,71 @@ assess the version choice. No fog, terrain, or engine behavior changes.
 See FR-017, FR-019, FR-027 and US6 scenarios 9–14 for conformance
 criteria.
 
-- **FR-027**: Pointer and order-key input outside the board bounds MUST produce no input action and no wire order; blank camera margins are not board targets.
+### v1.12 (2026-10-12) — Console review cleanup (issues #153 and #127)
+
+Scope: findings `F-CON-ST-001`…`F-CON-ST-010` (issue #153, evidence
+C-026/C-027/C-057) and `F-CON-RD-003/006/012/014` plus
+`F-CON-UI-002/003/004/005/007/009/010` (issue #127, evidence
+C-029/C-059/C-060). FR-009 is amended; FR-039 through FR-047 are added.
+Roster-ordering and seat-token clarifications that belong to absorbed
+feature 023 land in spec 010 v1.14 (feature 023 lives there, not in a
+`specs/023-*` directory).
+
+**Concurrency note (PR #189).** Open PR #189 (`security-sweep`) claims
+**v1.11** of THIS file (its FR-028…FR-038 transport/debug hardening,
+appended at end-of-file) and rewrites the same three header lines. This
+section is therefore numbered **v1.12** and appended after it: a textual
+conflict on the header block and the file tail is expected, and resolves
+by keeping both clarification sections in numeric order with the header
+carrying the highest version present. Do not renumber this section to
+claim v1.11, and do not merge PR #189 into this branch to dodge the
+conflict. Where the two drafts touch the same subject (module-global
+client state), v1.11 FR-029/FR-033 own the transport half and FR-045
+below owns the reducer/store half.
+
+**Already fixed on main — recorded as regression guards, not re-implemented:**
+
+- **Create-flow seat token (`F-CON-ST-002`)**: fixed by issue #74 (#159).
+  `runSeatCommand` captures the token from the transport and dispatches
+  `lobbyEnteredMatch` with it even when the match id is unknown
+  (`src/state/lobby-controller.ts`, `runSeatCommand` — the
+  `knownMatchId !== null || seatSessionToken !== null` guard). Pinned by
+  FR-046(a) and `tests/unit/state/lobby-controller.test.ts`.
+- **Pan clamp (`F-CON-ST-006`)**: fixed by #184. `clampCamera` bounds pan
+  to `±(board/2 − ½ cell)·zoom` (`src/qol/zoom.ts`), i.e. corner-cell-center
+  reachability per data-model §4 ("Pan is constrained by corner-center
+  reachability, not by a full-board-only clamp"), so the board can no
+  longer pan entirely off-screen. No spec text change — data-model §4 was
+  already normative; it is the guard.
+- **Heartbeat no-op (`F-CON-ST-004`) — wire half only; already fixed on
+  main**: the wire `pong` produces no console event at all
+  (`src/net/envelope-to-event.ts`, `pong` → `null`) and the lobby client
+  drops its own `pong` frame with a bare return
+  (`src/net/ws-lobby-client.ts`, `case 'pong': return`), so **no
+  production path ever dispatches a `pong` action**. Guarded by
+  `tests/unit/net/net.test.ts:92-101`; recorded here as a regression
+  guard, not re-implemented. What is NOT yet true is the **`reduce()`-level**
+  guarantee: `reduce()` rebuilds state on every call
+  (`src/state/reducer.ts`), so `reduce(state, pong, …)` returns a new
+  reference today even though the `pong` arm itself returns its input
+  unchanged. The `reduce()`-level same-reference guarantee for the
+  heartbeat echo is therefore **new in v1.12 and open work** (FR-045;
+  plan W2). The remaining allocation-churn half (map-view rebuilds on
+  unrelated state changes) is a performance item, not a requirement
+  change.
+
+**Citation notes:**
+
+- Issue #127's "spec 005 FR-009/FR-010/FR-020/FR-021; spec 018 FR-001"
+  maps to: FR-009 (amended — dialog focus restore), FR-039 (skip link,
+  fog roving, ARIA reference integrity, order-bar roving), FR-021 +
+  018-FR-001 (spectator help → FR-041), with FR-010/FR-020 as unchanged
+  context. Absorbed feature 018 is carried by THIS file at the v1.7
+  clarification (`018-FR-001`); there is no `specs/018-*` directory.
+- Issue #153's "spec 005 data-model §4" maps to the pan clamp, already
+  repaired by #184 (guard above). "Spec 023 FR-006 / spec 010 FR-023"
+  map to spec 010 (absorbed feature 023 and FR-023 live there) — see
+  spec 010 v1.14 for the ordering and seat-token clarifications.
+- The duplicate `FR-027` bullet that v1.10 appended at the end of this
+  file is removed; the requirements-list copy is authoritative (no
+  behavior change).
