@@ -224,6 +224,8 @@ export class ZoomPanController {
 
     private lastPanPoint: ScreenPoint | null = null;
 
+    private attached = false;
+
     /**
      * @param element The board-surface element events bind to (the area
      *                covering the canvas, shared with region-select).
@@ -236,6 +238,9 @@ export class ZoomPanController {
 
     /** Attach all listeners. Returns a disposer. */
     attach(): { readonly dispose: () => void } {
+        if (this.attached) {
+            return { dispose: () => undefined };
+        }
         const wheelHandler = (event: WheelEvent): void => {
             event.preventDefault();
             const state = this.store.getState();
@@ -312,13 +317,18 @@ export class ZoomPanController {
             () => this.element.removeEventListener('wheel', wheelHandler),
             () => this.element.removeEventListener('pointerdown', downHandler),
         );
+        this.attached = true;
         return {
             dispose: () => {
+                if (!this.attached) {
+                    return;
+                }
                 for (const off of this.listeners) {
                     off();
                 }
                 this.listeners.length = 0;
                 this.lastPanPoint = null;
+                this.attached = false;
             },
         };
     }
