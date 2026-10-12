@@ -119,7 +119,8 @@ export interface MatchmakerDeps {
  * Lifecycle:
  *   1. `createMatchmaker(config, deps)` → returns `Matchmaker`
  *   2. (host wires HTTP API on top; clients call create/join/etc.)
- *   3. `matchmaker.close()` → graceful shutdown (cancels timers, drops state)
+ *   3. `matchmaker.close()` → drops state; fires `unregisterMatch` per
+ *      residual record, best effort
  *
  * Threading: single-threaded Node event loop. All public methods are
  * synchronous (no `Promise`); the host calls them inside HTTP request
@@ -245,10 +246,12 @@ export interface Matchmaker {
   // -- Shutdown -------------------------------------------------------------
 
   /**
-   * Graceful shutdown. Cancels the empty-match sweep timer, fires
-   * `unregisterMatch` for every active match (best effort; networking
-   * closes connections with code 1001), and clears all in-memory state.
-   * After `close()`, the matchmaker is unusable.
+   * Graceful shutdown. Fires `unregisterMatch` for every match record
+   * still in the store (best effort — a throwing call is logged and
+   * never aborts the teardown; networking no-ops unknown ids and closes
+   * connections with code 1001), then clears all in-memory state.
+   * After `close()`, every mutating method throws while `stats()` stays
+   * readable.
    *
    * Idempotent.
    */
@@ -260,9 +263,9 @@ export interface Matchmaker {
 // ----------------------------------------------------------------------------
 
 /**
- * Construct a `Matchmaker` instance. Does NOT start any timers until
- * the first state-changing call (timers start lazily on the first
- * `createMatch` or `joinMatch` to keep cold-start cheap).
+ * Construct a `Matchmaker` instance. Does NOT start any timers — all
+ * sweeps are lazy, running on read paths with the injected clock
+ * (cold-start stays cheap).
  *
  * @param config Matchmaker-wide configuration. Use `MATCHMAKING_CONSTANTS`
  *               as the base and override fields as needed.

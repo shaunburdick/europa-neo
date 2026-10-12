@@ -26,7 +26,7 @@ function recordingLogger(): Logger & { lines: string[] } {
         lines,
         debug: (msg) => lines.push(`debug:${msg}`),
         info: (msg) => lines.push(`info:${msg}`),
-        warn: () => {},
+        warn: (msg) => lines.push(`warn:${msg}`),
         error: () => {},
     };
 }
@@ -128,6 +128,54 @@ describe('matchmaker — close()', () => {
         expect(stats.activeMatches).toBe(0);
         expect(stats.activePlayerSessions).toBe(0);
         expect(stats.fillingMatches).toBe(0);
+    });
+
+    it('FR-021: fires unregisterMatch per residual record exactly once across two closes (issue #147 test 5)', async () => {
+        const server = new FakeServer();
+        const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+        const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+
+        await mm.close();
+
+        expect(server.unregisterMatchCalls).toContain(created.data.matchId);
+        const afterFirst = server.unregisterMatchCalls.length;
+        await mm.close();
+        expect(server.unregisterMatchCalls).toHaveLength(afterFirst);
+
+        const stats = mm.stats();
+        expect(stats.activeMatches).toBe(0);
+        expect(stats.activePlayerSessions).toBe(0);
+        expect(() => mm.createMatch({ visibility: 'public', displayName: 'Bob' })).toThrow(/closed/);
+    });
+
+    it('FR-021: close() survives a throwing unregisterMatch — teardown completes and the failure is logged (issue #147 test 12)', async () => {
+        class ThrowingServer extends FakeServer {
+            override unregisterMatch(matchId: MatchId): void {
+                super.unregisterMatch(matchId);
+                throw new Error('simulated unregister failure');
+            }
+        }
+        const server = new ThrowingServer();
+        const logger = recordingLogger();
+        const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server, logger });
+        const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+
+        await expect(mm.close()).resolves.toBeUndefined();
+
+        expect(server.unregisterMatchCalls).toContain(created.data.matchId);
+        const stats = mm.stats();
+        expect(stats.activeMatches).toBe(0);
+        expect(stats.activePlayerSessions).toBe(0);
+        const afterFirst = server.unregisterMatchCalls.length;
+        await mm.close();
+        expect(server.unregisterMatchCalls).toHaveLength(afterFirst);
+        expect(logger.lines.some((l) => l.startsWith('warn:matchmaker: unregisterMatch failed'))).toBe(true);
     });
 });
 

@@ -1429,8 +1429,19 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         },
 
         close(): Promise<void> {
+            if (closed) {
+                return Promise.resolve();
+            }
             closed = true;
             for (const m of store.listMatches()) {
+                try {
+                    server.unregisterMatch(m.matchId);
+                } catch (err) {
+                    logger.warn('matchmaker: unregisterMatch failed during close', {
+                        matchId: m.matchId,
+                        error: formatError(err),
+                    });
+                }
                 store.deleteMatch(m.matchId);
             }
             for (const s of store.listSessions()) {
