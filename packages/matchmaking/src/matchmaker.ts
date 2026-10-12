@@ -108,6 +108,8 @@ import {
     createMatchRecordWithCreator,
     createRematchMatchRecord,
     createStatusBus,
+    releaseMatchSessions,
+    safeUnregisterMatch,
     transitionFillingToRunning,
     transitionRunningToFinished,
     transitionToCollected,
@@ -699,6 +701,13 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         logger.info('matchmaker: match finished', { matchId: event.matchId });
     }
 
+    function collectMatch(m: MatchRecord, atMs: number): void {
+        safeUnregisterMatch(server, logger, m.matchId);
+        releaseMatchSessions(store, m);
+        transitionToCollected(m, atMs, bus.emit);
+        totalCollected += 1;
+    }
+
     /**
      * Lazy expiry sweep (FR-009 + dispatch ruling 1): collect every
      * `finished` match whose open rematch window lapsed unresolved.
@@ -716,8 +725,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         for (const m of store.listMatches()) {
             const offer = m.rematch;
             if (m.status === 'finished' && offer !== null && isWindowClosed(offer, atMs)) {
-                transitionToCollected(m, atMs, bus.emit);
-                totalCollected += 1;
+                collectMatch(m, atMs);
                 swept += 1;
                 logger.info('matchmaker: rematch window expired; match collected', {
                     matchId: m.matchId,
@@ -753,18 +761,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             if (atMs - m.lastActivityAtMs < resolved.emptyMatchTtlMs) {
                 continue;
             }
-            // Release seated players' sessions before collecting: the seats
-            // die with the match. The identity guard skips any session that
-            // has already moved on to a different match (defensive; cannot
-            // happen while the seat holds the only binding).
-            for (const seat of m.seats.values()) {
-                const session = store.getSession(seat.playerSessionId);
-                if (session !== undefined && session.currentMatchId === m.matchId) {
-                    store.deleteSession(seat.playerSessionId);
-                }
-            }
-            transitionToCollected(m, atMs, bus.emit);
-            totalCollected += 1;
+            collectMatch(m, atMs);
             swept += 1;
             logger.info('matchmaker: empty-match TTL elapsed; match collected', {
                 matchId: m.matchId,
@@ -811,17 +808,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             if (atMs - m.finishedAtMs < resolved.resultsTtlMs) {
                 continue;
             }
-            // Release participants' sessions before collecting: the seats
-            // die with the match. The identity guard skips any session that
-            // has already moved on to a different match (defensive).
-            for (const seat of m.seats.values()) {
-                const session = store.getSession(seat.playerSessionId);
-                if (session !== undefined && session.currentMatchId === m.matchId) {
-                    store.deleteSession(seat.playerSessionId);
-                }
-            }
-            transitionToCollected(m, atMs, bus.emit);
-            totalCollected += 1;
+            collectMatch(m, atMs);
             swept += 1;
             logger.info('matchmaker: results TTL elapsed; match collected', {
                 matchId: m.matchId,
@@ -877,10 +864,14 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             if ('reason' in displayName) {
                 return {
                     ok: false,
-                    error: makeError('invalid_request', 'displayName must be a valid name within the configured length', {
-                        field: 'displayName',
-                        reason: displayName.reason,
-                    }),
+                    error: makeError(
+                        'invalid_request',
+                        'displayName must be a valid name within the configured length',
+                        {
+                            field: 'displayName',
+                            reason: displayName.reason,
+                        },
+                    ),
                 };
             }
             const acceptedDisplayName = displayName.trimmed;
@@ -964,10 +955,14 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             if ('reason' in displayName) {
                 return {
                     ok: false,
-                    error: makeError('invalid_request', 'displayName must be a valid name within the configured length', {
-                        field: 'displayName',
-                        reason: displayName.reason,
-                    }),
+                    error: makeError(
+                        'invalid_request',
+                        'displayName must be a valid name within the configured length',
+                        {
+                            field: 'displayName',
+                            reason: displayName.reason,
+                        },
+                    ),
                 };
             }
             const acceptedDisplayName = displayName.trimmed;
@@ -1141,8 +1136,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                     // (its seat died with the match); delete it per the GC
                     // sweeps' SC-005 no-leak discipline.
                     store.deleteSession(seat.playerSessionId);
-                    transitionToCollected(match, atMs, bus.emit);
-                    totalCollected += 1;
+                    collectMatch(match, atMs);
                     logger.info('matchmaker: filling match collected after final seat released', {
                         matchId: req.matchId,
                     });
@@ -1326,8 +1320,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
             // The original match is resolved → collected (data-model §4:
             // finished → collected on "rematch resolved").
-            transitionToCollected(match, atMs, bus.emit);
-            totalCollected += 1;
+            collectMatch(match, atMs);
 
             // The completing voter receives their fresh seat assignment.
             const callerSeat = newSeats.find((s) => s.seatIndex === seat.seatIndex);
@@ -1383,8 +1376,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             totalRematchDeclined += 1;
             // Any decline resolves the offer immediately (US4 AC-2): the
             // original match transitions to collected; no new match.
-            transitionToCollected(match, now(), bus.emit);
-            totalCollected += 1;
+            collectMatch(match, now());
             logger.info('matchmaker: rematch declined; match collected', {
                 matchId: req.matchId,
             });

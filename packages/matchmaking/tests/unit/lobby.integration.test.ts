@@ -40,7 +40,7 @@
 
 import type { ConnectionId, SessionToken } from '@europa/networking';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { MatchId, PlayerId } from '../../contracts/match-types';
+import type { MatchId } from '../../contracts/match-types';
 import type { Matchmaker } from '../../contracts/matchmaking-api';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type { GuestPlayerId, LobbyError, LobbyErrorCode, LobbyEvent } from '../../src/contracts/lobby-types';
@@ -375,7 +375,6 @@ describe('connectionClosed over the composed stack (R-006)', () => {
         await stack.service.close();
     });
 });
-
 
 describe('identity teardown and restore totality (FR-023 / issue #147)', () => {
     it('sweep then connectionClosed: teardown is a no-op — no throw, roster entry gone, handle freed', () => {
