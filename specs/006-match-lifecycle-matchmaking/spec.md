@@ -4,11 +4,11 @@
 
 **Created**: 2026-08-21
 
-**Last Updated**: 2026-09-12 (v1.7; issue #139 spec consolidation)
+**Last Updated**: 2026-10-11 (v1.8; issue #146 guest-identity resume secret)
 
-**Version**: 1.7
+**Version**: 1.8
 
-**Status**: Implemented (2026-09-12; universal PlayerId allocation + credential separation implemented — issue #74)
+**Status**: Implemented (2026-09-12; universal PlayerId allocation + credential separation implemented — issue #74); v1.8 resume-secret requirement closes the remaining bare-id restore gap (issue #146) — NOT yet implemented (security-sweep branch)
 
 **Input**: User description: "Lobby-lite flow from arrival to battle: pick a display name, browse/create matches, auto-start when players are seated, play to conclusion, see results, rematch. No persistent accounts in v1."
 
@@ -119,7 +119,7 @@ As a player, I want abandoned matches to resolve sensibly — my opponent wins a
 - **FR-010**: Disconnect-forfeit: if a seated player cannot be reconnected within the grace window (shared with feature 004 FR-007), the server MUST mark them forfeit; if one player remains, they win; if none remain, the match is destroyed.
 - **FR-011**: Empty unstarted matches MUST be garbage-collected after a short TTL; finished matches release resources after results delivery plus a grace period.
 - **FR-012**: All lifecycle transitions (created → filling → running → finished → collected) MUST be observable via protocol messages for client status displays.
-- **FR-013**: Match, guest identity, session, seat, and gameplay player IDs are non-secret correlation references and MAY appear in lifecycle records, URLs, wire payloads, logs, and diagnostics. This MUST NOT expose bearer credentials, enumerate private matches, or bypass authorization.
+- **FR-013**: Match, guest identity, session, seat, and gameplay player IDs are non-secret correlation references and MAY appear in lifecycle records, URLs, wire payloads, logs, and diagnostics. This MUST NOT expose bearer credentials, enumerate private matches, or bypass authorization. The non-secret classification covers the IDs only: the guest-identity resume secret (FR-018) and the session/reconnect/seat tokens are bearer credentials and MUST NOT appear on any of those surfaces.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -276,8 +276,10 @@ Contracts were updated in the same change set wherever behavior changed.
 
 - Player IDs and guest identity IDs are not private. Handles remain preferred
   for UI labels; a generic fallback or ID is acceptable without a handle.
-  `sessionToken` and `reconnectToken` remain secret bearer credentials.
-  Private-match non-enumeration and server-authoritative membership are
+  `sessionToken` and `reconnectToken` remain secret bearer credentials. As of
+  v1.8 the guest-identity resume secret is likewise a secret bearer credential
+  (it is not an id, and "non-secret" never covers it). Private-match
+  non-enumeration and server-authoritative membership are
   unchanged. `MatchId` is a non-secret routing/admission reference, not a
   session or reconnect bearer credential. It may be shared as the private join
   reference, but knowledge of it alone grants no seat, order, or view authority.
@@ -297,7 +299,7 @@ Rationale: spec 004 v1.5 collapses match-existence error codes (`match_not_found
 - The server-generated `GuestPlayerId` is the universal `PlayerId`: one value is created for a new guest identity and propagated unchanged through lobby, waiting match, seat, engine, wire, console, terminal result, and reconnect-grace state. Handles are labels only.
 - The ID persists across reload/reconnect, seat release/reassignment, and accepted rematches while the ephemeral guest identity remains active. Clearing browser storage, server restart, expiry/collection, or retirement ends the v1 lifecycle; no durable recovery is promised.
 - Future accounts may link to an existing guest identity at an explicit future boundary. Account migration, cross-device recovery, historical merge, and replacement-ID policy are out of scope and must not be guessed here.
-- IDs are non-secret correlation references. Admission and privileged operations require the applicable session/reconnect bearer credential; shareable links contain match IDs only.
+- IDs are non-secret correlation references. Admission and privileged operations require the applicable session/reconnect bearer credential (or, for identity restore, the guest-identity resume secret — FR-018/v1.8); shareable links contain match IDs only.
 - **FR-014**: Matchmaking MUST atomically assign one active 12-character NanoID-style universal ID per guest identity/seat and pass explicit IDs into engine initialization; it MUST NOT use `seatIndex + 1`.
 - **FR-015**: The ID MUST persist through active reconnect, seat reassignment, and accepted rematch, and MUST be unique among active identities; collisions MUST retry or fail closed.
 - **FR-016**: A bare ID MUST NOT authorize identity mutation, admission, eviction, forfeit, orders, or views; those operations require server-bound proof of possession.
@@ -309,3 +311,13 @@ Rationale: spec 004 v1.5 collapses match-existence error codes (`match_not_found
   - **012-FR-001**: Matchmaking MUST default the board size by player count: 2 players → 32×32, 3 players → 48×48, 4 players → 48×48. The single source of truth is a `BOARD_SIZE_DEFAULTS` map (`{ 2: 32, 3: 48, 4: 48 }`) in `@europa/matchmaking`; `DEFAULT_MATCH_SETTINGS.boardSize` remains 32 (the 2-player default). Per Clarifications v1.1, 64×64 is temporarily disabled; the allowed set is 32 | 48, and the map is the authoritative default source. The `contracts/board-size-defaults.ts` mirror moves from the absorbed feature directory into `006/contracts/` in the same change set.
   - **012-FR-004**: Matchmaking validation MUST continue to accept exactly 2, 3, or 4 players and reject other counts with `invalid_request` plus a `detail` message. Auto-start fires 2 seconds after the match is full, for every player count. No validation behavior changes.
 - **Contract move note**: the absorbed feature's `contracts/board-size-defaults.ts` is relocated to `006/contracts/` (same change set); the conformance suite's byte-identity check re-points at the new path.
+
+### v1.8 (2026-10-11) — Guest-identity resume secret closes the bare-id restore gap (issue #146, security-sweep)
+
+Rationale (honest conformance record): FR-016 (v1.6) already forbids a bare ID from authorizing identity mutation, admission, eviction, forfeit, orders, or views — but the shipped implementation still restores a grace-window identity from a bare `guestPlayerId` claim (`identityRegistry.restoreIdentity` via `lobbyService`), and handle rename/leave then ride that restored binding. The implementation is non-conformant with the spec's own intent; this amendment does not weaken FR-016, it supplies the missing credential the restore path must demand. The earlier fix that stopped ACTIVE-holder eviction (active claim → mint fresh) stays; it never covered the grace window, which is exactly the takeover window.
+
+- **FR-018**: Matchmaking MUST mint a per-identity guest resume secret at identity creation, regenerate it on every successful restore (so a captured secret is single-epoch), and deliver it ONLY to the owning connection through the directed identity event (spec 004 v1.11 FR-026 wire surface). Identity restore from a reconnect grace window, handle rename, and voluntary seat release MUST require either the correct resume secret or an existing server-bound session/reconnect/seat bearer credential. An id-only claim — with or without a matching handle, in grace or otherwise — MUST be treated as advisory: the server mints a fresh identity and MUST NOT mutate, reactivate, rename, evict, forfeit, or release anything. Sole exception: the same-connection idempotent refresh recorded below — authority there is the existing connection binding, never the id. An active holder MAY be superseded only by a claim carrying the matching resume secret (the owner's own reload); the superseded connection is closed exactly as a single-seat token re-claim closes the old socket (spec 004 edge case). The resume secret is a bearer credential: it MUST NOT appear in public projections, roster events, logs, diagnostics, URLs, or documentation examples, and the durable documentation-privacy check (spec 010) MUST reject it like any other credential.
+  - 2026-10-11 (Gate 2 re-entry; PO ruling — same-connection idempotent refresh; mirrors spec 004 v1.11 FR-027): when an id-only claim arrives on the connection ALREADY bound to that identity and the identity is active (not in a reconnect grace window), matchmaking MAY keep the existing binding as an idempotent refresh — no fresh identity is minted, no grace window starts, and nothing is reactivated, renamed, released, evicted, or superseded. The authority for keeping the binding is the pre-existing connection binding (established at first mint by the connection's own establishment, or at bind time via the resume secret or a session/reconnect credential); the claim's id stays advisory and grants nothing. The exception MUST NOT apply to any other connection claiming that id (mint fresh, even for an active identity), MUST NOT apply in grace (restore still requires the resume secret), and MUST NOT authorize rename or leave on that connection — those keep FR-018's credential requirements. This preserves the shipped refresh behavior pinned by the lobby-facade suite ("re-establishing the SAME identity starts no spurious grace window") without opening a takeover path for any other connection.
+- **Prose reconciliation**: the "IDs are non-secret correlation references" statements in FR-013, v1.2, and v1.6 remain true and unchanged in meaning — they classify the ID, never the resume secret. The specs said the ID grants no authority (FR-016); the implementation made it grant authority. The implementation is what changes.
+- **Behavioral compatibility**: pre-amendment clients that send id-only claims receive a fresh identity on reload (establishment never fails, matching the v1.6/feature-010 contract); identity churn on reload is the accepted cost of removing the impersonation path until those clients send the secret. No `NETWORK_API_VERSION` bump (additive fields only — spec 004 v1.11).
+- **Test expectations**: matchmaking identity-registry and lobby-service suites that currently assert grace restore from a bare id MUST be updated to assert mint-fresh for id-only claims arriving on any OTHER connection (including against an active identity) and for grace-window claims without the resume secret, and restore for secret-bearing claims. The existing same-connection pin — the lobby-facade suite's "re-establishing the SAME identity starts no spurious grace window" — MUST be preserved unchanged: it pins the sole carve-out in the 2026-10-11 FR-018 entry (scoped 2026-10-11, Gate 2 re-entry), and "mint-fresh for bare claims" never directed its rewrite. Feature-010 acceptance coverage (SC-010 reconnect trials) MUST drive reload-restore through the stored secret end-to-end.

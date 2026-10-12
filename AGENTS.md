@@ -39,6 +39,7 @@ This file governs any AI agent (primary or subagent) doing work in this reposito
 | `specs/013-semantic-url-routing/spec.md` | Console semantic URL routing |
 | `specs/014-structured-logging/spec.md` | Structured logging |
 | `specs/015-developer-debugging/spec.md` | Developer debugging tools |
+| `specs/016-security-sweep/spec.md` | Security-sweep amendment manifest (issues #152/#146/#129) — amends specs 004/005/006/007/010/013/015 in place; no standalone FRs |
 | `europa-source/.../rules.html` | Original mechanics — authoritative when specs are ambiguous |
 | `europa-source/.../controls.html` | Original control scheme (client console must match) |
 
@@ -50,7 +51,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 - **Branch**: `main` post-MVP merge — all new work on feature branches off `main`; never commit to `main` directly.
 - **Monorepo**: 10 packages, 13 CI workflows. Known tradeoff: repo-wide typechecking gap (each package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs — do NOT fix casually).
-- **Specs**: All 15 specs (001–015) Implemented. See `specs/` for the full list.
+- **Specs**: All 15 feature specs (001–015) Implemented. `specs/016-security-sweep/` is an amendment manifest in progress on the `security-sweep` branch (Phases 1–3 draft; nothing in it is yet implemented). See `specs/` for the full list.
 - **Open work**: see [GitHub issues](https://github.com/shaunburdick/europa-neo/issues) for the current backlog.
 - **Style**: Biome `>=2.5.0 <3`, Node `>=22`. Root config layers `biome-config-shaunburdick@1.0.0`. Per-package exception policies in `.specify/biome-migration.md`.
 
