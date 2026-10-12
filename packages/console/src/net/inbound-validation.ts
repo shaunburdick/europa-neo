@@ -143,6 +143,10 @@ function lobbyEventDiagnostic(event: unknown): string | null {
             return fieldsProblem(identity, [
                 ['handle', 'stringOrNull'],
                 ['guestPlayerId', 'optionalString'],
+                // Owner-only credential (004 FR-026): absent is legal
+                // (rename-path emissions carry none), so only a present
+                // value's type is checked.
+                ['resumeSecret', 'optionalString'],
             ]);
         }
         case 'snapshot': {

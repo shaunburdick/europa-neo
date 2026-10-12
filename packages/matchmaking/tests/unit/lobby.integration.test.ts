@@ -45,10 +45,11 @@ import type { Matchmaker } from '../../contracts/matchmaking-api';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type { GuestPlayerId, LobbyError, LobbyErrorCode, LobbyEvent } from '../../src/contracts/lobby-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
-import { createIdentityRegistry } from '../../src/internal/identityRegistry';
+import { createIdentityRegistry, type IdentityRegistry } from '../../src/internal/identityRegistry';
 import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';
 import { nextConnectionId } from '../fixtures/fakeMatchmakerBridge';
 import { FakeServer } from '../fixtures/fakeServer';
+import { requireResumeSecret } from '../fixtures/lobbyIdentities';
 
 // ----------------------------------------------------------------------------
 // Deterministic harness
@@ -98,6 +99,8 @@ interface Stack {
     readonly service: LobbyService & LobbyConnectionTeardown;
     /** Every outbound delivery, in order. */
     readonly delivered: Delivery[];
+    /** Registry seam: reads the owner-only secret without projecting it. */
+    readonly registry: IdentityRegistry;
 }
 
 /**
@@ -114,19 +117,20 @@ function buildStack(options: { graceMs?: number } = {}): Stack {
         now: () => clockMs,
     });
     const delivered: Delivery[] = [];
+    const registry = createIdentityRegistry({
+        randomId: guestRandomId,
+        now: () => clockMs,
+        ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
+    });
     const service = createLobbyService({
         matchmaker,
-        registry: createIdentityRegistry({
-            randomId: guestRandomId,
-            now: () => clockMs,
-            ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
-        }),
+        registry,
         now: () => clockMs,
         deliver: (connectionId, event) => {
             delivered.push({ connectionId, event });
         },
     });
-    return { server, matchmaker, service, delivered };
+    return { server, matchmaker, service, delivered, registry };
 }
 
 /** Establish a fresh unnamed identity; returns the connection and its minted guest id. */
@@ -329,7 +333,10 @@ describe('connectionClosed over the composed stack (R-006)', () => {
 
         // …and the claimant restores identity AND seat presence (FR-022).
         const reclaimConn = nextConnectionId();
-        const reclaimed = stack.service.establishIdentity({ guestPlayerId: host.guestId }, reclaimConn);
+        const reclaimed = stack.service.establishIdentity(
+            { guestPlayerId: host.guestId, resumeSecret: requireResumeSecret(stack.registry, host.guestId) },
+            reclaimConn,
+        );
         expect(reclaimed).toEqual({ handle: 'Nova', hasIdentity: true });
         expect(expectOk(stack.service.subscribe(reclaimConn)).activeMatchId).toBe(created.matchId);
         await stack.service.close();
@@ -367,7 +374,10 @@ describe('connectionClosed over the composed stack (R-006)', () => {
         // Identity restored within grace, but the read-only association
         // ended with the connection — spectators hold no seat to reclaim.
         const backConn = nextConnectionId();
-        const restored = stack.service.establishIdentity({ guestPlayerId: watcher.guestId }, backConn);
+        const restored = stack.service.establishIdentity(
+            { guestPlayerId: watcher.guestId, resumeSecret: requireResumeSecret(stack.registry, watcher.guestId) },
+            backConn,
+        );
         expect(restored).toEqual({ handle: 'Watcher', hasIdentity: true });
         expect(expectOk(stack.service.subscribe(backConn)).activeMatchId).toBeNull();
         await stack.service.close();

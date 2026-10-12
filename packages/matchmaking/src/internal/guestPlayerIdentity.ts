@@ -55,6 +55,15 @@ export interface GuestPlayerIdentity {
     disconnectedAtMs: number | null;
     /** Epoch ms when the identity was minted. */
     readonly createdAtMs: number;
+    /**
+     * Owner-only bearer credential (spec 006 FR-018, issue #146). Minted
+     * with the identity and regenerated on every successful claim-based
+     * restore, so a captured value is single-epoch (D3). It never leaves
+     * the registry except folded into the directed ESTABLISHMENT identity
+     * event by `lobbyService`; `projectIdentity` and every snapshot/roster
+     * projection are structurally built without it.
+     */
+    resumeSecret: string;
 }
 
 /** Arguments for {@linkcode createGuestPlayerIdentity}. */
@@ -63,16 +72,19 @@ export interface CreateGuestPlayerIdentityArgs {
     readonly id: GuestPlayerId;
     /** Injected wall-clock reading in epoch ms. */
     readonly nowMs: number;
+    /** Pre-minted owner-only resume secret (registry owns generation). */
+    readonly resumeSecret: string;
 }
 
 /**
  * Create a new guest identity with no handle and `active` status.
  *
- * @param args - Minted id plus the current wall-clock reading.
+ * @param args - Minted id, the current wall-clock reading, and the
+ *   pre-minted resume secret.
  * @returns A fresh `GuestPlayerIdentity` with all handle fields `null`.
  */
 export function createGuestPlayerIdentity(args: CreateGuestPlayerIdentityArgs): GuestPlayerIdentity {
-    const { id, nowMs } = args;
+    const { id, nowMs, resumeSecret } = args;
     return {
         id,
         handle: null,
@@ -80,5 +92,6 @@ export function createGuestPlayerIdentity(args: CreateGuestPlayerIdentityArgs): 
         status: 'active',
         disconnectedAtMs: null,
         createdAtMs: nowMs,
+        resumeSecret,
     };
 }

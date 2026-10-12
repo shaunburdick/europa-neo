@@ -34,13 +34,14 @@ import type { JoinPath, SeatIndex } from '../../contracts/match-types';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type {
     GuestPlayerId,
+    IdentityState,
     LobbyError,
     LobbyErrorCode,
     LobbyEvent,
     LobbySnapshot,
 } from '../../src/contracts/lobby-types';
 import { makeError } from '../../src/errors';
-import { createIdentityRegistry } from '../../src/internal/identityRegistry';
+import { createIdentityRegistry, type IdentityRegistry } from '../../src/internal/identityRegistry';
 import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';
 import {
     FakeMatchmakerBridge,
@@ -51,6 +52,7 @@ import {
     seatExpiredEvent,
     seatReconnectedEvent,
 } from '../fixtures/fakeMatchmakerBridge';
+import { requireResumeSecret } from '../fixtures/lobbyIdentities';
 import { buildSeatAssignment } from '../fixtures/lobbySnapshots';
 
 // ----------------------------------------------------------------------------
@@ -90,6 +92,8 @@ interface Harness {
     readonly bridge: FakeMatchmakerBridge;
     readonly service: LobbyService & LobbyConnectionTeardown;
     readonly delivered: Delivery[];
+    /** Registry seam: reads the owner-only secret without projecting it. */
+    readonly registry: IdentityRegistry;
 }
 
 /**
@@ -100,19 +104,20 @@ interface Harness {
 function buildHarness(options: { graceMs?: number } = {}): Harness {
     const bridge = new FakeMatchmakerBridge();
     const delivered: Delivery[] = [];
+    const registry = createIdentityRegistry({
+        randomId: fakeRandomId,
+        now: () => clockMs,
+        ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
+    });
     const service = createLobbyService({
         matchmaker: bridge,
-        registry: createIdentityRegistry({
-            randomId: fakeRandomId,
-            now: () => clockMs,
-            ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
-        }),
+        registry,
         now: () => clockMs,
         deliver: (connectionId, event) => {
             delivered.push({ connectionId, event });
         },
     });
-    return { bridge, service, delivered };
+    return { bridge, service, delivered, registry };
 }
 
 /** Establish a fresh unnamed identity; returns the connection and its minted guest id. */
@@ -184,11 +189,28 @@ describe('establishIdentity', () => {
         if (first === undefined || first.event.kind !== 'identity') {
             throw new Error('unreachable: one identity delivery asserted above');
         }
-        expect(first.event.identity).toEqual({ handle: null, hasIdentity: true, guestPlayerId: guest(1) });
+        // Issue #146 (plan AD-11 / W-9): the ESTABLISHMENT emission also
+        // carries the record's current owner-only secret — a fresh mint
+        // delivers the new one — while the RETURNED state above stays the
+        // facade's safe, secret-free projection.
+        expect(first.event.identity).toEqual({
+            handle: null,
+            hasIdentity: true,
+            guestPlayerId: guest(1),
+            resumeSecret: expect.any(String),
+        });
+        // Exactly four keys: the credential rides alongside the projection
+        // and nothing else leaks onto the directed delivery.
+        expect(Object.keys(first.event.identity).sort()).toEqual([
+            'guestPlayerId',
+            'handle',
+            'hasIdentity',
+            'resumeSecret',
+        ]);
     });
 
-    it('restores the same identity and handle for a matching claim within grace', () => {
-        const { service } = buildHarness();
+    it('mints FRESH for an id-only claim within grace (spec 006 "Test expectations")', () => {
+        const { service, registry } = buildHarness();
         const first = freshConnection(service);
         expectOk(service.setHandle(first.connectionId, 'Nova'));
 
@@ -198,11 +220,35 @@ describe('establishIdentity', () => {
         const second = freshConnection(service);
         expectOk(service.setHandle(second.connectionId, 'Other'));
 
+        // Knowledge of the id alone proves nothing (spec 004 FR-027): the
+        // claimant on ANOTHER connection gets a fresh, unnamed identity and
+        // the grace-window holder keeps its reserved handle.
         const restored = service.establishIdentity(
             { guestPlayerId: first.guestId, handle: 'Nova' },
             nextConnectionId(),
         );
+        expect(restored).toEqual({ handle: null, hasIdentity: true });
+        expect(registry.projectIdentity(first.guestId)).toEqual({ handle: 'Nova', hasIdentity: true });
+    });
+
+    it('restores the same identity and handle when the claim carries the resume secret', () => {
+        const { service, registry } = buildHarness();
+        const first = freshConnection(service);
+        expectOk(service.setHandle(first.connectionId, 'Nova'));
+        const secret = requireResumeSecret(registry, first.guestId);
+
+        service.connectionClosed(first.connectionId);
+        const second = freshConnection(service);
+        expectOk(service.setHandle(second.connectionId, 'Other'));
+
+        const restored = service.establishIdentity(
+            { guestPlayerId: first.guestId, resumeSecret: secret, handle: 'Nova' },
+            nextConnectionId(),
+        );
         expect(restored).toEqual({ handle: 'Nova', hasIdentity: true });
+        // Single-epoch (D3): the successful restore rotated the secret, so
+        // the value the claimant just presented is dead from here on.
+        expect(registry.resumeSecretOf(first.guestId)).not.toBe(secret);
     });
 
     it('silently mints a FRESH identity for a forged/unknown claim (never throws)', () => {
@@ -278,7 +324,7 @@ describe('establishIdentity', () => {
     });
 
     it("overwriting a connection releases the prior identity's SPECTATOR presence immediately", () => {
-        const { service, bridge } = buildHarness();
+        const { service, bridge, registry } = buildHarness();
         const host = namedConnection(service, 'Host');
         const filler = namedConnection(service, 'Filler');
         const watcher = namedConnection(service, 'Watcher');
@@ -302,9 +348,163 @@ describe('establishIdentity', () => {
         // Restoring the WATCHER's claim elsewhere (within grace) proves it:
         // the identity survives, but its match presence is already gone.
         const elsewhereConn = nextConnectionId();
-        const restored = service.establishIdentity({ guestPlayerId: watcher.guestId }, elsewhereConn);
+        const restored = service.establishIdentity(
+            { guestPlayerId: watcher.guestId, resumeSecret: requireResumeSecret(registry, watcher.guestId) },
+            elsewhereConn,
+        );
         expect(restored).toEqual({ handle: 'Watcher', hasIdentity: true });
         expect(expectOk(service.subscribe(elsewhereConn)).activeMatchId).toBeNull();
+    });
+});
+
+/**
+ * The most recent directed identity event delivered to `connectionId`
+ * (the delivery surface a real client stores from).
+ */
+function lastIdentityEvent(delivered: readonly Delivery[], connectionId: ConnectionId): IdentityState {
+    for (let index = delivered.length - 1; index >= 0; index--) {
+        const entry = delivered[index];
+        if (entry !== undefined && entry.connectionId === connectionId && entry.event.kind === 'identity') {
+            return entry.event.identity;
+        }
+    }
+    throw new Error(`fixture setup: no identity event delivered to ${connectionId}`);
+}
+
+describe('establishment emission secret semantics (plan AD-11 / W-9)', () => {
+    it('carries the record CURRENT secret for all three establishment outcomes', () => {
+        const { service, registry, delivered } = buildHarness();
+
+        // (1) Fresh mint → the NEW secret.
+        const first = freshConnection(service);
+        const minted = lastIdentityEvent(delivered, first.connectionId).resumeSecret;
+        expect(minted).toBeDefined();
+        expect(minted).toBe(registry.resumeSecretOf(first.guestId));
+
+        // (2) F-8 same-connection idempotent refresh (id-only, active) →
+        // the SAME, unchanged current secret: nothing rotates, nothing wipes.
+        service.establishIdentity({ guestPlayerId: first.guestId }, first.connectionId);
+        const refreshed = lastIdentityEvent(delivered, first.connectionId).resumeSecret;
+        expect(refreshed).toBe(minted);
+
+        // (3) Claim-based restore → the ROTATED successor.
+        service.connectionClosed(first.connectionId);
+        const back = nextConnectionId();
+        service.establishIdentity({ guestPlayerId: first.guestId, resumeSecret: minted ?? '' }, back);
+        const successor = lastIdentityEvent(delivered, back).resumeSecret;
+        expect(successor).toBeDefined();
+        expect(successor).not.toBe(minted);
+        expect(successor).toBe(registry.resumeSecretOf(first.guestId));
+    });
+
+    it('sends NO secret on the rename-path identity event', () => {
+        const { service, delivered, registry } = buildHarness();
+        const owner = freshConnection(service);
+        expectOk(service.setHandle(owner.connectionId, 'Nova'));
+
+        const renameEvent = lastIdentityEvent(delivered, owner.connectionId);
+        expect(renameEvent).toEqual({ handle: 'Nova', hasIdentity: true, guestPlayerId: owner.guestId });
+        expect(Object.hasOwn(renameEvent, 'resumeSecret')).toBe(false);
+        // The credential still exists server-side — it is simply not part
+        // of the rename emission.
+        expect(registry.resumeSecretOf(owner.guestId)).toBeDefined();
+    });
+
+    it('degrades a lost establishment delivery to mint-fresh churn, never a lockout (plan AD-1)', () => {
+        const bridge = new FakeMatchmakerBridge();
+        const delivered: Delivery[] = [];
+        const registry = createIdentityRegistry({ randomId: fakeRandomId, now: () => clockMs });
+        let sinkBroken = false;
+        const service = createLobbyService({
+            matchmaker: bridge,
+            registry,
+            now: () => clockMs,
+            deliver: (connectionId, event) => {
+                if (sinkBroken) {
+                    throw new Error('socket died before the event flushed');
+                }
+                delivered.push({ connectionId, event });
+            },
+        });
+
+        // First visit: the client learns S1 from the delivered event.
+        const first = freshConnection(service);
+        const s1 = lastIdentityEvent(delivered, first.connectionId).resumeSecret;
+        expect(s1).toBeDefined();
+        expectOk(service.setHandle(first.connectionId, 'Nova'));
+        service.connectionClosed(first.connectionId);
+
+        // Restore succeeds and rotates to S2 — but the delivery is lost, so
+        // the client still believes S1 is current.
+        sinkBroken = true;
+        service.establishIdentity({ guestPlayerId: first.guestId, resumeSecret: s1 ?? '' }, nextConnectionId());
+        sinkBroken = false;
+        const s2 = requireResumeSecret(registry, first.guestId);
+        expect(s2).not.toBe(s1);
+
+        // The client's next claim presents the now-dead S1: accepted churn
+        // (fresh identity), and the holder is neither evicted nor renamed.
+        const stale = service.establishIdentity(
+            { guestPlayerId: first.guestId, resumeSecret: s1 ?? '' },
+            nextConnectionId(),
+        );
+        expect(stale).toEqual({ handle: null, hasIdentity: true });
+        expect(registry.projectIdentity(first.guestId)).toEqual({ handle: 'Nova', hasIdentity: true });
+
+        // The successor the server is still holding does restore.
+        const withSuccessor = nextConnectionId();
+        const restored = service.establishIdentity({ guestPlayerId: first.guestId, resumeSecret: s2 }, withSuccessor);
+        expect(restored).toEqual({ handle: 'Nova', hasIdentity: true });
+    });
+});
+
+describe('id-only claims never authorize rename or leave (spec 010 FR-043)', () => {
+    it('mints fresh for an id-only claimant and leaves the holder untouched', () => {
+        const { service, registry, delivered } = buildHarness();
+        const owner = namedConnection(service, 'Nova');
+        service.connectionClosed(owner.connectionId); // grace window
+
+        // A DIFFERENT connection presents the bare id.
+        const intruderConn = nextConnectionId();
+        const established = service.establishIdentity({ guestPlayerId: owner.guestId }, intruderConn);
+
+        // Mint-fresh: the claimant is NOT bound to the identity it named.
+        expect(established).toEqual({ handle: null, hasIdentity: true });
+        const deliveredId = lastIdentityEvent(delivered, intruderConn).guestPlayerId;
+        expect(deliveredId).toBeDefined();
+        expect(deliveredId).not.toBe(owner.guestId);
+
+        // Its rename applies only to its own identity; the holder's handle
+        // stays reserved through grace.
+        expectOk(service.setHandle(intruderConn, 'Usurper'));
+        expect(registry.projectIdentity(owner.guestId)).toEqual({ handle: 'Nova', hasIdentity: true });
+        const rival = freshConnection(service);
+        expectErr(service.setHandle(rival.connectionId, 'Nova'), 'handle_taken');
+
+        // Its leave releases nothing of the holder's.
+        expectOk(service.leave(intruderConn));
+        expect(registry.projectIdentity(owner.guestId)).toEqual({ handle: 'Nova', hasIdentity: true });
+    });
+
+    it('rejects rename/leave on an unbound connection without disclosing whether an id exists', () => {
+        const { service } = buildHarness();
+        const owner = namedConnection(service, 'Nova');
+        const unbound = nextConnectionId();
+
+        const rename = service.setHandle(unbound, 'Usurper');
+        expectErr(rename, 'identity_invalid');
+        expectErr(service.leave(unbound), 'identity_invalid');
+        // No ID-existence disclosure (spec 004 FR-016): the generic error
+        // never echoes the target id back to the caller.
+        expect(JSON.stringify(rename)).not.toContain(owner.guestId);
+    });
+
+    it('accepts rename/leave on the connection that established the identity (binding proof)', () => {
+        const { service, delivered } = buildHarness();
+        const owner = namedConnection(service, 'Nova');
+        expectOk(service.setHandle(owner.connectionId, 'Nova2'));
+        expect(lastIdentityEvent(delivered, owner.connectionId).handle).toBe('Nova2');
+        expectOk(service.leave(owner.connectionId));
     });
 });
 
@@ -1024,7 +1224,7 @@ describe('connectionClosed (R-006 transport teardown)', () => {
     });
 
     it('unbinds and unsubscribes: the closed connection is gone and hears nothing more', () => {
-        const { service, delivered } = buildHarness({ graceMs: 1_000 });
+        const { service, delivered, registry } = buildHarness({ graceMs: 1_000 });
         const visitor = namedConnection(service, 'Visitor');
         expectOk(service.subscribe(visitor.connectionId));
         const deliveriesBefore = delivered.length;
@@ -1037,13 +1237,17 @@ describe('connectionClosed (R-006 transport teardown)', () => {
         expectErr(service.subscribe(visitor.connectionId), 'identity_invalid');
         expect(delivered).toHaveLength(deliveriesBefore);
 
-        // The IDENTITY survives under the registry's grace window.
-        const restored = service.establishIdentity({ guestPlayerId: visitor.guestId }, nextConnectionId());
+        // The IDENTITY survives under the registry's grace window — for a
+        // claimant that presents the owner-only secret it stored.
+        const restored = service.establishIdentity(
+            { guestPlayerId: visitor.guestId, resumeSecret: requireResumeSecret(registry, visitor.guestId) },
+            nextConnectionId(),
+        );
         expect(restored).toEqual({ handle: 'Visitor', hasIdentity: true });
     });
 
     it('keeps PLAYER presence through grace so a reclaim restores the seated identity', () => {
-        const { service } = buildHarness({ graceMs: 1_000 });
+        const { service, registry } = buildHarness({ graceMs: 1_000 });
         const host = namedConnection(service, 'Host');
         const created = expectOk(service.create(host.connectionId, undefined));
 
@@ -1051,13 +1255,16 @@ describe('connectionClosed (R-006 transport teardown)', () => {
 
         // FR-022: within grace the same claimant reclaims everything.
         const reclaimConn = nextConnectionId();
-        const reclaimed = service.establishIdentity({ guestPlayerId: host.guestId }, reclaimConn);
+        const reclaimed = service.establishIdentity(
+            { guestPlayerId: host.guestId, resumeSecret: requireResumeSecret(registry, host.guestId) },
+            reclaimConn,
+        );
         expect(reclaimed).toEqual({ handle: 'Host', hasIdentity: true });
         expect(expectOk(service.subscribe(reclaimConn)).activeMatchId).toBe(created.matchId);
     });
 
     it('releases SPECTATOR presence immediately (no seat exists to reclaim)', () => {
-        const { service, bridge } = buildHarness({ graceMs: 1_000 });
+        const { service, bridge, registry } = buildHarness({ graceMs: 1_000 });
         const host = namedConnection(service, 'Host');
         const filler = namedConnection(service, 'Filler');
         const watcher = namedConnection(service, 'Watcher');
@@ -1077,7 +1284,10 @@ describe('connectionClosed (R-006 transport teardown)', () => {
         service.connectionClosed(watcher.connectionId);
 
         const backConn = nextConnectionId();
-        const restored = service.establishIdentity({ guestPlayerId: watcher.guestId }, backConn);
+        const restored = service.establishIdentity(
+            { guestPlayerId: watcher.guestId, resumeSecret: requireResumeSecret(registry, watcher.guestId) },
+            backConn,
+        );
         expect(restored).toEqual({ handle: 'Watcher', hasIdentity: true });
         expect(expectOk(service.subscribe(backConn)).activeMatchId).toBeNull();
     });

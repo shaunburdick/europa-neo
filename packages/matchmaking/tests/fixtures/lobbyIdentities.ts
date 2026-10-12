@@ -28,6 +28,7 @@
  */
 
 import type { GuestIdentityClaim, GuestPlayerId, IdentityState, LobbyErrorCode } from '../../src/contracts/lobby-types';
+import type { IdentityRegistry } from '../../src/internal/identityRegistry';
 
 // ----------------------------------------------------------------------------
 // Branded id minting
@@ -55,6 +56,20 @@ export function nextGuestPlayerId(): GuestPlayerId {
 
 /** Overrides for {@link buildIdentityClaim}; omitted fields keep defaults. */
 export type IdentityClaimOverrides = Partial<GuestIdentityClaim>;
+
+/**
+ * Read an identity's current owner-only resume secret for a claim a
+ * test is about to present (spec 006 FR-018). Throws rather than
+ * returning `undefined` so a fixture mistake cannot silently degrade
+ * into an id-only claim — which would restore nothing by design.
+ */
+export function requireResumeSecret(registry: IdentityRegistry, guestId: GuestPlayerId): string {
+    const secret = registry.resumeSecretOf(guestId);
+    if (secret === undefined) {
+        throw new Error(`fixture setup: no resume secret held for ${guestId}`);
+    }
+    return secret;
+}
 
 /**
  * Build a `GuestIdentityClaim` (client-presented resume INPUT). Default

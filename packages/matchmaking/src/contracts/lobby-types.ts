@@ -110,6 +110,15 @@ export type LobbyStatus = 'waiting' | 'in_progress';
  * registry; otherwise it creates a fresh identity"). Both fields are
  * advisory: the server record is the sole authority (spec v1.1
  * amendment; edge case "client-provided … claims are advisory input").
+ *
+ * `resumeSecret` (spec 004 FR-026 / spec 006 FR-018, issue #146) is the
+ * owner-only proof of possession that authorizes a restore; a claim
+ * WITHOUT it is the advisory id-only form, which never restores,
+ * renames, releases, displaces, or evicts (spec 004 FR-027) — except
+ * for the same-connection idempotent refresh, whose authority is the
+ * pre-existing connection binding. Absence is tolerated on every side
+ * (older clients); the field is additive and does NOT change
+ * `NETWORK_API_VERSION` (spec 004 v1.11, D4).
  */
 export interface GuestIdentityClaim {
     /**
@@ -121,6 +130,12 @@ export interface GuestIdentityClaim {
     readonly guestPlayerId?: GuestPlayerId;
     /** Last locally-known handle; restored only if the server still holds it. */
     readonly handle?: string;
+    /**
+     * Owner-only restore proof delivered beside the id on the directed
+     * `identity` event (spec 010 FR-040); presented back on the next
+     * claim. Absent = advisory id-only claim.
+     */
+    readonly resumeSecret?: string;
 }
 
 /**
@@ -139,6 +154,14 @@ export interface GuestIdentityClaim {
  * authorizes an action; handles remain preferred for labels. Session and
  * reconnect tokens are protected bearer credentials and are not interchangeable
  * with identity IDs. Clients MUST tolerate the ID's absence.
+ *
+ * `resumeSecret` (spec 004 FR-026 / spec 010 FR-040, issue #146) is a bearer
+ * credential, not correlation data: it is delivered ONLY on the directed
+ * `identity` event, ONLY to the authenticated owner's connection, and ONLY by
+ * establishment-path emissions. Rename-path emissions carry none, and it never
+ * reaches snapshots, rosters, public projections, labels, URLs, or logs.
+ * Recipients MUST tolerate its absence and MUST NOT treat a secret-less event
+ * as a request to drop a stored secret (spec 010 FR-042, plan AD-9).
  */
 export interface IdentityState {
     /** Accepted handle, or `null` while the visitor has not chosen one. */
@@ -151,6 +174,11 @@ export interface IdentityState {
      * not a credential. Use the accepted handle as the human-facing label.
      */
     readonly guestPlayerId?: GuestPlayerId;
+    /**
+     * Owner-only restore credential, delivered on the directed `identity`
+     * event by establishment-path emissions only (FR-026 / FR-040).
+     */
+    readonly resumeSecret?: string;
 }
 
 // ----------------------------------------------------------------------------

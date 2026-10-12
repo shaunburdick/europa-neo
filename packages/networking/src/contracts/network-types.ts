@@ -679,15 +679,25 @@ export type LobbyStatus = 'waiting' | 'in_progress';
 
 /**
  * Client-presentable identity claim (feature 010). The browser stores
- * the non-secret correlation id + handle locally and MAY present them via
+ * the correlation id + handle locally and MAY present them via
  * `LobbyIdentityPayload` to restore a previous session's identity. The
  * server accepts the claim only when its registry still holds that
  * identity; otherwise it issues a fresh one. Purely advisory input —
  * never authority (spec FR-002/FR-021).
+ *
+ * `resumeSecret` (feature 004 FR-026, issue #146) is the owner-only
+ * proof of possession that actually authorizes a restore: knowledge of
+ * `guestPlayerId` alone restores nothing (FR-027). Absence is
+ * meaningful and tolerated — a claim without it is the advisory id-only
+ * form, which mints fresh rather than restoring. Recipients MUST accept
+ * the field being absent on both sides (older peers), and `NETWORK_API_VERSION`
+ * MUST NOT change for this additive addition (spec 004 v1.11, D4).
  */
 export interface GuestIdentityClaim {
   readonly guestPlayerId?: GuestPlayerId;
   readonly handle?: string;
+  /** Owner-only restore proof; absent = advisory id-only claim (FR-026/FR-027). */
+  readonly resumeSecret?: string;
 }
 
 /**
@@ -702,12 +712,23 @@ export interface GuestIdentityClaim {
  * accepted handle for labels. Its presence never authorizes an action, and
  * recipients MUST tolerate its absence (older servers). Session and reconnect
  * tokens remain protected bearer credentials and must not be treated this way.
+ *
+ * `resumeSecret` (feature 004 FR-026, issue #146) is the opposite kind of
+ * field: an owner-only bearer credential delivered ONLY on the directed
+ * `identity` event to the authenticated owner's single connection, and ONLY
+ * by establishment-path emissions (fresh mint, claim restore, same-connection
+ * refresh). It never reaches snapshots, rosters, public projections, labels,
+ * URLs, logs, or diagnostics. Clients MUST tolerate its absence — rename-path
+ * emissions carry none, and a secret-less event must never clear a stored
+ * secret (spec 010 FR-042, plan AD-9).
  */
 export interface IdentityState {
   readonly handle: string | null;
   readonly hasIdentity: true;
    /** Non-secret identity reference for correlation; handles are preferred labels. */
   readonly guestPlayerId?: GuestPlayerId;
+  /** Owner-only restore credential; present only on establishment delivery (FR-026). */
+  readonly resumeSecret?: string;
 }
 
 /**

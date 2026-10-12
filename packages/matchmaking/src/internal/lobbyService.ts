@@ -688,9 +688,36 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
      * server validation still controls match seats, orders, reconnect tokens,
      * and fog views. Handles are preferred for labels, and bearer tokens remain
      * protected.
+     *
+     * Used by RENAME-path emissions, which must stay secret-free.
      */
     function withOwnerId(safe: IdentityState, owner: GuestPlayerId): IdentityState {
         return Object.freeze({ handle: safe.handle, hasIdentity: true, guestPlayerId: owner });
+    }
+
+    /**
+     * Compose the ESTABLISHMENT-path directed identity payload: the safe
+     * projection plus the owner's id AND the record's CURRENT resume secret
+     * (plan AD-11 / contract W-9). All three establishment outcomes carry it
+     * — fresh mint → the new secret, claim-based restore → the rotated
+     * successor, same-connection refresh → the unchanged current value — read
+     * through the internal-only `resumeSecretOf` accessor at the moment of
+     * delivery. This is the ONLY place the facade attaches the owner-only
+     * credential to an event; every projection and the rename path go through
+     * `withOwnerId` and structurally cannot.
+     */
+    function withDeliveryIdentity(
+        safe: IdentityState,
+        owner: GuestPlayerId,
+        resumeSecret: string | undefined,
+    ): IdentityState {
+        if (resumeSecret === undefined) {
+            // Unreachable in practice (activeId was resolved through the
+            // registry one statement earlier); degrade to the id-only
+            // delivery rather than inventing a credential.
+            return withOwnerId(safe, owner);
+        }
+        return Object.freeze({ handle: safe.handle, hasIdentity: true, guestPlayerId: owner, resumeSecret });
     }
 
     // -- Projection (THE single path — see module header) ------------------------
@@ -994,8 +1021,12 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             const guestId = guestOf(event.connectionId);
             // Only a grace-window identity needs reactivating; an already
             // active identity must not be re-minted (issue #74 T026).
-            if (guestId !== undefined && registry.isInGrace(guestId)) {
-                registry.restoreIdentity({ guestPlayerId: guestId });
+            // Authority here is the seat credential the transport already
+            // verified upstream — NOT the id — so this uses the
+            // server-internal `reactivate` seam rather than presenting a
+            // bare-id claim to `restoreIdentity` (plan AD-2, spec 006 FR-018).
+            if (guestId !== undefined) {
+                registry.reactivate(guestId);
             }
             recomputeAndPublish();
         },
@@ -1092,9 +1123,15 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 // mint a replacement or start a spurious grace window.
                 activeId = previous;
             } else {
-                // Grace-only restore: a bare id for an ACTIVE identity mints
-                // a fresh identity instead of evicting the incumbent (spec
-                // 006 FR-016 / spec 010 v1.11 credential separation).
+                // Claim path (spec 006 FR-018 / spec 004 FR-027): only a
+                // claim presenting the CURRENT resume secret can resume or
+                // supersede an existing record; a bare id is advisory and
+                // mints a fresh identity, leaving the incumbent untouched
+                // in grace or active. A secret-bearing claim against an
+                // ACTIVE holder supersedes it (D2 — the owner's own reload
+                // racing the old socket), and `bindConnection` below evicts
+                // the stale connection's binding + subscription, which is
+                // this facade's existing single-seat supersession semantic.
                 const identityRestore = registry.restoreIdentity(claim);
                 // Re-establishment overwrite (review F-8): a connection bound
                 // to a DIFFERENT guest releases that guest exactly as a
@@ -1108,6 +1145,9 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             }
             const projected = registry.projectIdentity(activeId);
             const state: IdentityState = projected ?? Object.freeze({ handle: null, hasIdentity: true });
+            // Read the CURRENT secret at delivery time: mint → new, claim
+            // restore → the rotated successor, F-8 refresh → unchanged.
+            const resumeSecret = registry.resumeSecretOf(activeId);
             logger.info('lobbyService: player joined lobby', {
                 handle: projected !== undefined && projected.handle !== null ? sanitizeLogText(projected.handle) : null,
                 connectionId,
@@ -1117,8 +1157,11 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 // FR-003 delivery channel (spec Clarifications v1.6): the
                 // directed event carries the owner's non-secret ID for
                 // correlation, and the sink routes it to THIS connection.
-                // The return value above remains the facade's safe projection.
-                identity: projected === undefined ? state : withOwnerId(projected, activeId),
+                // Since issue #146 it ALSO carries the record's current
+                // resume secret for every establishment outcome (plan
+                // AD-11 / W-9); the return value below remains the
+                // facade's safe, secret-free projection.
+                identity: projected === undefined ? state : withDeliveryIdentity(projected, activeId, resumeSecret),
             });
             // Feature 023 FR-008/FR-009: add or update the roster entry.
             // Players without a handle (not yet onboarded) are excluded
