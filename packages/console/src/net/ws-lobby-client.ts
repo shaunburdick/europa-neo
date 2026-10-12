@@ -510,19 +510,22 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     // -- Logging + privacy choke point ------------------------------------------
 
     /**
-     * Every opaque identity-claim id this session has held: bootstrap mints,
-     * values restored from storage, and server-delivered replacements
-     * (feature 010 Clarifications v1.6). At the adoption moment two
-     * live values exist — the stale local mint and the server-issued
-     * successor — and log lines or server text from either era must
-     * come out clean, so {@link redact} scrubs them ALL.
+     * Every opaque identity-claim value this session has known: adopted
+     * guest ids, restored/delivered resume secrets, and their stale
+     * predecessors (feature 010 Clarifications v1.6, spec 010 FR-042).
+     * At the adoption moment two live values can exist — the stale local
+     * claim and the server-issued successor — and log lines or server
+     * text from either era must come out clean, so {@link redact}
+     * scrubs them ALL. Registering the resume secret here is the client's
+     * redaction choke point for the owner-only credential (plan AD-9).
      */
     const knownIdentityClaims = new Set<string>();
 
     /**
-     * Scrub every occurrence of ANY known guest-ID identity claim out of
-     * `text`. Defense-in-depth: our own messages do not need to expose this
-     * advisory correlation value, and this catches server-authored text
+     * Scrub every occurrence of ANY known claim value out of `text` —
+     * guest ids (non-secret, but not worth echoing) and resume secrets
+     * (bearer credentials). Defense-in-depth: our own messages do not
+     * need to expose these values, and this catches server-authored text
      * echoing one back.
      */
     function redact(text: string): string {
@@ -596,11 +599,14 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             if (restored.guestPlayerId !== null) {
                 knownIdentityClaims.add(restored.guestPlayerId);
             }
+            if (restored.resumeSecret !== null) {
+                knownIdentityClaims.add(restored.resumeSecret);
+            }
             currentClaim = restored;
             confirmedHandle = restored.handle;
             return restored;
         }
-        const fresh: StoredLobbyClaim = { guestPlayerId: null, handle: null };
+        const fresh: StoredLobbyClaim = { guestPlayerId: null, resumeSecret: null, handle: null };
         currentClaim = fresh;
         confirmedHandle = null;
         return fresh;
@@ -618,12 +624,14 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     }
 
     /**
-     * Drop the claim everywhere (storage + memory + handle) after the
-     * server signals it is dead (`identity_expired`/`server_restarted`)
-     * or the visitor explicitly forgets. The browser never mints a
-     * replacement: the NEXT establish cycle presents an empty advisory
-     * claim and adopts the server-issued id from the directed `identity`
-     * event.
+     * Drop the claim everywhere — id, resume secret, and handle together
+     * (storage + memory) — after the server signals it is dead
+     * (`identity_expired`/`server_restarted`) or the visitor explicitly
+     * forgets. This is the ONLY path that clears the credential: a
+     * secret-less identity event must never do it (plan AD-9/Q1a). The
+     * browser never mints a replacement: the NEXT establish cycle
+     * presents an empty advisory claim and adopts the server-issued
+     * values from the directed `identity` event.
      */
     function invalidateClaim(reason: string): void {
         clearStoredClaim(storage);
@@ -633,7 +641,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     }
 
     /**
-     * Adopt a server-issued opaque id (feature 010 Clarifications
+     * Adopt the server-issued opaque id (feature 010 Clarifications
      * v1.6): the directed `identity` event is THE FR-003 delivery
      * channel, so the id the SERVER resolved always wins over the
      * local bootstrap mint. When it differs, our presented claim was
@@ -643,40 +651,68 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      * restore work end-to-end. Also self-heals a claim-less client
      * (e.g., storage was cleared mid-session) from the delivered id.
      *
+     * The `{ guestPlayerId, resumeSecret }` pair is overwritten ONLY when
+     * the event actually carries a secret (plan AD-9, spec 010 FR-042):
+     * a secret-less emission — the rename path, or an older server —
+     * carries the stored credential forward UNCHANGED, because a
+     * delivered secret always supersedes the stored one (single-epoch)
+     * while its absence says nothing about the credential we already
+     * hold. Only `invalidateClaim` clears it.
+     *
+     * @param delivered      Server-issued id on the event, if any.
+     * @param deliveredSecret Owner-only secret on the same event, if any.
      * @returns `true` when the claim's id CHANGED because of this
      *   delivery (the presented claim did not match the server's).
      */
-    function adoptServerGuestId(delivered: GuestPlayerId | undefined): boolean {
+    function adoptServerGuestId(delivered: GuestPlayerId | undefined, deliveredSecret: string | undefined): boolean {
         if (delivered === undefined) {
             return false;
         }
         knownIdentityClaims.add(delivered);
+        if (deliveredSecret !== undefined) {
+            knownIdentityClaims.add(deliveredSecret);
+        }
+        // Absent on the event → keep whatever we already stored; present →
+        // it wins (and is registered above for redaction either way).
+        const secret = deliveredSecret !== undefined ? deliveredSecret : (currentClaim?.resumeSecret ?? null);
         if (currentClaim === null) {
-            const adopted: StoredLobbyClaim = { guestPlayerId: delivered, handle: confirmedHandle };
+            const adopted: StoredLobbyClaim = {
+                guestPlayerId: delivered,
+                resumeSecret: secret,
+                handle: confirmedHandle,
+            };
             currentClaim = adopted;
             persistClaim();
             return true;
         }
-        if (currentClaim.guestPlayerId === delivered) {
+        const idChanged = currentClaim.guestPlayerId !== delivered;
+        if (!idChanged && currentClaim.resumeSecret === secret) {
             return false;
         }
-        const successor: StoredLobbyClaim = { guestPlayerId: delivered, handle: currentClaim.handle };
+        const successor: StoredLobbyClaim = {
+            guestPlayerId: delivered,
+            resumeSecret: secret,
+            handle: currentClaim.handle,
+        };
         currentClaim = successor;
         persistClaim();
-        return true;
+        return idChanged;
     }
 
     /**
-     * Build the advisory wire claim. The canonical identity is omitted
-     * entirely until the server has issued one (issue #74: the wire
-     * validator rejects an explicit `null`, and a first connect carries
-     * no identity), as is an unset handle
-     * (exactOptionalPropertyTypes).
+     * Build the advisory wire claim: the stored id, handle, AND the
+     * owner-only resume secret that proves possession of that id — the
+     * proof the server requires before it restores anything (spec 006
+     * FR-018). The canonical identity is omitted entirely until the
+     * server has issued one (issue #74: the wire validator rejects an
+     * explicit `null`, and a first connect carries no identity), as are
+     * an unset handle and an unset secret (exactOptionalPropertyTypes).
      */
     function wireClaim(claim: StoredLobbyClaim): GuestIdentityClaim {
         const identity = claim.guestPlayerId === null ? {} : { guestPlayerId: claim.guestPlayerId };
         const handle = claim.handle === null ? {} : { handle: claim.handle };
-        return { ...identity, ...handle };
+        const secret = claim.resumeSecret === null ? {} : { resumeSecret: claim.resumeSecret };
+        return { ...identity, ...handle, ...secret };
     }
 
     // -- State + listener plumbing --------------------------------------------------
@@ -1116,7 +1152,11 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      * the handshake gate (advance to subscribe). A server-delivered
      * `guestPlayerId` (feature 010 Clarifications v1.6) is adopted as
      * the resume claim FIRST — the server's id always wins over the
-     * local bootstrap mint. A handle dropping to `null` after having
+     * local bootstrap mint — together with its resume secret when the
+     * event carries one (spec 010 FR-040). A secret-less event (the
+     * rename path, or an older server) PRESERVES the stored secret
+     * (plan AD-9/Q1a), so a routine rename can never null the credential
+     * a later reload needs. A handle dropping to `null` after having
      * been set means the server forgot us: the stale claim is
      * invalidated so the next cycle presents a fresh one ("landing
      * page starts a fresh session" — spec edge case) — UNLESS the
@@ -1137,11 +1177,13 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             identity.guestPlayerId === undefined ||
             currentClaim === null ||
             identity.guestPlayerId === currentClaim.guestPlayerId;
-        // FR-003 delivery channel: server-delivered id replaces the
-        // local mint and is persisted immediately.
-        const superseded = adoptServerGuestId(identity.guestPlayerId);
+        // FR-003 delivery channel: server-delivered id (and, on
+        // establishment events, its resume secret) replace the local
+        // claim and are persisted immediately. A secret-less event
+        // carries the stored credential forward unchanged (plan AD-9).
+        const superseded = adoptServerGuestId(identity.guestPlayerId, identity.resumeSecret);
         if (currentClaim !== null && currentClaim.handle !== identity.handle) {
-            currentClaim = { guestPlayerId: currentClaim.guestPlayerId, handle: identity.handle };
+            currentClaim = { ...currentClaim, handle: identity.handle };
             persistClaim();
         }
         if (hadHandle && identity.handle === null && !superseded) {

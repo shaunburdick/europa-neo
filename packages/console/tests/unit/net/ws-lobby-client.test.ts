@@ -32,7 +32,12 @@ import { parseGuestPlayerId } from '@europa/core';
 import type { GuestPlayerId, IdentityState, LobbyEvent, LobbyRevision, MatchId } from '@europa/matchmaking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LOBBY_STORAGE_KEY, type LobbyStorage, type StoredLobbyClaim } from '../../../src/net/lobby-storage';
+import {
+    LOBBY_STORAGE_KEY,
+    type LobbyStorage,
+    REDACTION_MARKER,
+    type StoredLobbyClaim,
+} from '../../../src/net/lobby-storage';
 import {
     createWsLobbyClient,
     LobbyActionRejectedError,
@@ -253,18 +258,21 @@ function snapshot(revision: number, matchId: string | null = null): LobbySnapsho
 
 /**
  * Build a directed `identity` lobby event. `guestPlayerId` models the
- * v1.6 server-delivered resume claim (absent = older-server shape).
+ * v1.6 server-delivered resume claim (absent = older-server shape);
+ * `resumeSecret` models the issue #146 establishment delivery (absent =
+ * a rename-path emission or an older server, both of which must leave
+ * the stored credential alone).
  */
 function identityEvent(
     handle: string | null,
     guestPlayerId?: GuestPlayerId,
+    resumeSecret?: string,
 ): Extract<LobbyEvent, { kind: 'identity' }> {
+    const identity: IdentityState =
+        guestPlayerId === undefined ? { handle, hasIdentity: true } : { handle, hasIdentity: true, guestPlayerId };
     return {
         kind: 'identity',
-        identity:
-            guestPlayerId === undefined
-                ? ({ handle, hasIdentity: true } satisfies IdentityState)
-                : ({ handle, hasIdentity: true, guestPlayerId } satisfies IdentityState),
+        identity: resumeSecret === undefined ? identity : { ...identity, resumeSecret },
     };
 }
 
@@ -767,6 +775,120 @@ describe('claim persistence', () => {
         await settlePromises();
         expect(harness.storage.read()).toBeNull();
         expect(harness.client.state().hasClaim).toBe(false);
+    });
+});
+
+describe('resume secret adoption, preservation, and presentation (spec 010 FR-040/FR-042)', () => {
+    const SECRET_A = '2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10';
+    const SECRET_B = 'b7e1d4c2-9a3f-4c58-8e01-6d2b9f0a7c33';
+
+    it('stores the establishment delivery and overwrites it when a new secret arrives', async () => {
+        const { socket, storage } = await readyHarness();
+        expect(JSON.parse(storage.read() ?? '{}') as StoredLobbyClaim).toMatchObject({ resumeSecret: null });
+
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A, SECRET_A));
+        await settlePromises();
+        expect(JSON.parse(storage.read() ?? '{}') as StoredLobbyClaim).toMatchObject({
+            guestPlayerId: SERVER_ID_A,
+            resumeSecret: SECRET_A,
+            handle: 'Nova',
+        });
+
+        // Single-epoch: a later establishment delivery supersedes the
+        // stored credential outright (plan AD-9).
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A, SECRET_B));
+        await settlePromises();
+        expect(JSON.parse(storage.read() ?? '{}') as StoredLobbyClaim).toMatchObject({ resumeSecret: SECRET_B });
+    });
+
+    it('a secret-less identity event PRESERVES the stored secret (plan AD-9/Q1a)', async () => {
+        const { socket, storage } = await readyHarness();
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A, SECRET_A));
+        await settlePromises();
+
+        // The rename-path emission carries id + handle and NO secret: the
+        // credential a later reload needs must survive it untouched.
+        socket.deliverLobby(identityEvent('Renamed', SERVER_ID_A));
+        await settlePromises();
+
+        expect(JSON.parse(storage.read() ?? '{}') as StoredLobbyClaim).toMatchObject({
+            guestPlayerId: SERVER_ID_A,
+            resumeSecret: SECRET_A,
+            handle: 'Renamed',
+        });
+    });
+
+    it('clears id AND secret together on invalidation, and forgets both', async () => {
+        const { client, socket, storage } = await readyHarness();
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A, SECRET_A));
+        await settlePromises();
+        expect(storage.read()).not.toBeNull();
+
+        socket.deliverLobby(errorEvent(undefined, 'server_restarted'));
+        await settlePromises();
+
+        expect(storage.read()).toBeNull();
+        expect(client.state().hasClaim).toBe(false);
+    });
+
+    it('presents the stored secret with the id on the next establish cycle', async () => {
+        const harness = createHarness();
+        const connecting = harness.client.connect('ws://lobby');
+        const socket = await establish(1, SERVER_ID_A);
+        await connecting;
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A, SECRET_A));
+        await settlePromises();
+
+        socket.transportClose(1006);
+        harness.scheduler.advance(500); // first backoff delay
+        const nextSocket = FakeWebSocket.instances[FakeWebSocket.instances.length - 1];
+        if (!(nextSocket instanceof FakeWebSocket)) {
+            throw new Error('no retry socket created');
+        }
+        nextSocket.open();
+        nextSocket.deliver('helloAck', {
+            protocolVersion: NETWORK_API_VERSION,
+            connectionId: 'c2',
+            heartbeatIntervalMs: 60_000,
+        });
+
+        const claim = sentEnvelope(nextSocket, 1).payload.claim as Record<string, unknown>;
+        expect(claim.guestPlayerId).toBe(SERVER_ID_A);
+        expect(claim.resumeSecret).toBe(SECRET_A);
+    });
+
+    it('omits the secret from the wire claim when none is stored (legacy v1 record)', async () => {
+        const storage = new MemoryStorage();
+        storage.seed(JSON.stringify({ guestPlayerId: SERVER_ID_A, handle: 'Nova' }));
+        const harness = createHarness({ storage });
+        const connecting = harness.client.connect('ws://lobby');
+        const socket = await establish(1, SERVER_ID_A);
+        await connecting;
+
+        const claim = sentEnvelope(socket, 1).payload.claim as Record<string, unknown>;
+        expect(claim.guestPlayerId).toBe(SERVER_ID_A);
+        expect(claim.handle).toBe('Nova');
+        expect(claim.resumeSecret).toBeUndefined();
+    });
+
+    it('never lets the resume secret reach logs or error reports (redaction choke point)', async () => {
+        const { socket, logs, errors } = await readyHarness();
+        socket.deliverLobby(identityEvent('Nova', SERVER_ID_A, SECRET_A));
+        await settlePromises();
+
+        // A hostile server echoing the credential back through an
+        // uncorrelated error must come out scrubbed everywhere it lands.
+        socket.deliverLobby({
+            kind: 'error',
+            code: 'handle_taken',
+            message: `rejected while holding ${SECRET_A}`,
+        });
+        await settlePromises();
+
+        const flattened = logs.map((entry) => `${entry.msg} ${JSON.stringify(entry.ctx)}`).join('\n');
+        expect(flattened).not.toContain(SECRET_A);
+        expect(flattened).toContain(REDACTION_MARKER);
+        expect(errors.some((report) => report.message.includes(SECRET_A))).toBe(false);
     });
 });
 
