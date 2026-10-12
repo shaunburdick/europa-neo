@@ -102,15 +102,6 @@ function isMatchClientLike(value: unknown): value is MatchClientLike {
 }
 
 /**
- * Monotonic SequenceNumber source for outbound orders — the FALLBACK
- * for inner clients without `lastOrderSeq()` (test doubles). The real
- * browser client reports its true wire seq, which also counts hello /
- * joinMatch frames. Acks are correlated back through
- * {@link ConsoleClientImpl.seqToActionId}.
- */
-let nextWireSeq = 0;
-
-/**
  * Join-role selection for lobby-initiated legs (feature 010 T-016).
  *
  * Structural EXTENSION of the contract config — the contract mirror
@@ -182,6 +173,19 @@ class ConsoleClientImpl implements ConsoleClient {
     /** Wire seq → console ActionId correlation for order acks (T031 ctx). */
     readonly seqToActionId = new Map<SequenceNumber, ActionId>();
 
+    /**
+     * Fallback monotonic SequenceNumber source for outbound orders —
+     * used only for inner clients without `lastOrderSeq()` (test
+     * doubles); the real browser client reports its true wire seq,
+     * which also counts hello / joinMatch frames. Acks correlate back
+     * through {@link ConsoleClientImpl.seqToActionId}.
+     *
+     * Per-INSTANCE (005 FR-033): a module-global counter here would
+     * hand one instance's seqs to another, and the fallback counter is
+     * the correlation key.
+     */
+    private nextWireSeq = 0;
+
     constructor(config: ConsoleClientConfigWithRole, client: MatchClientLike, logger?: ConsoleLoggerLike) {
         this.config = config;
         this.client = client;
@@ -241,8 +245,8 @@ class ConsoleClientImpl implements ConsoleClient {
             this.seqToActionId.set(reported, actionId);
             this.log('debug', 'sendOrder', { seq: reported, actionId });
         } else {
-            nextWireSeq += 1;
-            const seq = nextWireSeq as SequenceNumber;
+            this.nextWireSeq += 1;
+            const seq = this.nextWireSeq as SequenceNumber;
             this.seqToActionId.set(seq, actionId);
             this.log('debug', 'sendOrder', { seq, actionId });
         }

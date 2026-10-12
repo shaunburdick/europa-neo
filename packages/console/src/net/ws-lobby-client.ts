@@ -381,14 +381,6 @@ const globalScheduler: LobbyScheduler = {
 /** Outcome envelope used to settle pending actions exactly once. */
 type ActionOutcome = { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: Error };
 
-/**
- * Captured seat session token from the most recent seat-granting
- * `actionAccepted` event. The controller reads this AFTER the command
- * resolves to pass it to the match leg for a correct-seat wire join.
- * Reset to `null` at the start of each establish cycle.
- */
-let lastCapturedSeatSessionToken: string | null = null;
-
 /** One in-flight correlated action awaiting its echoed actionId. */
 interface PendingAction {
     readonly description: string;
@@ -456,6 +448,17 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     let activeUrl: string | null = null;
     let clientSeq = 0;
     let actionCounter = 0;
+    /**
+     * Captured seat session token from the most recent seat-granting
+     * `actionAccepted` event. The controller reads this AFTER the command
+     * resolves to pass it to the match leg for a correct-seat wire join.
+     * Reset to `null` at the start of each establish cycle.
+     *
+     * INSTANCE-SCOPED (005 FR-033): a bearer credential, so it lives in
+     * this client's closure — no other instance can read it, existing or
+     * later-created.
+     */
+    let lastCapturedSeatSessionToken: string | null = null;
 
     /** In-memory claim (source of truth; storage is the write-through). */
     let currentClaim: StoredLobbyClaim | null = null;

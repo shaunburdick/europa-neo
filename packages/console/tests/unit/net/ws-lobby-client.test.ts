@@ -445,6 +445,34 @@ describe('establish cycle', () => {
     });
 });
 
+describe('instance isolation (FR-033)', () => {
+    it('a captured seat session token never crosses instances', async () => {
+        // Two instances through interleaved lifecycles: A captures a
+        // seat credential from its own actionAccepted event; B (created
+        // after, then run through its own establish cycle) must never
+        // read A's bearer value, and A's capture must survive B's
+        // lifecycle. The seat token is a bearer credential — a shared
+        // module slot would leak it across clients.
+        const a = await readyHarness();
+        a.socket.deliverLobby({
+            kind: 'actionAccepted',
+            actionId: 9_999 as never,
+            transition: 'waiting',
+            seatSessionToken: 'seat-token-a',
+        });
+        expect(a.client.lastSeatSessionToken()).toBe('seat-token-a');
+
+        const b = createHarness();
+        expect(b.client.lastSeatSessionToken()).toBeNull();
+
+        const connecting = b.client.connect('ws://lobby-b');
+        await establish();
+        await connecting;
+        expect(b.client.lastSeatSessionToken()).toBeNull();
+        expect(a.client.lastSeatSessionToken()).toBe('seat-token-a');
+    });
+});
+
 describe('claim persistence', () => {
     it('adopts + persists the server-issued id on first visit', async () => {
         const { storage } = await readyHarness();

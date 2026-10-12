@@ -260,6 +260,22 @@ describe('createConsoleClient (T029)', () => {
         expect(received).toHaveLength(1);
     });
 
+    it('stamps fallback wire seqs per INSTANCE, not from a shared counter (FR-033)', async () => {
+        // Two adapters over two fakes that report no lastOrderSeq — the
+        // adapter's own fallback counter is the correlation key, so a
+        // module-global counter would hand the second instance seqs the
+        // first instance already claimed (and never issue 1 to anyone
+        // but the first instance ever created).
+        const first = createConsoleClient(Config, { matchClientFactory: () => makeInner() });
+        const second = createConsoleClient(Config, { matchClientFactory: () => makeInner() });
+        await first.sendOrder(1, { kind: 'surrender', player: 1 });
+        await second.sendOrder(2, { kind: 'surrender', player: 1 });
+        expect([...first.seqToActionId.keys()]).toEqual([1]);
+        expect([...second.seqToActionId.keys()]).toEqual([1]);
+        await first.sendOrder(3, { kind: 'surrender', player: 1 });
+        expect([...first.seqToActionId.keys()]).toEqual([1, 2]);
+    });
+
     it('state() snapshots the inner client plus the UI status', () => {
         const client = createConsoleClient(Config, { matchClientFactory: () => makeInner() });
         const snapshot = client.state();
