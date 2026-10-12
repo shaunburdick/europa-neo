@@ -5,7 +5,7 @@
 **Created**: 2026-08-25
 **Last Updated**: 2026-10-11 (v1.13; issue #146 guest-identity resume secret)
 **Version**: 1.13
-**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74); URL routing superseded by Feature 013; v1.13 resume-secret amendment NOT yet implemented (security-sweep branch)
+**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74); URL routing superseded by Feature 013; v1.13 resume-secret amendment implemented (2026-10-12, security-sweep branch)
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement

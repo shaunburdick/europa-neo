@@ -6,7 +6,7 @@
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74); v1.11 WebSocket-client/transport/debug-surface hardening amendment NOT yet implemented (security-sweep branch, issues #152/#129)
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74); v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, security-sweep branch, issues #152/#129)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 

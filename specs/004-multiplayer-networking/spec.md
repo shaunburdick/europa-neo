@@ -6,7 +6,7 @@
 **Last Updated**: 2026-10-11 (v1.11; issue #146 guest-identity resume secret)
 **Version**: 1.11
 
-**Status**: Implemented (2026-09-12; universal PlayerId wire migration implemented — issue #74); v1.11 resume-secret wire amendment NOT yet implemented (security-sweep branch)
+**Status**: Implemented (2026-09-12; universal PlayerId wire migration implemented — issue #74); v1.11 resume-secret wire amendment implemented (2026-10-12, security-sweep branch)
 
 **Input**: User description: "Server-authoritative WebSocket protocol connecting clients to running matches: command submission, per-tick state broadcast with fog-of-war filtering, delta sync, and reconnection handling."
 

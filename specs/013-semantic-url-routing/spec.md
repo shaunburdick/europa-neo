@@ -5,7 +5,7 @@
 **Created**: 2026-08-30
 **Last Updated**: 2026-10-11 (v1.5; issue #129 transport override + routing/debug seam retirement)
 **Version**: 1.5
-**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74); v1.5 amendment NOT yet implemented (security-sweep branch)
+**Status**: Implemented (2026-08-31); v1.1 implemented (2026-09-07) — TanStack Router migration (issue #75); mounted-router identity handoffs implemented (2026-09-12, issue #74); v1.5 amendment implemented (2026-10-12, security-sweep branch)
 **GitHub Issue**: #35 (original); #75 (v1.1 migration)
 
 ## Problem Statement

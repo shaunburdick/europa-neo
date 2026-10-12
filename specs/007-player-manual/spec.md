@@ -8,7 +8,7 @@
 
 **Version**: 1.8
 
-**Status**: Implemented (2026-08-30); v1.8 credential-boundary precision and resume-secret manual-review requirement NOT yet implemented (security-sweep branch)
+**Status**: Implemented (2026-08-30); v1.8 credential-boundary precision and resume-secret manual-review requirement implemented (2026-10-12, security-sweep branch; manual review performed with zero delta)
 
 **Input**: User description: "Before I merge the PR, let's write a simple instruction book for players. This can be a new spec, as this is end-user documentation. I'm thinking this could be its own part of the repo that can be published to the github repo pages using a git action."
 

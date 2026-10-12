@@ -8,7 +8,7 @@
 
 **Version**: 1.1
 
-**Status**: Implemented (2026-09-07); v1.1 debug-surface policy amendment NOT yet implemented (security-sweep branch)
+**Status**: Implemented (2026-09-07); v1.1 debug-surface policy amendment implemented (2026-10-12, security-sweep branch)
 
 **Input**: GitHub issue #81 — "feat: match replay capture and replay harness"
 

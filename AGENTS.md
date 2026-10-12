@@ -51,7 +51,7 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 - **Branch**: `security-sweep` — spec 016 security sweep for issues #152/#146/#129, ahead of `main`, nothing pushed, one PR pending reviewer sign-off. Standing rule unchanged: all new work on feature branches off `main`; never commit to `main` directly.
 - **Monorepo**: 10 packages, 13 CI workflows. Known tradeoff: repo-wide typechecking gap (each package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs — do NOT fix casually).
-- **Specs**: All 16 feature specs (001–016) Implemented on this branch. `specs/016-security-sweep/` is the amendment manifest for issues #152/#146/#129; its waves W1–W4 (T001–T038) are complete and verified (`bash scripts/verify.sh` green; agent-browser smoke recorded in `specs/016-security-sweep/pr-body.md`). See `specs/` for the full list.
+- **Specs**: All 15 feature specs (001–015) Implemented. `specs/016-security-sweep/` is the amendment manifest for issues #152/#146/#129; its amendments (waves W1–W4, tasks T001–T038) are complete and verified on this branch (`bash scripts/verify.sh` green; agent-browser smoke recorded in `specs/016-security-sweep/pr-body.md`). See `specs/` for the full list.
 - **Open work**: see [GitHub issues](https://github.com/shaunburdick/europa-neo/issues) for the current backlog.
 - **Style**: Biome `>=2.5.0 <3`, Node `>=22`. Root config layers `biome-config-shaunburdick@1.0.0`. Per-package exception policies in `.specify/biome-migration.md`.
 

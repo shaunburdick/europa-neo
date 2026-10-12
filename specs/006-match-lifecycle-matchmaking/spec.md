@@ -8,7 +8,7 @@
 
 **Version**: 1.8
 
-**Status**: Implemented (2026-09-12; universal PlayerId allocation + credential separation implemented — issue #74); v1.8 resume-secret requirement closes the remaining bare-id restore gap (issue #146) — NOT yet implemented (security-sweep branch)
+**Status**: Implemented (2026-09-12; universal PlayerId allocation + credential separation implemented — issue #74); v1.8 resume-secret requirement closes the remaining bare-id restore gap (issue #146) — implemented (2026-10-12, security-sweep branch)
 
 **Input**: User description: "Lobby-lite flow from arrival to battle: pick a display name, browse/create matches, auto-start when players are seated, play to conclusion, see results, rematch. No persistent accounts in v1."
 
