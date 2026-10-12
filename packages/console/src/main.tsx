@@ -99,7 +99,7 @@ if (isE2E) {
  */
 function bootstrapProductionRoute(root: HTMLElement): void {
     // Capture the query BEFORE stripping (013 FR-025): stripping
-    // rewrites the address bar, so the `?ws=` transport override must
+    // rewrites the address bar, so the `ws=` transport override must
     // be read from the captured string. Correctness MUST NOT depend on
     // test infrastructure patching `history.replaceState` (AC-018).
     const bootSearch = window.location.search;
@@ -161,7 +161,7 @@ function bootstrapProductionRoute(root: HTMLElement): void {
 /**
  * Remove production query values before any existing runtime can inspect them.
  *
- * The `?ws=` transport override is consumed by
+ * The `ws=` transport override is consumed by
  * {@link bootstrapProductionRoute} from the query string CAPTURED
  * before this strip runs (013 FR-025) — production correctness never
  * depends on test infrastructure patching `history.replaceState`.

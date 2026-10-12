@@ -14,10 +14,10 @@
  * The direct-match seam (`window.__europaTestMatch`, set by test
  * infrastructure before load) is the ONLY input: wsUrl, matchId,
  * displayName, and optional reconnectToken all come from the seam
- * object. The former `?live`/`?match=`/`?name=`/`?token=` query
- * consumption is retired (013 FR-025/FR-035): a bearer token in a URL
- * is prohibited (013 FR-016), and a query-driven boot without the seam
- * fails loudly instead of mounting.
+ * object. The former query seam (the `live`, `match`, `name`, and
+ * `token` parameters) is retired (013 FR-025/FR-035): a bearer token
+ * in a URL is prohibited (013 FR-016), and a query-driven boot without
+ * the seam fails loudly instead of mounting.
  *
  * Playwright specs drive orders and read state through the
  * `window.__europaLive` handle exposed here.
@@ -120,7 +120,7 @@ export function mountLiveRuntime(root: HTMLElement): void {
         // Single-port (011): the seam carries the transport; an empty
         // wsUrl falls back to the same-origin default. The legacy query
         // parameters are retired (013 FR-025) — this entry reads NO
-        // query, so no `?token=` bearer can reach it (FR-016).
+        // query, so no token-bearing query can reach it (FR-016).
         safeUrl = seam.wsUrl !== '' ? seam.wsUrl : resolveLobbyServerUrl('', window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
