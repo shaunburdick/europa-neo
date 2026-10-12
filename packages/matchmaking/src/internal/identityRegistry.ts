@@ -162,8 +162,7 @@ export interface IdentityRegistry {
     /**
      * Mark the identity disconnected, starting (or restarting) its
      * grace window. The handle stays reserved throughout grace.
-     * Idempotent — disconnecting an unknown (already-swept) id is a
-     * no-op, mirroring {@linkcode IdentityRegistry.release}.
+     * Unknown ids are a no-op, like {@linkcode IdentityRegistry.release}.
      *
      * @throws When the registry is closed.
      */

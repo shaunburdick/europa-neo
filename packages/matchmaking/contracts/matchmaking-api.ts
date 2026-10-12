@@ -119,8 +119,7 @@ export interface MatchmakerDeps {
  * Lifecycle:
  *   1. `createMatchmaker(config, deps)` → returns `Matchmaker`
  *   2. (host wires HTTP API on top; clients call create/join/etc.)
- *   3. `matchmaker.close()` → drops state; fires `unregisterMatch` per
- *      residual record, best effort
+ *   3. `matchmaker.close()` → drops state; fires `unregisterMatch` per residual record, best effort
  *
  * Threading: single-threaded Node event loop. All public methods are
  * synchronous (no `Promise`); the host calls them inside HTTP request
@@ -153,11 +152,9 @@ export interface Matchmaker {
    * - **Reconnect** (with `reconnectToken`): server looks up the seat
    *   by `(matchId, sessionToken)`. If the token is unknown, returns
    *   `match_not_found` (no existence leak). If the seat was forfeited
-   *   (grace window expired), returns `session_expired`. If the seat is
-   *   unforfeited and the match is still `filling` or `running`, the
-   *   call succeeds and returns the seat's existing assignment — no new
-   *   session, seat, or token is minted, and the request's
-   *   `displayName` is not applied to the seat.
+   *   (grace window expired), returns `session_expired`. A live unforfeited
+   *   seat of a `filling`/`running` match succeeds with its existing
+   *   assignment — no new session; the request's `displayName` is not applied.
    *
    * **Private match access**: a known `MatchId` permits an admission attempt;
    * it is not authentication or a bearer credential and grants no seat,
@@ -246,14 +243,8 @@ export interface Matchmaker {
   // -- Shutdown -------------------------------------------------------------
 
   /**
-   * Graceful shutdown. Fires `unregisterMatch` for every match record
-   * still in the store (best effort — a throwing call is logged and
-   * never aborts the teardown; networking no-ops unknown ids and closes
-   * connections with code 1001), then clears all in-memory state.
-   * After `close()`, every mutating method throws while `stats()` stays
-   * readable.
-   *
-   * Idempotent.
+   * Graceful shutdown. Fires `unregisterMatch` per residual record (best
+   * effort), then clears state; idempotent, mutators throw, `stats()` readable.
    */
   close(): Promise<void>;
 }
@@ -263,9 +254,7 @@ export interface Matchmaker {
 // ----------------------------------------------------------------------------
 
 /**
- * Construct a `Matchmaker` instance. Does NOT start any timers — all
- * sweeps are lazy, running on read paths with the injected clock
- * (cold-start stays cheap).
+ * Construct a `Matchmaker` instance. Does NOT start any timers.
  *
  * @param config Matchmaker-wide configuration. Use `MATCHMAKING_CONSTANTS`
  *               as the base and override fields as needed.

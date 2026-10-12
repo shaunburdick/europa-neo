@@ -448,10 +448,6 @@ export function propagateHandleRename(
     return { sessions, seats };
 }
 
-// ----------------------------------------------------------------------------
-// Terminal collection helpers (FR-024 + FR-025)
-// ----------------------------------------------------------------------------
-
 /** Release bound sessions (identity-guarded delete); the guard skips sessions rebound by the accept path. */
 export function releaseMatchSessions(store: MatchmakerStore, match: MatchRecord): void {
     for (const seat of match.seats.values()) {

@@ -773,22 +773,20 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     /**
      * Lazy results-TTL sweep (FR-011 second clause, data-model §4):
      * collect every `finished` match whose `resultsTtlMs` grace period
-     * has elapsed since `finishedAtMs`. A `finished` match with a LIVE
-     * rematch offer window is skipped (FR-020): while the window is
-     * open the match is owned by {@linkcode sweepExpiredRematches} and
-     * by accept/decline resolution, so no configuration of
-     * `resultsTtlMs` vs `rematchWindowMs` can destroy an open window;
-     * once the window lapses, the rematch sweep (which runs first)
-     * collects the match on the same pass. This is the no-leak
-     * backstop for matches that finished with NO `requestRematch`:
-     * without it they would stay `'finished'` forever and each would
-     * hold a slot against `maxConcurrentMatches` until restart. Before
-     * collecting, each seated player's ephemeral session is deleted
-     * (identity-guarded actual removal per SC-005).
+     * has elapsed since `finishedAtMs` — except while a rematch offer window
+     * is open (FR-020). This is the no-leak backstop for matches that
+     * finished with NO `requestRematch`: without it they would stay
+     * `'finished'` forever and each would hold a slot against
+     * `maxConcurrentMatches` until restart. Before collecting, each
+     * seated player's ephemeral session is deleted (same discipline as
+     * {@linkcode sweepStaleEmptyMatches}: identity-guarded, actual
+     * removal per SC-005).
      *
      * Runs AFTER {@linkcode sweepExpiredRematches} so an open rematch
      * window that lapses unresolved is resolved by the more specific
-     * sweep first.
+     * sweep first; by then this sweep's TTL condition is equally true
+     * (both anchor at `finishedAtMs`, default TTLs coincide), so
+     * behavior for offered matches is unchanged.
      *
      * Invoked from read paths with the injected clock — NO timers inside
      * matchmaking logic (same lazy pattern as the sibling sweeps).
@@ -977,12 +975,8 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 return { ok: false, error: makeError('match_not_found') };
             }
 
-            // Reconnect slice (FR-019 / issue #147): validate the token
-            // against this match's seats. Unknown token → the same
-            // non-leaking `match_not_found`; a forfeited seat or a
-            // terminal match → `session_expired`; otherwise the seat is
-            // still live and its existing assignment is returned (no
-            // session mint, no seat mutation).
+            // Reconnect slice (FR-019): unknown → match_not_found; forfeited or
+            // terminal → session_expired; live seat → its existing assignment.
             if (req.reconnectToken !== undefined) {
                 let matched: SeatRecord | undefined;
                 for (const seat of match.seats.values()) {

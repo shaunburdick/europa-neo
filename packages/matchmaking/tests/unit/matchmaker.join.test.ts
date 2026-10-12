@@ -199,7 +199,13 @@ describe('joinMatch — reconnect slice (issue #147 FR-019 / test 3)', () => {
         if (!joined.ok) {
             throw new Error('fixture join failed');
         }
-        return { server, matchmaker, matchId: created.data.matchId, alice: created.data.seatAssignment, bob: joined.data.seatAssignment };
+        return {
+            server,
+            matchmaker,
+            matchId: created.data.matchId,
+            alice: created.data.seatAssignment,
+            bob: joined.data.seatAssignment,
+        };
     }
 
     it('succeeds on a live unforfeited seat of a running match without minting a session or applying displayName', () => {
