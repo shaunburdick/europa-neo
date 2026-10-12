@@ -434,6 +434,68 @@ describe('ConsoleRuntime (T086)', () => {
             runtime.apply({ kind: 'selectCell', cell: { x: 1, y: 1 } });
             expect(clips).toEqual([]);
         });
+
+        it('throws a SYNCHRONOUS error when called after teardown (FR-030)', async () => {
+            const log: LifecycleLog = {
+                rendererMounts: [],
+                rendererUnmounts: 0,
+                inputStarts: 0,
+                inputStops: 0,
+            };
+            const runtime = new ConsoleRuntime({
+                config: makeConfig(),
+                deps: makeDeps(new FakeMatchClientLike(), log),
+            });
+            const container = document.createElement('div');
+            await runtime.mountInto(container);
+            await runtime.teardown();
+
+            // Not a rejected promise: a mount attempt on a dead handle
+            // must fail at the call site, before it can half-mount.
+            let thrown: unknown = null;
+            try {
+                runtime.mountInto(container);
+            } catch (error: unknown) {
+                thrown = error;
+            }
+            expect(thrown).toBeInstanceOf(Error);
+            expect((thrown as Error).message).toMatch(/unmounted/);
+            expect(log.rendererMounts).toHaveLength(1); // still just the first mount
+        });
+
+        it('teardown racing the mount handshake leaves no root, listener, or timer (FR-030)', async () => {
+            let release: (() => void) | null = null;
+            const gate = new Promise<void>((resolve) => {
+                release = resolve;
+            });
+            const client = new FakeMatchClientLike();
+            client.connect = async (): Promise<void> => {
+                client.connectCalls += 1;
+                await gate;
+            };
+            const log: LifecycleLog = {
+                rendererMounts: [],
+                rendererUnmounts: 0,
+                inputStarts: 0,
+                inputStops: 0,
+            };
+            const runtime = new ConsoleRuntime({
+                config: makeConfig({ matchId: 'm-race' }),
+                deps: makeDeps(client, log),
+            });
+            const container = document.createElement('div');
+
+            const mounting = runtime.mountInto(container);
+            await runtime.teardown(); // wins the race while the handshake is in flight
+            release?.();
+
+            await expect(mounting).rejects.toThrow(/unmounted/);
+            // Nothing mounts or attaches after teardown won: no renderer
+            // root, no input listeners, no live-region host left behind.
+            expect(log.rendererMounts).toHaveLength(0);
+            expect(log.inputStarts).toBe(0);
+            expect(container.childElementCount).toBe(0);
+        });
     });
 });
 

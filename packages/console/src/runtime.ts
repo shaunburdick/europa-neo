@@ -53,7 +53,15 @@ import { ErrorBoundary } from './render/ErrorBoundary';
 import { createOrderBridge, type OrderBridge } from './state/order-actions';
 import { allocateActionId, INITIAL_CONSOLE_STATE } from './state/reducer';
 import { type ConsoleStore, createConsoleStore } from './state/store';
-import type { ActionId, ConsoleAction, ConsoleLogger, ConsoleState, Order, ReducerEffect } from './state/types';
+import type {
+    ActionId,
+    ConsoleAction,
+    ConsoleLogger,
+    ConsoleState,
+    MatchId,
+    Order,
+    ReducerEffect,
+} from './state/types';
 
 // ----------------------------------------------------------------------------
 // Runtime construction arguments
@@ -251,17 +259,23 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
     /**
      * Mount into `container`: attach live regions, run the connect →
      * joinMatch handshake (dispatching `connecting` first), then start
-     * the renderer + input layer. Idempotent per lifetime; throws if
-     * called after teardown.
+     * the renderer + input layer. Idempotent per lifetime; throws
+     * SYNCHRONOUSLY if called after teardown (005 FR-030 — a dead
+     * handle fails at the call site, never by half-mounting).
      *
      * Connection failures do NOT prevent mounting: the error surfaces
      * through the reducer (`error` NetEvent → FR-008 feedback/banner)
      * so the user sees an honest status instead of a blank page.
+     *
+     * @param container Host element for the console tree.
+     * @returns A promise settling when the console is mounted (or the
+     *          handshake has failed softly). Rejects if teardown wins
+     *          the race while the handshake is in flight.
      */
-    async mountInto(container: HTMLElement): Promise<void> {
+    mountInto(container: HTMLElement): Promise<void> {
         this.assertUsable();
         if (this.mountedContainer !== null) {
-            return; // idempotent double-mount
+            return Promise.resolve(); // idempotent double-mount
         }
         this.mountedContainer = container;
 
@@ -278,18 +292,43 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
         if (matchId !== undefined) {
             this.store.dispatch({ kind: 'connecting', matchId }, { nowMs: this.nowMs() });
         }
+        return this.completeMount(container, matchId);
+    }
+
+    /**
+     * Async half of {@link ConsoleRuntime.mountInto}: the handshake,
+     * then renderer + input. Split out so the torn-down flag can be
+     * re-checked after EVERY `await` (005 FR-030) — when `teardown()`
+     * wins the race, this rejects instead of mounting a React root,
+     * attaching input listeners, or leaving a live-region host behind.
+     *
+     * @param container Host element for the console tree.
+     * @param matchId Configured match to join, when the config names one.
+     * @throws When the runtime was torn down while the handshake ran.
+     */
+    private async completeMount(container: HTMLElement, matchId: MatchId | undefined): Promise<void> {
+        let handshakeError: unknown = null;
         try {
             await this.client.connect();
             if (matchId !== undefined) {
                 await this.client.joinMatch();
             }
         } catch (error: unknown) {
-            this.logger.error('console: connection failed', { error });
+            handshakeError = error;
+        }
+
+        // FR-030 re-check: teardown may have completed while the
+        // handshake was in flight. A dead runtime reports nothing and
+        // mounts nothing.
+        this.assertUsable();
+
+        if (handshakeError !== null) {
+            this.logger.error('console: connection failed', { error: handshakeError });
             this.store.dispatch(
                 {
                     kind: 'error',
                     code: 'internal_error',
-                    message: error instanceof Error ? error.message : String(error),
+                    message: handshakeError instanceof Error ? handshakeError.message : String(handshakeError),
                 },
                 { nowMs: this.nowMs() },
             );
