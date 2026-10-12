@@ -193,6 +193,7 @@ const DIST_TYPE_WITNESS = {
     ProtocolEnvelope: null as unknown as DistTypes.ProtocolEnvelope<DistTypes.NetworkPayload>,
     QoLSettings: null as unknown as DistTypes.QoLSettings,
     ReduceOptions: null as unknown as DistTypes.ReduceOptions,
+    ReducerCorrelation: null as unknown as DistTypes.ReducerCorrelation,
     ReducerEffect: null as unknown as DistTypes.ReducerEffect,
     RejectedOrder: null as unknown as DistTypes.RejectedOrder,
     RenderFeedback: null as unknown as DistTypes.RenderFeedback,

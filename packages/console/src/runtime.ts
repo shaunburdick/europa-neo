@@ -51,7 +51,7 @@ import { createConsoleClient } from './net/client';
 import { App } from './render/App';
 import { ErrorBoundary } from './render/ErrorBoundary';
 import { createOrderBridge, type OrderBridge } from './state/order-actions';
-import { allocateActionId, INITIAL_CONSOLE_STATE } from './state/reducer';
+import { INITIAL_CONSOLE_STATE } from './state/reducer';
 import { type ConsoleStore, createConsoleStore } from './state/store';
 import type { ActionId, ConsoleAction, ConsoleLogger, ConsoleState, Order, ReducerEffect } from './state/types';
 
@@ -323,7 +323,7 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
      */
     sendWireOrder(order: Order): ActionId {
         this.assertUsable();
-        const actionId = allocateActionId();
+        const actionId = this.store.allocateActionId();
         this.client.sendOrder(actionId, order).catch((error: unknown) => {
             this.logger.warn('console: sendOrder failed', { actionId, orderKind: order.kind, error });
         });

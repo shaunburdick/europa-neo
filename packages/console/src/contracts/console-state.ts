@@ -209,6 +209,17 @@ export type SoundClip =
 // ----------------------------------------------------------------------------
 
 /**
+ * Per-store correlation bag threaded through `ReduceOptions.correlation?`:
+ * the ActionId counter and the bounded pending-order map.
+ * `createConsoleStore` allocates one per store; a `reduce` call
+ * without a bag gets an ephemeral one for that call.
+ */
+export interface ReducerCorrelation {
+  lastActionId: number;
+  pendingOrders: Map<ActionId, Order>;
+}
+
+/**
  * Options bag passed to `reduce`. Lets tests inject a deterministic
  * clock (`nowMs`) and lets the runtime pass the current
  * monotonic-clock reading.
@@ -222,6 +233,7 @@ export interface ReduceOptions {
    * (Reserved for future use; the v1 reducer uses no randomness.)
    */
   readonly rngSeed?: number;
+  readonly correlation?: ReducerCorrelation;
 }
 
 /**
