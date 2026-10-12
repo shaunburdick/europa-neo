@@ -5,7 +5,11 @@
  * `src/main.tsx` is the SPA entry: it selects a boot mode at module
  * load, captures the `?ws=` transport override BEFORE stripping the
  * production query, and installs no debug globals on an unflagged
- * production boot. The heavy collaborators (router tree, React mount,
+ * production boot. The direct-match seam branch is pinned here too:
+ * the entry captures the credential-bearing `window.__europaTestMatch`
+ * seam and removes it SYNCHRONOUSLY, passing it to the
+ * dynamically-imported live runtime as an argument (005 FR-037,
+ * 015 FR-019). The heavy collaborators (router tree, React mount,
  * transport, controller) are mocked so these tests pin the bootstrap
  * LOGIC, not the application around it.
  */
@@ -38,6 +42,24 @@ const fakeLobbyState = {
 const fakeStore = { getState: () => fakeLobbyState, subscribe: () => () => {}, dispatch: vi.fn() };
 const createLobbyControllerSpy = vi.fn(() => ({ store: fakeStore, connect: connectSpy }));
 
+// ─── Direct-match seam chunk mock (PR #189 round 2) ──────────────────────────
+//
+// `main.tsx` loads the live runtime through a DYNAMIC import — the
+// async window the review flagged. This mock records the
+// window-global state at chunk-evaluation time (the LAST moment of
+// that window) and captures the arguments the runtime is mounted
+// with, so the tests below can pin that the credential-bearing seam
+// is already off `window` before the chunk resolves, and that it
+// reaches the runtime as an ARGUMENT, never through a global.
+const { mountLiveRuntimeSpy, seamGlobalAtChunkEval } = vi.hoisted(() => ({
+    mountLiveRuntimeSpy: vi.fn(),
+    seamGlobalAtChunkEval: [] as boolean[],
+}));
+vi.mock('../../src/internal/live-runtime', () => {
+    seamGlobalAtChunkEval.push(Object.hasOwn(window, '__europaTestMatch'));
+    return { mountLiveRuntime: mountLiveRuntimeSpy };
+});
+
 vi.mock('react-dom/client', () => ({ createRoot: createRootSpy }));
 vi.mock('@tanstack/react-router', () => ({
     createRouter: createRouterSpy,
@@ -58,6 +80,12 @@ async function bootAt(url: string): Promise<void> {
 interface BootstrapWindow {
     __europaLobby?: { readonly store: unknown };
     __europaTestOptIn?: { readonly lobby?: true };
+    __europaTestMatch?: {
+        readonly wsUrl: string;
+        readonly matchId: string;
+        readonly displayName: string;
+        readonly reconnectToken?: string;
+    };
 }
 
 let originalReplaceState: History['replaceState'];
@@ -70,9 +98,12 @@ beforeEach(() => {
     createWsLobbyClientSpy.mockClear();
     createLobbyControllerSpy.mockClear();
     connectSpy.mockClear();
+    mountLiveRuntimeSpy.mockClear();
+    seamGlobalAtChunkEval.length = 0;
     document.body.innerHTML = '<div id="root"></div>';
     delete (window as BootstrapWindow).__europaLobby;
     delete (window as BootstrapWindow).__europaTestOptIn;
+    delete (window as BootstrapWindow).__europaTestMatch;
     originalReplaceState = window.history.replaceState;
 });
 
@@ -165,5 +196,43 @@ describe('production bootstrap — debug-global sentinel gate (005 FR-037, 015 F
         expect(Object.hasOwn(state, 'seatSessionToken')).toBe(false);
         expect(JSON.stringify(state)).not.toContain(SEAT_SESSION_TOKEN);
         expect(JSON.stringify(handle)).not.toContain(SEAT_SESSION_TOKEN);
+    });
+});
+
+describe('direct-match seam boot — consume-once before the dynamic import (005 FR-037, 015 FR-019)', () => {
+    it('removes the credential-bearing seam from window synchronously, before the chunk loads', async () => {
+        (window as BootstrapWindow).__europaTestMatch = {
+            wsUrl: 'ws://127.0.0.1:9999',
+            matchId: 'seam-match',
+            displayName: 'SeamName',
+            reconnectToken: 'seam-reconnect-token',
+        };
+
+        await bootAt('/match/seam-match/join');
+
+        // Checkpoint 1 — right after the entry module's SYNCHRONOUS
+        // execution: the dynamic import is still in flight, and the
+        // reconnect bearer is already off `window`. Pre-fix the global
+        // survives here until `mountLiveRuntime` reads it AFTER the
+        // chunk resolves — the credential-exposure window the PR #189
+        // round-2 review flagged.
+        expect(Object.hasOwn(window, '__europaTestMatch')).toBe(false);
+
+        // Checkpoint 2 — the chunk-evaluation instant (the LAST moment
+        // of the import window): still clean.
+        await vi.waitFor(() => expect(mountLiveRuntimeSpy).toHaveBeenCalled());
+        expect(seamGlobalAtChunkEval).toEqual([false]);
+
+        // Checkpoint 3 — the seam reached the runtime as an ARGUMENT
+        // (the non-global startup mechanism), and no credential-bearing
+        // `__europa*` global remains on window.
+        expect(mountLiveRuntimeSpy).toHaveBeenCalledWith(document.getElementById('root'), {
+            wsUrl: 'ws://127.0.0.1:9999',
+            matchId: 'seam-match',
+            displayName: 'SeamName',
+            reconnectToken: 'seam-reconnect-token',
+        });
+        const europaGlobals = Object.getOwnPropertyNames(window).filter((key) => key.startsWith('__europa'));
+        expect(europaGlobals).not.toContain('__europaTestMatch');
     });
 });

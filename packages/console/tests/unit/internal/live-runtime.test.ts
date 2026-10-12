@@ -1,11 +1,15 @@
 /**
- * Live-runtime seam tests — issue #129 (013 FR-025/FR-035, FR-016).
+ * Live-runtime seam tests — issue #129 (013 FR-025/FR-035, FR-016),
+ * PR #189 round 2 (005 FR-037, 015 FR-019).
  *
- * The direct-match entry (`mountLiveRuntime`) reads ONLY the
- * `window.__europaTestMatch` seam object: the former
- * `?live`/`?match=`/`?name=`/`?token=` query consumption is retired,
- * so a query-driven boot without the seam fails loudly instead of
- * mounting, and a `?token=` bearer can never reach the runtime.
+ * The direct-match entry (`mountLiveRuntime`) receives ONLY the
+ * direct-match seam object as an ARGUMENT — captured from
+ * `window.__europaTestMatch` and scrubbed from `window` synchronously
+ * by the entry point (`main.tsx`, pinned in `main-bootstrap.test.ts`).
+ * The former `?live`/`?match=`/`?name=`/`?token=` query consumption is
+ * retired, so a query-driven boot without the seam fails loudly
+ * instead of mounting, and a `?token=` bearer can never reach the
+ * runtime.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -87,7 +91,7 @@ beforeEach(() => {
 
 describe('direct-match seam retirement (013 FR-025/FR-035)', () => {
     it('fails loudly when the seam is missing, even with legacy query params present', () => {
-        mountLiveRuntime(document.getElementById('root') as HTMLElement);
+        mountLiveRuntime(document.getElementById('root') as HTMLElement, undefined);
 
         // Pre-fix the retired `?match=`/`?name=` query drove a full mount.
         expect(seamWindow().__europaLive?.bootError).toContain('__europaTestMatch');
@@ -97,14 +101,12 @@ describe('direct-match seam retirement (013 FR-025/FR-035)', () => {
     });
 
     it('uses the seam object and ignores conflicting legacy query params', () => {
-        seamWindow().__europaTestMatch = {
+        mountLiveRuntime(document.getElementById('root') as HTMLElement, {
             wsUrl: 'ws://127.0.0.1:9999',
             matchId: 'seam-match',
             displayName: 'SeamName',
             reconnectToken: 'seam-token',
-        };
-
-        mountLiveRuntime(document.getElementById('root') as HTMLElement);
+        });
 
         expect(seamWindow().__europaLive?.bootError).toBeNull();
         const clientArgs = createConsoleClientSpy.mock.calls[0]?.[0] as {
@@ -122,18 +124,22 @@ describe('direct-match seam retirement (013 FR-025/FR-035)', () => {
     });
 
     it('fails loudly when the seam carries no match identifier', () => {
-        seamWindow().__europaTestMatch = { wsUrl: 'ws://127.0.0.1:9999', matchId: '', displayName: '' };
-
-        mountLiveRuntime(document.getElementById('root') as HTMLElement);
+        mountLiveRuntime(document.getElementById('root') as HTMLElement, {
+            wsUrl: 'ws://127.0.0.1:9999',
+            matchId: '',
+            displayName: '',
+        });
 
         expect(seamWindow().__europaLive?.bootError).toContain('match identifier');
         expect(createConsoleClientSpy).not.toHaveBeenCalled();
     });
 
     it('falls back to the same-origin transport when the seam wsUrl is empty (reads no query)', () => {
-        seamWindow().__europaTestMatch = { wsUrl: '', matchId: 'seam-match', displayName: '' };
-
-        mountLiveRuntime(document.getElementById('root') as HTMLElement);
+        mountLiveRuntime(document.getElementById('root') as HTMLElement, {
+            wsUrl: '',
+            matchId: 'seam-match',
+            displayName: '',
+        });
 
         const clientArgs = createConsoleClientSpy.mock.calls[0]?.[0] as { readonly url: string };
         expect(clientArgs.url).toMatch(/^wss?:\/\/localhost:\d+$/);
@@ -141,15 +147,13 @@ describe('direct-match seam retirement (013 FR-025/FR-035)', () => {
 });
 
 describe('credential-free debug handle (005 FR-037, 015 FR-019 — PR #189 review)', () => {
-    it('exposes no seat/session/reconnect/resume token after a real seat grant, and consumes the seam', () => {
-        seamWindow().__europaTestMatch = {
+    it('exposes no seat/session/reconnect/resume token after a real seat grant, and never re-installs the seam global', () => {
+        mountLiveRuntime(document.getElementById('root') as HTMLElement, {
             wsUrl: 'ws://127.0.0.1:9999',
             matchId: 'seam-match',
             displayName: 'SeamName',
             reconnectToken: 'seam-reconnect-token',
-        };
-
-        mountLiveRuntime(document.getElementById('root') as HTMLElement);
+        });
 
         const raw = seamWindow().__europaLive;
         expect(raw).toBeDefined();
@@ -175,8 +179,11 @@ describe('credential-free debug handle (005 FR-037, 015 FR-019 — PR #189 revie
         // raw client answered sessionToken() with the seat token).
         expect(handle.client.sessionToken?.() ?? null).toBeNull();
         expect(JSON.stringify(handle.client.state())).not.toContain('inner-session-token');
-        // The direct-match seam is consume-once: the reconnect bearer it
-        // carried must not linger on window after boot.
+        // The runtime never re-installs the seam global: it receives
+        // the seam as an argument, and the entry point's synchronous
+        // consume-once removal is pinned in `main-bootstrap.test.ts`
+        // (normal startup) and `main-bootstrap-import-failure.test.ts`
+        // (failed dynamic import). Nothing may put the bearer back.
         expect(Object.hasOwn(window, '__europaTestMatch')).toBe(false);
     });
 });

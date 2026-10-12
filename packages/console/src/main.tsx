@@ -12,8 +12,11 @@
  *     controllers + order bridge + recording fake client) so
  *     Playwright specs can drive real gestures (T052/T060).
  *   - `window.__europaTestMatch` defined: test-only direct-match seam
- *     used by real-network fixture harnesses — boots the live-runtime
- *     entry directly, bypassing the lobby and router entirely.
+ *     used by real-network fixture harnesses — the seam is captured
+ *     and the window global removed SYNCHRONOUSLY, then the
+ *     live-runtime chunk is dynamically imported and mounted with the
+ *     captured seam passed as an argument, bypassing the lobby and
+ *     router entirely (005 FR-037, 015 FR-019).
  *   - PRODUCTION: TanStack Router handles pathname-based routing
  *     through the route tree (lobby, profile, match, welcome). The
  *     lobby controller and WebSocket URL are resolved before the router
@@ -36,22 +39,18 @@ import './styles/index.css';
 import './styles/logo.css';
 
 import { type LobbyStoreDebugView, lobbyDebugHandle } from './internal/debug-views';
+// Type-only: erased at compile time, so the dynamically-imported
+// live-runtime chunk is NOT fetched by this static reference.
+import type { TestMatchSeam } from './internal/live-runtime';
 import { createWsLobbyClient } from './net/ws-lobby-client';
 import { ErrorBoundary } from './render/ErrorBoundary';
 import { routeTree } from './routing/route-tree';
 import { createLobbyController } from './state/lobby-controller';
 import { LobbyServerUrlError, resolveLobbyServerUrl } from './state/lobby-view';
 
-/** Test-only direct match seam used by real-network fixture harnesses. */
-interface TestMatchSeam {
-    readonly wsUrl: string;
-    readonly matchId: string;
-    readonly displayName: string;
-    readonly reconnectToken?: string;
-}
-
 declare global {
     interface Window {
+        /** Pre-load direct-match seam (test infrastructure only) — consumed and removed below. */
         __europaTestMatch?: TestMatchSeam;
     }
 }
@@ -76,8 +75,23 @@ if (isE2E) {
 } else if (window.__europaTestMatch !== undefined) {
     // Test-only direct-match seam: bypass the lobby and router entirely.
     // Preserves the existing real-network fixture harness entry.
+    //
+    // The seam MAY carry a reconnect bearer (005 FR-037, 015 FR-019):
+    // capture it and remove the window global SYNCHRONOUSLY — before
+    // the dynamic import below even starts — then pass the seam to the
+    // runtime as an argument. Neither a pending nor a failed chunk
+    // load can leave the credential readable on `window`.
+    const testMatchSeam = window.__europaTestMatch;
+    delete window.__europaTestMatch;
     stripProductionQuery();
-    void import('./internal/live-runtime').then((module) => module.mountLiveRuntime(rootElement));
+    void import('./internal/live-runtime')
+        .then((module) => module.mountLiveRuntime(rootElement, testMatchSeam))
+        .catch((error: unknown) => {
+            // The credential is already off `window` (captured above);
+            // report the failed chunk load honestly instead of leaving
+            // an unhandled rejection behind.
+            console.error('[direct-match:boot] live-runtime chunk failed to load', error);
+        });
 } else {
     // Production path: resolve lobby infrastructure, then mount the
     // TanStack Router tree.

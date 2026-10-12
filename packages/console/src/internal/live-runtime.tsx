@@ -11,13 +11,19 @@
  *   WsMatchClient (native WebSocket, networking's wire codec) →
  *   live createMatchServer → matchmaking-bound engine/terrain/fog
  *
- * The direct-match seam (`window.__europaTestMatch`, set by test
- * infrastructure before load) is the ONLY input: wsUrl, matchId,
- * displayName, and optional reconnectToken all come from the seam
- * object. The former query seam (the `live`, `match`, `name`, and
- * `token` parameters) is retired (013 FR-025/FR-035): a bearer token
- * in a URL is prohibited (013 FR-016), and a query-driven boot without
- * the seam fails loudly instead of mounting.
+ * The direct-match seam ({@link TestMatchSeam}, set by test
+ * infrastructure on `window.__europaTestMatch` before load) is the
+ * ONLY input: wsUrl, matchId, displayName, and optional reconnectToken
+ * all come from the seam object — passed to {@link mountLiveRuntime} as
+ * an ARGUMENT. The entry point captures the seam and removes the
+ * window global synchronously, before this chunk loads (005 FR-037,
+ * 015 FR-019): this runtime never reads the global, so the reconnect
+ * bearer the seam carries cannot survive a pending or failed dynamic
+ * import on `window`. The former query seam (the `live`, `match`,
+ * `name`, and `token` parameters) is retired (013 FR-025/FR-035): a
+ * bearer token in a URL is prohibited (013 FR-016), and a
+ * query-driven boot without the seam fails loudly instead of
+ * mounting.
  *
  * Playwright specs drive orders and read state through the
  * `window.__europaLive` handle exposed here — a CREDENTIAL-FREE
@@ -66,13 +72,23 @@ declare global {
          * See `./debug-views`.
          */
         __europaLive?: LiveDebugHandle;
-        __europaTestMatch?: {
-            readonly wsUrl: string;
-            readonly matchId: string;
-            readonly displayName: string;
-            readonly reconnectToken?: string;
-        };
     }
+}
+
+/**
+ * The direct-match seam payload — this runtime's ONLY input (013
+ * FR-025). Test infrastructure sets it on `window.__europaTestMatch`
+ * before page load; the entry point (`main.tsx`) captures it and
+ * removes the global SYNCHRONOUSLY, then passes it to
+ * {@link mountLiveRuntime} as an argument (005 FR-037, 015 FR-019 —
+ * the reconnect bearer it MAY carry is a consume-once handoff, never
+ * a retained window global).
+ */
+export interface TestMatchSeam {
+    readonly wsUrl: string;
+    readonly matchId: string;
+    readonly displayName: string;
+    readonly reconnectToken?: string;
 }
 
 /**
@@ -100,10 +116,16 @@ function noopReturnToLobby(): void {
  * UI renders immediately in `connecting` status while the handshake
  * completes; failures land in {@link LiveDebugHandle.bootError}.
  *
+ * The seam arrives as an ARGUMENT and is never read from `window`:
+ * the entry point consumes the pre-load global synchronously and
+ * hands it here, so a pending or failed dynamic import cannot leave
+ * the reconnect bearer readable on `window` (005 FR-037, 015 FR-019).
+ *
  * @param root The DOM mount node (index.html's `#root`).
+ * @param seam The direct-match seam captured by the entry point —
+ *   `undefined` when no pre-load seam was set (fails loudly below).
  */
-export function mountLiveRuntime(root: HTMLElement): void {
-    const seam = window.__europaTestMatch;
+export function mountLiveRuntime(root: HTMLElement, seam: TestMatchSeam | undefined): void {
     if (seam === undefined) {
         // The seam object is the only supported input (013 FR-025:
         // query consumption retired). A query-driven boot without the
@@ -114,10 +136,6 @@ export function mountLiveRuntime(root: HTMLElement): void {
     const matchId = seam.matchId;
     const displayName = seam.displayName;
     const token = seam.reconnectToken;
-    // FR-037: the seam is an INPUT channel carrying a reconnect bearer
-    // credential; consume it once, then remove it so the credential
-    // does not linger on `window` for the page's lifetime.
-    delete window.__europaTestMatch;
 
     if (matchId === '') {
         // No store to surface feedback through yet; expose the reason on

@@ -18,10 +18,19 @@
  *     token, and the raw adapter answers `sessionToken()`).
  *   - the direct-match seam `window.__europaTestMatch` itself: it is
  *     consume-once, so the reconnect bearer it carried must not linger
- *     on `window` after boot.
+ *     on `window` after boot — and the probe sweeps EVERY
+ *     `window.__europa*` global for the real seat token, pinning that
+ *     no global carries it at all.
+ *   - the import-failure path: aborting the live-runtime chunk
+ *     request makes the entry's dynamic import FAIL for real; the
+ *     credential must still be gone from `window` (captured and
+ *     scrubbed synchronously before the import) and the failure must
+ *     be reported through the console error channel rather than left
+ *     as an unhandled rejection.
  *
  * Pre-fix each probe fails: the raw handles carried the populated
- * tokens one `getState()`/`sessionToken()` away.
+ * tokens one `getState()`/`sessionToken()` away, and the seam
+ * survived both the dynamic-import window and a failed import.
  */
 
 import { expect, test } from '@playwright/test';
@@ -156,7 +165,8 @@ test.describe('debug handles carry no bearer credential (FR-037 / FR-019)', () =
                 });
             await expect.poll(statusOf, { timeout: 15_000 }).toBe('live');
 
-            const probe = await page.evaluate(() => {
+            const probe = await page.evaluate((seatToken: string) => {
+                const w = window as unknown as Record<string, unknown>;
                 const handle = (
                     window as unknown as {
                         __europaLive?: {
@@ -168,6 +178,18 @@ test.describe('debug handles carry no bearer credential (FR-037 / FR-019)', () =
                 if (handle === undefined) {
                     return null;
                 }
+                // Sweep EVERY `__europa*` global for the real bearer:
+                // the token must not be reachable through any of them.
+                const europaGlobals = Object.getOwnPropertyNames(window).filter((key) => key.startsWith('__europa'));
+                const globalJson = europaGlobals
+                    .map((key) => {
+                        try {
+                            return JSON.stringify(w[key] ?? null) ?? 'null';
+                        } catch {
+                            return 'UNSTRINGIFIABLE';
+                        }
+                    })
+                    .join('\n');
                 const state = handle.store.getState();
                 return {
                     json: JSON.stringify({ state, clientState: handle.client.state() }),
@@ -175,8 +197,10 @@ test.describe('debug handles carry no bearer credential (FR-037 / FR-019)', () =
                     clientSessionToken:
                         typeof handle.client.sessionToken === 'function' ? handle.client.sessionToken() : null,
                     seamLingers: Object.hasOwn(window, '__europaTestMatch'),
+                    europaGlobals,
+                    tokenReachable: globalJson.includes(seatToken),
                 };
-            });
+            }, seatToken);
 
             expect(probe).not.toBeNull();
             // Populated: the real seat grant seated this console.
@@ -189,11 +213,77 @@ test.describe('debug handles carry no bearer credential (FR-037 / FR-019)', () =
             expect(probe?.json).not.toContain(seatToken);
             expect(probe?.json).not.toMatch(/"sessionToken"|reconnectToken|resumeSecret/);
             // The seam is consume-once: its reconnect bearer does not
-            // linger on window after boot.
+            // linger on window after boot — and the full `__europa*`
+            // sweep confirms no debug global carries the real token.
             expect(probe?.seamLingers).toBe(false);
+            expect(probe?.europaGlobals).not.toContain('__europaTestMatch');
+            expect(probe?.tokenReachable).toBe(false);
         } finally {
             await server.close();
             await matchmaker.close();
         }
+    });
+
+    test('a failed live-runtime chunk load reports the failure and leaves no credential on window', async ({
+        browser,
+    }) => {
+        test.setTimeout(30_000);
+
+        // No match stack needed: the import fails before any
+        // connection is attempted. The seam still carries a
+        // bearer-shaped reconnect token — the credential under sweep.
+        const RECONNECT_BEARER = 'sweep-reconnect-bearer';
+        const context = await browser.newContext();
+        await context.addInitScript(
+            ({ wsUrl, id, displayName, reconnectToken }) => {
+                (window as unknown as { __europaTestMatch: object }).__europaTestMatch = {
+                    wsUrl,
+                    matchId: id,
+                    displayName,
+                    reconnectToken,
+                };
+            },
+            {
+                wsUrl: 'ws://127.0.0.1:1',
+                id: 'seam-import-failure',
+                displayName: 'SweepFailing',
+                reconnectToken: RECONNECT_BEARER,
+            },
+        );
+        const page = await context.newPage();
+        const consoleErrors: string[] = [];
+        page.on('console', (message) => {
+            if (message.type() === 'error') {
+                consoleErrors.push(message.text());
+            }
+        });
+        // A REAL import failure: the dev server never serves the chunk.
+        await page.route('**/src/internal/live-runtime.tsx', (route) => route.abort());
+        await page.goto('/match/seam-import-failure/join');
+
+        // The credential was captured and scrubbed SYNCHRONOUSLY,
+        // before the import started — the failed chunk load cannot
+        // leave it reachable through any `__europa*` global. Pre-fix
+        // the seam lingered for the page's lifetime here.
+        const probe = await page.evaluate(() => {
+            const w = window as unknown as Record<string, unknown>;
+            const europaGlobals = Object.getOwnPropertyNames(window).filter((key) => key.startsWith('__europa'));
+            const globalJson = europaGlobals.map((key) => JSON.stringify(w[key] ?? null) ?? 'null').join('\n');
+            return {
+                europaGlobals,
+                seamLingers: Object.hasOwn(window, '__europaTestMatch'),
+                globalJson,
+            };
+        });
+        expect(probe.seamLingers).toBe(false);
+        expect(probe.europaGlobals).not.toContain('__europaTestMatch');
+        expect(probe.globalJson).not.toContain(RECONNECT_BEARER);
+        expect(probe.globalJson).not.toMatch(/reconnectToken/);
+
+        // The failure is REPORTED through the console error channel —
+        // pre-fix the rejection was unhandled and nothing was logged.
+        await expect
+            .poll(() => consoleErrors.filter((text) => text.includes('direct-match')).length, { timeout: 15_000 })
+            .toBeGreaterThan(0);
     });
 });
