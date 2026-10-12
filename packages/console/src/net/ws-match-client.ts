@@ -65,6 +65,25 @@ import type {
 import { rehydrateEnvelopeViews } from './rehydrate-wire-views';
 
 // ----------------------------------------------------------------------------
+// Transport constants (single location — constitution Principle V)
+// ----------------------------------------------------------------------------
+
+/** Platform ready-state for an OPEN socket (`WebSocket.OPEN`). */
+const WS_READY_STATE_OPEN = 1;
+
+/**
+ * Render any thrown value as a loggable detail string. Void sends
+ * (FR-028) have no promise to reject to, so their failure reason has
+ * to survive as log context instead.
+ *
+ * @param error Whatever the send attempt threw.
+ * @returns A short, non-secret description of the failure.
+ */
+function describeError(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+// ----------------------------------------------------------------------------
 // Structural contract view (mirrors networking's MatchClient / ClientState)
 // ----------------------------------------------------------------------------
 
@@ -202,7 +221,9 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
     let heartbeatIntervalMs = 0;
     let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 
-    /** Stop the ping timer (idempotent). */
+    /**
+     * Stop the ping timer (idempotent).
+     */
     function stopHeartbeat(): void {
         if (heartbeatTimer !== undefined) {
             clearInterval(heartbeatTimer);
@@ -228,8 +249,10 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             }
             try {
                 sendEnvelope({ clientTimeMs: Date.now() }, 'ping');
-            } catch {
-                // Socket mid-close; the close handler owns teardown.
+            } catch (error) {
+                // FR-028 void send: fire-and-forget has no caller to
+                // reject to, so the failure is logged, never thrown.
+                log('warn', 'outbound frame dropped', { type: 'ping', detail: describeError(error) });
             }
         }, periodMs);
     }
@@ -290,8 +313,12 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
 
     /** Send one client→server envelope with the next per-connection seq. */
     function sendEnvelope(payload: NetworkPayload, type: ProtocolEnvelope<NetworkPayload>['type']): SequenceNumber {
-        if (socket === null) {
-            throw new Error(`ws-match-client: cannot send ${type} before connect()`);
+        const target = socket;
+        // FR-028: a socket that is null, CONNECTING, or CLOSING cannot
+        // accept the frame — fail loudly here so promise sends reject
+        // and void sends log, instead of losing the frame silently.
+        if (target === null || target.readyState !== WS_READY_STATE_OPEN) {
+            throw new Error(`ws-match-client: cannot send ${type}: transport not open`);
         }
         clientSeq += 1;
         const seq = clientSeq as SequenceNumber;
@@ -301,7 +328,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             seq,
             payload,
         };
-        socket.send(encodeFrame(envelope));
+        target.send(encodeFrame(envelope));
         return seq;
     }
 
@@ -440,8 +467,16 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
     function attach(socketToAttach: WebSocket): void {
         socketToAttach.onopen = () => {
             log('debug', 'socket open', {});
-            // FR-003: hello is the first frame on every fresh connection.
-            sendEnvelope({ protocolVersion: NETWORK_API_VERSION }, 'hello');
+            try {
+                // FR-003: hello is the first frame on every fresh connection.
+                sendEnvelope({ protocolVersion: NETWORK_API_VERSION }, 'hello');
+            } catch (error) {
+                // FR-028 void send: nothing to reject to, so the failure
+                // is logged (verbose path) instead of thrown at the
+                // socket's open-event dispatch; the handshake then
+                // simply never completes rather than half-completing.
+                log('warn', 'outbound frame dropped', { type: 'hello', detail: describeError(error) });
+            }
         };
         socketToAttach.onmessage = (event: MessageEvent<string>) => {
             const decoded = tryDecodeFrame(event.data);
@@ -540,7 +575,16 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                     new Error(`ws-match-client: sendOrder requires a joined seat (got ${connection})`),
                 );
             }
-            const seq = sendEnvelope({ order }, 'order');
+            let seq: SequenceNumber;
+            try {
+                seq = sendEnvelope({ order }, 'order');
+            } catch (error) {
+                // FR-028: the transport can no longer accept frames
+                // (null / CONNECTING / CLOSING / torn down). Callers are
+                // React event handlers — the failure must arrive as a
+                // rejected promise, never as a synchronous throw.
+                return Promise.reject(error instanceof Error ? error : new Error(describeError(error)));
+            }
             lastOrderSeqValue = seq;
             return new Promise<CommandResult>((resolve, reject) => {
                 pendingAcks.set(seq, resolve);

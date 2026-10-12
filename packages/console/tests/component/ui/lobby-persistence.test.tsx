@@ -48,6 +48,9 @@ const WIRE_VERSION = NETWORK_API_VERSION;
 class FakeSocket {
     readonly sent: string[] = [];
 
+    /** Platform ready-state (WebSocket.OPEN = 1). */
+    readyState = 1;
+
     onopen: (() => void) | null = null;
     onmessage: ((event: { data: string }) => void) | null = null;
     onclose: ((event: { code: number }) => void) | null = null;

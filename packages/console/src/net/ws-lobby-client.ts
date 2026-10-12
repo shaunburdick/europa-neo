@@ -105,6 +105,8 @@ import {
 
 /** Floor for the heartbeat period so a misconfigured server cannot busy-loop the socket. */
 const HEARTBEAT_FLOOR_MS = 1_000;
+/** Platform ready-state for an OPEN socket (`WebSocket.OPEN`). */
+const WS_READY_STATE_OPEN = 1;
 /** Pings go out at this fraction of the server-advertised interval (match-client parity). */
 const HEARTBEAT_INTERVAL_DIVISOR = 2;
 /** Default per-action correlation timeout (ms). */
@@ -377,6 +379,18 @@ const globalScheduler: LobbyScheduler = {
         platformTimers.clearTimeout(handle);
     },
 };
+
+/**
+ * Render a thrown value as loggable detail. Void sends (005 FR-028)
+ * have no promise to reject to, so their failure reason survives as
+ * log context — already routed through the redaction choke point.
+ *
+ * @param error Whatever the send attempt threw.
+ * @returns A short, non-secret description of the failure.
+ */
+function describeThrown(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
 
 /** Outcome envelope used to settle pending actions exactly once. */
 type ActionOutcome = { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: Error };
@@ -706,8 +720,10 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 // Wall-clock here is the sanctioned transport boundary
                 // (informational `clientTimeMs`; never simulation state).
                 sendEnvelope({ clientTimeMs: Date.now() }, 'ping');
-            } catch {
-                // Socket mid-close; the close handler owns teardown.
+            } catch (error) {
+                // FR-028 void send: log (redaction-gated), never throw;
+                // the close handler owns teardown.
+                log('warn', 'outbound frame dropped', { type: 'ping', detail: describeThrown(error) });
             }
             schedulePing();
         }, periodMs);
@@ -763,7 +779,11 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
 
     /** Send one client→server envelope stamped with the next per-connection seq. */
     function sendEnvelope(payload: NetworkPayload, type: ProtocolEnvelope<NetworkPayload>['type']): void {
-        if (socket === null) {
+        const target = socket;
+        // FR-028: a null, CONNECTING, or CLOSING socket cannot accept
+        // the frame — throw so promise sends reject (and void sends
+        // log) instead of losing the frame silently.
+        if (target === null || target.readyState !== WS_READY_STATE_OPEN) {
             throw new LobbyTransportError(`ws-lobby-client: cannot send ${type} without an open socket`);
         }
         clientSeq += 1;
@@ -773,7 +793,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             seq: clientSeq as SequenceNumber,
             payload,
         };
-        socket.send(encodeFrame(envelope));
+        target.send(encodeFrame(envelope));
     }
 
     function nextActionId(): LobbyActionId {
@@ -997,9 +1017,16 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 heartbeatPeriodMs = payload.heartbeatIntervalMs;
                 schedulePing();
                 // Present the (guaranteed) resume claim; the directed
-                // `identity` event completes establishment.
+                // `identity` event completes establishment. FR-028 void
+                // send: a transport that cannot accept the claim logs
+                // and keeps the establish cycle running (its timeout
+                // owns the failure) instead of throwing out of onmessage.
                 const claim = ensureClaim();
-                sendEnvelope({ claim: wireClaim(claim) }, 'lobbyIdentity');
+                try {
+                    sendEnvelope({ claim: wireClaim(claim) }, 'lobbyIdentity');
+                } catch (error) {
+                    log('warn', 'outbound frame dropped', { type: 'lobbyIdentity', detail: describeThrown(error) });
+                }
                 return;
             }
             case 'lobbyEvent': {

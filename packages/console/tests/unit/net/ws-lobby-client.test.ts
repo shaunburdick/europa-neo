@@ -63,6 +63,15 @@ class FakeWebSocket {
     readonly sent: string[] = [];
     readonly closed: Array<{ code: number; reason: string }> = [];
 
+    /**
+     * Platform ready-state (WebSocket.OPEN = 1). Tests flip this to 2
+     * (CLOSING) to model a transport that can no longer accept frames.
+     */
+    readyState = 1;
+
+    /** When set, `send` throws — models a socket mid-teardown. */
+    failSend = false;
+
     onopen: (() => void) | null = null;
     onmessage: ((event: { data: string }) => void) | null = null;
     onclose: ((event: { code: number }) => void) | null = null;
@@ -74,6 +83,9 @@ class FakeWebSocket {
     }
 
     send(data: string): void {
+        if (this.failSend) {
+            throw new Error('fake socket: not writable');
+        }
         this.sent.push(data);
     }
 
@@ -470,6 +482,33 @@ describe('instance isolation (FR-033)', () => {
         await connecting;
         expect(b.client.lastSeatSessionToken()).toBeNull();
         expect(a.client.lastSeatSessionToken()).toBe('seat-token-a');
+    });
+});
+
+describe('send promise contract (FR-028)', () => {
+    it('a void send that cannot reach the wire logs instead of throwing', () => {
+        const harness = createHarness();
+        const connecting = harness.client.connect('ws://lobby');
+        connecting.catch(() => undefined); // the establish cycle never completes here
+        const socket = FakeWebSocket.instances[0];
+        socket.open(); // hello goes out while the socket is still writable
+        socket.failSend = true;
+
+        // The claim presentation on helloAck is a VOID send: there is no
+        // caller to reject to, so it must log through the redaction-gated
+        // verbose logger and leave the state machine running.
+        expect(() =>
+            socket.deliver('helloAck', {
+                protocolVersion: NETWORK_API_VERSION,
+                connectionId: 'c-void',
+                heartbeatIntervalMs: 60_000,
+            }),
+        ).not.toThrow();
+        expect(harness.logs.some((entry) => entry.level === 'warn' && entry.msg === 'outbound frame dropped')).toBe(
+            true,
+        );
+        expect(harness.client.state().connection).toBe('connecting');
+        harness.client.disconnect();
     });
 });
 

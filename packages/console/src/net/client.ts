@@ -102,6 +102,36 @@ function isMatchClientLike(value: unknown): value is MatchClientLike {
 }
 
 /**
+ * Normalize a caught throwable into a rejected promise carrying an
+ * `Error` (005 FR-028). Send and transport APIs settle through their
+ * promise contract; a non-`Error` throw still needs a useful message
+ * for the FR-008 feedback path.
+ *
+ * @param error Whatever the underlying call threw.
+ * @returns A rejected promise carrying an `Error`.
+ */
+function rejectedWith(error: unknown): Promise<never> {
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+}
+
+/**
+ * Run a promise-returning transport call so a SYNCHRONOUS throw from
+ * the underlying client becomes a rejected promise (005 FR-028): no
+ * synchronous throw may escape a `ConsoleClient` API into a React
+ * event handler or any other synchronous caller.
+ *
+ * @param run The underlying call.
+ * @returns Its promise, or the rejection produced from its throw.
+ */
+function settleOrReject(run: () => Promise<void>): Promise<void> {
+    try {
+        return run();
+    } catch (error) {
+        return rejectedWith(error);
+    }
+}
+
+/**
  * Join-role selection for lobby-initiated legs (feature 010 T-016).
  *
  * Structural EXTENSION of the contract config — the contract mirror
@@ -196,7 +226,7 @@ class ConsoleClientImpl implements ConsoleClient {
     /** Open the WebSocket and complete the hello handshake. */
     connect(): Promise<void> {
         this.log('debug', 'connecting', { url: this.config.url });
-        return this.client.connect(this.config.url);
+        return settleOrReject(() => this.client.connect(this.config.url));
     }
 
     /**
@@ -206,7 +236,8 @@ class ConsoleClientImpl implements ConsoleClient {
      * `config.reconnectToken` when set, else claims a new seat.
      */
     joinMatch(): Promise<void> {
-        if (this.config.matchId === undefined) {
+        const { matchId } = this.config;
+        if (matchId === undefined) {
             return Promise.reject(
                 new Error('ConsoleClient.joinMatch: no matchId configured; set ConsoleClientConfig.matchId.'),
             );
@@ -214,12 +245,14 @@ class ConsoleClientImpl implements ConsoleClient {
         // exactOptionalPropertyTypes: only present reconnectToken when set.
         const reconnectToken =
             this.config.reconnectToken === undefined ? {} : { reconnectToken: this.config.reconnectToken };
-        return this.client.joinMatch({
-            matchId: this.config.matchId,
-            role: this.role,
-            ...reconnectToken,
-            displayName: this.config.displayName,
-        });
+        return settleOrReject(() =>
+            this.client.joinMatch({
+                matchId,
+                role: this.role,
+                ...reconnectToken,
+                displayName: this.config.displayName,
+            }),
+        );
     }
 
     /**
@@ -239,7 +272,15 @@ class ConsoleClientImpl implements ConsoleClient {
                 new Error('ConsoleClient.sendOrder: spectator connections are read-only; orders are not accepted.'),
             );
         }
-        const sent = this.client.sendOrder(order);
+        let sent: Promise<import('@europa/engine').CommandResult>;
+        try {
+            sent = this.client.sendOrder(order);
+        } catch (error) {
+            // FR-028: a synchronous transport failure must arrive as a
+            // rejected promise — this call sits inside React event
+            // handlers where an escaping throw aborts the gesture.
+            return rejectedWith(error);
+        }
         const reported = this.client.lastOrderSeq?.() ?? null;
         if (reported !== null) {
             this.seqToActionId.set(reported, actionId);

@@ -138,6 +138,11 @@ describe('createConsoleClient (T029)', () => {
             joinRequests: [] as Record<string, unknown>[],
             sentOrders: [] as unknown[],
             closed: false,
+            /**
+             * When set, sendOrder throws SYNCHRONOUSLY — the platform
+             * behavior FR-028 forbids leaking to callers (005).
+             */
+            throwOnSend: false,
             async connect(url: string): Promise<void> {
                 this.connectCalls += 1;
                 if (url === '') {
@@ -150,9 +155,12 @@ describe('createConsoleClient (T029)', () => {
             async joinMatch(req: Record<string, unknown>): Promise<void> {
                 this.joinRequests.push(req);
             },
-            async sendOrder(order: unknown): Promise<{ ok: true }> {
+            sendOrder(order: unknown): Promise<{ ok: true }> {
+                if (this.throwOnSend) {
+                    throw new Error('boom: transport refused the frame');
+                }
                 this.sentOrders.push(order);
-                return { ok: true };
+                return Promise.resolve({ ok: true });
             },
             onMessage(handler: (envelope: ProtocolEnvelope<NetworkPayload>) => void): () => void {
                 handlers.add(handler);
@@ -274,6 +282,25 @@ describe('createConsoleClient (T029)', () => {
         expect([...second.seqToActionId.keys()]).toEqual([1]);
         await first.sendOrder(3, { kind: 'surrender', player: 1 });
         expect([...first.seqToActionId.keys()]).toEqual([1, 2]);
+    });
+
+    it('a synchronous inner-client send failure surfaces as a REJECTION (FR-028)', async () => {
+        // The adapter's sendOrder is called from React event handlers;
+        // a throw escaping it would abort the handler mid-flight
+        // instead of reporting an honest failure.
+        const inner = makeInner();
+        inner.throwOnSend = true;
+        const client = createConsoleClient(Config, { matchClientFactory: () => inner });
+
+        let synchronous: unknown = null;
+        let sending: Promise<void> | null = null;
+        try {
+            sending = client.sendOrder(7, { kind: 'surrender', player: 1 });
+        } catch (error) {
+            synchronous = error;
+        }
+        expect(synchronous).toBeNull();
+        await expect(sending).rejects.toThrow(/transport refused/);
     });
 
     it('state() snapshots the inner client plus the UI status', () => {

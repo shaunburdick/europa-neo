@@ -20,7 +20,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createConsoleClient } from '../../../src/net/client';
 import { netEventFromEnvelope } from '../../../src/net/envelope-to-event';
-import { createWsMatchClient } from '../../../src/net/ws-match-client';
+import { createWsMatchClient, type WsClientLogger } from '../../../src/net/ws-match-client';
 import type { NetworkPayload, ProtocolEnvelope, SequenceNumber } from '../../../src/state/types';
 import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
@@ -46,6 +46,15 @@ class FakeWebSocket {
     readonly sent: string[] = [];
     readonly closed: Array<{ code: number; reason: string }> = [];
 
+    /**
+     * Platform ready-state (WebSocket.OPEN = 1). Tests flip this to 2
+     * (CLOSING) to model a transport that can no longer accept frames.
+     */
+    readyState = 1;
+
+    /** When set, `send` throws — models a socket mid-teardown. */
+    failSend = false;
+
     onopen: (() => void) | null = null;
     onmessage: ((event: { data: string }) => void) | null = null;
     onclose: ((event: { code: number }) => void) | null = null;
@@ -58,6 +67,9 @@ class FakeWebSocket {
 
     /** Record one outbound frame (the client's encodeFrame output). */
     send(data: string): void {
+        if (this.failSend) {
+            throw new Error('fake socket: not writable');
+        }
         this.sent.push(data);
     }
 
@@ -594,5 +606,57 @@ describe('WsMatchClient lifecycle end states', () => {
         client.disconnect();
         expect(socket.closed[0]).toMatchObject({ code: 1000 });
         expect(client.state().connection).toBe('closed');
+    });
+});
+
+describe('send promise contract (FR-028)', () => {
+    /** Collects the messages a verbose logger saw. */
+    function capturingLogger(): { messages: string[]; logger: WsClientLogger } {
+        const messages: string[] = [];
+        const logger = {
+            debug: (msg: string) => messages.push(msg),
+            info: (msg: string) => messages.push(msg),
+            warn: (msg: string) => messages.push(msg),
+            error: (msg: string) => messages.push(msg),
+        };
+        return { messages, logger };
+    }
+
+    it('sendOrder while the transport is CLOSING rejects; no synchronous throw escapes', async () => {
+        const { client, socket } = await joinedClient();
+        // The server is tearing the socket down: readyState is CLOSING,
+        // but the client's own state machine still says 'joined' until
+        // onclose arrives. Frames handed to a CLOSING socket are lost,
+        // so the send must fail through its promise.
+        socket.readyState = 2;
+
+        let synchronous: unknown = null;
+        let sending: Promise<unknown> | null = null;
+        try {
+            sending = client.sendOrder({ kind: 'surrender', player: TEST_PLAYER_1 });
+        } catch (error) {
+            synchronous = error;
+        }
+        expect(synchronous).toBeNull();
+        await expect(sending).rejects.toThrow(/cannot send/);
+    });
+
+    it('a void send that cannot reach the wire logs instead of throwing', () => {
+        const { messages, logger } = capturingLogger();
+        const socket = new FakeWebSocket('ws://void-send');
+        const client = createWsMatchClient({
+            webSocketFactory: () => socket,
+            verboseLogging: true,
+            logger,
+        });
+        const connecting = client.connect('ws://void-send');
+        connecting.catch(() => undefined); // never settles: the hello never reaches the wire
+        socket.failSend = true;
+
+        // `hello` is a fire-and-forget send with no caller to reject to.
+        expect(() => socket.open()).not.toThrow();
+        expect(messages).toContain('outbound frame dropped');
+        expect(socket.sent).toHaveLength(0);
+        client.disconnect();
     });
 });
