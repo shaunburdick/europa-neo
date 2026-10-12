@@ -556,7 +556,17 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
     }
 
     function attach(socketToAttach: WebSocket): void {
+        // FR-034: every handler below only acts when its socket is
+        // still THE client's current socket. `onclose` already had this
+        // guard (a replaced socket must not clobber the new session);
+        // the other three raced the same way — a stale `onopen` after a
+        // reconnect would push a second hello through the NEW socket,
+        // and a stale `onmessage` would greet (and resolve) a connect()
+        // that belongs to a different socket.
         socketToAttach.onopen = () => {
+            if (socket !== socketToAttach) {
+                return;
+            }
             log('debug', 'socket open', {});
             try {
                 // FR-003: hello is the first frame on every fresh connection.
@@ -570,6 +580,9 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             }
         };
         socketToAttach.onmessage = (event: MessageEvent<string>) => {
+            if (socket !== socketToAttach) {
+                return;
+            }
             const decoded = tryDecodeFrame(event.data);
             if (!decoded.ok) {
                 // Malformed inbound frames are dropped (and logged); the server
@@ -607,6 +620,9 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             setState(closedByUs || !wasJoined ? 'closed' : 'disconnected');
         };
         socketToAttach.onerror = () => {
+            if (socket !== socketToAttach) {
+                return;
+            }
             log('warn', 'socket transport error', {});
         };
     }

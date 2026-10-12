@@ -898,10 +898,16 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         }, establishTimeoutMs);
     }
 
-    /** Attach the protocol handlers to a freshly created socket (epoch-guarded). */
+    /**
+     * Attach the protocol handlers to a freshly created socket.
+     * Epoch-guarded (attempt generation) AND socket-identity-guarded
+     * (005 FR-034): a callback only acts while its socket is still the
+     * client's current one, so a superseded or torn-down socket can
+     * never drive the state machine.
+     */
     function attach(socketToAttach: WebSocket, epoch: number): void {
         socketToAttach.onopen = () => {
-            if (epoch !== attemptEpoch) {
+            if (epoch !== attemptEpoch || socket !== socketToAttach) {
                 return;
             }
             log('debug', 'socket open', {});
@@ -909,7 +915,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             sendEnvelope({ protocolVersion: NETWORK_API_VERSION }, 'hello');
         };
         socketToAttach.onmessage = (event: MessageEvent<string>) => {
-            if (epoch !== attemptEpoch) {
+            if (epoch !== attemptEpoch || socket !== socketToAttach) {
                 return;
             }
             const decoded = tryDecodeFrame(event.data);
@@ -922,13 +928,13 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             handleEnvelope(decoded.envelope);
         };
         socketToAttach.onclose = (event: CloseEvent) => {
-            if (epoch !== attemptEpoch) {
+            if (epoch !== attemptEpoch || socket !== socketToAttach) {
                 return;
             }
             handleTransportClose(event.code);
         };
         socketToAttach.onerror = () => {
-            if (epoch !== attemptEpoch) {
+            if (epoch !== attemptEpoch || socket !== socketToAttach) {
                 return;
             }
             log('warn', 'socket transport error', {});

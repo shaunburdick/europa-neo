@@ -745,3 +745,62 @@ describe('establish timeout (FR-031)', () => {
         expect(cleared).toEqual(['establish-handle']);
     });
 });
+
+describe('stale-socket guards (FR-034)', () => {
+    it('ignores open/message events from a superseded socket', async () => {
+        FakeWebSocket.reset();
+        const created: FakeWebSocket[] = [];
+        // One socket per connect() call — the whole point of the test is
+        // that the FIRST socket outlives its own replacement.
+        const client = createWsMatchClient({
+            webSocketFactory: (url: string) => {
+                const socket = new FakeWebSocket(url);
+                created.push(socket);
+                return socket;
+            },
+        });
+        const firstConnect = client.connect('ws://first');
+        firstConnect.catch(() => undefined);
+        client.disconnect();
+
+        const connecting = client.connect('ws://second');
+        connecting.catch(() => undefined);
+        const [first, second] = created;
+        if (first === undefined || second === undefined) {
+            throw new Error('expected one socket per connect()');
+        }
+
+        // A late `open` from the discarded socket must not push a hello
+        // through the NEW socket's session (it would double-handshake).
+        first.open();
+        expect(second.sent).toHaveLength(0);
+        expect(client.state().connection).toBe('pending');
+
+        // A late handshake reply from the discarded socket must not
+        // greet — and resolve — the new connection's connect() promise.
+        first.deliver('helloAck', {
+            protocolVersion: NETWORK_API_VERSION,
+            connectionId: 'stale',
+            heartbeatIntervalMs: 0,
+        });
+        expect(client.state().connection).toBe('pending');
+        client.disconnect();
+        await expect(connecting).rejects.toBeInstanceOf(Error);
+    });
+
+    it('ignores events from a socket after an explicit teardown', () => {
+        const { client, socket } = greetedClient();
+        client.disconnect();
+        const before = client.state();
+
+        expect(() =>
+            socket.deliver('helloAck', {
+                protocolVersion: NETWORK_API_VERSION,
+                connectionId: 'late',
+                heartbeatIntervalMs: 0,
+            }),
+        ).not.toThrow();
+        expect(client.state()).toEqual(before);
+        expect(client.state().connection).toBe('closed');
+    });
+});
