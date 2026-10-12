@@ -605,15 +605,43 @@ describe('inbound frame validation (FR-032)', () => {
                     handle: 'Nova',
                     hasIdentity: true,
                     guestPlayerId: SERVER_ID_A,
-                    // Field a LATER wave owns; this era's validator must
-                    // check what it knows and ignore the rest.
-                    resumeSecret: 'rotating-value-from-a-later-wave',
+                    // A field NO wave owns yet: the validator checks the
+                    // fields it knows and ignores the rest (004 v1.3/v1.6
+                    // additive tolerance).
+                    futureIdentityField: 'accepted-as-is',
                 },
             },
         });
         await settlePromises();
         expect(client.state().handle).toBe('Nova');
         expect(client.state().hasClaim).toBe(true);
+    });
+
+    it('drops an identity event whose resume secret is not a string', async () => {
+        const { client, socket, logs } = await readyHarness();
+        socket.deliver('lobbyEvent', {
+            event: {
+                kind: 'identity',
+                identity: {
+                    handle: 'Corrupted',
+                    hasIdentity: true,
+                    guestPlayerId: SERVER_ID_A,
+                    // Wrong type on the owner-only credential: the frame
+                    // is dropped at the boundary, never applied.
+                    resumeSecret: 7,
+                },
+            },
+        });
+        await settlePromises();
+
+        expect(client.state().handle).toBeNull();
+        expect(
+            logs.some((entry) => entry.level === 'warn' && entry.msg === 'inbound frame failed structural validation'),
+        ).toBe(true);
+        // Drop-don't-sever (004 FR-010): the connection stays usable.
+        socket.deliverLobby(identityEvent('Recovered', SERVER_ID_A, '2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10'));
+        await settlePromises();
+        expect(client.state().handle).toBe('Recovered');
     });
 });
 
