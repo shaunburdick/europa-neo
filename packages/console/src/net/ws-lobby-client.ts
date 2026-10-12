@@ -89,6 +89,7 @@ import type {
 } from '@europa/matchmaking';
 import type { LobbyMatchSettings, NetworkPayload, ProtocolEnvelope, SequenceNumber } from '@europa/networking';
 import { encodeFrame, NETWORK_API_VERSION, tryDecodeFrame, validateVersion } from '@europa/networking/browser';
+import { ESTABLISH_TIMEOUT_MS } from '../contracts/console-types';
 import {
     clearStoredClaim,
     type LobbyStorage,
@@ -109,7 +110,7 @@ const HEARTBEAT_FLOOR_MS = 1_000;
 const WS_READY_STATE_OPEN = 1;
 /** Pings go out at this fraction of the server-advertised interval (match-client parity). */
 const HEARTBEAT_INTERVAL_DIVISOR = 2;
-/** Default per-action correlation timeout (ms). */
+/** Default per-action correlation timeout (ms) — actions only; the establish cycle has its own `establishTimeoutMs`. */
 const DEFAULT_ACTION_TIMEOUT_MS = 10_000;
 /** Default base delay for the reconnect backoff (ms). */
 const DEFAULT_RECONNECT_BASE_DELAY_MS = 500;
@@ -246,6 +247,14 @@ export interface WsLobbyClientOptions {
     readonly storage?: LobbyStorage | null;
     /** Timer seam; defaults to platform timers. */
     readonly scheduler?: LobbyScheduler;
+    /**
+     * Establish-cycle timeout (ms): bounds ONE attempt from socket
+     * creation to `'ready'` before it is failed and retried (005
+     * FR-031). Default {@link ESTABLISH_TIMEOUT_MS} — the value this
+     * timer used to inherit from `actionTimeoutMs`, so the dedicated
+     * knob changes no default.
+     */
+    readonly establishTimeoutMs?: number;
     /** Per-action correlation timeout (ms). Default {@link DEFAULT_ACTION_TIMEOUT_MS}. */
     readonly actionTimeoutMs?: number;
     /** Reconnect backoff base (ms). Default {@link DEFAULT_RECONNECT_BASE_DELAY_MS}. */
@@ -427,6 +436,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     const { logger } = options;
     const scheduler = options.scheduler ?? globalScheduler;
     const actionTimeoutMs = options.actionTimeoutMs ?? DEFAULT_ACTION_TIMEOUT_MS;
+    const establishTimeoutMs = options.establishTimeoutMs ?? ESTABLISH_TIMEOUT_MS;
     const reconnectBaseDelayMs = options.reconnectBaseDelayMs ?? DEFAULT_RECONNECT_BASE_DELAY_MS;
     const reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? DEFAULT_RECONNECT_MAX_DELAY_MS;
     const maxReconnectAttempts = options.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
@@ -878,12 +888,14 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         socket = created;
         attach(created, epoch);
         stopEstablishTimer();
+        // FR-031: the establish cycle is bounded by its OWN timeout,
+        // not by the per-action correlation knob.
         establishTimer = scheduler.setTimeout(() => {
             if (epoch !== attemptEpoch) {
                 return;
             }
             failAttempt(new LobbyTimeoutError('establish cycle'));
-        }, actionTimeoutMs);
+        }, establishTimeoutMs);
     }
 
     /** Attach the protocol handlers to a freshly created socket (epoch-guarded). */

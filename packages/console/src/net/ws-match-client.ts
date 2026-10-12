@@ -51,6 +51,7 @@
  */
 
 import { encodeFrame, NETWORK_API_VERSION, tryDecodeFrame, validateVersion } from '@europa/networking/browser';
+import { ESTABLISH_TIMEOUT_MS } from '../contracts/console-types';
 import type {
     CommandResult,
     ConnectionState,
@@ -133,6 +134,14 @@ export interface WsMatchClientOptions {
     readonly verboseLogging?: boolean;
     /** Injected logger (never `console.*` directly — house rule). */
     readonly logger?: WsClientLogger;
+    /** Timer seam for the establish timeout + heartbeat; defaults to platform timers. */
+    readonly scheduler?: WsMatchClientScheduler;
+    /**
+     * Establish timeout (ms): bounds `connect()` from socket creation
+     * to `helloAck`. Default {@link ESTABLISH_TIMEOUT_MS}. On expiry the
+     * connect promise settles failed (005 FR-031).
+     */
+    readonly establishTimeoutMs?: number;
     /**
      * Test seam: constructs the underlying WebSocket for a URL.
      * Defaults to the platform `WebSocket`. Unit tests inject a scripted
@@ -148,6 +157,43 @@ export interface WsClientLogger {
     warn(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
     error(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
 }
+
+/**
+ * Timer seam for the establish timeout and the heartbeat — the same
+ * shape the lobby client's `LobbyScheduler` already uses, so both
+ * clients are driven by one injected-clock pattern in tests.
+ *
+ * Handles are opaque: callers only round-trip them back to
+ * {@link WsMatchClientScheduler.clearTimeout}.
+ */
+export interface WsMatchClientScheduler {
+    /** Schedule `fn` after `ms`; returns a handle for `clearTimeout`. */
+    setTimeout(fn: () => void, ms: number): unknown;
+    /** Cancel a pending timer (no-op on unknown handles). */
+    clearTimeout(handle: unknown): void;
+}
+
+/**
+ * Platform timer binding (production default for
+ * {@link WsMatchClientScheduler}). Routed through a structural view of
+ * `globalThis` so the handle stays opaque across DOM (`number`) and
+ * Node (`Timeout`) typings alike, and so fake-timer test setups that
+ * replace the globals keep working.
+ */
+const platformTimers = globalThis as {
+    setTimeout(fn: () => void, ms: number): unknown;
+    clearTimeout(handle: unknown): void;
+};
+
+/** Platform timer binding (production default for {@link WsMatchClientScheduler}). */
+const globalScheduler: WsMatchClientScheduler = {
+    setTimeout(fn: () => void, ms: number): unknown {
+        return platformTimers.setTimeout(fn, ms);
+    },
+    clearTimeout(handle: unknown): void {
+        platformTimers.clearTimeout(handle);
+    },
+};
 
 /**
  * The concrete client handle: the contract surface plus two
@@ -191,6 +237,8 @@ export interface WsMatchClient extends WsMatchClientContract {
  */
 export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatchClient {
     const { logger } = options;
+    const scheduler = options.scheduler ?? globalScheduler;
+    const establishTimeoutMs = options.establishTimeoutMs ?? ESTABLISH_TIMEOUT_MS;
     const newSocket =
         options.webSocketFactory ??
         ((url: string) => {
@@ -219,23 +267,37 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
      * go at half of it. 0 = no heartbeat yet (pre-helloAck).
      */
     let heartbeatIntervalMs = 0;
-    let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
-
+    /** Next chained ping; `undefined` when no heartbeat is scheduled. */
+    let heartbeatTimer: unknown;
     /**
-     * Stop the ping timer (idempotent).
+     * Establish timer (005 FR-031): armed by `connect()`, cleared on
+     * handshake success, socket loss, teardown, and its own expiry.
      */
+    let establishTimer: unknown;
+
+    /** Stop the ping timer (idempotent). */
     function stopHeartbeat(): void {
         if (heartbeatTimer !== undefined) {
-            clearInterval(heartbeatTimer);
+            scheduler.clearTimeout(heartbeatTimer);
             heartbeatTimer = undefined;
         }
     }
 
+    /** Cancel a pending establish timeout (idempotent). */
+    function stopEstablishTimer(): void {
+        if (establishTimer !== undefined) {
+            scheduler.clearTimeout(establishTimer);
+            establishTimer = undefined;
+        }
+    }
+
     /**
-     * Start the ping loop at half the advertised interval (bounded below
-     * by 1 s so a misconfigured server cannot busy-loop the socket).
-     * Transport-layer wall clock only — `clientTimeMs` is informational
-     * per the wire contract and never enters simulation state.
+     * Schedule the next ping at half the advertised interval — a
+     * CHAINED timeout through the injected seam (the bare `setInterval`
+     * this replaced is exactly the un-injectable timer FR-031 asked us
+     * to close over). Transport-layer wall clock only: `clientTimeMs`
+     * is informational per the wire contract and never enters
+     * simulation state.
      */
     function startHeartbeat(): void {
         stopHeartbeat();
@@ -243,7 +305,8 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             return;
         }
         const periodMs = Math.max(1000, Math.floor(heartbeatIntervalMs / 2));
-        heartbeatTimer = setInterval(() => {
+        heartbeatTimer = scheduler.setTimeout(() => {
+            heartbeatTimer = undefined;
             if (socket === null || (connection !== 'greeted' && connection !== 'joined' && connection !== 'rejoined')) {
                 return;
             }
@@ -254,6 +317,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                 // reject to, so the failure is logged, never thrown.
                 log('warn', 'outbound frame dropped', { type: 'ping', detail: describeError(error) });
             }
+            startHeartbeat();
         }, periodMs);
     }
 
@@ -292,8 +356,13 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
         logger[level](msg, ctx);
     }
 
-    /** Reject every outstanding handshake/ack promise (transport loss). */
+    /**
+     * Reject every outstanding handshake/ack promise (transport loss).
+     * The establish timer's reason to exist dies with the handshake, so
+     * it goes too (005 FR-031: cleared on teardown, never fires late).
+     */
     function flushPendingRejections(error: Error): void {
+        stopEstablishTimer();
         if (rejectConnect !== null) {
             rejectConnect(error);
             rejectConnect = null;
@@ -309,6 +378,24 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
         }
         pendingAcks.clear();
         pendingAckRejects.clear();
+    }
+
+    /**
+     * The handshake did not complete within
+     * {@link ESTABLISH_TIMEOUT_MS} (005 FR-031): settle `connect()` as
+     * failed, drop the socket, and land in an honest terminal status.
+     * A half-open server used to leave a permanently blank console with
+     * the state parked on `pending` — the spinner lied, and nothing
+     * ever surfaced the failure (FR-008).
+     */
+    function failEstablish(): void {
+        stopEstablishTimer();
+        stopHeartbeat();
+        flushPendingRejections(new Error(`ws-match-client: establish timeout after ${String(establishTimeoutMs)} ms`));
+        const abandoned = socket;
+        socket = null;
+        abandoned?.close(1000, 'establish timeout');
+        setState('closed');
     }
 
     /** Send one client→server envelope with the next per-connection seq. */
@@ -377,6 +464,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                 if (!version.ok) {
                     const { error } = version;
                     log('error', 'helloAck version mismatch', { received: payload.protocolVersion });
+                    stopEstablishTimer();
                     setState('closed');
                     if (rejectConnect !== null) {
                         rejectConnect(new Error(`ws-match-client: ${error.message}`));
@@ -387,6 +475,9 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                     return;
                 }
                 setState('greeted');
+                // Handshake complete: the establish timer has no work left
+                // and must never fire against an established client.
+                stopEstablishTimer();
                 ({ heartbeatIntervalMs } = payload);
                 startHeartbeat();
                 if (pendingConnect !== null) {
@@ -533,6 +624,14 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                 const created = newSocket(url);
                 socket = created;
                 attach(created);
+                // FR-031: bound the handshake; cleared on success, socket
+                // loss, teardown, and (defensively) on its own expiry.
+                stopEstablishTimer();
+                establishTimer = scheduler.setTimeout(() => {
+                    if (rejectConnect !== null) {
+                        failEstablish();
+                    }
+                }, establishTimeoutMs);
             });
         },
 

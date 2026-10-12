@@ -316,6 +316,10 @@ interface HarnessOptions {
     readonly autoReconnect?: boolean;
     readonly maxReconnectAttempts?: number;
     readonly verbose?: boolean;
+    /** Per-action correlation timeout (ms) — must NOT govern the establish cycle. */
+    readonly actionTimeoutMs?: number;
+    /** Establish-cycle timeout (ms). */
+    readonly establishTimeoutMs?: number;
 }
 
 function createHarness(options: HarnessOptions = {}): Harness {
@@ -340,6 +344,8 @@ function createHarness(options: HarnessOptions = {}): Harness {
             maxReconnectAttempts: options.maxReconnectAttempts ?? 6,
             verboseLogging: options.verbose ?? true,
             logger: capturingLogger(logs),
+            ...(options.actionTimeoutMs !== undefined ? { actionTimeoutMs: options.actionTimeoutMs } : {}),
+            ...(options.establishTimeoutMs !== undefined ? { establishTimeoutMs: options.establishTimeoutMs } : {}),
         }),
     };
     harness.client.onError((report) => {
@@ -508,6 +514,56 @@ describe('send promise contract (FR-028)', () => {
             true,
         );
         expect(harness.client.state().connection).toBe('connecting');
+        harness.client.disconnect();
+    });
+});
+
+describe('establish timeout (FR-031)', () => {
+    /** Run `body`, then observe whether a connect promise has settled. */
+    async function settledFlag(connecting: Promise<void>): Promise<() => string> {
+        let outcome = 'pending';
+        void connecting.then(
+            () => {
+                outcome = 'settled';
+            },
+            () => {
+                outcome = 'settled';
+            },
+        );
+        await settlePromises();
+        return () => outcome;
+    }
+
+    it('fails and retries an establish cycle that never completes within establishTimeoutMs', async () => {
+        const harness = createHarness({ establishTimeoutMs: 50 });
+        const connecting = harness.client.connect('ws://lobby');
+        const outcome = await settledFlag(connecting);
+
+        // No socket open, no server: the cycle must not wait forever.
+        harness.scheduler.advance(50);
+        await settlePromises();
+        expect(outcome()).toBe('settled');
+        await expect(connecting).rejects.toThrow(/establish cycle timed out/);
+        // Honest failed/retrying status through the FR-008 state path.
+        expect(harness.states).toContain('reconnecting');
+        harness.client.disconnect();
+    });
+
+    it('keys the establish timeout to establishTimeoutMs, not the per-action knob', async () => {
+        const harness = createHarness({ actionTimeoutMs: 50 });
+        const connecting = harness.client.connect('ws://lobby');
+        const outcome = await settledFlag(connecting);
+
+        harness.scheduler.advance(50);
+        await settlePromises();
+        // The per-action timeout governs correlated actions only; it
+        // must not fail the establish cycle half a second in.
+        expect(outcome()).toBe('pending');
+
+        harness.scheduler.advance(10_000);
+        await settlePromises();
+        expect(outcome()).toBe('settled');
+        await expect(connecting).rejects.toThrow(/establish cycle timed out/);
         harness.client.disconnect();
     });
 });

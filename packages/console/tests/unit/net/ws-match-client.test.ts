@@ -660,3 +660,88 @@ describe('send promise contract (FR-028)', () => {
         client.disconnect();
     });
 });
+
+describe('establish timeout (FR-031)', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('arms an establish timer at connect, clears it on success, never fires after', async () => {
+        vi.useFakeTimers();
+        const socket = new FakeWebSocket('ws://est');
+        const client = createWsMatchClient({ webSocketFactory: () => socket });
+
+        const connecting = client.connect('ws://est');
+        expect(vi.getTimerCount()).toBe(1);
+
+        socket.open();
+        socket.deliver('helloAck', {
+            protocolVersion: NETWORK_API_VERSION,
+            connectionId: 'c-est',
+            // No heartbeat: leaves the establish timer as the only one.
+            heartbeatIntervalMs: 0,
+        });
+        await connecting;
+        expect(vi.getTimerCount()).toBe(0);
+
+        // Well past the timeout: an established client must not be
+        // disturbed by a timer that belonged to the handshake.
+        vi.advanceTimersByTime(60_000);
+        expect(client.state().connection).toBe('greeted');
+        expect(socket.closed).toHaveLength(0);
+    });
+
+    it('settles connect() as failed when the server stays half-open', async () => {
+        vi.useFakeTimers();
+        const socket = new FakeWebSocket('ws://half-open');
+        const client = createWsMatchClient({ webSocketFactory: () => socket });
+        const connecting = client.connect('ws://half-open');
+        socket.open(); // socket open, hello out, no helloAck ever arrives
+
+        let outcome = 'pending';
+        void connecting.then(
+            () => {
+                outcome = 'settled';
+            },
+            () => {
+                outcome = 'settled';
+            },
+        );
+        vi.advanceTimersByTime(10_000);
+        for (let i = 0; i < 4; i += 1) {
+            await Promise.resolve();
+        }
+
+        // A half-open server used to leave a permanently blank console:
+        // the handshake promise now settles, honestly, inside the timeout.
+        expect(outcome).toBe('settled');
+        await expect(connecting).rejects.toThrow(/establish timeout/);
+        expect(client.state().connection).toBe('closed');
+        expect(socket.closed).toHaveLength(1);
+    });
+
+    it('drives its timers through the injected scheduler seam', () => {
+        const scheduled: number[] = [];
+        const cleared: unknown[] = [];
+        const socket = new FakeWebSocket('ws://seam');
+        const client = createWsMatchClient({
+            webSocketFactory: () => socket,
+            establishTimeoutMs: 2_500,
+            scheduler: {
+                setTimeout: (_fn: () => void, ms: number): unknown => {
+                    scheduled.push(ms);
+                    return 'establish-handle';
+                },
+                clearTimeout: (handle: unknown): void => {
+                    cleared.push(handle);
+                },
+            },
+        });
+        const connecting = client.connect('ws://seam');
+        connecting.catch(() => undefined);
+
+        expect(scheduled).toEqual([2_500]);
+        client.disconnect();
+        expect(cleared).toEqual(['establish-handle']);
+    });
+});

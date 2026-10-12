@@ -121,6 +121,25 @@
 export const CONSOLE_API_VERSION = '0.5.0' as const;
 
 // ----------------------------------------------------------------------------
+// Transport tunables (005 v1.11 FR-031)
+// ----------------------------------------------------------------------------
+
+/**
+ * Default establish timeout (ms): how long a WebSocket client's
+ * `connect()` may take from socket creation to a completed handshake
+ * before it settles as failed. A half-open server (SYN black hole,
+ * stalled TLS) would otherwise leave a permanently blank console.
+ *
+ * Both clients take an `establishTimeoutMs` option overriding this
+ * value; the match client's timer runs through its injected scheduler
+ * seam so tests drive it deterministically. 10_000 matches the
+ * lobby client's long-standing effective behaviour (it keyed this
+ * timer to `DEFAULT_ACTION_TIMEOUT_MS`), so shipping the dedicated
+ * knob changes no default.
+ */
+export const ESTABLISH_TIMEOUT_MS = 10_000;
+
+// ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)
 // ----------------------------------------------------------------------------
 
