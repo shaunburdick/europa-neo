@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createConsoleClient } from '../../../src/net/client';
 import { consoleStatusFromConnectionState } from '../../../src/net/connection';
 import { netEventFromEnvelope } from '../../../src/net/envelope-to-event';
-import type { NetworkPayload, ProtocolEnvelope, SequenceNumber } from '../../../src/state/types';
+import type { ConnectionState, NetworkPayload, ProtocolEnvelope, SequenceNumber } from '../../../src/state/types';
 import { TEST_PLAYER_1 } from '../../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
@@ -125,6 +125,15 @@ describe('consoleStatusFromConnectionState', () => {
         expect(consoleStatusFromConnectionState('expired')).toBe('expired');
         expect(consoleStatusFromConnectionState('terminal')).toBe('game_over');
         expect(consoleStatusFromConnectionState('closed')).toBe('closed');
+    });
+
+    it('throws on an unknown connection state instead of aliasing it back (FR-036)', () => {
+        // A `default: return state` branch compiles and looks harmless,
+        // but it defeats the never check: a new networking state would
+        // reach the UI as its own raw name (silently aliased status)
+        // instead of failing loudly at the seam.
+        const unknownState = 'retired_state' as ConnectionState;
+        expect(() => consoleStatusFromConnectionState(unknownState)).toThrow(/unmapped connection state/);
     });
 });
 
