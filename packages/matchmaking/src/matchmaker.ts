@@ -771,20 +771,22 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     /**
      * Lazy results-TTL sweep (FR-011 second clause, data-model §4):
      * collect every `finished` match whose `resultsTtlMs` grace period
-     * has elapsed since `finishedAtMs` — regardless of whether a rematch
-     * offer is attached. This is the no-leak backstop for matches that
-     * finished with NO `requestRematch`: without it they would stay
-     * `'finished'` forever and each would hold a slot against
-     * `maxConcurrentMatches` until restart. Before collecting, each
-     * seated player's ephemeral session is deleted (same discipline as
-     * {@linkcode sweepStaleEmptyMatches}: identity-guarded, actual
-     * removal per SC-005).
+     * has elapsed since `finishedAtMs`. A `finished` match with a LIVE
+     * rematch offer window is skipped (FR-020): while the window is
+     * open the match is owned by {@linkcode sweepExpiredRematches} and
+     * by accept/decline resolution, so no configuration of
+     * `resultsTtlMs` vs `rematchWindowMs` can destroy an open window;
+     * once the window lapses, the rematch sweep (which runs first)
+     * collects the match on the same pass. This is the no-leak
+     * backstop for matches that finished with NO `requestRematch`:
+     * without it they would stay `'finished'` forever and each would
+     * hold a slot against `maxConcurrentMatches` until restart. Before
+     * collecting, each seated player's ephemeral session is deleted
+     * (identity-guarded actual removal per SC-005).
      *
      * Runs AFTER {@linkcode sweepExpiredRematches} so an open rematch
      * window that lapses unresolved is resolved by the more specific
-     * sweep first; by then this sweep's TTL condition is equally true
-     * (both anchor at `finishedAtMs`, default TTLs coincide), so
-     * behavior for offered matches is unchanged.
+     * sweep first.
      *
      * Invoked from read paths with the injected clock — NO timers inside
      * matchmaking logic (same lazy pattern as the sibling sweeps).
@@ -796,6 +798,9 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         let swept = 0;
         for (const m of store.listMatches()) {
             if (m.status !== 'finished' || m.finishedAtMs === null) {
+                continue;
+            }
+            if (m.rematch !== null && !isWindowClosed(m.rematch, atMs)) {
                 continue;
             }
             if (atMs - m.finishedAtMs < resolved.resultsTtlMs) {
