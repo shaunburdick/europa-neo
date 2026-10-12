@@ -17,6 +17,7 @@ import type { MatchId, SessionToken } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
+import { makeFinished2pScenario } from '../fixtures/rematchScenario';
 
 /** Create a public 1/2-filled match; returns the matchmaker + id. */
 function makeOpenMatch() {
@@ -158,7 +159,7 @@ describe('joinMatch — rejections', () => {
         matchmaker.close();
     });
 
-    it('reconnect slice: a known token reports seat_taken (claim flows land with US5)', () => {
+    it("reconnect slice: a known token returns the seat's existing assignment (issue #147 FR-019 re-pin)", () => {
         const server = new FakeServer();
         const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
         const alice = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
@@ -166,6 +167,7 @@ describe('joinMatch — rejections', () => {
             throw new Error('fixture create failed');
         }
         const token = alice.data.seatAssignment.sessionToken;
+        const sessionsBefore = matchmaker.stats().activePlayerSessions;
 
         const result = matchmaker.joinMatch({
             matchId: alice.data.matchId,
@@ -173,11 +175,167 @@ describe('joinMatch — rejections', () => {
             reconnectToken: token,
         });
 
+        expect(result.ok).toBe(true);
+        if (!result.ok) {
+            return;
+        }
+        expect(result.data.seatAssignment.sessionToken).toBe(token);
+        expect(result.data.seatAssignment.seatIndex).toBe(alice.data.seatAssignment.seatIndex);
+        expect(result.data.seatAssignment.playerId).toBe(alice.data.seatAssignment.playerId);
+        expect(matchmaker.stats().activePlayerSessions).toBe(sessionsBefore);
+        matchmaker.close();
+    });
+});
+
+describe('joinMatch — reconnect slice (issue #147 FR-019 / test 3)', () => {
+    /** Create a filled (running) 2-player match; returns handles to both seats. */
+    function makeRunningMatch() {
+        const server = new FakeServer();
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+        const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+        const joined = matchmaker.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
+        if (!joined.ok) {
+            throw new Error('fixture join failed');
+        }
+        return { server, matchmaker, matchId: created.data.matchId, alice: created.data.seatAssignment, bob: joined.data.seatAssignment };
+    }
+
+    it('succeeds on a live unforfeited seat of a running match without minting a session or applying displayName', () => {
+        const { server, matchmaker, matchId, alice } = makeRunningMatch();
+        const sessionsBefore = matchmaker.stats().activePlayerSessions;
+
+        const result = matchmaker.joinMatch({
+            matchId,
+            displayName: 'Totally Different Name',
+            reconnectToken: alice.sessionToken,
+        });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) {
+            return;
+        }
+        expect(result.data.matchId).toBe(matchId);
+        expect(result.data.seatAssignment).toEqual(alice);
+        expect(matchmaker.stats().activePlayerSessions).toBe(sessionsBefore);
+        expect(server.registerMatchCalls).toHaveLength(1);
+        matchmaker.close();
+    });
+
+    it('succeeds on a live unforfeited seat of a filling match (pre-auto-start)', () => {
+        const server = new FakeServer();
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+        const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+
+        const result = matchmaker.joinMatch({
+            matchId: created.data.matchId,
+            displayName: 'Alice Again',
+            reconnectToken: created.data.seatAssignment.sessionToken,
+        });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) {
+            return;
+        }
+        expect(result.data.seatAssignment).toEqual(created.data.seatAssignment);
+        matchmaker.close();
+    });
+
+    it('returns session_expired for a forfeited seat', () => {
+        const { server, matchmaker, matchId, alice } = makeRunningMatch();
+        server.fireOnSeatExpired({
+            matchId,
+            sessionToken: alice.sessionToken,
+            playerId: alice.playerId,
+        });
+
+        const result = matchmaker.joinMatch({ matchId, displayName: 'Alice', reconnectToken: alice.sessionToken });
+
         expect(result.ok).toBe(false);
         if (result.ok) {
             return;
         }
-        expect(result.error.code).toBe('seat_taken');
+        expect(result.error.code).toBe('session_expired');
+        matchmaker.close();
+    });
+
+    it('returns session_expired for a token bound to a finished match', () => {
+        const scenario = makeFinished2pScenario();
+
+        const result = scenario.matchmaker.joinMatch({
+            matchId: scenario.matchId,
+            displayName: 'Alice',
+            reconnectToken: scenario.alice.sessionToken,
+        });
+
+        expect(result.ok).toBe(false);
+        if (result.ok) {
+            return;
+        }
+        expect(result.error.code).toBe('session_expired');
+        scenario.matchmaker.close();
+    });
+
+    it('returns session_expired for a token bound to a collected match', () => {
+        const scenario = makeFinished2pScenario();
+        const requested = scenario.matchmaker.requestRematch({
+            matchId: scenario.matchId,
+            sessionToken: scenario.alice.sessionToken,
+        });
+        if (!requested.ok) {
+            throw new Error('fixture requestRematch failed');
+        }
+        const declined = scenario.matchmaker.declineRematch({
+            matchId: scenario.matchId,
+            rematchOfferId: requested.rematchOfferId,
+            sessionToken: scenario.bob.sessionToken,
+        });
+        if (!declined.ok) {
+            throw new Error('fixture declineRematch failed');
+        }
+
+        const result = scenario.matchmaker.joinMatch({
+            matchId: scenario.matchId,
+            displayName: 'Alice',
+            reconnectToken: scenario.alice.sessionToken,
+        });
+
+        expect(result.ok).toBe(false);
+        if (result.ok) {
+            return;
+        }
+        expect(result.error.code).toBe('session_expired');
+        scenario.matchmaker.close();
+    });
+
+    it('rejects an invalid displayName with invalid_request BEFORE the success arm', () => {
+        const { matchmaker, matchId, alice } = makeRunningMatch();
+
+        const result = matchmaker.joinMatch({ matchId, displayName: '', reconnectToken: alice.sessionToken });
+
+        expect(result.ok).toBe(false);
+        if (result.ok) {
+            return;
+        }
+        expect(result.error.code).toBe('invalid_request');
+        matchmaker.close();
+    });
+
+    it('accepts a valid non-ASCII displayName on reconnect (seat snapshot unchanged)', () => {
+        const { matchmaker, matchId, alice } = makeRunningMatch();
+
+        const result = matchmaker.joinMatch({ matchId, displayName: 'Åsa 🚀', reconnectToken: alice.sessionToken });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) {
+            return;
+        }
+        expect(result.data.seatAssignment.displayName).toBe('Alice');
         matchmaker.close();
     });
 });

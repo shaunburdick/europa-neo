@@ -956,19 +956,39 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 return { ok: false, error: makeError('match_not_found') };
             }
 
-            // Reconnect slice (full reclaim flows land with US5): validate
-            // the token against this match's seats. Unknown token → the same
-            // non-leaking `match_not_found`; known token → the seat is bound.
+            // Reconnect slice (FR-019 / issue #147): validate the token
+            // against this match's seats. Unknown token → the same
+            // non-leaking `match_not_found`; a forfeited seat or a
+            // terminal match → `session_expired`; otherwise the seat is
+            // still live and its existing assignment is returned (no
+            // session mint, no seat mutation).
             if (req.reconnectToken !== undefined) {
+                let matched: SeatRecord | undefined;
                 for (const seat of match.seats.values()) {
                     // Plain `===` is fine here (documented accepted risk, as in
                     // `findSeatByToken`): 122-bit CSPRNG v4 tokens make a timing
                     // oracle worthless.
                     if (seat.sessionToken === req.reconnectToken) {
-                        return { ok: false, error: makeError('seat_taken') };
+                        matched = seat;
+                        break;
                     }
                 }
-                return { ok: false, error: makeError('match_not_found') };
+                if (matched === undefined) {
+                    return { ok: false, error: makeError('match_not_found') };
+                }
+                if (matched.forfeitedAtMs !== null || match.status === 'finished' || match.status === 'collected') {
+                    return { ok: false, error: makeError('session_expired') };
+                }
+                const links = joinLinks(match);
+                return {
+                    ok: true,
+                    data: {
+                        matchId: match.matchId,
+                        joinPath: links.joinPath,
+                        joinUrl: links.joinUrl,
+                        seatAssignment: seatAssignmentFor(matched),
+                    },
+                };
             }
 
             // Free-seat check FIRST (spec edge case + Q-M07): a joiner that

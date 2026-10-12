@@ -152,7 +152,11 @@ export interface Matchmaker {
    * - **Reconnect** (with `reconnectToken`): server looks up the seat
    *   by `(matchId, sessionToken)`. If the token is unknown, returns
    *   `match_not_found` (no existence leak). If the seat was forfeited
-   *   (grace window expired), returns `session_expired`.
+   *   (grace window expired), returns `session_expired`. If the seat is
+   *   unforfeited and the match is still `filling` or `running`, the
+   *   call succeeds and returns the seat's existing assignment — no new
+   *   session, seat, or token is minted, and the request's
+   *   `displayName` is not applied to the seat.
    *
    * **Private match access**: a known `MatchId` permits an admission attempt;
    * it is not authentication or a bearer credential and grants no seat,
