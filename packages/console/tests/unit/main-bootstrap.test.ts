@@ -19,7 +19,23 @@ const createRootSpy = vi.fn(() => ({ render: renderSpy }));
 const createRouterSpy = vi.fn(() => ({}));
 const createWsLobbyClientSpy = vi.fn(() => ({ kind: 'fake-transport' }));
 const connectSpy = vi.fn();
-const fakeStore = { getState: () => ({}), subscribe: () => () => {}, dispatch: vi.fn() };
+
+/** A real seat grant's bearer, seeded into the fake store's state (populated case). */
+const SEAT_SESSION_TOKEN = 'seat-secret-0001';
+
+const fakeLobbyState = {
+    viewMode: 'match',
+    handle: 'Alice',
+    activeMatchId: 'm-1',
+    identityStatus: 'named',
+    connection: 'ready',
+    matchVisibility: 'public',
+    snapshot: { entries: [{ matchId: 'm-1', status: 'waiting', seatsFilled: 1, capacity: 2 }] },
+    // The RAW store carries the matchmaking-issued seat bearer — the
+    // credential the debug handle must not publish (005 FR-037).
+    seatSessionToken: SEAT_SESSION_TOKEN,
+};
+const fakeStore = { getState: () => fakeLobbyState, subscribe: () => () => {}, dispatch: vi.fn() };
 const createLobbyControllerSpy = vi.fn(() => ({ store: fakeStore, connect: connectSpy }));
 
 vi.mock('react-dom/client', () => ({ createRoot: createRootSpy }));
@@ -118,14 +134,36 @@ describe('production bootstrap — debug-global sentinel gate (005 FR-037, 015 F
         expect(Object.hasOwn(window, '__europaLobby')).toBe(false);
     });
 
-    it('installs the lobby handle when the pre-load sentinel opted in, carrying no bearer values', async () => {
+    it('installs a credential-free lobby PROJECTION when the pre-load sentinel opted in', async () => {
         (window as BootstrapWindow).__europaTestOptIn = { lobby: true };
         await bootAt('/lobby?ws=ws://127.0.0.1:9999');
 
         const handle = (window as BootstrapWindow).__europaLobby;
         expect(handle).toBeDefined();
-        expect(handle?.store).toBe(fakeStore);
-        // The handle exposes the store surface only — no credential-bearing fields.
+        // The handle exposes the store surface only — and that surface
+        // is a CREDENTIAL-FREE projection, never the raw controller
+        // store (005 FR-037, 015 FR-019).
         expect(Object.keys(handle ?? {})).toEqual(['store']);
+        const store = handle?.store as unknown as { getState(): Record<string, unknown> };
+        expect(store).not.toBe(fakeStore);
+
+        const state = store.getState();
+        // The fields the four dependent lobby E2E specs read ride through.
+        expect(state).toMatchObject({
+            viewMode: 'match',
+            handle: 'Alice',
+            activeMatchId: 'm-1',
+            identityStatus: 'named',
+            connection: 'ready',
+            matchVisibility: 'public',
+        });
+        expect(state['snapshot']).toEqual({
+            entries: [{ matchId: 'm-1', status: 'waiting', seatsFilled: 1, capacity: 2 }],
+        });
+        // Populated case: the raw fake store's state above carries the
+        // seat bearer token — the projection must not.
+        expect(Object.hasOwn(state, 'seatSessionToken')).toBe(false);
+        expect(JSON.stringify(state)).not.toContain(SEAT_SESSION_TOKEN);
+        expect(JSON.stringify(handle)).not.toContain(SEAT_SESSION_TOKEN);
     });
 });

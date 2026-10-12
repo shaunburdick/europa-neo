@@ -17,7 +17,17 @@ const { createRootSpy, createConsoleClientSpy, createWsMatchClientSpy, createOrd
     const createRootSpy = vi.fn(() => ({ render: renderSpy }));
     const joinMatchSpy = vi.fn(async () => {});
     const connectSpy = vi.fn(async () => {});
-    const fakeClient = { connect: connectSpy, joinMatch: joinMatchSpy };
+    // Bearer-shaped accessors a REAL adapter exposes (client.ts
+    // sessionToken()/state().sessionToken) — the surfaces the
+    // credential-free debug view must not forward (005 FR-037).
+    const clientStateSpy = vi.fn(() => ({ connection: 'joined', sessionToken: 'inner-session-token' }));
+    const clientSessionTokenSpy = vi.fn(() => 'inner-session-token');
+    const fakeClient = {
+        connect: connectSpy,
+        joinMatch: joinMatchSpy,
+        state: clientStateSpy,
+        sessionToken: clientSessionTokenSpy,
+    };
     const createConsoleClientSpy = vi.fn(() => fakeClient);
     const createWsMatchClientSpy = vi.fn(() => ({
         state: () => ({ connection: 'idle' }),
@@ -34,6 +44,7 @@ vi.mock('../../../src/net/ws-match-client', () => ({ createWsMatchClient: create
 vi.mock('../../../src/state/order-actions', () => ({ createOrderBridge: createOrderBridgeSpy }));
 
 import { mountLiveRuntime } from '../../../src/internal/live-runtime';
+import { buildPlayerView, TEST_PLAYER_1 } from '../../fixtures/player-view';
 
 /** Window shape mirrored from the runtime's global declarations. */
 interface SeamWindow {
@@ -44,6 +55,22 @@ interface SeamWindow {
         readonly reconnectToken?: string;
     };
     __europaLive?: { readonly store?: unknown; readonly client?: unknown; bootError: string | null };
+}
+
+/**
+ * Loose probe of the published handle's credential-relevant surface —
+ * deliberately wider than the runtime's own types so the test can ask
+ * for accessors the credential-free view must NOT provide.
+ */
+interface LiveHandleProbe {
+    readonly store: {
+        getState(): { readonly session: Record<string, unknown>; readonly [key: string]: unknown };
+        dispatch(action: unknown): void;
+    };
+    readonly client: {
+        state(): Record<string, unknown>;
+        sessionToken?: () => unknown;
+    };
 }
 
 function seamWindow(): SeamWindow {
@@ -110,5 +137,46 @@ describe('direct-match seam retirement (013 FR-025/FR-035)', () => {
 
         const clientArgs = createConsoleClientSpy.mock.calls[0]?.[0] as { readonly url: string };
         expect(clientArgs.url).toMatch(/^wss?:\/\/localhost:\d+$/);
+    });
+});
+
+describe('credential-free debug handle (005 FR-037, 015 FR-019 — PR #189 review)', () => {
+    it('exposes no seat/session/reconnect/resume token after a real seat grant, and consumes the seam', () => {
+        seamWindow().__europaTestMatch = {
+            wsUrl: 'ws://127.0.0.1:9999',
+            matchId: 'seam-match',
+            displayName: 'SeamName',
+            reconnectToken: 'seam-reconnect-token',
+        };
+
+        mountLiveRuntime(document.getElementById('root') as HTMLElement);
+
+        const raw = seamWindow().__europaLive;
+        expect(raw).toBeDefined();
+        const handle = raw as unknown as LiveHandleProbe;
+
+        // The POPULATED case the review demanded: a REAL seat grant —
+        // the server's joinAck bearer flows into the store through the
+        // same dispatch path the order bridge uses. Pre-fix the handle
+        // WAS the raw store, so this token sat one getState() away.
+        handle.store.dispatch({
+            kind: 'joined',
+            sessionToken: 'granted-seat-token',
+            playerId: TEST_PLAYER_1,
+            view: buildPlayerView({ width: 8 }),
+            players: [],
+        });
+        expect(handle.store.getState().session['playerId']).toBe(TEST_PLAYER_1);
+
+        // No granted seat token anywhere on the published surface.
+        expect(Object.hasOwn(handle.store.getState().session, 'sessionToken')).toBe(false);
+        expect(JSON.stringify(handle.store.getState())).not.toContain('granted-seat-token');
+        // The adapter's bearer accessors are not forwarded (pre-fix the
+        // raw client answered sessionToken() with the seat token).
+        expect(handle.client.sessionToken?.() ?? null).toBeNull();
+        expect(JSON.stringify(handle.client.state())).not.toContain('inner-session-token');
+        // The direct-match seam is consume-once: the reconnect bearer it
+        // carried must not linger on window after boot.
+        expect(Object.hasOwn(window, '__europaTestMatch')).toBe(false);
     });
 });

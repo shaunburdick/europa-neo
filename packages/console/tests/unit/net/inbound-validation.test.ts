@@ -128,6 +128,83 @@ describe('inboundFrameDiagnostic — nested lobbyEvent variants (the codec blind
     });
 });
 
+describe('inboundFrameDiagnostic — nested roster entries (PR #189 review, FR-032)', () => {
+    const rosterEvent = (players: unknown): unknown => ({
+        kind: 'roster',
+        roster: { revision: 4, players },
+    });
+    const rosterDeltaEvent = (changes: unknown): unknown => ({
+        kind: 'rosterDelta',
+        delta: { revision: 5, changes },
+    });
+
+    it('accepts well-formed roster entries and delta changes', () => {
+        expect(
+            inboundFrameDiagnostic(
+                envelope('lobbyEvent', {
+                    event: rosterEvent([
+                        { handle: 'Nova', status: 'in_lobby' },
+                        { handle: 'Bob', status: 'in_game' },
+                    ]),
+                }),
+            ),
+        ).toBeNull();
+        expect(
+            inboundFrameDiagnostic(
+                envelope('lobbyEvent', { event: rosterDeltaEvent([{ handle: 'Cara', status: 'spectating' }]) }),
+            ),
+        ).toBeNull();
+        // Field-forward compatibility: an unknown additive field on a
+        // known entry shape passes untouched.
+        expect(
+            inboundFrameDiagnostic(
+                envelope('lobbyEvent', {
+                    event: rosterEvent([{ handle: 'Nova', status: 'in_lobby', futureEntryField: 'ok' }]),
+                }),
+            ),
+        ).toBeNull();
+    });
+
+    it('rejects a roster entry that is not an object (players: [null] shape)', () => {
+        expect(inboundFrameDiagnostic(envelope('lobbyEvent', { event: rosterEvent([null]) }))).toMatch(
+            /roster\.players\[0\] is not an object/,
+        );
+        expect(
+            inboundFrameDiagnostic(
+                envelope('lobbyEvent', {
+                    event: rosterEvent([{ handle: 'Nova', status: 'in_lobby' }, 'junk']),
+                }),
+            ),
+        ).toMatch(/roster\.players\[1\] is not an object/);
+    });
+
+    it('rejects roster entries whose handle or status disagrees with the wire shape', () => {
+        expect(
+            inboundFrameDiagnostic(
+                envelope('lobbyEvent', { event: rosterEvent([{ handle: 42, status: 'in_lobby' }]) }),
+            ),
+        ).toMatch(/roster\.players\[0\]\.handle is not a string/);
+        expect(
+            inboundFrameDiagnostic(envelope('lobbyEvent', { event: rosterEvent([{ status: 'in_lobby' }]) })),
+        ).toMatch(/roster\.players\[0\]\.handle is not a string/);
+        expect(
+            inboundFrameDiagnostic(envelope('lobbyEvent', { event: rosterEvent([{ handle: 'Nova', status: 7 }]) })),
+        ).toMatch(/roster\.players\[0\]\.status is not a roster status/);
+        expect(
+            inboundFrameDiagnostic(envelope('lobbyEvent', { event: rosterEvent([{ handle: 'Nova', status: 'afk' }]) })),
+        ).toMatch(/roster\.players\[0\]\.status is not a roster status/);
+    });
+
+    it('rejects malformed delta changes with the same entry discipline', () => {
+        expect(inboundFrameDiagnostic(envelope('lobbyEvent', { event: rosterDeltaEvent([null]) }))).toMatch(
+            /rosterDelta\.changes\[0\] is not an object/,
+        );
+        expect(
+            inboundFrameDiagnostic(envelope('lobbyEvent', { event: rosterDeltaEvent([{ handle: 'Cara' }]) })),
+        ).toMatch(/rosterDelta\.changes\[0\]\.status is not a roster status/);
+    });
+});
+
 describe('inboundFrameDiagnostic — field-forward compatibility (Gate 3 Decision 6)', () => {
     it('accepts a known variant carrying an unknown additive field', () => {
         // The W3 resume secret rides the W2-era validator untouched: the

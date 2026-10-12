@@ -14,7 +14,11 @@
  *
  *   1. envelope structure (object, `type`, `seq`, `payload`);
  *   2. the full nested `lobbyEvent` variant set — each variant's own
- *      required/optional fields, with the types the console consumes;
+ *      required/optional fields, with the types the console consumes,
+ *      including the ENTRIES inside `roster.players` and
+ *      `rosterDelta.changes` (a `[null]` entry throws downstream after
+ *      the roster revision has advanced, starving the valid
+ *      replacement at the same revision — 005 FR-032);
  *   3. the consumed top-level fields of every server→client kind the
  *      console translates, so a frame from a non-codec path (test
  *      double, injected frame, future transport) cannot corrupt state.
@@ -98,6 +102,65 @@ function fieldProblem(record: Record<string, unknown>, key: string, kind: FieldK
 }
 
 /**
+ * The closed `RosterStatus` union the wire declares for one roster
+ * entry (`@europa/matchmaking` `RosterStatus`). A value outside it is
+ * a malformed KNOWN field, not an additive one — the contract treats
+ * widening it as an incompatible change requiring a version bump.
+ */
+const ROSTER_STATUSES: ReadonlySet<string> = new Set(['in_lobby', 'in_game', 'spectating']);
+
+/**
+ * Validate one roster entry / delta change against the wire's
+ * `RosterEntry` shape — exactly `{ handle, status }` (unknown additive
+ * FIELDS still pass; see the module note). Entries are consumed by
+ * VALUE downstream (`applyRosterDelta` reads `change.handle`, the
+ * roster card reads `entry.handle`/`entry.status`), so a non-object
+ * entry throws after the roster revision has already advanced —
+ * starving the valid replacement at the same revision (005 FR-032:
+ * a malformed payload MUST NOT corrupt client state). The frame must
+ * die HERE instead.
+ *
+ * @param entry One element of `players` / `changes`.
+ * @param label Diagnostic prefix naming the array and the index.
+ * @returns A diagnostic naming the offending field, or `null`.
+ */
+function rosterEntryProblem(entry: unknown, label: string): string | null {
+    if (!isPlainObject(entry)) {
+        return `${label} is not an object`;
+    }
+    if (typeof entry['handle'] !== 'string') {
+        return `${label}.handle is not a string`;
+    }
+    const { status } = entry;
+    if (typeof status !== 'string' || !ROSTER_STATUSES.has(status)) {
+        return `${label}.status is not a roster status`;
+    }
+    return null;
+}
+
+/**
+ * Validate every element of a roster entry array, stopping at the
+ * first malformed entry so the diagnostic names one concrete cause.
+ *
+ * @param value The decoded `players` / `changes` array.
+ * @param label Diagnostic prefix for the array (e.g. `roster.players`).
+ * @returns The first entry diagnostic, or `null` when every entry conforms.
+ */
+function rosterEntriesProblem(value: unknown, label: string): string | null {
+    if (!Array.isArray(value)) {
+        return `${label} is not an array`;
+    }
+    const entries = value as readonly unknown[];
+    for (const [index, entry] of entries.entries()) {
+        const problem = rosterEntryProblem(entry, `${label}[${index}]`);
+        if (problem !== null) {
+            return problem;
+        }
+    }
+    return null;
+}
+
+/**
  * Validate `record` against a list of expected fields, stopping at the
  * first problem so the diagnostic names one concrete cause.
  *
@@ -178,20 +241,28 @@ function lobbyEventDiagnostic(event: unknown): string | null {
             if (!isPlainObject(roster)) {
                 return 'roster event: roster is not an object';
             }
-            return fieldsProblem(roster, [
+            const shape = fieldsProblem(roster, [
                 ['revision', 'number'],
                 ['players', 'array'],
             ]);
+            if (shape !== null) {
+                return shape;
+            }
+            return rosterEntriesProblem(roster['players'], 'roster.players');
         }
         case 'rosterDelta': {
             const { delta } = event;
             if (!isPlainObject(delta)) {
                 return 'rosterDelta event: delta is not an object';
             }
-            return fieldsProblem(delta, [
+            const shape = fieldsProblem(delta, [
                 ['revision', 'number'],
                 ['changes', 'array'],
             ]);
+            if (shape !== null) {
+                return shape;
+            }
+            return rosterEntriesProblem(delta['changes'], 'rosterDelta.changes');
         }
         default:
             // Unknown additive variant: accepted here, ignored by the

@@ -145,6 +145,7 @@ describe('createConsoleClient (T029)', () => {
     /** Minimal MatchClient stand-in satisfying the structural guard. */
     function makeInner() {
         const handlers = new Set<(envelope: ProtocolEnvelope<NetworkPayload>) => void>();
+        const connectionHandlers = new Set<(state: ConnectionState) => void>();
         return {
             connectCalls: 0,
             joinRequests: [] as Record<string, unknown>[],
@@ -183,6 +184,23 @@ describe('createConsoleClient (T029)', () => {
             emit(env: ProtocolEnvelope<NetworkPayload>): void {
                 for (const handler of handlers) {
                     handler(env);
+                }
+            },
+            /**
+             * Beyond-contract extension mirroring the shipped browser
+             * client (`WsMatchClient.onConnectionChanged`) — the seam the
+             * adapter's FR-029 disconnect prune hooks (005).
+             */
+            onConnectionChanged(handler: (state: ConnectionState) => void): () => void {
+                connectionHandlers.add(handler);
+                return () => {
+                    connectionHandlers.delete(handler);
+                };
+            },
+            /** Test driver: simulate a connection-state transition. */
+            emitConnection(state: ConnectionState): void {
+                for (const handler of connectionHandlers) {
+                    handler(state);
                 }
             },
             state() {
@@ -405,5 +423,43 @@ describe('createConsoleClient (T029)', () => {
         } finally {
             nowSpy.mockRestore();
         }
+    });
+
+    it('refuses to correlate an ack that arrives after the timeout with no intervening send (FR-029)', async () => {
+        // Pre-fix the timeout prune ran ONLY inside recordCorrelation
+        // (i.e. on the next send), so an IDLE client's late ack still
+        // translated against the stale entry — wrong ack/reject
+        // feedback on an action whose window had long passed.
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+        try {
+            const { inner, client, correlated } = correlatingClient();
+            await client.sendOrder(3, { kind: 'surrender', player: 1 });
+            expect([...client.seqToActionId.keys()]).toEqual([1]);
+
+            nowSpy.mockReturnValue(1_000_000 + 60_000);
+            // NO intervening send: the ack's own arrival must evict the
+            // expired entry BEFORE the translation layer reads the map.
+            inner.emit(ackEnvelope(1));
+            expect(correlated).toEqual([]);
+            expect(client.seqToActionId.size).toBe(0);
+        } finally {
+            nowSpy.mockRestore();
+        }
+    });
+
+    it('clears correlations on an UNEXPECTED disconnect so a later ack cannot correlate (FR-029)', async () => {
+        // A server drop or network failure never calls close() — the
+        // clear used to live only there, so mappings outlived the
+        // connection that could have answered them.
+        const { inner, client, correlated } = correlatingClient();
+        await client.sendOrder(21, { kind: 'surrender', player: 1 });
+        expect(client.seqToActionId.size).toBe(1);
+
+        inner.emitConnection('disconnected');
+        expect(client.seqToActionId.size).toBe(0);
+
+        // An ack for the dead connection's seq translates to nothing.
+        inner.emit(ackEnvelope(1));
+        expect(correlated).toEqual([]);
     });
 });

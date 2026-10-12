@@ -20,7 +20,9 @@
  * the seam fails loudly instead of mounting.
  *
  * Playwright specs drive orders and read state through the
- * `window.__europaLive` handle exposed here.
+ * `window.__europaLive` handle exposed here — a CREDENTIAL-FREE
+ * projection of the store + adapter (005 FR-037, 015 FR-019; see
+ * `./debug-views`), never the raw objects.
  *
  * Deterministic: no randomness; clocks only at sanctioned UI
  * boundaries (store dispatch defaults).
@@ -36,21 +38,34 @@ import { LobbyServerUrlError, resolveLobbyServerUrl } from '../state/lobby-view'
 import { createOrderBridge } from '../state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
-import type { ConsoleClient, MatchId, ReducerEffect, SessionToken } from '../state/types';
+import type { MatchId, ReducerEffect, SessionToken } from '../state/types';
+import { type LiveDebugHandle, liveDebugHandle } from './debug-views';
 
-/** The window-global handle Playwright full-stack specs read. */
-export interface EuropaLiveHandle {
-    /** The live store (state assertions + programmatic order dispatch). */
-    readonly store: ConsoleStore;
-    /** The network adapter (transport diagnostics). */
-    readonly client: ConsoleClient;
-    /** Set when boot failed (bad params / connect / join rejection). */
-    bootError: string | null;
+/**
+ * Boot-failure placeholder for the credential-free `__europaLive`
+ * handle: no store/client to project yet, so the handle carries the
+ * reason alone (005 FR-037 — never a half-built raw surface).
+ *
+ * @param bootError The human-readable boot failure.
+ * @returns The failure-only handle.
+ */
+function failedLiveHandle(bootError: string): LiveDebugHandle {
+    return {
+        store: undefined as unknown as LiveDebugHandle['store'],
+        client: undefined as unknown as LiveDebugHandle['client'],
+        bootError,
+    };
 }
 
 declare global {
     interface Window {
-        __europaLive?: EuropaLiveHandle;
+        /**
+         * Credential-free debug handle (005 FR-037, 015 FR-019): a
+         * projection of the store + adapter — never the raw objects,
+         * whose state carries the session/seat bearer credentials.
+         * See `./debug-views`.
+         */
+        __europaLive?: LiveDebugHandle;
         __europaTestMatch?: {
             readonly wsUrl: string;
             readonly matchId: string;
@@ -83,7 +98,7 @@ function noopReturnToLobby(): void {
  *
  * Boot is async internally (connect → join) but mounting is sync: the
  * UI renders immediately in `connecting` status while the handshake
- * completes; failures land in {@link EuropaLiveHandle.bootError}.
+ * completes; failures land in {@link LiveDebugHandle.bootError}.
  *
  * @param root The DOM mount node (index.html's `#root`).
  */
@@ -93,25 +108,21 @@ export function mountLiveRuntime(root: HTMLElement): void {
         // The seam object is the only supported input (013 FR-025:
         // query consumption retired). A query-driven boot without the
         // seam fails loudly on the handle instead of mounting.
-        window.__europaLive = {
-            store: undefined as unknown as ConsoleStore,
-            client: undefined as unknown as ConsoleClient,
-            bootError: 'live runtime requires the window.__europaTestMatch seam',
-        };
+        window.__europaLive = failedLiveHandle('live runtime requires the window.__europaTestMatch seam');
         return;
     }
     const matchId = seam.matchId;
     const displayName = seam.displayName;
     const token = seam.reconnectToken;
+    // FR-037: the seam is an INPUT channel carrying a reconnect bearer
+    // credential; consume it once, then remove it so the credential
+    // does not linger on `window` for the page's lifetime.
+    delete window.__europaTestMatch;
 
     if (matchId === '') {
         // No store to surface feedback through yet; expose the reason on
         // the handle so drivers fail with a diagnostic instead of hanging.
-        window.__europaLive = {
-            store: undefined as unknown as ConsoleStore,
-            client: undefined as unknown as ConsoleClient,
-            bootError: 'live runtime requires a match identifier',
-        };
+        window.__europaLive = failedLiveHandle('live runtime requires a match identifier');
         return;
     }
 
@@ -124,11 +135,7 @@ export function mountLiveRuntime(root: HTMLElement): void {
         safeUrl = seam.wsUrl !== '' ? seam.wsUrl : resolveLobbyServerUrl('', window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
-        window.__europaLive = {
-            store: undefined as unknown as ConsoleStore,
-            client: undefined as unknown as ConsoleClient,
-            bootError: message,
-        };
+        window.__europaLive = failedLiveHandle(message);
         return;
     }
 
@@ -168,7 +175,11 @@ export function mountLiveRuntime(root: HTMLElement): void {
         lastConnection = current;
     });
 
-    window.__europaLive = { store, client, bootError: null };
+    // Credential-free debug handle (005 FR-037, 015 FR-019): the E2E
+    // suites read state/order through a PROJECTION of the store +
+    // adapter — never the raw objects, whose state carries the seat
+    // bearer credentials (see ./debug-views).
+    window.__europaLive = liveDebugHandle(store, client);
 
     const boot = async (): Promise<void> => {
         try {

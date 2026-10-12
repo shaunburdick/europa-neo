@@ -83,6 +83,18 @@ interface MatchClientLike {
      * also echo that counter's values.
      */
     lastOrderSeq?(): SequenceNumber | null;
+    /**
+     * Integration-wave addition (optional for the same reason): the
+     * connection-state transitions the shipped browser client exposes
+     * (`WsMatchClient.onConnectionChanged`). The adapter prunes order
+     * correlations when the connection that could have answered them
+     * is gone (005 FR-029's disconnect prune) — a server drop or
+     * network failure never reaches `ConsoleClient.close()`, so
+     * relying on close alone lets mappings outlive their connection
+     * (and a later connection's recycled wire seqs could correlate
+     * against them).
+     */
+    onConnectionChanged?(handler: (state: ConnectionState) => void): () => void;
 }
 
 /**
@@ -116,6 +128,20 @@ function isMatchClientLike(value: unknown): value is MatchClientLike {
 function rejectedWith(error: unknown): Promise<never> {
     return Promise.reject(error instanceof Error ? error : new Error(String(error)));
 }
+
+/**
+ * Connection states in which an `orderAck` can still arrive for a
+ * recorded correlation (005 FR-029's disconnect prune). Anything else
+ * — transport loss, explicit close, grace expiry, match terminal —
+ * ends the connection that could have answered, so both correlation
+ * tables drop at that instant rather than waiting for the next send.
+ */
+const CORRELATION_LIVE_CONNECTION_STATES: ReadonlySet<ConnectionState> = new Set<ConnectionState>([
+    'pending',
+    'greeted',
+    'joined',
+    'rejoined',
+]);
 
 /**
  * Run a promise-returning transport call so a SYNCHRONOUS throw from
@@ -216,6 +242,13 @@ class ConsoleClientImpl implements ConsoleClient {
     private readonly correlationStampedAtMs = new Map<SequenceNumber, number>();
 
     /**
+     * Unsubscribe from the inner client's connection watch (the
+     * FR-029 disconnect prune's event source); released in
+     * {@link ConsoleClientImpl.close}.
+     */
+    private readonly unsubscribeConnectionWatch: (() => void) | null;
+
+    /**
      * Fallback monotonic SequenceNumber source for outbound orders —
      * used only for inner clients without `lastOrderSeq()` (test
      * doubles); the real browser client reports its true wire seq,
@@ -233,6 +266,18 @@ class ConsoleClientImpl implements ConsoleClient {
         this.client = client;
         this.logger = logger;
         this.role = config.role ?? 'player';
+        // FR-029 disconnect prune: an unexpected transport loss never
+        // reaches this adapter's close(), so watch the inner client's
+        // connection transitions and drop every correlation the moment
+        // the connection that could have answered it is gone.
+        this.unsubscribeConnectionWatch =
+            client.onConnectionChanged?.((state) => {
+                if (!CORRELATION_LIVE_CONNECTION_STATES.has(state)) {
+                    this.seqToActionId.clear();
+                    this.correlationStampedAtMs.clear();
+                    this.log('debug', 'correlations cleared on connection loss', { state });
+                }
+            }) ?? null;
     }
 
     /** Open the WebSocket and complete the hello handshake. */
@@ -338,11 +383,12 @@ class ConsoleClientImpl implements ConsoleClient {
     /**
      * Drop every correlation older than
      * {@link CORRELATION_TIMEOUT_MS} (005 FR-029's timeout prune).
-     * Runs lazily on the next send: entries are bounded by the cap
-     * regardless, and a stale ack is worthless the moment its window
-     * has passed. The `Date.now()` read is the sanctioned transport
-     * wall clock (same boundary as the heartbeat's `clientTimeMs`) —
-     * never simulation state.
+     * Runs on the next send AND on every inbound `orderAck` before
+     * translation (see {@link ConsoleClientImpl.onEnvelope}): entries
+     * are bounded by the cap regardless, and a stale ack is worthless
+     * the moment its window has passed. The `Date.now()` read is the
+     * sanctioned transport wall clock (same boundary as the
+     * heartbeat's `clientTimeMs`) — never simulation state.
      */
     private pruneExpiredCorrelations(): void {
         const nowMs = Date.now();
@@ -378,12 +424,23 @@ class ConsoleClientImpl implements ConsoleClient {
      * Subscribe to inbound envelopes (mirrors feature 004's onMessage).
      * Returns the unsubscribe function.
      *
-     * `orderAck` frames consume their correlation AFTER the subscriber
-     * runs, so the translation layer reads a live entry and a repeat
-     * of the same ack finds nothing (005 FR-029).
+     * `orderAck` frames correlate through the live `seqToActionId`
+     * map: expired entries are pruned BEFORE the subscriber translates
+     * the frame (the bridge reads that map live), then the consumed
+     * entry is dropped AFTER the subscriber runs, so the translation
+     * layer reads a live entry and a repeat of the same ack finds
+     * nothing (005 FR-029).
      */
     onEnvelope(handler: (envelope: ProtocolEnvelope<NetworkPayload>) => void): () => void {
         return this.client.onMessage((envelope) => {
+            // FR-029 expiry on the ACK-INTERPRETATION path: an entry
+            // that outlived CORRELATION_TIMEOUT_MS must be evicted
+            // before translation reads it. The send-side lazy prune
+            // never ran — an idle client would otherwise still
+            // correlate a stale ack to its long-dead action.
+            if (envelope.type === 'orderAck') {
+                this.pruneExpiredCorrelations();
+            }
             handler(envelope);
             this.consumeAckCorrelation(envelope);
         });
@@ -416,8 +473,13 @@ class ConsoleClientImpl implements ConsoleClient {
     /** Explicit close; no more envelopes afterwards. */
     close(): void {
         this.log('debug', 'close', {});
-        // Disconnect + teardown prune (005 FR-029): no correlation
-        // outlives the connection that could have answered it.
+        // Release the FR-029 disconnect watch first so the inner
+        // client's own 'closed' transition cannot re-enter the clear
+        // below (idempotent either way; this keeps the ordering
+        // explicit). Disconnect + teardown prune (005 FR-029): no
+        // correlation outlives the connection that could have
+        // answered it.
+        this.unsubscribeConnectionWatch?.();
         this.seqToActionId.clear();
         this.correlationStampedAtMs.clear();
         this.client.disconnect();

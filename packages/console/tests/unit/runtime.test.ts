@@ -495,6 +495,10 @@ describe('ConsoleRuntime (T086)', () => {
             expect(log.rendererMounts).toHaveLength(0);
             expect(log.inputStarts).toBe(0);
             expect(container.childElementCount).toBe(0);
+            // FR-030 (PR #189 review): the teardown check sits BETWEEN
+            // connect() and joinMatch() — a dead runtime must not drive
+            // a wire join the teardown already unwound.
+            expect(client.joinCalls).toBe(0);
         });
     });
 });

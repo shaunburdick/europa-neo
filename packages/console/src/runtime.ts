@@ -310,6 +310,12 @@ export class ConsoleRuntime implements ConsoleRuntimeContract {
         let handshakeError: unknown = null;
         try {
             await this.client.connect();
+            // FR-030 re-check after EVERY await: a teardown that won
+            // the race during connect() stops the handshake HERE —
+            // before joinMatch drives a wire join the teardown has
+            // already unwound. (The throw is captured below, and the
+            // post-try assertUsable rethrows the teardown error.)
+            this.assertUsable();
             if (matchId !== undefined) {
                 await this.client.joinMatch();
             }

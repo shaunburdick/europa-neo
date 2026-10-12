@@ -643,6 +643,62 @@ describe('inbound frame validation (FR-032)', () => {
         await settlePromises();
         expect(client.state().handle).toBe('Recovered');
     });
+
+    it('drops a full roster whose entries are malformed, without advancing the revision (FR-032)', async () => {
+        const { client, socket, logs } = await readyHarness();
+
+        // The codec accepts this frame (players is an array); only the
+        // console can see the ENTRY is garbage. Pre-fix it applied —
+        // advancing the roster revision and poisoning roster state.
+        expect(() =>
+            socket.deliverLobby({ kind: 'roster', roster: { revision: 1, players: [null] } as never }),
+        ).not.toThrow();
+        expect(client.state().rosterRevision).toBeNull();
+        expect(client.state().roster).toEqual([]);
+        expect(
+            logs.some((entry) => entry.level === 'warn' && entry.msg === 'inbound frame failed structural validation'),
+        ).toBe(true);
+
+        // The revision never advanced, so the VALID replacement at the
+        // same revision still applies (pre-fix it was starved as stale).
+        socket.deliverLobby({
+            kind: 'roster',
+            roster: { revision: 1, players: [{ handle: 'Nova', status: 'in_lobby' }] },
+        });
+        expect(client.state().rosterRevision).toBe(1);
+        expect(client.state().roster).toEqual([{ handle: 'Nova', status: 'in_lobby' }]);
+    });
+
+    it('drops an incremental roster update whose changes are malformed, without advancing the revision (FR-032)', async () => {
+        const { client, socket, logs } = await readyHarness();
+        socket.deliverLobby({
+            kind: 'roster',
+            roster: { revision: 1, players: [{ handle: 'Nova', status: 'in_lobby' }] },
+        });
+        expect(client.state().rosterRevision).toBe(1);
+
+        // Pre-fix this THREW out of onmessage (change.handle on null)
+        // AFTER the revision had advanced to 2.
+        expect(() =>
+            socket.deliverLobby({ kind: 'rosterDelta', delta: { revision: 2, changes: [null] } as never }),
+        ).not.toThrow();
+        expect(client.state().rosterRevision).toBe(1);
+        expect(client.state().roster).toEqual([{ handle: 'Nova', status: 'in_lobby' }]);
+        expect(
+            logs.some((entry) => entry.level === 'warn' && entry.msg === 'inbound frame failed structural validation'),
+        ).toBe(true);
+
+        // The valid delta at the same revision still merges.
+        socket.deliverLobby({
+            kind: 'rosterDelta',
+            delta: { revision: 2, changes: [{ handle: 'Bob', status: 'in_game' }] },
+        });
+        expect(client.state().rosterRevision).toBe(2);
+        expect(client.state().roster).toEqual([
+            { handle: 'Nova', status: 'in_lobby' },
+            { handle: 'Bob', status: 'in_game' },
+        ]);
+    });
 });
 
 describe('claim persistence', () => {

@@ -35,6 +35,7 @@ import '@europa/design/dist/design.css';
 import './styles/index.css';
 import './styles/logo.css';
 
+import { type LobbyStoreDebugView, lobbyDebugHandle } from './internal/debug-views';
 import { createWsLobbyClient } from './net/ws-lobby-client';
 import { ErrorBoundary } from './render/ErrorBoundary';
 import { routeTree } from './routing/route-tree';
@@ -127,9 +128,11 @@ function bootstrapProductionRoute(root: HTMLElement): void {
         // Test-only handle (005 FR-037, 015 FR-019): installed ONLY
         // behind the pre-load opt-in sentinel set by test
         // infrastructure. An unflagged production boot installs no
-        // `__europa*` handle at all; this surface carries the store
-        // only, never a bearer credential.
-        window.__europaLobby = { store: controller.store };
+        // `__europa*` handle at all. The handle carries a CREDENTIAL-
+        // FREE projection of the lobby store (internal/debug-views) —
+        // never the store itself, whose state carries the seat session
+        // bearer (`seatSessionToken`).
+        window.__europaLobby = lobbyDebugHandle(controller.store);
     }
 
     // Begin the lobby establish cycle. The connection is non-blocking —
@@ -187,8 +190,12 @@ function LobbyConfigurationError({ message }: { readonly message: string }): JSX
 
 /** Window-global handle for lobby E2E tests (mirrors live-runtime's `__europaLive` pattern). */
 interface EuropaLobbyHandle {
-    /** The lobby store (state assertions). */
-    readonly store: import('./state/lobby-store').LobbyStore;
+    /**
+     * Credential-free projection of the lobby store (state assertions)
+     * — see `internal/debug-views`. The raw store (whose state carries
+     * the seat session bearer) is never published (005 FR-037).
+     */
+    readonly store: LobbyStoreDebugView;
 }
 
 declare global {
