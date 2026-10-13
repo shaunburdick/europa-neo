@@ -15,7 +15,7 @@ import type {
     RosterSnapshot,
 } from '../../src/contracts/lobby-types';
 import { createIdentityRegistry } from '../../src/internal/identityRegistry';
-import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';
+import { createLobbyService, type LobbyConnectionTeardown, type LobbyScheduler } from '../../src/internal/lobbyService';
 import { FakeMatchmakerBridge, nextConnectionId } from '../fixtures/fakeMatchmakerBridge';
 import { buildSeatAssignment } from '../fixtures/lobbySnapshots';
 
@@ -45,7 +45,7 @@ interface Harness {
     readonly delivered: Delivery[];
 }
 
-function buildHarness(options: { graceMs?: number } = {}): Harness {
+function buildHarness(options: { graceMs?: number; schedule?: LobbyScheduler } = {}): Harness {
     const bridge = new FakeMatchmakerBridge();
     const delivered: Delivery[] = [];
     const service = createLobbyService({
@@ -56,6 +56,7 @@ function buildHarness(options: { graceMs?: number } = {}): Harness {
             ...(options.graceMs === undefined ? {} : { graceMs: options.graceMs }),
         }),
         now: () => clockMs,
+        ...(options.schedule === undefined ? {} : { schedule: options.schedule }),
         deliver: (connectionId, event) => {
             delivered.push({ connectionId, event });
         },
@@ -620,7 +621,7 @@ describe('T024: Integration — full lobby flow', () => {
         }
     });
 
-    it('roster entries ordered lexicographically by handle', () => {
+    it('roster entries ordered by UTF-16 code units, locale-independent (issue #147 re-pin)', () => {
         const { service, delivered } = buildHarness();
         namedConnection(service, 'zoe');
         const alice = namedConnection(service, 'Alice');
@@ -631,8 +632,20 @@ describe('T024: Integration — full lobby flow', () => {
         const lastSnapshot = snapshots[snapshots.length - 1];
         expect(lastSnapshot).toBeDefined();
         const handles = lastSnapshot?.players.map((p) => p.handle);
-        const sorted = [...handles].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-        expect(handles).toEqual(sorted);
+        expect(handles).toEqual(['Alice', 'bob', 'zoe']);
+    });
+
+    it('roster orders non-ASCII handles by UTF-16 code units, locale-independent (issue #147)', () => {
+        const { service, delivered } = buildHarness();
+        namedConnection(service, 'zoe');
+        const asa = namedConnection(service, 'Åsa');
+        namedConnection(service, 'ada');
+        namedConnection(service, '🚀Rocket');
+        service.subscribe(asa.connectionId);
+        const snapshots = rosterSnapshots(delivered);
+        const lastSnapshot = snapshots[snapshots.length - 1];
+        expect(lastSnapshot).toBeDefined();
+        expect(lastSnapshot?.players.map((p) => p.handle)).toEqual(['ada', 'zoe', 'Åsa', '🚀Rocket']);
     });
 
     it('roster payload contains exactly {handle, status}', () => {
@@ -747,5 +760,54 @@ describe('T025: Anonymous exclusion from roster', () => {
         expect(handles).toContain('Alice');
         expect(handles).toContain('Bob');
         expect(handles).not.toContain('Anonymous');
+    });
+});
+
+describe('T021: injected scheduler seam (issue #147 test 8)', () => {
+    it('schedules the anti-flap callback at 500ms and invokes the cancel on removeRosterEntry and close()', async () => {
+        const scheduled: Array<{ delayMs: number; cancelled: boolean; run: () => void }> = [];
+        const schedule: LobbyScheduler = (callback, delayMs) => {
+            const entry = { delayMs, cancelled: false, run: callback };
+            scheduled.push(entry);
+            return () => {
+                entry.cancelled = true;
+            };
+        };
+        const { service, delivered } = buildHarness({ schedule });
+
+        const alice = namedConnection(service, 'Alice');
+        expect(scheduled).toHaveLength(1);
+        expect(scheduled[0]?.delayMs).toBe(500);
+
+        const result = service.setHandle(alice.connectionId, 'Alicia');
+        expect(result.ok).toBe(true);
+        expect(scheduled).toHaveLength(2);
+        expect(scheduled[0]?.cancelled).toBe(true);
+
+        const before = rosterDeltas(delivered).length;
+        service.connectionClosed(alice.connectionId);
+        expect(scheduled[1]?.cancelled).toBe(true);
+        scheduled[1]?.run();
+        expect(rosterDeltas(delivered).length).toBe(before);
+
+        await service.close();
+    });
+
+    it('close() cancels a still-pending scheduled callback', async () => {
+        const scheduled: Array<{ cancelled: boolean }> = [];
+        const schedule: LobbyScheduler = (_callback, _delayMs) => {
+            const entry = { cancelled: false };
+            scheduled.push(entry);
+            return () => {
+                entry.cancelled = true;
+            };
+        };
+        const { service } = buildHarness({ schedule });
+        namedConnection(service, 'Bob');
+
+        await service.close();
+
+        expect(scheduled).toHaveLength(1);
+        expect(scheduled[0]?.cancelled).toBe(true);
     });
 });

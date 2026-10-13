@@ -1,8 +1,8 @@
 # Data Model: Match Lifecycle & Matchmaking (Feature 006)
 
 **Branch**: `001-europa-core`
-**Date**: 2026-08-21
-**Spec**: `specs/006-match-lifecycle-matchmaking/spec.md` (v1.1)
+**Date**: 2026-08-21 (updated 2026-10-11)
+**Spec**: `specs/006-match-lifecycle-matchmaking/spec.md` (v1.8)
 
 > All entities live in `packages/matchmaking/src/` and are re-exported via `@europa/matchmaking` to the server binary. Types are `Readonly<...>` everywhere outside the matchmaker's own internal mutation during lifecycle transitions; the public `Matchmaker` interface returns immutable snapshots.
 >
@@ -121,10 +121,17 @@ export type MatchStatus = 'filling' | 'running' | 'finished' | 'collected';
 |------------|------------|----------------------------------------------------------|--------------|
 | (none)     | `filling`  | `createMatch` succeeds                                   | Add to lobby (if public); seat player 0 |
 | `filling`  | `running`  | `joinMatch` fills the last seat                          | Generate board; construct engine session; `server.registerMatch`; `server.attachPlayer` × N |
-| `filling`  | `collected`| `leaveMatch` by creator (no other seats) OR `emptyMatchTtlMs` elapses | Remove from lobby; release seats; no engine session was created |
+| `filling`  | `collected`| `leaveMatch` by creator (no other seats) OR `emptyMatchTtlMs` elapses | Remove from lobby; release seats; seated sessions released (SC-005 discipline); no engine session was created; `server.unregisterMatch` fires as a harmless no-op (never registered) |
 | `running`  | `finished` | Engine reports `MatchResult` (via `onMatchTerminal`)     | Record `MatchResultsRecord`; open rematch window; broadcast results |
-| `finished` | `collected`| `resultsTtlMs` elapses OR all rematch votes resolved (accept → new match; decline → collected) | Release seats; close engine session; `server.unregisterMatch` |
-| `running`  | `collected`| ALL players forfeited (US5 AC-2)                        | Record `MatchResultsRecord` with `kind: 'cancelled'`; close engine session; `server.unregisterMatch` |
+| `finished` | `collected`| `resultsTtlMs` elapses OR the rematch window lapses unresolved OR all rematch votes resolved (accept → new match; decline → collected) | Release seats; `server.unregisterMatch` fires (FR-024); every seated session still bound to the match is released via identity-guarded deletion (FR-025 — the results-TTL sweep already did this; the rematch-window sweep and `declineRematch` gain it); accept REBINDS participants' sessions to the new match instead (the guard skips rebound sessions); record goes inert to every projection (seat records + engine session retained — §5) |
+| `running`  | `collected`| ALL players forfeited (US5 AC-2)                        | Record `MatchResultsRecord` with `kind: 'cancelled'`; `server.unregisterMatch` fires (`forfeit.ts:100,:106`); seated participant sessions released (FR-025 — gained by this amendment; previously left bound, inflating `activePlayerSessions`); record goes inert (seat records + engine session retained — §5) |
+
+**Lifecycle notes (v1.8, issue #147):**
+
+- **Networking registration coverage — table now matches code (correction + PM-authorized expansion)**: this table has ALWAYS claimed `server.unregisterMatch` on `finished → collected`, but until this amendment only the all-forfeited teardown (`forfeit.ts:100,:106`) actually fired it — the three lazy sweeps (`matchmaker.ts:714`, `:761`, `:813`), final-seat leave (`:1098`), rematch accept (`:1279`), and rematch decline (`:1336`) leaked networking channels, which then counted against networking's own `maxConcurrentMatches` (`networking/server.ts:1727`; `channels.delete` exists only inside `unregisterMatch` at `:1753`) until `server.close()`. **FR-024 closes the gap**: every collection site fires `server.unregisterMatch` best-effort, so the rows above are truthful in-place — including the filling row's no-op call. `close()` (FR-021) remains the residual backstop, firing for every record still held (a repeat call for an already-unregistered id is an idempotent no-op). Scope: F-MM-014, an in-scope expansion authorized by the PM — NOT one of issue #147's original seven findings.
+- **Sweep order and ownership**: lazy sweeps run on read paths with the injected clock (`runLazySweeps`, `matchmaker.ts:823-835`): rematch-window expiry first, then results-TTL, then empty-match TTL. Per FR-020 the results-TTL sweep MUST skip any `finished` match whose rematch offer window is still open, so an open window is always resolved by the rematch sweep (or accept/decline) — never destroyed by `resultsTtlMs` configuration.
+- **Capacity accounting**: `maxConcurrentMatches` counts every non-`collected` record (`filling + running + finished`); a `finished` match deliberately holds a slot until collected. Per FR-022 the count is evaluated AFTER lazy sweeps on every creation path — `createMatch` and the all-accepted `acceptRematch` resolution — with refusal (`rate_limited`) before any state mutation.
+- **Session release at terminal collection (F-MM-015 → FR-025, PM-authorized expansion)**: the rows above now match code for sessions too. Previously the rematch-window sweep (`matchmaker.ts:714`), `declineRematch` (`:1336`), and the all-forfeited teardown (`forfeit.ts:91-108`) collected WITHOUT releasing bound seated sessions — orphaning `currentMatchId` pointers and permanently inflating `stats().activePlayerSessions` (`matchmaker.ts:1383`); the empty/results sweeps and the final-seat leave already released (`:758`, `:810`, `:1097`). Post-fix, every terminal collection runs one shared identity-guarded release (planned `matchLifecycle.releaseMatchSessions(store, match)` — same store-helper precedent as `propagateHandleRename`, `matchLifecycle.ts:420`), absorbed into the collection helper and the forfeit teardown; `acceptRematch` is safe by construction because its participants' sessions are rebound first and the guard skips them. This gap was invisible to SC-005's soak *(attribution corrected after Gate 1 row 2)* because its originals are always collected via the all-accepted `acceptRematch` path and its leftover filling rematch matches via the empty-match-TTL sweep (`tests/soak.test.ts:131-137`; the `:136`/`:145` `activePlayerSessions === 0` pins follow those two paths), and the run never lets a `finished` match age past `resultsTtlMs`.
 
 ### Validation rules
 
@@ -156,7 +163,7 @@ export type MatchStatus = 'filling' | 'running' | 'finished' | 'collected';
 
 ### Validation rules
 
-- `engineSession` is `null` iff `status === 'filling'` or `'collected'`.
+- `engineSession` is `null` while `status === 'filling'` (set atomically at `filling → running`, `matchLifecycle.ts:203-220`). It is RETAINED on the record after `running → finished` and through `collected` — `transitionToCollected` (`matchLifecycle.ts:270-289`) never clears it (v1.8 correction: the previous "null iff filling or collected" wording never matched the code). `engineSession !== null` is the "reached auto-start / was registered" marker for diagnostics; FR-021's `close()` sweep fires `unregisterMatch` for every record regardless (total best-effort).
 - `results` is non-null iff `status === 'finished'` or `'collected'` after having been `finished`.
 - `seats.size <= settings.playerCount` always.
 - `lastActivityAtMs` is updated on every `createMatch` / `joinMatch` / `leaveMatch` / `requestRematch` / `acceptRematch` / `declineRematch` call.
@@ -208,15 +215,15 @@ export type SeatIndex = number; // 0..(playerCount - 1); integer
 |-------------------|---------------------------------------|-----------------------------------|-------|
 | `seatIndex`       | `SeatIndex`                           | `0 <= seatIndex < playerCount`    | Position in seat order |
 | `playerSessionId` | `PlayerSessionId`                     | non-null                          | Ephemeral identity (FR-001) |
-| `displayName`     | `string`                              | `1 <= length <= 32`               | Cosmetic; FR-001 |
+| `displayName`     | `string`                              | trimmed; 1..`maxDisplayNameLength` Unicode code points; no control/bidi/lone-surrogate content (FR-018) | Cosmetic; FR-001 |
 | `sessionToken`    | `SessionToken`                        | UUID v4                           | Networking-bound (FR-003 of feature 004 boundary) |
-| `playerId`        | `PlayerId \| null`                    | non-null iff `status === 'running'` | Engine PlayerId (1..playerCount) |
+| `playerId`        | `PlayerId` (non-null)                 | fixed at seat-claim time (issue #74) | Universal 12-char PlayerId; never `seatIndex + 1` (FR-014) |
 | `connectedAtMs`   | `number`                              | epoch ms                          | Set at attachPlayer |
 | `forfeitedAtMs`   | `number \| null`                      | epoch ms; set on `onSeatExpired`  | Terminal for the seat |
 
 ### Validation rules
 
-- `playerId` is assigned when the match transitions to `running` (atomic with `server.attachPlayer`).
+- `playerId` is the seat holder's universal `PlayerId` (issue #74, FR-014), copied from the seated session when the seat is CLAIMED — fixed at claim time, never derived from `seatIndex`, unchanged through start/terminal/forfeit/rematch (`src/internal/seatRecord.ts:34-40`). It is present both before and after the `running` transition (which stays atomic with `server.attachPlayer`). *(v1.8 correction: the previous "assigned at running, `PlayerId | null`" wording predates issue #74's implementation.)*
 - Disconnect/reconnect state is NOT recorded on `SeatRecord`: networking owns the grace window on its own seat records and reports only the expiry (`onSeatExpired`) across the bridge; `onSeatDisconnected`/`onSeatReconnected` are deliberate no-ops in the matchmaker.
 - `forfeitedAtMs` is set by the matchmaker on `onSeatExpired` (see `forfeit.ts`); the seat is surrendered to the engine via `OrderSurrender`.
 
@@ -269,6 +276,7 @@ export type JoinPath = string; // always of the form `/join/<matchId>`
 - All sets operate over `PlayerSessionId`, not `PlayerId`, because a rematch participant may have been forfeited and lost their `SessionToken` (they're effectively absent from the vote).
 - `declinedBy.size > 0` immediately transitions the original match to `collected` (early termination; spec edge case).
 - `windowExpiresAtMs` is checked on every `listPublicMatches()` call and on the next mutation; if expired without resolution, the match transitions to `collected`.
+- **Offer protection (FR-020, v1.8)**: while `windowExpiresAtMs` has not passed, the owning `finished` match is exempt from the results-TTL sweep regardless of `resultsTtlMs`; the rematch-window sweep collects it the moment the window lapses (`isWindowClosed` uses `now > windowExpiresAtMs`). No config combination can destroy an open window.
 
 ### State machine
 
@@ -329,7 +337,7 @@ The shape is defined in feature 001's `engine-to-matchmaking.ts` line 74. The ma
 | Field             | Type                                  | Constraints                       | Notes |
 |-------------------|---------------------------------------|-----------------------------------|-------|
 | `playerSessionId` | `PlayerSessionId`                     | UUID v4                           | §2 |
-| `displayName`     | `string`                              | `1 <= length <= 32`               | FR-001 |
+| `displayName`     | `string`                              | trimmed; 1..`maxDisplayNameLength` Unicode code points; no control/bidi/lone-surrogate content (FR-018) | FR-001 |
 | `currentMatchId`  | `MatchId \| null`                     | non-null iff the player is in a match | |
 | `currentSeatIndex`| `SeatIndex \| null`                   | non-null iff `currentMatchId` is non-null | |
 | `currentSessionToken` | `SessionToken \| null`             | non-null iff `currentMatchId` is non-null | |
@@ -425,7 +433,7 @@ export type JoinMatchResult =
 export type SeatAssignment = {
   readonly playerSessionId: PlayerSessionId;
   readonly seatIndex: SeatIndex;
-  readonly playerId: PlayerId;        // assigned once match transitions to 'running'
+  readonly playerId: PlayerId;        // fixed at seat-claim time (issue #74); non-null
   readonly sessionToken: SessionToken;
   readonly displayName: string;
 };
@@ -495,6 +503,18 @@ export interface ListPublicMatchesOptions {
   readonly cursor?: never;
 }
 ```
+
+### `JoinMatchRequest.reconnectToken` semantics (FR-019, v1.8)
+
+| Case | Outcome |
+|------|---------|
+| Field absent | New-join path (seat scan; `match_full` / `match_not_joinable` as today) |
+| Token matches no seat | `match_not_found` (single non-leaking code path) |
+| Token → unforfeited seat, match `filling`/`running` | **Success**: returns the EXISTING `SeatAssignment` (`playerSessionId`, `seatIndex`, `playerId`, `sessionToken`, `displayName` all unchanged); no session/seat/token minted; the request's `displayName` is not applied to the seat |
+| Token → forfeited seat | `session_expired` |
+| Token → seat of a `finished` or `collected` match | `session_expired` |
+
+`seat_taken` is no longer produced by this slice; it remains in the `MatchmakerErrorCode` union (§13) for wire compatibility and the lobby facade's `seat_taken → match_full` mapping.
 
 ---
 
@@ -614,6 +634,14 @@ export interface MatchmakerStats {
 | Visibility is fixed at creation (no mutation API) | spec edge case |
 | `playerCount` ∈ `{2, 3, 4}` | engine FR-019 |
 | `boardSize` ∈ `[8, 128]` | terrain `minBoardSize` / `maxBoardSize` |
+| `displayName` hardened classes + code-point length → `invalid_request` + `detail.reason` | FR-018 |
+| `joinMatch` reconnect: unknown → `match_not_found`; live seat → existing assignment; forfeited/terminal → `session_expired`; never `seat_taken` | FR-019 |
+| Results-TTL sweep skips a `finished` match with an open rematch window | FR-020 |
+| `close()` fires `server.unregisterMatch` for every match record still in the store (total best effort), then clears; `stats()` still readable | FR-021 |
+| Lazy sweeps before every `maxConcurrentMatches` evaluation; guarded on `createMatch` AND `acceptRematch`, refusal pre-mutation | FR-022 |
+| Identity `disconnect` idempotent on unknown ids; restore paths rebind or release — no throws on sweep-then-close/reconnect | FR-023 |
+| Every collection path (3 sweeps, final-seat leave, rematch accept/decline; forfeit already) fires `server.unregisterMatch` best-effort — networking channel capacity freed | FR-024 |
+| Every terminal collection releases seated sessions still bound to the match (identity-guarded delete) — `activePlayerSessions` returns to baseline; no `currentMatchId` points at a collected match | FR-025 |
 
 ---
 
