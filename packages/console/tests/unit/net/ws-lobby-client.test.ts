@@ -717,9 +717,11 @@ describe('inbound frame validation (FR-032)', () => {
             delta: { revision: 2, changes: [{ handle: 'Bob', status: 'in_game' }] },
         });
         expect(client.state().rosterRevision).toBe(2);
+        // Spec 010 v1.15 023-FR-007: the merged roster re-establishes sort
+        // order after EVERY delta ("bob" < "nova"), never arrival order.
         expect(client.state().roster).toEqual([
-            { handle: 'Nova', status: 'in_lobby' },
             { handle: 'Bob', status: 'in_game' },
+            { handle: 'Nova', status: 'in_lobby' },
         ]);
     });
 });
