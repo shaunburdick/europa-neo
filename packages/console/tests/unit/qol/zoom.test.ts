@@ -228,4 +228,56 @@ describe('ZoomPanController attach/dispose idempotence (FR-047)', () => {
         element.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, clientX: 64, clientY: 64 }));
         expect(dispatches).toBe(0);
     });
+
+    test('dispose during a pan detaches the gesture listeners and a reattached gesture pans again', () => {
+        const element = document.createElement('div');
+        const tracked = new Map<string, number>();
+        const nativeAdd = element.addEventListener.bind(element);
+        const nativeRemove = element.removeEventListener.bind(element);
+        element.addEventListener = ((
+            type: string,
+            listener: EventListener,
+            options?: boolean | AddEventListenerOptions,
+        ) => {
+            nativeAdd(type, listener, options);
+            tracked.set(type, (tracked.get(type) ?? 0) + 1);
+        }) as unknown as typeof element.addEventListener;
+        element.removeEventListener = ((
+            type: string,
+            listener: EventListener,
+            options?: boolean | EventListenerOptions,
+        ) => {
+            nativeRemove(type, listener, options);
+            tracked.set(type, Math.max(0, (tracked.get(type) ?? 0) - 1));
+        }) as unknown as typeof element.removeEventListener;
+
+        const store = createConsoleStore(liveState());
+        let dispatches = 0;
+        store.subscribe(() => {
+            dispatches += 1;
+        });
+
+        const controller = new ZoomPanController(element, store);
+        const first = controller.attach();
+        element.dispatchEvent(new PointerEvent('pointerdown', { button: 1, clientX: 40, clientY: 40 }));
+        element.dispatchEvent(new PointerEvent('pointermove', { buttons: 4, clientX: 60, clientY: 40 }));
+        expect(dispatches).toBe(1);
+
+        first.dispose();
+        for (const type of ['wheel', 'pointerdown', 'pointermove', 'pointerup', 'pointercancel']) {
+            expect(tracked.get(type) ?? 0, type).toBe(0);
+        }
+
+        controller.attach();
+        element.dispatchEvent(new PointerEvent('pointerdown', { button: 1, clientX: 40, clientY: 40 }));
+        const beforeMove = dispatches;
+        element.dispatchEvent(new PointerEvent('pointermove', { buttons: 4, clientX: 80, clientY: 40 }));
+        expect(dispatches - beforeMove).toBe(1);
+        expect(store.getState().camera.pan.x).not.toBe(0);
+
+        element.dispatchEvent(new PointerEvent('pointerup', { button: 1 }));
+        for (const type of ['pointermove', 'pointerup', 'pointercancel']) {
+            expect(tracked.get(type) ?? 0, type).toBe(0);
+        }
+    });
 });
