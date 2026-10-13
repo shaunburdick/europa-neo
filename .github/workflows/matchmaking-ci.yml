@@ -86,35 +86,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
       # Matchmaking runtime-imports @europa/engine + @europa/terrain and
       # type-imports @europa/networking; build every workspace dep's dist
       # before touching the package.
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/terrain (workspace dependency)
-        run: pnpm --filter @europa/terrain build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/networking (workspace dependency)
-        run: pnpm --filter @europa/networking build
+      - uses: ./.github/actions/build-workspace
+        with:
+          packages: 'version core engine terrain fog logging networking'
 
       - name: Typecheck (matchmaking)
         run: pnpm --filter @europa/matchmaking typecheck
@@ -137,32 +114,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/terrain (workspace dependency)
-        run: pnpm --filter @europa/terrain build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/networking (workspace dependency)
-        run: pnpm --filter @europa/networking build
+          packages: 'version core engine terrain fog logging networking'
 
       - name: Test (matchmaking)
         run: pnpm --filter @europa/matchmaking test
@@ -195,32 +149,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/terrain (workspace dependency)
-        run: pnpm --filter @europa/terrain build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/networking (workspace dependency)
-        run: pnpm --filter @europa/networking build
+          packages: 'version core engine terrain fog logging networking'
 
       - name: Coverage (matchmaking)
         run: pnpm --filter @europa/matchmaking test:coverage

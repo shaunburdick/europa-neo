@@ -84,26 +84,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
+          packages: 'version logging core engine fog'
 
       - name: Typecheck (networking)
         run: pnpm --filter @europa/networking typecheck
@@ -126,26 +109,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
+          packages: 'version logging core engine fog'
 
       - name: Test (networking)
         run: pnpm --filter @europa/networking test
@@ -159,26 +125,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
+          packages: 'version logging core engine fog'
 
       - name: Coverage (networking)
         run: pnpm --filter @europa/networking coverage

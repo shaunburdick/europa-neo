@@ -94,41 +94,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
       # The console consumes engine/fog/networking TYPES (and the
       # networking seam is runtime-typed); every workspace dep's dist
       # must exist before the console's tsc programs run.
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/design (workspace dependency)
-        run: pnpm --filter @europa/design build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/terrain (workspace dependency)
-        run: pnpm --filter @europa/terrain build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/networking (workspace dependency)
-        run: pnpm --filter @europa/networking build
-
-      - name: Build @europa/matchmaking (workspace dependency)
-        run: pnpm --filter @europa/matchmaking build
+      - uses: ./.github/actions/build-workspace
+        with:
+          packages: 'version design core engine terrain fog logging networking matchmaking'
 
       - name: Typecheck (console src)
         run: pnpm --filter @europa/console typecheck
@@ -178,14 +149,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/design
-        run: pnpm --filter @europa/design build
+          packages: 'design'
 
       - name: Install Playwright Chromium
         run: pnpm --filter @europa/design exec playwright install chromium
@@ -202,14 +168,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/design
-        run: pnpm --filter @europa/design build
+          packages: 'design'
 
       - name: Coverage (design)
         run: pnpm --filter @europa/design coverage
@@ -223,14 +184,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version
-        run: pnpm --filter @europa/version build
+          packages: 'version'
 
       - name: Coverage (version)
         run: pnpm --filter @europa/version coverage
@@ -244,41 +200,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/design (workspace dependency)
-        run: pnpm --filter @europa/design build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/terrain (workspace dependency)
-        run: pnpm --filter @europa/terrain build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/networking (workspace dependency)
-        run: pnpm --filter @europa/networking build
-
       # Integration wave: the full-stack E2E spec boots a real
       # matchmaker + match server in-process (Node side), so
       # @europa/matchmaking's dist must exist before Playwright runs.
-      - name: Build @europa/matchmaking (workspace dependency)
-        run: pnpm --filter @europa/matchmaking build
+      - uses: ./.github/actions/build-workspace
+        with:
+          packages: 'version design core engine terrain fog logging networking matchmaking'
 
       # The console's build script runs build-assets.ts which stages
       # brand assets into dist/assets/brand/. host-static.test.ts
@@ -317,38 +244,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      # Integration wave: the full-stack E2E spec boots a real
+      # matchmaker + match server in-process (Node side), so
+      # @europa/matchmaking's dist must exist before Playwright runs.
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/design (workspace dependency)
-        run: pnpm --filter @europa/design build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/terrain (workspace dependency)
-        run: pnpm --filter @europa/terrain build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/networking (workspace dependency)
-        run: pnpm --filter @europa/networking build
-
-      - name: Build @europa/matchmaking (workspace dependency)
-        run: pnpm --filter @europa/matchmaking build
+          packages: 'version design core engine terrain fog logging networking matchmaking'
 
       # The console's build script runs build-assets.ts which stages
       # brand assets into dist/assets/brand/. host-static.test.ts
@@ -404,39 +305,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/version (workspace dependency)
-        run: pnpm --filter @europa/version build
-
-      - name: Build @europa/design (workspace dependency)
-        run: pnpm --filter @europa/design build
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
-
-      - name: Build @europa/terrain (workspace dependency)
-        run: pnpm --filter @europa/terrain build
-
-      - name: Build @europa/fog (workspace dependency)
-        run: pnpm --filter @europa/fog build
-
-      - name: Build @europa/logging (workspace dependency)
-        run: pnpm --filter @europa/logging build
-
-      - name: Build @europa/networking (workspace dependency)
-        run: pnpm --filter @europa/networking build
-
       # The keepalive integration suite imports the matchmaking runtime.
-      - name: Build @europa/matchmaking (workspace dependency)
-        run: pnpm --filter @europa/matchmaking build
+      - uses: ./.github/actions/build-workspace
+        with:
+          packages: 'version design core engine terrain fog logging networking matchmaking'
 
       - name: Cache Playwright browsers
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

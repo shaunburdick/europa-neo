@@ -78,17 +78,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
+          packages: 'core engine'
 
       - name: Typecheck (fog)
         run: pnpm --filter @europa/fog typecheck
@@ -111,17 +103,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
+          packages: 'core engine'
 
       - name: Test (fog)
         run: pnpm --filter @europa/fog test
@@ -135,17 +119,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      - uses: ./.github/actions/build-workspace
         with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
-
-      - name: Build @europa/core (workspace dependency)
-        run: pnpm --filter @europa/core build
-
-      - name: Build @europa/engine (workspace dependency)
-        run: pnpm --filter @europa/engine build
+          packages: 'core engine'
 
       - name: Coverage (fog)
         run: pnpm --filter @europa/fog coverage

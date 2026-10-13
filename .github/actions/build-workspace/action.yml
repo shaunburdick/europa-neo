@@ -1,0 +1,34 @@
+name: 'Build workspace dependencies'
+description: >-
+  Shared package-workflow prologue (008 FR-026): pnpm setup (node@22, store
+  cache, lockfile required) plus an ordered build of the listed @europa
+  workspace packages. Callers keep actions/checkout as the job's first step —
+  a local composite action resolves only from the checked-out workspace
+  (documented GitHub Actions platform constraint; 008 FR-026 v1.4 amendment).
+inputs:
+  packages:
+    description: 'Space-separated @europa package names to build, in dependency order'
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      with:
+        runtime: 'node@22'
+        cache: true
+        require-lockfile: true
+
+    # Builds each listed package in order; an empty list is a valid
+    # prologue for packages with no workspace dependencies (008 FR-026).
+    # `shell: bash` runs with -eo pipefail by default, so the first
+    # failing build fails the step — same fail-fast behaviour as the
+    # hand-rolled step chains this replaces.
+    - name: Build workspace dependencies
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        for pkg in $PACKAGES; do
+          pnpm --filter "@europa/${pkg}" build
+        done
