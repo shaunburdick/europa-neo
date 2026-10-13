@@ -40,7 +40,7 @@ import type { EngineSession, MatchmakerBridge, RegisterMatchRequest } from '@eur
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
-import { MATCHMAKING_API_VERSION } from '../contracts/match-types';
+import { MATCHMAKING_API_VERSION } from '../src/contracts/match-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../src/index';
 import { FakeServer } from './fixtures/fakeServer';
 

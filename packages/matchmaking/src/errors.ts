@@ -15,7 +15,7 @@
  * Pure module: no clock reads, no randomness (constitution Principle II).
  */
 
-import type { MatchmakerError, MatchmakerErrorCode } from '../contracts/match-types';
+import type { MatchmakerError, MatchmakerErrorCode } from './contracts/match-types';
 
 /**
  * Human-readable default message for every error code. The exhaustive

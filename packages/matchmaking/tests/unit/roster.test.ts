@@ -4,8 +4,6 @@
 
 import type { ConnectionId } from '@europa/networking';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import type { JoinPath, SeatIndex } from '../../contracts/match-types';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type {
     GuestPlayerId,
@@ -14,6 +12,7 @@ import type {
     RosterDelta,
     RosterSnapshot,
 } from '../../src/contracts/lobby-types';
+import type { JoinPath, SeatIndex } from '../../src/contracts/match-types';
 import { createIdentityRegistry } from '../../src/internal/identityRegistry';
 import { createLobbyService, type LobbyConnectionTeardown, type LobbyScheduler } from '../../src/internal/lobbyService';
 import { FakeMatchmakerBridge, nextConnectionId } from '../fixtures/fakeMatchmakerBridge';

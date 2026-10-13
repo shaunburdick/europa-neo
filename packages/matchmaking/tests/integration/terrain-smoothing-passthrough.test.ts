@@ -37,7 +37,7 @@
 import { createRng } from '@europa/core';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard, hashBoard } from '@europa/terrain';
 import { describe, expect, it } from 'vitest';
-import type { CreateMatchRequest, MatchId, MatchSettings, SeatAssignment } from '../../contracts/match-types';
+import type { CreateMatchRequest, MatchId, MatchSettings, SeatAssignment } from '../../src/contracts/match-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 

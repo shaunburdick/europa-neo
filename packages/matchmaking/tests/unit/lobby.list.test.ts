@@ -31,8 +31,8 @@ import type {
     PlayerSessionId,
     SeatIndex,
     SessionToken,
-} from '../../contracts/match-types';
-import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
+} from '../../src/contracts/match-types';
+import { DEFAULT_MATCH_SETTINGS } from '../../src/contracts/match-types';
 import { createMatchRecord, type MatchRecord } from '../../src/internal/matchRecord';
 import { createSeatRecord } from '../../src/internal/seatRecord';
 import { listPublicMatches, projectLobbyEntry } from '../../src/lobby';

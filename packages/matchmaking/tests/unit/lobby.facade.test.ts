@@ -29,8 +29,6 @@
 
 import type { ConnectionId, MatchId } from '@europa/networking';
 import { beforeEach, describe, expect, it } from 'vitest';
-
-import type { JoinPath, SeatIndex } from '../../contracts/match-types';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type {
     GuestPlayerId,
@@ -40,6 +38,7 @@ import type {
     LobbyEvent,
     LobbySnapshot,
 } from '../../src/contracts/lobby-types';
+import type { JoinPath, SeatIndex } from '../../src/contracts/match-types';
 import { makeError } from '../../src/errors';
 import { createIdentityRegistry, type IdentityRegistry } from '../../src/internal/identityRegistry';
 import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';

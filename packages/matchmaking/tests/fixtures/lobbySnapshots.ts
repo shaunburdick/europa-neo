@@ -26,8 +26,6 @@
  */
 
 import type { MatchId } from '@europa/networking';
-
-import type { PlayerId, PlayerSessionId, SeatAssignment, SeatIndex, SessionToken } from '../../contracts/match-types';
 import type { MatchJoinTarget, SpectatorTarget } from '../../src/contracts/lobby-api';
 import type {
     IdentityState,
@@ -40,6 +38,13 @@ import type {
     LobbyStatus,
     PublicLobbyEntry,
 } from '../../src/contracts/lobby-types';
+import type {
+    PlayerId,
+    PlayerSessionId,
+    SeatAssignment,
+    SeatIndex,
+    SessionToken,
+} from '../../src/contracts/match-types';
 
 /**
  * Assert a plain string/number into a branded type (mirrors

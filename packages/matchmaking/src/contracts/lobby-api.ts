@@ -37,7 +37,7 @@
 import type { ConnectionId, MatchId } from '@europa/networking';
 // Feature-006 canonical shapes: the settings the matchmaker accepts and
 // the server-issued seat credential a successful create/join yields.
-import type { MatchSettings, SeatAssignment } from '../../contracts/match-types';
+import type { MatchSettings, SeatAssignment } from './match-types';
 // Feature-010 type contracts (same contracts directory).
 import type { GuestIdentityClaim, IdentityState, LobbyError, LobbySnapshot } from './lobby-types';
 

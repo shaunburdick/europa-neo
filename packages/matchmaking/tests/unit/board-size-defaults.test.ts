@@ -24,9 +24,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-
-import { BOARD_SIZE_DEFAULTS as contractMap, DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
 import { BOARD_SIZE_DEFAULTS as constantsMap } from '../../src/constants';
+import { BOARD_SIZE_DEFAULTS as contractMap, DEFAULT_MATCH_SETTINGS } from '../../src/contracts/match-types';
 import { BOARD_SIZE_DEFAULTS as publicMap } from '../../src/index';
 
 // ---------------------------------------------------------------------------
