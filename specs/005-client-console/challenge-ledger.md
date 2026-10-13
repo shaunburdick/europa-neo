@@ -1,6 +1,6 @@
 # Challenge Ledger — Gate 1 (Specify) + Gate 2 (Plan), combined
 
-**Feature**: 005-client-console (PR-3, branch `fix/console-review-cleanup`, base `main` tip `c184d54`)
+**Feature**: 005-client-console (PR-3, branch `fix/console-review-cleanup`, base `main` tip `4c8eed7`)
 **Artifacts under challenge**: `specs/005-client-console/spec.md` v1.12 · `specs/010-public-lobby-match-browser/spec.md` v1.14 · `specs/005-client-console/plan.md` · plus `data-model.md`, `research.md` §16, `quickstart.md` §16, `contracts/reducer-correlation.md`
 **Source issues**: #153 (`F-CON-ST-001`…`010`), #127 (`F-CON-RD-003/006/012/014`, `F-CON-UI-002/003/004/005/007/009/010`)
 **Challenger**: opposing counsel, combined Gate 1 + Gate 2 pass (PM skipped Gate 1 and merged the two).

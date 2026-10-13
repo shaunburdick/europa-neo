@@ -527,7 +527,7 @@ pnpm coverage
 | Q-RC06 | Two stores share no `ActionId` counter or pending-order map | `tests/unit/state/reducer.test.ts` (N3, N5) |
 | Q-RC07 | `attach()` twice ⇒ one wheel notch ⇒ one zoom step; dispose twice is safe | `tests/unit/qol/zoom.test.ts` (N6) |
 | Q-RC08 | A match-leg boot failure renders a focused recoverable notice, never a blank frame | `tests/component/routing/semantic-route-runtime.test.tsx` (N7) |
-| Q-RC09 | Lobby-initiated spectate boots exactly one leg (StrictMode included) | `tests/component/routing/semantic-route-runtime.test.tsx:75,103` + count (N8) |
+| Q-RC09 | Lobby-initiated spectate boots exactly one leg (StrictMode included) | `tests/component/routing/semantic-route-runtime.test.tsx:101,129` + single-boot count at `:494` (N8) |
 | Q-RC10 | Skip link moves focus into `main`; every skip-link target is programmatically focusable | `tests/a11y/wcag-assertions.test.ts` (N10) + landing/route component tests |
 | Q-RC11 | `aria-activedescendant` never names an unmoved/fog cell; the ring follows | `tests/component/render/grid-overlay.test.tsx` (N11) |
 | Q-RC12 | Every `aria-describedby`/`aria-labelledby` token resolves while set | `tests/a11y/profile-view.test.tsx` (N12) |
