@@ -628,7 +628,7 @@ europa-main (display: flex)
 | Overview | Minimap with viewport rectangle | `MapView`, `CameraState`, `useContainerSize` |
 | Zoom | Level indicator and controls | `CameraState.zoom` (percentage display) |
 | Surrender | Surrender button | `ConsoleState.inputEnabled`, `onSurrenderRequest` |
-| Help | Help button | `inputEnabled` |
+| Help | Help button | `ConsoleState.status` (terminal gate only — never `inputEnabled`; FR-041 keeps Help operable for spectators) |
 
 ### Zoom percentage display (FR-017)
 

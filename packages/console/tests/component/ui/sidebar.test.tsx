@@ -149,6 +149,16 @@ describe('Sidebar (FR-015)', () => {
         const indicator = document.querySelector('.europa-sidebar__live-indicator');
         expect(indicator).toBeNull();
     });
+
+    test('the local player name in Status is bidi-isolated (FR-044)', async () => {
+        const base = liveState();
+        const state = { ...base, session: { ...base.session, displayName: 'שלום Alice' } };
+        await render(<Sidebar {...liveSidebarProps(state)} />);
+
+        const isolated = document.querySelector('#status bdi');
+        expect(isolated).not.toBeNull();
+        expect(isolated?.textContent).toBe('שלום Alice');
+    });
 });
 
 describe('Sidebar spectator parity (FR-021)', () => {

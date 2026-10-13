@@ -269,8 +269,8 @@ describe('spectator help overlay (FR-041)', () => {
     function spectatorState(): typeof INITIAL_CONSOLE_STATE {
         return {
             ...INITIAL_CONSOLE_STATE,
-            status: 'live',
-            inputEnabled: true,
+            status: 'spectating',
+            inputEnabled: false,
             session: {
                 ...INITIAL_CONSOLE_STATE.session,
                 playerId: null,
@@ -279,13 +279,21 @@ describe('spectator help overlay (FR-041)', () => {
         };
     }
 
-    test('a spectator can open help with the ? key and the toggle is never enabled-but-inert', async () => {
+    test('a spectator can open help from the Help button and the ? key', async () => {
         await render(<App state={spectatorState()} />);
         const user = userEvent.setup();
 
         const helpButton = document.querySelector<HTMLButtonElement>('.europa-help-button');
         expect(helpButton).not.toBeNull();
-        expect(helpButton?.disabled).toBe(true);
+        expect(helpButton?.disabled).toBe(false);
+
+        (helpButton as HTMLButtonElement).click();
+        await vi.waitFor(() => {
+            expect(document.querySelector('[aria-modal="true"]')).not.toBeNull();
+        });
+
+        await user.keyboard('{Escape}');
+        expect(document.querySelector('[aria-modal="true"]')).toBeNull();
 
         (document.activeElement as HTMLElement | null)?.blur();
         await user.keyboard('?');

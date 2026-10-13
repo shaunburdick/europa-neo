@@ -154,11 +154,13 @@ export function Sidebar({
                 <Tooltip content="Your seat in this match">
                     <span className="europa-hud__item">
                         You:{' '}
-                        {session.displayName.length > 0
-                            ? session.displayName
-                            : session.playerId !== null
-                              ? session.playerId
-                              : 'Spectator'}
+                        <bdi>
+                            {session.displayName.length > 0
+                                ? session.displayName
+                                : session.playerId !== null
+                                  ? session.playerId
+                                  : 'Spectator'}
+                        </bdi>
                     </span>
                 </Tooltip>
             </section>
@@ -301,7 +303,7 @@ export function Sidebar({
                         ref={helpButtonRef}
                         variant="ghost"
                         className="europa-help-button europa-focus-ring"
-                        disabled={!interactive || !inputEnabled}
+                        disabled={status === 'game_over'}
                         onClick={onHelpToggle}
                     >
                         ?
