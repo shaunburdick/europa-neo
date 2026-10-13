@@ -14,6 +14,8 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { MatchId } from '../../contracts/match-types';
+
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import { handleSeatExpired } from '../../src/forfeit';
 import { createMatchmaker } from '../../src/matchmaker';
@@ -91,5 +93,49 @@ describe('all-disconnected teardown (US5 AC-2 / T056)', () => {
         expect(matchmaker.stats().collectedMatches).toBe(1);
         expect(matchmaker.stats().totalForfeits).toBe(2);
         matchmaker.close();
+    });
+});
+
+describe('forfeit teardown survives a throwing unregisterMatch (FR-024 catch branch, issue #147 test 13 companion)', () => {
+    class RecordThenThrowServer extends FakeServer {
+        override unregisterMatch(matchId: MatchId): void {
+            super.unregisterMatch(matchId);
+            throw new Error('simulated unregister failure');
+        }
+    }
+
+    it('handleAllPlayersForfeited wraps the unregister: teardown completes, sessions released, failure logged', () => {
+        const fx = makeRunningForfeitFixture();
+        const server = new RecordThenThrowServer({ now: fx.nowMs });
+        const lines: string[] = [];
+        const ctx = {
+            store: fx.store,
+            server,
+            logger: {
+                debug: () => {},
+                info: () => {},
+                warn: (msg: string) => lines.push(`warn:${msg}`),
+                error: () => {},
+            },
+        };
+
+        handleSeatExpired(
+            { matchId: fx.match.matchId, sessionToken: fx.aliceToken, playerId: ALICE_PLAYER_ID },
+            ctx,
+            fx.nowMs(),
+        );
+        fx.advanceMs(1_000);
+        const final = handleSeatExpired(
+            { matchId: fx.match.matchId, sessionToken: fx.bobToken, playerId: BOB_PLAYER_ID },
+            ctx,
+            fx.nowMs(),
+        );
+
+        expect(final?.outcome).toBe('torn_down');
+        expect(fx.match.status).toBe('collected');
+        expect(fx.match.results?.result.kind).toBe('cancelled');
+        expect(server.unregisterMatchCalls).toContain(fx.match.matchId);
+        expect(fx.store.listSessions().every((s) => s.currentMatchId !== fx.match.matchId)).toBe(true);
+        expect(lines.some((l) => l.startsWith('warn:matchmaking: unregisterMatch failed'))).toBe(true);
     });
 });

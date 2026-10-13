@@ -166,6 +166,54 @@ describe('all-must-accept gate + window expiry sweep (FR-009 / T049)', () => {
         mm.close();
     });
 
+    it('FR-020: a short resultsTtlMs never destroys a live rematch window (issue #147 test 4)', () => {
+        let clockMs = 4_000_000;
+        const now = (): number => clockMs;
+        const server = new FakeServer({ now });
+        const config = { ...MATCHMAKING_CONSTANTS, resultsTtlMs: 1_000, rematchWindowMs: 60_000 };
+        const mm = createMatchmaker(config, { server, now });
+        const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+        const joined = mm.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
+        if (!joined.ok) {
+            throw new Error('fixture join failed');
+        }
+        server.fireOnMatchTerminal({
+            matchId: created.data.matchId,
+            result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 42, reason: 'last_standing' },
+            tick: 42,
+        });
+        const requested = mm.requestRematch({
+            matchId: created.data.matchId,
+            sessionToken: created.data.seatAssignment.sessionToken,
+        });
+        if (!requested.ok) {
+            throw new Error('fixture requestRematch failed');
+        }
+
+        clockMs += 2_000;
+        const stats = mm.stats();
+        expect(stats.finishedMatches).toBe(1);
+        expect(stats.collectedMatches).toBe(0);
+        const lobby = mm.listPublicMatches();
+        expect(lobby.ok).toBe(true);
+        expect(lobby.ok && lobby.matches).toHaveLength(0);
+        const again = mm.requestRematch({
+            matchId: created.data.matchId,
+            sessionToken: created.data.seatAssignment.sessionToken,
+        });
+        expect(again.ok).toBe(true);
+        expect(again.ok && again.rematchOfferId).toBe(requested.rematchOfferId);
+
+        clockMs += 60_000;
+        const swept = mm.stats();
+        expect(swept.finishedMatches).toBe(0);
+        expect(swept.collectedMatches).toBe(1);
+        mm.close();
+    });
+
     it('spec edge case: a forfeited participant cannot accept — session_invalid', () => {
         const running = makeRunning2pFixture();
 

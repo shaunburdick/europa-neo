@@ -26,7 +26,7 @@ function recordingLogger(): Logger & { lines: string[] } {
         lines,
         debug: (msg) => lines.push(`debug:${msg}`),
         info: (msg) => lines.push(`info:${msg}`),
-        warn: () => {},
+        warn: (msg) => lines.push(`warn:${msg}`),
         error: () => {},
     };
 }
@@ -128,6 +128,54 @@ describe('matchmaker — close()', () => {
         expect(stats.activeMatches).toBe(0);
         expect(stats.activePlayerSessions).toBe(0);
         expect(stats.fillingMatches).toBe(0);
+    });
+
+    it('FR-021: fires unregisterMatch per residual record exactly once across two closes (issue #147 test 5)', async () => {
+        const server = new FakeServer();
+        const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server });
+        const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+
+        await mm.close();
+
+        expect(server.unregisterMatchCalls).toContain(created.data.matchId);
+        const afterFirst = server.unregisterMatchCalls.length;
+        await mm.close();
+        expect(server.unregisterMatchCalls).toHaveLength(afterFirst);
+
+        const stats = mm.stats();
+        expect(stats.activeMatches).toBe(0);
+        expect(stats.activePlayerSessions).toBe(0);
+        expect(() => mm.createMatch({ visibility: 'public', displayName: 'Bob' })).toThrow(/closed/);
+    });
+
+    it('FR-021: close() survives a throwing unregisterMatch — teardown completes and the failure is logged (issue #147 test 12)', async () => {
+        class ThrowingServer extends FakeServer {
+            override unregisterMatch(matchId: MatchId): void {
+                super.unregisterMatch(matchId);
+                throw new Error('simulated unregister failure');
+            }
+        }
+        const server = new ThrowingServer();
+        const logger = recordingLogger();
+        const mm = createMatchmaker(MATCHMAKING_CONSTANTS, { server, logger });
+        const created = mm.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+
+        await expect(mm.close()).resolves.toBeUndefined();
+
+        expect(server.unregisterMatchCalls).toContain(created.data.matchId);
+        const stats = mm.stats();
+        expect(stats.activeMatches).toBe(0);
+        expect(stats.activePlayerSessions).toBe(0);
+        const afterFirst = server.unregisterMatchCalls.length;
+        await mm.close();
+        expect(server.unregisterMatchCalls).toHaveLength(afterFirst);
+        expect(logger.lines.some((l) => l.startsWith('warn:matchmaker: unregisterMatch failed'))).toBe(true);
     });
 });
 
@@ -301,5 +349,339 @@ describe('matchmaker — bridge soft binding', () => {
             }),
         ).not.toThrow();
         mm.close();
+    });
+});
+
+describe('matchmaker — sweep-then-channel-release (FR-024 / SC-007, issue #147 test 10)', () => {
+    function makeClockedStack(config = MATCHMAKING_CONSTANTS) {
+        let clockMs = 10_000_000;
+        const now = (): number => clockMs;
+        const server = new FakeServer({ now });
+        const matchmaker = createMatchmaker(config, { server, now });
+        return {
+            server,
+            matchmaker,
+            advance(ms: number): void {
+                clockMs += ms;
+            },
+            createRunning() {
+                const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+                if (!created.ok) {
+                    throw new Error('fixture create failed');
+                }
+                const joined = matchmaker.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
+                if (!joined.ok) {
+                    throw new Error('fixture join failed');
+                }
+                return {
+                    matchId: created.data.matchId,
+                    alice: created.data.seatAssignment,
+                    bob: joined.data.seatAssignment,
+                };
+            },
+            finish(matchId: MatchId, winner: never): void {
+                server.fireOnMatchTerminal({
+                    matchId,
+                    result: { kind: 'win', winner, tick: 42, reason: 'last_standing' },
+                    tick: 42,
+                });
+            },
+        };
+    }
+
+    function expectUnregisteredAtCollection(server: FakeServer, matchId: MatchId, registered: boolean): void {
+        expect(server.unregisterMatchCalls).toContain(matchId);
+        if (registered) {
+            expect(server.stats().activeMatches).toBe(0);
+        }
+    }
+
+    it('rematch-window lapse collects and unregisters the registered match', () => {
+        const h = makeClockedStack();
+        const { matchId, alice } = h.createRunning();
+        h.finish(matchId, 'WinnerPlyr01' as never);
+        const requested = h.matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
+        expect(requested.ok).toBe(true);
+
+        h.advance(MATCHMAKING_CONSTANTS.rematchWindowMs + 1);
+        const stats = h.matchmaker.stats();
+        expect(stats.collectedMatches).toBe(1);
+        expectUnregisteredAtCollection(h.server, matchId, true);
+    });
+
+    it('results-TTL sweep collects and unregisters the registered match', () => {
+        const h = makeClockedStack({ ...MATCHMAKING_CONSTANTS, resultsTtlMs: 1_000 });
+        const { matchId } = h.createRunning();
+        h.finish(matchId, 'WinnerPlyr01' as never);
+
+        h.advance(1_001);
+        const stats = h.matchmaker.stats();
+        expect(stats.collectedMatches).toBe(1);
+        expectUnregisteredAtCollection(h.server, matchId, true);
+    });
+
+    it('empty-TTL sweep collects and unregisters the never-registered filling match', () => {
+        const h = makeClockedStack();
+        const created = h.matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+
+        h.advance(MATCHMAKING_CONSTANTS.emptyMatchTtlMs + 1);
+        const stats = h.matchmaker.stats();
+        expect(stats.collectedMatches).toBe(1);
+        expectUnregisteredAtCollection(h.server, created.data.matchId, false);
+    });
+
+    it('final-seat leaveMatch collects and unregisters the never-registered filling match', () => {
+        const h = makeClockedStack();
+        const created = h.matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+
+        expect(
+            h.matchmaker.leaveMatch({
+                matchId: created.data.matchId,
+                sessionToken: created.data.seatAssignment.sessionToken,
+            }).ok,
+        ).toBe(true);
+
+        const stats = h.matchmaker.stats();
+        expect(stats.collectedMatches).toBe(1);
+        expectUnregisteredAtCollection(h.server, created.data.matchId, false);
+    });
+
+    it('declineRematch collects and unregisters the registered match', () => {
+        const h = makeClockedStack();
+        const { matchId, alice, bob } = h.createRunning();
+        h.finish(matchId, 'WinnerPlyr01' as never);
+        const requested = h.matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
+        if (!requested.ok) {
+            throw new Error('fixture requestRematch failed');
+        }
+
+        expect(
+            h.matchmaker.declineRematch({
+                matchId,
+                rematchOfferId: requested.rematchOfferId,
+                sessionToken: bob.sessionToken,
+            }).ok,
+        ).toBe(true);
+
+        expect(h.matchmaker.stats().collectedMatches).toBe(1);
+        expectUnregisteredAtCollection(h.server, matchId, true);
+    });
+
+    it('all-accepted acceptRematch collects and unregisters the registered original', () => {
+        const h = makeClockedStack();
+        const { matchId, alice, bob } = h.createRunning();
+        h.finish(matchId, 'WinnerPlyr01' as never);
+        const requested = h.matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
+        if (!requested.ok) {
+            throw new Error('fixture requestRematch failed');
+        }
+        expect(
+            h.matchmaker.acceptRematch({
+                matchId,
+                rematchOfferId: requested.rematchOfferId,
+                sessionToken: alice.sessionToken,
+            }).ok,
+        ).toBe(true);
+        const completing = h.matchmaker.acceptRematch({
+            matchId,
+            rematchOfferId: requested.rematchOfferId,
+            sessionToken: bob.sessionToken,
+        });
+        expect(completing.ok).toBe(true);
+
+        expect(h.matchmaker.stats().collectedMatches).toBe(1);
+        expectUnregisteredAtCollection(h.server, matchId, true);
+    });
+
+    it('all-forfeited teardown unregisters the registered match', () => {
+        const h = makeClockedStack();
+        const { matchId, alice, bob } = h.createRunning();
+
+        h.server.fireOnSeatExpired({ matchId, sessionToken: alice.sessionToken, playerId: alice.playerId });
+        h.server.fireOnSeatExpired({ matchId, sessionToken: bob.sessionToken, playerId: bob.playerId });
+
+        expect(h.matchmaker.stats().collectedMatches).toBe(1);
+        expectUnregisteredAtCollection(h.server, matchId, true);
+    });
+
+    it('divergent TTLs: a live window blocks collection and unregister; lapse collects and unregisters', () => {
+        const h = makeClockedStack({ ...MATCHMAKING_CONSTANTS, resultsTtlMs: 1_000, rematchWindowMs: 60_000 });
+        const { matchId, alice } = h.createRunning();
+        h.finish(matchId, 'WinnerPlyr01' as never);
+        const requested = h.matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
+        expect(requested.ok).toBe(true);
+
+        h.advance(2_000);
+        expect(h.matchmaker.stats().finishedMatches).toBe(1);
+        expect(h.server.unregisterMatchCalls).toHaveLength(0);
+
+        h.advance(60_000);
+        expect(h.matchmaker.stats().collectedMatches).toBe(1);
+        expectUnregisteredAtCollection(h.server, matchId, true);
+    });
+});
+
+describe('matchmaker — no orphaned sessions after terminal collection (FR-025 / SC-008, issue #147 test 11)', () => {
+    function makeClockedStack() {
+        let clockMs = 20_000_000;
+        const now = (): number => clockMs;
+        const server = new FakeServer({ now });
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server, now });
+        return {
+            server,
+            matchmaker,
+            advance(ms: number): void {
+                clockMs += ms;
+            },
+            createRunning() {
+                const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+                if (!created.ok) {
+                    throw new Error('fixture create failed');
+                }
+                const joined = matchmaker.joinMatch({ matchId: created.data.matchId, displayName: 'Bob' });
+                if (!joined.ok) {
+                    throw new Error('fixture join failed');
+                }
+                return {
+                    matchId: created.data.matchId,
+                    alice: created.data.seatAssignment,
+                    bob: joined.data.seatAssignment,
+                };
+            },
+            finish(matchId: MatchId): void {
+                server.fireOnMatchTerminal({
+                    matchId,
+                    result: { kind: 'win', winner: 'WinnerPlyr01' as never, tick: 42, reason: 'last_standing' },
+                    tick: 42,
+                });
+            },
+        };
+    }
+
+    it('rematch-window lapse returns activePlayerSessions to the pre-match baseline', () => {
+        const h = makeClockedStack();
+        const baseline = h.matchmaker.stats().activePlayerSessions;
+        const { matchId, alice } = h.createRunning();
+        h.finish(matchId);
+        const requested = h.matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
+        expect(requested.ok).toBe(true);
+
+        h.advance(MATCHMAKING_CONSTANTS.rematchWindowMs + 1);
+        const stats = h.matchmaker.stats();
+        expect(stats.collectedMatches).toBe(1);
+        expect(stats.activePlayerSessions).toBe(baseline);
+    });
+
+    it('declineRematch returns activePlayerSessions to baseline and a later requestRematch is a value error, not a throw', () => {
+        const h = makeClockedStack();
+        const baseline = h.matchmaker.stats().activePlayerSessions;
+        const { matchId, alice, bob } = h.createRunning();
+        h.finish(matchId);
+        const requested = h.matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
+        if (!requested.ok) {
+            throw new Error('fixture requestRematch failed');
+        }
+
+        expect(
+            h.matchmaker.declineRematch({
+                matchId,
+                rematchOfferId: requested.rematchOfferId,
+                sessionToken: bob.sessionToken,
+            }).ok,
+        ).toBe(true);
+
+        expect(h.matchmaker.stats().activePlayerSessions).toBe(baseline);
+        const again = h.matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
+        expect(again.ok).toBe(false);
+        if (!again.ok) {
+            expect(again.error.code).toBe('rematch_not_offered');
+        }
+    });
+
+    it('all-forfeited teardown returns activePlayerSessions to baseline', () => {
+        const h = makeClockedStack();
+        const baseline = h.matchmaker.stats().activePlayerSessions;
+        const { matchId, alice, bob } = h.createRunning();
+
+        h.server.fireOnSeatExpired({ matchId, sessionToken: alice.sessionToken, playerId: alice.playerId });
+        h.server.fireOnSeatExpired({ matchId, sessionToken: bob.sessionToken, playerId: bob.playerId });
+
+        expect(h.matchmaker.stats().collectedMatches).toBe(1);
+        expect(h.matchmaker.stats().activePlayerSessions).toBe(baseline);
+    });
+
+    it('control: all-accept leaves the live rematch match holding both rebound sessions', () => {
+        const h = makeClockedStack();
+        const { matchId, alice, bob } = h.createRunning();
+        h.finish(matchId);
+        const requested = h.matchmaker.requestRematch({ matchId, sessionToken: alice.sessionToken });
+        if (!requested.ok) {
+            throw new Error('fixture requestRematch failed');
+        }
+        expect(
+            h.matchmaker.acceptRematch({
+                matchId,
+                rematchOfferId: requested.rematchOfferId,
+                sessionToken: alice.sessionToken,
+            }).ok,
+        ).toBe(true);
+        const completing = h.matchmaker.acceptRematch({
+            matchId,
+            rematchOfferId: requested.rematchOfferId,
+            sessionToken: bob.sessionToken,
+        });
+        expect(completing.ok).toBe(true);
+
+        expect(h.matchmaker.stats().activePlayerSessions).toBe(2);
+        expect(h.matchmaker.stats().fillingMatches).toBe(1);
+    });
+});
+
+describe('matchmaker — collection survives a throwing unregisterMatch (FR-024 catch branch, issue #147 test 13)', () => {
+    class RecordThenThrowServer extends FakeServer {
+        override unregisterMatch(matchId: MatchId): void {
+            super.unregisterMatch(matchId);
+            throw new Error('simulated unregister failure');
+        }
+    }
+
+    function recordingWarnLogger(): Logger & { lines: string[] } {
+        const lines: string[] = [];
+        return {
+            lines,
+            debug: (msg) => lines.push(`debug:${msg}`),
+            info: (msg) => lines.push(`info:${msg}`),
+            warn: (msg) => lines.push(`warn:${msg}`),
+            error: (msg) => lines.push(`error:${msg}`),
+        };
+    }
+
+    it('empty-match TTL sweep still collects, releases sessions, and logs the failure', () => {
+        let clockMs = 30_000_000;
+        const now = (): number => clockMs;
+        const server = new RecordThenThrowServer({ now });
+        const logger = recordingWarnLogger();
+        const matchmaker = createMatchmaker(MATCHMAKING_CONSTANTS, { server, now, logger });
+        const baseline = matchmaker.stats().activePlayerSessions;
+
+        const created = matchmaker.createMatch({ visibility: 'public', displayName: 'Alice' });
+        if (!created.ok) {
+            throw new Error('fixture create failed');
+        }
+
+        clockMs += MATCHMAKING_CONSTANTS.emptyMatchTtlMs + 1;
+        const stats = matchmaker.stats();
+
+        expect(stats.collectedMatches).toBe(1);
+        expect(stats.activePlayerSessions).toBe(baseline);
+        expect(server.unregisterMatchCalls).toContain(created.data.matchId);
+        expect(logger.lines.some((l) => l.startsWith('warn:matchmaking: unregisterMatch failed'))).toBe(true);
+        matchmaker.close();
     });
 });

@@ -38,7 +38,8 @@
  * boundary as `idGen.ts` (identity artifacts, not simulation inputs).
  */
 
-import type { EngineSession, MatchId } from '@europa/networking';
+import { formatError } from '@europa/logging';
+import type { EngineSession, Logger, MatchId, Server } from '@europa/networking';
 import type { MatchResultsRecord, MatchSettings, MatchVisibility, SeatIndex } from '../contracts/match-types';
 import type { GuestPlayerId } from './contracts/lobby-types';
 import type { MatchStatusChangedEvent } from './eventBus';
@@ -445,4 +446,22 @@ export function propagateHandleRename(
     }
 
     return { sessions, seats };
+}
+
+/** Release bound sessions (identity-guarded delete); the guard skips sessions rebound by the accept path. */
+export function releaseMatchSessions(store: MatchmakerStore, match: MatchRecord): void {
+    for (const seat of match.seats.values()) {
+        const session = store.getSession(seat.playerSessionId);
+        if (session !== undefined && session.currentMatchId === match.matchId) {
+            store.deleteSession(seat.playerSessionId);
+        }
+    }
+}
+
+export function safeUnregisterMatch(server: Server, logger: Logger, matchId: MatchId): void {
+    try {
+        server.unregisterMatch(matchId);
+    } catch (err) {
+        logger.warn('matchmaking: unregisterMatch failed', { matchId, error: formatError(err) });
+    }
 }

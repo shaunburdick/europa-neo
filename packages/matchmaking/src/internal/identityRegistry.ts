@@ -162,8 +162,9 @@ export interface IdentityRegistry {
     /**
      * Mark the identity disconnected, starting (or restarting) its
      * grace window. The handle stays reserved throughout grace.
+     * Unknown ids are a no-op, like {@linkcode IdentityRegistry.release}.
      *
-     * @throws When the registry is closed or `id` is unknown.
+     * @throws When the registry is closed.
      */
     disconnect(id: GuestPlayerId): void;
 
@@ -388,7 +389,10 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
 
         disconnect(id: GuestPlayerId): void {
             assertOpen();
-            const record = requireIdentity(id);
+            const record = identities.get(id);
+            if (record === undefined) {
+                return;
+            }
             record.status = 'grace';
             record.disconnectedAtMs = now();
         },
