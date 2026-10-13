@@ -130,4 +130,13 @@ echo "--- Phase 12: Spec consolidation guard ---"
 pnpm exec tsx scripts/check-spec-consolidation.ts
 echo ""
 
+# Phase 13: Referenced-contract-file guard (008 FR-033). Fails on any
+# .ts file under specs/**/contracts/ not referenced by a test or source
+# file (imports AND explicit path-string mappings count). .md prose and
+# README files are exempt; the guard is vacuously green while no spec-side
+# .ts mirror exists (regression protection against re-introducing one).
+echo "--- Phase 13: Referenced-contract-file guard ---"
+pnpm exec tsx scripts/check-referenced-contract-files.ts
+echo ""
+
 echo "=== All verification checks passed ==="
