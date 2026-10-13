@@ -6,7 +6,7 @@
  *
  *   - `lobbyRosterSnapshot`: replaces roster state wholesale;
  *   - connection reset (`lobbyConnectionChanged` to `'idle'` /
- *     `'failed'`): clears roster state.
+ *     `'failed'`): clears roster state;
  *
  * No timers, no transport, no randomness — pure reducer folds only.
  */
