@@ -26,7 +26,65 @@ function sourceFiles(dir: string): readonly string[] {
 }
 
 function stripComments(source: string): string {
-    return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    let out = '';
+    let index = 0;
+    let quote: string | null = null;
+    let prev = '';
+    while (index < source.length) {
+        const char = source[index] ?? '';
+        const next = source[index + 1] ?? '';
+        if (quote !== null) {
+            out += char;
+            if (char === '\\' && index + 1 < source.length) {
+                out += next;
+                index += 2;
+                continue;
+            }
+            if (char === quote) {
+                quote = null;
+            }
+            index += 1;
+            continue;
+        }
+        if ((char === "'" || char === '"') && !/[\w$]/.test(prev)) {
+            quote = char;
+            out += char;
+            index += 1;
+            prev = char;
+            continue;
+        }
+        if (char === '`') {
+            quote = char;
+            out += char;
+            index += 1;
+            prev = char;
+            continue;
+        }
+        if (char === '/' && next === '/') {
+            while (index < source.length && source[index] !== '\n') {
+                index += 1;
+            }
+            continue;
+        }
+        if (char === '/' && next === '*') {
+            index += 2;
+            while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
+                index += 1;
+            }
+            index += 2;
+            continue;
+        }
+        out += char;
+        if (!/\s/.test(char)) {
+            prev = char;
+        }
+        index += 1;
+    }
+    return out;
+}
+
+function hasRawButtonTag(code: string): boolean {
+    return /<button(?=[\s/>])/.test(code);
 }
 
 describe('console sources carry no raw <button> elements (FR-043)', () => {
@@ -36,9 +94,34 @@ describe('console sources carry no raw <button> elements (FR-043)', () => {
 
         const offenders = files
             .map((file) => ({ file, code: stripComments(readFileSync(file, 'utf8')) }))
-            .filter(({ code }) => /<button(?=[\s/>])/.test(code))
+            .filter(({ code }) => hasRawButtonTag(code))
             .map(({ file }) => file);
 
         expect(offenders).toEqual([]);
+    });
+});
+
+describe('guard self-test (string-preserving comment stripping)', () => {
+    it('detects a raw button after a string containing a double slash', () => {
+        const source = 'const docs = "https://example.com"; const el = <button />;';
+        expect(stripComments(source)).toContain('https://example.com');
+        expect(hasRawButtonTag(stripComments(source))).toBe(true);
+    });
+
+    it('strips a line comment so a button inside it is not detected', () => {
+        const source = ['// const hidden = <button />;', 'const docs = "https://example.com";'].join('\n');
+        expect(hasRawButtonTag(stripComments(source))).toBe(false);
+        expect(stripComments(source)).toContain('https://example.com');
+    });
+
+    it('strips a block comment so a button inside it is not detected', () => {
+        const source = '/* const hidden = <button />; */ const docs = "https://example.com";';
+        expect(hasRawButtonTag(stripComments(source))).toBe(false);
+        expect(stripComments(source)).toContain('https://example.com');
+    });
+
+    it('an apostrophe in JSX text does not swallow the code that follows', () => {
+        const source = ["<p>Use this page's host for the server.</p>", 'const el = <button />;'].join('\n');
+        expect(hasRawButtonTag(stripComments(source))).toBe(true);
     });
 });
