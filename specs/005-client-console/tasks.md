@@ -43,7 +43,7 @@
 
 Rationale lives in `spec.md` / `plan.md` / `research.md` / `data-model.md` / `quickstart.md` — **source must not restate it**.
 
-- **Counted (discretionary) new comment lines in `packages/**`: GROSS 0, NET ≤ 0.** Per-file arithmetic — every file touched by this change set that is **not** in the three exempt tables below has counted = 0 and exempt = 0 by construction; the three tables account for **every** added comment line in the diff. **Σ counted = 0** (see T-038, which fails the PR if any counted line appears).
+- **Counted (discretionary) new comment lines in `packages/**`: GROSS 0, NET ≤ 0.** Per-file arithmetic — every file touched by this change set that is **not** in the three exempt tables below has counted = 0 and exempt = 0 by construction; the three tables account for **every** added comment line in the diff (bar the one budget-neutral relocation disclosed at the grand total below). **Σ counted = 0** (see T-038, which fails the PR if any counted line appears).
 - **Forbidden anywhere in `packages/**` added comments**: issue numbers (`#153`, `#184`…), FR/finding tags (`FR-039`, `F-CON-…`), changelog/version text, dated annotations, narration ("now we sort the roster"). Test **titles** may cite an FR/issue (they are names, not comments — PR-2 precedent); comments may not.
 - **New tests carry zero comments** — assertions and titles carry the meaning.
 - **Fail-closed rule**: if an implementation task finds a pre-existing comment (outside the exempt set) that its change would make false, it must **STOP and report to the PM** rather than edit it — the budget has no entry for a 7th site. The only pre-authorized deletions outside plan §11's six are listed in the deletions table (they remove false claims outright; deletion adds no line).
@@ -78,7 +78,7 @@ Rationale lives in `spec.md` / `plan.md` / `research.md` / `data-model.md` / `qu
 
 The two sibling comments that also go false are **deleted, not rewritten** (Gate-3 cuts 1 and 2 — deletion satisfies truthfulness at 0 added): the walk comment `:253-257` in the same wcag test, and the `rosterState` helper doc `:38` in `lobby-roster-reducer.test.ts`. Both are listed in the deletions table below.
 
-**Grand total exempt added: base 12 / worst 28, across a 5-file whitelist** — `src/render/SurrenderModal.tsx`, `src/ui/order-bar.tsx`, `src/internal/lobby-runtime.tsx`, `src/contracts/console-state.ts`, `tests/a11y/wcag-assertions.test.ts`. **Zero added comment lines anywhere else under `packages/`.** Asserted by **T-038**.
+**Grand total exempt added: base 12 / worst 28, across a 5-file whitelist** — `src/render/SurrenderModal.tsx`, `src/ui/order-bar.tsx`, `src/internal/lobby-runtime.tsx`, `src/contracts/console-state.ts`, `tests/a11y/wcag-assertions.test.ts`. **Zero added comment lines anywhere else under `packages/`,** apart from the two relocated `{/* Help overlay */}` lines in `src/render/App.tsx` (budget-neutral +2/−2; byte-identical text moved because T-026's mandated render order hoisted it out of the `store !== undefined` conditional; invisible to the T-038 matcher, see the deliberate-gaps list at T-038). Asserted by **T-038** within that matcher's documented scope.
 
 ### Deletions (counted negative, not violations — same class as plan §11's own note)
 
