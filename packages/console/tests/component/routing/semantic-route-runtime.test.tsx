@@ -520,6 +520,39 @@ describe('match-route leg handoff (FR-046(b)(c))', () => {
         controller.disconnect();
     });
 
+    test('a failed leave from the boot-failure notice surfaces the error and a retry recovers (FR-018)', async () => {
+        const transport = new ScriptedLobbyTransport();
+        transport.failNextCommand('leaveMatch', () => new Error('lobby link is down'));
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
+        await controller.joinMatch(MATCH_ID);
+        spectatorTransportMock.failAllConnects = true;
+        window.history.replaceState({}, '', '/match/room-alpha/join');
+
+        const router = buildRouter('/match/room-alpha/join', controller);
+        const screen = await render(<RouterProvider router={router} />);
+
+        await expect.element(screen.getByRole('alert')).toBeVisible();
+
+        await (screen.getByRole('button', { name: 'Return to lobby' }).element() as HTMLButtonElement).click();
+
+        await expect.element(screen.getByText(/lobby link is down/)).toBeVisible();
+        expect(controller.store.getState().viewMode).toBe('match');
+        expect(window.location.pathname).toBe('/match/room-alpha/join');
+
+        await (screen.getByRole('button', { name: 'Return to lobby' }).element() as HTMLButtonElement).click();
+
+        await vi.waitFor(() => {
+            expect(controller.store.getState().viewMode).toBe('lobby');
+        });
+        expect(transport.commands.filter((command) => command.kind === 'leaveMatch')).toHaveLength(2);
+        expect(controller.store.getState().activeMatchId).toBeNull();
+        expect(window.location.pathname).toBe('/lobby');
+        controller.disconnect();
+    });
+
     test('one lobby spectate handoff boots exactly one leg (FR-046(b))', async () => {
         const transport = new ScriptedLobbyTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });

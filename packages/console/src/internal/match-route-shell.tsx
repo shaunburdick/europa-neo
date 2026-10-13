@@ -36,11 +36,16 @@ export function MatchRouteShell({ matchRole, displayNameFallback }: MatchRouteSh
     };
 
     if (failed) {
+        const leaveError = state.actions.leaveMatch.error;
         return (
             <RouteNotice
                 kind="shortcut-failure"
                 title="Match unavailable"
-                message="This match could not be entered."
+                message={
+                    leaveError === null
+                        ? 'This match could not be entered.'
+                        : `This match could not be entered, and returning to the lobby failed: ${leaveError.message} Choose Return to lobby to try again.`
+                }
                 onRetry={() => {
                     setFailed(false);
                     setRetryEpoch((epoch) => epoch + 1);
