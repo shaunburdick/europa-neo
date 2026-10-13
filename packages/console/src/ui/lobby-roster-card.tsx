@@ -132,11 +132,15 @@ export function RosterCard({ roster, ownHandle }: RosterCardProps): JSX.Element 
     );
     useEffect(() => {
         const prev = prevHandlesRef.current;
-        prevHandlesRef.current = currentHandles;
 
         if (prev === null) {
+            if (roster.connected) {
+                prevHandlesRef.current = currentHandles;
+            }
             return;
         }
+
+        prevHandlesRef.current = currentHandles;
 
         if (!roster.connected) {
             return;

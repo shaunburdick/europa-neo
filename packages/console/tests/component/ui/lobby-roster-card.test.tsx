@@ -218,4 +218,17 @@ describe('roster announcement baseline (FR-040)', () => {
         );
         expect(leftAnnouncements).toHaveLength(0);
     });
+
+    test('a card that mounts disconnected seeds its baseline from the first snapshot', async () => {
+        const screen = await render(<RosterCard roster={rosterOf([], false)} ownHandle={null} />);
+
+        const live = screen.container.querySelector('[data-europa-roster-live]');
+        expect(live?.textContent ?? '').not.toContain('joined the lobby');
+
+        await screen.rerender(<RosterCard roster={rosterOf([entry('Alice'), entry('Bob')])} ownHandle={null} />);
+
+        const text = screen.container.querySelector('[data-europa-roster-live]')?.textContent ?? '';
+        expect(text).not.toContain('joined the lobby');
+        expect(text).not.toContain('left the lobby');
+    });
 });
