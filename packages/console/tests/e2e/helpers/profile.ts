@@ -70,7 +70,7 @@ export async function setHandleViaProfile(page: Page, handle: string, returnToPa
  * treats the welcome card showing the NEW handle as the settle signal —
  * the rename resolves on the directed identity event, not on the click.
  *
- * That event carries no resume secret (plan AD-11 / spec 006 FR-018
+ * That event carries no resume secret (plan AD-11 / spec 006 FR-026
  * rename path), which is exactly what the SC-017(a) reload below stakes
  * its stored credential on.
  *

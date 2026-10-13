@@ -119,7 +119,7 @@ export interface MatchmakerDeps {
  * Lifecycle:
  *   1. `createMatchmaker(config, deps)` → returns `Matchmaker`
  *   2. (host wires HTTP API on top; clients call create/join/etc.)
- *   3. `matchmaker.close()` → graceful shutdown (cancels timers, drops state)
+ *   3. `matchmaker.close()` → drops state; fires `unregisterMatch` per residual record, best effort
  *
  * Threading: single-threaded Node event loop. All public methods are
  * synchronous (no `Promise`); the host calls them inside HTTP request
@@ -152,7 +152,9 @@ export interface Matchmaker {
    * - **Reconnect** (with `reconnectToken`): server looks up the seat
    *   by `(matchId, sessionToken)`. If the token is unknown, returns
    *   `match_not_found` (no existence leak). If the seat was forfeited
-   *   (grace window expired), returns `session_expired`.
+   *   (grace window expired), returns `session_expired`. A live unforfeited
+   *   seat of a `filling`/`running` match succeeds with its existing
+   *   assignment — no new session; the request's `displayName` is not applied.
    *
    * **Private match access**: a known `MatchId` permits an admission attempt;
    * it is not authentication or a bearer credential and grants no seat,
@@ -241,12 +243,8 @@ export interface Matchmaker {
   // -- Shutdown -------------------------------------------------------------
 
   /**
-   * Graceful shutdown. Cancels the empty-match sweep timer, fires
-   * `unregisterMatch` for every active match (best effort; networking
-   * closes connections with code 1001), and clears all in-memory state.
-   * After `close()`, the matchmaker is unusable.
-   *
-   * Idempotent.
+   * Graceful shutdown. Fires `unregisterMatch` per residual record (best
+   * effort), then clears state; idempotent, mutators throw, `stats()` readable.
    */
   close(): Promise<void>;
 }
@@ -256,9 +254,7 @@ export interface Matchmaker {
 // ----------------------------------------------------------------------------
 
 /**
- * Construct a `Matchmaker` instance. Does NOT start any timers until
- * the first state-changing call (timers start lazily on the first
- * `createMatch` or `joinMatch` to keep cold-start cheap).
+ * Construct a `Matchmaker` instance. Does NOT start any timers.
  *
  * @param config Matchmaker-wide configuration. Use `MATCHMAKING_CONSTANTS`
  *               as the base and override fields as needed.

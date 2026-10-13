@@ -291,6 +291,10 @@ export interface LobbyConnectionTeardown {
 // Dependencies & factory
 // ----------------------------------------------------------------------------
 
+export type CancelScheduled = () => void;
+
+export type LobbyScheduler = (callback: () => void, delayMs: number) => CancelScheduled;
+
 /**
  * Injectable dependencies for {@linkcode createLobbyService}. Only the
  * matchmaker is required; everything else defaults so production callers
@@ -311,6 +315,8 @@ export interface LobbyServiceDeps {
     readonly now?: () => number;
     /** Reconnect grace window passed to the default registry (ms). */
     readonly graceMs?: number;
+    /** Scheduler seam for the roster anti-flap window (default wraps host timers, as `now` defaults to Date.now). */
+    readonly schedule?: LobbyScheduler;
     /**
      * Outbound event sink — the transport seam (T-010 wires the real
      * WebSocket dispatcher). Called synchronously for every lobby event
@@ -339,6 +345,12 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
     const now = deps.now ?? Date.now;
     const logger = deps.logger ?? NULL_LOGGER;
     const deliver = deps.deliver ?? null;
+    const schedule: LobbyScheduler =
+        deps.schedule ??
+        ((callback, delayMs) => {
+            const handle = setTimeout(callback, delayMs);
+            return () => clearTimeout(handle);
+        });
     const registry =
         deps.registry ??
         createIdentityRegistry({ now, ...(deps.graceMs === undefined ? {} : { graceMs: deps.graceMs }) });
@@ -389,7 +401,7 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
      * status change arrives within the grace window, the timer is reset.
      * Only the final stable state is broadcast when the timer fires.
      */
-    const rosterDebounceTimers = new Map<GuestPlayerId, ReturnType<typeof setTimeout>>();
+    const rosterDebounceCancels = new Map<GuestPlayerId, CancelScheduled>();
 
     /**
      * Pending roster changes during debounce windows. When a timer fires,
@@ -488,22 +500,22 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
 
         // Anti-flap: if a debounce timer is already running, reset it
         // and update the pending entry to the latest state.
-        const existingTimer = rosterDebounceTimers.get(guestId);
-        if (existingTimer !== undefined) {
-            clearTimeout(existingTimer);
+        const existingCancel = rosterDebounceCancels.get(guestId);
+        if (existingCancel !== undefined) {
+            existingCancel();
         }
 
         rosterPendingChanges.set(guestId, entry);
 
-        const timer = setTimeout(() => {
-            rosterDebounceTimers.delete(guestId);
+        const cancel = schedule(() => {
+            rosterDebounceCancels.delete(guestId);
             const pending = rosterPendingChanges.get(guestId);
             if (pending !== undefined) {
                 rosterPendingChanges.delete(guestId);
                 broadcastRosterDelta([pending]);
             }
         }, ANTI_FLAP_GRACE_MS);
-        rosterDebounceTimers.set(guestId, timer);
+        rosterDebounceCancels.set(guestId, cancel);
     }
 
     /**
@@ -513,10 +525,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
      * so clients can detect that something changed.
      */
     function removeRosterEntry(guestId: GuestPlayerId): void {
-        const existingTimer = rosterDebounceTimers.get(guestId);
-        if (existingTimer !== undefined) {
-            clearTimeout(existingTimer);
-            rosterDebounceTimers.delete(guestId);
+        const existingCancel = rosterDebounceCancels.get(guestId);
+        if (existingCancel !== undefined) {
+            existingCancel();
+            rosterDebounceCancels.delete(guestId);
         }
         rosterPendingChanges.delete(guestId);
         roster.delete(guestId);
@@ -1024,9 +1036,18 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
             // Authority here is the seat credential the transport already
             // verified upstream — NOT the id — so this uses the
             // server-internal `reactivate` seam rather than presenting a
-            // bare-id claim to `restoreIdentity` (plan AD-2, spec 006 FR-018).
-            if (guestId !== undefined) {
+            // bare-id claim to `restoreIdentity` (plan AD-2, spec 006
+            // FR-026). `reactivate` is a no-op for an unknown or
+            // already-active id.
+            if (guestId !== undefined && registry.isInGrace(guestId)) {
                 registry.reactivate(guestId);
+            } else if (guestId !== undefined && registry.projectIdentity(guestId) === undefined) {
+                // FR-023 (issue #147): never leave the connection bound to
+                // an identity the registry no longer holds (swept during
+                // grace) — release the ghost binding so a later
+                // `setHandle` fails recoverably instead of throwing.
+                connections.delete(event.connectionId);
+                subscriptions.delete(event.connectionId);
             }
             recomputeAndPublish();
         },
@@ -1116,14 +1137,15 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 previous !== undefined &&
                 claimed !== undefined &&
                 claimed === previous &&
-                !registry.isInGrace(previous)
+                !registry.isInGrace(previous) &&
+                registry.projectIdentity(previous) !== undefined
             ) {
                 // Same-connection refresh of an already-ACTIVE identity
                 // (review F-8): keep it in place. A bare claim must never
                 // mint a replacement or start a spurious grace window.
                 activeId = previous;
             } else {
-                // Claim path (spec 006 FR-018 / spec 004 FR-027): only a
+                // Claim path (spec 006 FR-026 / spec 004 FR-027): only a
                 // claim presenting the CURRENT resume secret can resume or
                 // supersede an existing record; a bare id is advisory and
                 // mints a fresh identity, leaving the incumbent untouched
@@ -1468,10 +1490,10 @@ export function createLobbyService(deps: LobbyServiceDeps): LobbyService & Lobby
                 unsubscribeStatus = null;
             }
             // Feature 023: clear all roster debounce timers and maps.
-            for (const timer of rosterDebounceTimers.values()) {
-                clearTimeout(timer);
+            for (const cancel of rosterDebounceCancels.values()) {
+                cancel();
             }
-            rosterDebounceTimers.clear();
+            rosterDebounceCancels.clear();
             rosterPendingChanges.clear();
             roster.clear();
             connections.clear();

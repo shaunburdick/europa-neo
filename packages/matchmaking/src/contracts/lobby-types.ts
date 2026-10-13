@@ -111,7 +111,7 @@ export type LobbyStatus = 'waiting' | 'in_progress';
  * advisory: the server record is the sole authority (spec v1.1
  * amendment; edge case "client-provided … claims are advisory input").
  *
- * `resumeSecret` (spec 004 FR-026 / spec 006 FR-018, issue #146) is the
+ * `resumeSecret` (spec 004 FR-026 / spec 006 FR-026, issue #146) is the
  * owner-only proof of possession that authorizes a restore; a claim
  * WITHOUT it is the advisory id-only form, which never restores,
  * renames, releases, displaces, or evicts (spec 004 FR-027) — except

@@ -75,7 +75,7 @@ export interface IdentityRegistryDeps {
      */
     readonly randomId?: () => string;
     /**
-     * Owner-only resume-secret factory (spec 006 FR-018, issue #146).
+     * Owner-only resume-secret factory (spec 006 FR-026, issue #146).
      * Defaults to `randomUUID()` from `crypto.ts` — a UUIDv4 is 122 bits
      * of CSPRNG entropy, format-consistent with every other bearer token
      * here (`SessionToken` uses the same source). Tests inject a
@@ -133,7 +133,7 @@ export interface IdentityRegistry {
 
     /**
      * Resolve a browser's resume claim into the caller's identity
-     * (US1 AC-3; spec 006 FR-018, issue #146). The claim's
+     * (US1 AC-3; spec 006 FR-026, issue #146). The claim's
      * `resumeSecret` — never its id — is the proof of possession: a
      * claim whose secret matches a held record either reactivates it
      * from grace or (D2) supersedes an ACTIVE holder, and the record's
@@ -210,8 +210,9 @@ export interface IdentityRegistry {
     /**
      * Mark the identity disconnected, starting (or restarting) its
      * grace window. The handle stays reserved throughout grace.
+     * Unknown ids are a no-op, like {@linkcode IdentityRegistry.release}.
      *
-     * @throws When the registry is closed or `id` is unknown.
+     * @throws When the registry is closed.
      */
     disconnect(id: GuestPlayerId): void;
 
@@ -386,7 +387,7 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
             const presentedSecret = claim?.resumeSecret;
             if (claimedId !== undefined && typeof presentedSecret === 'string') {
                 const existing = identities.get(claimedId);
-                // Credential check (spec 004 FR-027, spec 006 FR-018,
+                // Credential check (spec 004 FR-027, spec 006 FR-026,
                 // issue #146): the id alone is advisory correlation data and
                 // reaches NOTHING — a missing, stale, or wrong secret falls
                 // through to the mint-fresh arm below, in grace or active.
@@ -469,7 +470,10 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
 
         disconnect(id: GuestPlayerId): void {
             assertOpen();
-            const record = requireIdentity(id);
+            const record = identities.get(id);
+            if (record === undefined) {
+                return;
+            }
             record.status = 'grace';
             record.disconnectedAtMs = now();
         },

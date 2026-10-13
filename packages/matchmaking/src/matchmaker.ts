@@ -101,12 +101,15 @@ import { allocatePlayerId, newMatchSeed } from './idGen';
 import type { MatchRecord } from './internal/matchRecord';
 import { createPlayerSession } from './internal/playerSession';
 import type { SeatRecord } from './internal/seatRecord';
+import { classifyTextDefect, type TextDefectReason } from './internal/textDefects';
 import { listPublicMatches as projectLobby } from './lobby';
 import {
     addSeatToFillingMatch,
     createMatchRecordWithCreator,
     createRematchMatchRecord,
     createStatusBus,
+    releaseMatchSessions,
+    safeUnregisterMatch,
     transitionFillingToRunning,
     transitionRunningToFinished,
     transitionToCollected,
@@ -164,14 +167,18 @@ const MAX_BOARD_SIZE = 128;
  * Trims surrounding whitespace first; whitespace-only names are
  * rejected.
  *
- * @returns The trimmed name, or `null` when invalid.
+ * @returns The trimmed name, or the first matching defect reason.
  */
-function validateDisplayName(name: string, min: number, max: number): string | null {
-    const trimmed = name.trim();
-    if (trimmed.length < min || trimmed.length > max) {
-        return null;
+function validateDisplayName(
+    name: string,
+    min: number,
+    max: number,
+): { readonly trimmed: string } | { readonly reason: TextDefectReason } {
+    const defect = classifyTextDefect(name, min, max);
+    if (defect !== null) {
+        return { reason: defect };
     }
-    return trimmed;
+    return { trimmed: name.trim() };
 }
 
 /**
@@ -694,6 +701,13 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         logger.info('matchmaker: match finished', { matchId: event.matchId });
     }
 
+    function collectMatch(m: MatchRecord, atMs: number): void {
+        safeUnregisterMatch(server, logger, m.matchId);
+        releaseMatchSessions(store, m);
+        transitionToCollected(m, atMs, bus.emit);
+        totalCollected += 1;
+    }
+
     /**
      * Lazy expiry sweep (FR-009 + dispatch ruling 1): collect every
      * `finished` match whose open rematch window lapsed unresolved.
@@ -711,8 +725,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         for (const m of store.listMatches()) {
             const offer = m.rematch;
             if (m.status === 'finished' && offer !== null && isWindowClosed(offer, atMs)) {
-                transitionToCollected(m, atMs, bus.emit);
-                totalCollected += 1;
+                collectMatch(m, atMs);
                 swept += 1;
                 logger.info('matchmaker: rematch window expired; match collected', {
                     matchId: m.matchId,
@@ -748,18 +761,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             if (atMs - m.lastActivityAtMs < resolved.emptyMatchTtlMs) {
                 continue;
             }
-            // Release seated players' sessions before collecting: the seats
-            // die with the match. The identity guard skips any session that
-            // has already moved on to a different match (defensive; cannot
-            // happen while the seat holds the only binding).
-            for (const seat of m.seats.values()) {
-                const session = store.getSession(seat.playerSessionId);
-                if (session !== undefined && session.currentMatchId === m.matchId) {
-                    store.deleteSession(seat.playerSessionId);
-                }
-            }
-            transitionToCollected(m, atMs, bus.emit);
-            totalCollected += 1;
+            collectMatch(m, atMs);
             swept += 1;
             logger.info('matchmaker: empty-match TTL elapsed; match collected', {
                 matchId: m.matchId,
@@ -771,8 +773,8 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
     /**
      * Lazy results-TTL sweep (FR-011 second clause, data-model §4):
      * collect every `finished` match whose `resultsTtlMs` grace period
-     * has elapsed since `finishedAtMs` — regardless of whether a rematch
-     * offer is attached. This is the no-leak backstop for matches that
+     * has elapsed since `finishedAtMs` — except while a rematch offer window
+     * is open (FR-020). This is the no-leak backstop for matches that
      * finished with NO `requestRematch`: without it they would stay
      * `'finished'` forever and each would hold a slot against
      * `maxConcurrentMatches` until restart. Before collecting, each
@@ -798,20 +800,13 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             if (m.status !== 'finished' || m.finishedAtMs === null) {
                 continue;
             }
+            if (m.rematch !== null && !isWindowClosed(m.rematch, atMs)) {
+                continue;
+            }
             if (atMs - m.finishedAtMs < resolved.resultsTtlMs) {
                 continue;
             }
-            // Release participants' sessions before collecting: the seats
-            // die with the match. The identity guard skips any session that
-            // has already moved on to a different match (defensive).
-            for (const seat of m.seats.values()) {
-                const session = store.getSession(seat.playerSessionId);
-                if (session !== undefined && session.currentMatchId === m.matchId) {
-                    store.deleteSession(seat.playerSessionId);
-                }
-            }
-            transitionToCollected(m, atMs, bus.emit);
-            totalCollected += 1;
+            collectMatch(m, atMs);
             swept += 1;
             logger.info('matchmaker: results TTL elapsed; match collected', {
                 matchId: m.matchId,
@@ -827,11 +822,26 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
      * would never touch), then results-TTL collection, then empty-match
      * collection.
      */
-    function runLazySweeps(): void {
-        const atMs = now();
+    function runLazySweeps(atMs: number = now()): void {
         sweepExpiredRematches(atMs);
         sweepFinishedResultsTtl(atMs);
         sweepStaleEmptyMatches(atMs);
+    }
+
+    /**
+     * Shared `maxConcurrentMatches` guard (FR-022): sweep first, then refuse
+     * creation at the cap — stale records are collected before counting.
+     */
+    function enforceCapacity(atMs: number = now()): { ok: true } | { ok: false; error: MatchmakerError } {
+        runLazySweeps(atMs);
+        const activeMatches = store.listMatches().filter((m) => m.status !== 'collected').length;
+        if (activeMatches >= resolved.maxConcurrentMatches) {
+            return {
+                ok: false,
+                error: makeError('rate_limited', 'Server is at maximum concurrent matches'),
+            };
+        }
+        return { ok: true };
     }
 
     // -- Public surface --------------------------------------------------------
@@ -848,12 +858,20 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 resolved.minDisplayNameLength,
                 resolved.maxDisplayNameLength,
             );
-            if (displayName === null) {
+            if ('reason' in displayName) {
                 return {
                     ok: false,
-                    error: makeError('invalid_request', 'displayName must be 1..32 characters'),
+                    error: makeError(
+                        'invalid_request',
+                        'displayName must be a valid name within the configured length',
+                        {
+                            field: 'displayName',
+                            reason: displayName.reason,
+                        },
+                    ),
                 };
             }
+            const acceptedDisplayName = displayName.trimmed;
             const resolvedSettings = resolveSettings(req.settings, DEFAULT_MATCH_SETTINGS.boardSize);
             if (!resolvedSettings.ok) {
                 // US3 AC-4 chain: the rejected field travels in `detail`
@@ -870,23 +888,15 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             }
             const settings = resolvedSettings.settings;
 
-            // Run lazy sweeps before the capacity check so stale
-            // matches (expired rematch windows, TTL'd empty/finished
-            // matches) are collected first — prevents capacity
-            // exhaustion by accumulated dead records.
-            runLazySweeps();
-            const activeMatches = store.listMatches().filter((m) => m.status !== 'collected').length;
-            if (activeMatches >= resolved.maxConcurrentMatches) {
-                return {
-                    ok: false,
-                    error: makeError('rate_limited', 'Server is at maximum concurrent matches'),
-                };
+            const capacity = enforceCapacity();
+            if (!capacity.ok) {
+                return { ok: false, error: capacity.error };
             }
 
             const atMs = now();
             const universalPlayerId = resolveUniversalPlayerId(req.guestPlayerId);
             const session = createPlayerSession({
-                displayName,
+                displayName: acceptedDisplayName,
                 randomId,
                 now,
                 playerId: universalPlayerId,
@@ -921,7 +931,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             };
             logger.info('matchmaker: match created', {
                 matchId: match.matchId,
-                handle: sanitizeLogText(displayName),
+                handle: sanitizeLogText(acceptedDisplayName),
                 settings: {
                     playerCount: settings.playerCount,
                     boardSize: settings.boardSize,
@@ -939,12 +949,20 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 resolved.minDisplayNameLength,
                 resolved.maxDisplayNameLength,
             );
-            if (displayName === null) {
+            if ('reason' in displayName) {
                 return {
                     ok: false,
-                    error: makeError('invalid_request', 'displayName must be 1..32 characters'),
+                    error: makeError(
+                        'invalid_request',
+                        'displayName must be a valid name within the configured length',
+                        {
+                            field: 'displayName',
+                            reason: displayName.reason,
+                        },
+                    ),
                 };
             }
+            const acceptedDisplayName = displayName.trimmed;
 
             // Unknown or invalid MatchIds use the generic, non-enumerating
             // `match_not_found` response. A known private MatchId without a
@@ -956,19 +974,35 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                 return { ok: false, error: makeError('match_not_found') };
             }
 
-            // Reconnect slice (full reclaim flows land with US5): validate
-            // the token against this match's seats. Unknown token → the same
-            // non-leaking `match_not_found`; known token → the seat is bound.
+            // Reconnect slice (FR-019): unknown → match_not_found; forfeited or
+            // terminal → session_expired; live seat → its existing assignment.
             if (req.reconnectToken !== undefined) {
+                let matched: SeatRecord | undefined;
                 for (const seat of match.seats.values()) {
                     // Plain `===` is fine here (documented accepted risk, as in
                     // `findSeatByToken`): 122-bit CSPRNG v4 tokens make a timing
                     // oracle worthless.
                     if (seat.sessionToken === req.reconnectToken) {
-                        return { ok: false, error: makeError('seat_taken') };
+                        matched = seat;
+                        break;
                     }
                 }
-                return { ok: false, error: makeError('match_not_found') };
+                if (matched === undefined) {
+                    return { ok: false, error: makeError('match_not_found') };
+                }
+                if (matched.forfeitedAtMs !== null || match.status === 'finished' || match.status === 'collected') {
+                    return { ok: false, error: makeError('session_expired') };
+                }
+                const links = joinLinks(match);
+                return {
+                    ok: true,
+                    data: {
+                        matchId: match.matchId,
+                        joinPath: links.joinPath,
+                        joinUrl: links.joinUrl,
+                        seatAssignment: seatAssignmentFor(matched),
+                    },
+                };
             }
 
             // Free-seat check FIRST (spec edge case + Q-M07): a joiner that
@@ -993,7 +1027,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             const atMs = now();
             const universalPlayerId = resolveUniversalPlayerId(req.guestPlayerId);
             const session = createPlayerSession({
-                displayName,
+                displayName: acceptedDisplayName,
                 randomId,
                 now,
                 playerId: universalPlayerId,
@@ -1037,7 +1071,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             };
             logger.info(started ? 'matchmaker: match started' : 'matchmaker: seat filled', {
                 matchId: match.matchId,
-                handle: sanitizeLogText(displayName),
+                handle: sanitizeLogText(acceptedDisplayName),
                 seat: freeSeat,
                 seatsFilled: match.seats.size,
             });
@@ -1095,8 +1129,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                     // (its seat died with the match); delete it per the GC
                     // sweeps' SC-005 no-leak discipline.
                     store.deleteSession(seat.playerSessionId);
-                    transitionToCollected(match, atMs, bus.emit);
-                    totalCollected += 1;
+                    collectMatch(match, atMs);
                     logger.info('matchmaker: filling match collected after final seat released', {
                         matchId: req.matchId,
                     });
@@ -1203,6 +1236,10 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
         acceptRematch(req: AcceptRematchRequest): AcceptRematchResult {
             assertOpen();
+            // One clock reading per operation, threaded through the capacity
+            // sweep below: a second reading would let the sweep collect this
+            // match mid-vote when the window lapses between check and vote.
+            const atMs = now();
             // Single existence code path (FR-006 + Q2), as in `leaveMatch`.
             const match = store.getMatch(req.matchId);
             if (match === undefined) {
@@ -1234,8 +1271,12 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             if (eligibility === 'already_voted') {
                 return { ok: false, error: makeError('rematch_already_voted') };
             }
-            if (isWindowClosed(offer, now())) {
+            if (isWindowClosed(offer, atMs)) {
                 return { ok: false, error: makeError('rematch_window_closed') };
+            }
+            const capacity = enforceCapacity(atMs);
+            if (!capacity.ok) {
+                return { ok: false, error: capacity.error };
             }
 
             const { allAccepted } = castAcceptVote(offer, voterId);
@@ -1261,7 +1302,6 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
                     }
                     return { session, seatIndex: s.seatIndex };
                 });
-            const atMs = now();
             const { match: newMatch, seats: newSeats } = createRematchMatchRecord({
                 original: match,
                 participants,
@@ -1276,8 +1316,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
 
             // The original match is resolved → collected (data-model §4:
             // finished → collected on "rematch resolved").
-            transitionToCollected(match, atMs, bus.emit);
-            totalCollected += 1;
+            collectMatch(match, atMs);
 
             // The completing voter receives their fresh seat assignment.
             const callerSeat = newSeats.find((s) => s.seatIndex === seat.seatIndex);
@@ -1333,8 +1372,7 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
             totalRematchDeclined += 1;
             // Any decline resolves the offer immediately (US4 AC-2): the
             // original match transitions to collected; no new match.
-            transitionToCollected(match, now(), bus.emit);
-            totalCollected += 1;
+            collectMatch(match, now());
             logger.info('matchmaker: rematch declined; match collected', {
                 matchId: req.matchId,
             });
@@ -1392,8 +1430,19 @@ export function createMatchmaker(config: MatchmakerConfig, deps: MatchmakerDeps)
         },
 
         close(): Promise<void> {
+            if (closed) {
+                return Promise.resolve();
+            }
             closed = true;
             for (const m of store.listMatches()) {
+                try {
+                    server.unregisterMatch(m.matchId);
+                } catch (err) {
+                    logger.warn('matchmaker: unregisterMatch failed during close', {
+                        matchId: m.matchId,
+                        error: formatError(err),
+                    });
+                }
                 store.deleteMatch(m.matchId);
             }
             for (const s of store.listSessions()) {

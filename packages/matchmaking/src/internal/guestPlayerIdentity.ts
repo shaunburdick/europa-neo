@@ -56,7 +56,7 @@ export interface GuestPlayerIdentity {
     /** Epoch ms when the identity was minted. */
     readonly createdAtMs: number;
     /**
-     * Owner-only bearer credential (spec 006 FR-018, issue #146). Minted
+     * Owner-only bearer credential (spec 006 FR-026, issue #146). Minted
      * with the identity and regenerated on every successful claim-based
      * restore, so a captured value is single-epoch (D3). It never leaves
      * the registry except folded into the directed ESTABLISHMENT identity

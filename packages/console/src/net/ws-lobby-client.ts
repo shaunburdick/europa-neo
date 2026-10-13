@@ -703,7 +703,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      * Build the advisory wire claim: the stored id, handle, AND the
      * owner-only resume secret that proves possession of that id — the
      * proof the server requires before it restores anything (spec 006
-     * FR-018). The canonical identity is omitted entirely until the
+     * FR-026). The canonical identity is omitted entirely until the
      * server has issued one (issue #74: the wire validator rejects an
      * explicit `null`, and a first connect carries no identity), as are
      * an unset handle and an unset secret (exactOptionalPropertyTypes).

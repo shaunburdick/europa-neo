@@ -5,6 +5,8 @@
 **Artifacts**: `specs/016-security-sweep/spec.md` (amendment manifest v1.0), `clarifications.md` (D1–D8), in-place amendments to specs 004 v1.11, 005 v1.11, 006 v1.8, 007 v1.8, 010 v1.13, 013 v1.5, 015 v1.1, AGENTS.md table/Current state.
 **Evidence basis**: full reads of the amended sections; live verification of every code claim (`main.tsx:101→108` strip-before-resolve, `identityRegistry.ts:328 restoreIdentity`, `ws-match-client.ts:292 sendEnvelope`, `ws-lobby-client.ts:390/762`, `client.ts:111 nextWireSeq`, `reducer.ts:77 PENDING_ORDERS_CAP = 64`, `console-types.ts:114 CONSOLE_API_VERSION = '0.4.1'`, `console-api.ts:471 @internal` on the `ConsoleRuntime` interface, `index.ts:28/217` barrel exports, `main.tsx:124 window.__europaLobby`, 4 E2E specs consuming it, `lobby-storage.ts` `{guestPlayerId, handle}`, `specs/010/.../data-model.md:77`, `docs/manual` lobby/quick-start resume wording); issues #152/#146/#129 read in full (ACs enumerated).
 
+> **Renumbering note (2026-10-13, post-merge)**: this ledger is the challenger's historical audit record and its ruling lines are deliberately NOT edited. After the `origin/main` merge (PR #188, issue #147), numbers this file cites shifted: what it calls **"006 FR-018"** is now **006 FR-026** (renumbered — main's FR-018 took the display-name hardening), **"006 v1.8"** is now **006 v1.9**, and **"010 v1.13"** is now **010 v1.14**. Where this file cites a line number inside `specs/006-.../spec.md`, the cited text now lives at a different line in the renumbered file; the text itself is unchanged.
+
 ## Size sanity (gate prerequisite)
 
 - Artifact size: manifest 70 lines (17 amendment rows, zero FRs) + clarifications 43 lines (8 decisions); governed delta ≈ 23 requirement units across 7 owning specs.

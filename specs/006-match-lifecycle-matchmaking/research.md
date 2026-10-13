@@ -374,3 +374,41 @@ export const MATCHMAKING_CONSTANTS = {
 | Tunable constants location | `MATCHMAKING_CONSTANTS` in `constants.ts` (§12) |
 
 No `NEEDS CLARIFICATION` markers remain. The spec's v1.1 `## Clarifications` section closed the only high-level ambiguity (visibility types + shareable join links); the remaining implementation-time knobs are documented in this file and stored in `MATCHMAKING_CONSTANTS`.
+
+---
+
+## 14. Issue #147 fix decisions (spec 006 v1.8 / spec 010 v1.13; 2026-10-11)
+
+Decisions for the lifecycle/TTL/capacity/determinism correction PR (issue #147 + PM-authorized expansions F-MM-014/F-MM-015). Alternatives were floated in the issue and evaluated; each rejection below is binding per the PM rulings recorded in spec 006 v1.8.
+
+### 14.1 `close()` — honor the contract, amend only its stale clauses
+
+**Decision**: `close()` fires `server.unregisterMatch` for every record still in the store, best effort, then clears state (`plan.md` D5). **Alternative**: amend the contract to drop `unregisterMatch` — rejected: it would leave `close()` unable to release match channels by itself, stranding 1001-close delivery on hosts that don't order shutdown exactly like `packages/console/scripts/host.ts:693-695`. Networking's `unregisterMatch` is idempotent and a no-op on unknown ids (`networking/src/server.ts:1745-1749`), so firing is harmless in every close order; all three stale timer clauses in `matchmaking-api.ts` (`:122` lifecycle note, `:244` `close()`, `:259-261` factory — PM ruling 7 extended) are deleted, and `stats()`-after-close is codified as the pinned exception (`src/matchmaker.ts:1344-1349`).
+
+### 14.2 Anti-flap debounce — injected `schedule?(cb, ms) => cancel` seam, NOT lazy flushing
+
+**Decision**: additive optional `LobbyServiceDeps.schedule` (`lobbyService.ts:299-324`), default wrapping the host timer exactly as `now` defaults to `Date.now` (`:311`/`:339`). **Alternative** (issue's suggestion): injected-clock lazy flushing — rejected because 023-FR-021 (spec 010) requires the roster to update **within 1 second of a presence change**; an activity-driven flush cannot guarantee that bound in an idle lobby and would silently weaken the FR. The seam removes the only global-timer call sites in package source (`lobbyService.ts:493/498/505/518/1429`) with zero timing-behavior change. **PM-confirmed 2026-10-11.**
+
+### 14.3 TTL vs rematch window — results sweep skips live offers, NO config clamp
+
+**Decision**: FR-020 — the results-TTL sweep skips any `finished` match whose offer window is open at the clock reading (`isWindowClosed`, `rematch.ts:149-151`). **Alternative** (issue's suggestion): clamp `resultsTtlMs >= rematchWindowMs` — rejected: it silently rewrites an operator's tunable and cannot express an offer opened late (the deadline anchors at `finishedAtMs`, `matchmaker.ts:1192-1198`); the sweep skip is exact, needs no config validation, and the existing sweep order (rematch-window expiry first, `matchmaker.ts:823-835`) still collects a lapsed offer deterministically.
+
+### 14.4 Capacity on rematch — uniform pre-mutation guard
+
+**Decision**: FR-022 — one `enforceCapacity()` closure (sweep → count non-`collected` → `rate_limited`) extracted from `createMatch:873-884` and applied to `acceptRematch` after the window-closed check (`:1237-1239`), before the vote (`:1241`). Guarding after the vote would strand the offer half-recorded until window expiry; `requestRematch`/`declineRematch` are unguarded by design (they create nothing — `:1162-1202`, `:1299-1342`).
+
+### 14.5 Terminal collection — one shared collection path, two independent leak classes
+
+**Decision**: FR-024 + FR-025 as separate requirements (separate resources, observables, and site sets), implemented via `collectMatch` in `matchmaker.ts` + `releaseMatchSessions`/`safeUnregisterMatch` in `matchLifecycle.ts` (store-helper precedent `propagateHandleRename`, `matchLifecycle.ts:420-448`). **Alternatives rejected**: folding both into FR-020 conflates *when* a sweep may collect with *what* collection must do, and extends a TTL-*timing* rule with release side effects; fixing the six sites ad hoc invites divergent helpers. The all-forfeited forfeit teardown keeps its own unregister + counter ownership (`totalCollected` is bumped by `matchmaker.ts:471-473`/`:1135-1137`) and gains only the shared helpers — routing it through `collectMatch` would double-count.
+
+### 14.6 displayName hardening — extract the existing handle predicate, don't re-invent it
+
+**Decision**: FR-018 — one pure `classifyTextDefect` in `src/internal/textDefects.ts`, shared by `validateHandle` (`handleValidation.ts:167-219`) and `validateDisplayName` (`matchmaker.ts:169-175`), same five classes and precedence (empty → too_long → control_character → bidi_control → lone_surrogate). The predicate already exists and is spec'd in spec 010 Clarifications v1.5; code-point counting (not UTF-16 `.length`) is required so astral emoji count as one character. Handle messages/details stay byte-identical — existing v1.4/v1.5 tests are the guard.
+
+### 14.7 `FakeServer` accounting — mirror the real server's unknown-id no-op
+
+**Decision** (Gate-1 row 1 closure): `tests/fixtures/fakeServer.ts:95`'s `registerMatchCalls.length − unregisterMatchCalls.length` becomes a live-registration-set size — `unregisterMatch` removes only ids it knows (`networking/src/server.ts:1745-1749`), so `activeMatches` can never go negative; `unregisterMatchCalls` stays the raw fired-call log for SC-007's per-path assertions. **Alternative**: scope the accounting assertion to registered matches only — kept as well (both, per the Gate-1 round-1 answer); the arithmetic is never asserted on never-registered paths because FR-024 fires unconditionally for them. No new throws are added to the fake (the real server throws on duplicate registration `:1719-1721` and at capacity `:1727-1729` — out of scope).
+
+### 14.8 Reconnect slice — success returns the existing seat assignment
+
+**Decision**: FR-019 — a valid unforfeited token on a live match returns the EXISTING assignment (no session/seat/token mint, request `displayName` ignored after validation). The failure arms (unknown → `match_not_found`; forfeited/terminal → `session_expired`) were documented in the contract (`matchmaking-api.ts:152-155`) but unreachable — the known-token arm returned `seat_taken` first. `seat_taken` is retired from `joinMatch` output and kept in the error union solely because the lobby maps it (`lobbyService.ts:881-888`, pinned by `lobby.facade.test.ts:692-703`); **PM-confirmed 2026-10-11**: no future producer is expected in matchmaking.

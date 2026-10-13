@@ -16,13 +16,13 @@ Three P1 `security` findings from the 2026-09-10 code review, fixed together and
 
 ### Notable decisions (see `specs/016-security-sweep/clarifications.md`, `plan.md`)
 
-- **D2 / 2026-10-12 layering ruling** — supersession is delivered by **credential rotation + immediate eviction of the lobby binding and spectator subscription**, not by socket severing: the rotation is what locks the old holder out of every future restore, and socket severing stays the match server's single-seat re-claim semantic (a layer the lobby facade has no seam to reach). The user-facing mechanism is the console's `identity_invalid` → `superseded` → **"This session moved somewhere else"** plate, not a closed socket (006 FR-018 / 010 FR-041 dated sub-entries; recorded in 016 `clarifications.md`, `data-model.md`, `contracts/wire-identity-credentials.md`).
+- **D2 / 2026-10-12 layering ruling** — supersession is delivered by **credential rotation + immediate eviction of the lobby binding and spectator subscription**, not by socket severing: the rotation is what locks the old holder out of every future restore, and socket severing stays the match server's single-seat re-claim semantic (a layer the lobby facade has no seam to reach). The user-facing mechanism is the console's `identity_invalid` → `superseded` → **"This session moved somewhere else"** plate, not a closed socket (006 FR-026 / 010 FR-041 dated sub-entries; recorded in 016 `clarifications.md`, `data-model.md`, `contracts/wire-identity-credentials.md`).
 - **D10 (PO ruling)** — the same-connection idempotent refresh is the sole id-only exception; authority is the pre-existing connection binding, never the id. Every other id-only claim mints fresh.
 - **D4/D5 (PO)** — additive wire fields with **no `NETWORK_API_VERSION` bump**; `CONSOLE_API_VERSION` **0.5.0** (breaking public-surface change, PO-confirmed).
 
 ### Spec amendments (all unshipped versions; no unrelated version churn)
 
-`004` v1.11 (FR-026/FR-027) · `005` v1.11 (FR-028…FR-038 + Note 17) · `006` v1.8 (FR-018 + FR-016 conformance record) · `007` v1.8 (FR-004a + mandatory manual review) · `010` v1.13 (FR-040…FR-043 + SC-017) · `013` v1.5 (FR-025/FR-034/FR-035, AC-018…AC-020) · `015` (FR-019/FR-020 AC rows) · `016` manifest v1.0.
+`004` v1.11 (FR-026/FR-027) · `005` v1.11 (FR-028…FR-038 + Note 17) · `006` v1.9 (FR-026 + FR-016 conformance record) · `007` v1.8 (FR-004a + mandatory manual review) · `010` v1.14 (FR-040…FR-043 + SC-017) · `013` v1.5 (FR-025/FR-034/FR-035, AC-018…AC-020) · `015` (FR-019/FR-020 AC rows) · `016` manifest v1.1.
 
 ## Test plan
 

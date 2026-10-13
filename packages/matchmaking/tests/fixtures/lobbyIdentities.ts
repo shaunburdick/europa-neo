@@ -59,7 +59,7 @@ export type IdentityClaimOverrides = Partial<GuestIdentityClaim>;
 
 /**
  * Read an identity's current owner-only resume secret for a claim a
- * test is about to present (spec 006 FR-018). Throws rather than
+ * test is about to present (spec 006 FR-026). Throws rather than
  * returning `undefined` so a fixture mistake cannot silently degrade
  * into an id-only claim — which would restore nothing by design.
  */
