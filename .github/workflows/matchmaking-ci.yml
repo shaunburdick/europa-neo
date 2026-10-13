@@ -98,6 +98,15 @@ jobs:
       - name: Typecheck (matchmaking)
         run: pnpm --filter @europa/matchmaking typecheck
 
+      # The matchmaking conformance program compiles
+      # tests/lobby-conformance.test.ts, whose LobbyBarrel witness
+      # imports the BUILT package root (`../dist/index` -> dist/index.d.ts)
+      # — the shipped-surface pin. The build-workspace action builds only
+      # workspace DEPENDENCIES, so this job must build matchmaking itself
+      # before the conformance step (verify.sh gets this from Phase 1).
+      - name: Build @europa/matchmaking (conformance program compiles dist/index.d.ts)
+        run: pnpm --filter @europa/matchmaking build
+
       - name: Typecheck conformance (matchmaking)
         run: pnpm --filter @europa/matchmaking typecheck:conformance
 
