@@ -246,25 +246,22 @@ describe('WCAG 2.5.8 — focused cell target size', () => {
 // ============================================================================
 
 describe('WCAG 2.1.1 — palette keyboard operability', () => {
-    test('palette buttons: Tab reaches them, Enter activates, arrows rove', async () => {
+    test('the palette presents as one Tab stop: 4× Tab lands on the exclusive command button (FR-039(d))', async () => {
         const { store } = await bootInteractiveConsole();
         const user = userEvent.setup();
 
-        // Walk Tab stops to the order bar, then into its buttons.
-        // Issue #76 sidebar restructure + Feature 022 debug toggle:
-        // skip-link → map → debug-toggle → order-bar
-        // (the former HUD + help-button stops moved into the sidebar
-        // AFTER the order bar in DOM order).
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
         await user.keyboard('{Tab}');
-        expect(document.activeElement?.id).toBe('order-bar');
 
         const exclusiveButton = document.querySelector('#order-bar button[aria-pressed]') as HTMLButtonElement | null;
         expect(exclusiveButton).not.toBeNull();
-        exclusiveButton?.focus();
         expect(document.activeElement).toBe(exclusiveButton);
+        expect((document.activeElement as HTMLElement | null)?.tagName).toBe('BUTTON');
+        expect((document.activeElement as HTMLElement | null)?.closest('#order-bar')).not.toBeNull();
+        expect(document.activeElement?.id).not.toBe('order-bar');
+        expect(document.querySelectorAll('#order-bar [tabindex="0"]').length).toBe(1);
 
         // Enter toggles exclusive mode (activation without pointer).
         await user.keyboard('{Enter}');
@@ -319,14 +316,14 @@ describe('WCAG 2.5.7 — keyboard pipe order', () => {
 // ============================================================================
 
 describe('WCAG 2.4.7 — order bar focus ring contrast', () => {
-    test('palette focus indicator has ≥ 3:1 contrast ratio', async () => {
+    test('the four-stop walk reaches a palette button whose focus ring has ≥ 3:1 contrast', async () => {
         await bootInteractiveConsole();
         const user = userEvent.setup();
 
         // Keyboard-focus the first palette button (:focus-visible only
         // matches keyboard-initiated focus, so Tab all the way in:
-        // skip-link → map → debug-toggle → order-bar → button).
-        for (let i = 0; i < 5; i++) {
+        // skip-link → map → debug-toggle → order-bar's command button).
+        for (let i = 0; i < 4; i++) {
             await user.keyboard('{Tab}');
         }
         const button = document.activeElement as HTMLButtonElement | null;

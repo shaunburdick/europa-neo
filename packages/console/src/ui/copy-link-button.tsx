@@ -22,6 +22,7 @@
  * live-region integration (WCAG 2.2 AA, FR-028 / FR-016).
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -167,15 +168,15 @@ export function CopyLinkButton({ matchId, visibility, variant, onCopyResult }: C
     if (resolvedVariant === 'prominent') {
         return (
             <div className="europa-copy-link" data-europa-copy-link="prominent">
-                <button
-                    type="button"
+                <EuropaButton
+                    variant="primary"
                     className="europa-lobby__button europa-focus-ring europa-copy-link__button"
                     aria-label={ariaLabel}
                     onClick={handleClick}
                     data-europa-copy-link-button="true"
                 >
                     {copied ? '✓ Copied!' : '🔗 Copy link'}
-                </button>
+                </EuropaButton>
                 {fallbackUrl !== null ? (
                     <div className="europa-copy-link__fallback" role="status" aria-live="polite">
                         <span className="europa-copy-link__fallback-label">Copy this link:</span>
@@ -198,15 +199,15 @@ export function CopyLinkButton({ matchId, visibility, variant, onCopyResult }: C
     // Subtle variant: icon-only with aria-label.
     return (
         <div className="europa-copy-link" data-europa-copy-link="subtle">
-            <button
-                type="button"
+            <EuropaButton
+                variant="ghost"
                 className="europa-lobby__button europa-focus-ring europa-copy-link__button europa-copy-link__button--subtle"
                 aria-label={ariaLabel}
                 onClick={handleClick}
                 data-europa-copy-link-button="true"
             >
                 {copied ? '✓' : '🔗'}
-            </button>
+            </EuropaButton>
             {copied ? (
                 <span className="europa-copy-link__confirm" role="status" aria-live="polite">
                     Copied!

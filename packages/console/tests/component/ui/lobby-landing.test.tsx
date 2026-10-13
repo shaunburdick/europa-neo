@@ -536,3 +536,67 @@ describe('lobby identity name bidi isolation (FR-044)', () => {
         expect(bdi?.textContent).toBe('שלום');
     });
 });
+
+describe('lobby action controls carry the europa-button marker (FR-043)', () => {
+    test('Retry connection and Acknowledge are design-system buttons', async () => {
+        const failureState = stateOf({
+            connection: 'failed',
+            failure: {
+                source: 'connection',
+                code: 'connection_failed',
+                message: 'Lobby connection failed.',
+                detail: null,
+            },
+        });
+        const failureScreen = await render(
+            <LobbyLanding state={failureState} focusHeading={false} {...noopCallbacks} />,
+        );
+        const retry = failureScreen.getByRole('button', { name: 'Retry connection' }).element();
+        expect(retry.classList.contains('europa-button')).toBe(true);
+
+        const supersededState = stateOf({
+            connection: 'ready',
+            identityStatus: 'restoring',
+            everNamed: true,
+            superseded: true,
+        });
+        const supersededScreen = await render(
+            <LobbyLanding state={supersededState} focusHeading={false} {...noopCallbacks} />,
+        );
+        const acknowledge = supersededScreen.getByRole('button', { name: 'Acknowledge' }).element();
+        expect(acknowledge.classList.contains('europa-button')).toBe(true);
+    });
+
+    test('the match chrome leave control is a design-system button', async () => {
+        window.history.pushState(window.history.state, '', '/');
+
+        const transport = new SmokeTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
+
+        await expect.element(screen.getByText('Europa Neo lobby')).toBeVisible();
+        await controller.joinMatch(MATCH_A);
+        transport.pushSnapshot(
+            snapshotOf(
+                [
+                    {
+                        matchId: MATCH_A,
+                        seatsFilled: 1,
+                        capacity: 2,
+                        status: 'waiting',
+                        boardSize: 32,
+                        tickIntervalMs: 250,
+                    },
+                ],
+                MATCH_A,
+            ),
+        );
+        await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
+
+        const leave = document.querySelector<HTMLElement>('[data-europa-leave="true"]');
+        expect(leave).not.toBeNull();
+        expect(leave?.tagName).toBe('BUTTON');
+        expect(leave?.classList.contains('europa-button')).toBe(true);
+        controller.disconnect();
+    });
+});

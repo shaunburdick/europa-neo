@@ -29,7 +29,7 @@
  * authority comes from the server.
  */
 
-import { EuropaBanner } from '@europa/design/components';
+import { EuropaBanner, EuropaButton } from '@europa/design/components';
 import type { PublicLobbyEntry } from '@europa/matchmaking';
 import { Link } from '@tanstack/react-router';
 import type { JSX } from 'react';
@@ -185,9 +185,9 @@ export function LobbyLanding({
             {state.failure !== null && state.connection === 'failed' ? (
                 <EuropaBanner variant="alert" data-europa-lobby-failure="true">
                     {state.failure.message}{' '}
-                    <button type="button" className="europa-focus-ring" onClick={onRetry}>
+                    <EuropaButton variant="secondary" className="europa-focus-ring" onClick={onRetry}>
                         Retry connection
-                    </button>
+                    </EuropaButton>
                 </EuropaBanner>
             ) : null}
             {/* Transient transport loss with auto-retry running: visible
@@ -235,13 +235,13 @@ export function LobbyLanding({
                             This session moved somewhere else — another browser took over this identity. You can set a
                             new name below to start fresh.
                         </p>
-                        <button
-                            type="button"
+                        <EuropaButton
+                            variant="primary"
                             className="europa-lobby__button europa-focus-ring"
                             onClick={onAcknowledgeSuperseded}
                         >
                             Acknowledge
-                        </button>
+                        </EuropaButton>
                     </div>
                 ) : null}
                 {/* US4 AC-4: active-match status stays VISIBLE on the

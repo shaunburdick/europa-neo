@@ -247,33 +247,33 @@ export function Sidebar({
                         </p>
                     ) : null}
                     <fieldset className="europa-zoom__controls" aria-label="Zoom controls">
-                        <button
-                            type="button"
+                        <EuropaButton
+                            variant="ghost"
                             className="europa-focus-ring"
                             disabled={!interactive || !hasView}
                             onClick={zoomIn}
                             aria-label="Zoom in"
                         >
                             +
-                        </button>
-                        <button
-                            type="button"
+                        </EuropaButton>
+                        <EuropaButton
+                            variant="ghost"
                             className="europa-focus-ring"
                             disabled={!interactive || !hasView}
                             onClick={zoomOut}
                             aria-label="Zoom out"
                         >
                             −
-                        </button>
-                        <button
-                            type="button"
+                        </EuropaButton>
+                        <EuropaButton
+                            variant="ghost"
                             className="europa-focus-ring"
                             disabled={!interactive || !hasView}
                             onClick={zoomReset}
                             aria-label="Reset zoom to 100%"
                         >
                             100%
-                        </button>
+                        </EuropaButton>
                     </fieldset>
                 </div>
             </section>
@@ -282,14 +282,14 @@ export function Sidebar({
             <section id="surrender" aria-label="Surrender" className="europa-sidebar__section">
                 <h2 className="europa-sidebar__heading">Surrender</h2>
                 <Tooltip content="Forfeit the current match">
-                    <button
-                        type="button"
+                    <EuropaButton
+                        variant="secondary"
                         className="europa-hud__surrender europa-focus-ring"
                         disabled={!interactive || !inputEnabled}
                         onClick={onSurrenderRequest}
                     >
                         Surrender…
-                    </button>
+                    </EuropaButton>
                 </Tooltip>
             </section>
 
@@ -297,15 +297,15 @@ export function Sidebar({
             <section id="help" aria-label="Help" className="europa-sidebar__section">
                 <h2 className="europa-sidebar__heading">Help</h2>
                 <Tooltip content="Open help overlay (? key)">
-                    <button
+                    <EuropaButton
                         ref={helpButtonRef}
-                        type="button"
+                        variant="ghost"
                         className="europa-help-button europa-focus-ring"
                         disabled={!interactive || !inputEnabled}
                         onClick={onHelpToggle}
                     >
                         ?
-                    </button>
+                    </EuropaButton>
                 </Tooltip>
             </section>
         </aside>

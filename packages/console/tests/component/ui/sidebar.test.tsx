@@ -192,3 +192,24 @@ describe('Sidebar spectator parity (FR-021)', () => {
         expect((surrenderButton as HTMLButtonElement | null)?.disabled).toBe(true);
     });
 });
+
+describe('sidebar controls carry the europa-button marker (FR-043)', () => {
+    test('zoom, surrender, and help controls are design-system buttons', async () => {
+        const state = liveState();
+        await render(<Sidebar {...liveSidebarProps(state)} />);
+
+        const controls: (string | null)[] = [
+            '[aria-label="Zoom in"]',
+            '[aria-label="Zoom out"]',
+            '[aria-label="Reset zoom to 100%"]',
+            '.europa-hud__surrender',
+            '.europa-help-button',
+        ];
+        for (const selector of controls) {
+            const control = document.querySelector(selector);
+            expect(control, selector).not.toBeNull();
+            expect(control?.tagName, selector).toBe('BUTTON');
+            expect(control?.classList.contains('europa-button'), selector).toBe(true);
+        }
+    });
+});

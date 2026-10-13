@@ -16,6 +16,7 @@
  * @module
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 import type { LiveRegionAnnouncer } from '../a11y/live-region';
@@ -119,33 +120,33 @@ export function DeepLinkInterstitial({
                 </p>
                 <div className="europa-deep-link-interstitial__actions">
                     {isPlayer ? (
-                        <button
-                            type="button"
+                        <EuropaButton
+                            variant="primary"
                             className="europa-lobby__button europa-focus-ring"
                             onClick={onPlay}
                             data-europa-deep-link-play="true"
                         >
                             Play
-                        </button>
+                        </EuropaButton>
                     ) : null}
-                    <button
-                        type="button"
+                    <EuropaButton
+                        variant="secondary"
                         className="europa-lobby__button europa-focus-ring"
                         onClick={onSpectate}
                         data-europa-deep-link-spectate="true"
                     >
                         Spectate
-                    </button>
+                    </EuropaButton>
                 </div>
                 <div className="europa-deep-link-interstitial__footer">
-                    <button
-                        type="button"
+                    <EuropaButton
+                        variant="secondary"
                         className="europa-lobby__button europa-focus-ring"
                         onClick={onReturnToLobby}
                         data-europa-deep-link-return="true"
                     >
                         Return to lobby
-                    </button>
+                    </EuropaButton>
                 </div>
             </section>
         </main>

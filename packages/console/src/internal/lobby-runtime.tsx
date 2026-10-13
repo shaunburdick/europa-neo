@@ -48,12 +48,12 @@
  * focus steal; every subsequent swap takes it, WCAG 2.4.3).
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { PublicLobbyEntry } from '@europa/matchmaking';
 import { useNavigate } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { StrictMode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { createConsoleClient } from '../net/client';
 import { createWsLobbyClient } from '../net/ws-lobby-client';
@@ -822,15 +822,15 @@ export function MatchLegHost({
                         }
                     />
                 ) : null}
-                <button
-                    type="button"
+                <EuropaButton
+                    variant="secondary"
                     className="europa-lobby__button europa-focus-ring"
                     disabled={leaving}
                     onClick={onLeave}
                     data-europa-leave="true"
                 >
                     {leaving ? 'Leaving…' : 'Leave to lobby'}
-                </button>
+                </EuropaButton>
                 {leaveError !== null ? (
                     <p className="europa-lobby__error" role="alert">
                         {leaveError.message}

@@ -551,3 +551,24 @@ describe('match-route skip-link target', () => {
         expect(main?.getAttribute('tabindex')).toBe('-1');
     });
 });
+
+describe('route notice actions carry the europa-button marker (FR-043)', () => {
+    test('Try again and Return to lobby are design-system buttons', async () => {
+        const screen = await render(
+            <RouteNotice
+                kind="shortcut-failure"
+                title="Cannot join this match"
+                message="The match is no longer joinable."
+                onRetry={() => undefined}
+                onReturnToLobby={() => undefined}
+            />,
+        );
+
+        const buttons = Array.from(screen.container.querySelectorAll('button'));
+        expect(buttons).toHaveLength(2);
+        for (const button of buttons) {
+            expect(button.tagName).toBe('BUTTON');
+            expect(button.classList.contains('europa-button')).toBe(true);
+        }
+    });
+});

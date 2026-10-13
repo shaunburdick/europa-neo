@@ -27,6 +27,7 @@
  * JSDoc references: US5 AC-2 + WCAG 2.4.3 (Focus Order) + Q-A04.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 
@@ -109,22 +110,22 @@ export function SurrenderModal({ open, onConfirm, onCancel }: SurrenderModalProp
                     Your cities fall under enemy control and you join as a spectator. This cannot be undone.
                 </p>
                 <div className="europa-modal__actions">
-                    <button
-                        type="button"
+                    <EuropaButton
                         ref={cancelButtonRef}
+                        variant="secondary"
                         className="europa-modal__button europa-focus-ring"
                         onClick={onCancel}
                     >
                         Cancel
-                    </button>
-                    <button
-                        type="button"
+                    </EuropaButton>
+                    <EuropaButton
                         ref={confirmButtonRef}
+                        variant="error"
                         className="europa-modal__button europa-modal__button--danger europa-focus-ring"
                         onClick={onConfirm}
                     >
                         Confirm surrender
-                    </button>
+                    </EuropaButton>
                 </div>
             </div>
         </div>

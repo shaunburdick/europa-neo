@@ -19,6 +19,7 @@
  * JSDoc references: FR-002, FR-003, FR-004, FR-005, FR-006, FR-007.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 
@@ -136,14 +137,14 @@ export function GameOverModal({ open, result, onReturnToLobby, playerNames }: Ga
                     Final tick: {String(result.tick)}
                 </p>
                 <div className="europa-modal__actions">
-                    <button
-                        type="button"
+                    <EuropaButton
+                        variant="primary"
                         ref={buttonRef}
                         className="europa-modal__button europa-focus-ring"
                         onClick={onReturnToLobby}
                     >
                         Return to Lobby
-                    </button>
+                    </EuropaButton>
                 </div>
             </div>
         </div>
