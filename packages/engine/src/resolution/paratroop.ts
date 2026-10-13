@@ -1,14 +1,18 @@
 /**
  * Paratroop resolution phase — Feature 001, T043
  *
- * Pure `resolveParatroop(state, board, constants, orders): { state, events, errors }`.
+ * Pure `resolveParatroop(state, board, constants, orders, registry,
+ * tickNumber): { state, events, errors, successfulOrderIndices }`.
  *
  * Per FR-013, each paratroop order:
  *   - Spends `2 × N` troops from the source cell, where `N` is the
  *     paratroop count per order (modeled by `constants.paratroopCost`).
- *   - Adds `N` troops to the target cell (2:1 cost ratio).
+ *   - Resolves the landing against the target's state at that moment:
+ *     neutral/same-owner targets gain `N` (clamped to `cellCapacity`);
+ *     enemy-held targets resolve as 1:1 attrition combat
+ *     (`resolveTwoWayAttrition`) and emit a `CombatEvent`.
  *   - Clears the destination cell's `pipeMasks` (FR-013 — paratroopers
- *     break enemy pipes).
+ *     break enemy pipes) regardless of combat outcome.
  *   - Range ≤ 2 Chebyshev (validated via `validateCommand`).
  *   - Target must be land and in-bounds; enemy-held targets are valid
  *     (validate.ts checks terrain, range, source ownership, and the
@@ -23,21 +27,24 @@
  *   - Pure function: input is never mutated.
  *   - Integer math only (`>>> 0`).
  *   - Order of operations is fixed: validate each order, then apply
- *     all valid orders in the supplied sequence.
+ *     all valid orders in the supplied sequence, so sequential landings
+ *     on one target resolve against whatever the previous landing left.
  *
  * **Errors vs events**: invalid orders are returned in the `errors`
- * array (with the typed `ValidationError` reason per FR-018); valid
- * orders mutate the state but don't emit dedicated events (the
+ * array (with the typed `ValidationError` reason per FR-018). Valid
+ * orders mutate the state; enemy landings additionally emit a
+ * `CombatEvent`, while neutral/same-owner landings emit nothing — the
  * `AppliedOrderRecord` in `tick.ts` covers the "order was applied"
- * semantics). The terminal/elimination phase is the source of
+ * semantics for both. The terminal/elimination phase is the source of
  * `EliminationEvent` emissions, not this module.
  */
 
 import type { EngineConstants } from '../contracts/engine-api';
-import { emptyTickEvents } from '../events';
+import { emptyTickEvents, pushCombatEvent } from '../events';
 import type { PlayerRegistry } from '../playerRegistry';
 import type { Board, Coord, Order, TickEvents, ValidationError, WorldState } from '../types';
 import { validateCommand } from '../validate';
+import { resolveTwoWayAttrition } from './attrition';
 
 const PARATROOP_MAX_RANGE = 2;
 
@@ -54,11 +61,14 @@ const PARATROOP_MAX_RANGE = 2;
  *                  before invoking this resolver).
  * @param registry  ID ↔ dense-index registry; the order's `player` is
  *                  resolved to its 1-based owner byte through it.
+ * @param tickNumber Tick number stamped on any `CombatEvent` an enemy
+ *                  landing emits.
  * @returns `{ state, events, errors }`. `state` is the post-resolution
  *          world state with new typed arrays (immutable update).
  *          `errors` carries the typed `ValidationError` for every
- *          rejected order (FR-018 surface). `events` is currently
- *          empty (no paratroop-specific events in v1).
+ *          rejected order (FR-018 surface). `events.combat` carries one
+ *          `CombatEvent` per enemy landing; neutral and same-owner
+ *          landings emit nothing.
  *          `successfulOrderIndices` identifies successful occurrences in the
  *          supplied order array, rather than relying on object identity.
  */
@@ -68,6 +78,7 @@ export function resolveParatroop(
     constants: EngineConstants,
     orders: readonly Order[],
     registry: PlayerRegistry,
+    tickNumber: number,
 ): {
     state: WorldState;
     events: TickEvents;
@@ -84,6 +95,7 @@ export function resolveParatroop(
 
     const errors: Array<{ order: Order; reason: ValidationError }> = [];
     const successfulOrderIndices: number[] = [];
+    let events: TickEvents = emptyTickEvents();
 
     const w = board.width;
     void board.height; // height = width for square boards; explicit read for parity
@@ -181,19 +193,50 @@ export function resolveParatroop(
             continue;
         }
 
-        // Apply: subtract 2N from source, add N to target, clear target pipes.
+        // Apply: subtract 2N from source, resolve the landing at the target, clear target pipes.
         const newSourceCount = sourceCount - sourceSpend;
         newCounts[sourceIdx] = newSourceCount;
         if (newSourceCount === 0) {
             newOwners[sourceIdx] = 0;
         }
 
+        const attackerOwner = playerIndex + 1;
+        const targetOwner = newOwners[targetIdx] ?? 0;
         const targetCount = newCounts[targetIdx] ?? 0;
-        const newTargetCount = targetCount + paratroopN;
         const cap = constants.cellCapacity >>> 0;
-        const finalTargetCount = newTargetCount > cap ? cap : newTargetCount;
-        newCounts[targetIdx] = finalTargetCount;
-        newOwners[targetIdx] = playerIndex + 1;
+
+        if (targetOwner !== 0 && targetOwner !== attackerOwner) {
+            // Enemy-held: the landing is an attack; ownership transfers
+            // only if the garrison is eliminated.
+            const outcome = resolveTwoWayAttrition({
+                attackerOwner,
+                attackerTotal: paratroopN,
+                defenderOwner: targetOwner,
+                defenderTotal: targetCount,
+                cellCapacity: cap,
+            });
+            newCounts[targetIdx] = outcome.winnerCount;
+            // No owner write while the garrison survives (winner stays the
+            // defender); a tie writes 0.
+            if (outcome.winnerOwner !== targetOwner) {
+                newOwners[targetIdx] = outcome.winnerOwner;
+            }
+            events = pushCombatEvent(events, {
+                tick: tickNumber,
+                cell: { x: targetCoord.x, y: targetCoord.y },
+                attacker: registry.requireIdAt(attackerOwner - 1),
+                defender: registry.requireIdAt(targetOwner - 1),
+                attackerLoss: outcome.damage,
+                defenderLoss: outcome.damage,
+                winner: outcome.winnerOwner === 0 ? 'tie' : registry.requireIdAt(outcome.winnerOwner - 1),
+                attackerTotal: paratroopN,
+                defenderTotal: targetCount,
+            });
+        } else {
+            const newTargetCount = targetCount + paratroopN;
+            newCounts[targetIdx] = newTargetCount > cap ? cap : newTargetCount;
+            newOwners[targetIdx] = attackerOwner;
+        }
 
         // Clear destination pipes (FR-013).
         newPipes[targetIdx] = 0;
@@ -203,7 +246,7 @@ export function resolveParatroop(
     // If we made no changes, return the input state unchanged so
     // reference identity is preserved for callers that check no-op.
     if (newCounts === null) {
-        return { state, events: emptyTickEvents(), errors, successfulOrderIndices };
+        return { state, events, errors, successfulOrderIndices };
     }
 
     return {
@@ -214,7 +257,7 @@ export function resolveParatroop(
             reservesPct: new Uint8Array(state.reservesPct),
             cityOwners: new Uint8Array(state.cityOwners),
         },
-        events: emptyTickEvents(),
+        events,
         errors,
         successfulOrderIndices,
     };

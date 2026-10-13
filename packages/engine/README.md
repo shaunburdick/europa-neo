@@ -157,7 +157,7 @@ Replays the fixture and overwrites the `finalStateHash` field with the engine's 
   "orders": [],
   "terminalTick": 1,
   "terminalResult": null,
-  "finalStateHash": "0aafe88f",
+  "finalStateHash": "82f73922",
   "engineVersion": "0.2.0"
 }
 ```

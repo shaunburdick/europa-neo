@@ -54,9 +54,12 @@
  *       ASCII bytes. Records are emitted in canonical registry order.
  *     - 2 bytes : city count (uint16 LE)
  *     - per-city record (x, y, owner placement slot)
- *     - n*n cells: 4 bytes troopCounts + 1 byte troopOwners +
- *                   1 byte pipeMasks + 1 byte reservesPct +
- *                   1 byte cityOwners
+ *     - n*n cells, 10 bytes each: 4 bytes troopCounts +
+ *                   1 byte troopOwners + 1 byte pipeMasks +
+ *                   1 byte reservesPct + 1 byte cityOwners +
+ *                   1 byte elevation (0..255) +
+ *                   1 byte terrainFlag (0 = land, 1 = water;
+ *                   decode rejects > 1)
  *     - (end; trailing bytes are rejected)
  *
  * Owner bytes in the cell block are private 1-based registry dense
@@ -69,8 +72,9 @@
  * Encode fails loudly ({@link EngineSerializationError}) rather than
  * substituting anything: unknown/unregistered IDs, non-canonical player
  * arrays, non-ASCII display names, out-of-range owner bytes,
- * out-of-range board/cell fields, out-of-range player
- * `citiesOwned`/`troopsHeld` values, and a `config.seed`/`rngSeed`
+ * out-of-range board/cell fields (including `elevation` outside
+ * `0..255` and a `terrain` other than `'land' | 'water'`), out-of-range
+ * player `citiesOwned`/`troopsHeld` values, and a `config.seed`/`rngSeed`
  * divergence are all rejected.
  *
  * Decode rejects, with {@link EngineFormatError} (or
@@ -95,7 +99,7 @@ import { PLAYER_ID_LENGTH, parsePlayerId } from '@europa/core';
 import { MIN_BOARD_SIZE } from './create';
 import type { PlayerRegistry } from './playerRegistry';
 import { compareUtf16, createPlayerRegistry, MAX_PLAYERS_PER_MATCH, MIN_PLAYERS_PER_MATCH } from './playerRegistry';
-import type { Board, CityPlacement, Player, PlayerId, PlayerStatus, World } from './types';
+import type { Board, Cell, CityPlacement, Player, PlayerId, PlayerStatus, World } from './types';
 import { ENGINE_API_VERSION } from './types';
 
 // ----------------------------------------------------------------------------
@@ -116,8 +120,10 @@ const HEADER_PREFIX = 0x00;
  * History:
  *   - 1: issue #74 canonical ID table + placement-slot order + explicit
  *        format version.
+ *   - 2: per-cell terrain — `elevation` + `terrainFlag` appended to each
+ *        cell record (10 bytes; existing field offsets unchanged).
  */
-export const SERIALIZE_FORMAT_VERSION = 1;
+export const SERIALIZE_FORMAT_VERSION = 2;
 
 /** Maximum value a single byte can hold. */
 const MAX_U8 = 0xff;
@@ -495,7 +501,7 @@ function encodePayload(world: Readonly<World>): Uint8Array {
 
     const fixedLen = 1 + 1 + 1 + 4 + 4 + 4 + 1 + 16 + 1;
     const citiesBlockLen = 2 + board.cities.length * (2 + 1);
-    const cellsBlockLen = n * 8;
+    const cellsBlockLen = n * 10;
     const total = fixedLen + idTableLen + slotOrder.length + playersLen + citiesBlockLen + cellsBlockLen;
 
     const out = new Uint8Array(total);
@@ -560,14 +566,31 @@ function encodePayload(world: Readonly<World>): Uint8Array {
         out[p++] = city.owner & 0xff;
     }
 
-    // Cells.
+    // Cells. Terrain fields are validated in place so a malformed world
+    // throws the contract error type.
     for (let i = 0; i < n; i++) {
+        const cell = board.cells[i];
+        if (cell === undefined) {
+            throw new EngineSerializationError(`board.cells[${String(i)}] is missing`);
+        }
+        if (!Number.isInteger(cell.elevation) || cell.elevation < 0 || cell.elevation > MAX_U8) {
+            throw new EngineSerializationError(
+                `board.cells[${String(i)}].elevation must be an integer in [0, ${String(MAX_U8)}] (got ${String(cell.elevation)})`,
+            );
+        }
+        if (cell.terrain !== 'land' && cell.terrain !== 'water') {
+            throw new EngineSerializationError(
+                `board.cells[${String(i)}].terrain must be 'land' or 'water' (got ${String(cell.terrain)})`,
+            );
+        }
         dv.setUint32(p, world.state.troopCounts[i] ?? 0, true);
         p += 4;
         out[p++] = world.state.troopOwners[i] ?? 0;
         out[p++] = world.state.pipeMasks[i] ?? 0;
         out[p++] = world.state.reservesPct[i] ?? 0;
         out[p++] = world.state.cityOwners[i] ?? 0;
+        out[p++] = cell.elevation;
+        out[p++] = cell.terrain === 'water' ? 1 : 0;
     }
 
     if (p !== total) {
@@ -842,13 +865,16 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
         cities.push({ cell: { x, y }, owner });
     }
 
-    // Cells.
+    // Cells. `terrainFlag` gets an explicit range check because decode
+    // must never coerce an unknown value; `elevation` is already bounded
+    // by the u8 reader.
     const n = boardSize * boardSize;
     const troopCounts = new Uint32Array(n);
     const troopOwners = new Uint8Array(n);
     const pipeMasks = new Uint8Array(n);
     const reservesPct = new Uint8Array(n);
     const cityOwners = new Uint8Array(n);
+    const cells: Cell[] = new Array<Cell>(n);
     for (let i = 0; i < n; i++) {
         troopCounts[i] = reader.u32(`cell ${String(i)} troopCount`);
         const troopOwner = reader.u8(`cell ${String(i)} troopOwner`);
@@ -875,25 +901,29 @@ function decodePayload(bytes: Uint8Array, versionLen: number): World {
             );
         }
         cityOwners[i] = cityOwner;
+        const elevation = reader.u8(`cell ${String(i)} elevation`);
+        const terrainFlag = reader.u8(`cell ${String(i)} terrainFlag`);
+        if (terrainFlag > 1) {
+            throw new EngineFormatError(
+                `cell ${String(i)} terrainFlag ${String(terrainFlag)} must be 0 (land) or 1 (water)`,
+            );
+        }
+        cells[i] = {
+            x: i % boardSize,
+            y: Math.floor(i / boardSize),
+            elevation,
+            terrain: terrainFlag === 1 ? 'water' : 'land',
+        };
     }
 
     if (reader.remaining !== 0) {
         throw new EngineFormatError(`trailing bytes after payload (${String(reader.remaining)} extra)`);
     }
 
-    // Board cells: the serialized form carries only city placements, not
-    // the full terrain. Reconstruct a minimal all-land placeholder; a
-    // rehydrated world preserves runtime state but not terrain. Board
-    // re-fetch for networking is feature 003's responsibility.
     const board: Board = {
         width: boardSize,
         height: boardSize,
-        cells: Array.from({ length: n }, (_, i) => ({
-            x: i % boardSize,
-            y: Math.floor(i / boardSize),
-            elevation: 0,
-            terrain: 'land' as const,
-        })),
+        cells,
         cities,
     };
 
