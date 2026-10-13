@@ -522,3 +522,17 @@ describe('LobbyLanding skip-link target', () => {
         expect(main?.getAttribute('tabindex')).toBe('-1');
     });
 });
+
+describe('lobby identity name bidi isolation (FR-044)', () => {
+    test('the lobby identity name is wrapped in a <bdi> element', async () => {
+        window.history.pushState(window.history.state, '', '/');
+        const state = stateOf({ connection: 'ready', identityStatus: 'named', handle: 'שלום' });
+        const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+
+        const name = screen.container.querySelector('.europa-lobby__identity-name');
+        expect(name).not.toBeNull();
+        const bdi = name?.querySelector('bdi');
+        expect(bdi).not.toBeNull();
+        expect(bdi?.textContent).toBe('שלום');
+    });
+});

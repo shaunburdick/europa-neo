@@ -128,7 +128,7 @@ export function GameOverModal({ open, result, onReturnToLobby, playerNames }: Ga
                 onKeyDown={handleKeyDown}
             >
                 <h2 id="gameover-title" className="europa-modal__title">
-                    {resultTitle(result, playerNames)}
+                    <bdi>{resultTitle(result, playerNames)}</bdi>
                 </h2>
                 <p id="gameover-body" className="europa-modal__body">
                     {resultReason(result)}

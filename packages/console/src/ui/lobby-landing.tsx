@@ -273,9 +273,11 @@ export function LobbyLanding({
                                 </span>
                                 <div className="europa-lobby__identity-info">
                                     <span className="europa-lobby__identity-name">
-                                        {state.identityStatus === 'named' && state.handle !== null
-                                            ? state.handle
-                                            : 'Unnamed'}
+                                        <bdi>
+                                            {state.identityStatus === 'named' && state.handle !== null
+                                                ? state.handle
+                                                : 'Unnamed'}
+                                        </bdi>
                                     </span>
                                     <span
                                         className="europa-lobby__identity-status"
