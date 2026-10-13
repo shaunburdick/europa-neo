@@ -119,6 +119,9 @@ jobs:
       - name: Typecheck (matchmaking)
         run: pnpm --filter @europa/matchmaking typecheck
 
+      - name: Typecheck conformance (matchmaking)
+        run: pnpm --filter @europa/matchmaking typecheck:conformance
+
       - name: Lint (matchmaking)
         run: pnpm --filter @europa/matchmaking lint
 

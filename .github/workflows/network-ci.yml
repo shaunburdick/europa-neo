@@ -108,6 +108,9 @@ jobs:
       - name: Typecheck (networking)
         run: pnpm --filter @europa/networking typecheck
 
+      - name: Typecheck conformance (networking)
+        run: pnpm --filter @europa/networking typecheck:conformance
+
       - name: Lint (networking)
         run: pnpm --filter @europa/networking lint
 

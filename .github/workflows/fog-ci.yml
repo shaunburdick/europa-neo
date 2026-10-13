@@ -93,6 +93,9 @@ jobs:
       - name: Typecheck (fog)
         run: pnpm --filter @europa/fog typecheck
 
+      - name: Typecheck conformance (fog)
+        run: pnpm --filter @europa/fog typecheck:conformance
+
       - name: Lint (fog)
         run: pnpm --filter @europa/fog lint
 

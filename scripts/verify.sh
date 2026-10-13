@@ -18,10 +18,18 @@ pnpm lint
 pnpm format:check
 echo ""
 
-# Phase 3: Console conformance (mirrors console-lint)
-# Conformance test imports from source (src/index) — no build needed.
-echo "--- Phase 3: Console conformance ---"
+# Phase 3: Conformance programs (008 FR-029/FR-030). Each contract-bearing
+# package ships a dedicated strict `tsc -p tsconfig.conformance.json` run
+# that compiles its contract-conformance witness test file(s) alongside
+# src/ — a vitest run does NOT type-check, so the witnesses only prove
+# anything when this program compiles them. Console imports conformance
+# from source (src/index) — no build needed; the library programs
+# compile against the workspace dists built in Phase 1.
+echo "--- Phase 3: Conformance programs ---"
 pnpm --filter @europa/console typecheck:conformance
+pnpm --filter @europa/networking typecheck:conformance
+pnpm --filter @europa/fog typecheck:conformance
+pnpm --filter @europa/matchmaking typecheck:conformance
 echo ""
 
 # Phase 4: Design system guards (mirrors console-lint)
