@@ -162,7 +162,7 @@ As a player, I want all HUD controls consolidated into a right sidebar so the ga
 - **FR-042 (v1.12)**: The console's modal surfaces (surrender confirmation, help overlay, game-over modal) MUST be governed by one exclusive modal state: at most one `aria-modal="true"` surface MAY be mounted at a time, and opening one MUST close any other open modal. The game-over modal is terminal (019-FR-005, 019-FR-008) and MUST NOT be preempted or dismissed by another modal opening.
 - **FR-043 (v1.12)**: Console action controls (HUD, sidebar sections, dialogs, lobby actions) MUST be rendered from the design system's shared components rather than ad-hoc button elements, following the 019-FR-012 precedent ("a design-system component, no raw HTML").
 - **FR-044 (v1.12)**: Every server-issued handle or player name rendered by the console MUST be wrapped in a `<bdi>` element so mixed-direction text cannot reorder the surrounding interface text (the direction-safe labeling promise the manual already documents).
-- **FR-045 (v1.12)**: Console state handling MUST be pure and instance-scoped: reducer output MUST depend only on its `(state, action, options)` inputs; the reducer's pending-order correlation table and action-id counter MUST live in store scope, never in module scope shared across stores; the heartbeat echo (`pong`) MUST return the same state reference so subscribers are not notified. That same-reference requirement is scoped to the heartbeat echo specifically (issue #153's acceptance criterion "a heartbeat no-op returns the same state reference"): other no-op arms — for example a `socketClosed` received while `status === 'game_over'` — still return a freshly built state and are NOT covered by this clause. Deferring the reducer's lazy feedback prune is accepted: with the no-op short-circuit in place, expired feedback is pruned on the next dispatch that changes state rather than on every dispatch. Per-connection transport state (wire sequence counters, captured seat-session tokens, seq→actionId correlation maps) is instance-scoped by the concurrent v1.11 hardening (PR #189, its FR-029/FR-033) and MUST NOT regress.
+- **FR-045 (v1.12)**: Console state handling MUST be pure and instance-scoped: reducer output MUST depend only on its `(state, action, options)` inputs; the reducer's pending-order correlation table and action-id counter MUST live in store scope, never in module scope shared across stores; the heartbeat echo (`pong`) MUST return the same state reference so subscribers are not notified. That same-reference requirement is scoped to the heartbeat echo specifically (issue #153's acceptance criterion "a heartbeat no-op returns the same state reference"): other no-op arms — for example a `socketClosed` received while `status === 'game_over'` — still return a freshly built state and are NOT covered by this clause. Deferring the reducer's lazy feedback prune is accepted: with the no-op short-circuit in place, expired feedback is pruned on the next dispatch that is not a `pong` no-op rather than on every dispatch (other no-op arms still reach the prune). Per-connection transport state (wire sequence counters, captured seat-session tokens, seq→actionId correlation maps) is instance-scoped by the concurrent v1.11 hardening (PR #189, its FR-029/FR-033) and MUST NOT regress.
 - **FR-046 (v1.12)**: Match handoff integrity MUST hold: (a) every seat-granting entry path (create, join) MUST propagate the seat session token captured from the server's acceptance to the match leg's wire join — a tokenless join (which selects the lowest open seat) MUST NOT be used when a token was issued; (b) one handoff MUST mount exactly one match leg, including lobby-initiated spectate; (c) a match-leg boot failure MUST surface through the recoverable-failure path (spec 010 FR-018/FR-033 — a visible message with a return action) and MUST NOT be swallowed by a silent no-op.
 - **FR-047 (v1.12)**: Input and camera controller lifecycles MUST be idempotent: attaching a controller twice MUST NOT double-register its listeners (one wheel notch still produces one zoom step), and dispose MUST be safe to call repeatedly and MUST remove every listener it registered.
 
@@ -580,15 +580,22 @@ below owns the reducer/store half.
   (`src/net/ws-lobby-client.ts`, `case 'pong': return`), so **no
   production path ever dispatches a `pong` action**. Guarded by
   `tests/unit/net/net.test.ts:92-101`; recorded here as a regression
-  guard, not re-implemented. What is NOT yet true is the **`reduce()`-level**
-  guarantee: `reduce()` rebuilds state on every call
-  (`src/state/reducer.ts`), so `reduce(state, pong, …)` returns a new
-  reference today even though the `pong` arm itself returns its input
-  unchanged. The `reduce()`-level same-reference guarantee for the
-  heartbeat echo is therefore **new in v1.12 and open work** (FR-045;
-  plan W2). The remaining allocation-churn half (map-view rebuilds on
-  unrelated state changes) is a performance item, not a requirement
-  change.
+  guard, not re-implemented.
+
+**Split disposition — v1.12 (new) work, recorded so the "already fixed"
+heading above does not overclaim:**
+
+- **Heartbeat no-op (`F-CON-ST-004`) — reduce()-level half, new in
+  v1.12 (FR-045)**: the wire half above was already on main, but the
+  reducer-level guarantee was not: `reduce(state, pong, …)` returned a
+  fresh state reference because `reduce()` rebuilds state on every call
+  (`src/state/reducer.ts`). v1.12 makes the heartbeat echo (`pong`)
+  return the same state reference with no effects. This same-reference
+  requirement is scoped to the heartbeat echo only — other no-op arms
+  (e.g. `socketClosed` while `status === 'game_over'`) still return a
+  freshly built state. The remaining allocation-churn half (map-view
+  rebuilds on unrelated state changes) stays a performance item, not a
+  requirement change.
 
 **Citation notes:**
 

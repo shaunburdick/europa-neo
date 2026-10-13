@@ -363,10 +363,13 @@ in a toast region above the board.
 - Created by the reducer (e.g., on a successful order
   submission: `appendFeedback(... { text: 'Sent pipe N at (5, 7)', kind: 'info', ttlMs: 2000 }, nowMs)`).
 - Added to `ConsoleState.feedback`.
-- Removed by the reducer on the next action dispatch **that changes
-  state** when `nowMs - createdAtMs > ttlMs` (lazy cleanup). The v1.12
-  heartbeat no-op short-circuit (FR-045) returns before this prune, so
-  a `pong` dispatch defers it to the next state-changing dispatch.
+- Removed by the reducer on the next action dispatch **that is not a
+  `pong` no-op** when `nowMs - createdAtMs > ttlMs` (lazy cleanup). The
+  v1.12 heartbeat no-op short-circuit (FR-045) returns before this
+  prune, so a `pong` dispatch defers it to the next dispatch that is
+  not a `pong` no-op — other no-op arms (e.g. `socketClosed` while
+  `status === 'game_over'`) still reach the prune even though they
+  change nothing.
 - Maximum 5 messages retained; older ones evicted FIFO.
 
 ---
