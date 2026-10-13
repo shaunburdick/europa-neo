@@ -238,6 +238,6 @@ For each valid paratroop order (source pays `2N`, `N = ENGINE_CONSTANTS.paratroo
 
 - `CombatEvent` fields: `attacker` = landing player, `defender` = garrison owner, `attackerTotal = N`, `defenderTotal = G`, `attackerLoss = defenderLoss = min(N, G)`, `winner` per the shared model.
 - City cells are not a special case: capture stays in Phase 6 (FR-005) and transfers the city only when the post-landing occupant differs from the city owner.
-- Every resolved landing — including a lost attack (`G ≥ N`, owner unchanged) or a mutual annihilation — is a successfully executed order and appears in `TickEvents.appliedOrders` (FR-023); only validation rejections (water, out-of-bounds, range, source ownership, insufficient source troops) land in `errors`.
+- Every resolved landing — including a lost attack (`G > N`, owner unchanged) or a mutual annihilation — is a successfully executed order and appears in `TickEvents.appliedOrders` (FR-023); only validation rejections (water, out-of-bounds, range, source ownership, insufficient source troops) land in `errors`.
 - Same-tick composition with FR-008 is unchanged: the Phase 5 pre-flow snapshot is taken after Phase 2/3, so a landing's outcome is part of that cell's garrison when pipe combat resolves.
 - `tick.ts` merges the paratroop phase's `CombatEvent`s into `TickEvents.combat` (same pattern as the combat/capture phases).
