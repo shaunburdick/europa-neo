@@ -6,13 +6,17 @@
  * These functions are designed to be passed directly to `validateSearch` on
  * `createRoute` calls.
  *
- * Safety model: the decoded `returnTo` value must be a safe relative pathname
- * (starts with `/`, no protocol, no host, no `..` traversal). Unsafe values
- * are silently treated as absent so the ProfileView's Continue button defaults
- * to `/lobby` (SC-006).
+ * `returnTo` validation is SINGLE-SOURCED (013 FR-034): this module
+ * delegates to the canonical {@link isSafeReturnTo} guard in
+ * `ui/profile-url.ts`. TanStack Router's search parse has already
+ * applied the ONE URI-decode by the time `validateSearch` runs, so this
+ * layer performs NO additional decode — the former divergent second
+ * `decodeURIComponent` pass is deleted.
  *
  * Pure module: no DOM, no clocks, no randomness.
  */
+
+import { isSafeReturnTo } from '../ui/profile-url';
 
 /**
  * Validated search parameters for the `/profile` route.
@@ -29,17 +33,12 @@ export interface ProfileSearchParams {
 /**
  * Validate search parameters for the `/profile` route.
  *
- * Implements the `returnTo` safety contract (feature 015 FR-005) for use as
- * TanStack Router's `validateSearch` callback. The contract is identical to
- * the existing `readReturnTo` function in `ui/profile-url.ts` but operates on
- * an already-parsed `Record<string, unknown>` rather than a raw search string.
- *
- * **Safety checks (in precedence order):**
- * 1. Must be a non-empty string after extraction.
- * 2. Must start with `/` (absolute pathname, not bare segment).
- * 3. Must NOT start with `//` (rejects protocol-relative `//evil.com`).
- * 4. Must NOT contain `://` (rejects any URL with explicit scheme).
- * 5. Must NOT contain `..` (rejects path traversal).
+ * Delegates the safety contract to the canonical `isSafeReturnTo`
+ * guard (feature 015 FR-005, feature 013 FR-034). Values arriving here
+ * are ALREADY decoded once by TanStack Router's search parse; a value
+ * that is still percent-encoded (e.g. `%2Fmatch%2Fabc`) fails the
+ * leading-`/` check and is treated as absent — decoding it again is
+ * exactly the divergent double decode FR-034 retires.
  *
  * @param search The raw search-params record from TanStack Router.
  * @returns A validated, typed search-params object safe for in-app navigation.
@@ -57,51 +56,9 @@ export interface ProfileSearchParams {
 export function profileSearchParams(search: ProfileSearchParams): ProfileSearchParams {
     const raw = search.returnTo;
 
-    if (typeof raw !== 'string' || raw.length === 0) {
+    if (typeof raw !== 'string' || !isSafeReturnTo(raw)) {
         return { returnTo: undefined };
     }
 
-    // Decode URI-encoded value (TanStack Router may or may not pre-decode,
-    // but the existing readReturnTo contract expects double-decode safety).
-    let decoded: string;
-    try {
-        decoded = decodeURIComponent(raw);
-    } catch {
-        return { returnTo: undefined };
-    }
-
-    return {
-        returnTo: isSafeRelativePathname(decoded) ? decoded : undefined,
-    };
-}
-
-/**
- * Guard: the decoded value must be a relative pathname safe for
- * in-app navigation.
- *
- * Checks (in precedence order):
- *   1. Starts with `/` (absolute pathname, not bare segment).
- *   2. Does NOT start with `//` (rejects protocol-relative `//evil.com`).
- *   3. Does NOT contain `://` (rejects any absolute URL that carries an
- *      explicit scheme — a hostile off-site origin).
- *   4. Does NOT contain `..` segments (rejects path traversal).
- *
- * This is the same guard used by `readReturnTo` in `ui/profile-url.ts`.
- * Duplicated here to keep the routing module self-contained and avoid
- * importing from the UI layer.
- */
-function isSafeRelativePathname(value: string): boolean {
-    if (value.length === 0 || value[0] !== '/') {
-        return false;
-    }
-    if (value.startsWith('//')) {
-        return false;
-    }
-    if (value.includes('://')) {
-        return false;
-    }
-    if (value.includes('..')) {
-        return false;
-    }
-    return true;
+    return { returnTo: raw };
 }

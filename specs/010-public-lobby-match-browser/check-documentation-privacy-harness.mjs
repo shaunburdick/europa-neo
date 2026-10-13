@@ -79,11 +79,37 @@ function runChecker(root) {
     });
 }
 
+/**
+ * Forbidden examples the checker MUST reject, as
+ * `[label, example, expectedDescription, targetSurface?]`. The optional
+ * fourth entry names the approved surface to seed (default: the top-level
+ * README) so both the player-facing and the implementation/spec halves of
+ * the denylist get exercised.
+ */
 const badExamples = [
     ['sessionToken value', 'sessionToken: "fixture-session-token"', 'credential value'],
     ['reconnectToken value', 'reconnectToken: fixture-reconnect-token', 'credential value'],
     ['credential-bearing URL', 'wss://example.invalid/match?token=fixture-token', 'credential-bearing URL'],
     ['bearer Authorization value', 'Authorization: Bearer fixture-token', 'bearer Authorization value'],
+    // Issue #146 / spec 010 FR-042: the resume secret is denied exactly
+    // like the bearer values above.
+    [
+        'resume-secret credential-shaped value',
+        'resumeSecret: "fixture-resume-secret"',
+        'credential value',
+        'specs/010-public-lobby-match-browser/data-model.md',
+    ],
+    [
+        'resume-secret in a credential-bearing URL',
+        'wss://example.invalid/lobby?resumeSecret=fixture-resume-secret',
+        'credential-bearing URL',
+    ],
+    [
+        'resume-secret field name on a player-facing surface',
+        'Store the resumeSecret beside your guest id.',
+        'resume-secret field name',
+        'docs/manual/src/pages/lobby.mdx',
+    ],
 ];
 
 const temporaryRoots = [];
@@ -94,10 +120,10 @@ try {
     const passingResult = runChecker(passingRoot);
     assert.equal(passingResult.status, 0, `permitted identifiers should pass:\n${passingResult.stderr}`);
 
-    for (const [label, example, expectedDescription] of badExamples) {
+    for (const [label, example, expectedDescription, targetFile = 'README.md'] of badExamples) {
         const failingRoot = await mkdtemp(path.join(os.tmpdir(), 'europa-doc-privacy-fail-'));
         temporaryRoots.push(failingRoot);
-        await writeFixture(failingRoot, new Map([['README.md', example]]));
+        await writeFixture(failingRoot, new Map([[targetFile, example]]));
         const failingResult = runChecker(failingRoot);
         assert.notEqual(failingResult.status, 0, `${label} should fail the checker`);
         assert.match(failingResult.stderr, new RegExp(expectedDescription));

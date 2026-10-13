@@ -168,16 +168,28 @@ describe('search-params - /profile returnTo validation', () => {
         expect(profileSearchParams({ returnTo: '/match/../admin' })).toEqual({ returnTo: undefined });
     });
 
-    it('decodes URI-encoded values before validation', () => {
-        expect(profileSearchParams({ returnTo: '%2Fmatch%2Fabc' })).toEqual({ returnTo: '/match/abc' });
+    it('treats a still-encoded value as absent — the router already decoded it once (013 FR-034)', () => {
+        // TanStack Router's search parse applies the ONE URI-decode
+        // before validateSearch; this layer must not decode again. A
+        // value that arrives still-encoded is unsafe-by-contract and is
+        // treated as absent (the former second `decodeURIComponent`
+        // pass — which turned this input into '/match/abc' — is the
+        // divergent double decode FR-034 retires).
+        expect(profileSearchParams({ returnTo: '%2Fmatch%2Fabc' })).toEqual({ returnTo: undefined });
     });
 
-    it('returns undefined for URI-encoded traversal', () => {
+    it('treats a still-encoded traversal as absent (no leading slash after zero decodes)', () => {
         expect(profileSearchParams({ returnTo: '%2F..%2Fadmin' })).toEqual({ returnTo: undefined });
     });
 
-    it('returns undefined for invalid URI encoding', () => {
+    it('treats invalid URI encoding as absent', () => {
         expect(profileSearchParams({ returnTo: '%ZZ' })).toEqual({ returnTo: undefined });
+    });
+
+    it('rejects the widened AC-019 corpus through the canonical guard (013 FR-034)', () => {
+        for (const value of ['/../x', '/\\evil.com', '/lobby?ws=evil']) {
+            expect(profileSearchParams({ returnTo: value })).toEqual({ returnTo: undefined });
+        }
     });
 });
 

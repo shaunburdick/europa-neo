@@ -39,12 +39,15 @@
  * truth.
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { MatchResult, Order } from '@europa/engine';
 import type { PlayerView } from '@europa/fog';
 import { describe, expect, it } from 'vitest';
 
 import type {
     ErrorPayload,
+    GuestIdentityClaim,
     HelloAckPayload,
     HelloPayload,
     IdentityState,
@@ -78,6 +81,7 @@ import type {
     TerminalPayload,
     TickBroadcastPayload,
 } from '../src/contracts/network-types';
+import { NETWORK_API_VERSION } from '../src/contracts/network-types';
 import type {
     MatchResult as MatchResultReexport,
     Order as OrderReexport,
@@ -276,6 +280,10 @@ type DocLobbyActionId = number & { readonly __brand: 'LobbyActionId' };
 interface DocGuestIdentityClaim {
     readonly guestPlayerId?: DocGuestPlayerId;
     readonly handle?: string;
+    // Issue #146 / feature 004 FR-026: owner-only restore proof on the
+    // client→server claim. Optional so an id-only claim stays legal
+    // (advisory input); absence is the whole security property.
+    readonly resumeSecret?: string;
 }
 
 interface DocIdentityState {
@@ -286,6 +294,10 @@ interface DocIdentityState {
     // its owning connection; optional so recipients tolerate older
     // servers, and absent from every listing/snapshot/target (NFR-003).
     readonly guestPlayerId?: DocGuestPlayerId;
+    // Issue #146 / feature 004 FR-026: owner-only credential delivered
+    // ONLY on the directed establishment identity event; optional so
+    // rename-path emissions and older servers omit it.
+    readonly resumeSecret?: string;
 }
 
 interface DocPublicLobbyEntry {
@@ -428,6 +440,41 @@ type IdentityStateGuestIdConforms = AssertMutuallyAssignable<
 
 const IDENTITY_STATE_GUEST_ID_CONFORMS: IdentityStateGuestIdConforms = true;
 
+/**
+ * Sharp-edge pins for the issue #146 OPTIONAL resume-secret fields
+ * (feature 004 FR-026): mutual assignability cannot see a missing or
+ * retyped OPTIONAL field, so these indexed-access witnesses fail to
+ * typecheck while either mirror and the doc transcription disagree in
+ * existence, optionality, or type.
+ */
+type GuestIdentityClaimResumeSecretConforms = AssertMutuallyAssignable<
+    GuestIdentityClaim['resumeSecret'],
+    DocGuestIdentityClaim['resumeSecret']
+>;
+type IdentityStateResumeSecretConforms = AssertMutuallyAssignable<
+    IdentityState['resumeSecret'],
+    DocIdentityState['resumeSecret']
+>;
+
+const GUEST_IDENTITY_CLAIM_RESUME_SECRET_CONFORMS: GuestIdentityClaimResumeSecretConforms = true;
+const IDENTITY_STATE_RESUME_SECRET_CONFORMS: IdentityStateResumeSecretConforms = true;
+
+/**
+ * Lobby snapshots are public projections: the owner-only credential must
+ * never reach them (FR-026). Absence witness — fails to compile if the
+ * field is ever added.
+ */
+type LobbySnapshotHasNoResumeSecret = AssertKeyAbsent<'resumeSecret', LobbySnapshot>;
+const SNAPSHOT_HAS_NO_RESUME_SECRET: LobbySnapshotHasNoResumeSecret = true;
+
+/**
+ * D4 (PO-confirmed, not reopenable): the resume-secret fields are
+ * ADDITIVE and OPTIONAL, so landing them MUST NOT move the wire
+ * version. This literal tripwire makes an accidental bump fail loudly
+ * instead of silently breaking absent-tolerance for older peers.
+ */
+const NETWORK_API_VERSION_STAYS_PUT: AssertMutuallyAssignable<typeof NETWORK_API_VERSION, '0.3.0'> = true;
+
 /** The six documented "LobbyEvent" variant kinds. */
 const LOBBY_EVENT_KINDS = ['identity', 'snapshot', 'actionAccepted', 'error', 'roster', 'rosterDelta'] as const;
 
@@ -475,6 +522,67 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
             lobbyEvent: true,
         });
         expect(IDENTITY_STATE_GUEST_ID_CONFORMS).toBe(true);
+        expect(GUEST_IDENTITY_CLAIM_RESUME_SECRET_CONFORMS).toBe(true);
+        expect(IDENTITY_STATE_RESUME_SECRET_CONFORMS).toBe(true);
+        expect(NETWORK_API_VERSION_STAYS_PUT).toBe(true);
+    });
+
+    it('keeps NETWORK_API_VERSION at the D4-pinned additive literal', () => {
+        expect(NETWORK_API_VERSION).toBe('0.3.0');
+    });
+
+    it('declares resumeSecret on BOTH canonical identity surfaces (source-level pin)', () => {
+        // The indexed-access witnesses above are compile-time; this is the
+        // runtime half, because this package's dedicated tsc program does
+        // not cover tests/ (repo-wide typechecking gap, AGENTS.md). A
+        // dropped or retyped optional field fails HERE as well as in
+        // matchmaking's `typecheck:conformance`.
+        const source = readFileSync(
+            fileURLToPath(new URL('../src/contracts/network-types.ts', import.meta.url)),
+            'utf8',
+        );
+        const claimBody = /export interface GuestIdentityClaim \{[^}]*\}/s.exec(source)?.[0] ?? '';
+        const stateBody = /export interface IdentityState \{[^}]*\}/s.exec(source)?.[0] ?? '';
+        expect(claimBody).toMatch(/readonly resumeSecret\?: string;/);
+        expect(stateBody).toMatch(/readonly resumeSecret\?: string;/);
+    });
+
+    it('round-trips the resume secret on both identity surfaces, tolerating absence', () => {
+        // Absent-tolerance is the compatibility contract (D4): an older
+        // peer omits the field entirely and both directions still parse.
+        const bareClaim: GuestIdentityClaim = JSON.parse(
+            JSON.stringify({ guestPlayerId: 'Player000001', handle: 'Nova' } satisfies GuestIdentityClaim),
+        ) as GuestIdentityClaim;
+        expect(bareClaim).toEqual({ guestPlayerId: 'Player000001', handle: 'Nova' });
+        expect(bareClaim.resumeSecret).toBeUndefined();
+
+        const provenClaim: GuestIdentityClaim = JSON.parse(
+            JSON.stringify({
+                guestPlayerId: 'Player000001',
+                handle: 'Nova',
+                resumeSecret: '2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10',
+            } satisfies GuestIdentityClaim),
+        ) as GuestIdentityClaim;
+        expect(provenClaim.resumeSecret).toBe('2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10');
+
+        const bareState: IdentityState = JSON.parse(
+            JSON.stringify({
+                handle: 'Nova',
+                hasIdentity: true,
+                guestPlayerId: 'Player000001',
+            } satisfies IdentityState),
+        ) as IdentityState;
+        expect(bareState.resumeSecret).toBeUndefined();
+
+        const deliveredState: IdentityState = JSON.parse(
+            JSON.stringify({
+                handle: 'Nova',
+                hasIdentity: true,
+                guestPlayerId: 'Player000001',
+                resumeSecret: '2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10',
+            } satisfies IdentityState),
+        ) as IdentityState;
+        expect(deliveredState.resumeSecret).toBe('2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10');
     });
 
     it('every lobby message kind is declared exactly once in the protocol union', () => {
@@ -539,12 +647,18 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
         // feature 010 Clarifications v1.6): the wire projection types
         // carry match discovery data and handles. The guest id is typed in
         // the advisory GuestIdentityClaim input and the directed
-        // IdentityState delivery channel. It is non-secret correlation data;
-        // bearer credentials remain outside these projections.
-        const claimKeys: ReadonlyArray<string> = ['guestPlayerId', 'handle'];
-        const identityStateKeys: ReadonlyArray<string> = ['handle', 'hasIdentity', 'guestPlayerId'];
+        // IdentityState delivery channel. It is non-secret correlation data.
+        // Since issue #146 (FR-026) the owner-only resume secret also lives
+        // on exactly those TWO identity surfaces — client→server claim and
+        // server→client directed delivery — and nowhere else: snapshots,
+        // listings, rosters, and targets keep no bearer credential.
+        const claimKeys: ReadonlyArray<string> = ['guestPlayerId', 'handle', 'resumeSecret'];
+        const identityStateKeys: ReadonlyArray<string> = ['handle', 'hasIdentity', 'guestPlayerId', 'resumeSecret'];
         expect(claimKeys).toContain('guestPlayerId');
         expect(identityStateKeys).toContain('guestPlayerId');
+        expect(claimKeys).toContain('resumeSecret');
+        expect(identityStateKeys).toContain('resumeSecret');
+        expect(SNAPSHOT_HAS_NO_RESUME_SECRET).toBe(true);
     });
 });
 

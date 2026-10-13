@@ -110,8 +110,34 @@
  * after the camera differs, resizing preserves it. This is a
  * user-authorized nonbreaking patch marker; public shapes and signatures
  * are unchanged.
+ *
+ * 0.5.0 (issue #129, security sweep): BREAKING public-surface change —
+ * the public barrel no longer exports declarations marked `@internal`;
+ * specifically the `ConsoleRuntime` INTERFACE re-exported as
+ * `ConsoleRuntimeContract` is removed (005 FR-038). The `ConsoleRuntime`
+ * CLASS value export (the embedding surface) is retained. Bumped on the
+ * 0.x minor line per the console contract's breaking-surface rule.
  */
-export const CONSOLE_API_VERSION = '0.4.1' as const;
+export const CONSOLE_API_VERSION = '0.5.0' as const;
+
+// ----------------------------------------------------------------------------
+// Transport tunables (005 v1.11 FR-031)
+// ----------------------------------------------------------------------------
+
+/**
+ * Default establish timeout (ms): how long a WebSocket client's
+ * `connect()` may take from socket creation to a completed handshake
+ * before it settles as failed. A half-open server (SYN black hole,
+ * stalled TLS) would otherwise leave a permanently blank console.
+ *
+ * Both clients take an `establishTimeoutMs` option overriding this
+ * value; the match client's timer runs through its injected scheduler
+ * seam so tests drive it deterministically. 10_000 matches the
+ * lobby client's long-standing effective behaviour (it keyed this
+ * timer to `DEFAULT_ACTION_TIMEOUT_MS`), so shipping the dedicated
+ * knob changes no default.
+ */
+export const ESTABLISH_TIMEOUT_MS = 10_000;
 
 // ----------------------------------------------------------------------------
 // Engine / fog / networking types (re-exported for convenience, not re-defined)

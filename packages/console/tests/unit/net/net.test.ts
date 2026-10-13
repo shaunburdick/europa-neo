@@ -11,12 +11,13 @@
  *     envelope passthrough, state snapshotting, close semantics.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createConsoleClient } from '../../../src/net/client';
 import { consoleStatusFromConnectionState } from '../../../src/net/connection';
 import { netEventFromEnvelope } from '../../../src/net/envelope-to-event';
-import type { NetworkPayload, ProtocolEnvelope, SequenceNumber } from '../../../src/state/types';
+import type { ConnectionState, NetworkPayload, ProtocolEnvelope, SequenceNumber } from '../../../src/state/types';
+import { TEST_PLAYER_1 } from '../../fixtures/player-view';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,16 +54,18 @@ describe('netEventFromEnvelope (T031)', () => {
         const joined = netEventFromEnvelope(
             envelope('joinAck', {
                 sessionToken: 't',
-                playerId: 2,
+                playerId: TEST_PLAYER_1,
                 view: { tick: 1 },
                 players: [],
             }),
             CTX,
         );
-        expect(joined).toMatchObject({ kind: 'joined', playerId: 2 });
+        expect(joined).toMatchObject({ kind: 'joined', playerId: TEST_PLAYER_1 });
+        // Spectator joins carry no seat and no reducer event; their
+        // frames are still wire-shaped (a spectator gets a real view).
         expect(
             netEventFromEnvelope(
-                envelope('joinAck', { sessionToken: 't', playerId: null, view: null, players: [] }),
+                envelope('joinAck', { sessionToken: 't', playerId: null, view: { tick: 1 }, players: [] }),
                 CTX,
             ),
         ).toBeNull();
@@ -123,6 +126,15 @@ describe('consoleStatusFromConnectionState', () => {
         expect(consoleStatusFromConnectionState('terminal')).toBe('game_over');
         expect(consoleStatusFromConnectionState('closed')).toBe('closed');
     });
+
+    it('throws on an unknown connection state instead of aliasing it back (FR-036)', () => {
+        // A `default: return state` branch compiles and looks harmless,
+        // but it defeats the never check: a new networking state would
+        // reach the UI as its own raw name (silently aliased status)
+        // instead of failing loudly at the seam.
+        const unknownState = 'retired_state' as ConnectionState;
+        expect(() => consoleStatusFromConnectionState(unknownState)).toThrow(/unmapped connection state/);
+    });
 });
 
 // ---------------------------------------------------------------------------
@@ -133,11 +145,17 @@ describe('createConsoleClient (T029)', () => {
     /** Minimal MatchClient stand-in satisfying the structural guard. */
     function makeInner() {
         const handlers = new Set<(envelope: ProtocolEnvelope<NetworkPayload>) => void>();
+        const connectionHandlers = new Set<(state: ConnectionState) => void>();
         return {
             connectCalls: 0,
             joinRequests: [] as Record<string, unknown>[],
             sentOrders: [] as unknown[],
             closed: false,
+            /**
+             * When set, sendOrder throws SYNCHRONOUSLY — the platform
+             * behavior FR-028 forbids leaking to callers (005).
+             */
+            throwOnSend: false,
             async connect(url: string): Promise<void> {
                 this.connectCalls += 1;
                 if (url === '') {
@@ -150,9 +168,12 @@ describe('createConsoleClient (T029)', () => {
             async joinMatch(req: Record<string, unknown>): Promise<void> {
                 this.joinRequests.push(req);
             },
-            async sendOrder(order: unknown): Promise<{ ok: true }> {
+            sendOrder(order: unknown): Promise<{ ok: true }> {
+                if (this.throwOnSend) {
+                    throw new Error('boom: transport refused the frame');
+                }
                 this.sentOrders.push(order);
-                return { ok: true };
+                return Promise.resolve({ ok: true });
             },
             onMessage(handler: (envelope: ProtocolEnvelope<NetworkPayload>) => void): () => void {
                 handlers.add(handler);
@@ -163,6 +184,23 @@ describe('createConsoleClient (T029)', () => {
             emit(env: ProtocolEnvelope<NetworkPayload>): void {
                 for (const handler of handlers) {
                     handler(env);
+                }
+            },
+            /**
+             * Beyond-contract extension mirroring the shipped browser
+             * client (`WsMatchClient.onConnectionChanged`) — the seam the
+             * adapter's FR-029 disconnect prune hooks (005).
+             */
+            onConnectionChanged(handler: (state: ConnectionState) => void): () => void {
+                connectionHandlers.add(handler);
+                return () => {
+                    connectionHandlers.delete(handler);
+                };
+            },
+            /** Test driver: simulate a connection-state transition. */
+            emitConnection(state: ConnectionState): void {
+                for (const handler of connectionHandlers) {
+                    handler(state);
                 }
             },
             state() {
@@ -260,6 +298,41 @@ describe('createConsoleClient (T029)', () => {
         expect(received).toHaveLength(1);
     });
 
+    it('stamps fallback wire seqs per INSTANCE, not from a shared counter (FR-033)', async () => {
+        // Two adapters over two fakes that report no lastOrderSeq — the
+        // adapter's own fallback counter is the correlation key, so a
+        // module-global counter would hand the second instance seqs the
+        // first instance already claimed (and never issue 1 to anyone
+        // but the first instance ever created).
+        const first = createConsoleClient(Config, { matchClientFactory: () => makeInner() });
+        const second = createConsoleClient(Config, { matchClientFactory: () => makeInner() });
+        await first.sendOrder(1, { kind: 'surrender', player: 1 });
+        await second.sendOrder(2, { kind: 'surrender', player: 1 });
+        expect([...first.seqToActionId.keys()]).toEqual([1]);
+        expect([...second.seqToActionId.keys()]).toEqual([1]);
+        await first.sendOrder(3, { kind: 'surrender', player: 1 });
+        expect([...first.seqToActionId.keys()]).toEqual([1, 2]);
+    });
+
+    it('a synchronous inner-client send failure surfaces as a REJECTION (FR-028)', async () => {
+        // The adapter's sendOrder is called from React event handlers;
+        // a throw escaping it would abort the handler mid-flight
+        // instead of reporting an honest failure.
+        const inner = makeInner();
+        inner.throwOnSend = true;
+        const client = createConsoleClient(Config, { matchClientFactory: () => inner });
+
+        let synchronous: unknown = null;
+        let sending: Promise<void> | null = null;
+        try {
+            sending = client.sendOrder(7, { kind: 'surrender', player: 1 });
+        } catch (error) {
+            synchronous = error;
+        }
+        expect(synchronous).toBeNull();
+        await expect(sending).rejects.toThrow(/transport refused/);
+    });
+
     it('state() snapshots the inner client plus the UI status', () => {
         const client = createConsoleClient(Config, { matchClientFactory: () => makeInner() });
         const snapshot = client.state();
@@ -271,5 +344,122 @@ describe('createConsoleClient (T029)', () => {
         });
         expect(client.sessionToken()).toBe('tok-9');
         expect(client.playerId()).toBe(3);
+    });
+
+    // -- FR-029: bounded seq → ActionId correlation -------------------------
+
+    /** orderAck envelope for a wire seq, shaped exactly as the codec delivers it. */
+    function ackEnvelope(seq: number): ProtocolEnvelope<NetworkPayload> {
+        return envelope('orderAck', { seq, result: { ok: true } });
+    }
+
+    /** Adapter + inner fake with a bridge-shaped consumer attached. */
+    function correlatingClient(): {
+        inner: ReturnType<typeof makeInner>;
+        client: ReturnType<typeof createConsoleClient>;
+        correlated: number[];
+    } {
+        const inner = makeInner();
+        const client = createConsoleClient(Config, { matchClientFactory: () => inner });
+        const correlated: number[] = [];
+        client.onEnvelope((env) => {
+            const event = netEventFromEnvelope(env, {
+                seqToActionId: client.seqToActionId,
+                connectedAtMs: 0,
+                lastAppliedTick: 0,
+            });
+            if (event?.kind === 'orderAck') {
+                correlated.push(event.actionId);
+            }
+        });
+        return { inner, client, correlated };
+    }
+
+    it('consumes each correlation when its ack arrives (growth stays flat)', async () => {
+        const { inner, client, correlated } = correlatingClient();
+        for (let actionId = 1; actionId <= 5; actionId += 1) {
+            await client.sendOrder(actionId, { kind: 'surrender', player: 1 });
+        }
+        expect(client.seqToActionId.size).toBe(5);
+        for (let seq = 1; seq <= 5; seq += 1) {
+            inner.emit(ackEnvelope(seq));
+        }
+        // Consumed on ack: five acks leave nothing behind, and every ack
+        // still correlated against the entry it consumed.
+        expect(client.seqToActionId.size).toBe(0);
+        expect(correlated).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('a late or duplicate ack never re-correlates a consumed entry', async () => {
+        const { inner, client, correlated } = correlatingClient();
+        await client.sendOrder(11, { kind: 'surrender', player: 1 });
+        inner.emit(ackEnvelope(1));
+        inner.emit(ackEnvelope(1));
+        expect(correlated).toEqual([11]);
+        expect(client.seqToActionId.size).toBe(0);
+    });
+
+    it('bounds live correlations at 64, evicting the oldest first', async () => {
+        const { client } = correlatingClient();
+        for (let actionId = 1; actionId <= 70; actionId += 1) {
+            await client.sendOrder(actionId, { kind: 'surrender', player: 1 });
+        }
+        // FR-029 pins the cap to the reducer's PENDING_ORDERS_CAP = 64;
+        // growth must be bounded, not O(N) sends.
+        expect(client.seqToActionId.size).toBe(64);
+        expect([...client.seqToActionId.keys()]).toEqual(Array.from({ length: 64 }, (_, index) => index + 7));
+    });
+
+    it('drops correlations that outlive the correlation timeout', async () => {
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+        try {
+            const { client } = correlatingClient();
+            await client.sendOrder(1, { kind: 'surrender', player: 1 });
+            expect([...client.seqToActionId.keys()]).toEqual([1]);
+
+            nowSpy.mockReturnValue(1_000_000 + 60_000);
+            await client.sendOrder(2, { kind: 'surrender', player: 1 });
+            expect([...client.seqToActionId.keys()]).toEqual([2]);
+        } finally {
+            nowSpy.mockRestore();
+        }
+    });
+
+    it('refuses to correlate an ack that arrives after the timeout with no intervening send (FR-029)', async () => {
+        // Pre-fix the timeout prune ran ONLY inside recordCorrelation
+        // (i.e. on the next send), so an IDLE client's late ack still
+        // translated against the stale entry — wrong ack/reject
+        // feedback on an action whose window had long passed.
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+        try {
+            const { inner, client, correlated } = correlatingClient();
+            await client.sendOrder(3, { kind: 'surrender', player: 1 });
+            expect([...client.seqToActionId.keys()]).toEqual([1]);
+
+            nowSpy.mockReturnValue(1_000_000 + 60_000);
+            // NO intervening send: the ack's own arrival must evict the
+            // expired entry BEFORE the translation layer reads the map.
+            inner.emit(ackEnvelope(1));
+            expect(correlated).toEqual([]);
+            expect(client.seqToActionId.size).toBe(0);
+        } finally {
+            nowSpy.mockRestore();
+        }
+    });
+
+    it('clears correlations on an UNEXPECTED disconnect so a later ack cannot correlate (FR-029)', async () => {
+        // A server drop or network failure never calls close() — the
+        // clear used to live only there, so mappings outlived the
+        // connection that could have answered them.
+        const { inner, client, correlated } = correlatingClient();
+        await client.sendOrder(21, { kind: 'surrender', player: 1 });
+        expect(client.seqToActionId.size).toBe(1);
+
+        inner.emitConnection('disconnected');
+        expect(client.seqToActionId.size).toBe(0);
+
+        // An ack for the dead connection's seq translates to nothing.
+        inner.emit(ackEnvelope(1));
+        expect(correlated).toEqual([]);
     });
 });

@@ -80,7 +80,12 @@ const requiredImplementationTerms = [
 const forbiddenPlayerPatterns = [
     [/sessionToken|reconnectToken/i, 'credential field name'],
     [/(?:session|reconnect)\s+token/i, 'credential term'],
-    [/[?&](?:token|sessionToken|reconnectToken)=[^\s)\]}>]+/i, 'credential-bearing URL parameter'],
+    // Issue #146 (spec 010 FR-042): the guest-identity resume secret is
+    // governed exactly like the other bearer values — the FIELD NAME is
+    // credential mechanics a player manual must never teach.
+    [/resumeSecret/i, 'resume-secret field name'],
+    [/resume\s+secret/i, 'resume-secret credential term'],
+    [/[?&](?:token|sessionToken|reconnectToken|resumeSecret)=[^\s)\]}>]+/i, 'credential-bearing URL parameter'],
     [/(?:https?|wss?):\/\/[^\s)\]}>]*(?:token|credential|secret)=[^\s)\]}>]*/i, 'credential-bearing URL'],
 ];
 const forbiddenCredentialPatterns = [
@@ -88,8 +93,14 @@ const forbiddenCredentialPatterns = [
         /(?:sessionToken|reconnectToken|accessToken|refreshToken|bearerToken)\s*[:=]\s*(?:["'`]\S+|(?!(?:string|undefined|null)\b)[A-Za-z0-9._~+/-]+)/i,
         'credential value',
     ],
+    // Issue #146: a resume-secret EXAMPLE (field name bound to a value) is
+    // a credential leak on any approved surface, spec pages included.
     [
-        /(?:[?&](?:token|sessionToken|reconnectToken|access_token|accessToken|credential|secret|bearer)=[^\s)\]}>]+|(?:https?|wss?):\/\/[^\s)\]}>]*(?:token|credential|secret|bearer)=[^\s)\]}>]*)/i,
+        /resumeSecret\s*[:=]\s*(?:["'`]\S+|(?!(?:string|undefined|null)\b)[A-Za-z0-9._~+/-]+)/i,
+        'credential value',
+    ],
+    [
+        /(?:[?&](?:token|sessionToken|reconnectToken|access_token|accessToken|credential|secret|bearer|resumeSecret)=[^\s)\]}>]+|(?:https?|wss?):\/\/[^\s)\]}>]*(?:token|credential|secret|bearer)=[^\s)\]}>]*)/i,
         'credential-bearing URL',
     ],
     [/\bAuthorization\s*:\s*Bearer\s+\S+/i, 'bearer Authorization value'],

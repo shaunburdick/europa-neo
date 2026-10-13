@@ -44,6 +44,23 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Whether one decoded cell still carries the WIRE form of a
+ * Set-typed field (an array `pipes`) and therefore needs repair.
+ *
+ * @param cell One decoded `CellView`-shaped record.
+ * @returns True when {@link rehydrateCell} would produce a copy.
+ */
+function cellNeedsRepair(cell: unknown): boolean {
+    if (!isPlainObject(cell)) {
+        return false;
+    }
+    // Destructure (not dot access): index-signature properties are
+    // destructure/bracket-only here (noPropertyAccessFromIndexSignature).
+    const { pipes } = cell;
+    return Array.isArray(pipes);
+}
+
+/**
  * Rebuild one cell's Set-typed fields from their wire form. Today that
  * is exactly `pipes`; the structure keeps the per-field list in one
  * place. Cells without array-shaped `pipes` (already a Set on the demo
@@ -65,9 +82,12 @@ function rehydrateCell(cell: unknown): unknown {
 
 /**
  * Rebuild Set-typed fields across a whole decoded `PlayerView`.
- * Returns the input by reference when nothing needed changing (the
- * common case for pipe-free ticks), so the hot tick path stays
- * allocation-free.
+ *
+ * The no-op path (the common pipe-free tick) returns the input by
+ * REFERENCE after a scan that allocates nothing — 005 FR-035 forbids
+ * even a discarded intermediate array, so this deliberately does NOT
+ * `map` first and compare afterwards: `Array#map` would build a
+ * result array on every tick just to throw it away.
  *
  * @param view One decoded `PlayerView`-shaped record.
  * @returns The same view, or a copy whose cells carry real Sets.
@@ -80,15 +100,21 @@ function rehydrateWireView(view: unknown): unknown {
     if (!Array.isArray(visibleCells)) {
         return view;
     }
-    let changed = false;
-    const cells = visibleCells.map((cell) => {
-        const next = rehydrateCell(cell);
-        if (next !== cell) {
-            changed = true;
+    // Pass 1: is there anything to repair? (no allocation — a plain
+    // index scan, early-exiting on the first offending cell)
+    let needsRepair = false;
+    for (let index = 0; index < visibleCells.length; index += 1) {
+        if (cellNeedsRepair(visibleCells[index])) {
+            needsRepair = true;
+            break;
         }
-        return next;
-    });
-    return changed ? { ...view, visibleCells: cells } : view;
+    }
+    if (!needsRepair) {
+        return view;
+    }
+    // Pass 2 (repair only): mapping is fine here — this path exists to
+    // copy, and only it pays for the new cell array.
+    return { ...view, visibleCells: visibleCells.map((cell: unknown) => rehydrateCell(cell)) };
 }
 
 /**

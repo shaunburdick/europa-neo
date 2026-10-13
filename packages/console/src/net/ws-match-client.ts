@@ -51,6 +51,7 @@
  */
 
 import { encodeFrame, NETWORK_API_VERSION, tryDecodeFrame, validateVersion } from '@europa/networking/browser';
+import { ESTABLISH_TIMEOUT_MS } from '../contracts/console-types';
 import type {
     CommandResult,
     ConnectionState,
@@ -62,7 +63,27 @@ import type {
     SequenceNumber,
     SessionToken,
 } from '../state/types';
+import { inboundFrameDiagnostic } from './inbound-validation';
 import { rehydrateEnvelopeViews } from './rehydrate-wire-views';
+
+// ----------------------------------------------------------------------------
+// Transport constants (single location — constitution Principle V)
+// ----------------------------------------------------------------------------
+
+/** Platform ready-state for an OPEN socket (`WebSocket.OPEN`). */
+const WS_READY_STATE_OPEN = 1;
+
+/**
+ * Render any thrown value as a loggable detail string. Void sends
+ * (FR-028) have no promise to reject to, so their failure reason has
+ * to survive as log context instead.
+ *
+ * @param error Whatever the send attempt threw.
+ * @returns A short, non-secret description of the failure.
+ */
+function describeError(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
 
 // ----------------------------------------------------------------------------
 // Structural contract view (mirrors networking's MatchClient / ClientState)
@@ -114,6 +135,14 @@ export interface WsMatchClientOptions {
     readonly verboseLogging?: boolean;
     /** Injected logger (never `console.*` directly — house rule). */
     readonly logger?: WsClientLogger;
+    /** Timer seam for the establish timeout + heartbeat; defaults to platform timers. */
+    readonly scheduler?: WsMatchClientScheduler;
+    /**
+     * Establish timeout (ms): bounds `connect()` from socket creation
+     * to `helloAck`. Default {@link ESTABLISH_TIMEOUT_MS}. On expiry the
+     * connect promise settles failed (005 FR-031).
+     */
+    readonly establishTimeoutMs?: number;
     /**
      * Test seam: constructs the underlying WebSocket for a URL.
      * Defaults to the platform `WebSocket`. Unit tests inject a scripted
@@ -129,6 +158,43 @@ export interface WsClientLogger {
     warn(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
     error(msg: string, ctx?: Readonly<Record<string, unknown>>): void;
 }
+
+/**
+ * Timer seam for the establish timeout and the heartbeat — the same
+ * shape the lobby client's `LobbyScheduler` already uses, so both
+ * clients are driven by one injected-clock pattern in tests.
+ *
+ * Handles are opaque: callers only round-trip them back to
+ * {@link WsMatchClientScheduler.clearTimeout}.
+ */
+export interface WsMatchClientScheduler {
+    /** Schedule `fn` after `ms`; returns a handle for `clearTimeout`. */
+    setTimeout(fn: () => void, ms: number): unknown;
+    /** Cancel a pending timer (no-op on unknown handles). */
+    clearTimeout(handle: unknown): void;
+}
+
+/**
+ * Platform timer binding (production default for
+ * {@link WsMatchClientScheduler}). Routed through a structural view of
+ * `globalThis` so the handle stays opaque across DOM (`number`) and
+ * Node (`Timeout`) typings alike, and so fake-timer test setups that
+ * replace the globals keep working.
+ */
+const platformTimers = globalThis as {
+    setTimeout(fn: () => void, ms: number): unknown;
+    clearTimeout(handle: unknown): void;
+};
+
+/** Platform timer binding (production default for {@link WsMatchClientScheduler}). */
+const globalScheduler: WsMatchClientScheduler = {
+    setTimeout(fn: () => void, ms: number): unknown {
+        return platformTimers.setTimeout(fn, ms);
+    },
+    clearTimeout(handle: unknown): void {
+        platformTimers.clearTimeout(handle);
+    },
+};
 
 /**
  * The concrete client handle: the contract surface plus two
@@ -172,6 +238,8 @@ export interface WsMatchClient extends WsMatchClientContract {
  */
 export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatchClient {
     const { logger } = options;
+    const scheduler = options.scheduler ?? globalScheduler;
+    const establishTimeoutMs = options.establishTimeoutMs ?? ESTABLISH_TIMEOUT_MS;
     const newSocket =
         options.webSocketFactory ??
         ((url: string) => {
@@ -200,21 +268,37 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
      * go at half of it. 0 = no heartbeat yet (pre-helloAck).
      */
     let heartbeatIntervalMs = 0;
-    let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+    /** Next chained ping; `undefined` when no heartbeat is scheduled. */
+    let heartbeatTimer: unknown;
+    /**
+     * Establish timer (005 FR-031): armed by `connect()`, cleared on
+     * handshake success, socket loss, teardown, and its own expiry.
+     */
+    let establishTimer: unknown;
 
     /** Stop the ping timer (idempotent). */
     function stopHeartbeat(): void {
         if (heartbeatTimer !== undefined) {
-            clearInterval(heartbeatTimer);
+            scheduler.clearTimeout(heartbeatTimer);
             heartbeatTimer = undefined;
         }
     }
 
+    /** Cancel a pending establish timeout (idempotent). */
+    function stopEstablishTimer(): void {
+        if (establishTimer !== undefined) {
+            scheduler.clearTimeout(establishTimer);
+            establishTimer = undefined;
+        }
+    }
+
     /**
-     * Start the ping loop at half the advertised interval (bounded below
-     * by 1 s so a misconfigured server cannot busy-loop the socket).
-     * Transport-layer wall clock only — `clientTimeMs` is informational
-     * per the wire contract and never enters simulation state.
+     * Schedule the next ping at half the advertised interval — a
+     * CHAINED timeout through the injected seam (the bare `setInterval`
+     * this replaced is exactly the un-injectable timer FR-031 asked us
+     * to close over). Transport-layer wall clock only: `clientTimeMs`
+     * is informational per the wire contract and never enters
+     * simulation state.
      */
     function startHeartbeat(): void {
         stopHeartbeat();
@@ -222,15 +306,19 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             return;
         }
         const periodMs = Math.max(1000, Math.floor(heartbeatIntervalMs / 2));
-        heartbeatTimer = setInterval(() => {
+        heartbeatTimer = scheduler.setTimeout(() => {
+            heartbeatTimer = undefined;
             if (socket === null || (connection !== 'greeted' && connection !== 'joined' && connection !== 'rejoined')) {
                 return;
             }
             try {
                 sendEnvelope({ clientTimeMs: Date.now() }, 'ping');
-            } catch {
-                // Socket mid-close; the close handler owns teardown.
+            } catch (error) {
+                // FR-028 void send: fire-and-forget has no caller to
+                // reject to, so the failure is logged, never thrown.
+                log('warn', 'outbound frame dropped', { type: 'ping', detail: describeError(error) });
             }
+            startHeartbeat();
         }, periodMs);
     }
 
@@ -269,8 +357,13 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
         logger[level](msg, ctx);
     }
 
-    /** Reject every outstanding handshake/ack promise (transport loss). */
+    /**
+     * Reject every outstanding handshake/ack promise (transport loss).
+     * The establish timer's reason to exist dies with the handshake, so
+     * it goes too (005 FR-031: cleared on teardown, never fires late).
+     */
     function flushPendingRejections(error: Error): void {
+        stopEstablishTimer();
         if (rejectConnect !== null) {
             rejectConnect(error);
             rejectConnect = null;
@@ -288,10 +381,32 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
         pendingAckRejects.clear();
     }
 
+    /**
+     * The handshake did not complete within
+     * {@link ESTABLISH_TIMEOUT_MS} (005 FR-031): settle `connect()` as
+     * failed, drop the socket, and land in an honest terminal status.
+     * A half-open server used to leave a permanently blank console with
+     * the state parked on `pending` — the spinner lied, and nothing
+     * ever surfaced the failure (FR-008).
+     */
+    function failEstablish(): void {
+        stopEstablishTimer();
+        stopHeartbeat();
+        flushPendingRejections(new Error(`ws-match-client: establish timeout after ${String(establishTimeoutMs)} ms`));
+        const abandoned = socket;
+        socket = null;
+        abandoned?.close(1000, 'establish timeout');
+        setState('closed');
+    }
+
     /** Send one client→server envelope with the next per-connection seq. */
     function sendEnvelope(payload: NetworkPayload, type: ProtocolEnvelope<NetworkPayload>['type']): SequenceNumber {
-        if (socket === null) {
-            throw new Error(`ws-match-client: cannot send ${type} before connect()`);
+        const target = socket;
+        // FR-028: a socket that is null, CONNECTING, or CLOSING cannot
+        // accept the frame — fail loudly here so promise sends reject
+        // and void sends log, instead of losing the frame silently.
+        if (target === null || target.readyState !== WS_READY_STATE_OPEN) {
+            throw new Error(`ws-match-client: cannot send ${type}: transport not open`);
         }
         clientSeq += 1;
         const seq = clientSeq as SequenceNumber;
@@ -301,7 +416,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             seq,
             payload,
         };
-        socket.send(encodeFrame(envelope));
+        target.send(encodeFrame(envelope));
         return seq;
     }
 
@@ -350,6 +465,7 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                 if (!version.ok) {
                     const { error } = version;
                     log('error', 'helloAck version mismatch', { received: payload.protocolVersion });
+                    stopEstablishTimer();
                     setState('closed');
                     if (rejectConnect !== null) {
                         rejectConnect(new Error(`ws-match-client: ${error.message}`));
@@ -360,6 +476,9 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                     return;
                 }
                 setState('greeted');
+                // Handshake complete: the establish timer has no work left
+                // and must never fire against an established client.
+                stopEstablishTimer();
                 ({ heartbeatIntervalMs } = payload);
                 startHeartbeat();
                 if (pendingConnect !== null) {
@@ -438,18 +557,48 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
     }
 
     function attach(socketToAttach: WebSocket): void {
+        // FR-034: every handler below only acts when its socket is
+        // still THE client's current socket. `onclose` already had this
+        // guard (a replaced socket must not clobber the new session);
+        // the other three raced the same way — a stale `onopen` after a
+        // reconnect would push a second hello through the NEW socket,
+        // and a stale `onmessage` would greet (and resolve) a connect()
+        // that belongs to a different socket.
         socketToAttach.onopen = () => {
+            if (socket !== socketToAttach) {
+                return;
+            }
             log('debug', 'socket open', {});
-            // FR-003: hello is the first frame on every fresh connection.
-            sendEnvelope({ protocolVersion: NETWORK_API_VERSION }, 'hello');
+            try {
+                // FR-003: hello is the first frame on every fresh connection.
+                sendEnvelope({ protocolVersion: NETWORK_API_VERSION }, 'hello');
+            } catch (error) {
+                // FR-028 void send: nothing to reject to, so the failure
+                // is logged (verbose path) instead of thrown at the
+                // socket's open-event dispatch; the handshake then
+                // simply never completes rather than half-completing.
+                log('warn', 'outbound frame dropped', { type: 'hello', detail: describeError(error) });
+            }
         };
         socketToAttach.onmessage = (event: MessageEvent<string>) => {
+            if (socket !== socketToAttach) {
+                return;
+            }
             const decoded = tryDecodeFrame(event.data);
             if (!decoded.ok) {
                 // Malformed inbound frames are dropped (and logged); the server
                 // owns protocol enforcement, and a bad frame never advances our
                 // state machine.
                 log('warn', 'inbound frame failed validation', { detail: decoded.error.message });
+                return;
+            }
+            // FR-032: structural validation runs BEFORE dispatch — the
+            // codec's schema check cannot see inside `lobbyEvent`, and a
+            // frame that disagrees with its declared kind is dropped with
+            // a diagnostic instead of being translated.
+            const diagnostic = inboundFrameDiagnostic(decoded.envelope);
+            if (diagnostic !== null) {
+                log('warn', 'inbound frame failed structural validation', { detail: diagnostic });
                 return;
             }
             // Decode-boundary rehydration: the wire codec serializes Set-typed
@@ -481,6 +630,9 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
             setState(closedByUs || !wasJoined ? 'closed' : 'disconnected');
         };
         socketToAttach.onerror = () => {
+            if (socket !== socketToAttach) {
+                return;
+            }
             log('warn', 'socket transport error', {});
         };
     }
@@ -498,6 +650,14 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                 const created = newSocket(url);
                 socket = created;
                 attach(created);
+                // FR-031: bound the handshake; cleared on success, socket
+                // loss, teardown, and (defensively) on its own expiry.
+                stopEstablishTimer();
+                establishTimer = scheduler.setTimeout(() => {
+                    if (rejectConnect !== null) {
+                        failEstablish();
+                    }
+                }, establishTimeoutMs);
             });
         },
 
@@ -540,7 +700,16 @@ export function createWsMatchClient(options: WsMatchClientOptions = {}): WsMatch
                     new Error(`ws-match-client: sendOrder requires a joined seat (got ${connection})`),
                 );
             }
-            const seq = sendEnvelope({ order }, 'order');
+            let seq: SequenceNumber;
+            try {
+                seq = sendEnvelope({ order }, 'order');
+            } catch (error) {
+                // FR-028: the transport can no longer accept frames
+                // (null / CONNECTING / CLOSING / torn down). Callers are
+                // React event handlers — the failure must arrive as a
+                // rejected promise, never as a synchronous throw.
+                return Promise.reject(error instanceof Error ? error : new Error(describeError(error)));
+            }
             lastOrderSeqValue = seq;
             return new Promise<CommandResult>((resolve, reject) => {
                 pendingAcks.set(seq, resolve);

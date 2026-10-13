@@ -39,31 +39,13 @@ import {
 } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
+import { optInLobbyTestHandle, preserveWsQueryInHistory } from './helpers/history-patch';
 import { setHandleViaProfile } from './helpers/profile';
 
 const TICK_MS = 250;
 
 /** Default poll timeout for observable state (CI-safe upper bound). */
 const WAIT_TIMEOUT = 15_000;
-
-// ---------------------------------------------------------------------------
-// Init-script: preserve `?ws=` across SPA pushState/replaceState
-// (copied from lobby.spec.ts — the lobby→profile→lobby redirect cycle
-// drops the query parameter without this patch.)
-// ---------------------------------------------------------------------------
-
-function preserveWsQueryInHistory(): void {
-    const preserveWsQuery = (url: string | URL | null): string | URL | null => {
-        if (url === null || !window.location.search.startsWith('?ws=')) return url;
-        const parsed = new URL(String(url), window.location.origin);
-        parsed.search = window.location.search;
-        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    };
-    const replaceState = window.history.replaceState.bind(window.history);
-    const pushState = window.history.pushState.bind(window.history);
-    window.history.replaceState = (state, title, url) => replaceState(state, title, preserveWsQuery(url));
-    window.history.pushState = (state, title, url) => pushState(state, title, preserveWsQuery(url));
-}
 
 // ---------------------------------------------------------------------------
 // Stack wiring (mirrors lobby.spec.ts buildLobbyStack)
@@ -239,6 +221,7 @@ test.describe('spectator sidebar parity (FR-021)', () => {
         }
         const aliceCtx = await browserInstance.newContext({ viewport: { width: 1280, height: 720 } });
         await aliceCtx.addInitScript(preserveWsQueryInHistory);
+        await aliceCtx.addInitScript(optInLobbyTestHandle);
         const alice = await aliceCtx.newPage();
         await alice.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
         await waitUntilLobby(alice, (l) => l.connection === 'ready', 'Alice lobby connected');
@@ -258,6 +241,7 @@ test.describe('spectator sidebar parity (FR-021)', () => {
         // --- Bob tab: joins match, stays in match view ---
         const bobCtx = await browserInstance.newContext({ viewport: { width: 1280, height: 720 } });
         await bobCtx.addInitScript(preserveWsQueryInHistory);
+        await bobCtx.addInitScript(optInLobbyTestHandle);
         const bob = await bobCtx.newPage();
         await bob.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
         await waitUntilLobby(bob, (l) => l.connection === 'ready', 'Bob lobby connected');
@@ -274,6 +258,7 @@ test.describe('spectator sidebar parity (FR-021)', () => {
 
         // --- Cara tab (test page): spectates the live match ---
         await caraPage.context().addInitScript(preserveWsQueryInHistory);
+        await caraPage.context().addInitScript(optInLobbyTestHandle);
         await caraPage.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
         await waitUntilLobby(caraPage, (l) => l.connection === 'ready', 'Cara lobby connected');
         await setHandleViaProfile(caraPage, 'Cara');

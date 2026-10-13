@@ -172,6 +172,22 @@ type ClaimFieldsOptional = AssertMutuallyAssignable<
 >;
 const CLAIM_FIELDS_OPTIONAL: ClaimFieldsOptional = true;
 
+// Issue #146 (spec 004 FR-026 / spec 010 FR-040): the owner-only resume
+// secret is an OPTIONAL string on BOTH identity surfaces — the client→server
+// claim and the server→client directed delivery. Indexed-access pins fail to
+// typecheck if either field is dropped, made required, or retyped, which
+// plain mutual assignability of the parent interfaces cannot see.
+type ClaimResumeSecretIsOptionalString = AssertMutuallyAssignable<
+    LobbyTypes.GuestIdentityClaim['resumeSecret'],
+    string | undefined
+>;
+type IdentityResumeSecretIsOptionalString = AssertMutuallyAssignable<
+    LobbyTypes.IdentityState['resumeSecret'],
+    string | undefined
+>;
+const CLAIM_RESUME_SECRET_IS_OPTIONAL_STRING: ClaimResumeSecretIsOptionalString = true;
+const IDENTITY_RESUME_SECRET_IS_OPTIONAL_STRING: IdentityResumeSecretIsOptionalString = true;
+
 // ---------------------------------------------------------------------------
 // (c) Closed-union exhaustiveness
 // ---------------------------------------------------------------------------
@@ -648,6 +664,8 @@ describe('feature 010 lobby contract witnesses (T-001)', () => {
         expect(HANDLE_IS_NULLABLE_STRING).toBe(true);
         expect(HAS_IDENTITY_IS_LITERAL_TRUE).toBe(true);
         expect(CLAIM_FIELDS_OPTIONAL).toBe(true);
+        expect(CLAIM_RESUME_SECRET_IS_OPTIONAL_STRING).toBe(true);
+        expect(IDENTITY_RESUME_SECRET_IS_OPTIONAL_STRING).toBe(true);
         expect(CODE_TABLE_COVERS_UNION_EXACTLY).toBe(true);
         expect(ESTABLISH_IDENTITY_RETURN).toBe(true);
         expect(SET_HANDLE_RETURN).toBe(true);
