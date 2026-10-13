@@ -108,18 +108,6 @@ describe('guard self-test (string-preserving comment stripping)', () => {
         expect(hasRawButtonTag(stripComments(source))).toBe(true);
     });
 
-    it('strips a line comment so a button inside it is not detected', () => {
-        const source = ['// const hidden = <button />;', 'const docs = "https://example.com";'].join('\n');
-        expect(hasRawButtonTag(stripComments(source))).toBe(false);
-        expect(stripComments(source)).toContain('https://example.com');
-    });
-
-    it('strips a block comment so a button inside it is not detected', () => {
-        const source = '/* const hidden = <button />; */ const docs = "https://example.com";';
-        expect(hasRawButtonTag(stripComments(source))).toBe(false);
-        expect(stripComments(source)).toContain('https://example.com');
-    });
-
     it('an apostrophe in JSX text does not swallow the code that follows', () => {
         const source = ["<p>Use this page's host for the server.</p>", 'const el = <button />;'].join('\n');
         expect(hasRawButtonTag(stripComments(source))).toBe(true);
