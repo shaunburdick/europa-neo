@@ -16,6 +16,7 @@ on:
       - 'packages/engine/**'
       - 'packages/terrain/**'
       - 'packages/networking/**'
+      - 'packages/fog/**'
       - 'packages/logging/**'
       - 'packages/version/**'
   # PRs are NOT path-filtered here: every required check must report on every
@@ -75,6 +76,7 @@ jobs:
               - 'packages/engine/**'
               - 'packages/terrain/**'
               - 'packages/networking/**'
+              - 'packages/fog/**'
               - 'packages/logging/**'
               - 'packages/version/**'
   matchmaking-lint:
