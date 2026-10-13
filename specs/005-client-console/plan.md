@@ -343,6 +343,8 @@ Kept: `describe('lobbyRosterSnapshot')` `:61-110`, `describe('connection reset c
 
 **Rule zero**: never merge either PR into this branch; rebase onto `main` and resolve hunk-by-hunk. Both PRs were inspected with `gh pr view/diff` this session (#189 = 81 files; #188 touches our surface only at `specs/010-…/spec.md`).
 
+> **Resolution note (2026-10-13).** PR #188 **merged**, so its `### v1.13` section and header hunk are now on `main` and this branch merged `main` to reconcile (the branch is published, so a merge rather than a rebase — rebasing would rewrite 19 pushed commits). The predicted conflict materialized exactly as §8.1 describes and was resolved by the rule: header keeps **ours (1.14 = max)** with the Status clauses unioned, and the tail keeps **v1.13 then v1.14** in numeric order. Two clauses the conflict exposed as stale were corrected in the same pass — the header's "UNAPPROVED" draft marker, and this note's "three claimants" framing. **PR #189 is still open** and carries its own `### v1.13` heading; it must renumber to **v1.15** when it rebases. Rule zero still applies to it.
+
 ### 8.1 Guaranteed textual conflicts
 
 | File | Why | Resolution rule |

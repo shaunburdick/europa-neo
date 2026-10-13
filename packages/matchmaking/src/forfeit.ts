@@ -34,7 +34,7 @@ import type { MatchId, SessionToken } from '../contracts/match-types';
 import type { MatchRecord } from './internal/matchRecord';
 import type { SeatRecord } from './internal/seatRecord';
 import type { StatusEmitter } from './matchLifecycle';
-import { transitionToCollected } from './matchLifecycle';
+import { releaseMatchSessions, safeUnregisterMatch, transitionToCollected } from './matchLifecycle';
 import { buildMatchResultsRecord } from './results';
 import type { MatchmakerStore } from './store';
 
@@ -82,7 +82,7 @@ export interface SeatExpiredResult {
 /**
  * Tear down an all-forfeited match (US5 AC-2): record the
  * `kind: 'cancelled'` results marker, unregister from networking, and
- * transition `running → collected`.
+ * transition `running → collected`. Keeps its own unregister + counter (collectMatch would double-count).
  *
  * @param match - The running match whose players all forfeited.
  * @param ctx - Injected store/server/logger/emit context.
@@ -97,13 +97,15 @@ export function handleAllPlayersForfeited(match: MatchRecord, ctx: ForfeitContex
             result: { kind: 'cancelled', reason: 'all_players_forfeited' },
             seats: match.seats,
         });
-        ctx.server.unregisterMatch(match.matchId);
+        safeUnregisterMatch(ctx.server, ctx.logger, match.matchId);
+        releaseMatchSessions(ctx.store, match);
         transitionToCollected(match, nowMs, ctx.emit, cancelled);
         return;
     }
     // Defensive: no engine session (should not happen for a running
     // match) — still release the networking registration and collect.
-    ctx.server.unregisterMatch(match.matchId);
+    safeUnregisterMatch(ctx.server, ctx.logger, match.matchId);
+    releaseMatchSessions(ctx.store, match);
     transitionToCollected(match, nowMs, ctx.emit);
 }
 

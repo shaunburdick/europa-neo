@@ -327,9 +327,11 @@ describe('disconnect and grace — handle reservation lifecycle', () => {
         expect(() => registry.release(nextGuestPlayerId())).not.toThrow();
     });
 
-    it('throws when disconnecting an unknown identity (caller invariant breach)', () => {
+    it('disconnecting an unknown identity is a no-op — neither throws nor mutates (issue #147 FR-023 re-pin)', () => {
         const { registry } = createTestRegistry('guest');
-        expect(() => registry.disconnect(nextGuestPlayerId())).toThrowError(/unknown guest player id/);
+        const before = registry.stats();
+        expect(() => registry.disconnect(nextGuestPlayerId())).not.toThrow();
+        expect(registry.stats()).toEqual(before);
     });
 });
 
@@ -421,14 +423,14 @@ describe('close — shutdown semantics', () => {
         expect(() => registry.close()).not.toThrow();
     });
 
-    it('starts a fresh instance completely empty (restart loses all state)', () => {
+    it('restart loses all state, and unknown-id disconnect on the restarted instance is a no-op (issue #147 FR-023 re-pin)', () => {
         const populated = createTestRegistry('guest');
         createNamedIdentity(populated.registry, 'Nova');
         populated.registry.close();
 
         const restarted = createTestRegistry('restarted');
         expect(restarted.registry.stats()).toEqual({ identities: 0, reservedHandles: 0 });
-        // The old identity does not carry over: its id is unknown here.
-        expect(() => restarted.registry.disconnect(nextGuestPlayerId())).toThrowError(/unknown guest player id/);
+        expect(() => restarted.registry.disconnect(nextGuestPlayerId())).not.toThrow();
+        expect(restarted.registry.stats()).toEqual({ identities: 0, reservedHandles: 0 });
     });
 });

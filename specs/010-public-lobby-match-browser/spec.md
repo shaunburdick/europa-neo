@@ -3,9 +3,9 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-10-12 (v1.14; issue #153 console roster-order + seat-token clarifications)
+**Last Updated**: 2026-10-13 (v1.14; issue #153 console roster-order + seat-token clarifications, reconciled with the v1.13 amendment that landed on `main` in PR #188)
 **Version**: 1.14
-**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74; v1.14 review-cleanup clarifications drafted 2026-10-12 — UNAPPROVED; the v1.13 slot is claimed concurrently by PR #188 `fix/matchmaking-lifecycle` and PR #189 `security-sweep`); URL routing superseded by Feature 013
+**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74; v1.13 amendment (issue #147) implemented 2026-10-12 — PR #188 merged; v1.14 amendment (issue #153) implemented 2026-10-12 — PR #191 open); URL routing superseded by Feature 013
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -428,21 +428,25 @@ normative requirements above:
   - **012-FR-003**: The lobby match list MUST show occupancy/capacity text (e.g., "2/4 players"), a board-size label, and lifecycle status per FR-006/FR-007; private matches are never listed.
 - **Contract move note**: the absorbed feature's `contracts/roster-wire.md` is relocated to `010/contracts/` (same change set); the networking conformance suite's byte-identity check re-points at the new path.
 
+### v1.13 (2026-10-11) — Issue #147 roster determinism and timer seam
+
+Scope: findings F-MM-008 (locale-dependent roster comparator) and F-MM-009 (real, non-injected `setTimeout`), plus the cross-reference for F-MM-011. These amend absorbed feature-023 requirements and extend the v1.5 handle ruling; no wire or payload shape changes.
+
+- **023-FR-007 clarified — ordering comparator is pinned and locale-independent.** Roster ordering MUST compare case-folded handles (`String.prototype.toLowerCase()`, per the v1.4 ruling) with the shared explicit UTF-16 code-unit comparator (`compareUtf16` from `@europa/engine`) — never `localeCompare`, never host-locale collation — so the emitted order is identical on every runtime and locale (constitution Principle II). The "(handle, then ID)" tiebreak in the FR text is unreachable — normalized handles are unique among active identities (FR-005) — and is not implemented; the comparator alone is normative. The ruling applies to SERVER-SIDE ordering AND to test expectations: tests MUST assert against the pinned comparator (or a literal expected order), never compute expectations with `localeCompare`. Status note: the server source already complies since issue #74 (#159, `lobbyService.ts` `buildSortedRosterEntries`); the roster unit test's `localeCompare` expectation is corrected in the issue-#147 change set, and non-ASCII-handle ordering tests MUST pass under any locale.
+- **023-FR-011 clarified — the 500 ms anti-flap debounce runs through an injected scheduler.** The lobby facade MUST create/cancel its debounce timers via an injectable seam on `LobbyServiceDeps` (`schedule?(callback, delayMs) => cancel`, defaulting to the host event-loop timer, mirroring the existing `now?: () => number` default) and MUST NOT call the global `setTimeout`/`clearTimeout` at its debounce call sites; tests MUST be able to drive the window deterministically (injected scheduler or fake timers). PM decision on issue #147's suggested alternative: **injected-clock lazy flushing was considered and rejected** — a flush that depends on the next facade activity cannot guarantee 023-FR-021's "within 1 second of a presence change" bound in an idle lobby, and would silently weaken that requirement. The scheduler seam preserves exact timing semantics while satisfying the determinism discipline (timers injected, not global).
+- **v1.5 ruling extended — one hardening predicate, two call sites.** The five rejection classes and precedence from v1.5 (`empty → too_long → control_character → bidi_control → lone_surrogate`) apply to guest handles per FR-004 here, and MUST also be applied to matchmaking's `displayName` boundary (spec 006 FR-018, issue #147 F-MM-011) so a name that reaches a seat label or lobby row is hardened regardless of which entry path supplied it. Implementation extracts the shared class checks once; handle behavior is unchanged (existing v1.4/v1.5 tests stay green).
+
 ### v1.14 (2026-10-12) — Issue #153 console roster ordering and seat-token clarifications
 
-**Concurrency note (PR-2 and PR-3 coordination).** TWO open PRs claim a
-**v1.13** section in this same file: PR #188 (`fix/matchmaking-lifecycle`,
-issue #147 — `compareUtf16` comparator, injected scheduler seam, v1.5 class
-extension) and PR #189 (`security-sweep`, issue #146 — guest-identity resume
-secret, its own FR-040…FR-043). Neither is merged into this branch. This
-section is therefore numbered **v1.14** and appended at end-of-file: all
-three change sets touch the header block (lines 3–8) and append after the
-v1.12 section, so textual conflicts are expected and resolve by keeping
-the clarification sections in numeric order with the header carrying the
-highest version present. Do not renumber this section to claim v1.13, and
-do not merge either PR into this branch to avoid the conflict. The
-duplicate v1.13 claim between #188 and #189 is those PRs' conflict to
-resolve (whichever lands second renumbers or inherits).
+**Concurrency note (resolved 2026-10-13).** PR #188 (`fix/matchmaking-lifecycle`,
+issue #147) merged and now owns the **v1.13** section above, so this section is
+numbered **v1.14**. Resolution rule for this file: all change sets here touch the
+header block (lines 3–8) and append after the last existing section, so textual
+conflicts are expected and resolve by keeping the clarification sections in
+numeric order with the header carrying the highest version present. PR #189
+(`security-sweep`, issue #146) still carries its own `### v1.13` heading and must
+renumber to **v1.15** when it rebases — do not renumber this section to claim
+v1.13, and do not merge PR #189 into this branch to avoid the conflict.
 
 - **Citation note.** Issue #153 cites "spec 023 FR-006" for roster
   ordering; in this file the ordering requirement is **023-FR-007**
@@ -451,14 +455,14 @@ resolve (whichever lands second renumbers or inherits).
   changes here; the issue's quoted wording matches 023-FR-007. The
   "(handle, then ID)" tiebreak is unreachable (normalized handles are
   unique, FR-005) and is superseded on the comparator question by the
-  concurrent v1.13 ruling.
+  v1.13 ruling immediately above.
 - **023-FR-007 clarified — deterministic order binds the client's merged,
   displayed roster too.** "Never by connection order" applies to every
   roster the console presents, not only the server payload: the console's
   delta merge (transport-level and any store-level roster merge) MUST
   re-establish the server's order after EVERY delta — case-folded handles
-  compared with the shared `compareUtf16` (per the concurrent v1.13
-  comparator ruling), never `localeCompare` and never arrival order — and
+  compared with the shared `compareUtf16` (per the v1.13
+  comparator ruling above), never `localeCompare` and never arrival order — and
   the roster card MUST render that array order without a compensating
   re-sort. A delta introducing a new handle leaves the list ordered
   (`['Z']` + delta `A` → `['A', 'Z']`), not appended. Absent-handle
