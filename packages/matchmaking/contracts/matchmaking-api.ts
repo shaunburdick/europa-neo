@@ -347,7 +347,6 @@ export type {
 //        Server exposes such a method (networking's `Server` exposes
 //        this via a separate `bindMatchmaker` call; see the conformance
 //        test for the exact shape)
-//     4. start the empty-match sweep interval
 //
 // In v1, networking's `Server` exposes the bridge via its `ServerDeps`
 // constructor argument. The matchmaker simply records the handlers it
