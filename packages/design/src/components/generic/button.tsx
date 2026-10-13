@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, RefAttributes } from 'react';
 
 /**
  * A button component wrapping a native `<button>` element with the shared
@@ -27,7 +27,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
  * <EuropaButton type="submit" aria-label="Save changes">Save</EuropaButton>
  * ```
  */
-export interface EuropaButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface EuropaButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, RefAttributes<HTMLButtonElement> {
     /** Visual variant modifier. */
     variant?: 'primary' | 'secondary' | 'ghost' | 'success' | 'warning' | 'error' | 'info';
     /** Size modifier. */

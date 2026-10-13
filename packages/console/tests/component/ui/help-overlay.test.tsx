@@ -127,6 +127,13 @@ describe('HelpOverlay component', () => {
             expect(document.body.textContent).toContain('Alice');
         });
 
+        test('isolates a mixed-direction player name inside bdi (FR-044)', async () => {
+            await render(<HelpOverlay {...DEFAULT_PROPS} playerName="שלום Alice" />);
+            const isolated = document.querySelector('.europa-help-overlay__status bdi');
+            expect(isolated).not.toBeNull();
+            expect(isolated?.textContent).toBe('שלום Alice');
+        });
+
         test('shows match status', async () => {
             await render(<HelpOverlay {...DEFAULT_PROPS} matchStatus="reconnecting" />);
             expect(document.body.textContent).toContain('reconnecting');

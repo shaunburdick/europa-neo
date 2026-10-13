@@ -21,7 +21,7 @@ import type { StoreApi, UseBoundStore } from 'zustand';
 import { create } from 'zustand';
 
 import { INITIAL_CONSOLE_STATE, reduce } from './reducer';
-import type { ConsoleAction, ConsoleState, ReduceOptions, ReducerEffect } from './types';
+import type { ActionId, ConsoleAction, ConsoleState, ReduceOptions, ReducerCorrelation, ReducerEffect } from './types';
 
 /**
  * A console store: the bound Zustand store over `ConsoleState`, plus
@@ -37,6 +37,7 @@ export type ConsoleStore = UseBoundStore<StoreApi<ConsoleState>> & {
      *                `performance.now()` (sanctioned UI boundary).
      */
     dispatch(action: ConsoleAction, options?: Partial<ReduceOptions>): void;
+    allocateActionId(): ActionId;
 };
 
 /**
@@ -54,6 +55,7 @@ export function createConsoleStore(
     onEffect: (effect: ReducerEffect) => void = () => undefined,
 ): ConsoleStore {
     const store: UseBoundStore<StoreApi<ConsoleState>> = create<ConsoleState>()(() => initial);
+    const correlation: ReducerCorrelation = { lastActionId: 0, pendingOrders: new Map() };
 
     /**
      * Dispatch implementation shared by all stores created here.
@@ -63,7 +65,7 @@ export function createConsoleStore(
         const nowMs = options?.nowMs ?? performance.now();
         // exactOptionalPropertyTypes: only carry rngSeed when provided.
         const resolvedOptions: ReduceOptions =
-            options?.rngSeed === undefined ? { nowMs } : { nowMs, rngSeed: options.rngSeed };
+            options?.rngSeed === undefined ? { nowMs, correlation } : { nowMs, rngSeed: options.rngSeed, correlation };
         const { state: nextState, effects } = reduce(store.getState(), action, resolvedOptions);
         store.setState(nextState);
         for (const effect of effects) {
@@ -71,5 +73,10 @@ export function createConsoleStore(
         }
     };
 
-    return Object.assign(store, { dispatch });
+    const allocateActionId = (): ActionId => {
+        correlation.lastActionId += 1;
+        return correlation.lastActionId as ActionId;
+    };
+
+    return Object.assign(store, { dispatch, allocateActionId });
 }

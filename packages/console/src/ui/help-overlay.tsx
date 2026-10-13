@@ -144,7 +144,7 @@ export function HelpOverlay({
                     <span className="europa-help-overlay__status-item">
                         <span className="europa-help-overlay__status-label">You:</span>
                         <span>
-                            {playerName}{' '}
+                            <bdi>{playerName}</bdi>{' '}
                             <span role="img" style={{ color: playerColor }} aria-label={`Player color: ${playerColor}`}>
                                 ●
                             </span>

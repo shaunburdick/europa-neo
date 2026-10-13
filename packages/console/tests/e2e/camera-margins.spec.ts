@@ -116,7 +116,7 @@ test('pointer clicks and order keys in exterior margins do not send orders', asy
     await expect(grid).toBeVisible();
     await expect(page.locator('.europa-sidebar')).toBeVisible();
     await grid.focus();
-    await expect.poll(async () => (await demoSnapshot(page)).selection).toEqual({ x: 8, y: 8 });
+    await expect.poll(async () => (await demoSnapshot(page)).selection).toEqual({ x: 5, y: 8 });
     expect((await demoSnapshot(page)).orderCount).toBe(0);
 
     await centerBoardCorner(page, 'top-left');

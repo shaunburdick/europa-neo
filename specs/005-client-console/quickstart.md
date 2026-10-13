@@ -486,3 +486,80 @@ pnpm test:a11y
 # Full gate (typecheck, lint, format, all suites, selfhost, conformance)
 pnpm verify
 ```
+
+---
+
+## 16. Review-cleanup validation (spec v1.12 / v1.15 — issues #153, #127)
+
+Phase-4 companion to `plan.md` §7. Run from `packages/console` unless
+noted; the full gate before any push is `pnpm verify` (repo root:
+`bash scripts/verify.sh`).
+
+### 16.1 Commands
+
+```bash
+# Logic core (reducer, net, a11y helpers, zoom)
+pnpm test:unit
+
+# DOM surfaces in real Chromium (component + a11y)
+pnpm test:component
+pnpm test:a11y
+
+# Roster transport / handoff integration
+pnpm test:lobby-integration
+
+# Full E2E incl. routing, spectator, surrender/game-over
+pnpm test:e2e
+
+# Merged coverage session (80% on every metric)
+pnpm coverage
+```
+
+### 16.2 Scenarios
+
+| ID | Scenario | Proving suite / test |
+|---|---|---|
+| Q-RC01 | Delta `['Z']` + `A` renders `['A','Z']` (case-folded `['Z']` + `a` → `['a','Z']`) | `tests/unit/net/ws-lobby-client.test.ts` (N1) |
+| Q-RC02 | Live lobby join delta still yields a sorted roster card | `tests/integration/lobby-transport.test.ts` (N2) |
+| Q-RC03 | Create flow records the server-issued seat token | `tests/unit/state/lobby-controller.test.ts:486-503` (guard) |
+| Q-RC04 | Pan still clamps to corner-cell-centre reachability | `tests/unit/qol/zoom.test.ts:93-105`, `tests/unit/qol/zoom-math.test.ts:29-38,89-115` (guard) |
+| Q-RC05 | Heartbeat echo (`pong`) is a no-op and `reduce()` returns the **same** state reference (scoped to `pong`; other no-op arms still allocate) | `tests/unit/state/reducer.test.ts` (N4); wire half `tests/unit/net/net.test.ts:92-101` |
+| Q-RC06 | Two stores share no `ActionId` counter or pending-order map | `tests/unit/state/reducer.test.ts` (N3, N5) |
+| Q-RC07 | `attach()` twice ⇒ one wheel notch ⇒ one zoom step; dispose twice is safe | `tests/unit/qol/zoom.test.ts` (N6) |
+| Q-RC08 | A match-leg boot failure renders a focused recoverable notice, never a blank frame | `tests/component/routing/semantic-route-runtime.test.tsx` (N7) |
+| Q-RC09 | Lobby-initiated spectate boots exactly one leg (StrictMode included) | `tests/component/routing/semantic-route-runtime.test.tsx:101,129` + single-boot count at `:494` (N8) |
+| Q-RC10 | Skip link moves focus into `main`; every skip-link target is programmatically focusable | `tests/a11y/wcag-assertions.test.ts` (N10) + landing/route component tests |
+| Q-RC11 | `aria-activedescendant` never names an unmoved/fog cell; the ring follows | `tests/component/render/grid-overlay.test.tsx` (N11) |
+| Q-RC12 | Every `aria-describedby`/`aria-labelledby` token resolves while set | `tests/a11y/profile-view.test.tsx` (N12) |
+| Q-RC13 | Surrender close (Confirm/Cancel/Escape) returns focus to the trigger | `tests/component/render/modal-exclusivity.test.tsx` (N13) |
+| Q-RC14 | First roster snapshot announces nothing; only later diffs announce | `tests/component/ui/lobby-roster-card.test.tsx`, `tests/a11y/lobby-roster-card.test.tsx` (N14) |
+| Q-RC15 | Spectators can open Help; the Help control is never enabled-but-inert | `tests/component/render/app-wire-view.test.tsx` (N15) |
+| Q-RC16 | At most one `aria-modal="true"` at a time; game-over is never preempted | `tests/component/render/modal-exclusivity.test.tsx` (N16) |
+| Q-RC17 | All 23 action controls are native `<button>`s from `EuropaButton` with original classes/ARIA intact | per-surface component tests (N17) + required static guard (N18) |
+| Q-RC18 | Lobby identity name and game-over winner title are `<bdi>`-wrapped | `tests/component/ui/lobby-landing.test.tsx`, `tests/unit/render/GameOverModal.test.ts` (N19) |
+| Q-RC19 | Order palette = one Tab stop; exactly one command button in the Tab order | rewritten `tests/a11y/wcag-assertions.test.ts:249-281`, `:319-339` + new assertion (N20) |
+| Q-RC20 | Version pins unchanged (`CONSOLE_API_VERSION` still whatever `main`/PR #189 landed) | `tests/integration/contract-conformance.test.ts` |
+
+### 16.3 Manual browser smoke (agent-browser, not committed)
+
+```bash
+pnpm host                       # single port 8080
+export AGENT_BROWSER_SESSION="$(agent-browser session id --scope worktree --prefix pr3)"
+agent-browser open http://localhost:8080/lobby
+agent-browser screenshot __screenshots__/pr3-lobby.png
+# then: create a match → /match/<id> player view → surrender dialog →
+#       game-over → spectator view, screenshotting each
+agent-browser close
+```
+
+Check: skip link is the first stop and lands in `main`; sidebar zoom
+buttons look right after the `EuropaButton` migration; Help opens as a
+spectator; pressing `?` while the surrender dialog is open swaps modals
+(one backdrop only); the order palette takes one Tab stop.
+
+### 16.4 Expected results
+
+All suites green, coverage ≥80% on every metric, `pnpm verify` green,
+zero lint suppressions, no `any`, and the comment budget in
+`plan.md` §11 respected. Screenshots stay in `__screenshots__/`
+(gitignored) and are referenced in the PR description only.

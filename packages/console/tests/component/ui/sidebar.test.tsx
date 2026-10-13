@@ -149,6 +149,16 @@ describe('Sidebar (FR-015)', () => {
         const indicator = document.querySelector('.europa-sidebar__live-indicator');
         expect(indicator).toBeNull();
     });
+
+    test('the local player name in Status is bidi-isolated (FR-044)', async () => {
+        const base = liveState();
+        const state = { ...base, session: { ...base.session, displayName: 'שלום Alice' } };
+        await render(<Sidebar {...liveSidebarProps(state)} />);
+
+        const isolated = document.querySelector('#status bdi');
+        expect(isolated).not.toBeNull();
+        expect(isolated?.textContent).toBe('שלום Alice');
+    });
 });
 
 describe('Sidebar spectator parity (FR-021)', () => {
@@ -190,5 +200,26 @@ describe('Sidebar spectator parity (FR-021)', () => {
         const surrender = document.querySelector('#surrender');
         const surrenderButton = surrender?.querySelector('button');
         expect((surrenderButton as HTMLButtonElement | null)?.disabled).toBe(true);
+    });
+});
+
+describe('sidebar controls carry the europa-button marker (FR-043)', () => {
+    test('zoom, surrender, and help controls are design-system buttons', async () => {
+        const state = liveState();
+        await render(<Sidebar {...liveSidebarProps(state)} />);
+
+        const controls: (string | null)[] = [
+            '[aria-label="Zoom in"]',
+            '[aria-label="Zoom out"]',
+            '[aria-label="Reset zoom to 100%"]',
+            '.europa-hud__surrender',
+            '.europa-help-button',
+        ];
+        for (const selector of controls) {
+            const control = document.querySelector(selector);
+            expect(control, selector).not.toBeNull();
+            expect(control?.tagName, selector).toBe('BUTTON');
+            expect(control?.classList.contains('europa-button'), selector).toBe(true);
+        }
     });
 });

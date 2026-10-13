@@ -17,6 +17,7 @@
  * @module
  */
 
+import { EuropaButton } from '@europa/design/components';
 import { Link, redirect } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
@@ -118,7 +119,7 @@ export function MatchIdValidationError({ error, reset }: MatchIdValidationErrorP
     const message = deriveErrorMessage(error);
 
     return (
-        <main id="main" className="europa-route-notice" data-europa-route-notice="match-id-error">
+        <main id="main" className="europa-route-notice" data-europa-route-notice="match-id-error" tabIndex={-1}>
             <section
                 ref={noticeRef}
                 className="europa-route-notice__panel europa-focus-ring"
@@ -136,9 +137,13 @@ export function MatchIdValidationError({ error, reset }: MatchIdValidationErrorP
                 </h1>
                 <p className="europa-route-notice__message">{message}</p>
                 <div className="europa-route-notice__actions">
-                    <button type="button" className="europa-lobby__button europa-focus-ring" onClick={reset}>
+                    <EuropaButton
+                        variant="secondary"
+                        className="europa-lobby__button europa-focus-ring"
+                        onClick={reset}
+                    >
                         Try again
-                    </button>
+                    </EuropaButton>
                     <Link to="/lobby" className="europa-lobby__button europa-focus-ring">
                         Return to lobby
                     </Link>

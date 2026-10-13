@@ -20,13 +20,14 @@
  *
  * Accessibility: focus moves into the dialog on open (first button),
  * is trapped between the two buttons while open, returns to the
- * previously-focused element on close (caller's responsibility via
- * the trigger button retaining focus semantics), Escape cancels, and
+ * previously-focused element on close (captured here when the dialog
+ * opens; restored on Cancel, Confirm, and Escape), Escape cancels, and
  * the whole surface is axe-clean (Q-A02).
  *
  * JSDoc references: US5 AC-2 + WCAG 2.4.3 (Focus Order) + Q-A04.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 
@@ -47,12 +48,18 @@ export function SurrenderModal({ open, onConfirm, onCancel }: SurrenderModalProp
     const dialogRef = useRef<HTMLDivElement | null>(null);
     const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
     const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
+    const previousFocusRef = useRef<HTMLElement | null>(null);
 
     // Move focus into the dialog when it opens (WCAG 2.4.3).
     useEffect(() => {
         if (open) {
+            previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             cancelButtonRef.current?.focus();
+            return;
         }
+        const restoreTarget = previousFocusRef.current;
+        previousFocusRef.current = null;
+        restoreTarget?.focus();
     }, [open]);
 
     if (!open) {
@@ -103,22 +110,22 @@ export function SurrenderModal({ open, onConfirm, onCancel }: SurrenderModalProp
                     Your cities fall under enemy control and you join as a spectator. This cannot be undone.
                 </p>
                 <div className="europa-modal__actions">
-                    <button
-                        type="button"
+                    <EuropaButton
                         ref={cancelButtonRef}
+                        variant="secondary"
                         className="europa-modal__button europa-focus-ring"
                         onClick={onCancel}
                     >
                         Cancel
-                    </button>
-                    <button
-                        type="button"
+                    </EuropaButton>
+                    <EuropaButton
                         ref={confirmButtonRef}
+                        variant="error"
                         className="europa-modal__button europa-modal__button--danger europa-focus-ring"
                         onClick={onConfirm}
                     >
                         Confirm surrender
-                    </button>
+                    </EuropaButton>
                 </div>
             </div>
         </div>
