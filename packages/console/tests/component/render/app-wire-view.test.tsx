@@ -287,7 +287,9 @@ describe('spectator help overlay (FR-041)', () => {
 
         (document.activeElement as HTMLElement | null)?.blur();
         await user.keyboard('?');
-        expect(document.querySelector('[aria-modal="true"]')).not.toBeNull();
+        await vi.waitFor(() => {
+            expect(document.querySelector('[aria-modal="true"]')).not.toBeNull();
+        });
 
         await user.keyboard('{Escape}');
         expect(document.querySelector('[aria-modal="true"]')).toBeNull();
