@@ -9,18 +9,17 @@
  * would require a spec FR-001 edit in the same change set.
  *
  * Coverage:
- *  - byte-identical table across "src/constants", "contracts/match-types",
+ *  - byte-identical table across "src/constants", "src/contracts/match-types",
  *    and the public barrel "src/index"
  *  - canonical values 2->32, 3->48, 4->48
  *  - every key in 2|3|4 present, no extras; every value in 32|48|64
  *  - DEFAULT_MATCH_SETTINGS.boardSize remains 32 (API compat -- additive map)
  *  - frozen / as const immutability semantics (runtime check, lenient)
  *
- * NOTE: The informational mirror at
+ * NOTE: No spec-side .ts mirror exists anywhere (the informational
  * specs/006-match-lifecycle-matchmaking/contracts/board-size-defaults.ts
- * is no longer imported because the spec-side .ts files no longer exist.
- * The package copies in each package's src/contracts/ are now the sole source
- * of truth.
+ * was deleted by hygiene pass #160 and never recreated); the package copy
+ * in src/contracts/match-types.ts is the sole contract source of truth.
  */
 
 import { describe, expect, it } from 'vitest';
