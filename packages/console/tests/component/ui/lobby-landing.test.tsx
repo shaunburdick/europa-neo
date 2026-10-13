@@ -510,3 +510,15 @@ describe('LobbyRoot view gate (smoke)', () => {
         controller.disconnect();
     });
 });
+
+describe('LobbyLanding skip-link target', () => {
+    test('the rendered main landmark reports tabindex -1 for the skip link', async () => {
+        window.history.pushState(window.history.state, '', '/');
+        const state = stateOf({ connection: 'ready', identityStatus: 'named', handle: 'Alice' });
+        await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+
+        const main = document.querySelector('main#main');
+        expect(main).not.toBeNull();
+        expect(main?.getAttribute('tabindex')).toBe('-1');
+    });
+});

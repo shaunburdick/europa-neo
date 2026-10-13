@@ -274,7 +274,7 @@ export function MatchLayout(): JSX.Element {
     // matters here.)
     if (state.snapshot === null) {
         return (
-            <main id="main" className="europa-lobby europa-lobby-match__placeholder">
+            <main id="main" className="europa-lobby europa-lobby-match__placeholder" tabIndex={-1}>
                 <div className="europa-waiting__plate" data-europa-match-resolving="true">
                     <p className="europa-waiting__text">Resolving match…</p>
                 </div>

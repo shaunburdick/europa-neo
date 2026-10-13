@@ -118,7 +118,7 @@ export function MatchIdValidationError({ error, reset }: MatchIdValidationErrorP
     const message = deriveErrorMessage(error);
 
     return (
-        <main id="main" className="europa-route-notice" data-europa-route-notice="match-id-error">
+        <main id="main" className="europa-route-notice" data-europa-route-notice="match-id-error" tabIndex={-1}>
             <section
                 ref={noticeRef}
                 className="europa-route-notice__panel europa-focus-ring"

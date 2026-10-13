@@ -371,7 +371,11 @@ describe('Logo a11y: keyboard focus', () => {
         // The plain <img> is not focusable (no tabindex, not inside a
         // link or button). Focus should not land on it during Tab.
         expect(logo.getAttribute('tabindex')).toBeNull();
-        expect(logo.closest('a, button, [tabindex]')).toBeNull();
+        expect(logo.closest('a, button')).toBeNull();
+        const ancestorWithTabindex = logo.closest('[tabindex]');
+        expect(
+            ancestorWithTabindex === null || ancestorWithTabindex.getAttribute('tabindex') === '-1',
+        ).toBe(true);
     });
 
     test('keyboard user can Tab past the logo to reach interactive controls', async () => {

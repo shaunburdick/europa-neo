@@ -197,7 +197,7 @@ export function LobbyLanding({
                     {state.failure.message} Reconnecting…
                 </EuropaBanner>
             ) : null}
-            <main id="main" className="europa-lobby">
+            <main id="main" className="europa-lobby" tabIndex={-1}>
                 {/* Hero section (FR-026, AC-029): centered logo + title
               with generous vertical padding. The logo scales down on
               viewports < 768px via responsive max-width in the CSS. */}

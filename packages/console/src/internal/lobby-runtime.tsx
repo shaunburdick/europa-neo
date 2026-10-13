@@ -176,7 +176,7 @@ export function mountLobbyRuntime(
 /** User-visible failure rendered before any identity-bearing lobby connection. */
 function LobbyConfigurationError({ message }: { readonly message: string }): JSX.Element {
     return (
-        <main id="main" className="europa-lobby" role="alert">
+        <main id="main" className="europa-lobby" role="alert" tabIndex={-1}>
             <h1>Lobby unavailable</h1>
             <p>{message}</p>
             <p>Use this page's host for the WebSocket server, or remove the ws override.</p>
@@ -853,7 +853,7 @@ export function MatchLegHost({
                     {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})}
                 />
             ) : (
-                <main id="main" className="europa-lobby europa-lobby-match__placeholder">
+                <main id="main" className="europa-lobby europa-lobby-match__placeholder" tabIndex={-1}>
                     {/* Plate windows (no wire channel yet): the waiting
             room for players, the pre-attach notice for spectators.
             Informational only — no board, no order surface; announces

@@ -564,7 +564,7 @@ export function App({
                     Reconnecting to match…
                 </div>
             ) : null}
-            <main id="main" className="europa-main">
+            <main id="main" className="europa-main" tabIndex={-1}>
                 <div ref={boardAreaRef} className="europa-board-area">
                     <canvas ref={canvasRef} role="img" aria-label="Game board visual" className="europa-canvas" />
                     {mapView !== null && mapView.cells.size > 0 ? (

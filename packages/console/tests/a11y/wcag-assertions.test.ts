@@ -616,3 +616,17 @@ describe('WCAG 2.4.3 — game-over modal focus trap', () => {
         expect(body?.textContent).toContain('Final tick: 500');
     });
 });
+
+describe('WCAG 2.4.1 — skip link moves focus to main', () => {
+    test('activating the skip link leaves focus on the main landmark', async () => {
+        await bootInteractiveConsole();
+        const user = userEvent.setup();
+
+        await user.keyboard('{Tab}');
+        expect(document.activeElement?.id).toBe('skip-link');
+        await user.keyboard('{Enter}');
+
+        expect(document.activeElement?.id).toBe('main');
+        expect(document.activeElement?.getAttribute('tabindex')).toBe('-1');
+    });
+});

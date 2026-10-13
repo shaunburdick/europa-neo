@@ -44,7 +44,7 @@ export function RouteNotice({
     }, [focusIdentity]);
 
     return (
-        <main id="main" className="europa-route-notice" data-europa-route-notice={kind}>
+        <main id="main" className="europa-route-notice" data-europa-route-notice={kind} tabIndex={-1}>
             <section
                 ref={noticeRef}
                 className="europa-route-notice__panel europa-focus-ring"

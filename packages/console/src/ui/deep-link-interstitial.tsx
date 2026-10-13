@@ -100,7 +100,7 @@ export function DeepLinkInterstitial({
     const isPlayer = entry.kind === 'player';
 
     return (
-        <main id="main" className="europa-lobby" data-europa-deep-link-interstitial="true">
+        <main id="main" className="europa-lobby" data-europa-deep-link-interstitial="true" tabIndex={-1}>
             <section
                 className="europa-deep-link-interstitial europa-focus-ring"
                 aria-labelledby="deep-link-interstitial-heading"

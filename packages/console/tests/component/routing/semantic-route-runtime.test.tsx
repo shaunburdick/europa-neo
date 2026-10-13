@@ -534,3 +534,20 @@ describe('match-route leg handoff (FR-046(b)(c))', () => {
         controller.disconnect();
     });
 });
+
+describe('match-route skip-link target', () => {
+    test('the route notice main landmark reports tabindex -1 for the skip link', async () => {
+        const screen = await render(
+            <RouteNotice
+                kind="unknown"
+                title="Page not found"
+                message="Page not found. Returning to lobby."
+                onReturnToLobby={() => undefined}
+            />,
+        );
+
+        const main = screen.container.querySelector('main#main');
+        expect(main).not.toBeNull();
+        expect(main?.getAttribute('tabindex')).toBe('-1');
+    });
+});
