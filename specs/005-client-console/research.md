@@ -990,10 +990,10 @@ dependency is introduced anywhere in this section.
   `reduce` export (`src/index.ts:51`) rather than extend it, turning an
   internal refactor into a barrel change (and colliding with PR #189's
   barrel edits).
-- *Chosen shape keeps*: `reduce(state, action, options)` signature,
-  the documented purity rule, and `allocateActionId`'s
-  module-internal status (`reducer.ts:81`) — it is not in the barrel,
-  so moving it is not a public-surface change.
+- *Chosen shape keeps*: `reduce(state, action, options)` signature
+  and the documented purity rule; the allocator moves bag-bound onto
+  `ConsoleStore` and stays out of the barrel, so the move is not a
+  public-surface change.
 
 ### 16.3 Modal exclusivity representation (F-CON-UI-010, FR-042)
 

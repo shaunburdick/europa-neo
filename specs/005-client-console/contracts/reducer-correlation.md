@@ -44,12 +44,13 @@ mutable state that previously lived at module scope in
    allocating `baseState`/`nextState`. That is what keeps subscribers
    from being notified by heartbeats. The guarantee covers `pong` only:
    other no-op arms (e.g. `socketClosed` while `status === 'game_over'`,
-   `reducer.ts:630-632`) still return a freshly built state. Because the
+   `reducer.ts`) still return a freshly built state. Because the
    short-circuit runs before `reduce`'s lazy feedback prune, a `pong`
-   dispatch defers that prune to the next state-changing dispatch.
-5. **Visibility**: `allocateActionId` remains module-internal
-   (`reducer.ts:81`, absent from `src/index.ts`), so moving it is not a
-   public-surface change.
+   dispatch defers that prune to the next dispatch that is **not a
+   `pong` no-op** — other no-op arms still reach the prune.
+5. **Visibility**: the allocator is exposed bag-bound as
+   `ConsoleStore.allocateActionId` and is absent from `src/index.ts`, so
+   the move is not a public-surface change.
 
 ## Versioning
 

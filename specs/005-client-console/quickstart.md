@@ -537,7 +537,7 @@ pnpm coverage
 | Q-RC16 | At most one `aria-modal="true"` at a time; game-over is never preempted | `tests/component/render/modal-exclusivity.test.tsx` (N16) |
 | Q-RC17 | All 23 action controls are native `<button>`s from `EuropaButton` with original classes/ARIA intact | per-surface component tests (N17) + required static guard (N18) |
 | Q-RC18 | Lobby identity name and game-over winner title are `<bdi>`-wrapped | `tests/component/ui/lobby-landing.test.tsx`, `tests/unit/render/GameOverModal.test.ts` (N19) |
-| Q-RC19 | Order palette = one Tab stop; exactly one command button in the Tab order | rewritten `tests/a11y/wcag-assertions.test.ts:248-284`, `:321-343` + new assertion (N20) |
+| Q-RC19 | Order palette = one Tab stop; exactly one command button in the Tab order | rewritten `tests/a11y/wcag-assertions.test.ts:249-281`, `:319-339` + new assertion (N20) |
 | Q-RC20 | Version pins unchanged (`CONSOLE_API_VERSION` still whatever `main`/PR #189 landed) | `tests/integration/contract-conformance.test.ts` |
 
 ### 16.3 Manual browser smoke (agent-browser, not committed)

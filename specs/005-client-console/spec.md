@@ -273,10 +273,10 @@ truthful).
    `tsconfig.conformance.json` + `pnpm typecheck:conformance` (strict
    program over `src/` + the conformance test), wired into CI.
 7. **`Console.sendOrder` ActionIds**: host-initiated wire orders share
-   the reducer's ActionId counter via exported `allocateActionId()`,
-   guaranteeing no seq-correlation collisions with gesture-issued
-   ids. They are not registered as pending orders; their acks produce
-   feedback only.
+   the reducer's ActionId counter via the store's bag-bound
+   `allocateActionId()` (`ConsoleStore`), guaranteeing no
+   seq-correlation collisions with gesture-issued ids. They are not
+   registered as pending orders; their acks produce feedback only.
 8. **Built-in surrender modal trigger**: `requestSurrender()` without
    a host callback bumps an epoch counter passed to `App` as
    `surrenderRequestEpoch`; the confirm gate itself stays in
