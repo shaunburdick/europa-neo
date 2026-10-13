@@ -641,11 +641,12 @@ async function connectLobbyClient(
 /**
  * Connect AND name a lobby client through the US1 AC-3 claim-restore
  * flow: a raw bootstrap connection reserves `handle` server-side and
- * learns the server-minted guest id from its directed identity event;
- * the REAL client then connects presenting that claim from its
- * "localStorage" — exactly what a browser reload does. The identity
- * event carrying the accepted handle arrives DURING the establish
- * cycle, so resolution here is a full synchronization point.
+ * learns the server-minted guest id AND its owner-only resume secret
+ * from its directed identity event; the REAL client then connects
+ * presenting that whole claim from its "localStorage" — exactly what a
+ * browser reload does. The identity event carrying the accepted handle
+ * arrives DURING the establish cycle, so resolution here is a full
+ * synchronization point.
  *
  * (This flow is preferred over a first-session `client.setHandle()`
  * because it exercises MORE of the identity path: raw reservation,
@@ -668,6 +669,14 @@ async function establishNamedClient(
         throw new Error('bootstrap connection received no server-delivered guest id');
     }
     const guestId = established.identity.guestPlayerId;
+    // Issue #146: the establishment event is the ONLY delivery channel for
+    // the owner-only resume secret, and the server requires it before it
+    // will restore anything. Capture it here exactly as a browser would
+    // store it; an id-only claim below would mint fresh instead.
+    const resumeSecret = established.identity.resumeSecret;
+    if (resumeSecret === undefined) {
+        throw new Error('bootstrap connection received no server-delivered resume secret');
+    }
     bootstrap.send('lobbySetHandle', { handle, actionId: 1 });
     const named = await bootstrap.nextLobbyEvent('bootstrap handle confirmation');
     if (named.kind !== 'identity' || named.identity.handle !== handle) {
@@ -680,7 +689,7 @@ async function establishNamedClient(
 
     const lobby = await connectLobbyClient(url, {
         ...reconnectOptions,
-        preseedClaim: { guestPlayerId: guestId, handle },
+        preseedClaim: { guestPlayerId: guestId, resumeSecret, handle },
     });
     expect(lobby.client.state().connection).toBe('ready');
     expect(lobby.client.state().handle).toBe(handle);

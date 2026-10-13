@@ -39,6 +39,7 @@ import type { PlayerId } from '@europa/core';
 import { DEFAULT_PLAYER_ID_MAX_ATTEMPTS, PlayerIdCollisionError, parseGuestPlayerId } from '@europa/core';
 import type { Result } from '../contracts/lobby-api';
 import type { GuestIdentityClaim, GuestPlayerId, IdentityState, LobbyError } from '../contracts/lobby-types';
+import { randomUUID } from '../crypto';
 import { allocateGuestPlayerId } from '../idGen';
 
 import { createGuestPlayerIdentity, type GuestPlayerIdentity } from './guestPlayerIdentity';
@@ -74,6 +75,14 @@ export interface IdentityRegistryDeps {
      */
     readonly randomId?: () => string;
     /**
+     * Owner-only resume-secret factory (spec 006 FR-026, issue #146).
+     * Defaults to `randomUUID()` from `crypto.ts` — a UUIDv4 is 122 bits
+     * of CSPRNG entropy, format-consistent with every other bearer token
+     * here (`SessionToken` uses the same source). Tests inject a
+     * deterministic counter sequence.
+     */
+    readonly randomSecret?: () => string;
+    /**
      * Bounded candidate-retry budget for id allocation (both the injected
      * factory and the CSPRNG path). Defaults to
      * `DEFAULT_PLAYER_ID_MAX_ATTEMPTS`.
@@ -89,7 +98,10 @@ export interface IdentityRegistryDeps {
  * Outcome of {@linkcode IdentityRegistry.restoreIdentity}: the
  * (always-fresh-or-restored) identity plus whether an existing record
  * was resumed. Establishment cannot fail (US1 AC-1), so there is no
- * error arm — stale/forged/unknown/expired claims silently mint fresh.
+ * error arm — stale/forged/unknown/expired/secret-less claims silently
+ * mint fresh. On a successful restore the returned record already holds
+ * the ROTATED successor secret (read it with
+ * {@linkcode IdentityRegistry.resumeSecretOf} for delivery).
  */
 export interface IdentityRestoreOutcome {
     /** The caller's identity going forward (restored or freshly minted). */
@@ -121,18 +133,54 @@ export interface IdentityRegistry {
 
     /**
      * Resolve a browser's resume claim into the caller's identity
-     * (US1 AC-3). A claim matching an identity currently in its reconnect
-     * GRACE window reactivates it (same id, same server-held handle); any
-     * absent, expired, forged, or already-ACTIVE claim silently yields a
-     * FRESH identity, so a bare id can never evict an active holder
-     * (spec 006 FR-016, spec 010 v1.11). The claim's `handle` field is
-     * advisory and never overrides the server record. A successful restore
-     * may let the lobby associate the connection with this ephemeral
-     * identity; it does not grant a match seat, order, reconnect-token, or
-     * fog-view authority. Runs the expiry sweep first, so an expired
-     * claimant frees its handle before the lookup.
+     * (US1 AC-3; spec 006 FR-026, issue #146). The claim's
+     * `resumeSecret` — never its id — is the proof of possession: a
+     * claim whose secret matches a held record either reactivates it
+     * from grace or (D2) supersedes an ACTIVE holder, and the record's
+     * secret is REGENERATED before it is returned, so a captured secret
+     * is single-epoch (D3). Ordering on success is verify → reactivate →
+     * rotate → deliver (plan AD-1); if the delivery is lost the client's
+     * next claim fails verification and mints fresh — accepted churn,
+     * never a lockout.
+     *
+     * Any other claim — absent, id-only, stale, forged, unknown, or
+     * expired — is advisory and silently yields a FRESH identity, so a
+     * bare id can never evict an active holder or start a grace-window
+     * takeover (spec 004 FR-027, spec 010 FR-041). The claim's `handle`
+     * field is advisory and never overrides the server record.
+     *
+     * Runs the expiry sweep first, so an expired claimant frees its
+     * handle before the lookup.
      */
     restoreIdentity(claim: GuestIdentityClaim | undefined): IdentityRestoreOutcome;
+
+    /**
+     * Grace → active transition for SERVER-INTERNAL callers that have
+     * ALREADY verified a bearer credential upstream — today exactly one:
+     * `lobbyService.onSeatReconnected`, whose authority is the seat
+     * credential the transport checked before the handler runs (plan
+     * AD-2). This is deliberately NOT a claim path: it takes no secret
+     * because the caller has already proved possession by other means,
+     * and it is unreachable from any client-presented payload. Clients
+     * reach restoration only through {@linkcode restoreIdentity}.
+     *
+     * @returns `true` when the identity existed in grace and is now
+     *   active; `false` for an unknown id or one already active.
+     * @throws When the registry is closed.
+     */
+    reactivate(id: GuestPlayerId): boolean;
+
+    /**
+     * Internal-only read of an identity's current resume secret, used
+     * solely to compose it into the directed ESTABLISHMENT identity
+     * event (plan AD-11). Never returned through
+     * {@linkcode projectIdentity} or any other projection, and never
+     * safe to log.
+     *
+     * @returns The current secret, or `undefined` for unknown ids.
+     * @throws When the registry is closed.
+     */
+    resumeSecretOf(id: GuestPlayerId): string | undefined;
 
     /**
      * Validate and atomically reserve a handle for the identity
@@ -227,6 +275,7 @@ export interface IdentityRegistry {
  */
 export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): IdentityRegistry {
     const injectedIdFactory = deps.randomId;
+    const injectedSecretFactory = deps.randomSecret;
     const maxIdAttempts = deps.maxIdAttempts ?? DEFAULT_PLAYER_ID_MAX_ATTEMPTS;
     const now = deps.now ?? Date.now;
     const graceMs = deps.graceMs ?? IDENTITY_GRACE_MS_DEFAULT;
@@ -312,10 +361,15 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
         });
     }
 
+    /** Mint one owner-only resume secret (injected seam; default Web Crypto UUID). */
+    function mintSecret(): string {
+        return (injectedSecretFactory ?? randomUUID)();
+    }
+
     /** Mint, register, and return a fresh unnamed identity (shared by create/restore). */
     function mintIdentity(): GuestPlayerIdentity {
         const id = allocateIdentityId();
-        const record = createGuestPlayerIdentity({ id, nowMs: now() });
+        const record = createGuestPlayerIdentity({ id, nowMs: now(), resumeSecret: mintSecret() });
         identities.set(record.id, record);
         return record;
     }
@@ -330,22 +384,33 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
             assertOpen();
             sweepExpired();
             const claimedId = claim?.guestPlayerId;
-            if (claimedId !== undefined) {
+            const presentedSecret = claim?.resumeSecret;
+            if (claimedId !== undefined && typeof presentedSecret === 'string') {
                 const existing = identities.get(claimedId);
-                // Credential separation (spec 006 FR-016, spec 010 v1.11):
-                // a bare id is advisory and never authorizes taking over an
-                // ACTIVE identity. Only an identity already in its own
-                // reconnect grace window may be resumed by its returning
-                // owner; an active-holder claim mints fresh below instead of
-                // evicting the incumbent.
-                if (existing !== undefined && existing.status === 'grace') {
-                    existing.status = 'active';
-                    existing.disconnectedAtMs = null;
+                // Credential check (spec 004 FR-027, spec 006 FR-026,
+                // issue #146): the id alone is advisory correlation data and
+                // reaches NOTHING — a missing, stale, or wrong secret falls
+                // through to the mint-fresh arm below, in grace or active.
+                // Possession of the CURRENT secret is what authorizes the
+                // takeover, whether the record is waiting in grace (the
+                // owner's reload) or still ACTIVE on a connection the close
+                // has not reached yet (D2 single-seat re-claim).
+                if (existing !== undefined && presentedSecret === existing.resumeSecret) {
+                    if (existing.status === 'grace') {
+                        existing.status = 'active';
+                        existing.disconnectedAtMs = null;
+                    }
+                    // Rotate BEFORE returning (verify → reactivate → rotate →
+                    // deliver, plan AD-1): the caller reads the successor via
+                    // `resumeSecretOf` on the same tick, and the delivered
+                    // value is single-epoch — a replayed capture never
+                    // verifies twice (D3).
+                    existing.resumeSecret = mintSecret();
                     return { identity: existing, restored: true };
                 }
             }
-            // Unknown/stale/forged/expired/active claim: establishment cannot
-            // fail — mint fresh and ignore the claim entirely. The
+            // Unknown/stale/forged/secret-less/expired claim: establishment
+            // cannot fail — mint fresh and ignore the claim entirely. The
             // claim's handle field is advisory and never consulted.
             return { identity: mintIdentity(), restored: false };
         },
@@ -387,6 +452,22 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
             return record !== undefined && record.status === 'grace';
         },
 
+        reactivate(id: GuestPlayerId): boolean {
+            assertOpen();
+            const record = identities.get(id);
+            if (record === undefined || record.status !== 'grace') {
+                return false;
+            }
+            record.status = 'active';
+            record.disconnectedAtMs = null;
+            return true;
+        },
+
+        resumeSecretOf(id: GuestPlayerId): string | undefined {
+            assertOpen();
+            return identities.get(id)?.resumeSecret;
+        },
+
         disconnect(id: GuestPlayerId): void {
             assertOpen();
             const record = identities.get(id);
@@ -416,6 +497,9 @@ export function createIdentityRegistry(deps: IdentityRegistryDeps = {}): Identit
             if (record === undefined) {
                 return undefined;
             }
+            // Structurally secret-free: the object is built from selected
+            // fields, never spread from the record, so the owner-only
+            // `resumeSecret` cannot reach any projection (spec 004 FR-026).
             return Object.freeze({ handle: record.handle, hasIdentity: true });
         },
 

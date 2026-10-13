@@ -11,18 +11,24 @@
  *   WsMatchClient (native WebSocket, networking's wire codec) →
  *   live createMatchServer → matchmaking-bound engine/terrain/fog
  *
- * Legacy test-seam query parameters (not a production URL contract):
- *   - `ws`    Optional WebSocket URL override (e.g. ws://host:port). When
- *             absent, same-origin fallback `${protocol==='https:'?'wss':'ws'}://${location.host}`
- *             is used (011 single-port FR-006). Explicit overrides still
- *             validated same-host/loopback/no-credentials via
- *             {@link resolveLobbyServerUrl}.
- *   - `match` MatchId to join (required)
- *   - `name`  Display name for the seat claim
- *   - `token` Optional reconnect token (rejoin path)
+ * The direct-match seam ({@link TestMatchSeam}, set by test
+ * infrastructure on `window.__europaTestMatch` before load) is the
+ * ONLY input: wsUrl, matchId, displayName, and optional reconnectToken
+ * all come from the seam object — passed to {@link mountLiveRuntime} as
+ * an ARGUMENT. The entry point captures the seam and removes the
+ * window global synchronously, before this chunk loads (005 FR-037,
+ * 015 FR-019): this runtime never reads the global, so the reconnect
+ * bearer the seam carries cannot survive a pending or failed dynamic
+ * import on `window`. The former query seam (the `live`, `match`,
+ * `name`, and `token` parameters) is retired (013 FR-025/FR-035): a
+ * bearer token in a URL is prohibited (013 FR-016), and a
+ * query-driven boot without the seam fails loudly instead of
+ * mounting.
  *
  * Playwright specs drive orders and read state through the
- * `window.__europaLive` handle exposed here.
+ * `window.__europaLive` handle exposed here — a CREDENTIAL-FREE
+ * projection of the store + adapter (005 FR-037, 015 FR-019; see
+ * `./debug-views`), never the raw objects.
  *
  * Deterministic: no randomness; clocks only at sanctioned UI
  * boundaries (store dispatch defaults).
@@ -38,28 +44,51 @@ import { LobbyServerUrlError, resolveLobbyServerUrl } from '../state/lobby-view'
 import { createOrderBridge } from '../state/order-actions';
 import { INITIAL_CONSOLE_STATE } from '../state/reducer';
 import { type ConsoleStore, createConsoleStore } from '../state/store';
-import type { ConsoleClient, MatchId, ReducerEffect, SessionToken } from '../state/types';
+import type { MatchId, ReducerEffect, SessionToken } from '../state/types';
+import { type LiveDebugHandle, liveDebugHandle } from './debug-views';
 
-/** The window-global handle Playwright full-stack specs read. */
-export interface EuropaLiveHandle {
-    /** The live store (state assertions + programmatic order dispatch). */
-    readonly store: ConsoleStore;
-    /** The network adapter (transport diagnostics). */
-    readonly client: ConsoleClient;
-    /** Set when boot failed (bad params / connect / join rejection). */
-    bootError: string | null;
+/**
+ * Boot-failure placeholder for the credential-free `__europaLive`
+ * handle: no store/client to project yet, so the handle carries the
+ * reason alone (005 FR-037 — never a half-built raw surface).
+ *
+ * @param bootError The human-readable boot failure.
+ * @returns The failure-only handle.
+ */
+function failedLiveHandle(bootError: string): LiveDebugHandle {
+    return {
+        store: undefined as unknown as LiveDebugHandle['store'],
+        client: undefined as unknown as LiveDebugHandle['client'],
+        bootError,
+    };
 }
 
 declare global {
     interface Window {
-        __europaLive?: EuropaLiveHandle;
-        __europaTestMatch?: {
-            readonly wsUrl: string;
-            readonly matchId: string;
-            readonly displayName: string;
-            readonly reconnectToken?: string;
-        };
+        /**
+         * Credential-free debug handle (005 FR-037, 015 FR-019): a
+         * projection of the store + adapter — never the raw objects,
+         * whose state carries the session/seat bearer credentials.
+         * See `./debug-views`.
+         */
+        __europaLive?: LiveDebugHandle;
     }
+}
+
+/**
+ * The direct-match seam payload — this runtime's ONLY input (013
+ * FR-025). Test infrastructure sets it on `window.__europaTestMatch`
+ * before page load; the entry point (`main.tsx`) captures it and
+ * removes the global SYNCHRONOUSLY, then passes it to
+ * {@link mountLiveRuntime} as an argument (005 FR-037, 015 FR-019 —
+ * the reconnect bearer it MAY carry is a consume-once handoff, never
+ * a retained window global).
+ */
+export interface TestMatchSeam {
+    readonly wsUrl: string;
+    readonly matchId: string;
+    readonly displayName: string;
+    readonly reconnectToken?: string;
 }
 
 /**
@@ -85,42 +114,46 @@ function noopReturnToLobby(): void {
  *
  * Boot is async internally (connect → join) but mounting is sync: the
  * UI renders immediately in `connecting` status while the handshake
- * completes; failures land in {@link EuropaLiveHandle.bootError}.
+ * completes; failures land in {@link LiveDebugHandle.bootError}.
+ *
+ * The seam arrives as an ARGUMENT and is never read from `window`:
+ * the entry point consumes the pre-load global synchronously and
+ * hands it here, so a pending or failed dynamic import cannot leave
+ * the reconnect bearer readable on `window` (005 FR-037, 015 FR-019).
  *
  * @param root The DOM mount node (index.html's `#root`).
+ * @param seam The direct-match seam captured by the entry point —
+ *   `undefined` when no pre-load seam was set (fails loudly below).
  */
-export function mountLiveRuntime(root: HTMLElement): void {
-    const params = new URLSearchParams(window.location.search);
-    const seam = window.__europaTestMatch;
-    const matchId = seam?.matchId ?? params.get('match');
-    const displayName = seam?.displayName ?? params.get('name') ?? '';
-    const token = seam?.reconnectToken ?? params.get('token');
+export function mountLiveRuntime(root: HTMLElement, seam: TestMatchSeam | undefined): void {
+    if (seam === undefined) {
+        // The seam object is the only supported input (013 FR-025:
+        // query consumption retired). A query-driven boot without the
+        // seam fails loudly on the handle instead of mounting.
+        window.__europaLive = failedLiveHandle('live runtime requires the window.__europaTestMatch seam');
+        return;
+    }
+    const matchId = seam.matchId;
+    const displayName = seam.displayName;
+    const token = seam.reconnectToken;
 
-    if (matchId === null) {
+    if (matchId === '') {
         // No store to surface feedback through yet; expose the reason on
         // the handle so drivers fail with a diagnostic instead of hanging.
-        // Legacy test seam: a match identifier is required when this helper is mounted directly.
-        window.__europaLive = {
-            store: undefined as unknown as ConsoleStore,
-            client: undefined as unknown as ConsoleClient,
-            bootError: 'live runtime requires a match identifier',
-        };
+        window.__europaLive = failedLiveHandle('live runtime requires a match identifier');
         return;
     }
 
     let safeUrl: string;
     try {
-        // Single-port (011): same-origin fallback when no transport override is present —
-        // same path as lobby-view. Explicit test/operator overrides still hard-error when cross-host
-        // or credential-bearing before client construction (FR-007).
-        safeUrl = seam?.wsUrl ?? resolveLobbyServerUrl(window.location.search, window.location);
+        // Single-port (011): the seam carries the transport; an empty
+        // wsUrl falls back to the same-origin default. The legacy query
+        // parameters are retired (013 FR-025) — this entry reads NO
+        // query, so no token-bearing query can reach it (FR-016).
+        safeUrl = seam.wsUrl !== '' ? seam.wsUrl : resolveLobbyServerUrl('', window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
-        window.__europaLive = {
-            store: undefined as unknown as ConsoleStore,
-            client: undefined as unknown as ConsoleClient,
-            bootError: message,
-        };
+        window.__europaLive = failedLiveHandle(message);
         return;
     }
 
@@ -160,7 +193,11 @@ export function mountLiveRuntime(root: HTMLElement): void {
         lastConnection = current;
     });
 
-    window.__europaLive = { store, client, bootError: null };
+    // Credential-free debug handle (005 FR-037, 015 FR-019): the E2E
+    // suites read state/order through a PROJECTION of the store +
+    // adapter — never the raw objects, whose state carries the seat
+    // bearer credentials (see ./debug-views).
+    window.__europaLive = liveDebugHandle(store, client);
 
     const boot = async (): Promise<void> => {
         try {

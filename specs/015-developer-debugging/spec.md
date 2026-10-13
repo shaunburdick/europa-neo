@@ -4,7 +4,11 @@
 
 **Created**: 2026-09-06
 
-**Status**: Implemented (2026-09-07)
+**Last Updated**: 2026-10-11 (v1.1; issue #129 debug-global and test-patch policy)
+
+**Version**: 1.1
+
+**Status**: Implemented (2026-09-07); v1.1 debug-surface policy amendment implemented (2026-10-12, security-sweep branch)
 
 **Input**: GitHub issue #81 — "feat: match replay capture and replay harness"
 
@@ -123,6 +127,13 @@ As a player, I want to see the map seed and other match metadata in a collapsibl
 | FR-017 | The Debug section is visible in both player and spectator modes. | P2 |
 | FR-018 | The Debug section starts collapsed; clicking the section header toggles expansion. | P2 |
 
+### Console Debug Globals & Test-Harness Surfaces (v1.1, issue #129)
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-019 | Console test/debug globals (`window.__europaTestMatch`, `window.__europaLive`, `window.__europaLobby`, `window.__europaE2E`, and successors) are test-harness surfaces. An unflagged production boot MUST NOT install any of them. They MAY be installed only by test-only boot modes (the `?e2e` harness and the direct-match seam, which live in dynamically-imported test chunks) or behind an explicit test opt-in sentinel set by test infrastructure before page load. No debug global value MAY expose a bearer credential (session, reconnect, seat-session, or guest-resume secret). | P1 |
+| FR-020 | Test infrastructure that patches browser APIs (e.g., the `history.replaceState` query-preservation init script) MUST scope the patch to the test entry/fixtures that need it, and no production path MAY depend on such a patch for correctness (spec 013 FR-035). Removing a production-reachability dependency on a test patch rides in the same change set as the patch's re-scoping. | P1 |
+
 ## Non-Functional Requirements
 
 | ID | Requirement |
@@ -155,6 +166,8 @@ As a player, I want to see the map seed and other match metadata in a collapsibl
 | FR-016 | The seed element has `aria-label="Map seed: 42"`. |
 | FR-017 | Spectator view renders the same Debug section as player view. |
 | FR-018 | Debug section is collapsed by default; expands on header click. |
+| FR-019 | A production boot (no `?e2e`, no test sentinel, no `__europaTestMatch` seam) leaves `window` free of every `__europa*` handle; test-mode boots install handles carrying no bearer credential values. (v1.1; amended in-entry 2026-10-12: on a `__europaTestMatch` boot the seam's bearer is removed from `window` synchronously — before the live-runtime chunk loads — and stays absent when that load fails.) |
+| FR-020 | Routing/transport tests pass with the `history.replaceState` patch installed only in the fixtures that need it; no production assertion depends on the patch. |
 
 ## Out of Scope
 
@@ -193,4 +206,10 @@ This spec is designed to grow with additional debugging tools. Potential future 
 
 ## Clarifications
 
-*(None yet — pending clarification round.)*
+### v1.1 (2026-10-11) — Debug-surface and test-patch policy (issue #129, security-sweep)
+
+- This spec is the policy home for console debug/test globals because it owns the developer-tooling boundary (Problem Statement: "designed to grow with additional debugging capabilities without requiring new feature specs"). FR-019/FR-020 do not change any replay, capture, or seed-display requirement (FR-001..FR-018 untouched).
+- **Resolved question — where does global-gating live?** Console ownership rules for `window.__europa*` are specified HERE (as developer-tooling policy) and cross-referenced from spec 005 FR-037 (console implementation duty) and spec 013 FR-035/AC-020 (routing-surface enforcement). One normative policy, three enforcement points; no duplicated or divergent rule.
+- **Resolved question — how do tests keep their handles?** Test-only boot modes (`?e2e`, the `window.__europaTestMatch` direct-match seam) and an explicit pre-load opt-in sentinel set by test infrastructure are the two permitted channels. The `?e2e` harness keeps `window.__europaE2E`; the lobby E2E suite moves from the production bootstrap's `window.__europaLobby` to the sentinel channel in the same change set (spec 005 FR-037).
+- **2026-10-12 (v1.1 in-entry clarification, no version bump) — what the direct-match seam MAY carry**: FR-019's bearer prohibition governs debug globals the console app INSTALLS or RETAINS. The `window.__europaTestMatch` direct-match seam is the pre-load INPUT channel named in the resolved question above (set by test infrastructure before load); it MAY carry a reconnect bearer, and the entry point MUST consume it and remove the global SYNCHRONOUSLY — before any asynchronous work, including the dynamically-imported test chunk that boots the live runtime — so no credential-bearing `__europa*` value survives the entry module's first synchronous instructions on ANY path. A failed dynamic import MUST be reported (console error channel), never left as an unhandled rejection, and still MUST NOT leave the credential on `window`. Installed handles (`window.__europaLive`, `window.__europaLobby`, `window.__europaE2E`, successors) MUST NOT expose bearer credentials under any circumstances. (PR #189 round-2 remediation: the previous code removed the seam only inside the live-runtime chunk, after the dynamic import resolved — exposing the bearer for the whole import window, and for the page's lifetime when the import failed.)
+- **Non-goal**: this amendment does not gate the player-facing in-game Debug section (FR-014..FR-018, seed display) — that surface shows only the map seed and stays as shipped.

@@ -15,7 +15,7 @@
  * instead of `/lobby`. Pass `returnToPath` to wait for the correct URL.
  */
 
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 /** Timeout for waits that depend on server-side identity resolution. */
 const WAIT_TIMEOUT = 15_000;
@@ -57,4 +57,47 @@ export async function setHandleViaProfile(page: Page, handle: string, returnToPa
     // successful submission. history.pushState does not trigger a load
     // event, so poll the URL directly.
     await page.waitForFunction((expected) => window.location.pathname === expected, returnToPath);
+}
+
+/**
+ * Rename the handle of an ALREADY-NAMED identity through the
+ * `/profile` route (feature 015), keeping the live socket.
+ *
+ * Distinct from {@link setHandleViaProfile} on purpose: `ProfileView`
+ * auto-navigates only on the unnamed → named transition, so a rename
+ * lands on the welcome card instead. This helper walks that path
+ * (Manage profile → Change name → submit → Continue to lobby) and
+ * treats the welcome card showing the NEW handle as the settle signal —
+ * the rename resolves on the directed identity event, not on the click.
+ *
+ * That event carries no resume secret (plan AD-11 / spec 006 FR-026
+ * rename path), which is exactly what the SC-017(a) reload below stakes
+ * its stored credential on.
+ *
+ * @param page   A live lobby page whose identity is `named`.
+ * @param next   The replacement display handle.
+ */
+export async function renameHandleViaProfile(page: Page, next: string): Promise<void> {
+    const manageLink = page.getByRole('link', { name: /manage profile/i });
+    await manageLink.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
+    await manageLink.click();
+    await page.waitForFunction(() => window.location.pathname === '/profile');
+
+    const changeName = page.getByRole('button', { name: /change name/i });
+    await changeName.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
+    await changeName.click();
+
+    const field = page.getByRole('textbox', { name: /display name/i });
+    await field.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
+    await field.fill(next);
+    await page.locator('[data-europa-submit-handle="true"]').click();
+
+    // Editing mode exits only when `handle` actually changes, so the
+    // welcome card carrying `next` proves the server accepted the rename.
+    await expect(page.locator('p[data-europa-identity-status="named"]')).toContainText(next, {
+        timeout: WAIT_TIMEOUT,
+    });
+
+    await page.getByRole('button', { name: /continue to lobby/i }).click();
+    await page.waitForFunction(() => window.location.pathname === '/lobby');
 }

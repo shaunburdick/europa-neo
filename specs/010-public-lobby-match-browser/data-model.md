@@ -74,11 +74,24 @@ interface LobbyClientState {
 }
 ```
 
-The client stores `{ guestPlayerIdClaim, handle }` under a namespaced
-local-storage key. It treats both as untrusted input and may display or forward
-the ID for correlation. Match tokens remain in memory/session handling as
-already defined by networking: they are bearer credentials and must not enter
+The client stores `{ guestPlayerIdClaim, resumeSecret, handle }` under a
+namespaced local-storage key (spec v1.13 FR-003/FR-042). The `resumeSecret`
+is a bearer credential: like `sessionToken`/`reconnectToken` it must not enter
+unsafe URLs, logs, diagnostics, documentation examples, or any UI surface; it
+is stored beside the claim only so a reload can present it as restore proof.
+The `guestPlayerIdClaim` and handle remain untrusted input that the client may
+display or forward for correlation; the claim alone grants no authority
+(v1.13 FR-041). Match tokens remain in memory/session handling as already
+defined by networking: they are bearer credentials and must not enter
 unsafe URLs, logs, diagnostics, or documentation examples.
+
+**Same-change-set obligation (constitution IV — stale specs are bugs):** the
+issue #146 implementation change set that adds `resumeSecret` to client
+storage MUST update this §4 contract in the same change set, and MUST update
+the mirroring JSDoc in `packages/console/src/net/lobby-storage.ts` (its module
+doc currently cites "only `{ guestPlayerIdClaim, handle }`" and references this
+file). This specification-phase amendment names the obligation; the code-comment
+edit itself rides with the implementation, not here.
 
 ## 5. State transitions and invariants
 

@@ -55,6 +55,7 @@ import { createIdentityRegistry, type IdentityRegistry } from '../../src/interna
 import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';
 import { nextConnectionId } from '../fixtures/fakeMatchmakerBridge';
 import { FakeServer } from '../fixtures/fakeServer';
+import { requireResumeSecret } from '../fixtures/lobbyIdentities';
 
 // ----------------------------------------------------------------------------
 // Deterministic harness
@@ -102,9 +103,10 @@ interface Stack {
     readonly matchmaker: Matchmaker;
     /** The composed facade under test. */
     readonly service: LobbyService & LobbyConnectionTeardown;
-    readonly registry: IdentityRegistry;
     /** Every outbound delivery, in order. */
     readonly delivered: Delivery[];
+    /** Registry seam: reads the owner-only secret without projecting it. */
+    readonly registry: IdentityRegistry;
 }
 
 /**
@@ -344,7 +346,10 @@ describe('connectionClosed over the composed stack (R-006)', () => {
 
         // …and the claimant restores identity AND seat presence (FR-022).
         const reclaimConn = nextConnectionId();
-        const reclaimed = stack.service.establishIdentity({ guestPlayerId: host.guestId }, reclaimConn);
+        const reclaimed = stack.service.establishIdentity(
+            { guestPlayerId: host.guestId, resumeSecret: requireResumeSecret(stack.registry, host.guestId) },
+            reclaimConn,
+        );
         expect(reclaimed).toEqual({ handle: 'Nova', hasIdentity: true });
         expect(expectOk(stack.service.subscribe(reclaimConn)).activeMatchId).toBe(created.matchId);
         await stack.service.close();
@@ -382,7 +387,10 @@ describe('connectionClosed over the composed stack (R-006)', () => {
         // Identity restored within grace, but the read-only association
         // ended with the connection — spectators hold no seat to reclaim.
         const backConn = nextConnectionId();
-        const restored = stack.service.establishIdentity({ guestPlayerId: watcher.guestId }, backConn);
+        const restored = stack.service.establishIdentity(
+            { guestPlayerId: watcher.guestId, resumeSecret: requireResumeSecret(stack.registry, watcher.guestId) },
+            backConn,
+        );
         expect(restored).toEqual({ handle: 'Watcher', hasIdentity: true });
         expect(expectOk(stack.service.subscribe(backConn)).activeMatchId).toBeNull();
         await stack.service.close();

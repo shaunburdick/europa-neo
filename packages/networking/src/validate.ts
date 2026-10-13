@@ -436,6 +436,10 @@ export function validateEnvelope(value: unknown): asserts value is ProtocolEnvel
  *     (feature 010). A numeric or malformed value is a `malformed_payload`
  *     rejection at the wire boundary; the server still resolves identity
  *     authoritatively and never trusts the claim.
+ *   - `lobbyIdentity.claim.resumeSecret` — the owner-only restore proof
+ *     (feature 004 FR-026). Absence is legal and meaningful (it marks the
+ *     advisory id-only claim), so only a present-but-wrong-typed value is
+ *     rejected.
  *
  * @param type    The validated envelope kind.
  * @param payload The validated payload object.
@@ -459,6 +463,10 @@ function validateOptionalIdentityFields(type: MessageKind, payload: Record<strin
     const { handle } = claim;
     if (handle !== undefined && typeof handle !== 'string') {
         throw malformed('payload.claim.handle must be a string when present');
+    }
+    const { resumeSecret } = claim;
+    if (resumeSecret !== undefined && typeof resumeSecret !== 'string') {
+        throw malformed('payload.claim.resumeSecret must be a string when present');
     }
 }
 

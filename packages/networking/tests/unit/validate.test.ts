@@ -260,6 +260,36 @@ describe('validateEnvelope — per-kind required fields', () => {
         };
         expect(() => validateEnvelope(badHandle)).toThrow(/claim\.handle must be a string/);
     });
+
+    it('admits an absent resume secret and rejects a non-string one (FR-026 absent-tolerance)', () => {
+        // Absence is the advisory id-only claim and MUST stay legal on
+        // every peer generation (D4)…
+        const idOnly = {
+            type: 'lobbyIdentity',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { claim: { guestPlayerId: 'Player000002' } },
+        };
+        expect(() => validateEnvelope(idOnly)).not.toThrow();
+
+        // …while a present value is the owner-only bearer credential and
+        // must be canonical when it arrives at the wire boundary.
+        const proven = {
+            type: 'lobbyIdentity',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { claim: { guestPlayerId: 'Player000002', resumeSecret: '2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10' } },
+        };
+        expect(() => validateEnvelope(proven)).not.toThrow();
+
+        const badSecret = {
+            type: 'lobbyIdentity',
+            version: NETWORK_API_VERSION,
+            seq: 1,
+            payload: { claim: { resumeSecret: 7 } },
+        };
+        expect(() => validateEnvelope(badSecret)).toThrow(/claim\.resumeSecret must be a string/);
+    });
 });
 
 describe('validateVersion', () => {

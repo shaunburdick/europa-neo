@@ -57,6 +57,7 @@ import {
 } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
+import { optInLobbyTestHandle, preserveWsAndQueryParamsInHistory } from './helpers/history-patch';
 import { setHandleViaProfile } from './helpers/profile';
 
 /** Fixed test cadence; match tickIntervalMs MUST equal server tickRateMs. */
@@ -67,34 +68,6 @@ const WAIT_TIMEOUT = 30_000;
 
 /** Canonical identity shape (contracts/identity-contract.md). */
 const PLAYER_ID_PATTERN = /^[A-Za-z0-9_-]{12}$/;
-
-// ---------------------------------------------------------------------------
-// History patch — preserve the test-only ?ws= transport override
-// ---------------------------------------------------------------------------
-
-/**
- * Merge-variant of the standard history patch for the unnamed deep-link
- * round-trip: the redirect rewrites the URL to `/profile?returnTo=…`, and
- * a plain preserve script would REPLACE that query with the live `?ws=`
- * override, dropping `returnTo` and dead-ending the round-trip. Merging
- * keeps BOTH the override and any params the target URL already carries.
- */
-function preserveWsAndQueryParamsInHistory(): void {
-    const mergeWsQuery = (url: string | URL | null): string | URL | null => {
-        if (url === null || !window.location.search.startsWith('?ws=')) return url;
-        const parsed = new URL(String(url), window.location.origin);
-        const merged = new URLSearchParams(window.location.search);
-        for (const [key, value] of new URLSearchParams(parsed.search)) {
-            merged.set(key, value);
-        }
-        parsed.search = merged.toString();
-        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    };
-    const replaceState = window.history.replaceState.bind(window.history);
-    const pushState = window.history.pushState.bind(window.history);
-    window.history.replaceState = (state, title, url) => replaceState(state, title, mergeWsQuery(url));
-    window.history.pushState = (state, title, url) => pushState(state, title, mergeWsQuery(url));
-}
 
 // ---------------------------------------------------------------------------
 // Stack harness (mirrors scripts/host.ts / lobby.spec.ts)
@@ -260,6 +233,7 @@ function viewPlayer(payload: NetworkPayload): string | null {
 async function openTab(browser: import('@playwright/test').Browser, wsPort: number, path = '/lobby'): Promise<Page> {
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     await context.addInitScript(preserveWsAndQueryParamsInHistory);
+    await context.addInitScript(optInLobbyTestHandle);
     const page = await context.newPage();
     await page.goto(`${path}?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
     return page;

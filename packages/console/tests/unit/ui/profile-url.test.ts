@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { readReturnTo } from '../../../src/ui/profile-url';
+import { isSafeReturnTo, readReturnTo } from '../../../src/ui/profile-url';
 
 describe('readReturnTo', () => {
     // ── Valid cases ──────────────────────────────────────────────
@@ -74,7 +74,7 @@ describe('readReturnTo', () => {
         expect(readReturnTo('?returnTo=%2Fmatch%2Fabc%2Fjoin')).toBe('/match/abc/join');
     });
 
-    it('returns null for malformed percent-encoding (throws URIError)', () => {
+    it('treats malformed percent-encoding as absent (single decode never throws)', () => {
         expect(readReturnTo('?returnTo=malformed%ZZ')).toBeNull();
     });
 
@@ -93,4 +93,53 @@ describe('readReturnTo', () => {
     it('rejects a path with :// buried after a slash', () => {
         expect(readReturnTo('?returnTo=%2Fhttp%3A%2F%2Fevil.com')).toBeNull();
     });
+
+    // ── AC-019 corpus additions (013 FR-034: single decode + widened guard) ──
+
+    it('rejects a backslash open-redirect variant (URL-equivalent to //)', () => {
+        // `/\evil.com` navigates like `//evil.com` for special schemes.
+        expect(readReturnTo('?returnTo=%2F%5Cevil.com')).toBeNull();
+    });
+
+    it('rejects an embedded query string (returnTo is a pathname)', () => {
+        expect(readReturnTo('?returnTo=%2Flobby%3Fws%3Devil')).toBeNull();
+    });
+
+    it('rejects a double-encoded value under single-decode semantics', () => {
+        // `%252F%252Fevil.com` decodes ONCE to `%2F%2Fevil.com`, which
+        // lacks the leading slash — absent, not decoded a second time
+        // into the protocol-relative reject (013 FR-034).
+        expect(readReturnTo('?returnTo=%252F%252Fevil.com')).toBeNull();
+    });
+
+    it('rejects an encoded traversal the single decode unmasks', () => {
+        expect(readReturnTo('?returnTo=%2F%252e%252e%2Fadmin')).toBeNull();
+    });
+});
+
+describe('isSafeReturnTo (the canonical 013 FR-034 guard)', () => {
+    const corpus: readonly string[] = [
+        '//evil.com',
+        'https://evil.com',
+        '/%2e%2e/x',
+        '/../x',
+        '/%2F%2Fevil.com',
+        '/\\evil.com',
+        '/lobby?ws=evil',
+        'not-a-path',
+        '',
+        '/foo..bar',
+        '/match/abc/join?x=1',
+    ];
+
+    it.each(corpus)('treats the AC-019 corpus value as absent: %s', (value) => {
+        expect(isSafeReturnTo(value)).toBe(false);
+    });
+
+    it.each(['/lobby', '/', '/match/abc-123/join', '/match/abc-123/spectate'])(
+        'accepts the safe pathname: %s',
+        (value) => {
+            expect(isSafeReturnTo(value)).toBe(true);
+        },
+    );
 });

@@ -45,241 +45,20 @@
  *   - Scoped checks only: build workspace deps, then this suite.
  */
 
-import { computePlayerView } from '@europa/fog';
-import { createLobbyService, createMatchmaker, type Matchmaker } from '@europa/matchmaking';
-import {
-    createMatchServer,
-    type Logger,
-    type MatchmakerBridge,
-    NETWORK_DEFAULT_CONFIG,
-    NULL_LOGGER,
-    type Server,
-    type ServerDeps,
-} from '@europa/networking';
+import type { Matchmaker } from '@europa/matchmaking';
+import type { Server } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
+import { optInLobbyTestHandle, preserveWsQueryInHistory } from './helpers/history-patch';
+import { assertHandleInBdi, readLobbyOrThrow, WAIT_TIMEOUT, waitUntilLobby } from './helpers/lobby-page';
+import { buildLobbyStack, TICK_MS } from './helpers/lobby-stack';
 import { setHandleViaProfile } from './helpers/profile';
 
-/** Retain the ephemeral test server override while the app canonicalizes paths. */
-function preserveWsQueryInHistory(): void {
-    const preserveWsQuery = (url: string | URL | null): string | URL | null => {
-        if (url === null || !window.location.search.startsWith('?ws=')) return url;
-        const parsed = new URL(String(url), window.location.origin);
-        parsed.search = window.location.search;
-        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    };
-    const replaceState = window.history.replaceState.bind(window.history);
-    const pushState = window.history.pushState.bind(window.history);
-    window.history.replaceState = (state, title, url) => replaceState(state, title, preserveWsQuery(url));
-    window.history.pushState = (state, title, url) => pushState(state, title, preserveWsQuery(url));
-}
-
 // ---------------------------------------------------------------------------
-// Tunables (single location — constitution Principle V / AGENTS.md rule 3)
+// Stack harness (real server ⇄ real facade ⇄ real matchmaker) lives in
+// ./helpers/lobby-stack.ts; the lobby-handle readers in ./helpers/lobby-page.ts.
+// Both suites (lobby lifecycle, SC-017 trials) share them.
 // ---------------------------------------------------------------------------
-
-/** Fixed test cadence; match tickIntervalMs MUST equal server tickRateMs. */
-const TICK_MS = 250;
-
-/** Default poll timeout for observable state (CI-safe upper bound). */
-const WAIT_TIMEOUT = 15_000;
-
-// ---------------------------------------------------------------------------
-// Stack harness (real server ⇄ real facade ⇄ real matchmaker)
-// ---------------------------------------------------------------------------
-
-/** What {@link buildLobbyStack} returns: running components to shut down. */
-interface LobbyStack {
-    readonly server: Server;
-    readonly matchmaker: Matchmaker;
-    /** Read the memoized lobby facade once built; null until first lobby frame. */
-    readonly lobbyFacade: () => ReturnType<typeof createLobbyService> | null;
-}
-
-/**
- * Wire matchmaker ⇄ match server ⇄ lobby facade per the documented
- * host recipe: forwarding bridge + lazy lobby-facade via `ServerDeps.lobby`,
- * matchmaker binds via the soft `bindMatchmaker` seam.
- */
-function buildLobbyStack(port = 0): LobbyStack {
-    let bound: MatchmakerBridge = {};
-    const forwardingBridge: MatchmakerBridge = {
-        onSeatClaimed: (event) => bound.onSeatClaimed?.(event),
-        onSeatDisconnected: (event) => bound.onSeatDisconnected?.(event),
-        onSeatReconnected: (event) => bound.onSeatReconnected?.(event),
-        onSeatExpired: (event) => bound.onSeatExpired?.(event),
-        onMatchTerminal: (event) => bound.onMatchTerminal?.(event),
-    };
-
-    const wiring: { matchmaker: Matchmaker | null; lobby: ReturnType<typeof createLobbyService> | null } = {
-        matchmaker: null,
-        lobby: null,
-    };
-
-    const deps: ServerDeps = {
-        engine: {
-            // Real sessions arrive pre-built from the matchmaker's auto-start.
-            createMatchSession: () => {
-                throw new Error('engine factory not used (matchmaker pre-builds sessions)');
-            },
-        },
-        fog: {
-            computePlayerView: ({ world, playerId, spectator }) => computePlayerView(world, playerId, { spectator }),
-        },
-        matchmaker: forwardingBridge,
-        logger: NULL_LOGGER as Logger,
-        lobby: {
-            create: (sink) => {
-                const matchmaker = wiring.matchmaker;
-                if (matchmaker === null) {
-                    throw new Error('host wiring bug: lobby frame arrived before the matchmaker was bound');
-                }
-                const facade = createLobbyService({ matchmaker, deliver: sink.deliver });
-                wiring.lobby = facade;
-                return facade;
-            },
-        },
-    };
-
-    const server = createMatchServer(
-        { ...NETWORK_DEFAULT_CONFIG, host: '127.0.0.1', port, tickRateMs: TICK_MS, ordersPerSecond: 1000 },
-        deps,
-    );
-
-    const bindable = Object.assign(server, {
-        bindMatchmaker(bridge: MatchmakerBridge): void {
-            bound = { ...bound, ...bridge };
-        },
-    });
-
-    const matchmaker = createMatchmaker({}, { server: bindable });
-    wiring.matchmaker = matchmaker;
-
-    return {
-        server,
-        matchmaker,
-        lobbyFacade: () => wiring.lobby,
-    };
-}
-
-// ---------------------------------------------------------------------------
-// Browser-side helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Minimal mirror of the lobby runtime's `window.__europaLobby` handle
- * (spec-side view for internal-state assertions).
- */
-interface LobbyHandleView {
-    readonly store: {
-        getState(): {
-            readonly viewMode: string;
-            readonly handle: string | null;
-            readonly activeMatchId: string | null;
-            readonly identityStatus: string;
-            readonly connection: string;
-            readonly snapshot: {
-                readonly entries: ReadonlyArray<{
-                    readonly matchId: string;
-                    readonly status: string;
-                    readonly seatsFilled: number;
-                    readonly capacity: number;
-                }>;
-            } | null;
-        };
-    };
-}
-
-/**
- * Read the lobby handle's essential state from a page.
- *
- * @param page Playwright page with a mounted lobby runtime.
- * @returns The lobby state snapshot, or null if the handle is missing.
- */
-async function readLobby(page: Page): Promise<{
-    viewMode: string;
-    handle: string | null;
-    activeMatchId: string | null;
-    identityStatus: string;
-    connection: string;
-    entries: ReadonlyArray<{
-        matchId: string;
-        status: string;
-        seatsFilled: number;
-        capacity: number;
-    }>;
-} | null> {
-    return page.evaluate(() => {
-        const handle = (window as unknown as { __europaLobby?: LobbyHandleView }).__europaLobby;
-        if (handle === undefined || handle.store === undefined) {
-            return null;
-        }
-        const state = handle.store.getState();
-        return {
-            viewMode: state.viewMode,
-            handle: state.handle,
-            activeMatchId: state.activeMatchId,
-            identityStatus: state.identityStatus,
-            connection: state.connection,
-            entries: (state.snapshot?.entries ?? []).map((entry) => ({
-                matchId: entry.matchId,
-                status: entry.status,
-                seatsFilled: entry.seatsFilled,
-                capacity: entry.capacity,
-            })),
-        };
-    });
-}
-
-/**
- * Read the lobby handle's state, failing with a clear message when
- * the runtime never mounted.
- */
-async function readLobbyOrThrow(page: Page): Promise<NonNullable<Awaited<ReturnType<typeof readLobby>>>> {
-    const lobby = await readLobby(page);
-    if (lobby === null) {
-        throw new Error('lobby runtime handle missing — page did not mount lobby runtime');
-    }
-    return lobby;
-}
-
-/**
- * Poll a page until `when` holds on the lobby state. Fails with a
- * clear message on timeout (never hangs silently).
- */
-async function waitUntilLobby(
-    page: Page,
-    when: (lobby: NonNullable<Awaited<ReturnType<typeof readLobby>>>) => boolean,
-    description: string,
-): Promise<void> {
-    await expect
-        .poll(
-            async () => {
-                const lobby = await readLobby(page);
-                if (lobby === null) {
-                    return false;
-                }
-                return when(lobby);
-            },
-            { timeout: WAIT_TIMEOUT, intervals: [50, 100, 250] },
-        )
-        .toBe(true, description);
-}
-
-/**
- * Verify the lobby page renders a handle in the identity card.
- * Checks for either a `<bdi>` element (hostile-but-valid user content
- * isolation, WCAG bidi) or the `.europa-lobby__identity-name` span
- * used by the redesigned lobby layout.
- */
-async function assertHandleInBdi(page: Page, handle: string): Promise<void> {
-    const bdiCount = await page.locator('bdi').filter({ hasText: handle }).count();
-    const identityNameCount = await page.locator('.europa-lobby__identity-name').filter({ hasText: handle }).count();
-    expect(
-        bdiCount + identityNameCount,
-        `handle "${handle}" not found in a <bdi> or .europa-lobby__identity-name element`,
-    ).toBeGreaterThan(0);
-}
 
 // ---------------------------------------------------------------------------
 // The proofs
@@ -318,6 +97,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const openLobbyTab = async (name: string): Promise<Page> => {
             const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
             await context.addInitScript(preserveWsQueryInHistory);
+            await context.addInitScript(optInLobbyTestHandle);
             const page = await context.newPage();
             page.on('pageerror', (error) => {
                 errors.push(`${name}: ${String(error)}`);
@@ -432,6 +212,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const openLobbyTab = async (name: string): Promise<Page> => {
             const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
             await context.addInitScript(preserveWsQueryInHistory);
+            await context.addInitScript(optInLobbyTestHandle);
             const page = await context.newPage();
             page.on('pageerror', (error) => {
                 errors.push(`${name}: ${String(error)}`);
@@ -542,6 +323,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const openTab = async (name: string, path = '/lobby'): Promise<Page> => {
             const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
             await context.addInitScript(preserveWsQueryInHistory);
+            await context.addInitScript(optInLobbyTestHandle);
             const page = await context.newPage();
             page.on('pageerror', (error) => errors.push(`${name}: ${String(error)}`));
             await page.goto(`${path}?ws=${encodeURIComponent(wsUrl)}`);
@@ -664,6 +446,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
@@ -708,6 +491,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
@@ -769,6 +553,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         page.on('pageerror', (error) => {
             errors.push(String(error));
@@ -852,6 +637,7 @@ test.describe('lobby E2E — full lifecycle through the real stack (feature 010 
 
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         await page.goto(`/lobby?ws=ws://127.0.0.1:${String(wsPort)}`);
 

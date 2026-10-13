@@ -61,7 +61,16 @@ export function consoleStatusFromConnectionState(state: ConnectionState): Consol
             return 'game_over';
         case 'closed':
             return 'closed';
-        default:
-            return state;
+        default: {
+            // 005 FR-036: an explicit never sink, not a
+            // `default: return state`. Returning the input compiles
+            // while defeating the exhaustiveness check — a new
+            // networking state would then reach the UI aliased as its
+            // own raw name. With the sink, that same addition fails to
+            // compile, and an unmapped value at runtime fails loudly
+            // here instead of rendering an unknown status.
+            const unmapped: never = state;
+            throw new Error(`consoleStatusFromConnectionState: unmapped connection state ${String(unmapped)}`);
+        }
     }
 }
