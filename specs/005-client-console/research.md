@@ -946,7 +946,7 @@ or visually inert when `store === undefined`.
 
 ---
 
-## 16. PR-3 research addendum — console review cleanup (spec 005 v1.12 / spec 010 v1.14, issues #153 + #127, 2026-10-12)
+## 16. PR-3 research addendum — console review cleanup (spec 005 v1.12 / spec 010 v1.15, issues #153 + #127, 2026-10-12)
 
 Companion to `plan.md` §5. Each entry records the decision, the
 alternatives considered, and why they were rejected. No new runtime
@@ -968,7 +968,7 @@ dependency is introduced anywhere in this section.
   the array the controller forwards (`lobby-controller.ts:242-246`).
 - *Rejected*: re-sorting on every render in the roster card — a
   compensating view-side sort is explicitly forbidden by the spec 010
-  v1.14 clarification ("without a compensating re-sort").
+  v1.15 clarification ("without a compensating re-sort").
 - *Note*: the console already depends on `@europa/engine`
   (`packages/console/package.json`), so no dependency change.
 

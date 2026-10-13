@@ -2,7 +2,7 @@
 
 **Spec**: `specs/005-client-console/spec.md` v1.12 FR-045 (issue #153 `F-CON-ST-003`; issue #153 `F-CON-ST-004` — its **`reduce()`-level** same-reference AC only; the wire half of ST-004 is already fixed on `main` and is a regression guard)
 **Canonical type**: `packages/console/src/contracts/console-state.ts` (`ReduceOptions`)
-**Status**: draft (Phase-4 artifact; UNAPPROVED)
+**Status**: approved (Phase-4 artifact; Gates 1–3 PASS, shipped in PR #191)
 
 ## What changed
 

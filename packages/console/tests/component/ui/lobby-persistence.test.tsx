@@ -10,14 +10,17 @@
  *
  *   1. First visit: a fresh browser presents an advisory claim with NO
  *      identity (issue #74 — the browser never mints one), the server
- *      issues its OWN canonical id and delivers it through the directed
- *      `identity` event (spec Clarifications v1.6 channel), the client
- *      adopts + persists it, and a handle chosen through the form is
- *      confirmed.
+ *      issues its OWN canonical id and owner-only resume secret and
+ *      delivers them through the directed `identity` event (spec
+ *      Clarifications v1.6 channel + issue #146), the client adopts +
+ *      persists them, and a handle chosen through the form is confirmed.
  *   2. "Reload": a brand-new client + controller over the SAME
  *      browser storage re-mounts the landing, presents the STORED
- *      claim (server-issued id), and the landing restores to `named`
- *      showing the handle without re-entry.
+ *      claim INCLUDING its resume secret (the scripted server restores
+ *      only then), and the landing restores to `named` showing the
+ *      handle without re-entry.
+ *   3. Rename → reload → restore: a secret-less rename emission must not
+ *      wipe the stored credential a later reload needs (plan AD-9/Q1a).
  *
  * No real sockets: the WebSocket is injected (`webSocketFactory`) and
  * every frame is exchanged synchronously with the scripted server.
@@ -47,6 +50,9 @@ const WIRE_VERSION = NETWORK_API_VERSION;
 /** Minimal WebSocket double: records outbound frames, exposes drivers. */
 class FakeSocket {
     readonly sent: string[] = [];
+
+    /** Platform ready-state (WebSocket.OPEN = 1). */
+    readyState = 1;
 
     onopen: (() => void) | null = null;
     onmessage: ((event: { data: string }) => void) | null = null;
@@ -82,22 +88,46 @@ interface WireFrame {
 /**
  * One-session fake lobby server: resolves presented claims against an
  * in-memory registry, ISSUES its own canonical id when a client presents
- * none (issue #74 — clients never mint), delivers directed identity
- * events carrying that id (v1.6), settles renames with a fresh directed
- * event, and answers subscribe with an empty baseline snapshot.
+ * none (issue #74 — clients never mint), mints an owner-only resume
+ * secret beside every identity (issue #146), RESTORES only a claim that
+ * presents the matching secret, delivers directed identity events
+ * carrying that secret on establishment and omitting it on rename,
+ * settles renames with a fresh directed event, and answers subscribe
+ * with an empty baseline snapshot.
  */
+
+/** Registry record for one scripted identity. */
+interface ScriptedRecord {
+    handle: string | null;
+    secret: string;
+}
+
+/** Registry of guest id → scripted record, shared across "page loads". */
+type ScriptedRegistry = Map<string, ScriptedRecord>;
+
+/**
+ * Issued-id counter lives at MODULE scope (reset per test) so a "reload"
+ * cannot accidentally re-issue the previous session's id — mint-fresh has
+ * to be observable as a different identity.
+ */
+let issuedCounter = 0;
+/** Companion monotonic source for the scripted server's secrets. */
+let secretCounter = 0;
+
+function mintScriptedSecret(): string {
+    secretCounter += 1;
+    return `scripted-secret-${String(secretCounter).padStart(4, '0')}`;
+}
+
 class ScriptedLobbyServer {
-    /** Registry of guest id → accepted handle (`null` while unnamed). */
-    private readonly registry: Map<string, string | null>;
+    private readonly registry: ScriptedRegistry;
 
     private sessionGuestId: string | null = null;
     private snapshotSeq = 0;
-    /** Monotonic source of canonical server-issued ids. */
-    private issuedCounter = 0;
 
     constructor(
         private readonly socket: FakeSocket,
-        registry = new Map<string, string | null>(),
+        registry: ScriptedRegistry = new Map<string, ScriptedRecord>(),
     ) {
         this.registry = registry;
         socket.onSend = (raw) => {
@@ -107,8 +137,8 @@ class ScriptedLobbyServer {
 
     /** Mint a canonical 12-character server identity. */
     private issueGuestId(): string {
-        this.issuedCounter += 1;
-        return `SrvGuest${String(this.issuedCounter).padStart(4, '0')}`;
+        issuedCounter += 1;
+        return `SrvGuest${String(issuedCounter).padStart(4, '0')}`;
     }
 
     /** The guest id this server issued for the current session. */
@@ -128,24 +158,40 @@ class ScriptedLobbyServer {
                 });
                 return;
             case 'lobbyIdentity': {
-                const claim = frame.payload.claim as { guestPlayerId?: string; handle?: string };
+                const claim = frame.payload.claim as {
+                    guestPlayerId?: string;
+                    handle?: string;
+                    resumeSecret?: string;
+                };
                 // A first visit presents NO id (issue #74): the server
-                // issues its own. A known presented id is restored.
-                const presented = claim.guestPlayerId;
-                const resolved =
-                    presented !== undefined && this.registry.has(presented) ? presented : this.issueGuestId();
-                if (!this.registry.has(resolved)) {
-                    this.registry.set(resolved, null);
+                // issues its own. A presented id is restored ONLY when the
+                // claim carries its matching resume secret (issue #146);
+                // an id-only claim is advisory and mints fresh.
+                const record = claim.guestPlayerId === undefined ? undefined : this.registry.get(claim.guestPlayerId);
+                const authorized =
+                    record !== undefined && claim.resumeSecret !== undefined && claim.resumeSecret === record.secret;
+                if (authorized && record !== undefined && claim.guestPlayerId !== undefined) {
+                    // Single-epoch (D3): a successful restore rotates.
+                    record.secret = mintScriptedSecret();
+                    this.sessionGuestId = claim.guestPlayerId;
+                } else {
+                    const fresh = this.issueGuestId();
+                    this.registry.set(fresh, { handle: null, secret: mintScriptedSecret() });
+                    this.sessionGuestId = fresh;
                 }
-                this.sessionGuestId = resolved;
-                this.deliverIdentity();
+                this.deliverIdentity(true);
                 return;
             }
             case 'lobbySetHandle': {
                 const handle = frame.payload.handle as string;
                 if (this.sessionGuestId !== null) {
-                    this.registry.set(this.sessionGuestId, handle);
-                    this.deliverIdentity();
+                    const record = this.registry.get(this.sessionGuestId);
+                    this.registry.set(this.sessionGuestId, {
+                        handle,
+                        secret: record?.secret ?? mintScriptedSecret(),
+                    });
+                    // Rename-path emission: id + handle, NO secret (plan AD-11).
+                    this.deliverIdentity(false);
                 }
                 return;
             }
@@ -168,20 +214,18 @@ class ScriptedLobbyServer {
     }
 
     /** Deliver the directed identity projection for the active session. */
-    private deliverIdentity(): void {
+    private deliverIdentity(withSecret: boolean): void {
         if (this.sessionGuestId === null) {
             return;
         }
-        this.socket.deliver('lobbyEvent', {
-            event: {
-                kind: 'identity',
-                identity: {
-                    handle: this.registry.get(this.sessionGuestId) ?? null,
-                    hasIdentity: true,
-                    guestPlayerId: this.sessionGuestId,
-                },
-            },
-        });
+        const record = this.registry.get(this.sessionGuestId);
+        const identity: { handle: string | null; hasIdentity: true; guestPlayerId: string; resumeSecret?: string } = {
+            handle: record?.handle ?? null,
+            hasIdentity: true,
+            guestPlayerId: this.sessionGuestId,
+            ...(withSecret && record !== undefined ? { resumeSecret: record.secret } : {}),
+        };
+        this.socket.deliver('lobbyEvent', { event: { kind: 'identity', identity } });
     }
 }
 
@@ -204,7 +248,7 @@ interface MountedLobby {
  * `LobbyRoot`. Callers drive `socket.open()` to run the establish
  * cycle against the scripted server.
  */
-async function mountFreshLanding(registry?: Map<string, string | null>): Promise<MountedLobby> {
+async function mountFreshLanding(registry?: ScriptedRegistry): Promise<MountedLobby> {
     let socket: FakeSocket | null = null;
     const client = createWsLobbyClient({
         webSocketFactory: () => {
@@ -230,6 +274,8 @@ async function mountFreshLanding(registry?: Map<string, string | null>): Promise
 
 beforeEach(() => {
     window.localStorage.removeItem(LOBBY_STORAGE_KEY);
+    issuedCounter = 0;
+    secretCounter = 0;
 });
 
 afterEach(() => {
@@ -273,7 +319,7 @@ describe('lobby identity persistence across a page remount (US1/FR-003)', () => 
 
     test('a remount over the same storage restores the named identity without re-entry', async () => {
         // -- Visit 1: establish + name (setup for the reload) ---------------
-        const registry = new Map<string, string | null>();
+        const registry: ScriptedRegistry = new Map();
         const first = await mountFreshLanding(registry);
         first.socket.open();
         await first.connecting;
@@ -308,6 +354,59 @@ describe('lobby identity persistence across a page remount (US1/FR-003)', () => 
         const presentedClaim = identityFrame?.payload.claim as { guestPlayerId: string; handle: string };
         expect(presentedClaim.guestPlayerId).toBe(issuedId);
         expect(presentedClaim.handle).toBe('Nova');
+
+        second.controller.disconnect();
+    });
+
+    test('rename → reload → restore keeps the identity, the handle, and its credential', async () => {
+        // SC-017 trial (a) extended (plan AD-9/Q1a): the RENAME emission
+        // carries no secret, so the stored credential must survive it —
+        // otherwise the reload below would mint a fresh identity.
+        const registry: ScriptedRegistry = new Map();
+        const first = await mountFreshLanding(registry);
+        first.socket.open();
+        await first.connecting;
+        await first.controller.setHandle('Nova');
+        await expect.element(first.screen.getByText('Nova')).toBeVisible();
+
+        // A SECOND rename through the real client: secret-less emission.
+        await first.controller.setHandle('Nova Prime');
+        await expect.element(first.screen.getByText('Nova Prime')).toBeVisible();
+
+        const storedRaw = window.localStorage.getItem(LOBBY_STORAGE_KEY);
+        const stored = JSON.parse(storedRaw ?? '{}') as {
+            guestPlayerId?: string;
+            resumeSecret?: string | null;
+            handle?: string | null;
+        };
+        const issuedId = first.server.issuedGuestId;
+        expect(stored.guestPlayerId).toBe(issuedId);
+        expect(stored.resumeSecret).toBeTypeOf('string');
+        expect(stored.handle).toBe('Nova Prime');
+
+        first.controller.disconnect();
+        cleanup();
+
+        // -- "Reload": brand-new client/controller over the SAME storage ----
+        const second = await mountFreshLanding(registry);
+        second.socket.open();
+        await second.connecting;
+
+        expect(second.controller.store.getState().identityStatus).toBe('named');
+        expect(second.controller.store.getState().handle).toBe('Nova Prime');
+        await expect.element(second.screen.getByText('Nova Prime')).toBeVisible();
+
+        // The reload presented the stored credential alongside the id —
+        // that is what the scripted server requires to restore.
+        const identityFrame = second.socket.sent
+            .map((raw) => JSON.parse(raw) as WireFrame)
+            .find((frame) => frame.type === 'lobbyIdentity');
+        const presentedClaim = identityFrame?.payload.claim as {
+            guestPlayerId?: string;
+            resumeSecret?: string;
+        };
+        expect(presentedClaim.guestPlayerId).toBe(issuedId);
+        expect(presentedClaim.resumeSecret).toBe(stored.resumeSecret);
 
         second.controller.disconnect();
     });

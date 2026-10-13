@@ -12,8 +12,11 @@
  *     controllers + order bridge + recording fake client) so
  *     Playwright specs can drive real gestures (T052/T060).
  *   - `window.__europaTestMatch` defined: test-only direct-match seam
- *     used by real-network fixture harnesses — boots the live-runtime
- *     entry directly, bypassing the lobby and router entirely.
+ *     used by real-network fixture harnesses — the seam is captured
+ *     and the window global removed SYNCHRONOUSLY, then the
+ *     live-runtime chunk is dynamically imported and mounted with the
+ *     captured seam passed as an argument, bypassing the lobby and
+ *     router entirely (005 FR-037, 015 FR-019).
  *   - PRODUCTION: TanStack Router handles pathname-based routing
  *     through the route tree (lobby, profile, match, welcome). The
  *     lobby controller and WebSocket URL are resolved before the router
@@ -35,22 +38,19 @@ import '@europa/design/dist/design.css';
 import './styles/index.css';
 import './styles/logo.css';
 
+import { type LobbyStoreDebugView, lobbyDebugHandle } from './internal/debug-views';
+// Type-only: erased at compile time, so the dynamically-imported
+// live-runtime chunk is NOT fetched by this static reference.
+import type { TestMatchSeam } from './internal/live-runtime';
 import { createWsLobbyClient } from './net/ws-lobby-client';
 import { ErrorBoundary } from './render/ErrorBoundary';
 import { routeTree } from './routing/route-tree';
 import { createLobbyController } from './state/lobby-controller';
 import { LobbyServerUrlError, resolveLobbyServerUrl } from './state/lobby-view';
 
-/** Test-only direct match seam used by real-network fixture harnesses. */
-interface TestMatchSeam {
-    readonly wsUrl: string;
-    readonly matchId: string;
-    readonly displayName: string;
-    readonly reconnectToken?: string;
-}
-
 declare global {
     interface Window {
+        /** Pre-load direct-match seam (test infrastructure only) — consumed and removed below. */
         __europaTestMatch?: TestMatchSeam;
     }
 }
@@ -75,8 +75,23 @@ if (isE2E) {
 } else if (window.__europaTestMatch !== undefined) {
     // Test-only direct-match seam: bypass the lobby and router entirely.
     // Preserves the existing real-network fixture harness entry.
+    //
+    // The seam MAY carry a reconnect bearer (005 FR-037, 015 FR-019):
+    // capture it and remove the window global SYNCHRONOUSLY — before
+    // the dynamic import below even starts — then pass the seam to the
+    // runtime as an argument. Neither a pending nor a failed chunk
+    // load can leave the credential readable on `window`.
+    const testMatchSeam = window.__europaTestMatch;
+    delete window.__europaTestMatch;
     stripProductionQuery();
-    void import('./internal/live-runtime').then((module) => module.mountLiveRuntime(rootElement));
+    void import('./internal/live-runtime')
+        .then((module) => module.mountLiveRuntime(rootElement, testMatchSeam))
+        .catch((error: unknown) => {
+            // The credential is already off `window` (captured above);
+            // report the failed chunk load honestly instead of leaving
+            // an unhandled rejection behind.
+            console.error('[direct-match:boot] live-runtime chunk failed to load', error);
+        });
 } else {
     // Production path: resolve lobby infrastructure, then mount the
     // TanStack Router tree.
@@ -90,14 +105,19 @@ if (isE2E) {
  * TanStack Router-powered application.
  *
  * The controller is created OUTSIDE React (page-lifetime — same
- * discipline as `lobby-runtime`'s `mountLobbyRuntime`): no
- * dispose-on-unmount race with StrictMode's simulated remounts, and
- * `connect()`'s own already-establishing guard makes double
- * invocation harmless.
+ * discipline as `LobbyRoot`'s page-lifetime wiring in
+ * `internal/lobby-runtime.tsx`): no dispose-on-unmount race with
+ * StrictMode's simulated remounts, and `connect()`'s own
+ * already-establishing guard makes double invocation harmless.
  *
  * @param root The SPA mount node.
  */
 function bootstrapProductionRoute(root: HTMLElement): void {
+    // Capture the query BEFORE stripping (013 FR-025): stripping
+    // rewrites the address bar, so the `ws=` transport override must
+    // be read from the captured string. Correctness MUST NOT depend on
+    // test infrastructure patching `history.replaceState` (AC-018).
+    const bootSearch = window.location.search;
     stripProductionQuery();
 
     // Resolve the lobby server URL. May throw if the transport
@@ -105,7 +125,7 @@ function bootstrapProductionRoute(root: HTMLElement): void {
     // before any identity-bearing lobby connection.
     let wsUrl: string;
     try {
-        wsUrl = resolveLobbyServerUrl(window.location.search, window.location);
+        wsUrl = resolveLobbyServerUrl(bootSearch, window.location);
     } catch (error: unknown) {
         const message = error instanceof LobbyServerUrlError ? error.message : 'The WebSocket server URL is invalid.';
         createRoot(root).render(<LobbyConfigurationError message={message} />);
@@ -118,28 +138,21 @@ function bootstrapProductionRoute(root: HTMLElement): void {
     const transport = createWsLobbyClient({});
     const controller = createLobbyController({ transport, url: wsUrl });
 
-    // Expose the store for Playwright lobby E2E assertions (mirrors
-    // live-runtime's `window.__europaLive` pattern). Test-only surface;
-    // production code never reads this.
-    window.__europaLobby = { store: controller.store };
+    if (window.__europaTestOptIn?.lobby === true) {
+        // Test-only handle (005 FR-037, 015 FR-019): installed ONLY
+        // behind the pre-load opt-in sentinel set by test
+        // infrastructure. An unflagged production boot installs no
+        // `__europa*` handle at all. The handle carries a CREDENTIAL-
+        // FREE projection of the lobby store (internal/debug-views) —
+        // never the store itself, whose state carries the seat session
+        // bearer (`seatSessionToken`).
+        window.__europaLobby = lobbyDebugHandle(controller.store);
+    }
 
     // Begin the lobby establish cycle. The connection is non-blocking —
     // the router's root layout `beforeLoad` gates child rendering on
     // `connection === 'ready'` and `identityStatus === 'named'`.
     void controller.connect();
-
-    // Guard against TanStack Router's internal history normalization.
-    //
-    // createBrowserHistory (called by RouterCore.update during
-    // createRouter) invokes history.replaceState(state, "") with only
-    // two arguments — no URL. The browser's native behavior is to keep
-    // the current URL, but E2E test infrastructure (preserveWsQueryInHistory)
-    // patches replaceState and converts the missing URL argument from
-    // undefined to the string "undefined", corrupting the pathname.
-    //
-    // This wrapper detects the missing URL and injects the current
-    // location so the router initializes with the correct pathname.
-    guardReplaceStateUrlArgument();
 
     // Build the router with typed context (controller + wsUrl). The
     // root layout route's `beforeLoad` reads the controller store to
@@ -165,38 +178,15 @@ function bootstrapProductionRoute(root: HTMLElement): void {
 /**
  * Remove production query values before any existing runtime can inspect them.
  *
- * The E2E transport override is preserved by the test infrastructure's
- * `preserveWsQueryInHistory` init script, which patches
- * `history.replaceState` to carry the param through.
+ * The `ws=` transport override is consumed by
+ * {@link bootstrapProductionRoute} from the query string CAPTURED
+ * before this strip runs (013 FR-025) — production correctness never
+ * depends on test infrastructure patching `history.replaceState`.
  */
 function stripProductionQuery(): void {
     if (window.location.search !== '') {
         window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.hash}`);
     }
-}
-
-/**
- * Guard against `history.replaceState` being called without a URL argument.
- *
- * TanStack Router's `createBrowserHistory` calls `replaceState(state, "")`
- * during construction to inject a history key. Browsers treat a missing URL
- * as "keep the current URL", but E2E test infrastructure that patches
- * `replaceState` may convert `undefined` to the literal string `"undefined"`,
- * corrupting the pathname.
- *
- * This function wraps `replaceState` so that a missing URL argument is
- * replaced with the current `window.location.href`, preserving the correct
- * initial location for the router.
- */
-function guardReplaceStateUrlArgument(): void {
-    const currentReplaceState = window.history.replaceState.bind(window.history);
-    window.history.replaceState = (state: unknown, title: string, url?: string | URL | null): void => {
-        if (url === undefined || url === null) {
-            currentReplaceState(state, title, window.location.href);
-        } else {
-            currentReplaceState(state, title, url);
-        }
-    };
 }
 
 /** User-visible failure rendered before any identity-bearing lobby connection. */
@@ -214,12 +204,23 @@ function LobbyConfigurationError({ message }: { readonly message: string }): JSX
 
 /** Window-global handle for lobby E2E tests (mirrors live-runtime's `__europaLive` pattern). */
 interface EuropaLobbyHandle {
-    /** The lobby store (state assertions). */
-    readonly store: import('./state/lobby-store').LobbyStore;
+    /**
+     * Credential-free projection of the lobby store (state assertions)
+     * — see `internal/debug-views`. The raw store (whose state carries
+     * the seat session bearer) is never published (005 FR-037).
+     */
+    readonly store: LobbyStoreDebugView;
 }
 
 declare global {
     interface Window {
+        /**
+         * Pre-load test opt-in sentinel (005 FR-037, 015 FR-019): test
+         * infrastructure sets this via an init script BEFORE page load;
+         * the production bootstrap installs test handles only when it
+         * is present. Carries no bearer credentials.
+         */
+        __europaTestOptIn?: { readonly lobby?: true };
         __europaLobby?: EuropaLobbyHandle;
     }
 }

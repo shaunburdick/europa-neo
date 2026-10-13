@@ -1,8 +1,8 @@
-# Implementation Plan: Console review cleanup — issues #153 + #127 (spec 005 **v1.12**, spec 010 **v1.14**)
+# Implementation Plan: Console review cleanup — issues #153 + #127 (spec 005 **v1.12**, spec 010 **v1.15**)
 
 **Branch**: `fix/console-review-cleanup` (base `main` tip `c184d54`) | **Date**: 2026-10-12
-**Specs**: [`specs/005-client-console/spec.md`](./spec.md) v1.12 (draft, UNAPPROVED) · `specs/010-public-lobby-match-browser/spec.md` v1.14 (draft, UNAPPROVED)
-**Phase**: 4 (Plan) only. **`tasks.md` is deliberately not created in this dispatch.** This plan is an UNAPPROVED draft for the PM / Gate 1.
+**Specs**: [`specs/005-client-console/spec.md`](./spec.md) v1.12 (approved — Gates 1–3 PASS) · `specs/010-public-lobby-match-browser/spec.md` v1.15 (approved — Gates 1–3 PASS; renumbered from v1.14 on merge)
+**Phase**: 4 (Plan) complete, approved at Gate 2; `tasks.md` produced at Phase 5 and approved at Gate 3; Phase 6 implementation shipped. This document is the approved plan of record.
 
 **Superseded content**: this file previously held the original console plan plus the issue #76 amendment and the v1.10 "Active camera policy". The full superseded copy is recoverable from git history:
 
@@ -20,7 +20,7 @@ Two P1 review issues, both console-only:
 
 | Issue | Findings | Spec surface |
 |---|---|---|
-| **#153** — seat-token hand-off, roster ordering, state purity/perf | `F-CON-ST-001` … `F-CON-ST-010` (evidence C-026/C-027/C-057) | spec 005 FR-045, FR-046(a)(b)(c), FR-047; spec 010 v1.14 (`023-FR-007` clarification + seat-token guard); `data-model.md` §4 (unchanged) |
+| **#153** — seat-token hand-off, roster ordering, state purity/perf | `F-CON-ST-001` … `F-CON-ST-010` (evidence C-026/C-027/C-057) | spec 005 FR-045, FR-046(a)(b)(c), FR-047; spec 010 v1.15 (`023-FR-007` clarification + seat-token guard); `data-model.md` §4 (unchanged) |
 | **#127** — accessibility focus + HUD/lobby UI state | `F-CON-RD-003/006/012/014`, `F-CON-UI-002/003/004/005/007/009/010` (evidence C-029/C-059/C-060) | spec 005 FR-009 (amended), FR-039(a)–(d), FR-040, FR-041, FR-042, FR-043, FR-044 |
 
 Out of scope by construction: matchmaking server code (already compliant via `buildSortedRosterEntries`), spec 006 (PR-2's), `europa-source/`, `docs/manual/` (verdict below), `CONSOLE_API_VERSION` (see §9).
@@ -44,7 +44,7 @@ Out of scope by construction: matchmaking server code (already compliant via `bu
 - **FR-045 scope** (draft M1): the same-reference requirement covers the **heartbeat/pong echo only** — issue #153's AC is literally "A heartbeat no-op returns the same state reference". Other no-op arms keep allocating (`socketClosed` while `status === 'game_over'`, `reducer.ts:630-632`, is a named example), and the pong short-circuit defers `reduce`'s lazy feedback prune to the next state-changing dispatch. FR-045, `data-model.md` §7/§17 and the contract doc all say so.
 - **Heartbeat disposition** (draft H1): wire half already fixed on `main` (`envelope-to-event.ts:109-111`, `ws-lobby-client.ts:1007-1008`); **no production path dispatches `pong`**, so the guarantee that did not hold is the `reduce()`-level one, which is new in v1.12 (W2). Spec bullet, `data-model.md` §17, §3 and the contract doc agree.
 - **Design enabler approved** (draft Q2): `EuropaButtonProps` + `RefAttributes<HTMLButtonElement>` (`packages/design/src/components/generic/button.tsx:30`) is in scope; the rejected-fallback branch is removed from §5.10.2.
-- **No spec-012 companion note** (draft Q3): PR-3's spec surface is exactly spec 005 v1.12 + spec 010 v1.14; the `ref` addition is an implementation-level change (§6).
+- **No spec-012 companion note** (draft Q3): PR-3's spec surface is exactly spec 005 v1.12 + spec 010 v1.15; the `ref` addition is an implementation-level change (§6).
 - **Census = 23 elements** (draft Q4): confirmed — §6 stands.
 - **Static guard required** (draft Q6): confirmed — see ruling 3.
 - **Two tab-walk tests, not three** (draft Q5): confirmed — §7.3's census stands.
@@ -59,7 +59,7 @@ Out of scope by construction: matchmaking server code (already compliant via `bu
 | I — TypeScript strict, no `any`, no suppressions | ✅ | All changes are typed refactors; the only type-level addition is `ReduceOptions.correlation?` (§5.2). Zero suppressions. |
 | II — Server-authoritative deterministic simulation | ✅ | Console stays a leaf consumer. The only new algorithm is a **deterministic UTF-16 comparator** (`compareUtf16` on case-folded handles — `localeCompare` is forbidden), mirroring the server's `buildSortedRosterEntries` (`packages/matchmaking/src/internal/lobbyService.ts:531-537`). |
 | III — ≥80% coverage on game logic | ✅ | Every new branch lands in a coverage-included path (`vitest.config.ts` include list; merged session `vitest.config.coverage.ts:24-52`, thresholds 80/80/80/80). New tests named per branch in §7. |
-| IV — Specs as documentation | ✅ | Behaviour changes ship with the v1.12 / v1.14 spec drafts in the same change set. |
+| IV — Specs as documentation | ✅ | Behaviour changes ship with the v1.12 / v1.15 spec drafts in the same change set. |
 | V — Simplicity over cleverness | ✅ | No shared modal shell, no new library, no shared route *framework* — one prop-driven shell (§5.6). |
 | VI — Accessibility-minded UI | ✅ | FR-039(a)–(d), FR-009 focus restore, FR-041 spectator help, FR-044 `<bdi>`. |
 | VII — Self-hostable | ✅ | No new dependency; `@europa/design` and `@europa/engine` are already workspace deps of `packages/console`. |
@@ -72,7 +72,7 @@ Out of scope by construction: matchmaking server code (already compliant via `bu
 
 | Finding | Disposition | Verified evidence | FR / wave |
 |---|---|---|---|
-| **ST-001** roster re-sort after delta | **OPEN** | Client merge is transport-side: `packages/console/src/net/ws-lobby-client.ts:1214-1240` (`applyRosterDelta` at `:1214`, appends unseen entries in arrival order via `next.push(change)` at `:1231`, `rosterEntries = next` at `:1234`) — **no `sort()` anywhere in `src/`** (verified: `grep -rn "sort(" src/ui/lobby-roster-card.tsx src/state/lobby-reducer.ts src/net/ws-lobby-client.ts` → no matches). Server snapshots ARE sorted: `lobbyService.ts:531` (`buildSortedRosterEntries`), `:536` (`compareUtf16(a.handle.toLowerCase(), b.handle.toLowerCase())`), `:549` (sorted snapshots). Store-side reducer case `lobby-reducer.ts:289-308` is dead (see ST-009). Downstream flow: transport `onRoster` → `lobby-controller.ts:242-246` dispatches `lobbyRosterSnapshot` → card renders array order (`lobby-roster-card.tsx:202`). | spec 010 v1.14 / **W1** |
+| **ST-001** roster re-sort after delta | **OPEN** | Client merge is transport-side: `packages/console/src/net/ws-lobby-client.ts:1214-1240` (`applyRosterDelta` at `:1214`, appends unseen entries in arrival order via `next.push(change)` at `:1231`, `rosterEntries = next` at `:1234`) — **no `sort()` anywhere in `src/`** (verified: `grep -rn "sort(" src/ui/lobby-roster-card.tsx src/state/lobby-reducer.ts src/net/ws-lobby-client.ts` → no matches). Server snapshots ARE sorted: `lobbyService.ts:531` (`buildSortedRosterEntries`), `:536` (`compareUtf16(a.handle.toLowerCase(), b.handle.toLowerCase())`), `:549` (sorted snapshots). Store-side reducer case `lobby-reducer.ts:289-308` is dead (see ST-009). Downstream flow: transport `onRoster` → `lobby-controller.ts:242-246` dispatches `lobbyRosterSnapshot` → card renders array order (`lobby-roster-card.tsx:202`). | spec 010 v1.15 / **W1** |
 | **ST-002** create-flow seat token | **ALREADY FIXED ON MAIN — pin as regression guard** | Fixed by #159 (`1ac83dd`): `packages/console/src/state/lobby-controller.ts:326` `runSeatCommand`, `:338` `transport.lastSeatSessionToken()`, `:349` dispatches `lobbyEnteredMatch` **with** the token, `:394` create path passes `null` matchId. **Guarding test**: `tests/unit/state/lobby-controller.test.ts:486-503` ("create success records the creator seat token so its leg claims its OWN seat"; assertions `:494-502`), companion `:505-514` (no-token case). Not re-implemented. | spec 005 FR-046(a) |
 | **ST-003** module-scope correlation state | **OPEN (reducer/store half)**; transport half owned by PR #189 | `packages/console/src/state/reducer.ts:63` (`let lastActionId = 0`), `:74` (`const pendingOrders = new Map`), `:77` (`PENDING_ORDERS_CAP`), `:83-96` (`stampOrder`), `:101-105` (`takePendingOrder`), `:121-124` (`allocateActionId`). Consumers: `src/runtime.ts:54` (import), `:326` (host-order allocation). **Not public**: JSDoc `reducer.ts:81` "Module-internal; not part of the public surface"; `allocateActionId` is absent from `src/index.ts` (barrel exports at `:51` are `appendFeedback, appendRejection, INITIAL_CONSOLE_STATE, reduce`). Transport half (`ws-lobby-client.ts:390,849,1035,1403` `lastCapturedSeatSessionToken`) is specified by PR #189's v1.11 FR-033 — **do not duplicate**. | FR-045 / **W2** |
 | **ST-004** per-dispatch rebuilds / heartbeat | **SPLIT (ruling 6): wire half fixed on `main` → guard; `reduce()`-level half OPEN; map-view churn deferred** | **No production path dispatches `pong`**: `src/net/envelope-to-event.ts:109-111` returns `null`, `src/net/ws-lobby-client.ts:1007-1008` returns bare, and `kind: 'pong'` occurs only in the type (`contracts/console-state.ts:145`), the reducer's exhaustiveness union/discriminant set and its `case` (`reducer.ts:234-245, 248-260, 604`) and the fixture (`tests/unit/state/reducer.test.ts:399`). The wire half is guarded by `tests/unit/net/net.test.ts:92-101`. **What does not hold is the `reduce()`-level guarantee**: `reduce()` at `reducer.ts:294-310` always allocates (`baseState` `:294-297`, `nextState` `:304-307`), so `reduce(state, pong, …)` returns a *new* reference today even though the `pong` arm (`:604-606`) returns its input unchanged — W2 adds the short-circuit FR-045 requires. Map-view churn (`render/App.tsx:301-317`) is **deferred** (ruling 6). | FR-045 / **W2** |
@@ -119,12 +119,12 @@ Data-flow invariants preserved: server-authoritative `PlayerView` → reducer �
 
 ## 5. Technical decisions
 
-### 5.1 W1 — roster order after a delta (FR: spec 010 v1.14 `023-FR-007`)
+### 5.1 W1 — roster order after a delta (FR: spec 010 v1.15 `023-FR-007`)
 
 **Decision**: sort inside `applyRosterDelta` (`ws-lobby-client.ts:1214-1240`) immediately before `rosterEntries = next` (`:1234`), with `compareUtf16` imported from `@europa/engine` (`packages/engine/src/index.ts:114`, impl `packages/engine/src/playerRegistry.ts:81`) applied to `a.handle.toLowerCase()` / `b.handle.toLowerCase()` — byte-identical to the server comparator at `lobbyService.ts:536`.
 
 - `localeCompare` is forbidden (constitution II + the concurrent v1.13 comparator ruling).
-- The **snapshot** path (`applyRosterSnapshot`, `:1189-1206`) keeps adopting the server's order as-is: `023-FR-007` binds the server there, and the v1.14 clarification binds the console's *merge*.
+- The **snapshot** path (`applyRosterSnapshot`, `:1189-1206`) keeps adopting the server's order as-is: `023-FR-007` binds the server there, and the v1.15 clarification binds the console's *merge*.
 - The store-level merge is **deleted** (§5.3), so the transport is the single fix point; `lobby-controller.ts:242-246` then forwards an already-ordered array.
 - Result: `['Z']` + delta `A` → `['A','Z']`; `['Z']` + delta `a` → `['a','Z']` (case-folded).
 - The pre-existing comment at `ws-lobby-client.ts:178` ("Current roster entries in deterministic order") becomes **true**; no comment edit needed (§11, exempt item 5).
@@ -312,7 +312,7 @@ Kept: `describe('lobbyRosterSnapshot')` `:61-110`, `describe('connection reset c
 
 | # | FR / finding | Test (file + what it asserts) | Suite / coverage path |
 |---|---|---|---|
-| N1 | spec 010 v1.14 ordering | `tests/unit/net/ws-lobby-client.test.ts` (extend): delta `['Z']` + `A` → `['A','Z']`; `['Z']` + `a` → `['a','Z']`; stale-revision delta still discarded (`:1216-1223` unchanged) | node (`src/net/**` ✓) |
+| N1 | spec 010 v1.15 ordering | `tests/unit/net/ws-lobby-client.test.ts` (extend): delta `['Z']` + `A` → `['A','Z']`; `['Z']` + `a` → `['a','Z']`; stale-revision delta still discarded (`:1216-1223` unchanged) | node (`src/net/**` ✓) |
 | N2 | ordering, end-to-end | `tests/integration/lobby-transport.test.ts` (extend): after a live join delta the roster card renders sorted handles | node (`src/net/**` ✓) |
 | N3 | FR-045 store scope | `tests/unit/state/reducer.test.ts` (new describe): two `ReducerCorrelation` bags → independent counters and pending maps; ack correlation resolves through the **passed** bag | node (`src/state/**` ✓) |
 | N4 | FR-045 same reference | `tests/unit/state/reducer.test.ts`: `expect(reduce(state, {kind:'pong',…}, {nowMs, correlation}).state).toBe(state)` — this is issue #153's AC-3 and it **fails against today's `reduce()`** (§3 ST-004) | node (`src/state/**` ✓) |
@@ -343,17 +343,17 @@ Kept: `describe('lobbyRosterSnapshot')` `:61-110`, `describe('connection reset c
 
 **Rule zero**: never merge either PR into this branch; rebase onto `main` and resolve hunk-by-hunk. Both PRs were inspected with `gh pr view/diff` this session (#189 = 81 files; #188 touches our surface only at `specs/010-…/spec.md`).
 
-> **Resolution note (2026-10-13).** PR #188 **merged**, so its `### v1.13` section and header hunk are now on `main` and this branch merged `main` to reconcile (the branch is published, so a merge rather than a rebase — rebasing would rewrite 19 pushed commits). The predicted conflict materialized exactly as §8.1 describes and was resolved by the rule: header keeps **ours (1.14 = max)** with the Status clauses unioned, and the tail keeps **v1.13 then v1.14** in numeric order. Two clauses the conflict exposed as stale were corrected in the same pass — the header's "UNAPPROVED" draft marker, and this note's "three claimants" framing. **PR #189 is still open** and carries its own `### v1.13` heading; it must renumber to **v1.15** when it rebases. Rule zero still applies to it.
+> **Resolution note (2026-10-13, both conflicts now resolved).** Two merges landed against this branch. First **PR #188** merged, so its `### v1.13` section and header hunk came onto `main`; this branch merged `main` to reconcile (published branch, so a merge rather than a rebase — rebasing would rewrite 19 pushed commits), and the §8.1 rule applied: header kept **ours (highest version)** with Status clauses unioned, tail kept the sections in numeric order. Then **PR #189** merged as **v1.14** (issue #146), colliding directly with our own draft v1.14 — resolved by renumbering **ours to v1.15**, since #189 was already on `main`. Both passes corrected the stale clauses each conflict exposed (the header's "UNAPPROVED" marker, the "three claimants" framing, and the "PR #189 is still open" prediction below). **Rule zero was honored throughout: `main` was merged, never the PR branches.**
 
 ### 8.1 Guaranteed textual conflicts
 
 | File | Why | Resolution rule |
 |---|---|---|
-| `specs/005-client-console/spec.md` header (base lines 1–12) | ours → v1.12, theirs → v1.11; **same hunk range** `@@ -1,12 +1,12 @@` on both sides | Take **ours** for `Last Updated`/`Version` (**1.12 = max**) and **union the `Status` line**: keep their trailing clause `; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, security-sweep branch, issues #152/#129)` **and** our `; v1.12 review-cleanup amendment (issues #153 and #127) drafted 2026-10-12 — UNAPPROVED …` in that order. |
+| `specs/005-client-console/spec.md` header (base lines 1–12) | ours → v1.12, theirs → v1.11; **same hunk range** `@@ -1,12 +1,12 @@` on both sides | Take **ours** for `Last Updated`/`Version` (**1.12 = max**) and **union the `Status` line**: keep their trailing clause `; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, security-sweep branch, issues #152/#129)` **and** our `; v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open` in that order. |
 | `specs/005-client-console/spec.md` tail | ours `@@ -528,4 +537,61 @@` deletes the duplicate `FR-027` bullet **and** appends `### v1.12`; theirs `@@ -529,3 +549,22 @@` keeps the bullet and appends `### v1.11` | Delete the duplicate `- **FR-027**:` line (ours); append **`### v1.11` (theirs) first, then `### v1.12` (ours)** — sections in numeric order, header carries the highest version. Do **not** renumber v1.12 → v1.11. |
 | `specs/005-client-console/spec.md` middle | theirs rewrites Implementation Note 17 at base `:364-370` (the `CONSOLE_API_VERSION` bump-history correction) | **No conflict** — our draft does not touch that region. Keep theirs verbatim. |
-| `specs/010-public-lobby-match-browser/spec.md` header (base lines 3–11) | three claimants: ours v1.14, #189 v1.13, #188 v1.13 — **all three rewrite the same hunk** | Take **ours** (1.14 = max) and union any Status-line clauses the others append. |
-| `specs/010-…/spec.md` tail | all three append at EOF: #188 `@@ -427,3 +427,11 @@` `### v1.13` (issue #147), #189 `@@ -422,8 +425,22 @@` `### v1.13` (issue #146), ours `@@ -427,3 +427,55 @@` `### v1.14` | Keep **both** v1.13 sections (the #188/#189 duplicate-v1.13 clash is theirs to resolve — whichever lands second renumbers or inherits), then **ours last** as `### v1.14`. Our section body is untouched by either. |
+| `specs/010-public-lobby-match-browser/spec.md` header | claimants collide on the same `Version`/`Status` hunk | Take **ours** for `Last Updated`/`Version` **only when ours is the highest**, otherwise **renumber ours to the next free number**; union every `Status` clause so no amendment is erased. This pass: #188 landed as v1.13 and #189 as v1.15, so **ours renumbered to v1.15**. |
+| `specs/010-…/spec.md` tail | all change sets append at EOF, so every merge is a two-section conflict | Keep **every** clarification section in numeric order, ours last at its renumbered version. Section bodies are never truncated by either side. Final order shipped: v1.13 (#147), v1.15 (#146), v1.15 (#153). |
 
 ### 8.2 Source-file overlap (hunk-level, conceptually disjoint)
 
@@ -392,7 +392,7 @@ Expect **no** conflicts in W3, W6, W7; hunk-level, resolvable-by-keeping-both co
 
 - **`CONSOLE_API_VERSION`: NO BUMP (ruling 7).** Independently justified: the policy is scoped to "types or functions in `console-types.ts` and `console-api.ts`" (`contracts/console-types.ts:86-88`), and none of PR-3's changes touch those two files. **One public-type narrowing is acknowledged here so the rationale is complete rather than silent**: deleting `lobbyRosterDelta` narrows `LobbyAction` and `LobbyActionKind`, which *are* barrel-exported (`src/index.ts:69-73`) — a compile-time narrowing of an exported union, but one that lives outside the documented bump surface, and the no-bump ruling (§1) stands. PR #189 bumps the version to `0.5.0` **in its own change set** (`contract-conformance.test.ts:352` currently pins `0.4.1`) — do not duplicate, do not inherit during rebase.
 - **`docs/manual/`: NO CHANGE (ruling 7).** Gate check against spec 007 FR-012: every documented statement PR-3 touches is *conformed to*, not changed — roster alphabetical order (`docs/manual/src/pages/roster.mdx:27`), direction-safe labels (`reading-the-screen.mdx:40`, `lobby.mdx:66`), failure explanation (`lobby.mdx:96`), coalesced announcements (`roster.mdx:72`), skip link as first Tab stop (`lobby.mdx:100`), surrender dialog wording (`objective.mdx:41-43`, `controls.mdx:96` — focus restoration is not documented). All seven anchors re-read and confirmed this session. Conditional re-check at PR time: if scope changes to alter any of those statements, `docs/manual/` MUST be updated in the same change set.
-- **Spec 010 gets no plan of its own** — its v1.14 clarifications are absorbed here (W1 + the seat-token guard).
+- **Spec 010 gets no plan of its own** — its v1.15 clarifications are absorbed here (W1 + the seat-token guard).
 
 ---
 

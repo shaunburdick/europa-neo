@@ -48,7 +48,6 @@ import { describe, expect, it } from 'vitest';
 import type * as DistTypes from '../../src/index';
 // Runtime value surface of the package source (no build needed).
 import * as Dist from '../../src/index';
-import type { ConsoleRuntime } from '../../src/runtime';
 import type {
     ConnectionState as ConnectionStateReexport,
     MatchClient as MatchClientReexport,
@@ -215,15 +214,13 @@ const DIST_TYPE_WITNESS = {
 const TYPE_ONLY_WITNESSES: readonly string[] = Object.keys(DIST_TYPE_WITNESS);
 
 /**
- * The barrel exports the contract's `ConsoleRuntime` INTERFACE under
- * the alias `ConsoleRuntimeContract` (the concrete class owns the
- * plain name). Prove the alias exists and that the class satisfies
- * it — one-directional: the class carries extra lifecycle members.
+ * The barrel previously exported the contract's `ConsoleRuntime`
+ * INTERFACE under the alias `ConsoleRuntimeContract`. Issue #129
+ * (005 FR-038) REMOVED that `@internal` re-export — the negative
+ * pin for the removal lives in the "(e) public barrel hygiene"
+ * section below (a type-level absence witness would need a
+ * `@ts-expect-error` suppression, which this repo forbids).
  */
-type AssertExtends<A, B> = [A] extends [B] ? true : never;
-
-type RuntimeAliasExists = AssertExtends<ConsoleRuntime, DistTypes.ConsoleRuntimeContract>;
-const RUNTIME_ALIAS: RuntimeAliasExists = true;
 
 // ---------------------------------------------------------------------------
 // Mirror-name extraction
@@ -294,7 +291,6 @@ describe('contract conformance (T089)', () => {
             expect(PLAYER_VIEW_CONFORMS).toBe(true);
             expect(CONNECTION_STATE_CONFORMS).toBe(true);
             expect(MATCH_CLIENT_CONFORMS).toBe(true);
-            expect(RUNTIME_ALIAS).toBe(true);
             expect(TYPE_ONLY_WITNESSES.length).toBeGreaterThan(0);
         });
 
@@ -350,7 +346,7 @@ const EXPECTED_API_VERSIONS: Readonly<Record<string, string>> = {
     FOG_API_VERSION: '0.1.0',
     MATCHMAKING_API_VERSION: '0.2.0',
     NETWORK_API_VERSION: '0.3.0',
-    CONSOLE_API_VERSION: '0.4.1',
+    CONSOLE_API_VERSION: '0.5.0',
 };
 
 /** Canonical source file declaring each API-version literal. */
@@ -433,5 +429,38 @@ describe('(d) cross-package API-version boundary witness (issue #74 T042)', () =
         expect(findVersionDrift({ A: '1.0.0' }, { A: '1.0.0' })).toEqual([]);
         expect(findVersionDrift({ A: '1.1.0' }, { A: '1.0.0' })).toEqual(['A: expected 1.0.0, got 1.1.0']);
         expect(findVersionDrift({}, { A: '1.0.0' })).toEqual(['A: expected 1.0.0, got undefined']);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// (e) Public barrel hygiene (issue #129, 005 FR-038)
+//
+// The public barrel MUST NOT export declarations marked `@internal`.
+// The removed surface is a TYPE-only export, so its absence cannot be
+// pinned at runtime or through a negative type witness (that would
+// need a `@ts-expect-error` suppression, which the constitution
+// forbids) — a source-level pin is the honest mechanism, in the same
+// spirit as the (d) section's source-literal scan.
+// ---------------------------------------------------------------------------
+
+describe('(e) public barrel hygiene (005 FR-038)', () => {
+    const barrelSource = readFileSync(repoPath('packages/console/src/index.ts'), 'utf-8');
+
+    it('the barrel no longer re-exports the @internal ConsoleRuntimeContract alias', () => {
+        expect(barrelSource).not.toContain('ConsoleRuntimeContract');
+    });
+
+    it('the barrel still exports the ConsoleRuntime CLASS embedding surface', () => {
+        expect(barrelSource).toContain("export { ConsoleRuntime } from './runtime';");
+        expect(typeof Dist.ConsoleRuntime).toBe('function');
+    });
+
+    it('no barrel export line references an @internal-tagged declaration by alias', () => {
+        // The two `@internal — exported for tests` declarations in
+        // contracts/console-to-networking.ts (buildOrderEnvelope,
+        // netEventFromOrderAck) must stay unreachable from the barrel;
+        // they are reachable through the module itself (FR-038).
+        expect(barrelSource).not.toContain('buildOrderEnvelope');
+        expect(barrelSource).not.toContain('netEventFromOrderAck');
     });
 });

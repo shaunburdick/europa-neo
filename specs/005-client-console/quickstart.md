@@ -489,7 +489,7 @@ pnpm verify
 
 ---
 
-## 16. Review-cleanup validation (spec v1.12 / v1.14 — issues #153, #127)
+## 16. Review-cleanup validation (spec v1.12 / v1.15 — issues #153, #127)
 
 Phase-4 companion to `plan.md` §7. Run from `packages/console` unless
 noted; the full gate before any push is `pnpm verify` (repo root:

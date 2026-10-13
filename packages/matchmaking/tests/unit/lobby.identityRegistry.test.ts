@@ -26,7 +26,7 @@ import { describe, expect, it } from 'vitest';
 import type { Result } from '../../src/contracts/lobby-api';
 import type { LobbyError } from '../../src/contracts/lobby-types';
 import { createIdentityRegistry, type IdentityRegistry } from '../../src/internal/identityRegistry';
-import { buildIdentityClaim, nextGuestPlayerId } from '../fixtures/lobbyIdentities';
+import { buildIdentityClaim, nextGuestPlayerId, requireResumeSecret } from '../fixtures/lobbyIdentities';
 
 // ----------------------------------------------------------------------------
 // Deterministic test doubles
@@ -237,22 +237,46 @@ describe('disconnect and grace — handle reservation lifecycle', () => {
         expect(registry.setHandle(rival.id, 'nova').ok).toBe(false);
     });
 
-    it('restores the same identity and server-held handle when the claimant returns within grace', () => {
+    it('restores the same identity and server-held handle when the owner returns within grace', () => {
         const { registry, clock } = createTestRegistry('guest');
         const leaver = createNamedIdentity(registry, 'Nova');
+        const presentedSecret = requireResumeSecret(registry, leaver.id);
         registry.disconnect(leaver.id);
 
         clock.advanceBy(GRACE_MS - ONE_MS);
-        const outcome = registry.restoreIdentity(buildIdentityClaim({ guestPlayerId: leaver.id }));
+        const outcome = registry.restoreIdentity(
+            buildIdentityClaim({ guestPlayerId: leaver.id, resumeSecret: presentedSecret }),
+        );
 
         expect(outcome.restored).toBe(true);
         expect(outcome.identity.id).toBe(leaver.id);
         expect(outcome.identity.status).toBe('active');
         expect(outcome.identity.disconnectedAtMs).toBeNull();
+        // Single-epoch (D3): a successful restore regenerates the secret, so
+        // the value the returning owner just presented is dead immediately.
+        expect(outcome.identity.resumeSecret).not.toBe(presentedSecret);
+        expect(registry.resumeSecretOf(leaver.id)).toBe(outcome.identity.resumeSecret);
         // The stale locally-stored handle in the default claim ('Nova'
         // happens to match here) must never override the server record —
         // proven separately below with a mismatched claim.
         expect(registry.projectIdentity(leaver.id)).toEqual({ handle: 'Nova', hasIdentity: true });
+    });
+
+    it('never restores from an id-only claim, in grace or active (spec 004 FR-027)', () => {
+        const { registry } = createTestRegistry('guest');
+        const leaver = createNamedIdentity(registry, 'Nova');
+        const heldSecret = requireResumeSecret(registry, leaver.id);
+        registry.disconnect(leaver.id);
+
+        const outcome = registry.restoreIdentity(buildIdentityClaim({ guestPlayerId: leaver.id }));
+
+        expect(outcome.restored).toBe(false);
+        expect(outcome.identity.id).not.toBe(leaver.id);
+        expect(outcome.identity.handle).toBeNull();
+        // No mutation at all: the grace-window holder keeps its record,
+        // its handle, and its credential.
+        expect(registry.projectIdentity(leaver.id)).toEqual({ handle: 'Nova', hasIdentity: true });
+        expect(registry.resumeSecretOf(leaver.id)).toBe(heldSecret);
     });
 
     it('mints a fresh identity and frees the handle once grace expires', () => {
@@ -368,11 +392,101 @@ describe('restoreIdentity — persistent resume claims', () => {
         registry.disconnect(identity.id);
 
         const outcome = registry.restoreIdentity(
-            buildIdentityClaim({ guestPlayerId: identity.id, handle: 'StaleLocalCopy' }),
+            buildIdentityClaim({
+                guestPlayerId: identity.id,
+                resumeSecret: requireResumeSecret(registry, identity.id),
+                handle: 'StaleLocalCopy',
+            }),
         );
 
         expect(outcome.restored).toBe(true);
         expect(registry.projectIdentity(identity.id)).toEqual({ handle: 'Nova', hasIdentity: true });
+    });
+
+    it('mints fresh for a stale secret after a rotation, without evicting the holder (plan AD-1)', () => {
+        const { registry } = createTestRegistry('guest');
+        const identity = createNamedIdentity(registry, 'Nova');
+        const firstEpoch = requireResumeSecret(registry, identity.id);
+        registry.disconnect(identity.id);
+
+        const restored = registry.restoreIdentity(
+            buildIdentityClaim({ guestPlayerId: identity.id, resumeSecret: firstEpoch }),
+        );
+        expect(restored.restored).toBe(true);
+        const secondEpoch = registry.resumeSecretOf(identity.id);
+        expect(secondEpoch).toBeDefined();
+        expect(secondEpoch).not.toBe(firstEpoch);
+
+        // Dropped delivery (the rotated secret never reached the client):
+        // the next claim presents the DEAD first-epoch value against an
+        // active identity. That is accepted mint-fresh churn — the holder
+        // is untouched and nothing is evicted.
+        registry.disconnect(identity.id);
+        const replay = registry.restoreIdentity(
+            buildIdentityClaim({ guestPlayerId: identity.id, resumeSecret: firstEpoch }),
+        );
+        expect(replay.restored).toBe(false);
+        expect(replay.identity.id).not.toBe(identity.id);
+        expect(registry.projectIdentity(identity.id)).toEqual({ handle: 'Nova', hasIdentity: true });
+        expect(registry.resumeSecretOf(identity.id)).toBe(secondEpoch);
+
+        // The successor the owner DID receive still restores.
+        const withSuccessor = registry.restoreIdentity(
+            buildIdentityClaim({
+                guestPlayerId: identity.id,
+                resumeSecret: requireResumeSecret(registry, identity.id),
+            }),
+        );
+        expect(withSuccessor.restored).toBe(true);
+        expect(withSuccessor.identity.id).toBe(identity.id);
+    });
+
+    it('lets a matching secret supersede an ACTIVE holder; an id-only claim never does (D2)', () => {
+        const { registry } = createTestRegistry('guest');
+        const incumbent = createNamedIdentity(registry, 'Nova');
+        const secret = requireResumeSecret(registry, incumbent.id);
+
+        // A second "tab" on a DIFFERENT connection holding the owner's
+        // secret: possession IS ownership, so it takes over — the id-only
+        // claim below proves the id alone still cannot.
+        const takeover = registry.restoreIdentity(
+            buildIdentityClaim({ guestPlayerId: incumbent.id, resumeSecret: secret }),
+        );
+        expect(takeover.restored).toBe(true);
+        expect(takeover.identity.id).toBe(incumbent.id);
+
+        const bare = registry.restoreIdentity(buildIdentityClaim({ guestPlayerId: incumbent.id }));
+        expect(bare.restored).toBe(false);
+        expect(bare.identity.id).not.toBe(incumbent.id);
+        expect(registry.projectIdentity(incumbent.id)).toEqual({ handle: 'Nova', hasIdentity: true });
+    });
+
+    it('reactivates grace-window identities for the seat-reconnect seam and never mints (plan AD-2)', () => {
+        const { registry } = createTestRegistry('guest');
+        const identity = createNamedIdentity(registry, 'Nova');
+        const secret = requireResumeSecret(registry, identity.id);
+        registry.disconnect(identity.id);
+
+        expect(registry.reactivate(identity.id)).toBe(true);
+        expect(identity.status).toBe('active');
+        expect(identity.disconnectedAtMs).toBeNull();
+        // No rotation: `reactivate` is not a claim path, so the credential
+        // the owner already holds stays valid.
+        expect(registry.resumeSecretOf(identity.id)).toBe(secret);
+        // Idempotent / unknown-id guards.
+        expect(registry.reactivate(identity.id)).toBe(false);
+        expect(registry.reactivate(nextGuestPlayerId())).toBe(false);
+    });
+
+    it('keeps the resume secret off every projection (spec 004 FR-026 privacy envelope)', () => {
+        const { registry } = createTestRegistry('guest');
+        const identity = createNamedIdentity(registry, 'Nova');
+        const secret = requireResumeSecret(registry, identity.id);
+
+        expect(registry.projectIdentity(identity.id)).toEqual({ handle: 'Nova', hasIdentity: true });
+        expect(JSON.stringify(registry.projectIdentity(identity.id))).not.toContain(secret);
+        expect(identity.resumeSecret).toBe(secret);
+        expect(registry.resumeSecretOf(nextGuestPlayerId())).toBeUndefined();
     });
 
     it('does NOT restore an already-ACTIVE identity from a bare claim (issue #74 T026 credential separation)', () => {
@@ -410,6 +524,8 @@ describe('close — shutdown semantics', () => {
             () => registry.release(identity.id),
             () => registry.releaseExpired(),
             () => registry.projectIdentity(identity.id),
+            () => registry.reactivate(identity.id),
+            () => registry.resumeSecretOf(identity.id),
             () => registry.stats(),
         ];
         for (const operation of operations) {

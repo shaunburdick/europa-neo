@@ -90,6 +90,8 @@ import type {
 } from '@europa/matchmaking';
 import type { LobbyMatchSettings, NetworkPayload, ProtocolEnvelope, SequenceNumber } from '@europa/networking';
 import { encodeFrame, NETWORK_API_VERSION, tryDecodeFrame, validateVersion } from '@europa/networking/browser';
+import { ESTABLISH_TIMEOUT_MS } from '../contracts/console-types';
+import { inboundFrameDiagnostic } from './inbound-validation';
 import {
     clearStoredClaim,
     type LobbyStorage,
@@ -106,9 +108,11 @@ import {
 
 /** Floor for the heartbeat period so a misconfigured server cannot busy-loop the socket. */
 const HEARTBEAT_FLOOR_MS = 1_000;
+/** Platform ready-state for an OPEN socket (`WebSocket.OPEN`). */
+const WS_READY_STATE_OPEN = 1;
 /** Pings go out at this fraction of the server-advertised interval (match-client parity). */
 const HEARTBEAT_INTERVAL_DIVISOR = 2;
-/** Default per-action correlation timeout (ms). */
+/** Default per-action correlation timeout (ms) — actions only; the establish cycle has its own `establishTimeoutMs`. */
 const DEFAULT_ACTION_TIMEOUT_MS = 10_000;
 /** Default base delay for the reconnect backoff (ms). */
 const DEFAULT_RECONNECT_BASE_DELAY_MS = 500;
@@ -245,6 +249,14 @@ export interface WsLobbyClientOptions {
     readonly storage?: LobbyStorage | null;
     /** Timer seam; defaults to platform timers. */
     readonly scheduler?: LobbyScheduler;
+    /**
+     * Establish-cycle timeout (ms): bounds ONE attempt from socket
+     * creation to `'ready'` before it is failed and retried (005
+     * FR-031). Default {@link ESTABLISH_TIMEOUT_MS} — the value this
+     * timer used to inherit from `actionTimeoutMs`, so the dedicated
+     * knob changes no default.
+     */
+    readonly establishTimeoutMs?: number;
     /** Per-action correlation timeout (ms). Default {@link DEFAULT_ACTION_TIMEOUT_MS}. */
     readonly actionTimeoutMs?: number;
     /** Reconnect backoff base (ms). Default {@link DEFAULT_RECONNECT_BASE_DELAY_MS}. */
@@ -379,16 +391,20 @@ const globalScheduler: LobbyScheduler = {
     },
 };
 
+/**
+ * Render a thrown value as loggable detail. Void sends (005 FR-028)
+ * have no promise to reject to, so their failure reason survives as
+ * log context — already routed through the redaction choke point.
+ *
+ * @param error Whatever the send attempt threw.
+ * @returns A short, non-secret description of the failure.
+ */
+function describeThrown(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 /** Outcome envelope used to settle pending actions exactly once. */
 type ActionOutcome = { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: Error };
-
-/**
- * Captured seat session token from the most recent seat-granting
- * `actionAccepted` event. The controller reads this AFTER the command
- * resolves to pass it to the match leg for a correct-seat wire join.
- * Reset to `null` at the start of each establish cycle.
- */
-let lastCapturedSeatSessionToken: string | null = null;
 
 /** One in-flight correlated action awaiting its echoed actionId. */
 interface PendingAction {
@@ -422,6 +438,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     const { logger } = options;
     const scheduler = options.scheduler ?? globalScheduler;
     const actionTimeoutMs = options.actionTimeoutMs ?? DEFAULT_ACTION_TIMEOUT_MS;
+    const establishTimeoutMs = options.establishTimeoutMs ?? ESTABLISH_TIMEOUT_MS;
     const reconnectBaseDelayMs = options.reconnectBaseDelayMs ?? DEFAULT_RECONNECT_BASE_DELAY_MS;
     const reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? DEFAULT_RECONNECT_MAX_DELAY_MS;
     const maxReconnectAttempts = options.maxReconnectAttempts ?? DEFAULT_MAX_RECONNECT_ATTEMPTS;
@@ -457,6 +474,17 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     let activeUrl: string | null = null;
     let clientSeq = 0;
     let actionCounter = 0;
+    /**
+     * Captured seat session token from the most recent seat-granting
+     * `actionAccepted` event. The controller reads this AFTER the command
+     * resolves to pass it to the match leg for a correct-seat wire join.
+     * Reset to `null` at the start of each establish cycle.
+     *
+     * INSTANCE-SCOPED (005 FR-033): a bearer credential, so it lives in
+     * this client's closure — no other instance can read it, existing or
+     * later-created.
+     */
+    let lastCapturedSeatSessionToken: string | null = null;
 
     /** In-memory claim (source of truth; storage is the write-through). */
     let currentClaim: StoredLobbyClaim | null = null;
@@ -483,19 +511,22 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     // -- Logging + privacy choke point ------------------------------------------
 
     /**
-     * Every opaque identity-claim id this session has held: bootstrap mints,
-     * values restored from storage, and server-delivered replacements
-     * (feature 010 Clarifications v1.6). At the adoption moment two
-     * live values exist — the stale local mint and the server-issued
-     * successor — and log lines or server text from either era must
-     * come out clean, so {@link redact} scrubs them ALL.
+     * Every opaque identity-claim value this session has known: adopted
+     * guest ids, restored/delivered resume secrets, and their stale
+     * predecessors (feature 010 Clarifications v1.6, spec 010 FR-042).
+     * At the adoption moment two live values can exist — the stale local
+     * claim and the server-issued successor — and log lines or server
+     * text from either era must come out clean, so {@link redact}
+     * scrubs them ALL. Registering the resume secret here is the client's
+     * redaction choke point for the owner-only credential (plan AD-9).
      */
     const knownIdentityClaims = new Set<string>();
 
     /**
-     * Scrub every occurrence of ANY known guest-ID identity claim out of
-     * `text`. Defense-in-depth: our own messages do not need to expose this
-     * advisory correlation value, and this catches server-authored text
+     * Scrub every occurrence of ANY known claim value out of `text` —
+     * guest ids (non-secret, but not worth echoing) and resume secrets
+     * (bearer credentials). Defense-in-depth: our own messages do not
+     * need to expose these values, and this catches server-authored text
      * echoing one back.
      */
     function redact(text: string): string {
@@ -569,11 +600,14 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             if (restored.guestPlayerId !== null) {
                 knownIdentityClaims.add(restored.guestPlayerId);
             }
+            if (restored.resumeSecret !== null) {
+                knownIdentityClaims.add(restored.resumeSecret);
+            }
             currentClaim = restored;
             confirmedHandle = restored.handle;
             return restored;
         }
-        const fresh: StoredLobbyClaim = { guestPlayerId: null, handle: null };
+        const fresh: StoredLobbyClaim = { guestPlayerId: null, resumeSecret: null, handle: null };
         currentClaim = fresh;
         confirmedHandle = null;
         return fresh;
@@ -591,12 +625,14 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     }
 
     /**
-     * Drop the claim everywhere (storage + memory + handle) after the
-     * server signals it is dead (`identity_expired`/`server_restarted`)
-     * or the visitor explicitly forgets. The browser never mints a
-     * replacement: the NEXT establish cycle presents an empty advisory
-     * claim and adopts the server-issued id from the directed `identity`
-     * event.
+     * Drop the claim everywhere — id, resume secret, and handle together
+     * (storage + memory) — after the server signals it is dead
+     * (`identity_expired`/`server_restarted`) or the visitor explicitly
+     * forgets. This is the ONLY path that clears the credential: a
+     * secret-less identity event must never do it (plan AD-9/Q1a). The
+     * browser never mints a replacement: the NEXT establish cycle
+     * presents an empty advisory claim and adopts the server-issued
+     * values from the directed `identity` event.
      */
     function invalidateClaim(reason: string): void {
         clearStoredClaim(storage);
@@ -606,7 +642,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
     }
 
     /**
-     * Adopt a server-issued opaque id (feature 010 Clarifications
+     * Adopt the server-issued opaque id (feature 010 Clarifications
      * v1.6): the directed `identity` event is THE FR-003 delivery
      * channel, so the id the SERVER resolved always wins over the
      * local bootstrap mint. When it differs, our presented claim was
@@ -616,40 +652,68 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      * restore work end-to-end. Also self-heals a claim-less client
      * (e.g., storage was cleared mid-session) from the delivered id.
      *
+     * The `{ guestPlayerId, resumeSecret }` pair is overwritten ONLY when
+     * the event actually carries a secret (plan AD-9, spec 010 FR-042):
+     * a secret-less emission — the rename path, or an older server —
+     * carries the stored credential forward UNCHANGED, because a
+     * delivered secret always supersedes the stored one (single-epoch)
+     * while its absence says nothing about the credential we already
+     * hold. Only `invalidateClaim` clears it.
+     *
+     * @param delivered      Server-issued id on the event, if any.
+     * @param deliveredSecret Owner-only secret on the same event, if any.
      * @returns `true` when the claim's id CHANGED because of this
      *   delivery (the presented claim did not match the server's).
      */
-    function adoptServerGuestId(delivered: GuestPlayerId | undefined): boolean {
+    function adoptServerGuestId(delivered: GuestPlayerId | undefined, deliveredSecret: string | undefined): boolean {
         if (delivered === undefined) {
             return false;
         }
         knownIdentityClaims.add(delivered);
+        if (deliveredSecret !== undefined) {
+            knownIdentityClaims.add(deliveredSecret);
+        }
+        // Absent on the event → keep whatever we already stored; present →
+        // it wins (and is registered above for redaction either way).
+        const secret = deliveredSecret !== undefined ? deliveredSecret : (currentClaim?.resumeSecret ?? null);
         if (currentClaim === null) {
-            const adopted: StoredLobbyClaim = { guestPlayerId: delivered, handle: confirmedHandle };
+            const adopted: StoredLobbyClaim = {
+                guestPlayerId: delivered,
+                resumeSecret: secret,
+                handle: confirmedHandle,
+            };
             currentClaim = adopted;
             persistClaim();
             return true;
         }
-        if (currentClaim.guestPlayerId === delivered) {
+        const idChanged = currentClaim.guestPlayerId !== delivered;
+        if (!idChanged && currentClaim.resumeSecret === secret) {
             return false;
         }
-        const successor: StoredLobbyClaim = { guestPlayerId: delivered, handle: currentClaim.handle };
+        const successor: StoredLobbyClaim = {
+            guestPlayerId: delivered,
+            resumeSecret: secret,
+            handle: currentClaim.handle,
+        };
         currentClaim = successor;
         persistClaim();
-        return true;
+        return idChanged;
     }
 
     /**
-     * Build the advisory wire claim. The canonical identity is omitted
-     * entirely until the server has issued one (issue #74: the wire
-     * validator rejects an explicit `null`, and a first connect carries
-     * no identity), as is an unset handle
-     * (exactOptionalPropertyTypes).
+     * Build the advisory wire claim: the stored id, handle, AND the
+     * owner-only resume secret that proves possession of that id — the
+     * proof the server requires before it restores anything (spec 006
+     * FR-026). The canonical identity is omitted entirely until the
+     * server has issued one (issue #74: the wire validator rejects an
+     * explicit `null`, and a first connect carries no identity), as are
+     * an unset handle and an unset secret (exactOptionalPropertyTypes).
      */
     function wireClaim(claim: StoredLobbyClaim): GuestIdentityClaim {
         const identity = claim.guestPlayerId === null ? {} : { guestPlayerId: claim.guestPlayerId };
         const handle = claim.handle === null ? {} : { handle: claim.handle };
-        return { ...identity, ...handle };
+        const secret = claim.resumeSecret === null ? {} : { resumeSecret: claim.resumeSecret };
+        return { ...identity, ...handle, ...secret };
     }
 
     // -- State + listener plumbing --------------------------------------------------
@@ -704,8 +768,10 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 // Wall-clock here is the sanctioned transport boundary
                 // (informational `clientTimeMs`; never simulation state).
                 sendEnvelope({ clientTimeMs: Date.now() }, 'ping');
-            } catch {
-                // Socket mid-close; the close handler owns teardown.
+            } catch (error) {
+                // FR-028 void send: log (redaction-gated), never throw;
+                // the close handler owns teardown.
+                log('warn', 'outbound frame dropped', { type: 'ping', detail: describeThrown(error) });
             }
             schedulePing();
         }, periodMs);
@@ -761,7 +827,11 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
 
     /** Send one client→server envelope stamped with the next per-connection seq. */
     function sendEnvelope(payload: NetworkPayload, type: ProtocolEnvelope<NetworkPayload>['type']): void {
-        if (socket === null) {
+        const target = socket;
+        // FR-028: a null, CONNECTING, or CLOSING socket cannot accept
+        // the frame — throw so promise sends reject (and void sends
+        // log) instead of losing the frame silently.
+        if (target === null || target.readyState !== WS_READY_STATE_OPEN) {
             throw new LobbyTransportError(`ws-lobby-client: cannot send ${type} without an open socket`);
         }
         clientSeq += 1;
@@ -771,7 +841,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             seq: clientSeq as SequenceNumber,
             payload,
         };
-        socket.send(encodeFrame(envelope));
+        target.send(encodeFrame(envelope));
     }
 
     function nextActionId(): LobbyActionId {
@@ -856,18 +926,26 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
         socket = created;
         attach(created, epoch);
         stopEstablishTimer();
+        // FR-031: the establish cycle is bounded by its OWN timeout,
+        // not by the per-action correlation knob.
         establishTimer = scheduler.setTimeout(() => {
             if (epoch !== attemptEpoch) {
                 return;
             }
             failAttempt(new LobbyTimeoutError('establish cycle'));
-        }, actionTimeoutMs);
+        }, establishTimeoutMs);
     }
 
-    /** Attach the protocol handlers to a freshly created socket (epoch-guarded). */
+    /**
+     * Attach the protocol handlers to a freshly created socket.
+     * Epoch-guarded (attempt generation) AND socket-identity-guarded
+     * (005 FR-034): a callback only acts while its socket is still the
+     * client's current one, so a superseded or torn-down socket can
+     * never drive the state machine.
+     */
     function attach(socketToAttach: WebSocket, epoch: number): void {
         socketToAttach.onopen = () => {
-            if (epoch !== attemptEpoch) {
+            if (epoch !== attemptEpoch || socket !== socketToAttach) {
                 return;
             }
             log('debug', 'socket open', {});
@@ -875,7 +953,7 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             sendEnvelope({ protocolVersion: NETWORK_API_VERSION }, 'hello');
         };
         socketToAttach.onmessage = (event: MessageEvent<string>) => {
-            if (epoch !== attemptEpoch) {
+            if (epoch !== attemptEpoch || socket !== socketToAttach) {
                 return;
             }
             const decoded = tryDecodeFrame(event.data);
@@ -885,16 +963,27 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 log('warn', 'inbound frame failed validation', { detail: decoded.error.message });
                 return;
             }
+            // FR-032: structural validation BEFORE dispatch — the codec
+            // accepts any object as `lobbyEvent.event`, so the nested
+            // discriminated variants are validated here. A malformed
+            // frame is dropped with a diagnostic log: it must never
+            // throw out of onmessage, corrupt client state, or sever
+            // the connection (004 FR-010).
+            const diagnostic = inboundFrameDiagnostic(decoded.envelope);
+            if (diagnostic !== null) {
+                log('warn', 'inbound frame failed structural validation', { detail: diagnostic });
+                return;
+            }
             handleEnvelope(decoded.envelope);
         };
         socketToAttach.onclose = (event: CloseEvent) => {
-            if (epoch !== attemptEpoch) {
+            if (epoch !== attemptEpoch || socket !== socketToAttach) {
                 return;
             }
             handleTransportClose(event.code);
         };
         socketToAttach.onerror = () => {
-            if (epoch !== attemptEpoch) {
+            if (epoch !== attemptEpoch || socket !== socketToAttach) {
                 return;
             }
             log('warn', 'socket transport error', {});
@@ -995,9 +1084,16 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
                 heartbeatPeriodMs = payload.heartbeatIntervalMs;
                 schedulePing();
                 // Present the (guaranteed) resume claim; the directed
-                // `identity` event completes establishment.
+                // `identity` event completes establishment. FR-028 void
+                // send: a transport that cannot accept the claim logs
+                // and keeps the establish cycle running (its timeout
+                // owns the failure) instead of throwing out of onmessage.
                 const claim = ensureClaim();
-                sendEnvelope({ claim: wireClaim(claim) }, 'lobbyIdentity');
+                try {
+                    sendEnvelope({ claim: wireClaim(claim) }, 'lobbyIdentity');
+                } catch (error) {
+                    log('warn', 'outbound frame dropped', { type: 'lobbyIdentity', detail: describeThrown(error) });
+                }
                 return;
             }
             case 'lobbyEvent': {
@@ -1057,7 +1153,11 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
      * the handshake gate (advance to subscribe). A server-delivered
      * `guestPlayerId` (feature 010 Clarifications v1.6) is adopted as
      * the resume claim FIRST — the server's id always wins over the
-     * local bootstrap mint. A handle dropping to `null` after having
+     * local bootstrap mint — together with its resume secret when the
+     * event carries one (spec 010 FR-040). A secret-less event (the
+     * rename path, or an older server) PRESERVES the stored secret
+     * (plan AD-9/Q1a), so a routine rename can never null the credential
+     * a later reload needs. A handle dropping to `null` after having
      * been set means the server forgot us: the stale claim is
      * invalidated so the next cycle presents a fresh one ("landing
      * page starts a fresh session" — spec edge case) — UNLESS the
@@ -1078,11 +1178,13 @@ export function createWsLobbyClient(options: WsLobbyClientOptions = {}): WsLobby
             identity.guestPlayerId === undefined ||
             currentClaim === null ||
             identity.guestPlayerId === currentClaim.guestPlayerId;
-        // FR-003 delivery channel: server-delivered id replaces the
-        // local mint and is persisted immediately.
-        const superseded = adoptServerGuestId(identity.guestPlayerId);
+        // FR-003 delivery channel: server-delivered id (and, on
+        // establishment events, its resume secret) replace the local
+        // claim and are persisted immediately. A secret-less event
+        // carries the stored credential forward unchanged (plan AD-9).
+        const superseded = adoptServerGuestId(identity.guestPlayerId, identity.resumeSecret);
         if (currentClaim !== null && currentClaim.handle !== identity.handle) {
-            currentClaim = { guestPlayerId: currentClaim.guestPlayerId, handle: identity.handle };
+            currentClaim = { ...currentClaim, handle: identity.handle };
             persistClaim();
         }
         if (hadHandle && identity.handle === null && !superseded) {

@@ -114,14 +114,16 @@ export function MatchLayout(): JSX.Element {
     // leg is still mounted).
     //
     // returnTo captures PATHNAME ONLY (feature 015 live-smoke fix): match
-    // routes never carry a query in production, and keeping the search out
-    // prevents the double-decode rejection in readReturnTo.
+    // routes never carry a query in production. The value passes through
+    // TanStack Router's single search decode on the way back and is
+    // validated by the canonical `isSafeReturnTo` guard (013 FR-034) —
+    // no producer-side encoding and no consumer-side second decode.
     useEffect(() => {
         if (state.identityStatus !== 'unnamed') return;
         if (state.viewMode === 'match') return;
         const pathname = window.location.pathname;
         if (!pathname.startsWith('/match/')) return;
-        const returnTo = encodeURIComponent(pathname);
+        const returnTo = pathname;
         void navigate({ to: '/profile', search: { returnTo }, replace: true });
     }, [state.identityStatus, state.viewMode, navigate]);
 

@@ -14,12 +14,18 @@
  * the wire level; the TS union is not discriminated, so each arm
  * narrows with a documented cast — the same pattern feature 004's
  * server uses (packages/networking/src/server.ts §"documented cast").
+ * Because those casts are unchecked, the FIRST thing this translator
+ * does is re-validate the frame against its declared kind
+ * (005 FR-032): a malformed frame translates to `null`, which is the
+ * union's "drop it" answer — the clients log the diagnostic at their
+ * socket boundary, where the log context lives.
  *
  * Pure: no I/O, no clock reads, no state mutation. The runtime stamps
  * the resulting event with a clock reading when dispatching.
  */
 
 import type { EnvelopeContext, NetEvent, NetworkPayload, ProtocolEnvelope } from '../state/types';
+import { inboundFrameDiagnostic } from './inbound-validation';
 
 // Payload aliases for the documented per-arm casts.
 type HelloAckPayload = Extract<NetworkPayload, { readonly connectionId: string }>;
@@ -44,6 +50,11 @@ export function netEventFromEnvelope(
     envelope: ProtocolEnvelope<NetworkPayload>,
     ctx: EnvelopeContext,
 ): NetEvent | null {
+    if (inboundFrameDiagnostic(envelope) !== null) {
+        // Structurally malformed for its declared kind: drop it rather
+        // than cast garbage into a NetEvent (005 FR-032).
+        return null;
+    }
     switch (envelope.type) {
         // --- Server → client kinds the console consumes ---
 

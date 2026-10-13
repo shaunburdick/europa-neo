@@ -1,34 +1,40 @@
 /**
  * Local-storage persistence for the browser lobby claim — feature 010 (T-012).
  *
- * FR-003: the browser stores the non-secret guest player ID and the last
- * accepted handle under a namespaced key so a reload can restore the
- * active `GuestPlayerIdentity`. This module is the ONLY place the
- * console's lobby client touches storage, and it is deliberately
- * paranoid at every boundary:
+ * FR-003/FR-042: the browser stores the guest player ID, the owner-only
+ * resume secret delivered beside it, and the last accepted handle under a
+ * namespaced key so a reload can restore the active `GuestPlayerIdentity`.
+ * This module is the ONLY place the console's lobby client touches storage,
+ * and it is deliberately paranoid at every boundary:
  *
- *   - The stored value is a non-secret stored resume claim, not auth and not
- *     a session/reconnect bearer token. The
- *     server honors a presented claim only while its own registry still
- *     holds that identity; unknown/stale/forged claims silently mint a
- *     fresh identity server-side (matchmaking `restoreIdentity`).
+ *   - The stored value is a bearer-credential set (id + resume secret), not
+ *     an account and not a session/reconnect token. The server honors a
+ *     presented claim only while its own registry still holds that identity
+ *     AND the presented secret matches; unknown/stale/secret-less claims
+ *     silently mint a fresh identity server-side (matchmaking
+ *     `restoreIdentity`).
  *   - Corrupted or wrong-shaped JSON is tolerated (`loadStoredClaim`
  *     returns `null`, never throws) — a cleared or half-written store
- *     must never break landing.
+ *     must never break landing. A record whose `resumeSecret` is MISSING
+ *     (a legacy v1 row written before issue #146) loads as `null`: a
+ *     valid "cannot restore" state, not corruption. A record whose
+ *     `resumeSecret` is present but the WRONG TYPE is treated as tampered
+ *     and rejected outright.
  *   - Storage itself may be unavailable (private browsing, disabled,
  *     quota pressure): every accessor swallows the failure and the
  *     caller degrades to an in-memory-only session
  *     ({@link resolveLobbyStorage} returns `null`,
  *     {@link saveStoredClaim} returns `false`).
  *
- * Boundary (spec FR-024 / NFR-003): the player ID is non-secret
- * correlation data and is kept here for resume-claim construction. This
- * module does not place it in URLs, query strings, logs, or error messages
- * because those surfaces do not need it. The persisted resume claim is a
- * non-secret correlation data, distinct from session/reconnect bearer
- * credentials. The persisted payload is exactly
- * `{ guestPlayerId, handle }` per data-model.md §4 ("The client stores
- * only `{ guestPlayerIdClaim, handle }` under a namespaced key").
+ * Boundary (spec FR-024 / NFR-003 / FR-042): none of these three values
+ * is ever placed in URLs, query strings, logs, or error messages — those
+ * surfaces do not need them, and the resume secret is a bearer
+ * credential. The persisted payload is exactly the
+ * `{ guestPlayerIdClaim, resumeSecret, handle }` triple that
+ * `specs/010-public-lobby-match-browser/data-model.md` §4 specifies (the
+ * claim field is named `guestPlayerId` in code), and
+ * {@linkcode loadStoredClaim} projects down to that shape so a tampered
+ * or future-format record cannot smuggle extra keys into the client.
  */
 
 import { isGuestPlayerId } from '@europa/core';
@@ -45,17 +51,30 @@ export const LOBBY_STORAGE_KEY = 'europa:lobby:identity:v1';
 export const REDACTION_MARKER = '[redacted]';
 
 /**
- * The persisted non-secret resume claim (data-model.md §4), distinct from
- * session/reconnect bearer credentials. `guestPlayerId` is `null` until
+ * The persisted claim — data-model.md §4's
+ * `{ guestPlayerIdClaim, resumeSecret, handle }` triple, with the claim
+ * field named `guestPlayerId` in code. `guestPlayerId` is `null` until
  * the SERVER issues the universal identity (issue #74: the browser never
- * mints one); after the directed `identity` event delivers it, the client
- * adopts and persists it here. `handle` is the last SERVER-accepted
- * display handle (`null` until the visitor picks a valid one); both
- * fields are advisory input on restore — the server record always wins.
+ * mints one); after the directed `identity` event delivers it, the
+ * client adopts and persists it here. `resumeSecret` is the owner-only
+ * credential delivered alongside the id by establishment-path events
+ * (spec 010 FR-040): `null` until one arrives, and cleared together
+ * with the id by `invalidateClaim`. `handle` is the last SERVER-accepted
+ * display handle (`null` until the visitor picks a valid one). The id
+ * and handle are advisory input on restore — the server record always
+ * wins — and the secret is what proves possession of it.
  */
 export interface StoredLobbyClaim {
     /** Server-issued universal identity, or `null` before first delivery. */
     readonly guestPlayerId: GuestPlayerId | null;
+    /**
+     * Owner-only restore proof delivered by the establishment event, or
+     * `null` before the first delivery — and for legacy v1 records that
+     * predate issue #146, which therefore cannot restore (mint-fresh,
+     * exactly today's degradation).
+     */
+    readonly resumeSecret: string | null;
+    /** Last server-accepted display handle, or `null` before one is chosen. */
     readonly handle: string | null;
 }
 
@@ -71,31 +90,38 @@ export interface LobbyStorage {
 }
 
 /**
- * Shape guard for one parsed claim record (post-JSON validation).
+ * On-disk shape of one parsed claim record. Differs from
+ * {@link StoredLobbyClaim} in exactly one way: `resumeSecret` is
+ * OPTIONAL, because rows written before issue #146 predate the field.
  *
  * The identity is validated with the canonical
  * {@link isGuestPlayerId} validator (issue #74) — never a
  * `length > 0` proxy. `null` is the legitimate pre-allocation state and
  * is accepted; any other non-canonical value (including `undefined`,
  * numbers, or wrong-length strings) is rejected so corrupted or
- * tampered storage is treated as a first visit.
+ * tampered storage is treated as a first visit. The secret follows the
+ * same rule in reverse: absent or `null` is the legitimate
+ * cannot-restore state, a string is a credential, anything else is
+ * tampering.
  *
  * @param value Parsed JSON value.
  * @returns `true` when the value is a well-formed stored claim.
  */
-function isStoredLobbyClaim(value: unknown): value is StoredLobbyClaim {
+function isStoredLobbyClaim(value: unknown): value is Partial<StoredLobbyClaim> {
     if (typeof value !== 'object' || value === null) {
         return false;
     }
     const candidate = value as Partial<StoredLobbyClaim>;
-    const { guestPlayerId, handle } = candidate;
+    const { guestPlayerId, resumeSecret, handle } = candidate;
     const identityValid = guestPlayerId === null || isGuestPlayerId(guestPlayerId);
-    return identityValid && (handle === null || typeof handle === 'string');
+    const handleValid = handle === null || typeof handle === 'string';
+    const secretValid = resumeSecret === undefined || resumeSecret === null || typeof resumeSecret === 'string';
+    return identityValid && handleValid && secretValid;
 }
 
 /**
  * Probe the platform `localStorage` and return it as a
- * {@link LobbyStorage}, or `null` when unavailable (private mode,
+ * {@linkcode LobbyStorage}, or `null` when unavailable (private mode,
  * security settings, non-browser harness). A write/read round-trip on
  * the probe key verifies the API is not merely present but actually
  * usable — Safari's private mode historically exposed the object while
@@ -150,8 +176,14 @@ export function loadStoredClaim(storage: LobbyStorage | null): StoredLobbyClaim 
             return null;
         }
         // Project to the canonical shape so extra keys in a tampered or
-        // future-format record never ride into the client.
-        return { guestPlayerId: parsed.guestPlayerId, handle: parsed.handle };
+        // future-format record never ride into the client, and so a
+        // legacy row that predates the resume secret normalizes to the
+        // explicit "cannot restore" state instead of `undefined`.
+        return {
+            guestPlayerId: parsed.guestPlayerId ?? null,
+            resumeSecret: parsed.resumeSecret ?? null,
+            handle: parsed.handle ?? null,
+        };
     } catch {
         // Corrupted JSON (partial write, manual tampering): treat as a
         // first visit rather than failing landing.
@@ -204,8 +236,8 @@ export function clearStoredClaim(storage: LobbyStorage | null): void {
 //
 // The universal `GuestPlayerId` is issued by the server (matchmaking is
 // the identity authority) and delivered on the directed `identity` lobby
-// event. The browser never mints an identity: a first connect presents
-// an empty advisory claim, and subsequent connects present the canonical
+// event. The browser never mints an identity: a first connect presents an
+// empty advisory claim, and subsequent connects present the canonical
 // value the server previously delivered (adopted by
 // `ws-lobby-client.ts`, which is the only writer of that field). There
 // is therefore no `randomUUID`/hex minting helper here — see

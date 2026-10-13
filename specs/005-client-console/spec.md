@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-12 (v1.12; console review cleanup — issues #153 and #127)
+**Last Updated**: 2026-10-13 (v1.12; console review cleanup — issues #153 and #127)
 **Version**: 1.12
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.12 review-cleanup amendment (issues #153 and #127) drafted 2026-10-12 — UNAPPROVED (numbered v1.12 because concurrent PR #189 already claims v1.11 for this file); URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -373,7 +373,27 @@ truthful).
     via the imported constant across idle/live/reconnecting states
     (`hud-version.test.tsx`).
 16. **Historical issue #76 implementation note (camera wording superseded by v1.10)**: the match view restructures into a two-column flex layout: `europa-main` becomes `display: flex` with `europa-board-area` left (flex-grow: 1, fills all available space) and a new `europa-sidebar` right (fixed width, ~280px). The sidebar sections (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) are composed as children of `App`. The existing HUD items currently rendered inline in `App` (`#hud`, `OrderBar`, `ReservesPanel`, `Minimap`, Surrender, Help) are migrated into the sidebar structure. The `BrandedFooter` stays at the view root (below the two-column area). The implementation history recorded `minZoom=32`, `maxZoom=96`, and the original full-board/percentage assumptions; those camera claims are superseded by v1.10 FR-017. The canvas fills the available board area — zoom changes cell density, not canvas size. Keyboard zoom shortcuts live in `HotkeyController` (one handler, same focus-guard as order shortcuts). The minimap viewport follows the current camera. Toasts are positioned over the sidebar. The layout fills `100vw × 100vh` with no page scrolling; spectator order controls remain inert.
-17. **`CONSOLE_API_VERSION` 0.1.0 → 0.2.0 (issue #76)**: raising `minCellPx` 12 → 16 changes the public zoom-clamp surface, so both contract mirrors (`console-api.ts` + `console-types.ts`) bump the API version in the same change set. The wire protocol version is separate and untouched. The conformance suite pins each shipped API version and checks the canonical source literal against the imported runtime value.
+17. **`CONSOLE_API_VERSION` bump history — corrected (issue #129,
+     2026-10-11)**: the original text of this note ("0.1.0 → 0.2.0,
+     `minCellPx` 12 → 16", issue #76) is historical and superseded.
+     Current shipped truth: the canonical `CONSOLE_API_VERSION` literal
+     is **0.4.1** and the shipped zoom clamp's `minCellPx` is **32**
+     (physical cell-size bounds 32–96 CSS px per FR-017/v1.10). The
+     mechanism this note records is unchanged: a change to the public
+     zoom-clamp surface bumps the API version in BOTH contract mirrors
+     (`console-api.ts` + `console-types.ts`) in the same change set;
+     the wire protocol version is separate and untouched; the
+     conformance suite pins each shipped API version and checks the
+     canonical source literal against the imported runtime value.
+     Anyone citing this note MUST quote the shipped literal from
+     `console-types.ts`, never a historical value from this prose.
+  - **2026-10-11 (issue #129, security sweep)**: the shipped literal
+     moves to **0.5.0** in this change set — the public barrel drops
+     the `@internal` `ConsoleRuntimeContract` re-export (FR-038), a
+     breaking public-surface change on the 0.x minor line. The
+     mechanism above is what forces this sub-entry: the "shipped
+     literal" clause now reads `0.5.0`; `0.4.1` remains the corrected
+     v1.10 history above, and `minCellPx` **32** is unchanged.
 
 ### Quickstart validation mapping (Q-* → proving suites)
 
@@ -537,6 +557,25 @@ assess the version choice. No fog, terrain, or engine behavior changes.
 See FR-017, FR-019, FR-027 and US6 scenarios 9–14 for conformance
 criteria.
 
+### v1.11 (2026-10-11) — WebSocket-client robustness, transport-override correctness, and debug-surface hygiene (issues #152, #129; security-sweep)
+
+Rationale: the 2026-09-10 review (findings C-022…C-025, C-055, C-056, L-12) verified nine client-transport robustness gaps and three production-surface hygiene gaps in the shipped console. All are fail-soft/correctness defects with security posture impact: a synchronous throw inside a React event handler, unbounded correlation state, a React root mounted after teardown, a half-open server leaving a blank console, unvalidated inbound frames able to throw from `onmessage`, cross-instance module-global state that shares a captured seat session token (a bearer credential), a missing stale-socket guard, always-allocating rehydration, an exhaustiveness check defeated by a passthrough `default`, production-reachable debug globals, and `@internal` names on the public barrel. The requirements below make the console transport fail soft and instance-clean without changing any wire semantics (spec 004) or routing contract (spec 013).
+
+- **FR-028 (#152, C-022)**: Every client send path (`ConsoleClient.sendOrder`, join/leave/spectate submissions, lobby actions, heartbeats) MUST settle through its promise contract: when the transport cannot accept the frame (socket `null`, `CONNECTING`, `CLOSING`, or torn down), the call MUST reject the returned promise. A synchronous throw MUST NOT escape a send API into a React event handler or any other synchronous caller; the failure MUST surface as a logged, observable rejection (FR-008 status/feedback path). Void send paths — heartbeats and other fire-and-forget sends that return no promise — MUST NOT throw and MUST log the failure through the redaction-gated verbose logger instead; no promise is conjured for them.
+- **FR-029 (#152, C-023)**: Order-correlation state (wire `seq` → `actionId`) MUST be consumed when the matching ack arrives and MUST be bounded to a documented cap consistent with the reducer's pending-order cap discipline (`PENDING_ORDERS_CAP = 64`). Entries MUST be pruned on ack, correlation timeout, disconnect, and teardown; a late or duplicate ack MUST NOT re-correlate against a consumed or evicted entry. Growth MUST be flat across N acks (unit-tested), not O(N) sends.
+- **FR-030 (#152, C-024)**: `mountInto` (and any runtime mount path) MUST re-check the torn-down flag after every `await` before mounting a React root, attaching listeners, or starting timers. Once `teardown()` completes, no later async continuation MAY mount or re-attach anything; a mount attempt after teardown MUST throw a synchronous error rather than half-mount. A `teardown()` racing a `mountInto()` handshake MUST leave zero roots, listeners, or timers behind.
+- **FR-031 (#152, C-025)**: Match- and lobby-client `connect()` MUST enforce a configurable establish timeout (timer seam-injected, default documented). On expiry the connect promise MUST settle as failed and the UI MUST render an honest failed/retrying status (FR-008); a half-open server MUST NOT leave a permanently blank console. The timeout MUST NOT fire after a successful establish and MUST be cleared on teardown.
+  - 2026-10-12 (v1.11 in-entry precision): the documented default is `ESTABLISH_TIMEOUT_MS = 10_000`, declared alongside the other console tunables in `contracts/console-types.ts`.
+- **FR-032 (#152, C-055)**: Every inbound server frame MUST be structurally validated against its declared kind — including nested discriminated `lobbyEvent` payloads and their nested variant fields — BEFORE dispatch. A malformed frame or nested payload MUST be dropped with a diagnostic log and MUST NOT throw out of the socket's `onmessage` handler, corrupt client state, or unmount the React tree. Validation failures on a single frame MUST NOT sever the connection (mirroring spec 004 FR-010's drop-don't-sever discipline).
+- **FR-033 (#152, C-055)**: All per-connection mutable client state — wire sequence counters, captured `seatSessionToken`s, seq→actionId maps, sockets, timers — MUST be instance-scoped to a single client instance. Module-global mutable state shared across client instances is prohibited; in particular, a seat session token (a bearer credential) captured by one lobby-client instance MUST NOT be readable by any other instance, existing or later-created. Instance-isolation MUST be pinned by a test that runs two instances through interleaved lifecycles.
+- **FR-034 (#152, C-055)**: Asynchronous socket callbacks (`onopen`, `onmessage`, `onclose`, `onerror`) MUST verify that the socket they were attached to is still the client's current socket before acting. Events from superseded or torn-down sockets (including a stale `onopen` racing a reconnect) MUST be ignored — the same guard `onclose` already applies, extended to every handler.
+- **FR-035 (#152, C-055)**: Wire-view rehydration MUST be copy-on-write and allocation-free on the no-op path: when no field requires repair (the common pipe-free tick), the input envelope MUST be returned by reference with zero new arrays or objects; when repair is needed, only the changed spine is copied and the decoded payload MUST never be mutated. Rehydration MUST run only for view-bearing payload kinds.
+- **FR-036 (#152, C-055)**: Connection-state → console-status mapping (`consoleStatusFromConnectionState`) MUST be exhaustiveness-safe: a `default` branch that returns the input (defeating the compiler's `never` check) is prohibited; unknown states MUST hit an explicit `never` sink that throws, so adding a networking state without a console case is a loud runtime/test failure, not a silently aliased status.
+- **FR-037 (#129, F-CON-UI-014)**: The production bootstrap MUST NOT install debug globals (`window.__europaLobby`, `window.__europaLive`, `window.__europaE2E`, `window.__europaTestMatch`, or successors) on a production boot. Those handles MAY be installed only by test-only boot modes (the `?e2e` harness and the `window.__europaTestMatch` direct-match seam, which live in dynamically-imported test chunks) or behind an explicit test opt-in sentinel set by test infrastructure before load. Test handles MUST NOT expose bearer credentials (session, reconnect, seat, or resume secrets). Policy home: spec 015 FR-019.
+- **FR-038 (#129, F-CON-UI-015)**: The public `@europa/console` package barrel MUST NOT export declarations marked `@internal`. Precision on the two same-named `ConsoleRuntime` surfaces: the `@internal — declared for tests` tag sits on the `ConsoleRuntime` **interface** in `contracts/console-api.ts`, which the barrel re-exports as `ConsoleRuntimeContract` — THAT type export is the one removed. The `ConsoleRuntime` **class** value export from `./runtime` (whose doc offers it as the embedding surface for hosts) is not `@internal`-tagged and is expressly NOT removed by this sweep; whether it eventually moves to an embedding-only entry point is a future API decision, out of scope here. Other `@internal`-tagged declarations (e.g., test-only helpers in `contracts/console-to-networking.ts`) are likewise removed from the barrel wherever they surface. Test-only surfaces are reachable through dedicated test entry points or the modules themselves, never the public API. Removing such exports is a breaking public-surface change under the console contract: `CONSOLE_API_VERSION` MUST be bumped in the same change set (0.x minor-line bump; the conformance pin updates with it).
+- **Routing/transport note**: the requirement that a `?ws=` transport override actually selects the transport in production boots is owned by spec 013 FR-025 (v1.5) and spec 010's implementation notes; this spec adds no routing requirement. The transport-URL policy (same-host/loopback-only, no credentials) is unchanged (`resolveLobbyServerUrl`).
+- **Verification standard for v1.11**: every FR above ships with a targeted unit/component test that fails against the pre-fix code (send-while-CLOSING rejects; acks leave a flat correlation map; mount-after-teardown throws with zero leaked roots; a half-open connect settles within the timeout with an honest status; a malformed nested `lobbyEvent` is dropped without throwing; two interleaved instances share no state; a stale `onopen` is ignored; pipe-free ticks allocate nothing in rehydration; an unknown connection state hits the never-sink; production boot leaves `window` free of `__europa*` handles; the barrel exports no `@internal` name). `pnpm verify` MUST be green, and an agent-browser smoke against `pnpm host` MUST show the console connecting, failing soft on a bad `?ws=`, and recovering to the lobby without console errors.
+
 ### v1.12 (2026-10-12) — Console review cleanup (issues #153 and #127)
 
 Scope: findings `F-CON-ST-001`…`F-CON-ST-010` (issue #153, evidence
@@ -544,7 +583,7 @@ C-026/C-027/C-057) and `F-CON-RD-003/006/012/014` plus
 `F-CON-UI-002/003/004/005/007/009/010` (issue #127, evidence
 C-029/C-059/C-060). FR-009 is amended; FR-039 through FR-047 are added.
 Roster-ordering and seat-token clarifications that belong to absorbed
-feature 023 land in spec 010 v1.14 (feature 023 lives there, not in a
+feature 023 land in spec 010 v1.15 (feature 023 lives there, not in a
 `specs/023-*` directory).
 
 **Concurrency note (PR #189).** Open PR #189 (`security-sweep`) claims
@@ -608,7 +647,7 @@ heading above does not overclaim:**
 - Issue #153's "spec 005 data-model §4" maps to the pan clamp, already
   repaired by #184 (guard above). "Spec 023 FR-006 / spec 010 FR-023"
   map to spec 010 (absorbed feature 023 and FR-023 live there) — see
-  spec 010 v1.14 for the ordering and seat-token clarifications.
+  spec 010 v1.15 for the ordering and seat-token clarifications.
 - The duplicate `FR-027` bullet that v1.10 appended at the end of this
   file is removed; the requirements-list copy is authoritative (no
   behavior change).

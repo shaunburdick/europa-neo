@@ -681,7 +681,7 @@ order bridge, adapter refuses orders) is the security boundary.
 
 ---
 
-## 19. Review-cleanup additions (spec v1.12 / v1.14 — issues #153, #127)
+## 19. Review-cleanup additions (spec v1.12 / v1.15 — issues #153, #127)
 
 Two entities exist *outside* `ConsoleState` and are introduced by
 `plan.md` §5. One existing lobby-state shape is reduced. §4
@@ -739,7 +739,7 @@ the DOM at any time (test N16 in `plan.md` §7.4).
 is **removed** together with the never-dispatched `lobbyRosterDelta`
 action. Revision gating lives upstream in the transport
 (`ws-lobby-client.ts:1191-1198, 1216-1223`), which is where the
-ordering guarantee also lives (spec 010 v1.14):
+ordering guarantee also lives (spec 010 v1.15):
 
 > After every delta merge the transport roster array is sorted by
 > `compareUtf16(a.handle.toLowerCase(), b.handle.toLowerCase())`; the

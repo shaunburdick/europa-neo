@@ -23,6 +23,7 @@ import {
 } from '@europa/networking';
 import { expect, type Page, test } from '@playwright/test';
 
+import { optInLobbyTestHandle, preserveWsQueryInHistory } from './helpers/history-patch';
 import { setHandleViaProfile } from './helpers/profile';
 
 // ---------------------------------------------------------------------------
@@ -31,28 +32,6 @@ import { setHandleViaProfile } from './helpers/profile';
 
 const TICK_MS = 250;
 const WAIT_TIMEOUT = 15_000;
-
-// ---------------------------------------------------------------------------
-// History patch — preserve the test-only ?ws= transport override
-// ---------------------------------------------------------------------------
-
-function preserveWsQueryInHistory(): void {
-    const preserveWsQuery = (url: string | URL | null): string | URL | null => {
-        try {
-            if (url === null || !window.location.search.startsWith('?ws=')) return url;
-            const target = typeof url === 'string' ? url : url.toString();
-            const parsed = new URL(target, window.location.origin);
-            parsed.search = window.location.search;
-            return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-        } catch {
-            return url;
-        }
-    };
-    const replaceState = window.history.replaceState.bind(window.history);
-    const pushState = window.history.pushState.bind(window.history);
-    window.history.replaceState = (state, title, url) => replaceState(state, title, preserveWsQuery(url));
-    window.history.pushState = (state, title, url) => pushState(state, title, preserveWsQuery(url));
-}
 
 // ---------------------------------------------------------------------------
 // Stack harness — identical pattern to lobby.spec.ts buildLobbyStack
@@ -236,6 +215,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         page.on('pageerror', (error) => errors.push(String(error)));
         await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
@@ -289,6 +269,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         const errors: string[] = [];
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         page.on('pageerror', (error) => errors.push(String(error)));
         await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
@@ -325,6 +306,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         // No clipboard permission → navigator.clipboard.writeText() rejects.
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, permissions: [] });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         page.on('pageerror', (error) => errors.push(String(error)));
         await page.goto(`/lobby?ws=${encodeURIComponent(`ws://127.0.0.1:${String(wsPort)}`)}`);
@@ -378,6 +360,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         // -- Alice creates a waiting public match ----------------------------
         const aliceCtx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await aliceCtx.addInitScript(preserveWsQueryInHistory);
+        await aliceCtx.addInitScript(optInLobbyTestHandle);
         const alice = await aliceCtx.newPage();
         alice.on('pageerror', (error) => errors.push(`Alice: ${String(error)}`));
         await alice.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
@@ -401,6 +384,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         // -- Bob joins via lobby listing → match starts ----------------------
         const bobCtx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await bobCtx.addInitScript(preserveWsQueryInHistory);
+        await bobCtx.addInitScript(optInLobbyTestHandle);
         const bob = await bobCtx.newPage();
         bob.on('pageerror', (error) => errors.push(`Bob: ${String(error)}`));
         await bob.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
@@ -446,6 +430,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         // -- Create and start a match (two players) --------------------------
         const aliceCtx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await aliceCtx.addInitScript(preserveWsQueryInHistory);
+        await aliceCtx.addInitScript(optInLobbyTestHandle);
         const alice = await aliceCtx.newPage();
         alice.on('pageerror', (error) => errors.push(`Alice: ${String(error)}`));
         await alice.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
@@ -469,6 +454,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         // Bob joins → auto-start.
         const bobCtx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await bobCtx.addInitScript(preserveWsQueryInHistory);
+        await bobCtx.addInitScript(optInLobbyTestHandle);
         const bob = await bobCtx.newPage();
         bob.on('pageerror', (error) => errors.push(`Bob: ${String(error)}`));
         await bob.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
@@ -501,6 +487,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         // identity-gate timing complexity of a raw deep-link navigation.
         const daveCtx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await daveCtx.addInitScript(preserveWsQueryInHistory);
+        await daveCtx.addInitScript(optInLobbyTestHandle);
         const dave = await daveCtx.newPage();
         dave.on('pageerror', (error) => errors.push(`Dave: ${String(error)}`));
         await dave.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
@@ -544,6 +531,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
         const wsUrl = `ws://127.0.0.1:${String(wsPort)}`;
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         page.on('pageerror', (error) => errors.push(String(error)));
         await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
@@ -593,6 +581,7 @@ test.describe('shareable match links E2E — issue #34 (FR-028–FR-033)', () =>
 
         const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
         await context.addInitScript(preserveWsQueryInHistory);
+        await context.addInitScript(optInLobbyTestHandle);
         const page = await context.newPage();
         page.on('pageerror', (error) => errors.push(String(error)));
         await page.goto(`/lobby?ws=${encodeURIComponent(wsUrl)}`);
