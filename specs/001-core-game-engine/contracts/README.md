@@ -6,6 +6,15 @@ This directory contains specification documentation for the engine's boundary co
 
 TypeScript contract definitions live in `packages/engine/src/contracts/`. This directory holds the readable documentation describing what those contracts mean, their boundary rules, and versioning policy.
 
+## Serialization boundary (spec 001 FR-024..FR-026, Clarifications v1.16 — issue #136)
+
+`serializeWorld(world): Uint8Array` / `deserializeWorld(bytes): World` / `hashWorld(world): string` are declared in `packages/engine/src/contracts/engine-api.ts`; their signatures are unchanged by v1.16. Their boundary rules:
+
+- **Two version guards**: the fixed-length ASCII header carries `ENGINE_API_VERSION` (single source of truth: `@europa/core` → `0.2.0`); mismatch throws `EngineVersionMismatchError`. The first payload byte carries `SERIALIZE_FORMAT_VERSION` (layout version, bumped **1 → 2** by v1.16 to add per-cell terrain); mismatch throws `EngineFormatVersionMismatchError`. Sources contain no hardcoded version literal (conformance-suite scan).
+- **Lossless round-trip (FR-026)**: every `World` field round-trips, including per-cell `elevation` (1 byte, 0–255) and `terrain` (1 byte flag, 0 = land, 1 = water). Decode no longer fabricates an all-land board; a deserialized world is tickable and identical to the source. `hashWorld` covers terrain.
+- **Strict decode (FR-025)**: `boardSize` (≥ 8), `playerCount` (2–4), coordinates, ID-table canonical order, owner bytes, pipe masks, reserves, terrain flags, and trailing bytes are all validated; malformed input throws `EngineFormatError`, never a coerced default. Encode throws `EngineSerializationError` on any unrepresentable value.
+- Wire layout: `data-model.md` §10 and the `packages/engine/src/serialize.ts` module header.
+
 ## Contract files (documentation)
 
 This directory currently contains no standalone `.md` contract documents. The engine's contract surface is fully defined in `packages/engine/src/contracts/`:

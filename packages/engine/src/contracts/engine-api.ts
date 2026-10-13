@@ -139,20 +139,31 @@ export declare function validateCommand(
 // ----------------------------------------------------------------------------
 
 /**
- * Encode the world for transport (snapshots, replays, tests). Versioned.
- * Pure.
+ * Encode the world for transport (snapshots, replays, tests). Pure.
+ *
+ * Two independent versions guard the bytes: the ASCII header carries
+ * `ENGINE_API_VERSION` (public type surface) and the first payload byte
+ * carries `SERIALIZE_FORMAT_VERSION` (wire layout). Encoding throws
+ * `EngineSerializationError` on any value the wire cannot represent,
+ * never by truncating.
  */
 export declare function serializeWorld(world: Readonly<World>): Uint8Array;
 
 /**
- * Decode a previously-serialized world. Validates the version header;
- * throws on mismatch.
+ * Decode a previously-serialized world — the pure inverse of
+ * `serializeWorld`.
+ *
+ * Throws `EngineVersionMismatchError` when the header's
+ * `ENGINE_API_VERSION` differs, `EngineFormatVersionMismatchError` when
+ * the payload layout version differs, and `EngineFormatError` on any
+ * malformed field — strict, never coerced or defaulted.
  */
 export declare function deserializeWorld(bytes: Uint8Array): World;
 
 /**
- * Stable hash of the world's mutable parts (state, tick, players).
- * Used by SC-001 (byte-identical re-runs) and tests.
+ * Stable hash of the serialized bytes, formatted as 8 lowercase hex
+ * chars. Covers the full payload, so any state or layout change surfaces
+ * here; SC-001 byte-identity and the replay fixtures key off it.
  */
 export declare function hashWorld(world: Readonly<World>): string;
 
