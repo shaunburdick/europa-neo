@@ -24,6 +24,7 @@
         "format": "biome format --write .",
         "format:check": "biome format .",
         "typecheck": "tsc --noEmit",
+        "typecheck:conformance": "tsc -p tsconfig.conformance.json",
         "coverage": "vitest run --coverage"
     },
     "peerDependencies": {

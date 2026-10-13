@@ -36,7 +36,7 @@
 
 import type { Order, PlayerId } from '@europa/engine';
 import { ENGINE_API_VERSION } from '@europa/engine';
-import type { EngineSession, MatchmakerBridge } from '@europa/networking';
+import type { EngineSession, MatchmakerBridge, RegisterMatchRequest } from '@europa/networking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
