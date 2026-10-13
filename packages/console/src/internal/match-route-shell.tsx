@@ -26,6 +26,15 @@ export function MatchRouteShell({ matchRole, displayNameFallback }: MatchRouteSh
         return null;
     }
 
+    const returnToLobby = (): void => {
+        void controller.leaveMatch().then((result) => {
+            if (result.ok) {
+                void navigate({ to: '/lobby' });
+                announcer?.announce('Returned to the lobby.', 'polite');
+            }
+        });
+    };
+
     if (failed) {
         return (
             <RouteNotice
@@ -36,24 +45,13 @@ export function MatchRouteShell({ matchRole, displayNameFallback }: MatchRouteSh
                     setFailed(false);
                     setRetryEpoch((epoch) => epoch + 1);
                 }}
-                onReturnToLobby={() => {
-                    void navigate({ to: '/lobby' });
-                }}
+                onReturnToLobby={returnToLobby}
             />
         );
     }
 
     const entry =
         matchId !== null ? (state.snapshot?.entries.find((candidate) => candidate.matchId === matchId) ?? null) : null;
-
-    const returnToLobby = (): void => {
-        void controller.leaveMatch().then((result) => {
-            if (result.ok) {
-                void navigate({ to: '/lobby' });
-                announcer?.announce('Returned to the lobby.', 'polite');
-            }
-        });
-    };
 
     return (
         <MatchLegHost

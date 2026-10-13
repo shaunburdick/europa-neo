@@ -491,6 +491,35 @@ describe('match-route leg handoff (FR-046(b)(c))', () => {
         controller.disconnect();
     });
 
+    test('returning from a failed boot releases the match association and restores the lobby (FR-018)', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
+        await controller.joinMatch(MATCH_ID);
+        spectatorTransportMock.failAllConnects = true;
+        window.history.replaceState({}, '', '/match/room-alpha/join');
+
+        const router = buildRouter('/match/room-alpha/join', controller);
+        const screen = await render(<RouterProvider router={router} />);
+
+        await expect.element(screen.getByRole('alert')).toBeVisible();
+        expect(controller.store.getState().viewMode).toBe('match');
+        expect(controller.store.getState().activeMatchId).toBe(MATCH_ID);
+
+        await (screen.getByRole('button', { name: 'Return to lobby' }).element() as HTMLButtonElement).click();
+
+        await vi.waitFor(() => {
+            expect(controller.store.getState().viewMode).toBe('lobby');
+        });
+        expect(transport.commands).toContainEqual({ kind: 'leaveMatch' });
+        expect(controller.store.getState().activeMatchId).toBeNull();
+        expect(window.location.pathname).toBe('/lobby');
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+        controller.disconnect();
+    });
+
     test('one lobby spectate handoff boots exactly one leg (FR-046(b))', async () => {
         const transport = new ScriptedLobbyTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
