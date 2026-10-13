@@ -20,6 +20,7 @@
 
 import { NETWORK_API_VERSION } from '@europa/networking/browser';
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 
 import { createConsoleClient } from '../../../src/net/client';
@@ -259,5 +260,49 @@ describe('live wire views drive the mounted console (rehydration regression)', (
             expect(orderFrame).toBeDefined();
         });
         expect(document.querySelector('.europa-board-area')).not.toBeNull();
+    });
+});
+
+describe('spectator help overlay (FR-041)', () => {
+    function spectatorState(): typeof INITIAL_CONSOLE_STATE {
+        return {
+            ...INITIAL_CONSOLE_STATE,
+            status: 'live',
+            inputEnabled: true,
+            session: {
+                ...INITIAL_CONSOLE_STATE.session,
+                playerId: null,
+                displayName: 'Watcher',
+            },
+        };
+    }
+
+    test('a spectator can open help with the ? key and the toggle is never enabled-but-inert', async () => {
+        await render(<App state={spectatorState()} />);
+        const user = userEvent.setup();
+
+        const helpButton = document.querySelector<HTMLButtonElement>('.europa-help-button');
+        expect(helpButton).not.toBeNull();
+        expect(helpButton?.disabled).toBe(true);
+
+        (document.activeElement as HTMLElement | null)?.blur();
+        await user.keyboard('?');
+        expect(document.querySelector('[aria-modal="true"]')).not.toBeNull();
+
+        await user.keyboard('{Escape}');
+        expect(document.querySelector('[aria-modal="true"]')).toBeNull();
+    });
+
+    test('an enabled help button mounts the overlay on click', async () => {
+        await bootLiveConsole();
+
+        const helpButton = document.querySelector<HTMLButtonElement>('.europa-help-button');
+        expect(helpButton).not.toBeNull();
+        expect(helpButton?.disabled).toBe(false);
+
+        (helpButton as HTMLButtonElement).click();
+        await vi.waitFor(() => {
+            expect(document.querySelector('[aria-modal="true"]')).not.toBeNull();
+        });
     });
 });

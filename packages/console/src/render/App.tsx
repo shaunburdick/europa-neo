@@ -479,10 +479,10 @@ export function App({
     // delegating to the host when `onSurrenderRequest` is provided.
     // The runtime's programmatic `requestSurrender()` (T087) opens the
     // same modal by bumping `surrenderRequestEpoch`.
-    const [surrenderOpen, setSurrenderOpen] = useState(false);
+    const [activeModal, setActiveModal] = useState<'surrender' | 'help' | null>(null);
     useEffect(() => {
         if ((surrenderRequestEpoch ?? 0) > 0) {
-            setSurrenderOpen(true);
+            setActiveModal('surrender');
         }
     }, [surrenderRequestEpoch]);
 
@@ -492,7 +492,6 @@ export function App({
     // UI-only concern, not an order-producing binding (plan §2
     // Decision 1). The shouldIgnoreKeyEvent guard prevents toggle
     // when focus is inside buttons/inputs/modal.
-    const [helpOpen, setHelpOpen] = useState(false);
     const helpButtonRef = useRef<HTMLButtonElement | null>(null);
     useEffect(() => {
         const handleHelpToggle = (e: KeyboardEvent): void => {
@@ -500,7 +499,7 @@ export function App({
                 return;
             }
             e.preventDefault();
-            setHelpOpen((prev) => !prev);
+            setActiveModal((prev) => (prev === 'help' ? null : 'help'));
         };
         document.addEventListener('keydown', handleHelpToggle);
         return () => {
@@ -509,6 +508,9 @@ export function App({
     }, []);
 
     const { selection } = resolvedState;
+    const gameOverOpen =
+        resolvedState.status === 'game_over' && resolvedState.matchResult !== null && onReturnToLobby !== undefined;
+    const activeModalResolved = gameOverOpen ? null : activeModal;
 
     // Waiting-for-opponent overlay (post-playtest fix): joined but the
     // match has not yet delivered its first tick broadcast (still
@@ -645,10 +647,10 @@ export function App({
                             onSurrenderRequest();
                             return;
                         }
-                        setSurrenderOpen(true);
+                        setActiveModal('surrender');
                     }}
                     onHelpToggle={() => {
-                        setHelpOpen((prev) => !prev);
+                        setActiveModal((prev) => (prev === 'help' ? null : 'help'));
                     }}
                     helpButtonRef={helpButtonRef}
                     interactive={store !== undefined}
@@ -676,18 +678,6 @@ export function App({
                     ))}
                 </ul>
             </section>
-            {store !== undefined ? (
-                <SurrenderModal
-                    open={surrenderOpen}
-                    onCancel={() => {
-                        setSurrenderOpen(false);
-                    }}
-                    onConfirm={() => {
-                        setSurrenderOpen(false);
-                        store.dispatch({ kind: 'surrender' });
-                    }}
-                />
-            ) : null}
             {/* Game-over results modal (Feature 019 FR-008): renders
                 when the match is over with a result and the host
                 provides the return-to-lobby callback. The playerNames
@@ -704,32 +694,42 @@ export function App({
                     playerNames={resolvedState.session.playerNames}
                 />
             ) : null}
+            {store !== undefined ? (
+                <SurrenderModal
+                    open={activeModalResolved === 'surrender'}
+                    onCancel={() => {
+                        setActiveModal(null);
+                    }}
+                    onConfirm={() => {
+                        setActiveModal(null);
+                        store.dispatch({ kind: 'surrender' });
+                    }}
+                />
+            ) : null}
             {/* Help overlay (Feature 018): lazy-loaded on first open,
                 reads game status from the resolved state for FR-007. */}
-            {store !== undefined ? (
-                <Suspense fallback={null}>
-                    <HelpOverlay
-                        open={helpOpen}
-                        onClose={() => {
-                            setHelpOpen(false);
-                            helpButtonRef.current?.focus();
-                        }}
-                        tick={mapView?.tick ?? null}
-                        playerName={
-                            resolvedState.session.displayName.length > 0
-                                ? resolvedState.session.displayName
-                                : (resolvedState.session.playerId ?? 'Spectator')
-                        }
-                        playerColor={
-                            resolvedState.session.playerId !== null
-                                ? (mapView?.playerColors[resolvedState.session.playerId] ?? SPECTATOR_COLOR)
-                                : SPECTATOR_COLOR
-                        }
-                        matchStatus={resolvedState.status}
-                        playerCount={resolvedState.session.participants.length}
-                    />
-                </Suspense>
-            ) : null}
+            <Suspense fallback={null}>
+                <HelpOverlay
+                    open={activeModalResolved === 'help'}
+                    onClose={() => {
+                        setActiveModal(null);
+                        helpButtonRef.current?.focus();
+                    }}
+                    tick={mapView?.tick ?? null}
+                    playerName={
+                        resolvedState.session.displayName.length > 0
+                            ? resolvedState.session.displayName
+                            : (resolvedState.session.playerId ?? 'Spectator')
+                    }
+                    playerColor={
+                        resolvedState.session.playerId !== null
+                            ? (mapView?.playerColors[resolvedState.session.playerId] ?? SPECTATOR_COLOR)
+                            : SPECTATOR_COLOR
+                    }
+                    matchStatus={resolvedState.status}
+                    playerCount={resolvedState.session.participants.length}
+                />
+            </Suspense>
             {/* Branded footer (spec 012 addendum T-031, FR-023): the single
            shared home for the app name + version + GitHub link. Mounted at
            the view root so it appears on the match/HUD view, the waiting

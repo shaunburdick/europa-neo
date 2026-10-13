@@ -96,7 +96,7 @@ export function RosterCard({ roster, ownHandle }: RosterCardProps): JSX.Element 
     const liveRegionRef = useRef<HTMLDivElement | null>(null);
     const [announcementText, setAnnouncementText] = useState<string>('');
     const prevCountRef = useRef<number>(roster.players.length);
-    const prevHandlesRef = useRef<ReadonlySet<string>>(new Set<string>());
+    const prevHandlesRef = useRef<ReadonlySet<string> | null>(null);
 
     const heading = useMemo(() => rosterHeadingText(roster), [roster]);
 
@@ -133,6 +133,10 @@ export function RosterCard({ roster, ownHandle }: RosterCardProps): JSX.Element 
     useEffect(() => {
         const prev = prevHandlesRef.current;
         prevHandlesRef.current = currentHandles;
+
+        if (prev === null) {
+            return;
+        }
 
         if (!roster.connected) {
             return;

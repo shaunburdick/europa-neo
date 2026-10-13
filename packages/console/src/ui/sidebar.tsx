@@ -301,7 +301,7 @@ export function Sidebar({
                         ref={helpButtonRef}
                         type="button"
                         className="europa-help-button europa-focus-ring"
-                        disabled={!inputEnabled}
+                        disabled={!interactive || !inputEnabled}
                         onClick={onHelpToggle}
                     >
                         ?

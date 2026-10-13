@@ -145,3 +145,23 @@ describe('RosterCard a11y', () => {
         expect(section?.getAttribute('tabindex')).toBeNull();
     });
 });
+
+describe('roster announcement baseline (FR-040)', () => {
+    test('the first snapshot is silent and the next join announces exactly once', async () => {
+        const screen = await render(<RosterCard roster={rosterOf([entry('Alice')])} ownHandle={null} />);
+
+        const live = screen.container.querySelector('[data-europa-roster-live]');
+        expect(live).not.toBeNull();
+        expect(live?.getAttribute('aria-live')).toBe('polite');
+        expect(live?.textContent ?? '').not.toContain('joined the lobby');
+        expect(live?.textContent ?? '').not.toContain('left the lobby');
+
+        await screen.rerender(<RosterCard roster={rosterOf([entry('Alice'), entry('Bob')])} ownHandle={null} />);
+
+        await expect.element(screen.getByText('Bob joined the lobby.')).toBeVisible();
+        const joinedAnnouncements = Array.from(screen.container.querySelectorAll('[data-europa-roster-live]')).filter(
+            (node) => node.textContent?.includes('joined the lobby.'),
+        );
+        expect(joinedAnnouncements).toHaveLength(1);
+    });
+});

@@ -197,3 +197,25 @@ describe('RosterCard (component)', () => {
         expect(items).toHaveLength(2);
     });
 });
+
+describe('roster announcement baseline (FR-040)', () => {
+    test('the first snapshot announces nothing and a later join announces once', async () => {
+        const screen = await render(<RosterCard roster={rosterOf([entry('Alice')])} ownHandle={null} />);
+
+        const live = screen.container.querySelector('[data-europa-roster-live]');
+        expect(live?.textContent ?? '').not.toContain('joined the lobby');
+        expect(live?.textContent ?? '').not.toContain('left the lobby');
+
+        await screen.rerender(<RosterCard roster={rosterOf([entry('Alice'), entry('Zoe')])} ownHandle={null} />);
+
+        await expect.element(screen.getByText('Zoe joined the lobby.')).toBeVisible();
+        const joinedAnnouncements = Array.from(screen.container.querySelectorAll('[data-europa-roster-live]')).filter(
+            (node) => node.textContent?.includes('joined the lobby.'),
+        );
+        expect(joinedAnnouncements).toHaveLength(1);
+        const leftAnnouncements = Array.from(screen.container.querySelectorAll('[data-europa-roster-live]')).filter(
+            (node) => node.textContent?.includes('left the lobby.'),
+        );
+        expect(leftAnnouncements).toHaveLength(0);
+    });
+});
