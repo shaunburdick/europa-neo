@@ -416,3 +416,33 @@ describe('DeepLinkInterstitial announcements', () => {
         unmount();
     });
 });
+
+describe('interstitial actions carry the europa-button marker (FR-043)', () => {
+    test('Play, Spectate, and Return are design-system buttons with data passthrough', async () => {
+        const { onPlay, onSpectate, onReturnToLobby } = callbacks();
+        const screen = await render(
+            <DeepLinkInterstitial
+                matchId={MATCH_ID}
+                entry={playerEntry()}
+                onPlay={onPlay}
+                onSpectate={onSpectate}
+                onReturnToLobby={onReturnToLobby}
+            />,
+        );
+
+        await expect.element(screen.getByRole('button', { name: 'Play' })).toBeVisible();
+        await expect.element(screen.getByRole('button', { name: 'Spectate' })).toBeVisible();
+        await expect.element(screen.getByRole('button', { name: 'Return to lobby' })).toBeVisible();
+
+        const play = screen.getByRole('button', { name: 'Play' }).element();
+        const spectate = screen.getByRole('button', { name: 'Spectate' }).element();
+        const back = screen.getByRole('button', { name: 'Return to lobby' }).element();
+        for (const control of [play, spectate, back]) {
+            expect(control.tagName).toBe('BUTTON');
+            expect(control.classList.contains('europa-button')).toBe(true);
+        }
+        expect(play.getAttribute('data-europa-deep-link-play')).not.toBeNull();
+        expect(spectate.getAttribute('data-europa-deep-link-spectate')).not.toBeNull();
+        expect(back.getAttribute('data-europa-deep-link-return')).not.toBeNull();
+    });
+});

@@ -23,14 +23,7 @@
  * without fake timers.
  */
 
-import type {
-    LobbyErrorCode,
-    LobbySnapshot,
-    RosterDelta,
-    RosterEntry,
-    RosterRevision,
-    RosterSnapshot,
-} from '@europa/matchmaking';
+import type { LobbyErrorCode, LobbySnapshot, RosterEntry, RosterSnapshot } from '@europa/matchmaking';
 import type { LobbyConnectionState } from '../net/ws-lobby-client';
 import type { RouteEntry } from '../routing/route-adapter';
 import type { MatchId } from './types';
@@ -156,16 +149,9 @@ export interface LobbyFailure {
 // Roster state (feature 023)
 // ----------------------------------------------------------------------------
 
-/**
- * Lobby roster state (feature 023 T-031). Maintains the current
- * player list, the last-applied roster revision, and a connected
- * flag for degraded-state detection (US5).
- */
 export interface RosterState {
     /** Current roster entries in deterministic order (FR-006). */
     readonly players: ReadonlyArray<RosterEntry>;
-    /** Last-applied roster revision (stale-revision protection, FR-004). */
-    readonly revision: RosterRevision | null;
     /** Whether a roster snapshot has been received (false = degraded). */
     readonly connected: boolean;
 }
@@ -265,10 +251,6 @@ export interface LobbyState {
      */
     readonly deepLinkInterstitial: DeepLinkInterstitial | null;
 
-    /**
-     * Lobby roster state (feature 023 T-032). Tracks the current
-     * player presence list, revision, and connection status.
-     */
     readonly roster: RosterState;
 }
 
@@ -367,9 +349,4 @@ export type LobbyAction =
      * Full roster snapshot applied upstream (feature 023 T-034).
      * Replaces the roster state wholesale.
      */
-    | { readonly kind: 'lobbyRosterSnapshot'; readonly snapshot: RosterSnapshot }
-    /**
-     * Incremental roster delta applied upstream (feature 023 T-034).
-     * Changes are merged into the existing roster.
-     */
-    | { readonly kind: 'lobbyRosterDelta'; readonly delta: RosterDelta };
+    | { readonly kind: 'lobbyRosterSnapshot'; readonly snapshot: RosterSnapshot };

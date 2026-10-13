@@ -49,11 +49,11 @@
  * focus steal; every subsequent swap takes it, WCAG 2.4.3).
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { PublicLobbyEntry } from '@europa/matchmaking';
 import { useNavigate } from '@tanstack/react-router';
 import type { JSX } from 'react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-
 import { LiveRegionAnnouncer } from '../a11y/live-region';
 import { createConsoleClient } from '../net/client';
 import { createWsMatchClient } from '../net/ws-match-client';
@@ -166,6 +166,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
     const [noticeKind, setNoticeKind] = useState<RouteNoticeKind | null>(initialNoticeKind ?? null);
     const [routeRetryEpoch, setRouteRetryEpoch] = useState(0);
     const pendingNavigationRef = useRef<'create' | 'join' | 'spectate' | null>(null);
+    const spectatorHandoffRef = useRef(false);
     const prevViewModeRef = useRef(state.viewMode);
     const routeResolutionRef = useRef(initialRoute !== undefined);
     const completedNavigationPathRef = useRef<string | null>(null);
@@ -359,6 +360,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
         void controller.leaveMatch().then((result) => {
             if (result.ok) {
                 legIntentRef.current = null;
+                spectatorHandoffRef.current = false;
                 // Keep the canonical semantic route in the address bar while
                 // preserving the existing lobby connection and identity.
                 // The released match entry is now eligible for normal
@@ -423,6 +425,10 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                   ) ?? null)
                 : null;
         const matchStarted = entry?.status === 'in_progress';
+        if (intent.role === 'spectator' && pendingNavigationRef.current !== null) {
+            spectatorHandoffRef.current = true;
+        }
+        const legSuspended = intent.role === 'spectator' && spectatorHandoffRef.current;
         return (
             <>
                 {announcerHost}
@@ -434,7 +440,7 @@ export function LobbyRoot({ controller, wsUrl, initialRoute, initialNoticeKind }
                     displayName={state.handle ?? 'Player'}
                     handle={state.handle}
                     occupancy={entry !== null ? { seatsFilled: entry.seatsFilled, capacity: entry.capacity } : null}
-                    matchStarted={matchStarted}
+                    matchStarted={matchStarted && !legSuspended}
                     seatSessionToken={state.seatSessionToken}
                     announcer={announcer ?? undefined}
                     leaveError={state.actions.leaveMatch.error}
@@ -640,7 +646,10 @@ export interface MatchLegHostProps {
  * arrives together with that flip, so one predicate covers both. A
  * SPECTATOR leg attaches under the same predicate (spectate targets
  * in-progress rows, which are registered by definition); pre-flip it
- * sees the read-only spectator plate.
+ * sees the read-only spectator plate. During a lobby-initiated
+ * spectate handoff the caller holds {@link MatchLegHostProps.matchStarted}
+ * false until the canonical route write lands, so this host stays on
+ * the plate and the route's own host owns the single leg.
  *
  * Auto-start announcement (T-016): when `matchStarted` TRANSITIONS
  * false → true for a leg that was already mounted (the creator/joinee
@@ -732,15 +741,15 @@ export function MatchLegHost({
                         }
                     />
                 ) : null}
-                <button
-                    type="button"
+                <EuropaButton
+                    variant="secondary"
                     className="europa-lobby__button europa-focus-ring"
                     disabled={leaving}
                     onClick={onLeave}
                     data-europa-leave="true"
                 >
                     {leaving ? 'Leaving…' : 'Leave to lobby'}
-                </button>
+                </EuropaButton>
                 {leaveError !== null ? (
                     <p className="europa-lobby__error" role="alert">
                         {leaveError.message}
@@ -763,7 +772,7 @@ export function MatchLegHost({
                     {...(onReturnToLobby !== undefined ? { onReturnToLobby } : {})}
                 />
             ) : (
-                <main id="main" className="europa-lobby europa-lobby-match__placeholder">
+                <main id="main" className="europa-lobby europa-lobby-match__placeholder" tabIndex={-1}>
                     {/* Plate windows (no wire channel yet): the waiting
             room for players, the pre-attach notice for spectators.
             Informational only — no board, no order surface; announces

@@ -45,6 +45,7 @@ import type {
     PlayerAction,
     PlayerId,
     ReduceOptions,
+    ReducerCorrelation,
     ReducerEffect,
     RejectedOrder,
     ValidationError,
@@ -54,43 +55,26 @@ import type {
 // Internal bookkeeping (console-owned correlation state)
 // ----------------------------------------------------------------------------
 
-/**
- * Internal: monotonically increasing ActionId source. Console-internal
- * counter, distinct from networking's `SequenceNumber` (the runtime
- * maps between them at the network boundary). Starts at 1 so id 0 is
- * never issued (falsy-id bugs are a classic).
- */
-let lastActionId = 0;
-
-/**
- * Internal: orders awaiting their `orderAck`, keyed by ActionId.
- * The contract's `RejectedOrder.order` field requires the original
- * order at rejection time, but `ConsoleState` deliberately carries no
- * pending-order map (fixed contractual shape) — so the reducer keeps
- * this bounded correlation table, exactly like the runtime keeps
- * `seqToActionId`. Capped well above `maxRejectedOrders`; entries are
- * removed on ack.
- */
-const pendingOrders = new Map<ActionId, Order>();
-
-/** Cap for {@link pendingOrders} to bound module-level memory. */
 const PENDING_ORDERS_CAP = 64;
 
 /**
  * Allocate the next ActionId and register its order for ack
  * correlation. Module-internal; not part of the public surface.
  */
-function stampOrder(order: Order): { readonly actionId: ActionId; readonly order: Order } {
-    lastActionId += 1;
-    const actionId = lastActionId as ActionId;
-    pendingOrders.set(actionId, order);
+function stampOrder(
+    order: Order,
+    correlation: ReducerCorrelation,
+): { readonly actionId: ActionId; readonly order: Order } {
+    correlation.lastActionId += 1;
+    const actionId = correlation.lastActionId as ActionId;
+    correlation.pendingOrders.set(actionId, order);
     // Bound the table: drop the oldest entries beyond the cap.
-    while (pendingOrders.size > PENDING_ORDERS_CAP) {
-        const oldest = pendingOrders.keys().next();
+    while (correlation.pendingOrders.size > PENDING_ORDERS_CAP) {
+        const oldest = correlation.pendingOrders.keys().next();
         if (oldest.done === true) {
             break;
         }
-        pendingOrders.delete(oldest.value);
+        correlation.pendingOrders.delete(oldest.value);
     }
     return { actionId, order };
 }
@@ -98,29 +82,14 @@ function stampOrder(order: Order): { readonly actionId: ActionId; readonly order
 /**
  * Take a pending order out of the correlation table (ack received).
  */
-function takePendingOrder(actionId: ActionId): Order | undefined {
-    const order = pendingOrders.get(actionId);
-    pendingOrders.delete(actionId);
+function takePendingOrder(actionId: ActionId, correlation: ReducerCorrelation): Order | undefined {
+    const order = correlation.pendingOrders.get(actionId);
+    correlation.pendingOrders.delete(actionId);
     return order;
 }
 
-/**
- * Allocate a globally-unique ActionId for orders issued OUTSIDE the
- * reducer — the runtime's `Console.sendOrder(order)` wire path
- * (T087). Shares the reducer's {@link lastActionId} counter so a
- * host-issued id can never collide with a gesture-issued id in the
- * seq→ActionId ack-correlation chain (T031/T056).
- *
- * Host-issued ids are deliberately NOT registered in
- * {@link pendingOrders}: there is no PlayerAction feedback path for
- * them, so their acks produce feedback messages only (the reducer's
- * orderAck arm handles unknown ids gracefully — see FR-007).
- *
- * @returns A fresh, never-before-issued ActionId.
- */
-export function allocateActionId(): ActionId {
-    lastActionId += 1;
-    return lastActionId as ActionId;
+function ephemeralCorrelation(): ReducerCorrelation {
+    return { lastActionId: 0, pendingOrders: new Map<ActionId, Order>() };
 }
 
 // ----------------------------------------------------------------------------
@@ -289,6 +258,12 @@ export function reduce(
 ): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
     const { nowMs } = options;
 
+    if (action.kind === 'pong') {
+        return { state, effects: [] };
+    }
+
+    const correlation = options.correlation ?? ephemeralCorrelation();
+
     // Lazy TTL cleanup first: expired feedback disappears on the next
     // dispatch after its ttl elapses (data-model.md §7 lifecycle).
     const baseState: ConsoleState = {
@@ -297,8 +272,8 @@ export function reduce(
     };
 
     const partial = isNetEvent(action)
-        ? reduceNetEvent(baseState, action, nowMs)
-        : reduceLocalAction(baseState, action, nowMs);
+        ? reduceNetEvent(baseState, action, nowMs, correlation)
+        : reduceLocalAction(baseState, action, nowMs, correlation);
 
     // Invariant (data-model.md §17): inputEnabled ⟺ status === 'live'.
     const nextState: ConsoleState = {
@@ -323,6 +298,7 @@ function reduceLocalAction(
     state: ConsoleState,
     action: Exclude<ConsoleAction, NetEvent>,
     nowMs: number,
+    correlation: ReducerCorrelation,
 ): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
     switch (action.kind) {
         // --- Order-producing gestures (FR-002..FR-006) ---
@@ -360,7 +336,7 @@ function reduceLocalAction(
                     return orderRejectionFeedback(state, rejection, nowMs);
                 }
             }
-            const stamped = stampOrder(order);
+            const stamped = stampOrder(order, correlation);
             const text = formatActionConfirmation(action, orderCellOf(action));
             return {
                 state: {
@@ -479,6 +455,7 @@ function reduceNetEvent(
     state: ConsoleState,
     event: NetEvent,
     nowMs: number,
+    correlation: ReducerCorrelation,
 ): { readonly state: ConsoleState; readonly effects: readonly ReducerEffect[] } {
     switch (event.kind) {
         case 'connecting':
@@ -549,7 +526,7 @@ function reduceNetEvent(
 
         case 'orderAck': {
             if (event.result.ok) {
-                takePendingOrder(event.actionId);
+                takePendingOrder(event.actionId, correlation);
                 return {
                     state: {
                         ...state,
@@ -566,7 +543,7 @@ function reduceNetEvent(
                     effects: [],
                 };
             }
-            const rejectedOrder = takePendingOrder(event.actionId);
+            const rejectedOrder = takePendingOrder(event.actionId, correlation);
             const { reason } = event.result;
             const withRejection: ConsoleState =
                 rejectedOrder === undefined

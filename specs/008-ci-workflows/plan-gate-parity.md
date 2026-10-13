@@ -3,7 +3,7 @@
 > **Status**: Gate-2-approved (phase 4–5 artifact). Relocated 2026-10-13 per user decision dissolving the amendment-manifest structure (016 was a mistake, not a pattern).
 > **Branch**: `ci/verify-conformance-parity`
 > **Inputs**: the amended FRs/ACs in `specs/008-ci-workflows/spec.md` (v1.4), `specs/004` (v1.12/v1.13), `specs/002` (v1.10),
-> `specs/001` (v1.16), `specs/006` (v1.10) — the contract — plus `.specify/memory/constitution.md`.
+> `specs/001` (v1.17; renumbered from v1.16 at merge of main — #186 claimed v1.16), `specs/006` (v1.10) — the contract — plus `.specify/memory/constitution.md`.
 > **Output of this phase**: this file + `tasks-gate-parity.md` only. No implementation code in this pass.
 
 ## 1. Scope in one paragraph

@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createConsoleClient } from '../../../src/net/client';
-import { allocateActionId } from '../../../src/state/reducer';
+import { createConsoleStore } from '../../../src/state/store';
 import type { CommandResult, Order, ProtocolEnvelope } from '../../../src/state/types';
 
 /** Capturing fake of the inner MatchClient surface. */
@@ -88,7 +88,7 @@ describe('createConsoleClient join roles (T-016)', () => {
             { url: 'ws://x', displayName: 'Watcher', matchId: 'm-1', role: 'spectator' },
             { matchClientFactory: () => inner },
         );
-        await expect(client.sendOrder(allocateActionId(), ORDER)).rejects.toThrow(/read-only/);
+        await expect(client.sendOrder(createConsoleStore().allocateActionId(), ORDER)).rejects.toThrow(/read-only/);
         expect(inner.sentOrders).toHaveLength(0);
         expect(inner.sendOrder).not.toHaveBeenCalled();
     });
@@ -99,7 +99,7 @@ describe('createConsoleClient join roles (T-016)', () => {
             { url: 'ws://x', displayName: 'Nova', matchId: 'm-1' },
             { matchClientFactory: () => inner },
         );
-        await client.sendOrder(allocateActionId(), ORDER);
+        await client.sendOrder(createConsoleStore().allocateActionId(), ORDER);
         expect(inner.sentOrders).toEqual([ORDER]);
     });
 });

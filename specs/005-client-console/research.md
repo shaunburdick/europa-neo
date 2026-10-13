@@ -943,3 +943,181 @@ or visually inert when `store === undefined`.
   `minimap.tsx`, `index.css`, `lobby-runtime.tsx` (spectator path),
   `CONSOLE_CONSTANTS` (contracts/console-api.ts), `DEFAULT_CAMERA`
   (contracts/console-types.ts).
+
+---
+
+## 16. PR-3 research addendum — console review cleanup (spec 005 v1.12 / spec 010 v1.15, issues #153 + #127, 2026-10-12)
+
+Companion to `plan.md` §5. Each entry records the decision, the
+alternatives considered, and why they were rejected. No new runtime
+dependency is introduced anywhere in this section.
+
+### 16.1 Where the roster comparator lives (F-CON-ST-001)
+
+**Decision**: `compareUtf16` imported from `@europa/engine`
+(`packages/engine/src/index.ts:114`, impl
+`packages/engine/src/playerRegistry.ts:81`), applied to
+`handle.toLowerCase()` inside `applyRosterDelta`
+(`packages/console/src/net/ws-lobby-client.ts:1214-1240`).
+
+- *Rejected*: `localeCompare` — locale/Terminology-dependent, violates
+  constitution II determinism and the concurrent v1.13 comparator
+  ruling.
+- *Rejected*: sorting in the store (`lobby-reducer.ts`) — the store
+  merge is being deleted (plan §5.3), and the transport already owns
+  the array the controller forwards (`lobby-controller.ts:242-246`).
+- *Rejected*: re-sorting on every render in the roster card — a
+  compensating view-side sort is explicitly forbidden by the spec 010
+  v1.15 clarification ("without a compensating re-sort").
+- *Note*: the console already depends on `@europa/engine`
+  (`packages/console/package.json`), so no dependency change.
+
+### 16.2 Reducer correlation scoping (F-CON-ST-003, FR-045)
+
+**Decision**: a per-store mutable `ReducerCorrelation` bag created by
+`createConsoleStore` and passed through `ReduceOptions.correlation?`
+(`packages/console/src/contracts/console-state.ts:216-225`).
+
+- *Rejected*: move the table into `ConsoleState` — `reducer.ts:68-69`
+  records that `ConsoleState` deliberately carries no pending-order
+  map (fixed contractual shape); adding a required field would be a
+  public-shape change.
+- *Rejected*: keep a module-level *default* bag for ad-hoc `reduce()`
+  callers — leaves module-scope mutable state shared across stores,
+  which is exactly what FR-045 prohibits.
+- *Rejected*: a `createReduce()` factory returning a bound reducer —
+  functionally equivalent, but it would have to replace the public
+  `reduce` export (`src/index.ts:51`) rather than extend it, turning an
+  internal refactor into a barrel change (and colliding with PR #189's
+  barrel edits).
+- *Chosen shape keeps*: `reduce(state, action, options)` signature
+  and the documented purity rule; the allocator moves bag-bound onto
+  `ConsoleStore` and stays out of the barrel, so the move is not a
+  public-surface change.
+
+### 16.3 Modal exclusivity representation (F-CON-UI-010, FR-042)
+
+**Decision**: one App-local union `ActiveModal = 'surrender' | 'help' | null`;
+game-over stays a derived render condition.
+
+- *Rejected*: three booleans with an effect that closes the others —
+  order-of-update bugs, two renders per open, hard to test exclusivity.
+- *Rejected*: a shared modal shell / context (review dependency I-18) —
+  explicitly declined by the PM (ruling 7); FR-042 is a single-value
+  contract, not a component framework.
+- *Rejected*: making game-over a third union member — 019-FR-005/008
+  require it to be non-dismissable and highest-z; deriving it from
+  `matchResult` keeps it immune to every other transition by
+  construction.
+
+### 16.4 Order-bar roving pattern (F-CON-UI-005, FR-039(d))
+
+**Decision**: button-level roving `tabIndex` (exactly one command button
+`tabindex="0"`), section `tabIndex` removed.
+
+- *Rejected*: container-as-the-single-stop with `aria-activedescendant`
+  on the section — FR-039(d) requires "exactly one command button … in
+  the Tab order"; a container stop would put **zero** command buttons in
+  it.
+- *Rejected*: correcting the header comment only — declined by the PM
+  (ruling 5).
+- *Precedent*: the board grid already uses the container-stop +
+  `aria-activedescendant` model (`grid-overlay.tsx:144-156`) because its
+  children are virtual rows; the palette has exactly two real buttons,
+  so DOM focus is simpler and keeps `:focus-visible` working on the
+  buttons themselves (the focus-ring contrast test
+  `wcag-assertions.test.ts:335-341` depends on that).
+
+### 16.5 Fog-cell focus snap location (F-CON-RD-003, FR-039(b))
+
+**Decision**: snap inside `grid-overlay.tsx`'s `handleKeyDown`
+(`:126-133`), after `KeyboardNavigator.moveFocus` returns.
+
+- *Rejected*: extending `moveFocus(current, direction, bounds)` with a
+  rendered-cell predicate — `KeyboardNavigator` is publicly exported
+  (`src/index.ts:87`), so its signature is contract surface; a snap
+  parameter would also drag `MapView` into a board-geometry helper.
+- *Rejected*: clearing focus when it lands on fog — leaves the grid with
+  no active descendant at all (WCAG 1.3.1/4.1.2 regression) and breaks
+  the arrow-key flow.
+
+### 16.6 Skip-link target focusability (F-CON-RD-014, FR-039(a))
+
+**Decision**: `tabIndex={-1}` on every `main` element that can be a
+skip-link target (the nine `id="main"` sites; see plan §3 RD-014).
+
+- *Rejected*: focusing `h1` instead — the skip links are literally
+  `href="#main"`, so the target must be the landmark.
+- *Rejected*: `tabIndex={0}` — would add a Tab stop and change every
+  tab-walk test for no benefit; `-1` is programmatically focusable but
+  skipped by Tab, which is exactly what WCAG 2.4.1 wants.
+
+### 16.7 `EuropaButton` ref support (F-CON-UI-007/RD-012, FR-043)
+
+**Decision**: extend `EuropaButtonProps`
+(`packages/design/src/components/generic/button.tsx:30`) with
+`RefAttributes<HTMLButtonElement>`.
+
+- *Verified blocker*: with `@types/react@19.2.18`, `<EuropaButton ref={…}/>`
+  fails to compile — `error TS2322: Property 'ref' does not exist on
+  type 'IntrinsicAttributes & EuropaButtonProps'` (reproduced against
+  this worktree's dependency tree).
+- *Rejected*: keep raw `<button>` at the six ref-needing sites —
+  contradicts the all-sites ruling.
+- *Rejected*: wrap each ref-needing button in a focusable span — focus
+  must land on the button itself (WCAG 2.4.3, focus traps).
+- *Rejected*: query buttons from a container ref instead of per-button
+  refs — would work for `OrderBar`/`SurrenderModal` but not for the
+  sidebar's `helpButtonRef` (`App.tsx:715`) or `GameOverModal`'s
+  `buttonRef`, so the design change is needed anyway.
+
+### 16.8 Boot-failure surfacing mechanism (F-CON-ST-007, FR-046(c))
+
+**Decision**: local `failed` state inside the shared route shell rendering
+the existing `RouteNotice` (`src/ui/route-notice.tsx:31`).
+
+- *Rejected*: navigate to `/lobby` with a notice flag — requires a new
+  cross-route carrier (query param or module store) and re-enters the
+  lobby layout for a failure that belongs to the route the user asked
+  for.
+- *Rejected*: lifting failure state into `MatchLayout`
+  (`match-layout.tsx:103` already owns an `'unavailable'` notice) —
+  child → parent signalling needs a context or callback prop threaded
+  through the router, i.e. more machinery than the local state.
+- *Verified*: `MatchLayout` renders bare `<Outlet />` when resolved
+  (`:286`), so `RouteNotice`'s own `<main>` (`route-notice.tsx:47`) never
+  nests inside another landmark.
+
+### 16.9 Single-leg spectator handoff (F-CON-ST-008, FR-046(b))
+
+**Decision**: suppress LobbyRoot's bootstrap spectator leg while the
+pending-navigation effect (`lobby-runtime.tsx:413-437`) still holds a
+pending canonical route write; the route's `MatchLegHost` becomes the
+sole leg owner.
+
+- *Rejected*: suppressing the navigation instead (stay on the lobby URL
+  with a live leg) — violates FR-026/v1.6 ("MUST navigate through the
+  mounted router's canonical route tree … not raw history mutation").
+- *Rejected*: making `SpectatorMatchLeg` reuse a module-level leg cache —
+  reintroduces cross-instance shared state, the very class of defect
+  F-CON-ST-003 removes.
+- *Existing evidence*: `semantic-route-runtime.test.tsx:75,103` already
+  pins StrictMode double-boot behaviour, so the regression signal exists.
+
+### 16.10 Visual verification for the button migration (FR-043)
+
+**Finding**: the repo has **no** screenshot/visual-regression baseline
+(`grep -rn "toHaveScreenshot|toMatchSnapshot" tests/` → no matches), and
+Vite loads `design.css` before the console's `index.css`
+(`src/main.tsx:34-35`), so on equal specificity the existing console
+class wins and `.europa-button` only supplies what the old class left
+unset.
+
+- *Chosen*: per-surface computed-style assertions + existing contrast
+  tests + a manual `agent-browser` screenshot pass (images to
+  `__screenshots__/`, reviewed, not committed — the same evidence
+  discipline the v1.10 camera repair recorded in the superseded plan's
+  "Repair sequencing and evidence" note
+  (`git show c184d54:specs/005-client-console/plan.md`).
+- *Rejected*: introducing a Playwright screenshot baseline suite inside
+  PR-3 — a repo-wide testing-policy change, unrelated to either issue.

@@ -34,7 +34,6 @@ afterEach(() => {
 function rosterOf(players: ReadonlyArray<RosterEntry>, connected = true): RosterState {
     return {
         players,
-        revision: connected ? 1 : null,
         connected,
     };
 }
@@ -144,5 +143,38 @@ describe('RosterCard a11y', () => {
         const section = screen.container.querySelector('section');
         expect(section).not.toBeNull();
         expect(section?.getAttribute('tabindex')).toBeNull();
+    });
+});
+
+describe('roster announcement baseline (FR-040)', () => {
+    test('the first snapshot is silent and the next join announces exactly once', async () => {
+        const screen = await render(<RosterCard roster={rosterOf([entry('Alice')])} ownHandle={null} />);
+
+        const live = screen.container.querySelector('[data-europa-roster-live]');
+        expect(live).not.toBeNull();
+        expect(live?.getAttribute('aria-live')).toBe('polite');
+        expect(live?.textContent ?? '').not.toContain('joined the lobby');
+        expect(live?.textContent ?? '').not.toContain('left the lobby');
+
+        await screen.rerender(<RosterCard roster={rosterOf([entry('Alice'), entry('Bob')])} ownHandle={null} />);
+
+        await expect.element(screen.getByText('Bob joined the lobby.')).toBeVisible();
+        const joinedAnnouncements = Array.from(screen.container.querySelectorAll('[data-europa-roster-live]')).filter(
+            (node) => node.textContent?.includes('joined the lobby.'),
+        );
+        expect(joinedAnnouncements).toHaveLength(1);
+    });
+
+    test('a disconnected mount defers the baseline to the first observed snapshot', async () => {
+        const screen = await render(<RosterCard roster={rosterOf([], false)} ownHandle={null} />);
+
+        const live = screen.container.querySelector('[data-europa-roster-live]');
+        expect(live?.textContent ?? '').not.toContain('joined the lobby');
+
+        await screen.rerender(<RosterCard roster={rosterOf([entry('Alice'), entry('Bob')])} ownHandle={null} />);
+
+        const text = screen.container.querySelector('[data-europa-roster-live]')?.textContent ?? '';
+        expect(text).not.toContain('joined the lobby');
+        expect(text).not.toContain('left the lobby');
     });
 });

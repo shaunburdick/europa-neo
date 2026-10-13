@@ -234,6 +234,13 @@ export function ProfileView({
                                                 {errorMessage}
                                             </p>
                                         ) : null}
+                                        <p className="europa-lobby__status-line" id={statusId} role="status">
+                                            {saving
+                                                ? 'Saving…'
+                                                : actionStatus.phase === 'error'
+                                                  ? 'Name could not be saved.'
+                                                  : ''}
+                                        </p>
                                         <EuropaButton type="submit" disabled={saving} data-europa-submit-handle="true">
                                             {saving ? 'Saving…' : 'Update name'}
                                         </EuropaButton>
@@ -295,6 +302,13 @@ export function ProfileView({
                                             {errorMessage}
                                         </p>
                                     ) : null}
+                                    <p className="europa-lobby__status-line" id={statusId} role="status">
+                                        {saving
+                                            ? 'Saving…'
+                                            : actionStatus.phase === 'error'
+                                              ? 'Name could not be saved.'
+                                              : ''}
+                                    </p>
                                     <EuropaButton type="submit" disabled={saving} data-europa-submit-handle="true">
                                         {saving ? 'Saving…' : 'Set name'}
                                     </EuropaButton>

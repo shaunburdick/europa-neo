@@ -95,7 +95,7 @@ if (orphans.length > 0) {
     }
     process.stderr.write('Every spec-side .ts contract file must be imported or path-string-mapped by\n');
     process.stderr.write('a test or source file (008 FR-033). Spec-side mirrors are otherwise forbidden\n');
-    process.stderr.write('(single-sourcing rulings: 001 v1.16 FR-024, 004 v1.13 FR-029, 006 v1.10 FR-027).\n');
+    process.stderr.write('(single-sourcing rulings: 001 v1.17 FR-027, 004 v1.13 FR-029, 006 v1.10 FR-027).\n');
     process.exit(1);
 }
 

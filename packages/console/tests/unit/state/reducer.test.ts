@@ -10,14 +10,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { CONSOLE_CONSTANTS, DEFAULT_CAMERA } from '../../../src/config';
-import {
-    allocateActionId,
-    appendFeedback,
-    appendRejection,
-    INITIAL_CONSOLE_STATE,
-    reduce,
-} from '../../../src/state/reducer';
-import type { ConsoleState, PlayerAction, PlayerId, PlayerView } from '../../../src/state/types';
+import { appendFeedback, appendRejection, INITIAL_CONSOLE_STATE, reduce } from '../../../src/state/reducer';
+import { createConsoleStore } from '../../../src/state/store';
+import type { ConsoleState, PlayerAction, PlayerId, PlayerView, ReducerCorrelation } from '../../../src/state/types';
 import { buildCellView, TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 
 const NOW = 10_000;
@@ -62,8 +57,13 @@ function view(tick: number): PlayerView {
 }
 
 /** Step `state` with a fixed clock. */
-function step(state: ConsoleState, action: Parameters<typeof reduce>[1], nowMs = NOW) {
-    return reduce(state, action, { nowMs });
+function step(
+    state: ConsoleState,
+    action: Parameters<typeof reduce>[1],
+    nowMs = NOW,
+    correlation?: ReducerCorrelation,
+) {
+    return reduce(state, action, correlation === undefined ? { nowMs } : { nowMs, correlation });
 }
 
 describe('reducer: PlayerAction arms (Q-U01)', () => {
@@ -194,19 +194,25 @@ describe('reducer: NetEvent arms (Q-U02)', () => {
 
     it('orderAck ok acknowledges; rejection records history + assertive announce', () => {
         // Produce a real pending order so the correlation table has it.
-        const sent = step(live(), { kind: 'setReserves', cell: { x: 2, y: 3 }, percent: 4 });
+        const correlation: ReducerCorrelation = { lastActionId: 0, pendingOrders: new Map() };
+        const sent = step(live(), { kind: 'setReserves', cell: { x: 2, y: 3 }, percent: 4 }, NOW, correlation);
         const actionId = sent.effects[0]?.kind === 'sendOrder' ? sent.effects[0].actionId : -1;
 
-        const ok = step(sent.state, { kind: 'orderAck', actionId, result: { ok: true } });
+        const ok = step(sent.state, { kind: 'orderAck', actionId, result: { ok: true } }, NOW, correlation);
         expect(ok.state.feedback.at(-1)?.text).toContain('acknowledged');
 
-        const rejected = step(live(), { kind: 'setReserves', cell: { x: 2, y: 3 }, percent: 4 });
+        const rejected = step(live(), { kind: 'setReserves', cell: { x: 2, y: 3 }, percent: 4 }, NOW, correlation);
         const rejectId = rejected.effects[0]?.kind === 'sendOrder' ? rejected.effects[0].actionId : -1;
-        const bad = step(rejected.state, {
-            kind: 'orderAck',
-            actionId: rejectId,
-            result: { ok: false, reason: 'not_owner' as never },
-        });
+        const bad = step(
+            rejected.state,
+            {
+                kind: 'orderAck',
+                actionId: rejectId,
+                result: { ok: false, reason: 'not_owner' as never },
+            },
+            NOW,
+            correlation,
+        );
         expect(bad.state.rejectedOrders).toHaveLength(1);
         expect(bad.state.rejectedOrders[0]?.reason).toBe('not_owner');
         expect(bad.state.feedback.at(-1)?.kind).toBe('warning');
@@ -440,12 +446,90 @@ describe('reducer invariants (data-model §17)', () => {
     });
 });
 
-describe('allocateActionId (T087 seam)', () => {
-    it('issues strictly increasing unique ids', () => {
-        const a = allocateActionId();
-        const b = allocateActionId();
-        const c = allocateActionId();
+describe('store-scoped allocator: monotonic within a store, independent across stores', () => {
+    it('issues strictly increasing unique ids within one store', () => {
+        const store = createConsoleStore();
+        const a = store.allocateActionId();
+        const b = store.allocateActionId();
+        const c = store.allocateActionId();
         expect(b).toBe(a + 1);
         expect(c).toBe(b + 1);
+    });
+
+    it('keeps counters independent across stores', () => {
+        const storeA = createConsoleStore();
+        const storeB = createConsoleStore();
+        const a = storeA.allocateActionId();
+        const b = storeB.allocateActionId();
+        expect(a).toBe(1);
+        expect(b).toBe(1);
+    });
+});
+
+describe('store-scoped correlation bag (FR-045)', () => {
+    const correlation = (): ReducerCorrelation => ({ lastActionId: 0, pendingOrders: new Map() });
+
+    it('two correlation bags keep independent counters and pending maps', () => {
+        const bagA = correlation();
+        const bagB = correlation();
+        const sentA = reduce(
+            live(),
+            { kind: 'setReserves', cell: { x: 2, y: 3 }, percent: 4 },
+            { nowMs: NOW, correlation: bagA },
+        );
+        const idA = sentA.effects[0]?.kind === 'sendOrder' ? sentA.effects[0].actionId : -1;
+        const sentB = reduce(
+            live(),
+            { kind: 'setReserves', cell: { x: 2, y: 3 }, percent: 4 },
+            { nowMs: NOW, correlation: bagB },
+        );
+        const idB = sentB.effects[0]?.kind === 'sendOrder' ? sentB.effects[0].actionId : -1;
+        expect(idA).toBe(1);
+        expect(idB).toBe(1);
+        expect(bagA.lastActionId).toBe(1);
+        expect(bagB.lastActionId).toBe(1);
+        expect(bagA.pendingOrders.size).toBe(1);
+        expect(bagB.pendingOrders.size).toBe(1);
+    });
+
+    it('an orderAck resolves through the passed bag', () => {
+        const bag = correlation();
+        const sent = reduce(
+            live(),
+            { kind: 'setReserves', cell: { x: 2, y: 3 }, percent: 4 },
+            { nowMs: NOW, correlation: bag },
+        );
+        const actionId = sent.effects[0]?.kind === 'sendOrder' ? sent.effects[0].actionId : -1;
+        expect(bag.pendingOrders.has(actionId)).toBe(true);
+
+        const acked = reduce(
+            sent.state,
+            { kind: 'orderAck', actionId, result: { ok: true } },
+            { nowMs: NOW, correlation: bag },
+        );
+        expect(acked.state.feedback.at(-1)?.text).toContain('acknowledged');
+        expect(bag.pendingOrders.size).toBe(0);
+
+        const other = correlation();
+        const sentOther = reduce(
+            live(),
+            { kind: 'setReserves', cell: { x: 2, y: 3 }, percent: 4 },
+            { nowMs: NOW, correlation: other },
+        );
+        const otherId = sentOther.effects[0]?.kind === 'sendOrder' ? sentOther.effects[0].actionId : -1;
+        expect(bag.pendingOrders.has(otherId)).toBe(false);
+        expect(other.pendingOrders.size).toBe(1);
+    });
+
+    it('a pong no-op returns the same state reference (issue #153 AC-3)', () => {
+        const bag = correlation();
+        const state = live();
+        const result = reduce(
+            state,
+            { kind: 'pong', clientTimeMs: 1, serverTimeMs: 2 },
+            { nowMs: NOW, correlation: bag },
+        );
+        expect(result.state).toBe(state);
+        expect(result.effects).toEqual([]);
     });
 });

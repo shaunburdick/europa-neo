@@ -192,7 +192,7 @@ function stripProductionQuery(): void {
 /** User-visible failure rendered before any identity-bearing lobby connection. */
 function LobbyConfigurationError({ message }: { readonly message: string }): JSX.Element {
     return (
-        <main id="main" className="europa-lobby" role="alert">
+        <main id="main" className="europa-lobby" role="alert" tabIndex={-1}>
             <h1>Lobby unavailable</h1>
             <p>{message}</p>
             <p>Use this page's host for the WebSocket server, or remove the ws override.</p>

@@ -81,6 +81,7 @@ export type {
     ConsoleAction,
     NetEvent,
     ReduceOptions,
+    ReducerCorrelation,
     ReducerEffect,
     SoundClip,
 } from '../contracts/console-state';

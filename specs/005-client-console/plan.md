@@ -1,760 +1,443 @@
-# Implementation Plan: Client Console (Feature 005)
+# Implementation Plan: Console review cleanup — issues #153 + #127 (spec 005 **v1.12**, spec 010 **v1.15**)
 
-**Branch**: `001-europa-core` | **Date**: 2026-08-21 | **Spec**: [`specs/005-client-console/spec.md`](./spec.md)
+**Branch**: `fix/console-review-cleanup` (base `main` tip `c184d54`) | **Date**: 2026-10-12
+**Specs**: [`specs/005-client-console/spec.md`](./spec.md) v1.12 (approved — Gates 1–3 PASS) · `specs/010-public-lobby-match-browser/spec.md` v1.15 (approved — Gates 1–3 PASS; renumbered from v1.14 on merge)
+**Phase**: 4 (Plan) complete, approved at Gate 2; `tasks.md` produced at Phase 5 and approved at Gate 3; Phase 6 implementation shipped. This document is the approved plan of record.
 
-**Input**: Feature specification from `specs/005-client-console/spec.md` — the player-facing browser client that renders the fog-filtered satellite view, accepts all original order types (region-based pipes, exclusive pipes, i/j/k/l + space + 0-9 + p/h/g/o), and layers modern QoL (zoom/pan, status, surrender, reconnect, replay).
+**Superseded content**: this file previously held the original console plan plus the issue #76 amendment and the v1.10 "Active camera policy". The full superseded copy is recoverable from git history:
 
-**Note**: This plan was produced by following the `/speckit.plan` workflow. The branch is `001-europa-core` (the repo's per-delivery branch — AGENTS.md "do not relitigate"; the spec-kit default of `git checkout -b 005-client-console` was deliberately skipped, matching the precedent set by features 001, 002, 003, 004). All artifacts for this feature live under `specs/005-client-console/`.
+```bash
+git show c184d54:specs/005-client-console/plan.md
+```
+
+Nothing in that document is re-decided here; the v1.10 camera policy remains normative via spec FR-017/FR-019/FR-027 and `data-model.md` §4, which this plan does not amend.
 
 ---
 
-## Summary
+## 1. Scope
 
-The Client Console is the **player-facing UI** for Europa Neo. It is a browser SPA that:
+Two P1 review issues, both console-only:
 
-1. **Renders** the per-tick `PlayerView` (fog-filtered) produced by feature 002 on top of the engine's static `Board` (feature 003) for the initial paint.
-2. **Accepts input** via mouse (region-based targeting) + keyboard (the original Europa control set: i/j/k/l, space, p/h, g/o, 0-9) and translates gestures into engine `Order`s.
-3. **Transports** the orders to the server via feature 004's `MatchClient` and surfaces order-ack feedback (sent / rejected) in the HUD.
-4. **Modernizes** the original with zoom/pan, connection status, surrender flow, accessibility (WCAG 2.2 AA), and a self-hostable build with no remote dependencies.
+| Issue | Findings | Spec surface |
+|---|---|---|
+| **#153** — seat-token hand-off, roster ordering, state purity/perf | `F-CON-ST-001` … `F-CON-ST-010` (evidence C-026/C-027/C-057) | spec 005 FR-045, FR-046(a)(b)(c), FR-047; spec 010 v1.15 (`023-FR-007` clarification + seat-token guard); `data-model.md` §4 (unchanged) |
+| **#127** — accessibility focus + HUD/lobby UI state | `F-CON-RD-003/006/012/014`, `F-CON-UI-002/003/004/005/007/009/010` (evidence C-029/C-059/C-060) | spec 005 FR-009 (amended), FR-039(a)–(d), FR-040, FR-041, FR-042, FR-043, FR-044 |
 
-The package is `packages/console` (re-exported as `@europa/console`), built with the **locked stack from feature 001** for everything except the bundler — the console uses **Vite 8** because it is a browser app, not a library. The console depends on `@europa/engine`, `@europa/fog`, `@europa/terrain`, and `@europa/networking` for canonical types and pure functions; no additive changes to those packages are required (the console is a leaf consumer per data-model §16).
+Out of scope by construction: matchmaking server code (already compliant via `buildSortedRosterEntries`), spec 006 (PR-2's), `europa-source/`, `docs/manual/` (verdict below), `CONSOLE_API_VERSION` (see §9).
 
-The console is the **only feature with rendering freedom** (per AGENTS.md binding decision 3). This plan exercises that freedom to choose **React 19 + Canvas 2D + Zustand 5 + Vite 8** with full rationale in `research.md` §1–§4.
+### PM rulings carried into this plan (binding)
 
----
+**From the Phase-4 dispatch:**
 
-## Technical Context
+1. **Base on `main`, resolve conflicts at rebase.** PR #189 (`security-sweep`) is **not** merged into this branch. Per-file conflict rules are in §8.
+2. **FR-042 precedence**: later-opened modal closes the others; **game-over is terminal and never preempted**; exactly one `aria-modal` surface at a time. This resolves the Help `aria-modal` vs `018-FR-009` ("non-modal") tension in favour of a single modal at a time.
+3. **FR-043 scope: every raw `<button>` element in `packages/console`** — see the census correction in §6 (the "27" figure counts 4 JSDoc mentions; **23 elements** are the real scope). **This ruling also mandates the static `no-raw-buttons` guard**: test N18 is **required**, not optional (§7.4, §12.5).
+4. **F-CON-ST-009: delete** the never-dispatched `lobbyRosterDelta` path and the write-only `roster.revision`; the ~5 test blocks covering them go with it (§7.2).
+5. **Order bar: implement roving tabindex** (FR-039(d)); **exactly two** existing a11y tests change, each as an inversion to the new contract (§7.3 — that census is authoritative).
+6. **ST-004 split**: the map-view rebuild remainder is **deferred** (§10). The **wire half** of the heartbeat AC is already met on `main` and is a regression guard; the **`reduce()`-level** same-reference guarantee is **new in v1.12 and in scope in W2** (§3 ST-004, §5.2).
+7. **No shared modal shell** (I-18) — FR-042 is single-value state only. **No `CONSOLE_API_VERSION` bump. No `docs/manual/` changes.**
+8. **Comment budget**: net ≤ 0 discretionary source comments in `packages/`; **exactly six** exempt sites (§11).
 
-**Language/Version**: TypeScript ≥ 5.6 with `strict: true` (matches engine + fog + terrain + networking). Targets browser ES2022 (per the locked stack).
+**Gate 1 + Gate 2 resolutions (binding, 2026-10-12). These replace the Phase-4 draft's open-question list — §13 now records only that no open question remains, and nothing in this plan awaits a decision:**
 
-**Primary Dependencies** (console-only direct deps; engine/fog/terrain/networking are workspace deps):
-
-- `react@^19.2` (MIT) — UI framework. See `research.md` §1.
-- `react-dom@^19.2` (MIT) — React DOM renderer.
-- `zustand@^5.0` (MIT) — internal subscription glue. See `research.md` §3.
-- `vite@^8.0` (MIT) — build tool + dev server. See `research.md` §4.
-- `@vitejs/plugin-react@^4.x` (MIT) — React Fast Refresh.
-- `@types/react@^19.2` (MIT) — TypeScript declarations.
-- `@types/react-dom@^19.2` (MIT) — TypeScript declarations.
-- `@vitest/browser@^4.1` (MIT) — component tests in a real browser.
-- `vitest-browser-react@^4.x` (MIT) — React-specific locators for Vitest Browser Mode.
-- `@axe-core/playwright@^4.x` (MPL-2.0; test-only) — automated a11y scans.
-- `@playwright/test@^1.6` (Apache-2.0) — E2E framework.
-- `happy-dom@^15.x` (MIT) — fast DOM for unit tests.
-- `@resvg/resvg-js@^2.x` (MIT) — SVG → PNG conversion in the asset build script.
-
-**No CDN-loaded deps, no analytics, no remote fonts.** Every asset ships in the bundle (constitution Principle VII). See `research.md` §8 for the full asset inventory.
-
-**Workspace deps** (inherited from feature 001's locked stack):
-
-- `@europa/engine` (workspace:*) — `World`, `CellView`, `Coord`, `Direction`, `Order`, `ReservesPct`, `PlayerId`, `TickEvents`, `ValidationError`, `MatchConfig`.
-- `@europa/fog` (workspace:*) — `PlayerView`.
-- `@europa/terrain` (workspace:*) — `Board`, `Cell` (type-only; used for the initial paint).
-- `@europa/networking` (workspace:*) — `ConnectionState`, `SessionToken`, `MatchId`, `ErrorCode`, `SequenceNumber`, `MatchClient`.
-
-**Storage**: None in the console. The host (the page that embeds the console) is responsible for persisting QoL settings (`localStorage` is the default; the host may use any store). Reconnect tokens are surfaced via `console.getSessionToken()` and the host persists them. No cookies; no IndexedDB.
-
-**Testing**: Three layers per `research.md` §5:
-
-- **Unit**: Vitest 4.1 with happy-dom. Reducer + pure helpers. Target 100% on the reducer, 80%+ on the package.
-- **Component**: Vitest 4.1 Browser Mode + `vitest-browser-react`. React components in a real Chromium.
-- **E2E**: Playwright 1.6+ with `@axe-core/playwright`. Full console + real feature 004 server.
-
-Coverage threshold: 80% lines / 80% functions / 80% branches / 80% statements (Vitest's v8 provider). Higher for security-relevant modules (100% on `localPreflightOrder`, 100% on the input mapping table).
-
-**Target Platform**: Modern desktop browsers (Chrome 120+, Firefox 120+, Safari 17+, Edge 120+). ES2022 features (`?.`, `??`, `Object.hasOwn`, top-level `await`) are baseline. No IE / legacy support. Mobile / touch is v2 (per spec Assumptions); the layout uses CSS rems and CSS grid so v2 is a reflow, not a rewrite.
-
-**Project Type**: Browser SPA within a pnpm-workspaces monorepo. The console is a `private` workspace member that imports the engine / fog / terrain / networking packages. It has its own `vite.config.ts` and `vitest.config.ts` (different from the other packages' `tsup.config.ts` and `vitest.config.ts`).
-
-**Performance Goals**:
-
-- **SC-003**: order-to-wire-message < 50 ms (input pipeline overhead). Reducer + `sendOrder` round-trip is sub-ms; budget covers React re-render and WebSocket flush.
-- **60 fps render** at the initialized measured-fit camera. Physical cell size remains 32–96 CSS px; small viewports may not fit the whole board because the 32px minimum is binding. Canvas 2D paint of 1024 simple shapes is sub-millisecond.
-- **Memory**: <50 MB heap for a single console instance.
-- **Initial bundle**: <150 KB gzipped (React + Zustand + console core). Sounds and sprites are lazy-loaded after first paint.
-- **First paint**: <500 ms on a 4G connection.
-
-**Constraints**:
-
-- **Server-authoritative** (spec FR-011; constitution Principle II): the console NEVER simulates. It only renders the server's `PlayerView` and sends orders.
-- **≥80% coverage** on game logic (constitution Principle III). Note: the console is mostly UI; "game logic" here means the reducer + the order-translation logic.
-- **No `any` types; no lint suppressions** (constitution Principles I + code-quality skill).
-- **WCAG 2.2 AA** (constitution Principle VI): keyboard navigable, screen-reader friendly, visible focus, sufficient contrast.
-- **Self-hostable by default** (constitution Principle VII): no CDN, no analytics, all assets bundled, no remote fonts.
-- **TypeScript strict** (constitution Principle I): no `any`, no `@ts-ignore`, no `@ts-nocheck`.
-- **Bundle discipline**: feature 004's `ws`-equivalent (`MatchClient`) is reused; no parallel transport.
-- **Hot-module replacement** in dev: Vite HMR is configured for state changes; full reload on contract changes.
-
-**Scale/Scope**:
-
-- New package: `packages/console` (~1500–2500 LOC of code + tests).
-- 2-player matches in v1 (AGENTS.md binding decision 5); engine supports 2–4.
-- 32×32 board default; terrain generator produces 32×32 in v1.
-- One console instance per browser tab; no multi-tab sync.
-- A single embedded console per page (no `<iframe>` multi-instance).
+- **FR-039(b) semantics** (draft Q1): focus continues **in the direction of travel**, one cell at a time, to the first rendered cell; at the board edge with none in that direction it does not move. Spec FR-039(b) was amended **in place** to say exactly that (§5.7 implements it).
+- **FR-045 scope** (draft M1): the same-reference requirement covers the **heartbeat/pong echo only** — issue #153's AC is literally "A heartbeat no-op returns the same state reference". Other no-op arms keep allocating (`socketClosed` while `status === 'game_over'`, `reducer.ts:630-632`, is a named example), and the pong short-circuit defers `reduce`'s lazy feedback prune to the next state-changing dispatch. FR-045, `data-model.md` §7/§17 and the contract doc all say so.
+- **Heartbeat disposition** (draft H1): wire half already fixed on `main` (`envelope-to-event.ts:109-111`, `ws-lobby-client.ts:1007-1008`); **no production path dispatches `pong`**, so the guarantee that did not hold is the `reduce()`-level one, which is new in v1.12 (W2). Spec bullet, `data-model.md` §17, §3 and the contract doc agree.
+- **Design enabler approved** (draft Q2): `EuropaButtonProps` + `RefAttributes<HTMLButtonElement>` (`packages/design/src/components/generic/button.tsx:30`) is in scope; the rejected-fallback branch is removed from §5.10.2.
+- **No spec-012 companion note** (draft Q3): PR-3's spec surface is exactly spec 005 v1.12 + spec 010 v1.15; the `ref` addition is an implementation-level change (§6).
+- **Census = 23 elements** (draft Q4): confirmed — §6 stands.
+- **Static guard required** (draft Q6): confirmed — see ruling 3.
+- **Two tab-walk tests, not three** (draft Q5): confirmed — §7.3's census stands.
+- **Spectator handoff mechanism** (draft Q7): the §5.5 #3 approach (suppress LobbyRoot's bootstrap leg while the canonical spectate navigation is pending) is approved as written; no alternative mechanism.
 
 ---
 
-## Constitution Check
+## 2. Constitution check
 
-*Gate: must pass before Phase 0 research; re-evaluated after Phase 1 design.*
-
-### Principle I — Type Safety First
-
-| Gate | Status |
-|------|--------|
-| TS `strict: true` in `packages/console/tsconfig.json` | ✅ Planned (inherits root tsconfig) |
-| Zero `any` types in `src/` | ✅ Enforced by Biome `noExplicitAny` + code review |
-| No `@ts-ignore` / `@ts-nocheck` / `eslint-disable` | ✅ Enforced by Biome; no suppressions ever |
-| Every public function has doc comment (JSDoc) | ✅ Convention enforced in PR review |
-| Branded primitives (`MapViewId`, `ActionId`, `CellRegion`) prevent type confusion | ✅ Declared in `console-types.ts` |
-| Conformance test catches upstream drift | ✅ Planned (`tests/conformance.test.ts`) |
-| `@types/react` and `@types/react-dom` provide types for React 19 | ✅ Direct devDependency |
-
-**Verdict**: ✅ passes. The console extends the engine's type discipline with branded primitives for UI-internal concepts.
-
-### Principle II — Server-Authoritative Deterministic Simulation
-
-| Gate | Status |
-|------|--------|
-| Server is the source of truth for game state | ✅ Architectural — console receives authoritative `PlayerView`, never computes state |
-| Console renders state and submits orders only | ✅ Spec FR-011 enforced; orders validated by the engine before staging |
-| Console NEVER simulates | ✅ Reducer has zero physics / game-rule code; `localPreflightOrder` is a static check against the latest `PlayerView` only |
-| Tick rendering is pure given the same `PlayerView` | ✅ `buildMapView` is a pure function; the paint loop reads from `MapView` only |
-| No `Math.random()` in `src/` | ✅ The reducer uses no randomness; any UX randomness (e.g., sound delay) is opt-in and behind a feature flag |
-| Tick monotonicity is enforced | ✅ Reducer drops out-of-order ticks; test covers this |
-| Server's `OrderAck` is the tiebreaker for validation | ✅ `localPreflightOrder` is a UX nicety, not a correctness gate (spec FR-006) |
-| Reconnect resync = fresh `PlayerView` from the server | ✅ Adapter's `reconnected` NetEvent triggers a full re-paint |
-
-**Verdict**: ✅ passes. The console is a leaf consumer; no game state lives in the console.
-
-### Principle III — Tested Game Logic (≥80% coverage)
-
-| Gate | Status |
-|------|--------|
-| Reducer (pure) tested with 100% line + branch coverage | ✅ Planned (`tests/unit/reducer.test.ts` + per-action files) |
-| Input mapping table tested with 100% coverage | ✅ Planned (`tests/unit/inputMapping.test.ts`) |
-| `localPreflightOrder` tested with 100% coverage (security-relevant) | ✅ Planned (`tests/unit/localPreflight.test.ts`) |
-| Subcell targeting math tested with 100% coverage + parity vs. original | ✅ Planned (`tests/unit/subcell.test.ts` + `tests/e2e/subcell-parity.test.ts`) |
-| Each module = one file + one test file | ✅ Planned (`src/{reducer,net,input,render,sound}/` + matching `tests/`) |
-| Coverage gate 80% enforced in CI | ✅ Vitest coverage thresholds in `vitest.config.ts` |
-| Determinism test exists | ✅ Planned (`tests/determinism.test.ts` — SC-002 1000-tick zero divergence) |
-| Conformance test exists | ✅ Planned (`tests/conformance.test.ts` — engine/fog/networking shape match) |
-| Every spec FR has a corresponding acceptance test | ✅ Mapped in `quickstart.md` (Q-E01..Q-E15, Q-A01..Q-A08) |
-| Edge cases covered: enemy cell order, disconnect input, subcell beyond range, rapid contradictory orders, surrender, reconnect | ✅ Planned (Q-E09, Q-E10, Q-E08, Q-E15, Q-E12, Q-E11) |
-| 1000-tick scripted match (SC-002) | ✅ Planned (`tests/determinism.test.ts` + `quickstart.md` §7) |
-| Performance smoke test (SC-003 + paint budget) | ✅ Planned (`tests/perf.test.ts`) |
-
-**Verdict**: ✅ passes. The console is highly testable (pure reducer, pure `MapView` builder, dependency injection via `ConsoleDeps`).
-
-### Principle IV — Specs as Documentation
-
-| Gate | Status |
-|------|--------|
-| Spec is authoritative for console behavior | ✅ Plan references spec FRs by number |
-| Code comments explain "why"; types/docs explain "what" | ✅ JSDoc on every public function |
-| Behavior changes ship in same change set as spec updates | ✅ Constitution + AGENTS.md mandate this; CI enforces via PR description |
-| `contracts/` folder makes the public surface discoverable | ✅ Four `.ts` files (`console-types.ts`, `console-state.ts`, `console-to-networking.ts`, `console-api.ts`) |
-| `data-model.md` documents UI entities | ✅ Written; this plan's data-model section is a one-stop reference |
-| `README.md` documents the Console API with a runnable example | ✅ Planned in `packages/console/README.md` |
-| `quickstart.md` is runnable | ✅ Written; every scenario has a real command |
-
-**Verdict**: ✅ passes.
-
-### Principle V — Simplicity Over Cleverness
-
-| Gate | Status |
-|------|--------|
-| Each subsystem = one file, one responsibility | ✅ `reducer/`, `net/`, `input/`, `render/`, `sound/` — each in its own directory |
-| Pure functions over classes for hot-path logic | ✅ Reducer is a pure function; `MapView` builder is a pure function; the runtime is a thin glue layer |
-| Standard React 19 over Solid/Svelte | ✅ Justified in `research.md` §1 (largest a11y ecosystem) |
-| Canvas 2D over WebGL/SVG | ✅ Justified in `research.md` §2 (32×32 is well within Canvas 2D's budget) |
-| Zustand 5 over Redux Toolkit 2 | ✅ Justified in `research.md` §3 (1 KB; matches reducer pattern without the ceremony) |
-| Vite 8 over Webpack/Rspack | ✅ Justified in `research.md` §4 (standard for modern TS SPAs) |
-| Custom input layer over a library | ✅ ~200 LOC; no third-party surprises (`research.md` §7) |
-| One rAF-driven paint loop, not a stateful event emitter | ✅ Simpler; debounces naturally |
-| No plugin system, no DI container | ✅ `ConsoleDeps` is a plain interface; tests inject fakes directly |
-| Single tunable-constants location | ✅ `CONSOLE_CONSTANTS` in `console-api.ts` (mirror of engine's `ENGINE_CONSTANTS` discipline) |
-| Demo mode (replay) is opt-in via feature flag, not a default path | ✅ `features.replay: false` by default |
-
-**Verdict**: ✅ passes. We deliberately chose the simpler framework, the simpler renderer, the simpler state library, and the simpler build tool. The only "advanced" choices (Vite 8, Vitest Browser Mode) are industry-standard for TS SPAs.
-
-### Principle VI — Accessibility-Minded UI
-
-| Gate | Status |
-|------|--------|
-| WCAG 2.2 AA target | ✅ All design choices in `research.md` §6 |
-| Keyboard navigable | ✅ Roving tabindex on the cell grid (`research.md` §6); every spec FR is exercisable with the keyboard only (Q-E15) |
-| Screen-reader semantics | ✅ `role="grid"` + `role="gridcell"` overlay; `aria-live` regions for tick events; `aria-label` on every cell |
-| Visible focus states | ✅ `:focus-visible` styles with 2px outline + 2px offset; ≥3:1 contrast (WCAG 2.4.7) |
-| Sufficient contrast | ✅ All text/UI elements meet 4.5:1 / 3:1 minimums (axe enforces; verified in Q-A01..Q-A03) |
-| No reliance on color alone | ✅ Owner color is paired with a shape pattern (Q-A01) |
-| Skip link to main content | ✅ Implemented in renderer |
-| `prefers-reduced-motion` honored | ✅ Combat flashes, capture highlights disabled when reduce-motion is on (Q-A07) |
-| Drag alternatives (2.5.7) | ✅ Region-of-cell targeting has a single-click equivalent (i/j/k/l); verified in Q-A05 |
-| Target size (2.5.8) | ✅ Cells are ≥24×24 CSS pixels at default zoom; verified in Q-A01 |
-| Resize / 200% zoom | ✅ CSS rems; verified in Q-A08 |
-| Axe-core in CI | ✅ `@axe-core/playwright` runs on every E2E suite (Q-A01..Q-A03) |
-| Manual screen-reader audit before v1 | ⚠️ Not in CI; manual checklist in `quickstart.md` §5 |
-
-**Verdict**: ✅ passes. Accessibility is a non-negotiable per the constitution; we treat it as such from the first line of code.
-
-### Principle VII — Self-Hostable by Default
-
-| Gate | Status |
-|------|--------|
-| Zero external service dependencies at runtime | ✅ No CDN, no analytics, no remote fonts, no telemetry (`research.md` §8) |
-| No remote assets | ✅ All assets bundled; `tests/e2e/selfhost.spec.ts` greps the built bundle for any `http(s)://` URL |
-| All deps permissive-licensed | ✅ All listed deps are MIT, Apache-2.0, or MPL-2.0 (test-only) |
-| Single process for development | ✅ `pnpm dev` boots the console + a local feature 004 server in one command |
-| Single static bundle for production | ✅ `pnpm build` produces a `dist/` directory that's servable by any static host |
-| No required cloud services | ✅ The console works against any feature 004 server, including a self-hosted one on `localhost:8080` |
-| Reconnect tokens stored locally | ✅ Surface via `console.getSessionToken()`; the host decides where to persist |
-| Replay loader works offline | ✅ Replay tapes are static files; no network needed once loaded |
-
-**Verdict**: ✅ passes. A motivated user can clone the repo, `pnpm install && pnpm dev`, and have a working match in under 5 minutes.
-
-### Additional Constraints (Constitution §"Additional Constraints")
-
-| Constraint | Status |
-|------------|--------|
-| Permissive dependencies only (MIT/BSD/Apache-2.0/ISC/MPL-test-only) | ✅ All listed deps verified (`research.md` §1, §3, §4, §6, §8) |
-| No vendor lock-in | ✅ Standard React, standard Vite, standard WebSocket; no proprietary APIs |
-| OSI-approved project license | ✅ Project ships under the same license as the rest of Europa Neo; no GPL contamination |
-
-**Verdict**: ✅ passes.
-
-### Constitution Check — Post-Phase-1 Re-evaluation
-
-All gates remain green after `data-model.md`, `contracts/`, and `quickstart.md` were written. Key reinforcing decisions:
-
-- **Reducer purity** (`console-state.ts`) reinforces Principle II (no simulation in the console) and Principle III (testable without a browser).
-- **`ConsoleDeps` interface** (`console-api.ts`) reinforces Principle III (test seam) and Principle V (no DI container).
-- **`CONSOLE_CONSTANTS` single location** reinforces Principle V (simplicity over cleverness).
-- **Roving tabindex + ARIA grid overlay** in the renderer reinforces Principle VI (the canvas is the visual source; the DOM overlay is the a11y source).
-- **`selfhost.spec.ts`** in the test suite reinforces Principle VII (the build fails if a remote URL is referenced).
-
-**Final verdict**: ✅ Constitution satisfied. No violations to track.
-
-### Proposed additive changes to feature 001/002/003/004's contracts
-
-**None.** Feature 005 conforms to:
-
-- feature 001's `engine-types.ts` (`World`, `CellView`, `Coord`,
-  `Direction`, `Order`, `ReservesPct`, `PlayerId`, `TickEvents`,
-  `ValidationError`, `MatchConfig`) — used verbatim.
-- feature 002's `fog-types.ts` (`PlayerView`) — used verbatim.
-- feature 003's `terrain-types.ts` (`Board`, `Cell` — type-only
-  for the initial paint) — used verbatim.
-- feature 004's `network-types.ts` (`ConnectionState`,
-  `SessionToken`, `MatchId`, `ErrorCode`, `SequenceNumber`,
-  `MatchClient`) — used verbatim.
-
-The console-internal additions (`MapViewId`, `ActionId`,
-`CellRegion`, `SubcellPosition`, `PlayerAction`, `NetEvent`,
-`ReducerEffect`, `ConsoleState`, `MapView`, `ConsoleRenderer`,
-etc.) are pure UI concerns with no engine/fog/networking
-equivalent. They live in `console-types.ts` /
-`console-state.ts` / `console-api.ts` and do not extend any
-upstream contract.
-
-If a future feature needs a new UI-only type, the convention
-is: declare it in `@europa/console/contracts/console-types.ts`
-and add it to the re-exports. This does not require engine,
-fog, terrain, or networking amendments.
+| Principle | Verdict | Evidence |
+|---|---|---|
+| I — TypeScript strict, no `any`, no suppressions | ✅ | All changes are typed refactors; the only type-level addition is `ReduceOptions.correlation?` (§5.2). Zero suppressions. |
+| II — Server-authoritative deterministic simulation | ✅ | Console stays a leaf consumer. The only new algorithm is a **deterministic UTF-16 comparator** (`compareUtf16` on case-folded handles — `localeCompare` is forbidden), mirroring the server's `buildSortedRosterEntries` (`packages/matchmaking/src/internal/lobbyService.ts:531-537`). |
+| III — ≥80% coverage on game logic | ✅ | Every new branch lands in a coverage-included path (`vitest.config.ts` include list; merged session `vitest.config.coverage.ts:24-52`, thresholds 80/80/80/80). New tests named per branch in §7. |
+| IV — Specs as documentation | ✅ | Behaviour changes ship with the v1.12 / v1.15 spec drafts in the same change set. |
+| V — Simplicity over cleverness | ✅ | No shared modal shell, no new library, no shared route *framework* — one prop-driven shell (§5.6). |
+| VI — Accessibility-minded UI | ✅ | FR-039(a)–(d), FR-009 focus restore, FR-041 spectator help, FR-044 `<bdi>`. |
+| VII — Self-hostable | ✅ | No new dependency; `@europa/design` and `@europa/engine` are already workspace deps of `packages/console`. |
 
 ---
 
-## Project Structure
+## 3. Finding-by-finding disposition (all anchors re-verified this session against `c184d54`)
 
-### Documentation (this feature)
+### Issue #153
 
-```text
-specs/005-client-console/
-├── plan.md              # this file (/speckit.plan output)
-├── research.md          # Phase 0 output — framework / renderer / state / build / a11y decisions
-├── data-model.md        # Phase 1 output — UI entities, fields, relationships, transitions
-├── quickstart.md        # Phase 1 output — runnable validation scenarios
-├── contracts/           # Phase 1 output — public TypeScript contracts
-│   ├── console-types.ts           # UI types (MapView, ConsoleState, PlayerAction, etc.)
-│   ├── console-state.ts           # pure reducer + helpers (reduce, buildMapView, ...)
-│   ├── console-to-networking.ts   # boundary: wire envelope ↔ NetEvent, MatchClient wrapper
-│   └── console-api.ts             # createConsole factory + public surface
-└── tasks.md             # NOT created in this dispatch (Phase 5 — separate)
-```
+| Finding | Disposition | Verified evidence | FR / wave |
+|---|---|---|---|
+| **ST-001** roster re-sort after delta | **OPEN** | Client merge is transport-side: `packages/console/src/net/ws-lobby-client.ts:1214-1240` (`applyRosterDelta` at `:1214`, appends unseen entries in arrival order via `next.push(change)` at `:1231`, `rosterEntries = next` at `:1234`) — **no `sort()` anywhere in `src/`** (verified: `grep -rn "sort(" src/ui/lobby-roster-card.tsx src/state/lobby-reducer.ts src/net/ws-lobby-client.ts` → no matches). Server snapshots ARE sorted: `lobbyService.ts:531` (`buildSortedRosterEntries`), `:536` (`compareUtf16(a.handle.toLowerCase(), b.handle.toLowerCase())`), `:549` (sorted snapshots). Store-side reducer case `lobby-reducer.ts:289-308` is dead (see ST-009). Downstream flow: transport `onRoster` → `lobby-controller.ts:242-246` dispatches `lobbyRosterSnapshot` → card renders array order (`lobby-roster-card.tsx:202`). | spec 010 v1.15 / **W1** |
+| **ST-002** create-flow seat token | **ALREADY FIXED ON MAIN — pin as regression guard** | Fixed by #159 (`1ac83dd`): `packages/console/src/state/lobby-controller.ts:326` `runSeatCommand`, `:338` `transport.lastSeatSessionToken()`, `:349` dispatches `lobbyEnteredMatch` **with** the token, `:394` create path passes `null` matchId. **Guarding test**: `tests/unit/state/lobby-controller.test.ts:486-503` ("create success records the creator seat token so its leg claims its OWN seat"; assertions `:494-502`), companion `:505-514` (no-token case). Not re-implemented. | spec 005 FR-046(a) |
+| **ST-003** module-scope correlation state | **OPEN (reducer/store half)**; transport half owned by PR #189 | `packages/console/src/state/reducer.ts:63` (`let lastActionId = 0`), `:74` (`const pendingOrders = new Map`), `:77` (`PENDING_ORDERS_CAP`), `:83-96` (`stampOrder`), `:101-105` (`takePendingOrder`), `:121-124` (`allocateActionId`). Consumers: `src/runtime.ts:54` (import), `:326` (host-order allocation). **Not public**: JSDoc `reducer.ts:81` "Module-internal; not part of the public surface"; `allocateActionId` is absent from `src/index.ts` (barrel exports at `:51` are `appendFeedback, appendRejection, INITIAL_CONSOLE_STATE, reduce`). Transport half (`ws-lobby-client.ts:390,849,1035,1403` `lastCapturedSeatSessionToken`) is specified by PR #189's v1.11 FR-033 — **do not duplicate**. | FR-045 / **W2** |
+| **ST-004** per-dispatch rebuilds / heartbeat | **SPLIT (ruling 6): wire half fixed on `main` → guard; `reduce()`-level half OPEN; map-view churn deferred** | **No production path dispatches `pong`**: `src/net/envelope-to-event.ts:109-111` returns `null`, `src/net/ws-lobby-client.ts:1007-1008` returns bare, and `kind: 'pong'` occurs only in the type (`contracts/console-state.ts:145`), the reducer's exhaustiveness union/discriminant set and its `case` (`reducer.ts:234-245, 248-260, 604`) and the fixture (`tests/unit/state/reducer.test.ts:399`). The wire half is guarded by `tests/unit/net/net.test.ts:92-101`. **What does not hold is the `reduce()`-level guarantee**: `reduce()` at `reducer.ts:294-310` always allocates (`baseState` `:294-297`, `nextState` `:304-307`), so `reduce(state, pong, …)` returns a *new* reference today even though the `pong` arm (`:604-606`) returns its input unchanged — W2 adds the short-circuit FR-045 requires. Map-view churn (`render/App.tsx:301-317`) is **deferred** (ruling 6). | FR-045 / **W2** |
+| **ST-005** `ZoomPanController.attach` non-idempotent | **OPEN** | `src/qol/zoom.ts:223` shared `private readonly listeners`, `attach()` `:238-324` has no re-entry guard, pushes listeners at `:311-314`, disposer `:315-323` clears the array (`:320`). Second attach double-registers `wheel` (`:309`) and `pointerdown` (`:310`) → one notch = two zoom steps. Sole caller attaches once per effect (`render/App.tsx:444`), so the risk is latent. | FR-047 / **W3** |
+| **ST-006** pan clamp | **ALREADY FIXED ON MAIN — pin as regression guard** | Fixed by #184 (`c184d54`): `src/qol/zoom.ts:122-135` (`clampCamera`; `maxX = max(0, width/2 − 0.5) * zoom` at `:125-126`, pan clamp at `:131-132`) = corner-cell-centre reachability. Requirement already normative: `specs/005-client-console/data-model.md:264-266` ("Pan is constrained by corner-center reachability, not by a full-board-only clamp"). **Guarding tests**: `tests/unit/qol/zoom.test.ts:93` ("pan is clamped to corner-center reachability"), `:100`; `tests/unit/qol/zoom-math.test.ts:29-38` (`describe('clampCamera')`), `:94` (all four corner-cell centres), `:111` (fitting and overflowing axes). No spec text change. | `data-model.md` §4 (unchanged) |
+| **ST-007** adaptive route swallows boot failure | **OPEN** | `src/internal/match-adaptive-route.tsx:93` `onRouteFailure={() => {}}` (a literal no-op; the `MatchLegHost` block is `:72-103`). The failure *is* emitted by the legs: `lobby-runtime.tsx:643` (`if (generation === bootGeneration) args.onRouteFailure()`) and `:998` (spectator leg). Join/spectate instead navigate silently: `match-join-route.tsx:76-78`, `match-spectate-route.tsx:76-78`. The correct surface already exists: LobbyRoot sets `setNoticeKind('shortcut-failure')` (`lobby-runtime.tsx:524`) → `RouteNotice` rendered at `:466-490` (retry epoch pattern at `:467-474`); `RouteNotice` props (`src/ui/route-notice.tsx:8-21`) provide `kind/title/message/onRetry?/onReturnToLobby/focusKey`, and the rendered panel takes `tabIndex={-1}` + `role="alert"` (`:51-52`) and focuses itself on change (`:42-44`). | FR-046(c); spec 010 FR-018 (`specs/010-public-lobby-match-browser/spec.md:151`), FR-033 (`…/spec.md:166`) / **W4** |
+| **ST-008** lobby-initiated spectator builds the leg twice | **OPEN** | Sequence: command flips `viewMode` → LobbyRoot renders `MatchLegHost` (`lobby-runtime.tsx:493-530`, `onRouteFailure` at `:524`) → `SpectatorMatchLeg` builds a leg in render phase (`:1047-1050`) and boots it (`:1052-1057`) → the pending-navigation effect (`:413-437`) navigates to `/match/<id>/spectate` → the route remounts `MatchLegHost` (keyed `:511`) and builds a **second** leg; the first is disposed mid-boot by `:1054-1056`. Create/join usually show plates first (player leg is gated on `matchStarted`, `:777`), so spectate is the visible case. | FR-046(b) / **W4** |
+| **ST-009** dead `lobbyRosterDelta` + `roster.revision` | **OPEN — DELETE (ruling 4)** | Never dispatched in `src/` (`grep -rn "lobbyRosterDelta" src/` → only `state/lobby-state.ts:375` type + `state/lobby-reducer.ts:289` case). `roster.revision` declared at `lobby-state.ts:168`, written at `lobby-reducer.ts:284` and `:304`, **never read** (`grep -rn "\.revision" src/` returns only writes + unrelated `ws-lobby-client` revisions); real revision gating lives upstream at `ws-lobby-client.ts:1191-1198, 1216-1223`. | no new FR / **W1** |
+| **ST-010** three near-identical match-route components | **OPEN (refactor)** | `match-adaptive-route.tsx` (111 L), `match-join-route.tsx` (94 L), `match-spectate-route.tsx` (94 L): identical `MatchLegHost` prop blocks (join/spectate `:54-88`, adaptive `:72-103`) differing only in `matchRole`, `displayName` fallback (`'Player'` vs `'Spectator'`), and `onRouteFailure`. | FR-046(b)(c) / **W4** |
 
-### Source Code (monorepo root)
+### Issue #127
 
-```text
-europa-neo/
-├── .specify/                       # spec-kit scaffolding + governance
-└── packages/
-    ├── engine/                     # feature 001
-    ├── fog/                        # feature 002
-    ├── terrain/                    # feature 003
-    ├── networking/                 # feature 004
-    ├── server/                     # feature 006 + 004 + 002 + 001 host
-    └── console/                    # ← this feature
-        ├── package.json            # name: "@europa/console", type: "module", private
-        ├── tsconfig.json           # strict, ES2022, noUncheckedIndexedAccess, jsx: react-jsx
-        ├── vite.config.ts          # Vite 8 + plugin-react; extends base config
-        ├── vitest.config.ts        # browser mode; v8 coverage; 80% threshold
-        ├── biome.json              # extends: "//" (root)
-        ├── index.html              # SPA entry
-        ├── public/                 # static assets (sprites, sounds) — generated by build-assets
-        ├── scripts/
-        │   └── build-assets.ts     # SVG → PNG (resvg); sound re-encode
-        ├── src/
-        │   ├── index.ts            # public surface re-exports
-        │   ├── config.ts           # CONSOLE_CONSTANTS, DEFAULT_INPUT_MAPPING, DEFAULT_PLAYER_COLORS
-        │   ├── runtime.ts          # createConsole implementation (reducer + client + input + renderer)
-        │   ├── reducer/            # pure state machine
-        │   │   ├── index.ts
-        │   │   ├── reduce.ts       # the reducer (state, action, opts) → { state, effects }
-        │   │   ├── actionToOrder.ts
-        │   │   ├── buildMapView.ts
-        │   │   ├── localPreflight.ts
-        │   │   ├── diff.ts         # cell-change diffing
-        │   │   └── format.ts       # action / rejection formatters
-        │   ├── net/                # network adapter (wraps feature 004)
-        │   │   ├── createClient.ts
-        │   │   ├── envelopeToEvent.ts
-        │   │   └── heartbeat.ts
-        │   ├── input/              # pointer + keyboard layer
-        │   │   ├── index.ts
-        │   │   ├── pointer.ts
-        │   │   ├── keyboard.ts
-        │   │   ├── hitTest.ts
-        │   │   └── subcell.ts
-        │   ├── render/             # React renderer
-        │   │   ├── index.ts
-        │   │   ├── App.tsx
-        │   │   ├── MapCanvas.tsx       # Canvas 2D + a11y grid overlay
-        │   │   ├── MapOverlay.tsx      # ARIA grid for screen readers
-        │   │   ├── Hud.tsx             # connection, feedback, score
-        │   │   ├── SurrenderModal.tsx
-        │   │   ├── ErrorBoundary.tsx
-        │   │   └── styles/             # CSS modules
-        │   ├── sound/                # sound player
-        │   │   ├── index.ts
-        │   │   └── clips.ts
-        │   └── internal/             # private runtime helpers
-        │       ├── clock.ts
-        │       └── throttle.ts
-        └── tests/
-            ├── unit/
-            │   ├── reducer.test.ts
-            │   ├── actionToOrder.test.ts
-            │   ├── buildMapView.test.ts
-            │   ├── subcell.test.ts
-            │   ├── localPreflight.test.ts
-            │   ├── diff.test.ts
-            │   ├── formatRejection.test.ts
-            │   ├── coord.test.ts
-            │   └── inputMapping.test.ts
-            ├── component/
-            │   ├── MapCanvas.test.tsx
-            │   ├── MapOverlay.test.tsx
-            │   ├── Hud.test.tsx
-            │   ├── SurrenderModal.test.tsx
-            │   └── ErrorBoundary.test.tsx
-            ├── e2e/
-            │   ├── join-match.spec.ts
-            │   ├── pipe-orders.spec.ts
-            │   ├── keyboard-only.spec.ts
-            │   ├── a11y.spec.ts
-            │   ├── reconnect.spec.ts
-            │   ├── surrender.spec.ts
-            │   ├── subcell-parity.spec.ts
-            │   └── selfhost.spec.ts
-            ├── fixtures/
-            │   ├── scriptedTick.ts
-            │   ├── mockClient.ts
-            │   ├── testServer.ts
-            │   └── original-subcell.json
-            ├── conformance.test.ts
-            ├── determinism.test.ts
-            └── perf.test.ts
-```
-
-**Structure Decision**: The console lives in its own package, mirroring the engine/fog/terrain/networking precedent. The package uses Vite (browser SPA) instead of tsup (library) — this is the only deviation from the locked stack, and it is justified in `research.md` §4.
+| Finding | Disposition | Verified evidence | FR / wave |
+|---|---|---|---|
+| **RD-003** roving focus rests on fog cell | **OPEN** | `src/render/grid-overlay.tsx:155` sets `aria-activedescendant={focusedCoord === null ? undefined : cellElementId(focusedCoord)}` with **no visibility check**; fog cells emit no node (`:7` "Cells outside the visibility horizon emit no node at all"), rows built only from `mapView.cells` (`:109`). `src/a11y/keyboard.ts:58-66` `moveFocus` clamps to board bounds only; initial focus is the board centre (`:72-74`), which can be fog. `focusedCoord` state lives in `grid-overlay.tsx:86`, `moveRovingFocus` at `:102-105`, blur clears at `:167`. | FR-039(b) / **W5** |
+| **RD-006** surrender focus not restored | **OPEN** | `src/render/SurrenderModal.tsx:51-56` focuses Cancel on open; **nothing restores on close** (`App.tsx:679-690` just flips `surrenderOpen`). Header comment `SurrenderModal.tsx:21-25` claims focus "returns to the previously-focused element on close (caller's responsibility…)" — **no caller does** (verified: `grep setSurrenderOpen` → only `App.tsx:485,648,683,686`). No test asserts restore; `tests/a11y/wcag-assertions.test.ts:536-565` asserts the trap only. Contrast: Help already restores (`App.tsx:713-716` → `helpButtonRef.current?.focus()`). | FR-009 (amended) / **W5** |
+| **RD-014** skip link does not move focus | **OPEN** | Skip links: `render/App.tsx:556`, `internal/lobby-runtime.tsx:792`, `ui/lobby-landing.tsx:179` — all `href="#main"`. **Ten** `<main>` elements exist, **none** with `tabIndex`: `main.tsx:205`, `render/App.tsx:567`, `internal/lobby-runtime.tsx:179`, `:847`, `internal/match-layout.tsx:277`, `routing/match-validation.tsx:121`, `ui/route-notice.tsx:47`, `ui/deep-link-interstitial.tsx:103`, `ui/lobby-landing.tsx:200` (nine carry `id="main"`), plus `ui/welcome-screen.tsx:53` (no id, no skip link). `tabIndex` census: the only `tabIndex={0}` sites are `grid-overlay.tsx:148` and `order-bar.tsx:83`. | FR-039(a) / **W5** |
+| **UI-002** live region fires on first snapshot | **OPEN** | `ui/lobby-roster-card.tsx:99` `prevHandlesRef = useRef<ReadonlySet<string>>(new Set<string>())` starts empty; effect `:133-162` treats every first-snapshot handle as joined (`:141-157` → `"… joined the lobby."` at `:157`) and the empty-prior baseline can fire a leave (`:158-160`). | FR-040 / **W6** |
+| **UI-003** help unavailable to spectators | **OPEN** | Overlay gated on `store !== undefined`: `render/App.tsx:709-732` (spectators have no store, FR-021). Help button is *not* gated on `interactive`: `ui/sidebar.tsx:300-308` `disabled={!inputEnabled}` only, whereas zoom/surrender use `disabled={!interactive || …}` (`:253,262,271,288`); `interactive={store !== undefined}` is passed at `App.tsx:654`. A live spectator therefore gets an **enabled-but-inert** Help control. | FR-041 (+ `018-FR-001`, carried at `spec.md:437`) / **W6** |
+| **UI-004** dangling `aria-describedby` | **OPEN** | `ui/profile-view.tsx:85` `const statusId = useId()`; referenced at `:228` and `:290` (`… : statusId`); `grep -n "id={statusId}"` → **no match** in the file (`errorId` is attached at `:233`, `:294`). | FR-039(c) / **W5** |
+| **UI-005** order-bar keyboard contract | **RULING 5: implement roving tabindex** | Arrow/Home/End roving exists (`ui/order-bar.tsx:51-80`) but the group is **three** Tab stops: section `tabIndex={0}` at `:83` plus both buttons (implicit 0) at `:94`, `:106`. Header comment `:11` claims "the container is one Tab stop" — false today. | FR-039(d) / **W8** |
+| **UI-007 / RD-012** raw buttons | **OPEN — all sites (ruling 3)** | Census in §6. `EuropaButton` already used in `lobby-match-list`, `lobby-create-form`, `profile-view` and one sidebar site (`ui/sidebar.tsx:168-177`). | FR-043 / **W8** |
+| **UI-009** handles not in `<bdi>` | **OPEN (2 sites)** | Wrapped: `ui/participants.tsx:72`, `ui/lobby-roster-card.tsx:237`, `ui/profile-view.tsx:254`, `internal/lobby-runtime.tsx:1120`, `ui/deep-link-interstitial.tsx:118`. **Not wrapped**: lobby identity name `ui/lobby-landing.tsx:276-278`; game-over winner title `render/GameOverModal.tsx:66` (`resultTitle` win branch) rendered at `:130-132`. | FR-044 / **W7** |
+| **UI-010** modal state can stack | **OPEN — ruling 2** | Three independent states: `surrenderOpen` (`App.tsx:482`), `helpOpen` (`App.tsx:495`), game-over derived (`App.tsx:697-706`). Three `aria-modal="true"` surfaces: `SurrenderModal.tsx:93`, `GameOverModal.tsx:124`, Help via `EuropaModal` (`ui/help-overlay.tsx:5-11`, imported `:27`). Any two can mount together today. | FR-042 / **W6** |
 
 ---
 
-## Architecture Overview
-
-### Data flow
+## 4. Architecture overview
 
 ```
-   ┌─────────────────────────┐
-   │  Browser                │
-   │                         │
-   │  ┌──────────────────┐   │
-   │  │ @europa/networking│   │ ← feature 004 client adapter (MatchClient)
-   │  │  - WebSocket      │   │
-   │  │  - heartbeat      │   │
-   │  │  - reconnect      │   │
-   │  └────────┬─────────┘   │
-   │           │ ProtocolEnvelope<NetworkPayload>
-   │           ▼                │
-   │  ┌──────────────────┐   │
-   │  │  net/            │   │ ← console's network adapter
-   │  │  (envelope ↔     │   │    translates wire ↔ NetEvent
-   │  │   NetEvent)      │   │
-   │  └────────┬─────────┘   │
-   │           │ NetEvent    │
-   │           ▼                │
-   │  ┌──────────────────┐   │
-   │  │  reducer/         │   │ ← pure state machine
-   │  │  reduce(state,    │   │    (state, action, opts) → { state, effects }
-   │  │         action)   │   │
-   │  └────────┬─────────┘   │
-   │           │ ConsoleState│
-   │           ▼                │
-   │  ┌──────────────────┐   │
-   │  │  render/          │   │ ← React 19 components
-   │  │  - MapCanvas      │   │    Canvas 2D + ARIA overlay
-   │  │  - Hud            │   │
-   │  │  - Modals         │   │
-   │  └────────▲─────────┘   │
-   │           │ MapView      │
-   │           │              │
-   │  ┌────────┴─────────┐   │
-   │  │  input/          │   │ ← pointer + keyboard
-   │  │  - pointer       │   │    synthesizes PlayerAction
-   │  │  - keyboard      │   │    dispatches to reducer
-   │  │  - hitTest       │   │
-   │  │  - subcell       │   │
-   │  └────────▲─────────┘   │
-   │           │ PlayerAction│
-   │           │              │
-   │  ┌────────┴─────────┐   │
-   │  │  user gestures   │   │
-   │  └──────────────────┘   │
-   │                         │
-   └─────────────────────────┘
+ W1 roster order ─┐
+ W2 state purity ─┤
+ W3 zoom idempotence ─┤         all console-internal; no wire,
+ W4 handoff integrity ─┼──►     engine, or routing-contract change
+ W5 focus/ARIA      ─┤
+ W6 lobby/help/modal ─┤
+ W7 <bdi>           ─┤
+ W8 buttons + roving tabindex ─┘
 ```
 
-The runtime is the glue: it dispatches `PlayerAction` and `NetEvent`
-to the reducer, applies the resulting `ReducerEffect`s (send orders,
-play sounds, persist settings), and pushes the new `ConsoleState` to
-the renderer's subscription.
-
-### Per-tick loop
-
-```
-  WebSocket.onmessage(env)
-    │
-    ▼
-  envelopeToEvent(env, ctx)  →  NetEvent
-    │
-    ▼
-  reduce(state, netEvent, { nowMs })
-    │
-    ├─ state = next State
-    └─ effects = [{ kind: 'sendOrder', ... }, ...]
-    │
-    ▼
-  runtime.applyEffects(effects):
-    for each effect:
-      if sendOrder: client.sendOrder(actionId, order)
-      if playSound: soundPlayer.play(clip)
-      if persistQol: config.persist(qol)
-      if announce: ariaLiveRegion.setText(text)
-      ...
-    │
-    ▼
-  renderer.onStateChange(state):
-    mapView = buildMapView(state)
-    canvas.paint(mapView)
-    overlay.update(mapView)
-    hud.update(state.feedback, state.status, ...)
-```
-
-### Input → action flow
-
-```
-  user clicks at screen point (sx, sy)
-    │
-    ▼
-  pointer.ts: hitTest(sx, sy, camera) → { cell, region, subcell }
-    │
-    ▼
-  if primary button + cell in friendly territory:
-    action = { kind: 'setPipe', cell, direction: directionFromRegion(region) }
-    dispatch(action)
-    │
-    ▼
-  reduce(state, action, { nowMs })
-    │
-    ├─ order = actionToOrder(action, playerId, session) → Order
-    ├─ effects = [{ kind: 'sendOrder', order }, { kind: 'playSound', clip: 'pipe_toggle' }]
-    └─ state = next State
-    │
-    ▼
-  runtime.applyEffects(effects)
-  renderer.onStateChange(state)
-```
-
-### Key design decisions (see `research.md` for full rationale + citations)
-
-| Decision | Choice | Rationale (brief) |
-|----------|--------|-------------------|
-| UI framework | React 19 | Largest a11y ecosystem; mature TS strict; permissive license (`research.md` §1) |
-| Renderer | Canvas 2D + React DOM overlay | 32×32 = 1024 cells; Canvas 2D is sub-ms per paint; DOM overlay is the a11y source (`research.md` §2) |
-| State management | Reducer (pure) + Zustand 5 (glue) | Reducer is testable + deterministic; Zustand is 1 KB; the contract is the reducer, not the store (`research.md` §3) |
-| Build tool | Vite 8 | Standard for modern TS SPAs; Vitest integration; HMR; tsup is for libraries (`research.md` §4) |
-| Testing | Vitest 4.1 (unit + browser) + Playwright 1.6 (E2E + a11y) | Three layers match the three layers of bugs (`research.md` §5) |
-| Accessibility | WCAG 2.2 AA: roving tabindex + ARIA grid + live regions + axe-core in CI | Constitution Principle VI is non-negotiable (`research.md` §6) |
-| Input model | Mouse (Pointer Events) + keyboard (original control set) | Spec US2–US4 mandate the original; touch is v2 (`research.md` §7) |
-| Self-hostability | All assets bundled; no CDN; no analytics; system fonts | Constitution Principle VII (`research.md` §8) |
-| Sound | Bundled OGG clips, lazy-loaded; opt-in via `features.sound` | Spec Assumptions: silence is the v1 default |
-| Replay loader | Built-in (gated by `features.replay`); static JSON tapes | QA + newcomer onboarding |
-| Network adapter | Feature 004's `MatchClient` | Already designed for browser use; no parallel transport |
+Data-flow invariants preserved: server-authoritative `PlayerView` → reducer → store → React; the console never simulates. W1 changes only the **ordering of a transport-local array**; W2 changes only **where mutable correlation state lives**; W4 changes only **which component owns a single match-leg boot**.
 
 ---
 
-## Risk & Open Questions
+## 5. Technical decisions
 
-| Item | Mitigation |
-|------|------------|
-| **WCAG 2.2 AA parity vs. original** | axe-core catches ~30% mechanically; manual NVDA / VoiceOver audit pre-v1 (in `quickstart.md` §5) |
-| **Canvas 2D perf on low-end devices** | Profile in Phase 6; `rendererFactory` swap to PixiJS v8 is a one-file change (the contract is renderer-agnostic). Paint budget tested in `perf.test.ts`. |
-| **Roving tabindex + canvas overlay drift on zoom** | Both are derived from the single `MapView`; cell size is a CSS variable; verified in component tests |
-| **Bundle size creeps past 150 KB gz** | CI bundle-size check; reject PRs that grow the main chunk past budget |
-| **Subcell math drifts from original** | Parity test against hand-curated fixture in `tests/fixtures/original-subcell.json` |
-| **Sound asset pipeline unproven in production** | v1 ships silent placeholders; sound is a "v1.1 if it works" feature gated on `features.sound` |
-| **React 19 + Zustand 5 + Vite 8 interop** | All three are stable, widely used; CI runs on Node 20 LTS, 22 LTS, latest |
-| **WebSocket auto-reconnect flakes** | The adapter's reconnect is a NetEvent; the renderer is decoupled; tested in `e2e/reconnect.spec.ts` |
-| **Server's `OrderAck` arrives out of order** | The adapter tracks `seq ↔ actionId`; out-of-order acks are queued and applied in order. Tested in `unit/envelopeToEvent.test.ts`. |
+### 5.1 W1 — roster order after a delta (FR: spec 010 v1.15 `023-FR-007`)
 
----
+**Decision**: sort inside `applyRosterDelta` (`ws-lobby-client.ts:1214-1240`) immediately before `rosterEntries = next` (`:1234`), with `compareUtf16` imported from `@europa/engine` (`packages/engine/src/index.ts:114`, impl `packages/engine/src/playerRegistry.ts:81`) applied to `a.handle.toLowerCase()` / `b.handle.toLowerCase()` — byte-identical to the server comparator at `lobbyService.ts:536`.
 
-## Out of scope (deferred to v2)
+- `localeCompare` is forbidden (constitution II + the concurrent v1.13 comparator ruling).
+- The **snapshot** path (`applyRosterSnapshot`, `:1189-1206`) keeps adopting the server's order as-is: `023-FR-007` binds the server there, and the v1.15 clarification binds the console's *merge*.
+- The store-level merge is **deleted** (§5.3), so the transport is the single fix point; `lobby-controller.ts:242-246` then forwards an already-ordered array.
+- Result: `['Z']` + delta `A` → `['A','Z']`; `['Z']` + delta `a` → `['a','Z']` (case-folded).
+- The pre-existing comment at `ws-lobby-client.ts:178` ("Current roster entries in deterministic order") becomes **true**; no comment edit needed (§11, exempt item 5).
 
-These are explicitly excluded from v1 per spec Assumptions and
-post-spec decisions. Listed here so Phase 6 doesn't accidentally
-scope-creep:
+### 5.2 W2 — reducer purity / store-scoped correlation (FR-045)
 
-- Touch input (spec Assumptions). Pointer Events are used; touch is one line.
-- Mobile layout (spec Assumptions). CSS is rem-based; reflow is v2.
-- Sound assets in production (spec Assumptions: silence is the v1 default).
-- Multi-cell drag selection (data model has `dragSelection` ready for v1.1).
-- Chat, accounts, ratings, leaderboards (AGENTS.md: gameplay first).
-- Localization / i18n (English-only in v1; `formatActionConfirmation` and `formatRejection` are centralized for v2).
-- WebGL renderer (no 1000×1000 board in v1; `rendererFactory` allows future swap).
-- Theme builder / per-player cosmetic themes (v2).
-- Tournament / spectator tournament viewer (v2; basic spectator mode is in v1).
+**Decision: per-store correlation bag passed through `ReduceOptions`.**
 
----
+`ReduceOptions` (`packages/console/src/contracts/console-state.ts:216-225`) gains:
 
-## Phase 6 handoff notes
-
-When this plan is approved and `tasks.md` is created, Phase 6
-implementation will:
-
-1. Run `pnpm install` (no new top-level deps; all are in the locked stack + the additions listed above).
-2. Create the `packages/console/` skeleton (package.json, tsconfig, vite.config, vitest.config, biome.json).
-3. Build bottom-up: types → reducer → net adapter → input → render → runtime → quickstart validation.
-4. Verify with: `pnpm test:unit && pnpm test:component && pnpm test:e2e && pnpm test:perf && pnpm test:determinism && pnpm test:selfhost`.
-5. Update `AGENTS.md` "Current state" section to mark phase 5 → phase 6 for feature 005.
-
-**Size estimate**: ~1500–2500 LOC of code + tests. Medium-size feature
-by AGENTS.md routing rules ("medium → architect solo"). The architect
-implements solo, with self-review against the spec and the constitution.
-
-If Phase 6 grows past 60 hours of architect time, the orchestrator
-may be invoked per AGENTS.md "large → orchestration skill" — but
-the current estimate is medium.
-
----
-
-# Historical amendment: Console UI Redesign (issue #76; superseded camera wording)
-
-**Branch**: `issue-76-Console-UI-Redesign` | **Date**: 2026-09-05 | **Spec**: [`specs/005-client-console/spec.md`](./spec.md) (Clarifications v1.4, FR-014..FR-022, Implementation Note 16)
-
-This historical amendment restructures the shipped match view into a two-column
-layout (board left, fixed-width right sidebar with all HUD controls),
-records the former zoom interpretation, adds keyboard zoom shortcuts,
-and guarantees spectator parity. It is
-an **additive/restructuring** change to the already-Implemented feature
-005 — no engine, fog, terrain, or networking changes; no new
-dependencies.
-
-> **Supersession notice (2026-10-07):** The issue #76 camera choices,
-> requirements, clamps, and handoff notes below are retained only as
-> implementation history. Any statement that 100% means full-board
-> visibility, that 100% is a fixed 32px cell, that the minimum is 12/16px,
-> that 300% is always reachable, that `0` resets the zoom, or that the
-> old pan clamp is unchanged
-> is superseded by the active camera policy in the final section below
-> and spec v1.10. The current physical bounds are 32–96 CSS px, 100% is
-> measured `fitZoom`, and effective maximum is `min(96px, fitZoom * 3)`.
-
-## Scope (from spec FR-014..FR-022)
-
-| FR | Requirement | Primary surface |
-|----|-------------|-----------------|
-| FR-014 | Two-column layout: board left, fixed-width right sidebar | `App.tsx` + `index.css` |
-| FR-015 | Sidebar section list (Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help) | `App.tsx` + new `Sidebar` component |
-| FR-016 | Sidebar static during zoom/pan (only board transform changes) | `index.css` (flex layout) |
-| FR-017 | Zoom 50%–300%, default 100%; percentage display layer over cell-pixel math | `zoom.ts` + `CONSOLE_CONSTANTS` |
-| FR-018 | Keyboard zoom shortcuts `+`/`=`/`-`/`_`/`0`; focus-guard suppressed | `hotkeys.ts` (UI-zoom layer) |
-| FR-019 | Minimap viewport rect reflects current zoom/pan live | `minimap.tsx` (already wired) |
-| FR-020 | Responsive: sidebar stacks below board < 768px | `index.css` media query |
-| FR-021 | Spectator parity: same layout, order controls inert | `App.tsx` (`store === undefined` guards) |
-| FR-022 | Sidebar owned by `App`, not lobby runtime | `App.tsx` + `lobby-runtime.tsx` |
-
-## Key design decisions (issue #76)
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Sidebar ownership | `App.tsx` composes the sidebar; player + spectator share one render path | FR-022; spectator already renders `App` with `state` prop and no `store` (Implementation Note 16) |
-| Zoom semantics | Percentage is a **display layer** over existing cell-pixel math; `CameraState` stays in cell-pixels | FR-017; pan-clamp math unchanged; 50% = 16px/cell, 100% = 32px/cell, 300% = 96px/cell |
-| Zoom range | `minZoom` 12 → **16** (50% of 32); `maxZoom` stays 96 (300% of 32) | FR-017; `minCellPx` in `CONSOLE_CONSTANTS` changes 12 → 16 |
-| Keyboard shortcuts | `HotkeyController` extended with a UI-zoom layer (one handler, same focus guard) | FR-018; reuses `shouldIgnoreKeyEvent` |
-| Minimap viewport rect | Existing `viewportRect` helper + `useContainerSize`; enhanced styling for sidebar context | FR-019; already wired to camera state subscription |
-| Responsive | Media query at 768px; sidebar stacks below board | FR-020; matches spec Assumptions (desktop-first, mobile not precluded) |
-| Spectator parity | `store === undefined` guards disable order-producing controls | FR-021; structural invariant — spectators have no store/order bridge |
-| Sidebar sections | New `Sidebar` component composing Status, Players, Orders, Reserve, Overview, Zoom, Surrender, Help | FR-015; migrated from inline `App` HUD items |
-
-## Architecture (issue #76)
-
-The match view restructures from a single-column flow into a two-column
-flex layout:
-
-```
-europa-main (display: flex)
-├── europa-board-area (flex-grow: 1)   ← canvas + grid overlay + targeting/waiting overlays
-└── europa-sidebar (fixed width ~280px) ← Status / Players / Orders / Reserve / Overview / Zoom / Surrender / Help
+```ts
+/** Per-store pending-order correlation + ActionId counter (spec 005 FR-045). */
+readonly correlation?: ReducerCorrelation;
 ```
 
-- `europa-main` becomes `display: flex`; `europa-board-area` is the
-  left (flex-grow: 1) column; a new `europa-sidebar` is the right
-  (fixed ~280px) column.
-- The header (page title) and `BrandedFooter` stay at the view root,
-  outside the two-column area (FR-014).
-- The existing inline HUD items (`#hud`, `OrderBar`, `ReservesPanel`,
-  `Minimap`, Surrender, Help) migrate into the sidebar structure
-  (Implementation Note 16).
-- The sidebar is composed as children of `App` (FR-022) so player and
-  spectator share one render path.
-- `ZoomPanController` and `clampCamera` are updated for the new
-  `minZoom=16` range (FR-017).
-- Keyboard zoom shortcuts live in `HotkeyController` (one handler,
-  same focus guard as order shortcuts) (FR-018).
-- The minimap's `viewportRect` is already wired; it updates with the
-  existing camera state subscription (FR-019).
-- Responsive: media query at 768px collapses to single-column (sidebar
-  below board) (FR-020).
-- Spectator path: `SpectatorMatchLeg` in `lobby-runtime.tsx` renders
-  `App` with `state` prop and no `store`; the sidebar renders with
-  `store === undefined` guards disabling all order-producing controls
-  (FR-021) — no new spectator-specific code needed.
+where `ReducerCorrelation` is a small mutable record `{ lastActionId: number; pendingOrders: Map<ActionId, Order> }` created by `createConsoleStore` (`src/state/store.ts:52`) and threaded into every `reduce(...)` call the store makes (`store.ts:62-71`, `reduce` at `:67`).
 
-## Contract impact (issue #76)
+- `stampOrder` (`reducer.ts:83-96`), `takePendingOrder` (`:101-105`) and `allocateActionId` (`:121-124`) stop reading module scope; they read the bag from `options`.
+- Module-level `lastActionId` (`:63`), `pendingOrders` (`:74`) and their doc comments (`:57-77`) are **deleted** (§11 exempt item 1).
+- `runtime.ts:54,326` obtains the allocator from the store instead of the module import.
+- **No-op short-circuit, scoped to the heartbeat echo**: for `pong` only, `reduce()` returns `{ state, effects: [] }` *before* building `baseState`. Without it `reducer.ts:294-310` always allocates two new objects, so `reduce(state, pong, …)` returns a new reference today and FR-045's clause would be unmet (verified this session). **Scope is deliberate (PM ruling, §1)**: issue #153's AC is literally "A heartbeat no-op returns the same state reference", so no other arm is short-circuited — `socketClosed` while `status === 'game_over'` (`reducer.ts:630-632`) still returns a freshly built state. **Accepted consequence**: the short-circuit runs before `reduce`'s lazy feedback prune (`:292-297`), so expired feedback is pruned on the next dispatch *that changes state*, not on every dispatch (`data-model.md` §7 says so).
+- Ad-hoc `reduce()` callers that need cross-call correlation (tests, hosts not using `createConsoleStore`) pass their own bag; a call without a bag gets an ephemeral one, so **zero module-scope mutable state remains**.
 
-- **`CONSOLE_CONSTANTS.minCellPx`**: 12 → 16 (50% of 32). This is a
-  **behavioral change** to a public contract constant. Per the
-  feature 004 "pre-1.0 minor = breaking boundary" precedent, this
-  warrants a `CONSOLE_API_VERSION` bump (0.1.0 → 0.2.0). **Decision
-  for the implementer**: confirm the bump with the PM before landing;
-  the constant's *type* is unchanged, but its *value* changes, so
-  downstream consumers relying on `minCellPx === 12` would break.
-- **`CameraState.minZoom`** default: 12 → 16 (in `DEFAULT_CAMERA`,
-  `contracts/console-types.ts`).
-- **`HotkeyId` union**: additive `zoomIn` / `zoomOut` / `zoomReset`
-  entries (or a separate UI-zoom layer keyed by raw key string — see
-  tasks.md). No existing binding removed.
-- **No engine/fog/terrain/networking changes**: the console remains a
-  leaf consumer (data-model §16).
+**Why not `ConsoleState`?** `pendingOrders` is deliberately absent from the state shape ("`ConsoleState` deliberately carries no pending-order map (fixed contractual shape)", `reducer.ts:68-69`); adding a field to the exported state type would be a public-shape change.
+**Why no `CONSOLE_API_VERSION` bump?** The bump policy is scoped verbatim to "types or functions in `console-types.ts` and `console-api.ts`" (`contracts/console-types.ts:86-88`); `console-state.ts`, `state/reducer.ts`, `state/store.ts` and `state/lobby-state.ts` are outside that surface. **ADR-worthy**: the policy text arguably under-covers `contracts/console-state.ts` — recorded in §12, not changed here.
 
-## Risk & open questions (issue #76)
+### 5.3 W1 — delete the dead roster-delta path (F-CON-ST-009, ruling 4)
 
-| Item | Mitigation |
-|------|------------|
-| `minCellPx` 12 → 16 is a behavioral contract change | Confirm `CONSOLE_API_VERSION` bump with PM; the constant's type is unchanged |
-| Sidebar width (~280px) reduces board area on narrow desktops | FR-020 responsive stacking below 768px; board area flex-grows |
-| Spectator sidebar must not send orders | Structural invariant (no store/order bridge); `store === undefined` guards render controls inert (FR-021) |
-| Keyboard zoom shortcuts must not collide with order keys | `+`/`=`/`-`/`_`/`0` are not in the default `InputMapping`; `HotkeyController` focus guard suppresses in interactive chrome (FR-018) |
-| Existing component/E2E tests assert the old HUD structure | Update `app-wire-view.test.tsx`, minimap tests, and E2E specs to the sidebar structure in the same change set |
+Delete, as one unit:
 
-## Phase 6 handoff notes (issue #76)
+| What | Where |
+|---|---|
+| Action type member | `src/state/lobby-state.ts:375` |
+| Reducer case (20 lines) | `src/state/lobby-reducer.ts:289-308` (+ its comment) |
+| `roster.revision` field | `src/state/lobby-state.ts:167-168` |
+| `revision` writes | `src/state/lobby-reducer.ts:284` (snapshot case), `:304` (delta case) |
 
-1. Run `pnpm install` (no new deps).
-2. Restructure `App.tsx` into the two-column layout; compose the
-   `Sidebar` component (FR-014/FR-015/FR-022).
-3. Update `index.css` for the flex layout + 768px media query
-   (FR-016/FR-020).
-4. Update `zoom.ts` + `CONSOLE_CONSTANTS` for `minZoom=16`
-   (FR-017).
-5. Extend `HotkeyController` with the UI-zoom layer (FR-018).
-6. Verify minimap viewport rect (FR-019) and spectator parity
-   (FR-021).
-7. Update existing component/E2E tests to the sidebar structure.
-8. Verify with the full `pnpm verify` gate (typecheck, lint, format,
-   all suites, selfhost, conformance).
+No behaviour is lost: `023-FR-007` ordering + revision gating already live in the transport (§5.1), and the store still adopts snapshots wholesale.
 
-**Size estimate (historical)**: ~400–700 LOC of code + tests. Small-to-medium
-restructuring feature; the architect implements solo with self-review
-against the spec and constitution.
+### 5.4 W3 — controller lifecycle idempotence (FR-047)
+
+`ZoomPanController` (`src/qol/zoom.ts:218-324`): add an `attached` flag checked at the top of `attach()` (`:238`). A second `attach()` must not register listeners again — it returns the **same** disposer semantics (or a no-op disposer) so `App.tsx:444` keeps working unchanged. `dispose` must remain safe when called repeatedly: the closure at `:315-323` already clears the array (`:320`); keep that, and make it idempotent by guarding on the flag rather than assuming a populated array. Listener removal must cover exactly what was registered (`:312-313`).
+
+Invariant to test: attach → attach → one `wheel` event → **one** `setCamera` dispatch.
+
+### 5.5 W4 — handoff integrity (FR-046(a)(b)(c))
+
+1. **Extract one shared `MatchRouteShell`** into a new `src/internal/match-route-shell.tsx`, exporting exactly one component with one JSDoc block (§11 JSDoc allowance #1). It takes `{ matchRole, displayNameFallback, routeFailure }` plus the props all three routes already pass, and renders the identical `MatchLegHost` block (join/spectate `:54-88`, adaptive `:72-103`). `match-adaptive-route.tsx`, `match-join-route.tsx`, `match-spectate-route.tsx` become thin wrappers that supply only their differences (`matchRole` derivation at adaptive `:68-69`, fallback `'Player'`/`'Spectator'`).
+2. **Surface boot failure (FR-046(c))**: the shell owns a local `failed` state; `onRouteFailure={() => setFailed(true)}`. When `failed`, it renders `RouteNotice` (`src/ui/route-notice.tsx:31`, `kind="shortcut-failure"`, `onReturnToLobby` → release-and-return (`controller.leaveMatch()` → `navigate({to:'/lobby'})`; a leave failure is surfaced in the notice message, where Return to lobby retries it), `onRetry` → bump a retry epoch that remounts the leg) instead of `MatchLegHost`. This replaces the adaptive no-op (`match-adaptive-route.tsx:93`) and the silent navigations (`match-*-route.tsx:76-78`) with the recoverable path spec 010 FR-018/FR-033 already require.
+   - **Nesting check**: `MatchLayout` renders bare `<Outlet />` when resolved (`src/internal/match-layout.tsx:286`) and its own `<main id="main">` only in the pending branch (`:275-283`), so `RouteNotice`'s `<main>` (`route-notice.tsx:47`) never nests. Verified.
+3. **Single leg per handoff (FR-046(b))**: make the spectator handoff skip the *bootstrap* leg. Concretely: LobbyRoot's `MatchLegHost` (`lobby-runtime.tsx:493-530`) renders `SpectatorMatchLeg` only while `pendingNavigationRef.current === null` (i.e. no canonical route write is pending — the pending-navigation effect at `:413-437` already clears it at `:436`). When a spectate navigation is pending, render the pre-start plate (the `:846-858` placeholder branch) and let the route's own `MatchLegHost` be the single leg owner. This keeps every mount building exactly one leg and removes the mid-boot dispose at `:1054-1056`.
+   - Guard: the existing StrictMode double-boot tests (`tests/component/routing/semantic-route-runtime.test.tsx:75`, `:103`) must stay green, extended with a connect-call count assertion.
+
+### 5.6 W6 — modal exclusivity (FR-042, ruling 2)
+
+Replace `surrenderOpen: boolean` (`App.tsx:482`) and `helpOpen: boolean` (`App.tsx:495`) with one App-local value:
+
+```ts
+type ActiveModal = 'surrender' | 'help' | null;
+const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+```
+
+- Opening surrender (`App.tsx:485`, `:648`) → `setActiveModal('surrender')`; opening help (`:503`, `:651`) → `setActiveModal('help')` (the union closes the other by construction — no shared shell, no effect choreography).
+- **Game-over stays derived** (`App.tsx:697-706`) and is *not* a member of the union: it renders when `status === 'game_over' && matchResult !== null && onReturnToLobby !== undefined`, and the render tree yields to it — when terminal, `activeModal` is forced to `null` and the `?`/surrender openers become no-ops, so a terminal modal is never preempted (019-FR-005/008/011).
+- Render order in `App.tsx:679-732`: game-over first, then `activeModal === 'surrender'` → `SurrenderModal`, `activeModal === 'help'` → `HelpOverlay`. Exactly one `aria-modal="true"` surface can exist at a time.
+- Focus restore: surrender already has a trigger; add restore-on-close (W5). Help keeps its existing restore (`App.tsx:713-716`).
+
+### 5.7 W5 — focus / ARIA (FR-009, FR-039(a)(b)(c))
+
+- **FR-039(a)**: add `tabIndex={-1}` to **every** `<main>` that can be a skip-link target — at minimum the nine `id="main"` sites listed in §3 (RD-014); `welcome-screen.tsx:53` (no id, no skip link) is left alone. `tabIndex={-1}` adds no Tab stop.
+- **FR-039(b)**: keep `KeyboardNavigator.moveFocus` (`src/a11y/keyboard.ts:58-66`) board-clamped and untouched (it is publicly exported via `src/index.ts:87` — no signature change). Do the snap in `grid-overlay.tsx`'s `handleKeyDown` (`:126-133`): after `moveFocus` returns `next`, if `mapView.cells` has no entry for `coordKey(next)`, continue one cell at a time **in the same direction** until a rendered cell is found or the board edge is hit; if none, keep the current coordinate (no move, no dangling id). Then `aria-activedescendant` (`:155`) can only ever name a rendered cell, and the ring class (`:190-194`) follows. The direction-of-travel semantics are the PM's ruling (§1) — spec FR-039(b) was amended in place to state them.
+- **FR-039(c)**: attach the `statusId` element. `profile-view.tsx:228`/`:290` already *use* it; render the status node carrying `id={statusId}` next to the `errorId` nodes at `:233`/`:294` (the message is a `role="status"`/polite line; keep `errorId`'s `role="alert"` node as-is).
+- **FR-009**: in `SurrenderModal`, capture `document.activeElement` when `open` flips true (`:51-56` already focuses Cancel) and restore it on close (Confirm, Cancel, Escape — Escape is handled at `:97`/the `handleKeyDown`). `App.tsx:679-690` stays declarative; restoration lives inside the modal so every caller inherits it. The header comment at `:21-25` is then corrected (§11, exempt item 3).
+
+### 5.8 W6 — announcements, spectator help (FR-040, FR-041)
+
+- **FR-040**: in `lobby-roster-card.tsx:133-162`, make the first observation a baseline: hold `prevHandlesRef` as `ReadonlySet<string> | null` (`:99`), and when it is `null`, assign `currentHandles` and `return` **before** computing joined/left — so no first-snapshot join and no empty-baseline leave fires. Subsequent diffs behave exactly as today.
+- **FR-041**: render `HelpOverlay` regardless of `store` — drop the `store !== undefined` gate at `App.tsx:709` (the overlay only needs `resolvedState`, which spectators have: `tick`/`playerName`/`playerColor`/`matchStatus`/`playerCount` are all resolved-state derived, `:717-729`). Then gate the *toggle* by rendered view state only: `ui/sidebar.tsx:304` is `disabled={status === 'game_over'}` — game over is the one state where the toggle is genuinely inert (the game-over surface owns the modal), so the button stays operable for spectators as well as players and can never be enabled-but-inert — and the `?` key handler (`App.tsx:497-509`) opens the overlay for spectators too. (Aligned to spec 005 FR-041 per the PR #191 review ruling; no spec change.) `018-FR-009`'s non-modal promise is satisfied by exclusivity (ruling 2), not by rendering two modals.
+
+### 5.9 W7 — `<bdi>` (FR-044)
+
+Two additions only: `ui/lobby-landing.tsx:276-278` (identity name) and the game-over winner title (`render/GameOverModal.tsx:66` → wrap at render, `:130-132`). Everything else already wraps (§3, UI-009). Because `resultTitle` returns a plain string, wrap the *rendered* title in `<bdi>` at `:130-132` rather than changing `resultTitle`'s signature (keeps `tests/unit/render/GameOverModal.test.ts` string assertions intact — verify before choosing; see §7.4).
+
+### 5.10 W8 — design-system buttons (FR-043) and roving tabindex (FR-039(d))
+
+#### 5.10.1 Census correction (ruling 3)
+
+`grep -rn "<button" packages/console/src` returns **27 hits**, but **4 are JSDoc/comment mentions**, not elements:
+
+- comments: `src/qol/tooltip.tsx:9`, `src/qol/tooltip.tsx:136`, `src/ui/copy-link-button.tsx:20`, `src/ui/copy-link-button.tsx:110`.
+- **Elements: 23, across 12 files** (matches the enumerated breakdown in the Phase-4 input exactly). No `<button>` exists outside `src/` in the package (only test fixtures/comments). Test fixtures such as `tests/component/ui/tooltip.test.tsx:62` are out of scope — FR-043 binds console *action controls*.
+
+Plan targets all **23 elements**; the "27" number is a grep artefact, recorded as a citation correction (§1, Gate 1).
+
+#### 5.10.2 Enabler (verified blocker)
+
+`EuropaButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>` (`packages/design/src/components/generic/button.tsx:30`) declares **no `ref`**, and React 19 types reject `ref` on it. Reproduced this session with `tsc` against `@types/react@19.2.18`:
+
+```
+__refcheck.tsx(7,26): error TS2322: Property 'ref' does not exist on type 'IntrinsicAttributes & EuropaButtonProps'.
+```
+
+Six migration sites need a ref: `SurrenderModal.tsx:108,116`, `GameOverModal.tsx:141`, `sidebar.tsx:301`, `order-bar.tsx:96,108`. **Required enabler**: extend `EuropaButtonProps` with `RefAttributes<HTMLButtonElement>` (one line at `button.tsx:30`), which is additive and lives outside the versioned contract pair (§5.2). `EuropaButton` already spreads unknown props onto the native `<button>` (`button.tsx:60`) and renders light DOM (no shadow) — `data-*`/`aria-*`/`onClick` pass through (verified: same probe compiles clean with `data-europa-submit-handle`, `aria-pressed`, `onClick`). `tests/component/lobby-chrome.test.tsx:326` already pins "EuropaButton renders a native `<button>` (no shadow DOM)".
+
+**Enabler approved (§1, Gate 1)**: this one-line additive change to `packages/design` is in scope — ruling 3's all-sites scope cannot be met without it, and there is no fallback branch (the six ref-needing sites are migrated like the rest).
+
+#### 5.10.3 Migration table (all 23 sites)
+
+Keeping each site's existing `className` on the `EuropaButton` is deliberate: console `index.css` is imported **after** `design.css` (`src/main.tsx:34-35`), so on equal specificity the existing console class still wins for every property it sets, and the variant only supplies what the old class left unset.
+
+| # | File : line(s) | Site | Variant | Ref? | Visual risk | Verification |
+|---|---|---|---|---|---|---|
+| 1 | `ui/order-bar.tsx:94,106` | Exclusive / Clear | `secondary` | **yes** (roving) | **High** — also carries FR-039(d) | `wcag-assertions.test.ts:248-284`, `:321-343` (rewritten, §7.3); `e2e/lobby.spec.ts:506-508` |
+| 2 | `ui/sidebar.tsx:250,259,268` | Zoom `+` / `−` / `100%` | `ghost` | no | **High** — today they carry only `europa-focus-ring`, so `.europa-button` chrome is *new* | `component/ui/sidebar.test.tsx` computed-style assertions (padding/background) + screenshot pass |
+| 3 | `ui/sidebar.tsx:285` | Surrender | `secondary` | no | Medium | `component/ui/sidebar.test.tsx`; `e2e/surrender-game-over.spec.ts` |
+| 4 | `ui/sidebar.tsx:300` | Help `?` | `ghost` | **yes** (`helpButtonRef`) | Medium | `component/ui/help-overlay.test.tsx`, `a11y/help-overlay.test.ts` |
+| 5 | `render/SurrenderModal.tsx:106,114` | Cancel / Confirm | `secondary` / `error` | **yes** ×2 | **High** — focus trap queries `.europa-modal__button` / `--danger` (`wcag-assertions.test.ts:542-545`); keep both classNames | `wcag-assertions.test.ts:536-565` (kept green) |
+| 6 | `render/GameOverModal.tsx:139` | Return to Lobby | `primary` | **yes** (`buttonRef`) | Medium — `tests/unit/render/GameOverModal.test.ts` queries by ref/class | `GameOverModal.test.ts` + `e2e/surrender-game-over.spec.ts` |
+| 7 | `internal/lobby-runtime.tsx:816` | Leave match | `secondary` | no | Low (`data-europa-leave` passes through) | `component/lobby-chrome.test.tsx` |
+| 8 | `ui/route-notice.tsx:66,70` | Try again / Return to lobby | `secondary` / `primary` | no | Low | `component/routing/semantic-route-runtime.test.tsx:164`, `:216` |
+| 9 | `routing/match-validation.tsx:139` | Try again | `secondary` | no | Low | `a11y/semantic-route-a11y.test.tsx` |
+| 10 | `ui/deep-link-interstitial.tsx:122,131,141` | Play / Spectate / Return | `primary`/`secondary`/`secondary` | no | Low (`data-europa-deep-link-*`) | `component/deep-link-interstitial.test.tsx` |
+| 11 | `ui/copy-link-button.tsx:170,201` | Copy link (prominent/subtle) | `primary`/`ghost` | no | Medium — icon-only label + `aria-label` | `tests/unit/copy-link-button.test.ts` |
+| 12 | `ui/reserves-panel.tsx:86` (in `DIGITS.map`) | Reserve preset digits | `ghost` | no | Medium — `aria-pressed`, size, 10× | `component/ui/reserves-panel.test.tsx` (`:97-101` Tab order) |
+| 13 | `ui/lobby-landing.tsx:188,238` | Retry connection / Acknowledge | `secondary`/`primary` | no | Medium — the Retry sits inside `EuropaBanner` | `component/ui/lobby-landing.test.tsx`; `a11y/lobby-keyboard.test.tsx` |
+| 14 | `render/ErrorBoundary.tsx:66` | Reload | `secondary` | no | Low | `component/render/error-boundary.test.tsx` |
+
+**Visual-regression risk, stated plainly**: sites 2, 12, 13 and 5 can change padding/border/background because the old class did not fully specify them. There is **no screenshot baseline suite in this repo** (`grep toHaveScreenshot|toMatchSnapshot` → no matches), so verification is (a) per-surface component assertions on computed style for the properties that must not move (focus ring, disabled look), (b) existing a11y contrast tests (`wcag-assertions.test.ts:335-341`), and (c) a manual `agent-browser` screenshot pass of `/lobby`, `/match/<id>` (player), spectator, surrender dialog and game-over — images to `__screenshots__/` (gitignored), reviewed in the PR description, **not committed** — same evidence discipline as the v1.10 camera repair, recorded in the superseded plan's "Repair sequencing and evidence" section (`git show c184d54:specs/005-client-console/plan.md`).
+
+#### 5.10.4 Roving tabindex (FR-039(d), ruling 5)
+
+Current: section `tabIndex={0}` (`order-bar.tsx:83`) + two implicit-0 buttons (`:94`,`:106`) = 3 stops; header comment `:11` claims 1.
+
+New contract: **the section drops `tabIndex`**; the two buttons get `tabIndex={i === activeIndex ? 0 : -1}`; Arrow/Home/End handlers (`:51-80`) move DOM focus **and** update `activeIndex`; the first enabled button is the default `activeIndex`. When `inputEnabled` flips false, both buttons are disabled (already `:101`,`:112`) and the group legitimately leaves the Tab order. Exactly one command button is in the Tab order at a time, as FR-039(d) requires; the *group* is one Tab stop.
+
+Consequences to update in the same change set:
+
+- `src/a11y/keyboard.ts:91-97` `TAB_ORDER` entry `{ id: 'order-bar', … focusable: true }` — adjust **entry data only** if the stop's identity changes (`label`/`focusable`); the `order-bar` *region* still has exactly one tabbable member, so the comments at `:77-79` (the regions a Tab keypress visits) and `:90` (generic) stay true and are **not edited**. §11 therefore remains exactly the six ruled sites. (`getTabbableRegions` is not called at runtime.)
+- `ui/order-bar.tsx:9-23` header comment: "the container is one Tab stop" → "the palette presents as one Tab stop (exactly one command button in the Tab order)"; also the `:21-23` sentence about the region staying a stop becomes false (§11, exempt item 4).
 
 ---
 
-## Active camera policy (spec v1.10, 2026-10-08)
+## 6. FR-043 scope statement
 
-This is the governing camera plan and supersedes contradictory issue #76
-history above. Preserve `CameraState`'s public shape and signatures. The
-user explicitly superseded T122's preserve-0.4.0 decision and requested
-`CONSOLE_API_VERSION` 0.4.1 as a patch marker for this externally
-observable camera fit/pan behavior correction. This is a user-authorized,
-nonbreaking patch choice, not a breaking migration: the console version
-contract requires bumps for breaking public-surface changes but neither
-requires nor forbids this nonbreaking patch. `APP_VERSION` and
-`NETWORK_API_VERSION` remain unchanged. The final reviewer is asked to
-assess the version choice. Do not change fog, terrain, engine, or spectator
-read-only behavior.
+**23 raw `<button>` elements in `packages/console/src` (12 files)** — enumerated in §5.10.3. The "27" in the ruling equals 23 elements + 4 comment mentions (`tooltip.tsx:9,136`, `copy-link-button.tsx:20,110`). Scope intent ("every raw button site") is satisfied by migrating the 23 elements; the 4 comment mentions are documentation and need no change. Test fixtures with raw buttons are out of scope (they are not console action controls). **Spec 012 needs no amendment**: no spec-012 FR enumerates component props (checked: FR-029/FR-031 list components and variants, not signatures); the design-package `ref` addition is therefore an implementation-level, additive change (confirmed, §1 — no spec-012 companion note).
 
-- Keep physical cell-size limits at 32–96 CSS px (`minCellPx = 32`,
-  `maxCellPx = 96`). `defaultCellPx = 32` is a shipped initial seed, not
-  a fixed 100% baseline.
-- `100%` means dynamic measured `fitZoom`, initialized once the ready
-  view and viewport measurement are both available, independent of
-  arrival order. Physical 32px minimum may prevent a full-board fit.
-- Effective maximum is `min(96px, fitZoom * 3)`; do not expand the
-  physical ceiling to guarantee a 300% label.
-- At 100%, any corner cell center can be panned to viewport center
-  within 1 CSS px. Pan must work on fit and overflow axes; empty margins
-  beyond board edges are permitted. While the current camera equals the
-  last auto-fit-applied camera, a resize MUST recompute and reapply fit.
-  Once a user camera change makes the camera differ from that value, resize MUST
-  preserve the changed camera rather than replace it with fit. This
-  resize nuance is recorded from a user-provided transcription attributed
-  to PR author mwyant; it is not a verified verbatim quotation or
-  independently verified as having been written by that author on the
-  remote PR.
-- Board rendering, hit testing, viewport offset, and minimap geometry
-  use one rendered viewport transform. The minimap indicator is clipped
-  to its intersection with board bounds; a clicked minimap cell targets
-  its center. Blank margins outside board bounds issue neither actions
-  nor wire orders.
-- Keyboard zoom remains `+`/`=` in, `-`/`_` out, and `Home` to reset to
-  100% fit; `0` remains the reserve-zero key.
+---
 
-### Repair sequencing and evidence
+## 7. Test plan
 
-The original camera repair was completed in this order: pure camera
-geometry and deterministic tests; mount-order and resize regression
-coverage; blank-margin input safety; browser verification of corner
-centering and minimap agreement; then documentation reconciliation
-(T118–T122). The active acceptance source is spec v1.10 FR-017, FR-019,
-FR-027 and US6 scenarios 9–14. The browser matrix is summarized in the
-PR description; local evidence and screenshot artifacts are ignored and
-not committed. The required numeric assertion was maximum 1 CSS px error
-for each corner-cell center. Historical issue #76 checkpoints were not
-used as evidence.
+Coverage gates: `vitest.config.ts` (node/happy-dom — includes `src/state/**`, `src/input/**`, `src/net/**`, `src/a11y/**`, `src/qol/zoom.ts`, `src/runtime.ts`, …, thresholds 80/80/80/80) and the merged session `vitest.config.coverage.ts:24-52` (all `src/**` minus `main.tsx` and the router-bound `internal/*` files at `:26-45`). Every new branch below lands in an included path or is named as a documented exclusion.
 
-That prior evidence does not verify this amendment's mandatory resize
-refit while the camera still equals the last auto-fit-applied camera, nor
-the requested 0.4.1 version target. Focused regression and conformance
-checks are added for those implementation requirements in this follow-up.
+### 7.1 Regression guards for the two already-fixed-on-main dispositions (do **not** re-implement)
+
+| Finding | Guarding test | Verdict |
+|---|---|---|
+| ST-002 create-flow seat token | `tests/unit/state/lobby-controller.test.ts:486-503` (+ companion `:505-514`) | keep green; referenced by FR-046(a) |
+| ST-006 pan clamp | `tests/unit/qol/zoom.test.ts:93-105`, `tests/unit/qol/zoom-math.test.ts:29-38, 89-115` | keep green; `data-model.md:264-266` is the normative text |
+| ST-004 heartbeat, wire half | `tests/unit/net/net.test.ts:92-101` | keep green |
+
+### 7.2 Tests **deleted** with F-CON-ST-009 (ruling 4) — and why they test nothing real
+
+File: `tests/unit/state/lobby-roster-reducer.test.ts` (278 L).
+
+| Block | Lines | Why it goes |
+|---|---|---|
+| `describe('lobbyRosterDelta')` → 4 `it`s | `:112-186` | They assert the merge semantics of an action that **no production code dispatches** (`grep lobbyRosterDelta src/` → type + case only). After deletion the action cannot exist, so the tests would be driving a fiction. |
+| `describe('snapshot replacement after delta merge')` → 1 `it` | `:237-263` | Its premise ("a full snapshot overwrites delta-merged state") only matters if delta merge ever ran. |
+| `expect(state.roster.revision).toBeNull()` ×2 | `:203`, `:218` | The field is deleted; these two `it`s stay (players/connected clearing is still real) — only the two lines go. |
+| Header bullets | `:8`, `:12`, `:13` | Describe the deleted actions; trimmed with them (deletion, not a new comment — §11). |
+| helper `rosterState(...)` | `:38-49` (doc + function; `revision` member at `:46`) | Drop the `revision` parameter and member from its return. |
+
+Kept: `describe('lobbyRosterSnapshot')` `:61-110`, `describe('connection reset clears roster')` `:188-235`, `describe('purity')` `:265-278`.
+
+### 7.3 Existing tests that **change** under FR-039(d) — each an inversion, not a weakening
+
+| Test | Today | After | Why it is an inversion |
+|---|---|---|---|
+| `tests/a11y/wcag-assertions.test.ts:248-284` ("palette buttons: Tab reaches them…") | 4× Tab then `expect(document.activeElement?.id).toBe('order-bar')` (`:258-262`), then `.focus()` the button manually (`:266`) | 4× Tab lands **on the exclusive button** (`closest('#order-bar')`); the manual `.focus()` becomes redundant | The walk length is unchanged; the assertion moves from *container-is-a-stop* to *one command button is the stop* — exactly FR-039(d). The Enter/Arrow assertions (`:269-282`) are untouched. |
+| `tests/a11y/wcag-assertions.test.ts:321-343` (focus-ring contrast) | `for (i<5) Tab` with comment "skip-link → map → debug-toggle → order-bar → button" (`:326-333`) | `for (i<4) Tab`, comment "… → order-bar's command button" | Same target element, one fewer stop because the container stop is gone. The computed-style assertions (`:335-341`) are untouched. |
+
+**Census (authoritative — ruling 5): exactly two** a11y tests pin a 4–5-stop walk, the two rows above. Every other Tab-sensitive test was enumerated this session and is unaffected — all other walks are 2-stop (`:191-192`, `:233-234`, `:296-297`, `:356-357`, `:381-382`, `:402-403`, `:424-425`, `:448-449`; `tests/a11y/waiting-overlay.test.ts:100-107`; `tests/component/ui/reserves-panel.test.tsx:97-101`; `tests/a11y/lobby-keyboard.test.tsx:207-213`) or modal traps (`:553-558`).
+
+### 7.4 New tests (one per new branch)
+
+| # | FR / finding | Test (file + what it asserts) | Suite / coverage path |
+|---|---|---|---|
+| N1 | spec 010 v1.15 ordering | `tests/unit/net/ws-lobby-client.test.ts` (extend): delta `['Z']` + `A` → `['A','Z']`; `['Z']` + `a` → `['a','Z']`; stale-revision delta still discarded (`:1216-1223` unchanged) | node (`src/net/**` ✓) |
+| N2 | ordering, end-to-end | `tests/integration/lobby-transport.test.ts` (extend): after a live join delta the roster card renders sorted handles | node (`src/net/**` ✓) |
+| N3 | FR-045 store scope | `tests/unit/state/reducer.test.ts` (new describe): two `ReducerCorrelation` bags → independent counters and pending maps; ack correlation resolves through the **passed** bag | node (`src/state/**` ✓) |
+| N4 | FR-045 same reference | `tests/unit/state/reducer.test.ts`: `expect(reduce(state, {kind:'pong',…}, {nowMs, correlation}).state).toBe(state)` — this is issue #153's AC-3 and it **fails against today's `reduce()`** (§3 ST-004) | node (`src/state/**` ✓) |
+| N5 | FR-045 allocator | `tests/unit/net/client-role.test.ts:91,102` re-point at the store-supplied allocator; `tests/unit/state/reducer.test.ts:443-451` rewritten to assert per-store monotonicity + cross-store independence | node |
+| N6 | FR-047 | `tests/unit/qol/zoom.test.ts` (new): `attach()` twice → one `wheel` event → exactly one `setCamera` dispatch; `dispose()` twice → no throw, listeners removed | node (`src/qol/zoom.ts` ✓) |
+| N7 | FR-046(c) | `tests/component/routing/semantic-route-runtime.test.tsx` (extend, follows the existing `:164` notice pattern): a boot failure renders `RouteNotice` with a focusable "Return to lobby", not a blank frame | browser (component) |
+| N8 | FR-046(b) | same file (extend `:75`/`:103` StrictMode tests): one handoff ⇒ **one** leg boot (`connectCalls === 1`) across the lobby→`/spectate` navigation | browser |
+| N9 | FR-046(a) | *guard only* — no new test (§7.1) | — |
+| N10 | FR-039(a) | `tests/a11y/wcag-assertions.test.ts` (new): activate the skip link ⇒ `document.activeElement` is `#main` for the match view; plus a static assertion that each rendered `main#main` reports `tabindex="-1"` in `component/ui/lobby-landing.test.tsx` and `component/routing/semantic-route-runtime.test.tsx` | browser |
+| N11 | FR-039(b) | `tests/component/render/grid-overlay.test.tsx` (extend): a `MapView` with a hole at the movement target ⇒ `aria-activedescendant` stays on/lands on a **rendered** cell, ring class present; edge case (no rendered cell in that direction) ⇒ focus does not move | browser |
+| N12 | FR-039(c) | `tests/a11y/profile-view.test.tsx` (extend): every `aria-describedby` token on a profile control resolves to an element in the document | browser |
+| N13 | FR-009 | new `tests/component/render/modal-exclusivity.test.tsx`: render App with a trigger focused ⇒ open surrender ⇒ close (Cancel / Confirm / Escape) ⇒ focus returns to the trigger | browser |
+| N14 | FR-040 | `tests/component/ui/lobby-roster-card.test.tsx` **and** `tests/a11y/lobby-roster-card.test.tsx` (extend): first snapshot ⇒ **no** "joined" announcement; second snapshot with a new handle ⇒ exactly one | browser |
+| N15 | FR-041 | `tests/component/render/app-wire-view.test.tsx` (extend): spectator render (`store === undefined`) ⇒ Help button enabled ⇒ clicking/`?` mounts the overlay; and it is never enabled-but-inert | browser |
+| N16 | FR-042 | new `tests/component/render/modal-exclusivity.test.tsx` (same file as N13): open help then surrender ⇒ exactly one `[aria-modal="true"]`; with `status === 'game_over'` ⇒ game-over is the only `aria-modal`, `?`/Surrender do not preempt it | browser |
+| N17 | FR-043 | per-surface: extend `component/ui/sidebar.test.tsx`, `reserves-panel.test.tsx`, `copy-link-button.test.ts`, `lobby-landing.test.tsx`, `deep-link-interstitial.test.tsx`, `render/error-boundary.test.tsx`, `component/routing/semantic-route-runtime.test.tsx`, `component/lobby-chrome.test.tsx` — each asserts the migrated control is a **native `<button>`** with its original classes, `disabled`/`aria-*` intact | browser/node |
+| N18 | FR-043 conformance (**required** — ruling 3, §1) | new `tests/unit/ui/no-raw-buttons.test.ts`: scan `packages/console/src/**` after stripping `/**…*/` and `//` comments; assert zero `<button` occurrences | node — static guard, regex-based |
+| N19 | FR-044 | `component/ui/lobby-landing.test.tsx` (identity name wrapped) + `tests/unit/render/GameOverModal.test.ts` (winner title wrapped) | browser / node |
+| N20 | FR-039(d) | the two rewritten tests in §7.3 **are** the acceptance tests, plus one new assertion: `#order-bar [tabindex="0"]` count === 1 at all times while enabled | browser |
+
+### 7.5 Suites that must stay green unchanged
+
+`tests/e2e/lobby.spec.ts:506-508` (`.europa-order-bar button` count/disabled — `EuropaButton` still renders a native button, so the selector holds), `tests/a11y/help-overlay.test.ts`, `tests/e2e/surrender-game-over.spec.ts`, `tests/integration/contract-conformance.test.ts` (version pins unchanged), `tests/unit/state/reducer.test.ts:394-405` (the `pong` invariant loop at `:399`).
+
+---
+
+## 8. Rebase / conflict rules for PR #189 (`security-sweep`) and PR #188
+
+**Rule zero**: never merge either PR into this branch; rebase onto `main` and resolve hunk-by-hunk. Both PRs were inspected with `gh pr view/diff` this session (#189 = 81 files; #188 touches our surface only at `specs/010-…/spec.md`).
+
+> **Resolution note (2026-10-13, both conflicts now resolved).** Two merges landed against this branch. First **PR #188** merged, so its `### v1.13` section and header hunk came onto `main`; this branch merged `main` to reconcile (published branch, so a merge rather than a rebase — rebasing would rewrite 19 pushed commits), and the §8.1 rule applied: header kept **ours (highest version)** with Status clauses unioned, tail kept the sections in numeric order. Then **PR #189** merged as **v1.14** (issue #146), colliding directly with our own draft v1.14 — resolved by renumbering **ours to v1.15**, since #189 was already on `main`. Both passes corrected the stale clauses each conflict exposed (the header's "UNAPPROVED" marker, the "three claimants" framing, and the "PR #189 is still open" prediction below). **Rule zero was honored throughout: `main` was merged, never the PR branches.**
+
+### 8.1 Guaranteed textual conflicts
+
+| File | Why | Resolution rule |
+|---|---|---|
+| `specs/005-client-console/spec.md` header (base lines 1–12) | ours → v1.12, theirs → v1.11; **same hunk range** `@@ -1,12 +1,12 @@` on both sides | Take **ours** for `Last Updated`/`Version` (**1.12 = max**) and **union the `Status` line**: keep their trailing clause `; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, security-sweep branch, issues #152/#129)` **and** our `; v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open` in that order. |
+| `specs/005-client-console/spec.md` tail | ours `@@ -528,4 +537,61 @@` deletes the duplicate `FR-027` bullet **and** appends `### v1.12`; theirs `@@ -529,3 +549,22 @@` keeps the bullet and appends `### v1.11` | Delete the duplicate `- **FR-027**:` line (ours); append **`### v1.11` (theirs) first, then `### v1.12` (ours)** — sections in numeric order, header carries the highest version. Do **not** renumber v1.12 → v1.11. |
+| `specs/005-client-console/spec.md` middle | theirs rewrites Implementation Note 17 at base `:364-370` (the `CONSOLE_API_VERSION` bump-history correction) | **No conflict** — our draft does not touch that region. Keep theirs verbatim. |
+| `specs/010-public-lobby-match-browser/spec.md` header | claimants collide on the same `Version`/`Status` hunk | Take **ours** for `Last Updated`/`Version` **only when ours is the highest**, otherwise **renumber ours to the next free number**; union every `Status` clause so no amendment is erased. This pass: #188 landed as v1.13 and #189 as v1.15, so **ours renumbered to v1.15**. |
+| `specs/010-…/spec.md` tail | all change sets append at EOF, so every merge is a two-section conflict | Keep **every** clarification section in numeric order, ours last at its renumbered version. Section bodies are never truncated by either side. Final order shipped: v1.13 (#147), v1.15 (#146), v1.15 (#153). |
+
+### 8.2 Source-file overlap (hunk-level, conceptually disjoint)
+
+| File | #189 does | PR-3 does | Rule |
+|---|---|---|---|
+| `packages/console/src/net/ws-lobby-client.ts` | +156/−54 (instance-scoping `lastCapturedSeatSessionToken` `:390,849,1035,1403`, validation) | sort inside `applyRosterDelta` `:1214-1240`; keep comment `:178` | Rebase; keep both. Ours touches one function body, theirs the class-level state — if both edit `:176-179`, **keep their comment text and add no new comment** (§11 item 5). |
+| `packages/console/src/internal/lobby-runtime.tsx` | +16/−97 | FR-046(b) leg-ownership change at `:413-437`, `:493-530`, `:846-858`, `:1045-1057`; `tabIndex` on `main` `:847`; leave button `:816` | Rebase; ours and theirs are in different regions except possibly the match-view branch — resolve by keeping both edits, then re-run N8. |
+| `packages/console/src/main.tsx` | +29/−49 (bootstrap) | `tabIndex={-1}` on `<main>` `:205` | Trivial; keep both (one-line ours). |
+| `packages/console/src/runtime.ts` | +46/−7 | allocator re-point `:54`, `:326` (W2) | Rebase; keep both. If their hunk touches `:326`, keep their change and re-apply the store-supplied allocator on the same line. |
+| `packages/console/src/internal/match-layout.tsx` | +5/−3 | `tabIndex={-1}` on `<main>` `:277` | Trivial; keep both. |
+| `packages/console/src/state/types.ts` | +1/−0 | possible re-export for `ReducerCorrelation` | Only if W2 exports a new type through that barrel; otherwise untouched. If it conflicts, keep both lines (they are independent re-exports). |
+| `packages/console/src/net/envelope-to-event.ts` | +11/−0 | **none** (pong→null already correct) | No conflict from us. |
+| `AGENTS.md` | docs-table row + `Current state` bullets | only if Phase 6 updates `Current state` | Keep both bullets; merge the `Specs` line by appending our clause rather than replacing theirs. |
+| Tests touched by both | `tests/integration/lobby-transport.test.ts` (+15/−6), `tests/component/render/app-wire-view.test.tsx` (+2/−0), `tests/unit/runtime.test.ts`, `tests/integration/contract-conformance.test.ts`, `tests/e2e/{lobby,routing,shareable-links,spectator-sidebar,identity-migration}.spec.ts` | ours: N2, N15, N5, N17 | Prefer **new test files** (N13/N16/N18) to avoid collisions; where we must extend, keep both sides — #189's edits to these files are additive or small deletions in unrelated specs, so a semantic conflict is unlikely (re-run the suite after resolving). |
+
+### 8.3 Conflict exposure by wave
+
+The following PR-3 surfaces are **not** in #189's 81-file list (verified with `gh pr view 189 --json files`): `state/reducer.ts`, `state/store.ts`, `state/lobby-reducer.ts`, `state/lobby-state.ts`, `state/lobby-controller.ts`, `contracts/console-state.ts`, `qol/*`, `render/*` (App / SurrenderModal / GameOverModal / grid-overlay / ErrorBoundary), `ui/*` except `profile-url.ts`, `routing/match-validation.tsx`, the three `match-*-route.tsx`, `packages/design/**`, `tests/a11y/**`, `tests/unit/state/**`, `tests/unit/qol/**`.
+
+| Wave | Overlaps a §8.2 conflict file? |
+|---|---|
+| W1 roster order + dead-code delete | **Yes — one**: `net/ws-lobby-client.ts` (their instance-scoping vs our `applyRosterDelta` body) |
+| W2 state purity | **Yes — two, both trivial**: `runtime.ts` (`:54`, `:326`) and possibly `state/types.ts` (re-export line) |
+| W3 zoom idempotence | No |
+| W4 handoff integrity | **Yes — two**: `internal/lobby-runtime.tsx`, `internal/match-layout.tsx` |
+| W5 focus/ARIA | **Yes — two, both one-liners**: `main.tsx:205`, `match-layout.tsx:277` |
+| W6 lobby/help/modal | No |
+| W7 `<bdi>` | No |
+| W8 buttons + roving tabindex | **Yes — one**: `internal/lobby-runtime.tsx:816` (leave button) |
+
+Expect **no** conflicts in W3, W6, W7; hunk-level, resolvable-by-keeping-both conflicts everywhere else.
+
+---
+
+## 9. Versioning, manual, docs
+
+- **`CONSOLE_API_VERSION`: NO BUMP (ruling 7).** Independently justified: the policy is scoped to "types or functions in `console-types.ts` and `console-api.ts`" (`contracts/console-types.ts:86-88`), and none of PR-3's changes touch those two files. **One public-type narrowing is acknowledged here so the rationale is complete rather than silent**: deleting `lobbyRosterDelta` narrows `LobbyAction` and `LobbyActionKind`, which *are* barrel-exported (`src/index.ts:69-73`) — a compile-time narrowing of an exported union, but one that lives outside the documented bump surface, and the no-bump ruling (§1) stands. PR #189 bumps the version to `0.5.0` **in its own change set** (`contract-conformance.test.ts:352` currently pins `0.4.1`) — do not duplicate, do not inherit during rebase.
+- **`docs/manual/`: NO CHANGE (ruling 7).** Gate check against spec 007 FR-012: every documented statement PR-3 touches is *conformed to*, not changed — roster alphabetical order (`docs/manual/src/pages/roster.mdx:27`), direction-safe labels (`reading-the-screen.mdx:40`, `lobby.mdx:66`), failure explanation (`lobby.mdx:96`), coalesced announcements (`roster.mdx:72`), skip link as first Tab stop (`lobby.mdx:100`), surrender dialog wording (`objective.mdx:41-43`, `controls.mdx:96` — focus restoration is not documented). All seven anchors re-read and confirmed this session. Conditional re-check at PR time: if scope changes to alter any of those statements, `docs/manual/` MUST be updated in the same change set.
+- **Spec 010 gets no plan of its own** — its v1.15 clarifications are absorbed here (W1 + the seat-token guard).
+
+---
+
+## 10. Out of scope / deferred follow-ups
+
+1. **ST-004 remainder (ruling 6)**: `render/App.tsx:301-317` rebuilds `mapView` on any `resolvedState` change. Deferred as a performance item; **no FR**. Follow-up issue should name the fix (narrow the `useMemo` deps to the fields `buildMapView` reads).
+2. **Shared modal shell (I-18)** — explicitly rejected by ruling 7; FR-042 is single-value state only.
+3. **Manual additions** for skip-link/spectator-Help — not gate-required, declined under ruling 7 (§1).
+4. **Transport instance-scoping** — owned by PR #189 FR-029/FR-033; FR-045 cross-references rather than duplicates.
+5. **Screenshot/visual-regression baselines** — none exist repo-wide; introducing one is a separate decision (§12).
+
+---
+
+## 11. Comment budget (hard constraint, ruling 8)
+
+**Target: net ≤ 0 discretionary source comments in `packages/` — gross new discretionary comments: 0.**
+Forbidden: issue-number comments (`#153`, `#184`, …), FR-tag comments (`FR-039`, …), changelog/version comments, narration ("now we sort the roster"). Spec/plan prose carries the "why".
+
+**Exempt — pre-existing comments this change makes false; each is *corrected or deleted*, ≤6 sites, reported separately in the PR body:**
+
+| # | Site | What happens |
+|---|---|---|
+| 1 | `src/state/reducer.ts:57-77` (module-level counter/`pendingOrders`/cap docs) | **deleted** with the module state (W2) |
+| 2 | `src/state/lobby-reducer.ts:289-308` delta case + comment | **deleted** with the dead arm (W1) |
+| 3 | `src/render/SurrenderModal.tsx:21-25` ("caller's responsibility") | **corrected** once restore is implemented (W5) |
+| 4 | `src/ui/order-bar.tsx:9-23` ("the container is one Tab stop" + "the region itself stays [a stop]") | **corrected** to the FR-039(d) wording (W8) |
+| 5 | `src/net/ws-lobby-client.ts:176-179` ("deterministic order") | **no edit** — W1 makes it true; reconcile only if #189's rewrite moved it |
+| 6 | `src/internal/lobby-runtime.tsx:713-735` and `:772-775` (leg-handoff timing docs) | **corrected only if** W4 changes the described handoff timing (expected: yes for the spectator path) |
+
+**Exempt — JSDoc for newly exported symbols: ≤2** — `MatchRouteShell` (`src/internal/match-route-shell.tsx`) and, if W2 exports it, `ReducerCorrelation`.
+
+Also deleted (counted negative, not a violation): test-file header bullets `tests/unit/state/lobby-roster-reducer.test.ts:8,12,13`.
+
+---
+
+## 12. ADR-worthy items (record, don't decide here)
+
+1. **Reducer correlation via `ReduceOptions.correlation?`** — a mutable bag in an options bag sits awkwardly with "reducer output depends only on `(state, action, options)`". Chosen because the alternatives are worse (`ConsoleState` field = public-shape change; module default = forbidden module scope). Worth a short ADR if the pattern recurs.
+2. **Version-bump policy coverage gap**: `contracts/console-state.ts` (which exports `reduce`/`ConsoleState`/`ReduceOptions`) is *outside* the documented bump surface (`console-types.ts:86-88`). PR-3 benefits from that gap; it should still be closed deliberately in a future change.
+3. **`EuropaButtonProps` + `RefAttributes`** — a design-package contract addition to serve a console requirement; **no spec-012 companion note** (§1): no spec-012 FR enumerates component props (§6), so this stays an implementation-level change.
+4. **New coverage exclusion, only if N7/N8 prove infeasible**: `src/internal/match-route-shell.tsx` would otherwise be measured by the merged session. Preferred: test it (the existing `semantic-route-runtime.test.tsx` already mounts router-bound UI). Fallback: add it to `vitest.config.coverage.ts:25-45` beside its three sibling routes, with the same justification.
+5. **Static "no raw `<button>`" test (N18) — REQUIRED by ruling 3 (§1)**: a comment-stripping regex over `src/**` is cheap but brittle; it ships in this PR and its maintenance cost is accepted. Recorded here so the brittleness is a deliberate, documented trade-off rather than an accident.
+
+---
+
+## 13. Open questions
+
+**None.** Every question the Phase-4 draft raised has been answered by a binding PM ruling or a Gate 1/Gate 2 resolution; the answers are folded into §1 ("Gate 1 + Gate 2 resolutions") and reflected in the amended spec text (FR-039(b), FR-045), `data-model.md` §7/§17, `contracts/reducer-correlation.md`, and the sections cited there. The former question list is removed rather than marked closed so no stale blocker text survives for a later reader.

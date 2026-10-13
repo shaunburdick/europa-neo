@@ -3,9 +3,9 @@
 **Feature Branch**: `010-public-lobby-match-browser`
 **Dependencies**: Feature 004 (multiplayer networking), Feature 005 (client console), Feature 006 (match lifecycle and matchmaking)
 **Created**: 2026-08-25
-**Last Updated**: 2026-10-13 (v1.14; issue #146 guest-identity resume secret; main's v1.13 = issue #147)
-**Version**: 1.14
-**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74; v1.13 amendment (issue #147) implemented 2026-10-12); URL routing superseded by Feature 013; v1.14 resume-secret amendment implemented (2026-10-12, security-sweep branch)
+**Last Updated**: 2026-10-13 (v1.15; issue #153 console roster-order + seat-token clarifications, renumbered from v1.14 when PR #189 claimed v1.14 for issue #146; main's v1.13 = issue #147)
+**Version**: 1.15
+**Status**: Implemented (2026-08-31; C-010 review complete; issue #34 shareable links amendment 2026-09-06; universal PlayerId amendment implemented 2026-09-12 — issue #74; v1.13 amendment (issue #147) implemented 2026-10-12; v1.14 resume-secret amendment implemented 2026-10-12, issues #146/#152/#129; v1.15 amendment (issue #153) implemented 2026-10-12 — PR #191 open); URL routing superseded by Feature 013
 **Input**: Approved product request to replace the one-match startup flow with a public landing page for guest player identity, handle selection, match creation, browsing, joining, and spectating.
 
 ## Problem Statement
@@ -454,3 +454,51 @@ Rationale (honest contradiction record — historical record of the pre-sweep st
 - **Non-goals**: no accounts, no persistence, no cross-device identity, no secret rotation UX beyond restore-time regeneration; link rotation/revocation stay deferred (FR-015).
 - **Contract changes (additive, same change set)**: both lobby contract mirrors gain `resumeSecret` on the directed identity payload and the identity claim (spec 004 v1.11 FR-026); matchmaking's local mirrors and the feature-010 conformance pins update with them; `data-model.md` §4 (client storage contract) and the mirroring `lobby-storage.ts` module JSDoc are updated in the same change set per that file's §4 obligation; no `NETWORK_API_VERSION` bump.
 - **Implementation-note reconciliation**: the Implementation Notes bullet "The server-delivered identity claim is sent only in the directed identity event to its owner" now also carries the resume secret; that bullet plus v1.6 is the complete delivery-boundary contract.
+
+### v1.15 (2026-10-12) — Issue #153 console roster ordering and seat-token clarifications
+
+**Renumbering note (2026-10-13).** This amendment was drafted as v1.14 while
+PR #189 (`security-sweep`, issue #146) still held v1.13. Both competing PRs have
+since merged in this order: #188 → **v1.13** (issue #147), #189 → **v1.14**
+(issue #146), so this section is now **v1.15**. Resolution rule for this file:
+every change set here touches the header block (lines 3–8) and appends after the
+last existing section, so textual conflicts are expected and resolve by keeping
+the clarification sections in numeric order with the header carrying the highest
+version present. Do not renumber another section to claim a lower number, and do
+not merge an open PR into this branch to avoid the conflict.
+
+- **Citation note.** Issue #153 cites "spec 023 FR-006" for roster
+  ordering; in this file the ordering requirement is **023-FR-007**
+  ("ordered deterministically (handle, then ID) — never by connection
+  order"), while 023-FR-006 is the full-snapshot cadence. Neither text
+  changes here; the issue's quoted wording matches 023-FR-007. The
+  "(handle, then ID)" tiebreak is unreachable (normalized handles are
+  unique, FR-005) and is superseded on the comparator question by the
+  v1.13 ruling immediately above.
+- **023-FR-007 clarified — deterministic order binds the client's merged,
+  displayed roster too.** "Never by connection order" applies to every
+  roster the console presents, not only the server payload: the console's
+  delta merge (transport-level and any store-level roster merge) MUST
+  re-establish the server's order after EVERY delta — case-folded handles
+  compared with the shared `compareUtf16` (per the v1.13
+  comparator ruling above), never `localeCompare` and never arrival order — and
+  the roster card MUST render that array order without a compensating
+  re-sort. A delta introducing a new handle leaves the list ordered
+  (`['Z']` + delta `A` → `['A', 'Z']`), not appended. Absent-handle
+  semantics are unchanged (deltas carry no removals; the next full
+  snapshot confirms removals). This is a conformance repair against
+  existing text — the requirement already stood; the client merge simply
+  violated it — so no server or wire behavior changes.
+- **Seat-session token handoff — end-to-end reading of FR-009 (issue #153's
+  "spec 010 FR-023" cite).** FR-009 reserves the creator's seat and FR-010
+  assigns at most one seat atomically; the console side of that promise is
+  that a seat-granting entry (create or join) presents the seat session
+  token issued with the acceptance on the match leg's wire join. A
+  tokenless join selects the lowest open seat by canonical order, which is
+  not necessarily the seat the lobby reserved, so entering tokenless when
+  a token exists breaks the server-authoritative seat/identity association
+  (FR-023) the views are generated from. Requirement: the token MUST be
+  propagated whenever one was issued. Already satisfied on main (issue
+  #74, #159: `packages/console/src/state/lobby-controller.ts`
+  `runSeatCommand` dispatches the captured token even when the match id is
+  unknown); recorded here as a regression guard, not a behavior change.

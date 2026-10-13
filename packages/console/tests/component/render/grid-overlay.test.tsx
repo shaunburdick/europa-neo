@@ -10,6 +10,7 @@
  */
 
 import { afterEach, describe, expect, test } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { cleanup, render } from 'vitest-browser-react';
 import { DEFAULT_CAMERA } from '../../../src/config';
 import { GridOverlay } from '../../../src/render/grid-overlay';
@@ -183,5 +184,64 @@ describe('GridOverlay (T039 / Q-B03, Q-B04, Q-A01)', () => {
         await render(<GridOverlay mapView={mapViewFrom(view)} />);
 
         await expectNoDomA11yViolations(document);
+    });
+});
+
+describe('GridOverlay direction-of-travel focus (FR-039(b))', () => {
+    test('an arrow onto a fog hole snaps to the next rendered cell in the same direction', async () => {
+        const view = buildPlayerView({
+            width: 10,
+            height: 10,
+            visibleCells: [buildCellView({ coord: { x: 5, y: 5 } }), buildCellView({ coord: { x: 5, y: 7 } })],
+        });
+        await render(<GridOverlay mapView={mapViewFrom(view)} />);
+        const user = userEvent.setup();
+
+        await user.keyboard('{Tab}');
+        const grid = document.getElementById('map');
+        expect(grid?.getAttribute('aria-activedescendant')).toBe('europa-cell-5-5');
+
+        await user.keyboard('{ArrowDown}');
+
+        expect(grid?.getAttribute('aria-activedescendant')).toBe('europa-cell-5-7');
+        const focusedCell = document.querySelector('#europa-cell-5-7');
+        expect(focusedCell?.classList.contains('europa-cell--focused')).toBe(true);
+    });
+
+    test('an arrow with no rendered cell in that direction keeps the current focus', async () => {
+        const view = buildPlayerView({
+            width: 10,
+            height: 10,
+            visibleCells: [buildCellView({ coord: { x: 5, y: 5 } }), buildCellView({ coord: { x: 4, y: 5 } })],
+        });
+        await render(<GridOverlay mapView={mapViewFrom(view)} />);
+        const user = userEvent.setup();
+
+        await user.keyboard('{Tab}');
+        const grid = document.getElementById('map');
+        expect(grid?.getAttribute('aria-activedescendant')).toBe('europa-cell-5-5');
+
+        await user.keyboard('{ArrowDown}');
+
+        expect(grid?.getAttribute('aria-activedescendant')).toBe('europa-cell-5-5');
+        const focusedCell = document.querySelector('#europa-cell-5-5');
+        expect(focusedCell?.classList.contains('europa-cell--focused')).toBe(true);
+    });
+
+    test('focus entry over a fog centre seeds the nearest rendered cell', async () => {
+        const view = buildPlayerView({
+            width: 10,
+            height: 10,
+            visibleCells: [buildCellView({ coord: { x: 5, y: 7 } }), buildCellView({ coord: { x: 4, y: 5 } })],
+        });
+        await render(<GridOverlay mapView={mapViewFrom(view)} />);
+        const user = userEvent.setup();
+
+        await user.keyboard('{Tab}');
+
+        const grid = document.getElementById('map');
+        expect(grid?.getAttribute('aria-activedescendant')).toBe('europa-cell-4-5');
+        const focusedCell = document.querySelector('#europa-cell-4-5');
+        expect(focusedCell?.classList.contains('europa-cell--focused')).toBe(true);
     });
 });

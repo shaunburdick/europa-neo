@@ -510,3 +510,93 @@ describe('LobbyRoot view gate (smoke)', () => {
         controller.disconnect();
     });
 });
+
+describe('LobbyLanding skip-link target', () => {
+    test('the rendered main landmark reports tabindex -1 for the skip link', async () => {
+        window.history.pushState(window.history.state, '', '/');
+        const state = stateOf({ connection: 'ready', identityStatus: 'named', handle: 'Alice' });
+        await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+
+        const main = document.querySelector('main#main');
+        expect(main).not.toBeNull();
+        expect(main?.getAttribute('tabindex')).toBe('-1');
+    });
+});
+
+describe('lobby identity name bidi isolation (FR-044)', () => {
+    test('the lobby identity name is wrapped in a <bdi> element', async () => {
+        window.history.pushState(window.history.state, '', '/');
+        const state = stateOf({ connection: 'ready', identityStatus: 'named', handle: 'שלום' });
+        const screen = await render(<LobbyLanding state={state} focusHeading={false} {...noopCallbacks} />);
+
+        const name = screen.container.querySelector('.europa-lobby__identity-name');
+        expect(name).not.toBeNull();
+        const bdi = name?.querySelector('bdi');
+        expect(bdi).not.toBeNull();
+        expect(bdi?.textContent).toBe('שלום');
+    });
+});
+
+describe('lobby action controls carry the europa-button marker (FR-043)', () => {
+    test('Retry connection and Acknowledge are design-system buttons', async () => {
+        const failureState = stateOf({
+            connection: 'failed',
+            failure: {
+                source: 'connection',
+                code: 'connection_failed',
+                message: 'Lobby connection failed.',
+                detail: null,
+            },
+        });
+        const failureScreen = await render(
+            <LobbyLanding state={failureState} focusHeading={false} {...noopCallbacks} />,
+        );
+        const retry = failureScreen.getByRole('button', { name: 'Retry connection' }).element();
+        expect(retry.classList.contains('europa-button')).toBe(true);
+
+        const supersededState = stateOf({
+            connection: 'ready',
+            identityStatus: 'restoring',
+            everNamed: true,
+            superseded: true,
+        });
+        const supersededScreen = await render(
+            <LobbyLanding state={supersededState} focusHeading={false} {...noopCallbacks} />,
+        );
+        const acknowledge = supersededScreen.getByRole('button', { name: 'Acknowledge' }).element();
+        expect(acknowledge.classList.contains('europa-button')).toBe(true);
+    });
+
+    test('the match chrome leave control is a design-system button', async () => {
+        window.history.pushState(window.history.state, '', '/');
+
+        const transport = new SmokeTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        const screen = await render(<LobbyRoot controller={controller} wsUrl="ws://localhost:8080" />);
+
+        await expect.element(screen.getByText('Europa Neo lobby')).toBeVisible();
+        await controller.joinMatch(MATCH_A);
+        transport.pushSnapshot(
+            snapshotOf(
+                [
+                    {
+                        matchId: MATCH_A,
+                        seatsFilled: 1,
+                        capacity: 2,
+                        status: 'waiting',
+                        boardSize: 32,
+                        tickIntervalMs: 250,
+                    },
+                ],
+                MATCH_A,
+            ),
+        );
+        await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
+
+        const leave = document.querySelector<HTMLElement>('[data-europa-leave="true"]');
+        expect(leave).not.toBeNull();
+        expect(leave?.tagName).toBe('BUTTON');
+        expect(leave?.classList.contains('europa-button')).toBe(true);
+        controller.disconnect();
+    });
+});

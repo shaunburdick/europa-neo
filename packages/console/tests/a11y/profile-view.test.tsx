@@ -245,3 +245,38 @@ describe('ProfileView a11y', () => {
         await expectNoDomA11yViolations(screen.container);
     });
 });
+
+describe('ProfileView describedby resolution (FR-039(c))', () => {
+    test('every describedby token on the unnamed form input resolves', async () => {
+        await render(<ProfileView {...defaultProps()} />);
+
+        const input = document.querySelector<HTMLInputElement>('input[type="text"]');
+        expect(input).not.toBeNull();
+        const tokens = (input?.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+        expect(tokens.length).toBeGreaterThan(0);
+        for (const token of tokens) {
+            expect(document.getElementById(token)).not.toBeNull();
+        }
+    });
+
+    test('every describedby token on the edit form input resolves', async () => {
+        const screen = await render(
+            <ProfileView
+                {...defaultProps({
+                    identityStatus: 'named',
+                    handle: 'Nova',
+                })}
+            />,
+        );
+
+        await (screen.getByRole('button', { name: 'Change name' }).element() as HTMLButtonElement).click();
+
+        const input = document.querySelector<HTMLInputElement>('input[type="text"]');
+        expect(input).not.toBeNull();
+        const tokens = (input?.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+        expect(tokens.length).toBeGreaterThan(0);
+        for (const token of tokens) {
+            expect(document.getElementById(token)).not.toBeNull();
+        }
+    });
+});
