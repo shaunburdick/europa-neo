@@ -49,6 +49,28 @@ pnpm --filter @europa/console test:keepalive
 pnpm --filter @europa/console test:lobby-integration
 echo ""
 
+# Phase 5b: Console CI-parity integration gates (008 FR-024). CI runs the
+# first three suites only through the coverage config's NODE project
+# (client-ci console-coverage job) and contract-conformance in the
+# console-e2e job; invoked DIRECTLY here so a red suite fails `pnpm verify`
+# without re-running every suite Phases 5-6 already run, uninstrumented
+# (Gate 1 SHOULD-1). Bounded parity: exactly these gates, nothing more.
+echo "--- Phase 5b: Console CI-parity integration gates (FR-024) ---"
+pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/host-smoke-n-players.test.ts
+pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/semantic-route-security.test.ts
+pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/semantic-url-privacy.test.ts
+pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
+echo ""
+
+# Phase 5c: CI-parity package gates (008 FR-024): core's coverage gate
+# (core-ci core-coverage job) and logging's test suite (logging-ci) run
+# in CI but in no other local gate. Remaining per-package coverage gates
+# are deliberately deferred (Out of Scope) to bound local wall-clock.
+echo "--- Phase 5c: CI-parity package gates (FR-024) ---"
+pnpm --filter @europa/core coverage
+pnpm --filter @europa/logging test
+echo ""
+
 # Phase 6: Console browser-mode tests (mirrors console-e2e)
 echo "--- Phase 6: Console browser-mode tests ---"
 pnpm --filter @europa/console test:component
