@@ -101,6 +101,10 @@ Wave 7: T018, T019, T020        (audits then commit — strictly sequential)
 
 Solo-execution note: waves exist so a future orchestrator can parallelize; a solo implementer simply runs T001→T020 in order.
 
+## Issue #190: Lobby/profile manual correction
+
+- [x] T021 Correct the handle-setting and rename guidance in `docs/manual/src/pages/lobby.mdx` and `docs/manual/src/pages/quick-start.mdx`: identify the named lobby card as showing the accepted handle, **Online**, and **Manage profile**; state that setting or changing a handle happens at `/profile`, not inline on the lobby card. Verify wording against `packages/console/src/ui/lobby-landing.tsx` and `packages/console/src/ui/profile-view.tsx`; run `node specs/010-public-lobby-match-browser/check-documentation-privacy.mjs` and `pnpm --filter @europa/manual build`.
+
 ---
 
 ## Implementation audit record (2026-08-24)
