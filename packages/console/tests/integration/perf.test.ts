@@ -285,9 +285,11 @@ const RELIEF_PERF_BOARD = 48;
 /**
  * Full-visibility, all-land 48×48 `PlayerView` for Q-P05 (NFR-001):
  * elevations `(x*7 + y*13) % 256` give every zone a non-zero delta
- * against a neighbour. It carries no units, pipes, or cities — Q-P05
- * measures relief's per-tile cost on the largest board, whereas Q-P01
- * already covers the unit/pipe/city layers on its own fixture. Pure.
+ * against a neighbour, so the benchmark cannot silently stop exercising
+ * the relief sub-pass. The formula is deliberately low-variety and the
+ * board deliberately bare (no units, pipes, or cities — those are
+ * Q-P01's layers); plan D7 records what this gate does and does not
+ * cover. Pure.
  */
 function buildReliefBoardView(): PlayerView {
     const visibleCells: CellView[] = [];
