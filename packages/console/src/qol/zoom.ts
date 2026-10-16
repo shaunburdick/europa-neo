@@ -224,6 +224,10 @@ export class ZoomPanController {
 
     private lastPanPoint: ScreenPoint | null = null;
 
+    private attached = false;
+
+    private gestureDetach: (() => void) | null = null;
+
     /**
      * @param element The board-surface element events bind to (the area
      *                covering the canvas, shared with region-select).
@@ -236,6 +240,9 @@ export class ZoomPanController {
 
     /** Attach all listeners. Returns a disposer. */
     attach(): { readonly dispose: () => void } {
+        if (this.attached) {
+            return { dispose: () => undefined };
+        }
         const wheelHandler = (event: WheelEvent): void => {
             event.preventDefault();
             const state = this.store.getState();
@@ -274,6 +281,7 @@ export class ZoomPanController {
             }
             event.preventDefault();
             event.stopImmediatePropagation();
+            this.detachGesture();
             this.lastPanPoint = this.relativePoint(event);
             this.element.setPointerCapture(event.pointerId);
 
@@ -297,13 +305,16 @@ export class ZoomPanController {
             };
             const upHandler = (): void => {
                 this.lastPanPoint = null;
-                this.element.removeEventListener('pointermove', moveHandler);
-                this.element.removeEventListener('pointerup', upHandler);
-                this.element.removeEventListener('pointercancel', upHandler);
+                this.detachGesture();
             };
             this.element.addEventListener('pointermove', moveHandler);
             this.element.addEventListener('pointerup', upHandler);
             this.element.addEventListener('pointercancel', upHandler);
+            this.gestureDetach = () => {
+                this.element.removeEventListener('pointermove', moveHandler);
+                this.element.removeEventListener('pointerup', upHandler);
+                this.element.removeEventListener('pointercancel', upHandler);
+            };
         };
 
         this.element.addEventListener('wheel', wheelHandler, { passive: false });
@@ -312,15 +323,26 @@ export class ZoomPanController {
             () => this.element.removeEventListener('wheel', wheelHandler),
             () => this.element.removeEventListener('pointerdown', downHandler),
         );
+        this.attached = true;
         return {
             dispose: () => {
+                if (!this.attached) {
+                    return;
+                }
                 for (const off of this.listeners) {
                     off();
                 }
+                this.detachGesture();
                 this.listeners.length = 0;
                 this.lastPanPoint = null;
+                this.attached = false;
             },
         };
+    }
+
+    private detachGesture(): void {
+        this.gestureDetach?.();
+        this.gestureDetach = null;
     }
 
     /** Translate a client-space event to an element-relative point. */

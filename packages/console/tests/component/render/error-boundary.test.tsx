@@ -52,3 +52,16 @@ describe('ErrorBoundary (T085)', () => {
         errorSpy.mockRestore();
     });
 });
+
+describe('error fallback action carries the europa-button marker (FR-043)', () => {
+    test('the Reload control is a design-system button', async () => {
+        await render(
+            createElement(ErrorBoundary, { onError: () => undefined }, createElement(Bomb, { message: 'boom' })),
+        );
+
+        const reload = document.querySelector<HTMLElement>('.europa-error-boundary__reload');
+        expect(reload).not.toBeNull();
+        expect(reload?.tagName).toBe('BUTTON');
+        expect(reload?.classList.contains('europa-button')).toBe(true);
+    });
+});

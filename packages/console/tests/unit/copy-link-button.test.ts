@@ -342,3 +342,15 @@ describe('unmount cleanup', () => {
         }
     });
 });
+
+describe('copy link control carries the europa-button marker (FR-043)', () => {
+    it('renders a design-system button with its accessible name', () => {
+        const { container, render } = setup();
+        render({});
+
+        const button = container.querySelector('button');
+        expect(button).not.toBeNull();
+        expect(button?.classList.contains('europa-button')).toBe(true);
+        expect(button?.getAttribute('aria-label')).toBeTruthy();
+    });
+});

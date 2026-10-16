@@ -27,6 +27,7 @@
  * JSDoc reference: Q-A05 (US4 portion) + spec US4 AC-1/2.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import type { JSX } from 'react';
 
 import { reservesDigitLabel } from '../input/order-reserves';
@@ -83,9 +84,9 @@ export function ReservesPanel({ cell, currentPercent, disabled, onSetReserves }:
             />
             <div className="europa-reserves__digits" role="group" aria-label="Reserve presets">
                 {DIGITS.map((digit) => (
-                    <button
+                    <EuropaButton
                         key={digit}
-                        type="button"
+                        variant="ghost"
                         className="europa-reserves__digit europa-focus-ring"
                         aria-label={reservesDigitLabel(digit)}
                         aria-pressed={digit === currentPercent}
@@ -95,7 +96,7 @@ export function ReservesPanel({ cell, currentPercent, disabled, onSetReserves }:
                         }}
                     >
                         {digit}
-                    </button>
+                    </EuropaButton>
                 ))}
             </div>
         </section>

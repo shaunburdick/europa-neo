@@ -122,3 +122,17 @@ describe('ReservesPanel (T065)', () => {
         }
     });
 });
+
+describe('reserve digit buttons carry the europa-button marker (FR-043)', () => {
+    test('every digit control is a design-system button with its ARIA state', async () => {
+        await mountPanel(7);
+
+        const digits = Array.from(document.querySelectorAll<HTMLButtonElement>('.europa-reserves__digit'));
+        expect(digits).toHaveLength(10);
+        for (const digit of digits) {
+            expect(digit.tagName).toBe('BUTTON');
+            expect(digit.classList.contains('europa-button')).toBe(true);
+            expect(digit.getAttribute('aria-pressed')).not.toBeNull();
+        }
+    });
+});

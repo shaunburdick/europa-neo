@@ -84,7 +84,7 @@ export const INITIAL_LOBBY_STATE: LobbyState = {
     superseded: false,
     failure: null,
     deepLinkInterstitial: null,
-    roster: { players: [], revision: null, connected: false },
+    roster: { players: [], connected: false },
 };
 
 /** Session-level failure payload for the terminal `'failed'` connection state. */
@@ -171,7 +171,7 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                     ...state,
                     connection: action.connection,
                     failure: CONNECTION_FAILED_FAILURE,
-                    roster: { players: [], revision: null, connected: false },
+                    roster: { players: [], connected: false },
                 };
             }
             if (action.connection === 'disconnected') {
@@ -182,7 +182,7 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                 return {
                     ...state,
                     connection: action.connection,
-                    roster: { players: [], revision: null, connected: false },
+                    roster: { players: [], connected: false },
                 };
             }
             // connecting/reconnecting/closed: transient or explicit;
@@ -281,30 +281,8 @@ export function reduceLobby(state: LobbyState, action: LobbyAction): LobbyState 
                 ...state,
                 roster: {
                     players: action.snapshot.players,
-                    revision: action.snapshot.revision,
                     connected: true,
                 },
             };
-
-        case 'lobbyRosterDelta': {
-            // Merge delta changes into the existing roster entries.
-            const next = [...state.roster.players];
-            for (const change of action.delta.changes) {
-                const idx = next.findIndex((e) => e.handle === change.handle);
-                if (idx >= 0) {
-                    next[idx] = change;
-                } else {
-                    next.push(change);
-                }
-            }
-            return {
-                ...state,
-                roster: {
-                    players: next,
-                    revision: action.delta.revision,
-                    connected: true,
-                },
-            };
-        }
     }
 }

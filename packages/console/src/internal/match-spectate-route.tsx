@@ -21,74 +21,14 @@
  * @module
  */
 
-import { useNavigate, useParams } from '@tanstack/react-router';
 import type { JSX } from 'react';
-import { useSyncExternalStore } from 'react';
-import type { MatchId } from '../state/types';
-import type { MatchVisibility } from '../ui/copy-link-button';
-import { useLobbyLayout } from './lobby-layout';
-import { MatchLegHost } from './lobby-runtime';
 
-// ─── Component ──────────────────────────────────────────────────────────────
+import { MatchRouteShell } from './match-route-shell';
 
 /**
  * Explicit spectator route — dispatches a spectate command and renders the
  * match leg host in read-only mode once the lobby transitions to match mode.
  */
 export function MatchSpectateRoute(): JSX.Element | null {
-    const { matchId: rawMatchId } = useParams({ strict: false });
-    const matchId = rawMatchId as MatchId;
-    const { controller, wsUrl, announcer } = useLobbyLayout();
-    const state = useSyncExternalStore(controller.store.subscribe, controller.store.getState);
-    const navigate = useNavigate();
-
-    // -- Render match leg (viewMode === 'match') ----------------------------
-    if (state.viewMode === 'match') {
-        const entry =
-            matchId !== null
-                ? (state.snapshot?.entries.find((candidate) => candidate.matchId === matchId) ?? null)
-                : null;
-        const matchStarted = entry?.status === 'in_progress';
-        const occupancy = entry !== null ? { seatsFilled: entry.seatsFilled, capacity: entry.capacity } : null;
-
-        return (
-            <MatchLegHost
-                key={matchId}
-                wsUrl={wsUrl}
-                matchId={matchId}
-                matchRole="spectator"
-                displayName={state.handle ?? 'Spectator'}
-                handle={state.handle}
-                occupancy={occupancy}
-                matchStarted={matchStarted}
-                seatSessionToken={state.seatSessionToken}
-                announcer={announcer ?? undefined}
-                leaveError={state.actions.leaveMatch.error}
-                leaving={state.actions.leaveMatch.phase === 'loading'}
-                onLeave={() => {
-                    void controller.leaveMatch().then((result) => {
-                        if (result.ok) {
-                            void navigate({ to: '/lobby' });
-                            announcer?.announce('Returned to the lobby.', 'polite');
-                        }
-                    });
-                }}
-                onRouteFailure={() => {
-                    void navigate({ to: '/lobby' });
-                }}
-                onReturnToLobby={() => {
-                    void controller.leaveMatch().then((result) => {
-                        if (result.ok) {
-                            void navigate({ to: '/lobby' });
-                            announcer?.announce('Returned to the lobby.', 'polite');
-                        }
-                    });
-                }}
-                matchVisibility={(state.matchVisibility as MatchVisibility) ?? null}
-            />
-        );
-    }
-
-    // -- Fallback: command dispatched, waiting for lobby state transition ----
-    return null;
+    return <MatchRouteShell matchRole="spectator" displayNameFallback="Spectator" />;
 }

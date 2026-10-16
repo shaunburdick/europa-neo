@@ -6,12 +6,14 @@
  */
 
 import type { LobbySnapshot } from '@europa/matchmaking';
+import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-react';
 
 const spectatorTransportMock = vi.hoisted(() => ({
     rejectFirstConnect: false,
+    failAllConnects: false,
     connectCalls: 0,
     createWsMatchClient: vi.fn(() => ({
         state: () => ({ connection: 'pending' }),
@@ -22,6 +24,9 @@ const spectatorTransportMock = vi.hoisted(() => ({
     createConsoleClient: vi.fn(() => ({
         connect: vi.fn(async () => {
             spectatorTransportMock.connectCalls += 1;
+            if (spectatorTransportMock.failAllConnects) {
+                throw new Error('leg boot failure');
+            }
             if (spectatorTransportMock.rejectFirstConnect && spectatorTransportMock.connectCalls === 1) {
                 throw new Error('stale StrictMode boot');
             }
@@ -40,7 +45,8 @@ vi.mock('../../../src/net/client', () => ({ createConsoleClient: spectatorTransp
 
 import type { Route } from '../../../src/routing/route';
 import { validateMatchId } from '../../../src/routing/route';
-import { createLobbyController } from '../../../src/state/lobby-controller';
+import { routeTree } from '../../../src/routing/route-tree';
+import { createLobbyController, type LobbyController } from '../../../src/state/lobby-controller';
 import { RouteNotice } from '../../../src/ui/route-notice';
 import { LobbyRootWithLayout as LobbyRoot } from '../../fixtures/lobby-layout-wrapper';
 import { entryOf, matchIdOf, ScriptedLobbyTransport, snapshotOf } from '../../fixtures/lobbyTransports';
@@ -61,6 +67,7 @@ afterEach(async () => {
     spectatorTransportMock.createWsMatchClient.mockClear();
     spectatorTransportMock.createConsoleClient.mockClear();
     spectatorTransportMock.rejectFirstConnect = false;
+    spectatorTransportMock.failAllConnects = false;
     spectatorTransportMock.connectCalls = 0;
     vi.restoreAllMocks();
 });
@@ -69,6 +76,25 @@ const MATCH_ID = matchIdOf('room-alpha');
 
 function waitingSnapshot(): LobbySnapshot {
     return snapshotOf([entryOf({ matchId: MATCH_ID, seatsFilled: 1, capacity: 2 })]);
+}
+
+function buildRouter(pathname: string, controller: LobbyController) {
+    return createRouter({
+        routeTree,
+        context: { controller, wsUrl: 'ws://localhost:8080' },
+        history: createMemoryHistory({ initialEntries: [pathname] }),
+    });
+}
+
+async function settledConnectCalls(): Promise<number> {
+    let previous = -1;
+    let current = spectatorTransportMock.connectCalls;
+    for (let i = 0; i < 40 && current !== previous; i += 1) {
+        previous = current;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        current = spectatorTransportMock.connectCalls;
+    }
+    return current;
 }
 
 describe('semantic route runtime hand-off', () => {
@@ -100,7 +126,7 @@ describe('semantic route runtime hand-off', () => {
         controller.disconnect();
     });
 
-    test('does not turn a stale first spectator attach rejection into Match unavailable under StrictMode', async () => {
+    test('a deep-link spectate handoff defers the spectator leg to the canonical route', async () => {
         const transport = new ScriptedLobbyTransport();
         const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
         await controller.connect();
@@ -128,7 +154,7 @@ describe('semantic route runtime hand-off', () => {
 
         await expect.element(screen.getByRole('heading', { name: 'Spectating' })).toBeVisible();
         expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
-        expect(spectatorTransportMock.connectCalls).toBe(2);
+        expect(spectatorTransportMock.connectCalls).toBe(0);
         controller.disconnect();
     });
 
@@ -433,5 +459,178 @@ describe('match-route resolution gates (feature 015 live-smoke defect fix)', () 
         await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
         expect(transport.commands).toContainEqual({ kind: 'joinMatch', argument: MATCH_ID });
         controller.disconnect();
+    });
+});
+
+describe('match-route leg handoff (FR-046(b)(c))', () => {
+    test('a join-route leg boot failure surfaces a shortcut-failure notice with a focusable return (FR-046(c))', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
+        await controller.joinMatch(MATCH_ID);
+        spectatorTransportMock.failAllConnects = true;
+
+        const router = buildRouter('/match/room-alpha/join', controller);
+        const screen = await render(<RouterProvider router={router} />);
+
+        await expect.element(screen.getByRole('alert')).toBeVisible();
+        expect(router.state.location.pathname).toBe('/match/room-alpha/join');
+        expect(
+            screen.container.querySelector('[data-europa-route-notice]')?.getAttribute('data-europa-route-notice'),
+        ).toBe('shortcut-failure');
+        const returnButton = screen.getByRole('button', { name: 'Return to lobby' }).element() as HTMLButtonElement;
+        returnButton.focus();
+        expect(document.activeElement).toBe(returnButton);
+
+        spectatorTransportMock.failAllConnects = false;
+        await (screen.getByRole('button', { name: 'Try again' }).element() as HTMLButtonElement).click();
+        await expect.element(screen.getByRole('heading', { name: /In match/ })).toBeVisible();
+        expect(await settledConnectCalls()).toBe(2);
+        controller.disconnect();
+    });
+
+    test('returning from a failed boot releases the match association and restores the lobby (FR-018)', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
+        await controller.joinMatch(MATCH_ID);
+        spectatorTransportMock.failAllConnects = true;
+        window.history.replaceState({}, '', '/match/room-alpha/join');
+
+        const router = buildRouter('/match/room-alpha/join', controller);
+        const screen = await render(<RouterProvider router={router} />);
+
+        await expect.element(screen.getByRole('alert')).toBeVisible();
+        expect(controller.store.getState().viewMode).toBe('match');
+        expect(controller.store.getState().activeMatchId).toBe(MATCH_ID);
+
+        await (screen.getByRole('button', { name: 'Return to lobby' }).element() as HTMLButtonElement).click();
+
+        await vi.waitFor(() => {
+            expect(controller.store.getState().viewMode).toBe('lobby');
+        });
+        expect(transport.commands).toContainEqual({ kind: 'leaveMatch' });
+        expect(controller.store.getState().activeMatchId).toBeNull();
+        expect(window.location.pathname).toBe('/lobby');
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+        controller.disconnect();
+    });
+
+    test('a failed leave from the boot-failure notice surfaces the error and a retry recovers (FR-018)', async () => {
+        const transport = new ScriptedLobbyTransport();
+        transport.failNextCommand('leaveMatch', () => new Error('lobby link is down'));
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
+        await controller.joinMatch(MATCH_ID);
+        spectatorTransportMock.failAllConnects = true;
+        window.history.replaceState({}, '', '/match/room-alpha/join');
+
+        const router = buildRouter('/match/room-alpha/join', controller);
+        const screen = await render(<RouterProvider router={router} />);
+
+        await expect.element(screen.getByRole('alert')).toBeVisible();
+
+        await (screen.getByRole('button', { name: 'Return to lobby' }).element() as HTMLButtonElement).click();
+
+        await expect.element(screen.getByText(/lobby link is down/)).toBeVisible();
+        expect(controller.store.getState().viewMode).toBe('match');
+        expect(window.location.pathname).toBe('/match/room-alpha/join');
+
+        await (screen.getByRole('button', { name: 'Return to lobby' }).element() as HTMLButtonElement).click();
+
+        await vi.waitFor(() => {
+            expect(controller.store.getState().viewMode).toBe('lobby');
+        });
+        expect(transport.commands.filter((command) => command.kind === 'leaveMatch')).toHaveLength(2);
+        expect(controller.store.getState().activeMatchId).toBeNull();
+        expect(window.location.pathname).toBe('/lobby');
+        controller.disconnect();
+    });
+
+    test('one lobby spectate handoff boots exactly one leg (FR-046(b))', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
+
+        const router = buildRouter('/lobby', controller);
+        const screen = await render(<RouterProvider router={router} />);
+
+        const spectateButton = screen.getByRole('button', { name: /Spectate/ });
+        await expect.element(spectateButton).toBeVisible();
+        await (spectateButton.element() as HTMLButtonElement).click();
+        await expect.element(screen.getByRole('heading', { name: /Spectating/ })).toBeVisible();
+
+        await router.navigate({ to: '/match/$matchId/spectate', params: { matchId: MATCH_ID } });
+        await expect.element(screen.getByRole('heading', { name: /Spectating/ })).toBeVisible();
+        expect(await settledConnectCalls()).toBe(1);
+        controller.disconnect();
+    });
+
+    test('a stale first spectator attach rejection under StrictMode stays off the route notice', async () => {
+        const transport = new ScriptedLobbyTransport();
+        const controller = createLobbyController({ transport, url: 'ws://localhost:8080' });
+        await controller.connect();
+        transport.emitIdentity({ handle: 'Alice', hasIdentity: true });
+        transport.emitSnapshot(snapshotOf([entryOf({ matchId: MATCH_ID, status: 'in_progress', seatsFilled: 2 })]));
+        await controller.spectateMatch(MATCH_ID);
+        spectatorTransportMock.rejectFirstConnect = true;
+
+        const router = buildRouter('/match/room-alpha/spectate', controller);
+        const screen = await render(
+            <StrictMode>
+                <RouterProvider router={router} />
+            </StrictMode>,
+        );
+
+        await expect.element(screen.getByRole('heading', { name: /Spectating/ })).toBeVisible();
+        expect(screen.container.querySelector('[data-europa-route-notice]')).toBeNull();
+        expect(spectatorTransportMock.connectCalls).toBe(2);
+        controller.disconnect();
+    });
+});
+
+describe('match-route skip-link target', () => {
+    test('the route notice main landmark reports tabindex -1 for the skip link', async () => {
+        const screen = await render(
+            <RouteNotice
+                kind="unknown"
+                title="Page not found"
+                message="Page not found. Returning to lobby."
+                onReturnToLobby={() => undefined}
+            />,
+        );
+
+        const main = screen.container.querySelector('main#main');
+        expect(main).not.toBeNull();
+        expect(main?.getAttribute('tabindex')).toBe('-1');
+    });
+});
+
+describe('route notice actions carry the europa-button marker (FR-043)', () => {
+    test('Try again and Return to lobby are design-system buttons', async () => {
+        const screen = await render(
+            <RouteNotice
+                kind="shortcut-failure"
+                title="Cannot join this match"
+                message="The match is no longer joinable."
+                onRetry={() => undefined}
+                onReturnToLobby={() => undefined}
+            />,
+        );
+
+        const buttons = Array.from(screen.container.querySelectorAll('button'));
+        expect(buttons).toHaveLength(2);
+        for (const button of buttons) {
+            expect(button.tagName).toBe('BUTTON');
+            expect(button.classList.contains('europa-button')).toBe(true);
+        }
     });
 });
