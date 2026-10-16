@@ -1,6 +1,6 @@
 # Tasks: Terrain Relief Shading (Delta-Based Edge Bevels)
 
-**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.6) · **Plan**: `plan.md`
+**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.7) · **Plan**: `plan.md`
 **Branch**: `issue-182-tile-shading`
 **Tasks**: 13 (T001–T013). `[P]` marks tasks safe to run in parallel with the immediately
 preceding task (different files, no shared edit). One engineer pass; no orchestration.
@@ -313,7 +313,8 @@ Status record for T001–T013 on `issue-182-tile-shading`, with the commit each 
 - **T005** — done (`5f82b87`, landed with T006).
 - **T006** — done (`5f82b87`).
 - **T007** — done (`208790f`).
-- **T008** — done (`0a4eb44`, `2ddbe0b`; D7 recorded in `7f6730c`). Q-P05 (48×48 relief-enabled all-land, `(x*7 + y*13) % 256`) meets the 8 ms budget at **5.9 ms** min / 6.1 ms p50, but **on the low-variety fixture only** (4 distinct `|Δ|`, 20 band colours). The representative high-variety fixture (`(x*97 + y*193 + x*x*29 + y*y*61 + x*y*113) % 256`) was **not** adopted and measures **8.0 ms** median min-of-round-medians (ten runs 7.3–8.5) — over budget, so the gate does not cover a varied delta distribution. The win is the whole-sub-pass batch in sub-pass 1d (one `fill()` per distinct colour over one path of `rect`s; the D7 memo was not used). The render hash moves, confined to same-tile `t × t` corner overlaps with no asserted pixel changed. `test:unit` / `test:component` / `test:determinism` green.
+- **T008** — complete (`0a4eb44`, `2ddbe0b`; D7 recorded in `7f6730c`; re-pinned this commit). Q-P05 gates relief's **attributable addition** on the representative 48×48 fixture (`(x*97 + y*193 + x*x*29 + y*y*61 + x*y*113) % 256`; 250 distinct non-zero `|Δ|`, 822 band colours): over ten runs the addition (relief-on ≈7.0–7.8 ms minus relief-off ≈3.30–3.40 ms) measured **3.65–4.45 ms** — worst **4.45 ms** — against the **pinned 6.0 ms** bound, and the fixture's delta variety is asserted (`distinct |Δ| ≥ 100`). The absolute frame is not gated; Q-P01 is unchanged at 8 ms (32×32). Supersedes the earlier low-variety result (5.9 ms on `(x*7 + y*13) % 256`). The win is the whole-sub-pass batch in sub-pass 1d (one `fill()` per distinct colour over one path of `rect`s; the D7 memo was not used). The render hash moves, confined to same-tile `t × t` corner overlaps with no asserted pixel changed. `test:unit` / `test:component` / `test:determinism` green.
+- **T008 closure** — the pinned **6.0 ms** addition bound together with the **fixture-variety** assertion is what closes T008: the gate measures relief's own cost, and the variety guard blocks a future fix from reintroducing the degenerate fixture that flattered the old number.
 - **T009** — done (`9de4dbc`); the A-05 module doc-comment (`palette.ts:12–15`) was missed there and is fixed (`5c8f5d7`), spec v1.6 having extended A-05 to cover its retired hue families.
 - **T010** — done (`3319399`).
 - **T011** — done (`5c9bfe4`).
