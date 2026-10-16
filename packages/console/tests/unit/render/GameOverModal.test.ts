@@ -7,7 +7,7 @@
  */
 
 import { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../../src/render/App';
 import { GameOverModal } from '../../../src/render/GameOverModal';
@@ -18,6 +18,7 @@ import { TEST_PLAYER_1, TEST_PLAYER_2 } from '../../fixtures/player-view';
 const NO_HANDLE_TITLE = `${TEST_PLAYER_1} wins!`;
 
 let container: HTMLDivElement;
+let root: Root | null = null;
 
 beforeEach(() => {
     container = document.createElement('div');
@@ -25,10 +26,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    // Leaking the root keeps its lazy-chunk ping armed, so React schedules
+    // work that runs after vitest tears the DOM environment down.
     act(() => {
-        const root = createRoot(container);
-        root.unmount();
+        root?.unmount();
     });
+    root = null;
     container.remove();
 });
 
@@ -40,7 +43,7 @@ function renderModal(props: {
     playerNames?: ReadonlyMap<PlayerId, string>;
 }): void {
     act(() => {
-        const root = createRoot(container);
+        root = createRoot(container);
         root.render(createElement(GameOverModal, props));
     });
 }
@@ -246,7 +249,7 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
         } as import('../../../src/state/types').ConsoleState;
 
         act(() => {
-            const root = createRoot(container);
+            root = createRoot(container);
             root.render(createElement(App, { state, ...(onReturnToLobby !== undefined ? { onReturnToLobby } : {}) }));
         });
     }
@@ -319,7 +322,7 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
         } as import('../../../src/state/types').ConsoleState;
 
         act(() => {
-            const root = createRoot(container);
+            root = createRoot(container);
             root.render(createElement(App, { state, onReturnToLobby }));
         });
         expect(document.querySelector('.europa-modal-backdrop')).not.toBeNull();
