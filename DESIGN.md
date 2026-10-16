@@ -555,7 +555,9 @@ Every pairing states its **measured** contrast ratio and its WCAG target. Ratios
 canonical hex values in § 1.1 using the WCAG relative-luminance formula (`(L1 + 0.05) / (L2 + 0.05)`),
 rounded to two decimals. The claim is pinned by an automated computed-style check that renders a
 fixture importing the shared stylesheet, reads the resolved colors, and recomputes the ratio — G-07,
-not a comment. Every row below is at or above its stated target.
+not a comment. Rows that record their own guard gap are the exception: G-07 is deferred per spec 012's
+Scope Note, so those ratios are recorded computations no runner reads. Every other row below is at or
+above its stated target.
 
 | Foreground | Background | Measured ratio | WCAG target | Where asserted |
 | --- | --- | --- | --- | --- |
@@ -729,16 +731,18 @@ must flag the absence.
 ### 4.4 Documented exceptions
 
 Four line-scoped `design-exception: canvas fallback` markers, each a Canvas paint call that cannot read
-a CSS custom property synchronously (§ 4.1). Line numbers are those of this version:
+a CSS custom property synchronously (§ 4.1). The count is the invariant; the line numbers are those of
+this version and nothing guards them, so re-locate the markers with the searchable marker string
+`design-exception: canvas fallback` in this file if a refactor moves them:
 
-- `packages/console/src/render/canvas.ts:215` — sub-pass 1b's batched water-wave stroke
-  (`rgba(255, 255, 255, 0.04)` on `:216`).
-- `packages/console/src/render/canvas.ts:288` — sub-pass 1e's zone 2–3 contour stroke
-  (`rgba(0, 0, 0, 0.10)` on `:289`; absorbed `024-FR-012`).
-- `packages/console/src/render/canvas.ts:321` — the city-glow gradient's transparent stop
-  (`rgba(255, 68, 68, 0)` on `:322`).
-- `packages/console/src/render/canvas.ts:378` — the hover-highlight fill
-  (`rgba(255,255,255,0.45)` on `:379`).
+- `packages/console/src/render/canvas.ts:233` — sub-pass 1b's batched water-wave stroke
+  (`rgba(255, 255, 255, 0.04)` on `:234`).
+- `packages/console/src/render/canvas.ts:332` — sub-pass 1e's zone 2–3 contour stroke
+  (`rgba(0, 0, 0, 0.10)` on `:333`; absorbed `024-FR-012`).
+- `packages/console/src/render/canvas.ts:365` — the city-glow gradient's transparent stop
+  (`rgba(255, 68, 68, 0)` on `:366`).
+- `packages/console/src/render/canvas.ts:422` — the hover-highlight fill
+  (`rgba(255,255,255,0.45)` on `:423`).
 
 Feature 017 retired the two sub-pass 1d inner-shadow markers this section used to list with their
 `rgba(0, 0, 0, 0.25)` / `rgba(255, 255, 255, 0.15)` fills, and adds none: relief's band colour is a

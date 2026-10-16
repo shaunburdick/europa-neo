@@ -655,10 +655,10 @@ heading above does not overclaim:**
 
 ### v1.13 (2026-10-16) — Terrain relief shading replaces the uniform inner shadow (issue #182)
 
-Feature 017 (`specs/017-terrain-relief-shading/spec.md` v1.5) replaces the
+Feature 017 (`specs/017-terrain-relief-shading/spec.md` v1.7) replaces the
 tile-uniform inner shadow with delta-based edge relief and extends the help
 overlay's symbol legend. Two absorbed requirements are amended in place in
-the v1.7 clarification above; nothing else in this file changes.
+the v1.7 consolidation block above; nothing else in this file changes.
 
 - **024-FR-013 (amended, issue #182)**: the uniform per-tile inner shadow is
   retired in favour of edge relief derived from the elevation delta to each
