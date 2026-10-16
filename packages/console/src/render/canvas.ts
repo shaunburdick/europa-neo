@@ -23,7 +23,8 @@
  */
 
 import { filterEffectsForMotion } from '../qol/reduced-motion';
-import type { CellRenderInfo, MapEffect, MapView } from '../state/types';
+import { coordKey, destinationCoord } from '../state/build-map-view';
+import type { CellRenderInfo, Direction, MapEffect, MapView } from '../state/types';
 import { drawMapLabels } from './label-overlay';
 import {
     CAPTURE_EFFECT_COLOR,
@@ -50,6 +51,14 @@ import {
     waterDepthForCell,
 } from './palette';
 import type { PipeSlope } from './pipe-slope';
+import {
+    linearTriple,
+    RELIEF_DIRECTIONS,
+    RELIEF_HIGHLIGHT_IS_DOWNHILL,
+    reliefBandColor,
+    reliefBandThickness,
+    reliefFraction,
+} from './relief';
 
 /** Fraction of the cell size used as the troop-disc radius. */
 const UNIT_RADIUS_RATIO = 0.32;
@@ -74,6 +83,31 @@ function pipeSlopeColor(slope: PipeSlope): string {
     }
 }
 
+/** One relief band's rect, in board-pixel space. */
+interface BandRect {
+    readonly x: number;
+    readonly y: number;
+    readonly w: number;
+    readonly h: number;
+}
+
+/**
+ * The band rect for one edge direction, always inside the tile's own
+ * rect (plan D3): N/S span the full width, W/E the full height.
+ */
+function bandRect(direction: Direction, x: number, y: number, zoom: number, thickness: number): BandRect {
+    switch (direction) {
+        case 'N':
+            return { x, y, w: zoom, h: thickness };
+        case 'S':
+            return { x, y: y + zoom - thickness, w: zoom, h: thickness };
+        case 'W':
+            return { x, y, w: thickness, h: zoom };
+        case 'E':
+            return { x: x + zoom - thickness, y, w: thickness, h: zoom };
+    }
+}
+
 /** Options modifying one paint pass. */
 export interface PaintOptions {
     /**
@@ -81,6 +115,13 @@ export interface PaintOptions {
      * flashing combat/capture effect markers entirely. Default `false`.
      */
     readonly reducedMotion?: boolean;
+    /**
+     * Paint delta-based edge relief (FR-001). `false` paints the
+     * relief-free control used by the 017 readback suite: the whole
+     * sub-pass is skipped. It does not restore the retired uniform
+     * inner shadow — FR-005 retires that unconditionally.
+     */
+    readonly relief?: boolean;
 }
 
 /**
@@ -102,10 +143,11 @@ export class MapCanvas {
      * @param mapView The immutable snapshot to paint.
      * @param ctx Target 2D context (its current transform is treated
      *            as identity over the board's pixel space).
-     * @param options Optional paint modifiers (reduced motion).
+     * @param options Optional paint modifiers (reduced motion, relief).
      */
     paint(mapView: MapView, ctx: CanvasRenderingContext2D, options?: PaintOptions): void {
         const reducedMotion = options?.reducedMotion === true;
+        const relief = options?.relief !== false;
         const { zoom } = mapView.camera;
         const { viewportOffset } = mapView;
         const canvasWidth = ctx.canvas.width;
@@ -219,26 +261,68 @@ export class MapCanvas {
             ctx.fillRect(x, y, zoom, zoom);
         }
 
-        // Sub-pass 1d: batched land inner shadows — all dark edges in one
-        // fillStyle assignment, then all light edges. Eliminates per-cell
-        // save/restore and repeated fillStyle assignments.
-        // design-exception: canvas fallback
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-        for (const info of mapView.cells.values()) {
-            if (info.terrain !== 'land') continue;
-            const x = info.coord.x * zoom;
-            const y = info.coord.y * zoom;
-            ctx.fillRect(x, y, zoom, 1);
-            ctx.fillRect(x, y, 1, zoom);
-        }
-        // design-exception: canvas fallback
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-        for (const info of mapView.cells.values()) {
-            if (info.terrain !== 'land') continue;
-            const x = info.coord.x * zoom;
-            const y = info.coord.y * zoom;
-            ctx.fillRect(x, y + zoom - 1, zoom, 1);
-            ctx.fillRect(x + zoom - 1, y, 1, zoom);
+        // Sub-pass 1d: delta-based edge relief (FR-001). Per tile and
+        // direction, an opaque band inside the tile's own rect whose colour
+        // encodes the sign and magnitude of the elevation delta against the
+        // visible land neighbour's elevation (FR-002/FR-003).
+        //
+        // Bands are collected into one map keyed by colour over the whole
+        // sub-pass and filled one path per colour (T008): a tile's bands never
+        // leave its own rect (FR-010 confinement), so the only pixels the fill
+        // order can move are the t×t corners where two of a tile's own bands
+        // overlap. Iterating the colours in sorted order makes that order a
+        // pure function of the colour set, not of cell insertion order (AC-008).
+        if (relief) {
+            const thickness = reliefBandThickness(zoom);
+            const bandsByColour = new Map<string, BandRect[]>();
+            // Each zone's two gradient ends as linear-light triples — relief's
+            // own base (D5). Built here so the relief-free control never pays
+            // for them, and held per zone as locals so the band loop needs no
+            // keyed lookup.
+            for (let band = 0; band < LAND_BAND_COUNT; band++) {
+                const lightEnd = linearTriple(landBandColor(band));
+                const darkEnd = linearTriple(this.adjustBrightness(landBandColor(band), -15));
+                for (const info of mapView.cells.values()) {
+                    if (info.terrain !== 'land' || landBandIndex(info.elevation) !== band) continue;
+                    const x = info.coord.x * zoom;
+                    const y = info.coord.y * zoom;
+                    for (const direction of RELIEF_DIRECTIONS) {
+                        const dst = destinationCoord(info.coord, direction);
+                        // Off-board, absent (fog-hidden), water, and zero-delta
+                        // neighbours are all neutral (FR-004): no band, no
+                        // synthesized neighbour elevation.
+                        if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
+                        const neighbour = mapView.cells.get(coordKey(dst));
+                        if (neighbour === undefined || neighbour.terrain !== 'land') continue;
+                        if (neighbour.elevation === info.elevation) continue;
+                        const downhill = neighbour.elevation < info.elevation;
+                        const highlight = downhill === RELIEF_HIGHLIGHT_IS_DOWNHILL;
+                        const colour = reliefBandColor(
+                            highlight ? lightEnd : darkEnd,
+                            reliefFraction(neighbour.elevation - info.elevation),
+                            highlight,
+                        );
+                        const rect = bandRect(direction, x, y, zoom, thickness);
+                        const existing = bandsByColour.get(colour);
+                        if (existing === undefined) {
+                            bandsByColour.set(colour, [rect]);
+                        } else {
+                            existing.push(rect);
+                        }
+                    }
+                }
+            }
+            // Within one colour every rect is disjoint from the others of a
+            // different tile, and same-colour overlaps are immaterial, so the
+            // sorted-colour order alone fixes the result.
+            for (const [colour, rects] of [...bandsByColour].sort((first, second) => (first[0] < second[0] ? -1 : 1))) {
+                ctx.fillStyle = colour;
+                ctx.beginPath();
+                for (const rect of rects) {
+                    ctx.rect(rect.x, rect.y, rect.w, rect.h);
+                }
+                ctx.fill();
+            }
         }
 
         // Sub-pass 1e: batched contour hints — ALL contour diagonal lines

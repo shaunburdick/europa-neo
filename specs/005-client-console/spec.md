@@ -1,12 +1,12 @@
 # Feature Specification: Client Console (Satellite View & Orders)
 
 **Feature Branch**: `005-client-console`
-**Last Updated**: 2026-10-13 (v1.12; console review cleanup — issues #153 and #127)
-**Version**: 1.12
+**Last Updated**: 2026-10-16 (v1.13; terrain relief shading — issue #182)
+**Version**: 1.13
 
 **Created**: 2026-08-21
 
-**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
+**Status**: Existing feature implemented (2026-08-30); v1.10 camera fit/corner-navigation repair, mandatory resize-refit behavior, and `CONSOLE_API_VERSION` 0.4.1 update are implemented on this feature branch, PR review pending; v1.11 WebSocket-client/transport/debug-surface hardening amendment implemented (2026-10-12, issues #152/#129); v1.12 review-cleanup amendment (issues #153 and #127) implemented 2026-10-12 — PR #191 open; v1.13 terrain-relief amendment (issue #182) applied 2026-10-16; URL routing superseded by Feature 013; right-sidebar layout added (Clarifications v1.4, issue #76); universal PlayerId console migration implemented (2026-09-12, issue #74)
 
 **Input**: User description: "Browser client rendering the satellite-view grid within the player's visibility horizon, issuing all original order types (region-based pipe toggling, exclusive pipes, keyboard equivalents, paratroopers/guns via subcell targeting, reserves 0–9), modernized UX with quality-of-life improvements. Rendering technology is the architect's choice within TypeScript."
 
@@ -458,6 +458,7 @@ suite result. Coverage remains gated at ≥80% on every metric.
   - **018-FR-002**: The `?` key toggles the overlay; `Escape` closes it.
   - **018-FR-003**: The overlay MUST contain: objective, controls, and special-weapons sections.
   - **018-FR-004**: The overlay MUST include a symbol legend (city, troop, pipe, fog, reserves).
+  - **018-FR-004 (extended by `specs/017-terrain-relief-shading/spec.md` FR-011, issue #182)**: the Symbol Legend MUST also contain one entry for absolute biome elevation (hue bands; the highest zone renders lightest) and one entry for relative edge relief (edge luminance tells whether the neighbouring tile is higher or lower), and MUST NOT describe elevation as "dark = low, light = high", which is false under the shipped biome zones (zone 1 Fractured Ice is darker than zone 0 Ice Plains while being higher).
   - **018-FR-005**: The overlay MUST list all keyboard shortcuts from the controls mapping.
   - **018-FR-006**: The overlay MUST link to the player manual (external).
   - **018-FR-007**: The overlay MUST show the current match context (board size, player count, seat).
@@ -505,7 +506,7 @@ suite result. Coverage remains gated at ≥80% on every metric.
   - **024-FR-010**: Pipe triangles MUST gain a dark outline for visibility on all biomes.
   - **024-FR-011**: Land tiles MUST render biome-based gradients (4 zones).
   - **024-FR-012**: Contour hints MUST render on zones 2–3 (`rgba(0,0,0,0.10)`).
-  - **024-FR-013**: The inner shadow on land tiles MUST remain unchanged.
+  - **024-FR-013 (amended by `specs/017-terrain-relief-shading/spec.md` FR-005, issue #182)**: The uniform per-tile inner shadow is retired. Land tiles MUST render edge relief derived from the elevation delta to each adjacent *visible land* tile (feature 017): the two delta signs render as mutually distinguishable luminance directions (≥3:1 band-to-band, measured per biome zone on feature 017's reference fixture — `specs/017-terrain-relief-shading/spec.md` FR-006 — never at an arbitrary delta, while a smaller delta carries only the continuous, proportional magnitude below), each band differing, on that same reference pair, from the tile's relief-free control by at least the single documented floor, with magnitude continuous and proportional to `|Δelevation|` and the same function on all four biome zones including the brightest. An edge adjacent to water, to a cell absent from the fog-filtered view (outside the visibility horizon or otherwise hidden), or to a position outside the board MUST be neutral — no bevel and no synthesized neighbour elevation. The per-tile biome gradient (024-FR-011) and the zone 2–3 contour hints (024-FR-012) are unchanged.
   - **024-FR-014**: Pipe slope indicator colors MUST remain unchanged (#059669 downhill / #f59e0b flat / #dc2626 uphill / #9ca3af stalled).
   - **024-FR-020**: The DOM overlay MUST remain transparent (no background).
   - **024-FR-021**: `.europa-pipe` MUST apply `drop-shadow(0 0 1px rgba(0,0,0,0.7))`.
@@ -651,3 +652,29 @@ heading above does not overclaim:**
 - The duplicate `FR-027` bullet that v1.10 appended at the end of this
   file is removed; the requirements-list copy is authoritative (no
   behavior change).
+
+### v1.13 (2026-10-16) — Terrain relief shading replaces the uniform inner shadow (issue #182)
+
+Feature 017 (`specs/017-terrain-relief-shading/spec.md` v1.7) replaces the
+tile-uniform inner shadow with delta-based edge relief and extends the help
+overlay's symbol legend. Two absorbed requirements are amended in place in
+the v1.7 consolidation block above; nothing else in this file changes.
+
+- **024-FR-013 (amended, issue #182)**: the uniform per-tile inner shadow is
+  retired in favour of edge relief derived from the elevation delta to each
+  adjacent *visible land* tile — sign carried by mutually distinguishable
+  luminance directions, magnitude continuous and proportional to
+  `|Δelevation|` on one function across all four biome zones, and a neutral
+  edge wherever the neighbour is water, absent from the fog-filtered view, or
+  off-board. The per-tile biome gradient (024-FR-011) and the zone 2–3
+  contour hints (024-FR-012) are unchanged. The full requirement, its ≥3:1
+  band-to-band criterion and its single 1.2:1 control floor are FR-005 and
+  FR-006 of feature 017.
+- **018-FR-004 (extended, issue #182)**: the Symbol Legend gains one entry
+  for absolute biome elevation (hue) and one for relative edge relief
+  (luminance), and stops describing elevation as "dark = low, light = high".
+- **Verification**: feature 017's suites prove both — the browser readback
+  spec `packages/console/tests/component/render/relief.test.tsx`, the unit
+  suites `tests/unit/render/relief.test.ts` and `canvas-terrain.test.ts`, and
+  the `palette.test.ts` figures this amendment's prose depends on; `pnpm
+  verify` green.

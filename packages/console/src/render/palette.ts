@@ -11,8 +11,8 @@
  *
  * Terrain shading uses 4 biome zones (spec 024 FR-001) with distinct hue
  * families replacing the retired single-hue 6-band system. Each zone maps
- * a contiguous elevation range to icy cyan / deep blue / blue-gray / cool
- * white, so terrain color communicates both elevation and pipe flow viability.
+ * a contiguous elevation range to blue / teal / orange / pale blue (hues
+ * 210 / 170 / 30 / 200); color carries elevation and pipe flow viability.
  * Contrast notes (WCAG 1.4.3/1.4.11) are documented in `DESIGN.md` and
  * pinned by `palette.test.ts`; owner identity is never conveyed by color
  * alone (constitution Principle VI).
@@ -62,13 +62,11 @@ function biomeZoneAt(index: number): (typeof BIOME_ZONES)[number] {
 }
 
 /**
- * Dark outline color for pipe triangles — guarantees contrast against
- * all biome backgrounds (spec 024 FR-010, FR-021).
- *
- * Against light backgrounds (Peaks, L=60–78%), provides ≥9:1 contrast.
- * Against dark backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops),
- * the pipe fill colors themselves are perceptually distinct from terrain
- * hues and reinforced by triangle shape and cell-edge position.
+ * Dark outline for pipe triangles (spec 024 FR-010/FR-021). Composited over
+ * terrain it reaches ≈7.49:1 on the lightest painted land tile (Peaks light
+ * end, L=88) and ≈2.91–3.40:1 on the dark zones' midpoints — so the triangle
+ * is carried by shape and outline, not fill hue: three of the four fills sit
+ * within 9° of a zone hue and all measure ≈1.0–2.6:1 (DESIGN.md N-4, #199).
  */
 export const PIPE_OUTLINE_COLOR = TOKENS.color.pipeOutline;
 
@@ -86,6 +84,14 @@ export const PIPE_DOWNHILL_COLOR = TOKENS.color.pipeDownhill;
 export const PIPE_FLAT_COLOR = TOKENS.color.pipeFlat;
 export const PIPE_UPHILL_COLOR = TOKENS.color.pipeUphill;
 export const PIPE_STALLED_COLOR = TOKENS.color.pipeStalled;
+
+/**
+ * Relief band mix extremes (spec 017 FR-009) — canvas-only, not a UI
+ * surface: the light and dark values a delta-dependent land-tile edge
+ * band mixes toward.
+ */
+export const RELIEF_HIGHLIGHT_COLOR = TOKENS.color.reliefHighlight;
+export const RELIEF_SHADOW_COLOR = TOKENS.color.reliefShadow;
 
 /** Water shallow variant (design token). */
 export const WATER_SHALLOW_COLOR = TOKENS.color.waterShallow;

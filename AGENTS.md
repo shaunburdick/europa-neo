@@ -40,6 +40,7 @@ This file governs any AI agent (primary or subagent) doing work in this reposito
 | `specs/014-structured-logging/spec.md` | Structured logging |
 | `specs/015-developer-debugging/spec.md` | Developer debugging tools |
 | `specs/016-security-sweep/spec.md` | Security-sweep amendment manifest (issues #152/#146/#129) — amends specs 004/005/006/007/010/013/015 in place; no standalone FRs |
+| `specs/017-terrain-relief-shading/spec.md` | Terrain relief shading — delta-based land-tile edge bevels (issue #182) |
 | `europa-source/.../rules.html` | Original mechanics — authoritative when specs are ambiguous |
 | `europa-source/.../controls.html` | Original control scheme (client console must match) |
 
@@ -49,9 +50,9 @@ TypeScript strict mode · server-authoritative deterministic tick simulation · 
 
 ## Current state
 
-- **Branch**: `security-sweep` — spec 016 security sweep for issues #152/#146/#129, ahead of `main`, nothing pushed, one PR pending reviewer sign-off. Standing rule unchanged: all new work on feature branches off `main`; never commit to `main` directly.
+- **Branch**: `issue-182-tile-shading` — terrain relief shading (issue #182), ahead of `main`, nothing pushed. Standing rule unchanged: all new work on feature branches off `main`; never commit to `main` directly.
 - **Monorepo**: 10 packages, 13 CI workflows. Known tradeoff: repo-wide typechecking gap (each package's tsconfig excludes tests/ by design; CI compensates with dedicated strict programs — do NOT fix casually).
-- **Specs**: All 15 feature specs (001–015) Implemented. `specs/016-security-sweep/` is the amendment manifest for issues #152/#146/#129; its amendments (waves W1–W4, tasks T001–T038) are complete and verified on this branch (`bash scripts/verify.sh` green; agent-browser smoke recorded in `specs/016-security-sweep/pr-body.md`). See `specs/` for the full list.
+- **Specs**: All 15 feature specs (001–015) Implemented. `specs/016-security-sweep/` is the amendment manifest for issues #152/#146/#129; its amendments (waves W1–W4, tasks T001–T038) are complete and verified on this branch (`bash scripts/verify.sh` green; agent-browser smoke recorded in `specs/016-security-sweep/pr-body.md`). `specs/017-terrain-relief-shading/` (terrain relief shading, issue #182) is in Phase 6 on this branch; per-task status is recorded in its `tasks.md` § Progress. See `specs/` for the full list.
 - **Open work**: see [GitHub issues](https://github.com/shaunburdick/europa-neo/issues) for the current backlog.
 - **Style**: Biome `>=2.5.0 <3`, Node `>=22`. Root config layers `biome-config-shaunburdick@1.0.0`. Per-package exception policies in `.specify/biome-migration.md`.
 
