@@ -62,13 +62,11 @@ function biomeZoneAt(index: number): (typeof BIOME_ZONES)[number] {
 }
 
 /**
- * Dark outline color for pipe triangles — guarantees contrast against
- * all biome backgrounds (spec 024 FR-010, FR-021).
- *
- * Against light backgrounds (Peaks, L=60–78%), provides ≥9:1 contrast.
- * Against dark backgrounds (Ice Plains, Fractured Ice, Rocky Outcrops),
- * the pipe fill colors themselves are perceptually distinct from terrain
- * hues and reinforced by triangle shape and cell-edge position.
+ * Dark outline for pipe triangles (spec 024 FR-010/FR-021). Composited over
+ * terrain it reaches ≈7.49:1 on the lightest painted land tile (Peaks light
+ * end, L=88) and ≈2.91–3.40:1 on the dark zones' midpoints — so the triangle
+ * is carried by shape and outline, not fill hue: three of the four fills sit
+ * within 9° of a zone hue and all measure ≈1.0–2.6:1 (DESIGN.md N-4, #199).
  */
 export const PIPE_OUTLINE_COLOR = TOKENS.color.pipeOutline;
 
