@@ -48,19 +48,20 @@
             "linter": { "rules": { "suspicious": { "noBitwiseOperators": "off" } } }
         },
         {
-            // Contract mirror formatting is protected by byte-identity tests.
-            "includes": ["contracts/**"],
+            // Contract mirrors keep their upstream formatting verbatim
+            // (no formatter or import-sorting churn on the mirrors).
+            "includes": ["src/contracts/**"],
             "formatter": { "enabled": false },
             "assist": { "actions": { "source": { "organizeImports": "off" } } }
         },
         {
             // Published defaults are protocol constants and must remain byte-identical.
-            "includes": ["contracts/match-types.ts"],
+            "includes": ["src/contracts/match-types.ts"],
             "linter": { "rules": { "style": { "noMagicNumbers": "off" } } }
         },
         {
             // Contract mirrors retain upstream array and import shapes verbatim.
-            "includes": ["contracts/match-types.ts", "contracts/matchmaking-api.ts"],
+            "includes": ["src/contracts/match-types.ts", "src/contracts/matchmaking-api.ts"],
             "linter": {
                 "rules": {
                     "correctness": { "noUnusedImports": "off" },

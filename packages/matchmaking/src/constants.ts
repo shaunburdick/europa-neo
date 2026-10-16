@@ -15,8 +15,8 @@
  * Pure module: no clock reads, no randomness (constitution Principle II).
  */
 
-import type { BoardSizeDefault, MatchmakerConstants } from '../contracts/match-types';
-import type { MatchmakerConfig } from '../contracts/matchmaking-api';
+import type { BoardSizeDefault, MatchmakerConstants } from './contracts/match-types';
+import type { MatchmakerConfig } from './contracts/matchmaking-api';
 
 /**
  * Default matchmaker constants (single source of truth).

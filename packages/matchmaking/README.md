@@ -115,10 +115,13 @@ surface — see `src/engineSession.ts` for the documented deviation):
 
 Everything below is re-exported from `src/index.ts` (see
 `dist/index.d.ts` after build); the source-of-truth contracts live at
-`contracts/match-types.ts` and `contracts/matchmaking-api.ts` —
-byte-identical mirrors of
-`specs/006-match-lifecycle-matchmaking/contracts/`, with
-drift caught by `tests/conformance.test.ts`.
+`src/contracts/` (`match-types.ts`, `matchmaking-api.ts`, plus the
+feature-010 `lobby-api.ts`/`lobby-types.ts` — the package's ONE
+contract directory since issue #145's unification, spec 006 v1.10
+FR-027). No spec-side `.ts` mirror exists (all were deleted by hygiene
+pass #160); drift against the documented surfaces is caught by the
+compiled witness program (`typecheck:conformance` over
+`tests/conformance.test.ts` + `tests/lobby-conformance.test.ts`).
 
 ### Factory & lifecycle
 

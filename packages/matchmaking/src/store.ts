@@ -16,7 +16,7 @@
 
 import type { MatchId } from '@europa/networking';
 
-import type { PlayerSessionId } from '../contracts/match-types';
+import type { PlayerSessionId } from './contracts/match-types';
 import type { MatchRecord } from './internal/matchRecord';
 import type { PlayerSession } from './internal/playerSession';
 

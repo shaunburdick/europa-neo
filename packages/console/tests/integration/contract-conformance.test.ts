@@ -39,7 +39,7 @@ import type { Order, World } from '@europa/engine';
 import { ENGINE_API_VERSION } from '@europa/engine';
 import type { PlayerView } from '@europa/fog';
 import { FOG_API_VERSION } from '@europa/fog';
-import { MATCHMAKING_API_VERSION } from '@europa/matchmaking/contracts/match-types';
+import { MATCHMAKING_API_VERSION } from '@europa/matchmaking';
 import type { ConnectionState, MatchClient } from '@europa/networking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { TERRAIN_API_VERSION } from '@europa/terrain';
@@ -354,7 +354,7 @@ const API_VERSION_SOURCES: Readonly<Record<string, string>> = {
     ENGINE_API_VERSION: 'packages/core/src/types.ts',
     TERRAIN_API_VERSION: 'packages/terrain/src/contracts/terrain-types.ts',
     FOG_API_VERSION: 'packages/fog/src/contracts/fog-types.ts',
-    MATCHMAKING_API_VERSION: 'packages/matchmaking/contracts/match-types.ts',
+    MATCHMAKING_API_VERSION: 'packages/matchmaking/src/contracts/match-types.ts',
     NETWORK_API_VERSION: 'packages/networking/src/contracts/network-types.ts',
     CONSOLE_API_VERSION: 'packages/console/src/contracts/console-types.ts',
 };

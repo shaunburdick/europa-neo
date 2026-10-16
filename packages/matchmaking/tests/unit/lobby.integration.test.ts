@@ -40,8 +40,6 @@
 
 import type { ConnectionId, SessionToken } from '@europa/networking';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { MatchId } from '../../contracts/match-types';
-import type { Matchmaker } from '../../contracts/matchmaking-api';
 import type { LobbyService, Result } from '../../src/contracts/lobby-api';
 import type {
     GuestPlayerId,
@@ -50,6 +48,8 @@ import type {
     LobbyErrorCode,
     LobbyEvent,
 } from '../../src/contracts/lobby-types';
+import type { MatchId } from '../../src/contracts/match-types';
+import type { Matchmaker } from '../../src/contracts/matchmaking-api';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { createIdentityRegistry, type IdentityRegistry } from '../../src/internal/identityRegistry';
 import { createLobbyService, type LobbyConnectionTeardown } from '../../src/internal/lobbyService';

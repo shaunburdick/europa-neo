@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { MatchVisibility } from '../../contracts/match-types';
+import type { MatchVisibility } from '../../src/contracts/match-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../../src/index';
 import { FakeServer } from '../fixtures/fakeServer';
 

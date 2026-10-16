@@ -31,7 +31,7 @@ import type {
     MatchVisibility,
     PlayerSessionId,
     SeatIndex,
-} from '../../contracts/match-types';
+} from '../contracts/match-types';
 import type { SeatRecord } from './seatRecord';
 
 /**

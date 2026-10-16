@@ -18,10 +18,18 @@ pnpm lint
 pnpm format:check
 echo ""
 
-# Phase 3: Console conformance (mirrors console-lint)
-# Conformance test imports from source (src/index) — no build needed.
-echo "--- Phase 3: Console conformance ---"
+# Phase 3: Conformance programs (008 FR-029/FR-030). Each contract-bearing
+# package ships a dedicated strict `tsc -p tsconfig.conformance.json` run
+# that compiles its contract-conformance witness test file(s) alongside
+# src/ — a vitest run does NOT type-check, so the witnesses only prove
+# anything when this program compiles them. Console imports conformance
+# from source (src/index) — no build needed; the library programs
+# compile against the workspace dists built in Phase 1.
+echo "--- Phase 3: Conformance programs ---"
 pnpm --filter @europa/console typecheck:conformance
+pnpm --filter @europa/networking typecheck:conformance
+pnpm --filter @europa/fog typecheck:conformance
+pnpm --filter @europa/matchmaking typecheck:conformance
 echo ""
 
 # Phase 4: Design system guards (mirrors console-lint)
@@ -39,6 +47,28 @@ pnpm --filter @europa/console test:determinism
 pnpm --filter @europa/console test:parity
 pnpm --filter @europa/console test:keepalive
 pnpm --filter @europa/console test:lobby-integration
+echo ""
+
+# Phase 5b: Console CI-parity integration gates (008 FR-024). CI runs the
+# first three suites only through the coverage config's NODE project
+# (client-ci console-coverage job) and contract-conformance in the
+# console-e2e job; invoked DIRECTLY here so a red suite fails `pnpm verify`
+# without re-running every suite Phases 5-6 already run, uninstrumented
+# (Gate 1 SHOULD-1). Bounded parity: exactly these gates, nothing more.
+echo "--- Phase 5b: Console CI-parity integration gates (FR-024) ---"
+pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/host-smoke-n-players.test.ts
+pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/semantic-route-security.test.ts
+pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/semantic-url-privacy.test.ts
+pnpm --filter @europa/console exec vitest run --config vitest.config.ts tests/integration/contract-conformance.test.ts
+echo ""
+
+# Phase 5c: CI-parity package gates (008 FR-024): core's coverage gate
+# (core-ci core-coverage job) and logging's test suite (logging-ci) run
+# in CI but in no other local gate. Remaining per-package coverage gates
+# are deliberately deferred (Out of Scope) to bound local wall-clock.
+echo "--- Phase 5c: CI-parity package gates (FR-024) ---"
+pnpm --filter @europa/core coverage
+pnpm --filter @europa/logging test
 echo ""
 
 # Phase 6: Console browser-mode tests (mirrors console-e2e)
@@ -98,6 +128,15 @@ echo ""
 # Phase 12: Spec consolidation guard (008 FR-013..FR-017)
 echo "--- Phase 12: Spec consolidation guard ---"
 pnpm exec tsx scripts/check-spec-consolidation.ts
+echo ""
+
+# Phase 13: Referenced-contract-file guard (008 FR-033). Fails on any
+# .ts file under specs/**/contracts/ not referenced by a test or source
+# file (imports AND explicit path-string mappings count). .md prose and
+# README files are exempt; the guard is vacuously green while no spec-side
+# .ts mirror exists (regression protection against re-introducing one).
+echo "--- Phase 13: Referenced-contract-file guard ---"
+pnpm exec tsx scripts/check-referenced-contract-files.ts
 echo ""
 
 echo "=== All verification checks passed ==="

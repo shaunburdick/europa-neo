@@ -13,9 +13,8 @@
 
 import type { Logger } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
-
-import type { MatchId, SessionToken } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
+import type { MatchId, SessionToken } from '../../src/contracts/match-types';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
 

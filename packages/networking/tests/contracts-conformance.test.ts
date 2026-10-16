@@ -48,6 +48,7 @@ import { describe, expect, it } from 'vitest';
 import type {
     ErrorPayload,
     GuestIdentityClaim,
+    GuestPlayerId,
     HelloAckPayload,
     HelloPayload,
     IdentityState,
@@ -62,6 +63,7 @@ import type {
     LobbyLeavePayload,
     LobbyRevision,
     LobbySetHandlePayload,
+    LobbySnapshot,
     LobbySpectatePayload,
     LobbySubscribePayload,
     MatchId,
@@ -551,14 +553,17 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
         // Absent-tolerance is the compatibility contract (D4): an older
         // peer omits the field entirely and both directions still parse.
         const bareClaim: GuestIdentityClaim = JSON.parse(
-            JSON.stringify({ guestPlayerId: 'Player000001', handle: 'Nova' } satisfies GuestIdentityClaim),
+            JSON.stringify({
+                guestPlayerId: 'Player000001' as GuestPlayerId,
+                handle: 'Nova',
+            } satisfies GuestIdentityClaim),
         ) as GuestIdentityClaim;
         expect(bareClaim).toEqual({ guestPlayerId: 'Player000001', handle: 'Nova' });
         expect(bareClaim.resumeSecret).toBeUndefined();
 
         const provenClaim: GuestIdentityClaim = JSON.parse(
             JSON.stringify({
-                guestPlayerId: 'Player000001',
+                guestPlayerId: 'Player000001' as GuestPlayerId,
                 handle: 'Nova',
                 resumeSecret: '2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10',
             } satisfies GuestIdentityClaim),
@@ -569,7 +574,7 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
             JSON.stringify({
                 handle: 'Nova',
                 hasIdentity: true,
-                guestPlayerId: 'Player000001',
+                guestPlayerId: 'Player000001' as GuestPlayerId,
             } satisfies IdentityState),
         ) as IdentityState;
         expect(bareState.resumeSecret).toBeUndefined();
@@ -578,7 +583,7 @@ describe('feature 010 lobby wire conformance (T-002)', () => {
             JSON.stringify({
                 handle: 'Nova',
                 hasIdentity: true,
-                guestPlayerId: 'Player000001',
+                guestPlayerId: 'Player000001' as GuestPlayerId,
                 resumeSecret: '2f0c3a1e-6d0b-4f3f-9d2b-7a1c5e8b4d10',
             } satisfies IdentityState),
         ) as IdentityState;

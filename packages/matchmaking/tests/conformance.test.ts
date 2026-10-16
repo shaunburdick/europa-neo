@@ -36,11 +36,11 @@
 
 import type { Order, PlayerId } from '@europa/engine';
 import { ENGINE_API_VERSION } from '@europa/engine';
-import type { EngineSession, MatchmakerBridge } from '@europa/networking';
+import type { EngineSession, MatchmakerBridge, RegisterMatchRequest } from '@europa/networking';
 import { NETWORK_API_VERSION } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
-import { MATCHMAKING_API_VERSION } from '../contracts/match-types';
+import { MATCHMAKING_API_VERSION } from '../src/contracts/match-types';
 import { createMatchmaker, MATCHMAKING_CONSTANTS } from '../src/index';
 import { FakeServer } from './fixtures/fakeServer';
 

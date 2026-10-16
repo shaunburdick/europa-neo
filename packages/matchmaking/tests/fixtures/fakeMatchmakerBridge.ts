@@ -41,7 +41,7 @@ import type {
     PlayerId,
     SessionToken,
 } from '@europa/networking';
-import type { JoinPath, LobbyEntry, MatchmakerStats } from '../../contracts/match-types';
+import type { JoinPath, LobbyEntry, MatchmakerStats } from '../../src/contracts/match-types';
 import type {
     AcceptRematchRequest,
     AcceptRematchResult,
@@ -57,7 +57,7 @@ import type {
     Matchmaker,
     RequestRematchRequest,
     RequestRematchResult,
-} from '../../contracts/matchmaking-api';
+} from '../../src/contracts/matchmaking-api';
 import { buildSeatAssignment, nextLobbyMatchId, nextPlayerId, nextSessionToken } from './lobbySnapshots';
 
 /**

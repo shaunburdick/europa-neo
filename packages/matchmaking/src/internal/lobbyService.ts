@@ -153,9 +153,6 @@
 import { compareUtf16 } from '@europa/engine';
 import { formatError, NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { ConnectionId, Logger, MatchId, MatchmakerBridge } from '@europa/networking';
-import type { MatchmakerError, MatchSettings, SeatAssignment } from '../../contracts/match-types';
-import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
-import type { Matchmaker } from '../../contracts/matchmaking-api';
 import type { LobbyService, MatchJoinTarget, Result, SpectatorTarget } from '../contracts/lobby-api';
 import type {
     GuestIdentityClaim,
@@ -173,6 +170,9 @@ import type {
     RosterSnapshot,
     RosterStatus,
 } from '../contracts/lobby-types';
+import type { MatchmakerError, MatchSettings, SeatAssignment } from '../contracts/match-types';
+import { DEFAULT_MATCH_SETTINGS } from '../contracts/match-types';
+import type { Matchmaker } from '../contracts/matchmaking-api';
 import type { MatchStatusChangedEvent } from '../eventBus';
 import type { MatchmakerCompositionSeam } from '../matchmaker';
 import { makeLobbyError } from './handleValidation';
