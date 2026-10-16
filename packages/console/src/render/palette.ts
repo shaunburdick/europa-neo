@@ -11,8 +11,8 @@
  *
  * Terrain shading uses 4 biome zones (spec 024 FR-001) with distinct hue
  * families replacing the retired single-hue 6-band system. Each zone maps
- * a contiguous elevation range to icy cyan / deep blue / blue-gray / cool
- * white, so terrain color communicates both elevation and pipe flow viability.
+ * a contiguous elevation range to blue / teal / orange / pale blue (hues
+ * 210 / 170 / 30 / 200); color carries elevation and pipe flow viability.
  * Contrast notes (WCAG 1.4.3/1.4.11) are documented in `DESIGN.md` and
  * pinned by `palette.test.ts`; owner identity is never conveyed by color
  * alone (constitution Principle VI).
