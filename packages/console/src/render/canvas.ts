@@ -23,6 +23,7 @@
  */
 
 import { filterEffectsForMotion } from '../qol/reduced-motion';
+import { coordKey, destinationCoord } from '../state/build-map-view';
 import type { CellRenderInfo, MapEffect, MapView } from '../state/types';
 import { drawMapLabels } from './label-overlay';
 import {
@@ -50,6 +51,14 @@ import {
     waterDepthForCell,
 } from './palette';
 import type { PipeSlope } from './pipe-slope';
+import {
+    linearTriple,
+    RELIEF_DIRECTIONS,
+    RELIEF_HIGHLIGHT_IS_DOWNHILL,
+    reliefBandColor,
+    reliefBandThickness,
+    reliefFraction,
+} from './relief';
 
 /** Fraction of the cell size used as the troop-disc radius. */
 const UNIT_RADIUS_RATIO = 0.32;
@@ -81,6 +90,13 @@ export interface PaintOptions {
      * flashing combat/capture effect markers entirely. Default `false`.
      */
     readonly reducedMotion?: boolean;
+    /**
+     * Paint delta-based edge relief (FR-001). `false` paints the
+     * relief-free control used by the 017 readback suite: the whole
+     * sub-pass is skipped. It does not restore the retired uniform
+     * inner shadow — FR-005 retires that unconditionally.
+     */
+    readonly relief?: boolean;
 }
 
 /**
@@ -102,10 +118,11 @@ export class MapCanvas {
      * @param mapView The immutable snapshot to paint.
      * @param ctx Target 2D context (its current transform is treated
      *            as identity over the board's pixel space).
-     * @param options Optional paint modifiers (reduced motion).
+     * @param options Optional paint modifiers (reduced motion, relief).
      */
     paint(mapView: MapView, ctx: CanvasRenderingContext2D, options?: PaintOptions): void {
         const reducedMotion = options?.reducedMotion === true;
+        const relief = options?.relief !== false;
         const { zoom } = mapView.camera;
         const { viewportOffset } = mapView;
         const canvasWidth = ctx.canvas.width;
@@ -137,13 +154,20 @@ export class MapCanvas {
         // batch all strokes into single paths, and minimize state operations.
 
         // Pre-compute once: cached land band colors and their dark variants
-        // eliminate ~5000 adjustBrightness regex calls per frame.
+        // eliminate ~5000 adjustBrightness regex calls per frame, and the
+        // same two colors per zone are held as linear-light triples for the
+        // relief sub-pass below.
         const landBandColors = new Map<number, string>();
         const landBandDarkColors = new Map<number, string>();
+        const lightEndLinear = new Map<number, readonly [number, number, number]>();
+        const darkEndLinear = new Map<number, readonly [number, number, number]>();
         for (let b = 0; b < LAND_BAND_COUNT; b++) {
             const color = landBandColor(b);
+            const darkColor = this.adjustBrightness(color, -15);
             landBandColors.set(b, color);
-            landBandDarkColors.set(b, this.adjustBrightness(color, -15));
+            landBandDarkColors.set(b, darkColor);
+            lightEndLinear.set(b, linearTriple(color));
+            darkEndLinear.set(b, linearTriple(darkColor));
         }
 
         // Pre-compute once: water gradient stop color variants per depth tier.
@@ -219,26 +243,42 @@ export class MapCanvas {
             ctx.fillRect(x, y, zoom, zoom);
         }
 
-        // Sub-pass 1d: batched land inner shadows — all dark edges in one
-        // fillStyle assignment, then all light edges. Eliminates per-cell
-        // save/restore and repeated fillStyle assignments.
-        // design-exception: canvas fallback
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-        for (const info of mapView.cells.values()) {
-            if (info.terrain !== 'land') continue;
-            const x = info.coord.x * zoom;
-            const y = info.coord.y * zoom;
-            ctx.fillRect(x, y, zoom, 1);
-            ctx.fillRect(x, y, 1, zoom);
-        }
-        // design-exception: canvas fallback
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-        for (const info of mapView.cells.values()) {
-            if (info.terrain !== 'land') continue;
-            const x = info.coord.x * zoom;
-            const y = info.coord.y * zoom;
-            ctx.fillRect(x, y + zoom - 1, zoom, 1);
-            ctx.fillRect(x + zoom - 1, y, 1, zoom);
+        // Sub-pass 1d: delta-based edge relief (FR-001). Per tile and
+        // direction, an opaque band inside the tile's own rect whose colour
+        // encodes the sign and magnitude of the elevation delta against the
+        // visible land neighbour's elevation (FR-002/FR-003).
+        if (relief) {
+            const thickness = reliefBandThickness(zoom);
+            for (const info of mapView.cells.values()) {
+                if (info.terrain !== 'land') continue;
+                const x = info.coord.x * zoom;
+                const y = info.coord.y * zoom;
+                const band = landBandIndex(info.elevation);
+                for (const direction of RELIEF_DIRECTIONS) {
+                    const dst = destinationCoord(info.coord, direction);
+                    // Off-board, absent (fog-hidden), water, and zero-delta
+                    // neighbours are all neutral (FR-004): no band, no
+                    // synthesized neighbour elevation.
+                    if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
+                    const neighbour = mapView.cells.get(coordKey(dst));
+                    if (neighbour === undefined || neighbour.terrain !== 'land') continue;
+                    if (neighbour.elevation === info.elevation) continue;
+                    const downhill = neighbour.elevation < info.elevation;
+                    const highlight = downhill === RELIEF_HIGHLIGHT_IS_DOWNHILL;
+                    const base = highlight
+                        ? (lightEndLinear.get(band) ?? linearTriple(landBandColor(band)))
+                        : (darkEndLinear.get(band) ?? linearTriple(this.adjustBrightness(landBandColor(band), -15)));
+                    ctx.fillStyle = reliefBandColor(
+                        base,
+                        reliefFraction(neighbour.elevation - info.elevation),
+                        highlight,
+                    );
+                    if (direction === 'N') ctx.fillRect(x, y, zoom, thickness);
+                    else if (direction === 'S') ctx.fillRect(x, y + zoom - thickness, zoom, thickness);
+                    else if (direction === 'W') ctx.fillRect(x, y, thickness, zoom);
+                    else ctx.fillRect(x + zoom - thickness, y, thickness, zoom);
+                }
+            }
         }
 
         // Sub-pass 1e: batched contour hints — ALL contour diagonal lines
