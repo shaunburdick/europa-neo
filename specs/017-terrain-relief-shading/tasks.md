@@ -158,7 +158,10 @@ per-`MapCanvas` memo of `reliefBandColor` keyed `zone:sign:delta` — and re-mea
 path also adds a unit assertion in `relief.test.ts` that a memoised call returns the
 identical string to a direct call for the same key**, and re-runs AC-008's repeat-paint
 byte identity. Also run `test:determinism` to confirm
-the golden hash is unchanged.
+the golden hash is unchanged. The `reliefBandColor` memo in the paragraph above was superseded by an
+explicit user decision (plan D7 "Superseded, then measured"): the fix is the sub-pass 1d painter
+redesign (per-direction, one `fill()` per distinct colour over a path of `rect`s), and the memo was
+not added.
 **Traces**: NFR-001, FR-010 · AC-008, AC-010.
 **Done when**: `test:perf` green with Q-P01 unchanged and Q-P05 under budget, with the
 `[perf]` line captured for the PR body; `test:determinism` green, hash unchanged.
@@ -308,7 +311,7 @@ Status record for T001–T013 on `issue-182-tile-shading`, with the commit each 
 - **T005** — done (`5f82b87`, landed with T006).
 - **T006** — done (`5f82b87`).
 - **T007** — done (`208790f`).
-- **T008** — **blocked**: the 48×48 relief-enabled fixture measures 40.4 ms min-round-median against the 8 ms budget; `tests/integration/perf.test.ts` is unchanged at HEAD and the task is unimplemented, awaiting a PM decision on the gate.
+- **T008** — done (this commit): Q-P05 added to `tests/integration/perf.test.ts`. The 40.4 ms figure was **not** relief's cost — it came from a 48×48 fixture carrying the unit/pipe/city layers (~50 ms with relief off too). The plan's all-land fixture measured **8.5 ms** min-of-round-medians pre-redesign; the user-authorised painter redesign (sub-pass 1d collects per direction and fills one path per distinct colour — 20 colours for 9,024 bands) brings it to **5.9 ms** min / 6.0 ms p50, under the 8 ms budget. The 48×48 render is byte-identical (FNV 822558018 before and after, reversed-`Map` order included), `test:unit` / `test:component` / `test:determinism` green. The D7 memo fallback was not used. `canvas-terrain.test.ts`'s recording mock was updated to record `rect()`+`fill()` as well as `fillRect` (the pinned `#f9fafb` / `#646c70` assertion lines are unchanged).
 - **T009** — done (`9de4dbc`).
 - **T010** — done (`3319399`).
 - **T011** — done (`5c9bfe4`).

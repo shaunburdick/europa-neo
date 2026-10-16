@@ -39,12 +39,15 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CAMERA } from '../../src/config';
 import { MapCanvas } from '../../src/render/canvas';
-import { buildMapView } from '../../src/state/build-map-view';
+import { LAND_BAND_COUNT, landBandIndex } from '../../src/render/palette';
+import { RELIEF_DIRECTIONS } from '../../src/render/relief';
+import { buildMapView, coordKey, destinationCoord } from '../../src/state/build-map-view';
 import { localPreflightOrder } from '../../src/state/local-preflight';
 import { INITIAL_CONSOLE_STATE, reduce } from '../../src/state/reducer';
 import type {
     CellView,
     ConsoleState,
+    Direction,
     MapView,
     MapViewId,
     PlayerAction,
@@ -276,6 +279,61 @@ function liveState(): ConsoleState {
     };
 }
 
+/** Board edge for the relief paint benchmark (48×48 = 2,304 cells). */
+const RELIEF_PERF_BOARD = 48;
+
+/**
+ * Full-visibility, all-land 48×48 `PlayerView` for Q-P05 (NFR-001):
+ * elevations `(x*7 + y*13) % 256` give every zone a non-zero delta
+ * against a neighbour. It carries no units, pipes, or cities — Q-P05
+ * measures relief's per-tile cost on the largest board, whereas Q-P01
+ * already covers the unit/pipe/city layers on its own fixture. Pure.
+ */
+function buildReliefBoardView(): PlayerView {
+    const visibleCells: CellView[] = [];
+    for (let y = 0; y < RELIEF_PERF_BOARD; y += 1) {
+        for (let x = 0; x < RELIEF_PERF_BOARD; x += 1) {
+            visibleCells.push({
+                coord: { x, y },
+                cell: { x, y, elevation: (x * 7 + y * 13) % 256, terrain: 'land' },
+                troopCount: 0,
+                troopOwner: null,
+                pipes: new Set<Direction>(),
+                reservesPercent: 0,
+                cityOwner: null,
+            });
+        }
+    }
+    return {
+        player: TEST_PLAYER_1,
+        tick: 1,
+        visibleCells,
+        events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
+        config: {
+            boardSize: RELIEF_PERF_BOARD,
+            playerIds: [TEST_PLAYER_1, TEST_PLAYER_2],
+            tickIntervalMs: 250,
+            seed: 0,
+            visibilityRadius: 2,
+        },
+    };
+}
+
+/** Derive the paint-target `MapView` for the relief fixture. Pure. */
+function buildReliefBoardMapView(): MapView {
+    return buildMapView({
+        id: 'mv-perf-relief' as MapViewId,
+        view: buildReliefBoardView(),
+        camera: DEFAULT_CAMERA,
+        hover: null,
+        selection: null,
+        exclusiveMode: false,
+        prevView: null,
+        nowMs: 250,
+        viewportOffset: { x: 0, y: 0 },
+    });
+}
+
 describe('perf budgets (T091 / SC-003)', () => {
     it('Q-P01: full-board paint stays under the 8 ms frame budget', { timeout: 120_000 }, () => {
         const mapView = buildFullBoardMapView();
@@ -356,5 +414,45 @@ describe('perf budgets (T091 / SC-003)', () => {
                 `(budget ${PREFLIGHT_BUDGET_MS * 1000}µs)`,
         );
         expectUnderBudget(result, PREFLIGHT_BUDGET_MS);
+    });
+
+    it('Q-P05: relief-enabled 48×48 board stays under the 8 ms frame budget', { timeout: 120_000 }, () => {
+        const mapView = buildReliefBoardMapView();
+        // NFR-001's fixture contract: every zone carries a non-zero delta, so
+        // the benchmark cannot silently stop exercising the relief sub-pass.
+        const zonesWithDelta = new Set<number>();
+        for (const info of mapView.cells.values()) {
+            for (const direction of RELIEF_DIRECTIONS) {
+                const neighbour = mapView.cells.get(coordKey(destinationCoord(info.coord, direction)));
+                if (neighbour !== undefined && neighbour.elevation !== info.elevation) {
+                    zonesWithDelta.add(landBandIndex(info.elevation));
+                }
+            }
+        }
+        expect(zonesWithDelta.size).toBe(LAND_BAND_COUNT);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = mapView.width * mapView.camera.zoom;
+        canvas.height = mapView.height * mapView.camera.zoom;
+        const ctx = canvas.getContext('2d');
+        expect(ctx, 'browser canvas 2D context').not.toBeNull();
+        if (ctx === null) {
+            return;
+        }
+        const painter = new MapCanvas();
+        const paintBudgetMs = PAINT_BUDGET_MS * readPaintBudgetFactor();
+        const result = benchmark({
+            name: 'paintFrame(48×48 relief full board)',
+            run: () => painter.paint(mapView, ctx, { reducedMotion: true }),
+            warmup: 25,
+            rounds: 5,
+            samples: 40,
+        });
+        console.warn(
+            `[perf] ${result.name}: min-round-median ${result.minRoundMedianMs.toFixed(3)}ms, ` +
+                `p50 ${result.p50Ms.toFixed(3)}ms, p99 ${result.p99Ms.toFixed(3)}ms ` +
+                `(budget ${paintBudgetMs}ms)`,
+        );
+        expectUnderBudget(result, paintBudgetMs);
     });
 });

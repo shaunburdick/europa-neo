@@ -24,7 +24,7 @@
 
 import { filterEffectsForMotion } from '../qol/reduced-motion';
 import { coordKey, destinationCoord } from '../state/build-map-view';
-import type { CellRenderInfo, MapEffect, MapView } from '../state/types';
+import type { CellRenderInfo, Direction, MapEffect, MapView } from '../state/types';
 import { drawMapLabels } from './label-overlay';
 import {
     CAPTURE_EFFECT_COLOR,
@@ -80,6 +80,31 @@ function pipeSlopeColor(slope: PipeSlope): string {
             return PIPE_UPHILL_COLOR;
         case 'stalled':
             return PIPE_STALLED_COLOR;
+    }
+}
+
+/** One relief band's rect, in board-pixel space. */
+interface BandRect {
+    readonly x: number;
+    readonly y: number;
+    readonly w: number;
+    readonly h: number;
+}
+
+/**
+ * The band rect for one edge direction, always inside the tile's own
+ * rect (plan D3): N/S span the full width, W/E the full height.
+ */
+function bandRect(direction: Direction, x: number, y: number, zoom: number, thickness: number): BandRect {
+    switch (direction) {
+        case 'N':
+            return { x, y, w: zoom, h: thickness };
+        case 'S':
+            return { x, y: y + zoom - thickness, w: zoom, h: thickness };
+        case 'W':
+            return { x, y, w: thickness, h: zoom };
+        case 'E':
+            return { x: x + zoom - thickness, y, w: thickness, h: zoom };
     }
 }
 
@@ -247,8 +272,21 @@ export class MapCanvas {
         // direction, an opaque band inside the tile's own rect whose colour
         // encodes the sign and magnitude of the elevation delta against the
         // visible land neighbour's elevation (FR-002/FR-003).
+        //
+        // Bands are collected per direction and filled one path per distinct
+        // colour (T008): a tile's bands never leave its own rect (FR-010
+        // confinement), so collecting direction-major and filling the four
+        // directions in RELIEF_DIRECTIONS order reproduces the per-tile
+        // overlap order exactly — every overlapping pair is between two
+        // bands of the *same* tile, and their relative order is unchanged.
         if (relief) {
             const thickness = reliefBandThickness(zoom);
+            const bandsByDirection: Record<Direction, Map<string, BandRect[]>> = {
+                N: new Map(),
+                E: new Map(),
+                S: new Map(),
+                W: new Map(),
+            };
             for (const info of mapView.cells.values()) {
                 if (info.terrain !== 'land') continue;
                 const x = info.coord.x * zoom;
@@ -268,15 +306,32 @@ export class MapCanvas {
                     const base = highlight
                         ? (lightEndLinear.get(band) ?? linearTriple(landBandColor(band)))
                         : (darkEndLinear.get(band) ?? linearTriple(this.adjustBrightness(landBandColor(band), -15)));
-                    ctx.fillStyle = reliefBandColor(
+                    const colour = reliefBandColor(
                         base,
                         reliefFraction(neighbour.elevation - info.elevation),
                         highlight,
                     );
-                    if (direction === 'N') ctx.fillRect(x, y, zoom, thickness);
-                    else if (direction === 'S') ctx.fillRect(x, y + zoom - thickness, zoom, thickness);
-                    else if (direction === 'W') ctx.fillRect(x, y, thickness, zoom);
-                    else ctx.fillRect(x + zoom - thickness, y, thickness, zoom);
+                    const colours = bandsByDirection[direction];
+                    const existing = colours.get(colour);
+                    const rect = bandRect(direction, x, y, zoom, thickness);
+                    if (existing === undefined) {
+                        colours.set(colour, [rect]);
+                    } else {
+                        existing.push(rect);
+                    }
+                }
+            }
+            for (const direction of RELIEF_DIRECTIONS) {
+                // Within one direction the rects are pairwise disjoint (one band
+                // per tile, and tiles do not overlap), so the fill order is
+                // immaterial to the result.
+                for (const [colour, rects] of bandsByDirection[direction]) {
+                    ctx.fillStyle = colour;
+                    ctx.beginPath();
+                    for (const rect of rects) {
+                        ctx.rect(rect.x, rect.y, rect.w, rect.h);
+                    }
+                    ctx.fill();
                 }
             }
         }

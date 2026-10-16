@@ -49,6 +49,11 @@ function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
     const mocks = new Map<string | symbol, ReturnType<typeof vi.fn>>();
     const props = new Map<string | symbol, unknown>();
     const fills: RecordedFill[] = [];
+    // Sub-pass 1d batches relief bands into one path per distinct colour
+    // (T008), so a recorded fill can arrive either as `fillRect` or as
+    // `rect` calls flushed by `fill`. Track the open path so both land in
+    // `fills` with the same shape.
+    const pathRects: { x: number; y: number; width: number; height: number }[] = [];
     const gradient = {
         addColorStop: vi.fn(),
     };
@@ -77,6 +82,30 @@ function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
                                 height: fillHeight,
                                 fillStyle: props.get('fillStyle'),
                             });
+                        }),
+                    );
+                } else if (prop === 'rect') {
+                    mocks.set(
+                        prop,
+                        vi.fn((x: number, y: number, fillWidth: number, fillHeight: number) => {
+                            pathRects.push({ x, y, width: fillWidth, height: fillHeight });
+                        }),
+                    );
+                } else if (prop === 'beginPath') {
+                    mocks.set(
+                        prop,
+                        vi.fn(() => {
+                            pathRects.length = 0;
+                        }),
+                    );
+                } else if (prop === 'fill') {
+                    mocks.set(
+                        prop,
+                        vi.fn(() => {
+                            for (const rect of pathRects) {
+                                fills.push({ ...rect, fillStyle: props.get('fillStyle') });
+                            }
+                            pathRects.length = 0;
                         }),
                     );
                 } else {
