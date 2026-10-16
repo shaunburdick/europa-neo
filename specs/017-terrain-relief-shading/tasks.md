@@ -1,6 +1,6 @@
 # Tasks: Terrain Relief Shading (Delta-Based Edge Bevels)
 
-**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.5) · **Plan**: `plan.md`
+**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.6) · **Plan**: `plan.md`
 **Branch**: `issue-182-tile-shading`
 **Tasks**: 13 (T001–T013). `[P]` marks tasks safe to run in parallel with the immediately
 preceding task (different files, no shared edit). One engineer pass; no orchestration.
@@ -178,8 +178,10 @@ dark zone midpoint (uphill ≈1.02–1.17, downhill ≈1.23–1.50, plus flat an
 two hue proximities (downhill green vs zone 1; flat amber vs zone 2), the water figure and
 its named referent (the shipped land ceiling `hsl(200 15% 95%)`), and the re-derived N-3
 figures (water vs void; zone 1 midpoint and darkest painted lightness); correct the
-`PIPE_OUTLINE_COLOR` comment (`palette.ts:68–72`). **Also assert AC-007's token-presence
-clause, which no running guard covers** (`check:no-literals` never reads `DESIGN.md`, and
+`PIPE_OUTLINE_COLOR` comment (`palette.ts:68–72`) and the module doc-comment's retired hue
+families (`palette.ts:12–15`, which spec v1.6's extended A-05 adds to this task). **Also
+assert AC-007's token-presence clause, which no running guard covers**
+(`check:no-literals` never reads `DESIGN.md`, and
 G-01/G-02 are deferred per 012's Scope Note): `TOKENS.color.reliefHighlight === '#ffffff'`
 and `TOKENS.color.reliefShadow === '#000000'`, **and** `DESIGN.md` § 1.1 names both — read
 the file at the repo root from the test's own location and assert both
@@ -311,10 +313,8 @@ Status record for T001–T013 on `issue-182-tile-shading`, with the commit each 
 - **T005** — done (`5f82b87`, landed with T006).
 - **T006** — done (`5f82b87`).
 - **T007** — done (`208790f`).
-- **T008** — done (`0a4eb44`): Q-P05 added to `tests/integration/perf.test.ts`. The 40.4 ms figure was **not** relief's cost — it came from a 48×48 fixture carrying the unit/pipe/city layers (~50 ms with relief off too). The plan's all-land fixture measured **8.5 ms** min-of-round-medians pre-redesign; the user-authorised painter redesign (sub-pass 1d collects per direction and fills one path per distinct colour — 20 colours for 9,024 bands) brings it to **5.9 ms** min / 6.0 ms p50, under the 8 ms budget. The 48×48 render is byte-identical (FNV 822558018 before and after, reversed-`Map` order included) — for that commit; the follow-up-2 batch below changes it. `test:unit` / `test:component` / `test:determinism` green. The D7 memo fallback was not used. `canvas-terrain.test.ts`'s recording mock was updated to record `rect()`+`fill()` as well as `fillRect` (the pinned `#f9fafb` / `#646c70` assertion lines are unchanged).
-- **T008 (follow-up)** — done: measured the batching gate against a high-variety delta fixture (quadratic `(x*97 + y*193 + x*x*29 + y*y*61 + x*y*113) % 256` — 250 distinct `|Δ|`, 822 distinct band colours, 2,813 `fill()` calls) — **8.1 ms** min / 8.7 ms p50, over the 8 ms budget, so the conservative fixture was **not** adopted and the low-variety formula (20 colours) stands. Plan D7 records the gate's sensitivity and that Q-P05 is deliberately bare. The perf fixture and all other suites are unchanged.
-- **T008 (follow-up 2)** — done (this commit): replaced the direction-major batching with one whole-sub-pass `Map<colour, BandRect[]>` painted one `fill()` per distinct colour in sorted-key order (`src/render/canvas.ts` only). On the conservative fixture that cuts the fills 2,813 → 822, but the cost stays at **8.0 ms** median min-of-round-medians (ten runs 7.3–8.5) — still over budget — so the conservative fixture is **not** adopted and `perf.test.ts` keeps the low-variety formula (5.9 ms min / 6.1 ms p50). The render hash moves (low-variety `822558018 → 3626700548`, conservative `3993118782 → 2135220419`), verified confined to same-tile `t × t` corner overlaps: no mid-axis sample moves, nothing differs outside a tile's own four corners, and every asserted pixel holds (`test:unit` / `test:component` / `test:determinism` all green).
-- **T009** — done (`9de4dbc`).
+- **T008** — done (`0a4eb44`, `2ddbe0b`; D7 recorded in `7f6730c`). Q-P05 (48×48 relief-enabled all-land, `(x*7 + y*13) % 256`) meets the 8 ms budget at **5.9 ms** min / 6.1 ms p50, but **on the low-variety fixture only** (4 distinct `|Δ|`, 20 band colours). The representative high-variety fixture (`(x*97 + y*193 + x*x*29 + y*y*61 + x*y*113) % 256`) was **not** adopted and measures **8.0 ms** median min-of-round-medians (ten runs 7.3–8.5) — over budget, so the gate does not cover a varied delta distribution. The win is the whole-sub-pass batch in sub-pass 1d (one `fill()` per distinct colour over one path of `rect`s; the D7 memo was not used). The render hash moves, confined to same-tile `t × t` corner overlaps with no asserted pixel changed. `test:unit` / `test:component` / `test:determinism` green.
+- **T009** — done (`9de4dbc`); the A-05 module doc-comment (`palette.ts:12–15`) was missed there and is fixed (`5c8f5d7`), spec v1.6 having extended A-05 to cover its retired hue families.
 - **T010** — done (`3319399`).
 - **T011** — done (`5c9bfe4`).
 - **T012** — done (`7ec4b19`).
