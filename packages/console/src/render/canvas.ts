@@ -179,20 +179,13 @@ export class MapCanvas {
         // batch all strokes into single paths, and minimize state operations.
 
         // Pre-compute once: cached land band colors and their dark variants
-        // eliminate ~5000 adjustBrightness regex calls per frame, and the
-        // same two colors per zone are held as linear-light triples for the
-        // relief sub-pass below.
+        // eliminate ~5000 adjustBrightness regex calls per frame.
         const landBandColors = new Map<number, string>();
         const landBandDarkColors = new Map<number, string>();
-        const lightEndLinear = new Map<number, readonly [number, number, number]>();
-        const darkEndLinear = new Map<number, readonly [number, number, number]>();
         for (let b = 0; b < LAND_BAND_COUNT; b++) {
             const color = landBandColor(b);
-            const darkColor = this.adjustBrightness(color, -15);
             landBandColors.set(b, color);
-            landBandDarkColors.set(b, darkColor);
-            lightEndLinear.set(b, linearTriple(color));
-            darkEndLinear.set(b, linearTriple(darkColor));
+            landBandDarkColors.set(b, this.adjustBrightness(color, -15));
         }
 
         // Pre-compute once: water gradient stop color variants per depth tier.
@@ -282,36 +275,40 @@ export class MapCanvas {
         if (relief) {
             const thickness = reliefBandThickness(zoom);
             const bandsByColour = new Map<string, BandRect[]>();
-            for (const info of mapView.cells.values()) {
-                if (info.terrain !== 'land') continue;
-                const x = info.coord.x * zoom;
-                const y = info.coord.y * zoom;
-                const band = landBandIndex(info.elevation);
-                for (const direction of RELIEF_DIRECTIONS) {
-                    const dst = destinationCoord(info.coord, direction);
-                    // Off-board, absent (fog-hidden), water, and zero-delta
-                    // neighbours are all neutral (FR-004): no band, no
-                    // synthesized neighbour elevation.
-                    if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
-                    const neighbour = mapView.cells.get(coordKey(dst));
-                    if (neighbour === undefined || neighbour.terrain !== 'land') continue;
-                    if (neighbour.elevation === info.elevation) continue;
-                    const downhill = neighbour.elevation < info.elevation;
-                    const highlight = downhill === RELIEF_HIGHLIGHT_IS_DOWNHILL;
-                    const base = highlight
-                        ? (lightEndLinear.get(band) ?? linearTriple(landBandColor(band)))
-                        : (darkEndLinear.get(band) ?? linearTriple(this.adjustBrightness(landBandColor(band), -15)));
-                    const colour = reliefBandColor(
-                        base,
-                        reliefFraction(neighbour.elevation - info.elevation),
-                        highlight,
-                    );
-                    const existing = bandsByColour.get(colour);
-                    const rect = bandRect(direction, x, y, zoom, thickness);
-                    if (existing === undefined) {
-                        bandsByColour.set(colour, [rect]);
-                    } else {
-                        existing.push(rect);
+            // Each zone's two gradient ends as linear-light triples — relief's
+            // own base (D5). Built here so the relief-free control never pays
+            // for them, and held per zone as locals so the band loop needs no
+            // keyed lookup.
+            for (let band = 0; band < LAND_BAND_COUNT; band++) {
+                const lightEnd = linearTriple(landBandColor(band));
+                const darkEnd = linearTriple(this.adjustBrightness(landBandColor(band), -15));
+                for (const info of mapView.cells.values()) {
+                    if (info.terrain !== 'land' || landBandIndex(info.elevation) !== band) continue;
+                    const x = info.coord.x * zoom;
+                    const y = info.coord.y * zoom;
+                    for (const direction of RELIEF_DIRECTIONS) {
+                        const dst = destinationCoord(info.coord, direction);
+                        // Off-board, absent (fog-hidden), water, and zero-delta
+                        // neighbours are all neutral (FR-004): no band, no
+                        // synthesized neighbour elevation.
+                        if (dst.x < 0 || dst.x >= mapView.width || dst.y < 0 || dst.y >= mapView.height) continue;
+                        const neighbour = mapView.cells.get(coordKey(dst));
+                        if (neighbour === undefined || neighbour.terrain !== 'land') continue;
+                        if (neighbour.elevation === info.elevation) continue;
+                        const downhill = neighbour.elevation < info.elevation;
+                        const highlight = downhill === RELIEF_HIGHLIGHT_IS_DOWNHILL;
+                        const colour = reliefBandColor(
+                            highlight ? lightEnd : darkEnd,
+                            reliefFraction(neighbour.elevation - info.elevation),
+                            highlight,
+                        );
+                        const rect = bandRect(direction, x, y, zoom, thickness);
+                        const existing = bandsByColour.get(colour);
+                        if (existing === undefined) {
+                            bandsByColour.set(colour, [rect]);
+                        } else {
+                            existing.push(rect);
+                        }
                     }
                 }
             }
