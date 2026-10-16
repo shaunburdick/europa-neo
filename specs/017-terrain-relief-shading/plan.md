@@ -1,6 +1,6 @@
 # Implementation Plan: Terrain Relief Shading (Delta-Based Edge Bevels)
 
-**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.5) · **Branch**: `issue-182-tile-shading`
+**Feature**: `specs/017-terrain-relief-shading/spec.md` (v1.7) · **Branch**: `issue-182-tile-shading`
 **Plan status**: draft for Gate 2 · **Date**: 2026-10-16
 
 ## 1. Summary
@@ -212,4 +212,4 @@ Spec § Out of Scope applies unchanged — nothing it excludes comes back. Revie
 
 ## 8. Spec version
 
-Written against `spec.md` **v1.5**. v1.5 corrected the two clauses this plan's earlier draft had flagged (AC-005's binding band is the Peaks `|Δ| = 209` band, and Clarifications records that the highlight/shadow sign constant is *forced*), so those corrections are now the spec's own text and D4/D5 cite them instead of reporting them. A-03's figures remain the only numbers still marked provisional in the spec; D9 derives them from the token-reading test before T011 transcribes them.
+Written against `spec.md` **v1.7**. v1.5's two corrections (AC-005's binding band is the Peaks `|Δ| = 209` band, and Clarifications records that the highlight/shadow sign constant is *forced*), v1.6's Phase 6 text corrections, and v1.7's NFR-001 re-pin are the spec's own text, which D4/D5 and D7 cite rather than reconcile. A-03's figures remain the only numbers still marked provisional in the spec; D9 derives them from the token-reading test before T011 transcribes them.
