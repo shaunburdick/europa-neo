@@ -16,6 +16,7 @@
  * JSDoc references: Q-B08 + WCAG 4.1.3.
  */
 
+import { EuropaButton } from '@europa/design/components';
 import { Component, type ErrorInfo, type JSX } from 'react';
 
 /** Props for {@link ErrorBoundary}. */
@@ -63,15 +64,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                         The console hit an unexpected error and cannot continue rendering this match.
                     </p>
                     <pre className="europa-error-boundary__details">{error.message}</pre>
-                    <button
-                        type="button"
+                    <EuropaButton
+                        variant="secondary"
                         className="europa-error-boundary__reload europa-focus-ring"
                         onClick={() => {
                             window.location.reload();
                         }}
                     >
                         Reload
-                    </button>
+                    </EuropaButton>
                 </div>
             );
         }

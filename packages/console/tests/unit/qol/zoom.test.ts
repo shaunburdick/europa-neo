@@ -24,11 +24,14 @@ import {
     effectiveMaxZoom,
     pannedCamera,
     ZOOM_WHEEL_STEP,
+    ZoomPanController,
     zoomedCamera,
     zoomPercent,
 } from '../../../src/qol/zoom';
 import { computeViewportOffset } from '../../../src/render/viewport-offset';
-import type { CameraState } from '../../../src/state/types';
+import { INITIAL_CONSOLE_STATE } from '../../../src/state/reducer';
+import { createConsoleStore } from '../../../src/state/store';
+import type { CameraState, ConsoleState } from '../../../src/state/types';
 
 /** 16×16 board with the default camera. */
 const BOARD = { width: 16, height: 16 };
@@ -175,3 +178,106 @@ function viewportOnScreen(
         bottom: camera.pan.y + board.height * camera.zoom,
     };
 }
+
+describe('ZoomPanController attach/dispose idempotence (FR-047)', () => {
+    function liveState(): ConsoleState {
+        return {
+            ...INITIAL_CONSOLE_STATE,
+            status: 'live',
+            inputEnabled: true,
+            latestView: {
+                player: 1,
+                tick: 1,
+                visibleCells: [],
+                events: { combat: [], captures: [], eliminations: [], appliedOrders: [], errors: [] },
+                config: { boardSize: 16, playerCount: 2, tickIntervalMs: 250, seed: 0, visibilityRadius: 2 },
+            },
+            session: { ...INITIAL_CONSOLE_STATE.session, playerId: 1 },
+        };
+    }
+
+    test('attach() twice registers listeners once — one wheel notch is one setCamera dispatch', () => {
+        const element = document.createElement('div');
+        const store = createConsoleStore(liveState());
+        let dispatches = 0;
+        store.subscribe(() => {
+            dispatches += 1;
+        });
+        const controller = new ZoomPanController(element, store);
+        controller.attach();
+        controller.attach();
+
+        element.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, clientX: 64, clientY: 64 }));
+        expect(dispatches).toBe(1);
+        expect(store.getState().camera.zoom).toBeCloseTo(32 * ZOOM_WHEEL_STEP, 10);
+    });
+
+    test('dispose() twice does not throw and removes every registered listener', () => {
+        const element = document.createElement('div');
+        const store = createConsoleStore(liveState());
+        let dispatches = 0;
+        store.subscribe(() => {
+            dispatches += 1;
+        });
+        const handle = new ZoomPanController(element, store).attach();
+        expect(() => {
+            handle.dispose();
+            handle.dispose();
+        }).not.toThrow();
+
+        element.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, clientX: 64, clientY: 64 }));
+        expect(dispatches).toBe(0);
+    });
+
+    test('dispose during a pan detaches the gesture listeners and a reattached gesture pans again', () => {
+        const element = document.createElement('div');
+        const tracked = new Map<string, number>();
+        const nativeAdd = element.addEventListener.bind(element);
+        const nativeRemove = element.removeEventListener.bind(element);
+        element.addEventListener = ((
+            type: string,
+            listener: EventListener,
+            options?: boolean | AddEventListenerOptions,
+        ) => {
+            nativeAdd(type, listener, options);
+            tracked.set(type, (tracked.get(type) ?? 0) + 1);
+        }) as unknown as typeof element.addEventListener;
+        element.removeEventListener = ((
+            type: string,
+            listener: EventListener,
+            options?: boolean | EventListenerOptions,
+        ) => {
+            nativeRemove(type, listener, options);
+            tracked.set(type, Math.max(0, (tracked.get(type) ?? 0) - 1));
+        }) as unknown as typeof element.removeEventListener;
+
+        const store = createConsoleStore(liveState());
+        let dispatches = 0;
+        store.subscribe(() => {
+            dispatches += 1;
+        });
+
+        const controller = new ZoomPanController(element, store);
+        const first = controller.attach();
+        element.dispatchEvent(new PointerEvent('pointerdown', { button: 1, clientX: 40, clientY: 40 }));
+        element.dispatchEvent(new PointerEvent('pointermove', { buttons: 4, clientX: 60, clientY: 40 }));
+        expect(dispatches).toBe(1);
+
+        first.dispose();
+        for (const type of ['wheel', 'pointerdown', 'pointermove', 'pointerup', 'pointercancel']) {
+            expect(tracked.get(type) ?? 0, type).toBe(0);
+        }
+
+        controller.attach();
+        element.dispatchEvent(new PointerEvent('pointerdown', { button: 1, clientX: 40, clientY: 40 }));
+        const beforeMove = dispatches;
+        element.dispatchEvent(new PointerEvent('pointermove', { buttons: 4, clientX: 80, clientY: 40 }));
+        expect(dispatches - beforeMove).toBe(1);
+        expect(store.getState().camera.pan.x).not.toBe(0);
+
+        element.dispatchEvent(new PointerEvent('pointerup', { button: 1 }));
+        for (const type of ['pointermove', 'pointerup', 'pointercancel']) {
+            expect(tracked.get(type) ?? 0, type).toBe(0);
+        }
+    });
+});

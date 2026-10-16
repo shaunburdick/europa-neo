@@ -1,3 +1,4 @@
+import { EuropaButton } from '@europa/design/components';
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
 
@@ -44,7 +45,7 @@ export function RouteNotice({
     }, [focusIdentity]);
 
     return (
-        <main id="main" className="europa-route-notice" data-europa-route-notice={kind}>
+        <main id="main" className="europa-route-notice" data-europa-route-notice={kind} tabIndex={-1}>
             <section
                 ref={noticeRef}
                 className="europa-route-notice__panel europa-focus-ring"
@@ -63,13 +64,21 @@ export function RouteNotice({
                 <p className="europa-route-notice__message">{message}</p>
                 <div className="europa-route-notice__actions">
                     {onRetry !== undefined ? (
-                        <button type="button" className="europa-lobby__button europa-focus-ring" onClick={onRetry}>
+                        <EuropaButton
+                            variant="secondary"
+                            className="europa-lobby__button europa-focus-ring"
+                            onClick={onRetry}
+                        >
                             Try again
-                        </button>
+                        </EuropaButton>
                     ) : null}
-                    <button type="button" className="europa-lobby__button europa-focus-ring" onClick={onReturnToLobby}>
+                    <EuropaButton
+                        variant="primary"
+                        className="europa-lobby__button europa-focus-ring"
+                        onClick={onReturnToLobby}
+                    >
                         Return to lobby
-                    </button>
+                    </EuropaButton>
                 </div>
             </section>
         </main>

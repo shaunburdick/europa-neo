@@ -335,3 +335,27 @@ describe('LobbyMatchList keyboard-only flow', () => {
         expect(onJoin).not.toHaveBeenCalled();
     });
 });
+
+describe('match list seat actions carry the europa-button marker (FR-043)', () => {
+    test('Join and Spectate are design-system buttons with their data passthrough', async () => {
+        const { onJoin, onSpectate } = seatCallbacks();
+        const screen = await render(
+            <LobbyMatchList
+                entries={PUBLIC_ENTRIES}
+                loading={false}
+                activeMatchId={null}
+                busy={false}
+                actionError={null}
+                onJoin={onJoin}
+                onSpectate={onSpectate}
+            />,
+        );
+
+        const seatButtons = Array.from(screen.container.querySelectorAll<HTMLButtonElement>('button'));
+        expect(seatButtons.length).toBeGreaterThan(0);
+        for (const button of seatButtons) {
+            expect(button.tagName).toBe('BUTTON');
+            expect(button.classList.contains('europa-button')).toBe(true);
+        }
+    });
+});

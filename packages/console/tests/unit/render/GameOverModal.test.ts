@@ -327,3 +327,14 @@ describe('App conditional rendering of GameOverModal (AC-009, AC-010)', () => {
         expect(title?.textContent).toBe('Chrome wins!');
     });
 });
+
+describe('game-over title bidi isolation (FR-044)', () => {
+    it('the winner title is wrapped in a <bdi> element', () => {
+        renderModal({ open: true, result: winResult, onReturnToLobby: () => undefined });
+
+        const title = document.getElementById('gameover-title');
+        const bdi = title?.querySelector('bdi');
+        expect(bdi).not.toBeNull();
+        expect(bdi?.textContent).toBe(`${TEST_PLAYER_1} wins!`);
+    });
+});

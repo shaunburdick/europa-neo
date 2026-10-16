@@ -27,7 +27,7 @@
 import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
-import { KeyboardNavigator } from '../a11y/keyboard';
+import { type FocusDirection, KeyboardNavigator } from '../a11y/keyboard';
 import { coordKey } from '../state/build-map-view';
 import type { CellRenderInfo, Coord, MapView, PlayerId } from '../state/types';
 import { CellView, cellElementId } from './cell-view';
@@ -91,7 +91,7 @@ export function GridOverlay({
     // notification below.
     useEffect(() => {
         if (mapView.selection !== null) {
-            setFocusedCoord(mapView.selection);
+            setFocusedCoord(resolveRenderedCell(mapView, mapView.selection));
         }
     }, [mapView.selection]);
 
@@ -128,7 +128,8 @@ export function GridOverlay({
         if (direction !== undefined) {
             event.preventDefault();
             const current = focusedCoord ?? keyboardNavigator.getInitialFocus(mapView.width, mapView.height);
-            moveRovingFocus(keyboardNavigator.moveFocus(current, direction, mapView));
+            const start = mapView.cells.has(coordKey(current)) ? current : resolveRenderedCell(mapView, current);
+            moveRovingFocus(snapInDirection(mapView, keyboardNavigator, start, direction));
             return;
         }
         if ((event.key === 'Enter' || event.key === ' ') && onCellClick !== undefined) {
@@ -152,7 +153,11 @@ export function GridOverlay({
                 height: mapView.height * zoom,
                 transform: `translate(${-viewportOffset.x}px, ${-viewportOffset.y}px)`,
             }}
-            aria-activedescendant={focusedCoord === null ? undefined : cellElementId(focusedCoord)}
+            aria-activedescendant={
+                focusedCoord === null || !mapView.cells.has(coordKey(focusedCoord))
+                    ? undefined
+                    : cellElementId(focusedCoord)
+            }
             onKeyDown={handleKeyDown}
             onFocus={() => {
                 if (focusedCoord === null) {
@@ -160,7 +165,10 @@ export function GridOverlay({
                     // the player clicked a cell, then Tabbed in); otherwise the
                     // board center per KeyboardNavigator's contract.
                     moveRovingFocus(
-                        mapView.selection ?? keyboardNavigator.getInitialFocus(mapView.width, mapView.height),
+                        resolveRenderedCell(
+                            mapView,
+                            mapView.selection ?? keyboardNavigator.getInitialFocus(mapView.width, mapView.height),
+                        ),
                     );
                 }
             }}
@@ -208,4 +216,49 @@ const ARROW_DIRECTIONS: Readonly<Record<string, 'N' | 'S' | 'W' | 'E'>> = {
     ArrowDown: 'S',
     ArrowLeft: 'W',
     ArrowRight: 'E',
+};
+
+function snapInDirection(
+    mapView: MapView,
+    navigator: KeyboardNavigator,
+    current: Coord,
+    direction: FocusDirection,
+): Coord {
+    const delta = FOCUS_STEP_DELTAS[direction];
+    let next = navigator.moveFocus(current, direction, mapView);
+    while (!mapView.cells.has(coordKey(next)) && (next.x !== current.x || next.y !== current.y)) {
+        next = { x: next.x + delta.dx, y: next.y + delta.dy };
+        if (next.x < 0 || next.y < 0 || next.x >= mapView.width || next.y >= mapView.height) {
+            return current;
+        }
+    }
+    return mapView.cells.has(coordKey(next)) ? next : current;
+}
+
+function resolveRenderedCell(mapView: MapView, seed: Coord): Coord {
+    if (mapView.cells.has(coordKey(seed))) {
+        return seed;
+    }
+    for (const direction of SCAN_DIRECTIONS) {
+        const delta = FOCUS_STEP_DELTAS[direction];
+        for (let step = 1; step <= Math.max(mapView.width, mapView.height); step += 1) {
+            const candidate = { x: seed.x + delta.dx * step, y: seed.y + delta.dy * step };
+            if (candidate.x < 0 || candidate.y < 0 || candidate.x >= mapView.width || candidate.y >= mapView.height) {
+                break;
+            }
+            if (mapView.cells.has(coordKey(candidate))) {
+                return candidate;
+            }
+        }
+    }
+    return seed;
+}
+
+const SCAN_DIRECTIONS: readonly FocusDirection[] = ['N', 'W', 'S', 'E'];
+
+const FOCUS_STEP_DELTAS: Readonly<Record<FocusDirection, { readonly dx: number; readonly dy: number }>> = {
+    N: { dx: 0, dy: -1 },
+    W: { dx: -1, dy: 0 },
+    S: { dx: 0, dy: 1 },
+    E: { dx: 1, dy: 0 },
 };

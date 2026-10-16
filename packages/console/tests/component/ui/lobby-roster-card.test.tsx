@@ -36,7 +36,6 @@ afterEach(() => {
 function rosterOf(players: ReadonlyArray<RosterEntry>, connected = true): RosterState {
     return {
         players,
-        revision: connected ? 1 : null,
         connected,
     };
 }
@@ -68,7 +67,6 @@ describe('rosterHeadingText (T-048)', () => {
         expect(
             rosterHeadingText({
                 players: [entry('A'), entry('B'), entry('C')],
-                revision: 1,
                 connected: true,
             }),
         ).toBe('Players online (3)');
@@ -78,7 +76,6 @@ describe('rosterHeadingText (T-048)', () => {
         expect(
             rosterHeadingText({
                 players: [],
-                revision: 1,
                 connected: true,
             }),
         ).toBe('Players online (0)');
@@ -88,7 +85,6 @@ describe('rosterHeadingText (T-048)', () => {
         expect(
             rosterHeadingText({
                 players: [],
-                revision: null,
                 connected: false,
             }),
         ).toBe('Players online (?)');
@@ -199,5 +195,40 @@ describe('RosterCard (component)', () => {
 
         const items = screen.container.querySelectorAll('li');
         expect(items).toHaveLength(2);
+    });
+});
+
+describe('roster announcement baseline (FR-040)', () => {
+    test('the first snapshot announces nothing and a later join announces once', async () => {
+        const screen = await render(<RosterCard roster={rosterOf([entry('Alice')])} ownHandle={null} />);
+
+        const live = screen.container.querySelector('[data-europa-roster-live]');
+        expect(live?.textContent ?? '').not.toContain('joined the lobby');
+        expect(live?.textContent ?? '').not.toContain('left the lobby');
+
+        await screen.rerender(<RosterCard roster={rosterOf([entry('Alice'), entry('Zoe')])} ownHandle={null} />);
+
+        await expect.element(screen.getByText('Zoe joined the lobby.')).toBeVisible();
+        const joinedAnnouncements = Array.from(screen.container.querySelectorAll('[data-europa-roster-live]')).filter(
+            (node) => node.textContent?.includes('joined the lobby.'),
+        );
+        expect(joinedAnnouncements).toHaveLength(1);
+        const leftAnnouncements = Array.from(screen.container.querySelectorAll('[data-europa-roster-live]')).filter(
+            (node) => node.textContent?.includes('left the lobby.'),
+        );
+        expect(leftAnnouncements).toHaveLength(0);
+    });
+
+    test('a card that mounts disconnected seeds its baseline from the first snapshot', async () => {
+        const screen = await render(<RosterCard roster={rosterOf([], false)} ownHandle={null} />);
+
+        const live = screen.container.querySelector('[data-europa-roster-live]');
+        expect(live?.textContent ?? '').not.toContain('joined the lobby');
+
+        await screen.rerender(<RosterCard roster={rosterOf([entry('Alice'), entry('Bob')])} ownHandle={null} />);
+
+        const text = screen.container.querySelector('[data-europa-roster-live]')?.textContent ?? '';
+        expect(text).not.toContain('joined the lobby');
+        expect(text).not.toContain('left the lobby');
     });
 });
