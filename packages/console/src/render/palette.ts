@@ -87,6 +87,14 @@ export const PIPE_FLAT_COLOR = TOKENS.color.pipeFlat;
 export const PIPE_UPHILL_COLOR = TOKENS.color.pipeUphill;
 export const PIPE_STALLED_COLOR = TOKENS.color.pipeStalled;
 
+/**
+ * Relief band mix extremes (spec 017 FR-009) — canvas-only, not a UI
+ * surface: the light and dark values a delta-dependent land-tile edge
+ * band mixes toward.
+ */
+export const RELIEF_HIGHLIGHT_COLOR = TOKENS.color.reliefHighlight;
+export const RELIEF_SHADOW_COLOR = TOKENS.color.reliefShadow;
+
 /** Water shallow variant (design token). */
 export const WATER_SHALLOW_COLOR = TOKENS.color.waterShallow;
 
