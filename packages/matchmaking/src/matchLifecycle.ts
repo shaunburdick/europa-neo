@@ -40,8 +40,8 @@
 
 import { formatError } from '@europa/logging';
 import type { EngineSession, Logger, MatchId, Server } from '@europa/networking';
-import type { MatchResultsRecord, MatchSettings, MatchVisibility, SeatIndex } from '../contracts/match-types';
 import type { GuestPlayerId } from './contracts/lobby-types';
+import type { MatchResultsRecord, MatchSettings, MatchVisibility, SeatIndex } from './contracts/match-types';
 import type { MatchStatusChangedEvent } from './eventBus';
 import { createStatusBus } from './eventBus';
 import { newMatchSeed } from './idGen';

@@ -31,7 +31,7 @@ import type { PlayerView, VisibleSet } from '../src/types';
 // assignability aliases fail to typecheck.
 // ---------------------------------------------------------------------------
 
-type AssertMutuallyAssignable<A extends B, B extends A> = true;
+type AssertMutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
 
 type VisibleSetConforms = AssertMutuallyAssignable<VisibleSet, Contract.VisibleSet>;
 type PlayerViewConforms = AssertMutuallyAssignable<PlayerView, Contract.PlayerView>;

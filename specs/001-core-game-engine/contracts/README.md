@@ -2,9 +2,12 @@
 
 This directory contains specification documentation for the engine's boundary contracts.
 
-## Source of truth
+## Source of Truth
 
-TypeScript contract definitions live in `packages/engine/src/contracts/`. This directory holds the readable documentation describing what those contracts mean, their boundary rules, and versioning policy.
+The owning package's `.ts` file is the sole machine contract per seam (single-sourcing ruling,
+spec 001 v1.17 FR-027). This directory holds only documentation — no `.ts` file lives here and
+none may be recreated (the referenced-contract-file guard, spec 008 v1.4 FR-033, fails on any
+unreferenced `.ts` re-introduced under `specs/*/contracts/**`).
 
 ## Serialization boundary (spec 001 FR-024..FR-026, Clarifications v1.16 — issue #136)
 
@@ -15,24 +18,24 @@ TypeScript contract definitions live in `packages/engine/src/contracts/`. This d
 - **Strict decode (FR-025)**: `boardSize` (≥ 8), `playerCount` (2–4), coordinates, ID-table canonical order, owner bytes, pipe masks, reserves, terrain flags, and trailing bytes are all validated; malformed input throws `EngineFormatError`, never a coerced default. Encode throws `EngineSerializationError` on any unrepresentable value.
 - Wire layout: `data-model.md` §10 and the `packages/engine/src/serialize.ts` module header.
 
-## Contract files (documentation)
+## Contract files (shipped layout, verified 2026-10-13)
 
-This directory currently contains no standalone `.md` contract documents. The engine's contract surface is fully defined in `packages/engine/src/contracts/`:
+- `packages/engine/src/contracts/engine-types.ts` — core game types
+- `packages/engine/src/contracts/engine-api.ts` — engine API surface
+- `packages/core/src/flow-rate.ts` — the flow/constant seam: `FlowConstants`,
+  `DEFAULT_FLOW_CONSTANTS`, `EngineConstants`, `ENGINE_CONSTANTS`, `flowRateForDelta`
+  (`@europa/engine` re-exports the constants since issue #96; `@europa/core/tests/unit/flow-rate.test.ts`
+  pins the shipped symbol values)
+- `packages/fog/src/contracts/engine-to-fog.ts` — engine → fog boundary (owned by fog)
 
-- `engine-types.ts` — core game types
-- `engine-api.ts` — engine API surface and constants
-- `engine-to-matchmaking.ts` — engine → matchmaking boundary
-- `engine-to-terrain.ts` — engine → terrain boundary
-- `engine-to-fog.ts` — engine → fog boundary
-- `engine-to-networking.ts` — engine → networking boundary
-- `flow-rate.ts` — flow rate computation
-- `pipe-slope.ts` — pipe slope classification
-- `terrain-smoothing.ts` — terrain smoothing
+The other five files this README listed before 2026-10-13 do not exist anywhere and MUST NOT be
+recreated. Cross-package boundaries are pinned by compiled witnesses (spec 008 v1.4
+FR-029…FR-032), not by mirror copies.
 
 ## How to update
 
 When the engine's contract types change:
 
-1. Update `packages/engine/src/contracts/` (the implementation)
+1. Update the owning package's `.ts` file (the implementation)
 2. Update this documentation to reflect the change
 3. Run `pnpm verify` to confirm no breakage

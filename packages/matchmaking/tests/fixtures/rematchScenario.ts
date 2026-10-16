@@ -12,9 +12,9 @@
  * Pure test helper: no I/O, no timers.
  */
 
-import type { MatchId, MatchVisibility, SeatAssignment } from '../../contracts/match-types';
-import type { Matchmaker } from '../../contracts/matchmaking-api';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
+import type { MatchId, MatchVisibility, SeatAssignment } from '../../src/contracts/match-types';
+import type { Matchmaker } from '../../src/contracts/matchmaking-api';
 import { createMatchmaker } from '../../src/matchmaker';
 import { FakeServer } from './fakeServer';
 

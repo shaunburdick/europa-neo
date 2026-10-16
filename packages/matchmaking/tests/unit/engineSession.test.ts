@@ -14,8 +14,8 @@ import type { Board, Cell, CityPlacement } from '@europa/engine';
 import { ENGINE_CONSTANTS } from '@europa/engine';
 import { describe, expect, it } from 'vitest';
 
-import type { MatchSettings } from '../../contracts/match-types';
-import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
+import type { MatchSettings } from '../../src/contracts/match-types';
+import { DEFAULT_MATCH_SETTINGS } from '../../src/contracts/match-types';
 import { buildEngineSession, buildMatchConfig } from '../../src/engineSession';
 
 /** Deterministic canonical universal ids (issue #74) in seat order. */

@@ -3,10 +3,10 @@
 **Feature Branch**: `002-fog-of-war-visibility`
 
 **Created**: 2026-08-21
-**Last Updated**: 2026-09-12 (v1.9; issue #143 switch appliedOrders/errors from redaction to exclusion)
-**Version**: 1.9
+**Last Updated**: 2026-10-13 (v1.10; issue #144 conformance-witness enforcement)
+**Version**: 1.10
 
-**Status**: Implemented (2026-09-12; issue #143 event filtering fix — all 5 TickEvents categories filtered per FR-012)
+**Status**: Implemented (2026-09-12; issue #143 event filtering fix — all 5 TickEvents categories filtered per FR-012); v1.10 conformance-witness wiring implemented 2026-10-13 (fog `typecheck:conformance` compiled + wired into `fog-ci.yml` and `verify.sh`; red-witness drill recorded — branch `ci/verify-conformance-parity`)
 
 **Input**: User description: "Per-player visibility horizon derived from troop positions; no memory of previously seen terrain; unseen areas are unknown (black); server never reveals hidden information to clients."
 
@@ -148,3 +148,9 @@ As a surrendered player or observer, I want full-board visibility so I can watch
 
 - **FR-012 amended**: `appliedOrders` records are now included only if the order's player matches the viewer AND all referenced cells are in the visible set — if any referenced cell is outside the visible set, the entire record is excluded (dropped from the payload). `errors` records are included only if all referenced cells are in the visible set OR the `ValidationError` variant contains no cell coordinates — if any referenced cell is outside the visible set, the entire record is excluded. This is simpler and consistent with how `combat`/`captures` work: if you can't see the cell, the event is meaningless to you.
 - **SC-001 updated**: audit now verifies records are excluded (not redacted) from the payload.
+
+### v1.10 (2026-10-13) — Conformance-witness enforcement (issue #144, review ref I-13)
+
+Rationale (honest conformance record — constitution IV): the engine↔fog boundary conformance test (`packages/fog/tests/conformance.test.ts`, feature-002 T039) documents that its mutual-assignability aliases for `VisibleSet`/`PlayerView` and its `computeVisibleSet` signature assignability check "fail `pnpm typecheck`" on field drift — but that claim was aspirational at amendment time: `packages/fog` ships no `tsconfig.conformance.json` and no `typecheck:conformance` script, its tsconfig excludes `tests/` by design, and vitest does not type-check. The compile-time proof never compiled; the runtime assertions that keep the witnesses "used" (`expect(true).toBe(true)`) cannot fail when a field drifts. (The test's parts (a)/(a2) — byte-identity comparisons against spec-side `.ts` copies — were already removed when the spec-side copies were deleted by hygiene pass #160; the package copy `packages/fog/src/contracts/engine-to-fog.ts` is the sole source of truth and this plan-era "byte-identical mirror" wording is historical.) Issue #144 closes the gap; the requirement is recorded here because the witnesses pin THIS specification's engine↔fog boundary.
+
+- **FR-013**: The engine↔fog boundary witnesses MUST be compiled by a dedicated strict program `packages/fog/tsconfig.conformance.json`, run via `pnpm --filter @europa/fog typecheck:conformance`, invoked by `fog-ci.yml` AND by `scripts/verify.sh` (spec 008 v1.4 FR-029/FR-030). Drift between fog's re-declared `VisibleSet`/`PlayerView` and the `src/contracts/engine-to-fog.ts` originals, or a `computeVisibleSet` signature change that breaks the declared function type, MUST fail that compilation. A vitest run of the same test file is NOT proof — the runtime `expect(true).toBe(true)` assertions exist only to keep the type witnesses "used". The red-witness drill (spec 008 v1.4 FR-032) demonstrates enforcement.

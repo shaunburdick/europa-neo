@@ -12,7 +12,7 @@ import type { PlayerId } from '@europa/core';
 import type { EngineSession, MatchId } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_MATCH_SETTINGS, type MatchResultsRecord } from '../../contracts/match-types';
+import { DEFAULT_MATCH_SETTINGS, type MatchResultsRecord } from '../../src/contracts/match-types';
 import { createPlayerSession } from '../../src/internal/playerSession';
 import {
     addSeatToFillingMatch,

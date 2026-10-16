@@ -14,8 +14,8 @@
 import type { Board, Cell, CityPlacement, PlayerId } from '@europa/engine';
 import type { Logger, SessionToken } from '@europa/networking';
 
-import type { MatchId, SeatIndex } from '../../contracts/match-types';
-import { DEFAULT_MATCH_SETTINGS } from '../../contracts/match-types';
+import type { MatchId, SeatIndex } from '../../src/contracts/match-types';
+import { DEFAULT_MATCH_SETTINGS } from '../../src/contracts/match-types';
 import { buildEngineSession, buildMatchConfig } from '../../src/engineSession';
 import type { MatchRecord } from '../../src/internal/matchRecord';
 import { createMatchRecord } from '../../src/internal/matchRecord';

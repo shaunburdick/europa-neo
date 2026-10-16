@@ -62,6 +62,7 @@ import type { MatchResult } from '@europa/engine';
 import { formatError, NULL_LOGGER, sanitizeLogText } from '@europa/logging';
 import type { MatchmakerBridge, Server, SessionToken } from '@europa/networking';
 import { DEFAULT_GENERATION_SETTINGS, generateBoard, validateSettings } from '@europa/terrain';
+import { MATCHMAKING_CONSTANTS } from './constants';
 import type {
     CreateMatchRequest,
     CreateMatchResult,
@@ -76,8 +77,8 @@ import type {
     SeatAssignedResult,
     SeatAssignment,
     SeatIndex,
-} from '../contracts/match-types';
-import { DEFAULT_MATCH_SETTINGS } from '../contracts/match-types';
+} from './contracts/match-types';
+import { DEFAULT_MATCH_SETTINGS } from './contracts/match-types';
 import type {
     AcceptRematchRequest,
     AcceptRematchResult,
@@ -90,8 +91,7 @@ import type {
     MatchmakerDeps,
     RequestRematchRequest,
     RequestRematchResult,
-} from '../contracts/matchmaking-api';
-import { MATCHMAKING_CONSTANTS } from './constants';
+} from './contracts/matchmaking-api';
 import { randomUUID } from './crypto';
 import { buildEngineSession, buildMatchConfig } from './engineSession';
 import { makeError } from './errors';

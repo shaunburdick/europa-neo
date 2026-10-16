@@ -72,11 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
+      - uses: ./.github/actions/build-workspace
 
       - name: Typecheck (logging)
         run: pnpm --filter @europa/logging typecheck
@@ -96,11 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
+      - uses: ./.github/actions/build-workspace
 
       - name: Test (logging)
         run: pnpm --filter @europa/logging test
@@ -114,11 +106,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          runtime: 'node@22'
-          cache: true
-          require-lockfile: true
+      - uses: ./.github/actions/build-workspace
 
       - name: Coverage (logging)
         run: pnpm --filter @europa/logging coverage

@@ -17,7 +17,7 @@
  * argument (constitution Principle II).
  */
 
-import type { LobbyEntry } from '../contracts/match-types';
+import type { LobbyEntry } from './contracts/match-types';
 import type { MatchRecord } from './internal/matchRecord';
 
 /**

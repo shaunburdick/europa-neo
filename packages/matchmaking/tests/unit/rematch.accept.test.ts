@@ -13,10 +13,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-
-import type { MatchId, SessionToken } from '../../contracts/match-types';
-import type { Matchmaker } from '../../contracts/matchmaking-api';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
+import type { MatchId, SessionToken } from '../../src/contracts/match-types';
+import type { Matchmaker } from '../../src/contracts/matchmaking-api';
 import { createMatchmaker, type MatchmakerCompositionSeam } from '../../src/matchmaker';
 import { FakeServer } from '../fixtures/fakeServer';
 import { makeFinished2pScenario } from '../fixtures/rematchScenario';

@@ -26,10 +26,9 @@
 import type { PlayerId } from '@europa/engine';
 import type { SessionToken } from '@europa/networking';
 import { describe, expect, it } from 'vitest';
-
-import { DEFAULT_MATCH_SETTINGS, type PlayerSessionId, type SeatIndex } from '../../contracts/match-types';
 import { MATCHMAKING_CONSTANTS } from '../../src/constants';
 import type { GuestPlayerId } from '../../src/contracts/lobby-types';
+import { DEFAULT_MATCH_SETTINGS, type PlayerSessionId, type SeatIndex } from '../../src/contracts/match-types';
 import { buildEngineSession, buildMatchConfig } from '../../src/engineSession';
 import { handleSeatExpired } from '../../src/forfeit';
 import type { PlayerSession } from '../../src/internal/playerSession';
