@@ -3,8 +3,8 @@
  *
  * Exercises drawTerrain through the public `paint` method using a mock
  * CanvasRenderingContext2D. Verifies water gradient + wave texture,
- * land biome-zone gradients + inner shadow + contour hints, city glow effects,
- * void radial gradient, and pipe triangle outlines.
+ * land biome-zone gradients + delta-based edge relief + contour hints,
+ * city glow effects, void radial gradient, and pipe triangle outlines.
  */
 
 import { describe, expect, test, vi } from 'vitest';
@@ -12,10 +12,43 @@ import { MapCanvas } from '../../../src/render/canvas';
 import { PIPE_OUTLINE_COLOR, PIPE_STALLED_COLOR } from '../../../src/render/palette';
 import type { CellRenderInfo, MapView } from '../../../src/state/types';
 
-/** Build a minimal mock CanvasRenderingContext2D with tracked calls. */
-function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
+/** Band thickness at zoom 32: `max(2, round(32 · 0.08))` (spec 017 plan D3). */
+const BAND_THICKNESS = 3;
+
+/** Tile size the mock board paints at (`makeMapView`'s camera zoom). */
+const TILE_PX = 32;
+
+/**
+ * The two `fillStyle` literals sub-pass 1d painted on every land tile
+ * before spec 017 retired them (005's absorbed `024-FR-013`, rewritten
+ * by 017 FR-005).
+ */
+const RETIRED_INNER_SHADOW_FILLS = ['rgba(0, 0, 0, 0.25)', 'rgba(255, 255, 255, 0.15)'];
+
+/** One `fillRect` the mock recorded, with the `fillStyle` in effect at the call. */
+interface RecordedFill {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+    readonly fillStyle: unknown;
+}
+
+/** A mock 2D context plus every fill it recorded. */
+interface RecordingMockCtx {
+    readonly ctx: CanvasRenderingContext2D;
+    readonly fills: RecordedFill[];
+}
+
+/**
+ * Build a mock context that records each `fillRect` together with the
+ * `fillStyle` in effect, so a test can assert a fill's colour and rect
+ * as the painter set them.
+ */
+function createRecordingCtx(width = 320, height = 240): RecordingMockCtx {
     const mocks = new Map<string | symbol, ReturnType<typeof vi.fn>>();
     const props = new Map<string | symbol, unknown>();
+    const fills: RecordedFill[] = [];
     const gradient = {
         addColorStop: vi.fn(),
     };
@@ -33,6 +66,19 @@ function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
                         prop,
                         vi.fn(() => ({ ...gradient, addColorStop: vi.fn() })),
                     );
+                } else if (prop === 'fillRect') {
+                    mocks.set(
+                        prop,
+                        vi.fn((x: number, y: number, fillWidth: number, fillHeight: number) => {
+                            fills.push({
+                                x,
+                                y,
+                                width: fillWidth,
+                                height: fillHeight,
+                                fillStyle: props.get('fillStyle'),
+                            });
+                        }),
+                    );
                 } else {
                     mocks.set(prop, vi.fn());
                 }
@@ -45,7 +91,25 @@ function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
         },
     };
 
-    return new Proxy({} as CanvasRenderingContext2D, handler);
+    return { ctx: new Proxy({} as CanvasRenderingContext2D, handler), fills };
+}
+
+/** Build a minimal mock CanvasRenderingContext2D with tracked calls. */
+function createMockCtx(width = 320, height = 240): CanvasRenderingContext2D {
+    return createRecordingCtx(width, height).ctx;
+}
+
+/** True when `fills` holds a fill of exactly `rect` in exactly `color`. */
+function hasFill(
+    fills: readonly RecordedFill[],
+    rect: readonly [number, number, number, number],
+    color: string,
+): boolean {
+    const [x, y, width, height] = rect;
+    return fills.some(
+        (fill) =>
+            fill.fillStyle === color && fill.x === x && fill.y === y && fill.width === width && fill.height === height,
+    );
 }
 
 /** Build a minimal MapView with the given cells. */
@@ -140,15 +204,48 @@ describe('MapCanvas terrain rendering (spec 021 + 024)', () => {
         expect(ctx.createLinearGradient).toHaveBeenCalled();
     });
 
-    test('land cells draw inner shadow (1px dark/light edges)', () => {
-        const ctx = createMockCtx();
+    test('land tiles paint delta-based edge relief, not the retired inner shadow (017 FR-005, AC-004)', () => {
+        // The Peaks reference fixture of spec 017 FR-006 (plan D5/D8): own
+        // elevation 209, lower neighbour (0) on the N side, higher (255) on
+        // the S side, so the tight |Δ| = 209 highlight and the |Δ| = 46
+        // shadow are both painted here.
+        const { ctx, fills } = createRecordingCtx();
         const canvas = new MapCanvas();
-        const view = makeMapView([makeLandCell(0, 0, 128)]);
+        const view = makeMapView([makeLandCell(0, 1, 209), makeLandCell(0, 0, 0), makeLandCell(0, 2, 255)]);
         canvas.paint(view, ctx);
 
-        // Inner shadow draws multiple fillRect calls with rgba colors.
-        // We verify the method was called (exact pattern tested by integration).
-        expect(ctx.fillRect).toHaveBeenCalled();
+        // Both band colours are pinned byte-exactly: the mapping is
+        // continuous (FR-003), so an implementation that floors it, or
+        // picks the wrong gradient end for either sign, changes them.
+        expect(hasFill(fills, [0, TILE_PX, TILE_PX, BAND_THICKNESS], '#f9fafb')).toBe(true);
+        expect(hasFill(fills, [0, 2 * TILE_PX - BAND_THICKNESS, TILE_PX, BAND_THICKNESS], '#646c70')).toBe(true);
+
+        // That these two assertions track the sub-pass is checked against
+        // the same fixture painted with it skipped (D2's `relief: false`,
+        // exactly what the removed sub-pass would paint): neither band
+        // colour appears, so the pins above fail if 1d goes away.
+        const { ctx: reliefFreeCtx, fills: reliefFreeFills } = createRecordingCtx();
+        canvas.paint(view, reliefFreeCtx, { relief: false });
+        expect(hasFill(reliefFreeFills, [0, TILE_PX, TILE_PX, BAND_THICKNESS], '#f9fafb')).toBe(false);
+        expect(hasFill(reliefFreeFills, [0, 2 * TILE_PX - BAND_THICKNESS, TILE_PX, BAND_THICKNESS], '#646c70')).toBe(
+            false,
+        );
+
+        // A land tile whose four neighbours are all non-land (absent from
+        // the view here) carries no relief at all: every fill on that
+        // board is a gradient — the void backdrop and the tile's own 1c
+        // gradient — and a relief band is the only thing 1d fills a rect
+        // with a plain colour string.
+        const { ctx: isolatedCtx, fills: isolatedFills } = createRecordingCtx();
+        canvas.paint(makeMapView([makeLandCell(0, 0, 128)]), isolatedCtx);
+        expect(isolatedFills.some((fill) => typeof fill.fillStyle === 'string')).toBe(false);
+
+        // And the retired uniform inner shadow is gone from every paint.
+        for (const recorded of [fills, isolatedFills]) {
+            expect(
+                RETIRED_INNER_SHADOW_FILLS.filter((literal) => recorded.some((fill) => fill.fillStyle === literal)),
+            ).toEqual([]);
+        }
     });
 
     test('city cells draw radial glow and center dot', () => {
