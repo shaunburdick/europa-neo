@@ -57,7 +57,15 @@ const SYMBOL_LEGEND: ReadonlyArray<{ readonly symbol: string; readonly descripti
     { symbol: '[12]', description: 'Troop count on cell' },
     { symbol: '⬤ City', description: 'City ownership (player color fill)' },
     { symbol: '░░░ Fog', description: 'Unknown area (not in horizon)' },
-    { symbol: '██ Elevation', description: 'Terrain height (dark = low, light = high)' },
+    {
+        symbol: '██ Elevation',
+        description: 'Absolute terrain height (colour family) — the highest ground renders lightest',
+    },
+    {
+        symbol: '▚ Edges',
+        description:
+            'Relative edge relief (luminance) — a lighter edge faces lower ground, a darker edge higher ground',
+    },
     { symbol: '70% Reserves', description: 'Reserve percentage on cell' },
     { symbol: '⚡ Combat', description: 'Battle or capture in progress' },
     { symbol: '··· Paratroop', description: 'Paratroop targeting path (range 2)' },
