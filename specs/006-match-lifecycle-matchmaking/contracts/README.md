@@ -33,6 +33,12 @@ The lobby factory gains one ADDITIVE optional dependency (`LobbyServiceDeps.sche
 - `:244` — the `close()` JSDoc: "Cancels the empty-match sweep timer" → deleted (no timers exist); best-effort unregister + `stats()`-after-close codified (FR-021).
 - `:259-261` — the factory JSDoc: "timers start lazily on the first `createMatch` or `joinMatch`" → deleted.
 
+### Issue #193 follow-up (2026-10-13)
+
+PR #188 corrected the three clauses inventoried above. A separate owner-approved documentation-only follow-up removes numbered implementation step 4, "start the empty-match sweep interval", from `packages/matchmaking/contracts/matchmaking-api.ts`. That step was outside #147's approved three-clause scope and contradicts spec 006's lazy-sweep implementation notes; outline steps 1–3 remain unchanged. No FR, runtime behavior, or TypeScript signature changes.
+
+The full API `timer|sweep|interval` grep now contains only the `sweepIntervalMs` configuration member (a host scheduling hint) and the factory's truthful "Does NOT start any timers" statement. The historical inventory and approvals above are unchanged; the follow-up plan/task is recorded separately in `plan.md` §12 and `tasks.md` T-193-01.
+
 ## How to update
 
 When the matchmaking contract types change:
